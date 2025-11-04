@@ -1,0 +1,224 @@
+============================================
+[0;34mCheckov Infrastructure-as-Code Security Scan[0m
+============================================
+Chart Directory: ./chart
+Output Directory: ./checkov-reports
+Chart Name: advana-marketplace
+Scan Log: ./checkov-reports/checkov-scan.log
+Timestamp: Mon Nov  3 13:05:53 CST 2025
+
+[0;34m🐳 Docker and Checkov Information:[0m
+Docker version:
+Docker version 28.4.0, build d8eb465
+Pulling Checkov image...
+latest: Pulling from bridgecrew/checkov
+deee142628eb: Pulling fs layer
+0d300626d1f6: Pulling fs layer
+f25c556e0c1c: Pulling fs layer
+9c627570eae0: Pulling fs layer
+aaefd960c0e3: Pulling fs layer
+317f8214fd58: Pulling fs layer
+8dc6961874df: Pulling fs layer
+a37de1aee128: Pulling fs layer
+a37de1aee128: Download complete
+deee142628eb: Download complete
+9c627570eae0: Download complete
+8dc6961874df: Download complete
+0d300626d1f6: Download complete
+0d300626d1f6: Pull complete
+f25c556e0c1c: Download complete
+9c627570eae0: Pull complete
+f25c556e0c1c: Pull complete
+317f8214fd58: Download complete
+aaefd960c0e3: Download complete
+aaefd960c0e3: Pull complete
+a37de1aee128: Pull complete
+deee142628eb: Pull complete
+8dc6961874df: Pull complete
+317f8214fd58: Pull complete
+Digest: sha256:fa31fc4f5eea29f0fc5a9a8be965d8a4af12118d8871de4dd4c06f5b2a1073e3
+Status: Downloaded newer image for bridgecrew/checkov:latest
+docker.io/bridgecrew/checkov:latest
+
+[0;34m🔍 Step 1: Render Helm Templates[0m
+================================
+[1;33m⚠️  Using Docker-based Helm for template rendering[0m
+Rendering Helm templates...
+[1;33m⚠️  Template rendering failed, scanning chart source directly[0m
+
+[0;34m🛡️  Step 2: Checkov Security Scan[0m
+=================================
+Scan target: ./chart
+Scan type: helm-chart
+
+Running Checkov security analysis...
+{
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "parsing_errors": 0,
+    "resource_count": 0,
+    "checkov_version": "3.2.489"
+}
+
+============================================
+[0;32m✅ Checkov scan completed successfully![0m
+🎉 No security issues detected!
+============================================
+
+[0;34m🔧 Security Recommendations:[0m
+=============================
+⚠️  No results file generated - check scan configuration
+✅ Verify chart templates are valid and accessible
+✅ Check Docker and Checkov image availability
+
+[0;34m📁 Output Files:[0m
+================
+Scan log: ./checkov-reports/checkov-scan.log
+Rendered templates: ./helm-packages/rendered-templates.yaml
+Reports directory: ./checkov-reports
+
+[0;34m🔗 Related Commands:[0m
+====================
+Analyze results:     npm run checkov:analyze
+Re-run scan:         npm run checkov:scan
+Helm build first:    npm run helm:build && npm run checkov:scan
+Full security suite: npm run security:scan && npm run virus:scan && npm run checkov:scan
+
+============================================
+Checkov security scan complete.
+============================================
+============================================
+[0;34mCheckov Infrastructure-as-Code Security Scan[0m
+============================================
+Chart Directory: ./chart
+Output Directory: ./checkov-reports
+Chart Name: advana-marketplace
+Scan Log: ./checkov-reports/checkov-scan.log
+Timestamp: Mon Nov  3 13:07:18 CST 2025
+
+[0;34m🐳 Docker and Checkov Information:[0m
+Docker version:
+Docker version 28.4.0, build d8eb465
+Pulling Checkov image...
+latest: Pulling from bridgecrew/checkov
+Digest: sha256:fa31fc4f5eea29f0fc5a9a8be965d8a4af12118d8871de4dd4c06f5b2a1073e3
+Status: Image is up to date for bridgecrew/checkov:latest
+docker.io/bridgecrew/checkov:latest
+
+[0;34m🔍 Step 1: Render Helm Templates[0m
+================================
+[1;33m⚠️  Using Docker-based Helm for template rendering[0m
+Attempting to render Helm templates...
+[1;33m⚠️  Template rendering failed or no resources found[0m
+Scanning chart templates directly for security analysis...
+
+[0;34m🛡️  Step 2: Checkov Security Scan[0m
+=================================
+Scan target: ./chart/templates
+Scan type: kubernetes
+
+Running Checkov security analysis...
+{
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "parsing_errors": 0,
+    "resource_count": 0,
+    "checkov_version": "3.2.489"
+}
+
+============================================
+[0;32m✅ Checkov scan completed successfully![0m
+🎉 No security issues detected!
+============================================
+
+[0;34m🔧 Security Recommendations:[0m
+=============================
+⚠️  No results file generated - check scan configuration
+✅ Verify chart templates are valid and accessible
+✅ Check Docker and Checkov image availability
+
+[0;34m📁 Output Files:[0m
+================
+Scan log: ./checkov-reports/checkov-scan.log
+Rendered templates: ./helm-packages/rendered-templates.yaml
+Reports directory: ./checkov-reports
+
+[0;34m🔗 Related Commands:[0m
+====================
+Analyze results:     npm run checkov:analyze
+Re-run scan:         npm run checkov:scan
+Helm build first:    npm run helm:build && npm run checkov:scan
+Full security suite: npm run security:scan && npm run virus:scan && npm run checkov:scan
+
+============================================
+Checkov security scan complete.
+============================================
+============================================
+[0;34mCheckov Infrastructure-as-Code Security Scan[0m
+============================================
+Chart Directory: ./chart
+Output Directory: ./checkov-reports
+Chart Name: advana-marketplace
+Scan Log: ./checkov-reports/checkov-scan.log
+Timestamp: Mon Nov  3 13:12:36 CST 2025
+
+[0;34m🐳 Docker and Checkov Information:[0m
+Docker version:
+Docker version 28.4.0, build d8eb465
+Pulling Checkov image...
+latest: Pulling from bridgecrew/checkov
+Digest: sha256:fa31fc4f5eea29f0fc5a9a8be965d8a4af12118d8871de4dd4c06f5b2a1073e3
+Status: Image is up to date for bridgecrew/checkov:latest
+docker.io/bridgecrew/checkov:latest
+
+[0;34m🔍 Step 1: Render Helm Templates[0m
+================================
+[1;33m⚠️  Using Docker-based Helm for template rendering[0m
+Attempting to render Helm templates...
+[1;33m⚠️  Template rendering failed or no resources found[0m
+Scanning chart templates directly for security analysis...
+
+[0;34m🛡️  Step 2: Checkov Security Scan[0m
+=================================
+Scan target: ./chart/templates
+Scan type: kubernetes
+
+Running Checkov security analysis...
+{
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "parsing_errors": 0,
+    "resource_count": 0,
+    "checkov_version": "3.2.489"
+}
+
+============================================
+[0;32m✅ Checkov scan completed successfully![0m
+🎉 No security issues detected!
+============================================
+
+[0;34m🔧 Security Recommendations:[0m
+=============================
+⚠️  No results file generated - check scan configuration
+✅ Verify chart templates are valid and accessible
+✅ Check Docker and Checkov image availability
+
+[0;34m📁 Output Files:[0m
+================
+Scan log: ./checkov-reports/checkov-scan.log
+Rendered templates: ./helm-packages/rendered-templates.yaml
+Reports directory: ./checkov-reports
+
+[0;34m🔗 Related Commands:[0m
+====================
+Analyze results:     npm run checkov:analyze
+Re-run scan:         npm run checkov:scan
+Helm build first:    npm run helm:build && npm run checkov:scan
+Full security suite: npm run security:scan && npm run virus:scan && npm run checkov:scan
+
+============================================
+Checkov security scan complete.
+============================================

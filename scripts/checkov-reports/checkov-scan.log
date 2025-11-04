@@ -1,0 +1,19 @@
+============================================
+[0;34mCheckov Infrastructure-as-Code Security Scan[0m
+============================================
+Chart Directory: /Users/rnelson/Desktop/CDAO MarketPlace/app/comprehensive-security-architecture/scripts/chart
+Output Directory: ./checkov-reports
+Chart Name: advana-marketplace
+Scan Log: ./checkov-reports/checkov-scan.log
+Timestamp: Tue Nov  4 13:26:10 CST 2025
+
+[0;34m🐳 Docker and Checkov Information:[0m
+Docker version:
+Docker version 28.4.0, build d8eb465
+Pulling Checkov image...
+latest: Pulling from bridgecrew/checkov
+Digest: sha256:23120e7037ee12fa696da7905e2a80a4b13189e294ec0fd1f85b2b56f6e3c3d8
+Status: Image is up to date for bridgecrew/checkov:latest
+docker.io/bridgecrew/checkov:latest
+
+[0;31m❌ Chart directory not found: /Users/rnelson/Desktop/CDAO MarketPlace/app/comprehensive-security-architecture/scripts/chart[0m

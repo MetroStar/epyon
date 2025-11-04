@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Grype Vulnerability Reports</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f5f5f5; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { text-align: center; margin-bottom: 30px; color: #333; }
+        .status { text-align: center; padding: 20px; margin: 20px 0; border-radius: 8px; }
+        .status.critical { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 20px; margin: 20px 0; }
+        .metric-card { background: #f8f9fa; padding: 15px; border-radius: 6px; text-align: center; }
+        .metric-number { font-size: 24px; font-weight: bold; }
+        .critical { color: #dc3545; }
+        .high { color: #fd7e14; }
+        .medium { color: #ffc107; }
+        .low { color: #28a745; }
+        .metric-label { font-size: 14px; color: #666; margin-top: 5px; }
+        .back-link { display: inline-block; margin-bottom: 20px; color: #007bff; text-decoration: none; }
+        .back-link:hover { text-decoration: underline; }
+        .report-list { background: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0; }
+        .report-item { display: block; padding: 10px; margin: 5px 0; background: white; border-radius: 4px; text-decoration: none; color: #333; }
+        .report-item:hover { background: #e9ecef; }
+        .section { margin: 25px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../../dashboards/security-dashboard.html" class="back-link">← Back to Security Dashboard</a>
+        
+        <div class="header">
+            <h1>🔍 Grype Vulnerability Reports</h1>
+            <p>Comprehensive Vulnerability Scanning with SBOM Analysis</p>
+        </div>
+        
+        <div class="status critical">
+            <h3>⚠️ Vulnerabilities Detected</h3>
+            <p>182 total vulnerabilities found (26 high severity requiring immediate attention)</p>
+        </div>
+        
+        <div class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-number critical">0</div>
+                <div class="metric-label">Critical</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-number high">26</div>
+                <div class="metric-label">High</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-number medium">~100</div>
+                <div class="metric-label">Medium</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-number low">~56</div>
+                <div class="metric-label">Low</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-number" style="color: #007bff;">15</div>
+                <div class="metric-label">SBOMs</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>📊 Vulnerability Analysis Reports</h3>
+            <div class="report-list">
+                <a href="grype-filesystem-results.html" class="report-item">
+                    📁 Filesystem Vulnerability Scan
+                </a>
+                <a href="grype-base-ubuntu-22.04-results.html" class="report-item">
+                    🐳 Ubuntu 22.04 Base Image Scan
+                </a>
+                <a href="grype-base-node-18-alpine-results.html" class="report-item">
+                    🐳 Node.js 18 Alpine Image Scan
+                </a>
+                <a href="grype-base-nginx-alpine-results.html" class="report-item">
+                    🐳 Nginx Alpine Image Scan
+                </a>
+                <a href="grype-base-python-3.11-alpine-results.html" class="report-item">
+                    🐳 Python 3.11 Alpine Image Scan
+                </a>
+                <a href="grype-frontend-results.html" class="report-item">
+                    🖥️ Frontend Application Scan
+                </a>
+                <a href="grype-root-results.html" class="report-item">
+                    🔧 Root Directory Scan
+                </a>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>📋 Software Bill of Materials (SBOM)</h3>
+            <div class="report-list">
+                <a href="sbom-filesystem.html" class="report-item">
+                    📁 Filesystem SBOM
+                </a>
+                <a href="sbom-base-ubuntu-22.04.html" class="report-item">
+                    🐳 Ubuntu 22.04 SBOM
+                </a>
+                <a href="sbom-base-node-18-alpine.html" class="report-item">
+                    🐳 Node.js 18 Alpine SBOM
+                </a>
+                <a href="sbom-base-nginx-alpine.html" class="report-item">
+                    🐳 Nginx Alpine SBOM
+                </a>
+                <a href="sbom-base-python-3.11-alpine.html" class="report-item">
+                    🐳 Python 3.11 Alpine SBOM
+                </a>
+            </div>
+        </div>
+        
+        <div style="background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 6px; margin: 15px 0;">
+            <p><strong>🚨 Priority Actions Required:</strong></p>
+            <p>26 high-severity vulnerabilities need immediate remediation:</p>
+            <ul>
+                <li>Review container base image updates</li>
+                <li>Update vulnerable dependencies</li>
+                <li>Apply security patches</li>
+                <li>Consider alternative packages where necessary</li>
+            </ul>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px; color: #666; font-size: 14px;">
+            <p>Generated by Comprehensive DevOps Security Pipeline</p>
+        </div>
+    </div>
+</body>
+</html>

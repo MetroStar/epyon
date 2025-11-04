@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ClamAV Antivirus Reports</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { text-align: center; margin-bottom: 30px; color: #333; }
+        .status { text-align: center; padding: 20px; margin: 20px 0; border-radius: 8px; }
+        .status.success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .back-link { display: inline-block; margin-bottom: 20px; color: #007bff; text-decoration: none; }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../../dashboards/security-dashboard.html" class="back-link">← Back to Security Dashboard</a>
+        
+        <div class="header">
+            <h1>🛡️ ClamAV Antivirus Reports</h1>
+            <p>Malware and Virus Detection</p>
+        </div>
+        
+        <div class="status success">
+            <h3>✅ No Threats Detected</h3>
+            <p>ClamAV scan completed successfully - 299 files scanned, 0 threats found</p>
+        </div>
+        
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 6px;">
+            <p><strong>📊 Scan Results:</strong></p>
+            <ul>
+                <li>Files Scanned: 299</li>
+                <li>Threats Found: 0</li>
+                <li>Status: Clean</li>
+            </ul>
+            <p><strong>📄 Log File:</strong> <a href="../raw-data/ClamAV/clamav-scan.log" target="_blank">clamav-scan.log</a></p>
+        </div>
+    </div>
+</body>
+</html>

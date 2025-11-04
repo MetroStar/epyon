@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Checkov IaC Security Reports</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { text-align: center; margin-bottom: 30px; color: #333; }
+        .status { text-align: center; padding: 20px; margin: 20px 0; border-radius: 8px; }
+        .status.critical { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .back-link { display: inline-block; margin-bottom: 20px; color: #007bff; text-decoration: none; }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../../dashboards/security-dashboard.html" class="back-link">← Back to Security Dashboard</a>
+        
+        <div class="header">
+            <h1>🔧 Checkov IaC Security Reports</h1>
+            <p>Infrastructure-as-Code Security Analysis</p>
+        </div>
+        
+        <div class="status critical">
+            <h3>⚠️ Security Issues Detected</h3>
+            <p>8 IaC security checks failed - immediate review recommended</p>
+        </div>
+        
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 6px;">
+            <p><strong>📊 Check Results:</strong></p>
+            <ul>
+                <li>Failed Checks: 8</li>
+                <li>Pass Rate: 0.0%</li>
+                <li>Status: Requires attention</li>
+            </ul>
+            <p><strong>📄 Raw Report:</strong> <a href="../raw-data/Checkov/" target="_blank">View Checkov Results</a></p>
+        </div>
+    </div>
+</body>
+</html>

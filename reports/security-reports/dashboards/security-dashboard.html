@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Security Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; background-color: #f8f9fa; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        .overall-status { text-align: center; padding: 25px; border-radius: 12px; margin: 20px 0; font-size: 18px; }
+        .status-good { background: linear-gradient(135deg, #28a745, #20c997); color: white; }
+        .status-warning { background: linear-gradient(135deg, #ffc107, #fd7e14); color: #212529; }
+        .status-critical { background: linear-gradient(135deg, #dc3545, #e83e8c); color: white; }
+        .tools-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin: 20px 0; }
+        .tool-card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: transform 0.2s; }
+        .tool-card:hover { transform: translateY(-2px); }
+        .tool-header { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
+        .tool-icon { width: 50px; height: 50px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 18px; }
+        .status-good { background: #28a745; }
+        .status-warning { background: #ffc107; color: #212529; }
+        .status-critical { background: #dc3545; }
+        .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 15px; margin: 15px 0; }
+        .metric { text-align: center; padding: 10px; background: #f8f9fa; border-radius: 8px; }
+        .metric-number { font-size: 28px; font-weight: bold; }
+        .metric-label { font-size: 13px; color: #666; margin-top: 5px; }
+        .links { margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; }
+        .link { padding: 8px 12px; background-color: #007bff; color: white; text-decoration: none; border-radius: 6px; font-size: 13px; transition: background 0.2s; }
+        .link:hover { background-color: #0056b3; }
+        .summary { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .last-updated { text-align: center; margin: 20px 0; color: #666; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛡️ Live Security Dashboard</h1>
+        <p>Real-Time Eight-Layer DevOps Security Architecture</p>
+        <p>Generated: 2025-11-04 13:11:47</p>
+    </div>
+    
+    <div class="container">
+        <div class="overall-status status-critical">
+            <h2>🎯 Overall Security Status: CRITICAL</h2>
+            <p>Critical security issues detected. Immediate action required.</p>
+        </div>
+        
+        <div class="tools-grid">
+            <div class="tool-card">
+                <div class="tool-header">
+                    <div class="tool-icon status-good">SQ</div>
+                    <div>
+                        <h3>SonarQube</h3>
+                        <p>Code Quality Analysis</p>
+                    </div>
+                </div>
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-number">92.4%</div>
+                        <div class="metric-label">Coverage</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-number">1170</div>
+                        <div class="metric-label">Tests</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-number">0</div>
+                        <div class="metric-label">Issues</div>
+                    </div>
+                </div>
+                <div class="links">
+                    <a href="../html-reports/SonarQube/" class="link">HTML Reports</a>
+                    <a href="../raw-data/SonarQube/" class="link">Raw Data</a>
+                </div>
+            </div>
+            
+            <div class="tool-card">
+                <div class="tool-header">
+                    <div class="tool-icon status-warning">TH</div>
+                    <div>
+                        <h3>TruffleHog</h3>
+                        <p>Secret Detection</p>
+                    </div>
+                </div>
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-number">0</div>
+                        <div class="metric-label">Verified</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-number">28</div>
+                        <div class="metric-label">Unverified</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-number">3</div>
+                        <div class="metric-label">Detectors</div>
+                    </div>
+                </div>
+                <div class="links">
+                    <a href="../html-reports/TruffleHog/" class="link">HTML Reports</a>
+                    <a href="../raw-data/TruffleHog/" class="link">Raw Data</a>
+                </div>
+            </div>
+            
+            <div class="tool-card">
+                <div class="tool-header">
+                    <div class="tool-icon status-good">CV</div>
+                    <div>
+                        <h3>ClamAV</h3>
+                        <p>Antivirus Scanning</p>
+                    </div>
+                </div>
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-number">0</div>
+                        <div class="metric-label">Threats</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-number">299</div>
+                        <div class="metric-label">Files</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-number">Yes</div>
+                        <div class="metric-label">Data</div>
+                    </div>
+                </div>
+                <div class="links">
+                    <a href="../html-reports/ClamAV/" class="link">HTML Reports</a>
+                    <a href="../raw-data/ClamAV/" class="link">Raw Data</a>
+                </div>
+            </div>
+            
+            <div class="tool-card">
+                <div class="tool-header">
+                    <div class="tool-icon status-warning">HM</div>
+                    <div>
+                        <h3>Helm</h3>
+                        <p>Chart Validation</p>
+                    </div>
+                </div>
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-number">N/A</div>
+                        <div class="metric-label">Resources</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-number">N/A</div>
+                        <div class="metric-label">Valid</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-number">No</div>
+                        <div class="metric-label">Data</div>
+                    </div>
+                </div>
+                <div class="links">
+                    <a href="../html-reports/Helm/" class="link">HTML Reports</a>
+                    <a href="../raw-data/Helm/" class="link">Raw Data</a>
+                </div>
+            </div>
+            
+            <div class="tool-card">
+                <div class="tool-header">
+                    <div class="tool-icon status-critical">CK</div>
+                    <div>
+                        <h3>Checkov</h3>
+                        <p>IaC Security</p>
+                    </div>
+                </div>
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-number">0</div>
+                        <div class="metric-label">Passed</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-number">8</div>
+                        <div class="metric-label">Failed</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-number">0.0%</div>
+                        <div class="metric-label">Pass Rate</div>
+                    </div>
+                </div>
+                <div class="links">
+                    <a href="../html-reports/Checkov/" class="link">HTML Reports</a>
+                    <a href="../raw-data/Checkov/" class="link">Raw Data</a>
+                </div>
+            </div>
+            
+            <div class="tool-card">
+                <div class="tool-header">
+                    <div class="tool-icon status-warning">TV</div>
+                    <div>
+                        <h3>Trivy</h3>
+                        <p>Container Security</p>
+                    </div>
+                </div>
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-number">0</div>
+                        <div class="metric-label">Critical</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-number">1</div>
+                        <div class="metric-label">High</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-number">9</div>
+                        <div class="metric-label">Targets</div>
+                    </div>
+                </div>
+                <div class="links">
+                    <a href="../html-reports/Trivy/" class="link">HTML Reports</a>
+                    <a href="../raw-data/Trivy/" class="link">Raw Data</a>
+                </div>
+            </div>
+            
+            <div class="tool-card">
+                <div class="tool-header">
+                    <div class="tool-icon status-warning">GP</div>
+                    <div>
+                        <h3>Grype</h3>
+                        <p>Vulnerability Scanning</p>
+                    </div>
+                </div>
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-number">0</div>
+                        <div class="metric-label">Critical</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-number">26</div>
+                        <div class="metric-label">High</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-number">9</div>
+                        <div class="metric-label">SBOMs</div>
+                    </div>
+                </div>
+                <div class="links">
+                    <a href="../html-reports/Grype/" class="link">HTML Reports</a>
+                    <a href="../raw-data/Grype/" class="link">Raw Data</a>
+                </div>
+            </div>
+            
+            <div class="tool-card">
+                <div class="tool-header">
+                    <div class="tool-icon status-warning">XL</div>
+                    <div>
+                        <h3>Xeol</h3>
+                        <p>EOL Detection</p>
+                    </div>
+                </div>
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-number">1</div>
+                        <div class="metric-label">EOL Items</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-number">Med</div>
+                        <div class="metric-label">Risk</div>
+                    </div>
+                </div>
+                <div class="links">
+                    <a href="../html-reports/Xeol/" class="link">HTML Reports</a>
+                    <a href="../raw-data/Xeol/" class="link">Raw Data</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="summary">
+            <h2>📊 Security Summary</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                <div style="text-align: center;">
+                    <h3>Secret Detection</h3>
+                    <p>28 total findings</p>
+                    <p>0 verified secrets</p>
+                </div>
+                <div style="text-align: center;">
+                    <h3>Vulnerabilities</h3>
+                    <p>182 total findings</p>
+                    <p>26 high+ severity</p>
+                </div>
+                <div style="text-align: center;">
+                    <h3>IaC Security</h3>
+                    <p>0.0% pass rate</p>
+                    <p>8 failed checks</p>
+                </div>
+                <div style="text-align: center;">
+                    <h3>Container Security</h3>
+                    <p>1 total findings</p>
+                    <p>9 targets scanned</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="last-updated">
+            <p>🔄 Dashboard auto-generated from live security scan data</p>
+            <p>Last updated: 2025-11-04 13:11:47</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,52 @@
+# Security reports with sensitive data
+reports/security-reports/raw-data/
+reports/trivy-reports/*.json
+reports/grype-reports/*.json
+reports/checkov-reports/*.json
+reports/trufflehog-reports/*.json
+reports/xeol-reports/*.json
+reports/clamav-reports/*.log
+
+# Temporary files
+*.tmp
+*.temp
+*~
+.DS_Store
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Helm packages
+helm-packages/*.tgz
+
+# Large scan result files (keep structure but not massive JSON files)
+*.json.bak

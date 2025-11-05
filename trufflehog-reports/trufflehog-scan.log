@@ -1,6 +1,7 @@
 TruffleHog Security Scan Log
-Timestamp: 11/05/2025 07:41:01
+Timestamp: 11/05/2025 08:38:17
 Repository Path: C:\Users\ronni\OneDrive\Desktop\Projects\SRTM-tool\
 Output Directory: .\trufflehog-reports
 ========================================
 Filesystem scan started
+Filesystem scan completed successfully

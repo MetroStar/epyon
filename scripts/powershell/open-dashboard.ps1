@@ -8,7 +8,8 @@ $WHITE = "White"
 $RED = "Red"
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$DashboardPath = Join-Path $ScriptDir "..\reports\security-reports\dashboards\security-dashboard.html"
+$RepoRoot = Split-Path -Parent (Split-Path -Parent $ScriptDir)
+$DashboardPath = Join-Path $RepoRoot "reports\security-reports\dashboards\security-dashboard.html"
 
 Write-Host "============================================" -ForegroundColor $WHITE
 Write-Host "🛡️  Security Dashboard Launcher" -ForegroundColor $WHITE

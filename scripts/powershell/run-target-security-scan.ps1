@@ -174,28 +174,34 @@ switch ($ScanType) {
     "full" {
         Write-Section "Complete Eight-Layer Security Architecture Scan - Target: $(Split-Path $TargetDir -Leaf)"
         
-        Write-Host "🔐 Layer 1: Secret Detection (Multi-Target)" -ForegroundColor $PURPLE
+        Write-Host "🏗️  Layer 1: Code Quality & Test Coverage" -ForegroundColor $PURPLE
+        Invoke-SecurityTool "SonarQube Analysis" "$ScriptDir\run-sonar-analysis.ps1"
+        
+        Write-Host "🔐 Layer 2: Secret Detection (Multi-Target)" -ForegroundColor $PURPLE
         Invoke-SecurityTool "TruffleHog Filesystem" "$ScriptDir\run-trufflehog-scan.ps1"
         Invoke-SecurityTool "TruffleHog Container Images" "$ScriptDir\run-trufflehog-scan.ps1"
         
-        Write-Host "🦠 Layer 2: Malware Detection" -ForegroundColor $PURPLE
+        Write-Host "🦠 Layer 3: Malware Detection" -ForegroundColor $PURPLE
         Invoke-SecurityTool "ClamAV Antivirus Scan" "$ScriptDir\run-clamav-scan.ps1"
         
-        Write-Host "☸️  Layer 3: Infrastructure Security" -ForegroundColor $PURPLE
+        Write-Host "🏗️  Layer 4: Helm Chart Building" -ForegroundColor $PURPLE
+        Invoke-SecurityTool "Helm Chart Build" "$ScriptDir\run-helm-build.ps1"
+        
+        Write-Host "☸️  Layer 5: Infrastructure Security" -ForegroundColor $PURPLE
         Invoke-SecurityTool "Checkov IaC Security" "$ScriptDir\run-checkov-scan.ps1"
         
-        Write-Host "🔍 Layer 4: Vulnerability Detection (Multi-Target)" -ForegroundColor $PURPLE
+        Write-Host "🔍 Layer 6: Vulnerability Detection (Multi-Target)" -ForegroundColor $PURPLE
         Invoke-SecurityTool "Grype Filesystem" "$ScriptDir\run-grype-scan.ps1" "filesystem"
         Invoke-SecurityTool "Grype Container Images" "$ScriptDir\run-grype-scan.ps1" "images"
         Invoke-SecurityTool "Grype Base Images" "$ScriptDir\run-grype-scan.ps1" "base"
         
-        Write-Host "🛡️  Layer 5: Container Security (Multi-Target)" -ForegroundColor $PURPLE
+        Write-Host "🛡️  Layer 7: Container Security (Multi-Target)" -ForegroundColor $PURPLE
         Invoke-SecurityTool "Trivy Filesystem" "$ScriptDir\run-trivy-scan.ps1" "filesystem"
         Invoke-SecurityTool "Trivy Container Images" "$ScriptDir\run-trivy-scan.ps1" "images"
         Invoke-SecurityTool "Trivy Base Images" "$ScriptDir\run-trivy-scan.ps1" "base"
         Invoke-SecurityTool "Trivy Kubernetes" "$ScriptDir\run-trivy-scan.ps1" "kubernetes"
         
-        Write-Host "⚰️  Layer 6: End-of-Life Detection" -ForegroundColor $PURPLE
+        Write-Host "⚰️  Layer 8: End-of-Life Detection" -ForegroundColor $PURPLE
         Invoke-SecurityTool "Xeol EOL Detection" "$ScriptDir\run-xeol-scan.ps1"
     }
 }
@@ -204,7 +210,7 @@ switch ($ScanType) {
 Write-Section "Security Report Consolidation"
 Write-Host "📊 Consolidating all security reports..." -ForegroundColor $CYAN
 
-$ConsolidateScript = Join-Path $ScriptsRoot "bash\consolidate-security-reports.sh"
+$ConsolidateScript = Join-Path $ScriptDir "consolidate-security-reports.ps1"
 if (Test-Path $ConsolidateScript) {
     Push-Location $RepoRoot
     & $ConsolidateScript

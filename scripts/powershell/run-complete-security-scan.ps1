@@ -146,7 +146,7 @@ switch ($ScanType) {
 Write-Section "Security Report Consolidation"
 Write-Host "📊 Consolidating all security reports..." -ForegroundColor $CYAN
 
-$ConsolidateScript = Join-Path $ScriptsRoot "bash\consolidate-security-reports.sh"
+$ConsolidateScript = Join-Path $ScriptDir "consolidate-security-reports.ps1"
 if (Test-Path $ConsolidateScript) {
     & $ConsolidateScript
     Write-Host "✅ Security reports consolidated" -ForegroundColor $GREEN

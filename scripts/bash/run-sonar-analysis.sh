@@ -33,9 +33,9 @@ if [ "$SONAR_CONFIG_FOUND" = false ]; then
   done
 fi
 
-# Default values (can be overridden by environment variables)
-SONAR_HOST_URL="${SONAR_HOST_URL:-https://sonarqube.cdao.us}"
-PROJECT_KEY="tenant-metrostar-advana-marketplace"
+# Default values from environment (if set)
+SONAR_HOST_URL="${SONAR_HOST_URL:-}"
+PROJECT_KEY="${SONAR_PROJECT_KEY:-}"
 
 # Check if token is set and provide graceful handling
 if [ -z "$SONAR_TOKEN" ]; then
@@ -66,8 +66,44 @@ if [ -z "$SONAR_TOKEN" ]; then
     if [ "$AUTH_CHOICE" = "1" ]; then
       echo ""
       echo "🔑 Enter SonarQube credentials:"
-      read -p "SonarQube Host URL (default: https://sonarqube.cdao.us): " INPUT_HOST_URL
-      SONAR_HOST_URL="${INPUT_HOST_URL:-https://sonarqube.cdao.us}"
+      
+      # Prompt for Host URL
+      if [ -z "$SONAR_HOST_URL" ]; then
+        read -p "SonarQube Host URL (e.g., https://sonarqube.example.com): " INPUT_HOST_URL
+        if [ -n "$INPUT_HOST_URL" ]; then
+          SONAR_HOST_URL="$INPUT_HOST_URL"
+        fi
+      else
+        echo "Using SonarQube Host: $SONAR_HOST_URL"
+        read -p "Change host URL? (y/N): " CHANGE_HOST
+        if [ "$CHANGE_HOST" = "y" ] || [ "$CHANGE_HOST" = "Y" ]; then
+          read -p "SonarQube Host URL: " INPUT_HOST_URL
+          if [ -n "$INPUT_HOST_URL" ]; then
+            SONAR_HOST_URL="$INPUT_HOST_URL"
+          fi
+        fi
+      fi
+      
+      # Prompt for Project Key/Name
+      if [ -z "$PROJECT_KEY" ]; then
+        read -p "Project Key/Name (e.g., my-project-name): " INPUT_PROJECT_KEY
+        if [ -n "$INPUT_PROJECT_KEY" ]; then
+          PROJECT_KEY="$INPUT_PROJECT_KEY"
+        else
+          # Generate default from directory name
+          PROJECT_KEY=$(basename "$REPO_PATH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
+          echo "Using auto-generated project key: $PROJECT_KEY"
+        fi
+      else
+        echo "Using Project Key: $PROJECT_KEY"
+        read -p "Change project key? (y/N): " CHANGE_PROJECT
+        if [ "$CHANGE_PROJECT" = "y" ] || [ "$CHANGE_PROJECT" = "Y" ]; then
+          read -p "Project Key/Name: " INPUT_PROJECT_KEY
+          if [ -n "$INPUT_PROJECT_KEY" ]; then
+            PROJECT_KEY="$INPUT_PROJECT_KEY"
+          fi
+        fi
+      fi
       
       echo -n "SonarQube Token: "
       read -s SONAR_TOKEN
@@ -98,7 +134,8 @@ if [ -z "$SONAR_TOKEN" ]; then
       echo ""
       echo "2. Create the file with:"
       echo "   export SONAR_TOKEN='your-token-here'"
-      echo "   export SONAR_HOST_URL='https://sonarqube.cdao.us'"
+      echo "   export SONAR_HOST_URL='https://sonarqube.example.com'"
+      echo "   export SONAR_PROJECT_KEY='your-project-name'"
       echo ""
       echo "3. Re-run the analysis"
       echo ""
@@ -143,6 +180,33 @@ if [ -z "$SONAR_TOKEN" ]; then
   fi
 fi
 
+# Prompt for missing configuration values
+if [ -z "$SONAR_HOST_URL" ]; then
+  echo ""
+  echo "⚙️  SonarQube Host URL not configured"
+  read -p "SonarQube Host URL (e.g., https://sonarqube.example.com): " INPUT_HOST_URL
+  if [ -n "$INPUT_HOST_URL" ]; then
+    SONAR_HOST_URL="$INPUT_HOST_URL"
+  else
+    echo "❌ Error: SonarQube Host URL is required"
+    exit 1
+  fi
+fi
+
+if [ -z "$PROJECT_KEY" ]; then
+  echo ""
+  echo "⚙️  Project Key not configured"
+  read -p "Project Key/Name (e.g., my-project-name): " INPUT_PROJECT_KEY
+  if [ -n "$INPUT_PROJECT_KEY" ]; then
+    PROJECT_KEY="$INPUT_PROJECT_KEY"
+  else
+    # Generate default from directory name
+    PROJECT_KEY=$(basename "$REPO_PATH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
+    echo "Using auto-generated project key: $PROJECT_KEY"
+  fi
+fi
+
+echo ""
 echo "============================================"
 echo "Step 1: Running tests with coverage..."
 echo "============================================"
@@ -174,18 +238,38 @@ echo ""
 echo "============================================"
 echo "Step 2: Running SonarQube analysis..."
 echo "============================================"
-echo "Project: $PROJECT_KEY"
-echo "Host: $SONAR_HOST_URL"
-echo "Sources: $SOURCES_PATH"
-echo "Working from: $(pwd)"
+echo ""
+echo "📋 Configuration:"
+echo "   Project Key: $PROJECT_KEY"
+echo "   Host URL: $SONAR_HOST_URL"
+echo "   Sources: $SOURCES_PATH"
+echo "   Base Dir: $REPO_PATH"
+echo "   Working from: $(pwd)"
+echo ""
+echo "🔄 Starting SonarQube scanner..."
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Run SonarQube scanner with target directory support
 npx sonarqube-scanner \
-  -Dsonar.projectKey=$PROJECT_KEY \
-  -Dsonar.sources="$SOURCES_PATH" \
-  -Dsonar.host.url=$SONAR_HOST_URL \
-  -Dsonar.token=$SONAR_TOKEN \
-  -Dsonar.projectBaseDir="$REPO_PATH"
+  "-Dsonar.projectKey=$PROJECT_KEY" \
+  "-Dsonar.sources=$SOURCES_PATH" \
+  "-Dsonar.host.url=$SONAR_HOST_URL" \
+  "-Dsonar.token=$SONAR_TOKEN" \
+  "-Dsonar.projectBaseDir=$REPO_PATH"
+
+scanner_exit_code=$?
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+if [ $scanner_exit_code -ne 0 ]; then
+  echo ""
+  echo "⚠️  SonarQube scanner completed with exit code: $scanner_exit_code"
+  echo "💡 This may indicate an error or warning - check output above"
+else
+  echo ""
+  echo "✅ SonarQube scanner completed successfully!"
+  echo "📊 View results at: $SONAR_HOST_URL/dashboard?id=$PROJECT_KEY"
+fi
 
 # Save local copy of test results for dashboard
 echo ""

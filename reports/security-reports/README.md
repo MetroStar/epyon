@@ -4,7 +4,7 @@
 
 This directory contains consolidated security reports from all eight layers of our DevOps security architecture.
 
-**Generated:** Mon Nov  3 16:31:46 CST 2025
+**Generated:** 2025-11-05 09:13:41
 
 ## Directory Structure
 
@@ -35,35 +35,11 @@ security-reports/
 3. **Summary Reports:** Check `markdown-reports/[ToolName]/` for quick overviews
 4. **Raw Data:** Access `raw-data/[ToolName]/` for original JSON outputs
 
-## Current Security Status
-
-- **Code Quality:** 92.38% test coverage, 1,170 tests passing
-- **Secret Detection:** 0 verified secrets detected across all targets
-- **Malware:** 0 threats detected in 299 scanned files
-- **Deployment:** Helm charts validated with 15 Kubernetes resources
-- **IaC Security:** 69 passed checks, 20 configuration improvements needed
-- **Vulnerabilities:** 22 high-severity vulnerabilities requiring attention
-- **EOL Software:** 1 end-of-life component in base images
-
-## Action Items
-
-### High Priority
-1. Address 22 high-severity vulnerabilities found by Grype
-2. Review and fix 20 failed Checkov IaC security checks
-
-### Medium Priority  
-1. Update EOL software component found by Xeol
-2. Continue monitoring for new vulnerabilities
-
-### Low Priority
-1. Maintain current excellent security posture
-2. Regular security scan updates
-
 ## Report Generation
 
 To regenerate these reports, run:
-```bash
-./consolidate-security-reports.sh
+```powershell
+.\consolidate-security-reports.ps1
 ```
 
 ---

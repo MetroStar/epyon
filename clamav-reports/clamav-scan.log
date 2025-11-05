@@ -178,3 +178,48 @@ Data read: 6.38 MiB (ratio 1.95:1)
 Time: 19.907 sec (0 m 19 s)
 Start Date: 2025:11:04 18:47:18
 End Date:   2025:11:04 18:47:38
+
+-------------------------------------------------------------------------------
+
+
+----------- SCAN SUMMARY -----------
+Known viruses: 8708684
+Engine version: 1.5.1
+Scanned directories: 424
+Scanned files: 1126
+Infected files: 0
+Data scanned: 586.09 MiB
+Data read: 128.48 MiB (ratio 4.56:1)
+Time: 59.336 sec (0 m 59 s)
+Start Date: 2025:11:05 13:49:05
+End Date:   2025:11:05 13:50:04
+
+-------------------------------------------------------------------------------
+
+
+----------- SCAN SUMMARY -----------
+Known viruses: 8708684
+Engine version: 1.5.1
+Scanned directories: 424
+Scanned files: 1126
+Infected files: 0
+Data scanned: 586.09 MiB
+Data read: 128.48 MiB (ratio 4.56:1)
+Time: 70.367 sec (1 m 10 s)
+Start Date: 2025:11:05 14:31:15
+End Date:   2025:11:05 14:32:25
+
+-------------------------------------------------------------------------------
+
+
+----------- SCAN SUMMARY -----------
+Known viruses: 8708684
+Engine version: 1.5.1
+Scanned directories: 424
+Scanned files: 1126
+Infected files: 0
+Data scanned: 586.09 MiB
+Data read: 128.48 MiB (ratio 4.56:1)
+Time: 69.572 sec (1 m 9 s)
+Start Date: 2025:11:05 14:40:19
+End Date:   2025:11:05 14:41:29

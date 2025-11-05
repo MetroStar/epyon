@@ -675,11 +675,14 @@ class SecurityDashboardGenerator:
 </body>
 </html>'''
 
-        # Write the HTML file
-        with open(output_file, 'w') as f:
+        # Write the HTML file with UTF-8 encoding
+        with open(output_file, 'w', encoding='utf-8') as f:
             f.write(html_content)
         
-        print(f"✅ Dynamic dashboard generated: {output_file}")
+        try:
+            print(f"✅ Dynamic dashboard generated: {output_file}")
+        except UnicodeEncodeError:
+            print(f"[OK] Dynamic dashboard generated: {output_file}")
         
         return {
             'sonarqube': sonarqube_data,
@@ -704,16 +707,28 @@ def main():
     generator = SecurityDashboardGenerator(reports_dir)
     results = generator.generate_dashboard_html(output_file)
     
-    print(f"\n📊 Security Analysis Summary:")
-    print(f"   SonarQube: {results['sonarqube']['coverage']} coverage, {results['sonarqube']['passed_tests'] if results['sonarqube']['passed_tests'] != 'N/A' else results['sonarqube']['tests']} tests ({'Data Available' if results['sonarqube']['has_data'] else 'No Data'})")
-    print(f"   TruffleHog: {results['trufflehog']['total']} secrets ({results['trufflehog']['verified']} verified)")
-    print(f"   ClamAV: {results['clamav']['threats']} threats, {results['clamav']['files_scanned']} files ({'Data Available' if results['clamav']['has_data'] else 'No Data'})")
-    print(f"   Helm: {results['helm']['resources']} resources, {results['helm']['valid']} valid ({'Data Available' if results['helm']['has_data'] else 'No Data'})")
-    print(f"   Checkov: {results['checkov']['pass_rate']}% pass rate ({results['checkov']['failed']} failed)")
-    print(f"   Trivy: {results['trivy']['total']} vulnerabilities ({results['trivy']['severity_counts']['CRITICAL']}C/{results['trivy']['severity_counts']['HIGH']}H)")
-    print(f"   Grype: {results['grype']['total']} vulnerabilities ({results['grype']['severity_counts']['critical']}C/{results['grype']['severity_counts']['high']}H)")
-    print(f"   Xeol: {results['xeol']['eol_packages']} EOL packages")
-    print(f"\n🎯 Overall Status: {results['overall_status']}")
+    try:
+        print(f"\n📊 Security Analysis Summary:")
+        print(f"   SonarQube: {results['sonarqube']['coverage']} coverage, {results['sonarqube']['passed_tests'] if results['sonarqube']['passed_tests'] != 'N/A' else results['sonarqube']['tests']} tests ({'Data Available' if results['sonarqube']['has_data'] else 'No Data'})")
+        print(f"   TruffleHog: {results['trufflehog']['total']} secrets ({results['trufflehog']['verified']} verified)")
+        print(f"   ClamAV: {results['clamav']['threats']} threats, {results['clamav']['files_scanned']} files ({'Data Available' if results['clamav']['has_data'] else 'No Data'})")
+        print(f"   Helm: {results['helm']['resources']} resources, {results['helm']['valid']} valid ({'Data Available' if results['helm']['has_data'] else 'No Data'})")
+        print(f"   Checkov: {results['checkov']['pass_rate']}% pass rate ({results['checkov']['failed']} failed)")
+        print(f"   Trivy: {results['trivy']['total']} vulnerabilities ({results['trivy']['severity_counts']['CRITICAL']}C/{results['trivy']['severity_counts']['HIGH']}H)")
+        print(f"   Grype: {results['grype']['total']} vulnerabilities ({results['grype']['severity_counts']['critical']}C/{results['grype']['severity_counts']['high']}H)")
+        print(f"   Xeol: {results['xeol']['eol_packages']} EOL packages")
+        print(f"\n🎯 Overall Status: {results['overall_status']}")
+    except UnicodeEncodeError:
+        print(f"\n[Security Analysis Summary]")
+        print(f"   SonarQube: {results['sonarqube']['coverage']} coverage, {results['sonarqube']['passed_tests'] if results['sonarqube']['passed_tests'] != 'N/A' else results['sonarqube']['tests']} tests ({'Data Available' if results['sonarqube']['has_data'] else 'No Data'})")
+        print(f"   TruffleHog: {results['trufflehog']['total']} secrets ({results['trufflehog']['verified']} verified)")
+        print(f"   ClamAV: {results['clamav']['threats']} threats, {results['clamav']['files_scanned']} files ({'Data Available' if results['clamav']['has_data'] else 'No Data'})")
+        print(f"   Helm: {results['helm']['resources']} resources, {results['helm']['valid']} valid ({'Data Available' if results['helm']['has_data'] else 'No Data'})")
+        print(f"   Checkov: {results['checkov']['pass_rate']}% pass rate ({results['checkov']['failed']} failed)")
+        print(f"   Trivy: {results['trivy']['total']} vulnerabilities ({results['trivy']['severity_counts']['CRITICAL']}C/{results['trivy']['severity_counts']['HIGH']}H)")
+        print(f"   Grype: {results['grype']['total']} vulnerabilities ({results['grype']['severity_counts']['critical']}C/{results['grype']['severity_counts']['high']}H)")
+        print(f"   Xeol: {results['xeol']['eol_packages']} EOL packages")
+        print(f"\n[Overall Status]: {results['overall_status']}")
 
 if __name__ == "__main__":
     main()

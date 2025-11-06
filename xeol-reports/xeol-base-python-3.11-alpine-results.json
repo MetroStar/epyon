@@ -95,10 +95,10 @@
    "show-vuln-count": false
   },
   "db": {
-   "built": "2025-11-04T00:00:45.616535Z",
+   "built": "2025-11-06T00:00:45.692383Z",
    "schemaVersion": 1,
    "location": "/root/.cache/xeol/db/1",
-   "checksum": "sha256:890716910648095253607b6458e7a1f43775c936702aaae4e6564ff574eb1724",
+   "checksum": "sha256:875a072f3e2651b646d905e715418319422ad1eecd7abe74a8aca8f8c9ba0190",
    "error": null
   }
  }

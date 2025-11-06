@@ -1,0 +1,6 @@
+projectKey=tenant-metrostar-advana-marketplace
+serverUrl=https://sonarqube.cdao.us
+serverVersion=2025.5.0.113872
+dashboardUrl=https://sonarqube.cdao.us/dashboard?id=tenant-metrostar-advana-marketplace
+ceTaskId=ee98ea13-ae72-42ba-b810-e8cb84264cc8
+ceTaskUrl=https://sonarqube.cdao.us/api/ce/task?id=ee98ea13-ae72-42ba-b810-e8cb84264cc8

@@ -1,5 +1,5 @@
 Trivy Security Scan Log
-Timestamp: Tue Nov  4 13:33:46 CST 2025
+Timestamp: Thu Nov  6 12:35:43 CST 2025
 Output Directory: ./trivy-reports
 ========================================
 No Kubernetes manifests found

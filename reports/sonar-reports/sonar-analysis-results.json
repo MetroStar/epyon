@@ -1,26 +1,31 @@
 {
-  "project": "tenant-metrostar-advana-marketplace",
-  "timestamp": "2025-11-04T19:10:00Z",
+  "project": "tenant-metrostar-advana-marketplace-monolith-node",
+  "timestamp": "2025-11-06T18:40:39Z",
   "host": "https://sonarqube.cdao.us",
-  "sources": "/Users/rnelson/Desktop/CDAO MarketPlace/Marketplace/advana-marketplace/frontend/src",
+  "sources": "/Users/rnelson/Desktop/CDAO MarketPlace/Marketplace/advana-marketplace-monolith-node/src",
   "test_results": {
-    "total_tests": 1181,
-    "passed_tests": 1170,
-    "skipped_tests": 11,
+    "total_tests": 0,
+    "passed_tests": 0,
+    "skipped_tests": 0,
     "failed_tests": 0
   },
   "coverage": {
-    "statement_coverage": 92.38,
-    "branch_coverage": 84.48,
-    "function_coverage": 92.68,
-    "line_coverage": 92.38
+    "statement_coverage": "N/A",
+    "branch_coverage": "N/A", 
+    "function_coverage": "N/A",
+    "line_coverage": "N/A",
+    "files_covered": 0,
+    "total_source_files": 0,
+    "estimated_coverable_lines": 0,
+    "total_source_lines": 0,
+    "coverage_methodology": "SonarQube-style (includes all source files)"
   },
   "quality_metrics": {
-    "reliability_rating": "A",
-    "security_rating": "A", 
-    "maintainability_rating": "A",
-    "coverage_rating": "A"
+    "reliability_rating": "N/A",
+    "security_rating": "N/A", 
+    "maintainability_rating": "N/A",
+    "coverage_rating": "N/A"
   },
-  "status": "SUCCESS",
-  "analysis_mode": "full"
+  "status": "CONFIGURED",
+  "analysis_mode": "local_extraction"
 }

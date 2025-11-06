@@ -497,3 +497,100 @@ Package directory: ./helm-packages
 ============================================
 Helm build process complete.
 ============================================
+============================================
+[0;34mHelm Chart Build Process[0m
+============================================
+Chart Directory: /Users/rnelson/Desktop/CDAO MarketPlace/Marketplace/advana-marketplace-monolith-node/chart
+Output Directory: ./helm-packages
+Chart Name: advana-marketplace
+Build Log: ./helm-packages/helm-build.log
+Timestamp: Thu Nov  6 12:40:39 CST 2025
+
+[1;33m⚠️  Helm not found locally, using Docker-based Helm[0m
+Pulling Helm Docker image...
+latest: Pulling from alpine/helm
+Digest: sha256:aef9b56f64e866207d9591d0abd8f6d767b36aadd12edf68f8a719716d9d29c9
+Status: Image is up to date for alpine/helm:latest
+docker.io/alpine/helm:latest
+[0;34m📊 Helm Version Information:[0m
+v3.19.0+g3d8990f
+
+[0;34m📋 Chart Information:[0m
+====================
+apiVersion: v2
+appVersion: 2.2.0
+dependencies:
+- name: advana-library
+  repository: oci://231388672283.dkr.ecr.us-gov-west-1.amazonaws.com/tenant
+  tags:
+  - library
+  version: 2.0.4
+- condition: postgresql.enabled
+  name: postgresql
+  repository: https://charts.bitnami.com/bitnami
+  tags:
+  - database
+  version: 15.5.38
+description: Template helm chart for a basic webapp
+name: advana-marketplace-monolith-node
+type: application
+version: 2.2.0
+
+
+[0;34m🔍 Step 1: Chart Dependency Update[0m
+===================================
+Getting updates for unmanaged Helm repositories...
+...Successfully got an update from the "https://charts.bitnami.com/bitnami" chart repository
+Saving 2 charts
+Downloading advana-library from repo oci://231388672283.dkr.ecr.us-gov-west-1.amazonaws.com/tenant
+Save error occurred:  could not download oci://231388672283.dkr.ecr.us-gov-west-1.amazonaws.com/tenant/advana-library: failed to perform "FetchReference" on source: GET "https://231388672283.dkr.ecr.us-gov-west-1.amazonaws.com/v2/tenant/advana-library/manifests/2.0.4": basic credential not found
+Error: could not download oci://231388672283.dkr.ecr.us-gov-west-1.amazonaws.com/tenant/advana-library: failed to perform "FetchReference" on source: GET "https://231388672283.dkr.ecr.us-gov-west-1.amazonaws.com/v2/tenant/advana-library/manifests/2.0.4": basic credential not found
+[1;33m⚠️  Dependency update had issues, continuing...[0m
+
+[0;34m🔎 Step 2: Chart Linting[0m
+=======================
+Error: 1 chart(s) linted, 1 chart(s) failed
+==> Linting /workspace/advana-marketplace-monolith-node/chart
+[INFO] Chart.yaml: icon is recommended
+[ERROR] templates/: template: advana-marketplace-monolith-node/templates/serviceaccount.yaml:1:3: executing "advana-marketplace-monolith-node/templates/serviceaccount.yaml" at <include "common.serviceaccount" $>: error calling include: template: no template "common.serviceaccount" associated with template "gotpl"
+[WARNING] /workspace/advana-marketplace-monolith-node/chart: chart directory is missing these dependencies: advana-library,postgresql
+
+[0;31m❌ Chart linting failed[0m
+
+[0;34m🧪 Step 3: Template Validation[0m
+==============================
+Validating Kubernetes templates...
+Error: An error occurred while checking for chart dependencies. You may need to run `helm dependency build` to fetch missing dependencies: found in Chart.yaml, but missing in charts/ directory: advana-library, postgresql
+[0;31m❌ Template rendering failed[0m
+
+[0;34m📦 Step 4: Chart Packaging[0m
+=========================
+Error: found in Chart.yaml, but missing in charts/ directory: advana-library, postgresql
+[0;31m❌ Chart packaging failed[0m
+
+[0;34m🔍 Step 5: Security Analysis[0m
+===========================
+Scanning templates for security best practices...
+[1;33m⚠️  No resource limits defined[0m
+[1;33m⚠️  1 potential security issues found[0m
+
+[0;34m📊 Build Summary[0m
+================
+Chart Linting: FAILED
+Template Validation: FAILED
+Package Creation: FAILED
+Security Scan: WARNING
+
+[0;31m❌ Helm build completed with errors[0m
+============================================
+Please review the issues above and fix them.
+
+[0;34m📁 Output Files:[0m
+================
+Build log: ./helm-packages/helm-build.log
+Rendered templates: ./helm-packages/rendered-templates.yaml
+Package directory: ./helm-packages
+
+============================================
+Helm build process complete.
+============================================

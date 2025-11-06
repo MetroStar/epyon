@@ -1,7 +1,9 @@
 TruffleHog Security Scan Log
-Timestamp: 11/05/2025 10:36:02
-Repository Path: C:\Users\ronni\OneDrive\Desktop\Projects\SRTM-tool\
-Output Directory: .\trufflehog-reports
+Timestamp: Thu Nov  6 12:17:23 CST 2025
+Repository Path: /Users/rnelson/Desktop/CDAO MarketPlace/Marketplace/advana-marketplace-monolith-node
+Output Directory: ./trufflehog-reports
 ========================================
 Filesystem scan started
 Filesystem scan completed successfully
+Base image scanning completed
+Registry image scanning completed

@@ -1,20 +1,20 @@
-# Comprehensive Security Reports
+﻿# Comprehensive Security Reports
 
 ## Overview
 
 This directory contains consolidated security reports from all eight layers of our DevOps security architecture.
 
-**Generated:** 2025-11-05 10:57:44
+**Generated:** 2025-11-06 18:36:09
 
 ## Directory Structure
 
 ```
 security-reports/
-├── dashboards/          # Interactive HTML dashboards
-├── html-reports/        # Human-readable HTML reports by tool
-├── markdown-reports/    # Markdown summaries by tool
-├── csv-reports/         # CSV data for spreadsheet analysis
-└── raw-data/           # Original JSON outputs from each tool
+    dashboards/          # Interactive HTML dashboards
+    html-reports/        # Human-readable HTML reports by tool
+    markdown-reports/    # Markdown summaries by tool
+    csv-reports/         # CSV data for spreadsheet analysis
+    raw-data/           # Original JSON outputs from each tool
 ```
 
 ## Security Tools Covered

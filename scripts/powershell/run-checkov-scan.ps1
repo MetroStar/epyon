@@ -33,6 +33,11 @@ $CheckovImage = "bridgecrew/checkov:latest"
 # Initialize authentication status
 $AwsAuthenticated = $false
 
+# Get AWS credentials from environment variables
+$AwsAccessKeyId = $env:AWS_ACCESS_KEY_ID
+$AwsSecretAccessKey = $env:AWS_SECRET_ACCESS_KEY
+$AwsDefaultRegion = if ($env:AWS_DEFAULT_REGION) { $env:AWS_DEFAULT_REGION } else { "us-gov-west-1" }
+
 # Create output directories
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 New-Item -ItemType Directory -Force -Path $HelmOutputDir | Out-Null
@@ -240,9 +245,9 @@ if ($ScanType -eq "directory") {
     
     Write-Host "   Running comprehensive IaC scan..."
     docker run --rm `
-        -e AWS_ACCESS_KEY_ID=$ `
-        -e AWS_SECRET_ACCESS_KEY=$ `
-        -e AWS_DEFAULT_REGION=$us-gov-west-1 `
+        -e AWS_ACCESS_KEY_ID=$AwsAccessKeyId `
+        -e AWS_SECRET_ACCESS_KEY=$AwsSecretAccessKey `
+        -e AWS_DEFAULT_REGION=$AwsDefaultRegion `
         -v "${targetAbsPath}:/repo" `
         -v "${outputAbsPath}:/output" `
         $CheckovImage `
@@ -263,9 +268,9 @@ if ($ScanType -eq "directory") {
         $outputAbsPath = (Resolve-Path $OutputDir).Path
         
         docker run --rm `
-            -e AWS_ACCESS_KEY_ID=$ `
-            -e AWS_SECRET_ACCESS_KEY=$ `
-            -e AWS_DEFAULT_REGION=$us-gov-west-1 `
+            -e AWS_ACCESS_KEY_ID=$AwsAccessKeyId `
+            -e AWS_SECRET_ACCESS_KEY=$AwsSecretAccessKey `
+            -e AWS_DEFAULT_REGION=$AwsDefaultRegion `
             -v "${targetAbsPath}:/repo" `
             -v "${outputAbsPath}:/output" `
             $CheckovImage `
@@ -282,9 +287,9 @@ if ($ScanType -eq "directory") {
     $outputAbsPath = (Resolve-Path $OutputDir).Path
     
     docker run --rm `
-        -e AWS_ACCESS_KEY_ID=$ `
-        -e AWS_SECRET_ACCESS_KEY=$ `
-        -e AWS_DEFAULT_REGION=$us-gov-west-1 `
+        -e AWS_ACCESS_KEY_ID=$AwsAccessKeyId `
+        -e AWS_SECRET_ACCESS_KEY=$AwsSecretAccessKey `
+        -e AWS_DEFAULT_REGION=$AwsDefaultRegion `
         -v "${targetAbsPath}:/repo" `
         -v "${outputAbsPath}:/output" `
         $CheckovImage `
@@ -299,9 +304,9 @@ if ($ScanType -eq "directory") {
     $outputAbsPath = (Resolve-Path $OutputDir).Path
     
     docker run --rm `
-        -e AWS_ACCESS_KEY_ID=$ `
-        -e AWS_SECRET_ACCESS_KEY=$ `
-        -e AWS_DEFAULT_REGION=$us-gov-west-1 `
+        -e AWS_ACCESS_KEY_ID=$AwsAccessKeyId `
+        -e AWS_SECRET_ACCESS_KEY=$AwsSecretAccessKey `
+        -e AWS_DEFAULT_REGION=$AwsDefaultRegion `
         -v "${currentAbsPath}:/repo" `
         -v "${outputAbsPath}:/output" `
         $CheckovImage `

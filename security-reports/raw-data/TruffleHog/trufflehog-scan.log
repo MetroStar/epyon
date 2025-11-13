@@ -1,9 +1,0 @@
-TruffleHog Security Scan Log
-Timestamp: Tue Nov  4 12:45:10 CST 2025
-Repository Path: /Users/rnelson/Desktop/CDAO MarketPlace/Marketplace/advana-marketplace-monolith-node
-Output Directory: ./trufflehog-reports
-========================================
-Filesystem scan started
-Filesystem scan completed successfully
-Base image scanning completed
-Registry image scanning completed

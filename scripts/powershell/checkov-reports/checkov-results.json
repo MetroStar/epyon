@@ -1,9 +1,0 @@
-{
-  "passed": 0,
-  "parsing_errors": 0,
-  "failed": 0,
-  "scan_status": "chart_not_found",
-  "resource_count": 0,
-  "skipped": 0,
-  "checkov_version": "N/A"
-}

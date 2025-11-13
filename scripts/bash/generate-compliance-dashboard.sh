@@ -1,3 +1,19 @@
+#!/bin/bash
+
+# Simple Compliance Dashboard Generator
+# Creates a working compliance dashboard with proper paths
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+COMPLIANCE_DIR="$PROJECT_ROOT/reports/security-reports/compliance"
+DASHBOARD_FILE="$COMPLIANCE_DIR/compliance-dashboard.html"
+
+# Ensure directory exists
+mkdir -p "$COMPLIANCE_DIR"
+
+echo "📊 Generating compliance dashboard at: $DASHBOARD_FILE"
+
+cat > "$DASHBOARD_FILE" << 'EOF'
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -289,3 +305,8 @@
     </script>
 </body>
 </html>
+EOF
+
+echo "✅ Compliance dashboard generated successfully!"
+echo "📁 Location: $DASHBOARD_FILE"
+echo "🚀 Use ./open-compliance-dashboard.sh to open it"

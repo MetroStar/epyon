@@ -1,0 +1,3 @@
+Timestamp,User,Script,Tool,Target,Duration,Findings,Status
+2025-11-13 18:56:50,rnelson (ITLP01183),run-clamav-scan.sh,ClamAV,/tmp,16s,0,SUCCESS
+2025-11-13 18:45:00,rnelson (ITLP01183),example-audited-checkov.sh,Checkov,/Users/rnelson/Desktop,0s,23,SUCCESS

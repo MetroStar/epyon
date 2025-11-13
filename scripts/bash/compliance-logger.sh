@@ -179,20 +179,29 @@ generate_compliance_dashboard() {
     </div>
     
     <script>
-        // Load real compliance data from CSV files
-        function loadComplianceData() {
-            // Show loading state initially
-            document.getElementById('totalScans').textContent = '--';
-            document.getElementById('activeUsers').textContent = '--';  
-            document.getElementById('criticalFindings').textContent = '--';
-            document.getElementById('complianceScore').textContent = '--';
-            
-            // Show message that real data will be loaded from CSV
-            const tbody = document.getElementById('activityBody');
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; padding: 20px; color: #7f8c8d;">⏳ Loading real audit data from CSV files...</td></tr>';
-        }
-        
-        // Load user summary from real data (will be populated by activity-data.js)
+// Load real audit data from CSV
+document.addEventListener('DOMContentLoaded', function() {
+    // Try simple format first, then fall back to detailed format
+    fetch('security-audit-simple.csv')
+        .then(response => response.text())
+        .then(csvData => {
+            const realActivities = parseCSV(csvData);
+            updateDashboardWithRealData(realActivities);
+        })
+        .catch(error => {
+            // Fall back to detailed format
+            fetch('security-audit.csv')
+                .then(response => response.text())
+                .then(csvData => {
+                    const realActivities = parseCSV(csvData);
+                    updateDashboardWithRealData(realActivities);
+                })
+                .catch(error => {
+                    console.log('No audit data found yet, showing empty state');
+                    updateDashboardWithRealData([]);
+                });
+        });
+});        // Load user summary from real data (will be populated by activity-data.js)
         function loadUserSummary() {
             const userSummaryDiv = document.getElementById('userSummary');
             userSummaryDiv.innerHTML = '<div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; color: #7f8c8d;">⏳ Loading user activity data...</div>';

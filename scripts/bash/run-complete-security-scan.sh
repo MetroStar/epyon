@@ -198,46 +198,167 @@ echo "  📊 ./run-complete-security-scan.sh analysis - Analysis only"
 echo "  🛡️  ./run-complete-security-scan.sh full     - Complete scan"
 echo ""
 
-# Check for high-priority issues
-echo -e "${CYAN}🚨 High-Priority Security Issues:${NC}"
+# Enhanced Critical/High Security Alert System
+echo -e "${CYAN}🚨 SECURITY ALERT SUMMARY${NC}"
+echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 has_critical_issues=false
+has_high_issues=false
+total_critical=0
+total_high=0
+critical_details=()
+high_details=()
 
-# Check Grype results for high/critical vulnerabilities
-if [[ -f "./grype-reports/grype-filesystem-results.json" ]]; then
-    high_count=$(jq -r '[.matches[] | select(.vulnerability.severity == "High" or .vulnerability.severity == "Critical")] | length' "./grype-reports/grype-filesystem-results.json" 2>/dev/null || echo "0")
-    if [[ "$high_count" -gt 0 ]]; then
-        echo -e "  ${RED}🔴 Grype: $high_count high/critical vulnerabilities found${NC}"
+# Function to add alert detail
+add_alert() {
+    local severity=$1
+    local tool=$2
+    local count=$3
+    local message=$4
+    
+    if [[ "$severity" == "CRITICAL" ]]; then
+        total_critical=$((total_critical + count))
+        critical_details+=("${RED}🔴 $tool: $count $message${NC}")
         has_critical_issues=true
+    elif [[ "$severity" == "HIGH" ]]; then
+        total_high=$((total_high + count))
+        high_details+=("${YELLOW}🟠 $tool: $count $message${NC}")
+        has_high_issues=true
+    fi
+}
+
+# Check ALL Grype results for high/critical vulnerabilities
+echo -e "${CYAN}🔍 Analyzing Grype vulnerability reports...${NC}"
+for grype_file in ./grype-reports/grype-*-results.json; do
+    if [[ -f "$grype_file" ]]; then
+        filename=$(basename "$grype_file")
+        critical_count=$(jq -r '[.matches[] | select(.vulnerability.severity == "Critical")] | length' "$grype_file" 2>/dev/null || echo "0")
+        high_count=$(jq -r '[.matches[] | select(.vulnerability.severity == "High")] | length' "$grype_file" 2>/dev/null || echo "0")
+        
+        if [[ "$critical_count" -gt 0 ]]; then
+            add_alert "CRITICAL" "Grype ($filename)" "$critical_count" "CRITICAL vulnerabilities"
+        fi
+        if [[ "$high_count" -gt 0 ]]; then
+            add_alert "HIGH" "Grype ($filename)" "$high_count" "HIGH vulnerabilities"
+        fi
+    fi
+done
+
+# Check ALL Trivy results for high/critical vulnerabilities
+echo -e "${CYAN}🔍 Analyzing Trivy vulnerability reports...${NC}"
+for trivy_file in ./trivy-reports/trivy-*-results.json; do
+    if [[ -f "$trivy_file" ]]; then
+        filename=$(basename "$trivy_file")
+        critical_count=$(jq -r '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' "$trivy_file" 2>/dev/null || echo "0")
+        high_count=$(jq -r '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' "$trivy_file" 2>/dev/null || echo "0")
+        
+        if [[ "$critical_count" -gt 0 ]]; then
+            add_alert "CRITICAL" "Trivy ($filename)" "$critical_count" "CRITICAL vulnerabilities"
+        fi
+        if [[ "$high_count" -gt 0 ]]; then
+            add_alert "HIGH" "Trivy ($filename)" "$high_count" "HIGH vulnerabilities"
+        fi
+    fi
+done
+
+# Check Checkov for high-severity configuration issues
+echo -e "${CYAN}🔍 Analyzing Checkov configuration reports...${NC}"
+if [[ -f "./checkov-reports/results_json.json" ]]; then
+    checkov_critical=$(jq -r '[.results.failed_checks[] | select(.severity == "CRITICAL" or .severity == "HIGH")] | length' "./checkov-reports/results_json.json" 2>/dev/null || echo "0")
+    if [[ "$checkov_critical" -gt 0 ]]; then
+        add_alert "HIGH" "Checkov" "$checkov_critical" "HIGH/CRITICAL configuration issues"
     fi
 fi
 
-# Check Trivy results for high/critical vulnerabilities
-if [[ -f "./trivy-reports/trivy-filesystem-results.json" ]]; then
-    trivy_critical=$(jq -r '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length' "./trivy-reports/trivy-filesystem-results.json" 2>/dev/null || echo "0")
-    if [[ "$trivy_critical" -gt 0 ]]; then
-        echo -e "  ${RED}🔴 Trivy: $trivy_critical high/critical vulnerabilities found${NC}"
-        has_critical_issues=true
+# Check TruffleHog for secrets (always high priority)
+echo -e "${CYAN}🔍 Analyzing TruffleHog secret detection reports...${NC}"
+for truffles_file in ./trufflehog-reports/trufflehog-*-results.json; do
+    if [[ -f "$truffles_file" ]]; then
+        filename=$(basename "$truffles_file")
+        secrets_count=$(jq '. | length' "$truffles_file" 2>/dev/null || echo "0")
+        if [[ "$secrets_count" -gt 0 ]]; then
+            add_alert "HIGH" "TruffleHog ($filename)" "$secrets_count" "potential secrets detected"
+        fi
     fi
+done
+
+# Display Critical Issues (Immediate Action Required)
+if [[ "$has_critical_issues" == "true" ]]; then
+    echo ""
+    echo -e "${RED}🚨 CRITICAL SEVERITY ISSUES - IMMEDIATE ACTION REQUIRED! 🚨${NC}"
+    echo -e "${RED}═══════════════════════════════════════════════════════════${NC}"
+    for detail in "${critical_details[@]}"; do
+        echo -e "  $detail"
+    done
+    echo -e "${RED}Total Critical Issues: $total_critical${NC}"
+    echo ""
 fi
 
-# Check TruffleHog for secrets
-if [[ -f "./trufflehog-reports/trufflehog-filesystem-results.json" ]]; then
-    secrets_count=$(jq '. | length' "./trufflehog-reports/trufflehog-filesystem-results.json" 2>/dev/null || echo "0")
-    if [[ "$secrets_count" -gt 0 ]]; then
-        echo -e "  ${YELLOW}🟡 TruffleHog: $secrets_count potential secrets detected${NC}"
-    fi
+# Display High Issues (Urgent Action Recommended)
+if [[ "$has_high_issues" == "true" ]]; then
+    echo -e "${YELLOW}⚠️  HIGH SEVERITY ISSUES - URGENT ACTION RECOMMENDED ⚠️${NC}"
+    echo -e "${YELLOW}══════════════════════════════════════════════════════════${NC}"
+    for detail in "${high_details[@]}"; do
+        echo -e "  $detail"
+    done
+    echo -e "${YELLOW}Total High Issues: $total_high${NC}"
+    echo ""
 fi
 
-# Check Xeol for EOL components
-if [[ -f "./xeol-reports/xeol-results.json" ]]; then
-    eol_count=$(jq '[.matches[] | select(.eol == true)] | length' "./xeol-reports/xeol-results.json" 2>/dev/null || echo "0")
-    if [[ "$eol_count" -gt 0 ]]; then
-        echo -e "  ${YELLOW}🟡 Xeol: $eol_count end-of-life components detected${NC}"
+# Check Xeol for EOL components (Medium priority)
+eol_total=0
+for xeol_file in ./xeol-reports/xeol-*-results.json; do
+    if [[ -f "$xeol_file" ]]; then
+        filename=$(basename "$xeol_file")
+        eol_count=$(jq '[.matches[] | select(.eol == true)] | length' "$xeol_file" 2>/dev/null || echo "0")
+        if [[ "$eol_count" -gt 0 ]]; then
+            echo -e "  ${PURPLE}🟣 Xeol ($filename): $eol_count end-of-life components detected${NC}"
+            eol_total=$((eol_total + eol_count))
+        fi
     fi
+done
+
+if [[ "$eol_total" -gt 0 ]]; then
+    echo -e "${PURPLE}Total EOL Components: $eol_total${NC}"
+    echo ""
 fi
 
-if [[ "$has_critical_issues" == "false" ]]; then
-    echo -e "  ${GREEN}✅ No high/critical security issues detected${NC}"
+# Overall Security Status
+if [[ "$has_critical_issues" == "false" && "$has_high_issues" == "false" ]]; then
+    echo -e "${GREEN}✅ SECURITY STATUS: GOOD - No critical or high severity issues detected${NC}"
+else
+    echo -e "${RED}❌ SECURITY STATUS: ATTENTION REQUIRED${NC}"
+    if [[ "$SCAN_TYPE" == "full" ]]; then
+        echo -e "${CYAN}📋 Next Steps for Full Target Scan:${NC}"
+        echo -e "  1. Review detailed reports in each *-reports/ directory"
+        echo -e "  2. Prioritize CRITICAL issues first, then HIGH severity"
+        echo -e "  3. Update vulnerable components and fix configuration issues"
+        echo -e "  4. Re-run scan to verify fixes: ./run-complete-security-scan.sh full"
+        echo ""
+        
+        # Generate summary report for critical/high issues
+        if [[ "$total_critical" -gt 0 || "$total_high" -gt 0 ]]; then
+            echo -e "${CYAN}📄 Generating priority issues summary...${NC}"
+            {
+                echo "SECURITY SCAN PRIORITY ISSUES SUMMARY"
+                echo "Generated: $(date)"
+                echo "Scan Type: $SCAN_TYPE"
+                echo "======================================"
+                echo ""
+                echo "CRITICAL ISSUES: $total_critical"
+                for detail in "${critical_details[@]}"; do
+                    echo "$detail" | sed 's/\x1b\[[0-9;]*m//g'  # Remove color codes
+                done
+                echo ""
+                echo "HIGH ISSUES: $total_high"  
+                for detail in "${high_details[@]}"; do
+                    echo "$detail" | sed 's/\x1b\[[0-9;]*m//g'  # Remove color codes
+                done
+                echo ""
+                echo "TOTAL PRIORITY ISSUES: $((total_critical + total_high))"
+            } > "./priority-issues-summary.txt"
+            echo -e "${GREEN}📄 Priority issues summary saved to: ./priority-issues-summary.txt${NC}"
+        fi
+    fi
 fi
 
 echo ""

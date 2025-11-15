@@ -1,7 +1,7 @@
 # Grype Security Report
 
 **Scan Type:** sbom-base-ubuntu-22.04  
-**Generated:** Fri Nov 14 20:08:35 CST 2025  
+**Generated:** Fri Nov 14 22:54:13 CST 2025  
 
 ## Summary
 

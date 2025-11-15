@@ -6,8 +6,8 @@
 # Configuration - Support target directory override
 TARGET_SCAN_DIR="${TARGET_DIR:-$(pwd)}"
 CHART_DIR="${TARGET_SCAN_DIR}/chart"
-HELM_OUTPUT_DIR="./helm-packages"
-OUTPUT_DIR="./checkov-reports"
+HELM_OUTPUT_DIR="../../reports/helm-packages"
+OUTPUT_DIR="../../reports/checkov-reports"
 CHART_NAME="advana-marketplace"
 SCAN_LOG="$OUTPUT_DIR/checkov-scan.log"
 RESULTS_FILE="$OUTPUT_DIR/checkov-results.json"

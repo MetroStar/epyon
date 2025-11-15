@@ -3,7 +3,7 @@
 # Trivy Results Analysis Script
 # Analyzes container and Kubernetes vulnerability scan results and provides detailed reporting
 
-OUTPUT_DIR="./trivy-reports"
+OUTPUT_DIR="../../reports/trivy-reports"
 SCAN_LOG="$OUTPUT_DIR/trivy-scan.log"
 
 # Colors for output

@@ -3,7 +3,8 @@
 
 # Configuration - Support target directory override
 $RepoPath = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }
-$OutputDir = ".\clamav-reports"
+# Configuration
+$OutputDir = "..\..\reports\clamav-reports"
 $ScanLog = Join-Path $OutputDir "clamav-scan.log"
 $InfectedLog = Join-Path $OutputDir "clamav-infected.log"
 

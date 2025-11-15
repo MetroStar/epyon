@@ -11,8 +11,8 @@ $ErrorActionPreference = "Continue"
 # Configuration - Support target directory override
 $TargetScanDir = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }
 $ChartDir = Join-Path $TargetScanDir "chart"
-$HelmOutputDir = ".\helm-packages"
-$OutputDir = ".\checkov-reports"
+$HelmOutputDir = "..\..\reports\helm-packages"
+$OutputDir = "..\..\reports\checkov-reports"
 $ChartName = "advana-marketplace"
 $ScanLog = Join-Path $OutputDir "checkov-scan.log"
 $ResultsFile = Join-Path $OutputDir "checkov-results.json"

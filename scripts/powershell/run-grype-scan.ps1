@@ -10,7 +10,7 @@ param(
 $ErrorActionPreference = "Continue"
 
 # Configuration
-$OutputDir = ".\grype-reports"
+$OutputDir = "..\..\reports\grype-reports"
 $Timestamp = Get-Date
 $ScanLog = Join-Path $OutputDir "grype-scan.log"
 $RepoPath = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }

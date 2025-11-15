@@ -10,7 +10,7 @@ param(
 $ErrorActionPreference = "Continue"
 
 # Configuration
-$OutputDir = ".\trivy-reports"
+$OutputDir = "..\..\reports\trivy-reports"
 $Timestamp = Get-Date
 $ScanLog = Join-Path $OutputDir "trivy-scan.log"
 $RepoPath = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }

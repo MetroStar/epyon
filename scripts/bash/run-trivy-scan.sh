@@ -3,7 +3,7 @@
 # Trivy Multi-Target Vulnerability Scanner
 # Comprehensive container image, Kubernetes, and filesystem security scanning
 
-OUTPUT_DIR="./trivy-reports"
+OUTPUT_DIR="../../reports/trivy-reports"
 TIMESTAMP=$(date)
 SCAN_LOG="$OUTPUT_DIR/trivy-scan.log"
 REPO_PATH="${TARGET_DIR:-$(pwd)}"

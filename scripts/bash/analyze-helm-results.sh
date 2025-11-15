@@ -4,7 +4,7 @@
 # Analyzes Helm chart structure and provides detailed reporting
 
 CHART_DIR="./chart"
-OUTPUT_DIR="./helm-packages"
+OUTPUT_DIR="../../reports/helm-packages"
 BUILD_LOG="$OUTPUT_DIR/helm-build.log"
 
 # Colors for output

@@ -11,7 +11,7 @@ $ErrorActionPreference = "Continue"
 
 # Configuration
 $ScriptName = "analyze-xeol-results"
-$OutputDir = ".\\analyze-xeol-results-reports"
+$OutputDir = "..\..\reports\xeol-reports"
 $Timestamp = Get-Date
 $RepoPath = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }
 

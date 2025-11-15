@@ -12,7 +12,10 @@ NC='\033[0m'
 
 # Configuration - Support target directory override
 REPO_PATH="${TARGET_DIR:-$(pwd)}"
-OUTPUT_DIR="./xeol-reports"
+# Xeol End-of-Life Software Detection Scanner
+# Anchore Xeol: Scans for EOL software packages and libraries
+
+OUTPUT_DIR="../../reports/xeol-reports"
 REPORT_FORMAT="json"
 SCAN_LOG="$OUTPUT_DIR/xeol-scan.log"
 

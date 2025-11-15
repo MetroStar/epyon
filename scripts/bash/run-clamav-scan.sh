@@ -5,7 +5,10 @@
 
 # Configuration - Support target directory override
 REPO_PATH="${TARGET_DIR:-$(pwd)}"
-OUTPUT_DIR="./clamav-reports"
+# ClamAV Antivirus Scanner
+# Scans for malware and viruses in files and directories
+
+OUTPUT_DIR="../../reports/clamav-reports"
 SCAN_LOG="$OUTPUT_DIR/clamav-scan.log"
 INFECTED_LOG="$OUTPUT_DIR/clamav-infected.log"
 

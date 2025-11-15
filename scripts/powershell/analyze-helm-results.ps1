@@ -11,7 +11,7 @@ $ErrorActionPreference = "Continue"
 
 # Configuration
 $ScriptName = "analyze-helm-results"
-$OutputDir = ".\\analyze-helm-results-reports"
+$OutputDir = "..\..\reports\helm-packages"
 $Timestamp = Get-Date
 $RepoPath = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }
 

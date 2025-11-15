@@ -6,7 +6,7 @@
 # Configuration - Support target directory scanning
 REPO_PATH="${TARGET_DIR:-$(pwd)}"
 CHART_DIR="$REPO_PATH/chart"
-OUTPUT_DIR="./helm-packages"
+OUTPUT_DIR="../../reports/helm-packages"
 CHART_NAME="advana-marketplace"
 BUILD_LOG="$OUTPUT_DIR/helm-build.log"
 

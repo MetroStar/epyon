@@ -3,7 +3,8 @@
 
 # Configuration - Support target directory override
 $RepoPath = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }
-$OutputDir = ".\trufflehog-reports"
+# Configuration
+$OutputDir = "..\..\reports\trufflehog-reports"
 $ReportFormat = "json"  # Options: json, sarif, github
 $Timestamp = Get-Date
 $ScanLog = Join-Path $OutputDir "trufflehog-scan.log"

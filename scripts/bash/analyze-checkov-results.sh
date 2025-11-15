@@ -3,7 +3,7 @@
 # Checkov Results Analysis Script
 # Analyzes Infrastructure-as-Code security scan results and provides detailed reporting
 
-OUTPUT_DIR="./checkov-reports"
+OUTPUT_DIR="../../reports/checkov-reports"
 RESULTS_FILE="$OUTPUT_DIR/checkov-results.json"
 SCAN_LOG="$OUTPUT_DIR/checkov-scan.log"
 

@@ -1,7 +1,7 @@
 # Trivy Security Report
 
 **Scan Type:** trivy-base-alpine-latest-results  
-**Generated:** Fri Nov 14 20:08:35 CST 2025  
+**Generated:** Fri Nov 14 22:54:13 CST 2025  
 
 ## Summary
 

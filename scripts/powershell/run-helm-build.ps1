@@ -5,7 +5,8 @@ param(
     [Parameter(Position=0)]
     [string]$ChartPath = "",
     [Parameter(Position=1)]
-    [string]$OutputDir = "helm-packages"
+    [string]# Configuration
+$OutputDir = "..\..\reports\helm-packages"
 )
 
 $ErrorActionPreference = "Continue"

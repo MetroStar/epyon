@@ -5,7 +5,10 @@
 
 # Configuration - Support target directory override
 REPO_PATH="${TARGET_DIR:-$(pwd)}"
-OUTPUT_DIR="./trufflehog-reports"
+# TruffleHog Secret Detection Scanner
+# Finds secrets accidentally committed to git repos
+
+OUTPUT_DIR="../../reports/trufflehog-reports"
 REPORT_FORMAT="json"  # Options: json, sarif, github
 TIMESTAMP=$(date)
 SCAN_LOG="$OUTPUT_DIR/trufflehog-scan.log"

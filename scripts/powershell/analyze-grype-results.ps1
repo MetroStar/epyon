@@ -11,7 +11,7 @@ $ErrorActionPreference = "Continue"
 
 # Configuration
 $ScriptName = "analyze-grype-results"
-$OutputDir = ".\\analyze-grype-results-reports"
+$OutputDir = "..\..\reports\grype-reports"
 $Timestamp = Get-Date
 $RepoPath = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }
 

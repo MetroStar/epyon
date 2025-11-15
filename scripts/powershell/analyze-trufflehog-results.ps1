@@ -11,7 +11,7 @@ $ErrorActionPreference = "Continue"
 
 # Configuration
 $ScriptName = "analyze-trufflehog-results"
-$OutputDir = ".\\analyze-trufflehog-results-reports"
+$OutputDir = "..\..\reports\trufflehog-reports"
 $Timestamp = Get-Date
 $RepoPath = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }
 

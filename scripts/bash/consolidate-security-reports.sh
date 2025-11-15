@@ -16,7 +16,7 @@ NC='\033[0m'
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
-UNIFIED_DIR="./security-reports"
+UNIFIED_DIR="../../reports/security-reports"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 REPORT_DATE=$(date)
 

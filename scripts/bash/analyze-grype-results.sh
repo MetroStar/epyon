@@ -3,7 +3,7 @@
 # Grype Results Analysis Script
 # Analyzes container image and filesystem vulnerability scan results with SBOM integration
 
-OUTPUT_DIR="./grype-reports"
+OUTPUT_DIR="../../reports/grype-reports"
 SCAN_LOG="$OUTPUT_DIR/grype-scan.log"
 
 # Colors for output
@@ -393,9 +393,9 @@ echo "📊 Analyze results:         npm run grype:analyze"
 echo "🔍 Run new scan:            npm run grype:scan"
 echo "🏗️  Scan after build:        npm run build && npm run grype:scan"
 echo "🛡️  Compare with Trivy:      npm run trivy:scan && npm run grype:scan"
-echo "📋 View specific results:    cat ./grype-reports/grype-*-results.json | jq ."
-echo "📦 View SBOM details:        cat ./grype-reports/sbom-*.json | jq '.packages[] | select(.name != \"DOCUMENT\")'"
-echo "🔍 Filter by severity:       cat ./grype-reports/grype-*-results.json | jq '.matches[] | select(.vulnerability.severity == \"Critical\")'"
+echo "📋 View specific results:    cat ../../reports/grype-reports/grype-*-results.json | jq ."
+echo "📦 View SBOM details:        cat ../../reports/grype-reports/sbom-*.json | jq '.packages[] | select(.name != "DOCUMENT")'"
+echo "🔍 Filter by severity:       cat ../../reports/grype-reports/grype-*-results.json | jq '.matches[] | select(.vulnerability.severity == "Critical")'"
 
 echo
 echo -e "${BLUE}🔗 Additional Resources:${NC}"

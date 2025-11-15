@@ -11,7 +11,7 @@ $ErrorActionPreference = "Continue"
 
 # Configuration
 $ScriptName = "analyze-trivy-results"
-$OutputDir = ".\\analyze-trivy-results-reports"
+$OutputDir = "..\..\reports\trivy-reports"
 $Timestamp = Get-Date
 $RepoPath = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }
 

@@ -3,7 +3,10 @@
 # Grype Multi-Target Vulnerability Scanner
 # Advanced container image and filesystem vulnerability scanning with SBOM generation
 
-OUTPUT_DIR="./grype-reports"
+# Grype Vulnerability Scanner
+# Anchore Grype: A vulnerability scanner for container images and filesystems
+
+OUTPUT_DIR="../../reports/grype-reports"
 TIMESTAMP=$(date)
 SCAN_LOG="$OUTPUT_DIR/grype-scan.log"
 REPO_PATH="${TARGET_DIR:-$(pwd)}"

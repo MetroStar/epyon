@@ -1,0 +1,44 @@
+============================================
+[0;34mHelm Chart Build Process[0m
+============================================
+Chart Directory: /Users/rnelson/Desktop/CDAO MarketPlace/app/comprehensive-security-architecture/scripts/bash/chart
+Output Directory: ./helm-packages
+Chart Name: advana-marketplace
+Build Log: ./helm-packages/helm-build.log
+Timestamp: Fri Nov 14 22:41:28 CST 2025
+
+[1;33m⚠️  Helm not found locally, using Docker-based Helm[0m
+Pulling Helm Docker image...
+latest: Pulling from alpine/helm
+Digest: sha256:aef9b56f64e866207d9591d0abd8f6d767b36aadd12edf68f8a719716d9d29c9
+Status: Image is up to date for alpine/helm:latest
+docker.io/alpine/helm:latest
+[0;34m📊 Helm Version Information:[0m
+v3.19.0+g3d8990f
+
+[1;33m⚠️  Chart directory not found: /Users/rnelson/Desktop/CDAO MarketPlace/app/comprehensive-security-architecture/scripts/bash/chart[0m
+💡 This is expected for projects without Helm charts[0m
+
+============================================
+[0;32m✅ Helm build skipped successfully![0m
+============================================
+
+[0;34m📊 Fallback Build Summary:[0m
+==========================
+[1;33m⚠️  No Helm chart found - skipping build process[0m
+[0;32m✅ Security pipeline continues with available components[0m
+💡 For Helm deployment, add a chart/ directory to your project[0m
+
+[0;34m📁 Output Files:[0m
+================
+[1;33mℹ️  No Helm packages generated (no chart available)[0m
+
+[0;34m🔗 Related Commands:[0m
+====================
+Create chart:        helm create chart/
+Re-run build:        npm run helm:build
+Full security suite: npm run security:full
+
+============================================
+Helm build complete (skipped).
+============================================

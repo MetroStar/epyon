@@ -11,7 +11,7 @@ $ErrorActionPreference = "Continue"
 
 # Configuration
 $ScriptName = "analyze-checkov-results"
-$OutputDir = ".\\analyze-checkov-results-reports"
+$OutputDir = "..\..\reports\checkov-reports"
 $Timestamp = Get-Date
 $RepoPath = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }
 

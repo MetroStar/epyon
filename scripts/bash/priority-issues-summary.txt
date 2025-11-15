@@ -1,0 +1,13 @@
+SECURITY SCAN PRIORITY ISSUES SUMMARY
+Generated: Fri Nov 14 22:54:15 CST 2025
+Scan Type: full
+======================================
+
+CRITICAL ISSUES: 0
+
+HIGH ISSUES: 6
+\033[1;33m🟠 Grype (grype-base-nginx-alpine-results.json): 1 HIGH vulnerabilities\033[0m
+\033[1;33m🟠 Grype (grype-base-node-18-alpine-results.json): 4 HIGH vulnerabilities\033[0m
+\033[1;33m🟠 Trivy (trivy-base-node-18-alpine-results.json): 1 HIGH vulnerabilities\033[0m
+
+TOTAL PRIORITY ISSUES: 6

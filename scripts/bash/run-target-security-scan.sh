@@ -241,7 +241,7 @@ echo "Timestamp: $(date)"
 echo ""
 
 echo -e "${CYAN}📁 Generated Reports:${NC}"
-find . -name "*-reports" -type d 2>/dev/null | sort | while read -r dir; do
+find ../../reports -name "*-reports" -type d 2>/dev/null | sort | while read -r dir; do
     if [[ -d "$dir" ]]; then
         report_count=$(find "$dir" -name "*.json" -o -name "*.html" -o -name "*.xml" | wc -l)
         echo "  📂 $dir ($report_count files)"
@@ -269,8 +269,8 @@ echo -e "${CYAN}🚨 High-Priority Security Issues:${NC}"
 has_critical_issues=false
 
 # Check Grype results for high/critical vulnerabilities
-if [[ -f "./grype-reports/grype-filesystem-results.json" ]]; then
-    high_count=$(jq -r '[.matches[] | select(.vulnerability.severity == "High" or .vulnerability.severity == "Critical")] | length' "./grype-reports/grype-filesystem-results.json" 2>/dev/null || echo "0")
+if [[ -f "../../reports/grype-reports/grype-filesystem-results.json" ]]; then
+    high_count=$(jq -r '[.matches[] | select(.vulnerability.severity == "High" or .vulnerability.severity == "Critical")] | length' "../../reports/grype-reports/grype-filesystem-results.json" 2>/dev/null || echo "0")
     if [[ "$high_count" -gt 0 ]]; then
         echo -e "  ${RED}🔴 Grype: $high_count high/critical vulnerabilities found${NC}"
         has_critical_issues=true
@@ -278,8 +278,8 @@ if [[ -f "./grype-reports/grype-filesystem-results.json" ]]; then
 fi
 
 # Check Trivy results for high/critical vulnerabilities
-if [[ -f "./trivy-reports/trivy-filesystem-results.json" ]]; then
-    trivy_critical=$(jq -r '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length' "./trivy-reports/trivy-filesystem-results.json" 2>/dev/null || echo "0")
+if [[ -f "../../reports/trivy-reports/trivy-filesystem-results.json" ]]; then
+    trivy_critical=$(jq -r '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length' "../../reports/trivy-reports/trivy-filesystem-results.json" 2>/dev/null || echo "0")
     if [[ "$trivy_critical" -gt 0 ]]; then
         echo -e "  ${RED}🔴 Trivy: $trivy_critical high/critical vulnerabilities found${NC}"
         has_critical_issues=true
@@ -287,16 +287,16 @@ if [[ -f "./trivy-reports/trivy-filesystem-results.json" ]]; then
 fi
 
 # Check TruffleHog for secrets
-if [[ -f "./trufflehog-reports/trufflehog-filesystem-results.json" ]]; then
-    secrets_count=$(jq '. | length' "./trufflehog-reports/trufflehog-filesystem-results.json" 2>/dev/null || echo "0")
+if [[ -f "../../reports/trufflehog-reports/trufflehog-filesystem-results.json" ]]; then
+    secrets_count=$(jq '. | length' "../../reports/trufflehog-reports/trufflehog-filesystem-results.json" 2>/dev/null || echo "0")
     if [[ "$secrets_count" -gt 0 ]]; then
         echo -e "  ${YELLOW}🟡 TruffleHog: $secrets_count potential secrets detected${NC}"
     fi
 fi
 
 # Check Xeol for EOL components
-if [[ -f "./xeol-reports/xeol-results.json" ]]; then
-    eol_count=$(jq '[.matches[] | select(.eol == true)] | length' "./xeol-reports/xeol-results.json" 2>/dev/null || echo "0")
+if [[ -f "../../reports/xeol-reports/xeol-results.json" ]]; then
+    eol_count=$(jq '[.matches[] | select(.eol == true)] | length' "../../reports/xeol-reports/xeol-results.json" 2>/dev/null || echo "0")
     if [[ "$eol_count" -gt 0 ]]; then
         echo -e "  ${YELLOW}🟡 Xeol: $eol_count end-of-life components detected${NC}"
     fi
@@ -318,7 +318,7 @@ echo -e "${BLUE}📊 Analyzing security scan results...${NC}"
 analysis_success=true
 
 # TruffleHog Analysis
-if [[ -f "$REPO_ROOT/trufflehog-reports/trufflehog-filesystem-results.json" ]]; then
+if [[ -f "$REPO_ROOT/reports/trufflehog-reports/trufflehog-filesystem-results.json" ]]; then
     echo -e "${CYAN}🔍 Analyzing TruffleHog secret detection results...${NC}"
     if [[ -f "$SCRIPT_DIR/analyze-trufflehog-results.sh" ]]; then
         cd "$REPO_ROOT" && "$SCRIPT_DIR/analyze-trufflehog-results.sh" || analysis_success=false
@@ -326,7 +326,7 @@ if [[ -f "$REPO_ROOT/trufflehog-reports/trufflehog-filesystem-results.json" ]]; 
 fi
 
 # ClamAV Analysis  
-if [[ -f "$REPO_ROOT/clamav-reports/clamav-scan.log" ]]; then
+if [[ -f "$REPO_ROOT/reports/clamav-reports/clamav-scan.log" ]]; then
     echo -e "${CYAN}🦠 Analyzing ClamAV antivirus results...${NC}"
     if [[ -f "$SCRIPT_DIR/analyze-clamav-results.sh" ]]; then
         cd "$REPO_ROOT" && "$SCRIPT_DIR/analyze-clamav-results.sh" || analysis_success=false
@@ -334,7 +334,7 @@ if [[ -f "$REPO_ROOT/clamav-reports/clamav-scan.log" ]]; then
 fi
 
 # Checkov Analysis
-if [[ -f "$REPO_ROOT/checkov-reports/checkov-results.json" ]]; then
+if [[ -f "$REPO_ROOT/reports/checkov-reports/checkov-results.json" ]]; then
     echo -e "${CYAN}🔒 Analyzing Checkov infrastructure security results...${NC}"
     if [[ -f "$SCRIPT_DIR/analyze-checkov-results.sh" ]]; then
         cd "$REPO_ROOT" && "$SCRIPT_DIR/analyze-checkov-results.sh" || analysis_success=false
@@ -342,7 +342,7 @@ if [[ -f "$REPO_ROOT/checkov-reports/checkov-results.json" ]]; then
 fi
 
 # Grype Analysis
-if [[ -f "$REPO_ROOT/grype-reports/grype-filesystem-results.json" ]]; then
+if [[ -f "$REPO_ROOT/reports/grype-reports/grype-filesystem-results.json" ]]; then
     echo -e "${CYAN}🎯 Analyzing Grype vulnerability results...${NC}"
     if [[ -f "$SCRIPT_DIR/analyze-grype-results.sh" ]]; then
         cd "$REPO_ROOT" && "$SCRIPT_DIR/analyze-grype-results.sh" || analysis_success=false
@@ -350,7 +350,7 @@ if [[ -f "$REPO_ROOT/grype-reports/grype-filesystem-results.json" ]]; then
 fi
 
 # Trivy Analysis
-if [[ -f "$REPO_ROOT/trivy-reports/trivy-filesystem-results.json" ]]; then
+if [[ -f "$REPO_ROOT/reports/trivy-reports/trivy-filesystem-results.json" ]]; then
     echo -e "${CYAN}🐳 Analyzing Trivy security results...${NC}"
     if [[ -f "$SCRIPT_DIR/analyze-trivy-results.sh" ]]; then
         cd "$REPO_ROOT" && "$SCRIPT_DIR/analyze-trivy-results.sh" || analysis_success=false
@@ -358,7 +358,7 @@ if [[ -f "$REPO_ROOT/trivy-reports/trivy-filesystem-results.json" ]]; then
 fi
 
 # Xeol Analysis
-if [[ -f "$REPO_ROOT/xeol-reports/xeol-filesystem-results.json" ]]; then
+if [[ -f "$REPO_ROOT/reports/xeol-reports/xeol-filesystem-results.json" ]]; then
     echo -e "${CYAN}⏰ Analyzing Xeol EOL detection results...${NC}"
     if [[ -f "$SCRIPT_DIR/analyze-xeol-results.sh" ]]; then
         cd "$REPO_ROOT" && "$SCRIPT_DIR/analyze-xeol-results.sh" || analysis_success=false
@@ -366,7 +366,7 @@ if [[ -f "$REPO_ROOT/xeol-reports/xeol-filesystem-results.json" ]]; then
 fi
 
 # Helm Analysis (if charts were built)
-if [[ -f "$REPO_ROOT/helm-packages/helm-build.log" ]]; then
+if [[ -f "$REPO_ROOT/reports/helm-packages/helm-build.log" ]]; then
     echo -e "${CYAN}⚓ Analyzing Helm build results...${NC}"
     if [[ -f "$SCRIPT_DIR/analyze-helm-results.sh" ]]; then
         cd "$REPO_ROOT" && "$SCRIPT_DIR/analyze-helm-results.sh" || analysis_success=false

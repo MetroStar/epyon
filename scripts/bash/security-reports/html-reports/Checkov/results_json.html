@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkov results_json Security Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .summary { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .finding { background: white; margin: 10px 0; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .critical { border-left: 5px solid #dc3545; }
+        .high { border-left: 5px solid #fd7e14; }
+        .medium { border-left: 5px solid #ffc107; }
+        .low { border-left: 5px solid #28a745; }
+        .info { border-left: 5px solid #17a2b8; }
+        .severity { font-weight: bold; padding: 4px 8px; border-radius: 4px; color: white; }
+        .severity.critical { background-color: #dc3545; }
+        .severity.high { background-color: #fd7e14; }
+        .severity.medium { background-color: #ffc107; color: #212529; }
+        .severity.low { background-color: #28a745; }
+        .severity.info { background-color: #17a2b8; }
+        .metadata { background-color: #f8f9fa; padding: 10px; border-radius: 4px; margin-top: 10px; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        .stats { display: flex; gap: 20px; margin: 20px 0; }
+        .stat-card { background: white; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .stat-number { font-size: 24px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Checkov Security Report</h1>
+        <p><strong>Scan Type:</strong> results_json</p>
+        <p><strong>Generated:</strong> Fri Nov 14 20:08:35 CST 2025</p>
+    </div>
+<div class="summary"><h2>Raw Data</h2><pre>{
+  &quot;check_type&quot;: &quot;kubernetes&quot;,
+  &quot;results&quot;: {
+    &quot;failed_checks&quot;: [
+      {
+        &quot;check_id&quot;: &quot;CKV_K8S_21&quot;,
+        &quot;bc_check_id&quot;: &quot;BC_K8S_20&quot;,
+        &quot;check_name&quot;: &quot;The default namespace should not be used&quot;,
+        &quot;check_result&quot;: {
+          &quot;result&quot;: &quot;FAILED&quot;,
+          &quot;evaluated_keys&quot;: []
+        },
+        &quot;code_block&quot;: [
+          [
+            23,
+            &quot;apiVersion: v1\n&quot;
+          ],
+          [
+            24,
+            &quot;kind: ServiceAccount\n&quot;
+          ],
+          [
+            25,
+            &quot;metadata:\n&quot;
+          ],
+          [
+            26,
+            &quot;  name: advana-marketplace\n&quot;
+          ],
+          [
+            27,
+            &quot;  labels:\n&quot;
+          ],
+          [
+            28,
+            &quot;    helm.sh/chart: advana-marketplace-1.0.4\n&quot;
+          ],
+          [
+            29,
+            &quot;    app.kubernetes.io/name: advana-marketplace\n&quot;
+          ],
+          [
+            30,
+            &quot;    app.kubernetes.io/instance: advana-marketplace\n&quot;
+          ],
+          [
+            31,
+            &quot;    app.kubernetes.io/version: \&quot;1.0.4\&quot;\n&quot;
+          ],
+          [
+            32,
+            &quot;    app.kubernetes.io/managed-by: Helm\n&quot;
+          ],
+          [
+            33,
+            &quot;---\n&quot;
+          ]
+        ],
+        &quot;file_path&quot;: &quot;/security-reports/raw-data/Helm/rendered-templates.yaml&quot;,
+        &quot;file_abs_path&quot;: &quot;/repo/security-reports/raw-data/Helm/rendered-templates.yaml&quot;,
+        &quot;repo_file_path&quot;: &quot;/repo/security-reports/raw-data/Helm/rendered-templates.yaml&quot;,
+        &quot;file_line_range&quot;: [
+          23,
+          33
+        ],
+        &quot;resource&quot;: &quot;ServiceAccount.default.advana-marketplace&quot;,
+        &quot;evaluations&quot;: {},
+        &quot;check_class&quot;: &quot;checkov.kubernetes.checks.resource.k8s.DefaultNamespace&quot;,
+        &quot;fixed_definition&quot;: null,
+        &quot;entity_tags&quot;: null,
+        &quot;caller_file_path&quot;: null,
+        &quot;caller_file_line_range&quot;: null,
+        &quot;resource_address&quot;: null,
+        &quot;severity&quot;: null,
+        &quot;bc_category&quot;: null,
+        &quot;benchmarks&quot;: null,
+        &quot;description&quot;: null,
+        &quot;short_description&quot;: null,
+        &quot;vulnerability_details&quot;: null,
+        &quot;connected_node&quot;: null,
+        &quot;guideline&quot;: &quot;https://docs.prismacloud.io/en/enterprise-edition/policy-reference/kubernetes-policies/kubernetes-policy-index/bc-k8s-20&quot;,
+        &quot;details&quot;: [],
+        &quot;check_len&quot;: null,
+        &quot;definition_context_file_path&quot;: null
+      },
+      {
+        &quot;check_id&quot;: &quot;CKV_K8S_21&quot;,
+        &quot;bc_check_id&quot;: &quot;BC_K8S_20&quot;,
+        &quot;check_name&quot;: &quot;The default namespace should not be used&quot;,
+        &quot;check_result&quot;: {
+          &quot;result&quot;: &quot;FAILED&quot;,
+          &quot;evaluated_keys&quot;: []
+        },
+        &quot;code_block&quot;: [
+          [
+            36,
+            &quot;apiVersion: v1\n&quot;
+          ],
+          [
+            37,
+            &quot;kind: Secret\n&quot;
+          ],
+          [
+            38,
+            &quot;metadata:\n&quot;
+          ],
+          [
+            39,
+            &quot;  name: advana-marketplace-env\n&quot;
+          ],
+          [
+            40,
+            &quot;  labels:\n&quot;
+          ],
+          [
+            41,
+            &quot;    helm.sh/chart: advana-marketplace-1.0.4\n&quot;
+          ],
+          [
+            42,
+            &quot;    app.kubernetes.io/name: advana-marketplace\n&quot;
+          ],
+          [
+            43,
+            &quot;    app.kubernetes.io/instance: advana-marketplace\n&quot;
+          ],
+          [
+            44,
+            &quot;    app.kubernetes.io/version: \&quot;1.0.4\&quot;\n&quot;
+          ],
+          [
+            45,
+            &quot;    app.kubernetes.io/managed-by: Helm\n&quot;
+          ],
+          [
+            46,
+            &quot;type: Opaque\n&quot;
+          ],
+          [
+            47,
+            &quot;data:\n&quot;
+          ],
+          [
+            48,
+            &quot;  SECRET_KEY: Y2hhbmdlbWU=\n&quot;
+          ],
+          [
+            49,
+            &quot;# Stub volume secret template\n&quot;
+          ],
+          [
+            50,
+            &quot;apiVersion: v1\n&quot;
+          ],
+          [
+            51,
+            &quot;kind: Secret\n&quot;
+          ],
+          [
+            52,
+            &quot;metadata:\n&quot;
+          ],
+          [
+            53,
+            &quot;  name: advana-marketplace-volume\n&quot;
+          ],
+          [
+            54,
+            &quot;  labels:\n&quot;
+          ],
+          [
+            55,
+            &quot;    helm.sh/chart: advana-marketplace-1.0.4\n&quot;
+          ],
+          [
+            56,
+            &quot;    app.kubernetes.io/name: advana-marketplace\n&quot;
+          ],
+          [
+            57,
+            &quot;    app.kubernetes.io/instance: advana-marketplace\n&quot;
+          ],
+          [
+            58,
+            &quot;    app.kubernetes.io/version: \&quot;1.0.4\&quot;\n&quot;
+          ],
+          [
+            59,
+            &quot;    app.kubernetes.io/managed-by: Helm\n&quot;
+          ],
+          [
+            60,
+            &quot;type: Opaque\n&quot;
+          ],
+          [
+            61,
+            &quot;data:\n&quot;
+          ],
+          [
+            62,
+            &quot;  secret.yaml: c2VjcmV0ZGF0YQ==\n&quot;
+          ],
+          [
+            63,
+            &quot;# </pre></div>
+</body>
+</html>

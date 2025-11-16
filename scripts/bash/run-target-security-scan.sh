@@ -4,7 +4,7 @@
 # Runs all eight security layers with multi-target scanning capabilities on external directories
 # Usage: ./run-target-security-scan.sh <target_directory> [quick|full|images|analysis]
 
-set -e
+# Note: set -e removed to allow graceful error handling in security pipeline
 
 # Colors for output
 RED='\033[0;31m'
@@ -21,7 +21,10 @@ SCAN_TYPE="${2:-full}"
 # Get the script's directory to locate security tools
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+TARGET_NAME=$(basename "${TARGET_DIR:-$(pwd)}")
+USERNAME=$(whoami)
 TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
+SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
 
 # Validate inputs
 if [[ -z "$TARGET_DIR" ]]; then

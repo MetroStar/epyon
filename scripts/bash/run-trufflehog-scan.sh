@@ -7,9 +7,12 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 OUTPUT_DIR="$REPORTS_ROOT/reports/trufflehog-reports"
-TIMESTAMP=$(date)
-SCAN_LOG="$OUTPUT_DIR/trufflehog-scan.log"
 REPO_PATH="${TARGET_DIR:-$(pwd)}"
+TARGET_NAME=$(basename "$REPO_PATH")
+USERNAME=$(whoami)
+TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
+SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
+SCAN_LOG="$OUTPUT_DIR/${SCAN_ID}_trufflehog-scan.log"
 
 # Colors for output
 RED='\033[0;31m'
@@ -40,7 +43,7 @@ echo "Target: $REPO_PATH" >> "$SCAN_LOG"
 run_trufflehog_scan() {
     local scan_type="$1"
     local target="$2"
-    local output_file="$OUTPUT_DIR/trufflehog-${scan_type}-results-$TIMESTAMP.json"
+    local output_file="$OUTPUT_DIR/${SCAN_ID}_trufflehog-${scan_type}-results.json"
     local current_file="$OUTPUT_DIR/trufflehog-${scan_type}-results.json"
     
     echo -e "${BLUE}🔍 Scanning ${scan_type}: ${target}${NC}"

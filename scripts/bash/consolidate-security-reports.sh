@@ -17,7 +17,10 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 UNIFIED_DIR="$REPO_ROOT/reports/security-reports"
-TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+TARGET_NAME=$(basename "${TARGET_DIR:-$(pwd)}")
+USERNAME=$(whoami)
+TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
+SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
 REPORT_DATE=$(date)
 
 echo -e "${WHITE}============================================${NC}"

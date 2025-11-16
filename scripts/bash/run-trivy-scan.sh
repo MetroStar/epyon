@@ -14,14 +14,19 @@ CYAN='\033[0;36m'
 WHITE='\033[1;37m'
 NC='\033[0m' # No Color
 
-# Set up paths
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")/reports"
-OUTPUT_DIR="$REPORTS_ROOT/trivy-reports"
+# Support target directory scanning - priority: command line arg, TARGET_DIR env var, current directory
+REPO_PATH="${1:-${TARGET_DIR:-$(pwd)}}"
 
-# Add timestamp for historical preservation
+# Set REPO_ROOT for report generation
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+OUTPUT_DIR="$REPO_ROOT/reports/trivy-reports"
+
+# Create unique scan ID for this scan run
+TARGET_NAME=$(basename "$REPO_PATH")
+USERNAME=$(whoami)
 TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
-SCAN_LOG="$OUTPUT_DIR/trivy-scan-$TIMESTAMP.log"
+SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
@@ -36,7 +41,7 @@ echo
 run_trivy_scan() {
     local scan_type="$1"
     local target="$2"
-    local output_file="$OUTPUT_DIR/trivy-${scan_type}-results-$TIMESTAMP.json"
+    local output_file="$OUTPUT_DIR/${SCAN_ID}_trivy-${scan_type}-results.json"
     local current_file="$OUTPUT_DIR/trivy-${scan_type}-results.json"
     
     if [ ! -z "$target" ] && [ ! -z "$output_file" ]; then

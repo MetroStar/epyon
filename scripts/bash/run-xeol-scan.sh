@@ -18,10 +18,14 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")/reports"
 OUTPUT_DIR="$REPORTS_ROOT/xeol-reports"
+REPO_PATH="${TARGET_DIR:-$(pwd)}"
 
-# Add timestamp for historical preservation
+# Create unique scan ID for this scan run
+TARGET_NAME=$(basename "$REPO_PATH")
+USERNAME=$(whoami)
 TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
-SCAN_LOG="$OUTPUT_DIR/xeol-scan-$TIMESTAMP.log"
+SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
+SCAN_LOG="$OUTPUT_DIR/${SCAN_ID}_xeol-scan.log"
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"

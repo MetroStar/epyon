@@ -18,10 +18,14 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")/reports"
 OUTPUT_DIR="$REPORTS_ROOT/helm-reports"
+REPO_PATH="${TARGET_DIR:-$(pwd)}"
 
-# Add timestamp for historical preservation
+# Create unique scan ID for this scan run
+TARGET_NAME=$(basename "$REPO_PATH")
+USERNAME=$(whoami)
 TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
-SCAN_LOG="$OUTPUT_DIR/helm-build-$TIMESTAMP.log"
+SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
+SCAN_LOG="$OUTPUT_DIR/${SCAN_ID}_helm-build.log"
 CURRENT_LOG="$OUTPUT_DIR/helm-build.log"
 
 # Create output directory
@@ -31,6 +35,57 @@ echo
 echo -e "${WHITE}============================================${NC}"
 echo -e "${WHITE}Helm Chart Builder & Validator${NC}"
 echo -e "${WHITE}============================================${NC}"
+echo
+
+# AWS ECR Authentication for private dependencies
+echo -e "${BLUE}🔐 Step 0: AWS ECR Authentication (Optional)${NC}"
+echo "=================================="
+AWS_REGION="us-gov-west-1"
+ECR_REGISTRY="231388672283.dkr.ecr.us-gov-west-1.amazonaws.com"
+
+# Offer AWS ECR authentication for private Helm dependencies
+echo -e "${CYAN}🔐 This chart may require AWS ECR authentication for private dependencies${NC}"
+echo "Options:"
+echo "  1) Attempt AWS ECR login (recommended for complete build)"
+echo "  2) Skip authentication (fallback to stub dependencies)"
+echo
+read -p "Choose option (1 or 2, default: 2): " aws_choice
+
+# Initialize authentication status
+AWS_AUTHENTICATED=false
+
+if [[ "${aws_choice:-2}" == "1" ]]; then
+    echo -e "${CYAN}🚀 Running AWS ECR authentication...${NC}"
+    
+    # Check if AWS CLI is available
+    if command -v aws &> /dev/null; then
+        echo "Checking AWS credentials..."
+        if aws sts get-caller-identity &> /dev/null; then
+            echo -e "${GREEN}✅ AWS credentials found${NC}"
+            
+            # Attempt ECR login
+            echo "Attempting ECR authentication..."
+            if aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY" &> /dev/null; then
+                echo -e "${GREEN}✅ AWS ECR authentication successful${NC}"
+                AWS_AUTHENTICATED=true
+            else
+                echo -e "${YELLOW}⚠️  ECR authentication failed - continuing with fallback${NC}"
+            fi
+        else
+            echo -e "${YELLOW}⚠️  AWS credentials not configured${NC}"
+            echo "To set up AWS credentials:"
+            echo "  ${GREEN}aws configure${NC} (for access keys)"
+            echo "  ${GREEN}aws configure sso${NC} (for SSO)"
+            echo "  ${GREEN}aws sso login --profile <profile>${NC} (to login)"
+        fi
+    else
+        echo -e "${RED}❌ AWS CLI not found${NC}"
+        echo "Install AWS CLI: https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"
+    fi
+else
+    echo -e "${CYAN}⏭️  Skipping AWS authentication${NC}"
+fi
+
 echo
 
 # Function to build and validate Helm chart

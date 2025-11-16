@@ -41,9 +41,12 @@ cat > "$OUTPUT_FILE" << 'EOF'
 }
 EOF
 
-# Add timestamp
+# Add scan metadata
+TARGET_NAME=$(basename "${TARGET_DIR:-$(pwd)}")
+USERNAME=$(whoami)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-jq --arg ts "$TIMESTAMP" '.summary.scan_timestamp = $ts' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+SCAN_ID="${TARGET_NAME}_${USERNAME}_$(date '+%Y-%m-%d_%H-%M-%S')"
+jq --arg ts "$TIMESTAMP" --arg id "$SCAN_ID" '.summary.scan_timestamp = $ts | .summary.scan_id = $id' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
 
 TOTAL_CRITICAL=0
 TOTAL_HIGH=0

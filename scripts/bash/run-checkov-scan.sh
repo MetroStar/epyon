@@ -12,12 +12,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 HELM_OUTPUT_DIR="$REPORTS_ROOT/reports/helm-packages"
 OUTPUT_DIR="$REPORTS_ROOT/reports/checkov-reports"
-# Add timestamp for historical preservation
-TIMESTAMP_ID=$(date '+%Y-%m-%d_%H-%M-%S')
-RESULTS_FILE="$OUTPUT_DIR/checkov-results-$TIMESTAMP_ID.json"
+# Generate scan ID for this scan
+TARGET_NAME=$(basename "${TARGET_DIR:-$(pwd)}")
+USERNAME=$(whoami)
+TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
+SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
+RESULTS_FILE="$OUTPUT_DIR/${SCAN_ID}_checkov-results.json"
 CURRENT_FILE="$OUTPUT_DIR/checkov-results.json"
-SCAN_LOG="$OUTPUT_DIR/checkov-scan-$TIMESTAMP_ID.log"
-TIMESTAMP=$(date)
+SCAN_LOG="$OUTPUT_DIR/${SCAN_ID}_checkov-scan.log"
 
 # Colors for output
 RED='\033[0;31m'
@@ -37,6 +39,14 @@ echo "Chart Directory: $CHART_DIR"
 echo "Output Directory: $OUTPUT_DIR"
 echo "Timestamp: $TIMESTAMP"
 echo
+
+# Initialize authentication status
+AWS_AUTHENTICATED=false
+
+# Get AWS credentials from environment variables
+AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-}"
+AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-}"
+AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-us-gov-west-1}"
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
@@ -59,8 +69,72 @@ if command -v docker &> /dev/null; then
     # Scan for various IaC files
     echo -e "${BLUE}🔍 Scanning Infrastructure as Code files...${NC}"
     
-    # Run Checkov scan
+    # Check for AWS credentials and prompt if needed
+    if [[ -z "$AWS_ACCESS_KEY_ID" || -z "$AWS_SECRET_ACCESS_KEY" ]]; then
+        echo
+        echo -e "${YELLOW}🔐 AWS Credentials not found in environment variables${NC}"
+        echo "Checkov can perform enhanced security checks with AWS credentials."
+        echo
+        echo "Options:"
+        echo "  1) Continue without AWS integration (local scan only)"
+        echo "  2) Set up AWS SSO/CLI authentication"
+        echo "  3) Enter AWS credentials manually"
+        echo
+        read -p "Choose option [1-3] (default: 1): " aws_choice
+        
+        case "${aws_choice:-1}" in
+            2)
+                echo
+                echo -e "${CYAN}🔧 AWS SSO/CLI Setup Instructions:${NC}"
+                echo "1. Configure AWS CLI profile:"
+                echo "   ${GREEN}aws configure sso${NC}"
+                echo "2. Login to AWS SSO:"
+                echo "   ${GREEN}aws sso login --profile <your-profile>${NC}"
+                echo "3. Export credentials:"
+                echo "   ${GREEN}export AWS_PROFILE=<your-profile>${NC}"
+                echo "   ${GREEN}aws sts get-caller-identity${NC}"
+                echo
+                read -p "Press Enter after setting up AWS credentials..."
+                
+                # Re-check environment after user setup
+                AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-}"
+                AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-}"
+                if [[ -n "$AWS_PROFILE" ]]; then
+                    echo "✅ Using AWS Profile: $AWS_PROFILE"
+                fi
+                ;;
+            3)
+                echo
+                echo -e "${CYAN}📝 Manual AWS Credentials Entry:${NC}"
+                read -p "AWS Access Key ID: " AWS_ACCESS_KEY_ID
+                read -s -p "AWS Secret Access Key: " AWS_SECRET_ACCESS_KEY
+                echo
+                read -p "AWS Region (default: us-gov-west-1): " input_region
+                AWS_DEFAULT_REGION="${input_region:-us-gov-west-1}"
+                echo "✅ AWS credentials configured"
+                ;;
+            *)
+                echo "✅ Continuing with local scan only"
+                ;;
+        esac
+    else
+        echo "✅ Using AWS credentials from environment"
+    fi
+    
+    # Build Docker command with AWS credentials and profile support
+    AWS_MOUNT_ARGS=""
+    if [[ -d "$HOME/.aws" ]]; then
+        AWS_MOUNT_ARGS="-v $HOME/.aws:/root/.aws"
+        echo "✅ Mounting AWS credentials directory"
+    fi
+    
+    # Run Checkov scan with AWS credentials
     docker run --rm \
+        -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
+        -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
+        -e AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
+        -e AWS_PROFILE="$AWS_PROFILE" \
+        $AWS_MOUNT_ARGS \
         -v "$TARGET_SCAN_DIR:/workspace" \
         -v "$OUTPUT_DIR:/output" \
         bridgecrew/checkov:latest \

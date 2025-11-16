@@ -7,9 +7,12 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 OUTPUT_DIR="$REPORTS_ROOT/reports/clamav-reports"
-TIMESTAMP=$(date)
-SCAN_LOG="$OUTPUT_DIR/clamav-scan.log"
 REPO_PATH="${TARGET_DIR:-$(pwd)}"
+TARGET_NAME=$(basename "$REPO_PATH")
+USERNAME=$(whoami)
+TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
+SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
+SCAN_LOG="$OUTPUT_DIR/${SCAN_ID}_clamav-scan.log"
 
 # Colors for output
 RED='\033[0;31m'
@@ -68,11 +71,11 @@ else
     echo "Creating placeholder results..."
     
     # Create empty results
-    echo "ClamAV scan skipped - Docker not available" > "$OUTPUT_DIR/clamav-detailed-$TIMESTAMP_ID.log"
+    echo "ClamAV scan skipped - Docker not available" > "$OUTPUT_DIR/${SCAN_ID}_clamav-detailed.log"
     echo "No malware detected (scan not performed)" >> "$SCAN_LOG"
     
     # Create current symlink for consistency
-    ln -sf "clamav-detailed-$TIMESTAMP_ID.log" "$OUTPUT_DIR/clamav-detailed.log"
+    ln -sf "${SCAN_ID}_clamav-detailed.log" "$OUTPUT_DIR/clamav-detailed.log"
     SCAN_RESULT=0
 fi
 

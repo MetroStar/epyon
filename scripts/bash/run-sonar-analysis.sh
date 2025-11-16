@@ -8,6 +8,10 @@ REPO_PATH="${1:-${TARGET_DIR:-$(pwd)}}"
 # Set REPO_ROOT for report generation
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+TARGET_NAME=$(basename "$REPO_PATH")
+USERNAME=$(whoami)
+TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
+SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}""
 
 # Look for .env.sonar in multiple locations
 SONAR_ENV_FILES=(
@@ -166,7 +170,7 @@ if [ -z "$SONAR_TOKEN" ]; then
     echo "SonarQube analysis complete (skipped)."
     echo "============================================"
     
-    # Always exit successfully to continue pipeline
+    # Exit successfully to continue security pipeline
     exit 0
   fi
 fi

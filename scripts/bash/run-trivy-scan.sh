@@ -43,14 +43,10 @@ run_trivy_scan() {
         echo -e "${BLUE}🔍 Scanning ${scan_type}: ${target}${NC}"
         
         # Run trivy scan with Docker
-        docker run --rm -v "$PWD:/workspace" \
-            -v "$OUTPUT_DIR:/output" \
-            aquasec/trivy:latest \
-            $scan_type "$target" \
-            --format json \
-            --output "/output/$(basename "$output_file")" 2>&1 | tee -a "$SCAN_LOG"
-            
-        if [ $? -eq 0 ]; then
+            docker run --rm -v "$target:/workspace" \
+                aquasec/trivy:latest \
+                fs /workspace \
+                --format json 2>&1 | tee -a "$SCAN_LOG" > "$output_file"
             echo -e "${GREEN}✅ Scan completed: $output_file${NC}"
         else
             echo -e "${RED}❌ Scan failed for $target${NC}"

@@ -50,7 +50,7 @@ run_trufflehog_scan() {
         docker run --rm -v "$target:/workspace" \
             trufflesecurity/trufflehog:latest \
             filesystem /workspace \
-            --json > "$output_file" 2>> "$SCAN_LOG"
+            --json 2>&1 | tee -a "$SCAN_LOG" > "$output_file"
     else
         echo "⚠️  Docker not available - TruffleHog scan skipped"
         echo "[]" > "$output_file"

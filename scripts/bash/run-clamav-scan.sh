@@ -45,7 +45,7 @@ if command -v docker &> /dev/null; then
     
     # Pull ClamAV Docker image
     echo "📥 Pulling ClamAV Docker image..."
-    docker pull clamav/clamav:latest >> "$SCAN_LOG" 2>&1
+    docker pull clamav/clamav:latest 2>&1 | tee -a "$SCAN_LOG"
     
     # Run ClamAV scan
     echo -e "${BLUE}🔍 Scanning directory: $REPO_PATH${NC}"
@@ -56,7 +56,7 @@ if command -v docker &> /dev/null; then
         -v "$REPO_PATH:/workspace:ro" \
         -v "$OUTPUT_DIR:/output" \
         clamav/clamav:latest \
-        clamscan -r --log=/output/clamav-detailed-$TIMESTAMP_ID.log /workspace >> "$SCAN_LOG" 2>&1
+        clamscan -r --log=/output/clamav-detailed-$TIMESTAMP_ID.log /workspace 2>&1 | tee -a "$SCAN_LOG"
     
     SCAN_RESULT=$?
     

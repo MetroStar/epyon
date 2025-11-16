@@ -53,12 +53,12 @@ run_grype_scan() {
         # Generate SBOM first
         docker run --rm -v "$target:/workspace" \
             anchore/syft:latest \
-            /workspace -o json > "$sbom_file" 2>> "$SCAN_LOG"
+            /workspace -o json 2>&1 | tee -a "$SCAN_LOG" > "$sbom_file"
         
         # Run vulnerability scan
         docker run --rm -v "$sbom_file:/sbom.json" \
             anchore/grype:latest \
-            sbom:/sbom.json -o json > "$output_file" 2>> "$SCAN_LOG"
+            sbom:/sbom.json -o json 2>&1 | tee -a "$SCAN_LOG" > "$output_file"
     else
         echo "⚠️  Docker not available - Grype scan skipped"
         echo '{"matches": [], "ignoredMatches": []}' > "$output_file"

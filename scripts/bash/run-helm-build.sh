@@ -42,13 +42,16 @@ build_helm_chart() {
         echo -e "${BLUE}🏗️  Building Helm chart: $chart_name${NC}"
         
         # Lint the chart
+        echo "Linting chart: $chart_name"
         helm lint "$chart_path" 2>&1 | tee -a "$SCAN_LOG"
         
         # Template the chart
+        echo "Templating chart: $chart_name"
         helm template "$chart_name" "$chart_path" \
             --output-dir "$OUTPUT_DIR" 2>&1 | tee -a "$SCAN_LOG"
             
         # Package the chart
+        echo "Packaging chart: $chart_name"
         helm package "$chart_path" \
             --destination "$OUTPUT_DIR" 2>&1 | tee -a "$SCAN_LOG"
             

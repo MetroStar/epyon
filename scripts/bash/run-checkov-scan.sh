@@ -54,7 +54,7 @@ if command -v docker &> /dev/null; then
     
     # Pull Checkov Docker image
     echo "📥 Pulling Checkov Docker image..."
-    docker pull bridgecrew/checkov:latest >> "$SCAN_LOG" 2>&1
+    docker pull bridgecrew/checkov:latest 2>&1 | tee -a "$SCAN_LOG"
     
     # Scan for various IaC files
     echo -e "${BLUE}🔍 Scanning Infrastructure as Code files...${NC}"
@@ -67,7 +67,7 @@ if command -v docker &> /dev/null; then
         --directory /workspace \
         --output json \
         --output-file /output/checkov-results.json \
-        --quiet >> "$SCAN_LOG" 2>&1
+        2>&1 | tee -a "$SCAN_LOG"
     
     SCAN_RESULT=$?
     
@@ -118,12 +118,11 @@ if [ -f "$RESULTS_FILE" ]; then
             echo "Review detailed results for specific recommendations"
         else
             echo
+            echo -e "${GREEN}🎉 No security issues detected!${NC}"
         fi
         
         # Create/update current symlink for easy access
         ln -sf "$(basename "$RESULTS_FILE")" "$CURRENT_FILE"
-            echo -e "${GREEN}🎉 No security issues detected!${NC}"
-        fi
     else
         echo "Basic scan completed - install 'jq' for detailed summary"
     fi

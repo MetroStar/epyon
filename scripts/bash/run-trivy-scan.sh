@@ -16,7 +16,7 @@ NC='\033[0m' # No Color
 
 # Set up paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR)")/reports"
+REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")/reports"
 OUTPUT_DIR="$REPORTS_ROOT/trivy-reports"
 
 # Add timestamp for historical preservation
@@ -43,13 +43,22 @@ run_trivy_scan() {
         echo -e "${BLUE}🔍 Scanning ${scan_type}: ${target}${NC}"
         
         # Run trivy scan with Docker
+        if command -v docker &> /dev/null; then
             docker run --rm -v "$target:/workspace" \
                 aquasec/trivy:latest \
                 fs /workspace \
                 --format json 2>&1 | tee -a "$SCAN_LOG" > "$output_file"
-            echo -e "${GREEN}✅ Scan completed: $output_file${NC}"
+            
+            if [ $? -eq 0 ]; then
+                echo -e "${GREEN}✅ Scan completed: $output_file${NC}"
+                # Create/update current symlink for easy access
+                ln -sf "$(basename "$output_file")" "$current_file"
+            else
+                echo -e "${RED}❌ Scan failed for $target${NC}"
+            fi
         else
-            echo -e "${RED}❌ Scan failed for $target${NC}"
+            echo -e "${RED}❌ Docker not available - Trivy scan skipped${NC}"
+            echo '{"Results": []}' > "$output_file"
         fi
         echo
     fi

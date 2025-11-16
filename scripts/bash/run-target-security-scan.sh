@@ -242,7 +242,7 @@ echo ""
 
 echo -e "${CYAN}📁 Generated Reports:${NC}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR)")"
+REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 find "$REPORTS_ROOT/reports" -name "*-reports" -type d 2>/dev/null | sort | while read -r dir; do
     if [[ -d "$dir" ]]; then
         report_count=$(find "$dir" -name "*.json" -o -name "*.html" -o -name "*.xml" | wc -l)

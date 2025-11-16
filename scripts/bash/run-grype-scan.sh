@@ -7,7 +7,7 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 OUTPUT_DIR="$REPORTS_ROOT/reports/grype-reports"
-REPO_PATH="${TARGET_DIR:-$(pwd)}"
+REPO_PATH="${1:-${TARGET_DIR:-$(pwd)}}"
 TARGET_NAME=$(basename "$REPO_PATH")
 USERNAME=$(whoami)
 TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')

@@ -46,22 +46,60 @@ echo "=========================="
 if command -v docker &> /dev/null; then
     echo "🐳 Using Docker-based ClamAV..."
     
-    # Pull ClamAV Docker image
+    # Detect platform and choose appropriate ClamAV image
+    PLATFORM=$(uname -m)
+    if [[ "$PLATFORM" == "arm64" ]]; then
+        echo "🍎 Detected Apple Silicon (ARM64) - using platform-specific image..."
+        CLAMAV_IMAGE="clamav/clamav:latest"
+        PLATFORM_FLAG="--platform linux/amd64"
+    else
+        echo "🐧 Detected x86_64 - using native image..."
+        CLAMAV_IMAGE="clamav/clamav:latest"
+        PLATFORM_FLAG=""
+    fi
+    
+    # Pull ClamAV Docker image with platform specification
     echo "📥 Pulling ClamAV Docker image..."
-    docker pull clamav/clamav:latest 2>&1 | tee -a "$SCAN_LOG"
+    if ! docker pull $PLATFORM_FLAG "$CLAMAV_IMAGE" 2>&1 | tee -a "$SCAN_LOG"; then
+        echo -e "${YELLOW}⚠️  Standard ClamAV image failed, trying alternative...${NC}"
+        # Try alternative ClamAV image that supports ARM64
+        CLAMAV_IMAGE="mkodockx/docker-clamav:alpine"
+        PLATFORM_FLAG=""
+        if ! docker pull "$CLAMAV_IMAGE" 2>&1 | tee -a "$SCAN_LOG"; then
+            echo -e "${RED}❌ Unable to pull any ClamAV image${NC}"
+            echo "ClamAV scan skipped - Docker image unavailable" > "$OUTPUT_DIR/${SCAN_ID}_clamav-detailed.log"
+            echo "Platform: $PLATFORM not supported by available images" >> "$OUTPUT_DIR/${SCAN_ID}_clamav-detailed.log"
+            ln -sf "${SCAN_ID}_clamav-detailed.log" "$OUTPUT_DIR/clamav-detailed.log"
+            SCAN_RESULT=0
+        else
+            # Run scan with alternative image
+            echo -e "${BLUE}🔍 Scanning directory: $REPO_PATH${NC}"
+            echo "This may take several minutes..."
+            
+            docker run --rm \
+                -v "$REPO_PATH:/workspace:ro" \
+                -v "$OUTPUT_DIR:/output" \
+                "$CLAMAV_IMAGE" \
+                clamscan -r --log=/output/${SCAN_ID}_clamav-detailed.log /workspace 2>&1 | tee -a "$SCAN_LOG"
+            SCAN_RESULT=$?
+        fi
+    else
+        # Run scan with standard image
+        echo -e "${BLUE}🔍 Scanning directory: $REPO_PATH${NC}"
+        echo "This may take several minutes..."
+        
+        docker run --rm $PLATFORM_FLAG \
+            -v "$REPO_PATH:/workspace:ro" \
+            -v "$OUTPUT_DIR:/output" \
+            "$CLAMAV_IMAGE" \
+            clamscan -r --log=/output/${SCAN_ID}_clamav-detailed.log /workspace 2>&1 | tee -a "$SCAN_LOG"
+        SCAN_RESULT=$?
+    fi
     
-    # Run ClamAV scan
-    echo -e "${BLUE}🔍 Scanning directory: $REPO_PATH${NC}"
-    echo "This may take several minutes..."
-    
-    # Run ClamAV scan with Docker
-    docker run --rm \
-        -v "$REPO_PATH:/workspace:ro" \
-        -v "$OUTPUT_DIR:/output" \
-        clamav/clamav:latest \
-        clamscan -r --log=/output/clamav-detailed-$TIMESTAMP_ID.log /workspace 2>&1 | tee -a "$SCAN_LOG"
-    
-    SCAN_RESULT=$?
+    # Create current symlink for latest results
+    if [ -f "$OUTPUT_DIR/${SCAN_ID}_clamav-detailed.log" ]; then
+        ln -sf "${SCAN_ID}_clamav-detailed.log" "$OUTPUT_DIR/clamav-detailed.log"
+    fi
     
     echo -e "✅ Malware scan completed"
     

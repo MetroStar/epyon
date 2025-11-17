@@ -16,8 +16,8 @@ NC='\033[0m' # No Color
 
 # Set up paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")/reports"
-OUTPUT_DIR="$REPORTS_ROOT/helm-reports"
+REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
+OUTPUT_DIR="$REPORTS_ROOT/reports/helm-reports"
 REPO_PATH="${TARGET_DIR:-$(pwd)}"
 
 # Create unique scan ID for this scan run

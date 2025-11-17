@@ -19,8 +19,8 @@ REPO_PATH="${1:-${TARGET_DIR:-$(pwd)}}"
 
 # Set REPO_ROOT for report generation
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-OUTPUT_DIR="$REPO_ROOT/reports/trivy-reports"
+REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
+OUTPUT_DIR="$REPORTS_ROOT/reports/trivy-reports"
 
 # Create unique scan ID for this scan run
 TARGET_NAME=$(basename "$REPO_PATH")

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Target-Aware Complete Security Scan Orchestration Script
-# Runs all eight security layers with multi-target scanning capabilities on external directories
+# Runs all ten security layers with multi-target scanning capabilities on external directories
 # Usage: ./run-target-security-scan.sh <target_directory> [quick|full|images|analysis]
 
 # Note: set -e removed to allow graceful error handling in security pipeline
@@ -46,7 +46,7 @@ fi
 TARGET_DIR=$(realpath "$TARGET_DIR" 2>/dev/null || (cd "$TARGET_DIR" && pwd))
 
 echo "============================================"
-echo "🛡️  Target-Aware Security Scan Orchestrator"
+echo "🛡️  Ten-Layer Security Scan Orchestrator"
 echo "============================================"
 echo "Security Tools Dir: $REPO_ROOT"
 echo "Target Directory: $TARGET_DIR"
@@ -151,6 +151,7 @@ case "$SCAN_TYPE" in
         
         # Core security tools - filesystem only
         run_security_tool "TruffleHog Secret Detection" "$SCRIPT_DIR/run-trufflehog-scan.sh" "filesystem"
+        run_security_tool "SBOM Generation" "$SCRIPT_DIR/run-sbom-scan.sh"
         run_security_tool "Grype Vulnerability Scanning" "$SCRIPT_DIR/run-grype-scan.sh" "filesystem"
         run_security_tool "Trivy Security Analysis" "$SCRIPT_DIR/run-trivy-scan.sh" "filesystem"
         run_security_tool "ClamAV Antivirus Scan" "$SCRIPT_DIR/run-clamav-scan.sh"
@@ -181,42 +182,45 @@ case "$SCAN_TYPE" in
         ;;
         
     "full")
-        print_section "Complete Eight-Layer Security Architecture Scan - Target: $(basename "$TARGET_DIR")"
+        print_section "Complete Ten-Layer Security Architecture Scan - Target: $(basename "$TARGET_DIR")"
         
         echo -e "${PURPLE}🔐 Layer 1: Secret Detection (Multi-Target)${NC}"
         run_security_tool "TruffleHog Filesystem" "$SCRIPT_DIR/run-trufflehog-scan.sh" "filesystem"
         run_security_tool "TruffleHog Container Images" "$SCRIPT_DIR/run-trufflehog-scan.sh" "images"
         
-        echo -e "${PURPLE}🦠 Layer 2: Malware Detection${NC}"
+        echo -e "${PURPLE}📋 Layer 2: Software Bill of Materials (SBOM)${NC}"
+        run_security_tool "SBOM Generation" "$SCRIPT_DIR/run-sbom-scan.sh"
+        
+        # Run SonarQube for all projects (not just Node.js)
+        echo -e "${PURPLE}📊 Layer 3: Code Quality Analysis${NC}"
+        run_security_tool "SonarQube Analysis" "$SCRIPT_DIR/run-sonar-analysis.sh"
+        
+        echo -e "${PURPLE}🦠 Layer 4: Malware Detection${NC}"
         run_security_tool "ClamAV Antivirus Scan" "$SCRIPT_DIR/run-clamav-scan.sh"
         
-        echo -e "${PURPLE}☸️  Layer 3: Infrastructure Security${NC}"
+        # Run Helm build for all projects (not just with Chart.yaml)
+        echo -e "${PURPLE}🏗️  Layer 5: Helm Chart Building${NC}"
+        run_security_tool "Helm Chart Build" "$SCRIPT_DIR/run-helm-build.sh"
+        
+        echo -e "${PURPLE}☸️  Layer 6: Infrastructure Security${NC}"
         run_security_tool "Checkov IaC Security" "$SCRIPT_DIR/run-checkov-scan.sh"
         
-        echo -e "${PURPLE}🔍 Layer 4: Vulnerability Detection (Multi-Target)${NC}"
-        run_security_tool "Grype Filesystem" "$SCRIPT_DIR/run-grype-scan.sh" "filesystem"
-        run_security_tool "Grype Container Images" "$SCRIPT_DIR/run-grype-scan.sh" "images"
-        run_security_tool "Grype Base Images" "$SCRIPT_DIR/run-grype-scan.sh" "base"
-        
-        echo -e "${PURPLE}🛡️  Layer 5: Container Security (Multi-Target)${NC}"
+        echo -e "${PURPLE}🛡️  Layer 7: Container Security (Multi-Target)${NC}"
         run_security_tool "Trivy Filesystem" "$SCRIPT_DIR/run-trivy-scan.sh" "filesystem"
         run_security_tool "Trivy Container Images" "$SCRIPT_DIR/run-trivy-scan.sh" "images"
         run_security_tool "Trivy Base Images" "$SCRIPT_DIR/run-trivy-scan.sh" "base"
         run_security_tool "Trivy Kubernetes" "$SCRIPT_DIR/run-trivy-scan.sh" "kubernetes"
         
-        echo -e "${PURPLE}⚰️  Layer 6: End-of-Life Detection${NC}"
+        echo -e "${PURPLE}⚓ Layer 8: Anchore Security Analysis${NC}"
+        run_security_tool "Anchore Security Scan" "$SCRIPT_DIR/run-anchore-scan.sh"
+        
+        echo -e "${PURPLE}⚰️  Layer 9: End-of-Life Detection${NC}"
         run_security_tool "Xeol EOL Detection" "$SCRIPT_DIR/run-xeol-scan.sh"
         
-        # Optional layers if specific files/configs exist
-        if [[ -f "$TARGET_DIR/package.json" ]]; then
-            echo -e "${PURPLE}📊 Layer 7: Code Quality Analysis (Node.js)${NC}"
-            run_security_tool "SonarQube Analysis" "$SCRIPT_DIR/run-sonar-analysis.sh"
-        fi
-        
-        if [[ -f "$TARGET_DIR/Chart.yaml" ]] || [[ -d "$TARGET_DIR/chart" ]] || [[ -d "$TARGET_DIR/charts" ]]; then
-            echo -e "${PURPLE}🏗️  Layer 8: Helm Chart Building${NC}"
-            run_security_tool "Helm Chart Build" "$SCRIPT_DIR/run-helm-build.sh"
-        fi
+        echo -e "${PURPLE}🔍 Layer 10: Vulnerability Detection (Multi-Target)${NC}"
+        run_security_tool "Grype Filesystem" "$SCRIPT_DIR/run-grype-scan.sh" "filesystem"
+        run_security_tool "Grype Container Images" "$SCRIPT_DIR/run-grype-scan.sh" "images"
+        run_security_tool "Grype Base Images" "$SCRIPT_DIR/run-grype-scan.sh" "base"
         ;;
         
     *)

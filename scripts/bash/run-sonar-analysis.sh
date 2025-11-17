@@ -7,11 +7,11 @@
 REPO_PATH="${1:-${TARGET_DIR:-$(pwd)}}"
 # Set REPO_ROOT for report generation
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+REPO_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 TARGET_NAME=$(basename "$REPO_PATH")
 USERNAME=$(whoami)
 TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
-SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}""
+SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
 
 # Look for .env.sonar in multiple locations
 SONAR_ENV_FILES=(
@@ -20,12 +20,12 @@ SONAR_ENV_FILES=(
   "$HOME/.env.sonar"
 )
 
-echo "🔍 Searching for SonarQube configuration..."
+echo "[SEARCH] Searching for SonarQube configuration..."
 SONAR_CONFIG_FOUND=false
 
 for env_file in "${SONAR_ENV_FILES[@]}"; do
   if [ -f "$env_file" ]; then
-    echo "✅ Found SonarQube config: $env_file"
+    echo "[OK] Found SonarQube config: $env_file"
     echo "Loading environment variables from $env_file..."
     source "$env_file"
     SONAR_CONFIG_FOUND=true
@@ -34,7 +34,7 @@ for env_file in "${SONAR_ENV_FILES[@]}"; do
 done
 
 if [ "$SONAR_CONFIG_FOUND" = false ]; then
-  echo "⚠️  No .env.sonar file found in:"
+  echo "[WARNING] No .env.sonar file found in:"
   for env_file in "${SONAR_ENV_FILES[@]}"; do
     echo "   - $env_file"
   done
@@ -53,11 +53,11 @@ SONAR_PROPERTIES_FILES=(
 PROJECT_KEY=""
 for props_file in "${SONAR_PROPERTIES_FILES[@]}"; do
   if [ -f "$props_file" ]; then
-    echo "✅ Found SonarQube properties: $(basename "$props_file")"
+    echo "[OK] Found SonarQube properties: $(basename "$props_file")"
     # Extract project key from properties file
     PROJECT_KEY=$(grep -E "^sonar\.projectKey\s*=" "$props_file" | cut -d'=' -f2 | tr -d ' ' | tr -d '\n' 2>/dev/null)
     if [ -n "$PROJECT_KEY" ]; then
-      echo "📊 Using project key from properties: $PROJECT_KEY"
+      echo "[INFO] Using project key from properties: $PROJECT_KEY"
       break
     fi
   fi
@@ -66,15 +66,15 @@ done
 # Fallback to environment variable if no properties file found
 if [ -z "$PROJECT_KEY" ]; then
   PROJECT_KEY="${SONAR_PROJECT_KEY:-tenant-metrostar-advana-marketplace}"
-  echo "📊 Using project key from environment/default: $PROJECT_KEY"
+  echo "[INFO] Using project key from environment/default: $PROJECT_KEY"
 fi
 
 # Check if token is set and provide graceful handling
 if [ -z "$SONAR_TOKEN" ]; then
   echo "============================================"
-  echo "⚠️  SonarQube Analysis - Authentication Required"
+  echo "WARNING: SonarQube Analysis - Authentication Required"
   echo "============================================"
-  echo "🔐 SonarQube requires authentication for code quality analysis"
+  echo "SonarQube requires authentication for code quality analysis"
   echo ""
   echo "Options:"
   echo "  1) Set up SonarQube token (for complete analysis)"
@@ -85,8 +85,8 @@ if [ -z "$SONAR_TOKEN" ]; then
   
   if [ "$SONAR_CHOICE" = "1" ]; then
     echo ""
-    echo "� SonarQube Authentication Setup"
-    echo "================================="
+    echo "SonarQube Authentication Setup"
+    echo "==============================="
     echo ""
     echo "Options:"
     echo "  1) Provide credentials now (temporary for this scan)"
@@ -97,7 +97,7 @@ if [ -z "$SONAR_TOKEN" ]; then
     
     if [ "$AUTH_CHOICE" = "1" ]; then
       echo ""
-      echo "🔑 Enter SonarQube credentials:"
+      echo "[AUTH] Enter SonarQube credentials:"
       read -p "SonarQube Host URL (default: https://sonarqube.cdao.us): " INPUT_HOST_URL
       SONAR_HOST_URL="${INPUT_HOST_URL:-https://sonarqube.cdao.us}"
       
@@ -111,13 +111,13 @@ if [ -z "$SONAR_TOKEN" ]; then
         echo "💡 Continuing with security pipeline without code quality analysis"
         echo ""
         echo "============================================"
-        echo "✅ SonarQube analysis skipped successfully!"
+        echo "[OK] SonarQube analysis skipped successfully!"
         echo "============================================"
         exit 0
       fi
       
       echo ""
-      echo "✅ Credentials provided - proceeding with SonarQube analysis"
+      echo "[OK] Credentials provided - proceeding with SonarQube analysis"
       
     elif [ "$AUTH_CHOICE" = "2" ]; then
       echo ""
@@ -143,22 +143,22 @@ if [ -z "$SONAR_TOKEN" ]; then
     fi
   else
     echo ""
-    echo "⏭️  Skipping SonarQube analysis - continuing security pipeline"
+    echo "[SKIP] Skipping SonarQube analysis - continuing security pipeline"
     echo "💡 Note: Code quality analysis will be limited without SonarQube"
     echo ""
     echo "============================================"
-    echo "✅ SonarQube analysis skipped successfully!"
+    echo "[OK] SonarQube analysis skipped successfully!"
     echo "============================================"
     echo ""
-    echo "📊 Fallback Code Quality Summary:"
+    echo "[INFO] Fallback Code Quality Summary:"
     echo "=================================="
-    echo "⚠️  SonarQube analysis skipped - no quality metrics available"
-    echo "✅ Security pipeline continues with other layers"
+    echo "[WARNING]  SonarQube analysis skipped - no quality metrics available"
+    echo "[OK] Security pipeline continues with other layers"
     echo "💡 For complete analysis, configure SonarQube authentication"
     echo ""
     echo "📁 Output Files:"
     echo "================"
-    echo "ℹ️  No SonarQube reports generated (authentication required)"
+    echo "[INFO] No SonarQube reports generated (authentication required)"
     echo ""
     echo "🔗 Related Commands:"
     echo "===================="
@@ -182,7 +182,7 @@ echo "Target directory: $REPO_PATH"
 
 # Check if this is a Node.js project with frontend
 if [ -d "$REPO_PATH/frontend" ] && [ -f "$REPO_PATH/frontend/package.json" ]; then
-  echo "✅ Frontend directory found - running tests with coverage"
+  echo "[OK] Frontend directory found - running tests with coverage"
   
   # Create a temporary file to capture test output
   TEST_OUTPUT_FILE=$(mktemp)
@@ -196,16 +196,16 @@ if [ -d "$REPO_PATH/frontend" ] && [ -f "$REPO_PATH/frontend/package.json" ]; th
   
   # Try to parse test results if JSON output exists
   if [ -f "$TEST_OUTPUT_FILE" ] && grep -q "testResults\|numTotalTests" "$TEST_OUTPUT_FILE" 2>/dev/null; then
-    echo "✅ Test results captured for analysis"
+    echo "[OK] Test results captured for analysis"
   else
-    echo "⚠️  Test output format not recognized - will use basic detection"
+    echo "[WARNING]  Test output format not recognized - will use basic detection"
   fi
   
   if [ $test_exit_code -ne 0 ]; then
-    echo "⚠️  Some tests failed, but continuing with SonarQube analysis..."
+    echo "[WARNING]  Some tests failed, but continuing with SonarQube analysis..."
     echo "💡 Note: Fix test failures for complete analysis"
   else
-    echo "✅ All tests passed successfully"
+    echo "[OK] All tests passed successfully"
   fi
   
   # Save test output location for later parsing
@@ -214,13 +214,13 @@ if [ -d "$REPO_PATH/frontend" ] && [ -f "$REPO_PATH/frontend/package.json" ]; th
   cd - > /dev/null
   SOURCES_PATH="$REPO_PATH/frontend/src"
 elif [ -d "$REPO_PATH/src" ]; then
-  echo "✅ Source directory found - using src/ for analysis"
+  echo "[OK] Source directory found - using src/ for analysis"
   SOURCES_PATH="$REPO_PATH/src"
 elif [ -f "$REPO_PATH/package.json" ]; then
-  echo "✅ Node.js project detected - using project root for analysis"
+  echo "[OK] Node.js project detected - using project root for analysis"
   SOURCES_PATH="$REPO_PATH"
 else
-  echo "⚠️  No standard project structure found - using target directory"
+  echo "[WARNING]  No standard project structure found - using target directory"
   SOURCES_PATH="$REPO_PATH"
 fi
 
@@ -251,7 +251,7 @@ echo "============================================"
 mkdir -p "$REPO_ROOT/reports/sonar-reports"
 
 # Extract actual test results from the run and create JSON report
-echo "🔍 Extracting real test results..."
+echo "[SEARCH] Extracting real test results..."
 
 # Initialize variables for actual test data
 TOTAL_TESTS=0
@@ -271,7 +271,7 @@ if [ -d "$REPO_PATH/frontend" ]; then
   LCOV_FILE="$REPO_PATH/frontend/coverage/lcov.info"
   
   if [ -f "$LCOV_FILE" ]; then
-    echo "✅ Found LCOV coverage data: lcov.info"
+    echo "[OK] Found LCOV coverage data: lcov.info"
     
     # Parse LCOV format (Lines Found/Lines Hit)
     TOTAL_LINES=$(grep "^LF:" "$LCOV_FILE" | cut -d: -f2 | awk '{sum += $1} END {print sum+0}')
@@ -297,7 +297,7 @@ if [ -d "$REPO_PATH/frontend" ]; then
         # SonarQube-style coverage: covered lines from LCOV / estimated total coverable lines
         SONAR_STYLE_COVERAGE=$(echo "scale=2; $COVERED_LINES * 100 / $ESTIMATED_COVERABLE_LINES" | bc 2>/dev/null || echo "N/A")
         
-        echo "📊 LCOV-only coverage: $COVERED_LINES/$TOTAL_LINES lines = $(echo "scale=2; $COVERED_LINES * 100 / $TOTAL_LINES" | bc)% (executed files only)"
+        echo "[INFO] LCOV-only coverage: $COVERED_LINES/$TOTAL_LINES lines = $(echo "scale=2; $COVERED_LINES * 100 / $TOTAL_LINES" | bc)% (executed files only)"
         echo "🎯 SonarQube-style coverage: $COVERED_LINES/$ESTIMATED_COVERABLE_LINES lines = ${SONAR_STYLE_COVERAGE}% (all project files)"
         echo "📁 Coverage scope: $FILES_IN_LCOV/$TOTAL_SOURCE_FILES files have coverage data"
         echo "📏 Total source lines: $ALL_SOURCE_LINES (estimated coverable: $ESTIMATED_COVERABLE_LINES)"
@@ -308,7 +308,7 @@ if [ -d "$REPO_PATH/frontend" ]; then
       else
         # Fallback to LCOV-only calculation
         COVERAGE_PERCENT=$(echo "scale=2; $COVERED_LINES * 100 / $TOTAL_LINES" | bc 2>/dev/null || echo "N/A")
-        echo "📊 LCOV coverage calculation: $COVERED_LINES/$TOTAL_LINES lines = ${COVERAGE_PERCENT}%"
+        echo "[INFO] LCOV coverage calculation: $COVERED_LINES/$TOTAL_LINES lines = ${COVERAGE_PERCENT}%"
       fi
       ANALYSIS_STATUS="SUCCESS"
     fi
@@ -316,7 +316,7 @@ if [ -d "$REPO_PATH/frontend" ]; then
   
   # Fallback to JSON coverage files if LCOV not available
   if [ "$COVERAGE_PERCENT" = "N/A" ]; then
-    echo "⚠️  LCOV file not found, trying JSON coverage files..."
+    echo "[WARNING]  LCOV file not found, trying JSON coverage files..."
     COVERAGE_FILES=(
       "$REPO_PATH/frontend/coverage/coverage-summary.json"
       "$REPO_PATH/frontend/coverage/coverage-final.json"
@@ -324,7 +324,7 @@ if [ -d "$REPO_PATH/frontend" ]; then
     
     for coverage_file in "${COVERAGE_FILES[@]}"; do
       if [ -f "$coverage_file" ]; then
-        echo "✅ Found coverage data: $(basename "$coverage_file")"
+        echo "[OK] Found coverage data: $(basename "$coverage_file")"
         COVERAGE_DATA=$(cat "$coverage_file" 2>/dev/null)
         if [ $? -eq 0 ] && [ "$COVERAGE_DATA" != "" ]; then
           # Try different JSON structures
@@ -338,12 +338,12 @@ if [ -d "$REPO_PATH/frontend" ]; then
             
             if [ "$TOTAL_LINES" -gt 0 ] && [ "$COVERED_LINES" -ge 0 ]; then
               COVERAGE_PERCENT=$(echo "scale=2; $COVERED_LINES * 100 / $TOTAL_LINES" | bc 2>/dev/null || echo "N/A")
-              echo "📊 Calculated coverage from JSON: ${COVERAGE_PERCENT}% (fallback method)"
+              echo "[INFO] Calculated coverage from JSON: ${COVERAGE_PERCENT}% (fallback method)"
             fi
           fi
           
           if [ "$COVERAGE_PERCENT" != "N/A" ] && [ "$COVERAGE_PERCENT" != "null" ]; then
-            echo "📊 Extracted coverage: ${COVERAGE_PERCENT}%"
+            echo "[INFO] Extracted coverage: ${COVERAGE_PERCENT}%"
             ANALYSIS_STATUS="SUCCESS"
             break
           fi
@@ -354,7 +354,7 @@ if [ -d "$REPO_PATH/frontend" ]; then
   
   # Parse captured test output if available
   if [ -n "$TEST_RESULTS_FILE" ] && [ -f "$TEST_RESULTS_FILE" ]; then
-    echo "✅ Parsing captured test output..."
+    echo "[OK] Parsing captured test output..."
     
     # Try to parse Vitest JSON output first
     if grep -q "testResults\|numTotalTests" "$TEST_RESULTS_FILE" 2>/dev/null; then
@@ -365,7 +365,7 @@ if [ -d "$REPO_PATH/frontend" ]; then
       SKIPPED_TESTS=$(jq -r '.numPendingTests // 0' "$TEST_RESULTS_FILE" 2>/dev/null | tr -d '\n' || echo "0")
       
       if [ "$TOTAL_TESTS" -gt 0 ]; then
-        echo "📊 Extracted test counts from JSON: $TOTAL_TESTS total, $PASSED_TESTS passed, $FAILED_TESTS failed, $SKIPPED_TESTS skipped"
+        echo "[INFO] Extracted test counts from JSON: $TOTAL_TESTS total, $PASSED_TESTS passed, $FAILED_TESTS failed, $SKIPPED_TESTS skipped"
         ANALYSIS_STATUS="SUCCESS"
       fi
     # Fallback to text parsing
@@ -381,11 +381,11 @@ if [ -d "$REPO_PATH/frontend" ]; then
       TOTAL_TESTS=$((PASSED_TESTS + FAILED_TESTS + SKIPPED_TESTS))
       
       if [ "$TOTAL_TESTS" -gt 0 ]; then
-        echo "📊 Extracted test counts from text: $TOTAL_TESTS total, $PASSED_TESTS passed, $FAILED_TESTS failed"
+        echo "[INFO] Extracted test counts from text: $TOTAL_TESTS total, $PASSED_TESTS passed, $FAILED_TESTS failed"
         ANALYSIS_STATUS="SUCCESS"
       fi
     else
-      echo "⚠️  Test output format not recognized - checking for test file count"
+      echo "[WARNING]  Test output format not recognized - checking for test file count"
       # Count actual test files as backup
       TEST_FILE_COUNT=$(find "$REPO_PATH" -name "*.test.*" -o -name "*.spec.*" | wc -l | tr -d ' ')
       if [ "$TEST_FILE_COUNT" -gt 0 ]; then
@@ -400,7 +400,7 @@ if [ -d "$REPO_PATH/frontend" ]; then
   
   # Look for standard test results files
   if [ -f "$REPO_PATH/frontend/test-results.json" ]; then
-    echo "✅ Found test results JSON file"
+    echo "[OK] Found test results JSON file"
     TEST_DATA=$(cat "$REPO_PATH/frontend/test-results.json" 2>/dev/null)
     if [ $? -eq 0 ] && [ "$TEST_DATA" != "" ]; then
       TOTAL_TESTS=$(echo "$TEST_DATA" | jq -r '.numTotalTests // 0' 2>/dev/null)
@@ -421,7 +421,7 @@ fi
 
 # If no real data found, try to get basic info from package.json
 if [ "$TOTAL_TESTS" -eq 0 ] && [ -f "$REPO_PATH/package.json" ]; then
-  echo "⚠️  No test results found - using project detection"
+  echo "[WARNING]  No test results found - using project detection"
   if grep -q "vitest\|jest\|mocha" "$REPO_PATH/package.json" 2>/dev/null; then
     ANALYSIS_STATUS="CONFIGURED"
   else
@@ -430,7 +430,7 @@ if [ "$TOTAL_TESTS" -eq 0 ] && [ -f "$REPO_PATH/package.json" ]; then
 elif [ "$TOTAL_TESTS" -eq 0 ]; then
   # Special handling for security tools repository
   if [[ "$REPO_PATH" == *"security-architecture"* ]] || [[ -f "$REPO_PATH/scripts/run-sonar-analysis.sh" ]]; then
-    echo "ℹ️  Security tools repository detected - this is expected to have no frontend tests"
+    echo "[INFO]  Security tools repository detected - this is expected to have no frontend tests"
     ANALYSIS_STATUS="SECURITY_TOOLS_REPO"
     COVERAGE_PERCENT="N/A (Security Tools)"
   else
@@ -473,9 +473,9 @@ cat > "$REPO_ROOT/reports/sonar-reports/sonar-analysis-results.json" << EOL
 }
 EOL
 
-echo "✅ Local test results saved to: $REPO_ROOT/reports/sonar-reports/sonar-analysis-results.json"
+echo "[OK] Local test results saved to: $REPO_ROOT/reports/sonar-reports/sonar-analysis-results.json"
 echo ""
-echo "📊 Test Summary:"
+echo "[INFO] Test Summary:"
 echo "=================="
 echo "• Total Tests: $TOTAL_TESTS"
 echo "• Passed: $PASSED_TESTS"

@@ -1,6 +1,14 @@
 # Grype Multi-Target Vulnerability Scanner
 # Advanced container image and filesystem vulnerability scanning with SBOM generation
 
+param(
+    [Parameter(Position=0)]
+    [ValidateSet("filesystem", "images", "base", "all")]
+    [string]$ScanMode = "all"
+)
+
+$ErrorActionPreference = "Continue"
+
 # Initialize scan environment using scan directory approach
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
@@ -25,14 +33,6 @@ else {
     $TIMESTAMP = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $SCAN_ID = "${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
 }
-
-param(
-    [Parameter(Position=0)]
-    [ValidateSet("filesystem", "images", "base", "all")]
-    [string]$ScanMode = "all"
-)
-
-$ErrorActionPreference = "Continue"
 
 # Configuration
 # $OUTPUT_DIR set by Initialize-ScanEnvironment

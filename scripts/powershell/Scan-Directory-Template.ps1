@@ -194,8 +194,7 @@ function Complete-ScanResults {
     }
 }
 
-# Export functions
-Export-ModuleMember -Function Initialize-ScanEnvironment, New-ResultFilePath, New-CurrentLinks, Complete-ScanResults
+# Functions are available when dot-sourced (Export-ModuleMember only needed for .psm1 modules)
 
 # If run directly, show usage
 if ($MyInvocation.InvocationName -ne '.') {

@@ -1,6 +1,13 @@
 # Checkov Infrastructure-as-Code Security Scan Script - PowerShell Version
 # Scans Helm charts and Kubernetes manifests for security best practices
 
+param(
+    [Parameter(Position=0)]
+    [string]$Mode = "default"
+)
+
+$ErrorActionPreference = "Continue"
+
 # Initialize scan environment using scan directory approach
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
@@ -25,13 +32,6 @@ else {
     $TIMESTAMP = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $SCAN_ID = "${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
 }
-
-param(
-    [Parameter(Position=0)]
-    [string]$Mode = "default"
-)
-
-$ErrorActionPreference = "Continue"
 
 # Configuration - Support target directory override
 $TargetScanDir = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }

@@ -1,3 +1,0 @@
-date,total_scans,unique_users,tools_used,total_findings,critical_findings,high_findings,medium_findings,low_findings
-"2025-11-13","1","rnelson","example-audited-checkov.sh","0","0","0","0","0"
-"2025-11-13","1","rnelson","example-audited-checkov.sh","23","0","0","0","23"

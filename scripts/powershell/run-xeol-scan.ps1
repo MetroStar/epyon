@@ -1,5 +1,13 @@
 # PowerShell conversion of run-xeol-scan.sh
 # Type: Scanner | Priority: High
+# Auto-generated template - requires full implementation
+
+param(
+    [Parameter(Position=0)]
+    [string]$Mode = "default"
+)
+
+$ErrorActionPreference = "Continue"
 
 # Initialize scan environment using scan directory approach
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -25,14 +33,6 @@ else {
     $TIMESTAMP = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
     $SCAN_ID = "${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
 }
-# Auto-generated template - requires full implementation
-
-param(
-    [Parameter(Position=0)]
-    [string]$Mode = "default"
-)
-
-$ErrorActionPreference = "Continue"
 
 # Configuration
 $ScriptName = "run-xeol-scan"

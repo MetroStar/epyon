@@ -1,3 +1,0 @@
-date,user_id,real_user,hostname,department,total_scans,security_tools_used,targets_scanned,findings_total,last_activity
-"2025-11-13","rnelson","rnelson","ITLP01183.local","IT-Security","1","example-audited-checkov.sh","current","0","2025-11-13 18:44:54"
-"2025-11-13","rnelson","rnelson","ITLP01183.local","IT-Security","1","example-audited-checkov.sh","current","23","2025-11-13 18:44:54"

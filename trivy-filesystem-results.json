@@ -1,0 +1,14 @@
+{
+  "SchemaVersion": 2,
+  "CreatedAt": "2025-11-17T18:29:28.029683279Z",
+  "ArtifactName": "/workspace",
+  "ArtifactType": "filesystem",
+  "Metadata": {
+    "RepoURL": "https://github.com/sketch0395/comprehensive-security-architecture.git",
+    "Branch": "main",
+    "Commit": "927ae02040d0593994540d44ed91b3953c7724c1",
+    "CommitMsg": "feat(security-scan): Implement comprehensive security scan orchestration script\n\n- Added `run-target-security-scan.ps1` for orchestrating multi-target security scans.\n- Enhanced logging and error handling throughout the script.\n- Integrated Docker availability checks and reporting.\n- Implemented functions for scanning filesystems, container images, and Kubernetes manifests.\n- Added support for various scan types: quick, full, images, and analysis.\n- Created detailed output reports for each scan type.\n\nfeat(trivy-scan): Introduce Trivy multi-target vulnerability scanner\n\n- Added `run-trivy-scan.ps1` for scanning container images, Kubernetes, and filesystems.\n- Implemented Docker checks and image pulling for Trivy.\n- Enhanced logging for scan results and errors.\n- Added functionality to scan base images and filesystem.\n\nfeat(trufflehog-scan): Add TruffleHog secret scanning capabilities\n\n- Created `run-trufflehog-scan.ps1` for scanning filesystems and container images for secrets.\n- Integrated Docker for running TruffleHog scans.\n- Improved logging and output report generation.\n\nfeat(xeol-scan): Initialize placeholder for end-of-life detection script\n\n- Added `run-xeol-scan.ps1` as a template for future implementation of end-of-life detection.\n- Included basic structure and logging for the script.",
+    "Author": "Ronnie Nelson \u003c33059841+sketch0395@users.noreply.github.com\u003e",
+    "Committer": "Ronnie Nelson \u003c33059841+sketch0395@users.noreply.github.com\u003e"
+  }
+}

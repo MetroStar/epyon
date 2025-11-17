@@ -160,10 +160,11 @@ function Test-ReportGenerated {
     
     $reportFiles = Get-ChildItem -Path $ReportsDir -Recurse -Filter $ReportPattern -ErrorAction SilentlyContinue
     if ($reportFiles) {
-        Write-Log "Report validated for $ToolName: $($reportFiles[0].FullName)"
+        $reportPath = $reportFiles[0].FullName
+        Write-Log "Report validated for ${ToolName}: $reportPath"
         return $true
     } else {
-        Write-Log "No report found for $ToolName matching pattern: $ReportPattern" "WARN"
+        Write-Log "No report found for ${ToolName} matching pattern: $ReportPattern" "WARN"
         return $false
     }
 }
@@ -186,7 +187,8 @@ function Write-Progress {
     
     Write-Host "`n📊 Progress: " -NoNewline -ForegroundColor $CYAN
     Write-Host "$script:CompletedScans/$script:TotalScans" -NoNewline -ForegroundColor $WHITE
-    Write-Host " ($progress%)" -NoNewline -ForegroundColor $YELLOW
+    Write-Host " ($progress" -NoNewline -ForegroundColor $YELLOW
+    Write-Host "%)" -NoNewline -ForegroundColor $YELLOW
     Write-Host " | ⏱️  Elapsed: $elapsedStr" -ForegroundColor $CYAN
     Write-Host "   ✅ Success: $script:SuccessfulScans" -NoNewline -ForegroundColor $GREEN
     Write-Host " | ⚠️  Failed: $script:FailedScans" -NoNewline -ForegroundColor $YELLOW

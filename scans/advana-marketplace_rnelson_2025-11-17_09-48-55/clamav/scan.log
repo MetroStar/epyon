@@ -1,9 +1,0 @@
-ClamAV scan started: 2025-11-17_09-48-55
-Target: 
-latest: Pulling from clamav/clamav
-Digest: sha256:47618ad348bfd75877ed52b2c6ed88f624e1c5cd07cab7dc61211c3e53c85ee3
-Status: Image is up to date for clamav/clamav:latest
-docker.io/clamav/clamav:latest
-docker: invalid spec: :/workspace:ro: empty section between colons
-
-Run 'docker run --help' for more information

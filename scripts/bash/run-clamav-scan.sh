@@ -7,11 +7,20 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 OUTPUT_DIR="$REPORTS_ROOT/reports/clamav-reports"
-REPO_PATH="${TARGET_DIR:-$(pwd)}"
-TARGET_NAME=$(basename "$REPO_PATH")
-USERNAME=$(whoami)
-TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
-SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
+TARGET_DIR="${TARGET_DIR:-$(pwd)}"
+# Use centralized SCAN_ID if provided, otherwise generate one
+if [[ -n "$SCAN_ID" ]]; then
+    # Use the SCAN_ID passed from main orchestrator
+    TARGET_NAME=$(echo "$SCAN_ID" | cut -d'_' -f1)
+    USERNAME=$(echo "$SCAN_ID" | cut -d'_' -f2)
+    TIMESTAMP=$(echo "$SCAN_ID" | cut -d'_' -f3-)
+else
+    # Fallback for standalone execution
+    TARGET_NAME=$(basename "$TARGET_DIR")
+    USERNAME=$(whoami)
+    TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
+    SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
+fi
 SCAN_LOG="$OUTPUT_DIR/${SCAN_ID}_clamav-scan.log"
 
 # Colors for output

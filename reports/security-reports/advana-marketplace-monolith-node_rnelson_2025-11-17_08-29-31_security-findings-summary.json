@@ -1,0 +1,19 @@
+{
+  "summary": {
+    "scan_id": "advana-marketplace-monolith-node_rnelson_2025-11-17_08-29-31",
+    "target_directory": "advana-marketplace-monolith-node",
+    "scan_timestamp": "2025-11-17T14:38:32Z",
+    "total_critical": 0,
+    "total_high": 0,
+    "total_medium": 0,
+    "total_low": 0,
+    "tools_analyzed": [
+      ""
+    ],
+    "summary_by_tool": {}
+  },
+  "critical_findings": [],
+  "high_findings": [],
+  "medium_findings": [],
+  "low_findings": []
+}

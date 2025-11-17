@@ -21,10 +21,20 @@ OUTPUT_DIR="$REPORTS_ROOT/reports/helm-reports"
 REPO_PATH="${TARGET_DIR:-$(pwd)}"
 
 # Create unique scan ID for this scan run
-TARGET_NAME=$(basename "$REPO_PATH")
-USERNAME=$(whoami)
-TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
-SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
+TARGET_SCAN_DIR="${TARGET_DIR:-$(pwd)}"
+# Use centralized SCAN_ID if provided, otherwise generate one
+if [[ -n "$SCAN_ID" ]]; then
+    # Use the SCAN_ID passed from main orchestrator
+    TARGET_NAME=$(echo "$SCAN_ID" | cut -d'_' -f1)
+    USERNAME=$(echo "$SCAN_ID" | cut -d'_' -f2)
+    TIMESTAMP=$(echo "$SCAN_ID" | cut -d'_' -f3-)
+else
+    # Fallback for standalone execution
+    TARGET_NAME=$(basename "$TARGET_SCAN_DIR")
+    USERNAME=$(whoami)
+    TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
+    SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
+fi
 SCAN_LOG="$OUTPUT_DIR/${SCAN_ID}_helm-build.log"
 CURRENT_LOG="$OUTPUT_DIR/helm-build.log"
 

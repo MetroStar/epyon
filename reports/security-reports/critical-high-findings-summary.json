@@ -1,6 +1,6 @@
 {
   "summary": {
-    "scan_timestamp": "2025-11-17T14:10:32Z",
+    "scan_timestamp": "2025-11-17T14:31:30Z",
     "total_critical": 0,
     "total_high": 0,
     "tools_analyzed": [
@@ -27,7 +27,7 @@
         "high": 0
       }
     },
-    "scan_id": "bash_rnelson_2025-11-17_08-10-32"
+    "scan_id": "bash_rnelson_2025-11-17_08-31-30"
   },
   "critical_findings": [],
   "high_findings": []

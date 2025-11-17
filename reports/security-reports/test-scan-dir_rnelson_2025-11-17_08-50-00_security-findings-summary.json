@@ -1,0 +1,19 @@
+{
+  "summary": {
+    "scan_id": "test-scan-dir_rnelson_2025-11-17_08-50-00",
+    "target_directory": "test-scan-dir",
+    "scan_timestamp": "2025-11-17T14:49:51Z",
+    "total_critical": 0,
+    "total_high": 0,
+    "total_medium": 0,
+    "total_low": 0,
+    "tools_analyzed": [
+      ""
+    ],
+    "summary_by_tool": {}
+  },
+  "critical_findings": [],
+  "high_findings": [],
+  "medium_findings": [],
+  "low_findings": []
+}

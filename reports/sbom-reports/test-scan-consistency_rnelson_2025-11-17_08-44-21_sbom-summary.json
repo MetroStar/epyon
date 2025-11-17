@@ -1,0 +1,18 @@
+{
+  "scan_info": {
+    "scan_id": "test-scan-consistency_rnelson_2025-11-17_08-44-21",
+    "target": "/private/tmp/test-scan-consistency",
+    "timestamp": "2025-11-17T14:44:24Z",
+    "tool": "syft",
+    "scan_type": "sbom_generation"
+  },
+  "sbom_files": [
+    {"type": "filesystem", "file": "test-scan-consistency_rnelson_2025-11-17_08-44-21_sbom-filesystem.json", "artifacts": 0},
+    {"type": "nodejs", "file": "test-scan-consistency_rnelson_2025-11-17_08-44-21_sbom-nodejs.json", "artifacts": 0}
+  ],
+  "total_artifacts": ,
+  "metadata": {
+    "generator": "comprehensive-security-architecture",
+    "version": "1.0.0"
+  }
+}

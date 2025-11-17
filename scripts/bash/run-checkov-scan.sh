@@ -12,11 +12,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 HELM_OUTPUT_DIR="$REPORTS_ROOT/reports/helm-packages"
 OUTPUT_DIR="$REPORTS_ROOT/reports/checkov-reports"
-# Generate scan ID for this scan
-TARGET_NAME=$(basename "${TARGET_DIR:-$(pwd)}")
-USERNAME=$(whoami)
-TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
-SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
+# Use centralized SCAN_ID if provided, otherwise generate one
+if [[ -n "$SCAN_ID" ]]; then
+    # Use the SCAN_ID passed from main orchestrator
+    TARGET_NAME=$(echo "$SCAN_ID" | cut -d'_' -f1)
+    USERNAME=$(echo "$SCAN_ID" | cut -d'_' -f2)
+    TIMESTAMP=$(echo "$SCAN_ID" | cut -d'_' -f3-)
+else
+    # Fallback for standalone execution
+    TARGET_NAME=$(basename "${TARGET_DIR:-$(pwd)}")
+    USERNAME=$(whoami)
+    TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
+    SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
+fi
 RESULTS_FILE="$OUTPUT_DIR/${SCAN_ID}_checkov-results.json"
 CURRENT_FILE="$OUTPUT_DIR/checkov-results.json"
 SCAN_LOG="$OUTPUT_DIR/${SCAN_ID}_checkov-scan.log"

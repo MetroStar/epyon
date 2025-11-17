@@ -1,0 +1,17 @@
+SBOM generation started: 2025-11-17_08-44-20
+Target: /tmp/test-scan-consistency
+Syft version check:
+Generating SBOM for filesystem: /tmp/test-scan-consistency
+Project: test-project (1.0.0)
+Using Docker version of Syft
+unknown flag: --name
+Failed to generate SBOM for filesystem using Docker
+SBOM Summary: 0 artifacts cataloged
+
+Generating SBOM for nodejs: /tmp/test-scan-consistency
+Project: test-project (1.0.0)
+Using Docker version of Syft
+unknown flag: --name
+Failed to generate SBOM for nodejs using Docker
+SBOM Summary: 0 artifacts cataloged
+

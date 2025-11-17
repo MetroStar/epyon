@@ -8,10 +8,19 @@ REPO_PATH="${1:-${TARGET_DIR:-$(pwd)}}"
 # Set REPO_ROOT for report generation
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-TARGET_NAME=$(basename "$REPO_PATH")
-USERNAME=$(whoami)
-TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
-SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
+# Use centralized SCAN_ID if provided, otherwise generate one
+if [[ -n "$SCAN_ID" ]]; then
+    # Use the SCAN_ID passed from main orchestrator
+    TARGET_NAME=$(echo "$SCAN_ID" | cut -d'_' -f1)
+    USERNAME=$(echo "$SCAN_ID" | cut -d'_' -f2)
+    TIMESTAMP=$(echo "$SCAN_ID" | cut -d'_' -f3-)
+else
+    # Fallback for standalone execution
+    TARGET_NAME=$(basename "$REPO_PATH")
+    USERNAME=$(whoami)
+    TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
+    SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
+fi
 
 echo "============================================"
 echo "[INFO] Anchore Security Analysis"

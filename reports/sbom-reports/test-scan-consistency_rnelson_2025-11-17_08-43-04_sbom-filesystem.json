@@ -1,0 +1,1 @@
+{"artifacts": [], "artifactRelationships": [], "source": {"type": "directory", "target": "/tmp/test-scan-consistency"}, "distro": {}, "descriptor": {"name": "syft", "version": "docker-error"}}

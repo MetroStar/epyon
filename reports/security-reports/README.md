@@ -4,7 +4,7 @@
 
 This directory contains consolidated security reports from all eight layers of our DevOps security architecture.
 
-**Generated:** Mon Nov 17 08:10:26 CST 2025
+**Generated:** Mon Nov 17 08:31:14 CST 2025
 
 ## Directory Structure
 

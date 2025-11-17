@@ -26,6 +26,16 @@ USERNAME=$(whoami)
 TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
 SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
 
+# Create dedicated scan directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
+SCAN_DIR="$REPORTS_ROOT/scans/$SCAN_ID"
+mkdir -p "$SCAN_DIR"
+
+# Export variables for all child scripts
+export SCAN_ID
+export SCAN_DIR
+
 # Validate inputs
 if [[ -z "$TARGET_DIR" ]]; then
     echo -e "${RED}❌ Error: Target directory is required${NC}"
@@ -51,6 +61,8 @@ echo "============================================"
 echo "Security Tools Dir: $REPO_ROOT"
 echo "Target Directory: $TARGET_DIR"
 echo "Scan Type: $SCAN_TYPE"
+echo "Scan ID: $SCAN_ID"
+echo "Scan Directory: $SCAN_DIR"
 echo "Timestamp: $(date)"
 echo ""
 
@@ -82,9 +94,9 @@ run_security_tool() {
         cd "$REPO_ROOT"
         
         if [[ -n "$args" ]]; then
-            env TARGET_DIR="$TARGET_DIR" "$script_path" $args
+            env TARGET_DIR="$TARGET_DIR" SCAN_ID="$SCAN_ID" SCAN_DIR="$SCAN_DIR" "$script_path" $args
         else
-            env TARGET_DIR="$TARGET_DIR" "$script_path"
+            env TARGET_DIR="$TARGET_DIR" SCAN_ID="$SCAN_ID" SCAN_DIR="$SCAN_DIR" "$script_path"
         fi
         
         if [[ $? -eq 0 ]]; then
@@ -273,46 +285,87 @@ echo "  📊 ./run-target-security-scan.sh \"$TARGET_DIR\" analysis - Analysis o
 echo "  🛡️  ./run-target-security-scan.sh \"$TARGET_DIR\" full     - Complete scan"
 echo ""
 
-# Check for high-priority issues
-echo -e "${CYAN}🚨 High-Priority Security Issues:${NC}"
+# Check for high-priority issues in current scan
+echo -e "${CYAN}🚨 High-Priority Security Issues (Current Scan):${NC}"
 has_critical_issues=false
 
 # Check Grype results for high/critical vulnerabilities
-if [[ -f "$REPORTS_ROOT/reports/grype-reports/grype-filesystem-results.json" ]]; then
-    high_count=$(jq -r '[.matches[] | select(.vulnerability.severity == "High" or .vulnerability.severity == "Critical")] | length' "$REPORTS_ROOT/reports/grype-reports/grype-filesystem-results.json" 2>/dev/null || echo "0")
-    if [[ "$high_count" -gt 0 ]]; then
-        echo -e "  ${RED}🔴 Grype: $high_count high/critical vulnerabilities found${NC}"
-        has_critical_issues=true
+grype_files=(
+    "$REPORTS_ROOT/reports/grype-reports/${SCAN_ID}_grype-filesystem-results.json"
+    "$REPORTS_ROOT/reports/grype-reports/${SCAN_ID}_grype-images-results.json"
+    "$REPORTS_ROOT/reports/grype-reports/${SCAN_ID}_grype-base-results.json"
+)
+
+grype_total=0
+for grype_file in "${grype_files[@]}"; do
+    if [[ -f "$grype_file" ]]; then
+        high_count=$(jq -r '[.matches[] | select(.vulnerability.severity == "High" or .vulnerability.severity == "Critical")] | length' "$grype_file" 2>/dev/null || echo "0")
+        grype_total=$((grype_total + high_count))
     fi
+done
+
+if [[ "$grype_total" -gt 0 ]]; then
+    echo -e "  ${RED}🔴 Grype: $grype_total high/critical vulnerabilities found${NC}"
+    has_critical_issues=true
 fi
 
 # Check Trivy results for high/critical vulnerabilities
-if [[ -f "$REPORTS_ROOT/reports/trivy-reports/trivy-filesystem-results.json" ]]; then
-    trivy_critical=$(jq -r '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length' "$REPORTS_ROOT/reports/trivy-reports/trivy-filesystem-results.json" 2>/dev/null || echo "0")
-    if [[ "$trivy_critical" -gt 0 ]]; then
-        echo -e "  ${RED}🔴 Trivy: $trivy_critical high/critical vulnerabilities found${NC}"
-        has_critical_issues=true
+trivy_files=(
+    "$REPORTS_ROOT/reports/trivy-reports/${SCAN_ID}_trivy-filesystem-results.json"
+    "$REPORTS_ROOT/reports/trivy-reports/${SCAN_ID}_trivy-images-results.json"
+    "$REPORTS_ROOT/reports/trivy-reports/${SCAN_ID}_trivy-base-results.json"
+)
+
+trivy_total=0
+for trivy_file in "${trivy_files[@]}"; do
+    if [[ -f "$trivy_file" ]]; then
+        trivy_critical=$(jq -r '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length' "$trivy_file" 2>/dev/null || echo "0")
+        trivy_total=$((trivy_total + trivy_critical))
     fi
+done
+
+if [[ "$trivy_total" -gt 0 ]]; then
+    echo -e "  ${RED}🔴 Trivy: $trivy_total high/critical vulnerabilities found${NC}"
+    has_critical_issues=true
 fi
 
 # Check TruffleHog for secrets
-if [[ -f "$REPORTS_ROOT/reports/trufflehog-reports/trufflehog-filesystem-results.json" ]]; then
-    secrets_count=$(jq '. | length' "$REPORTS_ROOT/reports/trufflehog-reports/trufflehog-filesystem-results.json" 2>/dev/null || echo "0")
-    if [[ "$secrets_count" -gt 0 ]]; then
-        echo -e "  ${YELLOW}🟡 TruffleHog: $secrets_count potential secrets detected${NC}"
+trufflehog_files=(
+    "$REPORTS_ROOT/reports/trufflehog-reports/${SCAN_ID}_trufflehog-filesystem-results.json"
+    "$REPORTS_ROOT/reports/trufflehog-reports/${SCAN_ID}_trufflehog-images-results.json"
+)
+
+trufflehog_total=0
+for trufflehog_file in "${trufflehog_files[@]}"; do
+    if [[ -f "$trufflehog_file" ]]; then
+        secrets_count=$(jq '. | length' "$trufflehog_file" 2>/dev/null || echo "0")
+        trufflehog_total=$((trufflehog_total + secrets_count))
     fi
+done
+
+if [[ "$trufflehog_total" -gt 0 ]]; then
+    echo -e "  ${YELLOW}🟡 TruffleHog: $trufflehog_total potential secrets detected${NC}"
 fi
 
 # Check Xeol for EOL components
-if [[ -f "$REPORTS_ROOT/reports/xeol-reports/xeol-results.json" ]]; then
-    eol_count=$(jq '[.matches[] | select(.eol == true)] | length' "$REPORTS_ROOT/reports/xeol-reports/xeol-results.json" 2>/dev/null || echo "0")
+if [[ -f "$REPORTS_ROOT/reports/xeol-reports/${SCAN_ID}_xeol-results.json" ]]; then
+    eol_count=$(jq '[.matches[] | select(.eol == true)] | length' "$REPORTS_ROOT/reports/xeol-reports/${SCAN_ID}_xeol-results.json" 2>/dev/null || echo "0")
     if [[ "$eol_count" -gt 0 ]]; then
         echo -e "  ${YELLOW}🟡 Xeol: $eol_count end-of-life components detected${NC}"
     fi
 fi
 
+# Check Checkov for infrastructure issues
+if [[ -f "$REPORTS_ROOT/reports/checkov-reports/${SCAN_ID}_checkov-results.json" ]]; then
+    checkov_critical=$(jq -r '[(.results.failed_checks // []) | .[] | select(.severity == "CRITICAL" or .severity == "HIGH")] | length' "$REPORTS_ROOT/reports/checkov-reports/${SCAN_ID}_checkov-results.json" 2>/dev/null || echo "0")
+    if [[ "$checkov_critical" -gt 0 ]]; then
+        echo -e "  ${RED}🔴 Checkov: $checkov_critical high/critical infrastructure issues found${NC}"
+        has_critical_issues=true
+    fi
+fi
+
 if [[ "$has_critical_issues" == "false" ]]; then
-    echo -e "  ${GREEN}✅ No high/critical security issues detected${NC}"
+    echo -e "  ${GREEN}✅ No high/critical security issues detected in current scan${NC}"
 fi
 
 echo ""
@@ -412,28 +465,36 @@ if [[ -f "$SCRIPT_DIR/consolidate-security-reports.sh" ]]; then
         analysis_success=false
     fi
     
-    # Generate Critical & High Severity Findings Summary
+    # Generate Scan-Specific Security Findings Summary (Critical/High/Medium/Low)
     echo ""
-    echo -e "${BLUE}🚨 Generating Critical & High Severity Findings Summary...${NC}"
-    if [[ -f "$SCRIPT_DIR/generate-critical-high-summary.sh" ]]; then
-        cd "$REPO_ROOT" && "$SCRIPT_DIR/generate-critical-high-summary.sh"
+    echo -e "${BLUE}🚨 Generating Security Findings Summary for Scan: ${SCAN_ID}...${NC}"
+    if [[ -f "$SCRIPT_DIR/generate-scan-findings-summary.sh" ]]; then
+        # Source the function and call it with scan parameters
+        source "$SCRIPT_DIR/generate-scan-findings-summary.sh"
+        generate_scan_findings_summary "$SCAN_ID" "$TARGET_DIR" "$REPO_ROOT/reports"
         summary_result=$?
         
         if [[ $summary_result -eq 0 ]]; then
-            echo -e "${GREEN}✅ Critical & High severity summary generated successfully${NC}"
+            echo -e "${GREEN}✅ Security findings summary generated successfully${NC}"
             
             # Display summary access information
-            if [[ -f "$REPO_ROOT/reports/security-reports/critical-high-findings-summary.html" ]]; then
-                echo -e "${CYAN}🎯 Critical/High Summary: $REPO_ROOT/reports/security-reports/critical-high-findings-summary.html${NC}"
-            fi
-            if [[ -f "$REPO_ROOT/reports/security-reports/critical-high-findings-summary.json" ]]; then
-                echo -e "${CYAN}📊 JSON Summary: $REPO_ROOT/reports/security-reports/critical-high-findings-summary.json${NC}"
+            if [[ -f "$REPO_ROOT/reports/security-reports/${SCAN_ID}_security-findings-summary.json" ]]; then
+                echo -e "${CYAN}📊 Scan Summary: $REPO_ROOT/reports/security-reports/${SCAN_ID}_security-findings-summary.json${NC}"
+                echo -e "${CYAN}🔗 Latest Summary: $REPO_ROOT/reports/security-reports/security-findings-summary.json${NC}"
+                
+                # Show quick stats
+                local critical_count=$(jq -r '.summary.total_critical' "$REPO_ROOT/reports/security-reports/${SCAN_ID}_security-findings-summary.json" 2>/dev/null || echo "0")
+                local high_count=$(jq -r '.summary.total_high' "$REPO_ROOT/reports/security-reports/${SCAN_ID}_security-findings-summary.json" 2>/dev/null || echo "0")
+                local medium_count=$(jq -r '.summary.total_medium' "$REPO_ROOT/reports/security-reports/${SCAN_ID}_security-findings-summary.json" 2>/dev/null || echo "0")
+                local low_count=$(jq -r '.summary.total_low' "$REPO_ROOT/reports/security-reports/${SCAN_ID}_security-findings-summary.json" 2>/dev/null || echo "0")
+                
+                echo -e "${CYAN}📈 Findings Overview: Critical($critical_count) High($high_count) Medium($medium_count) Low($low_count)${NC}"
             fi
         else
-            echo -e "${YELLOW}⚠️  Critical & High severity summary generation had issues${NC}"
+            echo -e "${YELLOW}⚠️  Security findings summary generation had issues${NC}"
         fi
     else
-        echo -e "${YELLOW}⚠️  Critical & High severity summary script not found${NC}"
+        echo -e "${YELLOW}⚠️  Security findings summary script not found${NC}"
     fi
 else
     echo -e "${YELLOW}⚠️  Report consolidation script not found${NC}"
@@ -450,6 +511,8 @@ echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${GREEN}🎯 Target Security Scan Finished Successfully!${NC}"
 echo -e "${CYAN}Target: $TARGET_DIR${NC}"
+echo -e "${CYAN}Scan ID: $SCAN_ID${NC}"
+echo -e "${CYAN}Scan Directory: $SCAN_DIR${NC}"
 echo -e "${CYAN}Reports: $REPO_ROOT/reports${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""

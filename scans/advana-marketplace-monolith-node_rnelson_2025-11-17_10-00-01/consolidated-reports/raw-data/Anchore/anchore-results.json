@@ -1,0 +1,18 @@
+{
+  "scan_id": "advana-marketplace-monolith-node_rnelson_2025-11-17_10-00-01",
+  "target": "/Users/rnelson/Desktop/CDAO MarketPlace/Marketplace/advana-marketplace-monolith-node",
+  "timestamp": "2025-11-17T16:10:44Z",
+  "status": "placeholder",
+  "message": "Anchore integration planned for future release",
+  "results": {
+    "vulnerabilities": [],
+    "policy_evaluations": [],
+    "sbom": null,
+    "malware": null
+  },
+  "metadata": {
+    "scanner": "anchore-placeholder",
+    "version": "1.0.0-placeholder",
+    "scan_duration": 0
+  }
+}

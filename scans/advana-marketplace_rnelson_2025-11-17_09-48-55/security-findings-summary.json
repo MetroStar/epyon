@@ -1,0 +1,82 @@
+{
+  "summary": {
+    "scan_id": "advana-marketplace_rnelson_2025-11-17_09-48-55",
+    "target_directory": "/Users/rnelson/Desktop/CDAO MarketPlace/Marketplace/advana-marketplace",
+    "scan_timestamp": "2025-11-17T15:59:01Z",
+    "total_critical": 0,
+    "total_high": 0,
+    "total_medium": 4,
+    "total_low": 0,
+    "tools_analyzed": [
+      "TruffleHog",
+      "TruffleHog",
+      "Grype-base-alpine-latest",
+      "Grype-base-nginx-alpine",
+      "Grype-base-node-18-alpine",
+      "Grype-base-python-3.11-alpine",
+      "Grype-base-ubuntu-22.04",
+      "Grype-base-alpine-latest",
+      "Grype-base-nginx-alpine",
+      "Grype-base-node-18-alpine",
+      "Grype-base-python-3.11-alpine",
+      "Grype-base-ubuntu-22.04",
+      "Trivy-base-alpine-latest",
+      "Trivy-base-nginx-alpine",
+      "Trivy-base-node-18-alpine",
+      "Trivy-base-python-3.11-alpine",
+      "Trivy-base-ubuntu-22.04",
+      "Trivy-base-alpine-latest",
+      "Trivy-base-nginx-alpine",
+      "Trivy-base-node-18-alpine",
+      "Trivy-base-python-3.11-alpine",
+      "Trivy-base-ubuntu-22.04",
+      "Checkov"
+    ],
+    "summary_by_tool": {}
+  },
+  "critical_findings": [],
+  "high_findings": [],
+  "medium_findings": [
+    {
+      "tool": "TruffleHog",
+      "type": "api_token",
+      "severity": "Medium",
+      "detector": "GitHubOauth2",
+      "file": "/workspace/frontend/node_modules/json5/README.md",
+      "line": 14,
+      "description": "GitHub OAuth2 credentials found",
+      "verified": false
+    },
+    {
+      "tool": "TruffleHog",
+      "type": "api_token",
+      "severity": "Medium",
+      "detector": "GitHubOauth2",
+      "file": "/workspace/frontend/node_modules/json5/README.md",
+      "line": 14,
+      "description": "GitHub OAuth2 credentials found",
+      "verified": false
+    },
+    {
+      "tool": "TruffleHog",
+      "type": "api_token",
+      "severity": "Medium",
+      "detector": "GitHubOauth2",
+      "file": "/workspace/frontend/node_modules/json5/README.md",
+      "line": 14,
+      "description": "GitHub OAuth2 credentials found",
+      "verified": false
+    },
+    {
+      "tool": "TruffleHog",
+      "type": "api_token",
+      "severity": "Medium",
+      "detector": "GitHubOauth2",
+      "file": "/workspace/frontend/node_modules/json5/README.md",
+      "line": 14,
+      "description": "GitHub OAuth2 credentials found",
+      "verified": false
+    }
+  ],
+  "low_findings": []
+}

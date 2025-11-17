@@ -265,8 +265,7 @@ echo "============================================"
 echo "Step 3: Saving local test results..."
 echo "============================================"
 
-# Create sonar-reports directory
-mkdir -p "$REPO_ROOT/reports/sonar-reports"
+# Output directory already created by scan template initialization
 
 # Extract actual test results from the run and create JSON report
 echo "[SEARCH] Extracting real test results..."
@@ -457,7 +456,7 @@ elif [ "$TOTAL_TESTS" -eq 0 ]; then
 fi
 
 # Generate JSON with real data
-cat > "$REPO_ROOT/reports/sonar-reports/sonar-analysis-results.json" << EOL
+cat > "$OUTPUT_DIR/${SCAN_ID}_sonar-analysis-results.json" << EOL
 {
   "project": "$PROJECT_KEY",
   "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
@@ -491,7 +490,7 @@ cat > "$REPO_ROOT/reports/sonar-reports/sonar-analysis-results.json" << EOL
 }
 EOL
 
-echo "[OK] Local test results saved to: $REPO_ROOT/reports/sonar-reports/sonar-analysis-results.json"
+echo "[OK] Local test results saved to: $OUTPUT_DIR/${SCAN_ID}_sonar-analysis-results.json"
 echo ""
 echo "[INFO] Test Summary:"
 echo "=================="

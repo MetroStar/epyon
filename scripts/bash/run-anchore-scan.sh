@@ -34,12 +34,9 @@ echo "[INFO] Anchore Security Analysis"
 echo "============================================"
 echo "Target: $REPO_PATH"
 echo "Scan ID: $SCAN_ID"
+echo "Output Directory: $OUTPUT_DIR"
 echo "Started: $(date)"
 echo ""
-
-# Create reports directory
-REPORTS_DIR="$REPO_ROOT/reports/anchore-reports"
-mkdir -p "$REPORTS_DIR"
 
 # Placeholder implementation
 echo "[INFO] Anchore Engine integration is planned for future release"
@@ -51,7 +48,7 @@ echo "  • Software composition analysis"
 echo ""
 
 # Create placeholder report files
-cat > "$REPORTS_DIR/${SCAN_ID}_anchore-scan.log" << EOF
+cat > "$OUTPUT_DIR/${SCAN_ID}_anchore-scan.log" << EOF
 Anchore Security Scan Log
 ========================
 Scan ID: $SCAN_ID
@@ -75,7 +72,7 @@ Integration planned for:
 EOF
 
 # Create placeholder JSON report
-cat > "$REPORTS_DIR/${SCAN_ID}_anchore-results.json" << EOF
+cat > "$OUTPUT_DIR/${SCAN_ID}_anchore-results.json" << EOF
 {
   "scan_id": "$SCAN_ID",
   "target": "$REPO_PATH",
@@ -97,20 +94,23 @@ cat > "$REPORTS_DIR/${SCAN_ID}_anchore-results.json" << EOF
 EOF
 
 # Create symlinks for latest results
-cd "$REPORTS_DIR"
+cd "$OUTPUT_DIR"
 ln -sf "${SCAN_ID}_anchore-scan.log" "anchore-scan.log"
 ln -sf "${SCAN_ID}_anchore-results.json" "anchore-results.json"
 
 echo "[OK] Placeholder Anchore scan completed"
-echo "[INFO] Results saved to: $REPORTS_DIR/"
+echo "[INFO] Results saved to: $OUTPUT_DIR/"
 echo "[INFO] Integration with Anchore Engine will be available in future releases"
 echo ""
 echo "============================================"
 echo "Anchore Analysis Summary"
 echo "============================================"
 echo "Status: Placeholder implementation"
-echo "Reports: $REPORTS_DIR/"
+echo "Reports: $OUTPUT_DIR/"
 echo "Completed: $(date)"
 echo ""
+
+# Use finalize function from template
+finalize_scan_results "anchore"
 
 exit 0

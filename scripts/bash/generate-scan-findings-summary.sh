@@ -20,8 +20,8 @@ generate_scan_findings_summary() {
     
     # Determine paths
     local SCAN_DIR="$project_root/scans/$scan_id"
-    local OUTPUT_FILE="$project_root/reports/security-reports/${scan_id}_security-findings-summary.json"
-    local OUTPUT_HTML="$project_root/reports/security-reports/${scan_id}_security-findings-summary.html"
+    local OUTPUT_FILE="$SCAN_DIR/security-findings-summary.json"
+    local OUTPUT_HTML="$SCAN_DIR/security-findings-summary.html"
     
     # Validate scan directory exists
     if [[ ! -d "$SCAN_DIR" ]]; then

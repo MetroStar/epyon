@@ -14,13 +14,6 @@ CYAN='\033[0;36m'
 WHITE='\033[1;37m'
 NC='\033[0m' # No Color
 
-# Set up paths
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
-OUTPUT_DIR="$REPORTS_ROOT/reports/helm-reports"
-REPO_PATH="${TARGET_DIR:-$(pwd)}"
-
-# Create unique scan ID for this scan run
 # Initialize scan environment using scan directory approach
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -32,6 +25,7 @@ init_scan_environment "helm"
 
 # Set TARGET_SCAN_DIR and extract scan information
 TARGET_SCAN_DIR="${TARGET_DIR:-$(pwd)}"
+REPO_PATH="${TARGET_DIR:-$(pwd)}"
 if [[ -n "$SCAN_ID" ]]; then
     TARGET_NAME=$(echo "$SCAN_ID" | cut -d'_' -f1)
     USERNAME=$(echo "$SCAN_ID" | cut -d'_' -f2)
@@ -43,11 +37,6 @@ else
     TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
     SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
 fi
-SCAN_LOG="$OUTPUT_DIR/${SCAN_ID}_helm-build.log"
-CURRENT_LOG="$OUTPUT_DIR/helm-build.log"
-
-# Create output directory
-mkdir -p "$OUTPUT_DIR"
 
 echo
 echo -e "${WHITE}============================================${NC}"

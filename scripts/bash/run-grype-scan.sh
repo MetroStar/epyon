@@ -3,10 +3,6 @@
 # Grype Multi-Target Vulnerability Scanner
 # Comprehensive vulnerability detection for containers, filesystems, and SBOMs
 
-# Get absolute path to reports directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
-OUTPUT_DIR="$REPORTS_ROOT/reports/grype-reports"
 # Initialize scan environment using scan directory approach
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

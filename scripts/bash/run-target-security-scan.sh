@@ -260,12 +260,11 @@ echo "Timestamp: $(date)"
 echo ""
 
 echo -e "${CYAN}📁 Generated Reports:${NC}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
-find "$REPORTS_ROOT/reports" -name "*-reports" -type d 2>/dev/null | sort | while read -r dir; do
+find "$SCAN_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sort | while read -r dir; do
     if [[ -d "$dir" ]]; then
         report_count=$(find "$dir" -name "*.json" -o -name "*.html" -o -name "*.xml" | wc -l)
-        echo "  📂 $dir ($report_count files)"
+        tool_name=$(basename "$dir")
+        echo "  📂 $tool_name ($report_count files)"
     fi
 done
 echo ""
@@ -291,9 +290,9 @@ has_critical_issues=false
 
 # Check Grype results for high/critical vulnerabilities
 grype_files=(
-    "$REPORTS_ROOT/reports/grype-reports/${SCAN_ID}_grype-filesystem-results.json"
-    "$REPORTS_ROOT/reports/grype-reports/${SCAN_ID}_grype-images-results.json"
-    "$REPORTS_ROOT/reports/grype-reports/${SCAN_ID}_grype-base-results.json"
+    "$SCAN_DIR/grype/${SCAN_ID}_grype-filesystem-results.json"
+    "$SCAN_DIR/grype/${SCAN_ID}_grype-images-results.json"
+    "$SCAN_DIR/grype/${SCAN_ID}_grype-base-results.json"
 )
 
 grype_total=0
@@ -311,9 +310,9 @@ fi
 
 # Check Trivy results for high/critical vulnerabilities
 trivy_files=(
-    "$REPORTS_ROOT/reports/trivy-reports/${SCAN_ID}_trivy-filesystem-results.json"
-    "$REPORTS_ROOT/reports/trivy-reports/${SCAN_ID}_trivy-images-results.json"
-    "$REPORTS_ROOT/reports/trivy-reports/${SCAN_ID}_trivy-base-results.json"
+    "$SCAN_DIR/trivy/${SCAN_ID}_trivy-filesystem-results.json"
+    "$SCAN_DIR/trivy/${SCAN_ID}_trivy-images-results.json"
+    "$SCAN_DIR/trivy/${SCAN_ID}_trivy-base-results.json"
 )
 
 trivy_total=0
@@ -331,8 +330,8 @@ fi
 
 # Check TruffleHog for secrets
 trufflehog_files=(
-    "$REPORTS_ROOT/reports/trufflehog-reports/${SCAN_ID}_trufflehog-filesystem-results.json"
-    "$REPORTS_ROOT/reports/trufflehog-reports/${SCAN_ID}_trufflehog-images-results.json"
+    "$SCAN_DIR/trufflehog/${SCAN_ID}_trufflehog-filesystem-results.json"
+    "$SCAN_DIR/trufflehog/${SCAN_ID}_trufflehog-images-results.json"
 )
 
 trufflehog_total=0
@@ -348,16 +347,16 @@ if [[ "$trufflehog_total" -gt 0 ]]; then
 fi
 
 # Check Xeol for EOL components
-if [[ -f "$REPORTS_ROOT/reports/xeol-reports/${SCAN_ID}_xeol-results.json" ]]; then
-    eol_count=$(jq '[.matches[] | select(.eol == true)] | length' "$REPORTS_ROOT/reports/xeol-reports/${SCAN_ID}_xeol-results.json" 2>/dev/null || echo "0")
+if [[ -f "$SCAN_DIR/xeol/${SCAN_ID}_xeol-results.json" ]]; then
+    eol_count=$(jq '[.matches[] | select(.eol == true)] | length' "$SCAN_DIR/xeol/${SCAN_ID}_xeol-results.json" 2>/dev/null || echo "0")
     if [[ "$eol_count" -gt 0 ]]; then
         echo -e "  ${YELLOW}🟡 Xeol: $eol_count end-of-life components detected${NC}"
     fi
 fi
 
 # Check Checkov for infrastructure issues
-if [[ -f "$REPORTS_ROOT/reports/checkov-reports/${SCAN_ID}_checkov-results.json" ]]; then
-    checkov_critical=$(jq -r '[(.results.failed_checks // []) | .[] | select(.severity == "CRITICAL" or .severity == "HIGH")] | length' "$REPORTS_ROOT/reports/checkov-reports/${SCAN_ID}_checkov-results.json" 2>/dev/null || echo "0")
+if [[ -f "$SCAN_DIR/checkov/${SCAN_ID}_checkov-results.json" ]]; then
+    checkov_critical=$(jq -r '[(.results.failed_checks // []) | .[] | select(.severity == "CRITICAL" or .severity == "HIGH")] | length' "$SCAN_DIR/checkov/${SCAN_ID}_checkov-results.json" 2>/dev/null || echo "0")
     if [[ "$checkov_critical" -gt 0 ]]; then
         echo -e "  ${RED}🔴 Checkov: $checkov_critical high/critical infrastructure issues found${NC}"
         has_critical_issues=true
@@ -380,58 +379,58 @@ echo -e "${BLUE}📊 Analyzing security scan results...${NC}"
 analysis_success=true
 
 # TruffleHog Analysis
-if [[ -f "$REPO_ROOT/reports/trufflehog-reports/trufflehog-filesystem-results.json" ]]; then
+if [[ -d "$SCAN_DIR/trufflehog" ]] && ls "$SCAN_DIR/trufflehog"/*.json &>/dev/null; then
     echo -e "${CYAN}🔍 Analyzing TruffleHog secret detection results...${NC}"
     if [[ -f "$SCRIPT_DIR/analyze-trufflehog-results.sh" ]]; then
-        cd "$REPO_ROOT" && "$SCRIPT_DIR/analyze-trufflehog-results.sh" || analysis_success=false
+        SCAN_DIR="$SCAN_DIR" SCAN_ID="$SCAN_ID" "$SCRIPT_DIR/analyze-trufflehog-results.sh" || analysis_success=false
     fi
 fi
 
 # ClamAV Analysis  
-if [[ -f "$REPO_ROOT/reports/clamav-reports/clamav-scan.log" ]]; then
+if [[ -d "$SCAN_DIR/clamav" ]] && ls "$SCAN_DIR/clamav"/*.log &>/dev/null; then
     echo -e "${CYAN}🦠 Analyzing ClamAV antivirus results...${NC}"
     if [[ -f "$SCRIPT_DIR/analyze-clamav-results.sh" ]]; then
-        cd "$REPO_ROOT" && "$SCRIPT_DIR/analyze-clamav-results.sh" || analysis_success=false
+        SCAN_DIR="$SCAN_DIR" SCAN_ID="$SCAN_ID" "$SCRIPT_DIR/analyze-clamav-results.sh" || analysis_success=false
     fi
 fi
 
 # Checkov Analysis
-if [[ -f "$REPO_ROOT/reports/checkov-reports/checkov-results.json" ]]; then
+if [[ -d "$SCAN_DIR/checkov" ]] && ls "$SCAN_DIR/checkov"/*.json &>/dev/null; then
     echo -e "${CYAN}🔒 Analyzing Checkov infrastructure security results...${NC}"
     if [[ -f "$SCRIPT_DIR/analyze-checkov-results.sh" ]]; then
-        cd "$REPO_ROOT" && "$SCRIPT_DIR/analyze-checkov-results.sh" || analysis_success=false
+        SCAN_DIR="$SCAN_DIR" SCAN_ID="$SCAN_ID" "$SCRIPT_DIR/analyze-checkov-results.sh" || analysis_success=false
     fi
 fi
 
 # Grype Analysis
-if [[ -f "$REPO_ROOT/reports/grype-reports/grype-filesystem-results.json" ]]; then
+if [[ -d "$SCAN_DIR/grype" ]] && ls "$SCAN_DIR/grype"/*.json &>/dev/null; then
     echo -e "${CYAN}🎯 Analyzing Grype vulnerability results...${NC}"
     if [[ -f "$SCRIPT_DIR/analyze-grype-results.sh" ]]; then
-        cd "$REPO_ROOT" && "$SCRIPT_DIR/analyze-grype-results.sh" || analysis_success=false
+        SCAN_DIR="$SCAN_DIR" SCAN_ID="$SCAN_ID" "$SCRIPT_DIR/analyze-grype-results.sh" || analysis_success=false
     fi
 fi
 
 # Trivy Analysis
-if [[ -f "$REPO_ROOT/reports/trivy-reports/trivy-filesystem-results.json" ]]; then
+if [[ -d "$SCAN_DIR/trivy" ]] && ls "$SCAN_DIR/trivy"/*.json &>/dev/null; then
     echo -e "${CYAN}🐳 Analyzing Trivy security results...${NC}"
     if [[ -f "$SCRIPT_DIR/analyze-trivy-results.sh" ]]; then
-        cd "$REPO_ROOT" && "$SCRIPT_DIR/analyze-trivy-results.sh" || analysis_success=false
+        SCAN_DIR="$SCAN_DIR" SCAN_ID="$SCAN_ID" "$SCRIPT_DIR/analyze-trivy-results.sh" || analysis_success=false
     fi
 fi
 
 # Xeol Analysis
-if [[ -f "$REPO_ROOT/reports/xeol-reports/xeol-filesystem-results.json" ]]; then
+if [[ -d "$SCAN_DIR/xeol" ]] && ls "$SCAN_DIR/xeol"/*.json &>/dev/null; then
     echo -e "${CYAN}⏰ Analyzing Xeol EOL detection results...${NC}"
     if [[ -f "$SCRIPT_DIR/analyze-xeol-results.sh" ]]; then
-        cd "$REPO_ROOT" && "$SCRIPT_DIR/analyze-xeol-results.sh" || analysis_success=false
+        SCAN_DIR="$SCAN_DIR" SCAN_ID="$SCAN_ID" "$SCRIPT_DIR/analyze-xeol-results.sh" || analysis_success=false
     fi
 fi
 
 # Helm Analysis (if charts were built)
-if [[ -f "$REPO_ROOT/reports/helm-packages/helm-build.log" ]]; then
+if [[ -d "$SCAN_DIR/helm" ]] && ls "$SCAN_DIR/helm"/*.log &>/dev/null; then
     echo -e "${CYAN}⚓ Analyzing Helm build results...${NC}"
     if [[ -f "$SCRIPT_DIR/analyze-helm-results.sh" ]]; then
-        cd "$REPO_ROOT" && "$SCRIPT_DIR/analyze-helm-results.sh" || analysis_success=false
+        SCAN_DIR="$SCAN_DIR" SCAN_ID="$SCAN_ID" "$SCRIPT_DIR/analyze-helm-results.sh" || analysis_success=false
     fi
 fi
 
@@ -440,28 +439,27 @@ echo -e "${BLUE}📋 Consolidating all security reports...${NC}"
 
 # Run the unified report consolidation
 if [[ -f "$SCRIPT_DIR/consolidate-security-reports.sh" ]]; then
-    cd "$REPO_ROOT" && "$SCRIPT_DIR/consolidate-security-reports.sh"
+    SCAN_DIR="$SCAN_DIR" SCAN_ID="$SCAN_ID" "$SCRIPT_DIR/consolidate-security-reports.sh"
     consolidation_result=$?
     
     if [[ $consolidation_result -eq 0 ]]; then
         echo -e "${GREEN}✅ Security reports consolidated successfully${NC}"
         
-        # Display dashboard access information
+        # Display scan directory information
         echo ""
-        echo -e "${BLUE}📊 Security Dashboard Access:${NC}"
-        if [[ -f "$REPO_ROOT/reports/security-reports/index.html" ]]; then
-            echo -e "${CYAN}🎯 Main Dashboard: $REPO_ROOT/reports/security-reports/index.html${NC}"
-        fi
-        
-        if [[ -f "$REPO_ROOT/reports/security-reports/dashboards/security-dashboard.html" ]]; then
-            echo -e "${CYAN}📈 Executive Summary: $REPO_ROOT/reports/security-reports/dashboards/security-dashboard.html${NC}"
-        fi
+        echo -e "${BLUE}📊 Scan Results Location:${NC}"
+        echo -e "${CYAN}📁 Scan Directory: $SCAN_DIR${NC}"
+        echo -e "${CYAN}📊 Consolidated Reports: $SCAN_DIR/consolidated-reports/${NC}"
+        echo -e "${CYAN}🔍 View all scan artifacts: ls -la $SCAN_DIR/*/"${NC}
         
         echo ""
-        echo -e "${BLUE}🔧 Quick Dashboard Access:${NC}"
-        echo -e "${YELLOW}open $REPO_ROOT/reports/security-reports/index.html${NC}"
+        echo -e "${BLUE}🔧 Quick Access:${NC}"
+        echo -e "${YELLOW}cd $SCAN_DIR${NC}"
+        if [[ -f "$SCAN_DIR/consolidated-reports/index.html" ]]; then
+            echo -e "${YELLOW}open $SCAN_DIR/consolidated-reports/index.html${NC}"
+        fi
     else
-        echo -e "${RED}❌ Report consolidation failed${NC}"
+        echo -e "${YELLOW}⚠️  Report consolidation had issues${NC}"
         analysis_success=false
     fi
     
@@ -471,22 +469,21 @@ if [[ -f "$SCRIPT_DIR/consolidate-security-reports.sh" ]]; then
     if [[ -f "$SCRIPT_DIR/generate-scan-findings-summary.sh" ]]; then
         # Source the function and call it with scan parameters
         source "$SCRIPT_DIR/generate-scan-findings-summary.sh"
-        generate_scan_findings_summary "$SCAN_ID" "$TARGET_DIR" "$REPO_ROOT/reports"
+        generate_scan_findings_summary "$SCAN_ID" "$TARGET_DIR" "$REPORTS_ROOT"
         summary_result=$?
         
         if [[ $summary_result -eq 0 ]]; then
             echo -e "${GREEN}✅ Security findings summary generated successfully${NC}"
             
             # Display summary access information
-            if [[ -f "$REPO_ROOT/reports/security-reports/${SCAN_ID}_security-findings-summary.json" ]]; then
-                echo -e "${CYAN}📊 Scan Summary: $REPO_ROOT/reports/security-reports/${SCAN_ID}_security-findings-summary.json${NC}"
-                echo -e "${CYAN}🔗 Latest Summary: $REPO_ROOT/reports/security-reports/security-findings-summary.json${NC}"
+            if [[ -f "$SCAN_DIR/security-findings-summary.json" ]]; then
+                echo -e "${CYAN}📊 Scan Summary: $SCAN_DIR/security-findings-summary.json${NC}"
                 
                 # Show quick stats
-                local critical_count=$(jq -r '.summary.total_critical' "$REPO_ROOT/reports/security-reports/${SCAN_ID}_security-findings-summary.json" 2>/dev/null || echo "0")
-                local high_count=$(jq -r '.summary.total_high' "$REPO_ROOT/reports/security-reports/${SCAN_ID}_security-findings-summary.json" 2>/dev/null || echo "0")
-                local medium_count=$(jq -r '.summary.total_medium' "$REPO_ROOT/reports/security-reports/${SCAN_ID}_security-findings-summary.json" 2>/dev/null || echo "0")
-                local low_count=$(jq -r '.summary.total_low' "$REPO_ROOT/reports/security-reports/${SCAN_ID}_security-findings-summary.json" 2>/dev/null || echo "0")
+                critical_count=$(jq -r '.summary.total_critical' "$SCAN_DIR/security-findings-summary.json" 2>/dev/null || echo "0")
+                high_count=$(jq -r '.summary.total_high' "$SCAN_DIR/security-findings-summary.json" 2>/dev/null || echo "0")
+                medium_count=$(jq -r '.summary.total_medium' "$SCAN_DIR/security-findings-summary.json" 2>/dev/null || echo "0")
+                low_count=$(jq -r '.summary.total_low' "$SCAN_DIR/security-findings-summary.json" 2>/dev/null || echo "0")
                 
                 echo -e "${CYAN}📈 Findings Overview: Critical($critical_count) High($high_count) Medium($medium_count) Low($low_count)${NC}"
             fi
@@ -513,6 +510,6 @@ echo -e "${GREEN}🎯 Target Security Scan Finished Successfully!${NC}"
 echo -e "${CYAN}Target: $TARGET_DIR${NC}"
 echo -e "${CYAN}Scan ID: $SCAN_ID${NC}"
 echo -e "${CYAN}Scan Directory: $SCAN_DIR${NC}"
-echo -e "${CYAN}Reports: $REPO_ROOT/reports${NC}"
+echo -e "${CYAN}All scan artifacts stored in: $SCAN_DIR${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""

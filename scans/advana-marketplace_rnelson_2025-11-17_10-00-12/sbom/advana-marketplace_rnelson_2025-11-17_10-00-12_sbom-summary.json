@@ -1,0 +1,17 @@
+{
+  "scan_info": {
+    "scan_id": "advana-marketplace_rnelson_2025-11-17_10-00-12",
+    "target": "/Users/rnelson/Desktop/CDAO MarketPlace/Marketplace/advana-marketplace",
+    "timestamp": "2025-11-17T16:06:27Z",
+    "tool": "syft",
+    "scan_type": "sbom_generation"
+  },
+  "sbom_files": [
+
+  ],
+  "total_artifacts": ,
+  "metadata": {
+    "generator": "comprehensive-security-architecture",
+    "version": "1.0.0"
+  }
+}

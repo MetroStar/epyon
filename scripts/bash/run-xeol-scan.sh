@@ -14,18 +14,31 @@ CYAN='\033[0;36m'
 WHITE='\033[1;37m'
 NC='\033[0m' # No Color
 
-# Set up paths
+# Initialize scan environment using scan directory approach
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
-OUTPUT_DIR="$REPORTS_ROOT/reports/xeol-reports"
-REPO_PATH="${TARGET_DIR:-$(pwd)}"
 
-# Create unique scan ID for this scan run
-TARGET_NAME=$(basename "$REPO_PATH")
-USERNAME=$(whoami)
-TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
-SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
-SCAN_LOG="$OUTPUT_DIR/${SCAN_ID}_xeol-scan.log"
+# Source the scan directory template
+source "$SCRIPT_DIR/scan-directory-template.sh"
+
+# Initialize scan environment for Xeol
+init_scan_environment "xeol"
+
+# Set REPO_PATH and extract scan information
+REPO_PATH="${TARGET_DIR:-$(pwd)}"
+if [[ -n "$SCAN_ID" ]]; then
+    TARGET_NAME=$(echo "$SCAN_ID" | cut -d'_' -f1)
+    USERNAME=$(echo "$SCAN_ID" | cut -d'_' -f2)
+    TIMESTAMP=$(echo "$SCAN_ID" | cut -d'_' -f3-)
+else
+    # Fallback for standalone execution
+    TARGET_NAME=$(basename "$REPO_PATH")
+    USERNAME=$(whoami)
+    TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
+    SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
+fi
+
+# Set REPO_ROOT for compatibility
+REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR"))")"
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"

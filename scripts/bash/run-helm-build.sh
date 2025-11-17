@@ -21,10 +21,18 @@ OUTPUT_DIR="$REPORTS_ROOT/reports/helm-reports"
 REPO_PATH="${TARGET_DIR:-$(pwd)}"
 
 # Create unique scan ID for this scan run
+# Initialize scan environment using scan directory approach
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source the scan directory template
+source "$SCRIPT_DIR/scan-directory-template.sh"
+
+# Initialize scan environment for Helm
+init_scan_environment "helm"
+
+# Set TARGET_SCAN_DIR and extract scan information
 TARGET_SCAN_DIR="${TARGET_DIR:-$(pwd)}"
-# Use centralized SCAN_ID if provided, otherwise generate one
 if [[ -n "$SCAN_ID" ]]; then
-    # Use the SCAN_ID passed from main orchestrator
     TARGET_NAME=$(echo "$SCAN_ID" | cut -d'_' -f1)
     USERNAME=$(echo "$SCAN_ID" | cut -d'_' -f2)
     TIMESTAMP=$(echo "$SCAN_ID" | cut -d'_' -f3-)

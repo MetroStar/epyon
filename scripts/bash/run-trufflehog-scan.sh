@@ -3,14 +3,18 @@
 # TruffleHog Multi-Target Secret Detection Scanner
 # Comprehensive secret scanning for repositories, containers, and filesystems
 
-# Get absolute path to reports directory
+# Initialize scan environment using scan directory approach
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
-OUTPUT_DIR="$REPORTS_ROOT/reports/trufflehog-reports"
+
+# Source the scan directory template
+source "$SCRIPT_DIR/scan-directory-template.sh"
+
+# Initialize scan environment for TruffleHog
+init_scan_environment "trufflehog"
+
+# Set REPO_PATH and extract scan information
 REPO_PATH="${TARGET_DIR:-$(pwd)}"
-# Use centralized SCAN_ID if provided, otherwise generate one
 if [[ -n "$SCAN_ID" ]]; then
-    # Use the SCAN_ID passed from main orchestrator
     TARGET_NAME=$(echo "$SCAN_ID" | cut -d'_' -f1)
     USERNAME=$(echo "$SCAN_ID" | cut -d'_' -f2)
     TIMESTAMP=$(echo "$SCAN_ID" | cut -d'_' -f3-)
@@ -21,7 +25,6 @@ else
     TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
     SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
 fi
-SCAN_LOG="$OUTPUT_DIR/${SCAN_ID}_trufflehog-scan.log"
 
 # Colors for output
 RED='\033[0;31m'

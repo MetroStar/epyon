@@ -7,14 +7,21 @@
 TARGET_SCAN_DIR="${TARGET_DIR:-$(pwd)}"
 CHART_DIR="${TARGET_SCAN_DIR}/chart"
 
-# Get absolute path to reports directory
+# Initialize scan environment using scan directory approach
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source the scan directory template
+source "$SCRIPT_DIR/scan-directory-template.sh"
+
+# Initialize scan environment for Checkov
+init_scan_environment "checkov"
+
+# Set compatibility paths
 REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 HELM_OUTPUT_DIR="$REPORTS_ROOT/reports/helm-packages"
-OUTPUT_DIR="$REPORTS_ROOT/reports/checkov-reports"
-# Use centralized SCAN_ID if provided, otherwise generate one
+
+# Extract scan information
 if [[ -n "$SCAN_ID" ]]; then
-    # Use the SCAN_ID passed from main orchestrator
     TARGET_NAME=$(echo "$SCAN_ID" | cut -d'_' -f1)
     USERNAME=$(echo "$SCAN_ID" | cut -d'_' -f2)
     TIMESTAMP=$(echo "$SCAN_ID" | cut -d'_' -f3-)

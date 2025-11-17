@@ -1,6 +1,0 @@
-SBOM generation started: 2025-11-16_12-44-29
-Target: /Users/rnelson/Desktop/CDAO MarketPlace/Marketplace/advana-marketplace-monolith-node
-Syft version check:
-Generating SBOM for filesystem: /Users/rnelson/Desktop/CDAO MarketPlace/Marketplace/advana-marketplace-monolith-node
-Using Docker version of Syft
-[0000]  WARN no explicit name and version provided for directory source, deriving artifact ID from the given path (which is not ideal)

@@ -14,22 +14,17 @@ CYAN='\033[0;36m'
 WHITE='\033[1;37m'
 NC='\033[0m' # No Color
 
-# Support target directory scanning - priority: command line arg, TARGET_DIR env var, current directory
-REPO_PATH="${1:-${TARGET_DIR:-$(pwd)}}"
-
-# Set REPO_ROOT for report generation
+# Initialize scan environment using scan directory approach
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
-OUTPUT_DIR="$REPORTS_ROOT/reports/trivy-reports"
 
-# Create unique scan ID for this scan run
-TARGET_NAME=$(basename "$REPO_PATH")
-USERNAME=$(whoami)
-TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
-SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
+# Source the scan directory template
+source "$SCRIPT_DIR/scan-directory-template.sh"
 
-# Create output directory
-mkdir -p "$OUTPUT_DIR"
+# Initialize scan environment for Trivy
+init_scan_environment "trivy"
+
+# Set REPO_PATH (first argument or TARGET_DIR from environment)
+REPO_PATH="${1:-${TARGET_DIR:-$(pwd)}}"
 
 echo
 echo -e "${WHITE}============================================${NC}"
@@ -85,14 +80,14 @@ BASE_IMAGES=(
 for image in "${BASE_IMAGES[@]}"; do
     if command -v docker &> /dev/null; then
         echo -e "${BLUE}📦 Scanning base image: $image${NC}"
-        scan_target "image" "$image" "trivy-base-$(echo $image | tr ':/' '-')-results.json"
+        run_trivy_scan "base-$(echo $image | tr ':/' '-')" "$image"
     fi
 done
 
 # Scan filesystem if target directory provided
-if [ ! -z "$1" ] && [ -d "$1" ]; then
-    echo -e "${BLUE}📁 Scanning filesystem: $1${NC}"
-    scan_target "fs" "$1" "trivy-filesystem-results.json"
+if [ ! -z "$REPO_PATH" ] && [ -d "$REPO_PATH" ]; then
+    echo -e "${BLUE}📁 Scanning filesystem: $REPO_PATH${NC}"
+    run_trivy_scan "filesystem" "$REPO_PATH"
 fi
 
 echo

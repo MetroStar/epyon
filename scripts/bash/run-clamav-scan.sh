@@ -7,10 +7,18 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 OUTPUT_DIR="$REPORTS_ROOT/reports/clamav-reports"
+# Initialize scan environment using scan directory approach
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source the scan directory template
+source "$SCRIPT_DIR/scan-directory-template.sh"
+
+# Initialize scan environment for ClamAV
+init_scan_environment "clamav"
+
+# Set TARGET_DIR and extract scan information
 TARGET_DIR="${TARGET_DIR:-$(pwd)}"
-# Use centralized SCAN_ID if provided, otherwise generate one
 if [[ -n "$SCAN_ID" ]]; then
-    # Use the SCAN_ID passed from main orchestrator
     TARGET_NAME=$(echo "$SCAN_ID" | cut -d'_' -f1)
     USERNAME=$(echo "$SCAN_ID" | cut -d'_' -f2)
     TIMESTAMP=$(echo "$SCAN_ID" | cut -d'_' -f3-)

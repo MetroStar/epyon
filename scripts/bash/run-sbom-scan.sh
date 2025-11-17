@@ -42,6 +42,51 @@ echo "SBOM generation started: $TIMESTAMP" > "$SCAN_LOG"
 echo "Target: $REPO_PATH" >> "$SCAN_LOG"
 echo "Syft version check:" >> "$SCAN_LOG"
 
+# Function to detect project metadata
+detect_project_info() {
+    local target_path="$1"
+    local project_name=""
+    local project_version=""
+    
+    # Try to extract project info from various manifest files
+    if [[ -f "$target_path/package.json" ]]; then
+        project_name=$(jq -r '.name // empty' "$target_path/package.json" 2>/dev/null)
+        project_version=$(jq -r '.version // empty' "$target_path/package.json" 2>/dev/null)
+    elif [[ -f "$target_path/pyproject.toml" ]]; then
+        # Python pyproject.toml
+        project_name=$(grep -E '^name\s*=' "$target_path/pyproject.toml" 2>/dev/null | sed 's/.*=\s*"\([^"]*\)".*/\1/')
+        project_version=$(grep -E '^version\s*=' "$target_path/pyproject.toml" 2>/dev/null | sed 's/.*=\s*"\([^"]*\)".*/\1/')
+    elif [[ -f "$target_path/setup.py" ]]; then
+        # Python setup.py (basic extraction)
+        project_name=$(grep -E 'name\s*=' "$target_path/setup.py" 2>/dev/null | head -1 | sed 's/.*name\s*=\s*['\''\"]\([^'\''\"]*\)['\''\"]/\1/')
+        project_version=$(grep -E 'version\s*=' "$target_path/setup.py" 2>/dev/null | head -1 | sed 's/.*version\s*=\s*['\''\"]\([^'\''\"]*\)['\''\"]/\1/')
+    elif [[ -f "$target_path/go.mod" ]]; then
+        # Go module
+        project_name=$(head -1 "$target_path/go.mod" 2>/dev/null | awk '{print $2}')
+        # Go doesn't typically have versions in go.mod for the main module
+    elif [[ -f "$target_path/pom.xml" ]]; then
+        # Maven project
+        project_name=$(grep -E '<artifactId>' "$target_path/pom.xml" 2>/dev/null | head -1 | sed 's/.*<artifactId>\([^<]*\)<\/artifactId>.*/\1/')
+        project_version=$(grep -E '<version>' "$target_path/pom.xml" 2>/dev/null | head -1 | sed 's/.*<version>\([^<]*\)<\/version>.*/\1/')
+    elif [[ -f "$target_path/Cargo.toml" ]]; then
+        # Rust project
+        project_name=$(grep -E '^name\s*=' "$target_path/Cargo.toml" 2>/dev/null | sed 's/.*=\s*"\([^"]*\)".*/\1/')
+        project_version=$(grep -E '^version\s*=' "$target_path/Cargo.toml" 2>/dev/null | sed 's/.*=\s*"\([^"]*\)".*/\1/')
+    fi
+    
+    # Fallback to directory name if no project name found
+    if [[ -z "$project_name" ]]; then
+        project_name=$(basename "$target_path")
+    fi
+    
+    # Set default version if none found
+    if [[ -z "$project_version" ]]; then
+        project_version="unknown"
+    fi
+    
+    echo "${project_name}:${project_version}"
+}
+
 # Function to generate SBOM for a target
 generate_sbom() {
     local scan_type="$1"
@@ -52,12 +97,20 @@ generate_sbom() {
     echo -e "${CYAN}🔍 Generating SBOM for ${scan_type}: ${target}${NC}"
     echo "Generating SBOM for ${scan_type}: ${target}" >> "$SCAN_LOG"
     
+    # Detect project information to reduce warnings
+    local project_info=$(detect_project_info "$target")
+    local project_name=$(echo "$project_info" | cut -d: -f1)
+    local project_version=$(echo "$project_info" | cut -d: -f2)
+    
+    echo -e "${BLUE}📋 Project: ${project_name} (${project_version})${NC}"
+    echo "Project: ${project_name} (${project_version})" >> "$SCAN_LOG"
+    
     if command -v syft >/dev/null 2>&1; then
-        # Use local Syft installation
+        # Use local Syft installation with project metadata
         echo -e "${GREEN}✅ Using local Syft installation${NC}"
         syft version >> "$SCAN_LOG" 2>&1
         
-        if syft "$target" -o json > "$output_file" 2>>"$SCAN_LOG"; then
+        if syft "$target" -o json --name "$project_name" --version "$project_version" > "$output_file" 2>>"$SCAN_LOG"; then
             echo -e "${GREEN}✅ SBOM generated successfully: $(basename "$output_file")${NC}"
             echo "SBOM generated successfully: $output_file" >> "$SCAN_LOG"
         else
@@ -66,13 +119,13 @@ generate_sbom() {
             echo '{"artifacts": [], "artifactRelationships": [], "source": {"type": "directory", "target": "'$target'"}, "distro": {}, "descriptor": {"name": "syft", "version": "error"}}' > "$output_file"
         fi
     elif command -v docker >/dev/null 2>&1; then
-        # Use Docker version of Syft
+        # Use Docker version of Syft with project metadata
         echo -e "${YELLOW}⚠️  Local Syft not found, using Docker version${NC}"
         echo "Using Docker version of Syft" >> "$SCAN_LOG"
         
         if docker run --rm -v "$REPO_PATH":/workspace \
             anchore/syft:latest \
-            /workspace -o json > "$output_file" 2>>"$SCAN_LOG"; then
+            /workspace -o json --name "$project_name" --version "$project_version" > "$output_file" 2>>"$SCAN_LOG"; then
             echo -e "${GREEN}✅ SBOM generated successfully: $(basename "$output_file")${NC}"
             echo "SBOM generated successfully: $output_file" >> "$SCAN_LOG"
         else

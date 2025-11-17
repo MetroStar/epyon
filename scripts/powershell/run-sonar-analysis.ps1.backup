@@ -1,31 +1,6 @@
 # SonarQube Analysis Script - PowerShell Version
 # Automatically sources .env.sonar if it exists
 
-# Initialize scan environment using scan directory approach
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-
-# Source the scan directory template
-. "$ScriptDir\Scan-Directory-Template.ps1"
-
-# Initialize scan environment for sonar
-$scanEnv = Initialize-ScanEnvironment -ToolName "sonar"
-
-# Extract scan information
-if ($env:SCAN_ID) {
-    $parts = $env:SCAN_ID -split '_'
-    $TARGET_NAME = $parts[0]
-    $USERNAME = $parts[1]
-    $TIMESTAMP = $parts[2..($parts.Length-1)] -join '_'
-    $SCAN_ID = $env:SCAN_ID
-}
-else {
-    $targetPath = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }
-    $TARGET_NAME = Split-Path -Leaf $targetPath
-    $USERNAME = if ($env:USERNAME) { $env:USERNAME } else { $env:USER }
-    $TIMESTAMP = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $SCAN_ID = "${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
-}
-
 param(
     [Parameter(Position=0)]
     [string]$Mode = "full"
@@ -165,8 +140,7 @@ if (-not $env:SONAR_TOKEN) {
                 Write-Host "============================================" -ForegroundColor $GREEN
                 Write-Host "  SonarQube analysis skipped successfully!" -ForegroundColor $GREEN
                 Write-Host "============================================" -ForegroundColor $GREEN
-                Complete-ScanResults -ToolName "sonar"
-exit 0
+                exit 0
             }
             
             Write-Host ""
@@ -210,8 +184,7 @@ exit 0
         Write-Host "  Security pipeline continues with other layers" -ForegroundColor $GREEN
         Write-Host "   For complete analysis, configure SonarQube authentication" -ForegroundColor $YELLOW
         Write-Host ""
-        Complete-ScanResults -ToolName "sonar"
-exit 0
+        exit 0
     }
 }
 

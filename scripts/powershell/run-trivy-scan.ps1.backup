@@ -1,31 +1,6 @@
 # Trivy Multi-Target Vulnerability Scanner
 # Comprehensive container image, Kubernetes, and filesystem security scanning
 
-# Initialize scan environment using scan directory approach
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-
-# Source the scan directory template
-. "$ScriptDir\Scan-Directory-Template.ps1"
-
-# Initialize scan environment for trivy
-$scanEnv = Initialize-ScanEnvironment -ToolName "trivy"
-
-# Extract scan information
-if ($env:SCAN_ID) {
-    $parts = $env:SCAN_ID -split '_'
-    $TARGET_NAME = $parts[0]
-    $USERNAME = $parts[1]
-    $TIMESTAMP = $parts[2..($parts.Length-1)] -join '_'
-    $SCAN_ID = $env:SCAN_ID
-}
-else {
-    $targetPath = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }
-    $TARGET_NAME = Split-Path -Leaf $targetPath
-    $USERNAME = if ($env:USERNAME) { $env:USERNAME } else { $env:USER }
-    $TIMESTAMP = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $SCAN_ID = "${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
-}
-
 param(
     [Parameter(Position=0)]
     [ValidateSet("filesystem", "images", "base", "kubernetes", "all")]
@@ -35,9 +10,9 @@ param(
 $ErrorActionPreference = "Continue"
 
 # Configuration
-# $OUTPUT_DIR set by Initialize-ScanEnvironment
+$OutputDir = "..\..\reports\trivy-reports"
 $Timestamp = Get-Date
-# $SCAN_LOG set by Initialize-ScanEnvironment
+$ScanLog = Join-Path $OutputDir "trivy-scan.log"
 $RepoPath = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }
 
 # Colors
@@ -53,25 +28,25 @@ Write-Host "============================================" -ForegroundColor $WHIT
 Write-Host "Trivy Multi-Target Security Scanner" -ForegroundColor $WHITE
 Write-Host "============================================" -ForegroundColor $WHITE
 Write-Host "Repository: $RepoPath"
-Write-Host "Output Directory: $OUTPUT_DIR"
+Write-Host "Output Directory: $OutputDir"
 Write-Host "Timestamp: $Timestamp"
 Write-Host ""
 
 # Create output directory
-# Output directory created by template
+New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
 # Initialize scan log
 @"
 Trivy Security Scan Log
 Timestamp: $Timestamp
-Output Directory: $OUTPUT_DIR
+Output Directory: $OutputDir
 ========================================
-"@ | Out-File -FilePath $SCAN_LOG -Encoding UTF8
+"@ | Out-File -FilePath $ScanLog -Encoding UTF8
 
 Write-Host "Output Directory: " -NoNewline
-Write-Host $OUTPUT_DIR -ForegroundColor $BLUE
+Write-Host $OutputDir -ForegroundColor $BLUE
 Write-Host "Scan Log: " -NoNewline
-Write-Host $SCAN_LOG -ForegroundColor $BLUE
+Write-Host $ScanLog -ForegroundColor $BLUE
 Write-Host "Timestamp: " -NoNewline
 Write-Host $Timestamp -ForegroundColor $CYAN
 Write-Host ""
@@ -110,10 +85,10 @@ function Invoke-TrivyImageScan {
     
     Write-Host "   Scanning Docker image: " -NoNewline -ForegroundColor $CYAN
     Write-Host $ImageName -ForegroundColor $YELLOW
-    "Scan type: $ScanType" | Out-File -FilePath $SCAN_LOG -Append
-    "Image: $ImageName" | Out-File -FilePath $SCAN_LOG -Append
+    "Scan type: $ScanType" | Out-File -FilePath $ScanLog -Append
+    "Image: $ImageName" | Out-File -FilePath $ScanLog -Append
     
-    $outputPath = Join-Path $OUTPUT_DIR $OutputFile
+    $outputPath = Join-Path $OutputDir $OutputFile
     docker run --rm `
         -v /var/run/docker.sock:/var/run/docker.sock `
         -v "${PWD}/${OutputDir}:/output" `
@@ -121,14 +96,14 @@ function Invoke-TrivyImageScan {
         --format json `
         --output "/output/$OutputFile" `
         --severity HIGH,CRITICAL `
-        $ImageName 2>&1 | Tee-Object -FilePath $SCAN_LOG -Append | Out-Null
+        $ImageName 2>&1 | Tee-Object -FilePath $ScanLog -Append | Out-Null
     
     if ($LASTEXITCODE -eq 0) {
         Write-Host "  Image scan completed" -ForegroundColor $GREEN
-        "Image scan completed successfully" | Out-File -FilePath $SCAN_LOG -Append
+        "Image scan completed successfully" | Out-File -FilePath $ScanLog -Append
     } else {
         Write-Host "    Image scan completed with warnings" -ForegroundColor $YELLOW
-        "Image scan completed with warnings" | Out-File -FilePath $SCAN_LOG -Append
+        "Image scan completed with warnings" | Out-File -FilePath $ScanLog -Append
     }
 }
 
@@ -141,7 +116,7 @@ function Invoke-ContainerImageScan {
     
     if ($DockerFiles.Count -gt 0) {
         Write-Host "   Found $($DockerFiles.Count) Docker file(s): $($DockerFiles.Name -join ', ')"
-        "Found Docker files: $($DockerFiles.Name -join ', ')" | Out-File -FilePath $SCAN_LOG -Append
+        "Found Docker files: $($DockerFiles.Name -join ', ')" | Out-File -FilePath $ScanLog -Append
         
         foreach ($dockerfile in $DockerFiles) {
             Write-Host "   Processing Docker file: $($dockerfile.Name)"
@@ -150,7 +125,7 @@ function Invoke-ContainerImageScan {
             $ImageName = "advana-marketplace:${CleanName}-trivy-scan"
             
             Write-Host "   Building image from $($dockerfile.Name) for security scanning..."
-            docker build -f $dockerfile.FullName -t $ImageName . 2>&1 | Out-File -FilePath $SCAN_LOG -Append
+            docker build -f $dockerfile.FullName -t $ImageName . 2>&1 | Out-File -FilePath $ScanLog -Append
             
             if ($LASTEXITCODE -eq 0) {
                 Write-Host "  Image built successfully from $($dockerfile.Name)" -ForegroundColor $GREEN
@@ -158,10 +133,10 @@ function Invoke-ContainerImageScan {
                 
                 Invoke-TrivyImageScan -ImageName $ImageName -ScanType "container-${CleanName}" -OutputFile "trivy-${CleanName}-results.json"
                 
-                docker rmi $ImageName 2>&1 | Out-File -FilePath $SCAN_LOG -Append
+                docker rmi $ImageName 2>&1 | Out-File -FilePath $ScanLog -Append
             } else {
                 Write-Host "  Failed to build image from $($dockerfile.Name)" -ForegroundColor $RED
-                "Failed to build image from $($dockerfile.Name)" | Out-File -FilePath $SCAN_LOG -Append
+                "Failed to build image from $($dockerfile.Name)" | Out-File -FilePath $ScanLog -Append
             }
         }
         Write-Host "  Built container image security scanning completed" -ForegroundColor $GREEN
@@ -186,7 +161,7 @@ function Invoke-BaseImageScan {
             docker image inspect $image 2>&1 | Out-Null
         } catch {
             Write-Host "   Pulling image $image..."
-            docker pull $image 2>&1 | Out-File -FilePath $SCAN_LOG -Append
+            docker pull $image 2>&1 | Out-File -FilePath $ScanLog -Append
         }
         
         $SafeImageName = $image -replace '[:/]', '-'
@@ -202,7 +177,7 @@ function Invoke-FilesystemScan {
     
     Write-Host "   Scanning filesystem: " -NoNewline -ForegroundColor $CYAN
     Write-Host $TargetDir -ForegroundColor $YELLOW
-    "Filesystem scan target: $TargetDir" | Out-File -FilePath $SCAN_LOG -Append
+    "Filesystem scan target: $TargetDir" | Out-File -FilePath $ScanLog -Append
     
     docker run --rm `
         -v "${PWD}:/workspace" `
@@ -211,7 +186,7 @@ function Invoke-FilesystemScan {
         --format json `
         --output "/output/$OutputFile" `
         --severity HIGH,CRITICAL `
-        "/workspace/$TargetDir" 2>&1 | Tee-Object -FilePath $SCAN_LOG -Append | Out-Null
+        "/workspace/$TargetDir" 2>&1 | Tee-Object -FilePath $ScanLog -Append | Out-Null
     
     if ($LASTEXITCODE -eq 0) {
         Write-Host "  Filesystem scan completed" -ForegroundColor $GREEN
@@ -239,7 +214,7 @@ function Invoke-KubernetesScan {
         --format json `
         --output "/output/$OutputFile" `
         --severity HIGH,CRITICAL `
-        "/workspace/$TargetDir" 2>&1 | Tee-Object -FilePath $SCAN_LOG -Append | Out-Null
+        "/workspace/$TargetDir" 2>&1 | Tee-Object -FilePath $ScanLog -Append | Out-Null
     
     if ($LASTEXITCODE -eq 0) {
         Write-Host "  Kubernetes scan completed" -ForegroundColor $GREEN
@@ -280,6 +255,6 @@ Write-Host ""
 Write-Host "============================================" -ForegroundColor $GREEN
 Write-Host "Trivy Security Scan Complete" -ForegroundColor $GREEN
 Write-Host "============================================" -ForegroundColor $GREEN
-Write-Host "Results saved to: $OUTPUT_DIR" -ForegroundColor $CYAN
-Write-Host "Scan log: $SCAN_LOG" -ForegroundColor $CYAN
+Write-Host "Results saved to: $OutputDir" -ForegroundColor $CYAN
+Write-Host "Scan log: $ScanLog" -ForegroundColor $CYAN
 Write-Host ""

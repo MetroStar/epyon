@@ -1,47 +1,22 @@
 # ClamAV Antivirus Scan Script
 # Scans for malware and viruses in the codebase using Docker
 
-# Initialize scan environment using scan directory approach
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-
-# Source the scan directory template
-. "$ScriptDir\Scan-Directory-Template.ps1"
-
-# Initialize scan environment for clamav
-$scanEnv = Initialize-ScanEnvironment -ToolName "clamav"
-
-# Extract scan information
-if ($env:SCAN_ID) {
-    $parts = $env:SCAN_ID -split '_'
-    $TARGET_NAME = $parts[0]
-    $USERNAME = $parts[1]
-    $TIMESTAMP = $parts[2..($parts.Length-1)] -join '_'
-    $SCAN_ID = $env:SCAN_ID
-}
-else {
-    $targetPath = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }
-    $TARGET_NAME = Split-Path -Leaf $targetPath
-    $USERNAME = if ($env:USERNAME) { $env:USERNAME } else { $env:USER }
-    $TIMESTAMP = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $SCAN_ID = "${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
-}
-
 # Configuration - Support target directory override
 $RepoPath = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }
 # Configuration
-# $OUTPUT_DIR set by Initialize-ScanEnvironment
-# $SCAN_LOG set by Initialize-ScanEnvironment
-$InfectedLog = Join-Path $OUTPUT_DIR "clamav-infected.log"
+$OutputDir = "..\..\reports\clamav-reports"
+$ScanLog = Join-Path $OutputDir "clamav-scan.log"
+$InfectedLog = Join-Path $OutputDir "clamav-infected.log"
 
 # Create output directory if it doesn't exist
-# Output directory created by template
+New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
 Write-Host "============================================"
 Write-Host "Starting ClamAV antivirus scan..."
 Write-Host "============================================"
 Write-Host "Repository: $RepoPath"
-Write-Host "Output Directory: $OUTPUT_DIR"
-Write-Host "Scan Log: $SCAN_LOG"
+Write-Host "Output Directory: $OutputDir"
+Write-Host "Scan Log: $ScanLog"
 Write-Host ""
 
 Write-Host "Updating ClamAV virus definitions..."
@@ -100,11 +75,11 @@ if ($ScanExitCode -eq 0) {
   Write-Host "   MALWARE/VIRUSES FOUND! Check the detailed logs." -ForegroundColor Red
   
   # Extract infected files from log
-  if (Test-Path $SCAN_LOG) {
+  if (Test-Path $ScanLog) {
     Write-Host ""
     Write-Host "Infected files:"
     Write-Host "==============="
-    Select-String -Path $SCAN_LOG -Pattern "FOUND" | Tee-Object -FilePath $InfectedLog
+    Select-String -Path $ScanLog -Pattern "FOUND" | Tee-Object -FilePath $InfectedLog
   }
 } else {
   Write-Host "  ClamAV scan failed with error code: $ScanExitCode" -ForegroundColor Red
@@ -112,26 +87,26 @@ if ($ScanExitCode -eq 0) {
 }
 
 # Display summary if scan log exists
-if (Test-Path $SCAN_LOG) {
+if (Test-Path $ScanLog) {
   Write-Host ""
   Write-Host "Scan Summary:"
   Write-Host "============="
   
   # Extract summary information from log
-  $LogContent = Get-Content $SCAN_LOG -Raw
+  $LogContent = Get-Content $ScanLog -Raw
   if ($LogContent -match "SCAN SUMMARY") {
     $LogContent -split "`n" | Select-String -Pattern "SCAN SUMMARY|End Date:" -Context 0,10
   } else {
     # Fallback: count files and infected
-    $ScannedFiles = (Select-String -Path $SCAN_LOG -Pattern "OK$" -AllMatches).Matches.Count
-    $InfectedFiles = (Select-String -Path $SCAN_LOG -Pattern "FOUND$" -AllMatches).Matches.Count
+    $ScannedFiles = (Select-String -Path $ScanLog -Pattern "OK$" -AllMatches).Matches.Count
+    $InfectedFiles = (Select-String -Path $ScanLog -Pattern "FOUND$" -AllMatches).Matches.Count
     
     Write-Host "Scanned files: $ScannedFiles"
     Write-Host "Infected files: $InfectedFiles"
   }
   
   Write-Host ""
-  Write-Host "Detailed results saved to: $SCAN_LOG"
+  Write-Host "Detailed results saved to: $ScanLog"
   
   if ((Test-Path $InfectedLog) -and ((Get-Item $InfectedLog).Length -gt 0)) {
     Write-Host "Infected files list: $InfectedLog"

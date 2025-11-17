@@ -1,0 +1,328 @@
+# Target-Aware Complete Security Scan Orchestration Script
+# Runs all eight security layers with multi-target scanning capabilities on external directories
+# Usage: .\run-target-security-scan.ps1 <target_directory> [quick|full|images|analysis]
+# Version: 2.0 - Enhanced with Docker checking, timing, progress, parallel execution, and comprehensive reporting
+
+param(
+    [Parameter(Position=0)]
+    [string]$TargetDir = "",
+    
+    [Parameter(Position=1)]
+    [ValidateSet("quick", "full", "images", "analysis")]
+    [string]$ScanType = "full",
+    
+    [Parameter()]
+    [switch]$SkipDockerCheck = $false,
+    
+    [Parameter()]
+    [switch]$Parallel = $false
+)
+
+$ErrorActionPreference = "Continue"  # Changed to Continue for better error handling
+
+# Colors for output
+$RED = "Red"
+$GREEN = "Green"
+$YELLOW = "Yellow"
+$BLUE = "Cyan"
+$PURPLE = "Magenta"
+$CYAN = "Cyan"
+
+# Configuration
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ScriptsRoot = Split-Path -Parent $ScriptDir
+$RepoRoot = Split-Path -Parent $ScriptsRoot
+$Timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+$LogFile = Join-Path $RepoRoot "reports\security-reports\scan-orchestrator-$Timestamp.log"
+
+# Tracking variables
+$script:ScanStartTime = Get-Date
+$script:TotalScans = 0
+$script:CompletedScans = 0
+$script:FailedScans = 0
+$script:SuccessfulScans = 0
+$script:SkippedScans = 0
+$script:ScanResults = @()
+$script:DockerAvailable = $false
+
+# Tracking variables
+$script:ScanStartTime = Get-Date
+$script:TotalScans = 0
+$script:CompletedScans = 0
+$script:FailedScans = 0
+$script:SuccessfulScans = 0
+$script:SkippedScans = 0
+$script:ScanResults = @()
+$script:DockerAvailable = $false
+
+# Logging function
+function Write-Log {
+    param(
+        [string]$Message,
+        [string]$Level = "INFO"
+    )
+    $LogMessage = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [$Level] $Message"
+    Add-Content -Path $LogFile -Value $LogMessage -ErrorAction SilentlyContinue
+}
+
+# Function to check Docker availability
+function Test-DockerAvailable {
+    Write-Host "🐳 Checking Docker availability..." -ForegroundColor $CYAN
+    Write-Log "Checking Docker daemon status"
+    
+    try {
+        $dockerVersion = docker --version 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  Docker installed: $dockerVersion" -ForegroundColor $GREEN
+            Write-Log "Docker version: $dockerVersion"
+            
+            # Test if Docker daemon is running
+            $dockerPs = docker ps 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "  ✅ Docker daemon is running" -ForegroundColor $GREEN
+                Write-Log "Docker daemon is running"
+                $script:DockerAvailable = $true
+                return $true
+            } else {
+                Write-Host "  ⚠️  Docker is installed but daemon is not running" -ForegroundColor $YELLOW
+                Write-Host "     Error: $dockerPs" -ForegroundColor $YELLOW
+                Write-Log "Docker daemon not running: $dockerPs" "WARN"
+                $script:DockerAvailable = $false
+                return $false
+            }
+        } else {
+            Write-Host "  ⚠️  Docker is not installed" -ForegroundColor $YELLOW
+            Write-Log "Docker not installed" "WARN"
+            $script:DockerAvailable = $false
+            return $false
+        }
+    } catch {
+        Write-Host "  ❌ Error checking Docker: $_" -ForegroundColor $RED
+        Write-Log "Error checking Docker: $_" "ERROR"
+        $script:DockerAvailable = $false
+        return $false
+    }
+}
+
+# Function to calculate progress
+function Get-Progress {
+    if ($script:TotalScans -eq 0) { return 0 }
+    return [math]::Round(($script:CompletedScans / $script:TotalScans) * 100, 1)
+}
+
+# Function to format duration
+function Format-Duration {
+    param([TimeSpan]$Duration)
+    
+    if ($Duration.TotalSeconds -lt 60) {
+        return "{0:N1}s" -f $Duration.TotalSeconds
+    } elseif ($Duration.TotalMinutes -lt 60) {
+        return "{0:N1}m" -f $Duration.TotalMinutes
+    } else {
+        return "{0:N1}h" -f $Duration.TotalHours
+    }
+}
+if ([string]::IsNullOrWhiteSpace($TargetDir)) {
+    $TargetDir = Get-Location
+    Write-Host "    No target directory specified - using current directory" -ForegroundColor $CYAN
+}
+
+# Resolve absolute path
+if (-not (Test-Path $TargetDir)) {
+    Write-Host "  Error: Target directory does not exist: $TargetDir" -ForegroundColor $RED
+    Write-Host ""
+    Write-Host "Usage: .\run-target-security-scan.ps1 [target_directory] [quick|full|images|analysis]"
+    Write-Host ""
+    Write-Host "Examples:"
+    Write-Host "  .\run-target-security-scan.ps1                    # Scan current directory"
+    Write-Host "  .\run-target-security-scan.ps1 'C:\path\to\project' full"
+    Write-Host "  .\run-target-security-scan.ps1 '.\my-project' quick"
+    exit 1
+}
+$TargetDir = (Resolve-Path $TargetDir).Path
+
+Write-Host "============================================"
+Write-Host "     Target-Aware Security Scan Orchestrator"
+Write-Host "============================================"
+Write-Host "Security Tools Dir: $RepoRoot"
+Write-Host "Target Directory: $TargetDir"
+Write-Host "Scan Type: $ScanType"
+Write-Host "Timestamp: $(Get-Date)"
+Write-Host ""
+
+# Export TARGET_DIR for all child scripts
+$env:TARGET_DIR = $TargetDir
+
+# Function to print section headers
+function Write-Section {
+    param([string]$Message)
+    Write-Host "                                                                                " -ForegroundColor $BLUE
+    Write-Host "   $Message" -ForegroundColor $CYAN
+    Write-Host "                                                                                " -ForegroundColor $BLUE
+    Write-Host ""
+}
+
+# Function to run security tools with target directory
+function Invoke-SecurityTool {
+    param(
+        [string]$ToolName,
+        [string]$ScriptPath,
+        [string]$Args = ""
+    )
+    
+    Write-Host "   Running $ToolName..." -ForegroundColor $YELLOW
+    Write-Host "Command: $ScriptPath $Args"
+    Write-Host "Target: $TargetDir"
+    Write-Host "Started: $(Get-Date)"
+    Write-Host ""
+    
+    if (Test-Path $ScriptPath) {
+        Push-Location $RepoRoot
+        
+        try {
+            if ($Args) {
+                & $ScriptPath $Args.Split(' ')
+            } else {
+                & $ScriptPath
+            }
+            
+            if ($LASTEXITCODE -eq 0 -or $null -eq $LASTEXITCODE) {
+                Write-Host "  $ToolName completed successfully" -ForegroundColor $GREEN
+            } else {
+                Write-Host "    $ToolName completed with warnings" -ForegroundColor $YELLOW
+            }
+        } catch {
+            Write-Host "  $ToolName failed: $_" -ForegroundColor $RED
+        } finally {
+            Pop-Location
+        }
+    } else {
+        Write-Host "  $ToolName script not found: $ScriptPath" -ForegroundColor $RED
+        return $false
+    }
+    Write-Host ""
+    return $true
+}
+
+# Validate target directory content
+Write-Section "Target Directory Analysis"
+Write-Host "   Analyzing target directory..." -ForegroundColor $CYAN
+Write-Host "Directory: $TargetDir"
+
+$DirSize = (Get-ChildItem -Path $TargetDir -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum
+$DirSizeGB = [math]::Round($DirSize / 1GB, 2)
+$FileCount = (Get-ChildItem -Path $TargetDir -Recurse -File -ErrorAction SilentlyContinue | Measure-Object).Count
+
+Write-Host "Size: $DirSizeGB GB"
+Write-Host "Files: $FileCount"
+
+if (Test-Path (Join-Path $TargetDir "package.json")) {
+    Write-Host "  Node.js project detected" -ForegroundColor $GREEN
+    $PackageJson = Get-Content (Join-Path $TargetDir "package.json") -Raw | ConvertFrom-Json
+    Write-Host "Package: $($PackageJson.name)"
+    Write-Host "Version: $($PackageJson.version)"
+}
+
+if (Test-Path (Join-Path $TargetDir "Dockerfile")) {
+    Write-Host "  Docker project detected" -ForegroundColor $GREEN
+}
+
+if (Test-Path (Join-Path $TargetDir ".git")) {
+    Write-Host "  Git repository detected" -ForegroundColor $GREEN
+}
+
+Write-Host ""
+
+# Main security scan execution
+switch ($ScanType) {
+    "quick" {
+        Write-Section "Quick Security Scan (Core Tools Only) - Target: $(Split-Path $TargetDir -Leaf)"
+        
+        # Core security tools - filesystem only
+        Invoke-SecurityTool "TruffleHog Secret Detection" "$ScriptDir\run-trufflehog-scan.ps1"
+        Invoke-SecurityTool "ClamAV Antivirus Scan" "$ScriptDir\run-clamav-scan.ps1"
+        Invoke-SecurityTool "Grype Vulnerability Scanning" "$ScriptDir\run-grype-scan.ps1" "filesystem"
+        Invoke-SecurityTool "Trivy Security Analysis" "$ScriptDir\run-trivy-scan.ps1" "filesystem"
+    }
+    
+    "images" {
+        Write-Section "Container Image Security Scan (All Image Types) - Target: $(Split-Path $TargetDir -Leaf)"
+        
+        # Multi-target container image scanning
+        Invoke-SecurityTool "TruffleHog Container Images" "$ScriptDir\run-trufflehog-scan.ps1"
+        Invoke-SecurityTool "Grype Container Images" "$ScriptDir\run-grype-scan.ps1" "images"
+        Invoke-SecurityTool "Grype Base Images" "$ScriptDir\run-grype-scan.ps1" "base"
+        Invoke-SecurityTool "Trivy Container Images" "$ScriptDir\run-trivy-scan.ps1" "images"
+        Invoke-SecurityTool "Trivy Base Images" "$ScriptDir\run-trivy-scan.ps1" "base"
+        Invoke-SecurityTool "Xeol End-of-Life Detection" "$ScriptDir\run-xeol-scan.ps1"
+    }
+    
+    "analysis" {
+        Write-Section "Security Analysis & Reporting - Target: $(Split-Path $TargetDir -Leaf)"
+        
+        # Analysis mode - process existing reports without running new scans
+        Write-Host "   Processing existing security reports for analysis..." -ForegroundColor $BLUE
+        Write-Host "    Analysis mode processes existing scan results without running new scans" -ForegroundColor $YELLOW
+        Write-Host ""
+    }
+    
+    "full" {
+        Write-Section "Complete Eight-Layer Security Architecture Scan - Target: $(Split-Path $TargetDir -Leaf)"
+        
+        Write-Host "     Layer 1: Code Quality & Test Coverage" -ForegroundColor $PURPLE
+        Invoke-SecurityTool "SonarQube Analysis" "$ScriptDir\run-sonar-analysis.ps1"
+        
+        Write-Host "   Layer 2: Secret Detection (Multi-Target)" -ForegroundColor $PURPLE
+        Invoke-SecurityTool "TruffleHog Filesystem" "$ScriptDir\run-trufflehog-scan.ps1"
+        Invoke-SecurityTool "TruffleHog Container Images" "$ScriptDir\run-trufflehog-scan.ps1"
+        
+        Write-Host "   Layer 3: Malware Detection" -ForegroundColor $PURPLE
+        Invoke-SecurityTool "ClamAV Antivirus Scan" "$ScriptDir\run-clamav-scan.ps1"
+        
+        Write-Host "     Layer 4: Helm Chart Building" -ForegroundColor $PURPLE
+        Invoke-SecurityTool "Helm Chart Build" "$ScriptDir\run-helm-build.ps1"
+        
+        Write-Host "    Layer 5: Infrastructure Security" -ForegroundColor $PURPLE
+        Invoke-SecurityTool "Checkov IaC Security" "$ScriptDir\run-checkov-scan.ps1"
+        
+        Write-Host "   Layer 6: Vulnerability Detection (Multi-Target)" -ForegroundColor $PURPLE
+        Invoke-SecurityTool "Grype Filesystem" "$ScriptDir\run-grype-scan.ps1" "filesystem"
+        Invoke-SecurityTool "Grype Container Images" "$ScriptDir\run-grype-scan.ps1" "images"
+        Invoke-SecurityTool "Grype Base Images" "$ScriptDir\run-grype-scan.ps1" "base"
+        
+        Write-Host "     Layer 7: Container Security (Multi-Target)" -ForegroundColor $PURPLE
+        Invoke-SecurityTool "Trivy Filesystem" "$ScriptDir\run-trivy-scan.ps1" "filesystem"
+        Invoke-SecurityTool "Trivy Container Images" "$ScriptDir\run-trivy-scan.ps1" "images"
+        Invoke-SecurityTool "Trivy Base Images" "$ScriptDir\run-trivy-scan.ps1" "base"
+        Invoke-SecurityTool "Trivy Kubernetes" "$ScriptDir\run-trivy-scan.ps1" "kubernetes"
+        
+        Write-Host "    Layer 8: End-of-Life Detection" -ForegroundColor $PURPLE
+        Invoke-SecurityTool "Xeol EOL Detection" "$ScriptDir\run-xeol-scan.ps1"
+    }
+}
+
+# Final consolidation
+Write-Section "Security Report Consolidation"
+Write-Host "   Consolidating all security reports..." -ForegroundColor $CYAN
+
+$ConsolidateScript = Join-Path $ScriptDir "consolidate-security-reports.ps1"
+if (Test-Path $ConsolidateScript) {
+    Push-Location $RepoRoot
+    & $ConsolidateScript
+    Pop-Location
+    Write-Host "  Security reports consolidated" -ForegroundColor $GREEN
+} else {
+    Write-Host "    Consolidation script not found" -ForegroundColor $YELLOW
+}
+
+Write-Host ""
+Write-Host "============================================" -ForegroundColor $GREEN
+Write-Host "   Target Security Scan Complete!" -ForegroundColor $GREEN
+Write-Host "============================================" -ForegroundColor $GREEN
+Write-Host "Target: $TargetDir"
+Write-Host "Scan Type: $ScanType"
+Write-Host "Completed: $(Get-Date)"
+Write-Host ""
+Write-Host "   View the security dashboard:" -ForegroundColor $CYAN
+Write-Host "   .\open-dashboard.ps1"
+Write-Host ""

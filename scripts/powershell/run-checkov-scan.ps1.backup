@@ -1,31 +1,6 @@
 # Checkov Infrastructure-as-Code Security Scan Script - PowerShell Version
 # Scans Helm charts and Kubernetes manifests for security best practices
 
-# Initialize scan environment using scan directory approach
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-
-# Source the scan directory template
-. "$ScriptDir\Scan-Directory-Template.ps1"
-
-# Initialize scan environment for checkov
-$scanEnv = Initialize-ScanEnvironment -ToolName "checkov"
-
-# Extract scan information
-if ($env:SCAN_ID) {
-    $parts = $env:SCAN_ID -split '_'
-    $TARGET_NAME = $parts[0]
-    $USERNAME = $parts[1]
-    $TIMESTAMP = $parts[2..($parts.Length-1)] -join '_'
-    $SCAN_ID = $env:SCAN_ID
-}
-else {
-    $targetPath = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }
-    $TARGET_NAME = Split-Path -Leaf $targetPath
-    $USERNAME = if ($env:USERNAME) { $env:USERNAME } else { $env:USER }
-    $TIMESTAMP = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $SCAN_ID = "${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
-}
-
 param(
     [Parameter(Position=0)]
     [string]$Mode = "default"
@@ -37,10 +12,10 @@ $ErrorActionPreference = "Continue"
 $TargetScanDir = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }
 $ChartDir = Join-Path $TargetScanDir "chart"
 $HelmOutputDir = "..\..\reports\helm-packages"
-# $OUTPUT_DIR set by Initialize-ScanEnvironment
+$OutputDir = "..\..\reports\checkov-reports"
 $ChartName = "advana-marketplace"
-# $SCAN_LOG set by Initialize-ScanEnvironment
-$ResultsFile = Join-Path $OUTPUT_DIR "checkov-results.json"
+$ScanLog = Join-Path $OutputDir "checkov-scan.log"
+$ResultsFile = Join-Path $OutputDir "checkov-results.json"
 $RenderedTemplates = Join-Path $HelmOutputDir "rendered-templates.yaml"
 $RepoRoot = if ($env:REPO_ROOT) { $env:REPO_ROOT } else { Split-Path -Parent (Split-Path -Parent $PSScriptRoot) }
 
@@ -64,16 +39,16 @@ $AwsSecretAccessKey = $env:AWS_SECRET_ACCESS_KEY
 $AwsDefaultRegion = if ($env:AWS_DEFAULT_REGION) { $env:AWS_DEFAULT_REGION } else { "us-gov-west-1" }
 
 # Create output directories
-# Output directory created by template
+New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 New-Item -ItemType Directory -Force -Path $HelmOutputDir | Out-Null
 
 Write-Host "============================================" -ForegroundColor $BLUE
 Write-Host "Checkov Infrastructure-as-Code Security Scan" -ForegroundColor $BLUE
 Write-Host "============================================" -ForegroundColor $BLUE
 Write-Host "Chart Directory: $ChartDir"
-Write-Host "Output Directory: $OUTPUT_DIR"
+Write-Host "Output Directory: $OutputDir"
 Write-Host "Chart Name: $ChartName"
-Write-Host "Scan Log: $SCAN_LOG"
+Write-Host "Scan Log: $ScanLog"
 Write-Host "Timestamp: $(Get-Date)"
 Write-Host ""
 
@@ -137,8 +112,7 @@ if (-not (Test-Path $ChartDir)) {
         } | ConvertTo-Json
         $dummyResult | Out-File -FilePath $ResultsFile -Encoding UTF8
         Write-Host "  Checkov scan completed with fallback result" -ForegroundColor $GREEN
-        Complete-ScanResults -ToolName "checkov"
-exit 0
+        exit 0
     }
 } else {
     Write-Host "  Chart directory found: $ChartDir" -ForegroundColor $GREEN
@@ -267,7 +241,7 @@ Write-Host "Running Checkov security analysis..."
 if ($ScanType -eq "directory") {
     Write-Host "Scanning project directory for IaC security issues..."
     $targetAbsPath = (Resolve-Path $TargetScanDir).Path
-    $outputAbsPath = (Resolve-Path $OUTPUT_DIR).Path
+    $outputAbsPath = (Resolve-Path $OutputDir).Path
     
     Write-Host "   Running comprehensive IaC scan..."
     docker run --rm `
@@ -291,7 +265,7 @@ if ($ScanType -eq "directory") {
     if (Test-Path (Join-Path $ChartDir "values.yaml")) {
         Write-Host "   Scanning values.yaml for security configurations..."
         $targetAbsPath = (Resolve-Path $TargetScanDir).Path
-        $outputAbsPath = (Resolve-Path $OUTPUT_DIR).Path
+        $outputAbsPath = (Resolve-Path $OutputDir).Path
         
         docker run --rm `
             -e AWS_ACCESS_KEY_ID=$AwsAccessKeyId `
@@ -310,7 +284,7 @@ if ($ScanType -eq "directory") {
     # Scan entire chart directory
     Write-Host "   Scanning chart directory for security configurations..."
     $targetAbsPath = (Resolve-Path $TargetScanDir).Path
-    $outputAbsPath = (Resolve-Path $OUTPUT_DIR).Path
+    $outputAbsPath = (Resolve-Path $OutputDir).Path
     
     docker run --rm `
         -e AWS_ACCESS_KEY_ID=$AwsAccessKeyId `
@@ -327,7 +301,7 @@ if ($ScanType -eq "directory") {
 } else {
     # Scan rendered templates
     $currentAbsPath = (Resolve-Path ".").Path
-    $outputAbsPath = (Resolve-Path $OUTPUT_DIR).Path
+    $outputAbsPath = (Resolve-Path $OutputDir).Path
     
     docker run --rm `
         -e AWS_ACCESS_KEY_ID=$AwsAccessKeyId `
@@ -437,14 +411,14 @@ if (Test-Path $ResultsFile) {
 Write-Host ""
 Write-Host "   Output Files:" -ForegroundColor $BLUE
 Write-Host "================"
-Write-Host "Scan log: $SCAN_LOG"
+Write-Host "Scan log: $ScanLog"
 if (Test-Path $ResultsFile) {
     Write-Host "Results JSON: $ResultsFile"
 }
 if (Test-Path $RenderedTemplates) {
     Write-Host "Rendered templates: $RenderedTemplates"
 }
-Write-Host "Reports directory: $OUTPUT_DIR"
+Write-Host "Reports directory: $OutputDir"
 
 Write-Host ""
 Write-Host "============================================"
@@ -452,5 +426,4 @@ Write-Host "Checkov security scan complete." -ForegroundColor $GREEN
 Write-Host "============================================"
 
 # Always exit successfully - orchestrator should continue regardless
-Complete-ScanResults -ToolName "checkov"
 exit 0

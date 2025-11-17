@@ -1,37 +1,12 @@
 # Helm Build and Package Script - PowerShell Version
 # Builds, validates, and packages Helm charts with comprehensive checks
 
-# Initialize scan environment using scan directory approach
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-
-# Source the scan directory template
-. "$ScriptDir\Scan-Directory-Template.ps1"
-
-# Initialize scan environment for helm
-$scanEnv = Initialize-ScanEnvironment -ToolName "helm"
-
-# Extract scan information
-if ($env:SCAN_ID) {
-    $parts = $env:SCAN_ID -split '_'
-    $TARGET_NAME = $parts[0]
-    $USERNAME = $parts[1]
-    $TIMESTAMP = $parts[2..($parts.Length-1)] -join '_'
-    $SCAN_ID = $env:SCAN_ID
-}
-else {
-    $targetPath = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }
-    $TARGET_NAME = Split-Path -Leaf $targetPath
-    $USERNAME = if ($env:USERNAME) { $env:USERNAME } else { $env:USER }
-    $TIMESTAMP = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $SCAN_ID = "${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
-}
-
 param(
     [Parameter(Position=0)]
     [string]$ChartPath = "",
     [Parameter(Position=1)]
     [string]# Configuration
-# $OUTPUT_DIR set by Initialize-ScanEnvironment
+$OutputDir = "..\..\reports\helm-packages"
 )
 
 $ErrorActionPreference = "Continue"
@@ -39,12 +14,12 @@ $ErrorActionPreference = "Continue"
 # Configuration - Support target directory scanning
 $RepoPath = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }
 $ChartDir = if ($ChartPath) { $ChartPath } else { Join-Path $RepoPath "chart" }
-$OutputDirPath = $OUTPUT_DIR
+$OutputDirPath = $OutputDir
 $ChartName = "advana-marketplace"
 $BuildLog = Join-Path $OutputDirPath "helm-build.log"
 
 # Create output directory
-# Output directory created by template
+New-Item -ItemType Directory -Force -Path $OutputDirPath | Out-Null
 
 # Start logging
 $LogFile = New-Item -ItemType File -Force -Path $BuildLog
@@ -140,8 +115,7 @@ if (-not (Test-Path $ChartDir)) {
     
     Stop-Transcript
     # Always exit successfully to continue pipeline
-    Complete-ScanResults -ToolName "helm"
-exit 0
+    exit 0
 }
 
 if (-not (Test-Path (Join-Path $ChartDir "Chart.yaml"))) {
@@ -164,8 +138,7 @@ if (-not (Test-Path (Join-Path $ChartDir "Chart.yaml"))) {
     
     Stop-Transcript
     # Always exit successfully to continue pipeline
-    Complete-ScanResults -ToolName "helm"
-exit 0
+    exit 0
 }
 
 Write-Host "📋 Chart Information:" -ForegroundColor Blue
@@ -596,8 +569,7 @@ Stop-Transcript
 
 # Exit with appropriate code
 if ($BuildResult -eq "SUCCESS") {
-    Complete-ScanResults -ToolName "helm"
-exit 0
+    exit 0
 } else {
     exit 1
 }

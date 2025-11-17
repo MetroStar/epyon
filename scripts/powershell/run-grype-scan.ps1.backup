@@ -1,31 +1,6 @@
 # Grype Multi-Target Vulnerability Scanner
 # Advanced container image and filesystem vulnerability scanning with SBOM generation
 
-# Initialize scan environment using scan directory approach
-$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-
-# Source the scan directory template
-. "$ScriptDir\Scan-Directory-Template.ps1"
-
-# Initialize scan environment for grype
-$scanEnv = Initialize-ScanEnvironment -ToolName "grype"
-
-# Extract scan information
-if ($env:SCAN_ID) {
-    $parts = $env:SCAN_ID -split '_'
-    $TARGET_NAME = $parts[0]
-    $USERNAME = $parts[1]
-    $TIMESTAMP = $parts[2..($parts.Length-1)] -join '_'
-    $SCAN_ID = $env:SCAN_ID
-}
-else {
-    $targetPath = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }
-    $TARGET_NAME = Split-Path -Leaf $targetPath
-    $USERNAME = if ($env:USERNAME) { $env:USERNAME } else { $env:USER }
-    $TIMESTAMP = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-    $SCAN_ID = "${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
-}
-
 param(
     [Parameter(Position=0)]
     [ValidateSet("filesystem", "images", "base", "all")]
@@ -35,9 +10,9 @@ param(
 $ErrorActionPreference = "Continue"
 
 # Configuration
-# $OUTPUT_DIR set by Initialize-ScanEnvironment
+$OutputDir = "..\..\reports\grype-reports"
 $Timestamp = Get-Date
-# $SCAN_LOG set by Initialize-ScanEnvironment
+$ScanLog = Join-Path $OutputDir "grype-scan.log"
 $RepoPath = if ($env:TARGET_DIR) { $env:TARGET_DIR } else { Get-Location }
 
 # Colors
@@ -53,25 +28,25 @@ Write-Host "============================================" -ForegroundColor $WHIT
 Write-Host "Grype Multi-Target Vulnerability Scanner" -ForegroundColor $WHITE
 Write-Host "============================================" -ForegroundColor $WHITE
 Write-Host "Repository: $RepoPath"
-Write-Host "Output Directory: $OUTPUT_DIR"
+Write-Host "Output Directory: $OutputDir"
 Write-Host "Timestamp: $Timestamp"
 Write-Host ""
 
 # Create output directory
-# Output directory created by template
+New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
 
 # Initialize scan log
 @"
 Grype Vulnerability Scan Log
 Timestamp: $Timestamp
-Output Directory: $OUTPUT_DIR
+Output Directory: $OutputDir
 ========================================
-"@ | Out-File -FilePath $SCAN_LOG -Encoding UTF8
+"@ | Out-File -FilePath $ScanLog -Encoding UTF8
 
 Write-Host "Output Directory: " -NoNewline
-Write-Host $OUTPUT_DIR -ForegroundColor $BLUE
+Write-Host $OutputDir -ForegroundColor $BLUE
 Write-Host "Scan Log: " -NoNewline
-Write-Host $SCAN_LOG -ForegroundColor $BLUE
+Write-Host $ScanLog -ForegroundColor $BLUE
 Write-Host ""
 
 # Function to check Docker
@@ -110,8 +85,8 @@ function Invoke-GrypeImageScan {
     
     Write-Host "   Scanning Docker image: " -NoNewline -ForegroundColor $CYAN
     Write-Host $ImageName -ForegroundColor $YELLOW
-    "Scan type: $ScanType" | Out-File -FilePath $SCAN_LOG -Append
-    "Image: $ImageName" | Out-File -FilePath $SCAN_LOG -Append
+    "Scan type: $ScanType" | Out-File -FilePath $ScanLog -Append
+    "Image: $ImageName" | Out-File -FilePath $ScanLog -Append
     
     Write-Host "   Generating Software Bill of Materials (SBOM)..."
     docker run --rm `
@@ -122,7 +97,7 @@ function Invoke-GrypeImageScan {
         -o json `
         --file "/output/$OutputFile" `
         --add-cpes-if-none `
-        --by-cve 2>&1 | Tee-Object -FilePath $SCAN_LOG -Append | Out-Null
+        --by-cve 2>&1 | Tee-Object -FilePath $ScanLog -Append | Out-Null
     
     if ($LASTEXITCODE -eq 0) {
         Write-Host "  Image scan completed" -ForegroundColor $GREEN
@@ -133,7 +108,7 @@ function Invoke-GrypeImageScan {
             -v "${PWD}/${OutputDir}:/output" `
             anchore/syft:latest `
             $ImageName `
-            -o spdx-json="/output/$SbomFile" 2>&1 | Tee-Object -FilePath $SCAN_LOG -Append | Out-Null
+            -o spdx-json="/output/$SbomFile" 2>&1 | Tee-Object -FilePath $ScanLog -Append | Out-Null
     } else {
         Write-Host "    Image scan completed with warnings" -ForegroundColor $YELLOW
     }
@@ -156,7 +131,7 @@ function Invoke-ContainerImageScan {
             $ImageName = "advana-marketplace:${CleanName}-grype-scan"
             
             Write-Host "   Building image from $($dockerfile.Name) for vulnerability scanning..."
-            docker build -f $dockerfile.FullName -t $ImageName . 2>&1 | Out-File -FilePath $SCAN_LOG -Append
+            docker build -f $dockerfile.FullName -t $ImageName . 2>&1 | Out-File -FilePath $ScanLog -Append
             
             if ($LASTEXITCODE -eq 0) {
                 Write-Host "  Image built successfully from $($dockerfile.Name)" -ForegroundColor $GREEN
@@ -165,7 +140,7 @@ function Invoke-ContainerImageScan {
                 Invoke-GrypeImageScan -ImageName $ImageName -ScanType "container-${CleanName}" `
                     -OutputFile "grype-${CleanName}-results.json" -SbomFile "sbom-${CleanName}.json"
                 
-                docker rmi $ImageName 2>&1 | Out-File -FilePath $SCAN_LOG -Append
+                docker rmi $ImageName 2>&1 | Out-File -FilePath $ScanLog -Append
             } else {
                 Write-Host "  Failed to build image from $($dockerfile.Name)" -ForegroundColor $RED
             }
@@ -192,7 +167,7 @@ function Invoke-BaseImageScan {
             docker image inspect $image 2>&1 | Out-Null
         } catch {
             Write-Host "   Pulling image $image..."
-            docker pull $image 2>&1 | Out-File -FilePath $SCAN_LOG -Append
+            docker pull $image 2>&1 | Out-File -FilePath $ScanLog -Append
         }
         
         $SafeImageName = $image -replace '[:/]', '-'
@@ -216,7 +191,7 @@ function Invoke-FilesystemScan {
         anchore/grype:latest `
         dir:"/workspace/$TargetDir" `
         -o json `
-        --file "/output/$OutputFile" 2>&1 | Tee-Object -FilePath $SCAN_LOG -Append | Out-Null
+        --file "/output/$OutputFile" 2>&1 | Tee-Object -FilePath $ScanLog -Append | Out-Null
     
     if ($LASTEXITCODE -eq 0) {
         Write-Host "  Filesystem scan completed" -ForegroundColor $GREEN
@@ -252,6 +227,6 @@ Write-Host ""
 Write-Host "============================================" -ForegroundColor $GREEN
 Write-Host "Grype Vulnerability Scan Complete" -ForegroundColor $GREEN
 Write-Host "============================================" -ForegroundColor $GREEN
-Write-Host "Results saved to: $OUTPUT_DIR" -ForegroundColor $CYAN
-Write-Host "Scan log: $SCAN_LOG" -ForegroundColor $CYAN
+Write-Host "Results saved to: $OutputDir" -ForegroundColor $CYAN
+Write-Host "Scan log: $ScanLog" -ForegroundColor $CYAN
 Write-Host ""

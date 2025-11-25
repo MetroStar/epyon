@@ -416,16 +416,15 @@ else
 fi
 
 # Generate comprehensive security dashboard
-echo -e "${PURPLE}📈 Generating security dashboard from findings summary...${NC}"
+echo -e "${PURPLE}📈 Generating interactive security dashboard...${NC}"
 
-# Use bash script to generate dashboard from security-findings-summary.json
+# Use bash script to generate interactive dashboard from scan data
 DASHBOARD_GENERATOR="$SCRIPT_DIR/generate-security-dashboard.sh"
-FINDINGS_FILE="$SCAN_DIR/security-findings-summary.json"
 
-if [ -f "$DASHBOARD_GENERATOR" ] && [ -f "$FINDINGS_FILE" ]; then
-    echo -e "${GREEN}✓ Generating comprehensive dashboard with real data${NC}"
-    if "$DASHBOARD_GENERATOR" "$FINDINGS_FILE" "$UNIFIED_DIR/dashboards/security-dashboard.html"; then
-        echo -e "${GREEN}✓ Dashboard generated successfully${NC}"
+if [ -f "$DASHBOARD_GENERATOR" ]; then
+    echo -e "${GREEN}✓ Generating interactive dashboard from scan results${NC}"
+    if "$DASHBOARD_GENERATOR"; then
+        echo -e "${GREEN}✓ Interactive dashboard generated successfully${NC}"
     else
         echo -e "${YELLOW}⚠️  Dashboard generation failed, creating basic fallback${NC}"
         # Fallback to basic dashboard if generation fails

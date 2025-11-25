@@ -11,6 +11,8 @@ WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Default paths
 SCANS_DIR="${WORKSPACE_ROOT}/scans"
+OUTPUT_DIR="${WORKSPACE_ROOT}/reports/security-reports/dashboards"
+OUTPUT_HTML="${OUTPUT_DIR}/security-dashboard.html"
 
 # Get the most recent scan directory
 LATEST_SCAN=$(find "$SCANS_DIR" -maxdepth 1 -type d -name "*_rnelson_*" | sort -r | head -n 1)
@@ -23,24 +25,19 @@ fi
 SCAN_NAME=$(basename "$LATEST_SCAN")
 echo "Generating interactive dashboard from: $SCAN_NAME"
 
-# Set output to the scan directory's consolidated reports
-OUTPUT_DIR="${LATEST_SCAN}/consolidated-reports/dashboards"
-OUTPUT_HTML="${OUTPUT_DIR}/security-dashboard.html"
-
 # Parse TruffleHog data (NDJSON format)
 TH_FILE="${LATEST_SCAN}/trufflehog/trufflehog-filesystem-results.json"
 if [ -f "$TH_FILE" ]; then
-    # Count findings using grep and wc (NDJSON format) - exclude node_modules
-    TH_CRITICAL=$(grep -E '"Verified":true' "$TH_FILE" 2>/dev/null | grep -v 'node_modules' | wc -l | tr -d ' \n' || echo "0")
-    TH_HIGH=$(grep -E '"DetectorName"' "$TH_FILE" 2>/dev/null | grep -v '"Verified":true' | grep -v 'node_modules' | wc -l | tr -d ' \n' || echo "0")
+    # Count findings using grep and wc (NDJSON format)
+    TH_CRITICAL=$(grep -E '"Verified":true' "$TH_FILE" 2>/dev/null | wc -l | tr -d ' \n' || echo "0")
+    TH_HIGH=$(grep -E '"DetectorName"' "$TH_FILE" 2>/dev/null | grep -v '"Verified":true' | wc -l | tr -d ' \n' || echo "0")
     
     # Ensure they're numbers
     TH_CRITICAL=${TH_CRITICAL:-0}
     TH_HIGH=${TH_HIGH:-0}
     
     # Generate findings HTML - convert NDJSON to array first with jq -s
-    # Filter out node_modules, vendor, and other dependency directories
-    TH_FINDINGS=$(grep -E '"DetectorName"' "$TH_FILE" | grep -v 'node_modules' | grep -v 'vendor/' | grep -v 'venv/' | grep -v '__pycache__' | head -n 15 | jq -s -r '
+    TH_FINDINGS=$(grep -E '"DetectorName"' "$TH_FILE" | head -n 15 | jq -s -r '
         map("<div class=\"finding-item severity-" + (if .Verified then "critical" else "high" end) + "\">
             <div class=\"finding-header\">
                 <span class=\"badge badge-tool\">TruffleHog</span>

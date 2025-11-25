@@ -6,6 +6,7 @@ reports/checkov-reports/*.json
 reports/trufflehog-reports/*.json
 reports/xeol-reports/*.json
 reports/clamav-reports/*.log
+/reports/*
 grype-reports/
 trivy-reports/
 trufflehog-reports/
@@ -56,4 +57,4 @@ Desktop.ini
 helm-packages/*.tgz
 
 # Large scan result files (keep structure but not massive JSON files)
-*.json.bak
+*.json.bakreports/

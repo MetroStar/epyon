@@ -62,10 +62,39 @@ run_trufflehog_scan() {
     
     if command -v docker &> /dev/null; then
         echo "Using Docker-based TruffleHog..."
-        docker run --rm -v "$target:/workspace" \
+        # Create a .trufflehogignore file to exclude common dependency directories
+        cat > "$OUTPUT_DIR/.trufflehogignore" << 'EOF'
+# Exclude dependency directories
+node_modules/
+vendor/
+venv/
+env/
+.env/
+__pycache__/
+.venv/
+target/
+build/
+dist/
+.gradle/
+.mvn/
+
+# Exclude test fixtures and sample data
+/test/
+/tests/
+seed-data/
+fixtures/
+sample-data/
+examples/
+EOF
+        
+        docker run --rm \
+            -v "$target:/workspace" \
+            -v "$OUTPUT_DIR/.trufflehogignore:/root/.trufflehogignore" \
             trufflesecurity/trufflehog:latest \
             filesystem /workspace \
-            --json 2>&1 | tee -a "$SCAN_LOG" > "$output_file"
+            --json \
+            --exclude-paths=/root/.trufflehogignore \
+            2>&1 | tee -a "$SCAN_LOG" > "$output_file"
     else
         echo "⚠️  Docker not available - TruffleHog scan skipped"
         echo "[]" > "$output_file"

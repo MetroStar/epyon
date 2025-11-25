@@ -57,18 +57,24 @@ TH_CRITICAL=0
 TH_HIGH=0
 TH_FINDINGS=""
 if [ -f "$TH_FILE" ]; then
-    TH_TOTAL_FINDINGS=$(wc -l < "$TH_FILE" 2>/dev/null | tr -d ' \n\t')
-    TH_TOTAL_FINDINGS="${TH_TOTAL_FINDINGS:-0}"
+    # Count only actual findings (lines with DetectorName), not log entries
+    set +o pipefail
+    TH_TOTAL_FINDINGS=$(grep -c '"DetectorName"' "$TH_FILE" 2>/dev/null || true)
+    TH_TOTAL_FINDINGS=$(echo "${TH_TOTAL_FINDINGS:-0}" | tr -d ' \n\t')
+    set -o pipefail
     [[ "$TH_TOTAL_FINDINGS" =~ ^[0-9]+$ ]] || TH_TOTAL_FINDINGS=0
     
-    # grep -c returns 1 if no match, so use || true to prevent pipeline failure
-    TH_VERIFIED=$(grep -c '"Verified":true' "$TH_FILE" 2>/dev/null || true)
+    # Count verified secrets
+    set +o pipefail
+    TH_VERIFIED=$(grep '"DetectorName"' "$TH_FILE" 2>/dev/null | grep -c '"Verified":true' 2>/dev/null || true)
+    TH_VERIFIED=$(echo "${TH_VERIFIED:-0}" | tr -d ' \n\t')
+    set -o pipefail
     TH_VERIFIED=$(echo "$TH_VERIFIED" | tr -d ' \n\t')
     [[ "$TH_VERIFIED" =~ ^[0-9]+$ ]] || TH_VERIFIED=0
     
     TH_UNVERIFIED=$((TH_TOTAL_FINDINGS - TH_VERIFIED))
+    [[ "$TH_UNVERIFIED" =~ ^[0-9]+$ ]] || TH_UNVERIFIED=0
     
-    # Use set +o pipefail temporarily for grep commands that may have no matches
     set +o pipefail
     TH_DETECTORS_USED=$(grep -oE '"DetectorName":"[^"]+' "$TH_FILE" 2>/dev/null | sort -u | wc -l | tr -d ' \n\t')
     set -o pipefail
@@ -81,37 +87,37 @@ if [ -f "$TH_FILE" ]; then
     TH_FILES_WITH_FINDINGS="${TH_FILES_WITH_FINDINGS:-0}"
     [[ "$TH_FILES_WITH_FINDINGS" =~ ^[0-9]+$ ]] || TH_FILES_WITH_FINDINGS=0
     
-    # Count critical/high (excluding node_modules) - use || true to handle no matches
-    TH_CRITICAL=$(grep -c '"Verified":true' "$TH_FILE" 2>/dev/null || true)
-    TH_CRITICAL=$(echo "$TH_CRITICAL" | tr -d ' \n\t')
-    [[ "$TH_CRITICAL" =~ ^[0-9]+$ ]] || TH_CRITICAL=0
+    # Set severity counts - verified = critical, unverified = medium
+    TH_CRITICAL=$TH_VERIFIED
+    TH_HIGH=$TH_UNVERIFIED
     
-    # For TH_HIGH, count all findings minus verified ones
-    TH_HIGH=$((TH_TOTAL_FINDINGS - TH_CRITICAL))
-    [[ "$TH_HIGH" =~ ^[0-9]+$ ]] || TH_HIGH=0
-    
-    # Generate findings HTML (use set +e to handle grep returning 1 when no matches)
+    # Generate findings HTML with clickable details (use set +e to handle grep returning 1 when no matches)
     set +e
-    TH_FINDINGS=$(grep -E '"DetectorName"' "$TH_FILE" 2>/dev/null | grep -v 'node_modules' | grep -v 'vendor/' | grep -v 'venv/' | grep -v '__pycache__' | head -n 15 | jq -s -r '
-        map("<div class=\"finding-item severity-" + (if .Verified then "critical" else "high" end) + "\">
+    TH_FINDINGS_HTML=$(grep -E '"DetectorName"' "$TH_FILE" 2>/dev/null | grep -v 'node_modules' | grep -v 'vendor/' | grep -v 'venv/' | grep -v '__pycache__' | head -n 30 | jq -s -r '
+        map("<div class=\"finding-item severity-" + (if .Verified then "critical" else "medium" end) + "\" onclick=\"toggleFindingDetails(this)\">
             <div class=\"finding-header\">
                 <span class=\"badge badge-tool\">TruffleHog</span>
-                <span class=\"badge badge-" + (if .Verified then "critical" else "high" end) + "\">" + (if .Verified then "CRITICAL" else "HIGH" end) + "</span>
-                " + (if .Verified then "<span class=\"badge badge-verified\">✓ VERIFIED</span>" else "" end) + "
+                <span class=\"badge badge-" + (if .Verified then "critical" else "medium" end) + "\">" + (if .Verified then "VERIFIED" else "UNVERIFIED" end) + "</span>
+                <span class=\"badge\" style=\"background:#e2e8f0;color:#4a5568;\">" + .DetectorName + "</span>
             </div>
-            <div class=\"finding-title\">" + .DetectorName + "</div>
-            <div class=\"finding-desc\">" + (.DetectorDescription // "No description") + "</div>
-            <div class=\"finding-details\">
+            <div class=\"finding-title\">" + .DetectorName + " - " + (if .Verified then "Verified Secret Found!" else "Potential Secret Detected" end) + "</div>
+            <div class=\"finding-desc\">" + (.DetectorDescription // "Secret or credential pattern detected in source code") + "</div>
+            <div class=\"finding-details\" style=\"display:none;\">
+                <div><strong>Detector:</strong> <code>" + .DetectorName + "</code></div>
+                <div><strong>Verified:</strong> " + (if .Verified then "<span style=\"color:#e53e3e;font-weight:bold;\">Yes - Active credential!</span>" else "<span style=\"color:#d69e2e;\">No - Potential secret</span>" end) + "</div>
                 <div><strong>File:</strong> <code>" + (.SourceMetadata.Data.Filesystem.file | split("/") | last) + "</code></div>
                 <div><strong>Line:</strong> <code>" + (.SourceMetadata.Data.Filesystem.line | tostring) + "</code></div>
-                <div><strong>Full Path:</strong> <code style=\"font-size: 0.8em;\">" + .SourceMetadata.Data.Filesystem.file + "</code></div>
+                <div><strong>Full Path:</strong> <code style=\"font-size: 0.8em;word-break:break-all;\">" + .SourceMetadata.Data.Filesystem.file + "</code></div>
+                <div><strong>Description:</strong> " + (.DetectorDescription // "No description available") + "</div>
             </div>
         </div>") | 
         join("")
     ' 2>/dev/null)
     set -e
     
-    if [ -z "$TH_FINDINGS" ] || [ "$TH_FINDINGS" = "" ]; then
+    if [ -n "$TH_FINDINGS_HTML" ] && [ "$TH_FINDINGS_HTML" != "" ]; then
+        TH_FINDINGS="<p style=\"color:#718096;margin-bottom:15px;font-size:0.9em;\">👆 Click on any finding below to expand details</p>${TH_FINDINGS_HTML}"
+    else
         TH_FINDINGS="<p class=\"no-findings\">✅ No secrets or credentials detected</p>"
     fi
 else
@@ -164,6 +170,7 @@ TRIVY_HIGH=0
 TRIVY_MEDIUM=0
 TRIVY_LOW=0
 TRIVY_FINDINGS=""
+TRIVY_DETAILS=""
 if [ -d "$TRIVY_DIR" ]; then
     TRIVY_IMAGES_SCANNED=$(find "$TRIVY_DIR" -name "*.json" -type f 2>/dev/null | wc -l | tr -d ' \n' || echo "0")
     [[ "$TRIVY_IMAGES_SCANNED" =~ ^[0-9]+$ ]] || TRIVY_IMAGES_SCANNED=0
@@ -188,6 +195,40 @@ if [ -d "$TRIVY_DIR" ]; then
             TRIVY_HIGH=$((TRIVY_HIGH + high_count))
             TRIVY_MEDIUM=$((TRIVY_MEDIUM + med_count))
             TRIVY_LOW=$((TRIVY_LOW + low_count))
+            
+            # Extract individual vulnerability details for ALL severity levels (limit to top 50 per file)
+            set +e
+            vuln_details=$(echo "$json_content" | jq -r '
+                [.Results[]? | select(.Vulnerabilities != null) | 
+                 .Target as $target |
+                 .Vulnerabilities[]? | 
+                 {target: $target, id: .VulnerabilityID, pkg: .PkgName, severity: .Severity, 
+                  installed: .InstalledVersion, fixed: (.FixedVersion // "Not fixed"), 
+                  title: .Title, desc: (.Description // "No description available")}
+                ] | sort_by(.severity | if . == "CRITICAL" then 0 elif . == "HIGH" then 1 elif . == "MEDIUM" then 2 else 3 end) | .[0:50] | .[] |
+                "<div class=\"finding-item severity-\(.severity | ascii_downcase)\" onclick=\"toggleFindingDetails(this)\">
+                    <div class=\"finding-header\">
+                        <span class=\"badge badge-tool\">Trivy</span>
+                        <span class=\"badge badge-\(.severity | ascii_downcase)\">\(.severity)</span>
+                        <span class=\"badge\" style=\"background:#e2e8f0;color:#4a5568;\">\(.id)</span>
+                    </div>
+                    <div class=\"finding-title\">\(.pkg) - \(.title // .id)</div>
+                    <div class=\"finding-desc\">\(.desc | .[0:200])...</div>
+                    <div class=\"finding-details\" style=\"display:none;\">
+                        <div><strong>CVE ID:</strong> <code>\(.id)</code></div>
+                        <div><strong>Target:</strong> <code>\(.target)</code></div>
+                        <div><strong>Package:</strong> <code>\(.pkg)</code></div>
+                        <div><strong>Installed Version:</strong> <code>\(.installed)</code></div>
+                        <div><strong>Fixed Version:</strong> <code>\(.fixed)</code></div>
+                        <div><strong>Full Description:</strong> \(.desc)</div>
+                    </div>
+                </div>"
+            ' 2>/dev/null)
+            set -e
+            
+            if [ -n "$vuln_details" ]; then
+                TRIVY_DETAILS="${TRIVY_DETAILS}${vuln_details}"
+            fi
         fi
     done
     TRIVY_TOTAL_VULNS=$((TRIVY_CRITICAL + TRIVY_HIGH + TRIVY_MEDIUM + TRIVY_LOW))
@@ -198,7 +239,9 @@ if [ -d "$TRIVY_DIR" ]; then
             <span class=\"badge badge-high\">$TRIVY_HIGH High</span>
             <span class=\"badge badge-medium\">$TRIVY_MEDIUM Medium</span>
             <span class=\"badge badge-low\">$TRIVY_LOW Low</span>
-        </div>"
+        </div>
+        <p style=\"color:#718096;margin-bottom:15px;font-size:0.9em;\">👆 Click on any finding below to expand details (showing up to 50 per image)</p>
+        ${TRIVY_DETAILS}"
     else
         TRIVY_FINDINGS="<p class=\"no-findings\">✅ No vulnerabilities detected in container images</p>"
     fi
@@ -215,6 +258,7 @@ GRYPE_HIGH=0
 GRYPE_MEDIUM=0
 GRYPE_LOW=0
 GRYPE_FINDINGS=""
+GRYPE_DETAILS=""
 if [ -d "$GRYPE_DIR" ]; then
     GRYPE_TARGETS_SCANNED=$(find "$GRYPE_DIR" -name "grype-*.json" -type f 2>/dev/null | wc -l | tr -d ' \n' || echo "0")
     [[ "$GRYPE_TARGETS_SCANNED" =~ ^[0-9]+$ ]] || GRYPE_TARGETS_SCANNED=0
@@ -236,6 +280,38 @@ if [ -d "$GRYPE_DIR" ]; then
             GRYPE_HIGH=$((GRYPE_HIGH + high_count))
             GRYPE_MEDIUM=$((GRYPE_MEDIUM + med_count))
             GRYPE_LOW=$((GRYPE_LOW + low_count))
+            
+            # Extract individual vulnerability details for ALL severity levels (limit to top 50 per file)
+            set +e
+            vuln_details=$(jq -r '
+                [.matches[]? | 
+                 {id: .vulnerability.id, pkg: .artifact.name, version: .artifact.version, 
+                  severity: .vulnerability.severity, 
+                  fixed: (.vulnerability.fix.versions[0] // "Not fixed"),
+                  desc: (.vulnerability.description // "No description available")}
+                ] | sort_by(.severity | if . == "Critical" then 0 elif . == "High" then 1 elif . == "Medium" then 2 else 3 end) | .[0:50] | .[] |
+                "<div class=\"finding-item severity-\(.severity | ascii_downcase)\" onclick=\"toggleFindingDetails(this)\">
+                    <div class=\"finding-header\">
+                        <span class=\"badge badge-tool\">Grype</span>
+                        <span class=\"badge badge-\(.severity | ascii_downcase)\">\(.severity)</span>
+                        <span class=\"badge\" style=\"background:#e2e8f0;color:#4a5568;\">\(.id)</span>
+                    </div>
+                    <div class=\"finding-title\">\(.pkg)@\(.version)</div>
+                    <div class=\"finding-desc\">\(.desc | .[0:200])...</div>
+                    <div class=\"finding-details\" style=\"display:none;\">
+                        <div><strong>CVE ID:</strong> <code>\(.id)</code></div>
+                        <div><strong>Package:</strong> <code>\(.pkg)</code></div>
+                        <div><strong>Installed Version:</strong> <code>\(.version)</code></div>
+                        <div><strong>Fixed Version:</strong> <code>\(.fixed)</code></div>
+                        <div><strong>Full Description:</strong> \(.desc)</div>
+                    </div>
+                </div>"
+            ' "$grype_file" 2>/dev/null)
+            set -e
+            
+            if [ -n "$vuln_details" ]; then
+                GRYPE_DETAILS="${GRYPE_DETAILS}${vuln_details}"
+            fi
         fi
     done
     GRYPE_TOTAL_VULNS=$((GRYPE_CRITICAL + GRYPE_HIGH + GRYPE_MEDIUM + GRYPE_LOW))
@@ -246,7 +322,9 @@ if [ -d "$GRYPE_DIR" ]; then
             <span class=\"badge badge-high\">$GRYPE_HIGH High</span>
             <span class=\"badge badge-medium\">$GRYPE_MEDIUM Medium</span>
             <span class=\"badge badge-low\">$GRYPE_LOW Low</span>
-        </div>"
+        </div>
+        <p style=\"color:#718096;margin-bottom:15px;font-size:0.9em;\">👆 Click on any finding below to expand details (showing up to 50 per target)</p>
+        ${GRYPE_DETAILS}"
     else
         GRYPE_FINDINGS="<p class=\"no-findings\">✅ No vulnerabilities detected</p>"
     fi
@@ -557,11 +635,30 @@ cat > "$OUTPUT_HTML" << 'EOF'
             margin-bottom: 15px;
             border-left: 4px solid #cbd5e0;
             transition: all 0.2s ease;
+            cursor: pointer;
         }
         
         .finding-item:hover {
             transform: translateX(5px);
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .finding-item.expanded {
+            transform: translateX(5px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            border-left-width: 6px;
+        }
+        
+        .finding-item .finding-details {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #e2e8f0;
+            animation: slideDown 0.3s ease;
+        }
+        
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         
         .finding-item.severity-critical {
@@ -1105,6 +1202,31 @@ cat >> "$OUTPUT_HTML" << EOF
             // Toggle current tool
             header.classList.toggle('active');
             content.classList.toggle('active');
+        }
+        
+        // Toggle individual finding details
+        function toggleFindingDetails(element) {
+            event.stopPropagation();
+            const details = element.querySelector('.finding-details');
+            const isExpanded = details.style.display === 'block';
+            
+            // Collapse all other findings in the same tool section
+            const parent = element.closest('.tool-findings');
+            if (parent) {
+                parent.querySelectorAll('.finding-details').forEach(d => {
+                    d.style.display = 'none';
+                });
+                parent.querySelectorAll('.finding-item').forEach(f => {
+                    f.classList.remove('expanded');
+                });
+            }
+            
+            // Toggle this finding
+            if (!isExpanded) {
+                details.style.display = 'block';
+                element.classList.add('expanded');
+                element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
         }
         
         // Auto-expand first tool with findings

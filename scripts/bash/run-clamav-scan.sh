@@ -14,6 +14,8 @@ init_scan_environment "clamav"
 
 # Set TARGET_DIR and extract scan information
 TARGET_DIR="${TARGET_DIR:-$(pwd)}"
+REPO_PATH="$TARGET_DIR"
+
 if [[ -n "$SCAN_ID" ]]; then
     TARGET_NAME=$(echo "$SCAN_ID" | cut -d'_' -f1)
     USERNAME=$(echo "$SCAN_ID" | cut -d'_' -f2)

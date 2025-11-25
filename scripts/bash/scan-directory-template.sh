@@ -23,14 +23,10 @@ init_scan_environment() {
     
     echo "🗂️  Using scan directory: $SCAN_DIR"
     echo "📁 Tool output: $OUTPUT_DIR"
-        
-        echo "📁 Standalone mode - using reports directory: $OUTPUT_DIR"
-    fi
     
     # Export for use in tool script
     export OUTPUT_DIR
     export SCAN_LOG
-    export CURRENT_LINK_DIR
 }
 
 # Function to create result files with proper naming
@@ -39,35 +35,15 @@ create_result_file() {
     local result_type="$2"  # e.g., "results", "summary", "scan"
     local extension="${3:-json}"
     
-    if [[ -n "$SCAN_DIR" ]]; then
-        # Scan directory mode - simpler naming
-        echo "$OUTPUT_DIR/${result_type}.${extension}"
-    else
-        # Traditional mode - with scan ID prefix
-        echo "$OUTPUT_DIR/${SCAN_ID}_${tool_name}-${result_type}.${extension}"
-    fi
+    # Scan directory mode - simpler naming
+    echo "$OUTPUT_DIR/${result_type}.${extension}"
 }
 
-# Function to create current symlinks
+# Function to create current symlinks (no longer needed in isolated scans)
 create_current_links() {
     local tool_name="$1"
-    
-    if [[ -n "$SCAN_DIR" ]]; then
-        # Create symlinks in reports directory pointing to scan directory
-        cd "$CURRENT_LINK_DIR"
-        ln -sf "../../scans/$SCAN_ID/$tool_name/results.json" "${tool_name}-results.json" 2>/dev/null || true
-        ln -sf "../../scans/$SCAN_ID/$tool_name/scan.log" "${tool_name}-scan.log" 2>/dev/null || true
-        ln -sf "../../scans/$SCAN_ID/$tool_name/summary.json" "${tool_name}-summary.json" 2>/dev/null || true
-    else
-        # Traditional symlink creation
-        cd "$OUTPUT_DIR"
-        if [[ -f "${SCAN_ID}_${tool_name}-results.json" ]]; then
-            ln -sf "${SCAN_ID}_${tool_name}-results.json" "${tool_name}-results.json"
-        fi
-        if [[ -f "${SCAN_ID}_${tool_name}-scan.log" ]]; then
-            ln -sf "${SCAN_ID}_${tool_name}-scan.log" "${tool_name}-scan.log"
-        fi
-    fi
+    # No-op - scan isolation means no symlinks to centralized location
+    return 0
 }
 
 # Function to finalize scan results

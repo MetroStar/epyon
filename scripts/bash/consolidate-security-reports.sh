@@ -319,33 +319,44 @@ try:
     
     # Process different tool formats for markdown
     if '$tool_name' == 'Grype':
-        matches = data.get('matches', [])
-        md_content += f'**Total Vulnerabilities:** {len(matches)}\n\n'
+        # Handle both dict and list formats
+        if isinstance(data, dict):
+            matches = data.get('matches', [])
+        elif isinstance(data, list):
+            # If it's a list, it might be the matches directly
+            matches = data
+        else:
+            matches = []
+        md_content += f'**Total Vulnerabilities:** {len(matches)}' + chr(10) + chr(10)
         
         severity_counts = {}
         for match in matches:
-            vulnerability = match.get('vulnerability', {})
-            severity = vulnerability.get('severity', 'unknown').lower()
-            severity_counts[severity] = severity_counts.get(severity, 0) + 1
+            if isinstance(match, dict):
+                vulnerability = match.get('vulnerability', {})
+                severity = vulnerability.get('severity', 'unknown').lower()
+                severity_counts[severity] = severity_counts.get(severity, 0) + 1
         
-        md_content += '### Severity Breakdown\n\n'
+        md_content += '### Severity Breakdown' + chr(10) + chr(10)
         for sev in ['critical', 'high', 'medium', 'low']:
             count = severity_counts.get(sev, 0)
-            md_content += f'- **{sev.title()}:** {count}\n'
+            md_content += f'- **{sev.title()}:** {count}' + chr(10)
         
-        md_content += '\n## Top Vulnerabilities\n\n'
+        md_content += chr(10) + '## Top Vulnerabilities' + chr(10) + chr(10)
         
         for i, match in enumerate(matches[:20]):  # Top 20
-            vulnerability = match.get('vulnerability', {})
-            artifact = match.get('artifact', {})
-            
-            md_content += f'''### {i+1}. {vulnerability.get('id', 'Unknown CVE')}
-
-**Severity:** {vulnerability.get('severity', 'Unknown').upper()}  
-**Package:** {artifact.get('name', 'Unknown')} @ {artifact.get('version', 'Unknown')}  
-**Description:** {vulnerability.get('description', 'No description available')[:300]}...  
-
-'''
+            if isinstance(match, dict):
+                vulnerability = match.get('vulnerability', {})
+                artifact = match.get('artifact', {})
+                desc = vulnerability.get('description', 'No description available')
+                if desc:
+                    desc = desc[:300]
+                else:
+                    desc = 'No description available'
+                
+                md_content += f'### {i+1}. {vulnerability.get("id", "Unknown CVE")}' + chr(10) + chr(10)
+                md_content += f'**Severity:** {vulnerability.get("severity", "Unknown").upper()}  ' + chr(10)
+                md_content += f'**Package:** {artifact.get("name", "Unknown")} @ {artifact.get("version", "Unknown")}  ' + chr(10)
+                md_content += f'**Description:** {desc}...  ' + chr(10) + chr(10)
     
     elif '$tool_name' == 'TruffleHog':
         if isinstance(data, list):
@@ -380,10 +391,10 @@ try:
     
     else:
         # Generic format
-        md_content += f'**Total Items:** {len(data) if isinstance(data, list) else 1}\\n\\n'
-        md_content += '```json\\n'
+        md_content += f'**Total Items:** {len(data) if isinstance(data, list) else 1}' + chr(10) + chr(10)
+        md_content += '\`\`\`json' + chr(10)
         md_content += json.dumps(data, indent=2)[:2000]
-        md_content += '\\n```\\n'
+        md_content += chr(10) + '\`\`\`' + chr(10)
     
     with open('$output_file', 'w') as f:
         f.write(md_content)

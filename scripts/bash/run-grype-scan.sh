@@ -110,6 +110,16 @@ echo "Output Directory: $OUTPUT_DIR"
 echo "Timestamp: $TIMESTAMP"
 echo
 
+# Display file count for transparency
+if [ -d "$REPO_PATH" ]; then
+    TOTAL_FILES=$(count_scannable_files "$REPO_PATH" "*")
+    echo -e "${CYAN}📊 Target Analysis:${NC}"
+    echo -e "   📁 Target Directory: $REPO_PATH"
+    echo -e "   📄 Total Files to Scan: $TOTAL_FILES"
+    get_file_breakdown "$REPO_PATH"
+    echo
+fi
+
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 

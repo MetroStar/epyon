@@ -78,6 +78,16 @@ echo -e "${WHITE}Trivy Multi-Target Security Scanner${NC}"
 echo -e "${WHITE}============================================${NC}"
 echo
 
+# Display file count for transparency
+if [ -d "$REPO_PATH" ]; then
+    TOTAL_FILES=$(count_scannable_files "$REPO_PATH" "*")
+    echo -e "${CYAN}📊 Target Analysis:${NC}"
+    echo -e "   📁 Target Directory: $REPO_PATH"
+    echo -e "   📄 Total Files to Scan: $TOTAL_FILES"
+    get_file_breakdown "$REPO_PATH"
+    echo
+fi
+
 # Function to scan a target
 run_trivy_scan() {
     local scan_type="$1"

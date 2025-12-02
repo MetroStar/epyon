@@ -111,6 +111,25 @@ echo "Output Directory: $OUTPUT_DIR"
 echo "Timestamp: $TIMESTAMP"
 echo
 
+# Display IaC file count for transparency
+if [ -d "$TARGET_SCAN_DIR" ]; then
+    echo -e "${CYAN}📊 Infrastructure-as-Code Analysis:${NC}"
+    YAML_COUNT=$(count_scannable_files "$TARGET_SCAN_DIR" "*.yaml" && count_scannable_files "$TARGET_SCAN_DIR" "*.yml")
+    TF_COUNT=$(count_scannable_files "$TARGET_SCAN_DIR" "*.tf")
+    DOCKERFILE_COUNT=$(find "$TARGET_SCAN_DIR" -name "Dockerfile*" 2>/dev/null | wc -l | tr -d ' ')
+    JSON_COUNT=$(count_scannable_files "$TARGET_SCAN_DIR" "*.json")
+    HELM_COUNT=0
+    if [ -d "$CHART_DIR" ]; then
+        HELM_COUNT=$(find "$CHART_DIR" -name "*.yaml" -o -name "*.yml" 2>/dev/null | wc -l | tr -d ' ')
+    fi
+    echo -e "   📄 YAML/YML files: $YAML_COUNT"
+    echo -e "   📄 Terraform files: $TF_COUNT"
+    echo -e "   🐳 Dockerfiles: $DOCKERFILE_COUNT"
+    echo -e "   📄 JSON files: $JSON_COUNT"
+    echo -e "   ⎈ Helm chart files: $HELM_COUNT"
+    echo
+fi
+
 # Initialize authentication status
 AWS_AUTHENTICATED=false
 

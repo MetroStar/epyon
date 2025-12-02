@@ -128,6 +128,70 @@ echo "Scan Directory: $SCAN_DIR"
 echo "Timestamp: $(date)"
 echo ""
 
+# Display comprehensive file analysis for transparency
+echo -e "${CYAN}📊 Target Directory Analysis${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Count total files (excluding common dependency directories)
+TOTAL_FILES=$(find "$TARGET_DIR" -type f \
+    -not -path "*/node_modules/*" \
+    -not -path "*/.git/*" \
+    -not -path "*/venv/*" \
+    -not -path "*/__pycache__/*" \
+    -not -path "*/dist/*" \
+    -not -path "*/build/*" \
+    2>/dev/null | wc -l | tr -d ' ')
+
+# Count specific file types
+JS_FILES=$(find "$TARGET_DIR" -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" \) \
+    -not -path "*/node_modules/*" 2>/dev/null | wc -l | tr -d ' ')
+PY_FILES=$(find "$TARGET_DIR" -type f -name "*.py" -not -path "*/venv/*" -not -path "*/__pycache__/*" 2>/dev/null | wc -l | tr -d ' ')
+YAML_FILES=$(find "$TARGET_DIR" -type f \( -name "*.yaml" -o -name "*.yml" \) 2>/dev/null | wc -l | tr -d ' ')
+TF_FILES=$(find "$TARGET_DIR" -type f -name "*.tf" 2>/dev/null | wc -l | tr -d ' ')
+DOCKER_FILES=$(find "$TARGET_DIR" -type f -name "Dockerfile*" 2>/dev/null | wc -l | tr -d ' ')
+SHELL_FILES=$(find "$TARGET_DIR" -type f \( -name "*.sh" -o -name "*.bash" \) 2>/dev/null | wc -l | tr -d ' ')
+JSON_FILES=$(find "$TARGET_DIR" -type f -name "*.json" -not -path "*/node_modules/*" 2>/dev/null | wc -l | tr -d ' ')
+
+echo -e "   📁 Total Files to Scan: ${WHITE}$TOTAL_FILES${NC}"
+echo ""
+echo -e "   ${WHITE}File Type Breakdown:${NC}"
+[[ $JS_FILES -gt 0 ]] && echo -e "   • JavaScript/TypeScript: $JS_FILES files"
+[[ $PY_FILES -gt 0 ]] && echo -e "   • Python: $PY_FILES files"
+[[ $YAML_FILES -gt 0 ]] && echo -e "   • YAML/YML: $YAML_FILES files"
+[[ $JSON_FILES -gt 0 ]] && echo -e "   • JSON: $JSON_FILES files"
+[[ $TF_FILES -gt 0 ]] && echo -e "   • Terraform: $TF_FILES files"
+[[ $DOCKER_FILES -gt 0 ]] && echo -e "   • Dockerfiles: $DOCKER_FILES files"
+[[ $SHELL_FILES -gt 0 ]] && echo -e "   • Shell Scripts: $SHELL_FILES files"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Save scan metadata to JSON for dashboard use
+SCAN_METADATA_FILE="$SCAN_DIR/scan-metadata.json"
+cat > "$SCAN_METADATA_FILE" << EOF
+{
+  "scan_id": "$SCAN_ID",
+  "target_directory": "$TARGET_DIR",
+  "target_name": "$TARGET_NAME",
+  "scan_type": "$SCAN_TYPE",
+  "scan_user": "$USERNAME",
+  "scan_timestamp": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+  "scan_timestamp_local": "$(date '+%Y-%m-%d %H:%M:%S %Z')",
+  "file_statistics": {
+    "total_files": $TOTAL_FILES,
+    "javascript_typescript": $JS_FILES,
+    "python": $PY_FILES,
+    "yaml_yml": $YAML_FILES,
+    "json": $JSON_FILES,
+    "terraform": $TF_FILES,
+    "dockerfiles": $DOCKER_FILES,
+    "shell_scripts": $SHELL_FILES
+  }
+}
+EOF
+echo -e "${GREEN}📄 Scan metadata saved to: $SCAN_METADATA_FILE${NC}"
+echo ""
+
 # Export TARGET_DIR for all child scripts
 export TARGET_DIR
 

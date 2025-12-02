@@ -84,6 +84,11 @@ fi
 # Set REPO_ROOT for compatibility
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 
+# Colors for output  
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+NC='\033[0m'
+
 echo "============================================"
 echo "[INFO] Anchore Security Analysis"
 echo "============================================"
@@ -92,6 +97,19 @@ echo "Scan ID: $SCAN_ID"
 echo "Output Directory: $OUTPUT_DIR"
 echo "Started: $(date)"
 echo ""
+
+# Display target analysis for transparency
+if [ -d "$REPO_PATH" ]; then
+    TOTAL_FILES=$(count_scannable_files "$REPO_PATH" "*")
+    echo -e "${CYAN}📊 Anchore Analysis Preview:${NC}"
+    echo -e "   📁 Target Directory: $REPO_PATH"
+    echo -e "   📄 Total Files: $TOTAL_FILES"
+    DOCKERFILE_COUNT=$(find "$REPO_PATH" -name "Dockerfile*" 2>/dev/null | wc -l | tr -d ' ')
+    COMPOSE_COUNT=$(find "$REPO_PATH" -name "docker-compose*.yml" -o -name "docker-compose*.yaml" 2>/dev/null | wc -l | tr -d ' ')
+    echo -e "   🐳 Dockerfiles: $DOCKERFILE_COUNT"
+    echo -e "   📋 Docker Compose files: $COMPOSE_COUNT"
+    echo ""
+fi
 
 # Placeholder implementation
 echo "[INFO] Anchore Engine integration is planned for future release"

@@ -108,6 +108,35 @@ TARGET_NAME=$(echo "$SCAN_NAME" | cut -d'_' -f1)
 SCAN_USER=$(echo "$SCAN_NAME" | cut -d'_' -f2)
 SCAN_TIMESTAMP=$(echo "$SCAN_NAME" | cut -d'_' -f3-)
 
+# ---- Read Scan Metadata (File Statistics) ----
+SCAN_METADATA_FILE="${LATEST_SCAN}/scan-metadata.json"
+TOTAL_FILES_SCANNED=0
+JS_TS_FILES=0
+PYTHON_FILES=0
+YAML_FILES=0
+JSON_CONFIG_FILES=0
+TERRAFORM_FILES=0
+DOCKERFILE_COUNT=0
+SHELL_SCRIPT_FILES=0
+TARGET_DIRECTORY="N/A"
+
+if [ -f "$SCAN_METADATA_FILE" ] && command -v jq &> /dev/null; then
+    echo "📊 Reading scan metadata from: $SCAN_METADATA_FILE"
+    TOTAL_FILES_SCANNED=$(jq -r '.file_statistics.total_files // 0' "$SCAN_METADATA_FILE" 2>/dev/null || echo "0")
+    JS_TS_FILES=$(jq -r '.file_statistics.javascript_typescript // 0' "$SCAN_METADATA_FILE" 2>/dev/null || echo "0")
+    PYTHON_FILES=$(jq -r '.file_statistics.python // 0' "$SCAN_METADATA_FILE" 2>/dev/null || echo "0")
+    YAML_FILES=$(jq -r '.file_statistics.yaml_yml // 0' "$SCAN_METADATA_FILE" 2>/dev/null || echo "0")
+    JSON_CONFIG_FILES=$(jq -r '.file_statistics.json // 0' "$SCAN_METADATA_FILE" 2>/dev/null || echo "0")
+    TERRAFORM_FILES=$(jq -r '.file_statistics.terraform // 0' "$SCAN_METADATA_FILE" 2>/dev/null || echo "0")
+    DOCKERFILE_COUNT=$(jq -r '.file_statistics.dockerfiles // 0' "$SCAN_METADATA_FILE" 2>/dev/null || echo "0")
+    SHELL_SCRIPT_FILES=$(jq -r '.file_statistics.shell_scripts // 0' "$SCAN_METADATA_FILE" 2>/dev/null || echo "0")
+    TARGET_DIRECTORY=$(jq -r '.target_directory // "N/A"' "$SCAN_METADATA_FILE" 2>/dev/null || echo "N/A")
+    echo "✅ Loaded file statistics: $TOTAL_FILES_SCANNED total files"
+else
+    echo "⚠️  No scan metadata found - file counts will show as 0"
+    echo "   Run a new scan to generate file statistics"
+fi
+
 # ---- TruffleHog Statistics ----
 TH_FILE="${LATEST_SCAN}/trufflehog/trufflehog-filesystem-results.json"
 TH_FILES_SCANNED=0
@@ -1554,6 +1583,107 @@ cat >> "$OUTPUT_HTML" << EOF
             <h1>🛡️ Interactive Security Dashboard</h1>
             <p class="subtitle"><strong>Scan:</strong> $SCAN_NAME</p>
             <p class="subtitle"><strong>Generated:</strong> $(date '+%B %d, %Y at %I:%M %p')</p>
+        </div>
+
+        <!-- Scan Overview Section -->
+        <div class="scan-overview" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; padding: 24px; margin-bottom: 24px; color: white; box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);">
+            <h2 style="margin: 0 0 16px 0; font-size: 1.4em; display: flex; align-items: center; gap: 10px;">
+                📊 Scan Overview
+            </h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                <div style="background: rgba(255,255,255,0.15); border-radius: 12px; padding: 16px; backdrop-filter: blur(10px);">
+                    <div style="font-size: 2em; font-weight: bold;">${TOTAL_FILES_SCANNED}</div>
+                    <div style="opacity: 0.9;">📄 Total Files Scanned</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.15); border-radius: 12px; padding: 16px; backdrop-filter: blur(10px);">
+                    <div style="font-size: 2em; font-weight: bold;">10</div>
+                    <div style="opacity: 0.9;">🛡️ Security Layers</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.15); border-radius: 12px; padding: 16px; backdrop-filter: blur(10px);">
+                    <div style="font-size: 2em; font-weight: bold;">${TOTAL_FINDINGS}</div>
+                    <div style="opacity: 0.9;">🔍 Total Findings</div>
+                </div>
+            </div>
+            
+            <!-- File Type Breakdown -->
+            <div style="margin-top: 20px; background: rgba(255,255,255,0.1); border-radius: 12px; padding: 16px;">
+                <h3 style="margin: 0 0 12px 0; font-size: 1em; opacity: 0.9;">📁 Files Analyzed by Type</h3>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+EOF
+
+# Add file type badges only if count > 0
+if [ "$JS_TS_FILES" -gt 0 ]; then
+    cat >> "$OUTPUT_HTML" << EOF
+                    <span style="background: rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 20px; font-size: 0.85em;">
+                        <strong>JS/TS:</strong> ${JS_TS_FILES}
+                    </span>
+EOF
+fi
+
+if [ "$PYTHON_FILES" -gt 0 ]; then
+    cat >> "$OUTPUT_HTML" << EOF
+                    <span style="background: rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 20px; font-size: 0.85em;">
+                        <strong>Python:</strong> ${PYTHON_FILES}
+                    </span>
+EOF
+fi
+
+if [ "$YAML_FILES" -gt 0 ]; then
+    cat >> "$OUTPUT_HTML" << EOF
+                    <span style="background: rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 20px; font-size: 0.85em;">
+                        <strong>YAML:</strong> ${YAML_FILES}
+                    </span>
+EOF
+fi
+
+if [ "$JSON_CONFIG_FILES" -gt 0 ]; then
+    cat >> "$OUTPUT_HTML" << EOF
+                    <span style="background: rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 20px; font-size: 0.85em;">
+                        <strong>JSON:</strong> ${JSON_CONFIG_FILES}
+                    </span>
+EOF
+fi
+
+if [ "$TERRAFORM_FILES" -gt 0 ]; then
+    cat >> "$OUTPUT_HTML" << EOF
+                    <span style="background: rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 20px; font-size: 0.85em;">
+                        <strong>Terraform:</strong> ${TERRAFORM_FILES}
+                    </span>
+EOF
+fi
+
+if [ "$DOCKERFILE_COUNT" -gt 0 ]; then
+    cat >> "$OUTPUT_HTML" << EOF
+                    <span style="background: rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 20px; font-size: 0.85em;">
+                        <strong>Dockerfiles:</strong> ${DOCKERFILE_COUNT}
+                    </span>
+EOF
+fi
+
+if [ "$SHELL_SCRIPT_FILES" -gt 0 ]; then
+    cat >> "$OUTPUT_HTML" << EOF
+                    <span style="background: rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 20px; font-size: 0.85em;">
+                        <strong>Shell:</strong> ${SHELL_SCRIPT_FILES}
+                    </span>
+EOF
+fi
+
+# Show message if no file stats available
+if [ "$TOTAL_FILES_SCANNED" -eq 0 ]; then
+    cat >> "$OUTPUT_HTML" << EOF
+                    <span style="background: rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 20px; font-size: 0.85em; font-style: italic;">
+                        ℹ️ File statistics not available for this scan
+                    </span>
+EOF
+fi
+
+cat >> "$OUTPUT_HTML" << EOF
+                </div>
+            </div>
+            
+            <div style="margin-top: 12px; font-size: 0.85em; opacity: 0.8;">
+                <strong>Target:</strong> <code style="background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 4px;">${TARGET_DIRECTORY}</code>
+            </div>
         </div>
 
         <div class="stats-grid">

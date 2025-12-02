@@ -101,6 +101,22 @@ echo "Output Directory: $OUTPUT_DIR"
 echo "Timestamp: $TIMESTAMP"
 echo
 
+# Display file count for transparency
+if [ -d "$REPO_PATH" ]; then
+    TOTAL_FILES=$(count_scannable_files "$REPO_PATH" "*")
+    echo -e "${CYAN}📊 Secret Scan Analysis:${NC}"
+    echo -e "   📁 Target Directory: $REPO_PATH"
+    echo -e "   📄 Total Files to Scan: $TOTAL_FILES"
+    # Count files that commonly contain secrets
+    ENV_COUNT=$(find "$REPO_PATH" -name "*.env*" -o -name ".env*" 2>/dev/null | wc -l | tr -d ' ')
+    CONFIG_COUNT=$(count_scannable_files "$REPO_PATH" "*.config*")
+    KEY_COUNT=$(find "$REPO_PATH" -name "*.key" -o -name "*.pem" -o -name "*.crt" 2>/dev/null | wc -l | tr -d ' ')
+    echo -e "   🔐 Environment files: $ENV_COUNT"
+    echo -e "   ⚙️  Config files: $CONFIG_COUNT"
+    echo -e "   🔑 Key/Certificate files: $KEY_COUNT"
+    echo
+fi
+
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 

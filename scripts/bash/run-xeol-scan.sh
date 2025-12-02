@@ -95,7 +95,20 @@ echo
 echo -e "${WHITE}============================================${NC}"
 echo -e "${WHITE}Xeol End-of-Life Detection Scanner${NC}"
 echo -e "${WHITE}============================================${NC}"
+echo "Target: $REPO_PATH"
+echo "Output Directory: $OUTPUT_DIR"
+echo "Timestamp: $TIMESTAMP"
 echo
+
+# Display target analysis for transparency
+if [ -d "$REPO_PATH" ]; then
+    TOTAL_FILES=$(count_scannable_files "$REPO_PATH" "*")
+    echo -e "${CYAN}📊 EOL Detection Analysis:${NC}"
+    echo -e "   📁 Target Directory: $REPO_PATH"
+    echo -e "   📄 Total Files to Analyze: $TOTAL_FILES"
+    echo -e "   🐳 Base Images to Check: ${#BASE_IMAGES[@]:-5}"
+    echo
+fi
 
 # Function to scan a target
 scan_target() {

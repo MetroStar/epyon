@@ -111,6 +111,26 @@ echo "Scan ID: $SCAN_ID"
 echo "Started: $(date)"
 echo
 
+# Display dependency manifest count for transparency
+if [ -d "$REPO_PATH" ]; then
+    echo -e "${CYAN}📊 SBOM Source Analysis:${NC}"
+    echo -e "   📁 Target Directory: $REPO_PATH"
+    # Count package manifests
+    PACKAGE_JSON=$(find "$REPO_PATH" -name "package.json" -not -path "*/node_modules/*" 2>/dev/null | wc -l | tr -d ' ')
+    REQUIREMENTS=$(find "$REPO_PATH" -name "requirements*.txt" -o -name "Pipfile" -o -name "pyproject.toml" 2>/dev/null | wc -l | tr -d ' ')
+    GO_MOD=$(find "$REPO_PATH" -name "go.mod" 2>/dev/null | wc -l | tr -d ' ')
+    POM_XML=$(find "$REPO_PATH" -name "pom.xml" 2>/dev/null | wc -l | tr -d ' ')
+    GEMFILE=$(find "$REPO_PATH" -name "Gemfile" 2>/dev/null | wc -l | tr -d ' ')
+    CARGO=$(find "$REPO_PATH" -name "Cargo.toml" 2>/dev/null | wc -l | tr -d ' ')
+    echo -e "   📦 Node.js (package.json): $PACKAGE_JSON"
+    echo -e "   🐍 Python (requirements/Pipfile/pyproject): $REQUIREMENTS"
+    echo -e "   🐹 Go (go.mod): $GO_MOD"
+    echo -e "   ☕ Java (pom.xml): $POM_XML"
+    echo -e "   💎 Ruby (Gemfile): $GEMFILE"
+    echo -e "   🦀 Rust (Cargo.toml): $CARGO"
+    echo
+fi
+
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 

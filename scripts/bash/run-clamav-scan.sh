@@ -100,6 +100,22 @@ echo "Output Directory: $OUTPUT_DIR"
 echo "Timestamp: $TIMESTAMP"
 echo
 
+# Display file count for transparency
+if [ -d "$REPO_PATH" ]; then
+    TOTAL_FILES=$(count_scannable_files "$REPO_PATH" "*")
+    echo -e "${CYAN}📊 Malware Scan Analysis:${NC}"
+    echo -e "   📁 Target Directory: $REPO_PATH"
+    echo -e "   📄 Total Files to Scan: $TOTAL_FILES"
+    # Count executable/binary files
+    EXE_COUNT=$(find "$REPO_PATH" -type f \( -name "*.exe" -o -name "*.dll" -o -name "*.so" -o -name "*.dylib" \) 2>/dev/null | wc -l | tr -d ' ')
+    SCRIPT_COUNT=$(find "$REPO_PATH" -type f \( -name "*.sh" -o -name "*.ps1" -o -name "*.bat" -o -name "*.cmd" \) 2>/dev/null | wc -l | tr -d ' ')
+    ARCHIVE_COUNT=$(find "$REPO_PATH" -type f \( -name "*.zip" -o -name "*.tar*" -o -name "*.gz" -o -name "*.rar" \) 2>/dev/null | wc -l | tr -d ' ')
+    echo -e "   💾 Executable/Library files: $EXE_COUNT"
+    echo -e "   📜 Script files: $SCRIPT_COUNT"
+    echo -e "   📦 Archive files: $ARCHIVE_COUNT"
+    echo
+fi
+
 # Create output directory if it doesn't exist
 mkdir -p "$OUTPUT_DIR"
 

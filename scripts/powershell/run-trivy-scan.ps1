@@ -174,9 +174,10 @@ function Invoke-ContainerImageScan {
 
 # Function to scan base images
 function Invoke-BaseImageScan {
-    Write-Host "   Scanning common base images for security vulnerabilities..."
+    Write-Host "   Scanning approved Bitnami hardened base images for security vulnerabilities..."
     
-    $BaseImages = @("nginx:alpine", "node:18-alpine", "python:3.11-alpine", "ubuntu:22.04", "alpine:latest")
+    # Use approved Bitnami hardened images with pinned stable versions (matches configuration/approved-base-images.conf)
+    $BaseImages = @("bitnami/nginx:1.27", "bitnami/node:22", "bitnami/python:3.12", "bitnami/postgresql:16")
     
     foreach ($image in $BaseImages) {
         Write-Host "   Scanning base image: " -NoNewline

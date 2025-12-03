@@ -714,13 +714,66 @@ fi
 # ---- Helm Statistics ----
 HELM_DIR="${LATEST_SCAN}/helm"
 HELM_CHARTS_SCANNED=0
+HELM_CHARTS_BUILT=0
+HELM_LINT_ERRORS=0
+HELM_LINT_WARNINGS=0
 if [ -d "$HELM_DIR" ]; then
-    HELM_CHARTS_SCANNED=$(find "$HELM_DIR" -name "*.json" -type f 2>/dev/null | wc -l | tr -d ' \n' || echo "0")
-    [[ "$HELM_CHARTS_SCANNED" =~ ^[0-9]+$ ]] || HELM_CHARTS_SCANNED=0
+    # First try to read from structured JSON results file
+    HELM_RESULTS_JSON="$HELM_DIR/helm-build-results.json"
+    if [ -f "$HELM_RESULTS_JSON" ]; then
+        HELM_CHARTS_SCANNED=$(jq -r '.charts_found // 0' "$HELM_RESULTS_JSON" 2>/dev/null || echo "0")
+        HELM_CHARTS_BUILT=$(jq -r '.charts_built // 0' "$HELM_RESULTS_JSON" 2>/dev/null || echo "0")
+        HELM_LINT_ERRORS=$(jq -r '.lint_issues // 0' "$HELM_RESULTS_JSON" 2>/dev/null || echo "0")
+        HELM_LINT_WARNINGS=$(jq -r '.lint_warnings // 0' "$HELM_RESULTS_JSON" 2>/dev/null || echo "0")
+        [[ "$HELM_CHARTS_SCANNED" =~ ^[0-9]+$ ]] || HELM_CHARTS_SCANNED=0
+        [[ "$HELM_CHARTS_BUILT" =~ ^[0-9]+$ ]] || HELM_CHARTS_BUILT=0
+        [[ "$HELM_LINT_ERRORS" =~ ^[0-9]+$ ]] || HELM_LINT_ERRORS=0
+        [[ "$HELM_LINT_WARNINGS" =~ ^[0-9]+$ ]] || HELM_LINT_WARNINGS=0
+    else
+        # Fallback: Count built charts (.tgz files)
+        HELM_CHARTS_BUILT=$(find "$HELM_DIR" -name "*.tgz" -type f 2>/dev/null | wc -l | tr -d ' \n' || echo "0")
+        [[ "$HELM_CHARTS_BUILT" =~ ^[0-9]+$ ]] || HELM_CHARTS_BUILT=0
+        
+        # Fallback: Parse helm lint log for errors/warnings
+        HELM_LINT_LOG=$(find "$HELM_DIR" -name "*lint*.log" -type f 2>/dev/null | head -1)
+        if [ -f "$HELM_LINT_LOG" ]; then
+            HELM_LINT_ERRORS=$(grep -ci "error" "$HELM_LINT_LOG" 2>/dev/null || echo "0")
+            HELM_LINT_WARNINGS=$(grep -ci "warning" "$HELM_LINT_LOG" 2>/dev/null || echo "0")
+            [[ "$HELM_LINT_ERRORS" =~ ^[0-9]+$ ]] || HELM_LINT_ERRORS=0
+            [[ "$HELM_LINT_WARNINGS" =~ ^[0-9]+$ ]] || HELM_LINT_WARNINGS=0
+        fi
+        
+        # Fallback: Count charts found (from log or yaml files)
+        HELM_BUILD_LOG=$(find "$HELM_DIR" -name "*build*.log" -o -name "*.log" -type f 2>/dev/null | head -1)
+        if [ -f "$HELM_BUILD_LOG" ]; then
+            HELM_CHARTS_SCANNED=$(grep -c "Found Helm chart" "$HELM_BUILD_LOG" 2>/dev/null || echo "0")
+            [[ "$HELM_CHARTS_SCANNED" =~ ^[0-9]+$ ]] || HELM_CHARTS_SCANNED=0
+        fi
+        
+        # Fallback: If no log found, count by template yamls
+        if [ "$HELM_CHARTS_SCANNED" -eq 0 ]; then
+            HELM_CHARTS_SCANNED=$(find "$HELM_DIR" -name "*-template-output.yaml" -type f 2>/dev/null | wc -l | tr -d ' \n' || echo "0")
+            [[ "$HELM_CHARTS_SCANNED" =~ ^[0-9]+$ ]] || HELM_CHARTS_SCANNED=0
+        fi
+    fi
 fi
-HELM_CRITICAL=0
-HELM_HIGH=0
-HELM_FINDINGS="<p class=\"no-findings\">Helm charts scanned: $HELM_CHARTS_SCANNED</p>"
+HELM_CRITICAL=$HELM_LINT_ERRORS
+HELM_HIGH=$HELM_LINT_WARNINGS
+
+# Build Helm findings display
+if [ "$HELM_CHARTS_SCANNED" -gt 0 ] || [ "$HELM_CHARTS_BUILT" -gt 0 ]; then
+    HELM_FINDINGS="<div class=\"stats-grid-small\">
+        <div class=\"stat-item\"><strong>📦 Charts Found:</strong> ${HELM_CHARTS_SCANNED}</div>
+        <div class=\"stat-item\"><strong>🏗️ Charts Built:</strong> ${HELM_CHARTS_BUILT}</div>
+        <div class=\"stat-item\"><strong>❌ Lint Errors:</strong> ${HELM_LINT_ERRORS}</div>
+        <div class=\"stat-item\"><strong>⚠️ Lint Warnings:</strong> ${HELM_LINT_WARNINGS}</div>
+    </div>"
+    if [ "$HELM_LINT_ERRORS" -eq 0 ] && [ "$HELM_LINT_WARNINGS" -eq 0 ]; then
+        HELM_FINDINGS="${HELM_FINDINGS}<p style=\"margin-top: 10px; color: #38a169;\">✅ All charts passed linting</p>"
+    fi
+else
+    HELM_FINDINGS="<p class=\"no-findings\">No Helm charts found in project</p>"
+fi
 
 # ---- Xeol (EOL Detection) Statistics ----
 XEOL_DIR="${LATEST_SCAN}/xeol"

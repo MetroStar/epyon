@@ -102,17 +102,26 @@ AWS_REGION="us-gov-west-1"
 ECR_REGISTRY="231388672283.dkr.ecr.us-gov-west-1.amazonaws.com"
 
 # Offer AWS ECR authentication for private Helm dependencies
-echo -e "${CYAN}🔐 This chart may require AWS ECR authentication for private dependencies${NC}"
-echo "Options:"
-echo "  1) Attempt AWS ECR login (recommended for complete build)"
-echo "  2) Skip authentication (fallback to stub dependencies)"
-echo
-read -p "Choose option (1 or 2, default: 2): " aws_choice
-
-# Initialize authentication status
+# Check if running interactively
 AWS_AUTHENTICATED=false
+aws_choice="${HELM_AWS_AUTH:-2}"
 
-if [[ "${aws_choice:-2}" == "1" ]]; then
+if [ -t 0 ]; then
+    # Interactive mode - prompt user
+    echo -e "${CYAN}🔐 This chart may require AWS ECR authentication for private dependencies${NC}"
+    echo "Options:"
+    echo "  1) Attempt AWS ECR login (recommended for complete build)"
+    echo "  2) Skip authentication (fallback to stub dependencies)"
+    echo
+    read -p "Choose option (1 or 2, default: 2): " aws_choice
+    aws_choice="${aws_choice:-2}"
+else
+    # Non-interactive mode - skip AWS auth by default
+    echo -e "${CYAN}🔐 Non-interactive mode: Skipping AWS ECR authentication${NC}"
+    echo "   Set HELM_AWS_AUTH=1 to enable AWS authentication"
+fi
+
+if [[ "${aws_choice}" == "1" ]]; then
     echo -e "${CYAN}🚀 Running AWS ECR authentication...${NC}"
     
     # Check if AWS CLI is available
@@ -181,47 +190,106 @@ build_helm_chart() {
 echo -e "${CYAN}🏗️  Step 1: Helm Chart Discovery & Building${NC}"
 echo "==========================================="
 
+# Use TARGET_DIR if set, otherwise use $1 or current directory
+SEARCH_DIR="${TARGET_DIR:-${1:-$(pwd)}}"
+echo -e "${BLUE}📁 Searching for Helm charts in: $SEARCH_DIR${NC}"
+
+# Track charts found
+CHARTS_FOUND=0
+
 # Search for Helm charts in the target directory
-if [ ! -z "$1" ] && [ -d "$1" ]; then
-    echo -e "${BLUE}📁 Searching for Helm charts in: $1${NC}"
-    
+if [ -d "$SEARCH_DIR" ]; then
     # Look for Chart.yaml files
-    CHART_FILES=$(find "$1" -name "Chart.yaml" -type f 2>/dev/null)
+    CHART_FILES=$(find "$SEARCH_DIR" -name "Chart.yaml" -type f 2>/dev/null)
     
-    if [ ! -z "$CHART_FILES" ]; then
-        echo "$CHART_FILES" | while read chart_file; do
+    if [ -n "$CHART_FILES" ]; then
+        # Use process substitution to avoid subshell variable scope issue
+        while IFS= read -r chart_file; do
             chart_dir=$(dirname "$chart_file")
             chart_name=$(basename "$chart_dir")
+            echo -e "${GREEN}📦 Found Helm chart: $chart_name at $chart_dir${NC}"
             build_helm_chart "$chart_dir" "$chart_name"
-        done
-    else
-        echo -e "${YELLOW}⚠️  No Helm charts found in target directory${NC}"
+            CHARTS_FOUND=$((CHARTS_FOUND + 1))
+        done <<< "$CHART_FILES"
     fi
-else
-    echo -e "${YELLOW}⚠️  No target directory provided for Helm chart search${NC}"
 fi
 
-# Also check for common chart locations
+# Also check for common chart locations relative to SEARCH_DIR
 COMMON_CHART_PATHS=(
     "helm"
     "charts"
+    "chart"
+    "chart-env"
     "k8s"
     "kubernetes"
     "deploy"
     "deployment"
+    "manifests"
 )
 
 for chart_path in "${COMMON_CHART_PATHS[@]}"; do
-    if [ -d "$chart_path/Chart.yaml" ] || [ -f "$chart_path/Chart.yaml" ]; then
-        build_helm_chart "$chart_path" $(basename "$chart_path")
+    full_path="$SEARCH_DIR/$chart_path"
+    if [ -f "$full_path/Chart.yaml" ]; then
+        echo -e "${GREEN}📦 Found Helm chart in common path: $chart_path${NC}"
+        build_helm_chart "$full_path" "$chart_path"
+        CHARTS_FOUND=$((CHARTS_FOUND + 1))
     fi
 done
+
+if [ "$CHARTS_FOUND" -eq 0 ]; then
+    echo -e "${YELLOW}⚠️  No Helm charts found in $SEARCH_DIR${NC}"
+fi
 
 echo
 echo -e "${CYAN}📊 Helm Chart Build Summary${NC}"
 echo "==================================="
 
-CHART_COUNT=$(find "$OUTPUT_DIR" -name "*.tgz" 2>/dev/null | wc -l)
+CHART_COUNT=$(find "$OUTPUT_DIR" -name "*.tgz" 2>/dev/null | wc -l | tr -d ' ')
+TEMPLATE_COUNT=$(find "$OUTPUT_DIR" -name "*.yaml" -type f 2>/dev/null | wc -l | tr -d ' ')
+LINT_ERRORS=0
+LINT_WARNINGS=0
+
+# Parse lint results if log exists
+if [ -f "$SCAN_LOG" ]; then
+    LINT_ERRORS=$(grep -c "Error:" "$SCAN_LOG" 2>/dev/null || echo "0")
+    LINT_WARNINGS=$(grep -c "Warning:" "$SCAN_LOG" 2>/dev/null || echo "0")
+fi
+
+# Generate JSON results for dashboard
+HELM_RESULTS_JSON="$OUTPUT_DIR/helm-results.json"
+cat > "$HELM_RESULTS_JSON" << EOF
+{
+  "scan_id": "$SCAN_ID",
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "target_dir": "$SEARCH_DIR",
+  "summary": {
+    "charts_found": $CHARTS_FOUND,
+    "charts_built": $CHART_COUNT,
+    "templates_generated": $TEMPLATE_COUNT,
+    "lint_errors": $LINT_ERRORS,
+    "lint_warnings": $LINT_WARNINGS
+  },
+  "charts": [
+EOF
+
+# Add chart details
+first=true
+find "$OUTPUT_DIR" -name "*.tgz" 2>/dev/null | while read chart; do
+    chart_name=$(basename "$chart" .tgz)
+    if [ "$first" = true ]; then
+        first=false
+    else
+        echo "," >> "$HELM_RESULTS_JSON"
+    fi
+    echo "    {\"name\": \"$chart_name\", \"file\": \"$(basename "$chart")\"}" >> "$HELM_RESULTS_JSON"
+done
+
+cat >> "$HELM_RESULTS_JSON" << EOF
+  ],
+  "status": "$([ $LINT_ERRORS -eq 0 ] && echo "success" || echo "errors")"
+}
+EOF
+
 echo -e "🏗️  Helm Chart Build Summary:"
 if [ $CHART_COUNT -gt 0 ]; then
     echo -e "${GREEN}✅ $CHART_COUNT Helm chart(s) built successfully${NC}"

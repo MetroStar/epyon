@@ -187,16 +187,18 @@ if [ -f "$TH_FILE" ]; then
     # Generate findings HTML with clickable details (use set +e to handle grep returning 1 when no matches)
     set +e
     TH_FINDINGS_HTML=$(grep -E '"DetectorName"' "$TH_FILE" 2>/dev/null | grep -v 'node_modules' | grep -v 'vendor/' | grep -v 'venv/' | grep -v '__pycache__' | head -n 30 | jq -s -r '
-        map("<div class=\"finding-item severity-" + (if .Verified then "critical" else "medium" end) + "\" onclick=\"toggleFindingDetails(this)\">
+        map("<div class=\"finding-item severity-" + (if .Verified then "critical" else "medium" end) + "\" data-source=\"app\" onclick=\"toggleFindingDetails(this)\">
             <div class=\"finding-header\">
                 <span class=\"badge badge-tool\">TruffleHog</span>
                 <span class=\"badge badge-" + (if .Verified then "critical" else "medium" end) + "\">" + (if .Verified then "VERIFIED" else "UNVERIFIED" end) + "</span>
                 <span class=\"badge\" style=\"background:#e2e8f0;color:#4a5568;\">" + .DetectorName + "</span>
+                <span class=\"badge\" style=\"background:#38a169;color:white;font-size:0.7em;\">💻 App Code</span>
             </div>
             <div class=\"finding-title\">" + .DetectorName + " - " + (if .Verified then "Verified Secret Found!" else "Potential Secret Detected" end) + "</div>
             <div class=\"finding-desc\">" + (.DetectorDescription // "Secret or credential pattern detected in source code") + "</div>
             <div class=\"finding-details\" style=\"display:none;\">
                 <div><strong>Detector:</strong> <code>" + .DetectorName + "</code></div>
+                <div><strong>Source:</strong> 💻 Application Code (secrets in source files)</div>
                 <div><strong>Verified:</strong> " + (if .Verified then "<span style=\"color:#e53e3e;font-weight:bold;\">Yes - Active credential!</span>" else "<span style=\"color:#d69e2e;\">No - Potential secret</span>" end) + "</div>
                 <div><strong>File:</strong> <code>" + (.SourceMetadata.Data.Filesystem.file | split("/") | last) + "</code></div>
                 <div><strong>Line:</strong> <code>" + (.SourceMetadata.Data.Filesystem.line | tostring) + "</code></div>
@@ -239,14 +241,16 @@ if [ -f "$CLAMAV_LOG" ]; then
 fi
 CLAMAV_CRITICAL=${CLAMAV_INFECTED:-0}
 if [ "$CLAMAV_CRITICAL" -gt 0 ]; then
-    CLAMAV_FINDINGS="<div class=\"finding-item severity-critical\">
+    CLAMAV_FINDINGS="<div class=\"finding-item severity-critical\" data-source=\"app\">
         <div class=\"finding-header\">
             <span class=\"badge badge-tool\">ClamAV</span>
             <span class=\"badge badge-critical\">CRITICAL</span>
+            <span class=\"badge\" style=\"background:#38a169;color:white;font-size:0.7em;\">💻 App Code</span>
         </div>
         <div class=\"finding-title\">⚠️ Malware Detected</div>
         <div class=\"finding-desc\">$CLAMAV_CRITICAL infected files found</div>
         <div class=\"finding-details\">
+            <div><strong>Source:</strong> 💻 Application Code (filesystem scan)</div>
             <div><strong>Action Required:</strong> Review scan results and quarantine infected files</div>
         </div>
     </div>"
@@ -327,15 +331,10 @@ if [ -d "$TRIVY_DIR" ]; then
                   cwes: (((.CweIDs // []) | join(", ")) | cwes_display),
                   refs: ((.References // []) | .[0:3] | join(" ")),
                   data_source: (.DataSource.Name // "Unknown"),
-                  purl: ((.PkgIdentifier.PURL // "") | html_escape)}
+                  purl: ((.PkgIdentifier.PURL // "") | html_escape),
+                  source_type: (if (.PkgType // "" | test("(debian|ubuntu|alpine|rhel|centos|fedora|os-pkgs|node-pkg|python-pkg|jar|pom|rust-binary|gobinary)"; "i")) then "image" else "app" end)}
                 ] | sort_by(.severity | if . == "CRITICAL" then 0 elif . == "HIGH" then 1 elif . == "MEDIUM" then 2 else 3 end) | .[0:50] | .[] |
-                "<div class=\"finding-item severity-" + .severity_lc + "\" data-pkg=\"" + .pkg + "\" data-status=\"" + .status + "\" data-cve=\"" + .id + "\" onclick=\"toggleFindingDetails(this)\">
-<div class=\"finding-header\">
-<span class=\"badge badge-tool\">Trivy</span>
-<span class=\"badge badge-" + .severity_lc + "\">" + .severity + "</span>
-<span class=\"badge\" style=\"background:#e2e8f0;color:#4a5568;\">" + .id + "</span>
-<span class=\"badge\" style=\"background:" + .status_badge + ";\">" + .status_uc + "</span>
-</div>
+                "<div class=\"finding-item severity-" + .severity_lc + "\" data-pkg=\"" + .pkg + "\" data-status=\"" + .status + "\" data-cve=\"" + .id + "\" data-source=\"" + .source_type + "\" onclick=\"toggleFindingDetails(this)\">\n<div class=\"finding-header\">\n<span class=\"badge badge-tool\">Trivy</span>\n<span class=\"badge badge-" + .severity_lc + "\">" + .severity + "</span>\n<span class=\"badge\" style=\"background:#e2e8f0;color:#4a5568;\">" + .id + "</span>\n<span class=\"badge\" style=\"background:" + .status_badge + ";\">" + .status_uc + "</span>\n<span class=\"badge\" style=\"background:" + (if .source_type == "image" then "#805ad5" else "#38a169" end) + ";color:white;font-size:0.7em;\">" + (if .source_type == "image" then "📦 Container Image" else "💻 App Code" end) + "</span>\n</div>
 <div class=\"finding-title\">" + .pkg + "@" + .installed + " - " + .title + "</div>
 <div class=\"finding-desc\">" + .desc_short + "...</div>
 <div class=\"finding-details\" style=\"display:none;\">
@@ -421,11 +420,12 @@ GRYPE_LOW=0
 GRYPE_FINDINGS=""
 GRYPE_DETAILS=""
 if [ -d "$GRYPE_DIR" ]; then
-    GRYPE_TARGETS_SCANNED=$(find "$GRYPE_DIR" -name "grype-*.json" -type f 2>/dev/null | wc -l | tr -d ' \n' || echo "0")
+    GRYPE_TARGETS_SCANNED=$(find "$GRYPE_DIR" -name "*.json" -type f ! -name "*.log" 2>/dev/null | wc -l | tr -d ' \n' || echo "0")
     [[ "$GRYPE_TARGETS_SCANNED" =~ ^[0-9]+$ ]] || GRYPE_TARGETS_SCANNED=0
     
-    for grype_file in "$GRYPE_DIR"/grype-*.json; do
-        if [ -f "$grype_file" ]; then
+    for grype_file in "$GRYPE_DIR"/*.json; do
+        # Skip symlinks to avoid double counting
+        if [ -f "$grype_file" ] && [ ! -L "$grype_file" ]; then
             crit_count=$(jq '[.matches[]? | select(.vulnerability.severity=="Critical")] | length' "$grype_file" 2>/dev/null || echo "0")
             high_count=$(jq '[.matches[]? | select(.vulnerability.severity=="High")] | length' "$grype_file" 2>/dev/null || echo "0")
             med_count=$(jq '[.matches[]? | select(.vulnerability.severity=="Medium")] | length' "$grype_file" 2>/dev/null || echo "0")
@@ -449,19 +449,24 @@ if [ -d "$GRYPE_DIR" ]; then
                  {id: .vulnerability.id, pkg: .artifact.name, version: .artifact.version, 
                   severity: .vulnerability.severity, 
                   fixed: (.vulnerability.fix.versions[0] // "Not fixed"),
-                  desc: (.vulnerability.description // "No description available")}
+                  desc: (.vulnerability.description // "No description available"),
+                  pkg_type: (.artifact.type // "unknown"),
+                  source_type: (if (.artifact.type // "" | test("(deb|apk|rpm|alpm|portage|npm|python|gem|java-archive|rust|go|binary)"; "i")) then "image" else "app" end)}
                 ] | sort_by(.severity | if . == "Critical" then 0 elif . == "High" then 1 elif . == "Medium" then 2 else 3 end) | .[0:50] | .[] |
-                "<div class=\"finding-item severity-\(.severity | ascii_downcase)\" onclick=\"toggleFindingDetails(this)\">
+                "<div class=\"finding-item severity-\(.severity | ascii_downcase)\" data-source=\"\(.source_type)\" onclick=\"toggleFindingDetails(this)\">
                     <div class=\"finding-header\">
                         <span class=\"badge badge-tool\">Grype</span>
                         <span class=\"badge badge-\(.severity | ascii_downcase)\">\(.severity)</span>
                         <span class=\"badge\" style=\"background:#e2e8f0;color:#4a5568;\">\(.id)</span>
+                        <span class=\"badge\" style=\"background:\(if .source_type == "image" then "#805ad5" else "#38a169" end);color:white;font-size:0.7em;\">\(if .source_type == "image" then "📦 Container Image" else "💻 App Code" end)</span>
                     </div>
                     <div class=\"finding-title\">\(.pkg)@\(.version)</div>
                     <div class=\"finding-desc\">\(.desc | .[0:200])...</div>
                     <div class=\"finding-details\" style=\"display:none;\">
                         <div><strong>CVE ID:</strong> <code>\(.id)</code></div>
                         <div><strong>Package:</strong> <code>\(.pkg)</code></div>
+                        <div><strong>Package Type:</strong> <code>\(.pkg_type)</code></div>
+                        <div><strong>Source:</strong> \(if .source_type == "image" then "📦 Container Image (bundled in base image)" else "💻 Application Code" end)</div>
                         <div><strong>Installed Version:</strong> <code>\(.version)</code></div>
                         <div><strong>Fixed Version:</strong> <code>\(.fixed)</code></div>
                         <div><strong>Full Description:</strong> \(.desc)</div>
@@ -624,8 +629,10 @@ if [ -d "$CHECKOV_DIR" ]; then
         fi
     done
 fi
-CHECKOV_CRITICAL=$CHECKOV_FAILED
-CHECKOV_HIGH=0
+# Note: Checkov failed checks are IaC misconfigurations, NOT vulnerability criticals
+# They should be counted as HIGH priority issues, not CRITICAL vulnerabilities
+CHECKOV_CRITICAL=0
+CHECKOV_HIGH=$CHECKOV_FAILED
 CHECKOV_TOTAL=$((CHECKOV_PASSED + CHECKOV_FAILED + CHECKOV_SKIPPED))
 
 # Build Checkov findings display
@@ -643,43 +650,46 @@ if [ "$CHECKOV_TOTAL" -gt 0 ]; then
     # Add failed checks details if any failures exist
     if [ "$CHECKOV_FAILED" -gt 0 ]; then
         CHECKOV_FINDINGS="${CHECKOV_FINDINGS}<div class=\"findings-section\" style=\"margin-top: 15px;\">
-            <h4 style=\"color: #e53e3e; margin-bottom: 10px;\">❌ Failed Checks (${CHECKOV_FAILED})</h4>
-            <table class=\"findings-table\">
-                <thead>
-                    <tr>
-                        <th>Check ID</th>
-                        <th>Check Name</th>
-                        <th>File</th>
-                        <th>Line</th>
-                    </tr>
-                </thead>
-                <tbody>"
+            <h4 style=\"color: #dd6b20; margin-bottom: 10px;\">⚠️ Failed IaC Checks (${CHECKOV_FAILED})</h4>
+            <p style=\"color:#718096;margin-bottom:15px;font-size:0.9em;\">👆 Click on any finding below to expand details. These are IaC/Dockerfile misconfigurations, not vulnerabilities.</p>"
         
         # Extract failed checks from all Checkov JSON files
         for checkov_file in "$CHECKOV_DIR"/*.json; do
             # Skip symlinks to avoid duplicate processing
             if [ -f "$checkov_file" ] && [ ! -L "$checkov_file" ] && [[ "$(basename "$checkov_file")" != *"summary"* ]]; then
                 # Get failed checks as TSV for easy parsing
-                while IFS=$'\t' read -r check_id check_name file_path line_start; do
+                while IFS=$'\t' read -r check_id check_name file_path line_start guideline; do
                     if [ -n "$check_id" ]; then
                         # Escape HTML entities
                         check_name_escaped=$(echo "$check_name" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
                         file_display=$(basename "$file_path" 2>/dev/null || echo "$file_path")
+                        guideline_escaped=$(echo "$guideline" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
                         CHECKOV_FINDINGS="${CHECKOV_FINDINGS}
-                    <tr class=\"severity-critical\">
-                        <td><code>${check_id}</code></td>
-                        <td>${check_name_escaped}</td>
-                        <td><code>${file_display}</code></td>
-                        <td>${line_start}</td>
-                    </tr>"
+<div class=\"finding-item severity-high\" data-source=\"app\" onclick=\"toggleFindingDetails(this)\">
+    <div class=\"finding-header\">
+        <span class=\"badge badge-tool\">Checkov</span>
+        <span class=\"badge badge-high\">HIGH</span>
+        <span class=\"badge\" style=\"background:#e2e8f0;color:#4a5568;\">${check_id}</span>
+        <span class=\"badge\" style=\"background:#38a169;color:white;font-size:0.7em;\">💻 App Code</span>
+    </div>
+    <div class=\"finding-title\">${check_name_escaped}</div>
+    <div class=\"finding-desc\">IaC misconfiguration in ${file_display} at line ${line_start}</div>
+    <div class=\"finding-details\" style=\"display:none;\">
+        <div><strong>Check ID:</strong> <code>${check_id}</code></div>
+        <div><strong>Check Name:</strong> ${check_name_escaped}</div>
+        <div><strong>Source:</strong> 💻 Application Code (IaC/Dockerfile configuration)</div>
+        <div><strong>File:</strong> <code>${file_display}</code></div>
+        <div><strong>Full Path:</strong> <code style=\"font-size:0.8em;word-break:break-all;\">${file_path}</code></div>
+        <div><strong>Line:</strong> ${line_start}</div>
+        <div><strong>Guideline:</strong> ${guideline_escaped:-No guideline available}</div>
+    </div>
+</div>"
                     fi
-                done < <(jq -r '[.[] | select(.results?) | .results.failed_checks[]] | .[] | [.check_id, .check_name, .file_path, (.file_line_range[0] // "N/A" | tostring)] | @tsv' "$checkov_file" 2>/dev/null)
+                done < <(jq -r '[.[] | select(.results?) | .results.failed_checks[]] | .[] | [.check_id, .check_name, .file_path, (.file_line_range[0] // "N/A" | tostring), (.guideline // "")] | @tsv' "$checkov_file" 2>/dev/null)
             fi
         done
         
         CHECKOV_FINDINGS="${CHECKOV_FINDINGS}
-                </tbody>
-            </table>
         </div>"
     fi
 else
@@ -803,7 +813,7 @@ if [ -d "$XEOL_DIR" ]; then
     done
     
     if [ "$XEOL_TOTAL_EOL" -gt 0 ]; then
-        XEOL_FINDINGS="<p class=\"finding-item severity-high\">⚠️ ${XEOL_TOTAL_EOL} end-of-life components detected across ${XEOL_IMAGES_SCANNED} scans</p>"
+        XEOL_FINDINGS="<p class=\"finding-item severity-high\" data-source=\"image\">⚠️ ${XEOL_TOTAL_EOL} end-of-life components detected across ${XEOL_IMAGES_SCANNED} scans (📦 Container Image)</p>"
     else
         XEOL_FINDINGS="<p class=\"no-findings\">✅ No end-of-life components detected (${XEOL_IMAGES_SCANNED} targets scanned)</p>"
     fi
@@ -860,6 +870,12 @@ TOTAL_HIGH=$((TH_HIGH + TRIVY_HIGH + GRYPE_HIGH + SONAR_HIGH + CHECKOV_HIGH + HE
 TOTAL_MEDIUM=$((TRIVY_MEDIUM + GRYPE_MEDIUM + XEOL_MEDIUM + ANCHORE_MEDIUM))
 TOTAL_LOW=$((TRIVY_LOW + GRYPE_LOW + XEOL_LOW + ANCHORE_LOW))
 TOTAL_FINDINGS=$((TOTAL_CRITICAL + TOTAL_HIGH + TOTAL_MEDIUM + TOTAL_LOW))
+
+# Calculate source-based totals (Container Image vs Application/Filesystem)
+# Container image vulnerabilities come from Trivy/Grype base image scans
+TOTAL_IMAGE_VULNS=$((TRIVY_CRITICAL + TRIVY_HIGH + TRIVY_MEDIUM + TRIVY_LOW + GRYPE_CRITICAL + GRYPE_HIGH + GRYPE_MEDIUM + GRYPE_LOW + XEOL_CRITICAL + XEOL_HIGH + XEOL_MEDIUM + XEOL_LOW))
+# Application/Config vulnerabilities come from Checkov, TruffleHog, Helm, SonarQube
+TOTAL_APP_VULNS=$((TH_CRITICAL + TH_HIGH + CHECKOV_HIGH + HELM_CRITICAL + HELM_HIGH + SONAR_CRITICAL + SONAR_HIGH))
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
@@ -1928,6 +1944,21 @@ cat >> "$OUTPUT_HTML" << EOF
                     📌 Low <span class="chip-count">${TOTAL_LOW}</span>
                 </button>
             </div>
+        </div>
+        
+        <div class="filter-bar" style="margin-top: 10px;">
+            <span class="filter-label">📦 Filter by Source:</span>
+            <div class="filter-chips">
+                <button class="filter-chip source-chip source-chip-all active" onclick="filterBySource('all')" id="source-all">
+                    All Sources <span class="chip-count" id="source-count-all">${TOTAL_FINDINGS}</span>
+                </button>
+                <button class="filter-chip source-chip source-chip-image" onclick="filterBySource('image')" id="source-image" style="background: #e0f2fe; border-color: #0ea5e9;">
+                    🐳 Container Image <span class="chip-count" id="source-count-image">0</span>
+                </button>
+                <button class="filter-chip source-chip source-chip-app" onclick="filterBySource('app')" id="source-app" style="background: #fef3c7; border-color: #f59e0b;">
+                    📁 Application/Config <span class="chip-count" id="source-count-app">0</span>
+                </button>
+            </div>
             <div class="sort-controls">
                 <span class="filter-label">Sort:</span>
                 <button class="sort-btn active" onclick="sortFindings('severity')" id="sort-severity">
@@ -1939,9 +1970,24 @@ cat >> "$OUTPUT_HTML" << EOF
             </div>
         </div>
         
+        <!-- Source Legend -->
+        <div style="background: #f7fafc; border-radius: 8px; padding: 12px 16px; margin-top: 15px; margin-bottom: 15px; font-size: 0.85em; border-left: 4px solid #667eea;">
+            <strong>📋 Understanding Vulnerability Sources:</strong>
+            <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-top: 8px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="background: #e0f2fe; padding: 2px 8px; border-radius: 4px;">🐳 Container Image</span>
+                    <span style="color: #718096;">= Bundled in base image (npm, pip, OS packages)</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="background: #fef3c7; padding: 2px 8px; border-radius: 4px;">📁 Application/Config</span>
+                    <span style="color: #718096;">= Your code, secrets, IaC misconfigurations</span>
+                </div>
+            </div>
+        </div>
+        
         <div class="filter-results" id="filter-results" style="display: none;">
             <span class="filter-results-count" id="filter-count">Showing 0 findings</span>
-            <a class="clear-filter" onclick="filterBySeverity('all')">Clear Filter ✕</a>
+            <a class="clear-filter" onclick="filterBySeverity('all'); filterBySource('all');">Clear Filters ✕</a>
         </div>
 
         <div class="tools-section">
@@ -2066,7 +2112,16 @@ cat >> "$OUTPUT_HTML" << EOF
                         </div>
                     </div>
                     <div class="tool-stats">
-                        <span class="tool-stat-badge badge-clean">✅ Clean</span>
+EOF
+
+# Add Checkov stats dynamically
+if [ "$CHECKOV_FAILED" -gt 0 ]; then
+    echo "                        <span class=\"tool-stat-badge badge-high\">⚠️ ${CHECKOV_FAILED} Failed</span>" >> "$OUTPUT_HTML"
+else
+    echo "                        <span class=\"tool-stat-badge badge-clean\">✅ Clean</span>" >> "$OUTPUT_HTML"
+fi
+
+cat >> "$OUTPUT_HTML" << EOF
                         <span class="expand-icon">▼</span>
                     </div>
                 </div>
@@ -2334,6 +2389,7 @@ cat >> "$OUTPUT_HTML" << EOF
     <script>
         // Current filter state
         let currentFilter = 'all';
+        let currentSourceFilter = 'all';
         let currentSort = 'severity';
         
         // Severity priority for sorting
@@ -2400,24 +2456,24 @@ cat >> "$OUTPUT_HTML" << EOF
             let visibleCount = 0;
             
             findings.forEach(finding => {
-                if (severity === 'all') {
+                const findingSource = finding.dataset.source || 'app';
+                
+                // Check both severity filter and source filter
+                let passesSeverityFilter = (severity === 'all') || finding.classList.contains('severity-' + severity);
+                let passesSourceFilter = (typeof currentSourceFilter === 'undefined' || currentSourceFilter === 'all') || (findingSource === currentSourceFilter);
+                
+                if (passesSeverityFilter && passesSourceFilter) {
                     finding.classList.remove('filtered-out');
                     visibleCount++;
                 } else {
-                    const hasSeverity = finding.classList.contains('severity-' + severity);
-                    if (hasSeverity) {
-                        finding.classList.remove('filtered-out');
-                        visibleCount++;
-                    } else {
-                        finding.classList.add('filtered-out');
-                    }
+                    finding.classList.add('filtered-out');
                 }
             });
             
             // Update tool card opacity based on visible findings
             document.querySelectorAll('.tool-card').forEach(card => {
                 const visibleInCard = card.querySelectorAll('.finding-item:not(.filtered-out)').length;
-                if (severity !== 'all' && visibleInCard === 0) {
+                if ((severity !== 'all' || (typeof currentSourceFilter !== 'undefined' && currentSourceFilter !== 'all')) && visibleInCard === 0) {
                     card.classList.add('filtered-out');
                 } else {
                     card.classList.remove('filtered-out');
@@ -2427,12 +2483,16 @@ cat >> "$OUTPUT_HTML" << EOF
             // Show/hide filter results bar
             const resultsBar = document.getElementById('filter-results');
             const countSpan = document.getElementById('filter-count');
+            const srcFilter = (typeof currentSourceFilter !== 'undefined') ? currentSourceFilter : 'all';
             
-            if (severity === 'all') {
+            if (severity === 'all' && srcFilter === 'all') {
                 resultsBar.style.display = 'none';
             } else {
                 resultsBar.style.display = 'flex';
-                countSpan.textContent = 'Showing ' + visibleCount + ' ' + severity.toUpperCase() + ' findings';
+                let filterText = 'Showing ' + visibleCount + ' findings';
+                if (severity !== 'all') filterText += ' (' + severity.toUpperCase() + ')';
+                if (srcFilter !== 'all') filterText += ' from ' + (srcFilter === 'image' ? 'Container Image' : 'Application Code');
+                countSpan.textContent = filterText;
             }
             
             // Expand tools with visible findings
@@ -2445,6 +2505,60 @@ cat >> "$OUTPUT_HTML" << EOF
                         content.classList.add('active');
                     }
                 });
+            }
+        }
+        
+        // Filter findings by source (container image vs application code)
+        function filterBySource(source) {
+            currentSourceFilter = source;
+            
+            // Update source chip active states
+            document.querySelectorAll('.source-chip').forEach(chip => {
+                chip.classList.remove('active');
+            });
+            document.querySelector('.source-chip-' + source).classList.add('active');
+            
+            // Get all finding items
+            const findings = document.querySelectorAll('.finding-item');
+            let visibleCount = 0;
+            
+            findings.forEach(finding => {
+                const findingSource = finding.dataset.source || 'app';
+                
+                // Check both severity filter and source filter
+                let passesSourceFilter = (source === 'all') || (findingSource === source);
+                let passesSeverityFilter = (currentFilter === 'all') || finding.classList.contains('severity-' + currentFilter);
+                
+                if (passesSourceFilter && passesSeverityFilter) {
+                    finding.classList.remove('filtered-out');
+                    visibleCount++;
+                } else {
+                    finding.classList.add('filtered-out');
+                }
+            });
+            
+            // Update tool card opacity based on visible findings
+            document.querySelectorAll('.tool-card').forEach(card => {
+                const visibleInCard = card.querySelectorAll('.finding-item:not(.filtered-out)').length;
+                if ((source !== 'all' || currentFilter !== 'all') && visibleInCard === 0) {
+                    card.classList.add('filtered-out');
+                } else {
+                    card.classList.remove('filtered-out');
+                }
+            });
+            
+            // Show/hide filter results bar
+            const resultsBar = document.getElementById('filter-results');
+            const countSpan = document.getElementById('filter-count');
+            
+            if (source === 'all' && currentFilter === 'all') {
+                resultsBar.style.display = 'none';
+            } else {
+                resultsBar.style.display = 'flex';
+                let filterText = 'Showing ' + visibleCount + ' findings';
+                if (source !== 'all') filterText += ' from ' + (source === 'image' ? 'Container Image' : 'Application Code');
+                if (currentFilter !== 'all') filterText += ' (' + currentFilter.toUpperCase() + ')';
+                countSpan.textContent = filterText;
             }
         }
         
@@ -2703,8 +2817,31 @@ cat >> "$OUTPUT_HTML" << EOF
             console.log('Trivy filter: showing ' + visibleCount + ' of ' + findings.length);
         }
         
+        // Count findings by source and update the filter chips
+        function updateSourceCounts() {
+            const findings = document.querySelectorAll('.finding-item');
+            let imageCount = 0;
+            let appCount = 0;
+            
+            findings.forEach(finding => {
+                const source = finding.dataset.source || 'app';
+                if (source === 'image') {
+                    imageCount++;
+                } else {
+                    appCount++;
+                }
+            });
+            
+            document.getElementById('source-count-all').textContent = findings.length;
+            document.getElementById('source-count-image').textContent = imageCount;
+            document.getElementById('source-count-app').textContent = appCount;
+        }
+        
         // Auto-expand first tool with findings
         window.addEventListener('DOMContentLoaded', () => {
+            // Update source counts based on actual data-source attributes
+            updateSourceCounts();
+            
             const badges = Array.from(document.querySelectorAll('.tool-stat-badge'));
             const firstIssue = badges.find(badge => badge.textContent.includes('❗') || badge.textContent.includes('⚠️'));
             

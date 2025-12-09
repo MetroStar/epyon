@@ -159,14 +159,13 @@ run_trivy_scan() {
                     image "$target" \
                     --format json --quiet 2>> "$SCAN_LOG" > "$output_file"
             else
-                # Filesystem scan - skip node_modules and package-lock.json, redirect stderr to log, keep JSON clean
-                docker run --rm -v "${target}:/workspace:ro" \
+                # Filesystem scan - scan everything including node_modules for complete vulnerability detection
+                docker run --rm \
+                    -v "${target}:/workspace:ro" \
                     -v "$TRIVY_CACHE_VOL:/root/.cache" \
                     aquasec/trivy:latest \
                     fs /workspace \
-                    --skip-files "package-lock.json" \
-                    --skip-files "**/package-lock.json" \
-                    --format json --quiet 2>> "$SCAN_LOG" > "$output_file"
+                    --format json 2>> "$SCAN_LOG" > "$output_file"
             fi
             
             local exit_code=$?

@@ -240,17 +240,19 @@ if [[ "$SCAN_TYPE" == "sbom" ]] || [[ "$SCAN_TYPE" == "all" ]]; then
         if command -v docker &> /dev/null; then
             echo -e "${BLUE}🔍 Scanning SBOM for vulnerabilities...${NC}"
             
-            # Mount the SBOM file and scan it
+            # Mount the SBOM file and scan it with vulnerability database
             docker run --rm \
+                -e GRYPE_DB_CACHE_DIR=/cache \
                 -v "$SBOM_FILE:/sbom.json:ro" \
+                -v "$GRYPE_CACHE_VOL:/cache" \
                 anchore/grype:latest \
                 sbom:/sbom.json -o json 2>>"$SCAN_LOG" > "$output_file"
             
-            local exit_code=$?
-            if [ $exit_code -eq 0 ] && [ -f "$output_file" ] && [ -s "$output_file" ]; then
-                local count=$(jq '.matches | length' "$output_file" 2>/dev/null || echo "0")
-                echo -e "${GREEN}   ✅ SBOM scan completed: $count vulnerabilities found${NC}"
-                echo "SBOM scan: $count vulnerabilities" >> "$SCAN_LOG"
+            sbom_exit_code=$?
+            if [ $sbom_exit_code -eq 0 ] && [ -f "$output_file" ] && [ -s "$output_file" ]; then
+                sbom_count=$(jq '.matches | length' "$output_file" 2>/dev/null || echo "0")
+                echo -e "${GREEN}   ✅ SBOM scan completed: $sbom_count vulnerabilities found${NC}"
+                echo "SBOM scan: $sbom_count vulnerabilities" >> "$SCAN_LOG"
                 ln -sf "$(basename "$output_file")" "$current_file" 2>/dev/null
             else
                 echo -e "${RED}   ❌ SBOM scan failed${NC}"

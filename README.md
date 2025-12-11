@@ -6,6 +6,232 @@ This repository contains a **production-ready, enterprise-grade** eight-layer De
 
 **Latest Update: November 25, 2025** - Complete scan isolation architecture with all outputs contained in scan-specific directories. No centralized reports directory - each scan is fully self-contained for audit trails and historical analysis.
 
+## 📋 Prerequisites
+
+Before using this security architecture, ensure you have the following tools installed and configured.
+
+### 🐳 Docker (Required)
+All security tools run in Docker containers. Install Docker Desktop or Docker Engine:
+
+```bash
+# macOS (using Homebrew)
+brew install --cask docker
+
+# Ubuntu/Debian
+sudo apt-get update && sudo apt-get install docker.io docker-compose
+sudo systemctl start docker && sudo systemctl enable docker
+sudo usermod -aG docker $USER  # Add your user to docker group
+
+# Verify installation
+docker --version
+docker run hello-world
+```
+
+### ☁️ AWS CLI (Required for ECR Integration)
+Required for AWS ECR authentication and container registry operations:
+
+```bash
+# macOS
+brew install awscli
+
+# Ubuntu/Debian
+sudo apt-get install awscli
+
+# Configure AWS credentials
+aws configure
+# Enter: AWS Access Key ID, Secret Access Key, Region (e.g., us-east-1)
+
+# Verify installation
+aws --version
+aws sts get-caller-identity
+```
+
+### 📊 SonarQube Setup (Layer 7 - Code Quality Analysis)
+
+SonarQube provides code quality analysis, test coverage metrics, and security vulnerability detection. You can use either a hosted SonarQube server or run one locally.
+
+#### Option A: Using an Existing SonarQube Server
+
+If your organization has a SonarQube server, create a `.env.sonar` file in the repository root:
+
+```bash
+# .env.sonar - SonarQube authentication configuration
+export SONAR_HOST_URL='https://your-sonarqube-server.com'
+export SONAR_TOKEN='your_sonarqube_token_here'
+```
+
+**To generate a SonarQube token:**
+1. Log in to your SonarQube server
+2. Go to **My Account** → **Security** → **Generate Tokens**
+3. Create a new token with appropriate permissions
+4. Copy the token to your `.env.sonar` file
+
+#### Option B: Running SonarQube Locally with Docker
+
+For local development or testing, run SonarQube using Docker:
+
+```bash
+# Create a Docker network for SonarQube
+docker network create sonarqube-network
+
+# Start SonarQube server (Community Edition - free)
+docker run -d --name sonarqube \
+  --network sonarqube-network \
+  -p 9000:9000 \
+  -v sonarqube_data:/opt/sonarqube/data \
+  -v sonarqube_logs:/opt/sonarqube/logs \
+  -v sonarqube_extensions:/opt/sonarqube/extensions \
+  sonarqube:lts-community
+
+# Wait for SonarQube to start (may take 1-2 minutes)
+echo "Waiting for SonarQube to start..."
+until curl -s http://localhost:9000/api/system/status | grep -q '"status":"UP"'; do
+  sleep 5
+done
+echo "SonarQube is ready!"
+```
+
+**Initial SonarQube Configuration:**
+1. Open http://localhost:9000 in your browser
+2. Login with default credentials: `admin` / `admin`
+3. **Change the default password immediately** when prompted
+4. Generate an authentication token:
+   - Go to **My Account** → **Security** → **Generate Tokens**
+   - Name: `security-scanner` (or any descriptive name)
+   - Type: **Global Analysis Token**
+   - Click **Generate** and copy the token
+
+5. Create your `.env.sonar` file:
+```bash
+# .env.sonar - Local SonarQube configuration
+export SONAR_HOST_URL='http://localhost:9000'
+export SONAR_TOKEN='your_generated_token_here'
+```
+
+#### Option C: SonarQube with Docker Compose
+
+For a more robust local setup with persistent storage:
+
+```yaml
+# docker-compose.sonarqube.yml
+version: '3.8'
+services:
+  sonarqube:
+    image: sonarqube:lts-community
+    container_name: sonarqube
+    ports:
+      - "9000:9000"
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
+    networks:
+      - sonarqube-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/api/system/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  sonarqube_data:
+  sonarqube_logs:
+  sonarqube_extensions:
+
+networks:
+  sonarqube-network:
+    driver: bridge
+```
+
+```bash
+# Start SonarQube with Docker Compose
+docker-compose -f docker-compose.sonarqube.yml up -d
+
+# Check status
+docker-compose -f docker-compose.sonarqube.yml ps
+
+# View logs
+docker-compose -f docker-compose.sonarqube.yml logs -f sonarqube
+
+# Stop SonarQube
+docker-compose -f docker-compose.sonarqube.yml down
+```
+
+#### SonarQube Project Configuration
+
+For projects you want to analyze, create a `sonar-project.properties` file in the project root:
+
+```properties
+# sonar-project.properties - Project configuration
+sonar.projectKey=your-project-key
+sonar.projectName=Your Project Name
+sonar.projectVersion=1.0
+
+# Source directories
+sonar.sources=src
+sonar.tests=src
+sonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx
+
+# Exclusions
+sonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/*.config.*
+
+# Coverage (if using LCOV format)
+sonar.javascript.lcov.reportPaths=coverage/lcov.info
+sonar.typescript.lcov.reportPaths=coverage/lcov.info
+
+# Language settings
+sonar.language=ts
+sonar.sourceEncoding=UTF-8
+```
+
+### 🔧 Other Tool Dependencies
+
+The remaining security tools run entirely in Docker and require no additional setup:
+
+| Tool | Docker Image | Auto-Pulled |
+|------|-------------|-------------|
+| **TruffleHog** | `trufflesecurity/trufflehog` | ✅ Yes |
+| **ClamAV** | `clamav/clamav` | ✅ Yes |
+| **Checkov** | `bridgecrew/checkov` | ✅ Yes |
+| **Grype** | `anchore/grype` | ✅ Yes |
+| **Trivy** | `aquasec/trivy` | ✅ Yes |
+| **Xeol** | `xeol/xeol` | ✅ Yes |
+| **Helm** | `alpine/helm` | ✅ Yes |
+
+### ✅ Verify Prerequisites
+
+Run this quick verification script to check your setup:
+
+```bash
+#!/bin/bash
+echo "🔍 Checking prerequisites..."
+
+# Docker
+if command -v docker &> /dev/null && docker info &> /dev/null; then
+    echo "✅ Docker: $(docker --version)"
+else
+    echo "❌ Docker: Not installed or not running"
+fi
+
+# AWS CLI
+if command -v aws &> /dev/null; then
+    echo "✅ AWS CLI: $(aws --version 2>&1 | head -1)"
+else
+    echo "⚠️  AWS CLI: Not installed (required for ECR integration)"
+fi
+
+# SonarQube configuration
+if [ -f ".env.sonar" ]; then
+    echo "✅ SonarQube: .env.sonar file found"
+else
+    echo "⚠️  SonarQube: .env.sonar not found (Layer 7 will be skipped)"
+fi
+
+echo "🎯 Prerequisites check complete!"
+```
+
 ## 🏗️ Architecture Components
 
 ### Eight Security Layers (All Operational - Cross-Platform):

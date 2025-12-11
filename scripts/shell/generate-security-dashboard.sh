@@ -269,12 +269,13 @@ TRIVY_LOW=0
 TRIVY_FINDINGS=""
 TRIVY_DETAILS=""
 if [ -d "$TRIVY_DIR" ]; then
-    TRIVY_IMAGES_SCANNED=$(find "$TRIVY_DIR" -name "*.json" -type f 2>/dev/null | wc -l | tr -d ' \n' || echo "0")
+    TRIVY_IMAGES_SCANNED=$(find "$TRIVY_DIR" -name "*.json" -type f ! -type l 2>/dev/null | wc -l | tr -d ' \n' || echo "0")
     [[ "$TRIVY_IMAGES_SCANNED" =~ ^[0-9]+$ ]] || TRIVY_IMAGES_SCANNED=0
     
     # Parse vulnerabilities from all Trivy JSON files
     for trivy_file in "$TRIVY_DIR"/*.json; do
-        if [ -f "$trivy_file" ] && grep -q '"SchemaVersion"' "$trivy_file" 2>/dev/null; then
+        # Skip symlinks to avoid duplicate counting
+        if [ -f "$trivy_file" ] && [ ! -L "$trivy_file" ] && grep -q '"SchemaVersion"' "$trivy_file" 2>/dev/null; then
             # Extract JSON portion (skip any log lines at the beginning)
             set +o pipefail
             json_content=$(sed -n '/^{/,$p' "$trivy_file" 2>/dev/null || cat "$trivy_file")

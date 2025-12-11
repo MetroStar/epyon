@@ -502,13 +502,18 @@ consolidate_tool_reports() {
     mkdir -p "$UNIFIED_DIR/html-reports/$tool_name"
     mkdir -p "$UNIFIED_DIR/markdown-reports/$tool_name"
     
-    # Copy raw data
+    # Copy raw data (skip symlinks to avoid duplicates)
     if [ -d "$source_dir" ]; then
-        cp -r "$source_dir"/* "$UNIFIED_DIR/raw-data/$tool_name/" 2>/dev/null || true
+        for src_file in "$source_dir"/*; do
+            if [ -f "$src_file" ] && [ ! -L "$src_file" ]; then
+                cp "$src_file" "$UNIFIED_DIR/raw-data/$tool_name/" 2>/dev/null || true
+            fi
+        done
         
         # Convert each JSON file to human-readable formats
         for json_file in "$source_dir"/$file_pattern; do
-            if [ -f "$json_file" ]; then
+            # Skip symlinks to avoid processing duplicates
+            if [ -f "$json_file" ] && [ ! -L "$json_file" ]; then
                 filename=$(basename "$json_file" .json)
                 
                 # Generate HTML report

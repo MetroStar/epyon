@@ -6,32 +6,29 @@ This directory contains security scanning and analysis scripts organized by plat
 
 ```
 scripts/
-├── bash/           # Shell scripts for Linux/macOS/WSL (31 scripts)
-├── powershell/     # PowerShell scripts for Windows (9 scripts)
+├── shell/          # Shell scripts for Linux/macOS/WSL
+├── powershell/     # PowerShell scripts for Windows
 └── README.md       # This file
 ```
 
-## 🐧 Bash Scripts (`bash/`)
+## 🐧 Shell Scripts (`shell/`)
 
-**Location**: `./bash/`
+**Location**: `./shell/`
 
 **Platform**: Linux, macOS, WSL (Windows Subsystem for Linux), Git Bash
 
-**Total Scripts**: 31
-
 ### Usage
 ```bash
-cd bash
+cd shell
 ./script-name.sh
 ```
 
 ### Available Scripts
 - Security scanners (Trivy, Grype, Xeol, Checkov, ClamAV, TruffleHog, etc.)
-- Analysis tools (analyze-* scripts)
-- Management utilities
-- AWS ECR authentication
-- Dashboard management
-- Complete security scan orchestration
+- SBOM generation (run-sbom-scan.sh)
+- Dashboard generation and management
+- Report consolidation
+- Target-aware security scanning orchestration
 
 ## 🪟 PowerShell Scripts (`powershell/`)
 
@@ -73,27 +70,26 @@ See `./powershell/` directory for:
 
 ### For Windows Users
 
-**Option 1: Use PowerShell Scripts** (Recommended for converted scripts)
+**Option 1: Use PowerShell Scripts** (Recommended)
 ```powershell
 cd powershell
-.\open-dashboard.ps1
+.\run-target-security-scan.ps1 -TargetDir "C:\path\to\project"
 .\run-clamav-scan.ps1
 ```
 
-**Option 2: Use Bash Scripts** (For unconverted scripts)
+**Option 2: Use Shell Scripts** (Via WSL or Git Bash)
 ```bash
-# Using Git Bash or WSL
-cd bash
-./run-trivy-scan.sh
+cd shell
+./run-target-security-scan.sh /path/to/project
 ./run-grype-scan.sh
 ```
 
 ### For Linux/macOS Users
 
 ```bash
-cd bash
-./run-complete-security-scan.sh
-./open-dashboard.sh
+cd shell
+./run-target-security-scan.sh /path/to/project full
+./open-latest-dashboard.sh
 ```
 
 ## 📊 Script Categories

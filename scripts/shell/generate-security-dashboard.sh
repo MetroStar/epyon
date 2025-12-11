@@ -232,12 +232,12 @@ CLAMAV_INFECTED=0
 CLAMAV_DIRECTORIES=0
 if [ -f "$CLAMAV_LOG" ]; then
     CLAMAV_FILES_SCANNED=$(grep "Scanned files:" "$CLAMAV_LOG" 2>/dev/null | grep -oE '[0-9]+' | head -1 || echo "0")
-    CLAMAV_DATA_SCANNED=$(grep "Data scanned:" "$CLAMAV_LOG" 2>/dev/null | sed 's/Data scanned: //' || echo "N/A")
-    CLAMAV_SCAN_TIME=$(grep "^Time:" "$CLAMAV_LOG" 2>/dev/null | sed 's/Time: //' || echo "N/A")
-    CLAMAV_ENGINE_VERSION=$(grep "Engine version:" "$CLAMAV_LOG" 2>/dev/null | sed 's/Engine version: //' || echo "N/A")
-    CLAMAV_VIRUS_DB_COUNT=$(grep "Known viruses:" "$CLAMAV_LOG" 2>/dev/null | grep -oE '[0-9]+' || echo "0")
-    CLAMAV_INFECTED=$(grep "Infected files:" "$CLAMAV_LOG" 2>/dev/null | grep -oE '[0-9]+' || echo "0")
-    CLAMAV_DIRECTORIES=$(grep "Scanned directories:" "$CLAMAV_LOG" 2>/dev/null | grep -oE '[0-9]+' || echo "0")
+    CLAMAV_DATA_SCANNED=$(grep "Data scanned:" "$CLAMAV_LOG" 2>/dev/null | head -1 | sed 's/Data scanned: //' || echo "N/A")
+    CLAMAV_SCAN_TIME=$(grep "^Time:" "$CLAMAV_LOG" 2>/dev/null | head -1 | sed 's/Time: //' || echo "N/A")
+    CLAMAV_ENGINE_VERSION=$(grep "Engine version:" "$CLAMAV_LOG" 2>/dev/null | head -1 | sed 's/Engine version: //' || echo "N/A")
+    CLAMAV_VIRUS_DB_COUNT=$(grep "Known viruses:" "$CLAMAV_LOG" 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo "0")
+    CLAMAV_INFECTED=$(grep "Infected files:" "$CLAMAV_LOG" 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo "0")
+    CLAMAV_DIRECTORIES=$(grep "Scanned directories:" "$CLAMAV_LOG" 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo "0")
 fi
 CLAMAV_CRITICAL=${CLAMAV_INFECTED:-0}
 if [ "$CLAMAV_CRITICAL" -gt 0 ]; then

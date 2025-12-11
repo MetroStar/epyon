@@ -118,6 +118,8 @@ fi
 
 # Create output directory if it doesn't exist
 mkdir -p "$OUTPUT_DIR"
+DECODED_DIR="$OUTPUT_DIR/decoded-base64"
+mkdir -p "$DECODED_DIR"
 
 # Initialize scan log
 echo "ClamAV scan started: $TIMESTAMP" > "$SCAN_LOG"
@@ -125,6 +127,46 @@ echo "Target: $REPO_PATH" >> "$SCAN_LOG"
 
 echo -e "${CYAN}🦠 Malware Detection Scan${NC}"
 echo "=========================="
+
+# Pre-processing: Detect and decode base64 content
+echo -e "${CYAN}🔍 Pre-scan: Detecting base64 encoded content...${NC}"
+BASE64_FILES_FOUND=0
+BASE64_DECODED=0
+
+# Find files that might contain base64 (common patterns)
+for file in $(find "$REPO_PATH" -type f \( -name "*.txt" -o -name "*.log" -o -name "*.data" -o -name "*.b64" -o -name "*.encoded" \) 2>/dev/null); do
+    # Check if file contains base64-like content (long strings of base64 chars)
+    if grep -qE '^[A-Za-z0-9+/]{40,}={0,2}$' "$file" 2>/dev/null; then
+        BASE64_FILES_FOUND=$((BASE64_FILES_FOUND + 1))
+        filename=$(basename "$file")
+        decoded_file="$DECODED_DIR/${filename}.decoded"
+        
+        # Try to decode base64 content
+        if base64 -d "$file" > "$decoded_file" 2>/dev/null && [ -s "$decoded_file" ]; then
+            BASE64_DECODED=$((BASE64_DECODED + 1))
+            echo "   📄 Decoded: $filename" >> "$SCAN_LOG"
+        else
+            # If full file decode fails, try extracting and decoding base64 chunks
+            grep -oE '^[A-Za-z0-9+/]{40,}={0,2}$' "$file" 2>/dev/null | while read -r line; do
+                echo "$line" | base64 -d >> "$decoded_file" 2>/dev/null
+            done
+            if [ -s "$decoded_file" ]; then
+                BASE64_DECODED=$((BASE64_DECODED + 1))
+                echo "   📄 Decoded chunks from: $filename" >> "$SCAN_LOG"
+            else
+                rm -f "$decoded_file"
+            fi
+        fi
+    fi
+done
+
+if [ $BASE64_FILES_FOUND -gt 0 ]; then
+    echo "   ✅ Found $BASE64_FILES_FOUND files with base64 content"
+    echo "   ✅ Successfully decoded $BASE64_DECODED files for scanning"
+else
+    echo "   ℹ️  No base64 encoded files detected"
+fi
+echo
 
 # Check if Docker is available
 if command -v docker &> /dev/null; then
@@ -240,6 +282,31 @@ if command -v docker &> /dev/null; then
             --max-scansize=2000M \
             --log=/output/${SCAN_ID}_clamav-detailed.log /workspace 2>&1 | tee -a "$SCAN_LOG"
         SCAN_RESULT=$?
+        
+        # Also scan decoded base64 files if any exist
+        if [ $BASE64_DECODED -gt 0 ]; then
+            echo -e "${BLUE}🔍 Scanning decoded base64 content...${NC}"
+            docker run --rm $PLATFORM_FLAG \
+                -v "$DECODED_DIR:/decoded:ro" \
+                -v "$OUTPUT_DIR:/output" \
+                -v "$CLAMAV_DB_VOL:/var/lib/clamav" \
+                "$CLAMAV_IMAGE" \
+                clamscan -r \
+                --scan-mail=yes \
+                --scan-html=yes \
+                --scan-pdf=yes \
+                --scan-ole2=yes \
+                --scan-archive=yes \
+                --max-filesize=2000M \
+                --max-scansize=2000M \
+                /decoded 2>&1 | tee -a "$SCAN_LOG" >> "$OUTPUT_DIR/${SCAN_ID}_clamav-detailed.log"
+            DECODED_SCAN_RESULT=$?
+            
+            if [ $DECODED_SCAN_RESULT -eq 1 ]; then
+                echo -e "${RED}🚨 THREATS FOUND in decoded base64 content!${NC}"
+                SCAN_RESULT=1
+            fi
+        fi
     fi
     
     # Create current symlink for latest results

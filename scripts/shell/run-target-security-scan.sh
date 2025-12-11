@@ -667,8 +667,8 @@ if [[ -f "$SCRIPT_DIR/consolidate-security-reports.sh" ]]; then
         echo ""
         echo -e "${BLUE}🔧 Quick Access:${NC}"
         echo -e "${YELLOW}cd $SCAN_DIR${NC}"
-        if [[ -f "$SCAN_DIR/consolidated-reports/index.html" ]]; then
-            echo -e "${YELLOW}open $SCAN_DIR/consolidated-reports/index.html${NC}"
+        if [[ -f "$SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html" ]]; then
+            echo -e "${YELLOW}open $SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html${NC}"
         fi
     else
         echo -e "${YELLOW}⚠️  Report consolidation had issues${NC}"

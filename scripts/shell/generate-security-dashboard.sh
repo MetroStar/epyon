@@ -333,7 +333,7 @@ if [ -d "$TRIVY_DIR" ]; then
                   refs: ((.References // []) | .[0:3] | join(" ")),
                   data_source: (.DataSource.Name // "Unknown"),
                   purl: ((.PkgIdentifier.PURL // "") | html_escape),
-                  source_type: (if (.PkgType // "" | test("(debian|ubuntu|alpine|rhel|centos|fedora|os-pkgs|node-pkg|python-pkg|jar|pom|rust-binary|gobinary)"; "i")) then "image" else "app" end)}
+                  source_type: (if ($target | test("(bitnami|node|python|alpine|ubuntu|debian|nginx|redis|postgres|mysql|mongo|openjdk)"; "i")) or ($target | test("\\(.*\\)$")) or (.PkgType // "" | test("(debian|ubuntu|alpine|rhel|centos|fedora|os-pkgs|photon)"; "i")) then "image" else "app" end)}
                 ] | sort_by(.severity | if . == "CRITICAL" then 0 elif . == "HIGH" then 1 elif . == "MEDIUM" then 2 else 3 end) | .[0:50] | .[] |
                 "<div class=\"finding-item severity-" + .severity_lc + "\" data-pkg=\"" + .pkg + "\" data-status=\"" + .status + "\" data-cve=\"" + .id + "\" data-source=\"" + .source_type + "\" onclick=\"toggleFindingDetails(this)\">\n<div class=\"finding-header\">\n<span class=\"badge badge-tool\">Trivy</span>\n<span class=\"badge badge-" + .severity_lc + "\">" + .severity + "</span>\n<span class=\"badge\" style=\"background:#e2e8f0;color:#4a5568;\">" + .id + "</span>\n<span class=\"badge\" style=\"background:" + .status_badge + ";\">" + .status_uc + "</span>\n<span class=\"badge\" style=\"background:" + (if .source_type == "image" then "#805ad5" else "#38a169" end) + ";color:white;font-size:0.7em;\">" + (if .source_type == "image" then "📦 Container Image" else "💻 App Code" end) + "</span>\n</div>
 <div class=\"finding-title\">" + .pkg + "@" + .installed + " - " + .title + "</div>
@@ -446,13 +446,14 @@ if [ -d "$GRYPE_DIR" ]; then
             # Extract individual vulnerability details for ALL severity levels (limit to top 50 per file)
             set +e
             vuln_details=$(jq -r '
+                (.source.type // "unknown") as $scan_type |
                 [.matches[]? | 
                  {id: .vulnerability.id, pkg: .artifact.name, version: .artifact.version, 
                   severity: .vulnerability.severity, 
                   fixed: (.vulnerability.fix.versions[0] // "Not fixed"),
                   desc: (.vulnerability.description // "No description available"),
                   pkg_type: (.artifact.type // "unknown"),
-                  source_type: (if (.artifact.type // "" | test("(deb|apk|rpm|alpm|portage|npm|python|gem|java-archive|rust|go|binary)"; "i")) then "image" else "app" end)}
+                  source_type: (if $scan_type == "image" then "image" elif (.artifact.type // "" | test("(deb|apk|rpm|alpm|portage|photon)"; "i")) then "image" else "app" end)}
                 ] | sort_by(.severity | if . == "Critical" then 0 elif . == "High" then 1 elif . == "Medium" then 2 else 3 end) | .[0:50] | .[] |
                 "<div class=\"finding-item severity-\(.severity | ascii_downcase)\" data-source=\"\(.source_type)\" onclick=\"toggleFindingDetails(this)\">
                     <div class=\"finding-header\">

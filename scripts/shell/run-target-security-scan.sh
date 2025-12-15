@@ -19,17 +19,22 @@ NC='\033[0m' # No Color
 show_help() {
     echo -e "${GREEN}Ten-Layer Security Scan Orchestrator${NC}"
     echo ""
-    echo "Usage: $0 [OPTIONS] <TARGET_DIRECTORY> [SCAN_TYPE]"
+    echo "Usage: $0 [OPTIONS] <TARGET> [SCAN_TYPE]"
     echo ""
     echo "Comprehensive security scanning orchestrator that runs all security tools"
-    echo "in a coordinated manner on any target directory."
+    echo "in a coordinated manner on any target directory or Git repository."
     echo ""
     echo "Arguments:"
-    echo "  TARGET_DIRECTORY    Path to directory to scan (REQUIRED)"
+    echo "  TARGET              Path to directory OR Git repository URL (REQUIRED)"
     echo "  SCAN_TYPE           Type of scan to run (default: full)"
     echo ""
     echo "Options:"
     echo "  -h, --help          Show this help message and exit"
+    echo ""
+    echo "Target Types:"
+    echo "  Local Directory     /path/to/project or ./project"
+    echo "  Git HTTPS           https://github.com/user/repo.git"
+    echo "  Git SSH             git@github.com:user/repo.git"
     echo ""
     echo "Scan Types:"
     echo "  quick       Fast scan - Trivy, TruffleHog, basic checks"
@@ -56,13 +61,20 @@ show_help() {
     echo "  - Security findings summary"
     echo ""
     echo "Examples:"
-    echo "  $0 /path/to/project                    # Full scan"
-    echo "  $0 /path/to/project quick              # Quick scan"
-    echo "  $0 '/path/with spaces/project' full    # Path with spaces"
-    echo "  $0 ./my-app images                     # Image-focused scan"
+    echo "  # Local directory scans"
+    echo "  $0 /path/to/project                              # Full scan"
+    echo "  $0 /path/to/project quick                        # Quick scan"
+    echo "  $0 '/path/with spaces/project' full              # Path with spaces"
+    echo "  $0 ./my-app images                               # Image-focused scan"
+    echo ""
+    echo "  # Git repository scans"
+    echo "  $0 https://github.com/user/repo.git              # Clone & scan"
+    echo "  $0 git@github.com:user/private-repo.git full     # SSH clone & scan"
     echo ""
     echo "Notes:"
     echo "  - Requires Docker for most scanners"
+    echo "  - Git repositories are cloned with --depth 1 for speed"
+    echo "  - Cloned repositories are automatically cleaned up after scan"
     echo "  - Creates timestamped scan directory"
     echo "  - Generates interactive HTML dashboard"
     exit 0
@@ -78,18 +90,67 @@ for arg in "$@"; do
 done
 
 # Configuration
-TARGET_DIR="$1"
+TARGET_INPUT="$1"
 SCAN_TYPE="${2:-full}"
 # Get the script's directory to locate security tools
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-TARGET_NAME=$(basename "${TARGET_DIR:-$(pwd)}")
 USERNAME=$(whoami)
 TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
+
+# Flag to track if we cloned a repo (for cleanup)
+CLONED_REPO=false
+CLONE_DIR=""
+
+# Validate inputs
+if [[ -z "$TARGET_INPUT" ]]; then
+    echo -e "${RED}❌ Error: Target directory or Git URL is required${NC}"
+    echo "Usage: $0 <target_directory|git_url> [quick|full|images|analysis]"
+    echo ""
+    echo "Examples:"
+    echo "  $0 '/Users/rnelson/Desktop/my-project' full"
+    echo "  $0 './my-project' quick"
+    echo "  $0 'https://github.com/user/repo.git' full"
+    echo "  $0 'git@github.com:user/repo.git' images"
+    exit 1
+fi
+
+# Determine if target is a Git URL or directory
+if [[ "$TARGET_INPUT" =~ ^(https?://|git@|ssh://) ]] || [[ "$TARGET_INPUT" =~ \.git$ ]]; then
+    echo -e "${CYAN}🔗 Git repository detected${NC}"
+    echo -e "   URL: $TARGET_INPUT"
+    
+    # Extract repo name from URL
+    REPO_NAME=$(basename "$TARGET_INPUT" .git)
+    
+    # Create temporary clone directory
+    CLONE_DIR="$REPO_ROOT/scans/.tmp-clones/$REPO_NAME-$TIMESTAMP"
+    mkdir -p "$CLONE_DIR"
+    
+    echo -e "${CYAN}📥 Cloning repository...${NC}"
+    if git clone --depth 1 "$TARGET_INPUT" "$CLONE_DIR" 2>&1; then
+        echo -e "${GREEN}✅ Repository cloned successfully${NC}"
+        TARGET_DIR="$CLONE_DIR"
+        TARGET_NAME="$REPO_NAME"
+        CLONED_REPO=true
+    else
+        echo -e "${RED}❌ Error: Failed to clone repository${NC}"
+        rm -rf "$CLONE_DIR"
+        exit 1
+    fi
+elif [[ -d "$TARGET_INPUT" ]]; then
+    # It's a directory path
+    TARGET_DIR=$(realpath "$TARGET_INPUT" 2>/dev/null || (cd "$TARGET_INPUT" && pwd))
+    TARGET_NAME=$(basename "$TARGET_DIR")
+else
+    echo -e "${RED}❌ Error: Target is neither a valid directory nor a Git URL${NC}"
+    echo -e "   Provided: $TARGET_INPUT"
+    exit 1
+fi
+
 SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
 
 # Create dedicated scan directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 SCAN_DIR="$REPORTS_ROOT/scans/$SCAN_ID"
 mkdir -p "$SCAN_DIR"
@@ -97,25 +158,6 @@ mkdir -p "$SCAN_DIR"
 # Export variables for all child scripts
 export SCAN_ID
 export SCAN_DIR
-
-# Validate inputs
-if [[ -z "$TARGET_DIR" ]]; then
-    echo -e "${RED}❌ Error: Target directory is required${NC}"
-    echo "Usage: $0 <target_directory> [quick|full|images|analysis]"
-    echo ""
-    echo "Examples:"
-    echo "  $0 '/Users/rnelson/Desktop/CDAO Marketplace/advana-marketplace-monolith-node' full"
-    echo "  $0 './my-project' quick"
-    echo "  $0 '/path/to/project' images"
-    exit 1
-fi
-
-# Resolve absolute path
-if [[ ! -d "$TARGET_DIR" ]]; then
-    echo -e "${RED}❌ Error: Target directory does not exist: $TARGET_DIR${NC}"
-    exit 1
-fi
-TARGET_DIR=$(realpath "$TARGET_DIR" 2>/dev/null || (cd "$TARGET_DIR" && pwd))
 
 # ============================================
 # DOCKER VALIDATION AND STARTUP
@@ -201,6 +243,23 @@ else
 fi
 
 echo ""
+
+# Load approved base images configuration
+CONFIG_DIR="$REPO_ROOT/configuration"
+if [ -f "$CONFIG_DIR/approved-base-images.conf" ]; then
+    source "$CONFIG_DIR/approved-base-images.conf"
+    echo -e "${GREEN}✅ Loaded approved base images configuration${NC}"
+    
+    # Validate that bitnami:latest images are actually latest
+    echo ""
+    echo -e "${CYAN}🔍 Validating Base Images${NC}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    for image in "${APPROVED_BASE_IMAGES[@]}"; do
+        validate_latest_image "$image"
+    done
+    echo ""
+fi
 
 echo "============================================"
 echo "🛡️  Ten-Layer Security Scan Orchestrator"
@@ -733,4 +792,12 @@ if [[ -f "$DASHBOARD_PATH" ]]; then
     open "$DASHBOARD_PATH"
 else
     echo -e "${YELLOW}⚠️  Dashboard not found at: $DASHBOARD_PATH${NC}"
+fi
+
+# Cleanup cloned repository if applicable
+if [[ "$CLONED_REPO" == "true" ]] && [[ -n "$CLONE_DIR" ]]; then
+    echo ""
+    echo -e "${CYAN}🧹 Cleaning up cloned repository...${NC}"
+    rm -rf "$CLONE_DIR"
+    echo -e "${GREEN}✅ Temporary clone removed: $CLONE_DIR${NC}"
 fi

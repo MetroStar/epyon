@@ -2,7 +2,7 @@
 
 # Unit tests for run-checkov-scan.sh
 
-SCRIPT_DIR="/home/runner/work/comprehensive-security-architecture/comprehensive-security-architecture/scripts/shell"
+SCRIPT_DIR="${BATS_TEST_DIRNAME}/../../scripts/shell"
 SCRIPT_PATH="${SCRIPT_DIR}/run-checkov-scan.sh"
 
 @test "run-checkov-scan.sh exists and is executable" {

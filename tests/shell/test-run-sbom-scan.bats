@@ -2,7 +2,7 @@
 
 # Unit tests for run-sbom-scan.sh
 
-SCRIPT_DIR="/home/runner/work/comprehensive-security-architecture/comprehensive-security-architecture/scripts/shell"
+SCRIPT_DIR="${BATS_TEST_DIRNAME}/../../scripts/shell"
 SCRIPT_PATH="${SCRIPT_DIR}/run-sbom-scan.sh"
 
 @test "run-sbom-scan.sh exists and is executable" {

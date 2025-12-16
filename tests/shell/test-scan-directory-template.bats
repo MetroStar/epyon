@@ -2,7 +2,7 @@
 
 # Unit tests for scan-directory-template.sh
 
-SCRIPT_DIR="/home/runner/work/comprehensive-security-architecture/comprehensive-security-architecture/scripts/shell"
+SCRIPT_DIR="${BATS_TEST_DIRNAME}/../../scripts/shell"
 SCRIPT_PATH="${SCRIPT_DIR}/scan-directory-template.sh"
 
 @test "scan-directory-template.sh exists and is executable" {

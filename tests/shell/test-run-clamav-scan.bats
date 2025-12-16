@@ -2,7 +2,7 @@
 
 # Unit tests for run-clamav-scan.sh
 
-SCRIPT_DIR="/home/runner/work/comprehensive-security-architecture/comprehensive-security-architecture/scripts/shell"
+SCRIPT_DIR="${BATS_TEST_DIRNAME}/../../scripts/shell"
 SCRIPT_PATH="${SCRIPT_DIR}/run-clamav-scan.sh"
 
 @test "run-clamav-scan.sh exists and is executable" {

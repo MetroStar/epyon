@@ -2,7 +2,7 @@
 
 # Unit tests for run-trufflehog-scan.sh
 
-SCRIPT_DIR="/home/runner/work/comprehensive-security-architecture/comprehensive-security-architecture/scripts/shell"
+SCRIPT_DIR="${BATS_TEST_DIRNAME}/../../scripts/shell"
 SCRIPT_PATH="${SCRIPT_DIR}/run-trufflehog-scan.sh"
 
 @test "run-trufflehog-scan.sh exists and is executable" {

@@ -2,7 +2,7 @@
 
 # Unit tests for run-sonar-analysis.sh
 
-SCRIPT_DIR="/home/runner/work/comprehensive-security-architecture/comprehensive-security-architecture/scripts/shell"
+SCRIPT_DIR="${BATS_TEST_DIRNAME}/../../scripts/shell"
 SCRIPT_PATH="${SCRIPT_DIR}/run-sonar-analysis.sh"
 
 @test "run-sonar-analysis.sh exists and is executable" {

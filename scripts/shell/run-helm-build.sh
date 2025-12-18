@@ -113,7 +113,8 @@ if [ -t 0 ]; then
     echo "  1) Attempt AWS ECR login (recommended for complete build)"
     echo "  2) Skip authentication (fallback to stub dependencies)"
     echo
-    read -p "Choose option (1 or 2, default: 2): " aws_choice
+    echo "(will auto-select option 2 in 30 seconds if no input)"
+    read -t 30 -p "Choose option (1 or 2, default: 2): " aws_choice || true
     aws_choice="${aws_choice:-2}"
 else
     # Non-interactive mode - skip AWS auth by default

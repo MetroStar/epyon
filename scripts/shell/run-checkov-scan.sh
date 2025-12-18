@@ -172,7 +172,8 @@ if command -v docker &> /dev/null; then
         echo "  2) Set up AWS SSO/CLI authentication"
         echo "  3) Enter AWS credentials manually"
         echo
-        read -p "Choose option [1-3] (default: 1): " aws_choice
+        echo "(will auto-select option 1 in 30 seconds if no input)"
+        read -t 30 -p "Choose option [1-3] (default: 1): " aws_choice || true
         
         case "${aws_choice:-1}" in
             2)
@@ -186,7 +187,8 @@ if command -v docker &> /dev/null; then
                 echo "   ${GREEN}export AWS_PROFILE=<your-profile>${NC}"
                 echo "   ${GREEN}aws sts get-caller-identity${NC}"
                 echo
-                read -p "Press Enter after setting up AWS credentials..."
+                echo "(will continue automatically in 30 seconds)"
+                read -t 30 -p "Press Enter after setting up AWS credentials..." || true
                 
                 # Re-check environment after user setup
                 AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-}"
@@ -198,10 +200,11 @@ if command -v docker &> /dev/null; then
             3)
                 echo
                 echo -e "${CYAN}📝 Manual AWS Credentials Entry:${NC}"
-                read -p "AWS Access Key ID: " AWS_ACCESS_KEY_ID
+                echo "(will skip if no input in 30 seconds)"
+                read -t 30 -p "AWS Access Key ID: " AWS_ACCESS_KEY_ID || true
                 read -s -p "AWS Secret Access Key: " AWS_SECRET_ACCESS_KEY
                 echo
-                read -p "AWS Region (default: us-gov-west-1): " input_region
+                read -t 30 -p "AWS Region (default: us-gov-west-1): " input_region || true
                 AWS_DEFAULT_REGION="${input_region:-us-gov-west-1}"
                 echo "✅ AWS credentials configured"
                 ;;

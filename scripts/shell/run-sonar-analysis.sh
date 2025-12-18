@@ -217,7 +217,8 @@ if [ -z "$SONAR_TOKEN" ]; then
   echo "  1) Set up SonarQube token (for complete analysis)"
   echo "  2) Skip SonarQube analysis (continue security pipeline)"
   echo ""
-  read -p "Choose option (1 or 2, default: 2): " SONAR_CHOICE
+  echo "(will auto-select option 2 in 30 seconds if no input)"
+  read -t 30 -p "Choose option (1 or 2, default: 2): " SONAR_CHOICE || true
   SONAR_CHOICE=${SONAR_CHOICE:-2}
   
   if [ "$SONAR_CHOICE" = "1" ]; then
@@ -229,13 +230,15 @@ if [ -z "$SONAR_TOKEN" ]; then
     echo "  1) Provide credentials now (temporary for this scan)"
     echo "  2) Create .env.sonar file (permanent configuration)"
     echo ""
-    read -p "Choose option (1 or 2, default: 1): " AUTH_CHOICE
+    echo "(will auto-select option 1 in 30 seconds if no input)"
+    read -t 30 -p "Choose option (1 or 2, default: 1): " AUTH_CHOICE || true
     AUTH_CHOICE=${AUTH_CHOICE:-1}
     
     if [ "$AUTH_CHOICE" = "1" ]; then
       echo ""
       echo "[AUTH] Enter SonarQube credentials:"
-      read -p "SonarQube Host URL (default: https://sonarqube.cdao.us): " INPUT_HOST_URL
+      echo "(will use defaults in 30 seconds if no input)"
+      read -t 30 -p "SonarQube Host URL (default: https://sonarqube.cdao.us): " INPUT_HOST_URL || true
       SONAR_HOST_URL="${INPUT_HOST_URL:-https://sonarqube.cdao.us}"
       
       echo -n "SonarQube Token: "
@@ -403,13 +406,44 @@ if [ -n "$PROPS_HOST_URL" ] && [ -f "$REPO_PATH/$(basename "$REPO_PATH")/sonar-p
     -Dsonar.host.url=$SONAR_HOST_URL \
     -Dsonar.token=$SONAR_TOKEN
 else
+  # Check for coverage reports in multiple possible locations
+  COVERAGE_ARGS=""
+  COVERAGE_PATHS=()
+  
+  # Look for LCOV coverage files
+  if [ -f "$REPO_PATH/frontend/coverage/lcov.info" ]; then
+    COVERAGE_PATHS+=("frontend/coverage/lcov.info")
+  fi
+  if [ -f "$REPO_PATH/coverage/lcov.info" ]; then
+    COVERAGE_PATHS+=("coverage/lcov.info")
+  fi
+  if [ -f "$REPO_PATH/lcov.info" ]; then
+    COVERAGE_PATHS+=("lcov.info")
+  fi
+  
+  # Build coverage arguments
+  if [ ${#COVERAGE_PATHS[@]} -gt 0 ]; then
+    COVERAGE_LIST=$(IFS=,; echo "${COVERAGE_PATHS[*]}")
+    COVERAGE_ARGS="-Dsonar.javascript.lcov.reportPaths=$COVERAGE_LIST"
+    echo "[INFO] Coverage reports found - will send to SonarQube:"
+    for path in "${COVERAGE_PATHS[@]}"; do
+      echo "       • $path"
+    done
+  else
+    echo "[WARNING] No coverage reports found - SonarQube will not show coverage data"
+    echo "          Expected locations:"
+    echo "          • frontend/coverage/lcov.info"
+    echo "          • coverage/lcov.info"
+  fi
+  
   # Run SonarQube scanner with explicit paths
   npx sonarqube-scanner \
     -Dsonar.projectKey=$PROJECT_KEY \
     -Dsonar.sources="$SOURCES_PATH" \
     -Dsonar.host.url=$SONAR_HOST_URL \
     -Dsonar.token=$SONAR_TOKEN \
-    -Dsonar.projectBaseDir="$REPO_PATH"
+    -Dsonar.projectBaseDir="$REPO_PATH" \
+    $COVERAGE_ARGS
 fi
 
 # Save local copy of test results for dashboard

@@ -260,18 +260,91 @@ echo ""
 
 # Load approved base images configuration
 CONFIG_DIR="$REPO_ROOT/configuration"
+DEFAULT_BASELINE="bitnami/node:latest"
+
+echo -e "${CYAN}🔧 Baseline Image Configuration${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${YELLOW}Which baseline image would you like to use?${NC}"
+echo -e "  1) ${GREEN}bitnami/node:latest${NC} (default - JavaScript/TypeScript)"
+echo -e "  2) bitnami/nginx:latest (Web server)"
+echo -e "  3) bitnami/python:latest (Python applications)"
+echo -e "  4) bitnami/postgresql:latest (Database)"
+echo -e "  5) Custom image"
+echo ""
+echo -e "${CYAN}Default will be selected in 60 seconds: ${DEFAULT_BASELINE}${NC}"
+echo -n "Enter choice [1-5] or press Enter for default: "
+
+# Read with 60 second timeout
+USER_CHOICE=""
+if read -t 60 USER_CHOICE; then
+    case "$USER_CHOICE" in
+        2)
+            BASELINE_IMAGE="bitnami/nginx:latest"
+            echo -e "${GREEN}✓ Selected: bitnami/nginx:latest${NC}"
+            ;;
+        3)
+            BASELINE_IMAGE="bitnami/python:latest"
+            echo -e "${GREEN}✓ Selected: bitnami/python:latest${NC}"
+            ;;
+        4)
+            BASELINE_IMAGE="bitnami/postgresql:latest"
+            echo -e "${GREEN}✓ Selected: bitnami/postgresql:latest${NC}"
+            ;;
+        5)
+            echo -n "Enter custom image (e.g., nginx:alpine, ubuntu:22.04): "
+            read -t 60 CUSTOM_IMAGE
+            if [ -n "$CUSTOM_IMAGE" ]; then
+                BASELINE_IMAGE="$CUSTOM_IMAGE"
+                echo -e "${GREEN}✓ Selected: $CUSTOM_IMAGE${NC}"
+            else
+                echo -e "${YELLOW}⚠️  No input - using default: $DEFAULT_BASELINE${NC}"
+                BASELINE_IMAGE="$DEFAULT_BASELINE"
+            fi
+            ;;
+        ""|1)
+            BASELINE_IMAGE="$DEFAULT_BASELINE"
+            echo -e "${GREEN}✓ Using default: $DEFAULT_BASELINE${NC}"
+            ;;
+        *)
+            echo -e "${YELLOW}⚠️  Invalid choice - using default: $DEFAULT_BASELINE${NC}"
+            BASELINE_IMAGE="$DEFAULT_BASELINE"
+            ;;
+    esac
+else
+    # Timeout occurred
+    echo ""
+    echo -e "${YELLOW}⏱️  Timeout - using default: $DEFAULT_BASELINE${NC}"
+    BASELINE_IMAGE="$DEFAULT_BASELINE"
+fi
+
+echo ""
+
+# Now load the full configuration and use selected baseline
 if [ -f "$CONFIG_DIR/approved-base-images.conf" ]; then
     source "$CONFIG_DIR/approved-base-images.conf"
+    
+    # Override with user-selected baseline as primary scan target
+    export PRIMARY_BASELINE_IMAGE="$BASELINE_IMAGE"
+    
     echo -e "${GREEN}✅ Loaded approved base images configuration${NC}"
+    echo -e "${CYAN}   Primary baseline: ${PRIMARY_BASELINE_IMAGE}${NC}"
     
     # Validate that bitnami:latest images are actually latest
     echo ""
     echo -e "${CYAN}🔍 Validating Base Images${NC}"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
-    for image in "${APPROVED_BASE_IMAGES[@]}"; do
-        validate_latest_image "$image"
-    done
+    # Validate primary baseline first
+    validate_latest_image "$PRIMARY_BASELINE_IMAGE"
+    
+    # Validate other approved images if they exist
+    if [ ${#APPROVED_BASE_IMAGES[@]} -gt 0 ]; then
+        for image in "${APPROVED_BASE_IMAGES[@]}"; do
+            if [ "$image" != "$PRIMARY_BASELINE_IMAGE" ]; then
+                validate_latest_image "$image"
+            fi
+        done
+    fi
     echo ""
 fi
 

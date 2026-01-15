@@ -72,10 +72,10 @@ CONFIG_DIR="$(cd "$SCRIPT_DIR/../../configuration" && pwd)"
 # Source the scan directory template
 source "$SCRIPT_DIR/scan-directory-template.sh"
 
-# Source approved base images configuration
-if [ -f "$CONFIG_DIR/approved-base-images.conf" ]; then
+# Source approved base images configuration only if PRIMARY_BASELINE_IMAGE is not already set
+if [ -z "${PRIMARY_BASELINE_IMAGE:-}" ] && [ -f "$CONFIG_DIR/approved-base-images.conf" ]; then
     source "$CONFIG_DIR/approved-base-images.conf"
-    echo "✅ Loaded approved Bitnami base images configuration"
+    echo "✅ Loaded approved base images configuration"
 fi
 
 # Initialize scan environment for Trivy
@@ -191,18 +191,17 @@ if [ "$SCAN_MODE" != "filesystem" ]; then
     echo -e "${CYAN}🛡️  Step 1: Container Security Scan${NC}"
     echo "=================================="
 
-    # Scan common base images - use centralized approved images if available
-    if [ ${#APPROVED_BASE_IMAGES[@]} -gt 0 ]; then
+    # Use PRIMARY_BASELINE_IMAGE if set by orchestrator, otherwise use configuration
+    if [ -n "${PRIMARY_BASELINE_IMAGE:-}" ]; then
+        BASE_IMAGES=("${PRIMARY_BASELINE_IMAGE}")
+        echo "📋 Using user-selected baseline image"
+    elif [ ${#APPROVED_BASE_IMAGES[@]} -gt 0 ]; then
         BASE_IMAGES=("${APPROVED_BASE_IMAGES[@]}")
-        echo "📋 Using ${#BASE_IMAGES[@]} approved Bitnami hardened base images"
+        echo "📋 Using ${#BASE_IMAGES[@]} approved base images"
     else
-        # Fallback to hardcoded Bitnami images
-        # Fallback to minimal Bitnami images
+        # Fallback to Docker Hardened Image
         BASE_IMAGES=(
-            "bitnami/nginx:latest"
-            "bitnami/node:latest"
-            "bitnami/python:latest"
-            "bitnami/postgresql:latest"
+            "dhi/build:debian-13-2-source@sha256:2be85c2bc5d7258591825e8a6e83879f254d05a57f421817232bd3edb0c3f2bd"
         )
     fi
 

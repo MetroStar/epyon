@@ -260,37 +260,42 @@ echo ""
 
 # Load approved base images configuration
 CONFIG_DIR="$REPO_ROOT/configuration"
-DEFAULT_BASELINE="bitnami/node:latest"
+DEFAULT_BASELINE="dhi/build:debian-13-2-source@sha256:2be85c2bc5d7258591825e8a6e83879f254d05a57f421817232bd3edb0c3f2bd"
 
 echo -e "${CYAN}🔧 Baseline Image Configuration${NC}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${YELLOW}Which baseline image would you like to use?${NC}"
-echo -e "  1) ${GREEN}bitnami/node:latest${NC} (default - JavaScript/TypeScript)"
-echo -e "  2) bitnami/nginx:latest (Web server)"
-echo -e "  3) bitnami/python:latest (Python applications)"
-echo -e "  4) bitnami/postgresql:latest (Database)"
-echo -e "  5) Custom image"
+echo -e "  1) ${GREEN}dhi/build:debian-13-2-source${NC} (default - Docker Hardened)"
+echo -e "  2) bitnami/node:latest (JavaScript/TypeScript)"
+echo -e "  3) bitnami/nginx:latest (Web server)"
+echo -e "  4) bitnami/python:latest (Python applications)"
+echo -e "  5) bitnami/postgresql:latest (Database)"
+echo -e "  6) Custom image"
 echo ""
-echo -e "${CYAN}Default will be selected in 60 seconds: ${DEFAULT_BASELINE}${NC}"
-echo -n "Enter choice [1-5] or press Enter for default: "
+echo -e "${CYAN}Default will be selected in 60 seconds: dhi/build:debian-13-2-source${NC}"
+echo -n "Enter choice [1-6] or press Enter for default: "
 
 # Read with 60 second timeout
 USER_CHOICE=""
 if read -t 60 USER_CHOICE; then
     case "$USER_CHOICE" in
         2)
+            BASELINE_IMAGE="bitnami/node:latest"
+            echo -e "${GREEN}✓ Selected: bitnami/node:latest${NC}"
+            ;;
+        3)
             BASELINE_IMAGE="bitnami/nginx:latest"
             echo -e "${GREEN}✓ Selected: bitnami/nginx:latest${NC}"
             ;;
-        3)
+        4)
             BASELINE_IMAGE="bitnami/python:latest"
             echo -e "${GREEN}✓ Selected: bitnami/python:latest${NC}"
             ;;
-        4)
+        5)
             BASELINE_IMAGE="bitnami/postgresql:latest"
             echo -e "${GREEN}✓ Selected: bitnami/postgresql:latest${NC}"
             ;;
-        5)
+        6)
             echo -n "Enter custom image (e.g., nginx:alpine, ubuntu:22.04): "
             read -t 60 CUSTOM_IMAGE
             if [ -n "$CUSTOM_IMAGE" ]; then
@@ -303,7 +308,7 @@ if read -t 60 USER_CHOICE; then
             ;;
         ""|1)
             BASELINE_IMAGE="$DEFAULT_BASELINE"
-            echo -e "${GREEN}✓ Using default: $DEFAULT_BASELINE${NC}"
+            echo -e "${GREEN}✓ Using default: dhi/build:debian-13-2-source${NC}"
             ;;
         *)
             echo -e "${YELLOW}⚠️  Invalid choice - using default: $DEFAULT_BASELINE${NC}"
@@ -313,38 +318,26 @@ if read -t 60 USER_CHOICE; then
 else
     # Timeout occurred
     echo ""
-    echo -e "${YELLOW}⏱️  Timeout - using default: $DEFAULT_BASELINE${NC}"
+    echo -e "${YELLOW}⏱️  Timeout - using default: dhi/build:debian-13-2-source${NC}"
     BASELINE_IMAGE="$DEFAULT_BASELINE"
 fi
 
 echo ""
 
-# Now load the full configuration and use selected baseline
+# Export PRIMARY_BASELINE_IMAGE for child scripts to use
+export PRIMARY_BASELINE_IMAGE="$BASELINE_IMAGE"
+
+echo -e "${GREEN}✅ Using selected baseline image${NC}"
+echo -e "${CYAN}   Primary baseline: ${PRIMARY_BASELINE_IMAGE}${NC}"
+
+# Validate that selected image is available if config exists
 if [ -f "$CONFIG_DIR/approved-base-images.conf" ]; then
-    source "$CONFIG_DIR/approved-base-images.conf"
-    
-    # Override with user-selected baseline as primary scan target
-    export PRIMARY_BASELINE_IMAGE="$BASELINE_IMAGE"
-    
-    echo -e "${GREEN}✅ Loaded approved base images configuration${NC}"
-    echo -e "${CYAN}   Primary baseline: ${PRIMARY_BASELINE_IMAGE}${NC}"
-    
-    # Validate that bitnami:latest images are actually latest
     echo ""
-    echo -e "${CYAN}🔍 Validating Base Images${NC}"
+    echo -e "${CYAN}🔍 Validating Selected Base Image${NC}"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     
-    # Validate primary baseline first
+    # Validate primary baseline
     validate_latest_image "$PRIMARY_BASELINE_IMAGE"
-    
-    # Validate other approved images if they exist
-    if [ ${#APPROVED_BASE_IMAGES[@]} -gt 0 ]; then
-        for image in "${APPROVED_BASE_IMAGES[@]}"; do
-            if [ "$image" != "$PRIMARY_BASELINE_IMAGE" ]; then
-                validate_latest_image "$image"
-            fi
-        done
-    fi
     echo ""
 fi
 
@@ -451,9 +444,9 @@ run_security_tool() {
         cd "$REPO_ROOT"
         
         if [[ -n "$args" ]]; then
-            env TARGET_DIR="$TARGET_DIR" SCAN_ID="$SCAN_ID" SCAN_DIR="$SCAN_DIR" "$script_path" $args
+            env TARGET_DIR="$TARGET_DIR" SCAN_ID="$SCAN_ID" SCAN_DIR="$SCAN_DIR" PRIMARY_BASELINE_IMAGE="${PRIMARY_BASELINE_IMAGE:-}" "$script_path" $args
         else
-            env TARGET_DIR="$TARGET_DIR" SCAN_ID="$SCAN_ID" SCAN_DIR="$SCAN_DIR" "$script_path"
+            env TARGET_DIR="$TARGET_DIR" SCAN_ID="$SCAN_ID" SCAN_DIR="$SCAN_DIR" PRIMARY_BASELINE_IMAGE="${PRIMARY_BASELINE_IMAGE:-}" "$script_path"
         fi
         
         if [[ $? -eq 0 ]]; then

@@ -69,8 +69,8 @@ CONFIG_DIR="$(cd "$SCRIPT_DIR/../../configuration" && pwd)"
 # Source the scan directory template
 source "$SCRIPT_DIR/scan-directory-template.sh"
 
-# Source approved base images configuration
-if [ -f "$CONFIG_DIR/approved-base-images.conf" ]; then
+# Source approved base images configuration only if PRIMARY_BASELINE_IMAGE is not already set
+if [ -z "${PRIMARY_BASELINE_IMAGE:-}" ] && [ -f "$CONFIG_DIR/approved-base-images.conf" ]; then
     source "$CONFIG_DIR/approved-base-images.conf"
 fi
 
@@ -280,13 +280,16 @@ fi
 
 # Run image scans for "images" or "all"
 if [[ "$SCAN_TYPE" == "images" ]] || [[ "$SCAN_TYPE" == "all" ]]; then
-    # Use centralized approved Bitnami images if available
-    if [ ${#APPROVED_BASE_IMAGES[@]} -gt 0 ]; then
+    # Use PRIMARY_BASELINE_IMAGE if set by orchestrator, otherwise use configuration
+    if [ -n "${PRIMARY_BASELINE_IMAGE:-}" ]; then
+        IMAGES_TO_SCAN=("${PRIMARY_BASELINE_IMAGE}")
+        echo -e "${CYAN}📋 Using user-selected baseline image${NC}"
+    elif [ ${#APPROVED_BASE_IMAGES[@]} -gt 0 ]; then
         IMAGES_TO_SCAN=("${APPROVED_BASE_IMAGES[@]}")
-        echo -e "${CYAN}📋 Using ${#IMAGES_TO_SCAN[@]} approved Bitnami hardened base images${NC}"
+        echo -e "${CYAN}📋 Using ${#IMAGES_TO_SCAN[@]} approved base images${NC}"
     else
-        # Fallback to minimal Bitnami images
-        IMAGES_TO_SCAN=("bitnami/nginx:latest" "bitnami/node:latest" "bitnami/python:latest" "bitnami/postgresql:latest")
+        # Fallback to Docker Hardened Image
+        IMAGES_TO_SCAN=("dhi/build:debian-13-2-source@sha256:2be85c2bc5d7258591825e8a6e83879f254d05a57f421817232bd3edb0c3f2bd")
     fi
     
     for image in "${IMAGES_TO_SCAN[@]}"; do

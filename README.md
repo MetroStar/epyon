@@ -1,10 +1,24 @@
-# 🛡️ Comprehensive DevOps Security Architecture
+# EPYON
+
+**Absolute Security Control**
+
+Epyon is a comprehensive DevSecOps security architecture designed to orchestrate, execute, and consolidate security scanning across the entire software delivery lifecycle.
+
+Built for modern pipelines, Epyon provides:
+- Unified orchestration of multiple security tools
+- Consistent, repeatable security enforcement
+- Centralized reporting and visibility
+- Extensible architecture for evolving security needs
+
+Epyon is designed to be opinionated, automated, and decisive — empowering teams to move fast without sacrificing security.
+
+---
 
 ## Overview
 
-This repository contains a **production-ready, enterprise-grade** eight-layer DevOps security architecture with **target-aware scanning**, **AWS ECR integration**, and **isolated scan directory architecture**. Built for real-world enterprise applications with comprehensive Docker-based tooling.
+This repository contains a **production-ready, enterprise-grade** multi-layer DevOps security architecture with **target-aware scanning**, **AWS ECR integration**, and **isolated scan directory architecture**. Built for real-world enterprise applications with comprehensive Docker-based tooling.
 
-**Latest Update: November 25, 2025** - Complete scan isolation architecture with all outputs contained in scan-specific directories. No centralized reports directory - each scan is fully self-contained for audit trails and historical analysis.
+**Latest Update: January 15, 2026** - Complete scan isolation architecture with all outputs contained in scan-specific directories. Automated remediation suggestions with inline dashboard display.
 
 ## 📋 Prerequisites
 
@@ -265,11 +279,13 @@ echo "🎯 Prerequisites check complete!"
 ## 📁 Directory Structure
 
 ```
-comprehensive-security-architecture/
+epyon/
 ├── scripts/                    # Cross-platform security scanning scripts
-│   ├── bash/                   # Unix/Linux/macOS scripts
+│   ├── bash/                   # Unix/Linux/macOS scripts (legacy)
+│   ├── shell/                  # Modern shell scripts
 │   │   ├── run-target-security-scan.sh  # Target-aware orchestrator
-│   │   ├── run-complete-security-scan.sh  # 9-step orchestrator with Step 9 consolidation
+│   │   ├── generate-security-dashboard.sh  # Interactive HTML dashboard
+│   │   ├── generate-remediation-suggestions.sh  # Automated fix recommendations
 │   │   ├── run-sonar-analysis.sh
 │   │   ├── run-trufflehog-scan.sh
 │   │   ├── run-clamav-scan.sh

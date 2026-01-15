@@ -16,6 +16,20 @@ NC='\033[0m' # No Color
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Display EPYON banner
+echo -e "${CYAN}"
+cat << "EOF"
+███████╗██████╗ ██╗   ██╗ ██████╗ ███╗   ██╗
+██╔════╝██╔══██╗╚██╗ ██╔╝██╔═══██╗████╗  ██║
+█████╗  ██████╔╝ ╚████╔╝ ██║   ██║██╔██╗ ██║
+██╔══╝  ██╔═══╝   ╚██╔╝  ██║   ██║██║╚██╗██║
+███████╗██║        ██║   ╚██████╔╝██║ ╚████║
+╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══╝
+EOF
+echo -e "${NC}"
+echo -e "${GREEN}Absolute Security Control - Remediation Engine${NC}"
+echo ""
+
 # Help function
 show_help() {
     echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"

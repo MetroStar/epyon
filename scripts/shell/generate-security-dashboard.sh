@@ -12,6 +12,20 @@ GREEN='\033[0;32m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
+# Display EPYON banner
+echo -e "${CYAN}"
+cat << "EOF"
+███████╗██████╗ ██╗   ██╗ ██████╗ ███╗   ██╗
+██╔════╝██╔══██╗╚██╗ ██╔╝██╔═══██╗████╗  ██║
+█████╗  ██████╔╝ ╚████╔╝ ██║   ██║██╔██╗ ██║
+██╔══╝  ██╔═══╝   ╚██╔╝  ██║   ██║██║╚██╗██║
+███████╗██║        ██║   ╚██████╔╝██║ ╚████║
+╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══╝
+EOF
+echo -e "${NC}"
+echo -e "${GREEN}Absolute Security Control - Dashboard Generator${NC}"
+echo ""
+
 # Help function
 show_help() {
     echo -e "${WHITE}Interactive Security Dashboard Generator${NC}"
@@ -228,15 +242,15 @@ if [ -f "$TH_FILE" ]; then
             <div class=\"finding-header\">
                 <span class=\"badge badge-tool\">TruffleHog</span>
                 <span class=\"badge badge-" + (if .Verified then "critical" else "medium" end) + "\">" + (if .Verified then "VERIFIED" else "UNVERIFIED" end) + "</span>
-                <span class=\"badge\" style=\"background:#e2e8f0;color:#4a5568;\">" + .DetectorName + "</span>
-                <span class=\"badge\" style=\"background:#38a169;color:white;font-size:0.7em;\">💻 App Code</span>
+                <span class=\"badge\" style=\"background:#2C3539;color:#9ca3af;border:1px solid #4a5568;\">" + .DetectorName + "</span>
+                <span class=\"badge\" style=\"background:#152a1f;color:#4ade80;font-size:0.7em;border:1px solid #10b981;\">💻 App Code</span>
             </div>
             <div class=\"finding-title\">" + .DetectorName + " - " + (if .Verified then "Verified Secret Found!" else "Potential Secret Detected" end) + "</div>
             <div class=\"finding-desc\">" + (.DetectorDescription // "Secret or credential pattern detected in source code") + "</div>
             <div class=\"finding-details\" style=\"display:none;\">
                 <div><strong>Detector:</strong> <code>" + .DetectorName + "</code></div>
                 <div><strong>Source:</strong> 💻 Application Code (secrets in source files)</div>
-                <div><strong>Verified:</strong> " + (if .Verified then "<span style=\"color:#e53e3e;font-weight:bold;\">Yes - Active credential!</span>" else "<span style=\"color:#d69e2e;\">No - Potential secret</span>" end) + "</div>
+                <div><strong>Verified:</strong> " + (if .Verified then "<span style=\"color:#C41E3A;font-weight:bold;\">Yes - Active credential!</span>" else "<span style=\"color:#fb923c;\">No - Potential secret</span>" end) + "</div>
                 <div><strong>File:</strong> <code>" + (.SourceMetadata.Data.Filesystem.file | split("/") | last) + "</code></div>
                 <div><strong>Line:</strong> <code>" + (.SourceMetadata.Data.Filesystem.line | tostring) + "</code></div>
                 <div><strong>Full Path:</strong> <code style=\"font-size: 0.8em;word-break:break-all;\">" + .SourceMetadata.Data.Filesystem.file + "</code></div>
@@ -248,7 +262,7 @@ if [ -f "$TH_FILE" ]; then
     set -e
     
     if [ -n "$TH_FINDINGS_HTML" ] && [ "$TH_FINDINGS_HTML" != "" ]; then
-        TH_FINDINGS="<p style=\"color:#718096;margin-bottom:15px;font-size:0.9em;\">👆 Click on any finding below to expand details</p>${TH_FINDINGS_HTML}"
+        TH_FINDINGS="<p style=\"color:#9ca3af;margin-bottom:15px;font-size:0.9em;\">👆 Click on any finding below to expand details</p>${TH_FINDINGS_HTML}"
     else
         TH_FINDINGS="<p class=\"no-findings\">✅ No secrets or credentials detected</p>"
     fi
@@ -282,7 +296,7 @@ if [ "$CLAMAV_CRITICAL" -gt 0 ]; then
         <div class=\"finding-header\">
             <span class=\"badge badge-tool\">ClamAV</span>
             <span class=\"badge badge-critical\">CRITICAL</span>
-            <span class=\"badge\" style=\"background:#38a169;color:white;font-size:0.7em;\">💻 App Code</span>
+            <span class=\"badge\" style=\"background:#152a1f;color:#4ade80;font-size:0.7em;border:1px solid #10b981;\">💻 App Code</span>
         </div>
         <div class=\"finding-title\">⚠️ Malware Detected</div>
         <div class=\"finding-desc\">$CLAMAV_CRITICAL infected files found</div>
@@ -372,7 +386,7 @@ if [ -d "$TRIVY_DIR" ]; then
                   purl: ((.PkgIdentifier.PURL // "") | html_escape),
                   source_type: (if ($target | test("(bitnami|node|python|alpine|ubuntu|debian|nginx|redis|postgres|mysql|mongo|openjdk)"; "i")) or ($target | test("\\(.*\\)$")) or (.PkgType // "" | test("(debian|ubuntu|alpine|rhel|centos|fedora|os-pkgs|photon)"; "i")) then "image" else "app" end)}
                 ] | sort_by(.severity | if . == "CRITICAL" then 0 elif . == "HIGH" then 1 elif . == "MEDIUM" then 2 else 3 end) | .[0:50] | .[] |
-                "<div class=\"finding-item severity-" + .severity_lc + "\" data-pkg=\"" + .pkg + "\" data-status=\"" + .status + "\" data-cve=\"" + .id + "\" data-source=\"" + .source_type + "\" onclick=\"toggleFindingDetails(this)\">\n<div class=\"finding-header\">\n<span class=\"badge badge-tool\">Trivy</span>\n<span class=\"badge badge-" + .severity_lc + "\">" + .severity + "</span>\n<span class=\"badge\" style=\"background:#e2e8f0;color:#4a5568;\">" + .id + "</span>\n<span class=\"badge\" style=\"background:" + .status_badge + ";\">" + .status_uc + "</span>\n<span class=\"badge\" style=\"background:" + (if .source_type == "image" then "#805ad5" else "#38a169" end) + ";color:white;font-size:0.7em;\">" + (if .source_type == "image" then "📦 Container Image" else "💻 App Code" end) + "</span>\n</div>
+                "<div class=\"finding-item severity-" + .severity_lc + "\" data-pkg=\"" + .pkg + "\" data-status=\"" + .status + "\" data-cve=\"" + .id + "\" data-source=\"" + .source_type + "\" onclick=\"toggleFindingDetails(this)\">\n<div class=\"finding-header\">\n<span class=\"badge badge-tool\">Trivy</span>\n<span class=\"badge badge-" + .severity_lc + "\">" + .severity + "</span>\n<span class=\"badge\" style=\"background:#2C3539;color:#9ca3af;border:1px solid #4a5568;\">" + .id + "</span>\n<span class=\"badge\" style=\"background:" + .status_badge + ";\">" + .status_uc + "</span>\n<span class=\"badge\" style=\"background:" + (if .source_type == "image" then "#1a2a3a;border:1px solid #3b82f6;color:#60a5fa" else "#152a1f;border:1px solid #10b981;color:#4ade80" end) + ";font-size:0.7em;\">" + (if .source_type == "image" then "📦 Container Image" else "💻 App Code" end) + "</span>\n</div>
 <div class=\"finding-title\">" + .pkg + "@" + .installed + " - " + .title + "</div>
 <div class=\"finding-desc\">" + .desc_short + "...</div>
 <div class=\"finding-details\" style=\"display:none;\">
@@ -511,8 +525,8 @@ if [ -d "$GRYPE_DIR" ]; then
                     <div class=\"finding-header\">
                         <span class=\"badge badge-tool\">Grype</span>
                         <span class=\"badge badge-\(.severity | ascii_downcase)\">\(.severity)</span>
-                        <span class=\"badge\" style=\"background:#e2e8f0;color:#4a5568;\">\(.id)</span>
-                        <span class=\"badge\" style=\"background:\(if .source_type == "image" then "#805ad5" else "#38a169" end);color:white;font-size:0.7em;\">\(if .source_type == "image" then "📦 Container Image" else "💻 App Code" end)</span>
+                        <span class=\"badge\" style=\"background:#2C3539;color:#9ca3af;border:1px solid #4a5568;\">\(.id)</span>
+                        <span class=\"badge\" style=\"background:\(if .source_type == "image" then "#1a2a3a;border:1px solid #3b82f6;color:#60a5fa" else "#152a1f;border:1px solid #10b981;color:#4ade80" end);font-size:0.7em;\">\(if .source_type == "image" then "📦 Container Image" else "💻 App Code" end)</span>
                     </div>
                     <div class=\"finding-title\">\(.pkg)@\(.version)</div>
                     <div class=\"finding-desc\">\(.desc | .[0:200])...</div>
@@ -766,8 +780,8 @@ if [ "$CHECKOV_TOTAL" -gt 0 ]; then
     <div class=\"finding-header\">
         <span class=\"badge badge-tool\">Checkov</span>
         <span class=\"badge badge-high\">HIGH</span>
-        <span class=\"badge\" style=\"background:#e2e8f0;color:#4a5568;\">${check_id}</span>
-        <span class=\"badge\" style=\"background:#38a169;color:white;font-size:0.7em;\">💻 App Code</span>
+        <span class=\"badge\" style=\"background:#2C3539;color:#9ca3af;border:1px solid #4a5568;\">${check_id}</span>
+        <span class=\"badge\" style=\"background:#152a1f;color:#4ade80;font-size:0.7em;border:1px solid #10b981;\">💻 App Code</span>
     </div>
     <div class=\"finding-title\">${check_name_escaped}</div>
     <div class=\"finding-desc\">IaC misconfiguration in ${file_display} at line ${line_start}</div>
@@ -829,7 +843,7 @@ if [ -f "$LATEST_SONAR" ]; then
         SONAR_CRITICAL=0
         SONAR_HIGH=0
     else
-        SONAR_FINDINGS="<div class=\"stats-detail-box\" style=\"background:#e0f2fe;border-left:3px solid #0369a1;\">"
+        SONAR_FINDINGS="<div class=\"stats-detail-box\" style=\"background:linear-gradient(135deg, #1a1d23 0%, #2C3539 100%);border:2px solid #3b82f6;box-shadow:0 4px 12px rgba(59, 130, 246, 0.3);\">"
         SONAR_FINDINGS="${SONAR_FINDINGS}<h4 style=\"color:#0369a1;margin-bottom:10px;\">📊 Test Summary</h4>"
         SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stats-grid-small\">"
         SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stat-item\"><strong>Total Tests:</strong> ${SONAR_TOTAL_TESTS}</div>"
@@ -1019,7 +1033,7 @@ if [ -d "$XEOL_DIR" ]; then
         <span class=\"badge badge-tool\">Xeol</span>
         <span class=\"badge badge-high\">HIGH</span>
         <span class=\"badge\" style=\"background:${eol_badge_color};color:white;\">⚰️ EOL</span>
-        <span class=\"badge\" style=\"background:#38a169;color:white;font-size:0.7em;\">${SOURCE_BADGE}</span>
+        <span class=\"badge\" style=\"background:#152a1f;color:#4ade80;font-size:0.7em;border:1px solid #10b981;\">${SOURCE_BADGE}</span>
     </div>
     <div class=\"finding-title\">${pkg_name_escaped} ${pkg_version_escaped}</div>
     <div class=\"finding-desc\">${eol_display} - No longer receiving security updates</div>
@@ -1129,16 +1143,16 @@ cat > "$OUTPUT_HTML" << 'EOF'
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Security Dashboard</title>
+    <title>EPYON - Absolute Security Control</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #0F1F3D 0%, #1a2332 50%, #C41E3A 100%);
+            background: linear-gradient(135deg, #1a1d23 0%, #2C3539 50%, #1a1d23 100%);
             min-height: 100vh;
             padding: 20px;
-            color: #2d3748;
+            color: #e8eaed;
         }
         
         .container {
@@ -1147,38 +1161,43 @@ cat > "$OUTPUT_HTML" << 'EOF'
         }
         
         .header {
-            background: white;
+            background: linear-gradient(135deg, #0f1419 0%, #1a1d23 100%);
             border-radius: 16px;
             padding: 40px;
             margin-bottom: 30px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            box-shadow: 0 10px 40px rgba(196, 30, 58, 0.4);
             text-align: center;
+            border: 2px solid #C41E3A;
         }
         
         .header h1 {
             font-size: 2.8em;
             margin-bottom: 10px;
-            background: linear-gradient(135deg, #C41E3A 0%, #FFD700 100%);
+            background: linear-gradient(135deg, #C41E3A 0%, #FF1493 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            font-weight: 700;
+            letter-spacing: 2px;
         }
         
         .header .subtitle {
-            color: #718096;
+            color: #9ca3af;
             font-size: 1.1em;
             margin-top: 10px;
+            font-weight: 500;
         }
         
         .alert-banner {
-            background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+            background: linear-gradient(135deg, #C41E3A 0%, #8B0000 100%);
             color: white;
             padding: 25px;
             border-radius: 12px;
             margin-bottom: 30px;
-            box-shadow: 0 4px 20px rgba(229, 62, 62, 0.3);
+            box-shadow: 0 4px 20px rgba(196, 30, 58, 0.5);
             text-align: center;
             animation: pulse 2s infinite;
+            border: 1px solid #FF1493;
         }
         
         @keyframes pulse {
@@ -1199,18 +1218,20 @@ cat > "$OUTPUT_HTML" << 'EOF'
         }
         
         .stat-card {
-            background: white;
+            background: linear-gradient(135deg, #1a1d23 0%, #2C3539 100%);
             border-radius: 12px;
             padding: 30px;
             text-align: center;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
             transition: all 0.3s ease;
             cursor: pointer;
+            border: 1px solid #4a5568;
         }
         
         .stat-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+            box-shadow: 0 8px 30px rgba(196, 30, 58, 0.4);
+            border-color: #C41E3A;
         }
         
         .stat-number {
@@ -1220,17 +1241,17 @@ cat > "$OUTPUT_HTML" << 'EOF'
         }
         
         .stat-label {
-            color: #718096;
+            color: #9ca3af;
             font-size: 0.9em;
             text-transform: uppercase;
             letter-spacing: 1px;
             font-weight: 600;
         }
         
-        .critical-stat { color: #e53e3e; border-top: 4px solid #e53e3e; }
-        .high-stat { color: #dd6b20; border-top: 4px solid #dd6b20; }
-        .medium-stat { color: #d69e2e; border-top: 4px solid #d69e2e; }
-        .low-stat { color: #38a169; border-top: 4px solid #38a169; }
+        .critical-stat { color: #C41E3A; border-top: 4px solid #C41E3A; }
+        .high-stat { color: #FF1493; border-top: 4px solid #FF1493; }
+        .medium-stat { color: #f97316; border-top: 4px solid #f97316; }
+        .low-stat { color: #4ade80; border-top: 4px solid #4ade80; }
         
         .tools-section {
             display: grid;
@@ -1238,11 +1259,12 @@ cat > "$OUTPUT_HTML" << 'EOF'
         }
         
         .tool-card {
-            background: white;
+            background: #1a1d23;
             border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
             overflow: hidden;
             transition: all 0.3s ease;
+            border: 1px solid #2C3539;
         }
         
         .tool-header {
@@ -1251,18 +1273,21 @@ cat > "$OUTPUT_HTML" << 'EOF'
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: linear-gradient(135deg, #e8eaed 0%, #d4d7db 100%);
-            border-bottom: 2px solid #2C3539;
+            background: linear-gradient(135deg, #2C3539 0%, #1a1d23 100%);
+            border-bottom: 2px solid #4a5568;
             transition: all 0.3s ease;
+            color: #e8eaed;
         }
         
         .tool-header:hover {
-            background: linear-gradient(135deg, #d4d7db 0%, #c1c5c9 100%);
+            background: linear-gradient(135deg, #3a4148 0%, #2C3539 100%);
+            border-bottom-color: #C41E3A;
         }
         
         .tool-header.active {
-            background: linear-gradient(135deg, #C41E3A 0%, #0F1F3D 100%);
+            background: linear-gradient(135deg, #C41E3A 0%, #8B0000 100%);
             color: white;
+            border-bottom-color: #FF1493;
         }
         
         .tool-title {
@@ -1295,7 +1320,7 @@ cat > "$OUTPUT_HTML" << 'EOF'
         
         .badge-critical { background: #fed7d7; color: #c53030; }
         .badge-high { background: #feebc8; color: #c05621; }
-        .badge-medium { background: #fef5e7; color: #d69e2e; }
+        .badge-medium { background: #2a1f15; color: #fb923c; border: 1px solid #f97316; }
         .badge-low { background: #c6f6d5; color: #2f855a; }
         .badge-clean { background: #c6f6d5; color: #2f855a; }
         
@@ -1326,33 +1351,37 @@ cat > "$OUTPUT_HTML" << 'EOF'
         
         .tool-findings {
             padding: 30px;
+            background: #0f1419;
         }
         
         .finding-item {
-            background: #f7fafc;
+            background: #1a1d23;
             border-radius: 8px;
             padding: 20px;
             margin-bottom: 15px;
-            border-left: 4px solid #cbd5e0;
+            border-left: 4px solid #4a5568;
             transition: all 0.2s ease;
             cursor: pointer;
+            border: 1px solid #2C3539;
         }
         
         .finding-item:hover {
             transform: translateX(5px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 12px rgba(196, 30, 58, 0.3);
+            border-color: #C41E3A;
         }
         
         .finding-item.expanded {
             transform: translateX(5px);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            box-shadow: 0 8px 24px rgba(196, 30, 58, 0.4);
             border-left-width: 6px;
+            background: #1f2329;
         }
         
         .finding-item .finding-details {
             margin-top: 15px;
             padding-top: 15px;
-            border-top: 1px dashed #e2e8f0;
+            border-top: 1px dashed #4a5568;
             animation: slideDown 0.3s ease;
         }
         
@@ -1362,17 +1391,22 @@ cat > "$OUTPUT_HTML" << 'EOF'
         }
         
         .finding-item.severity-critical {
-            border-left-color: #e53e3e;
-            background: #fff5f5;
+            border-left-color: #C41E3A;
+            background: #2a1215;
+            border-color: #C41E3A;
         }
         
         .finding-item.severity-high {
-            border-left-color: #dd6b20;
-            background: #fffaf0;
+            border-left-color: #FF1493;
+            background: #2a1521;
+            border-color: #FF1493;
         }
         
         .finding-item.severity-medium {
-            border-left-color: #d69e2e;
+            border-left-color: #f97316;
+            background: #2a1f15;
+            border-color: #ea580c;
+        }
             background: #fef5e7;
         }
         
@@ -1523,15 +1557,16 @@ cat > "$OUTPUT_HTML" << 'EOF'
         }
         
         .stats-detail-box {
-            background: linear-gradient(135deg, #FFFBF0 0%, #FFF4E0 100%);
-            border: 1px solid #FFD700;
+            background: linear-gradient(135deg, #1a1d23 0%, #2C3539 100%);
+            border: 1px solid #C41E3A;
             border-radius: 12px;
             padding: 20px;
             margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(196, 30, 58, 0.3);
         }
         
         .stats-detail-box h4 {
-            color: #C41E3A;
+            color: #FF1493;
             margin-bottom: 15px;
             font-size: 1.1em;
         }
@@ -1543,15 +1578,17 @@ cat > "$OUTPUT_HTML" << 'EOF'
         }
         
         .stat-item {
-            background: white;
+            background: #0f1419;
             padding: 10px 15px;
             border-radius: 8px;
             font-size: 0.9em;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            border: 1px solid #4a5568;
+            color: #e8eaed;
         }
         
         .stat-item strong {
-            color: #0369a1;
+            color: #60a5fa;
         }
         
         .finding-summary {
@@ -1564,14 +1601,14 @@ cat > "$OUTPUT_HTML" << 'EOF'
         .no-findings {
             text-align: center;
             padding: 40px;
-            color: #38a169;
+            color: #4ade80;
             font-size: 1.2em;
         }
         
         /* SBOM Viewer Styles */
         .sbom-controls {
-            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-            border: 1px solid #7dd3fc;
+            background: linear-gradient(135deg, #1a1d23 0%, #2C3539 100%);
+            border: 1px solid #3b82f6;
             border-radius: 12px;
             padding: 20px;
             margin-bottom: 20px;
@@ -1826,20 +1863,21 @@ cat > "$OUTPUT_HTML" << 'EOF'
         
         /* Filter Controls */
         .filter-bar {
-            background: white;
+            background: linear-gradient(135deg, #1a1d23 0%, #2C3539 100%);
             border-radius: 12px;
             padding: 20px 30px;
             margin-bottom: 30px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
             display: flex;
             flex-wrap: wrap;
             gap: 15px;
             align-items: center;
+            border: 1px solid #4a5568;
         }
         
         .filter-label {
             font-weight: 600;
-            color: #4a5568;
+            color: #e8eaed;
             margin-right: 10px;
         }
         
@@ -1873,57 +1911,58 @@ cat > "$OUTPUT_HTML" << 'EOF'
         }
         
         .filter-chip-all {
-            background: #e2e8f0;
-            color: #4a5568;
+            background: #2C3539;
+            color: #e8eaed;
+            border-color: #4a5568;
         }
         .filter-chip-all.active {
-            background: #4a5568;
+            background: linear-gradient(135deg, #C41E3A 0%, #8B0000 100%);
             color: white;
-            border-color: #2d3748;
+            border-color: #FF1493;
         }
         
         .filter-chip-critical {
-            background: #fff5f5;
-            color: #e53e3e;
-            border-color: #feb2b2;
+            background: #2a1215;
+            color: #C41E3A;
+            border-color: #C41E3A;
         }
         .filter-chip-critical.active {
-            background: #e53e3e;
+            background: linear-gradient(135deg, #C41E3A 0%, #8B0000 100%);
             color: white;
-            border-color: #c53030;
+            border-color: #FF1493;
         }
         
         .filter-chip-high {
-            background: #fffaf0;
-            color: #dd6b20;
-            border-color: #fbd38d;
+            background: #2a1521;
+            color: #FF1493;
+            border-color: #FF1493;
         }
         .filter-chip-high.active {
-            background: #dd6b20;
+            background: linear-gradient(135deg, #FF1493 0%, #C41E3A 100%);
             color: white;
-            border-color: #c05621;
+            border-color: #FF69B4;
         }
         
         .filter-chip-medium {
-            background: #fffff0;
-            color: #d69e2e;
-            border-color: #faf089;
+            background: #2a1f15;
+            color: #fb923c;
+            border-color: #f97316;
         }
         .filter-chip-medium.active {
-            background: #d69e2e;
-            color: white;
-            border-color: #b7791f;
+            background: #f97316;
+            color: #1a1d23;
+            border-color: #fb923c;
         }
         
         .filter-chip-low {
-            background: #f0fff4;
-            color: #38a169;
-            border-color: #9ae6b4;
+            background: #152a1f;
+            color: #4ade80;
+            border-color: #10b981;
         }
         .filter-chip-low.active {
-            background: #38a169;
-            color: white;
-            border-color: #276749;
+            background: #10b981;
+            color: #1a1d23;
+            border-color: #4ade80;
         }
         
         .filter-chip .chip-count {
@@ -1947,9 +1986,9 @@ cat > "$OUTPUT_HTML" << 'EOF'
         .sort-btn {
             padding: 8px 16px;
             border-radius: 8px;
-            border: 1px solid #e2e8f0;
-            background: white;
-            color: #4a5568;
+            border: 1px solid #4a5568;
+            background: #2C3539;
+            color: #e8eaed;
             font-weight: 500;
             cursor: pointer;
             transition: all 0.2s ease;
@@ -1959,8 +1998,8 @@ cat > "$OUTPUT_HTML" << 'EOF'
         }
         
         .sort-btn:hover {
-            background: #f7fafc;
-            border-color: #cbd5e0;
+            background: #3a4148;
+            border-color: #C41E3A;
         }
         
         .sort-btn.active {
@@ -1970,18 +2009,19 @@ cat > "$OUTPUT_HTML" << 'EOF'
         }
         
         .filter-results {
-            background: #f7fafc;
+            background: #1a1d23;
             padding: 12px 20px;
             border-radius: 8px;
             margin-bottom: 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border: 1px solid #4a5568;
         }
         
         .filter-results-count {
             font-weight: 600;
-            color: #4a5568;
+            color: #e8eaed;
         }
         
         .clear-filter {
@@ -2038,13 +2078,14 @@ fi
 # Add header and stats
 cat >> "$OUTPUT_HTML" << EOF
         <div class="header">
-            <h1>🛡️ Interactive Security Dashboard</h1>
-            <p class="subtitle"><strong>Scan:</strong> $SCAN_NAME</p>
+            <h1>EPYON</h1>
+            <p class="subtitle" style="color: #9ca3af; font-size: 1.3em; font-weight: 600; margin-top: 5px;">Absolute Security Control</p>
+            <p class="subtitle" style="margin-top: 20px;"><strong>Scan:</strong> $SCAN_NAME</p>
             <p class="subtitle"><strong>Generated:</strong> $(date '+%B %d, %Y at %I:%M %p')</p>
         </div>
 
         <!-- Scan Overview Section -->
-        <div class="scan-overview" style="background: linear-gradient(135deg, #C41E3A 0%, #0F1F3D 100%); border-radius: 16px; padding: 24px; margin-bottom: 24px; color: white; box-shadow: 0 10px 40px rgba(196, 30, 58, 0.3);">
+        <div class="scan-overview" style="background: linear-gradient(135deg, #C41E3A 0%, #8B0000 100%); border-radius: 16px; padding: 24px; margin-bottom: 24px; color: white; box-shadow: 0 10px 40px rgba(196, 30, 58, 0.5); border: 1px solid #FF1493;">
             <h2 style="margin: 0 0 16px 0; font-size: 1.4em; display: flex; align-items: center; gap: 10px;">
                 📊 Scan Overview
             </h2>
@@ -2194,10 +2235,10 @@ cat >> "$OUTPUT_HTML" << EOF
                 <button class="filter-chip source-chip source-chip-all active" onclick="filterBySource('all')" id="source-all">
                     All Sources <span class="chip-count" id="source-count-all">${TOTAL_FINDINGS}</span>
                 </button>
-                <button class="filter-chip source-chip source-chip-image" onclick="filterBySource('image')" id="source-image" style="background: #e0f2fe; border-color: #0ea5e9;">
+                <button class="filter-chip source-chip source-chip-image" onclick="filterBySource('image')" id="source-image" style="background: #1a2a3a; border-color: #3b82f6; color: #60a5fa;">
                     🐳 Container Image <span class="chip-count" id="source-count-image">0</span>
                 </button>
-                <button class="filter-chip source-chip source-chip-app" onclick="filterBySource('app')" id="source-app" style="background: #fef3c7; border-color: #f59e0b;">
+                <button class="filter-chip source-chip source-chip-app" onclick="filterBySource('app')" id="source-app" style="background: #2a1f15; border-color: #f97316; color: #fb923c;">
                     📁 Application/Config <span class="chip-count" id="source-count-app">0</span>
                 </button>
             </div>
@@ -2213,16 +2254,16 @@ cat >> "$OUTPUT_HTML" << EOF
         </div>
         
         <!-- Source Legend -->
-        <div style="background: #f7fafc; border-radius: 8px; padding: 12px 16px; margin-top: 15px; margin-bottom: 15px; font-size: 0.85em; border-left: 4px solid #C41E3A;">
-            <strong>📋 Understanding Vulnerability Sources:</strong>
+        <div style="background: #1a1d23; border-radius: 8px; padding: 12px 16px; margin-top: 15px; margin-bottom: 15px; font-size: 0.85em; border-left: 4px solid #C41E3A; border: 1px solid #4a5568;">
+            <strong style="color: #e8eaed;">📋 Understanding Vulnerability Sources:</strong>
             <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-top: 8px;">
                 <div style="display: flex; align-items: center; gap: 6px;">
-                    <span style="background: #e0f2fe; padding: 2px 8px; border-radius: 4px;">🐳 Container Image</span>
-                    <span style="color: #718096;">= Bundled in base image (npm, pip, OS packages)</span>
+                    <span style="background: #2C3539; padding: 2px 8px; border-radius: 4px; color: #60a5fa; border: 1px solid #3b82f6;">🐳 Container Image</span>
+                    <span style="color: #9ca3af;">= Bundled in base image (npm, pip, OS packages)</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 6px;">
-                    <span style="background: #fef3c7; padding: 2px 8px; border-radius: 4px;">📁 Application/Config</span>
-                    <span style="color: #718096;">= Your code, secrets, IaC misconfigurations</span>
+                    <span style="background: #2C3539; padding: 2px 8px; border-radius: 4px; color: #fb923c; border: 1px solid #f97316;">📁 Application/Config</span>
+                    <span style="color: #9ca3af;">= Your code, secrets, IaC misconfigurations</span>
                 </div>
             </div>
         </div>

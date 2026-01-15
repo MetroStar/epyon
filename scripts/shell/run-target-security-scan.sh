@@ -15,6 +15,20 @@ PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
+# Display EPYON banner
+echo -e "${CYAN}"
+cat << "EOF"
+███████╗██████╗ ██╗   ██╗ ██████╗ ███╗   ██╗
+██╔════╝██╔══██╗╚██╗ ██╔╝██╔═══██╗████╗  ██║
+█████╗  ██████╔╝ ╚████╔╝ ██║   ██║██╔██╗ ██║
+██╔══╝  ██╔═══╝   ╚██╔╝  ██║   ██║██║╚██╗██║
+███████╗██║        ██║   ╚██████╔╝██║ ╚████║
+╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══╝
+EOF
+echo -e "${NC}"
+echo -e "${GREEN}Absolute Security Control${NC}"
+echo ""
+
 # Help function
 show_help() {
     echo -e "${GREEN}Ten-Layer Security Scan Orchestrator${NC}"

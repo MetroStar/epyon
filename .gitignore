@@ -25,6 +25,15 @@ scans/
 .env
 .env.local
 .env.production
+.env.sonar
+
+# SonarQube
+.scannerwork/
+.sonar/
+
+# Coverage reports
+coverage/
+*.coverage
 
 # Node modules
 node_modules/

@@ -85,3 +85,18 @@ echo ""
 echo -e "${GREEN}================================${NC}"
 echo -e "${GREEN}Tests Complete${NC}"
 echo -e "${GREEN}================================${NC}"
+
+# Generate coverage report if GENERATE_COVERAGE is set or if no argument provided (full test run)
+if [[ "${GENERATE_COVERAGE:-true}" == "true" ]] && [[ -z "$1" ]]; then
+    echo ""
+    echo -e "${YELLOW}📊 Generating coverage report...${NC}"
+    echo ""
+    
+    if [[ -x "$SCRIPT_DIR/generate-coverage.sh" ]]; then
+        # Run coverage generation
+        "$SCRIPT_DIR/generate-coverage.sh"
+    else
+        echo -e "${YELLOW}⚠️  Coverage script not found or not executable${NC}"
+        echo "   Run: chmod +x generate-coverage.sh"
+    fi
+fi

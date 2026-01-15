@@ -1411,8 +1411,9 @@ cat > "$OUTPUT_HTML" << 'EOF'
         }
         
         .finding-item.severity-low {
-            border-left-color: #38a169;
-            background: #f0fff4;
+            border-left-color: #4ade80;
+            background: #1a2e1f;
+            border-color: #10b981;
         }
         
         .finding-header {
@@ -1449,20 +1450,33 @@ cat > "$OUTPUT_HTML" << 'EOF'
             font-size: 1.1em;
             font-weight: 600;
             margin-bottom: 8px;
-            color: #2d3748;
+            color: #f3f4f6;
         }
         
         .finding-desc {
-            color: #4a5568;
+            color: #d1d5db;
             margin-bottom: 12px;
             line-height: 1.6;
         }
         
         .finding-details {
-            background: white;
+            background: #374151;
             padding: 15px;
             border-radius: 6px;
             font-size: 0.9em;
+            color: #f3f4f6;
+            cursor: text;
+            user-select: text;
+        }
+        
+        .finding-details * {
+            user-select: text;
+        }
+        
+        .finding-details::selection,
+        .finding-details *::selection {
+            background: #3b82f6;
+            color: white;
         }
         
         .finding-details div {
@@ -1474,7 +1488,8 @@ cat > "$OUTPUT_HTML" << 'EOF'
         }
         
         .finding-details code {
-            background: #edf2f7;
+            background: #1f2937;
+            color: #60a5fa;
             padding: 3px 8px;
             border-radius: 4px;
             font-family: 'Monaco', 'Courier New', monospace;
@@ -1484,18 +1499,19 @@ cat > "$OUTPUT_HTML" << 'EOF'
         
         /* Detail sections for expanded findings */
         .detail-section {
-            background: #f7fafc;
-            border: 1px solid #e2e8f0;
+            background: #374151;
+            border: 1px solid #4b5563;
             border-radius: 8px;
             padding: 15px;
             margin-bottom: 12px;
+            color: #f3f4f6;
         }
         
         .detail-section h5 {
-            color: #4a5568;
+            color: #f9fafb;
             margin: 0 0 12px 0;
             font-size: 0.95em;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid #6b7280;
             padding-bottom: 8px;
         }
         
@@ -1515,8 +1531,9 @@ cat > "$OUTPUT_HTML" << 'EOF'
             align-items: center;
             gap: 10px;
             padding: 8px 12px;
-            background: white;
-            border: 1px solid #e2e8f0;
+            background: #1f2937;
+            color: #f3f4f6;
+            border: 1px solid #4b5563;
             border-radius: 6px;
             cursor: pointer;
             transition: all 0.2s ease;
@@ -1524,8 +1541,8 @@ cat > "$OUTPUT_HTML" << 'EOF'
         }
         
         .fp-checklist label:hover {
-            background: #edf2f7;
-            border-color: #cbd5e0;
+            background: #374151;
+            border-color: #6b7280;
         }
         
         .fp-check {
@@ -1637,7 +1654,8 @@ cat > "$OUTPUT_HTML" << 'EOF'
             display: flex;
             align-items: center;
             gap: 6px;
-            background: white;
+            background: #1f2937;
+            color: #7dd3fc;
             border: 2px solid #7dd3fc;
             border-radius: 20px;
             padding: 6px 14px;
@@ -1648,8 +1666,8 @@ cat > "$OUTPUT_HTML" << 'EOF'
         
         .sbom-filter-chip:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            background: #e0f2fe;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            background: #374151;
         }
         
         .sbom-filter-chip.active {
@@ -1694,17 +1712,17 @@ cat > "$OUTPUT_HTML" << 'EOF'
         .sbom-sort-btn {
             padding: 8px 16px;
             border-radius: 8px;
-            border: 2px solid #e2e8f0;
-            background: white;
-            color: #4a5568;
+            border: 2px solid #4b5563;
+            background: #1f2937;
+            color: #e5e7eb;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s ease;
         }
         
         .sbom-sort-btn:hover {
-            background: #f7fafc;
-            border-color: #cbd5e0;
+            background: #374151;
+            border-color: #6b7280;
         }
         
         .sbom-sort-btn.active {
@@ -1714,18 +1732,19 @@ cat > "$OUTPUT_HTML" << 'EOF'
         }
         
         .sbom-results-bar {
-            background: #f7fafc;
+            background: #1f2937;
             padding: 12px 20px;
             border-radius: 8px;
             margin-bottom: 15px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border: 1px solid #4b5563;
         }
         
         #sbom-results-count {
             font-weight: 600;
-            color: #4a5568;
+            color: #f3f4f6;
         }
         
         .sbom-type-breakdown {
@@ -1733,7 +1752,7 @@ cat > "$OUTPUT_HTML" << 'EOF'
         }
         
         .sbom-type-breakdown h4 {
-            color: #0369a1;
+            color: #60a5fa;
             margin-bottom: 15px;
         }
         
@@ -1747,8 +1766,8 @@ cat > "$OUTPUT_HTML" << 'EOF'
             display: flex;
             align-items: center;
             gap: 8px;
-            background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
-            border: 1px solid #7dd3fc;
+            background: linear-gradient(135deg, #1e3a5f 0%, #1e40af 100%);
+            border: 1px solid #3b82f6;
             border-radius: 20px;
             padding: 8px 16px;
             cursor: pointer;
@@ -1762,12 +1781,12 @@ cat > "$OUTPUT_HTML" << 'EOF'
         
         .sbom-type-chip .type-name {
             font-weight: 600;
-            color: #0369a1;
+            color: #93c5fd;
         }
         
         .sbom-type-chip .type-count {
-            background: white;
-            color: #0369a1;
+            background: #1e293b;
+            color: #93c5fd;
             padding: 2px 8px;
             border-radius: 12px;
             font-size: 0.85em;
@@ -1775,13 +1794,13 @@ cat > "$OUTPUT_HTML" << 'EOF'
         }
         
         .sbom-version-badge {
-            background: #e0f2fe !important;
-            color: #0369a1 !important;
+            background: #1e3a5f !important;
+            color: #93c5fd !important;
         }
         
         .sbom-lang-badge {
-            background: #fef3c7 !important;
-            color: #92400e !important;
+            background: #422006 !important;
+            color: #fcd34d !important;
         }
         
         .sbom-search-box {
@@ -1791,7 +1810,9 @@ cat > "$OUTPUT_HTML" << 'EOF'
         .sbom-search-box input {
             width: 100%;
             padding: 12px 20px;
-            border: 2px solid #e2e8f0;
+            border: 2px solid #4b5563;
+            background: #1f2937;
+            color: #f3f4f6;
             border-radius: 10px;
             font-size: 1em;
             transition: all 0.2s ease;
@@ -1809,11 +1830,13 @@ cat > "$OUTPUT_HTML" << 'EOF'
         }
         
         .sbom-package-item {
-            background: #f7fafc;
+            background: #1f2937;
             border-radius: 8px;
             padding: 15px 20px;
             margin-bottom: 10px;
-            border-left: 4px solid #7dd3fc;
+            border-left: 4px solid #3b82f6;
+            border: 1px solid #374151;
+            color: #f3f4f6;
             transition: all 0.2s ease;
             cursor: pointer;
         }
@@ -1824,8 +1847,9 @@ cat > "$OUTPUT_HTML" << 'EOF'
         }
         
         .sbom-package-item.expanded {
-            background: #e0f2fe;
+            background: #1e3a5f;
             border-left-width: 6px;
+            border-color: #3b82f6;
         }
         
         .sbom-package-item.filtered-out {
@@ -1833,12 +1857,14 @@ cat > "$OUTPUT_HTML" << 'EOF'
         }
         
         .footer {
-            background: white;
+            background: #1a1d23;
+            border: 1px solid #4b5563;
             border-radius: 12px;
             padding: 30px;
             margin-top: 30px;
             text-align: center;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            color: #e5e7eb;
         }
         
         .footer-links {
@@ -2706,8 +2732,25 @@ cat >> "$OUTPUT_HTML" << EOF
         // Toggle individual finding details
         function toggleFindingDetails(element) {
             event.stopPropagation();
+            
+            // Don't toggle if user is selecting text
+            const selection = window.getSelection();
+            if (selection.toString().length > 0) {
+                return;
+            }
+            
+            // Don't toggle if clicking on links, buttons, or interactive elements
+            if (event.target.tagName === 'A' || event.target.tagName === 'BUTTON' || event.target.tagName === 'INPUT') {
+                return;
+            }
+            
             const details = element.querySelector('.finding-details');
             const isExpanded = details.style.display === 'block';
+            
+            // If clicking inside an already expanded details section, don't toggle
+            if (isExpanded && event.target.closest('.finding-details')) {
+                return;
+            }
             
             // Collapse all other findings in the same tool section
             const parent = element.closest('.tool-findings');

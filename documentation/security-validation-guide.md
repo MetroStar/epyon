@@ -115,6 +115,6 @@ git log --all --full-history -- "**/chart/values.yaml"
 # Check current AWS RDS instances
 aws rds describe-db-instances --region us-gov-west-1
 
-# Test database connection (BE CAREFUL!)
-psql "postgresql://uot-jqggp-ks8vx:OY3qrFMX40ipgP5JkvJjfT1q8Bb@uot-jqggp-xmc47.coboi2otdxqo.us-gov-west-1.rds.amazonaws.com:5432"
+# Test database connection (Example - DO NOT use real credentials in documentation!)
+psql "postgresql://username:password@your-database-host.region.rds.amazonaws.com:5432/dbname"
 ```

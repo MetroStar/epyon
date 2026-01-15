@@ -56,9 +56,9 @@
 Created `.env.sonar` file with authentication credentials:
 
 ```bash
-# .env.sonar
-export SONAR_HOST_URL='https://sonarqube.cdao.us'
-export SONAR_TOKEN='sqp_04366ebf22fd156a8e16f728b4fe423811c34eb0'
+# .env.sonar (Example - Replace with your actual credentials)
+export SONAR_HOST_URL='https://your-sonarqube-instance.example.com'
+export SONAR_TOKEN='sqp_your_actual_token_here_from_sonarqube_settings'
 ```
 
 ### 2. Test Coverage Configuration
@@ -317,7 +317,7 @@ echo "Potential Real Issues (excluding common false positives):"
 echo "======================================================="
 grep -v -E "(node_modules|\.git/|trufflehog-reports|README\.md)" "$RESULTS_FILE" | \
 grep -v '"Raw":"http.*://.*:.*@example\.com' | \
-grep -v '"Raw":"mongodb://user:pass@localhost' | \
+grep -v '"Raw":"mongodb://.*:.*@(localhost|example)' | \
 grep '"DetectorName"' | \
 sed 's/.*"DetectorName":"\([^"]*\)".*"file":"\([^"]*\)".*line":\([0-9]*\).*/\2:\3 - \1/' | \
 head -10

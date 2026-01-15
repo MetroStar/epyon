@@ -137,6 +137,43 @@ else
     echo "   Run a new scan to generate file statistics"
 fi
 
+# ---- Load Remediation Suggestions for inline display ----
+REMEDIATION_FILE="${LATEST_SCAN}/remediation-suggestions.json"
+REMEDIATION_DATA_FILE="/tmp/remediation_map_$$.txt"
+if [ -f "$REMEDIATION_FILE" ] && command -v jq &> /dev/null; then
+    echo "💊 Loading remediation suggestions for inline display..."
+    jq -r '.remediations[] | "\(.cve)|\(.package.name)|\(.package.fixed_version)|\(.remediation.update_command)"' "$REMEDIATION_FILE" 2>/dev/null > "$REMEDIATION_DATA_FILE"
+fi
+
+# Function to get remediation for a CVE and package
+get_remediation() {
+    local cve="$1"
+    local pkg="$2"
+    if [ -f "$REMEDIATION_DATA_FILE" ]; then
+        grep "^${cve}|${pkg}|" "$REMEDIATION_DATA_FILE" 2>/dev/null || echo ""
+    fi
+}
+
+# Function to inject remediation into vulnerability HTML
+inject_remediation() {
+    local cve="$1"
+    local pkg="$2"
+    
+    local remediation_data=$(get_remediation "$cve" "$pkg")
+    if [ -n "$remediation_data" ]; then
+        IFS='|' read -r _cve _pkg fix_ver cmd <<< "$remediation_data"
+        echo "<div class=\"detail-section\" style=\"background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-left: 4px solid #10b981; padding: 15px; margin: 10px 0; border-radius: 6px;\">"
+        echo "<h5 style=\"color: #047857; margin-bottom: 10px;\">💊 Automated Fix Available</h5>"
+        echo "<div style=\"margin: 8px 0;\"><strong style=\"color: #065f46;\">Upgrade to:</strong> <code style=\"background: #bbf7d0; padding: 4px 8px; border-radius: 4px; color: #065f46;\">${fix_ver}</code></div>"
+        echo "<div style=\"margin: 8px 0;\"><strong style=\"color: #065f46;\">Command:</strong></div>"
+        echo "<code style=\"display: block; background: #dcfce7; color: #065f46; padding: 10px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 0.9em; margin: 5px 0;\">${cmd}</code>"
+        echo "<div style=\"margin-top: 10px; padding: 8px; background: #fef3c7; border-radius: 4px; font-size: 0.85em;\">"
+        echo "<strong style=\"color: #92400e;\">⚠️ Before applying:</strong> Review changelog, test in dev, run tests, commit lock files"
+        echo "</div>"
+        echo "</div>"
+    fi
+}
+
 # ---- TruffleHog Statistics ----
 TH_FILE="${LATEST_SCAN}/trufflehog/trufflehog-filesystem-results.json"
 TH_FILES_SCANNED=0
@@ -354,6 +391,7 @@ if [ -d "$TRIVY_DIR" ]; then
 <div><strong>Status:</strong> <span style=\"font-weight:600;color:" + .status_color + ";\">" + .status_uc + "</span></div>
 <div><strong>PURL:</strong> <code style=\"font-size:0.8em;word-break:break-all;\">" + .purl + "</code></div>
 </div>
+<!--REMEDIATION_MARKER:" + .id + ":" + .pkg + "-->
 <div class=\"detail-section\"><h5>False Positive Assessment</h5>
 <div class=\"fp-checklist\">
 <label><input type=\"checkbox\" class=\"fp-check\"> Package not used in production</label>
@@ -372,7 +410,21 @@ if [ -d "$TRIVY_DIR" ]; then
             set -e
             
             if [ -n "$vuln_details" ]; then
-                TRIVY_DETAILS="${TRIVY_DETAILS}${vuln_details}"
+                # Process remediation markers
+                processed_details=""
+                while IFS= read -r line; do
+                    if [[ "$line" =~ \<!--REMEDIATION_MARKER:([^:]+):([^-]+)--\> ]]; then
+                        cve="${BASH_REMATCH[1]}"
+                        pkg="${BASH_REMATCH[2]}"
+                        processed_details="${processed_details}$(inject_remediation "$cve" "$pkg")
+"
+                    else
+                        processed_details="${processed_details}${line}
+"
+                    fi
+                done <<< "$vuln_details"
+                
+                TRIVY_DETAILS="${TRIVY_DETAILS}${processed_details}"
             fi
         fi
     done
@@ -472,13 +524,29 @@ if [ -d "$GRYPE_DIR" ]; then
                         <div><strong>Installed Version:</strong> <code>\(.version)</code></div>
                         <div><strong>Fixed Version:</strong> <code>\(.fixed)</code></div>
                         <div><strong>Full Description:</strong> \(.desc)</div>
+                        <!--REMEDIATION_MARKER:\(.id):\(.pkg)-->
                     </div>
                 </div>"
             ' "$grype_file" 2>/dev/null)
             set -e
             
             if [ -n "$vuln_details" ]; then
-                GRYPE_DETAILS="${GRYPE_DETAILS}${vuln_details}"
+                # Process remediation markers
+                processed_details=""
+                while IFS= read -r line; do
+                    if [[ "$line" =~ \<!--REMEDIATION_MARKER:([^:]+):([^-]+)--\> ]]; then
+                        cve="${BASH_REMATCH[1]}"
+                        pkg="${BASH_REMATCH[2]}"
+                        remediation_html=$(inject_remediation "$cve" "$pkg")
+                        processed_details+="$remediation_html
+"
+                    else
+                        processed_details+="$line
+"
+                    fi
+                done <<< "$vuln_details"
+                
+                GRYPE_DETAILS="${GRYPE_DETAILS}${processed_details}"
             fi
         fi
     done

@@ -238,6 +238,9 @@ if command -v docker &> /dev/null; then
         bridgecrew/checkov:latest \
         --directory /workspace \
         --skip-path node_modules \
+        --skip-path scans \
+        --skip-path scripts/anchore-results.json \
+        --skip-path scripts/shell/scans \
         --skip-download \
         --output json \
         --output-file /output/checkov-results.json \

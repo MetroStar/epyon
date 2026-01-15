@@ -708,6 +708,22 @@ fi
 echo ""
 echo -e "${BLUE}📋 Consolidating all security reports...${NC}"
 
+# Generate remediation suggestions before consolidation
+echo ""
+echo -e "${CYAN}💊 Generating Remediation Suggestions...${NC}"
+if [[ -f "$SCRIPT_DIR/generate-remediation-suggestions.sh" ]]; then
+    # Generate JSON output for dashboard integration
+    "$SCRIPT_DIR/generate-remediation-suggestions.sh" "$SCAN_DIR" --json --severity MEDIUM --output "$SCAN_DIR/remediation-suggestions.json" 2>&1 | head -20
+    
+    if [[ -f "$SCAN_DIR/remediation-suggestions.json" ]]; then
+        echo -e "${GREEN}✅ Remediation suggestions generated${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Remediation suggestions generation had issues${NC}"
+    fi
+else
+    echo -e "${YELLOW}⚠️  Remediation script not found${NC}"
+fi
+
 # Run the unified report consolidation
 if [[ -f "$SCRIPT_DIR/consolidate-security-reports.sh" ]]; then
     SCAN_DIR="$SCAN_DIR" SCAN_ID="$SCAN_ID" "$SCRIPT_DIR/consolidate-security-reports.sh"

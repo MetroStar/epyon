@@ -2,7 +2,7 @@
 
 Shell scripts for Linux, macOS, WSL, and Git Bash.
 
-## 📋 Available Scripts (31 total)
+## 📋 Available Scripts (32 total)
 
 ### Security Scanners
 - `run-clamav-scan.sh` - ClamAV antivirus scanning
@@ -22,6 +22,7 @@ Shell scripts for Linux, macOS, WSL, and Git Bash.
 - `analyze-xeol-results.sh` - Analyze Xeol results
 - `analyze-checkov-results.sh` - Analyze Checkov results
 - `analyze-helm-results.sh` - Analyze Helm results
+- **`generate-remediation-suggestions.sh`** - **NEW!** Generate actionable fix recommendations
 
 ### Orchestration Scripts
 - `run-complete-security-scan.sh` - Run all security scans

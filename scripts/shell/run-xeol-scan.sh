@@ -97,6 +97,20 @@ REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR"))")"
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 
+# Check if Docker is available
+if ! command -v docker &> /dev/null; then
+    echo -e "${RED}❌ Error: Docker is not installed or not in PATH${NC}"
+    echo "   Please install Docker to use this security scanner."
+    exit 1
+fi
+
+# Check if Docker daemon is running
+if ! docker info &> /dev/null; then
+    echo -e "${RED}❌ Error: Docker daemon is not running${NC}"
+    echo "   Please start Docker to use this security scanner."
+    exit 1
+fi
+
 echo
 echo -e "${WHITE}============================================${NC}"
 echo -e "${WHITE}Xeol End-of-Life Detection Scanner${NC}"

@@ -2520,7 +2520,20 @@ cat >> "$OUTPUT_HTML" << EOF
                         </div>
                     </div>
                     <div class="tool-stats">
-                        <span class="tool-stat-badge badge-clean">✅ Clean</span>
+EOF
+
+# Determine SonarQube status badge based on SONAR_STATUS
+if [ "$SONAR_STATUS" = "SKIPPED" ]; then
+    echo "                        <span class=\"tool-stat-badge\" style=\"background: #fef3c7; color: #92400e;\">⚠️ Skipped</span>" >> "$OUTPUT_HTML"
+elif [ "$SONAR_STATUS" = "NO_PROJECT_DETECTED" ] || [ "$SONAR_STATUS" = "N/A" ]; then
+    echo "                        <span class=\"tool-stat-badge\" style=\"background: #e5e7eb; color: #6b7280;\">➖ Not Configured</span>" >> "$OUTPUT_HTML"
+elif [ "$SONAR_CRITICAL" -gt 0 ] || [ "$SONAR_HIGH" -gt 0 ]; then
+    echo "                        <span class=\"tool-stat-badge badge-high\">⚠️ ${SONAR_CRITICAL} Critical, ${SONAR_HIGH} High</span>" >> "$OUTPUT_HTML"
+else
+    echo "                        <span class=\"tool-stat-badge badge-clean\">✅ Clean</span>" >> "$OUTPUT_HTML"
+fi
+
+cat >> "$OUTPUT_HTML" << 'EOF'
                         <span class="expand-icon">▼</span>
                     </div>
                 </div>

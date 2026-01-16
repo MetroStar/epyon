@@ -14,6 +14,32 @@ Epyon is designed to be opinionated, automated, and decisive — empowering team
 
 ---
 
+## 🗺️ Product Roadmap
+
+### Outcome-Oriented Development
+
+Our roadmap is organized by level of certainty and timeframe, focusing on key outcomes that drive value:
+
+| Timeframe | Waypoint | Desired Outcomes | Key Challenges | Success Metrics |
+|-----------|----------|------------------|----------------|-----------------|
+| **Now** | 1 | **Feature Enhancements of scanners** | • Scanner drift<br>• Signatures updated on demand validated<br>• Add Anchore scanning | Scanning capabilities are validated with 0% margin of error between scanning the same application | Test against same application multiple times<br>Addition of Anchore |
+| **Now** | 2 | **GitHub integration** | GitHub action may not support spinning up docker containers for the scanning tools | Can be ran successfully by 3 or more GitHub repositories | GitHub actions |
+| **Near** | 3 | **Report generation** | How might the best way to generate a report be? Is the dashboard good enough. Should it auto .zip the scan upon completion for ease of sharing | Reports can be created and shared out easily | Reports and exports |
+| **Near** | 4 | **Failed build check** | What does failed mean?<br>• Aggressive No crits no highs<br>• Strong no crits 10 highs<br>• ??? | When an application has critical or highs, it reports as a failed build | Build checker |
+| **Far future** | 5 | **Security implementations** | STIG and RMF review of the tool | Complete STIG/RMF documentation for an application | STIGS/RMF/POA&M |
+| **Far future** | X, Y, ... | **Widely used as DEVSECOPS pipeline alternative** | Does this tool meet the needs for individual teams that do not have a proper pipeline | Utilized by 10 or more app teams | - |
+
+### Features in Development
+- **Enhanced Scanner Capabilities**: Continuous validation and signature updates
+- **CI/CD Integration**: GitHub Actions support with containerized scanning
+- **Advanced Reporting**: Automated report generation with export options
+- **Quality Gates**: Configurable build failure criteria based on severity
+- **Compliance Framework**: STIG and RMF documentation integration
+
+*Roadmap current as of January 16, 2026*
+
+---
+
 ## Overview
 
 This repository contains a **production-ready, enterprise-grade** multi-layer DevOps security architecture with **target-aware scanning**, **AWS ECR integration**, and **isolated scan directory architecture**. Built for real-world enterprise applications with comprehensive Docker-based tooling.

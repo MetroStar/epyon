@@ -808,6 +808,62 @@ elif [ "$TOTAL_TESTS" -eq 0 ]; then
   fi
 fi
 
+# Fetch real metrics from SonarQube server API
+echo ""
+echo "[INFO] Fetching analysis results from SonarQube server..."
+BUGS=0
+VULNERABILITIES=0
+CODE_SMELLS=0
+SECURITY_HOTSPOTS=0
+RELIABILITY_RATING="N/A"
+SECURITY_RATING="N/A"
+MAINTAINABILITY_RATING="N/A"
+DUPLICATIONS_PERCENT="N/A"
+
+if [ -n "$SONAR_TOKEN" ] && [ "$SONAR_HOST_URL" != "" ]; then
+  # Fetch measures from SonarQube API
+  MEASURES_RESPONSE=$(curl -s -u "$SONAR_TOKEN:" \
+    "${SONAR_HOST_URL%/}/api/measures/component?component=${PROJECT_KEY}&metricKeys=bugs,vulnerabilities,code_smells,security_hotspots,reliability_rating,security_rating,sqale_rating,coverage,duplicated_lines_density" \
+    2>/dev/null)
+  
+  if [ $? -eq 0 ] && [ -n "$MEASURES_RESPONSE" ]; then
+    # Parse the metrics using jq
+    if command -v jq &> /dev/null; then
+      BUGS=$(echo "$MEASURES_RESPONSE" | jq -r '.component.measures[] | select(.metric=="bugs") | .value // "0"' 2>/dev/null || echo "0")
+      VULNERABILITIES=$(echo "$MEASURES_RESPONSE" | jq -r '.component.measures[] | select(.metric=="vulnerabilities") | .value // "0"' 2>/dev/null || echo "0")
+      CODE_SMELLS=$(echo "$MEASURES_RESPONSE" | jq -r '.component.measures[] | select(.metric=="code_smells") | .value // "0"' 2>/dev/null || echo "0")
+      SECURITY_HOTSPOTS=$(echo "$MEASURES_RESPONSE" | jq -r '.component.measures[] | select(.metric=="security_hotspots") | .value // "0"' 2>/dev/null || echo "0")
+      RELIABILITY_RATING=$(echo "$MEASURES_RESPONSE" | jq -r '.component.measures[] | select(.metric=="reliability_rating") | .value // "N/A"' 2>/dev/null || echo "N/A")
+      SECURITY_RATING=$(echo "$MEASURES_RESPONSE" | jq -r '.component.measures[] | select(.metric=="security_rating") | .value // "N/A"' 2>/dev/null || echo "N/A")
+      MAINTAINABILITY_RATING=$(echo "$MEASURES_RESPONSE" | jq -r '.component.measures[] | select(.metric=="sqale_rating") | .value // "N/A"' 2>/dev/null || echo "N/A")
+      
+      # Update coverage from server if available (more accurate than local)
+      SERVER_COVERAGE=$(echo "$MEASURES_RESPONSE" | jq -r '.component.measures[] | select(.metric=="coverage") | .value // ""' 2>/dev/null)
+      if [ -n "$SERVER_COVERAGE" ] && [ "$SERVER_COVERAGE" != "null" ]; then
+        COVERAGE_PERCENT="${SERVER_COVERAGE}%"
+      fi
+      
+      DUPLICATIONS_PERCENT=$(echo "$MEASURES_RESPONSE" | jq -r '.component.measures[] | select(.metric=="duplicated_lines_density") | .value // "N/A"' 2>/dev/null || echo "N/A")
+      if [ "$DUPLICATIONS_PERCENT" != "N/A" ]; then
+        DUPLICATIONS_PERCENT="${DUPLICATIONS_PERCENT}%"
+      fi
+      
+      echo "[OK] Retrieved metrics from SonarQube server:"
+      echo "  • Bugs: $BUGS"
+      echo "  • Vulnerabilities: $VULNERABILITIES"
+      echo "  • Code Smells: $CODE_SMELLS"
+      echo "  • Security Hotspots: $SECURITY_HOTSPOTS"
+      echo "  • Coverage: $COVERAGE_PERCENT"
+    else
+      echo "[WARNING] jq not available, cannot parse server metrics"
+    fi
+  else
+    echo "[WARNING] Could not fetch metrics from SonarQube server"
+  fi
+else
+  echo "[WARNING] No SonarQube token available, skipping server metrics fetch"
+fi
+
 # Generate JSON with real data
 cat > "$OUTPUT_DIR/${SCAN_ID}_sonar-analysis-results.json" << EOL
 {
@@ -830,16 +886,23 @@ cat > "$OUTPUT_DIR/${SCAN_ID}_sonar-analysis-results.json" << EOL
     "total_source_files": ${TOTAL_SOURCE_FILES:-0},
     "estimated_coverable_lines": ${ESTIMATED_COVERABLE_LINES:-0},
     "total_source_lines": ${ALL_SOURCE_LINES:-0},
-    "coverage_methodology": "SonarQube-style (includes all source files)"
+    "coverage_methodology": "SonarQube-style (includes all source files)",
+    "duplications_percent": "$DUPLICATIONS_PERCENT"
+  },
+  "issues": {
+    "bugs": ${BUGS:-0},
+    "vulnerabilities": ${VULNERABILITIES:-0},
+    "code_smells": ${CODE_SMELLS:-0},
+    "security_hotspots": ${SECURITY_HOTSPOTS:-0}
   },
   "quality_metrics": {
-    "reliability_rating": "N/A",
-    "security_rating": "N/A", 
-    "maintainability_rating": "N/A",
+    "reliability_rating": "$RELIABILITY_RATING",
+    "security_rating": "$SECURITY_RATING", 
+    "maintainability_rating": "$MAINTAINABILITY_RATING",
     "coverage_rating": "N/A"
   },
   "status": "$ANALYSIS_STATUS",
-  "analysis_mode": "local_extraction"
+  "analysis_mode": "server_api"
 }
 EOL
 

@@ -859,7 +859,9 @@ SONAR_STATUS="N/A"
 SONAR_BUGS=0
 SONAR_VULNS=0
 SONAR_CODE_SMELLS=0
+SONAR_SECURITY_HOTSPOTS=0
 SONAR_COVERAGE="N/A"
+SONAR_DUPLICATIONS="N/A"
 SONAR_TOTAL_TESTS=0
 SONAR_PASSED_TESTS=0
 SONAR_FAILED_TESTS=0
@@ -867,6 +869,9 @@ SONAR_SKIPPED_TESTS=0
 SONAR_HOST_URL="N/A"
 SONAR_PROJECT_KEY="N/A"
 SONAR_PROJECT_URL=""
+SONAR_RELIABILITY_RATING="N/A"
+SONAR_SECURITY_RATING="N/A"
+SONAR_MAINTAINABILITY_RATING="N/A"
 
 if [ -f "$LATEST_SONAR" ]; then
     SONAR_STATUS=$(jq -r '.status // "NO_DATA"' "$LATEST_SONAR" 2>/dev/null || echo "NO_DATA")
@@ -875,8 +880,20 @@ if [ -f "$LATEST_SONAR" ]; then
     SONAR_FAILED_TESTS=$(jq -r '.test_results.failed_tests // 0' "$LATEST_SONAR" 2>/dev/null || echo "0")
     SONAR_SKIPPED_TESTS=$(jq -r '.test_results.skipped_tests // 0' "$LATEST_SONAR" 2>/dev/null || echo "0")
     SONAR_COVERAGE=$(jq -r '.coverage.statement_coverage // "N/A"' "$LATEST_SONAR" 2>/dev/null || echo "N/A")
+    SONAR_DUPLICATIONS=$(jq -r '.coverage.duplications_percent // "N/A"' "$LATEST_SONAR" 2>/dev/null || echo "N/A")
     SONAR_HOST_URL=$(jq -r '.host // "N/A"' "$LATEST_SONAR" 2>/dev/null || echo "N/A")
     SONAR_PROJECT_KEY=$(jq -r '.project // "N/A"' "$LATEST_SONAR" 2>/dev/null || echo "N/A")
+    
+    # Read issues from the new structure
+    SONAR_BUGS=$(jq -r '.issues.bugs // 0' "$LATEST_SONAR" 2>/dev/null || echo "0")
+    SONAR_VULNS=$(jq -r '.issues.vulnerabilities // 0' "$LATEST_SONAR" 2>/dev/null || echo "0")
+    SONAR_CODE_SMELLS=$(jq -r '.issues.code_smells // 0' "$LATEST_SONAR" 2>/dev/null || echo "0")
+    SONAR_SECURITY_HOTSPOTS=$(jq -r '.issues.security_hotspots // 0' "$LATEST_SONAR" 2>/dev/null || echo "0")
+    
+    # Read quality ratings
+    SONAR_RELIABILITY_RATING=$(jq -r '.quality_metrics.reliability_rating // "N/A"' "$LATEST_SONAR" 2>/dev/null || echo "N/A")
+    SONAR_SECURITY_RATING=$(jq -r '.quality_metrics.security_rating // "N/A"' "$LATEST_SONAR" 2>/dev/null || echo "N/A")
+    SONAR_MAINTAINABILITY_RATING=$(jq -r '.quality_metrics.maintainability_rating // "N/A"' "$LATEST_SONAR" 2>/dev/null || echo "N/A")
     
     # Generate project dashboard URL (strip trailing slash to avoid //)
     if [ "$SONAR_HOST_URL" != "N/A" ] && [ "$SONAR_PROJECT_KEY" != "N/A" ]; then
@@ -889,15 +906,37 @@ if [ -f "$LATEST_SONAR" ]; then
         SONAR_HIGH=0
     else
         SONAR_FINDINGS="<div class=\"stats-detail-box\" style=\"background:linear-gradient(135deg, #1a1d23 0%, #2C3539 100%);border:2px solid #3b82f6;box-shadow:0 4px 12px rgba(59, 130, 246, 0.3);\">"
-        SONAR_FINDINGS="${SONAR_FINDINGS}<h4 style=\"color:#0369a1;margin-bottom:10px;\">📊 Test Summary</h4>"
+        
+        # Code Quality Metrics Section
+        SONAR_FINDINGS="${SONAR_FINDINGS}<h4 style=\"color:#0369a1;margin-bottom:10px;\">📊 Code Quality</h4>"
         SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stats-grid-small\">"
-        SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stat-item\"><strong>Total Tests:</strong> ${SONAR_TOTAL_TESTS}</div>"
-        SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stat-item\"><strong>✅ Passed:</strong> ${SONAR_PASSED_TESTS}</div>"
-        SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stat-item\"><strong>❌ Failed:</strong> ${SONAR_FAILED_TESTS}</div>"
-        SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stat-item\"><strong>⏭️ Skipped:</strong> ${SONAR_SKIPPED_TESTS}</div>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stat-item\"><strong>🐛 Bugs:</strong> ${SONAR_BUGS}</div>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stat-item\"><strong>🔒 Vulnerabilities:</strong> ${SONAR_VULNS}</div>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stat-item\"><strong>📝 Code Smells:</strong> ${SONAR_CODE_SMELLS}</div>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stat-item\"><strong>🔥 Security Hotspots:</strong> ${SONAR_SECURITY_HOTSPOTS}</div>"
         SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stat-item\"><strong>📈 Coverage:</strong> ${SONAR_COVERAGE}</div>"
-        SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stat-item\"><strong>🎯 Status:</strong> ${SONAR_STATUS}</div>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stat-item\"><strong>📋 Duplications:</strong> ${SONAR_DUPLICATIONS}</div>"
         SONAR_FINDINGS="${SONAR_FINDINGS}</div>"
+        
+        # Quality Ratings Section
+        SONAR_FINDINGS="${SONAR_FINDINGS}<h4 style=\"color:#0369a1;margin-bottom:10px;margin-top:15px;\">⭐ Quality Ratings</h4>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stats-grid-small\">"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stat-item\"><strong>Reliability:</strong> ${SONAR_RELIABILITY_RATING}</div>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stat-item\"><strong>Security:</strong> ${SONAR_SECURITY_RATING}</div>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stat-item\"><strong>Maintainability:</strong> ${SONAR_MAINTAINABILITY_RATING}</div>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}</div>"
+        
+        # Test Results Section (if available)
+        if [ "$SONAR_TOTAL_TESTS" -gt 0 ]; then
+            SONAR_FINDINGS="${SONAR_FINDINGS}<h4 style=\"color:#0369a1;margin-bottom:10px;margin-top:15px;\">🧪 Test Results</h4>"
+            SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stats-grid-small\">"
+            SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stat-item\"><strong>Total Tests:</strong> ${SONAR_TOTAL_TESTS}</div>"
+            SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stat-item\"><strong>✅ Passed:</strong> ${SONAR_PASSED_TESTS}</div>"
+            SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stat-item\"><strong>❌ Failed:</strong> ${SONAR_FAILED_TESTS}</div>"
+            SONAR_FINDINGS="${SONAR_FINDINGS}<div class=\"stat-item\"><strong>⏭️ Skipped:</strong> ${SONAR_SKIPPED_TESTS}</div>"
+            SONAR_FINDINGS="${SONAR_FINDINGS}</div>"
+        fi
+        
         if [ -n "$SONAR_PROJECT_URL" ]; then
             SONAR_FINDINGS="${SONAR_FINDINGS}<div style=\"margin-top:15px;padding:10px;background:white;border-radius:4px;\">"
             SONAR_FINDINGS="${SONAR_FINDINGS}<strong>🔗 Project Dashboard:</strong><br/>"
@@ -906,8 +945,10 @@ if [ -f "$LATEST_SONAR" ]; then
         fi
         SONAR_FINDINGS="${SONAR_FINDINGS}</div>"
         SONAR_FINDINGS="${SONAR_FINDINGS}<p class=\"no-findings\" style=\"margin-top:10px;\">✅ SonarQube analysis complete</p>"
-        SONAR_CRITICAL=0
-        SONAR_HIGH=0
+        
+        # Treat vulnerabilities as critical/high for severity counts
+        SONAR_CRITICAL=$SONAR_VULNS
+        SONAR_HIGH=$SONAR_BUGS
     fi
 else
     SONAR_CRITICAL=0

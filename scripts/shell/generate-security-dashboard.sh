@@ -878,9 +878,9 @@ if [ -f "$LATEST_SONAR" ]; then
     SONAR_HOST_URL=$(jq -r '.host // "N/A"' "$LATEST_SONAR" 2>/dev/null || echo "N/A")
     SONAR_PROJECT_KEY=$(jq -r '.project // "N/A"' "$LATEST_SONAR" 2>/dev/null || echo "N/A")
     
-    # Generate project dashboard URL
+    # Generate project dashboard URL (strip trailing slash to avoid //)
     if [ "$SONAR_HOST_URL" != "N/A" ] && [ "$SONAR_PROJECT_KEY" != "N/A" ]; then
-        SONAR_PROJECT_URL="${SONAR_HOST_URL}/dashboard?id=${SONAR_PROJECT_KEY}"
+        SONAR_PROJECT_URL="${SONAR_HOST_URL%/}/dashboard?id=${SONAR_PROJECT_KEY}"
     fi
     
     if [ "$SONAR_STATUS" = "NO_PROJECT_DETECTED" ]; then

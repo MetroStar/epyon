@@ -856,8 +856,8 @@ echo "• Coverage: $COVERAGE_PERCENT"
 echo "• Status: $ANALYSIS_STATUS"
 echo ""
 
-# Generate project dashboard URL
-PROJECT_URL="${SONAR_HOST_URL}/dashboard?id=${PROJECT_KEY}"
+# Generate project dashboard URL (strip trailing slash to avoid //)
+PROJECT_URL="${SONAR_HOST_URL%/}/dashboard?id=${PROJECT_KEY}"
 
 echo "Analysis complete! Check your SonarQube dashboard at ${SONAR_HOST_URL}"
 echo "📊 Project Dashboard: ${PROJECT_URL}"

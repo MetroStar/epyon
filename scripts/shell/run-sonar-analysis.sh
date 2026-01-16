@@ -92,9 +92,9 @@ else
 fi
 
 # Look for .env.sonar in multiple locations
+# Priority: target app's config > home directory default
 SONAR_ENV_FILES=(
   "$REPO_PATH/.env.sonar"
-  "./.env.sonar"
   "$HOME/.env.sonar"
 )
 
@@ -151,9 +151,11 @@ SONAR_PROPERTIES_FILES=(
 PROJECT_KEY=""
 PROPS_HOST_URL=""
 PROPS_TOKEN=""
+PROPS_FILE_FOUND=""
 for props_file in "${SONAR_PROPERTIES_FILES[@]}"; do
   if [ -f "$props_file" ]; then
     echo "[OK] Found SonarQube properties: $props_file"
+    PROPS_FILE_FOUND="$props_file"
     # Extract project key from properties file
     PROJECT_KEY=$(grep -E "^sonar\.projectKey\s*=" "$props_file" | cut -d'=' -f2 | tr -d ' ' | tr -d '\n' 2>/dev/null)
     # Extract host URL from properties file and resolve environment variables
@@ -169,18 +171,24 @@ for props_file in "${SONAR_PROPERTIES_FILES[@]}"; do
     fi
     if [ -n "$PROJECT_KEY" ]; then
       echo "[INFO] Using project key from properties: $PROJECT_KEY"
-      if [ -n "$PROPS_HOST_URL" ]; then
-        echo "[INFO] Using host URL from properties: $PROPS_HOST_URL"
-        SONAR_HOST_URL="$PROPS_HOST_URL"
-        SONAR_CONFIG_SOURCE="${SONAR_CONFIG_SOURCE} + properties file"
-      fi
-      if [ -n "$PROPS_TOKEN" ]; then
-        TOKEN_PREFIX="${PROPS_TOKEN:0:8}"
-        TOKEN_LENGTH=${#PROPS_TOKEN}
-        echo "[WARNING] ⚠️  Found hardcoded SonarQube token in properties file!"
-        echo "[INFO] Using token from properties: ${TOKEN_PREFIX}...(${TOKEN_LENGTH} chars)"
-        echo "[SECURITY] Consider moving token to .env.sonar file or environment variables"
-        SONAR_TOKEN="$PROPS_TOKEN"
+      
+      # Only use properties file credentials if .env.sonar didn't set them
+      if [ "$SONAR_CONFIG_FOUND" = false ]; then
+        if [ -n "$PROPS_HOST_URL" ]; then
+          echo "[INFO] Using host URL from properties: $PROPS_HOST_URL"
+          SONAR_HOST_URL="$PROPS_HOST_URL"
+          SONAR_CONFIG_SOURCE="properties file"
+        fi
+        if [ -n "$PROPS_TOKEN" ]; then
+          TOKEN_PREFIX="${PROPS_TOKEN:0:8}"
+          TOKEN_LENGTH=${#PROPS_TOKEN}
+          echo "[WARNING] ⚠️  Found hardcoded SonarQube token in properties file!"
+          echo "[INFO] Using token from properties: ${TOKEN_PREFIX}...(${TOKEN_LENGTH} chars)"
+          echo "[SECURITY] Consider moving token to .env.sonar file or environment variables"
+          SONAR_TOKEN="$PROPS_TOKEN"
+        fi
+      else
+        echo "[INFO] Using credentials from .env.sonar (ignoring credentials in properties file)"
       fi
       break
     fi
@@ -414,56 +422,194 @@ echo ""
 # Change to the target directory to run the scanner
 cd "$REPO_PATH"
 
-# If properties file exists with sonar.sources defined, use the properties file as-is
-# Otherwise, pass sources explicitly
-if [ -n "$PROPS_HOST_URL" ] && [ -f "$REPO_PATH/$(basename "$REPO_PATH")/sonar-project.properties" ]; then
-  echo "[INFO] Using sonar-project.properties from subdirectory"
-  # Change to subdirectory where properties file is located
-  cd "$REPO_PATH/$(basename "$REPO_PATH")"
-  # Run scanner without overriding sources (properties file defines them)
+# Try to generate coverage if tests exist but coverage doesn't
+echo ""
+echo "============================================"
+echo "Step 2a: Checking for test coverage..."
+echo "============================================"
+echo "[DEBUG] REPO_PATH: $REPO_PATH"
+echo "[DEBUG] Looking for package.json..."
+
+# Check if we're in a git clone with subdirectory structure
+ACTUAL_REPO_PATH="$REPO_PATH"
+if [ ! -f "$REPO_PATH/package.json" ] && [ -d "$REPO_PATH/$(basename "$REPO_PATH")" ] && [ -f "$REPO_PATH/$(basename "$REPO_PATH")/package.json" ]; then
+  echo "[DEBUG] Found package.json in subdirectory: $(basename "$REPO_PATH")"
+  ACTUAL_REPO_PATH="$REPO_PATH/$(basename "$REPO_PATH")"
+fi
+
+# Also check for UI subfolder (common pattern)
+if [ ! -f "$ACTUAL_REPO_PATH/package.json" ] && [ -d "$ACTUAL_REPO_PATH/ui" ] && [ -f "$ACTUAL_REPO_PATH/ui/package.json" ]; then
+  echo "[DEBUG] Found package.json in ui/ subdirectory"
+  ACTUAL_REPO_PATH="$ACTUAL_REPO_PATH/ui"
+fi
+
+echo "[DEBUG] Using path: $ACTUAL_REPO_PATH"
+
+if [ -f "$ACTUAL_REPO_PATH/package.json" ]; then
+  echo "[INFO] Found package.json"
+  # Check if project has test scripts
+  if grep -q '"test:coverage"' "$ACTUAL_REPO_PATH/package.json" 2>/dev/null; then
+    echo "[INFO] Found test:coverage script"
+    if [ ! -f "$ACTUAL_REPO_PATH/coverage/lcov.info" ]; then
+      echo "[INFO] No coverage file found - generating coverage..."
+      cd "$ACTUAL_REPO_PATH"
+      # Install dependencies if node_modules doesn't exist
+      if [ ! -d "node_modules" ]; then
+        echo "[INFO] Installing dependencies..."
+        npm install --no-audit --no-fund 2>&1 | tail -10
+      fi
+      npm run test:coverage 2>&1 | tail -20
+      if [ -f "$ACTUAL_REPO_PATH/coverage/lcov.info" ]; then
+        echo "✅ Coverage generated successfully"
+      else
+        echo "[WARNING] Coverage generation completed but lcov.info not found"
+      fi
+      cd "$REPO_PATH"
+    else
+      echo "[INFO] Coverage file already exists"
+    fi
+  elif grep -q '"test".*"--coverage"' "$ACTUAL_REPO_PATH/package.json" 2>/dev/null; then
+    echo "[INFO] Found test script with --coverage flag"
+    if [ ! -f "$ACTUAL_REPO_PATH/coverage/lcov.info" ]; then
+      echo "[INFO] No coverage file found - generating coverage..."
+      cd "$ACTUAL_REPO_PATH"
+      # Install dependencies if node_modules doesn't exist
+      if [ ! -d "node_modules" ]; then
+        echo "[INFO] Installing dependencies..."
+        npm install --no-audit --no-fund 2>&1 | tail -10
+      fi
+      npm test -- --coverage 2>&1 | tail -20
+      if [ -f "$ACTUAL_REPO_PATH/coverage/lcov.info" ]; then
+        echo "✅ Coverage generated successfully"
+      else
+        echo "[WARNING] Coverage generation completed but lcov.info not found"
+      fi
+      cd "$REPO_PATH"
+    else
+      echo "[INFO] Coverage file already exists"
+    fi
+  else
+    echo "[INFO] No coverage generation script found - skipping"
+  fi
+else
+  echo "[INFO] No package.json found - skipping coverage generation"
+fi
+
+# Check for coverage reports in multiple possible locations
+COVERAGE_ARGS=""
+COVERAGE_PATHS=()
+
+# Look for LCOV coverage files in common locations
+if [ -f "$REPO_PATH/frontend/coverage/lcov.info" ]; then
+  COVERAGE_PATHS+=("frontend/coverage/lcov.info")
+fi
+if [ -f "$REPO_PATH/ui/coverage/lcov.info" ]; then
+  COVERAGE_PATHS+=("ui/coverage/lcov.info")
+fi
+if [ -f "$REPO_PATH/coverage/lcov.info" ]; then
+  COVERAGE_PATHS+=("coverage/lcov.info")
+fi
+if [ -f "$REPO_PATH/lcov.info" ]; then
+  COVERAGE_PATHS+=("lcov.info")
+fi
+
+# Build coverage arguments
+if [ ${#COVERAGE_PATHS[@]} -gt 0 ]; then
+  COVERAGE_LIST=$(IFS=,; echo "${COVERAGE_PATHS[*]}")
+  COVERAGE_ARGS="-Dsonar.javascript.lcov.reportPaths=$COVERAGE_LIST"
+  echo "[INFO] Coverage reports found - will send to SonarQube:"
+  for path in "${COVERAGE_PATHS[@]}"; do
+    echo "       • $path"
+  done
+else
+  echo "[INFO] No coverage reports found in standard locations"
+fi
+
+# If properties file exists, use it (it contains project structure, modules, sources, etc.)
+# Otherwise, pass sources explicitly via command line
+SCANNER_EXIT_CODE=0
+
+if [ -n "$PROPS_FILE_FOUND" ]; then
+  echo "[INFO] Using sonar-project.properties for project configuration"
+  echo "[INFO] Properties file: $PROPS_FILE_FOUND"
+  
+  # Check if properties file already has coverage configured
+  PROPS_HAS_COVERAGE=false
+  if grep -q "sonar\.\(javascript\|typescript\)\.lcov\.reportPaths" "$PROPS_FILE_FOUND" 2>/dev/null; then
+    PROPS_HAS_COVERAGE=true
+    echo "[INFO] Properties file already has coverage paths configured"
+    # Don't override with command-line args
+    COVERAGE_ARGS=""
+  fi
+  
+  # Change to the directory containing the properties file
+  PROPS_DIR=$(dirname "$PROPS_FILE_FOUND")
+  cd "$PROPS_DIR"
+  # Run scanner - it will read configuration from sonar-project.properties
+  echo ""
+  echo "============================================"
+  echo "Step 2: Running SonarQube Scanner..."
+  echo "============================================"
+  echo "[DEBUG] Scanner parameters:"
+  echo "  • Project Key: $PROJECT_KEY"
+  echo "  • Host URL: $SONAR_HOST_URL"
+  echo "  • Token: ${SONAR_TOKEN:0:10}...${SONAR_TOKEN: -4}"
+  [ -n "$COVERAGE_ARGS" ] && echo "  • Coverage (CLI override): $COVERAGE_ARGS"
+  [ "$PROPS_HAS_COVERAGE" = true ] && echo "  • Coverage: Configured in sonar-project.properties"
+  echo "  • Working Directory: $(pwd)"
+  echo "  • Properties File: $(basename "$PROPS_FILE_FOUND")"
+  echo ""
+  
+  # Save scanner output to log file
+  SCANNER_LOG="$SCAN_DIR/sonar/sonar-scan.log"
+  echo "[INFO] Scanner output will be saved to: $SCANNER_LOG"
+  echo ""
+  
   npx sonarqube-scanner \
     -Dsonar.projectKey=$PROJECT_KEY \
     -Dsonar.host.url=$SONAR_HOST_URL \
-    -Dsonar.token=$SONAR_TOKEN
+    -Dsonar.token=$SONAR_TOKEN \
+    $COVERAGE_ARGS 2>&1 | tee "$SCANNER_LOG"
+  SCANNER_EXIT_CODE=${PIPESTATUS[0]}
 else
-  # Check for coverage reports in multiple possible locations
-  COVERAGE_ARGS=""
-  COVERAGE_PATHS=()
+  # Run SonarQube scanner with explicit paths and coverage
+  echo ""
+  echo "============================================"
+  echo "Step 2: Running SonarQube Scanner..."
+  echo "============================================"
+  echo "[DEBUG] Scanner parameters:"
+  echo "  • Project Key: $PROJECT_KEY"
+  echo "  • Sources: $SOURCES_PATH"
+  echo "  • Host URL: $SONAR_HOST_URL"
+  echo "  • Token: ${SONAR_TOKEN:0:10}...${SONAR_TOKEN: -4}"
+  [ -n "$COVERAGE_ARGS" ] && echo "  • Coverage: $COVERAGE_ARGS"
+  echo "  • Base Directory: $REPO_PATH"
+  echo ""
   
-  # Look for LCOV coverage files
-  if [ -f "$REPO_PATH/frontend/coverage/lcov.info" ]; then
-    COVERAGE_PATHS+=("frontend/coverage/lcov.info")
-  fi
-  if [ -f "$REPO_PATH/coverage/lcov.info" ]; then
-    COVERAGE_PATHS+=("coverage/lcov.info")
-  fi
-  if [ -f "$REPO_PATH/lcov.info" ]; then
-    COVERAGE_PATHS+=("lcov.info")
-  fi
+  # Save scanner output to log file
+  SCANNER_LOG="$SCAN_DIR/sonar/sonar-scan.log"
+  echo "[INFO] Scanner output will be saved to: $SCANNER_LOG"
+  echo ""
   
-  # Build coverage arguments
-  if [ ${#COVERAGE_PATHS[@]} -gt 0 ]; then
-    COVERAGE_LIST=$(IFS=,; echo "${COVERAGE_PATHS[*]}")
-    COVERAGE_ARGS="-Dsonar.javascript.lcov.reportPaths=$COVERAGE_LIST"
-    echo "[INFO] Coverage reports found - will send to SonarQube:"
-    for path in "${COVERAGE_PATHS[@]}"; do
-      echo "       • $path"
-    done
-  else
-    echo "[WARNING] No coverage reports found - SonarQube will not show coverage data"
-    echo "          Expected locations:"
-    echo "          • frontend/coverage/lcov.info"
-    echo "          • coverage/lcov.info"
-  fi
-  
-  # Run SonarQube scanner with explicit paths
   npx sonarqube-scanner \
     -Dsonar.projectKey=$PROJECT_KEY \
     -Dsonar.sources="$SOURCES_PATH" \
     -Dsonar.host.url=$SONAR_HOST_URL \
     -Dsonar.token=$SONAR_TOKEN \
     -Dsonar.projectBaseDir="$REPO_PATH" \
-    $COVERAGE_ARGS
+    $COVERAGE_ARGS 2>&1 | tee "$SCANNER_LOG"
+  SCANNER_EXIT_CODE=${PIPESTATUS[0]}
+fi
+
+# Check scanner result
+echo ""
+if [ $SCANNER_EXIT_CODE -eq 0 ]; then
+  echo "✅ SonarQube scanner completed successfully"
+  record_scan_status "success" "Analysis completed and sent to SonarQube"
+else
+  echo "❌ SonarQube scanner failed with exit code: $SCANNER_EXIT_CODE"
+  echo "Check the scanner output above for details"
+  record_scan_status "failed" "Scanner failed with exit code $SCANNER_EXIT_CODE"
 fi
 
 # Save local copy of test results for dashboard

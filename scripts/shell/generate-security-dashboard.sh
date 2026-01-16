@@ -188,8 +188,45 @@ inject_remediation() {
     fi
 }
 
+# Function to check tool scan status
+# Returns: status (success|failed|skipped), reason
+check_tool_status() {
+    local tool_dir="$1"
+    local status_file="$tool_dir/status.json"
+    
+    if [ -f "$status_file" ] && command -v jq &> /dev/null; then
+        local status=$(jq -r '.status // "unknown"' "$status_file" 2>/dev/null || echo "unknown")
+        local reason=$(jq -r '.reason // ""' "$status_file" 2>/dev/null || echo "")
+        echo "${status}|${reason}"
+    else
+        echo "unknown|"
+    fi
+}
+
+# Function to generate status banner HTML for failed/skipped scans
+generate_status_banner() {
+    local status="$1"
+    local reason="$2"
+    local tool_name="$3"
+    
+    if [ "$status" = "failed" ]; then
+        echo "<div class=\"stats-detail-box\" style=\"background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); border-left: 4px solid #dc2626; margin-bottom: 15px;\">"
+        echo "<h4 style=\"color: #991b1b;\">❌ Scan Failed</h4>"
+        echo "<p style=\"color: #7f1d1d; margin: 8px 0;\"><strong>Reason:</strong> ${reason:-Unknown error}</p>"
+        echo "<p style=\"color: #7f1d1d; font-size: 0.9em;\">The $tool_name scan did not complete successfully. Check the scan logs for details.</p>"
+        echo "</div>"
+    elif [ "$status" = "skipped" ]; then
+        echo "<div class=\"stats-detail-box\" style=\"background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-left: 4px solid #f59e0b; margin-bottom: 15px;\">"
+        echo "<h4 style=\"color: #92400e;\">⏭️ Scan Skipped</h4>"
+        echo "<p style=\"color: #78350f; margin: 8px 0;\"><strong>Reason:</strong> ${reason:-Not applicable to this project}</p>"
+        echo "<p style=\"color: #78350f; font-size: 0.9em;\">This scan was skipped for this project.</p>"
+        echo "</div>"
+    fi
+}
+
 # ---- TruffleHog Statistics ----
-TH_FILE="${LATEST_SCAN}/trufflehog/trufflehog-filesystem-results.json"
+TH_DIR="${LATEST_SCAN}/trufflehog"
+TH_FILE="$TH_DIR/trufflehog-filesystem-results.json"
 TH_FILES_SCANNED=0
 TH_TOTAL_FINDINGS=0
 TH_VERIFIED=0
@@ -200,6 +237,14 @@ TH_FILES_WITH_FINDINGS=0
 TH_CRITICAL=0
 TH_HIGH=0
 TH_FINDINGS=""
+TH_STATUS="unknown"
+TH_STATUS_REASON=""
+
+# Check tool status first
+if [ -d "$TH_DIR" ]; then
+    IFS='|' read -r TH_STATUS TH_STATUS_REASON <<< "$(check_tool_status "$TH_DIR")"
+fi
+
 if [ -f "$TH_FILE" ]; then
     # Count only actual findings (lines with DetectorName), not log entries
     set +o pipefail
@@ -2330,6 +2375,14 @@ cat >> "$OUTPUT_HTML" << EOF
                 </div>
                 <div class="tool-content" id="trufflehog-content">
                     <div class="tool-findings">
+EOF
+
+# Show status banner if failed or skipped
+if [ "$TH_STATUS" = "failed" ] || [ "$TH_STATUS" = "skipped" ]; then
+    generate_status_banner "$TH_STATUS" "$TH_STATUS_REASON" "TruffleHog" >> "$OUTPUT_HTML"
+fi
+
+cat >> "$OUTPUT_HTML" << EOF
                         <div class="stats-detail-box">
                             <h4>📊 Scan Statistics</h4>
                             <div class="stats-grid-small">

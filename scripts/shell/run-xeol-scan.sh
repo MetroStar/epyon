@@ -209,30 +209,11 @@ else
 fi
 
 IMAGES_SCANNED=0
-for image in "${BASE_IMAGES[@]}"; do
-    if command -v docker &> /dev/null; then
-        echo -e "${BLUE}📦 Scanning base image: $image${NC}"
-        
-        # Check if image exists locally first
-        if docker image inspect "$image" &>/dev/null; then
-            echo "   ✅ Using cached image"
-        else
-            echo "   ⏬ Pulling image..."
-            if ! docker pull "$image" >> "$SCAN_LOG" 2>&1; then
-                echo "   ⚠️ Pull failed - skipping this image"
-                continue
-            fi
-        fi
-        
-        image_name=$(echo $image | tr ':/' '-')
-        output_file="${SCAN_ID}_xeol-base-${image_name}-results.json"
-        scan_target "image" "$image" "$output_file"
-        
-        # Create current symlink for easy access
-        ln -sf "$output_file" "$OUTPUT_DIR/xeol-base-$image_name-results.json" 2>/dev/null
-        IMAGES_SCANNED=$((IMAGES_SCANNED + 1))
-    fi
-done
+# Skip image scanning for now - focus on filesystem scanning
+# Base image scanning can be enabled if needed, but requires accessible images
+echo -e "${YELLOW}ℹ️  Skipping base image scanning - focusing on filesystem analysis${NC}"
+echo -e "   ${CYAN}Note: To scan base images, ensure they are pulled/accessible first${NC}"
+echo
 
 # Always scan the target filesystem
 if [ -d "$REPO_PATH" ]; then

@@ -17,6 +17,7 @@ init_scan_environment() {
     # Use centralized scan directory structure
     OUTPUT_DIR="$SCAN_DIR/$tool_name"
     SCAN_LOG="$SCAN_DIR/$tool_name/scan.log"
+    SCAN_STATUS_FILE="$SCAN_DIR/$tool_name/status.json"
     
     # Create tool-specific directory within scan
     mkdir -p "$OUTPUT_DIR"
@@ -27,6 +28,30 @@ init_scan_environment() {
     # Export for use in tool script
     export OUTPUT_DIR
     export SCAN_LOG
+    export SCAN_STATUS_FILE
+}
+
+# Function to record scan status (success, failure, skipped)
+# Usage: record_scan_status <status> [reason]
+# Status: "success", "failed", "skipped"
+record_scan_status() {
+    local status="$1"
+    local reason="${2:-}"
+    local tool_name=$(basename "$(dirname "$SCAN_STATUS_FILE")")
+    
+    if [[ -z "$SCAN_STATUS_FILE" ]]; then
+        echo "⚠️  WARNING: SCAN_STATUS_FILE not set, cannot record status"
+        return 1
+    fi
+    
+    cat > "$SCAN_STATUS_FILE" <<EOF
+{
+  "tool": "$tool_name",
+  "status": "$status",
+  "reason": "$reason",
+  "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+}
+EOF
 }
 
 # Function to create result files with proper naming

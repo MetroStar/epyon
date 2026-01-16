@@ -803,6 +803,22 @@ find scans/ -name "security-dashboard.html" | sort -r
 ✅ **Tool-Specific Details** - Per-tool vulnerability breakdowns  
 ✅ **Self-Contained** - Each scan has its own complete dashboard  
 ✅ **Historical Analysis** - Compare dashboards across scan runs  
+✅ **Graceful Degradation** - Tools show skip status when not configured
+
+#### Understanding Dashboard Status Messages
+
+| Message | Meaning | Action |
+|---------|---------|--------|
+| **"No [Tool] data available"** | Tool was not run or skipped due to missing configuration | Check scan logs or ensure tool prerequisites are met |
+| **"SonarQube Analysis Skipped"** | `.env.sonar` not found or authentication not provided | Create `.env.sonar` with credentials to enable |
+| **"✅ Analysis complete"** | Tool ran successfully | Review findings in expandable section |
+| **"❌ [Count] findings"** | Tool found security issues | Expand section to see details |
+
+**Common Skip Reasons:**
+- **SonarQube**: No `.env.sonar` file or missing `SONAR_TOKEN`
+- **Helm**: No `Chart.yaml` found in target directory
+- **All tools**: Missing `SCAN_DIR` environment variable (if running standalone)
+- **All tools**: Docker not running or not available  
 
 #### Scan Management
 ```bash
@@ -818,5 +834,77 @@ tar -czf archive.tar.gz scans/comet_rnelson_2025-11-*
 
 # Remove scans older than 30 days
 find scans/ -type d -mtime +30 -name "*_rnelson_*" -exec rm -rf {} \;
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### Dashboard Shows "No Data Available"
+
+If a security tool shows "No data available" in the dashboard, check:
+
+1. **Scan Logs**: Look in `scans/{scan_id}/[tool]/` for scan logs
+2. **Docker Status**: Ensure Docker is running (`docker info`)
+3. **Tool Configuration**: 
+   - SonarQube requires `.env.sonar` with credentials
+   - Helm requires `Chart.yaml` in target directory
+4. **Scan Type**: Some tools only run with specific scan types (e.g., `full` vs `quick`)
+5. **Manual Check**: Try running the tool individually:
+   ```bash
+   TARGET_DIR="/path/to/project" ./scripts/shell/run-[tool]-scan.sh
+   ```
+
+### SonarQube Skipped
+
+**Symptom**: Dashboard shows "SonarQube Analysis Skipped"  
+**Cause**: No `.env.sonar` configuration file found  
+**Solution**:
+```bash
+# Create .env.sonar in one of these locations:
+# 1. Project directory: /path/to/project/.env.sonar
+# 2. Home directory: ~/.env.sonar
+
+cat > ~/.env.sonar << 'EOF'
+export SONAR_HOST_URL='https://your-sonarqube-server.com'
+export SONAR_TOKEN='your_token_here'
+EOF
+
+# Re-run the scan
+./scripts/shell/run-target-security-scan.sh "/path/to/project" full
+```
+
+### Tool Won't Run
+
+**Check Prerequisites**:
+```bash
+# Verify Docker is running
+docker info
+
+# Check Docker images
+docker images | grep -E "trivy|grype|clamav|checkov"
+
+# Test Docker pull access
+docker pull anchore/grype:latest
+
+# Verify scan directory structure
+echo "SCAN_DIR should be set: ${SCAN_DIR}"
+ls -la "${SCAN_DIR}"
+```
+
+### Getting Detailed Logs
+
+Each tool writes detailed logs to its subdirectory:
+```bash
+# Find your latest scan
+LATEST_SCAN=$(ls -td scans/*/ 2>/dev/null | head -n 1)
+
+# View tool-specific logs
+cat "${LATEST_SCAN}trivy/trivy-scan.log"
+cat "${LATEST_SCAN}grype/grype-scan.log"  
+cat "${LATEST_SCAN}sonar/sonar-scan.log"
+
+# Check for errors
+grep -i error "${LATEST_SCAN}"*/scan.log
 ```
 

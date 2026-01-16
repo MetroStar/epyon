@@ -281,6 +281,61 @@ if [ -z "$SONAR_TOKEN" ]; then
         echo "============================================"
         echo "[OK] SonarQube analysis skipped successfully!"
         echo "============================================"
+        
+        # Create a skip status file for dashboard
+        cat > "$OUTPUT_DIR/status.json" << EOL
+{
+  "status": "skipped",
+  "reason": "No SonarQube authentication configured",
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "config_checked": ["$REPO_PATH/.env.sonar", "$HOME/.env.sonar"]
+}
+EOL
+        
+        # Create minimal results file for dashboard
+        cat > "$OUTPUT_DIR/${SCAN_ID}_sonar-analysis-results.json" << EOL
+{
+  "project": "${PROJECT_KEY:-unknown}",
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "host": "N/A",
+  "sources": "$REPO_PATH",
+  "test_results": {
+    "total_tests": 0,
+    "passed_tests": 0,
+    "skipped_tests": 0,
+    "failed_tests": 0
+  },
+  "coverage": {
+    "statement_coverage": "N/A",
+    "branch_coverage": "N/A",
+    "function_coverage": "N/A",
+    "line_coverage": "N/A",
+    "files_covered": 0,
+    "total_source_files": 0,
+    "estimated_coverable_lines": 0,
+    "total_source_lines": 0,
+    "coverage_methodology": "N/A",
+    "duplications_percent": "N/A"
+  },
+  "issues": {
+    "bugs": 0,
+    "vulnerabilities": 0,
+    "code_smells": 0,
+    "security_hotspots": 0
+  },
+  "quality_metrics": {
+    "reliability_rating": "N/A",
+    "security_rating": "N/A",
+    "maintainability_rating": "N/A",
+    "coverage_rating": "N/A"
+  },
+  "status": "SKIPPED",
+  "skip_reason": "No SonarQube authentication configured (.env.sonar not found)",
+  "analysis_mode": "skipped"
+}
+EOL
+        
+        echo "[INFO] Skip status saved for dashboard"
         exit 0
       fi
       
@@ -328,6 +383,63 @@ if [ -z "$SONAR_TOKEN" ]; then
     echo "[OK] Security pipeline continues with other layers"
     echo "💡 For complete analysis, configure SonarQube authentication"
     echo ""
+    
+    # Create a skip status file for dashboard
+    cat > "$OUTPUT_DIR/status.json" << EOL
+{
+  "status": "skipped",
+  "reason": "User chose to skip SonarQube analysis",
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "config_checked": ["$REPO_PATH/.env.sonar", "$HOME/.env.sonar"]
+}
+EOL
+    
+    # Create minimal results file for dashboard
+    cat > "$OUTPUT_DIR/${SCAN_ID}_sonar-analysis-results.json" << EOL
+{
+  "project": "${PROJECT_KEY:-unknown}",
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "host": "N/A",
+  "sources": "$REPO_PATH",
+  "test_results": {
+    "total_tests": 0,
+    "passed_tests": 0,
+    "skipped_tests": 0,
+    "failed_tests": 0
+  },
+  "coverage": {
+    "statement_coverage": "N/A",
+    "branch_coverage": "N/A",
+    "function_coverage": "N/A",
+    "line_coverage": "N/A",
+    "files_covered": 0,
+    "total_source_files": 0,
+    "estimated_coverable_lines": 0,
+    "total_source_lines": 0,
+    "coverage_methodology": "N/A",
+    "duplications_percent": "N/A"
+  },
+  "issues": {
+    "bugs": 0,
+    "vulnerabilities": 0,
+    "code_smells": 0,
+    "security_hotspots": 0
+  },
+  "quality_metrics": {
+    "reliability_rating": "N/A",
+    "security_rating": "N/A",
+    "maintainability_rating": "N/A",
+    "coverage_rating": "N/A"
+  },
+  "status": "SKIPPED",
+  "skip_reason": "User chose to skip - no authentication provided",
+  "analysis_mode": "skipped"
+}
+EOL
+    
+    echo "[INFO] Skip status saved for dashboard"
+    exit 0
+  fi
     echo "📁 Output Files:"
     echo "================"
     echo "[INFO] No SonarQube reports generated (authentication required)"

@@ -900,7 +900,23 @@ if [ -f "$LATEST_SONAR" ]; then
         SONAR_PROJECT_URL="${SONAR_HOST_URL%/}/dashboard?id=${SONAR_PROJECT_KEY}"
     fi
     
-    if [ "$SONAR_STATUS" = "NO_PROJECT_DETECTED" ]; then
+    if [ "$SONAR_STATUS" = "SKIPPED" ]; then
+        SONAR_SKIP_REASON=$(jq -r '.skip_reason // "Configuration not found"' "$LATEST_SONAR" 2>/dev/null || echo "Configuration not found")
+        SONAR_FINDINGS="<div class=\"stats-detail-box\" style=\"background:linear-gradient(135deg, #1a1d23 0%, #2C3539 100%);border:2px solid #f59e0b;box-shadow:0 4px 12px rgba(245, 158, 11, 0.3);\">"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<h4 style=\"color:#f59e0b;margin-bottom:10px;\">⚠️ SonarQube Analysis Skipped</h4>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<p style=\"color:#fbbf24;margin:10px 0;\">Reason: ${SONAR_SKIP_REASON}</p>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<div style=\"margin-top:15px;padding:15px;background:#1f2937;border-left:4px solid #f59e0b;border-radius:4px;\">"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<p style=\"margin:5px 0;color:#d1d5db;\"><strong>To enable SonarQube analysis:</strong></p>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<ol style=\"margin:10px 0;padding-left:20px;color:#d1d5db;\">"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<li>Create <code>.env.sonar</code> file with authentication</li>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<li>Set <code>SONAR_HOST_URL</code> and <code>SONAR_TOKEN</code></li>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<li>Re-run the security scan</li>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}</ol>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}</div>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}</div>"
+        SONAR_CRITICAL=0
+        SONAR_HIGH=0
+    elif [ "$SONAR_STATUS" = "NO_PROJECT_DETECTED" ]; then
         SONAR_FINDINGS="<p class=\"no-findings\">No SonarQube project detected</p>"
         SONAR_CRITICAL=0
         SONAR_HIGH=0
@@ -953,7 +969,18 @@ if [ -f "$LATEST_SONAR" ]; then
 else
     SONAR_CRITICAL=0
     SONAR_HIGH=0
-    SONAR_FINDINGS="<p class=\"no-findings\">No SonarQube data available</p>"
+    SONAR_FINDINGS="<div class=\"stats-detail-box\" style=\"background:linear-gradient(135deg, #1a1d23 0%, #2C3539 100%);border:2px solid #6b7280;box-shadow:0 4px 12px rgba(107, 114, 128, 0.3);\">"
+    SONAR_FINDINGS="${SONAR_FINDINGS}<h4 style=\"color:#9ca3af;margin-bottom:10px;\">📊 SonarQube Not Configured</h4>"
+    SONAR_FINDINGS="${SONAR_FINDINGS}<p style=\"color:#d1d5db;margin:10px 0;\">No SonarQube analysis was performed for this scan.</p>"
+    SONAR_FINDINGS="${SONAR_FINDINGS}<div style=\"margin-top:15px;padding:15px;background:#1f2937;border-left:4px solid #6b7280;border-radius:4px;\">"
+    SONAR_FINDINGS="${SONAR_FINDINGS}<p style=\"margin:5px 0;color:#d1d5db;\"><strong>To enable code quality analysis:</strong></p>"
+    SONAR_FINDINGS="${SONAR_FINDINGS}<ol style=\"margin:10px 0;padding-left:20px;color:#d1d5db;\">"
+    SONAR_FINDINGS="${SONAR_FINDINGS}<li>Set up SonarQube server or use existing instance</li>"
+    SONAR_FINDINGS="${SONAR_FINDINGS}<li>Create <code>.env.sonar</code> with authentication credentials</li>"
+    SONAR_FINDINGS="${SONAR_FINDINGS}<li>Run scan to include code quality metrics</li>"
+    SONAR_FINDINGS="${SONAR_FINDINGS}</ol>"
+    SONAR_FINDINGS="${SONAR_FINDINGS}</div>"
+    SONAR_FINDINGS="${SONAR_FINDINGS}</div>"
 fi
 
 # ---- Helm Statistics ----

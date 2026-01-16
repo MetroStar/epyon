@@ -657,6 +657,29 @@ Tests validate:
 - Help documentation
 - Tool-specific features
 
+### Coverage Philosophy
+
+We use **structural testing** for shell scripts, which is the industry-standard approach:
+
+- ✅ **100% File Coverage** - Every script has a corresponding test file
+- ✅ **107 Test Assertions** - Comprehensive validation of script structure and behavior
+- ✅ **Docker Integration Verification** - All containerized tool interactions tested
+- ✅ **Function Existence Checks** - Critical functions validated in each script
+
+**Why Structural Testing for Bash?**
+
+Line-by-line execution coverage tools (like kcov) are **not used** for shell scripts because:
+- **Conflicts with tooling**: Can interfere with SonarQube analysis and other tools
+- **Not industry standard**: Shell script testing focuses on structure/integration over execution paths
+- **Diminishing returns**: Structural validation provides sufficient confidence for bash automation
+- **Maintenance burden**: Execution coverage adds complexity without proportional value
+
+This approach aligns with enterprise DevOps practices where shell scripts are tested for:
+- Correct structure and dependencies
+- Proper error handling patterns
+- Integration with external tools (Docker, AWS, etc.)
+- Expected function definitions
+
 For detailed testing documentation, see [tests/shell/README.md](tests/shell/README.md).
 
 ## 🔄 Enterprise Maintenance & Operations

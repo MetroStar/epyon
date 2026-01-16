@@ -115,7 +115,7 @@ git log --all --full-history -- "**/chart/values.yaml"
 # Check current AWS RDS instances
 aws rds describe-db-instances --region us-gov-west-1
 
-# Test database connection (SAFE EXAMPLE - Placeholder values only, not real credentials)
-# Replace with actual connection string from secure secrets manager
-psql "postgresql://EXAMPLE_USER:EXAMPLE_PASS@example-db-host.us-east-1.rds.amazonaws.com:5432/example_db"
+# Test database connection format (template - substitute actual values from secrets manager):
+# psql "postgresql://<USERNAME>:<PASSWORD>@<DB_HOST>:<PORT>/<DATABASE_NAME>"
+# Example: psql "postgresql://myuser:mypass@prod-db.us-east-1.rds.amazonaws.com:5432/appdb"
 ```

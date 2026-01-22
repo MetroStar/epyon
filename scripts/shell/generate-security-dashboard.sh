@@ -2713,6 +2713,35 @@ cat >> "$OUTPUT_HTML" << EOF
                                 <div class="stat-item"><strong>Total Packages Cataloged:</strong> ${SBOM_PACKAGES}</div>
                             </div>
                         </div>
+                        
+                        <!-- SBOM Export Section -->
+                        <div style="background: linear-gradient(135deg, #1e3a5f 0%, #152a3f 100%); border-radius: 12px; padding: 20px; margin: 20px 0; box-shadow: 0 4px 20px rgba(0,0,0,0.4); border: 1px solid #3b82f6;">
+                            <div style="margin-bottom: 15px;">
+                                <h4 style="margin: 0 0 8px 0; color: white; font-size: 1.1em;">💾 Export SBOM</h4>
+                                <p style="margin: 0; color: #93c5fd; font-size: 0.9em;">Download SBOM in standard formats for compliance and integration</p>
+                            </div>
+                            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                <button onclick="exportSBOM('cyclonedx-json')" style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(59,130,246,0.3);" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(59,130,246,0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(59,130,246,0.3)'">
+                                    <span style="margin-right: 6px;">🔄</span> CycloneDX JSON
+                                </button>
+                                <button onclick="exportSBOM('cyclonedx-xml')" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(139,92,246,0.3);" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(139,92,246,0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(139,92,246,0.3)'">
+                                    <span style="margin-right: 6px;">📄</span> CycloneDX XML
+                                </button>
+                                <button onclick="exportSBOM('spdx-json')" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(16,185,129,0.3);" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(16,185,129,0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(16,185,129,0.3)'">
+                                    <span style="margin-right: 6px;">📋</span> SPDX JSON
+                                </button>
+                                <button onclick="exportSBOM('all')" style="background: linear-gradient(135deg, #C41E3A 0%, #8B1328 100%); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(196,30,58,0.3);" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(196,30,58,0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(196,30,58,0.3)'">
+                                    <span style="margin-right: 6px;">💾</span> Export All Formats
+                                </button>
+                            </div>
+                            <div id="sbom-export-status" style="margin-top: 15px; padding: 12px; border-radius: 6px; display: none;">
+                                <!-- Export status messages will appear here -->
+                            </div>
+                            <div style="margin-top: 12px; padding: 10px; background: rgba(59,130,246,0.15); border-left: 3px solid #3b82f6; border-radius: 4px; font-size: 0.85em; color: #bfdbfe;">
+                                <strong>💡 Note:</strong> Clicking export will generate files and prompt you to save them to your chosen location.
+                            </div>
+                        </div>
+                        
                         ${SBOM_FINDINGS}
                     </div>
                 </div>
@@ -3209,6 +3238,100 @@ cat >> "$OUTPUT_HTML" << EOF
             // Update results bar
             const totalPackages = document.querySelectorAll('.sbom-package-item').length;
             updateSBOMResultsBar(totalPackages, false);
+        }
+        
+        // SBOM Export Function - opens Desktop folder with exported files
+        function exportSBOM(format) {
+            const statusDiv = document.getElementById('sbom-export-status');
+            const scanId = '$SCAN_NAME';
+            const desktopFolder = '~/Desktop/sboms';
+            
+            // Show message
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = 'linear-gradient(135deg, #065f46 0%, #064e3b 100%)';
+            statusDiv.style.border = '1px solid #10b981';
+            
+            // Define file mappings
+            const formats = {
+                'cyclonedx-json': { ext: 'cyclonedx.json', name: 'CycloneDX JSON', tools: 'Dependency-Track, OWASP OSS Index, Snyk, JFrog Xray' },
+                'cyclonedx-xml': { ext: 'cyclonedx.xml', name: 'CycloneDX XML', tools: 'Dependency-Track, JFrog Xray' },
+                'spdx-json': { ext: 'spdx.json', name: 'SPDX JSON', tools: 'GitHub Dependency Graph, Snyk, BlackDuck' },
+                'spdx-tag-value': { ext: 'spdx', name: 'SPDX Tag-Value', tools: 'Linux Foundation tools, SPDX validators' }
+            };
+            
+            if (format === 'all') {
+                // Show all format options
+                statusDiv.innerHTML = \`
+                    <div style="color: white;">
+                        <div style="font-size: 1.2em; margin-bottom: 12px;">
+                            <span style="margin-right: 8px;">📦</span><strong>Download SBOM Exports</strong>
+                        </div>
+                        <div style="margin: 12px 0; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 6px;">
+                            <div style="font-size: 0.9em; color: #d1fae5; margin-bottom: 8px;">
+                                <strong>📂 Location:</strong> <code style="background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 3px;">\${desktopFolder}</code>
+                            </div>
+                            <div style="font-size: 0.85em; color: #d1fae5;">
+                                All SBOM formats have been exported to your Desktop in the <strong>sboms</strong> folder.
+                            </div>
+                        </div>
+                        <div style="margin: 12px 0; display: grid; gap: 8px;">
+                            <button onclick="exportSBOM('cyclonedx-json')" style="background: #3b82f6; color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; text-align: left; transition: all 0.2s;">
+                                📄 sbom-\${scanId}.cyclonedx.json
+                            </button>
+                            <button onclick="exportSBOM('cyclonedx-xml')" style="background: #8b5cf6; color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; text-align: left; transition: all 0.2s;">
+                                📄 sbom-\${scanId}.cyclonedx.xml
+                            </button>
+                            <button onclick="exportSBOM('spdx-json')" style="background: #10b981; color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; text-align: left; transition: all 0.2s;">
+                                📄 sbom-\${scanId}.spdx.json
+                            </button>
+                            <button onclick="exportSBOM('spdx-tag-value')" style="background: #f59e0b; color: white; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; text-align: left; transition: all 0.2s;">
+                                📄 sbom-\${scanId}.spdx
+                            </button>
+                        </div>
+                        <div style="margin-top: 12px; text-align: center;">
+                            <button onclick="window.open('file:///Users/$USER/Desktop/sboms')" 
+                                    style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1em;">
+                                📂 Open sboms Folder on Desktop
+                            </button>
+                        </div>
+                    </div>
+                \`;
+            } else {
+                const formatInfo = formats[format];
+                if (!formatInfo) {
+                    statusDiv.style.background = 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)';
+                    statusDiv.innerHTML = '<div style="color: white;">❌ Unknown format: ' + format + '</div>';
+                    return;
+                }
+                
+                const fileName = 'sbom-' + scanId + '.' + formatInfo.ext;
+                
+                // Show file info and location
+                statusDiv.innerHTML = \`
+                    <div style="color: white;">
+                        <div style="font-size: 1.1em; margin-bottom: 8px;">
+                            <span style="margin-right: 8px;">✅</span><strong>\${formatInfo.name}</strong>
+                        </div>
+                        <div style="margin: 10px 0; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 6px;">
+                            <div style="font-size: 0.9em; color: #d1fae5; margin-bottom: 8px;">
+                                <strong>📄 File:</strong> <code style="background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 3px;">\${fileName}</code>
+                            </div>
+                            <div style="font-size: 0.9em; color: #d1fae5; margin-bottom: 8px;">
+                                <strong>📂 Location:</strong> <code style="background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 3px;">\${desktopFolder}</code>
+                            </div>
+                            <div style="font-size: 0.85em; color: #d1fae5;">
+                                <strong>🔧 Compatible Tools:</strong> \${formatInfo.tools}
+                            </div>
+                        </div>
+                        <div style="margin-top: 12px; text-align: center;">
+                            <button onclick="window.open('file:///Users/$USER/Desktop/sboms')" 
+                                    style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 1em;">
+                                📂 Open sboms Folder on Desktop
+                            </button>
+                        </div>
+                    </div>
+                \`;
+            }
         }
         
         // Trivy-specific filters

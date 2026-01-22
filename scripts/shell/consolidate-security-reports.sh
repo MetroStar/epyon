@@ -562,6 +562,28 @@ consolidate_tool_reports "Xeol" "$SCAN_DIR/xeol" "*.json"
 consolidate_tool_reports "SBOM" "$SCAN_DIR/sbom" "*.json"
 consolidate_tool_reports "Anchore" "$SCAN_DIR/anchore" "*.json"
 
+# Generate SBOM exports for dashboard download buttons
+if [ -d "$SCAN_DIR/sbom" ]; then
+    SBOM_JSON=$(find "$SCAN_DIR/sbom" -maxdepth 1 -name "*.json" | head -1)
+    if [ -f "$SBOM_JSON" ]; then
+        echo -e "${PURPLE}📦 Generating SBOM exports for dashboard...${NC}"
+        EXPORT_SCRIPT="$SCRIPT_DIR/export-sbom.sh"
+        if [ -f "$EXPORT_SCRIPT" ]; then
+            # Extract scan ID from SCAN_DIR path
+            SCAN_ID=$(basename "$SCAN_DIR")
+            # Generate all export formats and copy to Desktop
+            "$EXPORT_SCRIPT" -f all --desktop "$SCAN_ID" > /dev/null 2>&1
+            if [ $? -eq 0 ]; then
+                EXPORT_COUNT=$(find "$SCAN_DIR/sbom/exports" -type f 2>/dev/null | wc -l | tr -d ' ')
+                echo -e "${GREEN}✓ Generated $EXPORT_COUNT SBOM export formats${NC}"
+                echo -e "${GREEN}✓ SBOM files copied to ~/Desktop/sboms/${NC}"
+            else
+                echo -e "${YELLOW}⚠️  SBOM export generation failed (files will be generated on-demand)${NC}"
+            fi
+        fi
+    fi
+fi
+
 # Generate comprehensive security dashboard
 echo -e "${PURPLE}📈 Generating interactive security dashboard...${NC}"
 

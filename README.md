@@ -694,6 +694,85 @@ To achieve comprehensive AI/ML security coverage, Epyon will integrate:
 5. **ML Model Security**: Store trained models separately from code repositories
 6. **LLM API Security**: Rotate API keys regularly, use scoped permissions
 7. **Code Review**: Use SonarQube quality gates for Python code
+8. **SBOM Compliance**: Export SBOM in standard formats for supply chain security
+
+### 📦 SBOM Export & Integration
+
+Epyon generates comprehensive Software Bill of Materials (SBOM) with support for industry-standard export formats.
+
+#### Supported Export Formats
+
+| Format | File Extension | Compatible Tools |
+|--------|---------------|------------------|
+| **CycloneDX JSON** | `.cyclonedx.json` | Dependency-Track, OWASP OSS Index, Snyk, JFrog Xray, GitLab Security |
+| **CycloneDX XML** | `.cyclonedx.xml` | Dependency-Track, JFrog Xray |
+| **SPDX JSON** | `.spdx.json` | GitHub Dependency Graph, Snyk, BlackDuck, Syft |
+| **SPDX Tag-Value** | `.spdx` | Linux Foundation tools, SPDX validators |
+
+#### Export Commands
+
+```bash
+# Export latest scan in all formats
+./scripts/shell/export-sbom.sh
+
+# Export specific scan in CycloneDX JSON
+./scripts/shell/export-sbom.sh -f cyclonedx-json midas_rnelson_2026-01-22_07-44-58
+
+# Export to custom directory
+./scripts/shell/export-sbom.sh -o /tmp/sbom-exports
+
+# View export options
+./scripts/shell/export-sbom.sh --help
+```
+
+#### Dashboard Export Buttons
+
+The interactive security dashboard includes one-click SBOM export buttons:
+
+- **🔄 CycloneDX JSON** - Most widely supported format
+- **📄 CycloneDX XML** - Enterprise tool compatibility
+- **📋 SPDX JSON** - GitHub integration
+- **💾 Export All Formats** - Generate all formats simultaneously
+
+Exported SBOMs are saved to: `scans/{scan_id}/sbom/exports/`
+
+#### Integration Examples
+
+**Dependency-Track (Vulnerability Analysis):**
+```bash
+curl -X POST https://dependency-track.example.com/api/v1/bom \
+  -H "X-Api-Key: YOUR_API_KEY" \
+  -F "project=PROJECT_UUID" \
+  -F "bom=@scans/midas_rnelson_2026-01-22/sbom/exports/sbom.cyclonedx.json"
+```
+
+**GitHub Dependency Graph:**
+```bash
+gh api /repos/OWNER/REPO/dependency-graph/snapshots \
+  --method POST \
+  --input scans/midas_rnelson_2026-01-22/sbom/exports/sbom.spdx.json
+```
+
+**Snyk Vulnerability Scanning:**
+```bash
+snyk test --file=scans/midas_rnelson_2026-01-22/sbom/exports/sbom.cyclonedx.json
+```
+
+**JFrog Xray:**
+```bash
+# Import via Xray UI: Settings → SBOM → Upload
+# Select: CycloneDX JSON or SPDX JSON
+```
+
+#### SBOM Features
+
+- **✅ Comprehensive Package Detection**: All Python packages from requirements.txt, requirements.lock, poetry.lock, Pipfile.lock
+- **✅ Multi-Ecosystem Support**: Python, Node.js, Go, Java, Ruby, Rust, OS packages
+- **✅ Version Pinning**: Exact package versions for reproducible builds
+- **✅ License Information**: Software license metadata included
+- **✅ Dependency Relationships**: Package dependency tree mapping
+- **✅ PURL Identifiers**: Package URL (PURL) for universal identification
+- **✅ Compliance Ready**: NTIA Minimum Elements compliant
 
 ### Limitations & Workarounds
 

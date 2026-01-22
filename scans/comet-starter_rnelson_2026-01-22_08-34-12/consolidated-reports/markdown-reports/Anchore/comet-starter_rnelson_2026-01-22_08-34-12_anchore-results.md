@@ -1,0 +1,29 @@
+# Anchore Security Report
+
+**Scan Type:** comet-starter_rnelson_2026-01-22_08-34-12_anchore-results  
+**Generated:** Thu Jan 22 08:35:11 CST 2026  
+
+## Summary
+
+**Total Items:** 1
+
+```json
+{
+  "scan_id": "comet-starter_rnelson_2026-01-22_08-34-12",
+  "target": "/Users/rnelson/Desktop/Side_Projects/epyon/scripts/scans/.tmp-clones/comet-starter-2026-01-22_08-34-12",
+  "timestamp": "2026-01-22T14:35:11Z",
+  "status": "placeholder",
+  "message": "Anchore integration planned for future release",
+  "results": {
+    "vulnerabilities": [],
+    "policy_evaluations": [],
+    "sbom": null,
+    "malware": null
+  },
+  "metadata": {
+    "scanner": "anchore-placeholder",
+    "version": "1.0.0-placeholder",
+    "scan_duration": 0
+  }
+}
+```

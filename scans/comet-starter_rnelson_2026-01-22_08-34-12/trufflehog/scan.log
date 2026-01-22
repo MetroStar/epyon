@@ -1,0 +1,6 @@
+TruffleHog scan started: 2026-01-22_08-34-12
+Target: /Users/rnelson/Desktop/Side_Projects/epyon/scripts/scans/.tmp-clones/comet-starter-2026-01-22_08-34-12
+{"level":"info-0","ts":"2026-01-22T14:34:24Z","logger":"trufflehog","msg":"running source","source_manager_worker_id":"dibW4","with_units":true}
+{"level":"info-0","ts":"2026-01-22T14:34:24Z","logger":"trufflehog","msg":"finished scanning","chunks":217,"bytes":1379724,"verified_secrets":0,"unverified_secrets":0,"scan_duration":"33.207417ms","trufflehog_version":"3.92.5","verification_caching":{"Hits":0,"Misses":0,"HitsWasted":0,"AttemptsSaved":0,"VerificationTimeSpentMS":0}}
+filesystem scan: 6
+11 items

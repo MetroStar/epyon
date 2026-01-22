@@ -1,0 +1,15 @@
+{
+  "scan_id": "comet-starter_rnelson_2026-01-22_08-34-12",
+  "timestamp": "2026-01-22T14:34:43Z",
+  "target_dir": "/Users/rnelson/Desktop/Side_Projects/epyon/scripts/scans/.tmp-clones/comet-starter-2026-01-22_08-34-12",
+  "summary": {
+    "charts_found": 0,
+    "charts_built": 0,
+    "templates_generated": 0,
+    "lint_errors": 0,
+    "lint_warnings": 0
+  },
+  "charts": [
+  ],
+  "status": "success"
+}

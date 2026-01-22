@@ -1,0 +1,20 @@
+Anchore Security Scan Log
+========================
+Scan ID: comet-starter_rnelson_2026-01-22_08-34-12
+Target: /Users/rnelson/Desktop/Side_Projects/epyon/scripts/scans/.tmp-clones/comet-starter-2026-01-22_08-34-12
+Status: Placeholder - Not yet implemented
+Timestamp: Thu Jan 22 08:35:11 CST 2026
+
+Future capabilities:
+- Container image vulnerability scanning
+- Policy compliance checks  
+- Software bill of materials (SBOM)
+- Base image analysis
+- Malware detection
+- Secret scanning in images
+
+Integration planned for:
+- Anchore Engine (open source)
+- Anchore Enterprise (commercial)
+- Syft SBOM generation
+- Grype vulnerability matching

@@ -1,0 +1,6 @@
+{
+  "status": "skipped",
+  "reason": "User chose to skip SonarQube analysis",
+  "timestamp": "2026-01-22T14:34:26Z",
+  "config_checked": ["/Users/rnelson/Desktop/Side_Projects/epyon/scripts/scans/.tmp-clones/comet-starter-2026-01-22_08-34-12/.env.sonar", "/Users/rnelson/.env.sonar"]
+}

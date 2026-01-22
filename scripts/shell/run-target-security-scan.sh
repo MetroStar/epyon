@@ -52,7 +52,7 @@ show_help() {
     echo ""
     echo "Scan Types:"
     echo "  quick       Fast scan - Trivy, TruffleHog, basic checks"
-    echo "  full        Complete scan - All 10 security layers (default)"
+    echo "  full        Complete scan - All 11 security layers (default)"
     echo "  images      Container-focused - Image vulnerability scanning"
     echo "  analysis    Code analysis - SonarQube, Checkov, quality checks"
     echo ""
@@ -67,6 +67,7 @@ show_help() {
     echo "  Layer 8:  Helm Validation"
     echo "  Layer 9:  EOL Detection (Xeol)"
     echo "  Layer 10: Container Analysis (Anchore)"
+    echo "  Layer 11: API Discovery (OpenAPI, REST, GraphQL)"
     echo ""
     echo "Output:"
     echo "  Results saved to: scans/{TARGET}_{USER}_{TIMESTAMP}/"
@@ -537,13 +538,19 @@ case "$SCAN_TYPE" in
     "analysis")
         print_section "Security Analysis & Reporting - Target: $(basename "$TARGET_DIR")"
         
-        # Analysis mode - process existing reports without running new scans
-        echo -e "${BLUE}📊 Processing existing security reports for analysis...${NC}"
-        echo -e "${YELLOW}ℹ️  Analysis mode processes existing scan results without running new scans${NC}"
+        # Analysis mode - code analysis tools only
+        echo -e "${BLUE}📊 Running code analysis and security reporting...${NC}"
+        echo -e "${YELLOW}ℹ️  Analysis mode focuses on code quality and API discovery${NC}"
         echo ""
         
-        # Skip to analysis and consolidation section
-        # The actual analysis will be done in the consolidation section at the end
+        echo -e "${PURPLE}📊 Code Quality Analysis${NC}"
+        run_security_tool "SonarQube Analysis" "$SCRIPT_DIR/run-sonar-analysis.sh"
+        
+        echo -e "${PURPLE}☸️  Infrastructure Security${NC}"
+        run_security_tool "Checkov IaC Security" "$SCRIPT_DIR/run-checkov-scan.sh"
+        
+        echo -e "${PURPLE}🌐 API Discovery${NC}"
+        run_security_tool "API Discovery" "$SCRIPT_DIR/run-api-discovery.sh"
         ;;
         
     "full")
@@ -584,6 +591,9 @@ case "$SCAN_TYPE" in
         
         echo -e "${PURPLE}⚓ Layer 10: Anchore Security Analysis${NC}"
         run_security_tool "Anchore Security Scan" "$SCRIPT_DIR/run-anchore-scan.sh"
+        
+        echo -e "${PURPLE}🌐 Layer 11: API Discovery${NC}"
+        run_security_tool "API Discovery" "$SCRIPT_DIR/run-api-discovery.sh"
         ;;
         
     *)

@@ -1233,6 +1233,150 @@ else
     ANCHORE_FINDINGS="<p class=\"no-findings\">No Anchore data available</p>"
 fi
 
+# ---- API Discovery Statistics ----
+API_DISC_DIR="${LATEST_SCAN}"
+API_DISC_FILE="$API_DISC_DIR/api-discovery.json"
+API_OPENAPI_COUNT=0
+API_PYTHON_COUNT=0
+API_NODEJS_COUNT=0
+API_JAVA_COUNT=0
+API_GRAPHQL_COUNT=0
+API_DOCS_COUNT=0
+API_TOTAL_DISCOVERED=0
+API_FINDINGS=""
+API_STATUS="unknown"
+
+if [ -f "$API_DISC_FILE" ]; then
+    # Parse API discovery results - try summary fields first (new format), fallback to arrays (old format)
+    API_PYTHON_COUNT=$(jq '.summary.python_routes // ([.discovery_methods.code_routes.python[]?] | length)' "$API_DISC_FILE" 2>/dev/null || echo "0")
+    API_NODEJS_COUNT=$(jq '.summary.nodejs_routes // ([.discovery_methods.code_routes.nodejs[]?] | length)' "$API_DISC_FILE" 2>/dev/null || echo "0")
+    API_JAVA_COUNT=$(jq '.summary.java_routes // ([.discovery_methods.code_routes.java[]?] | length)' "$API_DISC_FILE" 2>/dev/null || echo "0")
+    API_OPENAPI_COUNT=$(jq '.summary.total_specs_found // ([.discovery_methods.openapi_specs[]?] | length)' "$API_DISC_FILE" 2>/dev/null || echo "0")
+    API_GRAPHQL_COUNT=$(jq '.summary.graphql_schemas // ([.discovery_methods.graphql_schemas[]?] | length)' "$API_DISC_FILE" 2>/dev/null || echo "0")
+    API_DOCS_COUNT=$(jq '.summary.documentation_patterns // ([.discovery_methods.documentation_endpoints[]?] | length)' "$API_DISC_FILE" 2>/dev/null || echo "0")
+    
+    [[ "$API_OPENAPI_COUNT" =~ ^[0-9]+$ ]] || API_OPENAPI_COUNT=0
+    [[ "$API_PYTHON_COUNT" =~ ^[0-9]+$ ]] || API_PYTHON_COUNT=0
+    [[ "$API_NODEJS_COUNT" =~ ^[0-9]+$ ]] || API_NODEJS_COUNT=0
+    [[ "$API_JAVA_COUNT" =~ ^[0-9]+$ ]] || API_JAVA_COUNT=0
+    [[ "$API_GRAPHQL_COUNT" =~ ^[0-9]+$ ]] || API_GRAPHQL_COUNT=0
+    [[ "$API_DOCS_COUNT" =~ ^[0-9]+$ ]] || API_DOCS_COUNT=0
+    
+    API_TOTAL_DISCOVERED=$((API_OPENAPI_COUNT + API_PYTHON_COUNT + API_NODEJS_COUNT + API_JAVA_COUNT + API_GRAPHQL_COUNT + API_DOCS_COUNT))
+    
+    if [ "$API_TOTAL_DISCOVERED" -gt 0 ]; then
+        API_STATUS="discovered"
+        API_FINDINGS="<div class=\"findings-section\" style=\"margin-top:15px;\">
+            <h4 style=\"color:#0369a1;margin-bottom:10px;\">🌐 Discovered APIs (${API_TOTAL_DISCOVERED})</h4>
+            <p style=\"color:#718096;margin-bottom:15px;font-size:0.9em;\">API endpoints and specifications discovered in the application. These can be targeted for security scanning with tools like OWASP ZAP and Spectral.</p>"
+        
+        # Add OpenAPI/Swagger findings
+        if [ "$API_OPENAPI_COUNT" -gt 0 ]; then
+            while IFS= read -r spec; do
+                spec_path=$(echo "$spec" | jq -r '.path' 2>/dev/null)
+                spec_type=$(echo "$spec" | jq -r '.type // "OpenAPI"' 2>/dev/null)
+                API_FINDINGS="${API_FINDINGS}<div class=\"finding-item\" style=\"border-left:4px solid #0ea5e9;\" onclick=\"toggleFindingDetails(this)\">
+    <div class=\"finding-header\">
+        <span class=\"badge\" style=\"background:#0369a1;color:white;\">📋 ${spec_type}</span>
+        <span class=\"badge\" style=\"background:#e0f2fe;color:#0369a1;\">Specification</span>
+    </div>
+    <div class=\"finding-title\">$(basename "$spec_path")</div>
+    <div class=\"finding-desc\">OpenAPI/Swagger specification file</div>
+    <div class=\"finding-details\" style=\"display:none;\">
+        <div><strong>File:</strong> <code>${spec_path}</code></div>
+        <div><strong>Type:</strong> ${spec_type}</div>
+        <div style=\"margin-top:10px;padding:10px;background:#dbeafe;border-left:3px solid #0ea5e9;\">
+            <strong>🔍 Next Steps:</strong><br/>
+            • Validate with <strong>Spectral</strong> for API security best practices<br/>
+            • Test endpoints with <strong>OWASP ZAP</strong> or <strong>Postman</strong><br/>
+            • Review authentication and authorization schemes
+        </div>
+    </div>
+</div>"
+            done < <(jq -c '.discovery_methods.openapi_specs[]?' "$API_DISC_FILE" 2>/dev/null)
+        fi
+        
+        # Add code route findings
+        if [ "$API_PYTHON_COUNT" -gt 0 ]; then
+            API_FINDINGS="${API_FINDINGS}<div class=\"finding-item\" style=\"border-left:4px solid #10b981;\">
+    <div class=\"finding-header\">
+        <span class=\"badge\" style=\"background:#059669;color:white;\">🐍 Python</span>
+        <span class=\"badge\" style=\"background:#d1fae5;color:#065f46;\">${API_PYTHON_COUNT} Routes</span>
+    </div>
+    <div class=\"finding-title\">Python API Routes (Flask/FastAPI/Django)</div>
+    <div class=\"finding-desc\">${API_PYTHON_COUNT} API routes discovered in Python code</div>
+</div>"
+        fi
+        
+        if [ "$API_NODEJS_COUNT" -gt 0 ]; then
+            API_FINDINGS="${API_FINDINGS}<div class=\"finding-item\" style=\"border-left:4px solid #f59e0b;\">
+    <div class=\"finding-header\">
+        <span class=\"badge\" style=\"background:#d97706;color:white;\">📦 Node.js</span>
+        <span class=\"badge\" style=\"background:#fef3c7;color:#92400e;\">${API_NODEJS_COUNT} Routes</span>
+    </div>
+    <div class=\"finding-title\">Node.js API Routes (Express/Fastify/Koa)</div>
+    <div class=\"finding-desc\">${API_NODEJS_COUNT} API routes discovered in Node.js code</div>
+</div>"
+        fi
+        
+        if [ "$API_JAVA_COUNT" -gt 0 ]; then
+            API_FINDINGS="${API_FINDINGS}<div class=\"finding-item\" style=\"border-left:4px solid #dc2626;\">
+    <div class=\"finding-header\">
+        <span class=\"badge\" style=\"background:#b91c1c;color:white;\">☕ Java</span>
+        <span class=\"badge\" style=\"background:#fee2e2;color:#991b1b;\">${API_JAVA_COUNT} Endpoints</span>
+    </div>
+    <div class=\"finding-title\">Java API Endpoints (Spring Boot/JAX-RS)</div>
+    <div class=\"finding-desc\">${API_JAVA_COUNT} API endpoints discovered in Java code</div>
+</div>"
+        fi
+        
+        if [ "$API_GRAPHQL_COUNT" -gt 0 ]; then
+            API_FINDINGS="${API_FINDINGS}<div class=\"finding-item\" style=\"border-left:4px solid #8b5cf6;\">
+    <div class=\"finding-header\">
+        <span class=\"badge\" style=\"background:#7c3aed;color:white;\">🔷 GraphQL</span>
+        <span class=\"badge\" style=\"background:#ede9fe;color:#5b21b6;\">${API_GRAPHQL_COUNT} Schemas</span>
+    </div>
+    <div class=\"finding-title\">GraphQL Schemas</div>
+    <div class=\"finding-desc\">${API_GRAPHQL_COUNT} GraphQL schema files discovered</div>
+</div>"
+        fi
+        
+        API_FINDINGS="${API_FINDINGS}</div>"
+    else
+        API_STATUS="none"
+        API_FINDINGS="<p class=\"no-findings\">No APIs discovered in target directory</p>
+<div style=\"margin-top:15px;padding:15px;background:#f7fafc;border-radius:8px;border-left:4px solid #4299e1;\">
+    <h5 style=\"color:#2c5282;margin-top:0;\">💡 About API Discovery</h5>
+    <p style=\"color:#2d3748;margin:8px 0;font-size:0.9em;\">
+        This tool searches for API specifications and route definitions in your code. 
+        It looks for:
+    </p>
+    <ul style=\"color:#4a5568;margin:8px 0;padding-left:20px;font-size:0.9em;\">
+        <li><strong>OpenAPI/Swagger</strong> - Specification files (JSON/YAML)</li>
+        <li><strong>REST APIs</strong> - Python (Flask/FastAPI/Django), Node.js (Express), Java (Spring Boot)</li>
+        <li><strong>GraphQL</strong> - Schema definitions and resolvers</li>
+        <li><strong>API Documentation</strong> - Postman collections, API.md files</li>
+    </ul>
+    <p style=\"color:#718096;margin:8px 0;font-size:0.85em;\">
+        <em>No APIs were found in this scan. If your application has APIs, they may use non-standard patterns.</em>
+    </p>
+</div>"
+    fi
+else
+    API_STATUS="not_run"
+    API_FINDINGS="<p class=\"no-findings\">API discovery not run for this scan</p>
+<div style=\"margin-top:15px;padding:15px;background:#fffbeb;border-radius:8px;border-left:4px solid #f59e0b;\">
+    <h5 style=\"color:#92400e;margin-top:0;\">⚠️ API Discovery Not Enabled</h5>
+    <p style=\"color:#78350f;margin:8px 0;font-size:0.9em;\">
+        Run API discovery to identify REST APIs, GraphQL endpoints, and OpenAPI specifications:
+    </p>
+    <pre style=\"background:#fef3c7;padding:10px;border-radius:4px;font-size:0.85em;margin:10px 0;\">./scripts/shell/run-api-discovery.sh /path/to/target</pre>
+    <p style=\"color:#92400e;margin:8px 0;font-size:0.85em;\">
+        <strong>Waypoint 6:</strong> API security scanning integration coming soon with OWASP ZAP, Spectral, and Newman.
+    </p>
+</div>"
+fi
+
 # Calculate totals
 TOTAL_CRITICAL=$((TH_CRITICAL + CLAMAV_CRITICAL + TRIVY_CRITICAL + GRYPE_CRITICAL + SONAR_CRITICAL + CHECKOV_CRITICAL + HELM_CRITICAL + XEOL_CRITICAL + ANCHORE_CRITICAL))
 TOTAL_HIGH=$((TH_HIGH + TRIVY_HIGH + GRYPE_HIGH + SONAR_HIGH + CHECKOV_HIGH + HELM_HIGH + XEOL_HIGH + ANCHORE_HIGH))
@@ -2841,6 +2985,122 @@ cat >> "$OUTPUT_HTML" << EOF
                     </div>
                 </div>
             </div>
+
+            <!-- API Discovery -->
+            <div class="tool-card">
+                <div class="tool-header" onclick="toggleTool('api-discovery')">
+                    <div class="tool-title">
+                        <span class="tool-icon">🌐</span>
+                        <div>
+                            <div>API Discovery</div>
+                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">OpenAPI, REST, GraphQL Detection</div>
+                        </div>
+                    </div>
+                    <div class="tool-stats">
+EOF
+
+# Add API Discovery stats
+if [ "$API_TOTAL_DISCOVERED" -gt 0 ]; then
+    echo "                        <span class=\"tool-stat-badge\" style=\"background: #dbeafe; color: #0369a1;\">🔍 ${API_TOTAL_DISCOVERED}</span>" >> "$OUTPUT_HTML"
+else
+    if [ "$API_STATUS" = "not_run" ]; then
+        echo "                        <span class=\"tool-stat-badge\" style=\"background: #fef3c7; color: #92400e;\">⏭️ Skipped</span>" >> "$OUTPUT_HTML"
+    else
+        echo "                        <span class=\"tool-stat-badge\" style=\"background: #f3f4f6; color: #6b7280;\">0 Found</span>" >> "$OUTPUT_HTML"
+    fi
+fi
+
+cat >> "$OUTPUT_HTML" << EOF
+                        <span class="expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="tool-content" id="api-discovery-content">
+                    <div class="tool-findings">
+                        <div class="stats-detail-box">
+                            <h4>🌐 API Discovery Statistics</h4>
+                            <div class="stats-grid-small">
+                                <div class="stat-item"><strong>OpenAPI/Swagger:</strong> ${API_OPENAPI_COUNT}</div>
+                                <div class="stat-item"><strong>Python Routes:</strong> ${API_PYTHON_COUNT}</div>
+                                <div class="stat-item"><strong>Node.js Routes:</strong> ${API_NODEJS_COUNT}</div>
+                                <div class="stat-item"><strong>Java Endpoints:</strong> ${API_JAVA_COUNT}</div>
+                                <div class="stat-item"><strong>GraphQL Schemas:</strong> ${API_GRAPHQL_COUNT}</div>
+                                <div class="stat-item"><strong>Documentation:</strong> ${API_DOCS_COUNT}</div>
+                            </div>
+                        </div>
+EOF
+
+# Add discovered endpoints list
+if [ "$API_PYTHON_COUNT" -gt 0 ]; then
+    cat >> "$OUTPUT_HTML" << 'EOF'
+                        <div class="stats-detail-box" style="margin-top: 15px;">
+                            <h4>🔍 Discovered API Endpoints</h4>
+EOF
+    
+    # Parse Python routes from JSON
+    if [ -f "$API_DISC_FILE" ]; then
+        endpoints=$(jq -r '.discovery_methods.code_routes.python[]? | "\(.method)|\(.path)|\(.framework)|\(.file)"' "$API_DISC_FILE" 2>/dev/null)
+        
+        if [ -n "$endpoints" ]; then
+            cat >> "$OUTPUT_HTML" << 'EOF'
+                            <div style="max-height: 400px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px;">
+                                <table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
+                                    <thead style="position: sticky; top: 0; background: #f7fafc; border-bottom: 2px solid #cbd5e0;">
+                                        <tr>
+                                            <th style="padding: 10px; text-align: left; font-weight: 600; color: #2d3748;">Method</th>
+                                            <th style="padding: 10px; text-align: left; font-weight: 600; color: #2d3748;">Path</th>
+                                            <th style="padding: 10px; text-align: left; font-weight: 600; color: #2d3748;">Framework</th>
+                                            <th style="padding: 10px; text-align: left; font-weight: 600; color: #2d3748;">File</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+EOF
+            
+            # Output each endpoint as a table row
+            echo "$endpoints" | while IFS='|' read -r method path framework file; do
+                if [ -n "$method" ] && [ -n "$path" ]; then
+                    # Determine method badge color
+                    method_color="#10b981"  # green for GET
+                    case "$method" in
+                        POST) method_color="#3b82f6" ;;    # blue
+                        PUT) method_color="#f59e0b" ;;     # orange
+                        DELETE) method_color="#ef4444" ;;  # red
+                        PATCH) method_color="#8b5cf6" ;;   # purple
+                    esac
+                    
+                    # Extract just the filename from full path
+                    filename=$(basename "$file" 2>/dev/null || echo "$file")
+                    
+                    cat >> "$OUTPUT_HTML" << EOF_ENDPOINT
+                                        <tr style="border-bottom: 1px solid #e2e8f0;">
+                                            <td style="padding: 10px;">
+                                                <span style="display: inline-block; padding: 4px 10px; background: ${method_color}; color: white; border-radius: 4px; font-weight: 600; font-size: 0.85em;">${method}</span>
+                                            </td>
+                                            <td style="padding: 10px; font-family: monospace; color: #2563eb;">${path}</td>
+                                            <td style="padding: 10px; color: #6b7280;">${framework}</td>
+                                            <td style="padding: 10px; font-size: 0.85em; color: #6b7280;" title="${file}">${filename}</td>
+                                        </tr>
+EOF_ENDPOINT
+                fi
+            done
+            
+            cat >> "$OUTPUT_HTML" << 'EOF'
+                                    </tbody>
+                                </table>
+                            </div>
+EOF
+        fi
+    fi
+    
+    cat >> "$OUTPUT_HTML" << 'EOF'
+                        </div>
+EOF
+fi
+
+cat >> "$OUTPUT_HTML" << EOF
+                        ${API_FINDINGS}
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="footer">
@@ -2849,7 +3109,7 @@ cat >> "$OUTPUT_HTML" << EOF
             </p>
             <p style="color: #a0aec0; font-size: 0.9em;">
                 Total Findings: <strong style="color: #2d3748;">${TOTAL_FINDINGS}</strong> • 
-                Tools: <strong style="color: #2d3748;">10</strong> • 
+                Tools: <strong style="color: #2d3748;">11</strong> • 
                 Files Scanned: <strong style="color: #2d3748;">${CLAMAV_FILES_SCANNED}</strong> •
                 Images Scanned: <strong style="color: #2d3748;">${TRIVY_IMAGES_SCANNED}</strong>
             </p>

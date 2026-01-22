@@ -2326,6 +2326,17 @@ cat > "$OUTPUT_HTML" << 'EOF'
             opacity: 0.4;
         }
         
+        .sort-indicator {
+            font-size: 0.8em;
+            margin-left: 4px;
+            opacity: 0.3;
+            transition: opacity 0.2s ease;
+        }
+        
+        th:hover .sort-indicator {
+            opacity: 0.6;
+        }
+        
         @media (max-width: 768px) {
             .stats-grid {
                 grid-template-columns: repeat(2, 1fr);
@@ -3038,25 +3049,27 @@ EOF
     
     # Parse Python routes from JSON
     if [ -f "$API_DISC_FILE" ]; then
-        endpoints=$(jq -r '.discovery_methods.code_routes.python[]? | "\(.method)|\(.path)|\(.framework)|\(.file)"' "$API_DISC_FILE" 2>/dev/null)
+        endpoints=$(jq -r '.discovery_methods.code_routes.python[]? | "\(.method)|\(.path)|\(.name // .function // "")|\(.auth // "None")|\(.tags // "")|\(.framework)|\(.file)"' "$API_DISC_FILE" 2>/dev/null)
         
         if [ -n "$endpoints" ]; then
             cat >> "$OUTPUT_HTML" << 'EOF'
-                            <div style="max-height: 400px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px;">
-                                <table style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
+                            <div style="max-height: 500px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px;">
+                                <table id="apiEndpointsTable" style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
                                     <thead style="position: sticky; top: 0; background: #f7fafc; border-bottom: 2px solid #cbd5e0;">
                                         <tr>
-                                            <th style="padding: 10px; text-align: left; font-weight: 600; color: #2d3748;">Method</th>
-                                            <th style="padding: 10px; text-align: left; font-weight: 600; color: #2d3748;">Path</th>
-                                            <th style="padding: 10px; text-align: left; font-weight: 600; color: #2d3748;">Framework</th>
-                                            <th style="padding: 10px; text-align: left; font-weight: 600; color: #2d3748;">File</th>
+                                            <th onclick="sortAPITable(0)" style="padding: 10px; text-align: left; font-weight: 600; color: #2d3748; width: 80px; cursor: pointer; user-select: none;" title="Click to sort">Method <span class="sort-indicator">⇅</span></th>
+                                            <th onclick="sortAPITable(1)" style="padding: 10px; text-align: left; font-weight: 600; color: #2d3748; width: 250px; cursor: pointer; user-select: none;" title="Click to sort">Endpoint <span class="sort-indicator">⇅</span></th>
+                                            <th onclick="sortAPITable(2)" style="padding: 10px; text-align: left; font-weight: 600; color: #2d3748; width: 200px; cursor: pointer; user-select: none;" title="Click to sort">Name <span class="sort-indicator">⇅</span></th>
+                                            <th onclick="sortAPITable(3)" style="padding: 10px; text-align: left; font-weight: 600; color: #2d3748; width: 150px; cursor: pointer; user-select: none;" title="Click to sort">Authentication <span class="sort-indicator">⇅</span></th>
+                                            <th onclick="sortAPITable(4)" style="padding: 10px; text-align: left; font-weight: 600; color: #2d3748; width: 120px; cursor: pointer; user-select: none;" title="Click to sort">Tags <span class="sort-indicator">⇅</span></th>
+                                            <th onclick="sortAPITable(5)" style="padding: 10px; text-align: left; font-weight: 600; color: #2d3748; width: 100px; cursor: pointer; user-select: none;" title="Click to sort">Framework <span class="sort-indicator">⇅</span></th>
                                         </tr>
                                     </thead>
                                     <tbody>
 EOF
             
             # Output each endpoint as a table row
-            echo "$endpoints" | while IFS='|' read -r method path framework file; do
+            echo "$endpoints" | while IFS='|' read -r method path name auth tags framework file; do
                 if [ -n "$method" ] && [ -n "$path" ]; then
                     # Determine method badge color
                     method_color="#10b981"  # green for GET
@@ -3065,19 +3078,49 @@ EOF
                         PUT) method_color="#f59e0b" ;;     # orange
                         DELETE) method_color="#ef4444" ;;  # red
                         PATCH) method_color="#8b5cf6" ;;   # purple
+                        ANY) method_color="#6b7280" ;;     # gray for Django ANY
                     esac
                     
-                    # Extract just the filename from full path
+                    # Determine auth badge color
+                    auth_color="#6b7280"  # gray for None
+                    auth_display="$auth"
+                    if [ "$auth" != "None" ] && [ -n "$auth" ]; then
+                        auth_color="#f59e0b"  # orange for auth required
+                        auth_display="🔒 $auth"
+                    fi
+                    
+                    # Display name or fallback to path
+                    display_name="$name"
+                    if [ -z "$display_name" ] || [ "$display_name" = "null" ]; then
+                        display_name="—"
+                    fi
+                    
+                    # Display tags or dash
+                    display_tags="$tags"
+                    if [ -z "$display_tags" ] || [ "$display_tags" = "null" ]; then
+                        display_tags="—"
+                    fi
+                    
+                    # Extract just the filename from full path for tooltip
                     filename=$(basename "$file" 2>/dev/null || echo "$file")
                     
                     cat >> "$OUTPUT_HTML" << EOF_ENDPOINT
                                         <tr style="border-bottom: 1px solid #e2e8f0;">
                                             <td style="padding: 10px;">
-                                                <span style="display: inline-block; padding: 4px 10px; background: ${method_color}; color: white; border-radius: 4px; font-weight: 600; font-size: 0.85em;">${method}</span>
+                                                <span style="display: inline-block; padding: 4px 10px; background: ${method_color}; color: white; border-radius: 4px; font-weight: 600; font-size: 0.85em; min-width: 60px; text-align: center;">${method}</span>
                                             </td>
-                                            <td style="padding: 10px; font-family: monospace; color: #2563eb;">${path}</td>
-                                            <td style="padding: 10px; color: #6b7280;">${framework}</td>
-                                            <td style="padding: 10px; font-size: 0.85em; color: #6b7280;" title="${file}">${filename}</td>
+                                            <td style="padding: 10px;">
+                                                <div style="font-family: monospace; color: #2563eb; font-weight: 500;">${path}</div>
+                                                <div style="font-size: 0.75em; color: #6b7280; margin-top: 2px;" title="${file}">${filename}</div>
+                                            </td>
+                                            <td style="padding: 10px; color: #374151;">${display_name}</td>
+                                            <td style="padding: 10px;">
+                                                <span style="display: inline-block; padding: 3px 8px; background: ${auth_color}; color: white; border-radius: 4px; font-size: 0.8em;">${auth_display}</span>
+                                            </td>
+                                            <td style="padding: 10px; font-size: 0.85em; color: #6b7280;">${display_tags}</td>
+                                            <td style="padding: 10px;">
+                                                <span style="display: inline-block; padding: 3px 8px; background: #e5e7eb; color: #374151; border-radius: 4px; font-size: 0.8em;">${framework}</span>
+                                            </td>
                                         </tr>
 EOF_ENDPOINT
                 fi
@@ -3682,6 +3725,89 @@ cat >> "$OUTPUT_HTML" << EOF
             document.getElementById('source-count-all').textContent = findings.length;
             document.getElementById('source-count-image').textContent = imageCount;
             document.getElementById('source-count-app').textContent = appCount;
+        }
+        
+        // Sort API endpoints table by column
+        let apiSortDirection = {};  // Track sort direction for each column
+        
+        function sortAPITable(columnIndex) {
+            const table = document.getElementById('apiEndpointsTable');
+            if (!table) return;
+            
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            // Toggle sort direction for this column
+            if (!apiSortDirection[columnIndex]) {
+                apiSortDirection[columnIndex] = 'asc';
+            } else {
+                apiSortDirection[columnIndex] = apiSortDirection[columnIndex] === 'asc' ? 'desc' : 'asc';
+            }
+            
+            const direction = apiSortDirection[columnIndex];
+            
+            // Sort rows
+            rows.sort((a, b) => {
+                let aValue = '';
+                let bValue = '';
+                
+                // Get text content based on column
+                const aCells = a.querySelectorAll('td');
+                const bCells = b.querySelectorAll('td');
+                
+                if (columnIndex === 0) {
+                    // Method - sort by badge text
+                    aValue = aCells[0]?.querySelector('span')?.textContent || '';
+                    bValue = bCells[0]?.querySelector('span')?.textContent || '';
+                } else if (columnIndex === 1) {
+                    // Endpoint - sort by path (first div)
+                    aValue = aCells[1]?.querySelector('div')?.textContent || '';
+                    bValue = bCells[1]?.querySelector('div')?.textContent || '';
+                } else if (columnIndex === 2) {
+                    // Name
+                    aValue = aCells[2]?.textContent.trim() || '';
+                    bValue = bCells[2]?.textContent.trim() || '';
+                } else if (columnIndex === 3) {
+                    // Authentication - sort by badge text (strip emoji)
+                    aValue = aCells[3]?.querySelector('span')?.textContent.replace('🔒', '').trim() || '';
+                    bValue = bCells[3]?.querySelector('span')?.textContent.replace('🔒', '').trim() || '';
+                } else if (columnIndex === 4) {
+                    // Tags
+                    aValue = aCells[4]?.textContent.trim() || '';
+                    bValue = bCells[4]?.textContent.trim() || '';
+                } else if (columnIndex === 5) {
+                    // Framework
+                    aValue = aCells[5]?.querySelector('span')?.textContent || '';
+                    bValue = bCells[5]?.querySelector('span')?.textContent || '';
+                }
+                
+                // Handle dashes as empty for sorting
+                if (aValue === '—') aValue = '';
+                if (bValue === '—') bValue = '';
+                
+                // Natural sort comparison
+                const comparison = aValue.localeCompare(bValue, undefined, { numeric: true, sensitivity: 'base' });
+                
+                return direction === 'asc' ? comparison : -comparison;
+            });
+            
+            // Re-append sorted rows
+            rows.forEach(row => tbody.appendChild(row));
+            
+            // Update sort indicators
+            const headers = table.querySelectorAll('th');
+            headers.forEach((header, idx) => {
+                const indicator = header.querySelector('.sort-indicator');
+                if (indicator) {
+                    if (idx === columnIndex) {
+                        indicator.textContent = direction === 'asc' ? '▲' : '▼';
+                        indicator.style.opacity = '1';
+                    } else {
+                        indicator.textContent = '⇅';
+                        indicator.style.opacity = '0.3';
+                    }
+                }
+            });
         }
         
         // Auto-expand first tool with findings

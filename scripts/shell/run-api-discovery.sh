@@ -581,10 +581,14 @@ EOF_HEADER
     # Add Python routes from temp file
     if [ -f "$temp_routes" ] && [ -s "$temp_routes" ]; then
         awk -F'|' 'BEGIN{first=1} {
-            gsub(/\\/, "\\\\", $4);
-            gsub(/"/, "\\\"", $4);
+            # Escape backslashes and quotes in all fields
+            for(i=1; i<=NF; i++) {
+                gsub(/\\/, "\\\\", $i);
+                gsub(/"/, "\\\"", $i);
+            }
             if (!first) printf ",\n";
-            printf "        {\"framework\": \"%s\", \"method\": \"%s\", \"path\": \"%s\", \"file\": \"%s\"}", $1, $2, $3, $4;
+            printf "        {\"framework\": \"%s\", \"method\": \"%s\", \"path\": \"%s\", \"function\": \"%s\", \"name\": \"%s\", \"auth\": \"%s\", \"tags\": \"%s\", \"file\": \"%s\"}", 
+                $1, $2, $3, $4, $5, $6, $7, $8;
             first=0;
         }' "$temp_routes" >> "${OUTPUT_PATH}"
         echo "" >> "${OUTPUT_PATH}"

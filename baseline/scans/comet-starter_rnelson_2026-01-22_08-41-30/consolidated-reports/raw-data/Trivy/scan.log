@@ -1,0 +1,13 @@
+Version: 0.67.2
+  Version: 2
+2026-01-22T14:42:04Z	INFO	[vuln] Vulnerability scanning is enabled
+2026-01-22T14:42:04Z	INFO	[secret] Secret scanning is enabled
+2026-01-22T14:42:04Z	INFO	[secret] If your scanning is slow, please try '--scanners vuln' to disable secret scanning
+2026-01-22T14:42:04Z	INFO	[secret] Please see https://trivy.dev/v0.67/docs/scanner/secret#recommendation for faster secret detection
+2026-01-22T14:42:04Z	INFO	[npm] To collect the license information of packages, "npm install" needs to be performed beforehand	dir="node_modules"
+2026-01-22T14:42:04Z	INFO	Suppressing dependencies for development and testing. To display them, try the '--include-dev-deps' flag.
+2026-01-22T14:42:04Z	INFO	Number of language-specific files	num=1
+2026-01-22T14:42:04Z	INFO	[npm] Detecting vulnerabilities...
+Version: 0.67.2
+  Version: 2
+Error response from daemon: pull access denied for dhi/build, repository does not exist or may require 'docker login'

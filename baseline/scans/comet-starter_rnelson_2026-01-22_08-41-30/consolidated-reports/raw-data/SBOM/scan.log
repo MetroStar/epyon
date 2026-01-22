@@ -1,0 +1,10 @@
+SBOM generation started: 2026-01-22_08-41-30
+Target: /Users/rnelson/Desktop/Side_Projects/epyon/baseline/comet-starter
+Syft version check:
+Generating SBOM for filesystem: /Users/rnelson/Desktop/Side_Projects/epyon/baseline/comet-starter
+Project: comet-starter (1.0.0)
+Using Docker version of Syft
+[0000]  WARN no explicit name and version provided for directory source, deriving artifact ID from the given path (which is not ideal)
+SBOM generated successfully: /Users/rnelson/Desktop/Side_Projects/epyon/scans/comet-starter_rnelson_2026-01-22_08-41-30/sbom/filesystem.json
+SBOM Summary: 178 artifacts cataloged
+

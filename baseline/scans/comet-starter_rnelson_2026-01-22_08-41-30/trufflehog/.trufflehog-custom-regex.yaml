@@ -1,0 +1,8 @@
+detectors:
+  - name: SonarQube
+    keywords:
+      - sqp_
+      - sonar.login
+      - sonar.token
+    regex:
+      sonar_token: 'sqp_[a-zA-Z0-9]{40}'

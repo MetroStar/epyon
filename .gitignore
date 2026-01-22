@@ -14,13 +14,14 @@ xeol-reports/
 clamav-reports/
 checkov-reports/
 
-# Scan results (exclude all regular scans)
-scans/
+# Scan results (exclude all regular scans in root scans/ directory only)
+/scans/
 
-# Baseline directory structure
-baseline/comet-starter/      # Exclude the cloned repository
-!baseline/scans/             # Include baseline scans directory
+# Baseline directory structure - include scans and reference file
+!baseline/                    # Include baseline directory
+baseline/*                    # But exclude everything in it by default
 !baseline/.baseline-reference # Include baseline reference file
+!baseline/scans/              # Include baseline scans directory
 
 # Temporary files
 *.tmp

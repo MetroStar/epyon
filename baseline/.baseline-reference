@@ -1,0 +1,13 @@
+# Epyon Baseline Reference
+# This file marks the official baseline scan for drift detection
+# Created: Thu Jan 22 08:47:55 CST 2026
+
+BASELINE_SCAN_ID="comet-starter_rnelson_2026-01-22_08-41-30"
+BASELINE_SCAN_PATH="scans/comet-starter_rnelson_2026-01-22_08-41-30"
+BASELINE_DASHBOARD="scans/comet-starter_rnelson_2026-01-22_08-41-30/consolidated-reports/dashboards/security-dashboard.html"
+BASELINE_SET_DATE="2026-01-22T14:47:55Z"
+BASELINE_SET_BY="rnelson"
+BASELINE_HASH="c5096e8ed66e4b612c4b5629ac9e6fec1a1db679f184d2d515a0240189b34629"
+BASELINE_HASH_ALGORITHM="SHA256"
+BASELINE_TOTAL_FILES="N/A"
+BASELINE_REPO_COMMIT="a46f32b"

@@ -490,6 +490,74 @@ $env:TARGET_DIR="/path/to/project"; .\run-helm-build.ps1
 .\consolidate-security-reports.ps1
 ```
 
+### Baseline Scanning for Scanner Drift Detection
+
+Epyon includes baseline scanning to detect scanner drift and ensure consistent tool behavior over time:
+
+```bash
+# Run initial baseline scan (clones comet-starter if needed)
+./scripts/shell/run-baseline-scan.sh
+
+# Update repository and run new baseline scan
+./scripts/shell/run-baseline-scan.sh --update-repo
+
+# Mark the most recent scan as official baseline (with SHA256 hash)
+./scripts/shell/run-baseline-scan.sh --set-baseline
+
+# Mark a specific scan as official baseline
+./scripts/shell/run-baseline-scan.sh --set-baseline comet-starter_rnelson_2026-01-22_08-41-30
+
+# Compare latest scan with official baseline
+./scripts/shell/run-baseline-scan.sh --compare
+
+# List all baseline scans (★ marks official baseline)
+./scripts/shell/run-baseline-scan.sh --list
+```
+
+**Baseline Features:**
+- 🎯 **Consistent Reference**: Uses MetroStar/comet-starter as standard baseline application
+- 🔐 **SHA256 Hashing**: Cryptographic hash of security findings for integrity verification
+- 📌 **Official Baseline**: Mark and track a specific scan as the authoritative reference
+- 📊 **Drift Detection**: Compare scans over time to detect tool inconsistencies
+- ✅ **0% Error Margin**: Validate identical results when scanning the same codebase
+- 📈 **Historical Tracking**: All baseline scans preserved with timestamps and commit info
+- 🔍 **Visual Comparison**: Automatically opens dashboards side-by-side for analysis
+- 🔒 **Integrity Verification**: Baseline reference file with hash prevents tampering
+
+**Baseline Reference File** (`baseline/.baseline-reference`):
+```bash
+BASELINE_SCAN_ID="comet-starter_rnelson_2026-01-22_08-41-30"
+BASELINE_SCAN_PATH="scans/comet-starter_rnelson_2026-01-22_08-41-30"
+BASELINE_HASH="c5096e8ed66e4b612c4b5629ac9e6fec1a1db679f184d2d515a0240189b34629"
+BASELINE_HASH_ALGORITHM="SHA256"
+BASELINE_REPO_COMMIT="a46f32b"
+BASELINE_SET_DATE="2026-01-22T14:47:55Z"
+BASELINE_SET_BY="rnelson"
+```
+
+**Use Cases:**
+- Validate scanner updates haven't introduced false positives
+- Ensure tool signatures are current and accurate
+- Track scanner behavior changes over time
+- Verify consistent results across development team
+- Detect configuration drift or tool version changes
+- Support Waypoint 1: "0% margin of error between scanning the same application"
+- Compliance audit trails with cryptographic verification
+
+**Workflow Example:**
+```bash
+# 1. Run initial baseline and set it as official
+./scripts/shell/run-baseline-scan.sh
+./scripts/shell/run-baseline-scan.sh --set-baseline
+
+# 2. After tool updates, run new scan and compare
+./scripts/shell/run-baseline-scan.sh --update-repo
+./scripts/shell/run-baseline-scan.sh --compare
+
+# 3. If results are identical, no drift detected ✅
+# 4. If results differ, investigate scanner drift ⚠️
+```
+
 ### Security Dashboard Access
 
 ```bash
@@ -499,6 +567,16 @@ open scans/$LATEST_SCAN/consolidated-reports/dashboards/security-dashboard.html
 
 # Or specify a particular scan
 open scans/comet_rnelson_2025-11-25_09-40-22/consolidated-reports/dashboards/security-dashboard.html
+
+# Open latest baseline scan dashboard
+LATEST_BASELINE=$(ls -t scans/comet-starter_* | head -1)
+open $LATEST_BASELINE/consolidated-reports/dashboards/security-dashboard.html
+
+# Open official baseline dashboard (if set)
+if [ -f baseline/.baseline-reference ]; then
+    source baseline/.baseline-reference
+    open "${BASELINE_DASHBOARD}"
+fi
 ```
 
 ## 📊 Enterprise Features

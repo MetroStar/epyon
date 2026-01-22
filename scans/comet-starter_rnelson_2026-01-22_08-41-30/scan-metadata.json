@@ -1,0 +1,21 @@
+{
+  "scan_id": "comet-starter_rnelson_2026-01-22_08-41-30",
+  "target_directory": "/Users/rnelson/Desktop/Side_Projects/epyon/baseline/comet-starter",
+  "target_name": "comet-starter",
+  "scan_type": "full",
+  "scan_user": "rnelson",
+  "scan_timestamp": "2026-01-22T14:41:32Z",
+  "scan_timestamp_local": "2026-01-22 08:41:32 CST",
+  "file_statistics": {
+    "total_files": 101,
+    "javascript_typescript": 65,
+    "python": 0,
+    "yaml_yml": 5,
+    "json": 7,
+    "terraform": 0,
+    "dockerfiles": 1,
+    "shell_scripts": 0
+  },
+  "repository_commit": "a46f32b3ca1419781d12b9d02f8fe290b04452c4",
+  "repository_commit_short": "a46f32b"
+}

@@ -1,0 +1,3324 @@
+{
+  "SchemaVersion": 2,
+  "CreatedAt": "2026-01-22T14:42:04.490375469Z",
+  "ArtifactName": "/workspace",
+  "ArtifactType": "filesystem",
+  "Metadata": {
+    "RepoURL": "https://github.com/MetroStar/comet-starter.git",
+    "Branch": "main",
+    "Commit": "a46f32b3ca1419781d12b9d02f8fe290b04452c4",
+    "CommitMsg": "Merge pull request #502 from MetroStar/dependabot/npm_and_yarn/lodash-4.17.23\n\nBump lodash from 4.17.21 to 4.17.23",
+    "Author": "Johnny Bouder \u003c61591423+jbouder@users.noreply.github.com\u003e",
+    "Committer": "GitHub \u003cnoreply@github.com\u003e"
+  },
+  "Results": [
+    {
+      "Target": "package-lock.json",
+      "Class": "lang-pkgs",
+      "Type": "npm",
+      "Packages": [
+        {
+          "ID": "@metrostar/comet-data-viz@1.2.2",
+          "Name": "@metrostar/comet-data-viz",
+          "Identifier": {
+            "PURL": "pkg:npm/%40metrostar/comet-data-viz@1.2.2",
+            "UID": "38fbdc7ba2db1375"
+          },
+          "Version": "1.2.2",
+          "Relationship": "direct",
+          "DependsOn": [
+            "react-dom@19.2.1",
+            "react@19.2.1",
+            "victory@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 1711,
+              "EndLine": 1726
+            }
+          ]
+        },
+        {
+          "ID": "@metrostar/comet-extras@1.8.1",
+          "Name": "@metrostar/comet-extras",
+          "Identifier": {
+            "PURL": "pkg:npm/%40metrostar/comet-extras@1.8.1",
+            "UID": "b2936aedf432b279"
+          },
+          "Version": "1.8.1",
+          "Relationship": "direct",
+          "DependsOn": [
+            "@tanstack/react-table@8.21.3",
+            "react-dom@19.2.1",
+            "react@19.2.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 1727,
+              "EndLine": 1743
+            }
+          ]
+        },
+        {
+          "ID": "@metrostar/comet-uswds@3.8.0",
+          "Name": "@metrostar/comet-uswds",
+          "Identifier": {
+            "PURL": "pkg:npm/%40metrostar/comet-uswds@3.8.0",
+            "UID": "ff6aa71eebdb248c"
+          },
+          "Version": "3.8.0",
+          "Relationship": "direct",
+          "DependsOn": [
+            "@uswds/uswds@3.13.0",
+            "classnames@2.5.1",
+            "react-dom@19.2.1",
+            "react@19.2.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 1744,
+              "EndLine": 1761
+            }
+          ]
+        },
+        {
+          "ID": "@rollup/rollup-linux-x64-gnu@4.24.0",
+          "Name": "@rollup/rollup-linux-x64-gnu",
+          "Identifier": {
+            "PURL": "pkg:npm/%40rollup/rollup-linux-x64-gnu@4.24.0",
+            "UID": "729d565cc0b2de48"
+          },
+          "Version": "4.24.0",
+          "Relationship": "direct",
+          "Locations": [
+            {
+              "StartLine": 3588,
+              "EndLine": 3600
+            }
+          ]
+        },
+        {
+          "ID": "@tanstack/react-form@1.27.7",
+          "Name": "@tanstack/react-form",
+          "Identifier": {
+            "PURL": "pkg:npm/%40tanstack/react-form@1.27.7",
+            "UID": "ae221b3adbfd4d0c"
+          },
+          "Version": "1.27.7",
+          "Relationship": "direct",
+          "DependsOn": [
+            "@tanstack/form-core@1.27.7",
+            "@tanstack/react-store@0.8.0",
+            "react@19.2.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 4281,
+              "EndLine": 4302
+            }
+          ]
+        },
+        {
+          "ID": "@tanstack/react-query@5.90.19",
+          "Name": "@tanstack/react-query",
+          "Identifier": {
+            "PURL": "pkg:npm/%40tanstack/react-query@5.90.19",
+            "UID": "3764d656413adf46"
+          },
+          "Version": "5.90.19",
+          "Relationship": "direct",
+          "DependsOn": [
+            "@tanstack/query-core@5.90.19",
+            "react@19.2.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 4303,
+              "EndLine": 4318
+            }
+          ]
+        },
+        {
+          "ID": "@types/react@19.2.7",
+          "Name": "@types/react",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/react@19.2.7",
+            "UID": "12cccc6256bf18da"
+          },
+          "Version": "19.2.7",
+          "Relationship": "direct",
+          "DependsOn": [
+            "csstype@3.2.3"
+          ],
+          "Locations": [
+            {
+              "StartLine": 4765,
+              "EndLine": 4774
+            }
+          ]
+        },
+        {
+          "ID": "axios@1.13.2",
+          "Name": "axios",
+          "Identifier": {
+            "PURL": "pkg:npm/axios@1.13.2",
+            "UID": "77bffae73eff8bbd"
+          },
+          "Version": "1.13.2",
+          "Relationship": "direct",
+          "DependsOn": [
+            "follow-redirects@1.15.9",
+            "form-data@4.0.4",
+            "proxy-from-env@1.1.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 6932,
+              "EndLine": 6942
+            }
+          ]
+        },
+        {
+          "ID": "axios-mock-adapter@2.1.0",
+          "Name": "axios-mock-adapter",
+          "Identifier": {
+            "PURL": "pkg:npm/axios-mock-adapter@2.1.0",
+            "UID": "988104a519f30dc1"
+          },
+          "Version": "2.1.0",
+          "Relationship": "direct",
+          "DependsOn": [
+            "axios@1.13.2",
+            "fast-deep-equal@3.1.3",
+            "is-buffer@2.0.5"
+          ],
+          "Locations": [
+            {
+              "StartLine": 6943,
+              "EndLine": 6955
+            }
+          ]
+        },
+        {
+          "ID": "jotai@2.16.2",
+          "Name": "jotai",
+          "Identifier": {
+            "PURL": "pkg:npm/jotai@2.16.2",
+            "UID": "6af90e3fff718954"
+          },
+          "Version": "2.16.2",
+          "Relationship": "direct",
+          "DependsOn": [
+            "@babel/core@7.28.5",
+            "@babel/template@7.27.2",
+            "@types/react@19.2.7",
+            "react@19.2.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 11319,
+              "EndLine": 11347
+            }
+          ]
+        },
+        {
+          "ID": "oidc-client-ts@3.4.1",
+          "Name": "oidc-client-ts",
+          "Identifier": {
+            "PURL": "pkg:npm/oidc-client-ts@3.4.1",
+            "UID": "fd8c893ce8e06956"
+          },
+          "Version": "3.4.1",
+          "Relationship": "direct",
+          "DependsOn": [
+            "jwt-decode@4.0.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 12879,
+              "EndLine": 12890
+            }
+          ]
+        },
+        {
+          "ID": "react@19.2.1",
+          "Name": "react",
+          "Identifier": {
+            "PURL": "pkg:npm/react@19.2.1",
+            "UID": "665a5782a5ad7cfa"
+          },
+          "Version": "19.2.1",
+          "Relationship": "direct",
+          "Locations": [
+            {
+              "StartLine": 13869,
+              "EndLine": 13877
+            }
+          ]
+        },
+        {
+          "ID": "react-dom@19.2.1",
+          "Name": "react-dom",
+          "Identifier": {
+            "PURL": "pkg:npm/react-dom@19.2.1",
+            "UID": "d732f9130aa667f5"
+          },
+          "Version": "19.2.1",
+          "Relationship": "direct",
+          "DependsOn": [
+            "react@19.2.1",
+            "scheduler@0.27.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 13878,
+              "EndLine": 13889
+            }
+          ]
+        },
+        {
+          "ID": "react-oidc-context@3.3.0",
+          "Name": "react-oidc-context",
+          "Identifier": {
+            "PURL": "pkg:npm/react-oidc-context@3.3.0",
+            "UID": "a56db6d02a6d04c7"
+          },
+          "Version": "3.3.0",
+          "Relationship": "direct",
+          "DependsOn": [
+            "oidc-client-ts@3.4.1",
+            "react@19.2.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 13904,
+              "EndLine": 13916
+            }
+          ]
+        },
+        {
+          "ID": "react-router-dom@7.12.0",
+          "Name": "react-router-dom",
+          "Identifier": {
+            "PURL": "pkg:npm/react-router-dom@7.12.0",
+            "UID": "a91660c0cf3d75bb"
+          },
+          "Version": "7.12.0",
+          "Relationship": "direct",
+          "DependsOn": [
+            "react-dom@19.2.1",
+            "react-router@7.12.0",
+            "react@19.2.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 13949,
+              "EndLine": 13964
+            }
+          ]
+        },
+        {
+          "ID": "zod@4.3.5",
+          "Name": "zod",
+          "Identifier": {
+            "PURL": "pkg:npm/zod@4.3.5",
+            "UID": "2473c79ad20a80bc"
+          },
+          "Version": "4.3.5",
+          "Relationship": "direct",
+          "Locations": [
+            {
+              "StartLine": 17746,
+              "EndLine": 17754
+            }
+          ]
+        },
+        {
+          "ID": "@babel/code-frame@7.27.1",
+          "Name": "@babel/code-frame",
+          "Identifier": {
+            "PURL": "pkg:npm/%40babel/code-frame@7.27.1",
+            "UID": "7b5f54dbbd311428"
+          },
+          "Version": "7.27.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@babel/helper-validator-identifier@7.28.5",
+            "js-tokens@4.0.0",
+            "picocolors@1.1.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 245,
+              "EndLine": 259
+            }
+          ]
+        },
+        {
+          "ID": "@babel/compat-data@7.27.5",
+          "Name": "@babel/compat-data",
+          "Identifier": {
+            "PURL": "pkg:npm/%40babel/compat-data@7.27.5",
+            "UID": "5917df865b213ff9"
+          },
+          "Version": "7.27.5",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 260,
+              "EndLine": 269
+            }
+          ]
+        },
+        {
+          "ID": "@babel/core@7.28.5",
+          "Name": "@babel/core",
+          "Identifier": {
+            "PURL": "pkg:npm/%40babel/core@7.28.5",
+            "UID": "a7b676e30579882d"
+          },
+          "Version": "7.28.5",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@babel/code-frame@7.27.1",
+            "@babel/generator@7.28.5",
+            "@babel/helper-compilation-targets@7.27.2",
+            "@babel/helper-module-transforms@7.28.3",
+            "@babel/helpers@7.28.4",
+            "@babel/parser@7.28.5",
+            "@babel/template@7.27.2",
+            "@babel/traverse@7.28.5",
+            "@babel/types@7.28.5",
+            "@jridgewell/remapping@2.3.5",
+            "convert-source-map@2.0.0",
+            "debug@4.4.3",
+            "gensync@1.0.0-beta.2",
+            "json5@2.2.3",
+            "semver@6.3.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 270,
+              "EndLine": 300
+            }
+          ]
+        },
+        {
+          "ID": "@babel/generator@7.28.5",
+          "Name": "@babel/generator",
+          "Identifier": {
+            "PURL": "pkg:npm/%40babel/generator@7.28.5",
+            "UID": "6cade318a498438"
+          },
+          "Version": "7.28.5",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@babel/parser@7.28.5",
+            "@babel/types@7.28.5",
+            "@jridgewell/gen-mapping@0.3.12",
+            "@jridgewell/trace-mapping@0.3.31",
+            "jsesc@3.1.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 301,
+              "EndLine": 317
+            }
+          ]
+        },
+        {
+          "ID": "@babel/helper-compilation-targets@7.27.2",
+          "Name": "@babel/helper-compilation-targets",
+          "Identifier": {
+            "PURL": "pkg:npm/%40babel/helper-compilation-targets@7.27.2",
+            "UID": "59a5042c5320a951"
+          },
+          "Version": "7.27.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@babel/compat-data@7.27.5",
+            "@babel/helper-validator-option@7.27.1",
+            "browserslist@4.28.1",
+            "lru-cache@5.1.1",
+            "semver@6.3.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 318,
+              "EndLine": 334
+            }
+          ]
+        },
+        {
+          "ID": "@babel/helper-globals@7.28.0",
+          "Name": "@babel/helper-globals",
+          "Identifier": {
+            "PURL": "pkg:npm/%40babel/helper-globals@7.28.0",
+            "UID": "cb5caab481377990"
+          },
+          "Version": "7.28.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 335,
+              "EndLine": 344
+            }
+          ]
+        },
+        {
+          "ID": "@babel/helper-module-imports@7.27.1",
+          "Name": "@babel/helper-module-imports",
+          "Identifier": {
+            "PURL": "pkg:npm/%40babel/helper-module-imports@7.27.1",
+            "UID": "c5594bedb355f7f7"
+          },
+          "Version": "7.27.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@babel/traverse@7.28.5",
+            "@babel/types@7.28.5"
+          ],
+          "Locations": [
+            {
+              "StartLine": 345,
+              "EndLine": 358
+            }
+          ]
+        },
+        {
+          "ID": "@babel/helper-module-transforms@7.28.3",
+          "Name": "@babel/helper-module-transforms",
+          "Identifier": {
+            "PURL": "pkg:npm/%40babel/helper-module-transforms@7.28.3",
+            "UID": "7fc73c2f1248fd5e"
+          },
+          "Version": "7.28.3",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@babel/core@7.28.5",
+            "@babel/helper-module-imports@7.27.1",
+            "@babel/helper-validator-identifier@7.28.5",
+            "@babel/traverse@7.28.5"
+          ],
+          "Locations": [
+            {
+              "StartLine": 359,
+              "EndLine": 376
+            }
+          ]
+        },
+        {
+          "ID": "@babel/helper-string-parser@7.27.1",
+          "Name": "@babel/helper-string-parser",
+          "Identifier": {
+            "PURL": "pkg:npm/%40babel/helper-string-parser@7.27.1",
+            "UID": "ee06328add4e756b"
+          },
+          "Version": "7.27.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 387,
+              "EndLine": 396
+            }
+          ]
+        },
+        {
+          "ID": "@babel/helper-validator-identifier@7.28.5",
+          "Name": "@babel/helper-validator-identifier",
+          "Identifier": {
+            "PURL": "pkg:npm/%40babel/helper-validator-identifier@7.28.5",
+            "UID": "e368673760a6e5b4"
+          },
+          "Version": "7.28.5",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 397,
+              "EndLine": 406
+            }
+          ]
+        },
+        {
+          "ID": "@babel/helper-validator-option@7.27.1",
+          "Name": "@babel/helper-validator-option",
+          "Identifier": {
+            "PURL": "pkg:npm/%40babel/helper-validator-option@7.27.1",
+            "UID": "cbebaa0533b13388"
+          },
+          "Version": "7.27.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 407,
+              "EndLine": 416
+            }
+          ]
+        },
+        {
+          "ID": "@babel/helpers@7.28.4",
+          "Name": "@babel/helpers",
+          "Identifier": {
+            "PURL": "pkg:npm/%40babel/helpers@7.28.4",
+            "UID": "8248151724b00acb"
+          },
+          "Version": "7.28.4",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@babel/template@7.27.2",
+            "@babel/types@7.28.5"
+          ],
+          "Locations": [
+            {
+              "StartLine": 417,
+              "EndLine": 430
+            }
+          ]
+        },
+        {
+          "ID": "@babel/parser@7.28.5",
+          "Name": "@babel/parser",
+          "Identifier": {
+            "PURL": "pkg:npm/%40babel/parser@7.28.5",
+            "UID": "612e2ba91b8e6d53"
+          },
+          "Version": "7.28.5",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@babel/types@7.28.5"
+          ],
+          "Locations": [
+            {
+              "StartLine": 431,
+              "EndLine": 446
+            }
+          ]
+        },
+        {
+          "ID": "@babel/template@7.27.2",
+          "Name": "@babel/template",
+          "Identifier": {
+            "PURL": "pkg:npm/%40babel/template@7.27.2",
+            "UID": "45726b39ccd9c899"
+          },
+          "Version": "7.27.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@babel/code-frame@7.27.1",
+            "@babel/parser@7.28.5",
+            "@babel/types@7.28.5"
+          ],
+          "Locations": [
+            {
+              "StartLine": 502,
+              "EndLine": 516
+            }
+          ]
+        },
+        {
+          "ID": "@babel/traverse@7.28.5",
+          "Name": "@babel/traverse",
+          "Identifier": {
+            "PURL": "pkg:npm/%40babel/traverse@7.28.5",
+            "UID": "c017178ad7d7537e"
+          },
+          "Version": "7.28.5",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@babel/code-frame@7.27.1",
+            "@babel/generator@7.28.5",
+            "@babel/helper-globals@7.28.0",
+            "@babel/parser@7.28.5",
+            "@babel/template@7.27.2",
+            "@babel/types@7.28.5",
+            "debug@4.4.3"
+          ],
+          "Locations": [
+            {
+              "StartLine": 517,
+              "EndLine": 535
+            }
+          ]
+        },
+        {
+          "ID": "@babel/types@7.28.5",
+          "Name": "@babel/types",
+          "Identifier": {
+            "PURL": "pkg:npm/%40babel/types@7.28.5",
+            "UID": "5c6c91afcca41f2d"
+          },
+          "Version": "7.28.5",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@babel/helper-string-parser@7.27.1",
+            "@babel/helper-validator-identifier@7.28.5"
+          ],
+          "Locations": [
+            {
+              "StartLine": 536,
+              "EndLine": 549
+            }
+          ]
+        },
+        {
+          "ID": "@jridgewell/gen-mapping@0.3.12",
+          "Name": "@jridgewell/gen-mapping",
+          "Identifier": {
+            "PURL": "pkg:npm/%40jridgewell/gen-mapping@0.3.12",
+            "UID": "bdfb65d6f75190c8"
+          },
+          "Version": "0.3.12",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@jridgewell/sourcemap-codec@1.5.5",
+            "@jridgewell/trace-mapping@0.3.31"
+          ],
+          "Locations": [
+            {
+              "StartLine": 1603,
+              "EndLine": 1613
+            }
+          ]
+        },
+        {
+          "ID": "@jridgewell/remapping@2.3.5",
+          "Name": "@jridgewell/remapping",
+          "Identifier": {
+            "PURL": "pkg:npm/%40jridgewell/remapping@2.3.5",
+            "UID": "854c60f4fb5e0bfc"
+          },
+          "Version": "2.3.5",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@jridgewell/gen-mapping@0.3.12",
+            "@jridgewell/trace-mapping@0.3.31"
+          ],
+          "Locations": [
+            {
+              "StartLine": 1614,
+              "EndLine": 1623
+            }
+          ]
+        },
+        {
+          "ID": "@jridgewell/resolve-uri@3.1.2",
+          "Name": "@jridgewell/resolve-uri",
+          "Identifier": {
+            "PURL": "pkg:npm/%40jridgewell/resolve-uri@3.1.2",
+            "UID": "65090588c39dd16b"
+          },
+          "Version": "3.1.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 1624,
+              "EndLine": 1633
+            }
+          ]
+        },
+        {
+          "ID": "@jridgewell/sourcemap-codec@1.5.5",
+          "Name": "@jridgewell/sourcemap-codec",
+          "Identifier": {
+            "PURL": "pkg:npm/%40jridgewell/sourcemap-codec@1.5.5",
+            "UID": "d8f79c196631e423"
+          },
+          "Version": "1.5.5",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 1634,
+              "EndLine": 1639
+            }
+          ]
+        },
+        {
+          "ID": "@jridgewell/trace-mapping@0.3.31",
+          "Name": "@jridgewell/trace-mapping",
+          "Identifier": {
+            "PURL": "pkg:npm/%40jridgewell/trace-mapping@0.3.31",
+            "UID": "b8a2fc59631b06f"
+          },
+          "Version": "0.3.31",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@jridgewell/resolve-uri@3.1.2",
+            "@jridgewell/sourcemap-codec@1.5.5"
+          ],
+          "Locations": [
+            {
+              "StartLine": 1640,
+              "EndLine": 1650
+            }
+          ]
+        },
+        {
+          "ID": "@lit-labs/ssr-dom-shim@1.3.0",
+          "Name": "@lit-labs/ssr-dom-shim",
+          "Identifier": {
+            "PURL": "pkg:npm/%40lit-labs/ssr-dom-shim@1.3.0",
+            "UID": "1a3e29a74187b1e1"
+          },
+          "Version": "1.3.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 1696,
+              "EndLine": 1701
+            }
+          ]
+        },
+        {
+          "ID": "@lit/reactive-element@2.1.0",
+          "Name": "@lit/reactive-element",
+          "Identifier": {
+            "PURL": "pkg:npm/%40lit/reactive-element@2.1.0",
+            "UID": "1463429868943e61"
+          },
+          "Version": "2.1.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@lit-labs/ssr-dom-shim@1.3.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 1702,
+              "EndLine": 1710
+            }
+          ]
+        },
+        {
+          "ID": "@tanstack/devtools-event-client@0.4.0",
+          "Name": "@tanstack/devtools-event-client",
+          "Identifier": {
+            "PURL": "pkg:npm/%40tanstack/devtools-event-client@0.4.0",
+            "UID": "f535e57f772e2fbe"
+          },
+          "Version": "0.4.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 4230,
+              "EndLine": 4242
+            }
+          ]
+        },
+        {
+          "ID": "@tanstack/form-core@1.27.7",
+          "Name": "@tanstack/form-core",
+          "Identifier": {
+            "PURL": "pkg:npm/%40tanstack/form-core@1.27.7",
+            "UID": "978d6ca24037c8d6"
+          },
+          "Version": "1.27.7",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@tanstack/devtools-event-client@0.4.0",
+            "@tanstack/pacer-lite@0.1.1",
+            "@tanstack/store@0.7.7"
+          ],
+          "Locations": [
+            {
+              "StartLine": 4243,
+              "EndLine": 4257
+            }
+          ]
+        },
+        {
+          "ID": "@tanstack/pacer-lite@0.1.1",
+          "Name": "@tanstack/pacer-lite",
+          "Identifier": {
+            "PURL": "pkg:npm/%40tanstack/pacer-lite@0.1.1",
+            "UID": "f34279e4a3b648a9"
+          },
+          "Version": "0.1.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 4258,
+              "EndLine": 4270
+            }
+          ]
+        },
+        {
+          "ID": "@tanstack/query-core@5.90.19",
+          "Name": "@tanstack/query-core",
+          "Identifier": {
+            "PURL": "pkg:npm/%40tanstack/query-core@5.90.19",
+            "UID": "d85cbe06395dfb75"
+          },
+          "Version": "5.90.19",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 4271,
+              "EndLine": 4280
+            }
+          ]
+        },
+        {
+          "ID": "@tanstack/react-store@0.8.0",
+          "Name": "@tanstack/react-store",
+          "Identifier": {
+            "PURL": "pkg:npm/%40tanstack/react-store@0.8.0",
+            "UID": "80c97085a475c803"
+          },
+          "Version": "0.8.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@tanstack/store@0.8.0",
+            "react-dom@19.2.1",
+            "react@19.2.1",
+            "use-sync-external-store@1.6.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 4319,
+              "EndLine": 4336
+            }
+          ]
+        },
+        {
+          "ID": "@tanstack/react-table@8.21.3",
+          "Name": "@tanstack/react-table",
+          "Identifier": {
+            "PURL": "pkg:npm/%40tanstack/react-table@8.21.3",
+            "UID": "25667213a8756ebe"
+          },
+          "Version": "8.21.3",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@tanstack/table-core@8.21.3",
+            "react-dom@19.2.1",
+            "react@19.2.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 4347,
+              "EndLine": 4366
+            }
+          ]
+        },
+        {
+          "ID": "@tanstack/store@0.7.7",
+          "Name": "@tanstack/store",
+          "Identifier": {
+            "PURL": "pkg:npm/%40tanstack/store@0.7.7",
+            "UID": "ea85cab69ce634be"
+          },
+          "Version": "0.7.7",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 4367,
+              "EndLine": 4376
+            }
+          ]
+        },
+        {
+          "ID": "@tanstack/store@0.8.0",
+          "Name": "@tanstack/store",
+          "Identifier": {
+            "PURL": "pkg:npm/%40tanstack/store@0.8.0",
+            "UID": "f079984121efcadb"
+          },
+          "Version": "0.8.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 4337,
+              "EndLine": 4346
+            }
+          ]
+        },
+        {
+          "ID": "@tanstack/table-core@8.21.3",
+          "Name": "@tanstack/table-core",
+          "Identifier": {
+            "PURL": "pkg:npm/%40tanstack/table-core@8.21.3",
+            "UID": "84a2dd337143da60"
+          },
+          "Version": "8.21.3",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 4377,
+              "EndLine": 4389
+            }
+          ]
+        },
+        {
+          "ID": "@types/d3-array@3.2.1",
+          "Name": "@types/d3-array",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-array@3.2.1",
+            "UID": "16d7af6b23790a1c"
+          },
+          "Version": "3.2.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 4622,
+              "EndLine": 4627
+            }
+          ]
+        },
+        {
+          "ID": "@types/d3-color@3.1.3",
+          "Name": "@types/d3-color",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-color@3.1.3",
+            "UID": "cd874316aec37be0"
+          },
+          "Version": "3.1.3",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 4628,
+              "EndLine": 4633
+            }
+          ]
+        },
+        {
+          "ID": "@types/d3-ease@3.0.2",
+          "Name": "@types/d3-ease",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-ease@3.0.2",
+            "UID": "e8742ae4fe30d532"
+          },
+          "Version": "3.0.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 4634,
+              "EndLine": 4639
+            }
+          ]
+        },
+        {
+          "ID": "@types/d3-interpolate@3.0.4",
+          "Name": "@types/d3-interpolate",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-interpolate@3.0.4",
+            "UID": "338da98940141d19"
+          },
+          "Version": "3.0.4",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@types/d3-color@3.1.3"
+          ],
+          "Locations": [
+            {
+              "StartLine": 4640,
+              "EndLine": 4648
+            }
+          ]
+        },
+        {
+          "ID": "@types/d3-path@3.1.1",
+          "Name": "@types/d3-path",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-path@3.1.1",
+            "UID": "e2e433eb9d907c32"
+          },
+          "Version": "3.1.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 4649,
+              "EndLine": 4654
+            }
+          ]
+        },
+        {
+          "ID": "@types/d3-scale@4.0.9",
+          "Name": "@types/d3-scale",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-scale@4.0.9",
+            "UID": "e7fe7474fae88e7f"
+          },
+          "Version": "4.0.9",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@types/d3-time@3.0.4"
+          ],
+          "Locations": [
+            {
+              "StartLine": 4655,
+              "EndLine": 4663
+            }
+          ]
+        },
+        {
+          "ID": "@types/d3-shape@3.1.7",
+          "Name": "@types/d3-shape",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-shape@3.1.7",
+            "UID": "9004837decda085a"
+          },
+          "Version": "3.1.7",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@types/d3-path@3.1.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 4664,
+              "EndLine": 4672
+            }
+          ]
+        },
+        {
+          "ID": "@types/d3-time@3.0.4",
+          "Name": "@types/d3-time",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-time@3.0.4",
+            "UID": "b20e55f493328f7f"
+          },
+          "Version": "3.0.4",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 4673,
+              "EndLine": 4678
+            }
+          ]
+        },
+        {
+          "ID": "@types/d3-timer@3.0.2",
+          "Name": "@types/d3-timer",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-timer@3.0.2",
+            "UID": "5efb777fe0afbae0"
+          },
+          "Version": "3.0.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 4679,
+              "EndLine": 4684
+            }
+          ]
+        },
+        {
+          "ID": "@types/trusted-types@2.0.7",
+          "Name": "@types/trusted-types",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/trusted-types@2.0.7",
+            "UID": "8fda1c6e9db6c6b4"
+          },
+          "Version": "2.0.7",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 4812,
+              "EndLine": 4817
+            }
+          ]
+        },
+        {
+          "ID": "@uswds/uswds@3.13.0",
+          "Name": "@uswds/uswds",
+          "Identifier": {
+            "PURL": "pkg:npm/%40uswds/uswds@3.13.0",
+            "UID": "8f9f2adcb2e8c164"
+          },
+          "Version": "3.13.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lit@3.3.0",
+            "receptor@1.0.0",
+            "sass-embedded-linux-x64@1.89.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 6087,
+              "EndLine": 6102
+            }
+          ]
+        },
+        {
+          "ID": "asynckit@0.4.0",
+          "Name": "asynckit",
+          "Identifier": {
+            "PURL": "pkg:npm/asynckit@0.4.0",
+            "UID": "6f6570a33098c811"
+          },
+          "Version": "0.4.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 6853,
+              "EndLine": 6858
+            }
+          ]
+        },
+        {
+          "ID": "baseline-browser-mapping@2.9.7",
+          "Name": "baseline-browser-mapping",
+          "Identifier": {
+            "PURL": "pkg:npm/baseline-browser-mapping@2.9.7",
+            "UID": "6d2c12ce24a0fad6"
+          },
+          "Version": "2.9.7",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 7068,
+              "EndLine": 7077
+            }
+          ]
+        },
+        {
+          "ID": "browserslist@4.28.1",
+          "Name": "browserslist",
+          "Identifier": {
+            "PURL": "pkg:npm/browserslist@4.28.1",
+            "UID": "472cb28e2702ba3d"
+          },
+          "Version": "4.28.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "baseline-browser-mapping@2.9.7",
+            "caniuse-lite@1.0.30001760",
+            "electron-to-chromium@1.5.267",
+            "node-releases@2.0.27",
+            "update-browserslist-db@1.2.2"
+          ],
+          "Locations": [
+            {
+              "StartLine": 7186,
+              "EndLine": 7219
+            }
+          ]
+        },
+        {
+          "ID": "call-bind-apply-helpers@1.0.2",
+          "Name": "call-bind-apply-helpers",
+          "Identifier": {
+            "PURL": "pkg:npm/call-bind-apply-helpers@1.0.2",
+            "UID": "99afbca06f391b45"
+          },
+          "Version": "1.0.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "es-errors@1.3.0",
+            "function-bind@1.1.2"
+          ],
+          "Locations": [
+            {
+              "StartLine": 7343,
+              "EndLine": 7355
+            }
+          ]
+        },
+        {
+          "ID": "caniuse-lite@1.0.30001760",
+          "Name": "caniuse-lite",
+          "Identifier": {
+            "PURL": "pkg:npm/caniuse-lite@1.0.30001760",
+            "UID": "dcadf746cd6df6a8"
+          },
+          "Version": "1.0.30001760",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 7383,
+              "EndLine": 7403
+            }
+          ]
+        },
+        {
+          "ID": "classnames@2.5.1",
+          "Name": "classnames",
+          "Identifier": {
+            "PURL": "pkg:npm/classnames@2.5.1",
+            "UID": "17658b03e0a9e6ce"
+          },
+          "Version": "2.5.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 7561,
+              "EndLine": 7566
+            }
+          ]
+        },
+        {
+          "ID": "combined-stream@1.0.8",
+          "Name": "combined-stream",
+          "Identifier": {
+            "PURL": "pkg:npm/combined-stream@1.0.8",
+            "UID": "b49d809c147fe1be"
+          },
+          "Version": "1.0.8",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "delayed-stream@1.0.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 7719,
+              "EndLine": 7730
+            }
+          ]
+        },
+        {
+          "ID": "convert-source-map@2.0.0",
+          "Name": "convert-source-map",
+          "Identifier": {
+            "PURL": "pkg:npm/convert-source-map@2.0.0",
+            "UID": "71c25d3b2167fecc"
+          },
+          "Version": "2.0.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 7838,
+              "EndLine": 7844
+            }
+          ]
+        },
+        {
+          "ID": "cookie@1.1.1",
+          "Name": "cookie",
+          "Identifier": {
+            "PURL": "pkg:npm/cookie@1.1.1",
+            "UID": "37a0acbf6e02ba61"
+          },
+          "Version": "1.1.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 7845,
+              "EndLine": 7857
+            }
+          ]
+        },
+        {
+          "ID": "csstype@3.2.3",
+          "Name": "csstype",
+          "Identifier": {
+            "PURL": "pkg:npm/csstype@3.2.3",
+            "UID": "68ef2f031e23277c"
+          },
+          "Version": "3.2.3",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 8023,
+              "EndLine": 8029
+            }
+          ]
+        },
+        {
+          "ID": "d3-array@3.2.4",
+          "Name": "d3-array",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-array@3.2.4",
+            "UID": "a2965121dc52a5c9"
+          },
+          "Version": "3.2.4",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "internmap@2.0.3"
+          ],
+          "Locations": [
+            {
+              "StartLine": 8030,
+              "EndLine": 8041
+            }
+          ]
+        },
+        {
+          "ID": "d3-color@3.1.0",
+          "Name": "d3-color",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-color@3.1.0",
+            "UID": "e578048b31268ced"
+          },
+          "Version": "3.1.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 8042,
+              "EndLine": 8050
+            }
+          ]
+        },
+        {
+          "ID": "d3-ease@3.0.1",
+          "Name": "d3-ease",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-ease@3.0.1",
+            "UID": "224d815e57aa1359"
+          },
+          "Version": "3.0.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 8051,
+              "EndLine": 8059
+            }
+          ]
+        },
+        {
+          "ID": "d3-format@3.1.0",
+          "Name": "d3-format",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-format@3.1.0",
+            "UID": "323c092696ff9f1f"
+          },
+          "Version": "3.1.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 8060,
+              "EndLine": 8068
+            }
+          ]
+        },
+        {
+          "ID": "d3-interpolate@3.0.1",
+          "Name": "d3-interpolate",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-interpolate@3.0.1",
+            "UID": "29f43e276c080fc6"
+          },
+          "Version": "3.0.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "d3-color@3.1.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 8069,
+              "EndLine": 8080
+            }
+          ]
+        },
+        {
+          "ID": "d3-path@3.1.0",
+          "Name": "d3-path",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-path@3.1.0",
+            "UID": "b5f05f124e04bc1"
+          },
+          "Version": "3.1.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 8081,
+              "EndLine": 8089
+            }
+          ]
+        },
+        {
+          "ID": "d3-scale@4.0.2",
+          "Name": "d3-scale",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-scale@4.0.2",
+            "UID": "9ae529d3ada737f4"
+          },
+          "Version": "4.0.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "d3-array@3.2.4",
+            "d3-format@3.1.0",
+            "d3-interpolate@3.0.1",
+            "d3-time-format@4.1.0",
+            "d3-time@3.1.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 8090,
+              "EndLine": 8105
+            }
+          ]
+        },
+        {
+          "ID": "d3-shape@3.2.0",
+          "Name": "d3-shape",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-shape@3.2.0",
+            "UID": "3378b9bbc03e0d0f"
+          },
+          "Version": "3.2.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "d3-path@3.1.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 8106,
+              "EndLine": 8117
+            }
+          ]
+        },
+        {
+          "ID": "d3-time@3.1.0",
+          "Name": "d3-time",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-time@3.1.0",
+            "UID": "8c7f4047a778bf5"
+          },
+          "Version": "3.1.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "d3-array@3.2.4"
+          ],
+          "Locations": [
+            {
+              "StartLine": 8118,
+              "EndLine": 8129
+            }
+          ]
+        },
+        {
+          "ID": "d3-time-format@4.1.0",
+          "Name": "d3-time-format",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-time-format@4.1.0",
+            "UID": "7288914c4caf524f"
+          },
+          "Version": "4.1.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "d3-time@3.1.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 8130,
+              "EndLine": 8141
+            }
+          ]
+        },
+        {
+          "ID": "d3-timer@3.0.1",
+          "Name": "d3-timer",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-timer@3.0.1",
+            "UID": "4e762c8b68e1253d"
+          },
+          "Version": "3.0.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 8142,
+              "EndLine": 8150
+            }
+          ]
+        },
+        {
+          "ID": "d3-voronoi@1.1.4",
+          "Name": "d3-voronoi",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-voronoi@1.1.4",
+            "UID": "281fcc75ff756ca0"
+          },
+          "Version": "1.1.4",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 8151,
+              "EndLine": 8156
+            }
+          ]
+        },
+        {
+          "ID": "debug@4.4.3",
+          "Name": "debug",
+          "Identifier": {
+            "PURL": "pkg:npm/debug@4.4.3",
+            "UID": "3d6b130e0d2e74b5"
+          },
+          "Version": "4.4.3",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "ms@2.1.3"
+          ],
+          "Locations": [
+            {
+              "StartLine": 8279,
+              "EndLine": 8296
+            }
+          ]
+        },
+        {
+          "ID": "delaunator@4.0.1",
+          "Name": "delaunator",
+          "Identifier": {
+            "PURL": "pkg:npm/delaunator@4.0.1",
+            "UID": "2a083b9a578d34c8"
+          },
+          "Version": "4.0.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 8418,
+              "EndLine": 8423
+            }
+          ]
+        },
+        {
+          "ID": "delaunay-find@0.0.6",
+          "Name": "delaunay-find",
+          "Identifier": {
+            "PURL": "pkg:npm/delaunay-find@0.0.6",
+            "UID": "465070a6145116a6"
+          },
+          "Version": "0.0.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "delaunator@4.0.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 8424,
+              "EndLine": 8432
+            }
+          ]
+        },
+        {
+          "ID": "delayed-stream@1.0.0",
+          "Name": "delayed-stream",
+          "Identifier": {
+            "PURL": "pkg:npm/delayed-stream@1.0.0",
+            "UID": "4efd5d6078610bfa"
+          },
+          "Version": "1.0.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 8433,
+              "EndLine": 8441
+            }
+          ]
+        },
+        {
+          "ID": "dunder-proto@1.0.1",
+          "Name": "dunder-proto",
+          "Identifier": {
+            "PURL": "pkg:npm/dunder-proto@1.0.1",
+            "UID": "3f6f42b4d1c4f081"
+          },
+          "Version": "1.0.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "call-bind-apply-helpers@1.0.2",
+            "es-errors@1.3.0",
+            "gopd@1.2.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 8604,
+              "EndLine": 8617
+            }
+          ]
+        },
+        {
+          "ID": "electron-to-chromium@1.5.267",
+          "Name": "electron-to-chromium",
+          "Identifier": {
+            "PURL": "pkg:npm/electron-to-chromium@1.5.267",
+            "UID": "3be41b5987e3a373"
+          },
+          "Version": "1.5.267",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 8618,
+              "EndLine": 8624
+            }
+          ]
+        },
+        {
+          "ID": "element-closest@2.0.2",
+          "Name": "element-closest",
+          "Identifier": {
+            "PURL": "pkg:npm/element-closest@2.0.2",
+            "UID": "4fb83d04825117bb"
+          },
+          "Version": "2.0.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 8625,
+              "EndLine": 8633
+            }
+          ]
+        },
+        {
+          "ID": "es-define-property@1.0.1",
+          "Name": "es-define-property",
+          "Identifier": {
+            "PURL": "pkg:npm/es-define-property@1.0.1",
+            "UID": "3e0ca49924d31c76"
+          },
+          "Version": "1.0.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 8907,
+              "EndLine": 8915
+            }
+          ]
+        },
+        {
+          "ID": "es-errors@1.3.0",
+          "Name": "es-errors",
+          "Identifier": {
+            "PURL": "pkg:npm/es-errors@1.3.0",
+            "UID": "61d79201bf4a60a5"
+          },
+          "Version": "1.3.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 8916,
+              "EndLine": 8924
+            }
+          ]
+        },
+        {
+          "ID": "es-object-atoms@1.1.1",
+          "Name": "es-object-atoms",
+          "Identifier": {
+            "PURL": "pkg:npm/es-object-atoms@1.1.1",
+            "UID": "dfa3ad81bccf92a5"
+          },
+          "Version": "1.1.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "es-errors@1.3.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 8960,
+              "EndLine": 8971
+            }
+          ]
+        },
+        {
+          "ID": "es-set-tostringtag@2.1.0",
+          "Name": "es-set-tostringtag",
+          "Identifier": {
+            "PURL": "pkg:npm/es-set-tostringtag@2.1.0",
+            "UID": "c3b6f8abb071726a"
+          },
+          "Version": "2.1.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "es-errors@1.3.0",
+            "get-intrinsic@1.3.0",
+            "has-tostringtag@1.0.2",
+            "hasown@2.0.2"
+          ],
+          "Locations": [
+            {
+              "StartLine": 8972,
+              "EndLine": 8986
+            }
+          ]
+        },
+        {
+          "ID": "escalade@3.2.0",
+          "Name": "escalade",
+          "Identifier": {
+            "PURL": "pkg:npm/escalade@3.2.0",
+            "UID": "551005279bf83a3e"
+          },
+          "Version": "3.2.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 9055,
+              "EndLine": 9064
+            }
+          ]
+        },
+        {
+          "ID": "fast-deep-equal@3.1.3",
+          "Name": "fast-deep-equal",
+          "Identifier": {
+            "PURL": "pkg:npm/fast-deep-equal@3.1.3",
+            "UID": "13591a2ac5640816"
+          },
+          "Version": "3.1.3",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 9473,
+              "EndLine": 9478
+            }
+          ]
+        },
+        {
+          "ID": "follow-redirects@1.15.9",
+          "Name": "follow-redirects",
+          "Identifier": {
+            "PURL": "pkg:npm/follow-redirects@1.15.9",
+            "UID": "fce2e5ccc957524"
+          },
+          "Version": "1.15.9",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 9702,
+              "EndLine": 9721
+            }
+          ]
+        },
+        {
+          "ID": "form-data@4.0.4",
+          "Name": "form-data",
+          "Identifier": {
+            "PURL": "pkg:npm/form-data@4.0.4",
+            "UID": "d7d962416d98d3d1"
+          },
+          "Version": "4.0.4",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "asynckit@0.4.0",
+            "combined-stream@1.0.8",
+            "es-set-tostringtag@2.1.0",
+            "hasown@2.0.2",
+            "mime-types@2.1.35"
+          ],
+          "Locations": [
+            {
+              "StartLine": 9767,
+              "EndLine": 9782
+            }
+          ]
+        },
+        {
+          "ID": "function-bind@1.1.2",
+          "Name": "function-bind",
+          "Identifier": {
+            "PURL": "pkg:npm/function-bind@1.1.2",
+            "UID": "3f4dc0f84dd68540"
+          },
+          "Version": "1.1.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 9862,
+              "EndLine": 9870
+            }
+          ]
+        },
+        {
+          "ID": "gensync@1.0.0-beta.2",
+          "Name": "gensync",
+          "Identifier": {
+            "PURL": "pkg:npm/gensync@1.0.0-beta.2",
+            "UID": "f482ea15395c02e8"
+          },
+          "Version": "1.0.0-beta.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 9912,
+              "EndLine": 9921
+            }
+          ]
+        },
+        {
+          "ID": "get-intrinsic@1.3.0",
+          "Name": "get-intrinsic",
+          "Identifier": {
+            "PURL": "pkg:npm/get-intrinsic@1.3.0",
+            "UID": "a2c4eebd7402092a"
+          },
+          "Version": "1.3.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "call-bind-apply-helpers@1.0.2",
+            "es-define-property@1.0.1",
+            "es-errors@1.3.0",
+            "es-object-atoms@1.1.1",
+            "function-bind@1.1.2",
+            "get-proto@1.0.1",
+            "gopd@1.2.0",
+            "has-symbols@1.1.0",
+            "hasown@2.0.2",
+            "math-intrinsics@1.1.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 9945,
+              "EndLine": 9968
+            }
+          ]
+        },
+        {
+          "ID": "get-proto@1.0.1",
+          "Name": "get-proto",
+          "Identifier": {
+            "PURL": "pkg:npm/get-proto@1.0.1",
+            "UID": "eda9d5f1e38899b0"
+          },
+          "Version": "1.0.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "dunder-proto@1.0.1",
+            "es-object-atoms@1.1.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 9976,
+              "EndLine": 9988
+            }
+          ]
+        },
+        {
+          "ID": "gopd@1.2.0",
+          "Name": "gopd",
+          "Identifier": {
+            "PURL": "pkg:npm/gopd@1.2.0",
+            "UID": "701808ccbd2ef6aa"
+          },
+          "Version": "1.2.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 10146,
+              "EndLine": 10157
+            }
+          ]
+        },
+        {
+          "ID": "has-symbols@1.1.0",
+          "Name": "has-symbols",
+          "Identifier": {
+            "PURL": "pkg:npm/has-symbols@1.1.0",
+            "UID": "89d83176705a3568"
+          },
+          "Version": "1.1.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 10268,
+              "EndLine": 10279
+            }
+          ]
+        },
+        {
+          "ID": "has-tostringtag@1.0.2",
+          "Name": "has-tostringtag",
+          "Identifier": {
+            "PURL": "pkg:npm/has-tostringtag@1.0.2",
+            "UID": "de3e1d0a1cd4d54"
+          },
+          "Version": "1.0.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "has-symbols@1.1.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 10280,
+              "EndLine": 10294
+            }
+          ]
+        },
+        {
+          "ID": "hasown@2.0.2",
+          "Name": "hasown",
+          "Identifier": {
+            "PURL": "pkg:npm/hasown@2.0.2",
+            "UID": "4bcc64574d7de16d"
+          },
+          "Version": "2.0.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "function-bind@1.1.2"
+          ],
+          "Locations": [
+            {
+              "StartLine": 10295,
+              "EndLine": 10306
+            }
+          ]
+        },
+        {
+          "ID": "internmap@2.0.3",
+          "Name": "internmap",
+          "Identifier": {
+            "PURL": "pkg:npm/internmap@2.0.3",
+            "UID": "8fe717e527b1675e"
+          },
+          "Version": "2.0.3",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 10576,
+              "EndLine": 10584
+            }
+          ]
+        },
+        {
+          "ID": "is-buffer@2.0.5",
+          "Name": "is-buffer",
+          "Identifier": {
+            "PURL": "pkg:npm/is-buffer@2.0.5",
+            "UID": "2ab1e6c48124bed8"
+          },
+          "Version": "2.0.5",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 10709,
+              "EndLine": 10731
+            }
+          ]
+        },
+        {
+          "ID": "js-tokens@4.0.0",
+          "Name": "js-tokens",
+          "Identifier": {
+            "PURL": "pkg:npm/js-tokens@4.0.0",
+            "UID": "4b49c4384059ad7d"
+          },
+          "Version": "4.0.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 11365,
+              "EndLine": 11371
+            }
+          ]
+        },
+        {
+          "ID": "jsesc@3.1.0",
+          "Name": "jsesc",
+          "Identifier": {
+            "PURL": "pkg:npm/jsesc@3.1.0",
+            "UID": "9f352ad9eee362de"
+          },
+          "Version": "3.1.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 11519,
+              "EndLine": 11531
+            }
+          ]
+        },
+        {
+          "ID": "json-stringify-safe@5.0.1",
+          "Name": "json-stringify-safe",
+          "Identifier": {
+            "PURL": "pkg:npm/json-stringify-safe@5.0.1",
+            "UID": "304742d520c01fd1"
+          },
+          "Version": "5.0.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 11567,
+              "EndLine": 11572
+            }
+          ]
+        },
+        {
+          "ID": "json5@2.2.3",
+          "Name": "json5",
+          "Identifier": {
+            "PURL": "pkg:npm/json5@2.2.3",
+            "UID": "6dfd54d7058fa401"
+          },
+          "Version": "2.2.3",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 11573,
+              "EndLine": 11585
+            }
+          ]
+        },
+        {
+          "ID": "jwt-decode@4.0.0",
+          "Name": "jwt-decode",
+          "Identifier": {
+            "PURL": "pkg:npm/jwt-decode@4.0.0",
+            "UID": "57f89359ad7d5ee9"
+          },
+          "Version": "4.0.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 11615,
+              "EndLine": 11623
+            }
+          ]
+        },
+        {
+          "ID": "keyboardevent-key-polyfill@1.1.0",
+          "Name": "keyboardevent-key-polyfill",
+          "Identifier": {
+            "PURL": "pkg:npm/keyboardevent-key-polyfill@1.1.0",
+            "UID": "4187a9b1fe67dfd6"
+          },
+          "Version": "1.1.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 11624,
+              "EndLine": 11629
+            }
+          ]
+        },
+        {
+          "ID": "lit@3.3.0",
+          "Name": "lit",
+          "Identifier": {
+            "PURL": "pkg:npm/lit@3.3.0",
+            "UID": "13c308e48b915628"
+          },
+          "Version": "3.3.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@lit/reactive-element@2.1.0",
+            "lit-element@4.2.0",
+            "lit-html@3.3.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 12093,
+              "EndLine": 12103
+            }
+          ]
+        },
+        {
+          "ID": "lit-element@4.2.0",
+          "Name": "lit-element",
+          "Identifier": {
+            "PURL": "pkg:npm/lit-element@4.2.0",
+            "UID": "5fe0d67dab4e6fba"
+          },
+          "Version": "4.2.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@lit-labs/ssr-dom-shim@1.3.0",
+            "@lit/reactive-element@2.1.0",
+            "lit-html@3.3.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 12104,
+              "EndLine": 12114
+            }
+          ]
+        },
+        {
+          "ID": "lit-html@3.3.0",
+          "Name": "lit-html",
+          "Identifier": {
+            "PURL": "pkg:npm/lit-html@3.3.0",
+            "UID": "c7a58bee0caa915a"
+          },
+          "Version": "3.3.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@types/trusted-types@2.0.7"
+          ],
+          "Locations": [
+            {
+              "StartLine": 12115,
+              "EndLine": 12123
+            }
+          ]
+        },
+        {
+          "ID": "lodash@4.17.23",
+          "Name": "lodash",
+          "Identifier": {
+            "PURL": "pkg:npm/lodash@4.17.23",
+            "UID": "d2b9bc145674c91c"
+          },
+          "Version": "4.17.23",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 12168,
+              "EndLine": 12173
+            }
+          ]
+        },
+        {
+          "ID": "lru-cache@5.1.1",
+          "Name": "lru-cache",
+          "Identifier": {
+            "PURL": "pkg:npm/lru-cache@5.1.1",
+            "UID": "35200568c40d1c1c"
+          },
+          "Version": "5.1.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "yallist@3.1.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 12218,
+              "EndLine": 12227
+            }
+          ]
+        },
+        {
+          "ID": "matches-selector@1.2.0",
+          "Name": "matches-selector",
+          "Identifier": {
+            "PURL": "pkg:npm/matches-selector@1.2.0",
+            "UID": "35c5fb215d2c717a"
+          },
+          "Version": "1.2.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 12288,
+              "EndLine": 12293
+            }
+          ]
+        },
+        {
+          "ID": "math-intrinsics@1.1.0",
+          "Name": "math-intrinsics",
+          "Identifier": {
+            "PURL": "pkg:npm/math-intrinsics@1.1.0",
+            "UID": "c067285aa57850ca"
+          },
+          "Version": "1.1.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 12294,
+              "EndLine": 12302
+            }
+          ]
+        },
+        {
+          "ID": "mime-db@1.52.0",
+          "Name": "mime-db",
+          "Identifier": {
+            "PURL": "pkg:npm/mime-db@1.52.0",
+            "UID": "46f5094d541d3505"
+          },
+          "Version": "1.52.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 12347,
+              "EndLine": 12355
+            }
+          ]
+        },
+        {
+          "ID": "mime-types@2.1.35",
+          "Name": "mime-types",
+          "Identifier": {
+            "PURL": "pkg:npm/mime-types@2.1.35",
+            "UID": "9494a0936a04b508"
+          },
+          "Version": "2.1.35",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "mime-db@1.52.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 12356,
+              "EndLine": 12367
+            }
+          ]
+        },
+        {
+          "ID": "ms@2.1.3",
+          "Name": "ms",
+          "Identifier": {
+            "PURL": "pkg:npm/ms@2.1.3",
+            "UID": "eb1a21504d478b83"
+          },
+          "Version": "2.1.3",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 12536,
+              "EndLine": 12542
+            }
+          ]
+        },
+        {
+          "ID": "node-releases@2.0.27",
+          "Name": "node-releases",
+          "Identifier": {
+            "PURL": "pkg:npm/node-releases@2.0.27",
+            "UID": "7e72fae1f3174117"
+          },
+          "Version": "2.0.27",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 12640,
+              "EndLine": 12646
+            }
+          ]
+        },
+        {
+          "ID": "object-assign@4.1.1",
+          "Name": "object-assign",
+          "Identifier": {
+            "PURL": "pkg:npm/object-assign@4.1.1",
+            "UID": "f5eb89752f31df1e"
+          },
+          "Version": "4.1.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 12732,
+              "EndLine": 12740
+            }
+          ]
+        },
+        {
+          "ID": "picocolors@1.1.1",
+          "Name": "picocolors",
+          "Identifier": {
+            "PURL": "pkg:npm/picocolors@1.1.1",
+            "UID": "bac71cc0fe2a88e"
+          },
+          "Version": "1.1.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 13299,
+              "EndLine": 13305
+            }
+          ]
+        },
+        {
+          "ID": "proxy-from-env@1.1.0",
+          "Name": "proxy-from-env",
+          "Identifier": {
+            "PURL": "pkg:npm/proxy-from-env@1.1.0",
+            "UID": "2b963e6597954d85"
+          },
+          "Version": "1.1.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 13705,
+              "EndLine": 13710
+            }
+          ]
+        },
+        {
+          "ID": "react-fast-compare@3.2.2",
+          "Name": "react-fast-compare",
+          "Identifier": {
+            "PURL": "pkg:npm/react-fast-compare@3.2.2",
+            "UID": "ab1ea24ef6d0d7d2"
+          },
+          "Version": "3.2.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 13890,
+              "EndLine": 13895
+            }
+          ]
+        },
+        {
+          "ID": "react-router@7.12.0",
+          "Name": "react-router",
+          "Identifier": {
+            "PURL": "pkg:npm/react-router@7.12.0",
+            "UID": "441ecb300d453177"
+          },
+          "Version": "7.12.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "cookie@1.1.1",
+            "react-dom@19.2.1",
+            "react@19.2.1",
+            "set-cookie-parser@2.7.2"
+          ],
+          "Locations": [
+            {
+              "StartLine": 13927,
+              "EndLine": 13948
+            }
+          ]
+        },
+        {
+          "ID": "receptor@1.0.0",
+          "Name": "receptor",
+          "Identifier": {
+            "PURL": "pkg:npm/receptor@1.0.0",
+            "UID": "4a6758cf7dc4e4fe"
+          },
+          "Version": "1.0.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "element-closest@2.0.2",
+            "keyboardevent-key-polyfill@1.1.0",
+            "matches-selector@1.2.0",
+            "object-assign@4.1.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 13979,
+              "EndLine": 13990
+            }
+          ]
+        },
+        {
+          "ID": "sass-embedded-linux-x64@1.89.1",
+          "Name": "sass-embedded-linux-x64",
+          "Identifier": {
+            "PURL": "pkg:npm/sass-embedded-linux-x64@1.89.1",
+            "UID": "37f6435aa8edefa9"
+          },
+          "Version": "1.89.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 14459,
+              "EndLine": 14474
+            }
+          ]
+        },
+        {
+          "ID": "scheduler@0.27.0",
+          "Name": "scheduler",
+          "Identifier": {
+            "PURL": "pkg:npm/scheduler@0.27.0",
+            "UID": "d46567461cfd2c5d"
+          },
+          "Version": "0.27.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 14488,
+              "EndLine": 14493
+            }
+          ]
+        },
+        {
+          "ID": "semver@6.3.1",
+          "Name": "semver",
+          "Identifier": {
+            "PURL": "pkg:npm/semver@6.3.1",
+            "UID": "2ebaf03028e45e81"
+          },
+          "Version": "6.3.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 14501,
+              "EndLine": 14510
+            }
+          ]
+        },
+        {
+          "ID": "set-cookie-parser@2.7.2",
+          "Name": "set-cookie-parser",
+          "Identifier": {
+            "PURL": "pkg:npm/set-cookie-parser@2.7.2",
+            "UID": "ddda3d4e8c3ad4f3"
+          },
+          "Version": "2.7.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 14511,
+              "EndLine": 14516
+            }
+          ]
+        },
+        {
+          "ID": "update-browserslist-db@1.2.2",
+          "Name": "update-browserslist-db",
+          "Identifier": {
+            "PURL": "pkg:npm/update-browserslist-db@1.2.2",
+            "UID": "e80b192237480b19"
+          },
+          "Version": "1.2.2",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "browserslist@4.28.1",
+            "escalade@3.2.0",
+            "picocolors@1.1.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16335,
+              "EndLine": 16365
+            }
+          ]
+        },
+        {
+          "ID": "use-sync-external-store@1.6.0",
+          "Name": "use-sync-external-store",
+          "Identifier": {
+            "PURL": "pkg:npm/use-sync-external-store@1.6.0",
+            "UID": "e786b876ad7a49e1"
+          },
+          "Version": "1.6.0",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "react@19.2.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16383,
+              "EndLine": 16391
+            }
+          ]
+        },
+        {
+          "ID": "victory@37.3.6",
+          "Name": "victory",
+          "Identifier": {
+            "PURL": "pkg:npm/victory@37.3.6",
+            "UID": "de95a3dd672b23c0"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "react@19.2.1",
+            "victory-area@37.3.6",
+            "victory-axis@37.3.6",
+            "victory-bar@37.3.6",
+            "victory-box-plot@37.3.6",
+            "victory-brush-container@37.3.6",
+            "victory-brush-line@37.3.6",
+            "victory-candlestick@37.3.6",
+            "victory-canvas@37.3.6",
+            "victory-chart@37.3.6",
+            "victory-core@37.3.6",
+            "victory-create-container@37.3.6",
+            "victory-cursor-container@37.3.6",
+            "victory-errorbar@37.3.6",
+            "victory-group@37.3.6",
+            "victory-histogram@37.3.6",
+            "victory-legend@37.3.6",
+            "victory-line@37.3.6",
+            "victory-pie@37.3.6",
+            "victory-polar-axis@37.3.6",
+            "victory-scatter@37.3.6",
+            "victory-selection-container@37.3.6",
+            "victory-shared-events@37.3.6",
+            "victory-stack@37.3.6",
+            "victory-tooltip@37.3.6",
+            "victory-voronoi-container@37.3.6",
+            "victory-voronoi@37.3.6",
+            "victory-zoom-container@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16524,
+              "EndLine": 16564
+            }
+          ]
+        },
+        {
+          "ID": "victory-area@37.3.6",
+          "Name": "victory-area",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-area@37.3.6",
+            "UID": "92422450682b6c6"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react@19.2.1",
+            "victory-core@37.3.6",
+            "victory-vendor@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16565,
+              "EndLine": 16581
+            }
+          ]
+        },
+        {
+          "ID": "victory-axis@37.3.6",
+          "Name": "victory-axis",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-axis@37.3.6",
+            "UID": "b5e5dd90eedf2d54"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react@19.2.1",
+            "victory-core@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16582,
+              "EndLine": 16597
+            }
+          ]
+        },
+        {
+          "ID": "victory-bar@37.3.6",
+          "Name": "victory-bar",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-bar@37.3.6",
+            "UID": "6c54e6d9f57de787"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react@19.2.1",
+            "victory-core@37.3.6",
+            "victory-vendor@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16598,
+              "EndLine": 16614
+            }
+          ]
+        },
+        {
+          "ID": "victory-box-plot@37.3.6",
+          "Name": "victory-box-plot",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-box-plot@37.3.6",
+            "UID": "a0940e21ff6f915b"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react@19.2.1",
+            "victory-core@37.3.6",
+            "victory-vendor@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16615,
+              "EndLine": 16631
+            }
+          ]
+        },
+        {
+          "ID": "victory-brush-container@37.3.6",
+          "Name": "victory-brush-container",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-brush-container@37.3.6",
+            "UID": "d8fcb77d19807b9f"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react-fast-compare@3.2.2",
+            "react@19.2.1",
+            "victory-core@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16632,
+              "EndLine": 16648
+            }
+          ]
+        },
+        {
+          "ID": "victory-brush-line@37.3.6",
+          "Name": "victory-brush-line",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-brush-line@37.3.6",
+            "UID": "61d75fe1be42ca78"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react-fast-compare@3.2.2",
+            "react@19.2.1",
+            "victory-core@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16649,
+              "EndLine": 16665
+            }
+          ]
+        },
+        {
+          "ID": "victory-candlestick@37.3.6",
+          "Name": "victory-candlestick",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-candlestick@37.3.6",
+            "UID": "4a2adef7aedf8a88"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react@19.2.1",
+            "victory-core@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16666,
+              "EndLine": 16681
+            }
+          ]
+        },
+        {
+          "ID": "victory-canvas@37.3.6",
+          "Name": "victory-canvas",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-canvas@37.3.6",
+            "UID": "ede8c318f2474a1c"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react@19.2.1",
+            "victory-bar@37.3.6",
+            "victory-core@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16682,
+              "EndLine": 16698
+            }
+          ]
+        },
+        {
+          "ID": "victory-chart@37.3.6",
+          "Name": "victory-chart",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-chart@37.3.6",
+            "UID": "7edbf7bd658e726d"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react-fast-compare@3.2.2",
+            "react@19.2.1",
+            "victory-axis@37.3.6",
+            "victory-core@37.3.6",
+            "victory-polar-axis@37.3.6",
+            "victory-shared-events@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16699,
+              "EndLine": 16718
+            }
+          ]
+        },
+        {
+          "ID": "victory-core@37.3.6",
+          "Name": "victory-core",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-core@37.3.6",
+            "UID": "5ddb84d03bf1c44f"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react-fast-compare@3.2.2",
+            "react@19.2.1",
+            "victory-vendor@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16719,
+              "EndLine": 16735
+            }
+          ]
+        },
+        {
+          "ID": "victory-create-container@37.3.6",
+          "Name": "victory-create-container",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-create-container@37.3.6",
+            "UID": "8e867816734b1726"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react@19.2.1",
+            "victory-brush-container@37.3.6",
+            "victory-core@37.3.6",
+            "victory-cursor-container@37.3.6",
+            "victory-selection-container@37.3.6",
+            "victory-voronoi-container@37.3.6",
+            "victory-zoom-container@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16736,
+              "EndLine": 16756
+            }
+          ]
+        },
+        {
+          "ID": "victory-cursor-container@37.3.6",
+          "Name": "victory-cursor-container",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-cursor-container@37.3.6",
+            "UID": "58c8df497e247a85"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react@19.2.1",
+            "victory-core@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16757,
+              "EndLine": 16772
+            }
+          ]
+        },
+        {
+          "ID": "victory-errorbar@37.3.6",
+          "Name": "victory-errorbar",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-errorbar@37.3.6",
+            "UID": "c8cb3534166aae55"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react@19.2.1",
+            "victory-core@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16773,
+              "EndLine": 16788
+            }
+          ]
+        },
+        {
+          "ID": "victory-group@37.3.6",
+          "Name": "victory-group",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-group@37.3.6",
+            "UID": "2d9986de4d237d23"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react-fast-compare@3.2.2",
+            "react@19.2.1",
+            "victory-core@37.3.6",
+            "victory-shared-events@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16789,
+              "EndLine": 16806
+            }
+          ]
+        },
+        {
+          "ID": "victory-histogram@37.3.6",
+          "Name": "victory-histogram",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-histogram@37.3.6",
+            "UID": "b21db31f6b062584"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react-fast-compare@3.2.2",
+            "react@19.2.1",
+            "victory-bar@37.3.6",
+            "victory-core@37.3.6",
+            "victory-vendor@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16807,
+              "EndLine": 16825
+            }
+          ]
+        },
+        {
+          "ID": "victory-legend@37.3.6",
+          "Name": "victory-legend",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-legend@37.3.6",
+            "UID": "884ad26e6b892f89"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react@19.2.1",
+            "victory-core@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16826,
+              "EndLine": 16841
+            }
+          ]
+        },
+        {
+          "ID": "victory-line@37.3.6",
+          "Name": "victory-line",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-line@37.3.6",
+            "UID": "5e686e2a06a18f1d"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react@19.2.1",
+            "victory-core@37.3.6",
+            "victory-vendor@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16842,
+              "EndLine": 16858
+            }
+          ]
+        },
+        {
+          "ID": "victory-pie@37.3.6",
+          "Name": "victory-pie",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-pie@37.3.6",
+            "UID": "362cc87b8a83f423"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react@19.2.1",
+            "victory-core@37.3.6",
+            "victory-vendor@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16859,
+              "EndLine": 16875
+            }
+          ]
+        },
+        {
+          "ID": "victory-polar-axis@37.3.6",
+          "Name": "victory-polar-axis",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-polar-axis@37.3.6",
+            "UID": "276fe2fef687f6e4"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react@19.2.1",
+            "victory-core@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16876,
+              "EndLine": 16891
+            }
+          ]
+        },
+        {
+          "ID": "victory-scatter@37.3.6",
+          "Name": "victory-scatter",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-scatter@37.3.6",
+            "UID": "e2ee637d183774bc"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react@19.2.1",
+            "victory-core@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16892,
+              "EndLine": 16907
+            }
+          ]
+        },
+        {
+          "ID": "victory-selection-container@37.3.6",
+          "Name": "victory-selection-container",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-selection-container@37.3.6",
+            "UID": "1e09a57dd162a829"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react@19.2.1",
+            "victory-core@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16908,
+              "EndLine": 16923
+            }
+          ]
+        },
+        {
+          "ID": "victory-shared-events@37.3.6",
+          "Name": "victory-shared-events",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-shared-events@37.3.6",
+            "UID": "3d687d1181ec88bd"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "json-stringify-safe@5.0.1",
+            "lodash@4.17.23",
+            "react-fast-compare@3.2.2",
+            "react@19.2.1",
+            "victory-core@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16924,
+              "EndLine": 16941
+            }
+          ]
+        },
+        {
+          "ID": "victory-stack@37.3.6",
+          "Name": "victory-stack",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-stack@37.3.6",
+            "UID": "830cbfaca0b49319"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react-fast-compare@3.2.2",
+            "react@19.2.1",
+            "victory-core@37.3.6",
+            "victory-shared-events@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16942,
+              "EndLine": 16959
+            }
+          ]
+        },
+        {
+          "ID": "victory-tooltip@37.3.6",
+          "Name": "victory-tooltip",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-tooltip@37.3.6",
+            "UID": "eb9a440b5f406d87"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react@19.2.1",
+            "victory-core@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16960,
+              "EndLine": 16975
+            }
+          ]
+        },
+        {
+          "ID": "victory-vendor@37.3.6",
+          "Name": "victory-vendor",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-vendor@37.3.6",
+            "UID": "3a37aa8316aa3285"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@types/d3-array@3.2.1",
+            "@types/d3-ease@3.0.2",
+            "@types/d3-interpolate@3.0.4",
+            "@types/d3-scale@4.0.9",
+            "@types/d3-shape@3.1.7",
+            "@types/d3-time@3.0.4",
+            "@types/d3-timer@3.0.2",
+            "d3-array@3.2.4",
+            "d3-ease@3.0.1",
+            "d3-interpolate@3.0.1",
+            "d3-scale@4.0.2",
+            "d3-shape@3.2.0",
+            "d3-time@3.1.0",
+            "d3-timer@3.0.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16976,
+              "EndLine": 16997
+            }
+          ]
+        },
+        {
+          "ID": "victory-voronoi@37.3.6",
+          "Name": "victory-voronoi",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-voronoi@37.3.6",
+            "UID": "22fdbbdae8af7220"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "d3-voronoi@1.1.4",
+            "lodash@4.17.23",
+            "react@19.2.1",
+            "victory-core@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 16998,
+              "EndLine": 17014
+            }
+          ]
+        },
+        {
+          "ID": "victory-voronoi-container@37.3.6",
+          "Name": "victory-voronoi-container",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-voronoi-container@37.3.6",
+            "UID": "bbe0d9a94357e5e0"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "delaunay-find@0.0.6",
+            "lodash@4.17.23",
+            "react-fast-compare@3.2.2",
+            "react@19.2.1",
+            "victory-core@37.3.6",
+            "victory-tooltip@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 17015,
+              "EndLine": 17033
+            }
+          ]
+        },
+        {
+          "ID": "victory-zoom-container@37.3.6",
+          "Name": "victory-zoom-container",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-zoom-container@37.3.6",
+            "UID": "d061f8843c3d0a9f"
+          },
+          "Version": "37.3.6",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "lodash@4.17.23",
+            "react@19.2.1",
+            "victory-core@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 17034,
+              "EndLine": 17049
+            }
+          ]
+        },
+        {
+          "ID": "yallist@3.1.1",
+          "Name": "yallist",
+          "Identifier": {
+            "PURL": "pkg:npm/yallist@3.1.1",
+            "UID": "848e67d9693fd3a9"
+          },
+          "Version": "3.1.1",
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 17638,
+              "EndLine": 17644
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

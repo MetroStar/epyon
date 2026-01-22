@@ -13,7 +13,17 @@ trufflehog-reports/
 xeol-reports/
 clamav-reports/
 checkov-reports/
-scans/
+
+# Scan results (exclude all scans except baseline scans)
+scans/*
+!scans/comet-starter_*/
+!scans/baseline-*/
+
+# Baseline repository clone (exclude the cloned repo itself)
+baseline/comet-starter/
+
+# Keep baseline reference file for drift detection
+!baseline/.baseline-reference
 
 # Temporary files
 *.tmp

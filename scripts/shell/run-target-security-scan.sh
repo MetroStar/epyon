@@ -511,8 +511,8 @@ case "$SCAN_TYPE" in
     "quick")
         print_section "Quick Security Scan (Core Tools Only) - Target: $(basename "$TARGET_DIR")"
         
-        # SBOM first - foundation for vulnerability scanning
-        run_security_tool "SBOM Generation" "$SCRIPT_DIR/run-sbom-scan.sh"
+        # SBOM first - foundation for vulnerability scanning (with dependency installation)
+        run_security_tool "Complete SBOM Generation" "$SCRIPT_DIR/run-complete-sbom-scan.sh"
         export SBOM_FILE="$SCAN_DIR/sbom/filesystem.json"
         
         # Core security tools
@@ -549,9 +549,9 @@ case "$SCAN_TYPE" in
     "full")
         print_section "Complete Ten-Layer Security Architecture Scan - Target: $(basename "$TARGET_DIR")"
         
-        # SBOM FIRST - Generate bill of materials for all other tools to use
+        # SBOM FIRST - Generate bill of materials for all other tools to use (with dependency installation)
         echo -e "${PURPLE}📋 Layer 1: Software Bill of Materials (SBOM) - Foundation for all scans${NC}"
-        run_security_tool "SBOM Generation" "$SCRIPT_DIR/run-sbom-scan.sh"
+        run_security_tool "Complete SBOM Generation" "$SCRIPT_DIR/run-complete-sbom-scan.sh"
         
         # Export SBOM path for other tools to use
         export SBOM_FILE="$SCAN_DIR/sbom/filesystem.json"

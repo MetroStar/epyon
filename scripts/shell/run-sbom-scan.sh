@@ -36,7 +36,7 @@ show_help() {
     echo ""
     echo "Package Types Detected:"
     echo "  - npm (Node.js packages)"
-    echo "  - pip/poetry (Python packages)"
+    echo "  - pip/poetry (Python packages, requirements.txt, requirements.lock, poetry.lock, Pipfile)"
     echo "  - gem (Ruby packages)"
     echo "  - maven/gradle (Java packages)"
     echo "  - go modules"
@@ -117,13 +117,13 @@ if [ -d "$REPO_PATH" ]; then
     echo -e "   📁 Target Directory: $REPO_PATH"
     # Count package manifests
     PACKAGE_JSON=$(find "$REPO_PATH" -name "package.json" -not -path "*/node_modules/*" 2>/dev/null | wc -l | tr -d ' ')
-    REQUIREMENTS=$(find "$REPO_PATH" -name "requirements*.txt" -o -name "Pipfile" -o -name "pyproject.toml" 2>/dev/null | wc -l | tr -d ' ')
+    REQUIREMENTS=$(find "$REPO_PATH" \( -name "requirements*.txt" -o -name "requirements*.lock" -o -name "Pipfile*" -o -name "pyproject.toml" -o -name "poetry.lock" \) 2>/dev/null | wc -l | tr -d ' ')
     GO_MOD=$(find "$REPO_PATH" -name "go.mod" 2>/dev/null | wc -l | tr -d ' ')
     POM_XML=$(find "$REPO_PATH" -name "pom.xml" 2>/dev/null | wc -l | tr -d ' ')
     GEMFILE=$(find "$REPO_PATH" -name "Gemfile" 2>/dev/null | wc -l | tr -d ' ')
     CARGO=$(find "$REPO_PATH" -name "Cargo.toml" 2>/dev/null | wc -l | tr -d ' ')
     echo -e "   📦 Node.js (package.json): $PACKAGE_JSON"
-    echo -e "   🐍 Python (requirements/Pipfile/pyproject): $REQUIREMENTS"
+    echo -e "   🐍 Python (requirements/Pipfile/poetry.lock): $REQUIREMENTS"
     echo -e "   🐹 Go (go.mod): $GO_MOD"
     echo -e "   ☕ Java (pom.xml): $POM_XML"
     echo -e "   💎 Ruby (Gemfile): $GEMFILE"
@@ -260,7 +260,7 @@ DETECTED_TYPES=""
 if [[ -f "$REPO_PATH/package.json" ]]; then
     DETECTED_TYPES="${DETECTED_TYPES}Node.js, "
 fi
-if [[ -f "$REPO_PATH/requirements.txt" ]] || [[ -f "$REPO_PATH/pyproject.toml" ]] || [[ -f "$REPO_PATH/setup.py" ]]; then
+if [[ -f "$REPO_PATH/requirements.txt" ]] || [[ -f "$REPO_PATH/requirements.lock" ]] || [[ -f "$REPO_PATH/pyproject.toml" ]] || [[ -f "$REPO_PATH/poetry.lock" ]] || [[ -f "$REPO_PATH/Pipfile" ]] || [[ -f "$REPO_PATH/Pipfile.lock" ]] || [[ -f "$REPO_PATH/setup.py" ]]; then
     DETECTED_TYPES="${DETECTED_TYPES}Python, "
 fi
 if [[ -f "$REPO_PATH/go.mod" ]]; then

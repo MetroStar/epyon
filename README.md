@@ -26,7 +26,9 @@ Our roadmap is organized by level of certainty and timeframe, focusing on key ou
 | **Now** | 2 | **GitHub integration** | GitHub action may not support spinning up docker containers for the scanning tools | Can be ran successfully by 3 or more GitHub repositories | GitHub actions |
 | **Near** | 3 | **Report generation** | How might the best way to generate a report be? Is the dashboard good enough. Should it auto .zip the scan upon completion for ease of sharing | Reports can be created and shared out easily | Reports and exports |
 | **Near** | 4 | **Failed build check** | What does failed mean?<br>• Aggressive No crits no highs<br>• Strong no crits 10 highs<br>• ??? | When an application has critical or highs, it reports as a failed build | Build checker |
-| **Far future** | 5 | **Security implementations** | STIG and RMF review of the tool | Complete STIG/RMF documentation for an application | STIGS/RMF/POA&M |
+| **Near** | 5 | **AI/ML Security Scanning** | • No ML model vulnerability detection<br>• Missing AI supply chain security<br>• Lack of LLM-specific threat scanning<br>• No adversarial robustness testing | Comprehensive AI/ML security coverage with model scanning, prompt injection detection, and AI compliance validation | Integration of Garak, MLSec, ModelScan, ART |
+| **Near** | 6 | **API Security Scanning** | • No OpenAPI/Swagger specification validation<br>• Missing API endpoint security analysis<br>• Lack of authentication/authorization checks<br>• No API rate limiting validation | Comprehensive API security analysis with Swagger/OpenAPI validation, endpoint testing, and REST/GraphQL security scanning | Integration of OWASP ZAP, Spectral, APISec |
+| **Far future** | 7 | **Security implementations** | STIG and RMF review of the tool | Complete STIG/RMF documentation for an application | STIGS/RMF/POA&M |
 | **Far future** | X, Y, ... | **Widely used as DEVSECOPS pipeline alternative** | Does this tool meet the needs for individual teams that do not have a proper pipeline | Utilized by 10 or more app teams | - |
 
 ### Features in Development
@@ -34,9 +36,11 @@ Our roadmap is organized by level of certainty and timeframe, focusing on key ou
 - **CI/CD Integration**: GitHub Actions support with containerized scanning
 - **Advanced Reporting**: Automated report generation with export options
 - **Quality Gates**: Configurable build failure criteria based on severity
+- **AI/ML Security**: Model vulnerability scanning and LLM threat detection
+- **API Security**: OpenAPI/Swagger validation and REST/GraphQL security scanning
 - **Compliance Framework**: STIG and RMF documentation integration
 
-*Roadmap current as of January 16, 2026*
+*Roadmap current as of January 21, 2026*
 
 ---
 
@@ -274,7 +278,7 @@ echo "🎯 Prerequisites check complete!"
 
 ## 🏗️ Architecture Components
 
-### Eight Security Layers (All Operational - Cross-Platform):
+### Current Security Layers (8 Operational - Cross-Platform):
 
 1. **🔍 TruffleHog** - Multi-target secret detection with filesystem, container, and registry scanning
 2. **🦠 ClamAV** - Enterprise antivirus scanning with real-time virus definition updates  
@@ -285,6 +289,10 @@ echo "🎯 Prerequisites check complete!"
 7. **📊 SonarQube** - Code quality analysis with target directory intelligence and interactive authentication
 8. **⚓ Helm** - Chart validation, linting, and packaging with interactive ECR authentication
 9. **📊 Report Consolidation** - Unified dashboard generation with comprehensive analytics
+
+### Planned Security Layers (In Development):
+
+10. **🌐 API Security** (Waypoint 6) - OpenAPI/Swagger validation, REST/GraphQL endpoint security analysis, authentication testing
 
 ### 🖥️ Cross-Platform Implementation (NEW - v2.2)
 
@@ -582,6 +590,123 @@ open scans/comet_rnelson_2025-11-25_09-40-22/consolidated-reports/dashboards/sec
 - **Grype**: Advanced vulnerability scanning with SBOM generation
 - **Xeol**: End-of-Life software detection
 - **Syft**: Software Bill of Materials (SBOM) generation
+
+---
+
+## 🐍 Python & AI Application Security
+
+### Current Capabilities
+
+Epyon provides **excellent security coverage for Python applications** with comprehensive scanning across traditional security domains:
+
+#### ⭐⭐⭐⭐⭐ Python Security Coverage (5/5)
+
+| Security Domain | Tools | Coverage |
+|----------------|-------|----------|
+| **Dependency Vulnerabilities** | Grype, Trivy | ✅ Excellent - Scans Python packages, requirements.txt, Pipfile, poetry.lock |
+| **Code Quality** | SonarQube | ✅ Excellent - Python-specific rules, complexity analysis, code smells |
+| **Secret Detection** | TruffleHog | ✅ Excellent - API keys, tokens, credentials in Python code |
+| **End-of-Life Libraries** | Xeol | ✅ Excellent - Identifies deprecated Python packages |
+| **Infrastructure Security** | Checkov | ✅ Excellent - Terraform, Kubernetes, Docker for Python deployments |
+| **Container Security** | Trivy, Grype | ✅ Excellent - Python container images and base layers |
+
+**What Works Great:**
+- 🐍 **Python Package Scanning**: Automatic detection of `requirements.txt`, `Pipfile.lock`, `poetry.lock`, `setup.py`
+- 🔒 **CVE Detection**: Real-time vulnerability databases for PyPI packages
+- 📊 **Code Quality**: SonarQube's Python analyzer with comprehensive rule sets
+- 🔑 **Secret Scanning**: Detection of hardcoded credentials, API keys, tokens
+- 🐳 **Container Images**: Full scanning of Python base images (python:3.x, alpine, etc.)
+
+#### ⭐⭐⭐☆☆ AI/ML Security Coverage (3/5)
+
+**Current AI/ML Capabilities:**
+- ✅ **Python ML Libraries**: Scans vulnerabilities in TensorFlow, PyTorch, scikit-learn, etc.
+- ✅ **Dependency Security**: Detects CVEs in ML framework dependencies
+- ✅ **Container Security**: Scans ML model serving containers (TensorFlow Serving, TorchServe)
+- ✅ **Code Quality**: Analyzes ML training scripts and inference code
+
+**AI/ML Security Gaps:**
+- ❌ **ML Model Scanning**: No analysis of trained model files (.h5, .pt, .pkl, .onnx)
+- ❌ **Prompt Injection Detection**: No LLM-specific threat scanning
+- ❌ **Model Poisoning**: No adversarial robustness testing
+- ❌ **AI Supply Chain**: No model provenance or integrity validation
+- ❌ **LLM Vulnerabilities**: No ChatGPT/GPT-4 API integration security checks
+- ❌ **AI Compliance**: No AI/ML-specific regulatory framework validation
+
+### Recommended Usage for Python/AI Projects
+
+#### Standard Python Application
+```bash
+# Comprehensive Python security scan
+./scripts/shell/run-target-security-scan.sh "/path/to/python-app" full
+
+# Quick Python vulnerability check
+./scripts/shell/run-target-security-scan.sh "/path/to/python-app" quick
+```
+
+#### Python ML/AI Application (Current)
+```bash
+# Scans: Python dependencies, containers, code quality, secrets
+# Does NOT scan: trained models, LLM prompts, adversarial robustness
+./scripts/shell/run-target-security-scan.sh "/path/to/ml-app" full
+
+# Focus on container security for ML deployments
+./scripts/shell/run-target-security-scan.sh "/path/to/ml-app" images
+```
+
+### 🔮 Future AI/ML Security Enhancements
+
+**Planned Waypoint 5: AI/ML Security Scanning**
+
+To achieve comprehensive AI/ML security coverage, Epyon will integrate:
+
+| Tool | Purpose | AI/ML Capability |
+|------|---------|------------------|
+| **Garak** | LLM vulnerability scanner | Prompt injection, jailbreaking, hallucination detection |
+| **ModelScan** | ML model security | Scans .pkl, .h5, .pt files for malicious code |
+| **MLSec** | ML supply chain | Model provenance, integrity validation |
+| **ART (Adversarial Robustness Toolbox)** | Adversarial testing | Model robustness against attacks |
+| **Counterfit** | AI red teaming | Automated adversarial testing |
+
+**Implementation Timeline:**
+- **Timeframe**: Near term (Waypoint 5)
+- **Integration**: Docker-based tools following existing architecture
+- **Success Metric**: Comprehensive AI/ML security coverage with model scanning, prompt injection detection, and AI compliance validation
+
+### Example Scan Output (Python Application)
+
+```bash
+✅ TruffleHog: 0 secrets detected (scanned Python source files)
+✅ Grype: 12 vulnerabilities in Python packages (3 High, 9 Medium)
+   - Django 3.2.0 → CVE-2023-12345 (High) - Upgrade to 3.2.5
+   - requests 2.25.0 → CVE-2023-67890 (Medium) - Upgrade to 2.28.1
+✅ SonarQube: 85.2% code coverage, 15 code smells (Python-specific rules)
+✅ Trivy: Python:3.9-slim base image - 4 OS vulnerabilities
+✅ Xeol: 2 EOL packages detected (Flask 1.1.x, Jinja2 2.x)
+```
+
+### Best Practices for Python/AI Security
+
+1. **Regular Scanning**: Run `full` scans weekly for Python applications
+2. **Container Hygiene**: Use minimal base images (python:3.x-slim, alpine)
+3. **Dependency Pinning**: Lock versions in `requirements.txt` or `poetry.lock`
+4. **Secret Management**: Never commit API keys - use environment variables
+5. **ML Model Security**: Store trained models separately from code repositories
+6. **LLM API Security**: Rotate API keys regularly, use scoped permissions
+7. **Code Review**: Use SonarQube quality gates for Python code
+
+### Limitations & Workarounds
+
+**Current Limitation**: No ML model file scanning  
+**Workaround**: Manually inspect model files with `ModelScan` or `pickle-inspector`
+
+**Current Limitation**: No LLM prompt injection detection  
+**Workaround**: Use `Garak` separately for LLM security testing
+
+**Current Limitation**: No adversarial robustness testing  
+**Workaround**: Integrate IBM ART in ML training pipelines
+
+---
 
 ## 📊 Coverage Analysis Methodology
 

@@ -14,16 +14,13 @@ xeol-reports/
 clamav-reports/
 checkov-reports/
 
-# Scan results (exclude all scans except baseline scans)
-scans/*
-!scans/comet-starter_*/
-!scans/baseline-*/
+# Scan results (exclude all regular scans)
+scans/
 
-# Baseline repository clone (exclude the cloned repo itself)
-baseline/comet-starter/
-
-# Keep baseline reference file for drift detection
-!baseline/.baseline-reference
+# Baseline directory structure
+baseline/comet-starter/      # Exclude the cloned repository
+!baseline/scans/             # Include baseline scans directory
+!baseline/.baseline-reference # Include baseline reference file
 
 # Temporary files
 *.tmp

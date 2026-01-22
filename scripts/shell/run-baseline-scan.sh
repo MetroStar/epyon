@@ -31,6 +31,7 @@ BASELINE_REPO_URL_SSH="git@github.com:MetroStar/comet-starter.git"
 BASELINE_REPO_NAME="comet-starter"
 BASELINE_DIR="${PWD}/baseline"
 BASELINE_REPO_PATH="${BASELINE_DIR}/${BASELINE_REPO_NAME}"
+BASELINE_SCANS_DIR="${BASELINE_DIR}/scans"
 BASELINE_REFERENCE_FILE="${BASELINE_DIR}/.baseline-reference"
 
 # Colors for output
@@ -113,7 +114,7 @@ BASELINE REPOSITORY:
     ${BASELINE_REPO_URL}
     
 SCAN STORAGE:
-    scans/baseline-comet-starter_\${USER}_\${TIMESTAMP}/
+    baseline/scans/comet-starter_\${USER}_\${TIMESTAMP}/
 
 BASELINE REFERENCE:
     ${BASELINE_REFERENCE_FILE}
@@ -207,7 +208,7 @@ set_baseline_reference() {
 
     # If no scan_id provided, use the most recent scan
     if [ -z "${scan_id}" ]; then
-        scan_id=$(find scans/ -maxdepth 1 -type d \( -name "baseline-*" -o -name "${BASELINE_REPO_NAME}_*" \) | sort -r | head -1 | xargs basename)
+        scan_id=$(find "${BASELINE_SCANS_DIR}" -maxdepth 1 -type d \( -name "baseline-*" -o -name "${BASELINE_REPO_NAME}_*" \) 2>/dev/null | sort -r | head -1 | xargs basename)
         
         if [ -z "${scan_id}" ]; then
             print_error "No baseline scans found"
@@ -219,13 +220,13 @@ set_baseline_reference() {
     fi
 
     # Verify scan exists
-    if [ ! -d "scans/${scan_id}" ]; then
-        print_error "Scan directory not found: scans/${scan_id}"
+    if [ ! -d "${BASELINE_SCANS_DIR}/${scan_id}" ]; then
+        print_error "Scan directory not found: ${BASELINE_SCANS_DIR}/${scan_id}"
         exit 1
     fi
 
     # Verify dashboard exists
-    if [ ! -f "scans/${scan_id}/consolidated-reports/dashboards/security-dashboard.html" ]; then
+    if [ ! -f "${BASELINE_SCANS_DIR}/${scan_id}/consolidated-reports/dashboards/security-dashboard.html" ]; then
         print_warning "Dashboard not found for this scan"
     fi
 
@@ -239,8 +240,8 @@ set_baseline_reference() {
 # Created: $(date)
 
 BASELINE_SCAN_ID="${scan_id}"
-BASELINE_SCAN_PATH="scans/${scan_id}"
-BASELINE_DASHBOARD="scans/${scan_id}/consolidated-reports/dashboards/security-dashboard.html"
+BASELINE_SCAN_PATH="baseline/scans/${scan_id}"
+BASELINE_DASHBOARD="baseline/scans/${scan_id}/consolidated-reports/dashboards/security-dashboard.html"
 BASELINE_SET_DATE="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 BASELINE_SET_BY="${USER}"
 EOF
@@ -257,17 +258,17 @@ EOF
 
     if [ -n "${HASH_COMMAND}" ]; then
         # Hash the security findings summary
-        if [ -f "scans/${scan_id}/security-findings-summary.json" ]; then
-            HASH=$(${HASH_COMMAND} "scans/${scan_id}/security-findings-summary.json" | awk '{print $1}')
+        if [ -f "${BASELINE_SCANS_DIR}/${scan_id}/security-findings-summary.json" ]; then
+            HASH=$(${HASH_COMMAND} "${BASELINE_SCANS_DIR}/${scan_id}/security-findings-summary.json" | awk '{print $1}')
             echo "BASELINE_HASH=\"${HASH}\"" >> "${BASELINE_REFERENCE_FILE}"
             echo "BASELINE_HASH_ALGORITHM=\"SHA256\"" >> "${BASELINE_REFERENCE_FILE}"
         fi
     fi
 
     # Add metadata if available
-    if [ -f "scans/${scan_id}/scan-metadata.json" ]; then
-        TOTAL_FILES=$(jq -r '.total_files // "N/A"' "scans/${scan_id}/scan-metadata.json" 2>/dev/null || echo "N/A")
-        REPO_COMMIT=$(jq -r '.repository_commit_short // "N/A"' "scans/${scan_id}/scan-metadata.json" 2>/dev/null || echo "N/A")
+    if [ -f "${BASELINE_SCANS_DIR}/${scan_id}/scan-metadata.json" ]; then
+        TOTAL_FILES=$(jq -r '.total_files // "N/A"' "${BASELINE_SCANS_DIR}/${scan_id}/scan-metadata.json" 2>/dev/null || echo "N/A")
+        REPO_COMMIT=$(jq -r '.repository_commit_short // "N/A"' "${BASELINE_SCANS_DIR}/${scan_id}/scan-metadata.json" 2>/dev/null || echo "N/A")
         echo "BASELINE_TOTAL_FILES=\"${TOTAL_FILES}\"" >> "${BASELINE_REFERENCE_FILE}"
         echo "BASELINE_REPO_COMMIT=\"${REPO_COMMIT}\"" >> "${BASELINE_REFERENCE_FILE}"
     fi
@@ -320,8 +321,11 @@ list_baseline_scans() {
         CURRENT_BASELINE_ID="${BASELINE_SCAN_ID}"
     fi
 
+    # Create scans directory if it doesn't exist
+    mkdir -p "${BASELINE_SCANS_DIR}"
+
     # Find scans with either baseline- prefix or comet-starter prefix
-    BASELINE_SCANS=$(find scans/ -maxdepth 1 -type d \( -name "baseline-*" -o -name "${BASELINE_REPO_NAME}_*" \) | sort -r)
+    BASELINE_SCANS=$(find "${BASELINE_SCANS_DIR}" -maxdepth 1 -type d \( -name "baseline-*" -o -name "${BASELINE_REPO_NAME}_*" \) 2>/dev/null | sort -r)
 
     if [ -z "${BASELINE_SCANS}" ]; then
         print_warning "No baseline scans found"
@@ -382,7 +386,7 @@ compare_baseline_scans() {
         print_info "Using official baseline: ${BASELINE_SCAN_ID}"
         
         # Get the most recent scan that's NOT the baseline
-        LATEST_SCAN=$(find scans/ -maxdepth 1 -type d \( -name "baseline-*" -o -name "${BASELINE_REPO_NAME}_*" \) ! -name "${BASELINE_SCAN_ID}" | sort -r | head -1)
+        LATEST_SCAN=$(find "${BASELINE_SCANS_DIR}" -maxdepth 1 -type d \( -name "baseline-*" -o -name "${BASELINE_REPO_NAME}_*" \) ! -name "${BASELINE_SCAN_ID}" 2>/dev/null | sort -r | head -1)
         
         if [ -z "${LATEST_SCAN}" ]; then
             print_warning "No other scans found to compare with baseline"
@@ -398,7 +402,7 @@ compare_baseline_scans() {
         echo ""
         
         # Find the two most recent baseline scans (with either naming pattern)
-        LATEST_SCANS=$(find scans/ -maxdepth 1 -type d \( -name "baseline-*" -o -name "${BASELINE_REPO_NAME}_*" \) | sort -r | head -2)
+        LATEST_SCANS=$(find "${BASELINE_SCANS_DIR}" -maxdepth 1 -type d \( -name "baseline-*" -o -name "${BASELINE_REPO_NAME}_*" \) 2>/dev/null | sort -r | head -2)
         SCAN_COUNT=$(echo "${LATEST_SCANS}" | wc -l | tr -d ' ')
 
         if [ "${SCAN_COUNT}" -lt 2 ]; then
@@ -471,6 +475,9 @@ run_baseline_scan() {
     print_info "Starting baseline security scan..."
     echo ""
 
+    # Create baseline scans directory
+    mkdir -p "${BASELINE_SCANS_DIR}"
+
     # Get current commit for tracking
     cd "${BASELINE_REPO_PATH}"
     REPO_COMMIT=$(git rev-parse HEAD)
@@ -493,22 +500,34 @@ run_baseline_scan() {
     # Record timestamp before scan to help locate results
     SCAN_START_TIME=$(date +%s)
     
-    # Set custom scan name with baseline prefix
-    export CUSTOM_SCAN_NAME="baseline-${BASELINE_REPO_NAME}"
+    # Set custom scan name and output directory for baseline
+    export CUSTOM_SCAN_NAME="${BASELINE_REPO_NAME}"
+    export BASELINE_SCAN_OUTPUT="${BASELINE_SCANS_DIR}"
     
     "${TARGET_SCAN_SCRIPT}" "${BASELINE_REPO_PATH}" full
 
-    # Find the most recent baseline or comet-starter scan (created within last 5 minutes)
-    LATEST_BASELINE=$(find scans/ -maxdepth 1 -type d \( -name "baseline-*" -o -name "${BASELINE_REPO_NAME}_*" \) -newermt "@${SCAN_START_TIME}" | sort -r | head -1)
+    # Find the most recent scan in baseline/scans/ (created within last 5 minutes)
+    LATEST_BASELINE=$(find "${BASELINE_SCANS_DIR}" -maxdepth 1 -type d \( -name "baseline-*" -o -name "${BASELINE_REPO_NAME}_*" \) -newermt "@${SCAN_START_TIME}" 2>/dev/null | sort -r | head -1)
 
     if [ -z "${LATEST_BASELINE}" ]; then
-        # Fallback: find any recent scan matching the repo name
-        LATEST_BASELINE=$(find scans/ -maxdepth 1 -type d -name "${BASELINE_REPO_NAME}_*" | sort -r | head -1)
+        # Fallback: check if scan was created in scans/ and move it
+        TEMP_SCAN=$(find scans/ -maxdepth 1 -type d -name "${BASELINE_REPO_NAME}_*" -newermt "@${SCAN_START_TIME}" 2>/dev/null | sort -r | head -1)
+        
+        if [ -n "${TEMP_SCAN}" ]; then
+            print_info "Moving scan to baseline directory..."
+            SCAN_NAME=$(basename "${TEMP_SCAN}")
+            mv "${TEMP_SCAN}" "${BASELINE_SCANS_DIR}/"
+            LATEST_BASELINE="${BASELINE_SCANS_DIR}/${SCAN_NAME}"
+            print_success "Moved to: ${LATEST_BASELINE}"
+        else
+            # Final fallback: find any recent scan in baseline dir
+            LATEST_BASELINE=$(find "${BASELINE_SCANS_DIR}" -maxdepth 1 -type d -name "${BASELINE_REPO_NAME}_*" 2>/dev/null | sort -r | head -1)
+        fi
     fi
 
     if [ -z "${LATEST_BASELINE}" ]; then
         print_error "Failed to locate baseline scan results"
-        print_info "Expected scan directory pattern: baseline-${BASELINE_REPO_NAME}_* or ${BASELINE_REPO_NAME}_*"
+        print_info "Expected scan directory pattern: ${BASELINE_REPO_NAME}_* in ${BASELINE_SCANS_DIR}"
         exit 1
     fi
 

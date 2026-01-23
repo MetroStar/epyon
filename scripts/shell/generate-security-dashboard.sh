@@ -852,6 +852,120 @@ else
     CHECKOV_FINDINGS="<p class=\"no-findings\">No Checkov results available</p>"
 fi
 
+# ---- Anchore Statistics ----
+ANCHORE_DIR="${LATEST_SCAN}/anchore"
+ANCHORE_TARGETS_SCANNED=0
+ANCHORE_TOTAL_VULNS=0
+ANCHORE_CRITICAL=0
+ANCHORE_HIGH=0
+ANCHORE_MEDIUM=0
+ANCHORE_LOW=0
+ANCHORE_FINDINGS=""
+ANCHORE_DETAILS=""
+ANCHORE_STATUS="Not Run"
+
+# Track seen vulnerabilities for deduplication (simple string approach)
+ANCHORE_SEEN_VULNS=""
+
+if [ -d "$ANCHORE_DIR" ]; then
+    # Count JSON result files
+    ANCHORE_TARGETS_SCANNED=$(find "$ANCHORE_DIR" -name "*-results.json" -type f 2>/dev/null | wc -l | tr -d ' \n' || echo "0")
+    [[ "$ANCHORE_TARGETS_SCANNED" =~ ^[0-9]+$ ]] || ANCHORE_TARGETS_SCANNED=0
+    
+    if [ "$ANCHORE_TARGETS_SCANNED" -gt 0 ]; then
+        ANCHORE_STATUS="Complete"
+    fi
+    
+    # Process filesystem results first, then images (skip SBOM as it duplicates filesystem)
+    for anchore_file in "$ANCHORE_DIR"/anchore-filesystem-results.json "$ANCHORE_DIR"/images/*.json; do
+        if [ -f "$anchore_file" ] && [ ! -L "$anchore_file" ]; then
+            # Extract vulnerabilities and count by severity
+            while IFS=$'\t' read -r vuln_id severity package version cve_url; do
+                if [ -n "$vuln_id" ]; then
+                    # Create unique key for deduplication
+                    VULN_KEY="${vuln_id}|${package}|${version}"
+                    
+                    # Skip if we've already seen this vulnerability (check if key exists in string)
+                    if [[ "$ANCHORE_SEEN_VULNS" == *"|${VULN_KEY}|"* ]]; then
+                        continue
+                    fi
+                    
+                    # Mark as seen by adding to string with delimiters
+                    ANCHORE_SEEN_VULNS="${ANCHORE_SEEN_VULNS}|${VULN_KEY}|"
+                    
+                    ((ANCHORE_TOTAL_VULNS++))
+                    case "$severity" in
+                        Critical) ((ANCHORE_CRITICAL++)) ;;
+                        High) ((ANCHORE_HIGH++)) ;;
+                        Medium) ((ANCHORE_MEDIUM++)) ;;
+                        Low) ((ANCHORE_LOW++)) ;;
+                    esac
+                    
+                    # Escape special characters for HTML
+                    package_escaped=$(echo "$package" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
+                    version_escaped=$(echo "$version" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
+                    
+                    # Determine badge class
+                    badge_class="badge-high"
+                    case "$severity" in
+                        Critical) badge_class="badge-critical" ;;
+                        Medium) badge_class="badge-medium" ;;
+                        Low) badge_class="badge-low" ;;
+                    esac
+                    
+                    # Determine source (filesystem or image)
+                    source_type="app"
+                    source_badge="💻 App Code"
+                    if [[ "$anchore_file" == *"/images/"* ]]; then
+                        source_type="image"
+                        source_badge="🐳 Container Image"
+                    fi
+                    
+                    ANCHORE_DETAILS="${ANCHORE_DETAILS}
+<div class=\"finding-item severity-$(echo "$severity" | tr '[:upper:]' '[:lower:]')\" data-source=\"${source_type}\" onclick=\"toggleFindingDetails(this)\">
+    <div class=\"finding-header\">
+        <span class=\"badge badge-tool\">Anchore</span>
+        <span class=\"badge ${badge_class}\">${severity}</span>
+        <span class=\"badge\" style=\"background:#2C3539;color:#9ca3af;border:1px solid #4a5568;\">${vuln_id}</span>
+        <span class=\"badge\" style=\"background:#152a1f;color:#4ade80;font-size:0.7em;border:1px solid #10b981;\">${source_badge}</span>
+    </div>
+    <div class=\"finding-title\">${package_escaped} ${version_escaped}</div>
+    <div class=\"finding-desc\">${vuln_id} in package ${package_escaped}</div>
+    <div class=\"finding-details\" style=\"display:none;\">
+        <div><strong>Vulnerability ID:</strong> <code>${vuln_id}</code></div>
+        <div><strong>Package:</strong> ${package_escaped}</div>
+        <div><strong>Version:</strong> ${version_escaped}</div>
+        <div><strong>Severity:</strong> ${severity}</div>
+        <div><strong>Source:</strong> ${source_badge}</div>
+        <div><strong>CVE Details:</strong> <a href=\"${cve_url}\" target=\"_blank\">${cve_url}</a></div>
+    </div>
+</div>"
+                fi
+            done < <(jq -r '.matches[]? | [.vulnerability.id, .vulnerability.severity, .artifact.name, .artifact.version, ("https://nvd.nist.gov/vuln/detail/" + .vulnerability.id)] | @tsv' "$anchore_file" 2>/dev/null)
+        fi
+    done
+    
+    # Generate summary
+    if [ "$ANCHORE_TOTAL_VULNS" -gt 0 ]; then
+        ANCHORE_FINDINGS="<div class=\"severity-breakdown\">
+            <span class=\"severity-item\" style=\"color:#C41E3A;\">⚫ Critical: ${ANCHORE_CRITICAL}</span>
+            <span class=\"severity-item\" style=\"color:#FF1493;\">⚫ High: ${ANCHORE_HIGH}</span>
+            <span class=\"severity-item\" style=\"color:#f97316;\">⚫ Medium: ${ANCHORE_MEDIUM}</span>
+            <span class=\"severity-item\" style=\"color:#4ade80;\">⚫ Low: ${ANCHORE_LOW}</span>
+        </div>"
+        
+        ANCHORE_FINDINGS="${ANCHORE_FINDINGS}<div class=\"findings-section\" style=\"margin-top: 15px;\">
+            <h4 style=\"color: #dd6b20; margin-bottom: 10px;\">❗ Vulnerabilities Found (${ANCHORE_TOTAL_VULNS})</h4>
+            <p style=\"color:#718096;margin-bottom:15px;font-size:0.9em;\">👆 Click on any finding below to expand details</p>
+            ${ANCHORE_DETAILS}
+        </div>"
+    else
+        ANCHORE_FINDINGS="<p class=\"no-findings\">✅ No vulnerabilities detected</p>"
+    fi
+else
+    ANCHORE_FINDINGS="<p class=\"no-findings\">No Anchore results available</p>"
+fi
+
 # ---- SonarQube Statistics ----
 SONAR_DIR="${LATEST_SCAN}/sonar"
 LATEST_SONAR=$(find "$SONAR_DIR" -name "*_sonar-analysis-results.json" -type f 2>/dev/null | sort -r | head -n 1 || echo "")
@@ -1190,48 +1304,8 @@ else
     XEOL_FINDINGS="<p class=\"no-findings\">No Xeol data available</p>"
 fi
 
-# ---- Anchore Statistics ----
-ANCHORE_DIR="${LATEST_SCAN}/anchore"
-ANCHORE_CRITICAL=0
-ANCHORE_HIGH=0
-ANCHORE_MEDIUM=0
-ANCHORE_LOW=0
-ANCHORE_TOTAL_VULNS=0
-ANCHORE_STATUS="N/A"
-ANCHORE_FINDINGS=""
-if [ -d "$ANCHORE_DIR" ]; then
-    ANCHORE_FILE=$(find "$ANCHORE_DIR" -name "anchore-results.json" -o -name "*_anchore-results.json" 2>/dev/null | head -n 1)
-    if [ -f "$ANCHORE_FILE" ]; then
-        ANCHORE_STATUS=$(jq -r '.status // "unknown"' "$ANCHORE_FILE" 2>/dev/null || echo "unknown")
-        
-        if [ "$ANCHORE_STATUS" = "placeholder" ]; then
-            ANCHORE_FINDINGS="<p class=\"no-findings\">ℹ️ Anchore integration planned for future release</p>"
-        else
-            # Parse actual Anchore results
-            ANCHORE_CRITICAL=$(jq '[.results.vulnerabilities[]? | select(.severity=="Critical")] | length' "$ANCHORE_FILE" 2>/dev/null || echo "0")
-            ANCHORE_HIGH=$(jq '[.results.vulnerabilities[]? | select(.severity=="High")] | length' "$ANCHORE_FILE" 2>/dev/null || echo "0")
-            ANCHORE_MEDIUM=$(jq '[.results.vulnerabilities[]? | select(.severity=="Medium")] | length' "$ANCHORE_FILE" 2>/dev/null || echo "0")
-            ANCHORE_LOW=$(jq '[.results.vulnerabilities[]? | select(.severity=="Low")] | length' "$ANCHORE_FILE" 2>/dev/null || echo "0")
-            
-            [[ "$ANCHORE_CRITICAL" =~ ^[0-9]+$ ]] || ANCHORE_CRITICAL=0
-            [[ "$ANCHORE_HIGH" =~ ^[0-9]+$ ]] || ANCHORE_HIGH=0
-            [[ "$ANCHORE_MEDIUM" =~ ^[0-9]+$ ]] || ANCHORE_MEDIUM=0
-            [[ "$ANCHORE_LOW" =~ ^[0-9]+$ ]] || ANCHORE_LOW=0
-            
-            ANCHORE_TOTAL_VULNS=$((ANCHORE_CRITICAL + ANCHORE_HIGH + ANCHORE_MEDIUM + ANCHORE_LOW))
-            
-            if [ "$ANCHORE_TOTAL_VULNS" -gt 0 ]; then
-                ANCHORE_FINDINGS="<p class=\"no-findings\">🔍 ${ANCHORE_TOTAL_VULNS} vulnerabilities detected</p>"
-            else
-                ANCHORE_FINDINGS="<p class=\"no-findings\">✅ No vulnerabilities detected by Anchore</p>"
-            fi
-        fi
-    else
-        ANCHORE_FINDINGS="<p class=\"no-findings\">No Anchore results file found</p>"
-    fi
-else
-    ANCHORE_FINDINGS="<p class=\"no-findings\">No Anchore data available</p>"
-fi
+# NOTE: Anchore Statistics section moved to line ~855 (before SonarQube)
+# This is to maintain logical ordering of security tools in the code
 
 # ---- API Discovery Statistics ----
 API_DISC_DIR="${LATEST_SCAN}"

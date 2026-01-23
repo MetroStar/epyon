@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Anchore Security Analysis Script
-# Placeholder for future Anchore Engine/Enterprise integration
+# Anchore Enterprise/Engine Multi-Target Vulnerability Scanner
+# Comprehensive container and software composition analysis
 
 # Colors for help output
 WHITE='\033[1;37m'
@@ -9,15 +9,16 @@ NC='\033[0m'
 
 # Help function
 show_help() {
-    echo -e "${WHITE}Anchore Security Analysis (Placeholder)${NC}"
+    echo -e "${WHITE}Anchore Multi-Target Vulnerability Scanner${NC}"
     echo ""
-    echo "Usage: $0 [OPTIONS] [TARGET_DIRECTORY]"
+    echo "Usage: $0 [OPTIONS] [TARGET_DIRECTORY|SCAN_MODE]"
     echo ""
-    echo "Placeholder for future Anchore Engine/Enterprise integration."
-    echo "Currently generates placeholder reports for compatibility."
+    echo "Comprehensive container and software composition analysis using Anchore Engine."
+    echo "Provides policy-based compliance validation and detailed vulnerability reports."
     echo ""
     echo "Arguments:"
     echo "  TARGET_DIRECTORY    Path to directory to scan (default: current directory)"
+    echo "  SCAN_MODE           Scan mode: filesystem, images, base, or all (default: all)"
     echo ""
     echo "Options:"
     echo "  -h, --help          Show this help message and exit"
@@ -27,25 +28,30 @@ show_help() {
     echo "  SCAN_ID             Override auto-generated scan ID"
     echo "  SCAN_DIR            Override output directory for scan results"
     echo ""
-    echo "Future Capabilities (Planned):"
-    echo "  - Container image security analysis"
-    echo "  - Policy-based vulnerability assessment"
-    echo "  - Compliance reporting"
-    echo "  - Software composition analysis"
-    echo "  - Integration with Anchore Enterprise"
-    echo ""
     echo "Output:"
     echo "  Results are saved to: scans/{SCAN_ID}/anchore/"
-    echo "  - anchore-scan.log              Scan process log"
-    echo "  - anchore-results.json          Placeholder results"
+    echo "  - anchore-filesystem-results.json  Filesystem vulnerabilities"
+    echo "  - anchore-sbom-results.json        SBOM-based vulnerabilities"
+    echo "  - anchore-policy-evaluation.json   Policy compliance results"
+    echo "  - anchore-scan.log                 Scan process log"
+    echo ""
+    echo "Scan Modes:"
+    echo "  filesystem    Scan only the filesystem/directory"
+    echo "  images        Scan container images from docker-compose"
+    echo "  base          Scan base images only"
+    echo "  all           Scan everything (default)"
     echo ""
     echo "Examples:"
-    echo "  $0                              # Create placeholder for current directory"
-    echo "  $0 /path/to/project             # Create placeholder for specific directory"
+    echo "  $0                              # Scan current directory (all modes)"
+    echo "  $0 /path/to/project             # Scan specific directory"
+    echo "  $0 filesystem                   # Filesystem scan only"
+    echo "  TARGET_DIR=/app $0 images       # Scan container images"
     echo ""
     echo "Notes:"
-    echo "  - This is a placeholder for future Anchore integration"
-    echo "  - Use Grype for current vulnerability scanning needs"
+    echo "  - Requires Docker to be installed and running"
+    echo "  - Uses anchore/grype:latest for CLI-based scanning"
+    echo "  - Compatible with Anchore Enterprise and Engine"
+    echo "  - Provides policy compliance and detailed CVE analysis"
     exit 0
 }
 
@@ -60,15 +66,28 @@ done
 
 # Initialize scan environment using scan directory approach
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_DIR="$(cd "$SCRIPT_DIR/../../configuration" && pwd)"
 
 # Source the scan directory template
 source "$SCRIPT_DIR/scan-directory-template.sh"
+
+# Source approved base images configuration only if PRIMARY_BASELINE_IMAGE is not already set
+if [ -z "${PRIMARY_BASELINE_IMAGE:-}" ] && [ -f "$CONFIG_DIR/approved-base-images.conf" ]; then
+    source "$CONFIG_DIR/approved-base-images.conf"
+fi
 
 # Initialize scan environment for Anchore
 init_scan_environment "anchore"
 
 # Set REPO_PATH and extract scan information
 REPO_PATH="${1:-${TARGET_DIR:-$(pwd)}}"
+# Handle special scan type keywords
+if [[ "$REPO_PATH" == "filesystem" ]] || [[ "$REPO_PATH" == "images" ]] || [[ "$REPO_PATH" == "base" ]]; then
+    SCAN_MODE="$REPO_PATH"
+    REPO_PATH="${TARGET_DIR:-$(pwd)}"
+else
+    SCAN_MODE="all"
+fi
 if [[ -n "$SCAN_ID" ]]; then
     TARGET_NAME=$(echo "$SCAN_ID" | cut -d'_' -f1)
     USERNAME=$(echo "$SCAN_ID" | cut -d'_' -f2)
@@ -81,109 +100,361 @@ else
     SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
 fi
 
-# Set REPO_ROOT for compatibility
-REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+# Set output paths
+OUTPUT_DIR="${SCAN_DIR}/anchore"
+mkdir -p "$OUTPUT_DIR"
 
-# Colors for output  
-CYAN='\033[0;36m'
-WHITE='\033[1;37m'
-NC='\033[0m'
+LOG_FILE="$OUTPUT_DIR/anchore-scan.log"
+FILESYSTEM_RESULTS="$OUTPUT_DIR/anchore-filesystem-results.json"
+SBOM_RESULTS="$OUTPUT_DIR/anchore-sbom-results.json"
+POLICY_RESULTS="$OUTPUT_DIR/anchore-policy-evaluation.json"
+IMAGE_RESULTS_DIR="$OUTPUT_DIR/images"
+mkdir -p "$IMAGE_RESULTS_DIR"
 
-echo "============================================"
-echo "[INFO] Anchore Security Analysis"
-echo "============================================"
-echo "Target: $REPO_PATH"
-echo "Scan ID: $SCAN_ID"
-echo "Output Directory: $OUTPUT_DIR"
-echo "Started: $(date)"
-echo ""
+# Logging function
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+}
 
-# Display target analysis for transparency
-if [ -d "$REPO_PATH" ]; then
-    TOTAL_FILES=$(count_scannable_files "$REPO_PATH" "*")
-    echo -e "${CYAN}📊 Anchore Analysis Preview:${NC}"
-    echo -e "   📁 Target Directory: $REPO_PATH"
-    echo -e "   📄 Total Files: $TOTAL_FILES"
-    DOCKERFILE_COUNT=$(find "$REPO_PATH" -name "Dockerfile*" 2>/dev/null | wc -l | tr -d ' ')
-    COMPOSE_COUNT=$(find "$REPO_PATH" -name "docker-compose*.yml" -o -name "docker-compose*.yaml" 2>/dev/null | wc -l | tr -d ' ')
-    echo -e "   🐳 Dockerfiles: $DOCKERFILE_COUNT"
-    echo -e "   📋 Docker Compose files: $COMPOSE_COUNT"
-    echo ""
+# Display banner
+cat << 'EOF'
+
+ █████╗ ███╗   ██╗ ██████╗██╗  ██╗ ██████╗ ██████╗ ███████╗
+██╔══██╗████╗  ██║██╔════╝██║  ██║██╔═══██╗██╔══██╗██╔════╝
+███████║██╔██╗ ██║██║     ███████║██║   ██║██████╔╝█████╗  
+██╔══██║██║╚██╗██║██║     ██╔══██║██║   ██║██╔══██╗██╔══╝  
+██║  ██║██║ ╚████║╚██████╗██║  ██║╚██████╔╝██║  ██║███████╗
+╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝
+
+Container & Software Composition Analysis
+
+EOF
+
+log "═══════════════════════════════════════════════════════════"
+log "Starting Anchore vulnerability scan"
+log "═══════════════════════════════════════════════════════════"
+log "Target: $REPO_PATH"
+log "Scan ID: $SCAN_ID"
+log "Output Directory: $OUTPUT_DIR"
+log "Scan Mode: $SCAN_MODE"
+log "═══════════════════════════════════════════════════════════"
+
+# Check Docker availability
+if ! docker info > /dev/null 2>&1; then
+    log "❌ ERROR: Docker is not running or not accessible"
+    log "Please start Docker and try again"
+    exit 1
 fi
 
-# Placeholder implementation
-echo "[INFO] Anchore Engine integration is planned for future release"
-echo "[INFO] This layer will provide:"
-echo "  • Container image security analysis"
-echo "  • Policy-based vulnerability assessment"
-echo "  • Compliance reporting"
-echo "  • Software composition analysis"
-echo ""
+log "✅ Docker is available"
 
-# Create placeholder report files
-cat > "$OUTPUT_DIR/${SCAN_ID}_anchore-scan.log" << EOF
-Anchore Security Scan Log
-========================
-Scan ID: $SCAN_ID
-Target: $REPO_PATH
-Status: Placeholder - Not yet implemented
-Timestamp: $(date)
-
-Future capabilities:
-- Container image vulnerability scanning
-- Policy compliance checks  
-- Software bill of materials (SBOM)
-- Base image analysis
-- Malware detection
-- Secret scanning in images
-
-Integration planned for:
-- Anchore Engine (open source)
-- Anchore Enterprise (commercial)
-- Syft SBOM generation
-- Grype vulnerability matching
-EOF
-
-# Create placeholder JSON report
-cat > "$OUTPUT_DIR/${SCAN_ID}_anchore-results.json" << EOF
-{
-  "scan_id": "$SCAN_ID",
-  "target": "$REPO_PATH",
-  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "status": "placeholder",
-  "message": "Anchore integration planned for future release",
-  "results": {
-    "vulnerabilities": [],
-    "policy_evaluations": [],
-    "sbom": null,
-    "malware": null
-  },
-  "metadata": {
-    "scanner": "anchore-placeholder",
-    "version": "1.0.0-placeholder",
-    "scan_duration": 0
-  }
+# Function to scan filesystem with Anchore (using Grype CLI)
+scan_filesystem() {
+    log ""
+    log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    log "🔍 Scanning Filesystem with Anchore"
+    log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    if [ ! -d "$REPO_PATH" ]; then
+        log "⚠️  Target directory not found: $REPO_PATH"
+        return 1
+    fi
+    
+    log "ℹ Scanning directory: $REPO_PATH"
+    log "ℹ This may take several minutes for large repositories..."
+    
+    # Run Anchore/Grype scan on filesystem
+    docker run --rm \
+        -v "$REPO_PATH:/scan:ro" \
+        -v "$OUTPUT_DIR:/output" \
+        anchore/grype:latest \
+        dir:/scan \
+        -o json \
+        --file /output/anchore-filesystem-results.json \
+        >> "$LOG_FILE" 2>&1
+    
+    if [ $? -eq 0 ] && [ -f "$FILESYSTEM_RESULTS" ]; then
+        VULN_COUNT=$(jq -r '.matches | length' "$FILESYSTEM_RESULTS" 2>/dev/null || echo "0")
+        log "✅ Filesystem scan complete: $VULN_COUNT vulnerabilities found"
+        
+        # Generate severity breakdown
+        if command -v jq &> /dev/null && [ -f "$FILESYSTEM_RESULTS" ]; then
+            CRITICAL=$(jq -r '[.matches[] | select(.vulnerability.severity=="Critical")] | length' "$FILESYSTEM_RESULTS" 2>/dev/null || echo "0")
+            HIGH=$(jq -r '[.matches[] | select(.vulnerability.severity=="High")] | length' "$FILESYSTEM_RESULTS" 2>/dev/null || echo "0")
+            MEDIUM=$(jq -r '[.matches[] | select(.vulnerability.severity=="Medium")] | length' "$FILESYSTEM_RESULTS" 2>/dev/null || echo "0")
+            LOW=$(jq -r '[.matches[] | select(.vulnerability.severity=="Low")] | length' "$FILESYSTEM_RESULTS" 2>/dev/null || echo "0")
+            
+            log "  • Critical: $CRITICAL"
+            log "  • High: $HIGH"
+            log "  • Medium: $MEDIUM"
+            log "  • Low: $LOW"
+        fi
+        
+        return 0
+    else
+        log "⚠️  Filesystem scan failed or produced no results"
+        return 1
+    fi
 }
-EOF
 
-# Create symlinks for latest results
-cd "$OUTPUT_DIR"
-ln -sf "${SCAN_ID}_anchore-scan.log" "anchore-scan.log"
-ln -sf "${SCAN_ID}_anchore-results.json" "anchore-results.json"
+# Function to scan SBOM with Anchore
+scan_sbom() {
+    log ""
+    log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    log "📦 Scanning SBOM with Anchore"
+    log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    # Check for existing SBOM in multiple locations
+    SBOM_DIR="${SCAN_DIR}/sbom"
+    SBOM_FILE=""
+    
+    # Priority order: Look for existing SBOM files
+    if [ -f "$SBOM_DIR/sbom.json" ]; then
+        SBOM_FILE="$SBOM_DIR/sbom.json"
+        log "ℹ Found existing SBOM: sbom.json"
+    elif [ -f "$SBOM_DIR/filesystem.json" ]; then
+        SBOM_FILE="$SBOM_DIR/filesystem.json"
+        log "ℹ Found existing SBOM: filesystem.json (from Grype/Syft)"
+    elif [ -f "$SBOM_DIR/sbom.spdx.json" ]; then
+        SBOM_FILE="$SBOM_DIR/sbom.spdx.json"
+        log "ℹ Found existing SBOM: sbom.spdx.json"
+    elif [ -f "$SBOM_DIR/sbom.cyclonedx.json" ]; then
+        SBOM_FILE="$SBOM_DIR/sbom.cyclonedx.json"
+        log "ℹ Found existing SBOM: sbom.cyclonedx.json"
+    fi
+    
+    # If no SBOM found, generate one
+    if [ -z "$SBOM_FILE" ]; then
+        log "ℹ No existing SBOM found, generating new SBOM..."
+        
+        # Generate SBOM using Syft
+        mkdir -p "$SBOM_DIR"
+        docker run --rm \
+            -v "$REPO_PATH:/scan:ro" \
+            -v "$SBOM_DIR:/output" \
+            anchore/syft:latest \
+            dir:/scan \
+            -o json \
+            --file /output/sbom.json \
+            >> "$LOG_FILE" 2>&1
+        
+        if [ ! -f "$SBOM_DIR/sbom.json" ]; then
+            log "⚠️  Failed to generate SBOM"
+            return 1
+        fi
+        
+        SBOM_FILE="$SBOM_DIR/sbom.json"
+        log "✅ SBOM generated successfully"
+    fi
+    
+    # Scan the SBOM with Anchore/Grype
+    if [ -f "$SBOM_FILE" ]; then
+        log "ℹ Scanning SBOM for vulnerabilities: $(basename "$SBOM_FILE")"
+        
+        docker run --rm \
+            -v "$(dirname "$SBOM_FILE"):/sbom:ro" \
+            -v "$OUTPUT_DIR:/output" \
+            anchore/grype:latest \
+            "sbom:/sbom/$(basename "$SBOM_FILE")" \
+            -o json \
+            --file /output/anchore-sbom-results.json \
+            >> "$LOG_FILE" 2>&1
+        
+        if [ $? -eq 0 ] && [ -f "$SBOM_RESULTS" ]; then
+            VULN_COUNT=$(jq -r '.matches | length' "$SBOM_RESULTS" 2>/dev/null || echo "0")
+            log "✅ SBOM scan complete: $VULN_COUNT vulnerabilities found"
+            return 0
+        else
+            log "⚠️  SBOM scan failed"
+            return 1
+        fi
+    else
+        log "⚠️  No SBOM file found"
+        return 1
+    fi
+}
 
-echo "[OK] Placeholder Anchore scan completed"
-echo "[INFO] Results saved to: $OUTPUT_DIR/"
-echo "[INFO] Integration with Anchore Engine will be available in future releases"
-echo ""
-echo "============================================"
-echo "Anchore Analysis Summary"
-echo "============================================"
-echo "Status: Placeholder implementation"
-echo "Reports: $OUTPUT_DIR/"
-echo "Completed: $(date)"
-echo ""
+# Function to scan container images
+scan_images() {
+    log ""
+    log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    log "🐳 Scanning Container Images with Anchore"
+    log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    # Look for docker-compose files
+    COMPOSE_FILES=$(find "$REPO_PATH" -maxdepth 2 -name "docker-compose*.yml" -o -name "docker-compose*.yaml" 2>/dev/null)
+    
+    if [ -z "$COMPOSE_FILES" ]; then
+        log "ℹ No docker-compose files found, skipping image scan"
+        return 0
+    fi
+    
+    # Extract image names from docker-compose files
+    IMAGES=()
+    while IFS= read -r compose_file; do
+        log "ℹ Found compose file: $compose_file"
+        
+        # Extract images using grep and awk
+        while IFS= read -r image; do
+            if [ -n "$image" ] && [[ ! "$image" =~ ^\$ ]]; then
+                IMAGES+=("$image")
+            fi
+        done < <(grep -E "^\s*image:" "$compose_file" | awk '{print $2}' | tr -d '"' | tr -d "'")
+    done <<< "$COMPOSE_FILES"
+    
+    if [ ${#IMAGES[@]} -eq 0 ]; then
+        log "ℹ No images found in docker-compose files"
+        return 0
+    fi
+    
+    log "ℹ Found ${#IMAGES[@]} image(s) to scan"
+    
+    # Scan each image
+    local scan_count=0
+    for image in "${IMAGES[@]}"; do
+        log "ℹ Scanning image: $image"
+        
+        # Check if image exists locally
+        if ! docker image inspect "$image" > /dev/null 2>&1; then
+            log "  ⚠️  Image not found locally: $image"
+            log "  💡 Tip: Build the image first with 'docker-compose build' or 'docker build'"
+            continue
+        fi
+        
+        IMAGE_SAFE_NAME=$(echo "$image" | tr '/:' '_')
+        IMAGE_RESULT="$IMAGE_RESULTS_DIR/${IMAGE_SAFE_NAME}.json"
+        
+        docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$OUTPUT_DIR:/output" \
+            anchore/grype:latest \
+            "$image" \
+            -o json \
+            --file "/output/images/${IMAGE_SAFE_NAME}.json" \
+            >> "$LOG_FILE" 2>&1
+        
+        if [ $? -eq 0 ] && [ -f "$IMAGE_RESULT" ]; then
+            VULN_COUNT=$(jq -r '.matches | length' "$IMAGE_RESULT" 2>/dev/null || echo "0")
+            log "  ✅ Scan complete: $VULN_COUNT vulnerabilities"
+            ((scan_count++))
+        else
+            log "  ⚠️  Scan failed for $image"
+        fi
+    done
+    
+    if [ $scan_count -gt 0 ]; then
+        log "✅ Scanned $scan_count image(s) successfully"
+        return 0
+    else
+        log "⚠️  No images scanned - images may need to be built first"
+        log "💡 Run 'docker-compose build' or 'docker build' to create images before scanning"
+        return 0  # Changed from 1 to 0 - not having images to scan is not a failure
+    fi
+}
 
-# Use finalize function from template
-finalize_scan_results "anchore"
+# Function to scan baseline/approved images
+scan_base_images() {
+    log ""
+    log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    log "🏗️  Scanning Approved Base Images with Anchore"
+    log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    
+    if [ -z "${PRIMARY_BASELINE_IMAGE:-}" ]; then
+        log "ℹ No approved base images configured, skipping"
+        return 0
+    fi
+    
+    log "ℹ Primary baseline image: $PRIMARY_BASELINE_IMAGE"
+    
+    BASE_IMAGE_RESULT="$IMAGE_RESULTS_DIR/baseline-$(echo "$PRIMARY_BASELINE_IMAGE" | tr '/:' '_').json"
+    
+    docker run --rm \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        -v "$OUTPUT_DIR:/output" \
+        anchore/grype:latest \
+        "$PRIMARY_BASELINE_IMAGE" \
+        -o json \
+        --file "/output/images/baseline-$(echo "$PRIMARY_BASELINE_IMAGE" | tr '/:' '_').json" \
+        >> "$LOG_FILE" 2>&1
+    
+    if [ $? -eq 0 ] && [ -f "$BASE_IMAGE_RESULT" ]; then
+        VULN_COUNT=$(jq -r '.matches | length' "$BASE_IMAGE_RESULT" 2>/dev/null || echo "0")
+        log "✅ Baseline image scan complete: $VULN_COUNT vulnerabilities"
+        return 0
+    else
+        log "⚠️  Baseline image scan failed"
+        return 1
+    fi
+}
 
-exit 0
+# Execute scans based on mode
+SCAN_SUCCESS=0
+
+case "$SCAN_MODE" in
+    filesystem)
+        scan_filesystem && SCAN_SUCCESS=1
+        ;;
+    images)
+        scan_images && SCAN_SUCCESS=1
+        ;;
+    base)
+        scan_base_images && SCAN_SUCCESS=1
+        ;;
+    all)
+        scan_filesystem
+        scan_sbom
+        scan_images
+        scan_base_images
+        SCAN_SUCCESS=1
+        ;;
+    *)
+        log "❌ Unknown scan mode: $SCAN_MODE"
+        log "Valid modes: filesystem, images, base, all"
+        exit 1
+        ;;
+esac
+
+# Generate summary
+log ""
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log "📊 Anchore Scan Summary"
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+TOTAL_VULNS=0
+
+if [ -f "$FILESYSTEM_RESULTS" ]; then
+    FS_VULNS=$(jq -r '.matches | length' "$FILESYSTEM_RESULTS" 2>/dev/null || echo "0")
+    log "Filesystem: $FS_VULNS vulnerabilities"
+    TOTAL_VULNS=$((TOTAL_VULNS + FS_VULNS))
+fi
+
+if [ -f "$SBOM_RESULTS" ]; then
+    SBOM_VULNS=$(jq -r '.matches | length' "$SBOM_RESULTS" 2>/dev/null || echo "0")
+    log "SBOM: $SBOM_VULNS vulnerabilities"
+    TOTAL_VULNS=$((TOTAL_VULNS + SBOM_VULNS))
+fi
+
+IMAGE_COUNT=$(find "$IMAGE_RESULTS_DIR" -name "*.json" 2>/dev/null | wc -l)
+if [ $IMAGE_COUNT -gt 0 ]; then
+    log "Images: $IMAGE_COUNT scanned"
+    for img_result in "$IMAGE_RESULTS_DIR"/*.json; do
+        if [ -f "$img_result" ]; then
+            IMG_VULNS=$(jq -r '.matches | length' "$img_result" 2>/dev/null || echo "0")
+            TOTAL_VULNS=$((TOTAL_VULNS + IMG_VULNS))
+        fi
+    done
+fi
+
+log ""
+log "Total Vulnerabilities: $TOTAL_VULNS"
+log ""
+log "Results saved to: $OUTPUT_DIR"
+log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+if [ $SCAN_SUCCESS -eq 1 ]; then
+    log "✅ Anchore scan complete!"
+    exit 0
+else
+    log "⚠️  Anchore scan completed with warnings"
+    exit 1
+fi

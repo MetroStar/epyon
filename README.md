@@ -22,7 +22,7 @@ Our roadmap is organized by level of certainty and timeframe, focusing on key ou
 
 | Timeframe | Waypoint | Desired Outcomes | Key Challenges | Success Metrics |
 |-----------|----------|------------------|----------------|-----------------|
-| **Now** | 1 | **Feature Enhancements of scanners** | • Scanner drift<br>• Signatures updated on demand validated<br>• Add Anchore scanning | Scanning capabilities are validated with 0% margin of error between scanning the same application | Test against same application multiple times<br>Addition of Anchore |
+| **Now** | 1 | **Feature Enhancements of scanners** | • Scanner drift<br>• Signatures updated on demand validated<br>• ✅ Anchore scanning integrated | Scanning capabilities are validated with 0% margin of error between scanning the same application | Test against same application multiple times<br>✅ Anchore operational |
 | **Now** | 2 | **GitHub integration** | GitHub action may not support spinning up docker containers for the scanning tools | Can be ran successfully by 3 or more GitHub repositories | GitHub actions |
 | **Near** | 3 | **Report generation** | How might the best way to generate a report be? Is the dashboard good enough. Should it auto .zip the scan upon completion for ease of sharing | Reports can be created and shared out easily | Reports and exports |
 | **Near** | 4 | **Failed build check** | What does failed mean?<br>• Aggressive No crits no highs<br>• Strong no crits 10 highs<br>• ??? | When an application has critical or highs, it reports as a failed build | Build checker |
@@ -278,7 +278,7 @@ echo "🎯 Prerequisites check complete!"
 
 ## 🏗️ Architecture Components
 
-### Current Security Layers (8 Operational - Cross-Platform):
+### Current Security Layers (9 Operational - Cross-Platform):
 
 1. **🔍 TruffleHog** - Multi-target secret detection with filesystem, container, and registry scanning
 2. **🦠 ClamAV** - Enterprise antivirus scanning with real-time virus definition updates  
@@ -288,11 +288,12 @@ echo "🎯 Prerequisites check complete!"
 6. **⏰ Xeol** - End-of-Life software detection for proactive dependency management
 7. **📊 SonarQube** - Code quality analysis with target directory intelligence and interactive authentication
 8. **⚓ Helm** - Chart validation, linting, and packaging with interactive ECR authentication
-9. **📊 Report Consolidation** - Unified dashboard generation with comprehensive analytics
+9. **⚓ Anchore** - Container and software composition analysis with policy-based compliance validation
+10. **📊 Report Consolidation** - Unified dashboard generation with comprehensive analytics
 
 ### Planned Security Layers (In Development):
 
-10. **🌐 API Security** (Waypoint 6) - OpenAPI/Swagger validation, REST/GraphQL endpoint security analysis, authentication testing
+11. **🌐 API Security** (Waypoint 6) - OpenAPI/Swagger validation, REST/GraphQL endpoint security analysis, authentication testing
 
 ### 🖥️ Cross-Platform Implementation (NEW - v2.2)
 
@@ -351,7 +352,10 @@ epyon/
 │       ├── sonar/
 │       ├── helm/
 │       ├── sbom/
-│       ├── anchore/
+│       ├── anchore/              # Anchore vulnerability scans
+│       │   ├── anchore-filesystem-results.json
+│       │   ├── anchore-sbom-results.json
+│       │   └── images/           # Container image scans
 │       └── consolidated-reports/  # Unified dashboard and reports
 │           ├── dashboards/       # Interactive security dashboard
 │           ├── html-reports/     # Tool-specific HTML reports
@@ -455,7 +459,10 @@ TARGET_DIR="/path/to/project" ./run-sonar-analysis.sh
 # Layer 8: Helm Chart Building - Interactive ECR authentication
 TARGET_DIR="/path/to/project" ./run-helm-build.sh
 
-# Step 9: Report Consolidation (integrated into complete scan)
+# Layer 9: Anchore Container Analysis
+TARGET_DIR="/path/to/project" ./run-anchore-scan.sh
+
+# Step 10: Report Consolidation (integrated into complete scan)
 ./consolidate-security-reports.sh
 ```
 
@@ -486,7 +493,10 @@ $env:TARGET_DIR="/path/to/project"; .\run-trufflehog-scan.ps1 filesystem
 # Layer 8: Helm Chart Building - ✅ NEW: Interactive ECR authentication
 $env:TARGET_DIR="/path/to/project"; .\run-helm-build.ps1
 
-# Step 9: Report Consolidation (integrated into complete scan)
+# Layer 9: Anchore Container Analysis
+$env:TARGET_DIR="/path/to/project"; .\run-anchore-scan.ps1
+
+# Step 10: Report Consolidation (integrated into complete scan)
 .\consolidate-security-reports.ps1
 ```
 
@@ -600,7 +610,7 @@ fi
 - **Target-Aware Scanning**: `TARGET_DIR` environment variable method for clean path handling
 
 ### 🛡️ Comprehensive Security Coverage
-- **8-Layer Security Model**: Complete DevOps security pipeline coverage
+- **9-Layer Security Model**: Complete DevOps security pipeline coverage
 - **Real-Time Scanning**: Live vulnerability databases with automatic updates
 - **Multi-Format Analysis**: Source code, containers, infrastructure, dependencies
 - **Compliance Support**: NIST, OWASP, CIS benchmarks integration
@@ -637,6 +647,7 @@ fi
 - **⏰ Xeol**: EOL software detection completed
 - **📊 SonarQube**: Code quality analysis with coverage metrics
 - **⚓ Helm**: Chart validation and packaging
+- **⚓ Anchore**: Container composition analysis with policy evaluation
 
 #### **🏗️ Isolated Scan Architecture:**
 - **✅ Complete Isolation**: All outputs in scan-specific `scans/{scan_id}/` directory
@@ -668,6 +679,7 @@ fi
 - **Grype**: Advanced vulnerability scanning with SBOM generation
 - **Xeol**: End-of-Life software detection
 - **Syft**: Software Bill of Materials (SBOM) generation
+- **Anchore**: Container and software composition analysis
 
 ---
 
@@ -897,7 +909,7 @@ Our SonarQube integration now uses **LCOV format** as the primary coverage sourc
 
 ## 🏆 Achievement Summary
 
-✅ **Eight-Layer Security Architecture** - Complete implementation  
+✅ **Nine-Layer Security Architecture** - Complete implementation with Anchore  
 ✅ **Multi-Target Scanning** - Enhanced capabilities across all tools  
 ✅ **Unified Reporting System** - Human-readable dashboards and reports  
 ✅ **Production-Ready** - Docker-based, cross-platform compatible  

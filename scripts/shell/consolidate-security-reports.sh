@@ -584,6 +584,24 @@ if [ -d "$SCAN_DIR/sbom" ]; then
     fi
 fi
 
+# Generate API discovery exports for external integration
+if [ -f "$SCAN_DIR/api-discovery.json" ]; then
+    echo -e "${PURPLE}🌐 Generating API discovery exports...${NC}"
+    API_EXPORT_SCRIPT="$SCRIPT_DIR/export-api-discovery.sh"
+    if [ -f "$API_EXPORT_SCRIPT" ]; then
+        # Extract scan ID from SCAN_DIR path
+        SCAN_ID=$(basename "$SCAN_DIR")
+        # Export API discovery data and copy to Desktop
+        "$API_EXPORT_SCRIPT" --desktop "$SCAN_ID" > /dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}✓ API discovery data exported${NC}"
+            echo -e "${GREEN}✓ API discovery files copied to ~/Desktop/api-discovery/${NC}"
+        else
+            echo -e "${YELLOW}⚠️  API discovery export failed (file will be available on-demand)${NC}"
+        fi
+    fi
+fi
+
 # Generate comprehensive security dashboard
 echo -e "${PURPLE}📈 Generating interactive security dashboard...${NC}"
 

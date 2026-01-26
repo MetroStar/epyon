@@ -291,6 +291,47 @@ find_nodejs_routes() {
         routes_found=$((routes_found + koa_routes))
     fi
     
+    # Next.js API Routes (App Router - Next.js 13+)
+    print_info "Searching for Next.js App Router API routes..."
+    local nextjs_app_routes=$(find "${TARGET_DIR}" -type f \( -name "route.js" -o -name "route.ts" \) 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$nextjs_app_routes" -gt 0 ]; then
+        print_success "Found $nextjs_app_routes Next.js App Router route file(s)"
+        
+        # Count HTTP method exports in route files
+        local nextjs_methods=0
+        while IFS= read -r route_file; do
+            local methods=$(grep -c "export async function \(GET\|POST\|PUT\|DELETE\|PATCH\|HEAD\|OPTIONS\)" "$route_file" 2>/dev/null || echo 0)
+            nextjs_methods=$((nextjs_methods + methods))
+        done < <(find "${TARGET_DIR}" -type f \( -name "route.js" -o -name "route.ts" \) 2>/dev/null)
+        
+        if [ "$nextjs_methods" -gt 0 ]; then
+            print_success "Found $nextjs_methods Next.js App Router HTTP method(s)"
+            routes_found=$((routes_found + nextjs_methods))
+            
+            # Show sample routes
+            echo "    Sample Next.js routes:" >&2
+            find "${TARGET_DIR}" -type f \( -name "route.js" -o -name "route.ts" \) 2>/dev/null | head -3 | while read -r file; do
+                echo "      $file" >&2
+                grep "export async function \(GET\|POST\|PUT\|DELETE\|PATCH\|HEAD\|OPTIONS\)" "$file" 2>/dev/null | head -2 | sed 's/^/        /' >&2
+            done
+        fi
+    fi
+    
+    # Next.js Pages Router API routes (pages/api/)
+    print_info "Searching for Next.js Pages Router API routes..."
+    local nextjs_pages_routes=0
+    if [ -d "${TARGET_DIR}/pages/api" ]; then
+        nextjs_pages_routes=$(find "${TARGET_DIR}/pages/api" -type f \( -name "*.js" -o -name "*.ts" \) 2>/dev/null | wc -l | tr -d ' ')
+        if [ "$nextjs_pages_routes" -gt 0 ]; then
+            print_success "Found $nextjs_pages_routes Next.js Pages Router API route(s)"
+            routes_found=$((routes_found + nextjs_pages_routes))
+            
+            # Show sample routes
+            echo "    Sample Pages API routes:" >&2
+            find "${TARGET_DIR}/pages/api" -type f \( -name "*.js" -o -name "*.ts" \) 2>/dev/null | head -3 | sed 's/^/      /' >&2
+        fi
+    fi
+    
     if [ $routes_found -eq 0 ]; then
         print_warning "No Node.js API routes found"
     else
@@ -564,6 +605,50 @@ main() {
     local total_discovered=$((specs_count + total_routes + graphql_schemas))
     local scan_timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     
+    # Detect frameworks based on what we found
+    local frameworks_detected="[]"
+    local framework_list=()
+    
+    # Check for Next.js (App Router or Pages Router)
+    if [ -d "${TARGET_DIR}/app/api" ] || [ -d "${TARGET_DIR}/pages/api" ]; then
+        framework_list+=("Next.js")
+    fi
+    
+    # Check for Express
+    if grep -rq "require.*express\|import.*express\|from.*express" "${TARGET_DIR}" --include="*.js" --include="*.ts" 2>/dev/null; then
+        framework_list+=("Express")
+    fi
+    
+    # Check for Fastify
+    if grep -rq "require.*fastify\|import.*fastify\|from.*fastify" "${TARGET_DIR}" --include="*.js" --include="*.ts" 2>/dev/null; then
+        framework_list+=("Fastify")
+    fi
+    
+    # Check for FastAPI
+    if grep -rq "from fastapi import\|import fastapi" "${TARGET_DIR}" --include="*.py" 2>/dev/null; then
+        framework_list+=("FastAPI")
+    fi
+    
+    # Check for Flask
+    if grep -rq "from flask import\|import flask" "${TARGET_DIR}" --include="*.py" 2>/dev/null; then
+        framework_list+=("Flask")
+    fi
+    
+    # Check for Django
+    if [ -f "${TARGET_DIR}/manage.py" ] || grep -rq "from django" "${TARGET_DIR}" --include="*.py" 2>/dev/null; then
+        framework_list+=("Django")
+    fi
+    
+    # Check for Spring Boot
+    if grep -rq "@SpringBootApplication\|@RestController" "${TARGET_DIR}" --include="*.java" 2>/dev/null; then
+        framework_list+=("Spring Boot")
+    fi
+    
+    # Build JSON array for frameworks
+    if [ ${#framework_list[@]} -gt 0 ]; then
+        frameworks_detected="[\"$(IFS='","'; echo "${framework_list[*]}")\"]"
+    fi
+    
     # Parse discovered routes from temp file and build JSON
     local temp_routes="${OUTPUT_DIR}/temp_python_routes.txt"
     
@@ -613,7 +698,7 @@ EOF_HEADER
     "java_routes": ${java_routes},
     "graphql_schemas": ${graphql_schemas},
     "documentation_patterns": ${doc_patterns},
-    "frameworks_detected": ["FastAPI"]
+    "frameworks_detected": ${frameworks_detected}
   },
   "recommendations": []
 }

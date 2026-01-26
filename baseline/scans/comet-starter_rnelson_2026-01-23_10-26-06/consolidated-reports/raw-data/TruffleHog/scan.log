@@ -1,0 +1,6 @@
+TruffleHog scan started: 2026-01-23_10-26-06
+Target: /Users/rnelson/Desktop/Side_Projects/epyon/baseline/comet-starter
+{"level":"info-0","ts":"2026-01-23T16:26:18Z","logger":"trufflehog","msg":"running source","source_manager_worker_id":"QcWbF","with_units":true}
+{"level":"info-0","ts":"2026-01-23T16:26:18Z","logger":"trufflehog","msg":"finished scanning","chunks":841,"bytes":9698405,"verified_secrets":0,"unverified_secrets":0,"scan_duration":"176.064166ms","trufflehog_version":"3.92.5","verification_caching":{"Hits":0,"Misses":0,"HitsWasted":0,"AttemptsSaved":0,"VerificationTimeSpentMS":0}}
+filesystem scan: 6
+11 items

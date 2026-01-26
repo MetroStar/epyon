@@ -1,0 +1,9 @@
+Grype scan started: 2026-01-23_10-26-06
+Target: /Users/rnelson/Desktop/Side_Projects/epyon/baseline/comet-starter
+No vulnerability database update available
+Path:      /cache/6/vulnerability.db
+Schema:    v6.1.3
+Built:     2026-01-23T06:17:01Z
+From:      https://grype.anchore.io/databases/v6/vulnerability-db_v6.1.3_2026-01-23T00:32:22Z_1769149021.tar.zst?checksum=sha256%3Ab0251899aa859701bc5b11f0129ab07a21c95418e2cb0d6f6c1dcf32be1ff323
+Status:    valid
+Error response from daemon: pull access denied for dhi/build, repository does not exist or may require 'docker login'

@@ -1,0 +1,32 @@
+# SBOM Security Report
+
+**Scan Type:** sbom-summary  
+**Generated:** Fri Jan 23 10:29:14 CST 2026  
+
+## Summary
+
+**Total Items:** 1
+
+```json
+{
+  "scan_info": {
+    "scan_id": "comet-starter_rnelson_2026-01-23_10-26-06",
+    "target": "/Users/rnelson/Desktop/Side_Projects/epyon/baseline/comet-starter",
+    "timestamp": "2026-01-23T16:26:13Z",
+    "tool": "syft",
+    "scan_type": "sbom_generation"
+  },
+  "sbom_files": [
+    {
+      "type": "filesystem",
+      "file": "filesystem.json",
+      "artifacts": 178
+    }
+  ],
+  "total_artifacts": 178,
+  "metadata": {
+    "generator": "comprehensive-security-architecture",
+    "version": "1.0.0"
+  }
+}
+```

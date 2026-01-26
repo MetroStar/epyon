@@ -1,0 +1,60 @@
+[2026-01-23 10:27:58] ═══════════════════════════════════════════════════════════
+[2026-01-23 10:27:58] Starting Anchore vulnerability scan
+[2026-01-23 10:27:58] ═══════════════════════════════════════════════════════════
+[2026-01-23 10:27:58] Target: /Users/rnelson/Desktop/Side_Projects/epyon/baseline/comet-starter
+[2026-01-23 10:27:58] Scan ID: comet-starter_rnelson_2026-01-23_10-26-06
+[2026-01-23 10:27:59] Output Directory: /Users/rnelson/Desktop/Side_Projects/epyon/scans/comet-starter_rnelson_2026-01-23_10-26-06/anchore
+[2026-01-23 10:27:59] Scan Mode: all
+[2026-01-23 10:27:59] ═══════════════════════════════════════════════════════════
+[2026-01-23 10:27:59] ✅ Docker is available
+[2026-01-23 10:27:59] 
+[2026-01-23 10:27:59] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-01-23 10:27:59] 🔍 Scanning Filesystem with Anchore
+[2026-01-23 10:27:59] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-01-23 10:27:59] ℹ Scanning directory: /Users/rnelson/Desktop/Side_Projects/epyon/baseline/comet-starter
+[2026-01-23 10:27:59] ℹ This may take several minutes for large repositories...
+[0000]  WARN no explicit name and version provided for directory source, deriving artifact ID from the given path (which is not ideal)
+[2026-01-23 10:28:25] ✅ Filesystem scan complete: 0 vulnerabilities found
+[2026-01-23 10:28:25]   • Critical: 0
+[2026-01-23 10:28:25]   • High: 0
+[2026-01-23 10:28:25]   • Medium: 0
+[2026-01-23 10:28:25]   • Low: 0
+[2026-01-23 10:28:25] 
+[2026-01-23 10:28:25] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-01-23 10:28:25] 📦 Scanning SBOM with Anchore
+[2026-01-23 10:28:25] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-01-23 10:28:25] ℹ Found existing SBOM: filesystem.json (from Grype/Syft)
+[2026-01-23 10:28:25] ℹ Scanning SBOM for vulnerabilities: filesystem.json
+[2026-01-23 10:28:49] ✅ SBOM scan complete: 0 vulnerabilities found
+[2026-01-23 10:28:49] 
+[2026-01-23 10:28:49] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-01-23 10:28:49] 🐳 Scanning Container Images with Anchore
+[2026-01-23 10:28:49] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-01-23 10:28:49] ℹ No docker-compose files found, skipping image scan
+[2026-01-23 10:28:49] 
+[2026-01-23 10:28:49] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-01-23 10:28:49] 🏗️  Scanning Approved Base Images with Anchore
+[2026-01-23 10:28:49] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-01-23 10:28:49] ℹ Primary baseline image: dhi/build:debian-13-2-source@sha256:2be85c2bc5d7258591825e8a6e83879f254d05a57f421817232bd3edb0c3f2bd
+[0022] ERROR failed to catalog: errors occurred attempting to resolve 'dhi/build:debian-13-2-source@sha256:2be85c2bc5d7258591825e8a6e83879f254d05a57f421817232bd3edb0c3f2bd':
+  - snap: snap file "dhi/build:debian-13-2-source@sha256:2be85c2bc5d7258591825e8a6e83879f254d05a57f421817232bd3edb0c3f2bd" does not exist
+  - docker: pull failed: Error response from daemon: pull access denied for dhi/build, repository does not exist or may require 'docker login'
+  - podman: podman not available: no host address
+  - containerd: containerd not available: no grpc connection or services is available: unavailable
+  - oci-registry: failed to get image descriptor from registry: GET https://index.docker.io/v2/dhi/build/manifests/sha256:2be85c2bc5d7258591825e8a6e83879f254d05a57f421817232bd3edb0c3f2bd: UNAUTHORIZED: authentication required; [map[Action:pull Class: Name:dhi/build Type:repository]]
+  - snap: no snap found with name 'dhi/build:debian-13-2-source'
+  - additionally, the following providers failed with file does not exist: docker-archive, oci-archive, oci-dir, singularity, local-file, local-directory
+[2026-01-23 10:29:12] ⚠️  Baseline image scan failed
+[2026-01-23 10:29:12] 
+[2026-01-23 10:29:12] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-01-23 10:29:12] 📊 Anchore Scan Summary
+[2026-01-23 10:29:12] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-01-23 10:29:12] Filesystem: 0 vulnerabilities
+[2026-01-23 10:29:12] SBOM: 0 vulnerabilities
+[2026-01-23 10:29:12] Images:        1 scanned
+[2026-01-23 10:29:12] 
+[2026-01-23 10:29:12] Total Vulnerabilities: 0
+[2026-01-23 10:29:13] 
+[2026-01-23 10:29:13] Results saved to: /Users/rnelson/Desktop/Side_Projects/epyon/scans/comet-starter_rnelson_2026-01-23_10-26-06/anchore
+[2026-01-23 10:29:13] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-01-23 10:29:13] ✅ Anchore scan complete!

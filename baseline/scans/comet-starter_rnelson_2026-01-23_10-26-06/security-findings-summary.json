@@ -1,0 +1,24 @@
+{
+  "summary": {
+    "scan_id": "comet-starter_rnelson_2026-01-23_10-26-06",
+    "target_directory": "/Users/rnelson/Desktop/Side_Projects/epyon/baseline/comet-starter",
+    "scan_timestamp": "2026-01-23T16:29:18Z",
+    "total_critical": 0,
+    "total_high": 0,
+    "total_medium": 0,
+    "total_low": 0,
+    "tools_analyzed": [
+      "TruffleHog",
+      "TruffleHog",
+      "Trivy-filesystem",
+      "Trivy-filesystem",
+      "Checkov",
+      "Checkov"
+    ],
+    "summary_by_tool": {}
+  },
+  "critical_findings": [],
+  "high_findings": [],
+  "medium_findings": [],
+  "low_findings": []
+}

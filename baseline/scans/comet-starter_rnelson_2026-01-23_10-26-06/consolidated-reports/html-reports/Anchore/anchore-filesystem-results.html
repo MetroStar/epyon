@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anchore anchore-filesystem-results Security Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .header { background: linear-gradient(135deg, #C41E3A 0%, #0F1F3D 100%); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .summary { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .finding { background: white; margin: 10px 0; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .critical { border-left: 5px solid #dc3545; }
+        .high { border-left: 5px solid #fd7e14; }
+        .medium { border-left: 5px solid #ffc107; }
+        .low { border-left: 5px solid #28a745; }
+        .info { border-left: 5px solid #17a2b8; }
+        .severity { font-weight: bold; padding: 4px 8px; border-radius: 4px; color: white; }
+        .severity.critical { background-color: #dc3545; }
+        .severity.high { background-color: #fd7e14; }
+        .severity.medium { background-color: #ffc107; color: #212529; }
+        .severity.low { background-color: #28a745; }
+        .severity.info { background-color: #17a2b8; }
+        .metadata { background-color: #f8f9fa; padding: 10px; border-radius: 4px; margin-top: 10px; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        .stats { display: flex; gap: 20px; margin: 20px 0; }
+        .stat-card { background: white; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .stat-number { font-size: 24px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Anchore Security Report</h1>
+        <p><strong>Scan Type:</strong> anchore-filesystem-results</p>
+        <p><strong>Generated:</strong> Fri Jan 23 10:29:14 CST 2026</p>
+    </div>
+<div class="summary"><h2>Raw Data</h2><pre>{
+  &quot;matches&quot;: [],
+  &quot;source&quot;: {
+    &quot;type&quot;: &quot;directory&quot;,
+    &quot;target&quot;: &quot;/scan&quot;
+  },
+  &quot;distro&quot;: {
+    &quot;name&quot;: &quot;&quot;,
+    &quot;version&quot;: &quot;&quot;,
+    &quot;idLike&quot;: null
+  },
+  &quot;descriptor&quot;: {
+    &quot;name&quot;: &quot;grype&quot;,
+    &quot;version&quot;: &quot;0.103.0&quot;,
+    &quot;configuration&quot;: {
+      &quot;output&quot;: [
+        &quot;json&quot;
+      ],
+      &quot;file&quot;: &quot;/output/anchore-filesystem-results.json&quot;,
+      &quot;pretty&quot;: false,
+      &quot;distro&quot;: &quot;&quot;,
+      &quot;add-cpes-if-none&quot;: false,
+      &quot;output-template-file&quot;: &quot;&quot;,
+      &quot;check-for-app-update&quot;: true,
+      &quot;only-fixed&quot;: false,
+      &quot;only-notfixed&quot;: false,
+      &quot;ignore-wontfix&quot;: &quot;&quot;,
+      &quot;platform&quot;: &quot;&quot;,
+      &quot;search&quot;: {
+        &quot;scope&quot;: &quot;squashed&quot;,
+        &quot;unindexed-archives&quot;: false,
+        &quot;indexed-archives&quot;: true
+      },
+      &quot;ignore&quot;: [
+        {
+          &quot;vulnerability&quot;: &quot;&quot;,
+          &quot;include-aliases&quot;: false,
+          &quot;reason&quot;: &quot;&quot;,
+          &quot;namespace&quot;: &quot;&quot;,
+          &quot;fix-state&quot;: &quot;&quot;,
+          &quot;package&quot;: {
+            &quot;name&quot;: &quot;kernel-headers&quot;,
+            &quot;version&quot;: &quot;&quot;,
+            &quot;language&quot;: &quot;&quot;,
+            &quot;type&quot;: &quot;rpm&quot;,
+            &quot;location&quot;: &quot;&quot;,
+            &quot;upstream-name&quot;: &quot;kernel&quot;
+          },
+          &quot;vex-status&quot;: &quot;&quot;,
+          &quot;vex-justification&quot;: &quot;&quot;,
+          &quot;match-type&quot;: &quot;exact-indirect-match&quot;
+        },
+        {
+          &quot;vulnerability&quot;: &quot;&quot;,
+          &quot;include-aliases&quot;: false,
+          &quot;reason&quot;: &quot;&quot;,
+          &quot;namespace&quot;: &quot;&quot;,
+          &quot;fix-state&quot;: &quot;&quot;,
+          &quot;package&quot;: {
+            &quot;name&quot;: &quot;linux(-.*)?-headers-.*&quot;,
+            &quot;version&quot;: &quot;&quot;,
+            &quot;language&quot;: &quot;&quot;,
+            &quot;type&quot;: &quot;deb&quot;,
+            &quot;location&quot;: &quot;&quot;,
+            &quot;upstream-name&quot;: &quot;linux.*&quot;
+          },
+          &quot;vex-status&quot;: &quot;&quot;,
+          &quot;vex-justification&quot;: &quot;&quot;,
+          &quot;match-type&quot;: &quot;exact-indirect-match&quot;
+        },
+        {
+          &quot;vulnerability&quot;: &quot;&quot;,
+          &quot;include-aliases&quot;: false,
+          &quot;reason&quot;: &quot;&quot;,
+          &quot;namespace&quot;: &quot;&quot;,
+          &quot;fix-state&quot;: &quot;&quot;,
+          &quot;package&quot;: {
+            &quot;name&quot;: &quot;linux-libc-dev&quot;,
+            &quot;version&quot;: &quot;&quot;,
+            &quot;language&quot;: &quot;&quot;,
+            &quot;type&quot;: &quot;deb&quot;,
+            &quot;location&quot;: &quot;&quot;,
+            &quot;upstream-name&quot;: &quot;linux&quot;
+          },
+          &quot;vex-status&quot;: &quot;&quot;,
+          &quot;vex-justification&quot;: &quot;&quot;,
+          &quot;match-type&quot;: &quot;exact-indirect-match&quot;
+        }
+      ],
+      &quot;exclude&quot;: [],
+      &quot;externalSources&quot;: {
+        &quot;enable&quot;: false,
+        &quot;maven&quot;: {
+          &quot;searchUpstreamBySha1&quot;: true,
+          &quot;baseUrl&quot;: &quot;https://search.maven.org/solrsearch/select&quot;,
+          &quot;rateLimit&quot;: 300000000
+        }
+      },
+      &quot;match&quot;: {
+        &quot;java&quot;: {
+          &quot;using-cpes&quot;: false
+        },
+        &quot;jvm&quot;: {
+          &quot;using-cpes&quot;: true
+        },
+        &quot;dotnet&quot;: {
+          &quot;using-cpes&quot;: false
+        },
+        &quot;golang&quot;: {
+          &quot;using-cpes&quot;: false,
+          &quot;always-use-cpe-for-stdlib&quot;: true,
+          &quot;allow-main-module-pseudo-version-comparison&quot;: false
+        },
+        &quot;javascript&quot;: {
+          &quot;using-cpes&quot;: false
+        },
+        &quot;python&quot;: {
+          &quot;using-cpes&quot;: false
+        },
+        &quot;ruby&quot;: {
+          &quot;using-cpes&quot;: false
+        },
+        &quot;rust&quot;: {
+          &quot;using-cpes&quot;: false
+        },
+        &quot;stock&quot;: {
+          &quot;using-cpes&quot;: true
+        }
+      },
+      &quot;fail-on-severity&quot;: &quot;&quot;,
+      &quot;registry&quot;: {
+        &quot;insecure-skip-tls-verify&quot;: false,
+        &quot;insecure-use-http&quot;: false,
+        &quot;auth&quot;: null,
+        &quot;ca-cert&quot;: &quot;&quot;
+      },
+      &quot;show-suppressed&quot;: false,
+      &quot;by-cve&quot;: false,
+      &quot;SortBy&quot;: {
+        &quot;sort-by&quot;: &quot;risk&quot;
+      },
+      &quot;name&quot;: &quot;&quot;,
+      &quot;default-image-pull-source&quot;: &quot;&quot;,
+      &quot;vex-documents&quot;: [],
+      &quot;vex-add&quot;: [],
+      &quot;match-upstream-kernel-headers&quot;: false,
+      &quot;fix-channel&quot;: {
+        &quot;redhat-eus&quot;: {
+          &quot;apply&quot;: &quot;auto&quot;,
+          &quot;versions&quot;: &quot;&gt;= 8.0&quot;
+        }
+      },
+      &quot;timestamp&quot;: true,
+      &quot;db&quot;: {
+        &quot;cache-dir&quot;: &quot;/.cache/grype/db&quot;,
+        &quot;update-url&quot;: &quot;https://grype.anchore.io/databases&quot;,
+        &quot;ca-cert&quot;: &quot;&quot;,
+        &quot;auto-update&quot;: true,
+        &quot;validate-by-hash-on-start&quot;: true,
+        &quot;validate-age&quot;: true,
+        &quot;max-allowed-built-age&quot;: 432000000000000,
+        &quot;require-update-check&quot;: false,
+        &quot;update-available-timeout&quot;: 30000000000,
+        &quot;update-download-timeout&quot;: 300000000000,
+        &quot;max-update-check-frequency&quot;: 7200000000000
+      },
+      &quot;exp&quot;: {},
+      &quot;dev&quot;: {
+        &quot;db&quot;: {
+          &quot;debug&quot;: false
+        }
+      }
+    },
+    &quot;db&quot;: {
+      &quot;status&quot;: {
+        &quot;schemaVersion&quot;: &quot;v6.1.3&quot;,
+        &quot;from&quot;: &quot;https://grype.anchore.io/databases/v6/vulnerability-db_v6.1.3_2026-01-23T00:32:22Z_1769149021.tar.zst?checksum=sha256%3Ab0251899aa859701bc5b11f0129ab07a21c95418e2cb0d6f6c1dcf32be1ff323&quot;,
+        &quot;built&quot;: &quot;2026-01-23T06:17:01Z&quot;,
+        &quot;path&quot;: &quot;/.cache/grype/db/6/vulnerability.db&quot;,
+        &quot;valid&quot;: true
+      },
+      &quot;providers&quot;: {
+        &quot;alma&quot;: {
+          &quot;captured&quot;: &quot;2026-01-23T00:32:26Z&quot;,
+          &quot;input&quot;: &quot;xxh64:73fce9af6b3fd365&quot;
+        },
+        &quot;alpine&quot;: {
+          &quot;captured&quot;: &quot;2026-01-23T00:32:30Z&quot;,
+          &quot;input&quot;: &quot;xxh64:4d5412cb83314e6f&quot;
+</pre></div>
+</body>
+</html>

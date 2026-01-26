@@ -572,7 +572,7 @@ if [ -d "$SCAN_DIR/sbom" ]; then
             # Extract scan ID from SCAN_DIR path
             SCAN_ID=$(basename "$SCAN_DIR")
             # Generate all export formats and copy to Desktop
-            "$EXPORT_SCRIPT" -f all --desktop "$SCAN_ID" > /dev/null 2>&1
+            "$EXPORT_SCRIPT" --desktop -f all "$SCAN_ID" > /dev/null 2>&1
             if [ $? -eq 0 ]; then
                 EXPORT_COUNT=$(find "$SCAN_DIR/sbom/exports" -type f 2>/dev/null | wc -l | tr -d ' ')
                 echo -e "${GREEN}✓ Generated $EXPORT_COUNT SBOM export formats${NC}"

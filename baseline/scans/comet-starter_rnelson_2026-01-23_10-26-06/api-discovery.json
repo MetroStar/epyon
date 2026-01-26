@@ -1,0 +1,28 @@
+{
+  "scan_date": "2026-01-23T16:29:13Z",
+  "target_directory": "/Users/rnelson/Desktop/Side_Projects/epyon/baseline/comet-starter",
+  "discovery_methods": {
+    "openapi_specs": [],
+    "code_routes": {
+      "python": [
+      ],
+      "nodejs": [],
+      "java": [],
+      "other": []
+    },
+    "documentation_endpoints": [],
+    "graphql_schemas": []
+  },
+  "summary": {
+    "total_specs_found": 0,
+    "total_routes_found": 0,
+    "total_endpoints_discovered": 0,
+    "python_routes": 0,
+    "nodejs_routes": 0,
+    "java_routes": 0,
+    "graphql_schemas": 0,
+    "documentation_patterns": 0,
+    "frameworks_detected": ["FastAPI"]
+  },
+  "recommendations": []
+}

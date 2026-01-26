@@ -1,0 +1,152 @@
+ClamAV scan started: 2026-01-23_10-26-06
+Target: /Users/rnelson/Desktop/Side_Projects/epyon/baseline/comet-starter
+latest: Pulling from clamav/clamav
+Digest: sha256:d4bfcb143335c45f884af13555f1fd4849527d30e2fac320d024caca538917ac
+Status: Image is up to date for clamav/clamav:latest
+docker.io/clamav/clamav:latest
+ClamAV update process started at Fri Jan 23 16:26:50 2026
+daily.cld database is up-to-date (version: 27888, sigs: 354839, f-level: 90, builder: svc.clamav-publisher)
+main.cld database is up-to-date (version: 63, sigs: 3287027, f-level: 90, builder: tomjudge)
+bytecode.cvd database is up-to-date (version: 339, sigs: 80, f-level: 90, builder: nrandolp)
+ClamAV 1.5.1/27888/Thu Jan 22 07:25:13 2026
+/workspace/LICENSE.md: OK
+/workspace/tsconfig.node.json: OK
+/workspace/index.html: OK
+/workspace/.env.sample: OK
+/workspace/Dockerfile: OK
+/workspace/.prettierignore: OK
+/workspace/README.md: OK
+/workspace/.dockerignore: OK
+/workspace/public/img/logo.png: OK
+/workspace/public/favicon.png: OK
+/workspace/.gitignore: OK
+/workspace/package-lock.json: OK
+/workspace/package.json: OK
+/workspace/.github/workflows/accessibility-testing.yaml: OK
+/workspace/.github/workflows/e2e-testing.yaml: OK
+/workspace/.github/workflows/build-and-deploy.yaml: OK
+/workspace/.github/workflows/code-quality.yaml: OK
+/workspace/.github/pull_request_template.md: OK
+/workspace/.github/ISSUE_TEMPLATE/feature_request.md: OK
+/workspace/.github/ISSUE_TEMPLATE/bug_report.md: OK
+/workspace/.github/dependabot.yml: OK
+/workspace/.prettierrc: OK
+/workspace/.gitattributes: OK
+/workspace/.unlighthouse.config.ts: OK
+/workspace/tsconfig.json: OK
+/workspace/playwright.config.ts: OK
+/workspace/eslint.config.js: OK
+/workspace/nginx.conf: OK
+/workspace/AGENTS.md: OK
+/workspace/vite.config.ts: OK
+/workspace/.git/config: OK
+/workspace/.git/objects/pack/pack-f9b76936f3cd789b6befde77b338d2dca928a6b5.idx: OK
+/workspace/.git/objects/pack/pack-f9b76936f3cd789b6befde77b338d2dca928a6b5.rev: OK
+/workspace/.git/objects/pack/pack-f9b76936f3cd789b6befde77b338d2dca928a6b5.pack: OK
+/workspace/.git/HEAD: OK
+/workspace/.git/info/exclude: OK
+/workspace/.git/logs/HEAD: OK
+/workspace/.git/logs/refs/heads/main: OK
+/workspace/.git/logs/refs/remotes/origin/HEAD: OK
+/workspace/.git/description: OK
+/workspace/.git/hooks/commit-msg.sample: OK
+/workspace/.git/hooks/pre-rebase.sample: OK
+/workspace/.git/hooks/sendemail-validate.sample: OK
+/workspace/.git/hooks/pre-commit.sample: OK
+/workspace/.git/hooks/applypatch-msg.sample: OK
+/workspace/.git/hooks/fsmonitor-watchman.sample: OK
+/workspace/.git/hooks/pre-receive.sample: OK
+/workspace/.git/hooks/prepare-commit-msg.sample: OK
+/workspace/.git/hooks/post-update.sample: OK
+/workspace/.git/hooks/pre-merge-commit.sample: OK
+/workspace/.git/hooks/pre-applypatch.sample: OK
+/workspace/.git/hooks/pre-push.sample: OK
+/workspace/.git/hooks/update.sample: OK
+/workspace/.git/hooks/push-to-checkout.sample: OK
+/workspace/.git/refs/heads/main: OK
+/workspace/.git/refs/remotes/origin/HEAD: OK
+/workspace/.git/index: OK
+/workspace/.git/packed-refs: OK
+/workspace/.vscode/settings.json: OK
+/workspace/.vscode/extensions.json: OK
+/workspace/.vscode/mcp.json: OK
+/workspace/e2e/home.spec.ts: OK
+/workspace/e2e/sign-in.spec.ts: OK
+/workspace/e2e/dashboard-and-details.spec.ts: OK
+/workspace/e2e/helpers/index.ts: OK
+/workspace/e2e/helpers/auth.ts: OK
+/workspace/e2e/search-results.spec.ts: OK
+/workspace/vitest.setup.ts: OK
+/workspace/notebooks/api_testing.ipynb: OK
+/workspace/src/App.tsx: OK
+/workspace/src/main.tsx: OK
+/workspace/src/types.d.ts: Empty file
+/workspace/src/providers/uswds/uswds-settings.scss: OK
+/workspace/src/providers/uswds/uswds.scss: OK
+/workspace/src/utils/helpers.ts: OK
+/workspace/src/utils/auth.test.ts: OK
+/workspace/src/utils/form-utils.test.ts: OK
+/workspace/src/utils/keycloak.ts: OK
+/workspace/src/utils/axios.ts: OK
+/workspace/src/utils/form-utils.ts: OK
+/workspace/src/utils/constants.ts: OK
+/workspace/src/utils/helpers.test.ts: OK
+/workspace/src/utils/auth.ts: OK
+/workspace/src/styles.scss: OK
+/workspace/src/types.ts: OK
+/workspace/src/components/footer/footer.tsx: OK
+/workspace/src/components/footer/footer.test.tsx: OK
+/workspace/src/components/protected-route/protected-route.tsx: OK
+/workspace/src/components/protected-route/protected-route.test.tsx: OK
+/workspace/src/components/error-notification/error-notification.tsx: OK
+/workspace/src/components/error-notification/error-notification.test.tsx: OK
+/workspace/src/components/header/header.test.tsx: OK
+/workspace/src/components/header/header.tsx: OK
+/workspace/src/vite-env.d.ts: OK
+/workspace/src/hooks/use-auth.ts: OK
+/workspace/src/hooks/use-auth.test.tsx: OK
+/workspace/src/hooks/use-cases-api.test.tsx: OK
+/workspace/src/hooks/use-cases-api.ts: OK
+/workspace/src/hooks/use-auth-sso.test.tsx: OK
+/workspace/src/data/cases.ts: OK
+/workspace/src/data/users.ts: OK
+/workspace/src/pages/home/home.test.tsx: OK
+/workspace/src/pages/home/home.tsx: OK
+/workspace/src/pages/search-results/search-results.test.tsx: OK
+/workspace/src/pages/search-results/advanced-search-panel.tsx: OK
+/workspace/src/pages/search-results/advanced-search-panel.scss: OK
+/workspace/src/pages/search-results/search-results.tsx: OK
+/workspace/src/pages/not-found/not-found.test.tsx: OK
+/workspace/src/pages/not-found/not-found.tsx: OK
+/workspace/src/pages/about/about.test.tsx: OK
+/workspace/src/pages/about/about.tsx: OK
+/workspace/src/pages/dashboard/dashboard.test.tsx: OK
+/workspace/src/pages/dashboard/dashboard.tsx: OK
+/workspace/src/pages/dashboard/types.ts: OK
+/workspace/src/pages/dashboard/dashboard-table/dashboard-table.tsx: OK
+/workspace/src/pages/dashboard/dashboard-table/dashboard-table.test.tsx: OK
+/workspace/src/pages/dashboard/dashboard-pie-chart/dashboard-pie-chart.tsx: OK
+/workspace/src/pages/dashboard/dashboard-pie-chart/dashboard-pie-chart.test.tsx: OK
+/workspace/src/pages/dashboard/dashboard-pie-chart/dashboard-pie-chart.scss: OK
+/workspace/src/pages/dashboard/dashboard-bar-chart/dashboard-bar-chart.tsx: OK
+/workspace/src/pages/dashboard/dashboard-bar-chart/dashboard-bar-chart.test.tsx: OK
+/workspace/src/pages/dashboard/dashboard-bar-chart/dashboard-bar-chart.scss: OK
+/workspace/src/pages/contact-us/contact-us.test.tsx: OK
+/workspace/src/pages/contact-us/contact-us.tsx: OK
+/workspace/src/pages/sign-in/sign-in.test.tsx: OK
+/workspace/src/pages/sign-in/sign-in.tsx: OK
+/workspace/src/pages/case-details/case-details.test.tsx: OK
+/workspace/src/pages/case-details/case-details.tsx: OK
+/workspace/src/store.ts: OK
+
+----------- SCAN SUMMARY -----------
+Known viruses: 3627255
+Engine version: 1.5.1
+Scanned directories: 49
+Scanned files: 128
+Infected files: 0
+Data scanned: 15.10 MiB
+Data read: 7.20 MiB (ratio 2.10:1)
+Time: 10.420 sec (0 m 10 s)
+Start Date: 2026:01:23 16:26:51
+End Date:   2026:01:23 16:27:01

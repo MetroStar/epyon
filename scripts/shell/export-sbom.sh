@@ -93,21 +93,26 @@ done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 SCANS_DIR="$REPO_ROOT/scans"
+BASELINE_SCANS_DIR="$REPO_ROOT/baseline/scans"
 
 # Find scan directory
 if [[ -z "$SCAN_ID" ]]; then
-    # Use latest scan
-    SCAN_DIR=$(find "$SCANS_DIR" -maxdepth 1 -type d -name "*_rnelson_*" | sort -r | head -1)
+    # Use latest scan (check both scans/ and baseline/scans/)
+    SCAN_DIR=$(find "$SCANS_DIR" "$BASELINE_SCANS_DIR" -maxdepth 1 -type d -name "*_rnelson_*" 2>/dev/null | sort -r | head -1)
     if [[ -z "$SCAN_DIR" ]]; then
-        echo -e "${RED}❌ No scans found in $SCANS_DIR${NC}"
+        echo -e "${RED}❌ No scans found in $SCANS_DIR or $BASELINE_SCANS_DIR${NC}"
         exit 1
     fi
     SCAN_ID=$(basename "$SCAN_DIR")
     echo -e "${CYAN}📋 Using latest scan: $SCAN_ID${NC}"
 else
-    SCAN_DIR="$SCANS_DIR/$SCAN_ID"
-    if [[ ! -d "$SCAN_DIR" ]]; then
-        echo -e "${RED}❌ Scan directory not found: $SCAN_DIR${NC}"
+    # Check both scans/ and baseline/scans/ directories
+    if [[ -d "$SCANS_DIR/$SCAN_ID" ]]; then
+        SCAN_DIR="$SCANS_DIR/$SCAN_ID"
+    elif [[ -d "$BASELINE_SCANS_DIR/$SCAN_ID" ]]; then
+        SCAN_DIR="$BASELINE_SCANS_DIR/$SCAN_ID"
+    else
+        echo -e "${RED}❌ Scan directory not found in $SCANS_DIR or $BASELINE_SCANS_DIR${NC}"
         exit 1
     fi
 fi

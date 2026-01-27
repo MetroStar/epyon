@@ -22,6 +22,9 @@
 
 set -euo pipefail
 
+# Error trap for debugging
+trap 'echo "ERROR: Script failed at line $LINENO" >&2' ERR
+
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_DIR="${TARGET_DIR:-${1:-.}}"
@@ -387,8 +390,8 @@ find_java_routes() {
         routes_found=$((routes_found + spring_routes))
         
         # Show sample routes
-        echo "    Sample endpoints:"
-        grep -r "@GetMapping\|@PostMapping\|@PutMapping\|@DeleteMapping\|@PatchMapping\|@RequestMapping" "${TARGET_DIR}" --include="*.java" 2>/dev/null | head -3 | sed 's/^/      /'
+        echo "    Sample endpoints:" >&2
+        grep -r "@GetMapping\|@PostMapping\|@PutMapping\|@DeleteMapping\|@PatchMapping\|@RequestMapping" "${TARGET_DIR}" --include="*.java" 2>/dev/null | head -3 | sed 's/^/      /' >&2
     fi
     
     # JAX-RS annotations
@@ -516,6 +519,14 @@ generate_summary() {
     local java_routes=$4
     local graphql_schemas=$5
     local doc_patterns=$6
+    
+    # Ensure all variables are set (defensive programming)
+    : "${specs_count:=0}"
+    : "${python_routes:=0}"
+    : "${nodejs_routes:=0}"
+    : "${java_routes:=0}"
+    : "${graphql_schemas:=0}"
+    : "${doc_patterns:=0}"
     
     echo "" >&2
     echo -e "${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}" >&2
@@ -790,10 +801,22 @@ EOF
     rm -f "$temp_routes"
     rm -f "$temp_nodejs_routes"
     
-    # Save results
-    print_info "Results saved to: ${OUTPUT_PATH}"
+    # Verify JSON was created successfully
+    if [ -f "${OUTPUT_PATH}" ]; then
+        print_success "API discovery complete! Results saved to: ${OUTPUT_PATH}"
+        
+        # Show summary one more time
+        local final_total=$((python_routes + nodejs_routes + java_routes + graphql_schemas + specs_count))
+        if [ $final_total -gt 0 ]; then
+            print_success "Total APIs discovered: $final_total"
+        else
+            print_warning "No APIs found in target directory"
+        fi
+    else
+        print_error "Failed to create API discovery JSON file!" >&2
+        exit 1
+    fi
     
-    print_success "API discovery complete!"
     echo ""
 }
 

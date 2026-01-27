@@ -262,6 +262,8 @@ find_nodejs_routes() {
     echo -e "${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}" >&2
     
     local routes_found=0
+    local temp_nodejs_routes="${OUTPUT_DIR}/temp_nodejs_routes.txt"
+    rm -f "$temp_nodejs_routes"
     
     # Express patterns
     print_info "Searching for Express routes..."
@@ -297,11 +299,38 @@ find_nodejs_routes() {
     if [ "$nextjs_app_routes" -gt 0 ]; then
         print_success "Found $nextjs_app_routes Next.js App Router route file(s)"
         
-        # Count HTTP method exports in route files
+        # Extract HTTP method exports and save to temp file
         local nextjs_methods=0
         while IFS= read -r route_file; do
-            local methods=$(grep -c "export async function \(GET\|POST\|PUT\|DELETE\|PATCH\|HEAD\|OPTIONS\)" "$route_file" 2>/dev/null || echo 0)
-            nextjs_methods=$((nextjs_methods + methods))
+            # Get the API path from the directory structure
+            local api_path=$(echo "$route_file" | sed "s|${TARGET_DIR}||" | sed 's|/route\.[jt]s$||')
+            
+            # Generate a readable name from the path (e.g., /app/api/import-stig -> Import STIG)
+            local endpoint_name=$(echo "$api_path" | sed 's|.*/||' | sed 's|-| |g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2))}1')
+            
+            # Check for authentication patterns in the file
+            local auth_type="None"
+            if grep -q "requireAuth\|withAuth\|authenticate\|authMiddleware\|NextAuth\|getServerSession\|jwt\|bearer" "$route_file" 2>/dev/null; then
+                if grep -q "NextAuth\|getServerSession" "$route_file" 2>/dev/null; then
+                    auth_type="NextAuth"
+                elif grep -q "jwt\|JWT" "$route_file" 2>/dev/null; then
+                    auth_type="JWT"
+                elif grep -q "bearer\|Bearer" "$route_file" 2>/dev/null; then
+                    auth_type="Bearer"
+                else
+                    auth_type="Required"
+                fi
+            fi
+            
+            # Find all HTTP method exports in this route file
+            while IFS= read -r method_line; do
+                local method=$(echo "$method_line" | sed -n 's/.*export async function \([A-Z]*\).*/\1/p')
+                if [ -n "$method" ]; then
+                    # Save route details: framework|method|path|name|auth|file
+                    echo "Next.js|$method|$api_path|$endpoint_name|$auth_type|$(basename $route_file)" >> "$temp_nodejs_routes"
+                    nextjs_methods=$((nextjs_methods + 1))
+                fi
+            done < <(grep "export async function \(GET\|POST\|PUT\|DELETE\|PATCH\|HEAD\|OPTIONS\)" "$route_file" 2>/dev/null)
         done < <(find "${TARGET_DIR}" -type f \( -name "route.js" -o -name "route.ts" \) 2>/dev/null)
         
         if [ "$nextjs_methods" -gt 0 ]; then
@@ -586,10 +615,7 @@ main() {
     print_info "Output File: ${OUTPUT_PATH}"
     echo ""
     
-    # Initialize discovery data
-    init_discovery_data
-    
-    # Run discovery methods
+    # Run discovery methods FIRST to collect data
     specs_count=$(find_openapi_specs) || specs_count=0
     python_routes=$(find_python_routes) || python_routes=0
     nodejs_routes=$(find_nodejs_routes) || nodejs_routes=0
@@ -597,7 +623,7 @@ main() {
     graphql_schemas=$(find_graphql_schemas) || graphql_schemas=0
     doc_patterns=$(find_api_documentation) || doc_patterns=0
     
-    # Generate summary
+    # Generate summary AFTER collecting all data
     generate_summary "$specs_count" "$python_routes" "$nodejs_routes" "$java_routes" "$graphql_schemas" "$doc_patterns"
     
     # Update JSON with actual counts
@@ -651,6 +677,18 @@ main() {
     
     # Parse discovered routes from temp file and build JSON
     local temp_routes="${OUTPUT_DIR}/temp_python_routes.txt"
+    local temp_nodejs_routes="${OUTPUT_DIR}/temp_nodejs_routes.txt"
+    
+    print_info "Building JSON output from discovered routes..." >&2
+    print_info "Python routes file: $temp_routes" >&2
+    print_info "Node.js routes file: $temp_nodejs_routes" >&2
+    
+    if [ -f "$temp_routes" ]; then
+        local python_lines=$(wc -l < "$temp_routes" | tr -d ' ')
+        print_info "Python routes file has $python_lines lines" >&2
+    else
+        print_warning "Python routes temp file not found" >&2
+    fi
     
     # Start building JSON
     cat > "${OUTPUT_PATH}" << 'EOF_HEADER'
@@ -665,6 +703,7 @@ EOF_HEADER
     
     # Add Python routes from temp file
     if [ -f "$temp_routes" ] && [ -s "$temp_routes" ]; then
+        print_info "Processing $(wc -l < "$temp_routes" | tr -d ' ') Python routes..." >&2
         awk -F'|' 'BEGIN{first=1} {
             # Escape backslashes and quotes in all fields
             for(i=1; i<=NF; i++) {
@@ -675,14 +714,52 @@ EOF_HEADER
             printf "        {\"framework\": \"%s\", \"method\": \"%s\", \"path\": \"%s\", \"function\": \"%s\", \"name\": \"%s\", \"auth\": \"%s\", \"tags\": \"%s\", \"file\": \"%s\"}", 
                 $1, $2, $3, $4, $5, $6, $7, $8;
             first=0;
-        }' "$temp_routes" >> "${OUTPUT_PATH}"
+        }' "$temp_routes" >> "${OUTPUT_PATH}" 2>&1
+        local awk_status=$?
+        if [ $awk_status -ne 0 ]; then
+            print_error "Failed to process Python routes (awk exit code: $awk_status)" >&2
+        else
+            print_success "Python routes added to JSON" >&2
+        fi
         echo "" >> "${OUTPUT_PATH}"
+    else
+        print_info "No Python routes to add" >&2
+    fi
+    
+    # Add closing bracket for Python, open Node.js array
+    cat >> "${OUTPUT_PATH}" << 'EOF_NODEJS'
+      ],
+      "nodejs": [
+EOF_NODEJS
+    
+    # Add Node.js routes from temp file
+    if [ -f "$temp_nodejs_routes" ] && [ -s "$temp_nodejs_routes" ]; then
+        print_info "Processing $(wc -l < "$temp_nodejs_routes" | tr -d ' ') Node.js routes..." >&2
+        awk -F'|' 'BEGIN{first=1} {
+            # Escape backslashes and quotes in all fields
+            for(i=1; i<=NF; i++) {
+                gsub(/\\/, "\\\\", $i);
+                gsub(/"/, "\\\"", $i);
+            }
+            if (!first) printf ",\n";
+            printf "        {\"framework\": \"%s\", \"method\": \"%s\", \"path\": \"%s\", \"name\": \"%s\", \"auth\": \"%s\", \"file\": \"%s\"}", 
+                $1, $2, $3, $4, $5, $6;
+            first=0;
+        }' "$temp_nodejs_routes" >> "${OUTPUT_PATH}" 2>&1
+        local awk_status=$?
+        if [ $awk_status -ne 0 ]; then
+            print_error "Failed to process Node.js routes (awk exit code: $awk_status)" >&2
+        else
+            print_success "Node.js routes added to JSON" >&2
+        fi
+        echo "" >> "${OUTPUT_PATH}"
+    else
+        print_info "No Node.js routes to add" >&2
     fi
     
     # Complete the JSON structure
     cat >> "${OUTPUT_PATH}" << EOF
       ],
-      "nodejs": [],
       "java": [],
       "other": []
     },
@@ -709,8 +786,9 @@ EOF
     sed -i.bak "s|TARGET_PLACEHOLDER|${TARGET_DIR}|g" "${OUTPUT_PATH}"
     rm -f "${OUTPUT_PATH}.bak"
 
-    # Cleanup temp file AFTER JSON is generated
+    # Cleanup temp files AFTER JSON is generated
     rm -f "$temp_routes"
+    rm -f "$temp_nodejs_routes"
     
     # Save results
     print_info "Results saved to: ${OUTPUT_PATH}"

@@ -218,7 +218,7 @@ elif [ ${#APPROVED_BASE_IMAGES[@]} -gt 0 ]; then
 else
     # Fallback to Docker Hardened Image
     BASE_IMAGES=(
-        "dhi/build:debian-13-2-source@sha256:2be85c2bc5d7258591825e8a6e83879f254d05a57f421817232bd3edb0c3f2bd"
+        "dhi/caddy:debian-13-2-fips-dev@sha256:ba86d16733750c6fd7b8866981016d2479e234c842d77413f1bf41c4404e555c"
     )
 fi
 

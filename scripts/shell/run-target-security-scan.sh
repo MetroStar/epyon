@@ -261,19 +261,19 @@ echo ""
 
 # Load approved base images configuration
 CONFIG_DIR="$REPO_ROOT/configuration"
-DEFAULT_BASELINE="dhi/build:debian-13-2-source@sha256:2be85c2bc5d7258591825e8a6e83879f254d05a57f421817232bd3edb0c3f2bd"
+DEFAULT_BASELINE="dhi/caddy:debian-13-2-fips-dev@sha256:ba86d16733750c6fd7b8866981016d2479e234c842d77413f1bf41c4404e555c"
 
 echo -e "${CYAN}🔧 Baseline Image Configuration${NC}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "${YELLOW}Which baseline image would you like to use?${NC}"
-echo -e "  1) ${GREEN}dhi/build:debian-13-2-source${NC} (default - Docker Hardened)"
+echo -e "  1) ${GREEN}dhi/caddy:debian-13-2-fips-dev${NC} (default - Docker Hardened with FIPS)"
 echo -e "  2) bitnami/node:latest (JavaScript/TypeScript)"
 echo -e "  3) bitnami/nginx:latest (Web server)"
 echo -e "  4) bitnami/python:latest (Python applications)"
 echo -e "  5) bitnami/postgresql:latest (Database)"
 echo -e "  6) Custom image"
 echo ""
-echo -e "${CYAN}Default will be selected in 60 seconds: dhi/build:debian-13-2-source${NC}"
+echo -e "${CYAN}Default will be selected in 60 seconds: dhi/caddy:debian-13-2-fips-dev${NC}"
 echo -n "Enter choice [1-6] or press Enter for default: "
 
 # Read with 60 second timeout
@@ -309,7 +309,7 @@ if read -t 60 USER_CHOICE; then
             ;;
         ""|1)
             BASELINE_IMAGE="$DEFAULT_BASELINE"
-            echo -e "${GREEN}✓ Using default: dhi/build:debian-13-2-source${NC}"
+            echo -e "${GREEN}✓ Using default: dhi/caddy:debian-13-2-fips-dev${NC}"
             ;;
         *)
             echo -e "${YELLOW}⚠️  Invalid choice - using default: $DEFAULT_BASELINE${NC}"
@@ -319,7 +319,7 @@ if read -t 60 USER_CHOICE; then
 else
     # Timeout occurred
     echo ""
-    echo -e "${YELLOW}⏱️  Timeout - using default: dhi/build:debian-13-2-source${NC}"
+    echo -e "${YELLOW}⏱️  Timeout - using default: dhi/caddy:debian-13-2-fips-dev${NC}"
     BASELINE_IMAGE="$DEFAULT_BASELINE"
 fi
 

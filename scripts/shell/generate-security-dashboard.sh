@@ -1372,35 +1372,140 @@ if [ -f "$API_DISC_FILE" ]; then
         
         # Add code route findings
         if [ "$API_PYTHON_COUNT" -gt 0 ]; then
-            API_FINDINGS="${API_FINDINGS}<div class=\"finding-item\" style=\"border-left:4px solid #10b981;\">
+            API_FINDINGS="${API_FINDINGS}<div class=\"finding-item\" style=\"border-left:4px solid #10b981;\" onclick=\"toggleFindingDetails(this)\">
     <div class=\"finding-header\">
         <span class=\"badge\" style=\"background:#059669;color:white;\">🐍 Python</span>
         <span class=\"badge\" style=\"background:#d1fae5;color:#065f46;\">${API_PYTHON_COUNT} Routes</span>
     </div>
     <div class=\"finding-title\">Python API Routes (Flask/FastAPI/Django)</div>
     <div class=\"finding-desc\">${API_PYTHON_COUNT} API routes discovered in Python code</div>
+    <div class=\"finding-details\" style=\"display:none;\">
+        <div style=\"overflow-x:auto;margin-top:10px;\">
+            <table style=\"width:100%;border-collapse:collapse;font-size:0.85em;\">
+                <thead>
+                    <tr style=\"background:#f0fdf4;border-bottom:2px solid #10b981;\">
+                        <th style=\"padding:8px;text-align:left;color:#065f46;\">Framework</th>
+                        <th style=\"padding:8px;text-align:left;color:#065f46;\">Method</th>
+                        <th style=\"padding:8px;text-align:left;color:#065f46;\">Path</th>
+                        <th style=\"padding:8px;text-align:left;color:#065f46;\">Name</th>
+                        <th style=\"padding:8px;text-align:left;color:#065f46;\">Auth</th>
+                        <th style=\"padding:8px;text-align:left;color:#065f46;\">Function</th>
+                    </tr>
+                </thead>
+                <tbody>"
+            while IFS= read -r route; do
+                framework=$(echo "$route" | jq -r '.framework // "N/A"')
+                method=$(echo "$route" | jq -r '.method // "N/A"')
+                path=$(echo "$route" | jq -r '.path // "N/A"')
+                name=$(echo "$route" | jq -r '.name // "N/A"')
+                auth=$(echo "$route" | jq -r '.auth // "None"')
+                function=$(echo "$route" | jq -r '.function // "N/A"')
+                
+                API_FINDINGS="${API_FINDINGS}<tr style=\"border-bottom:1px solid #e5e7eb;\">
+                        <td style=\"padding:8px;color:#f9fafb;font-weight:600;\">${framework}</td>
+                        <td style=\"padding:8px;\"><span class=\"badge\" style=\"background:#3b82f6;color:white;font-size:0.75em;\">${method}</span></td>
+                        <td style=\"padding:8px;color:#e5e7eb;font-family:monospace;font-size:0.8em;\">${path}</td>
+                        <td style=\"padding:8px;color:#f3f4f6;font-weight:500;\">${name}</td>
+                        <td style=\"padding:8px;color:#f3f4f6;font-weight:500;\">${auth}</td>
+                        <td style=\"padding:8px;color:#d1d5db;font-family:monospace;font-size:0.75em;\">${function}</td>
+                    </tr>"
+            done < <(jq -c '.discovery_methods.code_routes.python[]?' "$API_DISC_FILE" 2>/dev/null)
+            API_FINDINGS="${API_FINDINGS}</tbody>
+            </table>
+        </div>
+    </div>
 </div>"
         fi
         
         if [ "$API_NODEJS_COUNT" -gt 0 ]; then
-            API_FINDINGS="${API_FINDINGS}<div class=\"finding-item\" style=\"border-left:4px solid #f59e0b;\">
+            API_FINDINGS="${API_FINDINGS}<div class=\"finding-item\" style=\"border-left:4px solid #f59e0b;\" onclick=\"toggleFindingDetails(this)\">
     <div class=\"finding-header\">
         <span class=\"badge\" style=\"background:#d97706;color:white;\">📦 Node.js</span>
         <span class=\"badge\" style=\"background:#fef3c7;color:#92400e;\">${API_NODEJS_COUNT} Routes</span>
     </div>
-    <div class=\"finding-title\">Node.js API Routes (Express/Fastify/Koa)</div>
+    <div class=\"finding-title\">Node.js API Routes (Express/Fastify/Koa/Next.js)</div>
     <div class=\"finding-desc\">${API_NODEJS_COUNT} API routes discovered in Node.js code</div>
+    <div class=\"finding-details\" style=\"display:none;\">
+        <div style=\"overflow-x:auto;margin-top:10px;\">
+            <table style=\"width:100%;border-collapse:collapse;font-size:0.85em;\">
+                <thead>
+                    <tr style=\"background:#fffbeb;border-bottom:2px solid #f59e0b;\">
+                        <th style=\"padding:8px;text-align:left;color:#92400e;\">Framework</th>
+                        <th style=\"padding:8px;text-align:left;color:#92400e;\">Method</th>
+                        <th style=\"padding:8px;text-align:left;color:#92400e;\">Path</th>
+                        <th style=\"padding:8px;text-align:left;color:#92400e;\">Name</th>
+                        <th style=\"padding:8px;text-align:left;color:#92400e;\">Auth</th>
+                        <th style=\"padding:8px;text-align:left;color:#92400e;\">File</th>
+                    </tr>
+                </thead>
+                <tbody>"
+            while IFS= read -r route; do
+                framework=$(echo "$route" | jq -r '.framework // "N/A"')
+                method=$(echo "$route" | jq -r '.method // "N/A"')
+                path=$(echo "$route" | jq -r '.path // "N/A"')
+                name=$(echo "$route" | jq -r '.name // "N/A"')
+                auth=$(echo "$route" | jq -r '.auth // "None"')
+                file=$(echo "$route" | jq -r '.file // "N/A"')
+                
+                API_FINDINGS="${API_FINDINGS}<tr style=\"border-bottom:1px solid #e5e7eb;\">
+                        <td style=\"padding:8px;color:#f9fafb;font-weight:600;\">${framework}</td>
+                        <td style=\"padding:8px;\"><span class=\"badge\" style=\"background:#3b82f6;color:white;font-size:0.75em;\">${method}</span></td>
+                        <td style=\"padding:8px;color:#e5e7eb;font-family:monospace;font-size:0.8em;\">${path}</td>
+                        <td style=\"padding:8px;color:#f3f4f6;font-weight:500;\">${name}</td>
+                        <td style=\"padding:8px;color:#f3f4f6;font-weight:500;\">${auth}</td>
+                        <td style=\"padding:8px;color:#d1d5db;font-family:monospace;font-size:0.75em;\">${file}</td>
+                    </tr>"
+            done < <(jq -c '.discovery_methods.code_routes.nodejs[]?' "$API_DISC_FILE" 2>/dev/null)
+            API_FINDINGS="${API_FINDINGS}</tbody>
+            </table>
+        </div>
+    </div>
 </div>"
         fi
         
         if [ "$API_JAVA_COUNT" -gt 0 ]; then
-            API_FINDINGS="${API_FINDINGS}<div class=\"finding-item\" style=\"border-left:4px solid #dc2626;\">
+            API_FINDINGS="${API_FINDINGS}<div class=\"finding-item\" style=\"border-left:4px solid #dc2626;\" onclick=\"toggleFindingDetails(this)\">
     <div class=\"finding-header\">
         <span class=\"badge\" style=\"background:#b91c1c;color:white;\">☕ Java</span>
         <span class=\"badge\" style=\"background:#fee2e2;color:#991b1b;\">${API_JAVA_COUNT} Endpoints</span>
     </div>
     <div class=\"finding-title\">Java API Endpoints (Spring Boot/JAX-RS)</div>
     <div class=\"finding-desc\">${API_JAVA_COUNT} API endpoints discovered in Java code</div>
+    <div class=\"finding-details\" style=\"display:none;\">
+        <div style=\"overflow-x:auto;margin-top:10px;\">
+            <table style=\"width:100%;border-collapse:collapse;font-size:0.85em;\">
+                <thead>
+                    <tr style=\"background:#fef2f2;border-bottom:2px solid #dc2626;\">
+                        <th style=\"padding:8px;text-align:left;color:#991b1b;\">Framework</th>
+                        <th style=\"padding:8px;text-align:left;color:#991b1b;\">Method</th>
+                        <th style=\"padding:8px;text-align:left;color:#991b1b;\">Path</th>
+                        <th style=\"padding:8px;text-align:left;color:#991b1b;\">Name</th>
+                        <th style=\"padding:8px;text-align:left;color:#991b1b;\">Auth</th>
+                        <th style=\"padding:8px;text-align:left;color:#991b1b;\">Class</th>
+                    </tr>
+                </thead>
+                <tbody>"
+            while IFS= read -r route; do
+                framework=$(echo "$route" | jq -r '.framework // "N/A"')
+                method=$(echo "$route" | jq -r '.method // "N/A"')
+                path=$(echo "$route" | jq -r '.path // "N/A"')
+                name=$(echo "$route" | jq -r '.name // "N/A"')
+                auth=$(echo "$route" | jq -r '.auth // "None"')
+                class=$(echo "$route" | jq -r '.class // "N/A"')
+                
+                API_FINDINGS="${API_FINDINGS}<tr style=\"border-bottom:1px solid #e5e7eb;\">
+                        <td style=\"padding:8px;color:#f9fafb;font-weight:600;\">${framework}</td>
+                        <td style=\"padding:8px;\"><span class=\"badge\" style=\"background:#3b82f6;color:white;font-size:0.75em;\">${method}</span></td>
+                        <td style=\"padding:8px;color:#e5e7eb;font-family:monospace;font-size:0.8em;\">${path}</td>
+                        <td style=\"padding:8px;color:#f3f4f6;font-weight:500;\">${name}</td>
+                        <td style=\"padding:8px;color:#f3f4f6;font-weight:500;\">${auth}</td>
+                        <td style=\"padding:8px;color:#d1d5db;font-family:monospace;font-size:0.75em;\">${class}</td>
+                    </tr>"
+            done < <(jq -c '.discovery_methods.code_routes.java[]?' "$API_DISC_FILE" 2>/dev/null)
+            API_FINDINGS="${API_FINDINGS}</tbody>
+            </table>
+        </div>
+    </div>
 </div>"
         fi
         

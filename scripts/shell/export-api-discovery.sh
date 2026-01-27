@@ -156,6 +156,52 @@ if cp "$API_FILE" "$OUTPUT_FILE" 2>/dev/null; then
         if [[ -n "$FRAMEWORKS" ]]; then
             echo -e "   ${CYAN}Frameworks:${NC} $FRAMEWORKS"
         fi
+        
+        # Display discovered routes in a table
+        if [[ "$TOTAL_ROUTES" -gt 0 ]]; then
+            echo ""
+            echo -e "${MAGENTA}🔍 Discovered API Routes:${NC}"
+            echo ""
+            
+            # Node.js routes
+            local nodejs_count=$(jq -r '.discovery_methods.code_routes.nodejs | length' "$API_FILE" 2>/dev/null)
+            if [[ "$nodejs_count" -gt 0 ]]; then
+                echo -e "${CYAN}Node.js Routes ($nodejs_count):${NC}"
+                printf "   %-12s %-8s %-35s %-20s %-12s\n" "FRAMEWORK" "METHOD" "PATH" "NAME" "AUTH"
+                printf "   %-12s %-8s %-35s %-20s %-12s\n" "----------" "------" "----" "----" "----"
+                jq -r '.discovery_methods.code_routes.nodejs[] | "   \(.framework // "N/A")|\(.method // "N/A")|\(.path // "N/A")|\(.name // "N/A")|\(.auth // "None")"' "$API_FILE" 2>/dev/null | \
+                while IFS='|' read -r framework method path name auth; do
+                    printf "   %-12s %-8s %-35s %-20s %-12s\n" "$framework" "$method" "$path" "$name" "$auth"
+                done
+                echo ""
+            fi
+            
+            # Python routes
+            local python_count=$(jq -r '.discovery_methods.code_routes.python | length' "$API_FILE" 2>/dev/null)
+            if [[ "$python_count" -gt 0 ]]; then
+                echo -e "${CYAN}Python Routes ($python_count):${NC}"
+                printf "   %-12s %-8s %-40s %s\n" "FRAMEWORK" "METHOD" "PATH" "FUNCTION"
+                printf "   %-12s %-8s %-40s %s\n" "----------" "------" "----" "--------"
+                jq -r '.discovery_methods.code_routes.python[] | "   \(.framework // "N/A")|\(.method // "N/A")|\(.path // "N/A")|\(.function // "N/A")"' "$API_FILE" 2>/dev/null | \
+                while IFS='|' read -r framework method path function; do
+                    printf "   %-12s %-8s %-40s %s\n" "$framework" "$method" "$path" "$function"
+                done
+                echo ""
+            fi
+            
+            # Java routes
+            local java_count=$(jq -r '.discovery_methods.code_routes.java | length' "$API_FILE" 2>/dev/null)
+            if [[ "$java_count" -gt 0 ]]; then
+                echo -e "${CYAN}Java Routes ($java_count):${NC}"
+                printf "   %-12s %-8s %-40s %s\n" "FRAMEWORK" "METHOD" "PATH" "CLASS"
+                printf "   %-12s %-8s %-40s %s\n" "----------" "------" "----" "-----"
+                jq -r '.discovery_methods.code_routes.java[] | "   \(.framework // "N/A")|\(.method // "N/A")|\(.path // "N/A")|\(.class // "N/A")"' "$API_FILE" 2>/dev/null | \
+                while IFS='|' read -r framework method path class; do
+                    printf "   %-12s %-8s %-40s %s\n" "$framework" "$method" "$path" "$class"
+                done
+                echo ""
+            fi
+        fi
     fi
 else
     echo -e "${RED}❌ Failed to export API discovery data${NC}"

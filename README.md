@@ -54,8 +54,16 @@ This repository contains a **production-ready, enterprise-grade** multi-layer De
 
 Before using this security architecture, ensure you have the following tools installed and configured.
 
-### 🐳 Docker (Required)
-All security tools run in Docker containers. You can use any Docker-compatible runtime:
+### 🐳 Container Runtime (Required)
+All security tools run in containers. **Epyon is container-engine-agnostic** and supports multiple runtimes:
+
+**Supported Container Runtimes:**
+- **Docker** (Docker Engine, Docker Desktop) - Most common
+- **Podman** - Rootless alternative, no daemon required
+- **nerdctl** - containerd CLI, Docker-compatible
+- **Alternative distributions** - Colima, Rancher Desktop, OrbStack
+
+Scripts automatically detect and use whichever runtime you have installed.
 
 **Docker Engine (Recommended for Linux/CI):**
 ```bash
@@ -63,6 +71,23 @@ All security tools run in Docker containers. You can use any Docker-compatible r
 sudo apt-get update && sudo apt-get install docker.io docker-compose
 sudo systemctl start docker && sudo systemctl enable docker
 sudo usermod -aG docker $USER  # Add your user to docker group
+
+# IMPORTANT: After adding to docker group, you must:
+# - Log out and log back in, OR
+# - Open a new terminal session, OR
+# - Run: exec su -l $USER
+```
+
+**Podman (Docker Alternative - No Daemon Required):**
+```bash
+# Ubuntu/Debian
+sudo apt-get update && sudo apt-get install podman
+
+# Fedora/RHEL
+sudo dnf install podman
+
+# Verify
+podman info
 ```
 
 **Docker Desktop (GUI Option for macOS/Windows):**
@@ -88,9 +113,15 @@ brew install --cask orbstack
 
 **Verify Installation:**
 ```bash
-docker --version
-docker info  # Should show your Docker runtime
+# Method 1: Use the built-in runtime check (recommended)
+./scripts/shell/check-docker-runtime.sh
+
+# Method 2: Manual verification
+docker --version      # or: podman --version
+docker info          # Should show your runtime details
 docker run hello-world
+
+# If you see permission errors, see Troubleshooting section below
 ```
 
 ### ☁️ AWS CLI (Required for ECR Integration)
@@ -407,7 +438,31 @@ epyon/
 
 ## 🚀 Quick Start
 
-### Target-Aware Security Scanning (Recommended)
+### 1. Verify Container Runtime
+
+Before running scans, verify your container runtime is properly configured:
+
+```bash
+# Check Docker/Podman/nerdctl detection and permissions
+./scripts/shell/check-docker-runtime.sh
+
+# If you see "Container runtime requires elevated permissions"
+# Follow the instructions to activate your docker group membership
+# (typically requires logging out and back in)
+
+# Temporary workaround: run with sudo
+sudo ./scripts/shell/check-docker-runtime.sh
+```
+
+**Supported Container Runtimes:**
+- Docker (Docker Engine, Docker Desktop)
+- Podman (rootless or rootful)
+- nerdctl (containerd CLI)
+- Alternative Docker distributions (Colima, Rancher Desktop, OrbStack)
+
+All scripts automatically detect and use whichever runtime is available.
+
+### 2. Target-Aware Security Scanning (Recommended)
 
 Scan any external application or directory with comprehensive security analysis and centralized output:
 
@@ -1195,6 +1250,61 @@ find scans/ -type d -mtime +30 -name "*_rnelson_*" -exec rm -rf {} \;
 ---
 
 ## 🔧 Troubleshooting
+
+### Docker Permission Denied / "Cannot connect to Docker daemon"
+
+**Symptom**: Error messages like:
+- `permission denied while trying to connect to the Docker daemon socket`
+- `Cannot connect to the Docker daemon at unix:///var/run/docker.sock`
+- Scripts report "Container runtime not responding"
+
+**Cause**: Your user doesn't have permission to access the Docker socket
+
+**Solution**:
+
+1. **Add your user to the docker group** (one-time setup):
+   ```bash
+   sudo usermod -aG docker $USER
+   ```
+
+2. **Activate the group membership** (choose one):
+   ```bash
+   # Option A: Log out and log back in (recommended)
+   # Just log out of your Linux session completely, then log back in
+   
+   # Option B: Open a new terminal session
+   # Close this terminal and open a new one
+   
+   # Option C: Refresh current session (advanced)
+   exec su -l $USER
+   ```
+
+3. **Verify it works**:
+   ```bash
+   # Check your groups include 'docker'
+   groups
+   
+   # Test Docker access (should work without sudo)
+   docker info
+   
+   # Run the runtime check
+   ./scripts/shell/check-docker-runtime.sh
+   ```
+
+**Temporary Workaround** (until you refresh your session):
+```bash
+# Run scripts with sudo
+sudo ./scripts/shell/run-trivy-scan.sh /path/to/project
+```
+
+**Alternative**: Use Podman instead of Docker:
+```bash
+# Install Podman (rootless container runtime)
+sudo apt update && sudo apt install -y podman
+
+# Scripts will auto-detect and use Podman
+./scripts/shell/check-docker-runtime.sh
+```
 
 ### Dashboard Shows "No Data Available"
 

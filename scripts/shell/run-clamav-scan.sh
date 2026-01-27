@@ -63,6 +63,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Source the scan directory template
 source "$SCRIPT_DIR/scan-directory-template.sh"
 
+# Source container runtime detection utility if available
+if [ -f "$SCRIPT_DIR/container-runtime.sh" ]; then
+    # shellcheck source=/dev/null
+    set +e
+    source "$SCRIPT_DIR/container-runtime.sh"
+    set -e
+fi
+if [ -z "${CONTAINER_CLI:-}" ]; then
+    CONTAINER_CLI=docker
+fi
+
 # Initialize scan environment for ClamAV
 init_scan_environment "clamav"
 
@@ -169,7 +180,7 @@ fi
 echo
 
 # Check if Docker is available
-if command -v docker &> /dev/null; then
+if [ -n "${CONTAINER_CLI:-}" ]; then
     echo "🐳 Using Docker-based ClamAV..."
     
     # Detect platform and choose appropriate ClamAV image
@@ -186,12 +197,12 @@ if command -v docker &> /dev/null; then
     
     # Pull ClamAV Docker image with platform specification
     echo "📥 Pulling ClamAV Docker image..."
-    if ! docker pull $PLATFORM_FLAG "$CLAMAV_IMAGE" 2>&1 | tee -a "$SCAN_LOG"; then
+    if ! ${CONTAINER_CLI} pull $PLATFORM_FLAG "$CLAMAV_IMAGE" 2>&1 | tee -a "$SCAN_LOG"; then
         echo -e "${YELLOW}⚠️  Standard ClamAV image failed, trying alternative...${NC}"
         # Try alternative ClamAV image that supports ARM64
         CLAMAV_IMAGE="mkodockx/docker-clamav:alpine"
         PLATFORM_FLAG=""
-        if ! docker pull "$CLAMAV_IMAGE" 2>&1 | tee -a "$SCAN_LOG"; then
+        if ! ${CONTAINER_CLI} pull "$CLAMAV_IMAGE" 2>&1 | tee -a "$SCAN_LOG"; then
             echo -e "${RED}❌ Unable to pull any ClamAV image${NC}"
             echo "ClamAV scan skipped - Docker image unavailable" > "$OUTPUT_DIR/${SCAN_ID}_clamav-detailed.log"
             echo "Platform: $PLATFORM not supported by available images" >> "$OUTPUT_DIR/${SCAN_ID}_clamav-detailed.log"
@@ -201,13 +212,13 @@ if command -v docker &> /dev/null; then
             # Update virus definitions before scanning
             echo -e "${CYAN}📥 Updating ClamAV virus definitions...${NC}"
             echo "This ensures we have the latest malware signatures..."
-            docker run --rm "$CLAMAV_IMAGE" freshclam 2>&1 | tee -a "$SCAN_LOG" || echo "Warning: Could not update definitions, using bundled versions"
+            ${CONTAINER_CLI} run --rm "$CLAMAV_IMAGE" freshclam 2>&1 | tee -a "$SCAN_LOG" || echo "Warning: Could not update definitions, using bundled versions"
             
             # Run scan with alternative image
             echo -e "${BLUE}🔍 Scanning directory: $REPO_PATH${NC}"
             echo "This may take several minutes..."
             
-            docker run --rm \
+            ${CONTAINER_CLI} run --rm \
                 -v "$REPO_PATH:/workspace:ro" \
                 -v "$OUTPUT_DIR:/output" \
                 "$CLAMAV_IMAGE" \
@@ -234,11 +245,11 @@ if command -v docker &> /dev/null; then
         
         # Create a persistent volume for ClamAV definitions to speed up future scans
         CLAMAV_DB_VOL="clamav-definitions"
-        docker volume create "$CLAMAV_DB_VOL" 2>/dev/null || true
+        ${CONTAINER_CLI} volume create "$CLAMAV_DB_VOL" 2>/dev/null || true
         
         # Update definitions using freshclam
         echo "Running freshclam to download latest virus definitions..."
-        docker run --rm $PLATFORM_FLAG \
+        ${CONTAINER_CLI} run --rm $PLATFORM_FLAG \
             -v "$CLAMAV_DB_VOL:/var/lib/clamav" \
             "$CLAMAV_IMAGE" \
             freshclam --stdout 2>&1 | tee -a "$SCAN_LOG"
@@ -253,7 +264,7 @@ if command -v docker &> /dev/null; then
         
         # Show definition info
         echo -e "${CYAN}📋 Checking virus definition status...${NC}"
-        docker run --rm $PLATFORM_FLAG \
+        ${CONTAINER_CLI} run --rm $PLATFORM_FLAG \
             -v "$CLAMAV_DB_VOL:/var/lib/clamav" \
             "$CLAMAV_IMAGE" \
             clamscan --version 2>&1 | tee -a "$SCAN_LOG"
@@ -262,7 +273,7 @@ if command -v docker &> /dev/null; then
         echo -e "${BLUE}🔍 Scanning directory: $REPO_PATH${NC}"
         echo "This may take several minutes..."
         
-        docker run --rm $PLATFORM_FLAG \
+        ${CONTAINER_CLI} run --rm $PLATFORM_FLAG \
             -v "$REPO_PATH:/workspace:ro" \
             -v "$OUTPUT_DIR:/output" \
             -v "$CLAMAV_DB_VOL:/var/lib/clamav" \
@@ -286,7 +297,7 @@ if command -v docker &> /dev/null; then
         # Also scan decoded base64 files if any exist
         if [ $BASE64_DECODED -gt 0 ]; then
             echo -e "${BLUE}🔍 Scanning decoded base64 content...${NC}"
-            docker run --rm $PLATFORM_FLAG \
+            ${CONTAINER_CLI} run --rm $PLATFORM_FLAG \
                 -v "$DECODED_DIR:/decoded:ro" \
                 -v "$OUTPUT_DIR:/output" \
                 -v "$CLAMAV_DB_VOL:/var/lib/clamav" \

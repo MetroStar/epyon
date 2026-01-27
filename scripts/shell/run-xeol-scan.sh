@@ -69,6 +69,17 @@ CONFIG_DIR="$(cd "$SCRIPT_DIR/../../configuration" && pwd)"
 # Source the scan directory template
 source "$SCRIPT_DIR/scan-directory-template.sh"
 
+# Source container runtime detection utility if available
+if [ -f "$SCRIPT_DIR/container-runtime.sh" ]; then
+    # shellcheck source=/dev/null
+    set +e
+    source "$SCRIPT_DIR/container-runtime.sh"
+    set -e
+fi
+if [ -z "${CONTAINER_CLI:-}" ]; then
+    CONTAINER_CLI=docker
+fi
+
 # Source approved base images configuration only if PRIMARY_BASELINE_IMAGE is not already set
 if [ -z "${PRIMARY_BASELINE_IMAGE:-}" ] && [ -f "$CONFIG_DIR/approved-base-images.conf" ]; then
     source "$CONFIG_DIR/approved-base-images.conf"
@@ -98,7 +109,7 @@ REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR"))")"
 mkdir -p "$OUTPUT_DIR"
 
 # Check if Docker is available
-if ! command -v docker &> /dev/null; then
+if ! [ -n "${CONTAINER_CLI:-}" ]; then
     echo -e "${RED}❌ Error: Docker is not installed or not in PATH${NC}"
     echo "   Please install Docker to use this security scanner."
     exit 1
@@ -132,13 +143,13 @@ fi
 
 # Create persistent volume for Xeol cache to speed up subsequent scans
 XEOL_CACHE_VOL="xeol-cache"
-docker volume create "$XEOL_CACHE_VOL" 2>/dev/null || true
+${CONTAINER_CLI} volume create "$XEOL_CACHE_VOL" 2>/dev/null || true
 
 # Update Xeol EOL database before scanning
 echo -e "${CYAN}📥 Updating Xeol end-of-life database...${NC}"
 echo "This ensures we have the latest EOL data..."
 
-docker run --rm \
+${CONTAINER_CLI} run --rm \
     -v "$XEOL_CACHE_VOL:/root/.cache" \
     noqcks/xeol:latest \
     db update 2>&1 | tee -a "$SCAN_LOG"
@@ -153,7 +164,7 @@ fi
 
 # Show database info
 echo -e "${CYAN}📋 Checking Xeol database status...${NC}"
-docker run --rm \
+${CONTAINER_CLI} run --rm \
     -v "$XEOL_CACHE_VOL:/root/.cache" \
     noqcks/xeol:latest \
     db status 2>&1 | tee -a "$SCAN_LOG"
@@ -173,7 +184,7 @@ scan_target() {
         # Run xeol scan with Docker using cached/updated database
         if [ "$scan_type" = "dir" ]; then
             # For directory scans, mount the target directory
-            docker run --rm \
+            ${CONTAINER_CLI} run --rm \
                 -v "$target:/workspace:ro" \
                 -v "$XEOL_CACHE_VOL:/root/.cache" \
                 noqcks/xeol:latest \
@@ -181,7 +192,7 @@ scan_target() {
                 -o json 2>>"$SCAN_LOG" > "$full_output_path"
         else
             # For image scans, mount Docker socket to access host's Docker daemon
-            docker run --rm \
+            ${CONTAINER_CLI} run --rm \
                 -v /var/run/docker.sock:/var/run/docker.sock \
                 -v "$XEOL_CACHE_VOL:/root/.cache" \
                 noqcks/xeol:latest \
@@ -258,7 +269,7 @@ for file in "$OUTPUT_DIR"/xeol-*-results.json; do
 done
 
 # Try to get Xeol database version
-DB_VERSION=$(docker run --rm noqcks/xeol:latest version 2>/dev/null | grep "Application" | awk '{print $2}' || echo "unknown")
+DB_VERSION=$(${CONTAINER_CLI} run --rm noqcks/xeol:latest version 2>/dev/null | grep "Application" | awk '{print $2}' || echo "unknown")
 
 echo
 echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"

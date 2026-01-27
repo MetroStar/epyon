@@ -13,86 +13,94 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 RED='\033[0;31m'
+WHITE='\033[1;37m'
 NC='\033[0m' # No Color
 
 echo -e "${CYAN}🐳 Docker Runtime Detection${NC}"
 echo ""
+# Source container runtime detection utility when available
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/container-runtime.sh" ]; then
+    # shellcheck source=/dev/null
+    set +e  # Temporarily disable exit on error
+    source "$SCRIPT_DIR/container-runtime.sh"
+    set -e  # Re-enable
+fi
 
-# Check if Docker is installed
-if ! command -v docker &>/dev/null; then
-    echo -e "${RED}❌ Docker is not installed${NC}"
+if [ -z "${CONTAINER_CLI:-}" ]; then
+    echo -e "${RED}❌ No container runtime CLI found (docker/podman/nerdctl)${NC}"
     echo ""
     echo -e "${YELLOW}Install options:${NC}"
     echo -e "  - Docker Engine: https://docs.docker.com/engine/install/"
-    echo -e "  - Docker Desktop: https://docker.com"
-    echo -e "  - Colima (macOS): brew install colima docker"
-    echo -e "  - Rancher Desktop: https://rancherdesktop.io/"
-    echo -e "  - OrbStack (macOS): https://orbstack.dev/"
+    echo -e "  - Podman: https://podman.io/getting-started/"
+    echo -e "  - nerdctl (containerd): https://github.com/containerd/nerdctl"
     exit 1
 fi
 
-echo -e "${GREEN}✅ Docker CLI installed${NC}"
-echo -e "   Version: $(docker --version)"
+echo -e "${GREEN}✅ Container CLI detected:${NC} $CONTAINER_CLI"
+echo -e "   Version: $($CONTAINER_CLI --version 2>/dev/null || echo 'N/A')"
 echo ""
 
-# Check if Docker daemon is running
-if ! docker info &>/dev/null; then
-    echo -e "${RED}❌ Docker daemon is not running${NC}"
-    echo ""
-    echo -e "${YELLOW}Start your Docker runtime:${NC}"
-    echo -e "  - Docker Engine: sudo systemctl start docker"
-    echo -e "  - Docker Desktop: open -a Docker"
-    echo -e "  - Colima: colima start"
-    echo -e "  - Rancher Desktop: open -a 'Rancher Desktop'"
-    echo -e "  - OrbStack: open -a OrbStack"
-    exit 1
+# Check if runtime is responsive
+if ! container_info 2>/dev/null; then
+    # Check if it works with sudo (permission issue)
+    if sudo $CONTAINER_CLI info &>/dev/null; then
+        echo -e "${YELLOW}⚠️  Container runtime requires elevated permissions${NC}"
+        echo ""
+        echo -e "${CYAN}Your user was added to the 'docker' group, but you need to:${NC}"
+        echo -e "  1️⃣  Log out and log back in, OR"
+        echo -e "  2️⃣  Open a new terminal session, OR"
+        echo -e "  3️⃣  Run: ${WHITE}exec su -l \$USER${NC}"
+        echo ""
+        echo -e "${GREEN}Temporary workaround:${NC} Prefix commands with 'sudo'"
+        exit 1
+    else
+        echo -e "${RED}❌ Container runtime not responding (${CONTAINER_CLI})${NC}"
+        echo ""
+        echo -e "${YELLOW}Start your container runtime:${NC}"
+        echo -e "  - Docker Engine: sudo systemctl start docker"
+        echo -e "  - Docker Desktop: open -a Docker"
+        echo -e "  - Podman (rootless): podman system service --time=0 &"
+        echo -e "  - Colima: colima start"
+        echo -e "  - Rancher Desktop: open -a 'Rancher Desktop'"
+        exit 1
+    fi
 fi
 
-echo -e "${GREEN}✅ Docker daemon is running${NC}"
+echo -e "${GREEN}✅ Container runtime is responsive${NC}"
 echo ""
 
 # Detect Docker runtime
 echo -e "${CYAN}📊 Runtime Information:${NC}"
 echo ""
 
-# Check context
 DOCKER_RUNTIME="Unknown"
-CURRENT_CONTEXT=$(docker context show 2>/dev/null || echo "default")
+CURRENT_CONTEXT="$($CONTAINER_CLI context show 2>/dev/null || echo "default")"
 
-if docker context ls 2>/dev/null | grep -q "colima"; then
+if [ "$CONTAINER_CLI" = "podman" ]; then
+    DOCKER_RUNTIME="Podman"
+elif $CONTAINER_CLI context ls 2>/dev/null | grep -q "colima"; then
     DOCKER_RUNTIME="Colima"
-    if [[ "$CURRENT_CONTEXT" == *"colima"* ]]; then
-        DOCKER_RUNTIME="$DOCKER_RUNTIME (active)"
-    fi
-elif docker context ls 2>/dev/null | grep -q "desktop-linux"; then
+elif $CONTAINER_CLI context ls 2>/dev/null | grep -q "desktop-linux"; then
     DOCKER_RUNTIME="Docker Desktop"
-    if [[ "$CURRENT_CONTEXT" == *"desktop"* ]]; then
-        DOCKER_RUNTIME="$DOCKER_RUNTIME (active)"
-    fi
-elif docker context ls 2>/dev/null | grep -q "rancher-desktop"; then
+elif $CONTAINER_CLI context ls 2>/dev/null | grep -q "rancher-desktop"; then
     DOCKER_RUNTIME="Rancher Desktop"
-    if [[ "$CURRENT_CONTEXT" == *"rancher"* ]]; then
-        DOCKER_RUNTIME="$DOCKER_RUNTIME (active)"
-    fi
-elif docker context ls 2>/dev/null | grep -q "orbstack"; then
+elif $CONTAINER_CLI context ls 2>/dev/null | grep -q "orbstack"; then
     DOCKER_RUNTIME="OrbStack"
-    if [[ "$CURRENT_CONTEXT" == *"orbstack"* ]]; then
-        DOCKER_RUNTIME="$DOCKER_RUNTIME (active)"
-    fi
 elif command -v systemctl &>/dev/null && systemctl is-active docker &>/dev/null 2>&1; then
     DOCKER_RUNTIME="Docker Engine (systemd)"
 else
-    DOCKER_RUNTIME="Docker Engine or compatible runtime"
+    DOCKER_RUNTIME="$CONTAINER_CLI (compatible runtime)"
 fi
 
 echo -e "  ${GREEN}Runtime:${NC} $DOCKER_RUNTIME"
 echo -e "  ${GREEN}Context:${NC} $CURRENT_CONTEXT"
 
 # Get Docker info
-DOCKER_VERSION=$(docker version --format '{{.Server.Version}}' 2>/dev/null || echo "N/A")
-DOCKER_ENDPOINT=$(docker context inspect --format '{{.Endpoints.docker.Host}}' 2>/dev/null || echo "N/A")
-DOCKER_OS=$(docker version --format '{{.Server.Os}}' 2>/dev/null || echo "N/A")
-DOCKER_ARCH=$(docker version --format '{{.Server.Arch}}' 2>/dev/null || echo "N/A")
+DOCKER_VERSION=$($CONTAINER_CLI version --format '{{.Server.Version}}' 2>/dev/null || $CONTAINER_CLI --version 2>/dev/null || echo "N/A")
+DOCKER_ENDPOINT=$($CONTAINER_CLI context inspect --format '{{.Endpoints.docker.Host}}' 2>/dev/null || echo "N/A")
+DOCKER_OS=$($CONTAINER_CLI version --format '{{.Server.Os}}' 2>/dev/null || echo "N/A")
+DOCKER_ARCH=$($CONTAINER_CLI version --format '{{.Server.Arch}}' 2>/dev/null || echo "N/A")
 
 echo -e "  ${GREEN}Server Version:${NC} $DOCKER_VERSION"
 echo -e "  ${GREEN}Endpoint:${NC} $DOCKER_ENDPOINT"
@@ -130,24 +138,22 @@ echo ""
 echo -e "${CYAN}🧪 Testing Docker Functionality:${NC}"
 echo ""
 
-# Test image pull
 echo -n "  Testing image pull... "
-if docker pull hello-world:latest &>/dev/null; then
+if $CONTAINER_CLI pull hello-world:latest &>/dev/null; then
     echo -e "${GREEN}✓${NC}"
 else
     echo -e "${RED}✗${NC}"
 fi
 
-# Test container run
 echo -n "  Testing container run... "
-if docker run --rm hello-world &>/dev/null; then
+if $CONTAINER_CLI run --rm hello-world &>/dev/null; then
     echo -e "${GREEN}✓${NC}"
 else
     echo -e "${RED}✗${NC}"
 fi
 
 # Cleanup
-docker rmi hello-world:latest &>/dev/null || true
+$CONTAINER_CLI rmi hello-world:latest &>/dev/null || true
 
 echo ""
 echo -e "${GREEN}✅ Docker runtime check complete!${NC}"

@@ -72,6 +72,16 @@ CONFIG_DIR="$(cd "$SCRIPT_DIR/../../configuration" && pwd)"
 # Source the scan directory template
 source "$SCRIPT_DIR/scan-directory-template.sh"
 
+# Source container runtime detection utility if available
+if [ -f "$SCRIPT_DIR/container-runtime.sh" ]; then
+    # shellcheck source=/dev/null
+    source "$SCRIPT_DIR/container-runtime.sh"
+fi
+# Fallback to docker CLI name if detection didn't find anything
+if [ -z "${CONTAINER_CLI:-}" ]; then
+    CONTAINER_CLI=docker
+fi
+
 # Source approved base images configuration only if PRIMARY_BASELINE_IMAGE is not already set
 if [ -z "${PRIMARY_BASELINE_IMAGE:-}" ] && [ -f "$CONFIG_DIR/approved-base-images.conf" ]; then
     source "$CONFIG_DIR/approved-base-images.conf"
@@ -108,13 +118,13 @@ fi
 
 # Create persistent volume for Trivy cache to speed up subsequent scans
 TRIVY_CACHE_VOL="trivy-cache"
-docker volume create "$TRIVY_CACHE_VOL" 2>/dev/null || true
+${CONTAINER_CLI} volume create "$TRIVY_CACHE_VOL" 2>/dev/null || true
 
 # Update Trivy vulnerability database before scanning
 echo -e "${CYAN}📥 Updating Trivy vulnerability database...${NC}"
 echo "This ensures we have the latest CVE data (may take 1-2 minutes on first run)..."
 
-docker run --rm \
+${CONTAINER_CLI} run --rm \
     -v "$TRIVY_CACHE_VOL:/root/.cache" \
     aquasec/trivy:latest \
     image --download-db-only 2>&1 | tee -a "$SCAN_LOG"
@@ -129,7 +139,7 @@ fi
 
 # Show database info
 echo -e "${CYAN}📋 Checking Trivy database status...${NC}"
-docker run --rm \
+${CONTAINER_CLI} run --rm \
     -v "$TRIVY_CACHE_VOL:/root/.cache" \
     aquasec/trivy:latest \
     version 2>&1 | grep -E "(Version|VulnerabilityDB)" | tee -a "$SCAN_LOG"
@@ -146,13 +156,13 @@ run_trivy_scan() {
         echo -e "${BLUE}🔍 Scanning ${scan_type}: ${target}${NC}"
         
         # Run trivy scan with Docker using cached/updated database
-        if command -v docker &> /dev/null; then
+        if [ -n "${CONTAINER_CLI:-}" ]; then
             # Determine if this is an image scan or filesystem scan
             if [[ "$scan_type" == "base-"* ]] || [[ "$target" == *":"* ]]; then
                 # Image scan - mount Docker socket to access host images
                 # Try to use locally cached image first, fall back to remote scan
                 echo "   Scanning container image: $target"
-                docker run --rm \
+                ${CONTAINER_CLI} run --rm \
                     -v /var/run/docker.sock:/var/run/docker.sock \
                     -v "$TRIVY_CACHE_VOL:/root/.cache" \
                     aquasec/trivy:latest \
@@ -160,7 +170,7 @@ run_trivy_scan() {
                     --format json --quiet 2>> "$SCAN_LOG" > "$output_file"
             else
                 # Filesystem scan - scan everything including node_modules for complete vulnerability detection
-                docker run --rm \
+                ${CONTAINER_CLI} run --rm \
                     -v "${target}:/workspace:ro" \
                     -v "$TRIVY_CACHE_VOL:/root/.cache" \
                     aquasec/trivy:latest \
@@ -179,7 +189,7 @@ run_trivy_scan() {
                 echo '{"Results": []}' > "$output_file"
             fi
         else
-            echo -e "${RED}❌ Docker not available - Trivy scan skipped${NC}"
+                echo -e "${RED}❌ Container runtime not available - Trivy scan skipped${NC}"
             echo '{"Results": []}' > "$output_file"
         fi
         echo
@@ -206,15 +216,15 @@ if [ "$SCAN_MODE" != "filesystem" ]; then
     fi
 
     for image in "${BASE_IMAGES[@]}"; do
-        if command -v docker &> /dev/null; then
+        if [ -n "${CONTAINER_CLI:-}" ]; then
             echo -e "${BLUE}📦 Scanning base image: $image${NC}"
             
             # Check if image exists locally first
-            if docker image inspect "$image" &>/dev/null; then
+            if $CONTAINER_CLI image inspect "$image" &>/dev/null; then
                 echo "   ✅ Using cached image"
             else
                 echo "   ⏬ Pulling image..."
-                if ! docker pull "$image" >> "$SCAN_LOG" 2>&1; then
+                if ! $CONTAINER_CLI pull "$image" >> "$SCAN_LOG" 2>&1; then
                     echo "   ⚠️ Pull failed - skipping this image"
                     continue
                 fi

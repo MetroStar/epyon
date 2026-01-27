@@ -73,6 +73,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Source the scan directory template
 source "$SCRIPT_DIR/scan-directory-template.sh"
 
+# Source container runtime detection utility if available
+if [ -f "$SCRIPT_DIR/container-runtime.sh" ]; then
+    # shellcheck source=/dev/null
+    set +e
+    source "$SCRIPT_DIR/container-runtime.sh"
+    set -e
+fi
+if [ -z "${CONTAINER_CLI:-}" ]; then
+    CONTAINER_CLI=docker
+fi
+
 # Initialize scan environment for Checkov
 init_scan_environment "checkov"
 
@@ -151,12 +162,12 @@ echo -e "${CYAN}🏗️  Infrastructure Security Analysis${NC}"
 echo "===================================="
 
 # Check if Docker is available for Checkov
-if command -v docker &> /dev/null; then
+if [ -n "${CONTAINER_CLI:-}" ]; then
     echo "🐳 Using Docker-based Checkov..."
     
     # Pull Checkov Docker image
     echo "📥 Pulling Checkov Docker image..."
-    docker pull bridgecrew/checkov:latest 2>&1 | tee -a "$SCAN_LOG"
+    ${CONTAINER_CLI} pull bridgecrew/checkov:latest 2>&1 | tee -a "$SCAN_LOG"
     
     # Scan for various IaC files
     echo -e "${BLUE}🔍 Scanning Infrastructure as Code files...${NC}"
@@ -227,7 +238,7 @@ if command -v docker &> /dev/null; then
     # Using --skip-download to scan Helm templates even without access to private registries
     # This allows scanning of raw templates without requiring helm dependency resolution
     echo -e "${BLUE}🔍 Running Checkov scan (skipping external dependencies)...${NC}"
-    docker run --rm \
+    ${CONTAINER_CLI} run --rm \
         -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
         -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
         -e AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
@@ -251,7 +262,7 @@ if command -v docker &> /dev/null; then
     # If Helm chart exists but wasn't fully scanned, try scanning templates directly
     if [[ -d "$CHART_DIR/templates" ]]; then
         echo -e "${BLUE}🔍 Scanning Helm templates directly (Kubernetes framework)...${NC}"
-        docker run --rm \
+        ${CONTAINER_CLI} run --rm \
             -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
             -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
             -e AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
@@ -268,7 +279,7 @@ if command -v docker &> /dev/null; then
         
         # Also scan values.yaml and secrets.yaml for secrets detection
         echo -e "${BLUE}🔍 Scanning Helm values for secrets...${NC}"
-        docker run --rm \
+        ${CONTAINER_CLI} run --rm \
             -v "$TARGET_SCAN_DIR:/workspace" \
             -v "$OUTPUT_DIR:/output" \
             bridgecrew/checkov:latest \

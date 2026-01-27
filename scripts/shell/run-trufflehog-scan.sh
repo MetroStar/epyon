@@ -66,6 +66,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Source the scan directory template
 source "$SCRIPT_DIR/scan-directory-template.sh"
 
+# Source container runtime detection utility if available
+if [ -f "$SCRIPT_DIR/container-runtime.sh" ]; then
+    # shellcheck source=/dev/null
+    source "$SCRIPT_DIR/container-runtime.sh"
+fi
+if [ -z "${CONTAINER_CLI:-}" ]; then
+    CONTAINER_CLI=docker
+fi
+
 # Initialize scan environment for TruffleHog
 init_scan_environment "trufflehog"
 
@@ -133,8 +142,8 @@ run_trufflehog_scan() {
     
     echo -e "${BLUE}🔍 Scanning ${scan_type}: ${target}${NC}"
     
-    if command -v docker &> /dev/null; then
-        echo "Using Docker-based TruffleHog..."
+    if [ -n "${CONTAINER_CLI:-}" ]; then
+        echo "Using ${CONTAINER_CLI}-based TruffleHog..."
         # Create a .trufflehogignore file to exclude common dependency directories
         cat > "$OUTPUT_DIR/.trufflehogignore" << 'EOF'
 # Exclude dependency directories
@@ -172,7 +181,7 @@ detectors:
       sonar_token: 'sqp_[a-zA-Z0-9]{40}'
 REGEX_EOF
         
-        docker run --rm \
+        ${CONTAINER_CLI} run --rm \
             -v "$target:/workspace" \
             -v "$OUTPUT_DIR/.trufflehogignore:/root/.trufflehogignore" \
             -v "$OUTPUT_DIR/.trufflehog-custom-regex.yaml:/root/.trufflehog-custom-regex.yaml" \
@@ -183,7 +192,7 @@ REGEX_EOF
             --config=/root/.trufflehog-custom-regex.yaml \
             2>&1 | tee -a "$SCAN_LOG" > "$output_file"
     else
-        echo "⚠️  Docker not available - TruffleHog scan skipped"
+        echo "⚠️  Container runtime not available - TruffleHog scan skipped"
         echo "[]" > "$output_file"
     fi
     

@@ -69,6 +69,17 @@ CONFIG_DIR="$(cd "$SCRIPT_DIR/../../configuration" && pwd)"
 # Source the scan directory template
 source "$SCRIPT_DIR/scan-directory-template.sh"
 
+# Source container runtime detection utility if available
+if [ -f "$SCRIPT_DIR/container-runtime.sh" ]; then
+    # shellcheck source=/dev/null
+    set +e
+    source "$SCRIPT_DIR/container-runtime.sh"
+    set -e
+fi
+if [ -z "${CONTAINER_CLI:-}" ]; then
+    CONTAINER_CLI=docker
+fi
+
 # Source approved base images configuration only if PRIMARY_BASELINE_IMAGE is not already set
 if [ -z "${PRIMARY_BASELINE_IMAGE:-}" ] && [ -f "$CONFIG_DIR/approved-base-images.conf" ]; then
     source "$CONFIG_DIR/approved-base-images.conf"
@@ -135,13 +146,13 @@ echo "Target: $REPO_PATH" >> "$SCAN_LOG"
 
 # Create persistent volume for Grype cache to speed up subsequent scans
 GRYPE_CACHE_VOL="grype-cache"
-docker volume create "$GRYPE_CACHE_VOL" 2>/dev/null || true
+${CONTAINER_CLI} volume create "$GRYPE_CACHE_VOL" 2>/dev/null || true
 
 # Update Grype vulnerability database before scanning
 echo -e "${CYAN}📥 Updating Grype vulnerability database...${NC}"
 echo "This ensures we have the latest CVE data (may take 1-2 minutes on first run)..."
 
-docker run --rm \
+${CONTAINER_CLI} run --rm \
     -e GRYPE_DB_CACHE_DIR=/cache \
     -v "$GRYPE_CACHE_VOL:/cache" \
     anchore/grype:latest \
@@ -157,7 +168,7 @@ fi
 
 # Show database info
 echo -e "${CYAN}📋 Checking Grype database status...${NC}"
-docker run --rm \
+${CONTAINER_CLI} run --rm \
     -e GRYPE_DB_CACHE_DIR=/cache \
     -v "$GRYPE_CACHE_VOL:/cache" \
     anchore/grype:latest \
@@ -173,14 +184,14 @@ run_grype_scan() {
     
     echo -e "${BLUE}🔍 Scanning ${scan_type}: ${target}${NC}"
     
-    if command -v docker &> /dev/null; then
-        echo "   Using Docker-based Grype..."
+    if [ -n "${CONTAINER_CLI:-}" ]; then
+        echo "   Using ${CONTAINER_CLI}-based Grype..."
         
         # Determine if this is an image scan or filesystem scan
         if [[ "$scan_type" == "base-"* ]] || [[ "$target" == *":"* ]]; then
             # Image scan - mount Docker socket to access host's Docker daemon
             echo "   Scanning container image: $target"
-            docker run --rm \
+            ${CONTAINER_CLI} run --rm \
                 -e GRYPE_DB_CACHE_DIR=/cache \
                 -v /var/run/docker.sock:/var/run/docker.sock \
                 -v "$GRYPE_CACHE_VOL:/cache" \
@@ -189,7 +200,7 @@ run_grype_scan() {
         else
             # Filesystem scan - mount the directory and scan
             echo "   Scanning filesystem: $target"
-            docker run --rm \
+            ${CONTAINER_CLI} run --rm \
                 -e GRYPE_DB_CACHE_DIR=/cache \
                 -v "$target:/workspace:ro" \
                 -v "$GRYPE_CACHE_VOL:/cache" \
@@ -237,11 +248,11 @@ if [[ "$SCAN_TYPE" == "sbom" ]] || [[ "$SCAN_TYPE" == "all" ]]; then
         output_file="$OUTPUT_DIR/${SCAN_ID}_grype-sbom-results.json"
         current_file="$OUTPUT_DIR/grype-sbom-results.json"
         
-        if command -v docker &> /dev/null; then
+        if [ -n "${CONTAINER_CLI:-}" ]; then
             echo -e "${BLUE}🔍 Scanning SBOM for vulnerabilities...${NC}"
             
             # Mount the SBOM file and scan it with vulnerability database
-            docker run --rm \
+            ${CONTAINER_CLI} run --rm \
                 -e GRYPE_DB_CACHE_DIR=/cache \
                 -v "$SBOM_FILE:/sbom.json:ro" \
                 -v "$GRYPE_CACHE_VOL:/cache" \
@@ -294,13 +305,13 @@ if [[ "$SCAN_TYPE" == "images" ]] || [[ "$SCAN_TYPE" == "all" ]]; then
     
     for image in "${IMAGES_TO_SCAN[@]}"; do
         echo -e "${BLUE}📦 Scanning base image: $image${NC}"
-        if command -v docker &> /dev/null; then
+        if [ -n "${CONTAINER_CLI:-}" ]; then
             # Check if image exists locally first
-            if docker image inspect "$image" &>/dev/null; then
+            if ${CONTAINER_CLI} image inspect "$image" &>/dev/null; then
                 echo "   ✅ Using cached image"
             else
                 echo "   ⏬ Pulling image..."
-                if ! docker pull "$image" >> "$SCAN_LOG" 2>&1; then
+                if ! ${CONTAINER_CLI} pull "$image" >> "$SCAN_LOG" 2>&1; then
                     echo "   ⚠️ Pull failed - skipping this image"
                     continue
                 fi

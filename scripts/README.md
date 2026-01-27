@@ -116,6 +116,40 @@ cd shell
 
 ## 🔄 Platform-Specific Notes
 
+### Container Runtime Support (All Platforms)
+
+**Epyon is container-engine-agnostic!** All scanner scripts automatically detect and work with:
+- **Docker** (Docker Engine, Docker Desktop)
+- **Podman** (rootless or rootful)
+- **nerdctl** (containerd CLI)
+- **Alternative Docker distributions** (Colima, Rancher Desktop, OrbStack)
+
+**First-time setup on Linux**:
+```bash
+# Add your user to the docker group (one-time)
+sudo usermod -aG docker $USER
+
+# Then log out and log back in, OR open a new terminal session, OR run:
+exec su -l $USER
+```
+
+**Check your container runtime**:
+```bash
+./shell/check-docker-runtime.sh
+```
+
+**Using Podman instead of Docker**:
+```bash
+# Install Podman (Debian/Ubuntu)
+sudo apt update && sudo apt install -y podman
+
+# The scripts will automatically detect and use Podman
+./shell/check-docker-runtime.sh
+
+# For rootless Podman service (optional)
+systemctl --user enable --now podman.socket
+```
+
 ### Windows (PowerShell)
 - Requires PowerShell 5.1 or later
 - May need to set execution policy:
@@ -126,7 +160,7 @@ cd shell
 
 ### Linux/macOS/WSL (Bash)
 - Requires bash shell
-- Docker required for most scanners (Docker Engine, Docker Desktop, Colima, Rancher Desktop, OrbStack)
+- Container runtime required for most scanners (see Container Runtime Support above)
 - Some scripts may require additional tools (helm, aws-cli, etc.)
 
 ## 📝 Output Directories
@@ -143,7 +177,11 @@ Scan results are saved in their respective directories (created in parent direct
 ## 🛠️ Prerequisites
 
 ### All Platforms
-- Docker (any Docker-compatible runtime: Docker Engine, Docker Desktop, Colima, Rancher Desktop, OrbStack)
+- **Container Runtime** (choose one):
+  - Docker (Docker Engine, Docker Desktop) - *recommended*
+  - Podman (rootless or rootful) - *Docker-compatible alternative*
+  - nerdctl with containerd
+  - Alternative distributions (Colima, Rancher Desktop, OrbStack)
 - Git
 
 ### Optional Tools

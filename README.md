@@ -55,19 +55,41 @@ This repository contains a **production-ready, enterprise-grade** multi-layer De
 Before using this security architecture, ensure you have the following tools installed and configured.
 
 ### 🐳 Docker (Required)
-All security tools run in Docker containers. Install Docker Desktop or Docker Engine:
+All security tools run in Docker containers. You can use any Docker-compatible runtime:
 
+**Docker Engine (Recommended for Linux/CI):**
 ```bash
-# macOS (using Homebrew)
-brew install --cask docker
-
 # Ubuntu/Debian
 sudo apt-get update && sudo apt-get install docker.io docker-compose
 sudo systemctl start docker && sudo systemctl enable docker
 sudo usermod -aG docker $USER  # Add your user to docker group
+```
 
-# Verify installation
+**Docker Desktop (GUI Option for macOS/Windows):**
+```bash
+# macOS
+brew install --cask docker
+
+# Or download from https://docker.com
+```
+
+**Docker Alternatives (macOS):**
+```bash
+# Colima (Lightweight, no GUI)
+brew install colima docker docker-compose
+colima start
+
+# Rancher Desktop (GUI alternative to Docker Desktop)
+brew install --cask rancher
+
+# OrbStack (Fast, native macOS)
+brew install --cask orbstack
+```
+
+**Verify Installation:**
+```bash
 docker --version
+docker info  # Should show your Docker runtime
 docker run hello-world
 ```
 
@@ -246,7 +268,24 @@ The remaining security tools run entirely in Docker and require no additional se
 
 ### ✅ Verify Prerequisites
 
-Run this quick verification script to check your setup:
+#### Quick Docker Runtime Check
+
+Use the built-in Docker runtime detection utility to verify your Docker setup:
+
+```bash
+# Check Docker runtime and compatibility
+./scripts/shell/check-docker-runtime.sh
+```
+
+This utility will:
+- ✅ Detect which Docker runtime you're using (Docker Desktop, Colima, Rancher Desktop, etc.)
+- ✅ Show available Docker contexts and endpoints
+- ✅ Test Docker functionality with image pull and container run
+- ✅ Display all installed Docker runtimes on your system
+
+#### Manual Verification Script
+
+Alternatively, run this quick verification script to check your setup:
 
 ```bash
 #!/bin/bash

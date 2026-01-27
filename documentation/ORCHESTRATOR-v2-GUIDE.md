@@ -284,10 +284,16 @@ if ($exitCode -ne 0) {
 **Symptom:** Scans are skipped with "Docker not available"
 
 **Solutions:**
-1. Start Docker Desktop
+1. Start your Docker runtime:
+   - Docker Engine: `sudo systemctl start docker` (Linux)
+   - Docker Desktop: open -a Docker (macOS)
+   - Colima: `colima start` (macOS)
+   - Rancher Desktop: open -a "Rancher Desktop" (macOS)
+   - OrbStack: open -a OrbStack (macOS)
 2. Wait for Docker to fully initialize (30-60 seconds)
-3. Run scan again
-4. Or use `-SkipDockerCheck` for non-Docker scans only
+3. Verify Docker is running: `docker info`
+4. Run scan again
+5. Or use `-SkipDockerCheck` for non-Docker scans only
 
 ### Scans Taking Too Long
 **Symptom:** Full scan takes > 30 minutes

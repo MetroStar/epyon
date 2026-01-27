@@ -122,11 +122,11 @@ cd shell
   ```powershell
   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
   ```
-- Docker Desktop for Windows required for scanners
+- Docker required (Docker Desktop, Rancher Desktop, or Windows containers)
 
 ### Linux/macOS/WSL (Bash)
 - Requires bash shell
-- Docker required for most scanners
+- Docker required for most scanners (Docker Engine, Docker Desktop, Colima, Rancher Desktop, OrbStack)
 - Some scripts may require additional tools (helm, aws-cli, etc.)
 
 ## 📝 Output Directories
@@ -143,7 +143,7 @@ Scan results are saved in their respective directories (created in parent direct
 ## 🛠️ Prerequisites
 
 ### All Platforms
-- Docker (Docker Desktop for Windows)
+- Docker (any Docker-compatible runtime: Docker Engine, Docker Desktop, Colima, Rancher Desktop, OrbStack)
 - Git
 
 ### Optional Tools

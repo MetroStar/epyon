@@ -185,12 +185,50 @@ check_docker_running() {
 }
 
 start_docker() {
-    echo -e "${YELLOW}⏳ Starting Docker Desktop...${NC}"
+    echo -e "${YELLOW}⏳ Attempting to start Docker...${NC}"
     
-    # macOS - Start Docker Desktop
+    # Detect Docker runtime
+    local docker_runtime="unknown"
+    if docker context ls 2>/dev/null | grep -q "colima"; then
+        docker_runtime="Colima"
+    elif docker context ls 2>/dev/null | grep -q "desktop-linux"; then
+        docker_runtime="Docker Desktop"
+    elif docker context ls 2>/dev/null | grep -q "rancher-desktop"; then
+        docker_runtime="Rancher Desktop"
+    elif docker context ls 2>/dev/null | grep -q "orbstack"; then
+        docker_runtime="OrbStack"
+    elif command -v systemctl &>/dev/null && systemctl is-active docker &>/dev/null 2>&1; then
+        docker_runtime="Docker Engine"
+    fi
+    
+    # macOS - Try to start various Docker runtimes
     if [[ "$(uname)" == "Darwin" ]]; then
-        open -a Docker
+        # Try Colima first (most common alternative)
+        if command -v colima &>/dev/null; then
+            echo -e "${YELLOW}   Detected Colima, attempting to start...${NC}"
+            colima start 2>/dev/null
+            sleep 3
+        fi
         
+        # Try Docker Desktop if it exists
+        if [[ -d "/Applications/Docker.app" ]]; then
+            echo -e "${YELLOW}   Detected Docker Desktop, attempting to start...${NC}"
+            open -a Docker 2>/dev/null
+        fi
+        
+        # Try Rancher Desktop if it exists
+        if [[ -d "/Applications/Rancher Desktop.app" ]]; then
+            echo -e "${YELLOW}   Detected Rancher Desktop, attempting to start...${NC}"
+            open -a "Rancher Desktop" 2>/dev/null
+        fi
+        
+        # Try OrbStack if it exists
+        if [[ -d "/Applications/OrbStack.app" ]]; then
+            echo -e "${YELLOW}   Detected OrbStack, attempting to start...${NC}"
+            open -a OrbStack 2>/dev/null
+        fi
+        
+        # Wait for Docker to become available
         echo -n "   Waiting for Docker to start"
         local max_wait=60
         local waited=0
@@ -199,7 +237,11 @@ start_docker() {
             if [[ $waited -ge $max_wait ]]; then
                 echo ""
                 echo -e "${RED}❌ Docker failed to start within ${max_wait} seconds${NC}"
-                echo -e "${YELLOW}💡 Please start Docker Desktop manually and try again${NC}"
+                echo -e "${YELLOW}💡 Please start your Docker runtime manually:${NC}"
+                echo -e "${YELLOW}   - Docker Desktop: open -a Docker${NC}"
+                echo -e "${YELLOW}   - Colima: colima start${NC}"
+                echo -e "${YELLOW}   - Rancher Desktop: open -a 'Rancher Desktop'${NC}"
+                echo -e "${YELLOW}   - OrbStack: open -a OrbStack${NC}"
                 exit 1
             fi
             echo -n "."
@@ -207,17 +249,19 @@ start_docker() {
             waited=$((waited + 2))
         done
         echo ""
-        echo -e "${GREEN}✅ Docker is now running${NC}"
+        echo -e "${GREEN}✅ Docker is now running ($docker_runtime)${NC}"
         
-    # Linux - Try to start Docker service
+    # Linux - Try to start Docker Engine service
     elif [[ "$(uname)" == "Linux" ]]; then
         if command -v systemctl &>/dev/null; then
-            sudo systemctl start docker
+            echo -e "${YELLOW}   Starting Docker Engine service...${NC}"
+            sudo systemctl start docker 2>/dev/null
             sleep 3
             if check_docker_running; then
                 echo -e "${GREEN}✅ Docker service started${NC}"
             else
                 echo -e "${RED}❌ Failed to start Docker service${NC}"
+                echo -e "${YELLOW}💡 Try manually: sudo systemctl start docker${NC}"
                 exit 1
             fi
         else
@@ -235,7 +279,11 @@ start_docker() {
 # Check if Docker is installed
 if ! command -v docker &>/dev/null; then
     echo -e "${RED}❌ Error: Docker is not installed${NC}"
-    echo -e "${YELLOW}💡 Please install Docker Desktop from https://docker.com${NC}"
+    echo -e "${YELLOW}💡 Install options:${NC}"
+    echo -e "${YELLOW}   - Docker Engine: https://docs.docker.com/engine/install/${NC}"
+    echo -e "${YELLOW}   - Docker Desktop: https://docker.com${NC}"
+    echo -e "${YELLOW}   - Colima (macOS): brew install colima docker${NC}"
+    echo -e "${YELLOW}   - Rancher Desktop: https://rancherdesktop.io/${NC}"
     exit 1
 fi
 

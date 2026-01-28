@@ -943,7 +943,16 @@ echo ""
 DASHBOARD_PATH="$SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html"
 if [[ -f "$DASHBOARD_PATH" ]]; then
     echo -e "${GREEN}🌐 Opening security dashboard...${NC}"
-    open "$DASHBOARD_PATH"
+    # Cross-platform browser opening
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        open "$DASHBOARD_PATH"
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        xdg-open "$DASHBOARD_PATH" 2>/dev/null || echo -e "${YELLOW}Please open: $DASHBOARD_PATH${NC}"
+    elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+        start "$DASHBOARD_PATH"
+    else
+        echo -e "${YELLOW}Please open: $DASHBOARD_PATH${NC}"
+    fi
 else
     echo -e "${YELLOW}⚠️  Dashboard not found at: $DASHBOARD_PATH${NC}"
 fi

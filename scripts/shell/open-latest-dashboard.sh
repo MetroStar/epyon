@@ -78,5 +78,13 @@ echo -e "${CYAN}📊 Scan: $(basename "$LATEST_SCAN")${NC}"
 echo -e "${CYAN}📁 Path: $DASHBOARD_PATH${NC}"
 echo ""
 
-# Open in default browser
-open "$DASHBOARD_PATH"
+# Open in default browser (cross-platform)
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    open "$DASHBOARD_PATH"
+elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    xdg-open "$DASHBOARD_PATH" 2>/dev/null || echo -e "${YELLOW}Please open: $DASHBOARD_PATH${NC}"
+elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+    start "$DASHBOARD_PATH"
+else
+    echo -e "${YELLOW}Please open: $DASHBOARD_PATH${NC}"
+fi

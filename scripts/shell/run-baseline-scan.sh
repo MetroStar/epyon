@@ -455,9 +455,23 @@ compare_baseline_scans() {
 
     # Open both dashboards for manual comparison
     print_info "Opening dashboards for visual comparison..."
-    open "${BASELINE_DASHBOARD}" 2>/dev/null || true
-    sleep 1
-    open "${LATEST_DASHBOARD}" 2>/dev/null || true
+    # Cross-platform browser opening
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        open "${BASELINE_DASHBOARD}" 2>/dev/null || true
+        sleep 1
+        open "${LATEST_DASHBOARD}" 2>/dev/null || true
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        xdg-open "${BASELINE_DASHBOARD}" 2>/dev/null || true
+        sleep 1
+        xdg-open "${LATEST_DASHBOARD}" 2>/dev/null || true
+    elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
+        start "${BASELINE_DASHBOARD}" 2>/dev/null || true
+        sleep 1
+        start "${LATEST_DASHBOARD}" 2>/dev/null || true
+    else
+        echo "Baseline: ${BASELINE_DASHBOARD}"
+        echo "Latest: ${LATEST_DASHBOARD}"
+    fi
 
     echo ""
     print_success "Dashboards opened in browser for comparison"

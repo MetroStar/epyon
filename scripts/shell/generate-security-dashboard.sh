@@ -1843,8 +1843,6 @@ cat > "$OUTPUT_HTML" << 'EOF'
             background: #2a1f15;
             border-color: #ea580c;
         }
-            background: #fef5e7;
-        }
         
         .finding-item.severity-low {
             border-left-color: #4ade80;

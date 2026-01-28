@@ -893,12 +893,12 @@ if [ -d "$ANCHORE_DIR" ]; then
                     # Mark as seen by adding to string with delimiters
                     ANCHORE_SEEN_VULNS="${ANCHORE_SEEN_VULNS}|${VULN_KEY}|"
                     
-                    ((ANCHORE_TOTAL_VULNS++))
+                    ((ANCHORE_TOTAL_VULNS++)) || true
                     case "$severity" in
-                        Critical) ((ANCHORE_CRITICAL++)) ;;
-                        High) ((ANCHORE_HIGH++)) ;;
-                        Medium) ((ANCHORE_MEDIUM++)) ;;
-                        Low) ((ANCHORE_LOW++)) ;;
+                        Critical) ((ANCHORE_CRITICAL++)) || true ;;
+                        High) ((ANCHORE_HIGH++)) || true ;;
+                        Medium) ((ANCHORE_MEDIUM++)) || true ;;
+                        Low) ((ANCHORE_LOW++)) || true ;;
                     esac
                     
                     # Escape special characters for HTML

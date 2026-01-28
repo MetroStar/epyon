@@ -940,21 +940,38 @@ echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 
 # Automatically open the dashboard
-DASHBOARD_PATH="$SCAN_DIR/consolidated-reports/index.html"
-if [[ -f "$DASHBOARD_PATH" ]]; then
+DASHBOARD_HTML="$SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html"
+if [[ -f "$DASHBOARD_HTML" ]]; then
     echo -e "${GREEN}🌐 Opening security dashboard...${NC}"
-    # Cross-platform browser opening
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        open "$DASHBOARD_PATH"
-    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        xdg-open "$DASHBOARD_PATH" 2>/dev/null || echo -e "${YELLOW}Please open: $DASHBOARD_PATH${NC}"
+    
+    # On Linux, use a simple HTTP server to avoid file:// protocol CORS issues
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        echo -e "${CYAN}   Starting local web server for dashboard...${NC}"
+        cd "$SCAN_DIR/consolidated-reports"
+        
+        # Try Python 3's http.server
+        if command -v python3 &> /dev/null; then
+            PORT=8765
+            echo -e "${CYAN}   Dashboard URL: http://localhost:$PORT/dashboards/security-dashboard.html${NC}"
+            python3 -m http.server $PORT > /dev/null 2>&1 &
+            HTTP_PID=$!
+            sleep 2
+            xdg-open "http://localhost:$PORT/dashboards/security-dashboard.html" 2>/dev/null
+            echo -e "${YELLOW}   Press Ctrl+C when done viewing the dashboard to stop the server${NC}"
+            wait $HTTP_PID
+        else
+            # Fallback to file:// protocol
+            xdg-open "$DASHBOARD_HTML" 2>/dev/null || echo -e "${YELLOW}Please open: $DASHBOARD_HTML${NC}"
+        fi
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        open "$DASHBOARD_HTML"
     elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then
-        start "$DASHBOARD_PATH"
+        start "$DASHBOARD_HTML"
     else
-        echo -e "${YELLOW}Please open: $DASHBOARD_PATH${NC}"
+        echo -e "${YELLOW}Please open: $DASHBOARD_HTML${NC}"
     fi
 else
-    echo -e "${YELLOW}⚠️  Dashboard not found at: $DASHBOARD_PATH${NC}"
+    echo -e "${YELLOW}⚠️  Dashboard not found at: $DASHBOARD_HTML${NC}"
 fi
 
 # Cleanup cloned repository if applicable

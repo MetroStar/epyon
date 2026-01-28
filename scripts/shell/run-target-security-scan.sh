@@ -946,19 +946,27 @@ if [[ -f "$DASHBOARD_HTML" ]]; then
     
     # On Linux, use a simple HTTP server to avoid file:// protocol CORS issues
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        echo -e "${CYAN}   Starting local web server for dashboard...${NC}"
-        cd "$SCAN_DIR/consolidated-reports"
-        
-        # Try Python 3's http.server
         if command -v python3 &> /dev/null; then
             PORT=8765
-            echo -e "${CYAN}   Dashboard URL: http://localhost:$PORT/dashboards/security-dashboard.html${NC}"
-            python3 -m http.server $PORT > /dev/null 2>&1 &
+            echo -e "${CYAN}   Starting local web server on port $PORT...${NC}"
+            
+            # Start server in background
+            (cd "$SCAN_DIR/consolidated-reports" && python3 -m http.server $PORT > /dev/null 2>&1) &
             HTTP_PID=$!
-            sleep 2
-            xdg-open "http://localhost:$PORT/dashboards/security-dashboard.html" 2>/dev/null
-            echo -e "${YELLOW}   Press Ctrl+C when done viewing the dashboard to stop the server${NC}"
-            wait $HTTP_PID
+            
+            # Wait for server to be ready
+            echo -e "${CYAN}   Waiting for server to start...${NC}"
+            sleep 3
+            
+            # Open dashboard
+            DASHBOARD_URL="http://localhost:$PORT/dashboards/security-dashboard.html"
+            echo -e "${GREEN}   Opening: $DASHBOARD_URL${NC}"
+            xdg-open "$DASHBOARD_URL" 2>/dev/null
+            
+            echo ""
+            echo -e "${YELLOW}   📝 HTTP server running (PID: $HTTP_PID)${NC}"
+            echo -e "${YELLOW}   🛑 To stop server: kill $HTTP_PID${NC}"
+            echo ""
         else
             # Fallback to file:// protocol
             xdg-open "$DASHBOARD_HTML" 2>/dev/null || echo -e "${YELLOW}Please open: $DASHBOARD_HTML${NC}"

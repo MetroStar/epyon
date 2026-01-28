@@ -940,7 +940,7 @@ echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━�
 echo ""
 
 # Automatically open the dashboard
-DASHBOARD_PATH="$SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html"
+DASHBOARD_PATH="$SCAN_DIR/consolidated-reports/index.html"
 if [[ -f "$DASHBOARD_PATH" ]]; then
     echo -e "${GREEN}🌐 Opening security dashboard...${NC}"
     # Cross-platform browser opening

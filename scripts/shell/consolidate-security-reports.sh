@@ -610,7 +610,7 @@ DASHBOARD_GENERATOR="$SCRIPT_DIR/generate-security-dashboard.sh"
 
 if [ -f "$DASHBOARD_GENERATOR" ]; then
     echo -e "${GREEN}✓ Generating interactive dashboard from scan results${NC}"
-    if "$DASHBOARD_GENERATOR"; then
+    if SCAN_DIR="$SCAN_DIR" "$DASHBOARD_GENERATOR"; then
         echo -e "${GREEN}✓ Interactive dashboard generated successfully${NC}"
     else
         echo -e "${YELLOW}⚠️  Dashboard generation failed, creating basic fallback${NC}"

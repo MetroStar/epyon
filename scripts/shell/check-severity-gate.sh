@@ -17,6 +17,9 @@ SCAN_DIR="${SCAN_DIR:-}"
 
 if [[ -z "$SCAN_DIR" || ! -d "$SCAN_DIR" ]]; then
     echo -e "${RED}❌ Error: SCAN_DIR not set or directory doesn't exist${NC}"
+    echo "SCAN_DIR value: '$SCAN_DIR'"
+    echo "Listing workspace contents:"
+    ls -la . || true
     exit 1
 fi
 
@@ -48,6 +51,8 @@ if [[ -f "$SCAN_DIR/grype/sbom-scan.json" ]]; then
     TOTAL_HIGH=$((TOTAL_HIGH + GRYPE_HIGH))
     TOTAL_MEDIUM=$((TOTAL_MEDIUM + GRYPE_MEDIUM))
     TOTAL_LOW=$((TOTAL_LOW + GRYPE_LOW))
+else
+    echo -e "${YELLOW}⚠️  Grype results not found at: $SCAN_DIR/grype/sbom-scan.json${NC}"
 fi
 
 # Check Trivy results
@@ -63,6 +68,8 @@ if [[ -f "$SCAN_DIR/trivy/filesystem-scan.json" ]]; then
     TOTAL_HIGH=$((TOTAL_HIGH + TRIVY_HIGH))
     TOTAL_MEDIUM=$((TOTAL_MEDIUM + TRIVY_MEDIUM))
     TOTAL_LOW=$((TOTAL_LOW + TRIVY_LOW))
+else
+    echo -e "${YELLOW}⚠️  Trivy results not found at: $SCAN_DIR/trivy/filesystem-scan.json${NC}"
 fi
 
 # Check TruffleHog secrets
@@ -74,6 +81,8 @@ if [[ -f "$SCAN_DIR/trufflehog/filesystem-scan.json" ]]; then
         # Treat all secrets as Critical
         TOTAL_CRITICAL=$((TOTAL_CRITICAL + TRUFFLEHOG_SECRETS))
     fi
+else
+    echo -e "${YELLOW}⚠️  TruffleHog results not found at: $SCAN_DIR/trufflehog/filesystem-scan.json${NC}"
 fi
 
 # Check Checkov IaC issues
@@ -85,6 +94,8 @@ if [[ -f "$SCAN_DIR/checkov/checkov-scan.json" ]]; then
         # Treat failed IaC checks as High severity
         TOTAL_HIGH=$((TOTAL_HIGH + CHECKOV_FAILED))
     fi
+else
+    echo -e "${YELLOW}⚠️  Checkov results not found at: $SCAN_DIR/checkov/checkov-scan.json${NC}"
 fi
 
 echo ""

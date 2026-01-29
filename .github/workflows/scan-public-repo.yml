@@ -79,6 +79,15 @@ jobs:
           SCAN_DIR=$(ls -td scans/*/ 2>/dev/null | head -1 | sed 's:/$::')
           echo "scan_dir=$SCAN_DIR" >> $GITHUB_OUTPUT
       
+      - name: Debug Scan Directory
+        run: |
+          SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
+          echo "Scan directory: $SCAN_DIR"
+          echo "Contents:"
+          ls -la "$SCAN_DIR" || echo "Directory not found"
+          echo "Subdirectories:"
+          find "$SCAN_DIR" -type f -name "*.json" | head -20 || echo "No files found"
+      
       - name: Check Severity Gate
         id: severity-gate
         env:

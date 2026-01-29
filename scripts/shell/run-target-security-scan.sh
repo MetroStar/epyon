@@ -404,37 +404,67 @@ echo ""
 # Display comprehensive file analysis for transparency
 echo -e "${CYAN}📊 Target Directory Analysis${NC}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "   ${YELLOW}Analyzing directory structure (this may take a moment)...${NC}"
 
-# Count total files (excluding common dependency directories)
-TOTAL_FILES=$(find "$TARGET_DIR" -type f \
+# Single optimized find with timeout to prevent hanging
+# Use a single pass through the filesystem and count everything at once
+FILE_LIST=$(timeout 30s find "$TARGET_DIR" -type f \
     -not -path "*/node_modules/*" \
     -not -path "*/.git/*" \
     -not -path "*/venv/*" \
     -not -path "*/__pycache__/*" \
     -not -path "*/dist/*" \
     -not -path "*/build/*" \
-    2>/dev/null | wc -l | tr -d ' ')
+    -not -path "*/vendor/*" \
+    -not -path "*/.next/*" \
+    -not -path "*/.venv/*" \
+    2>/dev/null || echo "TIMEOUT")
 
-# Count specific file types
-JS_FILES=$(find "$TARGET_DIR" -type f \( -name "*.js" -o -name "*.jsx" -o -name "*.ts" -o -name "*.tsx" \) \
-    -not -path "*/node_modules/*" 2>/dev/null | wc -l | tr -d ' ')
-PY_FILES=$(find "$TARGET_DIR" -type f -name "*.py" -not -path "*/venv/*" -not -path "*/__pycache__/*" 2>/dev/null | wc -l | tr -d ' ')
-YAML_FILES=$(find "$TARGET_DIR" -type f \( -name "*.yaml" -o -name "*.yml" \) 2>/dev/null | wc -l | tr -d ' ')
-TF_FILES=$(find "$TARGET_DIR" -type f -name "*.tf" 2>/dev/null | wc -l | tr -d ' ')
-DOCKER_FILES=$(find "$TARGET_DIR" -type f -name "Dockerfile*" 2>/dev/null | wc -l | tr -d ' ')
-SHELL_FILES=$(find "$TARGET_DIR" -type f \( -name "*.sh" -o -name "*.bash" \) 2>/dev/null | wc -l | tr -d ' ')
-JSON_FILES=$(find "$TARGET_DIR" -type f -name "*.json" -not -path "*/node_modules/*" 2>/dev/null | wc -l | tr -d ' ')
-
-echo -e "   📁 Total Files to Scan: ${WHITE}$TOTAL_FILES${NC}"
-echo ""
-echo -e "   ${WHITE}File Type Breakdown:${NC}"
-[[ $JS_FILES -gt 0 ]] && echo -e "   • JavaScript/TypeScript: $JS_FILES files"
-[[ $PY_FILES -gt 0 ]] && echo -e "   • Python: $PY_FILES files"
-[[ $YAML_FILES -gt 0 ]] && echo -e "   • YAML/YML: $YAML_FILES files"
-[[ $JSON_FILES -gt 0 ]] && echo -e "   • JSON: $JSON_FILES files"
-[[ $TF_FILES -gt 0 ]] && echo -e "   • Terraform: $TF_FILES files"
-[[ $DOCKER_FILES -gt 0 ]] && echo -e "   • Dockerfiles: $DOCKER_FILES files"
-[[ $SHELL_FILES -gt 0 ]] && echo -e "   • Shell Scripts: $SHELL_FILES files"
+if [[ "$FILE_LIST" == "TIMEOUT" ]]; then
+    echo -e "   ${YELLOW}⚠ Directory analysis timed out (large directory)${NC}"
+    echo -e "   ${WHITE}Proceeding with scan...${NC}"
+    TOTAL_FILES="N/A"
+    JS_FILES=0
+    PY_FILES=0
+    YAML_FILES=0
+    JSON_FILES=0
+    TF_FILES=0
+    DOCKER_FILES=0
+    SHELL_FILES=0
+else
+    # Count files efficiently using grep and clean up output
+    TOTAL_FILES=$(echo "$FILE_LIST" | grep -c '^' 2>/dev/null | tr -d '\r\n' || echo "0")
+    JS_FILES=$(echo "$FILE_LIST" | grep -cE '\.(js|jsx|ts|tsx)$' 2>/dev/null | tr -d '\r\n' || echo "0")
+    PY_FILES=$(echo "$FILE_LIST" | grep -cE '\.py$' 2>/dev/null | tr -d '\r\n' || echo "0")
+    YAML_FILES=$(echo "$FILE_LIST" | grep -cE '\.(yaml|yml)$' 2>/dev/null | tr -d '\r\n' || echo "0")
+    JSON_FILES=$(echo "$FILE_LIST" | grep -cE '\.json$' 2>/dev/null | tr -d '\r\n' || echo "0")
+    TF_FILES=$(echo "$FILE_LIST" | grep -cE '\.tf$' 2>/dev/null | tr -d '\r\n' || echo "0")
+    DOCKER_FILES=$(echo "$FILE_LIST" | grep -cE 'Dockerfile' 2>/dev/null | tr -d '\r\n' || echo "0")
+    SHELL_FILES=$(echo "$FILE_LIST" | grep -cE '\.(sh|bash)$' 2>/dev/null | tr -d '\r\n' || echo "0")
+    
+    # Ensure numeric values
+    TOTAL_FILES=${TOTAL_FILES//[^0-9]/}
+    JS_FILES=${JS_FILES//[^0-9]/}
+    PY_FILES=${PY_FILES//[^0-9]/}
+    YAML_FILES=${YAML_FILES//[^0-9]/}
+    JSON_FILES=${JSON_FILES//[^0-9]/}
+    TF_FILES=${TF_FILES//[^0-9]/}
+    DOCKER_FILES=${DOCKER_FILES//[^0-9]/}
+    SHELL_FILES=${SHELL_FILES//[^0-9]/}
+    
+    echo -e "   📁 Total Files to Scan: ${WHITE}$TOTAL_FILES${NC}"
+    echo ""
+    echo -e "   ${WHITE}File Type Breakdown:${NC}"
+    [[ ${TOTAL_FILES:-0} -gt 0 ]] && {
+        [[ ${JS_FILES:-0} -gt 0 ]] && echo -e "   • JavaScript/TypeScript: $JS_FILES files"
+        [[ ${PY_FILES:-0} -gt 0 ]] && echo -e "   • Python: $PY_FILES files"
+        [[ ${YAML_FILES:-0} -gt 0 ]] && echo -e "   • YAML/YML: $YAML_FILES files"
+        [[ ${JSON_FILES:-0} -gt 0 ]] && echo -e "   • JSON: $JSON_FILES files"
+        [[ ${TF_FILES:-0} -gt 0 ]] && echo -e "   • Terraform: $TF_FILES files"
+        [[ ${DOCKER_FILES:-0} -gt 0 ]] && echo -e "   • Dockerfiles: $DOCKER_FILES files"
+        [[ ${SHELL_FILES:-0} -gt 0 ]] && echo -e "   • Shell Scripts: $SHELL_FILES files"
+    }
+fi
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""

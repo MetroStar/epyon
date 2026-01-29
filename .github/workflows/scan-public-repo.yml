@@ -1,4 +1,4 @@
-name: Scan PublicRepository
+name: Scan Public Repository
 
 on:
   workflow_dispatch:
@@ -39,6 +39,8 @@ jobs:
         id: scan
         env:
           GIT_TERMINAL_PROMPT: 0
+          GITHUB_ACTOR: ${{ github.actor }}
+          TARGET_NAME: ${{ github.event.inputs.repository }}
         run: |
           chmod +x scripts/shell/run-target-security-scan.sh
           ./scripts/shell/run-target-security-scan.sh "${{ github.event.inputs.repository }}" "${{ github.event.inputs.scan_mode }}"

@@ -110,7 +110,8 @@ SCAN_TYPE="${2:-full}"
 # Get the script's directory to locate security tools
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-USERNAME=$(whoami)
+# Use GITHUB_ACTOR if provided (from GitHub Actions), otherwise use whoami
+USERNAME="${GITHUB_ACTOR:-$(whoami)}"
 TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
 
 # Flag to track if we cloned a repo (for cleanup)

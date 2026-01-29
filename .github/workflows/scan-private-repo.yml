@@ -127,12 +127,21 @@ jobs:
           ./scripts/shell/check-severity-gate.sh
       
       - name: Generate Summary
+        if: always()
         run: |
           cd epyon
           SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
           if [ -f "$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md" ]; then
             cat "$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md" >> $GITHUB_STEP_SUMMARY
           fi
+      
+      - name: Upload Complete Scan Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: complete-scan-results
+          path: epyon/${{ steps.find-scan.outputs.scan_dir }}/
+          retention-days: 30
       
       - name: Upload Security Dashboard
         uses: actions/upload-artifact@v4

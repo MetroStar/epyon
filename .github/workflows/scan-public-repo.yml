@@ -102,11 +102,54 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: external-repo-security-scan
-          path: ${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/
+          name: external-repo-security-scan-complete
+          path: ${{ steps.find-scan.outputs.scan_dir }}/
+          retention-days: 90
+      
+      - name: Upload Security Dashboard
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-dashboard
+          path: |
+            ${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/dashboards/
+            ${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/index.html
+          retention-days: 90
+      
+      - name: Upload HTML Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports-html
+          path: ${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/html-reports/
+          retention-days: 90
+      
+      - name: Upload Markdown Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports-markdown
+          path: ${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/markdown-reports/
+          retention-days: 90
+      
+      - name: Upload CSV Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports-csv
+          path: ${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/csv-reports/
+          retention-days: 90
+      
+      - name: Upload Raw Data
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-raw-data
+          path: ${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/raw-data/
           retention-days: 90
       
       - name: Generate Summary
+        if: always()
         run: |
           SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
           echo "## 🛡️ Security Scan Results for External Repository" >> $GITHUB_STEP_SUMMARY

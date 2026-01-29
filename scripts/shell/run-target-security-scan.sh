@@ -974,8 +974,12 @@ DASHBOARD_HTML="$SCAN_DIR/consolidated-reports/dashboards/security-dashboard.htm
 if [[ -f "$DASHBOARD_HTML" ]]; then
     echo -e "${GREEN}🌐 Opening security dashboard...${NC}"
     
-    # Open dashboard directly based on OS
-    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    # Convert WSL path to Windows path if needed
+    if grep -qi microsoft /proc/version 2>/dev/null; then
+        # Running in WSL - convert path and use Windows command
+        WINDOWS_PATH=$(wslpath -w "$DASHBOARD_HTML" 2>/dev/null || echo "$DASHBOARD_HTML")
+        cmd.exe /c start "" "$WINDOWS_PATH" 2>/dev/null
+    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
         xdg-open "$DASHBOARD_HTML" 2>/dev/null || echo -e "${YELLOW}Please open: $DASHBOARD_HTML${NC}"
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         open "$DASHBOARD_HTML"

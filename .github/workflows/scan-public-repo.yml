@@ -1,4 +1,4 @@
-name: Scan External Repository
+name: Scan PublicRepository
 
 on:
   workflow_dispatch:

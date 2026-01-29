@@ -1,4 +1,4 @@
-name: Epyon Security Scan
+name: Private Security Scan
 
 on:
   push:

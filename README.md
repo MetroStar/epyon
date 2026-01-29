@@ -469,26 +469,68 @@ Scan any external application or directory with comprehensive security analysis 
 ```bash
 # Unix/Linux/macOS
 # Quick scan (4 core security tools: TruffleHog, ClamAV, Grype, Trivy)
-./scripts/bash/run-target-security-scan.sh "/path/to/your/project" quick
+./scripts/shell/run-target-security-scan.sh "/path/to/your/project" quick
 
-# Full scan (all 8 layers)
-./scripts/bash/run-target-security-scan.sh "/path/to/your/project" full
+# Full scan (all 11 layers)
+./scripts/shell/run-target-security-scan.sh "/path/to/your/project" full
+
+# Scan a Git repository directly
+./scripts/shell/run-target-security-scan.sh "https://github.com/user/repo.git" full
 
 # Image-focused security scan (6 container tools)
-./scripts/bash/run-target-security-scan.sh "/path/to/your/project" images
+./scripts/shell/run-target-security-scan.sh "/path/to/your/project" images
 
 # Analysis-only mode (existing reports)
-./scripts/bash/run-target-security-scan.sh "/path/to/your/project" analysis
+./scripts/shell/run-target-security-scan.sh "/path/to/your/project" analysis
 
-# Windows PowerShell
+# Windows with WSL (Windows Subsystem for Linux)
+# Ensure you're in the epyon repository directory
+cd C:\path\to\epyon
+
+# Quick scan - local directory
+wsl ./scripts/shell/run-target-security-scan.sh "/mnt/c/path/to/your/project" quick
+
+# Full scan - local directory (convert Windows paths to WSL format)
+wsl ./scripts/shell/run-target-security-scan.sh "/mnt/c/Users/username/Desktop/project" full
+
+# Full scan - Git repository (works seamlessly on Windows/WSL)
+wsl ./scripts/shell/run-target-security-scan.sh "https://github.com/user/repo.git" full
+
+# Image-focused security scan
+wsl ./scripts/shell/run-target-security-scan.sh "/mnt/c/path/to/project" images
+
+# Windows PowerShell (Native - No WSL)
 # Quick scan (4 core security tools)
 .\scripts\powershell\run-target-security-scan.ps1 -TargetDir "C:\path\to\your\project" -ScanType quick
 
-# Full scan (all 8 layers)
+# Full scan (all 11 layers)
 .\scripts\powershell\run-target-security-scan.ps1 -TargetDir "C:\path\to\your\project" -ScanType full
 
 # Image-focused security scan
 .\scripts\powershell\run-target-security-scan.ps1 -TargetDir "C:\path\to\your\project" -ScanType images
+```
+
+**Windows Users - Path Conversion:**
+When using WSL, Windows paths must be converted to WSL format:
+- Windows: `C:\Users\username\project` → WSL: `/mnt/c/Users/username/project`
+- Windows: `D:\repos\myapp` → WSL: `/mnt/d/repos/myapp`
+
+**Windows Users - WSL Prerequisites:**
+```powershell
+# 1. Enable WSL (if not already enabled)
+wsl --install
+
+# 2. Ensure Docker Desktop is running with WSL 2 backend
+# Open Docker Desktop → Settings → Resources → WSL Integration
+# Enable integration with your WSL distribution
+
+# 3. Verify Docker is accessible from WSL
+wsl docker --version
+wsl docker ps
+
+# 4. Fix line endings for shell scripts (one-time setup)
+wsl bash -c "find ./scripts/shell -name '*.sh' -type f -exec sed -i 's/\r$//' {} \;"
+wsl bash -c "chmod +x ./scripts/shell/*.sh"
 ```
 
 **Isolated Scan Architecture:**

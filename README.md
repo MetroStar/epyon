@@ -346,6 +346,73 @@ fi
 echo "🎯 Prerequisites check complete!"
 ```
 
+## 🤖 GitHub Actions Integration
+
+**Use Epyon as a GitHub Action to automatically scan repositories!**
+
+### Quick Start - Scan Any Repository
+
+1. **Go to your Epyon repository** on GitHub: `https://github.com/MetroStar/epyon`
+2. **Click the "Actions" tab** at the top
+3. **Select "Scan External Repository"** from the left sidebar
+4. **Click "Run workflow"** (green button on the right)
+5. **Enter the repository URL** you want to scan (e.g., `https://github.com/owner/repo.git`)
+6. **Select scan mode**:
+   - **quick** - Fast scan (~2-5 minutes) ⚡
+   - **full** - Complete analysis (~10-20 minutes) 🔍
+   - **baseline** - Compare against previous scans 📊
+7. **Click "Run workflow"** to start
+8. **View results**:
+   - Click on the workflow run
+   - Click **"Summary"** in the left sidebar
+   - Scroll down to **"Artifacts"** section
+   - Download the ZIP file with all reports
+
+### Add to Your Own Repository
+
+Want automatic scanning on every push and PR?
+
+1. **Copy the workflow file** to your repo:
+   ```bash
+   mkdir -p .github/workflows
+   curl -o .github/workflows/security-scan.yml \
+     https://raw.githubusercontent.com/MetroStar/epyon/main/.github/workflows/security-scan.yml
+   ```
+
+2. **Commit and push**:
+   ```bash
+   git add .github/workflows/security-scan.yml
+   git commit -m "Add Epyon security scanning"
+   git push
+   ```
+
+3. **That's it!** Epyon will now automatically:
+   - ✅ Scan every push to `main` or `develop`
+   - ✅ Scan all pull requests
+   - ✅ Run daily security scans at 2 AM UTC
+   - ✅ Comment on PRs with findings
+   - ✅ Fail builds on critical vulnerabilities
+
+### What You Get
+
+**📦 Artifacts (downloadable):**
+- Interactive HTML dashboard
+- Individual tool reports (HTML, Markdown, CSV)
+- Raw JSON data
+- Complete SBOM
+
+**📊 In Pull Requests:**
+- Automated security comments
+- Severity summary
+- Links to detailed reports
+
+**⚡ Fast Feedback:**
+- Quick mode: 2-5 minutes
+- Full mode: 10-20 minutes
+- Runs in parallel with your CI/CD
+
+👉 **Full documentation**: [.github/README.md](.github/README.md)
+
 ## 🏗️ Architecture Components
 
 ### Current Security Layers (9 Operational - Cross-Platform):

@@ -440,23 +440,6 @@ EOL
     echo "[INFO] Skip status saved for dashboard"
     exit 0
   fi
-    echo "📁 Output Files:"
-    echo "================"
-    echo "[INFO] No SonarQube reports generated (authentication required)"
-    echo ""
-    echo "🔗 Related Commands:"
-    echo "===================="
-    echo "Configure auth:      Create .env.sonar file with SONAR_TOKEN"
-    echo "Re-run analysis:     npm run sonar:scan"
-    echo "Full security suite: npm run security:full"
-    echo ""
-    echo "============================================"
-    echo "SonarQube analysis complete (skipped)."
-    echo "============================================"
-    
-    # Exit successfully to continue security pipeline
-    exit 0
-  fi
 fi
 
 echo "============================================"

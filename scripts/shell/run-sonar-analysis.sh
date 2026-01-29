@@ -99,12 +99,6 @@ SONAR_ENV_FILES=(
 )
 
 echo "[SEARCH] Searching for SonarQube configuration..."
-echo "[DEBUG] REPO_PATH = $REPO_PATH"
-echo "[DEBUG] Searching in:"
-for env_file in "${SONAR_ENV_FILES[@]}"; do
-  echo "   - $env_file"
-done
-
 SONAR_CONFIG_FOUND=false
 
 for env_file in "${SONAR_ENV_FILES[@]}"; do

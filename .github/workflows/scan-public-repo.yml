@@ -37,6 +37,8 @@ jobs:
       
       - name: Run Epyon Security Scan on External Repo
         id: scan
+        env:
+          GIT_TERMINAL_PROMPT: 0
         run: |
           chmod +x scripts/shell/run-target-security-scan.sh
           ./scripts/shell/run-target-security-scan.sh "${{ github.event.inputs.repository }}" "${{ github.event.inputs.scan_mode }}"

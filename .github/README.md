@@ -100,6 +100,37 @@ Manually scan any Git repository.
 
 ## 🔧 Configuration
 
+### Build Gates (Severity Thresholds)
+
+Control when the workflow should fail based on security findings:
+
+**Default Behavior:**
+- ✅ Fails on **Critical** severity findings
+- ⚠️ Warns on **High** severity findings (does not fail)
+- ℹ️ Reports **Medium** and **Low** findings
+
+**Customization Options:**
+
+When running manually (workflow_dispatch), you can configure:
+- `fail_on_critical` - Fail build on critical findings (default: true)
+- `fail_on_high` - Fail build on high findings (default: false)
+
+**For Scheduled/Push Scans:**
+
+Edit the workflow file to change defaults:
+
+```yaml
+env:
+  SCAN_MODE: full
+  FAIL_ON_CRITICAL: true   # Fail on critical findings
+  FAIL_ON_HIGH: true       # Also fail on high findings
+```
+
+**What's Checked:**
+- 🔴 **Critical**: CVE vulnerabilities, exposed secrets, critical IaC misconfigurations
+- 🟠 **High**: High-severity CVEs, failed security checks
+- 🟡 **Medium/Low**: Tracked but don't fail builds by default
+
 ### Scan Modes
 
 **Quick Mode** (`quick`)

@@ -98,7 +98,11 @@ if [[ -n "$LATEST_SCAN" ]]; then
     SBOM_DIR="$SCRIPT_DIR/../../scans/$LATEST_SCAN/sbom"
     if [[ -f "$SBOM_DIR/sbom-summary.json" ]]; then
         echo -e "${CYAN}📊 SBOM Results:${NC}"
-        TOTAL_ARTIFACTS=$(jq -r '.total_artifacts' "$SBOM_DIR/sbom-summary.json" 2>/dev/null || echo "unknown")
+        TOTAL_ARTIFACTS=$(jq -r '.total_artifacts // 0' "$SBOM_DIR/sbom-summary.json" 2>/dev/null)
+        if [[ -z "$TOTAL_ARTIFACTS" || "$TOTAL_ARTIFACTS" == "null" ]]; then
+            # Fallback: count from filesystem.json if available
+            TOTAL_ARTIFACTS=$(jq -r '.artifacts | length' "$SBOM_DIR/filesystem.json" 2>/dev/null || echo "0")
+        fi
         echo -e "   Total Artifacts: ${GREEN}$TOTAL_ARTIFACTS${NC}"
         echo -e "   Location: $SBOM_DIR"
         echo ""

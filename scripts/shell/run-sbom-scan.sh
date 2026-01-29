@@ -331,7 +331,7 @@ SBOM_COUNT=$(find "$OUTPUT_DIR" -name "*.json" | grep -v summary | wc -l)
 echo -e "${GREEN}✅ Generated $SBOM_COUNT SBOM files${NC}"
 
 echo -e "${CYAN}📁 SBOM Files Created:${NC}"
-find "$OUTPUT_DIR" -name "*.json" | while read file; do
+find "$OUTPUT_DIR" -name "*.json" | grep -v summary | while read file; do
     size=$(du -h "$file" | cut -f1)
     artifacts=$(jq -r '.artifacts | length' "$file" 2>/dev/null || echo "0")
     echo -e "  📄 $(basename "$file") (${size}, ${artifacts} artifacts)"

@@ -19,9 +19,21 @@ on:
           - quick
           - full
           - baseline
+      fail_on_critical:
+        description: 'Fail build on critical severity findings'
+        required: false
+        default: true
+        type: boolean
+      fail_on_high:
+        description: 'Fail build on high severity findings'
+        required: false
+        default: false
+        type: boolean
 
 env:
   SCAN_MODE: ${{ github.event.inputs.scan_mode || 'full' }}
+  FAIL_ON_CRITICAL: ${{ github.event.inputs.fail_on_critical != false }}
+  FAIL_ON_HIGH: ${{ github.event.inputs.fail_on_high == true }}
 
 jobs:
   security-scan:
@@ -51,6 +63,23 @@ jobs:
       - name: Set up Docker
         uses: docker/setup-buildx-action@v3
       
+      - name: Cache Docker Images
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-docker-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-docker-
+      
+      - name: Pull Security Tool Images
+        run: |
+          docker pull anchore/grype:latest &
+          docker pull aquasec/trivy:latest &
+          docker pull trufflesecurity/trufflehog:latest &
+          docker pull anchore/syft:latest &
+          wait
+          echo "All security tool images cached"
+      
       - name: Install Dependencies
         run: |
           sudo apt-get update
@@ -75,6 +104,17 @@ jobs:
           SCAN_DIR=$(ls -td scans/*/ 2>/dev/null | head -1 | sed 's:/$::')
           echo "scan_dir=$SCAN_DIR" >> $GITHUB_OUTPUT
           echo "Found scan directory: $SCAN_DIR"
+      
+      - name: Check Severity Gate
+        id: severity-gate
+        env:
+          SCAN_DIR: ${{ github.workspace }}/epyon/${{ steps.find-scan.outputs.scan_dir }}
+          FAIL_ON_CRITICAL: ${{ env.FAIL_ON_CRITICAL }}
+          FAIL_ON_HIGH: ${{ env.FAIL_ON_HIGH }}
+        run: |
+          cd epyon
+          chmod +x scripts/shell/check-severity-gate.sh
+          ./scripts/shell/check-severity-gate.sh
       
       - name: Generate Summary
         run: |

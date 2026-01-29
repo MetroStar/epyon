@@ -59,6 +59,8 @@ jobs:
       
       - name: Run Epyon Security Scan
         id: scan
+        env:
+          TARGET_NAME: ${{ github.event.repository.name }}
         run: |
           cd epyon
           chmod +x scripts/shell/run-target-security-scan.sh

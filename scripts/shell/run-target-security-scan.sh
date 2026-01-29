@@ -156,7 +156,10 @@ if [[ "$TARGET_INPUT" =~ ^(https?://|git@|ssh://) ]] || [[ "$TARGET_INPUT" =~ \.
 elif [[ -d "$TARGET_INPUT" ]]; then
     # It's a directory path
     TARGET_DIR=$(realpath "$TARGET_INPUT" 2>/dev/null || (cd "$TARGET_INPUT" && pwd))
-    TARGET_NAME=$(basename "$TARGET_DIR")
+    # Use TARGET_NAME env var if provided (from GitHub Actions), otherwise use directory name
+    if [[ -z "${TARGET_NAME:-}" ]]; then
+        TARGET_NAME=$(basename "$TARGET_DIR")
+    fi
 else
     echo -e "${RED}❌ Error: Target is neither a valid directory nor a Git URL${NC}"
     echo -e "   Provided: $TARGET_INPUT"

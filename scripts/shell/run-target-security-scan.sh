@@ -974,33 +974,9 @@ DASHBOARD_HTML="$SCAN_DIR/consolidated-reports/dashboards/security-dashboard.htm
 if [[ -f "$DASHBOARD_HTML" ]]; then
     echo -e "${GREEN}🌐 Opening security dashboard...${NC}"
     
-    # On Linux, use a simple HTTP server to avoid file:// protocol CORS issues
+    # Open dashboard directly based on OS
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        if command -v python3 &> /dev/null; then
-            PORT=8765
-            echo -e "${CYAN}   Starting local web server on port $PORT...${NC}"
-            
-            # Start server in background
-            (cd "$SCAN_DIR/consolidated-reports" && python3 -m http.server $PORT > /dev/null 2>&1) &
-            HTTP_PID=$!
-            
-            # Wait for server to be ready
-            echo -e "${CYAN}   Waiting for server to start...${NC}"
-            sleep 3
-            
-            # Open dashboard
-            DASHBOARD_URL="http://localhost:$PORT/dashboards/security-dashboard.html"
-            echo -e "${GREEN}   Opening: $DASHBOARD_URL${NC}"
-            xdg-open "$DASHBOARD_URL" 2>/dev/null
-            
-            echo ""
-            echo -e "${YELLOW}   📝 HTTP server running (PID: $HTTP_PID)${NC}"
-            echo -e "${YELLOW}   🛑 To stop server: kill $HTTP_PID${NC}"
-            echo ""
-        else
-            # Fallback to file:// protocol
-            xdg-open "$DASHBOARD_HTML" 2>/dev/null || echo -e "${YELLOW}Please open: $DASHBOARD_HTML${NC}"
-        fi
+        xdg-open "$DASHBOARD_HTML" 2>/dev/null || echo -e "${YELLOW}Please open: $DASHBOARD_HTML${NC}"
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         open "$DASHBOARD_HTML"
     elif [[ "$OSTYPE" == "msys" ]] || [[ "$OSTYPE" == "cygwin" ]]; then

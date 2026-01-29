@@ -1,0 +1,186 @@
+name: Epyon Security Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      scan_mode:
+        description: 'Scan mode (quick/full/baseline)'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+          - quick
+          - full
+          - baseline
+
+env:
+  SCAN_MODE: ${{ github.event.inputs.scan_mode || 'full' }}
+
+jobs:
+  security-scan:
+    name: Run Epyon Security Analysis
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      pull-requests: write
+      security-events: write
+      issues: write
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq python3 python3-pip
+          pip3 install pyyaml
+      
+      - name: Run Epyon Security Scan
+        id: scan
+        run: |
+          chmod +x scripts/shell/run-target-security-scan.sh
+          ./scripts/shell/run-target-security-scan.sh "${{ github.workspace }}" "$SCAN_MODE"
+        continue-on-error: true
+      
+      - name: Find Scan Directory
+        id: find-scan
+        run: |
+          SCAN_DIR=$(ls -td scans/*/ 2>/dev/null | head -1 | sed 's:/$::')
+          echo "scan_dir=$SCAN_DIR" >> $GITHUB_OUTPUT
+          echo "Found scan directory: $SCAN_DIR"
+      
+      - name: Generate Summary
+        run: |
+          SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
+          if [ -f "$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md" ]; then
+            cat "$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md" >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      - name: Upload Security Dashboard
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-dashboard
+          path: |
+            ${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/dashboards/
+            ${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/index.html
+          retention-days: 30
+      
+      - name: Upload HTML Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports-html
+          path: ${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/html-reports/
+          retention-days: 30
+      
+      - name: Upload Markdown Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports-markdown
+          path: ${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/markdown-reports/
+          retention-days: 30
+      
+      - name: Upload CSV Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports-csv
+          path: ${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/csv-reports/
+          retention-days: 30
+      
+      - name: Upload Raw Data
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-raw-data
+          path: ${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/raw-data/
+          retention-days: 30
+      
+      - name: Check for Critical/High Vulnerabilities
+        id: check-severity
+        run: |
+          SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
+          SUMMARY="$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md"
+          
+          if [ -f "$SUMMARY" ]; then
+            CRITICAL=$(grep -oP 'Critical:\s*\K\d+' "$SUMMARY" || echo "0")
+            HIGH=$(grep -oP 'High:\s*\K\d+' "$SUMMARY" || echo "0")
+            
+            echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+            echo "high=$HIGH" >> $GITHUB_OUTPUT
+            
+            if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+              echo "has_issues=true" >> $GITHUB_OUTPUT
+            else
+              echo "has_issues=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+      
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const scanDir = '${{ steps.find-scan.outputs.scan_dir }}';
+            const summaryPath = `${scanDir}/consolidated-reports/markdown-reports/executive-summary.md`;
+            
+            if (fs.existsSync(summaryPath)) {
+              const summary = fs.readFileSync(summaryPath, 'utf8');
+              const critical = '${{ steps.check-severity.outputs.critical }}';
+              const high = '${{ steps.check-severity.outputs.high }}';
+              
+              let emoji = '✅';
+              let status = 'No critical or high severity issues found';
+              
+              if (critical > 0 || high > 0) {
+                emoji = '⚠️';
+                status = `Found ${critical} critical and ${high} high severity issues`;
+              }
+              
+              const comment = `## ${emoji} Epyon Security Scan Results
+              
+              ${status}
+              
+              <details>
+              <summary>📊 Executive Summary</summary>
+              
+              ${summary}
+              
+              </details>
+              
+              ### 📦 Artifacts
+              - [Security Dashboard](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+              - [HTML Reports](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+              - [Markdown Reports](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+              `;
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
+      
+      - name: Fail on Critical Vulnerabilities
+        if: steps.check-severity.outputs.critical > 0
+        run: |
+          echo "::error::Found ${{ steps.check-severity.outputs.critical }} critical vulnerabilities"
+          exit 1

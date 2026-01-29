@@ -1,0 +1,70 @@
+name: Scan External Repository
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: 'Git repository URL to scan'
+        required: true
+        type: string
+      scan_mode:
+        description: 'Scan mode'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+          - quick
+          - full
+          - baseline
+
+jobs:
+  external-scan:
+    name: Scan External Repository
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Epyon
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq python3 python3-pip
+          pip3 install pyyaml
+      
+      - name: Run Epyon Security Scan on External Repo
+        id: scan
+        run: |
+          chmod +x scripts/shell/run-target-security-scan.sh
+          ./scripts/shell/run-target-security-scan.sh "${{ github.event.inputs.repository }}" "${{ github.event.inputs.scan_mode }}"
+        continue-on-error: true
+      
+      - name: Find Scan Directory
+        id: find-scan
+        run: |
+          SCAN_DIR=$(ls -td scans/*/ 2>/dev/null | head -1 | sed 's:/$::')
+          echo "scan_dir=$SCAN_DIR" >> $GITHUB_OUTPUT
+      
+      - name: Upload All Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: external-repo-security-scan
+          path: ${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/
+          retention-days: 90
+      
+      - name: Generate Summary
+        run: |
+          SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
+          echo "## 🛡️ Security Scan Results for External Repository" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Repository:** \`${{ github.event.inputs.repository }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Scan Mode:** \`${{ github.event.inputs.scan_mode }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md" ]; then
+            cat "$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md" >> $GITHUB_STEP_SUMMARY
+          fi

@@ -372,16 +372,17 @@ echo "🎯 Prerequisites check complete!"
 
 Want automatic scanning on every push and PR?
 
-1. **Copy the workflow file** to your repo:
+1. **Download the workflow file** to your repo:
    ```bash
+   # In your repository directory
    mkdir -p .github/workflows
-   curl -o .github/workflows/security-scan.yml \
-     https://raw.githubusercontent.com/MetroStar/epyon/main/.github/workflows/security-scan.yml
+   curl -o .github/workflows/epyon-security-scan.yml \
+     https://raw.githubusercontent.com/MetroStar/epyon/main/.github/workflows/security-scan-for-external-use.yml
    ```
 
 2. **Commit and push**:
    ```bash
-   git add .github/workflows/security-scan.yml
+   git add .github/workflows/epyon-security-scan.yml
    git commit -m "Add Epyon security scanning"
    git push
    ```
@@ -392,6 +393,9 @@ Want automatic scanning on every push and PR?
    - ✅ Run daily security scans at 2 AM UTC
    - ✅ Comment on PRs with findings
    - ✅ Fail builds on critical vulnerabilities
+
+**How it works:**
+The workflow checks out both your repository and Epyon, then runs Epyon's scanners against your code. No need to install anything in your repo!
 
 ### What You Get
 

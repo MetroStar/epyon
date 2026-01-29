@@ -8,20 +8,28 @@ Automated security scanning for your repositories using GitHub Actions.
 
 Add Epyon to your repository to automatically scan on every push and PR:
 
-1. **Copy the workflow file** to your repository:
+1. **Download the workflow file** to your repository:
    ```bash
+   # In your repository directory
    mkdir -p .github/workflows
-   cp .github/workflows/security-scan.yml your-repo/.github/workflows/
+   curl -o .github/workflows/epyon-security-scan.yml \
+     https://raw.githubusercontent.com/MetroStar/epyon/main/.github/workflows/security-scan-for-external-use.yml
    ```
 
 2. **Commit and push**:
    ```bash
-   git add .github/workflows/security-scan.yml
+   git add .github/workflows/epyon-security-scan.yml
    git commit -m "Add Epyon security scanning"
    git push
    ```
 
 3. **View results** in the Actions tab of your repository
+
+**How it works:**
+- The workflow checks out **both** your repo and Epyon
+- Epyon scans your repository code
+- Results are uploaded as artifacts
+- PRs get automatic security comments
 
 ### Option 2: Scan External Repositories
 

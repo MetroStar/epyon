@@ -39,12 +39,13 @@ TOTAL_LOW=0
 ISSUES_FOUND=false
 
 # Check Grype results
-if [[ -f "$SCAN_DIR/grype/sbom-scan.json" ]]; then
+GRYPE_FILE=$(find "$SCAN_DIR/grype" -name "*grype*results.json" -o -name "*grype*sbom*.json" 2>/dev/null | head -1)
+if [[ -f "$GRYPE_FILE" ]]; then
     echo -e "${CYAN}📊 Checking Grype results...${NC}"
-    GRYPE_CRITICAL=$(jq -r '[.matches[]? | select(.vulnerability.severity=="Critical")] | length' "$SCAN_DIR/grype/sbom-scan.json" 2>/dev/null || echo "0")
-    GRYPE_HIGH=$(jq -r '[.matches[]? | select(.vulnerability.severity=="High")] | length' "$SCAN_DIR/grype/sbom-scan.json" 2>/dev/null || echo "0")
-    GRYPE_MEDIUM=$(jq -r '[.matches[]? | select(.vulnerability.severity=="Medium")] | length' "$SCAN_DIR/grype/sbom-scan.json" 2>/dev/null || echo "0")
-    GRYPE_LOW=$(jq -r '[.matches[]? | select(.vulnerability.severity=="Low")] | length' "$SCAN_DIR/grype/sbom-scan.json" 2>/dev/null || echo "0")
+    GRYPE_CRITICAL=$(jq -r '[.matches[]? | select(.vulnerability.severity=="Critical")] | length' "$GRYPE_FILE" 2>/dev/null || echo "0")
+    GRYPE_HIGH=$(jq -r '[.matches[]? | select(.vulnerability.severity=="High")] | length' "$GRYPE_FILE" 2>/dev/null || echo "0")
+    GRYPE_MEDIUM=$(jq -r '[.matches[]? | select(.vulnerability.severity=="Medium")] | length' "$GRYPE_FILE" 2>/dev/null || echo "0")
+    GRYPE_LOW=$(jq -r '[.matches[]? | select(.vulnerability.severity=="Low")] | length' "$GRYPE_FILE" 2>/dev/null || echo "0")
     
     echo "  Critical: $GRYPE_CRITICAL | High: $GRYPE_HIGH | Medium: $GRYPE_MEDIUM | Low: $GRYPE_LOW"
     TOTAL_CRITICAL=$((TOTAL_CRITICAL + GRYPE_CRITICAL))
@@ -52,16 +53,17 @@ if [[ -f "$SCAN_DIR/grype/sbom-scan.json" ]]; then
     TOTAL_MEDIUM=$((TOTAL_MEDIUM + GRYPE_MEDIUM))
     TOTAL_LOW=$((TOTAL_LOW + GRYPE_LOW))
 else
-    echo -e "${YELLOW}⚠️  Grype results not found at: $SCAN_DIR/grype/sbom-scan.json${NC}"
+    echo -e "${YELLOW}⚠️  Grype results not found in: $SCAN_DIR/grype/${NC}"
 fi
 
 # Check Trivy results
-if [[ -f "$SCAN_DIR/trivy/filesystem-scan.json" ]]; then
+TRIVY_FILE=$(find "$SCAN_DIR/trivy" -name "*trivy*results.json" 2>/dev/null | head -1)
+if [[ -f "$TRIVY_FILE" ]]; then
     echo -e "${CYAN}📊 Checking Trivy results...${NC}"
-    TRIVY_CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' "$SCAN_DIR/trivy/filesystem-scan.json" 2>/dev/null || echo 0)
-    TRIVY_HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' "$SCAN_DIR/trivy/filesystem-scan.json" 2>/dev/null || echo 0)
-    TRIVY_MEDIUM=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "MEDIUM")] | length' "$SCAN_DIR/trivy/filesystem-scan.json" 2>/dev/null || echo 0)
-    TRIVY_LOW=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "LOW")] | length' "$SCAN_DIR/trivy/filesystem-scan.json" 2>/dev/null || echo 0)
+    TRIVY_CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' "$TRIVY_FILE" 2>/dev/null || echo 0)
+    TRIVY_HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' "$TRIVY_FILE" 2>/dev/null || echo 0)
+    TRIVY_MEDIUM=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "MEDIUM")] | length' "$TRIVY_FILE" 2>/dev/null || echo 0)
+    TRIVY_LOW=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "LOW")] | length' "$TRIVY_FILE" 2>/dev/null || echo 0)
     
     echo "  Critical: $TRIVY_CRITICAL | High: $TRIVY_HIGH | Medium: $TRIVY_MEDIUM | Low: $TRIVY_LOW"
     TOTAL_CRITICAL=$((TOTAL_CRITICAL + TRIVY_CRITICAL))
@@ -69,33 +71,35 @@ if [[ -f "$SCAN_DIR/trivy/filesystem-scan.json" ]]; then
     TOTAL_MEDIUM=$((TOTAL_MEDIUM + TRIVY_MEDIUM))
     TOTAL_LOW=$((TOTAL_LOW + TRIVY_LOW))
 else
-    echo -e "${YELLOW}⚠️  Trivy results not found at: $SCAN_DIR/trivy/filesystem-scan.json${NC}"
+    echo -e "${YELLOW}⚠️  Trivy results not found in: $SCAN_DIR/trivy/${NC}"
 fi
 
 # Check TruffleHog secrets
-if [[ -f "$SCAN_DIR/trufflehog/filesystem-scan.json" ]]; then
+TRUFFLEHOG_FILE=$(find "$SCAN_DIR/trufflehog" -name "*trufflehog*results.json" 2>/dev/null | head -1)
+if [[ -f "$TRUFFLEHOG_FILE" ]]; then
     echo -e "${CYAN}📊 Checking TruffleHog results...${NC}"
-    TRUFFLEHOG_SECRETS=$(jq -r '. | length' "$SCAN_DIR/trufflehog/filesystem-scan.json" 2>/dev/null || echo "0")
+    TRUFFLEHOG_SECRETS=$(jq -r '. | length' "$TRUFFLEHOG_FILE" 2>/dev/null || echo "0")
     echo "  Secrets found: $TRUFFLEHOG_SECRETS"
     if [[ $TRUFFLEHOG_SECRETS -gt 0 ]]; then
         # Treat all secrets as Critical
         TOTAL_CRITICAL=$((TOTAL_CRITICAL + TRUFFLEHOG_SECRETS))
     fi
 else
-    echo -e "${YELLOW}⚠️  TruffleHog results not found at: $SCAN_DIR/trufflehog/filesystem-scan.json${NC}"
+    echo -e "${YELLOW}⚠️  TruffleHog results not found in: $SCAN_DIR/trufflehog/${NC}"
 fi
 
 # Check Checkov IaC issues
-if [[ -f "$SCAN_DIR/checkov/checkov-scan.json" ]]; then
+CHECKOV_FILE=$(find "$SCAN_DIR/checkov" -name "results_json.json" -o -name "*checkov*results.json" 2>/dev/null | head -1)
+if [[ -f "$CHECKOV_FILE" ]]; then
     echo -e "${CYAN}📊 Checking Checkov results...${NC}"
-    CHECKOV_FAILED=$(jq -r '.summary.failed // 0' "$SCAN_DIR/checkov/checkov-scan.json" 2>/dev/null || echo "0")
+    CHECKOV_FAILED=$(jq -r '.summary.failed // 0' "$CHECKOV_FILE" 2>/dev/null || echo "0")
     echo "  Failed checks: $CHECKOV_FAILED"
     if [[ $CHECKOV_FAILED -gt 0 ]]; then
         # Treat failed IaC checks as High severity
         TOTAL_HIGH=$((TOTAL_HIGH + CHECKOV_FAILED))
     fi
 else
-    echo -e "${YELLOW}⚠️  Checkov results not found at: $SCAN_DIR/checkov/checkov-scan.json${NC}"
+    echo -e "${YELLOW}⚠️  Checkov results not found in: $SCAN_DIR/checkov/${NC}"
 fi
 
 echo ""

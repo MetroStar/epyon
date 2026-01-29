@@ -126,6 +126,15 @@ jobs:
           chmod +x scripts/shell/check-severity-gate.sh
           ./scripts/shell/check-severity-gate.sh
       
+      - name: Fix Artifact Permissions
+        if: always()
+        run: |
+          cd epyon
+          SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
+          if [ -d "$SCAN_DIR" ]; then
+            chmod -R +r "$SCAN_DIR" || true
+          fi
+      
       - name: Generate Summary
         if: always()
         run: |

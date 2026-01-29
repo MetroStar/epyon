@@ -98,6 +98,14 @@ jobs:
           chmod +x scripts/shell/check-severity-gate.sh
           ./scripts/shell/check-severity-gate.sh
       
+      - name: Fix Artifact Permissions
+        if: always()
+        run: |
+          SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
+          if [ -d "$SCAN_DIR" ]; then
+            chmod -R +r "$SCAN_DIR" || true
+          fi
+      
       - name: Upload All Reports
         uses: actions/upload-artifact@v4
         if: always()

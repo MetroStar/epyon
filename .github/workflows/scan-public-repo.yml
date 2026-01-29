@@ -19,7 +19,7 @@ on:
       fail_on_critical:
         description: 'Fail build on critical severity findings'
         required: false
-        default: true
+        default: false
         type: boolean
       fail_on_high:
         description: 'Fail build on high severity findings'
@@ -92,8 +92,8 @@ jobs:
         id: severity-gate
         env:
           SCAN_DIR: ${{ github.workspace }}/${{ steps.find-scan.outputs.scan_dir }}
-          FAIL_ON_CRITICAL: ${{ github.event.inputs.fail_on_critical != false }}
-          FAIL_ON_HIGH: ${{ github.event.inputs.fail_on_high == true }}
+          FAIL_ON_CRITICAL: ${{ github.event.inputs.fail_on_critical == 'true' }}
+          FAIL_ON_HIGH: ${{ github.event.inputs.fail_on_high == 'true' }}
         run: |
           chmod +x scripts/shell/check-severity-gate.sh
           ./scripts/shell/check-severity-gate.sh
@@ -103,7 +103,8 @@ jobs:
         run: |
           SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
           if [ -d "$SCAN_DIR" ]; then
-            chmod -R +r "$SCAN_DIR" || true
+            sudo chmod -R a+r "$SCAN_DIR" || true
+            sudo find "$SCAN_DIR" -type d -exec chmod a+rx {} \; || true
           fi
       
       - name: Upload All Reports

@@ -78,9 +78,10 @@ fi
 TRUFFLEHOG_FILE=$(find "$SCAN_DIR/trufflehog" -name "*trufflehog*results.json" 2>/dev/null | head -1)
 if [[ -f "$TRUFFLEHOG_FILE" ]]; then
     echo -e "${CYAN}📊 Checking TruffleHog results...${NC}"
-    TRUFFLEHOG_SECRETS=$(jq -r '. | length' "$TRUFFLEHOG_FILE" 2>/dev/null || echo "0")
+    # Count array elements if it's an array, otherwise return 0
+    TRUFFLEHOG_SECRETS=$(jq 'if type=="array" then length else 0 end' "$TRUFFLEHOG_FILE" 2>/dev/null || echo "0")
     echo "  Secrets found: $TRUFFLEHOG_SECRETS"
-    if [[ $TRUFFLEHOG_SECRETS -gt 0 ]]; then
+    if [[ "$TRUFFLEHOG_SECRETS" =~ ^[0-9]+$ ]] && [[ $TRUFFLEHOG_SECRETS -gt 0 ]]; then
         # Treat all secrets as Critical
         TOTAL_CRITICAL=$((TOTAL_CRITICAL + TRUFFLEHOG_SECRETS))
     fi

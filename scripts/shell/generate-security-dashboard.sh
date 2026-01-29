@@ -3824,17 +3824,36 @@ cat >> "$OUTPUT_HTML" << EOF
         
         // Helper function to download SBOM file
         function downloadSBOMFile(format, formatInfo) {
-            const sbomDir = '../raw-data/SBOM';
             const scanId = '$SCAN_NAME';
             
-            // Try to fetch the SBOM file
-            fetch(\`\${sbomDir}/\${formatInfo.file}\`)
+            // Try multiple possible locations for SBOM files
+            const possiblePaths = [
+                \`../raw-data/SBOM/\${formatInfo.file}\`,  // Consolidated reports location
+                \`../../sbom/\${formatInfo.file}\`,  // Root scan directory
+                \`../../consolidated-reports/raw-data/SBOM/\${formatInfo.file}\`  // Full path from root
+            ];
+            
+            tryDownloadSBOMFromPaths(possiblePaths, 0, formatInfo, scanId);
+        }
+        
+        function tryDownloadSBOMFromPaths(paths, index, formatInfo, scanId) {
+            if (index >= paths.length) {
+                const statusDiv = document.getElementById('sbom-export-status');
+                statusDiv.style.background = 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)';
+                statusDiv.innerHTML = \`
+                    <div style="color: white;">
+                        ❌ Failed to download \${formatInfo.name}. File may not exist or SBOM generation was not run.
+                    </div>
+                \`;
+                return;
+            }
+            
+            fetch(paths[index])
                 .then(response => {
                     if (!response.ok) throw new Error('File not found');
                     return response.blob();
                 })
                 .then(blob => {
-                    // Create download link
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.style.display = 'none';
@@ -3846,14 +3865,8 @@ cat >> "$OUTPUT_HTML" << EOF
                     document.body.removeChild(a);
                 })
                 .catch(error => {
-                    console.error('Failed to download SBOM:', error);
-                    const statusDiv = document.getElementById('sbom-export-status');
-                    statusDiv.style.background = 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)';
-                    statusDiv.innerHTML = \`
-                        <div style="color: white;">
-                            ❌ Failed to download \${formatInfo.name}. File may not exist.
-                        </div>
-                    \`;
+                    // Try next path
+                    tryDownloadSBOMFromPaths(paths, index + 1, formatInfo, scanId);
                 });
         }
         
@@ -3977,10 +3990,31 @@ cat >> "$OUTPUT_HTML" << EOF
         
         // Helper function to download API discovery file
         function downloadAPIFile(format) {
-            const apiDir = '../raw-data/API-Discovery';
             const scanId = '$SCAN_NAME';
             
-            fetch(\`\${apiDir}/api-discovery.json\`)
+            // Try multiple possible locations for API discovery file
+            const possiblePaths = [
+                '../../api-discovery.json',  // Root of scan directory
+                '../raw-data/API-Discovery/api-discovery.json',  // Consolidated reports
+                '../../api-discovery-exports/api-discovery.json'  // Exports directory
+            ];
+            
+            tryDownloadFromPaths(possiblePaths, 0, scanId);
+        }
+        
+        function tryDownloadFromPaths(paths, index, scanId) {
+            if (index >= paths.length) {
+                const statusDiv = document.getElementById('api-export-status');
+                statusDiv.style.background = 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)';
+                statusDiv.innerHTML = \`
+                    <div style="color: white;">
+                        ❌ Failed to download API discovery results. File may not exist or API discovery was not run.
+                    </div>
+                \`;
+                return;
+            }
+            
+            fetch(paths[index])
                 .then(response => {
                     if (!response.ok) throw new Error('File not found');
                     return response.blob();
@@ -3997,23 +4031,32 @@ cat >> "$OUTPUT_HTML" << EOF
                     document.body.removeChild(a);
                 })
                 .catch(error => {
-                    console.error('Failed to download API discovery:', error);
-                    const statusDiv = document.getElementById('api-export-status');
-                    statusDiv.style.background = 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)';
-                    statusDiv.innerHTML = \`
-                        <div style="color: white;">
-                            ❌ Failed to download API discovery results. File may not exist.
-                        </div>
-                    \`;
+                    // Try next path
+                    tryDownloadFromPaths(paths, index + 1, scanId);
                 });
         }
         
         // Helper function to download OpenAPI spec file
         function downloadAPISpecFile(filename) {
-            const apiDir = '../raw-data/API-Discovery';
             const scanId = '$SCAN_NAME';
             
-            fetch(\`\${apiDir}/\${filename}\`)
+            // Try multiple possible locations
+            const possibleDirs = [
+                '../../api-discovery-exports',
+                '../raw-data/API-Discovery',
+                '../../'
+            ];
+            
+            tryDownloadSpecFromDirs(possibleDirs, 0, filename, scanId);
+        }
+        
+        function tryDownloadSpecFromDirs(dirs, index, filename, scanId) {
+            if (index >= dirs.length) {
+                console.error('OpenAPI spec not found:', filename);
+                return;
+            }
+            
+            fetch(\`\${dirs[index]}/\${filename}\`)
                 .then(response => {
                     if (!response.ok) throw new Error('File not found');
                     return response.blob();
@@ -4030,7 +4073,8 @@ cat >> "$OUTPUT_HTML" << EOF
                     document.body.removeChild(a);
                 })
                 .catch(error => {
-                    console.error('Failed to download OpenAPI spec:', error);
+                    // Try next directory
+                    tryDownloadSpecFromDirs(dirs, index + 1, filename, scanId);
                 });
         }
         

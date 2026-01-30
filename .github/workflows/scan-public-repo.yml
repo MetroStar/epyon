@@ -103,8 +103,14 @@ jobs:
         run: |
           SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
           if [ -d "$SCAN_DIR" ]; then
+            echo "Fixing permissions for: $SCAN_DIR"
+            # Change ownership to runner user first
+            sudo chown -R runner:docker "$SCAN_DIR" || true
+            # Then fix permissions
             sudo chmod -R a+r "$SCAN_DIR" || true
             sudo find "$SCAN_DIR" -type d -exec chmod a+rx {} \; || true
+            # Verify permissions
+            ls -la "$SCAN_DIR/clamav/" || true
           fi
       
       - name: Upload All Reports

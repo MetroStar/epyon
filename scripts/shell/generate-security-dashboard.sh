@@ -3823,19 +3823,30 @@ cat >> "$OUTPUT_HTML" << EOF
         function downloadSBOMFile(format, formatInfo) {
             const scanId = '$SCAN_NAME';
             
+            // Map format keys to actual file extensions
+            const formatExtMap = {
+                'cyclonedx-json': 'cyclonedx.json',
+                'cyclonedx-xml': 'cyclonedx.xml',
+                'spdx-json': 'spdx.json'
+            };
+            
+            const fileExt = formatExtMap[format];
+            
             // Try multiple possible locations for SBOM files
             const possiblePaths = [
-                \`../../sbom/exports/sbom-\${scanId}.\${format}.json\`,  // Root scan directory exports
+                \`../../sbom/exports/sbom-\${scanId}.\${fileExt}\`,  // Root scan directory exports (actual location)
+                \`../raw-data/SBOM/sbom-\${scanId}.\${fileExt}\`,  // Consolidated reports with scan ID
+                \`../../sbom/sbom-\${scanId}.\${fileExt}\`,  // Root scan directory with scan ID
                 \`../raw-data/SBOM/\${formatInfo.file}\`,  // Consolidated reports location (old format)
                 \`../../sbom/\${formatInfo.file}\`,  // Root scan directory (old format)
                 \`../../consolidated-reports/raw-data/SBOM/\${formatInfo.file}\`,  // Full path from root
                 \`../../sbom/exports/\${formatInfo.file}\`  // Exports directory with old naming
             ];
             
-            tryDownloadSBOMFromPaths(possiblePaths, 0, formatInfo, scanId);
+            tryDownloadSBOMFromPaths(possiblePaths, 0, formatInfo, scanId, fileExt);
         }
         
-        function tryDownloadSBOMFromPaths(paths, index, formatInfo, scanId) {
+        function tryDownloadSBOMFromPaths(paths, index, formatInfo, scanId, fileExt) {
             if (index >= paths.length) {
                 const statusDiv = document.getElementById('sbom-export-status');
                 statusDiv.style.background = 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)';
@@ -3857,7 +3868,7 @@ cat >> "$OUTPUT_HTML" << EOF
                     const a = document.createElement('a');
                     a.style.display = 'none';
                     a.href = url;
-                    a.download = \`sbom-\${scanId}.\${formatInfo.file}\`;
+                    a.download = \`sbom-\${scanId}.\${fileExt}\`;
                     document.body.appendChild(a);
                     a.click();
                     window.URL.revokeObjectURL(url);
@@ -3865,7 +3876,7 @@ cat >> "$OUTPUT_HTML" << EOF
                 })
                 .catch(error => {
                     // Try next path
-                    tryDownloadSBOMFromPaths(paths, index + 1, formatInfo, scanId);
+                    tryDownloadSBOMFromPaths(paths, index + 1, formatInfo, scanId, fileExt);
                 });
         }
         

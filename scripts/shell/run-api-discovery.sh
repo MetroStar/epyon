@@ -609,6 +609,7 @@ main() {
     # Validate target directory
     if [ ! -d "${TARGET_DIR}" ]; then
         print_error "Target directory not found: ${TARGET_DIR}"
+        print_error "Received TARGET_DIR: ${TARGET_DIR}"
         exit 1
     fi
     
@@ -617,13 +618,16 @@ main() {
         OUTPUT_PATH="${SCAN_DIR}/${OUTPUT_FILE}"
         OUTPUT_DIR="${SCAN_DIR}"
         mkdir -p "${SCAN_DIR}"
+        print_info "Using SCAN_DIR: ${SCAN_DIR}"
     else
         OUTPUT_PATH="${TARGET_DIR}/${OUTPUT_FILE}"
         OUTPUT_DIR="${TARGET_DIR}"
+        print_warning "SCAN_DIR not set, using TARGET_DIR"
     fi
     
     print_info "Target Directory: ${TARGET_DIR}"
     print_info "Output File: ${OUTPUT_PATH}"
+    print_info "Creating output directory: $(dirname "${OUTPUT_PATH}")"
     echo ""
     
     # Run discovery methods FIRST to collect data
@@ -804,6 +808,8 @@ EOF
     # Verify JSON was created successfully
     if [ -f "${OUTPUT_PATH}" ]; then
         print_success "API discovery complete! Results saved to: ${OUTPUT_PATH}"
+        print_info "File size: $(wc -c < "${OUTPUT_PATH}") bytes"
+        print_info "File location verified: ${OUTPUT_PATH}"
         
         # Show summary one more time
         local final_total=$((python_routes + nodejs_routes + java_routes + graphql_schemas + specs_count))
@@ -811,10 +817,14 @@ EOF
             print_success "Total APIs discovered: $final_total"
         else
             print_warning "No APIs found in target directory - reported as 0 in dashboard"
+            print_info "Dashboard will show '0 Found' badge instead of 'Skipped'"
         fi
     else
         print_error "Failed to create API discovery JSON file!" >&2
-        print_error "Output path was: ${OUTPUT_PATH}" >&2
+        print_error "Expected output path: ${OUTPUT_PATH}" >&2
+        print_error "Directory exists: $([ -d "$(dirname "${OUTPUT_PATH}")" ] && echo "YES" || echo "NO")" >&2
+        print_error "Directory contents:" >&2
+        ls -la "$(dirname "${OUTPUT_PATH}")" 2>&1 | head -10 >&2
         exit 1
     fi
     

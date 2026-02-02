@@ -3369,26 +3369,29 @@ cat >> "$OUTPUT_HTML" << EOF
     <script>
 EOF
 
-# Embed SBOM files for offline downloads
+# Embed SBOM files for offline downloads (using base64 to avoid escaping issues)
 echo "        // Embedded SBOM data for offline downloads" >> "$OUTPUT_HTML"
 echo "        const embeddedSBOMs = {};" >> "$OUTPUT_HTML"
 
 # Embed CycloneDX JSON
 SBOM_CYCLONE_JSON="$SCAN_DIR/sbom/exports/sbom-${SCAN_NAME}.cyclonedx.json"
 if [ -f "$SBOM_CYCLONE_JSON" ]; then
-    echo "        embeddedSBOMs['cyclonedx-json'] = \`$(cat "$SBOM_CYCLONE_JSON" | sed 's/`/\\`/g' | sed 's/\$/\\$/g')\`;" >> "$OUTPUT_HTML"
+    ENCODED=$(cat "$SBOM_CYCLONE_JSON" | base64 | tr -d '\n')
+    echo "        embeddedSBOMs['cyclonedx-json'] = atob('${ENCODED}');" >> "$OUTPUT_HTML"
 fi
 
 # Embed SPDX JSON
 SBOM_SPDX_JSON="$SCAN_DIR/sbom/exports/sbom-${SCAN_NAME}.spdx.json"
 if [ -f "$SBOM_SPDX_JSON" ]; then
-    echo "        embeddedSBOMs['spdx-json'] = \`$(cat "$SBOM_SPDX_JSON" | sed 's/`/\\`/g' | sed 's/\$/\\$/g')\`;" >> "$OUTPUT_HTML"
+    ENCODED=$(cat "$SBOM_SPDX_JSON" | base64 | tr -d '\n')
+    echo "        embeddedSBOMs['spdx-json'] = atob('${ENCODED}');" >> "$OUTPUT_HTML"
 fi
 
 # Embed API Discovery data
 API_DISC_JSON="$SCAN_DIR/api-discovery.json"
 if [ -f "$API_DISC_JSON" ]; then
-    echo "        const embeddedAPIDiscovery = \`$(cat "$API_DISC_JSON" | sed 's/`/\\`/g' | sed 's/\$/\\$/g')\`;" >> "$OUTPUT_HTML"
+    ENCODED=$(cat "$API_DISC_JSON" | base64 | tr -d '\n')
+    echo "        const embeddedAPIDiscovery = atob('${ENCODED}');" >> "$OUTPUT_HTML"
 else
     echo "        const embeddedAPIDiscovery = null;" >> "$OUTPUT_HTML"
 fi

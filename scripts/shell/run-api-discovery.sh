@@ -810,10 +810,11 @@ EOF
         if [ $final_total -gt 0 ]; then
             print_success "Total APIs discovered: $final_total"
         else
-            print_warning "No APIs found in target directory"
+            print_warning "No APIs found in target directory - reported as 0 in dashboard"
         fi
     else
         print_error "Failed to create API discovery JSON file!" >&2
+        print_error "Output path was: ${OUTPUT_PATH}" >&2
         exit 1
     fi
     

@@ -3749,14 +3749,11 @@ cat >> "$OUTPUT_HTML" << EOF
             const statusDiv = document.getElementById('sbom-export-status');
             const scanId = '$SCAN_NAME';
             
-            // Define SBOM file paths (relative to dashboard location)
-            const sbomDir = '../raw-data/SBOM';
-            
-            // Define format mappings
+            // Define format mappings - match actual file names in sbom/exports/
             const formats = {
-                'cyclonedx-json': { file: 'filesystem.json', name: 'CycloneDX JSON', tools: 'Dependency-Track, OWASP OSS Index, Snyk, JFrog Xray' },
-                'cyclonedx-xml': { file: 'filesystem.xml', name: 'CycloneDX XML', tools: 'Dependency-Track, JFrog Xray' },
-                'spdx-json': { file: 'filesystem-spdx.json', name: 'SPDX JSON', tools: 'GitHub Dependency Graph, Snyk, BlackDuck' }
+                'cyclonedx-json': { file: 'cyclonedx.json', name: 'CycloneDX JSON', tools: 'Dependency-Track, OWASP OSS Index, Snyk, JFrog Xray' },
+                'cyclonedx-xml': { file: 'cyclonedx.xml', name: 'CycloneDX XML', tools: 'Dependency-Track, JFrog Xray' },
+                'spdx-json': { file: 'spdx.json', name: 'SPDX JSON', tools: 'GitHub Dependency Graph, Snyk, BlackDuck' }
             };
             
             // Show processing message
@@ -3828,9 +3825,11 @@ cat >> "$OUTPUT_HTML" << EOF
             
             // Try multiple possible locations for SBOM files
             const possiblePaths = [
-                \`../raw-data/SBOM/\${formatInfo.file}\`,  // Consolidated reports location
-                \`../../sbom/\${formatInfo.file}\`,  // Root scan directory
-                \`../../consolidated-reports/raw-data/SBOM/\${formatInfo.file}\`  // Full path from root
+                \`../../sbom/exports/sbom-\${scanId}.\${format}.json\`,  // Root scan directory exports
+                \`../raw-data/SBOM/\${formatInfo.file}\`,  // Consolidated reports location (old format)
+                \`../../sbom/\${formatInfo.file}\`,  // Root scan directory (old format)
+                \`../../consolidated-reports/raw-data/SBOM/\${formatInfo.file}\`,  // Full path from root
+                \`../../sbom/exports/\${formatInfo.file}\`  // Exports directory with old naming
             ];
             
             tryDownloadSBOMFromPaths(possiblePaths, 0, formatInfo, scanId);

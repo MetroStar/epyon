@@ -298,9 +298,21 @@ find_nodejs_routes() {
     
     # Next.js API Routes (App Router - Next.js 13+)
     print_info "Searching for Next.js App Router API routes..."
-    local nextjs_app_routes=$(find "${TARGET_DIR}" -type f \( -name "route.js" -o -name "route.ts" \) 2>/dev/null | wc -l | tr -d ' ')
+    print_info "Searching in: ${TARGET_DIR}" >&2
+    
+    # Find all route.js and route.ts files
+    local route_files=$(find "${TARGET_DIR}" -type f \( -name "route.js" -o -name "route.ts" \) 2>/dev/null)
+    local nextjs_app_routes=$(echo "$route_files" | grep -c . || echo "0")
+    
+    print_info "Found $nextjs_app_routes Next.js route files" >&2
+    
     if [ "$nextjs_app_routes" -gt 0 ]; then
         print_success "Found $nextjs_app_routes Next.js App Router route file(s)"
+        
+        # Show first few files found for debugging
+        echo "$route_files" | head -3 | while read -r file; do
+            print_info "  Found: $file" >&2
+        done
         
         # Extract HTTP method exports and save to temp file
         local nextjs_methods=0
@@ -334,7 +346,7 @@ find_nodejs_routes() {
                     nextjs_methods=$((nextjs_methods + 1))
                 fi
             done < <(grep "export async function \(GET\|POST\|PUT\|DELETE\|PATCH\|HEAD\|OPTIONS\)" "$route_file" 2>/dev/null)
-        done < <(find "${TARGET_DIR}" -type f \( -name "route.js" -o -name "route.ts" \) 2>/dev/null)
+        done < <(echo "$route_files")
         
         if [ "$nextjs_methods" -gt 0 ]; then
             print_success "Found $nextjs_methods Next.js App Router HTTP method(s)"
@@ -342,11 +354,18 @@ find_nodejs_routes() {
             
             # Show sample routes
             echo "    Sample Next.js routes:" >&2
-            find "${TARGET_DIR}" -type f \( -name "route.js" -o -name "route.ts" \) 2>/dev/null | head -3 | while read -r file; do
+            echo "$route_files" | head -3 | while read -r file; do
                 echo "      $file" >&2
                 grep "export async function \(GET\|POST\|PUT\|DELETE\|PATCH\|HEAD\|OPTIONS\)" "$file" 2>/dev/null | head -2 | sed 's/^/        /' >&2
             done
+        else
+            print_warning "No HTTP method exports found in Next.js route files"
         fi
+    else
+        print_warning "No Next.js App Router route files found"
+        print_info "Searched for: route.js and route.ts files" >&2
+        print_info "In directory: ${TARGET_DIR}" >&2
+    fi
     fi
     
     # Next.js Pages Router API routes (pages/api/)

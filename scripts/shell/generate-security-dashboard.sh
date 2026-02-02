@@ -3367,6 +3367,35 @@ cat >> "$OUTPUT_HTML" << EOF
     </div>
 
     <script>
+EOF
+
+# Embed SBOM files as base64 data for offline downloads
+echo "        // Embedded SBOM data for offline downloads" >> "$OUTPUT_HTML"
+echo "        const embeddedSBOMs = {" >> "$OUTPUT_HTML"
+
+# Embed CycloneDX JSON
+SBOM_CYCLONE_JSON="$SCAN_DIR/sbom/exports/sbom-${SCAN_NAME}.cyclonedx.json"
+if [ -f "$SBOM_CYCLONE_JSON" ]; then
+    echo "            'cyclonedx-json': \`$(cat "$SBOM_CYCLONE_JSON" | sed 's/`/\\`/g' | sed 's/\$/\\$/g')\`," >> "$OUTPUT_HTML"
+fi
+
+# Embed SPDX JSON
+SBOM_SPDX_JSON="$SCAN_DIR/sbom/exports/sbom-${SCAN_NAME}.spdx.json"
+if [ -f "$SBOM_SPDX_JSON" ]; then
+    echo "            'spdx-json': \`$(cat "$SBOM_SPDX_JSON" | sed 's/`/\\`/g' | sed 's/\$/\\$/g')\`," >> "$OUTPUT_HTML"
+fi
+
+echo "        };" >> "$OUTPUT_HTML"
+
+# Embed API Discovery data
+API_DISC_JSON="$SCAN_DIR/api-discovery.json"
+if [ -f "$API_DISC_JSON" ]; then
+    echo "        const embeddedAPIDiscovery = \`$(cat "$API_DISC_JSON" | sed 's/`/\\`/g' | sed 's/\$/\\$/g')\`;" >> "$OUTPUT_HTML"
+else
+    echo "        const embeddedAPIDiscovery = null;" >> "$OUTPUT_HTML"
+fi
+
+cat >> "$OUTPUT_HTML" << 'EOF'
         // Current filter state
         let currentFilter = 'all';
         let currentSourceFilter = 'all';
@@ -3823,7 +3852,29 @@ cat >> "$OUTPUT_HTML" << EOF
         function downloadSBOMFile(format, formatInfo) {
             const scanId = '$SCAN_NAME';
             
-            // Map format keys to actual file extensions
+            // Check if we have embedded data first (works offline)
+            if (embeddedSBOMs && embeddedSBOMs[format]) {
+                const formatExtMap = {
+                    'cyclonedx-json': 'cyclonedx.json',
+                    'cyclonedx-xml': 'cyclonedx.xml',
+                    'spdx-json': 'spdx.json'
+                };
+                const fileExt = formatExtMap[format];
+                
+                const blob = new Blob([embeddedSBOMs[format]], { type: 'application/json' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = \`sbom-\${scanId}.\${fileExt}\`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                return;
+            }
+            
+            // Fallback to fetching from file system (only works when served via http)
             const formatExtMap = {
                 'cyclonedx-json': 'cyclonedx.json',
                 'cyclonedx-xml': 'cyclonedx.xml',
@@ -4024,6 +4075,22 @@ cat >> "$OUTPUT_HTML" << EOF
         function downloadAPIFile(format) {
             const scanId = '$SCAN_NAME';
             
+            // Check if we have embedded data first (works offline)
+            if (embeddedAPIDiscovery) {
+                const blob = new Blob([embeddedAPIDiscovery], { type: 'application/json' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = \`api-discovery-\${scanId}.json\`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                return;
+            }
+            
+            // Fallback to fetching from file system (only works when served via http)
             // Try multiple possible locations for API discovery file
             const possiblePaths = [
                 '../../api-discovery.json',  // Root of scan directory

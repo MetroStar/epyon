@@ -155,51 +155,10 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: complete-scan-results
+          name: security-scan-complete
           path: epyon/${{ steps.find-scan.outputs.scan_dir }}/
           retention-days: 30
-      
-      - name: Upload Security Dashboard
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: security-dashboard
-          path: |
-            epyon/${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/dashboards/
-            epyon/${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/index.html
-          retention-days: 30
-      
-      - name: Upload HTML Reports
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: security-reports-html
-          path: epyon/${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/html-reports/
-          retention-days: 30
-      
-      - name: Upload Markdown Reports
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: security-reports-markdown
-          path: epyon/${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/markdown-reports/
-          retention-days: 30
-      
-      - name: Upload CSV Reports
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: security-reports-csv
-          path: epyon/${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/csv-reports/
-          retention-days: 30
-      
-      - name: Upload Raw Data
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: security-raw-data
-          path: epyon/${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/raw-data/
-          retention-days: 30
+
       
       - name: Check for Critical/High Vulnerabilities
         id: check-severity

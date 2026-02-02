@@ -3369,23 +3369,21 @@ cat >> "$OUTPUT_HTML" << EOF
     <script>
 EOF
 
-# Embed SBOM files as base64 data for offline downloads
+# Embed SBOM files for offline downloads
 echo "        // Embedded SBOM data for offline downloads" >> "$OUTPUT_HTML"
-echo "        const embeddedSBOMs = {" >> "$OUTPUT_HTML"
+echo "        const embeddedSBOMs = {};" >> "$OUTPUT_HTML"
 
 # Embed CycloneDX JSON
 SBOM_CYCLONE_JSON="$SCAN_DIR/sbom/exports/sbom-${SCAN_NAME}.cyclonedx.json"
 if [ -f "$SBOM_CYCLONE_JSON" ]; then
-    echo "            'cyclonedx-json': \`$(cat "$SBOM_CYCLONE_JSON" | sed 's/`/\\`/g' | sed 's/\$/\\$/g')\`," >> "$OUTPUT_HTML"
+    echo "        embeddedSBOMs['cyclonedx-json'] = \`$(cat "$SBOM_CYCLONE_JSON" | sed 's/`/\\`/g' | sed 's/\$/\\$/g')\`;" >> "$OUTPUT_HTML"
 fi
 
 # Embed SPDX JSON
 SBOM_SPDX_JSON="$SCAN_DIR/sbom/exports/sbom-${SCAN_NAME}.spdx.json"
 if [ -f "$SBOM_SPDX_JSON" ]; then
-    echo "            'spdx-json': \`$(cat "$SBOM_SPDX_JSON" | sed 's/`/\\`/g' | sed 's/\$/\\$/g')\`," >> "$OUTPUT_HTML"
+    echo "        embeddedSBOMs['spdx-json'] = \`$(cat "$SBOM_SPDX_JSON" | sed 's/`/\\`/g' | sed 's/\$/\\$/g')\`;" >> "$OUTPUT_HTML"
 fi
-
-echo "        };" >> "$OUTPUT_HTML"
 
 # Embed API Discovery data
 API_DISC_JSON="$SCAN_DIR/api-discovery.json"
@@ -3396,6 +3394,7 @@ else
 fi
 
 cat >> "$OUTPUT_HTML" << 'EOF'
+
         // Current filter state
         let currentFilter = 'all';
         let currentSourceFilter = 'all';

@@ -3365,9 +3365,12 @@ cat >> "$OUTPUT_HTML" << EOF
             </div>
         </div>
     </div>
-
-    <script>
 EOF
+
+# Add script tag with embedded data
+cat >> "$OUTPUT_HTML" << 'SCRIPT_START'
+    <script>
+SCRIPT_START
 
 # Embed SBOM files for offline downloads (using base64 to avoid escaping issues)
 echo "        // Embedded SBOM data for offline downloads" >> "$OUTPUT_HTML"

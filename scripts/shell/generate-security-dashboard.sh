@@ -3850,11 +3850,33 @@ cat >> "$OUTPUT_HTML" << EOF
             if (index >= paths.length) {
                 const statusDiv = document.getElementById('sbom-export-status');
                 statusDiv.style.background = 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)';
-                statusDiv.innerHTML = \`
-                    <div style="color: white;">
-                        ❌ Failed to download \${formatInfo.name}. File may not exist or SBOM generation was not run.
-                    </div>
-                \`;
+                
+                // Check if we're in file:// context
+                if (window.location.protocol === 'file:') {
+                    statusDiv.innerHTML = \`
+                        <div style="color: white;">
+                            <div style="margin-bottom: 10px;">❌ <strong>Cannot download from local file system</strong></div>
+                            <div style="font-size: 0.9em; color: #fecaca; margin-bottom: 10px;">
+                                Browser security prevents downloads when viewing HTML files locally.
+                            </div>
+                            <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; text-align: left;">
+                                <div style="font-size: 0.9em; color: #fef3c7; margin-bottom: 8px;"><strong>📋 SBOM File Location:</strong></div>
+                                <div style="font-family: monospace; font-size: 0.85em; color: #fef3c7; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; margin-bottom: 10px;">
+                                    sbom/exports/sbom-\${scanId}.\${fileExt}
+                                </div>
+                                <div style="font-size: 0.85em; color: #fecaca;">
+                                    Navigate to the extracted artifact folder and find the file in the <strong>sbom/exports/</strong> directory.
+                                </div>
+                            </div>
+                        </div>
+                    \`;
+                } else {
+                    statusDiv.innerHTML = \`
+                        <div style="color: white;">
+                            ❌ Failed to download \${formatInfo.name}. File may not exist or SBOM generation was not run.
+                        </div>
+                    \`;
+                }
                 return;
             }
             
@@ -4016,11 +4038,33 @@ cat >> "$OUTPUT_HTML" << EOF
             if (index >= paths.length) {
                 const statusDiv = document.getElementById('api-export-status');
                 statusDiv.style.background = 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)';
-                statusDiv.innerHTML = \`
-                    <div style="color: white;">
-                        ❌ Failed to download API discovery results. File may not exist or API discovery was not run.
-                    </div>
-                \`;
+                
+                // Check if we're in file:// context
+                if (window.location.protocol === 'file:') {
+                    statusDiv.innerHTML = \`
+                        <div style="color: white;">
+                            <div style="margin-bottom: 10px;">❌ <strong>Cannot download from local file system</strong></div>
+                            <div style="font-size: 0.9em; color: #fecaca; margin-bottom: 10px;">
+                                Browser security prevents downloads when viewing HTML files locally.
+                            </div>
+                            <div style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 6px; text-align: left;">
+                                <div style="font-size: 0.9em; color: #fef3c7; margin-bottom: 8px;"><strong>📋 API Discovery File Location:</strong></div>
+                                <div style="font-family: monospace; font-size: 0.85em; color: #fef3c7; background: rgba(0,0,0,0.2); padding: 8px; border-radius: 4px; margin-bottom: 10px;">
+                                    api-discovery.json
+                                </div>
+                                <div style="font-size: 0.85em; color: #fecaca;">
+                                    Navigate to the extracted artifact folder root to find this file.
+                                </div>
+                            </div>
+                        </div>
+                    \`;
+                } else {
+                    statusDiv.innerHTML = \`
+                        <div style="color: white;">
+                            ❌ Failed to download API discovery results. File may not exist or API discovery was not run.
+                        </div>
+                    \`;
+                }
                 return;
             }
             

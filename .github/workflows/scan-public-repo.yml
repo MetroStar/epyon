@@ -24,7 +24,7 @@ on:
       fail_on_high:
         description: 'Fail build on high severity findings'
         required: false
-        default: false
+        default: true
         type: boolean
       warning_only:
         description: 'Report vulnerabilities but never fail the build'

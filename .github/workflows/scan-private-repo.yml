@@ -27,7 +27,7 @@ on:
       fail_on_high:
         description: 'Fail build on high severity findings'
         required: false
-        default: false
+        default: true
         type: boolean
       warning_only:
         description: 'Report vulnerabilities but never fail the build'
@@ -38,7 +38,7 @@ on:
 env:
   SCAN_MODE: ${{ github.event.inputs.scan_mode || 'full' }}
   FAIL_ON_CRITICAL: ${{ github.event.inputs.fail_on_critical != false }}
-  FAIL_ON_HIGH: ${{ github.event.inputs.fail_on_high == true }}
+  FAIL_ON_HIGH: ${{ github.event.inputs.fail_on_high != false }}
   WARNING_ONLY: ${{ github.event.inputs.warning_only == true }}
 
 jobs:

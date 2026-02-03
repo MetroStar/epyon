@@ -62,22 +62,144 @@ jobs:
           sudo apt-get install -y jq python3 python3-pip
           pip3 install pyyaml
       
-      - name: Run Epyon Security Scan on External Repo
-        id: scan
+      - name: Initialize Scan
+        id: init-scan
         env:
-          GIT_TERMINAL_PROMPT: 0
-          GITHUB_ACTOR: ${{ github.actor }}
           TARGET_NAME: ${{ github.event.inputs.repository }}
+          GITHUB_ACTOR: ${{ github.actor }}
         run: |
           chmod +x scripts/shell/run-target-security-scan.sh
-          ./scripts/shell/run-target-security-scan.sh "${{ github.event.inputs.repository }}" "${{ github.event.inputs.scan_mode }}"
+          
+          # Extract repo name from URL
+          REPO_URL="${{ github.event.inputs.repository }}"
+          REPO_NAME=$(basename "$REPO_URL" .git)
+          
+          echo "TARGET_DIR=$PWD/target-repo-$REPO_NAME" > /tmp/epyon-env
+          echo "SCAN_MODE=${{ github.event.inputs.scan_mode }}" >> /tmp/epyon-env
+          echo "TARGET_NAME=$REPO_NAME" >> /tmp/epyon-env
+          echo "GITHUB_ACTOR=$GITHUB_ACTOR" >> /tmp/epyon-env
+          echo "REPO_URL=$REPO_URL" >> /tmp/epyon-env
+          
+          # Clone the repository
+          echo "📥 Cloning repository: $REPO_URL"
+          git clone "$REPO_URL" "target-repo-$REPO_NAME" || exit 1
+          
+          # Create scan directory
+          TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
+          USERNAME="${GITHUB_ACTOR}"
+          SCAN_NAME="${REPO_NAME}_${USERNAME}_${TIMESTAMP}"
+          SCAN_DIR="scans/${SCAN_NAME}"
+          mkdir -p "$SCAN_DIR"
+          echo "SCAN_DIR=$PWD/$SCAN_DIR" >> /tmp/epyon-env
+          echo "SCAN_NAME=$SCAN_NAME" >> /tmp/epyon-env
+          echo "scan_dir=$SCAN_DIR" >> $GITHUB_OUTPUT
+          echo "🚀 Initialized scan: $SCAN_NAME"
+      
+      - name: Layer 1 - Generate SBOM
         continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          echo "📋 Layer 1: Software Bill of Materials (SBOM)"
+          chmod +x scripts/shell/run-complete-sbom-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-complete-sbom-scan.sh || echo "SBOM scan completed with warnings"
+      
+      - name: Layer 2 - Secret Detection (TruffleHog)
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          echo "🔐 Layer 2: Secret Detection"
+          chmod +x scripts/shell/run-trufflehog-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-trufflehog-scan.sh filesystem || echo "TruffleHog scan completed with warnings"
+      
+      - name: Layer 3 - Code Quality (SonarQube)
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          echo "📊 Layer 3: Code Quality Analysis"
+          chmod +x scripts/shell/run-sonar-analysis.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-sonar-analysis.sh || echo "SonarQube analysis completed with warnings"
+      
+      - name: Layer 4 - Malware Detection (ClamAV)
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          echo "🦠 Layer 4: Malware Detection"
+          chmod +x scripts/shell/run-clamav-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-clamav-scan.sh || echo "ClamAV scan completed with warnings"
+      
+      - name: Layer 5 - Helm Chart Build
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          echo "🏗️ Layer 5: Helm Chart Building"
+          chmod +x scripts/shell/run-helm-build.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-helm-build.sh || echo "Helm build completed with warnings"
+      
+      - name: Layer 6 - Infrastructure Security (Checkov)
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          echo "☸️ Layer 6: Infrastructure Security"
+          chmod +x scripts/shell/run-checkov-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-checkov-scan.sh || echo "Checkov scan completed with warnings"
+      
+      - name: Layer 7 - Container Security (Trivy)
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          echo "🛡️ Layer 7: Container Security (Trivy)"
+          chmod +x scripts/shell/run-trivy-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-trivy-scan.sh filesystem || echo "Trivy scan completed with warnings"
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-trivy-scan.sh base || echo "Trivy base image scan completed with warnings"
+      
+      - name: Layer 8 - Vulnerability Detection (Grype)
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          echo "🔍 Layer 8: Vulnerability Detection (Grype)"
+          chmod +x scripts/shell/run-grype-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-grype-scan.sh sbom || echo "Grype SBOM scan completed with warnings"
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-grype-scan.sh images || echo "Grype image scan completed with warnings"
+      
+      - name: Layer 9 - End-of-Life Detection (Xeol)
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          echo "⚰️ Layer 9: End-of-Life Detection"
+          chmod +x scripts/shell/run-xeol-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-xeol-scan.sh || echo "Xeol scan completed with warnings"
+      
+      - name: Layer 10 - Anchore Security
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          echo "⚓ Layer 10: Anchore Security Analysis"
+          chmod +x scripts/shell/run-anchore-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-anchore-scan.sh || echo "Anchore scan completed with warnings"
+      
+      - name: Layer 11 - API Discovery
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          echo "🌐 Layer 11: API Discovery"
+          chmod +x scripts/shell/run-api-discovery.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-api-discovery.sh || echo "API Discovery completed with warnings"
+      
+      - name: Generate Reports & Dashboard
+        if: always()
+        run: |
+          source /tmp/epyon-env
+          echo "📊 Generating consolidated reports and dashboard..."
+          chmod +x scripts/shell/consolidate-security-reports.sh
+          SCAN_DIR="$SCAN_DIR" ./scripts/shell/consolidate-security-reports.sh || echo "Report generation completed with warnings"
       
       - name: Find Scan Directory
         id: find-scan
+        if: always()
         run: |
-          SCAN_DIR=$(ls -td scans/*/ 2>/dev/null | head -1 | sed 's:/$::')
+          SCAN_DIR=$(cat /tmp/epyon-env | grep "SCAN_DIR=" | cut -d= -f2 | sed "s|$PWD/||")
           echo "scan_dir=$SCAN_DIR" >> $GITHUB_OUTPUT
+          echo "Found scan directory: $SCAN_DIR"
       
       - name: Debug Scan Directory
         run: |

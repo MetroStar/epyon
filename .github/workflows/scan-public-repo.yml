@@ -19,7 +19,7 @@ on:
       fail_on_critical:
         description: 'Fail build on critical severity findings'
         required: false
-        default: false
+        default: true
         type: boolean
       fail_on_high:
         description: 'Fail build on high severity findings'

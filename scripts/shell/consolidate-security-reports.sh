@@ -612,6 +612,19 @@ if [ -f "$DASHBOARD_GENERATOR" ]; then
     echo -e "${GREEN}✓ Generating interactive dashboard from scan results${NC}"
     if SCAN_DIR="$SCAN_DIR" "$DASHBOARD_GENERATOR"; then
         echo -e "${GREEN}✓ Interactive dashboard generated successfully${NC}"
+        
+        # Post-process: Embed SBOM and API data for offline downloads
+        echo -e "${PURPLE}📦 Embedding SBOM and API data for offline access...${NC}"
+        EMBED_SCRIPT="$SCRIPT_DIR/embed-dashboard-data.sh"
+        if [ -f "$EMBED_SCRIPT" ]; then
+            if SCAN_DIR="$SCAN_DIR" "$EMBED_SCRIPT" "$UNIFIED_DIR/dashboards/security-dashboard.html"; then
+                echo -e "${GREEN}✓ Dashboard data embedded successfully${NC}"
+            else
+                echo -e "${YELLOW}⚠️  Data embedding failed, downloads will require file navigation${NC}"
+            fi
+        else
+            echo -e "${YELLOW}⚠️  Embed script not found, downloads will require file navigation${NC}"
+        fi
     else
         echo -e "${YELLOW}⚠️  Dashboard generation failed, creating basic fallback${NC}"
         # Fallback to basic dashboard if generation fails

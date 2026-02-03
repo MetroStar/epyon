@@ -13,6 +13,7 @@ NC='\033[0m'
 # Configuration from environment variables
 FAIL_ON_CRITICAL="${FAIL_ON_CRITICAL:-true}"
 FAIL_ON_HIGH="${FAIL_ON_HIGH:-false}"
+WARNING_ONLY="${WARNING_ONLY:-false}"
 SCAN_DIR="${SCAN_DIR:-}"
 
 if [[ -z "$SCAN_DIR" || ! -d "$SCAN_DIR" ]]; then
@@ -30,6 +31,7 @@ echo -e "${CYAN}============================================${NC}"
 echo -e "${CYAN}Scan Directory: $SCAN_DIR${NC}"
 echo -e "${CYAN}Fail on Critical: $FAIL_ON_CRITICAL${NC}"
 echo -e "${CYAN}Fail on High: $FAIL_ON_HIGH${NC}"
+echo -e "${CYAN}Warning Only Mode: $WARNING_ONLY${NC}"
 echo ""
 
 TOTAL_CRITICAL=0
@@ -115,12 +117,56 @@ echo ""
 
 # Determine if build should fail
 EXIT_CODE=0
+FAILURE_REASONS=()
 
-if [[ "$FAIL_ON_CRITICAL" == "true" && $TOTAL_CRITICAL -gt 0 ]]; then
+# Check if warning-only mode is enabled
+if [[ "$WARNING_ONLY" == "true" ]]; then
+    echo -e "${YELLOW}⚠️  Warning Only Mode: Build will not fail regardless of findings${NC}"
+    if [[ $TOTAL_CRITICAL -gt 0 || $TOTAL_HIGH -gt 0 ]]; then
+        FAILURE_REASONS+=("## ⚠️ Warning Only Mode - Vulnerabilities Detected")
+        FAILURE_REASONS+=("")
+        FAILURE_REASONS+=("**Note:** Build configured to report but not fail on security findings.")
+        FAILURE_REASONS+=("")
+    fi
+elif [[ "$FAIL_ON_CRITICAL" == "true" && $TOTAL_CRITICAL -gt 0 ]]; then
     echo -e "${RED}❌ Build Gate Failed: $TOTAL_CRITICAL critical severity findings detected${NC}"
     echo -e "${RED}   Policy: FAIL_ON_CRITICAL=true${NC}"
     ISSUES_FOUND=true
     EXIT_CODE=1
+    
+    # Collect details about critical findings
+    FAILURE_REASONS+=("## 🔴 Critical Severity Findings ($TOTAL_CRITICAL)")
+    FAILURE_REASONS+=("")
+    
+    if [[ -f "$GRYPE_FILE" && $GRYPE_CRITICAL -gt 0 ]]; then
+        FAILURE_REASONS+=("### Grype Vulnerabilities ($GRYPE_CRITICAL critical)")
+        FAILURE_REASONS+=("\`\`\`")
+        jq -r '.matches[]? | select(.vulnerability.severity=="Critical") | "CVE: \(.vulnerability.id) | Package: \(.artifact.name)@\(.artifact.version) | Severity: \(.vulnerability.severity)"' "$GRYPE_FILE" 2>/dev/null | head -20 >> /tmp/severity-gate-summary.txt || true
+        FAILURE_REASONS+=("$(cat /tmp/severity-gate-summary.txt)")
+        FAILURE_REASONS+=("\`\`\`")
+        FAILURE_REASONS+=("")
+        rm -f /tmp/severity-gate-summary.txt
+    fi
+    
+    if [[ -f "$TRIVY_FILE" && $TRIVY_CRITICAL -gt 0 ]]; then
+        FAILURE_REASONS+=("### Trivy Vulnerabilities ($TRIVY_CRITICAL critical)")
+        FAILURE_REASONS+=("\`\`\`")
+        jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL") | "CVE: \(.VulnerabilityID) | Package: \(.PkgName)@\(.InstalledVersion) | Title: \(.Title)"' "$TRIVY_FILE" 2>/dev/null | head -20 >> /tmp/severity-gate-summary.txt || true
+        FAILURE_REASONS+=("$(cat /tmp/severity-gate-summary.txt)")
+        FAILURE_REASONS+=("\`\`\`")
+        FAILURE_REASONS+=("")
+        rm -f /tmp/severity-gate-summary.txt
+    fi
+    
+    if [[ -f "$TRUFFLEHOG_FILE" && "$TRUFFLEHOG_SECRETS" -gt 0 ]]; then
+        FAILURE_REASONS+=("### TruffleHog Secrets ($TRUFFLEHOG_SECRETS found)")
+        FAILURE_REASONS+=("\`\`\`")
+        jq -r '.[] | "Type: \(.DetectorName) | File: \(.SourceMetadata.Data.Filesystem.file // "N/A") | Line: \(.SourceMetadata.Data.Filesystem.line // "N/A")"' "$TRUFFLEHOG_FILE" 2>/dev/null | head -20 >> /tmp/severity-gate-summary.txt || true
+        FAILURE_REASONS+=("$(cat /tmp/severity-gate-summary.txt)")
+        FAILURE_REASONS+=("\`\`\`")
+        FAILURE_REASONS+=("")
+        rm -f /tmp/severity-gate-summary.txt
+    fi
 fi
 
 if [[ "$FAIL_ON_HIGH" == "true" && $TOTAL_HIGH -gt 0 ]]; then
@@ -128,9 +174,45 @@ if [[ "$FAIL_ON_HIGH" == "true" && $TOTAL_HIGH -gt 0 ]]; then
     echo -e "${RED}   Policy: FAIL_ON_HIGH=true${NC}"
     ISSUES_FOUND=true
     EXIT_CODE=1
+    
+    # Collect details about high findings
+    FAILURE_REASONS+=("## 🟠 High Severity Findings ($TOTAL_HIGH)")
+    FAILURE_REASONS+=("")
+    
+    if [[ -f "$GRYPE_FILE" && $GRYPE_HIGH -gt 0 ]]; then
+        FAILURE_REASONS+=("### Grype Vulnerabilities ($GRYPE_HIGH high)")
+        FAILURE_REASONS+=("\`\`\`")
+        jq -r '.matches[]? | select(.vulnerability.severity=="High") | "CVE: \(.vulnerability.id) | Package: \(.artifact.name)@\(.artifact.version) | Severity: \(.vulnerability.severity)"' "$GRYPE_FILE" 2>/dev/null | head -20 >> /tmp/severity-gate-summary.txt || true
+        FAILURE_REASONS+=("$(cat /tmp/severity-gate-summary.txt)")
+        FAILURE_REASONS+=("\`\`\`")
+        FAILURE_REASONS+=("")
+        rm -f /tmp/severity-gate-summary.txt
+    fi
+    
+    if [[ -f "$TRIVY_FILE" && $TRIVY_HIGH -gt 0 ]]; then
+        FAILURE_REASONS+=("### Trivy Vulnerabilities ($TRIVY_HIGH high)")
+        FAILURE_REASONS+=("\`\`\`")
+        jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH") | "CVE: \(.VulnerabilityID) | Package: \(.PkgName)@\(.InstalledVersion) | Title: \(.Title)"' "$TRIVY_FILE" 2>/dev/null | head -20 >> /tmp/severity-gate-summary.txt || true
+        FAILURE_REASONS+=("$(cat /tmp/severity-gate-summary.txt)")
+        FAILURE_REASONS+=("\`\`\`")
+        FAILURE_REASONS+=("")
+        rm -f /tmp/severity-gate-summary.txt
+    fi
+    
+    if [[ -f "$CHECKOV_FILE" && $CHECKOV_FAILED -gt 0 ]]; then
+        FAILURE_REASONS+=("### Checkov IaC Issues ($CHECKOV_FAILED failed checks)")
+        FAILURE_REASONS+=("\`\`\`")
+        jq -r '.results.failed_checks[]? | "Check: \(.check_id) | File: \(.file_path):\(.file_line_range[0]) | \(.check_name)"' "$CHECKOV_FILE" 2>/dev/null | head -20 >> /tmp/severity-gate-summary.txt || true
+        FAILURE_REASONS+=("$(cat /tmp/severity-gate-summary.txt)")
+        FAILURE_REASONS+=("\`\`\`")
+        FAILURE_REASONS+=("")
+        rm -f /tmp/severity-gate-summary.txt
+    fi
 fi
 
-if [[ "$ISSUES_FOUND" == "false" ]]; then
+if [[ "$WARNING_ONLY" == "true" && ($TOTAL_CRITICAL -gt 0 || $TOTAL_HIGH -gt 0) ]]; then
+    echo -e "${YELLOW}⚠️  Vulnerabilities detected but build will pass (warning-only mode)${NC}"
+elif [[ "$ISSUES_FOUND" == "false" ]]; then
     echo -e "${GREEN}✅ Build Gate Passed: No critical or high severity findings above threshold${NC}"
 fi
 
@@ -138,13 +220,33 @@ echo ""
 echo -e "${CYAN}============================================${NC}"
 echo ""
 
-# Export to GitHub Actions output if available
+# Export to GitHub Actions output and step summary
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     echo "critical_count=$TOTAL_CRITICAL" >> "$GITHUB_OUTPUT"
     echo "high_count=$TOTAL_HIGH" >> "$GITHUB_OUTPUT"
     echo "medium_count=$TOTAL_MEDIUM" >> "$GITHUB_OUTPUT"
     echo "low_count=$TOTAL_LOW" >> "$GITHUB_OUTPUT"
     echo "gate_passed=$([[ $EXIT_CODE -eq 0 ]] && echo "true" || echo "false")" >> "$GITHUB_OUTPUT"
+fi
+
+# Write detailed failure reasons to GitHub Step Summary
+if [[ -n "${GITHUB_STEP_SUMMARY:-}" && ${#FAILURE_REASONS[@]} -gt 0 ]]; then
+    echo "# ❌ Security Gate Failure Report" >> "$GITHUB_STEP_SUMMARY"
+    echo "" >> "$GITHUB_STEP_SUMMARY"
+    echo "**Total Findings:**" >> "$GITHUB_STEP_SUMMARY"
+    echo "- 🔴 Critical: $TOTAL_CRITICAL" >> "$GITHUB_STEP_SUMMARY"
+    echo "- 🟠 High: $TOTAL_HIGH" >> "$GITHUB_STEP_SUMMARY"
+    echo "- 🟡 Medium: $TOTAL_MEDIUM" >> "$GITHUB_STEP_SUMMARY"
+    echo "- 🟢 Low: $TOTAL_LOW" >> "$GITHUB_STEP_SUMMARY"
+    echo "" >> "$GITHUB_STEP_SUMMARY"
+    
+    for line in "${FAILURE_REASONS[@]}"; do
+        echo "$line" >> "$GITHUB_STEP_SUMMARY"
+    done
+    
+    echo "" >> "$GITHUB_STEP_SUMMARY"
+    echo "---" >> "$GITHUB_STEP_SUMMARY"
+    echo "*Review the full scan results in the workflow artifacts for complete details.*" >> "$GITHUB_STEP_SUMMARY"
 fi
 
 exit $EXIT_CODE

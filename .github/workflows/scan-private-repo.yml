@@ -29,11 +29,17 @@ on:
         required: false
         default: false
         type: boolean
+      warning_only:
+        description: 'Report vulnerabilities but never fail the build'
+        required: false
+        default: false
+        type: boolean
 
 env:
   SCAN_MODE: ${{ github.event.inputs.scan_mode || 'full' }}
   FAIL_ON_CRITICAL: ${{ github.event.inputs.fail_on_critical != false }}
   FAIL_ON_HIGH: ${{ github.event.inputs.fail_on_high == true }}
+  WARNING_ONLY: ${{ github.event.inputs.warning_only == true }}
 
 jobs:
   security-scan:
@@ -245,6 +251,7 @@ jobs:
           SCAN_DIR: ${{ github.workspace }}/epyon/${{ steps.find-scan.outputs.scan_dir }}
           FAIL_ON_CRITICAL: ${{ env.FAIL_ON_CRITICAL }}
           FAIL_ON_HIGH: ${{ env.FAIL_ON_HIGH }}
+          WARNING_ONLY: ${{ env.WARNING_ONLY }}
         run: |
           cd epyon
           chmod +x scripts/shell/check-severity-gate.sh

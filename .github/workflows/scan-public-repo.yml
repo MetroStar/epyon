@@ -26,6 +26,11 @@ on:
         required: false
         default: false
         type: boolean
+      warning_only:
+        description: 'Report vulnerabilities but never fail the build'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   external-scan:
@@ -216,6 +221,7 @@ jobs:
           SCAN_DIR: ${{ github.workspace }}/${{ steps.find-scan.outputs.scan_dir }}
           FAIL_ON_CRITICAL: ${{ github.event.inputs.fail_on_critical == 'true' }}
           FAIL_ON_HIGH: ${{ github.event.inputs.fail_on_high == 'true' }}
+          WARNING_ONLY: ${{ github.event.inputs.warning_only == 'true' }}
         run: |
           chmod +x scripts/shell/check-severity-gate.sh
           ./scripts/shell/check-severity-gate.sh

@@ -37,9 +37,11 @@ on:
 
 env:
   SCAN_MODE: ${{ github.event.inputs.scan_mode || 'full' }}
-  FAIL_ON_CRITICAL: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.fail_on_critical != false }}
-  FAIL_ON_HIGH: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.fail_on_high != false }}
-  WARNING_ONLY: ${{ github.event.inputs.warning_only == true }}
+  # For automatic triggers (push/PR/schedule): always fail on critical and high
+  # For manual triggers: use workflow_dispatch inputs (default to true for both)
+  FAIL_ON_CRITICAL: ${{ github.event_name != 'workflow_dispatch' && 'true' || github.event.inputs.fail_on_critical }}
+  FAIL_ON_HIGH: ${{ github.event_name != 'workflow_dispatch' && 'true' || github.event.inputs.fail_on_high }}
+  WARNING_ONLY: ${{ github.event.inputs.warning_only || 'false' }}
 
 jobs:
   security-scan:

@@ -219,9 +219,9 @@ jobs:
         id: severity-gate
         env:
           SCAN_DIR: ${{ github.workspace }}/${{ steps.find-scan.outputs.scan_dir }}
-          FAIL_ON_CRITICAL: ${{ github.event.inputs.fail_on_critical == 'true' }}
-          FAIL_ON_HIGH: ${{ github.event.inputs.fail_on_high == 'true' }}
-          WARNING_ONLY: ${{ github.event.inputs.warning_only == 'true' }}
+          FAIL_ON_CRITICAL: ${{ github.event.inputs.fail_on_critical }}
+          FAIL_ON_HIGH: ${{ github.event.inputs.fail_on_high }}
+          WARNING_ONLY: ${{ github.event.inputs.warning_only }}
         run: |
           chmod +x scripts/shell/check-severity-gate.sh
           ./scripts/shell/check-severity-gate.sh

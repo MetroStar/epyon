@@ -377,7 +377,7 @@ Want automatic scanning on every push and PR?
    # In your repository directory
    mkdir -p .github/workflows
    curl -o .github/workflows/epyon-security-scan.yml \
-     https://raw.githubusercontent.com/MetroStar/epyon/main/.github/workflows/security-scan-for-external-use.yml
+     https://raw.githubusercontent.com/MetroStar/epyon/main/.github/workflows/scan-private-repo.yml
    ```
 
 2. **Commit and push**:
@@ -418,6 +418,32 @@ The workflow checks out both your repository and Epyon, then runs Epyon's scanne
 👉 **Full documentation**: [.github/README.md](.github/README.md)
 
 ## 🏗️ Architecture Components
+
+### 🐳 Approved Base Images
+
+Epyon uses **Docker Hardened Images (DHI)** as the default baseline for container security scans:
+
+**Primary Baseline Image:** `dhi/caddy:latest`
+
+**Why Docker Hardened Images?**
+- 🔒 **Distroless**: Minimal attack surface with no package manager
+- ✅ **Reduced CVEs**: Significantly fewer vulnerabilities than traditional base images
+- 🛡️ **Security First**: Built with security as the primary design principle
+- 📜 **FIPS Compliant**: Meets federal security standards
+- 🔄 **Regular Updates**: Maintained with latest security patches
+
+**Available DHI Images:**
+- `dhi/caddy` - Web server and reverse proxy
+- `dhi/node` - Node.js runtime
+- `dhi/nginx` - High-performance web server
+- `dhi/httpd` - Apache HTTP server
+- `dhi/python` - Python runtime
+
+**Configuration:** Baseline images are defined in [configuration/approved-base-images.conf](configuration/approved-base-images.conf)
+
+**More Info:** [Docker Hardened Images Catalog](https://hub.docker.com/hardened-images/catalog)
+
+---
 
 ### Current Security Layers (9 Operational - Cross-Platform):
 
@@ -709,7 +735,44 @@ $env:TARGET_DIR="/path/to/project"; .\run-anchore-scan.ps1
 
 ### Baseline Scanning for Scanner Drift Detection
 
-Epyon includes baseline scanning to detect scanner drift and ensure consistent tool behavior over time:
+Epyon provides two approaches for baseline security scanning:
+
+#### 1. GitHub Actions Baseline Workflow (Recommended for Teams)
+
+**Create security baselines with git commit tracking** for comparing security posture over time:
+
+**Setup:**
+```bash
+# Add baseline workflow to your repository
+mkdir -p .github/workflows
+curl -o .github/workflows/baseline-scan.yml \
+  https://raw.githubusercontent.com/MetroStar/epyon/main/.github/workflows/baseline-scan.yml
+
+git add .github/workflows/baseline-scan.yml
+git commit -m "Add Epyon baseline security scanning"
+git push
+```
+
+**Usage:**
+1. Navigate to **Actions** → **Baseline Security Scan** in your repository
+2. Click **Run workflow** (manual trigger only)
+3. Download artifacts containing:
+   - Git commit SHA for tracking
+   - Baseline metadata JSON
+   - Reduced scan reports (SBOM, Secrets, IaC, Trivy, Grype)
+   - Interactive security dashboard
+
+**Baseline Workflow Features:**
+- 🎯 **Git SHA Capture**: Records exact commit for future comparison
+- 📌 **Metadata Tracking**: Creates `baseline-metadata.json` with SHA and timestamp
+- 🔄 **Scan Naming**: Directory named `baseline_{repo}_{sha}_{user}_{timestamp}`
+- 📊 **Reduced Layers**: Runs 5 essential layers (excludes SonarQube, ClamAV, Helm, Xeol, Anchore, API)
+- 💾 **90-Day Retention**: Artifacts stored for long-term baseline comparison
+- 🔒 **Portable**: Works in any repository by checking out MetroStar/epyon
+
+#### 2. Local Baseline Scanning (Recommended for Scanner Validation)
+
+**For validating scanner consistency and detecting tool drift:**
 
 ```bash
 # Run initial baseline scan (clones comet-starter if needed)
@@ -731,7 +794,7 @@ Epyon includes baseline scanning to detect scanner drift and ensure consistent t
 ./scripts/shell/run-baseline-scan.sh --list
 ```
 
-**Baseline Features:**
+**Local Baseline Features:**
 - 🎯 **Consistent Reference**: Uses MetroStar/comet-starter as standard baseline application
 - 🔐 **SHA256 Hashing**: Cryptographic hash of security findings for integrity verification
 - 📌 **Official Baseline**: Mark and track a specific scan as the authoritative reference
@@ -753,13 +816,9 @@ BASELINE_SET_BY="rnelson"
 ```
 
 **Use Cases:**
-- Validate scanner updates haven't introduced false positives
-- Ensure tool signatures are current and accurate
-- Track scanner behavior changes over time
-- Verify consistent results across development team
-- Detect configuration drift or tool version changes
-- Support Waypoint 1: "0% margin of error between scanning the same application"
-- Compliance audit trails with cryptographic verification
+- **GitHub Actions**: Compare security posture between releases, track vulnerability trends, establish benchmarks
+- **Local Scanning**: Validate scanner updates, ensure tool signatures are current, detect configuration drift
+- **Both**: Compliance audit trails, verify consistent results, support Waypoint 1 ("0% margin of error")
 
 **Workflow Example:**
 ```bash
@@ -822,7 +881,26 @@ fi
 - **Multi-Format Analysis**: Source code, containers, infrastructure, dependencies
 - **Compliance Support**: NIST, OWASP, CIS benchmarks integration
 
-### 📊 Advanced Reporting & Analytics
+### � Intelligent Severity Gates
+- **Container Exclusion**: Container image vulnerabilities marked informational only (not included in build failures)
+- **Filesystem Focus**: Build failures based on application code and filesystem vulnerabilities
+- **Configurable Thresholds**: Default fails on Critical and High severity findings
+- **Warning-Only Mode**: Optional mode to report vulnerabilities without failing builds
+- **Granular Control**: Separate controls for critical vs high severity findings
+
+**What's Excluded from Build Failures:**
+- ❌ Container base image vulnerabilities (Grype image scans, Trivy base scans)
+- ℹ️ These are still scanned and reported as "informational only"
+
+**What Causes Build Failures:**
+- ✅ Application code vulnerabilities (Grype SBOM scans)
+- ✅ Filesystem vulnerabilities (Trivy filesystem scans)
+- ✅ Exposed secrets (TruffleHog)
+- ✅ IaC misconfigurations (Checkov)
+
+**Rationale:** Container base image vulnerabilities are often outside developer control and require coordinated updates. By excluding them from build failures, teams can focus on vulnerabilities they can immediately remediate while still tracking container security separately.
+
+### �📊 Advanced Reporting & Analytics
 - **Interactive Dashboards**: Rich HTML reports with filtering and search
 - **Trend Analysis**: Security posture tracking over time
 - **Executive Summaries**: C-level reporting with risk prioritization

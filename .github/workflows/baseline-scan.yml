@@ -207,29 +207,23 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Repository:** \`${{ github.repository }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Baseline SHA:** \`$BASELINE_SHA_SHORT\` (\`$BASELINE_SHA\`)" >> $GITHUB_STEP_SUMMARY
+      - name: Generate Summary
+        if: always()
+        run: |
+          cd epyon
+          source /tmp/epyon-env
+          SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
+          echo "## 🎯 Baseline Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Repository:** \`${{ github.repository }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Baseline SHA:** \`$BASELINE_SHA_SHORT\` (\`$BASELINE_SHA\`)" >> $GITHUB_STEP_SUMMARY
           echo "**Scan Type:** Baseline (reduced scan for initial assessment)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📌 Baseline Reference" >> $GITHUB_STEP_SUMMARY
           echo "Use this SHA for future scan comparisons:" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "$BASELINE_SHA" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`
-          name: baseline-security-scan
-          path: ${{ steps.find-scan.outputs.scan_dir }}/
-          retention-days: 90
-      
-      - name: Generate Summary
-        if: always()
-        run: |
-          SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
-          echo "## 🎯 Baseline Security Scan Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [ -n "${{ github.event.inputs.repository }}" ]; then
-            echo "**Repository:** \`${{ github.event.inputs.repository }}\`" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "**Repository:** \`${{ github.repository }}\`" >> $GITHUB_STEP_SUMMARY
-          fi
-          echo "**Scan Type:** Baseline (reduced scan for initial assessment)" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Baseline Scan Layers" >> $GITHUB_STEP_SUMMARY
           echo "- 📋 SBOM Generation" >> $GITHUB_STEP_SUMMARY

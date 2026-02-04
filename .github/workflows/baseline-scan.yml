@@ -35,7 +35,7 @@ jobs:
       - name: Checkout Epyon Security Scanner
         uses: actions/checkout@v4
         with:
-          repository: sketch0395/epyon
+          repository: metrostar/epyon
           path: epyon
           fetch-depth: 1
       

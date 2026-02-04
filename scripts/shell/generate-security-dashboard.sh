@@ -2555,31 +2555,6 @@ cat >> "$OUTPUT_HTML" << EOF
             <p class="subtitle"><strong>Generated:</strong> $(date '+%B %d, %Y at %I:%M %p')</p>
         </div>
 
-        <!-- Scan Overview Section -->
-        <div class="scan-overview" style="background: linear-gradient(135deg, #C41E3A 0%, #8B0000 100%); border-radius: 16px; padding: 24px; margin-bottom: 24px; color: white; box-shadow: 0 10px 40px rgba(196, 30, 58, 0.5); border: 1px solid #FF1493;">
-            <h2 style="margin: 0 0 16px 0; font-size: 1.4em; display: flex; align-items: center; gap: 10px;">
-                📊 Scan Overview
-            </h2>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
-                <div style="background: rgba(255,255,255,0.15); border-radius: 12px; padding: 16px; backdrop-filter: blur(10px);">
-                    <div style="font-size: 2em; font-weight: bold;">${TOTAL_FILES_SCANNED}</div>
-                    <div style="opacity: 0.9;">📄 Total Files Scanned</div>
-                </div>
-                <div style="background: rgba(255,255,255,0.15); border-radius: 12px; padding: 16px; backdrop-filter: blur(10px);">
-                    <div style="font-size: 2em; font-weight: bold;">10</div>
-                    <div style="opacity: 0.9;">🛡️ Security Layers</div>
-                </div>
-                <div style="background: rgba(255,255,255,0.15); border-radius: 12px; padding: 16px; backdrop-filter: blur(10px);">
-                    <div style="font-size: 2em; font-weight: bold;">${TOTAL_FINDINGS}</div>
-                    <div style="opacity: 0.9;">🔍 Total Findings</div>
-                </div>
-            </div>
-            
-            <div style="margin-top: 12px; font-size: 0.85em; opacity: 0.8;">
-                <strong>Target:</strong> <code style="background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 4px;">${TARGET_DIRECTORY}</code>
-            </div>
-        </div>
-
         <div class="stats-grid">
             <div class="stat-card critical-stat">
                 <div class="stat-label">Critical</div>

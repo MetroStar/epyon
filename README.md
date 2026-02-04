@@ -1149,6 +1149,101 @@ snyk test --file=scans/midas_rnelson_2026-01-22/sbom/exports/sbom.cyclonedx.json
 - **✅ PURL Identifiers**: Package URL (PURL) for universal identification
 - **✅ Compliance Ready**: NTIA Minimum Elements compliant
 
+### 🌐 API Discovery Export & Integration
+
+Epyon discovers and catalogs APIs in your applications, preparing comprehensive inventories for security scanning and integration.
+
+#### Discovered API Types
+
+| Discovery Method | Sources | Frameworks Supported |
+|-----------------|---------|---------------------|
+| **OpenAPI/Swagger Specs** | `openapi.json`, `swagger.yaml` | All OpenAPI 2.0/3.0 compliant |
+| **Python Routes** | Flask, Django, FastAPI decorators | Flask, Django REST, FastAPI |
+| **Node.js Routes** | Express, Next.js, Fastify routes | Express, Next.js, Fastify, Nest.js |
+| **Java Routes** | Spring annotations | Spring Boot, JAX-RS |
+| **GraphQL Schemas** | `schema.graphql`, `.gql` files | Apollo, GraphQL Yoga |
+
+#### Export Commands
+
+```bash
+# Export latest scan API discovery
+./scripts/shell/export-api-discovery.sh
+
+# Export specific scan
+./scripts/shell/export-api-discovery.sh midas_rnelson_2026-01-22_10-28-22
+
+# Export and copy to Desktop for easy access
+./scripts/shell/export-api-discovery.sh --desktop
+
+# Export to custom directory
+./scripts/shell/export-api-discovery.sh -o /tmp/api-exports
+
+# View export options
+./scripts/shell/export-api-discovery.sh --help
+```
+
+#### Export Location
+
+API discovery exports are saved to:
+- **Scan Directory**: `scans/{scan_id}/api/exports/api-discovery-{scan_id}.json`
+- **Desktop Copy** (with `--desktop` flag): `~/Desktop/api-discovery/`
+
+#### Integration Examples
+
+**Postman Collection Import:**
+```bash
+# Open Postman → Import → Select api-discovery-{scan_id}.json
+# Postman auto-detects endpoints and creates collection
+```
+
+**Swagger UI:**
+```bash
+# Extract OpenAPI specs from discovery
+jq '.discovery_methods.openapi_specs[]' scans/midas_rnelson_2026-01-22/api/exports/api-discovery-*.json
+
+# Serve with Swagger UI
+docker run -p 80:8080 -e SWAGGER_JSON=/api/openapi.json \
+  -v $(pwd)/scans/midas_rnelson_2026-01-22/api:/api \
+  swaggerapi/swagger-ui
+```
+
+**API Security Testing:**
+```bash
+# Extract all endpoints for security scanning
+jq -r '.discovery_methods.code_routes[][] | "\(.method) \(.endpoint)"' \
+  scans/midas_rnelson_2026-01-22/api/exports/api-discovery-*.json
+
+# Feed to OWASP ZAP or Burp Suite for API testing
+```
+
+**Custom Integration:**
+```bash
+# Parse with jq for automation
+jq '.summary' api-discovery-*.json
+jq '.discovery_methods.code_routes.python[]' api-discovery-*.json
+jq '.summary.frameworks_detected' api-discovery-*.json
+```
+
+#### API Discovery Features
+
+- **✅ Code-Level Detection**: Analyzes source code for API route definitions
+- **✅ Multi-Framework Support**: Python, Node.js, Java web frameworks
+- **✅ OpenAPI Spec Discovery**: Finds and catalogs API specifications
+- **✅ GraphQL Schema Detection**: Identifies GraphQL endpoints and schemas
+- **✅ Method & Path Extraction**: HTTP methods (GET, POST, etc.) and URL paths
+- **✅ Authentication Detection**: Identifies protected routes and auth requirements
+- **✅ Framework Detection**: Automatically identifies API frameworks in use
+- **✅ Export Ready**: JSON format for integration with security tools
+
+#### Dashboard Integration
+
+The security dashboard displays discovered APIs with:
+- Total endpoints found badge
+- Framework detection summary
+- Route breakdown by language
+- OpenAPI specification links
+- One-click export functionality
+
 ### Limitations & Workarounds
 
 **Current Limitation**: No ML model file scanning  

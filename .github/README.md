@@ -66,6 +66,16 @@ git commit -m "Add Epyon baseline security scanning"
 git push
 ```
 
+**Important:** After pushing the workflow file, you must:
+1. Navigate to your repository's **Actions** tab on GitHub
+2. The workflow may take a few minutes to appear
+3. Look for "**Baseline Security Scan**" in the workflows list (left sidebar)
+4. If it doesn't appear, check that:
+   - The YAML file is valid (no syntax errors)
+   - The file is in `.github/workflows/` directory
+   - You've pushed the commit to the default branch
+   - Repository Actions are enabled (Settings → Actions → General)
+
 **Features:**
 - 🎯 **Git SHA Capture**: Records exact commit SHA for future comparison
 - 📌 **Metadata Tracking**: Creates `baseline-metadata.json` with SHA, date, and repo info

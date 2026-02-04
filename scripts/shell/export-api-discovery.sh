@@ -112,7 +112,7 @@ else
 fi
 
 # Find API discovery file
-API_FILE="$SCAN_DIR/api-discovery.json"
+API_FILE="$SCAN_DIR/api/api-discovery.json"
 if [[ ! -f "$API_FILE" ]]; then
     echo -e "${RED}❌ API discovery file not found: $API_FILE${NC}"
     echo "Run API discovery scan first using run-api-discovery.sh"
@@ -121,7 +121,7 @@ fi
 
 # Set output directory
 if [[ -z "$OUTPUT_DIR" ]]; then
-    OUTPUT_DIR="$SCAN_DIR/api-discovery-exports"
+    OUTPUT_DIR="$SCAN_DIR/api/exports"
 fi
 mkdir -p "$OUTPUT_DIR"
 

@@ -585,7 +585,7 @@ if [ -d "$SCAN_DIR/sbom" ]; then
 fi
 
 # Generate API discovery exports for external integration
-if [ -f "$SCAN_DIR/api-discovery.json" ]; then
+if [ -f "$SCAN_DIR/api/api-discovery.json" ]; then
     echo -e "${PURPLE}🌐 Generating API discovery exports...${NC}"
     API_EXPORT_SCRIPT="$SCRIPT_DIR/export-api-discovery.sh"
     if [ -f "$API_EXPORT_SCRIPT" ]; then

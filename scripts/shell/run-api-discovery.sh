@@ -634,10 +634,11 @@ main() {
     
     # Set output path
     if [ -n "${SCAN_DIR}" ]; then
-        OUTPUT_PATH="${SCAN_DIR}/${OUTPUT_FILE}"
-        OUTPUT_DIR="${SCAN_DIR}"
-        mkdir -p "${SCAN_DIR}"
+        OUTPUT_DIR="${SCAN_DIR}/api"
+        OUTPUT_PATH="${OUTPUT_DIR}/${OUTPUT_FILE}"
+        mkdir -p "${OUTPUT_DIR}"
         print_info "Using SCAN_DIR: ${SCAN_DIR}"
+        print_info "API output directory: ${OUTPUT_DIR}"
     else
         OUTPUT_PATH="${TARGET_DIR}/${OUTPUT_FILE}"
         OUTPUT_DIR="${TARGET_DIR}"

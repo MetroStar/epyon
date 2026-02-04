@@ -1309,7 +1309,7 @@ fi
 
 # ---- API Discovery Statistics ----
 API_DISC_DIR="${LATEST_SCAN}"
-API_DISC_FILE="$API_DISC_DIR/api-discovery.json"
+API_DISC_FILE="$API_DISC_DIR/api/api-discovery.json"
 API_OPENAPI_COUNT=0
 API_PYTHON_COUNT=0
 API_NODEJS_COUNT=0

@@ -155,7 +155,7 @@ SBOM_SPDX_JSON="$SCAN_DIR/sbom/exports/sbom-${SCAN_NAME}.spdx.json"
 embed_data "$SBOM_SPDX_JSON" "embeddedSBOMs" "spdx-json"
 
 # Embed API Discovery data
-API_DISC_JSON="$SCAN_DIR/api-discovery.json"
+API_DISC_JSON="$SCAN_DIR/api/api-discovery.json"
 embed_data "$API_DISC_JSON" "embeddedAPIDiscovery" "null"
 
 # Replace original file with processed version

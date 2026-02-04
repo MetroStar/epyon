@@ -35,7 +35,7 @@ jobs:
       - name: Checkout Epyon Security Scanner
         uses: actions/checkout@v4
         with:
-          repository: metrostar/epyon
+          repository: MetroStar/epyon
           path: epyon
           fetch-depth: 1
       
@@ -103,6 +103,24 @@ jobs:
           # Write baseline metadata
           cat > "$SCAN_DIR/baseline-metadata.json" << EOF
           {
+            "scan_name": "${SCAN_NAME}",
+            "repository": "${{ github.repository }}",
+            "baseline_sha": "${BASELINE_SHA}",
+            "baseline_sha_short": "${BASELINE_SHA_SHORT}",
+            "scan_date": "${TIMESTAMP}",
+            "scan_type": "baseline",
+            "github_actor": "${GITHUB_ACTOR}",
+            "scan_layers": ["SBOM", "Secrets", "IaC", "Trivy", "Grype"]
+          }
+          EOF
+          
+          echo "✅ Initialized baseline scan: ${SCAN_NAME}"
+          echo "📌 Baseline SHA: ${BASELINE_SHA}"
+      
+      - name: Layer 1 - SBOM Generation
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
           cd epyon
           echo "📋 Layer 1: Software Bill of Materials (SBOM)"
           chmod +x scripts/shell/run-complete-sbom-scan.sh
@@ -197,16 +215,6 @@ jobs:
           path: epyon/${{ steps.find-scan.outputs.scan_dir }}/
           retention-days: 90
       
-      - name: Generate Summary
-        if: always()
-        run: |
-          cd epyon
-          source /tmp/epyon-env
-          SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
-          echo "## 🎯 Baseline Security Scan Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Repository:** \`${{ github.repository }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Baseline SHA:** \`$BASELINE_SHA_SHORT\` (\`$BASELINE_SHA\`)" >> $GITHUB_STEP_SUMMARY
       - name: Generate Summary
         if: always()
         run: |

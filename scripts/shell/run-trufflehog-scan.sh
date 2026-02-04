@@ -146,6 +146,9 @@ run_trufflehog_scan() {
         echo "Using ${CONTAINER_CLI}-based TruffleHog..."
         # Create a .trufflehogignore file to exclude common dependency directories
         cat > "$OUTPUT_DIR/.trufflehogignore" << 'EOF'
+# Exclude git directory (common false positives from .git/config)
+.git/
+
 # Exclude dependency directories
 node_modules/
 vendor/

@@ -2764,7 +2764,7 @@ else
     echo "                        <span class=\"tool-stat-badge badge-clean\">✅ Clean</span>" >> "$OUTPUT_HTML"
 fi
 
-cat >> "$OUTPUT_HTML" << 'EOF'
+cat >> "$OUTPUT_HTML" << EOF
                         <span class="expand-icon">▼</span>
                     </div>
                 </div>

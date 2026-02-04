@@ -1,0 +1,244 @@
+name: Baseline Security Scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      fail_on_critical:
+        description: 'Fail build on critical severity findings'
+        required: false
+        default: false
+        type: boolean
+      fail_on_high:
+        description: 'Fail build on high severity findings'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  baseline-scan:
+    name: Baseline Security Scan
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      pull-requests: write
+      security-events: write
+      issues: write
+    
+    steps:
+      - name: Checkout This Repository
+        uses: actions/checkout@v4
+        with:
+          path: target-repo
+          fetch-depth: 0
+      
+      - name: Checkout Epyon Security Scanner
+        uses: actions/checkout@v4
+        with:
+          repository: sketch0395/epyon
+          path: epyon
+          fetch-depth: 1
+      
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Cache Docker Images
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-docker-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-docker-
+      
+      - name: Pull Security Tool Images
+        run: |
+          docker pull anchore/grype:latest &
+          docker pull aquasec/trivy:latest &
+          docker pull trufflesecurity/trufflehog:latest &
+          docker pull anchore/syft:latest &
+          wait
+          echo "All security tool images cached"
+      
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq python3 python3-pip
+          pip3 install pyyaml
+      
+      - name: Initialize Baseline Scan
+        id: init-scan
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          TARGET_NAME: ${{ github.event.repository.name }}
+        run: |
+          cd epyon
+          chmod +x scripts/shell/run-target-security-scan.sh
+          
+          TARGET_DIR="${{ github.workspace }}/target-repo"
+          
+          echo "TARGET_DIR=$TARGET_DIR" > /tmp/epyon-env
+          echo "SCAN_MODE=baseline" >> /tmp/epyon-env
+          echo "TARGET_NAME=$TARGET_NAME" >> /tmp/epyon-env
+          echo "GITHUB_ACTOR=$GITHUB_ACTOR" >> /tmp/epyon-env
+          
+          # Capture baseline commit SHA
+          cd "$TARGET_DIR"
+          BASELINE_SHA=$(git rev-parse HEAD)
+          BASELINE_SHA_SHORT=$(git rev-parse --short HEAD)
+          cd "${{ github.workspace }}/epyon"
+          
+          echo "BASELINE_SHA=$BASELINE_SHA" >> /tmp/epyon-env
+          echo "BASELINE_SHA_SHORT=$BASELINE_SHA_SHORT" >> /tmp/epyon-env
+          
+          # Create scan directory with baseline SHA
+          TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
+          USERNAME="${GITHUB_ACTOR}"
+          SCAN_NAME="baseline_${TARGET_NAME}_${BASELINE_SHA_SHORT}_${USERNAME}_${TIMESTAMP}"
+          SCAN_DIR="scans/${SCAN_NAME}"
+          mkdir -p "$SCAN_DIR"
+          echo "SCAN_DIR=$PWD/$SCAN_DIR" >> /tmp/epyon-env
+          echo "SCAN_NAME=$SCAN_NAME" >> /tmp/epyon-env
+          echo "scan_dir=$SCAN_DIR" >> $GITHUB_OUTPUT
+          
+          # Write baseline metadata
+          cat > "$SCAN_DIR/baseline-metadata.json" << EOF
+          {
+          cd epyon
+          echo "📋 Layer 1: Software Bill of Materials (SBOM)"
+          chmod +x scripts/shell/run-complete-sbom-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-complete-sbom-scan.sh || echo "SBOM scan completed with warnings"
+      
+      - name: Layer 2 - Secret Detection (TruffleHog)
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "🔐 Layer 2: Secret Detection"
+          chmod +x scripts/shell/run-trufflehog-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-trufflehog-scan.sh filesystem || echo "TruffleHog scan completed with warnings"
+      
+      - name: Layer 6 - Infrastructure Security (Checkov)
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "☸️ Layer 6: Infrastructure Security"
+          chmod +x scripts/shell/run-checkov-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-checkov-scan.sh || echo "Checkov scan completed with warnings"
+      
+      - name: Layer 7 - Container Security (Trivy)
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "🛡️ Layer 7: Container Security (Trivy)"
+          chmod +x scripts/shell/run-trivy-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-trivy-scan.sh filesystem || echo "Trivy scan completed with warnings"
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-trivy-scan.sh base || echo "Trivy base image scan completed with warnings"
+      
+      - name: Layer 8 - Vulnerability Detection (Grype)
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "🔍 Layer 8: Vulnerability Detection (Grype)"
+          chmod +x scripts/shell/run-grype-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-grype-scan.sh sbom || echo "Grype SBOM scan completed with warnings"
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-grype-scan.sh images || echo "Grype image scan completed with warnings"
+      
+      - name: Generate Baseline Reports & Dashboard
+        if: always()
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "📊 Generating baseline reports and dashboard..."
+          chmod +x scripts/shell/consolidate-security-reports.sh
+          SCAN_DIR="$SCAN_DIR" ./scripts/shell/consolidate-security-reports.sh || echo "Report generation completed with warnings"
+      
+      - name: Find Scan Directory
+        id: find-scan
+        if: always()
+        run: |
+          cd epyon
+          SCAN_DIR=$(cat /tmp/epyon-env | grep "SCAN_DIR=" | cut -d= -f2 | sed "s|$PWD/||")
+          echo "scan_dir=$SCAN_DIR" >> $GITHUB_OUTPUT
+          echo "Found scan directory: $SCAN_DIR"
+      
+      - name: Check Severity Gate
+        id: severity-gate
+        if: github.event.inputs.fail_on_critical == 'true' || github.event.inputs.fail_on_high == 'true'
+        env:
+          SCAN_DIR: ${{ github.workspace }}/epyon/${{ steps.find-scan.outputs.scan_dir }}
+          FAIL_ON_CRITICAL: ${{ github.event.inputs.fail_on_critical == 'true' }}
+          FAIL_ON_HIGH: ${{ github.event.inputs.fail_on_high == 'true' }}
+          WARNING_ONLY: true
+        run: |
+          cd epyon
+          chmod +x scripts/shell/check-severity-gate.sh
+          ./scripts/shell/check-severity-gate.sh
+      
+      - name: Fix Artifact Permissions
+        if: always()
+        run: |
+          cd epyon
+          SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
+          if [ -d "$SCAN_DIR" ]; then
+            echo "Fixing permissions for: $SCAN_DIR"
+            sudo chown -R runner:docker "$SCAN_DIR" || true
+            sudo chmod -R a+r "$SCAN_DIR" || true
+            sudo find "$SCAN_DIR" -type d -exec chmod a+rx {} \; || true
+          fi
+      
+      - name: Upload Baseline Scan Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: baseline-security-scan
+          path: epyon/${{ steps.find-scan.outputs.scan_dir }}/
+          retention-days: 90
+      
+      - name: Generate Summary
+        if: always()
+        run: |
+          cd epyon
+          source /tmp/epyon-env
+          SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
+          echo "## 🎯 Baseline Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Repository:** \`${{ github.repository }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Baseline SHA:** \`$BASELINE_SHA_SHORT\` (\`$BASELINE_SHA\`)" >> $GITHUB_STEP_SUMMARY
+          echo "**Scan Type:** Baseline (reduced scan for initial assessment)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📌 Baseline Reference" >> $GITHUB_STEP_SUMMARY
+          echo "Use this SHA for future scan comparisons:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "$BASELINE_SHA" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`
+          name: baseline-security-scan
+          path: ${{ steps.find-scan.outputs.scan_dir }}/
+          retention-days: 90
+      
+      - name: Generate Summary
+        if: always()
+        run: |
+          SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
+          echo "## 🎯 Baseline Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ github.event.inputs.repository }}" ]; then
+            echo "**Repository:** \`${{ github.event.inputs.repository }}\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Repository:** \`${{ github.repository }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "**Scan Type:** Baseline (reduced scan for initial assessment)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Baseline Scan Layers" >> $GITHUB_STEP_SUMMARY
+          echo "- 📋 SBOM Generation" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔐 Secret Detection" >> $GITHUB_STEP_SUMMARY
+          echo "- ☸️ Infrastructure Security" >> $GITHUB_STEP_SUMMARY
+          echo "- 🛡️ Container Security (Trivy)" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔍 Vulnerability Detection (Grype)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md" ]; then
+            cat "$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md" >> $GITHUB_STEP_SUMMARY
+          fi

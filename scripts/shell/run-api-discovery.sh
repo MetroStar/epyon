@@ -366,7 +366,6 @@ find_nodejs_routes() {
         print_info "Searched for: route.js and route.ts files" >&2
         print_info "In directory: ${TARGET_DIR}" >&2
     fi
-    fi
     
     # Next.js Pages Router API routes (pages/api/)
     print_info "Searching for Next.js Pages Router API routes..."

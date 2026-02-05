@@ -112,7 +112,7 @@ jobs:
             "scan_date": "${TIMESTAMP}",
             "scan_type": "baseline",
             "github_actor": "${GITHUB_ACTOR}",
-            "scan_layers": ["SBOM", "Secrets", "IaC", "Trivy", "Grype"]
+            "scan_layers": ["SBOM", "Secrets", "IaC", "Trivy", "Grype", "Xeol"]
           }
           EOF
           
@@ -166,6 +166,15 @@ jobs:
           SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-grype-scan.sh sbom || echo "Grype SBOM scan completed with warnings"
           SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" PRIMARY_BASELINE_IMAGE="${PRIMARY_BASELINE_IMAGE}" ./scripts/shell/run-grype-scan.sh images || echo "Grype image scan completed with warnings"
       
+      - name: Layer 9 - End-of-Life Detection (Xeol)
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "⏰ Layer 9: End-of-Life Detection (Xeol)"
+          chmod +x scripts/shell/run-xeol-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" PRIMARY_BASELINE_IMAGE="${PRIMARY_BASELINE_IMAGE}" ./scripts/shell/run-xeol-scan.sh || echo "Xeol scan completed with warnings"
+      
       - name: Generate Baseline Reports & Dashboard
         if: always()
         run: |
@@ -209,6 +218,74 @@ jobs:
             sudo find "$SCAN_DIR" -type d -exec chmod a+rx {} \; || true
           fi
       
+      - name: Download Previous Baseline (if exists)
+        id: download-previous
+        continue-on-error: true
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: baseline-scan.yml
+          name: baseline-security-scan
+          path: epyon/scans/previous-baseline/
+          if_no_artifact_found: warn
+      
+      - name: Compare with Previous Baseline
+        id: compare-baseline
+        if: always() && steps.download-previous.outcome == 'success'
+        run: |
+          cd epyon
+          source /tmp/epyon-env
+          CURRENT_SCAN="${{ steps.find-scan.outputs.scan_dir }}"
+          PREVIOUS_SCAN="scans/previous-baseline"
+          
+          echo "## 📊 Baseline Comparison" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Compare metadata
+          if [ -f "$CURRENT_SCAN/baseline-metadata.json" ] && [ -f "$PREVIOUS_SCAN/baseline-metadata.json" ]; then
+            CURRENT_SHA=$(jq -r '.baseline_sha_short' "$CURRENT_SCAN/baseline-metadata.json" 2>/dev/null || echo "unknown")
+            PREVIOUS_SHA=$(jq -r '.baseline_sha_short' "$PREVIOUS_SCAN/baseline-metadata.json" 2>/dev/null || echo "unknown")
+            
+            echo "**Current SHA:** \`${CURRENT_SHA}\`" >> $GITHUB_STEP_SUMMARY
+            echo "**Previous SHA:** \`${PREVIOUS_SHA}\`" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Compare finding counts from consolidated reports
+          if [ -f "$CURRENT_SCAN/consolidated-reports/consolidated-findings.json" ] && [ -f "$PREVIOUS_SCAN/consolidated-reports/consolidated-findings.json" ]; then
+            echo "### Finding Changes" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            
+            # Extract counts
+            CURR_CRITICAL=$(jq '[.[] | select(.severity == "CRITICAL" or .severity == "Critical")] | length' "$CURRENT_SCAN/consolidated-reports/consolidated-findings.json" 2>/dev/null || echo "0")
+            PREV_CRITICAL=$(jq '[.[] | select(.severity == "CRITICAL" or .severity == "Critical")] | length' "$PREVIOUS_SCAN/consolidated-reports/consolidated-findings.json" 2>/dev/null || echo "0")
+            
+            CURR_HIGH=$(jq '[.[] | select(.severity == "HIGH" or .severity == "High")] | length' "$CURRENT_SCAN/consolidated-reports/consolidated-findings.json" 2>/dev/null || echo "0")
+            PREV_HIGH=$(jq '[.[] | select(.severity == "HIGH" or .severity == "High")] | length' "$PREVIOUS_SCAN/consolidated-reports/consolidated-findings.json" 2>/dev/null || echo "0")
+            
+            CURR_MEDIUM=$(jq '[.[] | select(.severity == "MEDIUM" or .severity == "Medium")] | length' "$CURRENT_SCAN/consolidated-reports/consolidated-findings.json" 2>/dev/null || echo "0")
+            PREV_MEDIUM=$(jq '[.[] | select(.severity == "MEDIUM" or .severity == "Medium")] | length' "$PREVIOUS_SCAN/consolidated-reports/consolidated-findings.json" 2>/dev/null || echo "0")
+            
+            # Calculate differences
+            CRITICAL_DIFF=$((CURR_CRITICAL - PREV_CRITICAL))
+            HIGH_DIFF=$((CURR_HIGH - PREV_HIGH))
+            MEDIUM_DIFF=$((CURR_MEDIUM - PREV_MEDIUM))
+            
+            # Format with trend indicators
+            [ $CRITICAL_DIFF -gt 0 ] && CRIT_TREND="🔴 +${CRITICAL_DIFF}" || [ $CRITICAL_DIFF -lt 0 ] && CRIT_TREND="🟢 ${CRITICAL_DIFF}" || CRIT_TREND="➖ ${CRITICAL_DIFF}"
+            [ $HIGH_DIFF -gt 0 ] && HIGH_TREND="🔴 +${HIGH_DIFF}" || [ $HIGH_DIFF -lt 0 ] && HIGH_TREND="🟢 ${HIGH_DIFF}" || HIGH_TREND="➖ ${HIGH_DIFF}"
+            [ $MEDIUM_DIFF -gt 0 ] && MED_TREND="🟡 +${MEDIUM_DIFF}" || [ $MEDIUM_DIFF -lt 0 ] && MED_TREND="🟢 ${MEDIUM_DIFF}" || MED_TREND="➖ ${MEDIUM_DIFF}"
+            
+            echo "| Severity | Previous | Current | Change |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|----------|---------|--------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Critical | ${PREV_CRITICAL} | ${CURR_CRITICAL} | ${CRIT_TREND} |" >> $GITHUB_STEP_SUMMARY
+            echo "| High     | ${PREV_HIGH} | ${CURR_HIGH} | ${HIGH_TREND} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Medium   | ${PREV_MEDIUM} | ${CURR_MEDIUM} | ${MED_TREND} |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "✅ Baseline comparison complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+      
       - name: Upload Baseline Scan Results
         uses: actions/upload-artifact@v4
         if: always()
@@ -241,6 +318,7 @@ jobs:
           echo "- ☸️ Infrastructure Security" >> $GITHUB_STEP_SUMMARY
           echo "- 🛡️ Container Security (Trivy)" >> $GITHUB_STEP_SUMMARY
           echo "- 🔍 Vulnerability Detection (Grype)" >> $GITHUB_STEP_SUMMARY
+          echo "- ⏰ End-of-Life Detection (Xeol)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           if [ -f "$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md" ]; then

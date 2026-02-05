@@ -134,10 +134,11 @@ echo
 # Display target analysis for transparency
 if [ -d "$REPO_PATH" ]; then
     TOTAL_FILES=$(count_scannable_files "$REPO_PATH" "*")
+    IMAGE_COUNT=${#BASE_IMAGES[@]}
     echo -e "${CYAN}📊 EOL Detection Analysis:${NC}"
     echo -e "   📁 Target Directory: $REPO_PATH"
     echo -e "   📄 Total Files to Analyze: $TOTAL_FILES"
-    echo -e "   🐳 Base Images to Check: ${#BASE_IMAGES[@]:-5}"
+    echo -e "   🐳 Base Images to Check: ${IMAGE_COUNT:-5}"
     echo
 fi
 

@@ -1,4 +1,4 @@
-name: Baseline Security Scan
+name: Baseline Security-Scan
 
 on:
   workflow_dispatch:
@@ -70,6 +70,7 @@ jobs:
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           TARGET_NAME: ${{ github.event.repository.name }}
+          PRIMARY_BASELINE_IMAGE: dhi/caddy:latest
         run: |
           cd epyon
           chmod +x scripts/shell/run-target-security-scan.sh
@@ -80,6 +81,7 @@ jobs:
           echo "SCAN_MODE=baseline" >> /tmp/epyon-env
           echo "TARGET_NAME=$TARGET_NAME" >> /tmp/epyon-env
           echo "GITHUB_ACTOR=$GITHUB_ACTOR" >> /tmp/epyon-env
+          echo "PRIMARY_BASELINE_IMAGE=$PRIMARY_BASELINE_IMAGE" >> /tmp/epyon-env
           
           # Capture baseline commit SHA
           cd "$TARGET_DIR"
@@ -152,7 +154,7 @@ jobs:
           echo "🛡️ Layer 7: Container Security (Trivy)"
           chmod +x scripts/shell/run-trivy-scan.sh
           SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-trivy-scan.sh filesystem || echo "Trivy scan completed with warnings"
-          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-trivy-scan.sh base || echo "Trivy base image scan completed with warnings"
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" PRIMARY_BASELINE_IMAGE="${PRIMARY_BASELINE_IMAGE}" ./scripts/shell/run-trivy-scan.sh base || echo "Trivy base image scan completed with warnings"
       
       - name: Layer 8 - Vulnerability Detection (Grype)
         continue-on-error: true
@@ -162,7 +164,7 @@ jobs:
           echo "🔍 Layer 8: Vulnerability Detection (Grype)"
           chmod +x scripts/shell/run-grype-scan.sh
           SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-grype-scan.sh sbom || echo "Grype SBOM scan completed with warnings"
-          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-grype-scan.sh images || echo "Grype image scan completed with warnings"
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" PRIMARY_BASELINE_IMAGE="${PRIMARY_BASELINE_IMAGE}" ./scripts/shell/run-grype-scan.sh images || echo "Grype image scan completed with warnings"
       
       - name: Generate Baseline Reports & Dashboard
         if: always()

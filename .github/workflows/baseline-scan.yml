@@ -224,7 +224,7 @@ jobs:
       - name: Download Previous Baseline (if exists)
         id: download-previous
         continue-on-error: true
-        uses: dawidd6/action-download-artifact@v3
+        uses: dawidd6/action-download-artifact@v6
         with:
           workflow: baseline-scan.yml
           name: baseline-security-scan

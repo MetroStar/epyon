@@ -19,7 +19,18 @@ This directory contains the essential documentation for the Epyon security scann
 **Status:** ✅ Current (Feb 2026)
 
 ---
+### 🎯 [Deduplication Implementation](DEDUPLICATION_IMPLEMENTATION.md)
+**Vulnerability deduplication to eliminate inflated counts**
+- Removes duplicate CVE counting across multiple tools
+- Unique key generation (CVE + package + version)
+- Detection transparency with `detected_by` metadata
+- Impact on severity gates and dashboards
+- Before/after examples and validation
 
+**Audience:** Security teams, DevOps engineers, dashboard users  
+**Status:** ✅ Current (Feb 2026)
+
+---
 ### � [STIG Compliance Guide](STIG_COMPLIANCE_GUIDE.md)
 **STIG control mapping and evidence collection procedures**
 - Maps Epyon tools to STIG controls

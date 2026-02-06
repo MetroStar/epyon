@@ -487,6 +487,99 @@ EOF
         done
     fi
     
+    # Deduplicate findings to avoid counting the same vulnerability multiple times
+    echo -e "${CYAN}🔄 Deduplicating findings across tools...${NC}"
+    
+    # Deduplicate each severity level by creating unique keys and keeping first occurrence
+    # Add metadata about which tools detected each finding
+    
+    jq '
+    # Helper function to create unique key for vulnerabilities
+    def vuln_key:
+        if .vulnerability_id or .id then 
+            ((.vulnerability_id // .id) + "|" + (.package_name // .package // "") + "|" + (.package_version // .version // ""))
+        elif .detector then
+            ((.detector // "") + "|" + (.file_path // .file // "") + "|" + ((.line_number // .line // "unknown") | tostring))
+        elif .check_id then
+            ((.check_id // "") + "|" + (.file_path // .file // "") + "|" + ((.line_number // "unknown") | tostring))
+        else
+            ((.type // "unknown") + "|" + (.file_path // .file // "") + "|" + ((.description // "")[0:50] // ""))
+        end;
+    
+    # Deduplicate critical findings
+    .critical_findings = (
+        .critical_findings | 
+        group_by(vuln_key) | 
+        map(
+            {
+                item: .[0],
+                detected_by: (map(.tool // "unknown") | unique),
+                occurrences: length
+            } | 
+            .item.detected_by = .detected_by |
+            .item.occurrences = .occurrences |
+            .item
+        )
+    ) |
+    
+    # Deduplicate high findings
+    .high_findings = (
+        .high_findings | 
+        group_by(vuln_key) | 
+        map(
+            {
+                item: .[0],
+                detected_by: (map(.tool // "unknown") | unique),
+                occurrences: length
+            } | 
+            .item.detected_by = .detected_by |
+            .item.occurrences = .occurrences |
+            .item
+        )
+    ) |
+    
+    # Deduplicate medium findings
+    .medium_findings = (
+        .medium_findings | 
+        group_by(vuln_key) | 
+        map(
+            {
+                item: .[0],
+                detected_by: (map(.tool // "unknown") | unique),
+                occurrences: length
+            } | 
+            .item.detected_by = .detected_by |
+            .item.occurrences = .occurrences |
+            .item
+        )
+    ) |
+    
+    # Deduplicate low findings
+    .low_findings = (
+        .low_findings | 
+        group_by(vuln_key) | 
+        map(
+            {
+                item: .[0],
+                detected_by: (map(.tool // "unknown") | unique),
+                occurrences: length
+            } | 
+            .item.detected_by = .detected_by |
+            .item.occurrences = .occurrences |
+            .item
+        )
+    )
+    ' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+    
+    # Recalculate totals after deduplication
+    total_critical=$(jq '.critical_findings | length' "$OUTPUT_FILE")
+    total_high=$(jq '.high_findings | length' "$OUTPUT_FILE")
+    total_medium=$(jq '.medium_findings | length' "$OUTPUT_FILE")
+    total_low=$(jq '.low_findings | length' "$OUTPUT_FILE")
+    
+    echo -e "${GREEN}✅ Deduplication complete${NC}"
+    echo -e "   ${CYAN}Removed duplicate findings across tools${NC}"
+    
     # Update final summary
     local tools_json=$(printf '%s\n' "${tools_analyzed[@]}" | jq -R . | jq -s .)
     jq --argjson tools "$tools_json" \
@@ -501,10 +594,10 @@ EOF
         .summary.total_low = ($total_low | tonumber)' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
     
     echo -e "${GREEN}✅ Security findings summary generated: $(basename "$OUTPUT_FILE")${NC}"
-    echo -e "${RED}🔴 Critical: $total_critical${NC}"
-    echo -e "${YELLOW}🟡 High: $total_high${NC}"
-    echo -e "${BLUE}🔵 Medium: $total_medium${NC}"
-    echo -e "${WHITE}⚪ Low: $total_low${NC}"
+    echo -e "${RED}🔴 Critical: $total_critical (unique)${NC}"
+    echo -e "${YELLOW}🟡 High: $total_high (unique)${NC}"
+    echo -e "${BLUE}🔵 Medium: $total_medium (unique)${NC}"
+    echo -e "${WHITE}⚪ Low: $total_low (unique)${NC}"
     echo -e "${BLUE}📊 Tools analyzed: ${#tools_analyzed[@]}${NC}"
     
     return 0

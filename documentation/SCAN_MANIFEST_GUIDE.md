@@ -38,14 +38,25 @@ Maintain audit trail for security assessments
 
 Manifests are **automatically generated** at the end of every scan. No additional steps required.
 
+### Local Scans
+
 ```bash
-# Run any scan
+# Run any scan locally
 ./scripts/shell/run-target-security-scan.sh <target> <scan_type>
 
 # Manifest is automatically created
 # scans/<scan_id>/scan-manifest.json
 # scans/<scan_id>/manifest-summary.txt
 ```
+
+### GitHub Actions Workflows
+
+Manifests are automatically generated in both public and private repository scans via GitHub Actions:
+
+- **Public Repo Scans**: `scan-public-repo.yml` workflow
+- **Private Repo Scans**: `scan-private-repo.yml` workflow
+
+The manifest is included in the downloaded scan artifacts along with all reports.
 
 ## Manifest Contents
 

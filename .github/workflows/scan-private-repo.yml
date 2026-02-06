@@ -248,6 +248,16 @@ jobs:
           chmod +x scripts/shell/consolidate-security-reports.sh
           SCAN_DIR="$SCAN_DIR" ./scripts/shell/consolidate-security-reports.sh || echo "Report generation completed with warnings"
       
+      - name: Generate Scan Manifest
+        if: always()
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "🔐 Generating cryptographic scan manifest..."
+          chmod +x scripts/shell/generate-scan-manifest.sh
+          ./scripts/shell/generate-scan-manifest.sh "$SCAN_DIR" || echo "Manifest generation completed with warnings"
+          echo "✅ Manifest generated: $SCAN_DIR/scan-manifest.json"
+      
       - name: Find Scan Directory
         id: find-scan
         if: always()

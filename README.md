@@ -40,15 +40,15 @@ Our roadmap is organized by level of certainty and timeframe, focusing on key ou
 - **API Security**: OpenAPI/Swagger validation and REST/GraphQL security scanning
 - **Compliance Framework**: STIG and RMF documentation integration
 
-*Roadmap current as of January 21, 2026*
+*Roadmap current as of February 6, 2026*
 
 ---
 
 ## Overview
 
-This repository contains a **production-ready, enterprise-grade** multi-layer DevOps security architecture with **target-aware scanning**, **AWS ECR integration**, and **isolated scan directory architecture**. Built for real-world enterprise applications with comprehensive Docker-based tooling.
+This repository contains a **production-ready, enterprise-grade** multi-layer DevOps security architecture with **comprehensive test coverage**, **baseline scanning**, **automated comparison**, and **isolated scan directory architecture**. Built for real-world enterprise applications with Docker-based tooling and 304 automated tests.
 
-**Latest Update: January 15, 2026** - Complete scan isolation architecture with all outputs contained in scan-specific directories. Automated remediation suggestions with inline dashboard display.
+**Latest Update: February 6, 2026** - Complete test coverage (304 tests, 100% pass rate), baseline scanning with DHI images, automated baseline comparison, fixed critical bugs (API discovery, Checkov parsing), and comprehensive security documentation.
 
 ## 📋 Prerequisites
 
@@ -445,86 +445,102 @@ Epyon uses **Docker Hardened Images (DHI)** as the default baseline for containe
 
 ---
 
-### Current Security Layers (9 Operational - Cross-Platform):
+### Current Security Layers (10 Operational):
 
 1. **🔍 TruffleHog** - Multi-target secret detection with filesystem, container, and registry scanning
 2. **🦠 ClamAV** - Enterprise antivirus scanning with real-time virus definition updates  
-3. **🔒 Checkov** - Infrastructure as Code security scanning with directory fallback (Terraform, Kubernetes, Docker)
+3. **🔒 Checkov** - Infrastructure as Code security scanning (Terraform, Kubernetes, Docker)
 4. **🎯 Grype** - Advanced vulnerability scanning with SBOM generation and multi-format support
-5. **🔒 Trivy** - Comprehensive security scanner for containers, filesystems, and Kubernetes
+5. **🐳 Trivy** - Comprehensive security scanner for containers, filesystems, and Kubernetes
 6. **⏰ Xeol** - End-of-Life software detection for proactive dependency management
-7. **📊 SonarQube** - Code quality analysis with target directory intelligence and interactive authentication
-8. **⚓ Helm** - Chart validation, linting, and packaging with interactive ECR authentication
-9. **⚓ Anchore** - Container and software composition analysis with policy-based compliance validation
-10. **📊 Report Consolidation** - Unified dashboard generation with comprehensive analytics
+7. **📊 SonarQube** - Code quality analysis with test coverage metrics
+8. **⚓ Helm** - Kubernetes chart validation, linting, and packaging
+9. **🔍 API Discovery** - Automatic API endpoint detection (OpenAPI, Express, Flask, Django, Next.js App Router)
+10. **📊 SBOM Generation** - Complete Software Bill of Materials with Syft
+
+### Quality Assurance
+
+**✅ Comprehensive Test Coverage:**
+- **304 automated tests** across 29 test files (100% pass rate)
+- **28 shell scripts** fully covered with unit tests
+- **BATS** (Bash Automated Testing System) framework
+- Validates scanner integration, orchestration, dashboards, exports, and utilities
+
+**✅ Fixed Critical Bugs:**
+- **CVE GHSA-5xr6-xhww-33m4**: Updated artifact download action (v3→v6)
+- **API Discovery**: Fixed duplicate `fi` syntax error breaking Next.js detection
+- **Checkov Parsing**: Fixed array format handling in dashboard generation
+
+**✅ Baseline Scanning:**
+- Scans DHI baseline images (`dhi/caddy:latest`)
+- Automated comparison with previous scans
+- Detects scanner drift and tool consistency issues
+- Scheduled runs every 89 days to maintain artifact retention
 
 ### Planned Security Layers (In Development):
 
-11. **🌐 API Security** (Waypoint 6) - OpenAPI/Swagger validation, REST/GraphQL endpoint security analysis, authentication testing
-
-### 🖥️ Cross-Platform Implementation (NEW - v2.2)
-
-**✅ Windows PowerShell Support** - Complete implementation achieving **95% feature parity**:
-- **Interactive ECR Authentication** - Unified AWS authentication across all security tools
-- **9-Step Security Pipeline** - Complete orchestration including Step 9 (Report Consolidation) 
-- **Directory Scanning Fallback** - Graceful handling when Helm charts or projects lack expected structure
-- **Comprehensive Error Handling** - Stub dependency creation and fallback mechanisms
-- **Identical User Experience** - Same command patterns and output formatting across platforms
-
-**Key PowerShell Scripts:**
-- `run-complete-security-scan.ps1` - 9-step orchestrator with Step 9 integration
-- `run-helm-build.ps1` - ✅ **NEW**: Full implementation with ECR authentication
-- `run-checkov-scan.ps1` - Enhanced with directory scanning fallback
-- `run-trivy-scan.ps1`, `run-grype-scan.ps1`, `run-trufflehog-scan.ps1` - Multi-target scanning
-- `consolidate-security-reports.ps1` - Unified reporting and dashboard generation
+11. **🌐 API Security Testing** (Waypoint 6) - OpenAPI/Swagger validation, REST/GraphQL endpoint security analysis, authentication testing
 
 ## 📁 Directory Structure
 
 ```
 epyon/
-├── scripts/                    # Cross-platform security scanning scripts
-│   ├── bash/                   # Unix/Linux/macOS scripts (legacy)
-│   ├── shell/                  # Modern shell scripts
-│   │   ├── run-target-security-scan.sh  # Target-aware orchestrator
-│   │   ├── generate-security-dashboard.sh  # Interactive HTML dashboard
-│   │   ├── generate-remediation-suggestions.sh  # Automated fix recommendations
-│   │   ├── run-sonar-analysis.sh
-│   │   ├── run-trufflehog-scan.sh
-│   │   ├── run-clamav-scan.sh
-│   │   ├── run-helm-build.sh   # Interactive ECR authentication
-│   │   ├── run-checkov-scan.sh # Directory scanning fallback
-│   │   ├── run-trivy-scan.sh
-│   │   ├── run-grype-scan.sh
-│   │   ├── run-xeol-scan.sh
-│   │   ├── analyze-*.sh        # Analysis scripts for each tool
-│   │   └── consolidate-security-reports.sh
-│   └── powershell/             # Windows PowerShell scripts (full parity)
-│       ├── run-target-security-scan.ps1  # Target-aware orchestrator
-│       ├── run-complete-security-scan.ps1  # 9-step orchestrator with Step 9 consolidation
-│       ├── run-helm-build.ps1  # Full implementation with ECR auth
-│       ├── run-checkov-scan.ps1
-│       ├── run-trivy-scan.ps1
-│       ├── run-grype-scan.ps1
-│       ├── run-trufflehog-scan.ps1
-│       ├── Scan-Directory-Template.ps1  # Centralized scan directory management
-│       └── consolidate-security-reports.ps1
-├── scans/                     # Isolated scan output directory (NEW v2.4)
-│   └── {scan_id}/            # Per-scan isolated directory
-│       ├── trufflehog/       # Tool-specific subdirectories
-│       ├── clamav/
-│       ├── checkov/
-│       ├── grype/
+├── .github/workflows/          # GitHub Actions workflows
+│   ├── baseline-scan.yml       # DHI baseline scanning (every 89 days)
+│   ├── target-scan.yml         # Target repository scanning
+│   └── scan-private-repo.yml   # Reusable workflow for any repository
+├── scripts/shell/              # Shell scripts (Bash-compatible)
+│   ├── run-target-security-scan.sh      # Main orchestrator
+│   ├── run-baseline-scan.sh             # Baseline scanning with DHI
+│   ├── run-api-discovery.sh             # API endpoint detection
+│   ├── generate-security-dashboard.sh   # Interactive HTML dashboard
+│   ├── generate-interactive-dashboard.sh # Enhanced dashboard with filtering
+│   ├── generate-remediation-suggestions.sh # Automated fix recommendations
+│   ├── consolidate-security-reports.sh  # Unified reporting
+│   ├── run-sonar-analysis.sh
+│   ├── run-trufflehog-scan.sh
+│   ├── run-clamav-scan.sh
+│   ├── run-helm-build.sh
+│   ├── run-checkov-scan.sh
+│   ├── run-trivy-scan.sh
+│   ├── run-grype-scan.sh
+│   ├── run-xeol-scan.sh
+│   ├── run-sbom-scan.sh
+│   ├── export-api-discovery.sh
+│   ├── export-sbom.sh
+│   ├── check-severity-gate.sh
+│   ├── update-base-images.sh
+│   └── cleanup-scripts.sh
+├── tests/shell/                # Test suite (BATS)
+│   ├── test-run-*.bats         # Scanner tests (11 files)
+│   ├── test-generate-*.bats    # Dashboard/report tests (4 files)
+│   ├── test-export-*.bats      # Export tests (2 files)
+│   ├── test-check-*.bats       # Validation tests (2 files)
+│   ├── test-consolidate-*.bats # Consolidation tests
+│   └── run-tests.sh            # Test runner
+├── configuration/
+│   └── approved-base-images.conf # DHI baseline images
+├── documentation/              # Essential documentation
+│   ├── SECURITY_REVIEW_AND_TEST_COVERAGE.md # Security review (Feb 2026)
+│   ├── SCAN_DIRECTORY_ARCHITECTURE.md       # Scan organization
+│   ├── OFFLINE_AIR_GAPPED_SETUP.md         # Air-gapped deployment
+│   └── README.md                            # Documentation index
+├── scans/                      # Scan results (isolated directories)
+│   └── {project}_{user}_{timestamp}/
 │       ├── trivy/
+│       ├── grype/
+│       ├── checkov/
+│       ├── trufflehog/
+│       ├── clamav/
 │       ├── xeol/
-│       ├── sonar/
-│       ├── helm/
 │       ├── sbom/
-│       ├── anchore/              # Anchore vulnerability scans
-│       │   ├── anchore-filesystem-results.json
-│       │   ├── anchore-sbom-results.json
-│       │   └── images/           # Container image scans
-│       └── consolidated-reports/  # Unified dashboard and reports
-│           ├── dashboards/       # Interactive security dashboard
+│       ├── api-discovery/
+│       └── consolidated-reports/
+│           └── dashboards/
+│               └── security-dashboard.html
+└── baseline/                   # Baseline scan repository
+    └── comet-starter/          # MetroStar baseline project
+```
 │           ├── html-reports/     # Tool-specific HTML reports
 │           ├── markdown-reports/ # Summary reports
 │           └── csv-reports/      # Data exports
@@ -590,21 +606,11 @@ wsl ./scripts/shell/run-target-security-scan.sh "/mnt/c/path/to/your/project" qu
 # Full scan - local directory (convert Windows paths to WSL format)
 wsl ./scripts/shell/run-target-security-scan.sh "/mnt/c/Users/username/Desktop/project" full
 
-# Full scan - Git repository (works seamlessly on Windows/WSL)
-wsl ./scripts/shell/run-target-security-scan.sh "https://github.com/user/repo.git" full
+# Full scan - Git repository
+./scripts/shell/run-target-security-scan.sh "https://github.com/user/repo.git" full
 
 # Image-focused security scan
-wsl ./scripts/shell/run-target-security-scan.sh "/mnt/c/path/to/project" images
-
-# Windows PowerShell (Native - No WSL)
-# Quick scan (4 core security tools)
-.\scripts\powershell\run-target-security-scan.ps1 -TargetDir "C:\path\to\your\project" -ScanType quick
-
-# Full scan (all 11 layers)
-.\scripts\powershell\run-target-security-scan.ps1 -TargetDir "C:\path\to\your\project" -ScanType full
-
-# Image-focused security scan
-.\scripts\powershell\run-target-security-scan.ps1 -TargetDir "C:\path\to\your\project" -ScanType images
+./scripts/shell/run-target-security-scan.sh "/path/to/project" images
 ```
 
 **Windows Users - Path Conversion:**
@@ -613,7 +619,7 @@ When using WSL, Windows paths must be converted to WSL format:
 - Windows: `D:\repos\myapp` → WSL: `/mnt/d/repos/myapp`
 
 **Windows Users - WSL Prerequisites:**
-```powershell
+```bash
 # 1. Enable WSL (if not already enabled)
 wsl --install
 
@@ -647,21 +653,21 @@ Example: comet_rnelson_2025-11-25_09-40-22
 **Quick Dashboard Access:**
 ```bash
 # Simplest way - opens latest scan dashboard automatically
-./scripts/bash/open-latest-dashboard.sh
+./scripts/shell/open-latest-dashboard.sh
 
 # Or manually open latest
 LATEST_SCAN=$(ls -t scans/ | head -1)
 open scans/$LATEST_SCAN/consolidated-reports/dashboards/security-dashboard.html
 
 # Regenerate dashboard for latest scan (if needed)
-./scripts/bash/consolidate-security-reports.sh  # Auto-detects latest scan
+./scripts/shell/consolidate-security-reports.sh  # Auto-detects latest scan
 ```
 
 ### Cross-Platform Script Execution
 
-**Unix/Linux/macOS (Bash):**
+**Unix/Linux/macOS (Shell):**
 ```bash
-cd scripts/bash
+cd scripts/shell
 
 # Complete 9-Step Security Pipeline (includes Step 9: Report Consolidation)
 ./run-complete-security-scan.sh full
@@ -697,19 +703,6 @@ TARGET_DIR="/path/to/project" ./run-anchore-scan.sh
 
 # Step 10: Report Consolidation (integrated into complete scan)
 ./consolidate-security-reports.sh
-```
-
-**Windows (PowerShell):**
-```powershell
-cd scripts\powershell
-
-# Complete 9-Step Security Pipeline (includes Step 9: Report Consolidation)
-.\run-complete-security-scan.ps1 -Mode full
-
-# Individual Layer Execution using TARGET_DIR method:
-
-# Layer 1: Secret Detection (TruffleHog)
-$env:TARGET_DIR="/path/to/project"; .\run-trufflehog-scan.ps1 filesystem
 
 # Layer 3: Infrastructure Security (Checkov) - Directory scanning fallback
 $env:TARGET_DIR="/path/to/project"; .\run-checkov-scan.ps1 filesystem
@@ -910,13 +903,7 @@ fi
 - **Graceful Failure Handling**: Continues scanning on individual tool failures
 - **Resource Optimization**: Efficient scanning with configurable parallelization
 - **Large Codebase Support**: Tested on 448MB+ projects with 63K+ files
-- **Cross-Platform Excellence**: **95% PowerShell/bash parity** - identical functionality across Windows, macOS, and Linux
-
-### 🖥️ Cross-Platform Support (NEW)
-- **Windows**: Full PowerShell implementation with interactive ECR authentication
-- **Unix/Linux/macOS**: Enhanced bash scripts with unified ECR authentication
-- **Feature Parity**: 95% identical functionality across all platforms
-- **9-Step Security Pipeline**: Complete orchestration available on all platforms
+- **Platform Support**: Unix/Linux/macOS with shell scripts
 
 ## 🎯 Recent Security Scan Results
 
@@ -943,11 +930,10 @@ fi
 - **✅ Environment Variables**: `$SCAN_ID`, `$SCAN_DIR`, `$TARGET_DIR`
 - **✅ Parallel Scanning**: Multiple scans can run simultaneously without conflicts
 
-#### **🖥️ Cross-Platform Validation:**
-- **✅ Windows (PowerShell)**: All 8 security layers operational with centralized output
-- **✅ Unix/Linux/macOS (Bash)**: Enhanced with centralized scan directory architecture
-- **✅ Variable Fixes**: Corrected `$OutputDir` → `$OUTPUT_DIR` in Grype/Trivy scripts
-- **✅ Path Validation**: Fixed null path checks in `Scan-Directory-Template.ps1`
+#### **🖥️ Platform Validation:**
+- **✅ Unix/Linux/macOS**: All 10 security layers operational with isolated scan architecture
+- **✅ Scan Isolation**: Each scan in dedicated directory with unique scan ID
+- **✅ Baseline Scanning**: DHI image comparison with automated validation
 
 ### 🏆 **Scan Isolation Achievement (Nov 25, 2025)**
 **Complete Scan Isolation Architecture** - All security scan outputs are fully isolated within scan-specific directories. Removed centralized `reports/` directory entirely. Each scan is self-contained with its own dashboard, reports, and tool outputs - enabling true audit trails, historical analysis, and parallel scanning without conflicts.

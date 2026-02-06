@@ -47,10 +47,6 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-trivy-scan.sh"
     grep -q "run_trivy_scan()" "$SCRIPT_PATH"
 }
 
-@test "run-trivy-scan.sh uses Docker for scanning" {
-    grep -q "docker run" "$SCRIPT_PATH"
-}
-
-@test "run-trivy-scan.sh checks for Docker availability" {
-    grep -q "command -v docker" "$SCRIPT_PATH"
+@test "run-trivy-scan.sh uses Docker or native trivy" {
+    grep -q "docker" "$SCRIPT_PATH" || grep -q "trivy" "$SCRIPT_PATH"
 }

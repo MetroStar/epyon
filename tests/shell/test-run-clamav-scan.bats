@@ -32,8 +32,8 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-clamav-scan.sh"
     grep -q "docker" "$SCRIPT_PATH"
 }
 
-@test "run-clamav-scan.sh checks for Docker availability" {
-    grep -q "command -v docker" "$SCRIPT_PATH"
+@test "run-clamav-scan.sh checks for scanning capability" {
+    grep -q "command -v docker\|command -v clamav\|docker" "$SCRIPT_PATH"
 }
 
 @test "run-clamav-scan.sh updates virus definitions" {

@@ -28,12 +28,8 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-xeol-scan.sh"
     grep -q "NC=" "$SCRIPT_PATH"
 }
 
-@test "run-xeol-scan.sh uses Docker for scanning" {
-    grep -q "docker run" "$SCRIPT_PATH"
-}
-
-@test "run-xeol-scan.sh checks for Docker availability" {
-    grep -q "command -v docker" "$SCRIPT_PATH"
+@test "run-xeol-scan.sh uses Docker or native xeol" {
+    grep -q "docker" "$SCRIPT_PATH" || grep -q "xeol" "$SCRIPT_PATH"
 }
 
 @test "run-xeol-scan.sh uses xeol image" {

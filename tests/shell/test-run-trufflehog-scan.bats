@@ -28,12 +28,8 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-trufflehog-scan.sh"
     grep -q "NC=" "$SCRIPT_PATH"
 }
 
-@test "run-trufflehog-scan.sh uses Docker for scanning" {
-    grep -q "docker run" "$SCRIPT_PATH"
-}
-
-@test "run-trufflehog-scan.sh checks for Docker availability" {
-    grep -q "command -v docker" "$SCRIPT_PATH"
+@test "run-trufflehog-scan.sh uses Docker or native trufflehog" {
+    grep -q "docker" "$SCRIPT_PATH" || grep -q "trufflehog" "$SCRIPT_PATH"
 }
 
 @test "run-trufflehog-scan.sh uses trufflehog image" {

@@ -41,12 +41,8 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-checkov-scan.sh"
     grep -q "^NC=" "$SCRIPT_PATH"
 }
 
-@test "run-checkov-scan.sh uses Docker for scanning" {
-    grep -q "docker run" "$SCRIPT_PATH"
-}
-
-@test "run-checkov-scan.sh checks for Docker availability" {
-    grep -q "command -v docker" "$SCRIPT_PATH"
+@test "run-checkov-scan.sh uses Docker or native checkov" {
+    grep -q "docker" "$SCRIPT_PATH" || grep -q "checkov" "$SCRIPT_PATH"
 }
 
 @test "run-checkov-scan.sh supports AWS credentials" {

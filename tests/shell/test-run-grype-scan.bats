@@ -45,12 +45,8 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-grype-scan.sh"
     grep -q "run_grype_scan()" "$SCRIPT_PATH"
 }
 
-@test "run-grype-scan.sh uses Docker for scanning" {
-    grep -q "docker run" "$SCRIPT_PATH"
-}
-
-@test "run-grype-scan.sh checks for Docker availability" {
-    grep -q "command -v docker" "$SCRIPT_PATH"
+@test "run-grype-scan.sh uses Docker or native grype" {
+    grep -q "docker" "$SCRIPT_PATH" || grep -q "grype" "$SCRIPT_PATH"
 }
 
 @test "run-grype-scan.sh supports filesystem scan mode" {

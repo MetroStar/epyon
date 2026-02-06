@@ -803,6 +803,14 @@ cat > "$UNIFIED_DIR/index.html" << EOF
                 📊 Main Security Dashboard
             </a>
             
+            <a href="../scan-manifest.json" class="link" style="background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);">
+                🔐 Scan Manifest (Integrity Verification)
+            </a>
+            
+            <a href="../manifest-summary.txt" class="link" style="background: #28a745;">
+                📋 Manifest Summary (Human-Readable)
+            </a>
+            
             <a href="html-reports/" class="link">
                 📄 HTML Reports by Tool
             </a>

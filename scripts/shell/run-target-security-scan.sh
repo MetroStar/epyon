@@ -1032,8 +1032,29 @@ if [[ -f "$SCRIPT_DIR/consolidate-security-reports.sh" ]]; then
             echo -e "${YELLOW}⚠️  Security findings summary generation had issues${NC}"
         fi
     else
-        echo -e "${YELLOW}⚠️  Security findings summary script not found${NC}"
+        echo -e "${YELLOW}⚠️  Report consolidation script not found${NC}"
     fi
+    
+    # Generate Scan Manifest for Integrity Verification
+    echo ""
+    echo -e "${BLUE}🔐 Generating scan manifest for integrity verification...${NC}"
+    if [[ -f "$SCRIPT_DIR/generate-scan-manifest.sh" ]]; then
+        "$SCRIPT_DIR/generate-scan-manifest.sh" "$SCAN_DIR" "$TARGET_DIR"
+        manifest_result=$?
+        
+        if [[ $manifest_result -eq 0 ]]; then
+            echo -e "${GREEN}✅ Scan manifest generated successfully${NC}"
+            if [[ -f "$SCAN_DIR/scan-manifest.json" ]]; then
+                echo -e "${CYAN}📋 Manifest: $SCAN_DIR/scan-manifest.json${NC}"
+                echo -e "${CYAN}🔍 Verify: ./scripts/shell/verify-scan-manifest.sh $SCAN_DIR${NC}"
+            fi
+        else
+            echo -e "${YELLOW}⚠️  Manifest generation had issues${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠️  Manifest generation script not found${NC}"
+    fi
+
 else
     echo -e "${YELLOW}⚠️  Report consolidation script not found${NC}"
 fi

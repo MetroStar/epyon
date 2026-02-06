@@ -394,6 +394,33 @@ Subdirectory: (empty)
 - 🎯 **Focused results**: Security findings for specific component
 - 📊 **Better reports**: Scan name uses subdirectory (e.g., `sapphire-ai-api_user_2026-02-06`)
 
+### Scan Integrity and Verification
+
+Every scan automatically generates a **cryptographic manifest** for tamper detection and audit trails:
+
+**Automatic Features:**
+- 🔐 **SHA-256 hashes** of all report files
+- 👤 **Attribution**: User, hostname, timestamp
+- 📌 **Reproducibility**: Tool versions, git commit SHA
+- ✅ **Verification**: Detect if reports are modified
+- 📋 **STIG compliance**: AU-10, SI-7, AC-16 evidence
+
+**Verify scan integrity:**
+```bash
+# Verify a scan hasn't been tampered with
+./scripts/shell/verify-scan-manifest.sh scans/<scan_id>
+
+# View manifest summary
+cat scans/<scan_id>/manifest-summary.txt
+```
+
+**Exit codes for CI/CD:**
+- `0` - All files verified (✅ Pass)
+- `1` - Tampering detected (❌ Fail)
+- `2` - Files missing (⚠️ Warning)
+
+See [Scan Manifest Guide](documentation/SCAN_MANIFEST_GUIDE.md) for complete details.
+
 ### Add to Your Own Repository
 
 Want automatic scanning on every push and PR?

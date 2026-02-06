@@ -20,7 +20,20 @@ This directory contains the essential documentation for the Epyon security scann
 
 ---
 
-### 📁 [Scan Directory Architecture](SCAN_DIRECTORY_ARCHITECTURE.md)
+### � [STIG Compliance Guide](STIG_COMPLIANCE_GUIDE.md)
+**STIG control mapping and evidence collection procedures**
+- Maps Epyon tools to STIG controls
+- Evidence collection for compliance audits
+- Coverage for Application Security, Container, Docker, DevSecOps, and OpenShift STIGs
+- Automated queries and evidence collection scripts
+- Compliance workflow and best practices
+
+**Audience:** Security teams, compliance officers, auditors  
+**Status:** ✅ Current (Feb 2026)
+
+---
+
+### �📁 [Scan Directory Architecture](SCAN_DIRECTORY_ARCHITECTURE.md)
 **Implementation details for scan result organization**
 - Scan directory structure and layout
 - Timestamp consistency approach

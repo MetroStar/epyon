@@ -44,11 +44,14 @@ show_help() {
     echo ""
     echo "Options:"
     echo "  -h, --help          Show this help message and exit"
+    echo "  --subdir PATH       Scan only a specific subdirectory within a Git repository"
+    echo "                      (only works with Git URLs, uses sparse-checkout)"
     echo ""
     echo "Target Types:"
     echo "  Local Directory     /path/to/project or ./project"
     echo "  Git HTTPS           https://github.com/user/repo.git"
     echo "  Git SSH             git@github.com:user/repo.git"
+    echo "  Git Subdirectory    --subdir path/to/subdir https://github.com/user/repo.git"
     echo ""
     echo "Scan Types:"
     echo "  quick       Fast scan - Trivy, TruffleHog, basic checks"
@@ -83,8 +86,12 @@ show_help() {
     echo "  $0 ./my-app images                               # Image-focused scan"
     echo ""
     echo "  # Git repository scans"
-    echo "  $0 https://github.com/user/repo.git              # Clone & scan"
+    echo "  $0 https://github.com/user/repo.git              # Clone & scan entire repo"
     echo "  $0 git@github.com:user/private-repo.git full     # SSH clone & scan"
+    echo ""
+    echo "  # Git subdirectory scans (sparse-checkout)"
+    echo "  $0 --subdir apps/api https://github.com/user/repo.git full"
+    echo "  $0 --subdir apps/sapphire-splunk/sapphire-ai-api https://github.com/MetroStar/sapphire.git"
     echo ""
     echo "Notes:"
     echo "  - Requires Docker for most scanners"
@@ -96,17 +103,36 @@ show_help() {
 }
 
 # Parse arguments
-for arg in "$@"; do
-    case $arg in
+SUBDIR_PATH=""
+POSITIONAL_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
         -h|--help)
             show_help
+            ;;
+        --subdir)
+            SUBDIR_PATH="$2"
+            shift 2
+            ;;
+        -*)
+            echo -e "${RED}❌ Error: Unknown option: $1${NC}"
+            exit 1
+            ;;
+        *)
+            POSITIONAL_ARGS+=("$1")
+            shift
             ;;
     esac
 done
 
+# Restore positional parameters
+set -- "${POSITIONAL_ARGS[@]}"
+
 # Configuration
 TARGET_INPUT="$1"
 SCAN_TYPE="${2:-full}"
+
 # Get the script's directory to locate security tools
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
@@ -121,13 +147,23 @@ CLONE_DIR=""
 # Validate inputs
 if [[ -z "$TARGET_INPUT" ]]; then
     echo -e "${RED}❌ Error: Target directory or Git URL is required${NC}"
-    echo "Usage: $0 <target_directory|git_url> [quick|full|images|analysis]"
+    echo "Usage: $0 [--subdir PATH] <target_directory|git_url> [quick|full|images|analysis]"
     echo ""
     echo "Examples:"
     echo "  $0 '/Users/rnelson/Desktop/my-project' full"
     echo "  $0 './my-project' quick"
     echo "  $0 'https://github.com/user/repo.git' full"
     echo "  $0 'git@github.com:user/repo.git' images"
+    echo "  $0 --subdir apps/api 'https://github.com/user/repo.git' full"
+    exit 1
+fi
+
+# Validate --subdir only used with Git URLs
+if [[ -n "$SUBDIR_PATH" ]] && ! [[ "$TARGET_INPUT" =~ ^(https?://|git@|ssh://) ]] && ! [[ "$TARGET_INPUT" =~ \.git$ ]]; then
+    echo -e "${RED}❌ Error: --subdir option can only be used with Git repository URLs${NC}"
+    echo "   Provided target: $TARGET_INPUT"
+    echo "   To scan a local subdirectory, provide the full path:"
+    echo "   $0 '/path/to/repo/$SUBDIR_PATH' full"
     exit 1
 fi
 
@@ -143,19 +179,62 @@ if [[ "$TARGET_INPUT" =~ ^(https?://|git@|ssh://) ]] || [[ "$TARGET_INPUT" =~ \.
     CLONE_DIR="$REPO_ROOT/scans/.tmp-clones/$REPO_NAME-$TIMESTAMP"
     mkdir -p "$CLONE_DIR"
     
-    echo -e "${CYAN}📥 Cloning repository...${NC}"
-    if git clone --depth 1 "$TARGET_INPUT" "$CLONE_DIR" 2>&1; then
-        echo -e "${GREEN}✅ Repository cloned successfully${NC}"
-        TARGET_DIR="$CLONE_DIR"
-        TARGET_NAME="$REPO_NAME"
+    if [[ -n "$SUBDIR_PATH" ]]; then
+        # Sparse checkout for subdirectory only
+        echo -e "${CYAN}📥 Cloning repository with sparse-checkout (subdirectory: $SUBDIR_PATH)...${NC}"
+        
+        # Initialize empty repo
+        if ! git clone --filter=blob:none --sparse "$TARGET_INPUT" "$CLONE_DIR" 2>&1; then
+            echo -e "${RED}❌ Error: Failed to initialize sparse clone${NC}"
+            rm -rf "$CLONE_DIR"
+            exit 1
+        fi
+        
+        # Configure sparse-checkout for specific subdirectory
+        cd "$CLONE_DIR"
+        if ! git sparse-checkout set "$SUBDIR_PATH" 2>&1; then
+            echo -e "${RED}❌ Error: Failed to configure sparse-checkout for path: $SUBDIR_PATH${NC}"
+            cd - > /dev/null
+            rm -rf "$CLONE_DIR"
+            exit 1
+        fi
+        cd - > /dev/null
+        
+        # Verify subdirectory exists
+        if [[ ! -d "$CLONE_DIR/$SUBDIR_PATH" ]]; then
+            echo -e "${RED}❌ Error: Subdirectory '$SUBDIR_PATH' does not exist in repository${NC}"
+            rm -rf "$CLONE_DIR"
+            exit 1
+        fi
+        
+        echo -e "${GREEN}✅ Subdirectory cloned successfully${NC}"
+        TARGET_DIR="$CLONE_DIR/$SUBDIR_PATH"
+        # Use subdirectory name for scan naming
+        TARGET_NAME=$(basename "$SUBDIR_PATH")
         CLONED_REPO=true
     else
-        echo -e "${RED}❌ Error: Failed to clone repository${NC}"
-        rm -rf "$CLONE_DIR"
-        exit 1
+        # Full repository clone
+        echo -e "${CYAN}📥 Cloning repository...${NC}"
+        if git clone --depth 1 "$TARGET_INPUT" "$CLONE_DIR" 2>&1; then
+            echo -e "${GREEN}✅ Repository cloned successfully${NC}"
+            TARGET_DIR="$CLONE_DIR"
+            TARGET_NAME="$REPO_NAME"
+            CLONED_REPO=true
+        else
+            echo -e "${RED}❌ Error: Failed to clone repository${NC}"
+            rm -rf "$CLONE_DIR"
+            exit 1
+        fi
     fi
 elif [[ -d "$TARGET_INPUT" ]]; then
     # It's a directory path
+    if [[ -n "$SUBDIR_PATH" ]]; then
+        echo -e "${RED}❌ Error: --subdir option can only be used with Git repository URLs${NC}"
+        echo -e "   Provided target: $TARGET_INPUT (local directory)"
+        echo -e "   To scan a local subdirectory, provide the full path directly:"
+        echo -e "   $0 '$TARGET_INPUT/$SUBDIR_PATH' full"
+        exit 1
+    fi
     TARGET_DIR=$(realpath "$TARGET_INPUT" 2>/dev/null || (cd "$TARGET_INPUT" && pwd))
     # Use TARGET_NAME env var if provided (from GitHub Actions), otherwise use directory name
     if [[ -z "${TARGET_NAME:-}" ]]; then
@@ -164,6 +243,9 @@ elif [[ -d "$TARGET_INPUT" ]]; then
 else
     echo -e "${RED}❌ Error: Target is neither a valid directory nor a Git URL${NC}"
     echo -e "   Provided: $TARGET_INPUT"
+    if [[ -n "$SUBDIR_PATH" ]]; then
+        echo -e "   Note: --subdir option requires a Git repository URL"
+    fi
     exit 1
 fi
 

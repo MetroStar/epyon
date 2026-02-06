@@ -38,8 +38,15 @@ Use Epyon as a centralized security scanning service:
 1. Go to **Actions** → **Scan External Repository**
 2. Click **Run workflow**
 3. Enter the Git repository URL
-4. Select scan mode (quick/full/baseline)
-5. View results in artifacts
+4. **Optional**: Enter subdirectory path (for monorepos - e.g., `apps/api`)
+5. Select scan mode (quick/full/baseline)
+6. View results in artifacts
+
+**Subdirectory Scanning (NEW):**
+- Scan specific directories within large repositories
+- Uses git sparse-checkout for faster cloning
+- Perfect for monorepos with multiple applications
+- Example: `apps/sapphire-splunk/sapphire-ai-api`
 
 ## 📋 Workflows
 
@@ -232,6 +239,53 @@ env:
 - Creates baseline for future comparison
 - 90-day artifact retention
 - See "Baseline Security Scan" workflow above
+
+### Subdirectory Scanning (Monorepo Support)
+
+**NEW**: Scan specific directories within repositories, perfect for monorepos.
+
+**For Private Repositories (scan-private-repo.yml):**
+
+Add subdirectory parameter when running manually:
+1. Go to **Actions** → **Private Security Scan**
+2. Click **Run workflow**
+3. Enter subdirectory path (e.g., `apps/api`, `services/auth`)
+4. Leave empty to scan entire repository
+
+**For External Repositories (scan-public-repo.yml):**
+
+The workflow now accepts a subdirectory input:
+1. Go to **Actions** → **Scan External Repository**
+2. Enter repository URL: `https://github.com/MetroStar/sapphire.git`
+3. Enter subdirectory: `apps/sapphire-splunk/sapphire-ai-api`
+4. Click **Run workflow**
+
+**How It Works:**
+- Uses git sparse-checkout for efficient cloning
+- Only downloads files in specified subdirectory
+- Scan results named after subdirectory (not full repo)
+- Example: `sapphire-ai-api_user_2026-02-06` instead of `sapphire_user_2026-02-06`
+
+**Benefits:**
+- 🚀 **Faster**: 50-90% faster clone times for large monorepos
+- 💾 **Less storage**: Only downloads needed files
+- 🎯 **Focused findings**: Security results for specific component
+- 📊 **Better tracking**: Track security trends per application
+
+**Use Cases:**
+```yaml
+# Microservices monorepo
+Repository: https://github.com/company/platform.git
+Subdirectory: services/auth-service
+
+# Multi-app repository
+Repository: https://github.com/company/apps.git
+Subdirectory: mobile-app
+
+# Nested structure
+Repository: https://github.com/MetroStar/sapphire.git
+Subdirectory: apps/sapphire-splunk/sapphire-ai-api
+```
 
 ### Customize Workflow
 

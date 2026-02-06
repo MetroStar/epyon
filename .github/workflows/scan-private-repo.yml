@@ -10,6 +10,10 @@ on:
     - cron: '0 2 * * *'
   workflow_dispatch:
     inputs:
+      subdirectory:
+        description: 'Optional: Subdirectory path to scan (e.g., apps/api)'
+        required: false
+        type: string
       scan_mode:
         description: 'Scan mode (quick/full/baseline)'
         required: false
@@ -99,13 +103,29 @@ jobs:
         env:
           TARGET_NAME: ${{ github.event.repository.name }}
           GITHUB_ACTOR: ${{ github.actor }}
+          SUBDIR: ${{ github.event.inputs.subdirectory }}
         run: |
           cd epyon
           chmod +x scripts/shell/run-target-security-scan.sh
-          echo "TARGET_DIR=${{ github.workspace }}/target-repo" > /tmp/epyon-env
+          
+          # Determine target directory and name based on subdirectory
+          if [[ -n "$SUBDIR" ]]; then
+            # Scanning subdirectory
+            TARGET_DIR="${{ github.workspace }}/target-repo/$SUBDIR"
+            TARGET_NAME=$(basename "$SUBDIR")
+            echo "🎯 Scanning subdirectory: $SUBDIR"
+          else
+            # Scanning full repository
+            TARGET_DIR="${{ github.workspace }}/target-repo"
+            TARGET_NAME="$TARGET_NAME"
+            echo "🎯 Scanning full repository: $TARGET_NAME"
+          fi
+          
+          echo "TARGET_DIR=$TARGET_DIR" > /tmp/epyon-env
           echo "SCAN_MODE=$SCAN_MODE" >> /tmp/epyon-env
           echo "TARGET_NAME=$TARGET_NAME" >> /tmp/epyon-env
           echo "GITHUB_ACTOR=$GITHUB_ACTOR" >> /tmp/epyon-env
+          echo "SUBDIR=$SUBDIR" >> /tmp/epyon-env
           
           # Create scan directory
           TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)

@@ -7,6 +7,10 @@ on:
         description: 'Git repository URL to scan'
         required: true
         type: string
+      subdirectory:
+        description: 'Optional: Subdirectory path within repository to scan (e.g., apps/api)'
+        required: false
+        type: string
       scan_mode:
         description: 'Scan mode'
         required: false
@@ -78,16 +82,35 @@ jobs:
           # Extract repo name from URL
           REPO_URL="${{ github.event.inputs.repository }}"
           REPO_NAME=$(basename "$REPO_URL" .git)
+          SUBDIR="${{ github.event.inputs.subdirectory }}"
           
-          echo "TARGET_DIR=$PWD/target-repo-$REPO_NAME" > /tmp/epyon-env
+          # Set target name based on subdirectory if provided
+          if [[ -n "$SUBDIR" ]]; then
+            TARGET_NAME=$(basename "$SUBDIR")
+          else
+            TARGET_NAME="$REPO_NAME"
+          fi
+          
+          echo "TARGET_NAME=$TARGET_NAME" >> /tmp/epyon-env
           echo "SCAN_MODE=${{ github.event.inputs.scan_mode }}" >> /tmp/epyon-env
-          echo "TARGET_NAME=$REPO_NAME" >> /tmp/epyon-env
           echo "GITHUB_ACTOR=$GITHUB_ACTOR" >> /tmp/epyon-env
           echo "REPO_URL=$REPO_URL" >> /tmp/epyon-env
+          echo "SUBDIR=$SUBDIR" >> /tmp/epyon-env
           
-          # Clone the repository
-          echo "📥 Cloning repository: $REPO_URL"
-          git clone "$REPO_URL" "target-repo-$REPO_NAME" || exit 1
+          # Clone the repository (with sparse-checkout if subdirectory specified)
+          if [[ -n "$SUBDIR" ]]; then
+            echo "📥 Cloning repository with sparse-checkout (subdirectory: $SUBDIR)"
+            git clone --filter=blob:none --sparse "$REPO_URL" "target-repo-$REPO_NAME" || exit 1
+            cd "target-repo-$REPO_NAME"
+            git sparse-checkout set "$SUBDIR" || exit 1
+            cd ..
+            echo "TARGET_DIR=$PWD/target-repo-$REPO_NAME/$SUBDIR" > /tmp/epyon-env
+            echo "✅ Sparse-checkout completed: $SUBDIR"
+          else
+            echo "📥 Cloning full repository: $REPO_URL"
+            git clone "$REPO_URL" "target-repo-$REPO_NAME" || exit 1
+            echo "TARGET_DIR=$PWD/target-repo-$REPO_NAME" > /tmp/epyon-env
+          fi
           
           # Create scan directory
           TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)

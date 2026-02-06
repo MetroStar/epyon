@@ -357,16 +357,42 @@ echo "🎯 Prerequisites check complete!"
 3. **Select "Scan External Repository"** from the left sidebar
 4. **Click "Run workflow"** (green button on the right)
 5. **Enter the repository URL** you want to scan (e.g., `https://github.com/owner/repo.git`)
-6. **Select scan mode**:
+6. **Optional: Enter subdirectory path** to scan only part of a monorepo (e.g., `apps/api`)
+7. **Select scan mode**:
    - **quick** - Fast scan (~2-5 minutes) ⚡
    - **full** - Complete analysis (~10-20 minutes) 🔍
    - **baseline** - Compare against previous scans 📊
-7. **Click "Run workflow"** to start
-8. **View results**:
+8. **Click "Run workflow"** to start
+9. **View results**:
    - Click on the workflow run
    - Click **"Summary"** in the left sidebar
    - Scroll down to **"Artifacts"** section
    - Download the ZIP file with all reports
+
+### Scan Specific Directories (Monorepos)
+
+Epyon supports scanning specific subdirectories within repositories:
+
+**Examples:**
+```yaml
+# Scan only the API directory in a monorepo
+Repository: https://github.com/MetroStar/sapphire.git
+Subdirectory: apps/sapphire-splunk/sapphire-ai-api
+
+# Scan specific microservice
+Repository: https://github.com/company/monorepo.git
+Subdirectory: services/auth-service
+
+# Leave subdirectory empty to scan entire repository
+Repository: https://github.com/company/app.git
+Subdirectory: (empty)
+```
+
+**Benefits:**
+- 🚀 **Faster**: Only downloads needed files (sparse-checkout)
+- 💾 **Less storage**: Doesn't clone entire monorepo
+- 🎯 **Focused results**: Security findings for specific component
+- 📊 **Better reports**: Scan name uses subdirectory (e.g., `sapphire-ai-api_user_2026-02-06`)
 
 ### Add to Your Own Repository
 
@@ -611,6 +637,10 @@ wsl ./scripts/shell/run-target-security-scan.sh "/mnt/c/Users/username/Desktop/p
 
 # Image-focused security scan
 ./scripts/shell/run-target-security-scan.sh "/path/to/project" images
+
+# Scan specific subdirectory within a Git repository (sparse-checkout)
+./scripts/shell/run-target-security-scan.sh --subdir apps/api "https://github.com/user/repo.git" full
+./scripts/shell/run-target-security-scan.sh --subdir apps/sapphire-splunk/sapphire-ai-api "https://github.com/MetroStar/sapphire.git"
 ```
 
 **Windows Users - Path Conversion:**

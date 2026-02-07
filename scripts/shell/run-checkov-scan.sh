@@ -172,8 +172,8 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
     # Scan for various IaC files
     echo -e "${BLUE}🔍 Scanning Infrastructure as Code files...${NC}"
     
-    # Check for AWS credentials and prompt if needed
-    if [[ -z "$AWS_ACCESS_KEY_ID" || -z "$AWS_SECRET_ACCESS_KEY" ]]; then
+    # Check for AWS credentials and prompt if needed (skip prompts in CI mode)
+    if [[ -z "$AWS_ACCESS_KEY_ID" || -z "$AWS_SECRET_ACCESS_KEY" ]] && [[ "${CI:-false}" != "true" ]] && [[ "${GITHUB_ACTIONS:-false}" != "true" ]]; then
         echo
         echo -e "${YELLOW}🔐 AWS Credentials not found in environment variables${NC}"
         echo "Checkov can perform enhanced security checks with AWS credentials."
@@ -223,6 +223,9 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
                 echo "✅ Continuing with local scan only"
                 ;;
         esac
+    elif [[ -z "$AWS_ACCESS_KEY_ID" || -z "$AWS_SECRET_ACCESS_KEY" ]]; then
+        echo "ℹ️  Running in CI mode - skipping AWS credential prompts"
+        echo "✅ Continuing with local scan only"
     else
         echo "✅ Using AWS credentials from environment"
     fi

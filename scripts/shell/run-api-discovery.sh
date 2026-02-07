@@ -463,15 +463,23 @@ find_graphql_schemas() {
         done < <(find "${TARGET_DIR}" -type f -name "$pattern" -print0 2>/dev/null)
     done
     
-    # GraphQL in code - find actual files with definitions
+    # GraphQL in code - look for GraphQL SDL or gql template literals
+    # Exclude TypeScript .d.ts files and node_modules to avoid false positives
     while IFS= read -r match; do
         if [ -n "$match" ]; then
             local file_path=$(echo "$match" | cut -d: -f1)
+            # Skip TypeScript definition files and node_modules
+            if [[ "$file_path" == *".d.ts"* ]] || [[ "$file_path" == *"node_modules"* ]]; then
+                continue
+            fi
             local relative_path="${file_path#$TARGET_DIR/}"
             schemas_found=$((schemas_found + 1))
             echo "graphql_code|${relative_path}|code" >> "$temp_graphql"
         fi
-    done < <(grep -r "type Query\|type Mutation\|type Subscription" "${TARGET_DIR}" --include="*.js" --include="*.ts" --include="*.py" --include="*.java" 2>/dev/null | head -20)
+    done < <(grep -rE "gql\`|graphql\`|buildSchema\(|makeExecutableSchema\(|type Query \{|type Mutation \{|type Subscription \{" "${TARGET_DIR}" \
+        --include="*.js" --include="*.ts" --include="*.jsx" --include="*.tsx" \
+        --exclude-dir="node_modules" --exclude-dir=".git" --exclude="*.d.ts" \
+        2>/dev/null | head -50)
     
     if [ $schemas_found -gt 0 ]; then
         print_info "Found GraphQL definitions in code: $schemas_found"
@@ -673,16 +681,6 @@ main() {
     java_routes=$(find_java_routes) || java_routes=0
     graphql_schemas=$(find_graphql_schemas) || graphql_schemas=0
     doc_patterns=$(find_api_documentation) || doc_patterns=0
-    
-    # DEBUG: Test JSON creation early
-    print_info "Testing JSON creation at: ${OUTPUT_PATH}" >&2
-    echo "{\"test\": \"early\"}" > "${OUTPUT_PATH}"
-    if [ -f "${OUTPUT_PATH}" ]; then
-        print_success "Early JSON test successful" >&2
-    else
-        print_error "Early JSON test failed!" >&2
-        exit 1
-    fi
     
     # Generate summary AFTER collecting all data
     generate_summary "$specs_count" "$python_routes" "$nodejs_routes" "$java_routes" "$graphql_schemas" "$doc_patterns"

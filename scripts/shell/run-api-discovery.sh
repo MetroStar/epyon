@@ -674,6 +674,16 @@ main() {
     graphql_schemas=$(find_graphql_schemas) || graphql_schemas=0
     doc_patterns=$(find_api_documentation) || doc_patterns=0
     
+    # DEBUG: Test JSON creation early
+    print_info "Testing JSON creation at: ${OUTPUT_PATH}" >&2
+    echo "{\"test\": \"early\"}" > "${OUTPUT_PATH}"
+    if [ -f "${OUTPUT_PATH}" ]; then
+        print_success "Early JSON test successful" >&2
+    else
+        print_error "Early JSON test failed!" >&2
+        exit 1
+    fi
+    
     # Generate summary AFTER collecting all data
     generate_summary "$specs_count" "$python_routes" "$nodejs_routes" "$java_routes" "$graphql_schemas" "$doc_patterns"
     

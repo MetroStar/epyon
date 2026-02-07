@@ -3,7 +3,8 @@
 # Generate Scan Manifest for Integrity Verification
 # Creates a cryptographic manifest with file hashes and scan metadata
 
-set -euo pipefail
+# Don't exit on error - we want to continue even if some files fail
+set -uo pipefail
 
 # Colors for output
 RED='\033[0;31m'
@@ -121,8 +122,10 @@ echo ""
 
 # Generate file hashes
 echo -e "${BLUE}🔐 Generating file hashes (SHA-256)...${NC}"
+echo -e "${BLUE}   Scanning directory: $SCAN_DIR${NC}"
 FILE_HASHES_JSON="{"
 FILE_COUNT=0
+SKIP_COUNT=0
 
 # Find all JSON, HTML, CSV, and Markdown report files
 while IFS= read -r -d '' file; do
@@ -134,7 +137,19 @@ while IFS= read -r -d '' file; do
             continue
         fi
         
-        hash=$(sha256sum "$file" | awk '{print $1}')
+        # Generate hash with error handling
+        if ! hash=$(sha256sum "$file" 2>/dev/null | awk '{print $1}'); then
+            echo "   ⚠️  Failed to hash: $relative_path (skipping)"
+            ((SKIP_COUNT++))
+            continue
+        fi
+        
+        # Skip if hash is empty
+        if [[ -z "$hash" ]]; then
+            echo "   ⚠️  Empty hash for: $relative_path (skipping)"
+            ((SKIP_COUNT++))
+            continue
+        fi
         
         # Add comma if not first entry
         if [[ $FILE_COUNT -gt 0 ]]; then
@@ -148,11 +163,14 @@ while IFS= read -r -d '' file; do
         echo "   ✓ $relative_path"
         ((FILE_COUNT++))
     fi
-done < <(find "$SCAN_DIR" -type f \( -name "*.json" -o -name "*.html" -o -name "*.csv" -o -name "*.md" -o -name "*.log" \) -print0)
+done < <(find "$SCAN_DIR" -type f \( -name "*.json" -o -name "*.html" -o -name "*.csv" -o -name "*.md" -o -name "*.log" \) -print0 2>/dev/null)
 
 FILE_HASHES_JSON+="}"
 
 echo ""
+if [[ $SKIP_COUNT -gt 0 ]]; then
+    echo -e "${YELLOW}⚠️  Skipped $SKIP_COUNT files due to errors${NC}"
+fi
 echo -e "${BLUE}📊 Found $FILE_COUNT files to include in manifest${NC}"
 echo ""
 

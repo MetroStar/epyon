@@ -245,9 +245,12 @@ jobs:
           source /tmp/epyon-env
           cd epyon
           echo "🔐 Generating cryptographic scan manifest..."
+          echo "DEBUG: SCAN_DIR = $SCAN_DIR"
           chmod +x scripts/shell/generate-scan-manifest.sh
           ./scripts/shell/generate-scan-manifest.sh "$SCAN_DIR" || echo "Manifest generation completed with warnings"
           echo "✅ Manifest generated: $SCAN_DIR/scan-manifest.json"
+          echo "DEBUG: Checking if manifest exists..."
+          ls -la "$SCAN_DIR"/scan-manifest* "$SCAN_DIR"/manifest-summary* 2>&1 || echo "Manifest files not found!"
       
       - name: Generate Security Findings Summary
         if: always()
@@ -266,8 +269,13 @@ jobs:
           source /tmp/epyon-env
           cd epyon
           echo "📊 Generating consolidated reports and dashboard..."
+          echo "DEBUG: SCAN_DIR = $SCAN_DIR"
+          echo "DEBUG: Before consolidation, manifest files:"
+          ls -la "$SCAN_DIR"/scan-manifest* "$SCAN_DIR"/manifest-summary* 2>&1 || echo "Manifest files not found before consolidation!"
           chmod +x scripts/shell/consolidate-security-reports.sh
           SCAN_DIR="$SCAN_DIR" ./scripts/shell/consolidate-security-reports.sh || echo "Report generation completed with warnings"
+          echo "DEBUG: After consolidation, manifest files in consolidated-reports:"
+          ls -la "$SCAN_DIR/consolidated-reports"/scan-manifest* "$SCAN_DIR/consolidated-reports"/manifest-summary* 2>&1 || echo "Manifest files not found in consolidated-reports!"
       
       - name: Find Scan Directory
         id: find-scan

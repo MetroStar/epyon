@@ -281,8 +281,8 @@ find_nodejs_routes() {
         routes_found=$((routes_found + express_routes))
         
         # Show sample routes
-        echo "    Sample routes:"
-        grep -r "app\.\(get\|post\|put\|delete\|patch\)\|router\.\(get\|post\|put\|delete\|patch\)" "${TARGET_DIR}" --include="*.js" --include="*.ts" 2>/dev/null | head -3 | sed 's/^/      /'
+        echo "    Sample routes:" >&2
+        grep -r "app\.\(get\|post\|put\|delete\|patch\)\|router\.\(get\|post\|put\|delete\|patch\)" "${TARGET_DIR}" --include="*.js" --include="*.ts" 2>/dev/null | head -3 | sed 's/^/      /' >&2
     fi
     
     # Fastify patterns

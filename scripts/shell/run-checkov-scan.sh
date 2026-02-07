@@ -87,6 +87,9 @@ fi
 # Initialize scan environment for Checkov
 init_scan_environment "checkov"
 
+# Capture start time for duration calculation
+SCAN_START_TIME=$(date +%s)
+
 # Extract scan information
 if [[ -n "$SCAN_ID" ]]; then
     TARGET_NAME=$(echo "$SCAN_ID" | cut -d'_' -f1)
@@ -385,7 +388,7 @@ fi
 
 # Calculate scan duration
 SCAN_END_TIME=$(date +%s)
-SCAN_DURATION=$((SCAN_END_TIME - $(date -j -f "%Y-%m-%d_%H-%M-%S" "$TIMESTAMP" "+%s" 2>/dev/null || date +%s)))
+SCAN_DURATION=$((SCAN_END_TIME - SCAN_START_TIME))
 
 echo
 echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"

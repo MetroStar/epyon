@@ -275,30 +275,76 @@ find_nodejs_routes() {
     
     # Express patterns
     print_info "Searching for Express routes..."
-    local express_routes=$(grep -r "app\.\(get\|post\|put\|delete\|patch\)\|router\.\(get\|post\|put\|delete\|patch\)" "${TARGET_DIR}" --include="*.js" --include="*.ts" 2>/dev/null | wc -l | tr -d ' ')
+    local express_matches=$(grep -rn "app\.\(get\|post\|put\|delete\|patch\)\|router\.\(get\|post\|put\|delete\|patch\)" "${TARGET_DIR}" --include="*.js" --include="*.ts" 2>/dev/null)
+    local express_routes=$(echo "$express_matches" | grep -c . || echo "0")
     if [ "$express_routes" -gt 0 ]; then
         print_success "Found $express_routes Express route(s)"
         routes_found=$((routes_found + express_routes))
         
         # Show sample routes
         echo "    Sample routes:" >&2
-        grep -r "app\.\(get\|post\|put\|delete\|patch\)\|router\.\(get\|post\|put\|delete\|patch\)" "${TARGET_DIR}" --include="*.js" --include="*.ts" 2>/dev/null | head -3 | sed 's/^/      /' >&2
+        echo "$express_matches" | head -3 | sed 's/^/      /' >&2
+        
+        # Save routes to temp file
+        echo "$express_matches" | while IFS= read -r line; do
+            local file_path=$(echo "$line" | cut -d: -f1)
+            local line_num=$(echo "$line" | cut -d: -f2)
+            local code=$(echo "$line" | cut -d: -f3-)
+            local file_name=$(basename "$file_path")
+            local method=$(echo "$code" | sed -n 's/.*\.\(get\|post\|put\|delete\|patch\).*/\1/p' | tr '[:lower:]' '[:upper:]')
+            local path=$(echo "$code" | sed -n "s/.*['\"]\(\/[^'\"]*\)['\"].*/\1/p" | head -1)
+            [ -z "$path" ] && path="/unknown"
+            [ -z "$method" ] && method="UNKNOWN"
+            local endpoint_name=$(echo "$path" | sed 's|.*/||' | sed 's|-| |g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2))}1')
+            [ -z "$endpoint_name" ] && endpoint_name="Root"
+            echo "Express|$method|$path|$endpoint_name|Unknown|$file_name" >> "$temp_nodejs_routes"
+        done
     fi
     
     # Fastify patterns
     print_info "Searching for Fastify routes..."
-    local fastify_routes=$(grep -r "fastify\.\(get\|post\|put\|delete\|patch\)" "${TARGET_DIR}" --include="*.js" --include="*.ts" 2>/dev/null | wc -l | tr -d ' ')
+    local fastify_matches=$(grep -rn "fastify\.\(get\|post\|put\|delete\|patch\)" "${TARGET_DIR}" --include="*.js" --include="*.ts" 2>/dev/null)
+    local fastify_routes=$(echo "$fastify_matches" | grep -c . || echo "0")
     if [ "$fastify_routes" -gt 0 ]; then
         print_success "Found $fastify_routes Fastify route(s)"
         routes_found=$((routes_found + fastify_routes))
+        
+        # Save routes to temp file
+        echo "$fastify_matches" | while IFS= read -r line; do
+            local file_path=$(echo "$line" | cut -d: -f1)
+            local code=$(echo "$line" | cut -d: -f3-)
+            local file_name=$(basename "$file_path")
+            local method=$(echo "$code" | sed -n 's/.*\.\(get\|post\|put\|delete\|patch\).*/\1/p' | tr '[:lower:]' '[:upper:]')
+            local path=$(echo "$code" | sed -n "s/.*['\"]\(\/[^'\"]*\)['\"].*/\1/p" | head -1)
+            [ -z "$path" ] && path="/unknown"
+            [ -z "$method" ] && method="UNKNOWN"
+            local endpoint_name=$(echo "$path" | sed 's|.*/||' | sed 's|-| |g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2))}1')
+            [ -z "$endpoint_name" ] && endpoint_name="Root"
+            echo "Fastify|$method|$path|$endpoint_name|Unknown|$file_name" >> "$temp_nodejs_routes"
+        done
     fi
     
     # Koa patterns
     print_info "Searching for Koa routes..."
-    local koa_routes=$(grep -r "router\.\(get\|post\|put\|delete\|patch\)" "${TARGET_DIR}" --include="*.js" --include="*.ts" 2>/dev/null | wc -l | tr -d ' ')
+    local koa_matches=$(grep -rn "router\.\(get\|post\|put\|delete\|patch\)" "${TARGET_DIR}" --include="*.js" --include="*.ts" 2>/dev/null | grep -v "app\." | grep -v "fastify\.")
+    local koa_routes=$(echo "$koa_matches" | grep -c . || echo "0")
     if [ "$koa_routes" -gt 0 ]; then
         print_success "Found $koa_routes Koa route(s)"
         routes_found=$((routes_found + koa_routes))
+        
+        # Save routes to temp file
+        echo "$koa_matches" | while IFS= read -r line; do
+            local file_path=$(echo "$line" | cut -d: -f1)
+            local code=$(echo "$line" | cut -d: -f3-)
+            local file_name=$(basename "$file_path")
+            local method=$(echo "$code" | sed -n 's/.*\.\(get\|post\|put\|delete\|patch\).*/\1/p' | tr '[:lower:]' '[:upper:]')
+            local path=$(echo "$code" | sed -n "s/.*['\"]\(\/[^'\"]*\)['\"].*/\1/p" | head -1)
+            [ -z "$path" ] && path="/unknown"
+            [ -z "$method" ] && method="UNKNOWN"
+            local endpoint_name=$(echo "$path" | sed 's|.*/||' | sed 's|-| |g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2))}1')
+            [ -z "$endpoint_name" ] && endpoint_name="Root"
+            echo "Koa|$method|$path|$endpoint_name|Unknown|$file_name" >> "$temp_nodejs_routes"
+        done
     fi
     
     # Next.js API Routes (App Router - Next.js 13+)
@@ -376,14 +422,26 @@ find_nodejs_routes() {
     print_info "Searching for Next.js Pages Router API routes..."
     local nextjs_pages_routes=0
     if [ -d "${TARGET_DIR}/pages/api" ]; then
-        nextjs_pages_routes=$(find "${TARGET_DIR}/pages/api" -type f \( -name "*.js" -o -name "*.ts" \) 2>/dev/null | wc -l | tr -d ' ')
+        local pages_api_files=$(find "${TARGET_DIR}/pages/api" -type f \( -name "*.js" -o -name "*.ts" \) 2>/dev/null)
+        nextjs_pages_routes=$(echo "$pages_api_files" | grep -c . || echo "0")
         if [ "$nextjs_pages_routes" -gt 0 ]; then
             print_success "Found $nextjs_pages_routes Next.js Pages Router API route(s)"
             routes_found=$((routes_found + nextjs_pages_routes))
             
             # Show sample routes
             echo "    Sample Pages API routes:" >&2
-            find "${TARGET_DIR}/pages/api" -type f \( -name "*.js" -o -name "*.ts" \) 2>/dev/null | head -3 | sed 's/^/      /' >&2
+            echo "$pages_api_files" | head -3 | sed 's/^/      /' >&2
+            
+            # Save routes to temp file
+            echo "$pages_api_files" | while IFS= read -r api_file; do
+                local api_path=$(echo "$api_file" | sed "s|${TARGET_DIR}/pages/api||" | sed 's/\.[jt]sx\?$//')
+                [ -z "$api_path" ] && api_path="/"
+                local endpoint_name=$(echo "$api_path" | sed 's|.*/||' | sed 's|-| |g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2))}1')
+                [ -z "$endpoint_name" ] && endpoint_name="Root"
+                local file_name=$(basename "$api_file")
+                # Pages router typically handles all methods via handler function
+                echo "Next.js Pages|ALL|$api_path|$endpoint_name|Unknown|$file_name" >> "$temp_nodejs_routes"
+            done
         fi
     fi
     

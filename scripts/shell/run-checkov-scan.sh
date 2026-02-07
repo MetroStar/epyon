@@ -265,6 +265,10 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
     
     SCAN_RESULT=$?
     
+    # Debug: Check what files were created
+    echo "Debug: Checking for Checkov output files..." >&2
+    ls -la "$OUTPUT_DIR/" | grep -i checkov || echo "No checkov files found" >&2
+    
     # If Helm chart exists but wasn't fully scanned, try scanning templates directly
     if [[ -d "$CHART_DIR/templates" ]]; then
         echo -e "${BLUE}🔍 Scanning Helm templates directly (Kubernetes framework)...${NC}"
@@ -301,8 +305,11 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
     
     # Checkov creates a directory with results_json.json inside when using --output-file
     # Handle this by finding the actual results file
+    echo "Debug: Checking Checkov output structure..." >&2
+    echo "Debug: Looking for directory: $OUTPUT_DIR/checkov-results.json" >&2
     CHECKOV_OUTPUT_DIR="$OUTPUT_DIR/checkov-results.json"
     if [ -d "$CHECKOV_OUTPUT_DIR" ] && [ -f "$CHECKOV_OUTPUT_DIR/results_json.json" ]; then
+        echo "Debug: Found results_json.json inside directory structure" >&2
         # Move the actual results file to the correct location
         mv "$CHECKOV_OUTPUT_DIR/results_json.json" "$RESULTS_FILE"
         rm -rf "$CHECKOV_OUTPUT_DIR"
@@ -346,10 +353,13 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
             fi
         fi
     elif [ -f "$OUTPUT_DIR/checkov-results.json" ]; then
+        echo "Debug: Found checkov-results.json as a file (not directory)" >&2
         # Standard file output (older Checkov versions)
         mv "$OUTPUT_DIR/checkov-results.json" "$RESULTS_FILE"
         echo "✅ Infrastructure scan completed"
     else
+        echo "Debug: No results file or directory found!" >&2
+        echo "Debug: Creating placeholder results" >&2
         echo "⚠️  No results file generated"
         echo '{"summary": {"passed": 0, "failed": 0, "skipped": 0}, "results": {"failed_checks": []}}' > "$RESULTS_FILE"
     fi
@@ -362,6 +372,15 @@ else
     echo '{"summary": {"passed": 0, "failed": 0, "skipped": 0}, "results": {"failed_checks": []}}' > "$RESULTS_FILE"
     echo "Checkov scan skipped - Docker not available" >> "$SCAN_LOG"
     SCAN_RESULT=0
+fi
+
+# Debug: Verify final results file
+echo "Debug: Expected results file: $RESULTS_FILE" >&2
+if [ -f "$RESULTS_FILE" ]; then
+    echo "Debug: Results file exists, size: $(wc -c < "$RESULTS_FILE") bytes" >&2
+    echo "Debug: First 200 chars: $(head -c 200 "$RESULTS_FILE")" >&2
+else
+    echo "Debug: WARNING - Results file does not exist!" >&2
 fi
 
 # Calculate scan duration

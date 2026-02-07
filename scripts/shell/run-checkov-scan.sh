@@ -247,6 +247,9 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
     # Using --skip-download to scan Helm templates even without access to private registries
     # This allows scanning of raw templates without requiring helm dependency resolution
     echo -e "${BLUE}🔍 Running Checkov scan (skipping external dependencies)...${NC}"
+    
+    # Disable exit-on-error for Checkov command since it may return non-zero when findings exist
+    set +e
     ${CONTAINER_CLI} run --rm \
         -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
         -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
@@ -267,6 +270,7 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
         2>&1 | tee -a "$SCAN_LOG"
     
     SCAN_RESULT=$?
+    set -e
     
     # Debug: Check what files were created
     echo "Debug: Checking for Checkov output files..." >&2
@@ -275,6 +279,7 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
     # If Helm chart exists but wasn't fully scanned, try scanning templates directly
     if [[ -d "$CHART_DIR/templates" ]]; then
         echo -e "${BLUE}🔍 Scanning Helm templates directly (Kubernetes framework)...${NC}"
+        set +e
         ${CONTAINER_CLI} run --rm \
             -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
             -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
@@ -289,9 +294,11 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
             --output json \
             --output-file /output/checkov-kubernetes-results.json \
             2>&1 | tee -a "$SCAN_LOG"
+        set -e
         
         # Also scan values.yaml and secrets.yaml for secrets detection
         echo -e "${BLUE}🔍 Scanning Helm values for secrets...${NC}"
+        set +e
         ${CONTAINER_CLI} run --rm \
             -v "$TARGET_SCAN_DIR:/workspace" \
             -v "$OUTPUT_DIR:/output" \
@@ -302,6 +309,7 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
             --output json \
             --output-file /output/checkov-secrets-results.json \
             2>&1 | tee -a "$SCAN_LOG"
+        set -e
         
         echo "✅ Additional Helm template scans completed"
     fi

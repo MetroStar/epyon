@@ -117,6 +117,21 @@ if [[ -f "$CHECKOV_FILE" ]]; then
 else
     echo -e "${YELLOW}⚠️  Checkov results not found in: $SCAN_DIR/checkov/${NC}"
 fi
+
+# Check ClamAV malware detection
+CLAMAV_LOG=$(find "$SCAN_DIR/clamav" -name "*clamav*.log" 2>/dev/null | head -1)
+if [[ -f "$CLAMAV_LOG" ]]; then
+    echo -e "${CYAN}📊 Checking ClamAV results...${NC}"
+    CLAMAV_INFECTED=$(grep -c "FOUND$" "$CLAMAV_LOG" 2>/dev/null || echo "0")
+    echo "  Infected files: $CLAMAV_INFECTED"
+    if [[ $CLAMAV_INFECTED -gt 0 ]]; then
+        # Treat ALL malware detections as Critical severity
+        TOTAL_CRITICAL=$((TOTAL_CRITICAL + CLAMAV_INFECTED))
+        echo -e "  ${RED}⚠️  Malware detected - automatically marked as CRITICAL${NC}"
+    fi
+else
+    echo -e "${YELLOW}⚠️  ClamAV results not found in: $SCAN_DIR/clamav/${NC}"
+fi
 fi  # End of deduplicated summary check
 
 echo ""
@@ -176,6 +191,19 @@ elif [[ "$FAIL_ON_CRITICAL" == "true" && $TOTAL_CRITICAL -gt 0 ]]; then
         FAILURE_REASONS+=("### TruffleHog Secrets ($TRUFFLEHOG_SECRETS found)")
         FAILURE_REASONS+=("\`\`\`")
         jq -r '.[] | "Type: \(.DetectorName) | File: \(.SourceMetadata.Data.Filesystem.file // "N/A") | Line: \(.SourceMetadata.Data.Filesystem.line // "N/A")"' "$TRUFFLEHOG_FILE" 2>/dev/null | head -20 >> /tmp/severity-gate-summary.txt || true
+        FAILURE_REASONS+=("$(cat /tmp/severity-gate-summary.txt)")
+        FAILURE_REASONS+=("\`\`\`")
+        FAILURE_REASONS+=("")
+        rm -f /tmp/severity-gate-summary.txt
+    fi
+    
+    if [[ -f "$CLAMAV_LOG" && "$CLAMAV_INFECTED" -gt 0 ]]; then
+        FAILURE_REASONS+=("### ClamAV Malware Detection ($CLAMAV_INFECTED infected files)")
+        FAILURE_REASONS+=("")
+        FAILURE_REASONS+=("🚨 **CRITICAL:** Malware or infected files detected in the codebase!")
+        FAILURE_REASONS+=("")
+        FAILURE_REASONS+=("\`\`\`")
+        grep "FOUND$" "$CLAMAV_LOG" 2>/dev/null | head -20 >> /tmp/severity-gate-summary.txt || true
         FAILURE_REASONS+=("$(cat /tmp/severity-gate-summary.txt)")
         FAILURE_REASONS+=("\`\`\`")
         FAILURE_REASONS+=("")

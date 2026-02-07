@@ -853,7 +853,23 @@ if [ "$CHECKOV_TOTAL" -gt 0 ]; then
         </div>"
     fi
 else
-    CHECKOV_FINDINGS="<p class=\"no-findings\">No Checkov results available</p>"
+    # Check if Checkov actually ran or was skipped
+    if [ ! -d "$CHECKOV_DIR" ] || [ -z "$(find "$CHECKOV_DIR" -name '*.json' -type f ! -name '*summary*' 2>/dev/null)" ]; then
+        CHECKOV_FINDINGS="<div style='padding: 20px; text-align: center; color: #718096;'>
+            <p><strong>ℹ️ Checkov scan was not executed or produced no results</strong></p>
+            <p style='font-size: 0.9em; margin-top: 10px;'>This could indicate:</p>
+            <ul style='text-align: left; display: inline-block; margin-top: 10px;'>
+                <li>Scan was skipped due to scan mode selection</li>
+                <li>No IaC files (Terraform, Kubernetes, Helm, Dockerfile) were found</li>
+                <li>Scan failed to complete (check logs)</li>
+            </ul>
+        </div>"
+    else
+        CHECKOV_FINDINGS="<div style='padding: 20px; text-align: center; color: #10b981;'>
+            <p><strong>✅ All Checkov checks passed!</strong></p>
+            <p style='font-size: 0.9em; margin-top: 10px;'>No IaC misconfigurations found.</p>
+        </div>"
+    fi
 fi
 
 # ---- Anchore Statistics ----
@@ -2805,7 +2821,9 @@ cat >> "$OUTPUT_HTML" << EOF
 EOF
 
 # Add Checkov stats dynamically
-if [ "$CHECKOV_FAILED" -gt 0 ]; then
+if [ "$CHECKOV_TOTAL" -eq 0 ] && [ ! -d "$CHECKOV_DIR" ] || [ -z "$(find "$CHECKOV_DIR" -name '*.json' -type f ! -name '*summary*' 2>/dev/null)" ]; then
+    echo "                        <span class=\"tool-stat-badge badge-skipped\">⏭️ Skipped</span>" >> "$OUTPUT_HTML"
+elif [ "$CHECKOV_FAILED" -gt 0 ]; then
     echo "                        <span class=\"tool-stat-badge badge-high\">⚠️ ${CHECKOV_FAILED} Failed</span>" >> "$OUTPUT_HTML"
 else
     echo "                        <span class=\"tool-stat-badge badge-clean\">✅ Clean</span>" >> "$OUTPUT_HTML"

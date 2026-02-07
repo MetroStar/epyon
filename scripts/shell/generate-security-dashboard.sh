@@ -1556,7 +1556,7 @@ else
 </div>"
 fi
 
-# Calculate totals - Use deduplicated summary if available for overall counts
+# Calculate totals - Use deduplicated summary if available
 FINDINGS_SUMMARY="$SCAN_DIR/security-findings-summary.json"
 if [ -f "$FINDINGS_SUMMARY" ]; then
     echo -e "${CYAN}📊 Using deduplicated counts from security-findings-summary.json${NC}"
@@ -1576,7 +1576,6 @@ else
 fi
 
 # Calculate source-based totals (Container Image vs Application/Filesystem)
-# These use individual tool counts for breakdown charts
 # Container image vulnerabilities come from Trivy/Grype base image scans
 TOTAL_IMAGE_VULNS=$((TRIVY_CRITICAL + TRIVY_HIGH + TRIVY_MEDIUM + TRIVY_LOW + GRYPE_CRITICAL + GRYPE_HIGH + GRYPE_MEDIUM + GRYPE_LOW + XEOL_CRITICAL + XEOL_HIGH + XEOL_MEDIUM + XEOL_LOW))
 # Application/Config vulnerabilities come from Checkov, TruffleHog, Helm, SonarQube

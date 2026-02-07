@@ -103,6 +103,17 @@ echo
 # Create unified directory structure
 mkdir -p "$UNIFIED_DIR"/{raw-data,html-reports,markdown-reports,csv-reports,dashboards}
 
+# Copy manifest files into consolidated-reports for easy access
+if [ -f "$SCAN_DIR/scan-manifest.json" ]; then
+    echo -e "${CYAN}📋 Copying manifest files to consolidated-reports...${NC}"
+    cp "$SCAN_DIR/scan-manifest.json" "$UNIFIED_DIR/scan-manifest.json"
+    echo "   ✓ scan-manifest.json"
+fi
+if [ -f "$SCAN_DIR/manifest-summary.txt" ]; then
+    cp "$SCAN_DIR/manifest-summary.txt" "$UNIFIED_DIR/manifest-summary.txt"
+    echo "   ✓ manifest-summary.txt"
+fi
+
 # Function to convert JSON to human-readable HTML
 json_to_html() {
     local input_file=$1
@@ -803,11 +814,11 @@ cat > "$UNIFIED_DIR/index.html" << EOF
                 📊 Main Security Dashboard
             </a>
             
-            <a href="../scan-manifest.json" class="link" style="background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);">
+            <a href="scan-manifest.json" class="link" style="background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);">
                 🔐 Scan Manifest (Integrity Verification)
             </a>
             
-            <a href="../manifest-summary.txt" class="link" style="background: #28a745;">
+            <a href="manifest-summary.txt" class="link" style="background: #28a745;">
                 📋 Manifest Summary (Human-Readable)
             </a>
             

@@ -20,7 +20,7 @@
 #   - Identifies API documentation endpoints
 #   - Generates comprehensive API inventory
 
-set -euo pipefail
+set -uo pipefail
 
 # Error trap for debugging
 trap 'echo "ERROR: Script failed at line $LINENO" >&2' ERR

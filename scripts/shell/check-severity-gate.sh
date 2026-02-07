@@ -40,9 +40,22 @@ TOTAL_MEDIUM=0
 TOTAL_LOW=0
 ISSUES_FOUND=false
 
+# Try to use deduplicated summary first
+FINDINGS_SUMMARY="$SCAN_DIR/security-findings-summary.json"
+if [[ -f "$FINDINGS_SUMMARY" ]]; then
+    echo -e "${CYAN}📊 Using deduplicated security findings summary${NC}"
+    TOTAL_CRITICAL=$(jq -r '.summary.total_critical // 0' "$FINDINGS_SUMMARY")
+    TOTAL_HIGH=$(jq -r '.summary.total_high // 0' "$FINDINGS_SUMMARY")
+    TOTAL_MEDIUM=$(jq -r '.summary.total_medium // 0' "$FINDINGS_SUMMARY")
+    TOTAL_LOW=$(jq -r '.summary.total_low // 0' "$FINDINGS_SUMMARY")
+    echo "  Critical: $TOTAL_CRITICAL | High: $TOTAL_HIGH | Medium: $TOTAL_MEDIUM | Low: $TOTAL_LOW"
+    echo -e "${GREEN}✅ Using unique vulnerability counts (deduplicated)${NC}"
+else
+    echo -e "${YELLOW}⚠️  Deduplicated summary not found, counting from individual tools (may include duplicates)${NC}"
+
 # Check Grype results
 GRYPE_FILE=$(find "$SCAN_DIR/grype" -name "*grype*results.json" -o -name "*grype*sbom*.json" 2>/dev/null | head -1)
-if [[ -f "$GRYPE_FILE" ]]; then
+if [[ -f "$GRYPE_FILE" && -z "$FINDINGS_SUMMARY" || ! -f "$FINDINGS_SUMMARY" ]]; then
     echo -e "${CYAN}📊 Checking Grype results...${NC}"
     GRYPE_CRITICAL=$(jq -r '[.matches[]? | select(.vulnerability.severity=="Critical")] | length' "$GRYPE_FILE" 2>/dev/null || echo "0")
     GRYPE_HIGH=$(jq -r '[.matches[]? | select(.vulnerability.severity=="High")] | length' "$GRYPE_FILE" 2>/dev/null || echo "0")
@@ -104,6 +117,7 @@ if [[ -f "$CHECKOV_FILE" ]]; then
 else
     echo -e "${YELLOW}⚠️  Checkov results not found in: $SCAN_DIR/checkov/${NC}"
 fi
+fi  # End of deduplicated summary check
 
 echo ""
 echo -e "${CYAN}============================================${NC}"

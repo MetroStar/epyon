@@ -156,7 +156,8 @@ find_openapi_specs() {
     echo -e "${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}" >&2
     
     local specs_found=0
-    local spec_files=()
+    local temp_specs="${OUTPUT_DIR}/temp_openapi_specs.txt"
+    > "$temp_specs"  # Clear/create temp file
     
     # Common OpenAPI/Swagger file patterns
     local patterns=(
@@ -172,19 +173,23 @@ find_openapi_specs() {
     
     for pattern in "${patterns[@]}"; do
         while IFS= read -r -d '' file; do
+            local relative_path="${file#$TARGET_DIR/}"
             specs_found=$((specs_found + 1))
-            spec_files+=("$file")
             print_success "Found: $file"
             
             # Try to extract API info
+            local api_title="N/A"
+            local api_version="N/A"
             if [[ "$file" == *.json ]]; then
                 if command -v jq &> /dev/null; then
-                    local api_title=$(jq -r '.info.title // "N/A"' "$file" 2>/dev/null || echo "N/A")
-                    local api_version=$(jq -r '.info.version // "N/A"' "$file" 2>/dev/null || echo "N/A")
+                    api_title=$(jq -r '.info.title // "N/A"' "$file" 2>/dev/null || echo "N/A")
+                    api_version=$(jq -r '.info.version // "N/A"' "$file" 2>/dev/null || echo "N/A")
                     echo "    Title: $api_title"
                     echo "    Version: $api_version"
                 fi
             fi
+            # Write to temp file: path|title|version
+            echo "${relative_path}|${api_title}|${api_version}" >> "$temp_specs"
         done < <(find "${TARGET_DIR}" -type f -name "$pattern" -print0 2>/dev/null)
     done
     
@@ -437,6 +442,8 @@ find_graphql_schemas() {
     echo -e "${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}" >&2
     
     local schemas_found=0
+    local temp_graphql="${OUTPUT_DIR}/temp_graphql_schemas.txt"
+    > "$temp_graphql"  # Clear/create temp file
     
     # GraphQL schema files
     local patterns=(
@@ -448,16 +455,26 @@ find_graphql_schemas() {
     
     for pattern in "${patterns[@]}"; do
         while IFS= read -r -d '' file; do
+            local relative_path="${file#$TARGET_DIR/}"
             schemas_found=$((schemas_found + 1))
             print_success "Found: $file"
+            # Write to temp file: type|path|source
+            echo "schema_file|${relative_path}|file" >> "$temp_graphql"
         done < <(find "${TARGET_DIR}" -type f -name "$pattern" -print0 2>/dev/null)
     done
     
-    # GraphQL in code
-    local graphql_code=$(grep -r "type Query\|type Mutation\|type Subscription" "${TARGET_DIR}" --include="*.js" --include="*.ts" --include="*.py" --include="*.java" 2>/dev/null | wc -l | tr -d ' ')
-    if [ "$graphql_code" -gt 0 ]; then
-        print_info "Found GraphQL definitions in code: $graphql_code"
-        schemas_found=$((schemas_found + graphql_code))
+    # GraphQL in code - find actual files with definitions
+    while IFS= read -r match; do
+        if [ -n "$match" ]; then
+            local file_path=$(echo "$match" | cut -d: -f1)
+            local relative_path="${file_path#$TARGET_DIR/}"
+            schemas_found=$((schemas_found + 1))
+            echo "graphql_code|${relative_path}|code" >> "$temp_graphql"
+        fi
+    done < <(grep -r "type Query\|type Mutation\|type Subscription" "${TARGET_DIR}" --include="*.js" --include="*.ts" --include="*.py" --include="*.java" 2>/dev/null | head -20)
+    
+    if [ $schemas_found -gt 0 ]; then
+        print_info "Found GraphQL definitions in code: $schemas_found"
     fi
     
     if [ $schemas_found -eq 0 ]; then
@@ -730,10 +747,36 @@ main() {
   "scan_date": "TIMESTAMP_PLACEHOLDER",
   "target_directory": "TARGET_PLACEHOLDER",
   "discovery_methods": {
-    "openapi_specs": [],
+    "openapi_specs": [
+EOF_HEADER
+    
+    # Add OpenAPI specs from temp file
+    local temp_specs="${OUTPUT_DIR}/temp_openapi_specs.txt"
+    if [ -f "$temp_specs" ] && [ -s "$temp_specs" ]; then
+        print_info "Processing $(wc -l < "$temp_specs" | tr -d ' ') OpenAPI specs..." >&2
+        awk -F'|' 'BEGIN{first=1} {
+            # Escape backslashes and quotes in all fields
+            for(i=1; i<=NF; i++) {
+                gsub(/\\/, "\\\\", $i);
+                gsub(/"/, "\\\"", $i);
+            }
+            if (!first) printf ",\n";
+            printf "      {\"path\": \"%s\", \"title\": \"%s\", \"version\": \"%s\"}", 
+                $1, $2, $3;
+            first=0;
+        }' "$temp_specs" >> "${OUTPUT_PATH}" 2>&1
+        print_success "OpenAPI specs added to JSON" >&2
+        echo "" >> "${OUTPUT_PATH}"
+    else
+        print_info "No OpenAPI specs to add" >&2
+    fi
+    
+    # Start code routes section
+    cat >> "${OUTPUT_PATH}" << 'EOF_ROUTES'
+    ],
     "code_routes": {
       "python": [
-EOF_HEADER
+EOF_ROUTES
     
     # Add Python routes from temp file
     if [ -f "$temp_routes" ] && [ -s "$temp_routes" ]; then
@@ -791,14 +834,45 @@ EOF_NODEJS
         print_info "No Node.js routes to add" >&2
     fi
     
-    # Complete the JSON structure
-    cat >> "${OUTPUT_PATH}" << EOF
+    # Complete the JSON structure with GraphQL schemas
+    cat >> "${OUTPUT_PATH}" << 'EOF_COMPLETE'
       ],
       "java": [],
       "other": []
     },
     "documentation_endpoints": [],
-    "graphql_schemas": []
+    "graphql_schemas": [
+EOF_COMPLETE
+    
+    # Add GraphQL schemas from temp file
+    local temp_graphql="${OUTPUT_DIR}/temp_graphql_schemas.txt"
+    if [ -f "$temp_graphql" ] && [ -s "$temp_graphql" ]; then
+        print_info "Processing $(wc -l < "$temp_graphql" | tr -d ' ') GraphQL schemas..." >&2
+        awk -F'|' 'BEGIN{first=1} {
+            # Escape backslashes and quotes in all fields
+            for(i=1; i<=NF; i++) {
+                gsub(/\\/, "\\\\", $i);
+                gsub(/"/, "\\\"", $i);
+            }
+            if (!first) printf ",\n";
+            printf "      {\"type\": \"%s\", \"path\": \"%s\", \"source\": \"%s\"}", 
+                $1, $2, $3;
+            first=0;
+        }' "$temp_graphql" >> "${OUTPUT_PATH}" 2>&1
+        local awk_status=$?
+        if [ $awk_status -ne 0 ]; then
+            print_error "Failed to process GraphQL schemas (awk exit code: $awk_status)" >&2
+        else
+            print_success "GraphQL schemas added to JSON" >&2
+        fi
+        echo "" >> "${OUTPUT_PATH}"
+    else
+        print_info "No GraphQL schemas to add" >&2
+    fi
+    
+    # Close GraphQL array and complete JSON
+    cat >> "${OUTPUT_PATH}" << EOF
+    ]
   },
   "summary": {
     "total_specs_found": ${specs_count},
@@ -823,6 +897,8 @@ EOF
     # Cleanup temp files AFTER JSON is generated
     rm -f "$temp_routes"
     rm -f "$temp_nodejs_routes"
+    rm -f "$temp_graphql"
+    rm -f "$temp_specs"
     
     # Verify JSON was created successfully
     if [ -f "${OUTPUT_PATH}" ]; then

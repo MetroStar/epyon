@@ -318,6 +318,13 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
     # Handle this by finding the actual results file
     echo "Debug: Checking Checkov output structure..." >&2
     echo "Debug: Looking for directory: $OUTPUT_DIR/checkov-results.json" >&2
+    
+    # Fix permissions on Docker-created files (owned by root)
+    if command -v sudo &> /dev/null && [ -d "$OUTPUT_DIR" ]; then
+        echo "Debug: Fixing permissions on Checkov output files..." >&2
+        sudo chown -R "$(whoami):$(id -gn)" "$OUTPUT_DIR" 2>/dev/null || true
+    fi
+    
     CHECKOV_OUTPUT_DIR="$OUTPUT_DIR/checkov-results.json"
     if [ -d "$CHECKOV_OUTPUT_DIR" ] && [ -f "$CHECKOV_OUTPUT_DIR/results_json.json" ]; then
         echo "Debug: Found results_json.json inside directory structure" >&2

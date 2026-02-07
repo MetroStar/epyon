@@ -1556,14 +1556,27 @@ else
 </div>"
 fi
 
-# Calculate totals
-TOTAL_CRITICAL=$((TH_CRITICAL + CLAMAV_CRITICAL + TRIVY_CRITICAL + GRYPE_CRITICAL + SONAR_CRITICAL + CHECKOV_CRITICAL + HELM_CRITICAL + XEOL_CRITICAL + ANCHORE_CRITICAL))
-TOTAL_HIGH=$((TH_HIGH + TRIVY_HIGH + GRYPE_HIGH + SONAR_HIGH + CHECKOV_HIGH + HELM_HIGH + XEOL_HIGH + ANCHORE_HIGH))
-TOTAL_MEDIUM=$((TRIVY_MEDIUM + GRYPE_MEDIUM + XEOL_MEDIUM + ANCHORE_MEDIUM))
-TOTAL_LOW=$((TRIVY_LOW + GRYPE_LOW + XEOL_LOW + ANCHORE_LOW))
-TOTAL_FINDINGS=$((TOTAL_CRITICAL + TOTAL_HIGH + TOTAL_MEDIUM + TOTAL_LOW))
+# Calculate totals - Use deduplicated summary if available for overall counts
+FINDINGS_SUMMARY="$SCAN_DIR/security-findings-summary.json"
+if [ -f "$FINDINGS_SUMMARY" ]; then
+    echo -e "${CYAN}📊 Using deduplicated counts from security-findings-summary.json${NC}"
+    TOTAL_CRITICAL=$(jq -r '.summary.total_critical // 0' "$FINDINGS_SUMMARY")
+    TOTAL_HIGH=$(jq -r '.summary.total_high // 0' "$FINDINGS_SUMMARY")
+    TOTAL_MEDIUM=$(jq -r '.summary.total_medium // 0' "$FINDINGS_SUMMARY")
+    TOTAL_LOW=$(jq -r '.summary.total_low // 0' "$FINDINGS_SUMMARY")
+    TOTAL_FINDINGS=$((TOTAL_CRITICAL + TOTAL_HIGH + TOTAL_MEDIUM + TOTAL_LOW))
+    echo -e "${GREEN}✅ Using unique vulnerability counts: Critical($TOTAL_CRITICAL) High($TOTAL_HIGH) Medium($TOTAL_MEDIUM) Low($TOTAL_LOW)${NC}"
+else
+    echo -e "${YELLOW}⚠️  Deduplicated summary not found, using tool sums (may include duplicates)${NC}"
+    TOTAL_CRITICAL=$((TH_CRITICAL + CLAMAV_CRITICAL + TRIVY_CRITICAL + GRYPE_CRITICAL + SONAR_CRITICAL + CHECKOV_CRITICAL + HELM_CRITICAL + XEOL_CRITICAL + ANCHORE_CRITICAL))
+    TOTAL_HIGH=$((TH_HIGH + TRIVY_HIGH + GRYPE_HIGH + SONAR_HIGH + CHECKOV_HIGH + HELM_HIGH + XEOL_HIGH + ANCHORE_HIGH))
+    TOTAL_MEDIUM=$((TRIVY_MEDIUM + GRYPE_MEDIUM + XEOL_MEDIUM + ANCHORE_MEDIUM))
+    TOTAL_LOW=$((TRIVY_LOW + GRYPE_LOW + XEOL_LOW + ANCHORE_LOW))
+    TOTAL_FINDINGS=$((TOTAL_CRITICAL + TOTAL_HIGH + TOTAL_MEDIUM + TOTAL_LOW))
+fi
 
 # Calculate source-based totals (Container Image vs Application/Filesystem)
+# These use individual tool counts for breakdown charts
 # Container image vulnerabilities come from Trivy/Grype base image scans
 TOTAL_IMAGE_VULNS=$((TRIVY_CRITICAL + TRIVY_HIGH + TRIVY_MEDIUM + TRIVY_LOW + GRYPE_CRITICAL + GRYPE_HIGH + GRYPE_MEDIUM + GRYPE_LOW + XEOL_CRITICAL + XEOL_HIGH + XEOL_MEDIUM + XEOL_LOW))
 # Application/Config vulnerabilities come from Checkov, TruffleHog, Helm, SonarQube

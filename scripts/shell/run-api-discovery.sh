@@ -20,10 +20,10 @@
 #   - Identifies API documentation endpoints
 #   - Generates comprehensive API inventory
 
-set -uo pipefail
+set -o pipefail
 
-# Error trap for debugging
-trap 'echo "ERROR: Script failed at line $LINENO" >&2' ERR
+# Error trap for debugging - but don't exit automatically
+trap 'echo "⚠️  Warning: Command failed at line $LINENO (continuing...)" >&2' ERR
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -742,6 +742,7 @@ main() {
     fi
     
     # Start building JSON
+    print_info "Creating JSON file at: ${OUTPUT_PATH}" >&2
     cat > "${OUTPUT_PATH}" << 'EOF_HEADER'
 {
   "scan_date": "TIMESTAMP_PLACEHOLDER",
@@ -749,6 +750,12 @@ main() {
   "discovery_methods": {
     "openapi_specs": [
 EOF_HEADER
+    
+    if [ ! -f "${OUTPUT_PATH}" ]; then
+        print_error "Failed to create initial JSON file!" >&2
+        exit 1
+    fi
+    print_success "Initial JSON structure created" >&2
     
     # Add OpenAPI specs from temp file
     local temp_specs="${OUTPUT_DIR}/temp_openapi_specs.txt"

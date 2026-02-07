@@ -275,7 +275,7 @@ find_nodejs_routes() {
     
     # Express patterns
     print_info "Searching for Express routes..."
-    local express_matches=$(grep -rn "app\.\(get\|post\|put\|delete\|patch\)\|router\.\(get\|post\|put\|delete\|patch\)" "${TARGET_DIR}" --include="*.js" --include="*.ts" 2>/dev/null)
+    local express_matches=$(grep -rn "app\.\(get\|post\|put\|delete\|patch\)\|router\.\(get\|post\|put\|delete\|patch\)" "${TARGET_DIR}" --include="*.js" --include="*.ts" --exclude-dir=node_modules 2>/dev/null)
     local express_routes=$(echo "$express_matches" | grep -c . || echo "0")
     if [ "$express_routes" -gt 0 ]; then
         print_success "Found $express_routes Express route(s)"
@@ -303,7 +303,7 @@ find_nodejs_routes() {
     
     # Fastify patterns
     print_info "Searching for Fastify routes..."
-    local fastify_matches=$(grep -rn "fastify\.\(get\|post\|put\|delete\|patch\)" "${TARGET_DIR}" --include="*.js" --include="*.ts" 2>/dev/null)
+    local fastify_matches=$(grep -rn "fastify\.\(get\|post\|put\|delete\|patch\)" "${TARGET_DIR}" --include="*.js" --include="*.ts" --exclude-dir=node_modules 2>/dev/null)
     local fastify_routes=$(echo "$fastify_matches" | grep -c . || echo "0")
     if [ "$fastify_routes" -gt 0 ]; then
         print_success "Found $fastify_routes Fastify route(s)"
@@ -326,7 +326,7 @@ find_nodejs_routes() {
     
     # Koa patterns
     print_info "Searching for Koa routes..."
-    local koa_matches=$(grep -rn "router\.\(get\|post\|put\|delete\|patch\)" "${TARGET_DIR}" --include="*.js" --include="*.ts" 2>/dev/null | grep -v "app\." | grep -v "fastify\.")
+    local koa_matches=$(grep -rn "router\.\(get\|post\|put\|delete\|patch\)" "${TARGET_DIR}" --include="*.js" --include="*.ts" --exclude-dir=node_modules 2>/dev/null | grep -v "app\." | grep -v "fastify\.")
     local koa_routes=$(echo "$koa_matches" | grep -c . || echo "0")
     if [ "$koa_routes" -gt 0 ]; then
         print_success "Found $koa_routes Koa route(s)"
@@ -758,12 +758,12 @@ main() {
     fi
     
     # Check for Express
-    if grep -rq "require.*express\|import.*express\|from.*express" "${TARGET_DIR}" --include="*.js" --include="*.ts" 2>/dev/null; then
+    if grep -rq "require.*express\|import.*express\|from.*express" "${TARGET_DIR}" --include="*.js" --include="*.ts" --exclude-dir=node_modules 2>/dev/null; then
         framework_list+=("Express")
     fi
     
     # Check for Fastify
-    if grep -rq "require.*fastify\|import.*fastify\|from.*fastify" "${TARGET_DIR}" --include="*.js" --include="*.ts" 2>/dev/null; then
+    if grep -rq "require.*fastify\|import.*fastify\|from.*fastify" "${TARGET_DIR}" --include="*.js" --include="*.ts" --exclude-dir=node_modules 2>/dev/null; then
         framework_list+=("Fastify")
     fi
     

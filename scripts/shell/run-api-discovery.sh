@@ -789,7 +789,8 @@ main() {
     
     # Build JSON array for frameworks
     if [ ${#framework_list[@]} -gt 0 ]; then
-        frameworks_detected="[\"$(IFS='","'; echo "${framework_list[*]}")\"]"
+        frameworks_detected=$(printf '"%s",' "${framework_list[@]}")
+        frameworks_detected="[${frameworks_detected%,}]"
     fi
     
     # Parse discovered routes from temp file and build JSON

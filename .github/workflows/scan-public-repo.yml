@@ -165,9 +165,12 @@ jobs:
       
       - name: Layer 6 - Infrastructure Security (Checkov)
         continue-on-error: true
+        env:
+          CI: true
         run: |
           source /tmp/epyon-env
           echo "☸️ Layer 6: Infrastructure Security"
+          echo "CI=$CI GITHUB_ACTIONS=$GITHUB_ACTIONS"
           chmod +x scripts/shell/run-checkov-scan.sh
           SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-checkov-scan.sh || echo "Checkov scan completed with warnings"
       

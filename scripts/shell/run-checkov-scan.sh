@@ -172,6 +172,9 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
     # Scan for various IaC files
     echo -e "${BLUE}🔍 Scanning Infrastructure as Code files...${NC}"
     
+    # Debug: Show CI environment detection
+    echo "Debug: CI=${CI:-not set}, GITHUB_ACTIONS=${GITHUB_ACTIONS:-not set}" >&2
+    
     # Check for AWS credentials and prompt if needed (skip prompts in CI mode)
     if [[ -z "$AWS_ACCESS_KEY_ID" || -z "$AWS_SECRET_ACCESS_KEY" ]] && [[ "${CI:-false}" != "true" ]] && [[ "${GITHUB_ACTIONS:-false}" != "true" ]]; then
         echo

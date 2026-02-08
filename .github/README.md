@@ -12,8 +12,15 @@ Add Epyon to your repository to automatically scan on every push and PR:
    ```bash
    # In your repository directory
    mkdir -p .github/workflows
+   
+   # If MetroStar/epyon is public:
    curl -o .github/workflows/epyon-security-scan.yml \
      https://raw.githubusercontent.com/MetroStar/epyon/main/.github/workflows/scan-private-repo.yml
+   
+   # If MetroStar/epyon is private, clone and copy:
+   git clone https://github.com/MetroStar/epyon.git /tmp/epyon
+   cp /tmp/epyon/.github/workflows/scan-private-repo.yml .github/workflows/epyon-security-scan.yml
+   rm -rf /tmp/epyon
    ```
 
 2. **Commit and push**:
@@ -64,8 +71,15 @@ Add the baseline workflow to your repository:
 ```bash
 # In your repository directory
 mkdir -p .github/workflows
+
+# If MetroStar/epyon is public:
 curl -o .github/workflows/baseline-scan.yml \
   https://raw.githubusercontent.com/MetroStar/epyon/main/.github/workflows/baseline-scan.yml
+
+# If MetroStar/epyon is private, clone and copy:
+git clone https://github.com/MetroStar/epyon.git /tmp/epyon
+cp /tmp/epyon/.github/workflows/baseline-scan.yml .github/workflows/baseline-scan.yml
+rm -rf /tmp/epyon
 
 # Commit and push
 git add .github/workflows/baseline-scan.yml

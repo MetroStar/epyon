@@ -412,6 +412,31 @@ jobs:
               });
             }
       
+      - name: Send Email Notification
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.NOTIFICATION_EMAIL }}
+          password: ${{ secrets.NOTIFICATION_EMAIL_PASSWORD }}
+          subject: "Epyon Security Scan - ${{ github.repository }} - ${{ job.status }}"
+          to: ${{ secrets.NOTIFICATION_RECIPIENTS }}
+          from: Epyon Security Scanner
+          body: |
+            Security scan completed for ${{ github.repository }}
+            
+            Status: ${{ job.status }}
+            Triggered by: ${{ github.actor }}
+            Event: ${{ github.event_name }}
+            Branch: ${{ github.ref_name }}
+            
+            Critical: ${{ steps.check-severity.outputs.critical || '0' }}
+            High: ${{ steps.check-severity.outputs.high || '0' }}
+            
+            View results: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          priority: ${{ steps.check-severity.outputs.has_issues == 'true' && 'high' || 'normal' }}
+      
       - name: Fail on Critical Vulnerabilities
         if: steps.check-severity.outputs.critical > 0
         run: |

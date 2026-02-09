@@ -13,6 +13,16 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
+# Detect hash command (cross-platform support)
+if command -v sha256sum &> /dev/null; then
+    HASH_CMD="sha256sum"
+elif command -v shasum &> /dev/null; then
+    HASH_CMD="shasum -a 256"
+else
+    echo -e "${RED}❌ Error: No SHA-256 command available (sha256sum or shasum)${NC}"
+    exit 1
+fi
+
 # Usage
 show_usage() {
     echo "Usage: $0 <scan_directory>"
@@ -72,9 +82,10 @@ echo ""
 echo -e "${BLUE}🔐 Verifying manifest integrity...${NC}"
 STORED_MANIFEST_HASH=$(jq -r '.manifest_hash' "$MANIFEST_FILE")
 
-# Remove manifest_hash field and recalculate
-TEMP_MANIFEST=$(jq 'del(.manifest_hash)' "$MANIFEST_FILE")
-CALCULATED_HASH=$(echo "$TEMP_MANIFEST" | sha256sum | awk '{print $1}')
+# Remove manifest_hash field and recalculate using canonical JSON (compact, sorted keys)
+# This ensures consistent formatting across platforms and after zip/unzip
+TEMP_MANIFEST=$(jq -cS 'del(.manifest_hash)' "$MANIFEST_FILE")
+CALCULATED_HASH=$(echo "$TEMP_MANIFEST" | $HASH_CMD | awk '{print $1}')
 
 if [[ "sha256:$CALCULATED_HASH" == "$STORED_MANIFEST_HASH" ]]; then
     echo -e "${GREEN}   ✓ Manifest file integrity verified${NC}"
@@ -104,8 +115,8 @@ while IFS= read -r file; do
         continue
     fi
     
-    # Calculate actual hash
-    ACTUAL_HASH=$(sha256sum "$FILE_PATH" | awk '{print $1}')
+    # Calculate actual hash with cross-platform support
+    ACTUAL_HASH=$($HASH_CMD "$FILE_PATH" | awk '{print $1}')
     
     if [[ "sha256:$ACTUAL_HASH" == "$EXPECTED_HASH" ]]; then
         echo -e "${GREEN}   ✓ $file${NC}"

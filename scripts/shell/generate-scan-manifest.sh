@@ -18,6 +18,16 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
+# Detect hash command (cross-platform support)
+if command -v sha256sum &> /dev/null; then
+    HASH_CMD="sha256sum"
+elif command -v shasum &> /dev/null; then
+    HASH_CMD="shasum -a 256"
+else
+    echo -e "${RED}❌ Error: No SHA-256 command available (sha256sum or shasum)${NC}"
+    exit 1
+fi
+
 # Usage
 show_usage() {
     echo "Usage: $0 <scan_directory> [target_directory]"
@@ -138,7 +148,7 @@ while IFS= read -r -d '' file; do
         fi
         
         # Generate hash with error handling
-        if ! hash=$(sha256sum "$file" 2>/dev/null | awk '{print $1}'); then
+        if ! hash=$($HASH_CMD "$file" 2>/dev/null | awk '{print $1}'); then
             echo "   ⚠️  Failed to hash: $relative_path (skipping)"
             ((SKIP_COUNT++))
             continue
@@ -229,18 +239,13 @@ jq -n \
     file_hashes: $hashes[0]
   }' > "$MANIFEST_FILE"
 
-# Calculate manifest hash itself
-MANIFEST_HASH=$(sha256sum "$MANIFEST_FILE" | awk '{print $1}')
+# Calculate manifest hash itself using canonical JSON (no extra whitespace)
+# Use compact output to ensure consistent formatting across platforms
+MANIFEST_HASH=$(jq -c '.' "$MANIFEST_FILE" | $HASH_CMD | awk '{print $1}')
 
-# Update manifest with its own hash
-jq --arg hash "sha256:$MANIFEST_HASH" '. + {manifest_hash: $hash}' "$MANIFEST_FILE" > "$MANIFEST_FILE.tmp"
+# Update manifest with its own hash (use -S for sorted keys and compact output)
+jq -S --arg hash "sha256:$MANIFEST_HASH" '. + {manifest_hash: $hash}' "$MANIFEST_FILE" > "$MANIFEST_FILE.tmp"
 mv "$MANIFEST_FILE.tmp" "$MANIFEST_FILE"
-
-# Pretty print the manifest
-if command -v jq &> /dev/null; then
-    jq '.' "$MANIFEST_FILE" > "$MANIFEST_FILE.tmp"
-    mv "$MANIFEST_FILE.tmp" "$MANIFEST_FILE"
-fi
 
 echo -e "${GREEN}✅ Manifest generated successfully${NC}"
 echo ""

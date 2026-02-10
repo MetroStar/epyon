@@ -50,13 +50,18 @@ if [[ -f "$FINDINGS_SUMMARY" ]]; then
     TOTAL_LOW=$(jq -r '.summary.total_low // 0' "$FINDINGS_SUMMARY")
     echo "  Critical: $TOTAL_CRITICAL | High: $TOTAL_HIGH | Medium: $TOTAL_MEDIUM | Low: $TOTAL_LOW"
     echo -e "${GREEN}✅ Using unique vulnerability counts (deduplicated)${NC}"
+    
+    # NOTE: Deduplicated summary currently only includes TruffleHog and Trivy
+    # We still need to add Grype, Checkov, and ClamAV separately
+    echo -e "${YELLOW}⚠️  Adding Grype, Checkov, and ClamAV results not included in deduplication${NC}"
 else
     echo -e "${YELLOW}⚠️  Deduplicated summary not found, counting from individual tools (may include duplicates)${NC}"
+fi
 
-# Check Grype results
-GRYPE_FILE=$(find "$SCAN_DIR/grype" -name "*grype*results.json" -o -name "*grype*sbom*.json" 2>/dev/null | head -1)
-if [[ -f "$GRYPE_FILE" && -z "$FINDINGS_SUMMARY" || ! -f "$FINDINGS_SUMMARY" ]]; then
-    echo -e "${CYAN}📊 Checking Grype results...${NC}"
+# Check Grype results (ALWAYS check since not included in deduplicated summary)
+GRYPE_FILE=$(find "$SCAN_DIR/grype" -name "*grype*sbom*.json" 2>/dev/null | head -1)
+if [[ -f "$GRYPE_FILE" ]]; then
+    echo -e "${CYAN}📊 Checking Grype SBOM scan results...${NC}"
     GRYPE_CRITICAL=$(jq -r '[.matches[]? | select(.vulnerability.severity=="Critical")] | length' "$GRYPE_FILE" 2>/dev/null || echo "0")
     GRYPE_HIGH=$(jq -r '[.matches[]? | select(.vulnerability.severity=="High")] | length' "$GRYPE_FILE" 2>/dev/null || echo "0")
     GRYPE_MEDIUM=$(jq -r '[.matches[]? | select(.vulnerability.severity=="Medium")] | length' "$GRYPE_FILE" 2>/dev/null || echo "0")
@@ -68,9 +73,11 @@ if [[ -f "$GRYPE_FILE" && -z "$FINDINGS_SUMMARY" || ! -f "$FINDINGS_SUMMARY" ]];
     TOTAL_MEDIUM=$((TOTAL_MEDIUM + GRYPE_MEDIUM))
     TOTAL_LOW=$((TOTAL_LOW + GRYPE_LOW))
 else
-    echo -e "${YELLOW}⚠️  Grype results not found in: $SCAN_DIR/grype/${NC}"
+    echo -e "${YELLOW}⚠️  Grype SBOM results not found in: $SCAN_DIR/grype/${NC}"
 fi
 
+# Only check Trivy if not already in deduplicated summary
+if [[ ! -f "$FINDINGS_SUMMARY" ]]; then
 # Check Trivy results
 TRIVY_FILE=$(find "$SCAN_DIR/trivy" -name "*trivy*results.json" 2>/dev/null | head -1)
 if [[ -f "$TRIVY_FILE" ]]; then
@@ -88,8 +95,10 @@ if [[ -f "$TRIVY_FILE" ]]; then
 else
     echo -e "${YELLOW}⚠️  Trivy results not found in: $SCAN_DIR/trivy/${NC}"
 fi
+fi  # End Trivy check only if no deduplicated summary
 
-# Check TruffleHog secrets
+# Check TruffleHog secrets (ALWAYS check if not in deduplicated summary)
+if [[ ! -f "$FINDINGS_SUMMARY" ]]; then
 TRUFFLEHOG_FILE=$(find "$SCAN_DIR/trufflehog" -name "*trufflehog*results.json" 2>/dev/null | head -1)
 if [[ -f "$TRUFFLEHOG_FILE" ]]; then
     echo -e "${CYAN}📊 Checking TruffleHog results...${NC}"
@@ -132,8 +141,8 @@ if [[ -f "$CLAMAV_LOG" ]]; then
 else
     echo -e "${YELLOW}⚠️  ClamAV results not found in: $SCAN_DIR/clamav/${NC}"
 fi
-fi  # End of deduplicated summary check
 
+# End of all checks
 echo ""
 echo -e "${CYAN}============================================${NC}"
 echo -e "${CYAN}📊 Total Security Findings${NC}"

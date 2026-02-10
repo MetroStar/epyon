@@ -242,6 +242,7 @@ if [[ -f "$TRUFFLEHOG_FILE" ]]; then
 else
     echo -e "${YELLOW}⚠️  TruffleHog results not found in: $SCAN_DIR/trufflehog/${NC}"
 fi
+fi  # End TruffleHog check only if no deduplicated summary
 
 # Check Checkov IaC issues
 CHECKOV_FILE=$(find "$SCAN_DIR/checkov" -name "results_json.json" -o -name "*checkov*results.json" 2>/dev/null | head -1)

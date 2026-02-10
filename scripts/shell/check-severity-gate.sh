@@ -293,7 +293,7 @@ else
 fi
 
 # Check ClamAV malware detection
-CLAMAV_LOG=$(find "$SCAN_DIR/clamav" -name "*clamav*.log" 2>/dev/null | head -1)
+CLAMAV_LOG=$(find "$SCAN_DIR/clamav" -name "scan.log" 2>/dev/null | head -1)
 if [[ -f "$CLAMAV_LOG" ]]; then
     # Check if ClamAV tool is ignored
     if declare -f is_tool_ignored >/dev/null 2>&1 && is_tool_ignored "clamav"; then

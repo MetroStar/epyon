@@ -1601,6 +1601,33 @@ TOTAL_IMAGE_VULNS=$((TRIVY_CRITICAL + TRIVY_HIGH + TRIVY_MEDIUM + TRIVY_LOW + GR
 # Application/Config vulnerabilities come from Checkov, TruffleHog, Helm, SonarQube
 TOTAL_APP_VULNS=$((TH_CRITICAL + TH_HIGH + CHECKOV_HIGH + HELM_CRITICAL + HELM_HIGH + SONAR_CRITICAL + SONAR_HIGH))
 
+# Read suppressed findings information
+SUPPRESSED_LOG="$SCAN_DIR/suppressed-findings.md"
+SUPPRESSED_COUNT=0
+SUPPRESSED_HTML=""
+if [[ -f "$SUPPRESSED_LOG" ]]; then
+    SUPPRESSED_COUNT=$(grep -c "^## Suppressed:" "$SUPPRESSED_LOG" 2>/dev/null || echo "0")
+    if [[ $SUPPRESSED_COUNT -gt 0 ]]; then
+        echo -e "${CYAN}📋 Found $SUPPRESSED_COUNT suppressed finding(s)${NC}"
+        # Generate HTML for suppressed findings display
+        SUPPRESSED_HTML="<div style=\"background: #2C3539; border-radius: 12px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #fbbf24; border: 1px solid #fbbf24;\">
+            <h3 style=\"color: #fbbf24; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;\">
+                <span>🔕</span> Suppressed Findings
+            </h3>
+            <p style=\"color: #e8eaed; margin-bottom: 10px;\">
+                <strong>$SUPPRESSED_COUNT finding(s)</strong> were suppressed via <code style=\"background: #1a1d23; padding: 2px 6px; border-radius: 4px; color: #fbbf24;\">.epyon-ignore.yml</code> rules.
+            </p>
+            <p style=\"color: #9ca3af; font-size: 0.9em; margin-bottom: 12px;\">
+                These findings have been acknowledged with documented justification and audit trail.
+                Review the suppressed findings report for details on suppression reasons and approvals.
+            </p>
+            <a href=\"../suppressed-findings.md\" style=\"display: inline-block; background: #fbbf24; color: #1a1d23; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.9em;\">
+                📄 View Suppressed Findings Report
+            </a>
+        </div>"
+    fi
+fi
+
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 
@@ -2609,6 +2636,9 @@ cat >> "$OUTPUT_HTML" << EOF
                 <p>Low priority issues</p>
             </div>
         </div>
+
+        <!-- Show suppressed findings info if any -->
+        ${SUPPRESSED_HTML}
 
         <div class="filter-bar">
             <span class="filter-label">🔍 Filter by Severity:</span>

@@ -87,13 +87,12 @@ if [[ -f "$GRYPE_FILE" ]]; then
         echo -e "${CYAN}📊 Checking Grype SBOM scan results...${NC}"
         
         # Filter out ignored CVEs and packages
-        GRYPE_MATCHES=$(jq -c '.matches[]?' "$GRYPE_FILE" 2>/dev/null || echo "")
-        
         GRYPE_CRITICAL=0
         GRYPE_HIGH=0
         GRYPE_MEDIUM=0
         GRYPE_LOW=0
         
+        # Use process substitution to avoid subshell variable scope issue
         while IFS= read -r match; do
             if [[ -z "$match" ]]; then
                 continue
@@ -123,7 +122,7 @@ if [[ -f "$GRYPE_FILE" ]]; then
                     Low) ((GRYPE_LOW++)) ;;
                 esac
             fi
-        done <<< "$GRYPE_MATCHES"
+        done < <(jq -c '.matches[]?' "$GRYPE_FILE" 2>/dev/null)
         
         echo "  Critical: $GRYPE_CRITICAL | High: $GRYPE_HIGH | Medium: $GRYPE_MEDIUM | Low: $GRYPE_LOW"
         TOTAL_CRITICAL=$((TOTAL_CRITICAL + GRYPE_CRITICAL))
@@ -146,54 +145,45 @@ if [[ -f "$TRIVY_FILE" ]]; then
     else
         echo -e "${CYAN}📊 Checking Trivy results...${NC}"
         
-        # Filter out ignored CVEs and packages
+        # Filter out ignored CVEs and packages - use jq to do the counting
         TRIVY_CRITICAL=0
         TRIVY_HIGH=0
         TRIVY_MEDIUM=0
         TRIVY_LOW=0
         
-        # Process each result group
-        jq -c '.Results[]?' "$TRIVY_FILE" 2>/dev/null | while IFS= read -r result; do
-            if [[ -z "$result" ]]; then
+        # Create temp file for counting
+        TEMP_COUNTS=$(mktemp)
+        echo "0 0 0 0" > "$TEMP_COUNTS"
+        
+        # Process each vulnerability
+        while IFS='|' read -r cve severity package version target_path; do
+            if [[ -z "$cve" ]]; then
                 continue
             fi
             
-            # Get target path from result
-            target_path=$(echo "$result" | jq -r '.Target // ""' 2>/dev/null)
+            # Check if ignored
+            ignored=false
             
-            # Process vulnerabilities
-            echo "$result" | jq -c '.Vulnerabilities[]?' 2>/dev/null | while IFS= read -r vuln; do
-                if [[ -z "$vuln" ]]; then
-                    continue
-                fi
-                
-                cve=$(echo "$vuln" | jq -r '.VulnerabilityID // ""' 2>/dev/null)
-                severity=$(echo "$vuln" | jq -r '.Severity // ""' 2>/dev/null)
-                package=$(echo "$vuln" | jq -r '.PkgName // ""' 2>/dev/null)
-                version=$(echo "$vuln" | jq -r '.InstalledVersion // ""' 2>/dev/null)
-                
-                # Check if ignored
-                ignored=false
-                
-                if declare -f is_cve_ignored >/dev/null 2>&1 && is_cve_ignored "$cve" "Trivy"; then
-                    ignored=true
-                elif declare -f is_package_ignored >/dev/null 2>&1 && is_package_ignored "$package" "$version" "Trivy"; then
-                    ignored=true
-                elif [[ -n "$target_path" ]] && declare -f is_path_ignored >/dev/null 2>&1 && is_path_ignored "$target_path" "Trivy"; then
-                    ignored=true
-                fi
-                
-                # Count if not ignored
-                if [[ "$ignored" == "false" ]]; then
-                    case "$severity" in
-                        CRITICAL) ((TRIVY_CRITICAL++)) ;;
-                        HIGH) ((TRIVY_HIGH++)) ;;
-                        MEDIUM) ((TRIVY_MEDIUM++)) ;;
-                        LOW) ((TRIVY_LOW++)) ;;
-                    esac
-                fi
-            done
-        done
+            if declare -f is_cve_ignored >/dev/null 2>&1 && is_cve_ignored "$cve" "Trivy"; then
+                ignored=true
+            elif declare -f is_package_ignored >/dev/null 2>&1 && is_package_ignored "$package" "$version" "Trivy"; then
+                ignored=true
+            elif [[ -n "$target_path" ]] && declare -f is_path_ignored >/dev/null 2>&1 && is_path_ignored "$target_path" "Trivy"; then
+                ignored=true
+            fi
+            
+            # Count if not ignored
+            if [[ "$ignored" == "false" ]]; then
+                case "$severity" in
+                    CRITICAL) ((TRIVY_CRITICAL++)) ;;
+                    HIGH) ((TRIVY_HIGH++)) ;;
+                    MEDIUM) ((TRIVY_MEDIUM++)) ;;
+                    LOW) ((TRIVY_LOW++)) ;;
+                esac
+            fi
+        done < <(jq -r '.Results[]? | .Target as $target | .Vulnerabilities[]? | [.VulnerabilityID // "", .Severity // "", .PkgName // "", .InstalledVersion // "", $target] | @tsv' "$TRIVY_FILE" 2>/dev/null | tr '\t' '|')
+        
+        rm -f "$TEMP_COUNTS"
         
         echo "  Critical: $TRIVY_CRITICAL | High: $TRIVY_HIGH | Medium: $TRIVY_MEDIUM | Low: $TRIVY_LOW"
         TOTAL_CRITICAL=$((TOTAL_CRITICAL + TRIVY_CRITICAL))
@@ -219,8 +209,8 @@ if [[ -f "$TRUFFLEHOG_FILE" ]]; then
         # Filter secrets by detector type and path
         TRUFFLEHOG_SECRETS=0
         
-        # Read NDJSON format (one JSON object per line)
-        grep -v '"level":' "$TRUFFLEHOG_FILE" 2>/dev/null | while IFS= read -r line; do
+        # Read NDJSON format (one JSON object per line) - use process substitution
+        while IFS= read -r line; do
             if [[ -z "$line" ]]; then
                 continue
             fi
@@ -241,7 +231,7 @@ if [[ -f "$TRUFFLEHOG_FILE" ]]; then
             if [[ "$ignored" == "false" ]]; then
                 ((TRUFFLEHOG_SECRETS++))
             fi
-        done
+        done < <(grep -v '"level":' "$TRUFFLEHOG_FILE" 2>/dev/null)
         
         echo "  Secrets found: $TRUFFLEHOG_SECRETS"
         if [[ $TRUFFLEHOG_SECRETS -gt 0 ]]; then
@@ -265,7 +255,8 @@ if [[ -f "$CHECKOV_FILE" ]]; then
         # Filter failed checks by path
         CHECKOV_FAILED=0
         
-        jq -c '.results.failed_checks[]?' "$CHECKOV_FILE" 2>/dev/null | while IFS= read -r check; do
+        # Use process substitution to avoid subshell
+        while IFS= read -r check; do
             if [[ -z "$check" ]]; then
                 continue
             fi
@@ -283,7 +274,7 @@ if [[ -f "$CHECKOV_FILE" ]]; then
             if [[ "$ignored" == "false" ]]; then
                 ((CHECKOV_FAILED++))
             fi
-        done
+        done < <(jq -c '.results.failed_checks[]?' "$CHECKOV_FILE" 2>/dev/null)
         
         echo "  Failed checks: $CHECKOV_FAILED"
         if [[ $CHECKOV_FAILED -gt 0 ]]; then
@@ -307,7 +298,8 @@ if [[ -f "$CLAMAV_LOG" ]]; then
         # Filter infected files by path
         CLAMAV_INFECTED=0
         
-        grep "FOUND$" "$CLAMAV_LOG" 2>/dev/null | while IFS= read -r line; do
+        # Use process substitution to avoid subshell
+        while IFS= read -r line; do
             # Extract file path from ClamAV log line
             # Format: /path/to/file: Malware.Name FOUND
             file_path=$(echo "$line" | sed 's/:.*$//' | xargs)
@@ -323,7 +315,7 @@ if [[ -f "$CLAMAV_LOG" ]]; then
             if [[ "$ignored" == "false" ]]; then
                 ((CLAMAV_INFECTED++))
             fi
-        done
+        done < <(grep "FOUND$" "$CLAMAV_LOG" 2>/dev/null)
         
         echo "  Infected files: $CLAMAV_INFECTED"
         if [[ $CLAMAV_INFECTED -gt 0 ]]; then

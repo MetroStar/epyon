@@ -178,32 +178,6 @@ Manually scan any Git repository.
 
 ## 🔧 Configuration
 
-### Email Notifications
-
-Epyon workflows can notify a list of people via email instead of just the workflow trigger. Set up repository secrets:
-
-**Setup:**
-1. Go to repository **Settings** → **Secrets and variables** → **Actions**
-2. Add these secrets:
-   - `NOTIFICATION_EMAIL` - Email address to send from (e.g., Gmail account)
-   - `NOTIFICATION_EMAIL_PASSWORD` - App-specific password for the email account
-   - `NOTIFICATION_RECIPIENTS` - Comma-separated list of recipients (e.g., `security@company.com,dev-team@company.com,alice@company.com`)
-
-**For Gmail:**
-- Use an [App Password](https://support.google.com/accounts/answer/185833) instead of your regular password
-- Enable 2-factor authentication first
-- Generate app password at: https://myaccount.google.com/apppasswords
-
-**Notification Behavior:**
-- Sent on every scan completion (success or failure)
-- Priority set to "high" when critical/high vulnerabilities found
-- Includes scan metadata: trigger, branch, mode, vulnerability counts
-- Always sent regardless of who triggered the workflow
-- Direct link to scan results in GitHub Actions
-
-**To disable notifications:**
-Comment out or remove the "Send Email Notification" step in the workflow files.
-
 ### Build Gates (Severity Thresholds)
 
 Control when the workflow should fail based on security findings:

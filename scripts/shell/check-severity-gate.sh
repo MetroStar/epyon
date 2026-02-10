@@ -15,6 +15,10 @@ FAIL_ON_CRITICAL="${FAIL_ON_CRITICAL:-true}"
 FAIL_ON_HIGH="${FAIL_ON_HIGH:-false}"
 WARNING_ONLY="${WARNING_ONLY:-false}"
 SCAN_DIR="${SCAN_DIR:-}"
+TARGET_DIR="${TARGET_DIR:-}"
+
+# Get script directory for sourcing filter functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [[ -z "$SCAN_DIR" || ! -d "$SCAN_DIR" ]]; then
     echo -e "${RED}❌ Error: SCAN_DIR not set or directory doesn't exist${NC}"
@@ -22,6 +26,21 @@ if [[ -z "$SCAN_DIR" || ! -d "$SCAN_DIR" ]]; then
     echo "Listing workspace contents:"
     ls -la . || true
     exit 1
+fi
+
+# Parse ignore rules if they exist
+export IGNORE_CACHE="/tmp/epyon-ignore-cache.json"
+export SUPPRESSED_LOG="$SCAN_DIR/suppressed-findings.md"
+
+if [[ -n "$TARGET_DIR" && -f "$SCRIPT_DIR/parse-epyon-ignore.sh" ]]; then
+    chmod +x "$SCRIPT_DIR/parse-epyon-ignore.sh"
+    TARGET_DIR="$TARGET_DIR" "$SCRIPT_DIR/parse-epyon-ignore.sh"
+fi
+
+# Source filter functions
+if [[ -f "$SCRIPT_DIR/filter-ignored-findings.sh" ]]; then
+    source "$SCRIPT_DIR/filter-ignored-findings.sh"
+    init_suppressed_log
 fi
 
 echo ""
@@ -61,17 +80,57 @@ fi
 # Check Grype results (ALWAYS check since not included in deduplicated summary)
 GRYPE_FILE=$(find "$SCAN_DIR/grype" -name "*grype*sbom*.json" 2>/dev/null | head -1)
 if [[ -f "$GRYPE_FILE" ]]; then
-    echo -e "${CYAN}📊 Checking Grype SBOM scan results...${NC}"
-    GRYPE_CRITICAL=$(jq -r '[.matches[]? | select(.vulnerability.severity=="Critical")] | length' "$GRYPE_FILE" 2>/dev/null || echo "0")
-    GRYPE_HIGH=$(jq -r '[.matches[]? | select(.vulnerability.severity=="High")] | length' "$GRYPE_FILE" 2>/dev/null || echo "0")
-    GRYPE_MEDIUM=$(jq -r '[.matches[]? | select(.vulnerability.severity=="Medium")] | length' "$GRYPE_FILE" 2>/dev/null || echo "0")
-    GRYPE_LOW=$(jq -r '[.matches[]? | select(.vulnerability.severity=="Low")] | length' "$GRYPE_FILE" 2>/dev/null || echo "0")
-    
-    echo "  Critical: $GRYPE_CRITICAL | High: $GRYPE_HIGH | Medium: $GRYPE_MEDIUM | Low: $GRYPE_LOW"
-    TOTAL_CRITICAL=$((TOTAL_CRITICAL + GRYPE_CRITICAL))
-    TOTAL_HIGH=$((TOTAL_HIGH + GRYPE_HIGH))
-    TOTAL_MEDIUM=$((TOTAL_MEDIUM + GRYPE_MEDIUM))
-    TOTAL_LOW=$((TOTAL_LOW + GRYPE_LOW))
+    # Check if Grype tool is ignored
+    if declare -f is_tool_ignored >/dev/null 2>&1 && is_tool_ignored "grype"; then
+        echo -e "${YELLOW}⚠️  Grype scans ignored by .epyon-ignore.yml${NC}"
+    else
+        echo -e "${CYAN}📊 Checking Grype SBOM scan results...${NC}"
+        
+        # Filter out ignored CVEs and packages
+        GRYPE_MATCHES=$(jq -c '.matches[]?' "$GRYPE_FILE" 2>/dev/null || echo "")
+        
+        GRYPE_CRITICAL=0
+        GRYPE_HIGH=0
+        GRYPE_MEDIUM=0
+        GRYPE_LOW=0
+        
+        while IFS= read -r match; do
+            if [[ -z "$match" ]]; then
+                continue
+            fi
+            
+            # Extract finding details
+            cve=$(echo "$match" | jq -r '.vulnerability.id // ""' 2>/dev/null)
+            severity=$(echo "$match" | jq -r '.vulnerability.severity // ""' 2>/dev/null)
+            package=$(echo "$match" | jq -r '.artifact.name // ""' 2>/dev/null)
+            version=$(echo "$match" | jq -r '.artifact.version // ""' 2>/dev/null)
+            
+            # Check if ignored
+            ignored=false
+            
+            if declare -f is_cve_ignored >/dev/null 2>&1 && is_cve_ignored "$cve" "Grype"; then
+                ignored=true
+            elif declare -f is_package_ignored >/dev/null 2>&1 && is_package_ignored "$package" "$version" "Grype"; then
+                ignored=true
+            fi
+            
+            # Count if not ignored
+            if [[ "$ignored" == "false" ]]; then
+                case "$severity" in
+                    Critical) ((GRYPE_CRITICAL++)) ;;
+                    High) ((GRYPE_HIGH++)) ;;
+                    Medium) ((GRYPE_MEDIUM++)) ;;
+                    Low) ((GRYPE_LOW++)) ;;
+                esac
+            fi
+        done <<< "$GRYPE_MATCHES"
+        
+        echo "  Critical: $GRYPE_CRITICAL | High: $GRYPE_HIGH | Medium: $GRYPE_MEDIUM | Low: $GRYPE_LOW"
+        TOTAL_CRITICAL=$((TOTAL_CRITICAL + GRYPE_CRITICAL))
+        TOTAL_HIGH=$((TOTAL_HIGH + GRYPE_HIGH))
+        TOTAL_MEDIUM=$((TOTAL_MEDIUM + GRYPE_MEDIUM))
+        TOTAL_LOW=$((TOTAL_LOW + GRYPE_LOW))
+    fi
 else
     echo -e "${YELLOW}⚠️  Grype SBOM results not found in: $SCAN_DIR/grype/${NC}"
 fi
@@ -152,6 +211,19 @@ echo -e "🟠 High: ${YELLOW}$TOTAL_HIGH${NC}"
 echo -e "🟡 Medium: $TOTAL_MEDIUM"
 echo -e "🟢 Low: $TOTAL_LOW"
 echo ""
+
+# Show suppressed findings summary if any
+if [[ -f "$SUPPRESSED_LOG" ]]; then
+    SUPPRESSED_COUNT=$(grep -c "^## Suppressed:" "$SUPPRESSED_LOG" 2>/dev/null || echo "0")
+    if [[ $SUPPRESSED_COUNT -gt 0 ]]; then
+        echo -e "${CYAN}============================================${NC}"
+        echo -e "${CYAN}🔕 Suppressed Findings (via .epyon-ignore.yml)${NC}"
+        echo -e "${CYAN}============================================${NC}"
+        echo -e "${YELLOW}$SUPPRESSED_COUNT finding(s) were suppressed${NC}"
+        echo -e "${CYAN}Full report: suppressed-findings.md${NC}"
+        echo ""
+    fi
+fi
 
 # Determine if build should fail
 EXIT_CODE=0

@@ -1,0 +1,71 @@
+# Epyon Security Findings Ignore File
+# Place this file as .epyon-ignore.yml in your repository root
+
+version: "1.0"
+
+ignores:
+  # Ignore specific CVE across all scanners (Grype, Trivy, etc.)
+  - type: cve
+    value: CVE-2024-12345
+    reason: "Not applicable - we don't use the vulnerable function"
+    expires: "2026-06-01"
+    approved_by: "security-team@example.com"
+    
+  # Ignore specific package version
+  - type: package
+    value: urllib3@2.3.0
+    reason: "Waiting for upstream fix, mitigated by WAF rules"
+    expires: "2026-03-15"
+    approved_by: "john.doe@example.com"
+    
+  # Ignore all versions of a package
+  - type: package
+    value: pyasn1
+    reason: "Transitive dependency we can't control, assessed as low risk"
+    expires: "2026-12-31"
+    approved_by: "security-team@example.com"
+    
+  # Ignore findings in test files
+  - type: path
+    value: "tests/**"
+    reason: "Test fixtures with intentional vulnerabilities for testing"
+    # No expiration - permanent ignore for test files
+    
+  # Ignore specific file
+  - type: path
+    value: "vendor/legacy.js"
+    reason: "Legacy code being replaced in Q2 2026"
+    expires: "2026-05-01"
+    approved_by: "tech-lead@example.com"
+    
+  # Ignore findings in multiple paths
+  - type: path
+    value: "fixtures/**"
+    reason: "Sample data files, not production code"
+    
+  # Disable entire scanning tool
+  - type: tool
+    value: checkov
+    reason: "No Infrastructure as Code in this repository"
+    # No expiration - repo doesn't use IaC
+    
+  # Ignore specific secret detector type in certain paths
+  - type: secret-detector
+    value: "PrivateKey"
+    paths:
+      - "tests/**"
+      - "fixtures/**"
+    reason: "Test SSH keys only, not real credentials"
+    
+  # Ignore secrets matching a pattern
+  - type: secret-pattern
+    value: "test_api_key_.*"
+    reason: "Test API keys with 'test_' prefix, not production keys"
+
+# Notes:
+# - All ignores require a 'reason' for audit trail
+# - Use 'expires' (YYYY-MM-DD) for temporary ignores
+# - Expired ignores trigger warnings but don't fail builds
+# - 'approved_by' is optional but recommended for compliance
+# - Path patterns use glob matching (**, *, ?, [])
+# - Package format: "package@version" for specific version, "package" for all versions

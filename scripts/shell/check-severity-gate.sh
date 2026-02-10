@@ -140,17 +140,67 @@ if [[ ! -f "$FINDINGS_SUMMARY" ]]; then
 # Check Trivy results
 TRIVY_FILE=$(find "$SCAN_DIR/trivy" -name "*trivy*results.json" 2>/dev/null | head -1)
 if [[ -f "$TRIVY_FILE" ]]; then
-    echo -e "${CYAN}📊 Checking Trivy results...${NC}"
-    TRIVY_CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' "$TRIVY_FILE" 2>/dev/null || echo 0)
-    TRIVY_HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' "$TRIVY_FILE" 2>/dev/null || echo 0)
-    TRIVY_MEDIUM=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "MEDIUM")] | length' "$TRIVY_FILE" 2>/dev/null || echo 0)
-    TRIVY_LOW=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "LOW")] | length' "$TRIVY_FILE" 2>/dev/null || echo 0)
-    
-    echo "  Critical: $TRIVY_CRITICAL | High: $TRIVY_HIGH | Medium: $TRIVY_MEDIUM | Low: $TRIVY_LOW"
-    TOTAL_CRITICAL=$((TOTAL_CRITICAL + TRIVY_CRITICAL))
-    TOTAL_HIGH=$((TOTAL_HIGH + TRIVY_HIGH))
-    TOTAL_MEDIUM=$((TOTAL_MEDIUM + TRIVY_MEDIUM))
-    TOTAL_LOW=$((TOTAL_LOW + TRIVY_LOW))
+    # Check if Trivy tool is ignored
+    if declare -f is_tool_ignored >/dev/null 2>&1 && is_tool_ignored "trivy"; then
+        echo -e "${YELLOW}⚠️  Trivy scans ignored by .epyon-ignore.yml${NC}"
+    else
+        echo -e "${CYAN}📊 Checking Trivy results...${NC}"
+        
+        # Filter out ignored CVEs and packages
+        TRIVY_CRITICAL=0
+        TRIVY_HIGH=0
+        TRIVY_MEDIUM=0
+        TRIVY_LOW=0
+        
+        # Process each result group
+        jq -c '.Results[]?' "$TRIVY_FILE" 2>/dev/null | while IFS= read -r result; do
+            if [[ -z "$result" ]]; then
+                continue
+            fi
+            
+            # Get target path from result
+            target_path=$(echo "$result" | jq -r '.Target // ""' 2>/dev/null)
+            
+            # Process vulnerabilities
+            echo "$result" | jq -c '.Vulnerabilities[]?' 2>/dev/null | while IFS= read -r vuln; do
+                if [[ -z "$vuln" ]]; then
+                    continue
+                fi
+                
+                cve=$(echo "$vuln" | jq -r '.VulnerabilityID // ""' 2>/dev/null)
+                severity=$(echo "$vuln" | jq -r '.Severity // ""' 2>/dev/null)
+                package=$(echo "$vuln" | jq -r '.PkgName // ""' 2>/dev/null)
+                version=$(echo "$vuln" | jq -r '.InstalledVersion // ""' 2>/dev/null)
+                
+                # Check if ignored
+                ignored=false
+                
+                if declare -f is_cve_ignored >/dev/null 2>&1 && is_cve_ignored "$cve" "Trivy"; then
+                    ignored=true
+                elif declare -f is_package_ignored >/dev/null 2>&1 && is_package_ignored "$package" "$version" "Trivy"; then
+                    ignored=true
+                elif [[ -n "$target_path" ]] && declare -f is_path_ignored >/dev/null 2>&1 && is_path_ignored "$target_path" "Trivy"; then
+                    ignored=true
+                fi
+                
+                # Count if not ignored
+                if [[ "$ignored" == "false" ]]; then
+                    case "$severity" in
+                        CRITICAL) ((TRIVY_CRITICAL++)) ;;
+                        HIGH) ((TRIVY_HIGH++)) ;;
+                        MEDIUM) ((TRIVY_MEDIUM++)) ;;
+                        LOW) ((TRIVY_LOW++)) ;;
+                    esac
+                fi
+            done
+        done
+        
+        echo "  Critical: $TRIVY_CRITICAL | High: $TRIVY_HIGH | Medium: $TRIVY_MEDIUM | Low: $TRIVY_LOW"
+        TOTAL_CRITICAL=$((TOTAL_CRITICAL + TRIVY_CRITICAL))
+        TOTAL_HIGH=$((TOTAL_HIGH + TRIVY_HIGH))
+        TOTAL_MEDIUM=$((TOTAL_MEDIUM + TRIVY_MEDIUM))
+        TOTAL_LOW=$((TOTAL_LOW + TRIVY_LOW))
+    fi
 else
     echo -e "${YELLOW}⚠️  Trivy results not found in: $SCAN_DIR/trivy/${NC}"
 fi
@@ -160,13 +210,44 @@ fi  # End Trivy check only if no deduplicated summary
 if [[ ! -f "$FINDINGS_SUMMARY" ]]; then
 TRUFFLEHOG_FILE=$(find "$SCAN_DIR/trufflehog" -name "*trufflehog*results.json" 2>/dev/null | head -1)
 if [[ -f "$TRUFFLEHOG_FILE" ]]; then
-    echo -e "${CYAN}📊 Checking TruffleHog results...${NC}"
-    # Count array elements if it's an array, otherwise return 0
-    TRUFFLEHOG_SECRETS=$(jq 'if type=="array" then length else 0 end' "$TRUFFLEHOG_FILE" 2>/dev/null || echo "0")
-    echo "  Secrets found: $TRUFFLEHOG_SECRETS"
-    if [[ "$TRUFFLEHOG_SECRETS" =~ ^[0-9]+$ ]] && [[ $TRUFFLEHOG_SECRETS -gt 0 ]]; then
-        # Treat all secrets as Critical
-        TOTAL_CRITICAL=$((TOTAL_CRITICAL + TRUFFLEHOG_SECRETS))
+    # Check if TruffleHog tool is ignored
+    if declare -f is_tool_ignored >/dev/null 2>&1 && is_tool_ignored "trufflehog"; then
+        echo -e "${YELLOW}⚠️  TruffleHog scans ignored by .epyon-ignore.yml${NC}"
+    else
+        echo -e "${CYAN}📊 Checking TruffleHog results...${NC}"
+        
+        # Filter secrets by detector type and path
+        TRUFFLEHOG_SECRETS=0
+        
+        # Read NDJSON format (one JSON object per line)
+        grep -v '"level":' "$TRUFFLEHOG_FILE" 2>/dev/null | while IFS= read -r line; do
+            if [[ -z "$line" ]]; then
+                continue
+            fi
+            
+            detector=$(echo "$line" | jq -r '.DetectorName // ""' 2>/dev/null)
+            file_path=$(echo "$line" | jq -r '.SourceMetadata.Data.Filesystem.file // ""' 2>/dev/null)
+            
+            # Check if ignored
+            ignored=false
+            
+            if declare -f is_secret_ignored >/dev/null 2>&1 && is_secret_ignored "$detector" "$file_path" "TruffleHog"; then
+                ignored=true
+            elif [[ -n "$file_path" ]] && declare -f is_path_ignored >/dev/null 2>&1 && is_path_ignored "$file_path" "TruffleHog"; then
+                ignored=true
+            fi
+            
+            # Count if not ignored
+            if [[ "$ignored" == "false" ]]; then
+                ((TRUFFLEHOG_SECRETS++))
+            fi
+        done
+        
+        echo "  Secrets found: $TRUFFLEHOG_SECRETS"
+        if [[ $TRUFFLEHOG_SECRETS -gt 0 ]]; then
+            # Treat all secrets as Critical
+            TOTAL_CRITICAL=$((TOTAL_CRITICAL + TRUFFLEHOG_SECRETS))
+        fi
     fi
 else
     echo -e "${YELLOW}⚠️  TruffleHog results not found in: $SCAN_DIR/trufflehog/${NC}"
@@ -175,12 +256,40 @@ fi
 # Check Checkov IaC issues
 CHECKOV_FILE=$(find "$SCAN_DIR/checkov" -name "results_json.json" -o -name "*checkov*results.json" 2>/dev/null | head -1)
 if [[ -f "$CHECKOV_FILE" ]]; then
-    echo -e "${CYAN}📊 Checking Checkov results...${NC}"
-    CHECKOV_FAILED=$(jq -r '.summary.failed // 0' "$CHECKOV_FILE" 2>/dev/null || echo "0")
-    echo "  Failed checks: $CHECKOV_FAILED"
-    if [[ $CHECKOV_FAILED -gt 0 ]]; then
-        # Treat failed IaC checks as High severity
-        TOTAL_HIGH=$((TOTAL_HIGH + CHECKOV_FAILED))
+    # Check if Checkov tool is ignored
+    if declare -f is_tool_ignored >/dev/null 2>&1 && is_tool_ignored "checkov"; then
+        echo -e "${YELLOW}⚠️  Checkov scans ignored by .epyon-ignore.yml${NC}"
+    else
+        echo -e "${CYAN}📊 Checking Checkov results...${NC}"
+        
+        # Filter failed checks by path
+        CHECKOV_FAILED=0
+        
+        jq -c '.results.failed_checks[]?' "$CHECKOV_FILE" 2>/dev/null | while IFS= read -r check; do
+            if [[ -z "$check" ]]; then
+                continue
+            fi
+            
+            file_path=$(echo "$check" | jq -r '.file_path // ""' 2>/dev/null)
+            
+            # Check if path is ignored
+            ignored=false
+            
+            if [[ -n "$file_path" ]] && declare -f is_path_ignored >/dev/null 2>&1 && is_path_ignored "$file_path" "Checkov"; then
+                ignored=true
+            fi
+            
+            # Count if not ignored
+            if [[ "$ignored" == "false" ]]; then
+                ((CHECKOV_FAILED++))
+            fi
+        done
+        
+        echo "  Failed checks: $CHECKOV_FAILED"
+        if [[ $CHECKOV_FAILED -gt 0 ]]; then
+            # Treat failed IaC checks as High severity
+            TOTAL_HIGH=$((TOTAL_HIGH + CHECKOV_FAILED))
+        fi
     fi
 else
     echo -e "${YELLOW}⚠️  Checkov results not found in: $SCAN_DIR/checkov/${NC}"
@@ -189,13 +298,39 @@ fi
 # Check ClamAV malware detection
 CLAMAV_LOG=$(find "$SCAN_DIR/clamav" -name "*clamav*.log" 2>/dev/null | head -1)
 if [[ -f "$CLAMAV_LOG" ]]; then
-    echo -e "${CYAN}📊 Checking ClamAV results...${NC}"
-    CLAMAV_INFECTED=$(grep -c "FOUND$" "$CLAMAV_LOG" 2>/dev/null || echo "0")
-    echo "  Infected files: $CLAMAV_INFECTED"
-    if [[ $CLAMAV_INFECTED -gt 0 ]]; then
-        # Treat ALL malware detections as Critical severity
-        TOTAL_CRITICAL=$((TOTAL_CRITICAL + CLAMAV_INFECTED))
-        echo -e "  ${RED}⚠️  Malware detected - automatically marked as CRITICAL${NC}"
+    # Check if ClamAV tool is ignored
+    if declare -f is_tool_ignored >/dev/null 2>&1 && is_tool_ignored "clamav"; then
+        echo -e "${YELLOW}⚠️  ClamAV scans ignored by .epyon-ignore.yml${NC}"
+    else
+        echo -e "${CYAN}📊 Checking ClamAV results...${NC}"
+        
+        # Filter infected files by path
+        CLAMAV_INFECTED=0
+        
+        grep "FOUND$" "$CLAMAV_LOG" 2>/dev/null | while IFS= read -r line; do
+            # Extract file path from ClamAV log line
+            # Format: /path/to/file: Malware.Name FOUND
+            file_path=$(echo "$line" | sed 's/:.*$//' | xargs)
+            
+            # Check if path is ignored
+            ignored=false
+            
+            if [[ -n "$file_path" ]] && declare -f is_path_ignored >/dev/null 2>&1 && is_path_ignored "$file_path" "ClamAV"; then
+                ignored=true
+            fi
+            
+            # Count if not ignored
+            if [[ "$ignored" == "false" ]]; then
+                ((CLAMAV_INFECTED++))
+            fi
+        done
+        
+        echo "  Infected files: $CLAMAV_INFECTED"
+        if [[ $CLAMAV_INFECTED -gt 0 ]]; then
+            # Treat ALL malware detections as Critical severity
+            TOTAL_CRITICAL=$((TOTAL_CRITICAL + CLAMAV_INFECTED))
+            echo -e "  ${RED}⚠️  Malware detected - automatically marked as CRITICAL${NC}"
+        fi
     fi
 else
     echo -e "${YELLOW}⚠️  ClamAV results not found in: $SCAN_DIR/clamav/${NC}"

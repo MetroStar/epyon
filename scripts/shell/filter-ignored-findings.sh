@@ -48,16 +48,16 @@ is_tool_ignored() {
         .ignores[] | 
         select(.type == "tool" and (.value | ascii_downcase) == ($tool | ascii_downcase)) |
         .value
-    ' "$IGNORE_CACHE" 2>/dev/null)
+    ' "$IGNORE_CACHE" 2>/dev/null || echo "")
     
     if [[ -n "$ignored" ]]; then
         local reason=$(jq -r --arg tool "$tool_name" '
             .ignores[] | 
             select(.type == "tool" and (.value | ascii_downcase) == ($tool | ascii_downcase)) |
             .reason
-        ' "$IGNORE_CACHE" 2>/dev/null)
+        ' "$IGNORE_CACHE" 2>/dev/null || echo "No reason provided")
         
-        log_suppressed "$tool_name" "tool" "$tool_name" "$reason" "N/A"
+        log_suppressed "$tool_name" "tool" "$tool_name" "$reason" "N/A" 2>/dev/null || true
         return 0
     fi
     
@@ -78,16 +78,16 @@ is_cve_ignored() {
         .ignores[] | 
         select(.type == "cve" and .value == $cve and .expired == false) |
         .value
-    ' "$IGNORE_CACHE" 2>/dev/null)
+    ' "$IGNORE_CACHE" 2>/dev/null || echo "")
     
     if [[ -n "$ignored" ]]; then
         local reason=$(jq -r --arg cve "$cve_id" '
             .ignores[] | 
             select(.type == "cve" and .value == $cve and .expired == false) |
             .reason
-        ' "$IGNORE_CACHE" 2>/dev/null)
+        ' "$IGNORE_CACHE" 2>/dev/null || echo "No reason provided")
         
-        log_suppressed "$tool" "cve" "$cve_id" "$reason" "Varies"
+        log_suppressed "$tool" "cve" "$cve_id" "$reason" "Varies" 2>/dev/null || true
         return 0
     fi
     
@@ -111,16 +111,16 @@ is_package_ignored() {
             .ignores[] | 
             select(.type == "package" and .value == $pkg and .expired == false) |
             .value
-        ' "$IGNORE_CACHE" 2>/dev/null)
+        ' "$IGNORE_CACHE" 2>/dev/null || echo "")
         
         if [[ -n "$ignored" ]]; then
             local reason=$(jq -r --arg pkg "$package_full" '
                 .ignores[] | 
                 select(.type == "package" and .value == $pkg and .expired == false) |
                 .reason
-            ' "$IGNORE_CACHE" 2>/dev/null)
+            ' "$IGNORE_CACHE" 2>/dev/null || echo "No reason provided")
             
-            log_suppressed "$tool" "package" "$package_full" "$reason" "Varies"
+            log_suppressed "$tool" "package" "$package_full" "$reason" "Varies" 2>/dev/null || true
             return 0
         fi
     fi
@@ -130,16 +130,16 @@ is_package_ignored() {
         .ignores[] | 
         select(.type == "package" and .value == $pkg and .expired == false) |
         .value
-    ' "$IGNORE_CACHE" 2>/dev/null)
+    ' "$IGNORE_CACHE" 2>/dev/null || echo "")
     
     if [[ -n "$ignored" ]]; then
         local reason=$(jq -r --arg pkg "$package_name" '
             .ignores[] | 
             select(.type == "package" and .value == $pkg and .expired == false) |
             .reason
-        ' "$IGNORE_CACHE" 2>/dev/null)
+        ' "$IGNORE_CACHE" 2>/dev/null || echo "No reason provided")
         
-        log_suppressed "$tool" "package" "$package_name (all versions)" "$reason" "Varies"
+        log_suppressed "$tool" "package" "$package_name (all versions)" "$reason" "Varies" 2>/dev/null || true
         return 0
     fi
     
@@ -156,7 +156,7 @@ is_path_ignored() {
     fi
     
     # Get all path patterns
-    local patterns=$(jq -r '.ignores[] | select(.type == "path" and .expired == false) | .value' "$IGNORE_CACHE" 2>/dev/null)
+    local patterns=$(jq -r '.ignores[] | select(.type == "path" and .expired == false) | .value' "$IGNORE_CACHE" 2>/dev/null || echo "")
     
     while IFS= read -r pattern; do
         if [[ -z "$pattern" ]]; then
@@ -170,9 +170,9 @@ is_path_ignored() {
                 .ignores[] | 
                 select(.type == "path" and .value == $pat and .expired == false) |
                 .reason
-            ' "$IGNORE_CACHE" 2>/dev/null)
+            ' "$IGNORE_CACHE" 2>/dev/null || echo "No reason provided")
             
-            log_suppressed "$tool" "path" "$file_path (matched: $pattern)" "$reason" "Varies"
+            log_suppressed "$tool" "path" "$file_path (matched: $pattern)" "$reason" "Varies" 2>/dev/null || true
             return 0
         fi
     done <<< "$patterns"
@@ -194,16 +194,16 @@ is_secret_ignored() {
     local ignore_entry=$(jq -r --arg detector "$detector_name" '
         .ignores[] | 
         select(.type == "secret-detector" and .value == $detector and .expired == false)
-    ' "$IGNORE_CACHE" 2>/dev/null)
+    ' "$IGNORE_CACHE" 2>/dev/null || echo "")
     
     if [[ -n "$ignore_entry" ]]; then
         # Check if paths are specified
-        local paths=$(echo "$ignore_entry" | jq -r '.paths[]? // empty' 2>/dev/null)
+        local paths=$(echo "$ignore_entry" | jq -r '.paths[]? // empty' 2>/dev/null || echo "")
         
         if [[ -z "$paths" ]]; then
             # No path restriction - ignore everywhere
-            local reason=$(echo "$ignore_entry" | jq -r '.reason' 2>/dev/null)
-            log_suppressed "$tool" "secret-detector" "$detector_name" "$reason" "Critical"
+            local reason=$(echo "$ignore_entry" | jq -r '.reason' 2>/dev/null || echo "No reason provided")
+            log_suppressed "$tool" "secret-detector" "$detector_name" "$reason" "Critical" 2>/dev/null || true
             return 0
         fi
         
@@ -215,8 +215,8 @@ is_secret_ignored() {
             
             # shellcheck disable=SC2053
             if [[ "$file_path" == $pattern ]]; then
-                local reason=$(echo "$ignore_entry" | jq -r '.reason' 2>/dev/null)
-                log_suppressed "$tool" "secret-detector" "$detector_name in $file_path" "$reason" "Critical"
+                local reason=$(echo "$ignore_entry" | jq -r '.reason' 2>/dev/null || echo "No reason provided")
+                log_suppressed "$tool" "secret-detector" "$detector_name in $file_path" "$reason" "Critical" 2>/dev/null || true
                 return 0
             fi
         done <<< "$paths"
@@ -227,11 +227,11 @@ is_secret_ignored() {
         .ignores[] | 
         select(.type == "secret-pattern" and .expired == false) |
         select($pattern | test(.value))
-    ' "$IGNORE_CACHE" 2>/dev/null)
+    ' "$IGNORE_CACHE" 2>/dev/null || echo "")
     
     if [[ -n "$pattern_entry" ]]; then
-        local reason=$(echo "$pattern_entry" | jq -r '.reason' 2>/dev/null)
-        log_suppressed "$tool" "secret-pattern" "$detector_name" "$reason" "Critical"
+        local reason=$(echo "$pattern_entry" | jq -r '.reason' 2>/dev/null || echo "No reason provided")
+        log_suppressed "$tool" "secret-pattern" "$detector_name" "$reason" "Critical" 2>/dev/null || true
         return 0
     fi
     

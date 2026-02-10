@@ -3,8 +3,6 @@
 # Parse .epyon-ignore.yml
 # Reads ignore rules from target repository and exports them for filtering
 
-set -euo pipefail
-
 # Colors
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
@@ -18,7 +16,7 @@ IGNORE_CACHE="/tmp/epyon-ignore-cache.json"
 # Check if ignore file exists
 if [[ ! -f "$IGNORE_FILE" ]]; then
     # No ignore file - create empty cache
-    echo '{"ignores": []}' > "$IGNORE_CACHE"
+    echo '{"ignores": []}' > "$IGNORE_CACHE" 2>/dev/null || true
     exit 0
 fi
 

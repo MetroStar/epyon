@@ -33,14 +33,19 @@ export IGNORE_CACHE="/tmp/epyon-ignore-cache.json"
 export SUPPRESSED_LOG="$SCAN_DIR/suppressed-findings.md"
 
 if [[ -n "$TARGET_DIR" && -f "$SCRIPT_DIR/parse-epyon-ignore.sh" ]]; then
-    chmod +x "$SCRIPT_DIR/parse-epyon-ignore.sh"
-    TARGET_DIR="$TARGET_DIR" "$SCRIPT_DIR/parse-epyon-ignore.sh"
+    chmod +x "$SCRIPT_DIR/parse-epyon-ignore.sh" 2>/dev/null || true
+    TARGET_DIR="$TARGET_DIR" "$SCRIPT_DIR/parse-epyon-ignore.sh" 2>/dev/null || {
+        echo -e "${YELLOW}⚠️  Failed to parse ignore rules, continuing without filtering${NC}"
+        echo '{"ignores": []}' > "$IGNORE_CACHE" 2>/dev/null || true
+    }
 fi
 
 # Source filter functions
 if [[ -f "$SCRIPT_DIR/filter-ignored-findings.sh" ]]; then
-    source "$SCRIPT_DIR/filter-ignored-findings.sh"
-    init_suppressed_log
+    source "$SCRIPT_DIR/filter-ignored-findings.sh" 2>/dev/null || {
+        echo -e "${YELLOW}⚠️  Failed to load filter functions, continuing without filtering${NC}"
+    }
+    init_suppressed_log 2>/dev/null || true
 fi
 
 echo ""

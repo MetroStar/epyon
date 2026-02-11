@@ -356,8 +356,14 @@ echo ""
 # Show suppressed findings summary if any
 if [[ -f "$SUPPRESSED_LOG" ]]; then
     # Count suppressed findings  
-    TEMP_SUPPRESSED=$(grep -c "^## Suppressed:" "$SUPPRESSED_LOG" 2>/dev/null || echo "0")
-    SUPPRESSED_COUNT="$TEMP_SUPPRESSED"
+    if [[ -f "$SUPPRESSED_LOG" ]]; then
+        SUPPRESSED_COUNT=$(grep -c "^## Suppressed:" "$SUPPRESSED_LOG" 2>/dev/null)
+    else
+        SUPPRESSED_COUNT=0
+    fi
+    if [[ -z "$SUPPRESSED_COUNT" ]]; then
+        SUPPRESSED_COUNT=0
+    fi
     if [[ $SUPPRESSED_COUNT -gt 0 ]]; then
         echo -e "${CYAN}============================================${NC}"
         echo -e "${CYAN}🔕 Suppressed Findings (via .epyon-ignore.yml)${NC}"

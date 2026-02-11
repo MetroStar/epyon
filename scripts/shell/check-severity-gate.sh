@@ -263,25 +263,28 @@ if [[ -f "$CHECKOV_FILE" ]]; then
         CHECKOV_FAILED=0
         
         # Use process substitution to avoid subshell
+        # Iterate through all check types and their failed checks
         while IFS= read -r check; do
             if [[ -z "$check" ]]; then
                 continue
             fi
             
             file_path=$(echo "$check" | jq -r '.file_path // ""' 2>/dev/null)
+            check_id=$(echo "$check" | jq -r '.check_id // ""' 2>/dev/null)
             
             # Check if path is ignored
             ignored=false
             
             if [[ -n "$file_path" ]] && declare -f is_path_ignored >/dev/null 2>&1 && is_path_ignored "$file_path" "Checkov"; then
                 ignored=true
+                echo -e "${CYAN}  ✓ Suppressed: $check_id in $file_path${NC}" 2>/dev/null || true
             fi
             
             # Count if not ignored
             if [[ "$ignored" == "false" ]]; then
                 ((CHECKOV_FAILED++))
             fi
-        done < <(jq -c '.results.failed_checks[]?' "$CHECKOV_FILE" 2>/dev/null)
+        done < <(jq -c '.[] | .results.failed_checks[]?' "$CHECKOV_FILE" 2>/dev/null)
         
         echo "  Failed checks: $CHECKOV_FAILED"
         if [[ $CHECKOV_FAILED -gt 0 ]]; then

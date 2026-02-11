@@ -1,5 +1,7 @@
 name: Baseline Security Scan
 
+permissions: write-all
+
 on:
   schedule:
     # Runs every 89 days at 2:00 AM UTC (keeps baseline artifact alive)

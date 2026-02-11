@@ -1,5 +1,7 @@
 name: Private Security Scan
 
+permissions: write-all
+
 on:
   push:
     branches: [ main, develop ]

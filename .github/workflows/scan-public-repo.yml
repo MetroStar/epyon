@@ -1,5 +1,7 @@
 name: Scan Public Repository
 
+permissions: write-all
+
 on:
   workflow_dispatch:
     inputs:

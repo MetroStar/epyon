@@ -9,21 +9,27 @@ CYAN='\033[0;36m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-TARGET_DIR="${TARGET_DIR:-}"
-IGNORE_FILE="${TARGET_DIR}/.epyon-ignore.yml"
-IGNORE_CACHE="/tmp/epyon-ignore-cache.json"
+# Main parsing function (so this can be sourced without exiting)
+parse_ignore_rules() {
+    local IGNORE_FILE="${1:-}"
+    
+    if [[ -z "$IGNORE_FILE" ]]; then
+        IGNORE_FILE="${TARGET_DIR:-}/.epyon-ignore.yml"
+    fi
+    
+    local IGNORE_CACHE="${IGNORE_CACHE:-/tmp/epyon-ignore-cache.json}"
 
-# Check if ignore file exists
-if [[ ! -f "$IGNORE_FILE" ]]; then
-    # No ignore file - create empty cache
-    echo '{"ignores": []}' > "$IGNORE_CACHE" 2>/dev/null || true
-    exit 0
-fi
+    # Check if ignore file exists
+    if [[ ! -f "$IGNORE_FILE" ]]; then
+        # No ignore file - create empty cache
+        echo '{"ignores": []}' > "$IGNORE_CACHE" 2>/dev/null || true
+        return 0
+        fi
 
-echo -e "${CYAN}📋 Parsing ignore rules from: .epyon-ignore.yml${NC}"
+        echo -e "${CYAN}📋 Parsing ignore rules from: .epyon-ignore.yml${NC}"
 
-# Parse YAML to JSON using Python (more reliable than yq in bash)
-python3 -c "
+    # Parse YAML to JSON using Python (more reliable than yq in bash)
+    python3 -c "
 import yaml
 import json
 import sys
@@ -83,5 +89,13 @@ if [[ $TOTAL_IGNORES -gt 0 ]]; then
         jq -r '.ignores[] | select(.expired == true) | "    - \(.type): \(.value) (expired: \(.expires))"' "$IGNORE_CACHE" 2>/dev/null || true
     fi
 fi
+}
 
-exit 0
+# If script is executed (not sourced), run the function
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    TARGET_DIR="${TARGET_DIR:-}"
+    IGNORE_FILE="${TARGET_DIR}/.epyon-ignore.yml"
+    IGNORE_CACHE="/tmp/epyon-ignore-cache.json"
+    parse_ignore_rules "$IGNORE_FILE"
+    exit 0
+fi

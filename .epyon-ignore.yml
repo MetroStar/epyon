@@ -1,0 +1,29 @@
+# Epyon Security Findings Ignore File
+# Suppressions for security findings within Epyon itself
+
+version: "1.0"
+
+ignores:
+  # GitHub Actions workflow_dispatch inputs - Required for flexible scanning
+  # CKV_GHA_7: The build output cannot be affected by user parameters
+  - type: path
+    value: ".github/workflows/scan-public-repo.yml"
+    reason: "workflow_dispatch inputs required for external repository scanning - inputs validated and used only as parameters, no user code execution"
+    approved_by: "epyon-maintainers@metrostar.com"
+    
+  - type: path
+    value: ".github/workflows/baseline-scan.yml"
+    reason: "workflow_dispatch inputs required for flexible baseline configuration - inputs validated and used only as parameters"
+    approved_by: "epyon-maintainers@metrostar.com"
+    
+  - type: path
+    value: ".github/workflows/scan-private-repo.yml"
+    reason: "workflow_dispatch inputs required for flexible security scanning configuration - inputs validated and used only as parameters"
+    approved_by: "epyon-maintainers@metrostar.com"
+
+# Notes:
+# - These workflow_dispatch inputs are intentional design decisions
+# - All inputs are validated before use
+# - No user-provided code is executed directly
+# - Inputs only control scanning parameters (repositories, modes, severity thresholds)
+# - Skip annotations are also added to workflow files themselves for documentation

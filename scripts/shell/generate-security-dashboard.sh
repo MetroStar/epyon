@@ -733,6 +733,8 @@ fi
 CHECKOV_DIR="${LATEST_SCAN}/checkov"
 CHECKOV_PASSED=0
 CHECKOV_FAILED=0
+CHECKOV_FAILED_RAW=0
+CHECKOV_SUPPRESSED=0
 CHECKOV_SKIPPED=0
 CHECKOV_FILES_SCANNED=0
 CHECKOV_CHECK_TYPES=""
@@ -743,22 +745,32 @@ if [ -d "$CHECKOV_DIR" ]; then
             # Checkov output is an array - iterate through all check types
             # First element [0] is summary, subsequent elements contain results by check type
             
-            # Sum up all passed/failed/skipped from all check types
+            # Sum up all passed/skipped from all check types
             passed=$(jq '[.[] | select(.results?) | .results.passed_checks | length] | add // 0' "$checkov_file" 2>/dev/null || echo "0")
-            failed=$(jq '[.[] | select(.results?) | .results.failed_checks | length] | add // 0' "$checkov_file" 2>/dev/null || echo "0")
             skipped=$(jq '[.[] | select(.results?) | .results.skipped_checks | length] | add // 0' "$checkov_file" 2>/dev/null || echo "0")
             
             # Get check types scanned
             check_types=$(jq -r '[.[] | select(.check_type?) | .check_type] | unique | join(", ")' "$checkov_file" 2>/dev/null || echo "")
             
             [[ "$passed" =~ ^[0-9]+$ ]] || passed=0
-            [[ "$failed" =~ ^[0-9]+$ ]] || failed=0
             [[ "$skipped" =~ ^[0-9]+$ ]] || skipped=0
             
             CHECKOV_PASSED=$((CHECKOV_PASSED + passed))
-            CHECKOV_FAILED=$((CHECKOV_FAILED + failed))
             CHECKOV_SKIPPED=$((CHECKOV_SKIPPED + skipped))
             CHECKOV_CHECK_TYPES="$check_types"
+            
+            # Count failed checks with suppression filtering
+            while IFS=$'\t' read -r file_path check_id; do
+                if [ -n "$file_path" ]; then
+                    ((CHECKOV_FAILED_RAW++))
+                    # Check if path is ignored
+                    if declare -f is_path_ignored >/dev/null 2>&1 && is_path_ignored "$file_path" "Checkov"; then
+                        ((CHECKOV_SUPPRESSED++))
+                    else
+                        ((CHECKOV_FAILED++))
+                    fi
+                fi
+            done < <(jq -r '[.[] | select(.results?) | .results.failed_checks[]] | .[] | [.file_path, .check_id] | @tsv' "$checkov_file" 2>/dev/null)
         fi
     done
 fi
@@ -792,7 +804,12 @@ if [ "$CHECKOV_TOTAL" -gt 0 ]; then
     CHECKOV_FINDINGS="<div class=\"stats-grid-small\">
         <div class=\"stat-item\"><strong>✅ Passed:</strong> ${CHECKOV_PASSED}</div>
         <div class=\"stat-item\"><strong>❌ Failed:</strong> ${CHECKOV_FAILED}</div>
-        <div class=\"stat-item\"><strong>⏭️ Skipped:</strong> ${CHECKOV_SKIPPED}</div>
+        <div class=\"stat-item\"><strong>⏭️ Skipped:</strong> ${CHECKOV_SKIPPED}</div>"
+    if [ "$CHECKOV_SUPPRESSED" -gt 0 ]; then
+        CHECKOV_FINDINGS="${CHECKOV_FINDINGS}
+        <div class=\"stat-item\"><strong>🔕 Suppressed:</strong> ${CHECKOV_SUPPRESSED}</div>"
+    fi
+    CHECKOV_FINDINGS="${CHECKOV_FINDINGS}
         <div class=\"stat-item\"><strong>📊 Total Checks:</strong> ${CHECKOV_TOTAL}</div>
         <div class=\"stat-item\"><strong>📁 Files Scanned:</strong> ${CHECKOV_FILES_SCANNED}</div>
         <div class=\"stat-item\"><strong>⏱️ Scan Duration:</strong> ${CHECKOV_SCAN_DURATION}s</div>
@@ -820,6 +837,12 @@ if [ "$CHECKOV_TOTAL" -gt 0 ]; then
                 # Get failed checks as TSV for easy parsing
                 while IFS=$'\t' read -r check_id check_name file_path line_start guideline; do
                     if [ -n "$check_id" ]; then
+                        # Check if this finding is suppressed
+                        if declare -f is_path_ignored >/dev/null 2>&1 && is_path_ignored "$file_path" "Checkov" >/dev/null 2>&1; then
+                            # Skip suppressed findings (they're in the suppressed section)
+                            continue
+                        fi
+                        
                         # Escape HTML entities
                         check_name_escaped=$(echo "$check_name" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
                         file_display=$(basename "$file_path" 2>/dev/null || echo "$file_path")

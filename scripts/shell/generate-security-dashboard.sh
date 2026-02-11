@@ -94,13 +94,17 @@ WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # Source filter-ignored-findings.sh for suppression functionality
 if [ -f "$SCRIPT_DIR/filter-ignored-findings.sh" ]; then
     # shellcheck source=/dev/null
-    source "$SCRIPT_DIR/filter-ignored-findings.sh"
+    set +e
+    source "$SCRIPT_DIR/filter-ignored-findings.sh" 2>/dev/null
+    set -e
 fi
 
 # Source parse-epyon-ignore.sh for ignore rule parsing
 if [ -f "$SCRIPT_DIR/parse-epyon-ignore.sh" ]; then
     # shellcheck source=/dev/null
-    source "$SCRIPT_DIR/parse-epyon-ignore.sh"
+    set +e
+    source "$SCRIPT_DIR/parse-epyon-ignore.sh" 2>/dev/null
+    set -e
 fi
 
 # Default paths
@@ -785,8 +789,15 @@ if [ -d "$CHECKOV_DIR" ]; then
             while IFS=$'\t' read -r file_path check_id; do
                 if [ -n "$file_path" ]; then
                     ((CHECKOV_FAILED_RAW++))
-                    # Check if path is ignored
-                    if declare -f is_path_ignored >/dev/null 2>&1 && is_path_ignored "$file_path" "Checkov"; then
+                    # Check if path is ignored (safely handle function not available)
+                    is_suppressed=false
+                    if declare -f is_path_ignored >/dev/null 2>&1; then
+                        if is_path_ignored "$file_path" "Checkov" 2>/dev/null; then
+                            is_suppressed=true
+                        fi
+                    fi
+                    
+                    if [ "$is_suppressed" = true ]; then
                         ((CHECKOV_SUPPRESSED++))
                     else
                         ((CHECKOV_FAILED++))
@@ -859,8 +870,15 @@ if [ "$CHECKOV_TOTAL" -gt 0 ]; then
                 # Get failed checks as TSV for easy parsing
                 while IFS=$'\t' read -r check_id check_name file_path line_start guideline; do
                     if [ -n "$check_id" ]; then
-                        # Check if this finding is suppressed
-                        if declare -f is_path_ignored >/dev/null 2>&1 && is_path_ignored "$file_path" "Checkov" >/dev/null 2>&1; then
+                        # Check if this finding is suppressed (safely handle function not available)
+                        is_suppressed=false
+                        if declare -f is_path_ignored >/dev/null 2>&1; then
+                            if is_path_ignored "$file_path" "Checkov" 2>/dev/null; then
+                                is_suppressed=true
+                            fi
+                        fi
+                        
+                        if [ "$is_suppressed" = true ]; then
                             # Skip suppressed findings (they're in the suppressed section)
                             continue
                         fi

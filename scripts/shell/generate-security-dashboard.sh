@@ -1692,7 +1692,7 @@ TOTAL_IMAGE_VULNS=$((TRIVY_CRITICAL + TRIVY_HIGH + TRIVY_MEDIUM + TRIVY_LOW + GR
 TOTAL_APP_VULNS=$((TH_CRITICAL + TH_HIGH + CHECKOV_HIGH + HELM_CRITICAL + HELM_HIGH + SONAR_CRITICAL + SONAR_HIGH))
 
 # Read suppressed findings information
-SUPPRESSED_LOG="$SCAN_DIR/suppressed-findings.md"
+SUPPRESSED_LOG="${LATEST_SCAN}/suppressed-findings.md"
 SUPPRESSED_COUNT=0
 SUPPRESSED_HTML=""
 SUPPRESSED_TABLE_ROWS=""
@@ -1701,6 +1701,9 @@ if [[ -f "$SUPPRESSED_LOG" ]]; then
     SUPPRESSED_COUNT=$(grep -c "^## Suppressed:" "$SUPPRESSED_LOG" 2>/dev/null || echo "0")
     if [[ $SUPPRESSED_COUNT -gt 0 ]]; then
         echo -e "${CYAN}📋 Found $SUPPRESSED_COUNT suppressed finding(s)${NC}"
+        echo "DEBUG: Suppressed log content:" >&2
+        cat "$SUPPRESSED_LOG" >&2
+        echo "DEBUG: End of suppressed log" >&2
         
         # Parse suppressed findings into HTML table rows
         while IFS= read -r line; do
@@ -1722,6 +1725,7 @@ if [[ -f "$SUPPRESSED_LOG" ]]; then
             elif [[ "$line" =~ ^-\ \*\*Severity:\*\*\ (.+)$ ]]; then
                 current_severity="${BASH_REMATCH[1]}"
                 # End of entry, add table row
+                echo "DEBUG: Adding row - Tool: $current_tool, Type: $current_type, Value: $current_value, Reason: $current_reason, Severity: $current_severity" >&2
                 SUPPRESSED_TABLE_ROWS+="<tr>
                     <td><span class='tool-badge'>${current_tool}</span></td>
                     <td><code style='background: #1a1d23; padding: 2px 6px; border-radius: 4px; color: #60a5fa; font-size: 0.85em;'>${current_type}</code></td>
@@ -1731,6 +1735,8 @@ if [[ -f "$SUPPRESSED_LOG" ]]; then
                 </tr>"
             fi
         done < "$SUPPRESSED_LOG"
+        
+        echo "DEBUG: Total rows added: $(echo "$SUPPRESSED_TABLE_ROWS" | grep -c '<tr>' || echo 0)" >&2
         
         # Generate HTML for suppressed findings display
         SUPPRESSED_HTML="<div style=\"background: #2C3539; border-radius: 12px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #fbbf24; border: 1px solid #fbbf24;\">
@@ -1768,7 +1774,7 @@ if [[ -f "$SUPPRESSED_LOG" ]]; then
             </div>
             
             <div style=\"margin-top: 12px;\">
-                <a href=\"../suppressed-findings.md\" style=\"display: inline-block; background: #fbbf24; color: #1a1d23; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.9em;\">
+                <a href=\"../../suppressed-findings.md\" style=\"display: inline-block; background: #fbbf24; color: #1a1d23; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.9em;\">
                     📄 View Full Report
                 </a>
             </div>

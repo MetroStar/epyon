@@ -91,6 +91,18 @@ done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
+# Source filter-ignored-findings.sh for suppression functionality
+if [ -f "$SCRIPT_DIR/filter-ignored-findings.sh" ]; then
+    # shellcheck source=/dev/null
+    source "$SCRIPT_DIR/filter-ignored-findings.sh"
+fi
+
+# Source parse-epyon-ignore.sh for ignore rule parsing
+if [ -f "$SCRIPT_DIR/parse-epyon-ignore.sh" ]; then
+    # shellcheck source=/dev/null
+    source "$SCRIPT_DIR/parse-epyon-ignore.sh"
+fi
+
 # Default paths
 SCANS_DIR="${WORKSPACE_ROOT}/scans"
 
@@ -116,6 +128,16 @@ echo "Generating interactive dashboard from: $SCAN_NAME"
 # Set output to the scan directory's consolidated reports
 OUTPUT_DIR="${LATEST_SCAN}/consolidated-reports/dashboards"
 OUTPUT_HTML="${OUTPUT_DIR}/security-dashboard.html"
+
+# Initialize ignore rules if parse function is available
+if declare -f parse_ignore_rules >/dev/null 2>&1; then
+    IGNORE_FILE="${WORKSPACE_ROOT}/.epyon-ignore.yml"
+    if [ -f "$IGNORE_FILE" ]; then
+        export IGNORE_CACHE="/tmp/epyon-ignore-cache-dashboard-$$.json"
+        export SUPPRESSED_LOG="${LATEST_SCAN}/suppressed-findings.md"
+        parse_ignore_rules "$IGNORE_FILE" || true
+    fi
+fi
 
 # ============================================
 # COLLECT DETAILED STATISTICS FROM EACH TOOL
@@ -778,7 +800,7 @@ fi
 # They should be counted as HIGH priority issues, not CRITICAL vulnerabilities
 CHECKOV_CRITICAL=0
 CHECKOV_HIGH=$CHECKOV_FAILED
-CHECKOV_TOTAL=$((CHECKOV_PASSED + CHECKOV_FAILED + CHECKOV_SKIPPED))
+CHECKOV_TOTAL=$((CHECKOV_PASSED + CHECKOV_FAILED + CHECKOV_SUPPRESSED + CHECKOV_SKIPPED))
 
 # Read Checkov statistics file for detailed info
 CHECKOV_STATS_FILE="$CHECKOV_DIR/checkov-statistics.json"

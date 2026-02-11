@@ -46,7 +46,11 @@ if [[ -f "$SCRIPT_DIR/filter-ignored-findings.sh" ]]; then
     source "$SCRIPT_DIR/filter-ignored-findings.sh" 2>/dev/null || {
         echo -e "${YELLOW}⚠️  Failed to load filter functions, continuing without filtering${NC}"
     }
-    init_suppressed_log 2>/dev/null || true
+    if init_suppressed_log; then
+        echo -e "${CYAN}📝 Suppressed findings log: $SUPPRESSED_LOG${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Could not initialize suppressed findings log${NC}"
+    fi
 fi
 
 echo ""

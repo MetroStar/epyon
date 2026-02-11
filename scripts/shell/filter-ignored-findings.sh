@@ -57,7 +57,7 @@ is_tool_ignored() {
             .reason
         ' "$IGNORE_CACHE" 2>/dev/null || echo "No reason provided")
         
-        log_suppressed "$tool_name" "tool" "$tool_name" "$reason" "N/A" 2>/dev/null || true
+        log_suppressed "$tool_name" "tool" "$tool_name" "$reason" "N/A"
         return 0
     fi
     
@@ -87,7 +87,7 @@ is_cve_ignored() {
             .reason
         ' "$IGNORE_CACHE" 2>/dev/null || echo "No reason provided")
         
-        log_suppressed "$tool" "cve" "$cve_id" "$reason" "Varies" 2>/dev/null || true
+        log_suppressed "$tool" "cve" "$cve_id" "$reason" "Varies"
         return 0
     fi
     
@@ -120,7 +120,7 @@ is_package_ignored() {
                 .reason
             ' "$IGNORE_CACHE" 2>/dev/null || echo "No reason provided")
             
-            log_suppressed "$tool" "package" "$package_full" "$reason" "Varies" 2>/dev/null || true
+            log_suppressed "$tool" "package" "$package_full" "$reason" "Varies"
             return 0
         fi
     fi
@@ -139,7 +139,7 @@ is_package_ignored() {
             .reason
         ' "$IGNORE_CACHE" 2>/dev/null || echo "No reason provided")
         
-        log_suppressed "$tool" "package" "$package_name (all versions)" "$reason" "Varies" 2>/dev/null || true
+        log_suppressed "$tool" "package" "$package_name (all versions)" "$reason" "Varies"
         return 0
     fi
     
@@ -172,7 +172,7 @@ is_path_ignored() {
                 .reason
             ' "$IGNORE_CACHE" 2>/dev/null || echo "No reason provided")
             
-            log_suppressed "$tool" "path" "$file_path (matched: $pattern)" "$reason" "Varies" 2>/dev/null || true
+            log_suppressed "$tool" "path" "$file_path (matched: $pattern)" "$reason" "Varies"
             return 0
         fi
     done <<< "$patterns"
@@ -203,7 +203,7 @@ is_secret_ignored() {
         if [[ -z "$paths" ]]; then
             # No path restriction - ignore everywhere
             local reason=$(echo "$ignore_entry" | jq -r '.reason' 2>/dev/null || echo "No reason provided")
-            log_suppressed "$tool" "secret-detector" "$detector_name" "$reason" "Critical" 2>/dev/null || true
+            log_suppressed "$tool" "secret-detector" "$detector_name" "$reason" "Critical"
             return 0
         fi
         
@@ -216,7 +216,7 @@ is_secret_ignored() {
             # shellcheck disable=SC2053
             if [[ "$file_path" == $pattern ]]; then
                 local reason=$(echo "$ignore_entry" | jq -r '.reason' 2>/dev/null || echo "No reason provided")
-                log_suppressed "$tool" "secret-detector" "$detector_name in $file_path" "$reason" "Critical" 2>/dev/null || true
+                log_suppressed "$tool" "secret-detector" "$detector_name in $file_path" "$reason" "Critical"
                 return 0
             fi
         done <<< "$paths"
@@ -231,7 +231,7 @@ is_secret_ignored() {
     
     if [[ -n "$pattern_entry" ]]; then
         local reason=$(echo "$pattern_entry" | jq -r '.reason' 2>/dev/null || echo "No reason provided")
-        log_suppressed "$tool" "secret-pattern" "$detector_name" "$reason" "Critical" 2>/dev/null || true
+        log_suppressed "$tool" "secret-pattern" "$detector_name" "$reason" "Critical"
         return 0
     fi
     

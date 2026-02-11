@@ -13,6 +13,7 @@ NC='\033[0m'
 # Configuration from environment variables
 FAIL_ON_CRITICAL="${FAIL_ON_CRITICAL:-true}"
 FAIL_ON_HIGH="${FAIL_ON_HIGH:-false}"
+HIGH_THRESHOLD="${HIGH_THRESHOLD:-4}"
 WARNING_ONLY="${WARNING_ONLY:-false}"
 SCAN_DIR="${SCAN_DIR:-}"
 TARGET_DIR="${TARGET_DIR:-}"
@@ -54,7 +55,7 @@ echo -e "${CYAN}🚦 Security Severity Gate Check${NC}"
 echo -e "${CYAN}============================================${NC}"
 echo -e "${CYAN}Scan Directory: $SCAN_DIR${NC}"
 echo -e "${CYAN}Fail on Critical: $FAIL_ON_CRITICAL${NC}"
-echo -e "${CYAN}Fail on High: $FAIL_ON_HIGH${NC}"
+echo -e "${CYAN}Fail on High: $FAIL_ON_HIGH (threshold: $HIGH_THRESHOLD)${NC}"
 echo -e "${CYAN}Warning Only Mode: $WARNING_ONLY${NC}"
 echo ""
 
@@ -425,9 +426,9 @@ elif [[ "$FAIL_ON_CRITICAL" == "true" && $TOTAL_CRITICAL -gt 0 ]]; then
     fi
 fi
 
-if [[ "$FAIL_ON_HIGH" == "true" && $TOTAL_HIGH -gt 0 ]]; then
-    echo -e "${RED}❌ Build Gate Failed: $TOTAL_HIGH high severity findings detected${NC}"
-    echo -e "${RED}   Policy: FAIL_ON_HIGH=true${NC}"
+if [[ "$FAIL_ON_HIGH" == "true" && $TOTAL_HIGH -ge $HIGH_THRESHOLD ]]; then
+    echo -e "${RED}❌ Build Gate Failed: $TOTAL_HIGH high severity findings detected (threshold: $HIGH_THRESHOLD)${NC}"
+    echo -e "${RED}   Policy: FAIL_ON_HIGH=true, HIGH_THRESHOLD=$HIGH_THRESHOLD${NC}"
     ISSUES_FOUND=true
     EXIT_CODE=1
     

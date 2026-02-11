@@ -30,8 +30,9 @@ log_suppressed() {
 ## Suppressed: $value
 - **Tool**: $tool
 - **Type**: $type
-- **Severity**: $severity
+- **Value**: $value
 - **Reason**: $reason
+- **Severity**: $severity
 
 EOF
 }

@@ -304,6 +304,7 @@ jobs:
         id: severity-gate
         env:
           SCAN_DIR: ${{ github.workspace }}/epyon/${{ steps.find-scan.outputs.scan_dir }}
+          TARGET_DIR: ${{ github.workspace }}/target-repo
           FAIL_ON_CRITICAL: ${{ env.FAIL_ON_CRITICAL }}
           FAIL_ON_HIGH: ${{ env.FAIL_ON_HIGH }}
           WARNING_ONLY: ${{ env.WARNING_ONLY }}

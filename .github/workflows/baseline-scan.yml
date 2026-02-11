@@ -202,6 +202,7 @@ jobs:
         if: github.event.inputs.fail_on_critical == 'true' || github.event.inputs.fail_on_high == 'true'
         env:
           SCAN_DIR: ${{ github.workspace }}/epyon/${{ steps.find-scan.outputs.scan_dir }}
+          TARGET_DIR: ${{ github.workspace }}/target-repo
           FAIL_ON_CRITICAL: ${{ github.event.inputs.fail_on_critical == 'true' }}
           FAIL_ON_HIGH: ${{ github.event.inputs.fail_on_high == 'true' }}
           WARNING_ONLY: true

@@ -1605,25 +1605,83 @@ TOTAL_APP_VULNS=$((TH_CRITICAL + TH_HIGH + CHECKOV_HIGH + HELM_CRITICAL + HELM_H
 SUPPRESSED_LOG="$SCAN_DIR/suppressed-findings.md"
 SUPPRESSED_COUNT=0
 SUPPRESSED_HTML=""
+SUPPRESSED_TABLE_ROWS=""
+
 if [[ -f "$SUPPRESSED_LOG" ]]; then
     SUPPRESSED_COUNT=$(grep -c "^## Suppressed:" "$SUPPRESSED_LOG" 2>/dev/null || echo "0")
     if [[ $SUPPRESSED_COUNT -gt 0 ]]; then
         echo -e "${CYAN}📋 Found $SUPPRESSED_COUNT suppressed finding(s)${NC}"
+        
+        # Parse suppressed findings into HTML table rows
+        while IFS= read -r line; do
+            if [[ "$line" =~ ^##\ Suppressed:\ (.+)$ ]]; then
+                # Start of new suppressed finding entry
+                current_tool=""
+                current_type=""
+                current_value=""
+                current_reason=""
+                current_severity=""
+            elif [[ "$line" =~ ^\*\*Tool:\*\*\ (.+)$ ]]; then
+                current_tool="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^\*\*Type:\*\*\ (.+)$ ]]; then
+                current_type="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^\*\*Value:\*\*\ (.+)$ ]]; then
+                current_value="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^\*\*Reason:\*\*\ (.+)$ ]]; then
+                current_reason="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^\*\*Severity:\*\*\ (.+)$ ]]; then
+                current_severity="${BASH_REMATCH[1]}"
+                # End of entry, add table row
+                SUPPRESSED_TABLE_ROWS+="<tr>
+                    <td><span class='tool-badge'>${current_tool}</span></td>
+                    <td><code style='background: #1a1d23; padding: 2px 6px; border-radius: 4px; color: #60a5fa; font-size: 0.85em;'>${current_type}</code></td>
+                    <td style='max-width: 300px; word-break: break-word;'><code style='background: #1a1d23; padding: 2px 6px; border-radius: 4px; color: #e8eaed; font-size: 0.85em;'>${current_value}</code></td>
+                    <td style='color: #9ca3af; font-size: 0.9em;'>${current_reason}</td>
+                    <td><span class='severity-badge severity-${current_severity,,}'>${current_severity}</span></td>
+                </tr>"
+            fi
+        done < "$SUPPRESSED_LOG"
+        
         # Generate HTML for suppressed findings display
         SUPPRESSED_HTML="<div style=\"background: #2C3539; border-radius: 12px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #fbbf24; border: 1px solid #fbbf24;\">
-            <h3 style=\"color: #fbbf24; margin-bottom: 10px; display: flex; align-items: center; gap: 8px;\">
-                <span>🔕</span> Suppressed Findings
-            </h3>
+            <div style=\"display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;\">
+                <h3 style=\"color: #fbbf24; margin: 0; display: flex; align-items: center; gap: 8px;\">
+                    <span>🔕</span> Suppressed Findings
+                </h3>
+                <button onclick=\"toggleSuppressedTable()\" style=\"background: #fbbf24; color: #1a1d23; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em;\">
+                    <span id=\"toggleSuppressedIcon\">▼</span> View Details
+                </button>
+            </div>
             <p style=\"color: #e8eaed; margin-bottom: 10px;\">
                 <strong>$SUPPRESSED_COUNT finding(s)</strong> were suppressed via <code style=\"background: #1a1d23; padding: 2px 6px; border-radius: 4px; color: #fbbf24;\">.epyon-ignore.yml</code> rules.
             </p>
             <p style=\"color: #9ca3af; font-size: 0.9em; margin-bottom: 12px;\">
                 These findings have been acknowledged with documented justification and audit trail.
-                Review the suppressed findings report for details on suppression reasons and approvals.
             </p>
-            <a href=\"../suppressed-findings.md\" style=\"display: inline-block; background: #fbbf24; color: #1a1d23; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.9em;\">
-                📄 View Suppressed Findings Report
-            </a>
+            
+            <!-- Collapsible table -->
+            <div id=\"suppressedTable\" style=\"display: none; margin-top: 15px; overflow-x: auto;\">
+                <table style=\"width: 100%; border-collapse: collapse; background: #1a1d23; border-radius: 8px; overflow: hidden;\">
+                    <thead>
+                        <tr style=\"background: #252a2e; color: #fbbf24; text-align: left;\">
+                            <th style=\"padding: 12px; border-bottom: 2px solid #fbbf24;\">Tool</th>
+                            <th style=\"padding: 12px; border-bottom: 2px solid #fbbf24;\">Type</th>
+                            <th style=\"padding: 12px; border-bottom: 2px solid #fbbf24;\">Value</th>
+                            <th style=\"padding: 12px; border-bottom: 2px solid #fbbf24;\">Reason</th>
+                            <th style=\"padding: 12px; border-bottom: 2px solid #fbbf24;\">Severity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${SUPPRESSED_TABLE_ROWS}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div style=\"margin-top: 12px;\">
+                <a href=\"../suppressed-findings.md\" style=\"display: inline-block; background: #fbbf24; color: #1a1d23; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.9em;\">
+                    📄 View Full Report
+                </a>
+            </div>
         </div>"
     fi
 fi
@@ -1818,6 +1876,30 @@ cat > "$OUTPUT_HTML" << 'EOF'
         .badge-medium { background: #2a1f15; color: #fb923c; border: 1px solid #f97316; }
         .badge-low { background: #c6f6d5; color: #2f855a; }
         .badge-clean { background: #c6f6d5; color: #2f855a; }
+        
+        .tool-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.85em;
+            font-weight: 600;
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .severity-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.85em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .severity-critical { background: #dc2626; color: white; }
+        .severity-high { background: #ea580c; color: white; }
+        .severity-medium { background: #f59e0b; color: #1a1d23; }
+        .severity-low { background: #10b981; color: white; }
         
         .tool-header.active .tool-stat-badge {
             background: rgba(255,255,255,0.2);
@@ -3402,6 +3484,20 @@ cat >> "$OUTPUT_HTML" << EOF
                 details.style.display = 'block';
                 element.classList.add('expanded');
                 element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+        
+        // Toggle suppressed findings table visibility
+        function toggleSuppressedTable() {
+            const table = document.getElementById('suppressedTable');
+            const icon = document.getElementById('toggleSuppressedIcon');
+            
+            if (table.style.display === 'none') {
+                table.style.display = 'block';
+                icon.textContent = '▲';
+            } else {
+                table.style.display = 'none';
+                icon.textContent = '▼';
             }
         }
         

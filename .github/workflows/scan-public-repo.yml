@@ -277,6 +277,7 @@ jobs:
         id: severity-gate
         env:
           SCAN_DIR: ${{ github.workspace }}/${{ steps.find-scan.outputs.scan_dir }}
+          TARGET_DIR: ${{ github.workspace }}
           FAIL_ON_CRITICAL: ${{ github.event.inputs.fail_on_critical }}
           FAIL_ON_HIGH: ${{ github.event.inputs.fail_on_high }}
           WARNING_ONLY: ${{ github.event.inputs.warning_only }}

@@ -355,7 +355,7 @@ echo ""
 
 # Show suppressed findings summary if any
 if [[ -f "$SUPPRESSED_LOG" ]]; then
-    # Count suppressed findings
+    # Count suppressed findings  
     SUPPRESSED_COUNT=$(grep -c "^## Suppressed:" "$SUPPRESSED_LOG" 2>/dev/null || echo "0")
     if [[ $SUPPRESSED_COUNT -gt 0 ]]; then
         echo -e "${CYAN}============================================${NC}"

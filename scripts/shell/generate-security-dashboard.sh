@@ -3,9 +3,16 @@
 # Generate Interactive Security Dashboard
 # Creates an interactive HTML dashboard with expandable tool sections showing detailed vulnerabilities
 
+# Enable error output for debugging
+set -e
+set -o pipefail
+
 # Use less strict mode for robustness with jq parsing and dynamic sourcing
 # Removed set -u to prevent failures from undefined variables in sourced scripts
 set +u
+
+# Trap errors for debugging
+trap 'echo "ERROR: Dashboard generation failed at line $LINENO with exit code $?" >&2' ERR
 
 # Colors for help output
 WHITE='\033[1;37m'
@@ -92,8 +99,12 @@ done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
+echo "DEBUG: SCRIPT_DIR=$SCRIPT_DIR" >&2
+echo "DEBUG: WORKSPACE_ROOT=$WORKSPACE_ROOT" >&2
+
 # Source filter-ignored-findings.sh for suppression functionality
 if [ -f "$SCRIPT_DIR/filter-ignored-findings.sh" ]; then
+    echo "DEBUG: Sourcing filter-ignored-findings.sh" >&2
     # shellcheck source=/dev/null
     set +e
     source "$SCRIPT_DIR/filter-ignored-findings.sh" 2>/dev/null
@@ -102,6 +113,7 @@ fi
 
 # Source parse-epyon-ignore.sh for ignore rule parsing
 if [ -f "$SCRIPT_DIR/parse-epyon-ignore.sh" ]; then
+    echo "DEBUG: Sourcing parse-epyon-ignore.sh" >&2
     # shellcheck source=/dev/null
     set +e
     source "$SCRIPT_DIR/parse-epyon-ignore.sh" 2>/dev/null
@@ -120,7 +132,7 @@ else
     LATEST_SCAN=$(find "$SCANS_DIR" -maxdepth 1 -type d -name "*_*_*" 2>/dev/null | sort -r | head -n 1)
     
     if [ -z "$LATEST_SCAN" ]; then
-        echo "❌ No scan directories found in $SCANS_DIR"
+        echo "❌ No scan directories found in $SCANS_DIR" >&2
         exit 1
     fi
     
@@ -129,10 +141,13 @@ fi
 
 SCAN_NAME=$(basename "$LATEST_SCAN")
 echo "Generating interactive dashboard from: $SCAN_NAME"
+echo "DEBUG: LATEST_SCAN=$LATEST_SCAN" >&2
 
 # Set output to the scan directory's consolidated reports
 OUTPUT_DIR="${LATEST_SCAN}/consolidated-reports/dashboards"
 OUTPUT_HTML="${OUTPUT_DIR}/security-dashboard.html"
+echo "DEBUG: OUTPUT_DIR=$OUTPUT_DIR" >&2
+echo "DEBUG: OUTPUT_HTML=$OUTPUT_HTML" >&2
 
 # Initialize ignore rules if parse function is available
 if declare -f parse_ignore_rules >/dev/null 2>&1; then

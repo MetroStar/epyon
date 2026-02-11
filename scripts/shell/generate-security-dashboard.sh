@@ -1621,15 +1621,15 @@ if [[ -f "$SUPPRESSED_LOG" ]]; then
                 current_value=""
                 current_reason=""
                 current_severity=""
-            elif [[ "$line" =~ ^\*\*Tool:\*\*\ (.+)$ ]]; then
+            elif [[ "$line" =~ ^-\ \*\*Tool:\*\*\ (.+)$ ]]; then
                 current_tool="${BASH_REMATCH[1]}"
-            elif [[ "$line" =~ ^\*\*Type:\*\*\ (.+)$ ]]; then
+            elif [[ "$line" =~ ^-\ \*\*Type:\*\*\ (.+)$ ]]; then
                 current_type="${BASH_REMATCH[1]}"
-            elif [[ "$line" =~ ^\*\*Value:\*\*\ (.+)$ ]]; then
+            elif [[ "$line" =~ ^-\ \*\*Value:\*\*\ (.+)$ ]]; then
                 current_value="${BASH_REMATCH[1]}"
-            elif [[ "$line" =~ ^\*\*Reason:\*\*\ (.+)$ ]]; then
+            elif [[ "$line" =~ ^-\ \*\*Reason:\*\*\ (.+)$ ]]; then
                 current_reason="${BASH_REMATCH[1]}"
-            elif [[ "$line" =~ ^\*\*Severity:\*\*\ (.+)$ ]]; then
+            elif [[ "$line" =~ ^-\ \*\*Severity:\*\*\ (.+)$ ]]; then
                 current_severity="${BASH_REMATCH[1]}"
                 # End of entry, add table row
                 SUPPRESSED_TABLE_ROWS+="<tr>

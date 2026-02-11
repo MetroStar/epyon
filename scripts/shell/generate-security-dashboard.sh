@@ -3,8 +3,9 @@
 # Generate Interactive Security Dashboard
 # Creates an interactive HTML dashboard with expandable tool sections showing detailed vulnerabilities
 
-# Use less strict mode for robustness with jq parsing
-set -u
+# Use less strict mode for robustness with jq parsing and dynamic sourcing
+# Removed set -u to prevent failures from undefined variables in sourced scripts
+set +u
 
 # Colors for help output
 WHITE='\033[1;37m'
@@ -135,11 +136,20 @@ OUTPUT_HTML="${OUTPUT_DIR}/security-dashboard.html"
 
 # Initialize ignore rules if parse function is available
 if declare -f parse_ignore_rules >/dev/null 2>&1; then
-    IGNORE_FILE="${WORKSPACE_ROOT}/.epyon-ignore.yml"
-    if [ -f "$IGNORE_FILE" ]; then
+    # Try multiple possible locations for .epyon-ignore.yml
+    IGNORE_FILE=""
+    for possible_path in "${WORKSPACE_ROOT}/.epyon-ignore.yml" "${LATEST_SCAN}/../../.epyon-ignore.yml" "$(pwd)/.epyon-ignore.yml"; do
+        if [ -f "$possible_path" ]; then
+            IGNORE_FILE="$possible_path"
+            break
+        fi
+    done
+    
+    if [ -n "$IGNORE_FILE" ] && [ -f "$IGNORE_FILE" ]; then
         export IGNORE_CACHE="/tmp/epyon-ignore-cache-dashboard-$$.json"
         export SUPPRESSED_LOG="${LATEST_SCAN}/suppressed-findings.md"
-        parse_ignore_rules "$IGNORE_FILE" || true
+        echo "📋 Using ignore rules from: $IGNORE_FILE"
+        parse_ignore_rules "$IGNORE_FILE" 2>/dev/null || true
     fi
 fi
 

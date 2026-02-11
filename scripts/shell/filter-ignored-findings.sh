@@ -25,6 +25,7 @@ log_suppressed() {
     local value="$3"
     local reason="$4"
     local severity="${5:-N/A}"
+    local approved_by="${6:-Not specified}"
     
     cat >> "$SUPPRESSED_LOG" << EOF
 ## Suppressed: $value
@@ -32,6 +33,7 @@ log_suppressed() {
 - **Type**: $type
 - **Value**: $value
 - **Reason**: $reason
+- **Approved By**: $approved_by
 - **Severity**: $severity
 
 EOF
@@ -173,7 +175,13 @@ is_path_ignored() {
                 .reason
             ' "$IGNORE_CACHE" 2>/dev/null || echo "No reason provided")
             
-            log_suppressed "$tool" "path" "$file_path (matched: $pattern)" "$reason" "Varies"
+            local approved_by=$(jq -r --arg pat "$pattern" '
+                .ignores[] | 
+                select(.type == "path" and .value == $pat and .expired == false) |
+                .approved_by // "Not specified"
+            ' "$IGNORE_CACHE" 2>/dev/null || echo "Not specified")
+            
+            log_suppressed "$tool" "path" "$file_path (matched: $pattern)" "$reason" "Varies" "$approved_by"
             return 0
         fi
     done <<< "$patterns"

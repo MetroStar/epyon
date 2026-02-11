@@ -1713,24 +1713,28 @@ if [[ -f "$SUPPRESSED_LOG" ]]; then
                 current_type=""
                 current_value=""
                 current_reason=""
+                current_approved_by=""
                 current_severity=""
-            elif [[ "$line" =~ ^-\ \*\*Tool:\*\*\ (.+)$ ]]; then
+            elif [[ "$line" =~ ^-\ \*\*Tool\*\*:\ (.+)$ ]]; then
                 current_tool="${BASH_REMATCH[1]}"
-            elif [[ "$line" =~ ^-\ \*\*Type:\*\*\ (.+)$ ]]; then
+            elif [[ "$line" =~ ^-\ \*\*Type\*\*:\ (.+)$ ]]; then
                 current_type="${BASH_REMATCH[1]}"
-            elif [[ "$line" =~ ^-\ \*\*Value:\*\*\ (.+)$ ]]; then
+            elif [[ "$line" =~ ^-\ \*\*Value\*\*:\ (.+)$ ]]; then
                 current_value="${BASH_REMATCH[1]}"
-            elif [[ "$line" =~ ^-\ \*\*Reason:\*\*\ (.+)$ ]]; then
+            elif [[ "$line" =~ ^-\ \*\*Reason\*\*:\ (.+)$ ]]; then
                 current_reason="${BASH_REMATCH[1]}"
-            elif [[ "$line" =~ ^-\ \*\*Severity:\*\*\ (.+)$ ]]; then
+            elif [[ "$line" =~ ^-\ \*\*Approved\ By\*\*:\ (.+)$ ]]; then
+                current_approved_by="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^-\ \*\*Severity\*\*:\ (.+)$ ]]; then
                 current_severity="${BASH_REMATCH[1]}"
                 # End of entry, add table row
-                echo "DEBUG: Adding row - Tool: $current_tool, Type: $current_type, Value: $current_value, Reason: $current_reason, Severity: $current_severity" >&2
+                echo "DEBUG: Adding row - Tool: $current_tool, Type: $current_type, Value: $current_value, Reason: $current_reason, Approved By: $current_approved_by, Severity: $current_severity" >&2
                 SUPPRESSED_TABLE_ROWS+="<tr>
                     <td><span class='tool-badge'>${current_tool}</span></td>
                     <td><code style='background: #1a1d23; padding: 2px 6px; border-radius: 4px; color: #60a5fa; font-size: 0.85em;'>${current_type}</code></td>
                     <td style='max-width: 300px; word-break: break-word;'><code style='background: #1a1d23; padding: 2px 6px; border-radius: 4px; color: #e8eaed; font-size: 0.85em;'>${current_value}</code></td>
                     <td style='color: #9ca3af; font-size: 0.9em;'>${current_reason}</td>
+                    <td style='color: #60a5fa; font-size: 0.85em;'>${current_approved_by}</td>
                     <td><span class='severity-badge severity-${current_severity,,}'>${current_severity}</span></td>
                 </tr>"
             fi
@@ -1764,6 +1768,7 @@ if [[ -f "$SUPPRESSED_LOG" ]]; then
                             <th style=\"padding: 12px; border-bottom: 2px solid #fbbf24;\">Type</th>
                             <th style=\"padding: 12px; border-bottom: 2px solid #fbbf24;\">Value</th>
                             <th style=\"padding: 12px; border-bottom: 2px solid #fbbf24;\">Reason</th>
+                            <th style=\"padding: 12px; border-bottom: 2px solid #fbbf24;\">Approved By</th>
                             <th style=\"padding: 12px; border-bottom: 2px solid #fbbf24;\">Severity</th>
                         </tr>
                     </thead>

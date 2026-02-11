@@ -20,6 +20,12 @@ ignores:
     value: "/.github/workflows/scan-private-repo.yml"
     reason: "Job-level permissions properly scoped; workflow requires no top-level permissions for private repository scanning"
     approved_by: "epyon-maintainers@metrostar.com"
+  
+  # Test workflow for suppression verification
+  - type: path
+    value: "/test-workflow.yml"
+    reason: "Test file to verify suppression system works correctly"
+    approved_by: "epyon-maintainers@metrostar.com"
 
 # Notes:
 # - CKV2_GHA_1 checks for top-level write-all permissions in GitHub Actions workflows

@@ -4,7 +4,6 @@ on:
   schedule:
     # Runs every 89 days at 2:00 AM UTC (keeps baseline artifact alive)
     - cron: '0 2 */89 * *'
-  # checkov:skip=CKV_GHA_7:workflow_dispatch inputs required for flexible baseline scanning configuration
   workflow_dispatch:
     inputs:
       fail_on_critical:

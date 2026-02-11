@@ -358,7 +358,7 @@ if [ -f "$TH_FILE" ]; then
             </div>
         </div>") | 
         join("")
-    ' 2>/dev/null)
+    ' 2>/dev/null || echo "")
     set -e
     
     if [ -n "$TH_FINDINGS_HTML" ] && [ "$TH_FINDINGS_HTML" != "" ]; then
@@ -811,9 +811,10 @@ if [ -d "$CHECKOV_DIR" ]; then
             CHECKOV_CHECK_TYPES="$check_types"
             
             # Count failed checks with suppression filtering
+            set +e
             while IFS=$'\t' read -r file_path check_id; do
                 if [ -n "$file_path" ]; then
-                    ((CHECKOV_FAILED_RAW++))
+                    ((CHECKOV_FAILED_RAW++)) || CHECKOV_FAILED_RAW=1
                     # Check if path is ignored (safely handle function not available)
                     is_suppressed=false
                     if declare -f is_path_ignored >/dev/null 2>&1; then
@@ -823,12 +824,13 @@ if [ -d "$CHECKOV_DIR" ]; then
                     fi
                     
                     if [ "$is_suppressed" = true ]; then
-                        ((CHECKOV_SUPPRESSED++))
+                        ((CHECKOV_SUPPRESSED++)) || CHECKOV_SUPPRESSED=1
                     else
-                        ((CHECKOV_FAILED++))
+                        ((CHECKOV_FAILED++)) || CHECKOV_FAILED=1
                     fi
                 fi
-            done < <(jq -r '[.[] | select(.results?) | .results.failed_checks[]] | .[] | [.file_path, .check_id] | @tsv' "$checkov_file" 2>/dev/null)
+            done < <(jq -r '[.[] | select(.results?) | .results.failed_checks[]] | .[] | [.file_path, .check_id] | @tsv' "$checkov_file" 2>/dev/null || echo "")
+            set -e
         fi
     done
 fi

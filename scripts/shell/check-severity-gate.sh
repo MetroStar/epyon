@@ -265,6 +265,7 @@ if [[ -f "$CHECKOV_FILE" ]]; then
         
         # Filter failed checks by path
         CHECKOV_FAILED=0
+        CHECKOV_TOTAL=0
         
         # Use process substitution to avoid subshell
         # Iterate through all check types and their failed checks
@@ -272,6 +273,8 @@ if [[ -f "$CHECKOV_FILE" ]]; then
             if [[ -z "$check" ]]; then
                 continue
             fi
+            
+            ((CHECKOV_TOTAL++))
             
             file_path=$(echo "$check" | jq -r '.file_path // ""' 2>/dev/null)
             check_id=$(echo "$check" | jq -r '.check_id // ""' 2>/dev/null)
@@ -281,7 +284,7 @@ if [[ -f "$CHECKOV_FILE" ]]; then
             
             if [[ -n "$file_path" ]] && declare -f is_path_ignored >/dev/null 2>&1 && is_path_ignored "$file_path" "Checkov"; then
                 ignored=true
-                echo -e "${CYAN}  ✓ Suppressed: $check_id in $file_path${NC}" 2>/dev/null || true
+                echo -e "${CYAN}  ✓ Suppressed: $check_id in $file_path${NC}"
             fi
             
             # Count if not ignored
@@ -290,6 +293,7 @@ if [[ -f "$CHECKOV_FILE" ]]; then
             fi
         done < <(jq -c '.[] | .results.failed_checks[]?' "$CHECKOV_FILE" 2>/dev/null)
         
+        echo "  Total checks found: $CHECKOV_TOTAL"
         echo "  Failed checks: $CHECKOV_FAILED"
         if [[ $CHECKOV_FAILED -gt 0 ]]; then
             # Treat failed IaC checks as High severity

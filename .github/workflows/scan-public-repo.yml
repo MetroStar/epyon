@@ -1,6 +1,7 @@
 name: Scan Public Repository
 
 on:
+  # checkov:skip=CKV_GHA_7:workflow_dispatch inputs required for flexible security scanning of external repositories
   workflow_dispatch:
     inputs:
       repository:
@@ -40,6 +41,10 @@ jobs:
   external-scan:
     name: Scan External Repository
     runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      actions: read
     
     steps:
       - name: Checkout Epyon

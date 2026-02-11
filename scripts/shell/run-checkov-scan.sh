@@ -314,6 +314,25 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
         echo "✅ Additional Helm template scans completed"
     fi
     
+    # Scan GitHub Actions workflows
+    if find "$TARGET_SCAN_DIR" -path "$TARGET_SCAN_DIR/.github/workflows/*.yml" -o -path "$TARGET_SCAN_DIR/.github/workflows/*.yaml" -o -name "*workflow*.yml" -o -name "*workflow*.yaml" | grep -q .; then
+        echo -e "${BLUE}🔍 Scanning GitHub Actions workflows...${NC}"
+        set +e
+        ${CONTAINER_CLI} run --rm \
+            -v "$TARGET_SCAN_DIR:/workspace" \
+            -v "$OUTPUT_DIR:/output" \
+            bridgecrew/checkov:latest \
+            --directory /workspace \
+            --framework github_actions \
+            --skip-path node_modules \
+            --skip-path scans \
+            --output json \
+            --output-file /output/checkov-github-actions-results.json \
+            2>&1 | tee -a "$SCAN_LOG"
+        set -e
+        echo "✅ GitHub Actions workflow scan completed"
+    fi
+    
     # Checkov creates a directory with results_json.json inside when using --output-file
     # Handle this by finding the actual results file
     echo "Debug: Checking Checkov output structure..." >&2
@@ -347,8 +366,15 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
             mv "$OUTPUT_DIR/checkov-secrets-results-temp.json" "$OUTPUT_DIR/checkov-secrets-results.json"
         fi
         
+        # Handle github-actions results directory
+        if [ -d "$OUTPUT_DIR/checkov-github-actions-results.json" ] && [ -f "$OUTPUT_DIR/checkov-github-actions-results.json/results_json.json" ]; then
+            mv "$OUTPUT_DIR/checkov-github-actions-results.json/results_json.json" "$OUTPUT_DIR/checkov-github-actions-results-temp.json"
+            rm -rf "$OUTPUT_DIR/checkov-github-actions-results.json"
+            mv "$OUTPUT_DIR/checkov-github-actions-results-temp.json" "$OUTPUT_DIR/checkov-github-actions-results.json"
+        fi
+        
         # Merge additional scan results if they exist
-        if [ -f "$OUTPUT_DIR/checkov-kubernetes-results.json" ] || [ -f "$OUTPUT_DIR/checkov-secrets-results.json" ]; then
+        if [ -f "$OUTPUT_DIR/checkov-kubernetes-results.json" ] || [ -f "$OUTPUT_DIR/checkov-secrets-results.json" ] || [ -f "$OUTPUT_DIR/checkov-github-actions-results.json" ]; then
             echo -e "${BLUE}📦 Merging scan results...${NC}"
             
             # Create a merged results file using jq if available
@@ -357,6 +383,7 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
                 RESULT_FILES=("$RESULTS_FILE")
                 [ -f "$OUTPUT_DIR/checkov-kubernetes-results.json" ] && RESULT_FILES+=("$OUTPUT_DIR/checkov-kubernetes-results.json")
                 [ -f "$OUTPUT_DIR/checkov-secrets-results.json" ] && RESULT_FILES+=("$OUTPUT_DIR/checkov-secrets-results.json")
+                [ -f "$OUTPUT_DIR/checkov-github-actions-results.json" ] && RESULT_FILES+=("$OUTPUT_DIR/checkov-github-actions-results.json")
                 
                 # Merge all JSON arrays into one, removing duplicates by check_type
                 jq -s 'flatten | group_by(.check_type) | map(.[0])' "${RESULT_FILES[@]}" > "$OUTPUT_DIR/merged-results.json" 2>/dev/null
@@ -367,7 +394,7 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
                 fi
                 
                 # Cleanup temporary files
-                rm -f "$OUTPUT_DIR/checkov-kubernetes-results.json" "$OUTPUT_DIR/checkov-secrets-results.json" 2>/dev/null
+                rm -f "$OUTPUT_DIR/checkov-kubernetes-results.json" "$OUTPUT_DIR/checkov-secrets-results.json" "$OUTPUT_DIR/checkov-github-actions-results.json" 2>/dev/null
             fi
         fi
     elif [ -f "$OUTPUT_DIR/checkov-results.json" ]; then

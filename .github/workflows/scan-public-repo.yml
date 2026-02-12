@@ -96,7 +96,7 @@ jobs:
             TARGET_NAME="$REPO_NAME"
           fi
           
-          echo "TARGET_NAME=$TARGET_NAME" >> /tmp/epyon-env
+          echo "TARGET_NAME=$TARGET_NAME" > /tmp/epyon-env
           echo "SCAN_MODE=${{ github.event.inputs.scan_mode }}" >> /tmp/epyon-env
           echo "GITHUB_ACTOR=$GITHUB_ACTOR" >> /tmp/epyon-env
           echo "REPO_URL=$REPO_URL" >> /tmp/epyon-env
@@ -321,6 +321,15 @@ jobs:
           echo "**Scan Mode:** \`${{ github.event.inputs.scan_mode }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          if [ -f "$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md" ]; then
-            cat "$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md" >> $GITHUB_STEP_SUMMARY
+          SUMMARY_FILE="$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md"
+          echo "DEBUG: Looking for summary at: $SUMMARY_FILE"
+          echo "DEBUG: Current directory: $(pwd)"
+          ls -la "$SCAN_DIR/consolidated-reports/markdown-reports/" 2>&1 || echo "Directory not found"
+          
+          if [ -f "$SUMMARY_FILE" ]; then
+            cat "$SUMMARY_FILE" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Executive summary file not found at expected location" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please download the artifacts to view the complete security dashboard." >> $GITHUB_STEP_SUMMARY
           fi

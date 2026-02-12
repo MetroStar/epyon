@@ -60,7 +60,13 @@ is_tool_ignored() {
             .reason
         ' "$IGNORE_CACHE" 2>/dev/null || echo "No reason provided")
         
-        log_suppressed "$tool_name" "tool" "$tool_name" "$reason" "N/A"
+        local approved_by=$(jq -r --arg tool "$tool_name" '
+            .ignores[] | 
+            select(.type == "tool" and (.value | ascii_downcase) == ($tool | ascii_downcase)) |
+            .approved_by // "Not specified"
+        ' "$IGNORE_CACHE" 2>/dev/null || echo "Not specified")
+        
+        log_suppressed "$tool_name" "tool" "$tool_name" "$reason" "N/A" "$approved_by"
         return 0
     fi
     
@@ -90,7 +96,13 @@ is_cve_ignored() {
             .reason
         ' "$IGNORE_CACHE" 2>/dev/null || echo "No reason provided")
         
-        log_suppressed "$tool" "cve" "$cve_id" "$reason" "Varies"
+        local approved_by=$(jq -r --arg cve "$cve_id" '
+            .ignores[] | 
+            select(.type == "cve" and .value == $cve and .expired == false) |
+            .approved_by // "Not specified"
+        ' "$IGNORE_CACHE" 2>/dev/null || echo "Not specified")
+        
+        log_suppressed "$tool" "cve" "$cve_id" "$reason" "Varies" "$approved_by"
         return 0
     fi
     
@@ -123,7 +135,13 @@ is_package_ignored() {
                 .reason
             ' "$IGNORE_CACHE" 2>/dev/null || echo "No reason provided")
             
-            log_suppressed "$tool" "package" "$package_full" "$reason" "Varies"
+            local approved_by=$(jq -r --arg pkg "$package_full" '
+                .ignores[] | 
+                select(.type == "package" and .value == $pkg and .expired == false) |
+                .approved_by // "Not specified"
+            ' "$IGNORE_CACHE" 2>/dev/null || echo "Not specified")
+            
+            log_suppressed "$tool" "package" "$package_full" "$reason" "Varies" "$approved_by"
             return 0
         fi
     fi
@@ -142,7 +160,13 @@ is_package_ignored() {
             .reason
         ' "$IGNORE_CACHE" 2>/dev/null || echo "No reason provided")
         
-        log_suppressed "$tool" "package" "$package_name (all versions)" "$reason" "Varies"
+        local approved_by=$(jq -r --arg pkg "$package_name" '
+            .ignores[] | 
+            select(.type == "package" and .value == $pkg and .expired == false) |
+            .approved_by // "Not specified"
+        ' "$IGNORE_CACHE" 2>/dev/null || echo "Not specified")
+        
+        log_suppressed "$tool" "package" "$package_name (all versions)" "$reason" "Varies" "$approved_by"
         return 0
     fi
     
@@ -212,7 +236,8 @@ is_secret_ignored() {
         if [[ -z "$paths" ]]; then
             # No path restriction - ignore everywhere
             local reason=$(echo "$ignore_entry" | jq -r '.reason' 2>/dev/null || echo "No reason provided")
-            log_suppressed "$tool" "secret-detector" "$detector_name" "$reason" "Critical"
+            local approved_by=$(echo "$ignore_entry" | jq -r '.approved_by // "Not specified"' 2>/dev/null || echo "Not specified")
+            log_suppressed "$tool" "secret-detector" "$detector_name" "$reason" "Critical" "$approved_by"
             return 0
         fi
         
@@ -225,7 +250,8 @@ is_secret_ignored() {
             # shellcheck disable=SC2053
             if [[ "$file_path" == $pattern ]]; then
                 local reason=$(echo "$ignore_entry" | jq -r '.reason' 2>/dev/null || echo "No reason provided")
-                log_suppressed "$tool" "secret-detector" "$detector_name in $file_path" "$reason" "Critical"
+                local approved_by=$(echo "$ignore_entry" | jq -r '.approved_by // "Not specified"' 2>/dev/null || echo "Not specified")
+                log_suppressed "$tool" "secret-detector" "$detector_name in $file_path" "$reason" "Critical" "$approved_by"
                 return 0
             fi
         done <<< "$paths"
@@ -240,7 +266,8 @@ is_secret_ignored() {
     
     if [[ -n "$pattern_entry" ]]; then
         local reason=$(echo "$pattern_entry" | jq -r '.reason' 2>/dev/null || echo "No reason provided")
-        log_suppressed "$tool" "secret-pattern" "$detector_name" "$reason" "Critical"
+        local approved_by=$(echo "$pattern_entry" | jq -r '.approved_by // "Not specified"' 2>/dev/null || echo "Not specified")
+        log_suppressed "$tool" "secret-pattern" "$detector_name" "$reason" "Critical" "$approved_by"
         return 0
     fi
     

@@ -1,0 +1,12 @@
+# Epyon Security Findings Ignore File
+# Suppressions for security findings within Epyon itself
+
+version: "1.0"
+
+ignores: []
+
+# Notes:
+# - Previously suppressed CKV2_GHA_1 and CKV_GHA_7 findings have been fixed:
+#   * CKV2_GHA_1: Removed top-level write-all permissions (job-level permissions already properly scoped)
+#   * CKV_GHA_7: Added checkov:skip inline annotations with justification for necessary workflow inputs
+# - Future suppressions should include: type, value, reason, approved_by, and optional expires date

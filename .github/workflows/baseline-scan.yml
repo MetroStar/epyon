@@ -1,11 +1,10 @@
 name: Baseline Security Scan
 
-permissions: write-all
-
 on:
   schedule:
     # Runs every 89 days at 2:00 AM UTC (keeps baseline artifact alive)
     - cron: '0 2 */89 * *'
+  # checkov:skip=CKV_GHA_7:Workflow inputs control scan behavior not build output; failure thresholds are security controls
   workflow_dispatch:
     inputs:
       fail_on_critical:

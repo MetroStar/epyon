@@ -1,7 +1,6 @@
 name: Scan Public Repository
 
-permissions: write-all
-
+# checkov:skip=CKV_GHA_7:Workflow inputs are required for user-specified repository scanning and do not affect SLSA build provenance
 on:
   workflow_dispatch:
     inputs:

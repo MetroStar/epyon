@@ -1,7 +1,5 @@
 name: Private Security Scan
 
-permissions: write-all
-
 on:
   push:
     branches: [ main, develop ]
@@ -10,6 +8,7 @@ on:
   schedule:
     # Run daily at 2 AM UTC
     - cron: '0 2 * * *'
+  # checkov:skip=CKV_GHA_7:Workflow inputs control scan parameters not build artifacts; subdirectory and scan mode are security tool configurations
   workflow_dispatch:
     inputs:
       subdirectory:

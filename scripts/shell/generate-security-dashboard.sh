@@ -829,7 +829,7 @@ if [ -d "$CHECKOV_DIR" ]; then
                         ((CHECKOV_FAILED++)) || CHECKOV_FAILED=1
                     fi
                 fi
-            done < <(jq -r '[.[] | select(.results?) | .results.failed_checks[]] | .[] | [.file_path, .check_id] | @tsv' "$checkov_file" 2>/dev/null || echo "")
+            done < <(jq -r '.[]? | .results.failed_checks[]? | [.file_path, .check_id] | @tsv' "$checkov_file" 2>/dev/null || echo "")
             set -e
         fi
     done
@@ -935,7 +935,7 @@ if [ "$CHECKOV_TOTAL" -gt 0 ]; then
     </div>
 </div>"
                     fi
-                done < <(jq -r '[.[] | select(.results?) | .results.failed_checks[]] | .[] | [.check_id, .check_name, .file_path, (.file_line_range[0] // "N/A" | tostring), (.guideline // "")] | @tsv' "$checkov_file" 2>/dev/null)
+                done < <(jq -r '.[]? | .results.failed_checks[]? | [.check_id, .check_name, .file_path, (.file_line_range[0] // "N/A" | tostring), (.guideline // "")] | @tsv' "$checkov_file" 2>/dev/null)
             fi
         done
         

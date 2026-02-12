@@ -202,7 +202,12 @@ jobs:
         if: github.event.inputs.fail_on_critical == 'true' || github.event.inputs.fail_on_high == 'true'
         run: |
           cd epyon
-          source /tmp/epyon-env
+          # Source environment variables from epyon-env
+          if [ -f /tmp/epyon-env ]; then
+            set -a
+            source /tmp/epyon-env
+            set +a
+          fi
           export FAIL_ON_CRITICAL="${{ github.event.inputs.fail_on_critical == 'true' }}"
           export FAIL_ON_HIGH="${{ github.event.inputs.fail_on_high == 'true' }}"
           export WARNING_ONLY="true"

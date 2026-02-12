@@ -276,7 +276,12 @@ jobs:
       - name: Check Severity Gate
         id: severity-gate
         run: |
-          source /tmp/epyon-env
+          # Source environment variables from epyon-env
+          if [ -f /tmp/epyon-env ]; then
+            set -a
+            source /tmp/epyon-env
+            set +a
+          fi
           export FAIL_ON_CRITICAL="${{ github.event.inputs.fail_on_critical }}"
           export FAIL_ON_HIGH="${{ github.event.inputs.fail_on_high }}"
           export WARNING_ONLY="${{ github.event.inputs.warning_only }}"

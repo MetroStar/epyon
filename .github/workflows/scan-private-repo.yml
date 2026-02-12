@@ -304,7 +304,12 @@ jobs:
         id: severity-gate
         run: |
           cd epyon
-          source /tmp/epyon-env
+          # Source environment variables from epyon-env
+          if [ -f /tmp/epyon-env ]; then
+            set -a
+            source /tmp/epyon-env
+            set +a
+          fi
           export FAIL_ON_CRITICAL="${{ env.FAIL_ON_CRITICAL }}"
           export FAIL_ON_HIGH="${{ env.FAIL_ON_HIGH }}"
           export WARNING_ONLY="${{ env.WARNING_ONLY }}"

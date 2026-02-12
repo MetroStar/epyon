@@ -1729,13 +1729,14 @@ if [[ -f "$SUPPRESSED_LOG" ]]; then
                 current_severity="${BASH_REMATCH[1]}"
                 # End of entry, add table row
                 echo "DEBUG: Adding row - Tool: $current_tool, Type: $current_type, Value: $current_value, Reason: $current_reason, Approved By: $current_approved_by, Severity: $current_severity" >&2
+                severity_lower=$(echo "$current_severity" | tr '[:upper:]' '[:lower:]')
                 SUPPRESSED_TABLE_ROWS+="<tr>
-                    <td><span class='tool-badge'>${current_tool}</span></td>
-                    <td><code style='background: #1a1d23; padding: 2px 6px; border-radius: 4px; color: #60a5fa; font-size: 0.85em;'>${current_type}</code></td>
-                    <td style='max-width: 300px; word-break: break-word;'><code style='background: #1a1d23; padding: 2px 6px; border-radius: 4px; color: #e8eaed; font-size: 0.85em;'>${current_value}</code></td>
-                    <td style='color: #9ca3af; font-size: 0.9em;'>${current_reason}</td>
-                    <td style='color: #60a5fa; font-size: 0.85em;'>${current_approved_by}</td>
-                    <td><span class='severity-badge severity-${current_severity,,}'>${current_severity}</span></td>
+                    <td><span class=\"tool-badge\">${current_tool}</span></td>
+                    <td><code style=\"background: #1a1d23; padding: 2px 6px; border-radius: 4px; color: #60a5fa; font-size: 0.85em;\">${current_type}</code></td>
+                    <td style=\"max-width: 300px; word-break: break-word;\"><code style=\"background: #1a1d23; padding: 2px 6px; border-radius: 4px; color: #e8eaed; font-size: 0.85em;\">${current_value}</code></td>
+                    <td style=\"color: #9ca3af; font-size: 0.9em;\">${current_reason}</td>
+                    <td style=\"color: #60a5fa; font-size: 0.85em;\">${current_approved_by}</td>
+                    <td><span class=\"severity-badge severity-${severity_lower}\">${current_severity}</span></td>
                 </tr>"
             fi
         done < "$SUPPRESSED_LOG"

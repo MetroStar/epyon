@@ -47,6 +47,8 @@ env:
   FAIL_ON_CRITICAL: ${{ github.event_name != 'workflow_dispatch' && 'true' || github.event.inputs.fail_on_critical }}
   FAIL_ON_HIGH: ${{ github.event_name != 'workflow_dispatch' && 'true' || github.event.inputs.fail_on_high }}
   WARNING_ONLY: ${{ github.event.inputs.warning_only || 'false' }}
+  # Notification recipients: Add GitHub usernames (without @) to notify on scan completion
+  NOTIFY_USERS: "rnelson,sketch0395,jdoe"  # Example: "rnelson,sketch0395,jdoe"
 
 jobs:
   security-scan:
@@ -392,9 +394,15 @@ jobs:
                 status = `Found ${critical} critical and ${high} high severity issues`;
               }
               
+              // Build notification mentions from NOTIFY_USERS
+              const notifyUsers = '${{ env.NOTIFY_USERS }}'.split(',').map(u => `@${u.trim()}`).join(' ');
+              
               const comment = `## ${emoji} Epyon Security Scan Results
               
               ${status}
+              
+              **Triggered by:** @${{ github.actor }}
+              **Notifying:** ${notifyUsers}
               
               <details>
               <summary>📊 Executive Summary</summary>

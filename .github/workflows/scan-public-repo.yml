@@ -37,6 +37,14 @@ on:
         default: false
         type: boolean
 
+env:
+  SCAN_MODE: ${{ github.event.inputs.scan_mode || 'full' }}
+  FAIL_ON_CRITICAL: ${{ github.event.inputs.fail_on_critical }}
+  FAIL_ON_HIGH: ${{ github.event.inputs.fail_on_high }}
+  WARNING_ONLY: ${{ github.event.inputs.warning_only || 'false' }}
+  # Notification recipients: Add GitHub usernames (without @) to notify on scan completion
+  NOTIFY_USERS: "sketch0395,jbouder"  # Example: "rnelson,sketch0395,jdoe"
+
 jobs:
   external-scan:
     name: Scan External Repository
@@ -45,6 +53,7 @@ jobs:
     permissions:
       contents: read
       actions: read
+      issues: write
     
     steps:
       - name: Checkout Epyon
@@ -320,10 +329,22 @@ jobs:
         if: always()
         run: |
           SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
+          
+          # Build notification line
+          NOTIFY_USERS="${{ env.NOTIFY_USERS }}"
+          NOTIFY_LINE=""
+          if [ -n "$NOTIFY_USERS" ]; then
+            for user in ${NOTIFY_USERS//,/ }; do
+              NOTIFY_LINE="$NOTIFY_LINE @$user"
+            done
+          fi
+          
           echo "## 🛡️ Security Scan Results for External Repository" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Repository:** \`${{ github.event.inputs.repository }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Scan Mode:** \`${{ github.event.inputs.scan_mode }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          [ -n "$NOTIFY_LINE" ] && echo "**Notifying:**$NOTIFY_LINE" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           SUMMARY_FILE="$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md"
@@ -337,4 +358,44 @@ jobs:
             echo "⚠️ Executive summary file not found at expected location" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "Please download the artifacts to view the complete security dashboard." >> $GITHUB_STEP_SUMMARY
-          fi
+          fi      
+      - name: Create Notification Issue
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const notifyUsers = '${{ env.NOTIFY_USERS }}'.split(',').map(u => `@${u.trim()}`).join(' ');
+            const repository = '${{ github.event.inputs.repository }}';
+            const scanMode = '${{ github.event.inputs.scan_mode }}';
+            const triggeredBy = '@${{ github.actor }}';
+            const runUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            
+            const issueBody = `## 🛡️ External Repository Security Scan Complete
+            
+            **Repository Scanned:** \`${repository}\`
+            **Scan Mode:** \`${scanMode}\`
+            **Triggered by:** ${triggeredBy}
+            **Notifying:** ${notifyUsers}
+            
+            ### 📊 Scan Results
+            
+            View the complete scan results and dashboard in the [workflow run](${runUrl}).
+            
+            ### 📦 Next Steps
+            
+            1. Download the scan artifacts from the workflow run
+            2. Open the interactive security dashboard
+            3. Review findings by severity
+            4. Address critical and high-severity vulnerabilities
+            
+            ---
+            *This is an automated notification from Epyon Security Scanner*
+            `;
+            
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🛡️ Security Scan Complete: ${repository.split('/').pop()} - ${new Date().toISOString().split('T')[0]}`,
+              body: issueBody,
+              labels: ['security-scan', 'epyon']
+            });

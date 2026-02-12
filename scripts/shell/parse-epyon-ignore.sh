@@ -30,16 +30,23 @@ parse_ignore_rules() {
 
     # Parse YAML to JSON using Python (more reliable than yq in bash)
     python3 -c "
-import yaml
-import json
 import sys
+import json
 from datetime import datetime
+
+try:
+    import yaml
+except ImportError:
+    sys.stderr.write('ERROR: PyYAML module not installed. Install with: pip3 install pyyaml\n')
+    print(json.dumps({'ignores': []}))
+    sys.exit(0)
 
 try:
     with open('$IGNORE_FILE', 'r') as f:
         data = yaml.safe_load(f)
     
     if not data or 'ignores' not in data:
+        sys.stderr.write('WARNING: No ignores section found in YAML file\n')
         print(json.dumps({'ignores': []}))
         sys.exit(0)
     
@@ -71,11 +78,15 @@ try:
     
     print(json.dumps({'ignores': processed}, indent=2))
     
-except Exception as e:
-    # Silent skip on error - just return empty ignores
+except yaml.YAMLError as e:
+    sys.stderr.write(f'ERROR: YAML parsing failed: {e}\n')
     print(json.dumps({'ignores': []}))
     sys.exit(0)
-" > "$IGNORE_CACHE" 2>/dev/null || echo '{"ignores": []}' > "$IGNORE_CACHE"
+except Exception as e:
+    sys.stderr.write(f'ERROR: Failed to parse ignore file: {e}\n')
+    print(json.dumps({'ignores': []}))
+    sys.exit(0)
+" > "$IGNORE_CACHE" 2>&1 || echo '{"ignores": []}' > "$IGNORE_CACHE"
 
 # Count and report
 TOTAL_IGNORES=$(jq '.ignores | length' "$IGNORE_CACHE" 2>/dev/null || echo "0")

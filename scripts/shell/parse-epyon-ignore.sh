@@ -29,7 +29,7 @@ parse_ignore_rules() {
         echo -e "${CYAN}📋 Parsing ignore rules from: .epyon-ignore.yml${NC}"
 
     # Parse YAML to JSON using Python (more reliable than yq in bash)
-    python3 -c "
+    local PARSE_OUTPUT=$(python3 -c "
 import sys
 import json
 from datetime import datetime
@@ -37,7 +37,7 @@ from datetime import datetime
 try:
     import yaml
 except ImportError:
-    sys.stderr.write('ERROR: PyYAML module not installed. Install with: pip3 install pyyaml\n')
+    print(json.dumps({'ignores': [], 'error': 'PyYAML module not installed'}), file=sys.stderr)
     print(json.dumps({'ignores': []}))
     sys.exit(0)
 
@@ -46,7 +46,6 @@ try:
         data = yaml.safe_load(f)
     
     if not data or 'ignores' not in data:
-        sys.stderr.write('WARNING: No ignores section found in YAML file\n')
         print(json.dumps({'ignores': []}))
         sys.exit(0)
     
@@ -79,14 +78,24 @@ try:
     print(json.dumps({'ignores': processed}, indent=2))
     
 except yaml.YAMLError as e:
-    sys.stderr.write(f'ERROR: YAML parsing failed: {e}\n')
+    print(json.dumps({'ignores': [], 'error': str(e)}), file=sys.stderr)
     print(json.dumps({'ignores': []}))
     sys.exit(0)
 except Exception as e:
-    sys.stderr.write(f'ERROR: Failed to parse ignore file: {e}\n')
+    print(json.dumps({'ignores': [], 'error': str(e)}), file=sys.stderr)
     print(json.dumps({'ignores': []}))
     sys.exit(0)
-" > "$IGNORE_CACHE" 2>&1 || echo '{"ignores": []}' > "$IGNORE_CACHE"
+" 2>&1)
+    
+    echo "$PARSE_OUTPUT" | grep -v '"error"' > "$IGNORE_CACHE" 2>/dev/null || echo '{"ignores": []}' > "$IGNORE_CACHE"
+    
+    # Check for errors in output
+    if echo "$PARSE_OUTPUT" | grep -q '"error"'; then
+        local error_msg=$(echo "$PARSE_OUTPUT" | jq -r '.error // empty' 2>/dev/null)
+        if [[ -n "$error_msg" ]]; then
+            echo -e "${YELLOW}⚠️  YAML parsing error: $error_msg${NC}"
+        fi
+    fi
 
 # Count and report
 TOTAL_IGNORES=$(jq '.ignores | length' "$IGNORE_CACHE" 2>/dev/null || echo "0")

@@ -275,13 +275,11 @@ jobs:
       
       - name: Check Severity Gate
         id: severity-gate
-        env:
-          SCAN_DIR: ${{ github.workspace }}/${{ steps.find-scan.outputs.scan_dir }}
-          TARGET_DIR: ${{ github.workspace }}
-          FAIL_ON_CRITICAL: ${{ github.event.inputs.fail_on_critical }}
-          FAIL_ON_HIGH: ${{ github.event.inputs.fail_on_high }}
-          WARNING_ONLY: ${{ github.event.inputs.warning_only }}
         run: |
+          source /tmp/epyon-env
+          export FAIL_ON_CRITICAL="${{ github.event.inputs.fail_on_critical }}"
+          export FAIL_ON_HIGH="${{ github.event.inputs.fail_on_high }}"
+          export WARNING_ONLY="${{ github.event.inputs.warning_only }}"
           chmod +x scripts/shell/check-severity-gate.sh
           ./scripts/shell/check-severity-gate.sh
       

@@ -27,6 +27,10 @@ parse_ignore_rules() {
         fi
 
         echo -e "${CYAN}📋 Parsing ignore rules from: .epyon-ignore.yml${NC}"
+    
+    # Show first few lines of YAML for debugging
+    echo -e "${CYAN}📄 YAML file content (first 10 lines):${NC}"
+    head -10 "$IGNORE_FILE" 2>/dev/null || true
 
     # Parse YAML to JSON using Python (more reliable than yq in bash)
     local PARSE_OUTPUT=$(python3 -c "

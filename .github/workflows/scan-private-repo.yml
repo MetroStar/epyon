@@ -277,7 +277,7 @@ jobs:
           echo "DEBUG: Before consolidation, manifest files:"
           ls -la "$SCAN_DIR"/scan-manifest* "$SCAN_DIR"/manifest-summary* 2>&1 || echo "Manifest files not found before consolidation!"
           chmod +x scripts/shell/consolidate-security-reports.sh
-          SCAN_DIR="$SCAN_DIR" ./scripts/shell/consolidate-security-reports.sh || echo "Report generation completed with warnings"
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/consolidate-security-reports.sh || echo "Report generation completed with warnings"
           echo "DEBUG: After consolidation, manifest files in consolidated-reports:"
           ls -la "$SCAN_DIR/consolidated-reports"/scan-manifest* "$SCAN_DIR/consolidated-reports"/manifest-summary* 2>&1 || echo "Manifest files not found in consolidated-reports!"
       

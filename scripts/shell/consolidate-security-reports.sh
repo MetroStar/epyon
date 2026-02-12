@@ -621,7 +621,7 @@ DASHBOARD_GENERATOR="$SCRIPT_DIR/generate-security-dashboard.sh"
 
 if [ -f "$DASHBOARD_GENERATOR" ]; then
     echo -e "${GREEN}✓ Generating interactive dashboard from scan results${NC}"
-    if SCAN_DIR="$SCAN_DIR" "$DASHBOARD_GENERATOR"; then
+    if SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" "$DASHBOARD_GENERATOR"; then
         echo -e "${GREEN}✓ Interactive dashboard generated successfully${NC}"
         
         # Post-process: Embed SBOM and API data for offline downloads

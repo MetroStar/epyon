@@ -34,11 +34,15 @@ export IGNORE_CACHE="/tmp/epyon-ignore-cache.json"
 export SUPPRESSED_LOG="$SCAN_DIR/suppressed-findings.md"
 
 if [[ -n "$TARGET_DIR" && -f "$SCRIPT_DIR/parse-epyon-ignore.sh" ]]; then
-    chmod +x "$SCRIPT_DIR/parse-epyon-ignore.sh" 2>/dev/null || true
-    TARGET_DIR="$TARGET_DIR" "$SCRIPT_DIR/parse-epyon-ignore.sh" 2>/dev/null || {
-        echo -e "${YELLOW}⚠️  Failed to parse ignore rules, continuing without filtering${NC}"
-        echo '{"ignores": []}' > "$IGNORE_CACHE" 2>/dev/null || true
+    source "$SCRIPT_DIR/parse-epyon-ignore.sh" 2>/dev/null || {
+        echo -e "${YELLOW}⚠️  Failed to load parse script, continuing without filtering${NC}"
     }
+    if declare -f parse_ignore_rules >/dev/null 2>&1; then
+        parse_ignore_rules "$TARGET_DIR/.epyon-ignore.yml" 2>/dev/null || {
+            echo -e "${YELLOW}⚠️  Failed to parse ignore rules, continuing without filtering${NC}"
+            echo '{"ignores": []}' > "$IGNORE_CACHE" 2>/dev/null || true
+        }
+    fi
 fi
 
 # Source filter functions
@@ -278,6 +282,7 @@ if [[ -f "$CHECKOV_FILE" ]]; then
             
             file_path=$(echo "$check" | jq -r '.file_path // ""' 2>/dev/null)
             check_id=$(echo "$check" | jq -r '.check_id // ""' 2>/dev/null)
+            check_name=$(echo "$check" | jq -r '.check_name // ""' 2>/dev/null)
             
             # Check if path is ignored
             ignored=false
@@ -285,13 +290,15 @@ if [[ -f "$CHECKOV_FILE" ]]; then
             if [[ -n "$file_path" ]] && declare -f is_path_ignored >/dev/null 2>&1 && is_path_ignored "$file_path" "Checkov"; then
                 ignored=true
                 echo -e "${CYAN}  ✓ Suppressed: $check_id in $file_path${NC}"
+            else
+                echo -e "${YELLOW}  ⚠️  $check_id: $check_name in $file_path${NC}"
             fi
             
             # Count if not ignored
             if [[ "$ignored" == "false" ]]; then
                 ((CHECKOV_FAILED++))
             fi
-        done < <(jq -c '.[] | .results.failed_checks[]?' "$CHECKOV_FILE" 2>/dev/null)
+        done < <(jq -c '.[]? | .results.failed_checks[]?' "$CHECKOV_FILE" 2>/dev/null)
         
         echo "  Total checks found: $CHECKOV_TOTAL"
         echo "  Failed checks: $CHECKOV_FAILED"
@@ -478,7 +485,7 @@ if [[ "$FAIL_ON_HIGH" == "true" && $TOTAL_HIGH -ge $HIGH_THRESHOLD ]]; then
     if [[ -f "$CHECKOV_FILE" && $CHECKOV_FAILED -gt 0 ]]; then
         FAILURE_REASONS+=("### Checkov IaC Issues ($CHECKOV_FAILED failed checks)")
         FAILURE_REASONS+=("\`\`\`")
-        jq -r '.results.failed_checks[]? | "Check: \(.check_id) | File: \(.file_path):\(.file_line_range[0]) | \(.check_name)"' "$CHECKOV_FILE" 2>/dev/null | head -20 >> /tmp/severity-gate-summary.txt || true
+        jq -r '.[]? | .results.failed_checks[]? | "Check: \(.check_id) | File: \(.file_path):\(.file_line_range[0]) | \(.check_name)"' "$CHECKOV_FILE" 2>/dev/null | head -20 >> /tmp/severity-gate-summary.txt || true
         FAILURE_REASONS+=("$(cat /tmp/severity-gate-summary.txt)")
         FAILURE_REASONS+=("\`\`\`")
         FAILURE_REASONS+=("")

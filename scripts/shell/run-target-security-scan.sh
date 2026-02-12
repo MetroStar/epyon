@@ -140,6 +140,14 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 USERNAME="${GITHUB_ACTOR:-$(whoami)}"
 TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
 
+# Ensure PyYAML is installed (needed for .epyon-ignore.yml parsing)
+if ! python3 -c "import yaml" 2>/dev/null; then
+    echo -e "${CYAN}📦 Installing PyYAML for ignore rule parsing...${NC}"
+    pip3 install --quiet pyyaml 2>/dev/null || pip3 install --user --quiet pyyaml 2>/dev/null || {
+        echo -e "${YELLOW}⚠️  Warning: Failed to install PyYAML. Ignore rules will not work.${NC}"
+    }
+fi
+
 # Flag to track if we cloned a repo (for cleanup)
 CLONED_REPO=false
 CLONE_DIR=""

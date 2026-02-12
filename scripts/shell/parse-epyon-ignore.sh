@@ -24,9 +24,9 @@ parse_ignore_rules() {
         # No ignore file - create empty cache
         echo '{"ignores": []}' > "$IGNORE_CACHE" 2>/dev/null || true
         return 0
-        fi
+    fi
 
-        echo -e "${CYAN}📋 Parsing ignore rules from: .epyon-ignore.yml${NC}"
+    echo -e "${CYAN}📋 Parsing ignore file: $IGNORE_FILE${NC}"
     
     # Show first few lines of YAML for debugging
     echo -e "${CYAN}📄 YAML file content (first 10 lines):${NC}"

@@ -109,12 +109,12 @@ jobs:
             cd "target-repo-$REPO_NAME"
             git sparse-checkout set "$SUBDIR" || exit 1
             cd ..
-            echo "TARGET_DIR=$PWD/target-repo-$REPO_NAME/$SUBDIR" > /tmp/epyon-env
+            echo "TARGET_DIR=$PWD/target-repo-$REPO_NAME/$SUBDIR" >> /tmp/epyon-env
             echo "✅ Sparse-checkout completed: $SUBDIR"
           else
             echo "📥 Cloning full repository: $REPO_URL"
             git clone "$REPO_URL" "target-repo-$REPO_NAME" || exit 1
-            echo "TARGET_DIR=$PWD/target-repo-$REPO_NAME" > /tmp/epyon-env
+            echo "TARGET_DIR=$PWD/target-repo-$REPO_NAME" >> /tmp/epyon-env
           fi
           
           # Create scan directory

@@ -1788,7 +1788,11 @@ if [[ -f "$SUPPRESSED_LOG" ]]; then
                 </a>
             </div>
         </div>"
+    else
+        echo "DEBUG: SUPPRESSED_COUNT is 0, no findings to display" >&2
     fi
+else
+    echo "DEBUG: Suppressed findings file does not exist: $SUPPRESSED_LOG" >&2
 fi
 
 # Create output directory

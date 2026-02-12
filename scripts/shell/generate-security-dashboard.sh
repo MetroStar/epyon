@@ -1698,7 +1698,10 @@ SUPPRESSED_HTML=""
 SUPPRESSED_TABLE_ROWS=""
 
 if [[ -f "$SUPPRESSED_LOG" ]]; then
+    echo -e "${CYAN}📋 Suppressed findings file exists: $SUPPRESSED_LOG${NC}" >&2
+    echo "DEBUG: File size: $(wc -l < "$SUPPRESSED_LOG" 2>/dev/null || echo 0) lines" >&2
     SUPPRESSED_COUNT=$(grep -c "^## Suppressed:" "$SUPPRESSED_LOG" 2>/dev/null || echo "0")
+    echo "DEBUG: SUPPRESSED_COUNT=$SUPPRESSED_COUNT" >&2
     if [[ $SUPPRESSED_COUNT -gt 0 ]]; then
         echo -e "${CYAN}📋 Found $SUPPRESSED_COUNT suppressed finding(s)${NC}"
         echo "DEBUG: Suppressed log content:" >&2

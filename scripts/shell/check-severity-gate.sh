@@ -302,6 +302,10 @@ if [[ -f "$CHECKOV_FILE" ]]; then
             if [[ -n "$file_path" ]] && declare -f is_path_ignored >/dev/null 2>&1 && is_path_ignored "$file_path" "Checkov"; then
                 ignored=true
                 echo -e "${CYAN}  ✓ Suppressed: $check_id in $file_path${NC}"
+                # Log the suppressed finding
+                if declare -f log_suppressed >/dev/null 2>&1; then
+                    log_suppressed "Checkov" "path" "$file_path" "Path ignored via .epyon-ignore.yml" "HIGH" "See .epyon-ignore.yml"
+                fi
             else
                 echo -e "${YELLOW}  ⚠️  $check_id: $check_name in $file_path${NC}"
             fi

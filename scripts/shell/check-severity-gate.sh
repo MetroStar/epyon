@@ -38,10 +38,22 @@ if [[ -n "$TARGET_DIR" && -f "$SCRIPT_DIR/parse-epyon-ignore.sh" ]]; then
         echo -e "${YELLOW}⚠️  Failed to load parse script, continuing without filtering${NC}"
     }
     if declare -f parse_ignore_rules >/dev/null 2>&1; then
+        echo -e "${CYAN}📋 Parsing ignore rules from: $TARGET_DIR/.epyon-ignore.yml${NC}"
         parse_ignore_rules "$TARGET_DIR/.epyon-ignore.yml" 2>/dev/null || {
             echo -e "${YELLOW}⚠️  Failed to parse ignore rules, continuing without filtering${NC}"
             echo '{"ignores": []}' > "$IGNORE_CACHE" 2>/dev/null || true
         }
+        # Debug: Show what was parsed
+        if [[ -f "$IGNORE_CACHE" ]]; then
+            IGNORE_COUNT=$(jq '.ignores | length' "$IGNORE_CACHE" 2>/dev/null || echo "0")
+            echo -e "${CYAN}📊 Loaded $IGNORE_COUNT ignore rule(s) from cache${NC}"
+            if [[ $IGNORE_COUNT -gt 0 ]]; then
+                echo -e "${CYAN}📋 Ignore rules:${NC}"
+                jq -r '.ignores[] | "  - \(.type): \(.value)"' "$IGNORE_CACHE" 2>/dev/null || true
+            else
+                echo -e "${YELLOW}⚠️  No ignore rules loaded - check YAML syntax in .epyon-ignore.yml${NC}"
+            fi
+        fi
     fi
 fi
 

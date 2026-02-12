@@ -82,7 +82,7 @@ is_cve_ignored() {
         return 1
     fi
     
-    # Check if CVE is in ignore list and not expired
+    # Check if CVE/GHSA is in ignore list and not expired (supports both CVE-* and GHSA-* formats)
     local ignored=$(jq -r --arg cve "$cve_id" '
         .ignores[] | 
         select(.type == "cve" and .value == $cve and .expired == false) |

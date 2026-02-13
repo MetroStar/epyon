@@ -425,6 +425,97 @@ jobs:
               });
             }
       
+      - name: Create Scan Notification Issue
+        if: steps.check-severity.outputs.has_issues == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const notifyUsers = '${{ env.NOTIFY_USERS }}'.split(',').map(u => `@${u.trim()}`).join(' ');
+            const triggeredBy = '@${{ github.actor }}';
+            const repository = '${{ github.repository }}';
+            const scanMode = '${{ env.SCAN_MODE }}';
+            const runUrl = `https://github.com/${repository}/actions/runs/${{ github.run_id }}`;
+            const critical = '${{ steps.check-severity.outputs.critical }}' || '0';
+            const high = '${{ steps.check-severity.outputs.high }}' || '0';
+            
+            // Determine trigger type
+            let triggerType = 'Manual';
+            if ('${{ github.event_name }}' === 'push') triggerType = 'Push to ${{ github.ref_name }}';
+            else if ('${{ github.event_name }}' === 'pull_request') triggerType = 'Pull Request #${{ github.event.pull_request.number }}';
+            else if ('${{ github.event_name }}' === 'schedule') triggerType = 'Scheduled Scan';
+            
+            // Determine severity emoji and status
+            let severityEmoji = '✅';
+            let severityStatus = 'Clean';
+            let labels = ['security-scan', 'epyon'];
+            
+            if (parseInt(critical) > 0) {
+              severityEmoji = '🔴';
+              severityStatus = 'Critical Issues Found';
+              labels.push('critical', 'security');
+            } else if (parseInt(high) > 0) {
+              severityEmoji = '🟠';
+              severityStatus = 'High Risk';
+              labels.push('high-severity', 'security');
+            } else {
+              labels.push('no-issues');
+            }
+            
+            // Read executive summary if available
+            const summaryPath = 'epyon/${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/markdown-reports/executive-summary.md';
+            let executiveSummary = '';
+            if (fs.existsSync(summaryPath)) {
+              executiveSummary = fs.readFileSync(summaryPath, 'utf8');
+            }
+            
+            const issueBody = `${severityEmoji} **Security Scan Complete - ${severityStatus}**
+            
+            **Repository:** \`${repository}\`
+            **Scan Mode:** \`${scanMode}\`
+            **Trigger:** ${triggerType}
+            **Triggered by:** ${triggeredBy}
+            **Notifying:** ${notifyUsers}
+            
+            ---
+            
+            ### 📊 Security Findings Summary
+            
+            | Severity | Count |
+            |----------|-------|
+            | 🔴 Critical | ${critical} |
+            | 🟠 High | ${high} |
+            
+            ${executiveSummary ? `\n### 📋 Executive Summary\n\n${executiveSummary}\n` : ''}
+            
+            ---
+            
+            ### 📦 Scan Artifacts
+            
+            - [View Workflow Run](${runUrl})
+            - [Download Security Dashboard](${runUrl})
+            - [Download Full Report](${runUrl})
+            
+            ### 🔗 Next Steps
+            
+            ${parseInt(critical) > 0 || parseInt(high) > 0 ? 
+              '1. ⚠️ **Review critical and high-severity findings immediately**\n2. Download the interactive security dashboard\n3. Prioritize remediation based on severity\n4. Update dependencies and configurations as needed' :
+              '1. ✅ Review scan results for informational findings\n2. Monitor for new vulnerabilities\n3. Keep dependencies up to date'}
+            
+            ---
+            *🤖 Automated notification from Epyon Security Scanner*
+            `;
+            
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `${severityEmoji} Security Scan: ${repository.split('/')[1]} - ${new Date().toISOString().split('T')[0]}`,
+              body: issueBody,
+              labels: labels
+            });
+            
+            console.log(`Created issue #${issue.data.number}: ${issue.data.html_url}`);
+      
       - name: Fail on Critical Vulnerabilities
         if: steps.check-severity.outputs.critical > 0
         run: |

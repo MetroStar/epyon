@@ -297,8 +297,11 @@ jobs:
         if: always()
         run: |
           SCAN_DIR=$(cat /tmp/epyon-env | grep "SCAN_DIR=" | cut -d= -f2 | sed "s|$PWD/||")
+          SCAN_ID=$(basename "$SCAN_DIR")
           echo "scan_dir=$SCAN_DIR" >> $GITHUB_OUTPUT
+          echo "scan_id=$SCAN_ID" >> $GITHUB_OUTPUT
           echo "Found scan directory: $SCAN_DIR"
+          echo "Scan ID: $SCAN_ID"
       
       - name: Debug Scan Directory
         run: |
@@ -328,7 +331,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: external-repo-security-scan-complete
+          name: ${{ steps.find-scan.outputs.scan_id }}
           path: ${{ steps.find-scan.outputs.scan_dir }}/
           retention-days: 90
       

@@ -536,6 +536,77 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
         echo "# ✅ Security Scan Summary" >> "$GITHUB_STEP_SUMMARY"
     fi
     echo "" >> "$GITHUB_STEP_SUMMARY"
+    
+    # Show scan metadata
+    SCAN_USER="${GITHUB_ACTOR:-$(whoami)}"
+    SCAN_ID=$(basename "$SCAN_DIR")
+    SCAN_TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+    echo "**Scan Details:**" >> "$GITHUB_STEP_SUMMARY"
+    echo "- 👤 **Triggered by:** @$SCAN_USER" >> "$GITHUB_STEP_SUMMARY"
+    echo "- 🆔 **Scan ID:** \`$SCAN_ID\`" >> "$GITHUB_STEP_SUMMARY"
+    echo "- 🕐 **Timestamp:** $SCAN_TIMESTAMP" >> "$GITHUB_STEP_SUMMARY"
+    echo "" >> "$GITHUB_STEP_SUMMARY"
+    
+    # Show tool-specific results
+    echo "## 🔍 Tool Results" >> "$GITHUB_STEP_SUMMARY"
+    echo "" >> "$GITHUB_STEP_SUMMARY"
+    echo "| Tool | Status | Findings |" >> "$GITHUB_STEP_SUMMARY"
+    echo "|------|--------|----------|" >> "$GITHUB_STEP_SUMMARY"
+    
+    # TruffleHog (secrets)
+    if [[ -f "$SCAN_DIR/trufflehog/trufflehog-scan.json" ]]; then
+        TH_COUNT=$(jq 'length' "$SCAN_DIR/trufflehog/trufflehog-scan.json" 2>/dev/null || echo "0")
+        TH_STATUS=$([ "$TH_COUNT" -eq 0 ] && echo "✅ Clean" || echo "⚠️ Issues")
+        echo "| 🔐 TruffleHog | $TH_STATUS | $TH_COUNT secrets |" >> "$GITHUB_STEP_SUMMARY"
+    fi
+    
+    # Trivy (vulnerabilities)
+    TRIVY_FINDINGS=0
+    for trivy_file in "$SCAN_DIR/trivy"/*.json; do
+        if [[ -f "$trivy_file" ]]; then
+            COUNT=$(jq '[.Results[]?.Vulnerabilities[]?] | length' "$trivy_file" 2>/dev/null || echo "0")
+            TRIVY_FINDINGS=$((TRIVY_FINDINGS + COUNT))
+        fi
+    done
+    TRIVY_STATUS=$([ "$TRIVY_FINDINGS" -eq 0 ] && echo "✅ Clean" || echo "⚠️ Issues")
+    echo "| 🐳 Trivy | $TRIVY_STATUS | $TRIVY_FINDINGS CVEs |" >> "$GITHUB_STEP_SUMMARY"
+    
+    # Grype (vulnerabilities)
+    GRYPE_FINDINGS=0
+    for grype_file in "$SCAN_DIR/grype"/*.json; do
+        if [[ -f "$grype_file" ]]; then
+            COUNT=$(jq '.matches | length' "$grype_file" 2>/dev/null || echo "0")
+            GRYPE_FINDINGS=$((GRYPE_FINDINGS + COUNT))
+        fi
+    done
+    GRYPE_STATUS=$([ "$GRYPE_FINDINGS" -eq 0 ] && echo "✅ Clean" || echo "⚠️ Issues")
+    echo "| 🔎 Grype | $GRYPE_STATUS | $GRYPE_FINDINGS CVEs |" >> "$GITHUB_STEP_SUMMARY"
+    
+    # Checkov (IaC)
+    CHECKOV_STATUS=$([ "${CHECKOV_FAILED:-0}" -eq 0 ] && echo "✅ Clean" || echo "⚠️ Issues")
+    echo "| 🏗️ Checkov | $CHECKOV_STATUS | ${CHECKOV_FAILED:-0} failed checks |" >> "$GITHUB_STEP_SUMMARY"
+    
+    # ClamAV (malware)
+    CLAMAV_STATUS=$([ "${CLAMAV_INFECTED:-0}" -eq 0 ] && echo "✅ Clean" || echo "🚨 Malware")
+    echo "| 🦠 ClamAV | $CLAMAV_STATUS | ${CLAMAV_INFECTED:-0} infections |" >> "$GITHUB_STEP_SUMMARY"
+    
+    # Xeol (EOL)
+    if [[ -f "$SCAN_DIR/xeol/xeol-scan.json" ]]; then
+        XEOL_COUNT=$(jq '.matches | length' "$SCAN_DIR/xeol/xeol-scan.json" 2>/dev/null || echo "0")
+        XEOL_STATUS=$([ "$XEOL_COUNT" -eq 0 ] && echo "✅ Clean" || echo "⚠️ EOL Software")
+        echo "| ⏰ Xeol | $XEOL_STATUS | $XEOL_COUNT EOL packages |" >> "$GITHUB_STEP_SUMMARY"
+    fi
+    
+    # SonarQube (code quality)
+    if [[ -f "$SCAN_DIR/sonar/sonar-issues.json" ]]; then
+        SONAR_COUNT=$(jq '.issues | length' "$SCAN_DIR/sonar/sonar-issues.json" 2>/dev/null || echo "0")
+        SONAR_STATUS=$([ "$SONAR_COUNT" -eq 0 ] && echo "✅ Clean" || echo "⚠️ Issues")
+        echo "| 📊 SonarQube | $SONAR_STATUS | $SONAR_COUNT issues |" >> "$GITHUB_STEP_SUMMARY"
+    fi
+    
+    echo "" >> "$GITHUB_STEP_SUMMARY"
+    echo "## 📊 Severity Summary" >> "$GITHUB_STEP_SUMMARY"
+    echo "" >> "$GITHUB_STEP_SUMMARY"
     echo "**Total Findings:**" >> "$GITHUB_STEP_SUMMARY"
     echo "- 🔴 Critical: $TOTAL_CRITICAL" >> "$GITHUB_STEP_SUMMARY"
     echo "- 🟠 High: $TOTAL_HIGH" >> "$GITHUB_STEP_SUMMARY"

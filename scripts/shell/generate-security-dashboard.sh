@@ -102,6 +102,19 @@ WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 echo "DEBUG: SCRIPT_DIR=$SCRIPT_DIR" >&2
 echo "DEBUG: WORKSPACE_ROOT=$WORKSPACE_ROOT" >&2
 
+# Get Epyon version (priority: git tag > VERSION file > default)
+EPYON_VERSION="unknown"
+if [[ -d "$WORKSPACE_ROOT/.git" ]]; then
+    EPYON_VERSION=$(cd "$WORKSPACE_ROOT" && git describe --tags --always 2>/dev/null || echo "")
+fi
+if [[ -z "$EPYON_VERSION" ]] && [[ -f "$WORKSPACE_ROOT/VERSION" ]]; then
+    EPYON_VERSION=$(cat "$WORKSPACE_ROOT/VERSION" | tr -d '[:space:]')
+fi
+if [[ -z "$EPYON_VERSION" ]] || [[ "$EPYON_VERSION" == "unknown" ]]; then
+    EPYON_VERSION="2.5.0"
+fi
+echo "EPYON Version: $EPYON_VERSION" >&2
+
 # Source filter-ignored-findings.sh for suppression functionality
 if [ -f "$SCRIPT_DIR/filter-ignored-findings.sh" ]; then
     echo "DEBUG: Sourcing filter-ignored-findings.sh" >&2
@@ -3512,7 +3525,7 @@ cat >> "$OUTPUT_HTML" << EOF
 
         <div class="footer">
             <p style="color: #718096; margin-bottom: 10px;">
-                Comprehensive Security Architecture Scanner
+                Comprehensive Security Architecture Scanner • v${EPYON_VERSION}
             </p>
             <p style="color: #a0aec0; font-size: 0.9em;">
                 Total Findings: <strong style="color: #2d3748;">${TOTAL_FINDINGS}</strong> • 

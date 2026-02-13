@@ -63,10 +63,16 @@ echo ""
 SCAN_ID=$(basename "$SCAN_DIR")
 MANIFEST_FILE="$SCAN_DIR/scan-manifest.json"
 
-# Get Epyon version (from git or default)
+# Get Epyon version (priority: git tag > VERSION file > default)
 EPYON_VERSION="2.5.0"
 if [[ -d "$REPO_ROOT/.git" ]]; then
-    EPYON_VERSION=$(cd "$REPO_ROOT" && git describe --tags --always 2>/dev/null || echo "2.5.0")
+    EPYON_VERSION=$(cd "$REPO_ROOT" && git describe --tags --always 2>/dev/null || echo "")
+fi
+if [[ -z "$EPYON_VERSION" ]] && [[ -f "$REPO_ROOT/VERSION" ]]; then
+    EPYON_VERSION=$(cat "$REPO_ROOT/VERSION" | tr -d '[:space:]')
+fi
+if [[ -z "$EPYON_VERSION" ]]; then
+    EPYON_VERSION="2.5.0"
 fi
 
 # Collect scan metadata

@@ -196,6 +196,48 @@ jobs:
           chmod +x scripts/shell/check-severity-gate.sh
           ./scripts/shell/check-severity-gate.sh
       
+      - name: Display Vulnerability Summary
+        if: always()
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "📊 Security Vulnerability Summary"
+          echo "═══════════════════════════════════════════════════════════════"
+          
+          FINDINGS_SUMMARY="$SCAN_DIR/security-findings-summary.json"
+          if [ -f "$FINDINGS_SUMMARY" ]; then
+            CRITICAL=$(jq -r '.summary.total_critical // 0' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+            HIGH=$(jq -r '.summary.total_high // 0' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+            MEDIUM=$(jq -r '.summary.total_medium // 0' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+            LOW=$(jq -r '.summary.total_low // 0' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+            
+            echo "🔴 Critical: $CRITICAL"
+            echo "🟠 High: $HIGH"
+            echo "🟡 Medium: $MEDIUM"
+            echo "🟢 Low: $LOW"
+            echo ""
+            
+            # Display critical and high vulnerabilities
+            if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+              echo "⚠️  CRITICAL & HIGH SEVERITY VULNERABILITIES:"
+              echo "───────────────────────────────────────────────────────────────"
+              jq -r '.findings[] | select(.severity == "CRITICAL" or .severity == "HIGH") | "\(.severity) | \(.vulnerability_id // .cve_id // "N/A") | \(.package_name // "N/A") | \(.tool)"' "$FINDINGS_SUMMARY" 2>/dev/null | head -50 || echo "Details in dashboard"
+              echo ""
+            fi
+            
+            # Show suppressions if any
+            if [ -f "$SCAN_DIR/suppressed-findings.md" ]; then
+              SUPP_COUNT=$(grep -c "^## Suppressed:" "$SCAN_DIR/suppressed-findings.md" 2>/dev/null || echo "0")
+              if [ "$SUPP_COUNT" -gt 0 ]; then
+                echo "🔕 Suppressed: $SUPP_COUNT finding(s) via .epyon-ignore.yml"
+                echo ""
+              fi
+            fi
+          fi
+          
+          echo "📊 Full details available in the security dashboard artifact"
+          echo "═══════════════════════════════════════════════════════════════"
+      
       - name: Generate Baseline Reports & Dashboard
         if: always()
         run: |

@@ -553,33 +553,18 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     echo "| Tool | Status | Findings |" >> "$GITHUB_STEP_SUMMARY"
     echo "|------|--------|----------|" >> "$GITHUB_STEP_SUMMARY"
     
-    # TruffleHog (secrets)
-    TH_COUNT=0
-    if [[ -f "$SCAN_DIR/trufflehog/trufflehog-scan.json" ]]; then
-        TH_COUNT=$(jq 'length' "$SCAN_DIR/trufflehog/trufflehog-scan.json" 2>/dev/null || echo "0")
-    fi
+    # TruffleHog (secrets) - use filtered count from severity gate
+    TH_COUNT=${TRUFFLEHOG_SECRETS:-0}
     TH_STATUS=$([ "$TH_COUNT" -eq 0 ] && echo "✅ Clean" || echo "⚠️ Issues")
     echo "| 🔐 TruffleHog | $TH_STATUS | $TH_COUNT secrets |" >> "$GITHUB_STEP_SUMMARY"
     
-    # Trivy (vulnerabilities)
-    TRIVY_FINDINGS=0
-    for trivy_file in "$SCAN_DIR/trivy"/*.json; do
-        if [[ -f "$trivy_file" ]]; then
-            COUNT=$(jq '[.Results[]?.Vulnerabilities[]?] | length' "$trivy_file" 2>/dev/null || echo "0")
-            TRIVY_FINDINGS=$((TRIVY_FINDINGS + COUNT))
-        fi
-    done
+    # Trivy (vulnerabilities) - use filtered count from severity gate
+    TRIVY_FINDINGS=$((TRIVY_CRITICAL + TRIVY_HIGH + TRIVY_MEDIUM + TRIVY_LOW))
     TRIVY_STATUS=$([ "$TRIVY_FINDINGS" -eq 0 ] && echo "✅ Clean" || echo "⚠️ Issues")
     echo "| 🐳 Trivy | $TRIVY_STATUS | $TRIVY_FINDINGS CVEs |" >> "$GITHUB_STEP_SUMMARY"
     
-    # Grype (vulnerabilities)
-    GRYPE_FINDINGS=0
-    for grype_file in "$SCAN_DIR/grype"/*.json; do
-        if [[ -f "$grype_file" ]]; then
-            COUNT=$(jq '.matches | length' "$grype_file" 2>/dev/null || echo "0")
-            GRYPE_FINDINGS=$((GRYPE_FINDINGS + COUNT))
-        fi
-    done
+    # Grype (vulnerabilities) - use filtered count from severity gate
+    GRYPE_FINDINGS=$((GRYPE_CRITICAL + GRYPE_HIGH + GRYPE_MEDIUM + GRYPE_LOW))
     GRYPE_STATUS=$([ "$GRYPE_FINDINGS" -eq 0 ] && echo "✅ Clean" || echo "⚠️ Issues")
     echo "| 🔎 Grype | $GRYPE_STATUS | $GRYPE_FINDINGS CVEs |" >> "$GITHUB_STEP_SUMMARY"
     

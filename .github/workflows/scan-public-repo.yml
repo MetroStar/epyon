@@ -42,9 +42,8 @@ env:
   FAIL_ON_CRITICAL: ${{ github.event.inputs.fail_on_critical }}
   FAIL_ON_HIGH: ${{ github.event.inputs.fail_on_high }}
   WARNING_ONLY: ${{ github.event.inputs.warning_only || 'false' }}
-  # Notification recipients: Add GitHub usernames (without @) to notify on scan completion
-
-  NOTIFY_USERS: "sketch0395,jbouder"  # Example: "sketch0395,jdoe"
+  # Notification recipient: The user who triggered the scan will be notified
+  NOTIFY_USERS: "${{ github.actor }}"
 
 jobs:
   external-scan:

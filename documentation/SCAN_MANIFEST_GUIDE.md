@@ -67,10 +67,10 @@ The manifest is included in the downloaded scan artifacts along with all reports
   "manifest_version": "1.0",
   "generated_at": "2026-02-06T21:20:16Z",
   "scan_metadata": {
-    "scan_id": "myapp_rnelson_2026-02-06_09-48-27",
+    "scan_id": "myapp_user_2026-02-06_09-48-27",
     "timestamp": "2026-02-06T21:20:16Z",
-    "username": "rnelson",
-    "hostname": "ITLP01183.local",
+    "username": "user",
+    "hostname": "scan-host.local",
     "epyon_version": "16a19f6"
   },
   "target": {
@@ -102,9 +102,9 @@ The manifest is included in the downloaded scan artifacts along with all reports
 |-------|-------------|---------|
 | `manifest_version` | Format version of the manifest | `"1.0"` |
 | `generated_at` | ISO 8601 timestamp (UTC) | `"2026-02-06T21:20:16Z"` |
-| `scan_id` | Unique scan identifier | `"myapp_rnelson_2026-02-06_09-48-27"` |
-| `username` | User who ran the scan | `"rnelson"` |
-| `hostname` | System where scan was executed | `"ITLP01183.local"` |
+| `scan_id` | Unique scan identifier | `"myapp_user_2026-02-06_09-48-27"` |
+| `username` | User who ran the scan | `"user"` |
+| `hostname` | System where scan was executed | `"scan-host.local"` |
 | `epyon_version` | Git commit SHA of Epyon | `"16a19f6"` |
 | `repository` | Git repository URL (if applicable) | `"https://github.com/example/repo.git"` |
 | `commit_sha` | Exact git commit scanned | `"abc123def456"` |
@@ -281,10 +281,10 @@ jq '.scan_metadata' scans/<scan_id>/scan-manifest.json
 **Output**:
 ```json
 {
-  "scan_id": "myapp_rnelson_2026-02-06_09-48-27",
+  "scan_id": "myapp_user_2026-02-06_09-48-27",
   "timestamp": "2026-02-06T21:20:16Z",
-  "username": "rnelson",
-  "hostname": "ITLP01183.local",
+  "username": "user",
+  "hostname": "scan-host.local",
   "epyon_version": "16a19f6"
 }
 ```

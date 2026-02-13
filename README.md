@@ -1161,19 +1161,19 @@ Exported SBOMs are saved to: `scans/{scan_id}/sbom/exports/`
 curl -X POST https://dependency-track.example.com/api/v1/bom \
   -H "X-Api-Key: YOUR_API_KEY" \
   -F "project=PROJECT_UUID" \
-  -F "bom=@scans/midas_rnelson_2026-01-22/sbom/exports/sbom.cyclonedx.json"
+  -F "bom=@scans/midas_user_2026-01-22/sbom/exports/sbom.cyclonedx.json"
 ```
 
 **GitHub Dependency Graph:**
 ```bash
 gh api /repos/OWNER/REPO/dependency-graph/snapshots \
   --method POST \
-  --input scans/midas_rnelson_2026-01-22/sbom/exports/sbom.spdx.json
+  --input scans/midas_user_2026-01-22/sbom/exports/sbom.spdx.json
 ```
 
 **Snyk Vulnerability Scanning:**
 ```bash
-snyk test --file=scans/midas_rnelson_2026-01-22/sbom/exports/sbom.cyclonedx.json
+snyk test --file=scans/midas_user_2026-01-22/sbom/exports/sbom.cyclonedx.json
 ```
 
 **JFrog Xray:**
@@ -1242,11 +1242,11 @@ API discovery exports are saved to:
 **Swagger UI:**
 ```bash
 # Extract OpenAPI specs from discovery
-jq '.discovery_methods.openapi_specs[]' scans/midas_rnelson_2026-01-22/api/exports/api-discovery-*.json
+jq '.discovery_methods.openapi_specs[]' scans/midas_user_2026-01-22/api/exports/api-discovery-*.json
 
 # Serve with Swagger UI
 docker run -p 80:8080 -e SWAGGER_JSON=/api/openapi.json \
-  -v $(pwd)/scans/midas_rnelson_2026-01-22/api:/api \
+  -v $(pwd)/scans/midas_user_2026-01-22/api:/api \
   swaggerapi/swagger-ui
 ```
 
@@ -1254,7 +1254,7 @@ docker run -p 80:8080 -e SWAGGER_JSON=/api/openapi.json \
 ```bash
 # Extract all endpoints for security scanning
 jq -r '.discovery_methods.code_routes[][] | "\(.method) \(.endpoint)"' \
-  scans/midas_rnelson_2026-01-22/api/exports/api-discovery-*.json
+  scans/midas_user_2026-01-22/api/exports/api-discovery-*.json
 
 # Feed to OWASP ZAP or Burp Suite for API testing
 ```

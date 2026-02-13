@@ -76,7 +76,7 @@ Implemented a comprehensive **cryptographic manifest system** for all security s
     "scan_id": "sapphire_rnelson_2026-02-06_09-48-27",
     "timestamp": "2026-02-06T21:20:16Z",
     "username": "rnelson",
-    "hostname": "ITLP01183.local",
+    "hostname": "scan-host.local",
     "epyon_version": "16a19f6"
   },
   "target": {

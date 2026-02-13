@@ -2,11 +2,11 @@
 # This file marks the official baseline scan for drift detection
 # Created: Mon Jan 26 07:39:00 CST 2026
 
-BASELINE_SCAN_ID="comet-starter_rnelson_2026-01-23_10-26-06"
-BASELINE_SCAN_PATH="baseline/scans/comet-starter_rnelson_2026-01-23_10-26-06"
-BASELINE_DASHBOARD="baseline/scans/comet-starter_rnelson_2026-01-23_10-26-06/consolidated-reports/dashboards/security-dashboard.html"
+BASELINE_SCAN_ID="comet-starter_user_2026-01-23_10-26-06"
+BASELINE_SCAN_PATH="baseline/scans/comet-starter_user_2026-01-23_10-26-06"
+BASELINE_DASHBOARD="baseline/scans/comet-starter_user_2026-01-23_10-26-06/consolidated-reports/dashboards/security-dashboard.html"
 BASELINE_SET_DATE="2026-01-26T13:39:00Z"
-BASELINE_SET_BY="rnelson"
+BASELINE_SET_BY="user"
 BASELINE_HASH="b1e10266d2a10637da9614f376c92c422695f3d93d80fda9e68057b5ca2ac651"
 BASELINE_HASH_ALGORITHM="SHA256"
 BASELINE_TOTAL_FILES="N/A"

@@ -554,11 +554,12 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     echo "|------|--------|----------|" >> "$GITHUB_STEP_SUMMARY"
     
     # TruffleHog (secrets)
+    TH_COUNT=0
     if [[ -f "$SCAN_DIR/trufflehog/trufflehog-scan.json" ]]; then
         TH_COUNT=$(jq 'length' "$SCAN_DIR/trufflehog/trufflehog-scan.json" 2>/dev/null || echo "0")
-        TH_STATUS=$([ "$TH_COUNT" -eq 0 ] && echo "✅ Clean" || echo "⚠️ Issues")
-        echo "| 🔐 TruffleHog | $TH_STATUS | $TH_COUNT secrets |" >> "$GITHUB_STEP_SUMMARY"
     fi
+    TH_STATUS=$([ "$TH_COUNT" -eq 0 ] && echo "✅ Clean" || echo "⚠️ Issues")
+    echo "| 🔐 TruffleHog | $TH_STATUS | $TH_COUNT secrets |" >> "$GITHUB_STEP_SUMMARY"
     
     # Trivy (vulnerabilities)
     TRIVY_FINDINGS=0
@@ -582,6 +583,14 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     GRYPE_STATUS=$([ "$GRYPE_FINDINGS" -eq 0 ] && echo "✅ Clean" || echo "⚠️ Issues")
     echo "| 🔎 Grype | $GRYPE_STATUS | $GRYPE_FINDINGS CVEs |" >> "$GITHUB_STEP_SUMMARY"
     
+    # Syft (SBOM)
+    SBOM_PACKAGES=0
+    if [[ -f "$SCAN_DIR/sbom/sbom.json" ]]; then
+        SBOM_PACKAGES=$(jq '.artifacts | length' "$SCAN_DIR/sbom/sbom.json" 2>/dev/null || echo "0")
+    fi
+    SBOM_STATUS=$([ "$SBOM_PACKAGES" -gt 0 ] && echo "✅ Generated" || echo "⚠️ N/A")
+    echo "| 📦 Syft (SBOM) | $SBOM_STATUS | $SBOM_PACKAGES packages |" >> "$GITHUB_STEP_SUMMARY"
+    
     # Checkov (IaC)
     CHECKOV_STATUS=$([ "${CHECKOV_FAILED:-0}" -eq 0 ] && echo "✅ Clean" || echo "⚠️ Issues")
     echo "| 🏗️ Checkov | $CHECKOV_STATUS | ${CHECKOV_FAILED:-0} failed checks |" >> "$GITHUB_STEP_SUMMARY"
@@ -591,18 +600,30 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     echo "| 🦠 ClamAV | $CLAMAV_STATUS | ${CLAMAV_INFECTED:-0} infections |" >> "$GITHUB_STEP_SUMMARY"
     
     # Xeol (EOL)
+    XEOL_COUNT=0
     if [[ -f "$SCAN_DIR/xeol/xeol-scan.json" ]]; then
         XEOL_COUNT=$(jq '.matches | length' "$SCAN_DIR/xeol/xeol-scan.json" 2>/dev/null || echo "0")
-        XEOL_STATUS=$([ "$XEOL_COUNT" -eq 0 ] && echo "✅ Clean" || echo "⚠️ EOL Software")
-        echo "| ⏰ Xeol | $XEOL_STATUS | $XEOL_COUNT EOL packages |" >> "$GITHUB_STEP_SUMMARY"
     fi
+    XEOL_STATUS=$([ "$XEOL_COUNT" -eq 0 ] && echo "✅ Clean" || echo "⚠️ EOL Software")
+    echo "| ⏰ Xeol | $XEOL_STATUS | $XEOL_COUNT EOL packages |" >> "$GITHUB_STEP_SUMMARY"
+    
+    # Helm (K8s deployment)
+    HELM_STATUS="⚠️ N/A"
+    HELM_RESOURCES=0
+    if [[ -d "$SCAN_DIR/helm" ]]; then
+        # Count YAML files as deployed resources
+        HELM_RESOURCES=$(find "$SCAN_DIR/helm" -name "*.yaml" -o -name "*.yml" 2>/dev/null | wc -l | tr -d ' ')
+        HELM_STATUS=$([ "$HELM_RESOURCES" -gt 0 ] && echo "✅ Validated" || echo "⚠️ N/A")
+    fi
+    echo "| ⎈ Helm | $HELM_STATUS | $HELM_RESOURCES resources |" >> "$GITHUB_STEP_SUMMARY"
     
     # SonarQube (code quality)
+    SONAR_COUNT=0
     if [[ -f "$SCAN_DIR/sonar/sonar-issues.json" ]]; then
         SONAR_COUNT=$(jq '.issues | length' "$SCAN_DIR/sonar/sonar-issues.json" 2>/dev/null || echo "0")
-        SONAR_STATUS=$([ "$SONAR_COUNT" -eq 0 ] && echo "✅ Clean" || echo "⚠️ Issues")
-        echo "| 📊 SonarQube | $SONAR_STATUS | $SONAR_COUNT issues |" >> "$GITHUB_STEP_SUMMARY"
     fi
+    SONAR_STATUS=$([ "$SONAR_COUNT" -eq 0 ] && echo "✅ Clean" || echo "⚠️ Issues")
+    echo "| 📊 SonarQube | $SONAR_STATUS | $SONAR_COUNT issues |" >> "$GITHUB_STEP_SUMMARY"
     
     echo "" >> "$GITHUB_STEP_SUMMARY"
     echo "## 📊 Severity Summary" >> "$GITHUB_STEP_SUMMARY"

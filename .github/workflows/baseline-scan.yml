@@ -1,5 +1,9 @@
 name: Baseline Security Scan
 
+# Top-level permissions: restrict default to read-only
+permissions:
+  contents: read
+
 on:
   schedule:
     # Runs on day 1 of every 3rd month at 2:00 AM UTC (keeps baseline artifact alive)

@@ -1,5 +1,9 @@
 name: Scan Public Repository
 
+# Top-level permissions: restrict default to read-only
+permissions:
+  contents: read
+
 # checkov:skip=CKV_GHA_7:Workflow inputs are required for user-specified repository scanning and do not affect SLSA build provenance
 on:
   workflow_dispatch:

@@ -1,5 +1,9 @@
 name: Private Security Scan
 
+# Top-level permissions: restrict default to read-only
+permissions:
+  contents: read
+
 on:
   push:
     branches: [ main, develop ]

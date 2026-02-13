@@ -1786,12 +1786,9 @@ if [[ -f "$SUPPRESSED_LOG" ]]; then
                 </table>
             </div>
             
-            <div style=\"margin-top: 15px; display: flex; gap: 10px;\">
+            <div style=\"margin-top: 15px;\">
                 <a href=\"../../suppressed-findings.md\" style=\"display: inline-block; background: #fbbf24; color: #1a1d23; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.95em; transition: all 0.3s; box-shadow: 0 2px 8px rgba(251, 191, 36, 0.4);\" onmouseover=\"this.style.background='#fcd34d'\" onmouseout=\"this.style.background='#fbbf24'\">
                     📄 View Full Report
-                </a>
-                <a href=\"../../.epyon-ignore.yml\" style=\"display: inline-block; background: #4b5563; color: #e8eaed; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.95em; transition: all 0.3s;\" onmouseover=\"this.style.background='#6b7280'\" onmouseout=\"this.style.background='#4b5563'\">
-                    ⚙️ View Ignore Rules
                 </a>
             </div>
         </div>"

@@ -585,8 +585,8 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     
     # Syft (SBOM)
     SBOM_PACKAGES=0
-    if [[ -f "$SCAN_DIR/sbom/sbom.json" ]]; then
-        SBOM_PACKAGES=$(jq '.artifacts | length' "$SCAN_DIR/sbom/sbom.json" 2>/dev/null || echo "0")
+    if [[ -f "$SCAN_DIR/sbom/filesystem.json" ]]; then
+        SBOM_PACKAGES=$(jq '.artifacts | length' "$SCAN_DIR/sbom/filesystem.json" 2>/dev/null || echo "0")
     fi
     SBOM_STATUS=$([ "$SBOM_PACKAGES" -gt 0 ] && echo "✅ Generated" || echo "⚠️ N/A")
     echo "| 📦 Syft (SBOM) | $SBOM_STATUS | $SBOM_PACKAGES packages |" >> "$GITHUB_STEP_SUMMARY"
@@ -610,12 +610,19 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     # Helm (K8s deployment)
     HELM_STATUS="⚠️ N/A"
     HELM_RESOURCES=0
-    if [[ -d "$SCAN_DIR/helm" ]]; then
-        # Count YAML files as deployed resources
-        HELM_RESOURCES=$(find "$SCAN_DIR/helm" -name "*.yaml" -o -name "*.yml" 2>/dev/null | wc -l | tr -d ' ')
-        HELM_STATUS=$([ "$HELM_RESOURCES" -gt 0 ] && echo "✅ Validated" || echo "⚠️ N/A")
+    if [[ -f "$SCAN_DIR/helm/helm-results.json" ]]; then
+        # Get charts found and templates generated
+        HELM_CHARTS=$(jq -r '.summary.charts_found // 0' "$SCAN_DIR/helm/helm-results.json" 2>/dev/null || echo "0")
+        HELM_TEMPLATES=$(jq -r '.summary.templates_generated // 0' "$SCAN_DIR/helm/helm-results.json" 2>/dev/null || echo "0")
+        HELM_RESOURCES=$((HELM_CHARTS + HELM_TEMPLATES))
+        
+        if [[ $HELM_CHARTS -gt 0 ]]; then
+            HELM_STATUS="✅ Validated"
+        else
+            HELM_STATUS="⚠️ No charts"
+        fi
     fi
-    echo "| ⎈ Helm | $HELM_STATUS | $HELM_RESOURCES resources |" >> "$GITHUB_STEP_SUMMARY"
+    echo "| ⎈ Helm | $HELM_STATUS | $HELM_CHARTS charts, $HELM_TEMPLATES templates |" >> "$GITHUB_STEP_SUMMARY"
     
     # SonarQube (code quality)
     SONAR_COUNT=0

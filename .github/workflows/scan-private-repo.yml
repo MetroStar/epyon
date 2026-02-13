@@ -52,7 +52,7 @@ env:
   FAIL_ON_HIGH: ${{ github.event_name != 'workflow_dispatch' && 'true' || github.event.inputs.fail_on_high }}
   WARNING_ONLY: ${{ github.event.inputs.warning_only || 'false' }}
   # Notification recipients: Add GitHub usernames (without @) to notify on scan completion
-  NOTIFY_USERS: "user1,user2"  # Example: "user1,user2"
+  NOTIFY_USERS: "sketch0395,user2"  # Example: "user1,user2"
 
 jobs:
   security-scan:

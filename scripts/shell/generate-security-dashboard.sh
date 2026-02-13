@@ -1747,33 +1747,37 @@ if [[ -f "$SUPPRESSED_LOG" ]]; then
         echo "DEBUG: Total rows added: $(echo "$SUPPRESSED_TABLE_ROWS" | grep -c '<tr>' || echo 0)" >&2
         
         # Generate HTML for suppressed findings display
-        SUPPRESSED_HTML="<div style=\"background: #2C3539; border-radius: 12px; padding: 20px; margin-bottom: 20px; border-left: 4px solid #fbbf24; border: 1px solid #fbbf24;\">
-            <div style=\"display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;\">
-                <h3 style=\"color: #fbbf24; margin: 0; display: flex; align-items: center; gap: 8px;\">
-                    <span>🔕</span> Suppressed Findings
+        SUPPRESSED_HTML="<div style=\"background: linear-gradient(135deg, #2a1f15 0%, #2C3539 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 2px solid #fbbf24; box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);\">
+            <div style=\"display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;\">
+                <h3 style=\"color: #fbbf24; margin: 0; display: flex; align-items: center; gap: 10px; font-size: 1.4em;\">
+                    <span style=\"font-size: 1.2em;\">🔕</span> Suppressed Findings
+                    <span style=\"background: #fbbf24; color: #1a1d23; padding: 4px 12px; border-radius: 20px; font-size: 0.7em; font-weight: 700;\">$SUPPRESSED_COUNT</span>
                 </h3>
-                <button onclick=\"toggleSuppressedTable()\" style=\"background: #fbbf24; color: #1a1d23; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.85em;\">
+                <button onclick=\"toggleSuppressedTable()\" style=\"background: #fbbf24; color: #1a1d23; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9em; transition: all 0.3s; box-shadow: 0 2px 8px rgba(251, 191, 36, 0.4);\" onmouseover=\"this.style.background='#fcd34d'\" onmouseout=\"this.style.background='#fbbf24'\">
                     <span id=\"toggleSuppressedIcon\">▼</span> View Details
                 </button>
             </div>
-            <p style=\"color: #e8eaed; margin-bottom: 10px;\">
-                <strong>$SUPPRESSED_COUNT finding(s)</strong> were suppressed via <code style=\"background: #1a1d23; padding: 2px 6px; border-radius: 4px; color: #fbbf24;\">.epyon-ignore.yml</code> rules.
-            </p>
-            <p style=\"color: #9ca3af; font-size: 0.9em; margin-bottom: 12px;\">
-                These findings have been acknowledged with documented justification and audit trail.
-            </p>
+            <div style=\"background: #1a1d23; border-radius: 8px; padding: 15px; margin-bottom: 15px;\">
+                <p style=\"color: #e8eaed; margin-bottom: 10px; font-size: 1.05em;\">
+                    <strong style=\"color: #fbbf24;\">$SUPPRESSED_COUNT finding(s)</strong> were suppressed via <code style=\"background: #2a1f15; padding: 4px 8px; border-radius: 4px; color: #fbbf24; font-weight: 600;\">.epyon-ignore.yml</code> rules.
+                </p>
+                <p style=\"color: #9ca3af; font-size: 0.95em; margin: 0; line-height: 1.5;\">
+                    ✓ These findings have been <strong>acknowledged and accepted</strong> with documented justification and audit trail.<br/>
+                    ✓ All suppressions include approval information and can be reviewed below.
+                </p>
+            </div>
             
             <!-- Collapsible table -->
-            <div id=\"suppressedTable\" style=\"display: none; margin-top: 15px; overflow-x: auto;\">
+            <div id=\"suppressedTable\" style=\"display: none; margin-top: 15px; overflow-x: auto; animation: slideDown 0.3s ease;\">
                 <table style=\"width: 100%; border-collapse: collapse; background: #1a1d23; border-radius: 8px; overflow: hidden;\">
                     <thead>
-                        <tr style=\"background: #252a2e; color: #fbbf24; text-align: left;\">
-                            <th style=\"padding: 12px; border-bottom: 2px solid #fbbf24;\">Tool</th>
-                            <th style=\"padding: 12px; border-bottom: 2px solid #fbbf24;\">Type</th>
-                            <th style=\"padding: 12px; border-bottom: 2px solid #fbbf24;\">Value</th>
-                            <th style=\"padding: 12px; border-bottom: 2px solid #fbbf24;\">Reason</th>
-                            <th style=\"padding: 12px; border-bottom: 2px solid #fbbf24;\">Approved By</th>
-                            <th style=\"padding: 12px; border-bottom: 2px solid #fbbf24;\">Severity</th>
+                        <tr style=\"background: #2a1f15; color: #fbbf24; text-align: left;\">
+                            <th style=\"padding: 14px; border-bottom: 2px solid #fbbf24; font-weight: 700;\">Tool</th>
+                            <th style=\"padding: 14px; border-bottom: 2px solid #fbbf24; font-weight: 700;\">Type</th>
+                            <th style=\"padding: 14px; border-bottom: 2px solid #fbbf24; font-weight: 700;\">Value</th>
+                            <th style=\"padding: 14px; border-bottom: 2px solid #fbbf24; font-weight: 700;\">Reason</th>
+                            <th style=\"padding: 14px; border-bottom: 2px solid #fbbf24; font-weight: 700;\">Approved By</th>
+                            <th style=\"padding: 14px; border-bottom: 2px solid #fbbf24; font-weight: 700;\">Severity</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1782,9 +1786,12 @@ if [[ -f "$SUPPRESSED_LOG" ]]; then
                 </table>
             </div>
             
-            <div style=\"margin-top: 12px;\">
-                <a href=\"../../suppressed-findings.md\" style=\"display: inline-block; background: #fbbf24; color: #1a1d23; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.9em;\">
+            <div style=\"margin-top: 15px; display: flex; gap: 10px;\">
+                <a href=\"../../suppressed-findings.md\" style=\"display: inline-block; background: #fbbf24; color: #1a1d23; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.95em; transition: all 0.3s; box-shadow: 0 2px 8px rgba(251, 191, 36, 0.4);\" onmouseover=\"this.style.background='#fcd34d'\" onmouseout=\"this.style.background='#fbbf24'\">
                     📄 View Full Report
+                </a>
+                <a href=\"../../.epyon-ignore.yml\" style=\"display: inline-block; background: #4b5563; color: #e8eaed; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.95em; transition: all 0.3s;\" onmouseover=\"this.style.background='#6b7280'\" onmouseout=\"this.style.background='#4b5563'\">
+                    ⚙️ View Ignore Rules
                 </a>
             </div>
         </div>"
@@ -2825,6 +2832,11 @@ cat >> "$OUTPUT_HTML" << EOF
                 <div class="stat-label">Low</div>
                 <div class="stat-number">${TOTAL_LOW}</div>
                 <p>Low priority issues</p>
+            </div>
+            <div class="stat-card" style="background: linear-gradient(135deg, #2a1f15 0%, #3a2f25 100%); border-color: #fbbf24;">
+                <div class="stat-label" style="color: #fbbf24;">🔕 Suppressed</div>
+                <div class="stat-number" style="color: #fbbf24;">${SUPPRESSED_COUNT}</div>
+                <p style="color: #d1d5db;">Acknowledged findings</p>
             </div>
         </div>
 

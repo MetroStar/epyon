@@ -648,8 +648,8 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
         echo "" >> "$GITHUB_STEP_SUMMARY"
         
         # Show Checkov IaC issues if any
-        if [[ $CHECKOV_FAILED -gt 0 ]]; then
-            echo "### Checkov IaC Issues ($CHECKOV_FAILED)" >> "$GITHUB_STEP_SUMMARY"
+        if [[ ${CHECKOV_FAILED:-0} -gt 0 ]]; then
+            echo "### Checkov IaC Issues (${CHECKOV_FAILED})" >> "$GITHUB_STEP_SUMMARY"
             CHECKOV_FILE=$(find "$SCAN_DIR/checkov" -name "checkov-*.json" 2>/dev/null | head -1)
             if [[ -f "$CHECKOV_FILE" ]]; then
                 jq -r '.[]? | .results.failed_checks[]? | "- `\(.check_id)`: \(.check_name) in `\(.file_path)`"' "$CHECKOV_FILE" 2>/dev/null | head -20 >> "$GITHUB_STEP_SUMMARY"
@@ -657,25 +657,29 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
             echo "" >> "$GITHUB_STEP_SUMMARY"
         fi
         
-        # Show vulnerabilities from security-findings-summary.json if any
-        FINDINGS_SUMMARY="$SCAN_DIR/security-findings-summary.json"
-        if [[ -f "$FINDINGS_SUMMARY" ]]; then
-            VULN_CRITICAL=$(jq -r '.summary.total_critical // 0' "$FINDINGS_SUMMARY" 2>/dev/null)
-            VULN_HIGH=$(jq -r '.summary.total_high // 0' "$FINDINGS_SUMMARY" 2>/dev/null)
-            
-            if [[ $VULN_CRITICAL -gt 0 ]] || [[ $VULN_HIGH -gt 0 ]]; then
+        # Calculate vulnerability counts (excluding Checkov IaC)
+        VULN_COUNT=$((TOTAL_CRITICAL + TOTAL_HIGH - CHECKOV_FAILED))
+        
+        # Only show CVE section if there are actual vulnerability findings (not just Checkov)
+        if [[ $VULN_COUNT -gt 0 ]]; then
+            FINDINGS_SUMMARY="$SCAN_DIR/security-findings-summary.json"
+            if [[ -f "$FINDINGS_SUMMARY" ]]; then
                 echo "### Vulnerabilities (CVEs)" >> "$GITHUB_STEP_SUMMARY"
                 
                 # Display critical findings
-                if [[ $VULN_CRITICAL -gt 0 ]]; then
+                CRIT_COUNT=$(jq '.critical_findings | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+                if [[ $CRIT_COUNT -gt 0 ]]; then
                     jq -r '.critical_findings[] | "- **CRITICAL**: `\(.id)` in \(.package)@\(.version) (\(.tool))"' "$FINDINGS_SUMMARY" 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
                 fi
                 
                 # Display high findings
-                if [[ $VULN_HIGH -gt 0 ]]; then
+                HIGH_COUNT=$(jq '.high_findings | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+                if [[ $HIGH_COUNT -gt 0 ]]; then
                     jq -r '.high_findings[] | "- **HIGH**: `\(.id)` in \(.package)@\(.version) (\(.tool))"' "$FINDINGS_SUMMARY" 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
                 fi
                 
+                echo "" >> "$GITHUB_STEP_SUMMARY"
+                echo "*Note: Suppressed vulnerabilities are not displayed (see .epyon-ignore.yml)*" >> "$GITHUB_STEP_SUMMARY"
                 echo "" >> "$GITHUB_STEP_SUMMARY"
             fi
         fi

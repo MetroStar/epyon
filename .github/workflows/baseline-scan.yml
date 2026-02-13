@@ -214,6 +214,15 @@ jobs:
           chmod +x scripts/shell/check-severity-gate.sh
           ./scripts/shell/check-severity-gate.sh
       
+      - name: Regenerate Dashboard with Suppressions
+        if: always()
+        run: |
+          source /tmp/epyon-env
+          echo "📊 Regenerating dashboard to include suppressed findings..."
+          chmod +x scripts/shell/generate-security-dashboard.sh
+          SCAN_DIR="$SCAN_DIR" ./scripts/shell/generate-security-dashboard.sh || echo "Dashboard regeneration completed with warnings"
+          echo "✅ Dashboard updated with suppression information"
+      
       - name: Fix Artifact Permissions
         if: always()
         run: |

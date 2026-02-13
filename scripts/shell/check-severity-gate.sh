@@ -665,7 +665,17 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
             
             if [[ $VULN_CRITICAL -gt 0 ]] || [[ $VULN_HIGH -gt 0 ]]; then
                 echo "### Vulnerabilities (CVEs)" >> "$GITHUB_STEP_SUMMARY"
-                jq -r '.findings[] | select(.severity == "CRITICAL" or .severity == "HIGH") | "- **\(.severity)**: `\(.vulnerability_id // .cve_id // "N/A")` in \(.package_name // "N/A") (\(.tool))"' "$FINDINGS_SUMMARY" 2>/dev/null | head -20 >> "$GITHUB_STEP_SUMMARY"
+                
+                # Display critical findings
+                if [[ $VULN_CRITICAL -gt 0 ]]; then
+                    jq -r '.critical_findings[] | "- **CRITICAL**: `\(.id)` in \(.package)@\(.version) (\(.tool))"' "$FINDINGS_SUMMARY" 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
+                fi
+                
+                # Display high findings
+                if [[ $VULN_HIGH -gt 0 ]]; then
+                    jq -r '.high_findings[] | "- **HIGH**: `\(.id)` in \(.package)@\(.version) (\(.tool))"' "$FINDINGS_SUMMARY" 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
+                fi
+                
                 echo "" >> "$GITHUB_STEP_SUMMARY"
             fi
         fi

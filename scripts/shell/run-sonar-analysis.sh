@@ -91,33 +91,41 @@ else
     SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
 fi
 
-# Look for .env.sonar in multiple locations
-# Priority: target app's config > home directory default
-SONAR_ENV_FILES=(
-  "$REPO_PATH/.env.sonar"
-  "$HOME/.env.sonar"
-)
-
+# Check for SonarQube configuration from environment variables (GitHub secrets) first
 echo "[SEARCH] Searching for SonarQube configuration..."
 SONAR_CONFIG_FOUND=false
+SONAR_CONFIG_SOURCE="none"
 
-for env_file in "${SONAR_ENV_FILES[@]}"; do
-  if [ -f "$env_file" ]; then
-    echo "[OK] Found SonarQube config: $env_file"
-    echo "Loading environment variables from $env_file..."
-    source "$env_file"
-    SONAR_CONFIG_FOUND=true
-    SONAR_CONFIG_SOURCE="$env_file"
-    break
-  fi
-done
+if [ -n "${SONAR_HOST_URL:-}" ] && [ -n "${SONAR_TOKEN:-}" ]; then
+  echo "[OK] Using SonarQube config from environment variables (GitHub secrets)"
+  SONAR_CONFIG_FOUND=true
+  SONAR_CONFIG_SOURCE="environment variables"
+else
+  # Fall back to .env.sonar files
+  # Priority: target app's config > home directory default
+  SONAR_ENV_FILES=(
+    "$REPO_PATH/.env.sonar"
+    "$HOME/.env.sonar"
+  )
 
-if [ "$SONAR_CONFIG_FOUND" = false ]; then
-  echo "[WARNING] No .env.sonar file found in:"
   for env_file in "${SONAR_ENV_FILES[@]}"; do
-    echo "   - $env_file"
+    if [ -f "$env_file" ]; then
+      echo "[OK] Found SonarQube config: $env_file"
+      echo "Loading environment variables from $env_file..."
+      source "$env_file"
+      SONAR_CONFIG_FOUND=true
+      SONAR_CONFIG_SOURCE="$env_file"
+      break
+    fi
   done
-  SONAR_CONFIG_SOURCE="none"
+
+  if [ "$SONAR_CONFIG_FOUND" = false ]; then
+    echo "[WARNING] No SonarQube configuration found."
+    echo "          Checked environment variables and .env.sonar files in:"
+    for env_file in "${SONAR_ENV_FILES[@]}"; do
+      echo "            - $env_file"
+    done
+  fi
 fi
 
 # Default values (must be set via environment variables or sonar-project.properties)

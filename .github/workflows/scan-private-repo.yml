@@ -161,6 +161,9 @@ jobs:
       
       - name: Layer 3 - Code Quality (SonarQube)
         continue-on-error: true
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           source /tmp/epyon-env
           cd epyon

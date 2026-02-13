@@ -2,8 +2,8 @@ name: Baseline Security Scan
 
 on:
   schedule:
-    # Runs every 89 days at 2:00 AM UTC (keeps baseline artifact alive)
-    - cron: '0 2 */89 * *'
+    # Runs on day 1 of every 3rd month at 2:00 AM UTC (keeps baseline artifact alive)
+    - cron: '0 2 1 */3 *'
   # checkov:skip=CKV_GHA_7:Workflow inputs control scan behavior not build output; failure thresholds are security controls
   workflow_dispatch:
     inputs:
@@ -248,6 +248,15 @@ jobs:
           SCAN_DIR="$SCAN_DIR" ./scripts/shell/consolidate-security-reports.sh || echo "Report generation completed with warnings"
       
       - name: Find Scan Directory
+        id: find-scan
+        if: always()
+        run: |
+          cd epyon
+          SCAN_DIR=$(cat /tmp/epyon-env | grep "SCAN_DIR=" | cut -d= -f2 | sed "s|$PWD/||")
+          echo "scan_dir=$SCAN_DIR" >> $GITHUB_OUTPUT
+          echo "Found scan directory: $SCAN_DIR"
+      
+      - name: Download Previous Baseline
         id: download-previous
         continue-on-error: true
         uses: dawidd6/action-download-artifact@v6

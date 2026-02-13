@@ -543,8 +543,38 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     echo "- 🟢 Low: $TOTAL_LOW" >> "$GITHUB_STEP_SUMMARY"
     echo "" >> "$GITHUB_STEP_SUMMARY"
     
+    # Show high severity findings details (Checkov IaC and vulnerabilities)
+    if [[ $TOTAL_HIGH -gt 0 ]] || [[ $TOTAL_CRITICAL -gt 0 ]]; then
+        echo "## 🔴 High Severity Findings" >> "$GITHUB_STEP_SUMMARY"
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+        
+        # Show Checkov IaC issues if any
+        if [[ $CHECKOV_FAILED -gt 0 ]]; then
+            echo "### Checkov IaC Issues ($CHECKOV_FAILED)" >> "$GITHUB_STEP_SUMMARY"
+            CHECKOV_FILE=$(find "$SCAN_DIR/checkov" -name "checkov-*.json" 2>/dev/null | head -1)
+            if [[ -f "$CHECKOV_FILE" ]]; then
+                jq -r '.[]? | .results.failed_checks[]? | "- `\(.check_id)`: \(.check_name) in `\(.file_path)`"' "$CHECKOV_FILE" 2>/dev/null | head -20 >> "$GITHUB_STEP_SUMMARY"
+            fi
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+        fi
+        
+        # Show vulnerabilities from security-findings-summary.json if any
+        FINDINGS_SUMMARY="$SCAN_DIR/security-findings-summary.json"
+        if [[ -f "$FINDINGS_SUMMARY" ]]; then
+            VULN_CRITICAL=$(jq -r '.summary.total_critical // 0' "$FINDINGS_SUMMARY" 2>/dev/null)
+            VULN_HIGH=$(jq -r '.summary.total_high // 0' "$FINDINGS_SUMMARY" 2>/dev/null)
+            
+            if [[ $VULN_CRITICAL -gt 0 ]] || [[ $VULN_HIGH -gt 0 ]]; then
+                echo "### Vulnerabilities (CVEs)" >> "$GITHUB_STEP_SUMMARY"
+                jq -r '.findings[] | select(.severity == "CRITICAL" or .severity == "HIGH") | "- **\(.severity)**: `\(.vulnerability_id // .cve_id // "N/A")` in \(.package_name // "N/A") (\(.tool))"' "$FINDINGS_SUMMARY" 2>/dev/null | head -20 >> "$GITHUB_STEP_SUMMARY"
+                echo "" >> "$GITHUB_STEP_SUMMARY"
+            fi
+        fi
+    fi
+    
     # Only show failure details if there are failures
     if [[ ${#FAILURE_REASONS[@]} -gt 0 ]]; then
+        echo "## ⚠️ Gate Failures" >> "$GITHUB_STEP_SUMMARY"
         for line in "${FAILURE_REASONS[@]}"; do
             echo "$line" >> "$GITHUB_STEP_SUMMARY"
         done

@@ -528,9 +528,13 @@ if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     echo "gate_passed=$([[ $EXIT_CODE -eq 0 ]] && echo "true" || echo "false")" >> "$GITHUB_OUTPUT"
 fi
 
-# Write detailed failure reasons to GitHub Step Summary
-if [[ -n "${GITHUB_STEP_SUMMARY:-}" && ${#FAILURE_REASONS[@]} -gt 0 ]]; then
-    echo "# ❌ Security Gate Failure Report" >> "$GITHUB_STEP_SUMMARY"
+# Write summary to GitHub Step Summary (always)
+if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+    if [[ ${#FAILURE_REASONS[@]} -gt 0 ]]; then
+        echo "# ❌ Security Gate Failure Report" >> "$GITHUB_STEP_SUMMARY"
+    else
+        echo "# ✅ Security Scan Summary" >> "$GITHUB_STEP_SUMMARY"
+    fi
     echo "" >> "$GITHUB_STEP_SUMMARY"
     echo "**Total Findings:**" >> "$GITHUB_STEP_SUMMARY"
     echo "- 🔴 Critical: $TOTAL_CRITICAL" >> "$GITHUB_STEP_SUMMARY"
@@ -539,11 +543,14 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" && ${#FAILURE_REASONS[@]} -gt 0 ]]; then
     echo "- 🟢 Low: $TOTAL_LOW" >> "$GITHUB_STEP_SUMMARY"
     echo "" >> "$GITHUB_STEP_SUMMARY"
     
-    for line in "${FAILURE_REASONS[@]}"; do
-        echo "$line" >> "$GITHUB_STEP_SUMMARY"
-    done
+    # Only show failure details if there are failures
+    if [[ ${#FAILURE_REASONS[@]} -gt 0 ]]; then
+        for line in "${FAILURE_REASONS[@]}"; do
+            echo "$line" >> "$GITHUB_STEP_SUMMARY"
+        done
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+    fi
     
-    echo "" >> "$GITHUB_STEP_SUMMARY"
     echo "---" >> "$GITHUB_STEP_SUMMARY"
     echo "*Review the full scan results in the workflow artifacts for complete details.*" >> "$GITHUB_STEP_SUMMARY"
 fi

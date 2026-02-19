@@ -809,17 +809,20 @@ if [ -d "$CHECKOV_DIR" ]; then
             # Checkov output is an array - iterate through all check types
             # First element [0] is summary, subsequent elements contain results by check type
             
-            # Sum up all passed/skipped from all check types
+            # Sum up all passed/failed/skipped from all check types
             passed=$(jq '[.[] | select(.results?) | .results.passed_checks | length] | add // 0' "$checkov_file" 2>/dev/null || echo "0")
+            failed_raw=$(jq '[.[] | select(.results?) | .results.failed_checks | length] | add // 0' "$checkov_file" 2>/dev/null || echo "0")
             skipped=$(jq '[.[] | select(.results?) | .results.skipped_checks | length] | add // 0' "$checkov_file" 2>/dev/null || echo "0")
             
             # Get check types scanned
             check_types=$(jq -r '[.[] | select(.check_type?) | .check_type] | unique | join(", ")' "$checkov_file" 2>/dev/null || echo "")
             
             [[ "$passed" =~ ^[0-9]+$ ]] || passed=0
+            [[ "$failed_raw" =~ ^[0-9]+$ ]] || failed_raw=0
             [[ "$skipped" =~ ^[0-9]+$ ]] || skipped=0
             
             CHECKOV_PASSED=$((CHECKOV_PASSED + passed))
+            CHECKOV_FAILED_RAW=$((CHECKOV_FAILED_RAW + failed_raw))
             CHECKOV_SKIPPED=$((CHECKOV_SKIPPED + skipped))
             CHECKOV_CHECK_TYPES="$check_types"
             
@@ -827,7 +830,6 @@ if [ -d "$CHECKOV_DIR" ]; then
             set +e
             while IFS=$'\t' read -r file_path check_id; do
                 if [ -n "$file_path" ]; then
-                    ((CHECKOV_FAILED_RAW++)) || CHECKOV_FAILED_RAW=1
                     # Check if path is ignored (safely handle function not available)
                     is_suppressed=false
                     if declare -f is_path_ignored >/dev/null 2>&1; then

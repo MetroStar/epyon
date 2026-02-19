@@ -102,8 +102,25 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq python3 python3-pip
+          sudo apt-get install -y jq python3 python3-pip bats
           pip3 install pyyaml
+
+      - name: Install kcov for shell coverage
+        continue-on-error: true
+        run: |
+          if sudo apt-get install -y kcov 2>/dev/null; then
+            echo "kcov installed via apt"
+          else
+            echo "Building kcov from source..."
+            sudo apt-get install -y cmake ninja-build libdwarf-dev libdw-dev \
+              binutils-dev libcurl4-openssl-dev zlib1g-dev libssl-dev \
+              libboost-dev python3-dev
+            git clone --depth 1 https://github.com/SimonKagstrom/kcov.git /tmp/kcov-src
+            cmake -GNinja -B /tmp/kcov-src/build -DCMAKE_BUILD_TYPE=Release /tmp/kcov-src
+            cmake --build /tmp/kcov-src/build
+            sudo cmake --install /tmp/kcov-src/build
+            echo "kcov built from source"
+          fi
       
       - name: Initialize Scan
         id: init-scan

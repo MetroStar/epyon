@@ -598,6 +598,100 @@ else
   echo "[INFO] No package.json found - skipping coverage generation"
 fi
 
+# =============================================================================
+# Shell coverage via kcov + BATS
+# =============================================================================
+SONAR_GENERIC_COVERAGE=""
+BATS_FILES=()
+while IFS= read -r -d $'\0' f; do BATS_FILES+=("$f"); done < <(find "$REPO_PATH/tests/shell" -name "*.bats" -print0 2>/dev/null)
+
+if [ ${#BATS_FILES[@]} -gt 0 ]; then
+  echo ""
+  echo "============================================"
+  echo "Step 2b: Shell coverage via kcov + BATS..."
+  echo "============================================"
+  echo "[INFO] Found ${#BATS_FILES[@]} BATS test file(s)"
+
+  # Attempt to install kcov if not present
+  if ! command -v kcov &>/dev/null; then
+    echo "[INFO] kcov not found - attempting installation..."
+    if sudo apt-get install -y kcov 2>/dev/null; then
+      echo "[OK] kcov installed via apt"
+    else
+      echo "[INFO] apt install failed - building kcov from source..."
+      if sudo apt-get install -y cmake ninja-build libdwarf-dev libdw-dev \
+           binutils-dev libcurl4-openssl-dev zlib1g-dev libssl-dev \
+           libboost-dev python3-dev 2>/dev/null; then
+        git clone --depth 1 https://github.com/SimonKagstrom/kcov.git /tmp/kcov-src 2>/dev/null \
+          && cmake -GNinja -B /tmp/kcov-src/build \
+                   -DCMAKE_BUILD_TYPE=Release /tmp/kcov-src 2>/dev/null \
+          && cmake --build /tmp/kcov-src/build 2>/dev/null \
+          && sudo cmake --install /tmp/kcov-src/build 2>/dev/null \
+          && echo "[OK] kcov built from source" \
+          || echo "[WARNING] kcov source build failed - shell coverage will be skipped"
+      else
+        echo "[WARNING] Cannot install kcov build deps - shell coverage will be skipped"
+      fi
+    fi
+  fi
+
+  if command -v kcov &>/dev/null; then
+    KCOV_OUTPUT="$REPO_PATH/coverage/kcov-output"
+    KCOV_MERGED="$REPO_PATH/coverage/kcov-merged"
+    BATS_BIN=""
+    for candidate in \
+        "$REPO_PATH/.bats/bin/bats" \
+        "$(command -v bats 2>/dev/null)"; do
+      if [ -x "$candidate" ]; then
+        BATS_BIN="$candidate"
+        break
+      fi
+    done
+
+    if [ -n "$BATS_BIN" ]; then
+      echo "[INFO] Running BATS under kcov..."
+      rm -rf "$KCOV_OUTPUT" "$KCOV_MERGED"
+      mkdir -p "$KCOV_OUTPUT"
+
+      for bats_file in "${BATS_FILES[@]}"; do
+        safe_name=$(basename "$bats_file" .bats)
+        kcov --include-path="$REPO_PATH/scripts/shell" \
+             --bash-parser="$(command -v bash)" \
+             "$KCOV_OUTPUT/$safe_name" \
+             "$BATS_BIN" "$bats_file" 2>&1 | tail -5 || true
+      done
+
+      # Merge all per-file reports
+      mkdir -p "$KCOV_MERGED"
+      kcov --merge "$KCOV_MERGED" "$KCOV_OUTPUT"/*/  2>&1 | tail -5 || true
+
+      COBERTURA_XML="$KCOV_MERGED/cobertura.xml"
+      SONAR_COV_XML="$REPO_PATH/coverage/sonar-coverage.xml"
+
+      if [ -f "$COBERTURA_XML" ]; then
+        CONVERTER="$REPO_PATH/scripts/shell/convert-kcov-to-sonar.py"
+        if [ -f "$CONVERTER" ] && command -v python3 &>/dev/null; then
+          echo "[INFO] Converting kcov cobertura.xml to SonarCloud generic format..."
+          python3 "$CONVERTER" "$COBERTURA_XML" "$SONAR_COV_XML" \
+            && SONAR_GENERIC_COVERAGE="$SONAR_COV_XML" \
+            && echo "✅ Shell coverage XML generated: $SONAR_COV_XML" \
+            || echo "[WARNING] Coverage conversion failed"
+        else
+          echo "[WARNING] Converter script not found or python3 unavailable"
+        fi
+      else
+        echo "[WARNING] kcov did not produce cobertura.xml - coverage not generated"
+      fi
+    else
+      echo "[WARNING] bats not found - cannot run shell coverage"
+    fi
+  else
+    echo "[INFO] kcov unavailable - skipping shell coverage"
+  fi
+else
+  echo "[INFO] No BATS test files found under tests/shell/ - skipping shell coverage"
+fi
+
 # Check for coverage reports in multiple possible locations
 COVERAGE_ARGS=""
 COVERAGE_PATHS=()
@@ -628,6 +722,38 @@ else
   echo "[INFO] No coverage reports found in standard locations"
 fi
 
+# =============================================================================
+# Ensure sonar.coverageReportPaths XML exists and is valid
+# If the properties file references a generic coverage XML that is missing or
+# unparseable, create a minimal empty one so the scanner does not abort.
+# =============================================================================
+if [ -n "$PROPS_FILE_FOUND" ]; then
+  GENERIC_COV_PATH=$(grep -E "^sonar\.coverageReportPaths\s*=" "$PROPS_FILE_FOUND" 2>/dev/null \
+    | head -1 | sed 's/^[^=]*=\s*//' | tr -d '[:space:]')
+  if [ -n "$GENERIC_COV_PATH" ]; then
+    # Resolve relative to the properties file directory
+    PROPS_BASE=$(dirname "$PROPS_FILE_FOUND")
+    RESOLVED_COV="${PROPS_BASE}/${GENERIC_COV_PATH}"
+    # Check if the kcov run already produced a valid file
+    if [ -n "$SONAR_GENERIC_COVERAGE" ] && [ -f "$SONAR_GENERIC_COVERAGE" ]; then
+      echo "[INFO] Using kcov-generated coverage XML: $SONAR_GENERIC_COVERAGE"
+    elif [ -f "$RESOLVED_COV" ] && python3 -c "
+import xml.etree.ElementTree as ET
+ET.parse('$RESOLVED_COV')
+" 2>/dev/null; then
+      echo "[INFO] Existing coverage XML is valid: $RESOLVED_COV"
+    else
+      echo "[INFO] Coverage XML missing or invalid — creating empty placeholder: $RESOLVED_COV"
+      mkdir -p "$(dirname "$RESOLVED_COV")"
+      cat > "$RESOLVED_COV" << 'EMPTY_COV_EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<coverage version="1"></coverage>
+EMPTY_COV_EOF
+      echo "[OK] Empty coverage XML written (scanner will not crash)"
+    fi
+  fi
+fi
+
 # If properties file exists, use it (it contains project structure, modules, sources, etc.)
 # Otherwise, pass sources explicitly via command line
 SCANNER_EXIT_CODE=0
@@ -638,7 +764,7 @@ if [ -n "$PROPS_FILE_FOUND" ]; then
   
   # Check if properties file already has coverage configured
   PROPS_HAS_COVERAGE=false
-  if grep -q "sonar\.\(javascript\|typescript\)\.lcov\.reportPaths" "$PROPS_FILE_FOUND" 2>/dev/null; then
+  if grep -q "sonar\.\(javascript\|typescript\)\.lcov\.reportPaths\|sonar\.coverageReportPaths" "$PROPS_FILE_FOUND" 2>/dev/null; then
     PROPS_HAS_COVERAGE=true
     echo "[INFO] Properties file already has coverage paths configured"
     # Don't override with command-line args

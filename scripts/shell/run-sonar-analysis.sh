@@ -129,8 +129,8 @@ else
 fi
 
 # Default values (must be set via environment variables or sonar-project.properties)
-# No default URL - must be explicitly configured for your environment
-SONAR_HOST_URL="${SONAR_HOST_URL:-}"
+# Fall back to SonarCloud when no explicit host is configured
+SONAR_HOST_URL="${SONAR_HOST_URL:-https://sonarcloud.io}"
 
 # Helper function to resolve environment variable references in property values
 # Handles ${env.VAR_NAME} syntax used in sonar-project.properties
@@ -902,10 +902,11 @@ if [ "$TOTAL_TESTS" -eq 0 ] && [ -f "$REPO_PATH/package.json" ]; then
   fi
 elif [ "$TOTAL_TESTS" -eq 0 ]; then
   # Special handling for security tools repository
-  if [[ "$REPO_PATH" == *"security-architecture"* ]] || [[ -f "$REPO_PATH/scripts/run-sonar-analysis.sh" ]]; then
-    echo "[INFO]  Security tools repository detected - this is expected to have no frontend tests"
-    ANALYSIS_STATUS="SECURITY_TOOLS_REPO"
-    COVERAGE_PERCENT="N/A (Security Tools)"
+  if [[ "$REPO_PATH" == *"security-architecture"* ]] || [[ -f "$REPO_PATH/scripts/run-sonar-analysis.sh" ]] || \
+     [[ -d "$REPO_PATH/scripts/shell" ]] || ls "$REPO_PATH/tests/shell"/*.bats &>/dev/null 2>&1; then
+    echo "[INFO] Shell script project detected - no frontend tests expected"
+    ANALYSIS_STATUS="SHELL_PROJECT"
+    COVERAGE_PERCENT="N/A (Shell Project - see SonarCloud for coverage)"
   else
     ANALYSIS_STATUS="NO_PROJECT_DETECTED"
   fi
@@ -923,7 +924,7 @@ SECURITY_RATING="N/A"
 MAINTAINABILITY_RATING="N/A"
 DUPLICATIONS_PERCENT="N/A"
 
-if [ -n "$SONAR_TOKEN" ] && [ "$SONAR_HOST_URL" != "" ]; then
+if [ -n "$SONAR_TOKEN" ] && [ -n "$SONAR_HOST_URL" ]; then
   # Fetch measures from SonarQube API
   MEASURES_RESPONSE=$(curl -s -u "$SONAR_TOKEN:" \
     "${SONAR_HOST_URL%/}/api/measures/component?component=${PROJECT_KEY}&metricKeys=bugs,vulnerabilities,code_smells,security_hotspots,reliability_rating,security_rating,sqale_rating,coverage,duplicated_lines_density" \
@@ -964,7 +965,8 @@ if [ -n "$SONAR_TOKEN" ] && [ "$SONAR_HOST_URL" != "" ]; then
     echo "[WARNING] Could not fetch metrics from SonarQube server"
   fi
 else
-  echo "[WARNING] No SonarQube token available, skipping server metrics fetch"
+  [ -z "$SONAR_TOKEN" ] && echo "[WARNING] No SonarQube token available, skipping server metrics fetch"
+  [ -z "$SONAR_HOST_URL" ] && echo "[WARNING] No SonarQube host URL configured, skipping server metrics fetch"
 fi
 
 # Generate JSON with real data

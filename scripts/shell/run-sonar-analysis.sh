@@ -548,54 +548,138 @@ fi
 
 echo "[DEBUG] Using path: $ACTUAL_REPO_PATH"
 
-if [ -f "$ACTUAL_REPO_PATH/package.json" ]; then
-  echo "[INFO] Found package.json"
-  # Check if project has test scripts
-  if grep -q '"test:coverage"' "$ACTUAL_REPO_PATH/package.json" 2>/dev/null; then
-    echo "[INFO] Found test:coverage script"
-    if [ ! -f "$ACTUAL_REPO_PATH/coverage/lcov.info" ]; then
-      echo "[INFO] No coverage file found - generating coverage..."
-      cd "$ACTUAL_REPO_PATH"
-      # Install dependencies if node_modules doesn't exist
-      if [ ! -d "node_modules" ]; then
-        echo "[INFO] Installing dependencies..."
-        npm install --no-audit --no-fund 2>&1 | tail -10
-      fi
-      npm run test:coverage 2>&1 | tail -20
-      if [ -f "$ACTUAL_REPO_PATH/coverage/lcov.info" ]; then
-        echo "✅ Coverage generated successfully"
-      else
-        echo "[WARNING] Coverage generation completed but lcov.info not found"
-      fi
-      cd "$REPO_PATH"
-    else
-      echo "[INFO] Coverage file already exists"
+# ---------------------------------------------------------------------------
+# Helper: attempt to generate JS/TS lcov coverage for a single package dir
+# ---------------------------------------------------------------------------
+run_js_coverage_for_dir() {
+  local pkg_dir="$1"
+  local pkg_file="$pkg_dir/package.json"
+  [ -f "$pkg_file" ] || return 0
+
+  local lcov_path="$pkg_dir/coverage/lcov.info"
+  if [ -f "$lcov_path" ]; then
+    echo "[INFO] Coverage already exists: $lcov_path"
+    return 0
+  fi
+
+  local cmd=""
+  # Detect the best coverage command in priority order
+  if grep -q '"test:coverage"' "$pkg_file" 2>/dev/null; then
+    cmd="npm run test:coverage"
+  elif grep -q '"test:ci"' "$pkg_file" 2>/dev/null; then
+    cmd="npm run test:ci"
+  elif grep -q '"test:unit"' "$pkg_file" 2>/dev/null; then
+    cmd="npm run test:unit -- --coverage"
+  elif grep -qE '"vitest"' "$pkg_file" 2>/dev/null; then
+    cmd="npx vitest run --coverage"
+  elif grep -qE '"jest"' "$pkg_file" 2>/dev/null; then
+    cmd="npx jest --coverage --coverageReporters=lcov"
+  elif grep -q '"test"' "$pkg_file" 2>/dev/null; then
+    cmd="npm test -- --coverage"
+  else
+    echo "[INFO] No recognizable test script in $pkg_dir - skipping"
+    return 0
+  fi
+
+  echo "[INFO] Generating JS/TS coverage in $pkg_dir using: $cmd"
+  cd "$pkg_dir"
+  if [ ! -d "node_modules" ]; then
+    echo "[INFO] Installing dependencies in $(basename "$pkg_dir")..."
+    npm install --no-audit --no-fund 2>&1 | tail -5
+  fi
+  eval "$cmd" 2>&1 | tail -20 || true
+  if [ -f "$lcov_path" ]; then
+    echo "✅ Coverage generated: $lcov_path"
+  else
+    echo "[WARNING] Coverage command ran in $pkg_dir but coverage/lcov.info not found"
+  fi
+  cd "$REPO_PATH"
+}
+
+# ---- JS/TS: scan every package.json in the repo (monorepo-aware) ----
+JS_PKG_DIRS=()
+while IFS= read -r -d $'\0' pkg; do
+  JS_PKG_DIRS+=("$(dirname "$pkg")")
+done < <(find "$REPO_PATH" -name "package.json" \
+           -not -path "*/node_modules/*" \
+           -not -path "*/.git/*" \
+           -not -path "*/dist/*" \
+           -not -path "*/build/*" \
+           -print0 2>/dev/null)
+
+if [ ${#JS_PKG_DIRS[@]} -gt 0 ]; then
+  echo "[INFO] Found ${#JS_PKG_DIRS[@]} package.json file(s) - scanning for JS/TS coverage..."
+  for pkg_dir in "${JS_PKG_DIRS[@]}"; do
+    run_js_coverage_for_dir "$pkg_dir"
+  done
+else
+  echo "[INFO] No package.json found - skipping JS/TS coverage generation"
+fi
+
+# ---- Python: find test files and generate coverage via pytest ----
+PY_TEST_FILES=()
+while IFS= read -r -d $'\0' f; do
+  PY_TEST_FILES+=("$f")
+done < <(find "$REPO_PATH" \( -name "test_*.py" -o -name "*_test.py" \) \
+           -not -path "*/.venv/*" -not -path "*/node_modules/*" \
+           -not -path "*/.git/*" -not -path "*/dist/*" \
+           -print0 2>/dev/null)
+
+if [ ${#PY_TEST_FILES[@]} -gt 0 ]; then
+  echo "[INFO] Found ${#PY_TEST_FILES[@]} Python test file(s)"
+  if python3 -m pytest --version &>/dev/null 2>&1; then
+    echo "[INFO] pytest available - attempting Python coverage generation..."
+    python3 -m pip install --quiet pytest-cov 2>&1 | tail -3 || true
+
+    # Find the sonar-project.properties coverage path if set, else default
+    PYTHON_COV_XML=""
+    if [ -n "$PROPS_FILE_FOUND" ]; then
+      PYTHON_COV_XML=$(grep -E "^sonar\.python\.coverage\.reportPaths\s*=" "$PROPS_FILE_FOUND" 2>/dev/null \
+        | head -1 | sed 's/^[^=]*=\s*//' | tr -d '[:space:]' | cut -d',' -f1)
     fi
-  elif grep -q '"test".*"--coverage"' "$ACTUAL_REPO_PATH/package.json" 2>/dev/null; then
-    echo "[INFO] Found test script with --coverage flag"
-    if [ ! -f "$ACTUAL_REPO_PATH/coverage/lcov.info" ]; then
-      echo "[INFO] No coverage file found - generating coverage..."
-      cd "$ACTUAL_REPO_PATH"
-      # Install dependencies if node_modules doesn't exist
-      if [ ! -d "node_modules" ]; then
-        echo "[INFO] Installing dependencies..."
-        npm install --no-audit --no-fund 2>&1 | tail -10
-      fi
-      npm test -- --coverage 2>&1 | tail -20
-      if [ -f "$ACTUAL_REPO_PATH/coverage/lcov.info" ]; then
-        echo "✅ Coverage generated successfully"
+
+    if [ -n "$PYTHON_COV_XML" ]; then
+      # The path in the properties file is relative to the project base dir
+      PROPS_BASE=$(dirname "$PROPS_FILE_FOUND")
+      ABS_COV_XML="${PROPS_BASE}/${PYTHON_COV_XML}"
+      COV_XML_DIR=$(dirname "$ABS_COV_XML")
+      # Infer the source root from the coverage xml path (parent of the coverage file's dir)
+      PY_SRC_DIR=$(dirname "$COV_XML_DIR")
+      [ -d "$PY_SRC_DIR" ] || PY_SRC_DIR="$REPO_PATH"
+      echo "[INFO] Python coverage target: $ABS_COV_XML (src: $PY_SRC_DIR)"
+      mkdir -p "$COV_XML_DIR"
+      cd "$PY_SRC_DIR"
+      # Install project deps if requirements file present
+      for req in requirements.txt requirements-dev.txt requirements-test.txt; do
+        [ -f "$req" ] && python3 -m pip install --quiet -r "$req" 2>&1 | tail -3 || true
+      done
+      python3 -m pytest \
+        --cov="$PY_SRC_DIR" \
+        --cov-report="xml:${ABS_COV_XML}" \
+        --ignore=node_modules --ignore=.venv \
+        -q 2>&1 | tail -20 || true
+      if [ -f "$ABS_COV_XML" ]; then
+        echo "✅ Python coverage generated: $ABS_COV_XML"
       else
-        echo "[WARNING] Coverage generation completed but lcov.info not found"
+        echo "[WARNING] pytest ran but $ABS_COV_XML not found"
       fi
       cd "$REPO_PATH"
     else
-      echo "[INFO] Coverage file already exists"
+      # No configured path - generate to repo root
+      cd "$REPO_PATH"
+      python3 -m pytest \
+        --cov=. \
+        --cov-report=xml:coverage.xml \
+        --ignore=node_modules --ignore=.venv \
+        -q 2>&1 | tail -20 || true
+      [ -f "$REPO_PATH/coverage.xml" ] && echo "✅ Python coverage generated: $REPO_PATH/coverage.xml" \
+        || echo "[WARNING] pytest ran but coverage.xml not found"
     fi
   else
-    echo "[INFO] No coverage generation script found - skipping"
+    echo "[INFO] pytest not available - skipping Python coverage generation"
   fi
 else
-  echo "[INFO] No package.json found - skipping coverage generation"
+  echo "[INFO] No Python test files found - skipping Python coverage generation"
 fi
 
 # =============================================================================

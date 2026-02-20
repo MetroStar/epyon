@@ -3127,7 +3127,13 @@ fi
 if [ "$TRIVY_HIGH" -gt 0 ]; then
     echo "                        <span class=\"tool-stat-badge badge-high\">⚠️ ${TRIVY_HIGH}</span>" >> "$OUTPUT_HTML"
 fi
-if [ "$TRIVY_CRITICAL" -eq 0 ] && [ "$TRIVY_HIGH" -eq 0 ]; then
+if [ "$TRIVY_MEDIUM" -gt 0 ]; then
+    echo "                        <span class=\"tool-stat-badge badge-medium\">🔶 ${TRIVY_MEDIUM}</span>" >> "$OUTPUT_HTML"
+fi
+if [ "$TRIVY_LOW" -gt 0 ]; then
+    echo "                        <span class=\"tool-stat-badge badge-low\">🔵 ${TRIVY_LOW}</span>" >> "$OUTPUT_HTML"
+fi
+if [ "$TRIVY_TOTAL_VULNS" -eq 0 ]; then
     echo "                        <span class=\"tool-stat-badge badge-clean\">✅ Clean</span>" >> "$OUTPUT_HTML"
 fi
 
@@ -3173,7 +3179,13 @@ fi
 if [ "$GRYPE_HIGH" -gt 0 ]; then
     echo "                        <span class=\"tool-stat-badge badge-high\">⚠️ ${GRYPE_HIGH}</span>" >> "$OUTPUT_HTML"
 fi
-if [ "$GRYPE_CRITICAL" -eq 0 ] && [ "$GRYPE_HIGH" -eq 0 ]; then
+if [ "$GRYPE_MEDIUM" -gt 0 ]; then
+    echo "                        <span class=\"tool-stat-badge badge-medium\">🔶 ${GRYPE_MEDIUM}</span>" >> "$OUTPUT_HTML"
+fi
+if [ "$GRYPE_LOW" -gt 0 ]; then
+    echo "                        <span class=\"tool-stat-badge badge-low\">🔵 ${GRYPE_LOW}</span>" >> "$OUTPUT_HTML"
+fi
+if [ "$GRYPE_TOTAL_VULNS" -eq 0 ]; then
     echo "                        <span class=\"tool-stat-badge badge-clean\">✅ Clean</span>" >> "$OUTPUT_HTML"
 fi
 

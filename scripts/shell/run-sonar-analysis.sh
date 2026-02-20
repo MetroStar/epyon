@@ -1030,9 +1030,36 @@ elif [ "$TOTAL_TESTS" -eq 0 ]; then
   # Special handling for security tools repository
   if [[ "$REPO_PATH" == *"security-architecture"* ]] || [[ -f "$REPO_PATH/scripts/run-sonar-analysis.sh" ]] || \
      [[ -d "$REPO_PATH/scripts/shell" ]] || ls "$REPO_PATH/tests/shell"/*.bats &>/dev/null 2>&1; then
-    echo "[INFO] Shell script project detected - no frontend tests expected"
+    echo "[INFO] Shell script project detected - running BATS test suite..."
     ANALYSIS_STATUS="SHELL_PROJECT"
-    COVERAGE_PERCENT="N/A (Shell Project - see SonarCloud for coverage)"
+
+    # Locate BATS binary (bundled or system)
+    BATS_BIN=""
+    for candidate in \
+        "$REPO_PATH/.bats/bin/bats" \
+        "$(command -v bats 2>/dev/null || true)"; do
+      if [ -x "$candidate" ]; then
+        BATS_BIN="$candidate"
+        break
+      fi
+    done
+
+    # Run BATS with TAP output and count ok / not ok lines
+    if [ -n "$BATS_BIN" ] && [ -d "$REPO_PATH/tests/shell" ]; then
+      echo "[INFO] Running BATS (--tap) to collect test counts..."
+      BATS_TAP=$(cd "$REPO_PATH" && "$BATS_BIN" --tap tests/shell/*.bats 2>/dev/null || true)
+      PASSED_TESTS=$(printf '%s\n' "$BATS_TAP" | grep -c '^ok ' || echo "0")
+      FAILED_TESTS=$(printf '%s\n' "$BATS_TAP" | grep -c '^not ok ' || echo "0")
+      TOTAL_TESTS=$((PASSED_TESTS + FAILED_TESTS))
+      if [ "$TOTAL_TESTS" -gt 0 ]; then
+        echo "[OK] BATS results: $TOTAL_TESTS total, $PASSED_TESTS passed, $FAILED_TESTS failed"
+        ANALYSIS_STATUS="SUCCESS"
+      else
+        echo "[INFO] No BATS test results captured"
+      fi
+    else
+      echo "[INFO] BATS binary not found or tests/shell missing — skipping test count"
+    fi
   else
     ANALYSIS_STATUS="NO_PROJECT_DETECTED"
   fi

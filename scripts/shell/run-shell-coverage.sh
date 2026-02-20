@@ -92,8 +92,8 @@ echo "[INFO] Found ${#BATS_FILES[@]} BATS test file(s)"
 install_kcov_from_source() {
   echo "[INFO] Installing kcov build dependencies..."
   sudo apt-get install -y \
-    cmake ninja-build \
-    libdwarf-dev libdw-dev binutils-dev \
+    cmake \
+    libdw-dev binutils-dev \
     libcurl4-openssl-dev zlib1g-dev libssl-dev \
     python3-dev 2>/dev/null || {
     echo "[WARNING] Could not install kcov build deps"
@@ -110,9 +110,9 @@ install_kcov_from_source() {
     return 1
   }
 
-  echo "[INFO] Building kcov (this takes a few minutes)..."
-  cmake -GNinja -B "$build_dir" -DCMAKE_BUILD_TYPE=Release "$src_dir" 2>&1 | tail -5 || return 1
-  cmake --build "$build_dir" 2>&1 | tail -5 || return 1
+  echo "[INFO] Building kcov (this may take a few minutes)..."
+  cmake -B "$build_dir" -DCMAKE_BUILD_TYPE=Release "$src_dir" 2>&1 | tail -5 || return 1
+  cmake --build "$build_dir" --parallel "$(nproc)" 2>&1 | tail -10 || return 1
   sudo cmake --install "$build_dir" 2>&1 | tail -3 || return 1
   echo "[OK] kcov built and installed from source"
 }

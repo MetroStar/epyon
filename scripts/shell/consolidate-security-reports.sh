@@ -164,13 +164,24 @@ try:
             data = json.loads(content)
         except json.JSONDecodeError:
             # If that fails, try NDJSON (newline-delimited JSON)
-            # Try parsing each line as JSON
+            # Try parsing each line as JSON, filtering out TruffleHog log lines
             try:
-                data = [json.loads(line) for line in content.split('\\n') if line.strip() and (line.strip().startswith('{') or line.strip().startswith('['))]
+                data = []
+                for line in content.split('\\n'):
+                    line = line.strip()
+                    if line and (line.startswith('{') or line.startswith('[')):
+                        try:
+                            obj = json.loads(line)
+                            # Skip TruffleHog stderr log lines (have 'level'/'msg' but no 'DetectorName')
+                            if isinstance(obj, dict) and 'level' in obj and 'DetectorName' not in obj:
+                                continue
+                            data.append(obj)
+                        except json.JSONDecodeError:
+                            pass
                 if not data:
                     print('SKIP: No valid JSON found', file=sys.stderr)
                     sys.exit(0)
-            except json.JSONDecodeError as e:
+            except Exception as e:
                 print(f'SKIP: Invalid JSON format - {str(e)}', file=sys.stderr)
                 sys.exit(0)
     
@@ -413,7 +424,11 @@ try:
                 line = line.strip()
                 if line and (line.startswith('{') or line.startswith('[')):
                     try:
-                        data.append(json.loads(line))
+                        obj = json.loads(line)
+                        # Skip TruffleHog stderr log lines (have 'level'/'msg' but no 'DetectorName')
+                        if isinstance(obj, dict) and 'level' in obj and 'DetectorName' not in obj:
+                            continue
+                        data.append(obj)
                     except json.JSONDecodeError:
                         pass
             if not data:

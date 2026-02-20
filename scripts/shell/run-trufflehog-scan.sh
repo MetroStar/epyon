@@ -193,14 +193,14 @@ REGEX_EOF
             --json \
             --exclude-paths=/root/.trufflehogignore \
             --config=/root/.trufflehog-custom-regex.yaml \
-            2>&1 | tee -a "$SCAN_LOG" > "$output_file"
+            > "$output_file" 2>>"$SCAN_LOG"
     else
         echo "⚠️  Container runtime not available - TruffleHog scan skipped"
         echo "[]" > "$output_file"
     fi
     
     if [ -f "$output_file" ]; then
-        local count=$(cat "$output_file" | jq '. | length' 2>/dev/null || echo "0")
+        local count=$(grep -c '"DetectorName"' "$output_file" 2>/dev/null || echo "0")
         echo "✅ ${scan_type} scan completed: $count items found"
         echo "${scan_type} scan: $count items" >> "$SCAN_LOG"
         

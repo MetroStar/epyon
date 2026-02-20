@@ -276,6 +276,7 @@ jobs:
       
       - name: Check Severity Gate
         id: severity-gate
+        continue-on-error: true
         run: |
           # Source environment variables from epyon-env
           if [ -f /tmp/epyon-env ]; then
@@ -319,6 +320,7 @@ jobs:
           echo "Scan ID: $SCAN_ID"
       
       - name: Debug Scan Directory
+        if: always()
         run: |
           SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
           echo "Scan directory: $SCAN_DIR"

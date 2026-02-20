@@ -294,6 +294,7 @@ jobs:
       
       - name: Check Severity Gate
         id: severity-gate
+        continue-on-error: true
         run: |
           cd epyon
           # Source environment variables from epyon-env
@@ -335,6 +336,7 @@ jobs:
           echo "Scan ID: $SCAN_ID"
       
       - name: Debug Scan Directory
+        if: always()
         run: |
           cd epyon
           SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
@@ -380,6 +382,7 @@ jobs:
       
       - name: Check for Critical/High Vulnerabilities
         id: check-severity
+        if: always()
         run: |
           cd epyon
           SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
@@ -400,7 +403,7 @@ jobs:
           fi
       
       - name: Comment on PR
-        if: github.event_name == 'pull_request'
+        if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
@@ -452,7 +455,7 @@ jobs:
             }
       
       - name: Create Scan Notification Issue
-        if: steps.check-severity.outputs.has_issues == 'true'
+        if: always() && steps.check-severity.outputs.has_issues == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -543,7 +546,7 @@ jobs:
             console.log(`Created issue #${issue.data.number}: ${issue.data.html_url}`);
       
       - name: Fail on Critical Vulnerabilities
-        if: steps.check-severity.outputs.critical > 0
+        if: always() && steps.check-severity.outputs.critical > 0
         run: |
           echo "::error::Found ${{ steps.check-severity.outputs.critical }} critical vulnerabilities"
           exit 1

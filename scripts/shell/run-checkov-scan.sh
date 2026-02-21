@@ -243,6 +243,36 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
         echo "✅ Mounting AWS credentials directory"
     fi
     
+    # Pre-validate YAML files to identify malformed ones — build dynamic --skip-path args
+    # This prevents Checkov from aborting/erroring on YAML syntax errors in the target repo
+    YAML_SKIP_ARGS=()
+    if command -v python3 &>/dev/null && python3 -c "import yaml" 2>/dev/null; then
+        echo -e "${BLUE}🔍 Pre-validating YAML files for syntax errors...${NC}"
+        while IFS= read -r yaml_file; do
+            relative_path="${yaml_file#${TARGET_SCAN_DIR}/}"
+            if ! python3 - "$yaml_file" <<'PYEOF' 2>/dev/null
+import sys, yaml
+try:
+    with open(sys.argv[1], 'r', errors='replace') as f:
+        yaml.safe_load(f)
+except yaml.YAMLError:
+    sys.exit(1)
+PYEOF
+            then
+                echo "  ⚠️  Skipping malformed YAML: $relative_path" | tee -a "$SCAN_LOG"
+                YAML_SKIP_ARGS+=(--skip-path "$relative_path")
+            fi
+        done < <(find "$TARGET_SCAN_DIR" -type f \( -name "*.yaml" -o -name "*.yml" \) \
+            ! -path "*/node_modules/*" ! -path "*/.git/*" ! -path "*/scans/*" 2>/dev/null)
+        if [ "${#YAML_SKIP_ARGS[@]}" -eq 0 ]; then
+            echo "  ✅ All YAML files passed syntax validation"
+        else
+            echo "  ⚠️  ${#YAML_SKIP_ARGS[@]} malformed path(s) will be excluded from Checkov scan" | tee -a "$SCAN_LOG"
+        fi
+    else
+        echo "  ℹ️  python3 or pyyaml not available — skipping YAML pre-validation"
+    fi
+
     # Run Checkov scan with AWS credentials
     # Using --skip-download to scan Helm templates even without access to private registries
     # This allows scanning of raw templates without requiring helm dependency resolution
@@ -264,6 +294,7 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
         --skip-path scans \
         --skip-path scripts/anchore-results.json \
         --skip-path scripts/shell/scans \
+        "${YAML_SKIP_ARGS[@]}" \
         --skip-download \
         --output json \
         --output-file /output/checkov-results.json \

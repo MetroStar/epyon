@@ -296,15 +296,20 @@ if [[ -f "$CHECKOV_FILE" ]]; then
             check_id=$(echo "$check" | jq -r '.check_id // ""' 2>/dev/null)
             check_name=$(echo "$check" | jq -r '.check_name // ""' 2>/dev/null)
             
-            # Check if path is ignored
+            # Strip /workspace/ prefix added by Docker volume mount so path patterns match
+            clean_file_path="${file_path#/workspace/}"
+            
+            # Check if check_id (e.g. CKV_AWS_260) is suppressed via type: cve
             ignored=false
             
-            if [[ -n "$file_path" ]] && declare -f is_path_ignored >/dev/null 2>&1 && is_path_ignored "$file_path" "Checkov"; then
+            if [[ -n "$check_id" ]] && declare -f is_cve_ignored >/dev/null 2>&1 && is_cve_ignored "$check_id" "Checkov"; then
                 ignored=true
-                echo -e "${CYAN}  ✓ Suppressed: $check_id in $file_path${NC}"
-                # Log the suppressed finding
+                echo -e "${CYAN}  ✓ Suppressed: $check_id ($check_name)${NC}"
+            elif [[ -n "$clean_file_path" ]] && declare -f is_path_ignored >/dev/null 2>&1 && is_path_ignored "$clean_file_path" "Checkov"; then
+                ignored=true
+                echo -e "${CYAN}  ✓ Suppressed: $check_id in $clean_file_path${NC}"
                 if declare -f log_suppressed >/dev/null 2>&1; then
-                    log_suppressed "Checkov" "path" "$file_path" "Path ignored via .epyon-ignore.yml" "HIGH" "See .epyon-ignore.yml"
+                    log_suppressed "Checkov" "path" "$clean_file_path" "Path ignored via .epyon-ignore.yml" "HIGH" "See .epyon-ignore.yml"
                 fi
             else
                 echo -e "${YELLOW}  ⚠️  $check_id: $check_name in $file_path${NC}"

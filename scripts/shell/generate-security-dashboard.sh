@@ -830,10 +830,17 @@ if [ -d "$CHECKOV_DIR" ]; then
             set +e
             while IFS=$'\t' read -r file_path check_id; do
                 if [ -n "$file_path" ]; then
-                    # Check if path is ignored (safely handle function not available)
+                    # Strip /workspace/ prefix added by Docker volume mount
+                    clean_file_path="${file_path#/workspace/}"
+                    # Check if check_id (e.g. CKV_AWS_260) or path is suppressed
                     is_suppressed=false
-                    if declare -f is_path_ignored >/dev/null 2>&1; then
-                        if is_path_ignored "$file_path" "Checkov" 2>/dev/null; then
+                    if declare -f is_cve_ignored >/dev/null 2>&1 && [ -n "$check_id" ]; then
+                        if is_cve_ignored "$check_id" "Checkov" 2>/dev/null; then
+                            is_suppressed=true
+                        fi
+                    fi
+                    if [ "$is_suppressed" = false ] && declare -f is_path_ignored >/dev/null 2>&1; then
+                        if is_path_ignored "$clean_file_path" "Checkov" 2>/dev/null; then
                             is_suppressed=true
                         fi
                     fi
@@ -912,10 +919,17 @@ if [ "$CHECKOV_TOTAL" -gt 0 ]; then
                 # Get failed checks as TSV for easy parsing
                 while IFS=$'\t' read -r check_id check_name file_path line_start guideline; do
                     if [ -n "$check_id" ]; then
-                        # Check if this finding is suppressed (safely handle function not available)
+                        # Strip /workspace/ prefix added by Docker volume mount
+                        clean_file_path="${file_path#/workspace/}"
+                        # Check if check_id (e.g. CKV_AWS_260) or path is suppressed
                         is_suppressed=false
-                        if declare -f is_path_ignored >/dev/null 2>&1; then
-                            if is_path_ignored "$file_path" "Checkov" 2>/dev/null; then
+                        if declare -f is_cve_ignored >/dev/null 2>&1; then
+                            if is_cve_ignored "$check_id" "Checkov" 2>/dev/null; then
+                                is_suppressed=true
+                            fi
+                        fi
+                        if [ "$is_suppressed" = false ] && declare -f is_path_ignored >/dev/null 2>&1; then
+                            if is_path_ignored "$clean_file_path" "Checkov" 2>/dev/null; then
                                 is_suppressed=true
                             fi
                         fi

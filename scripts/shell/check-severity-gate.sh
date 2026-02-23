@@ -659,13 +659,23 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
                 # Display critical findings
                 CRIT_COUNT=$(jq '.critical_findings | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
                 if [[ $CRIT_COUNT -gt 0 ]]; then
-                    jq -r '.critical_findings[] | "- **CRITICAL**: `\(.id)` in \(.package)@\(.version) (\(.tool))"' "$FINDINGS_SUMMARY" 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
+                    jq -r '.critical_findings[] |
+                        if .detector then
+                            "- **CRITICAL**: `\(.detector)` secret in `\(.file_path // "unknown"):\(.line_number // "?")` (\(.tool))"
+                        else
+                            "- **CRITICAL**: `\(.vulnerability_id // .id // "unknown")` in \(.package_name // .package // "unknown")@\(.package_version // .version // "unknown") (\(.tool))"
+                        end' "$FINDINGS_SUMMARY" 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
                 fi
                 
                 # Display high findings
                 HIGH_COUNT=$(jq '.high_findings | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
                 if [[ $HIGH_COUNT -gt 0 ]]; then
-                    jq -r '.high_findings[] | "- **HIGH**: `\(.id)` in \(.package)@\(.version) (\(.tool))"' "$FINDINGS_SUMMARY" 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
+                    jq -r '.high_findings[] |
+                        if .detector then
+                            "- **HIGH**: `\(.detector)` secret in `\(.file_path // "unknown"):\(.line_number // "?")` (\(.tool))"
+                        else
+                            "- **HIGH**: `\(.vulnerability_id // .id // "unknown")` in \(.package_name // .package // "unknown")@\(.package_version // .version // "unknown") (\(.tool))"
+                        end' "$FINDINGS_SUMMARY" 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
                 fi
                 
                 echo "" >> "$GITHUB_STEP_SUMMARY"

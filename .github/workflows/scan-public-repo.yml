@@ -165,19 +165,13 @@ jobs:
           chmod +x scripts/shell/run-trufflehog-scan.sh
           SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-trufflehog-scan.sh filesystem || echo "TruffleHog scan completed with warnings"
       
-      - name: Generate shell coverage
-        continue-on-error: true
-        run: |
-          source /tmp/epyon-env
-          echo "📐 Generating shell coverage for $TARGET_DIR"
-          chmod +x scripts/shell/run-shell-coverage.sh
-          REPO_PATH="$TARGET_DIR" ./scripts/shell/run-shell-coverage.sh || true
-
       - name: Layer 3 - Code Quality (SonarQube)
         continue-on-error: true
         env:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          # Public scans are always manually triggered (no PR context), kept for consistency
+          SONAR_PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           source /tmp/epyon-env
           echo "📊 Layer 3: Code Quality Analysis"
@@ -252,6 +246,14 @@ jobs:
           echo "🌐 Layer 11: API Discovery"
           chmod +x scripts/shell/run-api-discovery.sh
           SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-api-discovery.sh || echo "API Discovery completed with warnings"
+
+      - name: Generate Shell Coverage
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          echo "📐 Generating shell coverage for $TARGET_DIR"
+          chmod +x scripts/shell/run-shell-coverage.sh
+          REPO_PATH="$TARGET_DIR" ./scripts/shell/run-shell-coverage.sh || true
       
       - name: Generate Scan Manifest
         if: always()
@@ -275,22 +277,6 @@ jobs:
           generate_scan_findings_summary "$(basename $SCAN_DIR)" "$TARGET_DIR" "$PWD" || echo "Summary generation completed with warnings"
           echo "✅ Summary generated with deduplicated counts"
       
-      - name: Check Severity Gate
-        id: severity-gate
-        continue-on-error: true
-        run: |
-          # Source environment variables from epyon-env
-          if [ -f /tmp/epyon-env ]; then
-            set -a
-            source /tmp/epyon-env
-            set +a
-          fi
-          export FAIL_ON_CRITICAL="${{ github.event.inputs.fail_on_critical }}"
-          export FAIL_ON_HIGH="${{ github.event.inputs.fail_on_high }}"
-          export WARNING_ONLY="${{ github.event.inputs.warning_only }}"
-          chmod +x scripts/shell/check-severity-gate.sh
-          ./scripts/shell/check-severity-gate.sh
-      
       - name: Generate Reports & Dashboard
         if: always()
         run: |
@@ -308,6 +294,22 @@ jobs:
           find "$SCAN_DIR" -name "executive-summary.md" -type f 2>&1 || echo "No executive-summary.md found"
           echo "DEBUG: After consolidation, manifest files in consolidated-reports:"
           ls -la "$SCAN_DIR/consolidated-reports"/scan-manifest* "$SCAN_DIR/consolidated-reports"/manifest-summary* 2>&1 || echo "Manifest files not found in consolidated-reports!"
+      
+      - name: Check Severity Gate
+        id: severity-gate
+        continue-on-error: true
+        run: |
+          # Source environment variables from epyon-env
+          if [ -f /tmp/epyon-env ]; then
+            set -a
+            source /tmp/epyon-env
+            set +a
+          fi
+          export FAIL_ON_CRITICAL="${{ github.event.inputs.fail_on_critical }}"
+          export FAIL_ON_HIGH="${{ github.event.inputs.fail_on_high }}"
+          export WARNING_ONLY="${{ github.event.inputs.warning_only }}"
+          chmod +x scripts/shell/check-severity-gate.sh
+          ./scripts/shell/check-severity-gate.sh
       
       - name: Find Scan Directory
         id: find-scan

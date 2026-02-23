@@ -171,15 +171,6 @@ jobs:
           chmod +x scripts/shell/run-trufflehog-scan.sh
           SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-trufflehog-scan.sh filesystem || echo "TruffleHog scan completed with warnings"
       
-      - name: Generate shell coverage
-        continue-on-error: true
-        run: |
-          source /tmp/epyon-env
-          cd epyon
-          echo "📐 Generating shell coverage for $TARGET_DIR"
-          chmod +x scripts/shell/run-shell-coverage.sh
-          REPO_PATH="$TARGET_DIR" ./scripts/shell/run-shell-coverage.sh || true
-
       - name: Layer 3 - Code Quality (SonarQube)
         continue-on-error: true
         env:
@@ -270,6 +261,15 @@ jobs:
           echo "🌐 Layer 11: API Discovery"
           chmod +x scripts/shell/run-api-discovery.sh
           SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-api-discovery.sh || echo "API Discovery completed with warnings"
+
+      - name: Generate Shell Coverage
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "📐 Generating shell coverage for $TARGET_DIR"
+          chmod +x scripts/shell/run-shell-coverage.sh
+          REPO_PATH="$TARGET_DIR" ./scripts/shell/run-shell-coverage.sh || true
       
       - name: Generate Scan Manifest
         if: always()
@@ -295,6 +295,20 @@ jobs:
           generate_scan_findings_summary "$(basename $SCAN_DIR)" "$TARGET_DIR" "$PWD" || echo "Summary generation completed with warnings"
           echo "✅ Summary generated with deduplicated counts"
       
+      - name: Generate Reports & Dashboard
+        if: always()
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "📊 Generating consolidated reports and dashboard..."
+          echo "DEBUG: SCAN_DIR = $SCAN_DIR"
+          echo "DEBUG: Before consolidation, manifest files:"
+          ls -la "$SCAN_DIR"/scan-manifest* "$SCAN_DIR"/manifest-summary* 2>&1 || echo "Manifest files not found before consolidation!"
+          chmod +x scripts/shell/consolidate-security-reports.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/consolidate-security-reports.sh || echo "Report generation completed with warnings"
+          echo "DEBUG: After consolidation, manifest files in consolidated-reports:"
+          ls -la "$SCAN_DIR/consolidated-reports"/scan-manifest* "$SCAN_DIR/consolidated-reports"/manifest-summary* 2>&1 || echo "Manifest files not found in consolidated-reports!"
+      
       - name: Check Severity Gate
         id: severity-gate
         continue-on-error: true
@@ -311,20 +325,6 @@ jobs:
           export WARNING_ONLY="${{ env.WARNING_ONLY }}"
           chmod +x scripts/shell/check-severity-gate.sh
           ./scripts/shell/check-severity-gate.sh
-      
-      - name: Generate Reports & Dashboard
-        if: always()
-        run: |
-          source /tmp/epyon-env
-          cd epyon
-          echo "📊 Generating consolidated reports and dashboard..."
-          echo "DEBUG: SCAN_DIR = $SCAN_DIR"
-          echo "DEBUG: Before consolidation, manifest files:"
-          ls -la "$SCAN_DIR"/scan-manifest* "$SCAN_DIR"/manifest-summary* 2>&1 || echo "Manifest files not found before consolidation!"
-          chmod +x scripts/shell/consolidate-security-reports.sh
-          SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/consolidate-security-reports.sh || echo "Report generation completed with warnings"
-          echo "DEBUG: After consolidation, manifest files in consolidated-reports:"
-          ls -la "$SCAN_DIR/consolidated-reports"/scan-manifest* "$SCAN_DIR/consolidated-reports"/manifest-summary* 2>&1 || echo "Manifest files not found in consolidated-reports!"
       
       - name: Find Scan Directory
         id: find-scan

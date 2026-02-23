@@ -169,24 +169,97 @@ parse_helm() {
 # Parse SonarQube data
 parse_sonar() {
     local sonar_dir="${LATEST_SCAN}/sonar"
+    local issues_file="${sonar_dir}/sonar-issues.json"
     local latest_sonar=$(find "$sonar_dir" -name "*_sonar-analysis-results.json" -type f 2>/dev/null | sort -r | head -n 1)
-    
-    if [ -f "$latest_sonar" ]; then
-        local status=$(jq -r '.status' "$latest_sonar" 2>/dev/null || echo "NO_DATA")
-        
+
+    if [ -f "$issues_file" ] && command -v jq &>/dev/null; then
+        # Map Sonar severities → dashboard levels:
+        #   BLOCKER / CRITICAL → critical
+        #   MAJOR              → high
+        #   MINOR              → medium
+        #   INFO               → low
+        local critical
+        critical=$(jq '[.issues[] | select(.severity == "BLOCKER" or .severity == "CRITICAL")] | length' "$issues_file" 2>/dev/null || echo "0")
+        local high
+        high=$(jq '[.issues[] | select(.severity == "MAJOR")] | length' "$issues_file" 2>/dev/null || echo "0")
+        local medium
+        medium=$(jq '[.issues[] | select(.severity == "MINOR")] | length' "$issues_file" 2>/dev/null || echo "0")
+        local low
+        low=$(jq '[.issues[] | select(.severity == "INFO")] | length' "$issues_file" 2>/dev/null || echo "0")
+
+        TOOL_STATS[sonar_critical]=$critical
+        TOOL_STATS[sonar_high]=$high
+        TOOL_STATS[sonar_medium]=$medium
+        TOOL_STATS[sonar_low]=$low
+
+        # Generate individual finding cards (cap at 20 for dashboard performance)
+        TOOL_DATA[sonar]=$(jq -r '
+            [limit(20; .issues[])] |
+            map(
+                (.severity // "UNKNOWN") as $raw_sev |
+                (if $raw_sev == "BLOCKER" or $raw_sev == "CRITICAL" then "critical"
+                 elif $raw_sev == "MAJOR" then "high"
+                 elif $raw_sev == "MINOR" then "medium"
+                 else "low" end) as $sev |
+                (.type // "ISSUE") as $type |
+                (.message // "No description") as $msg |
+                (.component // "unknown" | split(":") | last) as $comp |
+                (.line // "?" | tostring) as $line |
+                (.rule // "") as $rule |
+                (.effort // "") as $effort |
+                "<div class=\"finding-item severity-\($sev)\">" +
+                "  <div class=\"finding-header\">" +
+                "    <span class=\"badge badge-tool\">SonarQube</span>" +
+                "    <span class=\"badge badge-\($sev)\">\($raw_sev)</span>" +
+                "    <span class=\"badge\" style=\"background:#e2e8f0;color:#4a5568\">\($type)</span>" +
+                "  </div>" +
+                "  <div class=\"finding-title\">\($msg)</div>" +
+                "  <div class=\"finding-details\">" +
+                "    <div><strong>Component:</strong> <code>\($comp)</code></div>" +
+                "    <div><strong>Line:</strong> <code>\($line)</code></div>" +
+                (if $rule != "" then "    <div><strong>Rule:</strong> <code>\($rule)</code></div>" else "" end) +
+                (if $effort != "" then "    <div><strong>Effort:</strong> \($effort)</div>" else "" end) +
+                "  </div>" +
+                "</div>"
+            ) | join("\n")
+        ' "$issues_file" 2>/dev/null || echo "<p class=\"no-findings\">Error parsing sonar-issues.json</p>")
+
+        # Append a "more issues" notice when truncated
+        local total
+        total=$(jq '(.total // (.issues | length))' "$issues_file" 2>/dev/null || echo "0")
+        if [ "${total:-0}" -gt 20 ]; then
+            TOOL_DATA[sonar]+="<p style=\"text-align:center;padding:20px;color:#718096;\">⬆️ Showing 20 of ${total} issues — download <code>sonar-issues.json</code> for the full list.</p>"
+        fi
+
+    elif [ -f "$latest_sonar" ]; then
+        # Fall back to summary counts from the analysis-results JSON
+        local status
+        status=$(jq -r '.status // "UNKNOWN"' "$latest_sonar" 2>/dev/null || echo "UNKNOWN")
+        local bugs
+        bugs=$(jq -r '.issues.bugs // 0' "$latest_sonar" 2>/dev/null || echo "0")
+        local vulns
+        vulns=$(jq -r '.issues.vulnerabilities // 0' "$latest_sonar" 2>/dev/null || echo "0")
+        local smells
+        smells=$(jq -r '.issues.code_smells // 0' "$latest_sonar" 2>/dev/null || echo "0")
+        local hotspots
+        hotspots=$(jq -r '.issues.security_hotspots // 0' "$latest_sonar" 2>/dev/null || echo "0")
+
+        TOOL_STATS[sonar_critical]=$vulns
+        TOOL_STATS[sonar_high]=$bugs
+        TOOL_STATS[sonar_medium]=$hotspots
+        TOOL_STATS[sonar_low]=$smells
+
         if [ "$status" = "NO_PROJECT_DETECTED" ]; then
-            TOOL_STATS[sonar_critical]=0
-            TOOL_STATS[sonar_high]=0
-            TOOL_STATS[sonar_medium]=0
-            TOOL_STATS[sonar_low]=0
             TOOL_DATA[sonar]="<p class=\"no-findings\">No SonarQube project detected</p>"
         else
-            # Parse actual SonarQube results when available
-            TOOL_STATS[sonar_critical]=0
-            TOOL_STATS[sonar_high]=0
-            TOOL_STATS[sonar_medium]=0
-            TOOL_STATS[sonar_low]=0
-            TOOL_DATA[sonar]="<p class=\"no-findings\">SonarQube analysis complete - check SonarQube server for details</p>"
+            TOOL_DATA[sonar]="<p style=\"text-align:center;padding:20px;color:#718096;\">
+                📊 Bugs: <strong>${bugs}</strong> &nbsp;·&nbsp;
+                Vulnerabilities: <strong>${vulns}</strong> &nbsp;·&nbsp;
+                Security Hotspots: <strong>${hotspots}</strong> &nbsp;·&nbsp;
+                Code Smells: <strong>${smells}</strong><br><br>
+                Full issue details require the Sonar API export (<code>sonar-issues.json</code>).<br>
+                Check the SonarQube dashboard for per-issue details.
+            </p>"
         fi
     else
         TOOL_STATS[sonar_critical]=0

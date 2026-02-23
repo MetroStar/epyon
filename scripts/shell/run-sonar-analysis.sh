@@ -203,10 +203,18 @@ for props_file in "${SONAR_PROPERTIES_FILES[@]}"; do
   fi
 done
 
-# Fallback to environment variable if no properties file found
+# Fallback to environment variable; if neither is set, derive from TARGET_NAME (sanitized)
 if [ -z "$PROJECT_KEY" ]; then
-  PROJECT_KEY="${SONAR_PROJECT_KEY:-tenant-metrostar-advana-marketplace}"
-  echo "[INFO] Using project key from environment/default: $PROJECT_KEY"
+  if [ -n "${SONAR_PROJECT_KEY:-}" ]; then
+    PROJECT_KEY="$SONAR_PROJECT_KEY"
+    echo "[INFO] Using project key from SONAR_PROJECT_KEY env var: $PROJECT_KEY"
+  else
+    # Derive a safe key from the target repo name: lowercase, replace spaces/slashes with dashes
+    DERIVED_KEY=$(echo "${TARGET_NAME:-$(basename "$REPO_PATH")}" | tr '[:upper:]' '[:lower:]' | tr ' /\\' '---' | tr -cd 'a-z0-9_.-')
+    PROJECT_KEY="${DERIVED_KEY}"
+    echo "[INFO] No SONAR_PROJECT_KEY set — derived project key from target name: $PROJECT_KEY"
+    echo "[INFO] Override with: export SONAR_PROJECT_KEY=your-key"
+  fi
 fi
 
 # Save REPO_PATH before init_scan_environment potentially overwrites it
@@ -867,6 +875,7 @@ if [ -n "$PROPS_FILE_FOUND" ]; then
   echo "  • Project Key: $PROJECT_KEY"
   echo "  • Host URL: $SONAR_HOST_URL"
   echo "  • Token: ${SONAR_TOKEN:0:10}...${SONAR_TOKEN: -4}"
+  [ -n "${SONAR_ORGANIZATION:-}" ] && echo "  • Organization: $SONAR_ORGANIZATION"
   [ -n "$COVERAGE_ARGS" ] && echo "  • Coverage (CLI override): $COVERAGE_ARGS"
   [ "$PROPS_HAS_COVERAGE" = true ] && echo "  • Coverage: Configured in sonar-project.properties"
   echo "  • Working Directory: $(pwd)"
@@ -878,10 +887,15 @@ if [ -n "$PROPS_FILE_FOUND" ]; then
   echo "[INFO] Scanner output will be saved to: $SCANNER_LOG"
   echo ""
   
+  # Build optional org flag
+  ORG_ARG=""
+  [ -n "${SONAR_ORGANIZATION:-}" ] && ORG_ARG="-Dsonar.organization=${SONAR_ORGANIZATION}"
+
   npx sonarqube-scanner \
     -Dsonar.projectKey=$PROJECT_KEY \
     -Dsonar.host.url=$SONAR_HOST_URL \
     -Dsonar.token=$SONAR_TOKEN \
+    $ORG_ARG \
     $COVERAGE_ARGS 2>&1 | tee "$SCANNER_LOG"
   SCANNER_EXIT_CODE=${PIPESTATUS[0]}
 else
@@ -895,6 +909,7 @@ else
   echo "  • Sources: $SOURCES_PATH"
   echo "  • Host URL: $SONAR_HOST_URL"
   echo "  • Token: ${SONAR_TOKEN:0:10}...${SONAR_TOKEN: -4}"
+  [ -n "${SONAR_ORGANIZATION:-}" ] && echo "  • Organization: $SONAR_ORGANIZATION"
   [ -n "$COVERAGE_ARGS" ] && echo "  • Coverage: $COVERAGE_ARGS"
   echo "  • Base Directory: $REPO_PATH"
   echo ""
@@ -903,13 +918,18 @@ else
   SCANNER_LOG="$SCAN_DIR/sonar/sonar-scan.log"
   echo "[INFO] Scanner output will be saved to: $SCANNER_LOG"
   echo ""
-  
+
+  # Build optional org flag
+  ORG_ARG=""
+  [ -n "${SONAR_ORGANIZATION:-}" ] && ORG_ARG="-Dsonar.organization=${SONAR_ORGANIZATION}"
+
   npx sonarqube-scanner \
     -Dsonar.projectKey=$PROJECT_KEY \
     -Dsonar.sources="$SOURCES_PATH" \
     -Dsonar.host.url=$SONAR_HOST_URL \
     -Dsonar.token=$SONAR_TOKEN \
     -Dsonar.projectBaseDir="$REPO_PATH" \
+    $ORG_ARG \
     $COVERAGE_ARGS 2>&1 | tee "$SCANNER_LOG"
   SCANNER_EXIT_CODE=${PIPESTATUS[0]}
 fi

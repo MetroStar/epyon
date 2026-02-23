@@ -177,6 +177,8 @@ jobs:
         env:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
           # Pass PR number so the script can scope the issue export to this PR
           SONAR_PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |

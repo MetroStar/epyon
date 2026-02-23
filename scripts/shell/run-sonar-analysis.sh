@@ -1264,6 +1264,114 @@ echo ""
 # Generate project dashboard URL (strip trailing slash to avoid //)
 PROJECT_URL="${SONAR_HOST_URL%/}/dashboard?id=${PROJECT_KEY}"
 
+# ============================================
+# Step 4: Export Issues via Sonar Web API
+# ============================================
+echo ""
+echo "============================================"
+echo "Step 4: Exporting issues via Sonar Web API"
+echo "============================================"
+
+if [ -n "${SONAR_TOKEN:-}" ] && [ -n "${SONAR_HOST_URL:-}" ] && [ -n "${PROJECT_KEY:-}" ]; then
+  ISSUES_OUTPUT="$OUTPUT_DIR/sonar-issues.json"
+  TEMP_ISSUES_DIR="$(mktemp -d)"
+
+  # Build base URL — max page size is 500
+  ISSUES_BASE_URL="${SONAR_HOST_URL%/}/api/issues/search?componentKeys=${PROJECT_KEY}&ps=500"
+
+  # Add pull request parameter when running in a PR context
+  PR_PARAM=""
+  _PR_NUM="${SONAR_PR_NUMBER:-${PR_NUMBER:-}}"
+  if [ -n "$_PR_NUM" ]; then
+    PR_PARAM="&pullRequest=${_PR_NUM}"
+    echo "[INFO] Including pull request parameter: pullRequest=${_PR_NUM}"
+  fi
+
+  echo "[INFO] Fetching issues from: ${SONAR_HOST_URL%/}/api/issues/search"
+
+  # Fetch first page to discover total count
+  FIRST_PAGE_RESPONSE=$(curl -sf -u "${SONAR_TOKEN}:" \
+    "${ISSUES_BASE_URL}${PR_PARAM}&p=1" \
+    --connect-timeout 30 --max-time 60 2>/dev/null) || true
+
+  if [ -n "$FIRST_PAGE_RESPONSE" ] && command -v jq &>/dev/null; then
+    ISSUE_TOTAL=$(echo "$FIRST_PAGE_RESPONSE" | jq -r '.total // 0')
+    echo "[INFO] Total issues reported by server: $ISSUE_TOTAL"
+
+    echo "$FIRST_PAGE_RESPONSE" > "${TEMP_ISSUES_DIR}/page_1.json"
+
+    # Paginate if there are more results
+    PAGE_SIZE=500
+    if [ "${ISSUE_TOTAL:-0}" -gt "$PAGE_SIZE" ]; then
+      TOTAL_PAGES=$(( (ISSUE_TOTAL + PAGE_SIZE - 1) / PAGE_SIZE ))
+      echo "[INFO] Fetching $TOTAL_PAGES pages..."
+      for page in $(seq 2 "$TOTAL_PAGES"); do
+        echo "[INFO] Fetching page $page/$TOTAL_PAGES..."
+        curl -sf -u "${SONAR_TOKEN}:" \
+          "${ISSUES_BASE_URL}${PR_PARAM}&p=${page}" \
+          --connect-timeout 30 --max-time 60 \
+          > "${TEMP_ISSUES_DIR}/page_${page}.json" 2>/dev/null \
+          || echo "[WARNING] Failed to fetch page $page"
+      done
+    fi
+
+    # Merge all pages into a single issues array
+    ALL_ISSUES_JSON=$(jq -s '[.[].issues[]]' "${TEMP_ISSUES_DIR}"/page_*.json 2>/dev/null || echo "[]")
+
+    # Break down by type and severity for the summary block
+    API_BUGS=$(echo "$ALL_ISSUES_JSON" | jq '[.[] | select(.type=="BUG")] | length' 2>/dev/null || echo "0")
+    API_VULNS=$(echo "$ALL_ISSUES_JSON" | jq '[.[] | select(.type=="VULNERABILITY")] | length' 2>/dev/null || echo "0")
+    API_SMELLS=$(echo "$ALL_ISSUES_JSON" | jq '[.[] | select(.type=="CODE_SMELL")] | length' 2>/dev/null || echo "0")
+    API_HOTSPOTS=$(echo "$ALL_ISSUES_JSON" | jq '[.[] | select(.type=="SECURITY_HOTSPOT")] | length' 2>/dev/null || echo "0")
+    API_CRITICAL=$(echo "$ALL_ISSUES_JSON" | jq '[.[] | select(.severity=="CRITICAL")] | length' 2>/dev/null || echo "0")
+    API_BLOCKER=$(echo "$ALL_ISSUES_JSON" | jq '[.[] | select(.severity=="BLOCKER")] | length' 2>/dev/null || echo "0")
+    API_MAJOR=$(echo "$ALL_ISSUES_JSON" | jq '[.[] | select(.severity=="MAJOR")] | length' 2>/dev/null || echo "0")
+
+    cat > "$ISSUES_OUTPUT" << ISSUES_EOF
+{
+  "project": "${PROJECT_KEY}",
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "host": "${SONAR_HOST_URL}",
+  "pull_request": "${_PR_NUM:-null}",
+  "total": ${ISSUE_TOTAL},
+  "summary": {
+    "by_type": {
+      "bugs": ${API_BUGS},
+      "vulnerabilities": ${API_VULNS},
+      "code_smells": ${API_SMELLS},
+      "security_hotspots": ${API_HOTSPOTS}
+    },
+    "by_severity": {
+      "blocker": ${API_BLOCKER},
+      "critical": ${API_CRITICAL},
+      "major": ${API_MAJOR}
+    }
+  },
+  "issues": ${ALL_ISSUES_JSON}
+}
+ISSUES_EOF
+
+    echo ""
+    echo "📊 Sonar Issues Export Summary:"
+    echo "  • Total    : $ISSUE_TOTAL"
+    echo "  • Bugs     : $API_BUGS"
+    echo "  • Vulns    : $API_VULNS"
+    echo "  • Smells   : $API_SMELLS"
+    echo "  • Hotspots : $API_HOTSPOTS"
+    echo "  • Blocker  : $API_BLOCKER"
+    echo "  • Critical : $API_CRITICAL"
+    echo "  • Major    : $API_MAJOR"
+    echo ""
+    echo "[OK] Issues exported to: $ISSUES_OUTPUT"
+  else
+    echo "[WARNING] Could not retrieve issues from Sonar API (check token/host) or jq unavailable — skipping export"
+  fi
+
+  rm -rf "$TEMP_ISSUES_DIR"
+else
+  echo "[INFO] Skipping issue export — SONAR_TOKEN, SONAR_HOST_URL, or PROJECT_KEY not configured"
+fi
+
 echo "Analysis complete! Check your SonarQube dashboard at ${SONAR_HOST_URL}"
 echo "📊 Project Dashboard: ${PROJECT_URL}"
 echo ""

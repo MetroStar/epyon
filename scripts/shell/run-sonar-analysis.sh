@@ -788,30 +788,27 @@ fi
 COVERAGE_ARGS=""
 COVERAGE_PATHS=()
 
-# Look for LCOV coverage files in common locations
-if [ -f "$REPO_PATH/frontend/coverage/lcov.info" ]; then
-  COVERAGE_PATHS+=("frontend/coverage/lcov.info")
-fi
-if [ -f "$REPO_PATH/ui/coverage/lcov.info" ]; then
-  COVERAGE_PATHS+=("ui/coverage/lcov.info")
-fi
-if [ -f "$REPO_PATH/coverage/lcov.info" ]; then
-  COVERAGE_PATHS+=("coverage/lcov.info")
-fi
-if [ -f "$REPO_PATH/lcov.info" ]; then
-  COVERAGE_PATHS+=("lcov.info")
-fi
+# ---- Dynamic LCOV discovery (Vite/Vitest, Jest, Istanbul, kcov) ----
+# Collect every lcov.info under the repo, excluding node_modules / dist / .git
+while IFS= read -r -d $'\0' lcov_file; do
+  # Make path relative to REPO_PATH for sonar CLI args
+  rel_path="${lcov_file#$REPO_PATH/}"
+  COVERAGE_PATHS+=("$rel_path")
+  echo "[INFO] Found LCOV coverage: $rel_path"
+done < <(find "$REPO_PATH" -name "lcov.info" \
+           -not -path "*/node_modules/*" \
+           -not -path "*/.git/*" \
+           -not -path "*/dist/*" \
+           -not -path "*/build/*" \
+           -print0 2>/dev/null)
 
 # Build coverage arguments
 if [ ${#COVERAGE_PATHS[@]} -gt 0 ]; then
   COVERAGE_LIST=$(IFS=,; echo "${COVERAGE_PATHS[*]}")
   COVERAGE_ARGS="-Dsonar.javascript.lcov.reportPaths=$COVERAGE_LIST"
-  echo "[INFO] Coverage reports found - will send to SonarQube:"
-  for path in "${COVERAGE_PATHS[@]}"; do
-    echo "       • $path"
-  done
+  echo "[INFO] Coverage reports found (${#COVERAGE_PATHS[@]}) - will send to SonarQube"
 else
-  echo "[INFO] No coverage reports found in standard locations"
+  echo "[INFO] No lcov.info files found - coverage will not be reported"
 fi
 
 # =============================================================================
@@ -856,11 +853,17 @@ if [ -n "$PROPS_FILE_FOUND" ]; then
   
   # Check if properties file already has coverage configured
   PROPS_HAS_COVERAGE=false
-  if grep -q "sonar\.\(javascript\|typescript\)\.lcov\.reportPaths\|sonar\.coverageReportPaths" "$PROPS_FILE_FOUND" 2>/dev/null; then
+  if grep -qE '^sonar\.(javascript|typescript)\.lcov\.reportPaths|^sonar\.coverageReportPaths' "$PROPS_FILE_FOUND" 2>/dev/null; then
     PROPS_HAS_COVERAGE=true
-    echo "[INFO] Properties file already has coverage paths configured"
-    # Don't override with command-line args
-    COVERAGE_ARGS=""
+    echo "[INFO] Properties file has static coverage paths configured"
+    # If we dynamically found lcov files, prefer those over static config
+    if [ ${#COVERAGE_PATHS[@]} -gt 0 ]; then
+      echo "[INFO] Overriding with dynamically discovered lcov files (${#COVERAGE_PATHS[@]} found)"
+      PROPS_HAS_COVERAGE=false
+    else
+      # No dynamic files found - let properties file handle it
+      COVERAGE_ARGS=""
+    fi
   fi
   
   # Change to the directory containing the properties file

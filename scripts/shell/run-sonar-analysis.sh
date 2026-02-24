@@ -570,7 +570,27 @@ run_js_coverage_for_dir() {
     return 0
   fi
 
+  # Skip e2e / Playwright packages — they run integration tests, not unit tests,
+  # and don't produce lcov coverage
+  if grep -qE '"@playwright/test"|"playwright"' "$pkg_file" 2>/dev/null; then
+    echo "[INFO] Playwright detected in $(basename "$pkg_dir") — skipping (e2e tests don't produce lcov coverage)"
+    return 0
+  fi
+
   local cmd=""
+  local is_vitest=false
+  local is_jest=false
+
+  # Detect test runner first so we can apply format overrides later
+  if grep -qE '"vitest"\s*:' "$pkg_file" 2>/dev/null || \
+     grep -qE '"@vitest/' "$pkg_file" 2>/dev/null; then
+    is_vitest=true
+  fi
+  if grep -qE '"jest"\s*:' "$pkg_file" 2>/dev/null || \
+     grep -qE '"@jest/' "$pkg_file" 2>/dev/null; then
+    is_jest=true
+  fi
+
   # Detect the best coverage command in priority order
   if grep -q '"test:coverage"' "$pkg_file" 2>/dev/null; then
     cmd="npm run test:coverage"
@@ -578,9 +598,10 @@ run_js_coverage_for_dir() {
     cmd="npm run test:ci"
   elif grep -q '"test:unit"' "$pkg_file" 2>/dev/null; then
     cmd="npm run test:unit -- --coverage"
-  elif grep -qE '"vitest"' "$pkg_file" 2>/dev/null; then
-    cmd="npx vitest run --coverage"
-  elif grep -qE '"jest"' "$pkg_file" 2>/dev/null; then
+  elif [ "$is_vitest" = true ]; then
+    # Explicitly request lcov reporter so the format is always written
+    cmd="npx vitest run --coverage --coverage.reporter=lcov --coverage.reportDir=coverage"
+  elif [ "$is_jest" = true ]; then
     cmd="npx jest --coverage --coverageReporters=lcov"
   elif grep -q '"test"' "$pkg_file" 2>/dev/null; then
     cmd="npm test -- --coverage"
@@ -596,10 +617,46 @@ run_js_coverage_for_dir() {
     npm install --no-audit --no-fund 2>&1 | tail -5
   fi
   eval "$cmd" 2>&1 | tail -20 || true
+
   if [ -f "$lcov_path" ]; then
     echo "✅ Coverage generated: $lcov_path"
   else
-    echo "[WARNING] Coverage command ran in $pkg_dir but coverage/lcov.info not found"
+    # lcov.info not at expected path — could be:
+    #   1. npm script used a custom outputDir in vitest/jest config
+    #   2. The reporter was text/html only, not lcov
+    # Fallback: find any lcov.info that appeared under this package dir
+    local found_lcov
+    found_lcov=$(find "$pkg_dir" -name "lcov.info" \
+                   -not -path "*/node_modules/*" \
+                   -print -quit 2>/dev/null)
+    if [ -n "$found_lcov" ]; then
+      echo "[INFO] Found lcov.info at non-standard path: $found_lcov"
+      # Copy it to the canonical location so the Sonar scanner can find it
+      mkdir -p "$pkg_dir/coverage"
+      cp "$found_lcov" "$lcov_path"
+      echo "✅ Copied to canonical path: $lcov_path"
+    elif [ "$is_vitest" = true ]; then
+      # vitest ran but produced no lcov — force a dedicated lcov-only pass
+      echo "[INFO] Vitest detected but no lcov output — re-running with explicit lcov reporter..."
+      npx vitest run --coverage \
+        --coverage.reporter=lcov \
+        --coverage.reportDir=coverage 2>&1 | tail -20 || true
+      if [ -f "$lcov_path" ]; then
+        echo "✅ Coverage generated on retry: $lcov_path"
+      else
+        echo "[WARNING] Vitest lcov retry also produced no lcov.info in $pkg_dir"
+      fi
+    elif [ "$is_jest" = true ]; then
+      echo "[INFO] Jest detected but no lcov output — re-running with explicit lcov reporter..."
+      npx jest --coverage --coverageReporters=lcov 2>&1 | tail -20 || true
+      if [ -f "$lcov_path" ]; then
+        echo "✅ Coverage generated on retry: $lcov_path"
+      else
+        echo "[WARNING] Jest lcov retry also produced no lcov.info in $pkg_dir"
+      fi
+    else
+      echo "[WARNING] Coverage command ran in $pkg_dir but no lcov.info found"
+    fi
   fi
   cd "$REPO_PATH"
 }

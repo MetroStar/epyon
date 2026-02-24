@@ -80,6 +80,14 @@ def convert(input_path: str, output_path: str, repo_root: str | None = None) -> 
 
     print(f"[INFO] Repo root resolved to: {repo_root}")
 
+    # kcov sets <sources><source> to the --include-path value (e.g. /repo/scripts/shell).
+    # When filenames in <class> elements are bare names (not absolute), they must be
+    # resolved relative to this source directory before making them relative to repo_root.
+    include_path: str | None = None
+    sources_el = cobertura.find("sources/source")
+    if sources_el is not None and sources_el.text and sources_el.text.strip():
+        include_path = sources_el.text.strip()
+
     xml_lines: list[str] = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<coverage version="1">',
@@ -92,6 +100,12 @@ def convert(input_path: str, output_path: str, repo_root: str | None = None) -> 
         filename = (cls.get("filename") or "").strip()
         if not filename:
             continue
+
+        # Resolve bare / relative filenames against the kcov include-path so that
+        # make_relative can produce a proper repo-root-relative path
+        # (e.g. "export-api-discovery.sh" → "scripts/shell/export-api-discovery.sh").
+        if not Path(filename).is_absolute() and include_path:
+            filename = str(Path(include_path) / filename)
 
         rel = make_relative(filename, repo_root)
 

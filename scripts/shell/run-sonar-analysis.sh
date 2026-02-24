@@ -794,7 +794,6 @@ if [ ${#BATS_FILES[@]} -gt 0 ]; then
   fi
 
   if command -v kcov &>/dev/null; then
-    KCOV_OUTPUT="$REPO_PATH/coverage/kcov-output"
     KCOV_MERGED="$REPO_PATH/coverage/kcov-merged"
     BATS_BIN=""
     for candidate in \
@@ -808,25 +807,27 @@ if [ ${#BATS_FILES[@]} -gt 0 ]; then
 
     if [ -n "$BATS_BIN" ]; then
       echo "[INFO] Running BATS under kcov..."
-      rm -rf "$KCOV_OUTPUT" "$KCOV_MERGED"
-      mkdir -p "$KCOV_OUTPUT"
-
-      for bats_file in "${BATS_FILES[@]}"; do
-        safe_name=$(basename "$bats_file" .bats)
-        kcov --include-path="$REPO_PATH/scripts/shell" \
-             --bash-parser="$(command -v bash)" \
-             "$KCOV_OUTPUT/$safe_name" \
-             "$BATS_BIN" "$bats_file" 2>&1 | tail -5 || true
-      done
-
-      # Merge all per-file reports
+      rm -rf "$KCOV_MERGED"
       mkdir -p "$KCOV_MERGED"
-      kcov --merge "$KCOV_MERGED" "$KCOV_OUTPUT"/*/  2>&1 | tail -5 || true
 
-      COBERTURA_XML="$KCOV_MERGED/cobertura.xml"
+      # Run all BATS files in a single kcov invocation — more reliable than
+      # per-file runs + merge, and avoids cobertura.xml path ambiguity.
+      kcov --include-path="$REPO_PATH/scripts/shell" \
+           --bash-parser="$(command -v bash)" \
+           "$KCOV_MERGED" \
+           "$BATS_BIN" "${BATS_FILES[@]}" 2>&1 || true
+
+      # kcov may write cobertura.xml directly in the output dir or in a binary sub-dir
+      COBERTURA_XML=""
+      if [ -f "$KCOV_MERGED/cobertura.xml" ]; then
+        COBERTURA_XML="$KCOV_MERGED/cobertura.xml"
+      else
+        COBERTURA_XML=$(find "$KCOV_MERGED" -name "cobertura.xml" 2>/dev/null | head -1)
+      fi
+
       SONAR_COV_XML="$REPO_PATH/coverage/sonar-coverage.xml"
 
-      if [ -f "$COBERTURA_XML" ]; then
+      if [ -n "$COBERTURA_XML" ] && [ -f "$COBERTURA_XML" ]; then
         CONVERTER="$REPO_PATH/scripts/shell/convert-kcov-to-sonar.py"
         if [ -f "$CONVERTER" ] && command -v python3 &>/dev/null; then
           echo "[INFO] Converting kcov cobertura.xml to SonarCloud generic format..."
@@ -848,6 +849,13 @@ if [ ${#BATS_FILES[@]} -gt 0 ]; then
   fi
 else
   echo "[INFO] No BATS test files found under tests/shell/ - skipping shell coverage"
+fi
+
+# Build generic coverage argument (kcov sonar-coverage.xml) for the scanner
+GENERIC_COV_ARG=""
+if [ -n "${SONAR_GENERIC_COVERAGE:-}" ] && [ -f "$SONAR_GENERIC_COVERAGE" ]; then
+  GENERIC_COV_ARG="-Dsonar.coverageReportPaths=$SONAR_GENERIC_COVERAGE"
+  echo "[INFO] Shell coverage will be reported via: $SONAR_GENERIC_COVERAGE"
 fi
 
 # Check for coverage reports in multiple possible locations
@@ -965,7 +973,8 @@ if [ -n "$PROPS_FILE_FOUND" ]; then
     -Dsonar.host.url=$SONAR_HOST_URL \
     -Dsonar.token=$SONAR_TOKEN \
     $ORG_ARG \
-    $COVERAGE_ARGS 2>&1 | tee "$SCANNER_LOG"
+    $COVERAGE_ARGS \
+    $GENERIC_COV_ARG 2>&1 | tee "$SCANNER_LOG"
   SCANNER_EXIT_CODE=${PIPESTATUS[0]}
 else
   # Run SonarQube scanner with explicit paths and coverage
@@ -999,7 +1008,8 @@ else
     -Dsonar.token=$SONAR_TOKEN \
     -Dsonar.projectBaseDir="$REPO_PATH" \
     $ORG_ARG \
-    $COVERAGE_ARGS 2>&1 | tee "$SCANNER_LOG"
+    $COVERAGE_ARGS \
+    $GENERIC_COV_ARG 2>&1 | tee "$SCANNER_LOG"
   SCANNER_EXIT_CODE=${PIPESTATUS[0]}
 fi
 

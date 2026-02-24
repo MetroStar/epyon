@@ -283,6 +283,8 @@ sonar.language=ts
 sonar.sourceEncoding=UTF-8
 ```
 
+> **GitHub Actions**: When using `scan-private-repo.yml` or `scan-public-repo.yml`, the `SONAR_PROJECT_KEY` is automatically derived from `GITHUB_REPOSITORY` (e.g., `owner_repo`) if the `SONAR_PROJECT_KEY` Actions variable is not set. Subdirectory scans append a sanitized directory suffix (e.g., `owner_repo_apps_api`). A `sonar-project.properties` file in the target repo takes priority over auto-derivation.
+
 ### 🔧 Other Tool Dependencies
 
 The remaining security tools run entirely in Docker and require no additional setup:
@@ -1490,12 +1492,18 @@ export TARGET_DIR="/workspace" && ./scripts/run-target-security-scan.sh "$TARGET
 ---
 
 **Created**: November 3, 2025  
-**Updated**: November 25, 2025  
-**Version**: 2.4 - Complete Scan Isolation Architecture  
+**Updated**: February 24, 2026  
+**Version**: 2.5.0 - GitHub Actions Sonar Auto-Derivation  
 **Status**: ✅ **ENTERPRISE PRODUCTION READY - COMPLETE ISOLATION**  
 **Validation**: Successfully tested with complete scan isolation, no centralized reports, full audit trail support
 
-### 🆕 Latest Updates (v2.4) - Complete Scan Isolation
+### 🆕 Latest Updates (v2.5.0) - GitHub Actions Enhancements
+- ✅ **Sonar Project Key Auto-Derivation**: `scan-private-repo.yml` and `scan-public-repo.yml` now auto-derive a stable `SONAR_PROJECT_KEY` from `GITHUB_REPOSITORY` when the Actions variable is not set — no manual configuration required
+- ✅ **Subdirectory-Aware Sonar Keys**: Monorepo subdirectory scans produce unique, sanitized project keys (e.g., `owner_repo_apps_api`)
+- ✅ **Branch/PR Context**: Workflows export `SONAR_BRANCH`, `SONAR_PR_BRANCH`, and `SONAR_PR_BASE` for scanner context
+- ✅ **Sonar Project Name**: Workflows now set `SONAR_PROJECT_NAME` for human-readable display in SonarQube
+
+### 🆕 Previous Updates (v2.4) - Complete Scan Isolation
 - ✅ **Removed Centralized Reports**: Eliminated `reports/` directory entirely
 - ✅ **Full Scan Isolation**: All outputs contained in `scans/{scan_id}/` structure
 - ✅ **Self-Contained Dashboards**: Each scan has its own dashboard and consolidated reports

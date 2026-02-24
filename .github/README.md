@@ -286,6 +286,14 @@ The workflow now accepts a subdirectory input:
 - 🎯 **Focused findings**: Security results for specific component
 - 📊 **Better tracking**: Track security trends per application
 
+**SonarQube Project Keys (Monorepo):**
+
+When `SONAR_PROJECT_KEY` is not set as an Actions variable, project keys are auto-derived:
+- Full-repo scan → `owner_repo`
+- Subdirectory `apps/api` → `owner_repo_apps_api`
+
+Set the `SONAR_PROJECT_KEY` variable in **Settings → Secrets and variables → Actions → Variables** to override auto-derivation.
+
 **Use Cases:**
 ```yaml
 # Microservices monorepo

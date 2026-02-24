@@ -177,6 +177,40 @@ jobs:
         run: |
           source /tmp/epyon-env
           echo "📊 Layer 3: Code Quality Analysis"
+
+          # Derive a stable Sonar project key per repo (and optional subdirectory).
+          # Fallback to owner_repo when SONAR_PROJECT_KEY is not set.
+          RAW_BASE_KEY="${SONAR_PROJECT_KEY:-${GITHUB_REPOSITORY/\//\_}}"
+          if [[ -n "${SUBDIR:-}" ]]; then
+            SANITIZED_SUBDIR=$(echo "$SUBDIR" | sed -E 's#[/[:space:]]+#_#g; s#[^A-Za-z0-9._:-]#_#g')
+            RAW_BASE_KEY="${RAW_BASE_KEY}_${SANITIZED_SUBDIR}"
+          fi
+          DERIVED_PROJECT_KEY=$(echo "$RAW_BASE_KEY" | sed -E 's#[^A-Za-z0-9._:-]#_#g; s#_+#_#g; s#^[_:. -]+##; s#[_:. -]+$##')
+          if [[ -z "$DERIVED_PROJECT_KEY" ]]; then
+            DERIVED_PROJECT_KEY="${GITHUB_REPOSITORY/\//\_}"
+          fi
+
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          if [[ -n "${SUBDIR:-}" ]]; then
+            DERIVED_PROJECT_NAME="${REPO_NAME} (${SUBDIR})"
+          else
+            DERIVED_PROJECT_NAME="$REPO_NAME"
+          fi
+
+          export SONAR_PROJECT_KEY="$DERIVED_PROJECT_KEY"
+          export SONAR_PROJECT_NAME="$DERIVED_PROJECT_NAME"
+
+          # Provide branch/PR context for scanners/scripts that consume these env vars.
+          if [[ -n "${SONAR_PR_NUMBER:-}" ]]; then
+            export SONAR_PR_BRANCH="${GITHUB_HEAD_REF:-}"
+            export SONAR_PR_BASE="${GITHUB_BASE_REF:-}"
+          else
+            export SONAR_BRANCH="${GITHUB_REF_NAME:-}"
+          fi
+
+          echo "Using SONAR_PROJECT_KEY=$SONAR_PROJECT_KEY"
+          echo "Using SONAR_PROJECT_NAME=$SONAR_PROJECT_NAME"
+
           chmod +x scripts/shell/run-sonar-analysis.sh
           SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-sonar-analysis.sh || echo "SonarQube analysis completed with warnings"
       

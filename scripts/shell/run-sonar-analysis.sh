@@ -1284,6 +1284,11 @@ if [ -n "$SONAR_TOKEN" ] && [ -n "$SONAR_HOST_URL" ]; then
       echo "  • Code Smells: $CODE_SMELLS"
       echo "  • Security Hotspots: $SECURITY_HOTSPOTS"
       echo "  • Coverage: $COVERAGE_PERCENT"
+
+      # Server fetch succeeded — mark analysis complete regardless of local test detection
+      if [ "$ANALYSIS_STATUS" = "NO_PROJECT_DETECTED" ] || [ "$ANALYSIS_STATUS" = "NO_DATA" ]; then
+        ANALYSIS_STATUS="ANALYSIS_COMPLETE"
+      fi
     else
       echo "[WARNING] jq not available, cannot parse server metrics"
     fi

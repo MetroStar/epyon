@@ -33,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Branch and PR context exports in workflow Sonar step: `SONAR_BRANCH`, `SONAR_PR_BRANCH`, `SONAR_PR_BASE`
 - `SONAR_PROJECT_NAME` export in workflow Sonar step for human-readable project display in SonarQube
 
+### Fixed
+- `run-sonar-analysis.sh`: now reads `sonar.organization` from `sonar-project.properties` as a fallback when the `SONAR_ORGANIZATION` env var is not set — fixes SonarCloud scans failing with "The 'organization' parameter is missing" for repos that declare `sonar.organization` in their properties file but have no `SONAR_ORGANIZATION` Actions variable configured
+
 ### Planned
 - Automated version bumping script
 - Git tag synchronization

@@ -159,6 +159,7 @@ SONAR_PROPERTIES_FILES=(
 PROJECT_KEY=""
 PROPS_HOST_URL=""
 PROPS_TOKEN=""
+PROPS_ORGANIZATION=""
 PROPS_FILE_FOUND=""
 for props_file in "${SONAR_PROPERTIES_FILES[@]}"; do
   if [ -f "$props_file" ]; then
@@ -166,6 +167,8 @@ for props_file in "${SONAR_PROPERTIES_FILES[@]}"; do
     PROPS_FILE_FOUND="$props_file"
     # Extract project key from properties file
     PROJECT_KEY=$(grep -E "^sonar\.projectKey\s*=" "$props_file" | cut -d'=' -f2 | tr -d ' ' | tr -d '\n' 2>/dev/null)
+    # Extract organization from properties file (required for SonarCloud)
+    PROPS_ORGANIZATION=$(grep -E "^sonar\.organization\s*=" "$props_file" | cut -d'=' -f2 | tr -d ' ' | tr -d '\n' 2>/dev/null)
     # Extract host URL from properties file and resolve environment variables
     PROPS_HOST_URL=$(grep -E "^sonar\.host\.url\s*=" "$props_file" | cut -d'=' -f2 | tr -d ' ' | tr -d '\n' 2>/dev/null)
     PROPS_HOST_URL=$(resolve_env_vars "$PROPS_HOST_URL")
@@ -179,7 +182,13 @@ for props_file in "${SONAR_PROPERTIES_FILES[@]}"; do
     fi
     if [ -n "$PROJECT_KEY" ]; then
       echo "[INFO] Using project key from properties: $PROJECT_KEY"
-      
+
+      # Use organization from properties file if not already set via env var
+      if [ -z "${SONAR_ORGANIZATION:-}" ] && [ -n "$PROPS_ORGANIZATION" ]; then
+        echo "[INFO] Using organization from properties file: $PROPS_ORGANIZATION"
+        SONAR_ORGANIZATION="$PROPS_ORGANIZATION"
+      fi
+
       # Only use properties file credentials if .env.sonar didn't set them
       if [ "$SONAR_CONFIG_FOUND" = false ]; then
         if [ -n "$PROPS_HOST_URL" ]; then

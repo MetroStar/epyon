@@ -709,49 +709,91 @@ if [ ${#PY_TEST_FILES[@]} -gt 0 ]; then
     echo "[INFO] pytest available - attempting Python coverage generation..."
     python3 -m pip install --quiet pytest-cov 2>&1 | tail -3 || true
 
-    # Find the sonar-project.properties coverage path if set, else default
-    PYTHON_COV_XML=""
+    # Find the sonar-project.properties coverage path(s) if set, else default
+    PYTHON_COV_PATHS=""
     if [ -n "$PROPS_FILE_FOUND" ]; then
-      PYTHON_COV_XML=$(grep -E "^sonar\.python\.coverage\.reportPaths\s*=" "$PROPS_FILE_FOUND" 2>/dev/null \
-        | head -1 | sed 's/^[^=]*=\s*//' | tr -d '[:space:]' | cut -d',' -f1)
+      PYTHON_COV_PATHS=$(grep -E "^sonar\.python\.coverage\.reportPaths\s*=" "$PROPS_FILE_FOUND" 2>/dev/null \
+        | head -1 | sed 's/^[^=]*=\s*//' | tr -d '[:space:]')
     fi
 
-    if [ -n "$PYTHON_COV_XML" ]; then
-      # The path in the properties file is relative to the project base dir
-      PROPS_BASE=$(dirname "$PROPS_FILE_FOUND")
-      ABS_COV_XML="${PROPS_BASE}/${PYTHON_COV_XML}"
-      COV_XML_DIR=$(dirname "$ABS_COV_XML")
-      # Infer the source root from the coverage xml path (parent of the coverage file's dir)
-      PY_SRC_DIR=$(dirname "$COV_XML_DIR")
-      [ -d "$PY_SRC_DIR" ] || PY_SRC_DIR="$REPO_PATH"
-      echo "[INFO] Python coverage target: $ABS_COV_XML (src: $PY_SRC_DIR)"
-      mkdir -p "$COV_XML_DIR"
-      cd "$PY_SRC_DIR"
+    # Determine the project root (where sonar-project.properties lives)
+    PROPS_BASE="${PROPS_FILE_FOUND:+$(dirname "$PROPS_FILE_FOUND")}"
+    PROPS_BASE="${PROPS_BASE:-$REPO_PATH}"
+
+    # Determine the Python source directory from sonar.sources (first entry)
+    COV_SRC="."
+    if [ -n "$PROPS_FILE_FOUND" ]; then
+      _SONAR_SOURCES=$(grep -E "^sonar\.sources\s*=" "$PROPS_FILE_FOUND" 2>/dev/null \
+        | head -1 | sed 's/^[^=]*=\s*//' | tr -d '[:space:]' | cut -d',' -f1)
+      if [ -n "$_SONAR_SOURCES" ] && [ -d "$PROPS_BASE/$_SONAR_SOURCES" ]; then
+        COV_SRC="$_SONAR_SOURCES"
+        echo "[INFO] Using sonar.sources for coverage measurement: $COV_SRC"
+      fi
+    fi
+
+    if [ -n "$PYTHON_COV_PATHS" ]; then
+      # Use the first path as the primary coverage XML output target
+      PRIMARY_COV_XML=$(echo "$PYTHON_COV_PATHS" | cut -d',' -f1)
+      ABS_COV_XML="${PROPS_BASE}/${PRIMARY_COV_XML}"
+      mkdir -p "$(dirname "$ABS_COV_XML")"
+
+      echo "[INFO] Python coverage primary target: $ABS_COV_XML"
+      echo "[INFO] All configured paths: $PYTHON_COV_PATHS"
+
+      # Run pytest from the project root so all imports resolve correctly
+      cd "$PROPS_BASE"
+
       # Install project deps if requirements file present
       for req in requirements.txt requirements-dev.txt requirements-test.txt; do
         [ -f "$req" ] && python3 -m pip install --quiet -r "$req" 2>&1 | tail -3 || true
       done
+
       python3 -m pytest \
-        --cov="$PY_SRC_DIR" \
+        --cov="$COV_SRC" \
         --cov-report="xml:${ABS_COV_XML}" \
         --ignore=node_modules --ignore=.venv \
-        -q 2>&1 | tail -20 || true
+        -q 2>&1 | tail -30 || true
+
       if [ -f "$ABS_COV_XML" ]; then
         echo "✅ Python coverage generated: $ABS_COV_XML"
+        # Copy coverage XML to every other path listed in the properties file
+        # so Sonar can find whichever pattern it checks first
+        IFS=',' read -ra _COV_PATH_LIST <<< "$PYTHON_COV_PATHS"
+        for _extra_path in "${_COV_PATH_LIST[@]}"; do
+          _extra_path="${_extra_path// /}"
+          [ "$_extra_path" = "$PRIMARY_COV_XML" ] && continue
+          _abs_extra="${PROPS_BASE}/${_extra_path}"
+          _extra_dir="$(dirname "$_abs_extra")"
+          # coverage.py writes a binary .coverage file in the project root by default.
+          # If the target parent dir exists as a regular file (e.g. .coverage binary),
+          # remove it first so we can create the directory safely.
+          if [ -f "$_extra_dir" ] && [ ! -d "$_extra_dir" ]; then
+            echo "[INFO] Removing binary coverage file to create directory: $_extra_dir"
+            rm -f "$_extra_dir"
+          fi
+          mkdir -p "$_extra_dir"
+          cp "$ABS_COV_XML" "$_abs_extra" && echo "[INFO] Copied coverage to alternate path: $_abs_extra" \
+            || echo "[WARNING] Could not copy to alternate path: $_abs_extra"
+        done
       else
         echo "[WARNING] pytest ran but $ABS_COV_XML not found"
       fi
       cd "$REPO_PATH"
     else
       # No configured path - generate to repo root
-      cd "$REPO_PATH"
+      cd "$PROPS_BASE"
+      # Install project deps if requirements file present
+      for req in requirements.txt requirements-dev.txt requirements-test.txt; do
+        [ -f "$req" ] && python3 -m pip install --quiet -r "$req" 2>&1 | tail -3 || true
+      done
       python3 -m pytest \
-        --cov=. \
+        --cov="$COV_SRC" \
         --cov-report=xml:coverage.xml \
         --ignore=node_modules --ignore=.venv \
-        -q 2>&1 | tail -20 || true
-      [ -f "$REPO_PATH/coverage.xml" ] && echo "✅ Python coverage generated: $REPO_PATH/coverage.xml" \
+        -q 2>&1 | tail -30 || true
+      [ -f "$PROPS_BASE/coverage.xml" ] && echo "✅ Python coverage generated: $PROPS_BASE/coverage.xml" \
         || echo "[WARNING] pytest ran but coverage.xml not found"
+      cd "$REPO_PATH"
     fi
   else
     echo "[INFO] pytest not available - skipping Python coverage generation"

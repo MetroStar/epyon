@@ -701,6 +701,10 @@ done < <(find "$REPO_PATH" \( -name "test_*.py" -o -name "*_test.py" \) \
 
 if [ ${#PY_TEST_FILES[@]} -gt 0 ]; then
   echo "[INFO] Found ${#PY_TEST_FILES[@]} Python test file(s)"
+  if ! python3 -m pytest --version &>/dev/null 2>&1; then
+    echo "[INFO] pytest not found - attempting to install pytest and pytest-cov..."
+    python3 -m pip install --quiet pytest pytest-cov 2>&1 | tail -3 || true
+  fi
   if python3 -m pytest --version &>/dev/null 2>&1; then
     echo "[INFO] pytest available - attempting Python coverage generation..."
     python3 -m pip install --quiet pytest-cov 2>&1 | tail -3 || true

@@ -418,6 +418,8 @@ if [ "$CLAMAV_CRITICAL" -gt 0 ]; then
             <div><strong>Action Required:</strong> Review scan results and quarantine infected files</div>
         </div>
     </div>"
+elif [ ! -f "$CLAMAV_LOG" ] && [ "${SCAN_MODE:-full}" = "quick" ]; then
+    CLAMAV_FINDINGS="<div style='padding:20px;text-align:center;background:linear-gradient(135deg,#1a1d23 0%,#2C3539 100%);border:2px solid #6366f1;border-radius:8px;'><p style='color:#818cf8;font-size:1.1em;'>&#x23ED;&#xFE0F; <strong>Not run in quick mode</strong></p><p style='color:#9ca3af;font-size:0.9em;margin-top:8px;'>ClamAV malware scanning is skipped for faster PR scans. Run a full scan (push or scheduled) for complete results.</p></div>"
 else
     CLAMAV_FINDINGS="<p class=\"no-findings\">✅ No malware detected</p>"
 fi
@@ -973,12 +975,13 @@ if [ "$CHECKOV_TOTAL" -gt 0 ]; then
     fi
 else
     # Check if Checkov actually ran or was skipped
-    if [ ! -d "$CHECKOV_DIR" ] || [ -z "$(find "$CHECKOV_DIR" -name '*.json' -type f ! -name '*summary*' 2>/dev/null)" ]; then
+    if [ "${SCAN_MODE:-full}" = "quick" ] && { [ ! -d "$CHECKOV_DIR" ] || [ -z "$(find "$CHECKOV_DIR" -name '*.json' -type f ! -name '*summary*' 2>/dev/null)" ]; }; then
+        CHECKOV_FINDINGS="<div style='padding:20px;text-align:center;background:linear-gradient(135deg,#1a1d23 0%,#2C3539 100%);border:2px solid #6366f1;border-radius:8px;'><p style='color:#818cf8;font-size:1.1em;'>&#x23ED;&#xFE0F; <strong>Not run in quick mode</strong></p><p style='color:#9ca3af;font-size:0.9em;margin-top:8px;'>Checkov IaC scanning is skipped for faster PR scans. Run a full scan (push or scheduled) for complete results.</p></div>"
+    elif [ ! -d "$CHECKOV_DIR" ] || [ -z "$(find "$CHECKOV_DIR" -name '*.json' -type f ! -name '*summary*' 2>/dev/null)" ]; then
         CHECKOV_FINDINGS="<div style='padding: 20px; text-align: center; color: #718096;'>
             <p><strong>ℹ️ Checkov scan was not executed or produced no results</strong></p>
             <p style='font-size: 0.9em; margin-top: 10px;'>This could indicate:</p>
             <ul style='text-align: left; display: inline-block; margin-top: 10px;'>
-                <li>Scan was skipped due to scan mode selection</li>
                 <li>No IaC files (Terraform, Kubernetes, Helm, Dockerfile) were found</li>
                 <li>Scan failed to complete (check logs)</li>
             </ul>
@@ -1102,7 +1105,11 @@ if [ -d "$ANCHORE_DIR" ]; then
         ANCHORE_FINDINGS="<p class=\"no-findings\">✅ No vulnerabilities detected</p>"
     fi
 else
-    ANCHORE_FINDINGS="<p class=\"no-findings\">No Anchore results available</p>"
+    if [ "${SCAN_MODE:-full}" = "quick" ]; then
+        ANCHORE_FINDINGS="<div style='padding:20px;text-align:center;background:linear-gradient(135deg,#1a1d23 0%,#2C3539 100%);border:2px solid #6366f1;border-radius:8px;'><p style='color:#818cf8;font-size:1.1em;'>&#x23ED;&#xFE0F; <strong>Not run in quick mode</strong></p><p style='color:#9ca3af;font-size:0.9em;margin-top:8px;'>Anchore security scanning is skipped for faster PR scans. Run a full scan (push or scheduled) for complete results.</p></div>"
+    else
+        ANCHORE_FINDINGS="<p class=\"no-findings\">No Anchore results available</p>"
+    fi
 fi
 
 # ---- SonarQube Statistics ----
@@ -1222,18 +1229,22 @@ if [ -f "$LATEST_SONAR" ]; then
 else
     SONAR_CRITICAL=0
     SONAR_HIGH=0
-    SONAR_FINDINGS="<div class=\"stats-detail-box\" style=\"background:linear-gradient(135deg, #1a1d23 0%, #2C3539 100%);border:2px solid #6b7280;box-shadow:0 4px 12px rgba(107, 114, 128, 0.3);\">"
-    SONAR_FINDINGS="${SONAR_FINDINGS}<h4 style=\"color:#9ca3af;margin-bottom:10px;\">📊 SonarQube Not Configured</h4>"
-    SONAR_FINDINGS="${SONAR_FINDINGS}<p style=\"color:#d1d5db;margin:10px 0;\">No SonarQube analysis was performed for this scan.</p>"
-    SONAR_FINDINGS="${SONAR_FINDINGS}<div style=\"margin-top:15px;padding:15px;background:#1f2937;border-left:4px solid #6b7280;border-radius:4px;\">"
-    SONAR_FINDINGS="${SONAR_FINDINGS}<p style=\"margin:5px 0;color:#d1d5db;\"><strong>To enable code quality analysis:</strong></p>"
-    SONAR_FINDINGS="${SONAR_FINDINGS}<ol style=\"margin:10px 0;padding-left:20px;color:#d1d5db;\">"
-    SONAR_FINDINGS="${SONAR_FINDINGS}<li>Set up SonarQube server or use existing instance</li>"
-    SONAR_FINDINGS="${SONAR_FINDINGS}<li>Create <code>.env.sonar</code> with authentication credentials</li>"
-    SONAR_FINDINGS="${SONAR_FINDINGS}<li>Run scan to include code quality metrics</li>"
-    SONAR_FINDINGS="${SONAR_FINDINGS}</ol>"
-    SONAR_FINDINGS="${SONAR_FINDINGS}</div>"
-    SONAR_FINDINGS="${SONAR_FINDINGS}</div>"
+    if [ "${SCAN_MODE:-full}" = "quick" ]; then
+        SONAR_FINDINGS="<div style='padding:20px;text-align:center;background:linear-gradient(135deg,#1a1d23 0%,#2C3539 100%);border:2px solid #6366f1;border-radius:8px;'><p style='color:#818cf8;font-size:1.1em;'>&#x23ED;&#xFE0F; <strong>Not run in quick mode</strong></p><p style='color:#9ca3af;font-size:0.9em;margin-top:8px;'>SonarQube code quality analysis is skipped for faster PR scans. Run a full scan (push or scheduled) for complete results.</p></div>"
+    else
+        SONAR_FINDINGS="<div class=\"stats-detail-box\" style=\"background:linear-gradient(135deg, #1a1d23 0%, #2C3539 100%);border:2px solid #6b7280;box-shadow:0 4px 12px rgba(107, 114, 128, 0.3);\">"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<h4 style=\"color:#9ca3af;margin-bottom:10px;\">📊 SonarQube Not Configured</h4>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<p style=\"color:#d1d5db;margin:10px 0;\">No SonarQube analysis was performed for this scan.</p>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<div style=\"margin-top:15px;padding:15px;background:#1f2937;border-left:4px solid #6b7280;border-radius:4px;\">"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<p style=\"margin:5px 0;color:#d1d5db;\"><strong>To enable code quality analysis:</strong></p>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<ol style=\"margin:10px 0;padding-left:20px;color:#d1d5db;\">"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<li>Set up SonarQube server or use existing instance</li>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<li>Create <code>.env.sonar</code> with authentication credentials</li>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}<li>Run scan to include code quality metrics</li>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}</ol>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}</div>"
+        SONAR_FINDINGS="${SONAR_FINDINGS}</div>"
+    fi
 fi
 
 # ---- Helm Statistics ----
@@ -2813,6 +2824,94 @@ cat > "$OUTPUT_HTML" << 'EOF'
                 justify-content: center;
             }
         }
+
+        /* ── IOC Summary Panel ──────────────────────────── */
+        .ioc-summary {
+            background: linear-gradient(135deg, #0f1419 0%, #1a1d23 100%);
+            border: 2px solid #C41E3A;
+            border-radius: 16px;
+            padding: 28px 32px;
+            margin-bottom: 28px;
+            box-shadow: 0 4px 24px rgba(196,30,58,0.25);
+        }
+        .ioc-summary h3 {
+            color: #e8eaed;
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            letter-spacing: 0.5px;
+        }
+        .ioc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+            gap: 14px;
+        }
+        .ioc-card {
+            border-radius: 12px;
+            padding: 18px 14px;
+            text-align: center;
+            border: 1px solid #4a5568;
+            background: #1a1d23;
+            transition: transform 0.25s, box-shadow 0.25s;
+        }
+        .ioc-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.45); }
+        .ioc-card.alert  { border-color: #C41E3A; background: #2a1215; }
+        .ioc-card.warning{ border-color: #f97316; background: #2a1f15; }
+        .ioc-card.clean  { border-color: #10b981; background: #1a2e1f; }
+        .ioc-card.skipped{ border-color: #6366f1; background: #1a1a2e; opacity:.85; }
+        .ioc-icon  { font-size: 1.7em; margin-bottom: 6px; }
+        .ioc-count { font-size: 1.9em; font-weight: 700; margin: 4px 0; line-height: 1.1; }
+        .ioc-card.alert   .ioc-count { color: #C41E3A; }
+        .ioc-card.warning .ioc-count { color: #f97316; }
+        .ioc-card.clean   .ioc-count { color: #4ade80; }
+        .ioc-card.skipped .ioc-count { color: #818cf8; }
+        .ioc-label  { font-size: 0.72em; text-transform: uppercase; letter-spacing: .5px; color: #9ca3af; font-weight: 600; }
+        .ioc-source { font-size: 0.68em; color: #6b7280; margin-top: 4px; }
+
+        /* ── Donut Layout ────────────────────────────────── */
+        .donut-layout {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .donut-panel {
+            flex: 0 0 auto;
+            background: linear-gradient(135deg, #1a1d23 0%, #2C3539 100%);
+            border-radius: 16px;
+            padding: 28px 24px;
+            text-align: center;
+            border: 1px solid #4a5568;
+            min-width: 230px;
+        }
+        .donut-canvas-wrap { position: relative; display: inline-block; }
+        #severity-donut { display: block; cursor: crosshair; }
+        .donut-center {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%,-50%);
+            pointer-events: none; text-align: center;
+        }
+        .donut-center-count { font-size: 2em; font-weight: 700; color: #e8eaed; line-height:1; }
+        .donut-center-sub   { font-size: 0.65em; color: #9ca3af; text-transform: uppercase; letter-spacing: 1px; margin-top: 3px; }
+        .donut-legend { margin-top: 14px; display: flex; flex-direction: column; gap: 5px; text-align: left; }
+        .donut-legend-item {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 0.82em; padding: 4px 8px; border-radius: 6px;
+            background: rgba(0,0,0,.2); transition: background .2s; cursor: default;
+        }
+        .donut-legend-item:hover { background: rgba(255,255,255,.05); }
+        .donut-legend-dot  { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+        .donut-legend-text { flex: 1; color: #d1d5db; }
+        .donut-legend-count{ font-weight: 700; color: #e8eaed; }
+        .donut-legend-pct  { color: #6b7280; font-size: .85em; margin-left: 4px; }
+        #donut-tooltip {
+            position: fixed; display: none;
+            background: #1a1d23; border: 1px solid #4a5568; border-radius: 8px;
+            padding: 10px 14px; font-size: .82em; pointer-events: none;
+            z-index: 9999; box-shadow: 0 4px 16px rgba(0,0,0,.55); color: #e8eaed;
+            min-width: 130px;
+        }
+        .stats-panel { flex: 1; min-width: 280px; }
     </style>
 </head>
 <body>
@@ -2829,7 +2928,44 @@ if [ "$TOTAL_CRITICAL" -gt 0 ]; then
 EOF
 fi
 
-# Add header and stats
+# Compute IOC indicator values for the summary panel
+IOC_SECRETS=$((TH_CRITICAL + TH_HIGH))
+IOC_CVE_CRITICAL=$((GRYPE_CRITICAL + TRIVY_CRITICAL))
+IOC_CVE_TOTAL=$((GRYPE_CRITICAL + GRYPE_HIGH + GRYPE_MEDIUM + GRYPE_LOW + TRIVY_CRITICAL + TRIVY_HIGH + TRIVY_MEDIUM + TRIVY_LOW))
+IOC_IAC=${CHECKOV_FAILED:-0}
+IOC_CODE=$((SONAR_VULNS + SONAR_BUGS))
+IOC_EOL=$((XEOL_CRITICAL + XEOL_HIGH + XEOL_MEDIUM + XEOL_LOW))
+IOC_SUPPLY=$((ANCHORE_CRITICAL + ANCHORE_HIGH + ANCHORE_MEDIUM + ANCHORE_LOW))
+# Card state helpers
+if [ "$IOC_SECRETS" -gt 0 ]; then IOC_CLASS_SECRETS="alert"; else IOC_CLASS_SECRETS="clean"; fi
+if [ "${SCAN_MODE:-full}" = "quick" ]; then
+    IOC_CLASS_MALWARE="skipped"; IOC_MALWARE_DISP="&#x23ED;"
+elif [ "${CLAMAV_INFECTED:-0}" -gt 0 ]; then
+    IOC_CLASS_MALWARE="alert"; IOC_MALWARE_DISP="${CLAMAV_INFECTED}"
+else IOC_CLASS_MALWARE="clean"; IOC_MALWARE_DISP="0"; fi
+if [ "$IOC_CVE_CRITICAL" -gt 0 ]; then IOC_CLASS_CVES="alert";
+elif [ "$IOC_CVE_TOTAL" -gt 0 ]; then IOC_CLASS_CVES="warning";
+else IOC_CLASS_CVES="clean"; fi
+if [ "${SCAN_MODE:-full}" = "quick" ]; then IOC_CLASS_IAC="skipped"; IOC_IAC_DISP="&#x23ED;";
+elif [ "$IOC_IAC" -gt 0 ]; then IOC_CLASS_IAC="warning"; IOC_IAC_DISP="$IOC_IAC";
+else IOC_CLASS_IAC="clean"; IOC_IAC_DISP="0"; fi
+if [ "${SCAN_MODE:-full}" = "quick" ]; then IOC_CLASS_CODE="skipped"; IOC_CODE_DISP="&#x23ED;";
+elif [ "$IOC_CODE" -gt 0 ]; then IOC_CLASS_CODE="warning"; IOC_CODE_DISP="$IOC_CODE";
+else IOC_CLASS_CODE="clean"; IOC_CODE_DISP="0"; fi
+if [ "$IOC_EOL" -gt 0 ]; then IOC_CLASS_EOL="warning"; else IOC_CLASS_EOL="clean"; fi
+if [ "${SCAN_MODE:-full}" = "quick" ]; then IOC_CLASS_SUPPLY="skipped"; IOC_SUPPLY_DISP="&#x23ED;";
+elif [ "${ANCHORE_CRITICAL:-0}" -gt 0 ]; then IOC_CLASS_SUPPLY="alert"; IOC_SUPPLY_DISP="$IOC_SUPPLY";
+elif [ "$IOC_SUPPLY" -gt 0 ]; then IOC_CLASS_SUPPLY="warning"; IOC_SUPPLY_DISP="$IOC_SUPPLY";
+else IOC_CLASS_SUPPLY="clean"; IOC_SUPPLY_DISP="0"; fi
+# Donut legend percentages (integer math)
+if [ "${TOTAL_FINDINGS:-0}" -gt 0 ]; then
+    PCT_C=$(( TOTAL_CRITICAL * 100 / TOTAL_FINDINGS ))
+    PCT_H=$(( TOTAL_HIGH    * 100 / TOTAL_FINDINGS ))
+    PCT_M=$(( TOTAL_MEDIUM  * 100 / TOTAL_FINDINGS ))
+    PCT_L=$(( TOTAL_LOW     * 100 / TOTAL_FINDINGS ))
+else PCT_C=0; PCT_H=0; PCT_M=0; PCT_L=0; fi
+
+# Add header, IOC summary, donut, and stats
 cat >> "$OUTPUT_HTML" << EOF
         <div class="header">
             <h1>EPYON</h1>
@@ -2838,33 +2974,128 @@ cat >> "$OUTPUT_HTML" << EOF
             <p class="subtitle"><strong>Generated:</strong> $(date '+%B %d, %Y at %I:%M %p')</p>
         </div>
 
-        <div class="stats-grid">
-            <div class="stat-card critical-stat">
-                <div class="stat-label">Critical</div>
-                <div class="stat-number">${TOTAL_CRITICAL}</div>
-                <p>Immediate action required</p>
-            </div>
-            <div class="stat-card high-stat">
-                <div class="stat-label">High</div>
-                <div class="stat-number">${TOTAL_HIGH}</div>
-                <p>High priority issues</p>
-            </div>
-            <div class="stat-card medium-stat">
-                <div class="stat-label">Medium</div>
-                <div class="stat-number">${TOTAL_MEDIUM}</div>
-                <p>Medium priority issues</p>
-            </div>
-            <div class="stat-card low-stat">
-                <div class="stat-label">Low</div>
-                <div class="stat-number">${TOTAL_LOW}</div>
-                <p>Low priority issues</p>
-            </div>
-            <div class="stat-card" style="background: linear-gradient(135deg, #2a1f15 0%, #3a2f25 100%); border-color: #fbbf24;">
-                <div class="stat-label" style="color: #fbbf24;">🔕 Suppressed</div>
-                <div class="stat-number" style="color: #fbbf24;">${SUPPRESSED_COUNT}</div>
-                <p style="color: #d1d5db;">Acknowledged findings</p>
+        <!-- IOC Summary Panel -->
+        <div class="ioc-summary">
+            <h3>🎯 Indicators of Compromise</h3>
+            <div class="ioc-grid">
+                <div class="ioc-card ${IOC_CLASS_SECRETS}">
+                    <div class="ioc-icon">🔑</div>
+                    <div class="ioc-count">${IOC_SECRETS}</div>
+                    <div class="ioc-label">Exposed Secrets</div>
+                    <div class="ioc-source">TruffleHog</div>
+                </div>
+                <div class="ioc-card ${IOC_CLASS_MALWARE}">
+                    <div class="ioc-icon">🦠</div>
+                    <div class="ioc-count">${IOC_MALWARE_DISP}</div>
+                    <div class="ioc-label">Malware</div>
+                    <div class="ioc-source">ClamAV</div>
+                </div>
+                <div class="ioc-card ${IOC_CLASS_CVES}">
+                    <div class="ioc-icon">📦</div>
+                    <div class="ioc-count">${IOC_CVE_TOTAL}</div>
+                    <div class="ioc-label">Dependency CVEs</div>
+                    <div class="ioc-source">Grype + Trivy</div>
+                </div>
+                <div class="ioc-card ${IOC_CLASS_IAC}">
+                    <div class="ioc-icon">⚙️</div>
+                    <div class="ioc-count">${IOC_IAC_DISP}</div>
+                    <div class="ioc-label">IaC Issues</div>
+                    <div class="ioc-source">Checkov</div>
+                </div>
+                <div class="ioc-card ${IOC_CLASS_CODE}">
+                    <div class="ioc-icon">💻</div>
+                    <div class="ioc-count">${IOC_CODE_DISP}</div>
+                    <div class="ioc-label">Code Bugs/Vulns</div>
+                    <div class="ioc-source">SonarQube</div>
+                </div>
+                <div class="ioc-card ${IOC_CLASS_EOL}">
+                    <div class="ioc-icon">⚰️</div>
+                    <div class="ioc-count">${IOC_EOL}</div>
+                    <div class="ioc-label">EOL Components</div>
+                    <div class="ioc-source">Xeol</div>
+                </div>
+                <div class="ioc-card ${IOC_CLASS_SUPPLY}">
+                    <div class="ioc-icon">⚓</div>
+                    <div class="ioc-count">${IOC_SUPPLY_DISP}</div>
+                    <div class="ioc-label">Supply Chain</div>
+                    <div class="ioc-source">Anchore</div>
+                </div>
             </div>
         </div>
+
+        <!-- CVE Severity Donut + Stat Cards -->
+        <div class="donut-layout">
+            <div class="donut-panel">
+                <div class="donut-canvas-wrap">
+                    <canvas id="severity-donut" width="200" height="200"
+                        data-critical="${TOTAL_CRITICAL}"
+                        data-high="${TOTAL_HIGH}"
+                        data-medium="${TOTAL_MEDIUM}"
+                        data-low="${TOTAL_LOW}"></canvas>
+                    <div class="donut-center">
+                        <div class="donut-center-count">${TOTAL_FINDINGS}</div>
+                        <div class="donut-center-sub">Total</div>
+                    </div>
+                </div>
+                <div class="donut-legend">
+                    <div class="donut-legend-item">
+                        <span class="donut-legend-dot" style="background:#C41E3A"></span>
+                        <span class="donut-legend-text">Critical</span>
+                        <span class="donut-legend-count">${TOTAL_CRITICAL}</span>
+                        <span class="donut-legend-pct">${PCT_C}%</span>
+                    </div>
+                    <div class="donut-legend-item">
+                        <span class="donut-legend-dot" style="background:#FF1493"></span>
+                        <span class="donut-legend-text">High</span>
+                        <span class="donut-legend-count">${TOTAL_HIGH}</span>
+                        <span class="donut-legend-pct">${PCT_H}%</span>
+                    </div>
+                    <div class="donut-legend-item">
+                        <span class="donut-legend-dot" style="background:#f97316"></span>
+                        <span class="donut-legend-text">Medium</span>
+                        <span class="donut-legend-count">${TOTAL_MEDIUM}</span>
+                        <span class="donut-legend-pct">${PCT_M}%</span>
+                    </div>
+                    <div class="donut-legend-item">
+                        <span class="donut-legend-dot" style="background:#4ade80"></span>
+                        <span class="donut-legend-text">Low</span>
+                        <span class="donut-legend-count">${TOTAL_LOW}</span>
+                        <span class="donut-legend-pct">${PCT_L}%</span>
+                    </div>
+                </div>
+                <p style="font-size:0.68em;color:#6b7280;margin-top:10px;">Hover slices for details</p>
+            </div>
+            <div class="stats-panel">
+                <div class="stats-grid" style="margin-bottom:0">
+                    <div class="stat-card critical-stat">
+                        <div class="stat-label">Critical</div>
+                        <div class="stat-number">${TOTAL_CRITICAL}</div>
+                        <p>Immediate action required</p>
+                    </div>
+                    <div class="stat-card high-stat">
+                        <div class="stat-label">High</div>
+                        <div class="stat-number">${TOTAL_HIGH}</div>
+                        <p>High priority issues</p>
+                    </div>
+                    <div class="stat-card medium-stat">
+                        <div class="stat-label">Medium</div>
+                        <div class="stat-number">${TOTAL_MEDIUM}</div>
+                        <p>Medium priority issues</p>
+                    </div>
+                    <div class="stat-card low-stat">
+                        <div class="stat-label">Low</div>
+                        <div class="stat-number">${TOTAL_LOW}</div>
+                        <p>Low priority issues</p>
+                    </div>
+                    <div class="stat-card" style="background: linear-gradient(135deg, #2a1f15 0%, #3a2f25 100%); border-color: #fbbf24;">
+                        <div class="stat-label" style="color: #fbbf24;">🔕 Suppressed</div>
+                        <div class="stat-number" style="color: #fbbf24;">${SUPPRESSED_COUNT}</div>
+                        <p style="color: #d1d5db;">Acknowledged findings</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="donut-tooltip"></div>
 
         <!-- Show suppressed findings info if any -->
         ${SUPPRESSED_HTML}
@@ -4565,8 +4796,91 @@ cat >> "$OUTPUT_HTML" << EOF
             });
         }
         
+        // ── Severity Donut Chart ──────────────────────────
+        function initSeverityDonut() {
+            const canvas = document.getElementById('severity-donut');
+            if (!canvas || !canvas.getContext) return;
+            const ctx = canvas.getContext('2d');
+            const critical = parseInt(canvas.dataset.critical) || 0;
+            const high     = parseInt(canvas.dataset.high)     || 0;
+            const medium   = parseInt(canvas.dataset.medium)   || 0;
+            const low      = parseInt(canvas.dataset.low)      || 0;
+            const total    = critical + high + medium + low;
+            const cx = canvas.width / 2, cy = canvas.height / 2;
+            const outerR = 82, innerR = 52, gap = 0.05;
+            const segments = [
+                { label: 'Critical', count: critical, color: '#C41E3A' },
+                { label: 'High',     count: high,     color: '#FF1493' },
+                { label: 'Medium',   count: medium,   color: '#f97316' },
+                { label: 'Low',      count: low,      color: '#4ade80' },
+            ];
+            function draw(hovIdx) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                if (total === 0) {
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, outerR, 0, 2 * Math.PI);
+                    ctx.arc(cx, cy, innerR, 0, 2 * Math.PI, true);
+                    ctx.fillStyle = '#374151'; ctx.fill(); return;
+                }
+                let start = -Math.PI / 2;
+                for (let i = 0; i < segments.length; i++) {
+                    const s = segments[i];
+                    if (s.count === 0) continue;
+                    const sweep = (s.count / total) * 2 * Math.PI - gap;
+                    const hov   = hovIdx === i;
+                    const r     = hov ? outerR + 7 : outerR;
+                    const sa    = start + gap / 2, ea = sa + sweep;
+                    ctx.beginPath();
+                    ctx.moveTo(cx + innerR * Math.cos(sa), cy + innerR * Math.sin(sa));
+                    ctx.arc(cx, cy, r, sa, ea);
+                    ctx.arc(cx, cy, innerR, ea, sa, true);
+                    ctx.closePath();
+                    ctx.fillStyle = hov ? s.color : s.color + 'cc';
+                    ctx.fill();
+                    if (hov) { ctx.strokeStyle = '#ffffff44'; ctx.lineWidth = 1.5; ctx.stroke(); }
+                    start += sweep + gap;
+                }
+            }
+            draw(-1);
+            const tooltip = document.getElementById('donut-tooltip');
+            function hitTest(mx, my) {
+                const rect = canvas.getBoundingClientRect();
+                const x = mx - rect.left - cx, y = my - rect.top - cy;
+                const d = Math.sqrt(x*x + y*y);
+                if (d < innerR - 2 || d > outerR + 16) return -1;
+                let a = Math.atan2(y, x) + Math.PI / 2;
+                if (a < 0) a += 2 * Math.PI;
+                let start = 0;
+                for (let i = 0; i < segments.length; i++) {
+                    if (segments[i].count === 0) continue;
+                    const sweep = (segments[i].count / total) * 2 * Math.PI;
+                    if (a >= start && a < start + sweep) return i;
+                    start += sweep;
+                }
+                return -1;
+            }
+            canvas.addEventListener('mousemove', function(e) {
+                const idx = hitTest(e.clientX, e.clientY);
+                draw(idx);
+                if (idx >= 0) {
+                    const s = segments[idx];
+                    const pct = ((s.count / total) * 100).toFixed(1);
+                    tooltip.innerHTML = '<strong style="color:' + s.color + '">' + s.label + '</strong><br>' + s.count + ' findings<br><span style="color:#9ca3af">' + pct + '% of total</span>';
+                    tooltip.style.display = 'block';
+                    tooltip.style.left  = (e.clientX + 16) + 'px';
+                    tooltip.style.top   = (e.clientY - 12) + 'px';
+                } else { tooltip.style.display = 'none'; }
+            });
+            canvas.addEventListener('mouseleave', function() {
+                draw(-1); tooltip.style.display = 'none';
+            });
+        }
+
         // Auto-expand first tool with findings
         window.addEventListener('DOMContentLoaded', () => {
+            // Draw severity donut chart
+            initSeverityDonut();
+
             // Update source counts based on actual data-source attributes
             updateSourceCounts();
             

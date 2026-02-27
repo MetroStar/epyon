@@ -3024,10 +3024,10 @@ cat >> "$OUTPUT_HTML" << EOF
         </div>
 
         <!-- CVE Severity Donut + Stat Cards -->
-        <div class="donut-layout">
+        <div class="donut-layout" style="justify-content:center;">
             <div class="donut-panel">
                 <div class="donut-canvas-wrap">
-                    <canvas id="severity-donut" width="200" height="200"
+                    <canvas id="severity-donut" width="220" height="220"
                         data-critical="${TOTAL_CRITICAL}"
                         data-high="${TOTAL_HIGH}"
                         data-medium="${TOTAL_MEDIUM}"
@@ -3062,37 +3062,14 @@ cat >> "$OUTPUT_HTML" << EOF
                         <span class="donut-legend-count">${TOTAL_LOW}</span>
                         <span class="donut-legend-pct">${PCT_L}%</span>
                     </div>
+                    <div class="donut-legend-item" style="background:rgba(251,191,36,.08);border-left:3px solid #fbbf24;">
+                        <span class="donut-legend-dot" style="background:#fbbf24"></span>
+                        <span class="donut-legend-text" style="color:#fbbf24;">Suppressed</span>
+                        <span class="donut-legend-count" style="color:#fbbf24;">${SUPPRESSED_COUNT}</span>
+                        <span class="donut-legend-pct">acknowledged</span>
+                    </div>
                 </div>
                 <p style="font-size:0.68em;color:#6b7280;margin-top:10px;">Hover slices for details</p>
-            </div>
-            <div class="stats-panel">
-                <div class="stats-grid" style="margin-bottom:0">
-                    <div class="stat-card critical-stat">
-                        <div class="stat-label">Critical</div>
-                        <div class="stat-number">${TOTAL_CRITICAL}</div>
-                        <p>Immediate action required</p>
-                    </div>
-                    <div class="stat-card high-stat">
-                        <div class="stat-label">High</div>
-                        <div class="stat-number">${TOTAL_HIGH}</div>
-                        <p>High priority issues</p>
-                    </div>
-                    <div class="stat-card medium-stat">
-                        <div class="stat-label">Medium</div>
-                        <div class="stat-number">${TOTAL_MEDIUM}</div>
-                        <p>Medium priority issues</p>
-                    </div>
-                    <div class="stat-card low-stat">
-                        <div class="stat-label">Low</div>
-                        <div class="stat-number">${TOTAL_LOW}</div>
-                        <p>Low priority issues</p>
-                    </div>
-                    <div class="stat-card" style="background: linear-gradient(135deg, #2a1f15 0%, #3a2f25 100%); border-color: #fbbf24;">
-                        <div class="stat-label" style="color: #fbbf24;">🔕 Suppressed</div>
-                        <div class="stat-number" style="color: #fbbf24;">${SUPPRESSED_COUNT}</div>
-                        <p style="color: #d1d5db;">Acknowledged findings</p>
-                    </div>
-                </div>
             </div>
         </div>
         <div id="donut-tooltip"></div>
@@ -4807,7 +4784,7 @@ cat >> "$OUTPUT_HTML" << EOF
             const low      = parseInt(canvas.dataset.low)      || 0;
             const total    = critical + high + medium + low;
             const cx = canvas.width / 2, cy = canvas.height / 2;
-            const outerR = 82, innerR = 52, gap = 0.05;
+            const outerR = 90, innerR = 58, gap = 0.05;
             const segments = [
                 { label: 'Critical', count: critical, color: '#C41E3A' },
                 { label: 'High',     count: high,     color: '#FF1493' },

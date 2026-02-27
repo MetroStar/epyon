@@ -166,6 +166,7 @@ jobs:
           SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-trufflehog-scan.sh filesystem || echo "TruffleHog scan completed with warnings"
       
       - name: Layer 3 - Code Quality (SonarQube)
+        if: env.SCAN_MODE != 'quick'
         continue-on-error: true
         env:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
@@ -215,6 +216,7 @@ jobs:
           SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-sonar-analysis.sh || echo "SonarQube analysis completed with warnings"
       
       - name: Layer 4 - Malware Detection (ClamAV)
+        if: env.SCAN_MODE != 'quick'
         continue-on-error: true
         run: |
           source /tmp/epyon-env
@@ -231,6 +233,7 @@ jobs:
           SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-helm-build.sh || echo "Helm build completed with warnings"
       
       - name: Layer 6 - Infrastructure Security (Checkov)
+        if: env.SCAN_MODE != 'quick'
         continue-on-error: true
         env:
           CI: true
@@ -268,6 +271,7 @@ jobs:
           SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-xeol-scan.sh || echo "Xeol scan completed with warnings"
       
       - name: Layer 10 - Anchore Security
+        if: env.SCAN_MODE != 'quick'
         continue-on-error: true
         run: |
           source /tmp/epyon-env

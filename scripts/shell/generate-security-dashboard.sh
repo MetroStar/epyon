@@ -2858,14 +2858,16 @@ cat > "$OUTPUT_HTML" << 'EOF'
         .ioc-card.warning{ border-color: #f97316; background: #2a1f15; }
         .ioc-card.clean  { border-color: #10b981; background: #1a2e1f; }
         .ioc-card.skipped{ border-color: #6366f1; background: #1a1a2e; opacity:.85; }
-        .ioc-icon  { font-size: 1.7em; margin-bottom: 6px; }
-        .ioc-count { font-size: 1.9em; font-weight: 700; margin: 4px 0; line-height: 1.1; }
-        .ioc-card.alert   .ioc-count { color: #C41E3A; }
-        .ioc-card.warning .ioc-count { color: #f97316; }
-        .ioc-card.clean   .ioc-count { color: #4ade80; }
-        .ioc-card.skipped .ioc-count { color: #818cf8; }
+        .ioc-icon  { font-size: 1.5em; margin-bottom: 2px; }
+        .ioc-mini-total { font-size: 1.05em; font-weight: 700; color: #e8eaed; line-height: 1; }
+        .ioc-card.alert   .ioc-mini-total { color: #C41E3A; }
+        .ioc-card.warning .ioc-mini-total { color: #f97316; }
+        .ioc-card.clean   .ioc-mini-total { color: #4ade80; }
+        .ioc-card.skipped .ioc-mini-total { color: #818cf8; }
+        .ioc-mini-sub { font-size: 0.58em; color: #6b7280; letter-spacing: 0.3px; margin-top: 1px; }
         .ioc-label  { font-size: 0.72em; text-transform: uppercase; letter-spacing: .5px; color: #9ca3af; font-weight: 600; }
-        .ioc-source { font-size: 0.68em; color: #6b7280; margin-top: 4px; }
+        .ioc-source { font-size: 0.68em; color: #6b7280; margin-top: 3px; }
+        canvas.ioc-mini-donut { display: block; cursor: crosshair; }
 
         /* ── Donut Layout ────────────────────────────────── */
         .donut-layout {
@@ -2932,6 +2934,9 @@ fi
 IOC_SECRETS=$((TH_CRITICAL + TH_HIGH))
 IOC_CVE_CRITICAL=$((GRYPE_CRITICAL + TRIVY_CRITICAL))
 IOC_CVE_TOTAL=$((GRYPE_CRITICAL + GRYPE_HIGH + GRYPE_MEDIUM + GRYPE_LOW + TRIVY_CRITICAL + TRIVY_HIGH + TRIVY_MEDIUM + TRIVY_LOW))
+IOC_CVE_HIGH=$((GRYPE_HIGH + TRIVY_HIGH))
+IOC_CVE_MEDIUM=$((GRYPE_MEDIUM + TRIVY_MEDIUM))
+IOC_CVE_LOW=$((GRYPE_LOW + TRIVY_LOW))
 IOC_IAC=${CHECKOV_FAILED:-0}
 IOC_CODE=$((SONAR_VULNS + SONAR_BUGS))
 IOC_EOL=$((XEOL_CRITICAL + XEOL_HIGH + XEOL_MEDIUM + XEOL_LOW))
@@ -2980,43 +2985,99 @@ cat >> "$OUTPUT_HTML" << EOF
             <div class="ioc-grid">
                 <div class="ioc-card ${IOC_CLASS_SECRETS}">
                     <div class="ioc-icon">🔑</div>
-                    <div class="ioc-count">${IOC_SECRETS}</div>
+                    <div class="donut-canvas-wrap" style="margin:4px 0">
+                        <canvas class="ioc-mini-donut" id="ioc-donut-secrets" width="100" height="100"
+                            data-critical="${TH_CRITICAL}" data-high="${TH_HIGH}" data-medium="0" data-low="0"
+                            data-skipped="false" data-source="TruffleHog"></canvas>
+                        <div class="donut-center">
+                            <div class="ioc-mini-total">${IOC_SECRETS}</div>
+                            <div class="ioc-mini-sub">secrets</div>
+                        </div>
+                    </div>
                     <div class="ioc-label">Exposed Secrets</div>
                     <div class="ioc-source">TruffleHog</div>
                 </div>
                 <div class="ioc-card ${IOC_CLASS_MALWARE}">
                     <div class="ioc-icon">🦠</div>
-                    <div class="ioc-count">${IOC_MALWARE_DISP}</div>
+                    <div class="donut-canvas-wrap" style="margin:4px 0">
+                        <canvas class="ioc-mini-donut" id="ioc-donut-malware" width="100" height="100"
+                            data-critical="${CLAMAV_INFECTED}" data-high="0" data-medium="0" data-low="0"
+                            data-skipped="${IOC_SKIP_MALWARE}" data-source="ClamAV"></canvas>
+                        <div class="donut-center">
+                            <div class="ioc-mini-total">${IOC_MALWARE_DISP}</div>
+                            <div class="ioc-mini-sub">infected</div>
+                        </div>
+                    </div>
                     <div class="ioc-label">Malware</div>
                     <div class="ioc-source">ClamAV</div>
                 </div>
                 <div class="ioc-card ${IOC_CLASS_CVES}">
                     <div class="ioc-icon">📦</div>
-                    <div class="ioc-count">${IOC_CVE_TOTAL}</div>
+                    <div class="donut-canvas-wrap" style="margin:4px 0">
+                        <canvas class="ioc-mini-donut" id="ioc-donut-cves" width="100" height="100"
+                            data-critical="${IOC_CVE_CRITICAL}" data-high="${IOC_CVE_HIGH}" data-medium="${IOC_CVE_MEDIUM}" data-low="${IOC_CVE_LOW}"
+                            data-skipped="false" data-source="Grype + Trivy"></canvas>
+                        <div class="donut-center">
+                            <div class="ioc-mini-total">${IOC_CVE_TOTAL}</div>
+                            <div class="ioc-mini-sub">CVEs</div>
+                        </div>
+                    </div>
                     <div class="ioc-label">Dependency CVEs</div>
                     <div class="ioc-source">Grype + Trivy</div>
                 </div>
                 <div class="ioc-card ${IOC_CLASS_IAC}">
                     <div class="ioc-icon">⚙️</div>
-                    <div class="ioc-count">${IOC_IAC_DISP}</div>
+                    <div class="donut-canvas-wrap" style="margin:4px 0">
+                        <canvas class="ioc-mini-donut" id="ioc-donut-iac" width="100" height="100"
+                            data-critical="0" data-high="${CHECKOV_FAILED}" data-medium="0" data-low="0"
+                            data-skipped="${IOC_SKIP_IAC}" data-source="Checkov"></canvas>
+                        <div class="donut-center">
+                            <div class="ioc-mini-total">${IOC_IAC_DISP}</div>
+                            <div class="ioc-mini-sub">failures</div>
+                        </div>
+                    </div>
                     <div class="ioc-label">IaC Issues</div>
                     <div class="ioc-source">Checkov</div>
                 </div>
                 <div class="ioc-card ${IOC_CLASS_CODE}">
                     <div class="ioc-icon">💻</div>
-                    <div class="ioc-count">${IOC_CODE_DISP}</div>
+                    <div class="donut-canvas-wrap" style="margin:4px 0">
+                        <canvas class="ioc-mini-donut" id="ioc-donut-code" width="100" height="100"
+                            data-critical="${SONAR_CRITICAL}" data-high="${SONAR_HIGH}" data-medium="${SONAR_SECURITY_HOTSPOTS}" data-low="${SONAR_CODE_SMELLS}"
+                            data-skipped="${IOC_SKIP_CODE}" data-source="SonarQube"></canvas>
+                        <div class="donut-center">
+                            <div class="ioc-mini-total">${IOC_CODE_DISP}</div>
+                            <div class="ioc-mini-sub">issues</div>
+                        </div>
+                    </div>
                     <div class="ioc-label">Code Bugs/Vulns</div>
                     <div class="ioc-source">SonarQube</div>
                 </div>
                 <div class="ioc-card ${IOC_CLASS_EOL}">
                     <div class="ioc-icon">⚰️</div>
-                    <div class="ioc-count">${IOC_EOL}</div>
+                    <div class="donut-canvas-wrap" style="margin:4px 0">
+                        <canvas class="ioc-mini-donut" id="ioc-donut-eol" width="100" height="100"
+                            data-critical="${XEOL_CRITICAL}" data-high="${XEOL_HIGH}" data-medium="${XEOL_MEDIUM}" data-low="${XEOL_LOW}"
+                            data-skipped="false" data-source="Xeol"></canvas>
+                        <div class="donut-center">
+                            <div class="ioc-mini-total">${IOC_EOL}</div>
+                            <div class="ioc-mini-sub">EOL</div>
+                        </div>
+                    </div>
                     <div class="ioc-label">EOL Components</div>
                     <div class="ioc-source">Xeol</div>
                 </div>
                 <div class="ioc-card ${IOC_CLASS_SUPPLY}">
                     <div class="ioc-icon">⚓</div>
-                    <div class="ioc-count">${IOC_SUPPLY_DISP}</div>
+                    <div class="donut-canvas-wrap" style="margin:4px 0">
+                        <canvas class="ioc-mini-donut" id="ioc-donut-supply" width="100" height="100"
+                            data-critical="${ANCHORE_CRITICAL}" data-high="${ANCHORE_HIGH}" data-medium="${ANCHORE_MEDIUM}" data-low="${ANCHORE_LOW}"
+                            data-skipped="${IOC_SKIP_SUPPLY}" data-source="Anchore"></canvas>
+                        <div class="donut-center">
+                            <div class="ioc-mini-total">${IOC_SUPPLY_DISP}</div>
+                            <div class="ioc-mini-sub">vulns</div>
+                        </div>
+                    </div>
                     <div class="ioc-label">Supply Chain</div>
                     <div class="ioc-source">Anchore</div>
                 </div>
@@ -3027,7 +3088,7 @@ cat >> "$OUTPUT_HTML" << EOF
         <div class="donut-layout" style="justify-content:center;">
             <div class="donut-panel">
                 <div class="donut-canvas-wrap">
-                    <canvas id="severity-donut" width="220" height="220"
+                    <canvas id="severity-donut" width="286" height="286"
                         data-critical="${TOTAL_CRITICAL}"
                         data-high="${TOTAL_HIGH}"
                         data-medium="${TOTAL_MEDIUM}"
@@ -4784,7 +4845,7 @@ cat >> "$OUTPUT_HTML" << EOF
             const low      = parseInt(canvas.dataset.low)      || 0;
             const total    = critical + high + medium + low;
             const cx = canvas.width / 2, cy = canvas.height / 2;
-            const outerR = 90, innerR = 58, gap = 0.05;
+            const outerR = 117, innerR = 75, gap = 0.05;
             const segments = [
                 { label: 'Critical', count: critical, color: '#C41E3A' },
                 { label: 'High',     count: high,     color: '#FF1493' },
@@ -4853,10 +4914,88 @@ cat >> "$OUTPUT_HTML" << EOF
             });
         }
 
+        // ── IOC Mini Donut Charts ──────────────────────────
+        function initAllMiniDonuts() {
+            const tip = document.getElementById('donut-tooltip');
+            document.querySelectorAll('canvas.ioc-mini-donut').forEach(function(canvas) {
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return;
+                const skipped = canvas.dataset.skipped === 'true';
+                const c = parseInt(canvas.dataset.critical) || 0;
+                const h = parseInt(canvas.dataset.high)     || 0;
+                const m = parseInt(canvas.dataset.medium)   || 0;
+                const l = parseInt(canvas.dataset.low)      || 0;
+                const total = c + h + m + l;
+                const cx2 = canvas.width / 2, cy2 = canvas.height / 2;
+                const outerR2 = 42, innerR2 = 27, gap2 = 0.07;
+                const segs = [
+                    { label: 'Critical', count: c, color: '#C41E3A' },
+                    { label: 'High',     count: h, color: '#FF1493' },
+                    { label: 'Medium',   count: m, color: '#f97316' },
+                    { label: 'Low',      count: l, color: '#4ade80' },
+                ];
+                function drawMini() {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    if (skipped || total === 0) {
+                        ctx.beginPath();
+                        ctx.arc(cx2, cy2, outerR2, 0, 2 * Math.PI);
+                        ctx.arc(cx2, cy2, innerR2, 0, 2 * Math.PI, true);
+                        ctx.fillStyle = skipped ? '#4338ca33' : '#374151';
+                        ctx.fill();
+                        if (skipped) {
+                            ctx.beginPath();
+                            ctx.arc(cx2, cy2, outerR2 - 1, 0, 2 * Math.PI);
+                            ctx.strokeStyle = '#6366f1'; ctx.lineWidth = 2; ctx.stroke();
+                        }
+                        return;
+                    }
+                    let start2 = -Math.PI / 2;
+                    for (let i = 0; i < segs.length; i++) {
+                        const s = segs[i];
+                        if (s.count === 0) continue;
+                        const sweep = (s.count / total) * 2 * Math.PI - gap2;
+                        const sa = start2 + gap2 / 2, ea = sa + sweep;
+                        ctx.beginPath();
+                        ctx.moveTo(cx2 + innerR2 * Math.cos(sa), cy2 + innerR2 * Math.sin(sa));
+                        ctx.arc(cx2, cy2, outerR2, sa, ea);
+                        ctx.arc(cx2, cy2, innerR2, ea, sa, true);
+                        ctx.closePath();
+                        ctx.fillStyle = s.color + 'dd';
+                        ctx.fill();
+                        start2 += sweep + gap2;
+                    }
+                }
+                drawMini();
+                canvas.addEventListener('mouseenter', function(e) {
+                    const src = canvas.dataset.source || '';
+                    let html = '<strong style="color:#e8eaed">' + src + '</strong><br>';
+                    if (skipped) {
+                        html += '<em style="color:#818cf8">&#x23ED; Skipped in quick mode</em>';
+                    } else if (total === 0) {
+                        html += '<span style="color:#4ade80">&#x2705; Clean</span>';
+                    } else {
+                        segs.filter(function(s){ return s.count > 0; }).forEach(function(s) {
+                            html += '<span style="color:' + s.color + '">&#x25CF; ' + s.label + ':</span> ' + s.count + '<br>';
+                        });
+                    }
+                    tip.innerHTML = html;
+                    tip.style.display = 'block';
+                    tip.style.left = (e.clientX + 16) + 'px';
+                    tip.style.top  = (e.clientY - 12) + 'px';
+                });
+                canvas.addEventListener('mousemove', function(e) {
+                    tip.style.left = (e.clientX + 16) + 'px';
+                    tip.style.top  = (e.clientY - 12) + 'px';
+                });
+                canvas.addEventListener('mouseleave', function() { tip.style.display = 'none'; });
+            });
+        }
+
         // Auto-expand first tool with findings
         window.addEventListener('DOMContentLoaded', () => {
             // Draw severity donut chart
             initSeverityDonut();
+            initAllMiniDonuts();
 
             // Update source counts based on actual data-source attributes
             updateSourceCounts();

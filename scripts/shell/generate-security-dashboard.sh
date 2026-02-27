@@ -2029,6 +2029,7 @@ cat > "$OUTPUT_HTML" << 'EOF'
         .badge-medium { background: #2a1f15; color: #fb923c; border: 1px solid #f97316; }
         .badge-low { background: #c6f6d5; color: #2f855a; }
         .badge-clean { background: #c6f6d5; color: #2f855a; }
+        .badge-skipped { background: #1e1b4b; color: #818cf8; border: 1px solid #4338ca; }
         
         .tool-badge {
             display: inline-block;
@@ -3277,7 +3278,9 @@ cat >> "$OUTPUT_HTML" << EOF
 EOF
 
 # Add ClamAV stats
-if [ "$CLAMAV_CRITICAL" -gt 0 ]; then
+if [ "${SCAN_MODE:-full}" = "quick" ]; then
+    echo "                        <span class=\"tool-stat-badge badge-skipped\">⏭️ Not run in quick mode</span>" >> "$OUTPUT_HTML"
+elif [ "$CLAMAV_CRITICAL" -gt 0 ]; then
     echo "                        <span class=\"tool-stat-badge badge-critical\">❗ ${CLAMAV_CRITICAL}</span>" >> "$OUTPUT_HTML"
 else
     echo "                        <span class=\"tool-stat-badge badge-clean\">✅ Clean</span>" >> "$OUTPUT_HTML"
@@ -3617,18 +3620,16 @@ cat >> "$OUTPUT_HTML" << EOF
 EOF
 
 # Add Anchore stats
-if [ "$ANCHORE_CRITICAL" -gt 0 ]; then
+if [ "${SCAN_MODE:-full}" = "quick" ]; then
+    echo "                        <span class=\"tool-stat-badge badge-skipped\">⏭️ Not run in quick mode</span>" >> "$OUTPUT_HTML"
+elif [ "$ANCHORE_CRITICAL" -gt 0 ]; then
     echo "                        <span class=\"tool-stat-badge badge-critical\">❗ ${ANCHORE_CRITICAL}</span>" >> "$OUTPUT_HTML"
-fi
-if [ "$ANCHORE_HIGH" -gt 0 ]; then
+elif [ "$ANCHORE_HIGH" -gt 0 ]; then
     echo "                        <span class=\"tool-stat-badge badge-high\">⚠️ ${ANCHORE_HIGH}</span>" >> "$OUTPUT_HTML"
-fi
-if [ "$ANCHORE_CRITICAL" -eq 0 ] && [ "$ANCHORE_HIGH" -eq 0 ]; then
-    if [ "$ANCHORE_STATUS" = "placeholder" ]; then
-        echo "                        <span class=\"tool-stat-badge\" style=\"background: #e0f2fe; color: #0369a1;\">ℹ️ Planned</span>" >> "$OUTPUT_HTML"
-    else
-        echo "                        <span class=\"tool-stat-badge badge-clean\">✅ Clean</span>" >> "$OUTPUT_HTML"
-    fi
+elif [ "$ANCHORE_STATUS" = "placeholder" ]; then
+    echo "                        <span class=\"tool-stat-badge\" style=\"background: #e0f2fe; color: #0369a1;\">ℹ️ Planned</span>" >> "$OUTPUT_HTML"
+else
+    echo "                        <span class=\"tool-stat-badge badge-clean\">✅ Clean</span>" >> "$OUTPUT_HTML"
 fi
 
 cat >> "$OUTPUT_HTML" << EOF

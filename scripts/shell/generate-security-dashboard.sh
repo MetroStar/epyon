@@ -2840,10 +2840,18 @@ cat > "$OUTPUT_HTML" << 'EOF'
             margin-bottom: 20px;
             letter-spacing: 0.5px;
         }
+        .ioc-body {
+            display: flex;
+            gap: 28px;
+            align-items: flex-start;
+        }
         .ioc-grid {
+            flex: 1;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+            grid-template-columns: repeat(4, 1fr);
             gap: 14px;
+            align-content: start;
+            min-width: 0;
         }
         .ioc-card {
             border-radius: 12px;
@@ -2982,7 +2990,54 @@ cat >> "$OUTPUT_HTML" << EOF
         <!-- IOC Summary Panel -->
         <div class="ioc-summary">
             <h3>🎯 Indicators of Compromise</h3>
-            <div class="ioc-grid">
+            <div class="ioc-body">
+                <div class="donut-panel">
+                    <div class="donut-canvas-wrap">
+                        <canvas id="severity-donut" width="286" height="286"
+                            data-critical="${TOTAL_CRITICAL}"
+                            data-high="${TOTAL_HIGH}"
+                            data-medium="${TOTAL_MEDIUM}"
+                            data-low="${TOTAL_LOW}"></canvas>
+                        <div class="donut-center">
+                            <div class="donut-center-count">${TOTAL_FINDINGS}</div>
+                            <div class="donut-center-sub">Total</div>
+                        </div>
+                    </div>
+                    <div class="donut-legend">
+                        <div class="donut-legend-item">
+                            <span class="donut-legend-dot" style="background:#C41E3A"></span>
+                            <span class="donut-legend-text">Critical</span>
+                            <span class="donut-legend-count">${TOTAL_CRITICAL}</span>
+                            <span class="donut-legend-pct">${PCT_C}%</span>
+                        </div>
+                        <div class="donut-legend-item">
+                            <span class="donut-legend-dot" style="background:#FF1493"></span>
+                            <span class="donut-legend-text">High</span>
+                            <span class="donut-legend-count">${TOTAL_HIGH}</span>
+                            <span class="donut-legend-pct">${PCT_H}%</span>
+                        </div>
+                        <div class="donut-legend-item">
+                            <span class="donut-legend-dot" style="background:#f97316"></span>
+                            <span class="donut-legend-text">Medium</span>
+                            <span class="donut-legend-count">${TOTAL_MEDIUM}</span>
+                            <span class="donut-legend-pct">${PCT_M}%</span>
+                        </div>
+                        <div class="donut-legend-item">
+                            <span class="donut-legend-dot" style="background:#4ade80"></span>
+                            <span class="donut-legend-text">Low</span>
+                            <span class="donut-legend-count">${TOTAL_LOW}</span>
+                            <span class="donut-legend-pct">${PCT_L}%</span>
+                        </div>
+                        <div class="donut-legend-item" style="background:rgba(251,191,36,.08);border-left:3px solid #fbbf24;">
+                            <span class="donut-legend-dot" style="background:#fbbf24"></span>
+                            <span class="donut-legend-text" style="color:#fbbf24;">Suppressed</span>
+                            <span class="donut-legend-count" style="color:#fbbf24;">${SUPPRESSED_COUNT}</span>
+                            <span class="donut-legend-pct">acknowledged</span>
+                        </div>
+                    </div>
+                    <p style="font-size:0.68em;color:#6b7280;margin-top:10px;">Hover slices for details</p>
+                </div>
+                <div class="ioc-grid">
                 <div class="ioc-card ${IOC_CLASS_SECRETS}">
                     <div class="ioc-icon">🔑</div>
                     <div class="donut-canvas-wrap" style="margin:4px 0">
@@ -3081,56 +3136,7 @@ cat >> "$OUTPUT_HTML" << EOF
                     <div class="ioc-label">Supply Chain</div>
                     <div class="ioc-source">Anchore</div>
                 </div>
-            </div>
-        </div>
-
-        <!-- CVE Severity Donut + Stat Cards -->
-        <div class="donut-layout" style="justify-content:center;">
-            <div class="donut-panel">
-                <div class="donut-canvas-wrap">
-                    <canvas id="severity-donut" width="286" height="286"
-                        data-critical="${TOTAL_CRITICAL}"
-                        data-high="${TOTAL_HIGH}"
-                        data-medium="${TOTAL_MEDIUM}"
-                        data-low="${TOTAL_LOW}"></canvas>
-                    <div class="donut-center">
-                        <div class="donut-center-count">${TOTAL_FINDINGS}</div>
-                        <div class="donut-center-sub">Total</div>
-                    </div>
                 </div>
-                <div class="donut-legend">
-                    <div class="donut-legend-item">
-                        <span class="donut-legend-dot" style="background:#C41E3A"></span>
-                        <span class="donut-legend-text">Critical</span>
-                        <span class="donut-legend-count">${TOTAL_CRITICAL}</span>
-                        <span class="donut-legend-pct">${PCT_C}%</span>
-                    </div>
-                    <div class="donut-legend-item">
-                        <span class="donut-legend-dot" style="background:#FF1493"></span>
-                        <span class="donut-legend-text">High</span>
-                        <span class="donut-legend-count">${TOTAL_HIGH}</span>
-                        <span class="donut-legend-pct">${PCT_H}%</span>
-                    </div>
-                    <div class="donut-legend-item">
-                        <span class="donut-legend-dot" style="background:#f97316"></span>
-                        <span class="donut-legend-text">Medium</span>
-                        <span class="donut-legend-count">${TOTAL_MEDIUM}</span>
-                        <span class="donut-legend-pct">${PCT_M}%</span>
-                    </div>
-                    <div class="donut-legend-item">
-                        <span class="donut-legend-dot" style="background:#4ade80"></span>
-                        <span class="donut-legend-text">Low</span>
-                        <span class="donut-legend-count">${TOTAL_LOW}</span>
-                        <span class="donut-legend-pct">${PCT_L}%</span>
-                    </div>
-                    <div class="donut-legend-item" style="background:rgba(251,191,36,.08);border-left:3px solid #fbbf24;">
-                        <span class="donut-legend-dot" style="background:#fbbf24"></span>
-                        <span class="donut-legend-text" style="color:#fbbf24;">Suppressed</span>
-                        <span class="donut-legend-count" style="color:#fbbf24;">${SUPPRESSED_COUNT}</span>
-                        <span class="donut-legend-pct">acknowledged</span>
-                    </div>
-                </div>
-                <p style="font-size:0.68em;color:#6b7280;margin-top:10px;">Hover slices for details</p>
             </div>
         </div>
         <div id="donut-tooltip"></div>

@@ -160,18 +160,16 @@ else
     echo -e "${YELLOW}⚠️  Grype SBOM results not found in: $SCAN_DIR/grype/${NC}"
 fi
 
-# Only check Trivy if not already in deduplicated summary
-if [[ ! -f "$FINDINGS_SUMMARY" ]]; then
-# Check Trivy results
+# Always check Trivy for suppression logging; use counts only if no dedup summary
 TRIVY_FILE=$(find "$SCAN_DIR/trivy" -name "*trivy*results.json" 2>/dev/null | head -1)
 if [[ -f "$TRIVY_FILE" ]]; then
     # Check if Trivy tool is ignored
     if declare -f is_tool_ignored >/dev/null 2>&1 && is_tool_ignored "trivy"; then
         echo -e "${YELLOW}⚠️  Trivy scans ignored by .epyon-ignore.yml${NC}"
     else
-        echo -e "${CYAN}📊 Checking Trivy results...${NC}"
+        echo -e "${CYAN}📊 Checking Trivy results (suppression logging)...${NC}"
         
-        # Filter out ignored CVEs and packages - use jq to do the counting
+        # Filter out ignored CVEs and packages
         TRIVY_CRITICAL=0
         TRIVY_HIGH=0
         TRIVY_MEDIUM=0
@@ -187,7 +185,7 @@ if [[ -f "$TRIVY_FILE" ]]; then
                 continue
             fi
             
-            # Check if ignored
+            # Check if ignored (always runs for suppression logging regardless of dedup summary)
             ignored=false
             
             if declare -f is_cve_ignored >/dev/null 2>&1 && is_cve_ignored "$cve" "Trivy"; then
@@ -198,8 +196,8 @@ if [[ -f "$TRIVY_FILE" ]]; then
                 ignored=true
             fi
             
-            # Count if not ignored
-            if [[ "$ignored" == "false" ]]; then
+            # Only update counts when not using dedup summary (avoid double-counting)
+            if [[ "$ignored" == "false" ]] && [[ ! -f "$FINDINGS_SUMMARY" ]]; then
                 case "$severity" in
                     CRITICAL) ((TRIVY_CRITICAL++)) ;;
                     HIGH) ((TRIVY_HIGH++)) ;;
@@ -211,26 +209,28 @@ if [[ -f "$TRIVY_FILE" ]]; then
         
         rm -f "$TEMP_COUNTS"
         
-        echo "  Critical: $TRIVY_CRITICAL | High: $TRIVY_HIGH | Medium: $TRIVY_MEDIUM | Low: $TRIVY_LOW"
-        TOTAL_CRITICAL=$((TOTAL_CRITICAL + TRIVY_CRITICAL))
-        TOTAL_HIGH=$((TOTAL_HIGH + TRIVY_HIGH))
-        TOTAL_MEDIUM=$((TOTAL_MEDIUM + TRIVY_MEDIUM))
-        TOTAL_LOW=$((TOTAL_LOW + TRIVY_LOW))
+        if [[ ! -f "$FINDINGS_SUMMARY" ]]; then
+            echo "  Critical: $TRIVY_CRITICAL | High: $TRIVY_HIGH | Medium: $TRIVY_MEDIUM | Low: $TRIVY_LOW"
+            TOTAL_CRITICAL=$((TOTAL_CRITICAL + TRIVY_CRITICAL))
+            TOTAL_HIGH=$((TOTAL_HIGH + TRIVY_HIGH))
+            TOTAL_MEDIUM=$((TOTAL_MEDIUM + TRIVY_MEDIUM))
+            TOTAL_LOW=$((TOTAL_LOW + TRIVY_LOW))
+        else
+            echo -e "  ${CYAN}ℹ️  Trivy counts from dedup summary; processed for suppression logging only${NC}"
+        fi
     fi
 else
     echo -e "${YELLOW}⚠️  Trivy results not found in: $SCAN_DIR/trivy/${NC}"
 fi
-fi  # End Trivy check only if no deduplicated summary
 
-# Check TruffleHog secrets (ALWAYS check if not in deduplicated summary)
-if [[ ! -f "$FINDINGS_SUMMARY" ]]; then
+# Always check TruffleHog for suppression logging; use counts only if no dedup summary
 TRUFFLEHOG_FILE=$(find "$SCAN_DIR/trufflehog" -name "*trufflehog*results.json" 2>/dev/null | head -1)
 if [[ -f "$TRUFFLEHOG_FILE" ]]; then
     # Check if TruffleHog tool is ignored
     if declare -f is_tool_ignored >/dev/null 2>&1 && is_tool_ignored "trufflehog"; then
         echo -e "${YELLOW}⚠️  TruffleHog scans ignored by .epyon-ignore.yml${NC}"
     else
-        echo -e "${CYAN}📊 Checking TruffleHog results...${NC}"
+        echo -e "${CYAN}📊 Checking TruffleHog results (suppression logging)...${NC}"
         
         # Filter secrets by detector type and path
         TRUFFLEHOG_SECRETS=0
@@ -244,7 +244,7 @@ if [[ -f "$TRUFFLEHOG_FILE" ]]; then
             detector=$(echo "$line" | jq -r '.DetectorName // ""' 2>/dev/null)
             file_path=$(echo "$line" | jq -r '.SourceMetadata.Data.Filesystem.file // ""' 2>/dev/null)
             
-            # Check if ignored
+            # Check if ignored (always runs for suppression logging)
             ignored=false
             
             if declare -f is_secret_ignored >/dev/null 2>&1 && is_secret_ignored "$detector" "$file_path" "TruffleHog"; then
@@ -253,22 +253,25 @@ if [[ -f "$TRUFFLEHOG_FILE" ]]; then
                 ignored=true
             fi
             
-            # Count if not ignored
-            if [[ "$ignored" == "false" ]]; then
+            # Only update counts when not using dedup summary (avoid double-counting)
+            if [[ "$ignored" == "false" ]] && [[ ! -f "$FINDINGS_SUMMARY" ]]; then
                 ((TRUFFLEHOG_SECRETS++))
             fi
         done < <(grep -v '"level":' "$TRUFFLEHOG_FILE" 2>/dev/null)
         
-        echo "  Secrets found: $TRUFFLEHOG_SECRETS"
-        if [[ $TRUFFLEHOG_SECRETS -gt 0 ]]; then
-            # Treat all secrets as Critical
-            TOTAL_CRITICAL=$((TOTAL_CRITICAL + TRUFFLEHOG_SECRETS))
+        if [[ ! -f "$FINDINGS_SUMMARY" ]]; then
+            echo "  Secrets found: $TRUFFLEHOG_SECRETS"
+            if [[ $TRUFFLEHOG_SECRETS -gt 0 ]]; then
+                # Treat all secrets as Critical
+                TOTAL_CRITICAL=$((TOTAL_CRITICAL + TRUFFLEHOG_SECRETS))
+            fi
+        else
+            echo -e "  ${CYAN}ℹ️  TruffleHog counts from dedup summary; processed for suppression logging only${NC}"
         fi
     fi
 else
     echo -e "${YELLOW}⚠️  TruffleHog results not found in: $SCAN_DIR/trufflehog/${NC}"
 fi
-fi  # End TruffleHog check only if no deduplicated summary
 
 # Check Checkov IaC issues
 CHECKOV_FILE=$(find "$SCAN_DIR/checkov" -name "results_json.json" -o -name "*checkov*results.json" 2>/dev/null | head -1)
@@ -308,9 +311,7 @@ if [[ -f "$CHECKOV_FILE" ]]; then
             elif [[ -n "$clean_file_path" ]] && declare -f is_path_ignored >/dev/null 2>&1 && is_path_ignored "$clean_file_path" "Checkov"; then
                 ignored=true
                 echo -e "${CYAN}  ✓ Suppressed: $check_id in $clean_file_path${NC}"
-                if declare -f log_suppressed >/dev/null 2>&1; then
-                    log_suppressed "Checkov" "path" "$clean_file_path" "Path ignored via .epyon-ignore.yml" "HIGH" "See .epyon-ignore.yml"
-                fi
+                # Note: is_path_ignored already calls log_suppressed internally
             else
                 echo -e "${YELLOW}  ⚠️  $check_id: $check_name in $file_path${NC}"
             fi

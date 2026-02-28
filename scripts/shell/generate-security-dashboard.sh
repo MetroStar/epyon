@@ -166,7 +166,7 @@ echo "DEBUG: OUTPUT_HTML=$OUTPUT_HTML" >&2
 if declare -f parse_ignore_rules >/dev/null 2>&1; then
     # Try multiple possible locations for .epyon-ignore.yml
     IGNORE_FILE=""
-    for possible_path in "${WORKSPACE_ROOT}/.epyon-ignore.yml" "${LATEST_SCAN}/../../.epyon-ignore.yml" "$(pwd)/.epyon-ignore.yml"; do
+    for possible_path in "${TARGET_DIR:-}/.epyon-ignore.yml" "${WORKSPACE_ROOT}/.epyon-ignore.yml" "${LATEST_SCAN}/../../.epyon-ignore.yml" "$(pwd)/.epyon-ignore.yml"; do
         if [ -f "$possible_path" ]; then
             IGNORE_FILE="$possible_path"
             break

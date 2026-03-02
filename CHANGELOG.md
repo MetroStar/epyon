@@ -58,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ClamAV accordion badge shows "✅ Clean" when skipped**: added `SCAN_MODE=quick` guard — now shows `⏭️ Not run in quick mode` (matching the IOC mini-donut skipped state)
 - **Anchore accordion badge shows "✅ Clean" when skipped**: same quick-mode guard added; also simplified multi-`if` badge logic to a clean `elif` chain
 - `run-sonar-analysis.sh`: now reads `sonar.organization` from `sonar-project.properties` as a fallback when the `SONAR_ORGANIZATION` env var is not set — fixes SonarCloud scans failing with "The 'organization' parameter is missing"
-- `run-sonar-analysis.sh`: added broad `coverage.xml` discovery — after pytest generates coverage, a `find` search locates every `coverage.xml` under the repo (excluding `node_modules`, `.venv`, `dist`, `build`, `.git`) and passes all paths as `-Dsonar.python.coverage.reportPaths` to both scanner invocations; previously only ran if `sonar-project.properties` already had that key configured
+- `run-sonar-analysis.sh`: added broad `coverage.xml` discovery — after pytest generates coverage, a `find` search locates every `coverage.xml` and `cobertura.xml` under the repo (excluding `node_modules`, `.venv`, `dist`, `build`, `.git`); also reads `pyproject.toml`, `setup.cfg`, and `.coveragerc` for a project-configured XML output path; all found paths are stored as **absolute paths** (relative paths caused silent failures when the scanner `cd`s to the properties-file directory) and passed as `-Dsonar.python.coverage.reportPaths` to both scanner invocations; previously only ran if `sonar-project.properties` already had that key configured
 
 ---
 

@@ -944,19 +944,60 @@ else
 fi
 
 # ---- Dynamic coverage.xml discovery (Python/pytest-cov, coverage.py) ----
-# Broad search so project-specific output dirs (reports/, htmlcov/, etc.) are found.
+# Strategy:
+#   1. Check pyproject.toml / setup.cfg / .coveragerc for a configured XML output path
+#   2. Broad find for coverage.xml AND cobertura.xml (both common Python coverage formats)
+# Paths are stored as ABSOLUTE so sonarcloud resolves them correctly regardless of
+# which directory the scanner is cd-ed into when the properties-file branch runs.
 PYTHON_COVERAGE_PATHS=()
+PYTHON_COVERAGE_SEEN=()   # deduplication
+
+_add_python_cov() {
+  local f="$1"
+  # Resolve to absolute path
+  f="$(cd "$(dirname "$f")" 2>/dev/null && pwd)/$(basename "$f")" || return
+  [ -f "$f" ] || return
+  # Dedup
+  local seen
+  for seen in "${PYTHON_COVERAGE_SEEN[@]:-}"; do [ "$seen" = "$f" ] && return; done
+  PYTHON_COVERAGE_SEEN+=("$f")
+  PYTHON_COVERAGE_PATHS+=("$f")
+  echo "[INFO] Found Python coverage XML: $f"
+}
+
+# 1. Check project config files for a configured XML report path
+for _cfg_file in \
+    "$REPO_PATH/pyproject.toml" \
+    "$REPO_PATH/setup.cfg" \
+    "$REPO_PATH/.coveragerc" \
+    "${PROPS_FILE_FOUND:+$(dirname "$PROPS_FILE_FOUND")/pyproject.toml}" \
+    "${PROPS_FILE_FOUND:+$(dirname "$PROPS_FILE_FOUND")/setup.cfg}" \
+    "${PROPS_FILE_FOUND:+$(dirname "$PROPS_FILE_FOUND")/.coveragerc}"; do
+  [ -z "$_cfg_file" ] || [ ! -f "$_cfg_file" ] && continue
+  # Extract any xml: path from --cov-report or cov_report config
+  _cov_xml_path=$(grep -E 'xml[:=]' "$_cfg_file" 2>/dev/null \
+    | grep -v '^\s*#' \
+    | sed -E 's/.*xml[:=]([^[:space:],\"\x27]+).*/\1/' \
+    | head -1)
+  if [ -n "$_cov_xml_path" ]; then
+    # Resolve relative to the config file's directory
+    _cfg_dir="$(dirname "$_cfg_file")"
+    _abs_xml="${_cfg_dir}/${_cov_xml_path}"
+    echo "[INFO] Config $( basename "$_cfg_file") declares coverage XML path: $_cov_xml_path"
+    _add_python_cov "$_abs_xml"
+  fi
+done
+
+# 2. Broad filesystem search for coverage.xml and cobertura.xml
 while IFS= read -r -d $'\0' cov_xml; do
-  rel_path="${cov_xml#$REPO_PATH/}"
-  PYTHON_COVERAGE_PATHS+=("$rel_path")
-  echo "[INFO] Found Python coverage XML: $rel_path"
-done < <(find "$REPO_PATH" -name "coverage.xml" \
+  _add_python_cov "$cov_xml"
+done < <(find "$REPO_PATH" \( -name "coverage.xml" -o -name "cobertura.xml" \) \
            -not -path "*/node_modules/*" \
            -not -path "*/.git/*" \
            -not -path "*/.venv/*" \
            -not -path "*/dist/*" \
            -not -path "*/build/*" \
-           -print0 2>/dev/null)
+           -type f -print0 2>/dev/null)
 
 PYTHON_COVERAGE_ARG=""
 if [ ${#PYTHON_COVERAGE_PATHS[@]} -gt 0 ]; then
@@ -964,7 +1005,7 @@ if [ ${#PYTHON_COVERAGE_PATHS[@]} -gt 0 ]; then
   PYTHON_COVERAGE_ARG="-Dsonar.python.coverage.reportPaths=$PYTHON_COVERAGE_LIST"
   echo "[INFO] Python coverage XML(s) found (${#PYTHON_COVERAGE_PATHS[@]}) - will send to SonarCloud"
 else
-  echo "[INFO] No coverage.xml found - Python coverage will not be reported"
+  echo "[INFO] No coverage.xml/cobertura.xml found - Python coverage will not be reported"
 fi
 
 # =============================================================================

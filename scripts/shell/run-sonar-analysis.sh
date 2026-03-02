@@ -943,6 +943,30 @@ else
   echo "[INFO] No lcov.info files found - coverage will not be reported"
 fi
 
+# ---- Dynamic coverage.xml discovery (Python/pytest-cov, coverage.py) ----
+# Broad search so project-specific output dirs (reports/, htmlcov/, etc.) are found.
+PYTHON_COVERAGE_PATHS=()
+while IFS= read -r -d $'\0' cov_xml; do
+  rel_path="${cov_xml#$REPO_PATH/}"
+  PYTHON_COVERAGE_PATHS+=("$rel_path")
+  echo "[INFO] Found Python coverage XML: $rel_path"
+done < <(find "$REPO_PATH" -name "coverage.xml" \
+           -not -path "*/node_modules/*" \
+           -not -path "*/.git/*" \
+           -not -path "*/.venv/*" \
+           -not -path "*/dist/*" \
+           -not -path "*/build/*" \
+           -print0 2>/dev/null)
+
+PYTHON_COVERAGE_ARG=""
+if [ ${#PYTHON_COVERAGE_PATHS[@]} -gt 0 ]; then
+  PYTHON_COVERAGE_LIST=$(IFS=,; echo "${PYTHON_COVERAGE_PATHS[*]}")
+  PYTHON_COVERAGE_ARG="-Dsonar.python.coverage.reportPaths=$PYTHON_COVERAGE_LIST"
+  echo "[INFO] Python coverage XML(s) found (${#PYTHON_COVERAGE_PATHS[@]}) - will send to SonarCloud"
+else
+  echo "[INFO] No coverage.xml found - Python coverage will not be reported"
+fi
+
 # =============================================================================
 # Ensure sonar.coverageReportPaths XML exists and is valid
 # If the properties file references a generic coverage XML that is missing or
@@ -1012,6 +1036,7 @@ if [ -n "$PROPS_FILE_FOUND" ]; then
   echo "  • Token: ${SONAR_TOKEN:0:10}...${SONAR_TOKEN: -4}"
   [ -n "${SONAR_ORGANIZATION:-}" ] && echo "  • Organization: $SONAR_ORGANIZATION"
   [ -n "$COVERAGE_ARGS" ] && echo "  • Coverage (CLI override): $COVERAGE_ARGS"
+  [ -n "$PYTHON_COVERAGE_ARG" ] && echo "  • Python coverage: $PYTHON_COVERAGE_ARG"
   [ "$PROPS_HAS_COVERAGE" = true ] && echo "  • Coverage: Configured in sonar-project.properties"
   echo "  • Working Directory: $(pwd)"
   echo "  • Properties File: $(basename "$PROPS_FILE_FOUND")"
@@ -1032,6 +1057,7 @@ if [ -n "$PROPS_FILE_FOUND" ]; then
     -Dsonar.token=$SONAR_TOKEN \
     $ORG_ARG \
     $COVERAGE_ARGS \
+    $PYTHON_COVERAGE_ARG \
     $GENERIC_COV_ARG 2>&1 | tee "$SCANNER_LOG"
   SCANNER_EXIT_CODE=${PIPESTATUS[0]}
 else
@@ -1047,6 +1073,7 @@ else
   echo "  • Token: ${SONAR_TOKEN:0:10}...${SONAR_TOKEN: -4}"
   [ -n "${SONAR_ORGANIZATION:-}" ] && echo "  • Organization: $SONAR_ORGANIZATION"
   [ -n "$COVERAGE_ARGS" ] && echo "  • Coverage: $COVERAGE_ARGS"
+  [ -n "$PYTHON_COVERAGE_ARG" ] && echo "  • Python coverage: $PYTHON_COVERAGE_ARG"
   echo "  • Base Directory: $REPO_PATH"
   echo ""
   
@@ -1067,6 +1094,7 @@ else
     -Dsonar.projectBaseDir="$REPO_PATH" \
     $ORG_ARG \
     $COVERAGE_ARGS \
+    $PYTHON_COVERAGE_ARG \
     $GENERIC_COV_ARG 2>&1 | tee "$SCANNER_LOG"
   SCANNER_EXIT_CODE=${PIPESTATUS[0]}
 fi

@@ -274,7 +274,9 @@ else
 fi
 
 # Check Checkov IaC issues
-CHECKOV_FILE=$(find "$SCAN_DIR/checkov" -name "results_json.json" -o -name "*checkov*results.json" 2>/dev/null | head -1)
+# Use -type f with parentheses to avoid matching the checkov-results.json *directory*
+# that Checkov creates when --output-file is used (directory name matches *checkov*results.json)
+CHECKOV_FILE=$(find "$SCAN_DIR/checkov" -type f \( -name "results_json.json" -o -name "*checkov*results.json" \) 2>/dev/null | head -1)
 if [[ -f "$CHECKOV_FILE" ]]; then
     # Check if Checkov tool is ignored
     if declare -f is_tool_ignored >/dev/null 2>&1 && is_tool_ignored "checkov"; then

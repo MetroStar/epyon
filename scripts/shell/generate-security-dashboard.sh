@@ -805,7 +805,9 @@ CHECKOV_SKIPPED=0
 CHECKOV_FILES_SCANNED=0
 CHECKOV_CHECK_TYPES=""
 if [ -d "$CHECKOV_DIR" ]; then
-    for checkov_file in "$CHECKOV_DIR"/*.json; do
+    # Use find -type f to reach results_json.json files inside checkov-results.json/ subdirectories
+    # (Checkov's --output-file creates a directory named *.json containing results_json.json)
+    while IFS= read -r checkov_file; do
         # Skip symlinks to avoid duplicate processing
         if [ -f "$checkov_file" ] && [ ! -L "$checkov_file" ] && [[ "$(basename "$checkov_file")" != *"summary"* ]]; then
             # Checkov output is an array - iterate through all check types
@@ -856,7 +858,7 @@ if [ -d "$CHECKOV_DIR" ]; then
             done < <(jq -r '.[]? | .results.failed_checks[]? | [.file_path, .check_id] | @tsv' "$checkov_file" 2>/dev/null || echo "")
             set -e
         fi
-    done
+    done < <(find "$CHECKOV_DIR" -type f -name "*.json" ! -name "*summary*" 2>/dev/null | sort)
 fi
 # Note: Checkov failed checks are IaC misconfigurations, NOT vulnerability criticals
 # They should be counted as HIGH priority issues, not CRITICAL vulnerabilities
@@ -915,7 +917,8 @@ if [ "$CHECKOV_TOTAL" -gt 0 ]; then
             <p style=\"color:#718096;margin-bottom:15px;font-size:0.9em;\">👆 Click on any finding below to expand details. These are IaC/Dockerfile misconfigurations, not vulnerabilities.</p>"
         
         # Extract failed checks from all Checkov JSON files
-        for checkov_file in "$CHECKOV_DIR"/*.json; do
+        # Use find -type f to reach results_json.json inside checkov-results.json/ subdirectories
+        while IFS= read -r checkov_file; do
             # Skip symlinks to avoid duplicate processing
             if [ -f "$checkov_file" ] && [ ! -L "$checkov_file" ] && [[ "$(basename "$checkov_file")" != *"summary"* ]]; then
                 # Get failed checks as TSV for easy parsing
@@ -968,7 +971,7 @@ if [ "$CHECKOV_TOTAL" -gt 0 ]; then
                     fi
                 done < <(jq -r '.[]? | .results.failed_checks[]? | [.check_id, .check_name, .file_path, (.file_line_range[0] // "N/A" | tostring), (.guideline // "")] | @tsv' "$checkov_file" 2>/dev/null)
             fi
-        done
+        done < <(find "$CHECKOV_DIR" -type f -name "*.json" ! -name "*summary*" 2>/dev/null | sort)
         
         CHECKOV_FINDINGS="${CHECKOV_FINDINGS}
         </div>"

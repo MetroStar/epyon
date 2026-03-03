@@ -730,22 +730,74 @@ if [ ${#PY_TEST_FILES[@]} -gt 0 ]; then
         echo "[INFO] Using sonar.sources for coverage measurement: $COV_SRC"
       fi
     fi
-    # Resolve to an absolute path so pytest-cov uses filesystem matching, not
-    # module-name matching.  When sonar.sources is a relative name like 'core'
-    # that is not directly importable, --cov=core measures nothing.  Using the
-    # absolute directory path always captures coverage regardless of how tests
-    # import the code.
+    # Resolve to an absolute path for reference (used when writing .coveragerc)
     if [[ "$COV_SRC" = /* ]]; then
-      COV_ABS="$COV_SRC"          # already absolute
+      COV_ABS="$COV_SRC"
     elif [ "$COV_SRC" = "." ]; then
-      COV_ABS="$PROPS_BASE"        # whole project root
+      COV_ABS="$PROPS_BASE"
     elif [ -d "$PROPS_BASE/$COV_SRC" ]; then
       COV_ABS="$PROPS_BASE/$COV_SRC"
     else
-      COV_ABS="$PROPS_BASE"        # fallback: measure everything under project root
-      echo "[INFO] sonar.sources dir '$COV_SRC' not found - measuring coverage from project root"
+      COV_ABS="$PROPS_BASE"
+      echo "[INFO] sonar.sources dir '$COV_SRC' not found - will measure coverage from project root"
     fi
     echo "[INFO] Coverage source (absolute): $COV_ABS"
+
+    # Detect whether the project already has pytest coverage configured in its
+    # own ini/toml so we know whether to inject --cov or let the project config own it.
+    _project_has_cov_config=false
+    for _cc in "$PROPS_BASE/pytest.ini" "$PROPS_BASE/setup.cfg" "$PROPS_BASE/pyproject.toml"; do
+      if [ -f "$_cc" ] && grep -qE '(addopts|addoptions).*--cov' "$_cc" 2>/dev/null; then
+        _project_has_cov_config=true
+        echo "[INFO] Found project-level coverage addopts in $(basename "$_cc") - will not override --cov"
+        break
+      fi
+    done
+
+    # Try to detect the importable package name (for source_pkgs coverage tracing).
+    # Editable installs expose code via import, not always by filesystem path, so
+    # giving coverage.py the package name lets it hook the right .pyc byte-code.
+    _pkg_name=""
+    if [ -f "$PROPS_BASE/pyproject.toml" ]; then
+      _pkg_name=$(grep -E '^\s*name\s*=' "$PROPS_BASE/pyproject.toml" 2>/dev/null \
+                  | head -1 | sed -E 's/.*=\s*["'"'"']?([^"'"'"' ,]+).*/\1/' \
+                  | tr '-' '_')
+    fi
+    if [ -z "$_pkg_name" ] && [ -f "$PROPS_BASE/setup.cfg" ]; then
+      _pkg_name=$(grep -E '^\s*name\s*=' "$PROPS_BASE/setup.cfg" 2>/dev/null \
+                  | head -1 | sed -E 's/.*=\s*//' | tr -d '[:space:]' | tr '-' '_')
+    fi
+    [ -n "$_pkg_name" ] && echo "[INFO] Detected package name for coverage: $_pkg_name"
+
+    # Build a temporary .coveragerc that covers both the source directory path and
+    # the importable package name.  This handles editable installs where import paths
+    # differ from filesystem paths.  Only write if the project has no existing config.
+    _TEMP_COVERAGERC=""
+    _EXTRA_COV_ARGS=""
+    if [ "$_project_has_cov_config" = false ]; then
+      _TEMP_COVERAGERC="$PROPS_BASE/.coveragerc.epyon_tmp"
+      {
+        echo "[run]"
+        echo "relative_files = true"
+        # Measure the source directory by path
+        echo "source ="
+        echo "    $COV_ABS"
+        # Also add the package name if detected (handles editable installs)
+        [ -n "$_pkg_name" ] && echo "    $_pkg_name"
+        echo ""
+        echo "[report]"
+        echo "omit ="
+        echo "    */test*"
+        echo "    */tests*"
+        echo "    */venv/*"
+        echo "    */.venv/*"
+        echo "    */node_modules/*"
+        echo "    */site-packages/*"
+      } > "$_TEMP_COVERAGERC"
+      _EXTRA_COV_ARGS="--cov=\"$COV_ABS\" --cov-config=\"$_TEMP_COVERAGERC\""
+      [ -n "$_pkg_name" ] && _EXTRA_COV_ARGS="$_EXTRA_COV_ARGS --cov=\"$_pkg_name\""
+      echo "[INFO] Wrote temporary .coveragerc for fallback pytest run"
+    fi
 
     # ---- Check for project-level test runner (Makefile, tox, pyproject scripts) ----
     # Run the project's own test command first so project-specific environment setup,
@@ -825,12 +877,28 @@ if [ ${#PY_TEST_FILES[@]} -gt 0 ]; then
           [ -f "$req" ] && python3 -m pip install --quiet -r "$req" 2>&1 | tail -3 || true
         done
 
-        python3 -m pytest \
-          --cov="$COV_ABS" \
-          --cov-report="xml:${ABS_COV_XML}" \
-          --junitxml="${PROPS_BASE}/pytest-report.xml" \
-          --ignore=node_modules --ignore=.venv --ignore=venv \
-          -q 2>&1 | tail -50 || true
+        # Build the pytest command:
+        # - If the project already has coverage addopts, skip --cov entirely and
+        #   only add --cov-report so SonarCloud gets an XML at our expected path.
+        # - Otherwise use the generated .coveragerc that measures source by both
+        #   path and package name (handles editable installs).
+        if [ "$_project_has_cov_config" = true ]; then
+          echo "[INFO] Using project's own coverage configuration"
+          python3 -m pytest \
+            --cov-report="xml:${ABS_COV_XML}" \
+            --junitxml="${PROPS_BASE}/pytest-report.xml" \
+            --ignore=node_modules --ignore=.venv --ignore=venv \
+            -q 2>&1 | tail -50 || true
+        else
+          eval python3 -m pytest \
+            "$_EXTRA_COV_ARGS" \
+            --cov-report="xml:${ABS_COV_XML}" \
+            --junitxml="${PROPS_BASE}/pytest-report.xml" \
+            --ignore=node_modules --ignore=.venv --ignore=venv \
+            -q 2>&1 | tail -50 || true
+        fi
+        # Clean up temp coveragerc
+        [ -n "$_TEMP_COVERAGERC" ] && rm -f "$_TEMP_COVERAGERC"
       fi
 
       if [ -f "$ABS_COV_XML" ]; then
@@ -868,12 +936,21 @@ if [ ${#PY_TEST_FILES[@]} -gt 0 ]; then
         for req in requirements.txt requirements-dev.txt requirements-test.txt; do
           [ -f "$req" ] && python3 -m pip install --quiet -r "$req" 2>&1 | tail -3 || true
         done
-        python3 -m pytest \
-          --cov="$COV_ABS" \
-          --cov-report=xml:coverage.xml \
-          --junitxml=pytest-report.xml \
-          --ignore=node_modules --ignore=.venv --ignore=venv \
-          -q 2>&1 | tail -50 || true
+        if [ "$_project_has_cov_config" = true ]; then
+          python3 -m pytest \
+            --cov-report=xml:coverage.xml \
+            --junitxml=pytest-report.xml \
+            --ignore=node_modules --ignore=.venv --ignore=venv \
+            -q 2>&1 | tail -50 || true
+        else
+          eval python3 -m pytest \
+            "$_EXTRA_COV_ARGS" \
+            --cov-report=xml:coverage.xml \
+            --junitxml=pytest-report.xml \
+            --ignore=node_modules --ignore=.venv --ignore=venv \
+            -q 2>&1 | tail -50 || true
+        fi
+        [ -n "$_TEMP_COVERAGERC" ] && rm -f "$_TEMP_COVERAGERC"
       fi
       [ -f "$PROPS_BASE/coverage.xml" ] && echo "✅ Python coverage generated: $PROPS_BASE/coverage.xml" \
         || echo "[WARNING] pytest ran but coverage.xml not found"

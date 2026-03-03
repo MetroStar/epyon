@@ -773,12 +773,15 @@ if [ ${#PY_TEST_FILES[@]} -gt 0 ]; then
     # the importable package name.  This handles editable installs where import paths
     # differ from filesystem paths.  Only write if the project has no existing config.
     _TEMP_COVERAGERC=""
-    _EXTRA_COV_ARGS=""
+    _COV_CMD_ARGS=()
     if [ "$_project_has_cov_config" = false ]; then
       _TEMP_COVERAGERC="$PROPS_BASE/.coveragerc.epyon_tmp"
       {
         echo "[run]"
-        echo "relative_files = true"
+        # DO NOT set relative_files=true: SonarCloud's Cobertura sensor resolves
+        # paths from the XML against its indexed files.  Relative paths like
+        # 'core/__init__.py' fail to match when the scanner base dir differs.
+        # Absolute paths always resolve correctly.
         # Measure the source directory by path
         echo "source ="
         echo "    $COV_ABS"
@@ -794,8 +797,9 @@ if [ ${#PY_TEST_FILES[@]} -gt 0 ]; then
         echo "    */node_modules/*"
         echo "    */site-packages/*"
       } > "$_TEMP_COVERAGERC"
-      _EXTRA_COV_ARGS="--cov=\"$COV_ABS\" --cov-config=\"$_TEMP_COVERAGERC\""
-      [ -n "$_pkg_name" ] && _EXTRA_COV_ARGS="$_EXTRA_COV_ARGS --cov=\"$_pkg_name\""
+      _COV_CMD_ARGS+=("--cov=$COV_ABS")
+      _COV_CMD_ARGS+=("--cov-config=$_TEMP_COVERAGERC")
+      [ -n "$_pkg_name" ] && _COV_CMD_ARGS+=("--cov=$_pkg_name")
       echo "[INFO] Wrote temporary .coveragerc for fallback pytest run"
     fi
 
@@ -890,8 +894,8 @@ if [ ${#PY_TEST_FILES[@]} -gt 0 ]; then
             --ignore=node_modules --ignore=.venv --ignore=venv \
             -q 2>&1 | tail -50 || true
         else
-          eval python3 -m pytest \
-            "$_EXTRA_COV_ARGS" \
+          python3 -m pytest \
+            "${_COV_CMD_ARGS[@]}" \
             --cov-report="xml:${ABS_COV_XML}" \
             --junitxml="${PROPS_BASE}/pytest-report.xml" \
             --ignore=node_modules --ignore=.venv --ignore=venv \
@@ -943,8 +947,8 @@ if [ ${#PY_TEST_FILES[@]} -gt 0 ]; then
             --ignore=node_modules --ignore=.venv --ignore=venv \
             -q 2>&1 | tail -50 || true
         else
-          eval python3 -m pytest \
-            "$_EXTRA_COV_ARGS" \
+          python3 -m pytest \
+            "${_COV_CMD_ARGS[@]}" \
             --cov-report=xml:coverage.xml \
             --junitxml=pytest-report.xml \
             --ignore=node_modules --ignore=.venv --ignore=venv \

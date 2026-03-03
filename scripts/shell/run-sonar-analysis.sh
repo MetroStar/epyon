@@ -933,8 +933,82 @@ if [ ${#PYTHON_TEST_DIRS[@]} -gt 0 ]; then
   echo "[INFO] Python test dirs found (${#PYTHON_TEST_DIRS[@]}) - will set sonar.tests"
 fi
 
-# =============================================================================
-# Shell coverage via kcov + BATS
+# ---- Python version detection (sonar.python.version) ----
+# Priority: .python-version (pyenv) > pyproject.toml requires-python >
+#           runtime.txt > setup.cfg > live interpreter
+PYTHON_VERSION_ARG=""
+_detected_py_ver=""
+
+# 1. pyenv .python-version file
+for _pv_file in "$REPO_PATH/.python-version" "${PROPS_FILE_FOUND:+$(dirname "$PROPS_FILE_FOUND")/.python-version}"; do
+  [ -z "$_pv_file" ] || [ ! -f "$_pv_file" ] && continue
+  _raw=$(cat "$_pv_file" | tr -d '[:space:]')
+  # Extract major.minor only (e.g. 3.11 from 3.11.4 or 3.11-slim)
+  _ver=$(echo "$_raw" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 | grep -oE '^[0-9]+\.[0-9]+')
+  if [ -n "$_ver" ]; then
+    _detected_py_ver="$_ver"
+    echo "[INFO] Python version from .python-version: $_detected_py_ver"
+    break
+  fi
+done
+
+# 2. pyproject.toml requires-python
+if [ -z "$_detected_py_ver" ]; then
+  for _ppt in "$REPO_PATH/pyproject.toml" "${PROPS_FILE_FOUND:+$(dirname "$PROPS_FILE_FOUND")/pyproject.toml}"; do
+    [ -z "$_ppt" ] || [ ! -f "$_ppt" ] && continue
+    _raw=$(grep -E 'requires-python' "$_ppt" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    _ver=$(echo "$_raw" | grep -oE '^[0-9]+\.[0-9]+')
+    if [ -n "$_ver" ]; then
+      _detected_py_ver="$_ver"
+      echo "[INFO] Python version from pyproject.toml requires-python: $_detected_py_ver"
+      break
+    fi
+  done
+fi
+
+# 3. runtime.txt (Heroku / general convention)
+if [ -z "$_detected_py_ver" ]; then
+  for _rt in "$REPO_PATH/runtime.txt" "${PROPS_FILE_FOUND:+$(dirname "$PROPS_FILE_FOUND")/runtime.txt}"; do
+    [ -z "$_rt" ] || [ ! -f "$_rt" ] && continue
+    _raw=$(grep -iE '^python-' "$_rt" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    _ver=$(echo "$_raw" | grep -oE '^[0-9]+\.[0-9]+')
+    if [ -n "$_ver" ]; then
+      _detected_py_ver="$_ver"
+      echo "[INFO] Python version from runtime.txt: $_detected_py_ver"
+      break
+    fi
+  done
+fi
+
+# 4. setup.cfg python_requires
+if [ -z "$_detected_py_ver" ]; then
+  for _sc in "$REPO_PATH/setup.cfg" "${PROPS_FILE_FOUND:+$(dirname "$PROPS_FILE_FOUND")/setup.cfg}"; do
+    [ -z "$_sc" ] || [ ! -f "$_sc" ] && continue
+    _raw=$(grep -E 'python_requires' "$_sc" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)
+    _ver=$(echo "$_raw" | grep -oE '^[0-9]+\.[0-9]+')
+    if [ -n "$_ver" ]; then
+      _detected_py_ver="$_ver"
+      echo "[INFO] Python version from setup.cfg python_requires: $_detected_py_ver"
+      break
+    fi
+  done
+fi
+
+# 5. Live interpreter fallback
+if [ -z "$_detected_py_ver" ]; then
+  _ver=$(python3 --version 2>&1 | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1 | grep -oE '^[0-9]+\.[0-9]+')
+  if [ -n "$_ver" ]; then
+    _detected_py_ver="$_ver"
+    echo "[INFO] Python version from live interpreter: $_detected_py_ver"
+  fi
+fi
+
+if [ -n "$_detected_py_ver" ]; then
+  PYTHON_VERSION_ARG="-Dsonar.python.version=$_detected_py_ver"
+  echo "[INFO] Will pass sonar.python.version=$_detected_py_ver to SonarCloud"
+else
+  echo "[INFO] Could not detect Python version - SonarCloud will use default (all Python 3 versions)"
+fi
 # =============================================================================
 SONAR_GENERIC_COVERAGE=""
 BATS_FILES=()
@@ -1199,6 +1273,7 @@ if [ -n "$PROPS_FILE_FOUND" ]; then
   [ -n "$PYTHON_COVERAGE_ARG" ] && echo "  • Python coverage: $PYTHON_COVERAGE_ARG"
   [ -n "$PYTHON_JUNIT_ARG" ] && echo "  • Python test results: $PYTHON_JUNIT_ARG"
   [ -n "$PYTHON_TESTS_ARG" ] && echo "  • Python test dirs: $PYTHON_TESTS_ARG"
+  [ -n "$PYTHON_VERSION_ARG" ] && echo "  • Python version: $PYTHON_VERSION_ARG"
   [ "$PROPS_HAS_COVERAGE" = true ] && echo "  • Coverage: Configured in sonar-project.properties"
   echo "  • Working Directory: $(pwd)"
   echo "  • Properties File: $(basename "$PROPS_FILE_FOUND")"
@@ -1218,6 +1293,7 @@ if [ -n "$PROPS_FILE_FOUND" ]; then
     -Dsonar.host.url=$SONAR_HOST_URL \
     -Dsonar.token=$SONAR_TOKEN \
     $ORG_ARG \
+    $PYTHON_VERSION_ARG \
     $COVERAGE_ARGS \
     $PYTHON_COVERAGE_ARG \
     $PYTHON_JUNIT_ARG \
@@ -1240,6 +1316,7 @@ else
   [ -n "$PYTHON_COVERAGE_ARG" ] && echo "  • Python coverage: $PYTHON_COVERAGE_ARG"
   [ -n "$PYTHON_JUNIT_ARG" ] && echo "  • Python test results: $PYTHON_JUNIT_ARG"
   [ -n "$PYTHON_TESTS_ARG" ] && echo "  • Python test dirs: $PYTHON_TESTS_ARG"
+  [ -n "$PYTHON_VERSION_ARG" ] && echo "  • Python version: $PYTHON_VERSION_ARG"
   echo "  • Base Directory: $REPO_PATH"
   echo ""
   
@@ -1259,6 +1336,7 @@ else
     -Dsonar.token=$SONAR_TOKEN \
     -Dsonar.projectBaseDir="$REPO_PATH" \
     $ORG_ARG \
+    $PYTHON_VERSION_ARG \
     $COVERAGE_ARGS \
     $PYTHON_COVERAGE_ARG \
     $PYTHON_JUNIT_ARG \

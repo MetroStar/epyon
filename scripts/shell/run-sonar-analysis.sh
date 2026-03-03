@@ -731,6 +731,60 @@ if [ ${#PY_TEST_FILES[@]} -gt 0 ]; then
       fi
     fi
 
+    # ---- Check for project-level test runner (Makefile, tox, pyproject scripts) ----
+    # Run the project's own test command first so project-specific environment setup,
+    # virtualenvs, and configuration are respected. If it generates coverage.xml the
+    # existing "already exists" guard below will skip the fallback pytest run.
+    _ran_project_tests=false
+    cd "$PROPS_BASE"
+    # Install Python dependencies before attempting any test runner
+    for req in requirements.txt requirements-dev.txt requirements-test.txt pyproject.toml; do
+      if [ "$req" = "pyproject.toml" ] && [ -f "$req" ]; then
+        python3 -m pip install --quiet -e ".[dev,test]" 2>&1 | tail -3 || \
+        python3 -m pip install --quiet -e "." 2>&1 | tail -3 || true
+      elif [ -f "$req" ]; then
+        python3 -m pip install --quiet -r "$req" 2>&1 | tail -3 || true
+      fi
+    done
+    # 1. Makefile: prefer 'make coverage' then 'make test'
+    if [ -f "$PROPS_BASE/Makefile" ]; then
+      for _mk_target in coverage test tests; do
+        if grep -qE "^${_mk_target}[[:space:]]*:" "$PROPS_BASE/Makefile" 2>/dev/null; then
+          echo "[INFO] Makefile has '$_mk_target' target — running: make $_mk_target"
+          make "$_mk_target" 2>&1 | tail -40 || true
+          _ran_project_tests=true
+          break
+        fi
+      done
+    fi
+    # 2. tox (only if Makefile didn't handle it)
+    if [ "$_ran_project_tests" = false ] && [ -f "$PROPS_BASE/tox.ini" ]; then
+      if python3 -m tox --version &>/dev/null 2>&1 || python3 -m pip install --quiet tox 2>&1 | tail -1; then
+        if python3 -m tox --version &>/dev/null 2>&1; then
+          echo "[INFO] tox.ini found — running: python3 -m tox"
+          python3 -m tox 2>&1 | tail -40 || true
+          _ran_project_tests=true
+        fi
+      fi
+    fi
+    # 3. pyproject.toml with a 'test' or 'coverage' script (Hatch/PDM/taskipy)
+    if [ "$_ran_project_tests" = false ] && [ -f "$PROPS_BASE/pyproject.toml" ]; then
+      if grep -qE '^\s*(test|coverage)\s*=' "$PROPS_BASE/pyproject.toml" 2>/dev/null; then
+        # Try common task runners
+        for _runner in "python3 -m hatch run" "pdm run" "python3 -m taskipy"; do
+          _cmd_base=$(echo "$_runner" | cut -d' ' -f1)
+          if command -v "$_cmd_base" &>/dev/null || python3 -c "import $(echo "$_runner" | awk '{print $3}')" 2>/dev/null; then
+            echo "[INFO] pyproject.toml task runner detected — trying: $_runner test"
+            eval "$_runner test" 2>&1 | tail -30 || true
+            _ran_project_tests=true
+            break
+          fi
+        done
+      fi
+    fi
+    cd "$REPO_PATH"
+    [ "$_ran_project_tests" = true ] && echo "[INFO] Project test runner completed — checking for generated coverage files..."
+
     if [ -n "$PYTHON_COV_PATHS" ]; then
       # Use the first path as the primary coverage XML output target
       PRIMARY_COV_XML=$(echo "$PYTHON_COV_PATHS" | cut -d',' -f1)
@@ -758,6 +812,7 @@ if [ ${#PY_TEST_FILES[@]} -gt 0 ]; then
         python3 -m pytest \
           --cov="$COV_SRC" \
           --cov-report="xml:${ABS_COV_XML}" \
+          --junitxml="${PROPS_BASE}/pytest-report.xml" \
           --ignore=node_modules --ignore=.venv \
           -q 2>&1 | tail -30 || true
       fi
@@ -800,6 +855,7 @@ if [ ${#PY_TEST_FILES[@]} -gt 0 ]; then
         python3 -m pytest \
           --cov="$COV_SRC" \
           --cov-report=xml:coverage.xml \
+          --junitxml=pytest-report.xml \
           --ignore=node_modules --ignore=.venv \
           -q 2>&1 | tail -30 || true
       fi
@@ -812,6 +868,69 @@ if [ ${#PY_TEST_FILES[@]} -gt 0 ]; then
   fi
 else
   echo "[INFO] No Python test files found - skipping Python coverage generation"
+fi
+
+# ---- Dynamic JUnit/xUnit XML discovery (pytest --junitxml, Makefile, tox) ----
+# SonarCloud needs sonar.python.xunit.reportPaths to display test results.
+# We look broadly for any JUnit-format XML that appeared after the test runs above.
+PYTHON_JUNIT_PATHS=()
+_seen_junit=()
+_add_junit() {
+  local f="$1"
+  f="$(cd "$(dirname "$f")" 2>/dev/null && pwd)/$(basename "$f")" || return
+  [ -f "$f" ] || return
+  local _s; for _s in "${_seen_junit[@]:-}"; do [ "$_s" = "$f" ] && return; done
+  _seen_junit+=("$f")
+  PYTHON_JUNIT_PATHS+=("$f")
+  echo "[INFO] Found Python JUnit XML: $f"
+}
+while IFS= read -r -d $'\0' _junit_file; do
+  _add_junit "$_junit_file"
+done < <(find "$REPO_PATH" -type f \
+           \( -name "pytest-report.xml" \
+              -o -name "test-results.xml" \
+              -o -name "*junit*.xml" \
+              -o -name "TEST-*.xml" \
+              -o -name "*-test-results.xml" \) \
+           -not -path "*/node_modules/*" \
+           -not -path "*/.git/*" \
+           -not -path "*/.venv/*" \
+           -print0 2>/dev/null)
+
+PYTHON_JUNIT_ARG=""
+if [ ${#PYTHON_JUNIT_PATHS[@]} -gt 0 ]; then
+  PYTHON_JUNIT_LIST=$(IFS=,; echo "${PYTHON_JUNIT_PATHS[*]}")
+  PYTHON_JUNIT_ARG="-Dsonar.python.xunit.reportPaths=$PYTHON_JUNIT_LIST"
+  echo "[INFO] Python JUnit XML(s) found (${#PYTHON_JUNIT_PATHS[@]}) - will send to SonarCloud"
+else
+  echo "[INFO] No Python JUnit XML found - test execution results will not be reported"
+fi
+
+# ---- Python test directory detection (sonar.tests) ----
+# SonarCloud needs this to properly link test files to results.
+PYTHON_TEST_DIRS=()
+_seen_test_dirs=()
+while IFS= read -r -d $'\0' _test_file; do
+  _tdir="$(cd "$(dirname "$_test_file")" 2>/dev/null && pwd)" || continue
+  _rel_tdir="${_tdir#$REPO_PATH/}"
+  # Dedup
+  _sd_match=false
+  for _sd in "${_seen_test_dirs[@]:-}"; do
+    [ "$_sd" = "$_rel_tdir" ] && { _sd_match=true; break; }
+  done
+  [ "$_sd_match" = true ] && continue
+  _seen_test_dirs+=("$_rel_tdir")
+  PYTHON_TEST_DIRS+=("$_rel_tdir")
+done < <(find "$REPO_PATH" -type f \( -name "test_*.py" -o -name "*_test.py" \) \
+           -not -path "*/node_modules/*" -not -path "*/.git/*" \
+           -not -path "*/.venv/*" -not -path "*/dist/*" \
+           -print0 2>/dev/null)
+
+PYTHON_TESTS_ARG=""
+if [ ${#PYTHON_TEST_DIRS[@]} -gt 0 ]; then
+  PYTHON_TESTS_LIST=$(IFS=,; echo "${PYTHON_TEST_DIRS[*]}")
+  PYTHON_TESTS_ARG="-Dsonar.tests=$PYTHON_TESTS_LIST"
+  echo "[INFO] Python test dirs found (${#PYTHON_TEST_DIRS[@]}) - will set sonar.tests"
 fi
 
 # =============================================================================
@@ -1078,6 +1197,8 @@ if [ -n "$PROPS_FILE_FOUND" ]; then
   [ -n "${SONAR_ORGANIZATION:-}" ] && echo "  • Organization: $SONAR_ORGANIZATION"
   [ -n "$COVERAGE_ARGS" ] && echo "  • Coverage (CLI override): $COVERAGE_ARGS"
   [ -n "$PYTHON_COVERAGE_ARG" ] && echo "  • Python coverage: $PYTHON_COVERAGE_ARG"
+  [ -n "$PYTHON_JUNIT_ARG" ] && echo "  • Python test results: $PYTHON_JUNIT_ARG"
+  [ -n "$PYTHON_TESTS_ARG" ] && echo "  • Python test dirs: $PYTHON_TESTS_ARG"
   [ "$PROPS_HAS_COVERAGE" = true ] && echo "  • Coverage: Configured in sonar-project.properties"
   echo "  • Working Directory: $(pwd)"
   echo "  • Properties File: $(basename "$PROPS_FILE_FOUND")"
@@ -1099,6 +1220,8 @@ if [ -n "$PROPS_FILE_FOUND" ]; then
     $ORG_ARG \
     $COVERAGE_ARGS \
     $PYTHON_COVERAGE_ARG \
+    $PYTHON_JUNIT_ARG \
+    $PYTHON_TESTS_ARG \
     $GENERIC_COV_ARG 2>&1 | tee "$SCANNER_LOG"
   SCANNER_EXIT_CODE=${PIPESTATUS[0]}
 else
@@ -1115,6 +1238,8 @@ else
   [ -n "${SONAR_ORGANIZATION:-}" ] && echo "  • Organization: $SONAR_ORGANIZATION"
   [ -n "$COVERAGE_ARGS" ] && echo "  • Coverage: $COVERAGE_ARGS"
   [ -n "$PYTHON_COVERAGE_ARG" ] && echo "  • Python coverage: $PYTHON_COVERAGE_ARG"
+  [ -n "$PYTHON_JUNIT_ARG" ] && echo "  • Python test results: $PYTHON_JUNIT_ARG"
+  [ -n "$PYTHON_TESTS_ARG" ] && echo "  • Python test dirs: $PYTHON_TESTS_ARG"
   echo "  • Base Directory: $REPO_PATH"
   echo ""
   
@@ -1136,6 +1261,8 @@ else
     $ORG_ARG \
     $COVERAGE_ARGS \
     $PYTHON_COVERAGE_ARG \
+    $PYTHON_JUNIT_ARG \
+    $PYTHON_TESTS_ARG \
     $GENERIC_COV_ARG 2>&1 | tee "$SCANNER_LOG"
   SCANNER_EXIT_CODE=${PIPESTATUS[0]}
 fi

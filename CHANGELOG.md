@@ -58,7 +58,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ClamAV accordion badge shows "✅ Clean" when skipped**: added `SCAN_MODE=quick` guard — now shows `⏭️ Not run in quick mode` (matching the IOC mini-donut skipped state)
 - **Anchore accordion badge shows "✅ Clean" when skipped**: same quick-mode guard added; also simplified multi-`if` badge logic to a clean `elif` chain
 - `run-sonar-analysis.sh`: now reads `sonar.organization` from `sonar-project.properties` as a fallback when the `SONAR_ORGANIZATION` env var is not set — fixes SonarCloud scans failing with "The 'organization' parameter is missing"
-- `run-sonar-analysis.sh`: added broad `coverage.xml` discovery — after pytest generates coverage, a `find` search locates every `coverage.xml` and `cobertura.xml` under the repo (excluding `node_modules`, `.venv`, `dist`, `build`, `.git`); also reads `pyproject.toml`, `setup.cfg`, and `.coveragerc` for a project-configured XML output path; all found paths are stored as **absolute paths** (relative paths caused silent failures when the scanner `cd`s to the properties-file directory) and passed as `-Dsonar.python.coverage.reportPaths` to both scanner invocations; previously only ran if `sonar-project.properties` already had that key configured
+- `run-sonar-analysis.sh`: Python test execution now fully reported to SonarCloud:
+  - **Makefile/tox/pyproject detection**: before running raw pytest, checks for `make coverage`, `make test`, `tox`, and pyproject task runners (Hatch/PDM/taskipy) and runs them first — respects the project's own test setup (dependency installs, virtualenvs, configuration)
+  - **JUnit XML generation**: `--junitxml=pytest-report.xml` added to all pytest invocations so SonarCloud receives test execution results via `sonar.python.xunit.reportPaths`
+  - **JUnit XML discovery**: broad `find` for `pytest-report.xml`, `test-results.xml`, `*junit*.xml`, `TEST-*.xml` after test runs; all found paths passed as absolute paths to `-Dsonar.python.xunit.reportPaths`
+  - **`sonar.tests` detection**: test file directories auto-discovered and passed as `-Dsonar.tests` so SonarCloud correctly links test results to source files
+  - **`coverage.xml` discovery improvements**: searches `pyproject.toml`, `setup.cfg`, `.coveragerc` for configured XML output paths; also finds `cobertura.xml` in addition to `coverage.xml`; all paths stored as absolutes to survive `cd` into properties-file directory
 
 ---
 

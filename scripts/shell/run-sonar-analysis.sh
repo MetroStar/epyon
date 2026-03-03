@@ -730,6 +730,22 @@ if [ ${#PY_TEST_FILES[@]} -gt 0 ]; then
         echo "[INFO] Using sonar.sources for coverage measurement: $COV_SRC"
       fi
     fi
+    # Resolve to an absolute path so pytest-cov uses filesystem matching, not
+    # module-name matching.  When sonar.sources is a relative name like 'core'
+    # that is not directly importable, --cov=core measures nothing.  Using the
+    # absolute directory path always captures coverage regardless of how tests
+    # import the code.
+    if [[ "$COV_SRC" = /* ]]; then
+      COV_ABS="$COV_SRC"          # already absolute
+    elif [ "$COV_SRC" = "." ]; then
+      COV_ABS="$PROPS_BASE"        # whole project root
+    elif [ -d "$PROPS_BASE/$COV_SRC" ]; then
+      COV_ABS="$PROPS_BASE/$COV_SRC"
+    else
+      COV_ABS="$PROPS_BASE"        # fallback: measure everything under project root
+      echo "[INFO] sonar.sources dir '$COV_SRC' not found - measuring coverage from project root"
+    fi
+    echo "[INFO] Coverage source (absolute): $COV_ABS"
 
     # ---- Check for project-level test runner (Makefile, tox, pyproject scripts) ----
     # Run the project's own test command first so project-specific environment setup,
@@ -810,11 +826,11 @@ if [ ${#PY_TEST_FILES[@]} -gt 0 ]; then
         done
 
         python3 -m pytest \
-          --cov="$COV_SRC" \
+          --cov="$COV_ABS" \
           --cov-report="xml:${ABS_COV_XML}" \
           --junitxml="${PROPS_BASE}/pytest-report.xml" \
-          --ignore=node_modules --ignore=.venv \
-          -q 2>&1 | tail -30 || true
+          --ignore=node_modules --ignore=.venv --ignore=venv \
+          -q 2>&1 | tail -50 || true
       fi
 
       if [ -f "$ABS_COV_XML" ]; then
@@ -853,11 +869,11 @@ if [ ${#PY_TEST_FILES[@]} -gt 0 ]; then
           [ -f "$req" ] && python3 -m pip install --quiet -r "$req" 2>&1 | tail -3 || true
         done
         python3 -m pytest \
-          --cov="$COV_SRC" \
+          --cov="$COV_ABS" \
           --cov-report=xml:coverage.xml \
           --junitxml=pytest-report.xml \
-          --ignore=node_modules --ignore=.venv \
-          -q 2>&1 | tail -30 || true
+          --ignore=node_modules --ignore=.venv --ignore=venv \
+          -q 2>&1 | tail -50 || true
       fi
       [ -f "$PROPS_BASE/coverage.xml" ] && echo "✅ Python coverage generated: $PROPS_BASE/coverage.xml" \
         || echo "[WARNING] pytest ran but coverage.xml not found"

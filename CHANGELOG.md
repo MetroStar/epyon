@@ -27,6 +27,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Checkov suppression display**: `find` now uses `-type f` when locating Checkov result JSON files, preventing a directory (`checkov-results.json/`) from masquerading as a file and causing the entire Checkov block to be silently skipped in both `check-severity-gate.sh` and `generate-security-dashboard.sh`.
+- **SonarCloud coverage reporting**: Coverage XML paths are now stored as absolute paths (not relative) so the SonarCloud scanner still resolves them correctly after it `cd`s to the properties-file directory. Discovery now also searches for `cobertura.xml` in addition to `coverage.xml`, and reads `pyproject.toml`, `setup.cfg`, and `.coveragerc` for configured XML output paths.
+- **Python test results visible to SonarCloud**: `run-sonar-analysis.sh` now runs tests through the project's own Makefile/tox/pyproject task runner when present, passes `--junitxml=pytest-report.xml` to all pytest invocations, discovers the resulting JUnit XML file and sets `sonar.python.xunit.reportPaths`, and detects test directories to set `sonar.tests`.
+- **Python coverage always 0% when source uses package imports**: The fallback pytest run now passes an absolute filesystem path to `--cov` (`$PROPS_BASE/$COV_SRC`) instead of the relative module name from `sonar.sources`. Passing a relative name like `core` to pytest-cov triggers module-name matching, which silently collects no data when the code is imported as part of a larger package (e.g. `midas.core`). Using an absolute directory path forces filesystem-level coverage tracking regardless of import mechanism. Also increased `tail` buffer from 30 to 50 lines so warning messages like `No data was collected` are visible in the log.
+- **`sonar.python.version` auto-detection**: `run-sonar-analysis.sh` now detects the project's Python version from `.python-version`, `pyproject.toml` (`requires-python`), `runtime.txt`, or `setup.cfg` (`python_requires`), falling back to the live interpreter. The detected major.minor version is passed as `-Dsonar.python.version` to both SonarCloud scanner invocations, eliminating the "analyzed as compatible with all Python 3 versions" warning.
+
 ### Planned
 - Automated version bumping script
 - Git tag synchronization

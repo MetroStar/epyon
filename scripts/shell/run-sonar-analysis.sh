@@ -1,8 +1,8 @@
 #!/bin/bash
 # run-sonar-analysis.sh
 # Minimal SonarCloud CI runner.
-# Assumes coverage/test reports are already on disk; this script only
-# invokes the SonarCloud scanner and saves the results JSON.
+# Reads expected coverage paths from sonar-project.properties and generates
+# any that are missing before invoking the scanner.
 #
 # Usage:
 #   run-sonar-analysis.sh [TARGET_DIRECTORY]
@@ -91,6 +91,95 @@ echo "  Token       : $TOKEN_DISPLAY"
 echo "  Log         : $SCANNER_LOG"
 echo "============================================"
 echo ""
+
+# ---------------------------------------------------------------------------
+# Pre-scan: generate any missing coverage reports
+# ---------------------------------------------------------------------------
+# Read the JS/TS and Python coverage paths declared in sonar-project.properties
+# and run the project's own test command for any that don't yet exist on disk.
+# This keeps the script self-contained while staying minimal — no coverage
+# generation logic is duplicated; we just delegate to the project's own tooling.
+
+_PROPS_BASE="${PROPS_FILE:+$(dirname "$PROPS_FILE")}"
+_PROPS_BASE="${_PROPS_BASE:-$REPO_PATH}"
+
+# ---- JS/TS: sonar.javascript.lcov.reportPaths ----
+if [ -n "$PROPS_FILE" ]; then
+  _lcov_paths=$(grep -E "^sonar\.javascript\.lcov\.reportPaths\s*=" "$PROPS_FILE" 2>/dev/null \
+                | head -1 | sed 's/^[^=]*=\s*//' | tr -d ' ') || true
+  if [ -n "$_lcov_paths" ]; then
+    IFS=',' read -ra _lcov_arr <<< "$_lcov_paths"
+    for _lcov_rel in "${_lcov_arr[@]}"; do
+      _lcov_abs="$_PROPS_BASE/$_lcov_rel"
+      if [ ! -f "$_lcov_abs" ]; then
+        echo "[INFO] Missing JS coverage: $_lcov_rel — searching for package.json to run tests..."
+        # Walk up from the lcov path to find the nearest package.json
+        _search_dir="$(dirname "$_lcov_abs")"
+        _pkg_dir=""
+        # Also check parent directories up to _PROPS_BASE
+        _d="$_search_dir"
+        while [[ "$_d" == "$_PROPS_BASE"* ]]; do
+          if [ -f "$_d/package.json" ]; then
+            _pkg_dir="$_d"
+            break
+          fi
+          _d="$(dirname "$_d")"
+        done
+        if [ -n "$_pkg_dir" ]; then
+          echo "[INFO] Running JS tests in: $_pkg_dir"
+          cd "$_pkg_dir"
+          # Try test:coverage, then coverage, then test -- vitest/jest both support these
+          if node -e "const p=require('./package.json'); process.exit(p.scripts&&p.scripts['test:coverage']?0:1)" 2>/dev/null; then
+            npm run test:coverage 2>&1 | tail -30 || true
+          elif node -e "const p=require('./package.json'); process.exit(p.scripts&&p.scripts['coverage']?0:1)" 2>/dev/null; then
+            npm run coverage 2>&1 | tail -30 || true
+          else
+            echo "[INFO] No test:coverage/coverage script found in $(basename "$_pkg_dir") — trying npx vitest run --coverage"
+            npx vitest run --coverage 2>&1 | tail -30 || true
+          fi
+          cd "$REPO_PATH"
+        else
+          echo "[WARNING] Could not find a package.json near $_lcov_rel — skipping JS coverage generation"
+        fi
+      else
+        echo "[INFO] JS coverage already present: $_lcov_rel"
+      fi
+    done
+  fi
+fi
+
+# ---- Python: sonar.python.coverage.reportPaths ----
+if [ -n "$PROPS_FILE" ]; then
+  _py_cov_paths=$(grep -E "^sonar\.python\.coverage\.reportPaths\s*=" "$PROPS_FILE" 2>/dev/null \
+                  | head -1 | sed 's/^[^=]*=\s*//' | tr -d ' ') || true
+  if [ -n "$_py_cov_paths" ]; then
+    _primary_cov=$(echo "$_py_cov_paths" | cut -d',' -f1)
+    _primary_abs="$_PROPS_BASE/$_primary_cov"
+    if [ ! -f "$_primary_abs" ]; then
+      echo "[INFO] Missing Python coverage: $_primary_cov — attempting to generate..."
+      cd "$_PROPS_BASE"
+      if python3 -m pytest --version &>/dev/null 2>&1; then
+        # Detect sonar.sources for --cov target
+        _py_src=$(grep -E "^sonar\.sources\s*=" "$PROPS_FILE" 2>/dev/null \
+                  | head -1 | sed 's/^[^=]*=\s*//' | tr -d ' ' | cut -d',' -f1) || true
+        _cov_target="${_py_src:+$_PROPS_BASE/$_py_src}"
+        _cov_target="${_cov_target:-$_PROPS_BASE}"
+        mkdir -p "$(dirname "$_primary_abs")"
+        python3 -m pip install --quiet pytest-cov 2>&1 | tail -1 || true
+        python3 -m pytest \
+          --cov="$_cov_target" \
+          --cov-report="xml:${_primary_abs}" \
+          --ignore=node_modules --ignore=.venv --ignore=venv \
+          -q 2>&1 | tail -40 || true
+      else
+        echo "[WARNING] pytest not available — skipping Python coverage generation"
+      fi
+      cd "$REPO_PATH"
+    else
+      echo "[INFO] Python coverage already present: $_primary_cov"
+    fi
+  fi
+fi
 
 # ---------------------------------------------------------------------------
 # Run scanner

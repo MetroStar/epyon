@@ -386,7 +386,13 @@ else
 fi
 
 # ---- ClamAV Statistics ----
-CLAMAV_LOG="${LATEST_SCAN}/clamav/scan.log"
+# ClamAV sends per-file results and SCAN SUMMARY to the --log= file (clamav-detailed.log).
+# scan.log (via tee) may only capture stdout without per-file lines.
+CLAMAV_LOG="${LATEST_SCAN}/clamav/clamav-detailed.log"
+[ ! -f "$CLAMAV_LOG" ] && CLAMAV_LOG="${LATEST_SCAN}/clamav/scan.log"
+CLAMAV_FOUND_LOG="$CLAMAV_LOG"
+# Prefer detailed log for FOUND lines
+[ -f "${LATEST_SCAN}/clamav/clamav-detailed.log" ] && CLAMAV_FOUND_LOG="${LATEST_SCAN}/clamav/clamav-detailed.log"
 CLAMAV_FILES_SCANNED=0
 CLAMAV_DATA_SCANNED="0 MB"
 CLAMAV_SCAN_TIME="N/A"
@@ -405,16 +411,17 @@ if [ -f "$CLAMAV_LOG" ]; then
 fi
 CLAMAV_CRITICAL=${CLAMAV_INFECTED:-0}
 if [ "$CLAMAV_CRITICAL" -gt 0 ]; then
-    # Build a virus detections table from the scan log FOUND lines
+    # Build a virus detections table from the detailed log FOUND lines
     _clamav_detections_html=""
-    if [ -f "$CLAMAV_LOG" ] && grep -q " FOUND$" "$CLAMAV_LOG" 2>/dev/null; then
+    if [ -f "$CLAMAV_FOUND_LOG" ] && grep -q " FOUND$" "$CLAMAV_FOUND_LOG" 2>/dev/null; then
         _clamav_detections_html="<div style='margin-top:10px;'><strong>🦠 Detected Signatures:</strong><table style='width:100%;margin-top:6px;border-collapse:collapse;font-size:0.85em;'><thead><tr><th style='text-align:left;padding:4px 8px;border-bottom:1px solid #374151;color:#9ca3af;'>Virus / Signature</th><th style='text-align:left;padding:4px 8px;border-bottom:1px solid #374151;color:#9ca3af;'>File</th></tr></thead><tbody>"
         while IFS= read -r _found_line; do
             # Format: /path/to/file: VirusName FOUND
-            _vname=$(echo "$_found_line" | sed 's/ FOUND$//' | awk -F': ' '{print $NF}')
-            _fpath=$(echo "$_found_line" | sed 's/ FOUND$//' | sed "s/: ${_vname}//")
+            _rest="${_found_line% FOUND}"
+            _vname="${_rest##*: }"
+            _fpath="${_rest%: ${_vname}}"
             _clamav_detections_html+="<tr><td style='padding:3px 8px;color:#f87171;font-family:monospace;'>${_vname}</td><td style='padding:3px 8px;color:#d1d5db;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:300px;' title='${_fpath}'>$(basename "${_fpath}")</td></tr>"
-        done < <(grep " FOUND$" "$CLAMAV_LOG" 2>/dev/null)
+        done < <(grep " FOUND$" "$CLAMAV_FOUND_LOG" 2>/dev/null | tr -d '\r')
         _clamav_detections_html+="</tbody></table></div>"
     fi
     CLAMAV_FINDINGS="<div class=\"finding-item severity-critical\" data-source=\"app\">
@@ -431,7 +438,7 @@ if [ "$CLAMAV_CRITICAL" -gt 0 ]; then
             ${_clamav_detections_html}
         </div>
     </div>"
-elif [ ! -f "$CLAMAV_LOG" ] && [ "${SCAN_MODE:-full}" = "quick" ]; then
+elif [ ! -f "${LATEST_SCAN}/clamav/scan.log" ] && [ ! -f "${LATEST_SCAN}/clamav/clamav-detailed.log" ] && [ "${SCAN_MODE:-full}" = "quick" ]; then
     CLAMAV_FINDINGS="<div style='padding:20px;text-align:center;background:linear-gradient(135deg,#1a1d23 0%,#2C3539 100%);border:2px solid #6366f1;border-radius:8px;'><p style='color:#818cf8;font-size:1.1em;'>&#x23ED;&#xFE0F; <strong>Not run in quick mode</strong></p><p style='color:#9ca3af;font-size:0.9em;margin-top:8px;'>ClamAV malware scanning is skipped for faster PR scans. Run a full scan (push or scheduled) for complete results.</p></div>"
 else
     CLAMAV_FINDINGS="<p class=\"no-findings\">✅ No malware detected</p>"

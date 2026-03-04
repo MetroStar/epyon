@@ -350,41 +350,62 @@ if [ -f "$OUTPUT_DIR/clamav-detailed.log" ]; then
     echo "📄 Detailed scan log: $OUTPUT_DIR/clamav-detailed.log"
 fi
 
-# Basic summary from scan log
-if [ -f "$SCAN_LOG" ]; then
+# ClamAV sends per-file results and SCAN SUMMARY to the --log= file (clamav-detailed.log).
+# scan.log (via tee) may only contain stdout (progress/summary line counts).
+# Prefer detailed log for all result parsing.
+_detail_log=""
+[ -f "$OUTPUT_DIR/clamav-detailed.log" ] && _detail_log="$OUTPUT_DIR/clamav-detailed.log"
+_primary_log="${_detail_log:-$SCAN_LOG}"
+
+if [ -f "$_primary_log" ]; then
     echo
     echo "Scan Summary:"
     echo "============="
-    
-    # Extract summary information from log
-    if grep -q "SCAN SUMMARY" "$SCAN_LOG"; then
+
+    # Print the clamscan SCAN SUMMARY block
+    if grep -q "SCAN SUMMARY" "$_primary_log" 2>/dev/null; then
+        sed -n '/----------- SCAN SUMMARY -----------/,/End Date:/p' "$_primary_log"
+    elif [ -n "$_detail_log" ] && grep -q "SCAN SUMMARY" "$SCAN_LOG" 2>/dev/null; then
         sed -n '/----------- SCAN SUMMARY -----------/,/End Date:/p' "$SCAN_LOG"
     else
-        # Fallback: count files and infected
-        SCANNED_FILES=$(grep -c "OK$" "$SCAN_LOG" 2>/dev/null || echo "Unknown")
-        INFECTED_FILES=$(grep -c "FOUND$" "$SCAN_LOG" 2>/dev/null || echo "0")
-        
-        echo "Scanned files: $SCANNED_FILES"
-        echo "Infected files: $INFECTED_FILES"
+        _scanned_display=$(grep "Scanned files:" "$_primary_log" 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo "?")
+        _infected_display=$(grep "Infected files:" "$_primary_log" 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo "0")
+        echo "Scanned files:  $_scanned_display"
+        echo "Infected files: $_infected_display"
     fi
-    
-    # Extract and display detected virus names
-    INFECTED_FILES=$(grep -c "FOUND$" "$SCAN_LOG" 2>/dev/null || echo "0")
-    if [ "${INFECTED_FILES:-0}" -gt 0 ]; then
-        echo
-        echo -e "${RED}🦠 Detected Threats:${NC}"
-        echo "-------------------"
-        while IFS= read -r _found_line; do
-            _rest=$(echo "$_found_line" | sed 's/ FOUND$//')
-            _vname=$(echo "$_rest" | awk -F': ' '{print $NF}')
-            _fpath=$(echo "$_rest" | sed "s/: ${_vname}$//")
-            printf "   %-55s  %s\n" "$_vname" "$(basename "${_fpath}")"
-        done < <(grep " FOUND$" "$SCAN_LOG" 2>/dev/null)
-        echo
+
+    # Locate FOUND lines — prefer detailed log, fall back to scan.log
+    _found_source=""
+    if [ -n "$_detail_log" ] && grep -q " FOUND$" "$_detail_log" 2>/dev/null; then
+        _found_source="$_detail_log"
+    elif grep -q " FOUND$" "$SCAN_LOG" 2>/dev/null; then
+        _found_source="$SCAN_LOG"
+    fi
+
+    if [ -n "$_found_source" ]; then
+        _found_count=$(grep -c " FOUND$" "$_found_source" 2>/dev/null || echo "0")
+        if [ "${_found_count:-0}" -gt 0 ]; then
+            echo
+            echo -e "${RED}🦠 Detected Threats (${_found_count}):${NC}"
+            echo "-------------------"
+            while IFS= read -r _found_line; do
+                _found_line=$(echo "$_found_line" | tr -d '\r')
+                _rest="${_found_line% FOUND}"
+                # Split on last ": " to separate path from virus name
+                _vname="${_rest##*: }"
+                _fpath="${_rest%: ${_vname}}"
+                printf "   %-55s  (%s)\n" "$_vname" "$(basename "${_fpath}")"
+            done < <(grep " FOUND$" "$_found_source" 2>/dev/null | tr -d '\r')
+            echo
+            echo -e "${YELLOW}💡 To rule out false positives, check:${NC}"
+            echo "   • Heuristics.Encrypted.*  — may be encrypted archives or test fixtures"
+            echo "   • .git/objects/pack/*      — git pack files commonly trigger Encrypted.Zip"
+            echo "   • Test resource files      — sample malware used in unit tests"
+        fi
     fi
 
     echo
-    echo "Detailed results saved to: $SCAN_LOG"
+    echo "Detailed results saved to: ${_detail_log:-$SCAN_LOG}"
 else
     echo
     echo "⚠️  No scan log generated. Check Docker configuration."
@@ -400,29 +421,29 @@ else
 fi
 
 # Write clamav-results.json
+# Reuse _detail_log / _found_source / _primary_log set in summary block above
+_json_found_source="${_found_source:-${_detail_log:-$SCAN_LOG}}"
+_json_stats_source="${_detail_log:-$SCAN_LOG}"
 {
     _ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-    _infected=$(grep "Infected files:" "$SCAN_LOG" 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo "0")
-    _scanned=$(grep "Scanned files:" "$SCAN_LOG" 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo "0")
-    _engine=$(grep "Engine version:" "$SCAN_LOG" 2>/dev/null | head -1 | sed 's/Engine version: //' | xargs || echo "unknown")
-    _db=$(grep "Known viruses:" "$SCAN_LOG" 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo "0")
-    _duration=$(grep "^Time:" "$SCAN_LOG" 2>/dev/null | head -1 | sed 's/Time: //' | xargs || echo "N/A")
+    _infected=$(grep "Infected files:" "$_json_stats_source" 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo "0")
+    _scanned=$(grep "Scanned files:" "$_json_stats_source" 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo "0")
+    _engine=$(grep "Engine version:" "$_json_stats_source" 2>/dev/null | head -1 | sed 's/Engine version: //' | xargs || echo "unknown")
+    _db=$(grep "Known viruses:" "$_json_stats_source" 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo "0")
+    _duration=$(grep "^Time:" "$_json_stats_source" 2>/dev/null | head -1 | sed 's/Time: //' | xargs || echo "N/A")
     _status="clean"
     [ "${SCAN_RESULT:-0}" -ne 0 ] && _status="threats_found"
 
-    # Build detections array
+    # Build detections array from whichever log has FOUND lines
     _detections="[]"
-    if grep -q " FOUND$" "$SCAN_LOG" 2>/dev/null; then
-        _detections=$(grep " FOUND$" "$SCAN_LOG" 2>/dev/null | python3 -c '
+    if grep -q " FOUND$" "$_json_found_source" 2>/dev/null; then
+        _detections=$(grep " FOUND$" "$_json_found_source" 2>/dev/null | tr -d '\r' | python3 -c '
 import sys, json
 rows = []
 for line in sys.stdin:
     line = line.rstrip()
-    # Format: /path/to/file: VirusName FOUND
     if line.endswith(" FOUND"):
-        # Remove trailing " FOUND"
         rest = line[:-6]
-        # Split on last ": " to get path and virus name
         sep = rest.rfind(": ")
         if sep != -1:
             fpath = rest[:sep]

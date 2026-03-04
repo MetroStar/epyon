@@ -375,9 +375,10 @@ if [ -f "$SCAN_LOG" ]; then
         echo -e "${RED}🦠 Detected Threats:${NC}"
         echo "-------------------"
         while IFS= read -r _found_line; do
-            _fpath=$(echo "$_found_line" | awk -F': ' 'NF>=3{for(i=1;i<NF-1;i++) printf "%s:",i==1?$i:$i; printf "\n"; next} {print $1}' | sed 's/:$//')
-            _vname=$(echo "$_found_line" | sed 's/ FOUND$//' | awk -F': ' '{print $NF}')
-            printf "   %-50s  %s\n" "$(basename "${_fpath:--}")" "$_vname"
+            _rest=$(echo "$_found_line" | sed 's/ FOUND$//')
+            _vname=$(echo "$_rest" | awk -F': ' '{print $NF}')
+            _fpath=$(echo "$_rest" | sed "s/: ${_vname}$//")
+            printf "   %-55s  %s\n" "$_vname" "$(basename "${_fpath}")"
         done < <(grep " FOUND$" "$SCAN_LOG" 2>/dev/null)
         echo
     fi

@@ -368,6 +368,20 @@ if [ -f "$SCAN_LOG" ]; then
         echo "Infected files: $INFECTED_FILES"
     fi
     
+    # Extract and display detected virus names
+    INFECTED_FILES=$(grep -c "FOUND$" "$SCAN_LOG" 2>/dev/null || echo "0")
+    if [ "${INFECTED_FILES:-0}" -gt 0 ]; then
+        echo
+        echo -e "${RED}🦠 Detected Threats:${NC}"
+        echo "-------------------"
+        while IFS= read -r _found_line; do
+            _fpath=$(echo "$_found_line" | awk -F': ' 'NF>=3{for(i=1;i<NF-1;i++) printf "%s:",i==1?$i:$i; printf "\n"; next} {print $1}' | sed 's/:$//')
+            _vname=$(echo "$_found_line" | sed 's/ FOUND$//' | awk -F': ' '{print $NF}')
+            printf "   %-50s  %s\n" "$(basename "${_fpath:--}")" "$_vname"
+        done < <(grep " FOUND$" "$SCAN_LOG" 2>/dev/null)
+        echo
+    fi
+
     echo
     echo "Detailed results saved to: $SCAN_LOG"
 else
@@ -383,6 +397,58 @@ else
     echo
     echo -e "${RED}🚨 Security Status: THREAT DETECTED - Review results immediately${NC}"
 fi
+
+# Write clamav-results.json
+{
+    _ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    _infected=$(grep "Infected files:" "$SCAN_LOG" 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo "0")
+    _scanned=$(grep "Scanned files:" "$SCAN_LOG" 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo "0")
+    _engine=$(grep "Engine version:" "$SCAN_LOG" 2>/dev/null | head -1 | sed 's/Engine version: //' | xargs || echo "unknown")
+    _db=$(grep "Known viruses:" "$SCAN_LOG" 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo "0")
+    _duration=$(grep "^Time:" "$SCAN_LOG" 2>/dev/null | head -1 | sed 's/Time: //' | xargs || echo "N/A")
+    _status="clean"
+    [ "${SCAN_RESULT:-0}" -ne 0 ] && _status="threats_found"
+
+    # Build detections array
+    _detections="[]"
+    if grep -q " FOUND$" "$SCAN_LOG" 2>/dev/null; then
+        _detections=$(grep " FOUND$" "$SCAN_LOG" 2>/dev/null | python3 -c '
+import sys, json
+rows = []
+for line in sys.stdin:
+    line = line.rstrip()
+    # Format: /path/to/file: VirusName FOUND
+    if line.endswith(" FOUND"):
+        # Remove trailing " FOUND"
+        rest = line[:-6]
+        # Split on last ": " to get path and virus name
+        sep = rest.rfind(": ")
+        if sep != -1:
+            fpath = rest[:sep]
+            vname = rest[sep+2:]
+            rows.append({"file": fpath, "virus": vname})
+print(json.dumps(rows))
+' 2>/dev/null || echo "[]")
+    fi
+
+    python3 -c "
+import json, sys
+data = {
+    'scan_timestamp': '$_ts',
+    'status': '$_status',
+    'engine_version': '$_engine',
+    'virus_db_signatures': int('${_db:-0}'),
+    'files_scanned': int('${_scanned:-0}'),
+    'infected_files': int('${_infected:-0}'),
+    'scan_duration': '$_duration',
+    'detections': json.loads(sys.argv[1])
+}
+print(json.dumps(data, indent=2))
+" "$_detections" > "$OUTPUT_DIR/clamav-results.json" 2>/dev/null || true
+    if [ -f "$OUTPUT_DIR/clamav-results.json" ]; then
+        echo "📄 JSON results: $OUTPUT_DIR/clamav-results.json"
+    fi
+}
 
 echo
 echo -e "${BLUE}📁 Output Files:${NC}"

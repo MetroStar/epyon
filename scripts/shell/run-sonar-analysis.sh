@@ -105,41 +105,67 @@ _PROPS_BASE="${_PROPS_BASE:-$REPO_PATH}"
 
 # ---- JS/TS: sonar.javascript.lcov.reportPaths ----
 if [ -n "$PROPS_FILE" ]; then
-  _lcov_paths=$(grep -E "^sonar\.javascript\.lcov\.reportPaths\s*=" "$PROPS_FILE" 2>/dev/null \
-                | head -1 | sed 's/^[^=]*=\s*//' | tr -d ' ') || true
+  # Java .properties files allow backslash line continuations.  A plain
+  # grep|sed only gets the first line, returning the trailing '\' as the
+  # value when the path list spans multiple lines.  Use Python (already
+  # required by other parts of the toolchain) for reliable parsing.
+  _lcov_paths=$(python3 - "$PROPS_FILE" <<'PYEOF'
+import sys, re
+text = open(sys.argv[1]).read()
+# Collapse backslash-newline continuations
+text = re.sub(r'\\\n[ \t]*', '', text)
+m = re.search(r'^sonar\.javascript\.lcov\.reportPaths[ \t]*=[ \t]*(.+)$', text, re.MULTILINE)
+if m:
+    # strip inline comments, whitespace
+    val = re.sub(r'(?<!\\)#.*', '', m.group(1)).strip()
+    print(val)
+PYEOF
+) 2>/dev/null || true
+
   if [ -n "$_lcov_paths" ]; then
     IFS=',' read -ra _lcov_arr <<< "$_lcov_paths"
     for _lcov_rel in "${_lcov_arr[@]}"; do
+      _lcov_rel="${_lcov_rel// /}"   # trim any stray whitespace
       _lcov_abs="$_PROPS_BASE/$_lcov_rel"
       if [ ! -f "$_lcov_abs" ]; then
-        echo "[INFO] Missing JS coverage: $_lcov_rel — searching for package.json to run tests..."
-        # Walk up from the lcov path to find the nearest package.json
-        _search_dir="$(dirname "$_lcov_abs")"
+        echo "[INFO] Missing JS coverage: $_lcov_rel — searching for package.json..."
+        # Walk up from the coverage file's directory to find the nearest
+        # package.json that has a test:coverage or coverage script.
+        # e.g. ui/coverage/lcov.info → look in ui/, then project root.
         _pkg_dir=""
-        # Also check parent directories up to _PROPS_BASE
-        _d="$_search_dir"
-        while [[ "$_d" == "$_PROPS_BASE"* ]]; do
+        _d="$(dirname "$_PROPS_BASE/$_lcov_rel")"
+        while [[ "$_d" == "$_PROPS_BASE"* ]] || [[ "$_d" == "$_PROPS_BASE" ]]; do
           if [ -f "$_d/package.json" ]; then
             _pkg_dir="$_d"
             break
           fi
+          [ "$_d" = "$_PROPS_BASE" ] && break
           _d="$(dirname "$_d")"
         done
         if [ -n "$_pkg_dir" ]; then
-          echo "[INFO] Running JS tests in: $_pkg_dir"
+          echo "[INFO] Found package.json in: $_pkg_dir"
           cd "$_pkg_dir"
-          # Try test:coverage, then coverage, then test -- vitest/jest both support these
-          if node -e "const p=require('./package.json'); process.exit(p.scripts&&p.scripts['test:coverage']?0:1)" 2>/dev/null; then
-            npm run test:coverage 2>&1 | tail -30 || true
-          elif node -e "const p=require('./package.json'); process.exit(p.scripts&&p.scripts['coverage']?0:1)" 2>/dev/null; then
-            npm run coverage 2>&1 | tail -30 || true
-          else
-            echo "[INFO] No test:coverage/coverage script found in $(basename "$_pkg_dir") — trying npx vitest run --coverage"
-            npx vitest run --coverage 2>&1 | tail -30 || true
+          # Install deps if node_modules is absent
+          if [ ! -d "node_modules" ]; then
+            echo "[INFO] Installing dependencies in $(basename "$_pkg_dir")..."
+            npm install --prefer-offline --no-audit --no-fund 2>&1 | tail -5 || true
+          fi
+          # Pick the first available coverage script
+          _ran_js=false
+          for _script in "test:coverage" "coverage" "test"; do
+            if node -e "const p=require('./package.json');process.exit((p.scripts&&p.scripts['$_script'])?0:1)" 2>/dev/null; then
+              echo "[INFO] Running: npm run $_script"
+              npm run "$_script" 2>&1 | tail -40 || true
+              _ran_js=true
+              break
+            fi
+          done
+          if [ "$_ran_js" = false ]; then
+            echo "[WARNING] No coverage/test script found in $(basename "$_pkg_dir") — skipping"
           fi
           cd "$REPO_PATH"
         else
-          echo "[WARNING] Could not find a package.json near $_lcov_rel — skipping JS coverage generation"
+          echo "[WARNING] No package.json found near $_lcov_rel — skipping JS coverage generation"
         fi
       else
         echo "[INFO] JS coverage already present: $_lcov_rel"
@@ -150,8 +176,16 @@ fi
 
 # ---- Python: sonar.python.coverage.reportPaths ----
 if [ -n "$PROPS_FILE" ]; then
-  _py_cov_paths=$(grep -E "^sonar\.python\.coverage\.reportPaths\s*=" "$PROPS_FILE" 2>/dev/null \
-                  | head -1 | sed 's/^[^=]*=\s*//' | tr -d ' ') || true
+  _py_cov_paths=$(python3 - "$PROPS_FILE" <<'PYEOF'
+import sys, re
+text = open(sys.argv[1]).read()
+text = re.sub(r'\\\n[ \t]*', '', text)
+m = re.search(r'^sonar\.python\.coverage\.reportPaths[ \t]*=[ \t]*(.+)$', text, re.MULTILINE)
+if m:
+    val = re.sub(r'(?<!\\)#.*', '', m.group(1)).strip()
+    print(val)
+PYEOF
+) 2>/dev/null || true
   if [ -n "$_py_cov_paths" ]; then
     _primary_cov=$(echo "$_py_cov_paths" | cut -d',' -f1)
     _primary_abs="$_PROPS_BASE/$_primary_cov"

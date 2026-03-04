@@ -405,6 +405,18 @@ if [ -f "$CLAMAV_LOG" ]; then
 fi
 CLAMAV_CRITICAL=${CLAMAV_INFECTED:-0}
 if [ "$CLAMAV_CRITICAL" -gt 0 ]; then
+    # Build a virus detections table from the scan log FOUND lines
+    _clamav_detections_html=""
+    if [ -f "$CLAMAV_LOG" ] && grep -q " FOUND$" "$CLAMAV_LOG" 2>/dev/null; then
+        _clamav_detections_html="<div style='margin-top:10px;'><strong>🦠 Detected Signatures:</strong><table style='width:100%;margin-top:6px;border-collapse:collapse;font-size:0.85em;'><thead><tr><th style='text-align:left;padding:4px 8px;border-bottom:1px solid #374151;color:#9ca3af;'>Virus / Signature</th><th style='text-align:left;padding:4px 8px;border-bottom:1px solid #374151;color:#9ca3af;'>File</th></tr></thead><tbody>"
+        while IFS= read -r _found_line; do
+            # Format: /path/to/file: VirusName FOUND
+            _vname=$(echo "$_found_line" | sed 's/ FOUND$//' | awk -F': ' '{print $NF}')
+            _fpath=$(echo "$_found_line" | sed 's/ FOUND$//' | sed "s/: ${_vname}//")
+            _clamav_detections_html+="<tr><td style='padding:3px 8px;color:#f87171;font-family:monospace;'>${_vname}</td><td style='padding:3px 8px;color:#d1d5db;font-family:monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:300px;' title='${_fpath}'>$(basename "${_fpath}")</td></tr>"
+        done < <(grep " FOUND$" "$CLAMAV_LOG" 2>/dev/null)
+        _clamav_detections_html+="</tbody></table></div>"
+    fi
     CLAMAV_FINDINGS="<div class=\"finding-item severity-critical\" data-source=\"app\">
         <div class=\"finding-header\">
             <span class=\"badge badge-tool\">ClamAV</span>
@@ -412,10 +424,11 @@ if [ "$CLAMAV_CRITICAL" -gt 0 ]; then
             <span class=\"badge\" style=\"background:#152a1f;color:#4ade80;font-size:0.7em;border:1px solid #10b981;\">💻 App Code</span>
         </div>
         <div class=\"finding-title\">⚠️ Malware Detected</div>
-        <div class=\"finding-desc\">$CLAMAV_CRITICAL infected files found</div>
+        <div class=\"finding-desc\">$CLAMAV_CRITICAL infected file(s) found</div>
         <div class=\"finding-details\">
             <div><strong>Source:</strong> 💻 Application Code (filesystem scan)</div>
             <div><strong>Action Required:</strong> Review scan results and quarantine infected files</div>
+            ${_clamav_detections_html}
         </div>
     </div>"
 elif [ ! -f "$CLAMAV_LOG" ] && [ "${SCAN_MODE:-full}" = "quick" ]; then

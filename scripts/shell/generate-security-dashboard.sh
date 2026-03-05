@@ -56,6 +56,7 @@ show_help() {
     echo ""
     echo "Output:"
     echo "  Dashboard saved to: {SCAN_DIR}/consolidated-reports/dashboards/security-dashboard.html"
+    echo "  Root shortcut:      {SCAN_DIR}/security-dashboard.html  (symlink)"
     echo ""
     echo "Dashboard Features:"
     echo "  - Severity summary with clickable filter chips"
@@ -5047,8 +5048,13 @@ cat >> "$OUTPUT_HTML" << EOF
 </html>
 EOF
 
+# Symlink the dashboard to the scan root for easy access
+ln -sf "consolidated-reports/dashboards/security-dashboard.html" "${LATEST_SCAN}/security-dashboard.html" 2>/dev/null || \
+    cp "$OUTPUT_HTML" "${LATEST_SCAN}/security-dashboard.html" 2>/dev/null || true
+
 echo ""
 echo "✅ Interactive dashboard generated: $OUTPUT_HTML"
+echo "📋 Root shortcut:                  ${LATEST_SCAN}/security-dashboard.html"
 echo ""
 echo "Summary:"
 echo "  Critical: $TOTAL_CRITICAL"
@@ -5058,4 +5064,4 @@ echo "  Low:      $TOTAL_LOW"
 echo "  Total:    $TOTAL_FINDINGS"
 echo ""
 echo "Open the dashboard:"
-echo "  open $OUTPUT_HTML"
+echo "  open ${LATEST_SCAN}/security-dashboard.html"

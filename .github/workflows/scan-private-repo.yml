@@ -15,6 +15,14 @@ on:
   # checkov:skip=CKV_GHA_7:Workflow inputs control scan parameters not build artifacts; subdirectory and scan mode are security tool configurations
   workflow_dispatch:
     inputs:
+      pr_number:
+        description: 'Optional: Pull request number to scan (e.g., 123). If set, takes precedence over target_ref'
+        required: false
+        type: string
+      target_ref:
+        description: 'Optional: Branch/tag/commit to scan (e.g., feature/my-branch, refs/heads/main, a1b2c3d)'
+        required: false
+        type: string
       subdirectory:
         description: 'Optional: Subdirectory path to scan (e.g., apps/api)'
         required: false
@@ -45,7 +53,11 @@ on:
         type: boolean
 
 env:
-  SCAN_MODE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.scan_mode || github.event_name == 'pull_request' && 'quick' || 'full' }}
+  # Trigger behavior:
+  # - workflow_dispatch: use selected input
+  # - pull_request: configurable via Actions variable PR_SCAN_MODE (quick/full/baseline), defaults to quick
+  # - push/schedule: full
+  SCAN_MODE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.scan_mode || github.event_name == 'pull_request' && (vars.PR_SCAN_MODE == 'full' && 'full' || vars.PR_SCAN_MODE == 'baseline' && 'baseline' || 'quick') || 'full' }}
   # For automatic triggers (push/PR/schedule): always fail on critical and high
   # For manual triggers: use workflow_dispatch inputs (default to true for both)
   FAIL_ON_CRITICAL: ${{ github.event_name != 'workflow_dispatch' && 'true' || github.event.inputs.fail_on_critical }}
@@ -72,6 +84,7 @@ jobs:
         with:
           path: target-repo
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.pr_number != '' && format('refs/pull/{0}/merge', github.event.inputs.pr_number) || github.event.inputs.target_ref) || github.ref }}
       
       - name: Checkout Epyon Security Scanner
         uses: actions/checkout@v4
@@ -475,6 +488,7 @@ jobs:
               ${status}
               
               **Triggered by:** @${{ github.actor }}
+              **Scan mode:** ${{ env.SCAN_MODE }}
               **Notifying:** ${notifyUsers}
               
               <details>

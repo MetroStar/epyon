@@ -371,6 +371,38 @@ echo "🎯 Prerequisites check complete!"
    - Scroll down to **"Artifacts"** section
    - Download the ZIP file with all reports
 
+### Configure PR Scan Mode
+
+By default, pull request scans run in `quick` mode. You can now configure this in GitHub Actions variables:
+
+1. Go to **Settings → Secrets and variables → Actions → Variables**
+2. Create variable: `PR_SCAN_MODE`
+3. Set value to one of: `quick`, `full`, `baseline`
+
+If `PR_SCAN_MODE` is not set (or is invalid), the workflow safely defaults to `quick` for PRs.
+
+### Scan a Specific PR or Branch (Manual)
+
+When running `scan-private-repo.yml` or `scan-public-repo.yml` manually (`workflow_dispatch`), you can target a specific PR or branch:
+
+- **PR scan**: set `pr_number` (example: `123`)
+- **Branch/tag/commit scan**: set `target_ref` (examples: `feature/my-branch`, `refs/heads/main`, commit SHA)
+- If both are provided, `pr_number` takes precedence
+
+> For `scan-public-repo.yml`, PR targeting (`pr_number`) is intended for GitHub-hosted repositories.
+
+Examples:
+
+```text
+pr_number: 123
+target_ref: (empty)
+```
+
+```text
+pr_number: (empty)
+target_ref: feature/security-hardening
+```
+
 ### Scan Specific Directories (Monorepos)
 
 Epyon supports scanning specific subdirectories within repositories:

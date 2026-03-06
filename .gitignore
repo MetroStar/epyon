@@ -27,6 +27,7 @@ baseline/*                    # But exclude everything in it by default
 *.tmp
 *.temp
 *~
+~$*
 .DS_Store
 
 # Environment files

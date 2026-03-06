@@ -1,0 +1,619 @@
+name: Epyon Security Scan (Reusable)
+
+# Reusable workflow that can be called from any repository's CI pipeline.
+# This allows repos to sequence security scanning after their build/test jobs,
+# enabling coverage artifacts to be passed through for SonarQube analysis.
+#
+# Usage (from caller):
+#   jobs:
+#     build:
+#       runs-on: self-hosted
+#       steps: ...  # build, test, upload coverage artifact
+#
+#     security-scan:
+#       needs: build
+#       uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
+#       with:
+#         scan_mode: quick
+#         coverage_artifact: coverage-xml  # name of artifact from build job
+#       secrets: inherit
+
+on:
+  workflow_call:
+    inputs:
+      scan_mode:
+        description: 'Scan mode (quick/full/baseline)'
+        required: false
+        default: 'full'
+        type: string
+      subdirectory:
+        description: 'Optional: Subdirectory path to scan'
+        required: false
+        default: ''
+        type: string
+      coverage_artifact:
+        description: 'Name of coverage artifact from a prior job (downloaded via gh CLI)'
+        required: false
+        default: ''
+        type: string
+      fail_on_critical:
+        description: 'Fail build on critical severity findings'
+        required: false
+        default: true
+        type: boolean
+      fail_on_high:
+        description: 'Fail build on high severity findings'
+        required: false
+        default: true
+        type: boolean
+      warning_only:
+        description: 'Report vulnerabilities but never fail the build'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  security-scan:
+    name: Run Epyon Security Analysis
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      security-events: write
+      issues: write
+
+    env:
+      SCAN_MODE: ${{ inputs.scan_mode }}
+      FAIL_ON_CRITICAL: ${{ inputs.fail_on_critical }}
+      FAIL_ON_HIGH: ${{ inputs.fail_on_high }}
+      WARNING_ONLY: ${{ inputs.warning_only }}
+      NOTIFY_USERS: ${{ vars.NOTIFY_USERS }}
+
+    steps:
+      - name: Checkout Target Repository
+        uses: actions/checkout@v4
+        with:
+          path: target-repo
+          fetch-depth: 0
+
+      - name: Checkout Epyon Security Scanner
+        uses: actions/checkout@v4
+        with:
+          repository: MetroStar/epyon
+          path: epyon
+          fetch-depth: 1
+
+      - name: Download coverage artifact
+        if: inputs.coverage_artifact != ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "📥 Downloading coverage artifact: ${{ inputs.coverage_artifact }}"
+          gh run download "$GITHUB_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "${{ inputs.coverage_artifact }}" \
+            --dir target-repo \
+          && echo "✅ Coverage artifact downloaded" \
+          || echo "⚠️ Coverage artifact not available — SonarQube will run without coverage data"
+
+          # Rewrite absolute <source> paths in coverage.xml so SonarQube can
+          # map them to the checkout directory on this runner.
+          if [[ -f target-repo/coverage.xml ]]; then
+            CHECKOUT_DIR="${{ github.workspace }}/target-repo"
+            echo "🔧 Rewriting coverage.xml source paths → $CHECKOUT_DIR"
+            sed -i -E "s|<source>[^<]+</source>|<source>${CHECKOUT_DIR}</source>|g" target-repo/coverage.xml
+          fi
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker Images
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-docker-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-docker-
+
+      - name: Pull Security Tool Images
+        run: |
+          docker pull anchore/grype:latest &
+          docker pull aquasec/trivy:latest &
+          docker pull trufflesecurity/trufflehog:latest &
+          docker pull anchore/syft:latest &
+          wait
+          echo "All security tool images cached"
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq python3 python3-pip bats
+          pip3 install pyyaml
+
+      - name: Install kcov for shell coverage
+        continue-on-error: true
+        run: |
+          sudo apt-get install -y kcov 2>/dev/null \
+            && echo "kcov installed via apt" \
+            || echo "kcov not in apt — will build from source during coverage generation"
+
+      - name: Initialize Scan
+        id: init-scan
+        env:
+          TARGET_NAME: ${{ github.event.repository.name }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          SUBDIR: ${{ inputs.subdirectory }}
+        run: |
+          cd epyon
+          chmod +x scripts/shell/run-target-security-scan.sh
+
+          if [[ -n "$SUBDIR" ]]; then
+            TARGET_DIR="${{ github.workspace }}/target-repo/$SUBDIR"
+            TARGET_NAME=$(basename "$SUBDIR")
+            echo "🎯 Scanning subdirectory: $SUBDIR"
+          else
+            TARGET_DIR="${{ github.workspace }}/target-repo"
+            TARGET_NAME="$TARGET_NAME"
+            echo "🎯 Scanning full repository: $TARGET_NAME"
+          fi
+
+          echo "TARGET_DIR=$TARGET_DIR" > /tmp/epyon-env
+          echo "SCAN_MODE=$SCAN_MODE" >> /tmp/epyon-env
+          echo "TARGET_NAME=$TARGET_NAME" >> /tmp/epyon-env
+          echo "GITHUB_ACTOR=$GITHUB_ACTOR" >> /tmp/epyon-env
+          echo "SUBDIR=$SUBDIR" >> /tmp/epyon-env
+
+          TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
+          USERNAME="${GITHUB_ACTOR}"
+          SCAN_NAME="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
+          SCAN_DIR="scans/${SCAN_NAME}"
+          mkdir -p "$SCAN_DIR"
+          echo "SCAN_DIR=$PWD/$SCAN_DIR" >> /tmp/epyon-env
+          echo "SCAN_NAME=$SCAN_NAME" >> /tmp/epyon-env
+          echo "scan_dir=$SCAN_DIR" >> $GITHUB_OUTPUT
+          echo "scan_id=$SCAN_NAME" >> $GITHUB_OUTPUT
+          echo "🚀 Initialized scan: $SCAN_NAME"
+
+      - name: Layer 1 - Generate SBOM
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "📋 Layer 1: Software Bill of Materials (SBOM)"
+          chmod +x scripts/shell/run-complete-sbom-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-complete-sbom-scan.sh || echo "SBOM scan completed with warnings"
+
+      - name: Layer 2 - Secret Detection (TruffleHog)
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "🔐 Layer 2: Secret Detection"
+          chmod +x scripts/shell/run-trufflehog-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-trufflehog-scan.sh filesystem || echo "TruffleHog scan completed with warnings"
+
+      - name: Layer 3 - Code Quality (SonarQube)
+        continue-on-error: true
+        env:
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+          SONAR_PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "📊 Layer 3: Code Quality Analysis"
+
+          RAW_BASE_KEY="${SONAR_PROJECT_KEY:-${GITHUB_REPOSITORY/\//\_}}"
+          if [[ -n "${SUBDIR:-}" ]]; then
+            SANITIZED_SUBDIR=$(echo "$SUBDIR" | sed -E 's#[/[:space:]]+#_#g; s#[^A-Za-z0-9._:-]#_#g')
+            RAW_BASE_KEY="${RAW_BASE_KEY}_${SANITIZED_SUBDIR}"
+          fi
+          DERIVED_PROJECT_KEY=$(echo "$RAW_BASE_KEY" | sed -E 's#[^A-Za-z0-9._:-]#_#g; s#_+#_#g; s#^[_:. -]+##; s#[_:. -]+$##')
+          if [[ -z "$DERIVED_PROJECT_KEY" ]]; then
+            DERIVED_PROJECT_KEY="${GITHUB_REPOSITORY/\//\_}"
+          fi
+
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          if [[ -n "${SUBDIR:-}" ]]; then
+            DERIVED_PROJECT_NAME="${REPO_NAME} (${SUBDIR})"
+          else
+            DERIVED_PROJECT_NAME="$REPO_NAME"
+          fi
+
+          export SONAR_PROJECT_KEY="$DERIVED_PROJECT_KEY"
+          export SONAR_PROJECT_NAME="$DERIVED_PROJECT_NAME"
+
+          if [[ -n "${SONAR_PR_NUMBER:-}" ]]; then
+            export SONAR_PR_BRANCH="${GITHUB_HEAD_REF:-}"
+            export SONAR_PR_BASE="${GITHUB_BASE_REF:-}"
+          else
+            export SONAR_BRANCH="${GITHUB_REF_NAME:-}"
+          fi
+
+          # If coverage.xml was downloaded from a prior job, tell the scanner
+          # about it. Otherwise, leave the property unset so SonarQube shows
+          # "no data" instead of a false 0%.
+          export SONAR_EXTRA_ARGS=""
+          if [[ -f "$TARGET_DIR/coverage.xml" ]]; then
+            echo "✅ coverage.xml found — SonarQube will report coverage"
+            export SONAR_EXTRA_ARGS="-Dsonar.python.coverage.reportPaths=coverage.xml"
+          else
+            echo "ℹ️  No coverage.xml — SonarQube will run without coverage data"
+          fi
+
+          echo "Using SONAR_PROJECT_KEY=$SONAR_PROJECT_KEY"
+          echo "Using SONAR_PROJECT_NAME=$SONAR_PROJECT_NAME"
+
+          chmod +x scripts/shell/run-sonar-analysis.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-sonar-analysis.sh || echo "SonarQube analysis completed with warnings"
+
+      - name: Layer 4 - Malware Detection (ClamAV)
+        if: env.SCAN_MODE != 'quick'
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "🦠 Layer 4: Malware Detection"
+          chmod +x scripts/shell/run-clamav-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-clamav-scan.sh || echo "ClamAV scan completed with warnings"
+
+      - name: Layer 5 - Helm Chart Build
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "🏗️ Layer 5: Helm Chart Building"
+          chmod +x scripts/shell/run-helm-build.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-helm-build.sh || echo "Helm build completed with warnings"
+
+      - name: Layer 6 - Infrastructure Security (Checkov)
+        if: env.SCAN_MODE != 'quick'
+        continue-on-error: true
+        env:
+          CI: true
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "☸️ Layer 6: Infrastructure Security"
+          echo "CI=$CI GITHUB_ACTIONS=$GITHUB_ACTIONS"
+          chmod +x scripts/shell/run-checkov-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-checkov-scan.sh || echo "Checkov scan completed with warnings"
+
+      - name: Layer 7 - Container Security (Trivy)
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "🛡️ Layer 7: Container Security (Trivy)"
+          chmod +x scripts/shell/run-trivy-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-trivy-scan.sh filesystem || echo "Trivy scan completed with warnings"
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-trivy-scan.sh base || echo "Trivy base image scan completed with warnings"
+
+      - name: Layer 8 - Vulnerability Detection (Grype)
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "🔍 Layer 8: Vulnerability Detection (Grype)"
+          chmod +x scripts/shell/run-grype-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-grype-scan.sh sbom || echo "Grype SBOM scan completed with warnings"
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-grype-scan.sh images || echo "Grype image scan completed with warnings"
+
+      - name: Layer 9 - End-of-Life Detection (Xeol)
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "⚰️ Layer 9: End-of-Life Detection"
+          chmod +x scripts/shell/run-xeol-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-xeol-scan.sh || echo "Xeol scan completed with warnings"
+
+      - name: Layer 10 - Anchore Security
+        if: env.SCAN_MODE != 'quick'
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "⚓ Layer 10: Anchore Security Analysis"
+          chmod +x scripts/shell/run-anchore-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-anchore-scan.sh || echo "Anchore scan completed with warnings"
+
+      - name: Layer 11 - API Discovery
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "🌐 Layer 11: API Discovery"
+          chmod +x scripts/shell/run-api-discovery.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-api-discovery.sh || echo "API Discovery completed with warnings"
+
+      - name: Generate Shell Coverage
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "📐 Generating shell coverage for $TARGET_DIR"
+          chmod +x scripts/shell/run-shell-coverage.sh
+          REPO_PATH="$TARGET_DIR" ./scripts/shell/run-shell-coverage.sh || true
+
+      - name: Generate Scan Manifest
+        if: always()
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "🔐 Generating cryptographic scan manifest..."
+          echo "DEBUG: SCAN_DIR = $SCAN_DIR"
+          chmod +x scripts/shell/generate-scan-manifest.sh
+          ./scripts/shell/generate-scan-manifest.sh "$SCAN_DIR" || echo "Manifest generation completed with warnings"
+          echo "✅ Manifest generated: $SCAN_DIR/scan-manifest.json"
+          echo "DEBUG: Checking if manifest exists..."
+          ls -la "$SCAN_DIR"/scan-manifest* "$SCAN_DIR"/manifest-summary* 2>&1 || echo "Manifest files not found!"
+
+      - name: Generate Security Findings Summary
+        if: always()
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "📊 Generating deduplicated security findings summary..."
+          chmod +x scripts/shell/generate-scan-findings-summary.sh
+          source scripts/shell/generate-scan-findings-summary.sh
+          generate_scan_findings_summary "$(basename $SCAN_DIR)" "$TARGET_DIR" "$PWD" || echo "Summary generation completed with warnings"
+          echo "✅ Summary generated with deduplicated counts"
+
+      - name: Check Severity Gate
+        id: severity-gate
+        continue-on-error: true
+        run: |
+          cd epyon
+          if [ -f /tmp/epyon-env ]; then
+            set -a
+            source /tmp/epyon-env
+            set +a
+          fi
+          export FAIL_ON_CRITICAL="${{ env.FAIL_ON_CRITICAL }}"
+          export FAIL_ON_HIGH="${{ env.FAIL_ON_HIGH }}"
+          export WARNING_ONLY="${{ env.WARNING_ONLY }}"
+          chmod +x scripts/shell/check-severity-gate.sh
+          ./scripts/shell/check-severity-gate.sh
+
+      - name: Generate Reports & Dashboard
+        if: always()
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "📊 Generating consolidated reports and dashboard..."
+          echo "DEBUG: SCAN_DIR = $SCAN_DIR"
+          echo "DEBUG: Before consolidation, manifest files:"
+          ls -la "$SCAN_DIR"/scan-manifest* "$SCAN_DIR"/manifest-summary* 2>&1 || echo "Manifest files not found before consolidation!"
+          chmod +x scripts/shell/consolidate-security-reports.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/consolidate-security-reports.sh || echo "Report generation completed with warnings"
+          echo "DEBUG: After consolidation, manifest files in consolidated-reports:"
+          ls -la "$SCAN_DIR/consolidated-reports"/scan-manifest* "$SCAN_DIR/consolidated-reports"/manifest-summary* 2>&1 || echo "Manifest files not found in consolidated-reports!"
+
+      - name: Find Scan Directory
+        id: find-scan
+        if: always()
+        run: |
+          cd epyon
+          SCAN_DIR=$(cat /tmp/epyon-env | grep "SCAN_DIR=" | cut -d= -f2 | sed "s|$PWD/||")
+          SCAN_ID=$(basename "$SCAN_DIR")
+          echo "scan_dir=$SCAN_DIR" >> $GITHUB_OUTPUT
+          echo "scan_id=$SCAN_ID" >> $GITHUB_OUTPUT
+          echo "Found scan directory: $SCAN_DIR"
+          echo "Scan ID: $SCAN_ID"
+
+      - name: Debug Scan Directory
+        if: always()
+        run: |
+          cd epyon
+          SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
+          echo "Scan directory: $SCAN_DIR"
+          echo "Contents:"
+          ls -la "$SCAN_DIR" || echo "Directory not found"
+          echo "Subdirectories:"
+          find "$SCAN_DIR" -type f -name "*.json" | head -20 || echo "No files found"
+
+      - name: Fix Artifact Permissions
+        if: always()
+        run: |
+          cd epyon
+          SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
+          if [ -d "$SCAN_DIR" ]; then
+            echo "Fixing permissions for: $SCAN_DIR"
+            sudo chown -R runner:docker "$SCAN_DIR" || true
+            sudo chmod -R a+r "$SCAN_DIR" || true
+            sudo find "$SCAN_DIR" -type d -exec chmod a+rx {} \; || true
+            ls -la "$SCAN_DIR/clamav/" || true
+          fi
+
+      - name: Generate Summary
+        if: always()
+        run: |
+          cd epyon
+          SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
+          if [ -f "$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md" ]; then
+            cat "$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload Complete Scan Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ steps.find-scan.outputs.scan_id }}
+          path: epyon/${{ steps.find-scan.outputs.scan_dir }}/
+          retention-days: 30
+
+      - name: Check for Critical/High Vulnerabilities
+        id: check-severity
+        if: always()
+        run: |
+          cd epyon
+          SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
+          SUMMARY="$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md"
+
+          if [ -f "$SUMMARY" ]; then
+            CRITICAL=$(grep -oP 'Critical:\s*\K\d+' "$SUMMARY" || echo "0")
+            HIGH=$(grep -oP 'High:\s*\K\d+' "$SUMMARY" || echo "0")
+
+            echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+            echo "high=$HIGH" >> $GITHUB_OUTPUT
+
+            if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+              echo "has_issues=true" >> $GITHUB_OUTPUT
+            else
+              echo "has_issues=false" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Comment on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summaryPath = 'epyon/${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/markdown-reports/executive-summary.md';
+
+            if (fs.existsSync(summaryPath)) {
+              const summary = fs.readFileSync(summaryPath, 'utf8');
+              const critical = '${{ steps.check-severity.outputs.critical }}';
+              const high = '${{ steps.check-severity.outputs.high }}';
+
+              let emoji = '✅';
+              let status = 'No critical or high severity issues found';
+
+              if (critical > 0 || high > 0) {
+                emoji = '⚠️';
+                status = `Found ${critical} critical and ${high} high severity issues`;
+              }
+
+              const notifyUsers = '${{ env.NOTIFY_USERS }}'.split(',').map(u => `@${u.trim()}`).join(' ');
+
+              const comment = `## ${emoji} Epyon Security Scan Results
+
+              ${status}
+
+              **Triggered by:** @${{ github.actor }}
+              **Notifying:** ${notifyUsers}
+
+              <details>
+              <summary>📊 Executive Summary</summary>
+
+              ${summary}
+
+              </details>
+
+              ### 📦 Artifacts
+              - [Security Dashboard](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+              - [HTML Reports](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+              - [Markdown Reports](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+              `;
+
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
+
+      - name: Create Scan Notification Issue
+        if: always() && steps.check-severity.outputs.has_issues == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const notifyUsers = '${{ env.NOTIFY_USERS }}'.split(',').map(u => `@${u.trim()}`).join(' ');
+            const triggeredBy = '@${{ github.actor }}';
+            const repository = '${{ github.repository }}';
+            const scanMode = '${{ env.SCAN_MODE }}';
+            const runUrl = `https://github.com/${repository}/actions/runs/${{ github.run_id }}`;
+            const critical = '${{ steps.check-severity.outputs.critical }}' || '0';
+            const high = '${{ steps.check-severity.outputs.high }}' || '0';
+
+            let triggerType = 'Manual';
+            if ('${{ github.event_name }}' === 'push') triggerType = 'Push to ${{ github.ref_name }}';
+            else if ('${{ github.event_name }}' === 'pull_request') triggerType = 'Pull Request #${{ github.event.pull_request.number }}';
+            else if ('${{ github.event_name }}' === 'schedule') triggerType = 'Scheduled Scan';
+
+            let severityEmoji = '✅';
+            let severityStatus = 'Clean';
+            let labels = ['security-scan', 'epyon'];
+
+            if (parseInt(critical) > 0) {
+              severityEmoji = '🔴';
+              severityStatus = 'Critical Issues Found';
+              labels.push('critical', 'security');
+            } else if (parseInt(high) > 0) {
+              severityEmoji = '🟠';
+              severityStatus = 'High Risk';
+              labels.push('high-severity', 'security');
+            } else {
+              labels.push('no-issues');
+            }
+
+            const summaryPath = 'epyon/${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/markdown-reports/executive-summary.md';
+            let executiveSummary = '';
+            if (fs.existsSync(summaryPath)) {
+              executiveSummary = fs.readFileSync(summaryPath, 'utf8');
+            }
+
+            const issueBody = `${severityEmoji} **Security Scan Complete - ${severityStatus}**
+
+            **Repository:** \`${repository}\`
+            **Scan Mode:** \`${scanMode}\`
+            **Trigger:** ${triggerType}
+            **Triggered by:** ${triggeredBy}
+            **Notifying:** ${notifyUsers}
+
+            ---
+
+            ### 📊 Security Findings Summary
+
+            | Severity | Count |
+            |----------|-------|
+            | 🔴 Critical | ${critical} |
+            | 🟠 High | ${high} |
+
+            ${executiveSummary ? `\n### 📋 Executive Summary\n\n${executiveSummary}\n` : ''}
+
+            ---
+
+            ### 📦 Scan Artifacts
+
+            - [View Workflow Run](${runUrl})
+            - [Download Security Dashboard](${runUrl})
+            - [Download Full Report](${runUrl})
+
+            ### 🔗 Next Steps
+
+            ${parseInt(critical) > 0 || parseInt(high) > 0 ?
+              '1. ⚠️ **Review critical and high-severity findings immediately**\n2. Download the interactive security dashboard\n3. Prioritize remediation based on severity\n4. Update dependencies and configurations as needed' :
+              '1. ✅ Review scan results for informational findings\n2. Monitor for new vulnerabilities\n3. Keep dependencies up to date'}
+
+            ---
+            *🤖 Automated notification from Epyon Security Scanner*
+            `;
+
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `${severityEmoji} Security Scan: ${repository.split('/')[1]} - ${new Date().toISOString().split('T')[0]}`,
+              body: issueBody,
+              labels: labels
+            });
+
+            console.log(`Created issue #${issue.data.number}: ${issue.data.html_url}`);
+
+      - name: Fail on Critical Vulnerabilities
+        if: always() && steps.check-severity.outputs.critical > 0
+        run: |
+          echo "::error::Found ${{ steps.check-severity.outputs.critical }} critical vulnerabilities"
+          exit 1

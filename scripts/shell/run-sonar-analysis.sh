@@ -218,6 +218,10 @@ fi
 # ---------------------------------------------------------------------------
 # Run scanner
 # ---------------------------------------------------------------------------
+# SONAR_EXTRA_ARGS — optional env var for callers to inject additional -D
+# properties (e.g. coverage paths that are only available in certain CI jobs).
+EXTRA_ARGS="${SONAR_EXTRA_ARGS:-}"
+
 if [ -n "$PROPS_FILE" ]; then
   # Properties file found — cd to its directory so relative paths inside it resolve
   cd "$(dirname "$PROPS_FILE")"
@@ -226,6 +230,7 @@ if [ -n "$PROPS_FILE" ]; then
     -Dsonar.host.url="$SONAR_HOST_URL" \
     -Dsonar.token="$SONAR_TOKEN" \
     $ORG_ARG \
+    $EXTRA_ARGS \
     2>&1 | tee "$SCANNER_LOG"
 else
   # No properties file — pass sources explicitly
@@ -237,6 +242,7 @@ else
     -Dsonar.host.url="$SONAR_HOST_URL" \
     -Dsonar.token="$SONAR_TOKEN" \
     $ORG_ARG \
+    $EXTRA_ARGS \
     2>&1 | tee "$SCANNER_LOG"
 fi
 SCANNER_EXIT=${PIPESTATUS[0]}

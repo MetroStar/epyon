@@ -102,6 +102,14 @@ jobs:
           && echo "✅ Coverage artifact downloaded" \
           || echo "⚠️ Coverage artifact not available — SonarQube will run without coverage data"
 
+          # Rewrite absolute <source> paths in coverage.xml so SonarQube can
+          # map them to the checkout directory on this runner.
+          if [[ -f target-repo/coverage.xml ]]; then
+            CHECKOUT_DIR="${{ github.workspace }}/target-repo"
+            echo "🔧 Rewriting coverage.xml source paths → $CHECKOUT_DIR"
+            sed -i -E "s|<source>[^<]+</source>|<source>${CHECKOUT_DIR}</source>|g" target-repo/coverage.xml
+          fi
+
       - name: Set up Docker
         uses: docker/setup-buildx-action@v3
 

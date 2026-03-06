@@ -12,6 +12,14 @@ on:
         description: 'Git repository URL to scan'
         required: true
         type: string
+      pr_number:
+        description: 'Optional: Pull request number to scan (GitHub repos). If set, takes precedence over target_ref'
+        required: false
+        type: string
+      target_ref:
+        description: 'Optional: Branch/tag/commit to scan (e.g., feature/my-branch, refs/heads/main, a1b2c3d)'
+        required: false
+        type: string
       subdirectory:
         description: 'Optional: Subdirectory path within repository to scan (e.g., apps/api)'
         required: false
@@ -108,6 +116,17 @@ jobs:
           REPO_URL="${{ github.event.inputs.repository }}"
           REPO_NAME=$(basename "$REPO_URL" .git)
           SUBDIR="${{ github.event.inputs.subdirectory }}"
+          PR_NUMBER="${{ github.event.inputs.pr_number }}"
+          TARGET_REF="${{ github.event.inputs.target_ref }}"
+          GIT_CHECKOUT_TARGET=""
+
+          if [[ -n "$PR_NUMBER" ]]; then
+            GIT_CHECKOUT_TARGET="refs/pull/${PR_NUMBER}/merge"
+            echo "🎯 Targeting PR #$PR_NUMBER ($GIT_CHECKOUT_TARGET)"
+          elif [[ -n "$TARGET_REF" ]]; then
+            GIT_CHECKOUT_TARGET="$TARGET_REF"
+            echo "🎯 Targeting ref: $TARGET_REF"
+          fi
           
           # Set target name based on subdirectory if provided
           if [[ -n "$SUBDIR" ]]; then
@@ -121,12 +140,28 @@ jobs:
           echo "GITHUB_ACTOR=$GITHUB_ACTOR" >> /tmp/epyon-env
           echo "REPO_URL=$REPO_URL" >> /tmp/epyon-env
           echo "SUBDIR=$SUBDIR" >> /tmp/epyon-env
+          echo "PR_NUMBER=$PR_NUMBER" >> /tmp/epyon-env
+          echo "TARGET_REF=$TARGET_REF" >> /tmp/epyon-env
+          echo "GIT_CHECKOUT_TARGET=$GIT_CHECKOUT_TARGET" >> /tmp/epyon-env
           
           # Clone the repository (with sparse-checkout if subdirectory specified)
           if [[ -n "$SUBDIR" ]]; then
             echo "📥 Cloning repository with sparse-checkout (subdirectory: $SUBDIR)"
             git clone --filter=blob:none --sparse "$REPO_URL" "target-repo-$REPO_NAME" || exit 1
             cd "target-repo-$REPO_NAME"
+
+            if [[ -n "$GIT_CHECKOUT_TARGET" ]]; then
+              echo "🔀 Fetching and checking out target: $GIT_CHECKOUT_TARGET"
+              git fetch origin "$GIT_CHECKOUT_TARGET" || {
+                echo "❌ Unable to fetch target '$GIT_CHECKOUT_TARGET' from $REPO_URL"
+                exit 1
+              }
+              git checkout --detach FETCH_HEAD || {
+                echo "❌ Unable to checkout fetched target '$GIT_CHECKOUT_TARGET'"
+                exit 1
+              }
+            fi
+
             git sparse-checkout set "$SUBDIR" || exit 1
             cd ..
             echo "TARGET_DIR=$PWD/target-repo-$REPO_NAME/$SUBDIR" >> /tmp/epyon-env
@@ -134,6 +169,21 @@ jobs:
           else
             echo "📥 Cloning full repository: $REPO_URL"
             git clone "$REPO_URL" "target-repo-$REPO_NAME" || exit 1
+
+            if [[ -n "$GIT_CHECKOUT_TARGET" ]]; then
+              cd "target-repo-$REPO_NAME"
+              echo "🔀 Fetching and checking out target: $GIT_CHECKOUT_TARGET"
+              git fetch origin "$GIT_CHECKOUT_TARGET" || {
+                echo "❌ Unable to fetch target '$GIT_CHECKOUT_TARGET' from $REPO_URL"
+                exit 1
+              }
+              git checkout --detach FETCH_HEAD || {
+                echo "❌ Unable to checkout fetched target '$GIT_CHECKOUT_TARGET'"
+                exit 1
+              }
+              cd ..
+            fi
+
             echo "TARGET_DIR=$PWD/target-repo-$REPO_NAME" >> /tmp/epyon-env
           fi
           
@@ -173,8 +223,8 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
           SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
-          # Public scans are always manually triggered (no PR context), kept for consistency
-          SONAR_PR_NUMBER: ${{ github.event.pull_request.number }}
+          # Optional PR context for manual PR-targeted scans
+          SONAR_PR_NUMBER: ${{ github.event.inputs.pr_number }}
         run: |
           source /tmp/epyon-env
           echo "📊 Layer 3: Code Quality Analysis"
@@ -412,7 +462,12 @@ jobs:
           echo "## 🛡️ Security Scan Results for External Repository" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Repository:** \`${{ github.event.inputs.repository }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Scan Mode:** \`${{ github.event.inputs.scan_mode }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Scan Mode:** \`${{ env.SCAN_MODE }}\`" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ github.event.inputs.pr_number }}" ]; then
+            echo "**Target PR:** \`#${{ github.event.inputs.pr_number }}\`" >> $GITHUB_STEP_SUMMARY
+          elif [ -n "${{ github.event.inputs.target_ref }}" ]; then
+            echo "**Target Ref:** \`${{ github.event.inputs.target_ref }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "**Triggered by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
           [ -n "$NOTIFY_LINE" ] && echo "**Notifying:**$NOTIFY_LINE" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -436,14 +491,20 @@ jobs:
           script: |
             const notifyUsers = '${{ env.NOTIFY_USERS }}'.split(',').map(u => `@${u.trim()}`).join(' ');
             const repository = '${{ github.event.inputs.repository }}';
-            const scanMode = '${{ github.event.inputs.scan_mode }}';
+            const scanMode = '${{ env.SCAN_MODE }}';
+            const prNumber = '${{ github.event.inputs.pr_number }}';
+            const targetRef = '${{ github.event.inputs.target_ref }}';
             const triggeredBy = '@${{ github.actor }}';
             const runUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            const targetLine = prNumber
+              ? `**Target PR:** \`#${prNumber}\``
+              : (targetRef ? `**Target Ref:** \`${targetRef}\`` : '');
             
             const issueBody = `## 🛡️ External Repository Security Scan Complete
             
             **Repository Scanned:** \`${repository}\`
             **Scan Mode:** \`${scanMode}\`
+            ${targetLine}
             **Triggered by:** ${triggeredBy}
             **Notifying:** ${notifyUsers}
             

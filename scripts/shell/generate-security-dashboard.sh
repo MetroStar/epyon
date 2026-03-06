@@ -245,13 +245,13 @@ inject_remediation() {
     local remediation_data=$(get_remediation "$cve" "$pkg")
     if [ -n "$remediation_data" ]; then
         IFS='|' read -r _cve _pkg fix_ver cmd <<< "$remediation_data"
-        echo "<div class=\"detail-section\" style=\"background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-left: 4px solid #10b981; padding: 15px; margin: 10px 0; border-radius: 6px;\">"
-        echo "<h5 style=\"color: #047857; margin-bottom: 10px;\">💊 Automated Fix Available</h5>"
-        echo "<div style=\"margin: 8px 0;\"><strong style=\"color: #065f46;\">Upgrade to:</strong> <code style=\"background: #bbf7d0; padding: 4px 8px; border-radius: 4px; color: #065f46;\">${fix_ver}</code></div>"
-        echo "<div style=\"margin: 8px 0;\"><strong style=\"color: #065f46;\">Command:</strong></div>"
-        echo "<code style=\"display: block; background: #dcfce7; color: #065f46; padding: 10px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 0.9em; margin: 5px 0;\">${cmd}</code>"
-        echo "<div style=\"margin-top: 10px; padding: 8px; background: #fef3c7; border-radius: 4px; font-size: 0.85em;\">"
-        echo "<strong style=\"color: #92400e;\">⚠️ Before applying:</strong> Review changelog, test in dev, run tests, commit lock files"
+        echo "<div class=\"detail-section\" style=\"background: linear-gradient(135deg, #052e16 0%, #14532d 100%); border-left: 4px solid #10b981; padding: 15px; margin: 10px 0; border-radius: 6px;\">"
+        echo "<h5 style=\"color: #34d399; margin-bottom: 10px;\">💊 Automated Fix Available</h5>"
+        echo "<div style=\"margin: 8px 0;\"><strong style=\"color: #6ee7b7;\">Upgrade to:</strong> <code style=\"background: #14532d; padding: 4px 8px; border-radius: 4px; color: #d1fae5;\">${fix_ver}</code></div>"
+        echo "<div style=\"margin: 8px 0;\"><strong style=\"color: #6ee7b7;\">Command:</strong></div>"
+        echo "<code style=\"display: block; background: #052e16; color: #d1fae5; padding: 10px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 0.9em; margin: 5px 0;\">${cmd}</code>"
+        echo "<div style=\"margin-top: 10px; padding: 8px; background: #2a1c00; border-radius: 4px; font-size: 0.85em;\">"
+        echo "<strong style=\"color: #fbbf24;\">⚠️ Before applying:</strong> Review changelog, test in dev, run tests, commit lock files"
         echo "</div>"
         echo "</div>"
     fi
@@ -279,16 +279,16 @@ generate_status_banner() {
     local tool_name="$3"
     
     if [ "$status" = "failed" ]; then
-        echo "<div class=\"stats-detail-box\" style=\"background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); border-left: 4px solid #dc2626; margin-bottom: 15px;\">"
-        echo "<h4 style=\"color: #991b1b;\">❌ Scan Failed</h4>"
-        echo "<p style=\"color: #7f1d1d; margin: 8px 0;\"><strong>Reason:</strong> ${reason:-Unknown error}</p>"
-        echo "<p style=\"color: #7f1d1d; font-size: 0.9em;\">The $tool_name scan did not complete successfully. Check the scan logs for details.</p>"
+        echo "<div class=\"stats-detail-box\" style=\"background: linear-gradient(135deg, #1a0000 0%, #2d0000 100%); border-left: 4px solid #dc2626; margin-bottom: 15px;\">"
+        echo "<h4 style=\"color: #fca5a5;\">❌ Scan Failed</h4>"
+        echo "<p style=\"color: #fca5a5; margin: 8px 0;\"><strong>Reason:</strong> ${reason:-Unknown error}</p>"
+        echo "<p style=\"color: #fca5a5; font-size: 0.9em;\">The $tool_name scan did not complete successfully. Check the scan logs for details.</p>"
         echo "</div>"
     elif [ "$status" = "skipped" ]; then
-        echo "<div class=\"stats-detail-box\" style=\"background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-left: 4px solid #f59e0b; margin-bottom: 15px;\">"
-        echo "<h4 style=\"color: #92400e;\">⏭️ Scan Skipped</h4>"
-        echo "<p style=\"color: #78350f; margin: 8px 0;\"><strong>Reason:</strong> ${reason:-Not applicable to this project}</p>"
-        echo "<p style=\"color: #78350f; font-size: 0.9em;\">This scan was skipped for this project.</p>"
+        echo "<div class=\"stats-detail-box\" style=\"background: linear-gradient(135deg, #2a1c00 0%, #3d2800 100%); border-left: 4px solid #f59e0b; margin-bottom: 15px;\">"
+        echo "<h4 style=\"color: #fbbf24;\">⏭️ Scan Skipped</h4>"
+        echo "<p style=\"color: #fbbf24; margin: 8px 0;\"><strong>Reason:</strong> ${reason:-Not applicable to this project}</p>"
+        echo "<p style=\"color: #fbbf24; font-size: 0.9em;\">This scan was skipped for this project.</p>"
         echo "</div>"
     fi
 }
@@ -552,7 +552,7 @@ if [ -d "$TRIVY_DIR" ]; then
 <div style=\"margin-top:10px;\"><strong>Target:</strong> <code>" + .target + "</code></div>
 </div>
 <div class=\"detail-section\"><h5>Description</h5>
-<div style=\"background:#f7fafc;padding:12px;border-radius:6px;font-size:0.9em;line-height:1.6;\">" + .desc + "</div>
+<div style=\"background:#1e2530;color:#d1d5db;padding:12px;border-radius:6px;font-size:0.9em;line-height:1.6;border:1px solid #374151;\">" + .desc + "</div>
 </div>
 </div>
 </div>"
@@ -1447,12 +1447,12 @@ if [ -d "$XEOL_DIR" ]; then
         <div><strong>Source:</strong> ${SOURCE_BADGE}</div>
         <div><strong>Target:</strong> <code style=\"font-size:0.8em;word-break:break-all;\">${SOURCE_TARGET}</code></div>
         <div><strong>Location:</strong> <code style=\"font-size:0.8em;word-break:break-all;\">${location_escaped}</code></div>
-        <div style=\"margin-top:10px;padding:10px;background:#fef3c7;border-left:3px solid #f59e0b;\">
-            <strong>⚠️ Risk:</strong> This component is End-of-Life and no longer receives security patches or updates. 
+        <div style=\"margin-top:10px;padding:10px;background:#2a1c00;border-left:3px solid #f59e0b;border-radius:4px;color:#d1d5db;\">
+            <strong style=\"color:#fbbf24;\">⚠️ Risk:</strong> This component is End-of-Life and no longer receives security patches or updates.
             Consider upgrading to a supported version or finding an alternative package.
             <br/><br/>
-            <strong>📚 Resources:</strong><br/>
-            • Check <a href=\"https://endoflife.date/${pkg_name_escaped}\" target=\"_blank\" style=\"color:#0369a1;\">endoflife.date/${pkg_name_escaped}</a> for lifecycle information<br/>
+            <strong style=\"color:#fbbf24;\">📚 Resources:</strong><br/>
+            • Check <a href=\"https://endoflife.date/${pkg_name_escaped}\" target=\"_blank\" style=\"color:#60a5fa;\">endoflife.date/${pkg_name_escaped}</a> for lifecycle information<br/>
             • Review vendor documentation for migration paths
         </div>
     </div>
@@ -1533,8 +1533,8 @@ if [ -f "$API_DISC_FILE" ]; then
     <div class=\"finding-details\" style=\"display:none;\">
         <div><strong>File:</strong> <code>${spec_path}</code></div>
         <div><strong>Type:</strong> ${spec_type}</div>
-        <div style=\"margin-top:10px;padding:10px;background:#dbeafe;border-left:3px solid #0ea5e9;\">
-            <strong>🔍 Next Steps:</strong><br/>
+        <div style=\"margin-top:10px;padding:10px;background:#0c1a2e;border-left:3px solid #0ea5e9;border-radius:4px;color:#d1d5db;\">
+            <strong style=\"color:#60a5fa;\">🔍 Next Steps:</strong><br/>
             • Validate with <strong>Spectral</strong> for API security best practices<br/>
             • Test endpoints with <strong>OWASP ZAP</strong> or <strong>Postman</strong><br/>
             • Review authentication and authorization schemes
@@ -1698,19 +1698,19 @@ if [ -f "$API_DISC_FILE" ]; then
     else
         API_STATUS="none"
         API_FINDINGS="<p class=\"no-findings\">No APIs discovered in target directory</p>
-<div style=\"margin-top:15px;padding:15px;background:#f7fafc;border-radius:8px;border-left:4px solid #4299e1;\">
-    <h5 style=\"color:#2c5282;margin-top:0;\">💡 About API Discovery</h5>
-    <p style=\"color:#2d3748;margin:8px 0;font-size:0.9em;\">
-        This tool searches for API specifications and route definitions in your code. 
+<div style=\"margin-top:15px;padding:15px;background:#0c1a2e;border-radius:8px;border-left:4px solid #4299e1;color:#d1d5db;\">
+    <h5 style=\"color:#60a5fa;margin-top:0;\">💡 About API Discovery</h5>
+    <p style=\"color:#9ca3af;margin:8px 0;font-size:0.9em;\">
+        This tool searches for API specifications and route definitions in your code.
         It looks for:
     </p>
-    <ul style=\"color:#4a5568;margin:8px 0;padding-left:20px;font-size:0.9em;\">
-        <li><strong>OpenAPI/Swagger</strong> - Specification files (JSON/YAML)</li>
-        <li><strong>REST APIs</strong> - Python (Flask/FastAPI/Django), Node.js (Express), Java (Spring Boot)</li>
-        <li><strong>GraphQL</strong> - Schema definitions and resolvers</li>
-        <li><strong>API Documentation</strong> - Postman collections, API.md files</li>
+    <ul style=\"color:#9ca3af;margin:8px 0;padding-left:20px;font-size:0.9em;\">
+        <li><strong style=\"color:#d1d5db;\">OpenAPI/Swagger</strong> - Specification files (JSON/YAML)</li>
+        <li><strong style=\"color:#d1d5db;\">REST APIs</strong> - Python (Flask/FastAPI/Django), Node.js (Express), Java (Spring Boot)</li>
+        <li><strong style=\"color:#d1d5db;\">GraphQL</strong> - Schema definitions and resolvers</li>
+        <li><strong style=\"color:#d1d5db;\">API Documentation</strong> - Postman collections, API.md files</li>
     </ul>
-    <p style=\"color:#718096;margin:8px 0;font-size:0.85em;\">
+    <p style=\"color:#6b7280;margin:8px 0;font-size:0.85em;\">
         <em>No APIs were found in this scan. If your application has APIs, they may use non-standard patterns.</em>
     </p>
 </div>"
@@ -1718,13 +1718,13 @@ if [ -f "$API_DISC_FILE" ]; then
 else
     API_STATUS="not_run"
     API_FINDINGS="<p class=\"no-findings\">API discovery not run for this scan</p>
-<div style=\"margin-top:15px;padding:15px;background:#fffbeb;border-radius:8px;border-left:4px solid #f59e0b;\">
-    <h5 style=\"color:#92400e;margin-top:0;\">⚠️ API Discovery Not Enabled</h5>
-    <p style=\"color:#78350f;margin:8px 0;font-size:0.9em;\">
+<div style=\"margin-top:15px;padding:15px;background:#2a1c00;border-radius:8px;border-left:4px solid #f59e0b;color:#d1d5db;\">
+    <h5 style=\"color:#fbbf24;margin-top:0;\">⚠️ API Discovery Not Enabled</h5>
+    <p style=\"color:#9ca3af;margin:8px 0;font-size:0.9em;\">
         Run API discovery to identify REST APIs, GraphQL endpoints, and OpenAPI specifications:
     </p>
-    <pre style=\"background:#fef3c7;padding:10px;border-radius:4px;font-size:0.85em;margin:10px 0;\">./scripts/shell/run-api-discovery.sh /path/to/target</pre>
-    <p style=\"color:#92400e;margin:8px 0;font-size:0.85em;\">
+    <pre style=\"background:#1a1200;color:#fcd34d;padding:10px;border-radius:4px;font-size:0.85em;margin:10px 0;\">./scripts/shell/run-api-discovery.sh /path/to/target</pre>
+    <p style=\"color:#fbbf24;margin:8px 0;font-size:0.85em;\">
         <strong>Waypoint 6:</strong> API security scanning integration coming soon with OWASP ZAP, Spectral, and Newman.
     </p>
 </div>"
@@ -3348,7 +3348,7 @@ EOF
 
 # Determine SonarQube status badge based on SONAR_STATUS
 if [ "$SONAR_STATUS" = "SKIPPED" ]; then
-    echo "                        <span class=\"tool-stat-badge\" style=\"background: #fef3c7; color: #92400e;\">⚠️ Skipped</span>" >> "$OUTPUT_HTML"
+    echo "                        <span class=\"tool-stat-badge\" style=\"background: #2a1c00; color: #fbbf24;\">⚠️ Skipped</span>" >> "$OUTPUT_HTML"
 elif [ "$SONAR_STATUS" = "NO_PROJECT_DETECTED" ] || [ "$SONAR_STATUS" = "N/A" ]; then
     echo "                        <span class=\"tool-stat-badge\" style=\"background: #e5e7eb; color: #6b7280;\">➖ Not Configured</span>" >> "$OUTPUT_HTML"
 elif [ "$SONAR_CRITICAL" -gt 0 ] || [ "$SONAR_HIGH" -gt 0 ]; then
@@ -3693,10 +3693,10 @@ EOF
 
 # Add API Discovery stats
 if [ "$API_TOTAL_DISCOVERED" -gt 0 ]; then
-    echo "                        <span class=\"tool-stat-badge\" style=\"background: #dbeafe; color: #0369a1;\">🔍 ${API_TOTAL_DISCOVERED}</span>" >> "$OUTPUT_HTML"
+    echo "                        <span class=\"tool-stat-badge\" style=\"background: #0c1a2e; color: #60a5fa;\">🔍 ${API_TOTAL_DISCOVERED}</span>" >> "$OUTPUT_HTML"
 else
     if [ "$API_STATUS" = "not_run" ]; then
-        echo "                        <span class=\"tool-stat-badge\" style=\"background: #fef3c7; color: #92400e;\">⏭️ Skipped</span>" >> "$OUTPUT_HTML"
+        echo "                        <span class=\"tool-stat-badge\" style=\"background: #2a1c00; color: #fbbf24;\">⏭️ Skipped</span>" >> "$OUTPUT_HTML"
     else
         echo "                        <span class=\"tool-stat-badge\" style=\"background: #f3f4f6; color: #6b7280;\">0 Found</span>" >> "$OUTPUT_HTML"
     fi
@@ -3760,7 +3760,7 @@ EOF
             cat >> "$OUTPUT_HTML" << 'EOF'
                             <div style="max-height: 500px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px;">
                                 <table id="apiEndpointsTable" style="width: 100%; border-collapse: collapse; font-size: 0.9em;">
-                                    <thead style="position: sticky; top: 0; background: #f7fafc; border-bottom: 2px solid #cbd5e0;">
+                                    <thead style="position: sticky; top: 0; background: #1e2530; border-bottom: 2px solid #374151;">
                                         <tr>
                                             <th onclick="sortAPITable(0)" style="padding: 10px; text-align: left; font-weight: 600; color: #2d3748; width: 80px; cursor: pointer; user-select: none;" title="Click to sort">Method <span class="sort-indicator">⇅</span></th>
                                             <th onclick="sortAPITable(1)" style="padding: 10px; text-align: left; font-weight: 600; color: #2d3748; width: 250px; cursor: pointer; user-select: none;" title="Click to sort">Endpoint <span class="sort-indicator">⇅</span></th>

@@ -51,6 +51,21 @@ on:
         required: false
         default: false
         type: boolean
+      garak_target_type:
+        description: 'Garak generator type (for example: test, openai, huggingface)'
+        required: false
+        default: 'test'
+        type: string
+      garak_target_name:
+        description: 'Garak target model name (for example: test.Blank, gpt-4o-mini)'
+        required: false
+        default: 'test.Blank'
+        type: string
+      garak_probes:
+        description: 'Comma-separated Garak probes or probe groups'
+        required: false
+        default: 'promptinject'
+        type: string
 
 env:
   # Trigger behavior:
@@ -63,6 +78,9 @@ env:
   FAIL_ON_CRITICAL: ${{ github.event_name != 'workflow_dispatch' && 'true' || github.event.inputs.fail_on_critical }}
   FAIL_ON_HIGH: ${{ github.event_name != 'workflow_dispatch' && 'true' || github.event.inputs.fail_on_high }}
   WARNING_ONLY: ${{ github.event.inputs.warning_only || 'false' }}
+  GARAK_TARGET_TYPE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.garak_target_type || 'test' }}
+  GARAK_TARGET_NAME: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.garak_target_name || 'test.Blank' }}
+  GARAK_PROBES: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.garak_probes || 'promptinject' }}
   # Notification recipients: set the NOTIFY_USERS Actions variable in
   # Settings → Secrets and variables → Actions → Variables (comma-separated, no @)
   NOTIFY_USERS: ${{ vars.NOTIFY_USERS }}
@@ -154,6 +172,9 @@ jobs:
           echo "TARGET_NAME=$TARGET_NAME" >> /tmp/epyon-env
           echo "GITHUB_ACTOR=$GITHUB_ACTOR" >> /tmp/epyon-env
           echo "SUBDIR=$SUBDIR" >> /tmp/epyon-env
+          echo "GARAK_TARGET_TYPE=${GARAK_TARGET_TYPE:-test}" >> /tmp/epyon-env
+          echo "GARAK_TARGET_NAME=${GARAK_TARGET_NAME:-test.Blank}" >> /tmp/epyon-env
+          echo "GARAK_PROBES=${GARAK_PROBES:-promptinject}" >> /tmp/epyon-env
           
           # Create scan directory
           TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
@@ -316,6 +337,15 @@ jobs:
           chmod +x scripts/shell/run-api-discovery.sh
           SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-api-discovery.sh || echo "API Discovery completed with warnings"
 
+      - name: Layer 12 - LLM Security (Garak)
+        continue-on-error: true
+        run: |
+          source /tmp/epyon-env
+          cd epyon
+          echo "🤖 Layer 12: LLM Security (Garak)"
+          chmod +x scripts/shell/run-garak-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" GARAK_TARGET_TYPE="${GARAK_TARGET_TYPE}" GARAK_TARGET_NAME="${GARAK_TARGET_NAME}" GARAK_PROBES="${GARAK_PROBES}" ./scripts/shell/run-garak-scan.sh || echo "Garak scan completed with warnings"
+
       - name: Generate Shell Coverage
         continue-on-error: true
         run: |
@@ -424,6 +454,30 @@ jobs:
         run: |
           cd epyon
           SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
+          GARAK_RESULTS_FILE="$SCAN_DIR/garak/garak-results.json"
+
+          echo "### 🤖 Garak LLM Scan" >> $GITHUB_STEP_SUMMARY
+          if [ -f "$GARAK_RESULTS_FILE" ]; then
+            GARAK_STATUS=$(jq -r '.status // "unknown"' "$GARAK_RESULTS_FILE" 2>/dev/null || echo "unknown")
+            GARAK_TARGET_TYPE=$(jq -r '.target_type // "n/a"' "$GARAK_RESULTS_FILE" 2>/dev/null || echo "n/a")
+            GARAK_TARGET_NAME=$(jq -r '.target_name // "n/a"' "$GARAK_RESULTS_FILE" 2>/dev/null || echo "n/a")
+            GARAK_PROBES=$(jq -r '.probes // "n/a"' "$GARAK_RESULTS_FILE" 2>/dev/null || echo "n/a")
+            GARAK_EXIT_CODE=$(jq -r '.exit_code // "n/a"' "$GARAK_RESULTS_FILE" 2>/dev/null || echo "n/a")
+            GARAK_HIT_LOG=$(jq -r '.hit_log // empty' "$GARAK_RESULTS_FILE" 2>/dev/null || true)
+            GARAK_HIT_COUNT="0"
+            if [ -n "$GARAK_HIT_LOG" ] && [ -f "$SCAN_DIR/garak/$GARAK_HIT_LOG" ]; then
+              GARAK_HIT_COUNT=$(wc -l < "$SCAN_DIR/garak/$GARAK_HIT_LOG" | tr -d '[:space:]')
+            fi
+            echo "- Status: \`$GARAK_STATUS\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Target: \`$GARAK_TARGET_TYPE\` / \`$GARAK_TARGET_NAME\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Probes: \`$GARAK_PROBES\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Probe hits: \`$GARAK_HIT_COUNT\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Exit code: \`$GARAK_EXIT_CODE\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Garak results were not generated in this run." >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
           if [ -f "$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md" ]; then
             cat "$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md" >> $GITHUB_STEP_SUMMARY
           fi

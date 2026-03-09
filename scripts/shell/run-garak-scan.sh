@@ -173,19 +173,33 @@ else
 fi
 
 REPORT_PREFIX_ARGS=()
-if "${GARAK_CMD[@]}" --help 2>/dev/null | grep -q -- "--report_prefix"; then
+GARAK_HELP_TEXT=$("${GARAK_CMD[@]}" --help 2>/dev/null || true)
+
+if echo "$GARAK_HELP_TEXT" | grep -q -- "--report_prefix"; then
     REPORT_PREFIX_ARGS=(--report_prefix "$OUTPUT_DIR/${SCAN_ID}_garak")
 fi
 
+# Garak CLI has changed over versions:
+# - older: --target_type / --target_name
+# - newer: --model_type / --model_name
+MODEL_ARGS=()
+if echo "$GARAK_HELP_TEXT" | grep -q -- "--target_type"; then
+    MODEL_ARGS=(--target_type "$GARAK_TARGET_TYPE" --target_name "$GARAK_TARGET_NAME")
+elif echo "$GARAK_HELP_TEXT" | grep -q -- "--model_type"; then
+    MODEL_ARGS=(--model_type "$GARAK_TARGET_TYPE" --model_name "$GARAK_TARGET_NAME")
+else
+    # Fall back to target_* style for compatibility.
+    MODEL_ARGS=(--target_type "$GARAK_TARGET_TYPE" --target_name "$GARAK_TARGET_NAME")
+fi
+
 echo -e "${BLUE}🔍 Running garak probe scan...${NC}"
-echo "Command: ${GARAK_CMD[*]} --target_type $GARAK_TARGET_TYPE --target_name $GARAK_TARGET_NAME --probes $GARAK_PROBES ${REPORT_PREFIX_ARGS[*]}" | tee -a "$SCAN_LOG"
+echo "Command: ${GARAK_CMD[*]} ${MODEL_ARGS[*]} --probes $GARAK_PROBES ${REPORT_PREFIX_ARGS[*]}" | tee -a "$SCAN_LOG"
 
 set +e
 (
     cd "$TARGET_SCAN_DIR" || exit 1
     "${GARAK_CMD[@]}" \
-        --target_type "$GARAK_TARGET_TYPE" \
-        --target_name "$GARAK_TARGET_NAME" \
+        "${MODEL_ARGS[@]}" \
         --probes "$GARAK_PROBES" \
         "${REPORT_PREFIX_ARGS[@]}"
 ) > "$CONSOLE_LOG" 2>&1
@@ -198,7 +212,12 @@ if [[ "$GARAK_EXIT" -eq 0 ]]; then
 else
     # garak may return non-zero for runtime/model issues; keep artifacts and continue pipeline.
     SCAN_STATUS="failed"
-    STATUS_REASON="garak exit code $GARAK_EXIT"
+    ERROR_PREVIEW=$(grep -m1 -E "error:|Exception|Traceback" "$CONSOLE_LOG" 2>/dev/null || true)
+    if [[ -n "$ERROR_PREVIEW" ]]; then
+        STATUS_REASON="garak exit code $GARAK_EXIT: ${ERROR_PREVIEW:0:180}"
+    else
+        STATUS_REASON="garak exit code $GARAK_EXIT"
+    fi
 fi
 
 # Attempt to locate generated report artifacts.

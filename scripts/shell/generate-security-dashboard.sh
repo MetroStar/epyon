@@ -74,6 +74,7 @@ show_help() {
     echo "  - Checkov (IaC security)"
     echo "  - ClamAV (malware detection)"
     echo "  - Xeol (EOL detection)"
+    echo "  - Garak (LLM security probing)"
     echo "  - SBOM (software inventory)"
     echo "  - SonarQube (code quality)"
     echo ""

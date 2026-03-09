@@ -532,7 +532,7 @@ Epyon uses **Docker Hardened Images (DHI)** as the default baseline for containe
 
 ---
 
-### Current Security Layers (10 Operational):
+### Current Security Layers (11 Operational):
 
 1. **🔍 TruffleHog** - Multi-target secret detection with filesystem, container, and registry scanning
 2. **🦠 ClamAV** - Enterprise antivirus scanning with real-time virus definition updates  
@@ -544,6 +544,7 @@ Epyon uses **Docker Hardened Images (DHI)** as the default baseline for containe
 8. **⚓ Helm** - Kubernetes chart validation, linting, and packaging
 9. **🔍 API Discovery** - Automatic API endpoint detection (OpenAPI, Express, Flask, Django, Next.js App Router)
 10. **📊 SBOM Generation** - Complete Software Bill of Materials with Syft
+11. **🤖 Garak** - LLM vulnerability probing and red-team style safety testing
 
 ### Quality Assurance
 
@@ -589,6 +590,7 @@ epyon/
 │   ├── run-clamav-scan.sh
 │   ├── run-helm-build.sh
 │   ├── run-checkov-scan.sh
+│   ├── run-garak-scan.sh
 │   ├── run-trivy-scan.sh
 │   ├── run-grype-scan.sh
 │   ├── run-xeol-scan.sh
@@ -620,6 +622,7 @@ epyon/
 │       ├── trufflehog/
 │       ├── clamav/
 │       ├── xeol/
+│       ├── garak/
 │       ├── sbom/
 │       ├── api-discovery/
 │       └── consolidated-reports/

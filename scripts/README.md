@@ -24,7 +24,7 @@ cd shell
 ```
 
 ### Available Scripts
-- Security scanners (Trivy, Grype, Xeol, Checkov, ClamAV, TruffleHog, etc.)
+- Security scanners (Trivy, Grype, Xeol, Checkov, ClamAV, TruffleHog, Garak, etc.)
 - SBOM generation (run-sbom-scan.sh)
 - Dashboard generation and management
 - Report consolidation

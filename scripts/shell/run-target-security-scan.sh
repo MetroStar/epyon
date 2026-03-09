@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Target-Aware Complete Security Scan Orchestration Script
-# Runs all ten security layers with multi-target scanning capabilities on external directories
+# Runs all security layers with multi-target scanning capabilities on external directories
 # Usage: ./run-target-security-scan.sh <target_directory> [quick|full|images|analysis]
 
 # Note: set -e removed to allow graceful error handling in security pipeline
@@ -31,7 +31,7 @@ echo ""
 
 # Help function
 show_help() {
-    echo -e "${GREEN}Ten-Layer Security Scan Orchestrator${NC}"
+    echo -e "${GREEN}Twelve-Layer Security Scan Orchestrator${NC}"
     echo ""
     echo "Usage: $0 [OPTIONS] <TARGET> [SCAN_TYPE]"
     echo ""
@@ -54,8 +54,8 @@ show_help() {
     echo "  Git Subdirectory    --subdir path/to/subdir https://github.com/user/repo.git"
     echo ""
     echo "Scan Types:"
-    echo "  quick       Fast scan - Trivy, TruffleHog, basic checks"
-    echo "  full        Complete scan - All 11 security layers (default)"
+    echo "  quick       Fast scan - Trivy, TruffleHog, Garak, basic checks"
+    echo "  full        Complete scan - All 12 security layers (default)"
     echo "  images      Container-focused - Image vulnerability scanning"
     echo "  analysis    Code analysis - SonarQube, Checkov, quality checks"
     echo ""
@@ -71,6 +71,7 @@ show_help() {
     echo "  Layer 9:  EOL Detection (Xeol)"
     echo "  Layer 10: Container Analysis (Anchore)"
     echo "  Layer 11: API Discovery (OpenAPI, REST, GraphQL)"
+    echo "  Layer 12: LLM Security Probing (Garak)"
     echo ""
     echo "Output:"
     echo "  Results saved to: scans/{TARGET}_{USER}_{TIMESTAMP}/"
@@ -485,7 +486,7 @@ if [ -f "$CONFIG_DIR/approved-base-images.conf" ]; then
 fi
 
 echo "============================================"
-echo "🛡️  Ten-Layer Security Scan Orchestrator"
+echo "🛡️  Twelve-Layer Security Scan Orchestrator"
 echo "============================================"
 echo "Security Tools Dir: $REPO_ROOT"
 echo "Target Directory: $TARGET_DIR"
@@ -692,6 +693,7 @@ case "$SCAN_TYPE" in
         run_security_tool "TruffleHog Secret Detection" "$SCRIPT_DIR/run-trufflehog-scan.sh" "filesystem"
         run_security_tool "Grype Vulnerability Scanning (SBOM)" "$SCRIPT_DIR/run-grype-scan.sh" "sbom"
         run_security_tool "Trivy Security Analysis" "$SCRIPT_DIR/run-trivy-scan.sh" "filesystem"
+        run_security_tool "Garak LLM Security Probing" "$SCRIPT_DIR/run-garak-scan.sh"
         run_security_tool "ClamAV Antivirus Scan" "$SCRIPT_DIR/run-clamav-scan.sh"
         ;;
         
@@ -723,10 +725,13 @@ case "$SCAN_TYPE" in
         
         echo -e "${PURPLE}🌐 API Discovery${NC}"
         run_security_tool "API Discovery" "$SCRIPT_DIR/run-api-discovery.sh"
+
+        echo -e "${PURPLE}🤖 LLM Security Probing${NC}"
+        run_security_tool "Garak LLM Security Probing" "$SCRIPT_DIR/run-garak-scan.sh"
         ;;
         
     "full")
-        print_section "Complete Ten-Layer Security Architecture Scan - Target: $(basename "$TARGET_DIR")"
+        print_section "Complete Twelve-Layer Security Architecture Scan - Target: $(basename "$TARGET_DIR")"
         
         # SBOM FIRST - Generate bill of materials for all other tools to use (with dependency installation)
         echo -e "${PURPLE}📋 Layer 1: Software Bill of Materials (SBOM) - Foundation for all scans${NC}"
@@ -766,6 +771,9 @@ case "$SCAN_TYPE" in
         
         echo -e "${PURPLE}🌐 Layer 11: API Discovery${NC}"
         run_security_tool "API Discovery" "$SCRIPT_DIR/run-api-discovery.sh"
+
+        echo -e "${PURPLE}🤖 Layer 12: LLM Security Probing${NC}"
+        run_security_tool "Garak LLM Security Probing" "$SCRIPT_DIR/run-garak-scan.sh"
         ;;
         
     *)
@@ -808,6 +816,7 @@ echo "  🔍 TARGET_DIR=\"$TARGET_DIR\" npm run grype:analyze       - Grype vuln
 echo "  🛡️  TARGET_DIR=\"$TARGET_DIR\" npm run trivy:analyze       - Trivy security analysis"
 echo "  🔐 TARGET_DIR=\"$TARGET_DIR\" npm run trufflehog:analyze  - TruffleHog secret analysis"
 echo "  ⚰️  TARGET_DIR=\"$TARGET_DIR\" npm run xeol:analyze        - Xeol EOL analysis"
+echo "  🤖 GARAK_TARGET_TYPE=openai GARAK_TARGET_NAME=gpt-5-nano OPENAI_API_KEY=... ./scripts/shell/run-garak-scan.sh"
 echo ""
 
 echo -e "${CYAN}🚀 Quick Re-run Commands:${NC}"
@@ -893,6 +902,16 @@ if [[ -f "$SCAN_DIR/checkov/${SCAN_ID}_checkov-results.json" ]]; then
     if [[ "$checkov_critical" -gt 0 ]]; then
         echo -e "  ${RED}🔴 Checkov: $checkov_critical high/critical infrastructure issues found${NC}"
         has_critical_issues=true
+    fi
+fi
+
+# Check Garak summary for LLM security probe status
+if [[ -f "$SCAN_DIR/garak/${SCAN_ID}_garak-results.json" ]]; then
+    garak_status=$(jq -r '.status // "unknown"' "$SCAN_DIR/garak/${SCAN_ID}_garak-results.json" 2>/dev/null || echo "unknown")
+    if [[ "$garak_status" != "success" ]]; then
+        echo -e "  ${YELLOW}🟡 Garak: LLM probe run reported status '$garak_status'${NC}"
+    else
+        echo -e "  ${GREEN}🟢 Garak: LLM probe run completed successfully${NC}"
     fi
 fi
 

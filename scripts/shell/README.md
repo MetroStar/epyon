@@ -2,7 +2,7 @@
 
 Shell scripts for Linux, macOS, WSL, and Git Bash.
 
-## 📋 Available Scripts (32 total)
+## 📋 Available Scripts (33 total)
 
 ### Security Scanners
 - `run-clamav-scan.sh` - ClamAV antivirus scanning
@@ -11,6 +11,7 @@ Shell scripts for Linux, macOS, WSL, and Git Bash.
 - `run-grype-scan.sh` - Grype vulnerability detection with SBOM
 - `run-xeol-scan.sh` - Xeol end-of-life software detection
 - `run-checkov-scan.sh` - Checkov Infrastructure-as-Code security
+- `run-garak-scan.sh` - Garak LLM red-team security probing
 - `run-sonar-analysis.sh` - SonarQube code quality analysis
 - `run-helm-build.sh` - Helm chart building and validation
 

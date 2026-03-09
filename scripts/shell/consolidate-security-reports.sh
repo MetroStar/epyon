@@ -599,6 +599,7 @@ consolidate_tool_reports "Grype" "$SCAN_DIR/grype" "*.json"
 consolidate_tool_reports "Xeol" "$SCAN_DIR/xeol" "*.json"
 consolidate_tool_reports "SBOM" "$SCAN_DIR/sbom" "*.json"
 consolidate_tool_reports "Anchore" "$SCAN_DIR/anchore" "*.json"
+consolidate_tool_reports "Garak" "$SCAN_DIR/garak" "*.json"
 
 # Generate SBOM exports for dashboard download buttons
 if [ -d "$SCAN_DIR/sbom" ]; then

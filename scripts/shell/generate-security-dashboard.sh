@@ -1738,6 +1738,9 @@ GARAK_STATUS="not_run"
 GARAK_REASON=""
 GARAK_TARGET_TYPE="N/A"
 GARAK_TARGET_NAME="N/A"
+GARAK_RUNTIME_TARGET="N/A"
+GARAK_RUNTIME_CLASSIFICATION="N/A"
+GARAK_TARGET_ORIGIN="N/A"
 GARAK_PROBES="N/A"
 GARAK_EXIT_CODE="N/A"
 GARAK_REPORT_JSONL=""
@@ -1780,6 +1783,9 @@ if [ -d "$GARAK_DIR" ]; then
         GARAK_REASON=$(jq -r '.reason // ""' "$GARAK_RESULT_FILE" 2>/dev/null || echo "")
         GARAK_TARGET_TYPE=$(jq -r '.target_type // "N/A"' "$GARAK_RESULT_FILE" 2>/dev/null || echo "N/A")
         GARAK_TARGET_NAME=$(jq -r '.target_name // "N/A"' "$GARAK_RESULT_FILE" 2>/dev/null || echo "N/A")
+        GARAK_RUNTIME_TARGET=$(jq -r '.runtime_target // "N/A"' "$GARAK_RESULT_FILE" 2>/dev/null || echo "N/A")
+        GARAK_RUNTIME_CLASSIFICATION=$(jq -r '.runtime_classification // "N/A"' "$GARAK_RESULT_FILE" 2>/dev/null || echo "N/A")
+        GARAK_TARGET_ORIGIN=$(jq -r '.target_origin // "N/A"' "$GARAK_RESULT_FILE" 2>/dev/null || echo "N/A")
         GARAK_PROBES=$(jq -r '.probes // "N/A"' "$GARAK_RESULT_FILE" 2>/dev/null || echo "N/A")
         GARAK_EXIT_CODE=$(jq -r '.exit_code // "N/A"' "$GARAK_RESULT_FILE" 2>/dev/null || echo "N/A")
         GARAK_REPORT_JSONL=$(jq -r '.report_jsonl // ""' "$GARAK_RESULT_FILE" 2>/dev/null || echo "")
@@ -3887,6 +3893,9 @@ cat >> "$OUTPUT_HTML" << EOF
                                 <div class="stat-item"><strong>Status:</strong> ${GARAK_STATUS}</div>
                                 <div class="stat-item"><strong>Target Type:</strong> ${GARAK_TARGET_TYPE}</div>
                                 <div class="stat-item"><strong>Target Name:</strong> ${GARAK_TARGET_NAME}</div>
+                                <div class="stat-item"><strong>Runtime Target:</strong> ${GARAK_RUNTIME_TARGET}</div>
+                                <div class="stat-item"><strong>Runtime Class:</strong> ${GARAK_RUNTIME_CLASSIFICATION}</div>
+                                <div class="stat-item"><strong>Target Origin:</strong> ${GARAK_TARGET_ORIGIN}</div>
                                 <div class="stat-item"><strong>Probes:</strong> ${GARAK_PROBES}</div>
                                 <div class="stat-item"><strong>Hit Count:</strong> ${GARAK_HITS}</div>
                                 <div class="stat-item"><strong>Exit Code:</strong> ${GARAK_EXIT_CODE}</div>
@@ -3896,6 +3905,14 @@ cat >> "$OUTPUT_HTML" << EOF
                                 <div><strong>Console Log:</strong> <code>${GARAK_CONSOLE_LOG:-N/A}</code></div>
                                 <div><strong>Run Report:</strong> <code>$(basename "${GARAK_REPORT_JSONL:-}")</code></div>
                                 <div><strong>Hit Log:</strong> <code>$(basename "${GARAK_HIT_LOG:-}")</code></div>
+                            </div>
+                            <div style="margin-top:8px;padding:8px 10px;background:#0f172a;border:1px solid #1f2937;border-radius:6px;color:#cbd5e1;font-size:0.85em;line-height:1.45;">
+                                <div><strong>Runtime Class Legend:</strong></div>
+                                <div><code>api-provider</code>: Hosted API endpoint (OpenAI/Azure/Anthropic)</div>
+                                <div><code>local-runtime</code>: Local model runtime (for example, Ollama)</div>
+                                <div><code>provider-library</code>: Provider SDK or library-backed target</div>
+                                <div><code>test-generator</code>: Garak built-in test target (no external model)</div>
+                                <div><code>custom</code>: Non-standard or unmapped target type</div>
                             </div>
                         </div>
                         ${GARAK_FINDINGS}

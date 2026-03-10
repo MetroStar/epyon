@@ -9,3 +9,23 @@
 2026-03-09 17:52:10,865  INFO  invoked
 2026-03-09 17:52:10,865  DEBUG  Loading configs from: /Users/rnelson/Library/Python/3.9/lib/python/site-packages/garak/resources/garak.core.yaml
 2026-03-09 17:52:10,871  DEBUG  args - raw argument string received: ['--help']
+2026-03-10 15:33:08,626  INFO  invoked
+2026-03-10 15:33:08,627  DEBUG  Loading configs from: /Users/rnelson/Desktop/Side_Projects/epyon/.venv/lib/python3.9/site-packages/garak/resources/garak.core.yaml
+2026-03-10 15:33:08,696  DEBUG  args - raw argument string received: ['--list_probes']
+2026-03-10 15:33:08,697  DEBUG  args - full argparse: Namespace(verbose=0, report_prefix=None, narrow_output=False, parallel_requests=False, parallel_attempts=False, seed=None, deprefix=True, eval_threshold=0.5, generations=10, config=None, model_type=None, model_name=None, generator_option_file=None, generator_options=None, probes='all', probe_option_file=None, probe_options=None, probe_tags=None, detectors='auto', extended_detectors=False, buff=None, taxonomy=None, plugin_info=None, list_probes=True, list_detectors=False, list_generators=False, list_buffs=False, list_config=False, version=False, report=None, interactive=False, generate_autodan=False, **{'interactive.py': False})
+2026-03-10 15:33:08,697  DEBUG  no site config found at: /Users/rnelson/Desktop/Side_Projects/epyon/.venv/lib/python3.9/site-packages/garak/garak.site.yaml
+2026-03-10 15:33:08,697  DEBUG  Loading configs from: /Users/rnelson/Desktop/Side_Projects/epyon/.venv/lib/python3.9/site-packages/garak/resources/garak.core.yaml
+2026-03-10 15:33:08,703  DEBUG  args - cli_args&commands stored: Namespace(list_probes=True, verbose=0, list_detectors=False, list_generators=False, list_buffs=False, list_config=False, plugin_info=None, interactive=False, report=None, version=False)
+2026-03-10 15:33:08,703  DEBUG  non-config params: [('list_probes', True), ('list_detectors', False), ('list_generators', False), ('list_buffs', False), ('list_config', False), ('plugin_info', None), ('interactive', False), ('report', None), ('version', False)]
+2026-03-10 15:33:08,823  INFO  started at 2026-03-10T15:33:08.584950
+2026-03-10 15:33:08,826  INFO  reporting to runs/garak.bad52ee8-f6b9-4de2-b230-f38fbd994206.report.jsonl
+2026-03-10 15:33:18,747  INFO  invoked
+2026-03-10 15:33:18,747  DEBUG  Loading configs from: /Users/rnelson/Desktop/Side_Projects/epyon/.venv/lib/python3.9/site-packages/garak/resources/garak.core.yaml
+2026-03-10 15:33:18,755  DEBUG  args - raw argument string received: ['--list_probes']
+2026-03-10 15:33:18,755  DEBUG  args - full argparse: Namespace(verbose=0, report_prefix=None, narrow_output=False, parallel_requests=False, parallel_attempts=False, seed=None, deprefix=True, eval_threshold=0.5, generations=10, config=None, model_type=None, model_name=None, generator_option_file=None, generator_options=None, probes='all', probe_option_file=None, probe_options=None, probe_tags=None, detectors='auto', extended_detectors=False, buff=None, taxonomy=None, plugin_info=None, list_probes=True, list_detectors=False, list_generators=False, list_buffs=False, list_config=False, version=False, report=None, interactive=False, generate_autodan=False, **{'interactive.py': False})
+2026-03-10 15:33:18,755  DEBUG  no site config found at: /Users/rnelson/Desktop/Side_Projects/epyon/.venv/lib/python3.9/site-packages/garak/garak.site.yaml
+2026-03-10 15:33:18,755  DEBUG  Loading configs from: /Users/rnelson/Desktop/Side_Projects/epyon/.venv/lib/python3.9/site-packages/garak/resources/garak.core.yaml
+2026-03-10 15:33:18,757  DEBUG  args - cli_args&commands stored: Namespace(list_probes=True, verbose=0, list_detectors=False, list_generators=False, list_buffs=False, list_config=False, plugin_info=None, interactive=False, report=None, version=False)
+2026-03-10 15:33:18,757  DEBUG  non-config params: [('list_probes', True), ('list_detectors', False), ('list_generators', False), ('list_buffs', False), ('list_config', False), ('plugin_info', None), ('interactive', False), ('report', None), ('version', False)]
+2026-03-10 15:33:18,763  INFO  started at 2026-03-10T15:33:18.734128
+2026-03-10 15:33:18,763  INFO  reporting to runs/garak.27a3977a-1553-4034-baf6-67be7df074b7.report.jsonl

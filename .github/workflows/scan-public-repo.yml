@@ -553,6 +553,9 @@ jobs:
             GARAK_STATUS=$(jq -r '.status // "unknown"' "$GARAK_RESULTS_FILE" 2>/dev/null || echo "unknown")
             GARAK_TARGET_TYPE=$(jq -r '.target_type // "n/a"' "$GARAK_RESULTS_FILE" 2>/dev/null || echo "n/a")
             GARAK_TARGET_NAME=$(jq -r '.target_name // "n/a"' "$GARAK_RESULTS_FILE" 2>/dev/null || echo "n/a")
+            GARAK_RUNTIME_TARGET=$(jq -r '.runtime_target // "n/a"' "$GARAK_RESULTS_FILE" 2>/dev/null || echo "n/a")
+            GARAK_RUNTIME_CLASSIFICATION=$(jq -r '.runtime_classification // "n/a"' "$GARAK_RESULTS_FILE" 2>/dev/null || echo "n/a")
+            GARAK_TARGET_ORIGIN=$(jq -r '.target_origin // "n/a"' "$GARAK_RESULTS_FILE" 2>/dev/null || echo "n/a")
             GARAK_PROBES=$(jq -r '.probes // "n/a"' "$GARAK_RESULTS_FILE" 2>/dev/null || echo "n/a")
             GARAK_EXIT_CODE=$(jq -r '.exit_code // "n/a"' "$GARAK_RESULTS_FILE" 2>/dev/null || echo "n/a")
             GARAK_HIT_LOG=$(jq -r '.hit_log // empty' "$GARAK_RESULTS_FILE" 2>/dev/null || true)
@@ -562,6 +565,9 @@ jobs:
             fi
             echo "- Status: \`$GARAK_STATUS\`" >> $GITHUB_STEP_SUMMARY
             echo "- Target: \`$GARAK_TARGET_TYPE\` / \`$GARAK_TARGET_NAME\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Runtime target: \`$GARAK_RUNTIME_TARGET\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Runtime class: \`$GARAK_RUNTIME_CLASSIFICATION\`" >> $GITHUB_STEP_SUMMARY
+            echo "- Target origin: \`$GARAK_TARGET_ORIGIN\`" >> $GITHUB_STEP_SUMMARY
             echo "- Probes: \`$GARAK_PROBES\`" >> $GITHUB_STEP_SUMMARY
             echo "- Probe hits: \`$GARAK_HIT_COUNT\`" >> $GITHUB_STEP_SUMMARY
             echo "- Exit code: \`$GARAK_EXIT_CODE\`" >> $GITHUB_STEP_SUMMARY

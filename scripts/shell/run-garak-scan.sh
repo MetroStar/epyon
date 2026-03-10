@@ -71,9 +71,77 @@ else
     SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
 fi
 
-GARAK_TARGET_TYPE="${GARAK_TARGET_TYPE:-test}"
-GARAK_TARGET_NAME="${GARAK_TARGET_NAME:-test.Blank}"
-GARAK_PROBES="${GARAK_PROBES:-promptinject}"
+GARAK_TARGET_TYPE_INPUT="${GARAK_TARGET_TYPE:-}"
+GARAK_TARGET_NAME_INPUT="${GARAK_TARGET_NAME:-}"
+GARAK_PROBES_INPUT="${GARAK_PROBES:-}"
+
+if [[ -n "$GARAK_TARGET_TYPE_INPUT" ]]; then
+    GARAK_TARGET_TYPE="$GARAK_TARGET_TYPE_INPUT"
+    GARAK_TARGET_TYPE_SOURCE="provided"
+else
+    GARAK_TARGET_TYPE="test"
+    GARAK_TARGET_TYPE_SOURCE="default"
+fi
+
+if [[ -n "$GARAK_TARGET_NAME_INPUT" ]]; then
+    GARAK_TARGET_NAME="$GARAK_TARGET_NAME_INPUT"
+    GARAK_TARGET_NAME_SOURCE="provided"
+else
+    GARAK_TARGET_NAME="test.Blank"
+    GARAK_TARGET_NAME_SOURCE="default"
+fi
+
+if [[ -n "$GARAK_PROBES_INPUT" ]]; then
+    GARAK_PROBES="$GARAK_PROBES_INPUT"
+    GARAK_PROBES_SOURCE="provided"
+else
+    GARAK_PROBES="promptinject"
+    GARAK_PROBES_SOURCE="default"
+fi
+
+if [[ "$GARAK_TARGET_TYPE_SOURCE" == "provided" && "$GARAK_TARGET_NAME_SOURCE" == "provided" ]]; then
+    GARAK_TARGET_ORIGIN="provided"
+elif [[ "$GARAK_TARGET_TYPE_SOURCE" == "default" && "$GARAK_TARGET_NAME_SOURCE" == "default" ]]; then
+    GARAK_TARGET_ORIGIN="default"
+else
+    GARAK_TARGET_ORIGIN="mixed(type:${GARAK_TARGET_TYPE_SOURCE},name:${GARAK_TARGET_NAME_SOURCE})"
+fi
+
+GARAK_TARGET_TYPE_LC=$(printf '%s' "$GARAK_TARGET_TYPE" | tr '[:upper:]' '[:lower:]')
+GARAK_RUNTIME_ENDPOINT="N/A"
+GARAK_RUNTIME_CLASSIFICATION="custom"
+case "$GARAK_TARGET_TYPE_LC" in
+    openai)
+        GARAK_RUNTIME_ENDPOINT="${OPENAI_BASE_URL:-https://api.openai.com/v1}"
+        GARAK_RUNTIME_CLASSIFICATION="api-provider"
+        ;;
+    azure|azure_openai|azure-openai)
+        GARAK_RUNTIME_ENDPOINT="${AZURE_OPENAI_ENDPOINT:-N/A}"
+        GARAK_RUNTIME_CLASSIFICATION="api-provider"
+        ;;
+    anthropic)
+        GARAK_RUNTIME_ENDPOINT="${ANTHROPIC_BASE_URL:-https://api.anthropic.com}"
+        GARAK_RUNTIME_CLASSIFICATION="api-provider"
+        ;;
+    ollama)
+        GARAK_RUNTIME_ENDPOINT="${OLLAMA_HOST:-http://localhost:11434}"
+        GARAK_RUNTIME_CLASSIFICATION="local-runtime"
+        ;;
+    huggingface|hf)
+        GARAK_RUNTIME_ENDPOINT="${HF_INFERENCE_ENDPOINT:-N/A}"
+        GARAK_RUNTIME_CLASSIFICATION="provider-library"
+        ;;
+    test)
+        GARAK_RUNTIME_ENDPOINT="local-test-generator"
+        GARAK_RUNTIME_CLASSIFICATION="test-generator"
+        ;;
+esac
+
+GARAK_RUNTIME_TARGET="${GARAK_TARGET_TYPE}:${GARAK_TARGET_NAME}"
+if [[ -n "$GARAK_RUNTIME_ENDPOINT" && "$GARAK_RUNTIME_ENDPOINT" != "N/A" ]]; then
+    GARAK_RUNTIME_TARGET="${GARAK_RUNTIME_TARGET} @ ${GARAK_RUNTIME_ENDPOINT}"
+fi
+
 GARAK_AUTO_INSTALL="${GARAK_AUTO_INSTALL:-true}"
 GARAK_PIP_SPEC="${GARAK_PIP_SPEC:-garak}"
 
@@ -95,6 +163,9 @@ echo "Target Directory: $TARGET_SCAN_DIR"
 echo "Output Directory: $OUTPUT_DIR"
 echo "Target Type: $GARAK_TARGET_TYPE"
 echo "Target Name: $GARAK_TARGET_NAME"
+echo "Runtime Target: $GARAK_RUNTIME_TARGET"
+echo "Runtime Classification: $GARAK_RUNTIME_CLASSIFICATION"
+echo "Target Origin: $GARAK_TARGET_ORIGIN"
 echo "Probes: $GARAK_PROBES"
 echo "Timestamp: $TIMESTAMP"
 echo ""
@@ -105,6 +176,9 @@ echo "Garak scan started: $TIMESTAMP" > "$SCAN_LOG"
 echo "Target: $TARGET_SCAN_DIR" >> "$SCAN_LOG"
 echo "Target type: $GARAK_TARGET_TYPE" >> "$SCAN_LOG"
 echo "Target name: $GARAK_TARGET_NAME" >> "$SCAN_LOG"
+echo "Runtime target: $GARAK_RUNTIME_TARGET" >> "$SCAN_LOG"
+echo "Runtime classification: $GARAK_RUNTIME_CLASSIFICATION" >> "$SCAN_LOG"
+echo "Target origin: $GARAK_TARGET_ORIGIN" >> "$SCAN_LOG"
 echo "Probes: $GARAK_PROBES" >> "$SCAN_LOG"
 
 if ! command -v python3 >/dev/null 2>&1; then
@@ -267,6 +341,13 @@ cat > "$RESULTS_FILE" << EOF
   "scan_id": "$SCAN_ID",
   "target_type": "$GARAK_TARGET_TYPE",
   "target_name": "$GARAK_TARGET_NAME",
+    "runtime_target": "$GARAK_RUNTIME_TARGET",
+    "runtime_classification": "$GARAK_RUNTIME_CLASSIFICATION",
+    "runtime_endpoint": "$GARAK_RUNTIME_ENDPOINT",
+    "target_origin": "$GARAK_TARGET_ORIGIN",
+    "target_type_source": "$GARAK_TARGET_TYPE_SOURCE",
+    "target_name_source": "$GARAK_TARGET_NAME_SOURCE",
+    "probes_source": "$GARAK_PROBES_SOURCE",
   "probes": "$GARAK_PROBES",
   "exit_code": $GARAK_EXIT,
   "console_log": "$(basename "$CONSOLE_LOG")",

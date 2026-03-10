@@ -371,15 +371,45 @@ echo "🎯 Prerequisites check complete!"
    - Scroll down to **"Artifacts"** section
    - Download the ZIP file with all reports
 
-### Configure PR Scan Mode
+### Automated Scan Mode Defaults
 
-By default, pull request scans run in `quick` mode. You can now configure this in GitHub Actions variables:
+`scan-private-repo.yml` now uses fixed automated defaults:
 
-1. Go to **Settings → Secrets and variables → Actions → Variables**
-2. Create variable: `PR_SCAN_MODE`
-3. Set value to one of: `quick`, `full`, `baseline`
+- `pull_request` events run `quick` scans for fast feedback
+- `push` events (including post-merge pushes to protected branches) run `full` scans
+- `schedule` events run `full` scans
+- Manual `workflow_dispatch` runs still let you choose `quick`, `full`, or `baseline`
 
-If `PR_SCAN_MODE` is not set (or is invalid), the workflow safely defaults to `quick` for PRs.
+This gives short PR turnaround with deeper security checks after merge.
+
+### Garak (LLM) Workflow Inputs
+
+The manual workflows expose Garak configuration fields directly in the Actions UI.
+
+For `scan-private-repo.yml`, `scan-public-repo.yml`, and `baseline-scan.yml`:
+
+- `garak_target_type` (dropdown): `openai`, `test`, `huggingface`, `ollama`, `litellm`
+- `garak_target_name` (dropdown): includes `gpt-4o-mini`, `gpt-4.1-mini`, and test presets
+- `garak_target_name_custom` (text): optional override for any custom model name
+- `garak_probes` (dropdown): includes `promptinject`, `dan`, `encoding`, `xss`, `all`
+
+Production defaults are set to:
+
+- `garak_target_type: openai`
+- `garak_target_name: gpt-4o-mini`
+- `garak_probes: promptinject`
+
+### Garak API Key Requirements
+
+For production Garak runs against OpenAI models, configure this GitHub Actions secret:
+
+- `OPENAI_API_KEY`
+
+Optional (only if using Anthropic-backed targets):
+
+- `ANTHROPIC_API_KEY`
+
+Without required provider keys, the Garak step runs but will not produce real target results.
 
 ### Scan a Specific PR or Branch (Manual)
 

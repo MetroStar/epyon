@@ -27,6 +27,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Garak workflow controls in GitHub Actions**: `workflow_dispatch` forms now expose Garak settings as UI-friendly controls, including target type, target model preset, optional custom model override, and probe set selection.
+- **Garak run summary visibility**: workflow summaries now include Garak status, target, probe set, hit count, and exit code for quicker CI triage.
+
+### Changed
+- **Automated scan-mode policy**: `scan-private-repo.yml` now runs `quick` for `pull_request` events and `full` for `push` (including merge-result pushes) and scheduled runs; manual dispatch remains user-selectable.
+- **Production-ready Garak defaults**: workflows now default Garak target configuration to `openai` + `gpt-4o-mini` (with `promptinject`) instead of test targets.
+
+### Fixed
+- **Garak installation reliability in CI**: `run-garak-scan.sh` now uses resilient pip installation fallbacks (`standard`, `--break-system-packages`, and `--user`) and emits last pip error lines on failure to improve diagnostics on hosted runners.
+
 ### Fixed
 - **Checkov suppression display**: `find` now uses `-type f` when locating Checkov result JSON files, preventing a directory (`checkov-results.json/`) from masquerading as a file and causing the entire Checkov block to be silently skipped in both `check-severity-gate.sh` and `generate-security-dashboard.sh`.
 - **SonarCloud coverage reporting**: Coverage XML paths are now stored as absolute paths (not relative) so the SonarCloud scanner still resolves them correctly after it `cd`s to the properties-file directory. Discovery now also searches for `cobertura.xml` in addition to `coverage.xml`, and reads `pyproject.toml`, `setup.cfg`, and `.coveragerc` for configured XML output paths.

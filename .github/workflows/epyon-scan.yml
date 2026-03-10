@@ -171,6 +171,9 @@ jobs:
           cd epyon
           chmod +x scripts/shell/run-target-security-scan.sh
 
+          EPYON_VERSION=$(tr -d '[:space:]' < VERSION 2>/dev/null || echo "unknown")
+          echo "Using Epyon version: $EPYON_VERSION"
+
           if [[ -n "$SUBDIR" ]]; then
             TARGET_DIR="${{ github.workspace }}/target-repo/$SUBDIR"
             TARGET_NAME=$(basename "$SUBDIR")
@@ -186,6 +189,7 @@ jobs:
           echo "TARGET_NAME=$TARGET_NAME" >> /tmp/epyon-env
           echo "GITHUB_ACTOR=$GITHUB_ACTOR" >> /tmp/epyon-env
           echo "SUBDIR=$SUBDIR" >> /tmp/epyon-env
+          echo "EPYON_VERSION=$EPYON_VERSION" >> /tmp/epyon-env
           echo "GARAK_TARGET_TYPE=${GARAK_TARGET_TYPE:-openai}" >> /tmp/epyon-env
           echo "GARAK_TARGET_NAME=${GARAK_TARGET_NAME:-gpt-4o-mini}" >> /tmp/epyon-env
           echo "GARAK_PROBES=${GARAK_PROBES:-promptinject}" >> /tmp/epyon-env
@@ -471,8 +475,14 @@ jobs:
         if: always()
         run: |
           cd epyon
+          if [ -f /tmp/epyon-env ]; then
+            source /tmp/epyon-env
+          fi
           SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
           GARAK_RESULTS_FILE="$SCAN_DIR/garak/garak-results.json"
+
+          echo "**Epyon Version:** \`${EPYON_VERSION:-unknown}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "### 🤖 Garak LLM Scan" >> $GITHUB_STEP_SUMMARY
           if [ -f "$GARAK_RESULTS_FILE" ]; then

@@ -157,6 +157,9 @@ jobs:
           GARAK_TARGET_NAME_CUSTOM_INPUT: ${{ github.event.inputs.garak_target_name_custom }}
         run: |
           chmod +x scripts/shell/run-target-security-scan.sh
+
+          EPYON_VERSION=$(tr -d '[:space:]' < VERSION 2>/dev/null || echo "unknown")
+          echo "Using Epyon version: $EPYON_VERSION"
           
           # Extract repo name from URL
           REPO_URL="${{ github.event.inputs.repository }}"
@@ -189,6 +192,7 @@ jobs:
           echo "TARGET_NAME=$TARGET_NAME" > /tmp/epyon-env
           echo "SCAN_MODE=${{ github.event.inputs.scan_mode }}" >> /tmp/epyon-env
           echo "GITHUB_ACTOR=$GITHUB_ACTOR" >> /tmp/epyon-env
+          echo "EPYON_VERSION=$EPYON_VERSION" >> /tmp/epyon-env
           echo "REPO_URL=$REPO_URL" >> /tmp/epyon-env
           echo "SUBDIR=$SUBDIR" >> /tmp/epyon-env
           echo "GARAK_TARGET_TYPE=${GARAK_TARGET_TYPE:-openai}" >> /tmp/epyon-env
@@ -513,8 +517,14 @@ jobs:
       - name: Generate Summary
         if: always()
         run: |
+          if [ -f /tmp/epyon-env ]; then
+            source /tmp/epyon-env
+          fi
           SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
           GARAK_RESULTS_FILE="$SCAN_DIR/garak/garak-results.json"
+
+          echo "**Epyon Version:** \`${EPYON_VERSION:-unknown}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           
           # Build notification line
           NOTIFY_USERS="${{ env.NOTIFY_USERS }}"

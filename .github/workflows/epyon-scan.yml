@@ -83,14 +83,14 @@ jobs:
       issues: write
 
     env:
-      SCAN_MODE: ${{ inputs.scan_mode }}
-      FAIL_ON_CRITICAL: ${{ inputs.fail_on_critical }}
-      FAIL_ON_HIGH: ${{ inputs.fail_on_high }}
-      WARNING_ONLY: ${{ inputs.warning_only }}
-      NOTIFY_USERS: ${{ vars.NOTIFY_USERS }}
-      GARAK_TARGET_TYPE: ${{ inputs.garak_target_type }}
-      GARAK_TARGET_NAME: ${{ inputs.garak_target_name }}
-      GARAK_PROBES: ${{ inputs.garak_probes }}
+      SCAN_MODE: "${{ inputs.scan_mode }}"
+      FAIL_ON_CRITICAL: "${{ inputs.fail_on_critical }}"
+      FAIL_ON_HIGH: "${{ inputs.fail_on_high }}"
+      WARNING_ONLY: "${{ inputs.warning_only }}"
+      NOTIFY_USERS: "${{ vars.NOTIFY_USERS }}"
+      GARAK_TARGET_TYPE: "${{ inputs.garak_target_type }}"
+      GARAK_TARGET_NAME: "${{ inputs.garak_target_name }}"
+      GARAK_PROBES: "${{ inputs.garak_probes }}"
 
     steps:
       - name: Checkout Target Repository
@@ -284,11 +284,11 @@ jobs:
         if: env.SCAN_MODE != 'quick'
         continue-on-error: true
         run: |
-          source /tmp/epyon-env
-          cd epyon
-          echo "🦠 Layer 4: Malware Detection"
-          chmod +x scripts/shell/run-clamav-scan.sh
-          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-clamav-scan.sh || echo "ClamAV scan completed with warnings"
+            source /tmp/epyon-env
+            cd epyon
+            echo "🦠 Layer 4: Malware Detection"
+            chmod +x scripts/shell/run-clamav-scan.sh
+            SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-clamav-scan.sh || echo "ClamAV scan completed with warnings"
 
       - name: Layer 5 - Helm Chart Build
         continue-on-error: true
@@ -361,7 +361,7 @@ jobs:
           SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-api-discovery.sh || echo "API Discovery completed with warnings"
 
       - name: Layer 12 - LLM Security (Garak)
-      if: env.SCAN_MODE != 'quick'
+        if: env.SCAN_MODE != 'quick'
         continue-on-error: true
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

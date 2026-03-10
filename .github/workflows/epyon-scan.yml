@@ -54,12 +54,12 @@ on:
       garak_target_type:
         description: 'Garak generator type (for example: test, openai, huggingface)'
         required: false
-        default: 'test'
+        default: 'openai'
         type: string
       garak_target_name:
         description: 'Garak target model name (for example: test.Blank, gpt-4o-mini)'
         required: false
-        default: 'test.Blank'
+        default: 'gpt-4o-mini'
         type: string
       garak_probes:
         description: 'Comma-separated Garak probes or probe groups'
@@ -186,8 +186,8 @@ jobs:
           echo "TARGET_NAME=$TARGET_NAME" >> /tmp/epyon-env
           echo "GITHUB_ACTOR=$GITHUB_ACTOR" >> /tmp/epyon-env
           echo "SUBDIR=$SUBDIR" >> /tmp/epyon-env
-          echo "GARAK_TARGET_TYPE=${GARAK_TARGET_TYPE:-test}" >> /tmp/epyon-env
-          echo "GARAK_TARGET_NAME=${GARAK_TARGET_NAME:-test.Blank}" >> /tmp/epyon-env
+          echo "GARAK_TARGET_TYPE=${GARAK_TARGET_TYPE:-openai}" >> /tmp/epyon-env
+          echo "GARAK_TARGET_NAME=${GARAK_TARGET_NAME:-gpt-4o-mini}" >> /tmp/epyon-env
           echo "GARAK_PROBES=${GARAK_PROBES:-promptinject}" >> /tmp/epyon-env
 
           TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
@@ -358,6 +358,9 @@ jobs:
 
       - name: Layer 12 - LLM Security (Garak)
         continue-on-error: true
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           source /tmp/epyon-env
           cd epyon

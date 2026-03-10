@@ -1,4 +1,4 @@
-name: sBaseline Security Scan
+name: Baseline Security Scan
 
 # Top-level permissions: restrict default to read-only
 permissions:
@@ -24,25 +24,27 @@ on:
       garak_target_type:
         description: 'Garak generator type (for example: test, openai, huggingface)'
         required: false
-        default: 'test'
+        default: 'openai'
         type: choice
         options:
-          - test
           - openai
+          - test
           - huggingface
           - ollama
           - litellm
       garak_target_name:
         description: 'Garak target model name preset'
         required: false
-        default: 'test.Blank'
+        default: 'gpt-4o-mini'
         type: choice
         options:
-          - test.Blank
-          - test.Repeat
           - gpt-4o-mini
           - gpt-4.1-mini
+          - gpt-4o
+          - gpt-4.1
           - llama3.1:8b
+          - test.Blank
+          - test.Repeat
       garak_target_name_custom:
         description: 'Optional custom Garak target model name (overrides preset when set)'
         required: false
@@ -137,7 +139,7 @@ jobs:
           TARGET_DIR="${{ github.workspace }}/target-repo"
           
           echo "TARGET_DIR=$TARGET_DIR" > /tmp/epyon-env
-          GARAK_TARGET_NAME_RESOLVED="${GARAK_TARGET_NAME_INPUT:-test.Blank}"
+          GARAK_TARGET_NAME_RESOLVED="${GARAK_TARGET_NAME_INPUT:-gpt-4o-mini}"
           if [[ -n "${GARAK_TARGET_NAME_CUSTOM_INPUT:-}" ]]; then
             GARAK_TARGET_NAME_RESOLVED="$GARAK_TARGET_NAME_CUSTOM_INPUT"
           fi
@@ -146,7 +148,7 @@ jobs:
           echo "TARGET_NAME=$TARGET_NAME" >> /tmp/epyon-env
           echo "GITHUB_ACTOR=$GITHUB_ACTOR" >> /tmp/epyon-env
           echo "PRIMARY_BASELINE_IMAGE=$PRIMARY_BASELINE_IMAGE" >> /tmp/epyon-env
-          echo "GARAK_TARGET_TYPE=${GARAK_TARGET_TYPE_INPUT:-test}" >> /tmp/epyon-env
+          echo "GARAK_TARGET_TYPE=${GARAK_TARGET_TYPE_INPUT:-openai}" >> /tmp/epyon-env
           echo "GARAK_TARGET_NAME=$GARAK_TARGET_NAME_RESOLVED" >> /tmp/epyon-env
           echo "GARAK_PROBES=${GARAK_PROBES_INPUT:-promptinject}" >> /tmp/epyon-env
           
@@ -244,6 +246,9 @@ jobs:
 
       - name: Layer 12 - LLM Security (Garak)
         continue-on-error: true
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           source /tmp/epyon-env
           cd epyon

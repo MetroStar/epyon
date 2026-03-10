@@ -1,4 +1,4 @@
-name: Baseline Security Scan
+name: sBaseline Security Scan
 
 # Top-level permissions: restrict default to read-only
 permissions:

@@ -1748,6 +1748,28 @@ GARAK_CRITICAL=0
 GARAK_HIGH=0
 GARAK_FINDINGS=""
 
+# Decode base64-looking strings when possible for more readable hit previews.
+decode_maybe_base64() {
+    local val="$1"
+    local decoded=""
+
+    if [ -z "$val" ]; then
+        echo ""
+        return
+    fi
+
+    # Heuristic: only attempt decode for longer base64-like payloads.
+    if [[ "$val" =~ ^[A-Za-z0-9+/=[:space:]]{24,}$ ]]; then
+        decoded=$(printf '%s' "$val" | tr -d '\n\r' | (base64 --decode 2>/dev/null || base64 -D 2>/dev/null) || true)
+        if [ -n "$decoded" ]; then
+            echo "$decoded"
+            return
+        fi
+    fi
+
+    echo "$val"
+}
+
 if [ -d "$GARAK_DIR" ]; then
     if [ ! -f "$GARAK_RESULT_FILE" ]; then
         GARAK_RESULT_FILE=$(find "$GARAK_DIR" -maxdepth 1 -type f -name "*_garak-results.json" | head -1)
@@ -1790,6 +1812,37 @@ if [ -d "$GARAK_DIR" ]; then
         GARAK_HIT_PREVIEW=""
         while IFS= read -r hit_line; do
             [ -z "$hit_line" ] && continue
+
+            GARAK_PROBE_NAME=$(echo "$hit_line" | jq -r '.probe // .attempt.probe // .plugin_name // "unknown"' 2>/dev/null || echo "unknown")
+            GARAK_DETECTOR_NAME=$(echo "$hit_line" | jq -r '.detector // .attempt.detector // .detector_name // "unknown"' 2>/dev/null || echo "unknown")
+
+            GARAK_PROMPT_RAW=$(echo "$hit_line" | jq -r '.prompt // .attempt.prompt // .attempt.input // .input // .goal // .trigger // empty' 2>/dev/null || echo "")
+            GARAK_RESPONSE_RAW=$(echo "$hit_line" | jq -r '.response // .output // .attempt.output // .attempt.response // .result // .attempt.result // empty' 2>/dev/null || echo "")
+
+            # Optional encoded fields seen in some plugin outputs.
+            if [ -z "$GARAK_PROMPT_RAW" ]; then
+                GARAK_PROMPT_RAW=$(echo "$hit_line" | jq -r '.prompt_b64 // .attempt.prompt_b64 // empty' 2>/dev/null || echo "")
+            fi
+            if [ -z "$GARAK_RESPONSE_RAW" ]; then
+                GARAK_RESPONSE_RAW=$(echo "$hit_line" | jq -r '.response_b64 // .attempt.response_b64 // empty' 2>/dev/null || echo "")
+            fi
+
+            GARAK_PROMPT_TEXT=$(decode_maybe_base64 "$GARAK_PROMPT_RAW")
+            GARAK_RESPONSE_TEXT=$(decode_maybe_base64 "$GARAK_RESPONSE_RAW")
+
+            GARAK_PROMPT_SAFE=$(echo "$GARAK_PROMPT_TEXT" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+            GARAK_RESPONSE_SAFE=$(echo "$GARAK_RESPONSE_TEXT" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+            GARAK_RAW_SAFE=$(echo "$hit_line" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+
+            GARAK_DETAILS_HTML="<div><strong>Probe:</strong> <code>${GARAK_PROBE_NAME}</code></div><div><strong>Detector:</strong> <code>${GARAK_DETECTOR_NAME}</code></div>"
+            if [ -n "$GARAK_PROMPT_SAFE" ]; then
+                GARAK_DETAILS_HTML="${GARAK_DETAILS_HTML}<div style=\"margin-top:6px;\"><strong>Decoded Prompt:</strong></div><code style=\"display:block;white-space:pre-wrap;word-break:break-word;\">${GARAK_PROMPT_SAFE}</code>"
+            fi
+            if [ -n "$GARAK_RESPONSE_SAFE" ]; then
+                GARAK_DETAILS_HTML="${GARAK_DETAILS_HTML}<div style=\"margin-top:6px;\"><strong>Decoded Response:</strong></div><code style=\"display:block;white-space:pre-wrap;word-break:break-word;\">${GARAK_RESPONSE_SAFE}</code>"
+            fi
+            GARAK_DETAILS_HTML="${GARAK_DETAILS_HTML}<div style=\"margin-top:6px;\"><strong>Raw Hit JSON:</strong></div><code style=\"display:block;white-space:pre-wrap;word-break:break-word;\">${GARAK_RAW_SAFE}</code>"
+
             GARAK_HIT_PREVIEW="${GARAK_HIT_PREVIEW}<div class=\"finding-item severity-high\" data-source=\"app\" onclick=\"toggleFindingDetails(this)\">\
 <div class=\"finding-header\">\
 <span class=\"badge badge-tool\">Garak</span>\
@@ -1798,10 +1851,9 @@ if [ -d "$GARAK_DIR" ]; then
 <span class=\"badge\" style=\"background:#152a1f;color:#4ade80;font-size:0.7em;border:1px solid #10b981;\">🤖 LLM</span>\
 </div>\
 <div class=\"finding-title\">Potential LLM vulnerability behavior detected</div>\
-<div class=\"finding-desc\">A garak probe produced a hit. Review the raw hit log for complete evidence.</div>\
+<div class=\"finding-desc\">A garak probe produced a hit. Decoded prompt/response fields are shown when available.</div>\
 <div class=\"finding-details\" style=\"display:none;\">\
-<div><strong>Raw Hit:</strong></div>\
-<code style=\"display:block;white-space:pre-wrap;word-break:break-word;\">$(echo "$hit_line" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')</code>\
+${GARAK_DETAILS_HTML}\
 </div>\
 </div>"
             # Limit preview rows for dashboard performance.

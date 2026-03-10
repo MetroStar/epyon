@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Garak installation reliability in CI**: `run-garak-scan.sh` now uses resilient pip installation fallbacks (`standard`, `--break-system-packages`, and `--user`) and emits last pip error lines on failure to improve diagnostics on hosted runners.
+- **Garak hit readability in dashboard**: Garak findings now parse and display decoded prompt/response content (when present) plus probe/detector metadata, with raw JSON retained as fallback evidence.
 
 ### Fixed
 - **Checkov suppression display**: `find` now uses `-type f` when locating Checkov result JSON files, preventing a directory (`checkov-results.json/`) from masquerading as a file and causing the entire Checkov block to be silently skipped in both `check-severity-gate.sh` and `generate-security-dashboard.sh`.

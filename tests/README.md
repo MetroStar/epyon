@@ -45,6 +45,7 @@ Tests are located in `tests/shell/`:
 - `test-run-trufflehog-scan.bats` - Tests for TruffleHog scanner
 - `test-run-clamav-scan.bats` - Tests for ClamAV scanner
 - `test-run-checkov-scan.bats` - Tests for Checkov scanner
+- `test-run-garak-scan.bats` - Tests for Garak scanner
 - `test-run-xeol-scan.bats` - Tests for Xeol scanner
 - `test-run-sonar-analysis.bats` - Tests for SonarQube scanner
 - `test-run-sbom-scan.bats` - Tests for SBOM generation

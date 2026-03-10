@@ -16,12 +16,13 @@ Unit tests are provided for the following scripts:
 4. **run-clamav-scan.sh** - Antivirus and malware scanning
 5. **run-trufflehog-scan.sh** - Secret detection scanning
 6. **run-xeol-scan.sh** - End-of-Life software detection
-7. **run-sbom-scan.sh** - Software Bill of Materials generation
-8. **run-helm-build.sh** - Helm chart building and validation
-9. **run-anchore-scan.sh** - Anchore security analysis (placeholder)
-10. **run-sonar-analysis.sh** - SonarQube code quality analysis
-11. **run-target-security-scan.sh** - Main orchestrator script
-12. **scan-directory-template.sh** - Shared template functions
+7. **run-garak-scan.sh** - LLM red-team probing and safety scanning
+8. **run-sbom-scan.sh** - Software Bill of Materials generation
+9. **run-helm-build.sh** - Helm chart building and validation
+10. **run-anchore-scan.sh** - Anchore security analysis (placeholder)
+11. **run-sonar-analysis.sh** - SonarQube code quality analysis
+12. **run-target-security-scan.sh** - Main orchestrator script
+13. **scan-directory-template.sh** - Shared template functions
 
 ## Prerequisites
 

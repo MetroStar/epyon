@@ -1,0 +1,50 @@
+2026-03-09 16:30:38,075  INFO  invoked
+2026-03-09 16:30:38,075  DEBUG  Loading configs from: /Users/rnelson/Library/Python/3.9/lib/python/site-packages/garak/resources/garak.core.yaml
+2026-03-09 16:30:38,086  DEBUG  args - raw argument string received: ['--help']
+2026-03-09 17:45:23,402  INFO  invoked
+2026-03-09 17:45:23,402  DEBUG  Loading configs from: /Users/rnelson/Library/Python/3.9/lib/python/site-packages/garak/resources/garak.core.yaml
+2026-03-09 17:45:23,483  DEBUG  args - raw argument string received: ['--version']
+2026-03-09 17:45:23,484  DEBUG  args - full argparse: Namespace(verbose=0, report_prefix=None, narrow_output=False, parallel_requests=False, parallel_attempts=False, seed=None, deprefix=True, eval_threshold=0.5, generations=10, config=None, model_type=None, model_name=None, generator_option_file=None, generator_options=None, probes='all', probe_option_file=None, probe_options=None, probe_tags=None, detectors='auto', extended_detectors=False, buff=None, taxonomy=None, plugin_info=None, list_probes=False, list_detectors=False, list_generators=False, list_buffs=False, list_config=False, version=True, report=None, interactive=False, generate_autodan=False, **{'interactive.py': False})
+2026-03-09 17:45:23,484  DEBUG  no site config found at: /Users/rnelson/Library/Python/3.9/lib/python/site-packages/garak/garak.site.yaml
+2026-03-09 17:45:23,484  DEBUG  Loading configs from: /Users/rnelson/Library/Python/3.9/lib/python/site-packages/garak/resources/garak.core.yaml
+2026-03-09 17:45:23,491  DEBUG  args - cli_args&commands stored: Namespace(version=True, verbose=0, list_detectors=False, list_probes=False, list_generators=False, list_buffs=False, list_config=False, plugin_info=None, interactive=False, report=None)
+2026-03-09 17:45:23,491  DEBUG  non-config params: [('version', True), ('list_detectors', False), ('list_probes', False), ('list_generators', False), ('list_buffs', False), ('list_config', False), ('plugin_info', None), ('interactive', False), ('report', None)]
+2026-03-09 17:45:23,770  INFO  invoked
+2026-03-09 17:45:23,771  DEBUG  Loading configs from: /Users/rnelson/Library/Python/3.9/lib/python/site-packages/garak/resources/garak.core.yaml
+2026-03-09 17:45:23,778  DEBUG  args - raw argument string received: ['--help']
+2026-03-09 17:58:42,982  INFO  invoked
+2026-03-09 17:58:42,982  DEBUG  Loading configs from: /Users/rnelson/Library/Python/3.9/lib/python/site-packages/garak/resources/garak.core.yaml
+2026-03-09 17:58:43,125  DEBUG  args - raw argument string received: ['--version']
+2026-03-09 17:58:43,125  DEBUG  args - full argparse: Namespace(verbose=0, report_prefix=None, narrow_output=False, parallel_requests=False, parallel_attempts=False, seed=None, deprefix=True, eval_threshold=0.5, generations=10, config=None, model_type=None, model_name=None, generator_option_file=None, generator_options=None, probes='all', probe_option_file=None, probe_options=None, probe_tags=None, detectors='auto', extended_detectors=False, buff=None, taxonomy=None, plugin_info=None, list_probes=False, list_detectors=False, list_generators=False, list_buffs=False, list_config=False, version=True, report=None, interactive=False, generate_autodan=False, **{'interactive.py': False})
+2026-03-09 17:58:43,126  DEBUG  no site config found at: /Users/rnelson/Library/Python/3.9/lib/python/site-packages/garak/garak.site.yaml
+2026-03-09 17:58:43,126  DEBUG  Loading configs from: /Users/rnelson/Library/Python/3.9/lib/python/site-packages/garak/resources/garak.core.yaml
+2026-03-09 17:58:43,132  DEBUG  args - cli_args&commands stored: Namespace(version=True, verbose=0, list_detectors=False, list_probes=False, list_generators=False, list_buffs=False, list_config=False, plugin_info=None, interactive=False, report=None)
+2026-03-09 17:58:43,132  DEBUG  non-config params: [('version', True), ('list_detectors', False), ('list_probes', False), ('list_generators', False), ('list_buffs', False), ('list_config', False), ('plugin_info', None), ('interactive', False), ('report', None)]
+2026-03-09 17:58:43,447  INFO  invoked
+2026-03-09 17:58:43,447  DEBUG  Loading configs from: /Users/rnelson/Library/Python/3.9/lib/python/site-packages/garak/resources/garak.core.yaml
+2026-03-09 17:58:43,456  DEBUG  args - raw argument string received: ['--help']
+2026-03-09 18:16:13,074  INFO  invoked
+2026-03-09 18:16:13,074  DEBUG  Loading configs from: /Users/rnelson/Desktop/Side_Projects/epyon/.venv/lib/python3.9/site-packages/garak/resources/garak.core.yaml
+2026-03-09 18:16:13,093  DEBUG  args - raw argument string received: ['--help']
+2026-03-09 18:29:25,710  INFO  invoked
+2026-03-09 18:29:25,710  DEBUG  Loading configs from: /Users/rnelson/Desktop/Side_Projects/epyon/.venv/lib/python3.9/site-packages/garak/resources/garak.core.yaml
+2026-03-09 18:29:25,722  DEBUG  args - raw argument string received: ['--version']
+2026-03-09 18:29:25,722  DEBUG  args - full argparse: Namespace(verbose=0, report_prefix=None, narrow_output=False, parallel_requests=False, parallel_attempts=False, seed=None, deprefix=True, eval_threshold=0.5, generations=10, config=None, model_type=None, model_name=None, generator_option_file=None, generator_options=None, probes='all', probe_option_file=None, probe_options=None, probe_tags=None, detectors='auto', extended_detectors=False, buff=None, taxonomy=None, plugin_info=None, list_probes=False, list_detectors=False, list_generators=False, list_buffs=False, list_config=False, version=True, report=None, interactive=False, generate_autodan=False, **{'interactive.py': False})
+2026-03-09 18:29:25,722  DEBUG  no site config found at: /Users/rnelson/Desktop/Side_Projects/epyon/.venv/lib/python3.9/site-packages/garak/garak.site.yaml
+2026-03-09 18:29:25,722  DEBUG  Loading configs from: /Users/rnelson/Desktop/Side_Projects/epyon/.venv/lib/python3.9/site-packages/garak/resources/garak.core.yaml
+2026-03-09 18:29:25,724  DEBUG  args - cli_args&commands stored: Namespace(version=True, verbose=0, list_detectors=False, list_probes=False, list_generators=False, list_buffs=False, list_config=False, plugin_info=None, interactive=False, report=None)
+2026-03-09 18:29:25,724  DEBUG  non-config params: [('version', True), ('list_detectors', False), ('list_probes', False), ('list_generators', False), ('list_buffs', False), ('list_config', False), ('plugin_info', None), ('interactive', False), ('report', None)]
+2026-03-09 18:29:25,783  INFO  invoked
+2026-03-09 18:29:25,783  DEBUG  Loading configs from: /Users/rnelson/Desktop/Side_Projects/epyon/.venv/lib/python3.9/site-packages/garak/resources/garak.core.yaml
+2026-03-09 18:29:25,789  DEBUG  args - raw argument string received: ['--help']
+2026-03-09 18:29:42,372  INFO  invoked
+2026-03-09 18:29:42,372  DEBUG  Loading configs from: /Users/rnelson/Library/Python/3.9/lib/python/site-packages/garak/resources/garak.core.yaml
+2026-03-09 18:29:42,386  DEBUG  args - raw argument string received: ['--version']
+2026-03-09 18:29:42,386  DEBUG  args - full argparse: Namespace(verbose=0, report_prefix=None, narrow_output=False, parallel_requests=False, parallel_attempts=False, seed=None, deprefix=True, eval_threshold=0.5, generations=10, config=None, model_type=None, model_name=None, generator_option_file=None, generator_options=None, probes='all', probe_option_file=None, probe_options=None, probe_tags=None, detectors='auto', extended_detectors=False, buff=None, taxonomy=None, plugin_info=None, list_probes=False, list_detectors=False, list_generators=False, list_buffs=False, list_config=False, version=True, report=None, interactive=False, generate_autodan=False, **{'interactive.py': False})
+2026-03-09 18:29:42,386  DEBUG  no site config found at: /Users/rnelson/Library/Python/3.9/lib/python/site-packages/garak/garak.site.yaml
+2026-03-09 18:29:42,386  DEBUG  Loading configs from: /Users/rnelson/Library/Python/3.9/lib/python/site-packages/garak/resources/garak.core.yaml
+2026-03-09 18:29:42,388  DEBUG  args - cli_args&commands stored: Namespace(version=True, verbose=0, list_detectors=False, list_probes=False, list_generators=False, list_buffs=False, list_config=False, plugin_info=None, interactive=False, report=None)
+2026-03-09 18:29:42,388  DEBUG  non-config params: [('version', True), ('list_detectors', False), ('list_probes', False), ('list_generators', False), ('list_buffs', False), ('list_config', False), ('plugin_info', None), ('interactive', False), ('report', None)]
+2026-03-09 18:29:42,536  INFO  invoked
+2026-03-09 18:29:42,536  DEBUG  Loading configs from: /Users/rnelson/Library/Python/3.9/lib/python/site-packages/garak/resources/garak.core.yaml
+2026-03-09 18:29:42,542  DEBUG  args - raw argument string received: ['--help']

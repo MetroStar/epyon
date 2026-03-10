@@ -21,7 +21,7 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-target-security-scan.sh"
 }
 
 @test "run-target-security-scan.sh orchestrates multiple scans" {
-    grep -q "run-trivy-scan\|run-grype-scan\|run-checkov-scan" "$SCRIPT_PATH"
+    grep -q "run-trivy-scan\|run-grype-scan\|run-checkov-scan\|run-garak-scan" "$SCRIPT_PATH"
 }
 
 @test "run-target-security-scan.sh accepts target directory parameter" {

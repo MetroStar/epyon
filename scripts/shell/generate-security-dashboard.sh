@@ -74,6 +74,7 @@ show_help() {
     echo "  - Checkov (IaC security)"
     echo "  - ClamAV (malware detection)"
     echo "  - Xeol (EOL detection)"
+    echo "  - Garak (LLM security probing)"
     echo "  - SBOM (software inventory)"
     echo "  - SonarQube (code quality)"
     echo ""
@@ -1730,6 +1731,99 @@ else
 </div>"
 fi
 
+# ---- Garak (LLM Security Probing) Statistics ----
+GARAK_DIR="${LATEST_SCAN}/garak"
+GARAK_RESULT_FILE="$GARAK_DIR/garak-results.json"
+GARAK_STATUS="not_run"
+GARAK_REASON=""
+GARAK_TARGET_TYPE="N/A"
+GARAK_TARGET_NAME="N/A"
+GARAK_PROBES="N/A"
+GARAK_EXIT_CODE="N/A"
+GARAK_REPORT_JSONL=""
+GARAK_HIT_LOG=""
+GARAK_CONSOLE_LOG=""
+GARAK_HITS=0
+GARAK_CRITICAL=0
+GARAK_HIGH=0
+GARAK_FINDINGS=""
+
+if [ -d "$GARAK_DIR" ]; then
+    if [ ! -f "$GARAK_RESULT_FILE" ]; then
+        GARAK_RESULT_FILE=$(find "$GARAK_DIR" -maxdepth 1 -type f -name "*_garak-results.json" | head -1)
+    fi
+
+    if [ -f "$GARAK_RESULT_FILE" ] && jq empty "$GARAK_RESULT_FILE" 2>/dev/null; then
+        GARAK_STATUS=$(jq -r '.status // "unknown"' "$GARAK_RESULT_FILE" 2>/dev/null || echo "unknown")
+        GARAK_REASON=$(jq -r '.reason // ""' "$GARAK_RESULT_FILE" 2>/dev/null || echo "")
+        GARAK_TARGET_TYPE=$(jq -r '.target_type // "N/A"' "$GARAK_RESULT_FILE" 2>/dev/null || echo "N/A")
+        GARAK_TARGET_NAME=$(jq -r '.target_name // "N/A"' "$GARAK_RESULT_FILE" 2>/dev/null || echo "N/A")
+        GARAK_PROBES=$(jq -r '.probes // "N/A"' "$GARAK_RESULT_FILE" 2>/dev/null || echo "N/A")
+        GARAK_EXIT_CODE=$(jq -r '.exit_code // "N/A"' "$GARAK_RESULT_FILE" 2>/dev/null || echo "N/A")
+        GARAK_REPORT_JSONL=$(jq -r '.report_jsonl // ""' "$GARAK_RESULT_FILE" 2>/dev/null || echo "")
+        GARAK_HIT_LOG=$(jq -r '.hit_log // ""' "$GARAK_RESULT_FILE" 2>/dev/null || echo "")
+        GARAK_CONSOLE_LOG=$(jq -r '.console_log // ""' "$GARAK_RESULT_FILE" 2>/dev/null || echo "")
+    fi
+
+    # Fallback artifact discovery if summary fields are empty.
+    if [ -z "$GARAK_HIT_LOG" ] || [ "$GARAK_HIT_LOG" = "null" ]; then
+        GARAK_HIT_LOG=$(find "$GARAK_DIR" -maxdepth 1 -type f -name "*.hitlog.jsonl" | head -1)
+    else
+        GARAK_HIT_LOG="$GARAK_DIR/$GARAK_HIT_LOG"
+    fi
+
+    if [ -z "$GARAK_REPORT_JSONL" ] || [ "$GARAK_REPORT_JSONL" = "null" ]; then
+        GARAK_REPORT_JSONL=$(find "$GARAK_DIR" -maxdepth 1 -type f -name "*.jsonl" ! -name "*.hitlog.jsonl" | head -1)
+    else
+        GARAK_REPORT_JSONL="$GARAK_DIR/$GARAK_REPORT_JSONL"
+    fi
+
+    if [ -n "$GARAK_HIT_LOG" ] && [ -f "$GARAK_HIT_LOG" ]; then
+        GARAK_HITS=$(grep -c '.' "$GARAK_HIT_LOG" 2>/dev/null || echo "0")
+        [[ "$GARAK_HITS" =~ ^[0-9]+$ ]] || GARAK_HITS=0
+    fi
+
+    # Treat hit count as high-priority LLM safety findings for dashboard severity fallback.
+    GARAK_HIGH=$GARAK_HITS
+
+    if [ "$GARAK_HITS" -gt 0 ] && [ -f "$GARAK_HIT_LOG" ]; then
+        GARAK_HIT_PREVIEW=""
+        while IFS= read -r hit_line; do
+            [ -z "$hit_line" ] && continue
+            GARAK_HIT_PREVIEW="${GARAK_HIT_PREVIEW}<div class=\"finding-item severity-high\" data-source=\"app\" onclick=\"toggleFindingDetails(this)\">\
+<div class=\"finding-header\">\
+<span class=\"badge badge-tool\">Garak</span>\
+<span class=\"badge badge-high\">HIT</span>\
+<span class=\"badge\" style=\"background:#2C3539;color:#9ca3af;border:1px solid #4a5568;\">LLM Probe</span>\
+<span class=\"badge\" style=\"background:#152a1f;color:#4ade80;font-size:0.7em;border:1px solid #10b981;\">🤖 LLM</span>\
+</div>\
+<div class=\"finding-title\">Potential LLM vulnerability behavior detected</div>\
+<div class=\"finding-desc\">A garak probe produced a hit. Review the raw hit log for complete evidence.</div>\
+<div class=\"finding-details\" style=\"display:none;\">\
+<div><strong>Raw Hit:</strong></div>\
+<code style=\"display:block;white-space:pre-wrap;word-break:break-word;\">$(echo "$hit_line" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')</code>\
+</div>\
+</div>"
+            # Limit preview rows for dashboard performance.
+            if [ "$(echo "$GARAK_HIT_PREVIEW" | grep -c 'finding-item severity-high')" -ge 15 ]; then
+                break
+            fi
+        done < "$GARAK_HIT_LOG"
+
+        GARAK_FINDINGS="<p style=\"color:#9ca3af;margin-bottom:15px;font-size:0.9em;\">👆 Click on any finding below to expand details (showing up to 15 hits)</p>${GARAK_HIT_PREVIEW}"
+    elif [ "$GARAK_STATUS" = "success" ]; then
+        GARAK_FINDINGS="<p class=\"no-findings\">✅ No garak hit log findings detected</p>"
+    elif [ "$GARAK_STATUS" = "failed" ]; then
+        GARAK_FINDINGS="<p class=\"no-findings\">⚠️ Garak run failed. Review console log for details.</p>"
+    elif [ "$GARAK_STATUS" = "skipped" ]; then
+        GARAK_FINDINGS="<p class=\"no-findings\">⏭️ Garak scan was skipped for this run.</p>"
+    else
+        GARAK_FINDINGS="<p class=\"no-findings\">No garak scan data available</p>"
+    fi
+else
+    GARAK_FINDINGS="<p class=\"no-findings\">No garak scan data available</p>"
+fi
+
 # Calculate totals - Use deduplicated summary if available
 FINDINGS_SUMMARY="$SCAN_DIR/security-findings-summary.json"
 if [ -f "$FINDINGS_SUMMARY" ]; then
@@ -1742,8 +1836,8 @@ if [ -f "$FINDINGS_SUMMARY" ]; then
     echo -e "${GREEN}✅ Using unique vulnerability counts: Critical($TOTAL_CRITICAL) High($TOTAL_HIGH) Medium($TOTAL_MEDIUM) Low($TOTAL_LOW)${NC}"
 else
     echo -e "${YELLOW}⚠️  Deduplicated summary not found, using tool sums (may include duplicates)${NC}"
-    TOTAL_CRITICAL=$((TH_CRITICAL + CLAMAV_CRITICAL + TRIVY_CRITICAL + GRYPE_CRITICAL + SONAR_CRITICAL + CHECKOV_CRITICAL + HELM_CRITICAL + XEOL_CRITICAL + ANCHORE_CRITICAL))
-    TOTAL_HIGH=$((TH_HIGH + TRIVY_HIGH + GRYPE_HIGH + SONAR_HIGH + CHECKOV_HIGH + HELM_HIGH + XEOL_HIGH + ANCHORE_HIGH))
+    TOTAL_CRITICAL=$((TH_CRITICAL + CLAMAV_CRITICAL + TRIVY_CRITICAL + GRYPE_CRITICAL + SONAR_CRITICAL + CHECKOV_CRITICAL + HELM_CRITICAL + XEOL_CRITICAL + ANCHORE_CRITICAL + GARAK_CRITICAL))
+    TOTAL_HIGH=$((TH_HIGH + TRIVY_HIGH + GRYPE_HIGH + SONAR_HIGH + CHECKOV_HIGH + HELM_HIGH + XEOL_HIGH + ANCHORE_HIGH + GARAK_HIGH))
     TOTAL_MEDIUM=$((TRIVY_MEDIUM + GRYPE_MEDIUM + XEOL_MEDIUM + ANCHORE_MEDIUM))
     TOTAL_LOW=$((TRIVY_LOW + GRYPE_LOW + XEOL_LOW + ANCHORE_LOW))
     TOTAL_FINDINGS=$((TOTAL_CRITICAL + TOTAL_HIGH + TOTAL_MEDIUM + TOTAL_LOW))
@@ -1753,7 +1847,7 @@ fi
 # Container image vulnerabilities come from Trivy/Grype base image scans
 TOTAL_IMAGE_VULNS=$((TRIVY_CRITICAL + TRIVY_HIGH + TRIVY_MEDIUM + TRIVY_LOW + GRYPE_CRITICAL + GRYPE_HIGH + GRYPE_MEDIUM + GRYPE_LOW + XEOL_CRITICAL + XEOL_HIGH + XEOL_MEDIUM + XEOL_LOW))
 # Application/Config vulnerabilities come from Checkov, TruffleHog, Helm, SonarQube
-TOTAL_APP_VULNS=$((TH_CRITICAL + TH_HIGH + CHECKOV_HIGH + HELM_CRITICAL + HELM_HIGH + SONAR_CRITICAL + SONAR_HIGH))
+TOTAL_APP_VULNS=$((TH_CRITICAL + TH_HIGH + CHECKOV_HIGH + HELM_CRITICAL + HELM_HIGH + SONAR_CRITICAL + SONAR_HIGH + GARAK_HIGH))
 
 # Read suppressed findings information
 SUPPRESSED_LOG="${LATEST_SCAN}/suppressed-findings.md"
@@ -2974,6 +3068,7 @@ IOC_IAC=${CHECKOV_FAILED:-0}
 IOC_CODE=$((SONAR_VULNS + SONAR_BUGS))
 IOC_EOL=$((XEOL_CRITICAL + XEOL_HIGH + XEOL_MEDIUM + XEOL_LOW))
 IOC_SUPPLY=$((ANCHORE_CRITICAL + ANCHORE_HIGH + ANCHORE_MEDIUM + ANCHORE_LOW))
+IOC_LLM=${GARAK_HITS:-0}
 # Card state helpers
 if [ "$IOC_SECRETS" -gt 0 ]; then IOC_CLASS_SECRETS="alert"; else IOC_CLASS_SECRETS="clean"; fi
 if [ "${SCAN_MODE:-full}" = "quick" ]; then
@@ -2995,6 +3090,16 @@ if [ "${SCAN_MODE:-full}" = "quick" ]; then IOC_CLASS_SUPPLY="skipped"; IOC_SUPP
 elif [ "${ANCHORE_CRITICAL:-0}" -gt 0 ]; then IOC_CLASS_SUPPLY="alert"; IOC_SUPPLY_DISP="$IOC_SUPPLY";
 elif [ "$IOC_SUPPLY" -gt 0 ]; then IOC_CLASS_SUPPLY="warning"; IOC_SUPPLY_DISP="$IOC_SUPPLY";
 else IOC_CLASS_SUPPLY="clean"; IOC_SUPPLY_DISP="0"; fi
+
+if [ "$GARAK_STATUS" = "not_run" ] || [ "$GARAK_STATUS" = "skipped" ] || [ "$GARAK_STATUS" = "unknown" ]; then
+    IOC_CLASS_LLM="skipped"; IOC_LLM_DISP="&#x23ED;"; IOC_SKIP_LLM="true"
+elif [ "$GARAK_STATUS" = "failed" ]; then
+    IOC_CLASS_LLM="warning"; IOC_LLM_DISP="!"; IOC_SKIP_LLM="false"
+elif [ "$IOC_LLM" -gt 0 ]; then
+    IOC_CLASS_LLM="warning"; IOC_LLM_DISP="$IOC_LLM"; IOC_SKIP_LLM="false"
+else
+    IOC_CLASS_LLM="clean"; IOC_LLM_DISP="0"; IOC_SKIP_LLM="false"
+fi
 # Donut legend percentages (integer math)
 if [ "${TOTAL_FINDINGS:-0}" -gt 0 ]; then
     PCT_C=$(( TOTAL_CRITICAL * 100 / TOTAL_FINDINGS ))
@@ -3160,6 +3265,20 @@ cat >> "$OUTPUT_HTML" << EOF
                     </div>
                     <div class="ioc-label">Supply Chain</div>
                     <div class="ioc-source">Anchore</div>
+                </div>
+                <div class="ioc-card ${IOC_CLASS_LLM}">
+                    <div class="ioc-icon">🤖</div>
+                    <div class="donut-canvas-wrap" style="margin:4px 0">
+                        <canvas class="ioc-mini-donut" id="ioc-donut-llm" width="100" height="100"
+                            data-critical="0" data-high="${GARAK_HITS}" data-medium="0" data-low="0"
+                            data-skipped="${IOC_SKIP_LLM}" data-source="Garak"></canvas>
+                        <div class="donut-center">
+                            <div class="ioc-mini-total">${IOC_LLM_DISP}</div>
+                            <div class="ioc-mini-sub">hits</div>
+                        </div>
+                    </div>
+                    <div class="ioc-label">LLM Probe Hits</div>
+                    <div class="ioc-source">Garak</div>
                 </div>
                 </div>
             </div>
@@ -3678,6 +3797,60 @@ cat >> "$OUTPUT_HTML" << EOF
                 </div>
             </div>
 
+            <!-- Garak -->
+            <div class="tool-card">
+                <div class="tool-header" onclick="toggleTool('garak')">
+                    <div class="tool-title">
+                        <span class="tool-icon">🤖</span>
+                        <div>
+                            <div>Garak</div>
+                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">LLM Security Probing</div>
+                        </div>
+                    </div>
+                    <div class="tool-stats">
+EOF
+
+# Add Garak status badge
+if [ "$GARAK_STATUS" = "not_run" ] || [ "$GARAK_STATUS" = "unknown" ]; then
+    echo "                        <span class=\"tool-stat-badge badge-skipped\">⏭️ Not run</span>" >> "$OUTPUT_HTML"
+elif [ "$GARAK_STATUS" = "skipped" ]; then
+    echo "                        <span class=\"tool-stat-badge badge-skipped\">⏭️ Skipped</span>" >> "$OUTPUT_HTML"
+elif [ "$GARAK_STATUS" = "failed" ]; then
+    echo "                        <span class=\"tool-stat-badge badge-high\">⚠️ Failed</span>" >> "$OUTPUT_HTML"
+elif [ "$GARAK_HITS" -gt 0 ]; then
+    echo "                        <span class=\"tool-stat-badge badge-high\">⚠️ ${GARAK_HITS} Hits</span>" >> "$OUTPUT_HTML"
+else
+    echo "                        <span class=\"tool-stat-badge badge-clean\">✅ Clean</span>" >> "$OUTPUT_HTML"
+fi
+
+cat >> "$OUTPUT_HTML" << EOF
+                        <span class="expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="tool-content" id="garak-content">
+                    <div class="tool-findings">
+                        <div class="stats-detail-box">
+                            <h4>📊 Garak LLM Scan Statistics</h4>
+                            <div class="stats-grid-small">
+                                <div class="stat-item"><strong>Status:</strong> ${GARAK_STATUS}</div>
+                                <div class="stat-item"><strong>Target Type:</strong> ${GARAK_TARGET_TYPE}</div>
+                                <div class="stat-item"><strong>Target Name:</strong> ${GARAK_TARGET_NAME}</div>
+                                <div class="stat-item"><strong>Probes:</strong> ${GARAK_PROBES}</div>
+                                <div class="stat-item"><strong>Hit Count:</strong> ${GARAK_HITS}</div>
+                                <div class="stat-item"><strong>Exit Code:</strong> ${GARAK_EXIT_CODE}</div>
+                            </div>
+                            <div style="margin-top:10px;color:#9ca3af;font-size:0.9em;word-break:break-word;">
+                                <div><strong>Reason:</strong> ${GARAK_REASON:-N/A}</div>
+                                <div><strong>Console Log:</strong> <code>${GARAK_CONSOLE_LOG:-N/A}</code></div>
+                                <div><strong>Run Report:</strong> <code>$(basename "${GARAK_REPORT_JSONL:-}")</code></div>
+                                <div><strong>Hit Log:</strong> <code>$(basename "${GARAK_HIT_LOG:-}")</code></div>
+                            </div>
+                        </div>
+                        ${GARAK_FINDINGS}
+                    </div>
+                </div>
+            </div>
+
             <!-- API Discovery -->
             <div class="tool-card">
                 <div class="tool-header" onclick="toggleTool('api-discovery')">
@@ -3857,7 +4030,7 @@ cat >> "$OUTPUT_HTML" << EOF
             </p>
             <p style="color: #a0aec0; font-size: 0.9em;">
                 Total Findings: <strong style="color: #2d3748;">${TOTAL_FINDINGS}</strong> • 
-                Tools: <strong style="color: #2d3748;">11</strong> • 
+                Tools: <strong style="color: #2d3748;">12</strong> • 
                 Files Scanned: <strong style="color: #2d3748;">${CLAMAV_FILES_SCANNED}</strong> •
                 Images Scanned: <strong style="color: #2d3748;">${TRIVY_IMAGES_SCANNED}</strong>
             </p>

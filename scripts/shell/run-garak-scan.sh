@@ -131,10 +131,26 @@ fi
 if ! "${GARAK_CMD[@]}" --version >/dev/null 2>&1; then
     if [[ "$GARAK_AUTO_INSTALL" == "true" ]]; then
         echo -e "${CYAN}📦 garak not found. Installing via pip...${NC}"
+        INSTALL_OK=0
+
+        # Attempt standard install first.
         if python3 -m pip install -U "$GARAK_PIP_SPEC" >> "$SCAN_LOG" 2>&1; then
+            INSTALL_OK=1
+        # Ubuntu/Debian runners with externally-managed Python may require this flag.
+        elif python3 -m pip install --break-system-packages -U "$GARAK_PIP_SPEC" >> "$SCAN_LOG" 2>&1; then
+            INSTALL_OK=1
+        # Fallback to user install in restrictive environments.
+        elif python3 -m pip install --user -U "$GARAK_PIP_SPEC" >> "$SCAN_LOG" 2>&1; then
+            export PATH="$HOME/.local/bin:$PATH"
+            INSTALL_OK=1
+        fi
+
+        if [[ "$INSTALL_OK" -eq 1 ]]; then
             echo -e "${GREEN}✅ garak installed${NC}"
         else
             echo -e "${RED}❌ Failed to install garak${NC}"
+            echo -e "${YELLOW}Last pip errors:${NC}"
+            tail -n 25 "$SCAN_LOG" 2>/dev/null || true
             cat > "$RESULTS_FILE" << EOF
 {
   "tool": "garak",

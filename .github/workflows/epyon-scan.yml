@@ -402,8 +402,8 @@ jobs:
           echo "✅ Summary generated with deduplicated counts"
 
       - name: Check Severity Gate
-        id: severity-gate
-        continue-on-error: true
+            echo "GARAK_TARGET_TYPE=${GARAK_TARGET_TYPE:-openai}" >> /tmp/epyon-env
+            echo "GARAK_TARGET_NAME=${GARAK_TARGET_NAME:-gpt-4o-mini}" >> /tmp/epyon-env
         run: |
           cd epyon
           if [ -f /tmp/epyon-env ]; then

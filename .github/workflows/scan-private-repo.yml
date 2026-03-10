@@ -55,24 +55,49 @@ on:
         description: 'Garak generator type (for example: test, openai, huggingface)'
         required: false
         default: 'test'
-        type: string
+        type: choice
+        options:
+          - test
+          - openai
+          - huggingface
+          - ollama
+          - litellm
       garak_target_name:
-        description: 'Garak target model name (for example: test.Blank, gpt-4o-mini)'
+        description: 'Garak target model name preset'
         required: false
         default: 'test.Blank'
+        type: choice
+        options:
+          - test.Blank
+          - test.Repeat
+          - gpt-4o-mini
+          - gpt-4.1-mini
+          - llama3.1:8b
+      garak_target_name_custom:
+        description: 'Optional custom Garak target model name (overrides preset when set)'
+        required: false
         type: string
       garak_probes:
-        description: 'Comma-separated Garak probes or probe groups'
+        description: 'Garak probe set'
         required: false
         default: 'promptinject'
-        type: string
+        type: choice
+        options:
+          - promptinject
+          - dan
+          - encoding
+          - malwaregen
+          - knownbadsignatures
+          - xss
+          - lmrc
+          - all
 
 env:
   # Trigger behavior:
   # - workflow_dispatch: use selected input
-  # - pull_request: configurable via Actions variable PR_SCAN_MODE (quick/full/baseline), defaults to quick
-  # - push/schedule: full
-  SCAN_MODE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.scan_mode || github.event_name == 'pull_request' && (vars.PR_SCAN_MODE == 'full' && 'full' || vars.PR_SCAN_MODE == 'baseline' && 'baseline' || 'quick') || 'full' }}
+  # - pull_request: quick
+  # - push (including post-merge) and schedule: full
+  SCAN_MODE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.scan_mode || github.event_name == 'pull_request' && 'quick' || 'full' }}
   # For automatic triggers (push/PR/schedule): always fail on critical and high
   # For manual triggers: use workflow_dispatch inputs (default to true for both)
   FAIL_ON_CRITICAL: ${{ github.event_name != 'workflow_dispatch' && 'true' || github.event.inputs.fail_on_critical }}
@@ -150,6 +175,7 @@ jobs:
           TARGET_NAME: ${{ github.event.repository.name }}
           GITHUB_ACTOR: ${{ github.actor }}
           SUBDIR: ${{ github.event.inputs.subdirectory }}
+          GARAK_TARGET_NAME_CUSTOM_INPUT: ${{ github.event.inputs.garak_target_name_custom }}
         run: |
           cd epyon
           chmod +x scripts/shell/run-target-security-scan.sh
@@ -168,12 +194,17 @@ jobs:
           fi
           
           echo "TARGET_DIR=$TARGET_DIR" > /tmp/epyon-env
+          GARAK_TARGET_NAME_RESOLVED="${GARAK_TARGET_NAME:-test.Blank}"
+          if [[ -n "${GARAK_TARGET_NAME_CUSTOM_INPUT:-}" ]]; then
+            GARAK_TARGET_NAME_RESOLVED="$GARAK_TARGET_NAME_CUSTOM_INPUT"
+          fi
+
           echo "SCAN_MODE=$SCAN_MODE" >> /tmp/epyon-env
           echo "TARGET_NAME=$TARGET_NAME" >> /tmp/epyon-env
           echo "GITHUB_ACTOR=$GITHUB_ACTOR" >> /tmp/epyon-env
           echo "SUBDIR=$SUBDIR" >> /tmp/epyon-env
           echo "GARAK_TARGET_TYPE=${GARAK_TARGET_TYPE:-test}" >> /tmp/epyon-env
-          echo "GARAK_TARGET_NAME=${GARAK_TARGET_NAME:-test.Blank}" >> /tmp/epyon-env
+          echo "GARAK_TARGET_NAME=$GARAK_TARGET_NAME_RESOLVED" >> /tmp/epyon-env
           echo "GARAK_PROBES=${GARAK_PROBES:-promptinject}" >> /tmp/epyon-env
           
           # Create scan directory

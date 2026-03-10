@@ -25,17 +25,42 @@ on:
         description: 'Garak generator type (for example: test, openai, huggingface)'
         required: false
         default: 'test'
-        type: string
+        type: choice
+        options:
+          - test
+          - openai
+          - huggingface
+          - ollama
+          - litellm
       garak_target_name:
-        description: 'Garak target model name (for example: test.Blank, gpt-4o-mini)'
+        description: 'Garak target model name preset'
         required: false
         default: 'test.Blank'
+        type: choice
+        options:
+          - test.Blank
+          - test.Repeat
+          - gpt-4o-mini
+          - gpt-4.1-mini
+          - llama3.1:8b
+      garak_target_name_custom:
+        description: 'Optional custom Garak target model name (overrides preset when set)'
+        required: false
         type: string
       garak_probes:
-        description: 'Comma-separated Garak probes or probe groups'
+        description: 'Garak probe set'
         required: false
         default: 'promptinject'
-        type: string
+        type: choice
+        options:
+          - promptinject
+          - dan
+          - encoding
+          - malwaregen
+          - knownbadsignatures
+          - xss
+          - lmrc
+          - all
 
 jobs:
   baseline-scan:
@@ -103,6 +128,7 @@ jobs:
           PRIMARY_BASELINE_IMAGE: dhi/caddy:latest
           GARAK_TARGET_TYPE_INPUT: ${{ github.event.inputs.garak_target_type }}
           GARAK_TARGET_NAME_INPUT: ${{ github.event.inputs.garak_target_name }}
+          GARAK_TARGET_NAME_CUSTOM_INPUT: ${{ github.event.inputs.garak_target_name_custom }}
           GARAK_PROBES_INPUT: ${{ github.event.inputs.garak_probes }}
         run: |
           cd epyon
@@ -111,12 +137,17 @@ jobs:
           TARGET_DIR="${{ github.workspace }}/target-repo"
           
           echo "TARGET_DIR=$TARGET_DIR" > /tmp/epyon-env
+          GARAK_TARGET_NAME_RESOLVED="${GARAK_TARGET_NAME_INPUT:-test.Blank}"
+          if [[ -n "${GARAK_TARGET_NAME_CUSTOM_INPUT:-}" ]]; then
+            GARAK_TARGET_NAME_RESOLVED="$GARAK_TARGET_NAME_CUSTOM_INPUT"
+          fi
+
           echo "SCAN_MODE=baseline" >> /tmp/epyon-env
           echo "TARGET_NAME=$TARGET_NAME" >> /tmp/epyon-env
           echo "GITHUB_ACTOR=$GITHUB_ACTOR" >> /tmp/epyon-env
           echo "PRIMARY_BASELINE_IMAGE=$PRIMARY_BASELINE_IMAGE" >> /tmp/epyon-env
           echo "GARAK_TARGET_TYPE=${GARAK_TARGET_TYPE_INPUT:-test}" >> /tmp/epyon-env
-          echo "GARAK_TARGET_NAME=${GARAK_TARGET_NAME_INPUT:-test.Blank}" >> /tmp/epyon-env
+          echo "GARAK_TARGET_NAME=$GARAK_TARGET_NAME_RESOLVED" >> /tmp/epyon-env
           echo "GARAK_PROBES=${GARAK_PROBES_INPUT:-promptinject}" >> /tmp/epyon-env
           
           # Capture baseline commit SHA

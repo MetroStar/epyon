@@ -52,17 +52,42 @@ on:
         description: 'Garak generator type (for example: test, openai, huggingface)'
         required: false
         default: 'test'
-        type: string
+        type: choice
+        options:
+          - test
+          - openai
+          - huggingface
+          - ollama
+          - litellm
       garak_target_name:
-        description: 'Garak target model name (for example: test.Blank, gpt-4o-mini)'
+        description: 'Garak target model name preset'
         required: false
         default: 'test.Blank'
+        type: choice
+        options:
+          - test.Blank
+          - test.Repeat
+          - gpt-4o-mini
+          - gpt-4.1-mini
+          - llama3.1:8b
+      garak_target_name_custom:
+        description: 'Optional custom Garak target model name (overrides preset when set)'
+        required: false
         type: string
       garak_probes:
-        description: 'Comma-separated Garak probes or probe groups'
+        description: 'Garak probe set'
         required: false
         default: 'promptinject'
-        type: string
+        type: choice
+        options:
+          - promptinject
+          - dan
+          - encoding
+          - malwaregen
+          - knownbadsignatures
+          - xss
+          - lmrc
+          - all
 
 env:
   SCAN_MODE: ${{ github.event.inputs.scan_mode || 'full' }}
@@ -127,6 +152,7 @@ jobs:
         env:
           TARGET_NAME: ${{ github.event.inputs.repository }}
           GITHUB_ACTOR: ${{ github.actor }}
+          GARAK_TARGET_NAME_CUSTOM_INPUT: ${{ github.event.inputs.garak_target_name_custom }}
         run: |
           chmod +x scripts/shell/run-target-security-scan.sh
           
@@ -152,6 +178,11 @@ jobs:
           else
             TARGET_NAME="$REPO_NAME"
           fi
+
+          GARAK_TARGET_NAME_RESOLVED="${GARAK_TARGET_NAME:-test.Blank}"
+          if [[ -n "${GARAK_TARGET_NAME_CUSTOM_INPUT:-}" ]]; then
+            GARAK_TARGET_NAME_RESOLVED="$GARAK_TARGET_NAME_CUSTOM_INPUT"
+          fi
           
           echo "TARGET_NAME=$TARGET_NAME" > /tmp/epyon-env
           echo "SCAN_MODE=${{ github.event.inputs.scan_mode }}" >> /tmp/epyon-env
@@ -159,7 +190,7 @@ jobs:
           echo "REPO_URL=$REPO_URL" >> /tmp/epyon-env
           echo "SUBDIR=$SUBDIR" >> /tmp/epyon-env
           echo "GARAK_TARGET_TYPE=${GARAK_TARGET_TYPE:-test}" >> /tmp/epyon-env
-          echo "GARAK_TARGET_NAME=${GARAK_TARGET_NAME:-test.Blank}" >> /tmp/epyon-env
+          echo "GARAK_TARGET_NAME=$GARAK_TARGET_NAME_RESOLVED" >> /tmp/epyon-env
           echo "GARAK_PROBES=${GARAK_PROBES:-promptinject}" >> /tmp/epyon-env
           echo "PR_NUMBER=$PR_NUMBER" >> /tmp/epyon-env
           echo "TARGET_REF=$TARGET_REF" >> /tmp/epyon-env

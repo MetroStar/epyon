@@ -15,6 +15,26 @@
 
 set -euo pipefail
 
+# Timeout for JS coverage commands (seconds). Can be overridden by callers.
+SONAR_JS_TEST_TIMEOUT_SECONDS="${SONAR_JS_TEST_TIMEOUT_SECONDS:-600}"
+
+run_npm_script_with_timeout() {
+  local script_name="$1"
+  local timeout_seconds="$2"
+
+  # Prefer GNU timeout where available; macOS commonly exposes it as gtimeout.
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "${timeout_seconds}s" npm run "$script_name"
+    return $?
+  fi
+  if command -v gtimeout >/dev/null 2>&1; then
+    gtimeout "${timeout_seconds}s" npm run "$script_name"
+    return $?
+  fi
+
+  npm run "$script_name"
+}
+
 # ---------------------------------------------------------------------------
 # Bootstrap
 # ---------------------------------------------------------------------------
@@ -150,18 +170,20 @@ PYEOF
             echo "[INFO] Installing dependencies in $(basename "$_pkg_dir")..."
             npm install --prefer-offline --no-audit --no-fund 2>&1 | tail -5 || true
           fi
-          # Pick the first available coverage script
+          # Pick the first available non-interactive coverage script.
+          # Intentionally avoid plain "test" because many projects run watch
+          # mode there, which can block CI indefinitely.
           _ran_js=false
-          for _script in "test:coverage" "coverage" "test"; do
+          for _script in "test:coverage" "coverage"; do
             if node -e "const p=require('./package.json');process.exit((p.scripts&&p.scripts['$_script'])?0:1)" 2>/dev/null; then
-              echo "[INFO] Running: npm run $_script"
-              npm run "$_script" 2>&1 | tail -40 || true
+              echo "[INFO] Running: npm run $_script (timeout: ${SONAR_JS_TEST_TIMEOUT_SECONDS}s)"
+              run_npm_script_with_timeout "$_script" "$SONAR_JS_TEST_TIMEOUT_SECONDS" 2>&1 | tail -40 || true
               _ran_js=true
               break
             fi
           done
           if [ "$_ran_js" = false ]; then
-            echo "[WARNING] No coverage/test script found in $(basename "$_pkg_dir") — skipping"
+            echo "[WARNING] No test:coverage/coverage script found in $(basename "$_pkg_dir") — skipping"
           fi
           cd "$REPO_PATH"
         else

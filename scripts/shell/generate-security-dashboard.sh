@@ -1773,6 +1773,57 @@ decode_maybe_base64() {
     echo "$val"
 }
 
+# Map a garak probe name/family to human-readable remediation guidance.
+garak_probe_remediation() {
+    local probe="$1"
+    local family
+    family=$(echo "$probe" | cut -d. -f1 | tr '[:upper:]' '[:lower:]')
+    case "$family" in
+        promptinject)
+            echo "Apply system-level prompt hardening; use input sanitization and output filtering; consider LLM firewall tooling (e.g., LlamaGuard, Rebuff). Validate that injected instructions cannot override system prompts."
+            ;;
+        dan)
+            echo "Jailbreak resistance: test persona/role-play refusal; apply RLHF-based safety training; add a policy/guardrail layer that rejects DAN-style override instructions."
+            ;;
+        encoding)
+            echo "Normalize and decode all user inputs before processing; reject or flag inputs that arrive in non-standard encodings (base64, unicode escapes, rot13). Apply allowlist encoding policies at the gateway."
+            ;;
+        malwaregen)
+            echo "Add code-generation safety filters; restrict file-write and exec capabilities in any LLM agent. Log and review all generated code before execution. Use output classifiers to detect malicious code patterns."
+            ;;
+        knownbadsignatures)
+            echo "Block known attack-pattern inputs at the gateway level; maintain and regularly update a blocklist of malicious signatures. Deploy a WAF or LLM firewall in front of the endpoint."
+            ;;
+        xss)
+            echo "Sanitize all LLM output before rendering in a browser context; enforce a strict Content Security Policy (CSP); use output-encoding libraries (e.g., DOMPurify) on any UI that renders model responses."
+            ;;
+        lmrc)
+            echo "Review the LLM Risk Cards for your model; apply supplier-recommended mitigations; add human-review gates for sensitive use-cases (medical, legal, financial). Consult NIST AI RMF and OWASP LLM Top 10."
+            ;;
+        atkgen|continuation)
+            echo "Deploy output classifiers to detect and block harmful continuations; apply topic-based content filters; monitor production outputs for adversarial completions."
+            ;;
+        replay)
+            echo "Implement timestamped request tokens or nonces to prevent replay attacks; validate that each request is fresh and has not been reused from a prior interaction."
+            ;;
+        snowball)
+            echo "Detect and interrupt runaway generation using output length limits and turn-count guards; rate-limit multi-turn context to prevent incremental jailbreak accumulation across turns."
+            ;;
+        divergence)
+            echo "Monitor for training-data regurgitation; apply differential-privacy techniques during fine-tuning; use output classifiers to detect verbatim reproduction of sensitive training content."
+            ;;
+        gcg)
+            echo "Apply adversarial-example defenses; prefer models with certified robustness; monitor for gradient-based attack patterns in inputs; consider input perturbation/detection layers."
+            ;;
+        packagehallucination)
+            echo "Always verify dependency names from LLM output against official registries before installing; use lock files; implement supply-chain scanning (e.g., socket.dev, Snyk) in CI before executing generated dependency lists."
+            ;;
+        *)
+            echo "Review the Garak probe documentation for '${probe}'; apply input validation, output filtering, and review the model system prompt for exploitable surface area. Consult OWASP LLM Top 10 for general LLM hardening guidance."
+            ;;
+    esac
+}
+
 if [ -d "$GARAK_DIR" ]; then
     if [ ! -f "$GARAK_RESULT_FILE" ]; then
         GARAK_RESULT_FILE=$(find "$GARAK_DIR" -maxdepth 1 -type f -name "*_garak-results.json" | head -1)
@@ -1821,6 +1872,7 @@ if [ -d "$GARAK_DIR" ]; then
 
             GARAK_PROBE_NAME=$(echo "$hit_line" | jq -r '.probe // .attempt.probe // .plugin_name // "unknown"' 2>/dev/null || echo "unknown")
             GARAK_DETECTOR_NAME=$(echo "$hit_line" | jq -r '.detector // .attempt.detector // .detector_name // "unknown"' 2>/dev/null || echo "unknown")
+            GARAK_REMEDIATION_TEXT=$(garak_probe_remediation "$GARAK_PROBE_NAME")
 
             GARAK_PROMPT_RAW=$(echo "$hit_line" | jq -r '.prompt // .attempt.prompt // .attempt.input // .input // .goal // .trigger // empty' 2>/dev/null || echo "")
             GARAK_RESPONSE_RAW=$(echo "$hit_line" | jq -r '.response // .output // .attempt.output // .attempt.response // .result // .attempt.result // empty' 2>/dev/null || echo "")
@@ -1848,6 +1900,7 @@ if [ -d "$GARAK_DIR" ]; then
                 GARAK_DETAILS_HTML="${GARAK_DETAILS_HTML}<div style=\"margin-top:6px;\"><strong>Decoded Response:</strong></div><code style=\"display:block;white-space:pre-wrap;word-break:break-word;\">${GARAK_RESPONSE_SAFE}</code>"
             fi
             GARAK_DETAILS_HTML="${GARAK_DETAILS_HTML}<div style=\"margin-top:6px;\"><strong>Raw Hit JSON:</strong></div><code style=\"display:block;white-space:pre-wrap;word-break:break-word;\">${GARAK_RAW_SAFE}</code>"
+            GARAK_DETAILS_HTML="${GARAK_DETAILS_HTML}<div style=\"margin-top:10px;padding:8px 10px;background:#0f2a1f;border-left:3px solid #10b981;border-radius:4px;\"><span style=\"color:#4ade80;font-weight:600;\">&#x1F6E1;&#xFE0F; Remediation Guidance</span><div style=\"margin-top:4px;color:#d1fae5;font-size:0.88em;\">${GARAK_REMEDIATION_TEXT}</div></div>"
 
             GARAK_HIT_PREVIEW="${GARAK_HIT_PREVIEW}<div class=\"finding-item severity-high\" data-source=\"app\" onclick=\"toggleFindingDetails(this)\">\
 <div class=\"finding-header\">\
@@ -1862,13 +1915,9 @@ if [ -d "$GARAK_DIR" ]; then
 ${GARAK_DETAILS_HTML}\
 </div>\
 </div>"
-            # Limit preview rows for dashboard performance.
-            if [ "$(echo "$GARAK_HIT_PREVIEW" | grep -c 'finding-item severity-high')" -ge 15 ]; then
-                break
-            fi
         done < "$GARAK_HIT_LOG"
 
-        GARAK_FINDINGS="<p style=\"color:#9ca3af;margin-bottom:15px;font-size:0.9em;\">👆 Click on any finding below to expand details (showing up to 15 hits)</p>${GARAK_HIT_PREVIEW}"
+        GARAK_FINDINGS="<p style=\"color:#9ca3af;margin-bottom:15px;font-size:0.9em;\">👆 Click on any finding below to expand details (${GARAK_HITS} hits total)</p>${GARAK_HIT_PREVIEW}"
     elif [ "$GARAK_STATUS" = "success" ]; then
         GARAK_FINDINGS="<p class=\"no-findings\">✅ No garak hit log findings detected</p>"
     elif [ "$GARAK_STATUS" = "failed" ]; then

@@ -1952,7 +1952,7 @@ else
 fi
 
 # Calculate totals - Use deduplicated summary if available
-FINDINGS_SUMMARY="$SCAN_DIR/security-findings-summary.json"
+FINDINGS_SUMMARY="$LATEST_SCAN/security-findings-summary.json"
 if [ -f "$FINDINGS_SUMMARY" ]; then
     echo -e "${CYAN}📊 Using deduplicated counts from security-findings-summary.json${NC}"
     TOTAL_CRITICAL=$(jq -r '.summary.total_critical // 0' "$FINDINGS_SUMMARY")

@@ -259,7 +259,7 @@ EOF
     local grype_dir="$SCAN_DIR/grype"
     if [[ -d "$grype_dir" ]]; then
         for grype_file in "$grype_dir"/*-results.json; do
-            if [[ -f "$grype_file" ]] && [[ $(basename "$grype_file") != *"sbom"* ]]; then
+            if [[ -f "$grype_file" ]] && [[ ! -L "$grype_file" ]]; then
                 local scan_type=$(basename "$grype_file" | sed 's/.*grype-//; s/-results.json//')
                 tools_analyzed+=("Grype-$scan_type")
                 
@@ -364,7 +364,7 @@ EOF
     local trivy_dir="$SCAN_DIR/trivy"
     if [[ -d "$trivy_dir" ]]; then
         for trivy_file in "$trivy_dir"/*-results.json; do
-            if [[ -f "$trivy_file" ]]; then
+            if [[ -f "$trivy_file" ]] && [[ ! -L "$trivy_file" ]]; then
                 local scan_type=$(basename "$trivy_file" | sed 's/.*trivy-//; s/-results.json//')
                 tools_analyzed+=("Trivy-$scan_type")
                 

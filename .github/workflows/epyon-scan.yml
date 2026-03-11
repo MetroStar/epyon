@@ -284,11 +284,11 @@ jobs:
         if: env.SCAN_MODE != 'quick'
         continue-on-error: true
         run: |
-            source /tmp/epyon-env
-            cd epyon
-            echo "🦠 Layer 4: Malware Detection"
-            chmod +x scripts/shell/run-clamav-scan.sh
-            SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-clamav-scan.sh || echo "ClamAV scan completed with warnings"
+          source /tmp/epyon-env
+          cd epyon
+          echo "🦠 Layer 4: Malware Detection"
+          chmod +x scripts/shell/run-clamav-scan.sh
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-clamav-scan.sh || echo "ClamAV scan completed with warnings"
 
       - name: Layer 5 - Helm Chart Build
         continue-on-error: true
@@ -407,8 +407,6 @@ jobs:
           echo "✅ Summary generated with deduplicated counts"
 
       - name: Check Severity Gate
-            echo "GARAK_TARGET_TYPE=${GARAK_TARGET_TYPE:-openai}" >> /tmp/epyon-env
-            echo "GARAK_TARGET_NAME=${GARAK_TARGET_NAME:-gpt-4o-mini}" >> /tmp/epyon-env
         run: |
           cd epyon
           if [ -f /tmp/epyon-env ]; then

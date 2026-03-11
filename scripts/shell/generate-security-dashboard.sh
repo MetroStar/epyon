@@ -1866,13 +1866,17 @@ if [ -d "$GARAK_DIR" ]; then
     GARAK_HIGH=$GARAK_HITS
 
     if [ "$GARAK_HITS" -gt 0 ] && [ -f "$GARAK_HIT_LOG" ]; then
-        GARAK_HIT_PREVIEW=""
+        GARAK_TMPDIR=$(mktemp -d)
         while IFS= read -r hit_line; do
             [ -z "$hit_line" ] && continue
 
             GARAK_PROBE_NAME=$(echo "$hit_line" | jq -r '.probe // .attempt.probe // .plugin_name // "unknown"' 2>/dev/null || echo "unknown")
             GARAK_DETECTOR_NAME=$(echo "$hit_line" | jq -r '.detector // .attempt.detector // .detector_name // "unknown"' 2>/dev/null || echo "unknown")
             GARAK_REMEDIATION_TEXT=$(garak_probe_remediation "$GARAK_PROBE_NAME")
+
+            # Derive a safe filename from the first dot-component (probe family).
+            GARAK_PROBE_FAMILY=$(echo "$GARAK_PROBE_NAME" | cut -d'.' -f1 | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-')
+            [ -z "$GARAK_PROBE_FAMILY" ] && GARAK_PROBE_FAMILY="unknown"
 
             GARAK_PROMPT_RAW=$(echo "$hit_line" | jq -r '.prompt // .attempt.prompt // .attempt.input // .input // .goal // .trigger // empty' 2>/dev/null || echo "")
             GARAK_RESPONSE_RAW=$(echo "$hit_line" | jq -r '.response // .output // .attempt.output // .attempt.response // .result // .attempt.result // empty' 2>/dev/null || echo "")
@@ -1902,7 +1906,7 @@ if [ -d "$GARAK_DIR" ]; then
             GARAK_DETAILS_HTML="${GARAK_DETAILS_HTML}<div style=\"margin-top:6px;\"><strong>Raw Hit JSON:</strong></div><code style=\"display:block;white-space:pre-wrap;word-break:break-word;\">${GARAK_RAW_SAFE}</code>"
             GARAK_DETAILS_HTML="${GARAK_DETAILS_HTML}<div style=\"margin-top:10px;padding:8px 10px;background:#0f2a1f;border-left:3px solid #10b981;border-radius:4px;\"><span style=\"color:#4ade80;font-weight:600;\">&#x1F6E1;&#xFE0F; Remediation Guidance</span><div style=\"margin-top:4px;color:#d1fae5;font-size:0.88em;\">${GARAK_REMEDIATION_TEXT}</div></div>"
 
-            GARAK_HIT_PREVIEW="${GARAK_HIT_PREVIEW}<div class=\"finding-item severity-high\" data-source=\"app\" onclick=\"toggleFindingDetails(this)\">\
+            GARAK_CARD_HTML="<div class=\"finding-item severity-high\" data-source=\"app\" onclick=\"toggleFindingDetails(this)\">\
 <div class=\"finding-header\">\
 <span class=\"badge badge-tool\">Garak</span>\
 <span class=\"badge badge-high\">HIT</span>\
@@ -1915,9 +1919,25 @@ if [ -d "$GARAK_DIR" ]; then
 ${GARAK_DETAILS_HTML}\
 </div>\
 </div>"
+
+            # Append card to per-family temp file (grouped by probe family, sorted alphabetically by filename).
+            printf '%s' "$GARAK_CARD_HTML" >> "${GARAK_TMPDIR}/${GARAK_PROBE_FAMILY}"
         done < "$GARAK_HIT_LOG"
 
-        GARAK_FINDINGS="<p style=\"color:#9ca3af;margin-bottom:15px;font-size:0.9em;\">👆 Click on any finding below to expand details (${GARAK_HITS} hits total)</p>${GARAK_HIT_PREVIEW}"
+        # Build one sub-accordion <details> per probe family, sorted alphabetically.
+        GARAK_HIT_PREVIEW=""
+        for family_file in $(ls -1 "${GARAK_TMPDIR}" 2>/dev/null | sort); do
+            GARAK_FAM_COUNT=$(grep -o 'class="finding-item severity-high"' "${GARAK_TMPDIR}/${family_file}" 2>/dev/null | wc -l | tr -d ' ')
+            [ -z "$GARAK_FAM_COUNT" ] || [ "$GARAK_FAM_COUNT" -eq 0 ] 2>/dev/null && GARAK_FAM_COUNT=1
+            GARAK_FAM_PLURAL=$([ "${GARAK_FAM_COUNT}" -gt 1 ] && echo "hits" || echo "hit")
+            GARAK_FAM_REMEDIATION=$(garak_probe_remediation "$family_file")
+            GARAK_FAM_REMEDIATION_SAFE=$(printf '%s' "$GARAK_FAM_REMEDIATION" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
+            GARAK_FAM_CARDS=$(cat "${GARAK_TMPDIR}/${family_file}")
+            GARAK_HIT_PREVIEW="${GARAK_HIT_PREVIEW}<details class=\"garak-probe-group\"><summary class=\"garak-probe-summary\"><span class=\"garak-probe-arrow\">&#9654;</span><span class=\"garak-probe-family-name\">${family_file}</span><span class=\"badge badge-high\" style=\"margin-left:10px;font-size:0.78em;vertical-align:middle;\">${GARAK_FAM_COUNT} ${GARAK_FAM_PLURAL}</span><span class=\"garak-probe-remediation-hint\">&#x1F6E1;&#xFE0F; ${GARAK_FAM_REMEDIATION_SAFE}</span></summary><div class=\"garak-probe-body\">${GARAK_FAM_CARDS}</div></details>"
+        done
+        rm -rf "$GARAK_TMPDIR"
+
+        GARAK_FINDINGS="<p style=\"color:#9ca3af;margin-bottom:15px;font-size:0.9em;\">&#x1F446; Click a probe family to expand, then click a finding for details (${GARAK_HITS} hits total)</p>${GARAK_HIT_PREVIEW}"
     elif [ "$GARAK_STATUS" = "success" ]; then
         GARAK_FINDINGS="<p class=\"no-findings\">✅ No garak hit log findings detected</p>"
     elif [ "$GARAK_STATUS" = "failed" ]; then
@@ -2369,7 +2389,66 @@ cat > "$OUTPUT_HTML" << 'EOF'
             background: #1a2e1f;
             border-color: #10b981;
         }
-        
+
+        /* Garak probe-family sub-accordions */
+        .garak-probe-group {
+            margin-bottom: 12px;
+            border: 1px solid #1a3a30;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .garak-probe-summary {
+            display: flex;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 6px 10px;
+            padding: 11px 16px;
+            background: #0a1f1a;
+            cursor: pointer;
+            list-style: none;
+            user-select: none;
+            border-bottom: 1px solid transparent;
+            transition: background 0.15s ease;
+        }
+        .garak-probe-summary::-webkit-details-marker { display: none; }
+        .garak-probe-summary::marker { display: none; }
+        details.garak-probe-group[open] > .garak-probe-summary {
+            border-bottom-color: #1a3a30;
+            background: #0c2820;
+        }
+        .garak-probe-arrow {
+            color: #4ade80;
+            font-size: 0.7em;
+            margin-top: 3px;
+            flex-shrink: 0;
+            transition: transform 0.2s ease;
+        }
+        details.garak-probe-group[open] > .garak-probe-summary .garak-probe-arrow {
+            transform: rotate(90deg);
+        }
+        .garak-probe-family-name {
+            font-weight: 700;
+            color: #4ade80;
+            font-size: 0.92em;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            flex-shrink: 0;
+        }
+        .garak-probe-remediation-hint {
+            font-size: 0.78em;
+            color: #6b7280;
+            flex-basis: 100%;
+            margin-top: 2px;
+            line-height: 1.5;
+        }
+        .garak-probe-body {
+            padding: 14px 16px;
+            background: #0f1419;
+        }
+        .garak-probe-body .finding-item:last-child {
+            margin-bottom: 0;
+        }
+
         .finding-header {
             display: flex;
             gap: 10px;
@@ -4218,8 +4297,8 @@ cat >> "$OUTPUT_HTML" << EOF
                 return;
             }
             
-            // Collapse all other findings in the same tool section
-            const parent = element.closest('.tool-findings');
+            // Collapse all other findings in the same tool section (or probe-family group)
+            const parent = element.closest('.garak-probe-body') || element.closest('.tool-findings');
             if (parent) {
                 parent.querySelectorAll('.finding-details').forEach(d => {
                     d.style.display = 'none';

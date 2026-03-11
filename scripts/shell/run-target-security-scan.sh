@@ -105,6 +105,7 @@ show_help() {
 
 # Parse arguments
 SUBDIR_PATH=""
+SKIP_GARAK="${SKIP_GARAK:-false}"
 POSITIONAL_ARGS=()
 
 while [[ $# -gt 0 ]]; do
@@ -115,6 +116,10 @@ while [[ $# -gt 0 ]]; do
         --subdir)
             SUBDIR_PATH="$2"
             shift 2
+            ;;
+        --no-garak)
+            SKIP_GARAK=true
+            shift
             ;;
         -*)
             echo -e "${RED}❌ Error: Unknown option: $1${NC}"
@@ -693,7 +698,11 @@ case "$SCAN_TYPE" in
         run_security_tool "TruffleHog Secret Detection" "$SCRIPT_DIR/run-trufflehog-scan.sh" "filesystem"
         run_security_tool "Grype Vulnerability Scanning (SBOM)" "$SCRIPT_DIR/run-grype-scan.sh" "sbom"
         run_security_tool "Trivy Security Analysis" "$SCRIPT_DIR/run-trivy-scan.sh" "filesystem"
-        run_security_tool "Garak LLM Security Probing" "$SCRIPT_DIR/run-garak-scan.sh"
+        if [[ "${SKIP_GARAK}" != "true" ]]; then
+            run_security_tool "Garak LLM Security Probing" "$SCRIPT_DIR/run-garak-scan.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Garak LLM Security Probing (--no-garak / SKIP_GARAK=true)${NC}"
+        fi
         run_security_tool "ClamAV Antivirus Scan" "$SCRIPT_DIR/run-clamav-scan.sh"
         ;;
         
@@ -727,7 +736,11 @@ case "$SCAN_TYPE" in
         run_security_tool "API Discovery" "$SCRIPT_DIR/run-api-discovery.sh"
 
         echo -e "${PURPLE}🤖 LLM Security Probing${NC}"
-        run_security_tool "Garak LLM Security Probing" "$SCRIPT_DIR/run-garak-scan.sh"
+        if [[ "${SKIP_GARAK}" != "true" ]]; then
+            run_security_tool "Garak LLM Security Probing" "$SCRIPT_DIR/run-garak-scan.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Garak LLM Security Probing (--no-garak / SKIP_GARAK=true)${NC}"
+        fi
         ;;
         
     "full")
@@ -773,7 +786,11 @@ case "$SCAN_TYPE" in
         run_security_tool "API Discovery" "$SCRIPT_DIR/run-api-discovery.sh"
 
         echo -e "${PURPLE}🤖 Layer 12: LLM Security Probing${NC}"
-        run_security_tool "Garak LLM Security Probing" "$SCRIPT_DIR/run-garak-scan.sh"
+        if [[ "${SKIP_GARAK}" != "true" ]]; then
+            run_security_tool "Garak LLM Security Probing" "$SCRIPT_DIR/run-garak-scan.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Garak LLM Security Probing (--no-garak / SKIP_GARAK=true)${NC}"
+        fi
         ;;
         
     *)

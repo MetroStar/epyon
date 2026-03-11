@@ -93,6 +93,11 @@ on:
           - xss
           - lmrc
           - all
+      skip_garak:
+        description: 'Skip Garak LLM security probing (Layer 12)'
+        required: false
+        type: boolean
+        default: false
 
 env:
   # Trigger behavior:
@@ -108,6 +113,7 @@ env:
   GARAK_TARGET_TYPE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.garak_target_type || 'openai' }}
   GARAK_TARGET_NAME: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
   GARAK_PROBES: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.garak_probes || 'promptinject' }}
+  SKIP_GARAK: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.skip_garak || 'false' }}
   # Notification recipients: set the NOTIFY_USERS Actions variable in
   # Settings → Secrets and variables → Actions → Variables (comma-separated, no @)
   NOTIFY_USERS: ${{ vars.NOTIFY_USERS }}

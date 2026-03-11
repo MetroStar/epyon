@@ -90,6 +90,11 @@ on:
           - xss
           - lmrc
           - all
+      skip_garak:
+        description: 'Skip Garak LLM security probing (Layer 12)'
+        required: false
+        type: boolean
+        default: false
 
 env:
   SCAN_MODE: ${{ github.event.inputs.scan_mode || 'full' }}
@@ -99,6 +104,7 @@ env:
   GARAK_TARGET_TYPE: ${{ github.event.inputs.garak_target_type || 'openai' }}
   GARAK_TARGET_NAME: ${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
   GARAK_PROBES: ${{ github.event.inputs.garak_probes || 'promptinject' }}
+  SKIP_GARAK: ${{ github.event.inputs.skip_garak || 'false' }}
   # Notification recipient: The user who triggered the scan will be notified
   NOTIFY_USERS: "${{ github.actor }}"
 
@@ -110,7 +116,6 @@ jobs:
     permissions:
       contents: read
       actions: read
-      issues: write
     
     steps:
       - name: Checkout Epyon
@@ -588,49 +593,12 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "Please download the artifacts to view the complete security dashboard." >> $GITHUB_STEP_SUMMARY
           fi      
-      - name: Create Notification Issue
+      - name: Scan Complete Summary
         if: always()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const notifyUsers = '${{ env.NOTIFY_USERS }}'.split(',').map(u => `@${u.trim()}`).join(' ');
-            const repository = '${{ github.event.inputs.repository }}';
-            const scanMode = '${{ env.SCAN_MODE }}';
-            const prNumber = '${{ github.event.inputs.pr_number }}';
-            const targetRef = '${{ github.event.inputs.target_ref }}';
-            const triggeredBy = '@${{ github.actor }}';
-            const runUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
-            const targetLine = prNumber
-              ? `**Target PR:** \`#${prNumber}\``
-              : (targetRef ? `**Target Ref:** \`${targetRef}\`` : '');
-            
-            const issueBody = `## 🛡️ External Repository Security Scan Complete
-            
-            **Repository Scanned:** \`${repository}\`
-            **Scan Mode:** \`${scanMode}\`
-            ${targetLine}
-            **Triggered by:** ${triggeredBy}
-            **Notifying:** ${notifyUsers}
-            
-            ### 📊 Scan Results
-            
-            View the complete scan results and dashboard in the [workflow run](${runUrl}).
-            
-            ### 📦 Next Steps
-            
-            1. Download the scan artifacts from the workflow run
-            2. Open the interactive security dashboard
-            3. Review findings by severity
-            4. Address critical and high-severity vulnerabilities
-            
-            ---
-            *This is an automated notification from Epyon Security Scanner*
-            `;
-            
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `🛡️ Security Scan Complete: ${repository.split('/').pop()} - ${new Date().toISOString().split('T')[0]}`,
-              body: issueBody,
-              labels: ['security-scan', 'epyon']
-            });
+        run: |
+          echo "🛡️ External Repository Security Scan Complete"
+          echo "Repository Scanned: ${{ github.event.inputs.repository }}"
+          echo "Scan Mode: ${{ env.SCAN_MODE }}"
+          echo "Triggered by: ${{ github.actor }}"
+          echo "Workflow run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "Download artifacts from the workflow run to view the full security dashboard."

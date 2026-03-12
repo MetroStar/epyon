@@ -74,6 +74,6 @@ jobs:
       fail_on_critical: ${{ github.event_name != 'workflow_dispatch' && true || inputs.fail_on_critical != false }}
       fail_on_high: ${{ github.event_name != 'workflow_dispatch' && true || inputs.fail_on_high != false }}
       warning_only: ${{ github.event_name == 'workflow_dispatch' && inputs.warning_only == true || false }}
-      create_jira_tickets: true
+      create_jira_tickets: ${{ github.event_name == 'workflow_dispatch' && inputs.create_jira_tickets == true || false }}
       jira_issue_type: ${{ inputs.jira_issue_type || 'Bug' }}
     secrets: inherit

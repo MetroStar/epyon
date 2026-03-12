@@ -126,6 +126,6 @@ jobs:
       garak_target_name: ${{ inputs.garak_target_name || 'gpt-4o-mini' }}
       garak_probes: ${{ inputs.garak_probes || 'promptinject' }}
       skip_garak: ${{ inputs.skip_garak == true }}
-      create_jira_tickets: ${{ inputs.create_jira_tickets == true }}
+      create_jira_tickets: true
       jira_issue_type: ${{ inputs.jira_issue_type || 'Bug' }}
     secrets: inherit

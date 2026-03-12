@@ -89,7 +89,7 @@ on:
       create_jira_tickets:
         description: 'Create JIRA tickets for critical and high severity findings'
         required: false
-        default: false
+        default: true
         type: boolean
       jira_project_key:
         description: 'JIRA project key to create tickets in (e.g. SEC, INFRA)'

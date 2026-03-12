@@ -543,6 +543,21 @@ jobs:
               labels.push('no-issues');
             }
 
+            // Dedup: skip if an open issue with the same severity label already exists
+            const dedupLabel = parseInt(critical) > 0 ? 'critical' : 'high-severity';
+            const existingIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: `security-scan,epyon,${dedupLabel}`,
+              per_page: 1
+            });
+            if (existingIssues.data.length > 0) {
+              const existing = existingIssues.data[0];
+              console.log(`Open issue already exists (#${existing.number}): ${existing.html_url} — skipping creation`);
+              return;
+            }
+
             const summaryPath = 'epyon/${{ steps.run-scan.outputs.scan_dir }}/consolidated-reports/markdown-reports/executive-summary.md';
             let executiveSummary = '';
             if (fs.existsSync(summaryPath)) {
@@ -624,6 +639,30 @@ jobs:
           # ── Helper: build an Atlassian Document Format (ADF) paragraph text node ──
           adf_text() { jq -n --arg t "$1" '{type:"text",text:$t}'; }
 
+          # ── Verify auth and project access before attempting any ticket ops ──
+          echo "--- Verifying JIRA connectivity and project access ---"
+          auth_http=$(curl -s -o /tmp/jira_myself.json -w "%{http_code}" \
+            -H "Authorization: Basic ${AUTH}" \
+            -H "Accept: application/json" \
+            "${JIRA_URL}/rest/api/3/myself")
+          if [[ "${auth_http}" != "200" ]]; then
+            echo "❌ JIRA authentication failed (HTTP ${auth_http}). Check JIRA_BASE_URL, JIRA_USER_EMAIL, and JIRA_API_TOKEN secrets."
+            echo "Response: $(cat /tmp/jira_myself.json)"
+            exit 1
+          fi
+          echo "✅ JIRA auth OK"
+
+          proj_http=$(curl -s -o /tmp/jira_project.json -w "%{http_code}" \
+            -H "Authorization: Basic ${AUTH}" \
+            -H "Accept: application/json" \
+            "${JIRA_URL}/rest/api/3/project/${PROJECT_KEY}")
+          if [[ "${proj_http}" != "200" ]]; then
+            echo "❌ JIRA project '${PROJECT_KEY}' not found or not accessible (HTTP ${proj_http})."
+            echo "Response: $(cat /tmp/jira_project.json)"
+            exit 1
+          fi
+          echo "✅ JIRA project '${PROJECT_KEY}' accessible"
+
           # ── Helper: search for an existing open JIRA ticket by label ──
           jira_search_open() {
             local label="$1"
@@ -632,6 +671,7 @@ jobs:
             encoded_jql=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "${jql}")
             curl -s -o /tmp/jira_search.json -w "%{http_code}" \
               -H "Authorization: Basic ${AUTH}" \
+              -H "Accept: application/json" \
               -H "Content-Type: application/json" \
               "${JIRA_URL}/rest/api/3/issue/search?jql=${encoded_jql}&maxResults=1"
           }
@@ -760,8 +800,7 @@ jobs:
             local adf_body
             adf_body=$(build_adf_body "${severity_key}" "${summary_line}")
 
-            local payload
-            payload=$(jq -n \
+            jq -n \
               --arg project  "${PROJECT_KEY}" \
               --arg title    "${title}" \
               --arg itype    "${ISSUE_TYPE}" \
@@ -778,7 +817,7 @@ jobs:
                   description: $desc,
                   labels:      ["epyon", "security", $lsev, $lrepo]
                 }
-              }')
+              }' > /tmp/jira_payload.json
 
             echo "--- Creating JIRA ticket ---"
             local create_http
@@ -787,7 +826,7 @@ jobs:
               -H "Authorization: Basic ${AUTH}" \
               -H "Content-Type: application/json" \
               -H "Accept: application/json" \
-              --data-raw "${payload}" \
+              --data @/tmp/jira_payload.json \
               "${JIRA_URL}/rest/api/3/issue")
 
             if [[ "${create_http}" == "201" ]]; then

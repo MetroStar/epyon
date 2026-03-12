@@ -51,6 +51,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Git tag synchronization
 - Release automation workflow
 
+## [2.6.1] - 2026-03-11
+
+### Changed
+- **Layer 3 Sonar JS coverage generation safety**: `run-sonar-analysis.sh` now runs only `npm run test:coverage` or `npm run coverage` (no plain `npm run test` fallback) and applies `SONAR_JS_TEST_TIMEOUT_SECONDS` (default 600s) to prevent CI hangs on watch/interactive test scripts.
+- **Garak workflow resiliency across CI entry points**: Layer 12 in `scan-private-repo.yml`, `scan-public-repo.yml`, `epyon-scan.yml`, and `baseline-scan.yml` now includes secret-aware target fallback and skip guards so Garak still runs predictably when provider API keys are unavailable.
+
+### Fixed
+- **Sonar step appearing stuck after `/tmp/epyon-env`**: the actual stall was caused by fallback execution of long-running `npm run test` in JS coverage auto-generation; removing that fallback and adding a timeout eliminates indefinite waits.
+- **Garak not running on merge/pull requests**: workflows now avoid hard dependency on provider secrets by falling back to local `test.Blank` target when configured provider keys are absent, and honor explicit skip controls.
+
 ## [2.6.0] - 2026-02-27
 
 ### Added

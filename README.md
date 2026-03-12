@@ -48,7 +48,7 @@ Our roadmap is organized by level of certainty and timeframe, focusing on key ou
 
 This repository contains a **production-ready, enterprise-grade** multi-layer DevOps security architecture with **comprehensive test coverage**, **baseline scanning**, **automated comparison**, and **isolated scan directory architecture**. Built for real-world enterprise applications with Docker-based tooling and 304 automated tests.
 
-**Latest Update: February 6, 2026** - Complete test coverage (304 tests, 100% pass rate), baseline scanning with DHI images, automated baseline comparison, fixed critical bugs (API discovery, Checkov parsing), and comprehensive security documentation.
+**Latest Update: March 11, 2026 (v2.6.1)** - Hardened Sonar coverage execution to prevent CI hangs (no fallback to watch-mode `npm test`, plus timeout guard), and improved Garak reliability in GitHub workflows with secret-aware `test.Blank` fallback and explicit skip controls for Layer 12.
 
 ## 📋 Prerequisites
 

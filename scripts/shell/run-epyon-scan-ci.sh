@@ -181,11 +181,6 @@ fi
 run_layer_script "Layer 11 - API Discovery" "scripts/shell/run-api-discovery.sh"
 run_garak_layer
 
-run_group "Generate Shell Coverage" bash -lc '
-  chmod +x scripts/shell/run-shell-coverage.sh
-  REPO_PATH="$TARGET_DIR" ./scripts/shell/run-shell-coverage.sh || true
-'
-
 run_group "Generate Scan Manifest" bash -lc '
   chmod +x scripts/shell/generate-scan-manifest.sh
   ./scripts/shell/generate-scan-manifest.sh "$SCAN_DIR" || echo "Manifest generation completed with warnings"

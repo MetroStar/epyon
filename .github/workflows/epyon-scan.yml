@@ -633,7 +633,7 @@ jobs:
             curl -s -o /tmp/jira_search.json -w "%{http_code}" \
               -H "Authorization: Basic ${AUTH}" \
               -H "Content-Type: application/json" \
-              "${JIRA_URL}/rest/api/3/issue/search?jql=${encoded_jql}&maxResults=1&fields=summary,status"
+              "${JIRA_URL}/rest/api/3/issue/search?jql=${encoded_jql}&maxResults=1"
           }
 
           # ── Helper: build ADF body from a severity section of findings JSON ──
@@ -717,7 +717,7 @@ jobs:
                        "marks": [{"type": "link", "attrs": {"href": run_url}}]}
                   ]},
                   {"type": "paragraph", "content": [
-                      {"type": "text", "text": "\u{1F916} Automated ticket created by Epyon Security Scanner"}
+                      {"type": "text", "text": "\U0001F916 Automated ticket created by Epyon Security Scanner"}
                   ]}
               ]
           }

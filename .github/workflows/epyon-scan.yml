@@ -425,22 +425,30 @@ jobs:
           # Default outputs — always written so downstream steps are never skipped due to empty outputs
           CRITICAL=0
           HIGH=0
+          MEDIUM=0
+          LOW=0
 
           # Prefer the deduplicated JSON summary (most reliable source)
           FINDINGS_JSON="$SCAN_DIR/security-findings-summary.json"
           if [ -f "$FINDINGS_JSON" ]; then
             CRITICAL=$(jq -r '.summary.total_critical // 0' "$FINDINGS_JSON")
             HIGH=$(jq -r '.summary.total_high // 0' "$FINDINGS_JSON")
-            echo "DEBUG: Read from security-findings-summary.json — Critical=$CRITICAL High=$HIGH"
+            MEDIUM=$(jq -r '.summary.total_medium // 0' "$FINDINGS_JSON")
+            LOW=$(jq -r '.summary.total_low // 0' "$FINDINGS_JSON")
+            echo "DEBUG: Read from security-findings-summary.json — Critical=$CRITICAL High=$HIGH Medium=$MEDIUM Low=$LOW"
           else
             # Fall back to executive-summary.md
             SUMMARY="$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md"
             if [ -f "$SUMMARY" ]; then
               CRITICAL=$(grep -oP 'Critical:\s*\K\d+' "$SUMMARY" | head -1 || echo "0")
               HIGH=$(grep -oP 'High:\s*\K\d+' "$SUMMARY" | head -1 || echo "0")
+              MEDIUM=$(grep -oP 'Medium:\s*\K\d+' "$SUMMARY" | head -1 || echo "0")
+              LOW=$(grep -oP 'Low:\s*\K\d+' "$SUMMARY" | head -1 || echo "0")
               CRITICAL=${CRITICAL:-0}
               HIGH=${HIGH:-0}
-              echo "DEBUG: Read from executive-summary.md — Critical=$CRITICAL High=$HIGH"
+              MEDIUM=${MEDIUM:-0}
+              LOW=${LOW:-0}
+              echo "DEBUG: Read from executive-summary.md — Critical=$CRITICAL High=$HIGH Medium=$MEDIUM Low=$LOW"
             else
               echo "WARNING: Neither security-findings-summary.json nor executive-summary.md found in $SCAN_DIR"
               echo "DEBUG: Contents of $SCAN_DIR:"
@@ -450,8 +458,10 @@ jobs:
 
           echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
           echo "high=$HIGH" >> $GITHUB_OUTPUT
+          echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
+          echo "low=$LOW" >> $GITHUB_OUTPUT
 
-          if [ "${CRITICAL:-0}" -gt 0 ] || [ "${HIGH:-0}" -gt 0 ]; then
+          if [ "${CRITICAL:-0}" -gt 0 ] || [ "${HIGH:-0}" -gt 0 ] || [ "${MEDIUM:-0}" -gt 0 ] || [ "${LOW:-0}" -gt 0 ]; then
             echo "has_issues=true" >> $GITHUB_OUTPUT
           else
             echo "has_issues=false" >> $GITHUB_OUTPUT
@@ -847,6 +857,8 @@ jobs:
 
           CRITICAL_COUNT="${{ steps.check-severity.outputs.critical }}"
           HIGH_COUNT="${{ steps.check-severity.outputs.high }}"
+          MEDIUM_COUNT="${{ steps.check-severity.outputs.medium }}"
+          LOW_COUNT="${{ steps.check-severity.outputs.low }}"
 
           # Create critical ticket
           if [[ "${CRITICAL_COUNT:-0}" -gt 0 ]]; then
@@ -866,6 +878,26 @@ jobs:
               "High" \
               "high_findings" \
               "Epyon found ${HIGH_COUNT} high severity finding(s) in ${REPO_NAME} on ${TODAY}."
+          fi
+
+          # Create medium ticket
+          if [[ "${MEDIUM_COUNT:-0}" -gt 0 ]]; then
+            create_jira_ticket \
+              "🟡 [Epyon] Medium Security Findings — ${REPO_NAME##*/} ${TODAY}" \
+              "epyon-medium" \
+              "Medium" \
+              "medium_findings" \
+              "Epyon found ${MEDIUM_COUNT} medium severity finding(s) in ${REPO_NAME} on ${TODAY}."
+          fi
+
+          # Create low ticket
+          if [[ "${LOW_COUNT:-0}" -gt 0 ]]; then
+            create_jira_ticket \
+              "🔵 [Epyon] Low Security Findings — ${REPO_NAME##*/} ${TODAY}" \
+              "epyon-low" \
+              "Low" \
+              "low_findings" \
+              "Epyon found ${LOW_COUNT} low severity finding(s) in ${REPO_NAME} on ${TODAY}."
           fi
 
       - name: Fail on Critical Vulnerabilities

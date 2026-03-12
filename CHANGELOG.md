@@ -30,7 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.7.0] - 2026-03-12
 
 ### Added
-- **Jira Cloud ticket creation for critical and high findings**: `epyon-scan.yml` now automatically creates one Jira issue per severity group (critical, high) when findings are detected. Tickets are created via the Jira Cloud REST API v3 using a structured Atlassian Document Format (ADF) table body listing each finding's CVE/ID, package, version, and scanner tool.
+- **Jira ticket creation expanded to all four severity tiers**: medium (`🟡 epyon-medium`, priority `Medium`) and low (`🔵 epyon-low`, priority `Low`) findings now each generate their own deduplicated Jira ticket in addition to critical and high.
 - **Jira deduplication**: before creating a ticket, the workflow searches Jira for an existing unresolved issue with matching `epyon-critical`/`epyon-high` and repo-slug labels. If one is found, creation is skipped and the existing ticket URL is logged to the GitHub Step Summary.
 - **Jira auth and project validation**: connectivity to `JIRA_BASE_URL` and accessibility of `JIRA_PROJECT_KEY` are verified upfront before any ticket operations, with descriptive failure messages.
 - **New workflow secrets**: `JIRA_BASE_URL`, `JIRA_USER_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY` declared on `epyon-scan.yml`'s `workflow_call` block.

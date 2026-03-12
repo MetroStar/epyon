@@ -366,9 +366,9 @@ Epyon automatically creates Jira Cloud tickets for critical and high severity fi
 | `JIRA_PROJECT_KEY` | Project key in uppercase (e.g. `SAP`, `SEC`) |
 
 **Behavior:**
-- One ticket is created per severity group per repo: one for all critical findings, one for all highs
+- One ticket is created per severity group per repo: critical, high, medium, and low
 - Each ticket contains an ADF table listing CVE/ID, package, version, and scanner tool for every finding
-- Tickets are labeled `epyon`, `security`, `epyon-critical`/`epyon-high`, and a repo slug
+- Tickets are labeled `epyon`, `security`, `epyon-critical`/`epyon-high`/`epyon-medium`/`epyon-low`, and a repo slug
 - **Deduplication**: if an unresolved ticket with matching labels already exists, creation is skipped and the existing ticket URL is logged
 - Ticket creation is skipped entirely if `JIRA_*` secrets are not configured
 

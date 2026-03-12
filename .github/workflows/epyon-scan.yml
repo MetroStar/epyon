@@ -31,6 +31,21 @@ on:
         required: false
         default: ''
         type: string
+      repository_url:
+        description: 'Optional: External repository URL to scan (for public/external scans)'
+        required: false
+        default: ''
+        type: string
+      pr_number:
+        description: 'Optional: Pull request number to scan (GitHub repos, external scan mode)'
+        required: false
+        default: ''
+        type: string
+      target_ref:
+        description: 'Optional: Branch/tag/commit to scan (external scan mode)'
+        required: false
+        default: ''
+        type: string
       coverage_artifact:
         description: 'Name of coverage artifact from a prior job (downloaded via gh CLI)'
         required: false
@@ -103,10 +118,51 @@ jobs:
 
     steps:
       - name: Checkout Target Repository
+        if: inputs.repository_url == ''
         uses: actions/checkout@v4
         with:
           path: target-repo
           fetch-depth: 0
+
+      - name: Clone External Target Repository
+        if: inputs.repository_url != ''
+        run: |
+          REPO_URL="${{ inputs.repository_url }}"
+          SUBDIR="${{ inputs.subdirectory }}"
+          PR_NUMBER="${{ inputs.pr_number }}"
+          TARGET_REF="${{ inputs.target_ref }}"
+          CHECKOUT_TARGET=""
+
+          if [[ -n "$PR_NUMBER" ]]; then
+            CHECKOUT_TARGET="refs/pull/${PR_NUMBER}/merge"
+            echo "🎯 Targeting PR #$PR_NUMBER ($CHECKOUT_TARGET)"
+          elif [[ -n "$TARGET_REF" ]]; then
+            CHECKOUT_TARGET="$TARGET_REF"
+            echo "🎯 Targeting ref: $TARGET_REF"
+          fi
+
+          if [[ -n "$SUBDIR" ]]; then
+            echo "📥 Cloning repository with sparse-checkout (subdirectory: $SUBDIR)"
+            git clone --filter=blob:none --sparse "$REPO_URL" target-repo
+            cd target-repo
+
+            if [[ -n "$CHECKOUT_TARGET" ]]; then
+              git fetch origin "$CHECKOUT_TARGET"
+              git checkout --detach FETCH_HEAD
+            fi
+
+            git sparse-checkout set "$SUBDIR"
+            cd ..
+          else
+            echo "📥 Cloning full repository"
+            git clone "$REPO_URL" target-repo
+            if [[ -n "$CHECKOUT_TARGET" ]]; then
+              cd target-repo
+              git fetch origin "$CHECKOUT_TARGET"
+              git checkout --detach FETCH_HEAD
+              cd ..
+            fi
+          fi
 
       - name: Checkout Epyon Security Scanner
         uses: actions/checkout@v4
@@ -169,6 +225,7 @@ jobs:
           TARGET_NAME: ${{ github.event.repository.name }}
           GITHUB_ACTOR: ${{ github.actor }}
           SUBDIR: ${{ inputs.subdirectory }}
+          REPOSITORY_URL_INPUT: ${{ inputs.repository_url }}
         run: |
           cd epyon
           chmod +x scripts/shell/run-target-security-scan.sh
@@ -176,13 +233,18 @@ jobs:
           EPYON_VERSION=$(tr -d '[:space:]' < VERSION 2>/dev/null || echo "unknown")
           echo "Using Epyon version: $EPYON_VERSION"
 
+          TARGET_NAME_DEFAULT="$TARGET_NAME"
+          if [[ -n "$REPOSITORY_URL_INPUT" ]]; then
+            TARGET_NAME_DEFAULT=$(basename "$REPOSITORY_URL_INPUT" .git)
+          fi
+
           if [[ -n "$SUBDIR" ]]; then
             TARGET_DIR="${{ github.workspace }}/target-repo/$SUBDIR"
             TARGET_NAME=$(basename "$SUBDIR")
             echo "🎯 Scanning subdirectory: $SUBDIR"
           else
             TARGET_DIR="${{ github.workspace }}/target-repo"
-            TARGET_NAME="$TARGET_NAME"
+            TARGET_NAME="$TARGET_NAME_DEFAULT"
             echo "🎯 Scanning full repository: $TARGET_NAME"
           fi
 

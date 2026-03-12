@@ -48,7 +48,7 @@ Our roadmap is organized by level of certainty and timeframe, focusing on key ou
 
 This repository contains a **production-ready, enterprise-grade** multi-layer DevOps security architecture with **comprehensive test coverage**, **baseline scanning**, **automated comparison**, and **isolated scan directory architecture**. Built for real-world enterprise applications with Docker-based tooling and 304 automated tests.
 
-**Latest Update: March 11, 2026 (v2.6.1)** - Hardened Sonar coverage execution to prevent CI hangs (no fallback to watch-mode `npm test`, plus timeout guard), and improved Garak reliability in GitHub workflows with secret-aware `test.Blank` fallback and explicit skip controls for Layer 12.
+**Latest Update: March 11, 2026 (v2.6.2)** - Simplified GitHub Actions architecture by converting private/public scan workflows into thin callers of reusable `epyon-scan.yml`, added reusable external-repo targeting (`repository_url`, `pr_number`, `target_ref`) for public scans, and enabled Node24 action runtime hardening.
 
 ## 📋 Prerequisites
 

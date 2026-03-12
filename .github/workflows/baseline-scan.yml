@@ -120,13 +120,6 @@ jobs:
           sudo apt-get install -y jq python3 python3-pip bats
           pip3 install pyyaml
 
-      - name: Install kcov for shell coverage
-        continue-on-error: true
-        run: |
-          sudo apt-get install -y kcov 2>/dev/null \
-            && echo "kcov installed via apt" \
-            || echo "kcov not in apt — skipping for baseline scan"
-      
       - name: Initialize Baseline Scan
         id: init-scan
         env:

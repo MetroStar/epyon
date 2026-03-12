@@ -66,6 +66,11 @@ on:
         required: false
         default: 'promptinject'
         type: string
+      skip_garak:
+        description: 'Skip Garak LLM security probing (Layer 12)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -91,6 +96,7 @@ jobs:
       GARAK_TARGET_TYPE: "${{ inputs.garak_target_type }}"
       GARAK_TARGET_NAME: "${{ inputs.garak_target_name }}"
       GARAK_PROBES: "${{ inputs.garak_probes }}"
+      SKIP_GARAK: "${{ inputs.skip_garak }}"
 
     steps:
       - name: Checkout Target Repository
@@ -361,7 +367,7 @@ jobs:
           SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-api-discovery.sh || echo "API Discovery completed with warnings"
 
       - name: Layer 12 - LLM Security (Garak)
-        if: env.SCAN_MODE != 'quick'
+        if: env.SCAN_MODE != 'quick' && env.SKIP_GARAK != 'true'
         continue-on-error: true
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -371,7 +377,30 @@ jobs:
           cd epyon
           echo "🤖 Layer 12: LLM Security (Garak)"
           chmod +x scripts/shell/run-garak-scan.sh
-          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" GARAK_TARGET_TYPE="${GARAK_TARGET_TYPE}" GARAK_TARGET_NAME="${GARAK_TARGET_NAME}" GARAK_PROBES="${GARAK_PROBES}" ./scripts/shell/run-garak-scan.sh || echo "Garak scan completed with warnings"
+
+          GARAK_TARGET_TYPE_RESOLVED="${GARAK_TARGET_TYPE:-openai}"
+          GARAK_TARGET_NAME_RESOLVED="${GARAK_TARGET_NAME:-gpt-4o-mini}"
+
+          # Reusable workflows may run for PR contexts where inherited secrets
+          # are unavailable; fall back to local test target so Layer 12 still runs.
+          case "${GARAK_TARGET_TYPE_RESOLVED,,}" in
+            openai)
+              if [[ -z "${OPENAI_API_KEY:-}" ]]; then
+                echo "⚠️ OPENAI_API_KEY not available; falling back to Garak test.Blank"
+                GARAK_TARGET_TYPE_RESOLVED="test"
+                GARAK_TARGET_NAME_RESOLVED="test.Blank"
+              fi
+              ;;
+            anthropic)
+              if [[ -z "${ANTHROPIC_API_KEY:-}" ]]; then
+                echo "⚠️ ANTHROPIC_API_KEY not available; falling back to Garak test.Blank"
+                GARAK_TARGET_TYPE_RESOLVED="test"
+                GARAK_TARGET_NAME_RESOLVED="test.Blank"
+              fi
+              ;;
+          esac
+
+          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" GARAK_TARGET_TYPE="${GARAK_TARGET_TYPE_RESOLVED}" GARAK_TARGET_NAME="${GARAK_TARGET_NAME_RESOLVED}" GARAK_PROBES="${GARAK_PROBES}" ./scripts/shell/run-garak-scan.sh || echo "Garak scan completed with warnings"
 
       - name: Generate Shell Coverage
         continue-on-error: true

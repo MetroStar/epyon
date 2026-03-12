@@ -110,8 +110,10 @@ env:
   FAIL_ON_CRITICAL: ${{ github.event_name != 'workflow_dispatch' && 'true' || github.event.inputs.fail_on_critical }}
   FAIL_ON_HIGH: ${{ github.event_name != 'workflow_dispatch' && 'true' || github.event.inputs.fail_on_high }}
   WARNING_ONLY: ${{ github.event.inputs.warning_only || 'false' }}
-  GARAK_TARGET_TYPE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.garak_target_type || 'openai' }}
-  GARAK_TARGET_NAME: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
+  # PR runs (especially from forks) often do not have access to repository
+  # secrets. Default those runs to local test generator so Layer 12 still runs.
+  GARAK_TARGET_TYPE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.garak_target_type || github.event_name == 'pull_request' && 'test' || 'openai' }}
+  GARAK_TARGET_NAME: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.garak_target_name || github.event_name == 'pull_request' && 'test.Blank' || 'gpt-4o-mini' }}
   GARAK_PROBES: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.garak_probes || 'promptinject' }}
   SKIP_GARAK: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.skip_garak || 'false' }}
   # Notification recipients: set the NOTIFY_USERS Actions variable in
@@ -381,6 +383,7 @@ jobs:
           SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-api-discovery.sh || echo "API Discovery completed with warnings"
 
       - name: Layer 12 - LLM Security (Garak)
+        if: env.SKIP_GARAK != 'true'
         continue-on-error: true
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

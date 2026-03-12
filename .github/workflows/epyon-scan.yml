@@ -211,25 +211,8 @@ jobs:
           echo "scan_id=$SCAN_NAME" >> $GITHUB_OUTPUT
           echo "🚀 Initialized scan: $SCAN_NAME"
 
-      - name: Layer 1 - Generate SBOM
-        continue-on-error: true
-        run: |
-          source /tmp/epyon-env
-          cd epyon
-          echo "📋 Layer 1: Software Bill of Materials (SBOM)"
-          chmod +x scripts/shell/run-complete-sbom-scan.sh
-          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-complete-sbom-scan.sh || echo "SBOM scan completed with warnings"
-
-      - name: Layer 2 - Secret Detection (TruffleHog)
-        continue-on-error: true
-        run: |
-          source /tmp/epyon-env
-          cd epyon
-          echo "🔐 Layer 2: Secret Detection"
-          chmod +x scripts/shell/run-trufflehog-scan.sh
-          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-trufflehog-scan.sh filesystem || echo "TruffleHog scan completed with warnings"
-
-      - name: Layer 3 - Code Quality (SonarQube)
+      - name: Run Security Layers (CI Orchestrator)
+        id: run-scan
         continue-on-error: true
         env:
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
@@ -237,203 +220,11 @@ jobs:
           SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
           SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
           SONAR_PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          source /tmp/epyon-env
-          cd epyon
-          echo "📊 Layer 3: Code Quality Analysis"
-
-          RAW_BASE_KEY="${SONAR_PROJECT_KEY:-${GITHUB_REPOSITORY/\//\_}}"
-          if [[ -n "${SUBDIR:-}" ]]; then
-            SANITIZED_SUBDIR=$(echo "$SUBDIR" | sed -E 's#[/[:space:]]+#_#g; s#[^A-Za-z0-9._:-]#_#g')
-            RAW_BASE_KEY="${RAW_BASE_KEY}_${SANITIZED_SUBDIR}"
-          fi
-          DERIVED_PROJECT_KEY=$(echo "$RAW_BASE_KEY" | sed -E 's#[^A-Za-z0-9._:-]#_#g; s#_+#_#g; s#^[_:. -]+##; s#[_:. -]+$##')
-          if [[ -z "$DERIVED_PROJECT_KEY" ]]; then
-            DERIVED_PROJECT_KEY="${GITHUB_REPOSITORY/\//\_}"
-          fi
-
-          REPO_NAME="${GITHUB_REPOSITORY#*/}"
-          if [[ -n "${SUBDIR:-}" ]]; then
-            DERIVED_PROJECT_NAME="${REPO_NAME} (${SUBDIR})"
-          else
-            DERIVED_PROJECT_NAME="$REPO_NAME"
-          fi
-
-          export SONAR_PROJECT_KEY="$DERIVED_PROJECT_KEY"
-          export SONAR_PROJECT_NAME="$DERIVED_PROJECT_NAME"
-
-          if [[ -n "${SONAR_PR_NUMBER:-}" ]]; then
-            export SONAR_PR_BRANCH="${GITHUB_HEAD_REF:-}"
-            export SONAR_PR_BASE="${GITHUB_BASE_REF:-}"
-          else
-            export SONAR_BRANCH="${GITHUB_REF_NAME:-}"
-          fi
-
-          # If coverage.xml was downloaded from a prior job, tell the scanner
-          # about it. Otherwise, leave the property unset so SonarQube shows
-          # "no data" instead of a false 0%.
-          export SONAR_EXTRA_ARGS=""
-          if [[ -f "$TARGET_DIR/coverage.xml" ]]; then
-            echo "✅ coverage.xml found — SonarQube will report coverage"
-            export SONAR_EXTRA_ARGS="-Dsonar.python.coverage.reportPaths=coverage.xml"
-          else
-            echo "ℹ️  No coverage.xml — SonarQube will run without coverage data"
-          fi
-
-          echo "Using SONAR_PROJECT_KEY=$SONAR_PROJECT_KEY"
-          echo "Using SONAR_PROJECT_NAME=$SONAR_PROJECT_NAME"
-
-          chmod +x scripts/shell/run-sonar-analysis.sh
-          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-sonar-analysis.sh || echo "SonarQube analysis completed with warnings"
-
-      - name: Layer 4 - Malware Detection (ClamAV)
-        if: env.SCAN_MODE != 'quick'
-        continue-on-error: true
-        run: |
-          source /tmp/epyon-env
-          cd epyon
-          echo "🦠 Layer 4: Malware Detection"
-          chmod +x scripts/shell/run-clamav-scan.sh
-          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-clamav-scan.sh || echo "ClamAV scan completed with warnings"
-
-      - name: Layer 5 - Helm Chart Build
-        continue-on-error: true
-        run: |
-          source /tmp/epyon-env
-          cd epyon
-          echo "🏗️ Layer 5: Helm Chart Building"
-          chmod +x scripts/shell/run-helm-build.sh
-          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-helm-build.sh || echo "Helm build completed with warnings"
-
-      - name: Layer 6 - Infrastructure Security (Checkov)
-        if: env.SCAN_MODE != 'quick'
-        continue-on-error: true
-        env:
-          CI: true
-        run: |
-          source /tmp/epyon-env
-          cd epyon
-          echo "☸️ Layer 6: Infrastructure Security"
-          echo "CI=$CI GITHUB_ACTIONS=$GITHUB_ACTIONS"
-          chmod +x scripts/shell/run-checkov-scan.sh
-          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-checkov-scan.sh || echo "Checkov scan completed with warnings"
-
-      - name: Layer 7 - Container Security (Trivy)
-        continue-on-error: true
-        run: |
-          source /tmp/epyon-env
-          cd epyon
-          echo "🛡️ Layer 7: Container Security (Trivy)"
-          chmod +x scripts/shell/run-trivy-scan.sh
-          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-trivy-scan.sh filesystem || echo "Trivy scan completed with warnings"
-          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-trivy-scan.sh base || echo "Trivy base image scan completed with warnings"
-
-      - name: Layer 8 - Vulnerability Detection (Grype)
-        continue-on-error: true
-        run: |
-          source /tmp/epyon-env
-          cd epyon
-          echo "🔍 Layer 8: Vulnerability Detection (Grype)"
-          chmod +x scripts/shell/run-grype-scan.sh
-          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-grype-scan.sh sbom || echo "Grype SBOM scan completed with warnings"
-          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-grype-scan.sh images || echo "Grype image scan completed with warnings"
-
-      - name: Layer 9 - End-of-Life Detection (Xeol)
-        continue-on-error: true
-        run: |
-          source /tmp/epyon-env
-          cd epyon
-          echo "⚰️ Layer 9: End-of-Life Detection"
-          chmod +x scripts/shell/run-xeol-scan.sh
-          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-xeol-scan.sh || echo "Xeol scan completed with warnings"
-
-      - name: Layer 10 - Anchore Security
-        if: env.SCAN_MODE != 'quick'
-        continue-on-error: true
-        run: |
-          source /tmp/epyon-env
-          cd epyon
-          echo "⚓ Layer 10: Anchore Security Analysis"
-          chmod +x scripts/shell/run-anchore-scan.sh
-          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-anchore-scan.sh || echo "Anchore scan completed with warnings"
-
-      - name: Layer 11 - API Discovery
-        continue-on-error: true
-        run: |
-          source /tmp/epyon-env
-          cd epyon
-          echo "🌐 Layer 11: API Discovery"
-          chmod +x scripts/shell/run-api-discovery.sh
-          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" ./scripts/shell/run-api-discovery.sh || echo "API Discovery completed with warnings"
-
-      - name: Layer 12 - LLM Security (Garak)
-        if: env.SCAN_MODE != 'quick' && env.SKIP_GARAK != 'true'
-        continue-on-error: true
-        env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          source /tmp/epyon-env
-          cd epyon
-          echo "🤖 Layer 12: LLM Security (Garak)"
-          chmod +x scripts/shell/run-garak-scan.sh
-
-          GARAK_TARGET_TYPE_RESOLVED="${GARAK_TARGET_TYPE:-openai}"
-          GARAK_TARGET_NAME_RESOLVED="${GARAK_TARGET_NAME:-gpt-4o-mini}"
-
-          # Reusable workflows may run for PR contexts where inherited secrets
-          # are unavailable; fall back to local test target so Layer 12 still runs.
-          case "${GARAK_TARGET_TYPE_RESOLVED,,}" in
-            openai)
-              if [[ -z "${OPENAI_API_KEY:-}" ]]; then
-                echo "⚠️ OPENAI_API_KEY not available; falling back to Garak test.Blank"
-                GARAK_TARGET_TYPE_RESOLVED="test"
-                GARAK_TARGET_NAME_RESOLVED="test.Blank"
-              fi
-              ;;
-            anthropic)
-              if [[ -z "${ANTHROPIC_API_KEY:-}" ]]; then
-                echo "⚠️ ANTHROPIC_API_KEY not available; falling back to Garak test.Blank"
-                GARAK_TARGET_TYPE_RESOLVED="test"
-                GARAK_TARGET_NAME_RESOLVED="test.Blank"
-              fi
-              ;;
-          esac
-
-          SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" GARAK_TARGET_TYPE="${GARAK_TARGET_TYPE_RESOLVED}" GARAK_TARGET_NAME="${GARAK_TARGET_NAME_RESOLVED}" GARAK_PROBES="${GARAK_PROBES}" ./scripts/shell/run-garak-scan.sh || echo "Garak scan completed with warnings"
-
-      - name: Generate Shell Coverage
-        continue-on-error: true
-        run: |
-          source /tmp/epyon-env
-          cd epyon
-          echo "📐 Generating shell coverage for $TARGET_DIR"
-          chmod +x scripts/shell/run-shell-coverage.sh
-          REPO_PATH="$TARGET_DIR" ./scripts/shell/run-shell-coverage.sh || true
-
-      - name: Generate Scan Manifest
-        if: always()
-        run: |
-          source /tmp/epyon-env
-          cd epyon
-          echo "🔐 Generating cryptographic scan manifest..."
-          echo "DEBUG: SCAN_DIR = $SCAN_DIR"
-          chmod +x scripts/shell/generate-scan-manifest.sh
-          ./scripts/shell/generate-scan-manifest.sh "$SCAN_DIR" || echo "Manifest generation completed with warnings"
-          echo "✅ Manifest generated: $SCAN_DIR/scan-manifest.json"
-          echo "DEBUG: Checking if manifest exists..."
-          ls -la "$SCAN_DIR"/scan-manifest* "$SCAN_DIR"/manifest-summary* 2>&1 || echo "Manifest files not found!"
-
-      - name: Generate Security Findings Summary
-        if: always()
-        run: |
-          source /tmp/epyon-env
-          cd epyon
-          echo "📊 Generating deduplicated security findings summary..."
-          chmod +x scripts/shell/generate-scan-findings-summary.sh
-          source scripts/shell/generate-scan-findings-summary.sh
-          generate_scan_findings_summary "$(basename $SCAN_DIR)" "$TARGET_DIR" "$PWD" || echo "Summary generation completed with warnings"
-          echo "✅ Summary generated with deduplicated counts"
+          chmod +x epyon/scripts/shell/run-epyon-scan-ci.sh
+          ./epyon/scripts/shell/run-epyon-scan-ci.sh
 
       - name: Check Severity Gate
         run: |
@@ -452,8 +243,11 @@ jobs:
       - name: Generate Reports & Dashboard
         if: always()
         run: |
-          source /tmp/epyon-env
           cd epyon
+          if [ -f /tmp/epyon-env ]; then
+            source /tmp/epyon-env
+          fi
+          SCAN_DIR="${{ steps.run-scan.outputs.scan_dir }}"
           echo "📊 Generating consolidated reports and dashboard..."
           echo "DEBUG: SCAN_DIR = $SCAN_DIR"
           echo "DEBUG: Before consolidation, manifest files:"
@@ -463,34 +257,11 @@ jobs:
           echo "DEBUG: After consolidation, manifest files in consolidated-reports:"
           ls -la "$SCAN_DIR/consolidated-reports"/scan-manifest* "$SCAN_DIR/consolidated-reports"/manifest-summary* 2>&1 || echo "Manifest files not found in consolidated-reports!"
 
-      - name: Find Scan Directory
-        id: find-scan
-        if: always()
-        run: |
-          cd epyon
-          SCAN_DIR=$(cat /tmp/epyon-env | grep "SCAN_DIR=" | cut -d= -f2 | sed "s|$PWD/||")
-          SCAN_ID=$(basename "$SCAN_DIR")
-          echo "scan_dir=$SCAN_DIR" >> $GITHUB_OUTPUT
-          echo "scan_id=$SCAN_ID" >> $GITHUB_OUTPUT
-          echo "Found scan directory: $SCAN_DIR"
-          echo "Scan ID: $SCAN_ID"
-
-      - name: Debug Scan Directory
-        if: always()
-        run: |
-          cd epyon
-          SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
-          echo "Scan directory: $SCAN_DIR"
-          echo "Contents:"
-          ls -la "$SCAN_DIR" || echo "Directory not found"
-          echo "Subdirectories:"
-          find "$SCAN_DIR" -type f -name "*.json" | head -20 || echo "No files found"
-
       - name: Fix Artifact Permissions
         if: always()
         run: |
           cd epyon
-          SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
+          SCAN_DIR="${{ steps.run-scan.outputs.scan_dir }}"
           if [ -d "$SCAN_DIR" ]; then
             echo "Fixing permissions for: $SCAN_DIR"
             sudo chown -R runner:docker "$SCAN_DIR" || true
@@ -506,7 +277,7 @@ jobs:
           if [ -f /tmp/epyon-env ]; then
             source /tmp/epyon-env
           fi
-          SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
+          SCAN_DIR="${{ steps.run-scan.outputs.scan_dir }}"
           GARAK_RESULTS_FILE="$SCAN_DIR/garak/garak-results.json"
 
           echo "**Epyon Version:** \`${EPYON_VERSION:-unknown}\`" >> $GITHUB_STEP_SUMMARY
@@ -548,8 +319,8 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: ${{ steps.find-scan.outputs.scan_id }}
-          path: epyon/${{ steps.find-scan.outputs.scan_dir }}/
+          name: ${{ steps.run-scan.outputs.scan_id }}
+          path: epyon/${{ steps.run-scan.outputs.scan_dir }}/
           retention-days: 30
 
       - name: Check for Critical/High Vulnerabilities
@@ -557,7 +328,7 @@ jobs:
         if: always()
         run: |
           cd epyon
-          SCAN_DIR="${{ steps.find-scan.outputs.scan_dir }}"
+          SCAN_DIR="${{ steps.run-scan.outputs.scan_dir }}"
           SUMMARY="$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md"
 
           if [ -f "$SUMMARY" ]; then
@@ -580,7 +351,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const summaryPath = 'epyon/${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/markdown-reports/executive-summary.md';
+            const summaryPath = 'epyon/${{ steps.run-scan.outputs.scan_dir }}/consolidated-reports/markdown-reports/executive-summary.md';
 
             if (fs.existsSync(summaryPath)) {
               const summary = fs.readFileSync(summaryPath, 'utf8');
@@ -660,7 +431,7 @@ jobs:
               labels.push('no-issues');
             }
 
-            const summaryPath = 'epyon/${{ steps.find-scan.outputs.scan_dir }}/consolidated-reports/markdown-reports/executive-summary.md';
+            const summaryPath = 'epyon/${{ steps.run-scan.outputs.scan_dir }}/consolidated-reports/markdown-reports/executive-summary.md';
             let executiveSummary = '';
             if (fs.existsSync(summaryPath)) {
               executiveSummary = fs.readFileSync(summaryPath, 'utf8');

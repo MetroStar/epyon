@@ -86,6 +86,31 @@ on:
         required: false
         default: false
         type: boolean
+      create_jira_tickets:
+        description: 'Create JIRA tickets for critical and high severity findings'
+        required: false
+        default: false
+        type: boolean
+      jira_project_key:
+        description: 'JIRA project key to create tickets in (e.g. SEC, INFRA)'
+        required: false
+        default: ''
+        type: string
+      jira_issue_type:
+        description: 'JIRA issue type for created tickets'
+        required: false
+        default: 'Bug'
+        type: string
+    secrets:
+      JIRA_BASE_URL:
+        description: 'Jira Cloud base URL (e.g. https://yourcompany.atlassian.net)'
+        required: false
+      JIRA_USER_EMAIL:
+        description: 'Email address associated with the Jira API token'
+        required: false
+      JIRA_API_TOKEN:
+        description: 'Jira Cloud personal API token'
+        required: false
 
 permissions:
   contents: read
@@ -115,6 +140,12 @@ jobs:
       GARAK_TARGET_NAME: "${{ inputs.garak_target_name }}"
       GARAK_PROBES: "${{ inputs.garak_probes }}"
       SKIP_GARAK: "${{ inputs.skip_garak }}"
+      CREATE_JIRA_TICKETS: "${{ inputs.create_jira_tickets }}"
+      JIRA_PROJECT_KEY: "${{ inputs.jira_project_key }}"
+      JIRA_ISSUE_TYPE: "${{ inputs.jira_issue_type }}"
+      JIRA_BASE_URL: "${{ secrets.JIRA_BASE_URL }}"
+      JIRA_USER_EMAIL: "${{ secrets.JIRA_USER_EMAIL }}"
+      JIRA_API_TOKEN: "${{ secrets.JIRA_API_TOKEN }}"
 
     steps:
       - name: Checkout Target Repository
@@ -541,6 +572,239 @@ jobs:
             });
 
             console.log(`Created issue #${issue.data.number}: ${issue.data.html_url}`);
+
+      - name: Create JIRA Tickets for Critical/High Findings
+        if: >
+          always() &&
+          env.CREATE_JIRA_TICKETS == 'true' &&
+          steps.check-severity.outputs.has_issues == 'true' &&
+          env.JIRA_BASE_URL != '' &&
+          env.JIRA_API_TOKEN != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SCAN_DIR="${{ steps.run-scan.outputs.scan_dir }}"
+          FINDINGS_FILE="epyon/${SCAN_DIR}/security-findings-summary.json"
+          JIRA_URL="${JIRA_BASE_URL}"
+          PROJECT_KEY="${JIRA_PROJECT_KEY}"
+          ISSUE_TYPE="${JIRA_ISSUE_TYPE:-Bug}"
+          AUTH=$(echo -n "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" | base64 -w0)
+          REPO_NAME="${{ github.repository }}"
+          REPO_SLUG=$(echo "${REPO_NAME}" | tr '/' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
+          TODAY=$(date -u +"%Y-%m-%d")
+          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          echo "=== JIRA Ticket Creation ==="
+          echo "Project: ${PROJECT_KEY} | Repo slug: ${REPO_SLUG}"
+
+          # ── Helper: build an Atlassian Document Format (ADF) paragraph text node ──
+          adf_text() { jq -n --arg t "$1" '{type:"text",text:$t}'; }
+
+          # ── Helper: search for an existing open JIRA ticket by label ──
+          jira_search_open() {
+            local label="$1"
+            local jql="project = \"${PROJECT_KEY}\" AND labels = \"${label}\" AND labels = \"${REPO_SLUG}\" AND resolution = Unresolved"
+            local encoded_jql
+            encoded_jql=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "${jql}")
+            curl -s -o /tmp/jira_search.json -w "%{http_code}" \
+              -H "Authorization: Basic ${AUTH}" \
+              -H "Content-Type: application/json" \
+              "${JIRA_URL}/rest/api/3/issue/search?jql=${encoded_jql}&maxResults=1&fields=summary,status"
+          }
+
+          # ── Helper: build ADF body from a severity section of findings JSON ──
+          build_adf_body() {
+            local severity_key="$1"  # critical_findings or high_findings
+            local summary_line="$2"
+            python3 - "${FINDINGS_FILE}" "${severity_key}" "${summary_line}" "${RUN_URL}" "${REPO_NAME}" <<'PYEOF'
+          import json, sys
+
+          findings_file, severity_key, summary_line, run_url, repo_name = sys.argv[1:6]
+
+          with open(findings_file) as f:
+              data = json.load(f)
+
+          findings = data.get(severity_key, [])
+
+          # Build table rows
+          rows = []
+          for finding in findings:
+              vuln_id = (finding.get("vulnerability_id") or finding.get("check_id")
+                         or finding.get("detector") or "N/A")
+              pkg     = (finding.get("package_name") or finding.get("file_path")
+                         or finding.get("file") or "N/A")
+              version = finding.get("package_version") or "-"
+              tool    = finding.get("tool") or "N/A"
+              desc    = (finding.get("description") or "")[:120]
+              rows.append({"id": vuln_id, "pkg": pkg, "ver": version, "tool": tool, "desc": desc})
+
+          def cell(text):
+              return {
+                  "type": "tableCell",
+                  "attrs": {},
+                  "content": [{"type": "paragraph", "content": [
+                      {"type": "text", "text": str(text)[:200]}
+                  ]}]
+              }
+
+          def header_cell(text):
+              return {
+                  "type": "tableHeader",
+                  "attrs": {},
+                  "content": [{"type": "paragraph", "content": [
+                      {"type": "text", "text": str(text), "marks": [{"type": "strong"}]}
+                  ]}]
+              }
+
+          header_row = {
+              "type": "tableRow",
+              "content": [header_cell(h) for h in ["ID / CVE", "Package / File", "Version", "Tool", "Description"]]
+          }
+
+          data_rows = []
+          for r in rows:
+              data_rows.append({
+                  "type": "tableRow",
+                  "content": [cell(r["id"]), cell(r["pkg"]), cell(r["ver"]),
+                               cell(r["tool"]), cell(r["desc"])]
+              })
+
+          table = {
+              "type": "table",
+              "attrs": {"isNumberColumnEnabled": False, "layout": "full-width"},
+              "content": [header_row] + data_rows
+          }
+
+          adf = {
+              "version": 1,
+              "type": "doc",
+              "content": [
+                  {"type": "paragraph", "content": [
+                      {"type": "text", "text": summary_line}
+                  ]},
+                  table,
+                  {"type": "paragraph", "content": [
+                      {"type": "text", "text": "Repository: "}, {"type": "text", "text": repo_name,
+                           "marks": [{"type": "code"}]}
+                  ]},
+                  {"type": "paragraph", "content": [
+                      {"type": "text", "text": "Workflow run: "},
+                      {"type": "text", "text": run_url,
+                       "marks": [{"type": "link", "attrs": {"href": run_url}}]}
+                  ]},
+                  {"type": "paragraph", "content": [
+                      {"type": "text", "text": "\u{1F916} Automated ticket created by Epyon Security Scanner"}
+                  ]}
+              ]
+          }
+
+          print(json.dumps(adf))
+          PYEOF
+          }
+
+          # ── Helper: create one JIRA ticket ──
+          create_jira_ticket() {
+            local title="$1"
+            local label_severity="$2"   # epyon-critical or epyon-high
+            local priority="$3"         # Highest or High
+            local severity_key="$4"     # critical_findings or high_findings
+            local summary_line="$5"
+
+            echo "--- Checking for existing open ticket: ${label_severity} / ${REPO_SLUG} ---"
+            local http_code
+            http_code=$(jira_search_open "${label_severity}")
+
+            if [[ "${http_code}" == "200" ]]; then
+              local total
+              total=$(jq '.total // 0' /tmp/jira_search.json)
+              if [[ "${total}" -gt 0 ]]; then
+                local existing_url
+                existing_url=$(jq -r '.issues[0].self' /tmp/jira_search.json)
+                local existing_key
+                existing_key=$(jq -r '.issues[0].key' /tmp/jira_search.json)
+                echo "⏭️  Open ticket already exists for ${label_severity} (${REPO_SLUG}): ${existing_key} — skipping"
+                echo "## ⏭️ JIRA: Existing open ticket found" >> "${GITHUB_STEP_SUMMARY}"
+                echo "- Severity group: **${label_severity}**" >> "${GITHUB_STEP_SUMMARY}"
+                echo "- Ticket: [${existing_key}](${JIRA_URL}/browse/${existing_key})" >> "${GITHUB_STEP_SUMMARY}"
+                return 0
+              fi
+            else
+              echo "⚠️  JIRA search returned HTTP ${http_code} — proceeding to create ticket anyway"
+            fi
+
+            echo "--- Building ADF body for ${label_severity} ---"
+            local adf_body
+            adf_body=$(build_adf_body "${severity_key}" "${summary_line}")
+
+            local payload
+            payload=$(jq -n \
+              --arg project  "${PROJECT_KEY}" \
+              --arg title    "${title}" \
+              --arg itype    "${ISSUE_TYPE}" \
+              --arg priority "${priority}" \
+              --arg lsev     "${label_severity}" \
+              --arg lrepo    "${REPO_SLUG}" \
+              --argjson desc "${adf_body}" \
+              '{
+                fields: {
+                  project:     { key: $project },
+                  summary:     $title,
+                  issuetype:   { name: $itype },
+                  priority:    { name: $priority },
+                  description: $desc,
+                  labels:      ["epyon", "security", $lsev, $lrepo]
+                }
+              }')
+
+            echo "--- Creating JIRA ticket ---"
+            local create_http
+            create_http=$(curl -s -o /tmp/jira_create.json -w "%{http_code}" \
+              -X POST \
+              -H "Authorization: Basic ${AUTH}" \
+              -H "Content-Type: application/json" \
+              -H "Accept: application/json" \
+              --data-raw "${payload}" \
+              "${JIRA_URL}/rest/api/3/issue")
+
+            if [[ "${create_http}" == "201" ]]; then
+              local new_key
+              new_key=$(jq -r '.key' /tmp/jira_create.json)
+              echo "✅ Created JIRA ticket: ${new_key} (${JIRA_URL}/browse/${new_key})"
+              echo "## ✅ JIRA Ticket Created" >> "${GITHUB_STEP_SUMMARY}"
+              echo "- Severity group: **${label_severity}**" >> "${GITHUB_STEP_SUMMARY}"
+              echo "- Ticket: [${new_key}](${JIRA_URL}/browse/${new_key})" >> "${GITHUB_STEP_SUMMARY}"
+            else
+              echo "❌ Failed to create JIRA ticket (HTTP ${create_http})"
+              echo "Response: $(cat /tmp/jira_create.json)"
+              echo "## ❌ JIRA Ticket Creation Failed" >> "${GITHUB_STEP_SUMMARY}"
+              echo "- Severity group: **${label_severity}**" >> "${GITHUB_STEP_SUMMARY}"
+              echo "- HTTP status: ${create_http}" >> "${GITHUB_STEP_SUMMARY}"
+            fi
+          }
+
+          CRITICAL_COUNT="${{ steps.check-severity.outputs.critical }}"
+          HIGH_COUNT="${{ steps.check-severity.outputs.high }}"
+
+          # Create critical ticket
+          if [[ "${CRITICAL_COUNT:-0}" -gt 0 ]]; then
+            create_jira_ticket \
+              "🔴 [Epyon] Critical Security Findings — ${REPO_NAME##*/} ${TODAY}" \
+              "epyon-critical" \
+              "Highest" \
+              "critical_findings" \
+              "Epyon found ${CRITICAL_COUNT} critical severity finding(s) in ${REPO_NAME} on ${TODAY}."
+          fi
+
+          # Create high ticket
+          if [[ "${HIGH_COUNT:-0}" -gt 0 ]]; then
+            create_jira_ticket \
+              "🟠 [Epyon] High Security Findings — ${REPO_NAME##*/} ${TODAY}" \
+              "epyon-high" \
+              "High" \
+              "high_findings" \
+              "Epyon found ${HIGH_COUNT} high severity finding(s) in ${REPO_NAME} on ${TODAY}."
+          fi
 
       - name: Fail on Critical Vulnerabilities
         if: always() && steps.check-severity.outputs.critical > 0

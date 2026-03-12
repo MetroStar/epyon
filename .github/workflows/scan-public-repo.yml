@@ -90,6 +90,20 @@ on:
         required: false
         type: boolean
         default: false
+      create_jira_tickets:
+        description: 'Create JIRA tickets for critical and high severity findings'
+        required: false
+        default: false
+        type: boolean
+      jira_project_key:
+        description: 'JIRA project key (e.g. SEC, INFRA)'
+        required: false
+        type: string
+      jira_issue_type:
+        description: 'JIRA issue type for created tickets'
+        required: false
+        default: 'Bug'
+        type: string
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -116,4 +130,7 @@ jobs:
       garak_target_name: ${{ inputs.garak_target_name || 'gpt-4o-mini' }}
       garak_probes: ${{ inputs.garak_probes || 'promptinject' }}
       skip_garak: ${{ inputs.skip_garak == true }}
+      create_jira_tickets: ${{ inputs.create_jira_tickets == true }}
+      jira_project_key: ${{ inputs.jira_project_key || '' }}
+      jira_issue_type: ${{ inputs.jira_issue_type || 'Bug' }}
     secrets: inherit

@@ -51,6 +51,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Git tag synchronization
 - Release automation workflow
 
+## [2.6.2] - 2026-03-11
+
+### Changed
+- **GitHub workflow architecture simplification**: `scan-private-repo.yml` and `scan-public-repo.yml` now operate as thin caller workflows that delegate execution to reusable `epyon-scan.yml`, reducing duplicated CI logic and keeping layer behavior centralized.
+- **Reusable external-repo scan support**: `epyon-scan.yml` now accepts `repository_url`, `pr_number`, and `target_ref` inputs and conditionally performs checkout or external clone flows so public and private scan entry points share one execution path.
+- **Node runtime deprecation hardening**: active workflows now set `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true` to avoid Node.js 20 deprecation warnings in GitHub-hosted runs.
+
+### Fixed
+- **`scan-private-repo.yml` replacement reliability**: private scan workflow was rebuilt as a clean Epyon-native caller after prior merge-content corruption risk, restoring a stable and maintainable entry workflow.
+- **Public scan parity after private workflow replacement**: `scan-public-repo.yml` now uses the same reusable workflow contract as private scans, preserving consistent outputs (`scan_dir`, `scan_id`) and downstream reporting behavior.
+
 ## [2.6.1] - 2026-03-11
 
 ### Changed

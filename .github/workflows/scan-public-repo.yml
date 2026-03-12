@@ -147,13 +147,6 @@ jobs:
           sudo apt-get install -y jq python3 python3-pip bats
           pip3 install pyyaml
 
-      - name: Install kcov for shell coverage
-        continue-on-error: true
-        run: |
-          sudo apt-get install -y kcov 2>/dev/null \
-            && echo "kcov installed via apt" \
-            || echo "kcov not in apt — will build from source during coverage generation"
-      
       - name: Initialize Scan
         id: init-scan
         env:
@@ -433,14 +426,6 @@ jobs:
 
           SCAN_DIR="$SCAN_DIR" TARGET_DIR="${TARGET_DIR}" GARAK_TARGET_TYPE="${GARAK_TARGET_TYPE_RESOLVED}" GARAK_TARGET_NAME="${GARAK_TARGET_NAME_RESOLVED}" GARAK_PROBES="${GARAK_PROBES}" ./scripts/shell/run-garak-scan.sh || echo "Garak scan completed with warnings"
 
-      - name: Generate Shell Coverage
-        continue-on-error: true
-        run: |
-          source /tmp/epyon-env
-          echo "📐 Generating shell coverage for $TARGET_DIR"
-          chmod +x scripts/shell/run-shell-coverage.sh
-          REPO_PATH="$TARGET_DIR" ./scripts/shell/run-shell-coverage.sh || true
-      
       - name: Generate Scan Manifest
         if: always()
         run: |

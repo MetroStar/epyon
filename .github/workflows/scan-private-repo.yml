@@ -100,6 +100,7 @@ on:
         default: false
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   # Trigger behavior:
   # - workflow_dispatch: use selected input
   # - pull_request: quick

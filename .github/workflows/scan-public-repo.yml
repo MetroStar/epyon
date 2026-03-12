@@ -97,6 +97,7 @@ on:
         default: false
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   SCAN_MODE: ${{ github.event.inputs.scan_mode || 'full' }}
   FAIL_ON_CRITICAL: ${{ github.event.inputs.fail_on_critical }}
   FAIL_ON_HIGH: ${{ github.event.inputs.fail_on_high }}

@@ -111,6 +111,9 @@ on:
       JIRA_API_TOKEN:
         description: 'Jira Cloud personal API token'
         required: false
+      JIRA_PROJECT_KEY:
+        description: 'Jira project key (e.g. SAP, SEC). Takes precedence over the jira_project_key input.'
+        required: false
 
 permissions:
   contents: read
@@ -141,7 +144,7 @@ jobs:
       GARAK_PROBES: "${{ inputs.garak_probes }}"
       SKIP_GARAK: "${{ inputs.skip_garak }}"
       CREATE_JIRA_TICKETS: "${{ inputs.create_jira_tickets }}"
-      JIRA_PROJECT_KEY: "${{ inputs.jira_project_key }}"
+      JIRA_PROJECT_KEY: "${{ secrets.JIRA_PROJECT_KEY || inputs.jira_project_key }}"
       JIRA_ISSUE_TYPE: "${{ inputs.jira_issue_type }}"
       JIRA_BASE_URL: "${{ secrets.JIRA_BASE_URL }}"
       JIRA_USER_EMAIL: "${{ secrets.JIRA_USER_EMAIL }}"

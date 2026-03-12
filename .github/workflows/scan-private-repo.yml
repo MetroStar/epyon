@@ -50,10 +50,6 @@ on:
         required: false
         default: false
         type: boolean
-      jira_project_key:
-        description: 'JIRA project key (e.g. SEC, INFRA)'
-        required: false
-        type: string
       jira_issue_type:
         description: 'JIRA issue type for created tickets'
         required: false
@@ -79,6 +75,5 @@ jobs:
       fail_on_high: ${{ github.event_name != 'workflow_dispatch' && true || inputs.fail_on_high != false }}
       warning_only: ${{ github.event_name == 'workflow_dispatch' && inputs.warning_only == true || false }}
       create_jira_tickets: ${{ github.event_name == 'workflow_dispatch' && inputs.create_jira_tickets == true || false }}
-      jira_project_key: ${{ inputs.jira_project_key || '' }}
       jira_issue_type: ${{ inputs.jira_issue_type || 'Bug' }}
     secrets: inherit

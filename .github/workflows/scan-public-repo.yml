@@ -95,10 +95,6 @@ on:
         required: false
         default: false
         type: boolean
-      jira_project_key:
-        description: 'JIRA project key (e.g. SEC, INFRA)'
-        required: false
-        type: string
       jira_issue_type:
         description: 'JIRA issue type for created tickets'
         required: false
@@ -131,6 +127,5 @@ jobs:
       garak_probes: ${{ inputs.garak_probes || 'promptinject' }}
       skip_garak: ${{ inputs.skip_garak == true }}
       create_jira_tickets: ${{ inputs.create_jira_tickets == true }}
-      jira_project_key: ${{ inputs.jira_project_key || '' }}
       jira_issue_type: ${{ inputs.jira_issue_type || 'Bug' }}
     secrets: inherit

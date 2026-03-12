@@ -27,6 +27,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-03-12
+
+### Added
+- **Jira Cloud ticket creation for critical and high findings**: `epyon-scan.yml` now automatically creates one Jira issue per severity group (critical, high) when findings are detected. Tickets are created via the Jira Cloud REST API v3 using a structured Atlassian Document Format (ADF) table body listing each finding's CVE/ID, package, version, and scanner tool.
+- **Jira deduplication**: before creating a ticket, the workflow searches Jira for an existing unresolved issue with matching `epyon-critical`/`epyon-high` and repo-slug labels. If one is found, creation is skipped and the existing ticket URL is logged to the GitHub Step Summary.
+- **Jira auth and project validation**: connectivity to `JIRA_BASE_URL` and accessibility of `JIRA_PROJECT_KEY` are verified upfront before any ticket operations, with descriptive failure messages.
+- **New workflow secrets**: `JIRA_BASE_URL`, `JIRA_USER_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY` declared on `epyon-scan.yml`'s `workflow_call` block.
+- **New workflow inputs**: `create_jira_tickets` (boolean, default `true`), `jira_issue_type` (string, default `Bug`) added to `epyon-scan.yml`; forwarded by both `scan-private-repo.yml` and `scan-public-repo.yml`.
+- **GitHub notification issue deduplication**: the "Create Scan Notification Issue" step now checks for an existing open GitHub issue with matching severity labels before creating a new one, preventing duplicate issues across repeated scans.
+- **Improved `check-severity` step**: outputs (`critical`, `high`, `has_issues`) are now always written with defaults of `0`/`false` so downstream steps are never skipped due to missing output values. The step now reads from `security-findings-summary.json` (authoritative deduplicated JSON) before falling back to the executive summary markdown.
+
+### Changed
+- **`create_jira_tickets` defaults to `true`**: ticket creation is driven entirely by the presence of `JIRA_*` secrets — if secrets are not configured, the step exits gracefully without error.
+- **Payload delivery**: Jira ticket payload is written to a temp file (`/tmp/jira_payload.json`) and passed via `--data @file` instead of `--data-raw` to prevent shell interpolation issues with special characters in finding descriptions.
+
 ### Added
 - **Garak workflow controls in GitHub Actions**: `workflow_dispatch` forms now expose Garak settings as UI-friendly controls, including target type, target model preset, optional custom model override, and probe set selection.
 - **Garak run summary visibility**: workflow summaries now include Garak status, target, probe set, hit count, and exit code for quicker CI triage.

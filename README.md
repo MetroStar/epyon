@@ -352,6 +352,26 @@ echo "🎯 Prerequisites check complete!"
 
 **Use Epyon as a GitHub Action to automatically scan repositories!**
 
+### 🎟️ Jira Ticket Creation
+
+Epyon automatically creates Jira Cloud tickets for critical and high severity findings.
+
+**Setup (one-time, in GitHub repo or org secrets):**
+
+| Secret | Value |
+|--------|-------|
+| `JIRA_BASE_URL` | `https://yourcompany.atlassian.net` |
+| `JIRA_USER_EMAIL` | Email tied to your Jira API token |
+| `JIRA_API_TOKEN` | [Jira Cloud personal API token](https://id.atlassian.com/manage-profile/security/api-tokens) |
+| `JIRA_PROJECT_KEY` | Project key in uppercase (e.g. `SAP`, `SEC`) |
+
+**Behavior:**
+- One ticket is created per severity group per repo: one for all critical findings, one for all highs
+- Each ticket contains an ADF table listing CVE/ID, package, version, and scanner tool for every finding
+- Tickets are labeled `epyon`, `security`, `epyon-critical`/`epyon-high`, and a repo slug
+- **Deduplication**: if an unresolved ticket with matching labels already exists, creation is skipped and the existing ticket URL is logged
+- Ticket creation is skipped entirely if `JIRA_*` secrets are not configured
+
 ### Quick Start - Scan Any Repository
 
 1. **Go to your Epyon repository** on GitHub: `https://github.com/MetroStar/epyon`

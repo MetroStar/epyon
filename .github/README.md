@@ -404,6 +404,28 @@ Only scan on specific conditions:
   run: ./scripts/shell/run-target-security-scan.sh
 ```
 
+### Jira Ticket Creation
+
+Epyon automatically creates Jira Cloud tickets when critical or high severity findings are detected.
+
+**Required secrets (set once at repo or org level):**
+
+| Secret | Description |
+|--------|-------------|
+| `JIRA_BASE_URL` | Jira Cloud base URL, e.g. `https://yourcompany.atlassian.net` |
+| `JIRA_USER_EMAIL` | Email address associated with your Jira API token |
+| `JIRA_API_TOKEN` | [Jira Cloud personal API token](https://id.atlassian.com/manage-profile/security/api-tokens) |
+| `JIRA_PROJECT_KEY` | Project key in uppercase, e.g. `SAP` |
+
+**Behavior:**
+- Creates up to two tickets per scan: one for all critical findings, one for all highs
+- Ticket body contains an ADF table with CVE/ID, package, version, and tool for every finding
+- Deduplicates: skips creation if an unresolved ticket with the same severity + repo-slug labels already exists
+- Skipped silently if `JIRA_*` secrets are absent
+
+**Optional input (workflow_dispatch):**
+- `jira_issue_type` — Jira issue type for created tickets (default: `Bug`)
+
 ### Custom Notifications
 
 Send results to Slack, Teams, or email:

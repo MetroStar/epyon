@@ -421,20 +421,40 @@ jobs:
         run: |
           cd epyon
           SCAN_DIR="${{ steps.run-scan.outputs.scan_dir }}"
-          SUMMARY="$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md"
 
-          if [ -f "$SUMMARY" ]; then
-            CRITICAL=$(grep -oP 'Critical:\s*\K\d+' "$SUMMARY" || echo "0")
-            HIGH=$(grep -oP 'High:\s*\K\d+' "$SUMMARY" || echo "0")
+          # Default outputs — always written so downstream steps are never skipped due to empty outputs
+          CRITICAL=0
+          HIGH=0
 
-            echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
-            echo "high=$HIGH" >> $GITHUB_OUTPUT
-
-            if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
-              echo "has_issues=true" >> $GITHUB_OUTPUT
+          # Prefer the deduplicated JSON summary (most reliable source)
+          FINDINGS_JSON="$SCAN_DIR/security-findings-summary.json"
+          if [ -f "$FINDINGS_JSON" ]; then
+            CRITICAL=$(jq -r '.summary.total_critical // 0' "$FINDINGS_JSON")
+            HIGH=$(jq -r '.summary.total_high // 0' "$FINDINGS_JSON")
+            echo "DEBUG: Read from security-findings-summary.json — Critical=$CRITICAL High=$HIGH"
+          else
+            # Fall back to executive-summary.md
+            SUMMARY="$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md"
+            if [ -f "$SUMMARY" ]; then
+              CRITICAL=$(grep -oP 'Critical:\s*\K\d+' "$SUMMARY" | head -1 || echo "0")
+              HIGH=$(grep -oP 'High:\s*\K\d+' "$SUMMARY" | head -1 || echo "0")
+              CRITICAL=${CRITICAL:-0}
+              HIGH=${HIGH:-0}
+              echo "DEBUG: Read from executive-summary.md — Critical=$CRITICAL High=$HIGH"
             else
-              echo "has_issues=false" >> $GITHUB_OUTPUT
+              echo "WARNING: Neither security-findings-summary.json nor executive-summary.md found in $SCAN_DIR"
+              echo "DEBUG: Contents of $SCAN_DIR:"
+              ls -la "$SCAN_DIR" 2>/dev/null || echo "(directory not found)"
             fi
+          fi
+
+          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "high=$HIGH" >> $GITHUB_OUTPUT
+
+          if [ "${CRITICAL:-0}" -gt 0 ] || [ "${HIGH:-0}" -gt 0 ]; then
+            echo "has_issues=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_issues=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Comment on PR

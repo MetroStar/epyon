@@ -22,7 +22,7 @@ on:
   workflow_call:
     inputs:
       scan_mode:
-        description: 'Scan mode (quick/full/baseline)'
+        description: 'Scan mode (quick/full/nightly/baseline); nightly=full+LLM (Garak)'
         required: false
         default: 'full'
         type: string
@@ -298,17 +298,9 @@ jobs:
           echo "GARAK_TARGET_NAME=${GARAK_TARGET_NAME:-gpt-4o-mini}" >> /tmp/epyon-env
           echo "GARAK_PROBES=${GARAK_PROBES:-promptinject,dan,knownbadsignatures,encoding,continuation}" >> /tmp/epyon-env
 
-          # When run_garak is explicitly set, override SKIP_GARAK using event-based rules.
-          # If run_garak is empty, leave SKIP_GARAK as-is (backward compat with direct skip_garak usage).
-          if [[ "${RUN_GARAK}" == "true" ]]; then
-            echo "SKIP_GARAK=false" >> "$GITHUB_ENV"
-          elif [[ "${RUN_GARAK}" == "false" ]]; then
-            if [[ "$GITHUB_EVENT_NAME" == "pull_request" || "$GITHUB_EVENT_NAME" == "push" || "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
-              echo "SKIP_GARAK=true" >> "$GITHUB_ENV"
-            else
-              echo "SKIP_GARAK=false" >> "$GITHUB_ENV"
-            fi
-          fi
+          # Propagate RUN_GARAK to SKIP_GARAK for legacy consumers; run_garak_layer reads RUN_GARAK directly.
+          if [[ "${RUN_GARAK}" == "true" ]];  then echo "SKIP_GARAK=false" >> "$GITHUB_ENV"; fi
+          if [[ "${RUN_GARAK}" == "false" ]]; then echo "SKIP_GARAK=true"  >> "$GITHUB_ENV"; fi
 
           TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
           USERNAME="${GITHUB_ACTOR}"
@@ -333,6 +325,9 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
+          # Append API keys to /tmp/epyon-env so they are explicitly exported to all subshells.
+          [[ -n "${OPENAI_API_KEY:-}" ]]    && echo "OPENAI_API_KEY=${OPENAI_API_KEY}"       >> /tmp/epyon-env
+          [[ -n "${ANTHROPIC_API_KEY:-}" ]] && echo "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}" >> /tmp/epyon-env
           chmod +x epyon/scripts/shell/run-epyon-scan-ci.sh
           ./epyon/scripts/shell/run-epyon-scan-ci.sh
 

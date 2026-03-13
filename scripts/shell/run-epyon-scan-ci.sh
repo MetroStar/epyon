@@ -5,7 +5,7 @@
 
 set -u -o pipefail
 
-RUN_SONAR_IN_QUICK="${RUN_SONAR_IN_QUICK:-true}"
+RUN_SONAR_IN_QUICK="${RUN_SONAR_IN_QUICK:-false}"
 RUN_GARAK_IN_QUICK="${RUN_GARAK_IN_QUICK:-false}"
 
 if [[ ! -f /tmp/epyon-env ]]; then
@@ -93,15 +93,28 @@ run_sonar_layer() {
 }
 
 run_garak_layer() {
-  if [[ "${SCAN_MODE:-full}" == "quick" ]]; then
-    if [[ "${RUN_GARAK_IN_QUICK}" != "true" ]]; then
-      echo "[INFO] Skipping Layer 12 (quick mode)"
-      return 0
-    fi
+  # Scan mode determines Garak default:
+  #   quick   → always skipped
+  #   full    → skipped unless RUN_GARAK=true (manual opt-in)
+  #   nightly → runs by default (Full + LLM)
+  local _should_run="false"
+  case "${SCAN_MODE:-full}" in
+    nightly)  _should_run="true"  ;;
+    quick)    _should_run="false" ;;
+    *)        _should_run="false" ;;
+  esac
+
+  # Explicit RUN_GARAK from entrypoint overrides mode default (quick is never overridable).
+  if [[ "${SCAN_MODE:-full}" != "quick" ]]; then
+    [[ "${RUN_GARAK:-}" == "true"  ]] && _should_run="true"
+    [[ "${RUN_GARAK:-}" == "false" ]] && _should_run="false"
   fi
 
-  if [[ "${SKIP_GARAK:-false}" == "true" ]]; then
-    echo "[INFO] Skipping Layer 12 (SKIP_GARAK=true)"
+  # Legacy SKIP_GARAK hard-stop.
+  [[ "${SKIP_GARAK:-false}" == "true" ]] && _should_run="false"
+
+  if [[ "$_should_run" == "false" ]]; then
+    echo "[INFO] Skipping Layer 12 - LLM Security (scan_mode=${SCAN_MODE:-full})"
     return 0
   fi
 
@@ -128,7 +141,7 @@ run_garak_layer() {
         ;;
     esac
 
-    SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" GARAK_TARGET_TYPE="$GARAK_TARGET_TYPE_RESOLVED" GARAK_TARGET_NAME="$GARAK_TARGET_NAME_RESOLVED" GARAK_PROBES="${GARAK_PROBES:-promptinject}" ./scripts/shell/run-garak-scan.sh || echo "Garak scan completed with warnings"
+    SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" GARAK_TARGET_TYPE="$GARAK_TARGET_TYPE_RESOLVED" GARAK_TARGET_NAME="$GARAK_TARGET_NAME_RESOLVED" GARAK_PROBES="${GARAK_PROBES:-promptinject,dan,knownbadsignatures,encoding,continuation}" ./scripts/shell/run-garak-scan.sh || echo "Garak scan completed with warnings"
   '
 }
 

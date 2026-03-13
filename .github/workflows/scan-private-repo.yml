@@ -29,6 +29,7 @@ on:
         options:
           - quick
           - full
+          - nightly
           - baseline
       fail_on_critical:
         description: 'Fail build on critical severity findings'
@@ -74,12 +75,12 @@ jobs:
       issues: write
     uses: ./.github/workflows/epyon-scan.yml
     with:
-      scan_mode: ${{ github.event_name == 'workflow_dispatch' && inputs.scan_mode || github.event_name == 'pull_request' && 'quick' || 'full' }}
+      scan_mode: ${{ github.event_name == 'workflow_dispatch' && inputs.scan_mode || github.event_name == 'pull_request' && 'quick' || github.event_name == 'schedule' && 'nightly' || 'full' }}
       subdirectory: ${{ github.event_name == 'workflow_dispatch' && inputs.subdirectory || '' }}
       fail_on_critical: ${{ github.event_name != 'workflow_dispatch' && true || inputs.fail_on_critical != false }}
       fail_on_high: ${{ github.event_name != 'workflow_dispatch' && true || inputs.fail_on_high != false }}
       warning_only: ${{ github.event_name == 'workflow_dispatch' && inputs.warning_only == true || false }}
-      run_garak: ${{ inputs.run_garak == true && 'true' || 'false' }}
+      run_garak: ${{ github.event_name == 'workflow_dispatch' && inputs.run_garak == true && 'true' || '' }}
       create_jira_tickets: ${{ inputs.create_jira_tickets || false }}
       jira_issue_type: ${{ inputs.jira_issue_type || 'Bug' }}
     secrets: inherit

@@ -118,31 +118,38 @@ run_garak_layer() {
     return 0
   fi
 
-  run_group "Layer 12 - LLM Security (Garak)" bash -lc '
-    chmod +x scripts/shell/run-garak-scan.sh
+  # Resolve target type/name here in the outer shell where env is guaranteed.
+  local _target_type="${GARAK_TARGET_TYPE:-openai}"
+  local _target_name="${GARAK_TARGET_NAME:-gpt-4o-mini}"
 
-    GARAK_TARGET_TYPE_RESOLVED="${GARAK_TARGET_TYPE:-openai}"
-    GARAK_TARGET_NAME_RESOLVED="${GARAK_TARGET_NAME:-gpt-4o-mini}"
+  case "${_target_type,,}" in
+    openai)
+      if [[ -z "${OPENAI_API_KEY:-}" ]]; then
+        echo "[INFO] OPENAI_API_KEY not available; falling back to test.Blank"
+        _target_type="test"
+        _target_name="test.Blank"
+      fi
+      ;;
+    anthropic)
+      if [[ -z "${ANTHROPIC_API_KEY:-}" ]]; then
+        echo "[INFO] ANTHROPIC_API_KEY not available; falling back to test.Blank"
+        _target_type="test"
+        _target_name="test.Blank"
+      fi
+      ;;
+  esac
 
-    case "${GARAK_TARGET_TYPE_RESOLVED,,}" in
-      openai)
-        if [[ -z "${OPENAI_API_KEY:-}" ]]; then
-          echo "[INFO] OPENAI_API_KEY not available; falling back to test.Blank"
-          GARAK_TARGET_TYPE_RESOLVED="test"
-          GARAK_TARGET_NAME_RESOLVED="test.Blank"
-        fi
-        ;;
-      anthropic)
-        if [[ -z "${ANTHROPIC_API_KEY:-}" ]]; then
-          echo "[INFO] ANTHROPIC_API_KEY not available; falling back to test.Blank"
-          GARAK_TARGET_TYPE_RESOLVED="test"
-          GARAK_TARGET_NAME_RESOLVED="test.Blank"
-        fi
-        ;;
-    esac
+  local _probes="${GARAK_PROBES:-promptinject,dan,knownbadsignatures,encoding,continuation}"
 
-    SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" GARAK_TARGET_TYPE="$GARAK_TARGET_TYPE_RESOLVED" GARAK_TARGET_NAME="$GARAK_TARGET_NAME_RESOLVED" GARAK_PROBES="${GARAK_PROBES:-promptinject,dan,knownbadsignatures,encoding,continuation}" ./scripts/shell/run-garak-scan.sh || echo "Garak scan completed with warnings"
-  '
+  run_group "Layer 12 - LLM Security (Garak)" \
+    env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" \
+        GARAK_TARGET_TYPE="$_target_type" GARAK_TARGET_NAME="$_target_name" \
+        GARAK_PROBES="$_probes" \
+        OPENAI_API_KEY="${OPENAI_API_KEY:-}" ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-}" \
+    bash -lc '
+      chmod +x scripts/shell/run-garak-scan.sh
+      ./scripts/shell/run-garak-scan.sh || echo "Garak scan completed with warnings"
+    '
 }
 
 # Layers 1-12 (existing behavior preserved)

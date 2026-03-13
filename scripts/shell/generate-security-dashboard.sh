@@ -51,8 +51,13 @@ show_help() {
     echo "  -h, --help          Show this help message and exit"
     echo ""
     echo "Environment Variables:"
-    echo "  SCAN_DIR            Specific scan directory to generate dashboard for"
-    echo "                      (default: auto-detects latest scan)"
+    echo "  SCAN_DIR                Specific scan directory to generate dashboard for"
+    echo "                          (default: auto-detects latest scan)"
+    echo "  CLASSIFICATION_LEVEL    Classification banner to display on all pages"
+    echo "                          Values: INTERNAL (default), CUI, SBU, FOUO,"
+    echo "                                  CONFIDENTIAL, SECRET, TOP_SECRET,"
+    echo "                                  UNCLASSIFIED, NONE"
+    echo "                          Example: CLASSIFICATION_LEVEL=CUI $0"
     echo ""
     echo "Output:"
     echo "  Dashboard saved to: {SCAN_DIR}/consolidated-reports/dashboards/security-dashboard.html"
@@ -116,6 +121,78 @@ if [[ -z "$EPYON_VERSION" ]] || [[ "$EPYON_VERSION" == "unknown" ]]; then
     EPYON_VERSION="2.5.0"
 fi
 echo "EPYON Version: $EPYON_VERSION" >&2
+
+# ── Classification Banner Configuration ────────────────────────────────────────
+# Supported levels: INTERNAL (default), UNCLASSIFIED, CUI, SBU, FOUO,
+#                   CONFIDENTIAL, SECRET, TOP_SECRET, NONE
+CLASSIFICATION_LEVEL="${CLASSIFICATION_LEVEL:-INTERNAL}"
+
+case "${CLASSIFICATION_LEVEL^^}" in
+    NONE|"")
+        CLASS_LABEL=""
+        CLASS_BG=""
+        CLASS_TEXT_COLOR=""
+        CLASS_SHOW_BANNER="false"
+        ;;
+    UNCLASSIFIED)
+        CLASS_LABEL="UNCLASSIFIED"
+        CLASS_BG="#007a33"
+        CLASS_TEXT_COLOR="#ffffff"
+        CLASS_SHOW_BANNER="true"
+        ;;
+    INTERNAL)
+        CLASS_LABEL="INTERNAL USE ONLY"
+        CLASS_BG="#1a56db"
+        CLASS_TEXT_COLOR="#ffffff"
+        CLASS_SHOW_BANNER="true"
+        ;;
+    SBU|SENSITIVE)
+        CLASS_LABEL="SENSITIVE BUT UNCLASSIFIED // SBU"
+        CLASS_BG="#0369a1"
+        CLASS_TEXT_COLOR="#ffffff"
+        CLASS_SHOW_BANNER="true"
+        ;;
+    CUI)
+        CLASS_LABEL="CONTROLLED UNCLASSIFIED INFORMATION // CUI"
+        CLASS_BG="#6d28d9"
+        CLASS_TEXT_COLOR="#ffffff"
+        CLASS_SHOW_BANNER="true"
+        ;;
+    FOUO)
+        CLASS_LABEL="FOR OFFICIAL USE ONLY // FOUO"
+        CLASS_BG="#0369a1"
+        CLASS_TEXT_COLOR="#ffffff"
+        CLASS_SHOW_BANNER="true"
+        ;;
+    CONFIDENTIAL)
+        CLASS_LABEL="CONFIDENTIAL"
+        CLASS_BG="#1d4ed8"
+        CLASS_TEXT_COLOR="#ffffff"
+        CLASS_SHOW_BANNER="true"
+        ;;
+    SECRET)
+        CLASS_LABEL="SECRET"
+        CLASS_BG="#b91c1c"
+        CLASS_TEXT_COLOR="#ffffff"
+        CLASS_SHOW_BANNER="true"
+        ;;
+    TOP_SECRET|TS)
+        CLASS_LABEL="TOP SECRET"
+        CLASS_BG="#f59e0b"
+        CLASS_TEXT_COLOR="#000000"
+        CLASS_SHOW_BANNER="true"
+        ;;
+    *)
+        # Custom label passed verbatim
+        CLASS_LABEL="${CLASSIFICATION_LEVEL}"
+        CLASS_BG="#1a56db"
+        CLASS_TEXT_COLOR="#ffffff"
+        CLASS_SHOW_BANNER="true"
+        ;;
+esac
+
+echo "Classification level: ${CLASSIFICATION_LEVEL}" >&2
+# ───────────────────────────────────────────────────────────────────────────────
 
 # Source filter-ignored-findings.sh for suppression functionality
 if [ -f "$SCRIPT_DIR/filter-ignored-findings.sh" ]; then
@@ -3227,11 +3304,72 @@ cat > "$OUTPUT_HTML" << 'EOF'
             min-width: 130px;
         }
         .stats-panel { flex: 1; min-width: 280px; }
+
+        /* ── Classification Banner ────────────────────────────────────── */
+        .classification-banner {
+            position: sticky;
+            top: 0;
+            z-index: 10000;
+            width: 100%;
+            text-align: center;
+            padding: 7px 16px;
+            font-family: 'Arial Narrow', Arial, sans-serif;
+            font-size: 0.88em;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            border: none;
+            margin: 0;
+            user-select: none;
+        }
+        .classification-banner-bottom {
+            width: 100%;
+            text-align: center;
+            padding: 7px 16px;
+            font-family: 'Arial Narrow', Arial, sans-serif;
+            font-size: 0.88em;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            margin-top: 30px;
+        }
+
+        /* ── Print: repeat classification banner on every page ── */
+        @media print {
+            .classification-banner {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                display: block !important;
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+            .classification-banner-bottom {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                display: block !important;
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+            body { margin-top: 2.2em; margin-bottom: 2.2em; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
 EOF
+
+# Inject classification top banner (dynamic — needs variable substitution)
+if [ "${CLASS_SHOW_BANNER}" = "true" ]; then
+    cat >> "$OUTPUT_HTML" << EOF
+    <div class="classification-banner" style="background:${CLASS_BG};color:${CLASS_TEXT_COLOR};">
+        ${CLASS_LABEL}
+    </div>
+EOF
+fi
 
 # Add alert banner if critical findings exist
 if [ "$TOTAL_CRITICAL" -gt 0 ]; then
@@ -5414,6 +5552,18 @@ cat >> "$OUTPUT_HTML" << EOF
             sortFindings('severity');
         });
     </script>
+EOF
+
+# Inject classification bottom banner
+if [ "${CLASS_SHOW_BANNER}" = "true" ]; then
+    cat >> "$OUTPUT_HTML" << EOF
+    <div class="classification-banner-bottom" style="background:${CLASS_BG};color:${CLASS_TEXT_COLOR};">
+        ${CLASS_LABEL}
+    </div>
+EOF
+fi
+
+cat >> "$OUTPUT_HTML" << 'EOF'
 </body>
 </html>
 EOF

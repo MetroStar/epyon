@@ -122,6 +122,13 @@ run_garak_layer() {
   local _target_type="${GARAK_TARGET_TYPE:-openai}"
   local _target_name="${GARAK_TARGET_NAME:-gpt-4o-mini}"
 
+  # Diagnostic: confirm whether API key is present (value never logged).
+  if [[ -n "${OPENAI_API_KEY:-}" ]]; then
+    echo "[INFO] OPENAI_API_KEY is set (length: ${#OPENAI_API_KEY})"
+  else
+    echo "[WARNING] OPENAI_API_KEY is not set or empty"
+  fi
+
   case "${_target_type,,}" in
     openai)
       if [[ -z "${OPENAI_API_KEY:-}" ]]; then

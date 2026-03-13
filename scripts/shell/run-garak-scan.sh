@@ -95,7 +95,7 @@ if [[ -n "$GARAK_PROBES_INPUT" ]]; then
     GARAK_PROBES="$GARAK_PROBES_INPUT"
     GARAK_PROBES_SOURCE="provided"
 else
-    GARAK_PROBES="promptinject"
+    GARAK_PROBES="promptinject,dan,knownbadsignatures,encoding,continuation"
     GARAK_PROBES_SOURCE="default"
 fi
 

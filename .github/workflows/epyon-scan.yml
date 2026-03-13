@@ -79,17 +79,22 @@ on:
       garak_probes:
         description: 'Comma-separated Garak probes or probe groups'
         required: false
-        default: 'promptinject'
+        default: 'promptinject,dan,knownbadsignatures,encoding,continuation'
         type: string
       skip_garak:
         description: 'Skip Garak LLM security probing (Layer 12)'
         required: false
         default: false
         type: boolean
+      run_garak:
+        description: 'Explicitly run (true) or skip (false) Garak; when set, overrides skip_garak and event-based defaults'
+        required: false
+        default: ''
+        type: string
       create_jira_tickets:
         description: 'Create JIRA tickets for critical and high severity findings'
         required: false
-        default: true
+        default: false
         type: boolean
       jira_project_key:
         description: 'JIRA project key to create tickets in (e.g. SEC, INFRA)'
@@ -143,6 +148,7 @@ jobs:
       GARAK_TARGET_NAME: "${{ inputs.garak_target_name }}"
       GARAK_PROBES: "${{ inputs.garak_probes }}"
       SKIP_GARAK: "${{ inputs.skip_garak }}"
+      RUN_GARAK: "${{ inputs.run_garak }}"
       CREATE_JIRA_TICKETS: "${{ inputs.create_jira_tickets }}"
       JIRA_PROJECT_KEY: "${{ secrets.JIRA_PROJECT_KEY || inputs.jira_project_key }}"
       JIRA_ISSUE_TYPE: "${{ inputs.jira_issue_type }}"
@@ -290,7 +296,19 @@ jobs:
           echo "EPYON_VERSION=$EPYON_VERSION" >> /tmp/epyon-env
           echo "GARAK_TARGET_TYPE=${GARAK_TARGET_TYPE:-openai}" >> /tmp/epyon-env
           echo "GARAK_TARGET_NAME=${GARAK_TARGET_NAME:-gpt-4o-mini}" >> /tmp/epyon-env
-          echo "GARAK_PROBES=${GARAK_PROBES:-promptinject}" >> /tmp/epyon-env
+          echo "GARAK_PROBES=${GARAK_PROBES:-promptinject,dan,knownbadsignatures,encoding,continuation}" >> /tmp/epyon-env
+
+          # When run_garak is explicitly set, override SKIP_GARAK using event-based rules.
+          # If run_garak is empty, leave SKIP_GARAK as-is (backward compat with direct skip_garak usage).
+          if [[ "${RUN_GARAK}" == "true" ]]; then
+            echo "SKIP_GARAK=false" >> "$GITHUB_ENV"
+          elif [[ "${RUN_GARAK}" == "false" ]]; then
+            if [[ "$GITHUB_EVENT_NAME" == "pull_request" || "$GITHUB_EVENT_NAME" == "push" || "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+              echo "SKIP_GARAK=true" >> "$GITHUB_ENV"
+            else
+              echo "SKIP_GARAK=false" >> "$GITHUB_ENV"
+            fi
+          fi
 
           TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
           USERNAME="${GITHUB_ACTOR}"

@@ -45,6 +45,11 @@ on:
         required: false
         default: false
         type: boolean
+      run_garak:
+        description: 'Run Garak LLM security probing (Layer 12)'
+        required: false
+        default: false
+        type: boolean
       create_jira_tickets:
         description: 'Create JIRA tickets for critical and high severity findings'
         required: false
@@ -74,6 +79,7 @@ jobs:
       fail_on_critical: ${{ github.event_name != 'workflow_dispatch' && true || inputs.fail_on_critical != false }}
       fail_on_high: ${{ github.event_name != 'workflow_dispatch' && true || inputs.fail_on_high != false }}
       warning_only: ${{ github.event_name == 'workflow_dispatch' && inputs.warning_only == true || false }}
-      create_jira_tickets: ${{ github.event_name == 'workflow_dispatch' && inputs.create_jira_tickets == true || false }}
+      run_garak: ${{ inputs.run_garak == true && 'true' || 'false' }}
+      create_jira_tickets: ${{ inputs.create_jira_tickets || false }}
       jira_issue_type: ${{ inputs.jira_issue_type || 'Bug' }}
     secrets: inherit

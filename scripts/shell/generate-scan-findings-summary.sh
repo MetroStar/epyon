@@ -85,9 +85,26 @@ generate_scan_findings_summary() {
     
     echo -e "${BLUE}🚨 Generating Security Findings Summary for Scan: ${scan_id}${NC}"
     
+    # Resolve classification label for JSON/HTML output
+    local CLASS_LEVEL="${CLASSIFICATION_LEVEL:-INTERNAL}"
+    local CLASS_LABEL_LOCAL
+    case "${CLASS_LEVEL^^}" in
+        NONE|"")         CLASS_LABEL_LOCAL="" ;;
+        UNCLASSIFIED)    CLASS_LABEL_LOCAL="UNCLASSIFIED" ;;
+        INTERNAL)        CLASS_LABEL_LOCAL="INTERNAL USE ONLY" ;;
+        SBU|SENSITIVE)   CLASS_LABEL_LOCAL="SENSITIVE BUT UNCLASSIFIED // SBU" ;;
+        CUI)             CLASS_LABEL_LOCAL="CONTROLLED UNCLASSIFIED INFORMATION // CUI" ;;
+        FOUO)            CLASS_LABEL_LOCAL="FOR OFFICIAL USE ONLY // FOUO" ;;
+        CONFIDENTIAL)    CLASS_LABEL_LOCAL="CONFIDENTIAL" ;;
+        SECRET)          CLASS_LABEL_LOCAL="SECRET" ;;
+        TOP_SECRET|TS)   CLASS_LABEL_LOCAL="TOP SECRET" ;;
+        *)               CLASS_LABEL_LOCAL="${CLASS_LEVEL}" ;;
+    esac
+
     # Initialize summary object
     cat > "$OUTPUT_FILE" << EOF
 {
+  "classification": "${CLASS_LABEL_LOCAL}",
   "summary": {
     "scan_id": "$scan_id",
     "target_directory": "$target_dir",

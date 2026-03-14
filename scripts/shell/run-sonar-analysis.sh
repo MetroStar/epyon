@@ -55,6 +55,12 @@ source "$SCRIPT_DIR/scan-directory-template.sh"
 # ---------------------------------------------------------------------------
 SONAR_HOST_URL="${SONAR_HOST_URL:-https://sonarcloud.io}"
 
+if [[ "$SONAR_HOST_URL" != https://* ]]; then
+  echo "[ERROR] SONAR_HOST_URL must use HTTPS to protect transmitted credentials and source code." >&2
+  echo "[ERROR] Current value: $SONAR_HOST_URL" >&2
+  exit 1
+fi
+
 if [ -z "${SONAR_TOKEN:-}" ]; then
   echo "[ERROR] SONAR_TOKEN is not set. Export it or add it to .env.sonar." >&2
   exit 1

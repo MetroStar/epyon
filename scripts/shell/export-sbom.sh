@@ -95,10 +95,21 @@ REPO_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 SCANS_DIR="$REPO_ROOT/scans"
 BASELINE_SCANS_DIR="$REPO_ROOT/baseline/scans"
 
-# Find scan directory
-if [[ -z "$SCAN_ID" ]]; then
-    # Use latest scan (check both scans/ and baseline/scans/)
-    SCAN_DIR=$(find "$SCANS_DIR" "$BASELINE_SCANS_DIR" -maxdepth 1 -type d -name "*_rnelson_*" 2>/dev/null | sort -r | head -1)
+# ── Classification marking (APSC-DV-003120) ───────────────────────────────────
+CLASSIFICATION_LEVEL="${CLASSIFICATION_LEVEL:-INTERNAL}"
+case "${CLASSIFICATION_LEVEL^^}" in
+    NONE|"")        CLASS_LABEL="" ;;
+    UNCLASSIFIED)   CLASS_LABEL="UNCLASSIFIED" ;;
+    INTERNAL)       CLASS_LABEL="INTERNAL USE ONLY" ;;
+    SBU|SENSITIVE)  CLASS_LABEL="SENSITIVE BUT UNCLASSIFIED // SBU" ;;
+    CUI)            CLASS_LABEL="CONTROLLED UNCLASSIFIED INFORMATION // CUI" ;;
+    FOUO)           CLASS_LABEL="FOR OFFICIAL USE ONLY // FOUO" ;;
+    CONFIDENTIAL)   CLASS_LABEL="CONFIDENTIAL" ;;
+    SECRET)         CLASS_LABEL="SECRET" ;;
+    TOP_SECRET|TS)  CLASS_LABEL="TOP SECRET" ;;
+    *)              CLASS_LABEL="${CLASSIFICATION_LEVEL}" ;;
+esac
+# ─────────────────────────────────────────────────────────────────────────────
     if [[ -z "$SCAN_DIR" ]]; then
         echo -e "${RED}❌ No scans found in $SCANS_DIR or $BASELINE_SCANS_DIR${NC}"
         exit 1
@@ -168,6 +179,7 @@ export_format() {
         if syft convert "$SBOM_FILE" -o "$format" > "$output_file" 2>/dev/null; then
             local size=$(du -h "$output_file" | cut -f1)
             echo -e "${GREEN}✅ Exported: $(basename "$output_file") ($size)${NC}"
+            _inject_classification "$output_file" "$extension"
             return 0
         else
             echo -e "${YELLOW}⚠️  Failed to export $format${NC}"
@@ -185,6 +197,7 @@ export_format() {
             convert "/sbom/$sbom_name" -o "$format" > "$output_file" 2>/dev/null; then
             local size=$(du -h "$output_file" | cut -f1)
             echo -e "${GREEN}✅ Exported: $(basename "$output_file") ($size)${NC}"
+            _inject_classification "$output_file" "$extension"
             return 0
         else
             echo -e "${YELLOW}⚠️  Failed to export $format using Docker${NC}"
@@ -194,6 +207,49 @@ export_format() {
         echo -e "${RED}❌ Neither Syft nor Docker available${NC}"
         return 1
     fi
+}
+
+# Inject classification marking into an exported SBOM file
+# CycloneDX JSON : metadata.properties[]
+# SPDX JSON      : documentComment
+# XML (any)      : XML comment after <?xml ... ?>
+# SPDX tag-value : PackageComment line at top
+_inject_classification() {
+    local file="$1"
+    local ext="$2"   # e.g. cyclonedx.json, spdx.json, cyclonedx.xml, spdx
+
+    [[ -z "$CLASS_LABEL" ]] && return 0   # NONE — skip
+    [[ ! -f "$file" ]] && return 0
+
+    case "$ext" in
+        cyclonedx.json)
+            if command -v jq >/dev/null 2>&1; then
+                local tmp; tmp=$(mktemp)
+                jq --arg cl "$CLASS_LABEL" '
+                    .metadata.properties = (
+                        (.metadata.properties // []) +
+                        [{"name": "classification", "value": $cl}]
+                    )' "$file" > "$tmp" && mv "$tmp" "$file" || rm -f "$tmp"
+            fi
+            ;;
+        spdx.json)
+            if command -v jq >/dev/null 2>&1; then
+                local tmp; tmp=$(mktemp)
+                jq --arg cl "CLASSIFICATION: $CLASS_LABEL" \
+                    '.documentComment = $cl' "$file" > "$tmp" && mv "$tmp" "$file" || rm -f "$tmp"
+            fi
+            ;;
+        cyclonedx.xml)
+            # Insert XML comment on line 2 (after <?xml ...?>)
+            local comment="<!-- CLASSIFICATION: $CLASS_LABEL -->"
+            sed -i "1a\\$comment" "$file" 2>/dev/null || true
+            ;;
+        spdx)
+            # SPDX tag-value: prepend a TVComment line
+            local tmp; tmp=$(mktemp)
+            { echo "TVComment: CLASSIFICATION: $CLASS_LABEL"; cat "$file"; } > "$tmp" && mv "$tmp" "$file" || rm -f "$tmp"
+            ;;
+    esac
 }
 
 # Export formats

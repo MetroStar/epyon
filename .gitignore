@@ -34,6 +34,8 @@ baseline/*                    # But exclude everything in it by default
 .env
 .env.local
 .env.production
+.env.sonar
+.env.*.local
 
 # Node modules
 node_modules/

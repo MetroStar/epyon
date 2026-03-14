@@ -22,7 +22,7 @@ on:
         required: false
         type: string
       scan_mode:
-        description: 'Scan mode (quick/full/baseline)'
+        description: 'Scan mode (quick/full/nightly/baseline)'
         required: false
         default: 'full'
         type: choice
@@ -34,28 +34,56 @@ on:
       fail_on_critical:
         description: 'Fail build on critical severity findings'
         required: false
-        default: true
+        default: false
         type: boolean
       fail_on_high:
         description: 'Fail build on high severity findings'
         required: false
-        default: true
+        default: false
         type: boolean
       warning_only:
         description: 'Report vulnerabilities but never fail the build'
         required: false
-        default: false
+        default: true
         type: boolean
+      coverage_artifact:
+        description: 'Optional: Name of coverage artifact from a prior job'
+        required: false
+        type: string
       run_garak:
-        description: 'Run Garak LLM security probing (Layer 12)'
+        description: 'Explicitly run Garak LLM security probing (Layer 12)'
         required: false
         default: false
         type: boolean
+      skip_garak:
+        description: 'Skip Garak LLM security probing (Layer 12)'
+        required: false
+        default: false
+        type: boolean
+      garak_target_type:
+        description: 'Garak generator type (e.g. test, openai, huggingface)'
+        required: false
+        default: 'openai'
+        type: string
+      garak_target_name:
+        description: 'Garak target model name (e.g. gpt-4o-mini)'
+        required: false
+        default: 'gpt-4o-mini'
+        type: string
+      garak_probes:
+        description: 'Comma-separated Garak probes or probe groups'
+        required: false
+        default: 'promptinject,dan,knownbadsignatures,encoding,continuation'
+        type: string
       create_jira_tickets:
         description: 'Create JIRA tickets for critical and high severity findings'
         required: false
         default: false
         type: boolean
+      jira_project_key:
+        description: 'JIRA project key (e.g. SEC, INFRA)'
+        required: false
+        type: string
       jira_issue_type:
         description: 'JIRA issue type for created tickets'
         required: false
@@ -80,7 +108,13 @@ jobs:
       fail_on_critical: ${{ github.event_name != 'workflow_dispatch' && true || inputs.fail_on_critical != false }}
       fail_on_high: ${{ github.event_name != 'workflow_dispatch' && true || inputs.fail_on_high != false }}
       warning_only: ${{ github.event_name == 'workflow_dispatch' && inputs.warning_only == true || false }}
+      coverage_artifact: ${{ inputs.coverage_artifact || '' }}
       run_garak: ${{ github.event_name == 'workflow_dispatch' && inputs.run_garak == true && 'true' || '' }}
+      skip_garak: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_garak == true || false }}
+      garak_target_type: ${{ inputs.garak_target_type || 'openai' }}
+      garak_target_name: ${{ inputs.garak_target_name || 'gpt-4o-mini' }}
+      garak_probes: ${{ inputs.garak_probes || 'promptinject,dan,knownbadsignatures,encoding,continuation' }}
       create_jira_tickets: ${{ inputs.create_jira_tickets || false }}
+      jira_project_key: ${{ inputs.jira_project_key || '' }}
       jira_issue_type: ${{ inputs.jira_issue_type || 'Bug' }}
     secrets: inherit

@@ -80,7 +80,7 @@ fi
 
 # ── Classification banner config (mirrors generate-security-dashboard.sh) ──
 CLASSIFICATION_LEVEL="${CLASSIFICATION_LEVEL:-INTERNAL}"
-case "${CLASSIFICATION_LEVEL^^}" in
+case "$(echo "${CLASSIFICATION_LEVEL}" | tr '[:lower:]' '[:upper:]')" in
     NONE|"")         CLASS_LABEL="";  CLASS_BG="";        CLASS_FG="" ;;
     UNCLASSIFIED)    CLASS_LABEL="UNCLASSIFIED";  CLASS_BG="#007a33"; CLASS_FG="#ffffff" ;;
     INTERNAL)        CLASS_LABEL="INTERNAL USE ONLY"; CLASS_BG="#1a56db"; CLASS_FG="#ffffff" ;;

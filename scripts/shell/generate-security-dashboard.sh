@@ -127,7 +127,7 @@ echo "EPYON Version: $EPYON_VERSION" >&2
 #                   CONFIDENTIAL, SECRET, TOP_SECRET, NONE
 CLASSIFICATION_LEVEL="${CLASSIFICATION_LEVEL:-INTERNAL}"
 
-case "${CLASSIFICATION_LEVEL^^}" in
+case "$(echo "${CLASSIFICATION_LEVEL}" | tr '[:lower:]' '[:upper:]')" in
     NONE|"")
         CLASS_LABEL=""
         CLASS_BG=""

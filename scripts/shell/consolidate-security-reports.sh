@@ -78,6 +78,22 @@ if [[ -z "$EPYON_VERSION" ]] || [[ "$EPYON_VERSION" == "unknown" ]]; then
     EPYON_VERSION="2.5.0"
 fi
 
+# ── Classification banner config (mirrors generate-security-dashboard.sh) ──
+CLASSIFICATION_LEVEL="${CLASSIFICATION_LEVEL:-INTERNAL}"
+case "$(echo "${CLASSIFICATION_LEVEL}" | tr '[:lower:]' '[:upper:]')" in
+    NONE|"")         CLASS_LABEL="";  CLASS_BG="";        CLASS_FG="" ;;
+    UNCLASSIFIED)    CLASS_LABEL="UNCLASSIFIED";  CLASS_BG="#007a33"; CLASS_FG="#ffffff" ;;
+    INTERNAL)        CLASS_LABEL="INTERNAL USE ONLY"; CLASS_BG="#1a56db"; CLASS_FG="#ffffff" ;;
+    SBU|SENSITIVE)   CLASS_LABEL="SENSITIVE BUT UNCLASSIFIED // SBU"; CLASS_BG="#0369a1"; CLASS_FG="#ffffff" ;;
+    CUI)             CLASS_LABEL="CONTROLLED UNCLASSIFIED INFORMATION // CUI"; CLASS_BG="#6d28d9"; CLASS_FG="#ffffff" ;;
+    FOUO)            CLASS_LABEL="FOR OFFICIAL USE ONLY // FOUO"; CLASS_BG="#0369a1"; CLASS_FG="#ffffff" ;;
+    CONFIDENTIAL)    CLASS_LABEL="CONFIDENTIAL"; CLASS_BG="#1d4ed8"; CLASS_FG="#ffffff" ;;
+    SECRET)          CLASS_LABEL="SECRET"; CLASS_BG="#b91c1c"; CLASS_FG="#ffffff" ;;
+    TOP_SECRET|TS)   CLASS_LABEL="TOP SECRET"; CLASS_BG="#f59e0b"; CLASS_FG="#000000" ;;
+    *)               CLASS_LABEL="${CLASSIFICATION_LEVEL}"; CLASS_BG="#1a56db"; CLASS_FG="#ffffff" ;;
+esac
+export CLASS_LABEL CLASS_BG CLASS_FG
+
 # Auto-detect latest scan if SCAN_DIR not provided
 if [[ -z "$SCAN_DIR" ]]; then
     SCANS_DIR="$REPO_ROOT/scans"
@@ -212,9 +228,23 @@ try:
         .stats { display: flex; gap: 20px; margin: 20px 0; }
         .stat-card { background: white; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .stat-number { font-size: 24px; font-weight: bold; }
+        .class-banner { position: sticky; top: 0; z-index: 9999; width: 100%; text-align: center;
+            padding: 6px 16px; font-family: Arial Narrow, Arial, sans-serif; font-size: 0.85em;
+            font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+        .class-banner-bottom { width: 100%; text-align: center; padding: 6px 16px;
+            font-family: Arial Narrow, Arial, sans-serif; font-size: 0.85em;
+            font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 30px; }
+        @media print {
+            .class-banner { position: fixed; top: 0; left: 0; right: 0;
+                print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+            .class-banner-bottom { position: fixed; bottom: 0; left: 0; right: 0;
+                print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+            body { margin-top: 2em; margin-bottom: 2em; }
+        }
     </style>
 </head>
 <body>
+    <div class="class-banner" style="background:$CLASS_BG;color:$CLASS_FG;">$CLASS_LABEL</div>
     <div class=\"header\">
         <h1>$tool_name Security Report</h1>
         <p><strong>Scan Type:</strong> $scan_type</p>
@@ -348,6 +378,7 @@ try:
         html_content += f'<div class=\"summary\"><h2>Raw Data</h2><pre>{html.escape(json.dumps(data, indent=2)[:5000])}</pre></div>'
     
     html_content += '''
+    <div class="class-banner-bottom" style="background:$CLASS_BG;color:$CLASS_FG;">$CLASS_LABEL</div>
 </body>
 </html>'''
     
@@ -387,6 +418,7 @@ json_to_markdown() {
     export MD_TOOL_NAME="$tool_name"
     export MD_SCAN_TYPE="$scan_type"
     export MD_REPORT_DATE="$REPORT_DATE"
+    export MD_CLASS_LABEL="${CLASS_LABEL:-INTERNAL USE ONLY}"
     
     python3 << 'PYEOF'
 import json
@@ -399,6 +431,7 @@ output_file = os.getenv('MD_OUTPUT_FILE')
 tool_name = os.getenv('MD_TOOL_NAME')
 scan_type = os.getenv('MD_SCAN_TYPE')
 report_date = os.getenv('MD_REPORT_DATE')
+class_label = os.getenv('MD_CLASS_LABEL', 'INTERNAL USE ONLY')
 
 try:
     # Try to load as regular JSON first
@@ -435,7 +468,11 @@ try:
                 print('SKIP: No valid JSON found', file=sys.stderr)
                 sys.exit(0)
     
-    md_content = f'''# {tool_name} Security Report
+    classification_line = f'> **{class_label}**' if class_label else ''
+    md_content = f'''<!-- classification: {class_label} -->
+{classification_line}
+
+# {tool_name} Security Report
 
 **Scan Type:** {scan_type}  
 **Generated:** {report_date}  
@@ -523,6 +560,10 @@ try:
         md_content += json.dumps(data, indent=2)[:2000]
         md_content += chr(10) + '```' + chr(10)
     
+    # Append classification footer
+    if class_label:
+        md_content += f'\n\n---\n\n> **{class_label}**\n'
+
     with open(output_file, 'w') as f:
         f.write(md_content)
     

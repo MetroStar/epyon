@@ -107,6 +107,9 @@ on:
         default: 'Bug'
         type: string
     secrets:
+      OPENAI_API_KEY:
+        description: 'OpenAI API key for Garak LLM security probing'
+        required: false
       JIRA_BASE_URL:
         description: 'Jira Cloud base URL (e.g. https://yourcompany.atlassian.net)'
         required: false

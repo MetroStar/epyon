@@ -14,6 +14,11 @@ set +u
 # Trap errors for debugging
 trap 'echo "ERROR: Dashboard generation failed at line $LINENO with exit code $?" >&2' ERR
 
+# Force C locale so macOS BSD sed handles UTF-8 bytes in scan data without
+# "illegal byte sequence" errors. ASCII-only characters (&, <, >) are still
+# matched correctly; non-ASCII bytes pass through unchanged.
+export LC_ALL=C
+
 # Colors for help output
 WHITE='\033[1;37m'
 GREEN='\033[0;32m'

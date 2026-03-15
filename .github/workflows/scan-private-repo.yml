@@ -101,7 +101,7 @@ jobs:
       pull-requests: write
       security-events: write
       issues: write
-    uses: ./.github/workflows/epyon-scan.yml
+    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
     with:
       scan_mode: ${{ github.event_name == 'workflow_dispatch' && inputs.scan_mode || github.event_name == 'pull_request' && 'quick' || github.event_name == 'schedule' && 'nightly' || 'full' }}
       subdirectory: ${{ github.event_name == 'workflow_dispatch' && inputs.subdirectory || '' }}

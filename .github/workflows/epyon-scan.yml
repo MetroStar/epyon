@@ -865,6 +865,54 @@ jobs:
               echo "## ✅ JIRA Ticket Created" >> "${GITHUB_STEP_SUMMARY}"
               echo "- Severity group: **${label_severity}**" >> "${GITHUB_STEP_SUMMARY}"
               echo "- Ticket: [${new_key}](${JIRA_URL}/browse/${new_key})" >> "${GITHUB_STEP_SUMMARY}"
+
+              # ── Assign to active sprint (best-effort; failure does not abort) ──
+              echo "--- Looking up active sprint for project '${PROJECT_KEY}' ---"
+              local boards_http
+              boards_http=$(curl -s -o /tmp/jira_boards.json -w "%{http_code}" \
+                -H "Authorization: Basic ${AUTH}" \
+                -H "Accept: application/json" \
+                "${JIRA_URL}/rest/agile/1.0/board?projectKeyOrId=${PROJECT_KEY}&type=scrum&maxResults=1")
+              if [[ "${boards_http}" == "200" ]]; then
+                local board_id
+                board_id=$(jq -r '.values[0].id // empty' /tmp/jira_boards.json)
+                if [[ -n "${board_id}" ]]; then
+                  local sprints_http
+                  sprints_http=$(curl -s -o /tmp/jira_sprints.json -w "%{http_code}" \
+                    -H "Authorization: Basic ${AUTH}" \
+                    -H "Accept: application/json" \
+                    "${JIRA_URL}/rest/agile/1.0/board/${board_id}/sprint?state=active&maxResults=1")
+                  if [[ "${sprints_http}" == "200" ]]; then
+                    local sprint_id
+                    sprint_id=$(jq -r '.values[0].id // empty' /tmp/jira_sprints.json)
+                    if [[ -n "${sprint_id}" ]]; then
+                      local sprint_name
+                      sprint_name=$(jq -r '.values[0].name // "active sprint"' /tmp/jira_sprints.json)
+                      local move_http
+                      move_http=$(curl -s -o /dev/null -w "%{http_code}" \
+                        -X POST \
+                        -H "Authorization: Basic ${AUTH}" \
+                        -H "Content-Type: application/json" \
+                        --data "{\"issues\":[\"${new_key}\"]}" \
+                        "${JIRA_URL}/rest/agile/1.0/sprint/${sprint_id}/issue")
+                      if [[ "${move_http}" == "204" ]]; then
+                        echo "✅ Assigned ${new_key} to sprint: ${sprint_name}"
+                        echo "- Sprint: **${sprint_name}**" >> "${GITHUB_STEP_SUMMARY}"
+                      else
+                        echo "⚠️  Could not assign to sprint (HTTP ${move_http}) — ticket created in backlog"
+                      fi
+                    else
+                      echo "⚠️  No active sprint found for board ${board_id} — ticket created in backlog"
+                    fi
+                  else
+                    echo "⚠️  Sprint lookup returned HTTP ${sprints_http} — ticket created in backlog"
+                  fi
+                else
+                  echo "⚠️  No scrum board found for project '${PROJECT_KEY}' — ticket created in backlog"
+                fi
+              else
+                echo "⚠️  Board lookup returned HTTP ${boards_http} — ticket created in backlog"
+              fi
             else
               echo "❌ Failed to create JIRA ticket (HTTP ${create_http})"
               echo "Response: $(cat /tmp/jira_create.json)"

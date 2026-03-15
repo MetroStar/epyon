@@ -66,16 +66,18 @@ done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
-# Get Epyon version (priority: git tag > VERSION file > default)
-EPYON_VERSION="unknown"
-if [[ -d "$REPO_ROOT/.git" ]]; then
-    EPYON_VERSION=$(cd "$REPO_ROOT" && git describe --tags --always 2>/dev/null || echo "")
-fi
-if [[ -z "$EPYON_VERSION" ]] && [[ -f "$REPO_ROOT/VERSION" ]]; then
-    EPYON_VERSION=$(cat "$REPO_ROOT/VERSION" | tr -d '[:space:]')
-fi
-if [[ -z "$EPYON_VERSION" ]] || [[ "$EPYON_VERSION" == "unknown" ]]; then
-    EPYON_VERSION="2.5.0"
+# Get Epyon version (priority: inherited env > git tag > VERSION file > default)
+if [[ -z "${EPYON_VERSION:-}" ]] || [[ "${EPYON_VERSION:-}" == "unknown" ]]; then
+    EPYON_VERSION=""
+    if [[ -d "$REPO_ROOT/.git" ]]; then
+        EPYON_VERSION=$(cd "$REPO_ROOT" && git describe --tags --always 2>/dev/null || echo "")
+    fi
+    if [[ -z "$EPYON_VERSION" ]] && [[ -f "$REPO_ROOT/VERSION" ]]; then
+        EPYON_VERSION=$(cat "$REPO_ROOT/VERSION" | tr -d '[:space:]')
+    fi
+    if [[ -z "$EPYON_VERSION" ]]; then
+        EPYON_VERSION="2.7.0"
+    fi
 fi
 
 # ── Classification banner config (mirrors generate-security-dashboard.sh) ──

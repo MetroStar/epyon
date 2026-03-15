@@ -115,15 +115,18 @@ echo "DEBUG: SCRIPT_DIR=$SCRIPT_DIR" >&2
 echo "DEBUG: WORKSPACE_ROOT=$WORKSPACE_ROOT" >&2
 
 # Get Epyon version (priority: git tag > VERSION file > default)
-EPYON_VERSION="unknown"
-if [[ -d "$WORKSPACE_ROOT/.git" ]]; then
-    EPYON_VERSION=$(cd "$WORKSPACE_ROOT" && git describe --tags --always 2>/dev/null || echo "")
-fi
-if [[ -z "$EPYON_VERSION" ]] && [[ -f "$WORKSPACE_ROOT/VERSION" ]]; then
-    EPYON_VERSION=$(cat "$WORKSPACE_ROOT/VERSION" | tr -d '[:space:]')
-fi
-if [[ -z "$EPYON_VERSION" ]] || [[ "$EPYON_VERSION" == "unknown" ]]; then
-    EPYON_VERSION="2.5.0"
+# Get Epyon version (priority: inherited env > git tag > VERSION file > default)
+if [[ -z "${EPYON_VERSION:-}" ]] || [[ "${EPYON_VERSION:-}" == "unknown" ]]; then
+    EPYON_VERSION=""
+    if [[ -d "$WORKSPACE_ROOT/.git" ]]; then
+        EPYON_VERSION=$(cd "$WORKSPACE_ROOT" && git describe --tags --always 2>/dev/null || echo "")
+    fi
+    if [[ -z "$EPYON_VERSION" ]] && [[ -f "$WORKSPACE_ROOT/VERSION" ]]; then
+        EPYON_VERSION=$(cat "$WORKSPACE_ROOT/VERSION" | tr -d '[:space:]')
+    fi
+    if [[ -z "$EPYON_VERSION" ]]; then
+        EPYON_VERSION="2.7.0"
+    fi
 fi
 echo "EPYON Version: $EPYON_VERSION" >&2
 

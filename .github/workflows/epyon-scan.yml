@@ -110,6 +110,9 @@ on:
       OPENAI_API_KEY:
         description: 'OpenAI API key for Garak LLM security probing'
         required: false
+      ANTHROPIC_API_KEY:
+        description: 'Anthropic API key for Garak LLM security probing'
+        required: false
       JIRA_BASE_URL:
         description: 'Jira Cloud base URL (e.g. https://yourcompany.atlassian.net)'
         required: false
@@ -121,12 +124,6 @@ on:
         required: false
       JIRA_PROJECT_KEY:
         description: 'Jira project key (e.g. SAP, SEC). Takes precedence over the jira_project_key input.'
-        required: false
-      OPENAI_API_KEY:
-        description: 'OpenAI API key for Garak LLM security probing'
-        required: false
-      ANTHROPIC_API_KEY:
-        description: 'Anthropic API key for Garak LLM security probing'
         required: false
 
 permissions:

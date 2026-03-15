@@ -31,6 +31,7 @@ on:
         options:
           - quick
           - full
+          - nightly
           - baseline
       fail_on_critical:
         description: 'Fail build on critical severity findings'
@@ -85,6 +86,11 @@ on:
           - xss
           - lmrc
           - all
+      run_garak:
+        description: 'Explicitly run Garak LLM security probing (Layer 12); uses epyon OpenAI key via secrets: inherit'
+        required: false
+        type: boolean
+        default: false
       skip_garak:
         description: 'Skip Garak LLM security probing (Layer 12)'
         required: false
@@ -125,6 +131,7 @@ jobs:
       garak_target_type: ${{ inputs.garak_target_type || 'openai' }}
       garak_target_name: ${{ inputs.garak_target_name || 'gpt-4o-mini' }}
       garak_probes: ${{ inputs.garak_probes || 'promptinject' }}
+      run_garak: ${{ inputs.run_garak == true && 'true' || '' }}
       skip_garak: ${{ inputs.skip_garak == true }}
       create_jira_tickets: true
       jira_issue_type: ${{ inputs.jira_issue_type || 'Bug' }}

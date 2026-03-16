@@ -91,6 +91,61 @@ on:
         required: false
         default: ''
         type: string
+      skip_sbom:
+        description: 'Skip Layer 1 - SBOM generation'
+        required: false
+        default: false
+        type: boolean
+      skip_trufflehog:
+        description: 'Skip Layer 2 - Secret detection (TruffleHog)'
+        required: false
+        default: false
+        type: boolean
+      skip_sonar:
+        description: 'Skip Layer 3 - Code quality (SonarQube)'
+        required: false
+        default: false
+        type: boolean
+      skip_clamav:
+        description: 'Skip Layer 4 - Malware detection (ClamAV)'
+        required: false
+        default: false
+        type: boolean
+      skip_helm:
+        description: 'Skip Layer 5 - Helm chart build'
+        required: false
+        default: false
+        type: boolean
+      skip_checkov:
+        description: 'Skip Layer 6 - Infrastructure security (Checkov)'
+        required: false
+        default: false
+        type: boolean
+      skip_trivy:
+        description: 'Skip Layer 7 - Container security (Trivy)'
+        required: false
+        default: false
+        type: boolean
+      skip_grype:
+        description: 'Skip Layer 8 - Vulnerability detection (Grype)'
+        required: false
+        default: false
+        type: boolean
+      skip_xeol:
+        description: 'Skip Layer 9 - End-of-life detection (Xeol)'
+        required: false
+        default: false
+        type: boolean
+      skip_anchore:
+        description: 'Skip Layer 10 - Anchore security'
+        required: false
+        default: false
+        type: boolean
+      skip_api_discovery:
+        description: 'Skip Layer 11 - API discovery'
+        required: false
+        default: false
+        type: boolean
       create_jira_tickets:
         description: 'Create JIRA tickets for critical and high severity findings'
         required: false
@@ -155,6 +210,17 @@ jobs:
       GARAK_PROBES: "${{ inputs.garak_probes }}"
       SKIP_GARAK: "${{ inputs.skip_garak }}"
       RUN_GARAK: "${{ inputs.run_garak }}"
+      SKIP_SBOM: "${{ inputs.skip_sbom }}"
+      SKIP_TRUFFLEHOG: "${{ inputs.skip_trufflehog }}"
+      SKIP_SONAR: "${{ inputs.skip_sonar }}"
+      SKIP_CLAMAV: "${{ inputs.skip_clamav }}"
+      SKIP_HELM: "${{ inputs.skip_helm }}"
+      SKIP_CHECKOV: "${{ inputs.skip_checkov }}"
+      SKIP_TRIVY: "${{ inputs.skip_trivy }}"
+      SKIP_GRYPE: "${{ inputs.skip_grype }}"
+      SKIP_XEOL: "${{ inputs.skip_xeol }}"
+      SKIP_ANCHORE: "${{ inputs.skip_anchore }}"
+      SKIP_API_DISCOVERY: "${{ inputs.skip_api_discovery }}"
       CREATE_JIRA_TICKETS: "${{ inputs.create_jira_tickets }}"
       JIRA_PROJECT_KEY: "${{ secrets.JIRA_PROJECT_KEY || inputs.jira_project_key }}"
       JIRA_ISSUE_TYPE: "${{ inputs.jira_issue_type }}"
@@ -303,6 +369,19 @@ jobs:
           echo "GARAK_TARGET_TYPE=${GARAK_TARGET_TYPE:-openai}" >> /tmp/epyon-env
           echo "GARAK_TARGET_NAME=${GARAK_TARGET_NAME:-gpt-4o-mini}" >> /tmp/epyon-env
           echo "GARAK_PROBES=${GARAK_PROBES:-promptinject,dan,knownbadsignatures,encoding,continuation}" >> /tmp/epyon-env
+
+          # Per-tool skip flags
+          echo "SKIP_SBOM=${SKIP_SBOM:-false}" >> /tmp/epyon-env
+          echo "SKIP_TRUFFLEHOG=${SKIP_TRUFFLEHOG:-false}" >> /tmp/epyon-env
+          echo "SKIP_SONAR=${SKIP_SONAR:-false}" >> /tmp/epyon-env
+          echo "SKIP_CLAMAV=${SKIP_CLAMAV:-false}" >> /tmp/epyon-env
+          echo "SKIP_HELM=${SKIP_HELM:-false}" >> /tmp/epyon-env
+          echo "SKIP_CHECKOV=${SKIP_CHECKOV:-false}" >> /tmp/epyon-env
+          echo "SKIP_TRIVY=${SKIP_TRIVY:-false}" >> /tmp/epyon-env
+          echo "SKIP_GRYPE=${SKIP_GRYPE:-false}" >> /tmp/epyon-env
+          echo "SKIP_XEOL=${SKIP_XEOL:-false}" >> /tmp/epyon-env
+          echo "SKIP_ANCHORE=${SKIP_ANCHORE:-false}" >> /tmp/epyon-env
+          echo "SKIP_API_DISCOVERY=${SKIP_API_DISCOVERY:-false}" >> /tmp/epyon-env
 
           # Propagate RUN_GARAK to SKIP_GARAK for legacy consumers; run_garak_layer reads RUN_GARAK directly.
           if [[ "${RUN_GARAK}" == "true" ]];  then echo "SKIP_GARAK=false" >> "$GITHUB_ENV"; fi
@@ -611,6 +690,7 @@ jobs:
             }
 
       - name: Create Scan Notification Issue
+        id: create-github-issue
         if: always() && steps.check-severity.outputs.has_issues == 'true'
         uses: actions/github-script@v7
         with:
@@ -657,6 +737,8 @@ jobs:
             if (existingIssues.data.length > 0) {
               const existing = existingIssues.data[0];
               console.log(`Open issue already exists (#${existing.number}): ${existing.html_url} — skipping creation`);
+              core.setOutput('issue_number', String(existing.number));
+              core.setOutput('issue_url', existing.html_url);
               return;
             }
 
@@ -712,6 +794,8 @@ jobs:
             });
 
             console.log(`Created issue #${issue.data.number}: ${issue.data.html_url}`);
+            core.setOutput('issue_number', String(issue.data.number));
+            core.setOutput('issue_url', issue.data.html_url);
 
       - name: Create JIRA Tickets for Critical/High Findings
         if: >
@@ -721,6 +805,9 @@ jobs:
           env.JIRA_BASE_URL != '' &&
           env.JIRA_API_TOKEN != ''
         shell: bash
+        env:
+          GITHUB_ISSUE_URL: ${{ steps.create-github-issue.outputs.issue_url }}
+          GITHUB_ISSUE_NUMBER: ${{ steps.create-github-issue.outputs.issue_number }}
         run: |
           set -euo pipefail
 
@@ -868,6 +955,39 @@ jobs:
           PYEOF
           }
 
+          # ── Helper: add a Jira Remote Link pointing back to the GitHub issue ──
+          link_jira_to_github() {
+            local jira_key="$1"
+            [[ -z "${GITHUB_ISSUE_URL:-}" ]] && return 0
+            local link_payload
+            link_payload=$(jq -n \
+              --arg global_id  "github-issue-${GITHUB_ISSUE_NUMBER:-0}" \
+              --arg gh_url     "${GITHUB_ISSUE_URL}" \
+              --arg gh_title   "GitHub Issue #${GITHUB_ISSUE_NUMBER:-}" \
+              '{
+                globalId: $global_id,
+                relationship: "GitHub Issue",
+                object: {
+                  url:   $gh_url,
+                  title: $gh_title,
+                  icon: {url16x16: "https://github.com/favicon.ico", title: "GitHub"}
+                }
+              }')
+            local link_http
+            link_http=$(curl -s -o /dev/null -w "%{http_code}" \
+              -X POST \
+              -H "Authorization: Basic ${AUTH}" \
+              -H "Content-Type: application/json" \
+              -H "Accept: application/json" \
+              --data "${link_payload}" \
+              "${JIRA_URL}/rest/api/3/issue/${jira_key}/remotelink")
+            if [[ "${link_http}" == "201" ]]; then
+              echo "✅ Linked ${jira_key} → GitHub issue #${GITHUB_ISSUE_NUMBER}"
+            else
+              echo "⚠️  Remote link on ${jira_key} returned HTTP ${link_http} — continuing"
+            fi
+          }
+
           # ── Helper: create one JIRA ticket ──
           create_jira_ticket() {
             local title="$1"
@@ -938,6 +1058,10 @@ jobs:
               echo "## ✅ JIRA Ticket Created" >> "${GITHUB_STEP_SUMMARY}"
               echo "- Severity group: **${label_severity}**" >> "${GITHUB_STEP_SUMMARY}"
               echo "- Ticket: [${new_key}](${JIRA_URL}/browse/${new_key})" >> "${GITHUB_STEP_SUMMARY}"
+
+              # Record ticket for back-linking to GitHub issue
+              echo "${new_key}|${JIRA_URL}/browse/${new_key}" >> /tmp/jira_created_tickets.txt
+              link_jira_to_github "${new_key}"
 
               # ── Assign to active sprint (best-effort; failure does not abort) ──
               echo "--- Looking up active sprint for project '${PROJECT_KEY}' ---"
@@ -1039,6 +1163,52 @@ jobs:
               "low_findings" \
               "Epyon found ${LOW_COUNT} low severity finding(s) in ${REPO_NAME} on ${TODAY}."
           fi
+
+      - name: Link Jira Tickets to GitHub Issue
+        if: >
+          always() &&
+          env.CREATE_JIRA_TICKETS == 'true' &&
+          steps.create-github-issue.outputs.issue_number != '' &&
+          env.JIRA_BASE_URL != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const issueNumber = parseInt('${{ steps.create-github-issue.outputs.issue_number }}');
+            if (!issueNumber) { console.log('No GitHub issue number — skipping Jira link comment'); return; }
+
+            const ticketsFile = '/tmp/jira_created_tickets.txt';
+            if (!fs.existsSync(ticketsFile)) {
+              console.log('No Jira tickets were created this run — skipping link comment');
+              return;
+            }
+
+            const lines = fs.readFileSync(ticketsFile, 'utf8').trim().split('\n').filter(Boolean);
+            if (!lines.length) { console.log('Jira tickets file is empty — skipping'); return; }
+
+            const jiraBaseUrl = '${{ env.JIRA_BASE_URL }}';
+            const ticketLinks = lines.map(line => {
+              const [key, url] = line.split('|');
+              return `- [${key}](${url})`;
+            }).join('\n');
+
+            const comment = [
+              '### 🎫 Jira Tickets Created',
+              '',
+              'The following Jira tickets were opened for these security findings:',
+              '',
+              ticketLinks,
+              '',
+              '_Each Jira ticket also carries a remote link back to this issue._',
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: comment,
+            });
+            console.log(`Posted ${lines.length} Jira ticket link(s) to GitHub issue #${issueNumber}`);
 
       - name: Fail on Critical Vulnerabilities
         if: always() && steps.check-severity.outputs.critical > 0

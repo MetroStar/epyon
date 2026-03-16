@@ -7,12 +7,8 @@ permissions:
   contents: read
 
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    types: [opened, synchronize, reopened]
   schedule:
-    # Run daily at 2 AM UTC
+    # Nightly run at 2 AM UTC
     - cron: '0 2 * * *'
   # checkov:skip=CKV_GHA_7:Workflow inputs control scan parameters not build artifacts
   workflow_dispatch:
@@ -31,35 +27,6 @@ on:
           - full
           - nightly
           - baseline
-      fail_on_critical:
-        description: 'Fail build on critical severity findings'
-        required: false
-        default: false
-        type: boolean
-      fail_on_high:
-        description: 'Fail build on high severity findings'
-        required: false
-        default: false
-        type: boolean
-      warning_only:
-        description: 'Report vulnerabilities but never fail the build'
-        required: false
-        default: true
-        type: boolean
-      coverage_artifact:
-        description: 'Optional: Name of coverage artifact from a prior job'
-        required: false
-        type: string
-      run_garak:
-        description: 'Explicitly run Garak LLM security probing (Layer 12)'
-        required: false
-        default: false
-        type: boolean
-      skip_garak:
-        description: 'Skip Garak LLM security probing (Layer 12)'
-        required: false
-        default: false
-        type: boolean
       garak_target_type:
         description: 'Garak generator type (e.g. test, openai, huggingface)'
         required: false
@@ -75,20 +42,67 @@ on:
         required: false
         default: 'promptinject,dan,knownbadsignatures,encoding,continuation'
         type: string
-      create_jira_tickets:
-        description: 'Create JIRA tickets for critical and high severity findings'
+      # ── Per-tool toggles — leave unchecked to run all tools ──────────────
+      skip_sbom:
+        description: 'Skip Layer 1 - SBOM generation'
         required: false
         default: false
         type: boolean
-      jira_project_key:
-        description: 'JIRA project key (e.g. SEC, INFRA)'
+      skip_trufflehog:
+        description: 'Skip Layer 2 - Secret detection (TruffleHog)'
         required: false
-        type: string
-      jira_issue_type:
-        description: 'JIRA issue type for created tickets'
+        default: false
+        type: boolean
+      skip_sonar:
+        description: 'Skip Layer 3 - Code quality (SonarQube)'
         required: false
-        default: 'Bug'
-        type: string
+        default: false
+        type: boolean
+      skip_clamav:
+        description: 'Skip Layer 4 - Malware detection (ClamAV)'
+        required: false
+        default: false
+        type: boolean
+      skip_helm:
+        description: 'Skip Layer 5 - Helm chart build'
+        required: false
+        default: false
+        type: boolean
+      skip_checkov:
+        description: 'Skip Layer 6 - Infrastructure security (Checkov)'
+        required: false
+        default: false
+        type: boolean
+      skip_trivy:
+        description: 'Skip Layer 7 - Container security (Trivy)'
+        required: false
+        default: false
+        type: boolean
+      skip_grype:
+        description: 'Skip Layer 8 - Vulnerability detection (Grype)'
+        required: false
+        default: false
+        type: boolean
+      skip_xeol:
+        description: 'Skip Layer 9 - End-of-life detection (Xeol)'
+        required: false
+        default: false
+        type: boolean
+      skip_anchore:
+        description: 'Skip Layer 10 - Anchore security'
+        required: false
+        default: false
+        type: boolean
+      skip_api_discovery:
+        description: 'Skip Layer 11 - API discovery'
+        required: false
+        default: false
+        type: boolean
+      skip_garak:
+        description: 'Skip Layer 12 - LLM security (Garak)'
+        required: false
+        default: false
+        type: boolean
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -103,18 +117,21 @@ jobs:
       issues: write
     uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
     with:
-      scan_mode: ${{ github.event_name == 'workflow_dispatch' && inputs.scan_mode || github.event_name == 'pull_request' && 'quick' || github.event_name == 'schedule' && 'nightly' || 'full' }}
-      subdirectory: ${{ github.event_name == 'workflow_dispatch' && inputs.subdirectory || '' }}
-      fail_on_critical: ${{ github.event_name != 'workflow_dispatch' && true || inputs.fail_on_critical != false }}
-      fail_on_high: ${{ github.event_name != 'workflow_dispatch' && true || inputs.fail_on_high != false }}
-      warning_only: ${{ github.event_name == 'workflow_dispatch' && inputs.warning_only == true || false }}
-      coverage_artifact: ${{ inputs.coverage_artifact || '' }}
-      run_garak: ${{ github.event_name == 'workflow_dispatch' && inputs.run_garak == true && 'true' || '' }}
-      skip_garak: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_garak == true || false }}
+      scan_mode: ${{ github.event_name == 'schedule' && 'nightly' || inputs.scan_mode || 'full' }}
+      subdirectory: ${{ inputs.subdirectory || '' }}
       garak_target_type: ${{ inputs.garak_target_type || 'openai' }}
       garak_target_name: ${{ inputs.garak_target_name || 'gpt-4o-mini' }}
       garak_probes: ${{ inputs.garak_probes || 'promptinject,dan,knownbadsignatures,encoding,continuation' }}
-      create_jira_tickets: ${{ inputs.create_jira_tickets || false }}
-      jira_project_key: ${{ inputs.jira_project_key || '' }}
-      jira_issue_type: ${{ inputs.jira_issue_type || 'Bug' }}
+      skip_sbom: ${{ inputs.skip_sbom || false }}
+      skip_trufflehog: ${{ inputs.skip_trufflehog || false }}
+      skip_sonar: ${{ inputs.skip_sonar || false }}
+      skip_clamav: ${{ inputs.skip_clamav || false }}
+      skip_helm: ${{ inputs.skip_helm || false }}
+      skip_checkov: ${{ inputs.skip_checkov || false }}
+      skip_trivy: ${{ inputs.skip_trivy || false }}
+      skip_grype: ${{ inputs.skip_grype || false }}
+      skip_xeol: ${{ inputs.skip_xeol || false }}
+      skip_anchore: ${{ inputs.skip_anchore || false }}
+      skip_api_discovery: ${{ inputs.skip_api_discovery || false }}
+      skip_garak: ${{ inputs.skip_garak || false }}
     secrets: inherit

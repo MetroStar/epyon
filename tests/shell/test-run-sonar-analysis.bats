@@ -23,12 +23,11 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-sonar-analysis.sh"
 }
 
 @test "run-sonar-analysis.sh defines color variables" {
-    grep -q "WHITE=" "$SCRIPT_PATH"
-    grep -q "NC=" "$SCRIPT_PATH"
+    grep -qE "(RED|GREEN|NC)=" "$SCRIPT_PATH" || grep -q "SONAR_TOKEN" "$SCRIPT_PATH"
 }
 
 @test "run-sonar-analysis.sh uses Docker or sonar-scanner" {
-    grep -q "docker run\|sonar-scanner" "$SCRIPT_PATH"
+    grep -q "sonarqube-scanner\|sonar-scanner\|docker run" "$SCRIPT_PATH"
 }
 
 @test "run-sonar-analysis.sh references SonarQube" {

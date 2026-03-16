@@ -249,7 +249,7 @@ jq -n \
 
 # Calculate manifest hash itself using canonical JSON (no extra whitespace)
 # Use compact output to ensure consistent formatting across platforms
-MANIFEST_HASH=$(jq -c '.' "$MANIFEST_FILE" | $HASH_CMD | awk '{print $1}')
+MANIFEST_HASH=$(jq -cS '.' "$MANIFEST_FILE" | $HASH_CMD | awk '{print $1}')
 
 # Update manifest with its own hash (use -S for sorted keys and compact output)
 jq -S --arg hash "sha256:$MANIFEST_HASH" '. + {manifest_hash: $hash}' "$MANIFEST_FILE" > "$MANIFEST_FILE.tmp"

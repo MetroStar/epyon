@@ -98,7 +98,7 @@ while [[ $# -gt 0 ]]; do
             shift 2 ;;
         --no-cache)         NO_CACHE=true; shift ;;
         --fetch-legacy)     FETCH_LEGACY=true; shift ;;
-        *) echo -e "${RED}❌ Unknown option: $1${NC}"; show_help ;;
+        *) echo -e "${RED}❌ Unknown option: $1${NC}" >&2; echo "Run with --help for usage." >&2; exit 1 ;;
     esac
 done
 

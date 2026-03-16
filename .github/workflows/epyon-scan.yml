@@ -426,6 +426,53 @@ jobs:
             cat "$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md" >> $GITHUB_STEP_SUMMARY
           fi
 
+      - name: Write Metrics Row
+        if: always()
+        run: |
+          cd epyon
+          SCAN_DIR="${{ steps.run-scan.outputs.scan_dir }}"
+          FINDINGS_JSON="$SCAN_DIR/security-findings-summary.json"
+
+          CRITICAL=0; HIGH=0; MEDIUM=0; LOW=0
+          HAS_FINDINGS=false
+          if [ -f "$FINDINGS_JSON" ]; then
+            HAS_FINDINGS=true
+            CRITICAL=$(jq -r '.summary.total_critical // 0' "$FINDINGS_JSON" 2>/dev/null || echo 0)
+            HIGH=$(jq -r     '.summary.total_high     // 0' "$FINDINGS_JSON" 2>/dev/null || echo 0)
+            MEDIUM=$(jq -r   '.summary.total_medium   // 0' "$FINDINGS_JSON" 2>/dev/null || echo 0)
+            LOW=$(jq -r      '.summary.total_low      // 0' "$FINDINGS_JSON" 2>/dev/null || echo 0)
+          fi
+
+          jq -cn \
+            --arg  scan_id        "${{ steps.run-scan.outputs.scan_id }}" \
+            --arg  target_name    "${{ inputs.repository_url || github.repository }}" \
+            --arg  scan_type      "${{ inputs.scan_mode }}" \
+            --arg  scan_user      "${{ github.actor }}" \
+            --arg  scan_timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg  repository     "${{ github.repository }}" \
+            --arg  run_id         "${{ github.run_id }}" \
+            --arg  run_url        "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --argjson critical    "$CRITICAL" \
+            --argjson high        "$HIGH" \
+            --argjson medium      "$MEDIUM" \
+            --argjson low         "$LOW" \
+            --argjson has_findings "$HAS_FINDINGS" \
+            '{
+              scan_id:             $scan_id,
+              target_name:         $target_name,
+              scan_type:           $scan_type,
+              scan_user:           $scan_user,
+              scan_timestamp:      $scan_timestamp,
+              repository:          $repository,
+              run_id:              $run_id,
+              run_url:             $run_url,
+              has_findings_summary:$has_findings,
+              critical:            $critical,
+              high:                $high,
+              medium:              $medium,
+              low:                 $low
+            }' >> "$SCAN_DIR/scan-metrics-row.jsonl"
+
       - name: Upload Complete Scan Results
         uses: actions/upload-artifact@v4
         if: always()
@@ -433,6 +480,15 @@ jobs:
           name: ${{ steps.run-scan.outputs.scan_id }}
           path: epyon/${{ steps.run-scan.outputs.scan_dir }}/
           retention-days: 30
+
+      - name: Upload Metrics Row
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: metrics-${{ steps.run-scan.outputs.scan_id }}
+          path: epyon/${{ steps.run-scan.outputs.scan_dir }}/scan-metrics-row.jsonl
+          if-no-files-found: warn
+          retention-days: 90
 
       - name: Check for Critical/High Vulnerabilities
         id: check-severity

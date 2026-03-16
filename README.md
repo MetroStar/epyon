@@ -48,7 +48,7 @@ Our roadmap is organized by level of certainty and timeframe, focusing on key ou
 
 This repository contains a **production-ready, enterprise-grade** multi-layer DevOps security architecture with **comprehensive test coverage**, **baseline scanning**, **automated comparison**, and **isolated scan directory architecture**. Built for real-world enterprise applications with Docker-based tooling and 304 automated tests.
 
-**Latest Update: March 11, 2026 (v2.6.2)** - Simplified GitHub Actions architecture by converting private/public scan workflows into thin callers of reusable `epyon-scan.yml`, added reusable external-repo targeting (`repository_url`, `pr_number`, `target_ref`) for public scans, and enabled Node24 action runtime hardening.
+**Latest Update: March 16, 2026 (v2.8.0)** - Added cross-scan metrics aggregator (`get-scan-metrics.sh`) with GitHub Actions artifact fetching, lightweight per-run metrics artifacts (90-day retention), and local metrics cache.
 
 ## 📋 Prerequisites
 
@@ -1582,7 +1582,19 @@ export TARGET_DIR="/workspace" && ./scripts/run-target-security-scan.sh "$TARGET
 **Status**: ✅ **ENTERPRISE PRODUCTION READY - COMPLETE ISOLATION**  
 **Validation**: Successfully tested with complete scan isolation, no centralized reports, full audit trail support
 
-### 🆕 Latest Updates (v2.5.0) - GitHub Actions Enhancements
+### 🆕 Latest Updates (v2.8.0) - Cross-Scan Metrics
+- ✅ **`get-scan-metrics.sh`**: aggregates findings across all local scan directories into a JSON time-series and color-coded terminal table, filterable by target, user, and date range
+- ✅ **GitHub Actions fetch (`--from-github`)**: pulls metrics from `metrics-{scan_id}` artifacts via `gh` CLI; auto-detects repo from git remote; `--repos` supports multi-repo aggregation; `--fetch-legacy` handles pre-2.8.0 full-scan artifact zips
+- ✅ **Lightweight metrics artifact per CI run**: `epyon-scan.yml` uploads a tiny `scan-metrics-row.jsonl` with 90-day retention so findings history outlives full-scan artifact expiry
+- ✅ **Local metrics cache**: downloaded GitHub rows cached in `metrics/github-cache/` for fast repeat invocations
+
+### 🆕 Previous Updates (v2.7.0) - Jira Integration & Garak Controls
+- ✅ **Jira ticket creation for all four severity tiers**: critical, high, medium, and low findings each generate deduplicated Jira tickets
+- ✅ **Jira deduplication**: existing open tickets are detected by label before creating new ones
+- ✅ **Garak workflow controls**: `workflow_dispatch` exposes target type, model preset, and probe set as UI controls
+- ✅ **Garak run summary**: CI step summary now includes Garak status, target, probe set, hit count, and exit code
+
+### 🆕 Previous Updates (v2.6.x) - GitHub Actions Architecture
 - ✅ **Sonar Project Key Auto-Derivation**: `scan-private-repo.yml` and `scan-public-repo.yml` now auto-derive a stable `SONAR_PROJECT_KEY` from `GITHUB_REPOSITORY` when the Actions variable is not set — no manual configuration required
 - ✅ **Subdirectory-Aware Sonar Keys**: Monorepo subdirectory scans produce unique, sanitized project keys (e.g., `owner_repo_apps_api`)
 - ✅ **Branch/PR Context**: Workflows export `SONAR_BRANCH`, `SONAR_PR_BRANCH`, and `SONAR_PR_BASE` for scanner context

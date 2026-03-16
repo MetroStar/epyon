@@ -27,6 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.0] - 2026-03-16
+
+### Added
+- **Cross-scan metrics aggregator** (`get-scan-metrics.sh`): new script that reads all local scan directories (`scans/`, `baseline/scans/`) and produces a JSON time-series (`scan-history.json`) plus a color-coded terminal table of findings trends across all time.
+- **GitHub Actions metrics fetch** (`--from-github`): `get-scan-metrics.sh` now supports pulling metrics directly from GitHub Actions artifacts via the `gh` CLI. Auto-detects the repo from the git remote; supports `--repos` for multi-repo aggregation, `--since` for date filtering, `--no-cache` to force re-download, and `--fetch-legacy` to extract metrics from older full-scan artifact zips.
+- **Lightweight metrics artifact per CI run**: `epyon-scan.yml` now writes a `scan-metrics-row.jsonl` file containing scan ID, target, type, actor, severity counts, repository, run ID, and a direct Actions run URL; this is uploaded as a separate `metrics-{scan_id}` artifact with 90-day retention so metrics persist well beyond the 30-day full-scan artifact window.
+- **Metrics row cache**: downloaded GitHub metrics rows are cached in `metrics/github-cache/` to avoid re-downloading on subsequent invocations; local-directory scans always take precedence over cached GitHub rows for the same scan ID.
+
 ## [2.7.0] - 2026-03-12
 
 ### Added

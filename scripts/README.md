@@ -29,6 +29,36 @@ cd shell
 - Dashboard generation and management
 - Report consolidation
 - Target-aware security scanning orchestration
+- `get-scan-metrics.sh` — Cross-scan metrics aggregator (see below)
+
+### Cross-Scan Metrics: `get-scan-metrics.sh`
+
+Aggregates findings across all local scan directories and optionally GitHub Actions artifacts, producing a JSON time-series and terminal table.
+
+```bash
+# Local scans only
+./get-scan-metrics.sh
+
+# Local + GitHub (auto-detects repo from git remote)
+./get-scan-metrics.sh --from-github
+
+# Filter by target or date range
+./get-scan-metrics.sh --from-github --target iris --since 2026-01-01
+
+# Multiple repos, output to file
+./get-scan-metrics.sh --from-github --repos org/repo1,org/repo2 --output metrics.json
+
+# Re-download GitHub data even if cached
+./get-scan-metrics.sh --from-github --no-cache
+
+# Also scan full artifact zips for pre-jsonl legacy runs (slow)
+./get-scan-metrics.sh --from-github --fetch-legacy
+```
+
+GitHub fetching requires the `gh` CLI to be installed and authenticated (`gh auth login`).
+
+Lightweight `metrics-{scan_id}` artifacts (90-day retention) are created by `epyon-scan.yml` for every CI run and contain only the small `scan-metrics-row.jsonl` file. Downloaded rows are cached in `metrics/github-cache/` to avoid re-downloading.
+
 
 ## 🪟 PowerShell Scripts (`powershell/`)
 

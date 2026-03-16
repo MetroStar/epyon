@@ -1,0 +1,133 @@
+{
+  "generated_at": "2026-03-16T14:34:13Z",
+  "total_scans": 6,
+  "scans_with_findings": 2,
+  "targets": [
+    "comet-starter",
+    "iris"
+  ],
+  "users": [
+    "rnelson"
+  ],
+  "scan_types": [
+    "full"
+  ],
+  "totals": {
+    "critical": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0
+  },
+  "trend": [
+    {
+      "scan_id": "comet-starter_rnelson_2026-01-22_08-41-30",
+      "target_name": "comet-starter",
+      "scan_type": "full",
+      "scan_user": "rnelson",
+      "scan_timestamp": "2026-01-22T14:41:32Z",
+      "scan_timestamp_local": "2026-01-22 08:41:32 CST",
+      "repository": "",
+      "run_id": "",
+      "run_url": "",
+      "has_findings_summary": true,
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "tools_analyzed": [
+        "Checkov",
+        "Trivy-filesystem",
+        "TruffleHog"
+      ]
+    },
+    {
+      "scan_id": "comet-starter_rnelson_2026-01-23_10-26-06",
+      "target_name": "comet-starter",
+      "scan_type": "full",
+      "scan_user": "rnelson",
+      "scan_timestamp": "2026-01-23T16:26:10Z",
+      "scan_timestamp_local": "2026-01-23 10:26:10 CST",
+      "repository": "",
+      "run_id": "",
+      "run_url": "",
+      "has_findings_summary": true,
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "tools_analyzed": [
+        "Checkov",
+        "Trivy-filesystem",
+        "TruffleHog"
+      ]
+    },
+    {
+      "scan_id": "iris_rnelson_2026-03-14_11-26-21",
+      "target_name": "iris",
+      "scan_type": "full",
+      "scan_user": "rnelson",
+      "scan_timestamp": "2026-03-14T16:27:43Z",
+      "scan_timestamp_local": "2026-03-14 11:27:43 CDT",
+      "repository": "",
+      "run_id": "",
+      "run_url": "",
+      "has_findings_summary": false,
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "tools_analyzed": []
+    },
+    {
+      "scan_id": "iris_rnelson_2026-03-14_23-06-45",
+      "target_name": "iris",
+      "scan_type": "full",
+      "scan_user": "rnelson",
+      "scan_timestamp": "2026-03-15T04:07:26Z",
+      "scan_timestamp_local": "2026-03-14 23:07:26 CDT",
+      "repository": "",
+      "run_id": "",
+      "run_url": "",
+      "has_findings_summary": false,
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "tools_analyzed": []
+    },
+    {
+      "scan_id": "iris_rnelson_2026-03-14_23-09-42",
+      "target_name": "iris",
+      "scan_type": "full",
+      "scan_user": "rnelson",
+      "scan_timestamp": "2026-03-15T04:10:04Z",
+      "scan_timestamp_local": "2026-03-14 23:10:04 CDT",
+      "repository": "",
+      "run_id": "",
+      "run_url": "",
+      "has_findings_summary": false,
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "tools_analyzed": []
+    },
+    {
+      "scan_id": "iris_rnelson_2026-03-14_23-13-09",
+      "target_name": "iris",
+      "scan_type": "full",
+      "scan_user": "rnelson",
+      "scan_timestamp": "2026-03-15T04:13:29Z",
+      "scan_timestamp_local": "2026-03-14 23:13:29 CDT",
+      "repository": "",
+      "run_id": "",
+      "run_url": "",
+      "has_findings_summary": false,
+      "critical": 0,
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "tools_analyzed": []
+    }
+  ]
+}

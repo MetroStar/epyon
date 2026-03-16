@@ -611,6 +611,7 @@ jobs:
             }
 
       - name: Create Scan Notification Issue
+        id: create-github-issue
         if: always() && steps.check-severity.outputs.has_issues == 'true'
         uses: actions/github-script@v7
         with:
@@ -657,6 +658,8 @@ jobs:
             if (existingIssues.data.length > 0) {
               const existing = existingIssues.data[0];
               console.log(`Open issue already exists (#${existing.number}): ${existing.html_url} — skipping creation`);
+              core.setOutput('issue_number', String(existing.number));
+              core.setOutput('issue_url', existing.html_url);
               return;
             }
 
@@ -712,6 +715,8 @@ jobs:
             });
 
             console.log(`Created issue #${issue.data.number}: ${issue.data.html_url}`);
+            core.setOutput('issue_number', String(issue.data.number));
+            core.setOutput('issue_url', issue.data.html_url);
 
       - name: Create JIRA Tickets for Critical/High Findings
         if: >
@@ -721,6 +726,9 @@ jobs:
           env.JIRA_BASE_URL != '' &&
           env.JIRA_API_TOKEN != ''
         shell: bash
+        env:
+          GITHUB_ISSUE_URL: ${{ steps.create-github-issue.outputs.issue_url }}
+          GITHUB_ISSUE_NUMBER: ${{ steps.create-github-issue.outputs.issue_number }}
         run: |
           set -euo pipefail
 
@@ -868,6 +876,39 @@ jobs:
           PYEOF
           }
 
+          # ── Helper: add a Jira Remote Link pointing back to the GitHub issue ──
+          link_jira_to_github() {
+            local jira_key="$1"
+            [[ -z "${GITHUB_ISSUE_URL:-}" ]] && return 0
+            local link_payload
+            link_payload=$(jq -n \
+              --arg global_id  "github-issue-${GITHUB_ISSUE_NUMBER:-0}" \
+              --arg gh_url     "${GITHUB_ISSUE_URL}" \
+              --arg gh_title   "GitHub Issue #${GITHUB_ISSUE_NUMBER:-}" \
+              '{
+                globalId: $global_id,
+                relationship: "GitHub Issue",
+                object: {
+                  url:   $gh_url,
+                  title: $gh_title,
+                  icon: {url16x16: "https://github.com/favicon.ico", title: "GitHub"}
+                }
+              }')
+            local link_http
+            link_http=$(curl -s -o /dev/null -w "%{http_code}" \
+              -X POST \
+              -H "Authorization: Basic ${AUTH}" \
+              -H "Content-Type: application/json" \
+              -H "Accept: application/json" \
+              --data "${link_payload}" \
+              "${JIRA_URL}/rest/api/3/issue/${jira_key}/remotelink")
+            if [[ "${link_http}" == "201" ]]; then
+              echo "✅ Linked ${jira_key} → GitHub issue #${GITHUB_ISSUE_NUMBER}"
+            else
+              echo "⚠️  Remote link on ${jira_key} returned HTTP ${link_http} — continuing"
+            fi
+          }
+
           # ── Helper: create one JIRA ticket ──
           create_jira_ticket() {
             local title="$1"
@@ -938,6 +979,10 @@ jobs:
               echo "## ✅ JIRA Ticket Created" >> "${GITHUB_STEP_SUMMARY}"
               echo "- Severity group: **${label_severity}**" >> "${GITHUB_STEP_SUMMARY}"
               echo "- Ticket: [${new_key}](${JIRA_URL}/browse/${new_key})" >> "${GITHUB_STEP_SUMMARY}"
+
+              # Record ticket for back-linking to GitHub issue
+              echo "${new_key}|${JIRA_URL}/browse/${new_key}" >> /tmp/jira_created_tickets.txt
+              link_jira_to_github "${new_key}"
 
               # ── Assign to active sprint (best-effort; failure does not abort) ──
               echo "--- Looking up active sprint for project '${PROJECT_KEY}' ---"
@@ -1039,6 +1084,52 @@ jobs:
               "low_findings" \
               "Epyon found ${LOW_COUNT} low severity finding(s) in ${REPO_NAME} on ${TODAY}."
           fi
+
+      - name: Link Jira Tickets to GitHub Issue
+        if: >
+          always() &&
+          env.CREATE_JIRA_TICKETS == 'true' &&
+          steps.create-github-issue.outputs.issue_number != '' &&
+          env.JIRA_BASE_URL != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const issueNumber = parseInt('${{ steps.create-github-issue.outputs.issue_number }}');
+            if (!issueNumber) { console.log('No GitHub issue number — skipping Jira link comment'); return; }
+
+            const ticketsFile = '/tmp/jira_created_tickets.txt';
+            if (!fs.existsSync(ticketsFile)) {
+              console.log('No Jira tickets were created this run — skipping link comment');
+              return;
+            }
+
+            const lines = fs.readFileSync(ticketsFile, 'utf8').trim().split('\n').filter(Boolean);
+            if (!lines.length) { console.log('Jira tickets file is empty — skipping'); return; }
+
+            const jiraBaseUrl = '${{ env.JIRA_BASE_URL }}';
+            const ticketLinks = lines.map(line => {
+              const [key, url] = line.split('|');
+              return `- [${key}](${url})`;
+            }).join('\n');
+
+            const comment = [
+              '### 🎫 Jira Tickets Created',
+              '',
+              'The following Jira tickets were opened for these security findings:',
+              '',
+              ticketLinks,
+              '',
+              '_Each Jira ticket also carries a remote link back to this issue._',
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: comment,
+            });
+            console.log(`Posted ${lines.length} Jira ticket link(s) to GitHub issue #${issueNumber}`);
 
       - name: Fail on Critical Vulnerabilities
         if: always() && steps.check-severity.outputs.critical > 0

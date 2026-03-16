@@ -294,14 +294,14 @@ fetch_github_metrics() {
                 continue
             fi
 
-            # Extract scan-metrics-row.jsonl from the zip
+            # Extract scan-metrics.json from the zip
             local JSONL_CONTENT
-            JSONL_CONTENT=$(unzip -p "$ZIP_FILE" 'scan-metrics-row.jsonl' 2>/dev/null | head -1)
+            JSONL_CONTENT=$(unzip -p "$ZIP_FILE" 'scan-metrics.json' 2>/dev/null | head -1)
             rm -f "$ZIP_FILE"
 
             if [[ -z "$JSONL_CONTENT" ]]; then
                 [[ "$QUIET" == false ]] && \
-                    echo -e "${YELLOW}    ⚠️  No scan-metrics-row.jsonl in artifact ${ART_NAME}${NC}"
+                    echo -e "${YELLOW}    ⚠️  No scan-metrics.json in artifact ${ART_NAME}${NC}"
                 continue
             fi
 
@@ -374,9 +374,9 @@ fetch_github_metrics() {
                 gh api "repos/${REPO}/actions/artifacts/${ART_ID}/zip" \
                     --output "$ZIP_FILE" 2>/dev/null || continue
 
-                # Try scan-metrics-row.jsonl first, then fall back to individual files
+                # Try scan-metrics.json first, then fall back to individual files
                 local JSONL_CONTENT
-                JSONL_CONTENT=$(unzip -p "$ZIP_FILE" 'scan-metrics-row.jsonl' 2>/dev/null | head -1)
+                JSONL_CONTENT=$(unzip -p "$ZIP_FILE" 'scan-metrics.json' 2>/dev/null | head -1)
 
                 if [[ -z "$JSONL_CONTENT" ]]; then
                     # Fall back: extract scan-metadata.json + security-findings-summary.json

@@ -488,7 +488,7 @@ jobs:
               high:                $high,
               medium:              $medium,
               low:                 $low
-            }' >> "$SCAN_DIR/scan-metrics-row.jsonl"
+            }' > "$SCAN_DIR/scan-metrics.json"
 
       - name: Upload Complete Scan Results
         uses: actions/upload-artifact@v4
@@ -503,7 +503,7 @@ jobs:
         if: always()
         with:
           name: metrics-${{ steps.run-scan.outputs.scan_id }}
-          path: epyon/${{ steps.run-scan.outputs.scan_dir }}/scan-metrics-row.jsonl
+          path: epyon/${{ steps.run-scan.outputs.scan_dir }}/scan-metrics.json
           if-no-files-found: warn
           retention-days: 90
 

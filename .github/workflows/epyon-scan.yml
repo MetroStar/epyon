@@ -91,6 +91,61 @@ on:
         required: false
         default: ''
         type: string
+      skip_sbom:
+        description: 'Skip Layer 1 - SBOM generation'
+        required: false
+        default: false
+        type: boolean
+      skip_trufflehog:
+        description: 'Skip Layer 2 - Secret detection (TruffleHog)'
+        required: false
+        default: false
+        type: boolean
+      skip_sonar:
+        description: 'Skip Layer 3 - Code quality (SonarQube)'
+        required: false
+        default: false
+        type: boolean
+      skip_clamav:
+        description: 'Skip Layer 4 - Malware detection (ClamAV)'
+        required: false
+        default: false
+        type: boolean
+      skip_helm:
+        description: 'Skip Layer 5 - Helm chart build'
+        required: false
+        default: false
+        type: boolean
+      skip_checkov:
+        description: 'Skip Layer 6 - Infrastructure security (Checkov)'
+        required: false
+        default: false
+        type: boolean
+      skip_trivy:
+        description: 'Skip Layer 7 - Container security (Trivy)'
+        required: false
+        default: false
+        type: boolean
+      skip_grype:
+        description: 'Skip Layer 8 - Vulnerability detection (Grype)'
+        required: false
+        default: false
+        type: boolean
+      skip_xeol:
+        description: 'Skip Layer 9 - End-of-life detection (Xeol)'
+        required: false
+        default: false
+        type: boolean
+      skip_anchore:
+        description: 'Skip Layer 10 - Anchore security'
+        required: false
+        default: false
+        type: boolean
+      skip_api_discovery:
+        description: 'Skip Layer 11 - API discovery'
+        required: false
+        default: false
+        type: boolean
       create_jira_tickets:
         description: 'Create JIRA tickets for critical and high severity findings'
         required: false
@@ -155,6 +210,17 @@ jobs:
       GARAK_PROBES: "${{ inputs.garak_probes }}"
       SKIP_GARAK: "${{ inputs.skip_garak }}"
       RUN_GARAK: "${{ inputs.run_garak }}"
+      SKIP_SBOM: "${{ inputs.skip_sbom }}"
+      SKIP_TRUFFLEHOG: "${{ inputs.skip_trufflehog }}"
+      SKIP_SONAR: "${{ inputs.skip_sonar }}"
+      SKIP_CLAMAV: "${{ inputs.skip_clamav }}"
+      SKIP_HELM: "${{ inputs.skip_helm }}"
+      SKIP_CHECKOV: "${{ inputs.skip_checkov }}"
+      SKIP_TRIVY: "${{ inputs.skip_trivy }}"
+      SKIP_GRYPE: "${{ inputs.skip_grype }}"
+      SKIP_XEOL: "${{ inputs.skip_xeol }}"
+      SKIP_ANCHORE: "${{ inputs.skip_anchore }}"
+      SKIP_API_DISCOVERY: "${{ inputs.skip_api_discovery }}"
       CREATE_JIRA_TICKETS: "${{ inputs.create_jira_tickets }}"
       JIRA_PROJECT_KEY: "${{ secrets.JIRA_PROJECT_KEY || inputs.jira_project_key }}"
       JIRA_ISSUE_TYPE: "${{ inputs.jira_issue_type }}"
@@ -303,6 +369,19 @@ jobs:
           echo "GARAK_TARGET_TYPE=${GARAK_TARGET_TYPE:-openai}" >> /tmp/epyon-env
           echo "GARAK_TARGET_NAME=${GARAK_TARGET_NAME:-gpt-4o-mini}" >> /tmp/epyon-env
           echo "GARAK_PROBES=${GARAK_PROBES:-promptinject,dan,knownbadsignatures,encoding,continuation}" >> /tmp/epyon-env
+
+          # Per-tool skip flags
+          echo "SKIP_SBOM=${SKIP_SBOM:-false}" >> /tmp/epyon-env
+          echo "SKIP_TRUFFLEHOG=${SKIP_TRUFFLEHOG:-false}" >> /tmp/epyon-env
+          echo "SKIP_SONAR=${SKIP_SONAR:-false}" >> /tmp/epyon-env
+          echo "SKIP_CLAMAV=${SKIP_CLAMAV:-false}" >> /tmp/epyon-env
+          echo "SKIP_HELM=${SKIP_HELM:-false}" >> /tmp/epyon-env
+          echo "SKIP_CHECKOV=${SKIP_CHECKOV:-false}" >> /tmp/epyon-env
+          echo "SKIP_TRIVY=${SKIP_TRIVY:-false}" >> /tmp/epyon-env
+          echo "SKIP_GRYPE=${SKIP_GRYPE:-false}" >> /tmp/epyon-env
+          echo "SKIP_XEOL=${SKIP_XEOL:-false}" >> /tmp/epyon-env
+          echo "SKIP_ANCHORE=${SKIP_ANCHORE:-false}" >> /tmp/epyon-env
+          echo "SKIP_API_DISCOVERY=${SKIP_API_DISCOVERY:-false}" >> /tmp/epyon-env
 
           # Propagate RUN_GARAK to SKIP_GARAK for legacy consumers; run_garak_layer reads RUN_GARAK directly.
           if [[ "${RUN_GARAK}" == "true" ]];  then echo "SKIP_GARAK=false" >> "$GITHUB_ENV"; fi

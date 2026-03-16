@@ -159,53 +159,92 @@ run_garak_layer() {
     '
 }
 
-# Layers 1-12 (existing behavior preserved)
-run_layer_script "Layer 1 - Generate SBOM" "scripts/shell/run-complete-sbom-scan.sh"
-run_layer_script "Layer 2 - Secret Detection (TruffleHog)" "scripts/shell/run-trufflehog-scan.sh" "filesystem"
-if [[ "${SCAN_MODE:-full}" != "quick" || "${RUN_SONAR_IN_QUICK}" == "true" ]]; then
+# ── Per-tool skip helpers ─────────────────────────────────────────────────────
+# Each tool respects a SKIP_<TOOL>=true env var for manual opt-out.
+_should_run_tool() {
+  local skip_var="$1"   # e.g. SKIP_TRIVY
+  [[ "${!skip_var:-false}" == "true" ]] && return 1
+  return 0
+}
+
+# Layers 1-12 (existing behavior preserved; individual tools are skippable)
+if _should_run_tool SKIP_SBOM; then
+  run_layer_script "Layer 1 - Generate SBOM" "scripts/shell/run-complete-sbom-scan.sh"
+else
+  echo "[INFO] Skipping Layer 1 - SBOM (SKIP_SBOM=true)"
+fi
+
+if _should_run_tool SKIP_TRUFFLEHOG; then
+  run_layer_script "Layer 2 - Secret Detection (TruffleHog)" "scripts/shell/run-trufflehog-scan.sh" "filesystem"
+else
+  echo "[INFO] Skipping Layer 2 - TruffleHog (SKIP_TRUFFLEHOG=true)"
+fi
+
+if _should_run_tool SKIP_SONAR && [[ "${SCAN_MODE:-full}" != "quick" || "${RUN_SONAR_IN_QUICK}" == "true" ]]; then
   run_sonar_layer
 else
-  echo "[INFO] Skipping Layer 3 (quick mode)"
+  [[ "${SKIP_SONAR:-false}" == "true" ]] && echo "[INFO] Skipping Layer 3 - Sonar (SKIP_SONAR=true)" || echo "[INFO] Skipping Layer 3 (quick mode)"
 fi
 
-if [[ "${SCAN_MODE:-full}" != "quick" ]]; then
+if _should_run_tool SKIP_CLAMAV && [[ "${SCAN_MODE:-full}" != "quick" ]]; then
   run_layer_script "Layer 4 - Malware Detection (ClamAV)" "scripts/shell/run-clamav-scan.sh"
 else
-  echo "[INFO] Skipping Layer 4 (quick mode)"
+  [[ "${SKIP_CLAMAV:-false}" == "true" ]] && echo "[INFO] Skipping Layer 4 - ClamAV (SKIP_CLAMAV=true)" || echo "[INFO] Skipping Layer 4 (quick mode)"
 fi
 
-run_layer_script "Layer 5 - Helm Chart Build" "scripts/shell/run-helm-build.sh"
+if _should_run_tool SKIP_HELM; then
+  run_layer_script "Layer 5 - Helm Chart Build" "scripts/shell/run-helm-build.sh"
+else
+  echo "[INFO] Skipping Layer 5 - Helm (SKIP_HELM=true)"
+fi
 
-if [[ "${SCAN_MODE:-full}" != "quick" ]]; then
+if _should_run_tool SKIP_CHECKOV && [[ "${SCAN_MODE:-full}" != "quick" ]]; then
   run_group "Layer 6 - Infrastructure Security (Checkov)" bash -lc '
     chmod +x scripts/shell/run-checkov-scan.sh
     CI=true SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-checkov-scan.sh || echo "Checkov scan completed with warnings"
   '
 else
-  echo "[INFO] Skipping Layer 6 (quick mode)"
+  [[ "${SKIP_CHECKOV:-false}" == "true" ]] && echo "[INFO] Skipping Layer 6 - Checkov (SKIP_CHECKOV=true)" || echo "[INFO] Skipping Layer 6 (quick mode)"
 fi
 
-run_group "Layer 7 - Container Security (Trivy)" bash -lc '
-  chmod +x scripts/shell/run-trivy-scan.sh
-  SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-trivy-scan.sh filesystem || echo "Trivy scan completed with warnings"
-  SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-trivy-scan.sh base || echo "Trivy base image scan completed with warnings"
-'
+if _should_run_tool SKIP_TRIVY; then
+  run_group "Layer 7 - Container Security (Trivy)" bash -lc '
+    chmod +x scripts/shell/run-trivy-scan.sh
+    SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-trivy-scan.sh filesystem || echo "Trivy scan completed with warnings"
+    SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-trivy-scan.sh base || echo "Trivy base image scan completed with warnings"
+  '
+else
+  echo "[INFO] Skipping Layer 7 - Trivy (SKIP_TRIVY=true)"
+fi
 
-run_group "Layer 8 - Vulnerability Detection (Grype)" bash -lc '
-  chmod +x scripts/shell/run-grype-scan.sh
-  SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-grype-scan.sh sbom || echo "Grype SBOM scan completed with warnings"
-  SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-grype-scan.sh images || echo "Grype image scan completed with warnings"
-'
+if _should_run_tool SKIP_GRYPE; then
+  run_group "Layer 8 - Vulnerability Detection (Grype)" bash -lc '
+    chmod +x scripts/shell/run-grype-scan.sh
+    SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-grype-scan.sh sbom || echo "Grype SBOM scan completed with warnings"
+    SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-grype-scan.sh images || echo "Grype image scan completed with warnings"
+  '
+else
+  echo "[INFO] Skipping Layer 8 - Grype (SKIP_GRYPE=true)"
+fi
 
-run_layer_script "Layer 9 - End-of-Life Detection (Xeol)" "scripts/shell/run-xeol-scan.sh"
+if _should_run_tool SKIP_XEOL; then
+  run_layer_script "Layer 9 - End-of-Life Detection (Xeol)" "scripts/shell/run-xeol-scan.sh"
+else
+  echo "[INFO] Skipping Layer 9 - Xeol (SKIP_XEOL=true)"
+fi
 
-if [[ "${SCAN_MODE:-full}" != "quick" ]]; then
+if _should_run_tool SKIP_ANCHORE && [[ "${SCAN_MODE:-full}" != "quick" ]]; then
   run_layer_script "Layer 10 - Anchore Security" "scripts/shell/run-anchore-scan.sh"
 else
-  echo "[INFO] Skipping Layer 10 (quick mode)"
+  [[ "${SKIP_ANCHORE:-false}" == "true" ]] && echo "[INFO] Skipping Layer 10 - Anchore (SKIP_ANCHORE=true)" || echo "[INFO] Skipping Layer 10 (quick mode)"
 fi
 
-run_layer_script "Layer 11 - API Discovery" "scripts/shell/run-api-discovery.sh"
+if _should_run_tool SKIP_API_DISCOVERY; then
+  run_layer_script "Layer 11 - API Discovery" "scripts/shell/run-api-discovery.sh"
+else
+  echo "[INFO] Skipping Layer 11 - API Discovery (SKIP_API_DISCOVERY=true)"
+fi
+
 run_garak_layer
 
 run_group "Generate Scan Manifest" bash -lc '

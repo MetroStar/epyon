@@ -98,6 +98,11 @@ on:
         required: false
         default: false
         type: boolean
+      skip_garak:
+        description: 'Skip Layer 12 - LLM security (Garak)'
+        required: false
+        default: false
+        type: boolean
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -128,4 +133,5 @@ jobs:
       skip_xeol: ${{ inputs.skip_xeol || false }}
       skip_anchore: ${{ inputs.skip_anchore || false }}
       skip_api_discovery: ${{ inputs.skip_api_discovery || false }}
+      skip_garak: ${{ inputs.skip_garak || false }}
     secrets: inherit

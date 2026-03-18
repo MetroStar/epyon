@@ -111,7 +111,7 @@ while IFS= read -r file; do
     
     if [[ ! -f "$FILE_PATH" ]]; then
         echo -e "${YELLOW}   ⚠ Missing: $file${NC}"
-        ((MISSING++))
+        (( MISSING += 1 ))
         continue
     fi
     
@@ -120,12 +120,12 @@ while IFS= read -r file; do
     
     if [[ "sha256:$ACTUAL_HASH" == "$EXPECTED_HASH" ]]; then
         echo -e "${GREEN}   ✓ $file${NC}"
-        ((VERIFIED++))
+        (( VERIFIED += 1 ))
     else
         echo -e "${RED}   ✗ $file${NC}"
         echo "     Expected: $EXPECTED_HASH"
         echo "     Actual:   sha256:$ACTUAL_HASH"
-        ((FAILED++))
+        (( FAILED += 1 ))
     fi
 done < <(jq -r '.file_hashes | keys[]' "$MANIFEST_FILE")
 

@@ -465,12 +465,14 @@ EOF
             if [[ -f "$checkov_file" ]]; then
                 tools_analyzed+=("Checkov")
                 
-                # Extract Checkov findings - they use different severity classification
+                # Extract Checkov findings - all failed checks are HIGH priority (IaC misconfigurations),
+                # consistent with the dashboard convention: Checkov failures are not CVEs so they
+                # should NOT be counted as CRITICAL, but all of them warrant HIGH priority.
                 local checkov_failures=$(jq -r --arg tool "Checkov" '
                     [.results.failed_checks[]? | {
                         tool: $tool,
                         type: "iac_misconfiguration",
-                        severity: (if .severity == "HIGH" then "High" elif .severity == "MEDIUM" then "Medium" elif .severity == "CRITICAL" then "Critical" else "Low" end),
+                        severity: "High",
                         id: .check_id,
                         description: .check_name,
                         file: .file_path,

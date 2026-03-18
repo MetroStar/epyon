@@ -1,17 +1,10 @@
 name: Promote Test to Main
 
 on:
-  push:
-    branches:
-      - test
   workflow_dispatch:
 
 permissions:
   contents: write
-
-concurrency:
-  group: epyon-refs/heads/test
-  cancel-in-progress: false
 
 jobs:
   test:

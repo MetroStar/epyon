@@ -53,6 +53,7 @@ jobs:
 
       - name: Merge test into main
         run: |
-          git checkout main
+          git fetch origin main test
+          git checkout -B main origin/main
           git merge --ff-only origin/test
           git push origin main

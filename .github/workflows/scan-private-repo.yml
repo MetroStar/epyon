@@ -38,71 +38,19 @@ on:
         default: 'gpt-4o-mini'
         type: string
       garak_probes:
-        description: 'Comma-separated Garak probes or probe groups'
+        description: 'Garak probe set'
         required: false
         default: 'promptinject,dan,knownbadsignatures,encoding,continuation'
-        type: string
-      # ── Per-tool toggles — leave unchecked to run all tools ──────────────
-      skip_sbom:
-        description: 'Skip Layer 1 - SBOM generation'
-        required: false
-        default: false
-        type: boolean
-      skip_trufflehog:
-        description: 'Skip Layer 2 - Secret detection (TruffleHog)'
-        required: false
-        default: false
-        type: boolean
-      skip_sonar:
-        description: 'Skip Layer 3 - Code quality (SonarQube)'
-        required: false
-        default: false
-        type: boolean
-      skip_clamav:
-        description: 'Skip Layer 4 - Malware detection (ClamAV)'
-        required: false
-        default: false
-        type: boolean
-      skip_helm:
-        description: 'Skip Layer 5 - Helm chart build'
-        required: false
-        default: false
-        type: boolean
-      skip_checkov:
-        description: 'Skip Layer 6 - Infrastructure security (Checkov)'
-        required: false
-        default: false
-        type: boolean
-      skip_trivy:
-        description: 'Skip Layer 7 - Container security (Trivy)'
-        required: false
-        default: false
-        type: boolean
-      skip_grype:
-        description: 'Skip Layer 8 - Vulnerability detection (Grype)'
-        required: false
-        default: false
-        type: boolean
-      skip_xeol:
-        description: 'Skip Layer 9 - End-of-life detection (Xeol)'
-        required: false
-        default: false
-        type: boolean
-      skip_anchore:
-        description: 'Skip Layer 10 - Anchore security'
-        required: false
-        default: false
-        type: boolean
-      skip_api_discovery:
-        description: 'Skip Layer 11 - API discovery'
-        required: false
-        default: false
-        type: boolean
-      skip_garak:
-        description: 'Skip Layer 12 - LLM security (Garak)'
-        required: false
-        default: false
-        type: boolean
+        type: choice
+        options:
+          - promptinject,dan,knownbadsignatures,encoding,continuation
+          - promptinject
+          - dan
+          - encoding
+          - knownbadsignatures
+          - xss
+          - lmrc
+          - all
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -122,16 +70,4 @@ jobs:
       garak_target_type: ${{ inputs.garak_target_type || 'openai' }}
       garak_target_name: ${{ inputs.garak_target_name || 'gpt-4o-mini' }}
       garak_probes: ${{ inputs.garak_probes || 'promptinject,dan,knownbadsignatures,encoding,continuation' }}
-      skip_sbom: ${{ inputs.skip_sbom || false }}
-      skip_trufflehog: ${{ inputs.skip_trufflehog || false }}
-      skip_sonar: ${{ inputs.skip_sonar || false }}
-      skip_clamav: ${{ inputs.skip_clamav || false }}
-      skip_helm: ${{ inputs.skip_helm || false }}
-      skip_checkov: ${{ inputs.skip_checkov || false }}
-      skip_trivy: ${{ inputs.skip_trivy || false }}
-      skip_grype: ${{ inputs.skip_grype || false }}
-      skip_xeol: ${{ inputs.skip_xeol || false }}
-      skip_anchore: ${{ inputs.skip_anchore || false }}
-      skip_api_discovery: ${{ inputs.skip_api_discovery || false }}
-      skip_garak: ${{ inputs.skip_garak || false }}
     secrets: inherit

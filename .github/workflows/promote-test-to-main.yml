@@ -9,6 +9,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: epyon-refs/heads/test
+  cancel-in-progress: false
+
 jobs:
   test:
     name: Run BATS tests

@@ -14,8 +14,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: epyon-ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: epyon-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   test:

@@ -39,6 +39,7 @@ jobs:
     name: Merge test → main
     needs: [test, security-scan]
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

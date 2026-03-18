@@ -50,18 +50,10 @@ on:
         default: 'gpt-4o-mini'
         type: string
       garak_probes:
-        description: 'Garak probe set'
+        description: 'Garak probe set (comma-separated, e.g. promptinject,dan,knownbadsignatures,encoding,continuation)'
         required: false
-        default: 'promptinject'
-        type: choice
-        options:
-          - promptinject
-          - dan
-          - encoding
-          - knownbadsignatures
-          - xss
-          - lmrc
-          - all
+        default: 'promptinject,dan,knownbadsignatures,encoding,continuation'
+        type: string
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true

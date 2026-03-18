@@ -133,7 +133,7 @@ EOF
     local trufflehog_dir="$SCAN_DIR/trufflehog"
     if [[ -d "$trufflehog_dir" ]]; then
         for trufflehog_file in "$trufflehog_dir"/*-results.json; do
-            if [[ -f "$trufflehog_file" ]]; then
+            if [[ -f "$trufflehog_file" ]] && [[ ! -L "$trufflehog_file" ]]; then
                 tools_analyzed+=("TruffleHog")
                 
                 # Count secrets by type and verification status (TruffleHog uses NDJSON format)
@@ -462,7 +462,7 @@ EOF
     local checkov_dir="$SCAN_DIR/checkov"
     if [[ -d "$checkov_dir" ]]; then
         for checkov_file in "$checkov_dir"/*-results.json; do
-            if [[ -f "$checkov_file" ]]; then
+            if [[ -f "$checkov_file" ]] && [[ ! -L "$checkov_file" ]]; then
                 tools_analyzed+=("Checkov")
                 
                 # Extract Checkov findings - all failed checks are HIGH priority (IaC misconfigurations),

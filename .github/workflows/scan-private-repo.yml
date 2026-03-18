@@ -68,7 +68,7 @@ env:
 
 jobs:
   security-scan-main:
-    if: github.event_name == 'schedule' || inputs.epyon_branch == 'main' || inputs.epyon_branch == ''
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.epyon_branch == 'main' || github.event.inputs.epyon_branch == ''))
     permissions:
       contents: read
       actions: read
@@ -77,15 +77,15 @@ jobs:
       issues: write
     uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
     with:
-      scan_mode: ${{ github.event_name == 'schedule' && 'nightly' || inputs.scan_mode || 'full' }}
-      subdirectory: ${{ inputs.subdirectory || '' }}
-      garak_target_type: ${{ inputs.garak_target_type || 'openai' }}
-      garak_target_name: ${{ inputs.garak_target_name || 'gpt-4o-mini' }}
-      garak_probes: ${{ inputs.garak_probes || 'promptinject,dan,knownbadsignatures,encoding,continuation' }}
+      scan_mode: ${{ github.event_name == 'schedule' && 'nightly' || github.event.inputs.scan_mode || 'full' }}
+      subdirectory: ${{ github.event.inputs.subdirectory || '' }}
+      garak_target_type: ${{ github.event.inputs.garak_target_type || 'openai' }}
+      garak_target_name: ${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
+      garak_probes: ${{ github.event.inputs.garak_probes || 'promptinject,dan,knownbadsignatures,encoding,continuation' }}
     secrets: inherit
 
   security-scan-test:
-    if: github.event_name != 'schedule' && inputs.epyon_branch == 'test'
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.epyon_branch == 'test'
     permissions:
       contents: read
       actions: read
@@ -94,9 +94,9 @@ jobs:
       issues: write
     uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@test
     with:
-      scan_mode: ${{ inputs.scan_mode || 'full' }}
-      subdirectory: ${{ inputs.subdirectory || '' }}
-      garak_target_type: ${{ inputs.garak_target_type || 'openai' }}
-      garak_target_name: ${{ inputs.garak_target_name || 'gpt-4o-mini' }}
-      garak_probes: ${{ inputs.garak_probes || 'promptinject,dan,knownbadsignatures,encoding,continuation' }}
+      scan_mode: ${{ github.event.inputs.scan_mode || 'full' }}
+      subdirectory: ${{ github.event.inputs.subdirectory || '' }}
+      garak_target_type: ${{ github.event.inputs.garak_target_type || 'openai' }}
+      garak_target_name: ${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
+      garak_probes: ${{ github.event.inputs.garak_probes || 'promptinject,dan,knownbadsignatures,encoding,continuation' }}
     secrets: inherit

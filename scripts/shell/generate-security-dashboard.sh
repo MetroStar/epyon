@@ -1963,6 +1963,11 @@ if [ -d "$GARAK_DIR" ]; then
             GARAK_PROBE_FAMILY=$(echo "$GARAK_PROBE_NAME" | cut -d'.' -f1 | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-')
             [ -z "$GARAK_PROBE_FAMILY" ] && GARAK_PROBE_FAMILY="unknown"
 
+            # Full classname used as sub-accordion key within the family.
+            GARAK_PROBE_CLASSNAME=$(echo "$GARAK_PROBE_NAME" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9._-')
+            [ -z "$GARAK_PROBE_CLASSNAME" ] && GARAK_PROBE_CLASSNAME="unknown"
+            mkdir -p "${GARAK_TMPDIR}/${GARAK_PROBE_FAMILY}"
+
             GARAK_PROMPT_RAW=$(echo "$hit_line" | jq -r '.prompt // .attempt.prompt // .attempt.input // .input // .goal // .trigger // empty' 2>/dev/null || echo "")
             GARAK_RESPONSE_RAW=$(echo "$hit_line" | jq -r '.response // .output // .attempt.output // .attempt.response // .result // .attempt.result // empty' 2>/dev/null || echo "")
 
@@ -2005,20 +2010,31 @@ ${GARAK_DETAILS_HTML}\
 </div>\
 </div>"
 
-            # Append card to per-family temp file (grouped by probe family, sorted alphabetically by filename).
-            printf '%s' "$GARAK_CARD_HTML" >> "${GARAK_TMPDIR}/${GARAK_PROBE_FAMILY}"
+            # Append card to per-classname file inside the family subdirectory.
+            printf '%s' "$GARAK_CARD_HTML" >> "${GARAK_TMPDIR}/${GARAK_PROBE_FAMILY}/${GARAK_PROBE_CLASSNAME}"
         done < "$GARAK_HIT_LOG"
 
-        # Build one sub-accordion <details> per probe family, sorted alphabetically.
+        # Build two-level accordion: family (outer) → classname (inner).
         GARAK_HIT_PREVIEW=""
-        for family_file in $(ls -1 "${GARAK_TMPDIR}" 2>/dev/null | sort); do
-            GARAK_FAM_COUNT=$(grep -o 'class="finding-item severity-high"' "${GARAK_TMPDIR}/${family_file}" 2>/dev/null | wc -l | tr -d ' ')
-            [ -z "$GARAK_FAM_COUNT" ] || [ "$GARAK_FAM_COUNT" -eq 0 ] 2>/dev/null && GARAK_FAM_COUNT=1
+        for family_dir in $(ls -1d "${GARAK_TMPDIR}"/*/  2>/dev/null | sort); do
+            family=$(basename "$family_dir")
+            GARAK_FAM_COUNT=$(grep -roh 'class="finding-item severity-high"' "${family_dir}" 2>/dev/null | wc -l | tr -d ' ')
+            [ -z "$GARAK_FAM_COUNT" ] || [ "$GARAK_FAM_COUNT" -eq 0 ] 2>/dev/null && GARAK_FAM_COUNT=0
             GARAK_FAM_PLURAL=$([ "${GARAK_FAM_COUNT}" -gt 1 ] && echo "hits" || echo "hit")
-            GARAK_FAM_REMEDIATION=$(garak_probe_remediation "$family_file")
+            GARAK_FAM_REMEDIATION=$(garak_probe_remediation "$family")
             GARAK_FAM_REMEDIATION_SAFE=$(printf '%s' "$GARAK_FAM_REMEDIATION" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')
-            GARAK_FAM_CARDS=$(cat "${GARAK_TMPDIR}/${family_file}")
-            GARAK_HIT_PREVIEW="${GARAK_HIT_PREVIEW}<details class=\"garak-probe-group\"><summary class=\"garak-probe-summary\"><span class=\"garak-probe-arrow\">&#9654;</span><span class=\"garak-probe-family-name\">${family_file}</span><span class=\"badge badge-high\" style=\"margin-left:10px;font-size:0.78em;vertical-align:middle;\">${GARAK_FAM_COUNT} ${GARAK_FAM_PLURAL}</span><span class=\"garak-probe-remediation-hint\">&#x1F6E1;&#xFE0F; ${GARAK_FAM_REMEDIATION_SAFE}</span></summary><div class=\"garak-probe-body\">${GARAK_FAM_CARDS}</div></details>"
+
+            # Inner sub-accordions: one per full classname.
+            INNER_HTML=""
+            for class_file in $(ls -1 "${family_dir}" 2>/dev/null | sort); do
+                CLASS_COUNT=$(grep -oh 'class="finding-item severity-high"' "${family_dir}${class_file}" 2>/dev/null | wc -l | tr -d ' ')
+                [ -z "$CLASS_COUNT" ] || [ "$CLASS_COUNT" -eq 0 ] 2>/dev/null && CLASS_COUNT=0
+                CLASS_PLURAL=$([ "${CLASS_COUNT}" -gt 1 ] && echo "hits" || echo "hit")
+                CLASS_CARDS=$(cat "${family_dir}${class_file}")
+                INNER_HTML="${INNER_HTML}<details class=\"garak-probe-group\" style=\"margin-left:16px;margin-top:4px;\"><summary class=\"garak-probe-summary\"><span class=\"garak-probe-arrow\">&#9654;</span><span class=\"garak-probe-family-name\" style=\"font-size:0.9em;\">${class_file}</span><span class=\"badge badge-high\" style=\"margin-left:10px;font-size:0.72em;vertical-align:middle;\">${CLASS_COUNT} ${CLASS_PLURAL}</span></summary><div class=\"garak-probe-body\">${CLASS_CARDS}</div></details>"
+            done
+
+            GARAK_HIT_PREVIEW="${GARAK_HIT_PREVIEW}<details class=\"garak-probe-group\"><summary class=\"garak-probe-summary\"><span class=\"garak-probe-arrow\">&#9654;</span><span class=\"garak-probe-family-name\">${family}</span><span class=\"badge badge-high\" style=\"margin-left:10px;font-size:0.78em;vertical-align:middle;\">${GARAK_FAM_COUNT} ${GARAK_FAM_PLURAL}</span><span class=\"garak-probe-remediation-hint\">&#x1F6E1;&#xFE0F; ${GARAK_FAM_REMEDIATION_SAFE}</span></summary><div class=\"garak-probe-body\">${INNER_HTML}</div></details>"
         done
         rm -rf "$GARAK_TMPDIR"
 

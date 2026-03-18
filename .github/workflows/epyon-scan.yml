@@ -208,6 +208,8 @@ jobs:
       GARAK_TARGET_TYPE: "${{ inputs.garak_target_type }}"
       GARAK_TARGET_NAME: "${{ inputs.garak_target_name }}"
       GARAK_PROBES: "${{ inputs.garak_probes }}"
+      GARAK_TIMEOUT: "300"
+      GARAK_GENERATIONS: "5"
       SKIP_GARAK: "${{ inputs.skip_garak }}"
       RUN_GARAK: "${{ inputs.run_garak }}"
       SKIP_SBOM: "${{ inputs.skip_sbom }}"

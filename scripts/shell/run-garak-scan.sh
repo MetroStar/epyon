@@ -181,6 +181,9 @@ echo "Runtime classification: $GARAK_RUNTIME_CLASSIFICATION" >> "$SCAN_LOG"
 echo "Target origin: $GARAK_TARGET_ORIGIN" >> "$SCAN_LOG"
 echo "Probes: $GARAK_PROBES" >> "$SCAN_LOG"
 
+GARAK_TIMEOUT="${GARAK_TIMEOUT:-300}"
+GARAK_GENERATIONS="${GARAK_GENERATIONS:-5}"
+
 if ! command -v python3 >/dev/null 2>&1; then
     echo -e "${RED}❌ python3 is required for garak${NC}"
     cat > "$RESULTS_FILE" << EOF
@@ -287,23 +290,39 @@ else
     MODEL_ARGS=(--target_type "$GARAK_TARGET_TYPE" --target_name "$GARAK_TARGET_NAME")
 fi
 
+# Limit generations per probe to prevent runaway API calls; cap total runtime with timeout.
+GENERATIONS_ARGS=()
+if echo "$GARAK_HELP_TEXT" | grep -q -- "--generations"; then
+    GENERATIONS_ARGS=(--generations "$GARAK_GENERATIONS")
+fi
+
 echo -e "${BLUE}🔍 Running garak probe scan...${NC}"
-echo "Command: ${GARAK_CMD[*]} ${MODEL_ARGS[*]} --probes $GARAK_PROBES ${REPORT_PREFIX_ARGS[*]}" | tee -a "$SCAN_LOG"
+echo "Timeout: ${GARAK_TIMEOUT}s | Generations per probe: ${GARAK_GENERATIONS}" | tee -a "$SCAN_LOG"
+echo "Command: ${GARAK_CMD[*]} ${MODEL_ARGS[*]} --probes $GARAK_PROBES ${GENERATIONS_ARGS[*]} ${REPORT_PREFIX_ARGS[*]}" | tee -a "$SCAN_LOG"
 
 set +e
 (
     cd "$TARGET_SCAN_DIR" || exit 1
-    "${GARAK_CMD[@]}" \
+    timeout "$GARAK_TIMEOUT" \
+        "${GARAK_CMD[@]}" \
         "${MODEL_ARGS[@]}" \
         --probes "$GARAK_PROBES" \
+        "${GENERATIONS_ARGS[@]}" \
         "${REPORT_PREFIX_ARGS[@]}"
 ) > "$CONSOLE_LOG" 2>&1
 GARAK_EXIT=$?
 set -e
 
+if [[ "$GARAK_EXIT" -eq 124 ]]; then
+    echo -e "${YELLOW}⚠️  Garak timed out after ${GARAK_TIMEOUT}s — partial results may be available${NC}" | tee -a "$SCAN_LOG"
+fi
+
 if [[ "$GARAK_EXIT" -eq 0 ]]; then
     SCAN_STATUS="success"
     STATUS_REASON="scan completed"
+elif [[ "$GARAK_EXIT" -eq 124 ]]; then
+    SCAN_STATUS="timeout"
+    STATUS_REASON="garak timed out after ${GARAK_TIMEOUT}s"
 else
     # garak may return non-zero for runtime/model issues; keep artifacts and continue pipeline.
     SCAN_STATUS="failed"

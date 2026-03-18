@@ -27,6 +27,14 @@ on:
           - full
           - nightly
           - baseline
+      epyon_branch:
+        description: 'Epyon branch to run against (main = production, test = staging)'
+        required: false
+        default: 'main'
+        type: choice
+        options:
+          - main
+          - test
       garak_target_type:
         description: 'Garak generator type (e.g. test, openai, huggingface)'
         required: false
@@ -56,7 +64,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  security-scan:
+  security-scan-main:
+    if: github.event_name == 'schedule' || inputs.epyon_branch == 'main' || inputs.epyon_branch == ''
     permissions:
       contents: read
       actions: read
@@ -66,6 +75,23 @@ jobs:
     uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
     with:
       scan_mode: ${{ github.event_name == 'schedule' && 'nightly' || inputs.scan_mode || 'full' }}
+      subdirectory: ${{ inputs.subdirectory || '' }}
+      garak_target_type: ${{ inputs.garak_target_type || 'openai' }}
+      garak_target_name: ${{ inputs.garak_target_name || 'gpt-4o-mini' }}
+      garak_probes: ${{ inputs.garak_probes || 'promptinject' }}
+    secrets: inherit
+
+  security-scan-test:
+    if: github.event_name != 'schedule' && inputs.epyon_branch == 'test'
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      security-events: write
+      issues: write
+    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@test
+    with:
+      scan_mode: ${{ inputs.scan_mode || 'full' }}
       subdirectory: ${{ inputs.subdirectory || '' }}
       garak_target_type: ${{ inputs.garak_target_type || 'openai' }}
       garak_target_name: ${{ inputs.garak_target_name || 'gpt-4o-mini' }}

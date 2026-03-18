@@ -726,7 +726,9 @@ jobs:
             }
 
             // Dedup: skip if an open issue with the same severity label already exists
-            const dedupLabel = parseInt(critical) > 0 ? 'critical' : 'high-severity';
+            const dedupLabel = parseInt(critical) > 0 ? 'critical'
+                             : parseInt(high) > 0    ? 'high-severity'
+                             :                         'no-issues';
             const existingIssues = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,

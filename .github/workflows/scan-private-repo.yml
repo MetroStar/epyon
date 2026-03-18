@@ -6,6 +6,10 @@ name: Private Security Scan
 permissions:
   contents: read
 
+concurrency:
+  group: epyon-scan-${{ github.repository }}
+  cancel-in-progress: false
+
 on:
   schedule:
     # Nightly run at 2 AM UTC

@@ -1,0 +1,59 @@
+name: Promote Test to Main
+
+on:
+  push:
+    branches:
+      - test
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Run BATS tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test suite
+        run: bash run-tests.sh
+
+  security-scan:
+    name: Self-scan (epyon on epyon)
+    needs: test
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      security-events: write
+      issues: write
+    uses: ./.github/workflows/epyon-scan.yml
+    with:
+      scan_mode: quick
+
+  promote:
+    name: Merge test → main
+    needs: [test, security-scan]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge test into main
+        run: |
+          git fetch origin main test
+          git checkout -B main origin/main
+          git merge --ff-only origin/test
+          git push origin main

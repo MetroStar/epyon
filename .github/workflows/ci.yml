@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - test
+  pull_request:
+    branches:
+      - main
+      - test
+
+permissions:
+  contents: read
+
+concurrency:
+  group: epyon-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: BATS tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run test suite
+        run: bash run-tests.sh
+
+  security-scan:
+    name: Security scan
+    needs: test
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      security-events: write
+      issues: write
+    uses: ./.github/workflows/epyon-scan.yml
+    with:
+      scan_mode: full
+      skip_garak: true

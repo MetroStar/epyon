@@ -6,6 +6,10 @@ name: Private Security Scan
 permissions:
   contents: read
 
+concurrency:
+  group: epyon-scan-${{ github.repository }}
+  cancel-in-progress: false
+
 on:
   schedule:
     # Nightly run at 2 AM UTC
@@ -27,6 +31,14 @@ on:
           - full
           - nightly
           - baseline
+      epyon_branch:
+        description: 'Epyon branch to run against (main = production, test = staging)'
+        required: false
+        default: 'main'
+        type: choice
+        options:
+          - main
+          - test
       garak_target_type:
         description: 'Garak generator type (e.g. test, openai, huggingface)'
         required: false
@@ -38,25 +50,17 @@ on:
         default: 'gpt-4o-mini'
         type: string
       garak_probes:
-        description: 'Garak probe set'
+        description: 'Garak probe set (comma-separated, e.g. promptinject,dan,knownbadsignatures,encoding,continuation)'
         required: false
         default: 'promptinject,dan,knownbadsignatures,encoding,continuation'
-        type: choice
-        options:
-          - promptinject,dan,knownbadsignatures,encoding,continuation
-          - promptinject
-          - dan
-          - encoding
-          - knownbadsignatures
-          - xss
-          - lmrc
-          - all
+        type: string
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  security-scan:
+  security-scan-main:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.epyon_branch == 'main' || github.event.inputs.epyon_branch == ''))
     permissions:
       contents: read
       actions: read
@@ -65,9 +69,26 @@ jobs:
       issues: write
     uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
     with:
-      scan_mode: ${{ github.event_name == 'schedule' && 'nightly' || inputs.scan_mode || 'full' }}
-      subdirectory: ${{ inputs.subdirectory || '' }}
-      garak_target_type: ${{ inputs.garak_target_type || 'openai' }}
-      garak_target_name: ${{ inputs.garak_target_name || 'gpt-4o-mini' }}
-      garak_probes: ${{ inputs.garak_probes || 'promptinject' }}
+      scan_mode: ${{ github.event_name == 'schedule' && 'nightly' || github.event.inputs.scan_mode || 'full' }}
+      subdirectory: ${{ github.event.inputs.subdirectory || '' }}
+      garak_target_type: ${{ github.event.inputs.garak_target_type || 'openai' }}
+      garak_target_name: ${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
+      garak_probes: ${{ github.event.inputs.garak_probes || 'promptinject,dan,knownbadsignatures,encoding,continuation' }}
+    secrets: inherit
+
+  security-scan-test:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.epyon_branch == 'test'
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      security-events: write
+      issues: write
+    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@test
+    with:
+      scan_mode: ${{ github.event.inputs.scan_mode || 'full' }}
+      subdirectory: ${{ github.event.inputs.subdirectory || '' }}
+      garak_target_type: ${{ github.event.inputs.garak_target_type || 'openai' }}
+      garak_target_name: ${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
+      garak_probes: ${{ github.event.inputs.garak_probes || 'promptinject,dan,knownbadsignatures,encoding,continuation' }}
     secrets: inherit

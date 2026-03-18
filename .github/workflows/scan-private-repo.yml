@@ -52,10 +52,9 @@ on:
       garak_probes:
         description: 'Garak probe set'
         required: false
-        default: 'promptinject,dan,knownbadsignatures,encoding,continuation'
+        default: 'promptinject'
         type: choice
         options:
-          - promptinject,dan,knownbadsignatures,encoding,continuation
           - promptinject
           - dan
           - encoding
@@ -82,7 +81,7 @@ jobs:
       subdirectory: ${{ inputs.subdirectory || '' }}
       garak_target_type: ${{ inputs.garak_target_type || 'openai' }}
       garak_target_name: ${{ inputs.garak_target_name || 'gpt-4o-mini' }}
-      garak_probes: ${{ inputs.garak_probes || 'promptinject' }}
+      garak_probes: ${{ inputs.garak_probes || 'promptinject,dan,knownbadsignatures,encoding,continuation' }}
     secrets: inherit
 
   security-scan-test:
@@ -99,5 +98,5 @@ jobs:
       subdirectory: ${{ inputs.subdirectory || '' }}
       garak_target_type: ${{ inputs.garak_target_type || 'openai' }}
       garak_target_name: ${{ inputs.garak_target_name || 'gpt-4o-mini' }}
-      garak_probes: ${{ inputs.garak_probes || 'promptinject' }}
+      garak_probes: ${{ inputs.garak_probes || 'promptinject,dan,knownbadsignatures,encoding,continuation' }}
     secrets: inherit

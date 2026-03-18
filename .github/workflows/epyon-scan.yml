@@ -713,22 +713,37 @@ jobs:
             let severityStatus = 'Clean';
             let labels = ['security-scan', 'epyon'];
 
-            if (parseInt(critical) > 0) {
+            const hasCritical = parseInt(critical) > 0;
+            const hasHigh = parseInt(high) > 0;
+            const hasMedium = parseInt(medium) > 0;
+            const hasLow = parseInt(low) > 0;
+
+            if (hasCritical) {
               severityEmoji = '🔴';
               severityStatus = 'Critical Issues Found';
               labels.push('critical', 'security');
-            } else if (parseInt(high) > 0) {
+            } else if (hasHigh) {
               severityEmoji = '🟠';
               severityStatus = 'High Risk';
               labels.push('high-severity', 'security');
+            } else if (hasMedium) {
+              severityEmoji = '🟡';
+              severityStatus = 'Medium Risk';
+              labels.push('medium-severity', 'security');
+            } else if (hasLow) {
+              severityEmoji = '🔵';
+              severityStatus = 'Low Risk';
+              labels.push('low-severity', 'security');
             } else {
               labels.push('no-issues');
             }
 
             // Dedup: skip if an open issue with the same severity label already exists
-            const dedupLabel = parseInt(critical) > 0 ? 'critical'
-                             : parseInt(high) > 0    ? 'high-severity'
-                             :                         'no-issues';
+            const dedupLabel = hasCritical ? 'critical'
+                             : hasHigh     ? 'high-severity'
+                             : hasMedium   ? 'medium-severity'
+                             : hasLow      ? 'low-severity'
+                             :               'no-issues';
             const existingIssues = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,

@@ -705,6 +705,8 @@ jobs:
             const runUrl = `https://github.com/${repository}/actions/runs/${{ github.run_id }}`;
             const critical = '${{ steps.check-severity.outputs.critical }}' || '0';
             const high = '${{ steps.check-severity.outputs.high }}' || '0';
+            const medium = '${{ steps.check-severity.outputs.medium }}' || '0';
+            const low = '${{ steps.check-severity.outputs.low }}' || '0';
 
             let triggerType = 'Manual';
             if ('${{ github.event_name }}' === 'push') triggerType = 'Push to ${{ github.ref_name }}';

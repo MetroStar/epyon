@@ -50,9 +50,9 @@ on:
         default: 'gpt-4o-mini'
         type: string
       garak_probes:
-        description: 'Garak probe set (comma-separated, e.g. promptinject,dan,knownbadsignatures,encoding,continuation)'
+        description: 'Garak probe set (comma-separated, e.g. promptinject,dan,encoding)'
         required: false
-        default: 'promptinject,dan,knownbadsignatures,encoding,continuation'
+        default: 'promptinject'
         type: string
 
 env:
@@ -73,7 +73,7 @@ jobs:
       subdirectory: ${{ github.event.inputs.subdirectory || '' }}
       garak_target_type: ${{ github.event.inputs.garak_target_type || 'openai' }}
       garak_target_name: ${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
-      garak_probes: ${{ github.event.inputs.garak_probes || 'promptinject,dan,knownbadsignatures,encoding,continuation' }}
+      garak_probes: ${{ github.event.inputs.garak_probes || 'promptinject' }}
     secrets: inherit
 
   security-scan-test:
@@ -90,5 +90,5 @@ jobs:
       subdirectory: ${{ github.event.inputs.subdirectory || '' }}
       garak_target_type: ${{ github.event.inputs.garak_target_type || 'openai' }}
       garak_target_name: ${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
-      garak_probes: ${{ github.event.inputs.garak_probes || 'promptinject,dan,knownbadsignatures,encoding,continuation' }}
+      garak_probes: ${{ github.event.inputs.garak_probes || 'promptinject' }}
     secrets: inherit

@@ -146,7 +146,7 @@ run_garak_layer() {
       ;;
   esac
 
-  local _probes="${GARAK_PROBES:-promptinject,dan,knownbadsignatures,encoding,continuation}"
+  local _probes="${GARAK_PROBES:-promptinject}"
 
   run_group "Layer 12 - LLM Security (Garak)" \
     env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" \

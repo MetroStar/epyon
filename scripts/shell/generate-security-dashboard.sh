@@ -306,6 +306,23 @@ else
     echo "   Run a new scan to generate file statistics"
 fi
 
+# ---- Load Scan Manifest for modal display ----
+SCAN_MANIFEST_FILE="${LATEST_SCAN}/scan-manifest.json"
+SCAN_MANIFEST_JSON="null"
+if [ -f "$SCAN_MANIFEST_FILE" ] && command -v jq &> /dev/null; then
+    echo "📋 Loading scan manifest from: $SCAN_MANIFEST_FILE"
+    SCAN_MANIFEST_JSON=$(jq -c '.' "$SCAN_MANIFEST_FILE" 2>/dev/null || echo "null")
+    if [ "$SCAN_MANIFEST_JSON" = "null" ]; then
+        echo "⚠️  Failed to parse scan manifest JSON"
+    else
+        # Escape for safe HTML embedding: replace </ with <\/ to prevent script tag injection
+        SCAN_MANIFEST_JSON=$(echo "$SCAN_MANIFEST_JSON" | sed 's|</|<\\/|g')
+        echo "✅ Scan manifest loaded"
+    fi
+else
+    echo "ℹ️  No scan manifest found - manifest button will be disabled"
+fi
+
 # ---- Load Remediation Suggestions for inline display ----
 REMEDIATION_FILE="${LATEST_SCAN}/remediation-suggestions.json"
 REMEDIATION_DATA_FILE="/tmp/remediation_map_$$.txt"
@@ -3021,6 +3038,189 @@ cat > "$OUTPUT_HTML" << 'EOF'
             text-decoration: underline;
         }
         
+        .footer-manifest-btn {
+            background: linear-gradient(135deg, #C41E3A 0%, #8B1328 100%);
+            color: white;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.95em;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(196,30,58,0.4);
+            margin-top: 20px;
+        }
+        
+        .footer-manifest-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 14px rgba(196,30,58,0.6);
+        }
+        
+        .footer-manifest-btn:disabled {
+            background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+            opacity: 0.6;
+        }
+        
+        /* Scan Manifest Modal */
+        .manifest-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            z-index: 9000;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 40px 20px;
+            overflow-y: auto;
+        }
+        
+        .manifest-modal-overlay.open {
+            display: flex;
+        }
+        
+        .manifest-modal {
+            background: #1a1d23;
+            border: 1px solid #4b5563;
+            border-radius: 14px;
+            width: 100%;
+            max-width: 820px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .manifest-modal-header {
+            background: linear-gradient(135deg, #C41E3A 0%, #8B1328 100%);
+            padding: 22px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .manifest-modal-title {
+            color: white;
+            font-size: 1.3em;
+            font-weight: 700;
+            margin: 0;
+        }
+        
+        .manifest-modal-close {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            font-size: 1.2em;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+            line-height: 1;
+        }
+        
+        .manifest-modal-close:hover {
+            background: rgba(255,255,255,0.35);
+        }
+        
+        .manifest-modal-body {
+            padding: 28px;
+            color: #e5e7eb;
+        }
+        
+        .manifest-section {
+            margin-bottom: 24px;
+        }
+        
+        .manifest-section-title {
+            color: #C41E3A;
+            font-size: 1em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-bottom: 12px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #374151;
+        }
+        
+        .manifest-kv-grid {
+            display: grid;
+            grid-template-columns: 160px 1fr;
+            gap: 8px 12px;
+        }
+        
+        .manifest-key {
+            color: #9ca3af;
+            font-size: 0.88em;
+            font-weight: 600;
+        }
+        
+        .manifest-value {
+            color: #f3f4f6;
+            font-size: 0.88em;
+            word-break: break-all;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .manifest-file-list {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #111318;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 12px 16px;
+        }
+        
+        .manifest-file-item {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
+            padding: 6px 0;
+            border-bottom: 1px solid #1f2937;
+            font-size: 0.82em;
+        }
+        
+        .manifest-file-item:last-child {
+            border-bottom: none;
+        }
+        
+        .manifest-file-name {
+            color: #93c5fd;
+            word-break: break-all;
+        }
+        
+        .manifest-file-hash {
+            color: #6b7280;
+            font-family: 'Courier New', monospace;
+            white-space: nowrap;
+            font-size: 0.85em;
+        }
+        
+        .manifest-integrity-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: linear-gradient(135deg, #052e16 0%, #14532d 100%);
+            border: 1px solid #10b981;
+            color: #34d399;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+        
+        .manifest-no-data {
+            color: #9ca3af;
+            font-style: italic;
+            font-size: 0.9em;
+        }
+        
         /* Filter Controls */
         .filter-bar {
             background: linear-gradient(135deg, #1a1d23 0%, #2C3539 100%);
@@ -4399,6 +4599,22 @@ cat >> "$OUTPUT_HTML" << EOF
                 <a href="../markdown-reports/" class="footer-link">📝 Markdown</a>
                 <a href="../csv-reports/" class="footer-link">📈 CSV Data</a>
             </div>
+            <button class="footer-manifest-btn" onclick="openScanManifestModal()" id="scanManifestBtn">
+                🔏 Scan Manifest
+            </button>
+        </div>
+
+        <!-- Scan Manifest Modal -->
+        <div class="manifest-modal-overlay" id="scanManifestOverlay" onclick="closeScanManifestModalOnOverlay(event)">
+            <div class="manifest-modal" id="scanManifestModal">
+                <div class="manifest-modal-header">
+                    <h2 class="manifest-modal-title">🔏 Scan Manifest</h2>
+                    <button class="manifest-modal-close" onclick="closeScanManifestModal()" title="Close">✕</button>
+                </div>
+                <div class="manifest-modal-body" id="scanManifestBody">
+                    <p class="manifest-no-data">Loading...</p>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -4406,6 +4622,124 @@ cat >> "$OUTPUT_HTML" << EOF
         // Embedded SBOM data for offline downloads
         const embeddedSBOMs = {};
         const embeddedAPIDiscovery = null;
+        
+        // Scan manifest data (embedded at dashboard generation time)
+        const scanManifestData = ${SCAN_MANIFEST_JSON};
+        
+        // ----- Scan Manifest Modal -----
+        function openScanManifestModal() {
+            renderScanManifestModal();
+            document.getElementById('scanManifestOverlay').classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeScanManifestModal() {
+            document.getElementById('scanManifestOverlay').classList.remove('open');
+            document.body.style.overflow = '';
+        }
+        
+        function closeScanManifestModalOnOverlay(event) {
+            if (event.target === document.getElementById('scanManifestOverlay')) {
+                closeScanManifestModal();
+            }
+        }
+        
+        function renderScanManifestModal() {
+            const body = document.getElementById('scanManifestBody');
+            if (!scanManifestData) {
+                body.innerHTML = '<p class="manifest-no-data">No scan manifest available for this scan. Run <code>generate-scan-manifest.sh</code> to create one.</p>';
+                return;
+            }
+            
+            const m = scanManifestData;
+            const meta = m.scan_metadata || {};
+            const target = m.target || {};
+            const tools = m.tools || {};
+            const hashes = m.file_hashes || {};
+            const hashKeys = Object.keys(hashes);
+            
+            let html = '';
+            
+            // Integrity badge
+            html += '<div class="manifest-integrity-badge">✅ SHA-256 File Hashes Tracked — ' + hashKeys.length + ' file' + (hashKeys.length !== 1 ? 's' : '') + ' hashed</div>';
+            
+            // Scan Metadata
+            html += '<div class="manifest-section">';
+            html += '<div class="manifest-section-title">Scan Metadata</div>';
+            html += '<div class="manifest-kv-grid">';
+            html += '<span class="manifest-key">Scan ID</span><span class="manifest-value">' + esc(meta.scan_id) + '</span>';
+            html += '<span class="manifest-key">Timestamp</span><span class="manifest-value">' + esc(meta.timestamp || m.generated_at) + '</span>';
+            html += '<span class="manifest-key">User</span><span class="manifest-value">' + esc(meta.username) + '</span>';
+            html += '<span class="manifest-key">Host</span><span class="manifest-value">' + esc(meta.hostname) + '</span>';
+            html += '<span class="manifest-key">Epyon Version</span><span class="manifest-value">' + esc(meta.epyon_version) + '</span>';
+            html += '<span class="manifest-key">Manifest Version</span><span class="manifest-value">' + esc(m.manifest_version) + '</span>';
+            if (m.manifest_hash) {
+                html += '<span class="manifest-key">Manifest Hash</span><span class="manifest-value">' + esc(m.manifest_hash) + '</span>';
+            }
+            html += '</div></div>';
+            
+            // Target
+            if (target.repository || target.commit_sha || target.branch) {
+                html += '<div class="manifest-section">';
+                html += '<div class="manifest-section-title">Target</div>';
+                html += '<div class="manifest-kv-grid">';
+                if (target.repository) html += '<span class="manifest-key">Repository</span><span class="manifest-value">' + esc(target.repository) + '</span>';
+                if (target.commit_sha) html += '<span class="manifest-key">Commit SHA</span><span class="manifest-value">' + esc(target.commit_sha) + '</span>';
+                if (target.branch) html += '<span class="manifest-key">Branch</span><span class="manifest-value">' + esc(target.branch) + '</span>';
+                if (target.subdirectory) html += '<span class="manifest-key">Subdirectory</span><span class="manifest-value">' + esc(target.subdirectory) + '</span>';
+                html += '</div></div>';
+            }
+            
+            // Tool Versions
+            const toolKeys = Object.keys(tools);
+            if (toolKeys.length > 0) {
+                html += '<div class="manifest-section">';
+                html += '<div class="manifest-section-title">Tool Versions</div>';
+                html += '<div class="manifest-kv-grid">';
+                toolKeys.forEach(function(tool) {
+                    html += '<span class="manifest-key">' + esc(tool) + '</span><span class="manifest-value">' + esc(String(tools[tool])) + '</span>';
+                });
+                html += '</div></div>';
+            }
+            
+            // File Hashes
+            if (hashKeys.length > 0) {
+                html += '<div class="manifest-section">';
+                html += '<div class="manifest-section-title">File Hashes (' + hashKeys.length + ')</div>';
+                html += '<div class="manifest-file-list">';
+                hashKeys.sort().forEach(function(file) {
+                    html += '<div class="manifest-file-item">';
+                    html += '<span class="manifest-file-name">' + esc(file) + '</span>';
+                    html += '<span class="manifest-file-hash">' + esc(String(hashes[file])) + '</span>';
+                    html += '</div>';
+                });
+                html += '</div></div>';
+            }
+            
+            body.innerHTML = html;
+        }
+        
+        function esc(val) {
+            if (val === null || val === undefined) return '<span style="color:#6b7280">N/A</span>';
+            return String(val)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+        
+        // Disable manifest button if no data
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!scanManifestData) {
+                var btn = document.getElementById('scanManifestBtn');
+                if (btn) btn.disabled = true;
+            }
+        });
+        
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeScanManifestModal();
+        });
         
         // Current filter state
         let currentFilter = 'all';

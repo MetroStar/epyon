@@ -120,7 +120,11 @@ TOOL_VERSIONS_JSON="{"
 
 # Try to get versions from scan results or Docker (simplified, no Perl regex)
 if command -v docker &> /dev/null; then
-    TRIVY_VER=$(docker run --rm aquasec/trivy:latest --version 2>/dev/null | grep "Version:" | head -1 | awk '{print $2}' || echo "unknown")
+    TRIVY_VER=$(docker run --rm dhi/trivy:latest --version 2>/dev/null \
+        | grep "Version:" | head -1 | awk '{print $2}' \
+        || docker run --rm aquasec/trivy:latest --version 2>/dev/null \
+        | grep "Version:" | head -1 | awk '{print $2}' \
+        || echo "unknown")
     GRYPE_VER=$(docker run --rm anchore/grype:latest version 2>/dev/null | grep "Version:" | head -1 | awk '{print $2}' || echo "unknown")
     SYFT_VER=$(docker run --rm anchore/syft:latest version 2>/dev/null | grep "Version:" | head -1 | awk '{print $2}' || echo "unknown")
     TRUFFLEHOG_VER=$(docker run --rm trufflesecurity/trufflehog:latest --version 2>/dev/null | head -1 | awk '{print $2}' || echo "unknown")

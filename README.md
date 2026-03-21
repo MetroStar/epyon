@@ -295,7 +295,7 @@ The remaining security tools run entirely in Docker and require no additional se
 | **ClamAV** | `clamav/clamav` | ✅ Yes |
 | **Checkov** | `bridgecrew/checkov` | ✅ Yes |
 | **Grype** | `anchore/grype` | ✅ Yes |
-| **Trivy** | `aquasec/trivy` | ✅ Yes |
+| **Trivy** | `dhi/trivy` (with `aquasec/trivy` fallback) | ✅ Yes |
 | **Xeol** | `xeol/xeol` | ✅ Yes |
 | **Helm** | `alpine/helm` | ✅ Yes |
 

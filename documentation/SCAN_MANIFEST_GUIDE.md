@@ -377,7 +377,8 @@ Manifests include hashes for:
 Tool versions are detected by running Docker containers:
 
 ```bash
-docker run --rm aquasec/trivy:latest --version | grep "Version:" | awk '{print $2}'
+docker run --rm dhi/trivy:latest --version | grep "Version:" | awk '{print $2}' || \
+  docker run --rm aquasec/trivy:latest --version | grep "Version:" | awk '{print $2}'
 docker run --rm anchore/grype:latest version | grep "Version:" | awk '{print $2}'
 docker run --rm anchore/syft:latest version | grep "Version:" | awk '{print $2}'
 docker run --rm trufflesecurity/trufflehog:latest --version | awk '{print $2}'

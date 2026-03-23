@@ -307,7 +307,7 @@ fetch_github_metrics() {
             local DOWNLOAD_ERR
             DOWNLOAD_ERR="$TMP_DIR/download-${ART_ID}.err"
             if ! gh api "repos/${REPO}/actions/artifacts/${ART_ID}/zip" \
-                    --output "$ZIP_FILE" 2>"$DOWNLOAD_ERR"; then
+                    > "$ZIP_FILE" 2>"$DOWNLOAD_ERR"; then
                 local ERR_MSG
                 ERR_MSG=$(tr '\n' ' ' < "$DOWNLOAD_ERR" | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//')
                 [[ -z "$ERR_MSG" ]] && ERR_MSG="unknown error"

@@ -38,6 +38,7 @@ show_help() {
     echo "  -g, --from-github [REPO]  Pull metrics from GitHub Actions artifacts."
     echo "                            REPO defaults to the current git remote origin."
     echo "                            Format: owner/repo  (e.g. MetroStar/epyon)"
+    echo "  --github-only             Do not read local scan directories; use GitHub artifacts only"
     echo "  --no-cache                Re-download from GitHub even when a cached row exists"
     echo "  --fetch-legacy            Also scan full scan-artifact zips for runs that predate"
     echo "                            the lightweight metrics-{scan_id} artifact (slow)"
@@ -56,6 +57,7 @@ show_help() {
     echo "Examples:"
     echo "  $0                                         # Local scans only"
     echo "  $0 --from-github                           # Local + GitHub (auto-detect repo)"
+    echo "  $0 --github-only --from-github MetroStar/epyon  # GitHub artifacts only"
     echo "  $0 --from-github MetroStar/epyon           # Explicit repo"
     echo "  $0 --from-github --since 2026-01-01        # GitHub runs since date"
     echo "  $0 --from-github --repos org/repo1,org/repo2  # Multiple repos"
@@ -74,6 +76,7 @@ FROM_GITHUB=false
 GITHUB_REPOS=()
 NO_CACHE=false
 FETCH_LEGACY=false
+GITHUB_ONLY=false
 
 # ── Argument parsing ──────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
@@ -96,6 +99,10 @@ while [[ $# -gt 0 ]]; do
             IFS=',' read -r -a _EXTRA_REPOS <<< "$2"
             GITHUB_REPOS+=("${_EXTRA_REPOS[@]}")
             shift 2 ;;
+        --github-only)
+            GITHUB_ONLY=true
+            FROM_GITHUB=true
+            shift ;;
         --no-cache)         NO_CACHE=true; shift ;;
         --fetch-legacy)     FETCH_LEGACY=true; shift ;;
         *) echo -e "${RED}❌ Unknown option: $1${NC}" >&2; echo "Run with --help for usage." >&2; exit 1 ;;
@@ -121,7 +128,13 @@ if [[ ${#SEARCH_DIRS[@]} -eq 0 && "$FROM_GITHUB" == false ]]; then
     exit 1
 fi
 
-[[ "$QUIET" == false ]] && echo -e "${BLUE}🔍 Scanning for completed scans...${NC}"
+if [[ "$QUIET" == false ]]; then
+    if [[ "$GITHUB_ONLY" == true ]]; then
+        echo -e "${BLUE}🔍 GitHub-only mode enabled (skipping local scan directories)${NC}"
+    else
+        echo -e "${BLUE}🔍 Scanning for completed scans...${NC}"
+    fi
+fi
 
 # Require jq
 if ! command -v jq &>/dev/null; then
@@ -234,11 +247,12 @@ fetch_github_metrics() {
 
         # Process each artifact on this page
         while IFS= read -r ARTIFACT; do
-            local ART_NAME ART_ID ART_EXPIRED ART_SIZE
+            local ART_NAME ART_ID ART_EXPIRED ART_SIZE ART_RUN_ID
             ART_NAME=$(echo "$ARTIFACT"    | jq -r '.name')
             ART_ID=$(echo "$ARTIFACT"      | jq -r '.id')
             ART_EXPIRED=$(echo "$ARTIFACT" | jq -r '.expired')
             ART_SIZE=$(echo "$ARTIFACT"    | jq -r '.size_in_bytes // 0')
+            ART_RUN_ID=$(echo "$ARTIFACT"  | jq -r '.workflow_run.id // ""')
 
             # Only process metrics-{scan_id} artifacts (lightweight)
             [[ "$ART_NAME" != metrics-* ]] && continue
@@ -288,15 +302,45 @@ fetch_github_metrics() {
                 printf "  ${BLUE}  ↓ %-55s  %s bytes${NC}\n" \
                     "${ART_NAME:0:55}" "$ART_SIZE"
 
+            local JSONL_CONTENT
+            JSONL_CONTENT=""
+            local DOWNLOAD_ERR
+            DOWNLOAD_ERR="$TMP_DIR/download-${ART_ID}.err"
             if ! gh api "repos/${REPO}/actions/artifacts/${ART_ID}/zip" \
-                    --output "$ZIP_FILE" 2>/dev/null; then
-                echo -e "${YELLOW}    ⚠️  Download failed for artifact ${ART_ID}${NC}"
-                continue
+                    --output "$ZIP_FILE" 2>"$DOWNLOAD_ERR"; then
+                local ERR_MSG
+                ERR_MSG=$(tr '\n' ' ' < "$DOWNLOAD_ERR" | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//')
+                [[ -z "$ERR_MSG" ]] && ERR_MSG="unknown error"
+                echo -e "${YELLOW}    ⚠️  Download failed for artifact ${ART_ID}: ${ERR_MSG}${NC}"
+
+                # Fallback path: gh run download is often more reliable in Actions context.
+                if [[ -n "$ART_RUN_ID" ]]; then
+                    rm -rf "$ART_DIR" && mkdir -p "$ART_DIR"
+                    if gh run download "$ART_RUN_ID" \
+                          --repo "$REPO" \
+                          --name "$ART_NAME" \
+                          --dir "$ART_DIR" 2>"$DOWNLOAD_ERR"; then
+                        JSONL_CONTENT=$(head -1 "$ART_DIR/scan-metrics.json" 2>/dev/null || true)
+                        if [[ -z "$JSONL_CONTENT" ]]; then
+                            echo -e "${YELLOW}    ⚠️  Fallback download succeeded but scan-metrics.json was missing (${ART_NAME})${NC}"
+                            continue
+                        fi
+                        rm -f "$DOWNLOAD_ERR"
+                    else
+                        ERR_MSG=$(tr '\n' ' ' < "$DOWNLOAD_ERR" | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//')
+                        [[ -z "$ERR_MSG" ]] && ERR_MSG="unknown error"
+                        echo -e "${YELLOW}    ⚠️  Fallback gh run download failed for run ${ART_RUN_ID}: ${ERR_MSG}${NC}"
+                        continue
+                    fi
+                else
+                    continue
+                fi
             fi
 
             # Extract scan-metrics.json from the zip
-            local JSONL_CONTENT
-            JSONL_CONTENT=$(unzip -p "$ZIP_FILE" 'scan-metrics.json' 2>/dev/null | head -1)
+            if [[ -z "${JSONL_CONTENT:-}" ]]; then
+                JSONL_CONTENT=$(unzip -p "$ZIP_FILE" 'scan-metrics.json' 2>/dev/null | head -1)
+            fi
             rm -f "$ZIP_FILE"
 
             if [[ -z "$JSONL_CONTENT" ]]; then
@@ -446,45 +490,47 @@ _mark_seen() { printf '%s\n' "$1" >> "$_SEEN_IDS_FILE"; }
 TOTAL_DIRS=0
 SKIPPED=0
 
-for SEARCH_DIR in "${SEARCH_DIRS[@]}"; do
-    while IFS= read -r -d '' SCAN_DIR; do
-        META="$SCAN_DIR/scan-metadata.json"
-        [[ -f "$META" ]] || continue
+if [[ "$GITHUB_ONLY" == false ]]; then
+    for SEARCH_DIR in "${SEARCH_DIRS[@]}"; do
+        while IFS= read -r -d '' SCAN_DIR; do
+            META="$SCAN_DIR/scan-metadata.json"
+            [[ -f "$META" ]] || continue
 
-        TOTAL_DIRS=$(( TOTAL_DIRS + 1 ))
+            TOTAL_DIRS=$(( TOTAL_DIRS + 1 ))
 
-        # ── Parse metadata ────────────────────────────────────────────────────
-        # Sanitize non-standard JSON values (e.g. N/A without quotes) before parsing
-        META_JSON=$(sed 's/: *N\/A/: null/g' "$META")
-        SCAN_ID=$(echo "$META_JSON"       | jq -r '.scan_id // ""'           2>/dev/null)
-        TARGET_NAME=$(echo "$META_JSON"   | jq -r '.target_name // ""'       2>/dev/null)
-        SCAN_TYPE=$(echo "$META_JSON"     | jq -r '.scan_type // "unknown"'  2>/dev/null)
-        SCAN_USER=$(echo "$META_JSON"     | jq -r '.scan_user // ""'         2>/dev/null)
-        SCAN_TS=$(echo "$META_JSON"       | jq -r '.scan_timestamp // ""'    2>/dev/null)
-        SCAN_TS_LOCAL=$(echo "$META_JSON" | jq -r '.scan_timestamp_local // ""' 2>/dev/null)
-        REPOSITORY=""; RUN_ID=""; RUN_URL=""
+            # ── Parse metadata ────────────────────────────────────────────────
+            # Sanitize non-standard JSON values (e.g. N/A without quotes) before parsing
+            META_JSON=$(sed 's/: *N\/A/: null/g' "$META")
+            SCAN_ID=$(echo "$META_JSON"       | jq -r '.scan_id // ""'           2>/dev/null)
+            TARGET_NAME=$(echo "$META_JSON"   | jq -r '.target_name // ""'       2>/dev/null)
+            SCAN_TYPE=$(echo "$META_JSON"     | jq -r '.scan_type // "unknown"'  2>/dev/null)
+            SCAN_USER=$(echo "$META_JSON"     | jq -r '.scan_user // ""'         2>/dev/null)
+            SCAN_TS=$(echo "$META_JSON"       | jq -r '.scan_timestamp // ""'    2>/dev/null)
+            SCAN_TS_LOCAL=$(echo "$META_JSON" | jq -r '.scan_timestamp_local // ""' 2>/dev/null)
+            REPOSITORY=""; RUN_ID=""; RUN_URL=""
 
-        [[ -z "$SCAN_ID" || -z "$SCAN_TS" ]] && { SKIPPED=$(( SKIPPED + 1 )); continue; }
+            [[ -z "$SCAN_ID" || -z "$SCAN_TS" ]] && { SKIPPED=$(( SKIPPED + 1 )); continue; }
 
-        # ── Apply filters ─────────────────────────────────────────────────────
-        if [[ -n "$FILTER_TARGET" && "$TARGET_NAME" != "$FILTER_TARGET" ]]; then
-            SKIPPED=$(( SKIPPED + 1 )); continue
-        fi
-        if [[ -n "$FILTER_USER" && "$SCAN_USER" != "$FILTER_USER" ]]; then
-            SKIPPED=$(( SKIPPED + 1 )); continue
-        fi
-        if [[ -n "$FILTER_SINCE" ]]; then
-            SCAN_DATE="${SCAN_TS:0:10}"
-            [[ "$SCAN_DATE" < "$FILTER_SINCE" ]] && { SKIPPED=$(( SKIPPED + 1 )); continue; }
-        fi
+            # ── Apply filters ─────────────────────────────────────────────────
+            if [[ -n "$FILTER_TARGET" && "$TARGET_NAME" != "$FILTER_TARGET" ]]; then
+                SKIPPED=$(( SKIPPED + 1 )); continue
+            fi
+            if [[ -n "$FILTER_USER" && "$SCAN_USER" != "$FILTER_USER" ]]; then
+                SKIPPED=$(( SKIPPED + 1 )); continue
+            fi
+            if [[ -n "$FILTER_SINCE" ]]; then
+                SCAN_DATE="${SCAN_TS:0:10}"
+                [[ "$SCAN_DATE" < "$FILTER_SINCE" ]] && { SKIPPED=$(( SKIPPED + 1 )); continue; }
+            fi
 
-        # ── Parse findings summary (optional) ────────────────────────────────
-        parse_findings_file "$SCAN_DIR/security-findings-summary.json"
+            # ── Parse findings summary (optional) ────────────────────────────
+            parse_findings_file "$SCAN_DIR/security-findings-summary.json"
 
-        SCAN_RECORDS+=("$(build_record)")
-        _mark_seen "$SCAN_ID"
-    done < <(find "$SEARCH_DIR" -maxdepth 1 -mindepth 1 -type d -print0 2>/dev/null | sort -z)
-done
+            SCAN_RECORDS+=("$(build_record)")
+            _mark_seen "$SCAN_ID"
+        done < <(find "$SEARCH_DIR" -maxdepth 1 -mindepth 1 -type d -print0 2>/dev/null | sort -z)
+    done
+fi
 
 # ── Fetch from GitHub Actions artifacts ───────────────────────────────────────
 if [[ "$FROM_GITHUB" == true ]]; then

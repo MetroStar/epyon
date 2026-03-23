@@ -482,6 +482,7 @@ jobs:
 
             # Collect metrics (without --quiet so we see what was found)
             if ./scripts/shell/get-scan-metrics.sh \
+              --github-only \
               --from-github "${{ github.repository }}" \
               --since "$SINCE_DATE" \
               --output "$METRICS_90D_FILE"; then

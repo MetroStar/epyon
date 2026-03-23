@@ -268,8 +268,12 @@ CHART_HTML="${CHART_HTML//CHART_TYPE_PLACEHOLDER/$CHART_TYPE}"
 
 # Find injection point (before closing </body> tag or before last closing div)
 if grep -q "</body>" "$DASHBOARD_FILE"; then
-    # Insert before </body>
-    sed -i "/<\/body>/i\\        $CHART_HTML" "$DASHBOARD_FILE"
+    # Use a temp file to safely inject multi-line HTML with special chars
+    local TEMP_HTML
+    TEMP_HTML=$(mktemp)
+    echo "$CHART_HTML" > "$TEMP_HTML"
+    sed -i "/<\/body>/r $TEMP_HTML" "$DASHBOARD_FILE"
+    rm -f "$TEMP_HTML"
 else
     # Append to file
     echo "$CHART_HTML" >> "$DASHBOARD_FILE"

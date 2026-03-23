@@ -451,6 +451,8 @@ jobs:
 
       - name: Generate Reports & Dashboard
         if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           cd epyon
           if [ -f /tmp/epyon-env ]; then
@@ -466,47 +468,34 @@ jobs:
           echo "DEBUG: After consolidation, manifest files in consolidated-reports:"
           ls -la "$SCAN_DIR/consolidated-reports"/scan-manifest* "$SCAN_DIR/consolidated-reports"/manifest-summary* 2>&1 || echo "Manifest files not found in consolidated-reports!"
 
-      - name: Add 90-Day Metrics Trend to Dashboard
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          cd epyon
-          SCAN_DIR="${{ steps.run-scan.outputs.scan_dir }}"
+          # ─── Embed 90-day metrics trend into dashboard ────────────────────
           DASHBOARD_FILE="$SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html"
           METRICS_90D_FILE="$SCAN_DIR/scan-metrics-90d.json"
 
-          if [ ! -f "$DASHBOARD_FILE" ]; then
-            echo "⚠️ Dashboard not found; skipping metrics embedding"
-            exit 0
-          fi
+          if [ -f "$DASHBOARD_FILE" ]; then
+            echo "📈 Adding 90-day metrics trend to dashboard..."
+            echo "${GH_TOKEN}" | gh auth login --with-token >/dev/null 2>&1 || true
+            SINCE_DATE=$(date -u -d '90 days ago' +%Y-%m-%d 2>/dev/null || date -u -v-90d +%Y-%m-%d)
 
-          # Authenticate gh for artifact retrieval in CI context
-          echo "${GH_TOKEN}" | gh auth login --with-token >/dev/null 2>&1 || true
+            chmod +x scripts/shell/get-scan-metrics.sh scripts/shell/embed-metrics-in-dashboard.sh
 
-          # Compute YYYY-MM-DD cutoff for last 90 days (GNU date on ubuntu, BSD fallback)
-          SINCE_DATE=$(date -u -d '90 days ago' +%Y-%m-%d 2>/dev/null || date -u -v-90d +%Y-%m-%d)
+            ./scripts/shell/get-scan-metrics.sh \
+              --from-github "${{ github.repository }}" \
+              --since "$SINCE_DATE" \
+              --output "$METRICS_90D_FILE" \
+              --quiet || echo "⚠️ Metrics aggregation completed with warnings"
 
-          chmod +x scripts/shell/get-scan-metrics.sh scripts/shell/embed-metrics-in-dashboard.sh
-
-          # Pull metrics artifacts and aggregate into a local 90-day time series
-          ./scripts/shell/get-scan-metrics.sh \
-            --from-github "${{ github.repository }}" \
-            --since "$SINCE_DATE" \
-            --output "$METRICS_90D_FILE" \
-            --quiet || echo "⚠️ Metrics aggregation completed with warnings"
-
-          # Embed trend chart if metrics were successfully produced
-          if [ -s "$METRICS_90D_FILE" ]; then
-            ./scripts/shell/embed-metrics-in-dashboard.sh \
-              --metrics "$METRICS_90D_FILE" \
-              --dashboard "$DASHBOARD_FILE" \
-              --chart-type line \
-              --max-points 90 \
-              --quiet || echo "⚠️ Dashboard metrics embedding completed with warnings"
-            echo "✅ Embedded 90-day metrics trend into dashboard"
-          else
-            echo "⚠️ No metrics data available for embedding"
+            if [ -s "$METRICS_90D_FILE" ]; then
+              ./scripts/shell/embed-metrics-in-dashboard.sh \
+                --metrics "$METRICS_90D_FILE" \
+                --dashboard "$DASHBOARD_FILE" \
+                --chart-type line \
+                --max-points 90 \
+                --quiet || echo "⚠️ Dashboard metrics embedding completed with warnings"
+              echo "✅ Embedded 90-day metrics trend into dashboard"
+            else
+              echo "⚠️ No metrics data available for embedding"
+            fi
           fi
 
       - name: Fix Artifact Permissions

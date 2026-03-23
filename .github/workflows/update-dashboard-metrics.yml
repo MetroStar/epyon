@@ -26,12 +26,17 @@ jobs:
           fetch-depth: 1
 
       - name: Set up Environment
+        id: setup-env
         run: |
           # Create metrics directory structure
           mkdir -p metrics/github-cache metrics/dashboards
-          echo "METRICS_DIR=$(pwd)/metrics" >> $GITHUB_ENV
-          echo "DASHBOARD_DIR=$(pwd)/metrics/dashboards" >> $GITHUB_ENV
-          echo "DAYS=${{ inputs.days || '90' }}" >> $GITHUB_ENV
+          METRICS_DIR="$(pwd)/metrics"
+          DASHBOARD_DIR="$(pwd)/metrics/dashboards"
+          DAYS="${{ github.event_name == 'workflow_dispatch' && inputs.days || '90' }}"
+
+          echo "metrics_dir=$METRICS_DIR" >> "$GITHUB_OUTPUT"
+          echo "dashboard_dir=$DASHBOARD_DIR" >> "$GITHUB_OUTPUT"
+          echo "days=$DAYS" >> "$GITHUB_OUTPUT"
 
       - name: Install Dependencies
         run: |
@@ -50,12 +55,12 @@ jobs:
           
           ./scripts/shell/collect-metrics-from-github.sh \
             --repo "${{ github.repository }}" \
-            --days "${{ env.DAYS }}" \
-            --dashboard-dir "${{ env.METRICS_DIR }}" \
-            --output "metrics-${{ env.DAYS }}d.json"
+            --days "${{ steps.setup-env.outputs.days }}" \
+            --dashboard-dir "${{ steps.setup-env.outputs.metrics_dir }}" \
+            --output "metrics-${{ steps.setup-env.outputs.days }}d.json"
           
           # Output metrics file path
-          echo "metrics_file=${{ env.METRICS_DIR }}/metrics-${{ env.DAYS }}d.json" >> $GITHUB_OUTPUT
+          echo "metrics_file=${{ steps.setup-env.outputs.metrics_dir }}/metrics-${{ steps.setup-env.outputs.days }}d.json" >> "$GITHUB_OUTPUT"
 
       - name: Generate Security Dashboard with Metrics
         id: generate-dashboard
@@ -72,7 +77,7 @@ jobs:
             DASHBOARD_FILE="$SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html"
           else
             # Create a minimal dashboard from template
-            DASHBOARD_FILE="${{ env.DASHBOARD_DIR }}/security-dashboard.html"
+            DASHBOARD_FILE="${{ steps.setup-env.outputs.dashboard_dir }}/security-dashboard.html"
             printf '%s\n' \
               '<!DOCTYPE html>' \
               '<html lang="en">' \
@@ -138,7 +143,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: metrics-90d
-          path: ${{ env.METRICS_DIR }}/metrics-90d.json
+          path: ${{ steps.setup-env.outputs.metrics_dir }}/metrics-${{ steps.setup-env.outputs.days }}d.json
           retention-days: 90
 
       - name: Upload Dashboard Artifact
@@ -163,7 +168,7 @@ jobs:
             echo "- **Total Scans:** $TOTAL" >> $GITHUB_STEP_SUMMARY
             echo "- **Critical Issues:** 🔴 $CRITICAL" >> $GITHUB_STEP_SUMMARY
             echo "- **High Issues:** 🟠 $HIGH" >> $GITHUB_STEP_SUMMARY
-            echo "- **Time Range:** Last ${{ env.DAYS }} days" >> $GITHUB_STEP_SUMMARY
+            echo "- **Time Range:** Last ${{ steps.setup-env.outputs.days }} days" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "Dashboard with metrics chart embedded: \`dashboard-with-metrics\` artifact" >> $GITHUB_STEP_SUMMARY
           fi

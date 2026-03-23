@@ -27,7 +27,7 @@ Options:
   -m, --metrics FILE          Path to metrics JSON (required)
   -d, --dashboard FILE        Path to dashboard HTML (or use DASHBOARD_FILE env var)
   -o, --output FILE           Output HTML file (default: replaces input)
-  --chart-type TYPE           Chart type: line, area, bar (default: line)
+    --chart-type TYPE           Chart type: line, area, bar (default: bar)
   --max-points NUM            Max data points to display (default: 90)
   -q, --quiet                 Suppress output
   -h, --help                  Show this help message
@@ -48,7 +48,7 @@ EOF
 METRICS_FILE=""
 DASHBOARD_FILE=""
 OUTPUT_FILE=""
-CHART_TYPE="line"
+CHART_TYPE="bar"
 MAX_POINTS=90
 QUIET=false
 
@@ -87,15 +87,34 @@ OUTPUT_FILE="${OUTPUT_FILE:-$DASHBOARD_FILE}"
 # ─── Extract metrics data for chart ────────────────────────────────
 [[ "$QUIET" == false ]] && echo -e "${BLUE}📊 Extracting metrics for dashboard...${NC}" >&2
 
-METRICS=$(jq '(.trend // .metrics // [])[] | {
-    scan_id: .scan_id,
-    timestamp: .scan_timestamp,
-    target: .target_name,
-    critical: (.critical // 0),
-    high: (.high // 0),
-    medium: (.medium // 0),
-    low: (.low // 0)
-}' "$METRICS_FILE" 2>/tmp/jq-error.log | jq -s 'sort_by(.timestamp) | .[-'$MAX_POINTS':]')
+METRICS=$(jq -c --argjson max_points "$MAX_POINTS" '
+        (.trend // .metrics // [])
+        | map({
+                scan_id: .scan_id,
+                timestamp: .scan_timestamp,
+                date: ((.scan_timestamp // "")[:10]),
+                target: .target_name,
+                critical: (.critical // 0),
+                high: (.high // 0),
+                medium: (.medium // 0),
+                low: (.low // 0),
+                total: ((.critical // 0) + (.high // 0) + (.medium // 0) + (.low // 0))
+            })
+        | map(select(.date != ""))
+        | sort_by(.date, .timestamp)
+        | group_by(.date)
+        | map({
+                scan_id: (max_by(.total).scan_id),
+                timestamp: (.[-1].timestamp),
+                target: (max_by(.total).target),
+                critical: ((map(.critical) | max) // 0),
+                high: ((map(.high) | max) // 0),
+                medium: ((map(.medium) | max) // 0),
+                low: ((map(.low) | max) // 0)
+            })
+        | sort_by(.timestamp)
+        | .[-$max_points:]
+' "$METRICS_FILE" 2>/tmp/jq-error.log)
 
 if [[ "$METRICS" == "[]" ]] || [[ -z "$METRICS" ]]; then
     [[ "$QUIET" == false ]] && echo -e "${YELLOW}⚠️  No metrics data to chart${NC}" >&2
@@ -157,37 +176,41 @@ CHART_HTML=$(cat << 'CHART_EOF'
                             label: 'Critical',
                             data: criticalData,
                             borderColor: '#DC2626',
-                            backgroundColor: 'rgba(220, 38, 38, 0.1)',
+                            backgroundColor: 'rgba(220, 38, 38, 0.75)',
                             borderWidth: 2,
                             tension: 0.4,
-                            fill: true
+                            fill: false,
+                            stack: 'severity'
                         },
                         {
                             label: 'High',
                             data: highData,
                             borderColor: '#F97316',
-                            backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                            backgroundColor: 'rgba(249, 115, 22, 0.75)',
                             borderWidth: 2,
                             tension: 0.4,
-                            fill: true
+                            fill: false,
+                            stack: 'severity'
                         },
                         {
                             label: 'Medium',
                             data: mediumData,
                             borderColor: '#EAB308',
-                            backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                            backgroundColor: 'rgba(234, 179, 8, 0.75)',
                             borderWidth: 2,
                             tension: 0.4,
-                            fill: false
+                            fill: false,
+                            stack: 'severity'
                         },
                         {
                             label: 'Low',
                             data: lowData,
                             borderColor: '#22C55E',
-                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            backgroundColor: 'rgba(34, 197, 94, 0.75)',
                             borderWidth: 2,
                             tension: 0.4,
-                            fill: false
+                            fill: false,
+                            stack: 'severity'
                         }
                     ]
                 },
@@ -226,11 +249,13 @@ CHART_HTML=$(cat << 'CHART_EOF'
                     scales: {
                         y: {
                             beginAtZero: true,
+                            stacked: true,
                             title: { display: true, text: 'Findings Count' },
                             ticks: { color: '#6b7280' },
                             grid: { color: 'rgba(0,0,0,0.05)' }
                         },
                         x: {
+                            stacked: true,
                             ticks: { color: '#6b7280' },
                             grid: { color: 'rgba(0,0,0,0.05)' }
                         }

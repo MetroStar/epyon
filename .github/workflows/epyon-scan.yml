@@ -495,7 +495,7 @@ jobs:
               ./scripts/shell/embed-metrics-in-dashboard.sh \
                 --metrics "$METRICS_90D_FILE" \
                 --dashboard "$DASHBOARD_FILE" \
-                --chart-type line \
+                --chart-type bar \
                 --max-points 90 \
                 || echo "⚠️ Dashboard metrics embedding completed with warnings"
               echo "✅ Metrics embedding step completed"

@@ -22,7 +22,7 @@ Epyon currently requires internet connectivity for:
 # Security Scanning Tools
 anchore/grype:latest
 aquasec/trivy:latest
-trufflesecurity/trufflehog:latest
+dhi.io/trufflehog:3
 anchore/syft:latest
 bridgecrew/checkov:latest
 anchore/xeol:latest

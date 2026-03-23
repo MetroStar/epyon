@@ -380,7 +380,7 @@ Tool versions are detected by running Docker containers:
 docker run --rm aquasec/trivy:latest --version | grep "Version:" | awk '{print $2}'
 docker run --rm anchore/grype:latest version | grep "Version:" | awk '{print $2}'
 docker run --rm anchore/syft:latest version | grep "Version:" | awk '{print $2}'
-docker run --rm trufflesecurity/trufflehog:latest --version | awk '{print $2}'
+docker run --rm dhi.io/trufflehog:3 --version | awk '{print $2}'
 docker run --rm bridgecrew/checkov:latest --version | head -1
 ```
 

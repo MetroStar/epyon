@@ -476,14 +476,19 @@ jobs:
             echo "📈 Adding 90-day metrics trend to dashboard..."
             echo "${GH_TOKEN}" | gh auth login --with-token >/dev/null 2>&1 || true
             SINCE_DATE=$(date -u -d '90 days ago' +%Y-%m-%d 2>/dev/null || date -u -v-90d +%Y-%m-%d)
+            echo "Looking for scans since: $SINCE_DATE"
 
             chmod +x scripts/shell/get-scan-metrics.sh scripts/shell/embed-metrics-in-dashboard.sh
 
-            ./scripts/shell/get-scan-metrics.sh \
+            # Collect metrics (without --quiet so we see what was found)
+            if ./scripts/shell/get-scan-metrics.sh \
               --from-github "${{ github.repository }}" \
               --since "$SINCE_DATE" \
-              --output "$METRICS_90D_FILE" \
-              --quiet || echo "⚠️ Metrics aggregation completed with warnings"
+              --output "$METRICS_90D_FILE"; then
+              echo "✅ Metrics collected successfully"
+            else
+              echo "⚠️ Metrics aggregation completed with warnings (see above)"
+            fi
 
             if [ -s "$METRICS_90D_FILE" ]; then
               ./scripts/shell/embed-metrics-in-dashboard.sh \
@@ -491,8 +496,8 @@ jobs:
                 --dashboard "$DASHBOARD_FILE" \
                 --chart-type line \
                 --max-points 90 \
-                --quiet || echo "⚠️ Dashboard metrics embedding completed with warnings"
-              echo "✅ Embedded 90-day metrics trend into dashboard"
+                || echo "⚠️ Dashboard metrics embedding completed with warnings"
+              echo "✅ Metrics embedding step completed"
             else
               echo "⚠️ No metrics data available for embedding"
             fi

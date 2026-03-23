@@ -95,10 +95,18 @@ METRICS=$(jq '(.trend // .metrics // [])[] | {
     high: (.high // 0),
     medium: (.medium // 0),
     low: (.low // 0)
-}' "$METRICS_FILE" | jq -s 'sort_by(.timestamp) | .[-'$MAX_POINTS':]')
+}' "$METRICS_FILE" 2>/tmp/jq-error.log | jq -s 'sort_by(.timestamp) | .[-'$MAX_POINTS':]')
 
 if [[ "$METRICS" == "[]" ]] || [[ -z "$METRICS" ]]; then
-    echo "⚠️  No metrics data found" >&2
+    [[ "$QUIET" == false ]] && echo -e "${YELLOW}⚠️  No metrics data to chart${NC}" >&2
+    [[ "$QUIET" == false ]] && echo "    Checking metrics file: $METRICS_FILE" >&2
+    if [[ "$QUIET" == false ]]; then
+        # Debug: show what we actually extracted
+        echo "    Raw extraction: $(jq '(.trend // .metrics // []) | length' "$METRICS_FILE" 2>/dev/null || echo "ERROR")" >&2
+        if [[ -f /tmp/jq-error.log ]] && [[ -s /tmp/jq-error.log ]]; then
+            echo "    jq error: $(cat /tmp/jq-error.log)" >&2
+        fi
+    fi
     exit 0
 fi
 

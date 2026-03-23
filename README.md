@@ -291,7 +291,7 @@ The remaining security tools run entirely in Docker and require no additional se
 
 | Tool | Docker Image | Auto-Pulled |
 |------|-------------|-------------|
-| **TruffleHog** | `trufflesecurity/trufflehog` | ✅ Yes |
+| **TruffleHog** | `dhi.io/trufflehog` | ✅ Yes |
 | **ClamAV** | `clamav/clamav` | ✅ Yes |
 | **Checkov** | `bridgecrew/checkov` | ✅ Yes |
 | **Grype** | `anchore/grype` | ✅ Yes |

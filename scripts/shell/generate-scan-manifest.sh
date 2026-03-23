@@ -127,7 +127,7 @@ if command -v docker &> /dev/null; then
         || echo "unknown")
     GRYPE_VER=$(docker run --rm anchore/grype:latest version 2>/dev/null | grep "Version:" | head -1 | awk '{print $2}' || echo "unknown")
     SYFT_VER=$(docker run --rm anchore/syft:latest version 2>/dev/null | grep "Version:" | head -1 | awk '{print $2}' || echo "unknown")
-    TRUFFLEHOG_VER=$(docker run --rm trufflesecurity/trufflehog:latest --version 2>/dev/null | head -1 | awk '{print $2}' || echo "unknown")
+    TRUFFLEHOG_VER=$(docker run --rm dhi.io/trufflehog:3 --version 2>/dev/null | head -1 | awk '{print $2}' || echo "unknown")
     CHECKOV_VER=$(docker run --rm bridgecrew/checkov:latest --version 2>/dev/null | head -1 | tr -d '\n\r' || echo "unknown")
     
     echo "   trivy: $TRIVY_VER"

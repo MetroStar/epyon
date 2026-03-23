@@ -111,8 +111,8 @@ jobs:
       - name: Pull Security Tool Images
         run: |
           docker pull anchore/grype:latest &
-          (docker pull dhi/trivy:latest || docker pull aquasec/trivy:latest) &
-          docker pull trufflesecurity/trufflehog:latest &
+          docker pull aquasec/trivy:latest &
+          docker pull dhi.io/trufflehog:3 &
           docker pull anchore/syft:latest &
           wait
           echo "All security tool images cached"

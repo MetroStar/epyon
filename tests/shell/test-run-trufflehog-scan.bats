@@ -33,5 +33,5 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-trufflehog-scan.sh"
 }
 
 @test "run-trufflehog-scan.sh uses trufflehog image" {
-    grep -q "trufflesecurity/trufflehog" "$SCRIPT_PATH"
+    grep -q "dhi.io/trufflehog" "$SCRIPT_PATH"
 }

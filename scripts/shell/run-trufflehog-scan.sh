@@ -7,6 +7,9 @@
 WHITE='\033[1;37m'
 NC='\033[0m'
 
+# Docker Hardened Image default (override with TRUFFLEHOG_IMAGE)
+TRUFFLEHOG_IMAGE="${TRUFFLEHOG_IMAGE:-dhi.io/trufflehog:3}"
+
 # Help function
 show_help() {
     echo -e "${WHITE}TruffleHog Multi-Target Secret Detection Scanner${NC}"
@@ -45,7 +48,7 @@ show_help() {
     echo ""
     echo "Notes:"
     echo "  - Requires Docker to be installed and running"
-    echo "  - Uses trufflesecurity/trufflehog:latest Docker image"
+    echo "  - Uses ${TRUFFLEHOG_IMAGE} Docker image"
     echo "  - Scans both current files and git history"
     echo "  - Verified secrets are marked with higher confidence"
     exit 0
@@ -188,7 +191,7 @@ REGEX_EOF
             -v "$target:/workspace" \
             -v "$OUTPUT_DIR/.trufflehogignore:/root/.trufflehogignore" \
             -v "$OUTPUT_DIR/.trufflehog-custom-regex.yaml:/root/.trufflehog-custom-regex.yaml" \
-            trufflesecurity/trufflehog:latest \
+            "$TRUFFLEHOG_IMAGE" \
             filesystem /workspace \
             --json \
             --exclude-paths=/root/.trufflehogignore \

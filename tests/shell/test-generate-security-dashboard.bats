@@ -120,3 +120,45 @@ SCRIPT_PATH="${SCRIPT_DIR}/generate-security-dashboard.sh"
 @test "generate-security-dashboard.sh outputs dashboard.html" {
     grep -q "dashboard\\.html" "$SCRIPT_PATH"
 }
+
+@test "generate-security-dashboard.sh loads scan manifest file" {
+    grep -q "scan-manifest.json" "$SCRIPT_PATH"
+    grep -q "SCAN_MANIFEST_JSON" "$SCRIPT_PATH"
+}
+
+@test "generate-security-dashboard.sh includes scan manifest button in footer" {
+    grep -q "footer-manifest-btn" "$SCRIPT_PATH"
+    grep -q "Scan Manifest" "$SCRIPT_PATH"
+    grep -q "openScanManifestModal" "$SCRIPT_PATH"
+}
+
+@test "generate-security-dashboard.sh includes scan manifest modal HTML" {
+    grep -q "manifest-modal-overlay" "$SCRIPT_PATH"
+    grep -q "scanManifestBody" "$SCRIPT_PATH"
+    grep -q "scanManifestOverlay" "$SCRIPT_PATH"
+}
+
+@test "generate-security-dashboard.sh includes scan manifest JavaScript functions" {
+    grep -q "function openScanManifestModal" "$SCRIPT_PATH"
+    grep -q "function closeScanManifestModal" "$SCRIPT_PATH"
+    grep -q "function renderScanManifestModal" "$SCRIPT_PATH"
+}
+
+@test "generate-security-dashboard.sh embeds scan manifest data as JS variable" {
+    grep -q "const scanManifestData" "$SCRIPT_PATH"
+    grep -q "SCAN_MANIFEST_JSON" "$SCRIPT_PATH"
+}
+
+@test "generate-security-dashboard.sh supports closing modal on Escape key" {
+    grep -q "Escape" "$SCRIPT_PATH"
+    grep -q "closeScanManifestModal" "$SCRIPT_PATH"
+}
+
+@test "generate-security-dashboard.sh disables manifest button when no manifest" {
+    grep -q "disabled" "$SCRIPT_PATH"
+    grep -q "scanManifestBtn" "$SCRIPT_PATH"
+}
+
+@test "generate-security-dashboard.sh escapes manifest JSON for HTML safety" {
+    grep -q "<\\\\/" "$SCRIPT_PATH" || grep -q 's|</|' "$SCRIPT_PATH"
+}

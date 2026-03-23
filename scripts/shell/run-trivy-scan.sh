@@ -47,7 +47,7 @@ show_help() {
     echo "Notes:"
     echo "  - Requires Docker to be installed and running"
     echo "  - Automatically skips node_modules directories"
-    echo "  - Uses aquasec/trivy:latest Docker image"
+    echo "  - Uses dhi/trivy:latest (Docker Hardened Image) with aquasec/trivy:latest as fallback"
     exit 0
 }
 
@@ -80,6 +80,18 @@ fi
 # Fallback to docker CLI name if detection didn't find anything
 if [ -z "${CONTAINER_CLI:-}" ]; then
     CONTAINER_CLI=docker
+fi
+
+# Determine Trivy image to use - prefer Docker Hardened Image, fall back to official image
+TRIVY_DHI_IMAGE="dhi/trivy:latest"
+TRIVY_OFFICIAL_IMAGE="aquasec/trivy:latest"
+echo -e "${CYAN}🔍 Selecting Trivy image...${NC}"
+if ${CONTAINER_CLI} image inspect "${TRIVY_DHI_IMAGE}" > /dev/null 2>&1 || ${CONTAINER_CLI} pull "${TRIVY_DHI_IMAGE}" > /dev/null 2>&1; then
+    TRIVY_IMAGE="${TRIVY_DHI_IMAGE}"
+    echo -e "${GREEN}✅ Using Docker Hardened Image: ${TRIVY_IMAGE}${NC}"
+else
+    TRIVY_IMAGE="${TRIVY_OFFICIAL_IMAGE}"
+    echo -e "${YELLOW}⚠️  Docker Hardened Image (${TRIVY_DHI_IMAGE}) not available, falling back to official image: ${TRIVY_IMAGE}${NC}"
 fi
 
 # Source approved base images configuration only if PRIMARY_BASELINE_IMAGE is not already set
@@ -126,7 +138,7 @@ echo "This ensures we have the latest CVE data (may take 1-2 minutes on first ru
 
 ${CONTAINER_CLI} run --rm \
     -v "$TRIVY_CACHE_VOL:/root/.cache" \
-    aquasec/trivy:latest \
+    "${TRIVY_IMAGE}" \
     image --download-db-only 2>&1 | tee -a "$SCAN_LOG"
 
 DB_UPDATE_RESULT=$?
@@ -141,7 +153,7 @@ fi
 echo -e "${CYAN}📋 Checking Trivy database status...${NC}"
 ${CONTAINER_CLI} run --rm \
     -v "$TRIVY_CACHE_VOL:/root/.cache" \
-    aquasec/trivy:latest \
+    "${TRIVY_IMAGE}" \
     version 2>&1 | grep -E "(Version|VulnerabilityDB)" | tee -a "$SCAN_LOG"
 echo
 
@@ -165,7 +177,7 @@ run_trivy_scan() {
                 ${CONTAINER_CLI} run --rm \
                     -v /var/run/docker.sock:/var/run/docker.sock \
                     -v "$TRIVY_CACHE_VOL:/root/.cache" \
-                    aquasec/trivy:latest \
+                    "${TRIVY_IMAGE}" \
                     image "$target" \
                     --format json --quiet 2>> "$SCAN_LOG" > "$output_file"
             else
@@ -173,7 +185,7 @@ run_trivy_scan() {
                 ${CONTAINER_CLI} run --rm \
                     -v "${target}:/workspace:ro" \
                     -v "$TRIVY_CACHE_VOL:/root/.cache" \
-                    aquasec/trivy:latest \
+                    "${TRIVY_IMAGE}" \
                     fs /workspace \
                     --format json 2>> "$SCAN_LOG" > "$output_file"
             fi

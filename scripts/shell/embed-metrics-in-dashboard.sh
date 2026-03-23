@@ -266,13 +266,18 @@ CHART_EOF
 CHART_HTML="${CHART_HTML//METRICS_DATA_PLACEHOLDER/$(echo "$METRICS" | jq -c '.')}"
 CHART_HTML="${CHART_HTML//CHART_TYPE_PLACEHOLDER/$CHART_TYPE}"
 
-# Find injection point (before closing </body> tag or before last closing div)
+# Find injection point (before closing </body> tag or append if absent)
 if grep -q "</body>" "$DASHBOARD_FILE"; then
-    # Use a temp file to safely inject multi-line HTML with special chars
-    local TEMP_HTML
+    # Write chart HTML to a temp file, then use awk to insert it before </body>
     TEMP_HTML=$(mktemp)
     echo "$CHART_HTML" > "$TEMP_HTML"
-    sed -i "/<\/body>/r $TEMP_HTML" "$DASHBOARD_FILE"
+    awk -v chart_file="$TEMP_HTML" '
+        /<\/body>/ {
+            while ((getline line < chart_file) > 0) print line
+            close(chart_file)
+        }
+        { print }
+    ' "$DASHBOARD_FILE" > "${DASHBOARD_FILE}.tmp" && mv "${DASHBOARD_FILE}.tmp" "$DASHBOARD_FILE"
     rm -f "$TEMP_HTML"
 else
     # Append to file

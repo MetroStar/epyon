@@ -87,7 +87,7 @@ OUTPUT_FILE="${OUTPUT_FILE:-$DASHBOARD_FILE}"
 # ─── Extract metrics data for chart ────────────────────────────────
 [[ "$QUIET" == false ]] && echo -e "${BLUE}📊 Extracting metrics for dashboard...${NC}" >&2
 
-METRICS=$(jq '.metrics[] | {
+METRICS=$(jq '(.trend // .metrics // [])[] | {
     scan_id: .scan_id,
     timestamp: .scan_timestamp,
     target: .target_name,

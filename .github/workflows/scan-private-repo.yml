@@ -54,6 +54,11 @@ on:
         required: false
         default: 'promptinject'
         type: string
+      pr_base_branch:
+        description: 'Base branch to count merged PRs for dashboard metrics (e.g. main or master)'
+        required: false
+        default: 'main'
+        type: string
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -74,6 +79,7 @@ jobs:
       garak_target_type: ${{ github.event.inputs.garak_target_type || 'openai' }}
       garak_target_name: ${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
       garak_probes: ${{ github.event.inputs.garak_probes || 'promptinject' }}
+      pr_base_branch: ${{ github.event.inputs.pr_base_branch || 'main' }}
     secrets: inherit
 
   security-scan-test:
@@ -91,4 +97,5 @@ jobs:
       garak_target_type: ${{ github.event.inputs.garak_target_type || 'openai' }}
       garak_target_name: ${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
       garak_probes: ${{ github.event.inputs.garak_probes || 'promptinject' }}
+      pr_base_branch: ${{ github.event.inputs.pr_base_branch || 'main' }}
     secrets: inherit

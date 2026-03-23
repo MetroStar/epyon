@@ -29,6 +29,9 @@ Options:
   -o, --output FILE           Output HTML file (default: replaces input)
     --chart-type TYPE           Chart type: line, area, bar (default: bar)
   --max-points NUM            Max data points to display (default: 90)
+    --pr-repo OWNER/REPO        Optional repo to count merged PRs (for example MetroStar/iris)
+    --pr-since DATE             Optional lower bound for merged PR date (YYYY-MM-DD)
+    --pr-base-branch BRANCH     Base branch for merged PR counting (default: main)
   -q, --quiet                 Suppress output
   -h, --help                  Show this help message
 
@@ -50,6 +53,9 @@ DASHBOARD_FILE=""
 OUTPUT_FILE=""
 CHART_TYPE="bar"
 MAX_POINTS=90
+PR_REPO=""
+PR_SINCE=""
+PR_BASE_BRANCH="main"
 QUIET=false
 
 # ─── Parse Arguments ─────────────────────────────────────────────────
@@ -60,6 +66,9 @@ while [[ $# -gt 0 ]]; do
         -o|--output)        OUTPUT_FILE="$2"; shift 2 ;;
         --chart-type)       CHART_TYPE="$2"; shift 2 ;;
         --max-points)       MAX_POINTS="$2"; shift 2 ;;
+        --pr-repo)          PR_REPO="$2"; shift 2 ;;
+        --pr-since)         PR_SINCE="$2"; shift 2 ;;
+        --pr-base-branch)   PR_BASE_BRANCH="$2"; shift 2 ;;
         -q|--quiet)         QUIET=true; shift ;;
         -h|--help)          show_help ;;
         *)                  echo "Unknown option: $1" >&2; exit 1 ;;
@@ -129,11 +138,60 @@ if [[ "$METRICS" == "[]" ]] || [[ -z "$METRICS" ]]; then
     exit 0
 fi
 
+# Optionally enrich daily metrics with count of merged PRs to base branch.
+if [[ -n "$PR_REPO" ]]; then
+    [[ "$QUIET" == false ]] && echo -e "${BLUE}🔀 Fetching merged PR counts for ${PR_REPO} (${PR_BASE_BRANCH})...${NC}" >&2
+    PR_MERGE_MAP='{}'
+
+    if ! command -v gh &>/dev/null; then
+        [[ "$QUIET" == false ]] && echo -e "${YELLOW}⚠️  gh CLI not found; PR merge overlay disabled${NC}" >&2
+    elif ! gh auth status &>/dev/null; then
+        [[ "$QUIET" == false ]] && echo -e "${YELLOW}⚠️  gh CLI is not authenticated; PR merge overlay disabled${NC}" >&2
+    else
+        PR_TMP=$(mktemp)
+        PAGE=1
+        MAX_PAGES=30
+
+        while [[ "$PAGE" -le "$MAX_PAGES" ]]; do
+            PRS_JSON=$(gh api "repos/${PR_REPO}/pulls?state=closed&base=${PR_BASE_BRANCH}&per_page=100&page=${PAGE}" 2>/dev/null || echo "[]")
+            PAGE_COUNT=$(echo "$PRS_JSON" | jq 'length' 2>/dev/null || echo 0)
+            [[ "$PAGE_COUNT" -eq 0 ]] && break
+
+            echo "$PRS_JSON" | jq -c --arg since "$PR_SINCE" '
+                .[]
+                | select(.merged_at != null)
+                | select(($since == "") or ((.merged_at[0:10]) >= $since))
+                | {date: (.merged_at[0:10])}
+            ' >> "$PR_TMP"
+
+            if [[ -n "$PR_SINCE" ]]; then
+                OLDEST_DATE=$(echo "$PRS_JSON" | jq -r '[.[].merged_at | select(. != null) | .[0:10]] | min // ""' 2>/dev/null)
+                if [[ -n "$OLDEST_DATE" && "$OLDEST_DATE" < "$PR_SINCE" ]]; then
+                    break
+                fi
+            fi
+
+            PAGE=$(( PAGE + 1 ))
+        done
+
+        if [[ -s "$PR_TMP" ]]; then
+            PR_MERGE_MAP=$(jq -sc 'group_by(.date) | map({(.[0].date): length}) | add // {}' "$PR_TMP")
+        fi
+        rm -f "$PR_TMP"
+
+        [[ "$QUIET" == false ]] && echo "    PR merge days found: $(echo "$PR_MERGE_MAP" | jq 'keys | length')" >&2
+    fi
+
+    METRICS=$(echo "$METRICS" | jq --argjson pr "$PR_MERGE_MAP" 'map(. + {pr_merges: ($pr[.date] // 0)})')
+else
+    METRICS=$(echo "$METRICS" | jq 'map(. + {pr_merges: 0})')
+fi
+
 # ─── Generate Chart Container HTML ─────────────────────────────────
 CHART_HTML=$(cat << 'CHART_EOF'
         <!-- Metrics Time-Series Chart -->
         <div class="metrics-chart-section" style="margin: 30px 0; padding: 20px; background: #f9fafb; border-radius: 12px; border: 1px solid #e5e7eb;">
-            <h2 style="font-size: 1.5em; margin-bottom: 20px; color: #1f2937;">📊 90-Day Metrics Trend</h2>
+            <h2 style="font-size: 1.5em; margin-bottom: 20px; color: #1f2937;">📊 90 Day Vulnerability Metrics</h2>
             
             <div style="overflow-x: auto;">
                 <canvas id="metricsChart" width="400" height="100"></canvas>
@@ -156,7 +214,8 @@ CHART_HTML=$(cat << 'CHART_EOF'
             
             // Prepare data for Chart.js
             const labels = metricsData.map(m => {
-                const date = new Date(m.timestamp);
+                const day = m.date || (m.timestamp || '').slice(0, 10);
+                const date = new Date(`${day}T00:00:00Z`);
                 return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             });
             
@@ -164,6 +223,7 @@ CHART_HTML=$(cat << 'CHART_EOF'
             const highData = metricsData.map(m => m.high || 0);
             const mediumData = metricsData.map(m => m.medium || 0);
             const lowData = metricsData.map(m => m.low || 0);
+            const prMergeData = metricsData.map(m => m.pr_merges || 0);
             
             // Create Chart
             const ctx = document.getElementById('metricsChart').getContext('2d');
@@ -211,6 +271,19 @@ CHART_HTML=$(cat << 'CHART_EOF'
                             tension: 0.4,
                             fill: false,
                             stack: 'severity'
+                        },
+                        {
+                            label: 'PR Merges (main)',
+                            type: 'line',
+                            yAxisID: 'y1',
+                            data: prMergeData,
+                            borderColor: '#2563EB',
+                            backgroundColor: 'rgba(37, 99, 235, 0.25)',
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                            tension: 0.3,
+                            fill: false
                         }
                     ]
                 },
@@ -258,6 +331,13 @@ CHART_HTML=$(cat << 'CHART_EOF'
                             stacked: true,
                             ticks: { color: '#6b7280' },
                             grid: { color: 'rgba(0,0,0,0.05)' }
+                        },
+                        y1: {
+                            beginAtZero: true,
+                            position: 'right',
+                            title: { display: true, text: 'PR Merges' },
+                            ticks: { color: '#2563EB' },
+                            grid: { drawOnChartArea: false }
                         }
                     }
                 }
@@ -268,6 +348,7 @@ CHART_HTML=$(cat << 'CHART_EOF'
             const latestMetric = metricsData[metricsData.length - 1];
             const avgCritical = (criticalData.reduce((a, b) => a + b, 0) / criticalData.length).toFixed(1);
             const avgHigh = (highData.reduce((a, b) => a + b, 0) / highData.length).toFixed(1);
+            const latestPrMerges = latestMetric.pr_merges || 0;
             
             statsDiv.innerHTML = `
                 <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #DC2626;">
@@ -285,6 +366,10 @@ CHART_HTML=$(cat << 'CHART_EOF'
                 <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #22C55E;">
                     <div style="color: #6b7280; font-size: 0.85em; margin-bottom: 5px;">Avg High</div>
                     <div style="font-size: 1.8em; font-weight: bold; color: #22C55E;">${avgHigh}</div>
+                </div>
+                <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #2563EB;">
+                    <div style="color: #6b7280; font-size: 0.85em; margin-bottom: 5px;">PR Merges (Latest Day)</div>
+                    <div style="font-size: 1.8em; font-weight: bold; color: #2563EB;">${latestPrMerges}</div>
                 </div>
             `;
         })();

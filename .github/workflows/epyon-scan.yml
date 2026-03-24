@@ -497,13 +497,23 @@ jobs:
             fi
 
             if [ -s "$METRICS_90D_FILE" ]; then
+              # Resolve base branch: use input override if set, otherwise auto-detect from repo API
+              PR_REPO="${{ inputs.repository_url || github.repository }}"
+              PR_REPO=$(echo "$PR_REPO" | sed 's|https://github.com/||; s|/$||')
+              OVERRIDE_BRANCH="${{ inputs.pr_base_branch }}"
+              if [ -n "$OVERRIDE_BRANCH" ]; then
+                PR_BASE_BRANCH="$OVERRIDE_BRANCH"
+              else
+                PR_BASE_BRANCH=$(gh api "repos/${PR_REPO}" --jq '.default_branch' 2>/dev/null || echo "main")
+              fi
+              echo "📊 Counting PRs merged to: ${PR_BASE_BRANCH} (repo: ${PR_REPO})"
               ./scripts/shell/embed-metrics-in-dashboard.sh \
                 --metrics "$METRICS_90D_FILE" \
                 --dashboard "$DASHBOARD_FILE" \
                 --chart-type bar \
                 --max-points 90 \
-                --pr-repo "${{ github.repository }}" \
-                --pr-base-branch "${{ inputs.pr_base_branch || 'main' }}" \
+                --pr-repo "$PR_REPO" \
+                --pr-base-branch "$PR_BASE_BRANCH" \
                 --pr-since "$SINCE_DATE" \
                 || echo "⚠️ Dashboard metrics embedding completed with warnings"
               echo "✅ Metrics embedding step completed"

@@ -27,6 +27,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-03-24
+
+### Added
+- **Dual dashboard metrics charts** (`embed-metrics-in-dashboard.sh`): the single combined chart is now split into two focused panels:
+  - **Chart 1 — 90 Day Vulnerability Metrics**: stacked bar chart (Critical / High / Medium / Low) per day; PR line overlay removed to reduce noise; story banner, and stat cards (Latest Critical, Latest High, Latest Total, Peak Day).
+  - **Chart 2 — PR Activity & CVE Discipline**: daily PR merges to the default branch (bars) overlaid with net CVE count change (line); data points colored red when CVEs rose and green when they fell; story banner diagnoses CVE discipline automatically; stat cards show PRs (90d), PRs (last 7d), Net CVE Change (90d), and Average CVE Δ on PR merge days.
+- **Default branch auto-detection for PR metrics**: `epyon-scan.yml` now queries the GitHub API (`gh api repos/{repo}`) to resolve the repository's actual default branch before passing `--pr-base-branch` to the embed script, eliminating the previous hardcoded assumption of `main`.
+
+### Fixed
+- **Checkov findings not counted in vulnerability summary** (`generate-scan-findings-summary.sh`): Checkov 3.x writes an array of per-check-type objects (`[{check_type, results:{failed_checks:[...]}}, ...]`) rather than a single object. The previous `jq` query used `.results.failed_checks[]?` which silently returned nothing for array-format files, causing every Checkov failure to be omitted from the `total_critical/high/medium/low` counts. Fixed by handling both formats: `(if type == "array" then .[].results.failed_checks[] else .results.failed_checks[]? end)`. The `.severity` field is now respected when present (Prisma/Bridgecrew configurations); otherwise defaults to `High`.
+
 ## [2.8.0] - 2026-03-16
 
 ### Added

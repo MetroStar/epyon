@@ -135,7 +135,7 @@ if [[ "$METRICS" == "[]" ]] || [[ -z "$METRICS" ]]; then
             echo "    jq error: $(cat /tmp/jq-error.log)" >&2
         fi
     fi
-    METRICS="[]"
+    exit 0
 fi
 
 # Optionally enrich daily metrics with count of merged PRs to base branch.
@@ -367,12 +367,12 @@ CHART_HTML=$(cat << 'CHART_EOF'
             const avgTotal = (totalData.reduce((a, b) => a + b, 0) / Math.max(totalData.length, 1)).toFixed(1);
             const latestPrMerges = latestMetric.pr_merges || 0;
 
-            if (storyDiv) storyDiv.innerHTML = `
+            storyDiv.innerHTML = `
                 <strong>Story:</strong> Latest day is <strong>${latestTotal}</strong> total findings (${trendText} vs previous day).
                 Peak day in this window was <strong>${peakTotal}</strong> on <strong>${peakLabel}</strong>.
             `;
             
-            if (statsDiv) statsDiv.innerHTML = `
+            statsDiv.innerHTML = `
                 <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #111827;">
                     <div style="color: #6b7280; font-size: 0.85em; margin-bottom: 5px;">Latest Total Findings</div>
                     <div style="font-size: 1.8em; font-weight: bold; color: #111827;">${latestTotal}</div>
@@ -432,4 +432,5 @@ fi
 
 [[ "$QUIET" == false ]] && echo -e "${GREEN}✅ Metrics chart embedded successfully${NC}" >&2
 [[ "$QUIET" == false ]] && echo -e "${GREEN}📄 Updated dashboard: $OUTPUT_FILE${NC}" >&2
+
 exit 0

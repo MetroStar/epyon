@@ -29,6 +29,9 @@ Options:
   -o, --output FILE           Output HTML file (default: replaces input)
     --chart-type TYPE           Chart type: line, area, bar (default: bar)
   --max-points NUM            Max data points to display (default: 90)
+  --pr-repo REPO              GitHub repo to count merged PRs (e.g. owner/repo; optional)
+  --pr-base-branch BRANCH     Base branch for PR counts (default: main)
+  --pr-since DATE             Only count PRs merged on or after DATE (YYYY-MM-DD)
   -q, --quiet                 Suppress output
   -h, --help                  Show this help message
 
@@ -50,6 +53,9 @@ DASHBOARD_FILE=""
 OUTPUT_FILE=""
 CHART_TYPE="bar"
 MAX_POINTS=90
+PR_REPO=""
+PR_BASE_BRANCH="main"
+PR_SINCE=""
 QUIET=false
 
 # ─── Parse Arguments ─────────────────────────────────────────────────
@@ -61,6 +67,9 @@ while [[ $# -gt 0 ]]; do
         --chart-type)       CHART_TYPE="$2"; shift 2 ;;
         --max-points)       MAX_POINTS="$2"; shift 2 ;;
         -q|--quiet)         QUIET=true; shift ;;
+        --pr-repo)          PR_REPO="$2"; shift 2 ;;
+        --pr-base-branch)   PR_BASE_BRANCH="$2"; shift 2 ;;
+        --pr-since)         PR_SINCE="$2"; shift 2 ;;
         -h|--help)          show_help ;;
         *)                  echo "Unknown option: $1" >&2; exit 1 ;;
     esac
@@ -129,6 +138,31 @@ if [[ "$METRICS" == "[]" ]] || [[ -z "$METRICS" ]]; then
     exit 0
 fi
 
+
+# ─── Fetch PR merge counts (optional) ──────────────────────────────
+if [[ -n "$PR_REPO" ]] && command -v gh &>/dev/null; then
+    [[ "$QUIET" == false ]] && echo -e "${BLUE}🔀 Fetching PR merges from ${PR_REPO} (base: ${PR_BASE_BRANCH})...${NC}" >&2
+    PR_DATES="[]"
+    PR_PAGE=1
+    while true; do
+        PR_PAGE_DATA=$(gh api "repos/${PR_REPO}/pulls?state=closed&base=${PR_BASE_BRANCH}&per_page=100&page=${PR_PAGE}" 2>/dev/null || echo "[]")
+        PR_COUNT=$(echo "$PR_PAGE_DATA" | jq 'length' 2>/dev/null || echo 0)
+        [[ "$PR_COUNT" -eq 0 ]] && break
+        CHUNK=$(echo "$PR_PAGE_DATA" | jq --arg since "${PR_SINCE}" \
+            '[.[] | select(.merged_at != null) | select($since == "" or .merged_at[:10] >= $since) | .merged_at[:10]]')
+        PR_DATES=$(printf '%s\n%s' "$PR_DATES" "$CHUNK" | jq -s 'add // []')
+        if [[ -n "$PR_SINCE" ]]; then
+            OLDEST=$(echo "$PR_PAGE_DATA" | jq -r '[.[] | select(.merged_at != null) | .merged_at[:10]] | min // ""')
+            [[ -n "$OLDEST" && "$OLDEST" < "$PR_SINCE" ]] && break
+        fi
+        PR_PAGE=$((PR_PAGE + 1))
+    done
+    PR_MAP=$(echo "$PR_DATES" | jq 'group_by(.) | map({key: .[0], value: length}) | from_entries')
+    METRICS=$(echo "$METRICS" | jq --argjson pr "$PR_MAP" \
+        'map(. + {pr_merges: ($pr[(.timestamp // "")[:10]] // $pr[(.date // "")] // 0)})')
+    [[ "$QUIET" == false ]] && echo -e "${GREEN}✅ PR merge data fetched${NC}" >&2
+fi
+
 # ─── Generate Chart Container HTML ─────────────────────────────────
 CHART_HTML=$(cat << 'CHART_EOF'
         <!-- 90 Day Vulnerability Metrics Chart -->
@@ -136,7 +170,7 @@ CHART_HTML=$(cat << 'CHART_EOF'
             <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px;">
                 <h2 style="font-size: 1.4em; margin: 0; color: #111827; font-weight: 700;">📈 90 Day Vulnerability Metrics</h2>
             </div>
-            <p style="margin: 0 0 16px 0; color: #6b7280; font-size: 0.9em;">Daily vulnerability counts by severity over the past 90 days. Each bar reflects the highest scan result for that day.</p>
+            <p style="margin: 0 0 16px 0; color: #6b7280; font-size: 0.9em;">Daily vulnerability counts by severity over the past 90 days. Each bar reflects the highest scan result for that day. The line shows PRs merged to PR_BASE_BRANCH_PLACEHOLDER.</p>
 
             <div id="metricsStory" style="margin-bottom: 20px;"></div>
 
@@ -167,14 +201,16 @@ CHART_HTML=$(cat << 'CHART_EOF'
                                   .format(new Date(d + 'T12:00:00Z'));
 
             const labels       = metricsData.map(m => fmt(m.timestamp ? m.timestamp.slice(0,10) : m.date));
-            const criticalData = metricsData.map(m => m.critical || 0);
-            const highData     = metricsData.map(m => m.high     || 0);
-            const mediumData   = metricsData.map(m => m.medium   || 0);
-            const lowData      = metricsData.map(m => m.low      || 0);
+            const criticalData = metricsData.map(m => m.critical   || 0);
+            const highData     = metricsData.map(m => m.high       || 0);
+            const mediumData   = metricsData.map(m => m.medium     || 0);
+            const lowData      = metricsData.map(m => m.low        || 0);
+            const prData       = metricsData.map(m => m.pr_merges  || 0);
             const totalData    = metricsData.map((_,i) => criticalData[i]+highData[i]+mediumData[i]+lowData[i]);
 
             const latest      = metricsData[metricsData.length - 1];
             const latestTotal = totalData[totalData.length - 1];
+            const latestPRs   = prData[prData.length - 1];
             const latestDate  = fmt(latest.timestamp ? latest.timestamp.slice(0,10) : latest.date);
 
             const peakTotal   = Math.max(...totalData);
@@ -183,6 +219,7 @@ CHART_HTML=$(cat << 'CHART_EOF'
 
             const avgTotal    = (totalData.reduce((a,b) => a+b, 0) / totalData.length).toFixed(1);
             const avgCritical = (criticalData.reduce((a,b) => a+b, 0) / criticalData.length).toFixed(1);
+            const totalPRs    = prData.reduce((a,b) => a+b, 0);
 
             // Story banner
             let statusColor, statusBg, statusBorder, statusIcon, headline, detail;
@@ -216,6 +253,9 @@ CHART_HTML=$(cat << 'CHART_EOF'
                     ? ' — current total is ' + pct + '% lower.'
                     : ' — current total is ' + pct + '% higher than peak.';
             }
+            if (totalPRs > 0) {
+                detail += ' ' + totalPRs + ' PR' + (totalPRs === 1 ? '' : 's') + ' merged to PR_BASE_BRANCH_PLACEHOLDER in this period.';
+            }
 
             storyDiv.innerHTML =
                 '<div style="background:' + statusBg + '; border:1px solid ' + statusBorder + '; border-left:5px solid ' + statusColor + '; border-radius:8px; padding:14px 18px;">' +
@@ -229,30 +269,43 @@ CHART_HTML=$(cat << 'CHART_EOF'
                 data: {
                     labels,
                     datasets: [
-                        { label: 'Critical', data: criticalData, backgroundColor: '#B91C1C', borderColor: '#B91C1C', borderWidth: 1, stack: 'severity' },
-                        { label: 'High',     data: highData,     backgroundColor: '#C2410C', borderColor: '#C2410C', borderWidth: 1, stack: 'severity' },
-                        { label: 'Medium',   data: mediumData,   backgroundColor: '#B45309', borderColor: '#B45309', borderWidth: 1, stack: 'severity' },
-                        { label: 'Low',      data: lowData,      backgroundColor: '#15803D', borderColor: '#15803D', borderWidth: 1, stack: 'severity' }
+                        { label: 'Critical', data: criticalData, backgroundColor: '#B91C1C', borderColor: '#B91C1C', borderWidth: 1, stack: 'severity', yAxisID: 'y' },
+                        { label: 'High',     data: highData,     backgroundColor: '#C2410C', borderColor: '#C2410C', borderWidth: 1, stack: 'severity', yAxisID: 'y' },
+                        { label: 'Medium',   data: mediumData,   backgroundColor: '#B45309', borderColor: '#B45309', borderWidth: 1, stack: 'severity', yAxisID: 'y' },
+                        { label: 'Low',      data: lowData,      backgroundColor: '#15803D', borderColor: '#15803D', borderWidth: 1, stack: 'severity', yAxisID: 'y' },
+                        { type: 'line', label: 'PRs Merged (PR_BASE_BRANCH_PLACEHOLDER)', data: prData,
+                          borderColor: '#1D4ED8', backgroundColor: 'rgba(29,78,216,0.12)',
+                          borderWidth: 2, pointRadius: 4, pointHoverRadius: 6,
+                          tension: 0.3, fill: false, yAxisID: 'y1' }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
+                    interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: { display: true, position: 'top', labels: { font: { size: 12 }, padding: 15, usePointStyle: true } },
                         tooltip: {
-                            mode: 'index', intersect: false,
                             backgroundColor: 'rgba(17,24,39,0.93)',
                             titleColor: '#f9fafb', bodyColor: '#e5e7eb',
                             borderColor: '#374151', borderWidth: 1, padding: 12,
                             callbacks: {
-                                footer: function(items) { return 'Total: ' + items.reduce(function(s,i){ return s + i.parsed.y; }, 0); }
+                                footer: function(items) {
+                                    const vulnTotal = items
+                                        .filter(function(i){ return i.dataset.yAxisID === 'y'; })
+                                        .reduce(function(s,i){ return s + i.parsed.y; }, 0);
+                                    return 'Vuln Total: ' + vulnTotal;
+                                }
                             }
                         }
                     },
                     scales: {
-                        y: { beginAtZero: true, stacked: true, title: { display: true, text: 'Findings Count' }, ticks: { color: '#6b7280' }, grid: { color: 'rgba(0,0,0,0.05)' } },
-                        x: { stacked: true, ticks: { color: '#6b7280', maxRotation: 45 }, grid: { color: 'rgba(0,0,0,0.05)' } }
+                        y:  { beginAtZero: true, stacked: true, title: { display: true, text: 'Findings Count' },
+                              ticks: { color: '#6b7280' }, grid: { color: 'rgba(0,0,0,0.05)' } },
+                        y1: { type: 'linear', position: 'right', beginAtZero: true,
+                              title: { display: true, text: 'PRs Merged' },
+                              ticks: { color: '#1D4ED8' }, grid: { drawOnChartArea: false } },
+                        x:  { stacked: true, ticks: { color: '#6b7280', maxRotation: 45 }, grid: { color: 'rgba(0,0,0,0.05)' } }
                     }
                 }
             });
@@ -283,7 +336,12 @@ CHART_HTML=$(cat << 'CHART_EOF'
                 '<div style="background:white;padding:15px;border-radius:8px;border-left:4px solid #6D28D9;">' +
                 '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Peak Day</div>' +
                 '<div style="font-size:2em;font-weight:800;color:#6D28D9;line-height:1;">' + peakTotal + '</div>' +
-                '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">' + peakDate + '</div></div>';
+                '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">' + peakDate + '</div></div>' +
+
+                '<div style="background:white;padding:15px;border-radius:8px;border-left:4px solid #1D4ED8;">' +
+                '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">PRs Merged (90d)</div>' +
+                '<div style="font-size:2em;font-weight:800;color:#1D4ED8;line-height:1;">' + totalPRs + '</div>' +
+                '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">to PR_BASE_BRANCH_PLACEHOLDER' + (latestPRs > 0 ? ' · ' + latestPRs + ' latest day' : '') + '</div></div>';
         })();
         </script>
 CHART_EOF
@@ -295,6 +353,7 @@ CHART_EOF
 # Replace placeholders
 CHART_HTML="${CHART_HTML//METRICS_DATA_PLACEHOLDER/$(echo "$METRICS" | jq -c '.')}"
 CHART_HTML="${CHART_HTML//CHART_TYPE_PLACEHOLDER/$CHART_TYPE}"
+CHART_HTML="${CHART_HTML//PR_BASE_BRANCH_PLACEHOLDER/$PR_BASE_BRANCH}"
 
 # Find injection point (before closing </body> tag or append if absent)
 if grep -q "</body>" "$DASHBOARD_FILE"; then

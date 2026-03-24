@@ -170,7 +170,7 @@ CHART_HTML=$(cat << 'CHART_EOF'
             <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px;">
                 <h2 style="font-size: 1.4em; margin: 0; color: #e2e8f0; font-weight: 700;">📈 90 Day Vulnerability Metrics</h2>
             </div>
-            <p style="margin: 0 0 16px 0; color: #8892a4; font-size: 0.9em;">Daily vulnerability counts by severity over the past 90 days. Each bar reflects the highest scan result for that day. The line shows PRs merged to PR_BASE_BRANCH_PLACEHOLDER.</p>
+            <p style="margin: 0 0 16px 0; color: #8892a4; font-size: 0.9em;">Daily vulnerability counts by severity over the past 90 days. Each bar reflects the highest scan result for that day.</p>
 
             <div id="metricsStory" style="margin-bottom: 20px;"></div>
 
@@ -179,6 +179,22 @@ CHART_HTML=$(cat << 'CHART_EOF'
             </div>
 
             <div id="metricsStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 20px;"></div>
+        </div>
+
+        <!-- PR Activity & CVE Discipline Chart -->
+        <div class="metrics-chart-section" style="margin: 30px 0; padding: 24px; background: #1e2530; border-radius: 12px; border: 1px solid #2a3441;">
+            <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px;">
+                <h2 style="font-size: 1.4em; margin: 0; color: #e2e8f0; font-weight: 700;">🔀 PR Activity &amp; CVE Discipline</h2>
+            </div>
+            <p style="margin: 0 0 16px 0; color: #8892a4; font-size: 0.9em;">Daily PR merges to PR_BASE_BRANCH_PLACEHOLDER (bars) vs. net change in total vulnerability count (line). Red points = CVEs rose that day; green = fell.</p>
+
+            <div id="prStory" style="margin-bottom: 20px;"></div>
+
+            <div style="overflow-x: auto;">
+                <canvas id="prChart" width="400" height="110"></canvas>
+            </div>
+
+            <div id="prStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 20px;"></div>
         </div>
 
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
@@ -253,10 +269,6 @@ CHART_HTML=$(cat << 'CHART_EOF'
                     ? ' — current total is ' + pct + '% lower.'
                     : ' — current total is ' + pct + '% higher than peak.';
             }
-            if (totalPRs > 0) {
-                detail += ' ' + totalPRs + ' PR' + (totalPRs === 1 ? '' : 's') + ' merged to PR_BASE_BRANCH_PLACEHOLDER in this period.';
-            }
-
             storyDiv.innerHTML =
                 '<div style="background:' + statusBg + '; border:1px solid ' + statusBorder + '; border-left:5px solid ' + statusColor + '; border-radius:8px; padding:14px 18px;">' +
                 '<div style="font-weight:700; font-size:1em; color:' + statusColor + '; margin-bottom:4px;">' + statusIcon + ' ' + headline + '</div>' +
@@ -269,14 +281,10 @@ CHART_HTML=$(cat << 'CHART_EOF'
                 data: {
                     labels,
                     datasets: [
-                        { label: 'Critical', data: criticalData, backgroundColor: '#C41E3A', borderColor: '#C41E3A', borderWidth: 1, stack: 'severity', yAxisID: 'y', order: 2 },
-                        { label: 'High',     data: highData,     backgroundColor: '#FF1493', borderColor: '#FF1493', borderWidth: 1, stack: 'severity', yAxisID: 'y', order: 2 },
-                        { label: 'Medium',   data: mediumData,   backgroundColor: '#f97316', borderColor: '#f97316', borderWidth: 1, stack: 'severity', yAxisID: 'y', order: 2 },
-                        { label: 'Low',      data: lowData,      backgroundColor: '#10b981', borderColor: '#10b981', borderWidth: 1, stack: 'severity', yAxisID: 'y', order: 2 },
-                        { type: 'line', label: 'PRs Merged (PR_BASE_BRANCH_PLACEHOLDER)', data: prData,
-                          borderColor: '#60a5fa', backgroundColor: 'rgba(96,165,250,0.15)',
-                          borderWidth: 2.5, pointRadius: 5, pointHoverRadius: 7,
-                          tension: 0.3, fill: false, yAxisID: 'y1', order: 1 }
+                        { label: 'Critical', data: criticalData, backgroundColor: '#C41E3A', borderColor: '#C41E3A', borderWidth: 1, stack: 'severity', yAxisID: 'y' },
+                        { label: 'High',     data: highData,     backgroundColor: '#FF1493', borderColor: '#FF1493', borderWidth: 1, stack: 'severity', yAxisID: 'y' },
+                        { label: 'Medium',   data: mediumData,   backgroundColor: '#f97316', borderColor: '#f97316', borderWidth: 1, stack: 'severity', yAxisID: 'y' },
+                        { label: 'Low',      data: lowData,      backgroundColor: '#10b981', borderColor: '#10b981', borderWidth: 1, stack: 'severity', yAxisID: 'y' }
                     ]
                 },
                 options: {
@@ -291,26 +299,21 @@ CHART_HTML=$(cat << 'CHART_EOF'
                             borderColor: '#374151', borderWidth: 1, padding: 12,
                             callbacks: {
                                 footer: function(items) {
-                                    const vulnTotal = items
-                                        .filter(function(i){ return i.dataset.yAxisID === 'y'; })
-                                        .reduce(function(s,i){ return s + i.parsed.y; }, 0);
-                                    return 'Vuln Total: ' + vulnTotal;
+                                    const total = items.reduce(function(s,i){ return s + i.parsed.y; }, 0);
+                                    return 'Total: ' + total;
                                 }
                             }
                         }
                     },
                     scales: {
-                        y:  { beginAtZero: true, stacked: true, title: { display: true, text: 'Findings Count' },
-                              ticks: { color: '#8892a4' }, grid: { color: 'rgba(255,255,255,0.06)' } },
-                        y1: { type: 'linear', position: 'right', beginAtZero: true,
-                              title: { display: true, text: 'PRs Merged' },
-                              ticks: { color: '#60a5fa' }, grid: { drawOnChartArea: false } },
-                        x:  { stacked: true, ticks: { color: '#8892a4', maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.06)' } }
+                        y: { beginAtZero: true, stacked: true, title: { display: true, text: 'Findings Count' },
+                             ticks: { color: '#8892a4' }, grid: { color: 'rgba(255,255,255,0.06)' } },
+                        x: { stacked: true, ticks: { color: '#8892a4', maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.06)' } }
                     }
                 }
             });
 
-            // Stat cards
+            // ── Stat cards (chart 1) ───────────────────────────────────────
             const trendVsAvg   = latestTotal - parseFloat(avgTotal);
             const trendArrow   = trendVsAvg < 0 ? '↓' : trendVsAvg > 0 ? '↑' : '→';
             const trendCaption = trendVsAvg === 0 ? 'at 90-day average'
@@ -330,18 +333,128 @@ CHART_HTML=$(cat << 'CHART_EOF'
 
                 '<div style="background:#1a1d23;padding:15px;border-radius:8px;border-left:4px solid #60a5fa;">' +
                 '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Latest Total</div>' +
-                '<div style="font-size:2em;font-weight:800;color:#1D4ED8;line-height:1;">' + latestTotal + '</div>' +
+                '<div style="font-size:2em;font-weight:800;color:#60a5fa;line-height:1;">' + latestTotal + '</div>' +
                 '<div style="font-size:0.78em;color:' + trendCol + ';margin-top:4px;">' + trendArrow + ' ' + trendCaption + '</div></div>' +
 
                 '<div style="background:#1a1d23;padding:15px;border-radius:8px;border-left:4px solid #a78bfa;">' +
                 '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Peak Day</div>' +
                 '<div style="font-size:2em;font-weight:800;color:#a78bfa;line-height:1;">' + peakTotal + '</div>' +
-                '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">' + peakDate + '</div></div>' +
+                '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">' + peakDate + '</div></div>';
 
+            // ── Chart 2 — PR Activity & CVE Discipline ────────────────────────
+            const prChartEl  = document.getElementById('prChart');
+            const prStoryDiv = document.getElementById('prStory');
+            const prStatsDiv = document.getElementById('prStats');
+            if (!prChartEl) return;
+
+            const totalPRs = prData.reduce(function(a,b){ return a+b; }, 0);
+
+            // Net CVE change per day (null for first point — no previous baseline)
+            const netCveData = totalData.map(function(t,i){ return i === 0 ? null : t - totalData[i-1]; });
+
+            // PRs in last 7 days
+            const cutoff7d = new Date(new Date() - 7 * 86400000);
+            const prs7d    = metricsData.filter(function(m) {
+                return new Date((m.timestamp ? m.timestamp.slice(0,10) : m.date) + 'T12:00:00Z') >= cutoff7d;
+            }).reduce(function(s,m){ return s + (m.pr_merges || 0); }, 0);
+
+            // Net CVE change over full window
+            const netCve90 = latestTotal - totalData[0];
+
+            // Average net CVE delta on days where PRs were merged
+            const prDayIdxs   = metricsData.reduce(function(a,m,i){ if ((m.pr_merges||0) > 0 && i > 0) a.push(i); return a; }, []);
+            const avgCveDelta = prDayIdxs.length === 0 ? 0
+                              : (prDayIdxs.reduce(function(s,i){ return s + netCveData[i]; }, 0) / prDayIdxs.length).toFixed(1);
+
+            // Story banner for chart 2
+            var prIcon, prHeadline, prDetail, prBorderColor;
+            if (totalPRs === 0) {
+                prIcon = '📭'; prBorderColor = '#4b5563';
+                prHeadline = 'No PR data available for this period.';
+                prDetail   = 'Pass --pr-repo to the embed script to enable PR merge tracking.';
+            } else if (parseFloat(avgCveDelta) <= 0) {
+                prIcon = '✅'; prBorderColor = '#10b981';
+                prHeadline = 'Good CVE discipline — PRs are not driving up vulnerability counts.';
+                prDetail   = totalPRs + ' PRs merged in 90 days (' + prs7d + ' in the last 7). On PR merge days the average CVE delta is ' + avgCveDelta + '.';
+            } else {
+                prIcon = '⚠️'; prBorderColor = '#f97316';
+                prHeadline = 'PRs are associated with rising CVE counts — review merge practices.';
+                prDetail   = totalPRs + ' PRs merged in 90 days (' + prs7d + ' in the last 7). On PR merge days the average CVE delta is +' + avgCveDelta + '.';
+            }
+
+            prStoryDiv.innerHTML =
+                '<div style="border-left:5px solid ' + prBorderColor + '; background:#16202e; border-radius:8px; padding:14px 18px;">' +
+                '<div style="font-weight:700;font-size:1em;color:#e2e8f0;margin-bottom:4px;">' + prIcon + ' ' + prHeadline + '</div>' +
+                '<div style="font-size:0.88em;color:#8892a4;">' + prDetail + '</div></div>';
+
+            // Point colors: red when CVEs rose that day, green when fell
+            const netCvePtColors = netCveData.map(function(v){
+                return v === null ? 'transparent' : v > 0 ? '#C41E3A' : v < 0 ? '#10b981' : '#8892a4';
+            });
+
+            const prCtx = prChartEl.getContext('2d');
+            new Chart(prCtx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        { type: 'bar',  label: 'PRs Merged',    data: prData,
+                          backgroundColor: '#60a5fa', borderColor: '#60a5fa', borderWidth: 1,
+                          yAxisID: 'y', order: 2 },
+                        { type: 'line', label: 'Net CVE Change', data: netCveData,
+                          borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.08)',
+                          borderWidth: 2, pointRadius: 4, pointHoverRadius: 7,
+                          pointBackgroundColor: netCvePtColors,
+                          pointBorderColor: netCvePtColors,
+                          tension: 0.3, fill: false, yAxisID: 'y1', order: 1,
+                          spanGaps: false }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: true, position: 'top', labels: { font: { size: 12 }, padding: 15, usePointStyle: true } },
+                        tooltip: {
+                            backgroundColor: 'rgba(17,24,39,0.93)',
+                            titleColor: '#f9fafb', bodyColor: '#e5e7eb',
+                            borderColor: '#374151', borderWidth: 1, padding: 12
+                        }
+                    },
+                    scales: {
+                        y:  { beginAtZero: true, title: { display: true, text: 'PRs Merged' },
+                              ticks: { color: '#60a5fa', precision: 0 }, grid: { color: 'rgba(255,255,255,0.06)' } },
+                        y1: { type: 'linear', position: 'right', title: { display: true, text: 'Net CVE Change' },
+                              ticks: { color: '#f97316' }, grid: { drawOnChartArea: false } },
+                        x:  { ticks: { color: '#8892a4', maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.06)' } }
+                    }
+                }
+            });
+
+            // Stat cards (chart 2)
+            const netCve90Color = netCve90 < 0 ? '#10b981' : netCve90 > 0 ? '#C41E3A' : '#8892a4';
+            const netCve90Arrow = netCve90 < 0 ? '↓' : netCve90 > 0 ? '↑' : '→';
+            prStatsDiv.innerHTML =
                 '<div style="background:#1a1d23;padding:15px;border-radius:8px;border-left:4px solid #60a5fa;">' +
                 '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">PRs Merged (90d)</div>' +
-                '<div style="font-size:2em;font-weight:800;color:#1D4ED8;line-height:1;">' + totalPRs + '</div>' +
-                '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">to PR_BASE_BRANCH_PLACEHOLDER' + (latestPRs > 0 ? ' · ' + latestPRs + ' latest day' : '') + '</div></div>';
+                '<div style="font-size:2em;font-weight:800;color:#60a5fa;line-height:1;">' + totalPRs + '</div>' +
+                '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">to PR_BASE_BRANCH_PLACEHOLDER</div></div>' +
+
+                '<div style="background:#1a1d23;padding:15px;border-radius:8px;border-left:4px solid #60a5fa;">' +
+                '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">PRs Last 7 Days</div>' +
+                '<div style="font-size:2em;font-weight:800;color:#60a5fa;line-height:1;">' + prs7d + '</div>' +
+                '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">merged recently</div></div>' +
+
+                '<div style="background:#1a1d23;padding:15px;border-radius:8px;border-left:4px solid ' + netCve90Color + ';">' +
+                '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Net CVE Change (90d)</div>' +
+                '<div style="font-size:2em;font-weight:800;color:' + netCve90Color + ';line-height:1;">' + netCve90Arrow + ' ' + Math.abs(netCve90) + '</div>' +
+                '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">' + (netCve90 < 0 ? 'reduced' : netCve90 > 0 ? 'increased' : 'unchanged') + ' over period</div></div>' +
+
+                '<div style="background:#1a1d23;padding:15px;border-radius:8px;border-left:4px solid #f97316;">' +
+                '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Avg CVE &Delta; on PR Days</div>' +
+                '<div style="font-size:2em;font-weight:800;color:#f97316;line-height:1;">' + (parseFloat(avgCveDelta) > 0 ? '+' : '') + avgCveDelta + '</div>' +
+                '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">' + prDayIdxs.length + ' PR day' + (prDayIdxs.length !== 1 ? 's' : '') + ' sampled</div></div>';
         })();
         </script>
 CHART_EOF

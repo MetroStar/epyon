@@ -166,11 +166,11 @@ fi
 # ─── Generate Chart Container HTML ─────────────────────────────────
 CHART_HTML=$(cat << 'CHART_EOF'
         <!-- 90 Day Vulnerability Metrics Chart -->
-        <div class="metrics-chart-section" style="margin: 30px 0; padding: 24px; background: #f9fafb; border-radius: 12px; border: 1px solid #e5e7eb;">
+        <div class="metrics-chart-section" style="margin: 30px 0; padding: 24px; background: #1e2530; border-radius: 12px; border: 1px solid #2a3441;">
             <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px;">
-                <h2 style="font-size: 1.4em; margin: 0; color: #111827; font-weight: 700;">📈 90 Day Vulnerability Metrics</h2>
+                <h2 style="font-size: 1.4em; margin: 0; color: #e2e8f0; font-weight: 700;">📈 90 Day Vulnerability Metrics</h2>
             </div>
-            <p style="margin: 0 0 16px 0; color: #6b7280; font-size: 0.9em;">Daily vulnerability counts by severity over the past 90 days. Each bar reflects the highest scan result for that day. The line shows PRs merged to PR_BASE_BRANCH_PLACEHOLDER.</p>
+            <p style="margin: 0 0 16px 0; color: #8892a4; font-size: 0.9em;">Daily vulnerability counts by severity over the past 90 days. Each bar reflects the highest scan result for that day. The line shows PRs merged to PR_BASE_BRANCH_PLACEHOLDER.</p>
 
             <div id="metricsStory" style="margin-bottom: 20px;"></div>
 
@@ -269,12 +269,12 @@ CHART_HTML=$(cat << 'CHART_EOF'
                 data: {
                     labels,
                     datasets: [
-                        { label: 'Critical', data: criticalData, backgroundColor: '#B91C1C', borderColor: '#B91C1C', borderWidth: 1, stack: 'severity', yAxisID: 'y' },
-                        { label: 'High',     data: highData,     backgroundColor: '#C2410C', borderColor: '#C2410C', borderWidth: 1, stack: 'severity', yAxisID: 'y' },
-                        { label: 'Medium',   data: mediumData,   backgroundColor: '#B45309', borderColor: '#B45309', borderWidth: 1, stack: 'severity', yAxisID: 'y' },
-                        { label: 'Low',      data: lowData,      backgroundColor: '#15803D', borderColor: '#15803D', borderWidth: 1, stack: 'severity', yAxisID: 'y' },
+                        { label: 'Critical', data: criticalData, backgroundColor: '#C41E3A', borderColor: '#C41E3A', borderWidth: 1, stack: 'severity', yAxisID: 'y' },
+                        { label: 'High',     data: highData,     backgroundColor: '#FF1493', borderColor: '#FF1493', borderWidth: 1, stack: 'severity', yAxisID: 'y' },
+                        { label: 'Medium',   data: mediumData,   backgroundColor: '#f97316', borderColor: '#f97316', borderWidth: 1, stack: 'severity', yAxisID: 'y' },
+                        { label: 'Low',      data: lowData,      backgroundColor: '#10b981', borderColor: '#10b981', borderWidth: 1, stack: 'severity', yAxisID: 'y' },
                         { type: 'line', label: 'PRs Merged (PR_BASE_BRANCH_PLACEHOLDER)', data: prData,
-                          borderColor: '#1D4ED8', backgroundColor: 'rgba(29,78,216,0.12)',
+                          borderColor: '#60a5fa', backgroundColor: 'rgba(96,165,250,0.15)',
                           borderWidth: 2, pointRadius: 4, pointHoverRadius: 6,
                           tension: 0.3, fill: false, yAxisID: 'y1' }
                     ]
@@ -301,11 +301,11 @@ CHART_HTML=$(cat << 'CHART_EOF'
                     },
                     scales: {
                         y:  { beginAtZero: true, stacked: true, title: { display: true, text: 'Findings Count' },
-                              ticks: { color: '#6b7280' }, grid: { color: 'rgba(0,0,0,0.05)' } },
+                              ticks: { color: '#8892a4' }, grid: { color: 'rgba(255,255,255,0.06)' } },
                         y1: { type: 'linear', position: 'right', beginAtZero: true,
                               title: { display: true, text: 'PRs Merged' },
-                              ticks: { color: '#1D4ED8' }, grid: { drawOnChartArea: false } },
-                        x:  { stacked: true, ticks: { color: '#6b7280', maxRotation: 45 }, grid: { color: 'rgba(0,0,0,0.05)' } }
+                              ticks: { color: '#60a5fa' }, grid: { drawOnChartArea: false } },
+                        x:  { stacked: true, ticks: { color: '#8892a4', maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.06)' } }
                     }
                 }
             });
@@ -315,30 +315,30 @@ CHART_HTML=$(cat << 'CHART_EOF'
             const trendArrow   = trendVsAvg < 0 ? '↓' : trendVsAvg > 0 ? '↑' : '→';
             const trendCaption = trendVsAvg === 0 ? 'at 90-day average'
                                : Math.abs(trendVsAvg).toFixed(1) + ' ' + (trendVsAvg < 0 ? 'below' : 'above') + ' avg';
-            const trendCol     = trendVsAvg < 0 ? '#166534' : trendVsAvg > 0 ? '#991B1B' : '#6b7280';
+            const trendCol     = trendVsAvg < 0 ? '#10b981' : trendVsAvg > 0 ? '#C41E3A' : '#8892a4';
 
             statsDiv.innerHTML =
-                '<div style="background:white;padding:15px;border-radius:8px;border-left:4px solid #B91C1C;">' +
+                '<div style="background:#1a1d23;padding:15px;border-radius:8px;border-left:4px solid #C41E3A;">' +
                 '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Latest Critical</div>' +
-                '<div style="font-size:2em;font-weight:800;color:#B91C1C;line-height:1;">' + latest.critical + '</div>' +
+                '<div style="font-size:2em;font-weight:800;color:#C41E3A;line-height:1;">' + latest.critical + '</div>' +
                 '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">90-day avg: ' + avgCritical + '</div></div>' +
 
-                '<div style="background:white;padding:15px;border-radius:8px;border-left:4px solid #C2410C;">' +
+                '<div style="background:#1a1d23;padding:15px;border-radius:8px;border-left:4px solid #FF1493;">' +
                 '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Latest High</div>' +
-                '<div style="font-size:2em;font-weight:800;color:#C2410C;line-height:1;">' + latest.high + '</div>' +
+                '<div style="font-size:2em;font-weight:800;color:#FF1493;line-height:1;">' + latest.high + '</div>' +
                 '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">90-day avg: ' + (highData.reduce(function(a,b){return a+b;},0)/highData.length).toFixed(1) + '</div></div>' +
 
-                '<div style="background:white;padding:15px;border-radius:8px;border-left:4px solid #1D4ED8;">' +
+                '<div style="background:#1a1d23;padding:15px;border-radius:8px;border-left:4px solid #60a5fa;">' +
                 '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Latest Total</div>' +
                 '<div style="font-size:2em;font-weight:800;color:#1D4ED8;line-height:1;">' + latestTotal + '</div>' +
                 '<div style="font-size:0.78em;color:' + trendCol + ';margin-top:4px;">' + trendArrow + ' ' + trendCaption + '</div></div>' +
 
-                '<div style="background:white;padding:15px;border-radius:8px;border-left:4px solid #6D28D9;">' +
+                '<div style="background:#1a1d23;padding:15px;border-radius:8px;border-left:4px solid #a78bfa;">' +
                 '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Peak Day</div>' +
-                '<div style="font-size:2em;font-weight:800;color:#6D28D9;line-height:1;">' + peakTotal + '</div>' +
+                '<div style="font-size:2em;font-weight:800;color:#a78bfa;line-height:1;">' + peakTotal + '</div>' +
                 '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">' + peakDate + '</div></div>' +
 
-                '<div style="background:white;padding:15px;border-radius:8px;border-left:4px solid #1D4ED8;">' +
+                '<div style="background:#1a1d23;padding:15px;border-radius:8px;border-left:4px solid #60a5fa;">' +
                 '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">PRs Merged (90d)</div>' +
                 '<div style="font-size:2em;font-weight:800;color:#1D4ED8;line-height:1;">' + totalPRs + '</div>' +
                 '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">to PR_BASE_BRANCH_PLACEHOLDER' + (latestPRs > 0 ? ' · ' + latestPRs + ' latest day' : '') + '</div></div>';

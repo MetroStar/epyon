@@ -48,7 +48,7 @@ Our roadmap is organized by level of certainty and timeframe, focusing on key ou
 
 This repository contains a **production-ready, enterprise-grade** multi-layer DevOps security architecture with **comprehensive test coverage**, **baseline scanning**, **automated comparison**, and **isolated scan directory architecture**. Built for real-world enterprise applications with Docker-based tooling and 304 automated tests.
 
-**Latest Update: March 16, 2026 (v2.8.0)** - Added cross-scan metrics aggregator (`get-scan-metrics.sh`) with GitHub Actions artifact fetching, lightweight per-run metrics artifacts (90-day retention), and local metrics cache.
+**Latest Update: March 24, 2026 (v2.9.0)** - Split dashboard metrics into two charts (vulnerability trends + PR/CVE discipline), fixed Checkov findings not appearing in vulnerability counts, and added default branch auto-detection for PR metrics.
 
 ## 📋 Prerequisites
 
@@ -1582,7 +1582,13 @@ export TARGET_DIR="/workspace" && ./scripts/run-target-security-scan.sh "$TARGET
 **Status**: ✅ **ENTERPRISE PRODUCTION READY - COMPLETE ISOLATION**  
 **Validation**: Successfully tested with complete scan isolation, no centralized reports, full audit trail support
 
-### 🆕 Latest Updates (v2.8.0) - Cross-Scan Metrics
+### 🆕 Latest Updates (v2.9.0) - Dashboard Metrics Charts & Checkov Fix
+- ✅ **Dual metrics charts**: dashboard now renders two separate panels — "90 Day Vulnerability Metrics" (stacked severity bars) and "PR Activity & CVE Discipline" (PR bars + net CVE change line with red/green data points)
+- ✅ **PR/CVE discipline analysis**: Chart 2 story banner automatically diagnoses whether PR merges correlate with rising CVE counts; stat cards show 90d and 7d PR totals, net CVE change, and average CVE delta on PR days
+- ✅ **Default branch auto-detection**: `epyon-scan.yml` queries the GitHub API to resolve the repo's actual default branch rather than assuming `main`
+- ✅ **Checkov findings now counted**: fixed `jq` query in `generate-scan-findings-summary.sh` to handle Checkov 3.x array-format output; failures now correctly flow into `total_critical/high/medium/low`
+
+### 🆕 Previous Updates (v2.8.0) - Cross-Scan Metrics
 - ✅ **`get-scan-metrics.sh`**: aggregates findings across all local scan directories into a JSON time-series and color-coded terminal table, filterable by target, user, and date range
 - ✅ **GitHub Actions fetch (`--from-github`)**: pulls metrics from `metrics-{scan_id}` artifacts via `gh` CLI; auto-detects repo from git remote; `--repos` supports multi-repo aggregation; `--fetch-legacy` handles pre-2.8.0 full-scan artifact zips
 - ✅ **Lightweight metrics artifact per CI run**: `epyon-scan.yml` uploads a tiny `scan-metrics-row.jsonl` with 90-day retention so findings history outlives full-scan artifact expiry

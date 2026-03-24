@@ -465,14 +465,15 @@ EOF
             if [[ -f "$checkov_file" ]] && [[ ! -L "$checkov_file" ]]; then
                 tools_analyzed+=("Checkov")
                 
-                # Extract Checkov findings - all failed checks are HIGH priority (IaC misconfigurations),
-                # consistent with the dashboard convention: Checkov failures are not CVEs so they
-                # should NOT be counted as CRITICAL, but all of them warrant HIGH priority.
+                # Extract Checkov findings. Checkov 3.x outputs an array of per-check-type objects
+                # [{check_type, results:{failed_checks:[...]}}, ...]; older versions and the Docker-
+                # unavailable placeholder use a single object {results:{failed_checks:[...]}}.
+                # We map all failed checks as HIGH severity (IaC misconfigurations are not CVEs).
                 local checkov_failures=$(jq -r --arg tool "Checkov" '
-                    [.results.failed_checks[]? | {
+                    [(if type == "array" then .[].results.failed_checks[] else .results.failed_checks[]? end) | {
                         tool: $tool,
                         type: "iac_misconfiguration",
-                        severity: "High",
+                        severity: (if .severity and .severity != null and .severity != "" then (.severity | ascii_upcase | if . == "CRITICAL" then "Critical" elif . == "HIGH" then "High" elif . == "MEDIUM" then "Medium" elif . == "LOW" then "Low" else "High" end) else "High" end),
                         id: .check_id,
                         description: .check_name,
                         file: .file_path,

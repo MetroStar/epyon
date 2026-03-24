@@ -442,12 +442,7 @@ CHART_HTML=$(cat << 'CHART_EOF'
                 '<div style="background:#1a1d23;padding:15px;border-radius:8px;border-left:4px solid ' + netCve90Color + ';">' +
                 '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Net CVE Change (90d)</div>' +
                 '<div style="font-size:2em;font-weight:800;color:' + netCve90Color + ';line-height:1;">' + netCve90Arrow + ' ' + Math.abs(netCve90) + '</div>' +
-                '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">' + (netCve90 < 0 ? 'reduced' : netCve90 > 0 ? 'increased' : 'unchanged') + ' over period</div></div>' +
-
-                '<div style="background:#1a1d23;padding:15px;border-radius:8px;border-left:4px solid #f97316;">' +
-                '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Avg CVE &Delta; on PR Days</div>' +
-                '<div style="font-size:2em;font-weight:800;color:#f97316;line-height:1;">' + (parseFloat(avgCveDelta) > 0 ? '+' : '') + avgCveDelta + '</div>' +
-                '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">' + prDayIdxs.length + ' PR day' + (prDayIdxs.length !== 1 ? 's' : '') + ' sampled</div></div>';
+                '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">' + (netCve90 < 0 ? 'reduced' : netCve90 > 0 ? 'increased' : 'unchanged') + ' over period</div></div>';
         })();
         </script>
 CHART_EOF

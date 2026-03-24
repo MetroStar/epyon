@@ -269,14 +269,14 @@ CHART_HTML=$(cat << 'CHART_EOF'
                 data: {
                     labels,
                     datasets: [
-                        { label: 'Critical', data: criticalData, backgroundColor: '#C41E3A', borderColor: '#C41E3A', borderWidth: 1, stack: 'severity', yAxisID: 'y' },
-                        { label: 'High',     data: highData,     backgroundColor: '#FF1493', borderColor: '#FF1493', borderWidth: 1, stack: 'severity', yAxisID: 'y' },
-                        { label: 'Medium',   data: mediumData,   backgroundColor: '#f97316', borderColor: '#f97316', borderWidth: 1, stack: 'severity', yAxisID: 'y' },
-                        { label: 'Low',      data: lowData,      backgroundColor: '#10b981', borderColor: '#10b981', borderWidth: 1, stack: 'severity', yAxisID: 'y' },
+                        { label: 'Critical', data: criticalData, backgroundColor: '#C41E3A', borderColor: '#C41E3A', borderWidth: 1, stack: 'severity', yAxisID: 'y', order: 2 },
+                        { label: 'High',     data: highData,     backgroundColor: '#FF1493', borderColor: '#FF1493', borderWidth: 1, stack: 'severity', yAxisID: 'y', order: 2 },
+                        { label: 'Medium',   data: mediumData,   backgroundColor: '#f97316', borderColor: '#f97316', borderWidth: 1, stack: 'severity', yAxisID: 'y', order: 2 },
+                        { label: 'Low',      data: lowData,      backgroundColor: '#10b981', borderColor: '#10b981', borderWidth: 1, stack: 'severity', yAxisID: 'y', order: 2 },
                         { type: 'line', label: 'PRs Merged (PR_BASE_BRANCH_PLACEHOLDER)', data: prData,
                           borderColor: '#60a5fa', backgroundColor: 'rgba(96,165,250,0.15)',
-                          borderWidth: 2, pointRadius: 4, pointHoverRadius: 6,
-                          tension: 0.3, fill: false, yAxisID: 'y1' }
+                          borderWidth: 2.5, pointRadius: 5, pointHoverRadius: 7,
+                          tension: 0.3, fill: false, yAxisID: 'y1', order: 1 }
                     ]
                 },
                 options: {

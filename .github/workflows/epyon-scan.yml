@@ -161,6 +161,11 @@ on:
         required: false
         default: 'Bug'
         type: string
+      pr_base_branch:
+        description: 'Base branch to count merged PRs for the metrics chart (default: main)'
+        required: false
+        default: 'main'
+        type: string
     secrets:
       OPENAI_API_KEY:
         description: 'OpenAI API key for Garak LLM security probing'
@@ -497,6 +502,9 @@ jobs:
                 --dashboard "$DASHBOARD_FILE" \
                 --chart-type bar \
                 --max-points 90 \
+                --pr-repo "${{ github.repository }}" \
+                --pr-base-branch "${{ inputs.pr_base_branch || 'main' }}" \
+                --pr-since "$SINCE_DATE" \
                 || echo "⚠️ Dashboard metrics embedding completed with warnings"
               echo "✅ Metrics embedding step completed"
             else

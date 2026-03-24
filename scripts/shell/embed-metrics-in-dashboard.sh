@@ -131,162 +131,159 @@ fi
 
 # ─── Generate Chart Container HTML ─────────────────────────────────
 CHART_HTML=$(cat << 'CHART_EOF'
-        <!-- Metrics Time-Series Chart -->
-        <div class="metrics-chart-section" style="margin: 30px 0; padding: 20px; background: #f9fafb; border-radius: 12px; border: 1px solid #e5e7eb;">
-            <h2 style="font-size: 1.5em; margin-bottom: 20px; color: #1f2937;">📊 90-Day Metrics Trend</h2>
-            
+        <!-- 90 Day Vulnerability Metrics Chart -->
+        <div class="metrics-chart-section" style="margin: 30px 0; padding: 24px; background: #f9fafb; border-radius: 12px; border: 1px solid #e5e7eb;">
+            <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px;">
+                <h2 style="font-size: 1.4em; margin: 0; color: #111827; font-weight: 700;">📈 90 Day Vulnerability Metrics</h2>
+            </div>
+            <p style="margin: 0 0 16px 0; color: #6b7280; font-size: 0.9em;">Daily vulnerability counts by severity over the past 90 days. Each bar reflects the highest scan result for that day.</p>
+
+            <div id="metricsStory" style="margin-bottom: 20px;"></div>
+
             <div style="overflow-x: auto;">
-                <canvas id="metricsChart" width="400" height="100"></canvas>
+                <canvas id="metricsChart" width="400" height="110"></canvas>
             </div>
-            
-            <div id="metricsStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;">
-                <!-- Stats will be populated by JavaScript -->
-            </div>
+
+            <div id="metricsStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 20px;"></div>
         </div>
 
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
         <script>
         (function() {
             const metricsData = METRICS_DATA_PLACEHOLDER;
-            
+
+            const storyDiv  = document.getElementById('metricsStory');
+            const statsDiv  = document.getElementById('metricsStats');
+            const chartEl   = document.getElementById('metricsChart');
+
             if (!metricsData || metricsData.length === 0) {
-                document.getElementById('metricsChart').style.display = 'none';
+                if (chartEl)  chartEl.style.display  = 'none';
+                if (storyDiv) storyDiv.innerHTML = '<p style="color:#6b7280;">No scan data available yet.</p>';
                 return;
             }
-            
-            // Prepare data for Chart.js
-            const labels = metricsData.map(m => {
-                const date = new Date(m.timestamp);
-                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            });
-            
+
+            // Derived series
+            const fmt = d => new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
+                                  .format(new Date(d + 'T12:00:00Z'));
+
+            const labels       = metricsData.map(m => fmt(m.timestamp ? m.timestamp.slice(0,10) : m.date));
             const criticalData = metricsData.map(m => m.critical || 0);
-            const highData = metricsData.map(m => m.high || 0);
-            const mediumData = metricsData.map(m => m.medium || 0);
-            const lowData = metricsData.map(m => m.low || 0);
-            
-            // Create Chart
-            const ctx = document.getElementById('metricsChart').getContext('2d');
-            const chart = new Chart(ctx, {
+            const highData     = metricsData.map(m => m.high     || 0);
+            const mediumData   = metricsData.map(m => m.medium   || 0);
+            const lowData      = metricsData.map(m => m.low      || 0);
+            const totalData    = metricsData.map((_,i) => criticalData[i]+highData[i]+mediumData[i]+lowData[i]);
+
+            const latest      = metricsData[metricsData.length - 1];
+            const latestTotal = totalData[totalData.length - 1];
+            const latestDate  = fmt(latest.timestamp ? latest.timestamp.slice(0,10) : latest.date);
+
+            const peakTotal   = Math.max(...totalData);
+            const peakIndex   = totalData.indexOf(peakTotal);
+            const peakDate    = labels[peakIndex];
+
+            const avgTotal    = (totalData.reduce((a,b) => a+b, 0) / totalData.length).toFixed(1);
+            const avgCritical = (criticalData.reduce((a,b) => a+b, 0) / criticalData.length).toFixed(1);
+
+            // Story banner
+            let statusColor, statusBg, statusBorder, statusIcon, headline, detail;
+
+            if (latest.critical > 0) {
+                statusColor  = '#991B1B'; statusBg = '#FEF2F2'; statusBorder = '#FCA5A5';
+                statusIcon   = '🔴';
+                headline     = latest.critical + ' critical vulnerabilit' + (latest.critical === 1 ? 'y requires' : 'ies require') + ' immediate attention.';
+                detail       = 'Your latest scan on ' + latestDate + ' found ' + latestTotal + ' total findings — ' + latest.critical + ' critical and ' + latest.high + ' high.';
+            } else if (latest.high > 0) {
+                statusColor  = '#92400E'; statusBg = '#FFFBEB'; statusBorder = '#FCD34D';
+                statusIcon   = '🟠';
+                headline     = 'No critical vulnerabilities, but ' + latest.high + ' high-severity finding' + (latest.high === 1 ? '' : 's') + ' need review.';
+                detail       = 'Your latest scan on ' + latestDate + ' shows ' + latestTotal + ' total findings. Addressing high-severity issues reduces your attack surface.';
+            } else if (latestTotal > 0) {
+                statusColor  = '#1E40AF'; statusBg = '#EFF6FF'; statusBorder = '#93C5FD';
+                statusIcon   = '🔵';
+                headline     = 'No critical or high vulnerabilities detected in the latest scan.';
+                detail       = 'Your latest scan on ' + latestDate + ' found ' + latestTotal + ' medium/low findings. Keep monitoring to catch regressions early.';
+            } else {
+                statusColor  = '#166534'; statusBg = '#F0FDF4'; statusBorder = '#86EFAC';
+                statusIcon   = '✅';
+                headline     = 'Clean scan — no vulnerabilities detected.';
+                detail       = 'Your latest scan on ' + latestDate + ' found zero findings across all severity levels.';
+            }
+
+            if (metricsData.length > 1 && peakTotal > 0 && peakTotal !== latestTotal) {
+                const pct = Math.round(Math.abs(peakTotal - latestTotal) / peakTotal * 100);
+                detail += ' Peak was ' + peakTotal + ' vulnerabilities on ' + peakDate;
+                detail += latestTotal < peakTotal
+                    ? ' — current total is ' + pct + '% lower.'
+                    : ' — current total is ' + pct + '% higher than peak.';
+            }
+
+            storyDiv.innerHTML =
+                '<div style="background:' + statusBg + '; border:1px solid ' + statusBorder + '; border-left:5px solid ' + statusColor + '; border-radius:8px; padding:14px 18px;">' +
+                '<div style="font-weight:700; font-size:1em; color:' + statusColor + '; margin-bottom:4px;">' + statusIcon + ' ' + headline + '</div>' +
+                '<div style="font-size:0.88em; color:#374151;">' + detail + '</div></div>';
+
+            // Chart
+            const ctx = chartEl.getContext('2d');
+            new Chart(ctx, {
                 type: 'CHART_TYPE_PLACEHOLDER',
                 data: {
-                    labels: labels,
+                    labels,
                     datasets: [
-                        {
-                            label: 'Critical',
-                            data: criticalData,
-                            borderColor: '#DC2626',
-                            backgroundColor: 'rgba(220, 38, 38, 0.75)',
-                            borderWidth: 2,
-                            tension: 0.4,
-                            fill: false,
-                            stack: 'severity'
-                        },
-                        {
-                            label: 'High',
-                            data: highData,
-                            borderColor: '#F97316',
-                            backgroundColor: 'rgba(249, 115, 22, 0.75)',
-                            borderWidth: 2,
-                            tension: 0.4,
-                            fill: false,
-                            stack: 'severity'
-                        },
-                        {
-                            label: 'Medium',
-                            data: mediumData,
-                            borderColor: '#EAB308',
-                            backgroundColor: 'rgba(234, 179, 8, 0.75)',
-                            borderWidth: 2,
-                            tension: 0.4,
-                            fill: false,
-                            stack: 'severity'
-                        },
-                        {
-                            label: 'Low',
-                            data: lowData,
-                            borderColor: '#22C55E',
-                            backgroundColor: 'rgba(34, 197, 94, 0.75)',
-                            borderWidth: 2,
-                            tension: 0.4,
-                            fill: false,
-                            stack: 'severity'
-                        }
+                        { label: 'Critical', data: criticalData, backgroundColor: '#B91C1C', borderColor: '#B91C1C', borderWidth: 1, stack: 'severity' },
+                        { label: 'High',     data: highData,     backgroundColor: '#C2410C', borderColor: '#C2410C', borderWidth: 1, stack: 'severity' },
+                        { label: 'Medium',   data: mediumData,   backgroundColor: '#B45309', borderColor: '#B45309', borderWidth: 1, stack: 'severity' },
+                        { label: 'Low',      data: lowData,      backgroundColor: '#15803D', borderColor: '#15803D', borderWidth: 1, stack: 'severity' }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
                     plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top',
-                            labels: {
-                                font: { size: 12 },
-                                padding: 15,
-                                usePointStyle: true
-                            }
-                        },
+                        legend: { display: true, position: 'top', labels: { font: { size: 12 }, padding: 15, usePointStyle: true } },
                         tooltip: {
-                            mode: 'index',
-                            intersect: false,
-                            backgroundColor: 'rgba(31, 41, 55, 0.9)',
-                            titleColor: '#fff',
-                            bodyColor: '#f3f4f6',
-                            borderColor: '#4b5563',
-                            borderWidth: 1,
-                            padding: 12,
-                            displayColors: true,
+                            mode: 'index', intersect: false,
+                            backgroundColor: 'rgba(17,24,39,0.93)',
+                            titleColor: '#f9fafb', bodyColor: '#e5e7eb',
+                            borderColor: '#374151', borderWidth: 1, padding: 12,
                             callbacks: {
-                                afterLabel: function(ctx) {
-                                    const dataIndex = ctx.dataIndex;
-                                    const metric = metricsData[dataIndex];
-                                    return '→ ' + metric.target;
-                                }
+                                footer: function(items) { return 'Total: ' + items.reduce(function(s,i){ return s + i.parsed.y; }, 0); }
                             }
                         }
                     },
                     scales: {
-                        y: {
-                            beginAtZero: true,
-                            stacked: true,
-                            title: { display: true, text: 'Findings Count' },
-                            ticks: { color: '#6b7280' },
-                            grid: { color: 'rgba(0,0,0,0.05)' }
-                        },
-                        x: {
-                            stacked: true,
-                            ticks: { color: '#6b7280' },
-                            grid: { color: 'rgba(0,0,0,0.05)' }
-                        }
+                        y: { beginAtZero: true, stacked: true, title: { display: true, text: 'Findings Count' }, ticks: { color: '#6b7280' }, grid: { color: 'rgba(0,0,0,0.05)' } },
+                        x: { stacked: true, ticks: { color: '#6b7280', maxRotation: 45 }, grid: { color: 'rgba(0,0,0,0.05)' } }
                     }
                 }
             });
-            
-            // Populate stats
-            const statsDiv = document.getElementById('metricsStats');
-            const latestMetric = metricsData[metricsData.length - 1];
-            const avgCritical = (criticalData.reduce((a, b) => a + b, 0) / criticalData.length).toFixed(1);
-            const avgHigh = (highData.reduce((a, b) => a + b, 0) / highData.length).toFixed(1);
-            
-            statsDiv.innerHTML = `
-                <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #DC2626;">
-                    <div style="color: #6b7280; font-size: 0.85em; margin-bottom: 5px;">Latest Critical</div>
-                    <div style="font-size: 1.8em; font-weight: bold; color: #DC2626;">${latestMetric.critical}</div>
-                </div>
-                <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #F97316;">
-                    <div style="color: #6b7280; font-size: 0.85em; margin-bottom: 5px;">Latest High</div>
-                    <div style="font-size: 1.8em; font-weight: bold; color: #F97316;">${latestMetric.high}</div>
-                </div>
-                <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #EAB308;">
-                    <div style="color: #6b7280; font-size: 0.85em; margin-bottom: 5px;">Avg Critical</div>
-                    <div style="font-size: 1.8em; font-weight: bold; color: #EAB308;">${avgCritical}</div>
-                </div>
-                <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #22C55E;">
-                    <div style="color: #6b7280; font-size: 0.85em; margin-bottom: 5px;">Avg High</div>
-                    <div style="font-size: 1.8em; font-weight: bold; color: #22C55E;">${avgHigh}</div>
-                </div>
-            `;
+
+            // Stat cards
+            const trendVsAvg   = latestTotal - parseFloat(avgTotal);
+            const trendArrow   = trendVsAvg < 0 ? '↓' : trendVsAvg > 0 ? '↑' : '→';
+            const trendCaption = trendVsAvg === 0 ? 'at 90-day average'
+                               : Math.abs(trendVsAvg).toFixed(1) + ' ' + (trendVsAvg < 0 ? 'below' : 'above') + ' avg';
+            const trendCol     = trendVsAvg < 0 ? '#166534' : trendVsAvg > 0 ? '#991B1B' : '#6b7280';
+
+            statsDiv.innerHTML =
+                '<div style="background:white;padding:15px;border-radius:8px;border-left:4px solid #B91C1C;">' +
+                '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Latest Critical</div>' +
+                '<div style="font-size:2em;font-weight:800;color:#B91C1C;line-height:1;">' + latest.critical + '</div>' +
+                '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">90-day avg: ' + avgCritical + '</div></div>' +
+
+                '<div style="background:white;padding:15px;border-radius:8px;border-left:4px solid #C2410C;">' +
+                '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Latest High</div>' +
+                '<div style="font-size:2em;font-weight:800;color:#C2410C;line-height:1;">' + latest.high + '</div>' +
+                '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">90-day avg: ' + (highData.reduce(function(a,b){return a+b;},0)/highData.length).toFixed(1) + '</div></div>' +
+
+                '<div style="background:white;padding:15px;border-radius:8px;border-left:4px solid #1D4ED8;">' +
+                '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Latest Total</div>' +
+                '<div style="font-size:2em;font-weight:800;color:#1D4ED8;line-height:1;">' + latestTotal + '</div>' +
+                '<div style="font-size:0.78em;color:' + trendCol + ';margin-top:4px;">' + trendArrow + ' ' + trendCaption + '</div></div>' +
+
+                '<div style="background:white;padding:15px;border-radius:8px;border-left:4px solid #6D28D9;">' +
+                '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Peak Day</div>' +
+                '<div style="font-size:2em;font-weight:800;color:#6D28D9;line-height:1;">' + peakTotal + '</div>' +
+                '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">' + peakDate + '</div></div>';
         })();
         </script>
 CHART_EOF

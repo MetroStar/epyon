@@ -347,8 +347,6 @@ CHART_HTML=$(cat << 'CHART_EOF'
             const prStatsDiv = document.getElementById('prStats');
             if (!prChartEl) return;
 
-            const totalPRs = prData.reduce(function(a,b){ return a+b; }, 0);
-
             // Net CVE change per day (null for first point — no previous baseline)
             const netCveData = totalData.map(function(t,i){ return i === 0 ? null : t - totalData[i-1]; });
 

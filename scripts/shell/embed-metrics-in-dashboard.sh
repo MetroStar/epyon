@@ -192,16 +192,11 @@ CHART_HTML=$(cat << 'CHART_EOF'
         <!-- Metrics Time-Series Chart -->
         <div class="metrics-chart-section" style="margin: 30px 0; padding: 20px; background: #f9fafb; border-radius: 12px; border: 1px solid #e5e7eb;">
             <h2 style="font-size: 1.5em; margin-bottom: 20px; color: #1f2937;">📊 90 Day Vulnerability Metrics</h2>
-            <p style="margin: -8px 0 16px; color: #4b5563; font-size: 0.95em;">
-                One bar per day using the highest scan severity counts for that day. PR merges to base branch are overlaid as a blue line.
-            </p>
             
             <div style="overflow-x: auto;">
                 <canvas id="metricsChart" width="400" height="100"></canvas>
             </div>
             
-            <div id="metricsStory" style="margin-top: 14px; color: #374151; font-size: 0.95em; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px;"></div>
-
             <div id="metricsStats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 20px;">
                 <!-- Stats will be populated by JavaScript -->
             </div>
@@ -218,12 +213,10 @@ CHART_HTML=$(cat << 'CHART_EOF'
             }
             
             // Prepare data for Chart.js
-            const dateFormatter = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
             const labels = metricsData.map(m => {
                 const day = m.date || (m.timestamp || '').slice(0, 10);
-                // Render in UTC to avoid local-timezone date shifting and duplicate labels.
-                const date = new Date(`${day}T12:00:00Z`);
-                return dateFormatter.format(date);
+                const date = new Date(`${day}T00:00:00Z`);
+                return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             });
             
             const criticalData = metricsData.map(m => m.critical || 0);
@@ -231,7 +224,6 @@ CHART_HTML=$(cat << 'CHART_EOF'
             const mediumData = metricsData.map(m => m.medium || 0);
             const lowData = metricsData.map(m => m.low || 0);
             const prMergeData = metricsData.map(m => m.pr_merges || 0);
-            const totalData = metricsData.map(m => (m.critical || 0) + (m.high || 0) + (m.medium || 0) + (m.low || 0));
             
             // Create Chart
             const ctx = document.getElementById('metricsChart').getContext('2d');
@@ -243,8 +235,8 @@ CHART_HTML=$(cat << 'CHART_EOF'
                         {
                             label: 'Critical',
                             data: criticalData,
-                            borderColor: '#B91C1C',
-                            backgroundColor: 'rgba(185, 28, 28, 0.82)',
+                            borderColor: '#DC2626',
+                            backgroundColor: 'rgba(220, 38, 38, 0.75)',
                             borderWidth: 2,
                             tension: 0.4,
                             fill: false,
@@ -253,8 +245,8 @@ CHART_HTML=$(cat << 'CHART_EOF'
                         {
                             label: 'High',
                             data: highData,
-                            borderColor: '#C2410C',
-                            backgroundColor: 'rgba(194, 65, 12, 0.82)',
+                            borderColor: '#F97316',
+                            backgroundColor: 'rgba(249, 115, 22, 0.75)',
                             borderWidth: 2,
                             tension: 0.4,
                             fill: false,
@@ -263,8 +255,8 @@ CHART_HTML=$(cat << 'CHART_EOF'
                         {
                             label: 'Medium',
                             data: mediumData,
-                            borderColor: '#B45309',
-                            backgroundColor: 'rgba(180, 83, 9, 0.82)',
+                            borderColor: '#EAB308',
+                            backgroundColor: 'rgba(234, 179, 8, 0.75)',
                             borderWidth: 2,
                             tension: 0.4,
                             fill: false,
@@ -273,20 +265,20 @@ CHART_HTML=$(cat << 'CHART_EOF'
                         {
                             label: 'Low',
                             data: lowData,
-                            borderColor: '#15803D',
-                            backgroundColor: 'rgba(21, 128, 61, 0.82)',
+                            borderColor: '#22C55E',
+                            backgroundColor: 'rgba(34, 197, 94, 0.75)',
                             borderWidth: 2,
                             tension: 0.4,
                             fill: false,
                             stack: 'severity'
                         },
                         {
-                            label: 'PR Merges (PR_BASE_BRANCH_PLACEHOLDER)',
+                            label: 'PR Merges (main)',
                             type: 'line',
                             yAxisID: 'y1',
                             data: prMergeData,
-                            borderColor: '#1D4ED8',
-                            backgroundColor: 'rgba(29, 78, 216, 0.25)',
+                            borderColor: '#2563EB',
+                            backgroundColor: 'rgba(37, 99, 235, 0.25)',
                             borderWidth: 2,
                             pointRadius: 3,
                             pointHoverRadius: 5,
@@ -322,9 +314,7 @@ CHART_HTML=$(cat << 'CHART_EOF'
                                 afterLabel: function(ctx) {
                                     const dataIndex = ctx.dataIndex;
                                     const metric = metricsData[dataIndex];
-                                    const total = totalData[dataIndex] || 0;
-                                    const merges = prMergeData[dataIndex] || 0;
-                                    return [`→ ${metric.target}`, `Total Findings: ${total}`, `PR Merges: ${merges}`];
+                                    return '→ ' + metric.target;
                                 }
                             }
                         }
@@ -354,44 +344,32 @@ CHART_HTML=$(cat << 'CHART_EOF'
             });
             
             // Populate stats
-            const storyDiv = document.getElementById('metricsStory');
             const statsDiv = document.getElementById('metricsStats');
             const latestMetric = metricsData[metricsData.length - 1];
-            const latestTotal = totalData[totalData.length - 1] || 0;
-            const previousTotal = totalData.length > 1 ? (totalData[totalData.length - 2] || 0) : latestTotal;
-            const delta = latestTotal - previousTotal;
-            const trendText = delta > 0 ? `up ${delta}` : (delta < 0 ? `down ${Math.abs(delta)}` : 'unchanged');
-            const peakTotal = Math.max(...totalData);
-            const peakIndex = totalData.findIndex(v => v === peakTotal);
-            const peakLabel = labels[peakIndex] || 'N/A';
-            const avgTotal = (totalData.reduce((a, b) => a + b, 0) / Math.max(totalData.length, 1)).toFixed(1);
+            const avgCritical = (criticalData.reduce((a, b) => a + b, 0) / criticalData.length).toFixed(1);
+            const avgHigh = (highData.reduce((a, b) => a + b, 0) / highData.length).toFixed(1);
             const latestPrMerges = latestMetric.pr_merges || 0;
-
-            storyDiv.innerHTML = `
-                <strong>Story:</strong> Latest day is <strong>${latestTotal}</strong> total findings (${trendText} vs previous day).
-                Peak day in this window was <strong>${peakTotal}</strong> on <strong>${peakLabel}</strong>.
-            `;
             
             statsDiv.innerHTML = `
-                <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #111827;">
-                    <div style="color: #6b7280; font-size: 0.85em; margin-bottom: 5px;">Latest Total Findings</div>
-                    <div style="font-size: 1.8em; font-weight: bold; color: #111827;">${latestTotal}</div>
-                </div>
-                <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #B91C1C;">
+                <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #DC2626;">
                     <div style="color: #6b7280; font-size: 0.85em; margin-bottom: 5px;">Latest Critical</div>
-                    <div style="font-size: 1.8em; font-weight: bold; color: #B91C1C;">${latestMetric.critical}</div>
+                    <div style="font-size: 1.8em; font-weight: bold; color: #DC2626;">${latestMetric.critical}</div>
                 </div>
-                <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #B45309;">
-                    <div style="color: #6b7280; font-size: 0.85em; margin-bottom: 5px;">Avg Daily Total</div>
-                    <div style="font-size: 1.8em; font-weight: bold; color: #B45309;">${avgTotal}</div>
+                <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #F97316;">
+                    <div style="color: #6b7280; font-size: 0.85em; margin-bottom: 5px;">Latest High</div>
+                    <div style="font-size: 1.8em; font-weight: bold; color: #F97316;">${latestMetric.high}</div>
                 </div>
-                <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #1D4ED8;">
+                <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #EAB308;">
+                    <div style="color: #6b7280; font-size: 0.85em; margin-bottom: 5px;">Avg Critical</div>
+                    <div style="font-size: 1.8em; font-weight: bold; color: #EAB308;">${avgCritical}</div>
+                </div>
+                <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #22C55E;">
+                    <div style="color: #6b7280; font-size: 0.85em; margin-bottom: 5px;">Avg High</div>
+                    <div style="font-size: 1.8em; font-weight: bold; color: #22C55E;">${avgHigh}</div>
+                </div>
+                <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #2563EB;">
                     <div style="color: #6b7280; font-size: 0.85em; margin-bottom: 5px;">PR Merges (Latest Day)</div>
-                    <div style="font-size: 1.8em; font-weight: bold; color: #1D4ED8;">${latestPrMerges}</div>
-                </div>
-                <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #4B5563;">
-                    <div style="color: #6b7280; font-size: 0.85em; margin-bottom: 5px;">Peak Daily Total</div>
-                    <div style="font-size: 1.8em; font-weight: bold; color: #4B5563;">${peakTotal}</div>
+                    <div style="font-size: 1.8em; font-weight: bold; color: #2563EB;">${latestPrMerges}</div>
                 </div>
             `;
         })();
@@ -405,7 +383,6 @@ CHART_EOF
 # Replace placeholders
 CHART_HTML="${CHART_HTML//METRICS_DATA_PLACEHOLDER/$(echo "$METRICS" | jq -c '.')}"
 CHART_HTML="${CHART_HTML//CHART_TYPE_PLACEHOLDER/$CHART_TYPE}"
-CHART_HTML="${CHART_HTML//PR_BASE_BRANCH_PLACEHOLDER/$PR_BASE_BRANCH}"
 
 # Find injection point (before closing </body> tag or append if absent)
 if grep -q "</body>" "$DASHBOARD_FILE"; then

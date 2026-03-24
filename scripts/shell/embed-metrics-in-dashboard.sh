@@ -359,25 +359,20 @@ CHART_HTML=$(cat << 'CHART_EOF'
             // Net CVE change over full window
             const netCve90 = latestTotal - totalData[0];
 
-            // Average net CVE delta on days where PRs were merged
-            const prDayIdxs   = metricsData.reduce(function(a,m,i){ if ((m.pr_merges||0) > 0 && i > 0) a.push(i); return a; }, []);
-            const avgCveDelta = prDayIdxs.length === 0 ? 0
-                              : (prDayIdxs.reduce(function(s,i){ return s + netCveData[i]; }, 0) / prDayIdxs.length).toFixed(1);
-
             // Story banner for chart 2
             var prIcon, prHeadline, prDetail, prBorderColor;
             if (totalPRs === 0) {
                 prIcon = '📭'; prBorderColor = '#4b5563';
                 prHeadline = 'No PR data available for this period.';
                 prDetail   = 'Pass --pr-repo to the embed script to enable PR merge tracking.';
-            } else if (parseFloat(avgCveDelta) <= 0) {
+            } else if (netCve90 <= 0) {
                 prIcon = '✅'; prBorderColor = '#10b981';
-                prHeadline = 'Good CVE discipline — PRs are not driving up vulnerability counts.';
-                prDetail   = totalPRs + ' PRs merged in 90 days (' + prs7d + ' in the last 7). On PR merge days the average CVE delta is ' + avgCveDelta + '.';
+                prHeadline = 'Good CVE discipline — vulnerability count is down or unchanged over the period.';
+                prDetail   = totalPRs + ' PRs merged in 90 days (' + prs7d + ' in the last 7). Net CVE change: ' + netCve90 + '.';
             } else {
                 prIcon = '⚠️'; prBorderColor = '#f97316';
-                prHeadline = 'PRs are associated with rising CVE counts — review merge practices.';
-                prDetail   = totalPRs + ' PRs merged in 90 days (' + prs7d + ' in the last 7). On PR merge days the average CVE delta is +' + avgCveDelta + '.';
+                prHeadline = 'Vulnerability count has risen over the period — review recent changes.';
+                prDetail   = totalPRs + ' PRs merged in 90 days (' + prs7d + ' in the last 7). Net CVE change: +' + netCve90 + '.';
             }
 
             prStoryDiv.innerHTML =

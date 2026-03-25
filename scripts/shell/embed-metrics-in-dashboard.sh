@@ -184,9 +184,9 @@ CHART_HTML=$(cat << 'CHART_EOF'
         <!-- PR Activity & CVE Discipline Chart -->
         <div class="metrics-chart-section" style="margin: 30px 0; padding: 24px; background: #1e2530; border-radius: 12px; border: 1px solid #2a3441;">
             <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px;">
-                <h2 style="font-size: 1.4em; margin: 0; color: #e2e8f0; font-weight: 700;">🔀 PR Activity &amp; CVE Discipline</h2>
+                <h2 style="font-size: 1.4em; margin: 0; color: #e2e8f0; font-weight: 700;">🔀 PR Activity</h2>
             </div>
-            <p style="margin: 0 0 16px 0; color: #8892a4; font-size: 0.9em;">Daily PR merges across all branches (bars) vs. net change in total vulnerability count (line). Red points = CVEs rose that day; green = fell.</p>
+            <p style="margin: 0 0 16px 0; color: #8892a4; font-size: 0.9em;">Daily PR merges across all branches.</p>
 
             <div id="prStory" style="margin-bottom: 20px;"></div>
 
@@ -347,17 +347,11 @@ CHART_HTML=$(cat << 'CHART_EOF'
             const prStatsDiv = document.getElementById('prStats');
             if (!prChartEl) return;
 
-            // Net CVE change per day (null for first point — no previous baseline)
-            const netCveData = totalData.map(function(t,i){ return i === 0 ? null : t - totalData[i-1]; });
-
             // PRs in last 7 days
             const cutoff7d = new Date(new Date() - 7 * 86400000);
             const prs7d    = metricsData.filter(function(m) {
                 return new Date((m.timestamp ? m.timestamp.slice(0,10) : m.date) + 'T12:00:00Z') >= cutoff7d;
             }).reduce(function(s,m){ return s + (m.pr_merges || 0); }, 0);
-
-            // Net CVE change over full window
-            const netCve90 = latestTotal - totalData[0];
 
             // Story banner for chart 2
             var prIcon, prHeadline, prDetail, prBorderColor;
@@ -365,14 +359,10 @@ CHART_HTML=$(cat << 'CHART_EOF'
                 prIcon = '📭'; prBorderColor = '#4b5563';
                 prHeadline = 'No PR data available for this period.';
                 prDetail   = 'Pass --pr-repo to the embed script to enable PR merge tracking.';
-            } else if (netCve90 <= 0) {
-                prIcon = '✅'; prBorderColor = '#10b981';
-                prHeadline = 'Good CVE discipline — vulnerability count is down or unchanged over the period.';
-                prDetail   = totalPRs + ' PRs merged in 90 days (' + prs7d + ' in the last 7). Net CVE change: ' + netCve90 + '.';
             } else {
-                prIcon = '⚠️'; prBorderColor = '#f97316';
-                prHeadline = 'Vulnerability count has risen over the period — review recent changes.';
-                prDetail   = totalPRs + ' PRs merged in 90 days (' + prs7d + ' in the last 7). Net CVE change: +' + netCve90 + '.';
+                prIcon = '🔀'; prBorderColor = '#60a5fa';
+                prHeadline = totalPRs + ' PRs merged in the last 90 days.';
+                prDetail   = prs7d + ' PRs merged in the last 7 days.';
             }
 
             prStoryDiv.innerHTML =
@@ -380,27 +370,14 @@ CHART_HTML=$(cat << 'CHART_EOF'
                 '<div style="font-weight:700;font-size:1em;color:#e2e8f0;margin-bottom:4px;">' + prIcon + ' ' + prHeadline + '</div>' +
                 '<div style="font-size:0.88em;color:#8892a4;">' + prDetail + '</div></div>';
 
-            // Point colors: red when CVEs rose that day, green when fell
-            const netCvePtColors = netCveData.map(function(v){
-                return v === null ? 'transparent' : v > 0 ? '#C41E3A' : v < 0 ? '#10b981' : '#8892a4';
-            });
-
             const prCtx = prChartEl.getContext('2d');
             new Chart(prCtx, {
                 type: 'bar',
                 data: {
                     labels,
                     datasets: [
-                        { type: 'bar',  label: 'PRs Merged',    data: prData,
-                          backgroundColor: '#60a5fa', borderColor: '#60a5fa', borderWidth: 1,
-                          yAxisID: 'y', order: 2 },
-                        { type: 'line', label: 'Net CVE Change', data: netCveData,
-                          borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.08)',
-                          borderWidth: 2, pointRadius: 4, pointHoverRadius: 7,
-                          pointBackgroundColor: netCvePtColors,
-                          pointBorderColor: netCvePtColors,
-                          tension: 0.3, fill: false, yAxisID: 'y1', order: 1,
-                          spanGaps: false }
+                        { label: 'PRs Merged', data: prData,
+                          backgroundColor: '#60a5fa', borderColor: '#60a5fa', borderWidth: 1 }
                     ]
                 },
                 options: {
@@ -416,18 +393,14 @@ CHART_HTML=$(cat << 'CHART_EOF'
                         }
                     },
                     scales: {
-                        y:  { beginAtZero: true, title: { display: true, text: 'PRs Merged' },
-                              ticks: { color: '#60a5fa', precision: 0 }, grid: { color: 'rgba(255,255,255,0.06)' } },
-                        y1: { type: 'linear', position: 'right', title: { display: true, text: 'Net CVE Change' },
-                              ticks: { color: '#f97316' }, grid: { drawOnChartArea: false } },
-                        x:  { ticks: { color: '#8892a4', maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.06)' } }
+                        y: { beginAtZero: true, title: { display: true, text: 'PRs Merged' },
+                             ticks: { color: '#60a5fa', precision: 0 }, grid: { color: 'rgba(255,255,255,0.06)' } },
+                        x: { ticks: { color: '#8892a4', maxRotation: 45 }, grid: { color: 'rgba(255,255,255,0.06)' } }
                     }
                 }
             });
 
             // Stat cards (chart 2)
-            const netCve90Color = netCve90 < 0 ? '#10b981' : netCve90 > 0 ? '#C41E3A' : '#8892a4';
-            const netCve90Arrow = netCve90 < 0 ? '↓' : netCve90 > 0 ? '↑' : '→';
             prStatsDiv.innerHTML =
                 '<div style="background:#1a1d23;padding:15px;border-radius:8px;border-left:4px solid #60a5fa;">' +
                 '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">PRs Merged (90d)</div>' +

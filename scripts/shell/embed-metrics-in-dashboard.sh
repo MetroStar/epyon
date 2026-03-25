@@ -141,11 +141,11 @@ fi
 
 # ─── Fetch PR merge counts (optional) ──────────────────────────────
 if [[ -n "$PR_REPO" ]] && command -v gh &>/dev/null; then
-    [[ "$QUIET" == false ]] && echo -e "${BLUE}🔀 Fetching PR merges from ${PR_REPO} (base: ${PR_BASE_BRANCH})...${NC}" >&2
+    [[ "$QUIET" == false ]] && echo -e "${BLUE}🔀 Fetching PR merges from ${PR_REPO} (all branches)...${NC}" >&2
     PR_DATES="[]"
     PR_PAGE=1
     while true; do
-        PR_PAGE_DATA=$(gh api "repos/${PR_REPO}/pulls?state=closed&base=${PR_BASE_BRANCH}&per_page=100&page=${PR_PAGE}" 2>/dev/null || echo "[]")
+        PR_PAGE_DATA=$(gh api "repos/${PR_REPO}/pulls?state=closed&per_page=100&page=${PR_PAGE}" 2>/dev/null || echo "[]")
         PR_COUNT=$(echo "$PR_PAGE_DATA" | jq 'length' 2>/dev/null || echo 0)
         [[ "$PR_COUNT" -eq 0 ]] && break
         CHUNK=$(echo "$PR_PAGE_DATA" | jq --arg since "${PR_SINCE}" \
@@ -186,7 +186,7 @@ CHART_HTML=$(cat << 'CHART_EOF'
             <div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px;">
                 <h2 style="font-size: 1.4em; margin: 0; color: #e2e8f0; font-weight: 700;">🔀 PR Activity &amp; CVE Discipline</h2>
             </div>
-            <p style="margin: 0 0 16px 0; color: #8892a4; font-size: 0.9em;">Daily PR merges to PR_BASE_BRANCH_PLACEHOLDER (bars) vs. net change in total vulnerability count (line). Red points = CVEs rose that day; green = fell.</p>
+            <p style="margin: 0 0 16px 0; color: #8892a4; font-size: 0.9em;">Daily PR merges across all branches (bars) vs. net change in total vulnerability count (line). Red points = CVEs rose that day; green = fell.</p>
 
             <div id="prStory" style="margin-bottom: 20px;"></div>
 
@@ -432,7 +432,7 @@ CHART_HTML=$(cat << 'CHART_EOF'
                 '<div style="background:#1a1d23;padding:15px;border-radius:8px;border-left:4px solid #60a5fa;">' +
                 '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">PRs Merged (90d)</div>' +
                 '<div style="font-size:2em;font-weight:800;color:#60a5fa;line-height:1;">' + totalPRs + '</div>' +
-                '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">to PR_BASE_BRANCH_PLACEHOLDER</div></div>' +
+                '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">across all branches</div></div>' +
 
                 '<div style="background:#1a1d23;padding:15px;border-radius:8px;border-left:4px solid #60a5fa;">' +
                 '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">PRs Last 7 Days</div>' +
@@ -454,7 +454,7 @@ CHART_EOF
 # Replace placeholders
 CHART_HTML="${CHART_HTML//METRICS_DATA_PLACEHOLDER/$(echo "$METRICS" | jq -c '.')}"
 CHART_HTML="${CHART_HTML//CHART_TYPE_PLACEHOLDER/$CHART_TYPE}"
-CHART_HTML="${CHART_HTML//PR_BASE_BRANCH_PLACEHOLDER/$PR_BASE_BRANCH}"
+
 
 # Find injection point (before closing </body> tag or append if absent)
 if grep -q "</body>" "$DASHBOARD_FILE"; then

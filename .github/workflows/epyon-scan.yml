@@ -706,15 +706,20 @@ jobs:
 
             if (fs.existsSync(summaryPath)) {
               const summary = fs.readFileSync(summaryPath, 'utf8');
-              const critical = '${{ steps.check-severity.outputs.critical }}';
-              const high = '${{ steps.check-severity.outputs.high }}';
+              const critical = parseInt('${{ steps.check-severity.outputs.critical }}' || '0');
+              const high = parseInt('${{ steps.check-severity.outputs.high }}' || '0');
+              const medium = parseInt('${{ steps.check-severity.outputs.medium }}' || '0');
+              const low = parseInt('${{ steps.check-severity.outputs.low }}' || '0');
 
               let emoji = '✅';
-              let status = 'No critical or high severity issues found';
+              let status = 'No security issues found';
 
               if (critical > 0 || high > 0) {
                 emoji = '⚠️';
                 status = `Found ${critical} critical and ${high} high severity issues`;
+              } else if (medium > 0 || low > 0) {
+                emoji = '🟡';
+                status = `Found ${medium} medium and ${low} low severity issues`;
               }
 
               const notifyUsers = '${{ env.NOTIFY_USERS }}'.split(',').map(u => `@${u.trim()}`).join(' ');
@@ -841,6 +846,8 @@ jobs:
             |----------|-------|
             | 🔴 Critical | ${critical} |
             | 🟠 High | ${high} |
+            | 🟡 Medium | ${medium} |
+            | 🔵 Low | ${low} |
 
             ${executiveSummary ? `\n### 📋 Executive Summary\n\n${executiveSummary}\n` : ''}
 

@@ -408,6 +408,7 @@ TH_SCAN_DURATION="N/A"
 TH_FILES_WITH_FINDINGS=0
 TH_CRITICAL=0
 TH_HIGH=0
+TH_MEDIUM=0
 TH_FINDINGS=""
 TH_STATUS="unknown"
 TH_STATUS_REASON=""
@@ -450,7 +451,7 @@ if [ -f "$TH_FILE" ]; then
     
     # Set severity counts - verified = critical, unverified = medium
     TH_CRITICAL=$TH_VERIFIED
-    TH_HIGH=$TH_UNVERIFIED
+    TH_MEDIUM=$TH_UNVERIFIED
     
     # Generate findings HTML with clickable details (use set +e to handle grep returning 1 when no matches)
     set +e
@@ -486,6 +487,7 @@ if [ -f "$TH_FILE" ]; then
 else
     TH_CRITICAL=0
     TH_HIGH=0
+    TH_MEDIUM=0
     TH_FINDINGS="<p class=\"no-findings\">No scan data available</p>"
 fi
 
@@ -2082,8 +2084,8 @@ if [ -f "$FINDINGS_SUMMARY" ]; then
 else
     echo -e "${YELLOW}⚠️  Deduplicated summary not found, using tool sums (may include duplicates)${NC}"
     TOTAL_CRITICAL=$((TH_CRITICAL + CLAMAV_CRITICAL + TRIVY_CRITICAL + GRYPE_CRITICAL + SONAR_CRITICAL + CHECKOV_CRITICAL + HELM_CRITICAL + XEOL_CRITICAL + ANCHORE_CRITICAL + GARAK_CRITICAL))
-    TOTAL_HIGH=$((TH_HIGH + TRIVY_HIGH + GRYPE_HIGH + SONAR_HIGH + CHECKOV_HIGH + HELM_HIGH + XEOL_HIGH + ANCHORE_HIGH + GARAK_HIGH))
-    TOTAL_MEDIUM=$((TRIVY_MEDIUM + GRYPE_MEDIUM + XEOL_MEDIUM + ANCHORE_MEDIUM))
+    TOTAL_HIGH=$((TRIVY_HIGH + GRYPE_HIGH + SONAR_HIGH + CHECKOV_HIGH + HELM_HIGH + XEOL_HIGH + ANCHORE_HIGH + GARAK_HIGH))
+    TOTAL_MEDIUM=$((TH_MEDIUM + TRIVY_MEDIUM + GRYPE_MEDIUM + XEOL_MEDIUM + ANCHORE_MEDIUM))
     TOTAL_LOW=$((TRIVY_LOW + GRYPE_LOW + XEOL_LOW + ANCHORE_LOW))
     TOTAL_FINDINGS=$((TOTAL_CRITICAL + TOTAL_HIGH + TOTAL_MEDIUM + TOTAL_LOW))
 fi
@@ -2092,7 +2094,7 @@ fi
 # Container image vulnerabilities come from Trivy/Grype base image scans
 TOTAL_IMAGE_VULNS=$((TRIVY_CRITICAL + TRIVY_HIGH + TRIVY_MEDIUM + TRIVY_LOW + GRYPE_CRITICAL + GRYPE_HIGH + GRYPE_MEDIUM + GRYPE_LOW + XEOL_CRITICAL + XEOL_HIGH + XEOL_MEDIUM + XEOL_LOW))
 # Application/Config vulnerabilities come from Checkov, TruffleHog, Helm, SonarQube
-TOTAL_APP_VULNS=$((TH_CRITICAL + TH_HIGH + CHECKOV_HIGH + HELM_CRITICAL + HELM_HIGH + SONAR_CRITICAL + SONAR_HIGH + GARAK_HIGH))
+TOTAL_APP_VULNS=$((TH_CRITICAL + TH_MEDIUM + CHECKOV_HIGH + HELM_CRITICAL + HELM_HIGH + SONAR_CRITICAL + SONAR_HIGH + GARAK_HIGH))
 
 # Read suppressed findings information
 SUPPRESSED_LOG="${LATEST_SCAN}/suppressed-findings.md"
@@ -3606,7 +3608,7 @@ EOF
 fi
 
 # Compute IOC indicator values for the summary panel
-IOC_SECRETS=$((TH_CRITICAL + TH_HIGH))
+IOC_SECRETS=$((TH_CRITICAL + TH_MEDIUM))
 IOC_CVE_CRITICAL=$((GRYPE_CRITICAL + TRIVY_CRITICAL))
 IOC_CVE_TOTAL=$((GRYPE_CRITICAL + GRYPE_HIGH + GRYPE_MEDIUM + GRYPE_LOW + TRIVY_CRITICAL + TRIVY_HIGH + TRIVY_MEDIUM + TRIVY_LOW))
 IOC_CVE_HIGH=$((GRYPE_HIGH + TRIVY_HIGH))
@@ -3720,7 +3722,7 @@ cat >> "$OUTPUT_HTML" << EOF
                     <div class="ioc-icon">🔑</div>
                     <div class="donut-canvas-wrap" style="margin:4px 0">
                         <canvas class="ioc-mini-donut" id="ioc-donut-secrets" width="100" height="100"
-                            data-critical="${TH_CRITICAL}" data-high="${TH_HIGH}" data-medium="0" data-low="0"
+                            data-critical="${TH_CRITICAL}" data-high="0" data-medium="${TH_MEDIUM}" data-low="0"
                             data-skipped="false" data-source="TruffleHog"></canvas>
                         <div class="donut-center">
                             <div class="ioc-mini-total">${IOC_SECRETS}</div>
@@ -3919,10 +3921,10 @@ EOF
 if [ "$TH_CRITICAL" -gt 0 ]; then
     echo "                        <span class=\"tool-stat-badge badge-critical\">❗ ${TH_CRITICAL}</span>" >> "$OUTPUT_HTML"
 fi
-if [ "$TH_HIGH" -gt 0 ]; then
-    echo "                        <span class=\"tool-stat-badge badge-high\">⚠️ ${TH_HIGH}</span>" >> "$OUTPUT_HTML"
+if [ "$TH_MEDIUM" -gt 0 ]; then
+    echo "                        <span class=\"tool-stat-badge badge-medium\">⚡ ${TH_MEDIUM}</span>" >> "$OUTPUT_HTML"
 fi
-if [ "$TH_CRITICAL" -eq 0 ] && [ "$TH_HIGH" -eq 0 ]; then
+if [ "$TH_CRITICAL" -eq 0 ] && [ "$TH_MEDIUM" -eq 0 ]; then
     echo "                        <span class=\"tool-stat-badge badge-clean\">✅ Clean</span>" >> "$OUTPUT_HTML"
 fi
 

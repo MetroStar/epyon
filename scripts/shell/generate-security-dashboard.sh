@@ -331,6 +331,42 @@ if [ -f "$REMEDIATION_FILE" ] && command -v jq &> /dev/null; then
     jq -r '.remediations[] | "\(.cve)|\(.package.name)|\(.package.fixed_version)|\(.remediation.update_command)"' "$REMEDIATION_FILE" 2>/dev/null > "$REMEDIATION_DATA_FILE"
 fi
 
+# ---- Load enrichment data (NVD + CISA KEV) from security-findings-summary.json ----
+ENRICHMENT_DATA_FILE="/tmp/enrichment_map_$$.txt"
+FINDINGS_SUMMARY_FOR_ENRICH="${LATEST_SCAN}/security-findings-summary.json"
+KEV_IDS_FILE="/tmp/kev_ids_$$.txt"
+touch "$ENRICHMENT_DATA_FILE" "$KEV_IDS_FILE"
+if [ -f "$FINDINGS_SUMMARY_FOR_ENRICH" ] && command -v jq &> /dev/null; then
+    echo "🔍 Loading NVD + CISA KEV enrichment data..."
+    # Build lookup: CVE_ID|nvd_url|nvd_cvss_v3_score|nvd_cvss_v3_severity|nvd_published|cisa_kev|cisa_due_date|cisa_required_action|cisa_known_ransomware
+    jq -r '
+        [.critical_findings[], .high_findings[], .medium_findings[], .low_findings[]] |
+        .[] |
+        select(.nvd_url or .cisa_kev == true) |
+        [
+            (.vulnerability_id // .id // ""),
+            (.nvd_url // ""),
+            (.nvd_cvss_v3_score // "" | tostring),
+            (.nvd_cvss_v3_severity // ""),
+            (.nvd_published // ""),
+            (if .cisa_kev then "true" else "false" end),
+            (.cisa_due_date // ""),
+            (.cisa_required_action // ""),
+            (if .cisa_known_ransomware then "true" else "false" end)
+        ] | join("|")
+    ' "$FINDINGS_SUMMARY_FOR_ENRICH" 2>/dev/null > "$ENRICHMENT_DATA_FILE"
+
+    # Separate KEV IDs file for quick lookup
+    jq -r '
+        [.critical_findings[], .high_findings[], .medium_findings[], .low_findings[]] |
+        .[] | select(.cisa_kev == true) | (.vulnerability_id // .id // "")
+    ' "$FINDINGS_SUMMARY_FOR_ENRICH" 2>/dev/null > "$KEV_IDS_FILE"
+
+    enrich_count=$(wc -l < "$ENRICHMENT_DATA_FILE" | tr -d ' ')
+    kev_count=$(wc -l < "$KEV_IDS_FILE" | tr -d ' ')
+    echo "  ✅ Enrichment loaded: $enrich_count CVEs with NVD data, $kev_count flagged as CISA KEV"
+fi
+
 # Function to get remediation for a CVE and package
 get_remediation() {
     local cve="$1"
@@ -340,12 +376,78 @@ get_remediation() {
     fi
 }
 
+# Function to get enrichment data for a CVE
+get_enrichment() {
+    local cve="$1"
+    if [ -f "$ENRICHMENT_DATA_FILE" ]; then
+        grep "^${cve}|" "$ENRICHMENT_DATA_FILE" 2>/dev/null | head -1 || echo ""
+    fi
+}
+
+# Function to check if CVE is in CISA KEV
+is_kev() {
+    local cve="$1"
+    [ -f "$KEV_IDS_FILE" ] && grep -qxF "$cve" "$KEV_IDS_FILE" 2>/dev/null
+}
+
 # Function to inject remediation into vulnerability HTML
 inject_remediation() {
     local cve="$1"
     local pkg="$2"
-    
-    local remediation_data=$(get_remediation "$cve" "$pkg")
+
+    # ── CISA KEV banner ──────────────────────────────────────────────────────
+    if is_kev "$cve"; then
+        local enrich_row
+        enrich_row=$(get_enrichment "$cve")
+        local due_date="" required_action="" is_ransomware=""
+        if [ -n "$enrich_row" ]; then
+            IFS='|' read -r _id _url _score _sev _pub _kev due_date required_action is_ransomware <<< "$enrich_row"
+        fi
+        echo "<div class=\"detail-section\" style=\"background: linear-gradient(135deg, #3b0000 0%, #5c1a00 100%); border-left: 4px solid #dc2626; padding: 15px; margin: 10px 0 6px 0; border-radius: 6px;\">"
+        echo "<h5 style=\"color: #f87171; margin-bottom: 8px;\">🔥 ACTIVELY EXPLOITED — CISA Known Exploited Vulnerability</h5>"
+        if [ -n "$due_date" ]; then
+            echo "<div style=\"margin: 6px 0; font-size:0.9em;\"><strong style=\"color:#fca5a5;\">CISA Remediation Due:</strong> <span style=\"color:#fde68a;\">$due_date</span></div>"
+        fi
+        if [ -n "$required_action" ]; then
+            echo "<div style=\"margin: 6px 0; font-size:0.88em; color:#fca5a5;\"><strong>Required Action:</strong> $required_action</div>"
+        fi
+        if [ "$is_ransomware" = "true" ]; then
+            echo "<div style=\"margin: 6px 0; font-size:0.85em; background:#4c0519; border-radius:4px; padding:6px 10px; color:#fda4af;\">⚠️ <strong>Associated with ransomware campaigns</strong></div>"
+        fi
+        echo "<div style=\"margin-top:8px; font-size:0.8em;\"><a href=\"https://www.cisa.gov/known-exploited-vulnerabilities-catalog\" target=\"_blank\" rel=\"noopener\" style=\"color:#f87171;\">→ CISA KEV Catalog</a></div>"
+        echo "</div>"
+    fi
+
+    # ── NVD reference link ───────────────────────────────────────────────────
+    local enrich_row
+    enrich_row=$(get_enrichment "$cve")
+    if [ -n "$enrich_row" ]; then
+        IFS='|' read -r _id nvd_url nvd_score nvd_sev nvd_pub <<< "$enrich_row"
+        if [ -n "$nvd_url" ]; then
+            local score_color="#60a5fa"
+            if [ -n "$nvd_score" ] && [ "$nvd_score" != "null" ] && [ "$nvd_score" != "" ]; then
+                score_val=$(echo "$nvd_score" | cut -d. -f1)
+                if [ "$score_val" -ge 9 ] 2>/dev/null; then score_color="#dc2626"
+                elif [ "$score_val" -ge 7 ] 2>/dev/null; then score_color="#f97316"
+                elif [ "$score_val" -ge 4 ] 2>/dev/null; then score_color="#fbbf24"
+                fi
+            fi
+            echo "<div class=\"detail-section\" style=\"background: #1a2236; border-left: 3px solid #3b82f6; padding: 10px 14px; margin: 6px 0; border-radius: 6px; font-size:0.88em;\">"
+            echo "<div style=\"display:flex; gap:16px; align-items:center; flex-wrap:wrap;\">"
+            echo "<a href=\"$nvd_url\" target=\"_blank\" rel=\"noopener\" style=\"color:#60a5fa; font-weight:600;\">📋 NVD: $cve</a>"
+            if [ -n "$nvd_score" ] && [ "$nvd_score" != "null" ] && [ "$nvd_score" != "" ]; then
+                echo "<span style=\"color:$score_color; font-weight:700;\">CVSS v3: $nvd_score"
+                [ -n "$nvd_sev" ] && [ "$nvd_sev" != "null" ] && echo " ($nvd_sev)"
+                echo "</span>"
+            fi
+            [ -n "$nvd_pub" ] && [ "$nvd_pub" != "null" ] && [ "$nvd_pub" != "" ] && echo "<span style=\"color:#8892a4;\">Published: $nvd_pub</span>"
+            echo "</div></div>"
+        fi
+    fi
+
+    # ── Fix/upgrade recommendation ───────────────────────────────────────────
+    local remediation_data
+    remediation_data=$(get_remediation "$cve" "$pkg")
     if [ -n "$remediation_data" ]; then
         IFS='|' read -r _cve _pkg fix_ver cmd <<< "$remediation_data"
         echo "<div class=\"detail-section\" style=\"background: linear-gradient(135deg, #052e16 0%, #14532d 100%); border-left: 4px solid #10b981; padding: 15px; margin: 10px 0; border-radius: 6px;\">"

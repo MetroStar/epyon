@@ -1078,7 +1078,16 @@ if [[ -f "$SCRIPT_DIR/consolidate-security-reports.sh" ]]; then
     else
         echo -e "${YELLOW}⚠️  Report consolidation script not found${NC}"
     fi
-    
+
+    # Enrich findings with NVD + CISA KEV data
+    echo ""
+    echo -e "${BLUE}🔍 Enriching findings with NVD + CISA KEV data...${NC}"
+    if [[ -f "$SCRIPT_DIR/enrich-findings.sh" ]]; then
+        "$SCRIPT_DIR/enrich-findings.sh" --scan-dir "$SCAN_DIR" || true
+    else
+        echo -e "${YELLOW}⚠️  enrich-findings.sh not found, skipping enrichment${NC}"
+    fi
+
     # Generate Scan Manifest for Integrity Verification
     echo ""
     echo -e "${BLUE}🔐 Generating scan manifest for integrity verification...${NC}"

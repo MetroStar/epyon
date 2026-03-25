@@ -627,6 +627,16 @@ jobs:
               low:                 $low
             }' > "$SCAN_DIR/scan-metrics.json"
 
+      - name: Enrich Findings with NVD + CISA KEV
+        if: always()
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+          SCAN_DIR: ${{ steps.run-scan.outputs.scan_dir }}
+        run: |
+          cd epyon
+          chmod +x scripts/shell/enrich-findings.sh
+          scripts/shell/enrich-findings.sh || true
+
       - name: Upload Complete Scan Results
         uses: actions/upload-artifact@v4
         if: always()
@@ -963,8 +973,9 @@ jobs:
 
           findings = data.get(severity_key, [])
 
-          # Build table rows
+          # Build table rows + collect KEV findings for panel
           rows = []
+          kev_findings = []
           for finding in findings:
               vuln_id = (finding.get("vulnerability_id") or finding.get("check_id")
                          or finding.get("detector") or "N/A")
@@ -973,9 +984,19 @@ jobs:
               version = finding.get("package_version") or "-"
               tool    = finding.get("tool") or "N/A"
               desc    = (finding.get("description") or "")[:120]
-              rows.append({"id": vuln_id, "pkg": pkg, "ver": version, "tool": tool, "desc": desc})
+              nvd_url = finding.get("nvd_url") or ""
+              is_kev  = finding.get("cisa_kev") is True
+              rows.append({"id": vuln_id, "pkg": pkg, "ver": version, "tool": tool,
+                           "desc": desc, "nvd_url": nvd_url, "is_kev": is_kev})
+              if is_kev:
+                  kev_findings.append({
+                      "id": vuln_id,
+                      "due_date": finding.get("cisa_due_date") or "N/A",
+                      "required_action": (finding.get("cisa_required_action") or "")[:200],
+                      "ransomware": finding.get("cisa_known_ransomware") is True,
+                  })
 
-          def cell(text):
+          def cell_text(text):
               return {
                   "type": "tableCell",
                   "attrs": {},
@@ -983,6 +1004,18 @@ jobs:
                       {"type": "text", "text": str(text)[:200]}
                   ]}]
               }
+
+          def cell_link(text, url):
+              if url:
+                  return {
+                      "type": "tableCell",
+                      "attrs": {},
+                      "content": [{"type": "paragraph", "content": [
+                          {"type": "text", "text": str(text)[:200],
+                           "marks": [{"type": "link", "attrs": {"href": url}}]}
+                      ]}]
+                  }
+              return cell_text(text)
 
           def header_cell(text):
               return {
@@ -1000,10 +1033,12 @@ jobs:
 
           data_rows = []
           for r in rows:
+              kev_prefix = "🔥 " if r["is_kev"] else ""
+              id_cell = cell_link(kev_prefix + r["id"], r["nvd_url"]) if r["nvd_url"] else cell_text(kev_prefix + r["id"])
               data_rows.append({
                   "type": "tableRow",
-                  "content": [cell(r["id"]), cell(r["pkg"]), cell(r["ver"]),
-                               cell(r["tool"]), cell(r["desc"])]
+                  "content": [id_cell, cell_text(r["pkg"]), cell_text(r["ver"]),
+                               cell_text(r["tool"]), cell_text(r["desc"])]
               })
 
           table = {
@@ -1012,10 +1047,43 @@ jobs:
               "content": [header_row] + data_rows
           }
 
+          # Build optional CISA KEV panel
+          kev_panel_blocks = []
+          if kev_findings:
+              kev_lines = []
+              for k in kev_findings:
+                  line_text = f"\U0001f525 {k['id']} — Due: {k['due_date']}"
+                  if k["ransomware"]:
+                      line_text += " ⚠️ Ransomware"
+                  if k["required_action"]:
+                      line_text += f"\n   Action: {k['required_action']}"
+                  kev_lines.append({"type": "paragraph", "content": [
+                      {"type": "text", "text": line_text}
+                  ]})
+              kev_panel_blocks = [{
+                  "type": "panel",
+                  "attrs": {"panelType": "error"},
+                  "content": [
+                      {"type": "paragraph", "content": [
+                          {"type": "text",
+                           "text": f"\U0001f525 {len(kev_findings)} CISA Known Exploited Vulnerabilities Detected",
+                           "marks": [{"type": "strong"}]}
+                      ]},
+                      *kev_lines,
+                      {"type": "paragraph", "content": [
+                          {"type": "text", "text": "CISA KEV Catalog",
+                           "marks": [{"type": "link", "attrs": {
+                               "href": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+                           }}]}
+                      ]}
+                  ]
+              }]
+
           adf = {
               "version": 1,
               "type": "doc",
               "content": [
+                  *kev_panel_blocks,
                   {"type": "paragraph", "content": [
                       {"type": "text", "text": summary_line}
                   ]},

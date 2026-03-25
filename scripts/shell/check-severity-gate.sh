@@ -96,9 +96,9 @@ if [[ -f "$FINDINGS_SUMMARY" ]]; then
     echo "  Critical: $TOTAL_CRITICAL | High: $TOTAL_HIGH | Medium: $TOTAL_MEDIUM | Low: $TOTAL_LOW"
     echo -e "${GREEN}✅ Using unique vulnerability counts (deduplicated)${NC}"
     
-    # NOTE: Deduplicated summary currently only includes TruffleHog and Trivy
-    # We still need to add Grype, Checkov, and ClamAV separately
-    echo -e "${YELLOW}⚠️  Adding Grype, Checkov, and ClamAV results not included in deduplication${NC}"
+    # NOTE: Deduplicated summary includes TruffleHog, Trivy, and Checkov.
+    # We still need to add Grype and ClamAV separately (not in dedup summary).
+    echo -e "${YELLOW}⚠️  Adding Grype and ClamAV results not included in deduplication${NC}"
 else
     echo -e "${YELLOW}⚠️  Deduplicated summary not found, counting from individual tools (may include duplicates)${NC}"
 fi
@@ -328,7 +328,12 @@ if [[ -f "$CHECKOV_FILE" ]]; then
         echo "  Failed checks: $CHECKOV_FAILED"
         if [[ $CHECKOV_FAILED -gt 0 ]]; then
             # Treat failed IaC checks as High severity
-            TOTAL_HIGH=$((TOTAL_HIGH + CHECKOV_FAILED))
+            # Only add to totals when not using dedup summary (Checkov is now included there)
+            if [[ ! -f "$FINDINGS_SUMMARY" ]]; then
+                TOTAL_HIGH=$((TOTAL_HIGH + CHECKOV_FAILED))
+            else
+                echo -e "  ${CYAN}ℹ️  Checkov counts from dedup summary; processed for suppression logging only${NC}"
+            fi
         fi
     fi
 else

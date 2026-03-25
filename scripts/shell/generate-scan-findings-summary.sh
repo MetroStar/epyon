@@ -336,12 +336,16 @@ EOF
                         tool: $tool,
                         type: "vulnerability",
                         severity: .vulnerability.severity,
+                        vulnerability_id: .vulnerability.id,
                         id: .vulnerability.id,
                         package: .artifact.name,
+                        package_name: .artifact.name,
                         version: .artifact.version,
+                        package_version: .artifact.version,
                         description: .vulnerability.description,
                         cvss_score: (.vulnerability.cvss[0].metrics.baseScore // "N/A"),
-                        fix_available: (if .vulnerability.fix.versions then "Yes" else "No" end)
+                        fix_available: (if .vulnerability.fix.versions then "Yes" else "No" end),
+                        fixed_versions: (.vulnerability.fix.versions // [])
                     }]' "$grype_file" 2>/dev/null || echo "[]")
                 
                 local low_vulns=$(jq -r --arg tool "Grype-$scan_type" '
@@ -349,12 +353,16 @@ EOF
                         tool: $tool,
                         type: "vulnerability",
                         severity: .vulnerability.severity,
+                        vulnerability_id: .vulnerability.id,
                         id: .vulnerability.id,
                         package: .artifact.name,
+                        package_name: .artifact.name,
                         version: .artifact.version,
+                        package_version: .artifact.version,
                         description: .vulnerability.description,
                         cvss_score: (.vulnerability.cvss[0].metrics.baseScore // "N/A"),
-                        fix_available: (if .vulnerability.fix.versions then "Yes" else "No" end)
+                        fix_available: (if .vulnerability.fix.versions then "Yes" else "No" end),
+                        fixed_versions: (.vulnerability.fix.versions // [])
                     }]' "$grype_file" 2>/dev/null || echo "[]")
                 
                 # Add to summary
@@ -391,12 +399,16 @@ EOF
                         tool: $tool,
                         type: "vulnerability",
                         severity: .Severity,
+                        vulnerability_id: .VulnerabilityID,
                         id: .VulnerabilityID,
                         package: .PkgName,
+                        package_name: .PkgName,
                         version: .InstalledVersion,
+                        package_version: .InstalledVersion,
                         description: .Description,
                         cvss_score: (.CVSS.nvd.V3Score // "N/A"),
-                        fix_available: (if .FixedVersion then "Yes" else "No" end)
+                        fix_available: (if .FixedVersion and .FixedVersion != "" then "Yes" else "No" end),
+                        fixed_versions: (if .FixedVersion and .FixedVersion != "" then [.FixedVersion] else [] end)
                     }]' "$trivy_file" 2>/dev/null || echo "[]")
                 
                 local high_vulns=$(jq -r --arg tool "Trivy-$scan_type" '
@@ -404,12 +416,16 @@ EOF
                         tool: $tool,
                         type: "vulnerability",
                         severity: .Severity,
+                        vulnerability_id: .VulnerabilityID,
                         id: .VulnerabilityID,
                         package: .PkgName,
+                        package_name: .PkgName,
                         version: .InstalledVersion,
+                        package_version: .InstalledVersion,
                         description: .Description,
                         cvss_score: (.CVSS.nvd.V3Score // "N/A"),
-                        fix_available: (if .FixedVersion then "Yes" else "No" end)
+                        fix_available: (if .FixedVersion and .FixedVersion != "" then "Yes" else "No" end),
+                        fixed_versions: (if .FixedVersion and .FixedVersion != "" then [.FixedVersion] else [] end)
                     }]' "$trivy_file" 2>/dev/null || echo "[]")
                 
                 local medium_vulns=$(jq -r --arg tool "Trivy-$scan_type" '
@@ -417,12 +433,16 @@ EOF
                         tool: $tool,
                         type: "vulnerability",
                         severity: .Severity,
+                        vulnerability_id: .VulnerabilityID,
                         id: .VulnerabilityID,
                         package: .PkgName,
+                        package_name: .PkgName,
                         version: .InstalledVersion,
+                        package_version: .InstalledVersion,
                         description: .Description,
                         cvss_score: (.CVSS.nvd.V3Score // "N/A"),
-                        fix_available: (if .FixedVersion then "Yes" else "No" end)
+                        fix_available: (if .FixedVersion and .FixedVersion != "" then "Yes" else "No" end),
+                        fixed_versions: (if .FixedVersion and .FixedVersion != "" then [.FixedVersion] else [] end)
                     }]' "$trivy_file" 2>/dev/null || echo "[]")
                 
                 local low_vulns=$(jq -r --arg tool "Trivy-$scan_type" '
@@ -430,12 +450,16 @@ EOF
                         tool: $tool,
                         type: "vulnerability",
                         severity: .Severity,
+                        vulnerability_id: .VulnerabilityID,
                         id: .VulnerabilityID,
                         package: .PkgName,
+                        package_name: .PkgName,
                         version: .InstalledVersion,
+                        package_version: .InstalledVersion,
                         description: .Description,
                         cvss_score: (.CVSS.nvd.V3Score // "N/A"),
-                        fix_available: (if .FixedVersion then "Yes" else "No" end)
+                        fix_available: (if .FixedVersion and .FixedVersion != "" then "Yes" else "No" end),
+                        fixed_versions: (if .FixedVersion and .FixedVersion != "" then [.FixedVersion] else [] end)
                     }]' "$trivy_file" 2>/dev/null || echo "[]")
                 
                 # Add to summary

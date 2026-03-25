@@ -437,12 +437,7 @@ CHART_HTML=$(cat << 'CHART_EOF'
                 '<div style="background:#1a1d23;padding:15px;border-radius:8px;border-left:4px solid #60a5fa;">' +
                 '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">PRs Last 7 Days</div>' +
                 '<div style="font-size:2em;font-weight:800;color:#60a5fa;line-height:1;">' + prs7d + '</div>' +
-                '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">merged recently</div></div>' +
-
-                '<div style="background:#1a1d23;padding:15px;border-radius:8px;border-left:4px solid ' + netCve90Color + ';">' +
-                '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">Net CVE Change (90d)</div>' +
-                '<div style="font-size:2em;font-weight:800;color:' + netCve90Color + ';line-height:1;">' + netCve90Arrow + ' ' + Math.abs(netCve90) + '</div>' +
-                '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">' + (netCve90 < 0 ? 'reduced' : netCve90 > 0 ? 'increased' : 'unchanged') + ' over period</div></div>';
+                '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">merged recently</div></div>';
         })();
         </script>
 CHART_EOF

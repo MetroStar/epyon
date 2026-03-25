@@ -75,20 +75,3 @@ jobs:
       garak_target_name: ${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
       garak_probes: ${{ github.event.inputs.garak_probes || 'promptinject' }}
     secrets: inherit
-
-  security-scan-test:
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.epyon_branch == 'test'
-    permissions:
-      contents: read
-      actions: read
-      pull-requests: write
-      security-events: write
-      issues: write
-    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@test
-    with:
-      scan_mode: ${{ github.event.inputs.scan_mode || 'full' }}
-      subdirectory: ${{ github.event.inputs.subdirectory || '' }}
-      garak_target_type: ${{ github.event.inputs.garak_target_type || 'openai' }}
-      garak_target_name: ${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
-      garak_probes: ${{ github.event.inputs.garak_probes || 'promptinject' }}
-    secrets: inherit

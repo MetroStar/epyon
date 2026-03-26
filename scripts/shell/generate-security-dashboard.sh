@@ -652,6 +652,22 @@ else
     CLAMAV_FINDINGS="<p class=\"no-findings\">✅ No malware detected</p>"
 fi
 
+# ---- Build suppressed CVE/package ID sets for filtering findings tables ----
+# These are populated from IGNORE_CACHE (parsed from .epyon-ignore.yml).
+# Suppressed findings are hidden from main tool tables and shown in the Suppressed Findings section.
+SUPPRESSED_CVE_IDS_JSON="${SUPPRESSED_CVE_IDS_JSON:-[]}"
+SUPPRESSED_PKG_IDS_JSON="${SUPPRESSED_PKG_IDS_JSON:-[]}"
+if [[ -f "${IGNORE_CACHE:-}" ]]; then
+    _tmp=$(jq '[.ignores[] | select(.type == "cve" and .expired == false) | .value]' "$IGNORE_CACHE" 2>/dev/null) && SUPPRESSED_CVE_IDS_JSON="$_tmp"
+    _tmp=$(jq '[.ignores[] | select(.type == "package" and .expired == false) | .value]' "$IGNORE_CACHE" 2>/dev/null) && SUPPRESSED_PKG_IDS_JSON="$_tmp"
+fi
+
+# Initialize suppressed findings log if it was not already written by check-severity-gate.sh
+# (happens on local runs where the gate script is not called separately).
+if declare -f init_suppressed_log >/dev/null 2>&1 && [[ -n "${SUPPRESSED_LOG:-}" ]] && [[ ! -f "$SUPPRESSED_LOG" ]]; then
+    init_suppressed_log || true
+fi
+
 # ---- Trivy Statistics ----
 TRIVY_DIR="${LATEST_SCAN}/trivy"
 TRIVY_IMAGES_SCANNED=0
@@ -675,10 +691,10 @@ if [ -d "$TRIVY_DIR" ]; then
             json_content=$(sed -n '/^{/,$p' "$trivy_file" 2>/dev/null || cat "$trivy_file")
             set -o pipefail
             
-            crit_count=$(echo "$json_content" | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' 2>/dev/null || echo "0")
-            high_count=$(echo "$json_content" | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH")] | length' 2>/dev/null || echo "0")
-            med_count=$(echo "$json_content" | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="MEDIUM")] | length' 2>/dev/null || echo "0")
-            low_count=$(echo "$json_content" | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="LOW")] | length' 2>/dev/null || echo "0")
+            crit_count=$(echo "$json_content" | jq --argjson sc "$SUPPRESSED_CVE_IDS_JSON" '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL") | select(.VulnerabilityID as $v | $sc | index($v) == null)] | length' 2>/dev/null || echo "0")
+            high_count=$(echo "$json_content" | jq --argjson sc "$SUPPRESSED_CVE_IDS_JSON" '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH") | select(.VulnerabilityID as $v | $sc | index($v) == null)] | length' 2>/dev/null || echo "0")
+            med_count=$(echo "$json_content" | jq --argjson sc "$SUPPRESSED_CVE_IDS_JSON" '[.Results[]?.Vulnerabilities[]? | select(.Severity=="MEDIUM") | select(.VulnerabilityID as $v | $sc | index($v) == null)] | length' 2>/dev/null || echo "0")
+            low_count=$(echo "$json_content" | jq --argjson sc "$SUPPRESSED_CVE_IDS_JSON" '[.Results[]?.Vulnerabilities[]? | select(.Severity=="LOW") | select(.VulnerabilityID as $v | $sc | index($v) == null)] | length' 2>/dev/null || echo "0")
             
             # Ensure numeric
             [[ "$crit_count" =~ ^[0-9]+$ ]] || crit_count=0
@@ -693,7 +709,7 @@ if [ -d "$TRIVY_DIR" ]; then
             
             # Extract individual vulnerability details for ALL severity levels (limit to top 50 per file)
             set +e
-            vuln_details=$(echo "$json_content" | jq -r '
+            vuln_details=$(echo "$json_content" | jq -r --argjson suppressed_cves "$SUPPRESSED_CVE_IDS_JSON" '
                 def html_escape: gsub("<"; "&lt;") | gsub(">"; "&gt;") | gsub("\""; "&quot;") | gsub("\n"; " ");
                 def status_badge_color: if . == "fixed" then "#c6f6d5;color:#2f855a" elif . == "affected" then "#fed7d7;color:#c53030" else "#feebc8;color:#c05621" end;
                 def status_text_color: if . == "fixed" then "#2f855a" elif . == "affected" then "#c53030" else "#c05621" end;
@@ -704,6 +720,7 @@ if [ -d "$TRIVY_DIR" ]; then
                  .Target as $target |
                  .Type as $pkg_type |
                  .Vulnerabilities[]? | 
+                 select(.VulnerabilityID as $v | $suppressed_cves | index($v) == null) |
                  {target: $target, 
                   pkg_type: $pkg_type,
                   id: .VulnerabilityID, 
@@ -786,6 +803,26 @@ if [ -d "$TRIVY_DIR" ]; then
         fi
     done
     TRIVY_TOTAL_VULNS=$((TRIVY_CRITICAL + TRIVY_HIGH + TRIVY_MEDIUM + TRIVY_LOW))
+
+    # Log suppressed Trivy findings to suppressed-findings.md (so they appear in Suppressed section)
+    if declare -f log_suppressed >/dev/null 2>&1 && [[ -f "${IGNORE_CACHE:-}" ]] && \
+       [[ "$(echo "$SUPPRESSED_CVE_IDS_JSON" | jq 'length' 2>/dev/null || echo 0)" -gt 0 ]]; then
+        for trivy_file in "$TRIVY_DIR"/*.json; do
+            if [ -f "$trivy_file" ] && [ ! -L "$trivy_file" ] && grep -q '"SchemaVersion"' "$trivy_file" 2>/dev/null; then
+                set +o pipefail
+                _jc=$(sed -n '/^{/,$p' "$trivy_file" 2>/dev/null || cat "$trivy_file")
+                set -o pipefail
+                while IFS='|' read -r _cve _sev _pkg; do
+                    [[ -z "$_cve" ]] && continue
+                    _reason=$(jq -r --arg v "$_cve" '.ignores[] | select(.type=="cve" and .value==$v) | .reason' "$IGNORE_CACHE" 2>/dev/null | head -1)
+                    _approved=$(jq -r --arg v "$_cve" '.ignores[] | select(.type=="cve" and .value==$v) | .approved_by // "Not specified"' "$IGNORE_CACHE" 2>/dev/null | head -1)
+                    log_suppressed "Trivy" "cve" "$_cve" "${_reason:-Not provided}" "$_sev" "${_approved:-Not specified}" || true
+                done < <(echo "$_jc" | jq -r --argjson sc "$SUPPRESSED_CVE_IDS_JSON" \
+                    '.Results[]?.Vulnerabilities[]? | select(.VulnerabilityID as $v | $sc | index($v) != null) | [.VulnerabilityID, .Severity, .PkgName] | @tsv' \
+                    2>/dev/null | tr '\t' '|')
+            fi
+        done
+    fi
     
     if [ "$TRIVY_TOTAL_VULNS" -gt 0 ]; then
         TRIVY_FINDINGS="<div class=\"finding-summary\">
@@ -833,10 +870,10 @@ if [ -d "$GRYPE_DIR" ]; then
     for grype_file in "$GRYPE_DIR"/*.json; do
         # Skip symlinks to avoid double counting
         if [ -f "$grype_file" ] && [ ! -L "$grype_file" ]; then
-            crit_count=$(jq '[.matches[]? | select(.vulnerability.severity=="Critical")] | length' "$grype_file" 2>/dev/null || echo "0")
-            high_count=$(jq '[.matches[]? | select(.vulnerability.severity=="High")] | length' "$grype_file" 2>/dev/null || echo "0")
-            med_count=$(jq '[.matches[]? | select(.vulnerability.severity=="Medium")] | length' "$grype_file" 2>/dev/null || echo "0")
-            low_count=$(jq '[.matches[]? | select(.vulnerability.severity=="Low")] | length' "$grype_file" 2>/dev/null || echo "0")
+            crit_count=$(jq --argjson sc "$SUPPRESSED_CVE_IDS_JSON" '[.matches[]? | select(.vulnerability.severity=="Critical") | select(.vulnerability.id as $v | $sc | index($v) == null)] | length' "$grype_file" 2>/dev/null || echo "0")
+            high_count=$(jq --argjson sc "$SUPPRESSED_CVE_IDS_JSON" '[.matches[]? | select(.vulnerability.severity=="High") | select(.vulnerability.id as $v | $sc | index($v) == null)] | length' "$grype_file" 2>/dev/null || echo "0")
+            med_count=$(jq --argjson sc "$SUPPRESSED_CVE_IDS_JSON" '[.matches[]? | select(.vulnerability.severity=="Medium") | select(.vulnerability.id as $v | $sc | index($v) == null)] | length' "$grype_file" 2>/dev/null || echo "0")
+            low_count=$(jq --argjson sc "$SUPPRESSED_CVE_IDS_JSON" '[.matches[]? | select(.vulnerability.severity=="Low") | select(.vulnerability.id as $v | $sc | index($v) == null)] | length' "$grype_file" 2>/dev/null || echo "0")
             
             # Ensure numeric
             [[ "$crit_count" =~ ^[0-9]+$ ]] || crit_count=0
@@ -851,9 +888,10 @@ if [ -d "$GRYPE_DIR" ]; then
             
             # Extract individual vulnerability details for ALL severity levels (limit to top 50 per file)
             set +e
-            vuln_details=$(jq -r '
+            vuln_details=$(jq -r --argjson suppressed_cves "$SUPPRESSED_CVE_IDS_JSON" '
                 (.source.type // "unknown") as $scan_type |
                 [.matches[]? | 
+                 select(.vulnerability.id as $v | $suppressed_cves | index($v) == null) |
                  {id: .vulnerability.id, pkg: .artifact.name, version: .artifact.version, 
                   severity: .vulnerability.severity, 
                   fixed: (.vulnerability.fix.versions[0] // "Not fixed"),
@@ -905,6 +943,23 @@ if [ -d "$GRYPE_DIR" ]; then
         fi
     done
     GRYPE_TOTAL_VULNS=$((GRYPE_CRITICAL + GRYPE_HIGH + GRYPE_MEDIUM + GRYPE_LOW))
+
+    # Log suppressed Grype findings to suppressed-findings.md
+    if declare -f log_suppressed >/dev/null 2>&1 && [[ -f "${IGNORE_CACHE:-}" ]] && \
+       [[ "$(echo "$SUPPRESSED_CVE_IDS_JSON" | jq 'length' 2>/dev/null || echo 0)" -gt 0 ]]; then
+        for grype_file in "$GRYPE_DIR"/*.json; do
+            if [ -f "$grype_file" ] && [ ! -L "$grype_file" ]; then
+                while IFS='|' read -r _cve _sev _pkg; do
+                    [[ -z "$_cve" ]] && continue
+                    _reason=$(jq -r --arg v "$_cve" '.ignores[] | select(.type=="cve" and .value==$v) | .reason' "$IGNORE_CACHE" 2>/dev/null | head -1)
+                    _approved=$(jq -r --arg v "$_cve" '.ignores[] | select(.type=="cve" and .value==$v) | .approved_by // "Not specified"' "$IGNORE_CACHE" 2>/dev/null | head -1)
+                    log_suppressed "Grype" "cve" "$_cve" "${_reason:-Not provided}" "$_sev" "${_approved:-Not specified}" || true
+                done < <(jq -r --argjson sc "$SUPPRESSED_CVE_IDS_JSON" \
+                    '.matches[]? | select(.vulnerability.id as $v | $sc | index($v) != null) | [.vulnerability.id, .vulnerability.severity, .artifact.name] | @tsv' \
+                    "$grype_file" 2>/dev/null | tr '\t' '|')
+            fi
+        done
+    fi
     
     if [ "$GRYPE_TOTAL_VULNS" -gt 0 ]; then
         GRYPE_FINDINGS="<div class=\"finding-summary\">

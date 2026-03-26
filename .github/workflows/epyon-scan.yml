@@ -401,6 +401,7 @@ jobs:
           mkdir -p "$SCAN_DIR"
           echo "SCAN_DIR=$PWD/$SCAN_DIR" >> /tmp/epyon-env
           echo "SCAN_NAME=$SCAN_NAME" >> /tmp/epyon-env
+          echo "SCAN_ID=$SCAN_NAME" >> /tmp/epyon-env
           echo "scan_dir=$SCAN_DIR" >> $GITHUB_OUTPUT
           echo "scan_id=$SCAN_NAME" >> $GITHUB_OUTPUT
           echo "🚀 Initialized scan: $SCAN_NAME"

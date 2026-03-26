@@ -84,7 +84,7 @@ fi
 
 # Determine Trivy image to use - prefer Docker Hardened Image, fall back to official image
 TRIVY_DHI_IMAGE="dhi/trivy:latest"
-TRIVY_OFFICIAL_IMAGE="aquasec/trivy:latest"
+TRIVY_OFFICIAL_IMAGE="ghcr.io/aquasecurity/trivy:latest"
 echo -e "${CYAN}🔍 Selecting Trivy image...${NC}"
 if ${CONTAINER_CLI} image inspect "${TRIVY_DHI_IMAGE}" > /dev/null 2>&1 || ${CONTAINER_CLI} pull "${TRIVY_DHI_IMAGE}" > /dev/null 2>&1; then
     TRIVY_IMAGE="${TRIVY_DHI_IMAGE}"

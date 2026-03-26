@@ -807,10 +807,7 @@ if [ -d "$TRIVY_DIR" ]; then
                     style=\"width:100%;padding:10px 15px;border:2px solid #e2e8f0;border-radius:8px;font-size:0.95em;\">
             </div>
         </div>
-        <p style=\"color:#718096;margin-bottom:15px;font-size:0.9em;\">
-            💡 <strong>Tip:</strong> Click any finding to expand details. Use the checkboxes to track false positive assessments. 
-            Green \"FIXED\" status means a patched version is available.
-        </p>
+        <p style=\"color:#718096;margin-bottom:15px;font-size:0.9em;\">💡 Click any finding to expand details. Green \"FIXED\" status means a patched version is available.</p>
         ${TRIVY_DETAILS}"
     else
         TRIVY_FINDINGS="<p class=\"no-findings\">✅ No vulnerabilities detected in container images</p>"
@@ -2774,43 +2771,6 @@ cat > "$OUTPUT_HTML" << 'EOF'
             margin-bottom: 6px;
         }
         
-        /* False Positive Checklist */
-        .fp-checklist {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        
-        .fp-checklist label {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 8px 12px;
-            background: #1f2937;
-            color: #f3f4f6;
-            border: 1px solid #4b5563;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-size: 0.9em;
-        }
-        
-        .fp-checklist label:hover {
-            background: #374151;
-            border-color: #6b7280;
-        }
-        
-        .fp-check {
-            width: 18px;
-            height: 18px;
-            accent-color: #38a169;
-        }
-        
-        .fp-checklist label:has(.fp-check:checked) {
-            background: #c6f6d5;
-            border-color: #9ae6b4;
-            color: #276749;
-        }
         
         /* Status badge colors */
         .status-fixed {

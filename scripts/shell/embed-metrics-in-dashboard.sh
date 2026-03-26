@@ -146,8 +146,10 @@ if [[ -n "$PR_REPO" ]] && command -v gh &>/dev/null; then
     PR_PAGE=1
     while true; do
         PR_PAGE_DATA=$(gh api "repos/${PR_REPO}/pulls?state=closed&per_page=100&page=${PR_PAGE}" 2>/dev/null || echo "[]")
-        PR_COUNT=$(echo "$PR_PAGE_DATA" | jq 'length' 2>/dev/null || echo 0)
-        [[ "$PR_COUNT" -eq 0 ]] && break
+        # Normalize to array — gh api may return an error object/string on auth or rate-limit failures
+        PR_PAGE_DATA=$(echo "$PR_PAGE_DATA" | jq 'if type == "array" then . else [] end' 2>/dev/null || echo "[]")
+        PR_COUNT=$(echo "$PR_PAGE_DATA" | jq 'length' 2>/dev/null | tr -d '[:space:]' || echo 0)
+        [[ "${PR_COUNT:-0}" -eq 0 ]] && break
         CHUNK=$(echo "$PR_PAGE_DATA" | jq --arg since "${PR_SINCE}" \
             '[.[] | select(.merged_at != null) | select($since == "" or .merged_at[:10] >= $since) | .merged_at[:10]]')
         PR_DATES=$(printf '%s\n%s' "$PR_DATES" "$CHUNK" | jq -s 'add // []')

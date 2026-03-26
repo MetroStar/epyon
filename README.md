@@ -48,7 +48,7 @@ Our roadmap is organized by level of certainty and timeframe, focusing on key ou
 
 This repository contains a **production-ready, enterprise-grade** multi-layer DevOps security architecture with **comprehensive test coverage**, **baseline scanning**, **automated comparison**, and **isolated scan directory architecture**. Built for real-world enterprise applications with Docker-based tooling and 304 automated tests.
 
-**Latest Update: March 24, 2026 (v2.9.0)** - Split dashboard metrics into two charts (vulnerability trends + PR/CVE discipline), fixed Checkov findings not appearing in vulnerability counts, and added default branch auto-detection for PR metrics.
+**Latest Update: March 26, 2026 (v3.0.0)** - Added Athena Python SBOM integration (Layer 1b) with CycloneDX 1.5 output, SHA-256 wheel hashes, SPDX license identifiers, and a new License Compliance dashboard panel.
 
 ## 📋 Prerequisites
 
@@ -582,19 +582,20 @@ Epyon uses **Docker Hardened Images (DHI)** as the default baseline for containe
 
 ---
 
-### Current Security Layers (11 Operational):
+### Current Security Layers (12 Operational):
 
-1. **🔍 TruffleHog** - Multi-target secret detection with filesystem, container, and registry scanning
-2. **🦠 ClamAV** - Enterprise antivirus scanning with real-time virus definition updates  
-3. **🔒 Checkov** - Infrastructure as Code security scanning (Terraform, Kubernetes, Docker)
-4. **🎯 Grype** - Advanced vulnerability scanning with SBOM generation and multi-format support
-5. **🐳 Trivy** - Comprehensive security scanner for containers, filesystems, and Kubernetes
-6. **⏰ Xeol** - End-of-Life software detection for proactive dependency management
-7. **📊 SonarQube** - Code quality analysis with test coverage metrics
-8. **⚓ Helm** - Kubernetes chart validation, linting, and packaging
-9. **🔍 API Discovery** - Automatic API endpoint detection (OpenAPI, Express, Flask, Django, Next.js App Router)
-10. **📊 SBOM Generation** - Complete Software Bill of Materials with Syft
-11. **🤖 Garak** - LLM vulnerability probing and red-team style safety testing
+1. **📦 SBOM Generation** - Complete Software Bill of Materials with Syft
+2. **🐍 Athena** - Python-focused SBOM (Layer 1b): CycloneDX 1.5 with `pkg:pypi` PURLs, SHA-256 wheel hashes, SPDX licenses, and license compliance reporting
+3. **🔍 TruffleHog** - Multi-target secret detection with filesystem, container, and registry scanning
+4. **🦠 ClamAV** - Enterprise antivirus scanning with real-time virus definition updates
+5. **🔒 Checkov** - Infrastructure as Code security scanning (Terraform, Kubernetes, Docker)
+6. **🎯 Grype** - Advanced vulnerability scanning with SBOM generation and multi-format support
+7. **🐳 Trivy** - Comprehensive security scanner for containers, filesystems, and Kubernetes
+8. **⏰ Xeol** - End-of-Life software detection for proactive dependency management
+9. **📊 SonarQube** - Code quality analysis with test coverage metrics
+10. **⚓ Helm** - Kubernetes chart validation, linting, and packaging
+11. **🔍 API Discovery** - Automatic API endpoint detection (OpenAPI, Express, Flask, Django, Next.js App Router)
+12. **🤖 Garak** - LLM vulnerability probing and red-team style safety testing
 
 ### Quality Assurance
 
@@ -645,6 +646,7 @@ epyon/
 │   ├── run-grype-scan.sh
 │   ├── run-xeol-scan.sh
 │   ├── run-sbom-scan.sh
+│   ├── run-athena-sbom.sh
 │   ├── export-api-discovery.sh
 │   ├── export-sbom.sh
 │   ├── check-severity-gate.sh

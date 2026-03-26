@@ -27,6 +27,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-03-26
+
+### Added
+- **Athena Python SBOM integration** (`run-athena-sbom.sh`): new Layer 1b that runs immediately after the Syft SBOM layer and generates a Python-focused CycloneDX 1.5 SBOM with `pkg:pypi` PURLs, SHA-256 wheel hashes, and SPDX license identifiers. Automatically skips if no Python artifacts are found (detects `pyproject.toml`, `requirements*.txt/lock`, `Pipfile.lock`, `poetry.lock`, `setup.py`, `setup.cfg`, conda env files, `*.dist-info` directories, and `site-packages`).
+- **Athena SBOM merge into Syft SBOM** (`consolidate-security-reports.sh`): after Athena runs, its CycloneDX components are merged into `filesystem.json` using `jq`. Athena wins for all `pkg:pypi` packages (matched by PURL prefix), contributing richer metadata (wheel hashes, SPDX licenses) while Syft retains all non-Python ecosystems.
+- **Athena License Compliance panel** (`generate-security-dashboard.sh`): new dashboard panel showing the Python package count from Athena and a per-package license compliance table rendered from `athena-licenses.json` (or directly from the Athena SBOM when the license file is not present).
+- **`skip_athena` workflow input** (`epyon-scan.yml`): new boolean input (default `false`) with corresponding `SKIP_ATHENA` env var; Athena is installed via `pip3` in the "Install Dependencies" CI step when not skipped.
+- **`SKIP_ATHENA` in skipped-scans display**: both the GitHub Step Summary (`check-severity-gate.sh`) and the GitHub issue skip map (`epyon-scan.yml`) now include "Athena SBOM" in the skipped tools list when `SKIP_ATHENA=true`.
+
+### Changed
+- **Python artifact detection broadened**: `has_python_artifacts()` now searches up to depth 4 (was 3) and additionally detects `setup.py`, `setup.cfg`, `environment.yml`, `conda.yml`, `*.dist-info` directories, and `site-packages` directories, enabling Athena to run against repos that vendor or pre-install Python packages without a requirements file (e.g. Midas).
+
 ## [2.9.0] - 2026-03-24
 
 ### Added

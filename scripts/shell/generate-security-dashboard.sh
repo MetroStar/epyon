@@ -3288,7 +3288,103 @@ cat > "$OUTPUT_HTML" << 'EOF'
             border-bottom: 1px solid #1f2937;
             font-size: 0.82em;
         }
-        
+
+        /* Metrics Modal */
+        .metrics-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.75);
+            z-index: 9000;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 40px 20px;
+            overflow-y: auto;
+        }
+
+        .metrics-modal-overlay.open {
+            display: flex;
+        }
+
+        .metrics-modal {
+            background: #1a1d23;
+            border: 1px solid #4b5563;
+            border-radius: 14px;
+            width: 100%;
+            max-width: 1200px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .metrics-modal-header {
+            background: linear-gradient(135deg, #C41E3A 0%, #8B1328 100%);
+            padding: 22px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .metrics-modal-title {
+            color: white;
+            font-size: 1.3em;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .metrics-modal-close {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            font-size: 1.2em;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+            line-height: 1;
+        }
+
+        .metrics-modal-close:hover {
+            background: rgba(255,255,255,0.35);
+        }
+
+        .metrics-modal-body {
+            padding: 28px;
+            color: #e5e7eb;
+        }
+
+        .footer-metrics-btn {
+            background: linear-gradient(135deg, #C41E3A 0%, #8B1328 100%);
+            color: white;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.95em;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(196,30,58,0.4);
+            margin-top: 20px;
+            margin-right: 12px;
+        }
+
+        .footer-metrics-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 14px rgba(196,30,58,0.6);
+        }
+
+        .footer-metrics-btn:disabled {
+            background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+            opacity: 0.6;
+        }
+
         .manifest-file-item:last-child {
             border-bottom: none;
         }
@@ -4703,9 +4799,14 @@ cat >> "$OUTPUT_HTML" << EOF
                 <a href="../markdown-reports/" class="footer-link">📝 Markdown</a>
                 <a href="../csv-reports/" class="footer-link">📈 CSV Data</a>
             </div>
-            <button class="footer-manifest-btn" onclick="openScanManifestModal()" id="scanManifestBtn">
-                🔏 Scan Manifest
-            </button>
+            <div>
+                <button class="footer-metrics-btn" onclick="openMetricsModal()" id="metricsBtn">
+                    📊 Metrics
+                </button>
+                <button class="footer-manifest-btn" onclick="openScanManifestModal()" id="scanManifestBtn">
+                    🔏 Scan Manifest
+                </button>
+            </div>
         </div>
 
         <!-- Scan Manifest Modal -->
@@ -4717,6 +4818,19 @@ cat >> "$OUTPUT_HTML" << EOF
                 </div>
                 <div class="manifest-modal-body" id="scanManifestBody">
                     <p class="manifest-no-data">Loading...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metrics Modal -->
+        <div class="metrics-modal-overlay" id="metricsOverlay" onclick="closeMetricsModalOnOverlay(event)">
+            <div class="metrics-modal" id="metricsModal">
+                <div class="metrics-modal-header">
+                    <h2 class="metrics-modal-title">📊 Vulnerability Metrics</h2>
+                    <button class="metrics-modal-close" onclick="closeMetricsModal()" title="Close">✕</button>
+                </div>
+                <div class="metrics-modal-body" id="metricsModalBody">
+                    <!-- Metrics content will be injected here -->
                 </div>
             </div>
         </div>
@@ -4839,12 +4953,32 @@ cat >> "$OUTPUT_HTML" << EOF
                 if (btn) btn.disabled = true;
             }
         });
-        
+
         // Close modal on Escape key
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') closeScanManifestModal();
+            if (e.key === 'Escape') {
+                closeScanManifestModal();
+                closeMetricsModal();
+            }
         });
-        
+
+        // ----- Metrics Modal -----
+        function openMetricsModal() {
+            document.getElementById('metricsOverlay').classList.add('open');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeMetricsModal() {
+            document.getElementById('metricsOverlay').classList.remove('open');
+            document.body.style.overflow = '';
+        }
+
+        function closeMetricsModalOnOverlay(event) {
+            if (event.target === document.getElementById('metricsOverlay')) {
+                closeMetricsModal();
+            }
+        }
+
         // Current filter state
         let currentFilter = 'all';
         let currentSourceFilter = 'all';

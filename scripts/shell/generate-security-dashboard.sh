@@ -3186,8 +3186,8 @@ cat > "$OUTPUT_HTML" << 'EOF'
             background: rgba(0,0,0,0.75);
             z-index: 9000;
             justify-content: center;
-            align-items: flex-start;
-            padding: 40px 20px;
+            align-items: center;
+            padding: 20px;
             overflow-y: auto;
         }
         
@@ -3200,7 +3200,10 @@ cat > "$OUTPUT_HTML" << 'EOF'
             border: 1px solid #4b5563;
             border-radius: 14px;
             width: 100%;
-            max-width: 820px;
+            max-width: 860px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
             box-shadow: 0 20px 60px rgba(0,0,0,0.6);
             overflow: hidden;
             position: relative;
@@ -3244,6 +3247,8 @@ cat > "$OUTPUT_HTML" << 'EOF'
         .manifest-modal-body {
             padding: 28px;
             color: #e5e7eb;
+            overflow-y: auto;
+            flex: 1;
         }
         
         .manifest-section {
@@ -3306,8 +3311,8 @@ cat > "$OUTPUT_HTML" << 'EOF'
             background: rgba(0,0,0,0.75);
             z-index: 9000;
             justify-content: center;
-            align-items: flex-start;
-            padding: 40px 20px;
+            align-items: center;
+            padding: 20px;
             overflow-y: auto;
         }
 
@@ -3320,7 +3325,10 @@ cat > "$OUTPUT_HTML" << 'EOF'
             border: 1px solid #4b5563;
             border-radius: 14px;
             width: 100%;
-            max-width: 1200px;
+            max-width: 860px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
             box-shadow: 0 20px 60px rgba(0,0,0,0.6);
             overflow: hidden;
             position: relative;
@@ -3364,6 +3372,8 @@ cat > "$OUTPUT_HTML" << 'EOF'
         .metrics-modal-body {
             padding: 28px;
             color: #e5e7eb;
+            overflow-y: auto;
+            flex: 1;
         }
 
         .footer-metrics-btn {

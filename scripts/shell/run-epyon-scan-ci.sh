@@ -174,6 +174,12 @@ else
   echo "[INFO] Skipping Layer 1 - SBOM (SKIP_SBOM=true)"
 fi
 
+if _should_run_tool SKIP_ATHENA; then
+  run_layer_script "Layer 1b - Python SBOM (Athena)" "scripts/shell/run-athena-sbom.sh"
+else
+  echo "[INFO] Skipping Layer 1b - Athena SBOM (SKIP_ATHENA=true)"
+fi
+
 if _should_run_tool SKIP_TRUFFLEHOG; then
   run_layer_script "Layer 2 - Secret Detection (TruffleHog)" "scripts/shell/run-trufflehog-scan.sh" "filesystem"
 else

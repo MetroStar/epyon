@@ -634,6 +634,7 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     SKIPPED_TOOLS=()
     [[ "${SKIP_GARAK:-false}"         == "true" ]] && SKIPPED_TOOLS+=("Garak LLM")
     [[ "${SKIP_SBOM:-false}"          == "true" ]] && SKIPPED_TOOLS+=("SBOM")
+    [[ "${SKIP_ATHENA:-false}"        == "true" ]] && SKIPPED_TOOLS+=("Athena SBOM")
     [[ "${SKIP_TRUFFLEHOG:-false}"    == "true" ]] && SKIPPED_TOOLS+=("TruffleHog")
     [[ "${SKIP_SONAR:-false}"         == "true" ]] && SKIPPED_TOOLS+=("SonarQube")
     [[ "${SKIP_CLAMAV:-false}"        == "true" ]] && SKIPPED_TOOLS+=("ClamAV")

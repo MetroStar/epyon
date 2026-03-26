@@ -2289,12 +2289,6 @@ if [[ -f "$SUPPRESSED_LOG" ]]; then
                     </tbody>
                 </table>
             </div>
-            
-            <div style=\"margin-top: 15px;\">
-                <a href=\"../../suppressed-findings.md\" style=\"display: inline-block; background: #fbbf24; color: #1a1d23; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.95em; transition: all 0.3s; box-shadow: 0 2px 8px rgba(251, 191, 36, 0.4);\" onmouseover=\"this.style.background='#fcd34d'\" onmouseout=\"this.style.background='#fbbf24'\">
-                    📄 View Full Report
-                </a>
-            </div>
         </div>"
     else
         echo "DEBUG: SUPPRESSED_COUNT is 0, no findings to display" >&2
@@ -4755,9 +4749,8 @@ cat >> "$OUTPUT_HTML" << EOF
             </p>
             <div class="footer-links">
                 <a href="../index.html" class="footer-link">📄 All Reports</a>
-                <a href="../html-reports/" class="footer-link">📊 HTML Reports</a>
+                <a href="../raw-data/" class="footer-link">📊 Raw Data</a>
                 <a href="../markdown-reports/" class="footer-link">📝 Markdown</a>
-                <a href="../csv-reports/" class="footer-link">📈 CSV Data</a>
             </div>
             <div>
                 <button class="footer-metrics-btn" onclick="openMetricsModal()" id="metricsBtn">

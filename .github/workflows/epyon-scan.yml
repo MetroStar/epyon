@@ -171,6 +171,11 @@ on:
         required: false
         default: 'main'
         type: string
+      write_metrics:
+        description: 'Write and upload a metrics row for this scan'
+        required: false
+        default: true
+        type: boolean
     secrets:
       OPENAI_API_KEY:
         description: 'OpenAI API key for Garak LLM security probing'
@@ -588,7 +593,7 @@ jobs:
           fi
 
       - name: Write Metrics Row
-        if: always() && (inputs.scan_mode == 'nightly' || github.event_name == 'workflow_dispatch')
+        if: always() && inputs.write_metrics != false && (inputs.scan_mode == 'nightly' || github.event_name == 'workflow_dispatch')
         run: |
           cd epyon
           SCAN_DIR="${{ steps.run-scan.outputs.scan_dir }}"
@@ -654,7 +659,7 @@ jobs:
 
       - name: Upload Metrics Row
         uses: actions/upload-artifact@v4
-        if: always() && (inputs.scan_mode == 'nightly' || github.event_name == 'workflow_dispatch')
+        if: always() && inputs.write_metrics != false && (inputs.scan_mode == 'nightly' || github.event_name == 'workflow_dispatch')
         with:
           name: metrics-${{ steps.run-scan.outputs.scan_id }}
           path: epyon/${{ steps.run-scan.outputs.scan_dir }}/scan-metrics.json

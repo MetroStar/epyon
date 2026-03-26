@@ -1,4 +1,5 @@
 name: Scan Public Repository
+run-name: "Scan: ${{ inputs.repository }}"
 
 permissions:
   contents: read

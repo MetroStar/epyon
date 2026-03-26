@@ -630,6 +630,25 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     SONAR_STATUS=$([ "$SONAR_COUNT" -eq 0 ] && echo "✅ Clean" || echo "⚠️ Issues")
     echo "| 📊 SonarQube | $SONAR_STATUS | $SONAR_COUNT issues |" >> "$GITHUB_STEP_SUMMARY"
     
+    # Show skipped tools
+    SKIPPED_TOOLS=()
+    [[ "${SKIP_GARAK:-false}"         == "true" ]] && SKIPPED_TOOLS+=("Garak LLM")
+    [[ "${SKIP_SBOM:-false}"          == "true" ]] && SKIPPED_TOOLS+=("SBOM")
+    [[ "${SKIP_TRUFFLEHOG:-false}"    == "true" ]] && SKIPPED_TOOLS+=("TruffleHog")
+    [[ "${SKIP_SONAR:-false}"         == "true" ]] && SKIPPED_TOOLS+=("SonarQube")
+    [[ "${SKIP_CLAMAV:-false}"        == "true" ]] && SKIPPED_TOOLS+=("ClamAV")
+    [[ "${SKIP_HELM:-false}"          == "true" ]] && SKIPPED_TOOLS+=("Helm")
+    [[ "${SKIP_CHECKOV:-false}"       == "true" ]] && SKIPPED_TOOLS+=("Checkov")
+    [[ "${SKIP_TRIVY:-false}"         == "true" ]] && SKIPPED_TOOLS+=("Trivy")
+    [[ "${SKIP_GRYPE:-false}"         == "true" ]] && SKIPPED_TOOLS+=("Grype")
+    [[ "${SKIP_XEOL:-false}"          == "true" ]] && SKIPPED_TOOLS+=("Xeol")
+    [[ "${SKIP_ANCHORE:-false}"       == "true" ]] && SKIPPED_TOOLS+=("Anchore")
+    [[ "${SKIP_API_DISCOVERY:-false}" == "true" ]] && SKIPPED_TOOLS+=("API Discovery")
+    if [[ ${#SKIPPED_TOOLS[@]} -gt 0 ]]; then
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+        echo "> ⏭️ **Skipped scans:** $(IFS=', '; echo "${SKIPPED_TOOLS[*]}")" >> "$GITHUB_STEP_SUMMARY"
+    fi
+
     echo "" >> "$GITHUB_STEP_SUMMARY"
     echo "## 📊 Severity Summary" >> "$GITHUB_STEP_SUMMARY"
     echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -648,26 +667,31 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
         # Show Checkov IaC issues if any
         if [[ ${CHECKOV_FAILED:-0} -gt 0 ]]; then
             echo "### Checkov IaC Issues (${CHECKOV_FAILED})" >> "$GITHUB_STEP_SUMMARY"
-            CHECKOV_FILE=$(find "$SCAN_DIR/checkov" -name "checkov-*.json" 2>/dev/null | head -1)
-            if [[ -f "$CHECKOV_FILE" ]]; then
-                jq -r '.[]? | .results.failed_checks[]? | "- `\(.check_id)`: \(.check_name) in `\(.file_path)`"' "$CHECKOV_FILE" 2>/dev/null | head -20 >> "$GITHUB_STEP_SUMMARY"
+            CHECKOV_DISPLAY_FILE=$(find "$SCAN_DIR/checkov" -type f \( -name "results_json.json" -o -name "*checkov*results.json" \) 2>/dev/null | head -1)
+            if [[ -f "$CHECKOV_DISPLAY_FILE" ]]; then
+                jq -r '.[]? | .results.failed_checks[]? | "- `\(.check_id)`: \(.check_name) in `\(.file_path)`"' "$CHECKOV_DISPLAY_FILE" 2>/dev/null | head -20 >> "$GITHUB_STEP_SUMMARY"
             fi
             echo "" >> "$GITHUB_STEP_SUMMARY"
         fi
         
-        # Calculate vulnerability counts (excluding Checkov IaC)
-        VULN_COUNT=$((TOTAL_CRITICAL + TOTAL_HIGH - CHECKOV_FAILED))
+        # Calculate vulnerability counts (excluding Checkov IaC, which is shown above)
+        if [[ -f "$FINDINGS_SUMMARY" ]]; then
+            NON_CHECKOV_HIGH=$(jq '[.high_findings[] | select(.tool != "checkov" and .tool != "Checkov")] | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+            NON_CHECKOV_CRIT=$(jq '[.critical_findings[] | select(.tool != "checkov" and .tool != "Checkov")] | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+            VULN_COUNT=$((NON_CHECKOV_CRIT + NON_CHECKOV_HIGH))
+        else
+            VULN_COUNT=$((TOTAL_CRITICAL + TOTAL_HIGH - CHECKOV_FAILED))
+        fi
         
         # Only show CVE section if there are actual vulnerability findings (not just Checkov)
         if [[ $VULN_COUNT -gt 0 ]]; then
-            FINDINGS_SUMMARY="$SCAN_DIR/security-findings-summary.json"
             if [[ -f "$FINDINGS_SUMMARY" ]]; then
                 echo "### Vulnerabilities (CVEs)" >> "$GITHUB_STEP_SUMMARY"
                 
-                # Display critical findings
-                CRIT_COUNT=$(jq '.critical_findings | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+                # Display critical findings (exclude Checkov IaC entries — shown above)
+                CRIT_COUNT=$(jq '[.critical_findings[] | select(.tool != "checkov" and .tool != "Checkov")] | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
                 if [[ $CRIT_COUNT -gt 0 ]]; then
-                    jq -r '.critical_findings[] |
+                    jq -r '[.critical_findings[] | select(.tool != "checkov" and .tool != "Checkov")] | .[] |
                         if .detector then
                             "- **CRITICAL**: `\(.detector)` secret in `\(.file_path // "unknown"):\(.line_number // "?")` (\(.tool))"
                         else
@@ -675,10 +699,11 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
                         end' "$FINDINGS_SUMMARY" 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
                 fi
                 
-                # Display high findings
-                HIGH_COUNT=$(jq '.high_findings | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+                # Display high findings (exclude Checkov IaC entries — shown above)
+                HIGH_COUNT=$(jq '[.high_findings[] | select(.tool != "checkov" and .tool != "Checkov")] | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
                 if [[ $HIGH_COUNT -gt 0 ]]; then
-                    jq -r '.high_findings[] |
+                    jq -r '[.high_findings[] | select(.tool != "checkov" and .tool != "Checkov")] |
+                        .[] |
                         if .detector then
                             "- **HIGH**: `\(.detector)` secret in `\(.file_path // "unknown"):\(.line_number // "?")` (\(.tool))"
                         else

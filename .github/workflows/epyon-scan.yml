@@ -146,6 +146,11 @@ on:
         required: false
         default: false
         type: boolean
+      create_github_issue:
+        description: 'Create a GitHub issue for critical and high severity findings'
+        required: false
+        default: true
+        type: boolean
       create_jira_tickets:
         description: 'Create JIRA tickets for critical and high severity findings'
         required: false
@@ -228,6 +233,7 @@ jobs:
       SKIP_XEOL: "${{ inputs.skip_xeol }}"
       SKIP_ANCHORE: "${{ inputs.skip_anchore }}"
       SKIP_API_DISCOVERY: "${{ inputs.skip_api_discovery }}"
+      CREATE_GITHUB_ISSUE: "${{ inputs.create_github_issue }}"
       CREATE_JIRA_TICKETS: "${{ inputs.create_jira_tickets }}"
       JIRA_PROJECT_KEY: "${{ secrets.JIRA_PROJECT_KEY || inputs.jira_project_key }}"
       JIRA_ISSUE_TYPE: "${{ inputs.jira_issue_type }}"
@@ -785,7 +791,7 @@ jobs:
 
       - name: Create Scan Notification Issue
         id: create-github-issue
-        if: always() && steps.check-severity.outputs.has_issues == 'true'
+        if: always() && steps.check-severity.outputs.has_issues == 'true' && env.CREATE_GITHUB_ISSUE != 'false'
         uses: actions/github-script@v7
         with:
           script: |

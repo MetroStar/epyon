@@ -97,16 +97,6 @@ on:
         required: false
         type: boolean
         default: false
-      create_jira_tickets:
-        description: 'Create JIRA tickets for critical and high severity findings'
-        required: false
-        default: false
-        type: boolean
-      jira_issue_type:
-        description: 'JIRA issue type for created tickets'
-        required: false
-        default: 'Bug'
-        type: string
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -118,7 +108,6 @@ jobs:
       actions: read
       pull-requests: write
       security-events: write
-      issues: write
     uses: ./.github/workflows/epyon-scan.yml
     with:
       repository_url: ${{ inputs.repository }}
@@ -134,6 +123,6 @@ jobs:
       garak_probes: ${{ inputs.garak_probes || 'promptinject' }}
       run_garak: ${{ inputs.run_garak == true && 'true' || '' }}
       skip_garak: ${{ inputs.skip_garak == true }}
-      create_jira_tickets: true
-      jira_issue_type: ${{ inputs.jira_issue_type || 'Bug' }}
+      create_github_issue: false
+      create_jira_tickets: false
     secrets: inherit

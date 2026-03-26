@@ -125,4 +125,5 @@ jobs:
       skip_garak: ${{ inputs.skip_garak == true }}
       create_github_issue: false
       create_jira_tickets: false
+      write_metrics: false
     secrets: inherit

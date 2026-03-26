@@ -4755,9 +4755,8 @@ cat >> "$OUTPUT_HTML" << EOF
             </p>
             <div class="footer-links">
                 <a href="../index.html" class="footer-link">📄 All Reports</a>
-                <a href="../html-reports/" class="footer-link">📊 HTML Reports</a>
+                <a href="../raw-data/" class="footer-link">📊 Raw Data</a>
                 <a href="../markdown-reports/" class="footer-link">📝 Markdown</a>
-                <a href="../csv-reports/" class="footer-link">📈 CSV Data</a>
             </div>
             <div>
                 <button class="footer-metrics-btn" onclick="openMetricsModal()" id="metricsBtn">

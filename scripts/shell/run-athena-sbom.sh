@@ -41,13 +41,20 @@ fi
 # ---------------------------------------------------------------------------
 has_python_artifacts() {
   local dir="$1"
-  # Look for pyproject.toml, requirements*.txt, requirements*.lock, Pipfile.lock, poetry.lock
-  if find "$dir" -maxdepth 3 \
+  # Look for pyproject.toml, requirements*.txt, requirements*.lock, Pipfile.lock, poetry.lock,
+  # setup.py / setup.cfg, conda env files, or pre-installed dist-info / site-packages directories
+  if find "$dir" -maxdepth 4 \
        \( -name "pyproject.toml" \
        -o -name "requirements*.txt" \
        -o -name "requirements*.lock" \
        -o -name "Pipfile.lock" \
-       -o -name "poetry.lock" \) \
+       -o -name "poetry.lock" \
+       -o -name "setup.py" \
+       -o -name "setup.cfg" \
+       -o -name "environment.yml" \
+       -o -name "conda.yml" \
+       -type d -name "*.dist-info" \
+       -o -type d -name "site-packages" \) \
        -print -quit 2>/dev/null | grep -q .; then
     return 0
   fi

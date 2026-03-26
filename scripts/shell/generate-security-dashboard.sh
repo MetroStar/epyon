@@ -5474,9 +5474,15 @@ cat >> "$OUTPUT_HTML" << EOF
                     'cyclonedx-xml': 'cyclonedx.xml',
                     'spdx-json': 'spdx.json'
                 };
+                const mimeMap = {
+                    'cyclonedx-json': 'application/json',
+                    'cyclonedx-xml': 'application/xml',
+                    'spdx-json': 'application/json'
+                };
                 const fileExt = formatExtMap[format];
-                
-                const blob = new Blob([embeddedSBOMs[format]], { type: 'application/json' });
+                const mimeType = mimeMap[format] || 'application/octet-stream';
+
+                const blob = new Blob([embeddedSBOMs[format]], { type: mimeType });
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.style.display = 'none';

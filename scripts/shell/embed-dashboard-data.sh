@@ -150,6 +150,10 @@ ${js_line}" "$TEMP_FILE"
 SBOM_CYCLONE_JSON="$SCAN_DIR/sbom/exports/sbom-${SCAN_NAME}.cyclonedx.json"
 embed_data "$SBOM_CYCLONE_JSON" "embeddedSBOMs" "cyclonedx-json"
 
+# Embed CycloneDX XML
+SBOM_CYCLONE_XML="$SCAN_DIR/sbom/exports/sbom-${SCAN_NAME}.cyclonedx.xml"
+embed_data "$SBOM_CYCLONE_XML" "embeddedSBOMs" "cyclonedx-xml"
+
 # Embed SPDX JSON
 SBOM_SPDX_JSON="$SCAN_DIR/sbom/exports/sbom-${SCAN_NAME}.spdx.json"
 embed_data "$SBOM_SPDX_JSON" "embeddedSBOMs" "spdx-json"

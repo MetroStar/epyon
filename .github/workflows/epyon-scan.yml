@@ -734,10 +734,30 @@ jobs:
 
               const notifyUsers = '${{ env.NOTIFY_USERS }}'.split(',').map(u => `@${u.trim()}`).join(' ');
 
+              // Build skipped-scans list from SKIP_* env vars
+              const skipMap = {
+                'Garak LLM':      '${{ env.SKIP_GARAK }}' === 'true',
+                'SBOM':           '${{ env.SKIP_SBOM }}' === 'true',
+                'TruffleHog':     '${{ env.SKIP_TRUFFLEHOG }}' === 'true',
+                'SonarQube':      '${{ env.SKIP_SONAR }}' === 'true',
+                'ClamAV':         '${{ env.SKIP_CLAMAV }}' === 'true',
+                'Helm':           '${{ env.SKIP_HELM }}' === 'true',
+                'Checkov':        '${{ env.SKIP_CHECKOV }}' === 'true',
+                'Trivy':          '${{ env.SKIP_TRIVY }}' === 'true',
+                'Grype':          '${{ env.SKIP_GRYPE }}' === 'true',
+                'Xeol':           '${{ env.SKIP_XEOL }}' === 'true',
+                'Anchore':        '${{ env.SKIP_ANCHORE }}' === 'true',
+                'API Discovery':  '${{ env.SKIP_API_DISCOVERY }}' === 'true',
+              };
+              const skippedScans = Object.entries(skipMap).filter(([,v]) => v).map(([k]) => k);
+              const skippedSection = skippedScans.length > 0
+                ? `\n> ⏭️ **Skipped scans:** ${skippedScans.join(', ')}\n`
+                : '';
+
               const comment = `## ${emoji} Epyon Security Scan Results
 
               ${status}
-
+              ${skippedSection}
               **Triggered by:** @${{ github.actor }}
               **Notifying:** ${notifyUsers}
 

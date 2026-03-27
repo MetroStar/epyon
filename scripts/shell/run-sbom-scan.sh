@@ -201,16 +201,22 @@ generate_sbom() {
     echo -e "${BLUE}📋 Project: ${project_name} (${project_version})${NC}"
     echo "Project: ${project_name} (${project_version})" >> "$SCAN_LOG"
     
+    local cyclonedx_file="$OUTPUT_DIR/${scan_type}-cyclonedx.json"
+
     if command -v syft >/dev/null 2>&1; then
-        # Use local Syft installation
+        # Use local Syft installation — output syft-json AND cyclonedx-json in one pass
         echo -e "${GREEN}✅ Using local Syft installation${NC}"
         syft version >> "$SCAN_LOG" 2>&1
-        
-        if syft scan "$target" -o syft-json > "$output_file" 2>>"$SCAN_LOG"; then
+
+        if syft scan "$target" \
+            -o "syft-json=${output_file}" \
+            -o "cyclonedx-json=${cyclonedx_file}" \
+            2>>"$SCAN_LOG"; then
             echo -e "${GREEN}✅ SBOM generated successfully: $(basename "$output_file")${NC}"
+            echo -e "${GREEN}✅ CycloneDX SBOM: $(basename "$cyclonedx_file")${NC}"
             echo "SBOM generated successfully: $output_file" >> "$SCAN_LOG"
         else
-            echo -e "${RED}❌ Failed to generate SBOM for $scan_type${NC}" 
+            echo -e "${RED}❌ Failed to generate SBOM for $scan_type${NC}"
             echo "Failed to generate SBOM for $scan_type" >> "$SCAN_LOG"
             echo '{"artifacts": [], "artifactRelationships": [], "source": {"type": "directory", "target": "'$target'"}, "distro": {}, "descriptor": {"name": "syft", "version": "error"}}' > "$output_file"
         fi
@@ -218,12 +224,18 @@ generate_sbom() {
         # Use Docker version of Syft
         echo -e "${YELLOW}⚠️  Local Syft not found, using Docker version${NC}"
         echo "Using Docker version of Syft" >> "$SCAN_LOG"
-        
+
         if docker run --rm -v "$target":/workspace:ro \
             anchore/syft:latest \
-            scan dir:/workspace -o syft-json > "$output_file" 2>>"$SCAN_LOG"; then
+            scan dir:/workspace \
+            -o "syft-json=/dev/stdout" \
+            2>>"$SCAN_LOG" > "$output_file"; then
             echo -e "${GREEN}✅ SBOM generated successfully: $(basename "$output_file")${NC}"
             echo "SBOM generated successfully: $output_file" >> "$SCAN_LOG"
+            # Convert to CycloneDX after Docker run
+            if syft convert "$output_file" -o "cyclonedx-json=${cyclonedx_file}" 2>>"$SCAN_LOG"; then
+                echo -e "${GREEN}✅ CycloneDX SBOM: $(basename "$cyclonedx_file")${NC}"
+            fi
         else
             echo -e "${RED}❌ Failed to generate SBOM for $scan_type using Docker${NC}"
             echo "Failed to generate SBOM for $scan_type using Docker" >> "$SCAN_LOG"

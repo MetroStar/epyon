@@ -987,6 +987,19 @@ if [ -d "$SBOM_DIR" ]; then
     SBOM_FILES_GENERATED=$(find "$SBOM_DIR" -name "*.json" -type f 2>/dev/null | wc -l | tr -d ' \n' || echo "0")
     [[ "$SBOM_FILES_GENERATED" =~ ^[0-9]+$ ]] || SBOM_FILES_GENERATED=0
     
+    # Build hash lookup (name → status) for per-package enrichment
+    _HASH_BY_NAME='{}'
+    if [[ -f "$HASH_VERIFY_FILE" ]]; then
+        _HASH_BY_NAME=$(jq 'reduce (.results // [])[] as $r ({}; .[$r.name] = $r.status)' "$HASH_VERIFY_FILE" 2>/dev/null || echo '{}')
+    fi
+
+    # Build VEX lookup (name@version → [CVEs]) for per-package enrichment
+    _VEX_BY_PKG='{}'
+    if [[ -f "${LATEST_SCAN}/grype/vex-summary.json" ]]; then
+        _VEX_BY_PKG=$(jq 'reduce (.statements // [])[] as $s ({}; .[$s.package + "@" + ($s.version // "")] += [$s.cve])' \
+            "${LATEST_SCAN}/grype/vex-summary.json" 2>/dev/null || echo '{}')
+    fi
+
     # Prefer CycloneDX file (components[]) — fall back to syft-json (artifacts[])
     _BEST_SBOM_FILE=""
     _BEST_SBOM_COUNT=0
@@ -1022,22 +1035,55 @@ if [ -d "$SBOM_DIR" ]; then
                 map("<button class=\"sbom-filter-chip\" data-type=\"\(.type)\" onclick=\"filterSBOMByType(this, '"'"'\(.type)'"'"')\"><span class=\"type-name\">\(.type)</span><span class=\"type-count\">\(.count)</span></button>") |
                 join("")' "$_BEST_SBOM_FILE" 2>/dev/null)
 
-            SBOM_PACKAGE_LIST=$(jq -r '
+            SBOM_PACKAGE_LIST=$(jq -r \
+                --argjson hashmap "$_HASH_BY_NAME" \
+                --argjson vexmap "$_VEX_BY_PKG" '
+                # dep-count lookup: bom-ref → number of things it depends on
+                ( reduce (.dependencies // [])[] as $d ({}; .[$d.ref] = ($d.dependsOn | length)) ) as $dep_count |
+                # used-by lookup: each ref appears in dependsOn of others
+                ( reduce (.dependencies // [])[] as $d ({}; reduce $d.dependsOn[] as $r (.; .[$r] = ((.[$r] // 0) + 1))) ) as $used_by |
                 [.components[]?] | sort_by(.name) | .[:500] |
                 map(
-                    ( (.licenses // []) | map(.license.id // .license.name // .expression // "Unknown") | join(", ") ) as $lic |
-                    "<div class=\"sbom-package-item\" data-name=\"\(.name | ascii_downcase)\" data-type=\"\(.type // "library")\" data-version=\"\(.version // "0.0.0")\" data-language=\"library\" onclick=\"toggleFindingDetails(this)\">" +
+                    . as $c |
+                    ( ($c.licenses // []) | map(.license.id // .license.name // .expression // "") | map(select(. != "")) | join(", ") ) as $lic |
+                    ( if $lic == "" then "Unknown" else $lic end ) as $lic_display |
+                    ( $c.purl // "" | test("pypi"; "i") ) as $is_pypi |
+                    ( $hashmap[$c.name] // (if $is_pypi then "unchecked" else "" end) ) as $hash_st |
+                    ( $vexmap[$c.name + "@" + ($c.version // "")] // [] ) as $vex_cves |
+                    ( $dep_count[$c["bom-ref"]] // 0 ) as $n_deps |
+                    ( $used_by[$c["bom-ref"]] // 0 ) as $n_used_by |
+                    # license badge color
+                    ( if ($lic_display | test("GPL|AGPL|SSPL|EUPL|CDDL|MPL|LGPL"; "i")) then "badge-critical"
+                      elif $lic_display == "Unknown" then "badge-medium"
+                      else "badge-passed" end ) as $lic_class |
+                    # hash badge
+                    ( if $hash_st == "verified" then "<span class=\"badge badge-passed\" title=\"Hash matches PyPI\">✅ hash ok</span>"
+                      elif $hash_st == "tampered" then "<span class=\"badge badge-critical\" title=\"Hash mismatch!\">🚨 tampered</span>"
+                      elif $hash_st == "not_found" then "<span class=\"badge badge-medium\" title=\"Not found on PyPI\">⚠️ not on PyPI</span>"
+                      else "" end ) as $hash_badge |
+                    # VEX badge
+                    ( if ($vex_cves | length) > 0 then
+                        "<span class=\"badge\" style=\"background:#6d28d9;color:white;\" title=\"VEX suppressed: \($vex_cves | join(", "))\">🛡️ \($vex_cves | length) VEX</span>"
+                      else "" end ) as $vex_badge |
+                    "<div class=\"sbom-package-item\" data-name=\"\($c.name | ascii_downcase)\" data-type=\"\($c.type // "library")\" data-version=\"\($c.version // "0.0.0")\" data-language=\"library\" onclick=\"toggleFindingDetails(this)\">" +
                     "<div class=\"finding-header\">" +
-                    "<span class=\"badge badge-tool\">\(.type // "library")</span>" +
-                    "<span class=\"badge sbom-version-badge\">\(.version // "N/A")</span>" +
+                    "<span class=\"badge badge-tool\">\($c.type // "library")</span>" +
+                    "<span class=\"badge sbom-version-badge\">\($c.version // "N/A")</span>" +
+                    "<span class=\"badge \($lic_class)\" title=\"License\">\($lic_display)</span>" +
+                    ( if $n_deps > 0 then "<span class=\"badge\" style=\"background:#e0f2fe;color:#0369a1;\">↓\($n_deps) deps</span>" else "" end ) +
+                    ( if $n_used_by > 0 then "<span class=\"badge\" style=\"background:#f0fdf4;color:#166534;\">↑\($n_used_by) uses</span>" else "" end ) +
+                    $hash_badge + $vex_badge +
                     "</div>" +
-                    "<div class=\"finding-title\">\(.name)</div>" +
+                    "<div class=\"finding-title\">\($c.name | @html)</div>" +
                     "<div class=\"finding-details\" style=\"display: none;\">" +
-                    "<div><strong>Name:</strong> <code>\(.name)</code></div>" +
-                    "<div><strong>Version:</strong> <code>\(.version // "N/A")</code></div>" +
-                    "<div><strong>Type:</strong> <code>\(.type // "library")</code></div>" +
-                    "<div><strong>Licenses:</strong> <code>\($lic)</code></div>" +
-                    "<div><strong>PURL:</strong> <code>\(.purl // "N/A")</code></div>" +
+                    "<div><strong>Name:</strong> <code>\($c.name)</code></div>" +
+                    "<div><strong>Version:</strong> <code>\($c.version // "N/A")</code></div>" +
+                    "<div><strong>Type:</strong> <code>\($c.type // "library")</code></div>" +
+                    "<div><strong>License:</strong> <code>\($lic_display)</code></div>" +
+                    "<div><strong>Depends on:</strong> \($n_deps) packages | <strong>Used by:</strong> \($n_used_by) packages</div>" +
+                    ( if $is_pypi and $hash_st != "" then "<div><strong>Hash Status:</strong> \($hash_st)</div>" else "" end ) +
+                    ( if ($vex_cves | length) > 0 then "<div><strong>VEX Suppressed CVEs:</strong> <code>\($vex_cves | join(", "))</code></div>" else "" end ) +
+                    "<div><strong>PURL:</strong> <code>\($c.purl // "N/A")</code></div>" +
                     "</div></div>"
                 ) | join("\n")
             ' "$_BEST_SBOM_FILE" 2>/dev/null)
@@ -4711,143 +4757,15 @@ cat >> "$OUTPUT_HTML" << EOF
                         <div class="stats-detail-box">
                             <h4>📊 SBOM Statistics</h4>
                             <div class="stats-grid-small">
-                                <div class="stat-item"><strong>SBOM Files Generated:</strong> ${SBOM_FILES_GENERATED}</div>
-                                <div class="stat-item"><strong>Total Packages Cataloged:</strong> ${SBOM_PACKAGES}</div>
+                                <div class="stat-item"><strong>Total Packages:</strong> ${SBOM_PACKAGES}</div>
+                                <div class="stat-item"><strong>Licenses Clean:</strong> ${LICENSE_CLEAN_COUNT} allowed, ${LICENSE_DENIED_COUNT} denied, ${LICENSE_UNKNOWN_COUNT} unknown</div>
+                                <div class="stat-item"><strong>Dependency Relationships:</strong> ${LINEAGE_TOP_COUNT}</div>
+                                <div class="stat-item"><strong>Hash Verified (PyPI):</strong> ${HASH_VERIFIED} ok, ${HASH_TAMPERED} mismatches</div>
+                                <div class="stat-item"><strong>VEX Suppressions:</strong> ${VEX_SUPPRESSED} applied</div>
                             </div>
                         </div>
                         
                         ${SBOM_FINDINGS}
-                    </div>
-                </div>
-            </div>
-EOF
-
-# ---- License Compliance Section ----
-cat >> "$OUTPUT_HTML" << EOF
-            <!-- License Compliance -->
-            <div class="tool-card">
-                <div class="tool-header" onclick="toggleTool('license')">
-                    <div class="tool-title">
-                        <span class="tool-icon">📜</span>
-                        <div>
-                            <div>License Compliance</div>
-                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">CycloneDX SBOM License Gate</div>
-                        </div>
-                    </div>
-                    <div class="tool-stats">
-EOF
-if [ "${LICENSE_DENIED_COUNT:-0}" -gt 0 ]; then
-    echo "                        <span class=\"tool-stat-badge badge-critical\">🚨 ${LICENSE_DENIED_COUNT} denied</span>" >> "$OUTPUT_HTML"
-else
-    echo "                        <span class=\"tool-stat-badge badge-clean\">✅ Clean</span>" >> "$OUTPUT_HTML"
-fi
-cat >> "$OUTPUT_HTML" << EOF
-                        <span class="tool-stat-badge" style="background:#e0f2fe;color:#0369a1;">⚠️ ${LICENSE_UNKNOWN_COUNT} unknown</span>
-                        <span class="expand-icon">▼</span>
-                    </div>
-                </div>
-                <div class="tool-content" id="license-content">
-                    <div class="tool-findings">
-                        <div class="stats-detail-box">
-                            <h4>📊 License Statistics</h4>
-                            <div class="stats-grid-small">
-                                <div class="stat-item"><strong>Allowed:</strong> ${LICENSE_CLEAN_COUNT}</div>
-                                <div class="stat-item"><strong>Denied (copyleft):</strong> ${LICENSE_DENIED_COUNT}</div>
-                                <div class="stat-item"><strong>Unknown / missing:</strong> ${LICENSE_UNKNOWN_COUNT}</div>
-                            </div>
-                        </div>
-                        ${LICENSE_FINDINGS}
-                    </div>
-                </div>
-            </div>
-EOF
-
-# ---- Dependency Lineage Section ----
-cat >> "$OUTPUT_HTML" << EOF
-            <!-- Dependency Lineage -->
-            <div class="tool-card">
-                <div class="tool-header" onclick="toggleTool('lineage')">
-                    <div class="tool-title">
-                        <span class="tool-icon">🌳</span>
-                        <div>
-                            <div>Dependency Lineage</div>
-                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">Who pulled what in</div>
-                        </div>
-                    </div>
-                    <div class="tool-stats">
-                        <span class="tool-stat-badge" style="background:#e0f2fe;color:#0369a1;">📦 ${LINEAGE_TOP_COUNT} top-level</span>
-                        <span class="expand-icon">▼</span>
-                    </div>
-                </div>
-                <div class="tool-content" id="lineage-content">
-                    <div class="tool-findings">
-                        ${LINEAGE_FINDINGS}
-                    </div>
-                </div>
-            </div>
-EOF
-
-# ---- Hash Verification Section ----
-cat >> "$OUTPUT_HTML" << EOF
-            <!-- Supply Chain Hash Verification -->
-            <div class="tool-card">
-                <div class="tool-header" onclick="toggleTool('hashverify')">
-                    <div class="tool-title">
-                        <span class="tool-icon">🔐</span>
-                        <div>
-                            <div>Supply Chain Integrity</div>
-                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">PyPI hash verification</div>
-                        </div>
-                    </div>
-                    <div class="tool-stats">
-EOF
-if [ "${HASH_TAMPERED:-0}" -gt 0 ]; then
-    echo "                        <span class=\"tool-stat-badge badge-critical\">🚨 ${HASH_TAMPERED} mismatch</span>" >> "$OUTPUT_HTML"
-else
-    echo "                        <span class=\"tool-stat-badge badge-clean\">✅ ${HASH_VERIFIED} verified</span>" >> "$OUTPUT_HTML"
-fi
-cat >> "$OUTPUT_HTML" << EOF
-                        <span class="expand-icon">▼</span>
-                    </div>
-                </div>
-                <div class="tool-content" id="hashverify-content">
-                    <div class="tool-findings">
-                        ${HASH_VERIFY_FINDINGS}
-                    </div>
-                </div>
-            </div>
-EOF
-
-# ---- VEX Statements Section ----
-cat >> "$OUTPUT_HTML" << EOF
-            <!-- VEX Statements -->
-            <div class="tool-card">
-                <div class="tool-header" onclick="toggleTool('vex')">
-                    <div class="tool-title">
-                        <span class="tool-icon">🛡️</span>
-                        <div>
-                            <div>VEX Statements</div>
-                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">Vulnerability Exploitability eXchange</div>
-                        </div>
-                    </div>
-                    <div class="tool-stats">
-                        <span class="tool-stat-badge" style="background:#e0f2fe;color:#0369a1;">📄 ${VEX_STATEMENT_COUNT} docs</span>
-                        <span class="tool-stat-badge badge-clean">⬇️ ${VEX_SUPPRESSED} suppressed</span>
-                        <span class="expand-icon">▼</span>
-                    </div>
-                </div>
-                <div class="tool-content" id="vex-content">
-                    <div class="tool-findings">
-                        <div class="stats-detail-box">
-                            <h4>📊 VEX Summary</h4>
-                            <div class="stats-grid-small">
-                                <div class="stat-item"><strong>VEX Documents:</strong> ${VEX_STATEMENT_COUNT}</div>
-                                <div class="stat-item"><strong>Findings Suppressed:</strong> ${VEX_SUPPRESSED}</div>
-                                <div class="stat-item"><strong>Grype Before VEX:</strong> ${GRYPE_BEFORE}</div>
-                                <div class="stat-item"><strong>Grype After VEX:</strong> ${GRYPE_AFTER}</div>
-                            </div>
-                        </div>
-                        ${VEX_FINDINGS}
                     </div>
                 </div>
             </div>
@@ -4859,7 +4777,7 @@ cat >> "$OUTPUT_HTML" << EOF
             <div class="tool-card">
                 <div class="tool-header" onclick="toggleTool('xeol')">
                     <div class="tool-title">
-                        <span class="tool-icon">📅</span>
+                        <span class="tool-icon"></span>
                         <div>
                             <div>Xeol</div>
                             <div style="font-size: 0.6em; font-weight: 400; color: #718096;">End-of-Life Detection</div>

@@ -106,6 +106,7 @@ jobs:
     permissions:
       contents: read
       actions: read
+      issues: write
       pull-requests: write
       security-events: write
     uses: ./.github/workflows/epyon-scan.yml

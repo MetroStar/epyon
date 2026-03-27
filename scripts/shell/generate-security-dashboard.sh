@@ -987,33 +987,64 @@ if [ -d "$SBOM_DIR" ]; then
     SBOM_FILES_GENERATED=$(find "$SBOM_DIR" -name "*.json" -type f 2>/dev/null | wc -l | tr -d ' \n' || echo "0")
     [[ "$SBOM_FILES_GENERATED" =~ ^[0-9]+$ ]] || SBOM_FILES_GENERATED=0
     
-    # Collect all packages from SBOM files
-    SBOM_ALL_PACKAGES=""
-    for sbom_file in "$SBOM_DIR"/*.json; do
-        if [ -f "$sbom_file" ]; then
-            pkg_count=$(jq '.artifacts | length' "$sbom_file" 2>/dev/null || echo "0")
-            [[ "$pkg_count" =~ ^[0-9]+$ ]] || pkg_count=0
-            SBOM_PACKAGES=$((SBOM_PACKAGES + pkg_count))
-            
-            # Get package types summary
-            if [ "$pkg_count" -gt 0 ]; then
-                SBOM_PACKAGE_TYPES=$(jq -r '.artifacts[].type' "$sbom_file" 2>/dev/null | sort | uniq -c | sort -rn | head -10)
-            fi
+    # Prefer CycloneDX file (components[]) — fall back to syft-json (artifacts[])
+    _BEST_SBOM_FILE=""
+    _BEST_SBOM_COUNT=0
+    _SBOM_FORMAT=""
+    # Check CycloneDX files first
+    for sbom_file in "$SBOM_DIR"/*.cyclonedx.json; do
+        [ -f "$sbom_file" ] || continue
+        c=$(jq '(.components // []) | length' "$sbom_file" 2>/dev/null || echo "0")
+        [[ "$c" =~ ^[0-9]+$ ]] || c=0
+        if [ "$c" -gt "$_BEST_SBOM_COUNT" ]; then
+            _BEST_SBOM_COUNT=$c; _BEST_SBOM_FILE="$sbom_file"; _SBOM_FORMAT="cyclonedx"
         fi
     done
-    
-    # Generate SBOM findings HTML with package details
-    if [ "$SBOM_PACKAGES" -gt 0 ]; then
-        # Find the main SBOM file with packages
+    # Fall back to syft-json if no CycloneDX
+    if [ "$_BEST_SBOM_COUNT" -eq 0 ]; then
         for sbom_file in "$SBOM_DIR"/*.json; do
-            if [ -f "$sbom_file" ]; then
-                pkg_count=$(jq '.artifacts | length' "$sbom_file" 2>/dev/null || echo "0")
-                if [ "$pkg_count" -gt 0 ]; then
-                    # Generate package type breakdown with clickable filter chips
-                    SBOM_TYPE_BREAKDOWN=$(jq -r '[.artifacts[].type] | group_by(.) | map({type: .[0], count: length}) | sort_by(-.count) | .[:15] | map("<button class=\"sbom-filter-chip\" data-type=\"\(.type)\" onclick=\"filterSBOMByType(this, '"'"'\(.type)'"'"')\"><span class=\"type-name\">\(.type)</span><span class=\"type-count\">\(.count)</span></button>") | join("")' "$sbom_file" 2>/dev/null)
-                    
-                    # Generate package list (first 500 packages) with data attributes for filtering/sorting
-                    SBOM_PACKAGE_LIST=$(jq -r '.artifacts | sort_by(.type) | .[:500] | map("<div class=\"sbom-package-item\" data-name=\"\(.name | ascii_downcase)\" data-type=\"\(.type // "unknown")\" data-version=\"\(.version // "0.0.0")\" data-language=\"\(.language // "unknown")\" onclick=\"toggleFindingDetails(this)\">
+            [ -f "$sbom_file" ] || continue
+            c=$(jq '(.artifacts // []) | length' "$sbom_file" 2>/dev/null || echo "0")
+            [[ "$c" =~ ^[0-9]+$ ]] || c=0
+            if [ "$c" -gt "$_BEST_SBOM_COUNT" ]; then
+                _BEST_SBOM_COUNT=$c; _BEST_SBOM_FILE="$sbom_file"; _SBOM_FORMAT="syft"
+            fi
+        done
+    fi
+    SBOM_PACKAGES=$_BEST_SBOM_COUNT
+
+    # Generate SBOM findings HTML with package details
+    if [ "$SBOM_PACKAGES" -gt 0 ] && [ -n "$_BEST_SBOM_FILE" ]; then
+        if [ "$_SBOM_FORMAT" = "cyclonedx" ]; then
+            SBOM_TYPE_BREAKDOWN=$(jq -r '
+                [.components[]? | .type // "library"] |
+                group_by(.) | map({type: .[0], count: length}) | sort_by(-.count) | .[:15] |
+                map("<button class=\"sbom-filter-chip\" data-type=\"\(.type)\" onclick=\"filterSBOMByType(this, '"'"'\(.type)'"'"')\"><span class=\"type-name\">\(.type)</span><span class=\"type-count\">\(.count)</span></button>") |
+                join("")' "$_BEST_SBOM_FILE" 2>/dev/null)
+
+            SBOM_PACKAGE_LIST=$(jq -r '
+                [.components[]?] | sort_by(.name) | .[:500] |
+                map(
+                    ( (.licenses // []) | map(.license.id // .license.name // .expression // "Unknown") | join(", ") ) as $lic |
+                    "<div class=\"sbom-package-item\" data-name=\"\(.name | ascii_downcase)\" data-type=\"\(.type // "library")\" data-version=\"\(.version // "0.0.0")\" data-language=\"library\" onclick=\"toggleFindingDetails(this)\">" +
+                    "<div class=\"finding-header\">" +
+                    "<span class=\"badge badge-tool\">\(.type // "library")</span>" +
+                    "<span class=\"badge sbom-version-badge\">\(.version // "N/A")</span>" +
+                    "</div>" +
+                    "<div class=\"finding-title\">\(.name)</div>" +
+                    "<div class=\"finding-details\" style=\"display: none;\">" +
+                    "<div><strong>Name:</strong> <code>\(.name)</code></div>" +
+                    "<div><strong>Version:</strong> <code>\(.version // "N/A")</code></div>" +
+                    "<div><strong>Type:</strong> <code>\(.type // "library")</code></div>" +
+                    "<div><strong>Licenses:</strong> <code>\($lic)</code></div>" +
+                    "<div><strong>PURL:</strong> <code>\(.purl // "N/A")</code></div>" +
+                    "</div></div>"
+                ) | join("\n")
+            ' "$_BEST_SBOM_FILE" 2>/dev/null)
+        else
+            SBOM_TYPE_BREAKDOWN=$(jq -r '[.artifacts[].type] | group_by(.) | map({type: .[0], count: length}) | sort_by(-.count) | .[:15] | map("<button class=\"sbom-filter-chip\" data-type=\"\(.type)\" onclick=\"filterSBOMByType(this, '"'"'\(.type)'"'"')\"><span class=\"type-name\">\(.type)</span><span class=\"type-count\">\(.count)</span></button>") | join("")' "$_BEST_SBOM_FILE" 2>/dev/null)
+
+            SBOM_PACKAGE_LIST=$(jq -r '.artifacts | sort_by(.type) | .[:500] | map("<div class=\"sbom-package-item\" data-name=\"\(.name | ascii_downcase)\" data-type=\"\(.type // "unknown")\" data-version=\"\(.version // "0.0.0")\" data-language=\"\(.language // "unknown")\" onclick=\"toggleFindingDetails(this)\">
                         <div class=\"finding-header\">
                             <span class=\"badge badge-tool\">\(.type // "unknown")</span>
                             <span class=\"badge sbom-version-badge\">\(.version // "N/A")</span>
@@ -1029,8 +1060,9 @@ if [ -d "$SBOM_DIR" ]; then
                             <div><strong>PURL:</strong> <code>\(.purl // "N/A")</code></div>
                             <div><strong>CPEs:</strong> <code>\(((.cpes // []) | map(.cpe // .) | .[0:3] | join(", ")) // "N/A")</code></div>
                         </div>
-                    </div>") | join("\n")' "$sbom_file" 2>/dev/null)
-                    
+                    </div>") | join("\n")' "$_BEST_SBOM_FILE" 2>/dev/null)
+        fi
+
                     SBOM_FINDINGS="<div class=\"sbom-controls\">
                         <div class=\"sbom-filter-section\">
                             <span class=\"filter-label\">🔍 Filter by Type:</span>
@@ -1062,10 +1094,6 @@ if [ -d "$SBOM_DIR" ]; then
                         ${SBOM_PACKAGE_LIST}
                     </div>
                     <p style=\"text-align: center; color: #718096; margin-top: 15px;\">Showing first 500 of ${SBOM_PACKAGES} total packages</p>"
-                    break
-                fi
-            fi
-        done
     fi
     
     if [ -z "$SBOM_FINDINGS" ]; then
@@ -1180,6 +1208,41 @@ if [[ -f "$LINEAGE_FILE" ]]; then
     ' "$LINEAGE_FILE" 2>/dev/null)
 
     [[ -z "$LINEAGE_FINDINGS" ]] && LINEAGE_FINDINGS="<p class=\"no-findings\">Dependency lineage data unavailable</p>"
+elif [[ -f "$CYCLONEDX_FILE" ]]; then
+    # Fall back to the dependencies[] array already in the CycloneDX SBOM (populated by syft)
+    LINEAGE_TOP_COUNT=$(jq '[.dependencies[]? | select(.dependsOn | length > 0)] | length' "$CYCLONEDX_FILE" 2>/dev/null || echo "0")
+
+    LINEAGE_FINDINGS=$(jq -r '
+        # Build a ref→name lookup from components
+        ( [ .components[]? | { key: .["bom-ref"], value: (.name + "@" + (.version // "?")) } ] | from_entries ) as $names |
+        [.dependencies[]? | select(.dependsOn | length > 0)] |
+        if length == 0 then
+            "<p class=\"no-findings\">No dependency relationships in SBOM</p>"
+        else
+            "<div class=\"sbom-package-list\">" +
+            (map(
+                . as $d |
+                # Extract name@version from purl: pkg:npm/name@ver?... or pkg:type/name@ver
+                ($d.ref | gsub("\\?.*";"") | split("/") | last | split("@") | [.[0], (.[1] // "?")] ) as $nv |
+                "<div class=\"sbom-package-item\" onclick=\"toggleFindingDetails(this)\">" +
+                "<div class=\"finding-header\">" +
+                "<span class=\"badge badge-tool\">\($d.dependsOn | length) deps</span>" +
+                "<span class=\"badge sbom-version-badge\">\($nv[1])</span>" +
+                "</div>" +
+                "<div class=\"finding-title\">\($nv[0] | @html)</div>" +
+                "<div class=\"finding-details\" style=\"display:none;\">" +
+                "<div><strong>Depends on:</strong> " +
+                ( $d.dependsOn |
+                  map(gsub("\\?.*";"") | split("/") | last | split("@") | "\(.[0])@\(.[1] // "?")") |
+                  map("<code>\(.)</code>") | join(", ")
+                ) +
+                "</div></div></div>"
+            ) | join("\n")) +
+            "</div>"
+        end
+    ' "$CYCLONEDX_FILE" 2>/dev/null)
+
+    [[ -z "$LINEAGE_FINDINGS" ]] && LINEAGE_FINDINGS="<p class=\"no-findings\">Dependency lineage data unavailable</p>"
 else
     LINEAGE_FINDINGS="<p class=\"no-findings\">Dependency lineage not yet generated — install pipdeptree</p>"
 fi
@@ -1216,7 +1279,42 @@ if [[ -f "$HASH_VERIFY_FILE" ]]; then
 
     [[ -z "$HASH_VERIFY_FINDINGS" ]] && HASH_VERIFY_FINDINGS="<p class=\"no-findings\">Hash verification data unavailable</p>"
 else
-    HASH_VERIFY_FINDINGS="<p class=\"no-findings\">Hash verification not run — will run automatically on next scan</p>"
+    # Try to run hash verification on-the-fly using the CycloneDX file
+    if [[ -f "$CYCLONEDX_FILE" ]]; then
+        _PYPI_COUNT=$(jq '[.components[]? | select(.purl // "" | test("pypi"))] | length' "$CYCLONEDX_FILE" 2>/dev/null || echo "0")
+        if [[ "$_PYPI_COUNT" -gt 0 ]]; then
+            _HASH_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/verify-sbom-hashes.sh"
+            if [[ -f "$_HASH_SCRIPT" ]]; then
+                echo "🔐 Running hash verification on-the-fly ($_PYPI_COUNT PyPI packages)..." >&2
+                SCAN_DIR="$LATEST_SCAN" bash "$_HASH_SCRIPT" >/dev/null 2>&1 || true
+            fi
+        fi
+    fi
+    if [[ -f "$HASH_VERIFY_FILE" ]]; then
+        HASH_TOTAL=$(jq '.summary.total // 0' "$HASH_VERIFY_FILE" 2>/dev/null || echo "0")
+        HASH_VERIFIED=$(jq '.summary.verified // 0' "$HASH_VERIFY_FILE" 2>/dev/null || echo "0")
+        HASH_TAMPERED=$(jq '.summary.tampered // 0' "$HASH_VERIFY_FILE" 2>/dev/null || echo "0")
+        HASH_NOT_FOUND=$(jq '.summary.not_found // 0' "$HASH_VERIFY_FILE" 2>/dev/null || echo "0")
+        HASH_VERIFY_FINDINGS=$(jq -r '
+            "<div class=\"stats-detail-box\">" +
+            "<h4>🔐 Hash Verification Summary</h4>" +
+            "<div class=\"stats-grid-small\">" +
+            "<div class=\"stat-item\"><strong>Total checked:</strong> \(.summary.total)</div>" +
+            "<div class=\"stat-item\"><strong>✅ Verified:</strong> \(.summary.verified)</div>" +
+            "<div class=\"stat-item\"><strong>🚨 Mismatches:</strong> \(.summary.tampered)</div>" +
+            "<div class=\"stat-item\"><strong>⚠️ Not on PyPI:</strong> \(.summary.not_found)</div>" +
+            "</div></div>"
+        ' "$HASH_VERIFY_FILE" 2>/dev/null)
+    else
+        # Determine a meaningful message based on what packages exist
+        _PYPI_COUNT=0
+        [[ -f "$CYCLONEDX_FILE" ]] && _PYPI_COUNT=$(jq '[.components[]? | select(.purl // "" | test("pypi"))] | length' "$CYCLONEDX_FILE" 2>/dev/null || echo "0")
+        if [[ "$_PYPI_COUNT" -eq 0 ]]; then
+            HASH_VERIFY_FINDINGS="<p class=\"no-findings\">✅ No PyPI packages in SBOM — hash verification not applicable for this project</p>"
+        else
+            HASH_VERIFY_FINDINGS="<p class=\"no-findings\">Hash verification not run — will run automatically on next scan</p>"
+        fi
+    fi
 fi
 
 # ---- VEX Statements ----

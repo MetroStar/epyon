@@ -96,11 +96,6 @@ on:
         required: false
         default: false
         type: boolean
-      skip_athena:
-        description: 'Skip Layer 1b - Python-focused SBOM generation (Athena)'
-        required: false
-        default: false
-        type: boolean
       skip_trufflehog:
         description: 'Skip Layer 2 - Secret detection (TruffleHog)'
         required: false
@@ -233,7 +228,6 @@ jobs:
       SKIP_GARAK: "${{ inputs.skip_garak }}"
       RUN_GARAK: "${{ inputs.run_garak }}"
       SKIP_SBOM: "${{ inputs.skip_sbom }}"
-      SKIP_ATHENA: "${{ inputs.skip_athena }}"
       SKIP_TRUFFLEHOG: "${{ inputs.skip_trufflehog }}"
       SKIP_SONAR: "${{ inputs.skip_sonar }}"
       SKIP_CLAMAV: "${{ inputs.skip_clamav }}"
@@ -354,14 +348,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq python3 python3-pip bats
           pip3 install pyyaml
-          # Install syft for SBOM format conversion (CycloneDX / SPDX exports)
-          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
-          # Install Athena for Python-focused SBOM generation (Layer 1b)
-          if [[ "${SKIP_ATHENA:-false}" != "true" ]]; then
-            pip3 install --quiet "metrostar-athena[sbom]" || \
-              pip3 install --quiet "git+https://github.com/MetroStar/athena.git#egg=metrostar-athena[sbom]" || \
-              echo "Athena install failed – Layer 1b will be skipped at runtime"
-          fi
 
       - name: Initialize Scan
         id: init-scan
@@ -404,7 +390,6 @@ jobs:
 
           # Per-tool skip flags
           echo "SKIP_SBOM=${SKIP_SBOM:-false}" >> /tmp/epyon-env
-          echo "SKIP_ATHENA=${SKIP_ATHENA:-false}" >> /tmp/epyon-env
           echo "SKIP_TRUFFLEHOG=${SKIP_TRUFFLEHOG:-false}" >> /tmp/epyon-env
           echo "SKIP_SONAR=${SKIP_SONAR:-false}" >> /tmp/epyon-env
           echo "SKIP_CLAMAV=${SKIP_CLAMAV:-false}" >> /tmp/epyon-env
@@ -765,7 +750,6 @@ jobs:
               const skipMap = {
                 'Garak LLM':      '${{ env.SKIP_GARAK }}' === 'true',
                 'SBOM':           '${{ env.SKIP_SBOM }}' === 'true',
-                'Athena SBOM':    '${{ env.SKIP_ATHENA }}' === 'true',
                 'TruffleHog':     '${{ env.SKIP_TRUFFLEHOG }}' === 'true',
                 'SonarQube':      '${{ env.SKIP_SONAR }}' === 'true',
                 'ClamAV':         '${{ env.SKIP_CLAMAV }}' === 'true',

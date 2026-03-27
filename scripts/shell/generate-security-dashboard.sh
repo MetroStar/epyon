@@ -1075,71 +1075,6 @@ else
     SBOM_FINDINGS="<p class=\"no-findings\">No SBOM data available</p>"
 fi
 
-# ---- Athena License Compliance ----
-SCAN_ID_LABEL=$(basename "${LATEST_SCAN}")
-ATHENA_LICENSE_FILE="${LATEST_SCAN}/sbom/athena-licenses.json"
-ATHENA_SBOM_FILE="${LATEST_SCAN}/sbom/athena-sbom-${SCAN_ID_LABEL}.cyclonedx.json"
-ATHENA_LICENSE_FINDINGS=""
-ATHENA_PYTHON_COUNT=0
-
-if [[ -f "$ATHENA_SBOM_FILE" ]]; then
-    ATHENA_PYTHON_COUNT=$(jq '.components | length' "$ATHENA_SBOM_FILE" 2>/dev/null || echo "0")
-fi
-
-if [[ -f "$ATHENA_LICENSE_FILE" ]]; then
-    # Build an HTML table of packages with license info
-    ATHENA_LICENSE_FINDINGS=$(jq -r '
-        if type == "object" then
-            # Athena returns {packages: [...]} or just an array
-            (if .packages then .packages else to_entries | map(.value) end)
-        else .
-        end |
-        if length == 0 then
-            "<p class=\"no-findings\">✅ No license compliance issues detected</p>"
-        else
-            "<table class=\"findings-table\"><thead><tr><th>Package</th><th>Version</th><th>License</th><th>Status</th></tr></thead><tbody>" +
-            (map(
-                "<tr>" +
-                "<td><code>\(.name // .package // "unknown")</code></td>" +
-                "<td>\(.version // "N/A")</td>" +
-                "<td><span class=\"badge badge-tool\">\(.license // .spdx_id // "Unknown")</span></td>" +
-                "<td>\(if (.denied // false) then "<span class=\"badge badge-critical\">Denied</span>" elif (.allowed // true) then "<span class=\"badge badge-passed\">Allowed</span>" else "<span class=\"badge badge-medium\">Review</span>" end)</td>" +
-                "</tr>"
-            ) | join("")) +
-            "</tbody></table>"
-        end
-    ' "$ATHENA_LICENSE_FILE" 2>/dev/null)
-
-    if [[ -z "$ATHENA_LICENSE_FINDINGS" ]]; then
-        ATHENA_LICENSE_FINDINGS="<p class=\"no-findings\">No license data could be parsed</p>"
-    fi
-elif [[ -f "$ATHENA_SBOM_FILE" ]]; then
-    # Build license table from the SBOM itself if no separate license file
-    ATHENA_LICENSE_FINDINGS=$(jq -r '
-        .components // [] |
-        map(
-            "<tr>" +
-            "<td><code>\(.name)</code></td>" +
-            "<td>\(.version // "N/A")</td>" +
-            "<td><span class=\"badge badge-tool\">\(((.licenses // [])[] | .expression // .id // "Unknown") // "Not specified")</span></td>" +
-            "<td><span class=\"badge badge-passed\">Allowed</span></td>" +
-            "</tr>"
-        ) |
-        if length > 0 then
-            "<table class=\"findings-table\"><thead><tr><th>Package</th><th>Version</th><th>License</th><th>Status</th></tr></thead><tbody>" +
-            join("") + "</tbody></table>"
-        else
-            "<p class=\"no-findings\">No Python packages detected by Athena</p>"
-        end
-    ' "$ATHENA_SBOM_FILE" 2>/dev/null)
-
-    if [[ -z "$ATHENA_LICENSE_FINDINGS" ]]; then
-        ATHENA_LICENSE_FINDINGS="<p class=\"no-findings\">No Athena SBOM data available</p>"
-    fi
-else
-    ATHENA_LICENSE_FINDINGS="<p class=\"no-findings\">Athena SBOM not generated for this scan</p>"
-fi
-
 # ---- Checkov Statistics ----
 CHECKOV_DIR="${LATEST_SCAN}/checkov"
 CHECKOV_PASSED=0
@@ -4537,38 +4472,6 @@ cat >> "$OUTPUT_HTML" << EOF
             </div>
 EOF
 
-# ---- Athena License Compliance Section ----
-cat >> "$OUTPUT_HTML" << EOF
-            <!-- Athena License Compliance -->
-            <div class="tool-card">
-                <div class="tool-header" onclick="toggleTool('athena')">
-                    <div class="tool-title">
-                        <span class="tool-icon">🐍</span>
-                        <div>
-                            <div>Athena</div>
-                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">Python SBOM &amp; License Compliance</div>
-                        </div>
-                    </div>
-                    <div class="tool-stats">
-                        <span class="tool-stat-badge" style="background: #e0f2fe; color: #0369a1;">🐍 ${ATHENA_PYTHON_COUNT} Python packages</span>
-                        <span class="expand-icon">▼</span>
-                    </div>
-                </div>
-                <div class="tool-content" id="athena-content">
-                    <div class="tool-findings">
-                        <div class="stats-detail-box">
-                            <h4>📊 Athena Statistics</h4>
-                            <div class="stats-grid-small">
-                                <div class="stat-item"><strong>Python Packages Cataloged:</strong> ${ATHENA_PYTHON_COUNT}</div>
-                            </div>
-                        </div>
-                        <h4>📜 License Compliance</h4>
-                        ${ATHENA_LICENSE_FINDINGS}
-                    </div>
-                </div>
-            </div>
-EOF
-
 # ---- Xeol (EOL Detection) Section ----
 cat >> "$OUTPUT_HTML" << EOF
             <!-- Xeol (EOL Detection) -->
@@ -5571,15 +5474,9 @@ cat >> "$OUTPUT_HTML" << EOF
                     'cyclonedx-xml': 'cyclonedx.xml',
                     'spdx-json': 'spdx.json'
                 };
-                const mimeMap = {
-                    'cyclonedx-json': 'application/json',
-                    'cyclonedx-xml': 'application/xml',
-                    'spdx-json': 'application/json'
-                };
                 const fileExt = formatExtMap[format];
-                const mimeType = mimeMap[format] || 'application/octet-stream';
-
-                const blob = new Blob([embeddedSBOMs[format]], { type: mimeType });
+                
+                const blob = new Blob([embeddedSBOMs[format]], { type: 'application/json' });
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.style.display = 'none';

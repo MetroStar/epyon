@@ -644,80 +644,21 @@ consolidate_tool_reports "SBOM" "$SCAN_DIR/sbom" "*.json"
 consolidate_tool_reports "Anchore" "$SCAN_DIR/anchore" "*.json"
 consolidate_tool_reports "Garak" "$SCAN_DIR/garak" "*.json"
 
-# ── Athena SBOM merge ─────────────────────────────────────────────────────────
-# If Athena produced a CycloneDX file, merge its Python components into the
-# Syft filesystem.json.  Athena wins for any pkg:pypi component (matched by
-# PURL prefix), so its richer metadata (SHA-256 hashes, SPDX licenses) takes
-# precedence over Syft's entry for the same package.
-SCAN_ID=$(basename "$SCAN_DIR")
-ATHENA_SBOM="${SCAN_DIR}/sbom/athena-sbom-${SCAN_ID}.cyclonedx.json"
-SYFT_SBOM=$(find "$SCAN_DIR/sbom" -maxdepth 1 -name "filesystem.json" 2>/dev/null | head -1)
-
-if [[ -f "$ATHENA_SBOM" && -f "$SYFT_SBOM" ]]; then
-    echo -e "${PURPLE}🐍 Merging Athena Python SBOM into Syft filesystem.json...${NC}"
-    MERGED_SBOM="${SCAN_DIR}/sbom/filesystem.json.tmp"
-    # Athena CycloneDX uses .components; Syft uses .artifacts.
-    # Strategy: collect the list of PURLs Athena knows about, then rebuild
-    # Syft's artifact list by keeping non-pypi components as-is, and for
-    # pypi components replacing them with Athena's richer CycloneDX record
-    # converted to a minimal Syft-compatible shape.
-    if jq -n \
-        --slurpfile syft "$SYFT_SBOM" \
-        --slurpfile athena "$ATHENA_SBOM" \
-        '
-        # Build a map of purl -> athena component for quick lookup
-        ($athena[0].components // []) as $acomps |
-        ([$acomps[] | {key: .purl, value: .}] | from_entries) as $athena_map |
-
-        # Collect the set of pypi PURLs that Athena covers
-        ([$acomps[] | .purl | select(startswith("pkg:pypi"))] | unique) as $athena_purls |
-
-        # Convert an Athena CycloneDX component to a Syft artifact shape
-        def athena_to_syft(c):
-            {
-                id:       (c.bomRef // c.purl),
-                name:     c.name,
-                version:  c.version,
-                type:     "python-package",
-                language: "python",
-                purl:     c.purl,
-                licenses: [(c.licenses // [])[] | .expression // .id // "Unknown"],
-                metadata: {
-                    hashes: [(c.hashes // [])[] | {algorithm: .alg, value: .content}]
-                }
-            };
-
-        # Rebuild artifacts: drop pypi packages covered by Athena, append Athena entries
-        ($syft[0].artifacts // []) as $syft_artifacts |
-        ([$syft_artifacts[] | select(.purl | . == null or (startswith("pkg:pypi") | not))]) as $non_pypi |
-        ([$acomps[] | athena_to_syft(.)]) as $athena_syft |
-
-        $syft[0] | .artifacts = ($non_pypi + $athena_syft)
-        ' > "$MERGED_SBOM" 2>/dev/null; then
-        mv "$MERGED_SBOM" "$SYFT_SBOM"
-        ATHENA_COUNT=$(jq '.components | length' "$ATHENA_SBOM" 2>/dev/null || echo "?")
-        echo -e "${GREEN}✓ Merged ${ATHENA_COUNT} Athena Python components into filesystem.json${NC}"
-    else
-        echo -e "${YELLOW}⚠️  Athena SBOM merge failed – original filesystem.json preserved${NC}"
-        rm -f "$MERGED_SBOM"
-    fi
-elif [[ -f "$ATHENA_SBOM" && ! -f "$SYFT_SBOM" ]]; then
-    echo -e "${CYAN}ℹ️  No Syft SBOM found – using Athena SBOM standalone${NC}"
-fi
-
 # Generate SBOM exports for dashboard download buttons
 if [ -d "$SCAN_DIR/sbom" ]; then
-    SBOM_JSON=$(find "$SCAN_DIR/sbom" -maxdepth 1 -name "*.json" | grep -v "athena-sbom" | head -1)
+    SBOM_JSON=$(find "$SCAN_DIR/sbom" -maxdepth 1 -name "*.json" | head -1)
     if [ -f "$SBOM_JSON" ]; then
         echo -e "${PURPLE}📦 Generating SBOM exports for dashboard...${NC}"
         EXPORT_SCRIPT="$SCRIPT_DIR/export-sbom.sh"
         if [ -f "$EXPORT_SCRIPT" ]; then
             # Extract scan ID from SCAN_DIR path
             SCAN_ID=$(basename "$SCAN_DIR")
-            # Generate all export formats (no --desktop in CI; errors visible for debugging)
-            if "$EXPORT_SCRIPT" -f all "$SCAN_ID"; then
+            # Generate all export formats and copy to Desktop
+            "$EXPORT_SCRIPT" --desktop -f all "$SCAN_ID" > /dev/null 2>&1
+            if [ $? -eq 0 ]; then
                 EXPORT_COUNT=$(find "$SCAN_DIR/sbom/exports" -type f 2>/dev/null | wc -l | tr -d ' ')
                 echo -e "${GREEN}✓ Generated $EXPORT_COUNT SBOM export formats${NC}"
+                echo -e "${GREEN}✓ SBOM files copied to ~/Desktop/sboms/${NC}"
             else
                 echo -e "${YELLOW}⚠️  SBOM export generation failed (files will be generated on-demand)${NC}"
             fi

@@ -27,6 +27,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-03-27
+
+### Added
+- **CycloneDX SBOM generation at scan time**: `run-sbom-scan.sh` now outputs both `syft-json` and `cyclonedx-json` formats simultaneously via `syft scan -o "syft-json=..." -o "cyclonedx-json=..."`, replacing the previous post-hoc `syft convert` step that silently failed.
+- **License compliance gate** (`check-severity-gate.sh`): reads CycloneDX SBOM and fails the build when copyleft licenses (GPL, AGPL, SSPL, EUPL, CDDL, MPL, LGPL) are detected. Configurable denied-license regex.
+- **Supply chain hash verification** (`verify-sbom-hashes.sh`): cross-references SHA-256 hashes of all `pkg:pypi` components in the CycloneDX SBOM against PyPI's published digests; outputs `sbom/hash-verification.json`; exits 2 on tampered packages.
+- **Dependency lineage** (`generate-sbom-lineage.sh`): uses `pipdeptree --json-tree` (Python) and `npm ls --json` (Node.js) to build parent→child dependency trees; enriches the CycloneDX SBOM in-place with a `dependencies[]` array.
+- **VEX document management** (`run-vex.sh`): create, list, and apply OpenVEX 0.2.0 justification documents; applies suppressions to Grype results via `--vex` flag with JSON post-processing fallback; outputs `grype/vex-applied-results.json` and `grype/vex-summary.json`.
+- **Consolidated SBOM panel in security dashboard**: all SBOM enrichment data (license compliance, dependency lineage, supply chain integrity, VEX suppressions) is now shown inline per-package within the single SBOM accordion — replacing four separate tool cards. Each package row shows type, version, license badge (color-coded by risk), dep/used-by counts, hash status, and VEX suppression badges; expanded detail shows full attribution.
+- **On-the-fly CycloneDX generation in dashboard**: `generate-security-dashboard.sh` automatically runs `syft scan` against the target directory when no `*.cyclonedx.json` is found in the scan's sbom directory, using `TARGET_DIR` env var or the path from `scan-metadata.json` as fallback.
+- **`pipdeptree` added to CI install step** in `epyon-scan.yml`.
+
+### Changed
+- SBOM panel stats box now summarises all enrichment dimensions: total packages, license counts (allowed/denied/unknown), dependency relationship count, PyPI hash verification results, and VEX suppressions applied.
+- `consolidate-security-reports.sh` now prefers pre-generated `*-cyclonedx.json` files; only falls back to `syft convert` as a last resort.
+- Export SBOM buttons removed from security dashboard (replaced by file written directly to scan directory at scan time).
+
 ## [2.9.0] - 2026-03-24
 
 ### Added

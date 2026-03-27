@@ -418,6 +418,40 @@ fi
 EXIT_CODE=0
 FAILURE_REASONS=()
 
+# License gate — fail on denied copyleft licenses (runs before WARNING_ONLY so it's always surfaced)
+if [[ "${LICENSE_DENIED:-0}" -gt 0 && "$WARNING_ONLY" != "true" ]]; then
+    echo -e "${RED}❌ License Gate Failed: $LICENSE_DENIED package(s) have denied licenses${NC}"
+    ISSUES_FOUND=true
+    EXIT_CODE=1
+    FAILURE_REASONS+=("## 🚨 License Policy Violations ($LICENSE_DENIED)")
+    FAILURE_REASONS+=("")
+    FAILURE_REASONS+=("The following packages use licenses that conflict with this project's policy:")
+    FAILURE_REASONS+=("\`\`\`")
+    while IFS= read -r line; do
+        [[ -n "$line" ]] && FAILURE_REASONS+=("$line")
+    done <<< "${DENIED_LICENSES_LIST:-}"
+    FAILURE_REASONS+=("\`\`\`")
+    FAILURE_REASONS+=("")
+fi
+
+# Supply chain integrity gate — fail on hash mismatches
+if [[ "${HASH_TAMPERED:-0}" -gt 0 && "$WARNING_ONLY" != "true" ]]; then
+    echo -e "${RED}❌ Supply Chain Gate Failed: $HASH_TAMPERED package hash mismatch(es) detected${NC}"
+    ISSUES_FOUND=true
+    EXIT_CODE=1
+    FAILURE_REASONS+=("## 🚨 Supply Chain Integrity Violations ($HASH_TAMPERED)")
+    FAILURE_REASONS+=("")
+    FAILURE_REASONS+=("The following packages have SHA-256 hashes that do NOT match PyPI's published hashes:")
+    FAILURE_REASONS+=("\`\`\`")
+    if [[ -f "${HASH_VERIFY_FILE:-}" ]]; then
+        jq -r '.tampered[] | "\(.name)==\(.version): found \(.sha256_found)"' "$HASH_VERIFY_FILE" 2>/dev/null | while read -r line; do
+            FAILURE_REASONS+=("$line")
+        done
+    fi
+    FAILURE_REASONS+=("\`\`\`")
+    FAILURE_REASONS+=("")
+fi
+
 # Check if warning-only mode is enabled
 if [[ "$WARNING_ONLY" == "true" ]]; then
     echo -e "${YELLOW}⚠️  Warning Only Mode: Build will not fail regardless of findings${NC}"
@@ -588,7 +622,55 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
     fi
     SBOM_STATUS=$([ "$SBOM_PACKAGES" -gt 0 ] && echo "✅ Generated" || echo "⚠️ N/A")
     echo "| 📦 Syft (SBOM) | $SBOM_STATUS | $SBOM_PACKAGES packages |" >> "$GITHUB_STEP_SUMMARY"
-    
+
+    # License Gate (from CycloneDX SBOM)
+    LICENSE_DENIED=0
+    LICENSE_UNKNOWN=0
+    DENIED_LICENSES_LIST=""
+    CYCLONEDX_FILE=$(find "$SCAN_DIR/sbom" -maxdepth 1 -name "*.cyclonedx.json" 2>/dev/null | head -1)
+    if [[ -f "$CYCLONEDX_FILE" ]]; then
+        # Count denied licenses (GPL/AGPL/SSPL — copyleft that conflicts with proprietary use)
+        DENIED_PATTERN="GPL-2.0-only|GPL-2.0-or-later|GPL-3.0-only|GPL-3.0-or-later|AGPL-3.0-only|AGPL-3.0-or-later|SSPL-1.0|EUPL-1.2|CDDL-1.0|MPL-2.0|LGPL-2.1-only|LGPL-3.0-only"
+        DENIED_LICENSES_LIST=$(jq -r --arg pat "$DENIED_PATTERN" '
+            .components[]? |
+            .name as $pkg |
+            (.licenses // [])[] |
+            (.expression // .id // "") |
+            select(. != "") |
+            select(test($pat)) |
+            "\($pkg): \(.)"
+        ' "$CYCLONEDX_FILE" 2>/dev/null | sort -u)
+        LICENSE_DENIED=$(echo "$DENIED_LICENSES_LIST" | grep -c . 2>/dev/null || echo "0")
+        [[ -z "$DENIED_LICENSES_LIST" ]] && LICENSE_DENIED=0
+
+        LICENSE_UNKNOWN=$(jq '[
+            .components[]? |
+            select((.licenses // []) | length == 0)
+        ] | length' "$CYCLONEDX_FILE" 2>/dev/null || echo "0")
+    fi
+    if [[ $LICENSE_DENIED -gt 0 ]]; then
+        LICENSE_STATUS="🚨 $LICENSE_DENIED denied licenses"
+    elif [[ -n "$CYCLONEDX_FILE" ]]; then
+        LICENSE_STATUS="✅ Clean"
+    else
+        LICENSE_STATUS="⚠️ N/A"
+    fi
+    echo "| 📜 License Gate | $LICENSE_STATUS | $LICENSE_UNKNOWN packages w/o license |" >> "$GITHUB_STEP_SUMMARY"
+
+    # Hash Verification (PyPI integrity check)
+    HASH_VERIFY_FILE="$SCAN_DIR/sbom/hash-verification.json"
+    if [[ -f "$HASH_VERIFY_FILE" ]]; then
+        HASH_TAMPERED=$(jq '.summary.tampered // 0' "$HASH_VERIFY_FILE" 2>/dev/null || echo "0")
+        HASH_TOTAL=$(jq '.summary.total // 0' "$HASH_VERIFY_FILE" 2>/dev/null || echo "0")
+        HASH_NOT_FOUND=$(jq '.summary.not_found // 0' "$HASH_VERIFY_FILE" 2>/dev/null || echo "0")
+        if [[ $HASH_TAMPERED -gt 0 ]]; then
+            HASH_STATUS="🚨 $HASH_TAMPERED MISMATCH"
+        else
+            HASH_STATUS="✅ $HASH_TOTAL verified"
+        fi
+        echo "| 🔐 Supply Chain (Hash) | $HASH_STATUS | $HASH_NOT_FOUND not on PyPI |" >> "$GITHUB_STEP_SUMMARY"
+    fi
+
     # Checkov (IaC)
     CHECKOV_STATUS=$([ "${CHECKOV_FAILED:-0}" -eq 0 ] && echo "✅ Clean" || echo "⚠️ Issues")
     echo "| 🏗️ Checkov | $CHECKOV_STATUS | ${CHECKOV_FAILED:-0} failed checks |" >> "$GITHUB_STEP_SUMMARY"

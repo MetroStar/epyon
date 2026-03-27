@@ -664,6 +664,43 @@ if [ -d "$SCAN_DIR/sbom" ]; then
     fi
 fi
 
+# ── Dependency Lineage ────────────────────────────────────────────────────────
+LINEAGE_SCRIPT="$SCRIPT_DIR/generate-sbom-lineage.sh"
+if [[ -f "$LINEAGE_SCRIPT" && -d "$SCAN_DIR/sbom" ]]; then
+    echo -e "${PURPLE}🌳 Generating dependency lineage...${NC}"
+    if SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" bash "$LINEAGE_SCRIPT" 2>&1; then
+        echo -e "${GREEN}✓ Dependency lineage written to sbom/dependency-lineage.json${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Dependency lineage generation failed (non-fatal)${NC}"
+    fi
+fi
+
+# ── Supply Chain Hash Verification ───────────────────────────────────────────
+HASH_SCRIPT="$SCRIPT_DIR/verify-sbom-hashes.sh"
+if [[ -f "$HASH_SCRIPT" && -d "$SCAN_DIR/sbom" ]]; then
+    echo -e "${PURPLE}🔐 Verifying package hashes against PyPI...${NC}"
+    VERIFY_EXIT=0
+    SCAN_DIR="$SCAN_DIR" bash "$HASH_SCRIPT" 2>&1 || VERIFY_EXIT=$?
+    if [[ $VERIFY_EXIT -eq 0 ]]; then
+        echo -e "${GREEN}✓ Hash verification complete — no mismatches${NC}"
+    elif [[ $VERIFY_EXIT -eq 2 ]]; then
+        echo -e "${RED}🚨 Hash verification: mismatches detected — see sbom/hash-verification.json${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Hash verification encountered errors (non-fatal)${NC}"
+    fi
+fi
+
+# ── VEX Application ───────────────────────────────────────────────────────────
+VEX_SCRIPT="$SCRIPT_DIR/run-vex.sh"
+if [[ -f "$VEX_SCRIPT" && -d "$SCAN_DIR/grype" ]]; then
+    echo -e "${PURPLE}🛡️  Applying VEX statements to Grype results...${NC}"
+    if SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" bash "$VEX_SCRIPT" apply 2>&1; then
+        echo -e "${GREEN}✓ VEX application complete${NC}"
+    else
+        echo -e "${YELLOW}⚠️  VEX application failed (non-fatal)${NC}"
+    fi
+fi
+
 # Generate API discovery exports for external integration
 if [ -f "$SCAN_DIR/api/api-discovery.json" ]; then
     echo -e "${PURPLE}🌐 Generating API discovery exports...${NC}"

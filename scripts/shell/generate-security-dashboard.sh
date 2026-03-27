@@ -1075,6 +1075,163 @@ else
     SBOM_FINDINGS="<p class=\"no-findings\">No SBOM data available</p>"
 fi
 
+# ---- License Compliance (from CycloneDX SBOM) ----
+CYCLONEDX_FILE=$(find "${LATEST_SCAN}/sbom" -maxdepth 1 -name "*.cyclonedx.json" 2>/dev/null | head -1)
+LICENSE_FINDINGS=""
+LICENSE_DENIED_COUNT=0
+LICENSE_UNKNOWN_COUNT=0
+LICENSE_CLEAN_COUNT=0
+DENIED_PATTERN="GPL-2.0-only|GPL-2.0-or-later|GPL-3.0-only|GPL-3.0-or-later|AGPL-3.0-only|AGPL-3.0-or-later|SSPL-1.0|EUPL-1.2|CDDL-1.0"
+
+if [[ -f "$CYCLONEDX_FILE" ]]; then
+    LICENSE_DENIED_COUNT=$(jq --arg pat "$DENIED_PATTERN" '
+        [.components[]? |
+         (.licenses // [])[] |
+         (.expression // .id // "") |
+         select(. != "" and test($pat))] | length
+    ' "$CYCLONEDX_FILE" 2>/dev/null || echo "0")
+
+    LICENSE_UNKNOWN_COUNT=$(jq '[
+        .components[]? | select((.licenses // []) | length == 0)
+    ] | length' "$CYCLONEDX_FILE" 2>/dev/null || echo "0")
+
+    LICENSE_CLEAN_COUNT=$(jq --arg pat "$DENIED_PATTERN" '
+        [.components[]? |
+         select((.licenses // []) | length > 0) |
+         select([(.licenses // [])[] | (.expression // .id // "") | select(test($pat))] | length == 0)
+        ] | length
+    ' "$CYCLONEDX_FILE" 2>/dev/null || echo "0")
+
+    LICENSE_FINDINGS=$(jq -r --arg pat "$DENIED_PATTERN" '
+        "<table class=\"findings-table\"><thead><tr><th>Package</th><th>Version</th><th>License</th><th>Status</th></tr></thead><tbody>" +
+        ([.components[]? |
+          . as $c |
+          ((.licenses // [])[] | (.expression // .id // "Unknown")) as $lic |
+          "<tr>" +
+          "<td><code>\($c.name)</code></td>" +
+          "<td>\($c.version // "N/A")</td>" +
+          "<td><span class=\"badge badge-tool\">\($lic)</span></td>" +
+          "<td>\(if ($lic | test($pat)) then "<span class=\"badge badge-critical\">Denied</span>" else "<span class=\"badge badge-passed\">Allowed</span>" end)</td>" +
+          "</tr>"
+        ] | join("")) +
+        "</tbody></table>"
+    ' "$CYCLONEDX_FILE" 2>/dev/null)
+
+    if [[ -z "$LICENSE_FINDINGS" ]]; then
+        LICENSE_FINDINGS="<p class=\"no-findings\">✅ No license data in CycloneDX SBOM</p>"
+    fi
+else
+    LICENSE_FINDINGS="<p class=\"no-findings\">No CycloneDX SBOM available — run SBOM scan first</p>"
+fi
+
+# ---- Dependency Lineage ----
+LINEAGE_FILE="${LATEST_SCAN}/sbom/dependency-lineage.json"
+LINEAGE_FINDINGS=""
+LINEAGE_TOP_COUNT=0
+
+if [[ -f "$LINEAGE_FILE" ]]; then
+    LINEAGE_TOP_COUNT=$(jq '.python | if type == "array" then length else 0 end' "$LINEAGE_FILE" 2>/dev/null || echo "0")
+
+    LINEAGE_FINDINGS=$(jq -r '
+        .python |
+        if type != "array" or length == 0 then
+            "<p class=\"no-findings\">No Python dependency tree available</p>"
+        else
+            "<div class=\"sbom-package-list\">" +
+            (map(
+                "<div class=\"sbom-package-item\" onclick=\"toggleFindingDetails(this)\">" +
+                "<div class=\"finding-header\">" +
+                "<span class=\"badge badge-tool\">direct</span>" +
+                "<span class=\"badge sbom-version-badge\">\(.installed_version)</span>" +
+                "</div>" +
+                "<div class=\"finding-title\">\(.package_name)</div>" +
+                "<div class=\"finding-details\" style=\"display:none;\">" +
+                "<div><strong>Direct Children:</strong> " +
+                (if (.dependencies | length) > 0 then
+                    ([ .dependencies[] | "<code>\(.package_name)@\(.installed_version)</code>" ] | join(", "))
+                else "none" end) +
+                "</div></div></div>"
+            ) | join("\n")) +
+            "</div>"
+        end
+    ' "$LINEAGE_FILE" 2>/dev/null)
+
+    [[ -z "$LINEAGE_FINDINGS" ]] && LINEAGE_FINDINGS="<p class=\"no-findings\">Dependency lineage data unavailable</p>"
+else
+    LINEAGE_FINDINGS="<p class=\"no-findings\">Dependency lineage not yet generated — install pipdeptree</p>"
+fi
+
+# ---- Hash Verification ----
+HASH_VERIFY_FILE="${LATEST_SCAN}/sbom/hash-verification.json"
+HASH_VERIFY_FINDINGS=""
+HASH_TOTAL=0; HASH_VERIFIED=0; HASH_TAMPERED=0; HASH_NOT_FOUND=0
+
+if [[ -f "$HASH_VERIFY_FILE" ]]; then
+    HASH_TOTAL=$(jq '.summary.total // 0' "$HASH_VERIFY_FILE" 2>/dev/null || echo "0")
+    HASH_VERIFIED=$(jq '.summary.verified // 0' "$HASH_VERIFY_FILE" 2>/dev/null || echo "0")
+    HASH_TAMPERED=$(jq '.summary.tampered // 0' "$HASH_VERIFY_FILE" 2>/dev/null || echo "0")
+    HASH_NOT_FOUND=$(jq '.summary.not_found // 0' "$HASH_VERIFY_FILE" 2>/dev/null || echo "0")
+
+    HASH_VERIFY_FINDINGS=$(jq -r '
+        "<div class=\"stats-detail-box\">" +
+        "<h4>🔐 Hash Verification Summary</h4>" +
+        "<div class=\"stats-grid-small\">" +
+        "<div class=\"stat-item\"><strong>Total checked:</strong> \(.summary.total)</div>" +
+        "<div class=\"stat-item\"><strong>✅ Verified:</strong> \(.summary.verified)</div>" +
+        "<div class=\"stat-item\"><strong>🚨 Mismatches:</strong> \(.summary.tampered)</div>" +
+        "<div class=\"stat-item\"><strong>⚠️ Not on PyPI:</strong> \(.summary.not_found)</div>" +
+        "</div></div>" +
+        (if (.tampered | length) > 0 then
+            "<h4>🚨 Hash Mismatches — Investigate Immediately</h4>" +
+            "<table class=\"findings-table\"><thead><tr><th>Package</th><th>Version</th><th>Installed Hash</th><th>Status</th></tr></thead><tbody>" +
+            ([.tampered[] |
+                "<tr><td><code>\(.name)</code></td><td>\(.version)</td><td><code style=\"font-size:0.75em\">\(.sha256_found[0:16])...</code></td><td><span class=\"badge badge-critical\">MISMATCH</span></td></tr>"
+            ] | join("")) +
+            "</tbody></table>"
+        else "<p class=\"no-findings\">✅ All checked packages match PyPI hashes</p>" end)
+    ' "$HASH_VERIFY_FILE" 2>/dev/null)
+
+    [[ -z "$HASH_VERIFY_FINDINGS" ]] && HASH_VERIFY_FINDINGS="<p class=\"no-findings\">Hash verification data unavailable</p>"
+else
+    HASH_VERIFY_FINDINGS="<p class=\"no-findings\">Hash verification not run — will run automatically on next scan</p>"
+fi
+
+# ---- VEX Statements ----
+VEX_DIR="${LATEST_SCAN%/*}"   # parent of scan dir — repo root to find TARGET_DIR heuristic
+# Look for VEX docs in scan dir first, then common repo roots
+VEX_SUMMARY_FILE="${LATEST_SCAN}/grype/vex-summary.json"
+VEX_FINDINGS=""
+VEX_STATEMENT_COUNT=0
+VEX_SUPPRESSED=0
+
+GRYPE_BEFORE=0; GRYPE_AFTER=0
+if [[ -f "${LATEST_SCAN}/grype/grype-sbom-results.json" ]]; then
+    GRYPE_BEFORE=$(jq '.matches | length' "${LATEST_SCAN}/grype/grype-sbom-results.json" 2>/dev/null || echo "0")
+fi
+if [[ -f "${LATEST_SCAN}/grype/vex-applied-results.json" ]]; then
+    GRYPE_AFTER=$(jq '.matches | length' "${LATEST_SCAN}/grype/vex-applied-results.json" 2>/dev/null || echo "0")
+    VEX_SUPPRESSED=$((GRYPE_BEFORE - GRYPE_AFTER))
+fi
+
+if [[ -f "$VEX_SUMMARY_FILE" ]]; then
+    VEX_STATEMENT_COUNT=$(jq '.vex_documents // 0' "$VEX_SUMMARY_FILE" 2>/dev/null || echo "0")
+    VEX_FINDINGS=$(jq -r '
+        "<table class=\"findings-table\"><thead><tr><th>CVE</th><th>Status</th><th>Justification</th><th>Detail</th></tr></thead><tbody>" +
+        ([.statements[] |
+            "<tr>" +
+            "<td><code>\(.cve // "N/A")</code></td>" +
+            "<td><span class=\"badge badge-passed\">\(.status // "not_affected")</span></td>" +
+            "<td>\(.justification // "N/A")</td>" +
+            "<td>\(.detail // "")</td>" +
+            "</tr>"
+        ] | join("")) +
+        "</tbody></table>"
+    ' "$VEX_SUMMARY_FILE" 2>/dev/null)
+    [[ -z "$VEX_FINDINGS" ]] && VEX_FINDINGS="<p class=\"no-findings\">No VEX statements available</p>"
+else
+    VEX_FINDINGS="<p class=\"no-findings\">No VEX documents found — use <code>run-vex.sh create &lt;CVE-ID&gt; ...</code> to add suppression justifications</p>"
+fi
+
 # ---- Checkov Statistics ----
 CHECKOV_DIR="${LATEST_SCAN}/checkov"
 CHECKOV_PASSED=0
@@ -4439,6 +4596,137 @@ cat >> "$OUTPUT_HTML" << EOF
                         </div>
                         
                         ${SBOM_FINDINGS}
+                    </div>
+                </div>
+            </div>
+EOF
+
+# ---- License Compliance Section ----
+cat >> "$OUTPUT_HTML" << EOF
+            <!-- License Compliance -->
+            <div class="tool-card">
+                <div class="tool-header" onclick="toggleTool('license')">
+                    <div class="tool-title">
+                        <span class="tool-icon">📜</span>
+                        <div>
+                            <div>License Compliance</div>
+                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">CycloneDX SBOM License Gate</div>
+                        </div>
+                    </div>
+                    <div class="tool-stats">
+EOF
+if [ "${LICENSE_DENIED_COUNT:-0}" -gt 0 ]; then
+    echo "                        <span class=\"tool-stat-badge badge-critical\">🚨 ${LICENSE_DENIED_COUNT} denied</span>" >> "$OUTPUT_HTML"
+else
+    echo "                        <span class=\"tool-stat-badge badge-clean\">✅ Clean</span>" >> "$OUTPUT_HTML"
+fi
+cat >> "$OUTPUT_HTML" << EOF
+                        <span class="tool-stat-badge" style="background:#e0f2fe;color:#0369a1;">⚠️ ${LICENSE_UNKNOWN_COUNT} unknown</span>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="tool-content" id="license-content">
+                    <div class="tool-findings">
+                        <div class="stats-detail-box">
+                            <h4>📊 License Statistics</h4>
+                            <div class="stats-grid-small">
+                                <div class="stat-item"><strong>Allowed:</strong> ${LICENSE_CLEAN_COUNT}</div>
+                                <div class="stat-item"><strong>Denied (copyleft):</strong> ${LICENSE_DENIED_COUNT}</div>
+                                <div class="stat-item"><strong>Unknown / missing:</strong> ${LICENSE_UNKNOWN_COUNT}</div>
+                            </div>
+                        </div>
+                        ${LICENSE_FINDINGS}
+                    </div>
+                </div>
+            </div>
+EOF
+
+# ---- Dependency Lineage Section ----
+cat >> "$OUTPUT_HTML" << EOF
+            <!-- Dependency Lineage -->
+            <div class="tool-card">
+                <div class="tool-header" onclick="toggleTool('lineage')">
+                    <div class="tool-title">
+                        <span class="tool-icon">🌳</span>
+                        <div>
+                            <div>Dependency Lineage</div>
+                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">Who pulled what in</div>
+                        </div>
+                    </div>
+                    <div class="tool-stats">
+                        <span class="tool-stat-badge" style="background:#e0f2fe;color:#0369a1;">📦 ${LINEAGE_TOP_COUNT} top-level</span>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="tool-content" id="lineage-content">
+                    <div class="tool-findings">
+                        ${LINEAGE_FINDINGS}
+                    </div>
+                </div>
+            </div>
+EOF
+
+# ---- Hash Verification Section ----
+cat >> "$OUTPUT_HTML" << EOF
+            <!-- Supply Chain Hash Verification -->
+            <div class="tool-card">
+                <div class="tool-header" onclick="toggleTool('hashverify')">
+                    <div class="tool-title">
+                        <span class="tool-icon">🔐</span>
+                        <div>
+                            <div>Supply Chain Integrity</div>
+                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">PyPI hash verification</div>
+                        </div>
+                    </div>
+                    <div class="tool-stats">
+EOF
+if [ "${HASH_TAMPERED:-0}" -gt 0 ]; then
+    echo "                        <span class=\"tool-stat-badge badge-critical\">🚨 ${HASH_TAMPERED} mismatch</span>" >> "$OUTPUT_HTML"
+else
+    echo "                        <span class=\"tool-stat-badge badge-clean\">✅ ${HASH_VERIFIED} verified</span>" >> "$OUTPUT_HTML"
+fi
+cat >> "$OUTPUT_HTML" << EOF
+                        <span class="expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="tool-content" id="hashverify-content">
+                    <div class="tool-findings">
+                        ${HASH_VERIFY_FINDINGS}
+                    </div>
+                </div>
+            </div>
+EOF
+
+# ---- VEX Statements Section ----
+cat >> "$OUTPUT_HTML" << EOF
+            <!-- VEX Statements -->
+            <div class="tool-card">
+                <div class="tool-header" onclick="toggleTool('vex')">
+                    <div class="tool-title">
+                        <span class="tool-icon">🛡️</span>
+                        <div>
+                            <div>VEX Statements</div>
+                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">Vulnerability Exploitability eXchange</div>
+                        </div>
+                    </div>
+                    <div class="tool-stats">
+                        <span class="tool-stat-badge" style="background:#e0f2fe;color:#0369a1;">📄 ${VEX_STATEMENT_COUNT} docs</span>
+                        <span class="tool-stat-badge badge-clean">⬇️ ${VEX_SUPPRESSED} suppressed</span>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="tool-content" id="vex-content">
+                    <div class="tool-findings">
+                        <div class="stats-detail-box">
+                            <h4>📊 VEX Summary</h4>
+                            <div class="stats-grid-small">
+                                <div class="stat-item"><strong>VEX Documents:</strong> ${VEX_STATEMENT_COUNT}</div>
+                                <div class="stat-item"><strong>Findings Suppressed:</strong> ${VEX_SUPPRESSED}</div>
+                                <div class="stat-item"><strong>Grype Before VEX:</strong> ${GRYPE_BEFORE}</div>
+                                <div class="stat-item"><strong>Grype After VEX:</strong> ${GRYPE_AFTER}</div>
+                            </div>
+                        </div>
+                        ${VEX_FINDINGS}
                     </div>
                 </div>
             </div>

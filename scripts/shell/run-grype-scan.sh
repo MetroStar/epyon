@@ -144,19 +144,30 @@ mkdir -p "$OUTPUT_DIR"
 echo "Grype scan started: $TIMESTAMP" > "$SCAN_LOG"
 echo "Target: $REPO_PATH" >> "$SCAN_LOG"
 
-# Create persistent volume for Grype cache to speed up subsequent scans
-GRYPE_CACHE_VOL="grype-cache"
-${CONTAINER_CLI} volume create "$GRYPE_CACHE_VOL" 2>/dev/null || true
+# Prefer local Grype binary; fall back to Docker
+LOCAL_GRYPE=""
+if command -v grype >/dev/null 2>&1; then
+    LOCAL_GRYPE="$(command -v grype)"
+    echo -e "${GREEN}✅ Using local Grype installation: $(grype version 2>/dev/null | head -1)${NC}"
+    echo "Using local Grype: $LOCAL_GRYPE" >> "$SCAN_LOG"
+    # Update local vulnerability database
+    echo -e "${CYAN}📥 Updating Grype vulnerability database...${NC}"
+    grype db update 2>&1 | tee -a "$SCAN_LOG" || true
+else
+    # Create persistent volume for Grype cache to speed up subsequent scans
+    GRYPE_CACHE_VOL="grype-cache"
+    ${CONTAINER_CLI} volume create "$GRYPE_CACHE_VOL" 2>/dev/null || true
 
-# Update Grype vulnerability database before scanning
-echo -e "${CYAN}📥 Updating Grype vulnerability database...${NC}"
-echo "This ensures we have the latest CVE data (may take 1-2 minutes on first run)..."
+    # Update Grype vulnerability database before scanning
+    echo -e "${CYAN}📥 Updating Grype vulnerability database...${NC}"
+    echo "This ensures we have the latest CVE data (may take 1-2 minutes on first run)..."
 
-${CONTAINER_CLI} run --rm \
-    -e GRYPE_DB_CACHE_DIR=/cache \
-    -v "$GRYPE_CACHE_VOL:/cache" \
-    anchore/grype:latest \
-    db update 2>&1 | tee -a "$SCAN_LOG"
+    ${CONTAINER_CLI} run --rm \
+        -e GRYPE_DB_CACHE_DIR=/cache \
+        -v "$GRYPE_CACHE_VOL:/cache" \
+        anchore/grype:latest \
+        db update 2>&1 | tee -a "$SCAN_LOG"
+fi
 
 DB_UPDATE_RESULT=$?
 if [ $DB_UPDATE_RESULT -eq 0 ]; then
@@ -181,16 +192,21 @@ run_grype_scan() {
     local target="$2"
     local output_file="$OUTPUT_DIR/${SCAN_ID}_grype-${scan_type}-results.json"
     local current_file="$OUTPUT_DIR/grype-${scan_type}-results.json"
-    
+
     echo -e "${BLUE}🔍 Scanning ${scan_type}: ${target}${NC}"
-    
-    if [ -n "${CONTAINER_CLI:-}" ]; then
-        echo "   Using ${CONTAINER_CLI}-based Grype..."
-        
-        # Determine if this is an image scan or filesystem scan
+
+    local scan_ok=false
+    if [ -n "$LOCAL_GRYPE" ]; then
+        echo "   Using local Grype binary..."
         if [[ "$scan_type" == "base-"* ]] || [[ "$target" == *":"* ]]; then
-            # Image scan - mount Docker socket to access host's Docker daemon
-            echo "   Scanning container image: $target"
+            "$LOCAL_GRYPE" "$target" -o json 2>>"$SCAN_LOG" > "$output_file"
+        else
+            "$LOCAL_GRYPE" "dir:$target" -o json 2>>"$SCAN_LOG" > "$output_file"
+        fi
+        [ $? -eq 0 ] && [ -s "$output_file" ] && scan_ok=true
+    elif [ -n "${CONTAINER_CLI:-}" ]; then
+        echo "   Using ${CONTAINER_CLI}-based Grype..."
+        if [[ "$scan_type" == "base-"* ]] || [[ "$target" == *":"* ]]; then
             ${CONTAINER_CLI} run --rm \
                 -e GRYPE_DB_CACHE_DIR=/cache \
                 -v /var/run/docker.sock:/var/run/docker.sock \
@@ -198,8 +214,6 @@ run_grype_scan() {
                 anchore/grype:latest \
                 "docker:$target" -o json 2>>"$SCAN_LOG" > "$output_file"
         else
-            # Filesystem scan - mount the directory and scan
-            echo "   Scanning filesystem: $target"
             ${CONTAINER_CLI} run --rm \
                 -e GRYPE_DB_CACHE_DIR=/cache \
                 -v "$target:/workspace:ro" \
@@ -207,23 +221,17 @@ run_grype_scan() {
                 anchore/grype:latest \
                 dir:/workspace -o json 2>>"$SCAN_LOG" > "$output_file"
         fi
-        
-        local exit_code=$?
-        if [ $exit_code -eq 0 ] && [ -f "$output_file" ] && [ -s "$output_file" ]; then
-            local count=$(jq '.matches | length' "$output_file" 2>/dev/null || echo "0")
-            echo -e "${GREEN}   ✅ ${scan_type} scan completed: $count vulnerabilities found${NC}"
-            echo "${scan_type} scan: $count vulnerabilities" >> "$SCAN_LOG"
-            
-            # Create/update current symlink for easy access
-            ln -sf "$(basename "$output_file")" "$current_file" 2>/dev/null
-        else
-            echo -e "${RED}   ❌ ${scan_type} scan failed or produced no output${NC}"
-            echo "${scan_type} scan: FAILED" >> "$SCAN_LOG"
-            # Create empty result file
-            echo '{"matches": [], "source": {"type": "directory", "target": "'"$target"'"}}' > "$output_file"
-        fi
+        [ $? -eq 0 ] && [ -s "$output_file" ] && scan_ok=true
+    fi
+
+    if $scan_ok; then
+        local count=$(jq '.matches | length' "$output_file" 2>/dev/null || echo "0")
+        echo -e "${GREEN}   ✅ ${scan_type} scan completed: $count vulnerabilities found${NC}"
+        echo "${scan_type} scan: $count vulnerabilities" >> "$SCAN_LOG"
+        ln -sf "$(basename "$output_file")" "$current_file" 2>/dev/null
     else
-        echo -e "${RED}   ❌ Docker not available - Grype scan skipped${NC}"
+        echo -e "${RED}   ❌ ${scan_type} scan failed or produced no output${NC}"
+        echo "${scan_type} scan: FAILED" >> "$SCAN_LOG"
         echo '{"matches": [], "source": {"type": "directory", "target": "'"$target"'"}}' > "$output_file"
     fi
     echo
@@ -238,37 +246,42 @@ echo "=================================="
 # Run SBOM-based scan (preferred method - uses pre-generated SBOM)
 if [[ "$SCAN_TYPE" == "sbom" ]] || [[ "$SCAN_TYPE" == "all" ]]; then
     # Look for SBOM file from environment or standard location
-    # The SBOM scan generates filesystem.json as the comprehensive SBOM
+    # Prefer CycloneDX SBOM for grype (richer format with better vuln matching)
     SBOM_FILE="${SBOM_FILE:-$SCAN_DIR/sbom/filesystem.json}"
-    
+    _CDX=$(find "${SCAN_DIR:-}/sbom" -maxdepth 1 \( -name "filesystem-cyclonedx.json" -o -name "*.cyclonedx.json" \) 2>/dev/null | head -1)
+    [ -n "$_CDX" ] && SBOM_FILE="$_CDX"
+
     if [ -f "$SBOM_FILE" ]; then
         echo -e "${GREEN}📋 Using SBOM-based vulnerability scan (recommended)${NC}"
         echo "   SBOM file: $SBOM_FILE"
-        
+
         output_file="$OUTPUT_DIR/${SCAN_ID}_grype-sbom-results.json"
         current_file="$OUTPUT_DIR/grype-sbom-results.json"
-        
-        if [ -n "${CONTAINER_CLI:-}" ]; then
+
+        sbom_ok=false
+        if [ -n "$LOCAL_GRYPE" ]; then
+            echo -e "${BLUE}🔍 Scanning SBOM for vulnerabilities (local grype)...${NC}"
+            "$LOCAL_GRYPE" "sbom:$SBOM_FILE" -o json 2>>"$SCAN_LOG" > "$output_file"
+            [ $? -eq 0 ] && [ -s "$output_file" ] && sbom_ok=true
+        elif [ -n "${CONTAINER_CLI:-}" ]; then
             echo -e "${BLUE}🔍 Scanning SBOM for vulnerabilities...${NC}"
-            
-            # Mount the SBOM file and scan it with vulnerability database
             ${CONTAINER_CLI} run --rm \
                 -e GRYPE_DB_CACHE_DIR=/cache \
                 -v "$SBOM_FILE:/sbom.json:ro" \
                 -v "$GRYPE_CACHE_VOL:/cache" \
                 anchore/grype:latest \
                 sbom:/sbom.json -o json 2>>"$SCAN_LOG" > "$output_file"
-            
-            sbom_exit_code=$?
-            if [ $sbom_exit_code -eq 0 ] && [ -f "$output_file" ] && [ -s "$output_file" ]; then
-                sbom_count=$(jq '.matches | length' "$output_file" 2>/dev/null || echo "0")
-                echo -e "${GREEN}   ✅ SBOM scan completed: $sbom_count vulnerabilities found${NC}"
-                echo "SBOM scan: $sbom_count vulnerabilities" >> "$SCAN_LOG"
-                ln -sf "$(basename "$output_file")" "$current_file" 2>/dev/null
-            else
-                echo -e "${RED}   ❌ SBOM scan failed${NC}"
-                echo '{"matches": [], "source": {"type": "sbom", "target": "'"$SBOM_FILE"'"}}' > "$output_file"
-            fi
+            [ $? -eq 0 ] && [ -s "$output_file" ] && sbom_ok=true
+        fi
+
+        if $sbom_ok; then
+            sbom_count=$(jq '.matches | length' "$output_file" 2>/dev/null || echo "0")
+            echo -e "${GREEN}   ✅ SBOM scan completed: $sbom_count vulnerabilities found${NC}"
+            echo "SBOM scan: $sbom_count vulnerabilities" >> "$SCAN_LOG"
+            ln -sf "$(basename "$output_file")" "$current_file" 2>/dev/null
+        else
+            echo -e "${RED}   ❌ SBOM scan failed${NC}"
+            echo '{"matches": [], "source": {"type": "sbom", "target": "'"$SBOM_FILE"'"}}' > "$output_file"
         fi
     else
         echo -e "${YELLOW}⚠️ SBOM file not found: $SBOM_FILE${NC}"

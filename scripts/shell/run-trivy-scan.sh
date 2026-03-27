@@ -82,16 +82,23 @@ if [ -z "${CONTAINER_CLI:-}" ]; then
     CONTAINER_CLI=docker
 fi
 
-# Determine Trivy image to use - prefer Docker Hardened Image, fall back to official image
-TRIVY_DHI_IMAGE="dhi/trivy:latest"
-TRIVY_OFFICIAL_IMAGE="ghcr.io/aquasecurity/trivy:latest"
-echo -e "${CYAN}🔍 Selecting Trivy image...${NC}"
-if ${CONTAINER_CLI} image inspect "${TRIVY_DHI_IMAGE}" > /dev/null 2>&1 || ${CONTAINER_CLI} pull "${TRIVY_DHI_IMAGE}" > /dev/null 2>&1; then
-    TRIVY_IMAGE="${TRIVY_DHI_IMAGE}"
-    echo -e "${GREEN}✅ Using Docker Hardened Image: ${TRIVY_IMAGE}${NC}"
+# Prefer local Trivy binary over Docker to avoid Docker Hub rate-limiting
+LOCAL_TRIVY=""
+if command -v trivy >/dev/null 2>&1; then
+    LOCAL_TRIVY="$(command -v trivy)"
+    echo -e "${GREEN}✅ Using local Trivy installation: $LOCAL_TRIVY${NC}"
 else
-    TRIVY_IMAGE="${TRIVY_OFFICIAL_IMAGE}"
-    echo -e "${YELLOW}⚠️  Docker Hardened Image (${TRIVY_DHI_IMAGE}) not available, falling back to official image: ${TRIVY_IMAGE}${NC}"
+    # Determine Trivy image to use - prefer Docker Hardened Image, fall back to official image
+    TRIVY_DHI_IMAGE="dhi/trivy:latest"
+    TRIVY_OFFICIAL_IMAGE="ghcr.io/aquasecurity/trivy:latest"
+    echo -e "${CYAN}🔍 Selecting Trivy image...${NC}"
+    if ${CONTAINER_CLI} image inspect "${TRIVY_DHI_IMAGE}" > /dev/null 2>&1 || ${CONTAINER_CLI} pull "${TRIVY_DHI_IMAGE}" > /dev/null 2>&1; then
+        TRIVY_IMAGE="${TRIVY_DHI_IMAGE}"
+        echo -e "${GREEN}✅ Using Docker Hardened Image: ${TRIVY_IMAGE}${NC}"
+    else
+        TRIVY_IMAGE="${TRIVY_OFFICIAL_IMAGE}"
+        echo -e "${YELLOW}⚠️  Docker Hardened Image (${TRIVY_DHI_IMAGE}) not available, falling back to official image: ${TRIVY_IMAGE}${NC}"
+    fi
 fi
 
 # Source approved base images configuration only if PRIMARY_BASELINE_IMAGE is not already set
@@ -130,18 +137,23 @@ fi
 
 # Create persistent volume for Trivy cache to speed up subsequent scans
 TRIVY_CACHE_VOL="trivy-cache"
-${CONTAINER_CLI} volume create "$TRIVY_CACHE_VOL" 2>/dev/null || true
 
 # Update Trivy vulnerability database before scanning
 echo -e "${CYAN}📥 Updating Trivy vulnerability database...${NC}"
 echo "This ensures we have the latest CVE data (may take 1-2 minutes on first run)..."
 
-${CONTAINER_CLI} run --rm \
-    -v "$TRIVY_CACHE_VOL:/root/.cache" \
-    "${TRIVY_IMAGE}" \
-    image --download-db-only 2>&1 | tee -a "$SCAN_LOG"
+if [ -n "$LOCAL_TRIVY" ]; then
+    "$LOCAL_TRIVY" image --download-db-only 2>&1 | tee -a "$SCAN_LOG"
+    DB_UPDATE_RESULT=$?
+else
+    ${CONTAINER_CLI} volume create "$TRIVY_CACHE_VOL" 2>/dev/null || true
+    ${CONTAINER_CLI} run --rm \
+        -v "$TRIVY_CACHE_VOL:/root/.cache" \
+        "${TRIVY_IMAGE}" \
+        image --download-db-only 2>&1 | tee -a "$SCAN_LOG"
+    DB_UPDATE_RESULT=$?
+fi
 
-DB_UPDATE_RESULT=$?
 if [ $DB_UPDATE_RESULT -eq 0 ]; then
     echo -e "${GREEN}✅ Trivy vulnerability database updated successfully${NC}"
 else
@@ -151,10 +163,14 @@ fi
 
 # Show database info
 echo -e "${CYAN}📋 Checking Trivy database status...${NC}"
-${CONTAINER_CLI} run --rm \
-    -v "$TRIVY_CACHE_VOL:/root/.cache" \
-    "${TRIVY_IMAGE}" \
-    version 2>&1 | grep -E "(Version|VulnerabilityDB)" | tee -a "$SCAN_LOG"
+if [ -n "$LOCAL_TRIVY" ]; then
+    "$LOCAL_TRIVY" version 2>&1 | grep -E "(Version|VulnerabilityDB)" | tee -a "$SCAN_LOG"
+else
+    ${CONTAINER_CLI} run --rm \
+        -v "$TRIVY_CACHE_VOL:/root/.cache" \
+        "${TRIVY_IMAGE}" \
+        version 2>&1 | grep -E "(Version|VulnerabilityDB)" | tee -a "$SCAN_LOG"
+fi
 echo
 
 # Function to scan a target
@@ -166,42 +182,44 @@ run_trivy_scan() {
     
     if [ ! -z "$target" ] && [ ! -z "$output_file" ]; then
         echo -e "${BLUE}🔍 Scanning ${scan_type}: ${target}${NC}"
-        
-        # Run trivy scan with Docker using cached/updated database
-        if [ -n "${CONTAINER_CLI:-}" ]; then
-            # Determine if this is an image scan or filesystem scan
+
+        local scan_ok=false
+
+        if [ -n "$LOCAL_TRIVY" ]; then
+            # Use local Trivy binary
             if [[ "$scan_type" == "base-"* ]] || [[ "$target" == *":"* ]]; then
-                # Image scan - mount Docker socket to access host images
-                # Try to use locally cached image first, fall back to remote scan
+                echo "   Scanning container image: $target"
+                "$LOCAL_TRIVY" image "$target" --format json --quiet 2>>"$SCAN_LOG" > "$output_file"
+            else
+                "$LOCAL_TRIVY" fs "$target" --format json 2>>"$SCAN_LOG" > "$output_file"
+            fi
+            [ $? -eq 0 ] && [ -s "$output_file" ] && scan_ok=true
+        elif [ -n "${CONTAINER_CLI:-}" ]; then
+            # Docker fallback
+            if [[ "$scan_type" == "base-"* ]] || [[ "$target" == *":"* ]]; then
                 echo "   Scanning container image: $target"
                 ${CONTAINER_CLI} run --rm \
                     -v /var/run/docker.sock:/var/run/docker.sock \
                     -v "$TRIVY_CACHE_VOL:/root/.cache" \
                     "${TRIVY_IMAGE}" \
                     image "$target" \
-                    --format json --quiet 2>> "$SCAN_LOG" > "$output_file"
+                    --format json --quiet 2>>"$SCAN_LOG" > "$output_file"
             else
-                # Filesystem scan - scan everything including node_modules for complete vulnerability detection
                 ${CONTAINER_CLI} run --rm \
                     -v "${target}:/workspace:ro" \
                     -v "$TRIVY_CACHE_VOL:/root/.cache" \
                     "${TRIVY_IMAGE}" \
                     fs /workspace \
-                    --format json 2>> "$SCAN_LOG" > "$output_file"
+                    --format json 2>>"$SCAN_LOG" > "$output_file"
             fi
-            
-            local exit_code=$?
-            if [ $exit_code -eq 0 ] && [ -f "$output_file" ] && [ -s "$output_file" ]; then
-                echo -e "${GREEN}✅ Scan completed: $output_file${NC}"
-                # Create/update current symlink for easy access
-                ln -sf "$(basename "$output_file")" "$current_file" 2>/dev/null
-            else
-                echo -e "${RED}❌ Scan failed for $target${NC}"
-                # Create empty result to prevent dashboard errors
-                echo '{"Results": []}' > "$output_file"
-            fi
+            [ $? -eq 0 ] && [ -s "$output_file" ] && scan_ok=true
+        fi
+
+        if $scan_ok; then
+            echo -e "${GREEN}✅ Scan completed: $output_file${NC}"
+            ln -sf "$(basename "$output_file")" "$current_file" 2>/dev/null
         else
-                echo -e "${RED}❌ Container runtime not available - Trivy scan skipped${NC}"
+            echo -e "${RED}❌ Scan failed for $target${NC}"
             echo '{"Results": []}' > "$output_file"
         fi
         echo

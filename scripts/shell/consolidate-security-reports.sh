@@ -644,24 +644,22 @@ consolidate_tool_reports "SBOM" "$SCAN_DIR/sbom" "*.json"
 consolidate_tool_reports "Anchore" "$SCAN_DIR/anchore" "*.json"
 consolidate_tool_reports "Garak" "$SCAN_DIR/garak" "*.json"
 
-# Generate SBOM exports for dashboard download buttons
+# Generate human-readable CycloneDX JSON SBOM into the sbom directory
 if [ -d "$SCAN_DIR/sbom" ]; then
-    SBOM_JSON=$(find "$SCAN_DIR/sbom" -maxdepth 1 -name "*.json" | head -1)
-    if [ -f "$SBOM_JSON" ]; then
-        echo -e "${PURPLE}📦 Generating SBOM exports for dashboard...${NC}"
-        EXPORT_SCRIPT="$SCRIPT_DIR/export-sbom.sh"
-        if [ -f "$EXPORT_SCRIPT" ]; then
-            # Extract scan ID from SCAN_DIR path
-            SCAN_ID=$(basename "$SCAN_DIR")
-            # Generate all export formats and copy to Desktop
-            "$EXPORT_SCRIPT" --desktop -f all "$SCAN_ID" > /dev/null 2>&1
-            if [ $? -eq 0 ]; then
-                EXPORT_COUNT=$(find "$SCAN_DIR/sbom/exports" -type f 2>/dev/null | wc -l | tr -d ' ')
-                echo -e "${GREEN}✓ Generated $EXPORT_COUNT SBOM export formats${NC}"
-                echo -e "${GREEN}✓ SBOM files copied to ~/Desktop/sboms/${NC}"
-            else
-                echo -e "${YELLOW}⚠️  SBOM export generation failed (files will be generated on-demand)${NC}"
+    SBOM_SOURCE=$(find "$SCAN_DIR/sbom" -maxdepth 1 -name "filesystem.json" 2>/dev/null | head -1)
+    if [ -f "$SBOM_SOURCE" ] && command -v syft >/dev/null 2>&1; then
+        SCAN_ID=$(basename "$SCAN_DIR")
+        CYCLONEDX_OUT="$SCAN_DIR/sbom/sbom-${SCAN_ID}.cyclonedx.json"
+        echo -e "${PURPLE}📦 Converting SBOM to CycloneDX JSON...${NC}"
+        if syft convert "$SBOM_SOURCE" -o cyclonedx-json > "$CYCLONEDX_OUT" 2>/dev/null; then
+            # Pretty-print for human readability
+            if command -v jq >/dev/null 2>&1; then
+                jq . "$CYCLONEDX_OUT" > "${CYCLONEDX_OUT}.tmp" 2>/dev/null && mv "${CYCLONEDX_OUT}.tmp" "$CYCLONEDX_OUT"
             fi
+            echo -e "${GREEN}✓ CycloneDX SBOM written to sbom/sbom-${SCAN_ID}.cyclonedx.json${NC}"
+        else
+            echo -e "${YELLOW}⚠️  CycloneDX SBOM conversion failed (syft convert error)${NC}"
+            rm -f "$CYCLONEDX_OUT"
         fi
     fi
 fi

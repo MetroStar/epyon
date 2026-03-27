@@ -1201,45 +1201,45 @@ To achieve comprehensive AI/ML security coverage, Epyon will integrate:
 7. **Code Review**: Use SonarQube quality gates for Python code
 8. **SBOM Compliance**: Export SBOM in standard formats for supply chain security
 
-### 📦 SBOM Export & Integration
+### 📦 SBOM Pipeline & Supply Chain Security
 
-Epyon generates comprehensive Software Bill of Materials (SBOM) with support for industry-standard export formats.
+Epyon generates a CycloneDX SBOM at scan time and automatically enriches it with four layers of supply chain analysis.
 
-#### Supported Export Formats
+#### SBOM Output
 
-| Format | File Extension | Compatible Tools |
-|--------|---------------|------------------|
-| **CycloneDX JSON** | `.cyclonedx.json` | Dependency-Track, OWASP OSS Index, Snyk, JFrog Xray, GitLab Security |
-| **CycloneDX XML** | `.cyclonedx.xml` | Dependency-Track, JFrog Xray |
-| **SPDX JSON** | `.spdx.json` | GitHub Dependency Graph, Snyk, BlackDuck, Syft |
-| **SPDX Tag-Value** | `.spdx` | Linux Foundation tools, SPDX validators |
+Each scan writes `scans/{scan_id}/sbom/sbom-{scan_id}.cyclonedx.json` — a standards-compliant CycloneDX JSON file compatible with Dependency-Track, Snyk, JFrog Xray, and OWASP OSS Index.
 
-#### Export Commands
+#### Supply Chain Enrichment Layers
+
+| Layer | Script | What it does |
+|-------|--------|-------------|
+| **License Compliance** | `check-severity-gate.sh` | Fails build on copyleft licenses (GPL, AGPL, SSPL, EUPL, CDDL, MPL, LGPL) detected in CycloneDX SBOM |
+| **Dependency Lineage** | `generate-sbom-lineage.sh` | Builds parent→child dependency tree via `pipdeptree` (Python) and `npm ls` (Node.js); enriches CycloneDX `dependencies[]` |
+| **Hash Verification** | `verify-sbom-hashes.sh` | Cross-references SHA-256 of all `pkg:pypi` components against PyPI published digests; flags tampered packages |
+| **VEX Suppressions** | `run-vex.sh` | Manage OpenVEX 0.2.0 justification documents; apply to Grype results to suppress accepted false positives |
+
+#### VEX Workflow
 
 ```bash
-# Export latest scan in all formats
-./scripts/shell/export-sbom.sh
+# Create a justified suppression for a CVE
+./scripts/shell/run-vex.sh create CVE-2024-1234 requests 2.31.0 vulnerable_code_not_in_execute_path
 
-# Export specific scan in CycloneDX JSON
-./scripts/shell/export-sbom.sh -f cyclonedx-json midas_rnelson_2026-01-22_07-44-58
+# List all VEX statements for a target
+./scripts/shell/run-vex.sh list
 
-# Export to custom directory
-./scripts/shell/export-sbom.sh -o /tmp/sbom-exports
-
-# View export options
-./scripts/shell/export-sbom.sh --help
+# Apply VEX suppressions to Grype results
+./scripts/shell/run-vex.sh apply
 ```
 
-#### Dashboard Export Buttons
+VEX documents are stored in `{target_dir}/.epyon/vex/` and applied automatically during `consolidate-security-reports.sh`.
 
-The interactive security dashboard includes one-click SBOM export buttons:
+#### Dashboard Integration
 
-- **🔄 CycloneDX JSON** - Most widely supported format
-- **📄 CycloneDX XML** - Enterprise tool compatibility
-- **📋 SPDX JSON** - GitHub integration
-- **💾 Export All Formats** - Generate all formats simultaneously
-
-Exported SBOMs are saved to: `scans/{scan_id}/sbom/exports/`
+All enrichment data surfaces inline in the SBOM accordion on the security dashboard — no separate tabs needed. Each package row shows:
+- License badge (green = allowed, red = copyleft denied, yellow = unknown)
+- Dependency counts (↓ deps pulled in, ↑ packages that use it)
+- Hash verification status (PyPI packages only)
+- VEX suppression indicator (if any CVEs have been justified)
 
 #### Integration Examples
 
@@ -1248,14 +1248,7 @@ Exported SBOMs are saved to: `scans/{scan_id}/sbom/exports/`
 curl -X POST https://dependency-track.example.com/api/v1/bom \
   -H "X-Api-Key: YOUR_API_KEY" \
   -F "project=PROJECT_UUID" \
-  -F "bom=@scans/midas_user_2026-01-22/sbom/exports/sbom.cyclonedx.json"
-```
-
-**GitHub Dependency Graph:**
-```bash
-gh api /repos/OWNER/REPO/dependency-graph/snapshots \
-  --method POST \
-  --input scans/midas_user_2026-01-22/sbom/exports/sbom.spdx.json
+  -F "bom=@scans/{scan_id}/sbom/sbom-{scan_id}.cyclonedx.json"
 ```
 
 **Snyk Vulnerability Scanning:**

@@ -1077,6 +1077,29 @@ fi
 
 # ---- License Compliance (from CycloneDX SBOM) ----
 CYCLONEDX_FILE=$(find "${LATEST_SCAN}/sbom" -maxdepth 1 -name "*.cyclonedx.json" 2>/dev/null | head -1)
+
+# If no CycloneDX file yet, try to generate one on the fly
+if [[ -z "$CYCLONEDX_FILE" ]] && command -v syft >/dev/null 2>&1; then
+    _CDXOUT="${LATEST_SCAN}/sbom/dashboard-generated.cyclonedx.json"
+    mkdir -p "${LATEST_SCAN}/sbom"
+    # Prefer the live target directory env var; fall back to scan metadata (grep handles malformed JSON)
+    _SBOM_TARGET=""
+    if [[ -n "${TARGET_DIR:-}" && -d "${TARGET_DIR}" ]]; then
+        _SBOM_TARGET="$TARGET_DIR"
+    else
+        _META="${LATEST_SCAN}/scan-metadata.json"
+        if [[ -f "$_META" ]]; then
+            _SBOM_TARGET=$(grep '"target_directory"' "$_META" 2>/dev/null \
+                | sed 's/.*"target_directory"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' || true)
+        fi
+    fi
+    if [[ -n "$_SBOM_TARGET" && -d "$_SBOM_TARGET" ]]; then
+        echo "📦 Generating CycloneDX SBOM for dashboard from: $_SBOM_TARGET" >&2
+        if syft scan "$_SBOM_TARGET" -o "cyclonedx-json=${_CDXOUT}" >/dev/null 2>&1; then
+            CYCLONEDX_FILE="$_CDXOUT"
+        fi
+    fi
+fi
 LICENSE_FINDINGS=""
 LICENSE_DENIED_COUNT=0
 LICENSE_UNKNOWN_COUNT=0

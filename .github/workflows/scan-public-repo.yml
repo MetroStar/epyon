@@ -13,15 +13,15 @@ on:
         required: true
         type: string
       pr_number:
-        description: 'Optional: Pull request number to scan (GitHub repos). If set, takes precedence over target_ref'
+        description: 'Pull request number (GitHub repos)'
         required: false
         type: string
       target_ref:
-        description: 'Optional: Branch/tag/commit to scan (e.g., feature/my-branch, refs/heads/main, a1b2c3d)'
+        description: 'Branch/tag/commit to scan'
         required: false
         type: string
       subdirectory:
-        description: 'Optional: Subdirectory path within repository to scan (e.g., apps/api)'
+        description: 'Subdirectory to scan (e.g., apps/api)'
         required: false
         type: string
       scan_mode:
@@ -35,12 +35,12 @@ on:
           - nightly
           - baseline
       fail_on_critical:
-        description: 'Fail build on critical severity findings'
+        description: 'Fail on critical severity findings'
         required: false
         default: true
         type: boolean
       fail_on_high:
-        description: 'Fail build on high severity findings'
+        description: 'Fail on high severity findings'
         required: false
         default: true
         type: boolean
@@ -49,54 +49,11 @@ on:
         required: false
         default: false
         type: boolean
-      garak_target_type:
-        description: 'Garak generator type (for example: test, openai, huggingface)'
-        required: false
-        default: 'openai'
-        type: choice
-        options:
-          - openai
-          - test
-          - huggingface
-          - ollama
-          - litellm
-      garak_target_name:
-        description: 'Garak target model name preset'
-        required: false
-        default: 'gpt-4o-mini'
-        type: choice
-        options:
-          - gpt-4o-mini
-          - gpt-4.1-mini
-          - gpt-4o
-          - gpt-4.1
-          - llama3.1:8b
-          - test.Blank
-          - test.Repeat
-      garak_probes:
-        description: 'Garak probe set'
-        required: false
-        default: 'promptinject'
-        type: choice
-        options:
-          - promptinject
-          - dan
-          - encoding
-          - malwaregen
-          - knownbadsignatures
-          - xss
-          - lmrc
-          - all
       run_garak:
-        description: 'Explicitly run Garak LLM security probing (Layer 12); uses epyon OpenAI key via secrets: inherit'
+        description: 'Run Garak LLM security probing (Layer 12); requires secrets: inherit'
         required: false
-        type: boolean
         default: false
-      skip_garak:
-        description: 'Skip Garak LLM security probing (Layer 12)'
-        required: false
         type: boolean
-        default: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -119,11 +76,7 @@ jobs:
       fail_on_critical: ${{ inputs.fail_on_critical != false }}
       fail_on_high: ${{ inputs.fail_on_high != false }}
       warning_only: ${{ inputs.warning_only == true }}
-      garak_target_type: ${{ inputs.garak_target_type || 'openai' }}
-      garak_target_name: ${{ inputs.garak_target_name || 'gpt-4o-mini' }}
-      garak_probes: ${{ inputs.garak_probes || 'promptinject' }}
-      run_garak: ${{ inputs.run_garak == true && 'true' || '' }}
-      skip_garak: ${{ inputs.skip_garak == true }}
+      run_garak: ${{ inputs.run_garak == true && 'true' || 'false' }}
       create_github_issue: false
       create_jira_tickets: false
       write_metrics: false

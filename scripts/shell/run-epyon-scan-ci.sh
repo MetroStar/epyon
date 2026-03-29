@@ -182,6 +182,9 @@ fi
 
 if _should_run_tool SKIP_SONAR && [[ "${SCAN_MODE:-full}" != "quick" || "${RUN_SONAR_IN_QUICK}" == "true" ]]; then
   run_sonar_layer
+  # Remove SonarQube work directory to prevent ClamAV from scanning thousands of
+  # generated UCFG provenance stubs (saves ~3 minutes on a typical Python project).
+  rm -rf "${TARGET_DIR:?}/.scannerwork"
 else
   [[ "${SKIP_SONAR:-false}" == "true" ]] && echo "[INFO] Skipping Layer 3 - Sonar (SKIP_SONAR=true)" || echo "[INFO] Skipping Layer 3 (quick mode)"
 fi

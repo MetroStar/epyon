@@ -195,62 +195,39 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
         PLATFORM_FLAG=""
     fi
     
-    # Pull ClamAV Docker image with platform specification
+    # Pull ClamAV Docker image (try primary, then fallback)
+    CLAMAV_PULL_OK=false
     echo "📥 Pulling ClamAV Docker image..."
-    if ! ${CONTAINER_CLI} pull $PLATFORM_FLAG "$CLAMAV_IMAGE" 2>&1 | tee -a "$SCAN_LOG"; then
+    if ${CONTAINER_CLI} pull $PLATFORM_FLAG "$CLAMAV_IMAGE" 2>&1 | tee -a "$SCAN_LOG"; then
+        CLAMAV_PULL_OK=true
+    else
         echo -e "${YELLOW}⚠️  Standard ClamAV image failed, trying alternative...${NC}"
-        # Try alternative ClamAV image that supports ARM64
         CLAMAV_IMAGE="mkodockx/docker-clamav:alpine"
         PLATFORM_FLAG=""
-        if ! ${CONTAINER_CLI} pull "$CLAMAV_IMAGE" 2>&1 | tee -a "$SCAN_LOG"; then
-            echo -e "${RED}❌ Unable to pull any ClamAV image${NC}"
-            echo "ClamAV scan skipped - Docker image unavailable" > "$OUTPUT_DIR/${SCAN_ID}_clamav-detailed.log"
-            echo "Platform: $PLATFORM not supported by available images" >> "$OUTPUT_DIR/${SCAN_ID}_clamav-detailed.log"
-            ln -sf "${SCAN_ID}_clamav-detailed.log" "$OUTPUT_DIR/clamav-detailed.log"
-            SCAN_RESULT=0
-        else
-            # Update virus definitions before scanning
-            echo -e "${CYAN}📥 Updating ClamAV virus definitions...${NC}"
-            echo "This ensures we have the latest malware signatures..."
-            ${CONTAINER_CLI} run --rm "$CLAMAV_IMAGE" freshclam 2>&1 | tee -a "$SCAN_LOG" || echo "Warning: Could not update definitions, using bundled versions"
-            
-            # Run scan with alternative image
-            echo -e "${BLUE}🔍 Scanning directory: $REPO_PATH${NC}"
-            echo "This may take several minutes..."
-            
-            ${CONTAINER_CLI} run --rm \
-                -v "$REPO_PATH:/workspace:ro" \
-                -v "$OUTPUT_DIR:/output" \
-                "$CLAMAV_IMAGE" \
-                clamscan -r \
-                --exclude-dir=node_modules \
-                --scan-mail=yes \
-                --scan-html=yes \
-                --scan-pdf=yes \
-                --scan-ole2=yes \
-                --scan-archive=yes \
-                --alert-encrypted=yes \
-                --alert-encrypted-archive=yes \
-                --alert-encrypted-doc=yes \
-                --max-recursion=30 \
-                --max-filesize=2000M \
-                --max-scansize=2000M \
-                --log=/output/${SCAN_ID}_clamav-detailed.log /workspace 2>&1 | tee -a "$SCAN_LOG"
-            SCAN_RESULT=$?
+        if ${CONTAINER_CLI} pull "$CLAMAV_IMAGE" 2>&1 | tee -a "$SCAN_LOG"; then
+            CLAMAV_PULL_OK=true
         fi
+    fi
+    
+    if [ "$CLAMAV_PULL_OK" = false ]; then
+        echo -e "${RED}❌ Unable to pull any ClamAV image${NC}"
+        echo "ClamAV scan skipped - Docker image unavailable" > "$OUTPUT_DIR/${SCAN_ID}_clamav-detailed.log"
+        echo "Platform: $PLATFORM not supported by available images" >> "$OUTPUT_DIR/${SCAN_ID}_clamav-detailed.log"
+        ln -sf "${SCAN_ID}_clamav-detailed.log" "$OUTPUT_DIR/clamav-detailed.log"
+        SCAN_RESULT=0
     else
         # Update virus definitions before scanning
         echo -e "${CYAN}📥 Updating ClamAV virus definitions...${NC}"
-        echo "This ensures we have the latest malware signatures (may take 1-2 minutes)..."
         
         # Create a persistent volume for ClamAV definitions to speed up future scans
         CLAMAV_DB_VOL="clamav-definitions"
-        ${CONTAINER_CLI} volume create "$CLAMAV_DB_VOL" 2>/dev/null || true
+        CLAMAV_VOL_ARGS=""
+        if ${CONTAINER_CLI} volume create "$CLAMAV_DB_VOL" 2>/dev/null; then
+            CLAMAV_VOL_ARGS="-v $CLAMAV_DB_VOL:/var/lib/clamav"
+        fi
         
-        # Update definitions using freshclam
         echo "Running freshclam to download latest virus definitions..."
-        ${CONTAINER_CLI} run --rm $PLATFORM_FLAG \
-            -v "$CLAMAV_DB_VOL:/var/lib/clamav" \
+        ${CONTAINER_CLI} run --rm $PLATFORM_FLAG $CLAMAV_VOL_ARGS \
             "$CLAMAV_IMAGE" \
             freshclam --stdout 2>&1 | tee -a "$SCAN_LOG"
         
@@ -264,22 +241,22 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
         
         # Show definition info
         echo -e "${CYAN}📋 Checking virus definition status...${NC}"
-        ${CONTAINER_CLI} run --rm $PLATFORM_FLAG \
-            -v "$CLAMAV_DB_VOL:/var/lib/clamav" \
+        ${CONTAINER_CLI} run --rm $PLATFORM_FLAG $CLAMAV_VOL_ARGS \
             "$CLAMAV_IMAGE" \
             clamscan --version 2>&1 | tee -a "$SCAN_LOG"
         
-        # Run scan with standard image and updated definitions
+        # Run scan
         echo -e "${BLUE}🔍 Scanning directory: $REPO_PATH${NC}"
         echo "This may take several minutes..."
         
         ${CONTAINER_CLI} run --rm $PLATFORM_FLAG \
             -v "$REPO_PATH:/workspace:ro" \
             -v "$OUTPUT_DIR:/output" \
-            -v "$CLAMAV_DB_VOL:/var/lib/clamav" \
+            $CLAMAV_VOL_ARGS \
             "$CLAMAV_IMAGE" \
             clamscan -r \
             --exclude-dir=node_modules \
+            --exclude-dir=.scannerwork \
             --scan-mail=yes \
             --scan-html=yes \
             --scan-pdf=yes \
@@ -300,7 +277,7 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
             ${CONTAINER_CLI} run --rm $PLATFORM_FLAG \
                 -v "$DECODED_DIR:/decoded:ro" \
                 -v "$OUTPUT_DIR:/output" \
-                -v "$CLAMAV_DB_VOL:/var/lib/clamav" \
+                $CLAMAV_VOL_ARGS \
                 "$CLAMAV_IMAGE" \
                 clamscan -r \
                 --scan-mail=yes \

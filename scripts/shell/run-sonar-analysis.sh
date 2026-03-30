@@ -250,6 +250,34 @@ fi
 # properties (e.g. coverage paths that are only available in certain CI jobs).
 EXTRA_ARGS="${SONAR_EXTRA_ARGS:-}"
 
+# ---- Auto-detect sonar.python.version ----
+_detect_base="${PROPS_FILE:+$(dirname "$PROPS_FILE")}"
+_detect_base="${_detect_base:-$REPO_PATH}"
+_detected_py_ver=""
+
+if [ -z "$_detected_py_ver" ] && [ -f "$_detect_base/.python-version" ]; then
+  _detected_py_ver=$(head -1 "$_detect_base/.python-version" | grep -oE '[0-9]+\.[0-9]+' | head -1) || true
+fi
+if [ -z "$_detected_py_ver" ] && [ -f "$_detect_base/pyproject.toml" ]; then
+  _detected_py_ver=$(grep -E 'requires-python|python_requires' "$_detect_base/pyproject.toml" \
+    | head -1 | grep -oE '[0-9]+\.[0-9]+' | head -1) 2>/dev/null || true
+fi
+if [ -z "$_detected_py_ver" ] && [ -f "$_detect_base/runtime.txt" ]; then
+  _detected_py_ver=$(grep -oE '[0-9]+\.[0-9]+' "$_detect_base/runtime.txt" | head -1) 2>/dev/null || true
+fi
+if [ -z "$_detected_py_ver" ] && [ -f "$_detect_base/setup.cfg" ]; then
+  _detected_py_ver=$(grep -E 'python_requires' "$_detect_base/setup.cfg" \
+    | head -1 | grep -oE '[0-9]+\.[0-9]+' | head -1) 2>/dev/null || true
+fi
+if [ -z "$_detected_py_ver" ] && command -v python3 &>/dev/null; then
+  _detected_py_ver=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null) || true
+fi
+
+if [ -n "$_detected_py_ver" ]; then
+  echo "[INFO] Detected Python version: $_detected_py_ver"
+  EXTRA_ARGS="$EXTRA_ARGS -Dsonar.python.version=$_detected_py_ver"
+fi
+
 if [ -n "$PROPS_FILE" ]; then
   # Properties file found — cd to its directory so relative paths inside it resolve
   cd "$(dirname "$PROPS_FILE")"

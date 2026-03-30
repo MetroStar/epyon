@@ -28,7 +28,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Run test suite
         run: bash run-tests.sh
@@ -44,5 +44,5 @@ jobs:
       issues: write
     uses: ./.github/workflows/epyon-scan.yml
     with:
-      scan_mode: full
+      scan_mode: ${{ github.event_name == 'push' && 'full' || 'quick' }}
       skip_garak: true

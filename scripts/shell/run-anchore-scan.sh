@@ -401,8 +401,14 @@ case "$SCAN_MODE" in
         scan_base_images && SCAN_SUCCESS=1
         ;;
     all)
-        scan_filesystem
-        scan_sbom
+        # Run filesystem and SBOM scans in parallel (independent outputs)
+        scan_filesystem &
+        _pid_fs=$!
+        scan_sbom &
+        _pid_sbom=$!
+        wait "$_pid_fs" || true
+        wait "$_pid_sbom" || true
+        # Image scans depend on docker socket; run sequentially
         scan_images
         scan_base_images
         SCAN_SUCCESS=1

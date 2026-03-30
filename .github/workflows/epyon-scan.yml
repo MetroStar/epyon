@@ -848,27 +848,6 @@ jobs:
               labels.push('no-issues');
             }
 
-            // Dedup: skip if an open issue with the same severity label already exists
-            const dedupLabel = hasCritical ? 'critical'
-                             : hasHigh     ? 'high-severity'
-                             : hasMedium   ? 'medium-severity'
-                             : hasLow      ? 'low-severity'
-                             :               'no-issues';
-            const existingIssues = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              labels: `security-scan,epyon,${dedupLabel}`,
-              per_page: 1
-            });
-            if (existingIssues.data.length > 0) {
-              const existing = existingIssues.data[0];
-              console.log(`Open issue already exists (#${existing.number}): ${existing.html_url} — skipping creation`);
-              core.setOutput('issue_number', String(existing.number));
-              core.setOutput('issue_url', existing.html_url);
-              return;
-            }
-
             const summaryPath = 'epyon/${{ steps.run-scan.outputs.scan_dir }}/consolidated-reports/markdown-reports/executive-summary.md';
             let executiveSummary = '';
             if (fs.existsSync(summaryPath)) {
@@ -913,6 +892,34 @@ jobs:
             ---
             *🤖 Automated notification from Epyon Security Scanner*
             `;
+
+            // Dedup: if an open issue with the same severity label already exists, add a
+            // comment with the latest findings instead of creating a duplicate.
+            const dedupLabel = hasCritical ? 'critical'
+                             : hasHigh     ? 'high-severity'
+                             : hasMedium   ? 'medium-severity'
+                             : hasLow      ? 'low-severity'
+                             :               'no-issues';
+            const existingIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: `security-scan,epyon,${dedupLabel}`,
+              per_page: 1
+            });
+            if (existingIssues.data.length > 0) {
+              const existing = existingIssues.data[0];
+              console.log(`Open issue already exists (#${existing.number}): ${existing.html_url} — adding update comment`);
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: `### 🔄 New scan findings — ${new Date().toISOString().split('T')[0]}\n\n${issueBody}`
+              });
+              core.setOutput('issue_number', String(existing.number));
+              core.setOutput('issue_url', existing.html_url);
+              return;
+            }
 
             const issue = await github.rest.issues.create({
               owner: context.repo.owner,
@@ -1195,10 +1202,22 @@ jobs:
                 existing_url=$(jq -r '.issues[0].self' /tmp/jira_search.json)
                 local existing_key
                 existing_key=$(jq -r '.issues[0].key' /tmp/jira_search.json)
-                echo "⏭️  Open ticket already exists for ${label_severity} (${REPO_SLUG}): ${existing_key} — skipping"
-                echo "## ⏭️ JIRA: Existing open ticket found" >> "${GITHUB_STEP_SUMMARY}"
+                echo "🔄  Open ticket already exists for ${label_severity} (${REPO_SLUG}): ${existing_key} — adding update comment"
+                echo "## 🔄 JIRA: New findings comment added" >> "${GITHUB_STEP_SUMMARY}"
                 echo "- Severity group: **${label_severity}**" >> "${GITHUB_STEP_SUMMARY}"
                 echo "- Ticket: [${existing_key}](${JIRA_URL}/browse/${existing_key})" >> "${GITHUB_STEP_SUMMARY}"
+                local comment_payload
+                comment_payload=$(jq -n --arg body "New Epyon scan findings on $(date -u +%Y-%m-%d): ${summary_line}\n\nRun: ${RUN_URL}" \
+                  '{body: {version: 1, type: "doc", content: [{type: "paragraph", content: [{type: "text", text: $body}]}]}}')
+                curl -s -o /dev/null \
+                  -X POST \
+                  -H "Authorization: Basic ${AUTH}" \
+                  -H "Content-Type: application/json" \
+                  -H "Accept: application/json" \
+                  --data "${comment_payload}" \
+                  "${JIRA_URL}/rest/api/3/issue/${existing_key}/comment"
+                # Record so it appears in the Link step
+                echo "${existing_key}|${JIRA_URL}/browse/${existing_key}" >> /tmp/jira_created_tickets.txt
                 return 0
               fi
             else

@@ -909,12 +909,50 @@ jobs:
             });
             if (existingIssues.data.length > 0) {
               const existing = existingIssues.data[0];
-              console.log(`Open issue already exists (#${existing.number}): ${existing.html_url} — adding update comment`);
+              console.log(`Open issue already exists (#${existing.number}): ${existing.html_url}`);
+
+              // Parse counts from the most recent bot comment (or the issue body) so we
+              // only comment when the vulnerability counts have actually changed.
+              const countPattern = /Critical \|\s*(\d+)[\s\S]*?High \|\s*(\d+)[\s\S]*?Medium \|\s*(\d+)[\s\S]*?Low \|\s*(\d+)/;
+
+              let prevCritical = -1, prevHigh = -1, prevMedium = -1, prevLow = -1;
+
+              // Check the most recent bot comment first, then fall back to the issue body.
+              const comments = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                per_page: 100
+              });
+              const botComments = comments.data.filter(c => c.user.type === 'Bot').reverse();
+              const lastSource = botComments.length > 0 ? botComments[0].body : existing.body;
+              const match = lastSource && lastSource.match(countPattern);
+              if (match) {
+                prevCritical = parseInt(match[1]);
+                prevHigh     = parseInt(match[2]);
+                prevMedium   = parseInt(match[3]);
+                prevLow      = parseInt(match[4]);
+              }
+
+              const curCritical = parseInt(critical);
+              const curHigh     = parseInt(high);
+              const curMedium   = parseInt(medium);
+              const curLow      = parseInt(low);
+
+              if (curCritical === prevCritical && curHigh === prevHigh &&
+                  curMedium === prevMedium && curLow === prevLow) {
+                console.log(`Counts unchanged (C:${curCritical} H:${curHigh} M:${curMedium} L:${curLow}) — skipping comment`);
+                core.setOutput('issue_number', String(existing.number));
+                core.setOutput('issue_url', existing.html_url);
+                return;
+              }
+
+              console.log(`Counts changed — adding update comment (was C:${prevCritical} H:${prevHigh} M:${prevMedium} L:${prevLow}, now C:${curCritical} H:${curHigh} M:${curMedium} L:${curLow})`);
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: existing.number,
-                body: `### 🔄 New scan findings — ${new Date().toISOString().split('T')[0]}\n\n${issueBody}`
+                body: `### 🔄 Updated scan findings — ${new Date().toISOString().split('T')[0]}\n\n${issueBody}`
               });
               core.setOutput('issue_number', String(existing.number));
               core.setOutput('issue_url', existing.html_url);
@@ -1202,12 +1240,44 @@ jobs:
                 existing_url=$(jq -r '.issues[0].self' /tmp/jira_search.json)
                 local existing_key
                 existing_key=$(jq -r '.issues[0].key' /tmp/jira_search.json)
+
+                # Only comment if the finding count embedded in summary_line has changed.
+                # summary_line format: "Epyon found N <severity> severity finding(s) in REPO on DATE."
+                # Extract the count from summary_line and compare against the last bot comment.
+                local new_count
+                new_count=$(echo "${summary_line}" | grep -oP 'found \K\d+' || echo "")
+
+                local last_count=""
+                local comments_http
+                curl -s -o /tmp/jira_comments.json -w "%{http_code}" \
+                  -H "Authorization: Basic ${AUTH}" \
+                  -H "Accept: application/json" \
+                  "${JIRA_URL}/rest/api/3/issue/${existing_key}/comment?maxResults=50&orderBy=-created" \
+                  > /tmp/jira_comments_http.txt 2>/dev/null || true
+                comments_http=$(cat /tmp/jira_comments_http.txt 2>/dev/null || echo "")
+                if [[ "${comments_http}" == "200" ]] && [[ -f /tmp/jira_comments.json ]]; then
+                  last_count=$(jq -r '
+                    [ .comments[]? |
+                      select(.body.content[]?.content[]?.text? | strings | test("Epyon found")) ] |
+                    first |
+                    .body.content[]?.content[]?.text? |
+                    strings |
+                    capture("found (?P<n>[0-9]+)") |
+                    .n' /tmp/jira_comments.json 2>/dev/null || echo "")
+                fi
+
+                if [[ -n "${new_count}" && -n "${last_count}" && "${new_count}" == "${last_count}" ]]; then
+                  echo "⏭️  JIRA ticket ${existing_key}: count unchanged (${new_count}) — skipping comment"
+                  echo "${existing_key}|${JIRA_URL}/browse/${existing_key}" >> /tmp/jira_created_tickets.txt
+                  return 0
+                fi
+
                 echo "🔄  Open ticket already exists for ${label_severity} (${REPO_SLUG}): ${existing_key} — adding update comment"
-                echo "## 🔄 JIRA: New findings comment added" >> "${GITHUB_STEP_SUMMARY}"
+                echo "## 🔄 JIRA: Updated findings comment added" >> "${GITHUB_STEP_SUMMARY}"
                 echo "- Severity group: **${label_severity}**" >> "${GITHUB_STEP_SUMMARY}"
                 echo "- Ticket: [${existing_key}](${JIRA_URL}/browse/${existing_key})" >> "${GITHUB_STEP_SUMMARY}"
                 local comment_payload
-                comment_payload=$(jq -n --arg body "New Epyon scan findings on $(date -u +%Y-%m-%d): ${summary_line}\n\nRun: ${RUN_URL}" \
+                comment_payload=$(jq -n --arg body "Updated Epyon scan findings on $(date -u +%Y-%m-%d): ${summary_line}\n\nRun: ${RUN_URL}" \
                   '{body: {version: 1, type: "doc", content: [{type: "paragraph", content: [{type: "text", text: $body}]}]}}')
                 curl -s -o /dev/null \
                   -X POST \

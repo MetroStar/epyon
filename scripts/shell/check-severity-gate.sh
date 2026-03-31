@@ -96,21 +96,21 @@ if [[ -f "$FINDINGS_SUMMARY" ]]; then
     echo "  Critical: $TOTAL_CRITICAL | High: $TOTAL_HIGH | Medium: $TOTAL_MEDIUM | Low: $TOTAL_LOW"
     echo -e "${GREEN}✅ Using unique vulnerability counts (deduplicated)${NC}"
     
-    # NOTE: Deduplicated summary includes TruffleHog, Trivy, and Checkov.
-    # We still need to add Grype and ClamAV separately (not in dedup summary).
-    echo -e "${YELLOW}⚠️  Adding Grype and ClamAV results not included in deduplication${NC}"
+    # NOTE: Deduplicated summary includes TruffleHog, Trivy, Grype, and Checkov.
+    # Individual tool blocks below run for suppression logging but only add to totals
+    # when the dedup summary is absent (to avoid double-counting).
 else
     echo -e "${YELLOW}⚠️  Deduplicated summary not found, counting from individual tools (may include duplicates)${NC}"
 fi
 
-# Check Grype results (ALWAYS check since not included in deduplicated summary)
+# Check Grype results (always runs for suppression logging; counts only when no dedup summary)
 GRYPE_FILE=$(find "$SCAN_DIR/grype" -name "*grype*sbom*.json" 2>/dev/null | head -1)
 if [[ -f "$GRYPE_FILE" ]]; then
     # Check if Grype tool is ignored
     if declare -f is_tool_ignored >/dev/null 2>&1 && is_tool_ignored "grype"; then
         echo -e "${YELLOW}⚠️  Grype scans ignored by .epyon-ignore.yml${NC}"
     else
-        echo -e "${CYAN}📊 Checking Grype SBOM scan results...${NC}"
+        echo -e "${CYAN}📊 Checking Grype SBOM scan results (suppression logging)...${NC}"
         
         # Filter out ignored CVEs and packages
         GRYPE_CRITICAL=0
@@ -139,8 +139,8 @@ if [[ -f "$GRYPE_FILE" ]]; then
                 ignored=true
             fi
             
-            # Count if not ignored
-            if [[ "$ignored" == "false" ]]; then
+            # Only update counts when not using dedup summary (avoid double-counting)
+            if [[ "$ignored" == "false" ]] && [[ ! -f "$FINDINGS_SUMMARY" ]]; then
                 case "$severity" in
                     Critical) ((GRYPE_CRITICAL++)) ;;
                     High) ((GRYPE_HIGH++)) ;;
@@ -150,11 +150,15 @@ if [[ -f "$GRYPE_FILE" ]]; then
             fi
         done < <(jq -c '.matches[]?' "$GRYPE_FILE" 2>/dev/null)
         
-        echo "  Critical: $GRYPE_CRITICAL | High: $GRYPE_HIGH | Medium: $GRYPE_MEDIUM | Low: $GRYPE_LOW"
-        TOTAL_CRITICAL=$((TOTAL_CRITICAL + GRYPE_CRITICAL))
-        TOTAL_HIGH=$((TOTAL_HIGH + GRYPE_HIGH))
-        TOTAL_MEDIUM=$((TOTAL_MEDIUM + GRYPE_MEDIUM))
-        TOTAL_LOW=$((TOTAL_LOW + GRYPE_LOW))
+        if [[ ! -f "$FINDINGS_SUMMARY" ]]; then
+            echo "  Critical: $GRYPE_CRITICAL | High: $GRYPE_HIGH | Medium: $GRYPE_MEDIUM | Low: $GRYPE_LOW"
+            TOTAL_CRITICAL=$((TOTAL_CRITICAL + GRYPE_CRITICAL))
+            TOTAL_HIGH=$((TOTAL_HIGH + GRYPE_HIGH))
+            TOTAL_MEDIUM=$((TOTAL_MEDIUM + GRYPE_MEDIUM))
+            TOTAL_LOW=$((TOTAL_LOW + GRYPE_LOW))
+        else
+            echo -e "  ${CYAN}ℹ️  Grype counts from dedup summary; processed for suppression logging only${NC}"
+        fi
     fi
 else
     echo -e "${YELLOW}⚠️  Grype SBOM results not found in: $SCAN_DIR/grype/${NC}"

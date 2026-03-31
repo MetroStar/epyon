@@ -31,14 +31,6 @@ on:
           - full
           - nightly
           - baseline
-      epyon_branch:
-        description: 'Epyon branch to run against (main = production, test = staging)'
-        required: false
-        default: 'main'
-        type: choice
-        options:
-          - main
-          - test
       garak_target_type:
         description: 'Garak generator type (e.g. test, openai, huggingface)'
         required: false
@@ -60,7 +52,7 @@ env:
 
 jobs:
   security-scan-main:
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.epyon_branch == 'main' || github.event.inputs.epyon_branch == ''))
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     permissions:
       contents: read
       actions: read

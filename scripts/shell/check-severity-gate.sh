@@ -781,7 +781,9 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
                         if .detector then
                             "- **CRITICAL**: `\(.detector)` secret in `\(.file_path // "unknown"):\(.line_number // "?")` (\(.tool))"
                         else
-                            "- **CRITICAL**: `\(.vulnerability_id // .id // "unknown")` in \(.package_name // .package // "unknown")@\(.package_version // .version // "unknown") (\(.tool))"
+                            "- **CRITICAL**: `\(.vulnerability_id // .id // "unknown")` in \(.package_name // .package // "unknown")@\(.package_version // .version // "unknown")" +
+                            (if (.package_path // "") != "" then " @ `\(.package_path)`" else "" end) +
+                            " (\(.tool))"
                         end' "$FINDINGS_SUMMARY" 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
                 fi
                 
@@ -793,7 +795,9 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
                         if .detector then
                             "- **HIGH**: `\(.detector)` secret in `\(.file_path // "unknown"):\(.line_number // "?")` (\(.tool))"
                         else
-                            "- **HIGH**: `\(.vulnerability_id // .id // "unknown")` in \(.package_name // .package // "unknown")@\(.package_version // .version // "unknown") (\(.tool))"
+                            "- **HIGH**: `\(.vulnerability_id // .id // "unknown")` in \(.package_name // .package // "unknown")@\(.package_version // .version // "unknown")" +
+                            (if (.package_path // "") != "" then " @ `\(.package_path)`" else "" end) +
+                            " (\(.tool))"
                         end' "$FINDINGS_SUMMARY" 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
                 fi
                 

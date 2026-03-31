@@ -290,6 +290,8 @@ EOF
                         package_name: .artifact.name,
                         package_version: .artifact.version,
                         package_type: .artifact.type,
+                        package_path: ([.artifact.locations[]?.path] | join(", ")),
+                        purl: .artifact.purl,
                         description: .vulnerability.description,
                         cvss_score: (.vulnerability.cvss[0].metrics.baseScore // "N/A"),
                         fix_available: (if .vulnerability.fix.versions then "Yes" else "No" end),
@@ -315,6 +317,8 @@ EOF
                         package_name: .artifact.name,
                         package_version: .artifact.version,
                         package_type: .artifact.type,
+                        package_path: ([.artifact.locations[]?.path] | join(", ")),
+                        purl: .artifact.purl,
                         description: .vulnerability.description,
                         cvss_score: (.vulnerability.cvss[0].metrics.baseScore // "N/A"),
                         fix_available: (if .vulnerability.fix.versions then "Yes" else "No" end),
@@ -342,6 +346,9 @@ EOF
                         package_name: .artifact.name,
                         version: .artifact.version,
                         package_version: .artifact.version,
+                        package_type: .artifact.type,
+                        package_path: ([.artifact.locations[]?.path] | join(", ")),
+                        purl: .artifact.purl,
                         description: .vulnerability.description,
                         cvss_score: (.vulnerability.cvss[0].metrics.baseScore // "N/A"),
                         fix_available: (if .vulnerability.fix.versions then "Yes" else "No" end),
@@ -359,6 +366,9 @@ EOF
                         package_name: .artifact.name,
                         version: .artifact.version,
                         package_version: .artifact.version,
+                        package_type: .artifact.type,
+                        package_path: ([.artifact.locations[]?.path] | join(", ")),
+                        purl: .artifact.purl,
                         description: .vulnerability.description,
                         cvss_score: (.vulnerability.cvss[0].metrics.baseScore // "N/A"),
                         fix_available: (if .vulnerability.fix.versions then "Yes" else "No" end),
@@ -395,7 +405,7 @@ EOF
                 
                 # Extract Trivy findings
                 local critical_vulns=$(jq -r --arg tool "Trivy-$scan_type" '
-                    [.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL") | {
+                    [.Results[] as $r | $r.Vulnerabilities[]? | select(.Severity == "CRITICAL") | {
                         tool: $tool,
                         type: "vulnerability",
                         severity: .Severity,
@@ -405,6 +415,7 @@ EOF
                         package_name: .PkgName,
                         version: .InstalledVersion,
                         package_version: .InstalledVersion,
+                        package_path: ($r.Target // ""),
                         description: .Description,
                         cvss_score: (.CVSS.nvd.V3Score // "N/A"),
                         fix_available: (if .FixedVersion and .FixedVersion != "" then "Yes" else "No" end),
@@ -412,7 +423,7 @@ EOF
                     }]' "$trivy_file" 2>/dev/null || echo "[]")
                 
                 local high_vulns=$(jq -r --arg tool "Trivy-$scan_type" '
-                    [.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH") | {
+                    [.Results[] as $r | $r.Vulnerabilities[]? | select(.Severity == "HIGH") | {
                         tool: $tool,
                         type: "vulnerability",
                         severity: .Severity,
@@ -422,6 +433,7 @@ EOF
                         package_name: .PkgName,
                         version: .InstalledVersion,
                         package_version: .InstalledVersion,
+                        package_path: ($r.Target // ""),
                         description: .Description,
                         cvss_score: (.CVSS.nvd.V3Score // "N/A"),
                         fix_available: (if .FixedVersion and .FixedVersion != "" then "Yes" else "No" end),
@@ -429,7 +441,7 @@ EOF
                     }]' "$trivy_file" 2>/dev/null || echo "[]")
                 
                 local medium_vulns=$(jq -r --arg tool "Trivy-$scan_type" '
-                    [.Results[]?.Vulnerabilities[]? | select(.Severity == "MEDIUM") | {
+                    [.Results[] as $r | $r.Vulnerabilities[]? | select(.Severity == "MEDIUM") | {
                         tool: $tool,
                         type: "vulnerability",
                         severity: .Severity,
@@ -439,6 +451,7 @@ EOF
                         package_name: .PkgName,
                         version: .InstalledVersion,
                         package_version: .InstalledVersion,
+                        package_path: ($r.Target // ""),
                         description: .Description,
                         cvss_score: (.CVSS.nvd.V3Score // "N/A"),
                         fix_available: (if .FixedVersion and .FixedVersion != "" then "Yes" else "No" end),
@@ -446,7 +459,7 @@ EOF
                     }]' "$trivy_file" 2>/dev/null || echo "[]")
                 
                 local low_vulns=$(jq -r --arg tool "Trivy-$scan_type" '
-                    [.Results[]?.Vulnerabilities[]? | select(.Severity == "LOW") | {
+                    [.Results[] as $r | $r.Vulnerabilities[]? | select(.Severity == "LOW") | {
                         tool: $tool,
                         type: "vulnerability",
                         severity: .Severity,
@@ -456,6 +469,7 @@ EOF
                         package_name: .PkgName,
                         version: .InstalledVersion,
                         package_version: .InstalledVersion,
+                        package_path: ($r.Target // ""),
                         description: .Description,
                         cvss_score: (.CVSS.nvd.V3Score // "N/A"),
                         fix_available: (if .FixedVersion and .FixedVersion != "" then "Yes" else "No" end),

@@ -252,9 +252,24 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
             relative_path="${yaml_file#${TARGET_SCAN_DIR}/}"
             if ! python3 - "$yaml_file" <<'PYEOF' 2>/dev/null
 import sys, yaml
+
+# Register a no-op constructor for every unknown tag (e.g. CloudFormation !Ref, !Sub, !If)
+# so that YAML structural errors are caught without false-positives on custom tags.
+class _IgnoreUnknownTags(yaml.SafeLoader):
+    pass
+
+def _ignore_tag(loader, tag_suffix, node):
+    if isinstance(node, yaml.ScalarNode):
+        return loader.construct_scalar(node)
+    elif isinstance(node, yaml.SequenceNode):
+        return loader.construct_sequence(node)
+    return loader.construct_mapping(node)
+
+_IgnoreUnknownTags.add_multi_constructor('', _ignore_tag)
+
 try:
     with open(sys.argv[1], 'r', errors='replace') as f:
-        yaml.safe_load(f)
+        list(yaml.load_all(f, Loader=_IgnoreUnknownTags))
 except yaml.YAMLError:
     sys.exit(1)
 PYEOF

@@ -290,6 +290,8 @@ scan_images() {
     fi
 
     # Attempt to build images defined in each compose file
+    # BUILD_TIMEOUT controls max seconds per compose build (default 300 = 5 min)
+    local build_timeout="${ANCHORE_BUILD_TIMEOUT:-300}"
     while IFS= read -r compose_file; do
         local compose_dir
         compose_dir="$(dirname "$compose_file")"
@@ -299,11 +301,18 @@ scan_images() {
         else
             compose_cmd="docker-compose"
         fi
-        log "ℹ Building images from: $compose_file"
-        if (cd "$compose_dir" && $compose_cmd -f "$compose_file" build) >> "$LOG_FILE" 2>&1; then
+        log "ℹ Building images from: $compose_file (timeout: ${build_timeout}s)"
+        # --pull=false avoids re-downloading base layers that are already cached;
+        # --no-cache would be slower. timeout kills hung builds cleanly.
+        if (cd "$compose_dir" && timeout "$build_timeout" $compose_cmd -f "$compose_file" build --pull=false) >> "$LOG_FILE" 2>&1; then
             log "  ✅ Build succeeded: $compose_file"
         else
-            log "  ⚠️  Build failed (will attempt registry pull): $compose_file"
+            local exit_code=$?
+            if [ $exit_code -eq 124 ]; then
+                log "  ⚠️  Build timed out after ${build_timeout}s (will attempt registry pull): $compose_file"
+            else
+                log "  ⚠️  Build failed (will attempt registry pull): $compose_file"
+            fi
         fi
     done <<< "$COMPOSE_FILES"
 

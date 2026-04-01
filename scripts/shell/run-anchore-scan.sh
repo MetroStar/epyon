@@ -331,9 +331,11 @@ scan_images() {
     local scan_count=0
     for image in "${IMAGES[@]}"; do
         log "ℹ Scanning image: $image"
-        
-        # Check if image exists locally; pull if not
+
+        # Track whether we pulled/built this image so we can clean it up after
+        local _image_was_local=true
         if ! docker image inspect "$image" > /dev/null 2>&1; then
+            _image_was_local=false
             log "  ℹ Image not found locally, attempting to pull: $image"
             if docker pull "$image" >> "$LOG_FILE" 2>&1; then
                 log "  ✅ Image pulled successfully: $image"
@@ -343,10 +345,10 @@ scan_images() {
                 continue
             fi
         fi
-        
+
         IMAGE_SAFE_NAME=$(echo "$image" | tr '/:' '_')
         IMAGE_RESULT="$IMAGE_RESULTS_DIR/${IMAGE_SAFE_NAME}.json"
-        
+
         docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v "$OUTPUT_DIR:/output" \
@@ -355,7 +357,7 @@ scan_images() {
             -o json \
             --file "/output/images/${IMAGE_SAFE_NAME}.json" \
             >> "$LOG_FILE" 2>&1
-        
+
         if [ $? -eq 0 ] && [ -f "$IMAGE_RESULT" ]; then
             VULN_COUNT=$(jq -r '.matches | length' "$IMAGE_RESULT" 2>/dev/null || echo "0")
             log "  ✅ Scan complete: $VULN_COUNT vulnerabilities"
@@ -363,6 +365,10 @@ scan_images() {
         else
             log "  ⚠️  Scan failed for $image"
         fi
+
+        # Remove image immediately after scan to free disk space
+        log "  🧹 Removing image to free disk space: $image"
+        docker rmi "$image" >> "$LOG_FILE" 2>&1 || log "  ⚠️  Could not remove image (may be in use): $image"
     done
     
     if [ $scan_count -gt 0 ]; then
@@ -401,7 +407,7 @@ scan_base_images() {
     fi
 
     BASE_IMAGE_RESULT="$IMAGE_RESULTS_DIR/baseline-$(echo "$PRIMARY_BASELINE_IMAGE" | tr '/:' '_').json"
-    
+
     docker run --rm \
         -v /var/run/docker.sock:/var/run/docker.sock \
         -v "$OUTPUT_DIR:/output" \
@@ -410,8 +416,13 @@ scan_base_images() {
         -o json \
         --file "/output/images/baseline-$(echo "$PRIMARY_BASELINE_IMAGE" | tr '/:' '_').json" \
         >> "$LOG_FILE" 2>&1
-    
-    if [ $? -eq 0 ] && [ -f "$BASE_IMAGE_RESULT" ]; then
+    local _base_scan_exit=$?
+
+    # Remove baseline image after scan to free disk space
+    log "🧹 Removing baseline image to free disk space: $PRIMARY_BASELINE_IMAGE"
+    docker rmi "$PRIMARY_BASELINE_IMAGE" >> "$LOG_FILE" 2>&1 || log "⚠️  Could not remove baseline image (may be in use): $PRIMARY_BASELINE_IMAGE"
+
+    if [ $_base_scan_exit -eq 0 ] && [ -f "$BASE_IMAGE_RESULT" ]; then
         VULN_COUNT=$(jq -r '.matches | length' "$BASE_IMAGE_RESULT" 2>/dev/null || echo "0")
         log "✅ Baseline image scan complete: $VULN_COUNT vulnerabilities"
         return 0

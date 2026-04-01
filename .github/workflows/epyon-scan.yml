@@ -323,6 +323,28 @@ jobs:
             sed -i -E "s|<source>[^<]+</source>|<source>${CHECKOUT_DIR}</source>|g" target-repo/coverage.xml
           fi
 
+      - name: Free Disk Space
+        run: |
+          echo "📊 Disk usage before cleanup:"
+          df -h /
+          # Remove large pre-installed toolchains not needed for security scanning
+          sudo rm -rf /usr/local/lib/android \
+                      /usr/local/share/boost \
+                      /usr/share/dotnet \
+                      /opt/ghc \
+                      /opt/hostedtoolcache/CodeQL \
+                      /usr/local/.ghcup \
+                      /usr/lib/jvm \
+                      /usr/share/swift \
+                      /usr/local/share/chromium \
+                      /usr/local/share/powershell \
+                      /usr/local/lib/node_modules \
+                      /var/lib/snapd 2>/dev/null || true
+          sudo apt-get clean
+          docker image prune -af --filter "until=1h" 2>/dev/null || true
+          echo "📊 Disk usage after cleanup:"
+          df -h /
+
       - name: Set up Docker
         uses: docker/setup-buildx-action@v3
 
@@ -336,15 +358,20 @@ jobs:
 
       - name: Pull Security Tool Images
         run: |
-          docker pull anchore/grype:latest &
-          docker pull ghcr.io/aquasecurity/trivy:latest &
-          docker pull dhi.io/trufflehog:3 &
-          docker pull anchore/syft:latest &
-          docker pull clamav/clamav:latest &
-          docker pull bridgecrew/checkov:latest &
-          docker pull noqcks/xeol:latest &
-          wait
-          echo "All security tool images cached"
+          # Pull images sequentially to avoid racing for disk space.
+          # dhi.io images require authentication — skip if not available.
+          for image in \
+            anchore/grype:latest \
+            ghcr.io/aquasecurity/trivy:latest \
+            trufflesecurity/trufflehog:latest \
+            anchore/syft:latest \
+            clamav/clamav:latest \
+            bridgecrew/checkov:latest \
+            noqcks/xeol:latest; do
+            echo "⏬ Pulling $image..."
+            docker pull "$image" || echo "⚠️  Failed to pull $image — will be pulled on demand or skipped"
+          done
+          echo "✅ Security tool images ready"
 
       - name: Install Dependencies
         run: |

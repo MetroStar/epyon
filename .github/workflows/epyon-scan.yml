@@ -358,6 +358,7 @@ jobs:
 
       - name: Pull Security Tool Images
         run: |
+          mkdir -p /tmp/.buildx-cache
           # Pull images sequentially to avoid racing for disk space.
           # dhi.io images require authentication — skip if not available.
           for image in \
@@ -436,8 +437,7 @@ jobs:
           if [[ "${RUN_GARAK}" == "false" ]]; then echo "SKIP_GARAK=true"  >> "$GITHUB_ENV"; fi
 
           TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
-          USERNAME="${GITHUB_ACTOR}"
-          SCAN_NAME="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
+          SCAN_NAME="${TARGET_NAME}_${TIMESTAMP}"
           SCAN_DIR="scans/${SCAN_NAME}"
           mkdir -p "$SCAN_DIR"
           echo "SCAN_DIR=$PWD/$SCAN_DIR" >> /tmp/epyon-env
@@ -574,7 +574,9 @@ jobs:
             sudo chown -R runner:docker "$SCAN_DIR" || true
             sudo chmod -R a+r "$SCAN_DIR" || true
             sudo find "$SCAN_DIR" -type d -exec chmod a+rx {} \; || true
-            ls -la "$SCAN_DIR/clamav/" || true
+            if [ -d "$SCAN_DIR/clamav" ]; then
+              ls -la "$SCAN_DIR/clamav/"
+            fi
           fi
 
       - name: Generate Summary

@@ -9,7 +9,7 @@ import sys
 import os
 from pathlib import Path
 
-def extract_fastapi_endpoints(file_path):
+def extract_fastapi_endpoints(file_path, annotated_registry=None):
     """Extract FastAPI endpoints from a Python file."""
     endpoints = []
     
@@ -60,7 +60,8 @@ def extract_fastapi_endpoints(file_path):
                             k += 1
 
                     # Extract authentication requirements from both decorator and function signature
-                    auth = extract_auth_info(decorator_text, func_sig_text, '\n'.join(lines), i)
+                    auth = extract_auth_info(decorator_text, func_sig_text, '\n'.join(lines), i,
+                                            annotated_registry or {})
                     
                     # Extract endpoint name/description
                     name = extract_endpoint_name(decorator_text, function_name)
@@ -88,7 +89,7 @@ def extract_fastapi_endpoints(file_path):
     
     return endpoints
 
-def extract_auth_info(decorator_params, func_sig, content, position):
+def extract_auth_info(decorator_params, func_sig, content, position, annotated_registry=None):
     """Extract authentication information from decorator parameters and function signature."""
     auth_types = []
 
@@ -131,6 +132,12 @@ def extract_auth_info(decorator_params, func_sig, content, position):
         scheme = match.group(1)
         if not any(scheme in a for a in auth_types):
             auth_types.append(scheme)
+
+    # --- Annotated type alias resolution (e.g. current_user: AdminUser) ---
+    if annotated_registry:
+        for resolved in resolve_annotated_auth(func_sig, annotated_registry):
+            if resolved not in auth_types:
+                auth_types.append(resolved)
 
     # Deduplicate while preserving order
     seen = set()
@@ -282,28 +289,80 @@ def extract_django_patterns(file_path):
     
     return endpoints
 
-def scan_directory(target_dir):
+def build_annotated_registry(target_path):
+    """
+    Scan all Python files and build a registry mapping type-alias names
+    that are defined as  Annotated[..., Depends(...)]  to their Depends() argument.
+    Example: AdminUser = Annotated[dict, Depends(require_admin_role)]
+             -> {'AdminUser': 'require_admin_role'}
+    """
+    registry = {}
+    alias_pattern = re.compile(
+        r'^([A-Z][A-Za-z0-9_]*)\s*=\s*Annotated\s*\[.*?Depends\s*\(([^)]+)\)',
+        re.MULTILINE
+    )
+    for py_file in target_path.rglob('*.py'):
+        if any(p in str(py_file) for p in ['venv', '.venv', 'env', 'site-packages', '__pycache__']):
+            continue
+        try:
+            content = py_file.read_text(encoding='utf-8', errors='ignore')
+            for m in alias_pattern.finditer(content):
+                alias_name = m.group(1).strip()
+                dep_func   = m.group(2).strip()
+                registry[alias_name] = dep_func
+        except Exception:
+            pass
+    return registry
+
+
+def resolve_annotated_auth(func_sig, registry):
+    """
+    Given a function signature string and the Annotated registry, return any
+    auth dependencies found by resolving type aliases like  current_user: AdminUser.
+    """
+    if not registry:
+        return []
+    auth_types = []
+    # Match   param_name: TypeName   or   param_name: TypeName =
+    param_pattern = re.compile(r'\b(\w+)\s*:\s*([A-Z][A-Za-z0-9_]*)')
+    for m in param_pattern.finditer(func_sig):
+        type_name = m.group(2)
+        if type_name in registry:
+            dep = registry[type_name]
+            label = f'{type_name} → Depends({dep})'
+            if label not in auth_types:
+                auth_types.append(label)
+    return auth_types
+
+
+def scan_directory(target_dir, annotated_registry=None):
     """Scan directory for Python API files."""
     all_endpoints = []
-    
     target_path = Path(target_dir)
-    
+
+    # Build Annotated alias registry once for the whole tree
+    if annotated_registry is None:
+        annotated_registry = build_annotated_registry(target_path)
+        if annotated_registry:
+            import sys as _sys
+            print(f'  Annotated auth aliases found: {list(annotated_registry.keys())}', file=_sys.stderr)
+
     # Find all Python files
     for py_file in target_path.rglob('*.py'):
         # Skip virtual environments and build directories
         if any(part in str(py_file) for part in ['venv', '.venv', 'env', 'site-packages', '__pycache__', '.tox', 'build', 'dist']):
             continue
-        
+
         # Extract FastAPI endpoints
-        all_endpoints.extend(extract_fastapi_endpoints(py_file))
-        
+        all_endpoints.extend(extract_fastapi_endpoints(py_file, annotated_registry))
+
         # Extract Flask routes
         all_endpoints.extend(extract_flask_routes(py_file))
-        
+
         # Extract Django patterns (only from urls.py files)
         if py_file.name == 'urls.py':
             all_endpoints.extend(extract_django_patterns(py_file))
-    
+
     return all_endpoints
 
 def main():

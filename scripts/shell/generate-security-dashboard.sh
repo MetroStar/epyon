@@ -1670,6 +1670,7 @@ ANCHORE_LOW=0
 ANCHORE_FINDINGS=""
 ANCHORE_DETAILS=""
 ANCHORE_STATUS="Not Run"
+ANCHORE_CONTAINERS=()   # unique container/source labels for filter chips
 
 # Track seen vulnerabilities for deduplication (simple string approach)
 ANCHORE_SEEN_VULNS=""
@@ -1686,20 +1687,37 @@ if [ -d "$ANCHORE_DIR" ]; then
     # Process filesystem results first, then images (skip SBOM as it duplicates filesystem)
     for anchore_file in "$ANCHORE_DIR"/anchore-filesystem-results.json "$ANCHORE_DIR"/images/*.json; do
         if [ -f "$anchore_file" ] && [ ! -L "$anchore_file" ]; then
+
+            # Determine source label: prefer the image name embedded in the JSON (.source),
+            # fall back to deriving it from the filename for image results.
+            local _source_label="Filesystem"
+            local _source_type="app"
+            if [[ "$anchore_file" == *"/images/"* ]]; then
+                _source_type="image"
+                # Grype stores the scanned image in .source.target.userInput or .source.target.repoDigests
+                _source_label=$(jq -r '
+                    .source.target.userInput //
+                    (.source.target.repoDigests // [] | first) //
+                    (.source.target.tags // [] | first) //
+                    ""
+                ' "$anchore_file" 2>/dev/null)
+                # Fall back to filename-derived label if JSON field is empty
+                if [ -z "$_source_label" ]; then
+                    _source_label=$(basename "$anchore_file" .json | sed 's/^baseline-//')
+                fi
+            fi
+
             # Extract vulnerabilities and count by severity
-            while IFS=$'\t' read -r vuln_id severity package version cve_url; do
+            while IFS=$'\t' read -r vuln_id severity package version fixed_ver cve_url; do
                 if [ -n "$vuln_id" ]; then
-                    # Create unique key for deduplication
-                    VULN_KEY="${vuln_id}|${package}|${version}"
-                    
-                    # Skip if we've already seen this vulnerability (check if key exists in string)
+                    # Dedup key includes source so the same CVE in two containers shows separately
+                    VULN_KEY="${vuln_id}|${package}|${version}|${_source_label}"
+
                     if [[ "$ANCHORE_SEEN_VULNS" == *"|${VULN_KEY}|"* ]]; then
                         continue
                     fi
-                    
-                    # Mark as seen by adding to string with delimiters
                     ANCHORE_SEEN_VULNS="${ANCHORE_SEEN_VULNS}|${VULN_KEY}|"
-                    
+
                     ((ANCHORE_TOTAL_VULNS++)) || true
                     case "$severity" in
                         Critical) ((ANCHORE_CRITICAL++)) || true ;;
@@ -1707,63 +1725,101 @@ if [ -d "$ANCHORE_DIR" ]; then
                         Medium) ((ANCHORE_MEDIUM++)) || true ;;
                         Low) ((ANCHORE_LOW++)) || true ;;
                     esac
-                    
+
                     # Escape special characters for HTML
                     package_escaped=$(echo "$package" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
                     version_escaped=$(echo "$version" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
-                    
-                    # Determine badge class
+                    fixed_escaped=$(echo "$fixed_ver" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
+                    source_escaped=$(echo "$_source_label" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
+
                     badge_class="badge-high"
                     case "$severity" in
                         Critical) badge_class="badge-critical" ;;
                         Medium) badge_class="badge-medium" ;;
                         Low) badge_class="badge-low" ;;
                     esac
-                    
-                    # Determine source (filesystem or image)
-                    source_type="app"
-                    source_badge="💻 App Code"
-                    if [[ "$anchore_file" == *"/images/"* ]]; then
-                        source_type="image"
-                        source_badge="🐳 Container Image"
+
+                    if [ "$_source_type" = "image" ]; then
+                        source_badge_html="<span class=\"badge\" style=\"background:#1a2a3a;color:#60a5fa;border:1px solid #3b82f6;font-size:0.7em;\">🐳 ${source_escaped}</span>"
+                    else
+                        source_badge_html="<span class=\"badge\" style=\"background:#152a1f;color:#4ade80;border:1px solid #10b981;font-size:0.7em;\">💻 Filesystem</span>"
                     fi
-                    
+
+                    local _fixed_html=""
+                    if [ -n "$fixed_escaped" ] && [ "$fixed_escaped" != "none" ] && [ "$fixed_escaped" != "null" ]; then
+                        _fixed_html="<div><strong>Fixed Version:</strong> <code style=\"color:#68d391;\">$fixed_escaped</code></div>"
+                    else
+                        _fixed_html="<div><strong>Fixed Version:</strong> <span style=\"color:#fc8181;\">No fix available</span></div>"
+                    fi
+
+                    # Track unique container labels for the filter chips
+                    local _already_tracked=false
+                    for _c in "${ANCHORE_CONTAINERS[@]:-}"; do
+                        [[ "$_c" == "$source_escaped" ]] && _already_tracked=true && break
+                    done
+                    $_already_tracked || ANCHORE_CONTAINERS+=("$source_escaped")
+
                     ANCHORE_DETAILS="${ANCHORE_DETAILS}
-<div class=\"finding-item severity-$(echo "$severity" | tr '[:upper:]' '[:lower:]')\" data-source=\"${source_type}\" onclick=\"toggleFindingDetails(this)\">
+<div class=\"finding-item severity-$(echo "$severity" | tr '[:upper:]' '[:lower:]')\" data-source=\"${_source_type}\" data-container=\"${source_escaped}\" onclick=\"toggleFindingDetails(this)\">
     <div class=\"finding-header\">
         <span class=\"badge badge-tool\">Anchore</span>
         <span class=\"badge ${badge_class}\">${severity}</span>
         <span class=\"badge\" style=\"background:#2C3539;color:#9ca3af;border:1px solid #4a5568;\">${vuln_id}</span>
-        <span class=\"badge\" style=\"background:#152a1f;color:#4ade80;font-size:0.7em;border:1px solid #10b981;\">${source_badge}</span>
+        ${source_badge_html}
     </div>
     <div class=\"finding-title\">${package_escaped} ${version_escaped}</div>
-    <div class=\"finding-desc\">${vuln_id} in package ${package_escaped}</div>
+    <div class=\"finding-desc\">${vuln_id} in package ${package_escaped} (${source_escaped})</div>
     <div class=\"finding-details\" style=\"display:none;\">
-        <div><strong>Vulnerability ID:</strong> <code>${vuln_id}</code></div>
-        <div><strong>Package:</strong> ${package_escaped}</div>
-        <div><strong>Version:</strong> ${version_escaped}</div>
+        <div class=\"detail-section\"><h5>Vulnerability Info</h5>
+        <div><strong>Vulnerability ID:</strong> <code>${vuln_id}</code> <a href=\"${cve_url}\" target=\"_blank\" style=\"color:#C41E3A;\">NVD</a></div>
         <div><strong>Severity:</strong> ${severity}</div>
-        <div><strong>Source:</strong> ${source_badge}</div>
-        <div><strong>CVE Details:</strong> <a href=\"${cve_url}\" target=\"_blank\">${cve_url}</a></div>
+        </div>
+        <div class=\"detail-section\"><h5>Package Info</h5>
+        <div><strong>Package:</strong> <code>${package_escaped}</code></div>
+        <div><strong>Installed Version:</strong> <code>${version_escaped}</code></div>
+        ${_fixed_html}
+        <div><strong>Source:</strong> ${source_badge_html}</div>
+        </div>
     </div>
 </div>"
                 fi
-            done < <(jq -r '.matches[]? | [.vulnerability.id, .vulnerability.severity, .artifact.name, .artifact.version, ("https://nvd.nist.gov/vuln/detail/" + .vulnerability.id)] | @tsv' "$anchore_file" 2>/dev/null)
+            done < <(jq -r '.matches[]? | [
+                .vulnerability.id,
+                .vulnerability.severity,
+                .artifact.name,
+                .artifact.version,
+                (.vulnerability.fix.versions[0] // "none"),
+                ("https://nvd.nist.gov/vuln/detail/" + .vulnerability.id)
+            ] | @tsv' "$anchore_file" 2>/dev/null)
         fi
     done
     
     # Generate summary
     if [ "$ANCHORE_TOTAL_VULNS" -gt 0 ]; then
+        # Build container filter chips dynamically from collected labels
+        ANCHORE_CONTAINER_CHIPS="<button class=\"filter-chip filter-chip-all active\" onclick=\"filterAnchoreByContainer('all', this)\">All (${ANCHORE_TOTAL_VULNS})</button>"
+        for _cname in "${ANCHORE_CONTAINERS[@]:-}"; do
+            ANCHORE_CONTAINER_CHIPS="${ANCHORE_CONTAINER_CHIPS}<button class=\"filter-chip\" onclick=\"filterAnchoreByContainer('${_cname}', this)\">${_cname}</button>"
+        done
+
         ANCHORE_FINDINGS="<div class=\"severity-breakdown\">
             <span class=\"severity-item\" style=\"color:#C41E3A;\">⚫ Critical: ${ANCHORE_CRITICAL}</span>
             <span class=\"severity-item\" style=\"color:#FF1493;\">⚫ High: ${ANCHORE_HIGH}</span>
             <span class=\"severity-item\" style=\"color:#f97316;\">⚫ Medium: ${ANCHORE_MEDIUM}</span>
             <span class=\"severity-item\" style=\"color:#4ade80;\">⚫ Low: ${ANCHORE_LOW}</span>
         </div>"
+
+        ANCHORE_FINDINGS="${ANCHORE_FINDINGS}<div class=\"anchore-controls\" style=\"margin:15px 0;\">
+            <div style=\"display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;\">
+                <span style=\"font-weight:600;color:#4a5568;\">Filter by Container:</span>
+                ${ANCHORE_CONTAINER_CHIPS}
+            </div>
+            <input type=\"text\" id=\"anchore-search\" placeholder=\"🔍 Search by CVE, package, or container...\" onkeyup=\"filterAnchoreBySearch(this.value)\" style=\"width:100%;padding:10px 15px;border:2px solid #e2e8f0;border-radius:8px;font-size:0.95em;\">
+        </div>"
         
         ANCHORE_FINDINGS="${ANCHORE_FINDINGS}<div class=\"findings-section\" style=\"margin-top: 15px;\">
             <h4 style=\"color: #dd6b20; margin-bottom: 10px;\">❗ Vulnerabilities Found (${ANCHORE_TOTAL_VULNS})</h4>
-            <p style=\"color:#718096;margin-bottom:15px;font-size:0.9em;\">👆 Click on any finding below to expand details</p>
+            <p style=\"color:#718096;margin-bottom:15px;font-size:0.9em;\">👆 Click any finding to expand details</p>
             ${ANCHORE_DETAILS}
         </div>"
     else
@@ -6174,6 +6230,47 @@ cat >> "$OUTPUT_HTML" << EOF
         // Trivy-specific filters
         let currentTrivyStatusFilter = 'all';
         let currentTrivySearchTerm = '';
+
+        let currentAnchorContainerFilter = 'all';
+        let currentAnchoreSearchTerm = '';
+
+        function filterAnchoreByContainer(container, btn) {
+            currentAnchorContainerFilter = container;
+            const anchoreContent = document.getElementById('anchore-content');
+            if (anchoreContent) {
+                anchoreContent.querySelectorAll('.anchore-controls .filter-chip').forEach(b => b.classList.remove('active'));
+            }
+            if (btn) btn.classList.add('active');
+            applyAnchoreFilters();
+        }
+
+        function filterAnchoreBySearch(searchTerm) {
+            currentAnchoreSearchTerm = searchTerm.toLowerCase().trim();
+            applyAnchoreFilters();
+        }
+
+        function applyAnchoreFilters() {
+            const anchoreContent = document.getElementById('anchore-content');
+            if (!anchoreContent) return;
+            const findings = anchoreContent.querySelectorAll('.finding-item');
+            findings.forEach(finding => {
+                const container = (finding.dataset.container || '').toLowerCase();
+                const cve = (finding.dataset.cve || finding.querySelector('.finding-header .badge:nth-child(3)')?.textContent || '').toLowerCase();
+                const text = (finding.textContent || '').toLowerCase();
+
+                const matchContainer = currentAnchorContainerFilter === 'all' ||
+                    container === currentAnchorContainerFilter.toLowerCase();
+                const matchSearch = !currentAnchoreSearchTerm ||
+                    cve.includes(currentAnchoreSearchTerm) ||
+                    text.includes(currentAnchoreSearchTerm);
+
+                if (matchContainer && matchSearch) {
+                    finding.classList.remove('filtered-out');
+                } else {
+                    finding.classList.add('filtered-out');
+                }
+            });
+        }
         
         function filterTrivyByStatus(status) {
             currentTrivyStatusFilter = status;

@@ -239,10 +239,9 @@ if [ "$SCAN_MODE" != "filesystem" ]; then
         BASE_IMAGES=("${APPROVED_BASE_IMAGES[@]}")
         echo "📋 Using ${#BASE_IMAGES[@]} approved base images"
     else
-        # Fallback to Docker Hardened Image
-        BASE_IMAGES=(
-            "dhi/caddy:debian-13-2-fips-dev@sha256:ba86d16733750c6fd7b8866981016d2479e234c842d77413f1bf41c4404e555c"
-        )
+        echo -e "${YELLOW}ℹ️  No base images configured — skipping container scan${NC}"
+        echo "   Set PRIMARY_BASELINE_IMAGE or configure approved-base-images.conf to enable"
+        BASE_IMAGES=()
     fi
 
     for image in "${BASE_IMAGES[@]}"; do

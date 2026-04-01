@@ -1692,6 +1692,12 @@ if [ -d "$ANCHORE_DIR" ]; then
             # fall back to deriving it from the filename for image results.
             _source_label="Filesystem"
             _source_type="app"
+            _distro_name=""
+            _distro_ver=""
+            _image_size_mb=""
+            _image_digest_short=""
+            _image_tags_str=""
+            _image_layer_count=""
             if [[ "$anchore_file" == *"/images/"* ]]; then
                 _source_type="image"
                 # Grype stores the scanned image in .source.target.userInput or .source.target.repoDigests
@@ -1705,11 +1711,47 @@ if [ -d "$ANCHORE_DIR" ]; then
                 if [ -z "$_source_label" ]; then
                     _source_label=$(basename "$anchore_file" .json | sed 's/^baseline-//')
                 fi
+
+                # Per-image metadata (top-level, displayed as a section header)
+                _distro_name=$(jq -r '.distro.name // ""' "$anchore_file" 2>/dev/null)
+                _distro_ver=$(jq -r '.distro.version // ""' "$anchore_file" 2>/dev/null)
+                _raw_size=$(jq -r '.source.target.imageSize // ""' "$anchore_file" 2>/dev/null)
+                if [ -n "$_raw_size" ] && [ "$_raw_size" != "null" ]; then
+                    _image_size_mb=$(awk "BEGIN {printf \"%.1f\", ${_raw_size}/1048576}")
+                fi
+                _image_digest_full=$(jq -r '.source.target.manifestDigest // ""' "$anchore_file" 2>/dev/null)
+                [ -n "$_image_digest_full" ] && _image_digest_short="${_image_digest_full:0:19}..."
+                _image_tags_str=$(jq -r '(.source.target.tags // []) | join(", ")' "$anchore_file" 2>/dev/null)
+                _image_layer_count=$(jq -r '(.source.target.layers // []) | length | tostring' "$anchore_file" 2>/dev/null)
+
+                # Build image metadata header div
+                _meta_parts=""
+                [ -n "$_distro_name" ] && _meta_parts="${_meta_parts}<span style=\"margin-right:12px;\">🐧 <strong>OS:</strong> ${_distro_name} ${_distro_ver}</span>"
+                [ -n "$_image_size_mb" ] && _meta_parts="${_meta_parts}<span style=\"margin-right:12px;\">📦 <strong>Size:</strong> ${_image_size_mb} MB</span>"
+                [ -n "$_image_layer_count" ] && [ "$_image_layer_count" != "0" ] && _meta_parts="${_meta_parts}<span style=\"margin-right:12px;\">🔢 <strong>Layers:</strong> ${_image_layer_count}</span>"
+                [ -n "$_image_digest_short" ] && _meta_parts="${_meta_parts}<span style=\"margin-right:12px;\">🔑 <strong>Digest:</strong> <code style=\"font-size:0.8em;\">${_image_digest_short}</code></span>"
+                [ -n "$_image_tags_str" ] && _meta_parts="${_meta_parts}<span>🏷️ <strong>Tags:</strong> ${_image_tags_str}</span>"
+                if [ -n "$_meta_parts" ]; then
+                    source_label_escaped=$(echo "$_source_label" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
+                    ANCHORE_DETAILS="${ANCHORE_DETAILS}
+<div style=\"background:linear-gradient(135deg,#0f1f35 0%,#1a2a3a 100%);border:1px solid #3b82f6;border-radius:8px;padding:12px 16px;margin:16px 0 6px 0;\">
+    <div style=\"font-weight:700;color:#60a5fa;margin-bottom:6px;\">🐳 ${source_label_escaped}</div>
+    <div style=\"display:flex;flex-wrap:wrap;gap:4px 0;color:#9ca3af;font-size:0.85em;\">${_meta_parts}</div>
+</div>"
+                fi
             fi
 
             # Extract vulnerabilities and count by severity
-            while IFS=$'\t' read -r vuln_id severity package version fixed_ver cve_url; do
+            # NOTE: Use | as delimiter (not tab) so empty fields don't collapse (bash tab-IFS collapses adjacent whitespace delimiters)
+            while IFS='|' read -r vuln_id severity package version fixed_ver cve_url \
+                    epss_score epss_pct risk_score \
+                    cvss3_score cvss3_vec cvss3_exploit cvss3_impact \
+                    cwes namespace layer_id match_type adv_urls upstream pkg_path; do
                 if [ -n "$vuln_id" ]; then
+                    # Reset derived variables so they don't bleed across loop iterations
+                    cvss_badge_html="" epss_badge_html="" cvss_color="" cvss_float="" epss_color="" epss_pct_fmt=""
+                    namespace_escaped="" upstream_escaped="" pkg_path_escaped="" cwes_escaped="" layer_id_short=""
+
                     # Dedup key includes source so the same CVE in two containers shows separately
                     VULN_KEY="${vuln_id}|${package}|${version}|${_source_label}"
 
@@ -1731,6 +1773,12 @@ if [ -d "$ANCHORE_DIR" ]; then
                     version_escaped=$(echo "$version" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
                     fixed_escaped=$(echo "$fixed_ver" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
                     source_escaped=$(echo "$_source_label" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
+                    namespace_escaped=$(echo "$namespace" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
+                    upstream_escaped=$(echo "$upstream" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
+                    pkg_path_escaped=$(echo "$pkg_path" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
+                    cwes_escaped=$(echo "$cwes" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g; s/"/\&quot;/g')
+                    layer_id_short=""
+                    [ -n "$layer_id" ] && [ "$layer_id" != "null" ] && layer_id_short="${layer_id:0:19}..."
 
                     badge_class="badge-high"
                     case "$severity" in
@@ -1745,11 +1793,57 @@ if [ -d "$ANCHORE_DIR" ]; then
                         source_badge_html="<span class=\"badge\" style=\"background:#152a1f;color:#4ade80;border:1px solid #10b981;font-size:0.7em;\">💻 Filesystem</span>"
                     fi
 
+                    # CVSS badge in header
+                    cvss_badge_html=""
+                    if [ -n "$cvss3_score" ] && [ "$cvss3_score" != "null" ] && [ "$cvss3_score" != "" ]; then
+                        cvss_float=$(echo "$cvss3_score" | awk '{printf "%.1f", $1}')
+                        cvss_color=$(echo "$cvss3_score" | awk '{
+                            s=$1+0
+                            if (s>=9.0) print "#C41E3A"
+                            else if (s>=7.0) print "#FF1493"
+                            else if (s>=4.0) print "#f97316"
+                            else if (s>0.0)  print "#4ade80"
+                            else print "#9ca3af"
+                        }')
+                        cvss_badge_html="<span class=\"badge\" style=\"background:#1a2b3c;color:${cvss_color};border:1px solid #3b82f6;\">CVSS ${cvss_float}</span>"
+                    fi
+
+                    # EPSS badge in header
+                    epss_badge_html=""
+                    if [ -n "$epss_score" ] && [ "$epss_score" != "null" ] && [ "$epss_score" != "" ]; then
+                        epss_color=$(echo "$epss_score" | awk '{
+                            s=$1+0
+                            if (s>=0.5) print "#C41E3A"
+                            else if (s>=0.1) print "#f97316"
+                            else if (s>=0.01) print "#eab308"
+                            else print "#6b7280"
+                        }')
+                        epss_pct_fmt=$(echo "$epss_pct" | awk '{printf "%.1f%%", $1*100}' 2>/dev/null || echo "")
+                        epss_badge_html="<span class=\"badge\" style=\"background:#1a1f2e;color:${epss_color};border:1px solid #4a5568;font-size:0.75em;\">EPSS ${epss_score}${epss_pct_fmt:+ (${epss_pct_fmt})}</span>"
+                    fi
+
                     _fixed_html=""
                     if [ -n "$fixed_escaped" ] && [ "$fixed_escaped" != "none" ] && [ "$fixed_escaped" != "null" ]; then
                         _fixed_html="<div><strong>Fixed Version:</strong> <code style=\"color:#68d391;\">$fixed_escaped</code></div>"
                     else
                         _fixed_html="<div><strong>Fixed Version:</strong> <span style=\"color:#fc8181;\">No fix available</span></div>"
+                    fi
+
+                    # Advisory URLs (beyond NVD)
+                    _adv_urls_html=""
+                    if [ -n "$adv_urls" ] && [ "$adv_urls" != "null" ]; then
+                        _adv_urls_html="<div><strong>Advisories:</strong>"
+                        for _url in $adv_urls; do
+                            _url_label=$(echo "$_url" | sed 's|https://||;s|/.*||')
+                            _adv_urls_html="${_adv_urls_html} <a href=\"${_url}\" target=\"_blank\" style=\"color:#60a5fa;font-size:0.85em;\">${_url_label}</a>"
+                        done
+                        _adv_urls_html="${_adv_urls_html}</div>"
+                    fi
+
+                    # CWE list
+                    _cwes_html=""
+                    if [ -n "$cwes_escaped" ] && [ "$cwes_escaped" != "null" ] && [ "$cwes_escaped" != "" ]; then
+                        _cwes_html="<div><strong>CWEs:</strong> <code style=\"font-size:0.85em;\">$cwes_escaped</code></div>"
                     fi
 
                     # Track unique container labels for the filter chips
@@ -1766,31 +1860,64 @@ if [ -d "$ANCHORE_DIR" ]; then
         <span class=\"badge ${badge_class}\">${severity}</span>
         <span class=\"badge\" style=\"background:#2C3539;color:#9ca3af;border:1px solid #4a5568;\">${vuln_id}</span>
         ${source_badge_html}
+        ${cvss_badge_html}
+        ${epss_badge_html}
     </div>
     <div class=\"finding-title\">${package_escaped} ${version_escaped}</div>
     <div class=\"finding-desc\">${vuln_id} in package ${package_escaped} (${source_escaped})</div>
     <div class=\"finding-details\" style=\"display:none;\">
         <div class=\"detail-section\"><h5>Vulnerability Info</h5>
-        <div><strong>Vulnerability ID:</strong> <code>${vuln_id}</code> <a href=\"${cve_url}\" target=\"_blank\" style=\"color:#C41E3A;\">NVD</a></div>
+        <div><strong>Vulnerability ID:</strong> <code>${vuln_id}</code> <a href=\"${cve_url}\" target=\"_blank\" style=\"color:#C41E3A;\">NVD ↗</a></div>
         <div><strong>Severity:</strong> ${severity}</div>
+        $([ -n "$namespace_escaped" ] && [ "$namespace_escaped" != "null" ] && echo "<div><strong>Database:</strong> <code style=\"font-size:0.85em;\">$namespace_escaped</code></div>" || true)
+        ${_cwes_html}
+        ${_adv_urls_html}
+        </div>
+        <div class=\"detail-section\"><h5>CVSS &amp; Risk</h5>
+        $([ -n "$cvss3_score" ] && [ "$cvss3_score" != "null" ] && echo "<div><strong>CVSS v3:</strong> <span style=\"font-weight:700;color:${cvss_color:-#9ca3af};\">${cvss_float:-$cvss3_score}</span>$([ -n "$cvss3_vec" ] && [ "$cvss3_vec" != "null" ] && echo " <code style=\"font-size:0.75em;color:#9ca3af;\">$cvss3_vec</code>" || true)</div>" || true)
+        $([ -n "$cvss3_exploit" ] && [ "$cvss3_exploit" != "null" ] && echo "<div><strong>Exploitability:</strong> ${cvss3_exploit} &nbsp; <strong>Impact:</strong> ${cvss3_impact}</div>" || true)
+        $([ -n "$risk_score" ] && [ "$risk_score" != "null" ] && echo "<div><strong>Risk Score:</strong> <span style=\"color:#f97316;\">${risk_score}</span></div>" || true)
+        $([ -n "$epss_score" ] && [ "$epss_score" != "null" ] && echo "<div><strong>EPSS:</strong> <span style=\"color:${epss_color:-#9ca3af};\">${epss_score}</span>$([ -n "$epss_pct_fmt" ] && echo " <span style=\"color:#9ca3af;\">($epss_pct_fmt percentile)</span>" || true)</div>" || true)
         </div>
         <div class=\"detail-section\"><h5>Package Info</h5>
         <div><strong>Package:</strong> <code>${package_escaped}</code></div>
         <div><strong>Installed Version:</strong> <code>${version_escaped}</code></div>
         ${_fixed_html}
+        $([ -n "$upstream_escaped" ] && [ "$upstream_escaped" != "null" ] && [ "$upstream_escaped" != "" ] && echo "<div><strong>Upstream:</strong> <code style=\"font-size:0.85em;\">$upstream_escaped</code></div>" || true)
+        $([ -n "$pkg_path_escaped" ] && [ "$pkg_path_escaped" != "null" ] && [ "$pkg_path_escaped" != "" ] && echo "<div><strong>Package Path:</strong> <code style=\"font-size:0.8em;\">$pkg_path_escaped</code></div>" || true)
         <div><strong>Source:</strong> ${source_badge_html}</div>
+        </div>
+        <div class=\"detail-section\"><h5>Detection Details</h5>
+        $([ -n "$match_type" ] && [ "$match_type" != "null" ] && echo "<div><strong>Match Type:</strong> <code style=\"font-size:0.85em;\">$match_type</code></div>" || true)
+        $([ -n "$layer_id_short" ] && echo "<div><strong>Layer:</strong> <code style=\"font-size:0.8em;\">$layer_id_short</code></div>" || true)
         </div>
     </div>
 </div>"
                 fi
-            done < <(jq -r '.matches[]? | [
-                .vulnerability.id,
-                .vulnerability.severity,
-                .artifact.name,
-                .artifact.version,
-                (.vulnerability.fix.versions[0] // "none"),
-                ("https://nvd.nist.gov/vuln/detail/" + .vulnerability.id)
-            ] | @tsv' "$anchore_file" 2>/dev/null)
+            done < <(jq -r '.matches[]? |
+                (.vulnerability.cvss // [] | map(select(.version | test("^3"))) | first) as $cvss3 |
+                [
+                    .vulnerability.id,
+                    .vulnerability.severity,
+                    .artifact.name,
+                    .artifact.version,
+                    (.vulnerability.fix.versions[0] // "none"),
+                    ("https://nvd.nist.gov/vuln/detail/" + .vulnerability.id),
+                    ((.vulnerability.epss // [] | first | .epss) // "" | tostring),
+                    ((.vulnerability.epss // [] | first | .percentile) // "" | tostring),
+                    ((.vulnerability.risk // "") | tostring),
+                    (if $cvss3 then ($cvss3.metrics.baseScore // "" | tostring) else "" end),
+                    (if $cvss3 then ($cvss3.vector // "") else "" end),
+                    (if $cvss3 then ($cvss3.metrics.exploitabilityScore // "" | tostring) else "" end),
+                    (if $cvss3 then ($cvss3.metrics.impactScore // "" | tostring) else "" end),
+                    ((.vulnerability.cwes // []) | map(.cwe) | join(",")),
+                    (.vulnerability.namespace // ""),
+                    (.artifact.locations[0].layerID // ""),
+                    (.matchDetails[0].type // ""),
+                    ((.vulnerability.urls // []) | .[0:3] | join(" ")),
+                    (.artifact.upstreams[0].name // ""),
+                    (.artifact.locations[0].path // "")
+                ] | @tsv' "$anchore_file" 2>/dev/null | tr '\t' '|')
         fi
     done
     

@@ -1690,8 +1690,8 @@ if [ -d "$ANCHORE_DIR" ]; then
 
             # Determine source label: prefer the image name embedded in the JSON (.source),
             # fall back to deriving it from the filename for image results.
-            local _source_label="Filesystem"
-            local _source_type="app"
+            _source_label="Filesystem"
+            _source_type="app"
             if [[ "$anchore_file" == *"/images/"* ]]; then
                 _source_type="image"
                 # Grype stores the scanned image in .source.target.userInput or .source.target.repoDigests
@@ -1745,7 +1745,7 @@ if [ -d "$ANCHORE_DIR" ]; then
                         source_badge_html="<span class=\"badge\" style=\"background:#152a1f;color:#4ade80;border:1px solid #10b981;font-size:0.7em;\">💻 Filesystem</span>"
                     fi
 
-                    local _fixed_html=""
+                    _fixed_html=""
                     if [ -n "$fixed_escaped" ] && [ "$fixed_escaped" != "none" ] && [ "$fixed_escaped" != "null" ]; then
                         _fixed_html="<div><strong>Fixed Version:</strong> <code style=\"color:#68d391;\">$fixed_escaped</code></div>"
                     else
@@ -1753,7 +1753,7 @@ if [ -d "$ANCHORE_DIR" ]; then
                     fi
 
                     # Track unique container labels for the filter chips
-                    local _already_tracked=false
+                    _already_tracked=false
                     for _c in "${ANCHORE_CONTAINERS[@]:-}"; do
                         [[ "$_c" == "$source_escaped" ]] && _already_tracked=true && break
                     done
@@ -2697,7 +2697,8 @@ SUPPRESSED_TABLE_ROWS=""
 if [[ -f "$SUPPRESSED_LOG" ]]; then
     echo -e "${CYAN}📋 Suppressed findings file exists: $SUPPRESSED_LOG${NC}" >&2
     echo "DEBUG: File size: $(wc -l < "$SUPPRESSED_LOG" 2>/dev/null || echo 0) lines" >&2
-    SUPPRESSED_COUNT=$(grep -c "^## Suppressed:" "$SUPPRESSED_LOG" 2>/dev/null || echo "0")
+    SUPPRESSED_COUNT=$(grep -c "^## Suppressed:" "$SUPPRESSED_LOG" 2>/dev/null | tr -d '[:space:]' || echo "0")
+    [[ "$SUPPRESSED_COUNT" =~ ^[0-9]+$ ]] || SUPPRESSED_COUNT=0
     echo "DEBUG: SUPPRESSED_COUNT=$SUPPRESSED_COUNT" >&2
     if [[ $SUPPRESSED_COUNT -gt 0 ]]; then
         echo -e "${CYAN}📋 Found $SUPPRESSED_COUNT suppressed finding(s)${NC}"

@@ -47,8 +47,20 @@ def extract_fastapi_endpoints(file_path):
                         if func_match:
                             function_name = func_match.group(1)
                     
-                    # Extract authentication requirements
-                    auth = extract_auth_info(decorator_text, '\n'.join(lines), i)
+                    # Collect full function signature (may span multiple lines until ':' body)
+                    func_sig_text = ''
+                    if j < len(lines):
+                        func_sig_text = lines[j].rstrip()
+                        k = j + 1
+                        while k < len(lines):
+                            stripped = lines[k].rstrip()
+                            func_sig_text += ' ' + stripped.strip()
+                            if stripped.rstrip().endswith(':'):
+                                break
+                            k += 1
+
+                    # Extract authentication requirements from both decorator and function signature
+                    auth = extract_auth_info(decorator_text, func_sig_text, '\n'.join(lines), i)
                     
                     # Extract endpoint name/description
                     name = extract_endpoint_name(decorator_text, function_name)
@@ -76,31 +88,59 @@ def extract_fastapi_endpoints(file_path):
     
     return endpoints
 
-def extract_auth_info(decorator_params, content, position):
-    """Extract authentication information from decorator parameters."""
+def extract_auth_info(decorator_params, func_sig, content, position):
+    """Extract authentication information from decorator parameters and function signature."""
     auth_types = []
-    
-    # Look for common FastAPI auth patterns
-    if 'Depends(' in decorator_params:
-        # Extract dependency functions
-        depends_pattern = r'Depends\(([^)]+)\)'
-        for match in re.finditer(depends_pattern, decorator_params):
-            dep_func = match.group(1).strip()
-            # Common auth function names
-            if any(auth_term in dep_func.lower() for auth_term in ['auth', 'user', 'token', 'api_key', 'bearer', 'jwt']):
-                auth_types.append(dep_func)
-    
-    if 'Security(' in decorator_params:
-        # OAuth2/Security scheme
-        security_pattern = r'Security\(([^,)]+)'
-        for match in re.finditer(security_pattern, decorator_params):
-            auth_types.append(f"Security: {match.group(1).strip()}")
-    
-    # Check for explicit dependencies parameter
-    if 'dependencies=' in decorator_params:
-        auth_types.append("Custom Dependencies")
-    
-    return ', '.join(auth_types) if auth_types else 'None'
+
+    # Combined text to search — decorator + function signature
+    combined = decorator_params + ' ' + func_sig
+
+    # --- Depends() anywhere in decorator or function signature ---
+    depends_pattern = r'Depends\s*\(([^)]+)\)'
+    for match in re.finditer(depends_pattern, combined):
+        dep_func = match.group(1).strip()
+        # Any Depends() that looks auth-related
+        if any(t in dep_func.lower() for t in [
+            'auth', 'user', 'token', 'api_key', 'bearer', 'jwt',
+            'permission', 'role', 'credential', 'login', 'verify',
+            'current_', 'get_current', 'oauth'
+        ]):
+            auth_types.append(dep_func)
+        elif dep_func:  # Non-empty but unknown — report as generic dependency
+            auth_types.append(f'Depends({dep_func})')
+
+    # --- Security() ---
+    for match in re.finditer(r'Security\s*\(([^,)]+)', combined):
+        auth_types.append(f'Security: {match.group(1).strip()}')
+
+    # --- Common auth parameter type annotations in function signature ---
+    # e.g.  current_user: User = Depends(...)  already caught above
+    # But also catch:  token: str = Header(...)  / api_key: APIKey = ...
+    header_pattern = r'(\w*(?:token|api_key|bearer|authorization)\w*)\s*[:=]'
+    for match in re.finditer(header_pattern, func_sig, re.IGNORECASE):
+        label = match.group(1)
+        if not any(label in a for a in auth_types):
+            auth_types.append(f'Header: {label}')
+
+    # --- OAuth2PasswordBearer / HTTPBearer / APIKeyHeader in file scope ---
+    oauth2_pattern = r'(OAuth2PasswordBearer|HTTPBearer|APIKeyHeader|HTTPBasic|APIKeyQuery|APIKeyCookie)'
+    # Look in a window around the function in the full content
+    window_start = max(0, content.rfind('\n', 0, max(0, content.find(func_sig[:40]) - 1)))
+    window = content[window_start:window_start + 2000]
+    for match in re.finditer(oauth2_pattern, window):
+        scheme = match.group(1)
+        if not any(scheme in a for a in auth_types):
+            auth_types.append(scheme)
+
+    # Deduplicate while preserving order
+    seen = set()
+    unique = []
+    for a in auth_types:
+        if a not in seen:
+            seen.add(a)
+            unique.append(a)
+
+    return ', '.join(unique) if unique else 'None'
 
 def extract_endpoint_name(decorator_params, function_name):
     """Extract endpoint name from decorator parameters or function name."""

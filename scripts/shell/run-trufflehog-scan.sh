@@ -7,8 +7,10 @@
 WHITE='\033[1;37m'
 NC='\033[0m'
 
-# Docker Hardened Image default (override with TRUFFLEHOG_IMAGE)
-TRUFFLEHOG_IMAGE="${TRUFFLEHOG_IMAGE:-dhi.io/trufflehog:3}"
+# Docker Hardened Image (only used if already present locally; override with TRUFFLEHOG_IMAGE)
+TRUFFLEHOG_DHI_IMAGE="dhi.io/trufflehog:3"
+TRUFFLEHOG_OFFICIAL_IMAGE="trufflesecurity/trufflehog:latest"
+TRUFFLEHOG_IMAGE="${TRUFFLEHOG_IMAGE:-}"
 
 # Help function
 show_help() {
@@ -78,6 +80,25 @@ if [ -z "${CONTAINER_CLI:-}" ]; then
     CONTAINER_CLI=docker
 fi
 
+# Resolve which TruffleHog image to use:
+#   1. Respect explicit TRUFFLEHOG_IMAGE override
+#   2. Prefer local trufflehog binary
+#   3. Use DHI image only if already pulled locally (no unauthenticated pull)
+#   4. Fall back to the official public image
+LOCAL_TRUFFLEHOG=""
+if [ -z "$TRUFFLEHOG_IMAGE" ]; then
+    if command -v trufflehog >/dev/null 2>&1; then
+        LOCAL_TRUFFLEHOG="$(command -v trufflehog)"
+        echo "✅ Using local TruffleHog binary: $LOCAL_TRUFFLEHOG"
+    elif ${CONTAINER_CLI} image inspect "$TRUFFLEHOG_DHI_IMAGE" >/dev/null 2>&1; then
+        TRUFFLEHOG_IMAGE="$TRUFFLEHOG_DHI_IMAGE"
+        echo "✅ Using locally cached DHI image: $TRUFFLEHOG_IMAGE"
+    else
+        TRUFFLEHOG_IMAGE="$TRUFFLEHOG_OFFICIAL_IMAGE"
+        echo "ℹ️  Using official TruffleHog image: $TRUFFLEHOG_IMAGE"
+    fi
+fi
+
 # Initialize scan environment for TruffleHog
 init_scan_environment "trufflehog"
 
@@ -145,8 +166,15 @@ run_trufflehog_scan() {
     
     echo -e "${BLUE}🔍 Scanning ${scan_type}: ${target}${NC}"
     
-    if [ -n "${CONTAINER_CLI:-}" ]; then
-        echo "Using ${CONTAINER_CLI}-based TruffleHog..."
+    if [ -n "$LOCAL_TRUFFLEHOG" ]; then
+        echo "Using local TruffleHog binary..."
+        "$LOCAL_TRUFFLEHOG" filesystem "$target" \
+            --json \
+            --exclude-paths="$OUTPUT_DIR/.trufflehogignore" \
+            --config="$OUTPUT_DIR/.trufflehog-custom-regex.yaml" \
+            > "$output_file" 2>>"$SCAN_LOG"
+    elif [ -n "${CONTAINER_CLI:-}" ]; then
+        echo "Using container-based TruffleHog ($TRUFFLEHOG_IMAGE)..."
         # Create a .trufflehogignore file to exclude common dependency directories
         cat > "$OUTPUT_DIR/.trufflehogignore" << 'EOF'
 # Exclude git directory (common false positives from .git/config)
@@ -198,7 +226,7 @@ REGEX_EOF
             --config=/root/.trufflehog-custom-regex.yaml \
             > "$output_file" 2>>"$SCAN_LOG"
     else
-        echo "⚠️  Container runtime not available - TruffleHog scan skipped"
+        echo "⚠️  No TruffleHog binary or container runtime available - scan skipped"
         echo "[]" > "$output_file"
     fi
     

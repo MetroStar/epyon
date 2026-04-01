@@ -719,6 +719,8 @@ if [ -d "$TRIVY_DIR" ]; then
                 [.Results[]? | select(.Vulnerabilities != null) | 
                  .Target as $target |
                  .Type as $pkg_type |
+                 (.Class // "unknown") as $result_class |
+                 (.OS | if . then ((.Family // "") + (if .Name then " " + .Name else "" end)) else "" end) as $os_info |
                  .Vulnerabilities[]? | 
                  select(.VulnerabilityID as $v | $suppressed_cves | index($v) == null) |
                  {target: $target, 
@@ -744,9 +746,19 @@ if [ -d "$TRIVY_DIR" ]; then
                   refs: ((.References // []) | .[0:3] | join(" ")),
                   data_source: (.DataSource.Name // "Unknown"),
                   purl: ((.PkgIdentifier.PURL // "") | html_escape),
+                  sev_source: (.SeveritySource // ""),
+                  vendor_sev: ((.VendorSeverity // {}) | to_entries | map(.key + ":" + (if (.value | type) == "number" then if .value == 4 then "CRITICAL" elif .value == 3 then "HIGH" elif .value == 2 then "MEDIUM" elif .value == 1 then "LOW" else "UNKNOWN" end elif (.value | type) == "string" then .value else "UNKNOWN" end)) | join(", ")),
+                  cvss_v3_score: (((.CVSS // {}) | to_entries | map(select(.value.V3Score != null)) | sort_by(if .key == "nvd" then 0 else 1 end) | if length > 0 then .[0] else null end) | if . then (.value.V3Score | tostring) + " (" + .key + ")" else "N/A" end),
+                  cvss_v3_color: (((.CVSS // {}) | to_entries | map(select(.value.V3Score != null)) | sort_by(if .key == "nvd" then 0 else 1 end) | if length > 0 then .[0] else null end) | if . then (.value.V3Score | if . >= 9.0 then "#fc8181" elif . >= 7.0 then "#f6ad55" elif . >= 4.0 then "#fbd38d" else "#68d391" end) else "#9ca3af" end),
+                  cvss_v3_vec: (((.CVSS // {}) | to_entries | map(select(.value.V3Vector != null)) | sort_by(if .key == "nvd" then 0 else 1 end) | if length > 0 then .[0] else null end) | if . then .value.V3Vector else "" end),
+                  layer_diffid: (.Layer.DiffID // ""),
+                  layer_digest: (.Layer.Digest // ""),
+                  pkg_path: (.PkgPath // ""),
+                  result_class: $result_class,
+                  os_info: $os_info,
                   source_type: (if ($target | test("(bitnami|node|python|alpine|ubuntu|debian|nginx|redis|postgres|mysql|mongo|openjdk)"; "i")) or ($target | test("\\(.*\\)$")) or (.PkgType // "" | test("(debian|ubuntu|alpine|rhel|centos|fedora|os-pkgs|photon)"; "i")) then "image" else "app" end)}
                 ] | sort_by(.severity | if . == "CRITICAL" then 0 elif . == "HIGH" then 1 elif . == "MEDIUM" then 2 else 3 end) | .[0:50] | .[] |
-                "<div class=\"finding-item severity-" + .severity_lc + "\" data-pkg=\"" + .pkg + "\" data-status=\"" + .status + "\" data-cve=\"" + .id + "\" data-source=\"" + .source_type + "\" onclick=\"toggleFindingDetails(this)\">\n<div class=\"finding-header\">\n<span class=\"badge badge-tool\">Trivy</span>\n<span class=\"badge badge-" + .severity_lc + "\">" + .severity + "</span>\n<span class=\"badge\" style=\"background:#2C3539;color:#9ca3af;border:1px solid #4a5568;\">" + .id + "</span>\n<span class=\"badge\" style=\"background:" + .status_badge + ";\">" + .status_uc + "</span>\n<span class=\"badge\" style=\"background:" + (if .source_type == "image" then "#1a2a3a;border:1px solid #3b82f6;color:#60a5fa" else "#152a1f;border:1px solid #10b981;color:#4ade80" end) + ";font-size:0.7em;\">" + (if .source_type == "image" then "📦 Container Image" else "💻 App Code" end) + "</span>\n</div>
+                "<div class=\"finding-item severity-" + .severity_lc + "\" data-pkg=\"" + .pkg + "\" data-status=\"" + .status + "\" data-cve=\"" + .id + "\" data-source=\"" + .source_type + "\" onclick=\"toggleFindingDetails(this)\">\n<div class=\"finding-header\">\n<span class=\"badge badge-tool\">Trivy</span>\n<span class=\"badge badge-" + .severity_lc + "\">" + .severity + "</span>\n<span class=\"badge\" style=\"background:#2C3539;color:#9ca3af;border:1px solid #4a5568;\">" + .id + "</span>\n<span class=\"badge\" style=\"background:" + .status_badge + ";\">" + .status_uc + "</span>\n<span class=\"badge\" style=\"background:" + (if .source_type == "image" then "#1a2a3a;border:1px solid #3b82f6;color:#60a5fa" else "#152a1f;border:1px solid #10b981;color:#4ade80" end) + ";font-size:0.7em;\">" + (if .source_type == "image" then "📦 Container Image" else "💻 App Code" end) + "</span>" + (if .cvss_v3_score != "N/A" then "\n<span class=\"badge\" style=\"background:#1a2b3c;color:" + .cvss_v3_color + ";border:1px solid #3b82f6;\">CVSS " + .cvss_v3_score + "</span>" else "" end) + "\n</div>
 <div class=\"finding-title\">" + .pkg + "@" + .installed + " - " + .title + "</div>
 <div class=\"finding-desc\">" + .desc_short + "...</div>
 <div class=\"finding-details\" style=\"display:none;\">
@@ -765,6 +777,10 @@ if [ -d "$TRIVY_DIR" ]; then
 <div><strong>Status:</strong> <span style=\"font-weight:600;color:" + .status_color + ";\">" + .status_uc + "</span></div>
 <div><strong>PURL:</strong> <code style=\"font-size:0.8em;word-break:break-all;\">" + .purl + "</code></div>
 </div>
+<div class=\"detail-section\"><h5>CVSS &amp; Scan Details</h5>
+<div><strong>CVSS v3:</strong> <span style=\"font-weight:700;color:" + .cvss_v3_color + ";\">" + .cvss_v3_score + "</span>" + (if .cvss_v3_vec != "" then " <code style=\"font-size:0.75em;color:#9ca3af;\">" + .cvss_v3_vec + "</code>" else "" end) + "</div>
+" + (if .sev_source != "" then "<div><strong>Severity Source:</strong> <code>" + .sev_source + "</code></div>\n" else "" end) + (if .vendor_sev != "" then "<div><strong>Vendor Severities:</strong> <code style=\"font-size:0.85em;\">" + .vendor_sev + "</code></div>\n" else "" end) + (if .os_info != "" then "<div><strong>OS:</strong> <code>" + .os_info + "</code></div>\n" else "" end) + "<div><strong>Result Class:</strong> <code>" + .result_class + "</code></div>
+" + (if .pkg_path != "" then "<div><strong>Package Path:</strong> <code style=\"font-size:0.8em;word-break:break-all;\">" + .pkg_path + "</code></div>\n" else "" end) + (if .layer_diffid != "" then "<div><strong>Layer DiffID:</strong> <code style=\"font-size:0.78em;word-break:break-all;\">" + .layer_diffid + "</code></div>\n" else "" end) + (if .layer_digest != "" then "<div><strong>Layer Digest:</strong> <code style=\"font-size:0.78em;word-break:break-all;\">" + .layer_digest + "</code></div>\n" else "" end) + "</div>
 <!--REMEDIATION_MARKER:" + .id + ":" + .pkg + "-->
 <div class=\"detail-section\"><h5>False Positive Assessment</h5>
 <div class=\"fp-checklist\">
@@ -890,13 +906,31 @@ if [ -d "$GRYPE_DIR" ]; then
             set +e
             vuln_details=$(jq -r --argjson suppressed_cves "$SUPPRESSED_CVE_IDS_JSON" '
                 (.source.type // "unknown") as $scan_type |
-                [.matches[]? | 
+                [.matches[]? |
                  select(.vulnerability.id as $v | $suppressed_cves | index($v) == null) |
-                 {id: .vulnerability.id, pkg: .artifact.name, version: .artifact.version, 
-                  severity: .vulnerability.severity, 
+                 (([.vulnerability.cvss[]? | select(.version | startswith("3"))] | first) // null) as $cvss3 |
+                 (([.vulnerability.cvss[]? | select(.version | startswith("2"))] | first) // null) as $cvss2 |
+                 {id: .vulnerability.id,
+                  pkg: .artifact.name,
+                  version: .artifact.version,
+                  severity: .vulnerability.severity,
                   fixed: (.vulnerability.fix.versions[0] // "Not fixed"),
+                  fix_state: (.vulnerability.fix.state // "unknown"),
                   desc: (.vulnerability.description // "No description available"),
                   pkg_type: (.artifact.type // "unknown"),
+                  language: (.artifact.language // ""),
+                  locations: ((.artifact.locations // []) | map(.path // .realPath // "") | map(select(. != "")) | .[0:5] | join(" | ")),
+                  licenses: ((.artifact.licenses // []) | join(", ")),
+                  cpes: ((.artifact.cpes // []) | .[0:2] | join(", ")),
+                  purl: (.artifact.purl // ""),
+                  matcher: (.matchDetails[0].matcher // "unknown"),
+                  match_constraint: (.matchDetails[0].found.versionConstraint // ""),
+                  cvss_v3_score: (if $cvss3 then ($cvss3.metrics.baseScore | tostring) else "N/A" end),
+                  cvss_v3_color: (if $cvss3 then ($cvss3.metrics.baseScore | if . >= 9.0 then "#fc8181" elif . >= 7.0 then "#f6ad55" elif . >= 4.0 then "#fbd38d" else "#68d391" end) else "#9ca3af" end),
+                  cvss_v3_vec: (if $cvss3 then ($cvss3.vector // "") else "" end),
+                  cvss_v2_score: (if $cvss2 then ($cvss2.metrics.baseScore | tostring) else "N/A" end),
+                  related: ((.vulnerability.relatedVulnerabilities // []) | map(.id) | .[0:5] | join(", ")),
+                  vuln_url1: ((.vulnerability.urls // []) | .[0] // ""),
                   source_type: (if $scan_type == "image" then "image" elif (.artifact.type // "" | test("(deb|apk|rpm|alpm|portage|photon)"; "i")) then "image" else "app" end)}
                 ] | sort_by(.severity | if . == "Critical" then 0 elif . == "High" then 1 elif . == "Medium" then 2 else 3 end) | .[0:50] | .[] |
                 "<div class=\"finding-item severity-\(.severity | ascii_downcase)\" data-source=\"\(.source_type)\" onclick=\"toggleFindingDetails(this)\">
@@ -904,19 +938,43 @@ if [ -d "$GRYPE_DIR" ]; then
                         <span class=\"badge badge-tool\">Grype</span>
                         <span class=\"badge badge-\(.severity | ascii_downcase)\">\(.severity)</span>
                         <span class=\"badge\" style=\"background:#2C3539;color:#9ca3af;border:1px solid #4a5568;\">\(.id)</span>
+                        \(if .cvss_v3_score != "N/A" then "<span class=\"badge\" style=\"background:#1a2b3c;color:\(.cvss_v3_color);border:1px solid #3b82f6;\">CVSS \(.cvss_v3_score)</span>" else "" end)
                         <span class=\"badge\" style=\"background:\(if .source_type == "image" then "#1a2a3a;border:1px solid #3b82f6;color:#60a5fa" else "#152a1f;border:1px solid #10b981;color:#4ade80" end);font-size:0.7em;\">\(if .source_type == "image" then "📦 Container Image" else "💻 App Code" end)</span>
                     </div>
                     <div class=\"finding-title\">\(.pkg)@\(.version)</div>
                     <div class=\"finding-desc\">\(.desc | .[0:200])...</div>
                     <div class=\"finding-details\" style=\"display:none;\">
-                        <div><strong>CVE ID:</strong> <code>\(.id)</code></div>
-                        <div><strong>Package:</strong> <code>\(.pkg)</code></div>
-                        <div><strong>Package Type:</strong> <code>\(.pkg_type)</code></div>
+                        <div class=\"detail-section\"><h5>Vulnerability Info</h5>
+                        \(if .vuln_url1 != "" then "<div><strong>CVE ID:</strong> <code>\(.id)</code> <a href=\"\(.vuln_url1)\" target=\"_blank\" style=\"color:#C41E3A;\">View Details</a></div>" else "<div><strong>CVE ID:</strong> <code>\(.id)</code></div>" end)
+                        <div><strong>CVSS v3:</strong> <span style=\"font-weight:700;color:\(.cvss_v3_color);\">\(.cvss_v3_score)</span>\(if .cvss_v3_vec != "" then " <code style=\"font-size:0.75em;color:#9ca3af;\">\(.cvss_v3_vec)</code>" else "" end)</div>
+                        <div><strong>CVSS v2:</strong> \(.cvss_v2_score)</div>
+                        <div><strong>Fix State:</strong> <span style=\"font-weight:600;color:\(if .fix_state == "fixed" then "#2f855a" elif .fix_state == "wont-fix" then "#c53030" else "#c05621" end);\">\(.fix_state | ascii_upcase)</span></div>
+                        \(if .related != "" then "<div><strong>Related CVEs:</strong> <code style=\"font-size:0.85em;\">\(.related)</code></div>" else "" end)
+                        </div>
+                        <div class=\"detail-section\"><h5>Package Info</h5>
+                        <div><strong>Package:</strong> <code>\(.pkg)</code>\(if .language != "" then " <em>(\(.language))</em>" else "" end)</div>
+                        <div><strong>Type:</strong> <code>\(.pkg_type)</code></div>
                         <div><strong>Source:</strong> \(if .source_type == "image" then "📦 Container Image (bundled in base image)" else "💻 Application Code" end)</div>
-                        <div><strong>Installed Version:</strong> <code>\(.version)</code></div>
+                        <div><strong>Installed:</strong> <code>\(.version)</code></div>
                         <div><strong>Fixed Version:</strong> <code>\(.fixed)</code></div>
-                        <div><strong>Full Description:</strong> \(.desc)</div>
+                        <div><strong>Matcher:</strong> <code style=\"font-size:0.85em;\">\(.matcher)</code></div>
+                        \(if .match_constraint != "" then "<div><strong>Match Constraint:</strong> <code style=\"font-size:0.85em;\">\(.match_constraint)</code></div>" else "" end)
+                        \(if .locations != "" then "<div><strong>Location(s):</strong> <code style=\"font-size:0.8em;word-break:break-all;\">\(.locations)</code></div>" else "" end)
+                        \(if .licenses != "" then "<div><strong>License(s):</strong> <code>\(.licenses)</code></div>" else "" end)
+                        \(if .cpes != "" then "<div><strong>CPE(s):</strong> <code style=\"font-size:0.78em;word-break:break-all;\">\(.cpes)</code></div>" else "" end)
+                        \(if .purl != "" then "<div><strong>PURL:</strong> <code style=\"font-size:0.78em;word-break:break-all;\">\(.purl)</code></div>" else "" end)
+                        </div>
                         <!--REMEDIATION_MARKER:\(.id):\(.pkg)-->
+                        <div class=\"detail-section\"><h5>False Positive Assessment</h5>
+                        <div class=\"fp-checklist\">
+                        <label><input type=\"checkbox\" class=\"fp-check\"> Package not used in production</label>
+                        <label><input type=\"checkbox\" class=\"fp-check\"> Vulnerable code path not reachable</label>
+                        <label><input type=\"checkbox\" class=\"fp-check\"> Compensating controls in place</label>
+                        <label><input type=\"checkbox\" class=\"fp-check\"> Risk accepted per security policy</label>
+                        </div></div>
+                        <div class=\"detail-section\"><h5>Description</h5>
+                        <div style=\"background:#1e2530;color:#d1d5db;padding:12px;border-radius:6px;font-size:0.9em;line-height:1.6;border:1px solid #374151;\">\(.desc)</div>
+                        </div>
                     </div>
                 </div>"
             ' "$grype_file" 2>/dev/null)

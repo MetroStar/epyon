@@ -288,7 +288,25 @@ scan_images() {
         log "ℹ No docker-compose files found, skipping image scan"
         return 0
     fi
-    
+
+    # Attempt to build images defined in each compose file
+    while IFS= read -r compose_file; do
+        local compose_dir
+        compose_dir="$(dirname "$compose_file")"
+        local compose_cmd
+        if docker compose version > /dev/null 2>&1; then
+            compose_cmd="docker compose"
+        else
+            compose_cmd="docker-compose"
+        fi
+        log "ℹ Building images from: $compose_file"
+        if (cd "$compose_dir" && $compose_cmd -f "$compose_file" build) >> "$LOG_FILE" 2>&1; then
+            log "  ✅ Build succeeded: $compose_file"
+        else
+            log "  ⚠️  Build failed (will attempt registry pull): $compose_file"
+        fi
+    done <<< "$COMPOSE_FILES"
+
     # Extract image names from docker-compose files
     IMAGES=()
     while IFS= read -r compose_file; do
@@ -314,11 +332,16 @@ scan_images() {
     for image in "${IMAGES[@]}"; do
         log "ℹ Scanning image: $image"
         
-        # Check if image exists locally
+        # Check if image exists locally; pull if not
         if ! docker image inspect "$image" > /dev/null 2>&1; then
-            log "  ⚠️  Image not found locally: $image"
-            log "  💡 Tip: Build the image first with 'docker-compose build' or 'docker build'"
-            continue
+            log "  ℹ Image not found locally, attempting to pull: $image"
+            if docker pull "$image" >> "$LOG_FILE" 2>&1; then
+                log "  ✅ Image pulled successfully: $image"
+            else
+                log "  ⚠️  Failed to pull image: $image"
+                log "  💡 Tip: Build the image first with 'docker-compose build' or 'docker build'"
+                continue
+            fi
         fi
         
         IMAGE_SAFE_NAME=$(echo "$image" | tr '/:' '_')
@@ -365,7 +388,18 @@ scan_base_images() {
     fi
     
     log "ℹ Primary baseline image: $PRIMARY_BASELINE_IMAGE"
-    
+
+    # Check if baseline image exists locally; pull if not
+    if ! docker image inspect "$PRIMARY_BASELINE_IMAGE" > /dev/null 2>&1; then
+        log "ℹ Baseline image not found locally, attempting to pull: $PRIMARY_BASELINE_IMAGE"
+        if docker pull "$PRIMARY_BASELINE_IMAGE" >> "$LOG_FILE" 2>&1; then
+            log "✅ Baseline image pulled successfully"
+        else
+            log "⚠️  Failed to pull baseline image: $PRIMARY_BASELINE_IMAGE"
+            return 1
+        fi
+    fi
+
     BASE_IMAGE_RESULT="$IMAGE_RESULTS_DIR/baseline-$(echo "$PRIMARY_BASELINE_IMAGE" | tr '/:' '_').json"
     
     docker run --rm \

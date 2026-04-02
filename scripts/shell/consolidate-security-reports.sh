@@ -246,7 +246,7 @@ try:
     </style>
 </head>
 <body>
-    <div class="class-banner" style="background:$CLASS_BG;color:$CLASS_FG;">$CLASS_LABEL</div>
+    <div class=\"class-banner\" style=\"background:$CLASS_BG;color:$CLASS_FG;\">$CLASS_LABEL</div>
     <div class=\"header\">
         <h1>$tool_name Security Report</h1>
         <p><strong>Scan Type:</strong> $scan_type</p>
@@ -380,7 +380,7 @@ try:
         html_content += f'<div class=\"summary\"><h2>Raw Data</h2><pre>{html.escape(json.dumps(data, indent=2)[:5000])}</pre></div>'
     
     html_content += '''
-    <div class="class-banner-bottom" style="background:$CLASS_BG;color:$CLASS_FG;">$CLASS_LABEL</div>
+    <div class=\"class-banner-bottom\" style=\"background:$CLASS_BG;color:$CLASS_FG;\">$CLASS_LABEL</div>
 </body>
 </html>'''
     

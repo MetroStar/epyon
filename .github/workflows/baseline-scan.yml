@@ -167,8 +167,7 @@ jobs:
           
           # Create scan directory with baseline SHA
           TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
-          USERNAME="${GITHUB_ACTOR}"
-          SCAN_NAME="baseline_${TARGET_NAME}_${BASELINE_SHA_SHORT}_${USERNAME}_${TIMESTAMP}"
+          SCAN_NAME="baseline_${TARGET_NAME}_${BASELINE_SHA_SHORT}_${TIMESTAMP}"
           SCAN_DIR="scans/${SCAN_NAME}"
           mkdir -p "$SCAN_DIR"
           echo "SCAN_DIR=$PWD/$SCAN_DIR" >> /tmp/epyon-env

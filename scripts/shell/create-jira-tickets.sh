@@ -23,16 +23,14 @@
 set -euo pipefail
 
 # ── Helper: search for an existing open JIRA ticket by label ──────────────────
-# Uses POST (not GET) to avoid URL-encoding issues with complex JQL.
-# Returns the HTTP status code; results written to /tmp/jira_search.json.
+# Uses POST body (avoids URL-encoding issues). Writes results to /tmp/jira_search.json.
+# Returns HTTP status code on stdout.
 jira_search_open() {
   local label="$1"
-  # Minimal JQL — no status clause to avoid encoding/version issues.
-  # Open/closed filtering is handled in jq after retrieval.
   local payload
   payload=$(jq -n \
     --arg jql "project = \"${PROJECT_KEY}\" AND labels = \"${label}\" AND labels = \"${REPO_SLUG}\"" \
-    '{jql: $jql, maxResults: 10, fields: ["status", "summary", "key"]}')
+    '{jql: $jql, maxResults: 10, fields: ["status", "summary"]}')
   curl -s -o /tmp/jira_search.json -w "%{http_code}" \
     -X POST \
     -H "Authorization: Basic ${AUTH}" \
@@ -211,7 +209,7 @@ create_jira_ticket() {
   local severity_key="$4"    # critical_findings / high_findings / etc.
   local summary_line="$5"
 
-  # Collect all current vuln IDs for this severity (dedup + tracking marker).
+  # Collect current vuln IDs for the tracking marker embedded in new tickets.
   local current_ids_json='[]'
   if [[ -f "${FINDINGS_FILE}" ]]; then
     current_ids_json=$(python3 - "${severity_key}" "${FINDINGS_FILE}" <<'JIRA_GETIDS'
@@ -232,115 +230,51 @@ JIRA_GETIDS
   echo "--- Checking for existing open ticket: ${label_severity} / ${REPO_SLUG} ---"
   local http_code
   http_code=$(jira_search_open "${label_severity}")
+  echo "    search HTTP ${http_code}; response: $(cat /tmp/jira_search.json 2>/dev/null | head -c 200)"
 
   if [[ "${http_code}" == "200" ]]; then
-    # Filter out tickets whose status category is "done" in jq — avoids JQL statusCategory issues.
+    # Find the first issue whose status category is not "done".
+    # null != "done" is true in jq so missing statusCategory is treated as open.
     local existing_key
     existing_key=$(jq -r '
       [.issues[]?
-       | select(.fields.status.statusCategory.key != "done")
+       | select((.fields.status.statusCategory.key // "open") != "done")
       ] | .[0].key // ""' /tmp/jira_search.json 2>/dev/null || echo "")
 
     if [[ -n "${existing_key}" ]]; then
-
-      # Fetch comments (newest-first) and extract the stored tracking marker.
-      local stored_ids_json='[]'
-      local comments_http
-      comments_http=$(curl -s -o /tmp/jira_comments.json -w "%{http_code}" \
-        -H "Authorization: Basic ${AUTH}" \
-        -H "Accept: application/json" \
-        "${JIRA_URL}/rest/api/3/issue/${existing_key}/comment?maxResults=50&orderBy=-created" 2>/dev/null || echo "")
-      if [[ "${comments_http}" == "200" ]] && [[ -f /tmp/jira_comments.json ]]; then
-        stored_ids_json=$(python3 - <<'JIRA_EXTCMT'
-import json, re, sys
-def extract_text(node):
-    if isinstance(node, dict):
-        if node.get('type') == 'text':
-            yield node.get('text', '')
-        for child in (node.get('content') or []):
-            yield from extract_text(child)
-with open('/tmp/jira_comments.json') as f:
-    data = json.load(f)
-for comment in data.get('comments', []):
-    body_text = ' '.join(extract_text(comment.get('body', {})))
-    m = re.search(r'\[epyon-tracked-vuln-ids:(\[.*?\])\]', body_text)
-    if m:
-        print(m.group(1))
-        sys.exit(0)
-print('[]')
-JIRA_EXTCMT
-        ) 2>/dev/null || stored_ids_json='[]'
-      fi
-
-      # Fall back to ticket description if no comment tracking marker found.
-      if [[ "${stored_ids_json}" == "[]" ]]; then
-        local issue_http
-        issue_http=$(curl -s -o /tmp/jira_issue_desc.json -w "%{http_code}" \
-          -H "Authorization: Basic ${AUTH}" \
-          -H "Accept: application/json" \
-          "${JIRA_URL}/rest/api/3/issue/${existing_key}?fields=description" 2>/dev/null || echo "")
-        if [[ "${issue_http}" == "200" ]] && [[ -f /tmp/jira_issue_desc.json ]]; then
-          stored_ids_json=$(python3 - <<'JIRA_EXTDESC'
-import json, re
-def extract_text(node):
-    if isinstance(node, dict):
-        if node.get('type') == 'text':
-            yield node.get('text', '')
-        for child in (node.get('content') or []):
-            yield from extract_text(child)
-with open('/tmp/jira_issue_desc.json') as f:
-    data = json.load(f)
-desc = data.get('fields', {}).get('description') or {}
-body_text = ' '.join(extract_text(desc))
-m = re.search(r'\[epyon-tracked-vuln-ids:(\[.*?\])\]', body_text)
-print(m.group(1) if m else '[]')
-JIRA_EXTDESC
-          ) 2>/dev/null || stored_ids_json='[]'
-        fi
-      fi
-
-      # Diff: IDs present now but not yet tracked.
-      local new_vuln_ids_json
-      new_vuln_ids_json=$(python3 - "${current_ids_json}" "${stored_ids_json}" <<'JIRA_DIFF'
-import json, sys
-current    = json.loads(sys.argv[1])
-stored_set = set(json.loads(sys.argv[2]))
-print(json.dumps([i for i in current if i not in stored_set]))
-JIRA_DIFF
-      ) 2>/dev/null || new_vuln_ids_json='[]'
-      local new_vuln_count
-      new_vuln_count=$(python3 -c "import json,sys; print(len(json.loads(sys.stdin.read())))" <<< "${new_vuln_ids_json}" 2>/dev/null || echo "0")
-
-      if [[ "${new_vuln_count}" -eq 0 ]]; then
-        echo "⏭️  JIRA ticket ${existing_key}: no new vulnerabilities — skipping comment"
-        echo "${existing_key}|${JIRA_URL}/browse/${existing_key}" >> /tmp/jira_created_tickets.txt
-        return 0
-      fi
-
-      echo "🔄  Open ticket ${existing_key} — ${new_vuln_count} new vuln(s), adding update comment"
-      echo "## 🔄 JIRA: Updated findings comment added" >> "${GITHUB_STEP_SUMMARY}"
+      echo "🔄  Found open ticket ${existing_key} — adding update comment"
+      echo "## 🔄 JIRA: Update comment added to ${existing_key}" >> "${GITHUB_STEP_SUMMARY}"
       echo "- Severity group: **${label_severity}**" >> "${GITHUB_STEP_SUMMARY}"
       echo "- Ticket: [${existing_key}](${JIRA_URL}/browse/${existing_key})" >> "${GITHUB_STEP_SUMMARY}"
 
-      local update_summary="Epyon detected ${new_vuln_count} new ${label_severity} finding(s) in ${REPO_NAME} on $(date -u +%Y-%m-%d)."
+      local update_summary="Epyon scan on $(date -u +%Y-%m-%d): ${summary_line} (run: ${RUN_URL})"
       local comment_adf
-      comment_adf=$(build_adf_body "${severity_key}" "${update_summary}" "${new_vuln_ids_json}" "${current_ids_json}")
-      curl -s -o /dev/null \
+      comment_adf=$(build_adf_body "${severity_key}" "${update_summary}" "" "${current_ids_json}")
+      local comment_http
+      comment_http=$(curl -s -o /tmp/jira_comment_resp.json -w "%{http_code}" \
         -X POST \
         -H "Authorization: Basic ${AUTH}" \
         -H "Content-Type: application/json" \
         -H "Accept: application/json" \
         --data "$(jq -n --argjson body "${comment_adf}" '{body: $body}')" \
-        "${JIRA_URL}/rest/api/3/issue/${existing_key}/comment"
+        "${JIRA_URL}/rest/api/3/issue/${existing_key}/comment")
+      if [[ "${comment_http}" == "201" ]]; then
+        echo "✅ Comment added to ${existing_key}"
+      else
+        echo "⚠️  Comment on ${existing_key} returned HTTP ${comment_http}"
+        cat /tmp/jira_comment_resp.json 2>/dev/null || true
+      fi
       echo "${existing_key}|${JIRA_URL}/browse/${existing_key}" >> /tmp/jira_created_tickets.txt
       return 0
-    fi  # end: open ticket found
-  elif [[ "${http_code}" == "404" || "${http_code}" == "400" ]]; then
-    # 404/400 means project has no issues with these labels yet — proceed to create.
-    echo "ℹ️  No existing tickets with label '${label_severity}' (HTTP ${http_code}) — creating new ticket"
+    else
+      echo "ℹ️  Search returned 200 but no open ticket found — creating new ticket"
+    fi
+  elif [[ "${http_code}" == "400" ]]; then
+    echo "ℹ️  Search returned 400 (label may not exist yet) — creating new ticket"
+  elif [[ "${http_code}" == "404" ]]; then
+    echo "ℹ️  Search returned 404 — creating new ticket"
   else
-    echo "⚠️  JIRA search returned HTTP ${http_code} — proceeding to create ticket anyway"
-    cat /tmp/jira_search.json 2>/dev/null || true
+    echo "⚠️  JIRA search returned HTTP ${http_code} — creating new ticket"
   fi
 
   echo "--- Creating new ticket for ${label_severity} ---"

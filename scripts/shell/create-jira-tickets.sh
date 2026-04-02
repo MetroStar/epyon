@@ -25,13 +25,13 @@ set -euo pipefail
 # ── Helper: search for an existing open JIRA ticket by label ──────────────────
 jira_search_open() {
   local label="$1"
-  local jql="project = \"${PROJECT_KEY}\" AND labels = \"${label}\" AND labels = \"${REPO_SLUG}\" AND resolution = Unresolved"
+  # Use statusCategory != Done — works on all Jira Cloud instances unlike 'resolution = Unresolved'
+  local jql="project = \"${PROJECT_KEY}\" AND labels = \"${label}\" AND labels = \"${REPO_SLUG}\" AND statusCategory != Done ORDER BY created DESC"
   local encoded_jql
   encoded_jql=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "${jql}")
   curl -s -o /tmp/jira_search.json -w "%{http_code}" \
     -H "Authorization: Basic ${AUTH}" \
     -H "Accept: application/json" \
-    -H "Content-Type: application/json" \
     "${JIRA_URL}/rest/api/3/issue/search?jql=${encoded_jql}&maxResults=1"
 }
 
@@ -418,6 +418,8 @@ JIRA_DIFF
 # ── Main ──────────────────────────────────────────────────────────────────────
 # Apply defaults for optional env vars.
 ISSUE_TYPE="${ISSUE_TYPE:-Bug}"
+# Strip any trailing slash from JIRA_URL to prevent double-slash in API paths.
+JIRA_URL="${JIRA_URL%/}"
 
 echo "=== JIRA Ticket Creation ==="
 echo "Project: ${PROJECT_KEY} | Repo: ${REPO_SLUG}"
@@ -445,30 +447,33 @@ if [[ "${proj_http}" != "200" ]]; then
 fi
 echo "✅ JIRA project '${PROJECT_KEY}' accessible"
 
+# Titles intentionally omit the date — one stable title per severity+repo so label
+# searches reliably find the existing open ticket across multiple scan runs.
+# The date appears in the ticket description and in update comments.
 if [[ "${CRITICAL_COUNT:-0}" -gt 0 ]]; then
   create_jira_ticket \
-    "🔴 [Epyon] Critical Security Findings — ${REPO_NAME##*/} ${TODAY}" \
+    "🔴 [Epyon] Critical Security Findings — ${REPO_NAME##*/}" \
     "epyon-critical" "Highest" "critical_findings" \
     "Epyon found ${CRITICAL_COUNT} critical severity finding(s) in ${REPO_NAME} on ${TODAY}."
 fi
 
 if [[ "${HIGH_COUNT:-0}" -gt 0 ]]; then
   create_jira_ticket \
-    "🟠 [Epyon] High Security Findings — ${REPO_NAME##*/} ${TODAY}" \
+    "🟠 [Epyon] High Security Findings — ${REPO_NAME##*/}" \
     "epyon-high" "High" "high_findings" \
     "Epyon found ${HIGH_COUNT} high severity finding(s) in ${REPO_NAME} on ${TODAY}."
 fi
 
 if [[ "${MEDIUM_COUNT:-0}" -gt 0 ]]; then
   create_jira_ticket \
-    "🟡 [Epyon] Medium Security Findings — ${REPO_NAME##*/} ${TODAY}" \
+    "🟡 [Epyon] Medium Security Findings — ${REPO_NAME##*/}" \
     "epyon-medium" "Medium" "medium_findings" \
     "Epyon found ${MEDIUM_COUNT} medium severity finding(s) in ${REPO_NAME} on ${TODAY}."
 fi
 
 if [[ "${LOW_COUNT:-0}" -gt 0 ]]; then
   create_jira_ticket \
-    "🔵 [Epyon] Low Security Findings — ${REPO_NAME##*/} ${TODAY}" \
+    "🔵 [Epyon] Low Security Findings — ${REPO_NAME##*/}" \
     "epyon-low" "Low" "low_findings" \
     "Epyon found ${LOW_COUNT} low severity finding(s) in ${REPO_NAME} on ${TODAY}."
 fi

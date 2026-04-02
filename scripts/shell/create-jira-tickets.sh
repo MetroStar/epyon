@@ -23,16 +23,23 @@
 set -euo pipefail
 
 # ── Helper: search for an existing open JIRA ticket by label ──────────────────
+# Uses POST (not GET) to avoid URL-encoding issues with complex JQL.
+# Returns the HTTP status code; results written to /tmp/jira_search.json.
 jira_search_open() {
   local label="$1"
-  # Use statusCategory != Done — works on all Jira Cloud instances unlike 'resolution = Unresolved'
-  local jql="project = \"${PROJECT_KEY}\" AND labels = \"${label}\" AND labels = \"${REPO_SLUG}\" AND statusCategory != Done ORDER BY created DESC"
-  local encoded_jql
-  encoded_jql=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "${jql}")
+  # Minimal JQL — no status clause to avoid encoding/version issues.
+  # Open/closed filtering is handled in jq after retrieval.
+  local payload
+  payload=$(jq -n \
+    --arg jql "project = \"${PROJECT_KEY}\" AND labels = \"${label}\" AND labels = \"${REPO_SLUG}\"" \
+    '{jql: $jql, maxResults: 10, fields: ["status", "summary", "key"]}')
   curl -s -o /tmp/jira_search.json -w "%{http_code}" \
+    -X POST \
     -H "Authorization: Basic ${AUTH}" \
+    -H "Content-Type: application/json" \
     -H "Accept: application/json" \
-    "${JIRA_URL}/rest/api/3/issue/search?jql=${encoded_jql}&maxResults=1"
+    --data "${payload}" \
+    "${JIRA_URL}/rest/api/3/issue/search"
 }
 
 # ── Helper: build ADF body from a severity section of findings JSON ───────────
@@ -227,11 +234,14 @@ JIRA_GETIDS
   http_code=$(jira_search_open "${label_severity}")
 
   if [[ "${http_code}" == "200" ]]; then
-    local total
-    total=$(jq '.total // 0' /tmp/jira_search.json)
-    if [[ "${total}" -gt 0 ]]; then
-      local existing_key
-      existing_key=$(jq -r '.issues[0].key' /tmp/jira_search.json)
+    # Filter out tickets whose status category is "done" in jq — avoids JQL statusCategory issues.
+    local existing_key
+    existing_key=$(jq -r '
+      [.issues[]?
+       | select(.fields.status.statusCategory.key != "done")
+      ] | .[0].key // ""' /tmp/jira_search.json 2>/dev/null || echo "")
+
+    if [[ -n "${existing_key}" ]]; then
 
       # Fetch comments (newest-first) and extract the stored tracking marker.
       local stored_ids_json='[]'
@@ -324,12 +334,13 @@ JIRA_DIFF
         "${JIRA_URL}/rest/api/3/issue/${existing_key}/comment"
       echo "${existing_key}|${JIRA_URL}/browse/${existing_key}" >> /tmp/jira_created_tickets.txt
       return 0
-    fi
+    fi  # end: open ticket found
   elif [[ "${http_code}" == "404" || "${http_code}" == "400" ]]; then
-    # 404/400 = labels don't exist in this project yet — no open ticket, proceed to create.
-    echo "ℹ️  No existing label '${label_severity}' in project (HTTP ${http_code}) — creating new ticket"
+    # 404/400 means project has no issues with these labels yet — proceed to create.
+    echo "ℹ️  No existing tickets with label '${label_severity}' (HTTP ${http_code}) — creating new ticket"
   else
     echo "⚠️  JIRA search returned HTTP ${http_code} — proceeding to create ticket anyway"
+    cat /tmp/jira_search.json 2>/dev/null || true
   fi
 
   echo "--- Creating new ticket for ${label_severity} ---"

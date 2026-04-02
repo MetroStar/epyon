@@ -325,6 +325,9 @@ JIRA_DIFF
       echo "${existing_key}|${JIRA_URL}/browse/${existing_key}" >> /tmp/jira_created_tickets.txt
       return 0
     fi
+  elif [[ "${http_code}" == "404" || "${http_code}" == "400" ]]; then
+    # 404/400 = labels don't exist in this project yet — no open ticket, proceed to create.
+    echo "ℹ️  No existing label '${label_severity}' in project (HTTP ${http_code}) — creating new ticket"
   else
     echo "⚠️  JIRA search returned HTTP ${http_code} — proceeding to create ticket anyway"
   fi
@@ -442,22 +445,30 @@ if [[ "${proj_http}" != "200" ]]; then
 fi
 echo "✅ JIRA project '${PROJECT_KEY}' accessible"
 
-[[ "${CRITICAL_COUNT:-0}" -gt 0 ]] && create_jira_ticket \
-  "🔴 [Epyon] Critical Security Findings — ${REPO_NAME##*/} ${TODAY}" \
-  "epyon-critical" "Highest" "critical_findings" \
-  "Epyon found ${CRITICAL_COUNT} critical severity finding(s) in ${REPO_NAME} on ${TODAY}."
+if [[ "${CRITICAL_COUNT:-0}" -gt 0 ]]; then
+  create_jira_ticket \
+    "🔴 [Epyon] Critical Security Findings — ${REPO_NAME##*/} ${TODAY}" \
+    "epyon-critical" "Highest" "critical_findings" \
+    "Epyon found ${CRITICAL_COUNT} critical severity finding(s) in ${REPO_NAME} on ${TODAY}."
+fi
 
-[[ "${HIGH_COUNT:-0}" -gt 0 ]] && create_jira_ticket \
-  "🟠 [Epyon] High Security Findings — ${REPO_NAME##*/} ${TODAY}" \
-  "epyon-high" "High" "high_findings" \
-  "Epyon found ${HIGH_COUNT} high severity finding(s) in ${REPO_NAME} on ${TODAY}."
+if [[ "${HIGH_COUNT:-0}" -gt 0 ]]; then
+  create_jira_ticket \
+    "🟠 [Epyon] High Security Findings — ${REPO_NAME##*/} ${TODAY}" \
+    "epyon-high" "High" "high_findings" \
+    "Epyon found ${HIGH_COUNT} high severity finding(s) in ${REPO_NAME} on ${TODAY}."
+fi
 
-[[ "${MEDIUM_COUNT:-0}" -gt 0 ]] && create_jira_ticket \
-  "🟡 [Epyon] Medium Security Findings — ${REPO_NAME##*/} ${TODAY}" \
-  "epyon-medium" "Medium" "medium_findings" \
-  "Epyon found ${MEDIUM_COUNT} medium severity finding(s) in ${REPO_NAME} on ${TODAY}."
+if [[ "${MEDIUM_COUNT:-0}" -gt 0 ]]; then
+  create_jira_ticket \
+    "🟡 [Epyon] Medium Security Findings — ${REPO_NAME##*/} ${TODAY}" \
+    "epyon-medium" "Medium" "medium_findings" \
+    "Epyon found ${MEDIUM_COUNT} medium severity finding(s) in ${REPO_NAME} on ${TODAY}."
+fi
 
-[[ "${LOW_COUNT:-0}" -gt 0 ]] && create_jira_ticket \
-  "🔵 [Epyon] Low Security Findings — ${REPO_NAME##*/} ${TODAY}" \
-  "epyon-low" "Low" "low_findings" \
-  "Epyon found ${LOW_COUNT} low severity finding(s) in ${REPO_NAME} on ${TODAY}."
+if [[ "${LOW_COUNT:-0}" -gt 0 ]]; then
+  create_jira_ticket \
+    "🔵 [Epyon] Low Security Findings — ${REPO_NAME##*/} ${TODAY}" \
+    "epyon-low" "Low" "low_findings" \
+    "Epyon found ${LOW_COUNT} low severity finding(s) in ${REPO_NAME} on ${TODAY}."
+fi

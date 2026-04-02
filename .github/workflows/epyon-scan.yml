@@ -824,179 +824,199 @@ jobs:
               });
             }
 
-      - name: Create Scan Notification Issue
+      - name: Create Scan Notification Issues
         id: create-github-issue
         if: always() && steps.check-severity.outputs.has_issues == 'true' && env.CREATE_GITHUB_ISSUE != 'false'
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const notifyUsers = '${{ env.NOTIFY_USERS }}'.split(',').map(u => `@${u.trim()}`).join(' ');
-            const triggeredBy = '@${{ github.actor }}';
-            const repository = '${{ github.repository }}';
-            const scanMode = '${{ env.SCAN_MODE }}';
-            const runUrl = `https://github.com/${repository}/actions/runs/${{ github.run_id }}`;
-            const critical = '${{ steps.check-severity.outputs.critical }}' || '0';
-            const high = '${{ steps.check-severity.outputs.high }}' || '0';
-            const medium = '${{ steps.check-severity.outputs.medium }}' || '0';
-            const low = '${{ steps.check-severity.outputs.low }}' || '0';
 
-            let triggerType = 'Manual';
-            if ('${{ github.event_name }}' === 'push') triggerType = 'Push to ${{ github.ref_name }}';
-            else if ('${{ github.event_name }}' === 'pull_request') triggerType = 'Pull Request #${{ github.event.pull_request.number }}';
-            else if ('${{ github.event_name }}' === 'schedule') triggerType = 'Scheduled Scan';
+            // ── Only @mention users listed in NOTIFY_USERS — never broader team mentions ──
+            const notifyMentions = ('${{ env.NOTIFY_USERS }}' || '')
+              .split(',').map(u => u.trim()).filter(Boolean).map(u => `@${u}`).join(' ');
 
-            let severityEmoji = '✅';
-            let severityStatus = 'Clean';
-            let labels = ['security-scan', 'epyon'];
+            const triggeredBy  = '@${{ github.actor }}';
+            const repository   = '${{ github.repository }}';
+            const repoName     = repository.split('/')[1];
+            const scanMode     = '${{ env.SCAN_MODE }}';
+            const runUrl       = `https://github.com/${repository}/actions/runs/${{ github.run_id }}`;
+            const today        = new Date().toISOString().split('T')[0];
 
-            const hasCritical = parseInt(critical) > 0;
-            const hasHigh = parseInt(high) > 0;
-            const hasMedium = parseInt(medium) > 0;
-            const hasLow = parseInt(low) > 0;
+            const critical = parseInt('${{ steps.check-severity.outputs.critical }}') || 0;
+            const high     = parseInt('${{ steps.check-severity.outputs.high }}')     || 0;
+            const medium   = parseInt('${{ steps.check-severity.outputs.medium }}')   || 0;
+            const low      = parseInt('${{ steps.check-severity.outputs.low }}')      || 0;
 
-            if (hasCritical) {
-              severityEmoji = '🔴';
-              severityStatus = 'Critical Issues Found';
-              labels.push('critical', 'security');
-            } else if (hasHigh) {
-              severityEmoji = '🟠';
-              severityStatus = 'High Risk';
-              labels.push('high-severity', 'security');
-            } else if (hasMedium) {
-              severityEmoji = '🟡';
-              severityStatus = 'Medium Risk';
-              labels.push('medium-severity', 'security');
-            } else if (hasLow) {
-              severityEmoji = '🔵';
-              severityStatus = 'Low Risk';
-              labels.push('low-severity', 'security');
-            } else {
-              labels.push('no-issues');
+            // ── Load the findings JSON produced by the scan ────────────────────────────
+            const findingsPath = 'epyon/${{ steps.run-scan.outputs.scan_dir }}/security-findings-summary.json';
+            let findingsData = {};
+            if (fs.existsSync(findingsPath)) {
+              try { findingsData = JSON.parse(fs.readFileSync(findingsPath, 'utf8')); }
+              catch (e) { console.warn(`Could not parse findings JSON: ${e.message}`); }
             }
 
-            const summaryPath = 'epyon/${{ steps.run-scan.outputs.scan_dir }}/consolidated-reports/markdown-reports/executive-summary.md';
-            let executiveSummary = '';
-            if (fs.existsSync(summaryPath)) {
-              executiveSummary = fs.readFileSync(summaryPath, 'utf8');
+            // ── Per-severity config: one GitHub issue is maintained per severity level ─
+            const SEVERITIES = [
+              { key: 'critical', label: 'critical',        emoji: '🔴', count: critical, findingsKey: 'critical_findings', labelName: 'Critical' },
+              { key: 'high',     label: 'high-severity',   emoji: '🟠', count: high,     findingsKey: 'high_findings',     labelName: 'High'     },
+              { key: 'medium',   label: 'medium-severity', emoji: '🟡', count: medium,   findingsKey: 'medium_findings',   labelName: 'Medium'   },
+              { key: 'low',      label: 'low-severity',    emoji: '🔵', count: low,      findingsKey: 'low_findings',      labelName: 'Low'      },
+            ];
+
+            // The tracking marker is an invisible HTML comment embedded in issue/comment
+            // bodies so we can tell which vulnerability IDs were previously reported.
+            function extractStoredVulnIds(body) {
+              if (!body) return [];
+              const m = body.match(/<!--epyon-vuln-ids:([\s\S]*?)-->/);
+              if (!m) return [];
+              try { return JSON.parse(m[1]); } catch { return []; }
             }
 
-            const issueBody = `${severityEmoji} **Security Scan Complete - ${severityStatus}**
+            function findingId(f) {
+              return f.vulnerability_id || f.check_id || f.detector || 'unknown';
+            }
 
-            **Repository:** \`${repository}\`
-            **Scan Mode:** \`${scanMode}\`
-            **Trigger:** ${triggerType}
-            **Triggered by:** ${triggeredBy}
-            **Notifying:** ${notifyUsers}
-
-            ---
-
-            ### 📊 Security Findings Summary
-
-            | Severity | Count |
-            |----------|-------|
-            | 🔴 Critical | ${critical} |
-            | 🟠 High | ${high} |
-            | 🟡 Medium | ${medium} |
-            | 🔵 Low | ${low} |
-
-            ${executiveSummary ? `\n### 📋 Executive Summary\n\n${executiveSummary}\n` : ''}
-
-            ---
-
-            ### 📦 Scan Artifacts
-
-            - [View Workflow Run](${runUrl})
-            - [Download Security Dashboard](${runUrl})
-            - [Download Full Report](${runUrl})
-
-            ### 🔗 Next Steps
-
-            ${parseInt(critical) > 0 || parseInt(high) > 0 ?
-              '1. ⚠️ **Review critical and high-severity findings immediately**\n2. Download the interactive security dashboard\n3. Prioritize remediation based on severity\n4. Update dependencies and configurations as needed' :
-              '1. ✅ Review scan results for informational findings\n2. Monitor for new vulnerabilities\n3. Keep dependencies up to date'}
-
-            ---
-            *🤖 Automated notification from Epyon Security Scanner*
-            `;
-
-            // Dedup: if an open issue with the same severity label already exists, add a
-            // comment with the latest findings instead of creating a duplicate.
-            const dedupLabel = hasCritical ? 'critical'
-                             : hasHigh     ? 'high-severity'
-                             : hasMedium   ? 'medium-severity'
-                             : hasLow      ? 'low-severity'
-                             :               'no-issues';
-            const existingIssues = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              labels: `security-scan,epyon,${dedupLabel}`,
-              per_page: 1
-            });
-            if (existingIssues.data.length > 0) {
-              const existing = existingIssues.data[0];
-              console.log(`Open issue already exists (#${existing.number}): ${existing.html_url}`);
-
-              // Parse counts from the most recent bot comment (or the issue body) so we
-              // only comment when the vulnerability counts have actually changed.
-              const countPattern = /Critical \|\s*(\d+)[\s\S]*?High \|\s*(\d+)[\s\S]*?Medium \|\s*(\d+)[\s\S]*?Low \|\s*(\d+)/;
-
-              let prevCritical = -1, prevHigh = -1, prevMedium = -1, prevLow = -1;
-
-              // Check the most recent bot comment first, then fall back to the issue body.
-              const comments = await github.rest.issues.listComments({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: existing.number,
-                per_page: 100
+            function buildFindingsTable(sevFindings) {
+              if (!sevFindings || sevFindings.length === 0) return '_No findings._';
+              const header = '| ID / CVE | Package / File | Version | Tool | Description |\n|----------|----------------|---------|------|-------------|';
+              const rows = sevFindings.map(f => {
+                const id   = findingId(f);
+                const pkg  = (f.package_name || f.file_path || f.file || 'N/A').substring(0, 60);
+                const ver  = f.package_version || '-';
+                const tool = f.tool || 'N/A';
+                const desc = (f.description || '').substring(0, 100);
+                const kev  = f.cisa_kev ? ' 🔥 KEV' : '';
+                return `| \`${id}\`${kev} | ${pkg} | ${ver} | ${tool} | ${desc} |`;
               });
-              const botComments = comments.data.filter(c => c.user.type === 'Bot').reverse();
-              const lastSource = botComments.length > 0 ? botComments[0].body : existing.body;
-              const match = lastSource && lastSource.match(countPattern);
-              if (match) {
-                prevCritical = parseInt(match[1]);
-                prevHigh     = parseInt(match[2]);
-                prevMedium   = parseInt(match[3]);
-                prevLow      = parseInt(match[4]);
-              }
-
-              const curCritical = parseInt(critical);
-              const curHigh     = parseInt(high);
-              const curMedium   = parseInt(medium);
-              const curLow      = parseInt(low);
-
-              if (curCritical === prevCritical && curHigh === prevHigh &&
-                  curMedium === prevMedium && curLow === prevLow) {
-                console.log(`Counts unchanged (C:${curCritical} H:${curHigh} M:${curMedium} L:${curLow}) — skipping comment`);
-                core.setOutput('issue_number', String(existing.number));
-                core.setOutput('issue_url', existing.html_url);
-                return;
-              }
-
-              console.log(`Counts changed — adding update comment (was C:${prevCritical} H:${prevHigh} M:${prevMedium} L:${prevLow}, now C:${curCritical} H:${curHigh} M:${curMedium} L:${curLow})`);
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: existing.number,
-                body: `### 🔄 Updated scan findings — ${new Date().toISOString().split('T')[0]}\n\n${issueBody}`
-              });
-              core.setOutput('issue_number', String(existing.number));
-              core.setOutput('issue_url', existing.html_url);
-              return;
+              return `${header}\n${rows.join('\n')}`;
             }
 
-            const issue = await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: `${severityEmoji} Security Scan: ${repository.split('/')[1]} - ${new Date().toISOString().split('T')[0]}`,
-              body: issueBody,
-              labels: labels
-            });
+            function buildIssueBody(sev, sevFindings, vulnIds) {
+              let triggerLabel = 'Manual';
+              if ('${{ github.event_name }}' === 'schedule')         triggerLabel = 'Scheduled Scan';
+              else if ('${{ github.event_name }}' === 'push')        triggerLabel = 'Push to ${{ github.ref_name }}';
+              else if ('${{ github.event_name }}' === 'pull_request') triggerLabel = 'Pull Request #${{ github.event.pull_request.number }}';
+              const steps = (sev.key === 'critical' || sev.key === 'high')
+                ? '1. ⚠️ **Review these findings immediately**\n2. Download the security dashboard from the workflow run\n3. Prioritize remediation by severity'
+                : '1. Review scan results\n2. Keep dependencies up to date';
+              return [
+                `${sev.emoji} **[Epyon] ${sev.labelName} Security Findings**`,
+                '',
+                `**Repository:** \`${repository}\``,
+                `**Scan Mode:** \`${scanMode}\``,
+                `**Trigger:** ${triggerLabel}`,
+                `**Triggered by:** ${triggeredBy}`,
+                notifyMentions ? `**Notifying:** ${notifyMentions}` : '',
+                '',
+                '---',
+                '',
+                `### 📊 ${sev.labelName} Severity Findings (${sev.count})`,
+                '',
+                buildFindingsTable(sevFindings),
+                '',
+                '---',
+                '',
+                '### 🔗 Resources',
+                `- [View Workflow Run](${runUrl})`,
+                '',
+                '### 🔧 Next Steps',
+                steps,
+                '',
+                '---',
+                `*🤖 Automated notification from Epyon Security Scanner — first reported ${today}*`,
+                '',
+                `<!--epyon-vuln-ids:${JSON.stringify(vulnIds)}-->`,
+              ].filter(l => l !== null).join('\n');
+            }
 
-            console.log(`Created issue #${issue.data.number}: ${issue.data.html_url}`);
-            core.setOutput('issue_number', String(issue.data.number));
-            core.setOutput('issue_url', issue.data.html_url);
+            function buildUpdateComment(sev, newFindings, allCurrentVulnIds) {
+              return [
+                `### 🔄 New ${sev.labelName} Findings — ${today}`,
+                '',
+                `${newFindings.length} new vulnerability/vulnerabilities detected since last scan:`,
+                '',
+                buildFindingsTable(newFindings),
+                '',
+                `[View Workflow Run](${runUrl}) · Triggered by ${triggeredBy}`,
+                notifyMentions ? `\n**Notifying:** ${notifyMentions}` : '',
+                '',
+                `<!--epyon-vuln-ids:${JSON.stringify(allCurrentVulnIds)}-->`,
+              ].filter(l => l !== null).join('\n');
+            }
+
+            // ── Process each severity level independently ─────────────────────────────
+            let firstIssueNumber = '';
+            let firstIssueUrl    = '';
+
+            for (const sev of SEVERITIES) {
+              if (sev.count === 0) continue;
+
+              const sevFindings    = findingsData[sev.findingsKey] || [];
+              const currentVulnIds = [...new Set(sevFindings.map(findingId))];
+
+              // Search for an existing open issue for this exact severity level.
+              const { data: existingList } = await github.rest.issues.listForRepo({
+                owner:    context.repo.owner,
+                repo:     context.repo.repo,
+                state:    'open',
+                labels:   `security-scan,epyon,${sev.label}`,
+                per_page: 1,
+              });
+
+              if (existingList.length > 0) {
+                const issue = existingList[0];
+
+                // Extract the set of previously tracked vuln IDs from the most recent
+                // bot comment, or fall back to the issue body if no comments exist yet.
+                const { data: comments } = await github.rest.issues.listComments({
+                  owner:        context.repo.owner,
+                  repo:         context.repo.repo,
+                  issue_number: issue.number,
+                  per_page:     100,
+                });
+                const botComments = comments.filter(c => c.user.type === 'Bot').reverse();
+                const lastBody    = botComments.length > 0 ? botComments[0].body : issue.body;
+                const prevVulnIds = extractStoredVulnIds(lastBody);
+
+                // Only post a comment when there are vulnerability IDs not yet reported.
+                const newVulnIds = currentVulnIds.filter(id => !prevVulnIds.includes(id));
+                if (newVulnIds.length === 0) {
+                  console.log(`[${sev.key}] No new vulnerabilities (${currentVulnIds.length} already tracked) — skipping`);
+                  if (!firstIssueNumber) { firstIssueNumber = String(issue.number); firstIssueUrl = issue.html_url; }
+                  continue;
+                }
+
+                console.log(`[${sev.key}] ${newVulnIds.length} new vuln(s) — commenting on #${issue.number}`);
+                const newFindings = sevFindings.filter(f => newVulnIds.includes(findingId(f)));
+                await github.rest.issues.createComment({
+                  owner:        context.repo.owner,
+                  repo:         context.repo.repo,
+                  issue_number: issue.number,
+                  body:         buildUpdateComment(sev, newFindings, currentVulnIds),
+                });
+                if (!firstIssueNumber) { firstIssueNumber = String(issue.number); firstIssueUrl = issue.html_url; }
+
+              } else {
+                // No open issue for this severity — create one now.
+                console.log(`[${sev.key}] No existing open issue — creating`);
+                const body = buildIssueBody(sev, sevFindings, currentVulnIds);
+                const { data: newIssue } = await github.rest.issues.create({
+                  owner:  context.repo.owner,
+                  repo:   context.repo.repo,
+                  title:  `${sev.emoji} [Epyon] ${sev.labelName} Security Findings — ${repoName}`,
+                  body,
+                  labels: ['security-scan', 'epyon', sev.label, 'security'],
+                });
+                console.log(`[${sev.key}] Created issue #${newIssue.number}: ${newIssue.html_url}`);
+                if (!firstIssueNumber) { firstIssueNumber = String(newIssue.number); firstIssueUrl = newIssue.html_url; }
+              }
+            }
+
+            if (firstIssueNumber) {
+              core.setOutput('issue_number', firstIssueNumber);
+              core.setOutput('issue_url', firstIssueUrl);
+            }
 
       - name: Create JIRA Tickets for Critical/High Findings
         if: >
@@ -1067,18 +1087,35 @@ jobs:
           }
 
           # ── Helper: build ADF body from a severity section of findings JSON ──
+          # Args: severity_key summary_line [filter_ids_json] [all_current_ids_json]
+          #   filter_ids_json:      JSON array of vuln IDs to include (empty/[] = include all)
+          #   all_current_ids_json: JSON array of all current IDs to embed as tracking marker
           build_adf_body() {
-            local severity_key="$1"  # critical_findings or high_findings
+            local severity_key="$1"         # critical_findings or high_findings
             local summary_line="$2"
-            python3 - "${FINDINGS_FILE}" "${severity_key}" "${summary_line}" "${RUN_URL}" "${REPO_NAME}" <<'PYEOF'
+            local filter_ids_json="${3:-}"        # optional: restrict to these IDs
+            local all_current_ids_json="${4:-[]}" # optional: tracking marker payload
+            python3 - "${FINDINGS_FILE}" "${severity_key}" "${summary_line}" "${RUN_URL}" "${REPO_NAME}" "${filter_ids_json}" "${all_current_ids_json}" <<'PYEOF'
           import json, sys
 
           findings_file, severity_key, summary_line, run_url, repo_name = sys.argv[1:6]
+          filter_ids_raw     = sys.argv[6] if len(sys.argv) > 6 else ''
+          all_current_raw    = sys.argv[7] if len(sys.argv) > 7 else '[]'
+
+          filter_ids      = set(json.loads(filter_ids_raw)) if filter_ids_raw and filter_ids_raw not in ('', '[]') else None
+          all_tracked_ids = json.loads(all_current_raw) if all_current_raw else []
 
           with open(findings_file) as f:
               data = json.load(f)
 
           findings = data.get(severity_key, [])
+
+          # Optionally restrict to specific vuln IDs (used for new-findings-only comments).
+          if filter_ids:
+              findings = [f for f in findings if (
+                  f.get("vulnerability_id") or f.get("check_id")
+                  or f.get("detector") or "unknown"
+              ) in filter_ids]
 
           # Build table rows + collect KEV findings for panel
           rows = []
@@ -1210,6 +1247,16 @@ jobs:
               ]
           }
 
+          # Append a machine-readable tracking marker so the next scan can determine
+          # which vulnerability IDs have already been reported on this ticket.
+          if all_tracked_ids:
+              adf["content"].append({
+                  "type": "codeBlock",
+                  "attrs": {"language": "text"},
+                  "content": [{"type": "text",
+                                "text": "[epyon-tracked-vuln-ids:" + json.dumps(all_tracked_ids) + "]"}]
+              })
+
           print(json.dumps(adf))
           PYEOF
           }
@@ -1255,6 +1302,26 @@ jobs:
             local severity_key="$4"     # critical_findings or high_findings
             local summary_line="$5"
 
+            # Pre-compute the full list of current vuln IDs for this severity.
+            # Used both for dedup comparison and as the tracking marker in new tickets.
+            local current_ids_json='[]'
+            if [[ -f "${FINDINGS_FILE}" ]]; then
+              current_ids_json=$(python3 - "${severity_key}" "${FINDINGS_FILE}" <<'JIRA_GETIDS'
+          import json, sys
+          skey, fpath = sys.argv[1], sys.argv[2]
+          with open(fpath) as f:
+              data = json.load(f)
+          ids = []
+          for x in data.get(skey, []):
+              vid = (x.get('vulnerability_id') or x.get('check_id')
+                     or x.get('detector') or 'unknown')
+              if vid not in ids:
+                  ids.append(vid)
+          print(json.dumps(ids))
+          JIRA_GETIDS
+              ) 2>/dev/null || current_ids_json='[]'
+            fi
+
             echo "--- Checking for existing open ticket: ${label_severity} / ${REPO_SLUG} ---"
             local http_code
             http_code=$(jira_search_open "${label_severity}")
@@ -1263,49 +1330,94 @@ jobs:
               local total
               total=$(jq '.total // 0' /tmp/jira_search.json)
               if [[ "${total}" -gt 0 ]]; then
-                local existing_url
-                existing_url=$(jq -r '.issues[0].self' /tmp/jira_search.json)
                 local existing_key
                 existing_key=$(jq -r '.issues[0].key' /tmp/jira_search.json)
 
-                # Only comment if the finding count embedded in summary_line has changed.
-                # summary_line format: "Epyon found N <severity> severity finding(s) in REPO on DATE."
-                # Extract the count from summary_line and compare against the last bot comment.
-                local new_count
-                new_count=$(echo "${summary_line}" | grep -oP 'found \K\d+' || echo "")
-
-                local last_count=""
+                # Fetch existing comments to extract the stored vuln-ID tracking marker.
+                # Check comments newest-first; fall back to the issue description if missing.
+                local stored_ids_json='[]'
                 local comments_http
-                curl -s -o /tmp/jira_comments.json -w "%{http_code}" \
+                comments_http=$(curl -s -o /tmp/jira_comments.json -w "%{http_code}" \
                   -H "Authorization: Basic ${AUTH}" \
                   -H "Accept: application/json" \
-                  "${JIRA_URL}/rest/api/3/issue/${existing_key}/comment?maxResults=50&orderBy=-created" \
-                  > /tmp/jira_comments_http.txt 2>/dev/null || true
-                comments_http=$(cat /tmp/jira_comments_http.txt 2>/dev/null || echo "")
+                  "${JIRA_URL}/rest/api/3/issue/${existing_key}/comment?maxResults=50&orderBy=-created" 2>/dev/null || echo "")
                 if [[ "${comments_http}" == "200" ]] && [[ -f /tmp/jira_comments.json ]]; then
-                  last_count=$(jq -r '
-                    [ .comments[]? |
-                      select(.body.content[]?.content[]?.text? | strings | test("Epyon found")) ] |
-                    first |
-                    .body.content[]?.content[]?.text? |
-                    strings |
-                    capture("found (?P<n>[0-9]+)") |
-                    .n' /tmp/jira_comments.json 2>/dev/null || echo "")
+                  stored_ids_json=$(python3 - <<'JIRA_EXTCMT'
+          import json, re, sys
+          def extract_text(node):
+              if isinstance(node, dict):
+                  if node.get('type') == 'text':
+                      yield node.get('text', '')
+                  for child in (node.get('content') or []):
+                      yield from extract_text(child)
+          with open('/tmp/jira_comments.json') as f:
+              data = json.load(f)
+          for comment in data.get('comments', []):
+              body_text = ' '.join(extract_text(comment.get('body', {})))
+              m = re.search(r'\[epyon-tracked-vuln-ids:(\[.*?\])\]', body_text)
+              if m:
+                  print(m.group(1))
+                  sys.exit(0)
+          print('[]')
+          JIRA_EXTCMT
+                  ) 2>/dev/null || stored_ids_json='[]'
                 fi
 
-                if [[ -n "${new_count}" && -n "${last_count}" && "${new_count}" == "${last_count}" ]]; then
-                  echo "⏭️  JIRA ticket ${existing_key}: count unchanged (${new_count}) — skipping comment"
+                # If no tracking marker in comments, fall back to the ticket description.
+                if [[ "${stored_ids_json}" == "[]" ]]; then
+                  local issue_http
+                  issue_http=$(curl -s -o /tmp/jira_issue_desc.json -w "%{http_code}" \
+                    -H "Authorization: Basic ${AUTH}" \
+                    -H "Accept: application/json" \
+                    "${JIRA_URL}/rest/api/3/issue/${existing_key}?fields=description" 2>/dev/null || echo "")
+                  if [[ "${issue_http}" == "200" ]] && [[ -f /tmp/jira_issue_desc.json ]]; then
+                    stored_ids_json=$(python3 - <<'JIRA_EXTDESC'
+          import json, re
+          def extract_text(node):
+              if isinstance(node, dict):
+                  if node.get('type') == 'text':
+                      yield node.get('text', '')
+                  for child in (node.get('content') or []):
+                      yield from extract_text(child)
+          with open('/tmp/jira_issue_desc.json') as f:
+              data = json.load(f)
+          desc = data.get('fields', {}).get('description') or {}
+          body_text = ' '.join(extract_text(desc))
+          m = re.search(r'\[epyon-tracked-vuln-ids:(\[.*?\])\]', body_text)
+          print(m.group(1) if m else '[]')
+          JIRA_EXTDESC
+                    ) 2>/dev/null || stored_ids_json='[]'
+                  fi
+                fi
+
+                # Diff: find vulnerability IDs present now but not in the last tracked set.
+                local new_vuln_ids_json
+                new_vuln_ids_json=$(python3 - "${current_ids_json}" "${stored_ids_json}" <<'JIRA_DIFF'
+          import json, sys
+          current    = json.loads(sys.argv[1])
+          stored_set = set(json.loads(sys.argv[2]))
+          print(json.dumps([i for i in current if i not in stored_set]))
+          JIRA_DIFF
+                ) 2>/dev/null || new_vuln_ids_json='[]'
+                local new_vuln_count
+                new_vuln_count=$(python3 -c "import json,sys; print(len(json.loads(sys.stdin.read())))" <<< "${new_vuln_ids_json}" 2>/dev/null || echo "0")
+
+                if [[ "${new_vuln_count}" -eq 0 ]]; then
+                  echo "⏭️  JIRA ticket ${existing_key}: no new vulnerabilities — skipping comment"
                   echo "${existing_key}|${JIRA_URL}/browse/${existing_key}" >> /tmp/jira_created_tickets.txt
                   return 0
                 fi
 
-                echo "🔄  Open ticket already exists for ${label_severity} (${REPO_SLUG}): ${existing_key} — adding update comment"
+                echo "🔄  Open ticket already exists for ${label_severity} (${REPO_SLUG}): ${existing_key} — ${new_vuln_count} new vuln(s), adding update comment"
                 echo "## 🔄 JIRA: Updated findings comment added" >> "${GITHUB_STEP_SUMMARY}"
                 echo "- Severity group: **${label_severity}**" >> "${GITHUB_STEP_SUMMARY}"
                 echo "- Ticket: [${existing_key}](${JIRA_URL}/browse/${existing_key})" >> "${GITHUB_STEP_SUMMARY}"
+                # Build ADF showing only the new findings; update tracking marker to full current set.
+                local update_summary="Epyon detected ${new_vuln_count} new ${label_severity} vulnerability/vulnerabilities in ${REPO_NAME} on $(date -u +%Y-%m-%d)."
+                local comment_adf_body
+                comment_adf_body=$(build_adf_body "${severity_key}" "${update_summary}" "${new_vuln_ids_json}" "${current_ids_json}")
                 local comment_payload
-                comment_payload=$(jq -n --arg body "Updated Epyon scan findings on $(date -u +%Y-%m-%d): ${summary_line}\n\nRun: ${RUN_URL}" \
-                  '{body: {version: 1, type: "doc", content: [{type: "paragraph", content: [{type: "text", text: $body}]}]}}')
+                comment_payload=$(jq -n --argjson body "${comment_adf_body}" '{body: $body}')
                 curl -s -o /dev/null \
                   -X POST \
                   -H "Authorization: Basic ${AUTH}" \
@@ -1323,7 +1435,7 @@ jobs:
 
             echo "--- Building ADF body for ${label_severity} ---"
             local adf_body
-            adf_body=$(build_adf_body "${severity_key}" "${summary_line}")
+            adf_body=$(build_adf_body "${severity_key}" "${summary_line}" "" "${current_ids_json}")
 
             jq -n \
               --arg project  "${PROJECT_KEY}" \

@@ -1023,6 +1023,7 @@ jobs:
       - name: Create JIRA Tickets for Critical/High Findings
         if: >
           always() &&
+          (inputs.scan_mode == 'full' || inputs.scan_mode == 'nightly') &&
           steps.check-severity.outputs.has_issues == 'true' &&
           env.JIRA_BASE_URL != '' &&
           env.JIRA_USER_EMAIL != '' &&
@@ -1054,6 +1055,7 @@ jobs:
       - name: Link Jira Tickets to GitHub Issue
         if: >
           always() &&
+          (inputs.scan_mode == 'full' || inputs.scan_mode == 'nightly') &&
           steps.create-github-issue.outputs.issue_number != '' &&
           env.JIRA_BASE_URL != '' &&
           env.JIRA_API_TOKEN != '' &&

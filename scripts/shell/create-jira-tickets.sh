@@ -25,11 +25,12 @@ set -euo pipefail
 # ── Helper: search for an existing open JIRA ticket by label ──────────────────
 # Uses POST body (avoids URL-encoding issues). Writes results to /tmp/jira_search.json.
 # Returns HTTP status code on stdout.
+# Search by exact summary text — more reliable than label-based search.
 jira_search_open() {
-  local label="$1"
+  local title="$1"
   local payload
   payload=$(jq -n \
-    --arg jql "project = \"${PROJECT_KEY}\" AND labels = \"${label}\" AND labels = \"${REPO_SLUG}\"" \
+    --arg jql "project = \"${PROJECT_KEY}\" AND summary ~ \"${title}\"" \
     '{jql: $jql, maxResults: 10, fields: ["status", "summary"]}')
   curl -s -o /tmp/jira_search.json -w "%{http_code}" \
     -X POST \
@@ -227,10 +228,10 @@ JIRA_GETIDS
     ) 2>/dev/null || current_ids_json='[]'
   fi
 
-  echo "--- Checking for existing open ticket: ${label_severity} / ${REPO_SLUG} ---"
+  echo "--- Checking for existing open ticket: ${title} ---"
   local http_code
-  http_code=$(jira_search_open "${label_severity}")
-  echo "    search HTTP ${http_code}; response: $(cat /tmp/jira_search.json 2>/dev/null | head -c 200)"
+  http_code=$(jira_search_open "${title}")
+  echo "    search HTTP ${http_code}; response: $(cat /tmp/jira_search.json 2>/dev/null | head -c 400)"
 
   if [[ "${http_code}" == "200" ]]; then
     # Find the first issue whose status category is not "done".

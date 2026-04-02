@@ -152,9 +152,9 @@ on:
         default: true
         type: boolean
       create_jira_tickets:
-        description: 'Create JIRA tickets for critical and high severity findings'
+        description: 'Disable JIRA ticket creation even when secrets are present (set to false to skip)'
         required: false
-        default: false
+        default: true
         type: boolean
       jira_project_key:
         description: 'JIRA project key to create tickets in (e.g. SEC, INFRA)'
@@ -239,7 +239,7 @@ jobs:
       SKIP_ANCHORE: "${{ inputs.skip_anchore }}"
       SKIP_API_DISCOVERY: "${{ inputs.skip_api_discovery }}"
       CREATE_GITHUB_ISSUE: "${{ inputs.create_github_issue }}"
-      CREATE_JIRA_TICKETS: "${{ inputs.create_jira_tickets }}"
+      CREATE_JIRA_TICKETS: "${{ inputs.create_jira_tickets }}"  # true by default; set to false to disable
       JIRA_PROJECT_KEY: "${{ secrets.JIRA_PROJECT_KEY || inputs.jira_project_key }}"
       JIRA_ISSUE_TYPE: "${{ inputs.jira_issue_type }}"
       JIRA_BASE_URL: "${{ secrets.JIRA_BASE_URL }}"
@@ -828,7 +828,7 @@ jobs:
 
       - name: Create Scan Notification Issues
         id: create-github-issue
-        if: always() && steps.check-severity.outputs.has_issues == 'true' && env.CREATE_GITHUB_ISSUE != 'false'
+        if: always() && steps.check-severity.outputs.has_issues == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -1023,11 +1023,11 @@ jobs:
       - name: Create JIRA Tickets for Critical/High Findings
         if: >
           always() &&
-          env.CREATE_JIRA_TICKETS != 'false' &&
           steps.check-severity.outputs.has_issues == 'true' &&
           env.JIRA_BASE_URL != '' &&
           env.JIRA_USER_EMAIL != '' &&
-          env.JIRA_API_TOKEN != ''
+          env.JIRA_API_TOKEN != '' &&
+          env.CREATE_JIRA_TICKETS != 'false'
         shell: bash
         env:
           GITHUB_ISSUE_URL: ${{ steps.create-github-issue.outputs.issue_url }}
@@ -1054,10 +1054,10 @@ jobs:
       - name: Link Jira Tickets to GitHub Issue
         if: >
           always() &&
-          env.CREATE_JIRA_TICKETS != 'false' &&
           steps.create-github-issue.outputs.issue_number != '' &&
           env.JIRA_BASE_URL != '' &&
-          env.JIRA_API_TOKEN != ''
+          env.JIRA_API_TOKEN != '' &&
+          env.CREATE_JIRA_TICKETS != 'false'
         uses: actions/github-script@v7
         with:
           script: |

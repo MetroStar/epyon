@@ -402,28 +402,28 @@ echo "✅ JIRA project '${PROJECT_KEY}' accessible"
 # The date appears in the ticket description and in update comments.
 if [[ "${CRITICAL_COUNT:-0}" -gt 0 ]]; then
   create_jira_ticket \
-    "[Epyon] Critical Security Findings - ${REPO_NAME##*/}" \
+    "Epyon Critical Security Findings - ${REPO_NAME##*/}" \
     "epyon-critical" "Highest" "critical_findings" \
     "Epyon found ${CRITICAL_COUNT} critical severity finding(s) in ${REPO_NAME} on ${TODAY}."
 fi
 
 if [[ "${HIGH_COUNT:-0}" -gt 0 ]]; then
   create_jira_ticket \
-    "[Epyon] High Security Findings - ${REPO_NAME##*/}" \
+    "Epyon High Security Findings - ${REPO_NAME##*/}" \
     "epyon-high" "High" "high_findings" \
     "Epyon found ${HIGH_COUNT} high severity finding(s) in ${REPO_NAME} on ${TODAY}."
 fi
 
 if [[ "${MEDIUM_COUNT:-0}" -gt 0 ]]; then
   create_jira_ticket \
-    "[Epyon] Medium Security Findings - ${REPO_NAME##*/}" \
+    "Epyon Medium Security Findings - ${REPO_NAME##*/}" \
     "epyon-medium" "Medium" "medium_findings" \
     "Epyon found ${MEDIUM_COUNT} medium severity finding(s) in ${REPO_NAME} on ${TODAY}."
 fi
 
 if [[ "${LOW_COUNT:-0}" -gt 0 ]]; then
   create_jira_ticket \
-    "[Epyon] Low Security Findings - ${REPO_NAME##*/}" \
+    "Epyon Low Security Findings - ${REPO_NAME##*/}" \
     "epyon-low" "Low" "low_findings" \
     "Epyon found ${LOW_COUNT} low severity finding(s) in ${REPO_NAME} on ${TODAY}."
 fi

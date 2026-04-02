@@ -413,6 +413,9 @@ JIRA_DIFF
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+# Apply defaults for optional env vars.
+ISSUE_TYPE="${ISSUE_TYPE:-Bug}"
+
 echo "=== JIRA Ticket Creation ==="
 echo "Project: ${PROJECT_KEY} | Repo: ${REPO_SLUG}"
 

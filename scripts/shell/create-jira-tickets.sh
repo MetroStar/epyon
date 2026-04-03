@@ -18,27 +18,118 @@
 #   LOW_COUNT              — integer count of low findings
 #   GITHUB_ISSUE_URL       — URL of the associated GitHub issue (optional)
 #   GITHUB_ISSUE_NUMBER    — number of the associated GitHub issue (optional)
+#   GITHUB_TOKEN           — GitHub token for reading/updating the issue body (dedup)
 #   GITHUB_STEP_SUMMARY    — path to the GitHub step summary file
 
 set -euo pipefail
 
-# ── Helper: search for an existing open JIRA ticket by label ──────────────────
-# Uses POST body (avoids URL-encoding issues). Writes results to /tmp/jira_search.json.
-# Returns HTTP status code on stdout.
-# Searches by label only — no special characters in JQL. Results filtered client-side.
-jira_search_open() {
-  local label="$1"   # e.g. epyon-critical
-  local jql="project = \"${PROJECT_KEY}\" AND labels = \"${label}\""
-  # Use Python to URL-encode the JQL; keeps literal comma in fields param
-  local search_url
-  search_url=$(python3 -c "
-import urllib.parse, sys
-print(sys.argv[2] + '/rest/api/3/issue/search?jql=' + urllib.parse.quote(sys.argv[1]) + '&maxResults=50&fields=status,summary')
-" "${jql}" "${JIRA_URL}")
-  curl -s -o /tmp/jira_search.json -w "%{http_code}" \
+# ── Helper: fetch current GitHub issue body via API ──────────────────────────
+get_github_issue_body() {
+  [[ -z "${GITHUB_ISSUE_NUMBER:-}" ]] && echo "" && return
+  [[ -z "${GITHUB_TOKEN:-}" ]]        && echo "" && return
+  curl -s \
+    -H "Authorization: token ${GITHUB_TOKEN}" \
+    -H "Accept: application/vnd.github.v3+json" \
+    "https://api.github.com/repos/${REPO_NAME}/issues/${GITHUB_ISSUE_NUMBER}" \
+    | jq -r '.body // ""'
+}
+
+# ── Helper: find existing open Jira ticket via key stored in GitHub issue body ─
+# Avoids Jira search entirely. After creating a ticket we embed
+# <!--epyon-jira-{label}:KEY--> in the GitHub issue body. On subsequent runs we
+# extract that key and call GET /rest/api/3/issue/{key} to check if still open.
+# All status messages go to stderr; only the key (or empty string) goes to stdout.
+find_existing_jira_ticket() {
+  local label_severity="$1"
+  [[ -z "${GITHUB_ISSUE_NUMBER:-}" ]] && echo "" && return
+  [[ -z "${GITHUB_TOKEN:-}" ]]        && echo "" && return
+
+  local issue_body
+  issue_body=$(get_github_issue_body)
+  [[ -z "${issue_body}" ]] && echo "" && return
+
+  echo "${issue_body}" > /tmp/epyon_issue_body.txt
+  local stored_key
+  stored_key=$(python3 - "${label_severity}" /tmp/epyon_issue_body.txt <<'PYEOF'
+import sys, re
+label, body_file = sys.argv[1], sys.argv[2]
+with open(body_file) as f:
+    body = f.read()
+m = re.search(r'<!--epyon-jira-' + re.escape(label) + r':([A-Z]+-\d+)-->', body)
+print(m.group(1) if m else '')
+PYEOF
+  )
+
+  if [[ -z "${stored_key}" ]]; then
+    echo "    No stored Jira key for ${label_severity} — will create new ticket" >&2
+    echo ""
+    return
+  fi
+
+  echo "    Stored key '${stored_key}' found — verifying it is still open..." >&2
+  local ticket_http
+  ticket_http=$(curl -s -o /tmp/jira_ticket.json -w "%{http_code}" \
     -H "Authorization: Basic ${AUTH}" \
     -H "Accept: application/json" \
-    "${search_url}"
+    "${JIRA_URL}/rest/api/3/issue/${stored_key}?fields=status,summary")
+
+  if [[ "${ticket_http}" == "200" ]]; then
+    local status_cat
+    status_cat=$(jq -r '.fields.status.statusCategory.key // "open"' /tmp/jira_ticket.json 2>/dev/null || echo "open")
+    if [[ "${status_cat}" != "done" ]]; then
+      echo "${stored_key}"
+    else
+      echo "    Ticket ${stored_key} is closed — will create new" >&2
+      echo ""
+    fi
+  else
+    echo "    Ticket ${stored_key} lookup returned HTTP ${ticket_http} — will create new" >&2
+    echo ""
+  fi
+}
+
+# ── Helper: embed Jira ticket key in GitHub issue body for future runs ─────────
+store_jira_key_in_github() {
+  local label_severity="$1"
+  local jira_key="$2"
+  [[ -z "${GITHUB_ISSUE_NUMBER:-}" ]] && return 0
+  [[ -z "${GITHUB_TOKEN:-}" ]]        && return 0
+
+  local current_body
+  current_body=$(get_github_issue_body)
+  echo "${current_body}" > /tmp/epyon_issue_body.txt
+
+  local new_body
+  new_body=$(python3 - "${label_severity}" "${jira_key}" /tmp/epyon_issue_body.txt <<'PYEOF'
+import sys, re
+label, key, body_file = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(body_file) as f:
+    body = f.read()
+marker  = f'<!--epyon-jira-{label}:{key}-->'
+pattern = r'<!--epyon-jira-' + re.escape(label) + r':[A-Z]+-\d+-->'
+if re.search(pattern, body):
+    new_body = re.sub(pattern, marker, body)
+else:
+    new_body = body.rstrip('\n') + '\n' + marker
+print(new_body, end='')
+PYEOF
+  )
+
+  local update_payload
+  update_payload=$(jq -n --arg body "${new_body}" '{body: $body}')
+  local update_http
+  update_http=$(curl -s -o /dev/null -w "%{http_code}" \
+    -X PATCH \
+    -H "Authorization: token ${GITHUB_TOKEN}" \
+    -H "Accept: application/vnd.github.v3+json" \
+    -H "Content-Type: application/json" \
+    --data "${update_payload}" \
+    "https://api.github.com/repos/${REPO_NAME}/issues/${GITHUB_ISSUE_NUMBER}")
+  if [[ "${update_http}" == "200" ]]; then
+    echo "📎 Stored Jira key ${jira_key} in GitHub issue #${GITHUB_ISSUE_NUMBER}"
+  else
+    echo "⚠️  Could not store Jira key in GitHub issue (HTTP ${update_http}) — continuing"
+  fi
 }
 
 # ── Helper: build ADF body from a severity section of findings JSON ───────────
@@ -228,40 +319,11 @@ JIRA_GETIDS
     ) 2>/dev/null || current_ids_json='[]'
   fi
 
-  echo "--- Checking for existing open ticket: label=${label_severity}, repo=${REPO_NAME##*/} ---"
-  local http_code
-  http_code=$(jira_search_open "${label_severity}")
+  echo "--- Checking for existing open ticket: ${label_severity} ---"
+  local existing_key
+  existing_key=$(find_existing_jira_ticket "${label_severity}")
 
-  # Full response dump so the workflow log shows exactly what Jira returned
-  echo "=== JIRA search response (HTTP ${http_code}) ==="
-  cat /tmp/jira_search.json 2>/dev/null || echo "(no response file)"
-  echo ""
-  echo "=== end JIRA search response ==="
-
-  if [[ "${http_code}" == "200" ]]; then
-    local total
-    total=$(jq '.total // 0' /tmp/jira_search.json 2>/dev/null || echo "0")
-    echo "    total issues returned by Jira: ${total}"
-
-    # Log every returned issue so we can see what the client-side filter sees
-    echo "    issues returned:"
-    jq -r '.issues[]? | "      key=\(.key) status=\(.fields.status.statusCategory.key // "?") summary=\(.fields.summary // "")"' \
-      /tmp/jira_search.json 2>/dev/null || echo "      (jq parse failed)"
-
-    # Find the first open ticket whose summary contains the repo name (client-side filter).
-    local repo_short="${REPO_NAME##*/}"
-    echo "    filtering by repo_short='${repo_short}'"
-    local existing_key
-    existing_key=$(jq -r --arg repo "${repo_short}" '
-      [.issues[]?
-       | select(
-           ((.fields.status.statusCategory.key // "open") != "done") and
-           (.fields.summary // "" | ascii_downcase | contains(($repo | ascii_downcase)))
-         )
-      ] | .[0].key // ""' /tmp/jira_search.json 2>/dev/null || echo "")
-    echo "    existing_key after filter: '${existing_key}'"
-
-    if [[ -n "${existing_key}" ]]; then
+  if [[ -n "${existing_key}" ]]; then
       echo "🔄  Found open ticket ${existing_key} — adding update comment"
       echo "## 🔄 JIRA: Update comment added to ${existing_key}" >> "${GITHUB_STEP_SUMMARY}"
       echo "- Severity group: **${label_severity}**" >> "${GITHUB_STEP_SUMMARY}"
@@ -286,15 +348,6 @@ JIRA_GETIDS
       fi
       echo "${existing_key}|${JIRA_URL}/browse/${existing_key}" >> /tmp/jira_created_tickets.txt
       return 0
-    else
-      echo "ℹ️  Search returned 200 but no open ticket found — creating new ticket"
-    fi
-  elif [[ "${http_code}" == "400" ]]; then
-    echo "ℹ️  Search returned 400 (label may not exist yet) — creating new ticket"
-  elif [[ "${http_code}" == "404" ]]; then
-    echo "ℹ️  Search returned 404 — creating new ticket"
-  else
-    echo "⚠️  JIRA search returned HTTP ${http_code} — creating new ticket"
   fi
 
   echo "--- Creating new ticket for ${label_severity} ---"
@@ -331,6 +384,7 @@ JIRA_GETIDS
     echo "- Ticket: [${new_key}](${JIRA_URL}/browse/${new_key})" >> "${GITHUB_STEP_SUMMARY}"
     echo "${new_key}|${JIRA_URL}/browse/${new_key}" >> /tmp/jira_created_tickets.txt
     link_jira_to_github "${new_key}"
+    store_jira_key_in_github "${label_severity}" "${new_key}"
 
     # Assign to active sprint (best-effort).
     local boards_http

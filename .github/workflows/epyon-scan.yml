@@ -1042,6 +1042,7 @@ jobs:
           HIGH_COUNT: ${{ steps.check-severity.outputs.high }}
           MEDIUM_COUNT: ${{ steps.check-severity.outputs.medium }}
           LOW_COUNT: ${{ steps.check-severity.outputs.low }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           AUTH=$(echo -n "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" | base64 -w0)

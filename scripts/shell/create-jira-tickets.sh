@@ -29,14 +29,16 @@ set -euo pipefail
 jira_search_open() {
   local label="$1"   # e.g. epyon-critical
   local jql="project = \"${PROJECT_KEY}\" AND labels = \"${label}\""
+  # Use Python to URL-encode the JQL; keeps literal comma in fields param
+  local search_url
+  search_url=$(python3 -c "
+import urllib.parse, sys
+print(sys.argv[2] + '/rest/api/3/issue/search?jql=' + urllib.parse.quote(sys.argv[1]) + '&maxResults=50&fields=status,summary')
+" "${jql}" "${JIRA_URL}")
   curl -s -o /tmp/jira_search.json -w "%{http_code}" \
-    -G \
     -H "Authorization: Basic ${AUTH}" \
     -H "Accept: application/json" \
-    --data-urlencode "jql=${jql}" \
-    --data-urlencode "maxResults=50" \
-    --data-urlencode "fields=status,summary" \
-    "${JIRA_URL}/rest/api/3/issue/search"
+    "${search_url}"
 }
 
 # ── Helper: build ADF body from a severity section of findings JSON ───────────

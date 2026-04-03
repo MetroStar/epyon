@@ -802,7 +802,7 @@ jobs:
 
               ${status}
               ${skippedSection}
-              **Triggered by:** @${{ github.actor }}
+              **Triggered by:** ${{ github.actor }}
               **Notifying:** ${notifyUsers}
 
               <details>

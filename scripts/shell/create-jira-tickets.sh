@@ -28,16 +28,14 @@ set -euo pipefail
 # Searches by label only — no special characters in JQL. Results filtered client-side.
 jira_search_open() {
   local label="$1"   # e.g. epyon-critical
-  local payload
-  payload=$(jq -n \
-    --arg jql "project = \"${PROJECT_KEY}\" AND labels = \"${label}\"" \
-    '{jql: $jql, maxResults: 50, fields: ["status", "summary"]}')
+  local jql="project = \"${PROJECT_KEY}\" AND labels = \"${label}\""
   curl -s -o /tmp/jira_search.json -w "%{http_code}" \
-    -X POST \
+    -G \
     -H "Authorization: Basic ${AUTH}" \
-    -H "Content-Type: application/json" \
     -H "Accept: application/json" \
-    --data "${payload}" \
+    --data-urlencode "jql=${jql}" \
+    --data-urlencode "maxResults=50" \
+    --data-urlencode "fields=status,summary" \
     "${JIRA_URL}/rest/api/3/issue/search"
 }
 
@@ -231,20 +229,35 @@ JIRA_GETIDS
   echo "--- Checking for existing open ticket: label=${label_severity}, repo=${REPO_NAME##*/} ---"
   local http_code
   http_code=$(jira_search_open "${label_severity}")
-  echo "    search HTTP ${http_code}; response: $(cat /tmp/jira_search.json 2>/dev/null | head -c 400)"
+
+  # Full response dump so the workflow log shows exactly what Jira returned
+  echo "=== JIRA search response (HTTP ${http_code}) ==="
+  cat /tmp/jira_search.json 2>/dev/null || echo "(no response file)"
+  echo ""
+  echo "=== end JIRA search response ==="
 
   if [[ "${http_code}" == "200" ]]; then
+    local total
+    total=$(jq '.total // 0' /tmp/jira_search.json 2>/dev/null || echo "0")
+    echo "    total issues returned by Jira: ${total}"
+
+    # Log every returned issue so we can see what the client-side filter sees
+    echo "    issues returned:"
+    jq -r '.issues[]? | "      key=\(.key) status=\(.fields.status.statusCategory.key // "?") summary=\(.fields.summary // "")"' \
+      /tmp/jira_search.json 2>/dev/null || echo "      (jq parse failed)"
+
     # Find the first open ticket whose summary contains the repo name (client-side filter).
-    # This avoids cross-repo matches and keeps all special characters out of JQL.
     local repo_short="${REPO_NAME##*/}"
+    echo "    filtering by repo_short='${repo_short}'"
     local existing_key
     existing_key=$(jq -r --arg repo "${repo_short}" '
       [.issues[]?
        | select(
            ((.fields.status.statusCategory.key // "open") != "done") and
-           (.fields.summary // "" | ascii_downcase | contains($repo | ascii_downcase))
+           (.fields.summary // "" | ascii_downcase | contains(($repo | ascii_downcase)))
          )
       ] | .[0].key // ""' /tmp/jira_search.json 2>/dev/null || echo "")
+    echo "    existing_key after filter: '${existing_key}'"
 
     if [[ -n "${existing_key}" ]]; then
       echo "🔄  Found open ticket ${existing_key} — adding update comment"

@@ -545,8 +545,173 @@ EOF
         done
     fi
     
-    # Deduplicate findings to avoid counting the same vulnerability multiple times
-    echo -e "${CYAN}🔄 Deduplicating findings across tools...${NC}"
+    # Process Xeol results — End-of-Life packages → High severity
+    local xeol_dir="$SCAN_DIR/xeol"
+    if [[ -d "$xeol_dir" ]]; then
+        for xeol_file in "$xeol_dir"/*xeol-*.json; do
+            if [[ -f "$xeol_file" ]] && [[ ! -L "$xeol_file" ]] && [[ -s "$xeol_file" ]]; then
+                local xeol_count
+                xeol_count=$(jq '.matches | length' "$xeol_file" 2>/dev/null || echo "0")
+                if [[ "$xeol_count" -gt 0 ]]; then
+                    tools_analyzed+=("Xeol")
+                    local xeol_findings
+                    xeol_findings=$(jq -r --arg tool "Xeol" '[
+                        .matches[]? |
+                        {
+                            tool: $tool,
+                            type: "eol_package",
+                            severity: "High",
+                            vulnerability_id: ("EOL-" + (.artifact.name // "unknown") + "-" + (.artifact.version // "unknown")),
+                            package_name: (.artifact.name // "N/A"),
+                            package_version: (.artifact.version // "N/A"),
+                            description: ("End-of-Life package: " + (.artifact.name // "unknown") + " " + (.artifact.version // "") + " — no further security patches"),
+                            eol_date: (.cycle.eol // "unknown"),
+                            latest_version: (.cycle.latest // "N/A"),
+                            file_path: (.artifact.locations[0].path // "N/A")
+                        }
+                    ]' "$xeol_file" 2>/dev/null || echo "[]")
+                    jq --argjson high "$xeol_findings" '
+                        .high_findings += $high' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+                    total_high=$((total_high + xeol_count))
+                fi
+            fi
+        done
+    fi
+
+    # Process ClamAV results — malware/virus detections → Critical severity
+    local clamav_dir="$SCAN_DIR/clamav"
+    if [[ -d "$clamav_dir" ]]; then
+        local clamav_json="$clamav_dir/clamav-results.json"
+        if [[ -f "$clamav_json" ]]; then
+            local infected_count
+            infected_count=$(jq '.infected_files // 0' "$clamav_json" 2>/dev/null || echo "0")
+            if [[ "$infected_count" -gt 0 ]]; then
+                tools_analyzed+=("ClamAV")
+                local clamav_findings
+                clamav_findings=$(jq -r --arg tool "ClamAV" '[
+                    .detections[]? |
+                    {
+                        tool: $tool,
+                        type: "malware_detection",
+                        severity: "Critical",
+                        vulnerability_id: ("MALWARE-" + (.signature // "UNKNOWN")),
+                        description: ("Malware detected: " + (.signature // "Unknown signature")),
+                        file_path: (.file // "N/A"),
+                        package_name: (.file // "N/A"),
+                        package_version: "N/A"
+                    }
+                ]' "$clamav_json" 2>/dev/null || echo "[]")
+                jq --argjson critical "$clamav_findings" '
+                    .critical_findings += $critical' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+                total_critical=$((total_critical + infected_count))
+            fi
+        fi
+    fi
+
+    # Process Anchore results — container image CVEs (same format as Grype)
+    local anchore_dir="$SCAN_DIR/anchore"
+    if [[ -d "$anchore_dir" ]]; then
+        local anchore_files=()
+        [[ -f "$anchore_dir/anchore-filesystem-results.json" ]] && anchore_files+=("$anchore_dir/anchore-filesystem-results.json")
+        for f in "$anchore_dir"/images/*.json; do
+            [[ -f "$f" ]] && [[ ! -L "$f" ]] && anchore_files+=("$f")
+        done
+        for anchore_file in "${anchore_files[@]:-}"; do
+            [[ -z "$anchore_file" ]] || [[ ! -f "$anchore_file" ]] && continue
+            local anchore_match_count
+            anchore_match_count=$(jq '[.matches[]? | select(.vulnerability.severity and .vulnerability.severity != "Negligible")] | length' "$anchore_file" 2>/dev/null || echo "0")
+            if [[ "$anchore_match_count" -gt 0 ]]; then
+                local scan_type
+                scan_type=$(basename "$anchore_file" .json)
+                tools_analyzed+=("Anchore-${scan_type}")
+                local anchore_findings
+                anchore_findings=$(jq -r --arg tool "Anchore" '[
+                    .matches[]? |
+                    select(.vulnerability.severity and .vulnerability.severity != "Negligible") |
+                    {
+                        tool: $tool,
+                        type: "container_vulnerability",
+                        severity: (.vulnerability.severity |
+                            if . == "Critical" then "Critical"
+                            elif . == "High" then "High"
+                            elif . == "Medium" then "Medium"
+                            else "Low" end),
+                        vulnerability_id: (.vulnerability.id // "N/A"),
+                        package_name: (.artifact.name // "N/A"),
+                        package_version: (.artifact.version // "N/A"),
+                        description: (.vulnerability.description // ("Container image vulnerability: " + (.vulnerability.id // "unknown"))),
+                        nvd_url: ((.vulnerability.urls // []) | first // null),
+                        fix_versions: (.vulnerability.fix.versions // [])
+                    }
+                ]' "$anchore_file" 2>/dev/null || echo "[]")
+                local a_crit a_high a_med a_low
+                a_crit=$(echo "$anchore_findings" | jq '[.[] | select(.severity == "Critical")]' 2>/dev/null || echo "[]")
+                a_high=$(echo "$anchore_findings" | jq '[.[] | select(.severity == "High")]' 2>/dev/null || echo "[]")
+                a_med=$(echo "$anchore_findings"  | jq '[.[] | select(.severity == "Medium")]' 2>/dev/null || echo "[]")
+                a_low=$(echo "$anchore_findings"  | jq '[.[] | select(.severity == "Low")]' 2>/dev/null || echo "[]")
+                jq --argjson critical "$a_crit" --argjson high "$a_high" --argjson medium "$a_med" --argjson low "$a_low" '
+                    .critical_findings += $critical |
+                    .high_findings     += $high |
+                    .medium_findings   += $medium |
+                    .low_findings      += $low' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+                total_critical=$((total_critical + $(echo "$a_crit" | jq 'length' 2>/dev/null || echo 0)))
+                total_high=$((total_high         + $(echo "$a_high" | jq 'length' 2>/dev/null || echo 0)))
+                total_medium=$((total_medium     + $(echo "$a_med"  | jq 'length' 2>/dev/null || echo 0)))
+                total_low=$((total_low           + $(echo "$a_low"  | jq 'length' 2>/dev/null || echo 0)))
+            fi
+        done
+    fi
+
+    # Process Helm results — lint errors → Medium, lint warnings → Low
+    local helm_dir="$SCAN_DIR/helm"
+    if [[ -d "$helm_dir" ]]; then
+        for helm_file in "$helm_dir"/helm-results.json "$helm_dir"/helm-build-results.json; do
+            if [[ -f "$helm_file" ]]; then
+                local lint_errors lint_warnings
+                lint_errors=$(jq '.summary.lint_errors // 0' "$helm_file" 2>/dev/null || echo "0")
+                lint_warnings=$(jq '.summary.lint_warnings // 0' "$helm_file" 2>/dev/null || echo "0")
+                if [[ "$lint_errors" -gt 0 ]] || [[ "$lint_warnings" -gt 0 ]]; then
+                    tools_analyzed+=("Helm")
+                    # Build medium findings from per-chart lint errors
+                    local helm_medium helm_low
+                    helm_medium=$(jq -r --arg tool "Helm" '[
+                        .charts[]? | .name as $chart |
+                        (.lint_results.errors // [])[] |
+                        {
+                            tool: $tool,
+                            type: "helm_lint_error",
+                            severity: "Medium",
+                            check_id: ("HELM-ERROR-" + ($chart // "unknown") | ascii_upcase | gsub("[^A-Z0-9-]"; "-")),
+                            description: .,
+                            file_path: ($chart // "N/A"),
+                            package_name: $chart
+                        }
+                    ]' "$helm_file" 2>/dev/null || echo "[]")
+                    helm_low=$(jq -r --arg tool "Helm" '[
+                        .charts[]? | .name as $chart |
+                        (.lint_results.warnings // [])[] |
+                        {
+                            tool: $tool,
+                            type: "helm_lint_warning",
+                            severity: "Low",
+                            check_id: ("HELM-WARN-" + ($chart // "unknown") | ascii_upcase | gsub("[^A-Z0-9-]"; "-")),
+                            description: .,
+                            file_path: ($chart // "N/A"),
+                            package_name: $chart
+                        }
+                    ]' "$helm_file" 2>/dev/null || echo "[]")
+                    jq --argjson medium "$helm_medium" --argjson low "$helm_low" '
+                        .medium_findings += $medium |
+                        .low_findings    += $low' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+                    total_medium=$((total_medium + lint_errors))
+                    total_low=$((total_low + lint_warnings))
+                fi
+                break  # only process first matching helm file
+            fi
+        done
+    fi
+
+    # Deduplicate findings to avoid counting the same vulnerability multiple times    echo -e "${CYAN}🔄 Deduplicating findings across tools...${NC}"
     
     # Deduplicate each severity level by creating unique keys and keeping first occurrence
     # Add metadata about which tools detected each finding

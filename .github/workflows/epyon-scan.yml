@@ -475,6 +475,7 @@ jobs:
           SONAR_PR_NUMBER: ${{ github.event.pull_request.number }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANCHORE_BUILD_TIMEOUT: "900"
         run: |
           # Append API keys to /tmp/epyon-env so they are explicitly exported to all subshells.
           [[ -n "${OPENAI_API_KEY:-}" ]]    && echo "OPENAI_API_KEY=${OPENAI_API_KEY}"       >> /tmp/epyon-env

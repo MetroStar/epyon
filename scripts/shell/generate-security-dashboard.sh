@@ -1675,7 +1675,16 @@ ANCHORE_CONTAINERS=()   # unique container/source labels for filter chips
 # Track seen vulnerabilities for deduplication (simple string approach)
 ANCHORE_SEEN_VULNS=""
 
-if [ -d "$ANCHORE_DIR" ]; then
+# Check if Anchore is suppressed via .epyon-ignore.yml — skip section entirely if so.
+_ANCHORE_TOOL_SUPPRESSED=false
+if declare -f is_tool_ignored >/dev/null 2>&1 && is_tool_ignored "anchore" 2>/dev/null; then
+    _ANCHORE_TOOL_SUPPRESSED=true
+    echo "⏭️  Anchore suppressed by .epyon-ignore.yml — skipping dashboard section"
+    ANCHORE_STATUS="Suppressed"
+    ANCHORE_FINDINGS="<div style='padding:20px;text-align:center;background:linear-gradient(135deg,#1a1d23 0%,#2C3539 100%);border:2px solid #6366f1;border-radius:8px;'><p style='color:#818cf8;font-size:1.1em;'>&#x23F8;&#xFE0F; <strong>Suppressed by .epyon-ignore.yml</strong></p><p style='color:#9ca3af;font-size:0.9em;margin-top:8px;'>Anchore findings are temporarily suppressed. See suppressed-findings.md for details.</p></div>"
+fi
+
+if [ -d "$ANCHORE_DIR" ] && [ "$_ANCHORE_TOOL_SUPPRESSED" = "false" ]; then
     # Count JSON result files
     ANCHORE_TARGETS_SCANNED=$(find "$ANCHORE_DIR" -name "*-results.json" -type f 2>/dev/null | wc -l | tr -d ' \n' || echo "0")
     [[ "$ANCHORE_TARGETS_SCANNED" =~ ^[0-9]+$ ]] || ANCHORE_TARGETS_SCANNED=0
@@ -1953,7 +1962,9 @@ if [ -d "$ANCHORE_DIR" ]; then
         ANCHORE_FINDINGS="<p class=\"no-findings\">✅ No vulnerabilities detected</p>"
     fi
 else
-    if [ "${SCAN_MODE:-full}" = "quick" ]; then
+    if [ "$_ANCHORE_TOOL_SUPPRESSED" = "true" ]; then
+        : # ANCHORE_FINDINGS already set to suppressed message above
+    elif [ "${SCAN_MODE:-full}" = "quick" ]; then
         ANCHORE_FINDINGS="<div style='padding:20px;text-align:center;background:linear-gradient(135deg,#1a1d23 0%,#2C3539 100%);border:2px solid #6366f1;border-radius:8px;'><p style='color:#818cf8;font-size:1.1em;'>&#x23ED;&#xFE0F; <strong>Not run in quick mode</strong></p><p style='color:#9ca3af;font-size:0.9em;margin-top:8px;'>Anchore security scanning is skipped for faster PR scans. Run a full scan (push or scheduled) for complete results.</p></div>"
     else
         ANCHORE_FINDINGS="<p class=\"no-findings\">No Anchore results available</p>"

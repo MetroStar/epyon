@@ -712,14 +712,21 @@ jobs:
           MEDIUM=0
           LOW=0
 
-          # Prefer the deduplicated JSON summary (most reliable source)
+          # Prefer the filtered JSON (suppressed tools removed) if it exists, then the
+          # deduplicated full summary, then executive-summary.md as a last resort.
+          FILTERED_JSON="$SCAN_DIR/security-findings-filtered.json"
           FINDINGS_JSON="$SCAN_DIR/security-findings-summary.json"
-          if [ -f "$FINDINGS_JSON" ]; then
-            CRITICAL=$(jq -r '.summary.total_critical // 0' "$FINDINGS_JSON")
-            HIGH=$(jq -r '.summary.total_high // 0' "$FINDINGS_JSON")
-            MEDIUM=$(jq -r '.summary.total_medium // 0' "$FINDINGS_JSON")
-            LOW=$(jq -r '.summary.total_low // 0' "$FINDINGS_JSON")
-            echo "DEBUG: Read from security-findings-summary.json — Critical=$CRITICAL High=$HIGH Medium=$MEDIUM Low=$LOW"
+          ACTIVE_JSON="$FINDINGS_JSON"
+          if [ -f "$FILTERED_JSON" ]; then
+            ACTIVE_JSON="$FILTERED_JSON"
+            echo "DEBUG: Using filtered findings (suppressed tools excluded): $FILTERED_JSON"
+          fi
+          if [ -f "$ACTIVE_JSON" ]; then
+            CRITICAL=$(jq -r '.summary.total_critical // 0' "$ACTIVE_JSON")
+            HIGH=$(jq -r '.summary.total_high // 0' "$ACTIVE_JSON")
+            MEDIUM=$(jq -r '.summary.total_medium // 0' "$ACTIVE_JSON")
+            LOW=$(jq -r '.summary.total_low // 0' "$ACTIVE_JSON")
+            echo "DEBUG: Read from $(basename $ACTIVE_JSON) — Critical=$CRITICAL High=$HIGH Medium=$MEDIUM Low=$LOW"
           else
             # Fall back to executive-summary.md
             SUMMARY="$SCAN_DIR/consolidated-reports/markdown-reports/executive-summary.md"
@@ -851,11 +858,14 @@ jobs:
             const medium   = parseInt('${{ steps.check-severity.outputs.medium }}')   || 0;
             const low      = parseInt('${{ steps.check-severity.outputs.low }}')      || 0;
 
-            // ── Load the findings JSON produced by the scan ────────────────────────────
+            // ── Load the findings JSON produced by the scan ─────────────────────────────
+            // Prefer the filtered version (suppressed tools removed) if it exists.
+            const filteredPath = 'epyon/${{ steps.run-scan.outputs.scan_dir }}/security-findings-filtered.json';
             const findingsPath = 'epyon/${{ steps.run-scan.outputs.scan_dir }}/security-findings-summary.json';
+            const activePath = fs.existsSync(filteredPath) ? filteredPath : findingsPath;
             let findingsData = {};
-            if (fs.existsSync(findingsPath)) {
-              try { findingsData = JSON.parse(fs.readFileSync(findingsPath, 'utf8')); }
+            if (fs.existsSync(activePath)) {
+              try { findingsData = JSON.parse(fs.readFileSync(activePath, 'utf8')); }
               catch (e) { console.warn(`Could not parse findings JSON: ${e.message}`); }
             }
 
@@ -1034,7 +1044,8 @@ jobs:
         env:
           GITHUB_ISSUE_URL: ${{ steps.create-github-issue.outputs.issue_url }}
           GITHUB_ISSUE_NUMBER: ${{ steps.create-github-issue.outputs.issue_number }}
-          FINDINGS_FILE: epyon/${{ steps.run-scan.outputs.scan_dir }}/security-findings-summary.json
+          FINDINGS_FILE: epyon/${{ steps.run-scan.outputs.scan_dir }}/security-findings-filtered.json
+          FINDINGS_FILE_FALLBACK: epyon/${{ steps.run-scan.outputs.scan_dir }}/security-findings-summary.json
           JIRA_URL: ${{ env.JIRA_BASE_URL }}
           PROJECT_KEY: ${{ env.JIRA_PROJECT_KEY }}
           ISSUE_TYPE: ${{ env.JIRA_ISSUE_TYPE }}
@@ -1046,6 +1057,10 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          # Prefer filtered findings (suppressed tools removed); fall back to full summary.
+          if [ ! -f "${FINDINGS_FILE}" ] && [ -f "${FINDINGS_FILE_FALLBACK}" ]; then
+            export FINDINGS_FILE="${FINDINGS_FILE_FALLBACK}"
+          fi
           AUTH=$(echo -n "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" | base64 -w0)
           REPO_SLUG=$(echo "${REPO_NAME}" | tr '/' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
           TODAY=$(date -u +"%Y-%m-%d")

@@ -106,6 +106,23 @@ if [[ -f "$FINDINGS_SUMMARY" ]]; then
         TOTAL_MEDIUM=$(jq -r   "[.medium_findings[]   | ${FILTER_EXPR}] | length" "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
         TOTAL_LOW=$(jq -r      "[.low_findings[]      | ${FILTER_EXPR}] | length" "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
         echo -e "${YELLOW}  After tool suppression — Critical: $TOTAL_CRITICAL | High: $TOTAL_HIGH | Medium: $TOTAL_MEDIUM | Low: $TOTAL_LOW${NC}"
+
+        # Write a filtered copy of the findings JSON so downstream steps (GitHub issues,
+        # JIRA tickets, dashboard) also see only non-suppressed findings.
+        FILTERED_SUMMARY="${FINDINGS_SUMMARY%.json}-filtered.json"
+        JQ_FILTER_PROGRAM="
+            .critical_findings = [.critical_findings[] | ${FILTER_EXPR}] |
+            .high_findings     = [.high_findings[]     | ${FILTER_EXPR}] |
+            .medium_findings   = [.medium_findings[]   | ${FILTER_EXPR}] |
+            .low_findings      = [.low_findings[]      | ${FILTER_EXPR}] |
+            .summary.total_critical = (${TOTAL_CRITICAL} | tonumber) |
+            .summary.total_high     = (${TOTAL_HIGH}     | tonumber) |
+            .summary.total_medium   = (${TOTAL_MEDIUM}   | tonumber) |
+            .summary.total_low      = (${TOTAL_LOW}      | tonumber)
+        "
+        jq "$JQ_FILTER_PROGRAM" "$FINDINGS_SUMMARY" > "$FILTERED_SUMMARY" 2>/dev/null \
+            && echo -e "${GREEN}✅ Wrote filtered findings: $FILTERED_SUMMARY${NC}" \
+            || echo -e "${YELLOW}⚠️  Could not write filtered findings JSON${NC}"
     else
         TOTAL_CRITICAL=$(jq -r '.summary.total_critical // 0' "$FINDINGS_SUMMARY")
         TOTAL_HIGH=$(jq -r     '.summary.total_high     // 0' "$FINDINGS_SUMMARY")

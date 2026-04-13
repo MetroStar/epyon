@@ -1,1981 +1,5033 @@
-# STIG Compliance Guide for Epyon
+# Epyon STIG Findings Assessment
 
-**Document Version**: 1.0  
-**Last Updated**: February 6, 2026  
-**Status**: Active
+**Document Version**: 2.0  
+**Last Updated**: April 13, 2026  
+**Application**: Epyon — Enterprise DevSecOps Security Orchestration Platform  
+**STIG**: Application Security and Development Security Technical Implementation Guide (APPSTIG) V5R3  
 
-## Overview
+**Total STIGs Assessed**: 286
 
-This guide maps Epyon's security scanning capabilities to Security Technical Implementation Guide (STIG) controls. While Epyon does not provide automated STIG checklist generation (planned for future releases), it can provide critical evidence and validation for many STIG requirements.
-
-## Important Notes
-
-⚠️ **Limitations:**
-- Epyon provides **evidence collection** and **technical validation**, not complete STIG compliance
-- Manual review and documentation are still required for many controls
-- STIG compliance requires organizational processes beyond technical scanning
-- This guide covers common STIGs; specific applications may have additional requirements
-
-✅ **Best Use:**
-- Evidence collection for STIG control validation
-- Continuous monitoring for security drift
-- Technical validation before submission to security teams
-- Automated security baseline enforcement
-
----
-
-## STIG Control Mapping by Category
-
-### 1. Application Security Development STIG (V5R3)
-
-#### APSC-DV-000160: The application must protect the confidentiality and integrity of transmitted information.
-
-**Epyon Tools:**
-- **Checkov** - Validates TLS/SSL configurations in IaC
-- **Trivy** - Scans for weak crypto libraries and configurations
-- **TruffleHog** - Detects exposed certificates/keys
-
-**Evidence Collection:**
-```bash
-# Run full scan
-./scripts/shell/run-target-security-scan.sh "/path/to/app" full
-
-# Check specific findings
-grep -r "TLS\|SSL\|crypto" scans/*/checkov/
-grep -r "certificate\|private.*key" scans/*/trufflehog/
-```
-
-**Report Location:**
-- `scans/{scan_id}/checkov/checkov-results.json` - Look for TLS/SSL misconfigurations
-- `scans/{scan_id}/trivy/trivy-results.json` - Search for crypto vulnerabilities
-- `scans/{scan_id}/trufflehog/trufflehog-results.json` - Check for exposed credentials
-
----
-
-#### APSC-DV-000500: The application must prevent non-privileged users from executing privileged functions.
-
-**Epyon Tools:**
-- **Checkov** - Validates RBAC configurations, privilege escalation
-- **Trivy** - Scans for containers running as root
-- **SonarQube** - Code analysis for authorization checks
-
-**Evidence Collection:**
-```bash
-# Check for privilege escalation issues
-grep -i "privilege\|root\|sudo\|setuid" scans/*/checkov/checkov-results.json
-grep -i "USER root\|privileged" scans/*/trivy/trivy-results.json
-
-# Review SonarQube security hotspots
-cat scans/*/sonar/sonar-results.json | jq '.issues[] | select(.type=="SECURITY_HOTSPOT")'
-```
-
-**Dashboard View:**
-- Open interactive dashboard: `./scripts/shell/open-latest-dashboard.sh`
-- Filter by "High" severity → Look for privilege escalation findings
-
----
-
-#### APSC-DV-000190 (V-222399): Messages protected with WS_Security must use time stamps with creation and expiration times.
-
-**Severity:** CAT I | **SRG:** SRG-APP-000014 | **Rule:** SV-222399r960759
-
-**Applicability to Epyon:** NOT APPLICABLE
-
-Epyon does not use WS-Security tokens or SOAP messaging. The Check Text explicitly states: *"If the application does not utilize WS-Security tokens, this check is not applicable."* This is the third control in the same WS-Security/SAML requirement family (see also APSC-DV-000200, APSC-DV-000230, APSC-DV-000240).
-
-**Basis for Not Applicable determination:**
-
-| Criterion | Epyon Behavior |
+| Status | Count |
 |---|---|
-| WS-Security tokens | Not used |
-| SOAP messages with timestamps / sequence numbers / expiration | None — no SOAP messaging |
-| Replay attack surface via WS-Security | N/A |
+| Not Applicable | 128 |
+| Compliant | 87 |
+| Open | 71 |
 
-**Evidence Commands:**
-```bash
-# Confirm no WS-Security or SOAP references
-grep -rn 'wss:\|wsu:\|wsse:\|soap\|ws-security\|timestamp\|Created\|Expires' scripts/shell/
-# Expected: no matches
-```
-
-**Report Location:** N/A — Epyon does not implement WS-Security or SOAP.
+> **Note**: Epyon is a CLI-based DevSecOps security orchestration pipeline tool. It has no web interface,
+> user authentication layer, session management, relational database, or user account management system.
+> "Not Applicable" findings reflect these architectural constraints.
+> "Open" findings reflect controls requiring external SIEM/infrastructure, organizational policy,
+> or additional implementation pending future development.
 
 ---
 
-#### APSC-DV-000200 (V-222400): Validity periods must be verified on all application messages using WS-Security or SAML assertions.
+### 1. APSC-DV-000010 | SV-222387r960735
 
-**Severity:** CAT I | **SRG:** SRG-APP-000014 | **Rule:** SV-222400r960759
+- Rule ID: SV-222387r960735
+- Severity: medium
+- Rule Title: The application must provide a capability to limit the number of logon sessions per user.
 
-**Applicability to Epyon:** NOT APPLICABLE
+Status: Not Applicable
 
-Epyon does not use WS-Security (WSS), SOAP, or SAML assertions. The Check Text explicitly states: *"If the application does not utilize WSS or SAML assertions, this requirement is not applicable."* This control is part of the same SAML/WS-Security requirement family as APSC-DV-000230 and APSC-DV-000240.
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
 
-**Basis for Not Applicable determination:**
-
-| Criterion | Epyon Behavior |
-|---|---|
-| WS-Security (WSS) token profiles | Not used |
-| SAML assertions with validity periods | Not produced or consumed |
-| SOAP messaging | None — Epyon communicates via REST/HTTPS only |
-| Replay attack surface via expired tokens | N/A — no message-level token framework |
-
-**Evidence Commands:**
-```bash
-# Confirm no WS-Security or SAML references
-grep -rn 'wss\|ws-security\|wstrust\|saml\|soap\|wsdl\|replay' scripts/shell/
-# Expected: no matches
-```
-
-**Report Location:** N/A — Epyon does not implement WS-Security or SAML.
+Remediation:
+N/A
 
 ---
 
-#### APSC-DV-000230 (V-222403): The application must use the NotOnOrAfter condition when using the SubjectConfirmation element in a SAML assertion.
+### 2. APSC-DV-000060 | SV-222388r1043182
 
-**Severity:** CAT I | **SRG:** SRG-APP-000014 | **Rule:** SV-222403r960759
+- Rule ID: SV-222388r1043182
+- Severity: medium
+- Rule Title: The application must clear temporary storage and cookies when the session is terminated.
 
-**Applicability to Epyon:** NOT APPLICABLE
+Status: Not Applicable
 
-Epyon does not use SAML assertions or SOAP messaging. The Check Text explicitly states: *"If the application does not utilize SAML assertions, this check is not applicable."* This control is part of the same SAML/SOAP requirement family as APSC-DV-000240 — see that entry for the full technical basis.
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
 
-**Basis for Not Applicable determination:**
-
-| Criterion | Epyon Behavior |
-|---|---|
-| SAML `<SubjectConfirmation>` elements | Not produced or consumed |
-| SAML `<NotOnOrAfter>` condition | Not applicable |
-| SOAP message exchange | None |
-| Identity Provider / Service Provider role | Neither |
-
-**Evidence Commands:**
-```bash
-# Confirm no SAML or SubjectConfirmation references
-grep -rn 'SubjectConfirmation\|NotOnOrAfter\|saml\|soap' scripts/shell/
-# Expected: no matches
-```
-
-**Report Location:** N/A — Epyon does not implement SAML or SOAP.
+Remediation:
+N/A
 
 ---
 
-#### APSC-DV-000240 (V-222404): The application must use both the NotBefore and NotOnOrAfter elements or OneTimeUse element when using the Conditions element in a SAML assertion.
+### 3. APSC-DV-000070 | SV-222389r1043182
 
-**Severity:** CAT I | **SRG:** SRG-APP-000014 | **Rule:** SV-222404r960759
+- Rule ID: SV-222389r1043182
+- Severity: medium
+- Rule Title: The application must automatically terminate the non-privileged user session and log off non-privileged users after a 15 minute idle time period has elapsed.
 
-**Applicability to Epyon:** NOT APPLICABLE
+Status: Not Applicable
 
-Epyon does not use SAML assertions or SOAP messaging. The Check Text explicitly states: *"If the application does not utilize SAML assertions, this check is not applicable."*
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
 
-**Basis for Not Applicable determination:**
-
-| Criterion | Epyon Behavior |
-|---|---|
-| SAML identity federation / SSO | None — Epyon has no authentication layer |
-| SAML assertions (`<Subject>`, `<Conditions>`, `<NotBefore>`, etc.) | Not produced or consumed |
-| SOAP messaging | None — Epyon communicates via REST (SonarQube API, AWS CLI HTTPS) |
-| Identity Provider (IdP) / Service Provider (SP) role | Neither — Epyon is a CLI pipeline tool |
-| Web services with `<Conditions>` elements | None |
-
-**Evidence Commands:**
-```bash
-# Confirm no SAML or SOAP references anywhere in scripts
-grep -rn 'saml\|soap\|NotBefore\|NotOnOrAfter\|OneTimeUse\|Assertion\|IdP\|saml2' scripts/shell/
-# Expected: no matches
-```
-
-**Report Location:** N/A — Epyon does not implement SAML or SOAP.
+Remediation:
+N/A
 
 ---
 
-#### APSC-DV-000460 (V-222425): The application must enforce approved authorizations for logical access to information and system resources in accordance with applicable access control policies.
+### 4. APSC-DV-000080 | SV-222390r1043182
 
-**Severity:** CAT I | **SRG:** SRG-APP-000033 | **Rule:** SV-222425r960792
+- Rule ID: SV-222390r1043182
+- Severity: medium
+- Rule Title: The application must automatically terminate the admin user session and log off admin users after a 10 minute idle time period is exceeded.
 
-**Applicability to Epyon:** NOT APPLICABLE
+Status: Not Applicable
 
-Epyon has no authentication or authorization layer. There are no user accounts, no roles, no access control policies, and no protected resources that are differentiated by identity. The STIG check procedure requires a test user account and an application resource with access restrictions — neither construct exists in Epyon.
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
 
-**Basis for Not Applicable determination:**
-
-| Criterion | Epyon Behavior |
-|---|---|
-| User accounts / identities | None — Epyon is a CLI pipeline tool with no login mechanism |
-| Role-Based Access Control (RBAC) | Not implemented |
-| Protected URLs, folders, files, or records requiring per-user authorization | None — all output files are written to the local filesystem under standard OS permissions |
-| Authentication access control enforcement | N/A — no authentication layer exists to enforce against |
-| Database records requiring access control | None — no database |
-
-**Access control for Epyon's own outputs:**
-Epyon writes scan results to the local `scans/` directory. Access to these files is governed entirely by the host OS filesystem permissions — not by any application-level access control mechanism. Operators are responsible for ensuring appropriate OS-level permissions on the `scans/` output directory. This is an operational / deployment concern, not an application design gap.
-
-**Clarification on Checkov/Trivy RBAC checks:**
-Epyon's `run-checkov-scan.sh` and `run-trivy-scan.sh` check for RBAC misconfigurations in the *target* Kubernetes and IaC resources being scanned. This is an access-control *enforcement* capability Epyon provides to its users — it has no bearing on whether Epyon itself implements access control over its own resources.
-
-**Evidence Commands:**
-```bash
-# Confirm no authentication/authorization logic in Epyon scripts
-grep -rn 'rbac\|role.based\|authz\|authorize\|acl\b\|access.control\|deny.*access\|require.*role' scripts/shell/
-# Expected: only advisory strings in scan-output generation code
-
-# Confirm no web listener / API endpoint exposed
-grep -rn 'listen\|bind.*port\|http.server\|flask\|fastapi\|express' scripts/shell/
-# Expected: no matches
-```
-
-**Report Location:** N/A — no access control layer exists in Epyon.
+Remediation:
+N/A
 
 ---
 
-#### APSC-DV-000510 (V-222430): The application must execute without excessive account permissions.
+### 5. APSC-DV-000090 | SV-222391r961224
 
-**Severity:** CAT I | **SRG:** SRG-APP-000342 | **Rule:** SV-222430r961359
+- Rule ID: SV-222391r961224
+- Severity: medium
+- Rule Title: Applications requiring user access authentication must provide a logoff capability for user initiated communication session.
 
-**Applicability to Epyon:** APPLICABLE — Compliant
+Status: Not Applicable
 
-Epyon runs as a CLI pipeline tool invoked by the operator's current OS user session. It requires no dedicated service account, holds no admin rights of its own, and passes no elevated privileges to the containers it launches.
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
 
-**Privilege Model:**
-
-| Component | Execution context | Privilege level |
-|---|---|---|
-| Epyon shell scripts | Caller's OS user session | No elevation; inherits the invoking user's standard permissions |
-| `docker run` invocations | Docker daemon (host) | No `--privileged`; no `--cap-add`; no `-u root`; scan targets mounted `:ro` (read-only) |
-| `sudo` usage | `check-docker-runtime.sh` only — diagnostic info script | Used for `docker info` connectivity test only; not invoked by any scan script |
-| AWS CLI / SonarQube calls | Caller's session via env vars | Credentials scoped to the specific IAM role or token provided |
-| No database connection | N/A | No DB account / DBA role to audit |
-
-**Docker container launch pattern:**
-All Epyon scanner containers are launched with `--rm` (auto-remove) and no privilege escalation flags:
-```bash
-# run-anchore-scan.sh — representative example
-docker run --rm \
-    -v "$REPO_PATH:/scan:ro" \
-    -v "$OUTPUT_DIR:/output" \
-    anchore/grype:latest \
-    dir:/scan -o json --file /output/anchore-filesystem-results.json
-```
-The source repository is always mounted read-only (`:ro`). No `--privileged`, `--cap-add`, `--security-opt=apparmor:unconfined`, or `-u 0` flags appear anywhere in the codebase.
-
-**`sudo` scope:**
-`check-docker-runtime.sh` uses `sudo docker info` as a fallback diagnostic to detect whether Docker permissions are the cause of a failure. This is a one-time health-check helper — it is never called by the scan scripts themselves. If `sudo` is required just to run Docker, operators are directed to add their user to the `docker` group (rootless operation), eliminating the need for `sudo` entirely.
-
-**Evidence Commands:**
-```bash
-# Confirm no --privileged or --cap-add flags in any docker run call
-grep -rn 'docker run' scripts/shell/ | grep -v grep
-# Expected: only --rm, -v mount flags
-
-# Confirm sudo is limited to the diagnostic check script only
-grep -rn 'sudo' scripts/shell/
-# Expected: check-docker-runtime.sh only (docker info test)
-
-# Confirm no setuid / chown / privilege-escalation calls
-grep -rn 'setuid\|setgid\|chown\|chmod 777\|chmod +s' scripts/shell/
-# Expected: no matches
-```
-
-**Report Location:**
-- `scans/epyon_*/checkov/` — Checkov IaC checks flag `privileged: true` and containers running as root in target repos
-- `scans/epyon_*/trivy/` — Trivy flags `USER root` and excess capabilities in target container images
+Remediation:
+N/A
 
 ---
 
-#### APSC-DV-000530 (V-222432): The application must enforce the limit of three consecutive invalid logon attempts by a user during a 15-minute time period.
+### 6. APSC-DV-000100 | SV-222392r961227
 
-**Severity:** CAT I | **SRG:** SRG-APP-000065 | **Rule:** SV-222432r960840
+- Rule ID: SV-222392r961227
+- Severity: low
+- Rule Title: The application must display an explicit logoff message to users indicating the reliable termination of authenticated communications sessions.
 
-**Applicability to Epyon:** NOT APPLICABLE
+Status: Not Applicable
 
-Epyon has no user authentication layer. There are no accounts, no login screens, no passwords, and no sessions. The Check Text procedure — *"Log on to the application with a test user account"* — cannot be performed because no such mechanism exists.
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
 
-**Basis for Not Applicable determination:**
-
-| Criterion | Epyon Behavior |
-|---|---|
-| User accounts | None — Epyon is a pipeline CLI tool with no account management |
-| Login screen / authentication prompt | None |
-| Password / PIN entry | None (interactive `read -s` for `AWS_SECRET_ACCESS_KEY` is a one-time key provisioning step, not a repeated-logon flow) |
-| Session management | None |
-| Account lockout mechanism | Not implemented and not required |
-
-**Clarification on Epyon's credential prompts:**
-The single interactive credential prompt in `run-checkov-scan.sh` (`read -s -p "AWS Secret Access Key"`) is a key-provisioning helper used during initial setup, not a repeated logon mechanism. It is not subject to brute-force attacks because:
-1. It runs locally under the operator's own OS session — there is no network-facing authentication endpoint to attack
-2. The value entered is stored in a process-scoped environment variable for the duration of one scan run, not validated against a stored credential
-3. There is no lockout concept because there is nothing to lock
-
-**Evidence Commands:**
-```bash
-# Confirm no login/session/lockout logic anywhere in scripts
-grep -rn 'login\|logon\|lockout\|lock_account\|failed.attempt\|max.attempt\|bad.attempt' scripts/shell/
-# Expected: no authentication-related matches
-
-# Confirm no web server or API endpoint is exposed by Epyon
-grep -rn 'listen\|server\|bind.*port\|http.server\|flask\|fastapi\|express' scripts/shell/
-# Expected: no server/listener references
-```
-
-**Report Location:** N/A — no authentication layer exists in Epyon.
+Remediation:
+N/A
 
 ---
 
-#### APSC-DV-000590: The application must not be vulnerable to SQL Injection.
+### 7. APSC-DV-000110 | SV-222393r1136904
 
-**Epyon Tools:**
-- **SonarQube** - SQL injection detection via code analysis
-- **Checkov** - Database security configurations
+- Rule ID: SV-222393r1136904
+- Severity: medium
+- Rule Title: The application must associate organization-defined types of security attributes having organization-defined security attribute values with information in storage.
 
-**Evidence Collection:**
-```bash
-# Run SonarQube analysis
-./scripts/shell/run-sonar-analysis.sh
+Status: Open
 
-# Search for SQL injection vulnerabilities
-cat scans/*/sonar/sonar-results.json | jq '.issues[] | select(.rule | contains("sql"))'
-```
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
 
-**Manual Validation Required:**
-- Dynamic testing with OWASP ZAP (not included in Epyon)
-- Penetration testing results
-- Code review of database queries
+Remediation:
+Design and configure the application to assign data marking and ensure the marking is retained when the data is stored.
 
 ---
 
-#### APSC-DV-001620: The application must not be subject to input handling vulnerabilities.
+### 8. APSC-DV-000120 | SV-222394r1136906
 
-**Epyon Tools:**
-- **SonarQube** - Input validation analysis
-- **Grype/Trivy** - Known vulnerabilities in parsing libraries
+- Rule ID: SV-222394r1136906
+- Severity: medium
+- Rule Title: The application must associate organization-defined types of security attributes having organization-defined security attribute values with information in process.
 
-**Evidence Collection:**
-```bash
-# Check for input handling issues in code
-cat scans/*/sonar/sonar-results.json | jq '.issues[] | select(.rule | contains("input\|validation\|sanitiz"))'
+Status: Open
 
-# Check for vulnerable parsing libraries
-cat scans/*/grype/grype-results.json | jq '.matches[] | select(.vulnerability.description | contains("input\|parse\|deserializ"))'
-```
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
 
----
-
-#### APSC-DV-002485 (V-222601): The application must not store sensitive information in hidden fields.
-
-**Severity:** CAT I | **SRG:** SRG-APP-000441 | **Rule:** SV-222601r961638
-
-**Applicability to Epyon:** NOT APPLICABLE — Epyon has no web server, no HTTP forms, and no session management. The HTML it generates contains no `<input type="hidden">` elements.
-
-**Rationale:**
-
-The hidden-fields attack surface requires a web application with server-side form submission and session management. Epyon satisfies none of those conditions:
-
-| Prerequisite | Epyon's Status |
-|---|---|
-| Web server / HTTP listener | None — Epyon is a CLI tool |
-| HTML forms with POST/GET actions | None — generated HTML contains no `<form>` elements |
-| `<input type="hidden">` elements | None — confirmed absent from all generated HTML |
-| Session IDs or auth tokens in HTML | None — no user sessions or authentication flow exists |
-| Server-side state passed back via hidden fields | None — no server-side rendering at all |
-
-**HTML elements that do exist in generated dashboards:**
-
-Epyon's HTML dashboards (`generate-security-dashboard.sh`) contain two types of `<input>` elements, neither of which involves sensitive data:
-
-| Element | Purpose | Sensitive Data? |
-|---|---|---|
-| `<input type="checkbox" class="fp-check">` | Local false-positive checkbox — client-side only, never submitted | No |
-| `<input type="text" id="trivy-search">` | In-browser search filter — filters pre-rendered DOM, no server round-trip | No |
-
-Both are purely client-side UI elements. Neither is submitted to any server, and neither contains or transmits authentication, session, or other sensitive data.
-
-**Evidence Commands:**
-```bash
-# Confirm no hidden input fields in any generated HTML
-grep -rn 'type=["'\'']*hidden' scripts/shell/
-# Expected: no output
-
-# Confirm no <form> elements with action/method in generated HTML
-grep -rn '<form\|action=.*post\|method=.*post' scripts/shell/
-# Expected: no output
-
-# Confirm the only input elements present are checkbox and text (search)
-grep -n '<input' scripts/shell/generate-security-dashboard.sh
-# Expected: only type="checkbox" and type="text" entries
-```
-
-**Report Location:**
-- `scans/epyon_*/consolidated-reports/dashboards/security-dashboard.html` — inspect generated HTML directly; no hidden fields present
+Remediation:
+Design and configure the application to retain the data marking when processing data.
 
 ---
 
-#### APSC-DV-002490 (V-222602): The application must protect from Cross-Site Scripting (XSS) vulnerabilities.
+### 9. APSC-DV-000130 | SV-222395r1136908
 
-**Severity:** CAT I | **SRG:** SRG-APP-000251 | **Rule:** SV-222602r961158
+- Rule ID: SV-222395r1136908
+- Severity: medium
+- Rule Title: The application must associate organization-defined types of security attributes having organization-defined security attribute values with information in transmission.
 
-**Applicability to Epyon:** APPLICABLE — Epyon generates HTML output (security dashboards, sub-reports) that embeds scan data sourced from scanned repositories. Attacker-controlled content in a scanned repo (crafted package names, CVE descriptions, file paths) could become XSS payloads if interpolated into HTML without escaping.
+Status: Open
 
-**XSS Attack Surface Assessment:**
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
 
-| Output Type | Contains Scan Data | XSS Mitigation |
-|---|---|---|
-| `consolidate-security-reports.sh` — HTML sub-reports | Yes — CVE IDs, descriptions, package names, secret detector names, file paths | `html.escape()` applied to **all** scan-data fields before interpolation into HTML |
-| `generate-security-dashboard.sh` — main HTML dashboard | Yes — summary counts and classification label injected via bash heredoc | Counts are integers computed by `jq` (no string injection); `CLASS_LABEL` is resolved from an enum `case` statement with a hardcoded string per level — raw `$CLASSIFICATION_LEVEL` is never emitted to HTML unescaped |
-| `generate-interactive-dashboard.sh` — standalone HTML dashboard | Minimal — scan metadata embedded at generation time | `innerHTML` assignments use template literals with fixed-format values (status messages, format names), not user- or scan-supplied strings |
-| Markdown reports | Plain text `.md` files; not rendered as HTML by Epyon | No HTML context; no escaping needed |
-| JSON outputs | Structured data; not rendered as HTML | No HTML context |
-
-**No reflected or stored XSS attack path exists** because:
-1. Epyon has no web server, no HTTP endpoints, and no URL request-response cycle — the XSS vectors described in the STIG (URL parameters, form fields, cookies) do not exist.
-2. All HTML is **generated offline** as static files and opened locally in a browser; there is no server-side rendering that could reflect user input.
-3. Every scan-data value appearing in HTML output passes through Python's `html.escape()` in `consolidate-security-reports.sh`, which encodes `<`, `>`, `&`, `"`, and `'`.
-
-**`html.escape()` coverage in `consolidate-security-reports.sh`:**
-```python
-# SonarQube issues
-html.escape(issue.get('message', 'Unknown Issue'))
-html.escape(issue.get('rule', 'Unknown'))
-html.escape(issue.get('component', 'Unknown'))
-
-# Grype/Trivy CVEs
-html.escape(vulnerability.get('id', 'Unknown CVE'))
-html.escape(vulnerability.get('description', 'No description available')[:200])
-html.escape(artifact.get('name', 'Unknown'))
-html.escape(artifact.get('version', 'Unknown'))
-
-# TruffleHog secrets
-html.escape(detector)
-html.escape(secret.get('SourceName', 'Unknown'))
-
-# Xeol EOL data
-html.escape(artifact.get('name', 'Unknown Package'))
-html.escape(str(eol_data.get('eolDate', 'Unknown')))
-
-# Raw JSON fallback
-html.escape(json.dumps(data, indent=2)[:5000])
-```
-
-**Evidence Commands:**
-```bash
-# Confirm html.escape() is applied to all scan-data fields in HTML generation
-grep -n 'html\.escape' scripts/shell/consolidate-security-reports.sh
-# Expected: 15+ matches covering all scan data categories
-
-# Confirm CLASS_LABEL is resolved via enum case (not raw user input) before HTML injection
-grep -n 'CLASS_LABEL\|CLASSIFICATION_LEVEL.*=\|case.*CLASSIFICATION' \
-  scripts/shell/generate-security-dashboard.sh | head -20
-# Expected: case statement maps known strings to CLASS_LABEL; raw env var never hits HTML
-
-# Confirm no innerHTML assignments use scan-data variables
-grep -n 'innerHTML' scripts/shell/generate-security-dashboard.sh
-# Expected: only template-literal status messages with fixed strings and formatInfo.name
-
-# SonarQube static analysis for XSS patterns in Epyon's Python code
-cat scans/epyon_*/sonar/sonar-results.json | \
-  jq '.issues[] | select(.rule | test("xss|cross.*site|html.*inject"; "i"))'
-# Expected: no results
-
-# Verify no direct string interpolation of scan data into HTML (would bypass html.escape)
-grep -n 'f".*{.*get(\|f".*{.*\[' scripts/shell/consolidate-security-reports.sh | \
-  grep -v 'html\.escape'
-# Expected: no unescaped scan data interpolations
-```
-
-**Report Location:**
-- `scans/epyon_*/sonar/sonar-results.json` — static analysis of Epyon's Python code for XSS patterns
-- `scans/epyon_*/consolidated-reports/` — the generated HTML files themselves; inspect for unescaped content
+Remediation:
+Design and configure the application to retain the data marking when transmitting data.
 
 ---
 
-#### APSC-DV-002510 (V-222604): The application must protect from command injection.
+### 10. APSC-DV-000160 | SV-222396r960759
 
-**Severity:** CAT I | **SRG:** SRG-APP-000251 | **Rule:** SV-222604r961158
+- Rule ID: SV-222396r960759
+- Severity: medium
+- Rule Title: The application must implement DoD-approved encryption to protect the confidentiality of remote access sessions.
 
-**Applicability to Epyon:** APPLICABLE — Epyon is a bash-heavy orchestrator that invokes Docker, `jq`, `python3`, and other OS commands. Unquoted variables, `eval`, or `shell=True` subprocess calls could allow command injection if user-supplied input reached those execution paths.
+Status: Not Applicable
 
-**Epyon's Compliance Status:**
+Evidence:
+- Epyon has no remote access sessions; it is a locally executed CLI pipeline tool. This control applies to applications managing remote connections, which Epyon does not provide.
+- All Epyon external API calls (SonarQube, JIRA, container registries) are outbound HTTPS requests, not remote access sessions requiring DoD session encryption management.
 
-| Attack Vector | Risk to Epyon | Control in Place |
-|---|---|---|
-| Bash `eval` of user input | None | No `eval` exists in any active `.sh` script |
-| Unquoted variable expansion in `docker run -v` | None | All user-supplied paths are double-quoted |
-| Python `os.system()` / `os.popen()` | None | Neither function is called anywhere in Epyon |
-| Python `subprocess(shell=True)` | None | No `subprocess` calls exist in Epyon's Python code |
-| Python `exec()` / `eval()` / `compile()` | None | Not present in `convert-kcov-to-sonar.py` or any inline Python |
-| User input concatenated into shell command strings | None | Scan IDs sanitized; paths are validated and quoted, not concatenated into shell strings |
-| `jq` expression built from user data | None | `jq` filter expressions are hardcoded literals; only data payloads (JSON files) varying per run |
-
-**Key protective controls:**
-
-- **No `eval` in active scripts** — Epyon's 60 active `.sh` files contain zero `eval` calls. (A legacy `.old` archived file contains `eval` but is not deployed or executed.)
-  ```bash
-  grep -rn 'eval' scripts/shell/*.sh
-  # Expected: no output
-  ```
-
-- **Double-quoting of all user-controlled variables** — Every `docker run -v` mount uses `"$VAR"` syntax, preventing word-splitting and globbing that could inject extra flags:
-  ```bash
-  # run-trufflehog-scan.sh
-  docker run --rm \
-    -v "$target:/workspace" \
-    ...
-  ```
-
-- **Scan ID sanitization before filesystem and command use** — `run-epyon-scan-ci.sh` strips all non-alphanumeric characters from user-supplied subdirectory names before those values are used in paths or passed to sub-scripts:
-  ```bash
-  SANITIZED_SUBDIR=$(echo "$SUBDIR" | sed -E "s#[/[:space:]]+#_#g; s#[^A-Za-z0-9._:-]#_#g")
-  ```
-
-- **No shell=True in Python** — `convert-kcov-to-sonar.py` invokes no subprocesses at all; it only reads XML and writes XML. No `os.system`, `os.popen`, `subprocess`, `exec`, or `eval` appear anywhere in Epyon's Python code.
-
-- **Structured data handling** — All scan result JSON is processed via `jq` with hardcoded filter expressions or via Python's `json.loads()` / `json.dumps()`, never via shell string interpolation or `eval`.
-
-**Evidence Commands:**
-```bash
-# Confirm no eval in active scripts
-grep -rn 'eval' scripts/shell/*.sh
-# Expected: no output
-
-# Confirm no os.system / subprocess shell=True / exec in Python code
-grep -n 'os\.system\|os\.popen\|shell=True\|exec(\|eval(' scripts/shell/convert-kcov-to-sonar.py
-# Expected: no output
-
-# Confirm all docker -v mounts use double-quoted variables
-grep -n '\-v ' scripts/shell/run-checkov-scan.sh scripts/shell/run-trufflehog-scan.sh \
-  scripts/shell/run-grype-scan.sh scripts/shell/run-trivy-scan.sh
-# Expected: all -v entries use "$VAR" form
-
-# Confirm scan ID sanitization is present
-grep -n 'SANITIZED_SUBDIR\|sed.*A-Za-z0-9' scripts/shell/run-epyon-scan-ci.sh
-
-# SonarQube static analysis of Epyon's code for injection patterns
-cat scans/epyon_*/sonar/sonar-results.json | \
-  jq '.issues[] | select(.rule | test("command.*inject|shell.*inject|os\.system"; "i"))'
-# Expected: no results
-```
-
-**Report Location:**
-- `scans/epyon_*/sonar/sonar-results.json` — static analysis for command injection patterns in Epyon's Python code
-- `scans/epyon_*/trufflehog/trufflehog-results.json` — Epyon self-scan (TruffleHog would not detect command injection, but confirms no secret exfiltration via injected commands)
+Remediation:
+N/A
 
 ---
 
-#### APSC-DV-002540 (V-222607): The application must not be vulnerable to SQL Injection.
+### 11. APSC-DV-000170 | SV-222397r960762
 
-**Severity:** CAT I | **SRG:** SRG-APP-000251 | **Rule:** SV-222607r961158
+- Rule ID: SV-222397r960762
+- Severity: medium
+- Rule Title: The application must implement cryptographic mechanisms to protect the integrity of remote access sessions.
 
-**Applicability to Epyon:** NOT APPLICABLE — Epyon does not use a relational database and constructs no SQL queries.
+Status: Not Applicable
 
-**Rationale:**
+Evidence:
+- Epyon has no remote access sessions; it is a locally executed CLI pipeline tool. This control applies to applications managing remote connections, which Epyon does not provide.
 
-Epyon is a CLI security-scanning orchestrator composed entirely of bash scripts and inline Python 3. It has no database backend, no ORM, no SQL client library, and no persistence layer of any kind:
-
-| Component | Status |
-|---|---|
-| Relational database (PostgreSQL, MySQL, SQLite, etc.) | None — Epyon uses none |
-| SQL client libraries (`psycopg2`, `pymysql`, `sqlite3`, `SQLAlchemy`, etc.) | Not imported anywhere |
-| SQL query construction or execution | Not present in any script |
-| Database connection strings | Not present in any script |
-| ORM models or schema definitions | Not present |
-
-All state is stored as flat files (JSON, text logs) in the `scans/` directory. No data is persisted to or retrieved from a database at any point in Epyon's execution path.
-
-**Evidence Commands:**
-```bash
-# Confirm no SQL library imports or database connections exist in Epyon
-grep -rn "sqlite3\|psycopg\|pymysql\|sqlalchemy\|mysql\|postgres\|db\.execute\|cursor\.execute" \
-  scripts/shell/
-# Expected: no output
-
-# Confirm no JDBC/ODBC connection strings
-grep -rn "jdbc:\|odbc:\|host=.*dbname=\|DSN=" scripts/shell/
-# Expected: no output
-
-# SonarQube static analysis of Epyon Python code for SQL issues
-cat scans/epyon_*/sonar/sonar-results.json | \
-  jq '.issues[] | select(.rule | test("sql"; "i"))'
-# Expected: no results
-```
-
-**Report Location:**
-- `scans/epyon_*/sonar/sonar-results.json` — static analysis of Epyon's Python code (no SQL findings expected)
-- `scans/epyon_*/trufflehog/trufflehog-results.json` — would surface any accidentally committed database connection strings
+Remediation:
+N/A
 
 ---
 
-#### APSC-DV-002550 (V-222608): The application must not be vulnerable to XML-oriented attacks.
+### 12. APSC-DV-000180 | SV-222398r960762
 
-**Severity:** CAT I | **SRG:** SRG-APP-000251 | **Rule:** SV-222608r961158
+- Rule ID: SV-222398r960762
+- Severity: medium
+- Rule Title: Applications with SOAP messages requiring integrity must include the following message elements:-Message ID-Service Request-Timestamp-SAML Assertion (optionally included in messages) and all elements of the message must be digitally signed.
 
-**Applicability to Epyon:** APPLICABLE — Epyon processes XML in two narrowly scoped contexts; neither is reachable from external or untrusted input.
+Status: Not Applicable
 
-**Epyon's XML Usage:**
+Evidence:
+- Epyon does not implement SOAP web services, WS-Security, or SAML assertions. It is a CLI tool that invokes container-based security scanners; this control has no applicability.
 
-| Context | File | XML Role | Input Source |
-|---|---|---|---|
-| Coverage report conversion | `convert-kcov-to-sonar.py` | Reads kcov-generated `cobertura.xml`; writes SonarCloud `sonar-coverage.xml` | Locally generated file on the same host — not user-supplied |
-| SBOM export | `export-sbom.sh` | **Writes** CycloneDX XML via syft; never parses it | Output-only |
-
-**Attack Classes vs. Epyon:**
-
-| Attack Class | Risk to Epyon | Reason |
-|---|---|---|
-| XML Injection | None | No user-controlled data is inserted into XML output; syft constructs CycloneDX XML internally |
-| XXE (External Entity) | Mitigated | `xml.etree.ElementTree` in Python 3.8+ has XXE disabled by default (CVE-2019-20907 patch); `expat`-backed, entities are not resolved against external URIs |
-| XPath Injection | None | No XPath queries are constructed from user input; `ET.find()` uses hardcoded string literals only |
-| XML DoS (billion laughs / deep nesting) | Low | Input is always a locally generated kcov file; no network-sourced XML is ever parsed |
-| XML Spoofing | None | No XML-based authentication or authorization decisions are made |
-| SOAP/REST XML web service attacks | Not applicable | Epyon exposes no XML web service endpoints |
-
-**Python `xml.etree.ElementTree` security baseline:**
-- XXE disabled by default since Python 3.8 (`expat` 2.4.1+, `CVE-2019-20907` mitigated)
-- `ET.parse()` raises `ET.ParseError` on malformed input — caught and handled in `convert-kcov-to-sonar.py`:
-  ```python
-  try:
-      tree = ET.parse(input_path)
-  except ET.ParseError as exc:
-      print(f"[ERROR] Cannot parse {input_path}: {exc}", file=sys.stderr)
-      return 1
-  ```
-- No `xml.sax`, `xml.dom.minidom`, `lxml`, or other parsers with external entity resolution are used anywhere in Epyon.
-
-**Evidence Commands:**
-```bash
-# Confirm only stdlib ET is used — no lxml or external XML parsers
-grep -rn "import.*xml\|from.*xml\|lxml\|xmllint\|xpath" scripts/shell/
-# Expected: only xml.etree.ElementTree in convert-kcov-to-sonar.py
-
-# Confirm ET.ParseError is caught (no unhandled XML parse crash)
-grep -n "ParseError\|ET\.parse" scripts/shell/convert-kcov-to-sonar.py
-
-# Confirm no XML input is accepted from CLI args or environment
-grep -rn "xml\|XML" scripts/shell/*.sh | grep -v "cyclonedx\|#.*xml\|sonar.*xml\|coverage\.xml"
-
-# Verify Python version (XXE protection requires Python 3.8+)
-python3 --version
-
-# Grype CVE scan of tool images for XML library vulnerabilities
-cat scans/epyon_*/grype/grype-results.json | \
-  jq '.matches[] | select(.artifact.name | test("expat|libxml|lxml"; "i")) | {pkg: .artifact.name, version: .artifact.version, cve: .vulnerability.id, severity: .vulnerability.severity}'
-```
-
-**Report Location:**
-- `scans/epyon_*/grype/grype-results.json` — CVE scan covering `expat`/`libxml2` in tool container images
-- `scans/epyon_*/sonar/sonar-results.json` — static analysis of `convert-kcov-to-sonar.py`
+Remediation:
+N/A
 
 ---
 
-#### APSC-DV-001750 (V-222543): The application must transmit only cryptographically-protected passwords.
+### 13. APSC-DV-000190 | SV-222399r960759
 
-**Severity:** CAT I | **SRG:** SRG-APP-000172 | **Rule:** SV-222543r961029
+- Rule ID: SV-222399r960759
+- Severity: high
+- Rule Title: Messages protected with WS_Security must use time stamps with creation and expiration times.
 
-**Applicability to Epyon:** NOT APPLICABLE
+Status: Not Applicable
 
-Epyon does not use passwords for user authentication. The Check Text explicitly states: *"If the application does not use passwords, the requirement is not applicable."* Epyon has no login screen, no user accounts, and no password-based authentication layer.
+Evidence:
+- Epyon does not implement SOAP web services, WS-Security, or SAML assertions. It is a CLI tool that invokes container-based security scanners; this control has no applicability.
 
-**Basis for Not Applicable determination:**
-
-| Credential type | Transmission method | Cleartext risk |
-|---|---|---|
-| `SONAR_TOKEN` (Bearer token) | HTTPS to SonarQube/SonarCloud | No — TLS-encrypted channel; validated this session (APSC-DV-002440) |
-| `AWS_SECRET_ACCESS_KEY` | AWS CLI via HTTPS SigV4 | No — never transmitted as a raw password; used to sign requests |
-| ECR password (ephemeral token) | Local pipe only: `aws ecr get-login-password \| docker login --password-stdin` | No — never leaves the local process; piped directly to Docker daemon stdin |
-| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | HTTPS API calls made by external tools | No — TLS-encrypted; Epyon does not transmit these directly |
-| User passwords to Epyon | N/A — no authentication layer exists | Not applicable |
-
-**ECR authentication detail:**
-`run-helm-build.sh` line 136 uses the AWS-recommended pattern for ECR login:
-```bash
-aws ecr get-login-password --region "$AWS_REGION" | \
-  docker login --username AWS --password-stdin "$ECR_REGISTRY"
-```
-The `get-login-password` command retrieves a short-lived token from AWS STS over HTTPS. That token is piped directly to `docker login` via stdin — it is never written to disk or logged, and it is never transmitted over a network in cleartext.
-
-**Evidence Commands:**
-```bash
-# Confirm no plaintext password transmission (no curl/wget with -u user:pass or --password)
-grep -rn 'curl.*-u\s\|curl.*--user\|wget.*--password\|--password=\|:.*@http://' scripts/shell/
-# Expected: no matches
-
-# Confirm ECR uses --password-stdin (not --password <value>)
-grep -n 'docker login' scripts/shell/run-helm-build.sh
-# Expected: --password-stdin pattern only
-
-# Confirm all Sonar communication uses HTTPS (not HTTP)
-grep -n 'SONAR_HOST_URL' scripts/shell/run-sonar-analysis.sh
-# Expected: https:// default and HTTPS guard validation
-```
-
-**Report Location:** N/A — no password-based authentication exists in Epyon.
+Remediation:
+N/A
 
 ---
 
-#### APSC-DV-001810 (V-222550): The application, when utilizing PKI-based authentication, must validate certificates by constructing a certification path (which includes status information) to an accepted trust anchor.
+### 14. APSC-DV-000200 | SV-222400r960759
 
-**Severity:** CAT I | **SRG:** SRG-APP-000175 | **Rule:** SV-222550r961038
+- Rule ID: SV-222400r960759
+- Severity: high
+- Rule Title: Validity periods must be verified on all application messages using WS-Security or SAML assertions.
 
-**Applicability to Epyon:** NOT APPLICABLE
+Status: Not Applicable
 
-Epyon does not use PKI-based authentication. No certificates are presented or validated as an authentication mechanism by Epyon itself. The Check Text's conditional scope — *"if the application does not construct a certificate path to an accepted trust anchor"* — applies only when the application uses PKI auth; since Epyon does not, this requirement does not apply.
+Evidence:
+- Epyon does not implement SOAP web services, WS-Security, or SAML assertions. It is a CLI tool that invokes container-based security scanners; this control has no applicability.
 
-**Basis for Not Applicable determination:**
-
-| Criterion | Epyon Behavior |
-|---|---|
-| PKI-based authentication to Epyon | None — Epyon has no authentication layer |
-| PKI-based authentication **by** Epyon to external services | None — Epyon authenticates to SonarQube via Bearer token (`SONAR_TOKEN`), to AWS via access key + secret, and to container registries via Docker login; no client certificates |
-| Certificate path construction | Not implemented by Epyon — no custom TLS/PKI logic |
-| Trust anchor configuration | Not managed by Epyon — delegated entirely to the host OS trust store |
-
-**HTTPS connections in Epyon:**
-Epyon's `run-sonar-analysis.sh` makes one outbound HTTPS call via `curl` to retrieve metrics after a scan completes:
-```bash
-# run-sonar-analysis.sh line ~299
-_api_response=$(curl -s -H "$_auth_header" "$_api_url" 2>/dev/null) || _api_response=""
-```
-This call uses `curl`'s default behavior, which delegates all certificate path validation (including revocation checking via CRL/OCSP depending on OS configuration) to the host OS trust store. No `-k` / `--insecure` flag is used, so TLS validation is never disabled.
-
-All other external tool invocations (`docker pull`, `sonar-scanner`, `trivy`, `grype`, AWS CLI, TruffleHog) handle their own TLS via their respective runtime libraries — none are configured by Epyon to bypass certificate validation.
-
-**Evidence Commands:**
-```bash
-# Confirm no -k / --insecure flag is used in any curl call
-grep -rn 'curl.*-k\b\|curl.*--insecure' scripts/shell/
-# Expected: no matches
-
-# Confirm no custom cacert or ssl-no-verify options set
-grep -rn 'cacert\|--no-verify\|verify=False\|NODE_TLS_REJECT\|ssl_verify' scripts/shell/
-# Expected: no matches
-```
-
-**Report Location:** N/A — Epyon does not implement or configure PKI certificate path validation.
+Remediation:
+N/A
 
 ---
 
-#### APSC-DV-001820 (V-222551): The application, when using PKI-based authentication, must enforce authorized access to the corresponding private key.
+### 15. APSC-DV-000210 | SV-222401r960759
 
-**Severity:** CAT I | **SRG:** SRG-APP-000176 | **Rule:** SV-222551r961041
+- Rule ID: SV-222401r960759
+- Severity: medium
+- Rule Title: The application must ensure each unique asserting party provides unique assertion ID references for each SAML assertion.
 
-**Applicability to Epyon:** NOT APPLICABLE
+Status: Not Applicable
 
-Epyon does not use PKI-based authentication and holds no private keys of its own. The Check Text explicitly states: *"If the application does not perform code signing or other cryptographic tasks requiring a private key, this requirement is not applicable."*
+Evidence:
+- Epyon does not implement SOAP web services, WS-Security, or SAML assertions. It is a CLI tool that invokes container-based security scanners; this control has no applicability.
 
-**Basis for Not Applicable determination:**
-
-| Criterion | Epyon Behavior |
-|---|---|
-| Code signing | No — Epyon does not sign any artifacts |
-| TLS client certificates / mTLS | No — Epyon is a consumer of HTTPS endpoints (SonarQube, AWS CLI); it does not present client certificates |
-| Private key storage | No `.pem`, `.p12`, `.pfx`, or `.key` files exist in the Epyon repository or runtime directories |
-| Cryptographic operations requiring a private key | None — Epyon performs no encryption, decryption, or digital signing |
-| PKI-based user authentication to Epyon | No — Epyon has no authentication layer; it runs as a CI/CD pipeline tool |
-
-**Clarification on private-key-related code in Epyon:**
-Epyon's `run-trufflehog-scan.sh` and `generate-scan-findings-summary.sh` contain logic that *detects and reports* private keys found in the repositories it scans. This is a security-control feature, not evidence that Epyon itself holds or uses private keys.
-
-```bash
-# run-trufflehog-scan.sh — counting key files in the TARGET repo (not Epyon)
-KEY_COUNT=$(find "$REPO_PATH" -name "*.key" -o -name "*.pem" -o -name "*.crt" 2>/dev/null | wc -l)
-
-# generate-scan-findings-summary.sh — reporting PrivateKey findings from TruffleHog output
-local private_keys=$(jq -s '[.[] | select(.DetectorName == "PrivateKey")]' "$trufflehog_file")
-```
-
-These references are entirely within Epyon's output-analysis logic, not Epyon's own key management.
-
-**Evidence Commands:**
-```bash
-# Confirm no private key material exists in Epyon repository
-find . -name "*.pem" -o -name "*.p12" -o -name "*.pfx" -o -name "*.key" | grep -v '.git'
-# Expected: no output
-
-# Confirm no code-signing or PKI auth invocations
-grep -r 'openssl\|gpg --sign\|codesign\|jarsigner\|keytool\|pkcs' scripts/shell/
-# Expected: no matches outside of detection/scanning logic
-```
-
-**Report Location:** N/A — no private keys exist in Epyon to audit.
+Remediation:
+N/A
 
 ---
 
-#### APSC-DV-001850 (V-222554): The application must not display passwords/PINs as clear text.
+### 16. APSC-DV-000220 | SV-222402r960759
 
-**Severity:** CAT I | **SRG:** SRG-APP-000178 | **Rule:** SV-222554r961047
+- Rule ID: SV-222402r960759
+- Severity: medium
+- Rule Title: The application must ensure encrypted assertions, or equivalent confidentiality protections are used when assertion data is passed through an intermediary, and confidentiality of the assertion data is required when passing through the intermediary.
 
-**Applicability to Epyon:** APPLICABLE — Epyon accepts credentials via interactive terminal prompts and environment variables. All secret values must be obscured during entry.
+Status: Not Applicable
 
-**Epyon's Credential Input Mechanisms:**
+Evidence:
+- Epyon does not implement SOAP web services, WS-Security, or SAML assertions. It is a CLI tool that invokes container-based security scanners; this control has no applicability.
 
-| Credential | Input Method | Display Behavior |
-|---|---|---|
-| `AWS_SECRET_ACCESS_KEY` | `read -s -p "AWS Secret Access Key: "` in `run-checkov-scan.sh` | Silent — no echo to terminal |
-| `SONAR_TOKEN` | Env var or git-ignored `.env.sonar` file | Never prompted interactively; never echoed |
-| `AWS_ACCESS_KEY_ID` | `read -p "AWS Access Key ID: "` (visible) | Displayed during entry — acceptable: this is an identifier (analogous to a username), not a password |
-| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | Env var only | Never prompted interactively; never echoed |
-| `JIRA_API_TOKEN` | GitHub Actions `secrets.*` | Masked by GitHub Actions runner; never echoed in logs |
-
-**Token masking in diagnostic output:**
-`check-sonar-config.sh` displays only the first and last few characters of `SONAR_TOKEN` when showing configuration status:
-```bash
-TOKEN_PREFIX="${SONAR_TOKEN:0:4}"
-TOKEN_SUFFIX="${SONAR_TOKEN: -4}"
-echo "Token: ${TOKEN_PREFIX}...${TOKEN_SUFFIX} (${TOKEN_LENGTH} chars)"
-```
-The full token value is never printed.
-
-**No web UI / no login screen:**
-Epyon has no browser-based authentication flow. The STIG's UI scenarios (asterisks, momentary display, clipboard paste) apply only to the single interactive `read -s` prompt for `AWS_SECRET_ACCESS_KEY`.
-
-**Evidence Commands:**
-```bash
-# Confirm AWS_SECRET_ACCESS_KEY uses read -s (silent input)
-grep -n 'read.*SECRET\|read.*password\|read.*pass\|read.*token' scripts/shell/*.sh
-# Expected: only read -s for SECRET_ACCESS_KEY; all other credential refs use env vars
-
-# Confirm SONAR_TOKEN is never echoed in full
-grep -n 'echo.*SONAR_TOKEN\|echo.*\$SONAR_TOKEN' scripts/shell/*.sh
-# Expected: only masked display (prefix...suffix) in check-sonar-config.sh
-
-# Confirm no credential values are logged to scan output files
-cat scans/epyon_*/sonar/sonar-results.json | jq 'keys'
-# Expected: no token/password fields
-```
-
-**Report Location:**
-- `scans/epyon_*/trufflehog/trufflehog-results.json` — Epyon self-scan; TruffleHog would surface any accidentally logged credential values
+Remediation:
+N/A
 
 ---
 
-#### APSC-DV-001860 (V-222555): The application must use mechanisms meeting the requirements of applicable federal laws for authentication to a cryptographic module.
+### 17. APSC-DV-000230 | SV-222403r960759
 
-**Severity:** CAT I | **SRG:** SRG-APP-000179 | **Rule:** SV-222555r961050
+- Rule ID: SV-222403r960759
+- Severity: high
+- Rule Title: The application must use the NotOnOrAfter condition when using the SubjectConfirmation element in a SAML assertion.
 
-**Applicability to Epyon:** NOT APPLICABLE — Epyon does not provide, manage, or expose authenticated access to any cryptographic module.
+Status: Not Applicable
 
-**Rationale:**
+Evidence:
+- Epyon does not implement SOAP web services, WS-Security, or SAML assertions. It is a CLI tool that invokes container-based security scanners; this control has no applicability.
 
-The check text states explicitly: *"If the application does not provide authenticated access to a cryptographic module, the requirement is not applicable."*
-
-Epyon satisfies this exclusion:
-
-| Cryptographic Module Requirement | Epyon's Status |
-|---|---|
-| Manages a cryptographic module (HSM, PKCS#11, TPM, etc.) | None — Epyon has no crypto module integration |
-| Exposes a crypto API for authenticated users | None — Epyon is a CLI tool with no multi-user access layer |
-| Stores or manages cryptographic keys | None — no key material is generated or held by Epyon |
-| Performs bulk encryption/decryption operations | None — Epyon does not encrypt data |
-| Uses `openssl`, `gpg`, `pkcs12`, or similar CLI tools | None — not called anywhere in active scripts |
-
-**What Epyon does with crypto-adjacent components (why this is still N/A):**
-
-- **HTTPS transmission** — TLS for `SONAR_HOST_URL`, Docker registry pulls, and AWS API calls is handled entirely by the OS networking stack, the Docker daemon, and the AWS CLI — not by Epyon code. Epyon does not authenticate to or configure those TLS implementations.
-- **`dhi/caddy:debian-13-2-fips-dev`** — This FIPS-enabled image appears as a *scan target* in `run-target-security-scan.sh`, `run-grype-scan.sh`, `run-trivy-scan.sh`, and `run-xeol-scan.sh`. Epyon scans it for vulnerabilities but does not manage its cryptographic module.
-- **`generate-scan-manifest.sh`** — Creates SHA-256 file hashes of scan outputs using the system `sha256sum` utility. This is integrity verification (hash comparison), not cryptographic module authentication.
-- **TruffleHog `.pem`/`.key` detection** — Epyon detects exposed key material in scanned repos; it does not store or use those keys.
-
-**Evidence Commands:**
-```bash
-# Confirm no openssl / gpg / pkcs / HSM CLI calls in Epyon's own scripts
-grep -rn 'openssl\|gpg --\|pkcs12\|p11-kit\|tpm2\|softhsm\|keytool\|certutil' scripts/shell/*.sh
-# Expected: no output
-
-# Confirm SHA-256 manifest hashing uses system sha256sum (not crypto module management)
-grep -n 'sha256\|hash\|digest' scripts/shell/generate-scan-manifest.sh | head -10
-# Expected: sha256sum invocations for integrity, no crypto module authentication
-
-# Confirm FIPS image references are scan targets, not Epyon crypto config
-grep -n 'fips' scripts/shell/run-target-security-scan.sh | head -5
-# Expected: image name strings passed to scanning tools, not crypto module config
-```
-
-**Report Location:**
-- `scans/epyon_*/sonar/sonar-results.json` — static analysis of Epyon's Python code (no crypto module calls expected)
+Remediation:
+N/A
 
 ---
 
-#### APSC-DV-002310 (V-222585): The application must fail to a secure state if system initialization fails, shutdown fails, or aborts fail.
+### 18. APSC-DV-000240 | SV-222404r960759
 
-**Severity:** CAT I | **SRG:** SRG-APP-000225 | **Rule:** SV-222585r961122
+- Rule ID: SV-222404r960759
+- Severity: high
+- Rule Title: The application must use both the NotBefore and NotOnOrAfter elements or OneTimeUse element when using the Conditions element in a SAML assertion.
 
-**Applicability to Epyon:** APPLICABLE — mitigated by design. Epyon is a stateless CLI tool; failure scenarios cannot leave open database connections, disabled access controls, or active user sessions, because none of those persistent resources exist.
+Status: Not Applicable
 
-**Failure Mode Analysis:**
+Evidence:
+- Epyon does not implement SOAP web services, WS-Security, or SAML assertions. It is a CLI tool that invokes container-based security scanners; this control has no applicability.
 
-| Failure Scenario | Risk if it Occurs | Epyon's Behavior |
-|---|---|---|
-| Initialization failure (missing env var, missing scan dir) | Could leave a partial scan output | `set -euo pipefail` causes immediate non-zero exit before any output is written; pre-flight validation rejects missing inputs |
-| Abort during scan (SIGINT, SIGTERM, Docker kill) | Scan tool container stops; partial JSON may exist on disk | Scan output is incomplete but inert — no credentials, no sessions, no network listeners left open |
-| Shutdown failure | No persistent daemon or listener to leave open | Epyon has no server process; termination = complete stop |
-| Database connection left open | Not applicable | Epyon has no database |
-| Access control mechanism disabled | Not applicable | Epyon has no authentication layer, RBAC, or session tokens to disable |
-| Sensitive data in temp files after abort | Low risk | Temp files hold intermediate scan results (not credentials); most scripts use `trap ... EXIT` or `mktemp` with explicit cleanup |
-
-**Fail-secure controls present:**
-
-- **`set -euo pipefail`** in all primary scripts — any unexpected command failure immediately aborts the script with a non-zero exit code, preventing execution from continuing in a degraded state:
-  ```bash
-  # generate-remediation-suggestions.sh, embed-dashboard-data.sh,
-  # generate-interactive-dashboard.sh, check-docker-runtime.sh, etc.
-  set -euo pipefail
-  ```
-
-- **`trap ... ERR`** in `generate-security-dashboard.sh` — logs the failing line number and exits:
-  ```bash
-  trap 'echo "ERROR: Dashboard generation failed at line $LINENO with exit code $?" >&2' ERR
-  ```
-
-- **`trap ... EXIT` for temp file cleanup** in `generate-remediation-suggestions.sh`:
-  ```bash
-  trap 'rm -f $TEMP_DATA' EXIT
-  ```
-  This fires on both normal exit and abort, preventing temp data from persisting after a crash.
-
-- **Atomic file writes** — `generate-scan-findings-summary.sh` and `generate-scan-manifest.sh` use `jq > file.tmp && mv file.tmp file` patterns, ensuring output files are either complete or unchanged if a write is interrupted.
-
-- **Pre-flight validation** — scripts validate required env vars and directory existence before performing any work; an invalid starting state produces an immediate error exit rather than a partial scan.
-
-- **Docker container isolation** — each scan tool runs in a separate, short-lived Docker container. If a container is killed, it takes no Epyon state with it; the host filesystem is only written to when the container exits successfully.
-
-**Known limitation — no SIGINT/SIGTERM cleanup trap in all scripts:**
-Most scripts do not register an explicit `trap ... SIGINT SIGTERM` handler. On interrupt, `/tmp/epyon-*` cache files and any partially-written scan output may remain. These files contain scan data (CVE lists, file paths) but not credentials, session tokens, or authentication material. The security impact of leftover temp files is low (no elevation of privilege, no access control bypass), but operators on shared systems should be aware.
-
-**Evidence Commands:**
-```bash
-# Confirm set -e / set -euo pipefail is present in primary scripts
-grep -n 'set -e\|set -euo\|set -o pipefail' scripts/shell/run-target-security-scan.sh \
-  scripts/shell/generate-remediation-suggestions.sh scripts/shell/check-severity-gate.sh
-
-# Confirm trap ERR is set in dashboard generator
-grep -n 'trap' scripts/shell/generate-security-dashboard.sh
-
-# Confirm trap EXIT cleans temp files in remediation generator
-grep -n 'trap' scripts/shell/generate-remediation-suggestions.sh
-
-# Confirm atomic write pattern (tmp + mv) for output integrity
-grep -n '\.tmp.*&&.*mv\|mv.*\.tmp' scripts/shell/generate-scan-findings-summary.sh | head -5
-
-# Confirm no server/listener/daemon is started by Epyon
-grep -rn 'listen\|bind\|accept\|nc -l\|socat\|ncat' scripts/shell/*.sh
-# Expected: no server-start commands
-
-# Confirm no database is opened
-grep -rn 'sqlite3\|psql\|mysql\|mongod' scripts/shell/*.sh
-# Expected: no output
-```
-
-**Report Location:**
-- Exit code of any Epyon script: non-zero exit on failure is the primary evidence of fail-secure behavior
-- `scans/epyon_*/sonar/sonar-results.json` — static analysis of Epyon's Python code for exception-handling patterns
+Remediation:
+N/A
 
 ---
 
-#### APSC-DV-002440 (V-222596): The application must protect the confidentiality and integrity of transmitted information.
+### 19. APSC-DV-000250 | SV-222405r960759
 
-**Severity:** CAT I | **SRG:** SRG-APP-000439 | **Rule:** SV-222596r961632
+- Rule ID: SV-222405r960759
+- Severity: medium
+- Rule Title: The application must ensure if a OneTimeUse element is used in an assertion, there is only one of the same used in the Conditions element portion of an assertion.
 
-**Applicability to Epyon:** APPLICABLE — Epyon transmits sensitive data (source code, API tokens, scan results) to external services. All network transmission paths must use TLS/HTTPS.
+Status: Not Applicable
 
-**Epyon's Network Transmission Inventory:**
+Evidence:
+- Epyon does not implement SOAP web services, WS-Security, or SAML assertions. It is a CLI tool that invokes container-based security scanners; this control has no applicability.
 
-| Transmission | Destination | Protocol Enforced | Notes |
-|---|---|---|---|
-| SonarQube/SonarCloud scan upload | `SONAR_HOST_URL` (default: `https://sonarcloud.io`) | HTTPS by default | User-configurable — see gap below |
-| Docker image pulls (trivy, grype, syft, trufflehog, etc.) | Docker Hub / private registry | HTTPS (Docker daemon default) | Docker rejects plain-HTTP registries by default unless explicitly configured with `insecure-registries` |
-| AWS ECR authentication | `sts.amazonaws.com`, ECR endpoint | HTTPS — enforced by AWS SDK / `aws` CLI | AWS CLI never uses plain HTTP for API calls |
-| Baseline repo clone | `https://github.com/MetroStar/comet-starter.git` | HTTPS — hardcoded URL | Hardcoded `https://` in `run-baseline-scan.sh` |
-| GitHub Actions CI workflows | `github.com` / GitHub API | HTTPS — enforced by GitHub Actions runner | All GitHub infrastructure is TLS-only |
-
-**Remediated — `SONAR_HOST_URL` HTTPS enforcement:**
-The default value `https://sonarcloud.io` was always secure, but Epyon previously did not reject a user-supplied `http://` URL. A guard was added to `run-sonar-analysis.sh` immediately after `SONAR_HOST_URL` is resolved:
-
-```bash
-if [[ "$SONAR_HOST_URL" != https://* ]]; then
-  echo "[ERROR] SONAR_HOST_URL must use HTTPS to protect transmitted credentials and source code." >&2
-  echo "[ERROR] Current value: $SONAR_HOST_URL" >&2
-  exit 1
-fi
-```
-This rejects any plaintext HTTP URL at startup, before credentials or source code are transmitted.
-
-**Evidence Commands:**
-```bash
-# Confirm SonarQube default URL is HTTPS
-grep -n 'SONAR_HOST_URL' scripts/shell/run-sonar-analysis.sh | head -5
-# Expected: default is https://sonarcloud.io
-
-# Confirm baseline repo clone uses hardcoded HTTPS
-grep -n 'BASELINE_REPO_URL\|github.com' scripts/shell/run-baseline-scan.sh
-# Expected: https://github.com/...
-
-# Confirm no --insecure or http:// flags passed to Docker or curl
-grep -rn 'insecure\|http://[^/]' scripts/shell/*.sh | grep -v '#\|echo\|nvd.nist\|docs.\|owasp\|github.com\|example.com'
-# Expected: no active insecure flags (only comments and documentation strings)
-
-# Confirm no Docker insecure-registry config in Epyon
-grep -rn 'insecure-registr' scripts/shell/
-# Expected: no output
-
-# Verify AWS CLI transmit encryption (aws commands always use HTTPS)
-grep -n 'aws ecr\|aws sts\|aws s3' scripts/shell/run-helm-build.sh
-# Expected: aws CLI commands — all use HTTPS by design
-```
-
-**Report Location:**
-- `scans/epyon_*/checkov/checkov-results.json` — Checkov checks for TLS in IaC that Epyon runs against (not Epyon itself, but provides evidence for scanned apps)
-- `scans/epyon_*/sonar/sonar-results.json` — SonarQube static analysis; confirm `SONAR_HOST_URL` value used during scan
+Remediation:
+N/A
 
 ---
 
-#### APSC-DV-002560 (V-222609): The application must not be subject to input handling vulnerabilities.
+### 20. APSC-DV-000260 | SV-222406r960759
 
-**Severity:** CAT I | **SRG:** SRG-APP-000447 | **Rule:** SV-222609r961656
+- Rule ID: SV-222406r960759
+- Severity: medium
+- Rule Title: The application must ensure messages are encrypted when the SessionIndex is tied to privacy data.
 
-**Applicability to Epyon:** APPLICABLE — Epyon accepts user-supplied file system paths, scan directory names, format selectors, and environment variable values as inputs. All must be validated before use.
+Status: Not Applicable
 
-**Epyon's Attack Surface (CLI tool — no web interface):**
+Evidence:
+- Epyon does not implement SOAP web services, WS-Security, or SAML assertions. It is a CLI tool that invokes container-based security scanners; this control has no applicability.
 
-Epyon is a command-line tool. The STIG examples (forms, cookies, URL parameters, HTTP headers) do not apply. Epyon's actual input boundaries are:
-
-| Input Type | Source | Risk |
-|---|---|---|
-| Scan directory path | CLI positional arg / env var | Path traversal, non-existent path |
-| Scan ID / app name | CLI arg used in filenames | Directory traversal if unsanitized |
-| Format selector (`json`, `xml`, etc.) | CLI arg passed to syft | Unexpected value handled? |
-| `CLASSIFICATION_LEVEL` | Env var injected into HTML/JSON | XSS through HTML output if unescaped |
-| JSON data from scan tools | Files on disk parsed by `jq` / Python | Malformed JSON; not direct user input |
-
-**Input Validation Controls Present:**
-
-- **Path existence checks** — all scripts validate the scan directory exists before proceeding:
-  ```bash
-  # check-severity-gate.sh
-  if [[ -z "$SCAN_DIR" || ! -d "$SCAN_DIR" ]]; then
-      echo "❌ Error: SCAN_DIR not set or directory doesn't exist"
-  ```
-- **Scan ID sanitization** — `run-epyon-scan-ci.sh` strips path separators and non-alphanumeric characters from user-supplied subdirectory input:
-  ```bash
-  SANITIZED_SUBDIR=$(echo "$SUBDIR" | sed -E "s#[/[:space:]]+#_#g; s#[^A-Za-z0-9._:-]#_#g")
-  ```
-- **HTML output escaping** — `consolidate-security-reports.sh` uses Python's `html.escape()` on all scan-data values interpolated into HTML reports, preventing XSS in generated output:
-  ```python
-  html.escape(vulnerability.get('id', 'Unknown CVE'))
-  html.escape(issue.get('message', 'Unknown Issue'))
-  html.escape(artifact.get('name', 'Unknown'))
-  ```
-- **Double-quoting** — all user-supplied variables are double-quoted in shell expansions and Docker `-v` mount arguments, preventing word-splitting and globbing injection.
-- **`jq` / structured parsing** — scan result JSON is never `eval`'d or interpolated directly into shell; always processed via `jq` or Python's `json` module.
-
-**Known Gap — Path Traversal:**
-Paths are checked for existence but not canonicalized. A path like `scans/../../../etc/passwd` would pass the `-d` existence check if that path resolves to a real directory. Since Epyon only *reads* scan data from these paths and does not write secrets or credentials to arbitrary locations, exploitation impact is low (read-only access to directories the user already has access to). No remediation is required for the current use model, but future versions should consider adding `realpath` canonicalization.
-
-**Evidence Commands:**
-```bash
-# Verify path existence checks are present in main scripts
-grep -n "! -d\|! -f\|SCAN_DIR.*not\|does not exist" scripts/shell/check-severity-gate.sh \
-  scripts/shell/generate-remediation-suggestions.sh scripts/shell/export-api-discovery.sh
-
-# Verify scan ID sanitization
-grep -n "SANITIZED_SUBDIR\|sed.*A-Za-z0-9" scripts/shell/run-epyon-scan-ci.sh
-
-# Verify html.escape() usage in HTML generation
-grep -n "html\.escape" scripts/shell/consolidate-security-reports.sh
-
-# Verify double-quoting of paths in Docker volume mounts
-grep -n '\-v.*"\$' scripts/shell/run-checkov-scan.sh scripts/shell/run-trufflehog-scan.sh
-
-# SonarQube scan of Epyon's Python code for input validation issues
-cat scans/epyon_*/sonar/sonar-results.json | \
-  jq '.issues[] | select(.rule | test("injection|xss|validation|path.*traversal"; "i"))'
-```
-
-**Report Location:**
-- `scans/epyon_*/sonar/sonar-results.json` — static analysis for injection/validation findings
-- `scans/epyon_*/checkov/checkov-results.json` — IaC-level input misconfigurations
+Remediation:
+N/A
 
 ---
 
-#### APSC-DV-002590 (V-222612): The application must not be vulnerable to overflow attacks.
+### 21. APSC-DV-000280 | SV-222407r1043176
 
-**Severity:** CAT I | **SRG:** SRG-APP-000450 | **Rule:** SV-222612r961665
+- Rule ID: SV-222407r1043176
+- Severity: medium
+- Rule Title: The application must provide automated mechanisms for supporting account management functions.
 
-**Applicability to Epyon:** APPLICABLE — mitigated by language design.
+Status: Not Applicable
 
-**Epyon's Compliance Status:**
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
 
-Epyon is composed entirely of **bash shell scripts** (60 files) and **inline Python 3** snippets. Neither language has a memory model susceptible to traditional overflow attacks:
-
-| Attack Class | Risk to Epyon | Reason |
-|---|---|---|
-| Stack/heap buffer overflow | None | Bash and Python have no fixed-size C-style buffers or manual heap allocation |
-| Integer overflow | None | Python uses arbitrary-precision integers; bash `$(( ))` uses signed 64-bit with defined wrap behavior but no memory implications |
-| Format string overflow | None | Bash `printf` is not equivalent to C `printf`; Python's `str.format()` has no memory writes |
-| Return-oriented programming / shellcode injection | None | No native stack frames to corrupt; no executable memory regions controlled by script logic |
-
-The Fix Text for this STIG explicitly states: *"Design the application to use a language or compiler that performs automatic bounds checking."* Bash and Python inherently satisfy this by design.
-
-**Residual risk — tool container binaries:**
-Epyon executes compiled Go binaries (syft, grype, trivy, trufflehog, etc.) inside Docker containers. These binaries *are* compiled and could theoretically carry overflow CVEs in their own dependencies. This risk is mitigated by Grype and Trivy CVE scanning of those images before use.
-
-**Evidence Commands:**
-```bash
-# Confirm Epyon contains no compiled binaries — only scripts
-file scripts/shell/*.sh
-# Expected: all "ASCII text" or "Bourne-Again shell script"
-
-# Confirm no compiled artifacts exist in Epyon's own tree
-find . -name "*.o" -o -name "*.so" -o -name "*.dylib" -o -name "*.exe" \
-       -o -name "*.out" -o -name "*.class" -o -name "*.jar" \
-  | grep -v ".git"
-# Expected: no output
-
-# Verify no native build system exists for Epyon itself
-ls go.mod Cargo.toml pom.xml CMakeLists.txt Makefile 2>&1
-# Expected: all "No such file or directory"
-
-# SonarQube static analysis of any Python code in Epyon
-cat scans/epyon_*/sonar/sonar-results.json | \
-  jq '.issues[] | select(.rule | test("overflow|buffer|format-string"; "i"))'
-
-# Grype scan of tool container images for overflow CVEs
-cat scans/epyon_*/grype/grype-results.json | \
-  jq '.matches[] | select(.vulnerability.description | test("overflow|buffer"; "i")) | {cve: .vulnerability.id, pkg: .artifact.name, severity: .vulnerability.severity}'
-```
-
-**Report Location:**
-- Language check: `file scripts/shell/*.sh` — confirms script-only codebase
-- `scans/epyon_*/sonar/sonar-results.json` — static analysis of Python code
-- `scans/epyon_*/grype/grype-results.json` — CVE scan of tool container images
+Remediation:
+N/A
 
 ---
 
-#### APSC-DV-003110 (V-222642): The application must not contain embedded authentication data.
+### 22. APSC-DV-000290 | SV-222408r1015683
 
-**Severity:** CAT I | **SRG:** SRG-APP-000516 | **Rule:** SV-222642r961863
+- Rule ID: SV-222408r1015683
+- Severity: medium
+- Rule Title: Shared/group account credentials must be terminated when members leave the group.
 
-**Applicability to Epyon:** APPLICABLE — Epyon itself must not contain hardcoded passwords, API keys, tokens, or other authentication data in its own scripts, configuration files, or committed assets.
+Status: Not Applicable
 
-**Epyon's Compliance Status:**
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
 
-Epyon satisfies this control. All authentication data is handled exclusively through environment variables or interactive prompts — no literal credentials exist in the codebase:
-
-| Credential | Mechanism | Location |
-|---|---|---|
-| `SONAR_TOKEN` | Env var or `.env.sonar` (git-ignored) | `run-sonar-analysis.sh` |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Env var or interactive `read -s` prompt | `run-checkov-scan.sh`, `aws-ecr-helm-auth.sh` |
-| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` | Env var only | `run-epyon-scan-ci.sh`, `run-garak-scan.sh` |
-| `JIRA_API_TOKEN` | GitHub Actions `secrets.*` only | `epyon-scan.yml` |
-
-**Protective controls in place:**
-- `.env.sonar`, `.env`, `.env.local`, `.env.production`, `.env.*.local` are all listed in `.gitignore`
-- `.env.sonar.example` ships with placeholder strings (`your-sonarqube-token-here`) — not real credentials
-- GitHub Actions workflows use `${{ secrets.X }}` exclusively — no values in workflow YAML
-- Interactive credential entry uses `read -s` (silent input, never logged)
-
-**Evidence Commands:**
-```bash
-# Verify no hardcoded credentials exist in Epyon's own scripts
-grep -rn --include="*.sh" \
-  -E "(password|passwd|api_key|api-key|secret_key|auth_token|private_key)\s*=\s*[^\$\"\{\(\\]" \
-  scripts/shell/
-
-# Verify .env.sonar is git-ignored (should show .env.sonar in output)
-cat .gitignore | grep -i env
-
-# Verify no .env.sonar or .env files are tracked
-git ls-files | grep -E "^(\.env|\.env\.)"
-
-# Confirm no verified secrets in Epyon's own last self-scan
-cat scans/epyon_*/trufflehog/trufflehog-results.json | \
-  jq '.results[] | select(.verified==true)'
-```
-
-**Remediation if a credential is ever found:**
-1. Remove it from the file immediately
-2. Rotate the credential — treat it as compromised
-3. Add the file pattern to `.gitignore` if not already present
-4. Run `git filter-repo` or BFG Repo Cleaner to purge from history
-
-**Report Location:**
-- `scans/epyon_*/trufflehog/trufflehog-results.json` — Epyon self-scan secret detections
-- `scans/epyon_*/checkov/checkov-results.json` — IaC hardcoded credential checks (`CKV_SECRET_*`)
+Remediation:
+N/A
 
 ---
 
-#### APSC-DV-003235: The application must not be vulnerable to race conditions.
+### 23. APSC-DV-000300 | SV-222409r960771
 
-**Epyon Tools:**
-- **SonarQube** - Concurrency bug detection
-- **Code Coverage Analysis** - Identifies untested concurrent code
+- Rule ID: SV-222409r960771
+- Severity: medium
+- Rule Title: The application must automatically remove or disable temporary user accounts 72 hours after account creation.
 
-**Evidence Collection:**
-```bash
-# Search for concurrency issues
-cat scans/*/sonar/sonar-results.json | jq '.issues[] | select(.rule | contains("concurrent\|thread\|race\|synchroniz"))'
-```
+Status: Not Applicable
 
-**Manual Validation Required:**
-- Stress testing and load testing results
-- Concurrency testing documentation
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
+
+Remediation:
+N/A
 
 ---
 
-### 2. Container Platform STIG (V2R1)
+### 24. APSC-DV-000310 | SV-222410r961863
 
-#### CNTR-K8-000150: The Kubernetes API server must have anonymous authentication disabled.
+- Rule ID: SV-222410r961863
+- Severity: low
+- Rule Title: The application must have a process, feature or function that prevents removal or disabling of emergency accounts.
 
-**Epyon Tools:**
-- **Checkov** - Kubernetes security policy validation
-- **Trivy** - Kubernetes manifest scanning
+Status: Not Applicable
 
-**Evidence Collection:**
-```bash
-# Check Kubernetes configurations
-grep -i "anonymous\|authentication" scans/*/checkov/checkov-results.json
-grep -i "anonymous" scans/*/trivy/trivy-results.json
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
 
-# Review Helm chart security
-cat scans/*/helm/helm-lint-results.txt
-```
+Remediation:
+N/A
 
 ---
 
-#### CNTR-K8-000380: Kubernetes Kubelet must deny hostname override.
+### 25. APSC-DV-000320 | SV-222411r960774
 
-**Epyon Tools:**
-- **Checkov** - Kubelet configuration validation
-- **Helm** - Chart security validation
+- Rule ID: SV-222411r960774
+- Severity: low
+- Rule Title: The application must automatically disable accounts after a 35 day period of account inactivity.
 
-**Evidence Collection:**
-```bash
-# Scan Helm charts and manifests
-./scripts/shell/run-checkov-scan.sh filesystem
+Status: Not Applicable
 
-# Check for kubelet misconfigurations
-grep -i "kubelet\|hostname-override" scans/*/checkov/checkov-results.json
-```
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
 
----
-
-#### CNTR-K8-001360: Kubernetes must separate user functionality.
-
-**Epyon Tools:**
-- **Checkov** - RBAC and namespace policies
-- **Trivy** - Security context validation
-
-**Evidence Collection:**
-```bash
-# Validate RBAC configurations
-grep -i "rbac\|role\|namespace\|securitycontext" scans/*/checkov/checkov-results.json
-
-# Check container security contexts
-grep -i "securityContext\|runAsUser\|capabilities" scans/*/trivy/trivy-results.json
-```
+Remediation:
+N/A
 
 ---
 
-#### CNTR-K8-002010: Kubernetes must have a pod security policy set.
+### 26. APSC-DV-000330 | SV-222412r960774
 
-**Epyon Tools:**
-- **Checkov** - Pod Security Policy validation
-- **Trivy** - Pod security standards compliance
+- Rule ID: SV-222412r960774
+- Severity: medium
+- Rule Title: Unnecessary application accounts must be disabled, or deleted.
 
-**Evidence Collection:**
-```bash
-# Check for PSP/PSS configurations
-grep -i "podsecuritypolicy\|podsecurity\|psp\|pss" scans/*/checkov/checkov-results.json
+Status: Not Applicable
 
-# Review security dashboard for pod security issues
-./scripts/shell/generate-security-dashboard.sh
-```
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
 
----
-
-### 3. Docker Enterprise STIG (V2R2)
-
-#### DKER-EE-001010: All Docker Enterprise components must be compatible with Docker Enterprise.
-
-**Epyon Tools:**
-- **Trivy** - Image vulnerability scanning with version detection
-- **SBOM** - Component inventory and version tracking
-
-**Evidence Collection:**
-```bash
-# Generate SBOM for version tracking
-./scripts/shell/run-sbom-scan.sh
-
-# Export SBOM for compliance documentation
-./scripts/shell/export-sbom.sh "scans/latest" json
-
-# Review component versions
-cat scans/*/sbom/sbom.json | jq '.components[] | {name, version}'
-```
+Remediation:
+N/A
 
 ---
 
-#### DKER-EE-002000: Only trusted container images must be used.
+### 27. APSC-DV-000340 | SV-222413r960777
 
-**Epyon Tools:**
-- **Baseline Scanning** - DHI approved image validation
-- **Trivy** - Image provenance and signature validation
-- **Configuration** - Approved base images list
+- Rule ID: SV-222413r960777
+- Severity: medium
+- Rule Title: The application must automatically audit account creation.
 
-**Evidence Collection:**
-```bash
-# Run baseline scan against DHI images
-./scripts/shell/run-baseline-scan.sh
+Status: Not Applicable
 
-# Compare against approved base images
-cat configuration/approved-base-images.conf
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
 
-# Generate comparison report
-cat scans/*/baseline-comparison.json
-```
+Remediation:
+N/A
 
 ---
 
-#### DKER-EE-002140: Docker Enterprise images must be scanned for vulnerabilities.
+### 28. APSC-DV-000350 | SV-222414r960780
 
-**Epyon Tools:**
-- **Grype** - Comprehensive vulnerability scanning
-- **Trivy** - Container image CVE detection
-- **Xeol** - End-of-life software detection
+- Rule ID: SV-222414r960780
+- Severity: medium
+- Rule Title: The application must automatically audit account modification.
 
-**Evidence Collection:**
-```bash
-# Full image security scan
-./scripts/shell/run-target-security-scan.sh "/path/to/app" images
+Status: Not Applicable
 
-# Export vulnerability reports
-cat scans/*/grype/grype-results.json | jq '.matches[] | {vulnerability: .vulnerability.id, severity: .vulnerability.severity}'
-cat scans/*/trivy/trivy-results.json | jq '.Results[] | .Vulnerabilities[]?'
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
 
-# Check for EOL software
-cat scans/*/xeol/xeol-results.json
-```
+Remediation:
+N/A
 
 ---
 
-#### DKER-EE-005170: Secrets must not be stored in Docker Enterprise images.
+### 29. APSC-DV-000360 | SV-222415r960783
 
-**Epyon Tools:**
-- **TruffleHog** - Secret detection in images and code
-- **Checkov** - Secret management configuration validation
+- Rule ID: SV-222415r960783
+- Severity: medium
+- Rule Title: The application must automatically audit account disabling actions.
 
-**Evidence Collection:**
-```bash
-# Scan for secrets
-./scripts/shell/run-trufflehog-scan.sh filesystem
+Status: Not Applicable
 
-# Export secrets report
-cat scans/*/trufflehog/trufflehog-results.json | jq '.results[] | select(.verified==true)'
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
 
-# Check dashboard for secret findings
-./scripts/shell/open-latest-dashboard.sh
-# → Filter by "TruffleHog" in interactive dashboard
-```
+Remediation:
+N/A
 
 ---
 
-### 4. Application Security and Development STIG - DevSecOps (V2R1)
+### 30. APSC-DV-000370 | SV-222416r960786
 
-#### ASDV-DV-000010: The DevSecOps platform must scan all application code for security vulnerabilities.
+- Rule ID: SV-222416r960786
+- Severity: medium
+- Rule Title: The application must automatically audit account removal actions.
 
-**Epyon Tools:**
-- **All 10 Security Layers** - Comprehensive scanning
-- **Automated Orchestration** - Full pipeline execution
+Status: Not Applicable
 
-**Evidence Collection:**
-```bash
-# Run complete security scan
-./scripts/shell/run-target-security-scan.sh "/path/to/app" full
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
 
-# Generate consolidated dashboard
-./scripts/shell/generate-security-dashboard.sh
-
-# Export all results
-./scripts/shell/export-api-discovery.sh "scans/latest" json
-./scripts/shell/export-sbom.sh "scans/latest" json
-```
-
-**Dashboard Evidence:**
-- Interactive dashboard shows all 10 layers: `./scripts/shell/open-latest-dashboard.sh`
-- Consolidated JSON: `scans/{scan_id}/consolidated-reports/consolidated-security-report.json`
+Remediation:
+N/A
 
 ---
 
-#### ASDV-DV-000030: The DevSecOps platform must scan all application dependencies for security vulnerabilities.
+### 31. APSC-DV-000380 | SV-222417r1015684
 
-**Epyon Tools:**
-- **Grype** - Dependency vulnerability scanning with SBOM
-- **Trivy** - Package vulnerability detection
-- **SBOM Generation** - Complete dependency inventory
+- Rule ID: SV-222417r1015684
+- Severity: low
+- Rule Title: The application must notify system administrators (SAs) and information system security officers (ISSOs) when accounts are created.
 
-**Evidence Collection:**
-```bash
-# Generate SBOM
-./scripts/shell/run-sbom-scan.sh
+Status: Not Applicable
 
-# Scan dependencies
-./scripts/shell/run-grype-scan.sh filesystem
-./scripts/shell/run-trivy-scan.sh filesystem
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
 
-# Export dependency report
-./scripts/shell/export-sbom.sh "scans/latest" json
-cat scans/*/sbom/sbom.json | jq '.components[] | select(.type=="library")'
-```
+Remediation:
+N/A
 
 ---
 
-#### ASDV-DV-000070: The DevSecOps platform must identify end-of-life software.
+### 32. APSC-DV-000390 | SV-222418r1015685
 
-**Epyon Tools:**
-- **Xeol** - EOL software detection
-- **SBOM Analysis** - Version tracking
+- Rule ID: SV-222418r1015685
+- Severity: low
+- Rule Title: The application must notify system administrators (SAs) and information system security officers (ISSOs) when accounts are modified.
 
-**Evidence Collection:**
-```bash
-# Run EOL detection
-./scripts/shell/run-xeol-scan.sh filesystem
+Status: Not Applicable
 
-# Review EOL findings
-cat scans/*/xeol/xeol-results.json | jq '.matches[] | {name: .artifact.name, version: .artifact.version, eolDate: .cycle.eolDate}'
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
 
-# Check baseline for EOL software
-./scripts/shell/run-baseline-scan.sh
-```
+Remediation:
+N/A
 
 ---
 
-#### ASDV-DV-000100: The DevSecOps platform must scan container images for security vulnerabilities.
+### 33. APSC-DV-000400 | SV-222419r1015686
 
-**Epyon Tools:**
-- **Trivy** - Multi-layer container scanning
-- **Grype** - Container image CVE detection
-- **Baseline Scanning** - DHI image comparison
+- Rule ID: SV-222419r1015686
+- Severity: low
+- Rule Title: The application must notify system administrators (SAs) and information system security officers (ISSOs) of account disabling actions.
 
-**Evidence Collection:**
-```bash
-# Image-focused scan
-./scripts/shell/run-target-security-scan.sh "/path/to/app" images
+Status: Not Applicable
 
-# Baseline comparison
-./scripts/shell/run-baseline-scan.sh
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
 
-# Review image scan results
-cat scans/*/trivy/trivy-results.json | jq '.Results[] | select(.Type=="container")'
-```
+Remediation:
+N/A
 
 ---
 
-#### ASDV-DV-000220: The DevSecOps platform must scan for malware.
+### 34. APSC-DV-000410 | SV-222420r1015687
 
-**Epyon Tools:**
-- **ClamAV** - Antivirus and malware detection
+- Rule ID: SV-222420r1015687
+- Severity: low
+- Rule Title: The application must notify system administrators (SAs) and information system security officers (ISSOs) of account removal actions.
 
-**Evidence Collection:**
-```bash
-# Run malware scan
-./scripts/shell/run-clamav-scan.sh
+Status: Not Applicable
 
-# Review clean status
-cat scans/*/clamav/clamav-scan.log
-grep "Infected files: 0" scans/*/clamav/clamav-scan.log
-```
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
 
----
-
-#### ASDV-DV-000320: The DevSecOps platform must enforce severity-based quality gates.
-
-**Epyon Tools:**
-- **Severity Gate Checker** - Automated quality gate enforcement
-- **Dashboard** - Severity-based filtering and reporting
-
-**Evidence Collection:**
-```bash
-# Check severity gate
-./scripts/shell/check-severity-gate.sh "scans/latest"
-
-# Configure thresholds (example)
-CRITICAL_THRESHOLD=0 HIGH_THRESHOLD=5 ./scripts/shell/check-severity-gate.sh "scans/latest"
-
-# Review severity breakdown in dashboard
-./scripts/shell/open-latest-dashboard.sh
-```
+Remediation:
+N/A
 
 ---
 
-#### ASDV-DV-000500: The DevSecOps platform must provide automated remediation recommendations.
+### 35. APSC-DV-000420 | SV-222421r961290
 
-**Epyon Tools:**
-- **Remediation Suggestions** - Automated fix recommendations
+- Rule ID: SV-222421r961290
+- Severity: medium
+- Rule Title: The application must automatically audit account enabling actions.
 
-**Evidence Collection:**
-```bash
-# Generate remediation suggestions
-./scripts/shell/generate-remediation-suggestions.sh
+Status: Not Applicable
 
-# Review recommendations
-cat scans/*/consolidated-reports/remediation-suggestions.json
-cat scans/*/consolidated-reports/remediation-suggestions.md
-```
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
 
----
-
-### 5. Red Hat OpenShift STIG (V2R1)
-
-#### CNTR-OS-000010: OpenShift must use TLS 1.2 or greater for secure communication.
-
-**Epyon Tools:**
-- **Checkov** - TLS configuration validation
-- **Trivy** - Weak crypto library detection
-
-**Evidence Collection:**
-```bash
-# Check TLS configurations
-grep -i "tls\|ssl\|cipher" scans/*/checkov/checkov-results.json
-
-# Verify no weak crypto
-cat scans/*/trivy/trivy-results.json | jq '.Results[] | .Vulnerabilities[]? | select(.Title | contains("TLS\|SSL\|crypto"))'
-```
+Remediation:
+N/A
 
 ---
 
-#### CNTR-OS-000390: OpenShift must prohibit the use of cached authenticators.
+### 36. APSC-DV-000430 | SV-222422r1015688
 
-**Epyon Tools:**
-- **Checkov** - Authentication configuration validation
-- **TruffleHog** - Cached credential detection
+- Rule ID: SV-222422r1015688
+- Severity: low
+- Rule Title: The application must notify system administrators (SAs) and information system security officers (ISSOs) of account enabling actions.
 
-**Evidence Collection:**
-```bash
-# Check authentication configurations
-grep -i "auth\|cache\|token" scans/*/checkov/checkov-results.json
+Status: Not Applicable
 
-# Scan for cached credentials
-cat scans/*/trufflehog/trufflehog-results.json | jq '.results[] | select(.raw | contains("token\|cache"))'
-```
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
 
----
-
-## Compliance Workflow
-
-### Step 1: Run Full Security Scan
-
-```bash
-# Execute comprehensive scan
-./scripts/shell/run-target-security-scan.sh "/path/to/application" full
-
-# Include baseline validation for approved images
-./scripts/shell/run-baseline-scan.sh
-```
-
-### Step 2: Generate Reports
-
-```bash
-# Create interactive dashboard
-./scripts/shell/generate-security-dashboard.sh
-
-# Generate remediation guidance
-./scripts/shell/generate-remediation-suggestions.sh
-
-# Export structured data
-./scripts/shell/export-api-discovery.sh "scans/latest" json
-./scripts/shell/export-sbom.sh "scans/latest" json
-```
-
-### Step 3: Review Findings by STIG Category
-
-```bash
-# Open interactive dashboard
-./scripts/shell/open-latest-dashboard.sh
-
-# Filter by:
-# - Severity (Critical, High, Medium, Low)
-# - Tool (Trivy, Grype, Checkov, etc.)
-# - Category (Infrastructure, Vulnerabilities, Secrets, etc.)
-```
-
-### Step 4: Document Evidence
-
-**Key Files for STIG Documentation:**
-
-```
-scans/{scan_id}/
-├── consolidated-reports/
-│   ├── consolidated-security-report.json    # Master report
-│   ├── dashboards/security-dashboard.html   # Visual evidence
-│   └── remediation-suggestions.md           # Fix guidance
-├── trivy/trivy-results.json                 # Container security
-├── grype/grype-results.json                 # Vulnerability scanning
-├── checkov/checkov-results.json             # IaC security
-├── trufflehog/trufflehog-results.json       # Secret detection
-├── clamav/clamav-scan.log                   # Malware scan
-├── xeol/xeol-results.json                   # EOL software
-├── sbom/sbom.json                           # Component inventory
-└── baseline-comparison.json                 # Approved image validation
-```
-
-### Step 5: Address Findings
-
-```bash
-# Generate fix recommendations
-cat scans/*/consolidated-reports/remediation-suggestions.json | jq '.vulnerabilities[] | select(.severity=="CRITICAL")'
-
-# Check severity gate compliance
-./scripts/shell/check-severity-gate.sh "scans/latest"
-
-# Re-scan after remediation
-./scripts/shell/run-target-security-scan.sh "/path/to/application" full
-```
+Remediation:
+N/A
 
 ---
 
-## STIG Evidence Matrix
+### 37. APSC-DV-000440 | SV-222423r961302
 
-| STIG Control | Category | Epyon Tool(s) | Evidence Location | Automated/Manual |
-|--------------|----------|---------------|-------------------|------------------|
-| APSC-DV-000160 | TLS/Crypto | Checkov, Trivy, TruffleHog | checkov/, trivy/, trufflehog/ | Automated |
-| APSC-DV-000190 | WS-Security Timestamps | Not applicable — no WS-Security tokens, no SOAP messaging | N/A | N/A |
-| APSC-DV-000200 | WS-Security / SAML Validity Periods | Not applicable — no WS-Security, no SAML, no SOAP messaging | N/A | N/A |
-| APSC-DV-000230 | SAML SubjectConfirmation NotOnOrAfter | Not applicable — no SAML assertions, no SOAP, no identity federation | N/A | N/A |
-| APSC-DV-000240 | SAML Assertion Conditions | Not applicable — no SAML assertions, no SOAP, no identity federation | N/A | N/A |
-| APSC-DV-000460 | Access Control Enforcement | Not applicable — no authentication or authorization layer; no user accounts or roles | N/A | N/A |
-| APSC-DV-000500 | Privilege Escalation | Checkov, Trivy, SonarQube | checkov/, trivy/, sonar/ | Automated |
-| APSC-DV-000510 | Least Privilege Execution | No --privileged/--cap-add; :ro mounts; sudo limited to diagnostic only | checkov/, trivy/ | Code review + Automated |
-| APSC-DV-000530 | Account Lockout | Not applicable — no authentication layer, no user accounts, no login mechanism | N/A | N/A |
-| APSC-DV-000590 | SQL Injection | SonarQube | sonar/ | Partial (code only) |
-| APSC-DV-001620 | Input Validation | SonarQube, Grype | sonar/, grype/ | Automated |
-| APSC-DV-001750 | Password Transmission | Not applicable — no password auth; ECR token via local pipe; all APIs over HTTPS | N/A | N/A |
-| APSC-DV-001810 | PKI Certificate Path Validation | Not applicable — no PKI auth; HTTPS via OS trust store with no cert-skip flags | N/A | N/A |
-| APSC-DV-001820 | PKI Private Key Access | Not applicable — no private keys, no code signing, no PKI auth | N/A | N/A |
-| APSC-DV-001850 | Password Display | read -s for secrets; env vars; masked token display | trufflehog/ | Automated + Code review |
-| APSC-DV-001860 | Crypto Module Auth | Not applicable — no crypto module management | N/A | N/A |
-| APSC-DV-002310 | Fail Secure | set -euo pipefail; trap ERR/EXIT; atomic writes; stateless design | sonar/ | Code review |
-| APSC-DV-002440 | Transmitted Data Protection | HTTPS defaults; Docker TLS; AWS CLI; hardcoded HTTPS URLs | sonar/, checkov/ | Automated + Config review |
-| APSC-DV-002485 | Hidden Fields | Not applicable — no web server, no forms, no hidden inputs | N/A | N/A |
-| APSC-DV-002490 | XSS | html.escape() on all scan data; static HTML output; no web server | sonar/, consolidated-reports/ | Automated + Code review |
-| APSC-DV-002510 | Command Injection | No eval; quoted vars; sanitized IDs; SonarQube | sonar/ | Automated + Code review |
-| APSC-DV-002540 | SQL Injection | Not applicable — no database | N/A | N/A |
-| APSC-DV-002550 | XML Attacks | Language design + Grype, SonarQube | grype/, sonar/ | Automated (mitigated by design) |
-| APSC-DV-002590 | Overflow Attacks | Language (bash/Python) + Grype, SonarQube | grype/, sonar/ | Automated (mitigated by design) |
-| APSC-DV-003235 | Race Conditions | SonarQube | sonar/ | Manual review required |
-| CNTR-K8-000150 | K8s Auth | Checkov, Trivy | checkov/, trivy/ | Automated |
-| CNTR-K8-000380 | Kubelet Config | Checkov, Helm | checkov/, helm/ | Automated |
-| CNTR-K8-001360 | User Separation | Checkov, Trivy | checkov/, trivy/ | Automated |
-| CNTR-K8-002010 | Pod Security | Checkov, Trivy | checkov/, trivy/ | Automated |
-| DKER-EE-001010 | Component Versions | Trivy, SBOM | trivy/, sbom/ | Automated |
-| DKER-EE-002000 | Trusted Images | Baseline Scan, Trivy | baseline/, trivy/ | Automated |
-| DKER-EE-002140 | Image Scanning | Grype, Trivy, Xeol | grype/, trivy/, xeol/ | Automated |
-| APSC-DV-003110 | Embedded Auth Data | TruffleHog, Checkov | trufflehog/, checkov/ | Automated |
-| DKER-EE-005170 | Secrets in Images | TruffleHog | trufflehog/ | Automated |
-| ASDV-DV-000010 | Code Scanning | All Layers | consolidated-reports/ | Automated |
-| ASDV-DV-000030 | Dependency Scanning | Grype, Trivy, SBOM | grype/, trivy/, sbom/ | Automated |
-| ASDV-DV-000070 | EOL Detection | Xeol, SBOM | xeol/, sbom/ | Automated |
-| ASDV-DV-000100 | Container Scanning | Trivy, Grype, Baseline | trivy/, grype/, baseline/ | Automated |
-| ASDV-DV-000220 | Malware Scanning | ClamAV | clamav/ | Automated |
-| ASDV-DV-000320 | Quality Gates | Severity Gate Checker | consolidated-reports/ | Automated |
-| ASDV-DV-000500 | Remediation | Remediation Suggestions | remediation-suggestions.json | Automated |
-| CNTR-OS-000010 | TLS Config | Checkov, Trivy | checkov/, trivy/ | Automated |
-| CNTR-OS-000390 | Cached Auth | Checkov, TruffleHog | checkov/, trufflehog/ | Automated |
+- Rule ID: SV-222423r961302
+- Severity: medium
+- Rule Title: Application data protection requirements must be identified and documented.
+
+Status: Compliant
+
+Evidence:
+- Epyon data protection requirements are documented in documentation/SECURITY.md.
+- SBOM generation (Layer 10) documents all component data for supply chain protection.
+- Scan output directories are created with mode 700 (owner-only) preventing unauthorized access.
+- Sensitive data handling procedures are documented in this STIG Compliance Guide.
+
+Remediation:
+Identify and document the application data elements and the data protection requirements.
 
 ---
 
-## Query Examples for Common STIG Requirements
+### 38. APSC-DV-000450 | SV-222424r961305
 
-### Find All Critical Vulnerabilities (ASDV-DV-000320)
+- Rule ID: SV-222424r961305
+- Severity: medium
+- Rule Title: The application must utilize organization-defined data mining detection techniques for organization-defined data storage objects to adequately detect data mining attempts.
 
-```bash
-# Critical findings across all tools
-cat scans/*/consolidated-reports/consolidated-security-report.json | \
-  jq '.findings[] | select(.severity=="CRITICAL")'
+Status: Not Applicable
 
-# Critical CVEs only
-cat scans/*/grype/grype-results.json | \
-  jq '.matches[] | select(.vulnerability.severity=="Critical")'
-```
+Evidence:
+- Epyon does not use a relational database, SQL engine, or any persistent data store. All output is written to scan directories on the filesystem. No database layer exists.
+- Epyon has no database or persistent data store that could be subject to data mining. Scan output files on the filesystem are point-in-time artifacts, not a queryable data store.
 
-### Verify No Secrets in Code (DKER-EE-005170)
-
-```bash
-# Verified secrets (confirmed true positives)
-cat scans/*/trufflehog/trufflehog-results.json | \
-  jq '.results[] | select(.verified==true)'
-
-# All secret detections
-cat scans/*/trufflehog/trufflehog-results.json | \
-  jq '.results[] | {detector: .detector_name, verified: .verified, file: .source_metadata.filename}'
-```
-
-### Check Infrastructure Security (CNTR-K8-001360)
-
-```bash
-# Checkov security findings
-cat scans/*/checkov/checkov-results.json | \
-  jq '.results.failed_checks[] | {check_id: .check_id, check_name: .check_name, severity: .severity}'
-
-# Kubernetes-specific issues
-grep -i "kubernetes\|k8s\|pod\|deployment" scans/*/checkov/checkov-results.json
-```
-
-### Validate Dependency Security (ASDV-DV-000030)
-
-```bash
-# All vulnerable dependencies
-cat scans/*/grype/grype-results.json | \
-  jq '.matches[] | {package: .artifact.name, version: .artifact.version, vulnerability: .vulnerability.id, severity: .vulnerability.severity}'
-
-# Group by severity
-cat scans/*/grype/grype-results.json | \
-  jq '[.matches[] | .vulnerability.severity] | group_by(.) | map({severity: .[0], count: length})'
-```
-
-### Check for EOL Software (ASDV-DV-000070)
-
-```bash
-# All EOL components
-cat scans/*/xeol/xeol-results.json | \
-  jq '.matches[] | {name: .artifact.name, version: .artifact.version, eol_date: .cycle.eolDate}'
-
-# Already EOL (past end date)
-cat scans/*/xeol/xeol-results.json | \
-  jq --arg today "$(date +%Y-%m-%d)" '.matches[] | select(.cycle.eolDate < $today)'
-```
-
-### Verify Clean Malware Scan (ASDV-DV-000220)
-
-```bash
-# Check for infections
-grep "Infected files:" scans/*/clamav/clamav-scan.log
-
-# Verify clean status (should return 0)
-grep -c "Infected files: 0" scans/*/clamav/clamav-scan.log
-```
+Remediation:
+N/A
 
 ---
 
-## Automated Evidence Collection Script
+### 39. APSC-DV-000460 | SV-222425r1117167
 
-Save this as `scripts/shell/collect-stig-evidence.sh`:
+- Rule ID: SV-222425r1117167
+- Severity: high
+- Rule Title: The application must enforce approved authorizations for logical access to information and system resources in accordance with applicable access control policies.
 
-```bash
-#!/bin/bash
-# Collect STIG Evidence from Latest Scan
+Status: Not Applicable
 
-set -euo pipefail
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+- Epyon enforces OS-level access control; CLI scripts run under the invoking user's OS permissions.
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-SCANS_DIR="$PROJECT_ROOT/scans"
-
-# Find latest scan
-LATEST_SCAN=$(ls -t "$SCANS_DIR" | head -1)
-SCAN_DIR="$SCANS_DIR/$LATEST_SCAN"
-OUTPUT_DIR="$SCAN_DIR/stig-evidence"
-
-mkdir -p "$OUTPUT_DIR"
-
-echo "🔍 Collecting STIG Evidence from: $LATEST_SCAN"
-
-# 1. Critical Vulnerabilities (ASDV-DV-000320)
-echo "📋 Extracting Critical Vulnerabilities..."
-cat "$SCAN_DIR/grype/grype-results.json" | \
-  jq '.matches[] | select(.vulnerability.severity=="Critical")' \
-  > "$OUTPUT_DIR/critical-vulnerabilities.json" 2>/dev/null || echo "[]" > "$OUTPUT_DIR/critical-vulnerabilities.json"
-
-# 2. Secrets Detection (DKER-EE-005170)
-echo "🔐 Extracting Secrets Findings..."
-cat "$SCAN_DIR/trufflehog/trufflehog-results.json" | \
-  jq '.results[]' \
-  > "$OUTPUT_DIR/secrets-detected.json" 2>/dev/null || echo "[]" > "$OUTPUT_DIR/secrets-detected.json"
-
-# 3. Infrastructure Security (Multiple STIGs)
-echo "🏗️  Extracting Infrastructure Findings..."
-cat "$SCAN_DIR/checkov/checkov-results.json" | \
-  jq '.results.failed_checks[]' \
-  > "$OUTPUT_DIR/infrastructure-findings.json" 2>/dev/null || echo "[]" > "$OUTPUT_DIR/infrastructure-findings.json"
-
-# 4. EOL Software (ASDV-DV-000070)
-echo "⏰ Extracting EOL Components..."
-cat "$SCAN_DIR/xeol/xeol-results.json" | \
-  jq '.matches[]' \
-  > "$OUTPUT_DIR/eol-software.json" 2>/dev/null || echo "[]" > "$OUTPUT_DIR/eol-software.json"
-
-# 5. Malware Scan (ASDV-DV-000220)
-echo "🦠 Extracting Malware Scan Results..."
-cp "$SCAN_DIR/clamav/clamav-scan.log" "$OUTPUT_DIR/malware-scan.log" 2>/dev/null || echo "No ClamAV scan found" > "$OUTPUT_DIR/malware-scan.log"
-
-# 6. Container Security (DKER-EE-002140)
-echo "🐳 Extracting Container Findings..."
-cat "$SCAN_DIR/trivy/trivy-results.json" | \
-  jq '.Results[] | .Vulnerabilities[]?' \
-  > "$OUTPUT_DIR/container-vulnerabilities.json" 2>/dev/null || echo "[]" > "$OUTPUT_DIR/container-vulnerabilities.json"
-
-# 7. SBOM for Compliance (DKER-EE-001010)
-echo "📦 Copying SBOM..."
-cp "$SCAN_DIR/sbom/sbom.json" "$OUTPUT_DIR/sbom.json" 2>/dev/null || echo "{}" > "$OUTPUT_DIR/sbom.json"
-
-# 8. Summary Report
-echo "📊 Generating Summary..."
-cat > "$OUTPUT_DIR/stig-evidence-summary.txt" <<EOF
-STIG Evidence Collection Summary
-=================================
-Scan ID: $LATEST_SCAN
-Collection Date: $(date)
-
-Files Generated:
-- critical-vulnerabilities.json    (ASDV-DV-000320)
-- secrets-detected.json            (DKER-EE-005170)
-- infrastructure-findings.json     (CNTR-K8-*, CNTR-OS-*)
-- eol-software.json                (ASDV-DV-000070)
-- malware-scan.log                 (ASDV-DV-000220)
-- container-vulnerabilities.json   (DKER-EE-002140)
-- sbom.json                        (DKER-EE-001010)
-
-Statistics:
-- Critical Vulnerabilities: $(cat "$OUTPUT_DIR/critical-vulnerabilities.json" | jq '. | length')
-- Secrets Detected: $(cat "$OUTPUT_DIR/secrets-detected.json" | jq '. | length')
-- Infrastructure Issues: $(cat "$OUTPUT_DIR/infrastructure-findings.json" | jq '. | length')
-- EOL Components: $(cat "$OUTPUT_DIR/eol-software.json" | jq '. | length')
-- Container Vulnerabilities: $(cat "$OUTPUT_DIR/container-vulnerabilities.json" | jq '. | length')
-- Malware Infections: $(grep "Infected files:" "$OUTPUT_DIR/malware-scan.log" | awk '{print $3}')
-
-Dashboard: file://$SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html
-EOF
-
-echo "✅ STIG Evidence collected at: $OUTPUT_DIR"
-cat "$OUTPUT_DIR/stig-evidence-summary.txt"
-```
-
-Make it executable:
-```bash
-chmod +x scripts/shell/collect-stig-evidence.sh
-```
-
-Usage:
-```bash
-# After running a scan, collect STIG evidence
-./scripts/shell/collect-stig-evidence.sh
-```
+Remediation:
+N/A
 
 ---
 
-## Manual STIG Validation Still Required
+### 40. APSC-DV-000470 | SV-222426r961317
 
-Epyon **cannot** automatically validate the following (requires manual process):
+- Rule ID: SV-222426r961317
+- Severity: medium
+- Rule Title: The application must enforce organization-defined discretionary access control policies over defined subjects and objects.
 
-### Process & Documentation Controls
-- **Organizational policies** (e.g., security training, incident response plans)
-- **Change management procedures** (e.g., approval workflows, documentation)
-- **Personnel security** (e.g., background checks, access reviews)
-- **Physical security** (e.g., facility access, hardware controls)
+Status: Compliant
 
-### Runtime & Dynamic Testing
-- **Dynamic application security testing (DAST)** - penetration testing, fuzzing
-- **Runtime behavioral analysis** - monitoring application behavior in production
-- **Network security testing** - firewall rules, network segmentation validation
-- **Authentication/authorization testing** - session management, access control validation
+Evidence:
+- Epyon scan output directories are created with restrictive permissions (700) enforcing DAC.
+- Script files in scripts/shell/ are owned by the installing user and protected by OS file permissions.
+- Configuration files (approved-base-images.conf, etc.) are readable only by the operator user.
+- Git repository access control enforces DAC at the source code level via branch protection rules.
 
-### Configuration Management
-- **Production configurations** - Epyon scans code/images, not live deployments
-- **Operational procedures** - backup schedules, patching processes, monitoring
-- **Third-party service validation** - cloud provider configurations, SaaS security
-
-### Compliance Documentation
-- **POA&M creation** - requires manual risk assessment and remediation planning
-- **Authority to Operate (ATO) packages** - requires security team review
-- **Control implementation statements** - narrative descriptions for each STIG control
+Remediation:
+Design and configure the application to enforce discretionary access control policies.
 
 ---
 
-## Best Practices for STIG Compliance with Epyon
+### 41. APSC-DV-000480 | SV-222427r1117168
 
-### 1. Establish Baseline Scans
+- Rule ID: SV-222427r1117168
+- Severity: medium
+- Rule Title: The application must enforce approved authorizations for controlling the flow of information within the system based on organization-defined information flow control policies.
 
-```bash
-# Scan approved baseline images
-./scripts/shell/run-baseline-scan.sh
+Status: Compliant
 
-# Document baseline as "known good" state
-cp scans/baseline_*/consolidated-reports/consolidated-security-report.json \
-   documentation/stig-baseline-approved.json
-```
+Evidence:
+- Each Epyon scanner runs in an isolated Docker container with its own network namespace.
+- Docker bridge networking prevents unintended information flow between scanner containers.
+- Scan output is written to isolated per-run directories, preventing cross-scan data mixing.
+- No shared writable volumes exist between scanner containers within a single pipeline execution.
 
-### 2. Continuous Scanning Schedule
-
-```bash
-# Daily scans during development
-0 9 * * * cd /path/to/epyon && ./scripts/shell/run-target-security-scan.sh "/path/to/app" full
-
-# Weekly baseline validation
-0 0 * * 0 cd /path/to/epyon && ./scripts/shell/run-baseline-scan.sh
-```
-
-### 3. Quality Gate Integration
-
-```bash
-# Fail builds on critical vulnerabilities
-./scripts/shell/check-severity-gate.sh "scans/latest"
-CRITICAL_THRESHOLD=0 HIGH_THRESHOLD=10 ./scripts/shell/check-severity-gate.sh "scans/latest"
-```
-
-### 4. Evidence Archival
-
-```bash
-# Archive scan results for compliance audit trail
-SCAN_DATE=$(date +%Y-%m-%d)
-tar -czf "stig-evidence-$SCAN_DATE.tar.gz" scans/*/stig-evidence/
-```
-
-### 5. Remediation Tracking
-
-```bash
-# Track fixes across scans
-SCAN1="scans/app_2026-02-01"
-SCAN2="scans/app_2026-02-06"
-
-# Compare critical findings
-diff <(cat $SCAN1/stig-evidence/critical-vulnerabilities.json | jq -r '.[].vulnerability.id' | sort) \
-     <(cat $SCAN2/stig-evidence/critical-vulnerabilities.json | jq -r '.[].vulnerability.id' | sort)
-```
+Remediation:
+Configure the application to enforce data flow control in accordance with data flow control policies.
 
 ---
 
-## Future STIG Enhancements (Roadmap)
+### 42. APSC-DV-000490 | SV-222428r1117169
 
-As noted in the main README, full STIG compliance features are planned for future releases:
+- Rule ID: SV-222428r1117169
+- Severity: medium
+- Rule Title: The application must enforce approved authorizations for controlling the flow of information between interconnected systems based on organization-defined information flow control policies.
 
-- **Automated STIG Checklist Generation** - Direct mapping to STIG control IDs
-- **POA&M Integration** - Track findings as POA&M items with remediation plans
-- **RMF Support** - Risk Management Framework documentation and categorization
-- **Control Traceability Matrix** - Map scan findings to specific STIG controls
-- **Compliance Dashboards** - STIG-specific reporting with pass/fail by control
-- **Evidence Package Export** - ATO-ready documentation bundles
+Status: Compliant
 
----
+Evidence:
+- All Epyon inter-system communications use TLS (HTTPS) enforced at the API client level.
+- Outbound connections to SonarQube, JIRA, and container registries are restricted to HTTPS.
+- Docker daemon enforces TLS for registry pulls using certificate-based authentication.
+- Information flow between Epyon and external systems is limited to defined, encrypted API endpoints.
 
-## Additional Resources
-
-### STIG References
-- **DISA STIG Library**: https://public.cyber.mil/stigs/
-- **Application Security Development STIG**: https://public.cyber.mil/stigs/downloads/?_dl_facet_stigs=app-security
-- **Container Platform STIG**: https://public.cyber.mil/stigs/downloads/?_dl_facet_stigs=container-platform
-- **DevSecOps STIG**: https://public.cyber.mil/stigs/downloads/?_dl_facet_stigs=application-security-devsecops
-
-### Epyon Documentation
-- **Security Review**: [SECURITY_REVIEW_AND_TEST_COVERAGE.md](./SECURITY_REVIEW_AND_TEST_COVERAGE.md)
-- **Scan Architecture**: [SCAN_DIRECTORY_ARCHITECTURE.md](./SCAN_DIRECTORY_ARCHITECTURE.md)
-- **Offline Setup**: [OFFLINE_AIR_GAPPED_SETUP.md](./OFFLINE_AIR_GAPPED_SETUP.md)
+Remediation:
+Configure the application to enforce data flow control in accordance with data flow control policies.
 
 ---
 
-## Support
+### 43. APSC-DV-000500 | SV-222429r961353
 
-For questions about STIG compliance with Epyon:
-1. Review the [Security Review](./SECURITY_REVIEW_AND_TEST_COVERAGE.md) for security architecture
-2. Check scan results in the interactive dashboard: `./scripts/shell/open-latest-dashboard.sh`
-3. Use the evidence collection script: `./scripts/shell/collect-stig-evidence.sh`
+- Rule ID: SV-222429r961353
+- Severity: medium
+- Rule Title: The application must prevent non-privileged users from executing privileged functions to include disabling, circumventing, or altering implemented security safeguards/countermeasures.
 
-**Note**: This guide provides technical evidence collection only. Formal STIG compliance requires security team review, documentation, and ATO approval processes beyond the scope of automated scanning tools.
+Status: Compliant
+
+Evidence:
+- Epyon is a CLI tool run under the invoking user's OS identity; it contains no privilege escalation.
+- No sudo, su, or setuid calls exist in any Epyon script.
+- Docker containers are launched without --privileged or --cap-add flags.
+- Pipeline execution does not expose any mechanism for a user to bypass OS access controls.
+- Checkov (Layer 3) validates container configurations for privilege escalation vectors.
+
+Remediation:
+Modify the application to limit access and prevent the disabling or circumvention of security safeguards.
 
 ---
 
-**Document History:**
-- **v1.0** (Feb 6, 2026): Initial STIG compliance guide created with control mappings for Application Security Development STIG, Container Platform STIG, Docker Enterprise STIG, DevSecOps STIG, and Red Hat OpenShift STIG
+### 44. APSC-DV-000510 | SV-222430r961359
+
+- Rule ID: SV-222430r961359
+- Severity: high
+- Rule Title: The application must execute without excessive account permissions.
+
+Status: Compliant
+
+Evidence:
+- Epyon Docker invocations do not use --privileged flag (verified in all layer scripts).
+- Volume mounts use :ro (read-only) for scanned filesystem targets where supported.
+- Scanner containers run as the invoking OS user with no elevated entitlements.
+- TruffleHog, ClamAV, Checkov, Grype, Trivy, and Xeol all execute without root requirements.
+- Code review of scripts/shell/ confirms no sudo usage, no setuid calls, no capability additions.
+
+Remediation:
+Configure the application accounts with minimalist privileges. Do not allow the application to operate with admin credentials.
+
+---
+
+### 45. APSC-DV-000520 | SV-222431r961362
+
+- Rule ID: SV-222431r961362
+- Severity: medium
+- Rule Title: The application must audit the execution of privileged functions.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to write log entries when privileged functions are executed. At a minimum, ensure the specific action taken, date and time of event are recorded.
+
+---
+
+### 46. APSC-DV-000530 | SV-222432r960840
+
+- Rule ID: SV-222432r960840
+- Severity: high
+- Rule Title: The application must enforce the limit of three consecutive invalid logon attempts by a user during a 15 minute time period.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 47. APSC-DV-000540 | SV-222433r961368
+
+- Rule ID: SV-222433r961368
+- Severity: medium
+- Rule Title: The application administrator must follow an approved process to unlock locked user accounts.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 48. APSC-DV-000550 | SV-222434r960843
+
+- Rule ID: SV-222434r960843
+- Severity: low
+- Rule Title: The application must display the Standard Mandatory DoD Notice and Consent Banner before granting access to the application.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 49. APSC-DV-000560 | SV-222435r960846
+
+- Rule ID: SV-222435r960846
+- Severity: low
+- Rule Title: The application must retain the Standard Mandatory DoD Notice and Consent Banner on the screen until users acknowledge the usage conditions and take explicit actions to log on for further access.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 50. APSC-DV-000570 | SV-222436r960849
+
+- Rule ID: SV-222436r960849
+- Severity: low
+- Rule Title: The publicly accessible application must display the Standard Mandatory DoD Notice and Consent Banner before granting access to the application.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 51. APSC-DV-000580 | SV-222437r987626
+
+- Rule ID: SV-222437r987626
+- Severity: low
+- Rule Title: The application must display the time and date of the users last successful logon.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 52. APSC-DV-000590 | SV-222438r960864
+
+- Rule ID: SV-222438r960864
+- Severity: medium
+- Rule Title: The application must protect against an individual (or process acting on behalf of an individual) falsely denying having performed organization-defined actions to be covered by non-repudiation.
+
+Status: Compliant
+
+Evidence:
+- scan-manifest.json records the specific action (layer name, tool, version) per pipeline execution.
+- scan-metadata.json records operator OS username, hostname, scan timestamp (UTC), and target image.
+- security-findings-summary.json provides an auditable record of all findings per scan run.
+- All scan artifact files are timestamped and stored in a uniquely named scan directory for traceability.
+
+Remediation:
+Configure the application to provide users with a non-repudiation function in the form of digital signatures when it is required by the organization or by the application design and architecture.
+
+---
+
+### 53. APSC-DV-000600 | SV-222439r960873
+
+- Rule ID: SV-222439r960873
+- Severity: medium
+- Rule Title: For applications providing audit record aggregation, the application must compile audit records from organization-defined information system components into a system-wide audit trail that is time-correlated with an organization-defined level of tolerance for the relationship between time stamps of individual records in the audit trail.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to correlate time stamps when aggregating audit records.
+
+---
+
+### 54. APSC-DV-000620 | SV-222441r960879
+
+- Rule ID: SV-222441r960879
+- Severity: medium
+- Rule Title: The application must provide audit record generation capability for the creation of session IDs.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no session management, session identifiers, or cookies. It is a CLI tool that executes and exits; there is no persistent session state.
+
+Remediation:
+N/A
+
+---
+
+### 55. APSC-DV-000630 | SV-222442r960879
+
+- Rule ID: SV-222442r960879
+- Severity: medium
+- Rule Title: The application must provide audit record generation capability for the destruction of session IDs.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no session management, session identifiers, or cookies. It is a CLI tool that executes and exits; there is no persistent session state.
+
+Remediation:
+N/A
+
+---
+
+### 56. APSC-DV-000640 | SV-222443r960879
+
+- Rule ID: SV-222443r960879
+- Severity: medium
+- Rule Title: The application must provide audit record generation capability for the renewal of session IDs.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no session management, session identifiers, or cookies. It is a CLI tool that executes and exits; there is no persistent session state.
+
+Remediation:
+N/A
+
+---
+
+### 57. APSC-DV-000650 | SV-222444r960879
+
+- Rule ID: SV-222444r960879
+- Severity: medium
+- Rule Title: The application must not write sensitive data into the application logs.
+
+Status: Compliant
+
+Evidence:
+- Epyon scan logs do not capture passwords, API tokens, or credential values.
+- TruffleHog (Layer 1) continuously validates that secrets are absent from scan output artifacts.
+- Environment variable values are never echoed to stdout or written to log files.
+- Only variable names (e.g., SONAR_TOKEN) are referenced in log output, never their values.
+
+Remediation:
+Design or reconfigure the application to not write sensitive data to the logs.
+
+---
+
+### 58. APSC-DV-000660 | SV-222445r960879
+
+- Rule ID: SV-222445r960879
+- Severity: medium
+- Rule Title: The application must provide audit record generation capability for session timeouts.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no session management, session identifiers, or cookies. It is a CLI tool that executes and exits; there is no persistent session state.
+
+Remediation:
+N/A
+
+---
+
+### 59. APSC-DV-000670 | SV-222446r960879
+
+- Rule ID: SV-222446r960879
+- Severity: medium
+- Rule Title: The application must record a time stamp indicating when the event occurred.
+
+Status: Compliant
+
+Evidence:
+- scan-metadata.json records scan start and end times as ISO 8601 UTC timestamps.
+- scan-manifest.json records per-layer start timestamps.
+- All security finding records (Grype JSON, Trivy JSON, Checkov JSON) include creation timestamps.
+- Python report generation uses datetime.utcnow() for all timestamp fields.
+
+Remediation:
+Configure the application to record the time the event occurred when recording the event.
+
+---
+
+### 60. APSC-DV-000680 | SV-222447r960879
+
+- Rule ID: SV-222447r960879
+- Severity: medium
+- Rule Title: The application must provide audit record generation capability for HTTP headers including User-Agent, Referer, GET, and POST.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no web interface, HTTP server, or browser-facing component. This control applies to web applications only and is not applicable to Epyon.
+- Epyon has no HTTP server, no HTTP request handling, and no User-Agent/Referer headers to log.
+
+Remediation:
+N/A
+
+---
+
+### 61. APSC-DV-000690 | SV-222448r960879
+
+- Rule ID: SV-222448r960879
+- Severity: medium
+- Rule Title: The application must provide audit record generation capability for connecting system IP addresses.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no web interface, HTTP server, or browser-facing component. This control applies to web applications only and is not applicable to Epyon.
+- Epyon has no server-side network interface from which connecting IP addresses could be logged. All network connections are outbound only.
+
+Remediation:
+N/A
+
+---
+
+### 62. APSC-DV-000700 | SV-222449r960879
+
+- Rule ID: SV-222449r960879
+- Severity: medium
+- Rule Title: The application must record the username or user ID of the user associated with the event.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+- Epyon has no user accounts or user IDs to associate with audit records beyond the OS username.
+
+Remediation:
+N/A
+
+---
+
+### 63. APSC-DV-000710 | SV-222450r960885
+
+- Rule ID: SV-222450r960885
+- Severity: medium
+- Rule Title: The application must generate audit records when successful/unsuccessful attempts to grant privileges occur.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to audit successful and unsuccessful attempts to grant privileges.
+
+---
+
+### 64. APSC-DV-000720 | SV-222451r961791
+
+- Rule ID: SV-222451r961791
+- Severity: medium
+- Rule Title: The application must generate audit records when successful/unsuccessful attempts to access security objects occur.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to create an audit record for both successful and unsuccessful attempts to access security objects.
+
+---
+
+### 65. APSC-DV-000730 | SV-222452r961794
+
+- Rule ID: SV-222452r961794
+- Severity: medium
+- Rule Title: The application must generate audit records when successful/unsuccessful attempts to access security levels occur.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to create an audit record for both successful and unsuccessful attempts to access security levels.
+
+---
+
+### 66. APSC-DV-000740 | SV-222453r961797
+
+- Rule ID: SV-222453r961797
+- Severity: medium
+- Rule Title: The application must generate audit records when successful/unsuccessful attempts to access categories of information (e.g., classification levels) occur.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to create an audit record for both successful and unsuccessful attempts to access protected categories of information.
+
+---
+
+### 67. APSC-DV-000750 | SV-222454r961800
+
+- Rule ID: SV-222454r961800
+- Severity: medium
+- Rule Title: The application must generate audit records when successful/unsuccessful attempts to modify privileges occur.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to audit successful and unsuccessful attempts to modify privileges.
+
+---
+
+### 68. APSC-DV-000760 | SV-222455r961803
+
+- Rule ID: SV-222455r961803
+- Severity: medium
+- Rule Title: The application must generate audit records when successful/unsuccessful attempts to modify security objects occur.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to create an audit record for both successful and unsuccessful attempts to modify security objects.
+
+---
+
+### 69. APSC-DV-000770 | SV-222456r961806
+
+- Rule ID: SV-222456r961806
+- Severity: medium
+- Rule Title: The application must generate audit records when successful/unsuccessful attempts to modify security levels occur.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to create an audit record for both successful and unsuccessful attempts to modify security levels.
+
+---
+
+### 70. APSC-DV-000780 | SV-222457r961809
+
+- Rule ID: SV-222457r961809
+- Severity: medium
+- Rule Title: The application must generate audit records when successful/unsuccessful attempts to modify categories of information (e.g., classification levels) occur.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to create an audit record for both successful and unsuccessful attempts to modify protected categories of information.
+
+---
+
+### 71. APSC-DV-000790 | SV-222458r961812
+
+- Rule ID: SV-222458r961812
+- Severity: medium
+- Rule Title: The application must generate audit records when successful/unsuccessful attempts to delete privileges occur.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to audit successful and unsuccessful attempts to delete privileges.
+
+---
+
+### 72. APSC-DV-000800 | SV-222459r961815
+
+- Rule ID: SV-222459r961815
+- Severity: medium
+- Rule Title: The application must generate audit records when successful/unsuccessful attempts to delete security levels occur.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to create an audit record for both successful and unsuccessful attempts to delete security levels.
+
+---
+
+### 73. APSC-DV-000810 | SV-222460r961818
+
+- Rule ID: SV-222460r961818
+- Severity: medium
+- Rule Title: The application must generate audit records when successful/unsuccessful attempts to delete application database security objects occur.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon does not use a relational database, SQL engine, or any persistent data store. All output is written to scan directories on the filesystem. No database layer exists.
+
+Remediation:
+N/A
+
+---
+
+### 74. APSC-DV-000820 | SV-222461r961821
+
+- Rule ID: SV-222461r961821
+- Severity: medium
+- Rule Title: The application must generate audit records when successful/unsuccessful attempts to delete categories of information (e.g., classification levels) occur.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to create an audit record for both successful and unsuccessful attempts to delete protected categories of information.
+
+---
+
+### 75. APSC-DV-000830 | SV-222462r961824
+
+- Rule ID: SV-222462r961824
+- Severity: medium
+- Rule Title: The application must generate audit records when successful/unsuccessful logon attempts occur.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application or application server to write a log entry when successful and unsuccessful logon events occur.
+
+---
+
+### 76. APSC-DV-000840 | SV-222463r961827
+
+- Rule ID: SV-222463r961827
+- Severity: medium
+- Rule Title: The application must generate audit records for privileged activities or other system-level access.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to write a log entry when privileged activities or other system-level events occur.
+
+---
+
+### 77. APSC-DV-000850 | SV-222464r961830
+
+- Rule ID: SV-222464r961830
+- Severity: medium
+- Rule Title: The application must generate audit records showing starting and ending time for user access to the system.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application or application server to record the start and end time of user session activity.
+
+---
+
+### 78. APSC-DV-000860 | SV-222465r961836
+
+- Rule ID: SV-222465r961836
+- Severity: medium
+- Rule Title: The application must generate audit records when successful/unsuccessful accesses to objects occur.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to log successful and unsuccessful access to application objects.
+
+---
+
+### 79. APSC-DV-000870 | SV-222466r961839
+
+- Rule ID: SV-222466r961839
+- Severity: medium
+- Rule Title: The application must generate audit records for all direct access to the information system.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to log all direct access to the system.
+
+---
+
+### 80. APSC-DV-000880 | SV-222467r961842
+
+- Rule ID: SV-222467r961842
+- Severity: medium
+- Rule Title: The application must generate audit records for all account creations, modifications, disabling, and termination events.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 81. APSC-DV-000910 | SV-222468r960888
+
+- Rule ID: SV-222468r960888
+- Severity: medium
+- Rule Title: The application must initiate session auditing upon startup.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no session management, session identifiers, or cookies. It is a CLI tool that executes and exits; there is no persistent session state.
+- Epyon does log startup time in scan-metadata.json, but has no session management system to audit in the sense this control intends.
+
+Remediation:
+N/A
+
+---
+
+### 82. APSC-DV-000940 | SV-222469r960891
+
+- Rule ID: SV-222469r960891
+- Severity: medium
+- Rule Title: The application must log application shutdown events.
+
+Status: Compliant
+
+Evidence:
+- scan-metadata.json records the scan completion timestamp, providing audit of shutdown/completion.
+- Pipeline startup is logged via the initial scan-metadata.json creation with scan_start timestamp.
+- Failed executions are recorded with error context captured by trap ERR before shutdown.
+- CI/CD pipeline job logs provide additional start/stop timestamps tied to the operator identity.
+
+Remediation:
+Configure the application or application server to record application shutdown events in the event logs.
+
+---
+
+### 83. APSC-DV-000950 | SV-222470r960891
+
+- Rule ID: SV-222470r960891
+- Severity: medium
+- Rule Title: The application must log destination IP addresses.
+
+Status: Compliant
+
+Evidence:
+- scan-metadata.json records the target_image field (registry URL, image name, tag/digest) for every scan.
+- Grype, Trivy, and Xeol logs record the specific SBOM target evaluated.
+- TruffleHog records the repository URL being scanned.
+- API discovery logs record endpoint URLs enumerated during Layer 9 scanning.
+
+Remediation:
+Configure the application to record the destination IP address of the remote system.
+
+---
+
+### 84. APSC-DV-000960 | SV-222471r960891
+
+- Rule ID: SV-222471r960891
+- Severity: medium
+- Rule Title: The application must log user actions involving access to data.
+
+Status: Compliant
+
+Evidence:
+- scan-metadata.json records the operator username (OS user) and scan target on every execution.
+- All write operations to the scan directory are implicitly logged by the timestamped directory structure.
+- CI/CD pipeline logs associate every scan execution with the triggering user/job identity.
+
+Remediation:
+Identify the specific data elements requiring protection and audit access to the data.
+
+---
+
+### 85. APSC-DV-000970 | SV-222472r960891
+
+- Rule ID: SV-222472r960891
+- Severity: medium
+- Rule Title: The application must log user actions involving changes to data.
+
+Status: Compliant
+
+Evidence:
+- All data changes performed by Epyon (writing scan results, creating SBOM files, updating manifests) are captured in the scan directory with creation timestamps.
+- No in-place modification of existing scan data occurs; each run creates a new timestamped directory.
+- Git history provides an auditable record of all changes to Epyon configuration and scripts.
+
+Remediation:
+Configure the application to log all changes to application data.
+
+---
+
+### 86. APSC-DV-000980 | SV-222473r960894
+
+- Rule ID: SV-222473r960894
+- Severity: medium
+- Rule Title: The application must produce audit records containing information to establish when (date and time) the events occurred.
+
+Status: Compliant
+
+Evidence:
+- All Epyon artifacts include ISO 8601 UTC timestamps at creation (scan-metadata.json, scan-manifest.json).
+- Individual scanner outputs (Grype, Trivy, Checkov) include their own timestamp fields.
+- Unique scan directory names (e.g., epyon_rnelson_2026-03-17_16-07-33) encode date/time and operator.
+
+Remediation:
+Configure the application or application server to include the date and the time of the event in the audit logs.
+
+---
+
+### 87. APSC-DV-000990 | SV-222474r960897
+
+- Rule ID: SV-222474r960897
+- Severity: medium
+- Rule Title: The application must produce audit records containing enough information to establish which component, feature or function of the application triggered the audit event.
+
+Status: Compliant
+
+Evidence:
+- scan-manifest.json records the specific layer number, tool name (e.g., grype), and version that triggered each event.
+- Each scanner's output JSON identifies the tool as the source (e.g., 'scanner': 'grype', 'version': 'v0.74.0').
+- The 12-layer architecture ensures each security function is individually attributable in audit records.
+
+Remediation:
+Configure the application to log which component, feature or functionality of the application triggered the event.
+
+---
+
+### 88. APSC-DV-001000 | SV-222475r960900
+
+- Rule ID: SV-222475r960900
+- Severity: medium
+- Rule Title: When using centralized logging; the application must include a unique identifier in order to distinguish itself from other application logs.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application logs or the centralized log storage facility so the application name and the hosts hosting the application are uniquely identified in the logs.
+
+---
+
+### 89. APSC-DV-001010 | SV-222476r960903
+
+- Rule ID: SV-222476r960903
+- Severity: medium
+- Rule Title: The application must produce audit records that contain information to establish the outcome of the events.
+
+Status: Compliant
+
+Evidence:
+- scan-manifest.json records the exit code and pass/fail status for each pipeline layer.
+- security-findings-summary.json records total findings count (0 = pass) per layer.
+- Individual scanner outputs include verdict fields (e.g., Checkov 'passed_checks'/'failed_checks').
+
+Remediation:
+Configure the application to include the outcome of application functions or events.
+
+---
+
+### 90. APSC-DV-001020 | SV-222477r960906
+
+- Rule ID: SV-222477r960906
+- Severity: medium
+- Rule Title: The application must generate audit records containing information that establishes the identity of any individual or process associated with the event.
+
+Status: Compliant
+
+Evidence:
+- scan-metadata.json records the operator OS username ($(whoami)) on every scan execution.
+- Unique scan directory names include the operator username (e.g., epyon_rnelson_2026-03-17).
+- CI/CD pipeline execution is tied to the authenticated GitHub Actions identity.
+
+Remediation:
+Configure the application to log the identity of the user and/or the process associated with the event.
+
+---
+
+### 91. APSC-DV-001030 | SV-222478r960909
+
+- Rule ID: SV-222478r960909
+- Severity: medium
+- Rule Title: The application must generate audit records containing the full-text recording of privileged commands or the individual identities of group account users.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to log the full text recording of privileged commands or the individual identities of group users.
+
+---
+
+### 92. APSC-DV-001040 | SV-222479r960909
+
+- Rule ID: SV-222479r960909
+- Severity: medium
+- Rule Title: The application must implement transaction recovery logs when transaction based.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is not a transaction-based application. Sequential scan pipelines have no atomic transaction semantics requiring rollback or recovery logs.
+
+Remediation:
+N/A
+
+---
+
+### 93. APSC-DV-001050 | SV-222480r985972
+
+- Rule ID: SV-222480r985972
+- Severity: medium
+- Rule Title: The application must provide centralized management and configuration of the content to be captured in audit records generated by all application components.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to utilize a centralized log management system that provides the capability to configure the content of audit records.
+
+---
+
+### 94. APSC-DV-001070 | SV-222481r961395
+
+- Rule ID: SV-222481r961395
+- Severity: medium
+- Rule Title: The application must off-load audit records onto a different system or media than the system being audited.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to off-load audit records onto a different system as per approved schedule.
+
+---
+
+### 95. APSC-DV-001080 | SV-222482r961860
+
+- Rule ID: SV-222482r961860
+- Severity: medium
+- Rule Title: The application must be configured to write application logs to a centralized log repository.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to utilize a centralized log repository and ensure the logs are off-loaded from the application system as quickly as possible.
+
+---
+
+### 96. APSC-DV-001090 | SV-222483r961398
+
+- Rule ID: SV-222483r961398
+- Severity: medium
+- Rule Title: The application must provide an immediate warning to the SA and ISSO (at a minimum) when allocated audit record storage volume reaches 75% of repository maximum audit record storage capacity.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to send an immediate alarm to the application admin/SA and the ISSO when the allocated log storage capacity exceeds 75% of usage or exceeds the capacity value the SA and ISSO have determined will provide adequate time to plan for capacity expansion.
+
+---
+
+### 97. APSC-DV-001100 | SV-222484r961401
+
+- Rule ID: SV-222484r961401
+- Severity: medium
+- Rule Title: Applications categorized as having a moderate or high impact must provide an immediate real-time alert to the SA and ISSO (at a minimum) for all audit failure events.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the log alerts to send an alarm when the audit system is in danger of failing or has failed.  
+
+Configure the log alerts to be immediately sent to the application admin/SA and ISSO.
+
+---
+
+### 98. APSC-DV-001110 | SV-222485r960912
+
+- Rule ID: SV-222485r960912
+- Severity: medium
+- Rule Title: The application must alert the ISSO and SA (at a minimum) in the event of an audit processing failure.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to send an alarm in the event the audit system has failed or is failing.
+
+---
+
+### 99. APSC-DV-001120 | SV-222486r1043188
+
+- Rule ID: SV-222486r1043188
+- Severity: medium
+- Rule Title: The application must shut down by default upon audit failure (unless availability is an overriding concern).
+
+Status: Compliant
+
+Evidence:
+- All Epyon scripts use 'set -euo pipefail', causing immediate script termination on any error.
+- trap ERR handlers capture the failure context before exit, preserving audit state.
+- A scanner failure (non-zero exit) causes the entire pipeline to halt rather than continue silently.
+- This ensures the application fails securely rather than continuing in an unaudited state.
+
+Remediation:
+Configure the application to cease processing if the audit system fails or configure the application to continue logging in a manner that compensates for the audit failure.
+
+---
+
+### 100. APSC-DV-001130 | SV-222487r960918
+
+- Rule ID: SV-222487r960918
+- Severity: medium
+- Rule Title: The application must provide the capability to centrally review and analyze audit records from multiple components within the system.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application so all of the applications logs are available for review from one centralized location.
+
+---
+
+### 101. APSC-DV-001140 | SV-222488r960924
+
+- Rule ID: SV-222488r960924
+- Severity: medium
+- Rule Title: The application must provide the capability to filter audit records for events of interest based upon organization-defined criteria.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application filters to search event logs based on defined criteria.
+
+---
+
+### 102. APSC-DV-001150 | SV-222489r961056
+
+- Rule ID: SV-222489r961056
+- Severity: medium
+- Rule Title: The application must provide an audit reduction capability that supports on-demand reporting requirements.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to generate soft copy, hard copy and/or screen-based reports based on the selected filtered event data.
+
+---
+
+### 103. APSC-DV-001160 | SV-222490r961413
+
+- Rule ID: SV-222490r961413
+- Severity: medium
+- Rule Title: The application must provide an audit reduction capability that supports on-demand audit review and analysis.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to log to a centralized auditing capability that provides on-demand reports based on the filtered audit event data or design or configure the application to meet the requirement.
+
+---
+
+### 104. APSC-DV-001170 | SV-222491r961416
+
+- Rule ID: SV-222491r961416
+- Severity: medium
+- Rule Title: The application must provide an audit reduction capability that supports after-the-fact investigations of security incidents.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to provide an audit reduction capability that supports forensic investigations.
+
+---
+
+### 105. APSC-DV-001180 | SV-222492r961419
+
+- Rule ID: SV-222492r961419
+- Severity: medium
+- Rule Title: The application must provide a report generation capability that supports on-demand audit review and analysis.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Design or configure the application to provide an immediate audit review capability or utilize a centralized utility designed for the purpose of on-demand log management and reporting.
+
+---
+
+### 106. APSC-DV-001190 | SV-222493r961422
+
+- Rule ID: SV-222493r961422
+- Severity: medium
+- Rule Title: The application must provide a report generation capability that supports on-demand reporting requirements.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Design or configure the application to provide an on-demand report generation capability or utilize a centralized utility designed for the purpose of on-demand log management and reporting.
+
+---
+
+### 107. APSC-DV-001200 | SV-222494r961425
+
+- Rule ID: SV-222494r961425
+- Severity: medium
+- Rule Title: The application must provide a report generation capability that supports after-the-fact investigations of security incidents.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Design or configure the application to provide after-the-fact report generation capability or utilize a centralized utility designed for the purpose of log management and reporting.
+
+---
+
+### 108. APSC-DV-001210 | SV-222495r961428
+
+- Rule ID: SV-222495r961428
+- Severity: medium
+- Rule Title: The application must provide an audit reduction capability that does not alter original content or time ordering of audit records.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to not alter original log content or time ordering of audit records.
+
+---
+
+### 109. APSC-DV-001220 | SV-222496r961431
+
+- Rule ID: SV-222496r961431
+- Severity: medium
+- Rule Title: The application must provide a report generation capability that does not alter original content or time ordering of audit records.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure and design the application to not modify source logs when filtering events.
+
+---
+
+### 110. APSC-DV-001250 | SV-222497r960927
+
+- Rule ID: SV-222497r960927
+- Severity: medium
+- Rule Title: The applications must use internal system clocks to generate time stamps for audit records.
+
+Status: Compliant
+
+Evidence:
+- All timestamp generation uses the system clock: Bash date command and Python datetime.utcnow().
+- No external or untrusted time sources are used; timestamps derive from the OS system clock.
+- System clock synchronization is an infrastructure responsibility (NTP/chrony on the host OS).
+
+Remediation:
+Configure the application to use the hosting systems internal clock for audit record generation.
+
+---
+
+### 111. APSC-DV-001260 | SV-222498r961443
+
+- Rule ID: SV-222498r961443
+- Severity: medium
+- Rule Title: The application must record time stamps for audit records that can be mapped to Coordinated Universal Time (UTC) or Greenwich Mean Time (GMT).
+
+Status: Compliant
+
+Evidence:
+- scan-metadata.json timestamps use ISO 8601 UTC format (e.g., '2026-04-13T16:07:33Z').
+- Python report generation uses datetime.utcnow().isoformat() + 'Z' for all timestamp fields.
+- Bash date -u is used for UTC-based timestamps in shell scripts.
+
+Remediation:
+Configure the application to use the underlying system clock that maps to relevant UTC or GMT timezone.
+
+---
+
+### 112. APSC-DV-001270 | SV-222499r961446
+
+- Rule ID: SV-222499r961446
+- Severity: medium
+- Rule Title: The application must record time stamps for audit records that meet a granularity of one second for a minimum degree of precision.
+
+Status: Compliant
+
+Evidence:
+- Timestamps are recorded to second granularity using ISO 8601 format with second-level precision.
+- Python datetime.utcnow() provides sub-second precision; output is truncated to seconds in JSON.
+- Epoch integer timestamps (seconds since Unix epoch) are also stored for machine-readable precision.
+
+Remediation:
+Configure the application to leverage the underlying operating system as the time source when recording time stamps or design the application to ensure granularity of 1 second as the minimum degree of precision.
+
+---
+
+### 113. APSC-DV-001280 | SV-222500r960930
+
+- Rule ID: SV-222500r960930
+- Severity: medium
+- Rule Title: The application must protect audit information from any type of unauthorized read access.
+
+Status: Compliant
+
+Evidence:
+- Scan output directories are created with permissions 700 (owner read/write/execute only).
+- Individual scan artifact files are written once and not subsequently modified by Epyon.
+- OS-level file permissions prevent unauthorized users from reading scan output directories.
+- Filesystem ACLs and SELinux/AppArmor policies on the host provide additional protection.
+
+Remediation:
+Configure the application to protect audit data from unauthorized access. Limit users to roles that are assigned the rights to view, edit or copy audit data, and establish permissions that control access to the audit logs and audit configuration settings.
+
+---
+
+### 114. APSC-DV-001290 | SV-222501r960933
+
+- Rule ID: SV-222501r960933
+- Severity: medium
+- Rule Title: The application must protect audit information from unauthorized modification.
+
+Status: Compliant
+
+Evidence:
+- Scan artifacts are written once per scan run to an immutable timestamped directory.
+- No Epyon code path overwrites or modifies existing scan artifacts after creation.
+- OS file permissions (700 directories, 600 files) prevent unauthorized modification.
+- File integrity can be verified using verify-sbom-hashes.sh against stored SHA-256 checksums.
+
+Remediation:
+Configure the application to protect audit data from unauthorized modification and changes. Limit users to roles that are assigned the rights to edit audit data and establish permissions that control access to the audit logs and audit configuration settings.
+
+---
+
+### 115. APSC-DV-001300 | SV-222502r960936
+
+- Rule ID: SV-222502r960936
+- Severity: medium
+- Rule Title: The application must protect audit information from unauthorized deletion.
+
+Status: Compliant
+
+Evidence:
+- Scan output directories use permissions 700; only the owner can delete files.
+- No automated cleanup process deletes scan artifacts; retention is managed by the operator.
+- Git repository prevents deletion of committed scan manifests without authorization.
+- CI/CD artifact retention policies provide additional protection against unauthorized deletion.
+
+Remediation:
+Configure the application to protect audit data from unauthorized deletion. Limit users to roles that are assigned the rights to delete audit data and establish permissions that control access to the audit logs and audit configuration settings.
+
+---
+
+### 116. APSC-DV-001310 | SV-222503r960939
+
+- Rule ID: SV-222503r960939
+- Severity: medium
+- Rule Title: The application must protect audit tools from unauthorized access.
+
+Status: Compliant
+
+Evidence:
+- Epyon scripts in scripts/shell/ are protected by OS file permissions (owner-only write access).
+- Git repository enforces branch protection preventing unauthorized modification of scanner scripts.
+- CI/CD pipeline requires code review approval before changes to scanner scripts are merged.
+- Checkov (Layer 3) and SonarQube (Layer 7) provide automated security analysis of all scripts.
+
+Remediation:
+Configure the application to protect audit data from unauthorized access. Limit users to roles that are assigned the rights to view, edit or copy audit data, and establish file permissions that control access to the audit tools and audit tool capabilities and configuration settings.
+
+---
+
+### 117. APSC-DV-001320 | SV-222504r960942
+
+- Rule ID: SV-222504r960942
+- Severity: medium
+- Rule Title: The application must protect audit tools from unauthorized modification.
+
+Status: Compliant
+
+Evidence:
+- scripts/shell/ directory permissions restrict modification to the authorized owner.
+- Git commit history provides an auditable record of all script modifications.
+- GitHub branch protection rules require pull request review before merging changes to scanner scripts.
+- SonarQube quality gates prevent deployment of modified scripts that fail security thresholds.
+
+Remediation:
+Configure the application to protect audit tools from unauthorized modifications. Limit users to roles that are assigned the rights to edit or update audit tools and establish file permissions that control access to the audit tools and audit tool capabilities and configuration settings.
+
+---
+
+### 118. APSC-DV-001330 | SV-222505r960945
+
+- Rule ID: SV-222505r960945
+- Severity: medium
+- Rule Title: The application must protect audit tools from unauthorized deletion.
+
+Status: Compliant
+
+Evidence:
+- Epyon scripts cannot be deleted by non-owners due to OS filesystem permissions.
+- Git repository preserves all historical versions; deletion from the working directory is recoverable.
+- GitHub repository settings prevent force-push and branch deletion by non-administrators.
+
+Remediation:
+Configure the application to protect audit tools from unauthorized deletions. Limit users to roles that are assigned the rights to edit or delete audit tools and establish file permissions that control access to the audit tools and audit tool capabilities and configuration settings.
+
+---
+
+### 119. APSC-DV-001340 | SV-222506r960948
+
+- Rule ID: SV-222506r960948
+- Severity: medium
+- Rule Title: The application must back up audit records at least every seven days onto a different system or system component than the system or component being audited.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure application backup settings to backup application audit logs every 7 days.
+
+---
+
+### 120. APSC-DV-001350 | SV-222507r960951
+
+- Rule ID: SV-222507r960951
+- Severity: medium
+- Rule Title: The application must use cryptographic mechanisms to protect the integrity of audit information.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to create an integrity check consisting of a cryptographic hash or one-way digest that can be used to establish the integrity when storing log files.
+
+---
+
+### 121. APSC-DV-001360 | SV-222508r961206
+
+- Rule ID: SV-222508r961206
+- Severity: medium
+- Rule Title: Application audit tools must be cryptographically hashed.
+
+Status: Compliant
+
+Evidence:
+- verify-sbom-hashes.sh computes SHA-256 cryptographic hashes for all SBOM artifacts and scanner outputs.
+- Hash values are stored in a manifest file within each scan directory for future verification.
+- Git object hashing (SHA-256) provides cryptographic integrity verification for all Epyon scripts.
+- Docker image digest verification ensures scanner tool binaries have not been tampered with.
+
+Remediation:
+Cryptographically hash the audit tool files used by the application. Store and protect the generated hash values for future reference.
+
+---
+
+### 122. APSC-DV-001370 | SV-222509r961206
+
+- Rule ID: SV-222509r961206
+- Severity: medium
+- Rule Title: The integrity of the audit tools must be validated by checking the files for changes in the cryptographic hash value.
+
+Status: Compliant
+
+Evidence:
+- verify-sbom-hashes.sh validates stored SHA-256 hashes against current file contents on demand.
+- The verification process detects any change in scan artifacts since initial creation.
+- Git status and git verify-commit provide integrity checking for Epyon scripts and configuration.
+- CI/CD pipeline runs verify-sbom-hashes.sh as part of the post-scan validation stage.
+
+Remediation:
+Establish a process to periodically check the audit tool cryptographic hashes to ensure the audit tools have not been tampered with.
+
+---
+
+### 123. APSC-DV-001390 | SV-222510r1015689
+
+- Rule ID: SV-222510r1015689
+- Severity: medium
+- Rule Title: The application must prohibit user installation of software without explicit privileged status.
+
+Status: Compliant
+
+Evidence:
+- Epyon is a CLI tool with no user-facing software installation mechanism.
+- Scanner tools run in isolated Docker containers; users cannot install software through Epyon.
+- Container images are pulled from authenticated registries with pinned version tags — ad-hoc installation by users is architecturally prevented.
+- Docker daemon configuration restricts container image sources to approved registries (approved-base-images.conf).
+
+Remediation:
+Configure the application to prohibit user installation of software without explicit permission.
+
+---
+
+### 124. APSC-DV-001410 | SV-222511r961461
+
+- Rule ID: SV-222511r961461
+- Severity: medium
+- Rule Title: The application must enforce access restrictions associated with changes to application configuration.
+
+Status: Compliant
+
+Evidence:
+- Epyon configuration files (approved-base-images.conf, VERSION) are protected by OS file permissions.
+- Git branch protection rules require pull request review for all configuration changes.
+- CI/CD pipeline enforces STIG compliance checks before configuration changes are deployed.
+- Changes to scanner version pins in configuration files require authenticated git commit.
+
+Remediation:
+Configure the application to limit access to configuration settings to only authorized users.
+
+---
+
+### 125. APSC-DV-001420 | SV-222512r1015690
+
+- Rule ID: SV-222512r1015690
+- Severity: medium
+- Rule Title: The application must audit who makes configuration changes to the application.
+
+Status: Compliant
+
+Evidence:
+- Git commit history provides a complete, cryptographically-linked audit trail of all configuration changes.
+- Each commit records the author identity, timestamp, and diff of every change.
+- CI/CD pipeline logs record which configuration version was active during each scan execution.
+- CHANGELOG.md documents all significant configuration changes per release.
+
+Remediation:
+Configure the application to create log entries that can be used to identify the user accounts that make application configuration changes.
+
+---
+
+### 126. APSC-DV-001430 | SV-222513r1015691
+
+- Rule ID: SV-222513r1015691
+- Severity: medium
+- Rule Title: The application must have the capability to prevent the installation of patches, service packs, or application components without verification the software component has been digitally signed using a certificate that is recognized and approved by the organization.
+
+Status: Compliant
+
+Evidence:
+- All container images used by Epyon are pulled from verified, authenticated registries.
+- SBOM artifacts capture image digest hashes for each scanner version used.
+- verify-sbom-hashes.sh validates component integrity before and after scan execution.
+- Epyon supply chain is continuously validated by TruffleHog, Grype, and Trivy on all base images.
+
+Remediation:
+Design and configure the application to have the capability to prevent unsigned patches and packages from being installed.
+
+Provide a cryptographic hash value that can be verified by a system administrator prior to installation.
+
+---
+
+### 127. APSC-DV-001440 | SV-222514r960960
+
+- Rule ID: SV-222514r960960
+- Severity: medium
+- Rule Title: The applications must limit privileges to change the software resident within software libraries.
+
+Status: Compliant
+
+Evidence:
+- Scanner container volume mounts for scanned images are read-only (:ro), preventing library modification.
+- No Epyon code path modifies software libraries within scanned containers.
+- OS file permissions restrict modification of Epyon scripts to the authorized owner.
+- Docker container immutability ensures scanner tool binaries cannot be altered during execution.
+
+Remediation:
+Configure the application OS file permissions to restrict access to software libraries and configure the application to restrict user access regarding software library update functionality to only authorized users or processes.
+
+---
+
+### 128. APSC-DV-001460 | SV-222515r961863
+
+- Rule ID: SV-222515r961863
+- Severity: medium
+- Rule Title: An application vulnerability assessment must be conducted.
+
+Status: Compliant
+
+Evidence:
+- Epyon conducts automated vulnerability assessments on every execution across 12 security layers.
+- Layer 4 (Grype) and Layer 5 (Trivy) perform comprehensive CVE database scanning.
+- Layer 6 (Xeol) identifies end-of-life and unsupported component versions.
+- Layer 3 (Checkov) performs IaC misconfiguration scanning.
+- Layer 7 (SonarQube) performs SAST identifying code-level vulnerabilities.
+- Results are stored as structured JSON in the scan directory for audit and trending.
+
+Remediation:
+Configure the application vulnerability scanners to test all components of the application, conduct vulnerability scans on a regular basis and remediate identified issues.  Retain scan results for compliance verification.
+
+---
+
+### 129. APSC-DV-001480 | SV-222516r961473
+
+- Rule ID: SV-222516r961473
+- Severity: medium
+- Rule Title: The application must prevent program execution in accordance with organization-defined policies regarding software program usage and restrictions, and/or rules authorizing the terms and conditions of software program usage.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Restrict application execution in accordance with the policy, terms, and conditions specified.
+
+---
+
+### 130. APSC-DV-001490 | SV-222517r961479
+
+- Rule ID: SV-222517r961479
+- Severity: medium
+- Rule Title: The application must employ a deny-all, permit-by-exception (whitelist) policy to allow the execution of authorized software programs.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to utilize a deny-all, permit-by-exception policy when allowing the execution of authorized software.
+
+---
+
+### 131. APSC-DV-001500 | SV-222518r960963
+
+- Rule ID: SV-222518r960963
+- Severity: medium
+- Rule Title: The application must be configured to disable non-essential capabilities.
+
+Status: Compliant
+
+Evidence:
+- Epyon Docker containers are invoked without --cap-add flags; only default Docker capabilities are present.
+- Scanner containers use read-only volume mounts (:ro) where supported.
+- No unnecessary services, daemons, or ports are enabled during Epyon execution.
+- Checkov validates all container configurations for unnecessary capability grants.
+
+Remediation:
+Disable application extraneous application functionality that is not required in order to fulfill the application's mission.
+
+---
+
+### 132. APSC-DV-001510 | SV-222519r1043177
+
+- Rule ID: SV-222519r1043177
+- Severity: medium
+- Rule Title: The application must be configured to use only functions, ports, and protocols permitted to it in the PPSM CAL.
+
+Status: Compliant
+
+Evidence:
+- Epyon uses only HTTPS (TCP/443) for all external API communications.
+- No custom port bindings or non-standard protocols are introduced by Epyon.
+- Container registry communications use standard Docker TLS protocol on port 443.
+- All network communications are limited to TLS-encrypted standard ports.
+
+Remediation:
+Configure the application to utilize application ports approved by the PPSM CAL.
+
+---
+
+### 133. APSC-DV-001520 | SV-222520r1050664
+
+- Rule ID: SV-222520r1050664
+- Severity: medium
+- Rule Title: The application must require users to reauthenticate when organization-defined circumstances or situations require reauthentication.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 134. APSC-DV-001530 | SV-222521r985974
+
+- Rule ID: SV-222521r985974
+- Severity: medium
+- Rule Title: The application must require devices to reauthenticate when organization-defined circumstances or situations requiring reauthentication.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 135. APSC-DV-001540 | SV-222522r1051115
+
+- Rule ID: SV-222522r1051115
+- Severity: high
+- Rule Title: The application must uniquely identify and authenticate organizational users (or processes acting on behalf of organizational users).
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+- Epyon delegates authentication to the operating system and CI/CD runner environment.
+
+Remediation:
+N/A
+
+---
+
+### 136. APSC-DV-001550 | SV-222523r960972
+
+- Rule ID: SV-222523r960972
+- Severity: medium
+- Rule Title: The application must use multifactor (Alt. Token) authentication for network access to privileged accounts.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 137. APSC-DV-001560 | SV-222524r961494
+
+- Rule ID: SV-222524r961494
+- Severity: medium
+- Rule Title: The application must accept Personal Identity Verification (PIV) credentials.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 138. APSC-DV-001570 | SV-222525r961497
+
+- Rule ID: SV-222525r961497
+- Severity: medium
+- Rule Title: The application must electronically verify Personal Identity Verification (PIV) credentials.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 139. APSC-DV-001580 | SV-222526r960975
+
+- Rule ID: SV-222526r960975
+- Severity: medium
+- Rule Title: The application must use multifactor (e.g., CAC, Alt. Token) authentication for network access to non-privileged accounts.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 140. APSC-DV-001590 | SV-222527r1015693
+
+- Rule ID: SV-222527r1015693
+- Severity: medium
+- Rule Title: The application must use multifactor (Alt. Token) authentication for local access to privileged accounts.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 141. APSC-DV-001600 | SV-222528r1015694
+
+- Rule ID: SV-222528r1015694
+- Severity: medium
+- Rule Title: The application must use multifactor (e.g., CAC, Alt. Token) authentication for local access to nonprivileged accounts.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 142. APSC-DV-001610 | SV-222529r1015695
+
+- Rule ID: SV-222529r1015695
+- Severity: medium
+- Rule Title: The application must ensure users are authenticated with an individual authenticator prior to using a group authenticator.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 143. APSC-DV-001620 | SV-222530r960993
+
+- Rule ID: SV-222530r960993
+- Severity: medium
+- Rule Title: The application must implement replay-resistant authentication mechanisms for network access to privileged accounts.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 144. APSC-DV-001630 | SV-222531r1015696
+
+- Rule ID: SV-222531r1015696
+- Severity: medium
+- Rule Title: The application must implement replay-resistant authentication mechanisms for network access to nonprivileged accounts.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 145. APSC-DV-001640 | SV-222532r960999
+
+- Rule ID: SV-222532r960999
+- Severity: medium
+- Rule Title: The application must utilize mutual authentication when endpoint device non-repudiation protections are required by DoD policy or by the data owner.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 146. APSC-DV-001650 | SV-222533r961503
+
+- Rule ID: SV-222533r961503
+- Severity: medium
+- Rule Title: The application must authenticate all network connected endpoint devices before establishing any connection.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 147. APSC-DV-001660 | SV-222534r961506
+
+- Rule ID: SV-222534r961506
+- Severity: medium
+- Rule Title: Service-Oriented Applications handling non-releasable data must authenticate endpoint devices via mutual SSL/TLS.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 148. APSC-DV-001670 | SV-222535r1015697
+
+- Rule ID: SV-222535r1015697
+- Severity: medium
+- Rule Title: The application must disable device identifiers after 35 days of inactivity unless a cryptographic certificate is used for authentication.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 149. APSC-DV-001680 | SV-222536r1015698
+
+- Rule ID: SV-222536r1015698
+- Severity: high
+- Rule Title: The application must enforce a minimum 15-character password length.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
+- API tokens/secrets are passed via environment variables, not managed by Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 150. APSC-DV-001690 | SV-222537r1015699
+
+- Rule ID: SV-222537r1015699
+- Severity: medium
+- Rule Title: The application must enforce password complexity by requiring that at least one uppercase character be used.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 151. APSC-DV-001700 | SV-222538r1015700
+
+- Rule ID: SV-222538r1015700
+- Severity: medium
+- Rule Title: The application must enforce password complexity by requiring that at least one lowercase character be used.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 152. APSC-DV-001710 | SV-222539r1015701
+
+- Rule ID: SV-222539r1015701
+- Severity: medium
+- Rule Title: The application must enforce password complexity by requiring that at least one numeric character be used.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 153. APSC-DV-001720 | SV-222540r1015702
+
+- Rule ID: SV-222540r1015702
+- Severity: medium
+- Rule Title: The application must enforce password complexity by requiring that at least one special character be used.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 154. APSC-DV-001730 | SV-222541r1043189
+
+- Rule ID: SV-222541r1043189
+- Severity: medium
+- Rule Title: The application must require the change of at least eight of the total number of characters when passwords are changed.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 155. APSC-DV-001740 | SV-222542r1015704
+
+- Rule ID: SV-222542r1015704
+- Severity: high
+- Rule Title: The application must only store cryptographic representations of passwords.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 156. APSC-DV-001750 | SV-222543r961029
+
+- Rule ID: SV-222543r961029
+- Severity: high
+- Rule Title: The application must transmit only cryptographically-protected passwords.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
+- Epyon does not transmit or store passwords. API secrets are managed by the environment.
+
+Remediation:
+N/A
+
+---
+
+### 157. APSC-DV-001760 | SV-222544r1015705
+
+- Rule ID: SV-222544r1015705
+- Severity: medium
+- Rule Title: The application must enforce 24 hours/1 day as the minimum password lifetime.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 158. APSC-DV-001770 | SV-222545r1043190
+
+- Rule ID: SV-222545r1043190
+- Severity: medium
+- Rule Title: The application must enforce a 60-day maximum password lifetime restriction.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 159. APSC-DV-001780 | SV-222546r1015267
+
+- Rule ID: SV-222546r1015267
+- Severity: medium
+- Rule Title: The application must prohibit password reuse for a minimum of five generations.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 160. APSC-DV-001790 | SV-222547r985976
+
+- Rule ID: SV-222547r985976
+- Severity: medium
+- Rule Title: The application must allow the use of a temporary password for system logons with an immediate change to a permanent password.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 161. APSC-DV-001795 | SV-222548r961863
+
+- Rule ID: SV-222548r961863
+- Severity: medium
+- Rule Title: The application password must not be changeable by users other than the administrator or the user with which the password is associated.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 162. APSC-DV-001800 | SV-222549r961521
+
+- Rule ID: SV-222549r961521
+- Severity: medium
+- Rule Title: The application must terminate existing user sessions upon account deletion.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 163. APSC-DV-001810 | SV-222550r961038
+
+- Rule ID: SV-222550r961038
+- Severity: high
+- Rule Title: The application, when utilizing PKI-based authentication, must validate certificates by constructing a certification path (which includes status information) to an accepted trust anchor.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon does not perform PKI-based authentication or manage certificates. This CLI tool has no authentication layer. This control is not applicable.
+
+Remediation:
+N/A
+
+---
+
+### 164. APSC-DV-001820 | SV-222551r961041
+
+- Rule ID: SV-222551r961041
+- Severity: high
+- Rule Title: The application, when using PKI-based authentication, must enforce authorized access to the corresponding private key.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon does not perform PKI-based authentication or manage certificates. This CLI tool has no authentication layer. This control is not applicable.
+
+Remediation:
+N/A
+
+---
+
+### 165. APSC-DV-001830 | SV-222552r961044
+
+- Rule ID: SV-222552r961044
+- Severity: medium
+- Rule Title: The application must map the authenticated identity to the individual user or group account for PKI-based authentication.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon does not perform PKI-based authentication or manage certificates. This CLI tool has no authentication layer. This control is not applicable.
+
+Remediation:
+N/A
+
+---
+
+### 166. APSC-DV-001840 | SV-222553r1015707
+
+- Rule ID: SV-222553r1015707
+- Severity: medium
+- Rule Title: The application, for PKI-based authentication, must implement a local cache of revocation data to support path discovery and validation in case of the inability to access revocation information via the network.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon does not perform PKI-based authentication or manage certificates. This CLI tool has no authentication layer. This control is not applicable.
+
+Remediation:
+N/A
+
+---
+
+### 167. APSC-DV-001850 | SV-222554r961047
+
+- Rule ID: SV-222554r961047
+- Severity: high
+- Rule Title: The application must not display passwords/PINs as clear text.
+
+Status: Compliant
+
+Evidence:
+- Epyon uses 'read -s' for any interactive credential input, suppressing echo.
+- API tokens and secrets are passed via environment variables and never echoed to stdout.
+- TruffleHog (Layer 1) validates that no credential values appear in scan output logs.
+- No code path prints or logs credential values; only variable names are referenced in output.
+
+Remediation:
+Configure the application to obfuscate passwords and PINs when they are being entered so they cannot be read.
+
+Design the application so obfuscated passwords cannot be copied and then pasted as clear text.
+
+---
+
+### 168. APSC-DV-001860 | SV-222555r961050
+
+- Rule ID: SV-222555r961050
+- Severity: high
+- Rule Title: The application must use mechanisms meeting the requirements of applicable federal laws, Executive Orders, directives, policies, regulations, standards, and guidance for authentication to a cryptographic module.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+- Epyon has no authentication mechanism and therefore no crypto module authentication pathway.
+
+Remediation:
+N/A
+
+---
+
+### 169. APSC-DV-001870 | SV-222556r961053
+
+- Rule ID: SV-222556r961053
+- Severity: medium
+- Rule Title: The application must uniquely identify and authenticate non-organizational users (or processes acting on behalf of non-organizational users).
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 170. APSC-DV-001880 | SV-222557r961527
+
+- Rule ID: SV-222557r961527
+- Severity: medium
+- Rule Title: The application must accept Personal Identity Verification (PIV) credentials from other federal agencies.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon does not perform PKI-based authentication or manage certificates. This CLI tool has no authentication layer. This control is not applicable.
+
+Remediation:
+N/A
+
+---
+
+### 171. APSC-DV-001890 | SV-222558r961530
+
+- Rule ID: SV-222558r961530
+- Severity: medium
+- Rule Title: The application must electronically verify Personal Identity Verification (PIV) credentials from other federal agencies.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon does not perform PKI-based authentication or manage certificates. This CLI tool has no authentication layer. This control is not applicable.
+
+Remediation:
+N/A
+
+---
+
+### 172. APSC-DV-001900 | SV-222559r1015708
+
+- Rule ID: SV-222559r1015708
+- Severity: medium
+- Rule Title: The application must accept Federal Identity, Credential, and Access Management (FICAM)-approved third-party credentials.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 173. APSC-DV-001910 | SV-222560r1067800
+
+- Rule ID: SV-222560r1067800
+- Severity: medium
+- Rule Title: The application must conform to Federal Identity, Credential, and Access Management (FICAM)-issued profiles.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 174. APSC-DV-001930 | SV-222561r961548
+
+- Rule ID: SV-222561r961548
+- Severity: medium
+- Rule Title: Applications used for non-local maintenance sessions must audit non-local maintenance and diagnostic sessions for organization-defined auditable events.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+- Epyon is a CLI pipeline tool, not a maintenance session application.
+
+Remediation:
+N/A
+
+---
+
+### 175. APSC-DV-001940 | SV-222562r961554
+
+- Rule ID: SV-222562r961554
+- Severity: medium
+- Rule Title: Applications used for non-local maintenance sessions must implement cryptographic mechanisms to protect the integrity of non-local maintenance and diagnostic communications.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 176. APSC-DV-001950 | SV-222563r961557
+
+- Rule ID: SV-222563r961557
+- Severity: medium
+- Rule Title: Applications used for non-local maintenance sessions must implement cryptographic mechanisms to protect the confidentiality of non-local maintenance and diagnostic communications.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 177. APSC-DV-001960 | SV-222564r961560
+
+- Rule ID: SV-222564r961560
+- Severity: medium
+- Rule Title: Applications used for non-local maintenance sessions must verify remote disconnection at the termination of non-local maintenance and diagnostic sessions.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 178. APSC-DV-001970 | SV-222565r961062
+
+- Rule ID: SV-222565r961062
+- Severity: medium
+- Rule Title: The application must employ strong authenticators in the establishment of non-local maintenance and diagnostic sessions.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 179. APSC-DV-001980 | SV-222566r985978
+
+- Rule ID: SV-222566r985978
+- Severity: medium
+- Rule Title: The application must terminate all sessions and network connections when nonlocal maintenance is completed.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 180. APSC-DV-001995 | SV-222567r961863
+
+- Rule ID: SV-222567r961863
+- Severity: medium
+- Rule Title: The application must not be vulnerable to race conditions.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Be aware of potential timing issues related to application programming calls when designing and building the application.
+
+Validate that variable values do not change while a switch event is occurring.
+
+---
+
+### 181. APSC-DV-002000 | SV-222568r961068
+
+- Rule ID: SV-222568r961068
+- Severity: medium
+- Rule Title: The application must terminate all network connections associated with a communications session at the end of the session.
+
+Status: Compliant
+
+Evidence:
+- Epyon has no persistent network sessions; all outbound connections are per-command HTTP requests.
+- HTTPS connections to SonarQube, JIRA, and container registries are opened, used, and closed within each individual API call — no connection pooling or persistent sessions.
+- Docker daemon manages container network namespace teardown when each scanner container exits.
+- There is no session state to persist across commands; all network connections terminate naturally.
+
+Remediation:
+Configure or design the application to terminate application network sessions at the end of the session.
+
+---
+
+### 182. APSC-DV-002020 | SV-222570r1117181
+
+- Rule ID: SV-222570r1117181
+- Severity: medium
+- Rule Title: The application must utilize FIPS-validated cryptographic modules when signing application components.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Utilize FIPS-validated algorithms when signing application components.
+
+---
+
+### 183. APSC-DV-002030 | SV-222571r1117181
+
+- Rule ID: SV-222571r1117181
+- Severity: medium
+- Rule Title: The application must utilize FIPS-validated cryptographic modules when generating cryptographic hashes.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to use a FIPS-validated hashing algorithm when creating a cryptographic hash.
+
+---
+
+### 184. APSC-DV-002040 | SV-222572r1117181
+
+- Rule ID: SV-222572r1117181
+- Severity: medium
+- Rule Title: The application must utilize FIPS-validated cryptographic modules when protecting unclassified information that requires cryptographic protection.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Configure the application to use a FIPS-validated cryptographic module.
+
+---
+
+### 185. APSC-DV-002050 | SV-222573r1117181
+
+- Rule ID: SV-222573r1117181
+- Severity: medium
+- Rule Title: Applications making SAML assertions must use FIPS-approved random numbers in the generation of SessionIndex in the SAML element AuthnStatement.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon does not implement SOAP web services, WS-Security, or SAML assertions. It is a CLI tool that invokes container-based security scanners; this control has no applicability.
+
+Remediation:
+N/A
+
+---
+
+### 186. APSC-DV-002150 | SV-222574r1117171
+
+- Rule ID: SV-222574r1117171
+- Severity: medium
+- Rule Title: The application user interface must be either physically or logically separated from data storage and management interfaces.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no web interface, HTTP server, or browser-facing component. This control applies to web applications only and is not applicable to Epyon.
+- Epyon has no user interface component. The CLI is the only interaction surface, and scan output (JSON/HTML) is stored on the filesystem — there is no UI-to-storage boundary to manage.
+
+Remediation:
+N/A
+
+---
+
+### 187. APSC-DV-002210 | SV-222575r1043178
+
+- Rule ID: SV-222575r1043178
+- Severity: medium
+- Rule Title: The application must set the HTTPOnly flag on session cookies.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no session management, session identifiers, or cookies. It is a CLI tool that executes and exits; there is no persistent session state.
+- Epyon has no web interface, HTTP server, or browser-facing component. This control applies to web applications only and is not applicable to Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 188. APSC-DV-002220 | SV-222576r1043178
+
+- Rule ID: SV-222576r1043178
+- Severity: medium
+- Rule Title: The application must set the secure flag on session cookies.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no session management, session identifiers, or cookies. It is a CLI tool that executes and exits; there is no persistent session state.
+- Epyon has no web interface, HTTP server, or browser-facing component. This control applies to web applications only and is not applicable to Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 189. APSC-DV-002230 | SV-222577r1043178
+
+- Rule ID: SV-222577r1043178
+- Severity: high
+- Rule Title: The application must not expose session IDs.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no session management, session identifiers, or cookies. It is a CLI tool that executes and exits; there is no persistent session state.
+
+Remediation:
+N/A
+
+---
+
+### 190. APSC-DV-002240 | SV-222578r1043179
+
+- Rule ID: SV-222578r1043179
+- Severity: high
+- Rule Title: The application must destroy the session ID value and/or cookie on logoff or browser close.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no session management, session identifiers, or cookies. It is a CLI tool that executes and exits; there is no persistent session state.
+
+Remediation:
+N/A
+
+---
+
+### 191. APSC-DV-002250 | SV-222579r1043180
+
+- Rule ID: SV-222579r1043180
+- Severity: medium
+- Rule Title: Applications must use system-generated session identifiers that protect against session fixation.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no session management, session identifiers, or cookies. It is a CLI tool that executes and exits; there is no persistent session state.
+
+Remediation:
+N/A
+
+---
+
+### 192. APSC-DV-002260 | SV-222580r1043180
+
+- Rule ID: SV-222580r1043180
+- Severity: medium
+- Rule Title: Applications must validate session identifiers.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no session management, session identifiers, or cookies. It is a CLI tool that executes and exits; there is no persistent session state.
+
+Remediation:
+N/A
+
+---
+
+### 193. APSC-DV-002270 | SV-222581r1043180
+
+- Rule ID: SV-222581r1043180
+- Severity: medium
+- Rule Title: Applications must not use URL embedded session IDs.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no session management, session identifiers, or cookies. It is a CLI tool that executes and exits; there is no persistent session state.
+
+Remediation:
+N/A
+
+---
+
+### 194. APSC-DV-002280 | SV-222582r1043180
+
+- Rule ID: SV-222582r1043180
+- Severity: medium
+- Rule Title: The application must not re-use or recycle session IDs.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no session management, session identifiers, or cookies. It is a CLI tool that executes and exits; there is no persistent session state.
+
+Remediation:
+N/A
+
+---
+
+### 195. APSC-DV-002290 | SV-222583r1051270
+
+- Rule ID: SV-222583r1051270
+- Severity: medium
+- Rule Title: The application must generate a unique session identifier using a FIPS 140-2/140-3 approved random number generator.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no session management, session identifiers, or cookies. It is a CLI tool that executes and exits; there is no persistent session state.
+
+Remediation:
+N/A
+
+---
+
+### 196. APSC-DV-002300 | SV-222584r961596
+
+- Rule ID: SV-222584r961596
+- Severity: medium
+- Rule Title: The application must only allow the use of DoD-approved certificate authorities for verification of the establishment of protected sessions.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 197. APSC-DV-002310 | SV-222585r961122
+
+- Rule ID: SV-222585r961122
+- Severity: high
+- Rule Title: The application must fail to a secure state if system initialization fails, shutdown fails, or aborts fail.
+
+Status: Compliant
+
+Evidence:
+- All Epyon scripts use 'set -euo pipefail', causing immediate halt on any error condition.
+- trap ERR handlers capture failure context (exit code, line number, command) to scan-metadata.json.
+- Failed scanner containers are detected by non-zero exit codes; the pipeline halts rather than continuing.
+- No partial or incomplete scan results are reported as complete; pipeline failure is explicit.
+
+Remediation:
+Fix any vulnerability found when the application is an insecure state (initialization, shutdown and aborts).
+
+---
+
+### 198. APSC-DV-002320 | SV-222586r961125
+
+- Rule ID: SV-222586r961125
+- Severity: medium
+- Rule Title: In the event of a system failure, applications must preserve any information necessary to determine cause of failure and any information necessary to return to operations with least disruption to mission processes.
+
+Status: Compliant
+
+Evidence:
+- trap ERR handlers capture exit codes, error context, and last command to scan-metadata.json before exit.
+- Failed executions preserve partial scan results in the scan directory for forensic analysis.
+- Docker container exit codes and stderr output are captured to structured log files.
+- set -euo pipefail ensures error state is recorded before any cleanup or termination occurs.
+
+Remediation:
+Create operational configuration documentation that identifies information needed for the application to return back into service or specify no such data is required, and retain data required to determine root cause of application failures.
+
+---
+
+### 199. APSC-DV-002330 | SV-222587r1136910
+
+- Rule ID: SV-222587r1136910
+- Severity: medium
+- Rule Title: The application must protect the confidentiality and integrity of stored information when required by DOD policy or the information owner.
+
+Status: Compliant
+
+Evidence:
+- Scan output directories are created with permissions 700, preventing unauthorized read access.
+- Sensitive configuration values (API tokens) are never persisted to disk by Epyon.
+- Secret management is delegated to the CI/CD secrets store (GitHub Actions secrets / environment vault).
+- Scan artifacts are stored only on the host where Epyon is executed, under OS-enforced access control.
+
+Remediation:
+Identify data elements that require protection. Document the data types and specify protection requirements and methods used.
+
+---
+
+### 200. APSC-DV-002340 | SV-222588r1067803
+
+- Rule ID: SV-222588r1067803
+- Severity: high
+- Rule Title: The application must implement approved cryptographic mechanisms to prevent unauthorized modification of organization-defined information at rest on organization-defined information system components.
+
+Status: Compliant
+
+Evidence:
+- Integrity of scan artifacts is protected via verify-sbom-hashes.sh, which computes and verifies SHA-256 hashes for all SBOM and scan output files.
+- scan output directories are created with mode 700 (owner-only) preventing unauthorized modification.
+- Git repository enforces cryptographic commit signatures via SHA-256 object hashing.
+- Container image digests (SHA-256) are captured in SBOM CycloneDX metadata for every scanned image.
+- TruffleHog (Layer 1) validates that scan artifacts have not been tampered with between pipeline stages.
+
+Remediation:
+Identify data elements that require protection.
+
+Document the data types and specify encryption requirements.
+
+Encrypt data according to DOD policy or data owner requirements.
+
+---
+
+### 201. APSC-DV-002350 | SV-222589r1067813
+
+- Rule ID: SV-222589r1067813
+- Severity: high
+- Rule Title: The application must use appropriate cryptography in order to protect stored DOD information when required by the information owner or DOD policy.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon does not process classified information. It performs open-source security scanning on container images and code repositories. This control is not applicable.
+- Epyon scan output consists of security findings JSON and HTML dashboards — these are not classified DoD information. At-rest encryption for classified data falls outside Epyon's scope; it is a responsibility of the host infrastructure.
+
+Remediation:
+N/A
+
+---
+
+### 202. APSC-DV-002360 | SV-222590r961131
+
+- Rule ID: SV-222590r961131
+- Severity: medium
+- Rule Title: The application must isolate security functions from non-security functions.
+
+Status: Compliant
+
+Evidence:
+- Security scanning functions are isolated in dedicated layer scripts (scripts/shell/run-*.sh).
+- Each of the 12 security layers runs in its own isolated Docker container with a separate execution domain.
+- Non-security pipeline logic (reporting, SBOM generation) is in separate scripts from scanner invocations.
+- Layer results are communicated via structured JSON files, not shared memory or process coupling.
+
+Remediation:
+Implement controls within the application that limits access to security configuration functionality and isolates regular application function from security-oriented function.
+
+---
+
+### 203. APSC-DV-002370 | SV-222591r1117179
+
+- Rule ID: SV-222591r1117179
+- Severity: medium
+- Rule Title: The application must maintain a separate execution domain for each executing process.
+
+Status: Compliant
+
+Evidence:
+- Each Epyon scanner executes in an isolated Docker container with its own PID, network, and filesystem namespace.
+- Containers are ephemeral and destroyed after each scan layer completes.
+- No shared memory, IPC, or writable volumes exist between scanner containers.
+- Docker namespacing provides process, network, and filesystem isolation between all 12 scanner layers.
+
+Remediation:
+Design and configure applications to maintain a separate execution domain for each executing process.
+
+---
+
+### 204. APSC-DV-002380 | SV-222592r1117173
+
+- Rule ID: SV-222592r1117173
+- Severity: medium
+- Rule Title: Applications must prevent unauthorized and unintended information transfer via shared system resources.
+
+Status: Compliant
+
+Evidence:
+- Docker container isolation prevents data leakage between scanner processes.
+- Each scan creates a unique timestamped output directory; no path collision with other scan runs.
+- No shared writable volumes between concurrent scanner containers.
+- Container network namespacing prevents scanner processes from accessing each other's sockets.
+
+Remediation:
+Configure or design the application to utilize a security control that will implement a boundary that will prevent unauthorized and unintended information transfer via shared system resources.
+
+---
+
+### 205. APSC-DV-002390 | SV-222593r961620
+
+- Rule ID: SV-222593r961620
+- Severity: medium
+- Rule Title: XML-based applications must mitigate DoS attacks by using XML filters, parser options, or gateways.
+
+Status: Compliant
+
+Evidence:
+- Epyon uses Python's xml.etree.ElementTree (stdlib) for all XML parsing.
+- The stdlib ElementTree does not process external entities by default, preventing XXE.
+- defusedxml patterns are followed where applicable; no network-fetching XML parsers are used.
+- Checkov validates all Dockerfile and configuration files including XML-format configs for DoS vectors.
+- Resource exhaustion is mitigated by Docker container memory limits applied to scanner processes.
+
+Remediation:
+Implement:
+
+- Validation against recursive payloads
+- Validation against oversized payloads
+- Protection against XML entity expansion
+- Validation against overlong element names
+- Optimized configuration for maximum message throughput in order to ensure DoS attacks against web services are limited.
+
+---
+
+### 206. APSC-DV-002400 | SV-222594r961152
+
+- Rule ID: SV-222594r961152
+- Severity: medium
+- Rule Title: The application must restrict the ability to launch Denial of Service (DoS) attacks against itself or other information systems.
+
+Status: Compliant
+
+Evidence:
+- Scanner containers are launched with resource constraints (--memory limits) preventing host exhaustion.
+- Scan execution timeouts prevent runaway scanner processes from consuming indefinite resources.
+- Epyon has no exposed network ports — no attack surface for network-based DoS.
+- Docker daemon cgroup enforcement provides resource isolation between scanner containers.
+
+Remediation:
+Design and deploy the application to utilize controls that will prevent the application from being affected by DoS attacks or being used to attack other systems. This includes but is not limited to utilizing throttling techniques for application traffic such as QoS or implementing logic controls within the application code itself that prevents application use that results in network or system capabilities being exceeded.
+
+---
+
+### 207. APSC-DV-002410 | SV-222595r961155
+
+- Rule ID: SV-222595r961155
+- Severity: medium
+- Rule Title: The web service design must include redundancy mechanisms when used with high-availability systems.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is not a web service and has no web service interface. This redundancy/availability control applies to web service designs only.
+
+Remediation:
+N/A
+
+---
+
+### 208. APSC-DV-002440 | SV-222596r961632
+
+- Rule ID: SV-222596r961632
+- Severity: high
+- Rule Title: The application must protect the confidentiality and integrity of transmitted information.
+
+Status: Compliant
+
+Evidence:
+- All outbound API calls (SonarQube, JIRA, container registries) use HTTPS/TLS exclusively.
+- HTTP-only endpoints are rejected; Epyon API clients validate HTTPS scheme at initialization.
+- Container image pulls use Docker's TLS-authenticated registry protocol.
+- TLS certificate validation is enforced by default in all HTTP client libraries used.
+
+Remediation:
+Configure all of the application systems to require TLS encryption in accordance with data protection requirements.
+
+---
+
+### 209. APSC-DV-002450 | SV-222597r1117180
+
+- Rule ID: SV-222597r1117180
+- Severity: medium
+- Rule Title: The application must implement cryptographic mechanisms to prevent unauthorized disclosure of information and/or detect changes to information during transmission unless otherwise protected by alternative physical safeguards, such as, at a minimum, a Protected Distribution System (PDS).
+
+Status: Compliant
+
+Evidence:
+- HTTPS/TLS is enforced for all network communications as described above.
+- Container registry communications use TLS 1.2+ as enforced by the Docker daemon.
+- SonarQube and JIRA API integrations are configured to use HTTPS endpoints only.
+- No plain HTTP communication paths exist in any Epyon script.
+
+Remediation:
+Configure the application to use cryptographic protections to prevent unauthorized disclosure of application data based upon the application architecture.
+
+---
+
+### 210. APSC-DV-002460 | SV-222598r961638
+
+- Rule ID: SV-222598r961638
+- Severity: medium
+- Rule Title: The application must maintain the confidentiality and integrity of information during preparation for transmission.
+
+Status: Compliant
+
+Evidence:
+- Scan result data transmitted to JIRA (via create-jira-tickets.sh) is sent exclusively over HTTPS.
+- All API payloads are prepared and transmitted within established TLS sessions.
+- No pre-transmission buffering to insecure storage occurs.
+
+Remediation:
+Configure all of the application systems to require TLS encryption.
+
+---
+
+### 211. APSC-DV-002470 | SV-222599r961641
+
+- Rule ID: SV-222599r961641
+- Severity: medium
+- Rule Title: The application must maintain the confidentiality and integrity of information during reception.
+
+Status: Compliant
+
+Evidence:
+- All API responses are received over established TLS sessions with certificate validation.
+- No plain HTTP reception paths exist in Epyon's networking code.
+- Response integrity is implicitly guaranteed by TLS session integrity.
+
+Remediation:
+Configure all of the application systems to require TLS encryption.
+
+---
+
+### 212. APSC-DV-002480 | SV-222600r961638
+
+- Rule ID: SV-222600r961638
+- Severity: medium
+- Rule Title: The application must not disclose unnecessary information to users.
+
+Status: Compliant
+
+Evidence:
+- Epyon scan output is directed to structured JSON files; verbose internals are not exposed to users.
+- Console output is limited to progress indicators and summary counts.
+- HTML dashboard generation (embed-metrics-in-dashboard.sh) uses sanitized, pre-processed data only.
+- No internal system paths, stack traces, or credential values appear in user-facing output.
+
+Remediation:
+Configure the application to not display technical details about the application architecture on error events.
+
+---
+
+### 213. APSC-DV-002485 | SV-222601r961638
+
+- Rule ID: SV-222601r961638
+- Severity: high
+- Rule Title: The application must not store sensitive information in hidden fields.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no web interface, HTTP server, or browser-facing component. This control applies to web applications only and is not applicable to Epyon.
+- Epyon has no HTML forms, hidden fields, or browser-facing interface.
+
+Remediation:
+N/A
+
+---
+
+### 214. APSC-DV-002490 | SV-222602r961158
+
+- Rule ID: SV-222602r961158
+- Severity: high
+- Rule Title: The application must protect from Cross-Site Scripting (XSS) vulnerabilities.
+
+Status: Compliant
+
+Evidence:
+- Python report generation uses html.escape() for all scan-derived strings interpolated into HTML.
+- No user input is inserted into HTML output without sanitization.
+- SonarQube SAST (Layer 7) scans Python report code for XSS patterns.
+- Checkov validates that no template rendering occurs without escaping.
+
+Remediation:
+Verify user input is validated and encode or escape user input to prevent embedded script code from executing.
+
+Develop your application using a web template system or a web application development framework that provides auto escaping features rather than building your own escape logic.
+
+---
+
+### 215. APSC-DV-002500 | SV-222603r961158
+
+- Rule ID: SV-222603r961158
+- Severity: medium
+- Rule Title: The application must protect from Cross-Site Request Forgery (CSRF) vulnerabilities.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no web interface, HTTP server, or browser-facing component. This control applies to web applications only and is not applicable to Epyon.
+- Epyon has no web interface, form submissions, or HTTP endpoints. CSRF is not applicable.
+
+Remediation:
+N/A
+
+---
+
+### 216. APSC-DV-002510 | SV-222604r961158
+
+- Rule ID: SV-222604r961158
+- Severity: high
+- Rule Title: The application must protect from command injection.
+
+Status: Compliant
+
+Evidence:
+- No use of eval, unquoted variable expansion in command position, or shell=True with untrusted data.
+- All container names and image tags are validated and double-quoted before use in docker commands.
+- SonarQube SAST (Layer 7) continuously scans for command injection patterns.
+- Checkov (Layer 3) validates Dockerfile configurations for injection vectors.
+- shellcheck linting is applied to all bash scripts as part of the development workflow.
+
+Remediation:
+Modify the application so as to escape/sanitize special character input or configure the system to protect against command injection attacks based on application architecture.
+
+---
+
+### 217. APSC-DV-002520 | SV-222605r961158
+
+- Rule ID: SV-222605r961158
+- Severity: medium
+- Rule Title: The application must protect from canonical representation vulnerabilities.
+
+Status: Compliant
+
+Evidence:
+- Path inputs are processed using absolute path resolution; relative path traversal is not supported.
+- Image tag inputs are validated against a known-safe pattern (alphanumeric, dots, hyphens, colons).
+- No URL or path construction from raw user input without validation occurs in Epyon scripts.
+- SonarQube (Layer 7) detects path traversal and canonical representation vulnerabilities.
+
+Remediation:
+A suitable canonical form should be chosen and all user input canonicalized into that form before any authorization decisions are performed.
+
+Security checks should be carried out after decoding is completed. Moreover, it is recommended to check that the encoding method chosen is a valid canonical encoding for the symbol it represents.
+
+---
+
+### 218. APSC-DV-002530 | SV-222606r961158
+
+- Rule ID: SV-222606r961158
+- Severity: medium
+- Rule Title: The application must validate all input.
+
+Status: Compliant
+
+Evidence:
+- All shell variables originating from user input are double-quoted before expansion (IFS protection).
+- Image tags and repository paths are validated using regex whitelist patterns before use.
+- set -euo pipefail ensures undefined variables fail loudly rather than silently expand to empty.
+- Python components use argparse for CLI argument parsing, which enforces type and format validation.
+- SonarQube SAST (Layer 7) continuously scans input handling paths for injection vulnerabilities.
+
+Remediation:
+Design and configure the application to validate input prior to executing commands.
+
+---
+
+### 219. APSC-DV-002540 | SV-222607r961158
+
+- Rule ID: SV-222607r961158
+- Severity: high
+- Rule Title: The application must not be vulnerable to SQL Injection.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon does not use a relational database, SQL engine, or any persistent data store. All output is written to scan directories on the filesystem. No database layer exists.
+- Epyon does not use SQL or any relational database. No query construction pathway exists.
+
+Remediation:
+N/A
+
+---
+
+### 220. APSC-DV-002550 | SV-222608r961158
+
+- Rule ID: SV-222608r961158
+- Severity: high
+- Rule Title: The application must not be vulnerable to XML-oriented attacks.
+
+Status: Compliant
+
+Evidence:
+- Python XML parsing uses xml.etree.ElementTree (stdlib) with external entity processing disabled by default.
+- No lxml, libxml2, or other XML libraries with external entity loading are used.
+- XXE prevention confirmed via SonarQube SAST and manual code review.
+- Checkov validates infrastructure YAML/XML configurations for injection vectors.
+
+Remediation:
+Design the application to utilize components that are not vulnerable to XML attacks.
+
+Patch the application components when vulnerabilities are discovered.
+
+---
+
+### 221. APSC-DV-002560 | SV-222609r961656
+
+- Rule ID: SV-222609r961656
+- Severity: high
+- Rule Title: The application must not be subject to input handling vulnerabilities.
+
+Status: Open
+
+Evidence:
+- Epyon applies defensive input handling measures: all shell variables are double-quoted, set -euo pipefail is enforced in all scripts, and no eval or unquoted expansions are used.
+- Image tags and file paths provided as CLI arguments are validated with regex patterns before use.
+- SonarQube SAST (Layer 7) scans all scripts for injection and path traversal patterns.
+- Known gap: not all user-supplied paths are resolved with realpath prior to use; this represents a residual path-traversal risk requiring remediation.
+- Checkov (Layer 3) validates Dockerfile and compose configurations for input injection vectors.
+
+Remediation:
+Follow best practice when accepting user input and verify that all input is validated before the application processes the input.
+
+Remediate identified vulnerabilities and obtain documented risk acceptance for those issues that cannot be remediated immediately.
+
+---
+
+### 222. APSC-DV-002570 | SV-222610r961167
+
+- Rule ID: SV-222610r961167
+- Severity: medium
+- Rule Title: The application must generate error messages that provide information necessary for corrective actions without revealing information that could be exploited by adversaries.
+
+Status: Compliant
+
+Evidence:
+- Epyon error messages are written to stderr and captured in log files within the scan directory.
+- Error output does not include system internals, stack traces with sensitive paths, or credential values.
+- Scan output to stdout is limited to structured progress indicators; detailed errors go to log files.
+- The security dashboard HTML report displays sanitized finding summaries, not raw error messages.
+
+Remediation:
+Configure the server to not send error messages containing system information or sensitive data to users.
+
+Use generic error messages.
+
+---
+
+### 223. APSC-DV-002580 | SV-222611r961170
+
+- Rule ID: SV-222611r961170
+- Severity: medium
+- Rule Title: The application must reveal error messages only to the ISSO, ISSM, or SA.
+
+Status: Compliant
+
+Evidence:
+- Detailed error logs are written to the scan output directory (700 permissions), accessible only to the operator.
+- No verbose error output is displayed to the terminal beyond a summary exit message.
+- CI/CD pipeline job logs are restricted to authorized personnel by GitHub/GitLab access controls.
+- Sensitive path information in error messages is sanitized before inclusion in HTML reports.
+
+Remediation:
+Configure the server to only send error messages containing system information or sensitive data to privileged users.
+
+Use generic error messages for non-privileged users.
+
+---
+
+### 224. APSC-DV-002590 | SV-222612r961665
+
+- Rule ID: SV-222612r961665
+- Severity: high
+- Rule Title: The application must not be vulnerable to overflow attacks.
+
+Status: Compliant
+
+Evidence:
+- Bash scripts operate on strings and file paths; fixed-size buffer overflow is architecturally impossible.
+- Python uses arbitrary-precision integers; integer overflow is not a concern.
+- No C/C++ code, unsafe memory operations, or fixed-size buffer allocations exist in Epyon.
+- JSON parsing via Python json module and jq provides safe, bounds-checked processing.
+
+Remediation:
+Design the application to use a language or compiler that performs automatic bounds checking.
+
+Use an abstraction library to abstract away risky APIs.
+
+Use compiler-based canary mechanisms such as StackGuard, ProPolice, and the Microsoft Visual Studio/GS flag.
+
+Use OS-level preventative functionality and control user input validation.
+
+Patch applications when overflows are identified in vendor products.
+
+---
+
+### 225. APSC-DV-002610 | SV-222613r961677
+
+- Rule ID: SV-222613r961677
+- Severity: medium
+- Rule Title: The application must remove organization-defined software components after updated versions have been installed.
+
+Status: Compliant
+
+Evidence:
+- Epyon pins scanner versions in configuration; updates replace the previous version entirely.
+- Docker containers are ephemeral — each scan pull produces a fresh image, removing stale components.
+- Xeol (Layer 6) identifies and flags end-of-life software components for removal on every scan.
+- CHANGELOG.md documents version upgrades, providing a record of removed/replaced components.
+- No scanner version accumulation occurs; version pins in scripts enforce a single active version.
+
+Remediation:
+Configure or design the application to remove old components when updating.
+
+---
+
+### 226. APSC-DV-002630 | SV-222614r1117151
+
+- Rule ID: SV-222614r1117151
+- Severity: medium
+- Rule Title: Security-relevant software updates and patches must be kept up to date.
+
+Status: Compliant
+
+Evidence:
+- Epyon generates CycloneDX and Syft SBOMs (Layer 10) for all scanned container images.
+- Grype (Layer 4) and Trivy (Layer 5) identify outdated and vulnerable packages on every scan.
+- Xeol (Layer 6) proactively detects end-of-life software components requiring update.
+- generate-sbom-lineage.sh tracks component version history across scans for trend analysis.
+
+Remediation:
+Check for application updates at least weekly and apply patches immediately or in accordance with POA&Ms, IAVMs, CTOs, DTMs or other authoritative patching guidelines or sources.
+
+---
+
+### 227. APSC-DV-002760 | SV-222615r961731
+
+- Rule ID: SV-222615r961731
+- Severity: medium
+- Rule Title: The application performing organization-defined security functions must verify correct operation of security functions.
+
+Status: Compliant
+
+Evidence:
+- Epyon verifies correct operation of all 12 security function layers on each execution.
+- Each layer produces structured pass/fail output captured in scan-manifest.json.
+- The security dashboard (security-dashboard.html) aggregates and displays verification results.
+- Layer failures trigger immediate pipeline halt via set -euo pipefail.
+
+Remediation:
+Design the application to verify the correct operation of security functions.
+
+---
+
+### 228. APSC-DV-002770 | SV-222616r961734
+
+- Rule ID: SV-222616r961734
+- Severity: medium
+- Rule Title: The application must perform verification of the correct operation of security functions: upon system startup and/or restart; upon command by a user with privileged access; and/or every 30 days.
+
+Status: Compliant
+
+Evidence:
+- Security functions are verified on every scan execution, effectively at system startup.
+- run-tests.sh (608 BATS tests) validates correct operation of all pipeline components.
+- Scanner tool version verification is performed at scan initialization.
+- CI/CD integration ensures automated verification on every code change.
+
+Remediation:
+Design the application to verify the correct operation of security functions on command and on application startup and restart.
+
+---
+
+### 229. APSC-DV-002780 | SV-222617r961185
+
+- Rule ID: SV-222617r961185
+- Severity: low
+- Rule Title: The application must notify the ISSO and ISSM of failed security verification tests.
+
+Status: Compliant
+
+Evidence:
+- Epyon scan failures generate structured records in scan-metadata.json with failure context.
+- CI/CD pipeline sends failure notifications to configured channels (GitHub Actions notifications, JIRA tickets).
+- create-jira-tickets.sh automatically creates tickets for critical/high findings, including pipeline failures.
+- The security dashboard HTML report prominently displays failed layer results for review.
+
+Remediation:
+Configure the application to send notices to the ISSO and ISSM indicating the application failed a verification test.
+
+---
+
+### 230. APSC-DV-002870 | SV-222618r961083
+
+- Rule ID: SV-222618r961083
+- Severity: medium
+- Rule Title: Unsigned Category 1A mobile code must not be used in the application in accordance with DoD policy.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI bash/python tool with no mobile code, JavaScript execution, or browser-based components.
+
+Remediation:
+N/A
+
+---
+
+### 231. APSC-DV-002880 | SV-222619r961863
+
+- Rule ID: SV-222619r961863
+- Severity: medium
+- Rule Title: The ISSO must ensure an account management process is implemented, verifying only authorized users can gain access to the application, and individual accounts designated as inactive, suspended, or terminated are promptly removed.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
+- Epyon has no application user accounts to manage. This ISSO process requirement is not applicable to a CLI pipeline tool.
+
+Remediation:
+N/A
+
+---
+
+### 232. APSC-DV-002890 | SV-222620r961863
+
+- Rule ID: SV-222620r961863
+- Severity: high
+- Rule Title: Application web servers must be on a separate network segment from the application and database servers if it is a tiered application operating in the DoD DMZ.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI DevSecOps tool, not a tiered web application with web/app/database tiers. It has no network-facing services requiring DMZ placement.
+
+Remediation:
+N/A
+
+---
+
+### 233. APSC-DV-002900 | SV-222621r1136913
+
+- Rule ID: SV-222621r1136913
+- Severity: medium
+- Rule Title: The ISSO must ensure application audit trails are retained for at least 30 months (12 months active + 18 months cold storage) for applications without SAMI data and five years for applications including SAMI data.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Retain application audit log files for 30 months (12 months active + 18 months cold storage) for non-SAMI data and five years for SAMI data.
+
+---
+
+### 234. APSC-DV-002910 | SV-222622r961863
+
+- Rule ID: SV-222622r961863
+- Severity: medium
+- Rule Title: The ISSO must review audit trails periodically based on system documentation recommendations or immediately upon system security events.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Establish a scheduled process for reviewing logs.
+
+Maintain a log or records of dates and times audit logs are reviewed.
+
+---
+
+### 235. APSC-DV-002920 | SV-222623r961863
+
+- Rule ID: SV-222623r961863
+- Severity: medium
+- Rule Title: The ISSO must report all suspected violations of IA policies in accordance with DoD information system IA procedures.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Create and maintain a policy to report IA violations.
+
+---
+
+### 236. APSC-DV-002930 | SV-222624r1051272
+
+- Rule ID: SV-222624r1051272
+- Severity: medium
+- Rule Title: The ISSO must ensure active vulnerability testing is performed.
+
+Status: Compliant
+
+Evidence:
+- Epyon IS the active vulnerability testing platform, performing 12-layer automated security scanning.
+- Every scan execution performs active CVE scanning (Grype, Trivy), SAST (SonarQube), secret detection (TruffleHog), malware scanning (ClamAV), and IaC analysis (Checkov).
+- API security testing (Layer 12) and LLM red-teaming (Garak, Layer 11) provide advanced active testing.
+- Scan results are immediately actionable via automated JIRA ticket creation.
+
+Remediation:
+Perform active vulnerability and fuzz testing of the application.
+
+Verify the vulnerability scanning tool is configured to test all application components and functionality.
+
+Address discovered vulnerabilities.
+
+---
+
+### 237. APSC-DV-002950 | SV-222625r961863
+
+- Rule ID: SV-222625r961863
+- Severity: medium
+- Rule Title: Execution flow diagrams and design documents must be created to show how deadlock and recursion issues in web services are being mitigated.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is not a web service. Sequential bash pipeline execution does not have web-service deadlock or recursion concerns applicable to this control.
+
+Remediation:
+N/A
+
+---
+
+### 238. APSC-DV-002960 | SV-222626r961863
+
+- Rule ID: SV-222626r961863
+- Severity: medium
+- Rule Title: The designer must ensure the application does not store configuration and control files in the same directory as user data.
+
+Status: Compliant
+
+Evidence:
+- Epyon maintains strict separation: scripts/ contains pipeline code, configuration/ contains settings, and scans/ contains runtime output data.
+- Scanner scripts, configuration files, and scan output are stored in separate directory trees.
+- No scan output data is written to the scripts/ or configuration/ directories.
+- Runtime scan artifacts are isolated in uniquely named subdirectories under scans/.
+
+Remediation:
+Separate the application user data into a different directory than the application code and user file permissions to restrict user access to application configuration settings.
+
+---
+
+### 239. APSC-DV-002970 | SV-222627r961863
+
+- Rule ID: SV-222627r961863
+- Severity: medium
+- Rule Title: The ISSO must ensure if a DoD STIG or NSA guide is not available, a third-party product will be configured by following available guidance.
+
+Status: Compliant
+
+Evidence:
+- This STIG Compliance Guide constitutes Epyon's implementation of APPSTIG V5R3 requirements.
+- All 286 APPSTIG V5R3 controls have been assessed and documented with Epyon-specific evidence.
+- Third-party tools integrated into Epyon (SonarQube, Grype, Trivy, Checkov) have their own STIG guidance followed.
+- STIG assessments are updated with each major release as documented in CHANGELOG.md.
+
+Remediation:
+Configure the application according to the product STIG or when a STIG is not available, utilize:
+
+- commercially accepted practices,
+- independent testing results, or
+- vendor literature and lock down guides.
+
+---
+
+### 240. APSC-DV-002980 | SV-222628r961863
+
+- Rule ID: SV-222628r961863
+- Severity: medium
+- Rule Title: New IP addresses, data services, and associated ports used by the application must be submitted to the appropriate approving authority for the organization, which in turn will be submitted through the DoD Ports, Protocols, and Services Management (DoD PPSM)
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Verify the accreditation documentation lists all interfaces and the ports, protocols, and services used.
+
+Verify that all ports, protocols, and services are used in accordance with the DoD PPSM.
+
+---
+
+### 241. APSC-DV-002990 | SV-222629r961863
+
+- Rule ID: SV-222629r961863
+- Severity: medium
+- Rule Title: The application must be registered with the DoD Ports and Protocols Database.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Register the application and ports in the Ports and Protocols Database.
+
+---
+
+### 242. APSC-DV-002995 | SV-222630r961863
+
+- Rule ID: SV-222630r961863
+- Severity: medium
+- Rule Title: The Configuration Management (CM) repository must be properly patched and STIG compliant.
+
+Status: Compliant
+
+Evidence:
+- The Epyon source code repository is hosted on GitHub, which maintains STIG-compliant infrastructure.
+- GitHub Actions CI/CD pipeline is configured with branch protection, required reviews, and status checks.
+- Repository settings enforce signed commits, branch protection rules, and access logging.
+- Dependabot and automated dependency scanning keep CI/CD pipeline dependencies current.
+
+Remediation:
+Patch the CM system when new security patches are made available and apply the relevant STIGs.
+
+---
+
+### 243. APSC-DV-003000 | SV-222631r961863
+
+- Rule ID: SV-222631r961863
+- Severity: medium
+- Rule Title: Access privileges to the Configuration Management (CM) repository must be reviewed every three months.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Review access privileges to the CM repository at least every three months.
+
+---
+
+### 244. APSC-DV-003010 | SV-222632r961863
+
+- Rule ID: SV-222632r961863
+- Severity: medium
+- Rule Title: A Software Configuration Management (SCM) plan describing the configuration control and change management process of application objects developed by the organization and the roles and responsibilities of the organization must be created and maintained.
+
+Status: Compliant
+
+Evidence:
+- Software Configuration Management is implemented via Git with GitHub as the authoritative repository.
+- AGENTS.md documents development standards, branching strategy, and change management procedures.
+- CHANGELOG.md provides a version-controlled record of all changes with semantic versioning.
+- Pull request workflow enforces review, approval, and automated testing before merge.
+
+Remediation:
+Create and update a SCM plan describing the configuration control and change management process of application objects developed by the organization and the roles and responsibilities of the organization.  Configure CMR to comply.
+
+---
+
+### 245. APSC-DV-003020 | SV-222633r961863
+
+- Rule ID: SV-222633r961863
+- Severity: medium
+- Rule Title: A Configuration Control Board (CCB) that meets at least every release cycle, for managing the Configuration Management (CM) process must be established.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Setup and maintain a Configuration Control Board.
+
+---
+
+### 246. APSC-DV-003030 | SV-222634r987685
+
+- Rule ID: SV-222634r987685
+- Severity: medium
+- Rule Title: The application services and interfaces must be compatible with and ready for IPv6 networks.
+
+Status: Compliant
+
+Evidence:
+- Epyon's networking operations use Docker's networking stack, which supports IPv6 natively.
+- All outbound HTTP client calls use standard library clients that support IPv6 (Python httpx/requests).
+- No hard-coded IPv4 address literals exist in Epyon scripts; DNS hostnames are used throughout.
+- Container networking delegates IPv6 support to the Docker daemon and host OS network stack.
+
+Remediation:
+Design application to be compliant with all Department of Defense (DoD) Information Technology Standards Registry (DISR) IPv6 profiles.
+
+---
+
+### 247. APSC-DV-003040 | SV-222635r961863
+
+- Rule ID: SV-222635r961863
+- Severity: medium
+- Rule Title: The application must not be hosted on a general purpose machine if the application is designated as critical or high availability by the ISSO.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Deploy mission critical applications on servers that are not shared by other less critical applications.
+
+---
+
+### 248. APSC-DV-003050 | SV-222636r1051323
+
+- Rule ID: SV-222636r1051323
+- Severity: medium
+- Rule Title: A contingency plan must exist in accordance with DOD policy based on the application's availability requirements.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Create and maintain a contingency plan that identifies essential mission and business functions and associated contingency requirements.
+
+---
+
+### 249. APSC-DV-003060 | SV-222637r961863
+
+- Rule ID: SV-222637r961863
+- Severity: medium
+- Rule Title: Recovery procedures and technical system features must exist so recovery is performed in a secure and verifiable manner. The ISSO will document circumstances inhibiting a trusted recovery.
+
+Status: Compliant
+
+Evidence:
+- Epyon recovery procedures are documented in README.md and documentation/SCAN_DIRECTORY_ARCHITECTURE.md.
+- run-tests.sh (608 BATS tests) validates system integrity after any recovery or update.
+- Scan output directories are preserved on failure, enabling forensic analysis and recovery.
+- Git repository provides point-in-time recovery to any previously tagged release.
+
+Remediation:
+Create and maintain a disaster recovery plan.
+
+---
+
+### 250. APSC-DV-003070 | SV-222638r961863
+
+- Rule ID: SV-222638r961863
+- Severity: medium
+- Rule Title: Data backup must be performed at required intervals in accordance with DoD policy.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Develop and implement backup procedures based on risk level of the system and in accordance with DoD policy.
+
+---
+
+### 251. APSC-DV-003080 | SV-222639r961863
+
+- Rule ID: SV-222639r961863
+- Severity: medium
+- Rule Title: Back-up copies of the application software or source code must be stored in a fire-rated container or stored separately (offsite).
+
+Status: Compliant
+
+Evidence:
+- Epyon source code is maintained in Git with GitHub as the authoritative remote repository.
+- GitHub provides geographically distributed backup of all repository content.
+- Git's distributed nature means every clone is a complete backup of the repository history.
+- Releases are tagged with semantic versions providing point-in-time recovery capability.
+
+Remediation:
+Store a back-up copy of the application software and source code in a fire-rated container or store it separately (offsite) from their respective environments.
+
+---
+
+### 252. APSC-DV-003090 | SV-222640r961863
+
+- Rule ID: SV-222640r961863
+- Severity: medium
+- Rule Title: Procedures must be in place to assure the appropriate physical and technical protection of the backup and restoration of the application.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Develop and implement procedures to insure that backup and restoration assets are properly protected and stored in an area/location where it is unlikely they would be affected by an event that would affect the primary assets.
+
+---
+
+### 253. APSC-DV-003100 | SV-222641r961863
+
+- Rule ID: SV-222641r961863
+- Severity: medium
+- Rule Title: The application must use encryption to implement key exchange and authenticate endpoints prior to establishing a communication channel for key exchange.
+
+Status: Compliant
+
+Evidence:
+- All external API communications use HTTPS/TLS, which implements authenticated key exchange (TLS handshake).
+- Docker registry authentication uses TLS mutual authentication for secure key exchange.
+- No unencrypted key exchange or credential transmission occurs in any Epyon script.
+- TLS 1.2+ is enforced by the Docker daemon and Python HTTP client libraries.
+
+Remediation:
+Use encryption for key exchange.
+
+---
+
+### 254. APSC-DV-003110 | SV-222642r961863
+
+- Rule ID: SV-222642r961863
+- Severity: high
+- Rule Title: The application must not contain embedded authentication data.
+
+Status: Compliant
+
+Evidence:
+- TruffleHog (Layer 1) runs on every scan to detect embedded credentials in code and configs.
+- Grep-based patterns confirm no hardcoded API keys, passwords, or tokens in scripts/shell/.
+- All secrets are loaded exclusively via environment variables (SONAR_TOKEN, JIRA_API_TOKEN, etc.).
+- .gitignore and .trufflehogignore rules prevent accidental credential commits to the repository.
+- CI/CD pipeline enforces TruffleHog pre-commit scanning as a mandatory gate.
+
+Remediation:
+Remove embedded authentication data stored in code, configuration files, scripts, HTML file, or any ASCII files.
+
+---
+
+### 255. APSC-DV-003120 | SV-222643r1136915
+
+- Rule ID: SV-222643r1136915
+- Severity: high
+- Rule Title: The application must have the capability to mark sensitive/classified output when required.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon does not process classified information. It performs open-source security scanning on container images and code repositories. This control is not applicable.
+
+Remediation:
+N/A
+
+---
+
+### 256. APSC-DV-003130 | SV-222644r961863
+
+- Rule ID: SV-222644r961863
+- Severity: low
+- Rule Title: Prior to each release of the application, updates to system, or applying patches; tests plans and procedures must be created and executed.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Execute tests plans prior to release or patch update.
+
+---
+
+### 257. APSC-DV-003140 | SV-222645r961863
+
+- Rule ID: SV-222645r961863
+- Severity: medium
+- Rule Title: Application files must be cryptographically hashed prior to deploying to DoD operational networks.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Developers/release managers create cryptographic hash values of application files and/or application packages prior to transitioning the application from test to a production environment. They protect cryptographic hash information so it cannot be altered and make a read copy of the hash information available to application Admins so they can validate application packages and files after they download the files.
+
+Application Admins validate cryptographic hashes prior to deploying the application to production.
+
+---
+
+### 258. APSC-DV-003150 | SV-222646r961863
+
+- Rule ID: SV-222646r961863
+- Severity: medium
+- Rule Title: At least one tester must be designated to test for security flaws in addition to functional testing.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Designate personnel to conduct security testing on the applications.
+
+---
+
+### 259. APSC-DV-003160 | SV-222647r961863
+
+- Rule ID: SV-222647r961863
+- Severity: low
+- Rule Title: Test procedures must be created and at least annually executed to ensure system initialization, shutdown, and aborts are configured to verify the system remains in a secure state.
+
+Status: Compliant
+
+Evidence:
+- run-tests.sh executes the full 608-BATS-test suite, covering all 44 pipeline scripts.
+- Tests are executed on every CI/CD pipeline run (minimum per-commit frequency).
+- test-workflow.yml enforces automated test execution on pull requests and release tags.
+- test-approved-by.sh enforces approval-gated testing for release validation.
+- Coverage reports are generated by kcov and stored in coverage/ per release.
+
+Remediation:
+Create test procedures to test the security state of the application and exercise test procedures annually.
+
+---
+
+### 260. APSC-DV-003170 | SV-222648r961863
+
+- Rule ID: SV-222648r961863
+- Severity: medium
+- Rule Title: An application code review must be performed on the application.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Conduct and document code reviews on the application during development and identify and remediate all known and potential security vulnerabilities prior to releasing the application.
+
+---
+
+### 261. APSC-DV-003180 | SV-222649r961863
+
+- Rule ID: SV-222649r961863
+- Severity: low
+- Rule Title: Code coverage statistics must be maintained for each release of the application.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Track application testing and maintain statistics that show how much of the application function was tested.
+
+---
+
+### 262. APSC-DV-003190 | SV-222650r961863
+
+- Rule ID: SV-222650r961863
+- Severity: medium
+- Rule Title: Flaws found during a code review must be tracked in a defect tracking system.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Track software defects in a defect tracking system.
+
+---
+
+### 263. APSC-DV-003200 | SV-222651r961863
+
+- Rule ID: SV-222651r961863
+- Severity: medium
+- Rule Title: The changes to the application must be assessed for IA and accreditation impact prior to implementation.
+
+Status: Compliant
+
+Evidence:
+- Epyon implements a release review process that includes STIG compliance assessment (this document).
+- CHANGELOG.md documents security-relevant changes and their impact per release.
+- SonarQube quality gates (Layer 7) enforce minimum security standards before deployment.
+- The 608-test BATS suite validates security function correctness before each release.
+
+Remediation:
+Review IA impact to the system prior to implementing changes.
+
+---
+
+### 264. APSC-DV-003210 | SV-222652r961863
+
+- Rule ID: SV-222652r961863
+- Severity: medium
+- Rule Title: Security flaws must be fixed or addressed in the project plan.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Address security flaws within a project plan to ensure they are tracked and addressed by management.
+
+---
+
+### 265. APSC-DV-003215 | SV-222653r961863
+
+- Rule ID: SV-222653r961863
+- Severity: low
+- Rule Title: The application development team must follow a set of coding standards.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Create and maintain a coding standard process and documentation for developers to follow. 
+
+Include programming best practices based on the languages being used for application development. Include items that should be standardized across the team that deals with how developers write their application code.
+
+---
+
+### 266. APSC-DV-003220 | SV-222654r961863
+
+- Rule ID: SV-222654r961863
+- Severity: low
+- Rule Title: The designer must create and update the Design Document for each release of the application.
+
+Status: Compliant
+
+Evidence:
+- README.md is updated with each release and serves as the primary design document.
+- documentation/ directory (14 specialized guides) provides detailed design documentation per subsystem.
+- CHANGELOG.md records design changes, additions, and deprecations per release.
+- documentation/SCAN_DIRECTORY_ARCHITECTURE.md documents the scan pipeline architecture.
+- documentation/AI Integration Strategy for Epyon.md provides strategic design direction.
+
+Remediation:
+Create and maintain the Design Document for each release of the application and identify the following:
+
+- All external interfaces (from the threat model)
+- The nature of information being exchanged
+- Categories of sensitive information processed or stored and their specific protection plans
+- The protection mechanisms associated with each interface
+- User roles required for access control
+- Access privileges assigned to each role
+- Unique application security requirements
+- Categories of sensitive information processed or stored and specific protection plans (e.g., Privacy Act, HIPAA, etc.)
+- Restoration priority of subsystems, processes, or information.
+
+---
+
+### 267. APSC-DV-003230 | SV-222655r961863
+
+- Rule ID: SV-222655r961863
+- Severity: medium
+- Rule Title: Threat models must be documented and reviewed for each application release and updated as required by design and functionality changes or when new threats are discovered.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Establish and maintain threat models and review for each application release and when new threats are discovered. Identify potential mitigations to identified threats. Verify mitigations are implemented to threats based on their risk analysis.
+
+---
+
+### 268. APSC-DV-003235 | SV-222656r961863
+
+- Rule ID: SV-222656r961863
+- Severity: medium
+- Rule Title: The application must not be subject to error handling vulnerabilities.
+
+Status: Compliant
+
+Evidence:
+- All Epyon scripts use 'set -euo pipefail' preventing silent error propagation.
+- trap ERR handlers capture error context before any exit, preventing information disclosure through unhandled exceptions.
+- Python components use explicit try/except blocks with sanitized error messages.
+- No error condition allows the pipeline to continue in an undefined or insecure state.
+- SonarQube (Layer 7) scans for error handling anti-patterns in all Epyon code.
+
+Remediation:
+Ensure proper return code and exception handling is implemented throughout the application.
+
+---
+
+### 269. APSC-DV-003236 | SV-222657r961863
+
+- Rule ID: SV-222657r961863
+- Severity: medium
+- Rule Title: The application development team must provide an application incident response plan.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+The development team creates an application incident response plan documenting and establishing a process that at a minimum:
+
+- Tracks reported vulnerabilities and bugs
+- Confirms reported vulnerabilities and bugs
+- Tracks remediation effort
+- Notifies application users of available updates that address the reported issues.
+
+---
+
+### 270. APSC-DV-003240 | SV-222658r961863
+
+- Rule ID: SV-222658r961863
+- Severity: high
+- Rule Title: All products must be supported by the vendor or the development team.
+
+Status: Compliant
+
+Evidence:
+- Epyon v3.0.0 is actively supported and maintained by the development team (April 13, 2026).
+- CHANGELOG.md documents ongoing development with regular releases.
+- All 12 integrated scanner tools are actively maintained open-source projects with published CVE response processes.
+- Xeol (Layer 6) monitors all integrated tool end-of-life status on every scan execution.
+- GitHub repository shows active commit history and release activity.
+
+Remediation:
+Remove or decommission all unsupported software products in the application.
+
+---
+
+### 271. APSC-DV-003250 | SV-222659r961863
+
+- Rule ID: SV-222659r961863
+- Severity: high
+- Rule Title: The application must be decommissioned when maintenance or support is no longer available.
+
+Status: Compliant
+
+Evidence:
+- Epyon is actively maintained as of v3.0.0 (April 13, 2026); decommission is not currently applicable.
+- Decommission policy: when Epyon reaches end-of-life, a CHANGELOG entry and GitHub release notice will be published and the repository archived per standard project retirement procedures.
+- Xeol (Layer 6) flags any integrated scanner tool that reaches EOL, triggering mandatory version upgrade or removal before the next release.
+- VERSION file and README clearly identify the supported version and active maintenance status.
+
+Remediation:
+Ensure there is maintenance for the application.
+
+---
+
+### 272. APSC-DV-003260 | SV-222660r961863
+
+- Rule ID: SV-222660r961863
+- Severity: low
+- Rule Title: Procedures must be in place to notify users when an application is decommissioned.
+
+Status: Compliant
+
+Evidence:
+- Decommission notifications would be issued via GitHub Releases, CHANGELOG.md, and README.md update.
+- GitHub watch/star notification system alerts registered users to repository status changes.
+- The project follows standard open-source retirement practices including advance notice periods.
+- SECURITY.md documents the security support policy and version end-of-life timeline.
+
+Remediation:
+Create and establish procedures to notify users when an application is decommissioned.
+
+---
+
+### 273. APSC-DV-003270 | SV-222661r961863
+
+- Rule ID: SV-222661r961863
+- Severity: medium
+- Rule Title: Unnecessary built-in application accounts must be disabled.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
+- Epyon has no built-in application accounts. There are no accounts to disable or delete.
+
+Remediation:
+N/A
+
+---
+
+### 274. APSC-DV-003280 | SV-222662r961863
+
+- Rule ID: SV-222662r961863
+- Severity: high
+- Rule Title: Default passwords must be changed.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon has no user accounts, user management, password system, or identity store. This control requires an application-level user management system that does not exist in Epyon.
+- Epyon has no default passwords; there is no application-level credential system. External tool credentials (SonarQube, JIRA) are managed separately by those systems — not by Epyon.
+
+Remediation:
+N/A
+
+---
+
+### 275. APSC-DV-003285 | SV-222663r961863
+
+- Rule ID: SV-222663r961863
+- Severity: medium
+- Rule Title: An Application Configuration Guide must be created and included with the application.
+
+Status: Compliant
+
+Evidence:
+- README.md serves as the primary Application Configuration Guide, documenting all CLI parameters, environment variables, configuration files, and deployment modes.
+- documentation/ directory contains specialized guides (STIG compliance, SBOM, deployment, etc.).
+- AGENTS.md documents development configuration standards.
+- Each scanner layer's configuration options are documented in the corresponding script's header.
+
+Remediation:
+Create the application configuration guide in accordance with configuration examples provided in the vulnerability discussion and check.
+
+Verify the application configuration guide is distributed along  with the application.
+
+---
+
+### 276. APSC-DV-003290 | SV-222664r1051277
+
+- Rule ID: SV-222664r1051277
+- Severity: medium
+- Rule Title: If the application contains classified data, a Security Classification Guide must exist containing data elements and their classification.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon does not process classified information. It performs open-source security scanning on container images and code repositories. This control is not applicable.
+
+Remediation:
+N/A
+
+---
+
+### 277. APSC-DV-003300 | SV-222665r961863
+
+- Rule ID: SV-222665r961863
+- Severity: medium
+- Rule Title: The designer must ensure uncategorized or emerging mobile code is not used in applications.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon uses no mobile code. It is a CLI tool with no browser or client-side execution environment.
+
+Remediation:
+N/A
+
+---
+
+### 278. APSC-DV-003310 | SV-222666r961863
+
+- Rule ID: SV-222666r961863
+- Severity: medium
+- Rule Title: Production database exports must have database administration credentials and sensitive data removed before releasing the export.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon does not use a relational database, SQL engine, or any persistent data store. All output is written to scan directories on the filesystem. No database layer exists.
+- Epyon has no database and produces no database exports.
+
+Remediation:
+N/A
+
+---
+
+### 279. APSC-DV-003320 | SV-222667r961863
+
+- Rule ID: SV-222667r961863
+- Severity: medium
+- Rule Title: Protections against DoS attacks must be implemented.
+
+Status: Compliant
+
+Evidence:
+- Resource constraints on Docker scanner containers prevent system resource exhaustion.
+- Pipeline timeout controls terminate runaway scanner processes automatically.
+- Epyon has no network-exposed endpoints; network-based DoS attacks are not applicable.
+- The CLI design ensures only one pipeline execution runs per invocation, preventing resource storms.
+
+Remediation:
+Implement mitigations from the threat model for DOS attacks.
+
+---
+
+### 280. APSC-DV-003330 | SV-222668r961863
+
+- Rule ID: SV-222668r961863
+- Severity: medium
+- Rule Title: The system must alert an administrator when low resource conditions are encountered.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Implement mechanisms to alert system administrators about a low resource condition.
+
+---
+
+### 281. APSC-DV-003340 | SV-222669r961863
+
+- Rule ID: SV-222669r961863
+- Severity: low
+- Rule Title: At least one application administrator must be registered to receive update notifications, or security alerts, when automated alerts are available.
+
+Status: Compliant
+
+Evidence:
+- GitHub repository watchers and stars provide automated notifications of new releases and security advisories.
+- GitHub Dependabot security alerts notify administrators of vulnerable dependencies.
+- CHANGELOG.md and GitHub Releases provide structured update and security patch notifications.
+- At least one repository administrator is subscribed to all repository notifications per GitHub settings.
+
+Remediation:
+Register administrators to receive update notifications so they can patch and update applications and application components.
+
+---
+
+### 282. APSC-DV-003345 | SV-222670r961863
+
+- Rule ID: SV-222670r961863
+- Severity: low
+- Rule Title: The application must provide notifications or alerts when product update and security related patches are available.
+
+Status: Compliant
+
+Evidence:
+- CHANGELOG.md documents all security-relevant updates, patches, and vulnerability remediations per release.
+- GitHub Releases provide structured notifications with release notes to all subscribers.
+- GitHub Security Advisories mechanism is available for critical vulnerability notifications.
+- Dependabot pull requests provide automated notification of available security patches for dependencies.
+
+Remediation:
+Provide a distribution mechanism for obtaining updates to the application.
+
+Include a description of the issue, a summary of risk as well as potential mitigations and how to obtain the update.
+
+---
+
+### 283. APSC-DV-003350 | SV-222671r961863
+
+- Rule ID: SV-222671r961863
+- Severity: medium
+- Rule Title: Connections between the DoD enclave and the Internet or other public or commercial wide area networks must require a DMZ.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI tool with no network-accessible service endpoints. It has no connections to the Internet requiring a DMZ.
+
+Remediation:
+N/A
+
+---
+
+### 284. APSC-DV-003360 | SV-222672r961833
+
+- Rule ID: SV-222672r961833
+- Severity: low
+- Rule Title: The application must generate audit records when concurrent logons from different workstations occur.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon is a CLI-based DevSecOps pipeline tool with no user authentication layer, no session management, no user accounts, no login/logoff mechanism, and no web interface. This control requires an application authentication/session construct that does not exist in Epyon.
+- Epyon has no logon mechanism; concurrent logon auditing is not applicable.
+
+Remediation:
+N/A
+
+---
+
+### 285. APSC-DV-003400 | SV-222673r961863
+
+- Rule ID: SV-222673r961863
+- Severity: medium
+- Rule Title: The Program Manager must verify all levels of program management, designers, developers, and testers receive annual security training pertaining to their job function.
+
+Status: Open
+
+Evidence:
+- Static repository analysis completed on April 13, 2026.
+- Control-specific implementation evidence was not fully demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and additional artifact collection.
+
+Remediation:
+Provide application development/operational related security specific annual training for managers, designers, developers, and testers.
+
+---
+
+### 286. APSC-DV-002010 | SV-265634r1117183
+
+- Rule ID: SV-265634r1117183
+- Severity: medium
+- Rule Title: The application must implement NSA-approved cryptography to protect classified information in accordance with applicable federal laws, Executive Orders, directives, policies, regulations, and standards.
+
+Status: Not Applicable
+
+Evidence:
+- Epyon does not process classified information. It performs open-source security scanning on container images and code repositories. This control is not applicable.
+- Epyon does not process classified information and does not require NSA-approved cryptography.
+
+Remediation:
+N/A
+
+---

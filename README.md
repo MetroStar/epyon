@@ -14,41 +14,11 @@ Epyon is designed to be opinionated, automated, and decisive — empowering team
 
 ---
 
-## 🗺️ Product Roadmap
-
-### Outcome-Oriented Development
-
-Our roadmap is organized by level of certainty and timeframe, focusing on key outcomes that drive value:
-
-| Timeframe | Waypoint | Desired Outcomes | Key Challenges | Success Metrics |
-|-----------|----------|------------------|----------------|-----------------|
-| **Now** | 1 | **Feature Enhancements of scanners** | • Scanner drift<br>• Signatures updated on demand validated<br>• ✅ Anchore scanning integrated | Scanning capabilities are validated with 0% margin of error between scanning the same application | Test against same application multiple times<br>✅ Anchore operational |
-| **Now** | 2 | **GitHub integration** | GitHub action may not support spinning up docker containers for the scanning tools | Can be ran successfully by 3 or more GitHub repositories | GitHub actions |
-| **Near** | 3 | **Report generation** | How might the best way to generate a report be? Is the dashboard good enough. Should it auto .zip the scan upon completion for ease of sharing | Reports can be created and shared out easily | Reports and exports |
-| **Near** | 4 | **Failed build check** | What does failed mean?<br>• Aggressive No crits no highs<br>• Strong no crits 10 highs<br>• ??? | When an application has critical or highs, it reports as a failed build | Build checker |
-| **Near** | 5 | **AI/ML Security Scanning** | • No ML model vulnerability detection<br>• Missing AI supply chain security<br>• Lack of LLM-specific threat scanning<br>• No adversarial robustness testing | Comprehensive AI/ML security coverage with model scanning, prompt injection detection, and AI compliance validation | Integration of Garak, MLSec, ModelScan, ART |
-| **Near** | 6 | **API Security Scanning** | • No OpenAPI/Swagger specification validation<br>• Missing API endpoint security analysis<br>• Lack of authentication/authorization checks<br>• No API rate limiting validation | Comprehensive API security analysis with Swagger/OpenAPI validation, endpoint testing, and REST/GraphQL security scanning | Integration of OWASP ZAP, Spectral, APISec |
-| **Far future** | 7 | **Security implementations** | STIG and RMF review of the tool | Complete STIG/RMF documentation for an application | STIGS/RMF/POA&M |
-| **Far future** | X, Y, ... | **Widely used as DEVSECOPS pipeline alternative** | Does this tool meet the needs for individual teams that do not have a proper pipeline | Utilized by 10 or more app teams | - |
-
-### Features in Development
-- **Enhanced Scanner Capabilities**: Continuous validation and signature updates
-- **CI/CD Integration**: GitHub Actions support with containerized scanning
-- **Advanced Reporting**: Automated report generation with export options
-- **Quality Gates**: Configurable build failure criteria based on severity
-- **AI/ML Security**: Model vulnerability scanning and LLM threat detection
-- **API Security**: OpenAPI/Swagger validation and REST/GraphQL security scanning
-- **Compliance Framework**: STIG and RMF documentation integration
-
-*Roadmap current as of February 6, 2026*
-
----
-
 ## Overview
 
 This repository contains a **production-ready, enterprise-grade** multi-layer DevOps security architecture with **comprehensive test coverage**, **baseline scanning**, **automated comparison**, and **isolated scan directory architecture**. Built for real-world enterprise applications with Docker-based tooling and 304 automated tests.
 
-**Latest Update: March 24, 2026 (v2.9.0)** - Split dashboard metrics into two charts (vulnerability trends + PR/CVE discipline), fixed Checkov findings not appearing in vulnerability counts, and added default branch auto-detection for PR metrics.
+**Latest Update: March 27, 2026 (v3.0.0)** - CycloneDX SBOM generation at scan time, license compliance gate (blocks copyleft licenses), supply chain hash verification against PyPI, dependency lineage enrichment, and VEX document management for justified CVE suppressions.
 
 ## 📋 Prerequisites
 
@@ -582,7 +552,7 @@ Epyon uses **Docker Hardened Images (DHI)** as the default baseline for containe
 
 ---
 
-### Current Security Layers (11 Operational):
+### Current Security Layers (12 Operational):
 
 1. **🔍 TruffleHog** - Multi-target secret detection with filesystem, container, and registry scanning
 2. **🦠 ClamAV** - Enterprise antivirus scanning with real-time virus definition updates  
@@ -595,12 +565,13 @@ Epyon uses **Docker Hardened Images (DHI)** as the default baseline for containe
 9. **🔍 API Discovery** - Automatic API endpoint detection (OpenAPI, Express, Flask, Django, Next.js App Router)
 10. **📊 SBOM Generation** - Complete Software Bill of Materials with Syft
 11. **🤖 Garak** - LLM vulnerability probing and red-team style safety testing
+12. **🌐 API Security Testing** - OpenAPI/Swagger validation, REST/GraphQL endpoint security analysis, and authentication testing
 
 ### Quality Assurance
 
 **✅ Comprehensive Test Coverage:**
-- **304 automated tests** across 29 test files (100% pass rate)
-- **28 shell scripts** fully covered with unit tests
+- **304 automated tests** across 37 test files (100% pass rate)
+- **37 shell scripts** fully covered with unit tests
 - **BATS** (Bash Automated Testing System) framework
 - Validates scanner integration, orchestration, dashboards, exports, and utilities
 
@@ -615,9 +586,6 @@ Epyon uses **Docker Hardened Images (DHI)** as the default baseline for containe
 - Detects scanner drift and tool consistency issues
 - Scheduled runs every 89 days to maintain artifact retention
 
-### Planned Security Layers (In Development):
-
-11. **🌐 API Security Testing** (Waypoint 6) - OpenAPI/Swagger validation, REST/GraphQL endpoint security analysis, authentication testing
 
 ## 📁 Directory Structure
 
@@ -724,7 +692,7 @@ Scan any external application or directory with comprehensive security analysis 
 # Quick scan (4 core security tools: TruffleHog, ClamAV, Grype, Trivy)
 ./scripts/shell/run-target-security-scan.sh "/path/to/your/project" quick
 
-# Full scan (all 11 layers)
+# Full scan (all 12 layers)
 ./scripts/shell/run-target-security-scan.sh "/path/to/your/project" full
 
 # Scan a Git repository directly
@@ -811,64 +779,51 @@ open scans/$LATEST_SCAN/consolidated-reports/dashboards/security-dashboard.html
 
 **Unix/Linux/macOS (Shell):**
 ```bash
-cd scripts/shell
+cd /path/to/epyon
 
-# Complete 9-Step Security Pipeline (includes Step 9: Report Consolidation)
-./run-complete-security-scan.sh full
+# Full scan - all 12 layers (recommended)
+./scripts/shell/run-target-security-scan.sh "/path/to/project" full
 
 # Individual Layer Execution using TARGET_DIR method:
 
 # Layer 1: Secret Detection (TruffleHog)
-TARGET_DIR="/path/to/project" ./run-trufflehog-scan.sh filesystem
+TARGET_DIR="/path/to/project" ./scripts/shell/run-trufflehog-scan.sh filesystem
 
 # Layer 2: Antivirus Scanning (ClamAV)  
-TARGET_DIR="/path/to/project" ./run-clamav-scan.sh
+TARGET_DIR="/path/to/project" ./scripts/shell/run-clamav-scan.sh
 
 # Layer 3: Infrastructure Security (Checkov) - Directory scanning fallback
-TARGET_DIR="/path/to/project" ./run-checkov-scan.sh filesystem
+TARGET_DIR="/path/to/project" ./scripts/shell/run-checkov-scan.sh filesystem
 
 # Layer 4: Vulnerability Scanning (Grype)
-TARGET_DIR="/path/to/project" ./run-grype-scan.sh filesystem
+TARGET_DIR="/path/to/project" ./scripts/shell/run-grype-scan.sh filesystem
 
 # Layer 5: Container Security (Trivy)
-TARGET_DIR="/path/to/project" ./run-trivy-scan.sh filesystem
+TARGET_DIR="/path/to/project" ./scripts/shell/run-trivy-scan.sh filesystem
 
 # Layer 6: End-of-Life Detection (Xeol)
-TARGET_DIR="/path/to/project" ./run-xeol-scan.sh filesystem
+TARGET_DIR="/path/to/project" ./scripts/shell/run-xeol-scan.sh filesystem
 
 # Layer 7: Code Quality Analysis (SonarQube) 
-TARGET_DIR="/path/to/project" ./run-sonar-analysis.sh
+TARGET_DIR="/path/to/project" ./scripts/shell/run-sonar-analysis.sh
 
 # Layer 8: Helm Chart Building - Interactive ECR authentication
-TARGET_DIR="/path/to/project" ./run-helm-build.sh
+TARGET_DIR="/path/to/project" ./scripts/shell/run-helm-build.sh
 
 # Layer 9: Anchore Container Analysis
-TARGET_DIR="/path/to/project" ./run-anchore-scan.sh
+TARGET_DIR="/path/to/project" ./scripts/shell/run-anchore-scan.sh
 
-# Step 10: Report Consolidation (integrated into complete scan)
-./consolidate-security-reports.sh
+# Layer 10: SBOM Generation (Syft - CycloneDX + Syft JSON)
+TARGET_DIR="/path/to/project" ./scripts/shell/run-sbom-scan.sh
 
-# Layer 3: Infrastructure Security (Checkov) - Directory scanning fallback
-$env:TARGET_DIR="/path/to/project"; .\run-checkov-scan.ps1 filesystem
+# Layer 11: LLM Vulnerability Probing (Garak)
+TARGET_DIR="/path/to/project" ./scripts/shell/run-garak-scan.sh
 
-# Layer 4: Vulnerability Scanning (Grype)
-$env:TARGET_DIR="/path/to/project"; .\run-grype-scan.ps1 filesystem
-
-# Layer 5: Container Security (Trivy)
-$env:TARGET_DIR="/path/to/project"; .\run-trivy-scan.ps1 filesystem
-
-# Layer 6: End-of-Life Detection (TruffleHog)
-$env:TARGET_DIR="/path/to/project"; .\run-trufflehog-scan.ps1 filesystem
-
-# Layer 8: Helm Chart Building - ✅ NEW: Interactive ECR authentication
-$env:TARGET_DIR="/path/to/project"; .\run-helm-build.ps1
-
-# Layer 9: Anchore Container Analysis
-$env:TARGET_DIR="/path/to/project"; .\run-anchore-scan.ps1
-
-# Step 10: Report Consolidation (integrated into complete scan)
-.\consolidate-security-reports.ps1
+# Report Consolidation (integrated into complete scan)
+./scripts/shell/consolidate-security-reports.sh
 ```
+
+> **Windows Users**: Use WSL (Windows Subsystem for Linux) with the bash commands above. See the WSL prerequisites section for setup instructions. Native PowerShell is not supported — all Epyon scripts are Bash-based.
 
 ### Baseline Scanning for Scanner Drift Detection
 
@@ -1013,7 +968,7 @@ fi
 - **Target-Aware Scanning**: `TARGET_DIR` environment variable method for clean path handling
 
 ### 🛡️ Comprehensive Security Coverage
-- **9-Layer Security Model**: Complete DevOps security pipeline coverage
+- **12-Layer Security Model**: Complete DevOps security pipeline coverage
 - **Real-Time Scanning**: Live vulnerability databases with automatic updates
 - **Multi-Format Analysis**: Source code, containers, infrastructure, dependencies
 - **Compliance Support**: NIST, OWASP, CIS benchmarks integration
@@ -1400,15 +1355,17 @@ Our SonarQube integration now uses **LCOV format** as the primary coverage sourc
 
 ## 📖 Documentation
 
-### Complete Setup Guide
-- **Location**: `documentation/SECURITY_AND_QUALITY_SETUP.md`
-- **Content**: Step-by-step setup instructions for all eight security layers
-- **Includes**: Configuration, troubleshooting, and best practices
-
-### Architecture Overview
-- **Location**: `documentation/COMPREHENSIVE_SECURITY_ARCHITECTURE.md`
-- **Content**: Executive summary and technical implementation details
-- **Includes**: Current status, action items, and strategic recommendations
+### Complete Documentation Library
+- **[documentation/README.md](documentation/README.md)** - Documentation index and navigation guide
+- **[documentation/SCAN_DIRECTORY_ARCHITECTURE.md](documentation/SCAN_DIRECTORY_ARCHITECTURE.md)** - Scan output organization and isolation model
+- **[documentation/SCAN_MANIFEST_GUIDE.md](documentation/SCAN_MANIFEST_GUIDE.md)** - Cryptographic manifest creation and verification
+- **[documentation/DEPLOYMENT_SUMMARY_MANIFEST_SYSTEM.md](documentation/DEPLOYMENT_SUMMARY_MANIFEST_SYSTEM.md)** - Manifest system deployment and validation results
+- **[documentation/IGNORE_RULES_GUIDE.md](documentation/IGNORE_RULES_GUIDE.md)** - `.epyon-ignore.yml` suppression configuration guide
+- **[documentation/DEDUPLICATION_IMPLEMENTATION.md](documentation/DEDUPLICATION_IMPLEMENTATION.md)** - Finding deduplication logic and implementation details
+- **[documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md](documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md)** - Security review and test coverage analysis
+- **[documentation/STIG_COMPLIANCE_GUIDE.md](documentation/STIG_COMPLIANCE_GUIDE.md)** - STIG and RMF compliance documentation
+- **[documentation/OFFLINE_AIR_GAPPED_SETUP.md](documentation/OFFLINE_AIR_GAPPED_SETUP.md)** - Air-gapped and offline deployment guide
+- **[documentation/AI Integration Strategy for Epyon.md](documentation/AI%20Integration%20Strategy%20for%20Epyon.md)** - CIO roadmap for AI/ML integration opportunities
 
 ## 🏆 Achievement Summary
 
@@ -1442,8 +1399,8 @@ bats test-run-trivy-scan.bats
 ```
 
 ### Test Coverage
-- **Total Tests**: 107
-- **Scripts Covered**: 12 (all scan scripts)
+- **Total Tests**: 304
+- **Scripts Covered**: 37 (all scan scripts)
 - **Success Rate**: 100%
 
 Tests validate:
@@ -1543,39 +1500,53 @@ export HIGH_ALERT_THRESHOLD="5"
 ## 📚 Documentation Suite
 
 ### 📖 Complete Documentation Library
-- **[DEPLOYMENT_SUMMARY_NOV_4_2025.md](DEPLOYMENT_SUMMARY_NOV_4_2025.md)** - Complete deployment guide and validation results
-- **[DASHBOARD_DATA_GUIDE.md](DASHBOARD_DATA_GUIDE.md)** - Interactive dashboard and analytics guide
-- **[DASHBOARD_QUICK_REFERENCE.md](DASHBOARD_QUICK_REFERENCE.md)** - Production commands and usage patterns
-- **[documentation/COMPREHENSIVE_SECURITY_ARCHITECTURE.md](documentation/COMPREHENSIVE_SECURITY_ARCHITECTURE.md)** - Complete architecture documentation
-- **[documentation/SECURITY_AND_QUALITY_SETUP.md](documentation/SECURITY_AND_QUALITY_SETUP.md)** - Detailed setup and configuration guide
+- **[documentation/README.md](documentation/README.md)** - Documentation index and navigation guide
+- **[documentation/SCAN_DIRECTORY_ARCHITECTURE.md](documentation/SCAN_DIRECTORY_ARCHITECTURE.md)** - Scan output organization and isolation model
+- **[documentation/SCAN_MANIFEST_GUIDE.md](documentation/SCAN_MANIFEST_GUIDE.md)** - Cryptographic manifest creation and verification
+- **[documentation/DEPLOYMENT_SUMMARY_MANIFEST_SYSTEM.md](documentation/DEPLOYMENT_SUMMARY_MANIFEST_SYSTEM.md)** - Manifest system deployment and validation
+- **[documentation/IGNORE_RULES_GUIDE.md](documentation/IGNORE_RULES_GUIDE.md)** - `.epyon-ignore.yml` suppression configuration guide
+- **[documentation/DEDUPLICATION_IMPLEMENTATION.md](documentation/DEDUPLICATION_IMPLEMENTATION.md)** - Finding deduplication logic and implementation
+- **[documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md](documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md)** - Security review and test coverage analysis
+- **[documentation/STIG_COMPLIANCE_GUIDE.md](documentation/STIG_COMPLIANCE_GUIDE.md)** - STIG and RMF compliance documentation
+- **[documentation/OFFLINE_AIR_GAPPED_SETUP.md](documentation/OFFLINE_AIR_GAPPED_SETUP.md)** - Air-gapped and offline deployment guide
+- **[documentation/AI Integration Strategy for Epyon.md](documentation/AI%20Integration%20Strategy%20for%20Epyon.md)** - CIO roadmap for AI/ML integration opportunities
 
 ### 🎯 Quick Reference Commands
 ```bash
 # Complete enterprise security scan
-./scripts/run-target-security-scan.sh "/path/to/project" full
+./scripts/shell/run-target-security-scan.sh "/path/to/project" full
 
-# Access security dashboard
-open ./reports/security-reports/index.html
+# Open latest scan dashboard
+LATEST_SCAN=$(ls -t scans/ | head -1)
+open scans/$LATEST_SCAN/consolidated-reports/dashboards/security-dashboard.html
 
-# Individual layer execution (recommended TARGET_DIR method)
-TARGET_DIR="/path/to/project" ./scripts/run-[tool]-scan.sh
+# Individual layer execution (TARGET_DIR method)
+TARGET_DIR="/path/to/project" ./scripts/shell/run-[tool]-scan.sh
 
 # SonarQube with LCOV coverage format
-TARGET_DIR="/path/to/project" ./scripts/run-sonar-analysis.sh
+TARGET_DIR="/path/to/project" ./scripts/shell/run-sonar-analysis.sh
 
 # CI/CD integration
-export TARGET_DIR="/workspace" && ./scripts/run-target-security-scan.sh "$TARGET_DIR" full
+export TARGET_DIR="/workspace" && ./scripts/shell/run-target-security-scan.sh "$TARGET_DIR" full
 ```
 
 ---
 
 **Created**: November 3, 2025  
-**Updated**: February 24, 2026  
-**Version**: 2.5.0 - GitHub Actions Sonar Auto-Derivation  
+**Updated**: April 13, 2026  
+**Version**: 3.0.0 - CycloneDX SBOM, License Compliance & Supply Chain Security  
 **Status**: ✅ **ENTERPRISE PRODUCTION READY - COMPLETE ISOLATION**  
-**Validation**: Successfully tested with complete scan isolation, no centralized reports, full audit trail support
+**Validation**: Successfully tested with complete scan isolation, supply chain verification, and VEX suppression management
 
-### 🆕 Latest Updates (v2.9.0) - Dashboard Metrics Charts & Checkov Fix
+### 🆕 Latest Updates (v3.0.0) - CycloneDX SBOM & Supply Chain Security
+- ✅ **CycloneDX SBOM at scan time**: `run-sbom-scan.sh` now outputs both `syft-json` and `cyclonedx-json` simultaneously — no silent post-hoc conversion failures
+- ✅ **License compliance gate**: `check-severity-gate.sh` reads CycloneDX SBOM and fails the build on copyleft licenses (GPL, AGPL, SSPL, EUPL, CDDL, MPL, LGPL); configurable denied-license regex
+- ✅ **Supply chain hash verification**: `verify-sbom-hashes.sh` cross-references SHA-256 of all `pkg:pypi` components against PyPI published digests; exits 2 on tampered packages; outputs `sbom/hash-verification.json`
+- ✅ **Dependency lineage**: `generate-sbom-lineage.sh` builds parent→child dependency trees via `pipdeptree` (Python) and `npm ls` (Node.js); enriches the CycloneDX SBOM in-place with a `dependencies[]` array
+- ✅ **VEX document management**: `run-vex.sh` creates, lists, and applies OpenVEX 0.2.0 justification documents; suppresses accepted false positives from Grype results
+- ✅ **Consolidated SBOM panel**: all enrichment data (license compliance, lineage, hash verification, VEX) shown inline per-package within the SBOM dashboard accordion
+
+### 🆕 Previous Updates (v2.9.0) - Dashboard Metrics Charts & Checkov Fix
 - ✅ **Dual metrics charts**: dashboard now renders two separate panels — "90 Day Vulnerability Metrics" (stacked severity bars) and "PR Activity & CVE Discipline" (PR bars + net CVE change line with red/green data points)
 - ✅ **PR/CVE discipline analysis**: Chart 2 story banner automatically diagnoses whether PR merges correlate with rising CVE counts; stat cards show 90d and 7d PR totals, net CVE change, and average CVE delta on PR days
 - ✅ **Default branch auto-detection**: `epyon-scan.yml` queries the GitHub API to resolve the repo's actual default branch rather than assuming `main`

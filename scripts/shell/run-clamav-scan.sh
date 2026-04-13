@@ -79,6 +79,7 @@ init_scan_environment "clamav"
 
 # Set TARGET_DIR and extract scan information
 TARGET_DIR="${TARGET_DIR:-$(pwd)}"
+TARGET_DIR=$(realpath "${TARGET_DIR}" 2>/dev/null) || { echo "ERROR: Target path does not exist or is invalid: ${TARGET_DIR}" >&2; exit 1; }
 REPO_PATH="$TARGET_DIR"
 
 if [[ -n "$SCAN_ID" ]]; then

@@ -66,6 +66,7 @@ done
 
 # Support target directory scanning - priority: command line arg, TARGET_DIR env var, current directory
 REPO_PATH="${1:-${TARGET_DIR:-$(pwd)}}"
+REPO_PATH=$(realpath "${REPO_PATH}" 2>/dev/null) || { echo "ERROR: Target path does not exist or is invalid: ${REPO_PATH}" >&2; exit 1; }
 
 # Initialize scan environment using scan directory approach
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

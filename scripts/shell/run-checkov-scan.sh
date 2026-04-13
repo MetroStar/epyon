@@ -65,6 +65,7 @@ done
 
 # Configuration - Support target directory override
 TARGET_SCAN_DIR="${TARGET_DIR:-$(pwd)}"
+TARGET_SCAN_DIR=$(realpath "${TARGET_SCAN_DIR}" 2>/dev/null) || { echo "ERROR: Target path does not exist or is invalid: ${TARGET_SCAN_DIR}" >&2; exit 1; }
 CHART_DIR="${TARGET_SCAN_DIR}/chart"
 
 # Initialize scan environment using scan directory approach

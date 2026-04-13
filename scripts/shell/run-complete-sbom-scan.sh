@@ -47,6 +47,7 @@ fi
 
 # Support TARGET_DIR environment variable or command line argument
 TARGET_DIR="${TARGET_DIR:-${1:-$(pwd)}}"
+TARGET_DIR=$(realpath "${TARGET_DIR}" 2>/dev/null) || { echo "ERROR: Target path does not exist or is invalid: ${TARGET_DIR}" >&2; exit 1; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo -e "${WHITE}============================================${NC}"

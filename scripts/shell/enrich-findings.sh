@@ -63,6 +63,7 @@ else
     fi
     SCAN_DIR="${LATEST%/}"
 fi
+SCAN_DIR=$(realpath "${SCAN_DIR}" 2>/dev/null) || { echo "ERROR: Scan directory does not exist or is invalid: ${SCAN_DIR}" >&2; exit 1; }
 
 FINDINGS_FILE="$SCAN_DIR/security-findings-summary.json"
 if [[ ! -f "$FINDINGS_FILE" ]]; then

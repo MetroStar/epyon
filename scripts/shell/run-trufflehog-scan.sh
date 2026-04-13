@@ -104,6 +104,7 @@ init_scan_environment "trufflehog"
 
 # Set REPO_PATH and extract scan information
 REPO_PATH="${TARGET_DIR:-$(pwd)}"
+REPO_PATH=$(realpath "${REPO_PATH}" 2>/dev/null) || { echo "ERROR: Target path does not exist or is invalid: ${REPO_PATH}" >&2; exit 1; }
 if [[ -n "$SCAN_ID" ]]; then
     TARGET_NAME=$(echo "$SCAN_ID" | cut -d'_' -f1)
     USERNAME=$(echo "$SCAN_ID" | cut -d'_' -f2)

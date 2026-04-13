@@ -118,6 +118,7 @@ elif [ -n "$1" ] && [ -d "$1" ]; then
 else
     REPO_PATH="$(pwd)"
 fi
+REPO_PATH=$(realpath "${REPO_PATH}" 2>/dev/null) || { echo "ERROR: Target path does not exist or is invalid: ${REPO_PATH}" >&2; exit 1; }
 
 echo
 echo -e "${WHITE}============================================${NC}"

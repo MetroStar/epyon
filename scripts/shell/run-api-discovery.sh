@@ -28,6 +28,7 @@ trap 'echo "⚠️  Warning: Command failed at line $LINENO (continuing...)" >&2
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_DIR="${TARGET_DIR:-${1:-.}}"
+TARGET_DIR=$(realpath "${TARGET_DIR}" 2>/dev/null) || { echo "ERROR: Target path does not exist or is invalid: ${TARGET_DIR}" >&2; exit 1; }
 SCAN_DIR="${SCAN_DIR:-}"
 OUTPUT_FILE="api-discovery.json"
 

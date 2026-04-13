@@ -68,6 +68,7 @@ if [[ "$MODE" == "create" ]]; then
   JUSTIFICATION="${5:?Missing justification — see --help for options}"
   DETAIL="${6:-No additional detail provided.}"
   TARGET_DIR="${TARGET_DIR:-$(pwd)}"
+  TARGET_DIR=$(realpath "${TARGET_DIR}" 2>/dev/null) || { echo "ERROR: Target path does not exist or is invalid: ${TARGET_DIR}" >&2; exit 1; }
 
   VEX_DIR="$TARGET_DIR/.epyon/vex"
   mkdir -p "$VEX_DIR"
@@ -121,6 +122,7 @@ fi
 # ---------------------------------------------------------------------------
 if [[ "$MODE" == "list" ]]; then
   TARGET_DIR="${TARGET_DIR:-$(pwd)}"
+  TARGET_DIR=$(realpath "${TARGET_DIR}" 2>/dev/null) || { echo "ERROR: Target path does not exist or is invalid: ${TARGET_DIR}" >&2; exit 1; }
   VEX_DIR="$TARGET_DIR/.epyon/vex"
   if [[ ! -d "$VEX_DIR" ]] || [[ -z "$(ls "$VEX_DIR"/*.vex.json 2>/dev/null)" ]]; then
     log "No VEX statements found in $VEX_DIR"
@@ -143,6 +145,8 @@ fi
 # ---------------------------------------------------------------------------
 SCAN_DIR="${SCAN_DIR:?SCAN_DIR must be set for apply mode}"
 TARGET_DIR="${TARGET_DIR:?TARGET_DIR must be set for apply mode}"
+TARGET_DIR=$(realpath "${TARGET_DIR}" 2>/dev/null) || { echo "ERROR: TARGET_DIR path does not exist or is invalid: ${TARGET_DIR}" >&2; exit 1; }
+SCAN_DIR=$(realpath "${SCAN_DIR}" 2>/dev/null) || { echo "ERROR: SCAN_DIR path does not exist or is invalid: ${SCAN_DIR}" >&2; exit 1; }
 
 VEX_DIR="$TARGET_DIR/.epyon/vex"
 GRYPE_SBOM_FILE=$(find "$SCAN_DIR/grype" -name "grype-sbom-results.json" 2>/dev/null | head -1)

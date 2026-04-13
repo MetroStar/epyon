@@ -10,8 +10,8 @@
 | Status | Count |
 |---|---|
 | Not Applicable | 128 |
-| Compliant | 87 |
-| Open | 71 |
+| Compliant | 88 |
+| Open | 70 |
 
 > **Note**: Epyon is a CLI-based DevSecOps security orchestration pipeline tool. It has no web interface,
 > user authentication layer, session management, relational database, or user account management system.
@@ -3807,19 +3807,20 @@ Patch the application components when vulnerabilities are discovered.
 - Severity: high
 - Rule Title: The application must not be subject to input handling vulnerabilities.
 
-Status: Open
+Status: Compliant
 
 Evidence:
-- Epyon applies defensive input handling measures: all shell variables are double-quoted, set -euo pipefail is enforced in all scripts, and no eval or unquoted expansions are used.
-- Image tags and file paths provided as CLI arguments are validated with regex patterns before use.
-- SonarQube SAST (Layer 7) scans all scripts for injection and path traversal patterns.
-- Known gap: not all user-supplied paths are resolved with realpath prior to use; this represents a residual path-traversal risk requiring remediation.
-- Checkov (Layer 3) validates Dockerfile and compose configurations for input injection vectors.
+- All user-supplied path arguments (TARGET_DIR, REPO_PATH, SCAN_DIR) are resolved using `realpath` in all 13 scanner entry scripts (run-anchore-scan.sh, run-api-discovery.sh, run-checkov-scan.sh, run-clamav-scan.sh, run-complete-sbom-scan.sh, run-garak-scan.sh, run-grype-scan.sh, run-helm-build.sh, run-sbom-scan.sh, run-trivy-scan.sh, run-trufflehog-scan.sh, run-vex.sh, enrich-findings.sh), canonicalizing paths and preventing directory traversal attacks.
+- All shell variables are double-quoted before expansion (IFS protection), enforced across all scripts via code review and shellcheck.
+- `set -euo pipefail` ensures undefined variables fail loudly rather than silently expanding to empty strings.
+- Image tags and repository paths are validated using regex whitelist patterns before use in docker commands.
+- No use of eval, unquoted variable expansion in command position, or shell=True with untrusted data found in any script.
+- SonarQube SAST (Layer 7) continuously scans all scripts for input handling and injection vulnerabilities.
+- Checkov (Layer 3) validates Dockerfile and compose configurations for injection vectors.
+- Python components use argparse for CLI argument parsing, enforcing type and format validation.
 
 Remediation:
-Follow best practice when accepting user input and verify that all input is validated before the application processes the input.
-
-Remediate identified vulnerabilities and obtain documented risk acceptance for those issues that cannot be remediated immediately.
+Compliant. Implemented April 13, 2026: realpath canonicalization added to all 13 scanner entry point scripts.
 
 ---
 

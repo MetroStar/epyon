@@ -290,9 +290,14 @@ scan_images() {
         return 0
     fi
 
-    # Attempt to build images defined in each compose file
-    # BUILD_TIMEOUT controls max seconds per compose build (default 300 = 5 min)
+    # Attempt to build images defined in each compose file.
+    # Set ANCHORE_SKIP_BUILD=true to skip the build step and go straight to
+    # registry pull (appropriate in CI where the application build context is
+    # unavailable; saves time and avoids misleading build-failure warnings).
     local build_timeout="${ANCHORE_BUILD_TIMEOUT:-300}"
+    if [[ "${ANCHORE_SKIP_BUILD:-false}" == "true" ]]; then
+        log "ℹ ANCHORE_SKIP_BUILD=true — skipping docker compose build, will pull images from registry"
+    else
     while IFS= read -r compose_file; do
         local compose_dir
         compose_dir="$(dirname "$compose_file")"
@@ -316,6 +321,7 @@ scan_images() {
             fi
         fi
     done <<< "$COMPOSE_FILES"
+    fi  # end: ANCHORE_SKIP_BUILD check
 
     # Extract image names from docker-compose files
     IMAGES=()

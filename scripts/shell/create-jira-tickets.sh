@@ -440,6 +440,25 @@ ISSUE_TYPE="${ISSUE_TYPE:-Bug}"
 # Strip any trailing slash from JIRA_URL to prevent double-slash in API paths.
 JIRA_URL="${JIRA_URL%/}"
 
+# ── Prefer post-suppression filtered findings if available ───────────────────
+# check-severity-gate.sh (and run-epyon-scan-ci.sh) write a -filtered.json
+# sibling when .epyon-ignore.yml suppression rules are applied.  Using it here
+# ensures JIRA tickets only reflect non-suppressed findings.
+_FILTERED_FILE="${FINDINGS_FILE%.json}-filtered.json"
+if [[ -f "${_FILTERED_FILE}" ]]; then
+  echo "✅ Post-suppression findings found — using: ${_FILTERED_FILE}"
+  FINDINGS_FILE="${_FILTERED_FILE}"
+  # Re-derive severity counts from the filtered file so ticket creation
+  # thresholds match the suppressed-findings view.
+  CRITICAL_COUNT=$(jq -r '.summary.total_critical // 0' "${FINDINGS_FILE}" 2>/dev/null || echo "0")
+  HIGH_COUNT=$(jq -r     '.summary.total_high     // 0' "${FINDINGS_FILE}" 2>/dev/null || echo "0")
+  MEDIUM_COUNT=$(jq -r   '.summary.total_medium   // 0' "${FINDINGS_FILE}" 2>/dev/null || echo "0")
+  LOW_COUNT=$(jq -r      '.summary.total_low      // 0' "${FINDINGS_FILE}" 2>/dev/null || echo "0")
+  echo "  Filtered counts — Critical: ${CRITICAL_COUNT} | High: ${HIGH_COUNT} | Medium: ${MEDIUM_COUNT} | Low: ${LOW_COUNT}"
+else
+  echo "ℹ️  No filtered findings file found — using raw findings: ${FINDINGS_FILE}"
+fi
+
 echo "=== JIRA Ticket Creation ==="
 echo "Project: ${PROJECT_KEY} | Repo: ${REPO_SLUG}"
 

@@ -261,7 +261,63 @@ run_group "Generate Security Findings Summary" bash -lc '
   generate_scan_findings_summary "$(basename "$SCAN_DIR")" "$TARGET_DIR" "$PWD" || echo "Summary generation completed with warnings"
 '
 
-# Emit outputs consumed by later workflow steps.
+run_group "Apply Suppression Rules" bash -lc '
+  FINDINGS_SUMMARY="$SCAN_DIR/security-findings-summary.json"
+  if [[ ! -f "$FINDINGS_SUMMARY" ]]; then
+    echo "[INFO] No findings summary found — skipping suppression filter"
+    exit 0
+  fi
+
+  # Build ignore cache from the target repo .epyon-ignore.yml (if present).
+  IGNORE_CACHE="${IGNORE_CACHE:-/tmp/epyon-ignore-cache.json}"
+  if [[ -f "scripts/shell/parse-epyon-ignore.sh" ]]; then
+    source scripts/shell/parse-epyon-ignore.sh
+    parse_ignore_rules "${TARGET_DIR}/.epyon-ignore.yml" 2>/dev/null || true
+  else
+    echo "{\"ignores\": []}" > "$IGNORE_CACHE"
+  fi
+
+  # Source tool-suppression helpers.
+  if [[ -f "scripts/shell/filter-ignored-findings.sh" ]]; then
+    source scripts/shell/filter-ignored-findings.sh 2>/dev/null || true
+    init_suppressed_log 2>/dev/null || true
+  fi
+
+  # Build a jq select filter that removes any tool suppressed in .epyon-ignore.yml.
+  SUPPRESSED_TOOLS_JQ=""
+  for tool_name in grype trivy trufflehog checkov clamav anchore xeol; do
+    if declare -f is_tool_ignored >/dev/null 2>&1 && is_tool_ignored "$tool_name" 2>/dev/null; then
+      echo "[INFO] Suppressing findings from tool: $tool_name"
+      SUPPRESSED_TOOLS_JQ="${SUPPRESSED_TOOLS_JQ} and ((.tool // \"\" | ascii_downcase) | startswith(\"${tool_name}\") | not)"
+    fi
+  done
+
+  FILTERED_SUMMARY="${FINDINGS_SUMMARY%.json}-filtered.json"
+  if [[ -n "$SUPPRESSED_TOOLS_JQ" ]]; then
+    FILTER_EXPR="select(true ${SUPPRESSED_TOOLS_JQ})"
+    JQ_FILTER="
+      .critical_findings = [.critical_findings[] | ${FILTER_EXPR}] |
+      .high_findings     = [.high_findings[]     | ${FILTER_EXPR}] |
+      .medium_findings   = [.medium_findings[]   | ${FILTER_EXPR}] |
+      .low_findings      = [.low_findings[]      | ${FILTER_EXPR}] |
+      .summary.total_critical = ([.critical_findings[] | ${FILTER_EXPR}] | length) |
+      .summary.total_high     = ([.high_findings[]     | ${FILTER_EXPR}] | length) |
+      .summary.total_medium   = ([.medium_findings[]   | ${FILTER_EXPR}] | length) |
+      .summary.total_low      = ([.low_findings[]      | ${FILTER_EXPR}] | length)
+    "
+    jq "$JQ_FILTER" "$FINDINGS_SUMMARY" > "$FILTERED_SUMMARY" \
+      && echo "[INFO] Wrote filtered findings: $FILTERED_SUMMARY" \
+      || echo "[WARNING] Could not write filtered findings — tickets will use raw summary"
+  else
+    # No active suppressions — write an identical filtered copy so downstream
+    # steps (create-jira-tickets.sh) always find a consistent file name.
+    cp "$FINDINGS_SUMMARY" "$FILTERED_SUMMARY" \
+      && echo "[INFO] No suppressions active — copied raw summary to: $FILTERED_SUMMARY" \
+      || echo "[WARNING] Could not copy findings summary"
+  fi
+'
+
+
 SCAN_DIR_REL="${SCAN_DIR#${PWD}/}"
 SCAN_ID_VALUE="$(basename "$SCAN_DIR")"
 

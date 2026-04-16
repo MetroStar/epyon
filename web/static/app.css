@@ -619,6 +619,48 @@ tbody tr:hover td { background: var(--bg-hover); }
   color: var(--text-muted);
 }
 
+/* ── GitHub CI badge ─────────────────────────────────────── */
+.badge-ci {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #1a2f1a;
+  border: 1px solid #2d6a2d;
+  border-radius: 4px;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #4caf50;
+  vertical-align: middle;
+  cursor: default;
+}
+.badge-ci::before { content: ''; }
+
+/* ── Settings form fields ─────────────────────────────────── */
+.field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+.field-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.field-input:focus { border-color: var(--accent); }
+
 /* ── Job status indicator ─────────────────────────────────── */
 .job-status {
   display: inline-flex;

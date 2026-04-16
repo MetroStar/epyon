@@ -113,6 +113,10 @@ const api = {
   getScan(id)       { return this._get(`/api/scans/${encodeURIComponent(id)}`); },
   getScanHistory()  { return this._get('/api/scan-history'); },
   getApprovedImages(){ return this._get('/api/settings/approved-images'); },
+  getGitHubConfig()  { return this._get('/api/github/config'); },
+  saveGitHubConfig(data){ return this._post('/api/github/config', data); },
+  triggerGitHubSync(){ return this._post('/api/github/sync', {}); },
+  getGitHubSyncStatus(){ return this._get('/api/github/sync'); },
   triggerScan(target, scanType) {
     return this._post('/api/scans', { target, scan_type: scanType });
   },
@@ -304,6 +308,7 @@ async function renderAppDetail(name) {
                 <div class="scan-timeline-title">
                   ${esc(ucFirst(s.scan_type || 'full'))} scan
                   <span>${sevBadgeRow(s)}</span>
+                  ${s.ci_source ? `<span class="badge badge-ci" title="From GitHub Actions · ${esc(s.ci_source.repo)}${s.ci_source.branch ? ' · ' + esc(s.ci_source.branch) : ''}">GH Actions</span>` : ''}
                 </div>
                 <div class="scan-timeline-meta">
                   ${fmtDate(s.timestamp)}
@@ -707,9 +712,10 @@ async function renderSettings() {
   page.innerHTML = loading();
 
   try {
-    const [images, history] = await Promise.all([
+    const [images, history, ghCfg] = await Promise.all([
       api.getApprovedImages(),
       api.getScanHistory(),
+      api.getGitHubConfig(),
     ]);
 
     const tools = [
@@ -747,6 +753,40 @@ async function renderSettings() {
       </div>
 
       <div class="section">
+        <div class="section-title">GitHub Actions Integration</div>
+        <p class="section-desc">
+          Import scan results from GitHub Actions directly into this dashboard.
+          Epyon workflows upload scan artifacts automatically — enter a
+          <strong>Personal Access Token</strong> (needs <code>actions:read</code> scope)
+          and the repositories to watch.
+        </p>
+        <div style="display:grid;gap:14px;max-width:600px">
+          <div>
+            <label class="field-label">Personal Access Token</label>
+            <input id="gh-token" type="password" class="field-input"
+              placeholder="${ghCfg.token_set ? 'Token saved — enter new to replace' : 'ghp_... or github_pat_...'}"
+              autocomplete="off"/>
+            ${ghCfg.token_set ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Current: ${esc(ghCfg.token_hint)}</div>` : ''}
+          </div>
+          <div>
+            <label class="field-label">Repositories <span style="color:var(--text-muted);font-weight:normal">(one per line: owner/repo)</span></label>
+            <textarea id="gh-repos" class="field-input" rows="4"
+              placeholder="MetroStar/sapphire&#10;MetroStar/comet-starter"
+              style="resize:vertical">${(ghCfg.repos || []).map(r => esc(r)).join('\n')}</textarea>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="saveGitHubConfig()">Save</button>
+            <button class="btn btn-primary" id="sync-btn" onclick="triggerGitHubSync()">
+              ↓ Sync Now
+            </button>
+            <span id="sync-status" style="font-size:13px;color:var(--text-muted)">
+              ${ghCfg.last_sync ? 'Last synced: ' + fmtDate(ghCfg.last_sync) : 'Not yet synced'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
         <div class="section-title">Approved Base Images</div>
         <p class="section-desc">
           Docker Hardened Images approved for scans and deployments.
@@ -779,6 +819,57 @@ async function renderSettings() {
     page.innerHTML = errBanner(e.message);
   }
 }
+
+async function saveGitHubConfig() {
+  const tokenEl = document.getElementById('gh-token');
+  const reposEl = document.getElementById('gh-repos');
+  const token = tokenEl ? tokenEl.value.trim() : '';
+  const repos = reposEl
+    ? reposEl.value.split('\n').map(r => r.trim()).filter(Boolean)
+    : [];
+  try {
+    await api.saveGitHubConfig({ token: token || 'KEEP_EXISTING', repos });
+    tokenEl && (tokenEl.value = '');
+    const statusEl = document.getElementById('sync-status');
+    if (statusEl) statusEl.textContent = 'Configuration saved.';
+  } catch (e) {
+    alert('Failed to save GitHub config: ' + e.message);
+  }
+}
+
+let _syncPoll = null;
+async function triggerGitHubSync() {
+  const btn = document.getElementById('sync-btn');
+  const statusEl = document.getElementById('sync-status');
+  if (btn) { btn.disabled = true; btn.textContent = '↓ Syncing…'; }
+  if (statusEl) statusEl.textContent = 'Sync in progress…';
+  try {
+    await api.triggerGitHubSync();
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = '↓ Sync Now'; }
+    if (statusEl) statusEl.textContent = 'Error: ' + e.message;
+    return;
+  }
+  // Poll status
+  clearInterval(_syncPoll);
+  _syncPoll = setInterval(async () => {
+    try {
+      const st = await api.getGitHubSyncStatus();
+      if (st.status === 'running') return;
+      clearInterval(_syncPoll);
+      _syncPoll = null;
+      if (btn) { btn.disabled = false; btn.textContent = '↓ Sync Now'; }
+      if (st.status === 'done' && st.result) {
+        const r = st.result;
+        const msg = `Done — ${r.synced.length} new, ${r.skipped.length} already present, ${r.failed.length} failed`;
+        if (statusEl) statusEl.textContent = msg;
+      } else if (st.status === 'error') {
+        if (statusEl) statusEl.textContent = 'Sync error: ' + (st.error || 'unknown');
+      }
+    } catch (_) {}
+  }, 2000);
+}
+
 
 // ── Router ────────────────────────────────────────────────────
 function resolve() {

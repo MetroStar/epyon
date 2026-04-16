@@ -2,8 +2,10 @@
 'use strict';
 
 const http     = require('http');
+const https    = require('https');
 const fs       = require('fs');
 const path     = require('path');
+const os       = require('os');
 const readline = require('readline');
 const { spawn } = require('child_process');
 const { URL }  = require('url');
@@ -17,6 +19,8 @@ const SCRIPTS_DIR         = path.join(EPYON_ROOT, 'scripts', 'shell');
 const STATIC_DIR          = path.join(__dirname, 'static');
 const SCAN_HISTORY_FILE   = path.join(EPYON_ROOT, 'scan-history.json');
 const APPROVED_IMAGES_FILE = path.join(EPYON_ROOT, 'configuration', 'approved-base-images.conf');
+
+const GITHUB_CONFIG_FILE  = path.join(__dirname, 'github-config.json');
 
 const SCAN_SEARCH_PATHS = [
   path.join(EPYON_ROOT, 'scans'),
@@ -64,13 +68,21 @@ function readJSON(filePath) {
   }
 }
 
+const DATE_PART_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_PART_RE = /^\d{2}-\d{2}-\d{2}$/;
+
 function parseDirName(name) {
   const parts = name.split('_');
-  if (parts.length >= 4) {
-    const timePart = parts[parts.length - 1];
-    const datePart = parts[parts.length - 2];
-    const user     = parts[parts.length - 3];
-    const target   = parts.slice(0, -3).join('_');
+  const timePart = parts[parts.length - 1];
+  const datePart = parts[parts.length - 2];
+  if (parts.length >= 3 && DATE_PART_RE.test(datePart) && TIME_PART_RE.test(timePart)) {
+    // 3-part: target_date_time (CI artifacts with no user)
+    if (parts.length === 3) {
+      return { target: parts[0], user: '', timestamp: `${datePart}T${timePart.replace(/-/g, ':')}` };
+    }
+    // 4+ part: target_user_date_time (local scans)
+    const user   = parts[parts.length - 3];
+    const target = parts.slice(0, -3).join('_');
     return { target, user, timestamp: `${datePart}T${timePart.replace(/-/g, ':')}` };
   }
   return { target: name, user: '', timestamp: '' };
@@ -181,7 +193,8 @@ function parseTruffleHogDir(scanDir) {
   const findings = [];
   const dir = path.join(scanDir, 'trufflehog');
   if (!fs.existsSync(dir)) return findings;
-  for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.json'))) {
+  const scanId = path.basename(scanDir);
+  for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.json') && !f.startsWith(scanId + '_'))) {
     const fullPath = path.join(dir, file);
     try {
       const lines = fs.readFileSync(fullPath, 'utf8').split('\n');
@@ -216,12 +229,15 @@ function parseCheckovDir(scanDir) {
   const dir = path.join(scanDir, 'checkov');
   if (!fs.existsSync(dir)) return findings;
 
+  const scanId = path.basename(scanDir);
   const candidates = [];
   // Checkov sometimes writes a directory named *.json with results_json.json inside
   for (const entry of fs.readdirSync(dir)) {
+    if (entry.startsWith(scanId + '_')) continue; // skip prefixed duplicate copies
     const full = path.join(dir, entry);
     try {
-      const st = fs.lstatSync(full);
+      // Use statSync (follows symlinks) so canonical symlinks like checkov-results.json → prefixed file are readable
+      const st = fs.statSync(full);
       if (st.isDirectory() && entry.endsWith('.json')) {
         const inner = path.join(full, 'results_json.json');
         if (fs.existsSync(inner)) candidates.push(inner);
@@ -290,6 +306,40 @@ function parseClamAVDir(scanDir) {
   return findings;
 }
 
+function parseAnchoreDir(scanDir) {
+  const findings = [];
+  const anchoreDir = path.join(scanDir, 'anchore');
+  // Read filesystem results + image results; skip sbom results (duplicates filesystem)
+  const files = [];
+  const fsFile = path.join(anchoreDir, 'anchore-filesystem-results.json');
+  if (fs.existsSync(fsFile)) files.push(fsFile);
+  const imagesDir = path.join(anchoreDir, 'images');
+  if (fs.existsSync(imagesDir)) {
+    for (const f of jsonFilesIn(imagesDir)) files.push(f);
+  }
+  for (const file of files) {
+    const raw = readJSON(file);
+    if (!raw) continue;
+    for (const m of (raw.matches || [])) {
+      const vuln = m.vulnerability || {};
+      const art  = m.artifact      || {};
+      findings.push({
+        tool:          'Anchore',
+        id:            vuln.id   || '',
+        severity:      (vuln.severity || 'unknown').toLowerCase(),
+        package:       art.name    || '',
+        version:       art.version || '',
+        fixed_version: (vuln.fix && vuln.fix.versions && vuln.fix.versions[0]) || '',
+        title:         vuln.description || vuln.id || '',
+        description:   vuln.description || '',
+        target:        (art.locations && art.locations[0] && art.locations[0].path) || '',
+        references:    vuln.urls || [],
+      });
+    }
+  }
+  return findings;
+}
+
 function parseXeolDir(scanDir) {
   const findings = [];
   for (const file of jsonFilesIn(path.join(scanDir, 'xeol'))) {
@@ -322,6 +372,7 @@ function parseScanFindings(scanDir) {
   const all = [
     ...parseTrivyDir(scanDir),
     ...parseGrypeDir(scanDir),
+    ...parseAnchoreDir(scanDir),
     ...parseTruffleHogDir(scanDir),
     ...parseCheckovDir(scanDir),
     ...parseClamAVDir(scanDir),
@@ -348,6 +399,161 @@ function parseScanFindings(scanDir) {
     medium_findings:   bySev.medium,
     low_findings:      bySev.low,
   };
+}
+
+// ── GitHub Artifact Sync ──────────────────────────────────────
+
+function readGitHubConfig() {
+  try { return JSON.parse(fs.readFileSync(GITHUB_CONFIG_FILE, 'utf8')); } catch { return {}; }
+}
+
+function saveGitHubConfig(cfg) {
+  fs.writeFileSync(GITHUB_CONFIG_FILE, JSON.stringify(cfg, null, 2));
+}
+
+/** Make a GitHub API GET request, returns parsed JSON. */
+function githubGet(apiPath, token) {
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.github.com',
+      path: apiPath,
+      method: 'GET',
+      headers: {
+        'Authorization':        `Bearer ${token}`,
+        'Accept':               'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'User-Agent':           'epyon-web/3.0.0',
+      },
+    }, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        if (res.statusCode >= 400) {
+          return reject(new Error(`GitHub API ${res.statusCode}: ${data.slice(0, 200)}`));
+        }
+        try { resolve(JSON.parse(data)); }
+        catch { reject(new Error(`Invalid JSON from GitHub API`)); }
+      });
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+/** Download a URL (following up to 5 redirects) and write to destPath. */
+function githubDownload(url, destPath, token, redirectsLeft = 5) {
+  return new Promise((resolve, reject) => {
+    if (redirectsLeft <= 0) return reject(new Error('Too many redirects'));
+    const parsed = new URL(url);
+    // Only send auth header to api.github.com — strip it for CDN redirects
+    const isGitHubApi = parsed.hostname === 'api.github.com';
+    const options = {
+      hostname: parsed.hostname,
+      path:     parsed.pathname + parsed.search,
+      method:   'GET',
+      headers: {
+        ...(isGitHubApi ? {
+          'Authorization':        `Bearer ${token}`,
+          'Accept':               'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+        } : {}),
+        'User-Agent': 'epyon-web/3.0.0',
+      },
+    };
+    const req = https.request(options, (res) => {
+      if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308) {
+        res.resume();
+        return githubDownload(res.headers.location, destPath, token, redirectsLeft - 1)
+          .then(resolve).catch(reject);
+      }
+      if (res.statusCode !== 200) {
+        res.resume();
+        return reject(new Error(`HTTP ${res.statusCode} downloading artifact`));
+      }
+      const out = fs.createWriteStream(destPath);
+      res.pipe(out);
+      out.on('finish', () => out.close(() => resolve()));
+      out.on('error', reject);
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+// Scan ID pattern: target_YYYY-MM-DD_HH-MM-SS  OR  target_user_YYYY-MM-DD_HH-MM-SS
+const GITHUB_SCAN_ID_RE = /^[a-zA-Z0-9][a-zA-Z0-9_-]*_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$/;
+
+// Global sync state
+let syncState = { status: 'idle', started_at: null, result: null, error: null };
+
+async function runGitHubSync() {
+  const cfg = readGitHubConfig();
+  if (!cfg.token) throw new Error('GitHub token not configured');
+  const repos = (cfg.repos || []).filter(r => r && r.includes('/'));
+  if (!repos.length) throw new Error('No repositories configured');
+
+  const result = { synced: [], skipped: [], failed: [] };
+
+  for (const repoSpec of repos) {
+    const [owner, repo] = repoSpec.trim().split('/');
+    try {
+      const runsData = await githubGet(
+        `/repos/${owner}/${repo}/actions/runs?status=completed&per_page=30`,
+        cfg.token
+      );
+      for (const run of (runsData.workflow_runs || [])) {
+        const artsData = await githubGet(
+          `/repos/${owner}/${repo}/actions/runs/${run.id}/artifacts?per_page=50`,
+          cfg.token
+        );
+        for (const artifact of (artsData.artifacts || [])) {
+          if (!GITHUB_SCAN_ID_RE.test(artifact.name)) continue;
+          if (artifact.name.startsWith('metrics-')) continue;
+          if (artifact.expired) continue;
+          const scanId = artifact.name;
+          // Skip if already downloaded
+          if (findScanDirs().some(d => path.basename(d) === scanId)) {
+            result.skipped.push(scanId);
+            continue;
+          }
+          const tmpZip = path.join(os.tmpdir(), `epyon-gh-${scanId}.zip`);
+          try {
+            await githubDownload(
+              `https://api.github.com/repos/${owner}/${repo}/actions/artifacts/${artifact.id}/zip`,
+              tmpZip, cfg.token
+            );
+            const destDir = path.join(EPYON_ROOT, 'scans', scanId);
+            fs.mkdirSync(destDir, { recursive: true });
+            await new Promise((resolve, reject) => {
+              const proc = spawn('unzip', ['-o', tmpZip, '-d', destDir], {
+                stdio: ['ignore', 'pipe', 'pipe'],
+              });
+              proc.on('close', code => code === 0 ? resolve() : reject(new Error(`unzip exited ${code}`)));
+            });
+            fs.writeFileSync(path.join(destDir, 'ci-metadata.json'), JSON.stringify({
+              source: 'github', repo: `${owner}/${repo}`,
+              run_id: run.id, artifact_id: artifact.id,
+              workflow: run.name || '',
+              branch: run.head_branch || '',
+              commit: run.head_sha ? run.head_sha.slice(0, 7) : '',
+              synced_at: new Date().toISOString(),
+            }, null, 2));
+            result.synced.push(scanId);
+          } catch (e) {
+            result.failed.push({ scan_id: scanId, error: e.message });
+          } finally {
+            try { fs.unlinkSync(tmpZip); } catch {}
+          }
+        }
+      }
+    } catch (e) {
+      result.failed.push({ repo: `${owner}/${repo}`, error: e.message });
+    }
+  }
+
+  cfg.last_sync = new Date().toISOString();
+  saveGitHubConfig(cfg);
+  return result;
 }
 
 function loadScan(scanDir) {
@@ -404,6 +610,19 @@ function loadScan(scanDir) {
   if (fs.existsSync(dashboard)) {
     data.has_dashboard = true;
     data.dashboard_url = `/api/scans/${encodeURIComponent(scanId)}/dashboard`;
+  }
+
+  // Check for GitHub Actions CI provenance
+  const ciMeta = readJSON(path.join(scanDir, 'ci-metadata.json'));
+  if (ciMeta && ciMeta.source === 'github') {
+    data.ci_source = {
+      source:   'github',
+      repo:     ciMeta.repo     || '',
+      branch:   ciMeta.branch   || '',
+      commit:   ciMeta.commit   || '',
+      workflow: ciMeta.workflow || '',
+      run_id:   ciMeta.run_id   || null,
+    };
   }
 
   return data;
@@ -690,8 +909,15 @@ async function handleRequest(req, res) {
 
   // ── Scan history ──────────────────────────────────────────
   if (pathname === '/api/scan-history' && method === 'GET') {
-    const data = readJSON(SCAN_HISTORY_FILE);
-    return jsonResponse(res, data || { generated_at: '', total_scans: 0, targets: [], trend: [] });
+    const scans = findScanDirs().map(loadScan);
+    const targets = [...new Set(scans.map(s => s.target))].sort();
+    const users   = [...new Set(scans.map(s => s.user).filter(Boolean))].sort();
+    return jsonResponse(res, {
+      generated_at: new Date().toISOString(),
+      total_scans:  scans.length,
+      targets,
+      users,
+    });
   }
 
   // ── Settings ──────────────────────────────────────────────
@@ -699,6 +925,60 @@ async function handleRequest(req, res) {
     let content = '';
     try { content = fs.readFileSync(APPROVED_IMAGES_FILE, 'utf8'); } catch {}
     return jsonResponse(res, { content });
+  }
+
+  // ── GitHub config  GET /api/github/config ─────────────────
+  if (pathname === '/api/github/config' && method === 'GET') {
+    const cfg = readGitHubConfig();
+    // Mask token — never send the raw token to the browser
+    const masked = cfg.token ? cfg.token.replace(/(?<=.{7}).(?=.{4})/g, '*') : '';
+    return jsonResponse(res, {
+      token_set:  !!cfg.token,
+      token_hint: masked,
+      repos:      cfg.repos || [],
+      last_sync:  cfg.last_sync || null,
+    });
+  }
+
+  // ── GitHub config  POST /api/github/config ────────────────
+  if (pathname === '/api/github/config' && method === 'POST') {
+    let body;
+    try { body = await readBody(req); } catch (e) { return errResponse(res, 400, e.message); }
+    const cfg = readGitHubConfig();
+    // Only update token if a non-empty one is provided (sentinel "keep" means no change)
+    if (body.token && body.token !== 'KEEP_EXISTING') {
+      if (!/^(ghp_|github_pat_|ghs_|gho_)[a-zA-Z0-9_]+$/.test(body.token.trim())) {
+        return errResponse(res, 400, 'Token does not look like a valid GitHub token');
+      }
+      cfg.token = body.token.trim();
+    }
+    if (Array.isArray(body.repos)) {
+      cfg.repos = body.repos
+        .map(r => r.trim())
+        .filter(r => /^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/.test(r));
+    }
+    saveGitHubConfig(cfg);
+    return jsonResponse(res, { ok: true });
+  }
+
+  // ── GitHub sync  POST /api/github/sync ────────────────────
+  if (pathname === '/api/github/sync' && method === 'POST') {
+    if (syncState.status === 'running') {
+      return jsonResponse(res, { ok: false, message: 'Sync already in progress' });
+    }
+    syncState = { status: 'running', started_at: new Date().toISOString(), result: null, error: null };
+    // Run async, don't await
+    runGitHubSync().then(result => {
+      syncState = { status: 'done', started_at: syncState.started_at, result, error: null };
+    }).catch(err => {
+      syncState = { status: 'error', started_at: syncState.started_at, result: null, error: err.message };
+    });
+    return jsonResponse(res, { ok: true, message: 'Sync started' });
+  }
+
+  // ── GitHub sync status  GET /api/github/sync ──────────────
+  if (pathname === '/api/github/sync' && method === 'GET') {
+    return jsonResponse(res, syncState);
   }
 
   // ── Jobs list ─────────────────────────────────────────────
@@ -781,4 +1061,26 @@ server.listen(PORT, HOST, () => {
   console.log('│   Press Ctrl+C to stop                              │');
   console.log('└──────────────────────────────────────────────────────┘');
   console.log('');
+
+  // ── Auto-sync GitHub Actions artifacts every 3 hours ─────
+  const SYNC_INTERVAL_MS = 3 * 60 * 60 * 1000; // 3 hours
+  function scheduledSync() {
+    const cfg = readGitHubConfig();
+    if (!cfg.token || !(cfg.repos || []).length) return;
+    if (syncState.status === 'running') return;
+    console.log('[github-sync] Starting scheduled sync…');
+    syncState = { status: 'running', started_at: new Date().toISOString(), result: null, error: null };
+    runGitHubSync().then(result => {
+      syncState = { status: 'done', started_at: syncState.started_at, result, error: null };
+      const r = result;
+      console.log(`[github-sync] Done — ${r.synced.length} new, ${r.skipped.length} skipped, ${r.failed.length} failed`);
+    }).catch(err => {
+      syncState = { status: 'error', started_at: syncState.started_at, result: null, error: err.message };
+      console.log(`[github-sync] Error — ${err.message}`);
+    });
+  }
+
+  // Run once shortly after startup, then every 3 hours
+  setTimeout(scheduledSync, 10_000).unref();
+  setInterval(scheduledSync, SYNC_INTERVAL_MS).unref();
 });

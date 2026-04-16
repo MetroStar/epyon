@@ -1119,75 +1119,50 @@ else
     echo -e "${YELLOW}⚠️  Remediation script not found${NC}"
 fi
 
-# Run the unified report consolidation
-if [[ -f "$SCRIPT_DIR/consolidate-security-reports.sh" ]]; then
-    SCAN_DIR="$SCAN_DIR" SCAN_ID="$SCAN_ID" "$SCRIPT_DIR/consolidate-security-reports.sh"
-    consolidation_result=$?
-    
-    if [[ $consolidation_result -eq 0 ]]; then
-        echo -e "${GREEN}✅ Security reports consolidated successfully${NC}"
-        
-        # Display scan directory information
-        echo ""
-        echo -e "${BLUE}📊 Scan Results Location:${NC}"
-        echo -e "${CYAN}📁 Scan Directory: $SCAN_DIR${NC}"
-        echo -e "${CYAN}📊 Consolidated Reports: $SCAN_DIR/consolidated-reports/${NC}"
-        echo -e "${CYAN}🔍 View all scan artifacts: ls -la $SCAN_DIR/*/"${NC}
-        
-        echo ""
-        echo -e "${BLUE}🔧 Quick Access:${NC}"
-        echo -e "${YELLOW}cd $SCAN_DIR${NC}"
-        if [[ -f "$SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html" ]]; then
-            echo -e "${YELLOW}open $SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html${NC}"
+# ── Step 1: Generate findings summary FIRST (CI order) ────────────────────────
+# In CI, generate-scan-findings-summary runs before the dashboard so the
+# dashboard can read accurate deduplicated counts from the JSON file.
+echo ""
+echo -e "${BLUE}🚨 Generating Security Findings Summary for Scan: ${SCAN_ID}...${NC}"
+if [[ -f "$SCRIPT_DIR/generate-scan-findings-summary.sh" ]]; then
+    # shellcheck disable=SC1090
+    source "$SCRIPT_DIR/generate-scan-findings-summary.sh"
+    generate_scan_findings_summary "$SCAN_ID" "$TARGET_DIR" "$REPORTS_ROOT"
+    summary_result=$?
+
+    if [[ $summary_result -eq 0 ]]; then
+        echo -e "${GREEN}✅ Security findings summary generated successfully${NC}"
+        if [[ -f "$SCAN_DIR/security-findings-summary.json" ]]; then
+            echo -e "${CYAN}📊 Scan Summary: $SCAN_DIR/security-findings-summary.json${NC}"
+            critical_count=$(jq -r '.summary.total_critical' "$SCAN_DIR/security-findings-summary.json" 2>/dev/null || echo "0")
+            high_count=$(jq -r     '.summary.total_high'     "$SCAN_DIR/security-findings-summary.json" 2>/dev/null || echo "0")
+            medium_count=$(jq -r   '.summary.total_medium'   "$SCAN_DIR/security-findings-summary.json" 2>/dev/null || echo "0")
+            low_count=$(jq -r      '.summary.total_low'      "$SCAN_DIR/security-findings-summary.json" 2>/dev/null || echo "0")
+            echo -e "${CYAN}📈 Findings Overview: Critical($critical_count) High($high_count) Medium($medium_count) Low($low_count)${NC}"
         fi
     else
-        echo -e "${YELLOW}⚠️  Report consolidation had issues${NC}"
-        analysis_success=false
+        echo -e "${YELLOW}⚠️  Security findings summary generation had issues${NC}"
     fi
-    
-    # Generate Scan-Specific Security Findings Summary (Critical/High/Medium/Low)
-    echo ""
-    echo -e "${BLUE}🚨 Generating Security Findings Summary for Scan: ${SCAN_ID}...${NC}"
-    if [[ -f "$SCRIPT_DIR/generate-scan-findings-summary.sh" ]]; then
-        # Source the function and call it with scan parameters
-        source "$SCRIPT_DIR/generate-scan-findings-summary.sh"
-        generate_scan_findings_summary "$SCAN_ID" "$TARGET_DIR" "$REPORTS_ROOT"
-        summary_result=$?
-        
-        if [[ $summary_result -eq 0 ]]; then
-            echo -e "${GREEN}✅ Security findings summary generated successfully${NC}"
-            
-            # Display summary access information
-            if [[ -f "$SCAN_DIR/security-findings-summary.json" ]]; then
-                echo -e "${CYAN}📊 Scan Summary: $SCAN_DIR/security-findings-summary.json${NC}"
-                
-                # Show quick stats
-                critical_count=$(jq -r '.summary.total_critical' "$SCAN_DIR/security-findings-summary.json" 2>/dev/null || echo "0")
-                high_count=$(jq -r '.summary.total_high' "$SCAN_DIR/security-findings-summary.json" 2>/dev/null || echo "0")
-                medium_count=$(jq -r '.summary.total_medium' "$SCAN_DIR/security-findings-summary.json" 2>/dev/null || echo "0")
-                low_count=$(jq -r '.summary.total_low' "$SCAN_DIR/security-findings-summary.json" 2>/dev/null || echo "0")
-                
-                echo -e "${CYAN}📈 Findings Overview: Critical($critical_count) High($high_count) Medium($medium_count) Low($low_count)${NC}"
-            fi
-        else
-            echo -e "${YELLOW}⚠️  Security findings summary generation had issues${NC}"
-        fi
-    else
-        echo -e "${YELLOW}⚠️  Report consolidation script not found${NC}"
-    fi
+else
+    echo -e "${YELLOW}⚠️  generate-scan-findings-summary.sh not found${NC}"
+fi
 
-    # Enrich findings with NVD + CISA KEV data
-    echo ""
-    echo -e "${BLUE}🔍 Enriching findings with NVD + CISA KEV data...${NC}"
-    if [[ -f "$SCRIPT_DIR/enrich-findings.sh" ]]; then
-        "$SCRIPT_DIR/enrich-findings.sh" --scan-dir "$SCAN_DIR" || true
-    else
-        echo -e "${YELLOW}⚠️  enrich-findings.sh not found, skipping enrichment${NC}"
-    fi
-
-    # Apply .epyon-ignore.yml suppression rules (matches CI behavior)
-    echo ""
-    echo -e "${BLUE}🔇 Applying suppression rules from .epyon-ignore.yml...${NC}"
+# ── Step 2: Apply suppression rules + write suppressed-findings.md (CI order) ─
+# check-severity-gate.sh parses .epyon-ignore.yml, logs per-CVE/package
+# suppressions to suppressed-findings.md, and writes *-filtered.json.
+# This MUST run before the dashboard so the dashboard reads the suppression data.
+echo ""
+echo -e "${BLUE}🔇 Applying suppression rules and checking severity gate...${NC}"
+if [[ -f "$SCRIPT_DIR/check-severity-gate.sh" ]]; then
+    FAIL_ON_CRITICAL="${FAIL_ON_CRITICAL:-false}" \
+    FAIL_ON_HIGH="${FAIL_ON_HIGH:-false}" \
+    WARNING_ONLY="${WARNING_ONLY:-true}" \
+    SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" \
+    "$SCRIPT_DIR/check-severity-gate.sh" || true
+    echo -e "${GREEN}✅ Severity gate and suppression check complete${NC}"
+else
+    # Fallback: apply tool-level suppression without per-CVE logging
+    echo -e "${YELLOW}⚠️  check-severity-gate.sh not found — applying tool-level suppression only${NC}"
     FINDINGS_SUMMARY="$SCAN_DIR/security-findings-summary.json"
     if [[ -f "$FINDINGS_SUMMARY" ]]; then
         IGNORE_CACHE="${IGNORE_CACHE:-/tmp/epyon-ignore-cache.json}"
@@ -1232,11 +1207,46 @@ if [[ -f "$SCRIPT_DIR/consolidate-security-reports.sh" ]]; then
                 && echo -e "${GREEN}✅ No active suppressions — copied summary to: $FILTERED_SUMMARY${NC}" \
                 || echo -e "${YELLOW}⚠️  Could not copy findings summary${NC}"
         fi
+    fi
+fi
+
+# ── Step 3: Enrich findings with NVD + CISA KEV data ─────────────────────────
+echo ""
+echo -e "${BLUE}🔍 Enriching findings with NVD + CISA KEV data...${NC}"
+if [[ -f "$SCRIPT_DIR/enrich-findings.sh" ]]; then
+    "$SCRIPT_DIR/enrich-findings.sh" --scan-dir "$SCAN_DIR" || true
+else
+    echo -e "${YELLOW}⚠️  enrich-findings.sh not found, skipping enrichment${NC}"
+fi
+
+# ── Step 4: Consolidate + generate dashboard (reads findings summary + suppressed-findings.md) ─
+# Run the unified report consolidation
+if [[ -f "$SCRIPT_DIR/consolidate-security-reports.sh" ]]; then
+    SCAN_DIR="$SCAN_DIR" SCAN_ID="$SCAN_ID" "$SCRIPT_DIR/consolidate-security-reports.sh"
+    consolidation_result=$?
+    
+    if [[ $consolidation_result -eq 0 ]]; then
+        echo -e "${GREEN}✅ Security reports consolidated successfully${NC}"
+        
+        # Display scan directory information
+        echo ""
+        echo -e "${BLUE}📊 Scan Results Location:${NC}"
+        echo -e "${CYAN}📁 Scan Directory: $SCAN_DIR${NC}"
+        echo -e "${CYAN}📊 Consolidated Reports: $SCAN_DIR/consolidated-reports/${NC}"
+        echo -e "${CYAN}🔍 View all scan artifacts: ls -la $SCAN_DIR/*/"${NC}
+        
+        echo ""
+        echo -e "${BLUE}🔧 Quick Access:${NC}"
+        echo -e "${YELLOW}cd $SCAN_DIR${NC}"
+        if [[ -f "$SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html" ]]; then
+            echo -e "${YELLOW}open $SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html${NC}"
+        fi
     else
-        echo -e "${YELLOW}⚠️  No findings summary found — skipping suppression filter${NC}"
+        echo -e "${YELLOW}⚠️  Report consolidation had issues${NC}"
+        analysis_success=false
     fi
 
-    # Generate Scan Manifest for Integrity Verification
+    # ── Step 5: Generate Scan Manifest for Integrity Verification ─────────────
     echo ""
     echo -e "${BLUE}🔐 Generating scan manifest for integrity verification...${NC}"
     if [[ -f "$SCRIPT_DIR/generate-scan-manifest.sh" ]]; then

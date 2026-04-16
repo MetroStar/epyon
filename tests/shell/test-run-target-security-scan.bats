@@ -176,12 +176,39 @@ _full_block() {
 # ── Suppression rules ─────────────────────────────────────────────────────────
 
 @test "run-target-security-scan.sh applies .epyon-ignore.yml suppression rules" {
-    grep -q 'parse-epyon-ignore\|filter-ignored-findings' "$SCRIPT_PATH"
+    grep -q 'parse-epyon-ignore\|filter-ignored-findings\|check-severity-gate' "$SCRIPT_PATH"
 }
 
 @test "run-target-security-scan.sh writes filtered findings summary" {
     # After applying suppressions, a *-filtered.json file must be created (CI parity)
     grep -q 'filtered.json\|FILTERED_SUMMARY' "$SCRIPT_PATH"
+}
+
+@test "run-target-security-scan.sh calls check-severity-gate.sh" {
+    grep -q 'check-severity-gate.sh' "$SCRIPT_PATH"
+}
+
+@test "run-target-security-scan.sh generates findings summary before dashboard consolidation" {
+    # CI order: findings summary → severity gate → consolidation (dashboard)
+    # Verify generate-scan-findings-summary appears before consolidate-security-reports
+    local summary_line consolidate_line
+    summary_line=$(grep -n 'generate-scan-findings-summary.sh' "$SCRIPT_PATH" | \
+        grep -v '^[[:space:]]*#' | head -1 | cut -d: -f1)
+    consolidate_line=$(grep -n 'consolidate-security-reports.sh' "$SCRIPT_PATH" | \
+        grep -v '^[[:space:]]*#' | head -1 | cut -d: -f1)
+    [[ -n "$summary_line" && -n "$consolidate_line" ]]
+    [[ "$summary_line" -lt "$consolidate_line" ]]
+}
+
+@test "run-target-security-scan.sh calls check-severity-gate before dashboard consolidation" {
+    # CI order: severity gate writes suppressed-findings.md BEFORE dashboard reads it
+    local gate_line consolidate_line
+    gate_line=$(grep -n 'check-severity-gate.sh' "$SCRIPT_PATH" | \
+        grep -v '^[[:space:]]*#' | head -1 | cut -d: -f1)
+    consolidate_line=$(grep -n 'consolidate-security-reports.sh' "$SCRIPT_PATH" | \
+        grep -v '^[[:space:]]*#' | head -1 | cut -d: -f1)
+    [[ -n "$gate_line" && -n "$consolidate_line" ]]
+    [[ "$gate_line" -lt "$consolidate_line" ]]
 }
 
 # ── CLI option handling ───────────────────────────────────────────────────────

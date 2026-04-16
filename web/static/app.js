@@ -474,22 +474,41 @@ function buildFindingsSection(findings) {
 
   const severities = ['critical', 'high', 'medium', 'low'];
   let html = '';
+  let anyFindings = false;
 
   for (const sev of severities) {
     const items = (findings[`${sev}_findings`] || []);
     if (!items.length) continue;
+    anyFindings = true;
 
-    const rows = items.slice(0, 100).map(f => `
-      <tr>
-        <td>${esc(f.tool || '—')}</td>
-        <td><code>${esc(f.cve_id || f.id || '—')}</code></td>
-        <td style="max-width:420px">${esc((f.description || f.title || '').substring(0, 150))}</td>
-        <td>${esc(f.package || f.component || '—')}</td>
-      </tr>`).join('');
+    const rows = items.slice(0, 200).map(f => {
+      const id    = esc(f.id    || f.cve_id || '—');
+      const tool  = esc(f.tool  || '—');
+      const pkg   = esc(f.package || f.component || f.target || '—');
+      const ver   = esc(f.version || '');
+      const fixed = esc(f.fixed_version || '');
+      const title = esc((f.title || f.description || f.check_name || '').substring(0, 160));
+      const target = esc((f.target || '').substring(0, 80));
 
-    const overflow = items.length > 100
-      ? `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:12px">
-           … and ${items.length - 100} more findings. Open the dashboard for the full list.
+      // Link CVE IDs to NVD
+      const idCell = id.startsWith('CVE-')
+        ? `<a href="https://nvd.nist.gov/vuln/detail/${id}" target="_blank" rel="noopener noreferrer"><code>${id}</code></a>`
+        : `<code>${id}</code>`;
+
+      return `
+        <tr>
+          <td><span class="tool-tag">${tool}</span></td>
+          <td>${idCell}</td>
+          <td style="max-width:360px">${title}</td>
+          <td>${pkg}${ver ? ` <span style="color:var(--text-dim);font-size:11px">${ver}</span>` : ''}</td>
+          <td>${fixed ? `<span style="color:var(--clean)">${fixed}</span>` : '<span style="color:var(--text-dim)">—</span>'}</td>
+          <td style="color:var(--text-muted);font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${target}">${target || '—'}</td>
+        </tr>`;
+    }).join('');
+
+    const overflow = items.length > 200
+      ? `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:12px">
+           … and ${items.length - 200} more. Open the Dashboard for the full list.
          </td></tr>` : '';
 
     html += `
@@ -501,7 +520,10 @@ function buildFindingsSection(findings) {
         <div class="table-container">
           <table>
             <thead>
-              <tr><th>Tool</th><th>CVE / ID</th><th>Description</th><th>Package</th></tr>
+              <tr>
+                <th>Tool</th><th>CVE / ID</th><th>Title</th>
+                <th>Package</th><th>Fix Available</th><th>Location</th>
+              </tr>
             </thead>
             <tbody>${rows}${overflow}</tbody>
           </table>
@@ -509,7 +531,7 @@ function buildFindingsSection(findings) {
       </div>`;
   }
 
-  if (!html) {
+  if (!anyFindings) {
     return `
       <div class="section">
         <div class="section-title">Findings</div>
@@ -523,6 +545,7 @@ function buildFindingsSection(findings) {
 
 let _pollInterval = null;
 let _lastLogLen   = 0;
+let _activeJobId  = null;
 
 async function renderNewScan(prefill = '') {
   setActive('new-scan');
@@ -567,8 +590,8 @@ async function renderNewScan(prefill = '') {
 
     <div id="scan-output" style="display:none">
       <div style="margin-top:28px;margin-bottom:12px;display:flex;align-items:center;gap:12px">
-        <div id="job-status-bar"></div>
-      </div>
+        <div id="job-status-bar"></div>        <button id="cancel-btn" class="btn btn-sm" style="display:none"
+                onclick="cancelScan()">✕ Cancel</button>      </div>
       <div class="log-card" id="log-output"></div>
       <div id="scan-actions" style="display:none;gap:10px;margin-top:16px"></div>
     </div>`;
@@ -590,13 +613,17 @@ async function submitScan() {
   document.getElementById('scan-output').style.display = 'block';
   document.getElementById('log-output').innerHTML = '';
   document.getElementById('scan-actions').style.display = 'none';
-  _lastLogLen = 0;
+  _lastLogLen  = 0;
+  _activeJobId = null;
 
   try {
     const job = await api.triggerScan(target, scanType);
+    _activeJobId = job.job_id;
     clearInterval(_pollInterval);
     _pollInterval = setInterval(() => pollJob(job.job_id, btn), 2000);
     pollJob(job.job_id, btn);
+    const cancelBtn = document.getElementById('cancel-btn');
+    if (cancelBtn) cancelBtn.style.display = 'inline-flex';
   } catch (e) {
     btn.disabled    = false;
     btn.textContent = '▶ Run Scan';
@@ -630,10 +657,14 @@ async function pollJob(jobId, btn) {
       _lastLogLen = lines.length;
     }
 
-    if (['completed', 'failed', 'error'].includes(job.status)) {
+    if (['completed', 'failed', 'error', 'cancelled'].includes(job.status)) {
       clearInterval(_pollInterval);
       _pollInterval = null;
+      _activeJobId  = null;
       if (btn) { btn.disabled = false; btn.textContent = '▶ Run Scan'; }
+
+      const cancelBtn = document.getElementById('cancel-btn');
+      if (cancelBtn) cancelBtn.style.display = 'none';
 
       const actionsDiv = document.getElementById('scan-actions');
       if (actionsDiv) {
@@ -644,15 +675,31 @@ async function pollJob(jobId, btn) {
              </button>
              <button class="btn" onclick="navigate('#/new-scan')">Run Another Scan</button>`
           : `<div class="error-banner" style="margin:0">
-               Scan ${job.status === 'failed' ? 'failed (non-zero exit code)' : 'encountered an error'}.
-               Check the log output above.
-             </div>`;
+               Scan ${
+                 job.status === 'cancelled'
+                   ? 'was cancelled'
+                   : job.status === 'failed'
+                   ? 'failed (non-zero exit code)'
+                   : 'encountered an error'
+               }.
+               ${job.status !== 'cancelled' ? 'Check the log output above.' : ''}
+             </div>
+             <button class="btn" onclick="navigate('#/new-scan')">Run Another Scan</button>`;
       }
     }
   } catch (_) { /* ignore transient polling errors */ }
 }
 
 // ─────────────────────────────────────────────────────────────
+
+async function cancelScan() {
+  if (!_activeJobId) return;
+  const btn = document.getElementById('cancel-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Cancelling…'; }
+  try {
+    await fetch(`/api/jobs/${encodeURIComponent(_activeJobId)}/cancel`, { method: 'POST' });
+  } catch (_) {}
+}
 
 async function renderSettings() {
   setActive('settings');

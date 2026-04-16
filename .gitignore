@@ -13,6 +13,7 @@ trufflehog-reports/
 xeol-reports/
 clamav-reports/
 checkov-reports/
+garak.log
 
 # Scan results (exclude all regular scans in root scans/ directory only)
 /scans/

@@ -408,7 +408,19 @@ fi
 echo ""
 
 # Load approved base images configuration
-CONFIG_DIR="$REPO_ROOT/configuration"
+# REPORTS_ROOT is the repo root (parent of scripts/); REPO_ROOT is the scripts dir.
+CONFIG_DIR="$REPORTS_ROOT/configuration"
+
+# Validate that a given image tag appears in the approved-base-images.conf list.
+validate_latest_image() {
+    local image="$1"
+    if grep -qF "$image" "$CONFIG_DIR/approved-base-images.conf" 2>/dev/null; then
+        echo -e "${GREEN}✅ Image is in approved list: $image${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Image not found in approved list: $image${NC}"
+        echo -e "${YELLOW}   Review approved images in: $CONFIG_DIR/approved-base-images.conf${NC}"
+    fi
+}
 DEFAULT_BASELINE="dhi/caddy:debian-13-2-fips-dev@sha256:ba86d16733750c6fd7b8866981016d2479e234c842d77413f1bf41c4404e555c"
 
 echo -e "${CYAN}🔧 Baseline Image Configuration${NC}"
@@ -689,21 +701,48 @@ echo ""
 case "$SCAN_TYPE" in
     "quick")
         print_section "Quick Security Scan (Core Tools Only) - Target: $(basename "$TARGET_DIR")"
-        
+        echo -e "${YELLOW}ℹ️  Quick mode matches CI layer set: SBOM, Secrets, Helm, Trivy(fs+base), Grype(sbom+images), Xeol, API${NC}"
+        echo -e "${YELLOW}ℹ️  Skipped in quick mode: SonarQube, ClamAV, Checkov, Anchore, Garak${NC}"
+        echo ""
+
         # SBOM first - foundation for vulnerability scanning (with dependency installation)
-        run_security_tool "Complete SBOM Generation" "$SCRIPT_DIR/run-complete-sbom-scan.sh"
+        [[ "${SKIP_SBOM:-false}" != "true" ]] && run_security_tool "Complete SBOM Generation" "$SCRIPT_DIR/run-complete-sbom-scan.sh" || echo -e "${YELLOW}⏭️  Skipping SBOM (SKIP_SBOM=true)${NC}"
         export SBOM_FILE="$SCAN_DIR/sbom/filesystem.json"
-        
-        # Core security tools
-        run_security_tool "TruffleHog Secret Detection" "$SCRIPT_DIR/run-trufflehog-scan.sh" "filesystem"
-        run_security_tool "Grype Vulnerability Scanning (SBOM)" "$SCRIPT_DIR/run-grype-scan.sh" "sbom"
-        run_security_tool "Trivy Security Analysis" "$SCRIPT_DIR/run-trivy-scan.sh" "filesystem"
-        if [[ "${SKIP_GARAK}" != "true" ]]; then
+
+        # Layer 2: Secret Detection
+        [[ "${SKIP_TRUFFLEHOG:-false}" != "true" ]] && run_security_tool "TruffleHog Secret Detection" "$SCRIPT_DIR/run-trufflehog-scan.sh" "filesystem" || echo -e "${YELLOW}⏭️  Skipping TruffleHog (SKIP_TRUFFLEHOG=true)${NC}"
+
+        # Layer 5: Helm (quick includes this, unlike ClamAV/Sonar/Checkov/Anchore)
+        [[ "${SKIP_HELM:-false}" != "true" ]] && run_security_tool "Helm Chart Build" "$SCRIPT_DIR/run-helm-build.sh" || echo -e "${YELLOW}⏭️  Skipping Helm (SKIP_HELM=true)${NC}"
+
+        # Layer 7: Trivy (filesystem + base image)
+        if [[ "${SKIP_TRIVY:-false}" != "true" ]]; then
+            run_security_tool "Trivy Security Analysis (Filesystem)" "$SCRIPT_DIR/run-trivy-scan.sh" "filesystem"
+            run_security_tool "Trivy Base Image Analysis" "$SCRIPT_DIR/run-trivy-scan.sh" "base"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Trivy (SKIP_TRIVY=true)${NC}"
+        fi
+
+        # Layer 8: Grype (SBOM + images)
+        if [[ "${SKIP_GRYPE:-false}" != "true" ]]; then
+            run_security_tool "Grype Vulnerability Scanning (SBOM)" "$SCRIPT_DIR/run-grype-scan.sh" "sbom"
+            run_security_tool "Grype Vulnerability Scanning (Images)" "$SCRIPT_DIR/run-grype-scan.sh" "images"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Grype (SKIP_GRYPE=true)${NC}"
+        fi
+
+        # Layer 9: Xeol EOL detection
+        [[ "${SKIP_XEOL:-false}" != "true" ]] && run_security_tool "Xeol End-of-Life Detection" "$SCRIPT_DIR/run-xeol-scan.sh" || echo -e "${YELLOW}⏭️  Skipping Xeol (SKIP_XEOL=true)${NC}"
+
+        # Layer 11: API Discovery
+        [[ "${SKIP_API_DISCOVERY:-false}" != "true" ]] && run_security_tool "API Discovery" "$SCRIPT_DIR/run-api-discovery.sh" || echo -e "${YELLOW}⏭️  Skipping API Discovery (SKIP_API_DISCOVERY=true)${NC}"
+
+        # Layer 12: Garak — skipped in quick mode (opt-in via RUN_GARAK=true)
+        if [[ "${RUN_GARAK:-false}" == "true" ]] && [[ "${SKIP_GARAK:-false}" != "true" ]]; then
             run_security_tool "Garak LLM Security Probing" "$SCRIPT_DIR/run-garak-scan.sh"
         else
-            echo -e "${YELLOW}⏭️  Skipping Garak LLM Security Probing (--no-garak / SKIP_GARAK=true)${NC}"
+            echo -e "${YELLOW}⏭️  Skipping Garak LLM Security Probing (quick mode; set RUN_GARAK=true to enable)${NC}"
         fi
-        run_security_tool "ClamAV Antivirus Scan" "$SCRIPT_DIR/run-clamav-scan.sh"
         ;;
         
     "images")
@@ -727,19 +766,31 @@ case "$SCAN_TYPE" in
         echo ""
         
         echo -e "${PURPLE}📊 Code Quality Analysis${NC}"
-        run_security_tool "SonarQube Analysis" "$SCRIPT_DIR/run-sonar-analysis.sh"
+        if [[ "${SKIP_SONAR:-false}" != "true" ]]; then
+            run_security_tool "SonarQube Analysis" "$SCRIPT_DIR/run-sonar-analysis.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping SonarQube (SKIP_SONAR=true)${NC}"
+        fi
         
         echo -e "${PURPLE}☸️  Infrastructure Security${NC}"
-        run_security_tool "Checkov IaC Security" "$SCRIPT_DIR/run-checkov-scan.sh"
+        if [[ "${SKIP_CHECKOV:-false}" != "true" ]]; then
+            run_security_tool "Checkov IaC Security" "$SCRIPT_DIR/run-checkov-scan.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Checkov (SKIP_CHECKOV=true)${NC}"
+        fi
         
         echo -e "${PURPLE}🌐 API Discovery${NC}"
-        run_security_tool "API Discovery" "$SCRIPT_DIR/run-api-discovery.sh"
+        if [[ "${SKIP_API_DISCOVERY:-false}" != "true" ]]; then
+            run_security_tool "API Discovery" "$SCRIPT_DIR/run-api-discovery.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping API Discovery (SKIP_API_DISCOVERY=true)${NC}"
+        fi
 
         echo -e "${PURPLE}🤖 LLM Security Probing${NC}"
-        if [[ "${SKIP_GARAK}" != "true" ]]; then
+        if [[ "${RUN_GARAK:-false}" == "true" ]] && [[ "${SKIP_GARAK:-false}" != "true" ]]; then
             run_security_tool "Garak LLM Security Probing" "$SCRIPT_DIR/run-garak-scan.sh"
         else
-            echo -e "${YELLOW}⏭️  Skipping Garak LLM Security Probing (--no-garak / SKIP_GARAK=true)${NC}"
+            echo -e "${YELLOW}⏭️  Skipping Garak LLM Security Probing (set RUN_GARAK=true to enable)${NC}"
         fi
         ;;
         
@@ -748,48 +799,94 @@ case "$SCAN_TYPE" in
         
         # SBOM FIRST - Generate bill of materials for all other tools to use (with dependency installation)
         echo -e "${PURPLE}📋 Layer 1: Software Bill of Materials (SBOM) - Foundation for all scans${NC}"
-        run_security_tool "Complete SBOM Generation" "$SCRIPT_DIR/run-complete-sbom-scan.sh"
+        if [[ "${SKIP_SBOM:-false}" != "true" ]]; then
+            run_security_tool "Complete SBOM Generation" "$SCRIPT_DIR/run-complete-sbom-scan.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Layer 1 - SBOM (SKIP_SBOM=true)${NC}"
+        fi
         
         # Export SBOM path for other tools to use
         export SBOM_FILE="$SCAN_DIR/sbom/filesystem.json"
         
         echo -e "${PURPLE}🔐 Layer 2: Secret Detection${NC}"
-        run_security_tool "TruffleHog Filesystem" "$SCRIPT_DIR/run-trufflehog-scan.sh" "filesystem"
+        if [[ "${SKIP_TRUFFLEHOG:-false}" != "true" ]]; then
+            run_security_tool "TruffleHog Filesystem" "$SCRIPT_DIR/run-trufflehog-scan.sh" "filesystem"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Layer 2 - TruffleHog (SKIP_TRUFFLEHOG=true)${NC}"
+        fi
         
         echo -e "${PURPLE}📊 Layer 3: Code Quality Analysis${NC}"
-        run_security_tool "SonarQube Analysis" "$SCRIPT_DIR/run-sonar-analysis.sh"
+        if [[ "${SKIP_SONAR:-false}" != "true" ]]; then
+            run_security_tool "SonarQube Analysis" "$SCRIPT_DIR/run-sonar-analysis.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Layer 3 - SonarQube (SKIP_SONAR=true)${NC}"
+        fi
         
         echo -e "${PURPLE}🦠 Layer 4: Malware Detection${NC}"
-        run_security_tool "ClamAV Antivirus Scan" "$SCRIPT_DIR/run-clamav-scan.sh"
+        if [[ "${SKIP_CLAMAV:-false}" != "true" ]]; then
+            run_security_tool "ClamAV Antivirus Scan" "$SCRIPT_DIR/run-clamav-scan.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Layer 4 - ClamAV (SKIP_CLAMAV=true)${NC}"
+        fi
         
         echo -e "${PURPLE}🏗️  Layer 5: Helm Chart Building${NC}"
-        run_security_tool "Helm Chart Build" "$SCRIPT_DIR/run-helm-build.sh"
+        if [[ "${SKIP_HELM:-false}" != "true" ]]; then
+            run_security_tool "Helm Chart Build" "$SCRIPT_DIR/run-helm-build.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Layer 5 - Helm (SKIP_HELM=true)${NC}"
+        fi
         
         echo -e "${PURPLE}☸️  Layer 6: Infrastructure Security${NC}"
-        run_security_tool "Checkov IaC Security" "$SCRIPT_DIR/run-checkov-scan.sh"
+        if [[ "${SKIP_CHECKOV:-false}" != "true" ]]; then
+            run_security_tool "Checkov IaC Security" "$SCRIPT_DIR/run-checkov-scan.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Layer 6 - Checkov (SKIP_CHECKOV=true)${NC}"
+        fi
         
         echo -e "${PURPLE}🛡️  Layer 7: Container Security (Trivy)${NC}"
-        run_security_tool "Trivy Filesystem" "$SCRIPT_DIR/run-trivy-scan.sh" "filesystem"
-        run_security_tool "Trivy Base Images" "$SCRIPT_DIR/run-trivy-scan.sh" "base"
+        if [[ "${SKIP_TRIVY:-false}" != "true" ]]; then
+            run_security_tool "Trivy Filesystem" "$SCRIPT_DIR/run-trivy-scan.sh" "filesystem"
+            run_security_tool "Trivy Base Images" "$SCRIPT_DIR/run-trivy-scan.sh" "base"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Layer 7 - Trivy (SKIP_TRIVY=true)${NC}"
+        fi
         
         echo -e "${PURPLE}🔍 Layer 8: Vulnerability Detection (Grype - SBOM-based)${NC}"
-        run_security_tool "Grype SBOM Scan" "$SCRIPT_DIR/run-grype-scan.sh" "sbom"
-        run_security_tool "Grype Base Images" "$SCRIPT_DIR/run-grype-scan.sh" "images"
+        if [[ "${SKIP_GRYPE:-false}" != "true" ]]; then
+            run_security_tool "Grype SBOM Scan" "$SCRIPT_DIR/run-grype-scan.sh" "sbom"
+            run_security_tool "Grype Base Images" "$SCRIPT_DIR/run-grype-scan.sh" "images"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Layer 8 - Grype (SKIP_GRYPE=true)${NC}"
+        fi
         
         echo -e "${PURPLE}⚰️  Layer 9: End-of-Life Detection${NC}"
-        run_security_tool "Xeol EOL Detection" "$SCRIPT_DIR/run-xeol-scan.sh"
+        if [[ "${SKIP_XEOL:-false}" != "true" ]]; then
+            run_security_tool "Xeol EOL Detection" "$SCRIPT_DIR/run-xeol-scan.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Layer 9 - Xeol (SKIP_XEOL=true)${NC}"
+        fi
         
         echo -e "${PURPLE}⚓ Layer 10: Anchore Security Analysis${NC}"
-        run_security_tool "Anchore Security Scan" "$SCRIPT_DIR/run-anchore-scan.sh"
+        if [[ "${SKIP_ANCHORE:-false}" != "true" ]]; then
+            run_security_tool "Anchore Security Scan" "$SCRIPT_DIR/run-anchore-scan.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Layer 10 - Anchore (SKIP_ANCHORE=true)${NC}"
+        fi
         
         echo -e "${PURPLE}🌐 Layer 11: API Discovery${NC}"
-        run_security_tool "API Discovery" "$SCRIPT_DIR/run-api-discovery.sh"
+        if [[ "${SKIP_API_DISCOVERY:-false}" != "true" ]]; then
+            run_security_tool "API Discovery" "$SCRIPT_DIR/run-api-discovery.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Layer 11 - API Discovery (SKIP_API_DISCOVERY=true)${NC}"
+        fi
 
         echo -e "${PURPLE}🤖 Layer 12: LLM Security Probing${NC}"
-        if [[ "${SKIP_GARAK}" != "true" ]]; then
+        # Garak is skipped by default in full mode to match CI behavior.
+        # Set RUN_GARAK=true to opt-in, or use SKIP_GARAK=true / --no-garak to force-skip.
+        if [[ "${RUN_GARAK:-false}" == "true" ]] && [[ "${SKIP_GARAK:-false}" != "true" ]]; then
             run_security_tool "Garak LLM Security Probing" "$SCRIPT_DIR/run-garak-scan.sh"
         else
-            echo -e "${YELLOW}⏭️  Skipping Garak LLM Security Probing (--no-garak / SKIP_GARAK=true)${NC}"
+            echo -e "${YELLOW}⏭️  Skipping Garak LLM Security Probing (set RUN_GARAK=true to enable)${NC}"
         fi
         ;;
         
@@ -1086,6 +1183,57 @@ if [[ -f "$SCRIPT_DIR/consolidate-security-reports.sh" ]]; then
         "$SCRIPT_DIR/enrich-findings.sh" --scan-dir "$SCAN_DIR" || true
     else
         echo -e "${YELLOW}⚠️  enrich-findings.sh not found, skipping enrichment${NC}"
+    fi
+
+    # Apply .epyon-ignore.yml suppression rules (matches CI behavior)
+    echo ""
+    echo -e "${BLUE}🔇 Applying suppression rules from .epyon-ignore.yml...${NC}"
+    FINDINGS_SUMMARY="$SCAN_DIR/security-findings-summary.json"
+    if [[ -f "$FINDINGS_SUMMARY" ]]; then
+        IGNORE_CACHE="${IGNORE_CACHE:-/tmp/epyon-ignore-cache.json}"
+        if [[ -f "$SCRIPT_DIR/parse-epyon-ignore.sh" ]]; then
+            # shellcheck disable=SC1090
+            source "$SCRIPT_DIR/parse-epyon-ignore.sh"
+            parse_ignore_rules "${TARGET_DIR}/.epyon-ignore.yml" 2>/dev/null || true
+        else
+            echo "{\"ignores\": []}" > "$IGNORE_CACHE"
+        fi
+
+        if [[ -f "$SCRIPT_DIR/filter-ignored-findings.sh" ]]; then
+            # shellcheck disable=SC1090
+            source "$SCRIPT_DIR/filter-ignored-findings.sh" 2>/dev/null || true
+            init_suppressed_log 2>/dev/null || true
+        fi
+
+        SUPPRESSED_TOOLS_JQ=""
+        for tool_name in grype trivy trufflehog checkov clamav anchore xeol; do
+            if declare -f is_tool_ignored >/dev/null 2>&1 && is_tool_ignored "$tool_name" 2>/dev/null; then
+                echo -e "${YELLOW}   Suppressing findings from tool: $tool_name${NC}"
+                SUPPRESSED_TOOLS_JQ="${SUPPRESSED_TOOLS_JQ} and ((.tool // \"\" | ascii_downcase) | startswith(\"${tool_name}\") | not)"
+            fi
+        done
+
+        FILTERED_SUMMARY="${FINDINGS_SUMMARY%.json}-filtered.json"
+        if [[ -n "$SUPPRESSED_TOOLS_JQ" ]]; then
+            FILTER_EXPR="select(true ${SUPPRESSED_TOOLS_JQ})"
+            JQ_FILTER=".critical_findings = [.critical_findings[] | ${FILTER_EXPR}] |
+              .high_findings     = [.high_findings[]     | ${FILTER_EXPR}] |
+              .medium_findings   = [.medium_findings[]   | ${FILTER_EXPR}] |
+              .low_findings      = [.low_findings[]      | ${FILTER_EXPR}] |
+              .summary.total_critical = ([.critical_findings[] | ${FILTER_EXPR}] | length) |
+              .summary.total_high     = ([.high_findings[]     | ${FILTER_EXPR}] | length) |
+              .summary.total_medium   = ([.medium_findings[]   | ${FILTER_EXPR}] | length) |
+              .summary.total_low      = ([.low_findings[]      | ${FILTER_EXPR}] | length)"
+            jq "$JQ_FILTER" "$FINDINGS_SUMMARY" > "$FILTERED_SUMMARY" \
+                && echo -e "${GREEN}✅ Filtered findings written to: $FILTERED_SUMMARY${NC}" \
+                || echo -e "${YELLOW}⚠️  Could not write filtered findings${NC}"
+        else
+            cp "$FINDINGS_SUMMARY" "$FILTERED_SUMMARY" \
+                && echo -e "${GREEN}✅ No active suppressions — copied summary to: $FILTERED_SUMMARY${NC}" \
+                || echo -e "${YELLOW}⚠️  Could not copy findings summary${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠️  No findings summary found — skipping suppression filter${NC}"
     fi
 
     # Generate Scan Manifest for Integrity Verification

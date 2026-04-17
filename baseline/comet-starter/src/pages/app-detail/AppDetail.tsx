@@ -4,6 +4,13 @@ import { useAppScans } from '@src/api/hooks';
 import { ScanTimeline } from '@src/components/scan-timeline/ScanTimeline';
 import { StatCard } from '@src/components/stat-card/StatCard';
 
+function repoUrl(scans: import('@src/api/types').Scan[] | undefined): string {
+  // Prefer the ci_source repo from the latest scan, fall back to app name
+  const ci = scans?.[0]?.ci_source;
+  if (ci?.repo) return `https://github.com/${ci.repo}`;
+  return '';
+}
+
 export const AppDetail = (): React.ReactElement => {
   const { name = '' } = useParams<{ name: string }>();
   const { data: scans, isLoading, error } = useAppScans(name);
@@ -29,7 +36,7 @@ export const AppDetail = (): React.ReactElement => {
 
       <div className="epyon-page-header">
         <h1>{name}</h1>
-        <Link to="/new-scan">
+        <Link to={`/new-scan?target=${encodeURIComponent(repoUrl(scans))}&app=${encodeURIComponent(name)}`}>
           <button className="usa-button">Run New Scan</button>
         </Link>
       </div>

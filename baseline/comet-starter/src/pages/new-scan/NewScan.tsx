@@ -1,12 +1,22 @@
 import React, { useState } from 'react';
-import { useTriggerScan, useJob, useCancelJob } from '@src/api/hooks';
+import { useTriggerScan, useJob, useCancelJob, useGitHubConfig } from '@src/api/hooks';
 import { JobOutput } from '@src/components/job-output/JobOutput';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 const SCAN_TYPES = ['full', 'quick', 'images', 'analysis'];
 
 export const NewScan = (): React.ReactElement => {
-  const [target, setTarget]       = useState('');
+  const [searchParams] = useSearchParams();
+  const prefillTarget  = searchParams.get('target') ?? '';
+  const prefillApp     = searchParams.get('app') ?? '';
+
+  const { data: ghConfig } = useGitHubConfig();
+
+  // Build quick-select options from tracked GitHub repos
+  const ghRepos   = (ghConfig?.repos ?? []).map((r) => `https://github.com/${r}`);
+  const quickOpts = Array.from(new Set(ghRepos));
+
+  const [target, setTarget]       = useState(prefillTarget);
   const [scanType, setScanType]   = useState('full');
   const [jobId, setJobId]         = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -52,21 +62,97 @@ export const NewScan = (): React.ReactElement => {
 
       {!submitted ? (
         <div style={{ maxWidth: 600 }}>
+          {prefillApp && (
+            <div style={{ marginBottom: '1.25rem', padding: '10px 14px', background: 'var(--epyon-bg-card)', border: '1px solid var(--epyon-border)', borderRadius: 6, fontSize: 13, color: 'var(--epyon-text-muted)' }}>
+              Scanning <strong style={{ color: 'var(--epyon-text)' }}>{prefillApp}</strong>
+              {prefillTarget && <> · <a href={prefillTarget} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--epyon-accent)' }}>{prefillTarget}</a></>}
+              <button
+                type="button"
+                className="usa-button usa-button--unstyled"
+                style={{ marginLeft: 12, fontSize: 12 }}
+                onClick={() => { setTarget(''); }}
+              >
+                Change target
+              </button>
+            </div>
+          )}
           <form onSubmit={handleSubmit}>
-            <div className="usa-form-group">
-              <label className="usa-label" htmlFor="scan-target">
-                Target <span style={{ color: 'var(--epyon-critical)' }}>*</span>
+            {/* Target input — shown when not prefilled or user clicked change */}
+            {(!prefillApp || !target) && (
+              <>
+                {quickOpts.length > 0 && (
+                  <div className="usa-form-group">
+                    <label className="usa-label" htmlFor="scan-quick">Quick Select</label>
+                    <span className="usa-hint">Pick a tracked repository</span>
+                    <select
+                      id="scan-quick"
+                      className="usa-select"
+                      value={quickOpts.includes(target) ? target : ''}
+                      onChange={(e) => { if (e.target.value) setTarget(e.target.value); }}
+                    >
+                      <option value="">— choose a repo —</option>
+                      {quickOpts.map((url) => (
+                        <option key={url} value={url}>{url.replace('https://github.com/', '')}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <div className="usa-form-group">
+                  <label className="usa-label" htmlFor="scan-target">
+                    {quickOpts.length > 0 ? 'Or enter a custom target' : 'Target'}
+                    {quickOpts.length === 0 && <span style={{ color: 'var(--epyon-critical)' }}> *</span>}
+                  </label>
+                  <span className="usa-hint">Absolute path, relative path, or Git URL</span>
+                  <input
+                    id="scan-target"
+                    className="usa-input"
+                    type="text"
+                    placeholder="/path/to/project or https://github.com/org/repo"
+                    value={quickOpts.includes(target) ? '' : target}
+                    onChange={(e) => setTarget(e.target.value)}
+                  />
+                </div>
+              </>
+            )}
+            <div className="usa-form-group" style={{ marginBottom: '1rem' }}>
+              <label className="usa-label" htmlFor="scan-add-repo" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Add New Repository</span>
               </label>
-              <span className="usa-hint">Absolute path, relative path, or Git URL</span>
-              <input
-                id="scan-target"
-                className="usa-input"
-                type="text"
-                placeholder="/path/to/project or https://github.com/org/repo"
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-                required
-              />
+              <span className="usa-hint">Add a repo to track (owner/repo) — saves to GitHub config</span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  id="scan-add-repo"
+                  className="usa-input"
+                  type="text"
+                  placeholder="MetroStar/my-repo"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const val = (e.target as HTMLInputElement).value.trim();
+                      if (val && val.includes('/')) {
+                        const url = `https://github.com/${val}`;
+                        setTarget(url);
+                        (e.target as HTMLInputElement).value = '';
+                      }
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="usa-button usa-button--secondary"
+                  style={{ whiteSpace: 'nowrap' }}
+                  onClick={(e) => {
+                    const input = (e.currentTarget.previousElementSibling as HTMLInputElement);
+                    const val = input.value.trim();
+                    if (val && val.includes('/')) {
+                      setTarget(`https://github.com/${val}`);
+                      input.value = '';
+                    }
+                  }}
+                >
+                  Use
+                </button>
+              </div>
             </div>
 
             <div className="usa-form-group">

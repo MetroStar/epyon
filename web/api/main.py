@@ -9,6 +9,7 @@ import asyncio
 import json
 import os
 import re
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -38,6 +39,11 @@ _JOB_ID_RE       = re.compile(r"^\d{14}$")
 _VALID_SCAN_TYPES = {"quick", "full", "images", "analysis"}
 _TOKEN_RE        = re.compile(r"^(ghp_|github_pat_|ghs_|gho_)[a-zA-Z0-9_]+$")
 _REPO_RE         = re.compile(r"^[a-zA-Z0-9_.\-]+/[a-zA-Z0-9_.\-]+$")
+
+# ── Metrics cache ─────────────────────────────────────────────
+_metrics_cache:    dict  = {}
+_metrics_cache_ts: float = 0.0
+_METRICS_TTL:      float = 300.0  # seconds
 
 
 def _now() -> str:
@@ -275,6 +281,124 @@ def cancel_job(job_id: str, response: Response):
         raise HTTPException(409, "Job is not running")
     job_store.cancel_job(job_id)
     return {"job_id": job_id, "status": "cancelled"}
+
+
+# ── Metrics ───────────────────────────────────────────────────
+
+@app.get("/api/metrics")
+def get_metrics(response: Response):
+    _sec_headers(response)
+    global _metrics_cache, _metrics_cache_ts
+    now = time.monotonic()
+    if _metrics_cache and (now - _metrics_cache_ts) < _METRICS_TTL:
+        return _metrics_cache
+
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
+    all_scans = [parsers.load_scan(d, EPYON_ROOT) for d in scan_dirs]
+
+    # 1. Trend — all scans sorted by timestamp (cap at 60 for chart readability)
+    trend = sorted(
+        [
+            {
+                "scan_id":   s["scan_id"],
+                "target":    s["target"],
+                "timestamp": s["timestamp"],
+                "critical":  s["critical"],
+                "high":      s["high"],
+                "medium":    s["medium"],
+                "low":       s["low"],
+            }
+            for s in all_scans if s.get("timestamp")
+        ],
+        key=lambda x: x["timestamp"],
+    )[-60:]
+
+    # 2–4. By tool / fix rate / top CVEs — latest scan per app only
+    by_target: dict[str, list] = {}
+    for s, d in zip(all_scans, scan_dirs):
+        by_target.setdefault(s["target"], []).append((s, d))
+
+    tool_counts:      dict[str, dict] = {}
+    total_with_fix    = 0
+    total_without_fix = 0
+    cve_counts:       dict[str, dict] = {}
+
+    for _target, scan_list in by_target.items():
+        scan_list.sort(key=lambda x: x[0].get("timestamp", ""), reverse=True)
+        _, latest_dir = scan_list[0]
+        findings = parsers.parse_scan_findings(latest_dir)
+        if not findings:
+            continue
+        for sev in ("critical", "high", "medium", "low"):
+            for f in findings.get(f"{sev}_findings", []):
+                tool = f.get("tool") or "Unknown"
+                if tool not in tool_counts:
+                    tool_counts[tool] = {"critical": 0, "high": 0, "medium": 0, "low": 0, "total": 0}
+                tool_counts[tool][sev]    += 1
+                tool_counts[tool]["total"] += 1
+                if f.get("fixed_version"):
+                    total_with_fix += 1
+                else:
+                    total_without_fix += 1
+                cve_id = f.get("id") or ""
+                if cve_id.startswith("CVE-"):
+                    if cve_id not in cve_counts:
+                        cve_counts[cve_id] = {
+                            "count":    0,
+                            "severity": sev,
+                            "title":    (f.get("title") or "")[:120],
+                            "apps":     set(),
+                        }
+                    cve_counts[cve_id]["count"] += 1
+                    cve_counts[cve_id]["apps"].add(_target)
+
+    top_cves = sorted(cve_counts.items(), key=lambda x: x[1]["count"], reverse=True)[:20]
+
+    # 5. Scan frequency
+    scan_frequency = {
+        target: {
+            "total": len(scan_list),
+            "dates": sorted(
+                s.get("timestamp", "")[:10]
+                for s, _ in scan_list if s.get("timestamp")
+            ),
+        }
+        for target, scan_list in by_target.items()
+    }
+
+    result = {
+        "trend": trend,
+        "by_tool": sorted(
+            [
+                {
+                    "tool":     k,
+                    "critical": v["critical"],
+                    "high":     v["high"],
+                    "medium":   v["medium"],
+                    "low":      v["low"],
+                    "total":    v["total"],
+                }
+                for k, v in tool_counts.items()
+            ],
+            key=lambda x: -x["total"],
+        ),
+        "fix_rate": {"with_fix": total_with_fix, "without_fix": total_without_fix},
+        "top_cves": [
+            {
+                "cve_id":   k,
+                "count":    v["count"],
+                "severity": v["severity"],
+                "title":    v["title"],
+                "apps":     sorted(v["apps"]),
+            }
+            for k, v in top_cves
+        ],
+        "scan_frequency": scan_frequency,
+    }
+
+    _metrics_cache    = result
+    _metrics_cache_ts = now
+    return result
 
 
 # ── Settings ──────────────────────────────────────────────────

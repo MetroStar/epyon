@@ -83,6 +83,123 @@ function dedupeTools(arr) {
   return [...new Set(arr || [])];
 }
 
+// ── Chart helpers ─────────────────────────────────────────────
+const _CC = {
+  critical: '#ff7b72', high: '#ffa657', medium: '#e3b341', low: '#79c0ff',
+};
+
+function drawDonutChart(canvas, segments) {
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = 200, H = 200;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.scale(dpr, dpr);
+  const cx = W / 2, cy = H / 2, R = 78, ir = 50;
+  const total = segments.reduce((s, x) => s + (x.value || 0), 0);
+  if (!total) {
+    ctx.fillStyle = '#21262d';
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#161b22';
+    ctx.beginPath(); ctx.arc(cx, cy, ir, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#6e7681'; ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('No data', cx, cy);
+    return;
+  }
+  let angle = -Math.PI / 2;
+  for (const seg of segments) {
+    if (!seg.value) continue;
+    const slice = (seg.value / total) * Math.PI * 2;
+    ctx.beginPath(); ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, R, angle, angle + slice); ctx.closePath();
+    ctx.fillStyle = seg.color; ctx.fill();
+    angle += slice;
+  }
+  ctx.beginPath(); ctx.arc(cx, cy, ir, 0, Math.PI * 2);
+  ctx.fillStyle = '#161b22'; ctx.fill();
+  ctx.fillStyle = '#e6edf3'; ctx.font = 'bold 22px sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(total.toLocaleString(), cx, cy - 9);
+  ctx.fillStyle = '#8b949e'; ctx.font = '11px sans-serif';
+  ctx.fillText('findings', cx, cy + 10);
+}
+
+function drawHBarChart(canvas, items) {
+  if (!items.length) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w   = (canvas.parentElement ? canvas.parentElement.clientWidth - 40 : 400);
+  const rowH = 36, h = items.length * rowH + 8;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  ctx.scale(dpr, dpr);
+  const labelW = 100, countW = 44, barArea = w - labelW - countW;
+  const maxTotal = Math.max(...items.map(x => x.total), 1);
+  items.forEach((item, i) => {
+    const barH = 20, barY = i * rowH + (rowH - barH) / 2;
+    ctx.fillStyle = '#21262d';
+    ctx.fillRect(labelW, barY, barArea, barH);
+    let xOff = labelW;
+    for (const sev of ['critical', 'high', 'medium', 'low']) {
+      const val = item[sev] || 0;
+      if (!val) continue;
+      const bw = Math.max(1, Math.round((val / maxTotal) * barArea));
+      ctx.fillStyle = _CC[sev];
+      ctx.fillRect(xOff, barY, bw, barH);
+      xOff += bw;
+    }
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '12px -apple-system, sans-serif';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    const lbl = item.label.length > 13 ? item.label.slice(0, 12) + '…' : item.label;
+    ctx.fillText(lbl, labelW - 8, barY + barH / 2);
+    ctx.textAlign = 'left';
+    ctx.fillText(item.total, labelW + barArea + 8, barY + barH / 2);
+  });
+}
+
+function drawLineChart(canvas, series, xLabels) {
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w = (canvas.parentElement ? canvas.parentElement.clientWidth - 40 : 600);
+  const h = 200;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  ctx.scale(dpr, dpr);
+  const n = xLabels.length;
+  if (!n) return;
+  const pad = { top: 16, right: 16, bottom: 36, left: 44 };
+  const cw = w - pad.left - pad.right, ch = h - pad.top - pad.bottom;
+  const maxV = Math.max(...series.flatMap(s => s.data), 1);
+  ctx.strokeStyle = '#21262d'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + ch * (1 - i / 4);
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + cw, y); ctx.stroke();
+    ctx.fillStyle = '#6e7681'; ctx.font = '10px sans-serif';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText(Math.round(maxV * i / 4), pad.left - 5, y);
+  }
+  const step = Math.max(1, Math.floor(n / 12));
+  ctx.fillStyle = '#6e7681'; ctx.font = '10px sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let i = 0; i < n; i += step) {
+    const x = pad.left + (n === 1 ? cw / 2 : (i / (n - 1)) * cw);
+    ctx.fillText(xLabels[i].slice(5, 10), x, pad.top + ch + 6);
+  }
+  for (const s of series) {
+    if (!s.data.some(v => v > 0)) continue;
+    ctx.strokeStyle = s.color; ctx.lineWidth = 2; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    s.data.forEach((v, i) => {
+      const x = pad.left + (n === 1 ? cw / 2 : (i / (n - 1)) * cw);
+      const y = pad.top + ch * (1 - v / maxV);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  }
+}
+
 // ── API client ────────────────────────────────────────────────
 const api = {
   async _get(url) {
@@ -122,6 +239,7 @@ const api = {
   },
   getJob(id)  { return this._get(`/api/jobs/${encodeURIComponent(id)}`); },
   getJobs()   { return this._get('/api/jobs'); },
+  getMetrics() { return this._get('/api/metrics'); },
 };
 
 // ── Navigation ────────────────────────────────────────────────
@@ -706,6 +824,171 @@ async function cancelScan() {
   } catch (_) {}
 }
 
+// ─────────────────────────────────────────────────────────────
+
+async function renderMetrics() {
+  setActive('metrics');
+  const page = document.getElementById('page');
+  page.innerHTML = loading();
+
+  try {
+    const m = await api.getMetrics();
+
+    const totalFindings = (m.fix_rate.with_fix || 0) + (m.fix_rate.without_fix || 0);
+    const fixPct     = totalFindings > 0
+      ? Math.round((m.fix_rate.with_fix / totalFindings) * 100) : 0;
+    const topTool    = (m.by_tool[0] || {}).tool || '—';
+    const activeApps = Object.keys(m.scan_frequency || {}).length;
+    const toolH      = Math.max((m.by_tool.length || 1) * 36 + 8, 60);
+
+    const topCveRows = m.top_cves.length
+      ? m.top_cves.map(c => `
+          <tr>
+            <td><a href="https://nvd.nist.gov/vuln/detail/${esc(c.cve_id)}"
+                   target="_blank" rel="noopener noreferrer"><code>${esc(c.cve_id)}</code></a></td>
+            <td><span class="sev-badge ${esc(c.severity)}">${ucFirst(c.severity)}</span></td>
+            <td>${esc(c.count)}</td>
+            <td style="max-width:360px">${esc(c.title || '—')}</td>
+            <td style="font-size:11px;color:var(--text-muted)">${c.apps.map(a => esc(a)).join(', ')}</td>
+          </tr>`).join('')
+      : '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">No CVE data — run a scan to populate</td></tr>';
+
+    const freqRows = Object.entries(m.scan_frequency || {})
+      .sort((a, b) => b[1].total - a[1].total)
+      .map(([name, f]) => {
+        const firstDate = f.dates.length ? f.dates[0] : '—';
+        const lastDate  = f.dates.length ? f.dates[f.dates.length - 1] : '—';
+        return `
+          <tr onclick="navigate('#/applications/${encodeURIComponent(name)}')" style="cursor:pointer">
+            <td><strong>${esc(name)}</strong></td>
+            <td>${esc(f.total)}</td>
+            <td>${esc(firstDate)}</td>
+            <td>${esc(lastDate)}</td>
+            <td><div class="freq-dots">${
+              f.dates.map(d => `<span class="freq-dot" title="${esc(d)}"></span>`).join('')
+            }</div></td>
+          </tr>`;
+      }).join('');
+
+    const legendSevs = ['critical','high','medium','low'].map(s =>
+      `<span class="legend-item"><span class="legend-dot" style="background:var(--${s})"></span>${ucFirst(s)}</span>`
+    ).join('');
+
+    page.innerHTML = `
+      <div class="page-header">
+        <h1>Metrics</h1>
+        <button class="btn btn-sm" onclick="renderMetrics()">&#8635; Refresh</button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value">${esc(String(totalFindings.toLocaleString()))}</div>
+          <div class="stat-label">Total Findings</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color:var(--clean)">${esc(String(fixPct))}%</div>
+          <div class="stat-label">Fixable</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${esc(String(activeApps))}</div>
+          <div class="stat-label">Active Apps</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="font-size:16px;padding-top:6px">${esc(topTool)}</div>
+          <div class="stat-label">Top Finding Tool</div>
+        </div>
+      </div>
+
+      <div class="metrics-two-col">
+        <div class="chart-panel">
+          <div class="section-title">Fix Rate</div>
+          <div class="donut-wrap">
+            <canvas id="donut-chart" width="200" height="200"></canvas>
+          </div>
+          <div class="chart-legend">
+            <span class="legend-item">
+              <span class="legend-dot" style="background:var(--clean)"></span>
+              Fixable (${esc(String(m.fix_rate.with_fix))})
+            </span>
+            <span class="legend-item">
+              <span class="legend-dot" style="background:#30363d;border:1px solid #6e7681"></span>
+              No fix (${esc(String(m.fix_rate.without_fix))})
+            </span>
+          </div>
+        </div>
+        <div class="chart-panel" style="flex:2;min-width:0">
+          <div class="section-title">Findings by Tool</div>
+          <canvas id="tool-chart" style="display:block;width:100%;height:${toolH}px"></canvas>
+          <div class="chart-legend" style="margin-top:12px">${legendSevs}</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">
+          Vulnerability Trend
+          <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">last ${m.trend.length} scans</span>
+        </div>
+        <div class="trend-wrap">
+          <canvas id="trend-chart" style="display:block;width:100%;height:200px"></canvas>
+        </div>
+        <div class="chart-legend">${legendSevs}</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">
+          Top CVEs
+          <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">from latest scan per application</span>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr><th>CVE ID</th><th>Severity</th><th>Count</th><th>Title</th><th>Applications</th></tr>
+            </thead>
+            <tbody>${topCveRows}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Scan Frequency</div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr><th>Application</th><th>Total Scans</th><th>First Scan</th><th>Latest Scan</th><th>History</th></tr>
+            </thead>
+            <tbody>${freqRows || '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">No scan data available</td></tr>'}</tbody>
+          </table>
+        </div>
+      </div>`;
+
+    requestAnimationFrame(() => {
+      const donut = document.getElementById('donut-chart');
+      if (donut) drawDonutChart(donut, [
+        { value: m.fix_rate.with_fix,    color: '#3fb950' },
+        { value: m.fix_rate.without_fix, color: '#30363d' },
+      ]);
+
+      const toolCanvas = document.getElementById('tool-chart');
+      if (toolCanvas) drawHBarChart(toolCanvas, m.by_tool.map(t => ({
+        label: t.tool, critical: t.critical, high: t.high,
+        medium: t.medium, low: t.low, total: t.total,
+      })));
+
+      const trendCanvas = document.getElementById('trend-chart');
+      if (trendCanvas && m.trend.length) {
+        drawLineChart(trendCanvas, [
+          { color: '#ff7b72', data: m.trend.map(t => t.critical) },
+          { color: '#ffa657', data: m.trend.map(t => t.high) },
+          { color: '#e3b341', data: m.trend.map(t => t.medium) },
+          { color: '#79c0ff', data: m.trend.map(t => t.low) },
+        ], m.trend.map(t => t.timestamp.slice(0, 10)));
+      }
+    });
+  } catch (e) {
+    page.innerHTML = errBanner(e.message);
+  }
+}
+
 async function renderSettings() {
   setActive('settings');
   const page = document.getElementById('page');
@@ -892,6 +1175,8 @@ function resolve() {
     scanId ? renderScanDetail(scanId) : renderApplications();
   } else if (path === '/new-scan') {
     renderNewScan(params.get('target') || '');
+  } else if (path === '/metrics') {
+    renderMetrics();
   } else if (path === '/settings') {
     renderSettings();
   } else {

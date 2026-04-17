@@ -459,6 +459,72 @@ body {
 .epyon-link { color: var(--epyon-accent) !important; text-decoration: none; }
 .epyon-link:hover { text-decoration: underline; color: var(--epyon-accent-hover) !important; }
 
+/* ── EpyonSelect custom dropdown ─────────────────────────────── */
+.epyon-select {
+  position: relative;
+  width: 100%;
+}
+.epyon-select__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--epyon-bg-card);
+  border: 1px solid var(--epyon-border);
+  border-radius: 4px;
+  color: var(--epyon-text);
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s;
+  &:hover, &:focus { border-color: var(--epyon-accent); outline: none; }
+}
+.epyon-select[aria-expanded="true"] .epyon-select__trigger {
+  border-color: var(--epyon-accent);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.epyon-select__caret {
+  flex-shrink: 0;
+  margin-left: 8px;
+  color: var(--epyon-text-muted);
+  transition: transform 0.15s;
+}
+.epyon-select[aria-expanded="true"] .epyon-select__caret { transform: rotate(180deg); }
+.epyon-select__list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  background: var(--epyon-bg-card);
+  border: 1px solid var(--epyon-accent);
+  border-top: none;
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+  max-height: 220px;
+  overflow-y: auto;
+}
+.epyon-select__item {
+  display: flex;
+  align-items: center;
+  padding: 7px 12px;
+  font-size: 0.875rem;
+  color: var(--epyon-text);
+  cursor: pointer;
+  transition: background 0.1s;
+  &:hover { background: var(--epyon-bg-hover); }
+}
+.epyon-select__item--active {
+  color: var(--epyon-accent);
+  background: rgba(88, 166, 255, 0.08);
+}
+
 /* ── Dark mode: Banner sub-elements ────────────────────────────── */
 .usa-banner__header {
   background-color: var(--epyon-bg-card) !important;

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTriggerScan, useJob, useCancelJob, useGitHubConfig } from '@src/api/hooks';
 import { JobOutput } from '@src/components/job-output/JobOutput';
 import { Link, useSearchParams } from 'react-router-dom';
+import { EpyonSelect } from '@src/components/epyon-select/EpyonSelect';
 
 const SCAN_TYPES = ['full', 'quick', 'images', 'analysis'];
 
@@ -84,17 +85,15 @@ export const NewScan = (): React.ReactElement => {
                   <div className="usa-form-group">
                     <label className="usa-label" htmlFor="scan-quick">Quick Select</label>
                     <span className="usa-hint">Pick a tracked repository</span>
-                    <select
+                    <EpyonSelect
                       id="scan-quick"
-                      className="usa-select"
                       value={quickOpts.includes(target) ? target : ''}
-                      onChange={(e) => { if (e.target.value) setTarget(e.target.value); }}
-                    >
-                      <option value="">— choose a repo —</option>
-                      {quickOpts.map((url) => (
-                        <option key={url} value={url}>{url.replace('https://github.com/', '')}</option>
-                      ))}
-                    </select>
+                      options={[
+                        { value: '', label: '— choose a repo —' },
+                        ...quickOpts.map((url) => ({ value: url, label: url.replace('https://github.com/', '') })),
+                      ]}
+                      onChange={(v) => { if (v) setTarget(v); }}
+                    />
                   </div>
                 )}
                 <div className="usa-form-group">
@@ -157,16 +156,12 @@ export const NewScan = (): React.ReactElement => {
 
             <div className="usa-form-group">
               <label className="usa-label" htmlFor="scan-type">Scan Type</label>
-              <select
+              <EpyonSelect
                 id="scan-type"
-                className="usa-select"
                 value={scanType}
-                onChange={(e) => setScanType(e.target.value)}
-              >
-                {SCAN_TYPES.map((t) => (
-                  <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
-                ))}
-              </select>
+                options={SCAN_TYPES.map((t) => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) }))}
+                onChange={setScanType}
+              />
             </div>
 
             {trigger.error && (

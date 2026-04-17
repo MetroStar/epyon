@@ -6,6 +6,8 @@ import {
   useScanHistory,
   useTriggerGitHubSync,
   useGitHubSyncStatus,
+  useHiddenApplications,
+  useRestoreApplication,
 } from '@src/api/hooks';
 import { StatCard } from '@src/components/stat-card/StatCard';
 
@@ -20,6 +22,8 @@ export const Settings = (): React.ReactElement => {
   const { data: ghCfg }   = useGitHubConfig();
   const saveGh            = useSaveGitHubConfig();
   const triggerSync       = useTriggerGitHubSync();
+  const { data: hidden }  = useHiddenApplications();
+  const restoreApp        = useRestoreApplication();
 
   const [syncing, setSyncing]         = useState(false);
   const { data: syncStatus }          = useGitHubSyncStatus(syncing);
@@ -173,6 +177,40 @@ export const Settings = (): React.ReactElement => {
           </pre>
         </div>
       )}
+
+      {/* Hidden Applications */}
+      <div className="epyon-section">
+        <div className="epyon-section-title">Hidden Applications</div>
+        {!hidden?.length ? (
+          <p style={{ fontSize: 13, color: 'var(--epyon-text-muted)' }}>No hidden applications.</p>
+        ) : (
+          <table className="usa-table usa-table--borderless width-full" style={{ fontSize: 13 }}>
+            <thead>
+              <tr>
+                <th>Application</th>
+                <th style={{ width: 120 }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {hidden.map((name) => (
+                <tr key={name}>
+                  <td style={{ color: 'var(--epyon-text-muted)' }}>{name}</td>
+                  <td>
+                    <button
+                      className="usa-button usa-button--secondary"
+                      style={{ padding: '4px 10px', fontSize: 12 }}
+                      onClick={() => restoreApp.mutate(name)}
+                      disabled={restoreApp.isPending}
+                    >
+                      Restore
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 };

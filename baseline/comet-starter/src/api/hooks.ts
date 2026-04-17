@@ -38,6 +38,36 @@ export const useAppScans = (name: string) =>
     enabled: !!name,
   });
 
+export const useHideApplication = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) =>
+      api.delete(`/applications/${encodeURIComponent(name)}`).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['applications'] });
+      qc.invalidateQueries({ queryKey: ['applications-hidden'] });
+    },
+  });
+};
+
+export const useRestoreApplication = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) =>
+      api.post(`/applications/${encodeURIComponent(name)}/restore`).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['applications'] });
+      qc.invalidateQueries({ queryKey: ['applications-hidden'] });
+    },
+  });
+};
+
+export const useHiddenApplications = () =>
+  useQuery<string[]>({
+    queryKey: ['applications-hidden'],
+    queryFn: () => api.get<string[]>('/applications-hidden').then((r) => r.data),
+  });
+
 // ── Scans ─────────────────────────────────────────────────────
 export const useScan = (id: string) =>
   useQuery<Scan>({

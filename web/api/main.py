@@ -30,6 +30,7 @@ EPYON_ROOT   = (_HERE / ".." / "..").resolve()
 SCRIPTS_DIR  = EPYON_ROOT / "scripts" / "shell"
 APPROVED_IMAGES_FILE = EPYON_ROOT / "configuration" / "approved-base-images.conf"
 GITHUB_CONFIG_FILE   = _HERE / ".." / "github-config.json"
+HIDDEN_APPS_FILE     = EPYON_ROOT / "configuration" / "hidden-apps.json"
 
 FRONTEND_DIST = EPYON_ROOT / "baseline" / "comet-starter" / "dist"
 
@@ -146,13 +147,27 @@ def scan_history(response: Response):
 
 # ── Applications ──────────────────────────────────────────────
 
+def _load_hidden_apps() -> set[str]:
+    try:
+        if HIDDEN_APPS_FILE.exists():
+            return set(json.loads(HIDDEN_APPS_FILE.read_text()))
+    except Exception:
+        pass
+    return set()
+
+def _save_hidden_apps(hidden: set[str]) -> None:
+    HIDDEN_APPS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    HIDDEN_APPS_FILE.write_text(json.dumps(sorted(hidden), indent=2))
+
 @app.get("/api/applications")
 def applications(response: Response):
     _sec_headers(response)
+    hidden = _load_hidden_apps()
     scans = [parsers.load_scan(d, EPYON_ROOT) for d in parsers.find_scan_dirs(EPYON_ROOT)]
     by_target: dict[str, list] = {}
     for s in scans:
-        by_target.setdefault(s["target"], []).append(s)
+        if s["target"] not in hidden:
+            by_target.setdefault(s["target"], []).append(s)
 
     result = []
     for name, tscans in by_target.items():
@@ -172,6 +187,34 @@ def applications(response: Response):
         })
     result.sort(key=lambda x: x.get("last_scanned", ""), reverse=True)
     return result
+
+
+@app.delete("/api/applications/{name}")
+def hide_application(name: str, response: Response):
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(name):
+        raise HTTPException(400, "Invalid application name")
+    hidden = _load_hidden_apps()
+    hidden.add(name)
+    _save_hidden_apps(hidden)
+    return {"hidden": name}
+
+
+@app.post("/api/applications/{name}/restore")
+def restore_application(name: str, response: Response):
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(name):
+        raise HTTPException(400, "Invalid application name")
+    hidden = _load_hidden_apps()
+    hidden.discard(name)
+    _save_hidden_apps(hidden)
+    return {"restored": name}
+
+
+@app.get("/api/applications-hidden")
+def hidden_applications(response: Response):
+    _sec_headers(response)
+    return sorted(_load_hidden_apps())
 
 
 @app.get("/api/applications/{name}/scans")

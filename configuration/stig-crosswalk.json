@@ -1,0 +1,358 @@
+{
+  "_meta": {
+    "stig": "Application Security and Development Security Technical Implementation Guide",
+    "release": "4",
+    "version": "6",
+    "benchmark_date": "01 Oct 2025",
+    "stig_id": "Application_Security_Development_STIG",
+    "total_controls": 286,
+    "description": "Maps Epyon scan tool results to APPSTIG control statuses. Controls with tool_mappings have their status determined by scan output. All others default to default_status.",
+    "status_values": ["NotAFinding", "Open", "Not_Applicable", "Not_Reviewed"]
+  },
+  "controls": {
+    "V-222444": {
+      "rule_id": "SV-222444r960879",
+      "title": "The application must not write sensitive data into the application logs.",
+      "severity": "medium",
+      "default_status": "Not_Reviewed",
+      "default_evidence": "Review application log output to confirm no secrets, passwords, API keys, or credentials are written to logs.",
+      "tool_mappings": [
+        {
+          "tool": "TruffleHog",
+          "finding_type": "secret",
+          "on_finding": "Open",
+          "on_finding_evidence": "TruffleHog detected secrets or credentials in repository artifacts. Review and rotate exposed secrets and ensure they are not written to application logs.",
+          "on_clean": "NotAFinding",
+          "on_clean_evidence": "TruffleHog secret detection scan completed with no secrets found in repository artifacts."
+        }
+      ]
+    },
+    "V-222515": {
+      "rule_id": "SV-222515r961863",
+      "title": "An application vulnerability assessment must be conducted.",
+      "severity": "medium",
+      "default_status": "Not_Reviewed",
+      "default_evidence": "No vulnerability scanner results available. Run Grype or Trivy to perform vulnerability assessment.",
+      "tool_mappings": [
+        {
+          "tool": "Grype",
+          "finding_type": "cve",
+          "on_finding": "Open",
+          "on_finding_evidence": "Grype vulnerability scan found unresolved CVEs. Remediate identified vulnerabilities and conduct follow-up assessment.",
+          "on_clean": "NotAFinding",
+          "on_clean_evidence": "Grype vulnerability assessment completed. No vulnerabilities found in application dependencies."
+        },
+        {
+          "tool": "Trivy",
+          "finding_type": "cve",
+          "on_finding": "Open",
+          "on_finding_evidence": "Trivy vulnerability scan found unresolved CVEs. Remediate identified vulnerabilities and conduct follow-up assessment.",
+          "on_clean": "NotAFinding",
+          "on_clean_evidence": "Trivy vulnerability assessment completed. No vulnerabilities found in application container image."
+        }
+      ]
+    },
+    "V-222430": {
+      "rule_id": "SV-222430r961359",
+      "title": "The application must execute without excessive account permissions.",
+      "severity": "high",
+      "default_status": "Not_Reviewed",
+      "default_evidence": "Review container and process configurations to confirm no excessive privileges are granted.",
+      "tool_mappings": [
+        {
+          "tool": "Checkov",
+          "finding_type": "iac",
+          "on_finding": "Open",
+          "on_finding_evidence": "Checkov IaC analysis detected privilege-related misconfigurations. Review and remediate excessive permission grants in container and infrastructure configurations.",
+          "on_clean": "NotAFinding",
+          "on_clean_evidence": "Checkov IaC analysis completed with no privilege escalation or excessive permission issues detected."
+        },
+        {
+          "tool": "Trivy",
+          "finding_type": "misconfiguration",
+          "on_finding": "Open",
+          "on_finding_evidence": "Trivy misconfiguration scan detected containers running with excessive privileges. Review and remediate.",
+          "on_clean": "NotAFinding",
+          "on_clean_evidence": "Trivy misconfiguration scan completed. No containers running with excessive privileges detected."
+        }
+      ]
+    },
+    "V-222518": {
+      "rule_id": "SV-222518r960963",
+      "title": "The application must be configured to disable non-essential capabilities.",
+      "severity": "medium",
+      "default_status": "Not_Reviewed",
+      "default_evidence": "Review application and container configurations to confirm only required capabilities are enabled.",
+      "tool_mappings": [
+        {
+          "tool": "Checkov",
+          "finding_type": "iac",
+          "on_finding": "Open",
+          "on_finding_evidence": "Checkov IaC analysis detected non-essential capabilities or services enabled. Review and disable unnecessary capabilities.",
+          "on_clean": "NotAFinding",
+          "on_clean_evidence": "Checkov IaC analysis completed. No unnecessary capabilities or services detected in infrastructure configurations."
+        }
+      ]
+    },
+    "V-222519": {
+      "rule_id": "SV-222519r1043177",
+      "title": "The application must be configured to use only functions, ports, and protocols permitted in the PPSM CAL.",
+      "severity": "medium",
+      "default_status": "Not_Reviewed",
+      "default_evidence": "Review application network configuration to confirm only approved ports and protocols are in use.",
+      "tool_mappings": [
+        {
+          "tool": "Checkov",
+          "finding_type": "iac",
+          "on_finding": "Open",
+          "on_finding_evidence": "Checkov IaC analysis detected potentially non-standard port or protocol configurations. Review against PPSM CAL.",
+          "on_clean": "NotAFinding",
+          "on_clean_evidence": "Checkov IaC analysis completed with no non-standard port or protocol configurations detected."
+        }
+      ]
+    },
+    "V-222511": {
+      "rule_id": "SV-222511r961461",
+      "title": "The application must enforce access restrictions associated with changes to application configuration.",
+      "severity": "medium",
+      "default_status": "Not_Reviewed",
+      "default_evidence": "Review configuration management controls to confirm only authorized users can modify application configuration.",
+      "tool_mappings": [
+        {
+          "tool": "Checkov",
+          "finding_type": "iac",
+          "on_finding": "Open",
+          "on_finding_evidence": "Checkov IaC analysis detected configuration access control issues. Review and enforce proper access restrictions on configuration files.",
+          "on_clean": "NotAFinding",
+          "on_clean_evidence": "Checkov IaC analysis completed. No configuration access control issues detected."
+        }
+      ]
+    },
+    "V-222427": {
+      "rule_id": "SV-222427r1117168",
+      "title": "The application must enforce approved authorizations for controlling the flow of information within the system.",
+      "severity": "medium",
+      "default_status": "Not_Reviewed",
+      "default_evidence": "Review network policies and container configurations to confirm information flow controls are enforced.",
+      "tool_mappings": [
+        {
+          "tool": "Checkov",
+          "finding_type": "iac",
+          "on_finding": "Open",
+          "on_finding_evidence": "Checkov IaC analysis detected missing or misconfigured network policy or information flow controls.",
+          "on_clean": "NotAFinding",
+          "on_clean_evidence": "Checkov IaC analysis completed. Information flow control configurations appear correct."
+        }
+      ]
+    },
+    "V-222517": {
+      "rule_id": "SV-222517r961479",
+      "title": "The application must employ a deny-all, permit-by-exception (whitelist) policy to allow the execution of authorized software programs.",
+      "severity": "medium",
+      "default_status": "Not_Reviewed",
+      "default_evidence": "Review application allow-listing configuration to confirm only authorized software is permitted to execute.",
+      "tool_mappings": [
+        {
+          "tool": "Checkov",
+          "finding_type": "iac",
+          "on_finding": "Open",
+          "on_finding_evidence": "Checkov IaC analysis detected missing application allow-listing controls.",
+          "on_clean": "Not_Reviewed",
+          "on_clean_evidence": "Checkov IaC analysis completed. Manual review required to confirm deny-all, permit-by-exception policy is in place."
+        }
+      ]
+    },
+    "V-222612": {
+      "rule_id": "SV-222612r961185",
+      "title": "The application must protect against malicious code.",
+      "severity": "high",
+      "default_status": "Not_Reviewed",
+      "default_evidence": "No malware scan results available. Run ClamAV to scan for malicious code.",
+      "tool_mappings": [
+        {
+          "tool": "ClamAV",
+          "finding_type": "malware",
+          "on_finding": "Open",
+          "on_finding_evidence": "ClamAV malware scan detected malicious code or signatures. Investigate and remediate immediately.",
+          "on_clean": "NotAFinding",
+          "on_clean_evidence": "ClamAV malware scan completed. No malicious code or virus signatures detected in application files."
+        }
+      ]
+    },
+    "V-222610": {
+      "rule_id": "SV-222610r961179",
+      "title": "The application must not be subject to denial of service.",
+      "severity": "medium",
+      "default_status": "Not_Reviewed",
+      "default_evidence": "Review application resiliency and rate limiting configurations.",
+      "tool_mappings": []
+    },
+    "V-222608": {
+      "rule_id": "SV-222608r961173",
+      "title": "Application code must be kept up-to-date with the latest software patches.",
+      "severity": "medium",
+      "default_status": "Not_Reviewed",
+      "default_evidence": "No end-of-life or patch status data available.",
+      "tool_mappings": [
+        {
+          "tool": "Xeol",
+          "finding_type": "eol",
+          "on_finding": "Open",
+          "on_finding_evidence": "Xeol EOL detection found end-of-life components. Update or replace all end-of-life software packages.",
+          "on_clean": "NotAFinding",
+          "on_clean_evidence": "Xeol EOL detection completed. No end-of-life software components detected."
+        }
+      ]
+    },
+    "V-222624": {
+      "rule_id": "SV-222624r1051272",
+      "title": "The ISSO must ensure active vulnerability testing is performed.",
+      "severity": "medium",
+      "default_status": "Not_Reviewed",
+      "default_evidence": "No vulnerability scan results available.",
+      "tool_mappings": [
+        {
+          "tool": "Grype",
+          "finding_type": "cve",
+          "on_finding": "NotAFinding",
+          "on_finding_evidence": "Active vulnerability testing performed by Grype. CVE findings identified; remediation required separately.",
+          "on_clean": "NotAFinding",
+          "on_clean_evidence": "Active vulnerability testing performed by Grype. No vulnerabilities found."
+        },
+        {
+          "tool": "Trivy",
+          "finding_type": "cve",
+          "on_finding": "NotAFinding",
+          "on_finding_evidence": "Active vulnerability testing performed by Trivy. CVE findings identified; remediation required separately.",
+          "on_clean": "NotAFinding",
+          "on_clean_evidence": "Active vulnerability testing performed by Trivy. No vulnerabilities found."
+        }
+      ]
+    },
+    "V-222609": {
+      "rule_id": "SV-222609r961176",
+      "title": "The application must be free of vulnerabilities that pose an unacceptable risk when determined by the AO.",
+      "severity": "high",
+      "default_status": "Not_Reviewed",
+      "default_evidence": "No vulnerability scan results available.",
+      "tool_mappings": [
+        {
+          "tool": "Grype",
+          "finding_type": "cve",
+          "on_finding": "Open",
+          "on_finding_evidence": "Grype detected vulnerabilities that may pose unacceptable risk. AO review and remediation required.",
+          "on_clean": "NotAFinding",
+          "on_clean_evidence": "Grype vulnerability scan completed. No high-risk vulnerabilities detected."
+        },
+        {
+          "tool": "Trivy",
+          "finding_type": "cve",
+          "on_finding": "Open",
+          "on_finding_evidence": "Trivy detected vulnerabilities that may pose unacceptable risk. AO review and remediation required.",
+          "on_clean": "NotAFinding",
+          "on_clean_evidence": "Trivy vulnerability scan completed. No high-risk vulnerabilities detected."
+        },
+        {
+          "tool": "Anchore",
+          "finding_type": "cve",
+          "on_finding": "Open",
+          "on_finding_evidence": "Anchore container analysis detected vulnerabilities that may pose unacceptable risk. AO review required.",
+          "on_clean": "NotAFinding",
+          "on_clean_evidence": "Anchore container analysis completed. No high-risk vulnerabilities detected."
+        }
+      ]
+    },
+    "V-222513": {
+      "rule_id": "SV-222513r1015691",
+      "title": "The application must have the capability to prevent the installation of patches, service packs, or application components without verification the software component has been digitally signed.",
+      "severity": "medium",
+      "default_status": "Not_Reviewed",
+      "default_evidence": "Review package installation and update mechanisms for signature verification.",
+      "tool_mappings": [
+        {
+          "tool": "Grype",
+          "finding_type": "cve",
+          "on_finding": "Open",
+          "on_finding_evidence": "Grype detected vulnerable packages that may lack signature verification. Review package provenance.",
+          "on_clean": "Not_Reviewed",
+          "on_clean_evidence": "No unsigned/unpatched packages detected by Grype. Manual review of signature verification mechanisms still required."
+        }
+      ]
+    },
+    "V-222516": {
+      "rule_id": "SV-222516r961473",
+      "title": "The application must prevent program execution in accordance with organization-defined policies.",
+      "severity": "medium",
+      "default_status": "Not_Reviewed",
+      "default_evidence": "Review application execution policies and runtime restrictions.",
+      "tool_mappings": [
+        {
+          "tool": "Checkov",
+          "finding_type": "iac",
+          "on_finding": "Open",
+          "on_finding_evidence": "Checkov IaC analysis detected policy violations affecting program execution controls.",
+          "on_clean": "Not_Reviewed",
+          "on_clean_evidence": "Checkov IaC analysis completed. Manual review of program execution policies still required."
+        }
+      ]
+    },
+    "V-222510": {
+      "rule_id": "SV-222510r1015689",
+      "title": "The application must prohibit user installation of software without explicit privileged status.",
+      "severity": "medium",
+      "default_status": "Not_Reviewed",
+      "default_evidence": "Review application software installation controls.",
+      "tool_mappings": [
+        {
+          "tool": "Checkov",
+          "finding_type": "iac",
+          "on_finding": "Open",
+          "on_finding_evidence": "Checkov IaC analysis detected configurations that may allow unprivileged software installation.",
+          "on_clean": "NotAFinding",
+          "on_clean_evidence": "Checkov IaC analysis completed. No unauthorized software installation vectors detected."
+        }
+      ]
+    },
+    "V-222423": {
+      "rule_id": "SV-222423r961302",
+      "title": "Application data protection requirements must be identified and documented.",
+      "severity": "medium",
+      "default_status": "Not_Reviewed",
+      "default_evidence": "Review application documentation to confirm data protection requirements are identified and documented.",
+      "tool_mappings": []
+    },
+    "V-222486": {
+      "rule_id": "SV-222486r1043188",
+      "title": "The application must shut down by default upon audit failure.",
+      "severity": "medium",
+      "default_status": "Not_Reviewed",
+      "default_evidence": "Review application error handling and shutdown behavior on audit failure.",
+      "tool_mappings": []
+    },
+    "V-222446": {
+      "rule_id": "SV-222446r960879",
+      "title": "The application must record a time stamp indicating when the event occurred.",
+      "severity": "medium",
+      "default_status": "Not_Reviewed",
+      "default_evidence": "Review application logging to confirm timestamps are recorded for all events.",
+      "tool_mappings": []
+    },
+    "V-222618": {
+      "rule_id": "SV-222618r961083",
+      "title": "Unsigned Category 1A mobile code must not be used.",
+      "severity": "medium",
+      "default_status": "Not_Reviewed",
+      "default_evidence": "Review application for use of mobile code.",
+      "tool_mappings": [
+        {
+          "tool": "Checkov",
+          "finding_type": "iac",
+          "on_finding": "Open",
+          "on_finding_evidence": "Checkov detected unsigned or unverified code execution configurations.",
+          "on_clean": "Not_Reviewed",
+          "on_clean_evidence": "Checkov analysis completed. Manual review for mobile code usage still required."
+        }
+      ]
+    }
+  }
+}

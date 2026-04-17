@@ -146,6 +146,21 @@ on:
         required: false
         default: false
         type: boolean
+      skip_stig:
+        description: 'Skip Layer 13 - STIG compliance assessment'
+        required: false
+        default: false
+        type: boolean
+      stig_cklb_path:
+        description: 'Path to STIG Viewer 3.x .cklb template within the scanned repo (default: .epyon/stig-template.cklb)'
+        required: false
+        default: '.epyon/stig-template.cklb'
+        type: string
+      run_oscap:
+        description: 'Run OpenSCAP scan if oscap binary and .epyon/scap-content.xml are present in the scanned repo (opt-in)'
+        required: false
+        default: false
+        type: boolean
       create_github_issue:
         description: 'Create a GitHub issue for critical and high severity findings'
         required: false
@@ -238,6 +253,9 @@ jobs:
       SKIP_XEOL: "${{ inputs.skip_xeol }}"
       SKIP_ANCHORE: "${{ inputs.skip_anchore }}"
       SKIP_API_DISCOVERY: "${{ inputs.skip_api_discovery }}"
+      SKIP_STIG: "${{ inputs.skip_stig }}"
+      STIG_CKLB_TEMPLATE: "${{ inputs.stig_cklb_path }}"
+      RUN_OSCAP: "${{ inputs.run_oscap }}"
       CREATE_GITHUB_ISSUE: "${{ inputs.create_github_issue }}"
       CREATE_JIRA_TICKETS: "${{ inputs.create_jira_tickets }}"  # true by default; set to false to disable
       JIRA_PROJECT_KEY: "${{ secrets.JIRA_PROJECT_KEY || inputs.jira_project_key }}"
@@ -431,6 +449,9 @@ jobs:
           echo "SKIP_XEOL=${SKIP_XEOL:-false}" >> /tmp/epyon-env
           echo "SKIP_ANCHORE=${SKIP_ANCHORE:-false}" >> /tmp/epyon-env
           echo "SKIP_API_DISCOVERY=${SKIP_API_DISCOVERY:-false}" >> /tmp/epyon-env
+          echo "SKIP_STIG=${SKIP_STIG:-false}" >> /tmp/epyon-env
+          echo "STIG_CKLB_TEMPLATE=${STIG_CKLB_TEMPLATE:-.epyon/stig-template.cklb}" >> /tmp/epyon-env
+          echo "RUN_OSCAP=${RUN_OSCAP:-false}" >> /tmp/epyon-env
 
           # Propagate RUN_GARAK to SKIP_GARAK for legacy consumers; run_garak_layer reads RUN_GARAK directly.
           if [[ "${RUN_GARAK}" == "true" ]];  then echo "SKIP_GARAK=false" >> "$GITHUB_ENV"; fi

@@ -458,6 +458,13 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
             "run_id":   ci_meta.get("run_id"),
         }
 
+    stig_results = _read_json(scan_dir / "stig" / "stig-results.json")
+    if stig_results and isinstance(stig_results, list):
+        data["stig_open"]  = sum(1 for r in stig_results if r.get("status") == "Open")
+        data["stig_pass"]  = sum(1 for r in stig_results if r.get("status") == "NotAFinding")
+        data["stig_na"]    = sum(1 for r in stig_results if r.get("status") == "Not_Applicable")
+        data["stig_total"] = len(stig_results)
+
     return data
 
 

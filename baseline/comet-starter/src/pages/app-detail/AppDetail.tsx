@@ -56,6 +56,19 @@ export const AppDetail = (): React.ReactElement => {
         </div>
       )}
 
+      {/* STIG compliance summary (only shown when Layer 13 data is present) */}
+      {latest?.stig_total != null && (
+        <div className="epyon-section">
+          <div className="epyon-section-title">STIG Compliance — App Sec Dev STIG R4V6</div>
+          <div className="epyon-grid-stats">
+            <StatCard value={latest.stig_pass  ?? 0} label="Not a Finding" variant="clean" />
+            <StatCard value={latest.stig_open  ?? 0} label="Open"          variant="critical" />
+            <StatCard value={latest.stig_na    ?? 0} label="Not Applicable" variant="default" />
+            <StatCard value={latest.stig_total ?? 0} label="Controls Assessed" variant="default" />
+          </div>
+        </div>
+      )}
+
       {/* Scan history timeline */}
       <div className="epyon-section">
         <div className="epyon-section-title">Scan History</div>

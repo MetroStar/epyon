@@ -643,6 +643,7 @@ consolidate_tool_reports "Xeol" "$SCAN_DIR/xeol" "*.json"
 consolidate_tool_reports "SBOM" "$SCAN_DIR/sbom" "*.json"
 consolidate_tool_reports "Anchore" "$SCAN_DIR/anchore" "*.json"
 consolidate_tool_reports "Garak" "$SCAN_DIR/garak" "*.json"
+consolidate_tool_reports "STIG" "$SCAN_DIR/stig" "*.json"
 
 # Locate or generate the CycloneDX SBOM for downstream consumers
 CYCLONEDX_OUT=""

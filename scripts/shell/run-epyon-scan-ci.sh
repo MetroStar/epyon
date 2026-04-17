@@ -250,6 +250,12 @@ fi
 
 run_garak_layer
 
+if _should_run_tool SKIP_STIG && [[ "${SCAN_MODE:-full}" != "quick" ]]; then
+  run_layer_script "Layer 13 - STIG Compliance Assessment" "scripts/shell/run-stig-assessment.sh"
+else
+  [[ "${SKIP_STIG:-false}" == "true" ]] && echo "[INFO] Skipping Layer 13 - STIG (SKIP_STIG=true)" || echo "[INFO] Skipping Layer 13 (quick mode)"
+fi
+
 run_group "Generate Scan Manifest" bash -lc '
   chmod +x scripts/shell/generate-scan-manifest.sh
   ./scripts/shell/generate-scan-manifest.sh "$SCAN_DIR" || echo "Manifest generation completed with warnings"

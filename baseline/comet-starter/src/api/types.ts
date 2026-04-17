@@ -38,6 +38,10 @@ export interface Scan {
   file_statistics?: Record<string, unknown>;
   ci_source?: CiSource;
   findings?: Findings;
+  stig_open?: number;
+  stig_pass?: number;
+  stig_na?: number;
+  stig_total?: number;
 }
 
 export interface Application {

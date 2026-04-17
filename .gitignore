@@ -70,3 +70,14 @@ helm-packages/*.tgz
 
 # Large scan result files (keep structure but not massive JSON files)
 *.json.bakreports/
+web/github-config.json
+
+# Frontend build artifacts and dependencies (comet-starter)
+baseline/comet-starter/node_modules/
+baseline/comet-starter/dist/
+baseline/comet-starter/coverage/
+
+# Python cache
+web/api/__pycache__/
+**/__pycache__/
+*.pyc

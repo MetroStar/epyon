@@ -297,6 +297,7 @@ PYEOF
     # Disable exit-on-error for Checkov command since it may return non-zero when findings exist
     set +e
     ${CONTAINER_CLI} run --rm \
+        --user "$(id -u):$(id -g)" \
         -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
         -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
         -e AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
@@ -328,6 +329,7 @@ PYEOF
         echo -e "${BLUE}🔍 Scanning Helm templates directly (Kubernetes framework)...${NC}"
         set +e
         ${CONTAINER_CLI} run --rm \
+            --user "$(id -u):$(id -g)" \
             -e AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
             -e AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
             -e AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
@@ -347,6 +349,7 @@ PYEOF
         echo -e "${BLUE}🔍 Scanning Helm values for secrets...${NC}"
         set +e
         ${CONTAINER_CLI} run --rm \
+            --user "$(id -u):$(id -g)" \
             -v "$TARGET_SCAN_DIR:/workspace" \
             -v "$OUTPUT_DIR:/output" \
             bridgecrew/checkov:latest \
@@ -366,6 +369,7 @@ PYEOF
         echo -e "${BLUE}🔍 Scanning GitHub Actions workflows...${NC}"
         set +e
         ${CONTAINER_CLI} run --rm \
+            --user "$(id -u):$(id -g)" \
             -v "$TARGET_SCAN_DIR:/workspace" \
             -v "$OUTPUT_DIR:/output" \
             bridgecrew/checkov:latest \
@@ -385,11 +389,8 @@ PYEOF
     echo "Debug: Checking Checkov output structure..." >&2
     echo "Debug: Looking for directory: $OUTPUT_DIR/checkov-results.json" >&2
     
-    # Fix permissions on Docker-created files (owned by root)
-    if command -v sudo &> /dev/null && [ -d "$OUTPUT_DIR" ]; then
-        echo "Debug: Fixing permissions on Checkov output files..." >&2
-        sudo chown -R "$(whoami):$(id -gn)" "$OUTPUT_DIR" 2>/dev/null || true
-    fi
+    # Permissions are already correct: Docker containers run with --user $(id -u):$(id -g)
+    # so output files are owned by the current user — no sudo chown needed.
     
     CHECKOV_OUTPUT_DIR="$OUTPUT_DIR/checkov-results.json"
     if [ -d "$CHECKOV_OUTPUT_DIR" ] && [ -f "$CHECKOV_OUTPUT_DIR/results_json.json" ]; then

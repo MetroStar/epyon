@@ -1,0 +1,38 @@
+name: Accessibility Testing
+
+on:
+  workflow_run:
+    workflows: ['pages-build-deployment']
+    types:
+      - completed
+
+permissions:
+  contents: write
+
+jobs:
+  run-accessibility-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Node environment
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20.x
+
+      - name: Install project dependencies
+        run: npm ci
+
+      - name: Install global dependencies
+        run: npm install -g @unlighthouse/cli puppeteer
+
+      - name: Run Tests
+        run: unlighthouse-ci --config-file .unlighthouse.config.ts --site https://metrostar.github.io/comet-starter/ --build-static --output-path unlighthouse-report --reporter jsonExpanded --debug
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: unlighthouse-report
+          path: unlighthouse-report/
+          retention-days: 30

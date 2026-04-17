@@ -454,6 +454,7 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
             "branch":   ci_meta.get("branch", ""),
             "commit":   ci_meta.get("commit", ""),
             "workflow": ci_meta.get("workflow", ""),
+            "event":    ci_meta.get("event", ""),
             "run_id":   ci_meta.get("run_id"),
         }
 

@@ -1,0 +1,604 @@
+@forward 'providers/uswds/uswds.scss';
+
+html,
+body {
+  height: 100%;
+}
+
+#root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+#mainSection {
+  display: unset;
+  flex: 1;
+}
+
+.usa-footer {
+  overflow: visible;
+}
+
+.usa-section {
+  padding-top: 1em;
+}
+
+.usa-form .usa-button {
+  max-height: 40px;
+}
+
+@media screen and (max-width: 768px) {
+  .usa-form .usa-button-group {
+    margin-top: 1.5em;
+  }
+}
+
+/* ── Epyon Dark Theme ────────────────────────────────────────── */
+:root {
+  --epyon-bg:           #0d1117;
+  --epyon-bg-card:      #161b22;
+  --epyon-bg-hover:     #1c2128;
+  --epyon-border:       #30363d;
+  --epyon-border-muted: #21262d;
+  --epyon-text:         #e6edf3;
+  --epyon-text-muted:   #8b949e;
+  --epyon-text-dim:     #6e7681;
+  --epyon-accent:       #58a6ff;
+  --epyon-accent-hover: #79c0ff;
+  --epyon-critical:     #ff7b72;
+  --epyon-critical-bg:  rgba(255,123,114,0.12);
+  --epyon-high:         #ffa657;
+  --epyon-high-bg:      rgba(255,166,87,0.12);
+  --epyon-medium:       #e3b341;
+  --epyon-medium-bg:    rgba(227,179,65,0.12);
+  --epyon-low:          #79c0ff;
+  --epyon-low-bg:       rgba(121,192,255,0.12);
+  --epyon-clean:        #3fb950;
+  --epyon-clean-bg:     rgba(63,185,80,0.12);
+}
+
+body {
+  background-color: var(--epyon-bg) !important;
+  color: var(--epyon-text) !important;
+}
+
+/* Header */
+.usa-header,
+.usa-navbar,
+.usa-nav {
+  background-color: var(--epyon-bg-card) !important;
+  border-bottom: 1px solid var(--epyon-border) !important;
+}
+.usa-logo__text a,
+.usa-nav__link,
+.usa-nav__link:visited {
+  color: var(--epyon-text) !important;
+}
+.usa-nav__link:hover { color: var(--epyon-accent) !important; }
+.usa-current { color: var(--epyon-accent) !important; }
+.usa-banner { background-color: var(--epyon-bg-card) !important; color: var(--epyon-text-muted) !important; }
+.usa-banner__header { background-color: var(--epyon-bg-card) !important; }
+.usa-banner__content { background-color: var(--epyon-bg-card) !important; }
+
+/* Main section */
+.usa-section { background-color: var(--epyon-bg) !important; }
+
+/* Cards */
+.usa-card__container {
+  background-color: var(--epyon-bg-card) !important;
+  border: 1px solid var(--epyon-border) !important;
+  color: var(--epyon-text) !important;
+}
+.usa-card__header { border-bottom: 1px solid var(--epyon-border) !important; }
+
+/* Tables */
+.usa-table {
+  background-color: var(--epyon-bg-card) !important;
+  color: var(--epyon-text) !important;
+  border-color: var(--epyon-border) !important;
+}
+.usa-table th {
+  background-color: var(--epyon-bg) !important;
+  color: var(--epyon-text-muted) !important;
+  border-color: var(--epyon-border) !important;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+/* Base: every body row and every cell dark */
+.usa-table tbody tr {
+  background-color: var(--epyon-bg-card) !important;
+}
+.usa-table tbody tr td,
+.usa-table tbody tr th {
+  background-color: var(--epyon-bg-card) !important;
+  color: var(--epyon-text) !important;
+  border-color: var(--epyon-border-muted) !important;
+}
+/* Striped: only slightly lighten every-other row */
+.usa-table--striped tbody tr:nth-child(even) td,
+.usa-table--striped tbody tr:nth-child(even) th {
+  background-color: rgba(255, 255, 255, 0.035) !important;
+}
+.usa-table--striped tbody tr:nth-child(odd) td,
+.usa-table--striped tbody tr:nth-child(odd) th {
+  background-color: var(--epyon-bg-card) !important;
+}
+.usa-table tbody tr:hover td,
+.usa-table tbody tr:hover th { background-color: var(--epyon-bg-hover) !important; }
+
+/* Inputs / Forms */
+.usa-input,
+.usa-select,
+.usa-textarea {
+  background-color: var(--epyon-bg) !important;
+  color: var(--epyon-text) !important;
+  border-color: var(--epyon-border) !important;
+}
+.usa-input:focus,
+.usa-select:focus,
+.usa-textarea:focus {
+  outline-color: var(--epyon-accent) !important;
+  border-color: var(--epyon-accent) !important;
+}
+.usa-label { color: var(--epyon-text-muted) !important; }
+.usa-hint  { color: var(--epyon-text-dim) !important; }
+
+/* Buttons */
+.usa-button {
+  background-color: var(--epyon-accent) !important;
+  color: #0d1117 !important;
+}
+.usa-button:hover { background-color: var(--epyon-accent-hover) !important; }
+.usa-button--secondary {
+  background-color: transparent !important;
+  color: var(--epyon-text) !important;
+  border: 1px solid var(--epyon-border) !important;
+  box-shadow: none !important;
+}
+.usa-button--secondary:hover { background-color: var(--epyon-bg-hover) !important; }
+.usa-button--unstyled { color: var(--epyon-accent) !important; }
+
+/* Alerts */
+.usa-alert {
+  background-color: var(--epyon-bg-card) !important;
+  background-image: none !important;
+}
+.usa-alert::before {
+  background-color: var(--epyon-bg-card) !important;
+  background-image: none !important;
+}
+.usa-alert--info,
+.usa-alert--info .usa-alert__body,
+.usa-alert--info::before {
+  background-color: rgba(88, 166, 255, 0.08) !important;
+  background-image: none !important;
+}
+.usa-alert--info    { border-left: 4px solid var(--epyon-accent) !important; }
+
+.usa-alert--success,
+.usa-alert--success .usa-alert__body,
+.usa-alert--success::before {
+  background-color: rgba(63, 185, 80, 0.08) !important;
+  background-image: none !important;
+}
+.usa-alert--success { border-left: 4px solid var(--epyon-clean) !important; }
+
+.usa-alert--warning,
+.usa-alert--warning .usa-alert__body,
+.usa-alert--warning::before {
+  background-color: rgba(227, 179, 65, 0.08) !important;
+  background-image: none !important;
+}
+.usa-alert--warning { border-left: 4px solid var(--epyon-medium) !important; }
+
+.usa-alert--error,
+.usa-alert--error .usa-alert__body,
+.usa-alert--error::before {
+  background-color: rgba(255, 123, 114, 0.08) !important;
+  background-image: none !important;
+}
+.usa-alert--error   { border-left: 4px solid var(--epyon-critical) !important; }
+
+.usa-alert__body,
+.usa-alert__text,
+.usa-alert__heading {
+  color: var(--epyon-text) !important;
+  background-color: transparent !important;
+}
+/* Hide the icon — the left-border color already signals alert type */
+.usa-alert__body::before {
+  display: none !important;
+}
+/* Remove the padding-left that was reserved for the now-hidden icon */
+.usa-alert__body {
+  padding-left: 1rem !important;
+}
+.usa-alert__icon { background-color: transparent !important; }
+
+/* Footer */
+.usa-footer,
+.usa-footer__primary-section,
+.usa-footer__secondary-section {
+  background-color: var(--epyon-bg-card) !important;
+  color: var(--epyon-text-muted) !important;
+  border-top: 1px solid var(--epyon-border) !important;
+}
+.usa-footer__logo-heading { color: var(--epyon-text) !important; }
+
+/* Breadcrumb */
+.usa-breadcrumb { background-color: transparent !important; }
+.usa-breadcrumb__link { color: var(--epyon-accent) !important; }
+.usa-breadcrumb__list-item::before { color: var(--epyon-border) !important; }
+
+/* Process list / summary box */
+.usa-summary-box {
+  background-color: var(--epyon-bg-card) !important;
+  border-color: var(--epyon-border) !important;
+  color: var(--epyon-text) !important;
+}
+
+/* ── Epyon Severity Badges ───────────────────────────────────── */
+.epyon-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.epyon-badge--critical { background: var(--epyon-critical-bg); color: var(--epyon-critical); }
+.epyon-badge--high     { background: var(--epyon-high-bg);     color: var(--epyon-high); }
+.epyon-badge--medium   { background: var(--epyon-medium-bg);   color: var(--epyon-medium); }
+.epyon-badge--low      { background: var(--epyon-low-bg);      color: var(--epyon-low); }
+.epyon-badge--clean    { background: var(--epyon-clean-bg);    color: var(--epyon-clean); }
+.epyon-badge--unknown  { background: rgba(139,148,158,0.12);   color: var(--epyon-text-muted); }
+.epyon-badge--ci       { background: var(--epyon-clean-bg);    color: var(--epyon-clean); }
+
+/* ── Epyon Stat Card ─────────────────────────────────────────── */
+.epyon-stat-card {
+  background: var(--epyon-bg-card);
+  border: 1px solid var(--epyon-border);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+}
+.epyon-stat-card__value {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.epyon-stat-card__label {
+  font-size: 12px;
+  color: var(--epyon-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 4px;
+}
+.epyon-stat-card--critical .epyon-stat-card__value { color: var(--epyon-critical); }
+.epyon-stat-card--high     .epyon-stat-card__value { color: var(--epyon-high); }
+.epyon-stat-card--medium   .epyon-stat-card__value { color: var(--epyon-medium); }
+.epyon-stat-card--low      .epyon-stat-card__value { color: var(--epyon-low); }
+.epyon-stat-card--clean    .epyon-stat-card__value { color: var(--epyon-clean); }
+
+/* ── Epyon Scan Timeline ─────────────────────────────────────── */
+.epyon-timeline { list-style: none; padding: 0; margin: 0; }
+.epyon-timeline__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--epyon-border-muted);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.epyon-timeline__item:last-child { border-bottom: none; }
+.epyon-timeline__item:hover { background: var(--epyon-bg-hover); border-radius: 6px; padding-left: 8px; }
+.epyon-timeline__dot {
+  width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 5px;
+}
+.epyon-timeline__dot--critical { background: var(--epyon-critical); }
+.epyon-timeline__dot--high     { background: var(--epyon-high); }
+.epyon-timeline__dot--medium   { background: var(--epyon-medium); }
+.epyon-timeline__dot--low      { background: var(--epyon-low); }
+.epyon-timeline__dot--clean    { background: var(--epyon-clean); }
+.epyon-timeline__dot--unknown  { background: var(--epyon-text-dim); }
+.epyon-timeline__meta { color: var(--epyon-text-muted); font-size: 12px; margin-top: 3px; }
+.epyon-timeline__badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+
+/* ── Epyon Job Log ───────────────────────────────────────────── */
+.epyon-log {
+  background: #010409;
+  border: 1px solid var(--epyon-border);
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-y: auto;
+  max-height: 420px;
+  color: #8b949e;
+}
+.epyon-log__line--err { color: var(--epyon-critical); }
+.epyon-job-status {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; padding: 3px 10px;
+  border-radius: 20px; border: 1px solid var(--epyon-border);
+  color: var(--epyon-text-muted); background: var(--epyon-bg-card);
+}
+.epyon-job-status--running  { color: var(--epyon-accent); border-color: var(--epyon-accent); }
+.epyon-job-status--completed { color: var(--epyon-clean); border-color: var(--epyon-clean); }
+.epyon-job-status--failed   { color: var(--epyon-critical); border-color: var(--epyon-critical); }
+.epyon-job-status--error    { color: var(--epyon-critical); border-color: var(--epyon-critical); }
+.epyon-job-status--cancelled { color: var(--epyon-text-dim); }
+.epyon-pulse { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: currentColor; animation: epyon-pulse 1.2s ease-in-out infinite; }
+@keyframes epyon-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+/* ── Epyon App Card ──────────────────────────────────────────── */
+.epyon-app-card {
+  background: var(--epyon-bg-card);
+  border: 1px solid var(--epyon-border);
+  border-left: 4px solid var(--epyon-border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+.epyon-app-card:hover { background: var(--epyon-bg-hover); }
+.epyon-app-card--critical { border-left-color: var(--epyon-critical); }
+.epyon-app-card--high     { border-left-color: var(--epyon-high); }
+.epyon-app-card--medium   { border-left-color: var(--epyon-medium); }
+.epyon-app-card--low      { border-left-color: var(--epyon-low); }
+.epyon-app-card--clean    { border-left-color: var(--epyon-clean); }
+.epyon-app-card__name     { font-size: 16px; font-weight: 600; color: var(--epyon-text); margin-bottom: 4px; }
+.epyon-app-card__meta     { font-size: 12px; color: var(--epyon-text-muted); margin-bottom: 8px; }
+
+/* ── Epyon Page Header ───────────────────────────────────────── */
+.epyon-page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--epyon-border);
+}
+.epyon-page-header h1 { font-size: 1.5rem; font-weight: 700; color: var(--epyon-text); margin: 0; }
+
+/* ── Epyon Section ───────────────────────────────────────────── */
+.epyon-section { margin-bottom: 2rem; }
+.epyon-section-title {
+  font-size: 13px; font-weight: 600; color: var(--epyon-text-muted);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  margin-bottom: 1rem; padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--epyon-border);
+}
+
+/* ── Misc helpers ────────────────────────────────────────────── */
+.epyon-muted { color: var(--epyon-text-muted) !important; }
+.epyon-grid-auto { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+.epyon-grid-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; }
+.epyon-table-wrap { overflow-x: auto; }
+.epyon-loading {
+  display: flex; align-items: center; justify-content: center;
+  padding: 4rem; color: var(--epyon-text-muted);
+}
+.epyon-spinner {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 3px solid var(--epyon-border);
+  border-top-color: var(--epyon-accent);
+  animation: epyon-spin 0.7s linear infinite;
+  margin-right: 12px;
+}
+@keyframes epyon-spin { to { transform: rotate(360deg); } }
+.epyon-empty {
+  text-align: center; padding: 4rem 2rem;
+  color: var(--epyon-text-muted);
+}
+
+/* ── Metrics page ────────────────────────────────────────────── */
+.epyon-metrics-two-col {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+  @media (max-width: 768px) { flex-direction: column; }
+}
+
+.epyon-chart-panel {
+  background: var(--epyon-bg-card);
+  border: 1px solid var(--epyon-border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.epyon-metrics-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+.epyon-metrics-legend__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--epyon-text-muted);
+}
+
+.epyon-metrics-legend__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+.epyon-freq-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  max-width: 220px;
+}
+
+.epyon-freq-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--epyon-accent);
+  opacity: 0.65;
+  display: inline-block;
+  cursor: default;
+}
+.epyon-empty h3 { color: var(--epyon-text); margin-bottom: 0.5rem; }
+.epyon-link { color: var(--epyon-accent) !important; text-decoration: none; }
+.epyon-link:hover { text-decoration: underline; color: var(--epyon-accent-hover) !important; }
+
+/* ── Dark mode: Banner sub-elements ────────────────────────────── */
+.usa-banner__header {
+  background-color: var(--epyon-bg-card) !important;
+}
+.usa-banner__inner {
+  background-color: var(--epyon-bg-card) !important;
+}
+.usa-banner__button,
+.usa-banner__button-text {
+  color: var(--epyon-text-muted) !important;
+}
+.usa-banner__button:hover { color: var(--epyon-accent) !important; }
+.usa-banner__content {
+  background-color: var(--epyon-bg) !important;
+  color: var(--epyon-text-muted) !important;
+}
+.usa-banner__content p,
+.usa-banner__guidance { color: var(--epyon-text-muted) !important; }
+.usa-media-block__body { color: var(--epyon-text-muted) !important; }
+
+/* ── Dark mode: Nav mobile / overlay ───────────────────────────── */
+.usa-overlay {
+  background: rgba(0, 0, 0, 0.65) !important;
+  opacity: 1 !important;
+}
+.usa-menu-btn {
+  background-color: transparent !important;
+  color: var(--epyon-text) !important;
+  box-shadow: none !important;
+}
+.usa-menu-btn:hover { background-color: var(--epyon-bg-hover) !important; }
+.usa-nav__close,
+.usa-nav__close svg {
+  color: var(--epyon-text) !important;
+  fill: var(--epyon-text) !important;
+}
+@media (max-width: 1023px) {
+  .usa-nav {
+    background-color: var(--epyon-bg-card) !important;
+    border-right: 1px solid var(--epyon-border) !important;
+  }
+  .usa-nav__primary-item > button,
+  .usa-nav__primary .usa-accordion__button {
+    background-color: var(--epyon-bg-card) !important;
+    color: var(--epyon-text) !important;
+  }
+  .usa-nav__primary-item > button:hover,
+  .usa-nav__primary .usa-accordion__button:hover {
+    background-color: var(--epyon-bg-hover) !important;
+  }
+}
+
+/* ── Dark mode: Accordion ───────────────────────────────────────── */
+.usa-accordion__button {
+  background-color: var(--epyon-bg-card) !important;
+  color: var(--epyon-text) !important;
+}
+.usa-accordion__button:hover { background-color: var(--epyon-bg-hover) !important; }
+.usa-accordion__content {
+  background-color: var(--epyon-bg) !important;
+  color: var(--epyon-text) !important;
+  border-top: 1px solid var(--epyon-border) !important;
+}
+
+/* ── Dark mode: Inline code / kbd ──────────────────────────────── */
+code, kbd, samp, tt {
+  background: var(--epyon-bg-hover) !important;
+  color: var(--epyon-accent) !important;
+  border: 1px solid var(--epyon-border) !important;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 0.875em;
+}
+pre code {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  font-size: inherit;
+}
+
+/* ── Dark mode: Footer links ────────────────────────────────────── */
+.usa-footer__primary-link,
+.usa-footer__primary-link:visited {
+  color: var(--epyon-text-muted) !important;
+}
+.usa-footer__primary-link:hover { color: var(--epyon-accent) !important; }
+.usa-footer__return-to-top a,
+.usa-footer__return-to-top a:visited { color: var(--epyon-accent) !important; }
+.usa-footer__contact-heading { color: var(--epyon-text) !important; }
+.usa-footer__contact-info a,
+.usa-footer__address a {
+  color: var(--epyon-text-muted) !important;
+}
+.usa-footer__contact-info a:hover,
+.usa-footer__address a:hover { color: var(--epyon-accent) !important; }
+.usa-social-link { background-color: var(--epyon-bg-hover) !important; }
+.usa-social-link__icon { filter: invert(0.8) !important; }
+
+/* ── Dark mode: Table cells explicit ───────────────────────────── */
+.usa-table--borderless td,
+.usa-table--borderless th {
+  border-bottom: 1px solid var(--epyon-border-muted) !important;
+}
+
+/* ── Dark mode: Headings ────────────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 { color: var(--epyon-text); }
+p { color: var(--epyon-text); }
+
+/* ── Dark mode: Select options ──────────────────────────────────── */
+.usa-select option {
+  background-color: var(--epyon-bg-card);
+  color: var(--epyon-text);
+}
+
+/* ── Dark mode: Pagination ──────────────────────────────────────── */
+.usa-pagination__button {
+  background-color: var(--epyon-bg-card) !important;
+  color: var(--epyon-text) !important;
+  border-color: var(--epyon-border) !important;
+}
+.usa-pagination__button:hover { background-color: var(--epyon-bg-hover) !important; }
+.usa-current.usa-pagination__button {
+  background-color: var(--epyon-accent) !important;
+  color: #0d1117 !important;
+}
+
+/* ── Dark mode: Tags / chips ────────────────────────────────────── */
+.usa-tag {
+  background-color: var(--epyon-bg-hover) !important;
+  color: var(--epyon-text-muted) !important;
+}
+
+/* ── Dark mode: Process / step indicator ───────────────────────── */
+.usa-step-indicator__segment {
+  background-color: var(--epyon-border) !important;
+}
+.usa-step-indicator__segment--complete {
+  background-color: var(--epyon-accent) !important;
+}
+
+/* ── Dark mode: Grid/layout helpers ────────────────────────────── */
+.grid-container { background-color: transparent; }
+

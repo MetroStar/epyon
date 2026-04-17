@@ -143,6 +143,7 @@ async def run_github_sync(
                                 "run_id":     run["id"],
                                 "artifact_id": artifact["id"],
                                 "workflow":   run.get("name", ""),
+                                "event":      run.get("event", ""),
                                 "branch":     run.get("head_branch", ""),
                                 "commit":     (run.get("head_sha") or "")[:7],
                                 "synced_at":  _now(),

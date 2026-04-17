@@ -1,0 +1,79 @@
+import react from '@vitejs/plugin-react';
+import autoprefixer from 'autoprefixer';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { defineConfig } from 'vite';
+import EnvironmentPlugin from 'vite-plugin-environment';
+import tsconfigPaths from 'vite-tsconfig-paths';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// https://vitejs.dev/config/
+export default defineConfig({
+  plugins: [react(), tsconfigPaths(), EnvironmentPlugin('all')],
+  resolve: {
+    alias: {
+      '~uswds': path.resolve(__dirname, 'node_modules/@uswds/uswds'),
+      '@src': path.resolve(__dirname, 'src'),
+    },
+  },
+  css: {
+    preprocessorOptions: {
+      scss: {
+        api: 'legacy',
+        includePaths: ['node_modules/@uswds/uswds/packages'],
+        // Silence warnings coming from USWDS SCSS
+        quietDeps: true,
+        logger: {
+          warn: (msg) => {
+            if (msg.includes('legacy-js-api')) {
+              return;
+            }
+            console.warn(msg);
+          },
+        },
+      },
+    },
+    postcss: {
+      plugins: [autoprefixer],
+    },
+  },
+  server: {
+    open: false,
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
+    },
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: './vitest.setup.ts',
+    exclude: ['node_modules/**', 'e2e/**'],
+    coverage: {
+      all: false,
+      provider: 'v8',
+      thresholds: {
+        global: {
+          statements: 95,
+          branches: 95,
+          functions: 95,
+          lines: 95,
+        },
+      },
+      exclude: ['src/utils/axios.ts', 'src/utils/keycloak.ts'],
+    },
+    css: false,
+    alias: {
+      // This is necessary to prevent cjs/esm conflicts
+      '@metrostar/comet-uswds': path.resolve(
+        __dirname,
+        'node_modules/@metrostar/comet-uswds/dist/esm/index.js',
+      ),
+    },
+  },
+});

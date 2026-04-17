@@ -254,7 +254,7 @@ jobs:
       SKIP_ANCHORE: "${{ inputs.skip_anchore }}"
       SKIP_API_DISCOVERY: "${{ inputs.skip_api_discovery }}"
       SKIP_STIG: "${{ inputs.skip_stig }}"
-      STIG_CKLB_TEMPLATE: "${{ inputs.stig_cklb_path }}"
+      STIG_CKLB_TEMPLATE: "${{ startsWith(inputs.stig_cklb_path, '/') && inputs.stig_cklb_path || format('{0}/{1}{2}', github.workspace, inputs.subdirectory != '' && format('{0}/', inputs.subdirectory) || '', inputs.stig_cklb_path) }}"
       RUN_OSCAP: "${{ inputs.run_oscap }}"
       CREATE_GITHUB_ISSUE: "${{ inputs.create_github_issue }}"
       CREATE_JIRA_TICKETS: "${{ inputs.create_jira_tickets }}"  # true by default; set to false to disable

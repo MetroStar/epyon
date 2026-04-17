@@ -59,11 +59,20 @@ export const AppDetail = (): React.ReactElement => {
       {/* STIG compliance summary (only shown when Layer 13 data is present) */}
       {latest?.stig_total != null && (
         <div className="epyon-section">
-          <div className="epyon-section-title">STIG Compliance — App Sec Dev STIG R4V6</div>
+          <div className="epyon-section-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span>STIG Compliance — App Sec Dev STIG R4V6</span>
+            {latest.has_stig_report && latest.stig_report_url && (
+              <a href={latest.stig_report_url} target="_blank" rel="noopener noreferrer">
+                <button className="usa-button usa-button--outline" style={{ fontSize: '0.8rem', padding: '4px 12px', marginBottom: 0 }}>
+                  View Full Report
+                </button>
+              </a>
+            )}
+          </div>
           <div className="epyon-grid-stats">
-            <StatCard value={latest.stig_pass  ?? 0} label="Not a Finding" variant="clean" />
-            <StatCard value={latest.stig_open  ?? 0} label="Open"          variant="critical" />
-            <StatCard value={latest.stig_na    ?? 0} label="Not Applicable" variant="default" />
+            <StatCard value={latest.stig_pass  ?? 0} label="Not a Finding"    variant="clean" />
+            <StatCard value={latest.stig_open  ?? 0} label="Open"             variant="critical" />
+            <StatCard value={latest.stig_na    ?? 0} label="Not Applicable"   variant="default" />
             <StatCard value={latest.stig_total ?? 0} label="Controls Assessed" variant="default" />
           </div>
         </div>

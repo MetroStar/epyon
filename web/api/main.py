@@ -256,6 +256,25 @@ def scan_dashboard(scan_id: str, response: Response):
     return FileResponse(str(dashboard), media_type="text/html")
 
 
+@app.get("/api/scans/{scan_id}/stig-report")
+def scan_stig_report(scan_id: str, response: Response):
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
+    matched = next((d for d in scan_dirs if d.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+    report = matched / "stig" / f"{scan_id}_stig-assessment.html"
+    try:
+        report.resolve().relative_to(EPYON_ROOT.resolve())
+    except ValueError:
+        raise HTTPException(403, "Access denied")
+    if not report.exists():
+        raise HTTPException(404, "STIG report not generated for this scan")
+    return FileResponse(str(report), media_type="text/html")
+
+
 @app.get("/api/scans/{scan_id}")
 def scan_detail(scan_id: str, response: Response):
     _sec_headers(response)

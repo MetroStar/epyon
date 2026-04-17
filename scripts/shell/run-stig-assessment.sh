@@ -130,11 +130,10 @@ ts_date     = datetime.datetime.utcnow().strftime("%Y-%m-%d")
 # ── Load crosswalk ────────────────────────────────────────────────────────
 with open(crosswalk_f) as f:
     crosswalk_data = json.load(f)
-controls = crosswalk_data.get("controls", {})
-stig_meta = crosswalk_data.get("_meta", {})
+crosswalk = crosswalk_data.get("controls", {})  # group_id -> control def
 
 # ── Load findings summary ─────────────────────────────────────────────────
-findings = {}   # tool -> {ran: bool, has_findings: bool}
+findings = {}   # tool_base_lower -> {ran: bool, has_findings: bool}
 if findings_f and os.path.isfile(findings_f):
     with open(findings_f) as f:
         summary_doc = json.load(f)
@@ -146,47 +145,57 @@ if findings_f and os.path.isfile(findings_f):
         summary_doc.get("medium_findings", []) +
         summary_doc.get("low_findings", [])
     )
-    # Normalize tool names (TruffleHog, Grype-sbom -> Grype, etc.)
-    tool_map = {}
     for t in tools_analyzed:
-        base = t.split("-")[0].split("_")[0]  # "Grype-sbom" -> "Grype"
-        tool_map[base.lower()] = base
-    
-    for t in tools_analyzed:
-        base = t.split("-")[0].split("_")[0]
-        findings[base.lower()] = {"ran": True, "has_findings": False}
-    
+        base = t.split("-")[0].split("_")[0].lower()
+        findings[base] = {"ran": True, "has_findings": False}
     for finding in all_findings:
-        tool = finding.get("tool", "")
-        base = tool.split("-")[0].split("_")[0].lower()
+        base = finding.get("tool", "").split("-")[0].split("_")[0].lower()
         if base in findings:
             findings[base]["has_findings"] = True
 
-# ── Evaluate each control ─────────────────────────────────────────────────
 def tool_ran(name):
     return findings.get(name.lower(), {}).get("ran", False)
 
 def tool_has_findings(name):
     return findings.get(name.lower(), {}).get("has_findings", False)
 
-results = []
-for group_id, ctrl in controls.items():
-    rule_id  = ctrl.get("rule_id", "")
-    title    = ctrl.get("title", "")
-    severity = ctrl.get("severity", "medium")
-    mappings = ctrl.get("tool_mappings", [])
-    default_status   = ctrl.get("default_status", "Not_Reviewed")
-    default_evidence = ctrl.get("default_evidence", "")
+# ── Build master rule list ────────────────────────────────────────────────
+# If the template is available, iterate all its rules (all 286) so every
+# control appears in the output. Crosswalk provides tool-derived status for
+# the controls it covers; everything else defaults to Not_Reviewed.
+if have_tpl:
+    with open(template_f) as f:
+        cklb_for_rules = json.load(f)
+    master_rules = cklb_for_rules["stigs"][0]["rules"]
+else:
+    # Fallback: only the crosswalk controls
+    master_rules = [
+        {"group_id": gid, "rule_id": ctrl.get("rule_id",""),
+         "rule_title": ctrl.get("title",""), "severity": ctrl.get("severity","medium")}
+        for gid, ctrl in crosswalk.items()
+    ]
 
-    final_status   = default_status
-    final_evidence = default_evidence
+# ── Evaluate each control ─────────────────────────────────────────────────
+results = []
+for rule in master_rules:
+    group_id = rule.get("group_id", "")
+    rule_id  = rule.get("rule_id", "") or rule.get("rule_id_src", "")
+    # Templates have rule_title; fallback crosswalk uses title key
+    title    = rule.get("rule_title") or rule.get("title") or rule.get("group_title", "")
+    severity = rule.get("severity", "medium")
+
+    # Check crosswalk for tool-mapped assessment
+    ctrl     = crosswalk.get(group_id, {})
+    mappings = ctrl.get("tool_mappings", [])
+
+    final_status   = ctrl.get("default_status", "Not_Reviewed")
+    final_evidence = ctrl.get("default_evidence", "")
     source_tool    = "N/A"
 
-    # Evaluate tool mappings in order; first decisive result wins
     for mapping in mappings:
         tool = mapping["tool"]
         if not tool_ran(tool):
-            continue  # tool didn't run — can't evaluate
+            continue
         source_tool = tool
         if tool_has_findings(tool):
             final_status   = mapping.get("on_finding", "Open")
@@ -194,16 +203,16 @@ for group_id, ctrl in controls.items():
         else:
             final_status   = mapping.get("on_clean", "NotAFinding")
             final_evidence = mapping.get("on_clean_evidence", "")
-        break  # first tool that ran is decisive
+        break
 
     results.append({
-        "group_id":    group_id,
-        "rule_id":     rule_id,
-        "title":       title,
-        "severity":    severity,
-        "status":      final_status,
-        "evidence":    final_evidence,
-        "source_tool": source_tool,
+        "group_id":     group_id,
+        "rule_id":      rule_id,
+        "title":        title,
+        "severity":     severity,
+        "status":       final_status,
+        "evidence":     final_evidence,
+        "source_tool":  source_tool,
         "evaluated_at": ts_utc,
     })
 
@@ -228,13 +237,10 @@ print(f"  [OK] stig-results.json")
 
 # ── Output C: populated .cklb (STIG Viewer 3.x JSON) ─────────────────────
 if have_tpl:
-    with open(template_f) as f:
-        cklb = json.load(f)
-    
     # Build lookup: group_id -> result
     result_map = {r["group_id"]: r for r in results}
     
-    for stig in cklb.get("stigs", []):
+    for stig in cklb_for_rules.get("stigs", []):
         for rule in stig.get("rules", []):
             gid = rule.get("group_id", "")
             if gid in result_map:
@@ -248,7 +254,7 @@ if have_tpl:
     
     out_cklb = os.path.join(stig_dir, f"{scan_id}_stig-assessment.cklb")
     with open(out_cklb, "w") as f:
-        json.dump(cklb, f, indent=2)
+        json.dump(cklb_for_rules, f, indent=2)
     print(f"  [OK] {scan_id}_stig-assessment.cklb")
 
 # ── Output E: Markdown summary ─────────────────────────────────────────────

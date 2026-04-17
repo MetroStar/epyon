@@ -42,6 +42,8 @@ export interface Scan {
   stig_pass?: number;
   stig_na?: number;
   stig_total?: number;
+  has_stig_report?: boolean;
+  stig_report_url?: string | null;
 }
 
 export interface Application {

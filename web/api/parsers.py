@@ -460,10 +460,14 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
 
     stig_results = _read_json(scan_dir / "stig" / "stig-results.json")
     if stig_results and isinstance(stig_results, list):
-        data["stig_open"]  = sum(1 for r in stig_results if r.get("status") == "Open")
-        data["stig_pass"]  = sum(1 for r in stig_results if r.get("status") == "NotAFinding")
-        data["stig_na"]    = sum(1 for r in stig_results if r.get("status") == "Not_Applicable")
-        data["stig_total"] = len(stig_results)
+        data["stig_open"]       = sum(1 for r in stig_results if r.get("status") == "Open")
+        data["stig_pass"]       = sum(1 for r in stig_results if r.get("status") == "NotAFinding")
+        data["stig_na"]         = sum(1 for r in stig_results if r.get("status") == "Not_Applicable")
+        data["stig_total"]      = len(stig_results)
+        stig_html = scan_dir / "stig" / f"{scan_id}_stig-assessment.html"
+        if stig_html.exists():
+            data["has_stig_report"] = True
+            data["stig_report_url"] = f"/api/scans/{scan_id}/stig-report"
 
     return data
 

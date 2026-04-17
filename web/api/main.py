@@ -111,14 +111,20 @@ def health(response: Response):
 def stats(response: Response):
     _sec_headers(response)
     scans = [parsers.load_scan(d, EPYON_ROOT) for d in parsers.find_scan_dirs(EPYON_ROOT)]
-    targets = {s["target"] for s in scans}
+    # Group by target, keep only the latest scan per application
+    by_target: dict[str, dict] = {}
+    for s in scans:
+        t = s["target"]
+        if t not in by_target or s.get("timestamp", "") > by_target[t].get("timestamp", ""):
+            by_target[t] = s
+    latest = list(by_target.values())
     return {
-        "total_applications": len(targets),
+        "total_applications": len(by_target),
         "total_scans":        len(scans),
-        "critical": sum(s["critical"] for s in scans),
-        "high":     sum(s["high"]     for s in scans),
-        "medium":   sum(s["medium"]   for s in scans),
-        "low":      sum(s["low"]      for s in scans),
+        "critical": sum(s["critical"] for s in latest),
+        "high":     sum(s["high"]     for s in latest),
+        "medium":   sum(s["medium"]   for s in latest),
+        "low":      sum(s["low"]      for s in latest),
     }
 
 

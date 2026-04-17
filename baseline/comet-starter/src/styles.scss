@@ -668,3 +668,81 @@ p { color: var(--epyon-text); }
 /* ── Dark mode: Grid/layout helpers ────────────────────────────── */
 .grid-container { background-color: transparent; }
 
+/* ── Kebab Menu ──────────────────────────────────────────────── */
+.epyon-kebab {
+  position: relative;
+  display: inline-block;
+}
+.epyon-kebab__trigger {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--epyon-text-muted);
+  transition: background 0.12s, color 0.12s;
+  &:hover { background: var(--epyon-bg-hover); color: var(--epyon-text); }
+  span {
+    display: block;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+}
+.epyon-kebab__menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 300;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  min-width: 160px;
+  background: var(--epyon-bg-card);
+  border: 1px solid var(--epyon-border);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.55);
+}
+.epyon-kebab__item {
+  display: block;
+  width: 100%;
+  padding: 7px 14px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  font-size: 13px;
+  color: var(--epyon-text);
+  cursor: pointer;
+  transition: background 0.1s;
+  &:hover { background: var(--epyon-bg-hover); }
+}
+.epyon-kebab__item--danger { color: var(--epyon-critical); }
+
+/* ── App Cards Grid ──────────────────────────────────────────── */
+.epyon-app-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+.epyon-app-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.epyon-app-card__badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+

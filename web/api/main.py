@@ -111,11 +111,14 @@ def health(response: Response):
 @app.get("/api/stats")
 def stats(response: Response):
     _sec_headers(response)
+    hidden = _load_hidden_apps()
     scans = [parsers.load_scan(d, EPYON_ROOT) for d in parsers.find_scan_dirs(EPYON_ROOT)]
-    # Group by target, keep only the latest scan per application
+    # Group by target, keep only the latest scan per application (exclude hidden)
     by_target: dict[str, dict] = {}
     for s in scans:
         t = s["target"]
+        if t in hidden:
+            continue
         if t not in by_target or s.get("timestamp", "") > by_target[t].get("timestamp", ""):
             by_target[t] = s
     latest = list(by_target.values())
@@ -134,7 +137,9 @@ def stats(response: Response):
 @app.get("/api/scan-history")
 def scan_history(response: Response):
     _sec_headers(response)
-    scans   = [parsers.load_scan(d, EPYON_ROOT) for d in parsers.find_scan_dirs(EPYON_ROOT)]
+    hidden  = _load_hidden_apps()
+    scans   = [parsers.load_scan(d, EPYON_ROOT) for d in parsers.find_scan_dirs(EPYON_ROOT)
+               if parsers.parse_dir_name(d.name)["target"] not in hidden]
     targets = sorted({s["target"] for s in scans})
     users   = sorted({s["user"] for s in scans if s.get("user")})
     return {

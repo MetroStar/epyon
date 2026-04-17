@@ -175,6 +175,7 @@ export const NewScan = (): React.ReactElement => {
             <button
               type="submit"
               className="usa-button"
+              style={{ marginTop: '1.5rem' }}
               disabled={trigger.isPending || !target.trim()}
             >
               {trigger.isPending ? 'Starting…' : 'Run Scan'}

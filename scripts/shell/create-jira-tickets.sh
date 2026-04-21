@@ -239,11 +239,38 @@ if kev_findings:
                                       "href": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"}}]}]}
                          ]}]
 
+ac_heading = {"type": "heading", "attrs": {"level": 3},
+              "content": [{"type": "text", "text": "Acceptance Criteria"}]}
+ac_list = {"type": "bulletList", "content": [
+    {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text",
+        "text": "All listed vulnerabilities have been remediated, formally accepted with documented risk, or are tracked in an approved exception workflow"}]}]},
+    {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text",
+        "text": f"A follow-up Epyon scan of {repo_name} returns zero unresolved findings at this severity tier"}]}]},
+    {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text",
+        "text": "Any CISA KEV items are addressed on or before their published due dates"}]}]},
+]}
+dod_heading = {"type": "heading", "attrs": {"level": 3},
+               "content": [{"type": "text", "text": "Definition of Done"}]}
+dod_list = {"type": "bulletList", "content": [
+    {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text",
+        "text": "Remediation changes reviewed, approved, and merged to the default branch"}]}]},
+    {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text",
+        "text": "Re-scan completed with this severity tier showing no remaining unresolved findings"}]}]},
+    {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text",
+        "text": "If risk accepted: exception documented with approver name, justification, and scheduled review date"}]}]},
+    {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text",
+        "text": "Ticket resolved only after re-scan confirmation"}]}]},
+]}
+
 adf = {"version": 1, "type": "doc",
        "content": [
            *kev_panel_blocks,
            {"type": "paragraph", "content": [{"type": "text", "text": summary_line}]},
            table,
+           ac_heading,
+           ac_list,
+           dod_heading,
+           dod_list,
            {"type": "paragraph", "content": [
                {"type": "text", "text": "Repository: "},
                {"type": "text", "text": repo_name, "marks": [{"type": "code"}]}]},
@@ -332,14 +359,15 @@ JIRA_GETIDS
       local update_summary="Epyon scan on $(date -u +%Y-%m-%d): ${summary_line} (run: ${RUN_URL})"
       local comment_adf
       comment_adf=$(build_adf_body "${severity_key}" "${update_summary}" "" "${current_ids_json}")
+      jq -n --argjson body "${comment_adf}" '{body: $body}' > /tmp/jira_comment_body.json 2>/dev/null || true
       local comment_http
       comment_http=$(curl -s -o /tmp/jira_comment_resp.json -w "%{http_code}" \
         -X POST \
         -H "Authorization: Basic ${AUTH}" \
         -H "Content-Type: application/json" \
         -H "Accept: application/json" \
-        --data "$(jq -n --argjson body "${comment_adf}" '{body: $body}')" \
-        "${JIRA_URL}/rest/api/3/issue/${existing_key}/comment")
+        --data @/tmp/jira_comment_body.json \
+        "${JIRA_URL}/rest/api/3/issue/${existing_key}/comment") || true
       if [[ "${comment_http}" == "201" ]]; then
         echo "✅ Comment added to ${existing_key}"
       else

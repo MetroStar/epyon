@@ -132,6 +132,133 @@ PYEOF
   fi
 }
 
+# ── Helper: remove Jira ticket key from GitHub issue body ────────────────────
+clear_jira_key_in_github() {
+  local label_severity="$1"
+  [[ -z "${GITHUB_ISSUE_NUMBER:-}" ]] && return 0
+  [[ -z "${GITHUB_TOKEN:-}" ]]        && return 0
+
+  local current_body
+  current_body=$(get_github_issue_body)
+  echo "${current_body}" > /tmp/epyon_issue_body.txt
+
+  local new_body
+  new_body=$(python3 - "${label_severity}" /tmp/epyon_issue_body.txt <<'PYEOF'
+import sys, re
+label, body_file = sys.argv[1], sys.argv[2]
+with open(body_file) as f:
+    body = f.read()
+pattern = r'\n?<!--epyon-jira-' + re.escape(label) + r':[A-Z]+-\d+-->'
+print(re.sub(pattern, '', body), end='')
+PYEOF
+  )
+
+  local update_payload
+  update_payload=$(jq -n --arg body "${new_body}" '{body: $body}')
+  local update_http
+  update_http=$(curl -s -o /dev/null -w "%{http_code}" \
+    -X PATCH \
+    -H "Authorization: token ${GITHUB_TOKEN}" \
+    -H "Accept: application/vnd.github.v3+json" \
+    -H "Content-Type: application/json" \
+    --data "${update_payload}" \
+    "https://api.github.com/repos/${REPO_NAME}/issues/${GITHUB_ISSUE_NUMBER}")
+  if [[ "${update_http}" == "200" ]]; then
+    echo "📎 Cleared Jira key for ${label_severity} from GitHub issue #${GITHUB_ISSUE_NUMBER}"
+  else
+    echo "⚠️  Could not clear Jira key in GitHub issue (HTTP ${update_http}) — continuing"
+  fi
+}
+
+# ── Helper: close a Jira ticket when all findings for a severity are resolved ─
+# Finds the first "done" category transition and executes it, then adds a comment.
+close_jira_ticket() {
+  local jira_key="$1"
+  local label_severity="$2"
+
+  # Fetch available transitions.
+  local trans_http
+  trans_http=$(curl -s -o /tmp/jira_transitions.json -w "%{http_code}" \
+    -H "Authorization: Basic ${AUTH}" \
+    -H "Accept: application/json" \
+    "${JIRA_URL}/rest/api/3/issue/${jira_key}/transitions") || true
+
+  if [[ "${trans_http}" != "200" ]]; then
+    echo "⚠️  Could not fetch transitions for ${jira_key} (HTTP ${trans_http}) — skipping auto-close"
+    return 0
+  fi
+
+  # Pick the first transition whose statusCategory is "done".
+  local transition_id
+  transition_id=$(jq -r '
+    [.transitions[] | select(.to.statusCategory.key == "done")] | first | .id // empty
+  ' /tmp/jira_transitions.json 2>/dev/null || true)
+
+  if [[ -z "${transition_id}" ]]; then
+    echo "⚠️  No 'done' transition found for ${jira_key} — skipping auto-close"
+    return 0
+  fi
+
+  # Execute the transition.
+  local close_http
+  close_http=$(curl -s -o /tmp/jira_close_resp.json -w "%{http_code}" \
+    -X POST \
+    -H "Authorization: Basic ${AUTH}" \
+    -H "Content-Type: application/json" \
+    -H "Accept: application/json" \
+    --data "{\"transition\":{\"id\":\"${transition_id}\"}}" \
+    "${JIRA_URL}/rest/api/3/issue/${jira_key}/transitions") || true
+
+  if [[ "${close_http}" == "204" ]]; then
+    echo "✅ Closed ${jira_key} — no ${label_severity} findings remain"
+    echo "## ✅ JIRA Ticket Auto-Closed" >> "${GITHUB_STEP_SUMMARY}"
+    echo "- Severity group: **${label_severity}**" >> "${GITHUB_STEP_SUMMARY}"
+    echo "- Ticket: [${jira_key}](${JIRA_URL}/browse/${jira_key})" >> "${GITHUB_STEP_SUMMARY}"
+    echo "- Reason: no findings in latest Epyon scan" >> "${GITHUB_STEP_SUMMARY}"
+  else
+    echo "⚠️  Could not close ${jira_key} (HTTP ${close_http}) — leaving open"
+    cat /tmp/jira_close_resp.json 2>/dev/null || true
+    return 0
+  fi
+
+  # Add a closing comment.
+  jq -n '{
+    "body": {
+      "type": "doc", "version": 1,
+      "content": [{
+        "type": "paragraph",
+        "content": [{
+          "type": "text",
+          "text": "Epyon scan on '"$(date -u +%Y-%m-%d)"' found no remaining findings for this severity level in '"${REPO_NAME}"'. Ticket auto-closed by Epyon. Run: '"${RUN_URL}"'"
+        }]
+      }]
+    }
+  }' > /tmp/jira_close_comment.json
+  curl -s -o /dev/null \
+    -X POST \
+    -H "Authorization: Basic ${AUTH}" \
+    -H "Content-Type: application/json" \
+    -H "Accept: application/json" \
+    --data @/tmp/jira_close_comment.json \
+    "${JIRA_URL}/rest/api/3/issue/${jira_key}/comment" || true
+
+  clear_jira_key_in_github "${label_severity}"
+}
+
+# ── Helper: check and auto-close ticket if severity count is now zero ─────────
+maybe_close_jira_ticket() {
+  local label_severity="$1"
+  local count="$2"
+  [[ "${count}" -gt 0 ]] && return 0
+
+  local existing_key
+  existing_key=$(find_existing_jira_ticket "${label_severity}")
+  [[ -z "${existing_key}" ]] && return 0
+
+  echo "--- ${label_severity}: count is 0 — checking for open ticket to close ---"
+  close_jira_ticket "${existing_key}" "${label_severity}"
+}
+
 # ── Helper: build ADF body from a severity section of findings JSON ───────────
 # Args: severity_key summary_line [filter_ids_json] [all_current_ids_json]
 build_adf_body() {
@@ -521,6 +648,8 @@ if [[ "${CRITICAL_COUNT:-0}" -gt 0 ]]; then
     "Epyon Critical Security Findings - ${REPO_NAME##*/}" \
     "epyon-critical" "Highest" "critical_findings" \
     "Epyon found ${CRITICAL_COUNT} critical severity finding(s) in ${REPO_NAME} on ${TODAY}."
+else
+  maybe_close_jira_ticket "epyon-critical" "${CRITICAL_COUNT:-0}"
 fi
 
 if [[ "${HIGH_COUNT:-0}" -gt 0 ]]; then
@@ -528,6 +657,8 @@ if [[ "${HIGH_COUNT:-0}" -gt 0 ]]; then
     "Epyon High Security Findings - ${REPO_NAME##*/}" \
     "epyon-high" "High" "high_findings" \
     "Epyon found ${HIGH_COUNT} high severity finding(s) in ${REPO_NAME} on ${TODAY}."
+else
+  maybe_close_jira_ticket "epyon-high" "${HIGH_COUNT:-0}"
 fi
 
 if [[ "${MEDIUM_COUNT:-0}" -gt 0 ]]; then
@@ -535,6 +666,8 @@ if [[ "${MEDIUM_COUNT:-0}" -gt 0 ]]; then
     "Epyon Medium Security Findings - ${REPO_NAME##*/}" \
     "epyon-medium" "Medium" "medium_findings" \
     "Epyon found ${MEDIUM_COUNT} medium severity finding(s) in ${REPO_NAME} on ${TODAY}."
+else
+  maybe_close_jira_ticket "epyon-medium" "${MEDIUM_COUNT:-0}"
 fi
 
 if [[ "${LOW_COUNT:-0}" -gt 0 ]]; then
@@ -542,4 +675,7 @@ if [[ "${LOW_COUNT:-0}" -gt 0 ]]; then
     "Epyon Low Security Findings - ${REPO_NAME##*/}" \
     "epyon-low" "Low" "low_findings" \
     "Epyon found ${LOW_COUNT} low severity finding(s) in ${REPO_NAME} on ${TODAY}."
+else
+  maybe_close_jira_ticket "epyon-low" "${LOW_COUNT:-0}"
 fi
+

@@ -22,7 +22,7 @@ on:
         required: false
         type: string
       scan_mode:
-        description: 'Scan mode (quick/full/nightly/baseline)'
+        description: 'Scan mode (quick/full/nightly/baseline/stig)'
         required: false
         default: 'full'
         type: choice
@@ -31,6 +31,7 @@ on:
           - full
           - nightly
           - baseline
+          - stig
       garak_target_type:
         description: 'Garak generator type (e.g. test, openai, huggingface)'
         required: false

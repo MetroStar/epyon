@@ -250,6 +250,28 @@ fi
 
 run_garak_layer
 
+# Layer 13 — STIG Compliance Assessment (stig and nightly scan modes)
+# Runs AI-assisted AppSecDev STIG V5R3 assessment via GPT-4.1.
+# Requires OPENAI_API_KEY. Gracefully skips when key is absent.
+if [[ "${SCAN_MODE:-full}" =~ ^(stig|nightly)$ ]] && _should_run_tool SKIP_STIG; then
+  run_group "Layer 13 - STIG Compliance Assessment" \
+    env \
+      OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
+      OPENAI_MODEL="${OPENAI_MODEL:-gpt-4.1}" \
+      SCAN_DIR="$SCAN_DIR" \
+      TARGET_DIR="$TARGET_DIR" \
+    bash -lc '
+      chmod +x scripts/shell/run-stig-scan.sh
+      CKLB_PATH="${CKLB_PATH:-configuration/appsecdev.cklb}" \
+      APP_NAME="${TARGET_NAME:-$(basename "$TARGET_DIR")}" \
+      ./scripts/shell/run-stig-scan.sh "$TARGET_DIR" || echo "[WARNING] STIG assessment completed with warnings"
+    '
+elif [[ "${SKIP_STIG:-false}" == "true" ]]; then
+  echo "[INFO] Skipping Layer 13 - STIG (SKIP_STIG=true)"
+else
+  echo "[INFO] Skipping Layer 13 - STIG (scan_mode=${SCAN_MODE:-full}; runs in stig or nightly mode)"
+fi
+
 run_group "Generate Scan Manifest" bash -lc '
   chmod +x scripts/shell/generate-scan-manifest.sh
   ./scripts/shell/generate-scan-manifest.sh "$SCAN_DIR" || echo "Manifest generation completed with warnings"

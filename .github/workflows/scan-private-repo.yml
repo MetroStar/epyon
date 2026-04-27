@@ -12,8 +12,10 @@ concurrency:
 
 on:
   schedule:
-    # Nightly run at 2 AM UTC
-    - cron: '0 2 * * *'
+    # Nightly full scan — runs every night at 2 AM UTC (Mon-Sat)
+    - cron: '0 2 * * 1-6'
+    # Weekly STIG scan — runs Sunday night at 2 AM UTC
+    - cron: '0 2 * * 0'
   # checkov:skip=CKV_GHA_7:Workflow inputs control scan parameters not build artifacts
   workflow_dispatch:
     inputs:
@@ -62,7 +64,7 @@ jobs:
       issues: write
     uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
     with:
-      scan_mode: ${{ github.event_name == 'schedule' && 'nightly' || github.event.inputs.scan_mode || 'full' }}
+      scan_mode: ${{ github.event_name == 'schedule' && (github.event.schedule == '0 2 * * 0' && 'stig' || 'nightly') || github.event.inputs.scan_mode || 'full' }}
       subdirectory: ${{ github.event.inputs.subdirectory || '' }}
       garak_target_type: ${{ github.event.inputs.garak_target_type || 'openai' }}
       garak_target_name: ${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}

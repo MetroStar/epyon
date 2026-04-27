@@ -1,8 +1,11 @@
 #!/bin/bash
 
 # STIG Compliance Assessment Script
-# Performs AI-assisted AppSecDev STIG V5R3 assessment against a target application
-# Requires: python3, openai Python package, OPENAI_API_KEY env var
+# Performs AI-assisted STIG assessment against a target application.
+# Supports one or more STIG source files (.cklb JSON or XCCDF .xml).
+#
+# By default, all STIG files in configuration/stigs/ are processed.
+# To add a new STIG, simply drop a .cklb or .xml file into that directory.
 #
 # Usage:
 #   ./run-stig-scan.sh <TARGET_DIR>
@@ -10,7 +13,9 @@
 # Environment variables:
 #   OPENAI_API_KEY    Required. OpenAI API key for LLM assessment.
 #   OPENAI_MODEL      OpenAI model to use (default: gpt-4.1).
-#   CKLB_PATH         Path to CKLB checklist file (default: configuration/appsecdev.cklb).
+#   STIGS_DIR         Directory of STIG files (default: configuration/stigs).
+#                     Set STIGS_FILE instead to target a single file.
+#   STIGS_FILE        Single STIG file path (overrides STIGS_DIR).
 #   SCAN_DIR          Output directory for scan results (default: auto-derived).
 #   APP_NAME          Application name for the report (default: basename of TARGET_DIR).
 #   BATCH_SIZE        Controls per API call (default: 20).
@@ -44,13 +49,14 @@ echo ""
 # ── Help ─────────────────────────────────────────────────────────────────────
 show_help() {
     echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
-    echo -e "${BLUE}  STIG Compliance Assessment (AppSecDev STIG V5R3)${NC}"
+    echo -e "${BLUE}  STIG Compliance Assessment (multi-STIG support)${NC}"
     echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
     echo ""
     echo "Usage: $0 [OPTIONS] <TARGET_DIR>"
     echo ""
-    echo "Performs AI-assisted DISA STIG compliance assessment against"
-    echo "the AppSec Development STIG (286 controls) using GPT-4.1."
+    echo "Performs AI-assisted DISA STIG compliance assessment against one or more"
+    echo "STIGs using GPT-4.1. Processes all .cklb and .xml files in the stigs"
+    echo "directory. Add more STIGs by dropping files into configuration/stigs/."
     echo ""
     echo "Arguments:"
     echo "  TARGET_DIR    Path to the application source directory (REQUIRED)"
@@ -61,21 +67,27 @@ show_help() {
     echo "Environment variables:"
     echo "  OPENAI_API_KEY    Required. OpenAI API key."
     echo "  OPENAI_MODEL      Model to use (default: gpt-4.1)."
-    echo "  CKLB_PATH         Path to .cklb checklist (default: configuration/appsecdev.cklb)."
+    echo "  STIGS_DIR         Directory of STIG files (default: configuration/stigs)."
+    echo "  STIGS_FILE        Single STIG file path (overrides STIGS_DIR)."
     echo "  SCAN_DIR          Output directory (default: auto-derived scan directory)."
     echo "  APP_NAME          Application name for the report header."
     echo "  BATCH_SIZE        Controls per API call (default: 20)."
     echo "  BATCH_DELAY       Seconds between API calls (default: 1)."
     echo "  SKIP_STIG         Set to 'true' to skip this layer."
     echo ""
-    echo "Output:"
-    echo "  \$SCAN_DIR/findings.md        Full STIG findings report"
-    echo "  \$SCAN_DIR/stig-controls.json Parsed controls (audit trail)"
-    echo "  \$SCAN_DIR/stig-results.json  Raw per-control assessment JSON"
+    echo "Output (per STIG in stigs dir):"
+    echo "  \$SCAN_DIR/findings.md              Primary report (first/only STIG)"
+    echo "  \$SCAN_DIR/findings-{slug}.md       Per-STIG report when multiple present"
+    echo "  \$SCAN_DIR/stig-controls-{slug}.json"
+    echo "  \$SCAN_DIR/stig-results-{slug}.json"
+    echo ""
+    echo "Adding a new STIG:"
+    echo "  Drop any .cklb or XCCDF .xml file into configuration/stigs/"
+    echo "  It will be picked up automatically on the next scan."
     echo ""
     echo "Examples:"
     echo "  OPENAI_API_KEY=sk-... $0 /path/to/my-app"
-    echo "  OPENAI_MODEL=gpt-4o $0 ../my-api-service"
+    echo "  STIGS_FILE=configuration/stigs/U_ASD_STIG_V6R4_Manual-xccdf.xml $0 ./api"
     echo ""
     exit 0
 }
@@ -111,7 +123,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # ── Defaults ─────────────────────────────────────────────────────────────────
-CKLB_PATH="${CKLB_PATH:-${PROJECT_ROOT}/configuration/appsecdev.cklb}"
+STIGS_DIR="${STIGS_DIR:-${PROJECT_ROOT}/configuration/stigs}"
+STIGS_FILE="${STIGS_FILE:-}"
 OPENAI_MODEL="${OPENAI_MODEL:-gpt-4.1}"
 BATCH_SIZE="${BATCH_SIZE:-20}"
 BATCH_DELAY="${BATCH_DELAY:-1}"
@@ -125,17 +138,41 @@ if [[ -z "${SCAN_DIR:-}" ]]; then
 fi
 
 # ── Pre-flight checks ─────────────────────────────────────────────────────────
+if [[ -n "$STIGS_FILE" ]]; then
+    echo -e "${BLUE}[INFO] STIG source     : ${STIGS_FILE} (single file)${NC}"
+else
+    echo -e "${BLUE}[INFO] STIG source dir : ${STIGS_DIR}${NC}"
+fi
 echo -e "${BLUE}[INFO] Target directory : ${TARGET_DIR}${NC}"
-echo -e "${BLUE}[INFO] CKLB path        : ${CKLB_PATH}${NC}"
 echo -e "${BLUE}[INFO] Scan output dir  : ${SCAN_DIR}${NC}"
 echo -e "${BLUE}[INFO] Application name : ${APP_NAME}${NC}"
 echo -e "${BLUE}[INFO] OpenAI model     : ${OPENAI_MODEL}${NC}"
 echo ""
 
-if [[ ! -f "$CKLB_PATH" ]]; then
-    echo -e "${RED}[ERROR] CKLB checklist not found: ${CKLB_PATH}${NC}"
-    echo "        Place the AppSecDev STIG .cklb file at that path, or set CKLB_PATH."
-    exit 1
+# Validate STIG source exists
+if [[ -n "$STIGS_FILE" ]]; then
+    if [[ ! -f "$STIGS_FILE" ]]; then
+        echo -e "${RED}[ERROR] STIGS_FILE not found: ${STIGS_FILE}${NC}"
+        exit 1
+    fi
+else
+    if [[ ! -d "$STIGS_DIR" ]]; then
+        echo -e "${RED}[ERROR] STIGS_DIR not found: ${STIGS_DIR}${NC}"
+        echo "        Create it and place .cklb or XCCDF .xml files inside, or set STIGS_FILE."
+        exit 1
+    fi
+    # Count supported files
+    STIG_COUNT=$(find "$STIGS_DIR" -maxdepth 1 \( -name '*.cklb' -o -name '*.xml' \) -type f 2>/dev/null | wc -l | tr -d ' ')
+    if [[ "$STIG_COUNT" -eq 0 ]]; then
+        echo -e "${RED}[ERROR] No .cklb or .xml STIG files found in ${STIGS_DIR}${NC}"
+        echo "        Drop DISA STIG files (.cklb or XCCDF .xml) into that directory."
+        exit 1
+    fi
+    echo -e "${BLUE}[INFO] STIG files found : ${STIG_COUNT}${NC}"
+    find "$STIGS_DIR" -maxdepth 1 \( -name '*.cklb' -o -name '*.xml' \) -type f | sort | while read -r f; do
+        echo -e "${BLUE}         $(basename "$f")${NC}"
+    done
+    echo ""
 fi
 
 if ! command -v python3 &>/dev/null; then
@@ -164,7 +201,7 @@ fi
 mkdir -p "$SCAN_DIR"
 
 # ── Run assessment ────────────────────────────────────────────────────────────
-echo -e "${GREEN}[STIG] Starting AppSecDev STIG V5R3 assessment...${NC}"
+echo -e "${GREEN}[STIG] Starting STIG compliance assessment...${NC}"
 echo ""
 
 ASSESSMENT_SCRIPT="${SCRIPT_DIR}/run-stig-assessment.py"
@@ -174,8 +211,15 @@ if [[ ! -f "$ASSESSMENT_SCRIPT" ]]; then
     exit 1
 fi
 
+# Build the STIG source argument
+if [[ -n "$STIGS_FILE" ]]; then
+    STIG_ARG=("--cklb" "$STIGS_FILE")
+else
+    STIG_ARG=("--stigs-dir" "$STIGS_DIR")
+fi
+
 python3 "$ASSESSMENT_SCRIPT" \
-    --cklb       "$CKLB_PATH"       \
+    "${STIG_ARG[@]}"         \
     --target     "$TARGET_DIR"      \
     --scan-dir   "$SCAN_DIR"        \
     --app-name   "$APP_NAME"        \

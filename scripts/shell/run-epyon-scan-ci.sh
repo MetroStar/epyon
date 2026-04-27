@@ -262,7 +262,7 @@ if [[ "${SCAN_MODE:-full}" =~ ^(stig|nightly)$ ]] && _should_run_tool SKIP_STIG;
       TARGET_DIR="$TARGET_DIR" \
     bash -lc '
       chmod +x scripts/shell/run-stig-scan.sh
-      CKLB_PATH="${CKLB_PATH:-configuration/appsecdev.cklb}" \
+      STIGS_DIR="${STIGS_DIR:-configuration/stigs}" \
       APP_NAME="${TARGET_NAME:-$(basename "$TARGET_DIR")}" \
       ./scripts/shell/run-stig-scan.sh "$TARGET_DIR" || echo "[WARNING] STIG assessment completed with warnings"
     '

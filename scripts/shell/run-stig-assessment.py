@@ -2,27 +2,38 @@
 """
 run-stig-assessment.py — AI-powered STIG compliance assessment engine.
 
-Reads controls from a parsed CKLB JSON file, walks the target application
-source tree, batches controls with relevant code context, and calls the
-OpenAI API to produce per-control status + evidence assessments.
+Reads controls from one or more STIG source files (.cklb JSON or XCCDF XML),
+walks the target application source tree, batches controls with relevant
+code context, and calls the OpenAI API to produce per-control assessments.
 
-Outputs:
-  {SCAN_DIR}/findings.md     — Full formatted findings report
-  {SCAN_DIR}/stig-results.json — Raw JSON assessment results
+Outputs (per STIG):
+  {SCAN_DIR}/findings.md              — Primary findings report (first/only STIG)
+  {SCAN_DIR}/findings-{slug}.md       — Per-STIG report when multiple STIGs present
+  {SCAN_DIR}/stig-controls-{slug}.json
+  {SCAN_DIR}/stig-results-{slug}.json
 
 Usage:
+    # Single STIG file (.cklb or XCCDF .xml):
     python3 run-stig-assessment.py \\
-        --cklb     <path/to/appsecdev.cklb> \\
+        --cklb     <path/to/appsecdev.cklb|xccdf.xml> \\
         --target   <path/to/app/source> \\
         --scan-dir <path/to/scan/output/dir> \\
-        --app-name <ApplicationName> \\
-        [--model   gpt-4.1] \\
-        [--batch-size 20] \\
-        [--delay   1.0]
+        --app-name <ApplicationName>
+
+    # Directory of STIG files (processes all .cklb and .xml files):
+    python3 run-stig-assessment.py \\
+        --stigs-dir configuration/stigs \\
+        --target    <path/to/app/source> \\
+        --scan-dir  <path/to/scan/output/dir> \\
+        --app-name  <ApplicationName>
 
 Environment:
     OPENAI_API_KEY   Required. OpenAI API key.
     OPENAI_MODEL     Optional. Overrides --model flag (default: gpt-4.1).
+
+Adding a new STIG:
+    Drop any .cklb or XCCDF .xml file into configuration/stigs/ — it will be
+    picked up automatically on the next nightly/stig scan run.
 """
 
 from __future__ import annotations
@@ -110,38 +121,33 @@ Return ONLY the JSON array."""
 
 
 # ---------------------------------------------------------------------------
-# CKLB parser (inline — same logic as parse-stig-cklb.py)
+# STIG parser — delegates to parse-stig-cklb.py (supports .cklb and XCCDF)
 # ---------------------------------------------------------------------------
 
-def parse_cklb(cklb_path: str) -> dict[str, Any]:
-    with open(cklb_path, encoding="utf-8") as f:
-        data = json.load(f)
+def _load_parser() -> Any:
+    """Import parse_stig from sibling parse-stig-cklb.py."""
+    import importlib.util
+    script_dir = Path(__file__).parent
+    spec = importlib.util.spec_from_file_location(
+        "parse_stig_cklb", script_dir / "parse-stig-cklb.py"
+    )
+    mod = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+    spec.loader.exec_module(mod)  # type: ignore[union-attr]
+    return mod
 
-    stigs = data.get("stigs", [])
-    if not stigs:
-        raise ValueError(f"No STIGs found in {cklb_path}")
 
-    stig = stigs[0]
-    rules = stig.get("rules", [])
+def parse_stig_file(path: str) -> dict[str, Any]:
+    """Parse any supported STIG file (.cklb or XCCDF .xml)."""
+    mod = _load_parser()
+    return mod.parse_stig(path)
 
-    controls = []
-    for i, rule in enumerate(rules, start=1):
-        controls.append({
-            "number":        i,
-            "vuln_id":       rule.get("rule_version", ""),
-            "group_id":      rule.get("group_id", ""),
-            "rule_id":       rule.get("rule_id", ""),
-            "severity":      rule.get("severity", ""),
-            "title":         rule.get("rule_title", ""),
-            "check_content": rule.get("check_content", ""),
-            "fix_text":      rule.get("fix_text", ""),
-        })
 
-    return {
-        "stig_name":      stig.get("stig_name", "Unknown STIG"),
-        "total_controls": len(controls),
-        "controls":       controls,
-    }
+def slug_from_stig(stig: dict[str, Any], path: str) -> str:
+    """Derive a filesystem-safe slug from a STIG dict."""
+    name = Path(path).stem
+    # Normalise to lowercase alphanumeric + hyphens
+    import re as _re
+    return _re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
 
 
 # ---------------------------------------------------------------------------
@@ -379,63 +385,34 @@ def render_findings_md(
 # Main
 # ---------------------------------------------------------------------------
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="AI-powered STIG assessment engine (AppSecDev STIG V5R3)"
-    )
-    parser.add_argument("--cklb",       required=True, help="Path to .cklb checklist file")
-    parser.add_argument("--target",     required=True, help="Path to application source directory")
-    parser.add_argument("--scan-dir",   required=True, help="Path to scan output directory")
-    parser.add_argument("--app-name",   required=True, help="Application name for report header")
-    parser.add_argument("--model",      default="gpt-4.1", help="OpenAI model (default: gpt-4.1)")
-    parser.add_argument("--batch-size", type=int, default=BATCH_SIZE_DEFAULT,
-                        help=f"Controls per API call (default: {BATCH_SIZE_DEFAULT})")
-    parser.add_argument("--delay",      type=float, default=1.0,
-                        help="Seconds between API calls (default: 1.0)")
-    args = parser.parse_args()
+def _assess_stig(
+    stig_data: dict[str, Any],
+    stig_path: str,
+    source_files: list[tuple[str, str]],
+    scan_dir: Path,
+    app_name: str,
+    model: str,
+    batch_size: int,
+    delay: float,
+    api_key: str,
+    scan_date: str,
+    slug: str,
+    is_primary: bool,
+) -> None:
+    """Run assessment for a single STIG and write output files."""
+    controls  = stig_data["controls"]
+    stig_name = stig_data["stig_name"]
 
-    # Env var overrides
-    model = os.environ.get("OPENAI_MODEL", args.model)
-    api_key = os.environ.get("OPENAI_API_KEY", "")
+    print(f"[INFO] [{slug}] Loaded {len(controls)} controls from '{stig_name}'", file=sys.stderr)
 
-    if not api_key:
-        print(
-            "[WARNING] OPENAI_API_KEY is not set — STIG assessment requires an API key. "
-            "Generating report with 'Not Reviewed' status for all controls.",
-            file=sys.stderr,
-        )
+    # Persist parsed controls
+    controls_path = scan_dir / f"stig-controls-{slug}.json"
+    controls_path.write_text(json.dumps(stig_data, indent=2), encoding="utf-8")
+    print(f"[INFO] [{slug}] Controls written to {controls_path}", file=sys.stderr)
 
-    # ── Parse CKLB ────────────────────────────────────────────────────────
-    print(f"[INFO] Parsing CKLB: {args.cklb}", file=sys.stderr)
-    try:
-        cklb = parse_cklb(args.cklb)
-    except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
-        print(f"[ERROR] {e}", file=sys.stderr)
-        sys.exit(1)
-
-    controls = cklb["controls"]
-    stig_name = cklb["stig_name"]
-    print(f"[INFO] Loaded {len(controls)} controls from '{stig_name}'", file=sys.stderr)
-
-    # ── Persist parsed controls for audit trail ────────────────────────────
-    scan_dir = Path(args.scan_dir)
-    scan_dir.mkdir(parents=True, exist_ok=True)
-    controls_path = scan_dir / "stig-controls.json"
-    controls_path.write_text(json.dumps(cklb, indent=2), encoding="utf-8")
-    print(f"[INFO] Controls written to {controls_path}", file=sys.stderr)
-
-    scan_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-    # ── Collect source files ───────────────────────────────────────────────
-    print(f"[INFO] Collecting source files from {args.target}", file=sys.stderr)
-    source_files = collect_source_files(args.target)
-    print(f"[INFO] Collected {len(source_files)} source files", file=sys.stderr)
-
-    # ── Assess controls ────────────────────────────────────────────────────
     assessments: dict[str, dict[str, str]] = {}
 
     if not api_key:
-        # No API key — mark everything Not Reviewed
         for c in controls:
             assessments[c["vuln_id"]] = {
                 "status":   "Not Reviewed",
@@ -446,51 +423,43 @@ def main() -> None:
             from openai import OpenAI  # type: ignore[import]
         except ImportError:
             print(
-                "[ERROR] The 'openai' Python package is not installed. "
-                "Run: pip install openai",
+                "[ERROR] The 'openai' Python package is not installed. Run: pip install openai",
                 file=sys.stderr,
             )
             sys.exit(1)
 
         client = OpenAI(api_key=api_key)
-
-        batches = [
-            controls[i : i + args.batch_size]
-            for i in range(0, len(controls), args.batch_size)
-        ]
+        batches = [controls[i : i + batch_size] for i in range(0, len(controls), batch_size)]
         total_batches = len(batches)
 
         print(
-            f"[INFO] Submitting {total_batches} batches of up to {args.batch_size} controls each "
+            f"[INFO] [{slug}] Submitting {total_batches} batches of up to {batch_size} controls "
             f"to {model}",
             file=sys.stderr,
         )
 
         for idx, batch in enumerate(batches, start=1):
             print(
-                f"[INFO] Batch {idx}/{total_batches}: controls "
+                f"[INFO] [{slug}] Batch {idx}/{total_batches}: "
                 f"{batch[0]['vuln_id']} → {batch[-1]['vuln_id']}",
                 file=sys.stderr,
             )
 
-            # Build combined keywords for this batch to find relevant files
             all_kw: list[str] = []
             for c in batch:
                 all_kw.extend(extract_keywords(c["check_content"]))
-
             code_context = build_code_context(source_files, all_kw)
 
             try:
                 results = call_openai(client, model, batch, code_context)
             except json.JSONDecodeError as e:
-                print(f"[WARNING] Batch {idx} returned invalid JSON: {e}", file=sys.stderr)
+                print(f"[WARNING] [{slug}] Batch {idx} returned invalid JSON: {e}", file=sys.stderr)
                 results = []
             except Exception as e:  # pylint: disable=broad-except
-                print(f"[WARNING] Batch {idx} API error: {e}", file=sys.stderr)
+                print(f"[WARNING] [{slug}] Batch {idx} API error: {e}", file=sys.stderr)
                 results = []
 
-            # Merge results; fall back for any missing controls
-            assessed_ids = set()
+            assessed_ids: set[str] = set()
             for item in results:
                 vid = item.get("vuln_id", "")
                 if vid:
@@ -499,50 +468,149 @@ def main() -> None:
                         "evidence": item.get("evidence", FALLBACK_EVIDENCE),
                     }
                     assessed_ids.add(vid)
-
             for c in batch:
                 if c["vuln_id"] not in assessed_ids:
-                    assessments[c["vuln_id"]] = {
-                        "status":   "Open",
-                        "evidence": FALLBACK_EVIDENCE,
-                    }
+                    assessments[c["vuln_id"]] = {"status": "Open", "evidence": FALLBACK_EVIDENCE}
 
             if idx < total_batches:
-                time.sleep(args.delay)
+                time.sleep(delay)
 
-    # ── Write raw JSON results ─────────────────────────────────────────────
-    results_path = scan_dir / "stig-results.json"
+    # Write raw results
+    results_path = scan_dir / f"stig-results-{slug}.json"
     results_path.write_text(json.dumps(assessments, indent=2), encoding="utf-8")
-    print(f"[INFO] Raw assessment results written to {results_path}", file=sys.stderr)
+    print(f"[INFO] [{slug}] Raw results written to {results_path}", file=sys.stderr)
 
-    # ── Render findings.md ─────────────────────────────────────────────────
+    # Render findings markdown
     md = render_findings_md(
-        app_name=args.app_name,
+        app_name=app_name,
         stig_name=stig_name,
         controls=controls,
         assessments=assessments,
         scan_date=scan_date,
     )
 
-    findings_path = scan_dir / "findings.md"
-    findings_path.write_text(md, encoding="utf-8")
-    print(f"[INFO] Findings report written to {findings_path}", file=sys.stderr)
+    # Named file always written; also write findings.md for the primary STIG
+    named_path = scan_dir / f"findings-{slug}.md"
+    named_path.write_text(md, encoding="utf-8")
+    print(f"[INFO] [{slug}] Findings written to {named_path}", file=sys.stderr)
 
-    # ── Print summary ──────────────────────────────────────────────────────
+    if is_primary:
+        primary_path = scan_dir / "findings.md"
+        primary_path.write_text(md, encoding="utf-8")
+        print(f"[INFO] [{slug}] Primary findings.md → {primary_path}", file=sys.stderr)
+
+    # Summary
     counts: dict[str, int] = {}
     for v in assessments.values():
-        s = v.get("status", "Open")
-        counts[s] = counts.get(s, 0) + 1
-
-    print("", file=sys.stderr)
-    print("STIG Assessment Summary", file=sys.stderr)
-    print("──────────────────────────────", file=sys.stderr)
+        counts[v.get("status", "Open")] = counts.get(v.get("status", "Open"), 0) + 1
+    print(f"", file=sys.stderr)
+    print(f"  [{slug}] Summary", file=sys.stderr)
+    print(f"  " + "─" * 30, file=sys.stderr)
     for label in ("Open", "Not a Finding", "Not Applicable", "Not Reviewed"):
         n = counts.get(label, 0)
         if n:
-            print(f"  {label:<20} {n}", file=sys.stderr)
-    print(f"  {'Total':<20} {len(controls)}", file=sys.stderr)
+            print(f"    {label:<22} {n}", file=sys.stderr)
+    print(f"    {'Total':<22} {len(controls)}", file=sys.stderr)
+    print(f"", file=sys.stderr)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="AI-powered STIG compliance assessment engine"
+    )
+    # STIG source — mutually exclusive: single file or directory
+    stig_group = parser.add_mutually_exclusive_group(required=True)
+    stig_group.add_argument(
+        "--cklb",
+        help="Path to a single STIG file (.cklb JSON or XCCDF .xml). "
+             "Use --stigs-dir to process multiple STIGs.",
+    )
+    stig_group.add_argument(
+        "--stigs-dir",
+        help="Directory containing one or more STIG files (.cklb or .xml). "
+             "All supported files are processed automatically.",
+    )
+    parser.add_argument("--target",     required=True, help="Path to application source directory")
+    parser.add_argument("--scan-dir",   required=True, help="Path to scan output directory")
+    parser.add_argument("--app-name",   required=True, help="Application name for report header")
+    parser.add_argument("--model",      default="gpt-4.1", help="OpenAI model (default: gpt-4.1)")
+    parser.add_argument("--batch-size", type=int, default=BATCH_SIZE_DEFAULT,
+                        help=f"Controls per API call (default: {BATCH_SIZE_DEFAULT})")
+    parser.add_argument("--delay",      type=float, default=1.0,
+                        help="Seconds between API calls (default: 1.0)")
+    args = parser.parse_args()
+
+    model   = os.environ.get("OPENAI_MODEL", args.model)
+    api_key = os.environ.get("OPENAI_API_KEY", "")
+
+    if not api_key:
+        print(
+            "[WARNING] OPENAI_API_KEY is not set — generating report with "
+            "'Not Reviewed' status for all controls.",
+            file=sys.stderr,
+        )
+
+    scan_dir  = Path(args.scan_dir)
+    scan_dir.mkdir(parents=True, exist_ok=True)
+    scan_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    # ── Resolve STIG file list ─────────────────────────────────────────────
+    stig_files: list[Path] = []
+    if args.cklb:
+        stig_files = [Path(args.cklb)]
+    else:
+        stigs_dir = Path(args.stigs_dir)
+        if not stigs_dir.is_dir():
+            print(f"[ERROR] --stigs-dir not found: {stigs_dir}", file=sys.stderr)
+            sys.exit(1)
+        stig_files = sorted(
+            p for p in stigs_dir.iterdir()
+            if p.suffix.lower() in (".cklb", ".xml") and p.is_file()
+        )
+        if not stig_files:
+            print(
+                f"[ERROR] No .cklb or .xml STIG files found in {stigs_dir}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    print(f"[INFO] Found {len(stig_files)} STIG file(s) to process", file=sys.stderr)
+    for sf in stig_files:
+        print(f"         {sf.name}", file=sys.stderr)
     print("", file=sys.stderr)
+
+    # ── Collect source files once (shared across all STIGs) ────────────────
+    print(f"[INFO] Collecting source files from {args.target}", file=sys.stderr)
+    source_files = collect_source_files(args.target)
+    print(f"[INFO] Collected {len(source_files)} source files", file=sys.stderr)
+    print("", file=sys.stderr)
+
+    # ── Process each STIG ─────────────────────────────────────────────────
+    for i, stig_path in enumerate(stig_files):
+        print(f"[INFO] Processing STIG {i + 1}/{len(stig_files)}: {stig_path.name}", file=sys.stderr)
+        try:
+            stig_data = parse_stig_file(str(stig_path))
+        except (FileNotFoundError, ValueError) as e:
+            print(f"[ERROR] Failed to parse {stig_path.name}: {e}", file=sys.stderr)
+            continue
+
+        slug = slug_from_stig(stig_data, str(stig_path))
+        is_primary = (i == 0)  # first STIG also writes findings.md
+
+        _assess_stig(
+            stig_data=stig_data,
+            stig_path=str(stig_path),
+            source_files=source_files,
+            scan_dir=scan_dir,
+            app_name=args.app_name,
+            model=model,
+            batch_size=args.batch_size,
+            delay=args.delay,
+            api_key=api_key,
+            scan_date=scan_date,
+            slug=slug,
+            is_primary=is_primary,
+        )
 
 
 if __name__ == "__main__":

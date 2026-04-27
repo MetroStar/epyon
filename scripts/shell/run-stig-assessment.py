@@ -72,9 +72,9 @@ EXCLUDE_DIR_PREFIXES = {
     ".pytest_cache", ".eggs", "*.egg-info",
 }
 
-MAX_CODE_BYTES_PER_BATCH = 55_000   # ~55 KB per API call
-MAX_FILE_BYTES = 12_000             # skip very large individual files
-BATCH_SIZE_DEFAULT = 20             # controls per API call
+MAX_CODE_BYTES_PER_BATCH = 250_000  # ~250 KB per API call — GPT-4.1 has 1M token context
+MAX_FILE_BYTES = 50_000             # include files up to 50 KB
+BATCH_SIZE_DEFAULT = 10             # controls per API call (smaller = more focused)
 
 STATUS_MAP = {
     "not_reviewed":   "Not Reviewed",
@@ -89,33 +89,45 @@ FALLBACK_EVIDENCE = (
     "system-level validation and artifact collection."
 )
 
-SYSTEM_PROMPT = """You are a DISA STIG compliance analyst conducting a static repository review \
-for the Application Security and Development (AppSecDev) STIG V5R3 (286 controls).
+SYSTEM_PROMPT = """You are a certified DISA STIG compliance analyst performing a thorough \
+static source-code review. Your task is to assess a set of DISA STIG controls against the \
+complete source code of an application repository.
 
-For each control provided you will analyse the supplied source code and return a structured \
-compliance assessment. You MUST respond with a valid JSON array and nothing else. \
-No markdown fences, no explanation text — only the JSON array.
+You will be given:
+1. A manifest listing EVERY file in the repository so you understand the full scope.
+2. The full content of as many files as fit within this context window, prioritised by \
+relevance to the controls being assessed.
+3. A list of controls to assess.
 
-Each element of the array MUST have exactly these three fields:
+Your assessment rules:
+- READ every file provided carefully before assigning any status.
+- For EACH control, trace the requirement through the codebase: search for \
+implementation patterns, configuration settings, middleware, decorators, headers, \
+authentication flows, logging calls, input validation, encryption usage, etc.
+- Cite SPECIFIC file paths, function/class names, line-level evidence (e.g. \
+`src/auth/middleware.ts:validateToken`) wherever possible.
+- Do NOT assume compliance if evidence is absent — default to "Open".
+- Do NOT use "Not Reviewed" unless the control is purely runtime/dynamic with \
+absolutely zero static indicators (e.g. requires live pen-test observation).
+
+Status selection:
+  "Not a Finding"  — You found specific, named code artifacts that fully satisfy the \
+control. Cite them explicitly.
+  "Not Applicable" — The control is architecturally impossible for this application type \
+(e.g., SOAP/WS-Security on a REST-only service). State the architectural reason.
+  "Open"           — Applicable but full compliance cannot be confirmed from static \
+artifacts. Include what partial evidence exists (if any) and what is missing.
+  "Not Reviewed"   — Purely dynamic control with zero static-analysis indicators.
+
+You MUST respond with a valid JSON array and NOTHING ELSE. \
+No markdown fences, no explanation — only the JSON array.
+
+Each element MUST have exactly these three fields:
   "vuln_id"  : the exact APSC-DV-XXXXXX identifier from the input
   "status"   : exactly one of "Open", "Not a Finding", "Not Applicable", "Not Reviewed"
-  "evidence" : concise assessment text — 1-3 sentences or bullet points (prefix each bullet with "- ")
-
-Status selection guidance:
-  "Not Applicable" — The control is structurally impossible for this application type \
-(e.g., SOAP/WS-Security controls for a REST-only service; session controls for a stateless \
-CLI tool). State the architectural reason clearly.
-  "Not a Finding"  — You can cite specific files/classes/functions that directly and \
-completely satisfy the control requirement. Name the file path and code construct.
-  "Open"           — The control is applicable but full compliance cannot be confirmed \
-from static repository artifacts alone. May require runtime validation, IdP/infra config, \
-or organisational policy artefacts.
-  "Not Reviewed"   — The control can ONLY be assessed dynamically (pen test, runtime \
-observation, interview) and has zero static-analysis indicators. Use sparingly.
-
-When no relevant code is found for a control, set status to "Open" and use this exact evidence text:
-"Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; \
-disposition set to Open pending system-level validation and artifact collection."
+  "evidence" : specific, evidence-backed assessment — cite file paths and constructs. \
+1-5 sentences or bullet points (prefix each bullet with "- "). \
+Never use generic boilerplate — always reference the actual codebase.
 
 Return ONLY the JSON array."""
 
@@ -230,32 +242,49 @@ def rank_files_by_relevance(
     return sorted(files, key=score, reverse=True)
 
 
+def build_repo_manifest(files: list[tuple[str, str]]) -> str:
+    """Build a compact file tree listing all files in the repo."""
+    lines = ["Repository file manifest (all files):", ""]
+    for rel, _ in sorted(files, key=lambda x: x[0]):
+        lines.append(f"  {rel}")
+    return "\n".join(lines)
+
+
 def build_code_context(
     files: list[tuple[str, str]],
     keywords: list[str],
     max_bytes: int = MAX_CODE_BYTES_PER_BATCH,
 ) -> str:
-    """Select and concatenate source files up to max_bytes budget."""
+    """Include as many source files as fit in max_bytes, ranked by relevance.
+
+    All files are always considered — keyword scoring only determines priority
+    so the most relevant files fill the budget first, but lower-scoring files
+    are included if space remains.
+    """
     ranked = rank_files_by_relevance(files, keywords)
     parts: list[str] = []
     total = 0
+    skipped: list[str] = []
 
     for rel, content in ranked:
         snippet = f"### FILE: {rel}\n```\n{content}\n```\n"
         snippet_bytes = len(snippet.encode())
         if total + snippet_bytes > max_bytes:
-            # Try to include a truncated version for highly-ranked files
-            if not parts:
-                available = max_bytes - total - len(f"### FILE: {rel}\n```\n...\n```\n")
-                if available > 200:
-                    truncated = content.encode()[:available].decode(errors="replace")
-                    parts.append(f"### FILE: {rel}\n```\n{truncated}\n... [truncated]\n```\n")
-            break
+            skipped.append(rel)
+            continue
         parts.append(snippet)
         total += snippet_bytes
 
+    if skipped:
+        parts.append(
+            f"### NOTE: {len(skipped)} additional file(s) exceeded context budget "
+            f"and were not included:\n"
+            + "\n".join(f"  {r}" for r in skipped)
+            + "\n"
+        )
+
     if not parts:
-        return "(No relevant source files found for this control group)"
+        return "(No source files found in target directory)"
     return "\n".join(parts)
 
 
@@ -268,29 +297,34 @@ def call_openai(
     model: str,
     controls_batch: list[dict[str, Any]],
     code_context: str,
+    repo_manifest: str = "",
 ) -> list[dict[str, Any]]:
-    """Call GPT with a batch of controls + code context, return assessed list."""
+    """Call GPT with a batch of controls + full repo manifest + code context."""
     controls_json = json.dumps(
         [
             {
                 "vuln_id":       c["vuln_id"],
                 "title":         c["title"],
                 "check_content": c["check_content"],
+                "fix_text":      c["fix_text"],
             }
             for c in controls_batch
         ],
         indent=2,
     )
 
+    manifest_section = f"{repo_manifest}\n\n" if repo_manifest else ""
+
     user_message = (
-        f"Controls to assess:\n{controls_json}\n\n"
-        f"Application source code:\n{code_context}"
+        f"{manifest_section}"
+        f"Controls to assess ({len(controls_batch)} total):\n{controls_json}\n\n"
+        f"Application source code (examine every file carefully):\n{code_context}"
     )
 
     response = client.chat.completions.create(
         model=model,
         temperature=0.1,
-        max_tokens=4096,
+        max_tokens=8192,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user",   "content": user_message},
@@ -548,9 +582,14 @@ def _assess_stig(
         batches = [controls[i : i + batch_size] for i in range(0, len(controls), batch_size)]
         total_batches = len(batches)
 
+        # Build repo manifest once — sent with every batch so the model always
+        # knows the full file tree even if some files exceed the context budget.
+        repo_manifest = build_repo_manifest(source_files)
+
         print(
             f"[INFO] [{slug}] Submitting {total_batches} batches of up to {batch_size} controls "
-            f"to {model}",
+            f"to {model} (context budget: {MAX_CODE_BYTES_PER_BATCH // 1024}KB/batch, "
+            f"{len(source_files)} source files)",
             file=sys.stderr,
         )
 
@@ -561,13 +600,15 @@ def _assess_stig(
                 file=sys.stderr,
             )
 
+            # Gather keywords from all controls in this batch to prioritise
+            # the most relevant files, then fill remaining budget with others.
             all_kw: list[str] = []
             for c in batch:
                 all_kw.extend(extract_keywords(c["check_content"]))
             code_context = build_code_context(source_files, all_kw)
 
             try:
-                results = call_openai(client, model, batch, code_context)
+                results = call_openai(client, model, batch, code_context, repo_manifest)
             except json.JSONDecodeError as e:
                 print(f"[WARNING] [{slug}] Batch {idx} returned invalid JSON: {e}", file=sys.stderr)
                 results = []

@@ -99,25 +99,66 @@ You will be given:
 relevance to the controls being assessed.
 3. A list of controls to assess.
 
-Your assessment rules:
-- READ every file provided carefully before assigning any status.
-- For EACH control, trace the requirement through the codebase: search for \
-implementation patterns, configuration settings, middleware, decorators, headers, \
-authentication flows, logging calls, input validation, encryption usage, etc.
-- Cite SPECIFIC file paths, function/class names, line-level evidence (e.g. \
-`src/auth/middleware.ts:validateToken`) wherever possible.
-- Do NOT assume compliance if evidence is absent — default to "Open".
-- Do NOT use "Not Reviewed" unless the control is purely runtime/dynamic with \
-absolutely zero static indicators (e.g. requires live pen-test observation).
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ASSESSMENT METHODOLOGY — follow this exactly
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Status selection:
-  "Not a Finding"  — You found specific, named code artifacts that fully satisfy the \
-control. Cite them explicitly.
-  "Not Applicable" — The control is architecturally impossible for this application type \
-(e.g., SOAP/WS-Security on a REST-only service). State the architectural reason.
+For EACH control:
+
+STEP 1 — Read the check_content carefully. Identify the specific technical requirement \
+(e.g. "passwords must be stored as cryptographic hashes", "TLS 1.2 minimum", \
+"session timeout ≤ 15 minutes").
+
+STEP 2 — Search EVERY provided file for evidence. Look for:
+  - Configuration values (exact setting names and their literal values)
+  - Function/method names that implement the requirement
+  - Middleware, decorators, annotations that enforce the control
+  - Import statements or dependency declarations that bring in relevant libraries
+  - Environment variable references that configure the requirement
+  - Comments or documentation that describe the implementation
+
+STEP 3 — Extract EXACT literals. When you find evidence, copy the exact value from \
+the source code (e.g. `hashIterations(27500)`, `SESSION_TIMEOUT = 900`, \
+`TLSv1.2`). Do not paraphrase — quote the actual code.
+
+STEP 4 — Cross-reference against the requirement. State explicitly whether what you \
+found satisfies the control criterion and why (e.g. "27,500 iterations exceeds the \
+NIST SP 800-63B minimum of 10,000 for PBKDF2").
+
+STEP 5 — Assign status:
+  "Not a Finding"  — Specific named artifacts in specific files directly and completely \
+satisfy the control. You have cited the exact file path and the exact value/construct.
+  "Not Applicable" — The control is architecturally impossible for this application type. \
+State the specific architectural reason (e.g., "This is a stateless REST API with no \
+server-side session management; session-count controls do not apply").
   "Open"           — Applicable but full compliance cannot be confirmed from static \
-artifacts. Include what partial evidence exists (if any) and what is missing.
-  "Not Reviewed"   — Purely dynamic control with zero static-analysis indicators.
+artifacts alone. Describe what partial evidence exists and precisely what is missing \
+(e.g., "TLS is configured in nginx.conf but cipher suite ordering is not specified").
+  "Not Reviewed"   — Purely runtime/dynamic with zero static-analysis indicators. \
+Use ONLY when the control genuinely cannot be assessed without live system access.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EVIDENCE FORMAT — match this example exactly
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Example of the evidence quality and format required:
+
+  "evidence": "Keycloak realm configuration enforces cryptographic storage of passwords.\\n- File: deploy/keycloak/dev-realm.json — passwordPolicy: \\"hashIterations(27500)\\"\\n- Algorithm: PBKDF2-SHA256 with random per-user salt\\n- Iteration count 27,500 exceeds NIST SP 800-63B minimum (10,000 for PBKDF2)\\n- Passwords stored only as one-way cryptographic hashes; plaintext never persisted\\n- Authentication: credential verification performed server-side via cryptographic comparison\\n- Requirement: SATISFIED — cryptographic password storage enforced via Keycloak realm policy"
+
+Key rules for evidence:
+  - Always start with a one-sentence summary of what the control requires and what you found.
+  - Use bullet points (prefix "- ") for each piece of evidence.
+  - Every bullet that references code MUST include: File path, the exact setting/function \
+name, and its literal value from the source.
+  - Where a value can be compared to a standard or threshold, make that comparison explicit.
+  - End with "- Requirement: SATISFIED — [reason]" or "- Requirement: NOT SATISFIED — [reason]" \
+or "- Requirement: PARTIALLY SATISFIED — [what is present, what is missing]".
+  - Never use generic boilerplate like "the application implements this control". \
+Always cite specific artifacts.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RESPONSE FORMAT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 You MUST respond with a valid JSON array and NOTHING ELSE. \
 No markdown fences, no explanation — only the JSON array.
@@ -125,9 +166,7 @@ No markdown fences, no explanation — only the JSON array.
 Each element MUST have exactly these three fields:
   "vuln_id"  : the exact APSC-DV-XXXXXX identifier from the input
   "status"   : exactly one of "Open", "Not a Finding", "Not Applicable", "Not Reviewed"
-  "evidence" : specific, evidence-backed assessment — cite file paths and constructs. \
-1-5 sentences or bullet points (prefix each bullet with "- "). \
-Never use generic boilerplate — always reference the actual codebase.
+  "evidence" : detailed, specific, file-cited evidence following the format above
 
 Return ONLY the JSON array."""
 
@@ -394,8 +433,7 @@ def render_findings_md(
         lines.append("Evidence:")
         lines.append(f"- Static repository review completed on {scan_date}.")
 
-        # Render evidence — if it already contains bullet lines, emit as-is;
-        # otherwise wrap as a single bullet point.
+        # Render evidence — preserve bullet lines as-is; wrap plain sentences as bullets.
         for evline in evidence.splitlines():
             evline = evline.strip()
             if not evline:

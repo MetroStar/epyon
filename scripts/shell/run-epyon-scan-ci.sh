@@ -167,7 +167,11 @@ _should_run_tool() {
   return 0
 }
 
-# Layers 1-12 (existing behavior preserved; individual tools are skippable)
+# Layers 1-12 — skipped entirely when SCAN_MODE=stig (STIG-only run)
+if [[ "${SCAN_MODE:-full}" == "stig" ]]; then
+  echo "[INFO] scan_mode=stig — skipping Layers 1-12 (STIG-only run)"
+else
+
 if _should_run_tool SKIP_SBOM; then
   run_layer_script "Layer 1 - Generate SBOM" "scripts/shell/run-complete-sbom-scan.sh"
 else
@@ -249,6 +253,8 @@ else
 fi
 
 run_garak_layer
+
+fi  # end: SCAN_MODE != stig
 
 # Layer 13 — STIG Compliance Assessment (stig and nightly scan modes)
 # Runs AI-assisted AppSecDev STIG V5R3 assessment via GPT-4.1.

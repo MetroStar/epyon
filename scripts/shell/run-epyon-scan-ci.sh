@@ -96,10 +96,11 @@ run_garak_layer() {
   # Scan mode determines Garak default:
   #   quick   → always skipped
   #   full    → skipped unless RUN_GARAK=true (manual opt-in)
-  #   nightly → runs by default (Full + LLM)
+  #   nightly → skipped unless RUN_GARAK=true (manual opt-in)
+  #   stig    → runs by default (Sunday scan includes Garak + STIG)
   local _should_run="false"
   case "${SCAN_MODE:-full}" in
-    nightly)  _should_run="true"  ;;
+    stig)     _should_run="true"  ;;
     quick)    _should_run="false" ;;
     *)        _should_run="false" ;;
   esac
@@ -252,9 +253,9 @@ else
   echo "[INFO] Skipping Layer 11 - API Discovery (SKIP_API_DISCOVERY=true)"
 fi
 
-run_garak_layer
-
 fi  # end: SCAN_MODE != stig
+
+run_garak_layer
 
 # Layer 13 — STIG Compliance Assessment (stig and nightly scan modes)
 # Runs AI-assisted AppSecDev STIG V5R3 assessment via GPT-4.1.

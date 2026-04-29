@@ -108,8 +108,9 @@ code {
 }
 
 .logo-img {
-  height: 28px;
-  width: auto;
+  height: 24px;
+  width: 18px;
+  object-fit: contain;
   flex-shrink: 0;
 }
 

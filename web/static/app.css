@@ -108,10 +108,9 @@ code {
 }
 
 .logo-img {
-  width: 28px;
-  height: auto;
+  height: 28px;
+  width: auto;
   flex-shrink: 0;
-  /* The SVG uses #0089FA / #81C3FD / #39AFFF which already match the brand */
 }
 
 .logo-text {

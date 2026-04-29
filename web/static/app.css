@@ -98,15 +98,21 @@ code {
 
 /* ── Logo ─────────────────────────────────────────────────── */
 .logo {
-  padding: 18px 16px;
+  padding: 14px 16px;
   display: flex;
   align-items: center;
   gap: 10px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  text-decoration: none;
 }
 
-.logo-icon { font-size: 20px; }
+.logo-img {
+  width: 28px;
+  height: auto;
+  flex-shrink: 0;
+  /* The SVG uses #0089FA / #81C3FD / #39AFFF which already match the brand */
+}
 
 .logo-text {
   font-size: 15px;

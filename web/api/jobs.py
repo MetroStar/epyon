@@ -58,16 +58,100 @@ async def run_scan_job(
     job = jobs[job_id]
     job["status"] = "running"
 
+    # ── Derive target name and target dir ────────────────────────
+    _git_re = re.compile(r"(?:https?://|git@)[^\s]+?/([^/\s]+?)(?:\.git)?$")
+    m = _git_re.search(target)
+    if m:
+        target_name = m.group(1)
+    else:
+        target_name = Path(target).name or "target"
+
+    # For local paths use as-is; for git URLs the script will clone
+    if target.startswith("/") or target.startswith("./") or target.startswith("../"):
+        target_dir = str(Path(target).resolve())
+    else:
+        # Git URL — will be cloned into a temp dir by the wrapper
+        target_dir = str(epyon_root / "tmp" / f"clone-{job_id}")
+
+    timestamp    = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    scan_name    = f"{target_name}_{timestamp}"
+    scan_dir     = epyon_root / "scans" / scan_name
+    scan_dir.mkdir(parents=True, exist_ok=True)
+
+    # ── Write /tmp/epyon-env ─────────────────────────────────────
+    epyon_version = "unknown"
+    version_file = epyon_root / "VERSION"
+    if version_file.exists():
+        epyon_version = version_file.read_text().strip()
+
+    env_lines = [
+        f"TARGET_DIR={target_dir}",
+        f"SCAN_MODE={scan_type}",
+        f"TARGET_NAME={target_name}",
+        f"GITHUB_ACTOR=web-ui",
+        f"SUBDIR=",
+        f"EPYON_VERSION={epyon_version}",
+        f"GARAK_TARGET_TYPE=openai",
+        f"GARAK_TARGET_NAME=gpt-4o-mini",
+        f"GARAK_PROBES=promptinject,dan,knownbadsignatures,encoding,continuation",
+        "SKIP_SBOM=false",
+        "SKIP_TRUFFLEHOG=false",
+        "SKIP_SONAR=true",
+        "SKIP_CLAMAV=false",
+        "SKIP_HELM=false",
+        "SKIP_CHECKOV=false",
+        "SKIP_TRIVY=false",
+        "SKIP_GRYPE=false",
+        "SKIP_XEOL=false",
+        "SKIP_ANCHORE=false",
+        "SKIP_API_DISCOVERY=false",
+        "SKIP_STIG=false",
+        f"SCAN_DIR={scan_dir}",
+        f"SCAN_NAME={scan_name}",
+        f"SCAN_ID={scan_name}",
+    ]
+    # Propagate API keys from the server environment if present
+    for key in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY"):
+        val = os.environ.get(key, "")
+        if val:
+            env_lines.append(f"{key}={val}")
+
+    Path("/tmp/epyon-env").write_text("\n".join(env_lines) + "\n")
+    _append_line(job, f"[web-ui] Initialized scan: {scan_name}")
+
+    # ── Clone git target if needed ───────────────────────────────
+    if not (target.startswith("/") or target.startswith("./") or target.startswith("../")):
+        _append_line(job, f"[web-ui] Cloning {target} …")
+        Path(target_dir).mkdir(parents=True, exist_ok=True)
+        clone_proc = await asyncio.create_subprocess_exec(
+            "git", "clone", "--depth=1", target, target_dir,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        clone_out, clone_err = await clone_proc.communicate()
+        for line in (clone_out + clone_err).decode("utf-8", errors="replace").splitlines():
+            if line.strip():
+                _append_line(job, f"[git] {line}")
+        if clone_proc.returncode != 0:
+            job["status"]       = "failed"
+            job["exit_code"]    = clone_proc.returncode
+            job["completed_at"] = _now()
+            return
+
     env = {**os.environ,
            "CI":               "true",
            "NONINTERACTIVE":   "1",
            "DEBIAN_FRONTEND":  "noninteractive",
            "TERM":             "dumb",
-           "SKIP_GARAK":       "true"}
+           "SKIP_GARAK":       "true",
+           "TARGET_DIR":       target_dir,
+           "SCAN_DIR":         str(scan_dir),
+           "SCAN_MODE":        scan_type,
+           "TARGET_NAME":      target_name}
 
     try:
         proc = await asyncio.create_subprocess_exec(
-            "bash", str(script_path), target, scan_type,
+            "bash", str(script_path),
             cwd=str(epyon_root),
             env=env,
             stdin=asyncio.subprocess.DEVNULL,

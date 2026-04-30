@@ -976,3 +976,278 @@ pre {
 @media (max-width: 768px) {
   .metrics-two-col { flex-direction: column; }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   STIG Inline Viewer
+───────────────────────────────────────────────────────────── */
+
+.stig-view-btn-row {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-muted);
+}
+
+.stig-totals-bar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.stig-total-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius);
+  padding: 8px 16px;
+}
+.stig-total-chip .num {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+}
+.stig-total-chip .lbl {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.stig-total-chip.open  .num { color: var(--stig-open); }
+.stig-total-chip.pass  .num { color: var(--stig-pass); }
+.stig-total-chip.na    .num { color: var(--stig-na);   }
+.stig-total-chip.nr    .num { color: var(--text-muted);}
+.stig-total-chip.total .num { color: var(--accent);    }
+
+/* Filters */
+.stig-filters {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stig-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.stig-filter-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  min-width: 64px;
+}
+
+.stig-filter-btns {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.stig-filter-btn {
+  background: var(--bg);
+  border: 1px solid var(--border-muted);
+  color: var(--text-dim);
+  border-radius: 20px;
+  padding: 3px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.stig-filter-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.stig-filter-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.stig-filter-count {
+  opacity: 0.75;
+  font-weight: 400;
+}
+
+.stig-search {
+  background: var(--bg);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 13px;
+  padding: 5px 12px;
+  min-width: 240px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.stig-search:focus { border-color: var(--accent); }
+
+/* Table */
+.stig-viewer-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.stig-table-wrap {
+  overflow-x: auto;
+}
+
+.stig-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.stig-table th {
+  background: var(--bg-card);
+  border-bottom: 2px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 8px 12px;
+  text-align: left;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.stig-tr {
+  border-bottom: 1px solid var(--border-muted);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.stig-tr:hover, .stig-tr-open { background: var(--bg-hover); }
+
+.stig-tr td {
+  padding: 9px 12px;
+  vertical-align: middle;
+}
+
+.stig-title-cell {
+  max-width: 380px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.stig-stig-cell {
+  font-size: 11px;
+  color: var(--text-muted);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stig-id {
+  font-size: 11px;
+  background: var(--bg);
+  border: 1px solid var(--border-muted);
+  border-radius: 4px;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+.stig-sev {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.stig-sev-high   { background: rgba(255,166,87,.15); color: var(--high);   }
+.stig-sev-medium { background: rgba(227,179,65,.15); color: var(--medium); }
+.stig-sev-low    { background: rgba(121,192,255,.15);color: var(--low);    }
+
+.stig-status-open { color: var(--stig-open); font-weight: 600; font-size: 12px; }
+.stig-status-pass { color: var(--stig-pass); font-weight: 600; font-size: 12px; }
+.stig-status-na   { color: var(--stig-na);   font-weight: 600; font-size: 12px; }
+.stig-status-nr   { color: var(--text-muted);font-weight: 600; font-size: 12px; }
+
+.stig-chevron-cell { text-align: center; }
+.stig-chevron {
+  color: var(--text-muted);
+  font-size: 16px;
+  display: inline-block;
+  transition: transform 0.2s;
+  user-select: none;
+}
+
+/* Detail expansion row */
+.stig-detail-row td {
+  padding: 0;
+  background: var(--bg);
+  border-bottom: 2px solid var(--accent);
+}
+
+.stig-detail-body {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stig-detail-grid {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.stig-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stig-detail-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.stig-detail-val {
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+.stig-evidence {
+  background: var(--bg-card);
+  border-left: 3px solid var(--accent);
+  padding: 12px 16px;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: 12.5px;
+  white-space: pre-wrap;
+}
+
+.stig-check {
+  font-size: 12px;
+  color: var(--text-muted);
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+.stig-empty {
+  padding: 48px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+}

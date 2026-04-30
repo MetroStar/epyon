@@ -242,6 +242,7 @@ const api = {
   getMetrics()  { return this._get('/api/metrics'); },
   getAiConfig() { return this._get('/api/ai/config'); },
   saveAiConfig(d){ return this._post('/api/ai/config', d); },
+  getStigData(id){ return this._get(`/api/scans/${encodeURIComponent(id)}/stig-data`); },
 };
 
 // ── Navigation ────────────────────────────────────────────────
@@ -571,6 +572,12 @@ async function renderScanDetail(scanId) {
             </div>
           </div>
           ${multiStig ? `<div class="stig-per-stig">${perStigRows}</div>` : ''}
+          <div class="stig-view-btn-row">
+            <button class="btn btn-primary btn-sm"
+              onclick="navigate('#/stig-viewer/${encodeURIComponent(scanId)}')">
+              ⊞ View Findings Inline
+            </button>
+          </div>
         </div>`;
     }
 
@@ -1381,6 +1388,261 @@ async function triggerGitHubSync() {
   }, 2000);
 }
 
+// ── STIG Inline Viewer ────────────────────────────────────────
+
+async function renderStigViewer(scanId) {
+  setActive('stig');
+  const page = document.getElementById('page');
+  page.innerHTML = loading();
+
+  try {
+    const [scan, data] = await Promise.all([api.getScan(scanId), api.getStigData(scanId)]);
+
+    const STATUS_ORDER = ['Open', 'Not a Finding', 'Not Applicable', 'Not Reviewed'];
+    const STATUS_CLASS = {
+      'Open':          'stig-status-open',
+      'Not a Finding': 'stig-status-pass',
+      'Not Applicable':'stig-status-na',
+      'Not Reviewed':  'stig-status-nr',
+    };
+    const SEV_ORDER = ['high', 'medium', 'low', ''];
+
+    // Flatten all controls from all STIGs with stig_name label
+    const allControls = data.stigs.flatMap(s =>
+      s.controls.map(c => ({ ...c, _stig_name: s.stig_name, _slug: s.slug }))
+    );
+
+    // Build filter bar state
+    let filterStatus = 'all';
+    let filterSeverity = 'all';
+    let filterStig = 'all';
+    let filterText = '';
+
+    const stigNames = [...new Set(data.stigs.map(s => s.stig_name))];
+
+    function filtered() {
+      return allControls.filter(c => {
+        if (filterStatus   !== 'all' && c.status   !== filterStatus)   return false;
+        if (filterSeverity !== 'all' && c.severity !== filterSeverity) return false;
+        if (filterStig     !== 'all' && c._slug    !== filterStig)     return false;
+        if (filterText) {
+          const q = filterText.toLowerCase();
+          if (!c.vuln_id.toLowerCase().includes(q) &&
+              !c.title.toLowerCase().includes(q)   &&
+              !c.evidence.toLowerCase().includes(q)) return false;
+        }
+        return true;
+      });
+    }
+
+    function countsByStatus() {
+      const out = {};
+      for (const c of allControls) out[c.status] = (out[c.status] || 0) + 1;
+      return out;
+    }
+
+    function renderTable() {
+      const rows = filtered();
+      if (!rows.length) {
+        return '<div class="stig-empty">No controls match the current filters.</div>';
+      }
+      return `
+        <div class="stig-viewer-count">${rows.length} control${rows.length !== 1 ? 's' : ''}</div>
+        <div class="stig-table-wrap">
+          <table class="stig-table">
+            <thead>
+              <tr>
+                <th style="width:120px">ID</th>
+                <th style="width:70px">Severity</th>
+                <th style="width:130px">Status</th>
+                <th>Title</th>
+                ${stigNames.length > 1 ? '<th style="width:140px">STIG</th>' : ''}
+                <th style="width:40px"></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map(c => {
+                const rowId = `stig-row-${esc(c.vuln_id)}-${esc(c._slug)}`;
+                const detId = `stig-det-${esc(c.vuln_id)}-${esc(c._slug)}`;
+                const sname = c._stig_name.replace(/.*?(ASD|Postgres|STIG)/gi, '$1').trim().slice(0, 40);
+                return `
+                  <tr class="stig-tr" id="${rowId}" onclick="toggleStigRow('${detId}', '${rowId}')">
+                    <td><code class="stig-id">${esc(c.vuln_id)}</code></td>
+                    <td><span class="stig-sev stig-sev-${esc(c.severity)}">${esc(c.severity || '—')}</span></td>
+                    <td><span class="${esc(STATUS_CLASS[c.status] || 'stig-status-nr')}">${esc(c.status)}</span></td>
+                    <td class="stig-title-cell">${esc(c.title)}</td>
+                    ${stigNames.length > 1 ? `<td class="stig-stig-cell" title="${esc(c._stig_name)}">${esc(sname)}</td>` : ''}
+                    <td class="stig-chevron-cell"><span class="stig-chevron" id="chev-${esc(c.vuln_id)}-${esc(c._slug)}">›</span></td>
+                  </tr>
+                  <tr class="stig-detail-row" id="${detId}" style="display:none">
+                    <td colspan="${stigNames.length > 1 ? 6 : 5}">
+                      <div class="stig-detail-body">
+                        <div class="stig-detail-grid">
+                          <div class="stig-detail-section">
+                            <div class="stig-detail-label">Rule ID</div>
+                            <div class="stig-detail-val"><code>${esc(c.rule_id)}</code></div>
+                          </div>
+                          <div class="stig-detail-section">
+                            <div class="stig-detail-label">Group ID</div>
+                            <div class="stig-detail-val"><code>${esc(c.group_id)}</code></div>
+                          </div>
+                        </div>
+                        <div class="stig-detail-section">
+                          <div class="stig-detail-label">Evidence</div>
+                          <div class="stig-detail-val stig-evidence">${esc(c.evidence || '—').replace(/\n/g, '<br>')}</div>
+                        </div>
+                        <div class="stig-detail-section">
+                          <div class="stig-detail-label">Check</div>
+                          <div class="stig-detail-val stig-check">${esc(c.check_content).replace(/\n/g, '<br>')}</div>
+                        </div>
+                        <div class="stig-detail-section">
+                          <div class="stig-detail-label">Remediation</div>
+                          <div class="stig-detail-val">${esc(c.fix_text || '—').replace(/\n/g, '<br>')}</div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    function renderFilters() {
+      const counts = countsByStatus();
+      return `
+        <div class="stig-filters">
+          <div class="stig-filter-group">
+            <label class="stig-filter-label">Status</label>
+            <div class="stig-filter-btns" id="filter-status">
+              ${['all', ...STATUS_ORDER].map(s => `
+                <button class="stig-filter-btn${filterStatus === s ? ' active' : ''}"
+                  onclick="setStigFilter('status','${s}')">${s === 'all' ? 'All' : esc(s)}${s !== 'all' && counts[s] ? ` <span class="stig-filter-count">${counts[s]}</span>` : ''}</button>
+              `).join('')}
+            </div>
+          </div>
+          <div class="stig-filter-group">
+            <label class="stig-filter-label">Severity</label>
+            <div class="stig-filter-btns">
+              ${['all', 'high', 'medium', 'low'].map(s => `
+                <button class="stig-filter-btn${filterSeverity === s ? ' active' : ''}"
+                  onclick="setStigFilter('severity','${s}')">${s === 'all' ? 'All' : ucFirst(s)}</button>
+              `).join('')}
+            </div>
+          </div>
+          ${stigNames.length > 1 ? `
+          <div class="stig-filter-group">
+            <label class="stig-filter-label">STIG</label>
+            <div class="stig-filter-btns">
+              <button class="stig-filter-btn${filterStig === 'all' ? ' active' : ''}"
+                onclick="setStigFilter('stig','all')">All</button>
+              ${data.stigs.map(s => `
+                <button class="stig-filter-btn${filterStig === s.slug ? ' active' : ''}"
+                  onclick="setStigFilter('stig','${esc(s.slug)}')"
+                  title="${esc(s.stig_name)}">${esc(s.stig_name.slice(0, 30))}…</button>
+              `).join('')}
+            </div>
+          </div>` : ''}
+          <div class="stig-filter-group">
+            <label class="stig-filter-label">Search</label>
+            <input class="stig-search" type="text" placeholder="ID, title, or evidence…"
+              value="${esc(filterText)}"
+              oninput="setStigSearch(this.value)">
+          </div>
+        </div>`;
+    }
+
+    function repaint() {
+      const el = document.getElementById('stig-viewer-filters');
+      if (el) el.outerHTML = renderFilters().replace('<div class="stig-filters">', '<div class="stig-filters" id="stig-viewer-filters">');
+      const tbody = document.getElementById('stig-viewer-body');
+      if (tbody) tbody.innerHTML = renderTable();
+    }
+
+    // Expose callbacks to global scope for onclick handlers
+    window.setStigFilter = (type, val) => {
+      if (type === 'status')   filterStatus   = val;
+      if (type === 'severity') filterSeverity = val;
+      if (type === 'stig')     filterStig     = val;
+      repaint();
+    };
+    window.setStigSearch = (val) => { filterText = val; repaint(); };
+    window.toggleStigRow = (detId, rowId) => {
+      const det  = document.getElementById(detId);
+      const row  = document.getElementById(rowId);
+      const parts = detId.replace('stig-det-', '').split('-');
+      // Reconstruct vuln_id + slug for chevron id — use row IDs which embed them
+      const chevId = 'chev-' + detId.replace('stig-det-', '');
+      const chev = document.getElementById(chevId);
+      if (!det) return;
+      const open = det.style.display !== 'none';
+      det.style.display = open ? 'none' : 'table-row';
+      if (row) row.classList.toggle('stig-tr-open', !open);
+      if (chev) chev.textContent = open ? '›' : '⌄';
+    };
+
+    const counts = countsByStatus();
+    const backLink = scan.target
+      ? `<a href="#/scans/${encodeURIComponent(scanId)}" onclick="navigate('#/scans/${encodeURIComponent(scanId)}')">${esc(scanId)}</a>`
+      : esc(scanId);
+
+    page.innerHTML = `
+      <div class="breadcrumb">
+        <a href="#/applications" onclick="navigate('#/applications')">Applications</a>
+        <span>›</span>
+        <a href="#/applications/${encodeURIComponent(scan.target)}"
+           onclick="navigate('#/applications/${encodeURIComponent(scan.target)}')">${esc(scan.target)}</a>
+        <span>›</span>
+        <a href="#/scans/${encodeURIComponent(scanId)}"
+           onclick="navigate('#/scans/${encodeURIComponent(scanId)}')">${esc(scanId)}</a>
+        <span>›</span>
+        <span>STIG Findings</span>
+      </div>
+
+      <div class="page-header">
+        <h1>STIG Findings</h1>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          ${data.stigs.map(s => {
+            const mdUrl   = `/api/scans/${encodeURIComponent(scanId)}/stig-findings/${s.slug}.md`;
+            const cklbUrl = `/api/scans/${encodeURIComponent(scanId)}/stig-findings/${s.slug}.cklb`;
+            return `
+              <a class="btn btn-sm" href="${esc(mdUrl)}"   download title="${esc(s.stig_name)}">↓ ${esc(s.slug.slice(0,20))}.md</a>
+              <a class="btn btn-sm" href="${esc(cklbUrl)}" download title="${esc(s.stig_name)}">↓ ${esc(s.slug.slice(0,20))}.cklb</a>`;
+          }).join('')}
+        </div>
+      </div>
+
+      <div class="stig-totals-bar">
+        <div class="stig-total-chip open">
+          <span class="num">${counts['Open'] || 0}</span><span class="lbl">Open</span>
+        </div>
+        <div class="stig-total-chip pass">
+          <span class="num">${counts['Not a Finding'] || 0}</span><span class="lbl">Not a Finding</span>
+        </div>
+        <div class="stig-total-chip na">
+          <span class="num">${counts['Not Applicable'] || 0}</span><span class="lbl">N/A</span>
+        </div>
+        <div class="stig-total-chip nr">
+          <span class="num">${counts['Not Reviewed'] || 0}</span><span class="lbl">Not Reviewed</span>
+        </div>
+        <div class="stig-total-chip total">
+          <span class="num">${allControls.length}</span><span class="lbl">Total</span>
+        </div>
+      </div>
+
+      <div id="stig-viewer-filters">${renderFilters().replace('<div class="stig-filters">', '')}</div>
+
+      <div id="stig-viewer-body">${renderTable()}</div>`;
+
+    // Fix up filter container id after innerHTML set
+    const fEl = page.querySelector('.stig-filters');
+    if (fEl) fEl.id = 'stig-viewer-filters';
+
+  } catch (e) {
+    page.innerHTML = errBanner(e.message);
+  }
+}
+
 // ── Router ────────────────────────────────────────────────────
 function resolve() {
   const hash = window.location.hash.slice(1) || '/';
@@ -1396,6 +1658,9 @@ function resolve() {
   } else if (path.startsWith('/applications/')) {
     const name = decodeURIComponent(path.slice('/applications/'.length));
     name ? renderAppDetail(name) : renderApplications();
+  } else if (path.startsWith('/stig-viewer/')) {
+    const scanId = decodeURIComponent(path.slice('/stig-viewer/'.length));
+    scanId ? renderStigViewer(scanId) : renderStig();
   } else if (path.startsWith('/scans/')) {
     const scanId = decodeURIComponent(path.slice('/scans/'.length));
     scanId ? renderScanDetail(scanId) : renderApplications();

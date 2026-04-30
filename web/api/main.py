@@ -308,6 +308,64 @@ def stig_findings_cklb(scan_id: str, response: Response):
                         headers={"Content-Disposition": f'attachment; filename="findings-{scan_id}.cklb"'})
 
 
+@app.get("/api/scans/{scan_id}/stig-data")
+def stig_data(scan_id: str, response: Response):
+    """Return merged controls + assessment results for all STIGs in a scan as JSON."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
+    matched = next((d for d in scan_dirs if d.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+
+    stigs: list[dict] = []
+    for results_file in sorted(matched.glob("stig-results-*.json")):
+        slug = results_file.stem[len("stig-results-"):]
+        controls_file = matched / f"stig-controls-{slug}.json"
+
+        results: dict = {}
+        try:
+            results = json.loads(results_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+        controls_data: dict = {}
+        try:
+            controls_data = json.loads(controls_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+        controls_list = controls_data.get("controls", [])
+        merged: list[dict] = []
+        for c in controls_list:
+            vid = c.get("vuln_id", "")
+            assessed = results.get(vid, {})
+            merged.append({
+                "vuln_id":       vid,
+                "group_id":      c.get("group_id", ""),
+                "rule_id":       c.get("rule_id", ""),
+                "number":        c.get("number"),
+                "severity":      c.get("severity", ""),
+                "title":         c.get("title", ""),
+                "check_content": c.get("check_content", ""),
+                "fix_text":      c.get("fix_text", ""),
+                "discussion":    c.get("discussion", ""),
+                "status":        assessed.get("status", "Not Reviewed"),
+                "evidence":      assessed.get("evidence", ""),
+            })
+
+        stigs.append({
+            "slug":        slug,
+            "stig_name":   controls_data.get("stig_name", slug),
+            "release_info": controls_data.get("release_info", ""),
+            "total":       len(merged),
+            "controls":    merged,
+        })
+
+    return {"scan_id": scan_id, "stigs": stigs}
+
+
 _SAFE_SLUG_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_\-]*\.(md|cklb)$")
 
 @app.get("/api/scans/{scan_id}/stig-findings/{filename}")

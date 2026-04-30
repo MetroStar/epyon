@@ -725,8 +725,13 @@ async function renderStig() {
 
     const cards = stigApps.length
       ? stigApps.map(app => {
-          const mdUrl  = `/api/scans/${encodeURIComponent(app.latest_scan_id)}/stig-findings-md`;
-          const cklbUrl = `/api/scans/${encodeURIComponent(app.latest_scan_id)}/stig-findings-cklb`;
+          const stigScanId = app.latest_stig_scan_id || app.latest_scan_id;
+          const mdUrl   = `/api/scans/${encodeURIComponent(stigScanId)}/stig-findings-md`;
+          const cklbUrl = `/api/scans/${encodeURIComponent(stigScanId)}/stig-findings-cklb`;
+          const mdBtn   = app.has_stig_report
+            ? `<a class="btn btn-sm" href="${esc(mdUrl)}" download>↓ findings.md</a>` : '';
+          const cklbBtn = app.has_stig_cklb
+            ? `<a class="btn btn-sm" href="${esc(cklbUrl)}" download>↓ findings.cklb</a>` : '';
           return `
             <div class="stig-app-card">
               <div class="stig-app-card-header">
@@ -734,10 +739,7 @@ async function renderStig() {
                       onclick="navigate('#/applications/${encodeURIComponent(app.name)}')">
                   ${esc(app.name)}
                 </span>
-                <div class="stig-download-btns">
-                  <a class="btn btn-sm" href="${esc(mdUrl)}" download>↓ findings.md</a>
-                  <a class="btn btn-sm" href="${esc(cklbUrl)}" download>↓ findings.cklb</a>
-                </div>
+                <div class="stig-download-btns">${mdBtn}${cklbBtn}</div>
               </div>
               <div class="stig-counts">
                 <div class="stig-count open">
@@ -760,7 +762,7 @@ async function renderStig() {
               <div style="margin-top:10px;font-size:12px;color:var(--text-muted)">
                 Last scanned: ${fmtDate(app.last_scanned)}
                 <button class="btn btn-sm" style="margin-left:12px"
-                  onclick="navigate('#/scans/${encodeURIComponent(app.latest_scan_id)}')">
+                  onclick="navigate('#/scans/${encodeURIComponent(stigScanId)}')">
                   View Scan →
                 </button>
               </div>

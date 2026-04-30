@@ -177,21 +177,28 @@ def applications(response: Response):
     for name, tscans in by_target.items():
         tscans.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
         latest = tscans[0] if tscans else {}
+
+        # Find the latest scan that actually produced STIG output
+        latest_stig = next((s for s in tscans if s.get("stig_total", 0) > 0), None)
+
         result.append({
-            "name":           name,
-            "scan_count":     len(tscans),
-            "last_scanned":   latest.get("timestamp", ""),
-            "scan_type":      latest.get("scan_type", ""),
-            "critical":       latest.get("critical", 0),
-            "high":           latest.get("high", 0),
-            "medium":         latest.get("medium", 0),
-            "low":            latest.get("low", 0),
-            "status":         parsers.get_status(latest),
-            "latest_scan_id": latest.get("scan_id", ""),
-            "stig_total":     latest.get("stig_total", 0),
-            "stig_open":      latest.get("stig_open", 0),
-            "stig_pass":      latest.get("stig_pass", 0),
-            "stig_na":        latest.get("stig_na", 0),
+            "name":                name,
+            "scan_count":          len(tscans),
+            "last_scanned":        latest.get("timestamp", ""),
+            "scan_type":           latest.get("scan_type", ""),
+            "critical":            latest.get("critical", 0),
+            "high":                latest.get("high", 0),
+            "medium":              latest.get("medium", 0),
+            "low":                 latest.get("low", 0),
+            "status":              parsers.get_status(latest),
+            "latest_scan_id":      latest.get("scan_id", ""),
+            "stig_total":          latest_stig.get("stig_total", 0)          if latest_stig else 0,
+            "stig_open":           latest_stig.get("stig_open", 0)           if latest_stig else 0,
+            "stig_pass":           latest_stig.get("stig_pass", 0)           if latest_stig else 0,
+            "stig_na":             latest_stig.get("stig_na", 0)             if latest_stig else 0,
+            "latest_stig_scan_id": latest_stig.get("scan_id", "")            if latest_stig else "",
+            "has_stig_report":     latest_stig.get("has_stig_report", False) if latest_stig else False,
+            "has_stig_cklb":       latest_stig.get("has_stig_cklb", False)   if latest_stig else False,
         })
     result.sort(key=lambda x: x.get("last_scanned", ""), reverse=True)
     return result

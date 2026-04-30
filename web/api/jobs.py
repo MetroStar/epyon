@@ -123,6 +123,18 @@ async def run_scan_job(
     Path("/tmp/epyon-env").write_text("\n".join(env_lines) + "\n")
     _append_line(job, f"[web-ui] Initialized scan: {scan_name}")
 
+    # ── Write scan-metadata.json so the parser can read scan_type ────────────
+    import json as _json
+    scan_meta = {
+        "scan_type":        scan_type,
+        "target_name":      target_name,
+        "scan_timestamp":   datetime.now().isoformat(),
+        "target_directory": target_dir,
+        "epyon_version":    epyon_version,
+        "triggered_by":     "web-ui",
+    }
+    (scan_dir / "scan-metadata.json").write_text(_json.dumps(scan_meta, indent=2))
+
     # ── Clone git target if needed ───────────────────────────────
     if not (target.startswith("/") or target.startswith("./") or target.startswith("../")):
         _append_line(job, f"[web-ui] Cloning {target} …")

@@ -415,6 +415,13 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
         data["timestamp"]        = meta.get("scan_timestamp") or parsed["timestamp"]
         data["target_directory"] = meta.get("target_directory", "")
         data["file_statistics"]  = meta.get("file_statistics") or {}
+    else:
+        # Infer scan_type from other files present in the scan directory
+        if list(scan_dir.glob("stig-results-*.json")):
+            # STIG-only scans have stig results but typically no vuln tool outputs
+            vuln_dirs = {"grype", "trivy", "checkov", "sbom", "anchore", "xeol"}
+            has_vuln = any((scan_dir / d).is_dir() for d in vuln_dirs)
+            data["scan_type"] = "stig" if not has_vuln else "nightly"
 
     raw_findings = parse_scan_findings(scan_dir)
     has_raw = len(raw_findings["summary"]["tools_analyzed"]) > 0

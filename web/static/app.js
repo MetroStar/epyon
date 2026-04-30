@@ -786,11 +786,15 @@ async function renderStig() {
                   <span class="lbl">Total</span>
                 </div>
               </div>
-              <div style="margin-top:10px;font-size:12px;color:var(--text-muted)">
-                Last scanned: ${fmtDate(app.last_scanned)}
-                <button class="btn btn-sm" style="margin-left:12px"
+              <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <span style="font-size:12px;color:var(--text-muted)">Last scanned: ${fmtDate(app.last_scanned)}</span>
+                <button class="btn btn-primary btn-sm"
+                  onclick="navigate('#/stig-viewer/${encodeURIComponent(stigScanId)}')">
+                  ⊞ View Findings
+                </button>
+                <button class="btn btn-sm"
                   onclick="navigate('#/scans/${encodeURIComponent(stigScanId)}')">
-                  View Scan →
+                  Scan Details →
                 </button>
               </div>
             </div>`;

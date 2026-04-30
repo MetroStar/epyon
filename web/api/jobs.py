@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from . import openai_summary
+
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[mGKHF]")
 
 JOB_TIMEOUT_SECONDS = 7200  # 2 hours
@@ -110,11 +112,13 @@ async def run_scan_job(
         f"SCAN_NAME={scan_name}",
         f"SCAN_ID={scan_name}",
     ]
-    # Propagate API keys from the server environment if present
-    for key in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY"):
-        val = os.environ.get(key, "")
-        if val:
-            env_lines.append(f"{key}={val}")
+    # Propagate API keys — prefer ai-config.json, fall back to environment
+    openai_key = openai_summary.get_api_key() or os.environ.get("OPENAI_API_KEY", "")
+    if openai_key:
+        env_lines.append(f"OPENAI_API_KEY={openai_key}")
+    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if anthropic_key:
+        env_lines.append(f"ANTHROPIC_API_KEY={anthropic_key}")
 
     Path("/tmp/epyon-env").write_text("\n".join(env_lines) + "\n")
     _append_line(job, f"[web-ui] Initialized scan: {scan_name}")
@@ -148,6 +152,8 @@ async def run_scan_job(
            "SCAN_DIR":         str(scan_dir),
            "SCAN_MODE":        scan_type,
            "TARGET_NAME":      target_name}
+    if openai_key:
+        env["OPENAI_API_KEY"] = openai_key
 
     try:
         proc = await asyncio.create_subprocess_exec(

@@ -289,6 +289,61 @@ def build_repo_manifest(files: list[tuple[str, str]]) -> str:
     return "\n".join(lines)
 
 
+def build_app_profile(app_name: str, files: list[tuple[str, str]]) -> str:
+    """Build a compact technology-stack summary from the collected source files."""
+    from collections import Counter
+
+    ext_counts: Counter[str] = Counter()
+    key_files_found: list[str] = []
+
+    _KEY_FILES = {
+        "Dockerfile", "docker-compose.yml", "docker-compose.yaml",
+        "requirements.txt", "setup.py", "pyproject.toml", "setup.cfg",
+        "package.json", "package-lock.json", "yarn.lock",
+        "go.mod", "go.sum",
+        "pom.xml", "build.gradle", "build.gradle.kts",
+        "Gemfile", "Gemfile.lock",
+        "Cargo.toml",
+        "composer.json",
+        "*.tf",  # checked separately
+        "Makefile", "justfile",
+    }
+
+    for rel, _ in files:
+        fname = Path(rel).name
+        ext = Path(rel).suffix.lower()
+        if ext:
+            ext_counts[ext] += 1
+        if fname in _KEY_FILES:
+            key_files_found.append(fname)
+
+    _EXT_LABEL: dict[str, str] = {
+        ".py": "Python", ".ts": "TypeScript", ".tsx": "TypeScript/React",
+        ".js": "JavaScript", ".jsx": "JavaScript/React",
+        ".go": "Go", ".java": "Java", ".rb": "Ruby", ".cs": "C#",
+        ".sh": "Shell", ".bash": "Shell", ".zsh": "Shell",
+        ".tf": "Terraform", ".hcl": "HCL",
+        ".yml": "YAML", ".yaml": "YAML",
+        ".json": "JSON", ".toml": "TOML",
+    }
+
+    type_parts = [
+        f"{_EXT_LABEL.get(ext, ext.lstrip('.'))} ({cnt})"
+        for ext, cnt in ext_counts.most_common(10)
+    ]
+
+    lines = [
+        f"Application: {app_name}",
+        f"File types: {', '.join(type_parts) if type_parts else 'unknown'}",
+    ]
+    if key_files_found:
+        lines.append(f"Key files: {', '.join(sorted(set(key_files_found)))}")
+    else:
+        lines.append("Key files: none detected")
+
+    return "\n".join(lines)
+
+
 def build_code_context(
     files: list[tuple[str, str]],
     keywords: list[str],
@@ -325,6 +380,74 @@ def build_code_context(
     if not parts:
         return "(No source files found in target directory)"
     return "\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# STIG applicability pre-check
+# ---------------------------------------------------------------------------
+
+_APPLICABILITY_SYSTEM_PROMPT = """\
+You are a DISA STIG scoping analyst. Your sole task is to decide whether a \
+given DISA STIG is in scope for a described software application.
+
+A STIG is NOT applicable when the technology it governs (e.g. a specific \
+endpoint-security product, database engine, operating system, or network device) \
+is clearly absent from the application's tech stack.
+
+A STIG IS applicable when the application uses, embeds, or depends on the \
+technology the STIG governs, or when the application's purpose or stack is \
+general enough that the STIG could reasonably apply.
+
+When in doubt, return applicable=true.
+
+Reply ONLY with valid JSON — no markdown, no explanation:
+{"applicable": true, "reason": "one sentence"}"""
+
+
+def check_stig_applicability(
+    client: Any,
+    model: str,
+    stig_data: dict[str, Any],
+    app_profile: str,
+) -> tuple[bool, str]:
+    """Ask OpenAI whether a STIG applies to this application.
+
+    Returns (applicable: bool, reason: str).
+    Defaults to (True, ...) on any error so the full assessment still runs.
+    """
+    stig_name    = stig_data.get("stig_name", "Unknown STIG")
+    release_info = stig_data.get("release_info", "")
+    sample_titles = [
+        c["title"] for c in stig_data.get("controls", [])[:5]
+    ]
+
+    user_message = (
+        f"STIG: {stig_name}\n"
+        f"Release: {release_info}\n"
+        f"Sample control titles:\n"
+        + "\n".join(f"  - {t}" for t in sample_titles)
+        + f"\n\n{app_profile}"
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            temperature=0,
+            max_tokens=300,
+            messages=[
+                {"role": "system", "content": _APPLICABILITY_SYSTEM_PROMPT},
+                {"role": "user",   "content": user_message},
+            ],
+        )
+        raw = response.choices[0].message.content.strip()
+        raw = re.sub(r"^```(?:json)?\s*", "", raw)
+        raw = re.sub(r"\s*```$", "", raw)
+        parsed = json.loads(raw)
+        applicable = bool(parsed.get("applicable", True))
+        reason     = str(parsed.get("reason", "")).strip()
+        return applicable, reason
+    except Exception as exc:  # pylint: disable=broad-except
+        return True, f"Applicability check failed ({exc}) — proceeding with full assessment"
 
 
 # ---------------------------------------------------------------------------
@@ -617,6 +740,24 @@ def _assess_stig(
             sys.exit(1)
 
         client = OpenAI(api_key=api_key)
+
+        # ── Applicability pre-check ───────────────────────────────────────
+        app_profile = build_app_profile(app_name, source_files)
+        applicable, applicability_reason = check_stig_applicability(
+            client, model, stig_data, app_profile
+        )
+        if not applicable:
+            print(
+                f"[SKIP] [{slug}] STIG not applicable — {applicability_reason}",
+                file=sys.stderr,
+            )
+            return
+        print(
+            f"[INFO] [{slug}] STIG applicable — {applicability_reason}",
+            file=sys.stderr,
+        )
+        # ─────────────────────────────────────────────────────────────────
+
         batches = [controls[i : i + batch_size] for i in range(0, len(controls), batch_size)]
         total_batches = len(batches)
 

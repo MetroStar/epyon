@@ -457,15 +457,46 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
             "run_id":   ci_meta.get("run_id"),
         }
 
-    # Epyon STIG outputs are at the top level of scan_dir
+    # Epyon STIG outputs are at the top level of scan_dir — aggregate ALL stig-results files
     stig_files = sorted(scan_dir.glob("stig-results-*.json"))
     if stig_files:
-        stig_results = _read_json(stig_files[0])
-        if stig_results and isinstance(stig_results, dict):
-            data["stig_open"]  = sum(1 for v in stig_results.values() if v.get("status") == "Open")
-            data["stig_pass"]  = sum(1 for v in stig_results.values() if v.get("status") == "Not a Finding")
-            data["stig_na"]    = sum(1 for v in stig_results.values() if v.get("status") in ("Not Applicable", "Not Reviewed"))
-            data["stig_total"] = len(stig_results)
+        stig_open = stig_pass = stig_na = stig_total = 0
+        any_valid = False
+        stig_reports: list[dict] = []
+        for stig_file in stig_files:
+            stig_results = _read_json(stig_file)
+            if not stig_results or not isinstance(stig_results, dict):
+                continue
+            any_valid = True
+            s_open  = sum(1 for v in stig_results.values() if v.get("status") == "Open")
+            s_pass  = sum(1 for v in stig_results.values() if v.get("status") == "Not a Finding")
+            s_na    = sum(1 for v in stig_results.values() if v.get("status") in ("Not Applicable", "Not Reviewed"))
+            s_total = len(stig_results)
+            stig_open  += s_open
+            stig_pass  += s_pass
+            stig_na    += s_na
+            stig_total += s_total
+            # Derive the slug from the filename: stig-results-{slug}.json
+            slug = stig_file.stem[len("stig-results-"):]
+            md_file   = scan_dir / f"findings-{slug}.md"
+            cklb_file = scan_dir / f"findings-{slug}.cklb"
+            stig_reports.append({
+                "slug":     slug,
+                "open":     s_open,
+                "pass":     s_pass,
+                "na":       s_na,
+                "total":    s_total,
+                "has_md":   md_file.exists(),
+                "has_cklb": cklb_file.exists(),
+                "md_url":   f"/api/scans/{scan_id}/stig-findings/{slug}.md"   if md_file.exists()   else None,
+                "cklb_url": f"/api/scans/{scan_id}/stig-findings/{slug}.cklb" if cklb_file.exists() else None,
+            })
+        if any_valid:
+            data["stig_open"]    = stig_open
+            data["stig_pass"]    = stig_pass
+            data["stig_na"]      = stig_na
+            data["stig_total"]   = stig_total
+            data["stig_reports"] = stig_reports
             if (scan_dir / "findings.md").exists():
                 data["has_stig_report"] = True
                 data["stig_report_url"] = f"/api/scans/{scan_id}/stig-findings-md"

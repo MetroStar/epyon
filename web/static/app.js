@@ -513,14 +513,33 @@ async function renderScanDetail(scanId) {
     // Build STIG summary card if STIG data is present
     let stigCard = '';
     if ((scan.stig_total || 0) > 0) {
+      const reports = scan.stig_reports || [];
+      const multiStig = reports.length > 1;
+
+      // Per-STIG rows (shown when multiple STIGs)
+      const perStigRows = multiStig ? reports.map(r => {
+        const slugLabel = r.slug.replace(/-/g, ' ').replace(/\bstig\b/gi, 'STIG');
+        const mdBtn   = r.has_md   ? `<a class="btn btn-sm" href="${esc(r.md_url)}"   download>↓ .md</a>`   : '';
+        const cklbBtn = r.has_cklb ? `<a class="btn btn-sm" href="${esc(r.cklb_url)}" download>↓ .cklb</a>` : '';
+        return `
+          <div class="stig-row">
+            <span class="stig-row-label" title="${esc(r.slug)}">${esc(slugLabel)}</span>
+            <span class="stig-row-counts">
+              <span class="stig-mini open">${esc(r.open)} open</span>
+              <span class="stig-mini pass">${esc(r.pass)} pass</span>
+              <span class="stig-mini na">${esc(r.na)} n/a</span>
+              <span class="stig-mini total">${esc(r.total)} total</span>
+            </span>
+            <span class="stig-row-btns">${mdBtn}${cklbBtn}</span>
+          </div>`;
+      }).join('') : '';
+
+      // Primary (combined) download buttons
       const mdBtn = scan.has_stig_report
-        ? `<a class="btn btn-sm" href="${esc(scan.stig_report_url)}" download>
-             ↓ findings.md
-           </a>` : '';
+        ? `<a class="btn btn-sm" href="${esc(scan.stig_report_url)}" download>↓ findings.md</a>` : '';
       const cklbBtn = scan.has_stig_cklb
-        ? `<a class="btn btn-sm" href="${esc(scan.stig_cklb_url)}" download>
-             ↓ findings.cklb
-           </a>` : '';
+        ? `<a class="btn btn-sm" href="${esc(scan.stig_cklb_url)}" download>↓ findings.cklb</a>` : '';
+
       stigCard = `
         <div class="stig-summary-card">
           <div class="stig-summary-header">
@@ -529,7 +548,7 @@ async function renderScanDetail(scanId) {
                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
               </svg>
-              STIG Assessment
+              STIG Assessment ${multiStig ? `<span style="color:var(--text-muted);font-weight:400;font-size:12px">(${reports.length} STIGs)</span>` : ''}
             </div>
             <div class="stig-download-btns">${mdBtn}${cklbBtn}</div>
           </div>
@@ -551,6 +570,7 @@ async function renderScanDetail(scanId) {
               <span class="lbl">Total</span>
             </div>
           </div>
+          ${multiStig ? `<div class="stig-per-stig">${perStigRows}</div>` : ''}
         </div>`;
     }
 

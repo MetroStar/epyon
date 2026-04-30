@@ -308,6 +308,33 @@ def stig_findings_cklb(scan_id: str, response: Response):
                         headers={"Content-Disposition": f'attachment; filename="findings-{scan_id}.cklb"'})
 
 
+_SAFE_SLUG_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_\-]*\.(md|cklb)$")
+
+@app.get("/api/scans/{scan_id}/stig-findings/{filename}")
+def stig_findings_named(scan_id: str, filename: str, response: Response):
+    """Serve a per-STIG named findings file (findings-{slug}.md or .cklb)."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    if not _SAFE_SLUG_RE.match(filename):
+        raise HTTPException(400, "Invalid filename")
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
+    matched = next((d for d in scan_dirs if d.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+    report = matched / f"findings-{filename}"
+    try:
+        report.resolve().relative_to(EPYON_ROOT.resolve())
+    except ValueError:
+        raise HTTPException(403, "Access denied")
+    if not report.exists():
+        raise HTTPException(404, f"File not found: findings-{filename}")
+    ext = filename.rsplit(".", 1)[-1]
+    media = "text/markdown" if ext == "md" else "application/json"
+    return FileResponse(str(report), media_type=media,
+                        headers={"Content-Disposition": f'attachment; filename="findings-{filename}"'})
+
+
 @app.get("/api/scans/{scan_id}")
 def scan_detail(scan_id: str, response: Response):
     _sec_headers(response)

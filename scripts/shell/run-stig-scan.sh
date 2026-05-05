@@ -76,8 +76,8 @@ show_help() {
     echo "  SKIP_STIG         Set to 'true' to skip this layer."
     echo ""
     echo "Output (per STIG in stigs dir):"
-    echo "  \$SCAN_DIR/findings.md              Primary report (first/only STIG)"
-    echo "  \$SCAN_DIR/findings-{slug}.md       Per-STIG report when multiple present"
+    echo "  \$SCAN_DIR/findings-{app}.md              Primary report (first/only STIG)"
+    echo "  \$SCAN_DIR/findings-{app}-{slug}.md       Per-STIG report when multiple present"
     echo "  \$SCAN_DIR/stig-controls-{slug}.json"
     echo "  \$SCAN_DIR/stig-results-{slug}.json"
     echo ""
@@ -231,21 +231,23 @@ RC=$?
 echo ""
 
 if [[ $RC -eq 0 ]]; then
-    if [[ -f "${SCAN_DIR}/findings.md" ]]; then
-        OPEN_COUNT=$(grep -c "^Status: Open$"          "${SCAN_DIR}/findings.md" 2>/dev/null || true)
-        NAF_COUNT=$(grep  -c "^Status: Not a Finding$" "${SCAN_DIR}/findings.md" 2>/dev/null || true)
-        NA_COUNT=$(grep   -c "^Status: Not Applicable$" "${SCAN_DIR}/findings.md" 2>/dev/null || true)
-        NR_COUNT=$(grep   -c "^Status: Not Reviewed$"  "${SCAN_DIR}/findings.md" 2>/dev/null || true)
+    APP_SLUG=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//')
+    PRIMARY_FINDINGS="${SCAN_DIR}/findings-${APP_SLUG}.md"
+    if [[ -f "$PRIMARY_FINDINGS" ]]; then
+        OPEN_COUNT=$(grep -c "^Status: Open$"           "$PRIMARY_FINDINGS" 2>/dev/null || true)
+        NAF_COUNT=$(grep  -c "^Status: Not a Finding$"  "$PRIMARY_FINDINGS" 2>/dev/null || true)
+        NA_COUNT=$(grep   -c "^Status: Not Applicable$" "$PRIMARY_FINDINGS" 2>/dev/null || true)
+        NR_COUNT=$(grep   -c "^Status: Not Reviewed$"   "$PRIMARY_FINDINGS" 2>/dev/null || true)
 
         echo -e "${GREEN}[STIG] Assessment complete.${NC}"
-        echo -e "${GREEN}       findings.md → ${SCAN_DIR}/findings.md${NC}"
+        echo -e "${GREEN}       findings-${APP_SLUG}.md → ${PRIMARY_FINDINGS}${NC}"
         echo ""
         echo -e "       Open            : ${RED}${OPEN_COUNT}${NC}"
         echo -e "       Not a Finding   : ${GREEN}${NAF_COUNT}${NC}"
         echo -e "       Not Applicable  : ${BLUE}${NA_COUNT}${NC}"
         echo -e "       Not Reviewed    : ${YELLOW}${NR_COUNT}${NC}"
     else
-        echo -e "${YELLOW}[STIG] Assessment finished but findings.md was not produced.${NC}"
+        echo -e "${YELLOW}[STIG] Assessment finished but findings-${APP_SLUG}.md was not produced.${NC}"
     fi
 else
     echo -e "${YELLOW}[STIG] Assessment completed with warnings (exit ${RC}).${NC}"

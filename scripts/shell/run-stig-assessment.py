@@ -7,8 +7,8 @@ walks the target application source tree, batches controls with relevant
 code context, and calls the OpenAI API to produce per-control assessments.
 
 Outputs (per STIG):
-  {SCAN_DIR}/findings.md              — Primary findings report (first/only STIG)
-  {SCAN_DIR}/findings-{slug}.md       — Per-STIG report when multiple STIGs present
+  {SCAN_DIR}/findings-{app}.md              — Primary findings report (first/only STIG)
+  {SCAN_DIR}/findings-{app}-{slug}.md       — Per-STIG report when multiple STIGs present
   {SCAN_DIR}/stig-controls-{slug}.json
   {SCAN_DIR}/stig-results-{slug}.json
 
@@ -199,6 +199,11 @@ def slug_from_stig(stig: dict[str, Any], path: str) -> str:
     # Normalise to lowercase alphanumeric + hyphens
     import re as _re
     return _re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+def slug_from_app_name(app_name: str) -> str:
+    """Derive a filesystem-safe slug from an application name."""
+    return re.sub(r"[^a-z0-9]+", "-", app_name.lower()).strip("-")
 
 
 # ---------------------------------------------------------------------------
@@ -825,15 +830,17 @@ def _assess_stig(
         scan_date=scan_date,
     )
 
-    # Named file always written; also write findings.md for the primary STIG
-    named_path = scan_dir / f"findings-{slug}.md"
+    app_slug = slug_from_app_name(app_name)
+
+    # Named file always written; also write findings-{app_slug}.md for the primary STIG
+    named_path = scan_dir / f"findings-{app_slug}-{slug}.md"
     named_path.write_text(md, encoding="utf-8")
     print(f"[INFO] [{slug}] Findings written to {named_path}", file=sys.stderr)
 
     if is_primary:
-        primary_path = scan_dir / "findings.md"
+        primary_path = scan_dir / f"findings-{app_slug}.md"
         primary_path.write_text(md, encoding="utf-8")
-        print(f"[INFO] [{slug}] Primary findings.md → {primary_path}", file=sys.stderr)
+        print(f"[INFO] [{slug}] Primary findings-{app_slug}.md → {primary_path}", file=sys.stderr)
     # Render and write CKLB output
     cklb_data = render_findings_cklb(
         app_name=app_name,
@@ -841,14 +848,14 @@ def _assess_stig(
         assessments=assessments,
         scan_date=scan_date,
     )
-    cklb_named = scan_dir / f"findings-{slug}.cklb"
+    cklb_named = scan_dir / f"findings-{app_slug}-{slug}.cklb"
     cklb_named.write_text(json.dumps(cklb_data, indent=2), encoding="utf-8")
     print(f"[INFO] [{slug}] CKLB written to {cklb_named}", file=sys.stderr)
 
     if is_primary:
-        cklb_primary = scan_dir / "findings.cklb"
+        cklb_primary = scan_dir / f"findings-{app_slug}.cklb"
         cklb_primary.write_text(json.dumps(cklb_data, indent=2), encoding="utf-8")
-        print(f"[INFO] [{slug}] Primary findings.cklb \u2192 {cklb_primary}", file=sys.stderr)
+        print(f"[INFO] [{slug}] Primary findings-{app_slug}.cklb → {cklb_primary}", file=sys.stderr)
     # Summary
     counts: dict[str, int] = {}
     for v in assessments.values():

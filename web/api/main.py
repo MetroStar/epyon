@@ -268,7 +268,7 @@ def scan_dashboard(scan_id: str, response: Response):
 
 @app.get("/api/scans/{scan_id}/stig-findings-md")
 def stig_findings_md(scan_id: str, response: Response):
-    """Serve the STIG findings.md for a given scan."""
+    """Serve the primary STIG findings markdown for a given scan."""
     _sec_headers(response)
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
@@ -276,20 +276,21 @@ def stig_findings_md(scan_id: str, response: Response):
     matched = next((d for d in scan_dirs if d.name == scan_id), None)
     if not matched:
         raise HTTPException(404, "Scan not found")
-    report = matched / "findings.md"
+    app_slug = re.sub(r"[^a-z0-9]+", "-", re.sub(r"_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$", "", scan_id).lower()).strip("-")
+    report = matched / f"findings-{app_slug}.md"
     try:
         report.resolve().relative_to(EPYON_ROOT.resolve())
     except ValueError:
         raise HTTPException(403, "Access denied")
     if not report.exists():
-        raise HTTPException(404, "STIG findings.md not generated for this scan")
+        raise HTTPException(404, "STIG findings not generated for this scan")
     return FileResponse(str(report), media_type="text/markdown",
                         headers={"Content-Disposition": f'attachment; filename="findings-{scan_id}.md"'})
 
 
 @app.get("/api/scans/{scan_id}/stig-findings-cklb")
 def stig_findings_cklb(scan_id: str, response: Response):
-    """Serve the STIG findings.cklb for a given scan."""
+    """Serve the primary STIG findings CKLB for a given scan."""
     _sec_headers(response)
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
@@ -297,13 +298,14 @@ def stig_findings_cklb(scan_id: str, response: Response):
     matched = next((d for d in scan_dirs if d.name == scan_id), None)
     if not matched:
         raise HTTPException(404, "Scan not found")
-    report = matched / "findings.cklb"
+    app_slug = re.sub(r"[^a-z0-9]+", "-", re.sub(r"_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$", "", scan_id).lower()).strip("-")
+    report = matched / f"findings-{app_slug}.cklb"
     try:
         report.resolve().relative_to(EPYON_ROOT.resolve())
     except ValueError:
         raise HTTPException(403, "Access denied")
     if not report.exists():
-        raise HTTPException(404, "STIG findings.cklb not generated for this scan")
+        raise HTTPException(404, "STIG findings CKLB not generated for this scan")
     return FileResponse(str(report), media_type="application/json",
                         headers={"Content-Disposition": f'attachment; filename="findings-{scan_id}.cklb"'})
 

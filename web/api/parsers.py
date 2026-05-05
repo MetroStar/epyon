@@ -485,8 +485,10 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
             stig_total += s_total
             # Derive the slug from the filename: stig-results-{slug}.json
             slug = stig_file.stem[len("stig-results-"):]
-            md_file   = scan_dir / f"findings-{slug}.md"
-            cklb_file = scan_dir / f"findings-{slug}.cklb"
+            # Derive the app slug from scan_id (pattern: {app_name}_{YYYY-MM-DD}_{HH-MM-SS})
+            app_slug = re.sub(r"[^a-z0-9]+", "-", re.sub(r"_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$", "", scan_id).lower()).strip("-")
+            md_file   = scan_dir / f"findings-{app_slug}-{slug}.md"
+            cklb_file = scan_dir / f"findings-{app_slug}-{slug}.cklb"
             stig_reports.append({
                 "slug":     slug,
                 "open":     s_open,
@@ -504,10 +506,14 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
             data["stig_na"]      = stig_na
             data["stig_total"]   = stig_total
             data["stig_reports"] = stig_reports
-            if (scan_dir / "findings.md").exists():
+            # Derive app slug from scan_id for primary findings filename
+            _app_slug = re.sub(r"[^a-z0-9]+", "-", re.sub(r"_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$", "", scan_id).lower()).strip("-")
+            _primary_md   = scan_dir / f"findings-{_app_slug}.md"
+            _primary_cklb = scan_dir / f"findings-{_app_slug}.cklb"
+            if _primary_md.exists():
                 data["has_stig_report"] = True
                 data["stig_report_url"] = f"/api/scans/{scan_id}/stig-findings-md"
-            if (scan_dir / "findings.cklb").exists():
+            if _primary_cklb.exists():
                 data["has_stig_cklb"] = True
                 data["stig_cklb_url"] = f"/api/scans/{scan_id}/stig-findings-cklb"
 

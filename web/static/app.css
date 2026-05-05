@@ -530,6 +530,86 @@ code {
   font-size: 12px;
 }
 
+.btn-danger {
+  background: transparent;
+  border-color: var(--critical);
+  color: var(--critical);
+}
+
+.btn-danger:hover {
+  background: var(--critical);
+  border-color: var(--critical);
+  color: #fff;
+}
+
+/* ── Destructive confirm modal ────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.12s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.modal-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 28px 32px;
+  max-width: 440px;
+  width: 90%;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  animation: slideUp 0.14s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(12px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.modal-box h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--critical);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-box p {
+  font-size: 13.5px;
+  color: var(--text-muted);
+  line-height: 1.55;
+  margin-bottom: 8px;
+}
+
+.modal-box .modal-target {
+  font-size: 13px;
+  color: var(--text);
+  font-family: monospace;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  margin: 12px 0 20px;
+  word-break: break-all;
+}
+
+.modal-box .modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
 .btn:disabled, .btn[disabled] {
   opacity: 0.5;
   cursor: not-allowed;

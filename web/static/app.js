@@ -224,8 +224,25 @@ const api = {
     }
     return r.json();
   },
+  async _delete(url) {
+    const r = await fetch(url, { method: 'DELETE' });
+    if (!r.ok) {
+      let detail = r.statusText;
+      try { detail = (await r.json()).detail || detail; } catch (_) {}
+      throw new Error(`${detail} (${r.status})`);
+    }
+    return r.json();
+  },
   getStats()          { return this._get('/api/stats'); },
   getApplications()   { return this._get('/api/applications'); },
+  getHiddenApps()     { return this._get('/api/applications-hidden'); },
+  hideApp(name)       { return this._delete(`/api/applications/${encodeURIComponent(name)}`); },
+  restoreApp(name)    { return this._post(`/api/applications/${encodeURIComponent(name)}/restore`, {}); },
+  deleteApp(name)     { return this._delete(`/api/applications/${encodeURIComponent(name)}/data`); },
+  deleteScan(id)      { return this._delete(`/api/scans/${encodeURIComponent(id)}`); },
+  registerApp(name, url) {
+    return this._post('/api/applications', { name, url });
+  },
   getAppScans(name)   { return this._get(`/api/applications/${encodeURIComponent(name)}/scans`); },
   getScan(id)         { return this._get(`/api/scans/${encodeURIComponent(id)}`); },
   getScanHistory()    { return this._get('/api/scan-history'); },
@@ -345,14 +362,17 @@ async function renderApplications() {
   page.innerHTML = loading();
 
   try {
-    const apps = await api.getApplications();
+    const [apps, hidden] = await Promise.all([api.getApplications(), api.getHiddenApps()]);
 
     const rows = apps.length
       ? apps.map(app => `
           <tr onclick="navigate('#/applications/${encodeURIComponent(app.name)}')"
               style="cursor:pointer">
-            <td><strong>${esc(app.name)}</strong></td>
-            <td>${app.last_scanned ? fmtDate(app.last_scanned) : '—'}</td>
+            <td>
+              <strong>${esc(app.name)}</strong>
+              ${app.url ? `<div style="font-size:11px;color:var(--text-dim);margin-top:2px">${esc(app.url)}</div>` : ''}
+            </td>
+            <td>${app.last_scanned ? fmtDate(app.last_scanned) : '<span style="color:var(--text-dim)">Never</span>'}</td>
             <td>${esc(app.scan_count)}</td>
             <td>${app.critical > 0
                   ? `<span class="sev-badge critical">${app.critical}</span>`
@@ -372,16 +392,58 @@ async function renderApplications() {
                 onclick="event.stopPropagation();navigate('#/new-scan')">
                 Scan
               </button>
+              <button class="btn btn-sm btn-danger"
+                onclick="event.stopPropagation();hideApplication('${esc(app.name)}')"
+                title="Hide this application from the list">
+                Hide
+              </button>
+              <button class="btn btn-sm btn-danger"
+                onclick="event.stopPropagation();deleteApplication('${esc(app.name)}')"
+                title="Permanently delete all scan data for this application">
+                Delete
+              </button>
             </td>
           </tr>`).join('')
       : `<tr><td colspan="9" style="text-align:center;padding:48px;color:var(--text-muted)">
            No applications found. Run a scan to get started.
          </td></tr>`;
 
+    const hiddenSection = hidden.length ? `
+      <div class="section" style="margin-top:32px">
+        <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
+          <span>Hidden Applications <span style="font-size:12px;color:var(--text-muted);font-weight:400">(${hidden.length})</span></span>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Application</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${hidden.map(name => `
+                <tr>
+                  <td style="color:var(--text-muted)">${esc(name)}</td>
+                  <td>
+                    <button class="btn btn-sm"
+                      onclick="restoreApplication('${esc(name)}')">
+                      Restore
+                    </button>
+                  </td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>` : '';
+
     page.innerHTML = `
       <div class="page-header">
         <h1>Applications</h1>
-        <button class="btn btn-primary" onclick="navigate('#/new-scan')">+ Run Scan</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn" onclick="showAddAppModal()">+ Add Application</button>
+          <button class="btn btn-primary" onclick="navigate('#/new-scan')">▶ Run Scan</button>
+        </div>
       </div>
       <div class="table-container">
         <table>
@@ -400,7 +462,8 @@ async function renderApplications() {
           </thead>
           <tbody>${rows}</tbody>
         </table>
-      </div>`;
+      </div>
+      ${hiddenSection}`;
   } catch (e) {
     page.innerHTML = errBanner(e.message);
   }
@@ -414,7 +477,13 @@ async function renderAppDetail(name) {
   page.innerHTML = loading();
 
   try {
-    const scans = await api.getAppScans(name);
+    // Load scans and registered app info in parallel
+    const [scans, allApps] = await Promise.all([
+      api.getAppScans(name),
+      api.getApplications(),
+    ]);
+    const appInfo = allApps.find(a => a.name === name) || {};
+    const appUrl  = appInfo.url || '';
     const latest = scans[0] || {};
     const status  = computeStatus(latest);
 
@@ -448,9 +517,27 @@ async function renderAppDetail(name) {
                      Dashboard ↗
                    </button>`
                 : ''}
+              <button class="btn btn-sm btn-danger"
+                onclick="event.stopPropagation();deleteScan('${esc(s.scan_id)}', '${esc(name)}')"
+                title="Permanently delete this scan">
+                Delete
+              </button>
             </div>`;
         }).join('')
-      : emptyState(`No scans found for "${name}"`, 'Run a scan to populate history.');
+      : emptyState(
+          `No scans found for "${name}"`,
+          appUrl ? `Repository: ${appUrl}` : 'Run a scan to populate history.',
+          appUrl
+            ? `<div style="display:flex;gap:8px;justify-content:center;margin-top:16px">
+                 <button class="btn btn-primary"
+                   onclick="navigate('#/new-scan?target=${encodeURIComponent(appUrl)}')">
+                   ▶ Run First Scan
+                 </button>
+               </div>`
+            : `<button class="btn btn-primary" onclick="navigate('#/new-scan')" style="margin-top:16px">
+                 ▶ Run Scan
+               </button>`,
+        );
 
     const statsSection = scans.length ? `
       <div class="detail-grid">
@@ -488,7 +575,19 @@ async function renderAppDetail(name) {
       </div>
       <div class="page-header">
         <h1>${esc(name)} ${statusBadge(status)}</h1>
-        <button class="btn btn-primary" onclick="navigate('#/new-scan')">+ Run Scan</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="navigate('#/new-scan')">+ Run Scan</button>
+          <button class="btn btn-danger"
+            onclick="hideApplication('${esc(name)}')"
+            title="Hide this application from the list">
+            Hide
+          </button>
+          <button class="btn btn-danger"
+            onclick="deleteApplication('${esc(name)}')"
+            title="Permanently delete all scan data for this application">
+            Delete All
+          </button>
+        </div>
       </div>
       ${statsSection}
       <div class="section">
@@ -595,12 +694,19 @@ async function renderScanDetail(scanId) {
 
       <div class="page-header">
         <h1>Scan Details ${statusBadge(status)}</h1>
-        ${scan.has_dashboard
-          ? `<button class="btn btn-primary"
-               onclick="window.open('/api/scans/${encodeURIComponent(scanId)}/dashboard','_blank')">
-               View Dashboard ↗
-             </button>`
-          : ''}
+        <div style="display:flex;gap:8px">
+          ${scan.has_dashboard
+            ? `<button class="btn btn-primary"
+                 onclick="window.open('/api/scans/${encodeURIComponent(scanId)}/dashboard','_blank')">
+                 View Dashboard ↗
+               </button>`
+            : ''}
+          <button class="btn btn-danger"
+            onclick="deleteScan('${esc(scanId)}', '${esc(scan.target)}')"
+            title="Permanently delete this scan">
+            Delete Scan
+          </button>
+        </div>
       </div>
 
       <div class="detail-grid">
@@ -1645,6 +1751,335 @@ async function renderStigViewer(scanId) {
   } catch (e) {
     page.innerHTML = errBanner(e.message);
   }
+}
+
+// ── Destructive confirm modal ─────────────────────────────────
+function showDestructiveModal({ title, body, target, confirmLabel = 'Delete', onConfirm }) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <h2>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <span id="modal-title">${esc(title)}</span>
+      </h2>
+      <p>${esc(body)}</p>
+      ${target ? `<div class="modal-target">${esc(target)}</div>` : ''}
+      <div class="modal-actions">
+        <button class="btn" id="modal-cancel">Cancel</button>
+        <button class="btn btn-danger" id="modal-confirm">${esc(confirmLabel)}</button>
+      </div>
+    </div>`;
+
+  function close() { overlay.remove(); }
+
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  overlay.querySelector('#modal-cancel').addEventListener('click', close);
+  overlay.querySelector('#modal-confirm').addEventListener('click', () => {
+    close();
+    onConfirm();
+  });
+  document.addEventListener('keydown', function onKey(e) {
+    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); }
+  });
+
+  document.body.appendChild(overlay);
+  overlay.querySelector('#modal-confirm').focus();
+}
+
+// ── Application management helpers ───────────────────────────
+async function hideApplication(name) {
+  if (!confirm(`Hide "${name}" from the applications list?\n\nThe scan data will be preserved and can be restored later.`)) return;
+  try {
+    await api.hideApp(name);
+    renderApplications();
+  } catch (e) {
+    alert(`Failed to hide application: ${e.message}`);
+  }
+}
+
+async function restoreApplication(name) {
+  try {
+    await api.restoreApp(name);
+    renderApplications();
+  } catch (e) {
+    alert(`Failed to restore application: ${e.message}`);
+  }
+}
+
+async function deleteApplication(name) {
+  showDestructiveModal({
+    title:        'Delete Application',
+    body:         'This will permanently remove all scan data from disk. This action cannot be undone.',
+    target:       name,
+    confirmLabel: 'Delete All Scans',
+    onConfirm:    async () => {
+      try {
+        await api.deleteApp(name);
+        navigate('#/applications');
+      } catch (e) {
+        alert(`Failed to delete application: ${e.message}`);
+      }
+    },
+  });
+}
+
+async function deleteScan(scanId, appName) {
+  showDestructiveModal({
+    title:        'Delete Scan',
+    body:         'This will permanently remove the scan directory and all its reports from disk. This action cannot be undone.',
+    target:       scanId,
+    confirmLabel: 'Delete Scan',
+    onConfirm:    async () => {
+      try {
+        await api.deleteScan(scanId);
+        if (appName) {
+          navigate(`#/applications/${encodeURIComponent(appName)}`);
+        } else {
+          navigate('#/applications');
+        }
+      } catch (e) {
+        alert(`Failed to delete scan: ${e.message}`);
+      }
+    },
+  });
+}
+
+function showAddAppModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+
+  // ── Step 1 HTML ────────────────────────────────────────────
+  const step1HTML = `
+    <div id="add-app-step1">
+      <h2 id="add-app-title" style="color:var(--text)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="16"/>
+          <line x1="8" y1="12" x2="16" y2="12"/>
+        </svg>
+        Add Application
+      </h2>
+      <p style="color:var(--text-muted);font-size:13px;margin:0 0 16px">
+        Register a GitHub repository with Epyon. A name will be auto-suggested from the URL.
+      </p>
+
+      <div class="form-group">
+        <label for="add-app-url" style="font-size:13px;color:var(--text-muted);margin-bottom:4px;display:block">
+          Repository URL <span style="color:var(--critical)">*</span>
+        </label>
+        <input type="text" id="add-app-url" autocomplete="off" spellcheck="false"
+          placeholder="https://github.com/org/my-app.git"
+          style="width:100%;padding:8px 10px;background:var(--bg-input);border:1px solid var(--border);
+                 border-radius:var(--radius);color:var(--text);font-size:13px;outline:none" />
+      </div>
+
+      <div class="form-group" style="margin-top:12px">
+        <label for="add-app-name" style="font-size:13px;color:var(--text-muted);margin-bottom:4px;display:block">
+          Application Name <span style="color:var(--critical)">*</span>
+        </label>
+        <input type="text" id="add-app-name" autocomplete="off" spellcheck="false"
+          placeholder="my-app"
+          style="width:100%;padding:8px 10px;background:var(--bg-input);border:1px solid var(--border);
+                 border-radius:var(--radius);color:var(--text);font-size:13px;outline:none" />
+        <small style="font-size:11px;color:var(--text-dim)">Alphanumeric, hyphens, underscores, and dots only</small>
+      </div>
+
+      <div style="margin-top:12px;display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="add-app-scan" style="accent-color:var(--accent)" />
+        <label for="add-app-scan" style="font-size:13px;color:var(--text-muted);cursor:pointer">
+          Run a full scan immediately after adding
+        </label>
+      </div>
+
+      <div id="add-app-error" style="display:none;margin-top:12px;color:var(--critical);font-size:12px"></div>
+
+      <div class="modal-actions" style="margin-top:20px">
+        <button class="btn" id="add-app-cancel">Cancel</button>
+        <button class="btn btn-primary" id="add-app-next">Next: Workflow Setup →</button>
+      </div>
+    </div>`;
+
+  // ── Step 2 HTML ────────────────────────────────────────────
+  const workflowYml = `name: Private Security Scan
+
+permissions:
+  contents: read
+
+concurrency:
+  group: epyon-scan-\${{ github.repository }}
+  cancel-in-progress: false
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      scan_mode:
+        description: 'Scan mode (quick/full/nightly/baseline)'
+        required: false
+        default: 'full'
+        type: choice
+        options: [quick, full, nightly, baseline]
+
+jobs:
+  security-scan-main:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      security-events: write
+    uses: <your-org>/epyon/.github/workflows/reusable-scan.yml@main
+    secrets: inherit`;
+
+  const step2HTML = `
+    <div id="add-app-step2" style="display:none">
+      <h2 id="add-app-title" style="color:var(--text)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+        </svg>
+        GitHub Workflow Setup
+      </h2>
+      <p style="color:var(--text-muted);font-size:13px;margin:0 0 14px">
+        To enable automated nightly scans, add the Epyon workflow file to your repository.
+        Follow the steps below, then Epyon will pick up scan results automatically.
+      </p>
+
+      <ol style="padding-left:18px;margin:0 0 14px;font-size:13px;color:var(--text-muted);line-height:1.9">
+        <li>In your repository, create the directory <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">.github/workflows/</code> if it doesn't exist.</li>
+        <li>Add a new file named <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">scan-private-repo.yml</code> with the contents below.</li>
+        <li>Replace <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">&lt;your-org&gt;</code> with the GitHub org or user that hosts Epyon.</li>
+        <li>Commit and push — the workflow will run nightly at 2 AM UTC and on manual dispatch.</li>
+      </ol>
+
+      <div style="position:relative">
+        <pre id="add-app-yml" style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);
+             padding:12px;font-size:11px;line-height:1.6;overflow-x:auto;margin:0;white-space:pre;color:var(--text)">${workflowYml}</pre>
+        <button id="add-app-copy"
+          style="position:absolute;top:8px;right:8px;padding:3px 10px;font-size:11px;
+                 background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+                 color:var(--text-muted);cursor:pointer">Copy</button>
+      </div>
+
+      <p style="font-size:12px;color:var(--text-dim);margin:10px 0 0">
+        The full workflow with all optional parameters is available in
+        <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">documentation/scan-private-repo.yml</code>
+        in the Epyon repo.
+      </p>
+
+      <div class="modal-actions" style="margin-top:20px">
+        <button class="btn" id="add-app-back">← Back</button>
+        <button class="btn btn-primary" id="add-app-submit">Add Application</button>
+      </div>
+    </div>`;
+
+  overlay.innerHTML = `
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="add-app-title"
+         style="max-width:540px">
+      ${step1HTML}
+      ${step2HTML}
+    </div>`;
+
+  function close() { overlay.remove(); }
+
+  // ── Step navigation ────────────────────────────────────────
+  const s1 = overlay.querySelector('#add-app-step1');
+  const s2 = overlay.querySelector('#add-app-step2');
+
+  function showStep(n) {
+    s1.style.display = n === 1 ? '' : 'none';
+    s2.style.display = n === 2 ? '' : 'none';
+  }
+
+  // ── Step 1 inputs ──────────────────────────────────────────
+  const urlInput  = overlay.querySelector('#add-app-url');
+  const nameInput = overlay.querySelector('#add-app-name');
+
+  urlInput.addEventListener('input', () => {
+    const raw = urlInput.value.trim();
+    const derived = raw
+      .replace(/\.git$/i, '')
+      .split('/')
+      .filter(Boolean)
+      .pop() || '';
+    if (derived && !nameInput._manuallyEdited) {
+      nameInput.value = derived.replace(/[^a-zA-Z0-9._-]/g, '-');
+    }
+  });
+  nameInput.addEventListener('input', () => { nameInput._manuallyEdited = true; });
+
+  overlay.querySelector('#add-app-cancel').addEventListener('click', close);
+
+  overlay.querySelector('#add-app-next').addEventListener('click', () => {
+    const errEl = overlay.querySelector('#add-app-error');
+    errEl.style.display = 'none';
+    if (!urlInput.value.trim()) {
+      errEl.textContent = 'Repository URL is required.';
+      errEl.style.display = 'block';
+      urlInput.focus();
+      return;
+    }
+    if (!nameInput.value.trim()) {
+      errEl.textContent = 'Application name is required.';
+      errEl.style.display = 'block';
+      nameInput.focus();
+      return;
+    }
+    showStep(2);
+  });
+
+  // ── Step 2 controls ────────────────────────────────────────
+  overlay.querySelector('#add-app-back').addEventListener('click', () => showStep(1));
+
+  overlay.querySelector('#add-app-copy').addEventListener('click', function () {
+    navigator.clipboard.writeText(workflowYml).then(() => {
+      this.textContent = 'Copied!';
+      setTimeout(() => { this.textContent = 'Copy'; }, 2000);
+    });
+  });
+
+  overlay.querySelector('#add-app-submit').addEventListener('click', async () => {
+    const url     = urlInput.value.trim();
+    const name    = nameInput.value.trim();
+    const scanNow = overlay.querySelector('#add-app-scan').checked;
+    const btn     = overlay.querySelector('#add-app-submit');
+
+    btn.disabled = true;
+    btn.textContent = 'Adding…';
+    try {
+      await api.registerApp(name, url);
+      close();
+      if (scanNow) {
+        navigate(`#/new-scan?target=${encodeURIComponent(url)}`);
+      } else {
+        navigate('#/applications');
+        renderApplications();
+      }
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = 'Add Application';
+      // Show error back on step 1
+      showStep(1);
+      const errEl = overlay.querySelector('#add-app-error');
+      errEl.textContent = e.message;
+      errEl.style.display = 'block';
+    }
+  });
+
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  document.addEventListener('keydown', function onKey(e) {
+    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); }
+  });
+
+  document.body.appendChild(overlay);
+  urlInput.focus();
 }
 
 // ── Router ────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import asyncio
 import json
 import os
 import re
+import shutil
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -30,6 +31,7 @@ SCRIPTS_DIR  = EPYON_ROOT / "scripts" / "shell"
 APPROVED_IMAGES_FILE = EPYON_ROOT / "configuration" / "approved-base-images.conf"
 GITHUB_CONFIG_FILE   = _HERE / ".." / "github-config.json"
 HIDDEN_APPS_FILE     = EPYON_ROOT / "configuration" / "hidden-apps.json"
+REGISTERED_APPS_FILE = EPYON_ROOT / "configuration" / "registered-apps.json"
 STATIC_DIR           = (_HERE / ".." / "static").resolve()
 
 # ── Validation ────────────────────────────────────────────────
@@ -163,6 +165,46 @@ def _save_hidden_apps(hidden: set[str]) -> None:
     HIDDEN_APPS_FILE.write_text(json.dumps(sorted(hidden), indent=2))
 
 
+def _load_registered_apps() -> list[dict]:
+    try:
+        if REGISTERED_APPS_FILE.exists():
+            return json.loads(REGISTERED_APPS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return []
+
+
+def _save_registered_apps(apps: list[dict]) -> None:
+    REGISTERED_APPS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    REGISTERED_APPS_FILE.write_text(json.dumps(apps, indent=2), encoding="utf-8")
+
+
+@app.post("/api/applications", status_code=201)
+async def register_application(request: Request, response: Response):
+    """Register a new application by name and URL (no scan triggered)."""
+    _sec_headers(response)
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Invalid JSON")
+    name = (body.get("name") or "").strip()
+    url  = (body.get("url")  or "").strip()
+    if not name:
+        raise HTTPException(400, "name is required")
+    if not _SAFE_ID_RE.match(name):
+        raise HTTPException(400, "name must be alphanumeric with hyphens/underscores/dots only")
+    valid_prefixes = ["https://", "http://", "git@"]
+    if url and not any(url.startswith(p) for p in valid_prefixes):
+        raise HTTPException(400, "url must be an HTTPS or SSH Git URL")
+    if url and re.search(r"[;&|`$\(\)\n\r<>'\"]", url):
+        raise HTTPException(400, "url contains invalid characters")
+    apps = _load_registered_apps()
+    apps = [a for a in apps if a["name"] != name]
+    apps.append({"name": name, "url": url, "added_at": _now()})
+    _save_registered_apps(apps)
+    return {"registered": name, "url": url}
+
+
 @app.get("/api/applications")
 def applications(response: Response):
     _sec_headers(response)
@@ -199,8 +241,43 @@ def applications(response: Response):
             "latest_stig_scan_id": latest_stig.get("scan_id", "")            if latest_stig else "",
             "has_stig_report":     latest_stig.get("has_stig_report", False) if latest_stig else False,
             "has_stig_cklb":       latest_stig.get("has_stig_cklb", False)   if latest_stig else False,
+            "url":                 "",
         })
-    result.sort(key=lambda x: x.get("last_scanned", ""), reverse=True)
+
+    # Merge in registered-but-unscanned apps
+    scanned_names = {r["name"] for r in result}
+    registered = _load_registered_apps()
+    for reg in registered:
+        rname = reg["name"]
+        if rname in hidden or rname in scanned_names:
+            # If it has been scanned, backfill the URL onto the existing entry
+            for r in result:
+                if r["name"] == rname and not r["url"]:
+                    r["url"] = reg.get("url", "")
+            continue
+        result.append({
+            "name":                rname,
+            "scan_count":          0,
+            "last_scanned":        "",
+            "scan_type":           "",
+            "critical":            0,
+            "high":                0,
+            "medium":              0,
+            "low":                 0,
+            "status":              "unknown",
+            "latest_scan_id":      "",
+            "stig_total":          0,
+            "stig_open":           0,
+            "stig_pass":           0,
+            "stig_na":             0,
+            "latest_stig_scan_id": "",
+            "has_stig_report":     False,
+            "has_stig_cklb":       False,
+            "url":                 reg.get("url", ""),
+            "added_at":            reg.get("added_at", ""),
+        })
+
+    result.sort(key=lambda x: x.get("last_scanned", "") or x.get("added_at", ""), reverse=True)
     return result
 
 
@@ -224,6 +301,52 @@ def restore_application(name: str, response: Response):
     hidden.discard(name)
     _save_hidden_apps(hidden)
     return {"restored": name}
+
+
+@app.delete("/api/applications/{name}/data")
+def delete_application(name: str, response: Response):
+    """Permanently delete all scan directories for an application."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(name):
+        raise HTTPException(400, "Invalid application name")
+    scan_dirs = [
+        d for d in parsers.find_scan_dirs(EPYON_ROOT)
+        if parsers.parse_dir_name(d.name)["target"] == name
+    ]
+    if not scan_dirs:
+        raise HTTPException(404, "No scan data found for this application")
+    deleted = []
+    for d in scan_dirs:
+        try:
+            d.resolve().relative_to(EPYON_ROOT.resolve())
+        except ValueError:
+            raise HTTPException(403, "Access denied")
+        shutil.rmtree(d)
+        deleted.append(d.name)
+    # Also remove from hidden list if present
+    hidden = _load_hidden_apps()
+    if name in hidden:
+        hidden.discard(name)
+        _save_hidden_apps(hidden)
+    return {"deleted": deleted}
+
+
+@app.delete("/api/scans/{scan_id}")
+def delete_scan(scan_id: str, response: Response):
+    """Permanently delete a single scan directory."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
+    matched = next((d for d in scan_dirs if d.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+    try:
+        matched.resolve().relative_to(EPYON_ROOT.resolve())
+    except ValueError:
+        raise HTTPException(403, "Access denied")
+    shutil.rmtree(matched)
+    return {"deleted": scan_id}
 
 
 @app.get("/api/applications-hidden")

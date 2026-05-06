@@ -1775,7 +1775,14 @@ function showDestructiveModal({ title, body, target, confirmLabel = 'Delete', on
       </div>
     </div>`;
 
-  function close() { overlay.remove(); }
+  function onKey(e) {
+    if (e.key === 'Escape') close();
+  }
+
+  function close() {
+    document.removeEventListener('keydown', onKey);
+    overlay.remove();
+  }
 
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
   overlay.querySelector('#modal-cancel').addEventListener('click', close);
@@ -1783,9 +1790,7 @@ function showDestructiveModal({ title, body, target, confirmLabel = 'Delete', on
     close();
     onConfirm();
   });
-  document.addEventListener('keydown', function onKey(e) {
-    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); }
-  });
+  document.addEventListener('keydown', onKey);
 
   document.body.appendChild(overlay);
   overlay.querySelector('#modal-confirm').focus();

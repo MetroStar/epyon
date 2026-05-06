@@ -1908,6 +1908,9 @@ function showAddAppModal() {
   // ── Step 2 HTML ────────────────────────────────────────────
   const workflowYml = `name: Private Security Scan
 
+# Epyon private-repo scanner entrypoint.
+# This workflow delegates execution to the local reusable workflow.
+
 permissions:
   contents: read
 
@@ -1917,15 +1920,46 @@ concurrency:
 
 on:
   schedule:
-    - cron: '0 2 * * *'
+    # Nightly full scan — runs every night at 2 AM UTC (Mon-Sat)
+    - cron: '0 2 * * 1-6'
+    # Weekly STIG scan — runs Sunday night at 2 AM UTC
+    - cron: '0 2 * * 0'
+  # checkov:skip=CKV_GHA_7:Workflow inputs control scan parameters not build artifacts
   workflow_dispatch:
     inputs:
+      subdirectory:
+        description: 'Optional: Subdirectory path to scan (e.g., apps/api)'
+        required: false
+        type: string
       scan_mode:
-        description: 'Scan mode (quick/full/nightly/baseline)'
+        description: 'Scan mode (quick/full/nightly/baseline/stig)'
         required: false
         default: 'full'
         type: choice
-        options: [quick, full, nightly, baseline]
+        options:
+          - quick
+          - full
+          - nightly
+          - baseline
+          - stig
+      garak_target_type:
+        description: 'Garak generator type (e.g. test, openai, huggingface)'
+        required: false
+        default: 'openai'
+        type: string
+      garak_target_name:
+        description: 'Garak target model name (e.g. gpt-4o-mini)'
+        required: false
+        default: 'gpt-4o-mini'
+        type: string
+      garak_probes:
+        description: 'Garak probe set (comma-separated, e.g. promptinject,dan,encoding)'
+        required: false
+        default: 'promptinject'
+        type: string
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   security-scan-main:
@@ -1935,7 +1969,14 @@ jobs:
       actions: read
       pull-requests: write
       security-events: write
-    uses: <your-org>/epyon/.github/workflows/reusable-scan.yml@main
+      issues: write
+    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
+    with:
+      scan_mode: \${{ github.event_name == 'schedule' && (github.event.schedule == '0 2 * * 0' && 'stig' || 'nightly') || github.event.inputs.scan_mode || 'full' }}
+      subdirectory: \${{ github.event.inputs.subdirectory || '' }}
+      garak_target_type: \${{ github.event.inputs.garak_target_type || 'openai' }}
+      garak_target_name: \${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
+      garak_probes: \${{ github.event.inputs.garak_probes || 'promptinject' }}
     secrets: inherit`;
 
   const step2HTML = `

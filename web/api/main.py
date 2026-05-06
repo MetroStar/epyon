@@ -315,8 +315,6 @@ def delete_application(name: str, response: Response):
         d for d in parsers.find_scan_dirs(EPYON_ROOT)
         if parsers.parse_dir_name(d.name)["target"] == name
     ]
-    if not scan_dirs:
-        raise HTTPException(404, "No scan data found for this application")
     deleted = []
     for d in scan_dirs:
         try:

@@ -2001,7 +2001,7 @@ jobs:
       <ol style="padding-left:18px;margin:0 0 14px;font-size:13px;color:var(--text-muted);line-height:1.9">
         <li>In your repository, create the directory <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">.github/workflows/</code> if it doesn't exist.</li>
         <li>Add a new file named <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">scan-private-repo.yml</code> with the contents below.</li>
-        <li>Replace <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">&lt;your-org&gt;</code> with the GitHub org or user that hosts Epyon.</li>
+        <li>Review the workflow references and update the GitHub org or user only if the sample points to a different Epyon host than yours.</li>
         <li>Commit and push — the workflow will run nightly at 2 AM UTC and on manual dispatch.</li>
       </ol>
 

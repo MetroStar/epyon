@@ -474,6 +474,14 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
             stig_results = _read_json(stig_file)
             if not stig_results or not isinstance(stig_results, dict):
                 continue
+            # Support both new wrapped format {assessments: {...}, token_usage: {...}}
+            # and old flat format {vuln_id: {status, evidence}, ...}
+            token_usage = {}
+            if "assessments" in stig_results:
+                token_usage  = stig_results.get("token_usage", {})
+                stig_results = stig_results["assessments"]
+            if not stig_results:
+                continue
             any_valid = True
             s_open  = sum(1 for v in stig_results.values() if v.get("status") == "Open")
             s_pass  = sum(1 for v in stig_results.values() if v.get("status") == "Not a Finding")
@@ -490,15 +498,16 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
             md_file   = scan_dir / f"findings-{app_slug}-{slug}.md"
             cklb_file = scan_dir / f"findings-{app_slug}-{slug}.cklb"
             stig_reports.append({
-                "slug":     slug,
-                "open":     s_open,
-                "pass":     s_pass,
-                "na":       s_na,
-                "total":    s_total,
-                "has_md":   md_file.exists(),
-                "has_cklb": cklb_file.exists(),
-                "md_url":   f"/api/scans/{scan_id}/stig-findings/{slug}.md"   if md_file.exists()   else None,
-                "cklb_url": f"/api/scans/{scan_id}/stig-findings/{slug}.cklb" if cklb_file.exists() else None,
+                "slug":         slug,
+                "open":         s_open,
+                "pass":         s_pass,
+                "na":           s_na,
+                "total":        s_total,
+                "has_md":       md_file.exists(),
+                "has_cklb":     cklb_file.exists(),
+                "md_url":       f"/api/scans/{scan_id}/stig-findings/{slug}.md"   if md_file.exists()   else None,
+                "cklb_url":     f"/api/scans/{scan_id}/stig-findings/{slug}.cklb" if cklb_file.exists() else None,
+                "token_usage":  token_usage,
             })
         if any_valid:
             data["stig_open"]    = stig_open

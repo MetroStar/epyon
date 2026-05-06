@@ -444,15 +444,18 @@ def check_stig_applicability(
                 {"role": "user",   "content": user_message},
             ],
         )
+        usage = response.usage
+        prompt_tokens     = usage.prompt_tokens     if usage else 0
+        completion_tokens = usage.completion_tokens if usage else 0
         raw = response.choices[0].message.content.strip()
         raw = re.sub(r"^```(?:json)?\s*", "", raw)
         raw = re.sub(r"\s*```$", "", raw)
         parsed = json.loads(raw)
         applicable = bool(parsed.get("applicable", True))
         reason     = str(parsed.get("reason", "")).strip()
-        return applicable, reason
+        return applicable, reason, prompt_tokens, completion_tokens
     except Exception as exc:  # pylint: disable=broad-except
-        return True, f"Applicability check failed ({exc}) — proceeding with full assessment"
+        return True, f"Applicability check failed ({exc}) — proceeding with full assessment", 0, 0
 
 
 # ---------------------------------------------------------------------------
@@ -498,13 +501,17 @@ def call_openai(
         ],
     )
 
+    usage = response.usage
+    prompt_tokens     = usage.prompt_tokens     if usage else 0
+    completion_tokens = usage.completion_tokens if usage else 0
+
     raw = response.choices[0].message.content.strip()
 
     # Strip markdown code fences if the model added them anyway
     raw = re.sub(r"^```(?:json)?\s*", "", raw)
     raw = re.sub(r"\s*```$", "", raw)
 
-    return json.loads(raw)
+    return json.loads(raw), prompt_tokens, completion_tokens
 
 
 # ---------------------------------------------------------------------------
@@ -727,6 +734,8 @@ def _assess_stig(
     print(f"[INFO] [{slug}] Controls written to {controls_path}", file=sys.stderr)
 
     assessments: dict[str, dict[str, str]] = {}
+    total_prompt_tokens     = 0
+    total_completion_tokens = 0
 
     if not api_key:
         for c in controls:
@@ -748,9 +757,11 @@ def _assess_stig(
 
         # ── Applicability pre-check ───────────────────────────────────────
         app_profile = build_app_profile(app_name, source_files)
-        applicable, applicability_reason = check_stig_applicability(
+        applicable, applicability_reason, appl_pt, appl_ct = check_stig_applicability(
             client, model, stig_data, app_profile
         )
+        total_prompt_tokens     = appl_pt
+        total_completion_tokens = appl_ct
         if not applicable:
             print(
                 f"[SKIP] [{slug}] STIG not applicable — {applicability_reason}",
@@ -792,7 +803,15 @@ def _assess_stig(
             code_context = build_code_context(source_files, all_kw)
 
             try:
-                results = call_openai(client, model, batch, code_context, repo_manifest)
+                results, batch_pt, batch_ct = call_openai(client, model, batch, code_context, repo_manifest)
+                total_prompt_tokens     += batch_pt
+                total_completion_tokens += batch_ct
+                print(
+                    f"[INFO] [{slug}] Batch {idx} tokens — "
+                    f"prompt: {batch_pt:,}  completion: {batch_ct:,}  "
+                    f"total so far: {total_prompt_tokens + total_completion_tokens:,}",
+                    file=sys.stderr,
+                )
             except json.JSONDecodeError as e:
                 print(f"[WARNING] [{slug}] Batch {idx} returned invalid JSON: {e}", file=sys.stderr)
                 results = []
@@ -818,7 +837,23 @@ def _assess_stig(
 
     # Write raw results
     results_path = scan_dir / f"stig-results-{slug}.json"
-    results_path.write_text(json.dumps(assessments, indent=2), encoding="utf-8")
+    output_data: dict[str, Any] = {
+        "assessments": assessments,
+        "token_usage": {
+            "prompt_tokens":     total_prompt_tokens     if api_key else 0,
+            "completion_tokens": total_completion_tokens if api_key else 0,
+            "total_tokens":      (total_prompt_tokens + total_completion_tokens) if api_key else 0,
+        },
+    }
+    results_path.write_text(json.dumps(output_data, indent=2), encoding="utf-8")
+    if api_key:
+        print(
+            f"[INFO] [{slug}] Token usage — "
+            f"prompt: {total_prompt_tokens:,}  "
+            f"completion: {total_completion_tokens:,}  "
+            f"total: {total_prompt_tokens + total_completion_tokens:,}",
+            file=sys.stderr,
+        )
     print(f"[INFO] [{slug}] Raw results written to {results_path}", file=sys.stderr)
 
     # Render findings markdown

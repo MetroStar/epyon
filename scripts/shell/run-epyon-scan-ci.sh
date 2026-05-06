@@ -97,7 +97,7 @@ run_garak_layer() {
   #   quick   → always skipped
   #   full    → skipped unless RUN_GARAK=true (manual opt-in)
   #   nightly → skipped unless RUN_GARAK=true (manual opt-in)
-  #   stig    → runs by default (Sunday scan includes Garak + STIG)
+  #   stig    → runs by default (Sunday scan — STIG-only mode)
   local _should_run="false"
   case "${SCAN_MODE:-full}" in
     stig)     _should_run="true"  ;;
@@ -257,10 +257,10 @@ fi  # end: SCAN_MODE != stig
 
 run_garak_layer
 
-# Layer 13 — STIG Compliance Assessment (stig and nightly scan modes)
+# Layer 13 — STIG Compliance Assessment (stig mode only — Sundays and on-demand)
 # Runs AI-assisted AppSecDev STIG V5R3 assessment via GPT-4.1.
 # Requires OPENAI_API_KEY. Gracefully skips when key is absent.
-if [[ "${SCAN_MODE:-full}" =~ ^(stig|nightly)$ ]] && _should_run_tool SKIP_STIG; then
+if [[ "${SCAN_MODE:-full}" == "stig" ]] && _should_run_tool SKIP_STIG; then
   run_group "Layer 13 - STIG Compliance Assessment" \
     env \
       OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
@@ -276,7 +276,7 @@ if [[ "${SCAN_MODE:-full}" =~ ^(stig|nightly)$ ]] && _should_run_tool SKIP_STIG;
 elif [[ "${SKIP_STIG:-false}" == "true" ]]; then
   echo "[INFO] Skipping Layer 13 - STIG (SKIP_STIG=true)"
 else
-  echo "[INFO] Skipping Layer 13 - STIG (scan_mode=${SCAN_MODE:-full}; runs in stig or nightly mode)"
+  echo "[INFO] Skipping Layer 13 - STIG (scan_mode=${SCAN_MODE:-full}; runs in stig mode only)"
 fi
 
 run_group "Generate Scan Manifest" bash -lc '

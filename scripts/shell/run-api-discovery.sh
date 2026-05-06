@@ -28,9 +28,13 @@ trap 'echo "⚠️  Warning: Command failed at line $LINENO (continuing...)" >&2
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# If the first argument is a flag (e.g. --help/-h) don't treat it as TARGET_DIR
-TARGET_DIR="${TARGET_DIR:-$([ "${1:0:1}" = "-" ] && echo "." || echo "${1:-.}")}"
-TARGET_DIR=$(realpath "${TARGET_DIR}" 2>/dev/null) || { echo "ERROR: Target path does not exist or is invalid: ${TARGET_DIR}" >&2; exit 1; }
+# If the first argument is a help flag, skip TARGET_DIR resolution entirely —
+# main() will call show_help and exit.  Any other first arg (or none) resolves
+# TARGET_DIR via realpath before main() runs.
+if [[ "${1:-}" != "--help" ]] && [[ "${1:-}" != "-h" ]]; then
+    TARGET_DIR="${TARGET_DIR:-${1:-.}}"
+    TARGET_DIR=$(realpath "${TARGET_DIR}" 2>/dev/null) || { echo "ERROR: Target path does not exist or is invalid: ${TARGET_DIR}" >&2; exit 1; }
+fi
 SCAN_DIR="${SCAN_DIR:-}"
 OUTPUT_FILE="api-discovery.json"
 

@@ -264,7 +264,7 @@ if [[ "${SCAN_MODE:-full}" == "stig" ]] && _should_run_tool SKIP_STIG; then
   run_group "Layer 13 - STIG Compliance Assessment" \
     env \
       OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
-      OPENAI_MODEL="${OPENAI_MODEL:-gpt-4.1}" \
+      OPENAI_MODEL="${OPENAI_MODEL:-gpt-4.1-mini}" \
       SCAN_DIR="$SCAN_DIR" \
       TARGET_DIR="$TARGET_DIR" \
     bash -lc '

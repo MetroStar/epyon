@@ -12,7 +12,7 @@
 #
 # Environment variables:
 #   OPENAI_API_KEY    Required. OpenAI API key for LLM assessment.
-#   OPENAI_MODEL      OpenAI model to use (default: gpt-4.1).
+#   OPENAI_MODEL      OpenAI model to use (default: gpt-4.1-mini).
 #   STIGS_DIR         Directory of STIG files (default: configuration/stigs).
 #                     Set STIGS_FILE instead to target a single file.
 #   STIGS_FILE        Single STIG file path (overrides STIGS_DIR).
@@ -66,7 +66,7 @@ show_help() {
     echo ""
     echo "Environment variables:"
     echo "  OPENAI_API_KEY    Required. OpenAI API key."
-    echo "  OPENAI_MODEL      Model to use (default: gpt-4.1)."
+    echo "  OPENAI_MODEL      Model to use (default: gpt-4.1-mini)."
     echo "  STIGS_DIR         Directory of STIG files (default: configuration/stigs)."
     echo "  STIGS_FILE        Single STIG file path (overrides STIGS_DIR)."
     echo "  SCAN_DIR          Output directory (default: auto-derived scan directory)."
@@ -125,7 +125,7 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 # ── Defaults ─────────────────────────────────────────────────────────────────
 STIGS_DIR="${STIGS_DIR:-${PROJECT_ROOT}/configuration/stigs}"
 STIGS_FILE="${STIGS_FILE:-}"
-OPENAI_MODEL="${OPENAI_MODEL:-gpt-4.1}"
+OPENAI_MODEL="${OPENAI_MODEL:-gpt-4.1-mini}"
 BATCH_SIZE="${BATCH_SIZE:-20}"
 BATCH_DELAY="${BATCH_DELAY:-1}"
 APP_NAME="${APP_NAME:-$(basename "$(realpath "$TARGET_DIR")")}"

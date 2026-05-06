@@ -163,10 +163,16 @@ RESPONSE FORMAT
 You MUST respond with a valid JSON array and NOTHING ELSE. \
 No markdown fences, no explanation — only the JSON array.
 
-Each element MUST have exactly these three fields:
-  "vuln_id"  : the exact APSC-DV-XXXXXX identifier from the input
-  "status"   : exactly one of "Open", "Not a Finding", "Not Applicable", "Not Reviewed"
-  "evidence" : detailed, specific, file-cited evidence following the format above
+Each element MUST have exactly these four fields:
+  "vuln_id"    : the exact APSC-DV-XXXXXX identifier from the input
+  "status"     : exactly one of "Open", "Not a Finding", "Not Applicable", "Not Reviewed"
+  "evidence"   : detailed, specific, file-cited evidence following the format above
+  "confidence" : integer 0–100 representing your certainty in the assessment
+                   90–100 = direct named artifact satisfies the control without ambiguity
+                   70–89  = strong evidence but minor gaps (e.g. config value set, runtime not observable)
+                   40–69  = partial evidence; key artifacts missing or inferred
+                   1–39   = very little static evidence; status is mostly inferred from architecture
+                   0      = no relevant evidence found; status is a best guess
 
 Return ONLY the JSON array."""
 
@@ -554,8 +560,9 @@ def render_findings_md(
         fix     = c["fix_text"].strip()
 
         assessed = assessments.get(vuln_id, {})
-        status   = assessed.get("status",   "Open")
-        evidence = assessed.get("evidence", FALLBACK_EVIDENCE).strip()
+        status   = assessed.get("status",     "Open")
+        evidence = assessed.get("evidence",   FALLBACK_EVIDENCE).strip()
+        confidence = assessed.get("confidence", 0)
 
         lines.append(f"### {number}. {vuln_id} | {rule_id}")
         lines.append("")
@@ -564,6 +571,7 @@ def render_findings_md(
         lines.append(f"- Rule Title: {title}")
         lines.append("")
         lines.append(f"Status: {status}")
+        lines.append(f"Confidence: {confidence}/100")
         lines.append("")
         lines.append("Evidence:")
         lines.append(f"- Static repository review completed on {scan_date}.")
@@ -617,7 +625,14 @@ def render_findings_cklb(
         vuln_id = c["vuln_id"]
         assessed = assessments.get(vuln_id, {})
         cklb_status = _STATUS_TO_CKLB.get(assessed.get("status", "Open"), "open")
-        evidence = assessed.get("evidence", "").strip()
+        evidence   = assessed.get("evidence",   "").strip()
+        confidence = assessed.get("confidence", 0)
+
+        finding_details = evidence
+        if finding_details:
+            finding_details += f"\n\nConfidence: {confidence}/100"
+        else:
+            finding_details = f"Confidence: {confidence}/100"
 
         rule: dict[str, Any] = {
             "uuid":                     str(_uuid.uuid4()),
@@ -662,7 +677,7 @@ def render_findings_cklb(
             "status":                   cklb_status,
             "overrides":                {},
             "comments":                 "",
-            "finding_details":          evidence,
+            "finding_details":          finding_details,
             "srg_id":                   c.get("srg_id", ""),
         }
         rules.append(rule)
@@ -740,8 +755,9 @@ def _assess_stig(
     if not api_key:
         for c in controls:
             assessments[c["vuln_id"]] = {
-                "status":   "Not Reviewed",
-                "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured.",
+                "status":     "Not Reviewed",
+                "evidence":   "STIG assessment skipped: OPENAI_API_KEY not configured.",
+                "confidence": 0,
             }
     else:
         try:
@@ -823,14 +839,24 @@ def _assess_stig(
             for item in results:
                 vid = item.get("vuln_id", "")
                 if vid:
+                    raw_conf = item.get("confidence", 0)
+                    try:
+                        conf = min(100, max(0, int(raw_conf)))
+                    except (TypeError, ValueError):
+                        conf = 0
                     assessments[vid] = {
-                        "status":   item.get("status", "Open"),
-                        "evidence": item.get("evidence", FALLBACK_EVIDENCE),
+                        "status":     item.get("status",   "Open"),
+                        "evidence":   item.get("evidence", FALLBACK_EVIDENCE),
+                        "confidence": conf,
                     }
                     assessed_ids.add(vid)
             for c in batch:
                 if c["vuln_id"] not in assessed_ids:
-                    assessments[c["vuln_id"]] = {"status": "Open", "evidence": FALLBACK_EVIDENCE}
+                    assessments[c["vuln_id"]] = {
+                        "status":     "Open",
+                        "evidence":   FALLBACK_EVIDENCE,
+                        "confidence": 0,
+                    }
 
             if idx < total_batches:
                 time.sleep(delay)

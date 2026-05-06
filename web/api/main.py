@@ -451,7 +451,10 @@ def stig_data(scan_id: str, response: Response):
 
         results: dict = {}
         try:
-            results = json.loads(results_file.read_text(encoding="utf-8"))
+            raw = json.loads(results_file.read_text(encoding="utf-8"))
+            # Support new wrapped format {assessments: {...}, token_usage: {...}}
+            # and old flat format {vuln_id: {status, evidence}, ...}
+            results = raw.get("assessments", raw) if "assessments" in raw else raw
         except Exception:
             pass
 
@@ -476,8 +479,9 @@ def stig_data(scan_id: str, response: Response):
                 "check_content": c.get("check_content", ""),
                 "fix_text":      c.get("fix_text", ""),
                 "discussion":    c.get("discussion", ""),
-                "status":        assessed.get("status", "Not Reviewed"),
-                "evidence":      assessed.get("evidence", ""),
+                "status":        assessed.get("status",     "Not Reviewed"),
+                "evidence":      assessed.get("evidence",   ""),
+                "confidence":    assessed.get("confidence", 0),
             })
 
         stigs.append({

@@ -1565,6 +1565,7 @@ async function renderStigViewer(scanId) {
                 <th style="width:120px">ID</th>
                 <th style="width:70px">Severity</th>
                 <th style="width:130px">Status</th>
+                <th style="width:80px">Confidence</th>
                 <th>Title</th>
                 ${stigNames.length > 1 ? '<th style="width:140px">STIG</th>' : ''}
                 <th style="width:40px"></th>
@@ -1575,17 +1576,20 @@ async function renderStigViewer(scanId) {
                 const rowId = `stig-row-${esc(c.vuln_id)}-${esc(c._slug)}`;
                 const detId = `stig-det-${esc(c.vuln_id)}-${esc(c._slug)}`;
                 const sname = c._stig_name.replace(/.*?(ASD|Postgres|STIG)/gi, '$1').trim().slice(0, 40);
+                const conf  = c.confidence ?? 0;
+                const confClass = conf >= 90 ? 'conf-high' : conf >= 70 ? 'conf-med' : conf >= 40 ? 'conf-low' : 'conf-none';
                 return `
                   <tr class="stig-tr" id="${rowId}" onclick="toggleStigRow('${detId}', '${rowId}')">
                     <td><code class="stig-id">${esc(c.vuln_id)}</code></td>
                     <td><span class="stig-sev stig-sev-${esc(c.severity)}">${esc(c.severity || '—')}</span></td>
                     <td><span class="${esc(STATUS_CLASS[c.status] || 'stig-status-nr')}">${esc(c.status)}</span></td>
+                    <td><span class="stig-confidence ${confClass}" title="${conf}/100">${conf}</span></td>
                     <td class="stig-title-cell">${esc(c.title)}</td>
                     ${stigNames.length > 1 ? `<td class="stig-stig-cell" title="${esc(c._stig_name)}">${esc(sname)}</td>` : ''}
                     <td class="stig-chevron-cell"><span class="stig-chevron" id="chev-${esc(c.vuln_id)}-${esc(c._slug)}">›</span></td>
                   </tr>
                   <tr class="stig-detail-row" id="${detId}" style="display:none">
-                    <td colspan="${stigNames.length > 1 ? 6 : 5}">
+                    <td colspan="${stigNames.length > 1 ? 7 : 6}">
                       <div class="stig-detail-body">
                         <div class="stig-detail-grid">
                           <div class="stig-detail-section">
@@ -1595,6 +1599,17 @@ async function renderStigViewer(scanId) {
                           <div class="stig-detail-section">
                             <div class="stig-detail-label">Group ID</div>
                             <div class="stig-detail-val"><code>${esc(c.group_id)}</code></div>
+                          </div>
+                          <div class="stig-detail-section">
+                            <div class="stig-detail-label">Confidence</div>
+                            <div class="stig-detail-val">
+                              ${(() => {
+                                const cv = c.confidence ?? 0;
+                                const cls = cv >= 90 ? 'conf-high' : cv >= 70 ? 'conf-med' : cv >= 40 ? 'conf-low' : 'conf-none';
+                                const lbl = cv >= 90 ? 'High' : cv >= 70 ? 'Medium' : cv >= 40 ? 'Low' : 'Insufficient';
+                                return `<span class="stig-confidence ${cls}">${cv}/100</span> <span class="stig-conf-label">${lbl}</span>`;
+                              })()}
+                            </div>
                           </div>
                         </div>
                         <div class="stig-detail-section">

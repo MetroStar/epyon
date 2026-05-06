@@ -2033,7 +2033,12 @@ jobs:
       ${step2HTML}
     </div>`;
 
-  function close() { overlay.remove(); }
+  function onKey(e) { if (e.key === 'Escape') close(); }
+
+  function close() {
+    document.removeEventListener('keydown', onKey);
+    overlay.remove();
+  }
 
   // ── Step navigation ────────────────────────────────────────
   const s1 = overlay.querySelector('#add-app-step1');
@@ -2120,9 +2125,7 @@ jobs:
   });
 
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-  document.addEventListener('keydown', function onKey(e) {
-    if (e.key === 'Escape') { close(); document.removeEventListener('keydown', onKey); }
-  });
+  document.addEventListener('keydown', onKey);
 
   document.body.appendChild(overlay);
   urlInput.focus();

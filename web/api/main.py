@@ -248,7 +248,9 @@ def applications(response: Response):
     scanned_names = {r["name"] for r in result}
     registered = _load_registered_apps()
     for reg in registered:
-        rname = reg["name"]
+        rname = reg.get("name")
+        if not rname:
+            continue
         if rname in hidden or rname in scanned_names:
             # If it has been scanned, backfill the URL onto the existing entry
             for r in result:

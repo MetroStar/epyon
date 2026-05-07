@@ -1713,7 +1713,7 @@ async function renderStigViewer(scanId) {
           <table class="stig-table">
             <thead>
               <tr>
-                <th style="width:120px">ID</th>
+                <th style="width:100px">STIG #</th>
                 <th style="width:70px">Severity</th>
                 <th style="width:130px">Status</th>
                 <th style="width:80px">Confidence</th>
@@ -1731,7 +1731,7 @@ async function renderStigViewer(scanId) {
                 const confClass = conf >= 90 ? 'conf-high' : conf >= 70 ? 'conf-med' : conf >= 40 ? 'conf-low' : 'conf-none';
                 return `
                   <tr class="stig-tr" id="${rowId}" onclick="toggleStigRow('${detId}', '${rowId}')">
-                    <td><code class="stig-id">${esc(c.vuln_id)}</code></td>
+                    <td><code class="stig-id">${esc(c.group_id || c.vuln_id)}</code></td>
                     <td><span class="stig-sev stig-sev-${esc(c.severity)}">${esc(c.severity || '—')}</span></td>
                     <td><span class="${esc(STATUS_CLASS[c.status] || 'stig-status-nr')}">${esc(c.status)}</span></td>
                     <td><span class="stig-confidence ${confClass}" title="${conf}/100">${conf}</span></td>
@@ -1743,6 +1743,10 @@ async function renderStigViewer(scanId) {
                     <td colspan="${stigNames.length > 1 ? 7 : 6}">
                       <div class="stig-detail-body">
                         <div class="stig-detail-grid">
+                          <div class="stig-detail-section">
+                            <div class="stig-detail-label">Vuln ID</div>
+                            <div class="stig-detail-val"><code>${esc(c.vuln_id)}</code></div>
+                          </div>
                           <div class="stig-detail-section">
                             <div class="stig-detail-label">Rule ID</div>
                             <div class="stig-detail-val"><code>${esc(c.rule_id)}</code></div>

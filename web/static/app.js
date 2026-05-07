@@ -985,31 +985,34 @@ async function renderNewScan(prefill = '') {
       Epyon orchestrates all applicable security layers based on the selected scan type.
     </p>
 
-    <div class="form-card">
-      <div class="form-group">
-        <label for="scan-target">Target</label>
-        <input type="text" id="scan-target" autocomplete="off" spellcheck="false"
-          placeholder="/absolute/path/to/project  or  https://github.com/org/repo.git"
-          value="${esc(prefill)}" />
-        <small>Absolute local directory path, relative path, or Git repository URL (HTTPS/SSH)</small>
+    <div class="scan-page-layout">
+      <div class="form-card scan-form-col">
+        <div class="form-group">
+          <label for="scan-target">Target</label>
+          <input type="text" id="scan-target" autocomplete="off" spellcheck="false"
+            placeholder="/absolute/path/to/project  or  https://github.com/org/repo.git"
+            value="${esc(prefill)}" />
+          <small>Absolute local directory path, relative path, or Git repository URL (HTTPS/SSH)</small>
+        </div>
+
+        <div class="form-group">
+          <label for="scan-type-sel">Scan Type</label>
+          <select id="scan-type-sel" onchange="updateScanInfo(this.value)">
+            <option value="full">Full — All 12 security layers (recommended)</option>
+            <option value="nightly">Nightly — Scheduled comprehensive scan (layers 1–12)</option>
+            <option value="stig">STIG — STIG compliance assessment only (on demand)</option>
+            <option value="quick">Quick — Trivy, TruffleHog, basic checks</option>
+            <option value="images">Images — Container image vulnerability scanning</option>
+            <option value="analysis">Analysis — SonarQube, Checkov, code quality</option>
+          </select>
+        </div>
+
+        <button id="run-btn" class="btn btn-primary" onclick="submitScan()">
+          ▶ Run Scan
+        </button>
       </div>
 
-      <div class="form-group">
-        <label for="scan-type-sel">Scan Type</label>
-        <select id="scan-type-sel">
-          <option value="full">Full — All 12 security layers (recommended)</option>
-          <option value="nightly">Nightly — Scheduled comprehensive scan (layers 1–12)</option>
-          <option value="stig">STIG — STIG compliance assessment only (Sunday schedule)</option>
-          <option value="quick">Quick — Trivy, TruffleHog, basic checks</option>
-          <option value="images">Images — Container image vulnerability scanning</option>
-          <option value="analysis">Analysis — SonarQube, Checkov, code quality</option>
-        </select>
-        <small>Full or Nightly scan provides comprehensive security coverage across all tool categories.</small>
-      </div>
-
-      <button id="run-btn" class="btn btn-primary" onclick="submitScan()">
-        ▶ Run Scan
-      </button>
+      <div class="scan-info-panel" id="scan-info-panel"></div>
     </div>
 
     <div id="scan-output" style="display:none">
@@ -1021,7 +1024,155 @@ async function renderNewScan(prefill = '') {
       <div class="log-card" id="log-output"></div>
       <div id="scan-actions" style="display:none;gap:10px;margin-top:16px"></div>
     </div>`;
+
+  updateScanInfo('full');
 }
+
+const _SCAN_MODE_INFO = {
+  full: {
+    label: 'Full Scan',
+    desc: 'Comprehensive security assessment running all available layers. Recommended for thorough coverage.',
+    layers: [
+      { n: 1,  name: 'SBOM Generation',        tool: 'Syft' },
+      { n: 2,  name: 'Secret Detection',        tool: 'TruffleHog' },
+      { n: 3,  name: 'Code Quality',            tool: 'SonarQube' },
+      { n: 4,  name: 'Malware Detection',       tool: 'ClamAV' },
+      { n: 5,  name: 'Helm Chart Build',        tool: 'Helm' },
+      { n: 6,  name: 'Infrastructure Security', tool: 'Checkov' },
+      { n: 7,  name: 'Container Security',      tool: 'Trivy' },
+      { n: 8,  name: 'Vulnerability Detection', tool: 'Grype' },
+      { n: 9,  name: 'End-of-Life Detection',   tool: 'Xeol' },
+      { n: 10, name: 'Anchore Security',        tool: 'Anchore' },
+      { n: 11, name: 'API Discovery',           tool: 'Custom' },
+      { n: 12, name: 'LLM Security',            tool: 'Garak', apiKey: true, optional: true },
+    ],
+    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.'],
+  },
+  nightly: {
+    label: 'Nightly Scan',
+    desc: 'Identical to Full. Designed for scheduled overnight runs — layers 1–12 with optional Garak.',
+    layers: [
+      { n: 1,  name: 'SBOM Generation',        tool: 'Syft' },
+      { n: 2,  name: 'Secret Detection',        tool: 'TruffleHog' },
+      { n: 3,  name: 'Code Quality',            tool: 'SonarQube' },
+      { n: 4,  name: 'Malware Detection',       tool: 'ClamAV' },
+      { n: 5,  name: 'Helm Chart Build',        tool: 'Helm' },
+      { n: 6,  name: 'Infrastructure Security', tool: 'Checkov' },
+      { n: 7,  name: 'Container Security',      tool: 'Trivy' },
+      { n: 8,  name: 'Vulnerability Detection', tool: 'Grype' },
+      { n: 9,  name: 'End-of-Life Detection',   tool: 'Xeol' },
+      { n: 10, name: 'Anchore Security',        tool: 'Anchore' },
+      { n: 11, name: 'API Discovery',           tool: 'Custom' },
+      { n: 12, name: 'LLM Security',            tool: 'Garak', apiKey: true, optional: true },
+    ],
+    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.'],
+  },
+  quick: {
+    label: 'Quick Scan',
+    desc: 'Fast security check for rapid feedback. Skips heavier analysis tools to minimize runtime.',
+    layers: [
+      { n: 1,  name: 'SBOM Generation',        tool: 'Syft' },
+      { n: 2,  name: 'Secret Detection',        tool: 'TruffleHog' },
+      { n: 7,  name: 'Container Security',      tool: 'Trivy' },
+      { n: 8,  name: 'Vulnerability Detection', tool: 'Grype' },
+      { n: 9,  name: 'End-of-Life Detection',   tool: 'Xeol' },
+      { n: 11, name: 'API Discovery',           tool: 'Custom' },
+    ],
+    notes: ['Skips: SonarQube, ClamAV, Checkov, Anchore, Garak, STIG.'],
+  },
+  stig: {
+    label: 'STIG Scan',
+    desc: 'AI-assisted STIG compliance assessment only. Layers 1–11 are skipped; runs Garak and STIG assessment.',
+    layers: [
+      { n: 12, name: 'LLM Security',            tool: 'Garak',        apiKey: true },
+      { n: 13, name: 'STIG Compliance',         tool: 'GPT-4.1-mini', apiKey: true },
+    ],
+    notes: [],
+  },
+  images: {
+    label: 'Images Scan',
+    desc: 'Full scan with emphasis on container and base image vulnerability analysis.',
+    layers: [
+      { n: 1,  name: 'SBOM Generation',        tool: 'Syft' },
+      { n: 2,  name: 'Secret Detection',        tool: 'TruffleHog' },
+      { n: 3,  name: 'Code Quality',            tool: 'SonarQube' },
+      { n: 4,  name: 'Malware Detection',       tool: 'ClamAV' },
+      { n: 5,  name: 'Helm Chart Build',        tool: 'Helm' },
+      { n: 6,  name: 'Infrastructure Security', tool: 'Checkov' },
+      { n: 7,  name: 'Container Security',      tool: 'Trivy' },
+      { n: 8,  name: 'Vulnerability Detection', tool: 'Grype' },
+      { n: 9,  name: 'End-of-Life Detection',   tool: 'Xeol' },
+      { n: 10, name: 'Anchore Security',        tool: 'Anchore' },
+      { n: 11, name: 'API Discovery',           tool: 'Custom' },
+      { n: 12, name: 'LLM Security',            tool: 'Garak', apiKey: true, optional: true },
+    ],
+    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.'],
+  },
+  analysis: {
+    label: 'Analysis Scan',
+    desc: 'Full scan with emphasis on static analysis, code quality, and infrastructure security.',
+    layers: [
+      { n: 1,  name: 'SBOM Generation',        tool: 'Syft' },
+      { n: 2,  name: 'Secret Detection',        tool: 'TruffleHog' },
+      { n: 3,  name: 'Code Quality',            tool: 'SonarQube' },
+      { n: 4,  name: 'Malware Detection',       tool: 'ClamAV' },
+      { n: 5,  name: 'Helm Chart Build',        tool: 'Helm' },
+      { n: 6,  name: 'Infrastructure Security', tool: 'Checkov' },
+      { n: 7,  name: 'Container Security',      tool: 'Trivy' },
+      { n: 8,  name: 'Vulnerability Detection', tool: 'Grype' },
+      { n: 9,  name: 'End-of-Life Detection',   tool: 'Xeol' },
+      { n: 10, name: 'Anchore Security',        tool: 'Anchore' },
+      { n: 11, name: 'API Discovery',           tool: 'Custom' },
+      { n: 12, name: 'LLM Security',            tool: 'Garak', apiKey: true, optional: true },
+    ],
+    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.'],
+  },
+};
+
+window.updateScanInfo = (mode) => {
+  const panel = document.getElementById('scan-info-panel');
+  if (!panel) return;
+  const info = _SCAN_MODE_INFO[mode];
+  if (!info) { panel.innerHTML = ''; return; }
+
+  const hasApiKey = info.layers.some(l => l.apiKey);
+  const layerRows = info.layers.map(l => {
+    const badge = l.apiKey
+      ? `<span class="scan-info-key-badge" title="Requires OpenAI API key">API key</span>`
+      : '';
+    const optBadge = l.optional
+      ? `<span class="scan-info-opt-badge">opt-in</span>`
+      : '';
+    return `
+      <div class="scan-info-layer">
+        <span class="scan-info-layer-num">${l.n}</span>
+        <span class="scan-info-layer-name">${esc(l.name)}</span>
+        <span class="scan-info-layer-tool">${esc(l.tool)}</span>
+        <span class="scan-info-badges">${badge}${optBadge}</span>
+      </div>`;
+  }).join('');
+
+  const apiKeyNotice = hasApiKey ? `
+    <div class="scan-info-apikey-notice">
+      <span class="scan-info-notice-icon">🔑</span>
+      <span><strong>OpenAI API key required</strong> for Garak and STIG layers.
+      Set the <code>OPENAI_API_KEY</code> environment variable before running.</span>
+    </div>` : '';
+
+  const notesHtml = info.notes.length
+    ? info.notes.map(n => `<div class="scan-info-note">ℹ ${esc(n)}</div>`).join('')
+    : '';
+
+  panel.innerHTML = `
+    <div class="scan-info-header">
+      <div class="scan-info-title">${esc(info.label)}</div>
+      <div class="scan-info-desc">${esc(info.desc)}</div>
+    </div>
+    <div class="scan-info-layers-label">Layers included</div>
+    <div class="scan-info-layers">${layerRows}</div>
+    ${notesHtml}
+    ${apiKeyNotice}`;
+};
 
 async function submitScan() {
   const target  = (document.getElementById('scan-target').value || '').trim();

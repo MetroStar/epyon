@@ -29,6 +29,19 @@ function fmtDate(ts) {
 
 function ucFirst(s) { return s ? s[0].toUpperCase() + s.slice(1) : ''; }
 
+const _SCAN_TYPE_LABELS = {
+  full:        'Full',
+  quick:       'Quick',
+  images:      'Images',
+  analysis:    'Analysis',
+  nightly:     'Nightly',
+  stig:        'STIG',
+  huggingface: 'Hugging Face',
+};
+function scanTypeLabel(type) {
+  return _SCAN_TYPE_LABELS[type] || ucFirst(type || 'full');
+}
+
 function computeStatus(scan) {
   if (!scan || typeof scan !== 'object') return 'unknown';
   if ((scan.critical || 0) > 0) return 'critical';
@@ -51,6 +64,28 @@ function sevBadgeRow(scan) {
   if (scan.medium   > 0) parts.push(sevBadge('medium',   scan.medium));
   if (scan.low      > 0) parts.push(sevBadge('low',      scan.low));
   if (parts.length === 0) parts.push('<span class="sev-badge clean">✓ Clean</span>');
+  return parts.join('');
+}
+
+function hfStatusBadge(scan) {
+  const ps = scan.picklescan;
+  const mc = scan.modelcard;
+  if (!ps && !mc) return '';
+  const parts = [];
+  if (ps) {
+    if (ps.flagged_count > 0)
+      parts.push(`<span class="sev-badge critical" title="Pickle safety: ${ps.flagged_count} infected file(s)">🥒 ${ps.flagged_count} infected</span>`);
+    else
+      parts.push(`<span class="sev-badge clean" title="Pickle safety: clean">🥒 Safe</span>`);
+  }
+  if (mc) {
+    if (mc.failed > 0)
+      parts.push(`<span class="sev-badge medium" title="Model card: ${mc.failed} check(s) failed">📋 ${mc.failed} failed</span>`);
+    else if (mc.warnings > 0)
+      parts.push(`<span class="sev-badge low" title="Model card: ${mc.warnings} warning(s)">📋 ${mc.warnings} warn</span>`);
+    else
+      parts.push(`<span class="sev-badge clean" title="Model card: compliant">📋 OK</span>`);
+  }
   return parts.join('');
 }
 
@@ -251,8 +286,10 @@ const api = {
   saveGitHubConfig(d) { return this._post('/api/github/config', d); },
   triggerGitHubSync() { return this._post('/api/github/sync', {}); },
   getGitHubSyncStatus(){ return this._get('/api/github/sync'); },
-  triggerScan(target, scanType) {
-    return this._post('/api/scans', { target, scan_type: scanType });
+  triggerScan(target, scanType, hfType) {
+    const body = { target, scan_type: scanType };
+    if (hfType) body.hf_type = hfType;
+    return this._post('/api/scans', body);
   },
   getJob(id)    { return this._get(`/api/jobs/${encodeURIComponent(id)}`); },
   getJobs()     { return this._get('/api/jobs'); },
@@ -496,8 +533,9 @@ async function renderAppDetail(name) {
               <div class="scan-timeline-dot ${esc(st)}"></div>
               <div class="scan-timeline-content">
                 <div class="scan-timeline-title">
-                  ${esc(ucFirst(s.scan_type || 'full'))} scan
+                  ${esc(scanTypeLabel(s.scan_type))} scan
                   <span>${sevBadgeRow(s)}</span>
+                  ${hfStatusBadge(s)}
                   ${s.ci_source ? `<span class="badge badge-ci" title="From GitHub Actions · ${esc(s.ci_source.repo)}${s.ci_source.branch ? ' · ' + esc(s.ci_source.branch) : ''}">GH Actions</span>` : ''}
                 </div>
                 <div class="scan-timeline-meta">
@@ -716,7 +754,7 @@ async function renderScanDetail(scanId) {
         </div>
         <div class="detail-card">
           <div class="label">Scan Type</div>
-          <div class="value">${esc(ucFirst(scan.scan_type || 'full'))}</div>
+          <div class="value">${esc(scanTypeLabel(scan.scan_type))}</div>
         </div>
         <div class="detail-card">
           <div class="label">User</div>
@@ -746,6 +784,10 @@ async function renderScanDetail(scanId) {
 
       ${stigCard}
 
+      ${buildPicklescanCard(scan)}
+
+      ${buildModelCardCard(scan)}
+
       ${dedupeTools(scan.tools_analyzed).length ? `
         <div class="section">
           <div class="section-title">Tools Analyzed</div>
@@ -773,8 +815,79 @@ async function renderScanDetail(scanId) {
   }
 }
 
+function buildPicklescanCard(scan) {
+  const ps = scan.picklescan;
+  if (!ps) return '';
+
+  const statusClass = ps.flagged_count > 0 ? 'status-open' : 'status-clean';
+  const statusLabel = ps.flagged_count > 0 ? `${ps.flagged_count} infected file(s)` : 'Clean';
+  const icon = ps.flagged_count > 0 ? '🚨' : '✅';
+
+  const findingRows = (ps.findings || []).map(f => `
+    <div class="hf-finding-row">
+      <span class="hf-finding-sev hf-sev-${esc(f.severity || 'high')}">${esc(f.severity || 'high')}</span>
+      <code class="hf-finding-file">${esc(f.file || '—')}</code>
+      <span class="hf-finding-msg">${esc(f.message || 'Malicious pickle opcode detected')}</span>
+    </div>`).join('');
+
+  return `
+    <div class="hf-tool-card">
+      <div class="hf-tool-header">
+        <div class="hf-tool-title">
+          <span class="hf-tool-icon">🥒</span>
+          Layer 14 — Pickle / Serialization Safety
+          <span class="hf-tool-name">picklescan</span>
+        </div>
+        <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
+      </div>
+      <div class="hf-tool-stats">
+        <div class="hf-stat"><span class="hf-stat-num">${ps.file_count ?? 0}</span><span class="hf-stat-lbl">files scanned</span></div>
+        <div class="hf-stat"><span class="hf-stat-num ${ps.flagged_count > 0 ? 'danger' : ''}">${ps.flagged_count ?? 0}</span><span class="hf-stat-lbl">infected</span></div>
+      </div>
+      ${findingRows ? `<div class="hf-findings">${findingRows}</div>` : ''}
+    </div>`;
+}
+
+function buildModelCardCard(scan) {
+  const mc = scan.modelcard;
+  if (!mc) return '';
+
+  const statusClass = mc.failed > 0 ? 'status-open' : mc.warnings > 0 ? 'status-warn' : 'status-clean';
+  const statusLabel = mc.failed > 0 ? `${mc.failed} check(s) failed` : mc.warnings > 0 ? `${mc.warnings} warning(s)` : 'Compliant';
+  const icon = mc.failed > 0 ? '❌' : mc.warnings > 0 ? '⚠️' : '✅';
+
+  const findingRows = (mc.findings || []).map(f => `
+    <div class="hf-finding-row">
+      <span class="hf-finding-sev hf-sev-${esc(f.severity || 'medium')}">${esc(f.severity || 'medium')}</span>
+      <span class="hf-finding-file">${esc(f.check || '—')}</span>
+      <span class="hf-finding-msg">${esc(f.message || '')}${f.recommendation ? `<span class="hf-recommendation"> → ${esc(f.recommendation)}</span>` : ''}</span>
+    </div>`).join('');
+
+  const fileLabel = mc.file_checked
+    ? `<span class="hf-file-checked" title="${esc(mc.file_checked)}">${esc(mc.file_checked.split('/').pop())}</span>`
+    : '';
+
+  return `
+    <div class="hf-tool-card">
+      <div class="hf-tool-header">
+        <div class="hf-tool-title">
+          <span class="hf-tool-icon">📋</span>
+          Layer 15 — Model Card Compliance
+          ${fileLabel}
+        </div>
+        <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
+      </div>
+      <div class="hf-tool-stats">
+        <div class="hf-stat"><span class="hf-stat-num">${(mc.passed ?? 0) + (mc.failed ?? 0) + (mc.warnings ?? 0)}</span><span class="hf-stat-lbl">checks</span></div>
+        <div class="hf-stat"><span class="hf-stat-num clean">${mc.passed ?? 0}</span><span class="hf-stat-lbl">passed</span></div>
+        <div class="hf-stat"><span class="hf-stat-num ${mc.failed > 0 ? 'danger' : ''}">${mc.failed ?? 0}</span><span class="hf-stat-lbl">failed</span></div>
+        <div class="hf-stat"><span class="hf-stat-num">${mc.warnings ?? 0}</span><span class="hf-stat-lbl">warnings</span></div>
+      </div>
+      ${findingRows ? `<div class="hf-findings">${findingRows}</div>` : ''}
+    </div>`;
+}
+
 function buildFindingsSection(findings) {
-  if (!findings) return '';
 
   const severities = ['critical', 'high', 'medium', 'low'];
   let html = '';
@@ -987,7 +1100,22 @@ async function renderNewScan(prefill = '') {
 
     <div class="scan-page-layout">
       <div class="form-card scan-form-col">
-        <div class="form-group">
+        <div class="form-group" id="hf-fields" style="display:none">
+          <label>HuggingFace Repository</label>
+          <div style="display:flex;gap:8px;align-items:flex-start">
+            <input type="text" id="hf-repo" autocomplete="off" spellcheck="false"
+              placeholder="org/model-name  (e.g. mistralai/Mistral-7B-v0.1)"
+              style="flex:1" oninput="_syncHfTarget()" />
+            <select id="hf-type" onchange="_syncHfTarget()" style="width:130px;flex-shrink:0">
+              <option value="model">Model</option>
+              <option value="space">Space</option>
+              <option value="dataset">Dataset</option>
+            </select>
+          </div>
+          <small>Enter <code>org/name</code> or the full <code>huggingface.co</code> URL. The repository will be cloned without large model weights (LFS skipped).</small>
+        </div>
+
+        <div class="form-group" id="std-target-field">
           <label for="scan-target">Target</label>
           <input type="text" id="scan-target" autocomplete="off" spellcheck="false"
             placeholder="/absolute/path/to/project  or  https://github.com/org/repo.git"
@@ -997,13 +1125,14 @@ async function renderNewScan(prefill = '') {
 
         <div class="form-group">
           <label for="scan-type-sel">Scan Type</label>
-          <select id="scan-type-sel" onchange="updateScanInfo(this.value)">
+          <select id="scan-type-sel" onchange="updateScanInfo(this.value); _onScanTypeChange(this.value)">
             <option value="full">Full — All 12 security layers (recommended)</option>
             <option value="nightly">Nightly — Scheduled comprehensive scan (layers 1–12)</option>
             <option value="stig">STIG — STIG compliance assessment only (on demand)</option>
             <option value="quick">Quick — Trivy, TruffleHog, basic checks</option>
             <option value="images">Images — Container image vulnerability scanning</option>
             <option value="analysis">Analysis — SonarQube, Checkov, code quality</option>
+            <option value="huggingface">Hugging Face — Model/dataset safety scan (layers 1–11 + 14–15)</option>
           </select>
         </div>
 
@@ -1127,7 +1256,54 @@ const _SCAN_MODE_INFO = {
     ],
     notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.'],
   },
+  huggingface: {
+    label: 'Hugging Face Scan',
+    desc: 'Security scan tailored for HuggingFace model, Space, and dataset repositories. Runs all standard layers plus pickle safety and model card compliance checks.',
+    layers: [
+      { n: 1,  name: 'SBOM Generation',           tool: 'Syft' },
+      { n: 2,  name: 'Secret Detection',           tool: 'TruffleHog' },
+      { n: 3,  name: 'Code Quality',               tool: 'SonarQube' },
+      { n: 4,  name: 'Malware Detection',          tool: 'ClamAV' },
+      { n: 5,  name: 'Helm Chart Build',           tool: 'Helm' },
+      { n: 6,  name: 'Infrastructure Security',    tool: 'Checkov' },
+      { n: 7,  name: 'Container Security',         tool: 'Trivy' },
+      { n: 8,  name: 'Vulnerability Detection',    tool: 'Grype' },
+      { n: 9,  name: 'End-of-Life Detection',      tool: 'Xeol' },
+      { n: 10, name: 'Anchore Security',           tool: 'Anchore' },
+      { n: 11, name: 'API Discovery',              tool: 'Custom' },
+      { n: 12, name: 'LLM Security',               tool: 'Garak',       apiKey: true, optional: true },
+      { n: 14, name: 'Pickle / Serialization Safety', tool: 'picklescan' },
+      { n: 15, name: 'Model Card Compliance',      tool: 'modelcard' },
+    ],
+    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable HF model behavioral probing.'],
+  },
 };
+
+// ── HF-specific form helpers ──────────────────────────────────
+function _onScanTypeChange(mode) {
+  const hfFields = document.getElementById('hf-fields');
+  const stdField = document.getElementById('std-target-field');
+  const isHf = mode === 'huggingface';
+  if (hfFields) hfFields.style.display = isHf ? '' : 'none';
+  if (stdField) stdField.style.display = isHf ? 'none' : '';
+  if (isHf) _syncHfTarget();
+}
+
+function _syncHfTarget() {
+  const slug = (document.getElementById('hf-repo')?.value || '').trim();
+  const type = document.getElementById('hf-type')?.value || 'model';
+  const hidden = document.getElementById('scan-target');
+  if (!hidden) return;
+  if (!slug) { hidden.value = ''; return; }
+  // Normalize: strip full URL down to org/name
+  const clean = slug
+    .replace(/^https?:\/\/huggingface\.co\/(spaces\/|datasets\/)?/, '')
+    .replace(/\/$/, '');
+  const prefix = type === 'space' ? 'https://huggingface.co/spaces/'
+               : type === 'dataset' ? 'https://huggingface.co/datasets/'
+               : 'https://huggingface.co/';
+  hidden.value = prefix + clean;
+}
 
 window.updateScanInfo = (mode) => {
   const panel = document.getElementById('scan-info-panel');
@@ -1175,13 +1351,26 @@ window.updateScanInfo = (mode) => {
 };
 
 async function submitScan() {
-  const target  = (document.getElementById('scan-target').value || '').trim();
   const scanType = document.getElementById('scan-type-sel').value;
   const btn      = document.getElementById('run-btn');
 
-  if (!target) {
-    document.getElementById('scan-target').focus();
-    return;
+  let target = '';
+  let hfType = null;
+
+  if (scanType === 'huggingface') {
+    _syncHfTarget();
+    target = (document.getElementById('scan-target')?.value || '').trim();
+    hfType = document.getElementById('hf-type')?.value || 'model';
+    if (!document.getElementById('hf-repo')?.value.trim()) {
+      document.getElementById('hf-repo').focus();
+      return;
+    }
+  } else {
+    target = (document.getElementById('scan-target')?.value || '').trim();
+    if (!target) {
+      document.getElementById('scan-target').focus();
+      return;
+    }
   }
 
   btn.disabled    = true;
@@ -1194,7 +1383,7 @@ async function submitScan() {
   _activeJobId = null;
 
   try {
-    const job = await api.triggerScan(target, scanType);
+    const job = await api.triggerScan(target, scanType, hfType);
     _activeJobId = job.job_id;
     clearInterval(_pollInterval);
     _pollInterval = setInterval(() => pollJob(job.job_id, btn), 2000);

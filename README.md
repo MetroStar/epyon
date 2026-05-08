@@ -18,7 +18,7 @@ Epyon is designed to be opinionated, automated, and decisive — empowering team
 
 This repository contains a **production-ready, enterprise-grade** multi-layer DevOps security architecture with **comprehensive test coverage**, **baseline scanning**, **automated comparison**, and **isolated scan directory architecture**. Built for real-world enterprise applications with Docker-based tooling and 304 automated tests.
 
-**Latest Update: March 27, 2026 (v3.0.0)** - CycloneDX SBOM generation at scan time, license compliance gate (blocks copyleft licenses), supply chain hash verification against PyPI, dependency lineage enrichment, and VEX document management for justified CVE suppressions.
+**Latest Update: May 8, 2026 (v3.1.0)** - HuggingFace model/dataset security scanning suite: pickle/serialization safety scanning (Layer 14), model card compliance checking (Layer 15), dedicated `scan-huggingface.yml` workflow, AI-powered STIG confidence scoring (0–100 per control), and an enhanced web UI with per-scan-type info panels and HF tool result cards.
 
 ## 📋 Prerequisites
 
@@ -819,6 +819,12 @@ TARGET_DIR="/path/to/project" ./scripts/shell/run-sbom-scan.sh
 # Layer 11: LLM Vulnerability Probing (Garak)
 TARGET_DIR="/path/to/project" ./scripts/shell/run-garak-scan.sh
 
+# Layer 14: Pickle/Serialization Safety (HuggingFace mode)
+TARGET_DIR="/path/to/model-repo" ./scripts/shell/run-picklescan.sh
+
+# Layer 15: Model Card Compliance (HuggingFace mode)
+TARGET_DIR="/path/to/model-repo" ./scripts/shell/run-modelcard-check.sh
+
 # Report Consolidation (integrated into complete scan)
 ./scripts/shell/consolidate-security-reports.sh
 ```
@@ -1533,12 +1539,22 @@ export TARGET_DIR="/workspace" && ./scripts/shell/run-target-security-scan.sh "$
 ---
 
 **Created**: November 3, 2025  
-**Updated**: April 13, 2026  
-**Version**: 3.0.0 - CycloneDX SBOM, License Compliance & Supply Chain Security  
+**Updated**: May 8, 2026  
+**Version**: 3.1.0 - HuggingFace Scanning Suite & STIG Confidence Scoring  
 **Status**: ✅ **ENTERPRISE PRODUCTION READY - COMPLETE ISOLATION**  
-**Validation**: Successfully tested with complete scan isolation, supply chain verification, and VEX suppression management
+**Validation**: Successfully tested with complete scan isolation, HuggingFace model scanning, pickle safety, model card compliance, and STIG confidence scoring
 
-### 🆕 Latest Updates (v3.0.0) - CycloneDX SBOM & Supply Chain Security
+### 🆕 Latest Updates (v3.1.0) - HuggingFace Scanning Suite & STIG Confidence
+- ✅ **Layer 14 — Pickle/Serialization Safety** (`run-picklescan.sh`): scans ML model repos for malicious pickle opcodes in `.pkl`, `.pt`, `.pth`, `.bin`, `.ckpt`, `.npy`, `.npz`, `.joblib`, `.h5`, `.hdf5` files using `picklescan`; outputs normalized `picklescan/picklescan-results.json`; auto-installs via pip
+- ✅ **Layer 15 — Model Card Compliance** (`run-modelcard-check.sh`): validates HuggingFace-style model cards against 10 documentation standards (required sections, YAML frontmatter fields, safetensors format recommendation); flexible pattern matching handles diverse card conventions
+- ✅ **`scan-huggingface.yml` workflow**: dedicated GitHub Actions entry-point for scanning HuggingFace model, Space, and dataset repositories; resolves HF URLs automatically by type; supports optional Garak LLM probing for model repos
+- ✅ **`huggingface` scan mode**: new scan mode in `run-epyon-scan-ci.sh` that enables Layers 14–15 by default and skips irrelevant layers; added to all scan mode dropdowns
+- ✅ **STIG confidence scoring**: each STIG control now receives an AI-generated confidence score (0–100) based on evidence quality, specificity, and certainty; displayed as color-coded badges in the web UI and appended to `.md`/`.cklb` findings
+- ✅ **HF scan result cards in web UI**: scan detail view renders dedicated cards for picklescan (file count, infected list) and model card compliance (passed/failed/warned checks with per-finding detail)
+- ✅ **Scan type labels**: scan history rows now show accurate type labels ("Hugging Face scan", "STIG scan", etc.) with HF-specific status badges (🥒 pickle safety, 📋 model card compliance)
+- ✅ **Scan info panel on Run Scan page**: two-column layout shows which layers run for each scan mode, with API key notices for AI-powered layers
+
+### 🆕 Previous Updates (v3.0.0) - CycloneDX SBOM & Supply Chain Security
 - ✅ **CycloneDX SBOM at scan time**: `run-sbom-scan.sh` now outputs both `syft-json` and `cyclonedx-json` simultaneously — no silent post-hoc conversion failures
 - ✅ **License compliance gate**: `check-severity-gate.sh` reads CycloneDX SBOM and fails the build on copyleft licenses (GPL, AGPL, SSPL, EUPL, CDDL, MPL, LGPL); configurable denied-license regex
 - ✅ **Supply chain hash verification**: `verify-sbom-hashes.sh` cross-references SHA-256 of all `pkg:pypi` components against PyPI published digests; exits 2 on tampered packages; outputs `sbom/hash-verification.json`

@@ -37,7 +37,7 @@ STATIC_DIR           = (_HERE / ".." / "static").resolve()
 # ── Validation ────────────────────────────────────────────────
 _SAFE_ID_RE      = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_\-.]*$")
 _JOB_ID_RE       = re.compile(r"^\d{14}$")
-_VALID_SCAN_TYPES = {"quick", "full", "images", "analysis", "nightly", "stig"}
+_VALID_SCAN_TYPES = {"quick", "full", "images", "analysis", "nightly", "stig", "huggingface"}
 _TOKEN_RE        = re.compile(r"^(ghp_|github_pat_|ghs_|gho_)[a-zA-Z0-9_]+$")
 _REPO_RE         = re.compile(r"^[a-zA-Z0-9_.\-]+/[a-zA-Z0-9_.\-]+$")
 _KEY_RE          = re.compile(r"^sk-[A-Za-z0-9_\-]{20,}$")
@@ -548,6 +548,7 @@ async def trigger_scan(request: Request, response: Response):
 
     target    = (body.get("target") or "").strip()
     scan_type = body.get("scan_type", "full")
+    hf_type   = body.get("hf_type", "model")
 
     if not target:
         raise HTTPException(400, "target is required")
@@ -558,6 +559,8 @@ async def trigger_scan(request: Request, response: Response):
         raise HTTPException(400, "target contains invalid characters")
     if scan_type not in _VALID_SCAN_TYPES:
         raise HTTPException(400, f"scan_type must be one of: {sorted(_VALID_SCAN_TYPES)}")
+    if hf_type not in {"model", "space", "dataset"}:
+        raise HTTPException(400, "hf_type must be model, space, or dataset")
 
     script_path = SCRIPTS_DIR / "run-epyon-scan-ci.sh"
     if not script_path.exists():
@@ -566,7 +569,8 @@ async def trigger_scan(request: Request, response: Response):
     job_id = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     job = job_store.create_job(job_id, target, scan_type)
     asyncio.create_task(
-        job_store.run_scan_job(job_id, target, scan_type, script_path, EPYON_ROOT)
+        job_store.run_scan_job(job_id, target, scan_type, script_path, EPYON_ROOT,
+                               hf_type=hf_type if scan_type == "huggingface" else None)
     )
     return {"job_id": job_id, "status": "queued"}
 

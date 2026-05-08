@@ -1,0 +1,124 @@
+name: Scan Hugging Face Repository
+run-name: "HF Scan: ${{ inputs.hf_repo }}"
+
+permissions:
+  contents: read
+
+# checkov:skip=CKV_GHA_7:Workflow inputs are required for user-specified HF repo scanning and do not affect SLSA build provenance
+on:
+  workflow_dispatch:
+    inputs:
+      hf_repo:
+        description: 'HuggingFace repo (e.g. "meta-llama/Llama-3.1-8B" or "spaces/gradio/chatbot-demo" or "datasets/allenai/dolma")'
+        required: true
+        type: string
+      hf_type:
+        description: 'Repository type on HuggingFace'
+        required: false
+        default: 'model'
+        type: choice
+        options:
+          - model
+          - space
+          - dataset
+      run_garak:
+        description: 'Run Garak LLM behavioral probing against the HF-hosted model (model type only; requires HF_TOKEN or public model)'
+        required: false
+        default: false
+        type: boolean
+      garak_probes:
+        description: 'Garak probe set for HF model probing (comma-separated)'
+        required: false
+        default: 'promptinject,lmrc,encoding,dan'
+        type: string
+      fail_on_critical:
+        description: 'Fail on critical severity findings'
+        required: false
+        default: true
+        type: boolean
+      fail_on_high:
+        description: 'Fail on high severity findings'
+        required: false
+        default: true
+        type: boolean
+      warning_only:
+        description: 'Report findings but never fail the build'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  resolve-url:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      repository_url: ${{ steps.resolve.outputs.repository_url }}
+      garak_target_type: ${{ steps.resolve.outputs.garak_target_type }}
+      garak_target_name: ${{ steps.resolve.outputs.garak_target_name }}
+    steps:
+      - name: Resolve HuggingFace repository URL
+        id: resolve
+        run: |
+          HF_REPO="${{ inputs.hf_repo }}"
+          HF_TYPE="${{ inputs.hf_type }}"
+          RUN_GARAK="${{ inputs.run_garak }}"
+
+          # Strip any leading https://huggingface.co/ prefix if user pastes the full URL
+          HF_REPO="${HF_REPO#https://huggingface.co/}"
+
+          # Build the git clone URL based on type
+          case "$HF_TYPE" in
+            space)
+              # HuggingFace Spaces: https://huggingface.co/spaces/{org}/{name}
+              REPO_PATH="spaces/${HF_REPO#spaces/}"
+              ;;
+            dataset)
+              # HuggingFace Datasets: https://huggingface.co/datasets/{org}/{name}
+              REPO_PATH="datasets/${HF_REPO#datasets/}"
+              ;;
+            model|*)
+              # HuggingFace Models: https://huggingface.co/{org}/{name}
+              REPO_PATH="${HF_REPO#models/}"
+              ;;
+          esac
+
+          REPOSITORY_URL="https://huggingface.co/${REPO_PATH}"
+          echo "Resolved repository URL: $REPOSITORY_URL"
+          echo "repository_url=$REPOSITORY_URL" >> "$GITHUB_OUTPUT"
+
+          # Garak target config — only meaningful for model type
+          if [[ "$RUN_GARAK" == "true" && "$HF_TYPE" == "model" ]]; then
+            echo "garak_target_type=huggingface" >> "$GITHUB_OUTPUT"
+            echo "garak_target_name=${REPO_PATH}" >> "$GITHUB_OUTPUT"
+          else
+            echo "garak_target_type=test" >> "$GITHUB_OUTPUT"
+            echo "garak_target_name=test.Blank" >> "$GITHUB_OUTPUT"
+          fi
+
+  hf-scan:
+    needs: resolve-url
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+      pull-requests: write
+      security-events: write
+    uses: ./.github/workflows/epyon-scan.yml
+    with:
+      repository_url:  ${{ needs.resolve-url.outputs.repository_url }}
+      scan_mode:       huggingface
+      fail_on_critical: ${{ inputs.fail_on_critical != false }}
+      fail_on_high:    ${{ inputs.fail_on_high != false }}
+      warning_only:    ${{ inputs.warning_only == true }}
+      run_garak:       ${{ inputs.run_garak == true && 'true' || 'false' }}
+      garak_target_type: ${{ needs.resolve-url.outputs.garak_target_type }}
+      garak_target_name: ${{ needs.resolve-url.outputs.garak_target_name }}
+      garak_probes:    ${{ inputs.garak_probes || 'promptinject,lmrc,encoding,dan' }}
+      create_github_issue: false
+      create_jira_tickets: false
+      write_metrics:   false
+    secrets: inherit

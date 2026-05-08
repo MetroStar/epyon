@@ -1306,6 +1306,7 @@ function _syncHfTarget() {
 }
 
 window.updateScanInfo = (mode) => {
+  const panel = document.getElementById('scan-info-panel');
   if (!panel) return;
   const info = _SCAN_MODE_INFO[mode];
   if (!info) { panel.innerHTML = ''; return; }

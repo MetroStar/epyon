@@ -161,26 +161,43 @@ run_garak_layer() {
     '
 }
 
+_detect_model_files() {
+  # Returns 0 (true) if any ML model weight files are found under TARGET_DIR.
+  local dir="${TARGET_DIR:-}"
+  [[ -z "$dir" || ! -d "$dir" ]] && return 1
+  local _exts=("pkl" "pickle" "pt" "pth" "ckpt" "bin" "joblib" "npy" "npz" "h5" "hdf5" "safetensors" "onnx" "gguf" "ggml" "msgpack")
+  for ext in "${_exts[@]}"; do
+    if find "$dir" -type f -name "*.${ext}" -print -quit 2>/dev/null | grep -q .; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 run_picklescan_layer() {
   # Layer 14 — Pickle/Serialization Safety (picklescan)
-  # Runs by default in huggingface mode; opt-in for full/nightly via RUN_PICKLESCAN=true.
-  # Always skippable via SKIP_PICKLESCAN=true.
+  # Auto-enabled when model weight files are detected in the target directory.
+  # Always runs in huggingface and local_model modes.
+  # Override: RUN_PICKLESCAN=true/false, SKIP_PICKLESCAN=true.
   local _should_run="false"
   case "${SCAN_MODE:-full}" in
-    huggingface) _should_run="true"  ;;
-    quick)       _should_run="false" ;;
-    *)           _should_run="false" ;;
+    huggingface|local_model) _should_run="true"  ;;
+    quick)                   _should_run="false" ;;
+    *)
+      # Auto-detect model files in any other scan mode
+      if _detect_model_files; then
+        echo "[INFO] Model weight files detected in ${TARGET_DIR} — auto-enabling Layer 14 (picklescan)"
+        _should_run="true"
+      fi
+      ;;
   esac
 
-  if [[ "${SCAN_MODE:-full}" != "quick" ]]; then
-    [[ "${RUN_PICKLESCAN:-}" == "true"  ]] && _should_run="true"
-    [[ "${RUN_PICKLESCAN:-}" == "false" ]] && _should_run="false"
-  fi
-
+  [[ "${RUN_PICKLESCAN:-}" == "true"  ]] && _should_run="true"
+  [[ "${RUN_PICKLESCAN:-}" == "false" ]] && _should_run="false"
   [[ "${SKIP_PICKLESCAN:-false}" == "true" ]] && _should_run="false"
 
   if [[ "$_should_run" == "false" ]]; then
-    echo "[INFO] Skipping Layer 14 - Picklescan (scan_mode=${SCAN_MODE:-full}; set RUN_PICKLESCAN=true to enable)"
+    echo "[INFO] Skipping Layer 14 - Picklescan (no model files detected; set RUN_PICKLESCAN=true to force)"
     return 0
   fi
 
@@ -189,24 +206,28 @@ run_picklescan_layer() {
 
 run_modelcard_layer() {
   # Layer 15 — Model Card Compliance Checker
-  # Runs by default in huggingface mode; opt-in for full/nightly via RUN_MODELCARD=true.
-  # Always skippable via SKIP_MODELCARD=true.
+  # Auto-enabled when a README.md exists alongside model files (HF-style model card).
+  # Always runs in huggingface and local_model modes.
+  # Override: RUN_MODELCARD=true/false, SKIP_MODELCARD=true.
   local _should_run="false"
   case "${SCAN_MODE:-full}" in
-    huggingface) _should_run="true"  ;;
-    quick)       _should_run="false" ;;
-    *)           _should_run="false" ;;
+    huggingface|local_model) _should_run="true"  ;;
+    quick)                   _should_run="false" ;;
+    *)
+      # Auto-detect: model files present + README exists
+      if _detect_model_files && [[ -f "${TARGET_DIR:-}/README.md" ]]; then
+        echo "[INFO] Model files + README detected in ${TARGET_DIR} — auto-enabling Layer 15 (modelcard)"
+        _should_run="true"
+      fi
+      ;;
   esac
 
-  if [[ "${SCAN_MODE:-full}" != "quick" ]]; then
-    [[ "${RUN_MODELCARD:-}" == "true"  ]] && _should_run="true"
-    [[ "${RUN_MODELCARD:-}" == "false" ]] && _should_run="false"
-  fi
-
+  [[ "${RUN_MODELCARD:-}" == "true"  ]] && _should_run="true"
+  [[ "${RUN_MODELCARD:-}" == "false" ]] && _should_run="false"
   [[ "${SKIP_MODELCARD:-false}" == "true" ]] && _should_run="false"
 
   if [[ "$_should_run" == "false" ]]; then
-    echo "[INFO] Skipping Layer 15 - Model Card Compliance (scan_mode=${SCAN_MODE:-full}; set RUN_MODELCARD=true to enable)"
+    echo "[INFO] Skipping Layer 15 - Model Card Compliance (no model card detected; set RUN_MODELCARD=true to force)"
     return 0
   fi
 

@@ -86,9 +86,10 @@ generate_scan_findings_summary() {
     echo -e "${BLUE}🚨 Generating Security Findings Summary for Scan: ${scan_id}${NC}"
     
     # Resolve classification label for JSON/HTML output
-    local CLASS_LEVEL="${CLASSIFICATION_LEVEL:-INTERNAL}"
+    local CLASS_LEVEL
+    CLASS_LEVEL="$(echo "${CLASSIFICATION_LEVEL:-INTERNAL}" | tr '[:lower:]' '[:upper:]')"
     local CLASS_LABEL_LOCAL
-    case "${CLASS_LEVEL^^}" in
+    case "${CLASS_LEVEL}" in
         NONE|"")         CLASS_LABEL_LOCAL="" ;;
         UNCLASSIFIED)    CLASS_LABEL_LOCAL="UNCLASSIFIED" ;;
         INTERNAL)        CLASS_LABEL_LOCAL="INTERNAL USE ONLY" ;;

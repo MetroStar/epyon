@@ -62,19 +62,35 @@ async def run_scan_job(
     job["status"] = "running"
 
     # ── Derive target name and target dir ────────────────────────
-    _git_re = re.compile(r"(?:https?://|git@)[^\s]+?/([^/\s]+?)(?:\.git)?$")
-    _hf_re  = re.compile(r"huggingface\.co/(?:spaces/|datasets/)?([^/\s]+/[^/\s]+?)(?:\.git)?$")
+    _git_re  = re.compile(r"(?:https?://|git@)[^\s]+?/([^/\s]+?)(?:\.git)?$")
+    _hf_re   = re.compile(r"huggingface\.co/(?:spaces/|datasets/)?([^/\s]+/[^/\s]+?)(?:\.git)?$")
+    # GitHub browser tree URL: https://github.com/org/repo/tree/<ref>[/subdir]
+    _gh_tree = re.compile(
+        r"^https?://github\.com/([^/]+)/([^/]+)/tree/([^/]+)(/.+)?$"
+    )
 
-    hf_match = _hf_re.search(target)
-    git_match = _git_re.search(target)
+    hf_match   = _hf_re.search(target)
+    gh_match   = _gh_tree.match(target)
+    git_match  = _git_re.search(target)
+
+    subdir = ""  # subdirectory within the cloned repo to scan
 
     if hf_match:
-        # Use last component (model-name) as display name
         target_name = hf_match.group(1).split("/")[-1]
+        clone_url   = target
+    elif gh_match:
+        # Convert browser URL → bare clone URL + subdir
+        gh_org, gh_repo, gh_ref, gh_sub = gh_match.groups()
+        clone_url   = f"https://github.com/{gh_org}/{gh_repo}.git"
+        target_name = gh_repo
+        subdir      = (gh_sub or "").lstrip("/")
+        target      = clone_url  # use the bare URL going forward
     elif git_match:
         target_name = git_match.group(1)
+        clone_url   = target
     else:
         target_name = Path(target).name or "target"
+        clone_url   = target
 
     is_hf_url = bool(hf_match) or scan_type == "huggingface"
 
@@ -84,7 +100,9 @@ async def run_scan_job(
         is_remote  = False
     else:
         # Git/HF URL — will be cloned into a temp dir
-        target_dir = str(epyon_root / "tmp" / f"clone-{job_id}")
+        clone_root = str(epyon_root / "tmp" / f"clone-{job_id}")
+        # If there's a subdir, TARGET_DIR points inside the clone
+        target_dir = str(Path(clone_root) / subdir) if subdir else clone_root
         is_remote  = True
 
     timestamp    = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -103,7 +121,7 @@ async def run_scan_job(
         f"SCAN_MODE={scan_type}",
         f"TARGET_NAME={target_name}",
         f"GITHUB_ACTOR=web-ui",
-        f"SUBDIR=",
+        f"SUBDIR={subdir}",
         f"EPYON_VERSION={epyon_version}",
         f"GARAK_TARGET_TYPE=openai",
         f"GARAK_TARGET_NAME=gpt-4o-mini",
@@ -173,16 +191,16 @@ async def run_scan_job(
 
     # ── Clone git/HF target if needed ───────────────────────────
     if is_remote:
-        _append_line(job, f"[web-ui] Cloning {target} …")
-        Path(target_dir).mkdir(parents=True, exist_ok=True)
+        _append_line(job, f"[web-ui] Cloning {clone_url} …")
+        Path(clone_root).mkdir(parents=True, exist_ok=True)
 
         if is_hf_url:
             # HuggingFace repos can have huge LFS weights — skip them
             clone_env = {**os.environ, "GIT_LFS_SKIP_SMUDGE": "1"}
-            clone_cmd = ["git", "clone", "--depth=1", "--filter=blob:limit=10m", target, target_dir]
+            clone_cmd = ["git", "clone", "--depth=1", "--filter=blob:limit=10m", clone_url, clone_root]
         else:
             clone_env = dict(os.environ)
-            clone_cmd = ["git", "clone", "--depth=1", target, target_dir]
+            clone_cmd = ["git", "clone", "--depth=1", clone_url, clone_root]
 
         clone_proc = await asyncio.create_subprocess_exec(
             *clone_cmd,

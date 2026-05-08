@@ -62,9 +62,47 @@ source "$SCRIPT_DIR/scan-directory-template.sh"
 init_scan_environment "picklescan"
 
 TARGET_SCAN_DIR="${TARGET_DIR:-$(pwd)}"
+if [[ -z "$TARGET_SCAN_DIR" ]]; then
+    echo "[INFO] TARGET_DIR is not set — skipping Layer 14 (picklescan)" >&2
+    mkdir -p "$OUTPUT_DIR"
+    cat > "${OUTPUT_DIR}/picklescan-results.json" <<EOF
+{
+  "tool": "picklescan",
+  "status": "skipped",
+  "reason": "TARGET_DIR not set",
+  "scan_id": "${SCAN_ID:-unknown}",
+  "target": "",
+  "generated_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+  "file_count": 0,
+  "total_weight_files": 0,
+  "flagged_count": 0,
+  "weight_formats": [],
+  "infected_files": [],
+  "findings": []
+}
+EOF
+    exit 0
+fi
 TARGET_SCAN_DIR=$(realpath "${TARGET_SCAN_DIR}" 2>/dev/null) || {
-    echo "ERROR: Target path does not exist or is invalid: ${TARGET_SCAN_DIR}" >&2
-    exit 1
+    echo "[INFO] TARGET_DIR does not exist (${TARGET_DIR}) — skipping Layer 14 (picklescan)" >&2
+    mkdir -p "$OUTPUT_DIR"
+    cat > "${OUTPUT_DIR}/picklescan-results.json" <<EOF
+{
+  "tool": "picklescan",
+  "status": "skipped",
+  "reason": "target directory does not exist: ${TARGET_DIR}",
+  "scan_id": "${SCAN_ID:-unknown}",
+  "target": "${TARGET_DIR}",
+  "generated_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+  "file_count": 0,
+  "total_weight_files": 0,
+  "flagged_count": 0,
+  "weight_formats": [],
+  "infected_files": [],
+  "findings": []
+}
+EOF
+    exit 0
 }
 
 if [[ -n "$SCAN_ID" ]]; then

@@ -79,7 +79,7 @@ async def run_scan_job(
     is_hf_url = bool(hf_match) or scan_type == "huggingface"
 
     # For local paths use as-is; for git URLs the script will clone
-    if target.startswith("/") or target.startswith("./") or target.startswith("../"):
+    if scan_type == "local_model" or target.startswith("/") or target.startswith("./") or target.startswith("../"):
         target_dir = str(Path(target).resolve())
         is_remote  = False
     else:
@@ -133,6 +133,21 @@ async def run_scan_job(
         # For model repos, enable Garak with huggingface target type
         if _hf_type == "model":
             env_lines.append("GARAK_TARGET_TYPE=huggingface")
+    # Local model weight scan — picklescan + modelcard only, no remote clone
+    if scan_type == "local_model":
+        env_lines.append("RUN_PICKLESCAN=true")
+        env_lines.append("RUN_MODELCARD=true")
+        env_lines.append("SKIP_SBOM=true")
+        env_lines.append("SKIP_TRUFFLEHOG=true")
+        env_lines.append("SKIP_SONAR=true")
+        env_lines.append("SKIP_HELM=true")
+        env_lines.append("SKIP_CHECKOV=true")
+        env_lines.append("SKIP_TRIVY=true")
+        env_lines.append("SKIP_GRYPE=true")
+        env_lines.append("SKIP_XEOL=true")
+        env_lines.append("SKIP_ANCHORE=true")
+        env_lines.append("SKIP_API_DISCOVERY=true")
+        env_lines.append("SKIP_STIG=true")
     # Propagate API keys — prefer ai-config.json, fall back to environment
     openai_key = openai_summary.get_api_key() or os.environ.get("OPENAI_API_KEY", "")
     if openai_key:

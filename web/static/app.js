@@ -37,6 +37,7 @@ const _SCAN_TYPE_LABELS = {
   nightly:     'Nightly',
   stig:        'STIG',
   huggingface: 'Hugging Face',
+  local_model: 'Local Model',
 };
 function scanTypeLabel(type) {
   return _SCAN_TYPE_LABELS[type] || ucFirst(type || 'full');
@@ -830,6 +831,32 @@ function buildPicklescanCard(scan) {
       <span class="hf-finding-msg">${esc(f.message || 'Malicious pickle opcode detected')}</span>
     </div>`).join('');
 
+  // Risk level config for display
+  const RISK_CONFIG = {
+    critical: { cls: 'fmt-risk-critical', label: 'CRITICAL' },
+    high:     { cls: 'fmt-risk-high',     label: 'HIGH' },
+    medium:   { cls: 'fmt-risk-medium',   label: 'MEDIUM' },
+    low:      { cls: 'fmt-risk-low',      label: 'LOW' },
+    safe:     { cls: 'fmt-risk-safe',     label: 'SAFE' },
+  };
+
+  const fmtRows = (ps.weight_formats || []).map(f => {
+    const rc = RISK_CONFIG[f.risk] || RISK_CONFIG.medium;
+    const pickleWarn = f.pickle_scannable
+      ? `<span class="fmt-pickle-flag" title="Scanned by picklescan">🔬</span>`
+      : `<span class="fmt-safe-flag" title="No pickle — not code-executable">🛡️</span>`;
+    return `
+      <div class="fmt-row fmt-row-${f.risk}">
+        <code class="fmt-ext">${esc(f.label)}</code>
+        <span class="fmt-risk-badge ${rc.cls}">${rc.label}</span>
+        ${pickleWarn}
+        <span class="fmt-count">${f.count} file${f.count !== 1 ? 's' : ''}</span>
+        <span class="fmt-notes">${esc(f.notes)}</span>
+      </div>`;
+  }).join('');
+
+  const totalWeightFiles = ps.total_weight_files ?? ps.file_count ?? 0;
+
   return `
     <div class="hf-tool-card">
       <div class="hf-tool-header">
@@ -841,9 +868,15 @@ function buildPicklescanCard(scan) {
         <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
       </div>
       <div class="hf-tool-stats">
-        <div class="hf-stat"><span class="hf-stat-num">${ps.file_count ?? 0}</span><span class="hf-stat-lbl">files scanned</span></div>
+        <div class="hf-stat"><span class="hf-stat-num">${totalWeightFiles}</span><span class="hf-stat-lbl">weight files</span></div>
+        <div class="hf-stat"><span class="hf-stat-num">${ps.file_count ?? 0}</span><span class="hf-stat-lbl">pickle-scannable</span></div>
         <div class="hf-stat"><span class="hf-stat-num ${ps.flagged_count > 0 ? 'danger' : ''}">${ps.flagged_count ?? 0}</span><span class="hf-stat-lbl">infected</span></div>
       </div>
+      ${fmtRows ? `
+        <div class="fmt-inventory">
+          <div class="fmt-inventory-title">Weight Format Inventory</div>
+          ${fmtRows}
+        </div>` : ''}
       ${findingRows ? `<div class="hf-findings">${findingRows}</div>` : ''}
     </div>`;
 }
@@ -1133,6 +1166,7 @@ async function renderNewScan(prefill = '') {
             <option value="images">Images — Container image vulnerability scanning</option>
             <option value="analysis">Analysis — SonarQube, Checkov, code quality</option>
             <option value="huggingface">Hugging Face — Model/dataset safety scan (layers 1–11 + 14–15)</option>
+            <option value="local_model">Local Model — Scan model weights in a local directory (layers 14–15)</option>
           </select>
         </div>
 
@@ -1277,6 +1311,20 @@ const _SCAN_MODE_INFO = {
     ],
     notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable HF model behavioral probing.'],
   },
+  local_model: {
+    label: 'Local Model Scan',
+    desc: 'Scan a local directory containing AI/ML model weight files. Inventories all weight formats, checks for malicious pickle opcodes, and validates model card compliance. No git clone needed.',
+    layers: [
+      { n: 4,  name: 'Malware Detection (ClamAV)', tool: 'ClamAV' },
+      { n: 14, name: 'Pickle / Serialization Safety', tool: 'picklescan' },
+      { n: 15, name: 'Model Card Compliance',      tool: 'modelcard' },
+    ],
+    notes: [
+      'Point at the directory where model weights live (e.g. /opt/models/llama3).',
+      'Detects .pkl, .pt, .bin, .ckpt and other risky formats.',
+      'Reports safe alternatives: .safetensors, .onnx, .gguf.',
+    ],
+  },
 };
 
 // ── HF-specific form helpers ──────────────────────────────────
@@ -1286,6 +1334,10 @@ function _onScanTypeChange(mode) {
   const isHf = mode === 'huggingface';
   if (hfFields) hfFields.style.display = isHf ? '' : 'none';
   if (stdField) stdField.style.display = isHf ? 'none' : '';
+  if (mode === 'local_model') {
+    const inp = document.getElementById('scan-target');
+    if (inp && !inp.value) inp.placeholder = '/absolute/path/to/models  (e.g. /opt/models/llama3)';
+  }
   if (isHf) _syncHfTarget();
 }
 

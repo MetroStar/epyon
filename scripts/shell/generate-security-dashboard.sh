@@ -2937,18 +2937,31 @@ PICKLESCAN_DIR="${LATEST_SCAN}/picklescan"
 PICKLESCAN_RESULTS="${PICKLESCAN_DIR}/picklescan-results.json"
 PICKLESCAN_STATUS="not_run"
 PICKLESCAN_FILE_COUNT=0
+PICKLESCAN_TOTAL_WEIGHT=0
 PICKLESCAN_FLAGGED=0
 PICKLESCAN_INFECTED_HTML=""
+PICKLESCAN_FORMATS_HTML=""
 PICKLESCAN_GENERATED_AT="N/A"
 
 if [ -f "$PICKLESCAN_RESULTS" ] && command -v jq &>/dev/null && jq empty "$PICKLESCAN_RESULTS" 2>/dev/null; then
     PICKLESCAN_STATUS=$(jq -r '.status // "unknown"' "$PICKLESCAN_RESULTS")
     PICKLESCAN_FILE_COUNT=$(jq -r '.file_count // 0' "$PICKLESCAN_RESULTS")
+    PICKLESCAN_TOTAL_WEIGHT=$(jq -r '.total_weight_files // .file_count // 0' "$PICKLESCAN_RESULTS")
     PICKLESCAN_FLAGGED=$(jq -r '.flagged_count // 0' "$PICKLESCAN_RESULTS")
     PICKLESCAN_GENERATED_AT=$(jq -r '.generated_at // "N/A"' "$PICKLESCAN_RESULTS")
+    # Build weight format inventory rows
+    PICKLESCAN_FORMATS_HTML=$(jq -r '
+        .weight_formats[]? |
+        "<tr class=\"fmt-tr-" + .risk + "\">" +
+        "<td><code>" + .label + "</code></td>" +
+        "<td><span class=\"fmt-badge-" + .risk + "\">" + (.risk | ascii_upcase) + "</span></td>" +
+        "<td>" + (.count | tostring) + "</td>" +
+        "<td style=\"color:#9ca3af;font-size:0.85em\">" + .notes + "</td>" +
+        "</tr>"
+    ' "$PICKLESCAN_RESULTS" 2>/dev/null || echo "")
     # Build infected-file rows
     if [ "$PICKLESCAN_FLAGGED" -gt 0 ]; then
-        PICKLESCAN_INFECTED_HTML=$(jq -r '.findings[]? | "<div class=\\"picklescan-finding\\"><span class=\\"badge-critical\\">" + (.severity // "high") + "</span> <code>" + (.file // "unknown") + "</code> — " + (.message // "Malicious opcode detected") + "</div>"' "$PICKLESCAN_RESULTS" 2>/dev/null || echo "")
+        PICKLESCAN_INFECTED_HTML=$(jq -r '.findings[]? | "<div class=\"picklescan-finding\"><span class=\"badge-critical\">" + (.severity // "high") + "</span> <code>" + (.file // "unknown") + "</code> — " + (.message // "Malicious opcode detected") + "</div>"' "$PICKLESCAN_RESULTS" 2>/dev/null || echo "")
     fi
 fi
 
@@ -3183,6 +3196,17 @@ cat > "$OUTPUT_HTML" << 'EOF'
         .mc-sev-high   { display:inline-block; padding:1px 6px; background:#fed7d7; color:#c53030; border-radius:4px; font-size:0.8em; font-weight:600; margin-right:6px; }
         .mc-sev-medium { display:inline-block; padding:1px 6px; background:#feebc8; color:#c05621; border-radius:4px; font-size:0.8em; font-weight:600; margin-right:6px; }
         .mc-sev-low    { display:inline-block; padding:1px 6px; background:#1e3a5f; color:#60a5fa; border-radius:4px; font-size:0.8em; font-weight:600; margin-right:6px; }
+        /* Weight format inventory table */
+        .fmt-tr-critical { background: rgba(197,48,48,.12); }
+        .fmt-tr-high     { background: rgba(192,86,33,.10); }
+        .fmt-tr-medium   { background: rgba(251,146,60,.08); }
+        .fmt-tr-low      { background: rgba(96,165,250,.07); }
+        .fmt-tr-safe     { background: rgba(52,211,153,.08); }
+        .fmt-badge-critical { display:inline-block; padding:1px 7px; border-radius:4px; font-size:0.75em; font-weight:700; background:#fed7d7; color:#9b2c2c; }
+        .fmt-badge-high     { display:inline-block; padding:1px 7px; border-radius:4px; font-size:0.75em; font-weight:700; background:#feebc8; color:#9c4221; }
+        .fmt-badge-medium   { display:inline-block; padding:1px 7px; border-radius:4px; font-size:0.75em; font-weight:700; background:#fef3c7; color:#92400e; }
+        .fmt-badge-low      { display:inline-block; padding:1px 7px; border-radius:4px; font-size:0.75em; font-weight:700; background:#dbeafe; color:#1e40af; }
+        .fmt-badge-safe     { display:inline-block; padding:1px 7px; border-radius:4px; font-size:0.75em; font-weight:700; background:#d1fae5; color:#065f46; }
         
         .tool-badge {
             display: inline-block;
@@ -5449,11 +5473,36 @@ EOF
                             <h4>🥒 Picklescan Statistics</h4>
                             <div class="stats-grid-small">
                                 <div class="stat-item"><strong>Status:</strong> ${PICKLESCAN_STATUS}</div>
-                                <div class="stat-item"><strong>Files Scanned:</strong> ${PICKLESCAN_FILE_COUNT}</div>
-                                <div class="stat-item"><strong>Infected Files:</strong> ${PICKLESCAN_FLAGGED}</div>
+                                <div class="stat-item"><strong>Weight Files Found:</strong> ${PICKLESCAN_TOTAL_WEIGHT}</div>
+                                <div class="stat-item"><strong>Pickle-Scannable:</strong> ${PICKLESCAN_FILE_COUNT}</div>
+                                <div class="stat-item"><strong>Infected:</strong> ${PICKLESCAN_FLAGGED}</div>
                                 <div class="stat-item"><strong>Generated:</strong> ${PICKLESCAN_GENERATED_AT}</div>
                             </div>
                         </div>
+EOF
+    if [ -n "$PICKLESCAN_FORMATS_HTML" ]; then
+        cat >> "$OUTPUT_HTML" << 'EOF'
+                        <div style="margin-top:12px">
+                            <div style="font-size:0.78em;font-weight:700;color:#718096;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Weight Format Inventory</div>
+                            <table style="width:100%;border-collapse:collapse;font-size:0.875em">
+                                <thead>
+                                    <tr style="color:#9ca3af;font-size:0.8em;text-align:left">
+                                        <th style="padding:4px 8px">Format</th>
+                                        <th style="padding:4px 8px">Risk</th>
+                                        <th style="padding:4px 8px">Count</th>
+                                        <th style="padding:4px 8px">Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+EOF
+        echo "$PICKLESCAN_FORMATS_HTML" >> "$OUTPUT_HTML"
+        cat >> "$OUTPUT_HTML" << 'EOF'
+                                </tbody>
+                            </table>
+                        </div>
+EOF
+    fi
+    cat >> "$OUTPUT_HTML" << EOF
                         ${PICKLESCAN_INFECTED_HTML}
                     </div>
                 </div>

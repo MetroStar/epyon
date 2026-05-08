@@ -366,12 +366,14 @@ def parse_picklescan_dir(scan_dir: Path) -> dict | None:
     if not raw or not isinstance(raw, dict):
         return None
     return {
-        "status":        raw.get("status", "unknown"),
-        "file_count":    raw.get("file_count", 0),
-        "flagged_count": raw.get("flagged_count", 0),
-        "infected_files": raw.get("infected_files", []),
-        "findings":      raw.get("findings", []),
-        "generated_at":  raw.get("generated_at", ""),
+        "status":             raw.get("status", "unknown"),
+        "file_count":         raw.get("file_count", 0),
+        "total_weight_files": raw.get("total_weight_files", raw.get("file_count", 0)),
+        "flagged_count":      raw.get("flagged_count", 0),
+        "infected_files":     raw.get("infected_files", []),
+        "weight_formats":     raw.get("weight_formats", []),
+        "findings":           raw.get("findings", []),
+        "generated_at":       raw.get("generated_at", ""),
     }
 
 

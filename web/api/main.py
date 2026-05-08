@@ -37,7 +37,7 @@ STATIC_DIR           = (_HERE / ".." / "static").resolve()
 # ── Validation ────────────────────────────────────────────────
 _SAFE_ID_RE      = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_\-.]*$")
 _JOB_ID_RE       = re.compile(r"^\d{14}$")
-_VALID_SCAN_TYPES = {"quick", "full", "images", "analysis", "nightly", "stig", "huggingface"}
+_VALID_SCAN_TYPES = {"quick", "full", "images", "analysis", "nightly", "stig", "huggingface", "local_model"}
 _TOKEN_RE        = re.compile(r"^(ghp_|github_pat_|ghs_|gho_)[a-zA-Z0-9_]+$")
 _REPO_RE         = re.compile(r"^[a-zA-Z0-9_.\-]+/[a-zA-Z0-9_.\-]+$")
 _KEY_RE          = re.compile(r"^sk-[A-Za-z0-9_\-]{20,}$")

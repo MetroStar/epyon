@@ -153,33 +153,103 @@ echo -e "${CYAN}🔍 Scanning for serialized model files…${NC}"
 echo "Scanning: $TARGET_SCAN_DIR"
 echo ""
 
-# ── Count files before scanning ─────────────────────────────────────────────
-FILE_EXTENSIONS=("pkl" "pt" "pth" "bin" "ckpt" "npy" "npz" "joblib" "h5" "hdf5")
+# ── Inventory weight formats (risk-rated) ────────────────────────────────────
+# Format: <ext>|<risk_level>|<risk_label>|<notes>
+declare -A FMT_RISK      # ext → risk level (critical/high/medium/low/safe)
+declare -A FMT_LABEL     # ext → display label
+declare -A FMT_NOTES     # ext → short notes
+declare -A FMT_COUNT     # ext → file count
+declare -A FMT_PICKLE    # ext → true if picklescan should scan it
+
+# Pickle-based formats (arbitrary code execution on load)
+FMT_RISK[pkl]="critical"; FMT_LABEL[pkl]=".pkl"; FMT_NOTES[pkl]="Pure pickle — arbitrary code execution on load"; FMT_PICKLE[pkl]="true"
+FMT_RISK[pickle]="critical"; FMT_LABEL[pickle]=".pickle"; FMT_NOTES[pickle]="Pure pickle — arbitrary code execution on load"; FMT_PICKLE[pickle]="true"
+FMT_RISK[pt]="high"; FMT_LABEL[pt]=".pt"; FMT_NOTES[pt]="PyTorch checkpoint — pickle-based, code execution risk"; FMT_PICKLE[pt]="true"
+FMT_RISK[pth]="high"; FMT_LABEL[pth]=".pth"; FMT_NOTES[pth]="PyTorch checkpoint — pickle-based, code execution risk"; FMT_PICKLE[pth]="true"
+FMT_RISK[ckpt]="high"; FMT_LABEL[ckpt]=".ckpt"; FMT_NOTES[ckpt]="PyTorch Lightning checkpoint — pickle-based"; FMT_PICKLE[ckpt]="true"
+FMT_RISK[bin]="high"; FMT_LABEL[bin]=".bin"; FMT_NOTES[bin]="HuggingFace model weights — pickle-based, code execution risk"; FMT_PICKLE[bin]="true"
+FMT_RISK[joblib]="high"; FMT_LABEL[joblib]=".joblib"; FMT_NOTES[joblib]="scikit-learn serialization — pickle-based"; FMT_PICKLE[joblib]="true"
+# NumPy formats (allow_pickle=True risk)
+FMT_RISK[npy]="medium"; FMT_LABEL[npy]=".npy"; FMT_NOTES[npy]="NumPy array — risky if loaded with allow_pickle=True"; FMT_PICKLE[npy]="true"
+FMT_RISK[npz]="medium"; FMT_LABEL[npz]=".npz"; FMT_NOTES[npz]="NumPy archive — risky if loaded with allow_pickle=True"; FMT_PICKLE[npz]="true"
+# HDF5 / Keras (limited attack surface, but can embed pickled objects)
+FMT_RISK[h5]="medium"; FMT_LABEL[h5]=".h5"; FMT_NOTES[h5]="Keras/HDF5 — can embed pickled lambda layers"; FMT_PICKLE[h5]="true"
+FMT_RISK[hdf5]="medium"; FMT_LABEL[hdf5]=".hdf5"; FMT_NOTES[hdf5]="HDF5 — can embed pickled lambda layers"; FMT_PICKLE[hdf5]="true"
+# Safer formats (no pickle)
+FMT_RISK[safetensors]="safe"; FMT_LABEL[safetensors]=".safetensors"; FMT_NOTES[safetensors]="HuggingFace SafeTensors — immune to pickle code execution"; FMT_PICKLE[safetensors]="false"
+FMT_RISK[onnx]="low"; FMT_LABEL[onnx]=".onnx"; FMT_NOTES[onnx]="ONNX — protobuf-based, no pickle; custom ops may still be risky"; FMT_PICKLE[onnx]="false"
+FMT_RISK[gguf]="low"; FMT_LABEL[gguf]=".gguf"; FMT_NOTES[gguf]="GGUF — llama.cpp format, custom binary, no pickle"; FMT_PICKLE[gguf]="false"
+FMT_RISK[ggml]="low"; FMT_LABEL[ggml]=".ggml"; FMT_NOTES[ggml]="GGML — legacy llama.cpp format, no pickle"; FMT_PICKLE[ggml]="false"
+FMT_RISK[msgpack]="low"; FMT_LABEL[msgpack]=".msgpack"; FMT_NOTES[msgpack]="MessagePack — binary serialization, no arbitrary code execution"; FMT_PICKLE[msgpack]="false"
+
+ALL_EXTENSIONS=("pkl" "pickle" "pt" "pth" "ckpt" "bin" "joblib" "npy" "npz" "h5" "hdf5" "safetensors" "onnx" "gguf" "ggml" "msgpack")
+
+# Count files per extension
 FILE_COUNT=0
-for ext in "${FILE_EXTENSIONS[@]}"; do
-    count=$(find "$TARGET_SCAN_DIR" -type f -name "*.${ext}" 2>/dev/null | wc -l | tr -d ' ')
-    FILE_COUNT=$((FILE_COUNT + count))
+FORMATS_FOUND_JSON="["
+FIRST=1
+for ext in "${ALL_EXTENSIONS[@]}"; do
+    cnt=$(find "$TARGET_SCAN_DIR" -type f -name "*.${ext}" 2>/dev/null | wc -l | tr -d ' ')
+    FMT_COUNT[$ext]=$cnt
+    if [[ "$cnt" -gt 0 ]]; then
+        risk="${FMT_RISK[$ext]}"
+        label="${FMT_LABEL[$ext]}"
+        notes="${FMT_NOTES[$ext]}"
+        pickle="${FMT_PICKLE[$ext]}"
+        [[ "$FIRST" -eq 0 ]] && FORMATS_FOUND_JSON+=","
+        FORMATS_FOUND_JSON+="{\"ext\":\"${ext}\",\"count\":${cnt},\"risk\":\"${risk}\",\"label\":\"${label}\",\"notes\":\"${notes}\",\"pickle_scannable\":${pickle}}"
+        FIRST=0
+        if [[ "${FMT_PICKLE[$ext]}" == "true" ]]; then
+            FILE_COUNT=$((FILE_COUNT + cnt))
+        fi
+    fi
+done
+FORMATS_FOUND_JSON+="]"
+
+# Total including non-pickle formats for display
+TOTAL_FORMAT_COUNT=0
+for ext in "${ALL_EXTENSIONS[@]}"; do
+    TOTAL_FORMAT_COUNT=$((TOTAL_FORMAT_COUNT + ${FMT_COUNT[$ext]:-0}))
 done
 
-echo "Files to scan : $FILE_COUNT serialized file(s) found"
+echo "Model weight formats found:"
+for ext in "${ALL_EXTENSIONS[@]}"; do
+    cnt=${FMT_COUNT[$ext]:-0}
+    if [[ "$cnt" -gt 0 ]]; then
+        risk="${FMT_RISK[$ext]}"
+        echo "  .${ext} (${risk}) : ${cnt} file(s) — ${FMT_NOTES[$ext]}"
+    fi
+done
+echo ""
+echo "Pickle-scannable : $FILE_COUNT file(s)"
+echo "Total model files: $TOTAL_FORMAT_COUNT file(s)"
 echo ""
 
 if [[ "$FILE_COUNT" -eq 0 ]]; then
-    echo -e "${GREEN}✅ No serialized model files found — nothing to scan${NC}"
+    if [[ "$TOTAL_FORMAT_COUNT" -gt 0 ]]; then
+        echo -e "${GREEN}✅ Only safe-format model files found — no pickle-scannable files${NC}"
+        STATUS_MSG="only safe format files found (e.g. .safetensors, .onnx)"
+    else
+        echo -e "${GREEN}✅ No model weight files found — nothing to scan${NC}"
+        STATUS_MSG="no model weight files found"
+    fi
     cat > "$RESULTS_FILE" <<EOF
 {
   "tool": "picklescan",
   "status": "success",
-  "reason": "no serialized model files found",
+  "reason": "${STATUS_MSG}",
   "scan_id": "${SCAN_ID}",
   "target": "${TARGET_SCAN_DIR}",
   "generated_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
   "file_count": 0,
+  "total_weight_files": ${TOTAL_FORMAT_COUNT},
   "flagged_count": 0,
+  "weight_formats": ${FORMATS_FOUND_JSON},
+  "infected_files": [],
   "findings": []
 }
 EOF
-    record_scan_status "success" "no serialized model files found"
+    record_scan_status "success" "${STATUS_MSG}"
     exit 0
 fi
 
@@ -276,8 +346,10 @@ result = {
     "target":         "${TARGET_SCAN_DIR}",
     "generated_at":   "${GENERATED_AT}",
     "file_count":     ${FILE_COUNT},
+    "total_weight_files": ${TOTAL_FORMAT_COUNT},
     "flagged_count":  ${FLAGGED_COUNT},
     "infected_files": infected_files,
+    "weight_formats": ${FORMATS_FOUND_JSON},
     "findings":       findings,
 }
 
@@ -298,7 +370,9 @@ if [[ $PYEOF_EXIT -ne 0 ]]; then
   "target": "${TARGET_SCAN_DIR}",
   "generated_at": "${GENERATED_AT}",
   "file_count": ${FILE_COUNT},
+  "total_weight_files": ${TOTAL_FORMAT_COUNT},
   "flagged_count": ${FLAGGED_COUNT},
+  "weight_formats": [],
   "infected_files": [],
   "findings": []
 }

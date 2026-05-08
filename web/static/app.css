@@ -432,6 +432,27 @@ code {
 .hf-finding-msg { flex: 1; color: var(--text); line-height: 1.4; }
 .hf-recommendation { color: var(--text-muted); font-style: italic; }
 
+/* ── Weight Format Inventory ────────────────────────────────── */
+.fmt-inventory { padding: 10px 16px 14px; border-top: 1px solid var(--border); }
+.fmt-inventory-title { font-size: 0.78em; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+.fmt-row { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 6px; margin: 3px 0; font-size: 0.875em; }
+.fmt-row-critical { background: rgba(197,48,48,.12); }
+.fmt-row-high     { background: rgba(192,86,33,.10); }
+.fmt-row-medium   { background: rgba(251,146,60,.08); }
+.fmt-row-low      { background: rgba(96,165,250,.07); }
+.fmt-row-safe     { background: rgba(52,211,153,.08); }
+.fmt-ext { font-family: var(--font-mono); font-size: 0.9em; min-width: 110px; color: #e5e7eb; }
+.fmt-risk-badge { display: inline-block; padding: 1px 7px; border-radius: 4px; font-size: 0.75em; font-weight: 700; min-width: 68px; text-align: center; }
+.fmt-risk-critical { background: #fed7d7; color: #9b2c2c; }
+.fmt-risk-high     { background: #feebc8; color: #9c4221; }
+.fmt-risk-medium   { background: #fef3c7; color: #92400e; }
+.fmt-risk-low      { background: #dbeafe; color: #1e40af; }
+.fmt-risk-safe     { background: #d1fae5; color: #065f46; }
+.fmt-pickle-flag { font-size: 0.85em; }
+.fmt-safe-flag   { font-size: 0.85em; }
+.fmt-count { color: #9ca3af; font-size: 0.85em; min-width: 60px; }
+.fmt-notes { color: var(--text-muted); font-size: 0.82em; flex: 1; }
+
 /* ── STIG summary card ────────────────────────────────────── */
 .stig-summary-card {
   background: var(--bg-card);

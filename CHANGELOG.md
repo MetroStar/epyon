@@ -25,6 +25,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Missing find-scan step ID in baseline workflow
 - ClamAV virus detection already counted as CRITICAL (verified)
 
+## [3.1.0] - 2026-05-08
+
+### Added
+- **Layer 14 — Pickle/Serialization Safety** (`run-picklescan.sh`): scans ML model repositories for malicious pickle opcodes in `.pkl`, `.pt`, `.pth`, `.bin`, `.ckpt`, `.npy`, `.npz`, `.joblib`, `.h5`, and `.hdf5` files using `picklescan`. Auto-installs `picklescan` via pip when missing. Outputs normalized `picklescan/picklescan-results.json` with file count, flagged count, infected file list, and per-finding detail. Exits non-zero when infected files are found.
+- **Layer 15 — Model Card Compliance** (`run-modelcard-check.sh`): validates HuggingFace-style model cards (`README.md` / `MODEL_CARD.md`) against 10 documentation standards covering required sections (Model Details, Intended Use, Limitations, Training Data, Bias/Risks, Evaluation), YAML frontmatter fields (license, language, tags), and safetensors format recommendation. Uses flexible regex patterns to handle diverse real-world card conventions. Outputs `modelcard/modelcard-results.json`.
+- **`scan-huggingface.yml` GitHub Actions workflow**: dedicated entry-point for scanning HuggingFace model, Space, and dataset repositories. Accepts `hf_repo` (e.g. `mistralai/Mistral-7B`), `hf_type` (model/space/dataset), `run_garak`, and `garak_probes` inputs. Resolves HuggingFace URLs automatically by type and delegates to `epyon-scan.yml` with `scan_mode=huggingface`.
+- **`huggingface` scan mode**: new orchestration mode in `run-epyon-scan-ci.sh` that enables Layers 14–15 by default alongside standard layers 1–11. Added to all workflow scan mode dropdowns including `scan-public-repo.yml`.
+- **STIG control confidence scoring**: `run-stig-assessment.py` now generates an AI confidence score (0–100) per STIG control based on evidence quality, specificity, and certainty. Scores are stored in results JSON, appended to `.md` and `.cklb` findings output, and passed through the `stig-data` API endpoint.
+- **HF scan result cards in web UI** (`app.js`): scan detail view renders `buildPicklescanCard()` and `buildModelCardCard()` — dedicated result cards with stat counters, status badges, and per-finding detail rows for the two new layers.
+- **`hfStatusBadge()` in scan history rows**: HF-specific status indicators (🥒 pickle safety, 📋 model card compliance) appear inline in the scan timeline alongside severity badges.
+- **Scan type auto-inference for HuggingFace scans** (`parsers.py`): `load_scan()` now sets `scan_type = "huggingface"` when `picklescan/` or `modelcard/` directories are present and no explicit `scan-metadata.json` exists.
+- **`parse_picklescan_dir()` and `parse_modelcard_dir()` parsers** (`parsers.py`): read and normalize Layer 14/15 result JSON into the unified scan data structure returned by `/api/scans/{scan_id}`.
+- **Scan info panel on Run Scan page**: two-column layout with a dynamic right panel showing which layers run for the selected scan mode, including API key notices for AI-powered layers (STIG, Garak).
+- **Scan type labels**: `scanTypeLabel()` maps internal type keys to human-readable display names ("Hugging Face scan", "STIG scan", etc.) across all scan list and detail views.
+
+### Changed
+- `_VALID_SCAN_TYPES` in `web/api/main.py` extended with `"huggingface"`.
+- Model card section matching patterns broadened to handle real-world HuggingFace README conventions (e.g. "Key Features" → model-details, "Usage" / "Inference" → intended-use, "Benchmarks" → evaluation).
+- `limitations` severity downgraded from `high` to `medium`; `training-data` from `medium` to `low` to better reflect real-world card completeness norms.
+- STIG viewer ID column now shows `group_id` (V-XXXXXX format) instead of `vuln_id` (APSC-DV-XXXXXX) for easier cross-reference against published STIGs.
+
 ## [Unreleased]
 
 ## [3.0.0] - 2026-03-27

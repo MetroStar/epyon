@@ -2932,7 +2932,46 @@ fi
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 
-# Generate the dashboard HTML
+# ---- Layer 14: Picklescan Statistics ----
+PICKLESCAN_DIR="${LATEST_SCAN}/picklescan"
+PICKLESCAN_RESULTS="${PICKLESCAN_DIR}/picklescan-results.json"
+PICKLESCAN_STATUS="not_run"
+PICKLESCAN_FILE_COUNT=0
+PICKLESCAN_FLAGGED=0
+PICKLESCAN_INFECTED_HTML=""
+PICKLESCAN_GENERATED_AT="N/A"
+
+if [ -f "$PICKLESCAN_RESULTS" ] && command -v jq &>/dev/null && jq empty "$PICKLESCAN_RESULTS" 2>/dev/null; then
+    PICKLESCAN_STATUS=$(jq -r '.status // "unknown"' "$PICKLESCAN_RESULTS")
+    PICKLESCAN_FILE_COUNT=$(jq -r '.file_count // 0' "$PICKLESCAN_RESULTS")
+    PICKLESCAN_FLAGGED=$(jq -r '.flagged_count // 0' "$PICKLESCAN_RESULTS")
+    PICKLESCAN_GENERATED_AT=$(jq -r '.generated_at // "N/A"' "$PICKLESCAN_RESULTS")
+    # Build infected-file rows
+    if [ "$PICKLESCAN_FLAGGED" -gt 0 ]; then
+        PICKLESCAN_INFECTED_HTML=$(jq -r '.findings[]? | "<div class=\\"picklescan-finding\\"><span class=\\"badge-critical\\">" + (.severity // "high") + "</span> <code>" + (.file // "unknown") + "</code> — " + (.message // "Malicious opcode detected") + "</div>"' "$PICKLESCAN_RESULTS" 2>/dev/null || echo "")
+    fi
+fi
+
+# ---- Layer 15: Model Card Statistics ----
+MODELCARD_DIR="${LATEST_SCAN}/modelcard"
+MODELCARD_RESULTS="${MODELCARD_DIR}/modelcard-results.json"
+MODELCARD_STATUS="not_run"
+MODELCARD_PASSED=0
+MODELCARD_FAILED=0
+MODELCARD_WARNINGS=0
+MODELCARD_FILE_CHECKED="N/A"
+MODELCARD_GENERATED_AT="N/A"
+MODELCARD_FINDINGS_HTML=""
+
+if [ -f "$MODELCARD_RESULTS" ] && command -v jq &>/dev/null && jq empty "$MODELCARD_RESULTS" 2>/dev/null; then
+    MODELCARD_STATUS=$(jq -r '.status // "unknown"' "$MODELCARD_RESULTS")
+    MODELCARD_PASSED=$(jq -r '.passed // 0' "$MODELCARD_RESULTS")
+    MODELCARD_FAILED=$(jq -r '.failed // 0' "$MODELCARD_RESULTS")
+    MODELCARD_WARNINGS=$(jq -r '.warnings // 0' "$MODELCARD_RESULTS")
+    MODELCARD_FILE_CHECKED=$(jq -r '.file_checked // "N/A"' "$MODELCARD_RESULTS")
+    MODELCARD_GENERATED_AT=$(jq -r '.generated_at // "N/A"' "$MODELCARD_RESULTS")
+    MODELCARD_FINDINGS_HTML=$(jq -r '.findings[]? | "<div class=\\"modelcard-finding\\"><span class=\\"mc-sev-" + (.severity // "low") + "\\">" + (.severity // "low") + "</span> <strong>" + (.check // "") + "</strong>: " + (.message // "") + "<div class=\\"mc-rec\\">→ " + (.recommendation // "") + "</div></div>"' "$MODELCARD_RESULTS" 2>/dev/null || echo "")
+fi
 cat > "$OUTPUT_HTML" << 'EOF'
 <!DOCTYPE html>
 <html lang="en">
@@ -3120,6 +3159,30 @@ cat > "$OUTPUT_HTML" << 'EOF'
         .badge-low { background: #c6f6d5; color: #2f855a; }
         .badge-clean { background: #c6f6d5; color: #2f855a; }
         .badge-skipped { background: #1e1b4b; color: #818cf8; border: 1px solid #4338ca; }
+
+        /* Picklescan & Model Card finding rows */
+        .picklescan-finding {
+            padding: 8px 10px;
+            margin: 4px 0;
+            background: #1a0000;
+            border-left: 3px solid #c53030;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #f9fafb;
+        }
+        .modelcard-finding {
+            padding: 8px 10px;
+            margin: 4px 0;
+            background: #0f1a2a;
+            border-left: 3px solid #60a5fa;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #f9fafb;
+        }
+        .mc-rec { font-size: 0.85em; color: #9ca3af; margin-top: 3px; }
+        .mc-sev-high   { display:inline-block; padding:1px 6px; background:#fed7d7; color:#c53030; border-radius:4px; font-size:0.8em; font-weight:600; margin-right:6px; }
+        .mc-sev-medium { display:inline-block; padding:1px 6px; background:#feebc8; color:#c05621; border-radius:4px; font-size:0.8em; font-weight:600; margin-right:6px; }
+        .mc-sev-low    { display:inline-block; padding:1px 6px; background:#1e3a5f; color:#60a5fa; border-radius:4px; font-size:0.8em; font-weight:600; margin-right:6px; }
         
         .tool-badge {
             display: inline-block;
@@ -5352,6 +5415,101 @@ cat >> "$OUTPUT_HTML" << EOF
                     </div>
                 </div>
             </div>
+EOF
+
+# ---- Picklescan card (only if results exist) ----
+if [ "$PICKLESCAN_STATUS" != "not_run" ]; then
+    cat >> "$OUTPUT_HTML" << EOF
+            <!-- Layer 14: Picklescan -->
+            <div class="tool-card">
+                <div class="tool-header" onclick="toggleTool('picklescan')">
+                    <div class="tool-title">
+                        <span class="tool-icon">🥒</span>
+                        <div>
+                            <div>Picklescan</div>
+                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">Layer 14 — Pickle / Serialization Safety</div>
+                        </div>
+                    </div>
+                    <div class="tool-stats">
+EOF
+    if [ "$PICKLESCAN_STATUS" = "skipped" ]; then
+        echo "                        <span class=\"tool-stat-badge badge-skipped\">⏭️ Skipped</span>" >> "$OUTPUT_HTML"
+    elif [ "$PICKLESCAN_FLAGGED" -gt 0 ]; then
+        echo "                        <span class=\"tool-stat-badge badge-critical\">🚨 ${PICKLESCAN_FLAGGED} Infected</span>" >> "$OUTPUT_HTML"
+    else
+        echo "                        <span class=\"tool-stat-badge badge-clean\">✅ Clean</span>" >> "$OUTPUT_HTML"
+    fi
+    cat >> "$OUTPUT_HTML" << EOF
+                        <span class="expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="tool-content" id="picklescan-content">
+                    <div class="tool-findings">
+                        <div class="stats-detail-box">
+                            <h4>🥒 Picklescan Statistics</h4>
+                            <div class="stats-grid-small">
+                                <div class="stat-item"><strong>Status:</strong> ${PICKLESCAN_STATUS}</div>
+                                <div class="stat-item"><strong>Files Scanned:</strong> ${PICKLESCAN_FILE_COUNT}</div>
+                                <div class="stat-item"><strong>Infected Files:</strong> ${PICKLESCAN_FLAGGED}</div>
+                                <div class="stat-item"><strong>Generated:</strong> ${PICKLESCAN_GENERATED_AT}</div>
+                            </div>
+                        </div>
+                        ${PICKLESCAN_INFECTED_HTML}
+                    </div>
+                </div>
+            </div>
+EOF
+fi
+
+# ---- Model Card Compliance card (only if results exist) ----
+if [ "$MODELCARD_STATUS" != "not_run" ]; then
+    cat >> "$OUTPUT_HTML" << EOF
+            <!-- Layer 15: Model Card Compliance -->
+            <div class="tool-card">
+                <div class="tool-header" onclick="toggleTool('modelcard')">
+                    <div class="tool-title">
+                        <span class="tool-icon">📋</span>
+                        <div>
+                            <div>Model Card</div>
+                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">Layer 15 — Model Card Compliance</div>
+                        </div>
+                    </div>
+                    <div class="tool-stats">
+EOF
+    if [ "$MODELCARD_STATUS" = "skipped" ]; then
+        echo "                        <span class=\"tool-stat-badge badge-skipped\">⏭️ Skipped</span>" >> "$OUTPUT_HTML"
+    elif [ "$MODELCARD_FAILED" -gt 0 ]; then
+        echo "                        <span class=\"tool-stat-badge badge-high\">❌ ${MODELCARD_FAILED} Failed</span>" >> "$OUTPUT_HTML"
+    elif [ "$MODELCARD_WARNINGS" -gt 0 ]; then
+        echo "                        <span class=\"tool-stat-badge badge-medium\">⚠️ ${MODELCARD_WARNINGS} Warnings</span>" >> "$OUTPUT_HTML"
+    else
+        echo "                        <span class=\"tool-stat-badge badge-clean\">✅ Compliant</span>" >> "$OUTPUT_HTML"
+    fi
+    cat >> "$OUTPUT_HTML" << EOF
+                        <span class="expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="tool-content" id="modelcard-content">
+                    <div class="tool-findings">
+                        <div class="stats-detail-box">
+                            <h4>📋 Model Card Compliance Statistics</h4>
+                            <div class="stats-grid-small">
+                                <div class="stat-item"><strong>Status:</strong> ${MODELCARD_STATUS}</div>
+                                <div class="stat-item"><strong>Passed:</strong> ${MODELCARD_PASSED}</div>
+                                <div class="stat-item"><strong>Failed:</strong> ${MODELCARD_FAILED}</div>
+                                <div class="stat-item"><strong>Warnings:</strong> ${MODELCARD_WARNINGS}</div>
+                                <div class="stat-item"><strong>File Checked:</strong> <code>$(basename "${MODELCARD_FILE_CHECKED}")</code></div>
+                                <div class="stat-item"><strong>Generated:</strong> ${MODELCARD_GENERATED_AT}</div>
+                            </div>
+                        </div>
+                        ${MODELCARD_FINDINGS_HTML}
+                    </div>
+                </div>
+            </div>
+EOF
+fi
+
+cat >> "$OUTPUT_HTML" << EOF
         </div>
 
         <div class="footer">

@@ -56,24 +56,36 @@ async def run_scan_job(
     scan_type: str,
     script_path: Path,
     epyon_root: Path,
+    hf_type: str | None = None,
 ) -> None:
     job = jobs[job_id]
     job["status"] = "running"
 
     # ── Derive target name and target dir ────────────────────────
     _git_re = re.compile(r"(?:https?://|git@)[^\s]+?/([^/\s]+?)(?:\.git)?$")
-    m = _git_re.search(target)
-    if m:
-        target_name = m.group(1)
+    _hf_re  = re.compile(r"huggingface\.co/(?:spaces/|datasets/)?([^/\s]+/[^/\s]+?)(?:\.git)?$")
+
+    hf_match = _hf_re.search(target)
+    git_match = _git_re.search(target)
+
+    if hf_match:
+        # Use last component (model-name) as display name
+        target_name = hf_match.group(1).split("/")[-1]
+    elif git_match:
+        target_name = git_match.group(1)
     else:
         target_name = Path(target).name or "target"
+
+    is_hf_url = bool(hf_match) or scan_type == "huggingface"
 
     # For local paths use as-is; for git URLs the script will clone
     if target.startswith("/") or target.startswith("./") or target.startswith("../"):
         target_dir = str(Path(target).resolve())
+        is_remote  = False
     else:
-        # Git URL — will be cloned into a temp dir by the wrapper
+        # Git/HF URL — will be cloned into a temp dir
         target_dir = str(epyon_root / "tmp" / f"clone-{job_id}")
+        is_remote  = True
 
     timestamp    = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     scan_name    = f"{target_name}_{timestamp}"
@@ -112,6 +124,15 @@ async def run_scan_job(
         f"SCAN_NAME={scan_name}",
         f"SCAN_ID={scan_name}",
     ]
+    # HuggingFace-specific env vars
+    if scan_type == "huggingface":
+        _hf_type = hf_type or "model"
+        env_lines.append(f"HF_REPO_TYPE={_hf_type}")
+        env_lines.append("RUN_PICKLESCAN=true")
+        env_lines.append("RUN_MODELCARD=true")
+        # For model repos, enable Garak with huggingface target type
+        if _hf_type == "model":
+            env_lines.append("GARAK_TARGET_TYPE=huggingface")
     # Propagate API keys — prefer ai-config.json, fall back to environment
     openai_key = openai_summary.get_api_key() or os.environ.get("OPENAI_API_KEY", "")
     if openai_key:
@@ -135,12 +156,18 @@ async def run_scan_job(
     }
     (scan_dir / "scan-metadata.json").write_text(_json.dumps(scan_meta, indent=2))
 
-    # ── Clone git target if needed ───────────────────────────────
-    if not (target.startswith("/") or target.startswith("./") or target.startswith("../")):
+    # ── Clone git/HF target if needed ───────────────────────────
+    if is_remote:
         _append_line(job, f"[web-ui] Cloning {target} …")
         Path(target_dir).mkdir(parents=True, exist_ok=True)
+
+        # HuggingFace repos can have huge LFS weights — skip them
+        clone_env = {**os.environ, "GIT_LFS_SKIP_SMUDGE": "1"}
+        clone_cmd = ["git", "clone", "--depth=1", "--filter=blob:limit=10m", target, target_dir]
+
         clone_proc = await asyncio.create_subprocess_exec(
-            "git", "clone", "--depth=1", target, target_dir,
+            *clone_cmd,
+            env=clone_env,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )

@@ -357,6 +357,43 @@ def parse_xeol_dir(scan_dir: Path) -> list[dict]:
     return findings
 
 
+def parse_picklescan_dir(scan_dir: Path) -> dict | None:
+    """Return the normalized picklescan result dict, or None if not present."""
+    result_file = scan_dir / "picklescan" / "picklescan-results.json"
+    if not result_file.exists():
+        return None
+    raw = _read_json(result_file)
+    if not raw or not isinstance(raw, dict):
+        return None
+    return {
+        "status":        raw.get("status", "unknown"),
+        "file_count":    raw.get("file_count", 0),
+        "flagged_count": raw.get("flagged_count", 0),
+        "infected_files": raw.get("infected_files", []),
+        "findings":      raw.get("findings", []),
+        "generated_at":  raw.get("generated_at", ""),
+    }
+
+
+def parse_modelcard_dir(scan_dir: Path) -> dict | None:
+    """Return the normalized model card compliance result dict, or None if not present."""
+    result_file = scan_dir / "modelcard" / "modelcard-results.json"
+    if not result_file.exists():
+        return None
+    raw = _read_json(result_file)
+    if not raw or not isinstance(raw, dict):
+        return None
+    return {
+        "status":       raw.get("status", "unknown"),
+        "file_checked": raw.get("file_checked"),
+        "passed":       raw.get("passed", 0),
+        "failed":       raw.get("failed", 0),
+        "warnings":     raw.get("warnings", 0),
+        "findings":     raw.get("findings", []),
+        "generated_at": raw.get("generated_at", ""),
+    }
+
+
 # ── Aggregate ─────────────────────────────────────────────────
 
 def parse_scan_findings(scan_dir: Path) -> dict:
@@ -422,6 +459,8 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
             vuln_dirs = {"grype", "trivy", "checkov", "sbom", "anchore", "xeol"}
             has_vuln = any((scan_dir / d).is_dir() for d in vuln_dirs)
             data["scan_type"] = "stig" if not has_vuln else "nightly"
+        elif (scan_dir / "picklescan").is_dir() or (scan_dir / "modelcard").is_dir():
+            data["scan_type"] = "huggingface"
 
     raw_findings = parse_scan_findings(scan_dir)
     has_raw = len(raw_findings["summary"]["tools_analyzed"]) > 0
@@ -525,6 +564,16 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
             if _primary_cklb.exists():
                 data["has_stig_cklb"] = True
                 data["stig_cklb_url"] = f"/api/scans/{scan_id}/stig-findings-cklb"
+
+    # ── Layer 14 — Picklescan ────────────────────────────────────────────────
+    picklescan_data = parse_picklescan_dir(scan_dir)
+    if picklescan_data is not None:
+        data["picklescan"] = picklescan_data
+
+    # ── Layer 15 — Model Card Compliance ────────────────────────────────────
+    modelcard_data = parse_modelcard_dir(scan_dir)
+    if modelcard_data is not None:
+        data["modelcard"] = modelcard_data
 
     return data
 

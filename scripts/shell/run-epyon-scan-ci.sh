@@ -94,10 +94,11 @@ run_sonar_layer() {
 
 run_garak_layer() {
   # Scan mode determines Garak default:
-  #   quick   → always skipped
-  #   full    → skipped unless RUN_GARAK=true (manual opt-in)
-  #   nightly → skipped unless RUN_GARAK=true (manual opt-in)
-  #   stig    → runs by default (Sunday scan — STIG-only mode)
+  #   quick          → always skipped
+  #   full           → skipped unless RUN_GARAK=true (manual opt-in)
+  #   nightly        → skipped unless RUN_GARAK=true (manual opt-in)
+  #   stig           → runs by default (on-demand STIG mode)
+  #   huggingface    → skipped unless RUN_GARAK=true (opt-in; use scan-huggingface.yml for HF model probing)
   local _should_run="false"
   case "${SCAN_MODE:-full}" in
     stig)     _should_run="true"  ;;
@@ -158,6 +159,58 @@ run_garak_layer() {
       chmod +x scripts/shell/run-garak-scan.sh
       ./scripts/shell/run-garak-scan.sh || echo "Garak scan completed with warnings"
     '
+}
+
+run_picklescan_layer() {
+  # Layer 14 — Pickle/Serialization Safety (picklescan)
+  # Runs by default in huggingface mode; opt-in for full/nightly via RUN_PICKLESCAN=true.
+  # Always skippable via SKIP_PICKLESCAN=true.
+  local _should_run="false"
+  case "${SCAN_MODE:-full}" in
+    huggingface) _should_run="true"  ;;
+    quick)       _should_run="false" ;;
+    *)           _should_run="false" ;;
+  esac
+
+  if [[ "${SCAN_MODE:-full}" != "quick" ]]; then
+    [[ "${RUN_PICKLESCAN:-}" == "true"  ]] && _should_run="true"
+    [[ "${RUN_PICKLESCAN:-}" == "false" ]] && _should_run="false"
+  fi
+
+  [[ "${SKIP_PICKLESCAN:-false}" == "true" ]] && _should_run="false"
+
+  if [[ "$_should_run" == "false" ]]; then
+    echo "[INFO] Skipping Layer 14 - Picklescan (scan_mode=${SCAN_MODE:-full}; set RUN_PICKLESCAN=true to enable)"
+    return 0
+  fi
+
+  run_layer_script "Layer 14 - Pickle/Serialization Safety (picklescan)" "scripts/shell/run-picklescan.sh"
+}
+
+run_modelcard_layer() {
+  # Layer 15 — Model Card Compliance Checker
+  # Runs by default in huggingface mode; opt-in for full/nightly via RUN_MODELCARD=true.
+  # Always skippable via SKIP_MODELCARD=true.
+  local _should_run="false"
+  case "${SCAN_MODE:-full}" in
+    huggingface) _should_run="true"  ;;
+    quick)       _should_run="false" ;;
+    *)           _should_run="false" ;;
+  esac
+
+  if [[ "${SCAN_MODE:-full}" != "quick" ]]; then
+    [[ "${RUN_MODELCARD:-}" == "true"  ]] && _should_run="true"
+    [[ "${RUN_MODELCARD:-}" == "false" ]] && _should_run="false"
+  fi
+
+  [[ "${SKIP_MODELCARD:-false}" == "true" ]] && _should_run="false"
+
+  if [[ "$_should_run" == "false" ]]; then
+    echo "[INFO] Skipping Layer 15 - Model Card Compliance (scan_mode=${SCAN_MODE:-full}; set RUN_MODELCARD=true to enable)"
+    return 0
+  fi
+
+  run_layer_script "Layer 15 - Model Card Compliance (modelcard)" "scripts/shell/run-modelcard-check.sh"
 }
 
 # ── Per-tool skip helpers ─────────────────────────────────────────────────────
@@ -278,6 +331,10 @@ elif [[ "${SKIP_STIG:-false}" == "true" ]]; then
 else
   echo "[INFO] Skipping Layer 13 - STIG (scan_mode=${SCAN_MODE:-full}; runs in stig mode only)"
 fi
+
+run_picklescan_layer
+
+run_modelcard_layer
 
 run_group "Generate Scan Manifest" bash -lc '
   chmod +x scripts/shell/generate-scan-manifest.sh

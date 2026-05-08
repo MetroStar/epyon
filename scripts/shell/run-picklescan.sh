@@ -189,7 +189,8 @@ SCAN_EXIT=0
 $PICKLESCAN_CMD \
     --path "$TARGET_SCAN_DIR" \
     --json \
-    2>&1 | tee "$RAW_FILE" | tee -a "$SCAN_LOG" || SCAN_EXIT=$?
+    > >(tee "$RAW_FILE" | tee -a "$SCAN_LOG") \
+    2> >(tee -a "$SCAN_LOG" >&2) || SCAN_EXIT=$?
 
 echo ""
 

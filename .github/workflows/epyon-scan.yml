@@ -151,6 +151,21 @@ on:
         required: false
         default: false
         type: boolean
+      hf_type:
+        description: 'HuggingFace repository type — model, space, or dataset (used when scan_mode is huggingface)'
+        required: false
+        default: 'model'
+        type: string
+      run_picklescan:
+        description: 'Force-enable Layer 14 — Pickle/Serialization Safety (auto-enabled when model weight files are detected)'
+        required: false
+        default: false
+        type: boolean
+      run_modelcard:
+        description: 'Force-enable Layer 15 — Model Card Compliance (auto-enabled when model files + README detected)'
+        required: false
+        default: false
+        type: boolean
       create_github_issue:
         description: 'Create a GitHub issue for critical and high severity findings'
         required: false
@@ -244,6 +259,9 @@ jobs:
       SKIP_ANCHORE: "${{ inputs.skip_anchore }}"
       SKIP_API_DISCOVERY: "${{ inputs.skip_api_discovery }}"
       SKIP_STIG: "${{ inputs.skip_stig }}"
+      HF_REPO_TYPE: "${{ inputs.hf_type || 'model' }}"
+      RUN_PICKLESCAN: "${{ inputs.run_picklescan == true && 'true' || '' }}"
+      RUN_MODELCARD: "${{ inputs.run_modelcard == true && 'true' || '' }}"
       CREATE_GITHUB_ISSUE: "${{ inputs.create_github_issue }}"
       CREATE_JIRA_TICKETS: "${{ inputs.create_jira_tickets }}"  # true by default; set to false to disable
       JIRA_PROJECT_KEY: "${{ secrets.JIRA_PROJECT_KEY || inputs.jira_project_key }}"

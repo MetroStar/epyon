@@ -192,70 +192,63 @@ echo "Scanning: $TARGET_SCAN_DIR"
 echo ""
 
 # ── Inventory weight formats (risk-rated) ────────────────────────────────────
-# Format: <ext>|<risk_level>|<risk_label>|<notes>
-declare -A FMT_RISK      # ext → risk level (critical/high/medium/low/safe)
-declare -A FMT_LABEL     # ext → display label
-declare -A FMT_NOTES     # ext → short notes
-declare -A FMT_COUNT     # ext → file count
-declare -A FMT_PICKLE    # ext → true if picklescan should scan it
+# Bash 3-compatible: use parallel indexed arrays instead of associative arrays.
+# Columns: ext | risk | label | pickle_scannable | notes
+_FMT_EXT=(     pkl       pickle    pt         pth        ckpt       bin        joblib     npy        npz        h5         hdf5       safetensors onnx       gguf       ggml       msgpack    )
+_FMT_RISK=(    critical  critical  high       high       high       high       high       medium     medium     medium     medium     safe        low        low        low        low        )
+_FMT_LABEL=(   .pkl      .pickle   .pt        .pth       .ckpt      .bin       .joblib    .npy       .npz       .h5        .hdf5      .safetensors .onnx     .gguf      .ggml      .msgpack   )
+_FMT_PICKLE=(  true      true      true       true       true       true       true       true       true       true       true       false       false      false      false      false      )
+_FMT_NOTES=(
+    "Pure pickle — arbitrary code execution on load"
+    "Pure pickle — arbitrary code execution on load"
+    "PyTorch checkpoint — pickle-based, code execution risk"
+    "PyTorch checkpoint — pickle-based, code execution risk"
+    "PyTorch Lightning checkpoint — pickle-based"
+    "HuggingFace model weights — pickle-based, code execution risk"
+    "scikit-learn serialization — pickle-based"
+    "NumPy array — risky if loaded with allow_pickle=True"
+    "NumPy archive — risky if loaded with allow_pickle=True"
+    "Keras/HDF5 — can embed pickled lambda layers"
+    "HDF5 — can embed pickled lambda layers"
+    "HuggingFace SafeTensors — immune to pickle code execution"
+    "ONNX — protobuf-based, no pickle; custom ops may still be risky"
+    "GGUF — llama.cpp format, custom binary, no pickle"
+    "GGML — legacy llama.cpp format, no pickle"
+    "MessagePack — binary serialization, no arbitrary code execution"
+)
 
-# Pickle-based formats (arbitrary code execution on load)
-FMT_RISK[pkl]="critical"; FMT_LABEL[pkl]=".pkl"; FMT_NOTES[pkl]="Pure pickle — arbitrary code execution on load"; FMT_PICKLE[pkl]="true"
-FMT_RISK[pickle]="critical"; FMT_LABEL[pickle]=".pickle"; FMT_NOTES[pickle]="Pure pickle — arbitrary code execution on load"; FMT_PICKLE[pickle]="true"
-FMT_RISK[pt]="high"; FMT_LABEL[pt]=".pt"; FMT_NOTES[pt]="PyTorch checkpoint — pickle-based, code execution risk"; FMT_PICKLE[pt]="true"
-FMT_RISK[pth]="high"; FMT_LABEL[pth]=".pth"; FMT_NOTES[pth]="PyTorch checkpoint — pickle-based, code execution risk"; FMT_PICKLE[pth]="true"
-FMT_RISK[ckpt]="high"; FMT_LABEL[ckpt]=".ckpt"; FMT_NOTES[ckpt]="PyTorch Lightning checkpoint — pickle-based"; FMT_PICKLE[ckpt]="true"
-FMT_RISK[bin]="high"; FMT_LABEL[bin]=".bin"; FMT_NOTES[bin]="HuggingFace model weights — pickle-based, code execution risk"; FMT_PICKLE[bin]="true"
-FMT_RISK[joblib]="high"; FMT_LABEL[joblib]=".joblib"; FMT_NOTES[joblib]="scikit-learn serialization — pickle-based"; FMT_PICKLE[joblib]="true"
-# NumPy formats (allow_pickle=True risk)
-FMT_RISK[npy]="medium"; FMT_LABEL[npy]=".npy"; FMT_NOTES[npy]="NumPy array — risky if loaded with allow_pickle=True"; FMT_PICKLE[npy]="true"
-FMT_RISK[npz]="medium"; FMT_LABEL[npz]=".npz"; FMT_NOTES[npz]="NumPy archive — risky if loaded with allow_pickle=True"; FMT_PICKLE[npz]="true"
-# HDF5 / Keras (limited attack surface, but can embed pickled objects)
-FMT_RISK[h5]="medium"; FMT_LABEL[h5]=".h5"; FMT_NOTES[h5]="Keras/HDF5 — can embed pickled lambda layers"; FMT_PICKLE[h5]="true"
-FMT_RISK[hdf5]="medium"; FMT_LABEL[hdf5]=".hdf5"; FMT_NOTES[hdf5]="HDF5 — can embed pickled lambda layers"; FMT_PICKLE[hdf5]="true"
-# Safer formats (no pickle)
-FMT_RISK[safetensors]="safe"; FMT_LABEL[safetensors]=".safetensors"; FMT_NOTES[safetensors]="HuggingFace SafeTensors — immune to pickle code execution"; FMT_PICKLE[safetensors]="false"
-FMT_RISK[onnx]="low"; FMT_LABEL[onnx]=".onnx"; FMT_NOTES[onnx]="ONNX — protobuf-based, no pickle; custom ops may still be risky"; FMT_PICKLE[onnx]="false"
-FMT_RISK[gguf]="low"; FMT_LABEL[gguf]=".gguf"; FMT_NOTES[gguf]="GGUF — llama.cpp format, custom binary, no pickle"; FMT_PICKLE[gguf]="false"
-FMT_RISK[ggml]="low"; FMT_LABEL[ggml]=".ggml"; FMT_NOTES[ggml]="GGML — legacy llama.cpp format, no pickle"; FMT_PICKLE[ggml]="false"
-FMT_RISK[msgpack]="low"; FMT_LABEL[msgpack]=".msgpack"; FMT_NOTES[msgpack]="MessagePack — binary serialization, no arbitrary code execution"; FMT_PICKLE[msgpack]="false"
-
-ALL_EXTENSIONS=("pkl" "pickle" "pt" "pth" "ckpt" "bin" "joblib" "npy" "npz" "h5" "hdf5" "safetensors" "onnx" "gguf" "ggml" "msgpack")
-
-# Count files per extension
+# Count files per format
 FILE_COUNT=0
+TOTAL_FORMAT_COUNT=0
 FORMATS_FOUND_JSON="["
-FIRST=1
-for ext in "${ALL_EXTENSIONS[@]}"; do
+_JSON_FIRST=1
+declare -a _FMT_COUNT=()
+
+for i in "${!_FMT_EXT[@]}"; do
+    ext="${_FMT_EXT[$i]}"
     cnt=$(find "$TARGET_SCAN_DIR" -type f -name "*.${ext}" 2>/dev/null | wc -l | tr -d ' ')
-    FMT_COUNT[$ext]=$cnt
+    _FMT_COUNT[$i]=$cnt
+    TOTAL_FORMAT_COUNT=$((TOTAL_FORMAT_COUNT + cnt))
     if [[ "$cnt" -gt 0 ]]; then
-        risk="${FMT_RISK[$ext]}"
-        label="${FMT_LABEL[$ext]}"
-        notes="${FMT_NOTES[$ext]}"
-        pickle="${FMT_PICKLE[$ext]}"
-        [[ "$FIRST" -eq 0 ]] && FORMATS_FOUND_JSON+=","
+        risk="${_FMT_RISK[$i]}"
+        label="${_FMT_LABEL[$i]}"
+        notes="${_FMT_NOTES[$i]}"
+        pickle="${_FMT_PICKLE[$i]}"
+        [[ "$_JSON_FIRST" -eq 0 ]] && FORMATS_FOUND_JSON+=","
         FORMATS_FOUND_JSON+="{\"ext\":\"${ext}\",\"count\":${cnt},\"risk\":\"${risk}\",\"label\":\"${label}\",\"notes\":\"${notes}\",\"pickle_scannable\":${pickle}}"
-        FIRST=0
-        if [[ "${FMT_PICKLE[$ext]}" == "true" ]]; then
+        _JSON_FIRST=0
+        if [[ "$pickle" == "true" ]]; then
             FILE_COUNT=$((FILE_COUNT + cnt))
         fi
     fi
 done
 FORMATS_FOUND_JSON+="]"
 
-# Total including non-pickle formats for display
-TOTAL_FORMAT_COUNT=0
-for ext in "${ALL_EXTENSIONS[@]}"; do
-    TOTAL_FORMAT_COUNT=$((TOTAL_FORMAT_COUNT + ${FMT_COUNT[$ext]:-0}))
-done
-
 echo "Model weight formats found:"
-for ext in "${ALL_EXTENSIONS[@]}"; do
-    cnt=${FMT_COUNT[$ext]:-0}
+for i in "${!_FMT_EXT[@]}"; do
+    cnt=${_FMT_COUNT[$i]:-0}
     if [[ "$cnt" -gt 0 ]]; then
-        risk="${FMT_RISK[$ext]}"
-        echo "  .${ext} (${risk}) : ${cnt} file(s) — ${FMT_NOTES[$ext]}"
+        echo "  ${_FMT_LABEL[$i]} (${_FMT_RISK[$i]}) : ${cnt} file(s) — ${_FMT_NOTES[$i]}"
     fi
 done
 echo ""

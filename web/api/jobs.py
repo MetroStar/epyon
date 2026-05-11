@@ -94,8 +94,11 @@ async def run_scan_job(
 
     is_hf_url = bool(hf_match) or scan_type == "huggingface"
 
-    # For local paths use as-is; for git URLs the script will clone
-    if scan_type == "local_model" or target.startswith("/") or target.startswith("./") or target.startswith("../"):
+    # URLs always require a clone regardless of scan_type.
+    # Local paths are identified by filesystem prefixes.
+    _is_url = target.startswith("http://") or target.startswith("https://") or target.startswith("git@")
+
+    if not _is_url and (target.startswith("/") or target.startswith("./") or target.startswith("../") or scan_type == "local_model"):
         target_dir = str(Path(target).resolve())
         is_remote  = False
     else:

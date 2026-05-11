@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       repository:
-        description: 'Git repository URL to scan'
+        description: 'Git repository URL, HuggingFace repo (org/name), or GitHub tree URL to scan'
         required: true
         type: string
       pr_number:
@@ -21,7 +21,7 @@ on:
         required: false
         type: string
       subdirectory:
-        description: 'Subdirectory to scan (e.g., apps/api)'
+        description: 'Subdirectory to scan (e.g., apps/api or tests/data/models)'
         required: false
         type: string
       scan_mode:
@@ -35,6 +35,26 @@ on:
           - nightly
           - baseline
           - huggingface
+          - local_model
+      hf_type:
+        description: 'HuggingFace repository type (only used when scan_mode is huggingface)'
+        required: false
+        default: 'model'
+        type: choice
+        options:
+          - model
+          - space
+          - dataset
+      run_picklescan:
+        description: 'Force-enable Layer 14 — Pickle/Serialization Safety (auto-enabled when model files are found)'
+        required: false
+        default: false
+        type: boolean
+      run_modelcard:
+        description: 'Force-enable Layer 15 — Model Card Compliance (auto-enabled when model files + README found)'
+        required: false
+        default: false
+        type: boolean
       fail_on_critical:
         description: 'Fail on critical severity findings'
         required: false
@@ -74,6 +94,9 @@ jobs:
       target_ref: ${{ inputs.target_ref || '' }}
       subdirectory: ${{ inputs.subdirectory || '' }}
       scan_mode: ${{ inputs.scan_mode || 'full' }}
+      hf_type: ${{ inputs.hf_type || 'model' }}
+      run_picklescan: ${{ inputs.run_picklescan == true }}
+      run_modelcard: ${{ inputs.run_modelcard == true }}
       fail_on_critical: ${{ inputs.fail_on_critical != false }}
       fail_on_high: ${{ inputs.fail_on_high != false }}
       warning_only: ${{ inputs.warning_only == true }}

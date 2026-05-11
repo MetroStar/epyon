@@ -280,11 +280,16 @@ jobs:
 
       - name: Clone External Target Repository
         if: inputs.repository_url != ''
+        id: clone-target
+        continue-on-error: true
+        env:
+          GIT_LFS_SKIP_SMUDGE: "1"
         run: |
           REPO_URL="${{ inputs.repository_url }}"
           SUBDIR="${{ inputs.subdirectory }}"
           PR_NUMBER="${{ inputs.pr_number }}"
           TARGET_REF="${{ inputs.target_ref }}"
+          SCAN_MODE="${{ inputs.scan_mode }}"
           CHECKOUT_TARGET=""
 
           if [[ -n "$PR_NUMBER" ]]; then
@@ -295,9 +300,20 @@ jobs:
             echo "🎯 Targeting ref: $TARGET_REF"
           fi
 
+          # HuggingFace repos use LFS for model weights — skip large blobs entirely
+          # so we only clone code/config/README (what the scanners actually need).
+          IS_HF=false
+          if [[ "$SCAN_MODE" == "huggingface" ]] || echo "$REPO_URL" | grep -q "huggingface\.co"; then
+            IS_HF=true
+          fi
+
           if [[ -n "$SUBDIR" ]]; then
             echo "📥 Cloning repository with sparse-checkout (subdirectory: $SUBDIR)"
-            git clone --filter=blob:none --sparse "$REPO_URL" target-repo
+            if [[ "$IS_HF" == "true" ]]; then
+              git clone --depth=1 --filter=blob:limit=10m --sparse "$REPO_URL" target-repo
+            else
+              git clone --filter=blob:none --sparse "$REPO_URL" target-repo
+            fi
             cd target-repo
 
             if [[ -n "$CHECKOUT_TARGET" ]]; then
@@ -308,8 +324,13 @@ jobs:
             git sparse-checkout set "$SUBDIR"
             cd ..
           else
-            echo "📥 Cloning full repository"
-            git clone "$REPO_URL" target-repo
+            if [[ "$IS_HF" == "true" ]]; then
+              echo "📥 Cloning HuggingFace repository (LFS weights skipped)"
+              git clone --depth=1 --filter=blob:limit=10m "$REPO_URL" target-repo
+            else
+              echo "📥 Cloning full repository"
+              git clone "$REPO_URL" target-repo
+            fi
             if [[ -n "$CHECKOUT_TARGET" ]]; then
               cd target-repo
               git fetch origin "$CHECKOUT_TARGET"
@@ -413,6 +434,15 @@ jobs:
           REPOSITORY_URL_INPUT: ${{ inputs.repository_url }}
         run: |
           cd epyon
+
+          # Fail early if the target repo clone failed
+          if [[ -n "$REPOSITORY_URL_INPUT" && ! -d "${{ github.workspace }}/target-repo" ]]; then
+            echo "❌ ERROR: Target repository clone failed — target-repo directory does not exist."
+            echo "   URL: $REPOSITORY_URL_INPUT"
+            echo "   Ensure the URL is accessible and try again."
+            exit 1
+          fi
+
           chmod +x scripts/shell/run-target-security-scan.sh
 
           EPYON_VERSION=$(tr -d '[:space:]' < VERSION 2>/dev/null || echo "unknown")

@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       repository:
-        description: 'Git repository URL, HuggingFace repo (org/name), or GitHub tree URL to scan'
+        description: 'Git repository URL or GitHub tree URL to scan'
         required: true
         type: string
       pr_number:
@@ -34,17 +34,7 @@ on:
           - full
           - nightly
           - baseline
-          - huggingface
           - local_model
-      hf_type:
-        description: 'HuggingFace repository type (only used when scan_mode is huggingface)'
-        required: false
-        default: 'model'
-        type: choice
-        options:
-          - model
-          - space
-          - dataset
       run_picklescan:
         description: 'Force-enable Layer 14 — Pickle/Serialization Safety (auto-enabled when model files are found)'
         required: false
@@ -80,8 +70,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  # Resolve the target URL — handles plain HuggingFace slugs (org/name) and
-  # GitHub tree URLs in addition to normal git clone URLs.
+  # Resolve the target URL — normalises GitHub tree URLs to bare clone URLs.
   resolve-target:
     runs-on: ubuntu-latest
     permissions:
@@ -96,34 +85,10 @@ jobs:
         run: |
           INPUT="${{ inputs.repository }}"
           SCAN_MODE="${{ inputs.scan_mode }}"
-          HF_TYPE="${{ inputs.hf_type }}"
           RUN_GARAK="${{ inputs.run_garak }}"
 
-          # ── HuggingFace mode: accept slug (org/name) or full URL ──────────
-          if [[ "$SCAN_MODE" == "huggingface" ]]; then
-            # Strip any leading https://huggingface.co/ prefix
-            SLUG="${INPUT#https://huggingface.co/}"
-            SLUG="${SLUG#spaces/}"
-            SLUG="${SLUG#datasets/}"
-
-            case "$HF_TYPE" in
-              space)   REPO_URL="https://huggingface.co/spaces/${SLUG}" ;;
-              dataset) REPO_URL="https://huggingface.co/datasets/${SLUG}" ;;
-              model|*) REPO_URL="https://huggingface.co/${SLUG}" ;;
-            esac
-
-            echo "repository_url=$REPO_URL" >> "$GITHUB_OUTPUT"
-
-            if [[ "$RUN_GARAK" == "true" && "$HF_TYPE" == "model" ]]; then
-              echo "garak_target_type=huggingface" >> "$GITHUB_OUTPUT"
-              echo "garak_target_name=${SLUG}" >> "$GITHUB_OUTPUT"
-            else
-              echo "garak_target_type=openai" >> "$GITHUB_OUTPUT"
-              echo "garak_target_name=gpt-4o-mini" >> "$GITHUB_OUTPUT"
-            fi
-
           # ── GitHub browser tree URL: convert to clone URL ─────────────────
-          elif echo "$INPUT" | grep -qE '^https://github\.com/[^/]+/[^/]+/tree/'; then
+          if echo "$INPUT" | grep -qE '^https://github\.com/[^/]+/[^/]+/tree/'; then
             REPO_URL="$(echo "$INPUT" | sed -E 's|/tree/[^/]+(.*)||').git"
             echo "repository_url=$REPO_URL" >> "$GITHUB_OUTPUT"
             echo "garak_target_type=openai" >> "$GITHUB_OUTPUT"
@@ -151,7 +116,6 @@ jobs:
       target_ref: ${{ inputs.target_ref || '' }}
       subdirectory: ${{ inputs.subdirectory || '' }}
       scan_mode: ${{ inputs.scan_mode || 'full' }}
-      hf_type: ${{ inputs.hf_type || 'model' }}
       run_picklescan: ${{ inputs.run_picklescan == true }}
       run_modelcard: ${{ inputs.run_modelcard == true }}
       fail_on_critical: ${{ inputs.fail_on_critical != false }}

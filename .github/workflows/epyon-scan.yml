@@ -151,11 +151,6 @@ on:
         required: false
         default: false
         type: boolean
-      hf_type:
-        description: 'HuggingFace repository type — model, space, or dataset (used when scan_mode is huggingface)'
-        required: false
-        default: 'model'
-        type: string
       run_picklescan:
         description: 'Force-enable Layer 14 — Pickle/Serialization Safety (auto-enabled when model weight files are detected)'
         required: false
@@ -259,7 +254,6 @@ jobs:
       SKIP_ANCHORE: "${{ inputs.skip_anchore }}"
       SKIP_API_DISCOVERY: "${{ inputs.skip_api_discovery }}"
       SKIP_STIG: "${{ inputs.skip_stig }}"
-      HF_REPO_TYPE: "${{ inputs.hf_type || 'model' }}"
       RUN_PICKLESCAN: "${{ inputs.run_picklescan == true && 'true' || '' }}"
       RUN_MODELCARD: "${{ inputs.run_modelcard == true && 'true' || '' }}"
       CREATE_GITHUB_ISSUE: "${{ inputs.create_github_issue }}"

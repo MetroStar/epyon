@@ -56,7 +56,6 @@ async def run_scan_job(
     scan_type: str,
     script_path: Path,
     epyon_root: Path,
-    hf_type: str | None = None,
 ) -> None:
     job = jobs[job_id]
     job["status"] = "running"
@@ -91,8 +90,6 @@ async def run_scan_job(
     else:
         target_name = Path(target).name or "target"
         clone_url   = target
-
-    is_hf_url = bool(hf_match) or scan_type == "huggingface"
 
     # URLs always require a clone regardless of scan_type.
     # Local paths are identified by filesystem prefixes.
@@ -145,15 +142,6 @@ async def run_scan_job(
         f"SCAN_NAME={scan_name}",
         f"SCAN_ID={scan_name}",
     ]
-    # HuggingFace-specific env vars
-    if scan_type == "huggingface":
-        _hf_type = hf_type or "model"
-        env_lines.append(f"HF_REPO_TYPE={_hf_type}")
-        env_lines.append("RUN_PICKLESCAN=true")
-        env_lines.append("RUN_MODELCARD=true")
-        # For model repos, enable Garak with huggingface target type
-        if _hf_type == "model":
-            env_lines.append("GARAK_TARGET_TYPE=huggingface")
     # Local model weight scan — picklescan + modelcard only, no remote clone
     if scan_type == "local_model":
         env_lines.append("RUN_PICKLESCAN=true")

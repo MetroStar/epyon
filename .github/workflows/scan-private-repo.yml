@@ -34,6 +34,7 @@ on:
           - nightly
           - baseline
           - stig
+          - local_model
       garak_target_type:
         description: 'Garak generator type (e.g. test, openai, huggingface)'
         required: false

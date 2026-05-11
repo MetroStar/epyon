@@ -32,11 +32,9 @@ function ucFirst(s) { return s ? s[0].toUpperCase() + s.slice(1) : ''; }
 const _SCAN_TYPE_LABELS = {
   full:        'Full',
   quick:       'Quick',
-  images:      'Images',
-  analysis:    'Analysis',
   nightly:     'Nightly',
+  baseline:    'Baseline',
   stig:        'STIG',
-  huggingface: 'Hugging Face',
   local_model: 'Local Model',
 };
 function scanTypeLabel(type) {
@@ -287,9 +285,8 @@ const api = {
   saveGitHubConfig(d) { return this._post('/api/github/config', d); },
   triggerGitHubSync() { return this._post('/api/github/sync', {}); },
   getGitHubSyncStatus(){ return this._get('/api/github/sync'); },
-  triggerScan(target, scanType, hfType) {
+  triggerScan(target, scanType) {
     const body = { target, scan_type: scanType };
-    if (hfType) body.hf_type = hfType;
     return this._post('/api/scans', body);
   },
   getJob(id)    { return this._get(`/api/jobs/${encodeURIComponent(id)}`); },
@@ -1133,21 +1130,6 @@ async function renderNewScan(prefill = '') {
 
     <div class="scan-page-layout">
       <div class="form-card scan-form-col">
-        <div class="form-group" id="hf-fields" style="display:none">
-          <label>HuggingFace Repository</label>
-          <div style="display:flex;gap:8px;align-items:flex-start">
-            <input type="text" id="hf-repo" autocomplete="off" spellcheck="false"
-              placeholder="org/model-name  (e.g. mistralai/Mistral-7B-v0.1)"
-              style="flex:1" oninput="_syncHfTarget()" />
-            <select id="hf-type" onchange="_syncHfTarget()" style="width:130px;flex-shrink:0">
-              <option value="model">Model</option>
-              <option value="space">Space</option>
-              <option value="dataset">Dataset</option>
-            </select>
-          </div>
-          <small>Enter <code>org/name</code> or the full <code>huggingface.co</code> URL. The repository will be cloned without large model weights (LFS skipped).</small>
-        </div>
-
         <div class="form-group" id="std-target-field">
           <label for="scan-target">Target</label>
           <input type="text" id="scan-target" autocomplete="off" spellcheck="false"
@@ -1159,13 +1141,11 @@ async function renderNewScan(prefill = '') {
         <div class="form-group">
           <label for="scan-type-sel">Scan Type</label>
           <select id="scan-type-sel" onchange="updateScanInfo(this.value); _onScanTypeChange(this.value)">
-            <option value="full">Full — All 12 security layers (recommended)</option>
+            <option value="full">Full — All security layers (recommended)</option>
+            <option value="quick">Quick — Fast check: Trivy, TruffleHog, SBOM</option>
             <option value="nightly">Nightly — Scheduled comprehensive scan (layers 1–12)</option>
+            <option value="baseline">Baseline — Establish initial security benchmark (all layers)</option>
             <option value="stig">STIG — STIG compliance assessment only (on demand)</option>
-            <option value="quick">Quick — Trivy, TruffleHog, basic checks</option>
-            <option value="images">Images — Container image vulnerability scanning</option>
-            <option value="analysis">Analysis — SonarQube, Checkov, code quality</option>
-            <option value="huggingface">Hugging Face — Model/dataset safety scan (layers 1–11 + 14–15)</option>
             <option value="local_model">Local Model — Scan model weights in a local directory (layers 14–15)</option>
           </select>
         </div>
@@ -1252,9 +1232,9 @@ const _SCAN_MODE_INFO = {
     ],
     notes: [],
   },
-  images: {
-    label: 'Images Scan',
-    desc: 'Full scan with emphasis on container and base image vulnerability analysis.',
+  baseline: {
+    label: 'Baseline Scan',
+    desc: 'Establishes an initial security benchmark for a repository. Runs all layers — use this for a first-time scan before enabling nightly runs.',
     layers: [
       { n: 1,  name: 'SBOM Generation',        tool: 'Syft' },
       { n: 2,  name: 'Secret Detection',        tool: 'TruffleHog' },
@@ -1270,54 +1250,14 @@ const _SCAN_MODE_INFO = {
       { n: 12, name: 'LLM Security',            tool: 'Garak', apiKey: true, optional: true },
     ],
     notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.'],
-  },
-  analysis: {
-    label: 'Analysis Scan',
-    desc: 'Full scan with emphasis on static analysis, code quality, and infrastructure security.',
-    layers: [
-      { n: 1,  name: 'SBOM Generation',        tool: 'Syft' },
-      { n: 2,  name: 'Secret Detection',        tool: 'TruffleHog' },
-      { n: 3,  name: 'Code Quality',            tool: 'SonarQube' },
-      { n: 4,  name: 'Malware Detection',       tool: 'ClamAV' },
-      { n: 5,  name: 'Helm Chart Build',        tool: 'Helm' },
-      { n: 6,  name: 'Infrastructure Security', tool: 'Checkov' },
-      { n: 7,  name: 'Container Security',      tool: 'Trivy' },
-      { n: 8,  name: 'Vulnerability Detection', tool: 'Grype' },
-      { n: 9,  name: 'End-of-Life Detection',   tool: 'Xeol' },
-      { n: 10, name: 'Anchore Security',        tool: 'Anchore' },
-      { n: 11, name: 'API Discovery',           tool: 'Custom' },
-      { n: 12, name: 'LLM Security',            tool: 'Garak', apiKey: true, optional: true },
-    ],
-    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.'],
-  },
-  huggingface: {
-    label: 'Hugging Face Scan',
-    desc: 'Security scan tailored for HuggingFace model, Space, and dataset repositories. Runs all standard layers plus pickle safety and model card compliance checks.',
-    layers: [
-      { n: 1,  name: 'SBOM Generation',           tool: 'Syft' },
-      { n: 2,  name: 'Secret Detection',           tool: 'TruffleHog' },
-      { n: 3,  name: 'Code Quality',               tool: 'SonarQube' },
-      { n: 4,  name: 'Malware Detection',          tool: 'ClamAV' },
-      { n: 5,  name: 'Helm Chart Build',           tool: 'Helm' },
-      { n: 6,  name: 'Infrastructure Security',    tool: 'Checkov' },
-      { n: 7,  name: 'Container Security',         tool: 'Trivy' },
-      { n: 8,  name: 'Vulnerability Detection',    tool: 'Grype' },
-      { n: 9,  name: 'End-of-Life Detection',      tool: 'Xeol' },
-      { n: 10, name: 'Anchore Security',           tool: 'Anchore' },
-      { n: 11, name: 'API Discovery',              tool: 'Custom' },
-      { n: 12, name: 'LLM Security',               tool: 'Garak',       apiKey: true, optional: true },
-      { n: 14, name: 'Pickle / Serialization Safety', tool: 'picklescan' },
-      { n: 15, name: 'Model Card Compliance',      tool: 'modelcard' },
-    ],
-    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable HF model behavioral probing.'],
   },
   local_model: {
     label: 'Local Model Scan',
     desc: 'Scan a local directory containing AI/ML model weight files. Inventories all weight formats, checks for malicious pickle opcodes, and validates model card compliance. No git clone needed.',
     layers: [
-      { n: 4,  name: 'Malware Detection (ClamAV)', tool: 'ClamAV' },
+      { n: 4,  name: 'Malware Detection (ClamAV)',    tool: 'ClamAV' },
       { n: 14, name: 'Pickle / Serialization Safety', tool: 'picklescan' },
-      { n: 15, name: 'Model Card Compliance',      tool: 'modelcard' },
+      { n: 15, name: 'Model Card Compliance',         tool: 'modelcard' },
     ],
     notes: [
       'Point at the directory where model weights live (e.g. /opt/models/llama3).',
@@ -1327,34 +1267,12 @@ const _SCAN_MODE_INFO = {
   },
 };
 
-// ── HF-specific form helpers ──────────────────────────────────
 function _onScanTypeChange(mode) {
-  const hfFields = document.getElementById('hf-fields');
-  const stdField = document.getElementById('std-target-field');
-  const isHf = mode === 'huggingface';
-  if (hfFields) hfFields.style.display = isHf ? '' : 'none';
-  if (stdField) stdField.style.display = isHf ? 'none' : '';
-  if (mode === 'local_model') {
-    const inp = document.getElementById('scan-target');
-    if (inp && !inp.value) inp.placeholder = '/absolute/path/to/models  (e.g. /opt/models/llama3)';
-  }
-  if (isHf) _syncHfTarget();
-}
-
-function _syncHfTarget() {
-  const slug = (document.getElementById('hf-repo')?.value || '').trim();
-  const type = document.getElementById('hf-type')?.value || 'model';
-  const hidden = document.getElementById('scan-target');
-  if (!hidden) return;
-  if (!slug) { hidden.value = ''; return; }
-  // Normalize: strip full URL down to org/name
-  const clean = slug
-    .replace(/^https?:\/\/huggingface\.co\/(spaces\/|datasets\/)?/, '')
-    .replace(/\/$/, '');
-  const prefix = type === 'space' ? 'https://huggingface.co/spaces/'
-               : type === 'dataset' ? 'https://huggingface.co/datasets/'
-               : 'https://huggingface.co/';
-  hidden.value = prefix + clean;
+  const inp = document.getElementById('scan-target');
+  if (!inp || inp.value) return;
+  inp.placeholder = mode === 'local_model'
+    ? '/absolute/path/to/models  (e.g. /opt/models/llama3)'
+    : '/absolute/path/to/project  or  https://github.com/org/repo.git';
 }
 
 window.updateScanInfo = (mode) => {
@@ -1406,23 +1324,10 @@ async function submitScan() {
   const scanType = document.getElementById('scan-type-sel').value;
   const btn      = document.getElementById('run-btn');
 
-  let target = '';
-  let hfType = null;
-
-  if (scanType === 'huggingface') {
-    _syncHfTarget();
-    target = (document.getElementById('scan-target')?.value || '').trim();
-    hfType = document.getElementById('hf-type')?.value || 'model';
-    if (!document.getElementById('hf-repo')?.value.trim()) {
-      document.getElementById('hf-repo').focus();
-      return;
-    }
-  } else {
-    target = (document.getElementById('scan-target')?.value || '').trim();
-    if (!target) {
-      document.getElementById('scan-target').focus();
-      return;
-    }
+  const target = (document.getElementById('scan-target')?.value || '').trim();
+  if (!target) {
+    document.getElementById('scan-target').focus();
+    return;
   }
 
   btn.disabled    = true;
@@ -1435,7 +1340,7 @@ async function submitScan() {
   _activeJobId = null;
 
   try {
-    const job = await api.triggerScan(target, scanType, hfType);
+    const job = await api.triggerScan(target, scanType);
     _activeJobId = job.job_id;
     clearInterval(_pollInterval);
     _pollInterval = setInterval(() => pollJob(job.job_id, btn), 2000);

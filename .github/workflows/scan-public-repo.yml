@@ -80,7 +80,64 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  # Resolve the target URL — handles plain HuggingFace slugs (org/name) and
+  # GitHub tree URLs in addition to normal git clone URLs.
+  resolve-target:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      repository_url: ${{ steps.resolve.outputs.repository_url }}
+      garak_target_type: ${{ steps.resolve.outputs.garak_target_type }}
+      garak_target_name: ${{ steps.resolve.outputs.garak_target_name }}
+    steps:
+      - name: Resolve target URL
+        id: resolve
+        run: |
+          INPUT="${{ inputs.repository }}"
+          SCAN_MODE="${{ inputs.scan_mode }}"
+          HF_TYPE="${{ inputs.hf_type }}"
+          RUN_GARAK="${{ inputs.run_garak }}"
+
+          # ── HuggingFace mode: accept slug (org/name) or full URL ──────────
+          if [[ "$SCAN_MODE" == "huggingface" ]]; then
+            # Strip any leading https://huggingface.co/ prefix
+            SLUG="${INPUT#https://huggingface.co/}"
+            SLUG="${SLUG#spaces/}"
+            SLUG="${SLUG#datasets/}"
+
+            case "$HF_TYPE" in
+              space)   REPO_URL="https://huggingface.co/spaces/${SLUG}" ;;
+              dataset) REPO_URL="https://huggingface.co/datasets/${SLUG}" ;;
+              model|*) REPO_URL="https://huggingface.co/${SLUG}" ;;
+            esac
+
+            echo "repository_url=$REPO_URL" >> "$GITHUB_OUTPUT"
+
+            if [[ "$RUN_GARAK" == "true" && "$HF_TYPE" == "model" ]]; then
+              echo "garak_target_type=huggingface" >> "$GITHUB_OUTPUT"
+              echo "garak_target_name=${SLUG}" >> "$GITHUB_OUTPUT"
+            else
+              echo "garak_target_type=openai" >> "$GITHUB_OUTPUT"
+              echo "garak_target_name=gpt-4o-mini" >> "$GITHUB_OUTPUT"
+            fi
+
+          # ── GitHub browser tree URL: convert to clone URL ─────────────────
+          elif echo "$INPUT" | grep -qE '^https://github\.com/[^/]+/[^/]+/tree/'; then
+            REPO_URL="$(echo "$INPUT" | sed -E 's|/tree/[^/]+(.*)||').git"
+            echo "repository_url=$REPO_URL" >> "$GITHUB_OUTPUT"
+            echo "garak_target_type=openai" >> "$GITHUB_OUTPUT"
+            echo "garak_target_name=gpt-4o-mini" >> "$GITHUB_OUTPUT"
+
+          # ── Plain git URL (https/ssh) or local path ───────────────────────
+          else
+            echo "repository_url=$INPUT" >> "$GITHUB_OUTPUT"
+            echo "garak_target_type=openai" >> "$GITHUB_OUTPUT"
+            echo "garak_target_name=gpt-4o-mini" >> "$GITHUB_OUTPUT"
+          fi
+
   external-scan:
+    needs: resolve-target
     permissions:
       contents: read
       actions: read
@@ -89,7 +146,7 @@ jobs:
       security-events: write
     uses: ./.github/workflows/epyon-scan.yml
     with:
-      repository_url: ${{ inputs.repository }}
+      repository_url: ${{ needs.resolve-target.outputs.repository_url }}
       pr_number: ${{ inputs.pr_number || '' }}
       target_ref: ${{ inputs.target_ref || '' }}
       subdirectory: ${{ inputs.subdirectory || '' }}
@@ -101,6 +158,8 @@ jobs:
       fail_on_high: ${{ inputs.fail_on_high != false }}
       warning_only: ${{ inputs.warning_only == true }}
       run_garak: ${{ inputs.run_garak == true && 'true' || 'false' }}
+      garak_target_type: ${{ needs.resolve-target.outputs.garak_target_type }}
+      garak_target_name: ${{ needs.resolve-target.outputs.garak_target_name }}
       create_github_issue: false
       create_jira_tickets: false
       write_metrics: false

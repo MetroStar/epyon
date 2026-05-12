@@ -554,7 +554,11 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
             has_vuln = any((scan_dir / d).is_dir() for d in vuln_dirs)
             data["scan_type"] = "stig" if not has_vuln else "nightly"
         elif (scan_dir / "picklescan").is_dir() or (scan_dir / "modelcard").is_dir():
-            data["scan_type"] = "huggingface"
+            # Could be a local_model scan or a full scan with model weight files present;
+            # default to local_model only if no standard vuln tool dirs exist
+            vuln_dirs = {"grype", "trivy", "checkov", "sbom", "anchore", "xeol", "trufflehog"}
+            has_vuln = any((scan_dir / d).is_dir() for d in vuln_dirs)
+            data["scan_type"] = "full" if has_vuln else "local_model"
 
     raw_findings = parse_scan_findings(scan_dir)
     has_raw = len(raw_findings["summary"]["tools_analyzed"]) > 0

@@ -425,6 +425,12 @@ run_group "Apply Suppression Rules" bash -lc '
 '
 
 
+run_group "Generate Security Dashboard" bash -lc '
+  chmod +x scripts/shell/consolidate-security-reports.sh
+  SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/consolidate-security-reports.sh \
+    || echo "Dashboard generation completed with warnings"
+'
+
 SCAN_DIR_REL="${SCAN_DIR#${PWD}/}"
 SCAN_ID_VALUE="$(basename "$SCAN_DIR")"
 

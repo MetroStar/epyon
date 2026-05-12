@@ -189,13 +189,8 @@ async def run_scan_job(
         _append_line(job, f"[web-ui] Cloning {clone_url} …")
         Path(clone_root).mkdir(parents=True, exist_ok=True)
 
-        if is_hf_url:
-            # HuggingFace repos can have huge LFS weights — skip them
-            clone_env = {**os.environ, "GIT_LFS_SKIP_SMUDGE": "1"}
-            clone_cmd = ["git", "clone", "--depth=1", "--filter=blob:limit=10m", clone_url, clone_root]
-        else:
-            clone_env = dict(os.environ)
-            clone_cmd = ["git", "clone", "--depth=1", clone_url, clone_root]
+        clone_env = dict(os.environ)
+        clone_cmd = ["git", "clone", "--depth=1", clone_url, clone_root]
 
         clone_proc = await asyncio.create_subprocess_exec(
             *clone_cmd,

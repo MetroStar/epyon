@@ -1228,7 +1228,12 @@ if [[ -z "$CYCLONEDX_FILE" ]] && command -v syft >/dev/null 2>&1; then
     if [[ -n "$_SBOM_TARGET" && -d "$_SBOM_TARGET" ]]; then
         echo "📦 Generating CycloneDX SBOM for dashboard from: $_SBOM_TARGET" >&2
         if syft scan "dir:${_SBOM_TARGET}" \
-            --select-catalogers "+javascript-lock-file-cataloger" \
+            --select-catalogers "+javascript-lock-cataloger" \
+            --select-catalogers "+conda-meta-cataloger" \
+            --exclude "./node_modules" \
+            --exclude "./.venv" \
+            --exclude "./vendor" \
+            --exclude "./.git" \
             -o "cyclonedx-json=${_CDXOUT}" >/dev/null 2>&1; then
             CYCLONEDX_FILE="$_CDXOUT"
         fi

@@ -119,12 +119,14 @@ if [ -d "$REPO_PATH" ]; then
     # Count package manifests
     PACKAGE_JSON=$(find "$REPO_PATH" -name "package.json" -not -path "*/node_modules/*" 2>/dev/null | wc -l | tr -d ' ')
     REQUIREMENTS=$(find "$REPO_PATH" \( -name "requirements*.txt" -o -name "requirements*.lock" -o -name "Pipfile*" -o -name "pyproject.toml" -o -name "poetry.lock" \) 2>/dev/null | wc -l | tr -d ' ')
+    CONDA_ENV=$(find "$REPO_PATH" -name "environment.yml" -o -name "environment.yaml" 2>/dev/null | wc -l | tr -d ' ')
     GO_MOD=$(find "$REPO_PATH" -name "go.mod" 2>/dev/null | wc -l | tr -d ' ')
     POM_XML=$(find "$REPO_PATH" -name "pom.xml" 2>/dev/null | wc -l | tr -d ' ')
     GEMFILE=$(find "$REPO_PATH" -name "Gemfile" 2>/dev/null | wc -l | tr -d ' ')
     CARGO=$(find "$REPO_PATH" -name "Cargo.toml" 2>/dev/null | wc -l | tr -d ' ')
     echo -e "   📦 Node.js (package.json): $PACKAGE_JSON"
     echo -e "   🐍 Python (requirements/Pipfile/poetry.lock): $REQUIREMENTS"
+    echo -e "   🐍 Conda (environment.yml): $CONDA_ENV"
     echo -e "   🐹 Go (go.mod): $GO_MOD"
     echo -e "   ☕ Java (pom.xml): $POM_XML"
     echo -e "   💎 Ruby (Gemfile): $GEMFILE"
@@ -212,10 +214,18 @@ generate_sbom() {
 
         # Use dir: prefix and explicitly enable the lock-file cataloger so
         # package-lock.json / yarn.lock / pnpm-lock.yaml are fully expanded.
-        # Without +javascript-lock-file-cataloger Syft reads only package.json
+        # Without +javascript-lock-cataloger Syft reads only package.json
         # direct deps and misses the full transitive dependency tree.
+        # Exclude node_modules/.venv/vendor dirs — those are the resolved
+        # artifacts; scanning them makes the SBOM take 100x longer and inflates
+        # the count with duplicates of what the lock file already covers.
         if syft scan "dir:${target}" \
-            --select-catalogers "+javascript-lock-file-cataloger" \
+            --select-catalogers "+javascript-lock-cataloger" \
+            --select-catalogers "+conda-meta-cataloger" \
+            --exclude "./node_modules" \
+            --exclude "./.venv" \
+            --exclude "./vendor" \
+            --exclude "./.git" \
             -o "syft-json=${output_file}" \
             -o "cyclonedx-json=${cyclonedx_file}" \
             2>>"$SCAN_LOG"; then
@@ -235,7 +245,12 @@ generate_sbom() {
         if docker run --rm -v "$target":/workspace:ro \
             anchore/syft:latest \
             scan "dir:/workspace" \
-            --select-catalogers "+javascript-lock-file-cataloger" \
+            --select-catalogers "+javascript-lock-cataloger" \
+            --select-catalogers "+conda-meta-cataloger" \
+            --exclude "./node_modules" \
+            --exclude "./.venv" \
+            --exclude "./vendor" \
+            --exclude "./.git" \
             -o "syft-json=/dev/stdout" \
             2>>"$SCAN_LOG" > "$output_file"; then
             echo -e "${GREEN}✅ SBOM generated successfully: $(basename "$output_file")${NC}"

@@ -5,6 +5,14 @@
 
 'use strict';
 
+// ── Finding detail registry (populated in buildFindingsSection) ──
+const _findingsRegistry     = new Map();
+let   _findingNextId        = 0;
+
+// ── Findings sort state (per severity) ───────────────────────
+const _currentFindingsBySev = {};
+const _sortState             = {};
+
 // ── Security helpers ──────────────────────────────────────────
 function esc(str) {
   if (str == null) return '';
@@ -303,6 +311,12 @@ function setActive(routeKey) {
   document.querySelectorAll('.nav-link').forEach(el => {
     el.classList.toggle('active', el.dataset.route === routeKey);
   });
+  // Clear findings registry and close any open drawer on navigation
+  _findingsRegistry.clear();
+  _findingNextId = 0;
+  for (const k of Object.keys(_currentFindingsBySev)) delete _currentFindingsBySev[k];
+  for (const k of Object.keys(_sortState))             delete _sortState[k];
+  closeFindingDetail();
 }
 
 function navigate(hash) {
@@ -613,7 +627,10 @@ async function renderAppDetail(name) {
       <div class="page-header">
         <h1>${esc(name)} ${statusBadge(status)}</h1>
         <div style="display:flex;gap:8px">
-          <button class="btn btn-primary" onclick="navigate('#/new-scan')">+ Run Scan</button>
+          <button class="btn btn-primary"
+            onclick="navigate('#/new-scan?target=${encodeURIComponent(appUrl)}')">
+            ▶ Run Scan
+          </button>
           <button class="btn btn-danger"
             onclick="hideApplication('${esc(name)}')"
             title="Hide this application from the list">
@@ -644,8 +661,10 @@ async function renderScanDetail(scanId) {
   page.innerHTML = loading();
 
   try {
-    const scan   = await api.getScan(scanId);
+    const [scan, allApps] = await Promise.all([api.getScan(scanId), api.getApplications()]);
     const status = computeStatus(scan);
+    const appInfo = allApps.find(a => a.name === scan.target) || {};
+    const repoUrl = appInfo.url || scan.ci_source?.repo || '';
 
     // Build STIG summary card if STIG data is present
     let stigCard = '';
@@ -732,8 +751,14 @@ async function renderScanDetail(scanId) {
       <div class="page-header">
         <h1>Scan Details ${statusBadge(status)}</h1>
         <div style="display:flex;gap:8px">
-          ${scan.has_dashboard
+          ${repoUrl
             ? `<button class="btn btn-primary"
+                 onclick="navigate('#/new-scan?target=${encodeURIComponent(repoUrl)}')">
+                 ▶ Run Scan
+               </button>`
+            : `<button class="btn btn-primary" onclick="navigate('#/new-scan')">▶ Run Scan</button>`}
+          ${scan.has_dashboard
+            ? `<button class="btn"
                  onclick="window.open('/api/scans/${encodeURIComponent(scanId)}/dashboard','_blank')">
                  View Dashboard ↗
                </button>`
@@ -781,11 +806,11 @@ async function renderScanDetail(scanId) {
         </div>
       </div>
 
+      ${buildFindingsSection(scan.findings)}
+
       ${stigCard}
 
-      ${buildPicklescanCard(scan)}
-
-      ${buildModelCardCard(scan)}
+      ${buildModelSecurityCard(scan)}
 
       ${dedupeTools(scan.tools_analyzed).length ? `
         <div class="section">
@@ -797,8 +822,6 @@ async function renderScanDetail(scanId) {
         </div>` : ''}
 
       ${buildSBOMSection(scan.sbom)}
-
-      ${buildFindingsSection(scan.findings)}
 
       ${scan.file_statistics && Object.keys(scan.file_statistics).length ? `
         <div class="section">
@@ -816,108 +839,135 @@ async function renderScanDetail(scanId) {
   }
 }
 
-function buildPicklescanCard(scan) {
+function buildPicklescanCard(scan) { return ''; } // merged into buildModelSecurityCard
+
+function buildModelCardCard(scan) { return ''; }  // merged into buildModelSecurityCard
+
+function buildModelSecurityCard(scan) {
   const ps = scan.picklescan;
-  if (!ps) return '';
-
-  const statusClass = ps.flagged_count > 0 ? 'status-open' : 'status-clean';
-  const statusLabel = ps.flagged_count > 0 ? `${ps.flagged_count} infected file(s)` : 'Clean';
-  const icon = ps.flagged_count > 0 ? '🚨' : '✅';
-
-  const findingRows = (ps.findings || []).map(f => `
-    <div class="hf-finding-row">
-      <span class="hf-finding-sev hf-sev-${esc(f.severity || 'high')}">${esc(f.severity || 'high')}</span>
-      <code class="hf-finding-file">${esc(f.file || '—')}</code>
-      <span class="hf-finding-msg">${esc(f.message || 'Malicious pickle opcode detected')}</span>
-    </div>`).join('');
-
-  // Risk level config for display
-  const RISK_CONFIG = {
-    critical: { cls: 'fmt-risk-critical', label: 'CRITICAL' },
-    high:     { cls: 'fmt-risk-high',     label: 'HIGH' },
-    medium:   { cls: 'fmt-risk-medium',   label: 'MEDIUM' },
-    low:      { cls: 'fmt-risk-low',      label: 'LOW' },
-    safe:     { cls: 'fmt-risk-safe',     label: 'SAFE' },
-  };
-
-  const fmtRows = (ps.weight_formats || []).map(f => {
-    const rc = RISK_CONFIG[f.risk] || RISK_CONFIG.medium;
-    const pickleWarn = f.pickle_scannable
-      ? `<span class="fmt-pickle-flag" title="Scanned by picklescan">🔬</span>`
-      : `<span class="fmt-safe-flag" title="No pickle — not code-executable">🛡️</span>`;
-    return `
-      <div class="fmt-row fmt-row-${f.risk}">
-        <code class="fmt-ext">${esc(f.label)}</code>
-        <span class="fmt-risk-badge ${rc.cls}">${rc.label}</span>
-        ${pickleWarn}
-        <span class="fmt-count">${f.count} file${f.count !== 1 ? 's' : ''}</span>
-        <span class="fmt-notes">${esc(f.notes)}</span>
-      </div>`;
-  }).join('');
-
-  const totalWeightFiles = ps.total_weight_files ?? ps.file_count ?? 0;
-
-  return `
-    <div class="hf-tool-card">
-      <div class="hf-tool-header">
-        <div class="hf-tool-title">
-          <span class="hf-tool-icon">🥒</span>
-          Layer 14 — Pickle / Serialization Safety
-          <span class="hf-tool-name">picklescan</span>
-        </div>
-        <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
-      </div>
-      <div class="hf-tool-stats">
-        <div class="hf-stat"><span class="hf-stat-num">${totalWeightFiles}</span><span class="hf-stat-lbl">weight files</span></div>
-        <div class="hf-stat"><span class="hf-stat-num">${ps.file_count ?? 0}</span><span class="hf-stat-lbl">pickle-scannable</span></div>
-        <div class="hf-stat"><span class="hf-stat-num ${ps.flagged_count > 0 ? 'danger' : ''}">${ps.flagged_count ?? 0}</span><span class="hf-stat-lbl">infected</span></div>
-      </div>
-      ${fmtRows ? `
-        <div class="fmt-inventory">
-          <div class="fmt-inventory-title">Weight Format Inventory</div>
-          ${fmtRows}
-        </div>` : ''}
-      ${findingRows ? `<div class="hf-findings">${findingRows}</div>` : ''}
-    </div>`;
-}
-
-function buildModelCardCard(scan) {
   const mc = scan.modelcard;
-  if (!mc) return '';
+  if (!ps && !mc) return '';
 
-  const statusClass = mc.failed > 0 ? 'status-open' : mc.warnings > 0 ? 'status-warn' : 'status-clean';
-  const statusLabel = mc.failed > 0 ? `${mc.failed} check(s) failed` : mc.warnings > 0 ? `${mc.warnings} warning(s)` : 'Compliant';
-  const icon = mc.failed > 0 ? '❌' : mc.warnings > 0 ? '⚠️' : '✅';
+  // ── Pickle section ──
+  let pickleSection = '';
+  if (ps) {
+    const statusClass = ps.flagged_count > 0 ? 'status-open' : 'status-clean';
+    const statusLabel = ps.flagged_count > 0 ? `${ps.flagged_count} infected file(s)` : 'Clean';
+    const icon = ps.flagged_count > 0 ? '🚨' : '✅';
+    const totalWeightFiles = ps.total_weight_files ?? ps.file_count ?? 0;
 
-  const findingRows = (mc.findings || []).map(f => `
-    <div class="hf-finding-row">
-      <span class="hf-finding-sev hf-sev-${esc(f.severity || 'medium')}">${esc(f.severity || 'medium')}</span>
-      <span class="hf-finding-file">${esc(f.check || '—')}</span>
-      <span class="hf-finding-msg">${esc(f.message || '')}${f.recommendation ? `<span class="hf-recommendation"> → ${esc(f.recommendation)}</span>` : ''}</span>
-    </div>`).join('');
+    const RISK_CONFIG = {
+      critical: { cls: 'fmt-risk-critical', label: 'CRITICAL' },
+      high:     { cls: 'fmt-risk-high',     label: 'HIGH' },
+      medium:   { cls: 'fmt-risk-medium',   label: 'MEDIUM' },
+      low:      { cls: 'fmt-risk-low',      label: 'LOW' },
+      safe:     { cls: 'fmt-risk-safe',     label: 'SAFE' },
+    };
 
-  const fileLabel = mc.file_checked
-    ? `<span class="hf-file-checked" title="${esc(mc.file_checked)}">${esc(mc.file_checked.split('/').pop())}</span>`
-    : '';
+    const fmtRows = (ps.weight_formats || []).map(f => {
+      const rc = RISK_CONFIG[f.risk] || RISK_CONFIG.medium;
+      const pickleWarn = f.pickle_scannable
+        ? `<span class="fmt-pickle-flag" title="Scanned by picklescan">🔬</span>`
+        : `<span class="fmt-safe-flag" title="No pickle — not code-executable">🛡️</span>`;
+      return `
+        <div class="fmt-row fmt-row-${f.risk}">
+          <code class="fmt-ext">${esc(f.label)}</code>
+          <span class="fmt-risk-badge ${rc.cls}">${rc.label}</span>
+          ${pickleWarn}
+          <span class="fmt-count">${f.count} file${f.count !== 1 ? 's' : ''}</span>
+          <span class="fmt-notes">${esc(f.notes)}</span>
+        </div>`;
+    }).join('');
+
+    const psFindings = (ps.findings || []).map(f => `
+      <div class="hf-finding-row">
+        <span class="hf-finding-sev hf-sev-${esc(f.severity || 'high')}">${esc(f.severity || 'high')}</span>
+        <code class="hf-finding-file">${esc(f.file || '—')}</code>
+        <span class="hf-finding-msg">${esc(f.message || 'Malicious pickle opcode detected')}</span>
+      </div>`).join('');
+
+    pickleSection = `
+      <div class="ms-layer">
+        <div class="ms-layer-header">
+          <div class="ms-layer-title">
+            <span class="hf-tool-icon">🥒</span>
+            <span>Layer 14 — Pickle / Serialization Safety</span>
+            <span class="hf-tool-name">picklescan</span>
+          </div>
+          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
+        </div>
+        <div class="hf-tool-stats" style="margin-bottom:0">
+          <div class="hf-stat"><span class="hf-stat-num">${totalWeightFiles}</span><span class="hf-stat-lbl">weight files</span></div>
+          <div class="hf-stat"><span class="hf-stat-num">${ps.file_count ?? 0}</span><span class="hf-stat-lbl">pickle-scannable</span></div>
+          <div class="hf-stat"><span class="hf-stat-num ${ps.flagged_count > 0 ? 'danger' : ''}">${ps.flagged_count ?? 0}</span><span class="hf-stat-lbl">infected</span></div>
+        </div>
+        ${fmtRows ? `<div class="fmt-inventory" style="margin:10px -1px -1px">${'<div class="fmt-inventory-title">Weight Format Inventory</div>'}${fmtRows}</div>` : ''}
+        ${psFindings ? `<div class="hf-findings" style="margin-top:10px">${psFindings}</div>` : ''}
+      </div>`;
+  }
+
+  // ── Model card section ──
+  let modelCardSection = '';
+  if (mc) {
+    const statusClass = mc.failed > 0 ? 'status-open' : mc.warnings > 0 ? 'status-warn' : 'status-clean';
+    const statusLabel = mc.failed > 0 ? `${mc.failed} check(s) failed` : mc.warnings > 0 ? `${mc.warnings} warning(s)` : 'Compliant';
+    const icon = mc.failed > 0 ? '❌' : mc.warnings > 0 ? '⚠️' : '✅';
+    const fileLabel = mc.file_checked
+      ? `<span class="hf-file-checked" title="${esc(mc.file_checked)}">${esc(mc.file_checked.split('/').pop())}</span>`
+      : '';
+
+    const mcFindings = (mc.findings || []).map(f => `
+      <div class="hf-finding-row">
+        <span class="hf-finding-sev hf-sev-${esc(f.severity || 'medium')}">${esc(f.severity || 'medium')}</span>
+        <span class="hf-finding-file">${esc(f.check || '—')}</span>
+        <span class="hf-finding-msg">${esc(f.message || '')}${f.recommendation ? `<span class="hf-recommendation"> → ${esc(f.recommendation)}</span>` : ''}</span>
+      </div>`).join('');
+
+    modelCardSection = `
+      <div class="ms-layer ms-layer-border">
+        <div class="ms-layer-header">
+          <div class="ms-layer-title">
+            <span class="hf-tool-icon">📋</span>
+            <span>Layer 15 — Model Card Compliance</span>
+            ${fileLabel}
+          </div>
+          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
+        </div>
+        <div class="hf-tool-stats" style="margin-bottom:0">
+          <div class="hf-stat"><span class="hf-stat-num">${(mc.passed ?? 0) + (mc.failed ?? 0) + (mc.warnings ?? 0)}</span><span class="hf-stat-lbl">checks</span></div>
+          <div class="hf-stat"><span class="hf-stat-num clean">${mc.passed ?? 0}</span><span class="hf-stat-lbl">passed</span></div>
+          <div class="hf-stat"><span class="hf-stat-num ${mc.failed > 0 ? 'danger' : ''}">${mc.failed ?? 0}</span><span class="hf-stat-lbl">failed</span></div>
+          <div class="hf-stat"><span class="hf-stat-num">${mc.warnings ?? 0}</span><span class="hf-stat-lbl">warnings</span></div>
+        </div>
+        ${mcFindings ? `<div class="hf-findings" style="margin-top:10px">${mcFindings}</div>` : ''}
+      </div>`;
+  }
+
+  // ── Combined status for the summary line ──
+  const hasIssues = (ps?.flagged_count > 0) || (mc?.failed > 0) || (mc?.warnings > 0);
+  const summaryBadgeClass = (ps?.flagged_count > 0 || mc?.failed > 0) ? 'status-open' : mc?.warnings > 0 ? 'status-warn' : 'status-clean';
+  const summaryIcon       = (ps?.flagged_count > 0 || mc?.failed > 0) ? '⚠' : '✓';
+  const summaryLabel      = hasIssues ? 'Issues found' : 'All clear';
 
   return `
-    <div class="hf-tool-card">
-      <div class="hf-tool-header">
-        <div class="hf-tool-title">
-          <span class="hf-tool-icon">📋</span>
-          Layer 15 — Model Card Compliance
-          ${fileLabel}
-        </div>
-        <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
+    <details class="ms-card" id="model-security-card">
+      <summary class="ms-summary">
+        <span class="ms-summary-left">
+          <span class="findings-chevron" aria-hidden="true"></span>
+          <span class="ms-summary-title">Model Security</span>
+          ${ps ? '<span class="tool-tag" style="font-size:11px">picklescan</span>' : ''}
+          ${mc ? '<span class="tool-tag" style="font-size:11px">model card</span>' : ''}
+        </span>
+        <span class="ms-summary-right">
+          <span class="hf-status-badge ${summaryBadgeClass}">${summaryIcon} ${summaryLabel}</span>
+          <span class="findings-summary-hint" style="margin-left:8px">Click to expand</span>
+        </span>
+      </summary>
+      <div class="ms-body">
+        ${pickleSection}
+        ${modelCardSection}
       </div>
-      <div class="hf-tool-stats">
-        <div class="hf-stat"><span class="hf-stat-num">${(mc.passed ?? 0) + (mc.failed ?? 0) + (mc.warnings ?? 0)}</span><span class="hf-stat-lbl">checks</span></div>
-        <div class="hf-stat"><span class="hf-stat-num clean">${mc.passed ?? 0}</span><span class="hf-stat-lbl">passed</span></div>
-        <div class="hf-stat"><span class="hf-stat-num ${mc.failed > 0 ? 'danger' : ''}">${mc.failed ?? 0}</span><span class="hf-stat-lbl">failed</span></div>
-        <div class="hf-stat"><span class="hf-stat-num">${mc.warnings ?? 0}</span><span class="hf-stat-lbl">warnings</span></div>
-      </div>
-      ${findingRows ? `<div class="hf-findings">${findingRows}</div>` : ''}
-    </div>`;
+    </details>`;
 }
 
 function buildSBOMSection(sbom) {
@@ -960,64 +1010,130 @@ function buildSBOMSection(sbom) {
     </div>`;
 }
 
-function buildFindingsSection(findings) {
+function _buildFindingRows(items) {
+  return items.map(f => {
+    const fid    = _registerFinding(f);
+    const id     = esc(f.id    || f.cve_id || '—');
+    const tool   = esc(f.tool  || '—');
+    const pkg    = esc(f.package || f.component || f.target || '—');
+    const ver    = esc(f.version || '');
+    const fixed  = esc(f.fixed_version || '');
+    const title  = esc((f.title || f.description || f.check_name || '').substring(0, 160));
+    const target = esc((f.target || '').substring(0, 80));
 
+    const idCell = id.startsWith('CVE-')
+      ? `<a href="https://nvd.nist.gov/vuln/detail/${id}" target="_blank" rel="noopener noreferrer"
+            onclick="event.stopPropagation()"><code>${id}</code></a>`
+      : `<code>${id}</code>`;
+
+    return `
+      <tr class="finding-row" onclick="openFindingDetail(${fid})" title="Click to view details">
+        <td><span class="tool-tag">${tool}</span></td>
+        <td>${idCell}</td>
+        <td style="max-width:360px">${title}</td>
+        <td>${pkg}${ver ? ` <span style="color:var(--text-dim);font-size:11px">${ver}</span>` : ''}</td>
+        <td>${fixed ? `<span style="color:var(--clean)">${fixed}</span>` : '<span style="color:var(--text-dim)">—</span>'}</td>
+        <td style="color:var(--text-muted);font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${target}">${target || '—'}</td>
+      </tr>`;
+  }).join('');
+}
+
+window.sortFindingsBy = function(sev, col) {
+  const state = _sortState[sev] || { col: null, dir: 'asc' };
+  if (state.col === col) {
+    state.dir = state.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    state.col = col;
+    state.dir = 'asc';
+  }
+  _sortState[sev] = state;
+
+  const items = [...(_currentFindingsBySev[sev] || [])];
+  const dir   = state.dir === 'asc' ? 1 : -1;
+
+  items.sort((a, b) => {
+    let av, bv;
+    switch (col) {
+      case 'tool':    av = (a.tool    || '').toLowerCase(); bv = (b.tool    || '').toLowerCase(); break;
+      case 'id':      av = (a.id     || a.cve_id || '').toLowerCase(); bv = (b.id || b.cve_id || '').toLowerCase(); break;
+      case 'title':   av = (a.title  || a.description || '').toLowerCase(); bv = (b.title || b.description || '').toLowerCase(); break;
+      case 'package': av = (a.package || a.component || '').toLowerCase(); bv = (b.package || b.component || '').toLowerCase(); break;
+      case 'fix':     av = a.fixed_version ? 1 : 0; bv = b.fixed_version ? 1 : 0; break;
+      case 'target':  av = (a.target  || '').toLowerCase(); bv = (b.target  || '').toLowerCase(); break;
+      default: return 0;
+    }
+    if (typeof av === 'string') return dir * av.localeCompare(bv);
+    return dir * (av - bv);
+  });
+
+  const tbody = document.getElementById(`findings-tbody-${sev}`);
+  if (tbody) tbody.innerHTML = _buildFindingRows(items);
+
+  // Update sort-direction indicator on th elements
+  const section = document.getElementById(`findings-section-${sev}`);
+  if (section) {
+    section.querySelectorAll('.sortable-th').forEach(th => {
+      if (th.dataset.col === col) {
+        th.dataset.sortDir = state.dir;
+      } else {
+        delete th.dataset.sortDir;
+      }
+    });
+  }
+};
+
+function buildFindingsSection(findings) {
   const severities = ['critical', 'high', 'medium', 'low'];
   let html = '';
   let anyFindings = false;
 
+  // Reset sort state for this render
   for (const sev of severities) {
-    const items = (findings[`${sev}_findings`] || []);
-    if (!items.length) continue;
+    _currentFindingsBySev[sev] = [];
+    _sortState[sev] = { col: null, dir: 'asc' };
+  }
+
+  for (const sev of severities) {
+    const allItems = findings[`${sev}_findings`] || [];
+    if (!allItems.length) continue;
     anyFindings = true;
 
-    const rows = items.slice(0, 200).map(f => {
-      const id    = esc(f.id    || f.cve_id || '—');
-      const tool  = esc(f.tool  || '—');
-      const pkg   = esc(f.package || f.component || f.target || '—');
-      const ver   = esc(f.version || '');
-      const fixed = esc(f.fixed_version || '');
-      const title = esc((f.title || f.description || f.check_name || '').substring(0, 160));
-      const target = esc((f.target || '').substring(0, 80));
+    const items = allItems.slice(0, 200);
+    _currentFindingsBySev[sev] = items;
 
-      const idCell = id.startsWith('CVE-')
-        ? `<a href="https://nvd.nist.gov/vuln/detail/${id}" target="_blank" rel="noopener noreferrer"><code>${id}</code></a>`
-        : `<code>${id}</code>`;
-
-      return `
-        <tr>
-          <td><span class="tool-tag">${tool}</span></td>
-          <td>${idCell}</td>
-          <td style="max-width:360px">${title}</td>
-          <td>${pkg}${ver ? ` <span style="color:var(--text-dim);font-size:11px">${ver}</span>` : ''}</td>
-          <td>${fixed ? `<span style="color:var(--clean)">${fixed}</span>` : '<span style="color:var(--text-dim)">—</span>'}</td>
-          <td style="color:var(--text-muted);font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${target}">${target || '—'}</td>
-        </tr>`;
-    }).join('');
-
-    const overflow = items.length > 200
+    const overflow = allItems.length > 200
       ? `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:12px">
-           … and ${items.length - 200} more. Open the Dashboard for the full list.
+           … and ${allItems.length - 200} more. Open the Dashboard for the full list.
          </td></tr>` : '';
 
     html += `
-      <div class="section">
-        <div class="section-title">
-          ${ucFirst(sev)} Findings
-          <span class="sev-badge ${esc(sev)}">${items.length}</span>
+      <details class="findings-collapsible findings-${esc(sev)}" id="findings-section-${esc(sev)}">
+        <summary class="findings-summary">
+          <span class="findings-summary-left">
+            <span class="findings-chevron" aria-hidden="true"></span>
+            <span class="findings-summary-title">${ucFirst(sev)} Findings</span>
+            <span class="sev-badge ${esc(sev)}">${allItems.length}</span>
+          </span>
+          <span class="findings-summary-hint">Click to expand</span>
+        </summary>
+        <div class="findings-body">
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th class="sortable-th" data-col="tool"    onclick="sortFindingsBy('${sev}','tool')">Tool <span class="sort-icon">⇅</span></th>
+                  <th class="sortable-th" data-col="id"      onclick="sortFindingsBy('${sev}','id')">CVE / ID <span class="sort-icon">⇅</span></th>
+                  <th class="sortable-th" data-col="title"   onclick="sortFindingsBy('${sev}','title')">Title <span class="sort-icon">⇅</span></th>
+                  <th class="sortable-th" data-col="package" onclick="sortFindingsBy('${sev}','package')">Package <span class="sort-icon">⇅</span></th>
+                  <th class="sortable-th" data-col="fix"     onclick="sortFindingsBy('${sev}','fix')">Fix Available <span class="sort-icon">⇅</span></th>
+                  <th class="sortable-th" data-col="target"  onclick="sortFindingsBy('${sev}','target')">Location <span class="sort-icon">⇅</span></th>
+                </tr>
+              </thead>
+              <tbody id="findings-tbody-${esc(sev)}">${_buildFindingRows(items)}${overflow}</tbody>
+            </table>
+          </div>
         </div>
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Tool</th><th>CVE / ID</th><th>Title</th>
-                <th>Package</th><th>Fix Available</th><th>Location</th>
-              </tr>
-            </thead>
-            <tbody>${rows}${overflow}</tbody>
-          </table>
-        </div>
-      </div>`;
+      </details>`;
   }
 
   if (!anyFindings) {
@@ -1027,7 +1143,12 @@ function buildFindingsSection(findings) {
         <span class="sev-badge clean" style="padding:8px 16px">✓ No findings detected</span>
       </div>`;
   }
-  return html;
+
+  return `
+    <div class="section findings-section-wrapper">
+      <div class="section-title">Findings</div>
+      ${html}
+    </div>`;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -2548,3 +2669,133 @@ function resolve() {
 
 window.addEventListener('hashchange', resolve);
 window.addEventListener('load', resolve);
+
+// ── Finding detail drawer ─────────────────────────────────────
+function _registerFinding(f) {
+  const id = _findingNextId++;
+  _findingsRegistry.set(id, f);
+  return id;
+}
+
+function openFindingDetail(id) {
+  const f = _findingsRegistry.get(id);
+  if (!f) return;
+
+  // Close any existing drawer
+  closeFindingDetail();
+
+  const sev     = f.severity || 'unknown';
+  const fid     = f.id || '—';
+  const tool    = f.tool || '—';
+  const title   = f.title || f.description || '—';
+  const desc    = f.description || '';
+  const pkg     = f.package || f.component || '';
+  const ver     = f.version || '';
+  const fixed   = f.fixed_version || '';
+  const target  = f.target || '';
+  const refs    = f.references || [];
+
+  const idDisplay = fid.startsWith('CVE-')
+    ? `<a class="finding-detail-id-link"
+          href="https://nvd.nist.gov/vuln/detail/${esc(fid)}"
+          target="_blank" rel="noopener noreferrer">
+         ${esc(fid)}
+         <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+           <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+           <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+         </svg>
+       </a>`
+    : `<code>${esc(fid)}</code>`;
+
+  const refsHtml = refs.length
+    ? `<div class="finding-detail-section">
+         <div class="finding-detail-label">References</div>
+         <div class="finding-detail-refs">
+           ${refs.map(r => `<a href="${esc(r)}" target="_blank" rel="noopener noreferrer">${esc(r)}</a>`).join('')}
+         </div>
+       </div>`
+    : '';
+
+  const descSection = desc && desc !== title
+    ? `<div class="finding-detail-section">
+         <div class="finding-detail-label">Description</div>
+         <div class="finding-detail-desc">${esc(desc)}</div>
+       </div>`
+    : '';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'finding-drawer-overlay';
+  overlay.id        = 'finding-drawer-overlay';
+  overlay.addEventListener('click', closeFindingDetail);
+
+  const drawer = document.createElement('div');
+  drawer.className = 'finding-drawer';
+  drawer.id        = 'finding-drawer';
+  drawer.setAttribute('role', 'dialog');
+  drawer.setAttribute('aria-modal', 'true');
+  drawer.setAttribute('aria-label', 'Finding details');
+  drawer.addEventListener('click', e => e.stopPropagation());
+
+  drawer.innerHTML = `
+    <div class="finding-drawer-header">
+      <div class="finding-drawer-title">
+        <h2>${esc(title)}</h2>
+        <div class="finding-drawer-badges">
+          <span class="sev-badge ${esc(sev)}">${ucFirst(sev)}</span>
+          <span class="tool-tag">${esc(tool)}</span>
+          ${idDisplay}
+        </div>
+      </div>
+      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+    </div>
+    <div class="finding-drawer-body">
+
+      <div class="finding-detail-grid">
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Package / Component</div>
+          <div class="finding-detail-value">${pkg ? `<code>${esc(pkg)}</code>` : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Version</div>
+          <div class="finding-detail-value">${ver ? `<code>${esc(ver)}</code>` : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Fix Available</div>
+          <div class="finding-detail-value">${fixed
+            ? `<code style="color:var(--clean)">${esc(fixed)}</code>`
+            : '<span style="color:var(--text-dim)">None known</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Severity</div>
+          <div class="finding-detail-value"><span class="sev-badge ${esc(sev)}">${ucFirst(sev)}</span></div>
+        </div>
+      </div>
+
+      ${target ? `
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Location</div>
+          <div class="finding-detail-value"><code>${esc(target)}</code></div>
+        </div>` : ''}
+
+      ${descSection}
+
+      ${refsHtml}
+    </div>`;
+
+  document.body.appendChild(overlay);
+  document.body.appendChild(drawer);
+
+  // Trap Escape key
+  const _onKey = e => { if (e.key === 'Escape') { closeFindingDetail(); document.removeEventListener('keydown', _onKey); } };
+  document.addEventListener('keydown', _onKey);
+  drawer._onKey = _onKey;
+}
+
+function closeFindingDetail() {
+  const overlay = document.getElementById('finding-drawer-overlay');
+  const drawer  = document.getElementById('finding-drawer');
+  if (drawer && drawer._onKey) document.removeEventListener('keydown', drawer._onKey);
+  overlay?.remove();
+  drawer?.remove();
+}

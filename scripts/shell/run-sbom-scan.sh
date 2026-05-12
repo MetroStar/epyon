@@ -372,8 +372,8 @@ def normalize_spec(spec):
 lines = []
 for dep in deps:
     if isinstance(dep, str):
-        # Skip python itself and conda-only meta-packages
-        if dep.startswith("python") or dep.startswith("_"):
+        # Skip python itself, pip itself, and conda-only meta-packages
+        if dep.startswith("python") or dep.startswith("_") or dep.strip() == "pip":
             continue
         # conda exact pin uses single = — normalise then convert to ==
         spec = re.sub(r'(?<![=<>!])=(?!=)', '==', dep)

@@ -627,7 +627,10 @@ async function renderAppDetail(name) {
       <div class="page-header">
         <h1>${esc(name)} ${statusBadge(status)}</h1>
         <div style="display:flex;gap:8px">
-          <button class="btn btn-primary" onclick="navigate('#/new-scan')">+ Run Scan</button>
+          <button class="btn btn-primary"
+            onclick="navigate('#/new-scan?target=${encodeURIComponent(appUrl)}')">
+            ▶ Run Scan
+          </button>
           <button class="btn btn-danger"
             onclick="hideApplication('${esc(name)}')"
             title="Hide this application from the list">
@@ -658,8 +661,10 @@ async function renderScanDetail(scanId) {
   page.innerHTML = loading();
 
   try {
-    const scan   = await api.getScan(scanId);
+    const [scan, allApps] = await Promise.all([api.getScan(scanId), api.getApplications()]);
     const status = computeStatus(scan);
+    const appInfo = allApps.find(a => a.name === scan.target) || {};
+    const repoUrl = appInfo.url || scan.ci_source?.repo || '';
 
     // Build STIG summary card if STIG data is present
     let stigCard = '';
@@ -746,8 +751,14 @@ async function renderScanDetail(scanId) {
       <div class="page-header">
         <h1>Scan Details ${statusBadge(status)}</h1>
         <div style="display:flex;gap:8px">
-          ${scan.has_dashboard
+          ${repoUrl
             ? `<button class="btn btn-primary"
+                 onclick="navigate('#/new-scan?target=${encodeURIComponent(repoUrl)}')">
+                 ▶ Run Scan
+               </button>`
+            : `<button class="btn btn-primary" onclick="navigate('#/new-scan')">▶ Run Scan</button>`}
+          ${scan.has_dashboard
+            ? `<button class="btn"
                  onclick="window.open('/api/scans/${encodeURIComponent(scanId)}/dashboard','_blank')">
                  View Dashboard ↗
                </button>`

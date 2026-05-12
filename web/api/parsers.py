@@ -398,6 +398,98 @@ def parse_modelcard_dir(scan_dir: Path) -> dict | None:
 
 # ── Aggregate ─────────────────────────────────────────────────
 
+def load_sbom_packages(scan_dir: Path) -> dict:
+    """Read SBOM package data from syft-json (filesystem.json), falling back to
+    CycloneDX only if syft-json is absent. Returns total count, type breakdown,
+    and the package list (capped at 2000 for API response size)."""
+    sbom_dir = scan_dir / "sbom"
+    if not sbom_dir.is_dir():
+        return {"total": 0, "by_type": {}, "packages": []}
+
+    best_file: Path | None = None
+    best_count = 0
+    fmt = ""
+
+    # Prefer syft-json (ecosystem types like npm/python/terraform are preserved)
+    for f in sbom_dir.glob("*.json"):
+        if "cyclonedx" in f.name or "summary" in f.name:
+            continue
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        count = len(data.get("artifacts") or [])
+        if count > best_count:
+            best_count = count
+            best_file = f
+            fmt = "syft"
+
+    # Fall back to CycloneDX if no syft-json found
+    if best_count == 0:
+        for f in sbom_dir.glob("*.cyclonedx.json"):
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            count = len(data.get("components") or [])
+            if count > best_count:
+                best_count = count
+                best_file = f
+                fmt = "cyclonedx"
+
+    if best_file is None or best_count == 0:
+        return {"total": 0, "by_type": {}, "packages": []}
+
+    data = json.loads(best_file.read_text(encoding="utf-8"))
+
+    if fmt == "syft":
+        artifacts = data.get("artifacts") or []
+        packages = [
+            {
+                "name":     a.get("name", ""),
+                "version":  a.get("version", ""),
+                "type":     a.get("type", "unknown"),
+                "language": a.get("language", ""),
+                "purl":     a.get("purl", ""),
+                "licenses": [
+                    (lic.get("value") or lic.get("spdxExpression") or "")
+                    for lic in (a.get("licenses") or [])
+                    if isinstance(lic, dict)
+                ],
+            }
+            for a in artifacts
+        ]
+    else:
+        components = [c for c in (data.get("components") or []) if c.get("type") != "file"]
+        packages = [
+            {
+                "name":     c.get("name", ""),
+                "version":  c.get("version", ""),
+                "type":     c.get("type", "library"),
+                "language": "",
+                "purl":     c.get("purl", ""),
+                "licenses": [
+                    (lic.get("license", {}).get("id") or lic.get("license", {}).get("name") or "")
+                    for lic in (c.get("licenses") or [])
+                    if isinstance(lic, dict)
+                ],
+            }
+            for c in components
+        ]
+
+    by_type: dict[str, int] = {}
+    for p in packages:
+        by_type[p["type"]] = by_type.get(p["type"], 0) + 1
+
+    packages.sort(key=lambda p: p["name"].lower())
+
+    return {
+        "total":    len(packages),
+        "by_type":  by_type,
+        "packages": packages[:2000],
+    }
+
+
 def parse_scan_findings(scan_dir: Path) -> dict:
     all_findings = (
         parse_trivy_dir(scan_dir)

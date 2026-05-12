@@ -796,6 +796,8 @@ async function renderScanDetail(scanId) {
           </div>
         </div>` : ''}
 
+      ${buildSBOMSection(scan.sbom)}
+
       ${buildFindingsSection(scan.findings)}
 
       ${scan.file_statistics && Object.keys(scan.file_statistics).length ? `
@@ -915,6 +917,46 @@ function buildModelCardCard(scan) {
         <div class="hf-stat"><span class="hf-stat-num">${mc.warnings ?? 0}</span><span class="hf-stat-lbl">warnings</span></div>
       </div>
       ${findingRows ? `<div class="hf-findings">${findingRows}</div>` : ''}
+    </div>`;
+}
+
+function buildSBOMSection(sbom) {
+  if (!sbom || sbom.total === 0) return '';
+  const byType = sbom.by_type || {};
+  const typeChips = Object.entries(byType)
+    .sort((a, b) => b[1] - a[1])
+    .map(([t, n]) => `<span class="tool-tag" style="cursor:default">${esc(t)} <strong>${n}</strong></span>`)
+    .join('');
+  const id = 'sbom-pkg-list-' + Math.random().toString(36).slice(2);
+  const rows = (sbom.packages || []).map(p => {
+    const lic = (p.licenses || []).filter(Boolean).join(', ') || '';
+    return `<tr>
+      <td style="font-family:monospace;font-size:12px">${esc(p.name)}</td>
+      <td style="font-size:12px">${esc(p.version || '')}</td>
+      <td><span class="tool-tag" style="font-size:11px;padding:1px 6px">${esc(p.type || '')}</span></td>
+      <td style="font-size:11px;color:#888">${esc(lic)}</td>
+    </tr>`;
+  }).join('');
+  return `
+    <div class="section">
+      <div class="section-title">📦 SBOM — ${esc(sbom.total)} Packages</div>
+      <div class="tools-list" style="margin-bottom:10px">${typeChips}</div>
+      <details id="${esc(id)}">
+        <summary style="cursor:pointer;font-size:13px;color:#6b7280">Show all packages</summary>
+        <div style="overflow-x:auto;margin-top:8px">
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead>
+              <tr style="text-align:left;border-bottom:1px solid #374151">
+                <th style="padding:4px 8px">Name</th>
+                <th style="padding:4px 8px">Version</th>
+                <th style="padding:4px 8px">Type</th>
+                <th style="padding:4px 8px">License</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </details>
     </div>`;
 }
 

@@ -533,7 +533,21 @@ def scan_detail(scan_id: str, response: Response):
         raise HTTPException(404, "Scan not found")
     data = parsers.load_scan(matched, EPYON_ROOT)
     data["findings"] = parsers.parse_scan_findings(matched)
+    data["sbom"] = parsers.load_sbom_packages(matched)
     return data
+
+
+@app.get("/api/scans/{scan_id}/sbom")
+def scan_sbom(scan_id: str, response: Response):
+    """Return SBOM package list for a scan (reads syft-json directly)."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
+    matched = next((d for d in scan_dirs if d.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+    return parsers.load_sbom_packages(matched)
 
 
 # ── Trigger scan ──────────────────────────────────────────────

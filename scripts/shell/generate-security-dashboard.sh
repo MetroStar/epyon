@@ -1058,27 +1058,32 @@ if [ -d "$SBOM_DIR" ]; then
             "${LATEST_SCAN}/grype/vex-summary.json" 2>/dev/null || echo '{}')
     fi
 
-    # Prefer CycloneDX file (components[]) — fall back to syft-json (artifacts[])
+    # Prefer syft-json (artifacts[]) — richer type info (npm, python, terraform…)
+    # Fall back to CycloneDX (components[]) only when syft-json is absent.
+    # CycloneDX maps every package to type:"library" losing the ecosystem breakdown.
     _BEST_SBOM_FILE=""
     _BEST_SBOM_COUNT=0
     _SBOM_FORMAT=""
-    # Check CycloneDX files first
-    for sbom_file in "$SBOM_DIR"/*.cyclonedx.json; do
+    # Check syft-json files first (exclude cyclonedx and summary files)
+    for sbom_file in "$SBOM_DIR"/*.json; do
         [ -f "$sbom_file" ] || continue
-        c=$(jq '(.components // []) | length' "$sbom_file" 2>/dev/null || echo "0")
+        # Skip CycloneDX files and the summary file
+        [[ "$sbom_file" == *cyclonedx* ]] && continue
+        [[ "$sbom_file" == *summary* ]] && continue
+        c=$(jq '(.artifacts // []) | length' "$sbom_file" 2>/dev/null || echo "0")
         [[ "$c" =~ ^[0-9]+$ ]] || c=0
         if [ "$c" -gt "$_BEST_SBOM_COUNT" ]; then
-            _BEST_SBOM_COUNT=$c; _BEST_SBOM_FILE="$sbom_file"; _SBOM_FORMAT="cyclonedx"
+            _BEST_SBOM_COUNT=$c; _BEST_SBOM_FILE="$sbom_file"; _SBOM_FORMAT="syft"
         fi
     done
-    # Fall back to syft-json if no CycloneDX
+    # Fall back to CycloneDX if no syft-json found
     if [ "$_BEST_SBOM_COUNT" -eq 0 ]; then
-        for sbom_file in "$SBOM_DIR"/*.json; do
+        for sbom_file in "$SBOM_DIR"/*.cyclonedx.json; do
             [ -f "$sbom_file" ] || continue
-            c=$(jq '(.artifacts // []) | length' "$sbom_file" 2>/dev/null || echo "0")
+            c=$(jq '(.components // []) | length' "$sbom_file" 2>/dev/null || echo "0")
             [[ "$c" =~ ^[0-9]+$ ]] || c=0
             if [ "$c" -gt "$_BEST_SBOM_COUNT" ]; then
-                _BEST_SBOM_COUNT=$c; _BEST_SBOM_FILE="$sbom_file"; _SBOM_FORMAT="syft"
+                _BEST_SBOM_COUNT=$c; _BEST_SBOM_FILE="$sbom_file"; _SBOM_FORMAT="cyclonedx"
             fi
         done
     fi

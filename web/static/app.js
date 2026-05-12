@@ -285,8 +285,9 @@ const api = {
   saveGitHubConfig(d) { return this._post('/api/github/config', d); },
   triggerGitHubSync() { return this._post('/api/github/sync', {}); },
   getGitHubSyncStatus(){ return this._get('/api/github/sync'); },
-  triggerScan(target, scanType) {
+  triggerScan(target, scanType, runGarak) {
     const body = { target, scan_type: scanType };
+    if (runGarak) body.run_garak = true;
     return this._post('/api/scans', body);
   },
   getJob(id)    { return this._get(`/api/jobs/${encodeURIComponent(id)}`); },
@@ -1150,6 +1151,14 @@ async function renderNewScan(prefill = '') {
           </select>
         </div>
 
+        <div class="form-group" id="garak-checkbox-row">
+          <label class="checkbox-label">
+            <input type="checkbox" id="run-garak-chk" />
+            Run Garak LLM security scan (Layer 12)
+          </label>
+          <small>Requires <code>OPENAI_API_KEY</code> to be set.</small>
+        </div>
+
         <button id="run-btn" class="btn btn-primary" onclick="submitScan()">
           ▶ Run Scan
         </button>
@@ -1187,9 +1196,11 @@ const _SCAN_MODE_INFO = {
       { n: 9,  name: 'End-of-Life Detection',   tool: 'Xeol' },
       { n: 10, name: 'Anchore Security',        tool: 'Anchore' },
       { n: 11, name: 'API Discovery',           tool: 'Custom' },
-      { n: 12, name: 'LLM Security',            tool: 'Garak', apiKey: true, optional: true },
+      { n: 12, name: 'LLM Security',            tool: 'Garak',      apiKey: true, optional: true },
+      { n: 14, name: 'Pickle / Serialization Safety', tool: 'picklescan' },
+      { n: 15, name: 'Model Card Compliance',    tool: 'modelcard' },
     ],
-    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.'],
+    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.', 'Layers 14–15 auto-run when model weight files are detected.'],
   },
   nightly: {
     label: 'Nightly Scan',
@@ -1206,9 +1217,11 @@ const _SCAN_MODE_INFO = {
       { n: 9,  name: 'End-of-Life Detection',   tool: 'Xeol' },
       { n: 10, name: 'Anchore Security',        tool: 'Anchore' },
       { n: 11, name: 'API Discovery',           tool: 'Custom' },
-      { n: 12, name: 'LLM Security',            tool: 'Garak', apiKey: true, optional: true },
+      { n: 12, name: 'LLM Security',            tool: 'Garak',      apiKey: true, optional: true },
+      { n: 14, name: 'Pickle / Serialization Safety', tool: 'picklescan' },
+      { n: 15, name: 'Model Card Compliance',    tool: 'modelcard' },
     ],
-    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.'],
+    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.', 'Layers 14–15 auto-run when model weight files are detected.'],
   },
   quick: {
     label: 'Quick Scan',
@@ -1247,9 +1260,11 @@ const _SCAN_MODE_INFO = {
       { n: 9,  name: 'End-of-Life Detection',   tool: 'Xeol' },
       { n: 10, name: 'Anchore Security',        tool: 'Anchore' },
       { n: 11, name: 'API Discovery',           tool: 'Custom' },
-      { n: 12, name: 'LLM Security',            tool: 'Garak', apiKey: true, optional: true },
+      { n: 12, name: 'LLM Security',            tool: 'Garak',      apiKey: true, optional: true },
+      { n: 14, name: 'Pickle / Serialization Safety', tool: 'picklescan' },
+      { n: 15, name: 'Model Card Compliance',    tool: 'modelcard' },
     ],
-    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.'],
+    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.', 'Layers 14–15 auto-run when model weight files are detected.'],
   },
   local_model: {
     label: 'Local Model Scan',
@@ -1269,10 +1284,17 @@ const _SCAN_MODE_INFO = {
 
 function _onScanTypeChange(mode) {
   const inp = document.getElementById('scan-target');
-  if (!inp || inp.value) return;
-  inp.placeholder = mode === 'local_model'
-    ? '/absolute/path/to/models  (e.g. /opt/models/llama3)'
-    : '/absolute/path/to/project  or  https://github.com/org/repo.git';
+  if (inp && !inp.value) {
+    inp.placeholder = mode === 'local_model'
+      ? '/absolute/path/to/models  (e.g. /opt/models/llama3)'
+      : '/absolute/path/to/project  or  https://github.com/org/repo.git';
+  }
+  // Show Garak checkbox only for modes where Layer 12 applies
+  const garakRow = document.getElementById('garak-checkbox-row');
+  if (garakRow) {
+    const showGarak = ['full', 'nightly', 'baseline'].includes(mode);
+    garakRow.style.display = showGarak ? '' : 'none';
+  }
 }
 
 window.updateScanInfo = (mode) => {
@@ -1321,8 +1343,9 @@ window.updateScanInfo = (mode) => {
 };
 
 async function submitScan() {
-  const scanType = document.getElementById('scan-type-sel').value;
-  const btn      = document.getElementById('run-btn');
+  const scanType  = document.getElementById('scan-type-sel').value;
+  const runGarak  = !!(document.getElementById('run-garak-chk')?.checked);
+  const btn       = document.getElementById('run-btn');
 
   const target = (document.getElementById('scan-target')?.value || '').trim();
   if (!target) {
@@ -1340,7 +1363,7 @@ async function submitScan() {
   _activeJobId = null;
 
   try {
-    const job = await api.triggerScan(target, scanType);
+    const job = await api.triggerScan(target, scanType, runGarak);
     _activeJobId = job.job_id;
     clearInterval(_pollInterval);
     _pollInterval = setInterval(() => pollJob(job.job_id, btn), 2000);

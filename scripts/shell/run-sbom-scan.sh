@@ -202,14 +202,20 @@ generate_sbom() {
     echo -e "${BLUE}📋 Project: ${project_name} (${project_version})${NC}"
     echo "Project: ${project_name} (${project_version})" >> "$SCAN_LOG"
     
-    local cyclonedx_file="$OUTPUT_DIR/${scan_type}-cyclonedx.json"
+    # Use .cyclonedx.json extension so the dashboard glob (*.cyclonedx.json) picks it up
+    local cyclonedx_file="$OUTPUT_DIR/${scan_type}.cyclonedx.json"
 
     if command -v syft >/dev/null 2>&1; then
         # Use local Syft installation — output syft-json AND cyclonedx-json in one pass
         echo -e "${GREEN}✅ Using local Syft installation${NC}"
         syft version >> "$SCAN_LOG" 2>&1
 
-        if syft scan "$target" \
+        # Use dir: prefix and explicitly enable the lock-file cataloger so
+        # package-lock.json / yarn.lock / pnpm-lock.yaml are fully expanded.
+        # Without +javascript-lock-file-cataloger Syft reads only package.json
+        # direct deps and misses the full transitive dependency tree.
+        if syft scan "dir:${target}" \
+            --select-catalogers "+javascript-lock-file-cataloger" \
             -o "syft-json=${output_file}" \
             -o "cyclonedx-json=${cyclonedx_file}" \
             2>>"$SCAN_LOG"; then
@@ -228,7 +234,8 @@ generate_sbom() {
 
         if docker run --rm -v "$target":/workspace:ro \
             anchore/syft:latest \
-            scan dir:/workspace \
+            scan "dir:/workspace" \
+            --select-catalogers "+javascript-lock-file-cataloger" \
             -o "syft-json=/dev/stdout" \
             2>>"$SCAN_LOG" > "$output_file"; then
             echo -e "${GREEN}✅ SBOM generated successfully: $(basename "$output_file")${NC}"

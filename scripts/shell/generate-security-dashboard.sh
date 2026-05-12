@@ -1227,7 +1227,9 @@ if [[ -z "$CYCLONEDX_FILE" ]] && command -v syft >/dev/null 2>&1; then
     fi
     if [[ -n "$_SBOM_TARGET" && -d "$_SBOM_TARGET" ]]; then
         echo "📦 Generating CycloneDX SBOM for dashboard from: $_SBOM_TARGET" >&2
-        if syft scan "$_SBOM_TARGET" -o "cyclonedx-json=${_CDXOUT}" >/dev/null 2>&1; then
+        if syft scan "dir:${_SBOM_TARGET}" \
+            --select-catalogers "+javascript-lock-file-cataloger" \
+            -o "cyclonedx-json=${_CDXOUT}" >/dev/null 2>&1; then
             CYCLONEDX_FILE="$_CDXOUT"
         fi
     fi

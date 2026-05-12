@@ -56,6 +56,7 @@ async def run_scan_job(
     scan_type: str,
     script_path: Path,
     epyon_root: Path,
+    run_garak: bool = False,
 ) -> None:
     job = jobs[job_id]
     job["status"] = "running"
@@ -142,6 +143,9 @@ async def run_scan_job(
         f"SCAN_NAME={scan_name}",
         f"SCAN_ID={scan_name}",
     ]
+    # Garak opt-in from UI checkbox
+    if run_garak:
+        env_lines.append("RUN_GARAK=true")
     # Local model weight scan — picklescan + modelcard only, no remote clone
     if scan_type == "local_model":
         env_lines.append("RUN_PICKLESCAN=true")

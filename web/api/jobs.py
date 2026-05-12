@@ -179,6 +179,7 @@ async def run_scan_job(
         "target_name":      target_name,
         "scan_timestamp":   datetime.now().isoformat(),
         "target_directory": target_dir,
+        "source_url":       target if _is_url else "",
         "epyon_version":    epyon_version,
         "triggered_by":     "web-ui",
     }

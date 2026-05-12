@@ -664,7 +664,7 @@ async function renderScanDetail(scanId) {
     const [scan, allApps] = await Promise.all([api.getScan(scanId), api.getApplications()]);
     const status = computeStatus(scan);
     const appInfo = allApps.find(a => a.name === scan.target) || {};
-    const repoUrl = appInfo.url || scan.ci_source?.repo || '';
+    const repoUrl = scan.source_url || appInfo.url || scan.ci_source?.repo || '';
 
     // Build STIG summary card if STIG data is present
     let stigCard = '';

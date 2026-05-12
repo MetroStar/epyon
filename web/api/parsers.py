@@ -545,6 +545,7 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
         data["target"]           = meta.get("target_name") or parsed["target"]
         data["timestamp"]        = meta.get("scan_timestamp") or parsed["timestamp"]
         data["target_directory"] = meta.get("target_directory", "")
+        data["source_url"]       = meta.get("source_url", "")
         data["file_statistics"]  = meta.get("file_statistics") or {}
     else:
         # Infer scan_type from other files present in the scan directory

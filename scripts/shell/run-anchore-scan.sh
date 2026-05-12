@@ -149,6 +149,21 @@ fi
 
 log "✅ Docker is available"
 
+# Prefer local grype/syft installations to avoid Docker volume-mount issues on macOS
+if command -v grype &>/dev/null; then
+    GRYPE_CMD="grype"
+    log "✅ Using local grype: $(grype version 2>/dev/null | head -1)"
+else
+    GRYPE_CMD="docker"
+    log "ℹ Local grype not found, will use Docker image anchore/grype:latest"
+fi
+
+if command -v syft &>/dev/null; then
+    SYFT_CMD="syft"
+else
+    SYFT_CMD="docker"
+fi
+
 # Function to scan filesystem with Anchore (using Grype CLI)
 scan_filesystem() {
     log ""
@@ -163,16 +178,23 @@ scan_filesystem() {
     
     log "ℹ Scanning directory: $REPO_PATH"
     log "ℹ This may take several minutes for large repositories..."
-    
+
     # Run Anchore/Grype scan on filesystem
-    docker run --rm \
-        -v "$REPO_PATH:/scan:ro" \
-        -v "$OUTPUT_DIR:/output" \
-        anchore/grype:latest \
-        dir:/scan \
-        -o json \
-        --file /output/anchore-filesystem-results.json \
-        >> "$LOG_FILE" 2>&1
+    if [ "$GRYPE_CMD" = "grype" ]; then
+        grype "dir:$REPO_PATH" \
+            -o json \
+            --file "$OUTPUT_DIR/anchore-filesystem-results.json" \
+            >> "$LOG_FILE" 2>&1
+    else
+        docker run --rm \
+            -v "$REPO_PATH:/scan:ro" \
+            -v "$OUTPUT_DIR:/output" \
+            anchore/grype:latest \
+            dir:/scan \
+            -o json \
+            --file /output/anchore-filesystem-results.json \
+            >> "$LOG_FILE" 2>&1
+    fi
     
     if [ $? -eq 0 ] && [ -f "$FILESYSTEM_RESULTS" ]; then
         VULN_COUNT=$(jq -r '.matches | length' "$FILESYSTEM_RESULTS" 2>/dev/null || echo "0")
@@ -227,17 +249,24 @@ scan_sbom() {
     # If no SBOM found, generate one
     if [ -z "$SBOM_FILE" ]; then
         log "ℹ No existing SBOM found, generating new SBOM..."
-        
+
         # Generate SBOM using Syft
         mkdir -p "$SBOM_DIR"
-        docker run --rm \
-            -v "$REPO_PATH:/scan:ro" \
-            -v "$SBOM_DIR:/output" \
-            anchore/syft:latest \
-            dir:/scan \
-            -o json \
-            --file /output/sbom.json \
-            >> "$LOG_FILE" 2>&1
+        if [ "$SYFT_CMD" = "syft" ]; then
+            syft "dir:$REPO_PATH" \
+                -o json \
+                --file "$SBOM_DIR/sbom.json" \
+                >> "$LOG_FILE" 2>&1
+        else
+            docker run --rm \
+                -v "$REPO_PATH:/scan:ro" \
+                -v "$SBOM_DIR:/output" \
+                anchore/syft:latest \
+                dir:/scan \
+                -o json \
+                --file /output/sbom.json \
+                >> "$LOG_FILE" 2>&1
+        fi
         
         if [ ! -f "$SBOM_DIR/sbom.json" ]; then
             log "⚠️  Failed to generate SBOM"
@@ -251,15 +280,22 @@ scan_sbom() {
     # Scan the SBOM with Anchore/Grype
     if [ -f "$SBOM_FILE" ]; then
         log "ℹ Scanning SBOM for vulnerabilities: $(basename "$SBOM_FILE")"
-        
-        docker run --rm \
-            -v "$(dirname "$SBOM_FILE"):/sbom:ro" \
-            -v "$OUTPUT_DIR:/output" \
-            anchore/grype:latest \
-            "sbom:/sbom/$(basename "$SBOM_FILE")" \
-            -o json \
-            --file /output/anchore-sbom-results.json \
-            >> "$LOG_FILE" 2>&1
+
+        if [ "$GRYPE_CMD" = "grype" ]; then
+            grype "sbom:$SBOM_FILE" \
+                -o json \
+                --file "$OUTPUT_DIR/anchore-sbom-results.json" \
+                >> "$LOG_FILE" 2>&1
+        else
+            docker run --rm \
+                -v "$(dirname "$SBOM_FILE"):/sbom:ro" \
+                -v "$OUTPUT_DIR:/output" \
+                anchore/grype:latest \
+                "sbom:/sbom/$(basename "$SBOM_FILE")" \
+                -o json \
+                --file /output/anchore-sbom-results.json \
+                >> "$LOG_FILE" 2>&1
+        fi
         
         if [ $? -eq 0 ] && [ -f "$SBOM_RESULTS" ]; then
             VULN_COUNT=$(jq -r '.matches | length' "$SBOM_RESULTS" 2>/dev/null || echo "0")
@@ -365,14 +401,21 @@ scan_images() {
         IMAGE_SAFE_NAME=$(echo "$image" | tr '/:' '_')
         IMAGE_RESULT="$IMAGE_RESULTS_DIR/${IMAGE_SAFE_NAME}.json"
 
-        docker run --rm \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -v "$OUTPUT_DIR:/output" \
-            anchore/grype:latest \
-            "$image" \
-            -o json \
-            --file "/output/images/${IMAGE_SAFE_NAME}.json" \
-            >> "$LOG_FILE" 2>&1
+        if [ "$GRYPE_CMD" = "grype" ]; then
+            grype "$image" \
+                -o json \
+                --file "$IMAGE_RESULTS_DIR/${IMAGE_SAFE_NAME}.json" \
+                >> "$LOG_FILE" 2>&1
+        else
+            docker run --rm \
+                -v /var/run/docker.sock:/var/run/docker.sock \
+                -v "$OUTPUT_DIR:/output" \
+                anchore/grype:latest \
+                "$image" \
+                -o json \
+                --file "/output/images/${IMAGE_SAFE_NAME}.json" \
+                >> "$LOG_FILE" 2>&1
+        fi
 
         if [ $? -eq 0 ] && [ -f "$IMAGE_RESULT" ]; then
             VULN_COUNT=$(jq -r '.matches | length' "$IMAGE_RESULT" 2>/dev/null || echo "0")
@@ -424,15 +467,23 @@ scan_base_images() {
 
     BASE_IMAGE_RESULT="$IMAGE_RESULTS_DIR/baseline-$(echo "$PRIMARY_BASELINE_IMAGE" | tr '/:' '_').json"
 
-    docker run --rm \
-        -v /var/run/docker.sock:/var/run/docker.sock \
-        -v "$OUTPUT_DIR:/output" \
-        anchore/grype:latest \
-        "$PRIMARY_BASELINE_IMAGE" \
-        -o json \
-        --file "/output/images/baseline-$(echo "$PRIMARY_BASELINE_IMAGE" | tr '/:' '_').json" \
-        >> "$LOG_FILE" 2>&1
-    local _base_scan_exit=$?
+    if [ "$GRYPE_CMD" = "grype" ]; then
+        grype "$PRIMARY_BASELINE_IMAGE" \
+            -o json \
+            --file "$BASE_IMAGE_RESULT" \
+            >> "$LOG_FILE" 2>&1
+        local _base_scan_exit=$?
+    else
+        docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$OUTPUT_DIR:/output" \
+            anchore/grype:latest \
+            "$PRIMARY_BASELINE_IMAGE" \
+            -o json \
+            --file "/output/images/baseline-$(echo "$PRIMARY_BASELINE_IMAGE" | tr '/:' '_').json" \
+            >> "$LOG_FILE" 2>&1
+        local _base_scan_exit=$?
+    fi
 
     # Remove baseline image after scan to free disk space
     log "🧹 Removing baseline image to free disk space: $PRIMARY_BASELINE_IMAGE"

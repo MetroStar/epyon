@@ -336,8 +336,11 @@ while IFS= read -r -d '' envfile; do
         continue
     fi
     # Extract conda dependency lines (not sub-lists, not pip: marker, not comments)
-    # Converts conda pin syntax: numpy=1.21.0 -> numpy==1.21.0
-    # Passes through pip-style pins already using ==/>=/etc.
+    # Syft's python-package-cataloger ONLY catalogs packages that have an exact ==
+    # version pin in requirements files. All specs are therefore normalised to ==:
+    #   numpy=1.21.0  (conda exact)   → numpy==1.21.0
+    #   torch>=2.6.0  (pip minimum)   → torch==2.6.0  (version extracted)
+    #   alembic       (unpinned)      → alembic==0.0.0
     python3 - "$envfile" "$tmp_req" <<'PYEOF' 2>/dev/null
 import sys, re
 try:
@@ -348,27 +351,50 @@ src, dst = sys.argv[1], sys.argv[2]
 with open(src) as f:
     data = yaml.safe_load(f)
 deps = data.get("dependencies") or []
+
+def normalize_spec(spec):
+    """Convert any version spec to an exact == pin so Syft catalogs the package."""
+    spec = spec.strip()
+    # Strip extras like pyjwt[crypto] → pyjwt, keep for matching only
+    name_part = re.split(r'[=<>!;\[]', spec)[0].strip()
+    if not name_part:
+        return None
+    # Already has exact pin
+    if '==' in spec:
+        return spec
+    # Has >= or > — extract first version number and make it exact
+    m = re.search(r'[><=!]+\s*([\d][^\s,;]*)', spec)
+    if m:
+        return f"{name_part}=={m.group(1)}"
+    # No version at all
+    return f"{name_part}==0.0.0"
+
 lines = []
 for dep in deps:
     if isinstance(dep, str):
         # Skip python itself and conda-only meta-packages
         if dep.startswith("python") or dep.startswith("_"):
             continue
-        # conda uses single = for exact pin; normalise to ==
-        name = re.sub(r'(?<![=<>!])=(?!=)', '==', dep)
-        lines.append(name)
+        # conda exact pin uses single = — normalise then convert to ==
+        spec = re.sub(r'(?<![=<>!])=(?!=)', '==', dep)
+        result = normalize_spec(spec)
+        if result:
+            lines.append(result)
     elif isinstance(dep, dict) and "pip" in dep:
         for pip_dep in (dep["pip"] or []):
             if isinstance(pip_dep, str):
-                lines.append(pip_dep)
+                result = normalize_spec(pip_dep)
+                if result:
+                    lines.append(result)
 if lines:
     with open(dst, "w") as f:
         f.write("\n".join(lines) + "\n")
 PYEOF
     if [[ -f "$tmp_req" ]]; then
         CONDA_TMP_FILES+=("$tmp_req")
-        echo -e "${CYAN}📦 Pre-processed conda env: $(basename "$envfile") → $(basename "$tmp_req")${NC}"
-        echo "Pre-processed conda env: $envfile -> $tmp_req" >> "$SCAN_LOG"
+        count=$(wc -l < "$tmp_req" | tr -d ' ')
+        echo -e "${CYAN}📦 Pre-processed conda env: $(basename "$envfile") → $(basename "$tmp_req") ($count deps)${NC}"
+        echo "Pre-processed conda env: $envfile -> $tmp_req ($count deps)" >> "$SCAN_LOG"
     fi
 done < <(find "$REPO_PATH" \( -name "environment.yml" -o -name "environment.yaml" \) -not -path "*/.git/*" -print0 2>/dev/null)
 
@@ -376,12 +402,101 @@ if [[ ${#CONDA_TMP_FILES[@]} -gt 0 ]]; then
     DETECTED_TYPES="${DETECTED_TYPES:+${DETECTED_TYPES}, }Conda"
 fi
 
+# Pre-process pyproject.toml files into requirements-pyproject.txt files.
+# Syft 1.x does not extract packages from [project.dependencies] in pyproject.toml
+# when scanning a directory — only installed site-packages are catalogued.
+# Extracting to requirements format ensures python-package-cataloger picks them up.
+PYPROJECT_TMP_FILES=()
+while IFS= read -r -d '' pyproj; do
+    dir="$(dirname "$pyproj")"
+    tmp_req="$dir/requirements-pyproject.txt"
+    if [[ -f "$tmp_req" ]]; then
+        continue
+    fi
+    python3 - "$pyproj" "$tmp_req" <<'PYEOF' 2>/dev/null
+import sys, re
+
+src, dst = sys.argv[1], sys.argv[2]
+
+# Try tomllib (Python 3.11+) first, then tomli, then fall back to regex
+tomllib = None
+try:
+    import tomllib
+except ImportError:
+    try:
+        import tomli as tomllib
+    except ImportError:
+        pass
+
+lines = []
+
+if tomllib:
+    try:
+        with open(src, 'rb') as f:
+            data = tomllib.load(f)
+        project = data.get('project', {})
+        for dep in project.get('dependencies', []):
+            if isinstance(dep, str):
+                lines.append(dep.strip())
+        for group_deps in project.get('optional-dependencies', {}).values():
+            for dep in group_deps:
+                if isinstance(dep, str):
+                    lines.append(dep.strip())
+    except Exception:
+        pass
+else:
+    # Regex fallback for Python < 3.11 without tomli
+    with open(src, 'r', encoding='utf-8') as f:
+        content = f.read()
+    # Find [project] section and extract dependency strings
+    # Only look inside [project] or [project.optional-dependencies.*] tables
+    in_section = False
+    depth = 0
+    for line in content.split('\n'):
+        stripped = line.strip()
+        if re.match(r'^\[project(?:\.[a-z0-9_-]*)?\]', stripped, re.I):
+            in_section = True
+            depth = 0
+            continue
+        elif re.match(r'^\[', stripped):
+            in_section = False
+            depth = 0
+            continue
+        if not in_section:
+            continue
+        depth += stripped.count('[') - stripped.count(']')
+        for m in re.finditer(r'"([^"]+)"', stripped):
+            val = m.group(1).strip()
+            # pip-style spec: name followed by comparator or extras bracket
+            if val and re.match(r'^[a-zA-Z0-9_\-]+[^"]*$', val) and not val.startswith('#'):
+                lines.append(val)
+
+# Deduplicate preserving order, skip blank
+seen = set()
+result = []
+for l in lines:
+    if l and l not in seen:
+        seen.add(l)
+        result.append(l)
+
+if result:
+    with open(dst, 'w') as f:
+        f.write('\n'.join(result) + '\n')
+PYEOF
+    if [[ -f "$tmp_req" ]]; then
+        PYPROJECT_TMP_FILES+=("$tmp_req")
+        count=$(wc -l < "$tmp_req" | tr -d ' ')
+        echo -e "${CYAN}📦 Pre-processed pyproject.toml: $(basename "$pyproj") → $(basename "$tmp_req") ($count deps)${NC}"
+        echo "Pre-processed pyproject.toml: $pyproj -> $tmp_req ($count deps)" >> "$SCAN_LOG"
+    fi
+done < <(find "$REPO_PATH" -name "pyproject.toml" -not -path "*/.git/*" -not -path "*/node_modules/*" -print0 2>/dev/null)
+
 # Generate ONE comprehensive SBOM for the entire filesystem
 # Syft automatically detects all package types in a single scan
 generate_sbom "filesystem" "$REPO_PATH"
 
-# Clean up temporary conda requirements files
-for tmp_req in "${CONDA_TMP_FILES[@]}"; do
+# Clean up all temporary requirements files
+for tmp_req in "${CONDA_TMP_FILES[@]}" "${PYPROJECT_TMP_FILES[@]}"; do
     rm -f "$tmp_req"
 done
 

@@ -119,7 +119,7 @@ if [ -d "$REPO_PATH" ]; then
     # Count package manifests
     PACKAGE_JSON=$(find "$REPO_PATH" -name "package.json" -not -path "*/node_modules/*" 2>/dev/null | wc -l | tr -d ' ')
     REQUIREMENTS=$(find "$REPO_PATH" \( -name "requirements*.txt" -o -name "requirements*.lock" -o -name "Pipfile*" -o -name "pyproject.toml" -o -name "poetry.lock" \) 2>/dev/null | wc -l | tr -d ' ')
-    CONDA_ENV=$(find "$REPO_PATH" -name "environment.yml" -o -name "environment.yaml" 2>/dev/null | wc -l | tr -d ' ')
+    CONDA_ENV=$(find "$REPO_PATH" \( -name "environment.yml" -o -name "environment.yaml" \) -not -path "*/.git/*" 2>/dev/null | wc -l | tr -d ' ')
     GO_MOD=$(find "$REPO_PATH" -name "go.mod" 2>/dev/null | wc -l | tr -d ' ')
     POM_XML=$(find "$REPO_PATH" -name "pom.xml" 2>/dev/null | wc -l | tr -d ' ')
     GEMFILE=$(find "$REPO_PATH" -name "Gemfile" 2>/dev/null | wc -l | tr -d ' ')
@@ -298,6 +298,10 @@ fi
 if [[ -f "$REPO_PATH/requirements.txt" ]] || [[ -f "$REPO_PATH/requirements.lock" ]] || [[ -f "$REPO_PATH/pyproject.toml" ]] || [[ -f "$REPO_PATH/poetry.lock" ]] || [[ -f "$REPO_PATH/Pipfile" ]] || [[ -f "$REPO_PATH/Pipfile.lock" ]] || [[ -f "$REPO_PATH/setup.py" ]]; then
     DETECTED_TYPES="${DETECTED_TYPES}Python, "
 fi
+CONDA_ENV_COUNT=$(find "$REPO_PATH" \( -name "environment.yml" -o -name "environment.yaml" \) -not -path "*/.git/*" 2>/dev/null | wc -l | tr -d ' ')
+if [[ "$CONDA_ENV_COUNT" -gt 0 ]]; then
+    DETECTED_TYPES="${DETECTED_TYPES}Conda, "
+fi
 if [[ -f "$REPO_PATH/go.mod" ]]; then
     DETECTED_TYPES="${DETECTED_TYPES}Go, "
 fi
@@ -319,9 +323,67 @@ else
     echo -e "${CYAN}📦 No specific project type detected - scanning filesystem${NC}"
 fi
 
+# Pre-process conda environment.yml files into requirements-conda-env.txt files
+# so that Syft's python-package-cataloger picks up conda dependencies.
+# Syft has no native environment.yml cataloger; conda-meta-cataloger only works
+# on installed environments, not declaration files.
+CONDA_TMP_FILES=()
+while IFS= read -r -d '' envfile; do
+    dir="$(dirname "$envfile")"
+    tmp_req="$dir/requirements-conda-env.txt"
+    # Skip if we'd overwrite an existing file
+    if [[ -f "$tmp_req" ]]; then
+        continue
+    fi
+    # Extract conda dependency lines (not sub-lists, not pip: marker, not comments)
+    # Converts conda pin syntax: numpy=1.21.0 -> numpy==1.21.0
+    # Passes through pip-style pins already using ==/>=/etc.
+    python3 - "$envfile" "$tmp_req" <<'PYEOF' 2>/dev/null
+import sys, re
+try:
+    import yaml
+except ImportError:
+    sys.exit(0)
+src, dst = sys.argv[1], sys.argv[2]
+with open(src) as f:
+    data = yaml.safe_load(f)
+deps = data.get("dependencies") or []
+lines = []
+for dep in deps:
+    if isinstance(dep, str):
+        # Skip python itself and conda-only meta-packages
+        if dep.startswith("python") or dep.startswith("_"):
+            continue
+        # conda uses single = for exact pin; normalise to ==
+        name = re.sub(r'(?<![=<>!])=(?!=)', '==', dep)
+        lines.append(name)
+    elif isinstance(dep, dict) and "pip" in dep:
+        for pip_dep in (dep["pip"] or []):
+            if isinstance(pip_dep, str):
+                lines.append(pip_dep)
+if lines:
+    with open(dst, "w") as f:
+        f.write("\n".join(lines) + "\n")
+PYEOF
+    if [[ -f "$tmp_req" ]]; then
+        CONDA_TMP_FILES+=("$tmp_req")
+        echo -e "${CYAN}📦 Pre-processed conda env: $(basename "$envfile") → $(basename "$tmp_req")${NC}"
+        echo "Pre-processed conda env: $envfile -> $tmp_req" >> "$SCAN_LOG"
+    fi
+done < <(find "$REPO_PATH" \( -name "environment.yml" -o -name "environment.yaml" \) -not -path "*/.git/*" -print0 2>/dev/null)
+
+if [[ ${#CONDA_TMP_FILES[@]} -gt 0 ]]; then
+    DETECTED_TYPES="${DETECTED_TYPES:+${DETECTED_TYPES}, }Conda"
+fi
+
 # Generate ONE comprehensive SBOM for the entire filesystem
 # Syft automatically detects all package types in a single scan
 generate_sbom "filesystem" "$REPO_PATH"
+
+# Clean up temporary conda requirements files
+for tmp_req in "${CONDA_TMP_FILES[@]}"; do
+    rm -f "$tmp_req"
+done
 
 # Note: We no longer generate separate language-specific SBOMs
 # The filesystem SBOM captures ALL packages from ALL detected ecosystems

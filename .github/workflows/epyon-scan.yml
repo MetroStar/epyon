@@ -418,6 +418,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y jq python3 python3-pip bats
           pip3 install pyyaml pipdeptree openai
+          # Install Syft as a native binary so SBOM generation does not rely on Docker
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin
+          syft version
 
       - name: Initialize Scan
         id: init-scan

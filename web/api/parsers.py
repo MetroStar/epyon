@@ -396,6 +396,28 @@ def parse_modelcard_dir(scan_dir: Path) -> dict | None:
     }
 
 
+def parse_suppressed_findings(scan_dir: Path) -> list[dict]:
+    """Parse suppressed-findings.md into a list of structured suppression records."""
+    md_file = scan_dir / "suppressed-findings.md"
+    if not md_file.exists():
+        return []
+
+    text = md_file.read_text(encoding="utf-8", errors="replace")
+    results = []
+    # Split on "## Suppressed:" blocks
+    blocks = re.split(r"^## Suppressed:", text, flags=re.MULTILINE)
+    for block in blocks[1:]:  # skip preamble
+        lines = block.strip().splitlines()
+        record: dict = {"value": lines[0].strip() if lines else ""}
+        for line in lines[1:]:
+            m = re.match(r"-\s+\*\*(.+?)\*\*:\s*(.*)", line)
+            if m:
+                key = m.group(1).strip().lower().replace(" ", "_")
+                record[key] = m.group(2).strip()
+        results.append(record)
+    return results
+
+
 # ── Aggregate ─────────────────────────────────────────────────
 
 def load_sbom_packages(scan_dir: Path) -> dict:
@@ -675,6 +697,11 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
     modelcard_data = parse_modelcard_dir(scan_dir)
     if modelcard_data is not None:
         data["modelcard"] = modelcard_data
+
+    # ── Suppressed findings ──────────────────────────────────────────────────
+    suppressed = parse_suppressed_findings(scan_dir)
+    if suppressed:
+        data["suppressed_findings"] = suppressed
 
     return data
 

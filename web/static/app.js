@@ -808,6 +808,8 @@ async function renderScanDetail(scanId) {
 
       ${buildFindingsSection(scan.findings)}
 
+      ${buildSuppressedSection(scan.suppressed_findings)}
+
       ${stigCard}
 
       ${buildModelSecurityCard(scan)}
@@ -969,6 +971,60 @@ function buildModelSecurityCard(scan) {
         ${modelCardSection}
       </div>
     </details>`;
+}
+
+function buildSuppressedSection(items) {
+  if (!items || items.length === 0) return '';
+
+  const byType = {};
+  items.forEach(s => {
+    const t = s.type || 'other';
+    byType[t] = (byType[t] || 0) + 1;
+  });
+
+  const rows = items.map(s => {
+    const typeColor = s.type === 'tool' ? '#6366f1' : s.type === 'cve' ? '#f59e0b' : '#6b7280';
+    return `<tr>
+      <td style="padding:5px 10px;font-size:12px">
+        <span class="tool-tag" style="font-size:11px;padding:1px 6px;background:${typeColor}22;color:${typeColor};border:1px solid ${typeColor}44">${esc(s.type || 'unknown')}</span>
+      </td>
+      <td style="padding:5px 10px;font-family:monospace;font-size:12px;font-weight:600">${esc(s.value || '—')}</td>
+      <td style="padding:5px 10px;font-size:12px;color:#9ca3af">${esc(s.tool || '—')}</td>
+      <td style="padding:5px 10px;font-size:12px;max-width:400px">${esc(s.reason || '—')}</td>
+      <td style="padding:5px 10px;font-size:12px;color:#6b7280">${esc(s.approved_by || '—')}</td>
+      <td style="padding:5px 10px;font-size:12px">
+        ${s.severity && s.severity !== 'N/A'
+          ? `<span class="sev-badge sev-${esc(s.severity.toLowerCase())}">${esc(s.severity)}</span>`
+          : '<span style="color:#4b5563">—</span>'}
+      </td>
+    </tr>`;
+  }).join('');
+
+  const summary = Object.entries(byType)
+    .map(([t, n]) => `<span class="tool-tag" style="font-size:11px">${esc(t)} <strong>${n}</strong></span>`)
+    .join('');
+
+  return `
+    <div class="section">
+      <div class="section-title" style="color:#f59e0b">🚫 Suppressed Findings — ${items.length} rule${items.length !== 1 ? 's' : ''}</div>
+      <div style="font-size:12px;color:#6b7280;margin-bottom:10px">These findings are suppressed by <code>.epyon-ignore.yml</code> rules in the scanned repository.</div>
+      <div class="tools-list" style="margin-bottom:10px">${summary}</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="text-align:left;border-bottom:1px solid #374151;color:#9ca3af">
+              <th style="padding:5px 10px;font-weight:500">Type</th>
+              <th style="padding:5px 10px;font-weight:500">Value / ID</th>
+              <th style="padding:5px 10px;font-weight:500">Tool</th>
+              <th style="padding:5px 10px;font-weight:500">Reason</th>
+              <th style="padding:5px 10px;font-weight:500">Approved By</th>
+              <th style="padding:5px 10px;font-weight:500">Severity</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
 }
 
 function buildSBOMSection(sbom) {

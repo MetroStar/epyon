@@ -9,6 +9,10 @@
 const _findingsRegistry     = new Map();
 let   _findingNextId        = 0;
 
+// ── Dependency detail registry (populated in sbomRender) ──────
+const _depsRegistry         = new Map();
+let   _depsNextId           = 0;
+
 // ── Findings sort state (per severity) ───────────────────────
 const _currentFindingsBySev = {};
 const _sortState             = {};
@@ -309,6 +313,26 @@ const api = {
   getGlobalTechnicalSummary() { return this._post('/api/technical-summary', {}); },
   getStigData(id){ return this._get(`/api/scans/${encodeURIComponent(id)}/stig-data`); },
 };
+
+// ── Sidebar collapse ─────────────────────────────────────────
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const content = document.getElementById('content');
+  const collapsed = sidebar.classList.toggle('collapsed');
+  if (content) content.style.marginLeft = collapsed ? '48px' : '';
+  try { localStorage.setItem('epyon-sidebar-collapsed', collapsed ? '1' : ''); } catch (_) {}
+}
+
+(function initSidebar() {
+  try {
+    if (localStorage.getItem('epyon-sidebar-collapsed') === '1') {
+      const sidebar = document.getElementById('sidebar');
+      const content = document.getElementById('content');
+      if (sidebar) sidebar.classList.add('collapsed');
+      if (content) content.style.marginLeft = '48px';
+    }
+  } catch (_) {}
+})();
 
 // ── Navigation ────────────────────────────────────────────────
 function setActive(routeKey) {
@@ -829,7 +853,7 @@ async function renderScanDetail(scanId) {
           </div>
         </div>` : ''}
 
-      ${buildSBOMSection(scan.sbom)}
+      ${buildSBOMSection(scan.sbom, scanId)}
 
       ${scan.file_statistics && Object.keys(scan.file_statistics).length ? `
         <div class="section">
@@ -1332,7 +1356,7 @@ function buildSuppressedSection(items) {
     </div>`;
 }
 
-function buildSBOMSection(sbom) {
+function buildSBOMSection(sbom, scanId) {
   if (!sbom || sbom.total === 0) return '';
   const byType = sbom.by_type || {};
   const uid = 'sbom-' + Math.random().toString(36).slice(2);
@@ -1343,11 +1367,13 @@ function buildSBOMSection(sbom) {
     .join('');
 
   const allPackages = (sbom.packages || []).map(p => ({
-    name: p.name || '',
-    version: p.version || '',
-    type: p.type || '',
-    license: (p.licenses || []).filter(Boolean).join(', ') || '',
-    path: p.path || '',
+    name:     p.name     || '',
+    version:  p.version  || '',
+    type:     p.type     || '',
+    language: p.language || '',
+    purl:     p.purl     || '',
+    license:  (p.licenses || []).filter(Boolean).join(', ') || '',
+    path:     p.path     || '',
   }));
 
   // Store data synchronously — script tags injected via innerHTML don't execute
@@ -1355,9 +1381,16 @@ function buildSBOMSection(sbom) {
   window._sbomData[uid] = { packages: allPackages, sortCol: null, sortDir: 'asc', filterType: null };
   window._sbomPendingUid = uid;
 
+  const cdxUrl = scanId
+    ? `/api/scans/${encodeURIComponent(scanId)}/sbom/cyclonedx`
+    : null;
+
   return `
     <div class="section">
-      <div class="section-title">📦 SBOM — ${esc(String(sbom.total))} Packages</div>
+      <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
+        <span>📦 SBOM — ${esc(String(sbom.total))} Packages</span>
+        ${cdxUrl ? `<a class="btn btn-sm" href="${cdxUrl}" download style="font-size:11px">↓ CycloneDX JSON</a>` : ''}
+      </div>
       <div class="tools-list" style="margin-bottom:10px">${typeChips}</div>
       <details id="${uid}-details" open>
         <summary style="cursor:pointer;font-size:13px;color:#6b7280">Show all packages</summary>
@@ -1483,13 +1516,17 @@ window.sbomRender = function(uid) {
       : `${items.length} of ${s.packages.length} packages`;
   }
 
-  tbody.innerHTML = items.map(p => `<tr>
-    <td style="font-family:monospace;font-size:12px;padding:3px 8px">${esc(p.name)}</td>
-    <td style="font-size:12px;padding:3px 8px">${esc(p.version)}</td>
-    <td style="padding:3px 8px"><span class="tool-tag" style="font-size:11px;padding:1px 6px">${esc(p.type)}</span></td>
-    <td style="font-size:11px;color:#888;padding:3px 8px">${esc(p.license)}</td>
-    <td style="font-family:monospace;font-size:11px;color:#6b7280;padding:3px 8px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.path)}">${esc(p.path)}</td>
-  </tr>`).join('');
+  tbody.innerHTML = items.map(p => {
+    const did = _depsNextId++;
+    _depsRegistry.set(did, p);
+    return `<tr class="finding-row" style="cursor:pointer" onclick="openDependencyDetail(${did})" title="Click to view details">
+      <td style="font-family:monospace;font-size:12px;padding:3px 8px">${esc(p.name)}</td>
+      <td style="font-size:12px;padding:3px 8px">${esc(p.version)}</td>
+      <td style="padding:3px 8px"><span class="tool-tag" style="font-size:11px;padding:1px 6px">${esc(p.type)}</span></td>
+      <td style="font-size:11px;color:#888;padding:3px 8px">${esc(p.license)}</td>
+      <td style="font-family:monospace;font-size:11px;color:#6b7280;padding:3px 8px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.path)}">${esc(p.path)}</td>
+    </tr>`;
+  }).join('');
 };
 
 function _buildFindingRows(items) {
@@ -3151,6 +3188,123 @@ function resolve() {
 
 window.addEventListener('hashchange', resolve);
 window.addEventListener('load', resolve);
+
+// ── Dependency detail drawer ────────────────────────────────────
+window.openDependencyDetail = function(did) {
+  const p = _depsRegistry.get(did);
+  if (!p) return;
+
+  closeFindingDetail();
+
+  const purlUrl = (() => {
+    if (!p.purl) return null;
+    const m = p.purl.match(/^pkg:([^/]+)\/([^@?#]+)(?:@([^?#]+))?/);
+    if (!m) return null;
+    const [, eco, pkg] = m;
+    const pkgName = pkg.includes('%2F') ? pkg.replace('%2F', '/') : pkg;
+    if (eco === 'npm')    return `https://www.npmjs.com/package/${pkgName}`;
+    if (eco === 'pypi')   return `https://pypi.org/project/${pkgName}`;
+    if (eco === 'gem')    return `https://rubygems.org/gems/${pkgName}`;
+    if (eco === 'cargo')  return `https://crates.io/crates/${pkgName}`;
+    if (eco === 'maven')  return `https://mvnrepository.com/artifact/${pkgName.replace('%3A', '/')}`;
+    if (eco === 'golang') return `https://pkg.go.dev/${pkgName}`;
+    if (eco === 'nuget')  return `https://www.nuget.org/packages/${pkgName}`;
+    if (eco === 'composer') return `https://packagist.org/packages/${pkgName}`;
+    if (eco === 'apk' || eco === 'deb' || eco === 'rpm') return null;
+    return null;
+  })();
+
+  const purlSection = p.purl ? `
+    <div class="finding-detail-section" style="grid-column:1/-1">
+      <div class="finding-detail-label">Package URL (PURL)</div>
+      <div class="finding-detail-value" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <code style="font-size:11px;word-break:break-all">${esc(p.purl)}</code>
+        ${purlUrl ? `<a href="${esc(purlUrl)}" target="_blank" rel="noopener noreferrer"
+             style="font-size:11px;white-space:nowrap;color:#6366f1">
+             View registry
+             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle">
+               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+               <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+             </svg>
+           </a>` : ''}
+      </div>
+    </div>` : '';
+
+  const pathSection = p.path ? `
+    <div class="finding-detail-section" style="grid-column:1/-1">
+      <div class="finding-detail-label">File Path</div>
+      <div class="finding-detail-value"><code style="word-break:break-all">${esc(p.path)}</code></div>
+    </div>` : '';
+
+  const licenseSection = p.license ? `
+    <div class="finding-detail-section">
+      <div class="finding-detail-label">License</div>
+      <div class="finding-detail-value"><code>${esc(p.license)}</code></div>
+    </div>` : '';
+
+  const langSection = p.language ? `
+    <div class="finding-detail-section">
+      <div class="finding-detail-label">Language</div>
+      <div class="finding-detail-value"><code>${esc(p.language)}</code></div>
+    </div>` : '';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'finding-drawer-overlay';
+  overlay.id        = 'finding-drawer-overlay';
+  overlay.addEventListener('click', closeFindingDetail);
+
+  const drawer = document.createElement('div');
+  drawer.className = 'finding-drawer';
+  drawer.id        = 'finding-drawer';
+  drawer.setAttribute('role', 'dialog');
+  drawer.setAttribute('aria-modal', 'true');
+  drawer.setAttribute('aria-label', 'Dependency details');
+  drawer.addEventListener('click', e => e.stopPropagation());
+
+  drawer.innerHTML = `
+    <div class="finding-drawer-header">
+      <div class="finding-drawer-title">
+        <h2>${esc(p.name)}</h2>
+        <div class="finding-drawer-badges">
+          <span class="tool-tag">${esc(p.type)}</span>
+          ${p.version ? `<code style="font-size:12px">${esc(p.version)}</code>` : ''}
+          ${p.language ? `<span class="tool-tag" style="background:#1e3a5f;color:#93c5fd">${esc(p.language)}</span>` : ''}
+        </div>
+      </div>
+      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+    </div>
+    <div class="finding-drawer-body">
+
+      <div class="finding-detail-grid">
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Name</div>
+          <div class="finding-detail-value"><code>${esc(p.name)}</code></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Version</div>
+          <div class="finding-detail-value">${p.version ? `<code>${esc(p.version)}</code>` : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Type</div>
+          <div class="finding-detail-value"><span class="tool-tag" style="font-size:12px">${esc(p.type)}</span></div>
+        </div>
+        ${langSection}
+        ${licenseSection}
+      </div>
+
+      ${pathSection}
+      ${purlSection}
+
+    </div>`;
+
+  document.body.appendChild(overlay);
+  document.body.appendChild(drawer);
+
+  const _onKey = e => { if (e.key === 'Escape') { closeFindingDetail(); document.removeEventListener('keydown', _onKey); } };
+  document.addEventListener('keydown', _onKey);
+  drawer._onKey = _onKey;
+};
 
 // ── Finding detail drawer ─────────────────────────────────────
 function _registerFinding(f) {

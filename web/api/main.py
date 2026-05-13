@@ -550,6 +550,33 @@ def scan_sbom(scan_id: str, response: Response):
     return parsers.load_sbom_packages(matched)
 
 
+@app.get("/api/scans/{scan_id}/sbom/cyclonedx")
+def scan_sbom_cyclonedx(scan_id: str, response: Response):
+    """Download the CycloneDX SBOM JSON for a scan."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
+    matched = next((d for d in scan_dirs if d.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+    sbom_dir = matched / "sbom"
+    # Prefer the dedicated cyclonedx file, fall back to any *.cyclonedx.json
+    candidates = [
+        sbom_dir / "filesystem.cyclonedx.json",
+        *sorted(sbom_dir.glob("*.cyclonedx.json")),
+    ]
+    cdx_file = next((f for f in candidates if f.exists()), None)
+    if cdx_file is None:
+        raise HTTPException(404, "CycloneDX SBOM not found for this scan")
+    filename = f"sbom-{scan_id}.cyclonedx.json"
+    return FileResponse(
+        str(cdx_file),
+        media_type="application/vnd.cyclonedx+json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 # ── Trigger scan ──────────────────────────────────────────────
 
 @app.post("/api/scans", status_code=202)

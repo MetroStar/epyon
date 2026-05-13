@@ -10,4 +10,6 @@ echo "Checking dependencies…"
 python3 -m pip install -q -r "$SCRIPT_DIR/api/requirements.txt"
 
 echo "Starting Epyon Web UI on http://${HOST}:${PORT}"
-exec python3 -m uvicorn api.main:app --host "$HOST" --port "$PORT" --app-dir "$SCRIPT_DIR"
+RELOAD=""
+[[ "${DEV:-}" == "1" ]] && RELOAD="--reload"
+exec python3 -m uvicorn api.main:app --host "$HOST" --port "$PORT" --app-dir "$SCRIPT_DIR" $RELOAD

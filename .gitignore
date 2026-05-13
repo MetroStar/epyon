@@ -25,6 +25,7 @@ baseline/*                    # But exclude everything in it by default
 !baseline/scans/              # Include baseline scans directory
 
 # Temporary files
+tmp/
 *.tmp
 *.temp
 *~

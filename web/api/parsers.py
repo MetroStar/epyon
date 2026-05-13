@@ -451,6 +451,7 @@ def load_sbom_packages(scan_dir: Path) -> dict:
                 "type":     a.get("type", "unknown"),
                 "language": a.get("language", ""),
                 "purl":     a.get("purl", ""),
+                "path":     ((a.get("locations") or [{}])[0].get("path") or ""),
                 "licenses": [
                     (lic.get("value") or lic.get("spdxExpression") or "")
                     for lic in (a.get("licenses") or [])
@@ -468,6 +469,7 @@ def load_sbom_packages(scan_dir: Path) -> dict:
                 "type":     c.get("type", "library"),
                 "language": "",
                 "purl":     c.get("purl", ""),
+                "path":     "",
                 "licenses": [
                     (lic.get("license", {}).get("id") or lic.get("license", {}).get("name") or "")
                     for lic in (c.get("licenses") or [])

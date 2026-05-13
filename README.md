@@ -324,26 +324,32 @@ Epyon ships a FastAPI-backed single-page web UI for running scans, browsing resu
 
 ### Setup (first time only)
 
+Create a virtual environment (optional but recommended):
+
 ```bash
 # From the repo root
 python3 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install -r web/api/requirements.txt
 ```
+
+> Dependencies are installed automatically when you run `start.sh`, so no manual `pip install` is needed.
 
 ### Start the server
 
 ```bash
 # Option A — convenience script (recommended)
+# Installs/updates dependencies automatically, then starts the server
 cd web
 ./start.sh
 
 # Option B — manual uvicorn
 source .venv/bin/activate
 cd web
+pip install -q -r api/requirements.txt
 python3 -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --app-dir .
 
 # Option C — hot-reload during development
+pip install -q -r api/requirements.txt
 python3 -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --app-dir . --reload
 ```
 

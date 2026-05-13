@@ -303,6 +303,10 @@ const api = {
   getMetrics()  { return this._get('/api/metrics'); },
   getAiConfig() { return this._get('/api/ai/config'); },
   saveAiConfig(d){ return this._post('/api/ai/config', d); },
+  getExecSummary(id)      { return this._post(`/api/scans/${encodeURIComponent(id)}/executive-summary`, {}); },
+  getTechnicalSummary(id) { return this._post(`/api/scans/${encodeURIComponent(id)}/technical-summary`, {}); },
+  getGlobalExecSummary()      { return this._post('/api/executive-summary', {}); },
+  getGlobalTechnicalSummary() { return this._post('/api/technical-summary', {}); },
   getStigData(id){ return this._get(`/api/scans/${encodeURIComponent(id)}/stig-data`); },
 };
 
@@ -391,6 +395,8 @@ async function renderOverview() {
           <div class="stat-label">Low</div>
         </div>
       </div>
+
+      ${buildOverviewAiSection()}
 
       <div class="section">
         <div class="section-title">
@@ -971,6 +977,305 @@ function buildModelSecurityCard(scan) {
         ${modelCardSection}
       </div>
     </details>`;
+}
+
+// ── Overview AI Summary Section ──────────────────────────────
+
+// Minimal markdown → HTML renderer (no external library)
+function renderMarkdown(text) {
+  if (!text) return '';
+  // Escape HTML first (except we'll add our own tags)
+  const safe = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  const lines = text.split('\n');
+  let html = '';
+  let inList = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i];
+
+    // Headings: ## H2, # H1 (treat both as bold section headers)
+    if (/^## /.test(line)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<p style="margin:12px 0 4px;font-weight:700;font-size:13px;color:var(--text-primary)">${safe(line.replace(/^## /, ''))}</p>`;
+      continue;
+    }
+    if (/^# /.test(line)) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<p style="margin:14px 0 4px;font-weight:700;font-size:14px;color:var(--text-primary)">${safe(line.replace(/^# /, ''))}</p>`;
+      continue;
+    }
+
+    // Bullet list items
+    if (/^[-*] /.test(line)) {
+      if (!inList) { html += '<ul style="margin:4px 0 4px 18px;padding:0">'; inList = true; }
+      const content = inlineMarkdown(safe(line.replace(/^[-*] /, '')));
+      html += `<li style="margin:2px 0;font-size:12px">${content}</li>`;
+      continue;
+    }
+
+    // Close list if needed
+    if (inList && line.trim() !== '') { html += '</ul>'; inList = false; }
+
+    // Blank line
+    if (line.trim() === '') {
+      if (!inList) html += '<br>';
+      continue;
+    }
+
+    // Normal paragraph line
+    html += `<p style="margin:3px 0;font-size:12px;line-height:1.6">${inlineMarkdown(safe(line))}</p>`;
+  }
+
+  if (inList) html += '</ul>';
+  return html;
+}
+
+function inlineMarkdown(s) {
+  // **bold** or __bold__
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/__(.+?)__/g, '<strong>$1</strong>');
+  // *italic*
+  s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // `code`
+  s = s.replace(/`([^`]+)`/g, '<code style="background:var(--border);padding:1px 4px;border-radius:3px;font-size:11px">$1</code>');
+  return s;
+}
+
+function buildOverviewAiSection() {
+  return `
+    <div class="section" id="overview-ai-section" style="border-left:3px solid #6366f1">
+      <div class="section-title" style="display:flex;align-items:center;gap:10px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6366f1"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a9.96 9.96 0 0 1 7.07 2.93A10 10 0 1 1 12 2z"/>
+          <path d="M12 8v4l3 3"/>
+        </svg>
+        AI Analysis
+      </div>
+      <div id="overview-ai-body">
+        <button class="btn btn-primary" onclick="generateOverviewSummaries()">
+          ✦ Generate Both Summaries
+        </button>
+        <p style="margin:8px 0 0;font-size:11px;color:var(--text-muted)">
+          Generates an executive brief (for leadership) and a technical brief (for dev teams)
+          across all tracked applications. Requires an OpenAI API key configured in Settings.
+        </p>
+      </div>
+    </div>`;
+}
+
+// Cache last-generated overview summary text for PDF export
+let _overviewSummaryCache = { exec: null, tech: null };
+
+async function generateOverviewSummaries() {
+  const body = document.getElementById('overview-ai-body');
+  if (!body) return;
+
+  // Loading state
+  body.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 0;color:var(--text-muted);font-size:13px">
+      <div class="spinner" style="width:16px;height:16px;border-width:2px"></div>
+      Generating summaries… this may take 15–30 seconds
+    </div>`;
+
+  const [execResult, techResult] = await Promise.allSettled([
+    api.getGlobalExecSummary(),
+    api.getGlobalTechnicalSummary(),
+  ]);
+
+  const execOk   = execResult.status === 'fulfilled';
+  const techOk   = techResult.status === 'fulfilled';
+  const execText = execOk  ? execResult.value.summary : null;
+  const techText = techOk  ? techResult.value.summary : null;
+  const execErr  = !execOk ? execResult.reason?.message || 'Generation failed' : null;
+  const techErr  = !techOk ? techResult.reason?.message || 'Generation failed' : null;
+
+  // Cache for PDF export
+  _overviewSummaryCache = { exec: execText, tech: techText };
+
+  function summaryCard({ title, accentColor, bgColor, content, error }) {
+    const inner = error
+      ? `<div style="color:#ef4444;font-size:12px;padding:8px 0">⚠ ${esc(error)}</div>`
+      : `<div style="line-height:1.6">${renderMarkdown(content)}</div>`;
+    return `
+      <details class="findings-collapsible" style="border-left-color:${accentColor}" open>
+        <summary class="findings-summary">
+          <span class="findings-summary-left">
+            <span class="findings-chevron"></span>
+            <span class="findings-summary-title" style="color:${accentColor}">${title}</span>
+          </span>
+          <span class="findings-summary-hint">Click to collapse</span>
+        </summary>
+        <div style="padding:12px 16px 16px;background:${bgColor};border-radius:0 0 6px 6px">
+          ${inner}
+        </div>
+      </details>`;
+  }
+
+  const canExport = execText || techText;
+
+  body.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:12px">
+      ${summaryCard({
+        title:       '📋 Executive Summary',
+        accentColor: '#f59e0b',
+        bgColor:     'rgba(245,158,11,0.04)',
+        content:     execText,
+        error:       execErr,
+      })}
+      ${summaryCard({
+        title:       '🔧 Technical Summary',
+        accentColor: '#6366f1',
+        bgColor:     'rgba(99,102,241,0.04)',
+        content:     techText,
+        error:       techErr,
+      })}
+    </div>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+      <button class="btn" style="font-size:11px" onclick="generateOverviewSummaries()">
+        ↺ Regenerate
+      </button>
+      ${canExport ? `<button class="btn btn-primary" style="font-size:11px" onclick="exportOverviewSummaryPdf()">
+        ↓ Export PDF
+      </button>` : ''}
+    </div>`;
+}
+
+function exportOverviewSummaryPdf() {
+  const { exec, tech } = _overviewSummaryCache;
+  if (!exec && !tech) return;
+
+  const dateStr = new Date().toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
+
+  function mdToHtml(text) {
+    if (!text) return '<p style="color:#888">Not available.</p>';
+    // Reuse inline rendering logic but produce standalone HTML
+    const lines = text.split('\n');
+    let html = '';
+    let inList = false;
+    for (const line of lines) {
+      if (/^## /.test(line)) {
+        if (inList) { html += '</ul>'; inList = false; }
+        html += `<h3>${line.replace(/^## /, '')}</h3>`;
+        continue;
+      }
+      if (/^# /.test(line)) {
+        if (inList) { html += '</ul>'; inList = false; }
+        html += `<h2>${line.replace(/^# /, '')}</h2>`;
+        continue;
+      }
+      if (/^[-*] /.test(line)) {
+        if (!inList) { html += '<ul>'; inList = true; }
+        html += `<li>${pdfInline(line.replace(/^[-*] /, ''))}</li>`;
+        continue;
+      }
+      if (inList && line.trim() !== '') { html += '</ul>'; inList = false; }
+      if (line.trim() === '') { if (!inList) html += '<br>'; continue; }
+      html += `<p>${pdfInline(line)}</p>`;
+    }
+    if (inList) html += '</ul>';
+    return html;
+  }
+
+  function pdfInline(s) {
+    s = s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/__(.+?)__/g, '<strong>$1</strong>');
+    s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+    s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+    return s;
+  }
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Epyon Security Analysis — ${dateStr}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 12pt;
+      color: #1a1a1a;
+      margin: 0;
+      padding: 0;
+    }
+    .page { padding: 36px 48px; max-width: 900px; margin: 0 auto; }
+    .report-header {
+      border-bottom: 2px solid #1a1a1a;
+      padding-bottom: 16px;
+      margin-bottom: 28px;
+    }
+    .report-title { font-size: 22pt; font-weight: 700; margin: 0 0 4px; }
+    .report-meta  { font-size: 10pt; color: #555; margin: 0; }
+    .section-heading {
+      font-size: 14pt;
+      font-weight: 700;
+      margin: 28px 0 12px;
+      padding: 8px 12px;
+      border-radius: 4px;
+    }
+    .exec-heading  { background: #fff8e8; border-left: 4px solid #f59e0b; color: #92400e; }
+    .tech-heading  { background: #eef2ff; border-left: 4px solid #6366f1; color: #3730a3; }
+    .section-body  { padding: 0 4px; }
+    h2 { font-size: 13pt; margin: 18px 0 6px; }
+    h3 { font-size: 11pt; margin: 14px 0 4px; }
+    p  { margin: 4px 0 8px; line-height: 1.6; }
+    ul { margin: 4px 0 8px 20px; padding: 0; }
+    li { margin: 3px 0; line-height: 1.5; }
+    code {
+      background: #f3f4f6;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-family: 'SF Mono', Consolas, monospace;
+      font-size: 10pt;
+    }
+    .footer {
+      margin-top: 40px;
+      padding-top: 12px;
+      border-top: 1px solid #ddd;
+      font-size: 9pt;
+      color: #888;
+      text-align: center;
+    }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .page { padding: 24px 36px; }
+      @page { margin: 18mm 15mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="report-header">
+      <p class="report-title">Epyon Security Analysis</p>
+      <p class="report-meta">Generated: ${dateStr} &nbsp;|&nbsp; AI-Assisted Report &nbsp;|&nbsp; Confidential</p>
+    </div>
+
+    <div class="section-heading exec-heading">📋 Executive Summary</div>
+    <div class="section-body">${mdToHtml(exec)}</div>
+
+    <div class="section-heading tech-heading">🔧 Technical Summary</div>
+    <div class="section-body">${mdToHtml(tech)}</div>
+
+    <div class="footer">
+      Generated by Epyon Security Scanner &nbsp;·&nbsp; ${dateStr} &nbsp;·&nbsp; AI-assisted — verify findings before acting
+    </div>
+  </div>
+  <script>window.onload = function() { window.print(); };<\/script>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank');
+  if (!win) {
+    alert('Pop-up blocked — please allow pop-ups for this page and try again.');
+    return;
+  }
+  win.document.write(html);
+  win.document.close();
 }
 
 function buildSuppressedSection(items) {

@@ -51,6 +51,11 @@ on:
         required: false
         default: ''
         type: string
+      sbom_artifact:
+        description: 'Name of SBOM artifact from a prior job (CycloneDX JSON). When provided, Layer 1 (Syft) is skipped and this SBOM is used for vulnerability scanning.'
+        required: false
+        default: ''
+        type: string
       fail_on_critical:
         description: 'Fail build on critical severity findings'
         required: false
@@ -362,6 +367,27 @@ jobs:
             sed -i -E "s|<source>[^<]+</source>|<source>${CHECKOUT_DIR}</source>|g" target-repo/coverage.xml
           fi
 
+      - name: Download SBOM artifact
+        if: inputs.sbom_artifact != ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "📥 Downloading SBOM artifact: ${{ inputs.sbom_artifact }}"
+          mkdir -p /tmp/sbom-artifact
+          gh run download "$GITHUB_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "${{ inputs.sbom_artifact }}" \
+            --dir /tmp/sbom-artifact \
+          && echo "✅ SBOM artifact downloaded" \
+          || echo "⚠️ SBOM artifact not available — Layer 1 (Syft) will generate one"
+
+          # Write flag for the CI orchestrator to detect
+          if find /tmp/sbom-artifact -name "*.json" -print -quit | grep -q .; then
+            echo "/tmp/sbom-artifact" > /tmp/epyon-prebuilt-sbom
+            echo "[INFO] Pre-built SBOM will be used; Layer 1 (Syft) will be skipped"
+          fi
+
       - name: Free Disk Space
         run: |
           echo "📊 Disk usage before cleanup:"
@@ -497,6 +523,11 @@ jobs:
           echo "SCAN_ID=$SCAN_NAME" >> /tmp/epyon-env
           echo "scan_dir=$SCAN_DIR" >> $GITHUB_OUTPUT
           echo "scan_id=$SCAN_NAME" >> $GITHUB_OUTPUT
+
+          # Pick up pre-built SBOM flag from earlier download step
+          if [[ -f /tmp/epyon-prebuilt-sbom ]]; then
+            echo "PREBUILT_SBOM_DIR=$(cat /tmp/epyon-prebuilt-sbom)" >> /tmp/epyon-env
+          fi
           echo "🚀 Initialized scan: $SCAN_NAME"
 
       - name: Free Disk Space (pre-scan)

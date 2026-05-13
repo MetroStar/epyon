@@ -293,7 +293,17 @@ PYEOF
     # Using --skip-download to scan Helm templates even without access to private registries
     # This allows scanning of raw templates without requiring helm dependency resolution
     echo -e "${BLUE}🔍 Running Checkov scan (skipping external dependencies)...${NC}"
-    
+
+    # Stage paths to /tmp — Docker Desktop on macOS cannot mount paths under ~/Desktop
+    # due to a known VirtioFS metadata bug where /host_mnt/Users/<user>/Desktop is a
+    # file instead of a directory in the Docker VM.
+    _CK_SRC="/tmp/epyon-checkov-src-$$"
+    _CK_OUT="/tmp/epyon-checkov-out-$$"
+    rm -rf "$_CK_SRC" "$_CK_OUT"
+    rsync -a --quiet "$TARGET_SCAN_DIR/" "$_CK_SRC/" 2>/dev/null || cp -rL "$TARGET_SCAN_DIR" "$_CK_SRC"
+    mkdir -p "$_CK_OUT"
+    _checkov_cleanup() { cp -r "$_CK_OUT/." "$OUTPUT_DIR/" 2>/dev/null || true; rm -rf "$_CK_SRC" "$_CK_OUT"; }
+
     # Disable exit-on-error for Checkov command since it may return non-zero when findings exist
     set +e
     ${CONTAINER_CLI} run --rm \
@@ -303,8 +313,8 @@ PYEOF
         -e AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
         -e AWS_PROFILE="$AWS_PROFILE" \
         $AWS_MOUNT_ARGS \
-        -v "$TARGET_SCAN_DIR:/workspace" \
-        -v "$OUTPUT_DIR:/output" \
+        -v "$_CK_SRC:/workspace" \
+        -v "$_CK_OUT:/output" \
         bridgecrew/checkov:latest \
         --directory /workspace \
         --skip-path node_modules \
@@ -316,7 +326,7 @@ PYEOF
         --output json \
         --output-file /output/checkov-results.json \
         2>&1 | tee -a "$SCAN_LOG"
-    
+
     SCAN_RESULT=$?
     set -e
     
@@ -335,8 +345,8 @@ PYEOF
             -e AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
             -e AWS_PROFILE="$AWS_PROFILE" \
             $AWS_MOUNT_ARGS \
-            -v "$TARGET_SCAN_DIR:/workspace" \
-            -v "$OUTPUT_DIR:/output" \
+            -v "$_CK_SRC:/workspace" \
+            -v "$_CK_OUT:/output" \
             bridgecrew/checkov:latest \
             --directory /workspace/chart/templates \
             --framework kubernetes \
@@ -344,14 +354,14 @@ PYEOF
             --output-file /output/checkov-kubernetes-results.json \
             2>&1 | tee -a "$SCAN_LOG"
         set -e
-        
+
         # Also scan values.yaml and secrets.yaml for secrets detection
         echo -e "${BLUE}🔍 Scanning Helm values for secrets...${NC}"
         set +e
         ${CONTAINER_CLI} run --rm \
             --user "$(id -u):$(id -g)" \
-            -v "$TARGET_SCAN_DIR:/workspace" \
-            -v "$OUTPUT_DIR:/output" \
+            -v "$_CK_SRC:/workspace" \
+            -v "$_CK_OUT:/output" \
             bridgecrew/checkov:latest \
             --directory /workspace/chart \
             --framework secrets \
@@ -360,18 +370,18 @@ PYEOF
             --output-file /output/checkov-secrets-results.json \
             2>&1 | tee -a "$SCAN_LOG"
         set -e
-        
+
         echo "✅ Additional Helm template scans completed"
     fi
-    
+
     # Scan GitHub Actions workflows
     if find "$TARGET_SCAN_DIR" -path "$TARGET_SCAN_DIR/.github/workflows/*.yml" -o -path "$TARGET_SCAN_DIR/.github/workflows/*.yaml" -o -name "*workflow*.yml" -o -name "*workflow*.yaml" | grep -q .; then
         echo -e "${BLUE}🔍 Scanning GitHub Actions workflows...${NC}"
         set +e
         ${CONTAINER_CLI} run --rm \
             --user "$(id -u):$(id -g)" \
-            -v "$TARGET_SCAN_DIR:/workspace" \
-            -v "$OUTPUT_DIR:/output" \
+            -v "$_CK_SRC:/workspace" \
+            -v "$_CK_OUT:/output" \
             bridgecrew/checkov:latest \
             --directory /workspace \
             --framework github_actions \
@@ -383,15 +393,18 @@ PYEOF
         set -e
         echo "✅ GitHub Actions workflow scan completed"
     fi
-    
+
+    # Copy staged output back to OUTPUT_DIR and clean up /tmp staging dirs
+    _checkov_cleanup
+
     # Checkov creates a directory with results_json.json inside when using --output-file
     # Handle this by finding the actual results file
     echo "Debug: Checking Checkov output structure..." >&2
     echo "Debug: Looking for directory: $OUTPUT_DIR/checkov-results.json" >&2
-    
+
     # Permissions are already correct: Docker containers run with --user $(id -u):$(id -g)
     # so output files are owned by the current user — no sudo chown needed.
-    
+
     CHECKOV_OUTPUT_DIR="$OUTPUT_DIR/checkov-results.json"
     if [ -d "$CHECKOV_OUTPUT_DIR" ] && [ -f "$CHECKOV_OUTPUT_DIR/results_json.json" ]; then
         echo "Debug: Found results_json.json inside directory structure" >&2

@@ -249,10 +249,19 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
         # Run scan
         echo -e "${BLUE}🔍 Scanning directory: $REPO_PATH${NC}"
         echo "This may take several minutes..."
-        
+
+        # Stage paths to /tmp — Docker Desktop on macOS cannot mount paths under ~/Desktop
+        # due to a known VirtioFS metadata bug where /host_mnt/Users/<user>/Desktop is a
+        # file instead of a directory in the Docker VM.
+        _CL_SRC="/tmp/epyon-clamav-src-$$"
+        _CL_OUT="/tmp/epyon-clamav-out-$$"
+        rm -rf "$_CL_SRC" "$_CL_OUT"
+        rsync -a --quiet "$REPO_PATH/" "$_CL_SRC/" 2>/dev/null || cp -rL "$REPO_PATH" "$_CL_SRC"
+        mkdir -p "$_CL_OUT"
+
         ${CONTAINER_CLI} run --rm $PLATFORM_FLAG \
-            -v "$REPO_PATH:/workspace:ro" \
-            -v "$OUTPUT_DIR:/output" \
+            -v "$_CL_SRC:/workspace:ro" \
+            -v "$_CL_OUT:/output" \
             $CLAMAV_VOL_ARGS \
             "$CLAMAV_IMAGE" \
             clamscan -r \
@@ -271,13 +280,22 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
             --max-scansize=2000M \
             --log=/output/${SCAN_ID}_clamav-detailed.log /workspace 2>&1 | tee -a "$SCAN_LOG"
         SCAN_RESULT=$?
-        
+
+        # Copy output back from staging dir and clean up
+        cp -r "$_CL_OUT/." "$OUTPUT_DIR/" 2>/dev/null || true
+        rm -rf "$_CL_OUT"
+
         # Also scan decoded base64 files if any exist
         if [ $BASE64_DECODED -gt 0 ]; then
             echo -e "${BLUE}🔍 Scanning decoded base64 content...${NC}"
+            _CL_DEC="/tmp/epyon-clamav-dec-$$"
+            _CL_OUT2="/tmp/epyon-clamav-out2-$$"
+            rm -rf "$_CL_DEC" "$_CL_OUT2"
+            rsync -a --quiet "$DECODED_DIR/" "$_CL_DEC/" 2>/dev/null || cp -rL "$DECODED_DIR" "$_CL_DEC"
+            mkdir -p "$_CL_OUT2"
             ${CONTAINER_CLI} run --rm $PLATFORM_FLAG \
-                -v "$DECODED_DIR:/decoded:ro" \
-                -v "$OUTPUT_DIR:/output" \
+                -v "$_CL_DEC:/decoded:ro" \
+                -v "$_CL_OUT2:/output" \
                 $CLAMAV_VOL_ARGS \
                 "$CLAMAV_IMAGE" \
                 clamscan -r \
@@ -290,11 +308,15 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
                 --max-scansize=2000M \
                 /decoded 2>&1 | tee -a "$SCAN_LOG" >> "$OUTPUT_DIR/${SCAN_ID}_clamav-detailed.log"
             DECODED_SCAN_RESULT=$?
-            
+            cp -r "$_CL_OUT2/." "$OUTPUT_DIR/" 2>/dev/null || true
+            rm -rf "$_CL_DEC" "$_CL_OUT2" "$_CL_SRC"
+
             if [ $DECODED_SCAN_RESULT -eq 1 ]; then
                 echo -e "${RED}🚨 THREATS FOUND in decoded base64 content!${NC}"
                 SCAN_RESULT=1
             fi
+        else
+            rm -rf "$_CL_SRC"
         fi
     fi
     

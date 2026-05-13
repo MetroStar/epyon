@@ -404,6 +404,7 @@ def parse_suppressed_findings(scan_dir: Path) -> list[dict]:
 
     text = md_file.read_text(encoding="utf-8", errors="replace")
     results = []
+    seen: set[tuple] = set()
     # Split on "## Suppressed:" blocks
     blocks = re.split(r"^## Suppressed:", text, flags=re.MULTILINE)
     for block in blocks[1:]:  # skip preamble
@@ -414,6 +415,11 @@ def parse_suppressed_findings(scan_dir: Path) -> list[dict]:
             if m:
                 key = m.group(1).strip().lower().replace(" ", "_")
                 record[key] = m.group(2).strip()
+        # Deduplicate by (type, value) — shell script may log same rule multiple times
+        dedup_key = (record.get("type", ""), record.get("value", ""))
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
         results.append(record)
     return results
 

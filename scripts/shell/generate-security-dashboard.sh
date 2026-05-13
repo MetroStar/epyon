@@ -2843,6 +2843,7 @@ SUPPRESSED_LOG="${LATEST_SCAN}/suppressed-findings.md"
 SUPPRESSED_COUNT=0
 SUPPRESSED_HTML=""
 SUPPRESSED_TABLE_ROWS=""
+SUPPRESSED_SEEN_KEYS=()
 
 if [[ -f "$SUPPRESSED_LOG" ]]; then
     echo -e "${CYAN}📋 Suppressed findings file exists: $SUPPRESSED_LOG${NC}" >&2
@@ -2878,6 +2879,17 @@ if [[ -f "$SUPPRESSED_LOG" ]]; then
                 current_approved_by="${BASH_REMATCH[1]}"
             elif [[ "$line" =~ ^-\ \*\*Severity\*\*:\ (.+)$ ]]; then
                 current_severity="${BASH_REMATCH[1]}"
+                # Deduplicate by type+value — shell script may log same rule multiple times
+                dedup_key="${current_type}:${current_value}"
+                already_seen=false
+                for seen_key in "${SUPPRESSED_SEEN_KEYS[@]:-}"; do
+                    [[ "$seen_key" == "$dedup_key" ]] && already_seen=true && break
+                done
+                if [[ "$already_seen" == "true" ]]; then
+                    echo "DEBUG: Skipping duplicate suppression: $dedup_key" >&2
+                    continue
+                fi
+                SUPPRESSED_SEEN_KEYS+=("$dedup_key")
                 # End of entry, add table row
                 echo "DEBUG: Adding row - Tool: $current_tool, Type: $current_type, Value: $current_value, Reason: $current_reason, Approved By: $current_approved_by, Severity: $current_severity" >&2
                 severity_lower=$(echo "$current_severity" | tr '[:upper:]' '[:lower:]')
@@ -2892,7 +2904,9 @@ if [[ -f "$SUPPRESSED_LOG" ]]; then
             fi
         done < "$SUPPRESSED_LOG"
         
-        echo "DEBUG: Total rows added: $(echo "$SUPPRESSED_TABLE_ROWS" | grep -c '<tr>' || echo 0)" >&2
+        # Update count to reflect deduplicated rows
+        SUPPRESSED_COUNT=$(echo "$SUPPRESSED_TABLE_ROWS" | grep -c '<tr>' 2>/dev/null || echo 0)
+        echo "DEBUG: Total rows added (deduplicated): $SUPPRESSED_COUNT" >&2
         
         # Generate HTML for suppressed findings display
         SUPPRESSED_HTML="<div style=\"background: linear-gradient(135deg, #2a1f15 0%, #2C3539 100%); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 2px solid #fbbf24; box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);\">

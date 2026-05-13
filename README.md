@@ -318,6 +318,50 @@ fi
 echo "🎯 Prerequisites check complete!"
 ```
 
+## 🖥️ Web Dashboard (GUI)
+
+Epyon ships a FastAPI-backed single-page web UI for running scans, browsing results, viewing SBOMs, and managing suppressed findings.
+
+### Setup (first time only)
+
+```bash
+# From the repo root
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r web/api/requirements.txt
+```
+
+### Start the server
+
+```bash
+# Option A — convenience script (recommended)
+cd web
+./start.sh
+
+# Option B — manual uvicorn
+source .venv/bin/activate
+cd web
+python3 -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --app-dir .
+
+# Option C — hot-reload during development
+python3 -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --app-dir . --reload
+```
+
+Then open **http://127.0.0.1:8000** in your browser.
+
+### Environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `HOST` | `127.0.0.1` | Bind address for `start.sh` |
+| `PORT` | `8000` | Port for `start.sh` |
+| `EPYON_SCANS_DIR` | `../scans` (relative to `web/`) | Directory where scan results are stored |
+| `OPENAI_API_KEY` | *(optional)* | Enables AI-powered scan summaries |
+
+> **Note:** The scans displayed in the UI are read from the `scans/` directory at the repo root by default. Point `EPYON_SCANS_DIR` to a different path if your results live elsewhere.
+
+---
+
 ## 🤖 GitHub Actions Integration
 
 **Use Epyon as a GitHub Action to automatically scan repositories!**

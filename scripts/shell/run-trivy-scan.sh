@@ -144,14 +144,14 @@ echo -e "${CYAN}📥 Updating Trivy vulnerability database...${NC}"
 echo "This ensures we have the latest CVE data (may take 1-2 minutes on first run)..."
 
 if [ -n "$LOCAL_TRIVY" ]; then
-    "$LOCAL_TRIVY" image --download-db-only >> "$SCAN_LOG" 2>&1
+    "$LOCAL_TRIVY" image --download-db-only 2>&1 | tee -a "$SCAN_LOG"
     DB_UPDATE_RESULT=$?
 else
     ${CONTAINER_CLI} volume create "$TRIVY_CACHE_VOL" 2>/dev/null || true
     ${CONTAINER_CLI} run --rm \
         -v "$TRIVY_CACHE_VOL:/root/.cache" \
         "${TRIVY_IMAGE}" \
-        image --download-db-only >> "$SCAN_LOG" 2>&1
+        image --download-db-only 2>&1 | tee -a "$SCAN_LOG"
     DB_UPDATE_RESULT=$?
 fi
 
@@ -165,12 +165,12 @@ fi
 # Show database info
 echo -e "${CYAN}📋 Checking Trivy database status...${NC}"
 if [ -n "$LOCAL_TRIVY" ]; then
-    "$LOCAL_TRIVY" version 2>&1 | grep -E "(Version|VulnerabilityDB)" >> "$SCAN_LOG"
+    "$LOCAL_TRIVY" version 2>&1 | grep -E "(Version|VulnerabilityDB)" | tee -a "$SCAN_LOG"
 else
     ${CONTAINER_CLI} run --rm \
         -v "$TRIVY_CACHE_VOL:/root/.cache" \
         "${TRIVY_IMAGE}" \
-        version 2>&1 | grep -E "(Version|VulnerabilityDB)" >> "$SCAN_LOG"
+        version 2>&1 | grep -E "(Version|VulnerabilityDB)" | tee -a "$SCAN_LOG"
 fi
 echo
 

@@ -15,7 +15,7 @@ from . import openai_summary
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[mGKHF]")
 
 JOB_TIMEOUT_SECONDS = 7200  # 2 hours
-OUTPUT_BUFFER_MAX   = 1000
+OUTPUT_BUFFER_MAX   = 10000
 
 # Global stores
 jobs:  dict[str, dict[str, Any]] = {}

@@ -325,15 +325,12 @@ PYEOF
         --skip-download \
         --output json \
         --output-file /output/checkov-results.json \
-        2>&1 | tee -a "$SCAN_LOG"
+        >> "$SCAN_LOG" 2>&1
 
     SCAN_RESULT=$?
     set -e
-    
-    # Debug: Check what files were created
-    echo "Debug: Checking for Checkov output files..." >&2
-    ls -la "$OUTPUT_DIR/" | grep -i checkov || echo "No checkov files found" >&2
-    
+    echo "✅ Checkov main scan completed (exit: $SCAN_RESULT)"
+
     # If Helm chart exists but wasn't fully scanned, try scanning templates directly
     if [[ -d "$CHART_DIR/templates" ]]; then
         echo -e "${BLUE}🔍 Scanning Helm templates directly (Kubernetes framework)...${NC}"
@@ -352,7 +349,7 @@ PYEOF
             --framework kubernetes \
             --output json \
             --output-file /output/checkov-kubernetes-results.json \
-            2>&1 | tee -a "$SCAN_LOG"
+            >> "$SCAN_LOG" 2>&1
         set -e
 
         # Also scan values.yaml and secrets.yaml for secrets detection
@@ -368,7 +365,7 @@ PYEOF
             --skip-download \
             --output json \
             --output-file /output/checkov-secrets-results.json \
-            2>&1 | tee -a "$SCAN_LOG"
+            >> "$SCAN_LOG" 2>&1
         set -e
 
         echo "✅ Additional Helm template scans completed"
@@ -389,7 +386,7 @@ PYEOF
             --skip-path scans \
             --output json \
             --output-file /output/checkov-github-actions-results.json \
-            2>&1 | tee -a "$SCAN_LOG"
+            >> "$SCAN_LOG" 2>&1
         set -e
         echo "✅ GitHub Actions workflow scan completed"
     fi
@@ -399,15 +396,12 @@ PYEOF
 
     # Checkov creates a directory with results_json.json inside when using --output-file
     # Handle this by finding the actual results file
-    echo "Debug: Checking Checkov output structure..." >&2
-    echo "Debug: Looking for directory: $OUTPUT_DIR/checkov-results.json" >&2
 
     # Permissions are already correct: Docker containers run with --user $(id -u):$(id -g)
     # so output files are owned by the current user — no sudo chown needed.
 
     CHECKOV_OUTPUT_DIR="$OUTPUT_DIR/checkov-results.json"
     if [ -d "$CHECKOV_OUTPUT_DIR" ] && [ -f "$CHECKOV_OUTPUT_DIR/results_json.json" ]; then
-        echo "Debug: Found results_json.json inside directory structure" >&2
         # Move the actual results file to the correct location
         mv "$CHECKOV_OUTPUT_DIR/results_json.json" "$RESULTS_FILE"
         rm -rf "$CHECKOV_OUTPUT_DIR"

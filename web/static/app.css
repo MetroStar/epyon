@@ -101,80 +101,52 @@ code {
 
 /* ── Collapsed sidebar ────────────────────────────────────── */
 #sidebar.collapsed {
-  width: 48px;
+  width: 0;
+  border-right: none;
 }
 
-#sidebar.collapsed + #content,
-body.sidebar-collapsed #content {
-  margin-left: 48px;
+#sidebar.collapsed ~ #content,
+#sidebar.collapsed + #content {
+  margin-left: 0;
 }
 
-#sidebar.collapsed .logo-text,
-#sidebar.collapsed .nav-link span,
-#sidebar.collapsed .nav-link-label,
-#sidebar.collapsed .sidebar-footer,
-#sidebar.collapsed .sidebar-collapse-label {
-  display: none;
-}
-
-#sidebar.collapsed .logo {
-  padding: 14px 12px;
-  justify-content: center;
-}
-
-#sidebar.collapsed .nav-link {
-  padding: 10px;
-  justify-content: center;
-  gap: 0;
-}
-
-#sidebar.collapsed .nav-link svg {
-  width: 18px;
-  height: 18px;
-}
-
-#sidebar.collapsed .nav-links {
-  padding: 10px 4px;
-}
-
-#sidebar.collapsed .sidebar-collapse-btn {
-  justify-content: center;
-  padding: 10px;
-}
-
-#sidebar.collapsed .sidebar-collapse-btn svg {
-  transform: rotate(180deg);
-}
-
-/* ── Sidebar collapse button ──────────────────────────────── */
-.sidebar-collapse-btn {
+/* ── Sidebar toggle button (always visible, fixed top-left) ── */
+#sidebar-toggle {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 200;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border: none;
-  background: transparent;
+  justify-content: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 13px;
-  width: 100%;
-  border-top: 1px solid var(--border);
-  transition: color 0.12s;
+  transition: color 0.12s, background 0.12s, left 0.2s ease;
+  padding: 0;
 }
 
-.sidebar-collapse-btn:hover {
+#sidebar-toggle:hover {
   color: var(--text);
   background: var(--bg-hover);
 }
 
-.sidebar-collapse-btn svg {
+#sidebar-toggle svg {
   width: 16px;
   height: 16px;
-  flex-shrink: 0;
   transition: transform 0.2s ease;
 }
 
-/* ── Logo ─────────────────────────────────────────────────── */
+#sidebar:not(.collapsed) ~ #sidebar-toggle,
+body:has(#sidebar:not(.collapsed)) #sidebar-toggle {
+  left: calc(var(--sidebar-width) + 8px);
+}
+
+/* \u2500\u2500 Logo \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
 .logo {
   padding: 14px 16px;
   display: flex;
@@ -1898,6 +1870,40 @@ tbody tr.finding-row td:first-child {
 
 tbody tr.finding-row:hover td:first-child {
   border-left-color: var(--accent);
+}
+
+/* ── AI fix body ─────────────────────────────────────────────── */
+.ai-fix-body { line-height: 1.65; }
+.ai-fix-body h2 { font-size: 12px; font-weight: 700; color: #a5b4fc; text-transform: uppercase; letter-spacing: 0.06em; margin: 12px 0 4px; }
+.ai-fix-body h2:first-child { margin-top: 0; }
+.ai-fix-body ul { padding-left: 16px; margin: 4px 0 8px; }
+.ai-fix-body li { margin-bottom: 3px; }
+.ai-fix-body p  { margin: 0 0 8px; }
+.ai-fix-body code {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 11.5px;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(99,102,241,0.2);
+  padding: 0 5px;
+  border-radius: 3px;
+  color: #c4b5fd;
+}
+.ai-fix-body pre {
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(99,102,241,0.2);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  overflow-x: auto;
+  margin: 6px 0 10px;
+}
+.ai-fix-body pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  color: #e2e8f0;
+  display: block;
+  white-space: pre;
 }
 
 /* ── Findings collapsible sections ───────────────────────────── */

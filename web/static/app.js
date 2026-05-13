@@ -311,6 +311,7 @@ const api = {
   getTechnicalSummary(id) { return this._post(`/api/scans/${encodeURIComponent(id)}/technical-summary`, {}); },
   getGlobalExecSummary()      { return this._post('/api/executive-summary', {}); },
   getGlobalTechnicalSummary() { return this._post('/api/technical-summary', {}); },
+  getFindingFix(finding)      { return this._post('/api/findings/fix', finding); },
   getStigData(id){ return this._get(`/api/scans/${encodeURIComponent(id)}/stig-data`); },
 };
 
@@ -318,8 +319,9 @@ const api = {
 function toggleSidebar() {
   const sidebar = document.getElementById('sidebar');
   const content = document.getElementById('content');
+  if (!sidebar) return;
   const collapsed = sidebar.classList.toggle('collapsed');
-  if (content) content.style.marginLeft = collapsed ? '48px' : '';
+  if (content) content.style.marginLeft = collapsed ? '0' : '';
   try { localStorage.setItem('epyon-sidebar-collapsed', collapsed ? '1' : ''); } catch (_) {}
 }
 
@@ -329,7 +331,7 @@ function toggleSidebar() {
       const sidebar = document.getElementById('sidebar');
       const content = document.getElementById('content');
       if (sidebar) sidebar.classList.add('collapsed');
-      if (content) content.style.marginLeft = '48px';
+      if (content) content.style.marginLeft = '0';
     }
   } catch (_) {}
 })();
@@ -1008,33 +1010,48 @@ function buildModelSecurityCard(scan) {
 // Minimal markdown → HTML renderer (no external library)
 function renderMarkdown(text) {
   if (!text) return '';
-  // Escape HTML first (except we'll add our own tags)
   const safe = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
   const lines = text.split('\n');
   let html = '';
   let inList = false;
+  let inCode = false;
+  let codeLines = [];
 
   for (let i = 0; i < lines.length; i++) {
-    let line = lines[i];
+    const line = lines[i];
 
-    // Headings: ## H2, # H1 (treat both as bold section headers)
+    // Fenced code blocks
+    if (/^```/.test(line)) {
+      if (!inCode) {
+        if (inList) { html += '</ul>'; inList = false; }
+        inCode = true;
+        codeLines = [];
+      } else {
+        html += `<pre><code>${safe(codeLines.join('\n'))}</code></pre>`;
+        inCode = false;
+        codeLines = [];
+      }
+      continue;
+    }
+    if (inCode) { codeLines.push(line); continue; }
+
+    // Headings
     if (/^## /.test(line)) {
       if (inList) { html += '</ul>'; inList = false; }
-      html += `<p style="margin:12px 0 4px;font-weight:700;font-size:13px;color:var(--text-primary)">${safe(line.replace(/^## /, ''))}</p>`;
+      html += `<h2>${safe(line.replace(/^## /, ''))}</h2>`;
       continue;
     }
     if (/^# /.test(line)) {
       if (inList) { html += '</ul>'; inList = false; }
-      html += `<p style="margin:14px 0 4px;font-weight:700;font-size:14px;color:var(--text-primary)">${safe(line.replace(/^# /, ''))}</p>`;
+      html += `<h2>${safe(line.replace(/^# /, ''))}</h2>`;
       continue;
     }
 
     // Bullet list items
     if (/^[-*] /.test(line)) {
-      if (!inList) { html += '<ul style="margin:4px 0 4px 18px;padding:0">'; inList = true; }
-      const content = inlineMarkdown(safe(line.replace(/^[-*] /, '')));
-      html += `<li style="margin:2px 0;font-size:12px">${content}</li>`;
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += `<li>${inlineMarkdown(safe(line.replace(/^[-*] /, '')))}</li>`;
       continue;
     }
 
@@ -1043,26 +1060,23 @@ function renderMarkdown(text) {
 
     // Blank line
     if (line.trim() === '') {
-      if (!inList) html += '<br>';
+      if (!inList) html += '';
       continue;
     }
 
-    // Normal paragraph line
-    html += `<p style="margin:3px 0;font-size:12px;line-height:1.6">${inlineMarkdown(safe(line))}</p>`;
+    html += `<p>${inlineMarkdown(safe(line))}</p>`;
   }
 
   if (inList) html += '</ul>';
+  if (inCode) html += `<pre><code>${safe(codeLines.join('\n'))}</code></pre>`;
   return html;
 }
 
 function inlineMarkdown(s) {
-  // **bold** or __bold__
   s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   s = s.replace(/__(.+?)__/g, '<strong>$1</strong>');
-  // *italic*
   s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  // `code`
-  s = s.replace(/`([^`]+)`/g, '<code style="background:var(--border);padding:1px 4px;border-radius:3px;font-size:11px">$1</code>');
+  s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
   return s;
 }
 
@@ -3417,6 +3431,15 @@ function openFindingDetail(id) {
       ${descSection}
 
       ${refsHtml}
+
+      <div id="finding-fix-section" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+        <button id="finding-fix-btn" onclick="fetchFindingFix(${id})" style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);border:1px solid #6366f1;background:rgba(99,102,241,0.08);color:#818cf8;font-size:12.5px;cursor:pointer;font-weight:500;transition:background 0.12s">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Suggest Fix with AI
+        </button>
+        <div id="finding-fix-result"></div>
+      </div>
+
     </div>`;
 
   document.body.appendChild(overlay);
@@ -3435,3 +3458,48 @@ function closeFindingDetail() {
   overlay?.remove();
   drawer?.remove();
 }
+
+// ── AI fix suggestion ─────────────────────────────────────────
+window.fetchFindingFix = async function(fid) {
+  const f = _findingsRegistry.get(fid);
+  if (!f) return;
+
+  const btn    = document.getElementById('finding-fix-btn');
+  const result = document.getElementById('finding-fix-result');
+  if (!btn || !result) return;
+
+  btn.disabled = true;
+  btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1s linear infinite"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.04"/></svg> Generating…`;
+
+  const payload = {
+    id:            f.id || undefined,
+    title:         f.title || f.description || undefined,
+    description:   f.description !== f.title ? f.description : undefined,
+    tool:          f.tool || undefined,
+    severity:      f.severity || undefined,
+    package:       f.package || f.component || undefined,
+    version:       f.version || undefined,
+    fixed_version: f.fixed_version || undefined,
+    target:        f.target || undefined,
+    references:    (f.references || []).slice(0, 3),
+  };
+  // strip undefined
+  Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
+
+  try {
+    const data = await api.getFindingFix(payload);
+    btn.style.display = 'none';
+    result.innerHTML = `
+      <div style="margin-top:12px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.25);border-radius:var(--radius);padding:14px 16px;font-size:13px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;color:#818cf8;font-size:12px;font-weight:600">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          AI-SUGGESTED FIX
+        </div>
+        <div class="ai-fix-body">${renderMarkdown(data.fix || '')}</div>
+      </div>`;
+  } catch (err) {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Suggest Fix with AI`;
+    result.innerHTML = `<div style="margin-top:8px;color:var(--critical);font-size:12px">${esc(err.message)}</div>`;
+  }
+};

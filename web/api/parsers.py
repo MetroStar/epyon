@@ -472,6 +472,33 @@ def load_sbom_packages(scan_dir: Path) -> dict:
 
     if fmt == "syft":
         artifacts = data.get("artifacts") or []
+        # Scan root reported by syft — used to resolve ambiguous paths
+        _scan_root = ((data.get("source") or {}).get("metadata") or {}).get("path", "")
+
+        def _real_path(raw: str) -> str:
+            """Map synthetic temp filenames back to the original source files."""
+            import re as _re, os as _os
+            if raw.endswith("requirements-conda-env.txt"):
+                d = _os.path.dirname(raw)
+                for ext in ("environment.yaml", "environment.yml"):
+                    candidate = _os.path.join(d, ext)
+                    if _os.path.isfile(candidate):
+                        return candidate
+                return _os.path.join(d, "environment.yaml")  # fallback label
+            p = _re.sub(r"requirements-pyproject\.txt$", "pyproject.toml", raw)
+            if p != raw:
+                return p
+            # Syft normalises requirements.lock (pip format) paths to
+            # requirements.txt.  If the scan root is still accessible and no
+            # real requirements.txt exists there, map to requirements.lock.
+            if raw.endswith("requirements.txt") and _scan_root:
+                abs_txt = _os.path.join(_scan_root, raw.lstrip("/"))
+                if not _os.path.isfile(abs_txt):
+                    lock_candidate = abs_txt[:-len("requirements.txt")] + "requirements.lock"
+                    if _os.path.isfile(lock_candidate):
+                        return raw[:-len("requirements.txt")] + "requirements.lock"
+            return raw
+
         packages = [
             {
                 "name":     a.get("name", ""),
@@ -479,7 +506,7 @@ def load_sbom_packages(scan_dir: Path) -> dict:
                 "type":     a.get("type", "unknown"),
                 "language": a.get("language", ""),
                 "purl":     a.get("purl", ""),
-                "path":     ((a.get("locations") or [{}])[0].get("path") or ""),
+                "path":     _real_path((a.get("locations") or [{}])[0].get("path") or ""),
                 "licenses": [
                     (lic.get("value") or lic.get("spdxExpression") or "")
                     for lic in (a.get("licenses") or [])

@@ -106,7 +106,7 @@ async def run_scan_job(
         target_dir = str(Path(clone_root) / subdir) if subdir else clone_root
         is_remote  = True
 
-    timestamp    = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    timestamp    = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
     scan_name    = f"{target_name}_{timestamp}"
     scan_dir     = epyon_root / "scans" / scan_name
     scan_dir.mkdir(parents=True, exist_ok=True)
@@ -177,7 +177,7 @@ async def run_scan_job(
     scan_meta = {
         "scan_type":        scan_type,
         "target_name":      target_name,
-        "scan_timestamp":   datetime.now().isoformat(),
+        "scan_timestamp":   datetime.now(timezone.utc).isoformat(),
         "target_directory": target_dir,
         "source_url":       target if _is_url else "",
         "epyon_version":    epyon_version,

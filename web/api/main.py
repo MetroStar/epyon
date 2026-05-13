@@ -12,12 +12,13 @@ import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, List, Optional
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from . import jobs as job_store
 from . import parsers
@@ -1023,6 +1024,36 @@ async def global_technical_summary(response: Response):
         raise HTTPException(502, f"OpenAI request failed: {exc}")
 
     return {"summary": summary, "application_count": len(apps)}
+
+
+# ── Per-finding fix suggestion ─────────────────────────────────
+
+class _FindingFixRequest(BaseModel):
+    id:            Optional[str] = None
+    title:         Optional[str] = None
+    description:   Optional[str] = None
+    tool:          Optional[str] = None
+    severity:      Optional[str] = None
+    package:       Optional[str] = None
+    version:       Optional[str] = None
+    fixed_version: Optional[str] = None
+    target:        Optional[str] = None
+    references:    list[str]     = []
+
+
+@app.post("/api/findings/fix")
+async def finding_fix(body: _FindingFixRequest, response: Response):
+    _sec_headers(response)
+    finding = {k: v for k, v in body.model_dump().items() if v}
+    if not finding:
+        raise HTTPException(400, "No finding data provided")
+    try:
+        fix = await openai_summary.generate_fix_suggestion(finding)
+    except RuntimeError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as exc:
+        raise HTTPException(502, f"OpenAI request failed: {exc}")
+    return {"fix": fix}
 
 
 # ── SPA / static file serving ─────────────────────────────────

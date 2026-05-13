@@ -354,3 +354,59 @@ async def generate_global_technical_summary(apps: list[dict]) -> str:
         temperature=0.2,
     )
     return response.choices[0].message.content or ""
+
+
+# ── Per-finding fix suggestion ─────────────────────────────────
+
+_FIX_SYSTEM_PROMPT = (
+    "You are a senior security engineer providing a precise, actionable remediation plan "
+    "for a single security finding from an automated scan. "
+    "Be direct and concrete. Do not repeat the vulnerability description at length. "
+    "Structure your response with these Markdown sections:\n"
+    "## Fix\n"
+    "The exact steps to remediate — for dependency vulnerabilities include the specific "
+    "upgrade command (e.g. `pip install package==x.y.z`, `npm install package@x.y.z`). "
+    "For IaC findings include the corrected configuration snippet. "
+    "For secrets include rotation steps and how to move the secret to an env var or vault. "
+    "For EOL components include the migration path.\n\n"
+    "## Why\n"
+    "One short paragraph explaining the security impact and attack surface.\n\n"
+    "## Verify\n"
+    "A one-liner command or step the developer can run to confirm the fix is applied.\n\n"
+    "Use inline code for all package names, versions, commands, and file paths. "
+    "Be specific — never say 'upgrade to the latest version'; always give the exact version."
+)
+
+
+async def generate_fix_suggestion(finding: dict) -> str:
+    api_key = get_api_key()
+    if not api_key:
+        raise RuntimeError(
+            "OpenAI API key not configured. "
+            "Add it in Settings or set OPENAI_API_KEY."
+        )
+
+    try:
+        from openai import AsyncOpenAI
+    except ImportError:
+        raise RuntimeError("The 'openai' package is not installed. Run: pip install openai")
+
+    cfg   = read_ai_config()
+    model = cfg.get("model") or "gpt-4o-mini"
+
+    user_msg = (
+        "Provide a remediation plan for the following security finding:\n\n"
+        + json.dumps(finding, indent=2)
+    )
+
+    client = AsyncOpenAI(api_key=api_key)
+    response = await client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": _FIX_SYSTEM_PROMPT},
+            {"role": "user",   "content": user_msg},
+        ],
+        max_tokens=800,
+        temperature=0.1,
+    )
+    return response.choices[0].message.content or ""

@@ -153,7 +153,7 @@ if command -v grype >/dev/null 2>&1; then
     echo "Using local Grype: $LOCAL_GRYPE" >> "$SCAN_LOG"
     # Update local vulnerability database
     echo -e "${CYAN}📥 Updating Grype vulnerability database...${NC}"
-    grype db update 2>&1 | tee -a "$SCAN_LOG" || true
+    grype db update >> "$SCAN_LOG" 2>&1 || true
 else
     # Create persistent volume for Grype cache to speed up subsequent scans
     GRYPE_CACHE_VOL="grype-cache"
@@ -167,7 +167,7 @@ else
         -e GRYPE_DB_CACHE_DIR=/cache \
         -v "$GRYPE_CACHE_VOL:/cache" \
         anchore/grype:latest \
-        db update 2>&1 | tee -a "$SCAN_LOG"
+        db update >> "$SCAN_LOG" 2>&1
 fi
 
 DB_UPDATE_RESULT=$?
@@ -184,7 +184,7 @@ ${CONTAINER_CLI} run --rm \
     -e GRYPE_DB_CACHE_DIR=/cache \
     -v "$GRYPE_CACHE_VOL:/cache" \
     anchore/grype:latest \
-    db status 2>&1 | tee -a "$SCAN_LOG"
+    db status >> "$SCAN_LOG" 2>&1
 echo
 
 # Function to run Grype scan

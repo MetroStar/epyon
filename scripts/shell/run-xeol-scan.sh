@@ -153,7 +153,7 @@ echo "This ensures we have the latest EOL data..."
 ${CONTAINER_CLI} run --rm \
     -v "$XEOL_CACHE_VOL:/root/.cache" \
     noqcks/xeol:latest \
-    db update 2>&1 | tee -a "$SCAN_LOG"
+    db update >> "$SCAN_LOG" 2>&1
 
 DB_UPDATE_RESULT=$?
 if [ $DB_UPDATE_RESULT -eq 0 ]; then
@@ -168,7 +168,7 @@ echo -e "${CYAN}📋 Checking Xeol database status...${NC}"
 ${CONTAINER_CLI} run --rm \
     -v "$XEOL_CACHE_VOL:/root/.cache" \
     noqcks/xeol:latest \
-    db status 2>&1 | tee -a "$SCAN_LOG"
+    db status >> "$SCAN_LOG" 2>&1
 echo
 
 # Function to scan a target

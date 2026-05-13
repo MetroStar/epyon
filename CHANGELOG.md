@@ -48,6 +48,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Suppressed findings in web UI**: scan detail page now shows a collapsible **Suppressed Findings** section listing every rule from the scanned repo's `.epyon-ignore.yml`, with columns for Type, Value/ID, Tool, Reason, Approved By, and Severity. Matches the visual style of the Critical/High/Medium/Low findings cards.
+- **SBOM sort & search**: SBOM package table on the scan detail page is now fully interactive — click any column header (Name, Version, Type, License, Path) to sort ascending/descending; type in the search box to filter by any field in real time; click a type chip (e.g. `npm`, `python`) to filter to that ecosystem; "Clear filters" resets all at once.
+- **SBOM path column**: each package row now shows the file where the dependency was found (e.g. `/package-lock.json`, `requirements.txt`) sourced from Syft's `locations[0].path`.
+- **Run Scan pre-fill**: "Run Scan" buttons on the scan detail and application detail pages now pre-populate the GitHub URL field from `source_url` (stored at scan time), registered application URL, or CI source — eliminating the need to copy/paste the URL manually.
+- **`source_url` persistence**: `jobs.py` now saves the original GitHub/GitLab URL to `scan-metadata.json` at scan start; `parsers.py` reads it back and includes it in the scan API response.
+
+### Fixed
+- **Scan pipeline appearing frozen after Checkov**: Checkov's `--output json` flag was streaming 400 000+ lines of JSON findings to stdout via `tee`, exhausting the 1 000-line rolling output buffer in `jobs.py` so all later layers (Trivy, Grype, Anchore, etc.) were invisible in the UI. Fixed by redirecting all four Checkov `docker run` calls to the scan log file only (`>> "$SCAN_LOG" 2>&1`). Results are unchanged — they are written via `--output-file`.
+- **Duplicate suppressed findings**: `suppressed-findings.md` contained duplicate entries when the same `.epyon-ignore.yml` rule matched multiple scan files (e.g. Anchore filesystem + each container image). Both `parsers.py` and `generate-security-dashboard.sh` now deduplicate by `(type, value)` before rendering.
+- **Web UI output buffer too small**: `OUTPUT_BUFFER_MAX` raised from 1 000 to 10 000 lines so all 15 scan layers remain visible in the live log panel simultaneously.
+- **Docker VirtioFS mount failure for ClamAV and Checkov**: Docker Desktop 29.x with `UseContainerdSnapshotter: true` corrupts `~/Desktop` VirtioFS metadata, causing `docker run -v ~/Desktop/...` to fail with "file exists". Fixed by staging source via `rsync` to `/tmp/epyon-<tool>-src-$$` before mounting.
+
 ## [3.0.0] - 2026-03-27
 
 ### Added

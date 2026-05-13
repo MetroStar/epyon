@@ -18,7 +18,7 @@ Epyon is designed to be opinionated, automated, and decisive — empowering team
 
 This repository contains a **production-ready, enterprise-grade** multi-layer DevOps security architecture with **comprehensive test coverage**, **baseline scanning**, **automated comparison**, and **isolated scan directory architecture**. Built for real-world enterprise applications with Docker-based tooling and 304 automated tests.
 
-**Latest Update: May 8, 2026 (v3.1.0)** - HuggingFace model/dataset security scanning suite: pickle/serialization safety scanning (Layer 14), model card compliance checking (Layer 15), dedicated `scan-huggingface.yml` workflow, AI-powered STIG confidence scoring (0–100 per control), and an enhanced web UI with per-scan-type info panels and HF tool result cards.
+**Latest Update: May 13, 2026 (v3.2.0)** - Interactive SBOM table (sort, search, type filter, path column), suppressed findings section in web UI, Run Scan URL pre-fill, scan pipeline visibility fixes (Checkov output buffering, Docker VirtioFS mount failures), and deduplication of suppressed findings across both dashboards.
 
 ## 📋 Prerequisites
 

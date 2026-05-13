@@ -868,6 +868,30 @@ async def exec_summary(scan_id: str, response: Response):
     return {"scan_id": scan_id, "summary": summary}
 
 
+@app.post("/api/scans/{scan_id}/technical-summary")
+async def technical_summary(scan_id: str, response: Response):
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
+    matched = next((d for d in scan_dirs if d.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+
+    scan_meta = parsers.load_scan(matched, EPYON_ROOT)
+    findings  = parsers.parse_scan_findings(matched)
+
+    try:
+        summary = await openai_summary.generate_technical_summary(scan_id, scan_meta, findings)
+    except RuntimeError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as exc:
+        raise HTTPException(502, f"OpenAI request failed: {exc}")
+
+    return {"scan_id": scan_id, "summary": summary}
+
+
 @app.post("/api/executive-summary")
 async def global_exec_summary(response: Response):
     _sec_headers(response)
@@ -906,6 +930,66 @@ async def global_exec_summary(response: Response):
 
     try:
         summary = await openai_summary.generate_global_summary(apps)
+    except RuntimeError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as exc:
+        raise HTTPException(502, f"OpenAI request failed: {exc}")
+
+    return {"summary": summary, "application_count": len(apps)}
+
+
+@app.post("/api/technical-summary")
+async def global_technical_summary(response: Response):
+    _sec_headers(response)
+    hidden = _load_hidden_apps()
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
+
+    by_target: dict[str, tuple] = {}
+    for d in scan_dirs:
+        meta = parsers.parse_dir_name(d.name)
+        target = meta["target"]
+        if target in hidden:
+            continue
+        ts = meta["timestamp"]
+        if target not in by_target or ts > by_target[target][1]:
+            by_target[target] = (d, ts)
+
+    if not by_target:
+        raise HTTPException(404, "No scans found")
+
+    apps = []
+    for target, (scan_dir, _) in sorted(by_target.items()):
+        scan_meta = parsers.load_scan(scan_dir, EPYON_ROOT)
+        findings  = parsers.parse_scan_findings(scan_dir)
+        apps.append({
+            "name":           target,
+            "critical":       scan_meta.get("critical", 0),
+            "high":           scan_meta.get("high", 0),
+            "medium":         scan_meta.get("medium", 0),
+            "low":            scan_meta.get("low", 0),
+            "tools_analyzed": scan_meta.get("tools_analyzed", []),
+            "critical_sample": [
+                {
+                    "tool": f.get("tool"), "id": f.get("id"),
+                    "package": f.get("package"), "version": f.get("version"),
+                    "fixed_version": f.get("fixed_version"), "cvss": f.get("cvss"),
+                    "title": f.get("title"),
+                }
+                for f in findings.get("critical_findings", [])[:15]
+            ],
+            "high_sample": [
+                {
+                    "tool": f.get("tool"), "id": f.get("id"),
+                    "package": f.get("package"), "version": f.get("version"),
+                    "fixed_version": f.get("fixed_version"), "cvss": f.get("cvss"),
+                    "title": f.get("title"),
+                }
+                for f in findings.get("high_findings", [])[:10]
+            ],
+        })
+
+    try:
+        summary = await openai_summary.generate_global_technical_summary(apps)
     except RuntimeError as exc:
         raise HTTPException(400, str(exc))
     except Exception as exc:

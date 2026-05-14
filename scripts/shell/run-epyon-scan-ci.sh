@@ -2,6 +2,12 @@
 
 # CI-only orchestrator for reusable workflow execution.
 # Keeps layer behavior aligned with epyon-scan.yml while reducing YAML step count.
+#
+# Performance: Independent layers run in parallel using background jobs.
+# Dependency graph:
+#   - Layer 1 (SBOM) must complete before Layer 8 (Grype sbom mode)
+#   - Layer 3 (Sonar) must complete before Layer 4 (ClamAV) due to .scannerwork cleanup
+#   - All other layers are independent and run concurrently.
 
 set -u -o pipefail
 
@@ -23,6 +29,74 @@ set +a
 if [[ -d "epyon" && -f "epyon/VERSION" ]]; then
   cd epyon || exit 1
 fi
+
+# ── Timing infrastructure ─────────────────────────────────────────────────────
+TIMING_FILE="${SCAN_DIR}/layer-timing.json"
+declare -A LAYER_START LAYER_END
+ORCHESTRATOR_START=$SECONDS
+
+_record_start() { LAYER_START["$1"]=$SECONDS; }
+_record_end() {
+  LAYER_END["$1"]=$SECONDS
+  local elapsed=$(( LAYER_END["$1"] - LAYER_START["$1"] ))
+  echo "[TIMING] $1: ${elapsed}s"
+}
+
+_write_timing_report() {
+  echo "{"
+  echo "  \"total_elapsed_seconds\": $((SECONDS - ORCHESTRATOR_START)),"
+  echo "  \"layers\": {"
+  local first=true
+  for layer in "${!LAYER_START[@]}"; do
+    local elapsed=$(( ${LAYER_END[$layer]:-$SECONDS} - ${LAYER_START[$layer]} ))
+    if [[ "$first" == "true" ]]; then first=false; else echo ","; fi
+    printf '    "%s": %d' "$layer" "$elapsed"
+  done
+  echo ""
+  echo "  }"
+  echo "}"
+}
+
+# ── Parallel execution helpers ────────────────────────────────────────────────
+# Each parallel layer writes its output to a log file; we cat them in order at the end.
+PARALLEL_LOG_DIR="${SCAN_DIR}/.parallel-logs"
+mkdir -p "$PARALLEL_LOG_DIR"
+declare -A PARALLEL_PIDS
+
+# Run a layer as a background job, capturing output to a log file.
+run_layer_parallel() {
+  local layer_name="$1"
+  local log_file="${PARALLEL_LOG_DIR}/${layer_name}.log"
+  shift
+  (
+    _record_start "$layer_name"
+    "$@" > "$log_file" 2>&1
+    _record_end "$layer_name"
+  ) &
+  PARALLEL_PIDS["$layer_name"]=$!
+}
+
+# Wait for a specific layer to complete; replay its log.
+await_layer() {
+  local layer_name="$1"
+  local pid="${PARALLEL_PIDS[$layer_name]:-}"
+  if [[ -z "$pid" ]]; then return 0; fi
+  wait "$pid" || true
+  local log_file="${PARALLEL_LOG_DIR}/${layer_name}.log"
+  if [[ -f "$log_file" ]]; then
+    echo "::group::${layer_name}"
+    cat "$log_file"
+    echo "::endgroup::"
+  fi
+  unset "PARALLEL_PIDS[$layer_name]"
+}
+
+# Wait for all remaining parallel layers.
+await_all_layers() {
+  for layer_name in "${!PARALLEL_PIDS[@]}"; do
+    await_layer "$layer_name"
+  done
+}
 
 run_group() {
   local title="$1"
@@ -242,93 +316,224 @@ _should_run_tool() {
   return 0
 }
 
+# ── Pre-built SBOM passthrough ────────────────────────────────────────────────
+# If the build job uploaded a CycloneDX SBOM artifact, place it in the expected
+# location so Grype/Trivy consume it without running Syft (Layer 1).
+_install_prebuilt_sbom() {
+  local prebuilt_dir="${PREBUILT_SBOM_DIR:-}"
+  if [[ -z "$prebuilt_dir" || ! -d "$prebuilt_dir" ]]; then
+    return 1  # no pre-built SBOM available
+  fi
+
+  local sbom_dir="${SCAN_DIR}/sbom"
+  mkdir -p "$sbom_dir"
+
+  # Find the CycloneDX JSON file in the artifact directory
+  local cdx_file
+  cdx_file=$(find "$prebuilt_dir" -name "*.cyclonedx.json" -o -name "*sbom*.json" | head -1)
+  if [[ -z "$cdx_file" ]]; then
+    echo "[WARNING] Pre-built SBOM directory exists but contains no JSON files"
+    return 1
+  fi
+
+  cp "$cdx_file" "$sbom_dir/filesystem-cyclonedx.json"
+  echo "[INFO] Installed pre-built SBOM: $(basename "$cdx_file") -> $sbom_dir/filesystem-cyclonedx.json"
+  return 0
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# LAYER EXECUTION — PARALLELIZED
+# ══════════════════════════════════════════════════════════════════════════════
+# Dependency graph:
+#   Phase 1 (parallel): Layers 1, 2, 3, 5, 6, 7, 9, 10, 11
+#   Phase 2 (after L1):  Layer 8 (Grype — needs SBOM)
+#   Phase 2 (after L3):  Layer 4 (ClamAV — needs .scannerwork removed)
+#   Phase 3:             Layers 12, 13, 14, 15 (conditional, run sequentially)
+# ══════════════════════════════════════════════════════════════════════════════
+
 # Layers 1-12 — skipped entirely when SCAN_MODE=stig (STIG-only run)
 if [[ "${SCAN_MODE:-full}" == "stig" ]]; then
   echo "[INFO] scan_mode=stig — skipping Layers 1-12 (STIG-only run)"
 else
 
-if _should_run_tool SKIP_SBOM; then
-  run_layer_script "Layer 1 - Generate SBOM" "scripts/shell/run-complete-sbom-scan.sh"
+# ── Phase 1: Independent layers (parallel) ───────────────────────────────────
+
+# Layer 1 — SBOM (Syft). Skip if pre-built SBOM provided by caller.
+if _install_prebuilt_sbom; then
+  echo "[INFO] Using pre-built SBOM from build job artifact — skipping Layer 1 (Syft)"
+  SBOM_READY=true
+elif _should_run_tool SKIP_SBOM; then
+  _record_start "Layer 1 - SBOM"
+  chmod +x scripts/shell/run-complete-sbom-scan.sh
+  env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" scripts/shell/run-complete-sbom-scan.sh \
+    > "${PARALLEL_LOG_DIR}/layer-01-sbom.log" 2>&1 &
+  PARALLEL_PIDS["Layer 1 - SBOM"]=$!
+  SBOM_READY=false
 else
   echo "[INFO] Skipping Layer 1 - SBOM (SKIP_SBOM=true)"
+  SBOM_READY=true
 fi
 
+# Layer 2 — TruffleHog (no deps)
 if _should_run_tool SKIP_TRUFFLEHOG; then
-  run_layer_script "Layer 2 - Secret Detection (TruffleHog)" "scripts/shell/run-trufflehog-scan.sh" "filesystem"
+  _record_start "Layer 2 - TruffleHog"
+  chmod +x scripts/shell/run-trufflehog-scan.sh
+  env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" scripts/shell/run-trufflehog-scan.sh filesystem \
+    > "${PARALLEL_LOG_DIR}/layer-02-trufflehog.log" 2>&1 &
+  PARALLEL_PIDS["Layer 2 - TruffleHog"]=$!
 else
   echo "[INFO] Skipping Layer 2 - TruffleHog (SKIP_TRUFFLEHOG=true)"
 fi
 
+# Layer 3 — Sonar (no deps, but Layer 4 depends on its completion)
+SONAR_PID=""
 if _should_run_tool SKIP_SONAR && [[ "${SCAN_MODE:-full}" != "quick" || "${RUN_SONAR_IN_QUICK}" == "true" ]]; then
-  run_sonar_layer
-  # Remove SonarQube work directory to prevent ClamAV from scanning thousands of
-  # generated UCFG provenance stubs (saves ~3 minutes on a typical Python project).
-  rm -rf "${TARGET_DIR:?}/.scannerwork"
+  _record_start "Layer 3 - SonarQube"
+  (
+    run_sonar_layer
+    rm -rf "${TARGET_DIR:?}/.scannerwork"
+  ) > "${PARALLEL_LOG_DIR}/layer-03-sonar.log" 2>&1 &
+  SONAR_PID=$!
+  PARALLEL_PIDS["Layer 3 - SonarQube"]=$!
 else
   [[ "${SKIP_SONAR:-false}" == "true" ]] && echo "[INFO] Skipping Layer 3 - Sonar (SKIP_SONAR=true)" || echo "[INFO] Skipping Layer 3 (quick mode)"
 fi
 
-if _should_run_tool SKIP_CLAMAV && [[ "${SCAN_MODE:-full}" != "quick" ]]; then
-  run_layer_script "Layer 4 - Malware Detection (ClamAV)" "scripts/shell/run-clamav-scan.sh"
-else
-  [[ "${SKIP_CLAMAV:-false}" == "true" ]] && echo "[INFO] Skipping Layer 4 - ClamAV (SKIP_CLAMAV=true)" || echo "[INFO] Skipping Layer 4 (quick mode)"
-fi
-
+# Layer 5 — Helm (no deps)
 if _should_run_tool SKIP_HELM; then
-  run_layer_script "Layer 5 - Helm Chart Build" "scripts/shell/run-helm-build.sh"
+  _record_start "Layer 5 - Helm"
+  chmod +x scripts/shell/run-helm-build.sh
+  env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" scripts/shell/run-helm-build.sh \
+    > "${PARALLEL_LOG_DIR}/layer-05-helm.log" 2>&1 &
+  PARALLEL_PIDS["Layer 5 - Helm"]=$!
 else
   echo "[INFO] Skipping Layer 5 - Helm (SKIP_HELM=true)"
 fi
 
+# Layer 6 — Checkov (no deps)
 if _should_run_tool SKIP_CHECKOV && [[ "${SCAN_MODE:-full}" != "quick" ]]; then
-  run_group "Layer 6 - Infrastructure Security (Checkov)" bash -lc '
-    chmod +x scripts/shell/run-checkov-scan.sh
-    CI=true SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-checkov-scan.sh || echo "Checkov scan completed with warnings"
-  '
+  _record_start "Layer 6 - Checkov"
+  chmod +x scripts/shell/run-checkov-scan.sh
+  env CI=true SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" scripts/shell/run-checkov-scan.sh \
+    > "${PARALLEL_LOG_DIR}/layer-06-checkov.log" 2>&1 &
+  PARALLEL_PIDS["Layer 6 - Checkov"]=$!
 else
   [[ "${SKIP_CHECKOV:-false}" == "true" ]] && echo "[INFO] Skipping Layer 6 - Checkov (SKIP_CHECKOV=true)" || echo "[INFO] Skipping Layer 6 (quick mode)"
 fi
 
+# Layer 7 — Trivy (no deps)
 if _should_run_tool SKIP_TRIVY; then
-  run_group "Layer 7 - Container Security (Trivy)" bash -lc '
-    chmod +x scripts/shell/run-trivy-scan.sh
-    SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-trivy-scan.sh filesystem || echo "Trivy scan completed with warnings"
-    SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-trivy-scan.sh base || echo "Trivy base image scan completed with warnings"
-  '
+  _record_start "Layer 7 - Trivy"
+  chmod +x scripts/shell/run-trivy-scan.sh
+  (
+    SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-trivy-scan.sh filesystem || true
+    SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-trivy-scan.sh base || true
+  ) > "${PARALLEL_LOG_DIR}/layer-07-trivy.log" 2>&1 &
+  PARALLEL_PIDS["Layer 7 - Trivy"]=$!
 else
   echo "[INFO] Skipping Layer 7 - Trivy (SKIP_TRIVY=true)"
 fi
 
-if _should_run_tool SKIP_GRYPE; then
-  run_group "Layer 8 - Vulnerability Detection (Grype)" bash -lc '
-    chmod +x scripts/shell/run-grype-scan.sh
-    SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-grype-scan.sh sbom || echo "Grype SBOM scan completed with warnings"
-    SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-grype-scan.sh images || echo "Grype image scan completed with warnings"
-  '
-else
-  echo "[INFO] Skipping Layer 8 - Grype (SKIP_GRYPE=true)"
-fi
-
+# Layer 9 — Xeol (no deps)
 if _should_run_tool SKIP_XEOL; then
-  run_layer_script "Layer 9 - End-of-Life Detection (Xeol)" "scripts/shell/run-xeol-scan.sh"
+  _record_start "Layer 9 - Xeol"
+  chmod +x scripts/shell/run-xeol-scan.sh
+  env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" scripts/shell/run-xeol-scan.sh \
+    > "${PARALLEL_LOG_DIR}/layer-09-xeol.log" 2>&1 &
+  PARALLEL_PIDS["Layer 9 - Xeol"]=$!
 else
   echo "[INFO] Skipping Layer 9 - Xeol (SKIP_XEOL=true)"
 fi
 
+# Layer 10 — Anchore (no deps)
 if _should_run_tool SKIP_ANCHORE && [[ "${SCAN_MODE:-full}" != "quick" ]]; then
-  run_layer_script "Layer 10 - Anchore Security" "scripts/shell/run-anchore-scan.sh"
+  _record_start "Layer 10 - Anchore"
+  chmod +x scripts/shell/run-anchore-scan.sh
+  env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" scripts/shell/run-anchore-scan.sh \
+    > "${PARALLEL_LOG_DIR}/layer-10-anchore.log" 2>&1 &
+  PARALLEL_PIDS["Layer 10 - Anchore"]=$!
 else
   [[ "${SKIP_ANCHORE:-false}" == "true" ]] && echo "[INFO] Skipping Layer 10 - Anchore (SKIP_ANCHORE=true)" || echo "[INFO] Skipping Layer 10 (quick mode)"
 fi
 
+# Layer 11 — API Discovery (no deps)
 if _should_run_tool SKIP_API_DISCOVERY; then
-  run_layer_script "Layer 11 - API Discovery" "scripts/shell/run-api-discovery.sh"
+  _record_start "Layer 11 - API Discovery"
+  chmod +x scripts/shell/run-api-discovery.sh
+  env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" scripts/shell/run-api-discovery.sh \
+    > "${PARALLEL_LOG_DIR}/layer-11-api-discovery.log" 2>&1 &
+  PARALLEL_PIDS["Layer 11 - API Discovery"]=$!
 else
   echo "[INFO] Skipping Layer 11 - API Discovery (SKIP_API_DISCOVERY=true)"
 fi
 
+echo "[INFO] Phase 1: ${#PARALLEL_PIDS[@]} layers launched in parallel"
+
+# ── Phase 2: Layers with dependencies ────────────────────────────────────────
+
+# Layer 8 — Grype (depends on Layer 1 SBOM)
+if _should_run_tool SKIP_GRYPE; then
+  # Wait for Layer 1 (SBOM) to complete first
+  if [[ "$SBOM_READY" == "false" ]]; then
+    echo "[INFO] Layer 8 (Grype) waiting for Layer 1 (SBOM)..."
+    await_layer "Layer 1 - SBOM"
+    _record_end "Layer 1 - SBOM"
+    SBOM_READY=true
+  fi
+
+  _record_start "Layer 8 - Grype"
+  chmod +x scripts/shell/run-grype-scan.sh
+  (
+    SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-grype-scan.sh sbom || true
+    SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-grype-scan.sh images || true
+  ) > "${PARALLEL_LOG_DIR}/layer-08-grype.log" 2>&1 &
+  PARALLEL_PIDS["Layer 8 - Grype"]=$!
+else
+  echo "[INFO] Skipping Layer 8 - Grype (SKIP_GRYPE=true)"
+fi
+
+# Layer 4 — ClamAV (depends on Layer 3 Sonar completing to remove .scannerwork)
+if _should_run_tool SKIP_CLAMAV && [[ "${SCAN_MODE:-full}" != "quick" ]]; then
+  # Wait for Sonar to complete first (if it ran)
+  if [[ -n "$SONAR_PID" ]]; then
+    echo "[INFO] Layer 4 (ClamAV) waiting for Layer 3 (Sonar)..."
+    await_layer "Layer 3 - SonarQube"
+    _record_end "Layer 3 - SonarQube"
+  fi
+
+  _record_start "Layer 4 - ClamAV"
+  chmod +x scripts/shell/run-clamav-scan.sh
+  env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" scripts/shell/run-clamav-scan.sh \
+    > "${PARALLEL_LOG_DIR}/layer-04-clamav.log" 2>&1 &
+  PARALLEL_PIDS["Layer 4 - ClamAV"]=$!
+else
+  [[ "${SKIP_CLAMAV:-false}" == "true" ]] && echo "[INFO] Skipping Layer 4 - ClamAV (SKIP_CLAMAV=true)" || echo "[INFO] Skipping Layer 4 (quick mode)"
+fi
+
+# ── Wait for all Phase 1 + Phase 2 layers ────────────────────────────────────
+echo "[INFO] Waiting for all parallel layers to complete..."
+for layer_name in "${!PARALLEL_PIDS[@]}"; do
+  local_pid="${PARALLEL_PIDS[$layer_name]}"
+  wait "$local_pid" || true
+  # Record end time for layers that haven't been recorded yet
+  if [[ -z "${LAYER_END[$layer_name]:-}" ]]; then
+    _record_end "$layer_name"
+  fi
+done
+
+# Replay all layer logs in order for readable CI output
+echo ""
+echo "[INFO] ═══ Layer Output ═══"
+for log_file in $(ls "${PARALLEL_LOG_DIR}"/layer-*.log 2>/dev/null | sort); do
+  layer_label=$(basename "$log_file" .log | sed 's/^layer-[0-9]*-//' | tr '-' ' ')
+  echo "::group::$(basename "$log_file" .log)"
+  cat "$log_file"
+  echo "::endgroup::"
+done
+
 fi  # end: SCAN_MODE != stig
 
+# ── Phase 3: Conditional sequential layers ────────────────────────────────────
 run_garak_layer
 
 # Layer 13 — STIG Compliance Assessment (stig mode only — Sundays and on-demand)
@@ -356,6 +561,8 @@ fi
 run_picklescan_layer
 
 run_modelcard_layer
+
+# ── Post-scan: Reports & Dashboard ───────────────────────────────────────────
 
 run_group "Generate Scan Manifest" bash -lc '
   chmod +x scripts/shell/generate-scan-manifest.sh
@@ -430,6 +637,17 @@ run_group "Generate Security Dashboard" bash -lc '
   SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/consolidate-security-reports.sh \
     || echo "Dashboard generation completed with warnings"
 '
+
+# ── Timing report ─────────────────────────────────────────────────────────────
+echo ""
+echo "::group::Timing Report"
+echo "[TIMING] Total orchestrator: $((SECONDS - ORCHESTRATOR_START))s"
+_write_timing_report > "$TIMING_FILE"
+cat "$TIMING_FILE"
+echo "::endgroup::"
+
+# Clean up parallel log directory
+rm -rf "$PARALLEL_LOG_DIR"
 
 SCAN_DIR_REL="${SCAN_DIR#${PWD}/}"
 SCAN_ID_VALUE="$(basename "$SCAN_DIR")"

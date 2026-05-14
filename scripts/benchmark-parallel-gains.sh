@@ -15,25 +15,25 @@ declare -A LAYER_DURATION=(
   [L02_TruffleHog]=20
   [L03_Sonar]=90
   [L04_ClamAV]=45
-  [L05_Trivy]=70
+  [L05_Helm]=15
   [L06_Checkov]=55
-  [L07_HelmLint]=15
+  [L07_Trivy]=70
   [L08_Grype]=50
   [L09_Xeol]=25
-  [L10_APIDiscovery]=20
-  [L11_Anchore]=60
+  [L10_Anchore]=60
+  [L11_APIDiscovery]=20
 )
 
 # --- Sequential mode (current behavior) ---
 sequential_total=0
-for layer in L01_SBOM L02_TruffleHog L03_Sonar L04_ClamAV L05_Trivy \
-             L06_Checkov L07_HelmLint L08_Grype L09_Xeol L10_APIDiscovery L11_Anchore; do
+for layer in L01_SBOM L02_TruffleHog L03_Sonar L04_ClamAV L05_Helm \
+             L06_Checkov L07_Trivy L08_Grype L09_Xeol L10_Anchore L11_APIDiscovery; do
   sequential_total=$((sequential_total + LAYER_DURATION[$layer]))
 done
 
 # --- Parallel mode (new behavior) ---
 # Phase 1: independent layers run concurrently
-phase1_layers=(L01_SBOM L02_TruffleHog L03_Sonar L05_Trivy L06_Checkov L07_HelmLint L09_Xeol L10_APIDiscovery L11_Anchore)
+phase1_layers=(L01_SBOM L02_TruffleHog L03_Sonar L05_Helm L06_Checkov L07_Trivy L09_Xeol L10_Anchore L11_APIDiscovery)
 phase1_max=0
 for layer in "${phase1_layers[@]}"; do
   dur=${LAYER_DURATION[$layer]}
@@ -70,8 +70,8 @@ echo "Layer Durations (seconds, typical GitHub Actions ubuntu-latest):"
 echo "-----------------------------------------------------------------"
 printf "  %-20s %4s   %s\n" "Layer" "Dur" "Mode"
 echo "-----------------------------------------------------------------"
-for layer in L01_SBOM L02_TruffleHog L03_Sonar L04_ClamAV L05_Trivy \
-             L06_Checkov L07_HelmLint L08_Grype L09_Xeol L10_APIDiscovery L11_Anchore; do
+for layer in L01_SBOM L02_TruffleHog L03_Sonar L04_ClamAV L05_Helm \
+             L06_Checkov L07_Trivy L08_Grype L09_Xeol L10_Anchore L11_APIDiscovery; do
   mode="parallel"
   [[ "$layer" == "L04_ClamAV" ]] && mode="after L03"
   [[ "$layer" == "L08_Grype" ]]  && mode="after L01"

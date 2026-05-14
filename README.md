@@ -16,9 +16,9 @@ Epyon is designed to be opinionated, automated, and decisive — empowering team
 
 ## Overview
 
-This repository contains a **production-ready, enterprise-grade** multi-layer DevOps security architecture with **comprehensive test coverage**, **baseline scanning**, **automated comparison**, and **isolated scan directory architecture**. Built for real-world enterprise applications with Docker-based tooling and 304 automated tests.
+Epyon is a **production-ready, enterprise-grade** 15-layer DevSecOps security platform with a FastAPI-backed web UI, comprehensive test coverage, baseline scanning, automated comparison, and isolated scan directory architecture. Built for real-world applications with Docker-based tooling and 641 automated tests.
 
-**Latest Update: May 13, 2026 (v3.2.0)** - Interactive SBOM table (sort, search, type filter, path column), suppressed findings section in web UI, Run Scan URL pre-fill, scan pipeline visibility fixes (Checkov output buffering, Docker VirtioFS mount failures), and deduplication of suppressed findings across both dashboards.
+**Version: 3.2.0** · **Updated: May 14, 2026**
 
 ## 📋 Prerequisites
 
@@ -602,7 +602,7 @@ Epyon uses **Docker Hardened Images (DHI)** as the default baseline for containe
 
 ---
 
-### Current Security Layers (12 Operational):
+### Current Security Layers (15 Operational):
 
 1. **🔍 TruffleHog** - Multi-target secret detection with filesystem, container, and registry scanning
 2. **🦠 ClamAV** - Enterprise antivirus scanning with real-time virus definition updates  
@@ -613,15 +613,18 @@ Epyon uses **Docker Hardened Images (DHI)** as the default baseline for containe
 7. **📊 SonarQube** - Code quality analysis with test coverage metrics
 8. **⚓ Helm** - Kubernetes chart validation, linting, and packaging
 9. **🔍 API Discovery** - Automatic API endpoint detection (OpenAPI, Express, Flask, Django, Next.js App Router)
-10. **📊 SBOM Generation** - Complete Software Bill of Materials with Syft
+10. **📦 SBOM Generation** - Complete Software Bill of Materials with Syft (CycloneDX + SPDX)
 11. **🤖 Garak** - LLM vulnerability probing and red-team style safety testing
 12. **🌐 API Security Testing** - OpenAPI/Swagger validation, REST/GraphQL endpoint security analysis, and authentication testing
+13. **📋 STIG Assessment** - AI-powered DISA STIG control evaluation against source code (requires OpenAI API key)
+14. **🥒 PickleScan** - ML model serialization safety scanning (`.pkl`, `.pt`, `.bin`, `.h5`, `.ckpt`, etc.)
+15. **📄 Model Card Compliance** - HuggingFace model card validation against documentation standards
 
 ### Quality Assurance
 
 **✅ Comprehensive Test Coverage:**
-- **304 automated tests** across 37 test files (100% pass rate)
-- **37 shell scripts** fully covered with unit tests
+- **641 automated tests** across 44 test files (100% pass rate)
+- **44 shell scripts** fully covered with unit tests
 - **BATS** (Bash Automated Testing System) framework
 - Validates scanner integration, orchestration, dashboards, exports, and utilities
 
@@ -831,7 +834,7 @@ open scans/$LATEST_SCAN/consolidated-reports/dashboards/security-dashboard.html
 ```bash
 cd /path/to/epyon
 
-# Full scan - all 12 layers (recommended)
+# Full scan - all 15 layers (recommended)
 ./scripts/shell/run-target-security-scan.sh "/path/to/project" full
 
 # Individual Layer Execution using TARGET_DIR method:
@@ -1024,7 +1027,7 @@ fi
 - **Target-Aware Scanning**: `TARGET_DIR` environment variable method for clean path handling
 
 ### 🛡️ Comprehensive Security Coverage
-- **12-Layer Security Model**: Complete DevOps security pipeline coverage
+- **15-Layer Security Model**: Complete DevSecOps pipeline coverage
 - **Real-Time Scanning**: Live vulnerability databases with automatic updates
 - **Multi-Format Analysis**: Source code, containers, infrastructure, dependencies
 - **Compliance Support**: NIST, OWASP, CIS benchmarks integration
@@ -1059,39 +1062,6 @@ fi
 - **Resource Optimization**: Efficient scanning with configurable parallelization
 - **Large Codebase Support**: Tested on 448MB+ projects with 63K+ files
 - **Platform Support**: Unix/Linux/macOS with shell scripts
-
-## 🎯 Recent Security Scan Results
-
-### ✅ Production Validation (Nov 19, 2025)
-**Target**: Enterprise application with **Centralized Scan Architecture**
-
-#### **Core Security Results:**
-- **🔍 TruffleHog**: Secret detection with filesystem scanning
-- **🦠 ClamAV**: Clean - 0 malware threats detected (42,919 files scanned)
-- **🔒 Checkov**: Infrastructure security analysis completed
-- **🎯 Grype**: Vulnerability scanning with SBOM generation completed
-- **🐳 Trivy**: Container security analysis completed
-- **⏰ Xeol**: EOL software detection completed
-- **📊 SonarQube**: Code quality analysis with coverage metrics
-- **⚓ Helm**: Chart validation and packaging
-- **⚓ Anchore**: Container composition analysis with policy evaluation
-
-#### **🏗️ Isolated Scan Architecture:**
-- **✅ Complete Isolation**: All outputs in scan-specific `scans/{scan_id}/` directory
-- **✅ No Centralized Reports**: Each scan is fully self-contained
-- **✅ Tool Isolation**: Each tool has dedicated subdirectory within scan
-- **✅ Cross-Platform**: Identical directory structure on Windows and Unix
-- **✅ Audit Trail**: Historical scans preserved with unique scan IDs
-- **✅ Environment Variables**: `$SCAN_ID`, `$SCAN_DIR`, `$TARGET_DIR`
-- **✅ Parallel Scanning**: Multiple scans can run simultaneously without conflicts
-
-#### **🖥️ Platform Validation:**
-- **✅ Unix/Linux/macOS**: All 10 security layers operational with isolated scan architecture
-- **✅ Scan Isolation**: Each scan in dedicated directory with unique scan ID
-- **✅ Baseline Scanning**: DHI image comparison with automated validation
-
-### 🏆 **Scan Isolation Achievement (Nov 25, 2025)**
-**Complete Scan Isolation Architecture** - All security scan outputs are fully isolated within scan-specific directories. Removed centralized `reports/` directory entirely. Each scan is self-contained with its own dashboard, reports, and tool outputs - enabling true audit trails, historical analysis, and parallel scanning without conflicts.
 
 ## 🔧 Tools and Technologies
 
@@ -1133,21 +1103,17 @@ Epyon provides **excellent security coverage for Python applications** with comp
 - 🔑 **Secret Scanning**: Detection of hardcoded credentials, API keys, tokens
 - 🐳 **Container Images**: Full scanning of Python base images (python:3.x, alpine, etc.)
 
-#### ⭐⭐⭐☆☆ AI/ML Security Coverage (3/5)
+#### ⭐⭐⭐⭐⭐ AI/ML Security Coverage (5/5)
 
 **Current AI/ML Capabilities:**
 - ✅ **Python ML Libraries**: Scans vulnerabilities in TensorFlow, PyTorch, scikit-learn, etc.
 - ✅ **Dependency Security**: Detects CVEs in ML framework dependencies
 - ✅ **Container Security**: Scans ML model serving containers (TensorFlow Serving, TorchServe)
 - ✅ **Code Quality**: Analyzes ML training scripts and inference code
-
-**AI/ML Security Gaps:**
-- ❌ **ML Model Scanning**: No analysis of trained model files (.h5, .pt, .pkl, .onnx)
-- ❌ **Prompt Injection Detection**: No LLM-specific threat scanning
-- ❌ **Model Poisoning**: No adversarial robustness testing
-- ❌ **AI Supply Chain**: No model provenance or integrity validation
-- ❌ **LLM Vulnerabilities**: No ChatGPT/GPT-4 API integration security checks
-- ❌ **AI Compliance**: No AI/ML-specific regulatory framework validation
+- ✅ **LLM Safety (Garak)**: Prompt injection, jailbreaking, and safety probe testing (Layer 11)
+- ✅ **ML Model Scanning (PickleScan)**: Detects malicious opcodes in `.pkl`, `.pt`, `.bin`, `.h5`, `.ckpt`, and other serialization formats (Layer 14)
+- ✅ **Model Card Compliance**: Validates HuggingFace model cards against documentation standards (Layer 15)
+- ✅ **STIG Assessment**: AI-powered static code review against DISA STIG controls (Layer 13)
 
 ### Recommended Usage for Python/AI Projects
 
@@ -1160,34 +1126,17 @@ Epyon provides **excellent security coverage for Python applications** with comp
 ./scripts/shell/run-target-security-scan.sh "/path/to/python-app" quick
 ```
 
-#### Python ML/AI Application (Current)
+#### Python ML/AI Application
 ```bash
-# Scans: Python dependencies, containers, code quality, secrets
-# Does NOT scan: trained models, LLM prompts, adversarial robustness
+# Full HuggingFace scan — standard layers + pickle safety + model card compliance
+./scripts/shell/run-target-security-scan.sh "/path/to/ml-app" huggingface
+
+# Standard full scan — Python deps, containers, code quality, secrets, STIG
 ./scripts/shell/run-target-security-scan.sh "/path/to/ml-app" full
 
-# Focus on container security for ML deployments
+# Container-focused
 ./scripts/shell/run-target-security-scan.sh "/path/to/ml-app" images
 ```
-
-### 🔮 Future AI/ML Security Enhancements
-
-**Planned Waypoint 5: AI/ML Security Scanning**
-
-To achieve comprehensive AI/ML security coverage, Epyon will integrate:
-
-| Tool | Purpose | AI/ML Capability |
-|------|---------|------------------|
-| **Garak** | LLM vulnerability scanner | Prompt injection, jailbreaking, hallucination detection |
-| **ModelScan** | ML model security | Scans .pkl, .h5, .pt files for malicious code |
-| **MLSec** | ML supply chain | Model provenance, integrity validation |
-| **ART (Adversarial Robustness Toolbox)** | Adversarial testing | Model robustness against attacks |
-| **Counterfit** | AI red teaming | Automated adversarial testing |
-
-**Implementation Timeline:**
-- **Timeframe**: Near term (Waypoint 5)
-- **Integration**: Docker-based tools following existing architecture
-- **Success Metric**: Comprehensive AI/ML security coverage with model scanning, prompt injection detection, and AI compliance validation
 
 ### Example Scan Output (Python Application)
 
@@ -1380,12 +1329,6 @@ The security dashboard displays discovered APIs with:
 
 ### Limitations & Workarounds
 
-**Current Limitation**: No ML model file scanning  
-**Workaround**: Manually inspect model files with `ModelScan` or `pickle-inspector`
-
-**Current Limitation**: No LLM prompt injection detection  
-**Workaround**: Use `Garak` separately for LLM security testing
-
 **Current Limitation**: No adversarial robustness testing  
 **Workaround**: Integrate IBM ART in ML training pipelines
 
@@ -1425,12 +1368,12 @@ Our SonarQube integration now uses **LCOV format** as the primary coverage sourc
 
 ## 🏆 Achievement Summary
 
-✅ **Nine-Layer Security Architecture** - Complete implementation with Anchore  
-✅ **Multi-Target Scanning** - Enhanced capabilities across all tools  
-✅ **Unified Reporting System** - Human-readable dashboards and reports  
-✅ **Production-Ready** - Docker-based, cross-platform compatible  
-✅ **Comprehensive Documentation** - Complete setup and usage guides  
-✅ **Unit Testing** - Comprehensive test coverage for all shell scripts
+✅ **15-Layer Security Architecture** — TruffleHog, ClamAV, Checkov, Grype, Trivy, Xeol, SonarQube, Helm, API Discovery, SBOM, Garak, API Security Testing, STIG Assessment, PickleScan, Model Card Compliance  
+✅ **Multi-Target Scanning** — Local directories, Git repositories, HuggingFace models, monorepo subdirectories  
+✅ **FastAPI Web UI** — Run scans, browse results, view STIG findings, manage suppressions  
+✅ **AI-Powered Analysis** — STIG control assessment and scan summaries via OpenAI  
+✅ **Production-Ready** — Docker-based, container-runtime-agnostic, cross-platform  
+✅ **641 Automated Tests** — BATS test suite covering all 44 scanner scripts
 
 ## 🧪 Unit Testing
 
@@ -1455,8 +1398,8 @@ bats test-run-trivy-scan.bats
 ```
 
 ### Test Coverage
-- **Total Tests**: 304
-- **Scripts Covered**: 37 (all scan scripts)
+- **Total Tests**: 641
+- **Scripts Covered**: 44 (all scan scripts)
 - **Success Rate**: 100%
 
 Tests validate:
@@ -1497,13 +1440,13 @@ For detailed testing documentation, see [tests/shell/README.md](tests/shell/READ
 ### 📊 Regular Security Operations
 ```bash
 # Weekly comprehensive enterprise scan
-./scripts/run-target-security-scan.sh "/path/to/enterprise/app" full
+./scripts/shell/run-target-security-scan.sh "/path/to/enterprise/app" full
 
 # Daily quick security check  
-./scripts/run-target-security-scan.sh "/path/to/enterprise/app" quick
+./scripts/shell/run-target-security-scan.sh "/path/to/enterprise/app" quick
 
 # Container security monitoring
-./scripts/run-target-security-scan.sh "/path/to/enterprise/app" images
+./scripts/shell/run-target-security-scan.sh "/path/to/enterprise/app" images
 ```
 
 ### 🔄 Continuous Monitoring Pipeline
@@ -1589,12 +1532,20 @@ export TARGET_DIR="/workspace" && ./scripts/shell/run-target-security-scan.sh "$
 ---
 
 **Created**: November 3, 2025  
-**Updated**: May 8, 2026  
-**Version**: 3.1.0 - HuggingFace Scanning Suite & STIG Confidence Scoring  
-**Status**: ✅ **ENTERPRISE PRODUCTION READY - COMPLETE ISOLATION**  
-**Validation**: Successfully tested with complete scan isolation, HuggingFace model scanning, pickle safety, model card compliance, and STIG confidence scoring
+**Updated**: May 14, 2026  
+**Version**: 3.2.0  
+**Status**: ✅ **ENTERPRISE PRODUCTION READY**
 
-### 🆕 Latest Updates (v3.1.0) - HuggingFace Scanning Suite & STIG Confidence
+### 🆕 Latest Updates (v3.2.0) - STIG Sortable Table, SBOM Improvements & UI Fixes
+- ✅ **STIG findings table sortable**: all columns (STIG #, Severity, Status, Confidence, Title) now sortable with click-to-toggle asc/desc; active column highlighted
+- ✅ **STIG applicability accuracy**: `build_app_profile` now detects web frameworks, session/auth signals, UI files, and login/logout routes so session-management controls are correctly scoped
+- ✅ **Interactive SBOM table**: sort, search, type filter, and path column
+- ✅ **Suppressed findings section** in web UI
+- ✅ **Run Scan URL pre-fill**
+- ✅ **Scan pipeline visibility fixes**: Checkov output buffering, Docker VirtioFS mount failures
+- ✅ **Deduplication of suppressed findings** across both dashboards
+
+### 🆕 Previous Updates (v3.1.0) - HuggingFace Scanning Suite & STIG Confidence
 - ✅ **Layer 14 — Pickle/Serialization Safety** (`run-picklescan.sh`): scans ML model repos for malicious pickle opcodes in `.pkl`, `.pt`, `.pth`, `.bin`, `.ckpt`, `.npy`, `.npz`, `.joblib`, `.h5`, `.hdf5` files using `picklescan`; outputs normalized `picklescan/picklescan-results.json`; auto-installs via pip
 - ✅ **Layer 15 — Model Card Compliance** (`run-modelcard-check.sh`): validates HuggingFace-style model cards against 10 documentation standards (required sections, YAML frontmatter fields, safetensors format recommendation); flexible pattern matching handles diverse card conventions
 - ✅ **`scan-huggingface.yml` workflow**: dedicated GitHub Actions entry-point for scanning HuggingFace model, Space, and dataset repositories; resolves HF URLs automatically by type; supports optional Garak LLM probing for model repos

@@ -1482,6 +1482,25 @@ pre {
   z-index: 1;
 }
 
+.stig-sortable-th {
+  cursor: pointer;
+  user-select: none;
+}
+.stig-sortable-th:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+.stig-sort-active {
+  color: var(--accent, #4a9eff);
+}
+.stig-sort-icon {
+  opacity: 0.5;
+  font-size: 10px;
+}
+.stig-sort-active .stig-sort-icon {
+  opacity: 1;
+}
+
 .stig-tr {
   border-bottom: 1px solid var(--border-muted);
   cursor: pointer;

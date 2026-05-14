@@ -2544,10 +2544,14 @@ async function renderStigViewer(scanId) {
     let filterStig = 'all';
     let filterText = '';
 
+    // Sort state
+    let sortCol = null;   // 'vuln_id' | 'severity' | 'status' | 'confidence' | 'title'
+    let sortDir = 'asc';  // 'asc' | 'desc'
+
     const stigNames = [...new Set(data.stigs.map(s => s.stig_name))];
 
     function filtered() {
-      return allControls.filter(c => {
+      const rows = allControls.filter(c => {
         if (filterStatus   !== 'all' && c.status   !== filterStatus)   return false;
         if (filterSeverity !== 'all' && c.severity !== filterSeverity) return false;
         if (filterStig     !== 'all' && c._slug    !== filterStig)     return false;
@@ -2559,6 +2563,33 @@ async function renderStigViewer(scanId) {
         }
         return true;
       });
+      if (sortCol) {
+        const dir = sortDir === 'asc' ? 1 : -1;
+        rows.sort((a, b) => {
+          let av, bv;
+          if (sortCol === 'vuln_id') {
+            av = (a.group_id || a.vuln_id || '').toLowerCase();
+            bv = (b.group_id || b.vuln_id || '').toLowerCase();
+          } else if (sortCol === 'severity') {
+            av = SEV_ORDER.indexOf(a.severity ?? '');
+            bv = SEV_ORDER.indexOf(b.severity ?? '');
+            return dir * (av - bv);
+          } else if (sortCol === 'status') {
+            av = STATUS_ORDER.indexOf(a.status ?? '');
+            bv = STATUS_ORDER.indexOf(b.status ?? '');
+            return dir * (av - bv);
+          } else if (sortCol === 'confidence') {
+            av = a.confidence ?? 0;
+            bv = b.confidence ?? 0;
+            return dir * (av - bv);
+          } else {
+            av = (a[sortCol] || '').toLowerCase();
+            bv = (b[sortCol] || '').toLowerCase();
+          }
+          return dir * (av < bv ? -1 : av > bv ? 1 : 0);
+        });
+      }
+      return rows;
     }
 
     function countsByStatus() {
@@ -2578,11 +2609,18 @@ async function renderStigViewer(scanId) {
           <table class="stig-table">
             <thead>
               <tr>
-                <th style="width:100px">STIG #</th>
-                <th style="width:70px">Severity</th>
-                <th style="width:130px">Status</th>
-                <th style="width:80px">Confidence</th>
-                <th>Title</th>
+                ${[
+                  ['vuln_id',    '100px', 'STIG #'],
+                  ['severity',   '70px',  'Severity'],
+                  ['status',     '130px', 'Status'],
+                  ['confidence', '80px',  'Confidence'],
+                  ['title',      null,    'Title'],
+                ].map(([col, w, label]) => {
+                  const active = sortCol === col;
+                  const icon = active ? (sortDir === 'asc' ? '↑' : '↓') : '⇅';
+                  const style = w ? `style="width:${w}"` : '';
+                  return `<th class="stig-sortable-th${active ? ' stig-sort-active' : ''}" ${style} onclick="setStigSort('${col}')">${label} <span class="stig-sort-icon">${icon}</span></th>`;
+                }).join('')}
                 ${stigNames.length > 1 ? '<th style="width:140px">STIG</th>' : ''}
                 <th style="width:40px"></th>
               </tr>
@@ -2712,6 +2750,15 @@ async function renderStigViewer(scanId) {
       repaint();
     };
     window.setStigSearch = (val) => { filterText = val; repaint(); };
+    window.setStigSort   = (col) => {
+      if (sortCol === col) {
+        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortCol = col;
+        sortDir = 'asc';
+      }
+      repaint();
+    };
     window.toggleStigRow = (detId, rowId) => {
       const det  = document.getElementById(detId);
       const row  = document.getElementById(rowId);

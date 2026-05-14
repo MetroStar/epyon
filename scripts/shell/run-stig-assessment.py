@@ -320,13 +320,59 @@ def build_app_profile(app_name: str, files: list[tuple[str, str]]) -> str:
         "Makefile", "justfile",
     }
 
-    for rel, _ in files:
+    # Signals that indicate an interactive web UI / user sessions
+    _WEB_FRAMEWORK_IMPORTS = [
+        "flask", "django", "fastapi", "starlette", "tornado", "aiohttp",
+        "express", "koa", "hapi", "next", "nuxt", "react", "vue", "angular",
+        "rails", "sinatra", "spring", "quarkus", "gin", "echo", "fiber",
+        "actix", "rocket", "axum",
+    ]
+    _SESSION_SIGNALS = [
+        "session", "login", "logout", "logoff", "authenticate", "cookie",
+        "jwt", "oauth", "saml", "sso", "auth", "user.password", "password",
+    ]
+    _UI_FILE_PATTERNS = [
+        ".html", ".htm", ".jsx", ".tsx", ".vue", ".svelte", ".erb", ".jinja",
+        ".jinja2", ".j2", ".hbs", ".ejs",
+    ]
+
+    has_web_framework = False
+    has_session_logic = False
+    has_ui_files = False
+    has_login_routes: list[str] = []
+
+    for rel, content in files:
         fname = Path(rel).name
         ext = Path(rel).suffix.lower()
         if ext:
             ext_counts[ext] += 1
         if fname in _KEY_FILES:
             key_files_found.append(fname)
+
+        content_lower = content.lower()
+
+        # Check for web framework imports / usage
+        if not has_web_framework:
+            for fw in _WEB_FRAMEWORK_IMPORTS:
+                if fw in content_lower:
+                    has_web_framework = True
+                    break
+
+        # Check for session/auth signals
+        if not has_session_logic:
+            for sig in _SESSION_SIGNALS:
+                if sig in content_lower:
+                    has_session_logic = True
+                    break
+
+        # Check for UI template/component files
+        if ext in _UI_FILE_PATTERNS:
+            has_ui_files = True
+
+        # Look for login/logoff route definitions
+        if any(kw in content_lower for kw in ("route", "path", "endpoint", "@app.")):
+            if any(kw in content_lower for kw in ("login", "logout", "logoff", "signin", "signout")):
+                has_login_routes.append(rel)
 
     _EXT_LABEL: dict[str, str] = {
         ".py": "Python", ".ts": "TypeScript", ".tsx": "TypeScript/React",
@@ -336,6 +382,8 @@ def build_app_profile(app_name: str, files: list[tuple[str, str]]) -> str:
         ".tf": "Terraform", ".hcl": "HCL",
         ".yml": "YAML", ".yaml": "YAML",
         ".json": "JSON", ".toml": "TOML",
+        ".html": "HTML", ".htm": "HTML",
+        ".vue": "Vue", ".svelte": "Svelte",
     }
 
     type_parts = [
@@ -351,6 +399,27 @@ def build_app_profile(app_name: str, files: list[tuple[str, str]]) -> str:
         lines.append(f"Key files: {', '.join(sorted(set(key_files_found)))}")
     else:
         lines.append("Key files: none detected")
+
+    # Append UI/session characteristics so the applicability check has full context
+    ui_traits: list[str] = []
+    if has_web_framework:
+        ui_traits.append("uses a web framework")
+    if has_ui_files:
+        ui_traits.append("contains UI template/component files (HTML/JSX/Vue/etc.)")
+    if has_session_logic:
+        ui_traits.append("contains session/authentication logic (login, logout, cookies, JWT, etc.)")
+    if has_login_routes:
+        ui_traits.append(
+            f"defines login/logout routes (e.g. {', '.join(has_login_routes[:3])})"
+        )
+
+    if ui_traits:
+        lines.append("UI/session characteristics: " + "; ".join(ui_traits))
+    else:
+        lines.append(
+            "UI/session characteristics: no web framework, UI files, or session/auth "
+            "signals detected — likely a CLI tool, background service, or library"
+        )
 
     return "\n".join(lines)
 

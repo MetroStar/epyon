@@ -2577,6 +2577,191 @@ else
 </div>"
 fi
 
+# ---- Network Discovery Statistics (Layer 16) ----
+NET_DISC_FILE="${LATEST_SCAN}/network/network-discovery.json"
+NET_TOTAL_PORTS=0
+NET_PROTOCOLS=""
+NET_SERVICES=""
+NET_DOCKER_COUNT=0
+NET_COMPOSE_COUNT=0
+NET_K8S_COUNT=0
+NET_HELM_COUNT=0
+NET_CONFIG_COUNT=0
+NET_ENV_COUNT=0
+NET_ACTIVE_SCAN_RUN="false"
+NET_ACTIVE_OPEN_PORTS=0
+NET_STATUS="not_run"
+NET_FINDINGS=""
+
+if [ -f "$NET_DISC_FILE" ]; then
+    NET_TOTAL_PORTS=$(jq '.summary.total_ports_discovered // 0' "$NET_DISC_FILE" 2>/dev/null || echo "0")
+    NET_PROTOCOLS=$(jq -r '.summary.protocols | join(", ")' "$NET_DISC_FILE" 2>/dev/null || echo "")
+    NET_SERVICES=$(jq -r '.summary.inferred_services | join(", ")' "$NET_DISC_FILE" 2>/dev/null || echo "")
+    NET_DOCKER_COUNT=$(jq '[.static_discovery.dockerfiles[]?.exposed_ports[]?] | length' "$NET_DISC_FILE" 2>/dev/null || echo "0")
+    NET_COMPOSE_COUNT=$(jq '[.static_discovery.docker_compose[]?.services[]?.ports[]?] | length' "$NET_DISC_FILE" 2>/dev/null || echo "0")
+    NET_K8S_COUNT=$(jq '[.static_discovery.kubernetes[]?] | length' "$NET_DISC_FILE" 2>/dev/null || echo "0")
+    NET_HELM_COUNT=$(jq '[.static_discovery.helm_charts[]?.service_ports[]?] | length' "$NET_DISC_FILE" 2>/dev/null || echo "0")
+    NET_CONFIG_COUNT=$(jq '[.static_discovery.app_configs[]?] | length' "$NET_DISC_FILE" 2>/dev/null || echo "0")
+    NET_ENV_COUNT=$(jq '[.static_discovery.env_files[]?.port_vars[]?] | length' "$NET_DISC_FILE" 2>/dev/null || echo "0")
+    NET_ACTIVE_SCAN_RUN=$(jq -r '.summary.active_scan_run // false' "$NET_DISC_FILE" 2>/dev/null || echo "false")
+    [[ "$NET_ACTIVE_SCAN_RUN" == "true" ]] && \
+        NET_ACTIVE_OPEN_PORTS=$(jq '[.active_scan.open_ports[]?] | length' "$NET_DISC_FILE" 2>/dev/null || echo "0")
+
+    [[ "$NET_TOTAL_PORTS" =~ ^[0-9]+$ ]] || NET_TOTAL_PORTS=0
+
+    if [ "$NET_TOTAL_PORTS" -gt 0 ]; then
+        NET_STATUS="found"
+        NET_FINDINGS="<div class=\"findings-section\" style=\"margin-top:15px;\">
+            <h4 style=\"color:#0369a1;margin-bottom:10px;\">🔌 Discovered Ports &amp; Services (${NET_TOTAL_PORTS} unique port(s))</h4>
+            <p style=\"color:#718096;margin-bottom:15px;font-size:0.9em;\">Ports and services discovered from static configuration files in the application. Use these for targeted security testing and attack surface assessment.</p>"
+
+        # Port table from summary
+        local net_ports_json
+        net_ports_json=$(jq -r '.summary.unique_ports[]?' "$NET_DISC_FILE" 2>/dev/null)
+        if [ -n "$net_ports_json" ]; then
+            NET_FINDINGS="${NET_FINDINGS}<div class=\"finding-item\" style=\"border-left:4px solid #0ea5e9;\" onclick=\"toggleFindingDetails(this)\">
+    <div class=\"finding-header\">
+        <span class=\"badge\" style=\"background:#0369a1;color:white;\">🔌 Port Inventory</span>
+        <span class=\"badge\" style=\"background:#e0f2fe;color:#0369a1;\">${NET_TOTAL_PORTS} Ports</span>
+    </div>
+    <div class=\"finding-title\">Discovered Port &amp; Service Inventory</div>
+    <div class=\"finding-desc\">Protocols: ${NET_PROTOCOLS} &nbsp;|&nbsp; Inferred services: ${NET_SERVICES}</div>
+    <div class=\"finding-details\" style=\"display:none;\">
+        <div style=\"overflow-x:auto;margin-top:10px;\">
+            <table style=\"width:100%;border-collapse:collapse;font-size:0.85em;\">
+                <thead>
+                    <tr style=\"background:#0c1a2e;border-bottom:2px solid #0ea5e9;\">
+                        <th style=\"padding:8px;text-align:left;color:#7dd3fc;\">Port</th>
+                        <th style=\"padding:8px;text-align:left;color:#7dd3fc;\">Protocol</th>
+                        <th style=\"padding:8px;text-align:left;color:#7dd3fc;\">Inferred Service</th>
+                    </tr>
+                </thead>
+                <tbody>"
+
+            # Build port service lookup from inferred_services
+            while IFS= read -r port_num; do
+                local inferred_svc
+                inferred_svc=$(python3 -c "
+PORT_SERVICES = {
+    21:'ftp',22:'ssh',23:'telnet',25:'smtp',53:'dns',80:'http',
+    110:'pop3',143:'imap',389:'ldap',443:'https',465:'smtps',
+    587:'smtp',636:'ldaps',1433:'mssql',1521:'oracle',1883:'mqtt',
+    3000:'http-dev',3306:'mysql',3389:'rdp',4222:'nats',4566:'localstack',
+    5432:'postgresql',5601:'kibana',5672:'amqp',5984:'couchdb',
+    6379:'redis',6380:'redis',7474:'neo4j',8025:'mailhog',8080:'http-alt',
+    8081:'http-alt',8086:'influxdb',8443:'https-alt',8888:'http-alt',
+    9000:'http-alt',9090:'prometheus',9092:'kafka',9200:'elasticsearch',
+    9300:'elasticsearch',9411:'zipkin',15672:'rabbitmq-management',
+    27017:'mongodb',27018:'mongodb',50051:'grpc'
+}
+print(PORT_SERVICES.get($port_num, 'unknown'))
+" 2>/dev/null || echo "unknown")
+                NET_FINDINGS="${NET_FINDINGS}<tr style=\"border-bottom:1px solid #1e3a5f;\">
+                        <td style=\"padding:8px;color:#f9fafb;font-weight:600;font-family:monospace;\">${port_num}</td>
+                        <td style=\"padding:8px;\"><span class=\"badge\" style=\"background:#1e3a5f;color:#93c5fd;font-size:0.75em;\">${NET_PROTOCOLS}</span></td>
+                        <td style=\"padding:8px;color:#d1d5db;\">${inferred_svc}</td>
+                    </tr>"
+            done < <(echo "$net_ports_json")
+
+            NET_FINDINGS="${NET_FINDINGS}</tbody>
+            </table>
+        </div>
+    </div>
+</div>"
+        fi
+
+        # Source breakdown
+        NET_FINDINGS="${NET_FINDINGS}<div class=\"finding-item\" style=\"border-left:4px solid #10b981;\">
+    <div class=\"finding-header\">
+        <span class=\"badge\" style=\"background:#059669;color:white;\">📁 Source Breakdown</span>
+    </div>
+    <div class=\"finding-title\">Static Discovery Sources</div>
+    <div class=\"finding-desc\">Configuration files analyzed for port/service declarations</div>
+    <div class=\"finding-details\" style=\"display:none;\">
+        <div style=\"padding:10px;\">
+            <table style=\"width:100%;border-collapse:collapse;font-size:0.85em;\">
+                <tbody>
+                    <tr><td style=\"padding:6px;color:#d1d5db;\">🐳 Dockerfile EXPOSE</td><td style=\"padding:6px;color:#f9fafb;font-weight:600;\">${NET_DOCKER_COUNT}</td></tr>
+                    <tr><td style=\"padding:6px;color:#d1d5db;\">🐙 Docker Compose ports</td><td style=\"padding:6px;color:#f9fafb;font-weight:600;\">${NET_COMPOSE_COUNT}</td></tr>
+                    <tr><td style=\"padding:6px;color:#d1d5db;\">☸️ Kubernetes manifests</td><td style=\"padding:6px;color:#f9fafb;font-weight:600;\">${NET_K8S_COUNT}</td></tr>
+                    <tr><td style=\"padding:6px;color:#d1d5db;\">⛵ Helm charts</td><td style=\"padding:6px;color:#f9fafb;font-weight:600;\">${NET_HELM_COUNT}</td></tr>
+                    <tr><td style=\"padding:6px;color:#d1d5db;\">⚙️ App configs (server.port)</td><td style=\"padding:6px;color:#f9fafb;font-weight:600;\">${NET_CONFIG_COUNT}</td></tr>
+                    <tr><td style=\"padding:6px;color:#d1d5db;\">🔧 .env PORT= variables</td><td style=\"padding:6px;color:#f9fafb;font-weight:600;\">${NET_ENV_COUNT}</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>"
+
+        # Active scan results
+        if [[ "$NET_ACTIVE_SCAN_RUN" == "true" ]]; then
+            NET_FINDINGS="${NET_FINDINGS}<div class=\"finding-item\" style=\"border-left:4px solid #f59e0b;\">
+    <div class=\"finding-header\">
+        <span class=\"badge\" style=\"background:#d97706;color:white;\">🔭 Active Scan (nmap)</span>
+        <span class=\"badge\" style=\"background:#fef3c7;color:#92400e;\">${NET_ACTIVE_OPEN_PORTS} Open Ports</span>
+    </div>
+    <div class=\"finding-title\">nmap Active Scan Results</div>
+    <div class=\"finding-desc\">${NET_ACTIVE_OPEN_PORTS} open port(s) detected on $(jq -r '.active_scan.target // "target"' "$NET_DISC_FILE" 2>/dev/null)</div>
+    <div class=\"finding-details\" style=\"display:none;\">
+        <div style=\"overflow-x:auto;margin-top:10px;\">
+            <table style=\"width:100%;border-collapse:collapse;font-size:0.85em;\">
+                <thead>
+                    <tr style=\"background:#2a1c00;border-bottom:2px solid #f59e0b;\">
+                        <th style=\"padding:8px;text-align:left;color:#fcd34d;\">Port</th>
+                        <th style=\"padding:8px;text-align:left;color:#fcd34d;\">Protocol</th>
+                        <th style=\"padding:8px;text-align:left;color:#fcd34d;\">Service</th>
+                        <th style=\"padding:8px;text-align:left;color:#fcd34d;\">Version</th>
+                    </tr>
+                </thead>
+                <tbody>"
+            while IFS= read -r active_port; do
+                ap_port=$(echo "$active_port" | jq -r '.port // ""')
+                ap_proto=$(echo "$active_port" | jq -r '.protocol // ""')
+                ap_svc=$(echo "$active_port" | jq -r '.service // ""')
+                ap_ver=$(echo "$active_port" | jq -r '.version // ""')
+                NET_FINDINGS="${NET_FINDINGS}<tr style=\"border-bottom:1px solid #3a2a00;\">
+                        <td style=\"padding:8px;color:#f9fafb;font-weight:600;font-family:monospace;\">${ap_port}</td>
+                        <td style=\"padding:8px;color:#d1d5db;\">${ap_proto}</td>
+                        <td style=\"padding:8px;color:#fcd34d;\">${ap_svc}</td>
+                        <td style=\"padding:8px;color:#9ca3af;font-size:0.85em;\">${ap_ver}</td>
+                    </tr>"
+            done < <(jq -c '.active_scan.open_ports[]?' "$NET_DISC_FILE" 2>/dev/null)
+            NET_FINDINGS="${NET_FINDINGS}</tbody>
+            </table>
+        </div>
+    </div>
+</div>"
+        fi
+
+        NET_FINDINGS="${NET_FINDINGS}</div>"
+    else
+        NET_STATUS="none"
+        NET_FINDINGS="<p class=\"no-findings\">No ports or services discovered in target directory</p>
+<div style=\"margin-top:15px;padding:15px;background:#0c1a2e;border-radius:8px;border-left:4px solid #4299e1;color:#d1d5db;\">
+    <h5 style=\"color:#60a5fa;margin-top:0;\">💡 About Network Discovery</h5>
+    <ul style=\"color:#9ca3af;margin:8px 0;padding-left:20px;font-size:0.9em;\">
+        <li><strong style=\"color:#d1d5db;\">Dockerfile</strong> — EXPOSE directives</li>
+        <li><strong style=\"color:#d1d5db;\">Docker Compose</strong> — ports: and expose: blocks</li>
+        <li><strong style=\"color:#d1d5db;\">Kubernetes</strong> — Service / Deployment containerPort</li>
+        <li><strong style=\"color:#d1d5db;\">Helm</strong> — values.yaml service port definitions</li>
+        <li><strong style=\"color:#d1d5db;\">Spring Boot</strong> — application.yml server.port</li>
+        <li><strong style=\"color:#d1d5db;\">.env files</strong> — PORT=, SERVER_PORT=, etc.</li>
+    </ul>
+    <p style=\"color:#6b7280;margin:8px 0;font-size:0.85em;\"><em>Set NMAP_TARGET=&lt;host&gt; to enable active port scanning (requires Docker).</em></p>
+</div>"
+    fi
+else
+    NET_STATUS="not_run"
+    NET_FINDINGS="<p class=\"no-findings\">Network discovery not run for this scan</p>
+<div style=\"margin-top:15px;padding:15px;background:#2a1c00;border-radius:8px;border-left:4px solid #f59e0b;color:#d1d5db;\">
+    <h5 style=\"color:#fbbf24;margin-top:0;\">⚠️ Network Discovery Not Enabled</h5>
+    <p style=\"color:#9ca3af;margin:8px 0;font-size:0.9em;\">Run network discovery to identify ports, protocols, and services:</p>
+    <pre style=\"background:#1a1200;color:#fcd34d;padding:10px;border-radius:4px;font-size:0.85em;margin:10px 0;\">./scripts/shell/run-network-discovery.sh /path/to/target</pre>
+    <p style=\"color:#9ca3af;margin:8px 0;font-size:0.85em;\">For active port scanning (authorized targets only):</p>
+    <pre style=\"background:#1a1200;color:#fcd34d;padding:10px;border-radius:4px;font-size:0.85em;margin:10px 0;\">NMAP_TARGET=&lt;host&gt; ./scripts/shell/run-network-discovery.sh /path/to/target</pre>
+</div>"
+fi
+
 # ---- Garak (LLM Security Probing) Statistics ----
 GARAK_DIR="${LATEST_SCAN}/garak"
 GARAK_RESULT_FILE="$GARAK_DIR/garak-results.json"
@@ -5462,6 +5647,61 @@ fi
 
 cat >> "$OUTPUT_HTML" << EOF
                         ${API_FINDINGS}
+                    </div>
+                </div>
+            </div>
+EOF
+
+# ---- Network Discovery card (Layer 16) ----
+cat >> "$OUTPUT_HTML" << EOF
+            <!-- Layer 16: Network Discovery -->
+            <div class="tool-card">
+                <div class="tool-header" onclick="toggleTool('network-discovery')">
+                    <div class="tool-title">
+                        <span class="tool-icon">🔌</span>
+                        <div>
+                            <div>Network Discovery</div>
+                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">Layer 16 — Ports, Protocols &amp; Services</div>
+                        </div>
+                    </div>
+                    <div class="tool-stats">
+EOF
+
+if [ "$NET_TOTAL_PORTS" -gt 0 ]; then
+    echo "                        <span class=\"tool-stat-badge\" style=\"background: #0c1a2e; color: #60a5fa;\">🔌 ${NET_TOTAL_PORTS} Ports</span>" >> "$OUTPUT_HTML"
+else
+    if [ "$NET_STATUS" = "not_run" ]; then
+        echo "                        <span class=\"tool-stat-badge\" style=\"background: #2a1c00; color: #fbbf24;\">⏭️ Skipped</span>" >> "$OUTPUT_HTML"
+    else
+        echo "                        <span class=\"tool-stat-badge\" style=\"background: #f3f4f6; color: #6b7280;\">0 Found</span>" >> "$OUTPUT_HTML"
+    fi
+fi
+
+cat >> "$OUTPUT_HTML" << EOF
+                        <span class="expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="tool-content" id="network-discovery-content">
+                    <div class="tool-findings">
+                        <div class="stats-detail-box">
+                            <h4>🔌 Network Discovery Statistics</h4>
+                            <div class="stats-grid-small">
+                                <div class="stat-item"><strong>Unique Ports:</strong> ${NET_TOTAL_PORTS}</div>
+                                <div class="stat-item"><strong>Protocols:</strong> ${NET_PROTOCOLS:-N/A}</div>
+                                <div class="stat-item"><strong>Dockerfile EXPOSE:</strong> ${NET_DOCKER_COUNT}</div>
+                                <div class="stat-item"><strong>Docker Compose:</strong> ${NET_COMPOSE_COUNT}</div>
+                                <div class="stat-item"><strong>Kubernetes:</strong> ${NET_K8S_COUNT}</div>
+                                <div class="stat-item"><strong>Helm Charts:</strong> ${NET_HELM_COUNT}</div>
+                                <div class="stat-item"><strong>App Configs:</strong> ${NET_CONFIG_COUNT}</div>
+                                <div class="stat-item"><strong>.env Vars:</strong> ${NET_ENV_COUNT}</div>
+                                <div class="stat-item"><strong>Active Scan:</strong> ${NET_ACTIVE_SCAN_RUN}</div>
+                                <div class="stat-item"><strong>Open Ports (nmap):</strong> ${NET_ACTIVE_OPEN_PORTS}</div>
+                            </div>
+                            <div style="margin-top: 10px; padding: 8px 12px; background: rgba(59,130,246,0.1); border-left: 3px solid #3b82f6; border-radius: 4px; font-size: 0.85em; color: #93c5fd;">
+                                <strong>Inferred Services:</strong> ${NET_SERVICES:-None detected}
+                            </div>
+                        </div>
+                        ${NET_FINDINGS}
                     </div>
                 </div>
             </div>

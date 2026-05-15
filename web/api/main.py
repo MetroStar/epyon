@@ -33,6 +33,7 @@ APPROVED_IMAGES_FILE = EPYON_ROOT / "configuration" / "approved-base-images.conf
 GITHUB_CONFIG_FILE   = _HERE / ".." / "github-config.json"
 HIDDEN_APPS_FILE     = EPYON_ROOT / "configuration" / "hidden-apps.json"
 REGISTERED_APPS_FILE = EPYON_ROOT / "configuration" / "registered-apps.json"
+MONITORED_APPS_FILE  = EPYON_ROOT / "configuration" / "monitored-apps.json"
 STATIC_DIR           = (_HERE / ".." / "static").resolve()
 
 # ── Validation ────────────────────────────────────────────────
@@ -166,6 +167,20 @@ def _save_hidden_apps(hidden: set[str]) -> None:
     HIDDEN_APPS_FILE.write_text(json.dumps(sorted(hidden), indent=2))
 
 
+def _load_monitored_apps() -> set[str]:
+    try:
+        if MONITORED_APPS_FILE.exists():
+            return set(json.loads(MONITORED_APPS_FILE.read_text()))
+    except Exception:
+        pass
+    return set()
+
+
+def _save_monitored_apps(monitored: set[str]) -> None:
+    MONITORED_APPS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    MONITORED_APPS_FILE.write_text(json.dumps(sorted(monitored), indent=2))
+
+
 def _load_registered_apps() -> list[dict]:
     try:
         if REGISTERED_APPS_FILE.exists():
@@ -209,7 +224,8 @@ async def register_application(request: Request, response: Response):
 @app.get("/api/applications")
 def applications(response: Response):
     _sec_headers(response)
-    hidden = _load_hidden_apps()
+    hidden   = _load_hidden_apps()
+    monitored = _load_monitored_apps()
     scans = [parsers.load_scan(d, EPYON_ROOT) for d in parsers.find_scan_dirs(EPYON_ROOT)]
     by_target: dict[str, list] = {}
     for s in scans:
@@ -243,6 +259,7 @@ def applications(response: Response):
             "has_stig_report":     latest_stig.get("has_stig_report", False) if latest_stig else False,
             "has_stig_cklb":       latest_stig.get("has_stig_cklb", False)   if latest_stig else False,
             "url":                 "",
+            "monitored":           name in monitored,
         })
 
     # Merge in registered-but-unscanned apps
@@ -278,6 +295,7 @@ def applications(response: Response):
             "has_stig_cklb":       False,
             "url":                 reg.get("url", ""),
             "added_at":            reg.get("added_at", ""),
+            "monitored":           rname in monitored,
         })
 
     result.sort(key=lambda x: x.get("last_scanned", "") or x.get("added_at", ""), reverse=True)
@@ -304,6 +322,28 @@ def restore_application(name: str, response: Response):
     hidden.discard(name)
     _save_hidden_apps(hidden)
     return {"restored": name}
+
+
+@app.post("/api/applications/{name}/monitored")
+def set_monitored(name: str, response: Response):
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(name):
+        raise HTTPException(400, "Invalid application name")
+    monitored = _load_monitored_apps()
+    monitored.add(name)
+    _save_monitored_apps(monitored)
+    return {"monitored": name}
+
+
+@app.delete("/api/applications/{name}/monitored")
+def unset_monitored(name: str, response: Response):
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(name):
+        raise HTTPException(400, "Invalid application name")
+    monitored = _load_monitored_apps()
+    monitored.discard(name)
+    _save_monitored_apps(monitored)
+    return {"unmonitored": name}
 
 
 @app.delete("/api/applications/{name}/data")
@@ -680,6 +720,14 @@ def get_metrics(response: Response):
     for s, d in zip(all_scans, scan_dirs):
         by_target.setdefault(s["target"], []).append((s, d))
 
+    # ── Monitored-app filter ──────────────────────────────────
+    monitored = _load_monitored_apps()
+    if monitored:
+        by_target = {k: v for k, v in by_target.items() if k in monitored}
+        trend = [t for t in trend if t["target"] in monitored]
+    metrics_filtered = bool(monitored)
+    monitored_count  = len(monitored)
+
     tool_counts:      dict[str, dict] = {}
     tool_app_counts:  dict[str, dict[str, int]] = {}
     total_with_fix    = 0
@@ -836,6 +884,8 @@ def get_metrics(response: Response):
             for k, v in top_cves
         ],
         "scan_frequency": scan_frequency,
+        "metrics_filtered": metrics_filtered,
+        "monitored_count":  monitored_count,
     }
 
     _metrics_cache    = result

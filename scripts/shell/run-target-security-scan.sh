@@ -786,6 +786,13 @@ case "$SCAN_TYPE" in
             echo -e "${YELLOW}⏭️  Skipping API Discovery (SKIP_API_DISCOVERY=true)${NC}"
         fi
 
+        echo -e "${PURPLE}🔌 Network Discovery${NC}"
+        if [[ "${SKIP_NETWORK_DISCOVERY:-false}" != "true" ]]; then
+            run_security_tool "Network Discovery" "$SCRIPT_DIR/run-network-discovery.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Network Discovery (SKIP_NETWORK_DISCOVERY=true)${NC}"
+        fi
+
         echo -e "${PURPLE}🤖 LLM Security Probing${NC}"
         if [[ "${RUN_GARAK:-false}" == "true" ]] && [[ "${SKIP_GARAK:-false}" != "true" ]]; then
             run_security_tool "Garak LLM Security Probing" "$SCRIPT_DIR/run-garak-scan.sh"
@@ -887,6 +894,13 @@ case "$SCAN_TYPE" in
             run_security_tool "Garak LLM Security Probing" "$SCRIPT_DIR/run-garak-scan.sh"
         else
             echo -e "${YELLOW}⏭️  Skipping Garak LLM Security Probing (set RUN_GARAK=true to enable)${NC}"
+        fi
+
+        echo -e "${PURPLE}🔌 Layer 16: Network Discovery (Ports, Protocols, Services)${NC}"
+        if [[ "${SKIP_NETWORK_DISCOVERY:-false}" != "true" ]]; then
+            run_security_tool "Network Discovery" "$SCRIPT_DIR/run-network-discovery.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Layer 16 - Network Discovery (SKIP_NETWORK_DISCOVERY=true)${NC}"
         fi
         ;;
         

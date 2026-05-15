@@ -326,6 +326,18 @@ run_modelcard_layer() {
   run_layer_script "Layer 15 - Model Card Compliance (modelcard)" "scripts/shell/run-modelcard-check.sh"
 }
 
+run_network_discovery_layer() {
+  # Layer 16 — Network Discovery (ports, protocols, services)
+  # Runs static config analysis (Dockerfile, docker-compose, K8s, Helm, Spring Boot, .env).
+  # Active nmap scanning is opt-in: set NMAP_TARGET=<host> to enable.
+  # Override: SKIP_NETWORK_DISCOVERY=true to disable.
+  if [[ "${SKIP_NETWORK_DISCOVERY:-false}" == "true" ]]; then
+    echo "[INFO] Skipping Layer 16 - Network Discovery (SKIP_NETWORK_DISCOVERY=true)"
+    return 0
+  fi
+  run_layer_script "Layer 16 - Network Discovery" "scripts/shell/run-network-discovery.sh"
+}
+
 # ── Per-tool skip helpers ─────────────────────────────────────────────────────
 # Each tool respects a SKIP_<TOOL>=true env var for manual opt-out.
 _should_run_tool() {
@@ -483,6 +495,20 @@ if _should_run_tool SKIP_API_DISCOVERY; then
   PARALLEL_PIDS["Layer 11 - API Discovery"]=$!
 else
   echo "[INFO] Skipping Layer 11 - API Discovery (SKIP_API_DISCOVERY=true)"
+fi
+
+# Layer 16 — Network Discovery (no deps; active scan requires NMAP_TARGET to be set)
+if _should_run_tool SKIP_NETWORK_DISCOVERY; then
+  _record_start "Layer 16 - Network Discovery"
+  chmod +x scripts/shell/run-network-discovery.sh
+  env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" \
+    NMAP_TARGET="${NMAP_TARGET:-}" \
+    NMAP_FULL_SCAN="${NMAP_FULL_SCAN:-false}" \
+    scripts/shell/run-network-discovery.sh \
+    > "${PARALLEL_LOG_DIR}/layer-16-network-discovery.log" 2>&1 &
+  PARALLEL_PIDS["Layer 16 - Network Discovery"]=$!
+else
+  echo "[INFO] Skipping Layer 16 - Network Discovery (SKIP_NETWORK_DISCOVERY=true)"
 fi
 
 echo "[INFO] Phase 1: ${#PARALLEL_PIDS[@]} layers launched in parallel"

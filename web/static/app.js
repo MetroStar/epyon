@@ -2207,8 +2207,9 @@ const _SCAN_MODE_INFO = {
       { n: 12, name: 'LLM Security',            tool: 'Garak',      apiKey: true, optional: true },
       { n: 14, name: 'Pickle / Serialization Safety', tool: 'picklescan' },
       { n: 15, name: 'Model Card Compliance',    tool: 'modelcard' },
+      { n: 16, name: 'Network Discovery',        tool: 'nmap + Static' },
     ],
-    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.', 'Layers 14–15 auto-run when model weight files are detected.'],
+    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.', 'Layers 14–15 auto-run when model weight files are detected.', 'Layer 16 active nmap scan is opt-in: set NMAP_TARGET=<host>.'],
   },
   nightly: {
     label: 'Nightly Scan',
@@ -2228,8 +2229,9 @@ const _SCAN_MODE_INFO = {
       { n: 12, name: 'LLM Security',            tool: 'Garak',      apiKey: true, optional: true },
       { n: 14, name: 'Pickle / Serialization Safety', tool: 'picklescan' },
       { n: 15, name: 'Model Card Compliance',    tool: 'modelcard' },
+      { n: 16, name: 'Network Discovery',        tool: 'nmap + Static' },
     ],
-    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.', 'Layers 14–15 auto-run when model weight files are detected.'],
+    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.', 'Layers 14–15 auto-run when model weight files are detected.', 'Layer 16 active nmap scan is opt-in: set NMAP_TARGET=<host>.'],
   },
   quick: {
     label: 'Quick Scan',
@@ -2271,8 +2273,9 @@ const _SCAN_MODE_INFO = {
       { n: 12, name: 'LLM Security',            tool: 'Garak',      apiKey: true, optional: true },
       { n: 14, name: 'Pickle / Serialization Safety', tool: 'picklescan' },
       { n: 15, name: 'Model Card Compliance',    tool: 'modelcard' },
+      { n: 16, name: 'Network Discovery',        tool: 'nmap + Static' },
     ],
-    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.', 'Layers 14–15 auto-run when model weight files are detected.'],
+    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.', 'Layers 14–15 auto-run when model weight files are detected.', 'Layer 16 active nmap scan is opt-in: set NMAP_TARGET=<host>.'],
   },
   local_model: {
     label: 'Local Model Scan',

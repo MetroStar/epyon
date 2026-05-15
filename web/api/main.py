@@ -304,56 +304,66 @@ def applications(response: Response):
     return result
 
 
-@app.delete("/api/applications/{name}")
-def hide_application(name: str, response: Response):
+# ── Application action endpoints ─────────────────────────────────────────────
+# Names are passed in the request body (POST) or as a ?name= query param
+# (DELETE) to avoid Starlette normalising %2F → / in URL path parameters,
+# which breaks routing when the application name is a full Git URL.
+
+def _require_app_name(name: str | None) -> str:
+    name = (name or "").strip()
+    if not name:
+        raise HTTPException(400, "name is required")
+    return name
+
+
+@app.post("/api/applications/hide")
+async def hide_application(request: Request, response: Response):
     _sec_headers(response)
-    if not _SAFE_ID_RE.match(name):
-        raise HTTPException(400, "Invalid application name")
+    body = await request.json()
+    name = _require_app_name(body.get("name"))
     hidden = _load_hidden_apps()
     hidden.add(name)
     _save_hidden_apps(hidden)
     return {"hidden": name}
 
 
-@app.post("/api/applications/{name}/restore")
-def restore_application(name: str, response: Response):
+@app.post("/api/applications/restore")
+async def restore_application(request: Request, response: Response):
     _sec_headers(response)
-    if not _SAFE_ID_RE.match(name):
-        raise HTTPException(400, "Invalid application name")
+    body = await request.json()
+    name = _require_app_name(body.get("name"))
     hidden = _load_hidden_apps()
     hidden.discard(name)
     _save_hidden_apps(hidden)
     return {"restored": name}
 
 
-@app.post("/api/applications/{name}/monitored")
-def set_monitored(name: str, response: Response):
+@app.post("/api/applications/monitored")
+async def set_monitored(request: Request, response: Response):
     _sec_headers(response)
-    if not _SAFE_ID_RE.match(name):
-        raise HTTPException(400, "Invalid application name")
+    body = await request.json()
+    name = _require_app_name(body.get("name"))
     monitored = _load_monitored_apps()
     monitored.add(name)
     _save_monitored_apps(monitored)
     return {"monitored": name}
 
 
-@app.delete("/api/applications/{name}/monitored")
+@app.delete("/api/applications/monitored")
 def unset_monitored(name: str, response: Response):
     _sec_headers(response)
-    if not _SAFE_ID_RE.match(name):
-        raise HTTPException(400, "Invalid application name")
+    name = _require_app_name(name)
     monitored = _load_monitored_apps()
     monitored.discard(name)
     _save_monitored_apps(monitored)
     return {"unmonitored": name}
 
 
-@app.delete("/api/applications/{name}/data")
+@app.delete("/api/applications/data")
 def delete_application(name: str, response: Response):
     """Permanently delete all scan directories for an application."""
     _sec_headers(response)
-    if not _SAFE_ID_RE.match(name):
-        raise HTTPException(400, "Invalid application name")
+    name = _require_app_name(name)
     scan_dirs = [
         d for d in parsers.find_scan_dirs(EPYON_ROOT)
         if parsers.parse_dir_name(d.name)["target"] == name
@@ -366,7 +376,6 @@ def delete_application(name: str, response: Response):
             raise HTTPException(403, "Access denied")
         shutil.rmtree(d)
         deleted.append(d.name)
-    # Also remove from hidden list if present
     hidden = _load_hidden_apps()
     if name in hidden:
         hidden.discard(name)

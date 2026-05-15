@@ -496,12 +496,12 @@ const api = {
   getStats()          { return this._get('/api/stats'); },
   getApplications()   { return this._get('/api/applications'); },
   getHiddenApps()     { return this._get('/api/applications-hidden'); },
-  hideApp(name)       { return this._delete(`/api/applications/${encodeURIComponent(name)}`); },
-  restoreApp(name)    { return this._post(`/api/applications/${encodeURIComponent(name)}/restore`, {}); },
-  deleteApp(name)     { return this._delete(`/api/applications/${encodeURIComponent(name)}/data`); },
+  hideApp(name)       { return this._post('/api/applications/hide', { name }); },
+  restoreApp(name)    { return this._post('/api/applications/restore', { name }); },
+  deleteApp(name)     { return this._delete(`/api/applications/data?name=${encodeURIComponent(name)}`); },
   deleteScan(id)      { return this._delete(`/api/scans/${encodeURIComponent(id)}`); },
-  setMonitored(name)   { return this._post(`/api/applications/${encodeURIComponent(name)}/monitored`, {}); },
-  unsetMonitored(name) { return this._delete(`/api/applications/${encodeURIComponent(name)}/monitored`); },
+  setMonitored(name)   { return this._post('/api/applications/monitored', { name }); },
+  unsetMonitored(name) { return this._delete(`/api/applications/monitored?name=${encodeURIComponent(name)}`); },
   registerApp(name, url) {
     return this._post('/api/applications', { name, url });
   },

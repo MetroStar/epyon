@@ -18,7 +18,7 @@ Epyon is designed to be opinionated, automated, and decisive — empowering team
 
 Epyon is a **production-ready, enterprise-grade** 15-layer DevSecOps security platform with a FastAPI-backed web UI, comprehensive test coverage, baseline scanning, automated comparison, and isolated scan directory architecture. Built for real-world applications with Docker-based tooling and 641 automated tests.
 
-**Version: 3.2.0** · **Updated: May 14, 2026**
+**Version: 3.3.0** · **Updated: May 15, 2026**
 
 ## 📋 Prerequisites
 
@@ -1532,11 +1532,23 @@ export TARGET_DIR="/workspace" && ./scripts/shell/run-target-security-scan.sh "$
 ---
 
 **Created**: November 3, 2025  
-**Updated**: May 14, 2026  
-**Version**: 3.2.0  
+**Updated**: May 15, 2026  
+**Version**: 3.3.0  
 **Status**: ✅ **ENTERPRISE PRODUCTION READY**
 
-### 🆕 Latest Updates (v3.2.0) - STIG Sortable Table, SBOM Improvements & UI Fixes
+### 🆕 Latest Updates (v3.3.0) - Metrics Overhaul & App Monitoring Classification
+- ✅ **MTTR card**: Mean Time to Remediate displayed beside Fix Rate donut; shows overall average days, "N/A" when insufficient history, and fastest-remediating app pill
+- ✅ **Stacked bar vulnerability trend chart**: replaces line chart; bars broken down by Critical/High/Medium/Low; hover tooltip shows app name + date + per-severity counts; click navigates to that app
+- ✅ **Findings by Tool hover tooltip**: mousing over a bar shows the top contributing app; click navigates to that app's detail page
+- ✅ **Collapsible + sortable Top CVEs table**: collapsed by default; sortable by CVE ID, severity, count, and affected apps
+- ✅ **Collapsible + sortable Scan Frequency table**: collapsed by default; sortable by app name, total scans, first/last scan date
+- ✅ **App monitoring classification**: each application can be toggled between **Continuous** (accent badge) and **Evaluation** (muted badge) from the Applications list and the Application detail page; classifications stored in `configuration/monitored-apps.json`
+- ✅ **Metrics filtering by monitored apps**: when any apps are marked Continuous, the Metrics page filters all data (trend, tool counts, MTTR, CVEs, scan frequency) to those apps only; a notice with a "manage" link appears at the top of the page; if no apps are marked, all apps are included (backward compatible)
+- ✅ **Suppressed findings in web UI**: scan detail page shows a collapsible Suppressed Findings section listing every rule from `.epyon-ignore.yml` with Type, Value/ID, Tool, Reason, Approved By, and Severity columns
+- ✅ **Run Scan URL pre-fill**: "Run Scan" buttons on scan detail and app detail pages now pre-populate the GitHub URL field from `source_url`, registered app URL, or CI source
+- ✅ **`source_url` persistence**: `jobs.py` saves the original GitHub/GitLab URL to `scan-metadata.json` at scan start; `parsers.py` reads it back and includes it in the scan API response
+
+### 🆕 Previous Updates (v3.2.0) - STIG Sortable Table, SBOM Improvements & UI Fixes
 - ✅ **STIG findings table sortable**: all columns (STIG #, Severity, Status, Confidence, Title) now sortable with click-to-toggle asc/desc; active column highlighted
 - ✅ **STIG applicability accuracy**: `build_app_profile` now detects web frameworks, session/auth signals, UI files, and login/logout routes so session-management controls are correctly scoped
 - ✅ **Interactive SBOM table**: sort, search, type filter, and path column

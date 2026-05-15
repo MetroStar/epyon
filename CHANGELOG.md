@@ -48,18 +48,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-05-15
+
 ### Added
-- **Suppressed findings in web UI**: scan detail page now shows a collapsible **Suppressed Findings** section listing every rule from the scanned repo's `.epyon-ignore.yml`, with columns for Type, Value/ID, Tool, Reason, Approved By, and Severity. Matches the visual style of the Critical/High/Medium/Low findings cards.
-- **SBOM sort & search**: SBOM package table on the scan detail page is now fully interactive — click any column header (Name, Version, Type, License, Path) to sort ascending/descending; type in the search box to filter by any field in real time; click a type chip (e.g. `npm`, `python`) to filter to that ecosystem; "Clear filters" resets all at once.
-- **SBOM path column**: each package row now shows the file where the dependency was found (e.g. `/package-lock.json`, `requirements.txt`) sourced from Syft's `locations[0].path`.
-- **Run Scan pre-fill**: "Run Scan" buttons on the scan detail and application detail pages now pre-populate the GitHub URL field from `source_url` (stored at scan time), registered application URL, or CI source — eliminating the need to copy/paste the URL manually.
-- **`source_url` persistence**: `jobs.py` now saves the original GitHub/GitLab URL to `scan-metadata.json` at scan start; `parsers.py` reads it back and includes it in the scan API response.
+- **Metrics page — MTTR card**: Mean Time to Remediate displayed beside Fix Rate donut; shows overall average in days, "N/A" when scan history is insufficient, and a fastest-remediating app pill. `mttr_days` and `fastest_remediator` fields added to `/api/metrics` response.
+- **Metrics page — stacked bar vulnerability trend chart**: replaces the previous line chart; bars broken down by Critical / High / Medium / Low severity; hover tooltip shows app name, date, and per-severity counts; clicking a bar navigates to that application's detail page.
+- **Metrics page — Findings by Tool hover + click**: mousing over a bar in the horizontal tool chart reveals the top contributing app; clicking navigates to that app's detail page. `top_app` field added to each `by_tool` entry in the `/api/metrics` response.
+- **Metrics page — collapsible Top CVEs table**: collapsed by default; sortable by CVE ID, severity, count, and affected-apps count.
+- **Metrics page — collapsible Scan Frequency table**: collapsed by default; sortable by app name, total scans, first scan date, and last scan date.
+- **App monitoring classification**: each application can be toggled between **Continuous** (accent badge) and **Evaluation** (muted badge). Toggle available from the Applications list (new "Type" column) and the Application detail page header. Classifications stored in `configuration/monitored-apps.json`.
+- **`POST /api/applications/{name}/monitored`** and **`DELETE /api/applications/{name}/monitored`** endpoints to set and unset continuous monitoring for an application.
+- **Metrics filtering by monitored apps**: when any apps are marked Continuous, `GET /api/metrics` filters `by_target`, `trend`, and `scan_frequency` to only those apps; response includes `metrics_filtered: bool` and `monitored_count: int`. If no apps are marked, all apps are included (backward compatible).
+- **Metrics filter notice**: when `metrics_filtered` is true, a banner reading "Filtered to N continuously monitored apps · manage" appears at the top of the Metrics page, linking to the Applications list.
+- **`monitored` field in `GET /api/applications`**: every application object now includes `"monitored": bool`.
+- **Suppressed findings in web UI**: scan detail page now shows a collapsible **Suppressed Findings** section listing every rule from the scanned repo's `.epyon-ignore.yml`, with columns for Type, Value/ID, Tool, Reason, Approved By, and Severity.
+- **SBOM sort & search**: SBOM package table is now fully interactive — sort by any column header (Name, Version, Type, License, Path); filter by text search; click a type chip to filter by ecosystem; "Clear filters" resets all.
+- **SBOM path column**: each package row now shows the file where the dependency was found, sourced from Syft's `locations[0].path`.
+- **Run Scan URL pre-fill**: "Run Scan" buttons on scan detail and application detail pages pre-populate the GitHub URL field from `source_url`, registered application URL, or CI source.
+- **`source_url` persistence**: `jobs.py` now saves the original target URL to `scan-metadata.json` at scan start; `parsers.py` reads it back into the scan API response.
 
 ### Fixed
 - **Scan pipeline appearing frozen after Checkov**: Checkov's `--output json` flag was streaming 400 000+ lines of JSON findings to stdout via `tee`, exhausting the 1 000-line rolling output buffer in `jobs.py` so all later layers (Trivy, Grype, Anchore, etc.) were invisible in the UI. Fixed by redirecting all four Checkov `docker run` calls to the scan log file only (`>> "$SCAN_LOG" 2>&1`). Results are unchanged — they are written via `--output-file`.
-- **Duplicate suppressed findings**: `suppressed-findings.md` contained duplicate entries when the same `.epyon-ignore.yml` rule matched multiple scan files (e.g. Anchore filesystem + each container image). Both `parsers.py` and `generate-security-dashboard.sh` now deduplicate by `(type, value)` before rendering.
+- **Duplicate suppressed findings**: `suppressed-findings.md` contained duplicate entries when the same `.epyon-ignore.yml` rule matched multiple scan files. Both `parsers.py` and `generate-security-dashboard.sh` now deduplicate by `(type, value)` before rendering.
 - **Web UI output buffer too small**: `OUTPUT_BUFFER_MAX` raised from 1 000 to 10 000 lines so all 15 scan layers remain visible in the live log panel simultaneously.
-- **Docker VirtioFS mount failure for ClamAV and Checkov**: Docker Desktop 29.x with `UseContainerdSnapshotter: true` corrupts `~/Desktop` VirtioFS metadata, causing `docker run -v ~/Desktop/...` to fail with "file exists". Fixed by staging source via `rsync` to `/tmp/epyon-<tool>-src-$$` before mounting.
+- **Docker VirtioFS mount failure for ClamAV and Checkov**: Docker Desktop 29.x with `UseContainerdSnapshotter: true` corrupts `~/Desktop` VirtioFS metadata. Fixed by staging source via `rsync` to `/tmp/epyon-<tool>-src-$$` before mounting.
+- **MTTR N/A false negative**: MTTR calculation was slicing only the 20 most-recent scans, causing the oldest scans (where remediations originated) to be excluded for high-volume targets. Fixed by using all eligible full/nightly scans in chronological order.
 
 ## [3.0.0] - 2026-03-27
 

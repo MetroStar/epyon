@@ -426,6 +426,8 @@ const api = {
   restoreApp(name)    { return this._post(`/api/applications/${encodeURIComponent(name)}/restore`, {}); },
   deleteApp(name)     { return this._delete(`/api/applications/${encodeURIComponent(name)}/data`); },
   deleteScan(id)      { return this._delete(`/api/scans/${encodeURIComponent(id)}`); },
+  setMonitored(name)   { return this._post(`/api/applications/${encodeURIComponent(name)}/monitored`, {}); },
+  unsetMonitored(name) { return this._delete(`/api/applications/${encodeURIComponent(name)}/monitored`); },
   registerApp(name, url) {
     return this._post('/api/applications', { name, url });
   },
@@ -576,6 +578,19 @@ async function renderOverview() {
   }
 }
 
+async function toggleMonitored(name, isCurrently) {
+  try {
+    if (isCurrently) {
+      await api.unsetMonitored(name);
+    } else {
+      await api.setMonitored(name);
+    }
+    renderApplications();
+  } catch (e) {
+    alert('Failed to update monitoring status: ' + e.message);
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
 
 async function renderApplications() {
@@ -593,6 +608,12 @@ async function renderApplications() {
             <td>
               <strong>${esc(app.name)}</strong>
               ${app.url ? `<div style="font-size:11px;color:var(--text-dim);margin-top:2px">${esc(app.url)}</div>` : ''}
+            </td>
+            <td onclick="event.stopPropagation();toggleMonitored('${esc(app.name)}',${!!app.monitored})">
+              <button class="app-type-badge ${app.monitored ? 'monitored' : 'evaluation'}"
+                      title="${app.monitored ? 'Continuous — click to set as Evaluation' : 'Evaluation — click to set as Continuous'}">
+                ${app.monitored ? '● Continuous' : '○ Evaluation'}
+              </button>
             </td>
             <td>${app.last_scanned ? fmtDate(app.last_scanned) : '<span style="color:var(--text-dim)">Never</span>'}</td>
             <td>${esc(app.scan_count)}</td>
@@ -626,7 +647,7 @@ async function renderApplications() {
               </button>
             </td>
           </tr>`).join('')
-      : `<tr><td colspan="9" style="text-align:center;padding:48px;color:var(--text-muted)">
+      : `<tr><td colspan="10" style="text-align:center;padding:48px;color:var(--text-muted)">
            No applications found. Run a scan to get started.
          </td></tr>`;
 
@@ -672,6 +693,7 @@ async function renderApplications() {
           <thead>
             <tr>
               <th>Application</th>
+              <th>Type</th>
               <th>Last Scanned</th>
               <th>Scans</th>
               <th>Critical</th>
@@ -802,6 +824,18 @@ async function renderAppDetail(name) {
           <button class="btn btn-primary"
             onclick="navigate('#/new-scan?target=${encodeURIComponent(appUrl)}')">
             ▶ Run Scan
+          </button>
+          <button class="btn app-type-badge ${appInfo.monitored ? 'monitored' : 'evaluation'}"
+            onclick="(async()=>{
+              try {
+                ${appInfo.monitored
+                  ? `await api.unsetMonitored('${esc(name)}')`
+                  : `await api.setMonitored('${esc(name)}')`};
+                renderAppDetail('${esc(name)}');
+              } catch(e) { alert(e.message); }
+            })()"
+            title="${appInfo.monitored ? 'Continuous \u2014 click to set as Evaluation' : 'Evaluation \u2014 click to set as Continuous'}">
+            ${appInfo.monitored ? '● Continuous' : '◯ Evaluation'}
           </button>
           <button class="btn btn-danger"
             onclick="hideApplication('${esc(name)}')"
@@ -2375,11 +2409,19 @@ async function renderMetrics() {
       `<span class="legend-item"><span class="legend-dot" style="background:var(--${s})"></span>${ucFirst(s)}</span>`
     ).join('');
 
+    const filterNotice = m.metrics_filtered
+      ? `<div class="metrics-filter-notice">
+           Filtered to ${esc(String(m.monitored_count))} continuously monitored app${m.monitored_count !== 1 ? 's' : ''} ·
+           <a href="#/applications" onclick="navigate('#/applications')">manage</a>
+         </div>`
+      : '';
+
     page.innerHTML = `
       <div class="page-header">
         <h1>Metrics</h1>
         <button class="btn btn-sm" onclick="renderMetrics()">&#8635; Refresh</button>
       </div>
+      ${filterNotice}
 
       <div class="stats-grid">
         <div class="stat-card">

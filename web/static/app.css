@@ -503,7 +503,49 @@ body:has(#sidebar:not(.collapsed)) #sidebar-toggle {
 .fmt-count { color: #9ca3af; font-size: 0.85em; min-width: 60px; }
 .fmt-notes { color: var(--text-muted); font-size: 0.82em; flex: 1; }
 
-/* ── STIG summary card ────────────────────────────────────── */
+/* ── Result section boxes (Vulnerabilities, STIG) ────────── */
+.result-section-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.result-section-box-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 16px;
+}
+
+.stig-result-box {
+  border-left: 3px solid var(--accent);
+}
+
+.result-section-box-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.result-section-box-header .result-section-box-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: none;
+  letter-spacing: 0;
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── STIG summary card (legacy alias) ────────────────────── */
 .stig-summary-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -626,6 +668,12 @@ body:has(#sidebar:not(.collapsed)) #sidebar-toggle {
   border-radius: var(--radius-lg);
   padding: 20px;
   margin-bottom: 16px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.stig-app-card:hover {
+  border-color: var(--accent);
+  background: var(--bg-hover, var(--bg-card));
 }
 
 .stig-app-card-header {

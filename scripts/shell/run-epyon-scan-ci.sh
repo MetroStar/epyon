@@ -30,6 +30,24 @@ if [[ -d "epyon" && -f "epyon/VERSION" ]]; then
   cd epyon || exit 1
 fi
 
+# ── Write scan-metadata.json so the web parser can read scan_type ─────────────
+# Only write if not already present (web-ui jobs.py writes it first; CI does not).
+if [[ -n "${SCAN_DIR:-}" && ! -f "${SCAN_DIR}/scan-metadata.json" ]]; then
+  mkdir -p "$SCAN_DIR"
+  cat > "${SCAN_DIR}/scan-metadata.json" << _META_EOF
+{
+  "scan_id": "${SCAN_ID:-${SCAN_NAME:-}}",
+  "target_directory": "${TARGET_DIR:-}",
+  "target_name": "${TARGET_NAME:-}",
+  "scan_type": "${SCAN_MODE:-full}",
+  "scan_user": "${GITHUB_ACTOR:-ci}",
+  "scan_timestamp": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
+  "epyon_version": "${EPYON_VERSION:-unknown}",
+  "triggered_by": "ci"
+}
+_META_EOF
+fi
+
 # ── Timing infrastructure ─────────────────────────────────────────────────────
 TIMING_FILE="${SCAN_DIR}/layer-timing.json"
 declare -A LAYER_START LAYER_END

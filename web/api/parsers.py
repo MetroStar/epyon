@@ -604,19 +604,32 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
         data["target_directory"] = meta.get("target_directory", "")
         data["source_url"]       = meta.get("source_url", "")
         data["file_statistics"]  = meta.get("file_statistics") or {}
+        if meta.get("scan_user"):
+            data["user"] = meta["scan_user"]
+
+    # Resolve user from scan-manifest.json if still unknown
+    if not data["user"]:
+        manifest = _read_json(scan_dir / "scan-manifest.json")
+        if manifest:
+            data["user"] = (manifest.get("scan_metadata") or {}).get("username", "")
     else:
         # Infer scan_type from other files present in the scan directory
-        if list(scan_dir.glob("stig-results-*.json")):
+        vuln_dirs = {"grype", "trivy", "checkov", "sbom", "anchore", "xeol"}
+        has_vuln = any((scan_dir / d).is_dir() for d in vuln_dirs)
+        has_stig = bool(list(scan_dir.glob("stig-results-*.json")))
+        if has_stig:
             # STIG-only scans have stig results but typically no vuln tool outputs
-            vuln_dirs = {"grype", "trivy", "checkov", "sbom", "anchore", "xeol"}
-            has_vuln = any((scan_dir / d).is_dir() for d in vuln_dirs)
             data["scan_type"] = "stig" if not has_vuln else "nightly"
         elif (scan_dir / "picklescan").is_dir() or (scan_dir / "modelcard").is_dir():
             # Could be a local_model scan or a full scan with model weight files present;
             # default to local_model only if no standard vuln tool dirs exist
-            vuln_dirs = {"grype", "trivy", "checkov", "sbom", "anchore", "xeol", "trufflehog"}
-            has_vuln = any((scan_dir / d).is_dir() for d in vuln_dirs)
-            data["scan_type"] = "full" if has_vuln else "local_model"
+            all_vuln_dirs = vuln_dirs | {"trufflehog"}
+            data["scan_type"] = "full" if any((scan_dir / d).is_dir() for d in all_vuln_dirs) else "local_model"
+        else:
+            # Check ci-metadata.json: scheduled GitHub Actions runs are nightly scans
+            ci_meta_early = _read_json(scan_dir / "ci-metadata.json")
+            if ci_meta_early and ci_meta_early.get("event") == "schedule" and has_vuln:
+                data["scan_type"] = "nightly"
 
     raw_findings = parse_scan_findings(scan_dir)
     has_raw = len(raw_findings["summary"]["tools_analyzed"]) > 0

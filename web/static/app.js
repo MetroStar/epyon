@@ -698,9 +698,11 @@ async function renderScanDetail(scanId) {
     const appInfo = allApps.find(a => a.name === scan.target) || {};
     const repoUrl = scan.source_url || appInfo.url || scan.ci_source?.repo || '';
 
-    // Build STIG summary card if STIG data is present
+    // Build STIG section: show full results when available, empty state for stig/nightly scans
+    const hasStigData = (scan.stig_total || 0) > 0;
+    const scanTypeHasStig = ['stig', 'nightly'].includes(scan.scan_type);
     let stigCard = '';
-    if ((scan.stig_total || 0) > 0) {
+    if (hasStigData) {
       const reports = scan.stig_reports || [];
       const multiStig = reports.length > 1;
 
@@ -729,10 +731,10 @@ async function renderScanDetail(scanId) {
         ? `<a class="btn btn-sm" href="${esc(scan.stig_cklb_url)}" download>↓ findings.cklb</a>` : '';
 
       stigCard = `
-        <div class="stig-summary-card">
-          <div class="stig-summary-header">
-            <div class="stig-summary-title">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+        <div class="result-section-box stig-result-box">
+          <div class="result-section-box-header">
+            <div class="result-section-box-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
               </svg>
@@ -765,6 +767,23 @@ async function renderScanDetail(scanId) {
               ⊞ View Findings Inline
             </button>
           </div>
+        </div>`;
+    } else {
+      const noStigMsg = scanTypeHasStig
+        ? 'No STIG results were recorded for this scan. Verify that STIG definitions are configured in <code>configuration/stigs/</code> and that <code>OPENAI_API_KEY</code> is set.'
+        : 'STIG assessment is not included in this scan type. Run a <strong>Nightly</strong> or <strong>STIG</strong> scan to get compliance results.';
+      stigCard = `
+        <div class="result-section-box stig-result-box">
+          <div class="result-section-box-header">
+            <div class="result-section-box-title">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              STIG Assessment
+            </div>
+          </div>
+          <p style="color:var(--text-muted);font-size:13px;margin:8px 0 0">${noStigMsg}</p>
         </div>`;
     }
 
@@ -820,21 +839,27 @@ async function renderScanDetail(scanId) {
           <div class="label">Timestamp</div>
           <div class="value" style="font-size:13px">${fmtDate(scan.timestamp)}</div>
         </div>
-        <div class="detail-card">
-          <div class="label">Critical</div>
-          <div class="value" style="color:var(--critical)">${esc(scan.critical)}</div>
-        </div>
-        <div class="detail-card">
-          <div class="label">High</div>
-          <div class="value" style="color:var(--high)">${esc(scan.high)}</div>
-        </div>
-        <div class="detail-card">
-          <div class="label">Medium</div>
-          <div class="value" style="color:var(--medium)">${esc(scan.medium)}</div>
-        </div>
-        <div class="detail-card">
-          <div class="label">Low</div>
-          <div class="value" style="color:var(--low)">${esc(scan.low)}</div>
+      </div>
+
+      <div class="result-section-box">
+        <div class="result-section-box-title">Vulnerabilities</div>
+        <div class="detail-grid" style="margin-bottom:0">
+          <div class="detail-card">
+            <div class="label">Critical</div>
+            <div class="value" style="color:var(--critical)">${esc(scan.critical)}</div>
+          </div>
+          <div class="detail-card">
+            <div class="label">High</div>
+            <div class="value" style="color:var(--high)">${esc(scan.high)}</div>
+          </div>
+          <div class="detail-card">
+            <div class="label">Medium</div>
+            <div class="value" style="color:var(--medium)">${esc(scan.medium)}</div>
+          </div>
+          <div class="detail-card">
+            <div class="label">Low</div>
+            <div class="value" style="color:var(--low)">${esc(scan.low)}</div>
+          </div>
         </div>
       </div>
 
@@ -1082,7 +1107,7 @@ function inlineMarkdown(s) {
 
 function buildOverviewAiSection() {
   return `
-    <div class="section" id="overview-ai-section" style="border-left:3px solid #6366f1">
+    <div class="section" id="overview-ai-section" style="border-left:3px solid #6366f1;padding-left:16px">
       <div class="section-title" style="display:flex;align-items:center;gap:10px">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6366f1"
              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1093,7 +1118,7 @@ function buildOverviewAiSection() {
       </div>
       <div id="overview-ai-body">
         <button class="btn btn-primary" onclick="generateOverviewSummaries()">
-          ✦ Generate Both Summaries
+          ✦ Generate AI Analysis
         </button>
         <p style="margin:8px 0 0;font-size:11px;color:var(--text-muted)">
           Generates an executive brief (for leadership) and a technical brief (for dev teams)
@@ -1145,7 +1170,7 @@ async function generateOverviewSummaries() {
           </span>
           <span class="findings-summary-hint">Click to collapse</span>
         </summary>
-        <div style="padding:12px 16px 16px;background:${bgColor};border-radius:0 0 6px 6px">
+        <div style="padding:12px 16px 16px 20px;background:${bgColor};border-radius:0 0 6px 6px">
           ${inner}
         </div>
       </details>`;
@@ -1406,8 +1431,8 @@ function buildSBOMSection(sbom, scanId) {
         ${cdxUrl ? `<a class="btn btn-sm" href="${cdxUrl}" download style="font-size:11px">↓ CycloneDX JSON</a>` : ''}
       </div>
       <div class="tools-list" style="margin-bottom:10px">${typeChips}</div>
-      <details id="${uid}-details" open>
-        <summary style="cursor:pointer;font-size:13px;color:#6b7280">Show all packages</summary>
+      <details id="${uid}-details">
+        <summary style="cursor:pointer;font-size:13px;color:var(--text-muted)">Show / hide package list</summary>
         <div style="margin-top:8px">
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
             <input id="${uid}-search" type="text" placeholder="Search packages…"
@@ -1706,13 +1731,12 @@ async function renderStig() {
           const cklbBtn = app.has_stig_cklb
             ? `<a class="btn btn-sm" href="${esc(cklbUrl)}" download>↓ findings.cklb</a>` : '';
           return `
-            <div class="stig-app-card">
+            <div class="stig-app-card" onclick="navigate('#/scans/${encodeURIComponent(stigScanId)}')" style="cursor:pointer">
               <div class="stig-app-card-header">
-                <span class="stig-app-name"
-                      onclick="navigate('#/applications/${encodeURIComponent(app.name)}')">
+                <span class="stig-app-name">
                   ${esc(app.name)}
                 </span>
-                <div class="stig-download-btns">${mdBtn}${cklbBtn}</div>
+                <div class="stig-download-btns" onclick="event.stopPropagation()">${mdBtn}${cklbBtn}</div>
               </div>
               <div class="stig-counts">
                 <div class="stig-count open">
@@ -1732,7 +1756,7 @@ async function renderStig() {
                   <span class="lbl">Total</span>
                 </div>
               </div>
-              <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap" onclick="event.stopPropagation()">
                 <span style="font-size:12px;color:var(--text-muted)">Last scanned: ${fmtDate(app.last_scanned)}</span>
                 <button class="btn btn-primary btn-sm"
                   onclick="navigate('#/stig-viewer/${encodeURIComponent(stigScanId)}')">

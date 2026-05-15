@@ -2873,6 +2873,10 @@ async function saveGitHubConfig() {
   try {
     await api.saveGitHubConfig({ token: token || 'KEEP_EXISTING', repos });
     tokenEl && (tokenEl.value = '');
+    // Auto-mark all configured repos as Continuously Monitored
+    await Promise.allSettled(
+      repos.map(r => api.setMonitored(r.includes('/') ? r.split('/').pop() : r))
+    );
     const statusEl = document.getElementById('sync-status');
     if (statusEl) statusEl.textContent = 'Configuration saved.';
   } catch (e) {

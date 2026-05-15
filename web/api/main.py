@@ -28,6 +28,8 @@ from . import openai_summary
 # ── Paths ─────────────────────────────────────────────────────
 _HERE        = Path(__file__).parent
 EPYON_ROOT   = (_HERE / ".." / "..").resolve()
+VERSION_FILE = EPYON_ROOT / "VERSION"
+EPYON_VERSION = VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.exists() else "unknown"
 SCRIPTS_DIR  = EPYON_ROOT / "scripts" / "shell"
 APPROVED_IMAGES_FILE = EPYON_ROOT / "configuration" / "approved-base-images.conf"
 GITHUB_CONFIG_FILE   = _HERE / ".." / "github-config.json"
@@ -105,7 +107,7 @@ def _sec_headers(response: Response) -> None:
 @app.get("/api/health")
 def health(response: Response):
     _sec_headers(response)
-    return {"status": "ok", "epyon_root": str(EPYON_ROOT)}
+    return {"status": "ok", "epyon_root": str(EPYON_ROOT), "version": EPYON_VERSION}
 
 
 # ── Stats ─────────────────────────────────────────────────────

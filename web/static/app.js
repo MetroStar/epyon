@@ -17,6 +17,80 @@ let   _depsNextId           = 0;
 const _currentFindingsBySev = {};
 const _sortState             = {};
 
+// ── Epyon workflow YAML (shared by Settings page + Add App modal) ─
+const WORKFLOW_YML = `name: Private Security Scan
+
+# Epyon private-repo scanner entrypoint.
+# This workflow delegates execution to the local reusable workflow.
+
+permissions:
+  contents: read
+
+concurrency:
+  group: epyon-scan-\${{ github.repository }}
+  cancel-in-progress: false
+
+on:
+  schedule:
+    # Nightly full scan — runs every night at 2 AM UTC (Mon-Sat)
+    - cron: '0 2 * * 1-6'
+    # Weekly STIG scan — runs Sunday night at 2 AM UTC
+    - cron: '0 2 * * 0'
+  # checkov:skip=CKV_GHA_7:Workflow inputs control scan parameters not build artifacts
+  workflow_dispatch:
+    inputs:
+      subdirectory:
+        description: 'Optional: Subdirectory path to scan (e.g., apps/api)'
+        required: false
+        type: string
+      scan_mode:
+        description: 'Scan mode (quick/full/nightly/baseline/stig)'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+          - quick
+          - full
+          - nightly
+          - baseline
+          - stig
+      garak_target_type:
+        description: 'Garak generator type (e.g. test, openai, huggingface)'
+        required: false
+        default: 'openai'
+        type: string
+      garak_target_name:
+        description: 'Garak target model name (e.g. gpt-4o-mini)'
+        required: false
+        default: 'gpt-4o-mini'
+        type: string
+      garak_probes:
+        description: 'Garak probe set (comma-separated, e.g. promptinject,dan,encoding)'
+        required: false
+        default: 'promptinject'
+        type: string
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  security-scan-main:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      security-events: write
+      issues: write
+    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
+    with:
+      scan_mode: \${{ github.event_name == 'schedule' && (github.event.schedule == '0 2 * * 0' && 'stig' || 'nightly') || github.event.inputs.scan_mode || 'full' }}
+      subdirectory: \${{ github.event.inputs.subdirectory || '' }}
+      garak_target_type: \${{ github.event.inputs.garak_target_type || 'openai' }}
+      garak_target_name: \${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
+      garak_probes: \${{ github.event.inputs.garak_probes || 'promptinject' }}
+    secrets: inherit`;
+
 // ── Security helpers ──────────────────────────────────────────
 function esc(str) {
   if (str == null) return '';
@@ -2713,12 +2787,14 @@ async function renderSettings() {
   page.innerHTML = loading();
 
   try {
-    const [images, history, ghCfg, aiCfg] = await Promise.all([
+    const [images, history, ghCfg, aiCfg, health] = await Promise.all([
       api.getApprovedImages(),
       api.getScanHistory(),
       api.getGitHubConfig(),
       api.getAiConfig(),
+      api._get('/api/health'),
     ]);
+    const epyonVersion = health.version || '—';
 
     const tools = [
       'Trivy', 'Grype', 'TruffleHog', 'ClamAV', 'Checkov', 'Syft/SBOM',
@@ -2817,6 +2893,29 @@ async function renderSettings() {
       </div>
 
       <div class="section">
+        <div class="section-title">Workflow File Setup</div>
+        <p class="section-desc">
+          Each repository needs the Epyon workflow file added once so that scans run
+          automatically and results are uploaded to this dashboard.
+        </p>
+        <ol style="padding-left:18px;margin:0 0 14px;font-size:13px;color:var(--text-muted);line-height:1.9">
+          <li>In your repository, create the directory <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">.github/workflows/</code> if it doesn't exist.</li>
+          <li>Add a new file named <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">scan-private-repo.yml</code> with the contents below.</li>
+          <li>Review the <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">uses:</code> line and update the GitHub org only if your Epyon instance is hosted under a different org than <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">MetroStar/epyon</code>.</li>
+          <li>Commit and push — the workflow will run nightly at 2 AM UTC and on manual dispatch.</li>
+        </ol>
+        <div style="position:relative;max-width:700px">
+          <pre id="settings-yml" style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);
+               padding:12px;font-size:11px;line-height:1.6;overflow-x:auto;margin:0;white-space:pre;color:var(--text)">${esc(WORKFLOW_YML)}</pre>
+          <button id="settings-yml-copy"
+            style="position:absolute;top:8px;right:8px;padding:3px 10px;font-size:11px;
+                   background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+                   color:var(--text-muted);cursor:pointer"
+            onclick="navigator.clipboard.writeText(WORKFLOW_YML).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})">Copy</button>
+        </div>
+      </div>
+
+      <div class="section">
         <div class="section-title">Approved Base Images</div>
         <p class="section-desc">
           Docker Hardened Images approved for scans and deployments.
@@ -2830,7 +2929,7 @@ async function renderSettings() {
         <div class="detail-grid">
           <div class="detail-card">
             <div class="label">Version</div>
-            <div class="value">3.0.0</div>
+            <div class="value">${epyonVersion}</div>
           </div>
           <div class="detail-card">
             <div class="label">Security Layers</div>
@@ -3395,78 +3494,7 @@ function showAddAppModal() {
     </div>`;
 
   // ── Step 2 HTML ────────────────────────────────────────────
-  const workflowYml = `name: Private Security Scan
-
-# Epyon private-repo scanner entrypoint.
-# This workflow delegates execution to the local reusable workflow.
-
-permissions:
-  contents: read
-
-concurrency:
-  group: epyon-scan-\${{ github.repository }}
-  cancel-in-progress: false
-
-on:
-  schedule:
-    # Nightly full scan — runs every night at 2 AM UTC (Mon-Sat)
-    - cron: '0 2 * * 1-6'
-    # Weekly STIG scan — runs Sunday night at 2 AM UTC
-    - cron: '0 2 * * 0'
-  # checkov:skip=CKV_GHA_7:Workflow inputs control scan parameters not build artifacts
-  workflow_dispatch:
-    inputs:
-      subdirectory:
-        description: 'Optional: Subdirectory path to scan (e.g., apps/api)'
-        required: false
-        type: string
-      scan_mode:
-        description: 'Scan mode (quick/full/nightly/baseline/stig)'
-        required: false
-        default: 'full'
-        type: choice
-        options:
-          - quick
-          - full
-          - nightly
-          - baseline
-          - stig
-      garak_target_type:
-        description: 'Garak generator type (e.g. test, openai, huggingface)'
-        required: false
-        default: 'openai'
-        type: string
-      garak_target_name:
-        description: 'Garak target model name (e.g. gpt-4o-mini)'
-        required: false
-        default: 'gpt-4o-mini'
-        type: string
-      garak_probes:
-        description: 'Garak probe set (comma-separated, e.g. promptinject,dan,encoding)'
-        required: false
-        default: 'promptinject'
-        type: string
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
-jobs:
-  security-scan-main:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    permissions:
-      contents: read
-      actions: read
-      pull-requests: write
-      security-events: write
-      issues: write
-    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
-    with:
-      scan_mode: \${{ github.event_name == 'schedule' && (github.event.schedule == '0 2 * * 0' && 'stig' || 'nightly') || github.event.inputs.scan_mode || 'full' }}
-      subdirectory: \${{ github.event.inputs.subdirectory || '' }}
-      garak_target_type: \${{ github.event.inputs.garak_target_type || 'openai' }}
-      garak_target_name: \${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
-      garak_probes: \${{ github.event.inputs.garak_probes || 'promptinject' }}
-    secrets: inherit`;
+  const workflowYml = WORKFLOW_YML;
 
   const step2HTML = `
     <div id="add-app-step2" style="display:none">
@@ -3650,7 +3678,13 @@ function resolve() {
 }
 
 window.addEventListener('hashchange', resolve);
-window.addEventListener('load', resolve);
+window.addEventListener('load', () => {
+  resolve();
+  api._get('/api/health').then(h => {
+    const el = document.getElementById('sidebar-footer');
+    if (el && h.version) el.textContent = 'Epyon v' + h.version;
+  }).catch(() => {});
+});
 
 // ── Dependency detail drawer ────────────────────────────────────
 window.openDependencyDetail = function(did) {

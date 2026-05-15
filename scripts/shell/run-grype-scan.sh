@@ -91,7 +91,7 @@ init_scan_environment "grype"
 # Set REPO_PATH and extract scan information
 REPO_PATH="${1:-${TARGET_DIR:-$(pwd)}}"
 # Handle special scan type keywords
-if [[ "$REPO_PATH" == "filesystem" ]] || [[ "$REPO_PATH" == "images" ]] || [[ "$REPO_PATH" == "base" ]]; then
+if [[ "$REPO_PATH" == "filesystem" ]] || [[ "$REPO_PATH" == "images" ]] || [[ "$REPO_PATH" == "base" ]] || [[ "$REPO_PATH" == "sbom" ]]; then
     SCAN_MODE="$REPO_PATH"
     REPO_PATH="${TARGET_DIR:-$(pwd)}"
 else

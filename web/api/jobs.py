@@ -222,9 +222,18 @@ async def run_scan_job(
     if openai_key:
         env["OPENAI_API_KEY"] = openai_key
 
+    # Prefer a bash 4+ binary (Homebrew on macOS) over the system /bin/bash 3.2
+    import shutil as _shutil
+    _bash = _shutil.which("bash") or "bash"
+    # On macOS, /bin/bash is 3.2 (no declare -A); prefer Homebrew bash if available
+    for _candidate in ["/opt/homebrew/bin/bash", "/usr/local/bin/bash", _bash]:
+        if _candidate and Path(_candidate).exists():
+            _bash = _candidate
+            break
+
     try:
         proc = await asyncio.create_subprocess_exec(
-            "bash", str(script_path),
+            _bash, str(script_path),
             cwd=str(epyon_root),
             env=env,
             stdin=asyncio.subprocess.DEVNULL,

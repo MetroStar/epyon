@@ -2616,7 +2616,6 @@ if [ -f "$NET_DISC_FILE" ]; then
             <p style=\"color:#718096;margin-bottom:15px;font-size:0.9em;\">Ports and services discovered from static configuration files in the application. Use these for targeted security testing and attack surface assessment.</p>"
 
         # Port table from summary
-        local net_ports_json
         net_ports_json=$(jq -r '.summary.unique_ports[]?' "$NET_DISC_FILE" 2>/dev/null)
         if [ -n "$net_ports_json" ]; then
             NET_FINDINGS="${NET_FINDINGS}<div class=\"finding-item\" style=\"border-left:4px solid #0ea5e9;\" onclick=\"toggleFindingDetails(this)\">
@@ -2640,7 +2639,7 @@ if [ -f "$NET_DISC_FILE" ]; then
 
             # Build port service lookup from inferred_services
             while IFS= read -r port_num; do
-                local inferred_svc
+                inferred_svc=""
                 inferred_svc=$(python3 -c "
 PORT_SERVICES = {
     21:'ftp',22:'ssh',23:'telnet',25:'smtp',53:'dns',80:'http',

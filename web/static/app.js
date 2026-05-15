@@ -505,8 +505,11 @@ async function renderOverview() {
   try {
     const [stats, apps] = await Promise.all([api.getStats(), api.getApplications()]);
 
-    const appCards = apps.length
-      ? apps.map(app => `
+    const continuous  = apps.filter(a => a.monitored);
+    const evaluation  = apps.filter(a => !a.monitored);
+    const anyMonitored = continuous.length > 0;
+
+    const makeCard = app => `
           <div class="app-card status-${esc(app.status)}"
                onclick="navigate('#/applications/${encodeURIComponent(app.name)}')">
             <div class="app-card-header">
@@ -522,14 +525,39 @@ async function renderOverview() {
             <div class="app-card-footer">
               ${app.scan_count} scan${app.scan_count !== 1 ? 's' : ''} total
             </div>
-          </div>`).join('')
-      : emptyState(
-          'No applications yet',
-          'Run your first scan to see applications here.',
-          `<button class="btn btn-primary" onclick="navigate('#/new-scan')" style="margin-top:16px">
-             ▶ Run First Scan
-           </button>`,
-        );
+          </div>`;
+
+    const appSections = apps.length
+      ? anyMonitored
+        ? `<div class="section">
+             <div class="section-title">
+               <span>● Continuously Monitored <span style="font-size:12px;font-weight:400;color:var(--text-muted)">(${continuous.length})</span></span>
+               <button class="btn btn-sm" onclick="navigate('#/applications')">View all →</button>
+             </div>
+             <div class="app-grid">${continuous.map(makeCard).join('')}</div>
+           </div>
+           ${evaluation.length ? `
+           <div class="section" style="margin-top:24px">
+             <div class="section-title">
+               <span>◯ Evaluation <span style="font-size:12px;font-weight:400;color:var(--text-muted)">(${evaluation.length})</span></span>
+             </div>
+             <div class="app-grid">${evaluation.map(makeCard).join('')}</div>
+           </div>` : ''}`
+        : `<div class="section">
+             <div class="section-title">
+               Applications
+               <button class="btn btn-sm" onclick="navigate('#/applications')">View all →</button>
+             </div>
+             <div class="app-grid">${apps.map(makeCard).join('')}</div>
+           </div>`
+      : `<div class="section">
+           <div class="section-title">Applications</div>
+           ${emptyState(
+             'No applications yet',
+             'Run your first scan to see applications here.',
+             `<button class="btn btn-primary" onclick="navigate('#/new-scan')" style="margin-top:16px">▶ Run First Scan</button>`,
+           )}
+         </div>`;
 
     page.innerHTML = `
       <div class="page-header">
@@ -566,13 +594,7 @@ async function renderOverview() {
 
       ${buildOverviewAiSection()}
 
-      <div class="section">
-        <div class="section-title">
-          Applications
-          <button class="btn btn-sm" onclick="navigate('#/applications')">View all →</button>
-        </div>
-        <div class="app-grid">${appCards}</div>
-      </div>`;
+      ${appSections}`;
   } catch (e) {
     page.innerHTML = errBanner(e.message);
   }

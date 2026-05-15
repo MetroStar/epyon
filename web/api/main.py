@@ -681,6 +681,7 @@ def get_metrics(response: Response):
         by_target.setdefault(s["target"], []).append((s, d))
 
     tool_counts:      dict[str, dict] = {}
+    tool_app_counts:  dict[str, dict[str, int]] = {}
     total_with_fix    = 0
     total_without_fix = 0
     cve_counts:       dict[str, dict] = {}
@@ -698,6 +699,8 @@ def get_metrics(response: Response):
                     tool_counts[tool] = {"critical": 0, "high": 0, "medium": 0, "low": 0, "total": 0}
                 tool_counts[tool][sev]    += 1
                 tool_counts[tool]["total"] += 1
+                tool_app_counts.setdefault(tool, {})
+                tool_app_counts[tool][_target] = tool_app_counts[tool].get(_target, 0) + 1
                 if f.get("fixed_version"):
                     total_with_fix += 1
                 else:
@@ -727,6 +730,81 @@ def get_metrics(response: Response):
         for target, scan_list in by_target.items()
     }
 
+    # ── MTTR (Mean Time to Remediate) ─────────────────────────
+    # by_target lists are already sorted newest-first from the loop above
+    all_remediation_days: list[float] = []
+    target_mttr: dict[str, float] = {}
+    for _target, scan_list in by_target.items():
+        # Only full and nightly scans carry consistent vulnerability data
+        eligible = [
+            (s, d) for s, d in scan_list
+            if s.get("scan_type") in ("full", "nightly")
+        ]
+        if len(eligible) < 2:
+            continue
+        # eligible is newest-first; reverse to chronological order
+        scans_to_check = list(reversed(eligible))  # oldest → newest
+
+        # Build fingerprint -> first_seen_ts mapping across historical scans
+        first_seen: dict[str, str] = {}
+        for scan_meta, scan_dir in scans_to_check:
+            ts = scan_meta.get("timestamp", "")
+            if not ts:
+                continue
+            try:
+                scan_findings = parsers.parse_scan_findings(scan_dir)
+            except Exception:
+                continue
+            for sev in ("critical", "high", "medium", "low"):
+                for f in scan_findings.get(f"{sev}_findings", []):
+                    fp = f"{f.get('tool', '')}::{f.get('id', '')}::{f.get('package', '')}"
+                    if fp and fp not in first_seen:
+                        first_seen[fp] = ts
+
+        # Latest scan fingerprint set (scans_to_check[-1] is the newest)
+        latest_meta, latest_dir = scans_to_check[-1]
+        latest_ts = latest_meta.get("timestamp", "")
+        if not latest_ts:
+            continue
+        latest_set: set[str] = set()
+        try:
+            latest_findings = parsers.parse_scan_findings(latest_dir)
+        except Exception:
+            continue
+        for sev in ("critical", "high", "medium", "low"):
+            for f in latest_findings.get(f"{sev}_findings", []):
+                fp = f"{f.get('tool', '')}::{f.get('id', '')}::{f.get('package', '')}"
+                if fp:
+                    latest_set.add(fp)
+
+        try:
+            latest_dt = datetime.fromisoformat(latest_ts.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+
+        target_days: list[float] = []
+        for fp, first_ts in first_seen.items():
+            if fp not in latest_set:
+                try:
+                    first_dt = datetime.fromisoformat(first_ts.replace("Z", "+00:00"))
+                    days = (latest_dt - first_dt).total_seconds() / 86400
+                    if days >= 0:
+                        all_remediation_days.append(days)
+                        target_days.append(days)
+                except ValueError:
+                    pass
+        if target_days:
+            target_mttr[_target] = round(sum(target_days) / len(target_days), 1)
+
+    mttr_days = (
+        round(sum(all_remediation_days) / len(all_remediation_days), 1)
+        if all_remediation_days else None
+    )
+    fastest_remediator = (
+        min(target_mttr.items(), key=lambda x: x[1])
+        if target_mttr else None
+    )
+
     result = {
         "trend": trend,
         "by_tool": sorted(
@@ -738,12 +816,15 @@ def get_metrics(response: Response):
                     "medium":   v["medium"],
                     "low":      v["low"],
                     "total":    v["total"],
+                    "top_app":  max(tool_app_counts.get(k, {"":0}).items(), key=lambda x: x[1])[0],
                 }
                 for k, v in tool_counts.items()
             ],
             key=lambda x: -x["total"],
         ),
         "fix_rate": {"with_fix": total_with_fix, "without_fix": total_without_fix},
+        "mttr_days": mttr_days,
+        "fastest_remediator": {"target": fastest_remediator[0], "mttr_days": fastest_remediator[1]} if fastest_remediator else None,
         "top_cves": [
             {
                 "cve_id":   k,

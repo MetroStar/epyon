@@ -1086,6 +1086,47 @@ tbody tr:hover td { background: var(--bg-hover); }
 /* ── Sections ─────────────────────────────────────────────── */
 .section { margin-bottom: 32px; }
 
+/* Collapsible sections */
+.section-toggle {
+  cursor: pointer;
+  user-select: none;
+}
+.section-toggle:hover { color: var(--text); }
+
+.section-title-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: normal;
+}
+
+.section-chevron {
+  display: inline-block;
+  font-size: 13px;
+  color: var(--text-muted);
+  transition: transform 0.18s ease;
+  flex-shrink: 0;
+}
+.collapsible-section.collapsed .section-chevron {
+  transform: rotate(-90deg);
+}
+.collapsible-section .section-body {
+  overflow: hidden;
+}
+.collapsible-section.collapsed .section-body {
+  display: none;
+}
+
+/* Sortable table headers */
+th[data-col] { cursor: pointer; white-space: nowrap; }
+th[data-col]:hover { color: var(--text); }
+.sort-icon {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: 3px;
+}
+
+
 .section-title {
   font-size: 16px;
   font-weight: 600;
@@ -1305,7 +1346,7 @@ pre {
   display: flex;
   gap: 20px;
   margin-bottom: 32px;
-  align-items: flex-start;
+  align-items: stretch;
 }
 
 .chart-panel {
@@ -1319,6 +1360,83 @@ pre {
 
 .chart-panel .section-title {
   margin-bottom: 16px;
+}
+
+.mttr-panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.mttr-display {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  padding: 28px 0 12px;
+}
+
+.mttr-number {
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.mttr-number.mttr-na {
+  font-size: 36px;
+  color: var(--text-muted);
+}
+
+.mttr-unit {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-muted);
+  padding-bottom: 4px;
+}
+
+.mttr-sub {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding-bottom: 8px;
+}
+
+.mttr-fastest {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  margin-top: 4px;
+}
+
+.mttr-fastest-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.mttr-fastest-app {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mttr-fastest-days {
+  font-size: 12px;
+  color: var(--clean);
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .donut-wrap {
@@ -1358,6 +1476,25 @@ pre {
   border-radius: 50%;
   flex-shrink: 0;
 }
+
+.chart-tooltip {
+  position: fixed;
+  z-index: 9999;
+  display: none;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text);
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+}
+
+.chart-tooltip strong { color: var(--text); }
+.chart-tooltip .tt-date { color: var(--text-muted); font-size: 11px; }
 
 /* Scan frequency activity dots */
 .freq-dots {

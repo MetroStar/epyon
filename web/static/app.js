@@ -134,6 +134,33 @@ const _CC = {
   critical: '#ff7b72', high: '#ffa657', medium: '#e3b341', low: '#79c0ff',
 };
 
+function _getTooltip() {
+  let tt = document.getElementById('chart-tooltip');
+  if (!tt) {
+    tt = document.createElement('div');
+    tt.id = 'chart-tooltip';
+    tt.className = 'chart-tooltip';
+    document.body.appendChild(tt);
+  }
+  return tt;
+}
+function _showTooltip(e, html) {
+  const tt = _getTooltip();
+  tt.innerHTML = html;
+  tt.style.display = 'block';
+  const offset = 14;
+  let left = e.clientX + offset;
+  let top  = e.clientY - 10;
+  if (left + 200 > window.innerWidth)  left = e.clientX - 200 - offset;
+  if (top  + 80  > window.innerHeight) top  = e.clientY - 80;
+  tt.style.left = left + 'px';
+  tt.style.top  = top  + 'px';
+}
+function _hideTooltip() {
+  const tt = document.getElementById('chart-tooltip');
+  if (tt) tt.style.display = 'none';
+}
+
 function drawDonutChart(canvas, segments) {
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
@@ -203,6 +230,26 @@ function drawHBarChart(canvas, items) {
     ctx.textAlign = 'left';
     ctx.fillText(item.total, labelW + barArea + 8, barY + barH / 2);
   });
+
+  canvas.onmousemove = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const my = e.clientY - rect.top;
+    const i  = Math.floor(my / rowH);
+    if (i < 0 || i >= items.length) { _hideTooltip(); return; }
+    const ta = items[i].top_app;
+    if (!ta) { _hideTooltip(); return; }
+    _showTooltip(e, `Top contributing app<br><strong>${esc(ta)}</strong>`);
+  };
+  canvas.onmouseleave = _hideTooltip;
+  canvas.onclick = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const my = e.clientY - rect.top;
+    const i  = Math.floor(my / rowH);
+    if (i < 0 || i >= items.length) return;
+    const ta = items[i].top_app;
+    if (ta) navigate('#/applications/' + encodeURIComponent(ta));
+  };
+  canvas.style.cursor = 'pointer';
 }
 
 function drawLineChart(canvas, series, xLabels) {
@@ -244,6 +291,99 @@ function drawLineChart(canvas, series, xLabels) {
     });
     ctx.stroke();
   }
+}
+
+function drawStackedBarChart(canvas, series, xLabels, barData) {
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const w = (canvas.parentElement ? canvas.parentElement.clientWidth - 40 : 600);
+  const h = 200;
+  canvas.width = w * dpr; canvas.height = h * dpr;
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  ctx.scale(dpr, dpr);
+  const n = xLabels.length;
+  if (!n) return;
+  const pad = { top: 16, right: 16, bottom: 36, left: 44 };
+  const cw = w - pad.left - pad.right, ch = h - pad.top - pad.bottom;
+
+  // Compute per-bar totals for y-axis scale
+  const totals = xLabels.map((_, i) => series.reduce((sum, s) => sum + (s.data[i] || 0), 0));
+  const maxV = Math.max(...totals, 1);
+
+  // Horizontal grid lines + y-axis labels
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + ch * (1 - i / 4);
+    ctx.strokeStyle = '#21262d';
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + cw, y); ctx.stroke();
+    ctx.fillStyle = '#6e7681'; ctx.font = '10px sans-serif';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText(Math.round(maxV * i / 4), pad.left - 5, y);
+  }
+
+  // X-axis labels (show ~12 evenly spaced)
+  const slotW = cw / n;
+  const barW = Math.max(2, slotW - 2);
+  const labelStep = Math.max(1, Math.floor(n / 12));
+  ctx.fillStyle = '#6e7681'; ctx.font = '10px sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (let i = 0; i < n; i += labelStep) {
+    const x = pad.left + (i + 0.5) * slotW;
+    ctx.fillText(xLabels[i].slice(5, 10), x, pad.top + ch + 6);
+  }
+
+  // Stacked bars — reverse series so lowest severity sits at the bottom
+  const reversed = [...series].reverse();
+  for (let i = 0; i < n; i++) {
+    const x = pad.left + i * slotW + (slotW - barW) / 2;
+    let floor = pad.top + ch;
+    for (const s of reversed) {
+      const val = s.data[i] || 0;
+      if (val <= 0) continue;
+      const segH = (val / maxV) * ch;
+      ctx.fillStyle = s.color;
+      ctx.fillRect(x, floor - segH, barW, segH);
+      floor -= segH;
+    }
+  }
+
+  canvas.onmousemove = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    if (mx < pad.left || mx > pad.left + cw || my < pad.top || my > pad.top + ch) {
+      _hideTooltip(); return;
+    }
+    const i = Math.floor((mx - pad.left) / slotW);
+    if (i < 0 || i >= n) { _hideTooltip(); return; }
+    const bd    = barData && barData[i];
+    const label = bd ? esc(bd.target) : xLabels[i];
+    const date  = xLabels[i];
+    const c  = series[0].data[i] || 0;
+    const hv = series[1].data[i] || 0;
+    const mv = series[2].data[i] || 0;
+    const lv = series[3].data[i] || 0;
+    _showTooltip(e,
+      `<strong>${label}</strong> <span class="tt-date">${date}</span><br>` +
+      `<span style="color:#ff7b72">■</span> ${c}&ensp;` +
+      `<span style="color:#ffa657">■</span> ${hv}&ensp;` +
+      `<span style="color:#e3b341">■</span> ${mv}&ensp;` +
+      `<span style="color:#79c0ff">■</span> ${lv}`
+    );
+  };
+  canvas.onmouseleave = _hideTooltip;
+  canvas.onclick = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    if (mx < pad.left || mx > pad.left + cw || my < pad.top || my > pad.top + ch) return;
+    const i = Math.floor((mx - pad.left) / slotW);
+    if (i < 0 || i >= n) return;
+    const bd = barData && barData[i];
+    const target = bd ? bd.target : null;
+    if (target) navigate('#/applications/' + encodeURIComponent(target));
+  };
+  canvas.style.cursor = 'pointer';
 }
 
 // ── API client ────────────────────────────────────────────────
@@ -2168,6 +2308,11 @@ async function cancelScan() {
 
 // ─────────────────────────────────────────────────────────────
 
+function toggleSection(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('collapsed');
+}
+
 async function renderMetrics() {
   setActive('metrics');
   const page = document.getElementById('page');
@@ -2183,6 +2328,20 @@ async function renderMetrics() {
     const activeApps = Object.keys(m.scan_frequency || {}).length;
     const toolH      = Math.max((m.by_tool.length || 1) * 36 + 8, 60);
 
+    const mttrVal = m.mttr_days != null ? `${m.mttr_days}` : null;
+    const mttrDisplay = mttrVal != null
+      ? `<span class="mttr-number">${esc(mttrVal)}</span><span class="mttr-unit">days</span>`
+      : `<span class="mttr-number mttr-na">N/A</span>`;
+    const mttrSub = m.mttr_days != null
+      ? 'avg across resolved findings'
+      : 'Not enough scan history';
+    const fastestHtml = m.fastest_remediator
+      ? `<div class="mttr-fastest">
+           <span class="mttr-fastest-label">Fastest</span>
+           <span class="mttr-fastest-app">${esc(m.fastest_remediator.target)}</span>
+           <span class="mttr-fastest-days">${esc(String(m.fastest_remediator.mttr_days))}d avg</span>
+         </div>`
+      : '';
     const topCveRows = m.top_cves.length
       ? m.top_cves.map(c => `
           <tr>
@@ -2258,11 +2417,20 @@ async function renderMetrics() {
             </span>
           </div>
         </div>
-        <div class="chart-panel" style="flex:2;min-width:0">
-          <div class="section-title">Findings by Tool</div>
-          <canvas id="tool-chart" style="display:block;width:100%;height:${toolH}px"></canvas>
-          <div class="chart-legend" style="margin-top:12px">${legendSevs}</div>
+        <div class="chart-panel mttr-panel">
+          <div class="section-title">Mean Time to Remediate</div>
+          <div class="mttr-display">${mttrDisplay}</div>
+          <div class="mttr-sub">${esc(mttrSub)}</div>
+          ${fastestHtml}
         </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Findings by Tool</div>
+        <div class="trend-wrap">
+          <canvas id="tool-chart" style="display:block;width:100%;height:${toolH}px"></canvas>
+        </div>
+        <div class="chart-legend" style="margin-top:12px">${legendSevs}</div>
       </div>
 
       <div class="section">
@@ -2276,30 +2444,52 @@ async function renderMetrics() {
         <div class="chart-legend">${legendSevs}</div>
       </div>
 
-      <div class="section">
-        <div class="section-title">
+      <div class="section collapsible-section collapsed" id="section-cves">
+        <div class="section-title section-toggle" onclick="toggleSection('section-cves')">
           Top CVEs
-          <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">from latest scan per application</span>
+          <span class="section-title-right">
+            <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">from latest scan per application</span>
+            <span class="section-chevron">▾</span>
+          </span>
         </div>
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr><th>CVE ID</th><th>Severity</th><th>Count</th><th>Title</th><th>Applications</th></tr>
-            </thead>
-            <tbody>${topCveRows}</tbody>
-          </table>
+        <div class="section-body">
+          <div class="table-container">
+            <table id="tbl-cves">
+              <thead>
+                <tr>
+                  <th data-col="cve_id">CVE ID <span class="sort-icon">⇅</span></th>
+                  <th data-col="severity">Severity <span class="sort-icon">⇅</span></th>
+                  <th data-col="count">Count <span class="sort-icon">⇅</span></th>
+                  <th>Title</th>
+                  <th data-col="apps">Applications <span class="sort-icon">⇅</span></th>
+                </tr>
+              </thead>
+              <tbody>${topCveRows}</tbody>
+            </table>
+          </div>
         </div>
       </div>
 
-      <div class="section">
-        <div class="section-title">Scan Frequency</div>
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr><th>Application</th><th>Total Scans</th><th>First Scan</th><th>Latest Scan</th><th>History</th></tr>
-            </thead>
-            <tbody>${freqRows || '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">No scan data available</td></tr>'}</tbody>
-          </table>
+      <div class="section collapsible-section collapsed" id="section-freq">
+        <div class="section-title section-toggle" onclick="toggleSection('section-freq')">
+          Scan Frequency
+          <span class="section-chevron">▾</span>
+        </div>
+        <div class="section-body">
+          <div class="table-container">
+            <table id="tbl-freq">
+              <thead>
+                <tr>
+                  <th data-col="name">Application <span class="sort-icon">⇅</span></th>
+                  <th data-col="total">Total Scans <span class="sort-icon">⇅</span></th>
+                  <th data-col="first">First Scan <span class="sort-icon">⇅</span></th>
+                  <th data-col="last">Latest Scan <span class="sort-icon">⇅</span></th>
+                  <th>History</th>
+                </tr>
+              </thead>
+              <tbody>${freqRows || '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">No scan data available</td></tr>'}</tbody>
+            </table>
+          </div>
         </div>
       </div>`;
 
@@ -2313,18 +2503,97 @@ async function renderMetrics() {
       const toolCanvas = document.getElementById('tool-chart');
       if (toolCanvas) drawHBarChart(toolCanvas, m.by_tool.map(t => ({
         label: t.tool, critical: t.critical, high: t.high,
-        medium: t.medium, low: t.low, total: t.total,
+        medium: t.medium, low: t.low, total: t.total, top_app: t.top_app || '',
       })));
 
       const trendCanvas = document.getElementById('trend-chart');
       if (trendCanvas && m.trend.length) {
-        drawLineChart(trendCanvas, [
+        drawStackedBarChart(trendCanvas, [
           { color: '#ff7b72', data: m.trend.map(t => t.critical) },
           { color: '#ffa657', data: m.trend.map(t => t.high) },
           { color: '#e3b341', data: m.trend.map(t => t.medium) },
           { color: '#79c0ff', data: m.trend.map(t => t.low) },
-        ], m.trend.map(t => t.timestamp.slice(0, 10)));
+        ], m.trend.map(t => t.timestamp.slice(0, 10)), m.trend);
       }
+
+      // ── Sortable: Top CVEs ──────────────────────────────────
+      (function() {
+        const tbl = document.getElementById('tbl-cves');
+        if (!tbl || !m.top_cves.length) return;
+        let sortCol = 'count', sortDir = -1;
+        const SEV = { critical: 0, high: 1, medium: 2, low: 3 };
+        function cveRow(c) {
+          return `<tr>
+            <td><a href="https://nvd.nist.gov/vuln/detail/${esc(c.cve_id)}" target="_blank" rel="noopener noreferrer"><code>${esc(c.cve_id)}</code></a></td>
+            <td><span class="sev-badge ${esc(c.severity)}">${ucFirst(c.severity)}</span></td>
+            <td>${esc(c.count)}</td>
+            <td style="max-width:360px">${esc(c.title || '\u2014')}</td>
+            <td style="font-size:11px;color:var(--text-muted)">${c.apps.map(a => esc(a)).join(', ')}</td>
+          </tr>`;
+        }
+        function resort() {
+          const rows = [...m.top_cves].sort((a, b) => {
+            if (sortCol === 'severity') return sortDir * ((SEV[a.severity] ?? 9) - (SEV[b.severity] ?? 9));
+            if (sortCol === 'count')    return sortDir * (a.count - b.count);
+            if (sortCol === 'apps')     return sortDir * (a.apps.length - b.apps.length);
+            return sortDir * String(a[sortCol]).localeCompare(String(b[sortCol]));
+          });
+          tbl.querySelector('tbody').innerHTML = rows.map(cveRow).join('');
+          tbl.querySelectorAll('th[data-col]').forEach(th => {
+            const ic = th.querySelector('.sort-icon');
+            if (ic) ic.textContent = th.dataset.col === sortCol ? (sortDir > 0 ? '▲' : '▼') : '⇅';
+          });
+        }
+        tbl.querySelectorAll('th[data-col]').forEach(th => {
+          th.onclick = () => {
+            if (sortCol === th.dataset.col) sortDir *= -1;
+            else { sortCol = th.dataset.col; sortDir = sortCol === 'count' || sortCol === 'apps' ? -1 : 1; }
+            resort();
+          };
+        });
+        resort();
+      })();
+
+      // ── Sortable: Scan Frequency ────────────────────────────
+      (function() {
+        const tbl = document.getElementById('tbl-freq');
+        if (!tbl) return;
+        let sortCol = 'total', sortDir = -1;
+        const freqData = Object.entries(m.scan_frequency || {});
+        function freqRow([name, f]) {
+          const first = f.dates.length ? f.dates[0] : '\u2014';
+          const last  = f.dates.length ? f.dates[f.dates.length - 1] : '\u2014';
+          return `<tr onclick="navigate('#/applications/${encodeURIComponent(name)}')" style="cursor:pointer">
+            <td><strong>${esc(name)}</strong></td>
+            <td>${esc(f.total)}</td>
+            <td>${esc(first)}</td>
+            <td>${esc(last)}</td>
+            <td><div class="freq-dots">${f.dates.map(d => `<span class="freq-dot" title="${esc(d)}"></span>`).join('')}</div></td>
+          </tr>`;
+        }
+        function resort() {
+          const rows = [...freqData].sort(([na, fa], [nb, fb]) => {
+            if (sortCol === 'name')  return sortDir * na.localeCompare(nb);
+            if (sortCol === 'total') return sortDir * (fa.total - fb.total);
+            if (sortCol === 'first') return sortDir * (fa.dates[0] || '').localeCompare(fb.dates[0] || '');
+            if (sortCol === 'last')  return sortDir * ((fa.dates[fa.dates.length-1]||'').localeCompare(fb.dates[fb.dates.length-1]||''));
+            return 0;
+          });
+          tbl.querySelector('tbody').innerHTML = rows.map(freqRow).join('');
+          tbl.querySelectorAll('th[data-col]').forEach(th => {
+            const ic = th.querySelector('.sort-icon');
+            if (ic) ic.textContent = th.dataset.col === sortCol ? (sortDir > 0 ? '▲' : '▼') : '⇅';
+          });
+        }
+        tbl.querySelectorAll('th[data-col]').forEach(th => {
+          th.onclick = () => {
+            if (sortCol === th.dataset.col) sortDir *= -1;
+            else { sortCol = th.dataset.col; sortDir = sortCol === 'total' ? -1 : 1; }
+            resort();
+          };
+        });
+        resort();
+      })();
     });
   } catch (e) {
     page.innerHTML = errBanner(e.message);

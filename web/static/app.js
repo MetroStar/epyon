@@ -2068,11 +2068,29 @@ async function renderNewScan(prefill = '') {
         </div>
 
         <div class="form-group" id="garak-checkbox-row">
-          <label class="checkbox-label">
-            <input type="checkbox" id="run-garak-chk" />
-            Run Garak LLM security scan (Layer 12)
-          </label>
+          <label>Garak LLM Scan (Layer 12)</label>
+          <div class="seg-ctrl" id="garak-ctrl">
+            <button type="button" class="seg-btn active" data-value="off"
+              onclick="_setGarak('off')">Off</button>
+            <button type="button" class="seg-btn" data-value="on"
+              onclick="_setGarak('on')">On</button>
+          </div>
           <small>Requires <code>OPENAI_API_KEY</code> to be set.</small>
+        </div>
+
+        <div class="form-group">
+          <label>Monitoring Type</label>
+          <div class="seg-ctrl" id="monitoring-type-ctrl">
+            <button type="button" class="seg-btn active" data-value="evaluation"
+              onclick="_setMonitoringType('evaluation')">
+              &#9675; Evaluation
+            </button>
+            <button type="button" class="seg-btn" data-value="continuous"
+              onclick="_setMonitoringType('continuous')">
+              &#9679; Continuous
+            </button>
+          </div>
+          <small>Continuous apps are tracked in Metrics. Evaluation apps are excluded.</small>
         </div>
 
         <button id="run-btn" class="btn btn-primary" onclick="submitScan()">
@@ -2258,9 +2276,22 @@ window.updateScanInfo = (mode) => {
     ${apiKeyNotice}`;
 };
 
+function _setGarak(value) {
+  document.querySelectorAll('#garak-ctrl .seg-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.value === value);
+  });
+}
+
+function _setMonitoringType(value) {
+  document.querySelectorAll('#monitoring-type-ctrl .seg-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.value === value);
+  });
+}
+
 async function submitScan() {
   const scanType  = document.getElementById('scan-type-sel').value;
-  const runGarak  = !!(document.getElementById('run-garak-chk')?.checked);
+  const activeGarak = document.querySelector('#garak-ctrl .seg-btn.active');
+  const runGarak  = activeGarak?.dataset.value === 'on';
   const btn       = document.getElementById('run-btn');
 
   const target = (document.getElementById('scan-target')?.value || '').trim();
@@ -2323,6 +2354,16 @@ async function pollJob(jobId, btn) {
       _pollInterval = null;
       _activeJobId  = null;
       if (btn) { btn.disabled = false; btn.textContent = '▶ Run Scan'; }
+
+      // Apply monitoring classification on successful completion
+      if (job.status === 'completed' && job.target) {
+        const activeBtn = document.querySelector('#monitoring-type-ctrl .seg-btn.active');
+        if (activeBtn?.dataset.value === 'continuous') {
+          try { await api.setMonitored(job.target); } catch (_) {}
+        } else {
+          try { await api.unsetMonitored(job.target); } catch (_) {}
+        }
+      }
 
       const cancelBtn = document.getElementById('cancel-btn');
       if (cancelBtn) cancelBtn.style.display = 'none';

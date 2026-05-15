@@ -1141,6 +1141,8 @@ async function renderScanDetail(scanId) {
 
       ${buildModelSecurityCard(scan)}
 
+      ${buildNetworkDiscoveryCard(scan)}
+
       ${dedupeTools(scan.tools_analyzed).length ? `
         <div class="section">
           <div class="section-title">Tools Analyzed</div>
@@ -1172,6 +1174,76 @@ async function renderScanDetail(scanId) {
 function buildPicklescanCard(scan) { return ''; } // merged into buildModelSecurityCard
 
 function buildModelCardCard(scan) { return ''; }  // merged into buildModelSecurityCard
+
+function buildNetworkDiscoveryCard(scan) {
+  const nd = scan.network_discovery;
+  if (!nd) return '';
+  const ports    = (nd.unique_ports || []).join(', ') || '—';
+  const protos   = (nd.protocols   || []).join(', ') || '—';
+  const services = (nd.services    || []).join(', ') || '—';
+
+  // Source breakdown rows
+  const sourceRows = [
+    { label: 'Docker Compose', items: nd.compose_ports   || [] },
+    { label: 'Dockerfile',     items: nd.dockerfile_ports || [] },
+    { label: 'Kubernetes/Helm',items: nd.k8s_ports       || [] },
+    { label: 'App Config/.env',items: nd.config_ports    || [] },
+  ].filter(r => r.items.length > 0);
+
+  const sourceHtml = sourceRows.length ? sourceRows.map(r => `
+    <div style="margin-top:10px">
+      <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:4px">${esc(r.label)}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="color:var(--text-muted)">
+            <th style="text-align:left;padding:2px 8px 2px 0;font-weight:500">File</th>
+            <th style="text-align:left;padding:2px 8px 2px 0;font-weight:500">Service</th>
+            <th style="text-align:left;padding:2px 0;font-weight:500">Port / Mapping</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${r.items.map(p => `
+            <tr style="border-top:1px solid var(--border)">
+              <td style="padding:3px 8px 3px 0;color:var(--text-muted);font-family:monospace;font-size:11px">${esc(p.file || '')}</td>
+              <td style="padding:3px 8px 3px 0">${esc(p.service || '')}</td>
+              <td style="padding:3px 0;font-family:monospace">${esc(p.mapping || String(p.port || ''))}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`).join('') : '<p style="color:var(--text-muted);font-size:13px;margin:8px 0 0">No static port definitions found.</p>';
+
+  const activeBadge = nd.active_scan_run
+    ? '<span style="background:var(--low-bg,#fffbe6);color:var(--low,#b8860b);border:1px solid var(--low,#b8860b);border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600">nmap active</span>'
+    : '<span style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-size:11px">static only</span>';
+
+  return `
+    <div class="section">
+      <div class="section-title">🔌 Network Discovery · PPSM</div>
+      <div class="detail-grid" style="margin-bottom:12px">
+        <div class="detail-card">
+          <div class="label">Ports Found</div>
+          <div class="value">${esc(nd.total_ports)}</div>
+        </div>
+        <div class="detail-card">
+          <div class="label">Scan Method</div>
+          <div class="value" style="font-size:13px">${activeBadge}</div>
+        </div>
+        <div class="detail-card" style="grid-column:span 2">
+          <div class="label">Unique Ports</div>
+          <div class="value" style="font-size:13px;font-family:monospace">${esc(ports)}</div>
+        </div>
+        <div class="detail-card">
+          <div class="label">Protocols</div>
+          <div class="value" style="font-size:13px">${esc(protos)}</div>
+        </div>
+        <div class="detail-card">
+          <div class="label">Inferred Services</div>
+          <div class="value" style="font-size:13px">${esc(services)}</div>
+        </div>
+      </div>
+      ${sourceHtml}
+    </div>`;
+}
 
 function buildModelSecurityCard(scan) {
   const ps = scan.picklescan;

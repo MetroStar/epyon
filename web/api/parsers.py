@@ -357,6 +357,69 @@ def parse_xeol_dir(scan_dir: Path) -> list[dict]:
     return findings
 
 
+def parse_network_discovery_dir(scan_dir: Path) -> dict | None:
+    """Return normalized network-discovery data, or None if not present."""
+    result_file = scan_dir / "network" / "network-discovery.json"
+    if not result_file.exists():
+        return None
+    raw = _read_json(result_file)
+    if not raw or not isinstance(raw, dict):
+        return None
+    summary = raw.get("summary") or {}
+    sd      = raw.get("static_discovery") or {}
+    active  = raw.get("active_scan") or {}
+
+    # Flatten docker-compose service/port entries into a simple list
+    compose_ports: list[dict] = []
+    for compose_file in (sd.get("docker_compose") or []):
+        for svc in (compose_file.get("services") or []):
+            for p in (svc.get("ports") or []):
+                compose_ports.append({
+                    "file":    compose_file.get("file", ""),
+                    "service": svc.get("name", ""),
+                    "port":    p.get("container_port"),
+                    "mapping": p.get("mapping", ""),
+                })
+
+    # Flatten dockerfile EXPOSE entries
+    dockerfile_ports: list[dict] = []
+    for df in (sd.get("dockerfiles") or []):
+        for p in (df.get("ports") or []):
+            dockerfile_ports.append({
+                "file": df.get("file", ""),
+                "port": p.get("port") or p,
+            })
+
+    # Kubernetes / Helm ports
+    k8s_ports: list[dict] = []
+    for obj in (sd.get("kubernetes") or []):
+        for p in (obj.get("ports") or []):
+            k8s_ports.append({"file": obj.get("file", ""), "port": p.get("port") or p})
+    for chart in (sd.get("helm_charts") or []):
+        for p in (chart.get("ports") or []):
+            k8s_ports.append({"file": chart.get("file", ""), "port": p.get("port") or p})
+
+    # App config / .env ports
+    config_ports: list[dict] = []
+    for cfg in list(sd.get("app_configs") or []) + list(sd.get("env_files") or []):
+        for p in (cfg.get("ports") or []):
+            config_ports.append({"file": cfg.get("file", ""), "port": p.get("port") or p})
+
+    return {
+        "total_ports":    summary.get("total_ports_discovered", 0),
+        "unique_ports":   summary.get("unique_ports", []),
+        "protocols":      summary.get("protocols", []),
+        "services":       summary.get("inferred_services", []),
+        "static_sources": summary.get("static_sources_found", 0),
+        "active_scan_run": summary.get("active_scan_run", False),
+        "compose_ports":   compose_ports,
+        "dockerfile_ports": dockerfile_ports,
+        "k8s_ports":       k8s_ports,
+        "config_ports":    config_ports,
+        "active_results":  active,
+    }
+
+
 def parse_picklescan_dir(scan_dir: Path) -> dict | None:
     """Return the normalized picklescan result dict, or None if not present."""
     result_file = scan_dir / "picklescan" / "picklescan-results.json"
@@ -743,6 +806,11 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
     modelcard_data = parse_modelcard_dir(scan_dir)
     if modelcard_data is not None:
         data["modelcard"] = modelcard_data
+
+    # ── Layer 16 — Network Discovery (PPSM) ─────────────────────────────────
+    network_data = parse_network_discovery_dir(scan_dir)
+    if network_data is not None:
+        data["network_discovery"] = network_data
 
     # ── Suppressed findings ──────────────────────────────────────────────────
     suppressed = parse_suppressed_findings(scan_dir)

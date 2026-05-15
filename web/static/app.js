@@ -82,7 +82,7 @@ jobs:
       pull-requests: write
       security-events: write
       issues: write
-    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
+    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@PPSM
     with:
       scan_mode: \${{ github.event_name == 'schedule' && (github.event.schedule == '0 2 * * 0' && 'stig' || 'nightly') || github.event.inputs.scan_mode || 'full' }}
       subdirectory: \${{ github.event.inputs.subdirectory || '' }}

@@ -108,19 +108,8 @@ REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR"))")"
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 
-# Check if Docker is available
-if ! [ -n "${CONTAINER_CLI:-}" ]; then
-    echo -e "${RED}❌ Error: Docker is not installed or not in PATH${NC}"
-    echo "   Please install Docker to use this security scanner."
-    exit 1
-fi
-
-# Check if Docker daemon is running
-if ! docker info &> /dev/null; then
-    echo -e "${RED}❌ Error: Docker daemon is not running${NC}"
-    echo "   Please start Docker to use this security scanner."
-    exit 1
-fi
+# Ensure Docker is running (auto-starts Docker Desktop / Colima / OrbStack if needed)
+ensure_docker_running
 
 echo
 echo -e "${WHITE}============================================${NC}"

@@ -161,6 +161,66 @@ finalize_scan_results() {
     fi
 }
 
+# ── Docker auto-start utility ─────────────────────────────────────────────────
+# Call ensure_docker_running to guarantee the Docker daemon is up before any
+# tool that requires it.  Tries Colima, Docker Desktop, Rancher Desktop,
+# OrbStack (macOS) and systemctl (Linux) in order.  Waits up to 60 s.
+ensure_docker_running() {
+    if ! command -v docker &>/dev/null; then
+        echo "❌ Docker is not installed — cannot run this scan layer." >&2
+        echo "   Install Docker Desktop, Colima, Rancher Desktop, or OrbStack." >&2
+        exit 1
+    fi
+
+    if docker info &>/dev/null; then
+        return 0   # already running
+    fi
+
+    echo "⚠️  Docker is not running — attempting to start it automatically..."
+
+    if [[ "$(uname)" == "Darwin" ]]; then
+        if command -v colima &>/dev/null; then
+            echo "   Detected Colima — starting..."
+            colima start 2>/dev/null || true
+            sleep 3
+        fi
+        if [[ -d "/Applications/Docker.app" ]]; then
+            echo "   Detected Docker Desktop — starting..."
+            open -a Docker 2>/dev/null || true
+        fi
+        if [[ -d "/Applications/Rancher Desktop.app" ]]; then
+            echo "   Detected Rancher Desktop — starting..."
+            open -a "Rancher Desktop" 2>/dev/null || true
+        fi
+        if [[ -d "/Applications/OrbStack.app" ]]; then
+            echo "   Detected OrbStack — starting..."
+            open -a OrbStack 2>/dev/null || true
+        fi
+    elif [[ "$(uname)" == "Linux" ]]; then
+        if command -v systemctl &>/dev/null; then
+            echo "   Starting Docker Engine service..."
+            sudo systemctl start docker 2>/dev/null || true
+            sleep 3
+        fi
+    fi
+
+    # Wait up to 60 s for the daemon to become responsive
+    echo -n "   Waiting for Docker"
+    local waited=0
+    while ! docker info &>/dev/null; do
+        if [[ $waited -ge 60 ]]; then
+            echo ""
+            echo "❌ Docker did not start within 60 seconds." >&2
+            echo "   Please start Docker manually and retry." >&2
+            exit 1
+        fi
+        echo -n "."
+        sleep 2
+        waited=$((waited + 2))
+    done
+    echo " ✅ Docker is ready."
+}
+
 # If this script is sourced, make functions available
 # If run directly, show usage
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

@@ -140,13 +140,8 @@ log "Output Directory: $OUTPUT_DIR"
 log "Scan Mode: $SCAN_MODE"
 log "═══════════════════════════════════════════════════════════"
 
-# Check Docker availability
-if ! docker info > /dev/null 2>&1; then
-    log "❌ ERROR: Docker is not running or not accessible"
-    log "Please start Docker and try again"
-    exit 1
-fi
-
+# Ensure Docker is running (auto-starts Docker Desktop / Colima / OrbStack if needed)
+ensure_docker_running
 log "✅ Docker is available"
 
 # Prefer local grype/syft installations to avoid Docker volume-mount issues on macOS

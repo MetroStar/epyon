@@ -1233,15 +1233,17 @@ function buildNetworkDiscoveryCard(scan) {
     { label: 'App Config/.env',items: nd.config_ports    || [] },
   ].filter(r => r.items.length > 0);
 
-  const sourceHtml = sourceRows.length ? sourceRows.map(r => `
+  const sourceHtml = sourceRows.length ? sourceRows.map((r, idx) => {
+    const tblId = `ppsm-tbl-${idx}`;
+    return `
     <div style="margin-top:10px">
       <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:4px">${esc(r.label)}</div>
-      <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <table id="${tblId}" style="width:100%;border-collapse:collapse;font-size:12px">
         <thead>
           <tr style="color:var(--text-muted)">
-            <th style="text-align:left;padding:2px 8px 2px 0;font-weight:500">File</th>
-            <th style="text-align:left;padding:2px 8px 2px 0;font-weight:500">Service</th>
-            <th style="text-align:left;padding:2px 0;font-weight:500">Port / Mapping</th>
+            <th data-col="0" class="sortable-th" style="text-align:left;padding:2px 8px 2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',0)">File <span class="sort-icon">⇅</span></th>
+            <th data-col="1" class="sortable-th" style="text-align:left;padding:2px 8px 2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',1)">Service <span class="sort-icon">⇅</span></th>
+            <th data-col="2" class="sortable-th" style="text-align:left;padding:2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',2)">Port / Mapping <span class="sort-icon">⇅</span></th>
           </tr>
         </thead>
         <tbody>
@@ -1253,38 +1255,44 @@ function buildNetworkDiscoveryCard(scan) {
             </tr>`).join('')}
         </tbody>
       </table>
-    </div>`).join('') : '<p style="color:var(--text-muted);font-size:13px;margin:8px 0 0">No static port definitions found.</p>';
+    </div>`;
+  }).join('') : '<p style="color:var(--text-muted);font-size:13px;margin:8px 0 0">No static port definitions found.</p>';
 
   const activeBadge = nd.active_scan_run
     ? '<span style="background:var(--low-bg,#fffbe6);color:var(--low,#b8860b);border:1px solid var(--low,#b8860b);border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600">nmap active</span>'
     : '<span style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-size:11px">static only</span>';
 
   return `
-    <div class="section">
-      <div class="section-title">🔌 Network Discovery · PPSM</div>
-      <div class="detail-grid" style="margin-bottom:12px">
-        <div class="detail-card">
-          <div class="label">Ports Found</div>
-          <div class="value">${esc(nd.total_ports)}</div>
-        </div>
-        <div class="detail-card">
-          <div class="label">Scan Method</div>
-          <div class="value" style="font-size:13px">${activeBadge}</div>
-        </div>
-        <div class="detail-card" style="grid-column:span 2">
-          <div class="label">Unique Ports</div>
-          <div class="value" style="font-size:13px;font-family:monospace">${esc(ports)}</div>
-        </div>
-        <div class="detail-card">
-          <div class="label">Protocols</div>
-          <div class="value" style="font-size:13px">${esc(protos)}</div>
-        </div>
-        <div class="detail-card">
-          <div class="label">Inferred Services</div>
-          <div class="value" style="font-size:13px">${esc(services)}</div>
-        </div>
+    <div class="section collapsible-section collapsed" id="section-ppsm">
+      <div class="section-title section-toggle" onclick="toggleSection('section-ppsm')" style="display:flex;align-items:center;justify-content:space-between">
+        <span>🔌 Network Discovery · PPSM</span>
+        <span class="section-chevron">▾</span>
       </div>
-      ${sourceHtml}
+      <div class="section-body">
+        <div class="detail-grid" style="margin-bottom:12px;margin-top:12px">
+          <div class="detail-card">
+            <div class="label">Ports Found</div>
+            <div class="value">${esc(nd.total_ports)}</div>
+          </div>
+          <div class="detail-card">
+            <div class="label">Scan Method</div>
+            <div class="value" style="font-size:13px">${activeBadge}</div>
+          </div>
+          <div class="detail-card" style="grid-column:span 2">
+            <div class="label">Unique Ports</div>
+            <div class="value" style="font-size:13px;font-family:monospace">${esc(ports)}</div>
+          </div>
+          <div class="detail-card">
+            <div class="label">Protocols</div>
+            <div class="value" style="font-size:13px">${esc(protos)}</div>
+          </div>
+          <div class="detail-card">
+            <div class="label">Inferred Services</div>
+            <div class="value" style="font-size:13px">${esc(services)}</div>
+          </div>
+        </div>
+        ${sourceHtml}
+      </div>
     </div>`;
 }
 
@@ -2603,6 +2611,44 @@ function toggleSection(id) {
   const el = document.getElementById(id);
   if (el) el.classList.toggle('collapsed');
 }
+
+// Sort state for PPSM port tables: { [tableId]: { col: int, dir: 'asc'|'desc' } }
+const _ppsmSortState = {};
+
+window.sortPpsmTable = function(tableId, col) {
+  const tbl = document.getElementById(tableId);
+  if (!tbl) return;
+  const tbody = tbl.querySelector('tbody');
+  if (!tbody) return;
+
+  const st = _ppsmSortState[tableId] || { col: -1, dir: 'asc' };
+  const dir = (st.col === col && st.dir === 'asc') ? 'desc' : 'asc';
+  _ppsmSortState[tableId] = { col, dir };
+
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  rows.sort((a, b) => {
+    const av = (a.cells[col] ? a.cells[col].textContent : '').trim().toLowerCase();
+    const bv = (b.cells[col] ? b.cells[col].textContent : '').trim().toLowerCase();
+    // Numeric sort for port column (col 2)
+    if (col === 2) {
+      const an = parseInt(av, 10), bn = parseInt(bv, 10);
+      if (!isNaN(an) && !isNaN(bn)) return dir === 'asc' ? an - bn : bn - an;
+    }
+    return dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+  rows.forEach(r => tbody.appendChild(r));
+
+  // Update sort indicators
+  tbl.querySelectorAll('th[data-col]').forEach(th => {
+    const icon = th.querySelector('.sort-icon');
+    if (!icon) return;
+    if (parseInt(th.dataset.col, 10) === col) {
+      icon.textContent = dir === 'asc' ? '↑' : '↓';
+    } else {
+      icon.textContent = '⇅';
+    }
+  });
+};
 
 async function renderMetrics() {
   setActive('metrics');

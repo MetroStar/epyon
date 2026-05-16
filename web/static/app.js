@@ -1147,18 +1147,9 @@ async function renderScanDetail(scanId) {
 
       ${buildModelSecurityCard(scan)}
 
-      ${buildNetworkDiscoveryCard(scan)}
-
-      ${dedupeTools(scan.tools_analyzed).length ? `
-        <div class="section">
-          <div class="section-title">Tools Analyzed</div>
-          <div class="tools-list">
-            ${dedupeTools(scan.tools_analyzed).map(t =>
-              `<span class="tool-tag">${esc(t)}</span>`).join('')}
-          </div>
-        </div>` : ''}
-
       ${buildSBOMSection(scan.sbom, scanId)}
+
+      ${buildNetworkDiscoveryCard(scan)}
 
       ${scan.file_statistics && Object.keys(scan.file_statistics).length ? `
         <div class="section">
@@ -1169,6 +1160,15 @@ async function renderScanDetail(scanId) {
                 <div class="label">${esc(k.replace(/_/g, ' '))}</div>
                 <div class="value">${esc(v)}</div>
               </div>`).join('')}
+          </div>
+        </div>` : ''}
+
+      ${dedupeTools(scan.tools_analyzed).length ? `
+        <div class="section">
+          <div class="section-title">Tools Analyzed</div>
+          <div class="tools-list">
+            ${dedupeTools(scan.tools_analyzed).map(t =>
+              `<span class="tool-tag">${esc(t)}</span>`).join('')}
           </div>
         </div>` : ''}`;
     if (window._sbomPendingUid) { sbomRender(window._sbomPendingUid); window._sbomPendingUid = null; }
@@ -1262,37 +1262,48 @@ function buildNetworkDiscoveryCard(scan) {
     ? '<span style="background:var(--low-bg,#fffbe6);color:var(--low,#b8860b);border:1px solid var(--low,#b8860b);border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600">nmap active</span>'
     : '<span style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-size:11px">static only</span>';
 
+  const portsBadge = nd.total_ports
+    ? `<span class="sev-badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(String(nd.total_ports))} ports</span>`
+    : '';
+
   return `
-    <div class="section collapsible-section collapsed" id="section-ppsm">
-      <div class="section-title section-toggle" onclick="toggleSection('section-ppsm')" style="display:flex;align-items:center;justify-content:space-between">
-        <span>🔌 Network Discovery · PPSM</span>
-        <span class="section-chevron">▾</span>
-      </div>
-      <div class="section-body">
-        <div class="detail-grid" style="margin-bottom:12px;margin-top:12px">
-          <div class="detail-card">
-            <div class="label">Ports Found</div>
-            <div class="value">${esc(nd.total_ports)}</div>
+    <div class="section findings-section-wrapper">
+      <details class="findings-collapsible" style="border-left-color:var(--accent,#38bdf8)">
+        <summary class="findings-summary">
+          <span class="findings-summary-left">
+            <span class="findings-chevron" aria-hidden="true"></span>
+            <span class="findings-summary-title">🔌 Network Discovery · PPSM</span>
+            ${portsBadge}
+            ${activeBadge}
+          </span>
+          <span class="findings-summary-hint">Click to expand</span>
+        </summary>
+        <div class="findings-body" style="padding:0 18px 16px">
+          <div class="detail-grid" style="margin-bottom:12px;margin-top:12px">
+            <div class="detail-card">
+              <div class="label">Ports Found</div>
+              <div class="value">${esc(nd.total_ports)}</div>
+            </div>
+            <div class="detail-card">
+              <div class="label">Scan Method</div>
+              <div class="value" style="font-size:13px">${activeBadge}</div>
+            </div>
+            <div class="detail-card" style="grid-column:span 2">
+              <div class="label">Unique Ports</div>
+              <div class="value" style="font-size:13px;font-family:monospace">${esc(ports)}</div>
+            </div>
+            <div class="detail-card">
+              <div class="label">Protocols</div>
+              <div class="value" style="font-size:13px">${esc(protos)}</div>
+            </div>
+            <div class="detail-card">
+              <div class="label">Inferred Services</div>
+              <div class="value" style="font-size:13px">${esc(services)}</div>
+            </div>
           </div>
-          <div class="detail-card">
-            <div class="label">Scan Method</div>
-            <div class="value" style="font-size:13px">${activeBadge}</div>
-          </div>
-          <div class="detail-card" style="grid-column:span 2">
-            <div class="label">Unique Ports</div>
-            <div class="value" style="font-size:13px;font-family:monospace">${esc(ports)}</div>
-          </div>
-          <div class="detail-card">
-            <div class="label">Protocols</div>
-            <div class="value" style="font-size:13px">${esc(protos)}</div>
-          </div>
-          <div class="detail-card">
-            <div class="label">Inferred Services</div>
-            <div class="value" style="font-size:13px">${esc(services)}</div>
-          </div>
+          ${sourceHtml}
         </div>
-        ${sourceHtml}
-      </div>
+      </details>
     </div>`;
 }
 
@@ -1818,26 +1829,32 @@ function buildSBOMSection(sbom, scanId) {
     : null;
 
   return `
-    <div class="section">
-      <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
-        <span>📦 SBOM — ${esc(String(sbom.total))} Packages</span>
-        ${cdxUrl ? `<a class="btn btn-sm" href="${cdxUrl}" download style="font-size:11px">↓ CycloneDX JSON</a>` : ''}
-      </div>
-      <div class="tools-list" style="margin-bottom:10px">${typeChips}</div>
-      <details id="${uid}-details">
-        <summary style="cursor:pointer;font-size:13px;color:var(--text-muted)">Show / hide package list</summary>
-        <div style="margin-top:8px">
-          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+    <div class="section findings-section-wrapper">
+      <details class="findings-collapsible" style="border-left-color:var(--accent,#38bdf8)">
+        <summary class="findings-summary">
+          <span class="findings-summary-left">
+            <span class="findings-chevron" aria-hidden="true"></span>
+            <span class="findings-summary-title">📦 SBOM</span>
+            <span class="sev-badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(String(sbom.total))} packages</span>
+            ${typeChips}
+          </span>
+          <span style="display:flex;align-items:center;gap:10px">
+            ${cdxUrl ? `<a class="btn btn-sm" href="${cdxUrl}" download style="font-size:11px" onclick="event.stopPropagation()">↓ CycloneDX JSON</a>` : ''}
+            <span class="findings-summary-hint">Click to expand</span>
+          </span>
+        </summary>
+        <div class="findings-body" style="padding:0 18px 16px">
+          <div style="margin-top:12px;display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
             <input id="${uid}-search" type="text" placeholder="Search packages…"
-              style="flex:1;min-width:180px;max-width:320px;padding:5px 10px;border-radius:6px;border:1px solid #374151;background:#1f2937;color:#f3f4f6;font-size:13px"
+              style="flex:1;min-width:180px;max-width:320px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--text);font-size:13px"
               oninput="sbomRender('${uid}')" />
-            <span id="${uid}-count" style="font-size:12px;color:#6b7280"></span>
-            <button onclick="sbomClearFilter('${uid}')" style="font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid #374151;background:transparent;color:#9ca3af;cursor:pointer">Clear filters</button>
+            <span id="${uid}-count" style="font-size:12px;color:var(--text-muted)"></span>
+            <button onclick="sbomClearFilter('${uid}')" style="font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer">Clear filters</button>
           </div>
           <div style="overflow-x:auto">
             <table style="width:100%;border-collapse:collapse;font-size:13px">
               <thead>
-                <tr style="text-align:left;border-bottom:1px solid #374151">
+                <tr style="text-align:left;border-bottom:1px solid var(--border)">
                   <th style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','name')">Name <span id="${uid}-sort-name"></span></th>
                   <th style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','version')">Version <span id="${uid}-sort-version"></span></th>
                   <th style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','type')">Type <span id="${uid}-sort-type"></span></th>

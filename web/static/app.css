@@ -246,6 +246,12 @@ body:has(#sidebar:not(.collapsed)) #sidebar-toggle {
 
 .breadcrumb span { color: var(--text-dim); }
 
+/* Clear the fixed hamburger button when sidebar is collapsed */
+#sidebar.collapsed ~ #content .breadcrumb,
+#sidebar.collapsed + #content .breadcrumb {
+  padding-left: 36px;
+}
+
 /* ── Stats grid ───────────────────────────────────────────── */
 .stats-grid {
   display: grid;

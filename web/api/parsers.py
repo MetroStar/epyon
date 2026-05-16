@@ -831,27 +831,28 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
             if ci_meta_early and ci_meta_early.get("event") == "schedule" and has_vuln:
                 data["scan_type"] = "nightly"
 
-    raw_findings = parse_scan_findings(scan_dir)
-    has_raw = len(raw_findings["summary"]["tools_analyzed"]) > 0
-
-    if has_raw:
-        s = raw_findings["summary"]
-        data["critical"]       = s["total_critical"]
-        data["high"]           = s["total_high"]
-        data["medium"]         = s["total_medium"]
-        data["low"]            = s["total_low"]
+    # Prefer the pre-built summary file (one small JSON read — cheap).
+    # Only fall back to full raw tool-output parsing when the summary is absent
+    # (e.g. scan still in-progress or very old scan predating the summary step).
+    summary_file = _read_json(scan_dir / "security-findings-summary.json")
+    if summary_file:
+        s = summary_file.get("summary") or summary_file
+        data["critical"]       = s.get("total_critical", 0)
+        data["high"]           = s.get("total_high", 0)
+        data["medium"]         = s.get("total_medium", 0)
+        data["low"]            = s.get("total_low", 0)
         data["total"]          = data["critical"] + data["high"] + data["medium"] + data["low"]
-        data["tools_analyzed"] = s["tools_analyzed"]
+        data["tools_analyzed"] = s.get("tools_analyzed", [])
     else:
-        fallback = _read_json(scan_dir / "security-findings-summary.json")
-        if fallback:
-            s = fallback.get("summary") or fallback
-            data["critical"]       = s.get("total_critical", 0)
-            data["high"]           = s.get("total_high", 0)
-            data["medium"]         = s.get("total_medium", 0)
-            data["low"]            = s.get("total_low", 0)
+        raw_findings = parse_scan_findings(scan_dir)
+        if raw_findings["summary"]["tools_analyzed"]:
+            s = raw_findings["summary"]
+            data["critical"]       = s["total_critical"]
+            data["high"]           = s["total_high"]
+            data["medium"]         = s["total_medium"]
+            data["low"]            = s["total_low"]
             data["total"]          = data["critical"] + data["high"] + data["medium"] + data["low"]
-            data["tools_analyzed"] = s.get("tools_analyzed", [])
+            data["tools_analyzed"] = s["tools_analyzed"]
 
     dashboard = (
         scan_dir / "consolidated-reports" / "dashboards" / "security-dashboard.html"

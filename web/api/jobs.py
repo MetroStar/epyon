@@ -21,6 +21,10 @@ OUTPUT_BUFFER_MAX   = 10000
 jobs:  dict[str, dict[str, Any]] = {}
 procs: dict[str, asyncio.subprocess.Process] = {}
 
+# Optional callback invoked when a scan job reaches completed/failed/error.
+# Set by main.py at startup to invalidate the scan data cache.
+_on_scan_complete_cb = None
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -274,6 +278,8 @@ async def run_scan_job(
             job["exit_code"]    = return_code
             job["status"]       = "completed" if return_code == 0 else "failed"
             job["completed_at"] = _now()
+            if _on_scan_complete_cb:
+                _on_scan_complete_cb()
 
     except Exception as exc:
         procs.pop(job_id, None)

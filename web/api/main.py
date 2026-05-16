@@ -53,6 +53,45 @@ _metrics_cache:    dict  = {}
 _metrics_cache_ts: float = 0.0
 _METRICS_TTL:      float = 300.0
 
+# ── Scan data cache ───────────────────────────────────────────
+# Short TTL caches for filesystem-heavy operations.
+# find_scan_dirs() is called on every list endpoint; load_scan() reads 8+ files
+# per scan directory. With 40+ scans these dominate response time.
+_scan_cache:      dict[str, tuple[dict, float]] = {}  # scan_id → (data, monotonic_ts)
+_dir_cache:       list | None = None
+_dir_cache_ts:    float = 0.0
+_SCAN_CACHE_TTL:  float = 30.0   # seconds — stale counts tolerable; scans take minutes
+_DIR_CACHE_TTL:   float = 10.0   # seconds — new scans appear within 10 s
+
+
+def _cached_find_scan_dirs() -> list:
+    global _dir_cache, _dir_cache_ts
+    now = time.monotonic()
+    if _dir_cache is not None and (now - _dir_cache_ts) < _DIR_CACHE_TTL:
+        return _dir_cache
+    _dir_cache    = parsers.find_scan_dirs(EPYON_ROOT)
+    _dir_cache_ts = now
+    return _dir_cache
+
+
+def _cached_load_scan(scan_dir) -> dict:
+    scan_id = scan_dir.name
+    now     = time.monotonic()
+    cached  = _scan_cache.get(scan_id)
+    if cached and (now - cached[1]) < _SCAN_CACHE_TTL:
+        return cached[0]
+    data = parsers.load_scan(scan_dir, EPYON_ROOT)
+    _scan_cache[scan_id] = (data, now)
+    return data
+
+
+def _invalidate_scan_cache() -> None:
+    """Call after a scan completes so the next request sees fresh data."""
+    global _dir_cache, _dir_cache_ts
+    _scan_cache.clear()
+    _dir_cache    = None
+    _dir_cache_ts = 0.0
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -118,7 +157,7 @@ def health(response: Response):
 def stats(response: Response):
     _sec_headers(response)
     hidden = _load_hidden_apps()
-    scans = [parsers.load_scan(d, EPYON_ROOT) for d in parsers.find_scan_dirs(EPYON_ROOT)]
+    scans = [_cached_load_scan(d) for d in _cached_find_scan_dirs()]
     by_target: dict[str, dict] = {}
     for s in scans:
         t = s["target"]
@@ -143,7 +182,7 @@ def stats(response: Response):
 def scan_history(response: Response):
     _sec_headers(response)
     hidden  = _load_hidden_apps()
-    scans   = [parsers.load_scan(d, EPYON_ROOT) for d in parsers.find_scan_dirs(EPYON_ROOT)
+    scans   = [_cached_load_scan(d) for d in _cached_find_scan_dirs()
                if parsers.parse_dir_name(d.name)["target"] not in hidden]
     targets = sorted({s["target"] for s in scans})
     users   = sorted({s["user"] for s in scans if s.get("user")})
@@ -230,7 +269,7 @@ def applications(response: Response):
     _sec_headers(response)
     hidden   = _load_hidden_apps()
     monitored = _load_monitored_apps()
-    scans = [parsers.load_scan(d, EPYON_ROOT) for d in parsers.find_scan_dirs(EPYON_ROOT)]
+    scans = [_cached_load_scan(d) for d in _cached_find_scan_dirs()]
     by_target: dict[str, list] = {}
     for s in scans:
         if s["target"] not in hidden:
@@ -704,6 +743,7 @@ async def trigger_scan(request: Request, response: Response):
 
     job_id = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     job = job_store.create_job(job_id, target, scan_type)
+    job_store._on_scan_complete_cb = _invalidate_scan_cache
     asyncio.create_task(
         job_store.run_scan_job(job_id, target, scan_type, script_path, EPYON_ROOT,
                                run_garak=run_garak)

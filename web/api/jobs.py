@@ -61,6 +61,7 @@ async def run_scan_job(
     script_path: Path,
     epyon_root: Path,
     run_garak: bool = False,
+    run_stig:  bool = True,
 ) -> None:
     job = jobs[job_id]
     job["status"] = "running"
@@ -141,7 +142,7 @@ async def run_scan_job(
         "SKIP_XEOL=false",
         "SKIP_ANCHORE=false",
         "SKIP_API_DISCOVERY=false",
-        "SKIP_STIG=false",
+        f"SKIP_STIG={'false' if run_stig else 'true'}",
         f"SCAN_DIR={scan_dir}",
         f"SCAN_NAME={scan_name}",
         f"SCAN_ID={scan_name}",

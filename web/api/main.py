@@ -726,6 +726,7 @@ async def trigger_scan(request: Request, response: Response):
     target    = (body.get("target") or "").strip()
     scan_type = body.get("scan_type", "full")
     run_garak = bool(body.get("run_garak", False))
+    run_stig  = bool(body.get("run_stig",  True))
 
     if not target:
         raise HTTPException(400, "target is required")
@@ -746,7 +747,7 @@ async def trigger_scan(request: Request, response: Response):
     job_store._on_scan_complete_cb = _invalidate_scan_cache
     asyncio.create_task(
         job_store.run_scan_job(job_id, target, scan_type, script_path, EPYON_ROOT,
-                               run_garak=run_garak)
+                               run_garak=run_garak, run_stig=run_stig)
     )
     return {"job_id": job_id, "status": "queued"}
 

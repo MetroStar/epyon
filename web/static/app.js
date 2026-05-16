@@ -513,9 +513,10 @@ const api = {
   saveGitHubConfig(d) { return this._post('/api/github/config', d); },
   triggerGitHubSync() { return this._post('/api/github/sync', {}); },
   getGitHubSyncStatus(){ return this._get('/api/github/sync'); },
-  triggerScan(target, scanType, runGarak) {
+  triggerScan(target, scanType, runGarak, runStig = true) {
     const body = { target, scan_type: scanType };
     if (runGarak) body.run_garak = true;
+    if (!runStig) body.run_stig = false;
     return this._post('/api/scans', body);
   },
   getJob(id)    { return this._get(`/api/jobs/${encodeURIComponent(id)}`); },
@@ -2292,6 +2293,17 @@ async function renderNewScan(prefill = '') {
           <small>Requires <code>OPENAI_API_KEY</code> to be set.</small>
         </div>
 
+        <div class="form-group" id="stig-checkbox-row">
+          <label>STIG Compliance (Layer 13)</label>
+          <div class="seg-ctrl" id="stig-ctrl">
+            <button type="button" class="seg-btn" data-value="off"
+              onclick="_setStig('off')">Off</button>
+            <button type="button" class="seg-btn active" data-value="on"
+              onclick="_setStig('on')">On</button>
+          </div>
+          <small>Requires <code>OPENAI_API_KEY</code> to be set. On by default.</small>
+        </div>
+
         <div class="form-group">
           <label>Monitoring Type</label>
           <div class="seg-ctrl" id="monitoring-type-ctrl">
@@ -2442,12 +2454,12 @@ function _onScanTypeChange(mode) {
       ? '/absolute/path/to/models  (e.g. /opt/models/llama3)'
       : '/absolute/path/to/project  or  https://github.com/org/repo.git';
   }
-  // Show Garak checkbox only for modes where Layer 12 applies
+  // Show Garak / STIG toggles only for modes where those layers apply
+  const optInModes = ['full', 'nightly', 'baseline'];
   const garakRow = document.getElementById('garak-checkbox-row');
-  if (garakRow) {
-    const showGarak = ['full', 'nightly', 'baseline'].includes(mode);
-    garakRow.style.display = showGarak ? '' : 'none';
-  }
+  if (garakRow) garakRow.style.display = optInModes.includes(mode) ? '' : 'none';
+  const stigRow = document.getElementById('stig-checkbox-row');
+  if (stigRow) stigRow.style.display = optInModes.includes(mode) ? '' : 'none';
 }
 
 window.updateScanInfo = (mode) => {
@@ -2501,6 +2513,12 @@ function _setGarak(value) {
   });
 }
 
+function _setStig(value) {
+  document.querySelectorAll('#stig-ctrl .seg-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.value === value);
+  });
+}
+
 function _setMonitoringType(value) {
   document.querySelectorAll('#monitoring-type-ctrl .seg-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.value === value);
@@ -2511,6 +2529,8 @@ async function submitScan() {
   const scanType  = document.getElementById('scan-type-sel').value;
   const activeGarak = document.querySelector('#garak-ctrl .seg-btn.active');
   const runGarak  = activeGarak?.dataset.value === 'on';
+  const activeStig = document.querySelector('#stig-ctrl .seg-btn.active');
+  const runStig   = activeStig ? activeStig.dataset.value === 'on' : true;
   const btn       = document.getElementById('run-btn');
 
   const target = (document.getElementById('scan-target')?.value || '').trim();
@@ -2529,7 +2549,7 @@ async function submitScan() {
   _activeJobId = null;
 
   try {
-    const job = await api.triggerScan(target, scanType, runGarak);
+    const job = await api.triggerScan(target, scanType, runGarak, runStig);
     _activeJobId = job.job_id;
     clearInterval(_pollInterval);
     _pollInterval = setInterval(() => pollJob(job.job_id, btn), 2000);

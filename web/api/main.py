@@ -4,11 +4,13 @@ Epyon Web — FastAPI backend
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import os
 import re
 import shutil
 import time
+import zipfile
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,7 +18,7 @@ from typing import Any, List, Optional
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -584,7 +586,7 @@ def scan_detail(scan_id: str, response: Response):
     if not matched:
         raise HTTPException(404, "Scan not found")
     data = parsers.load_scan(matched, EPYON_ROOT)
-    data["findings"] = parsers.parse_scan_findings(matched)
+    data["findings"] = parsers.load_enriched_findings(matched) or parsers.parse_scan_findings(matched)
     data["sbom"] = parsers.load_sbom_packages(matched)
     return data
 
@@ -625,6 +627,49 @@ def scan_sbom_cyclonedx(scan_id: str, response: Response):
     return FileResponse(
         str(cdx_file),
         media_type="application/vnd.cyclonedx+json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/api/scans/{scan_id}/download")
+def scan_download_zip(scan_id: str, response: Response):
+    """Stream the entire scan directory as a ZIP archive for ATO/IATT submissions."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
+    matched = next((d for d in scan_dirs if d.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+
+    epyon_root_resolved = EPYON_ROOT.resolve()
+
+    def _generate_zip():
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for file_path in sorted(matched.rglob("*")):
+                if not file_path.is_file():
+                    continue
+                # Skip large/noisy files that add no ATO value
+                rel = file_path.relative_to(matched)
+                rel_str = str(rel)
+                if any(part.startswith(".") for part in rel.parts):
+                    continue  # skip hidden dirs (.scannerwork etc)
+                if file_path.suffix in (".tar", ".gz", ".db", ".zip"):
+                    continue
+                # Path traversal guard
+                try:
+                    file_path.resolve().relative_to(epyon_root_resolved)
+                except ValueError:
+                    continue
+                zf.write(file_path, arcname=str(Path(scan_id) / rel))
+        buf.seek(0)
+        yield from buf
+
+    filename = f"epyon-scan-{scan_id}.zip"
+    return StreamingResponse(
+        _generate_zip(),
+        media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 

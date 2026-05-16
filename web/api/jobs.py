@@ -129,7 +129,6 @@ async def run_scan_job(
         f"GARAK_PROBES=promptinject,dan,knownbadsignatures,encoding,continuation",
         "SKIP_SBOM=false",
         "SKIP_TRUFFLEHOG=false",
-        "SKIP_SONAR=true",
         "SKIP_CLAMAV=false",
         "SKIP_HELM=false",
         "SKIP_CHECKOV=false",
@@ -146,6 +145,15 @@ async def run_scan_job(
     # Garak opt-in from UI checkbox
     if run_garak:
         env_lines.append("RUN_GARAK=true")
+    # SonarQube — enable only when SONAR_TOKEN is available in environment
+    sonar_token = os.environ.get("SONAR_TOKEN", "")
+    if sonar_token:
+        env_lines.append("SKIP_SONAR=false")
+        env_lines.append(f"SONAR_TOKEN={sonar_token}")
+        sonar_host = os.environ.get("SONAR_HOST_URL", "https://sonarcloud.io")
+        env_lines.append(f"SONAR_HOST_URL={sonar_host}")
+    else:
+        env_lines.append("SKIP_SONAR=true")
     # Local model weight scan — picklescan + modelcard only, no remote clone
     if scan_type == "local_model":
         env_lines.append("RUN_PICKLESCAN=true")

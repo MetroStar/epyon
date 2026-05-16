@@ -970,7 +970,7 @@ async function renderScanDetail(scanId) {
 
     // Build STIG section: show full results when available, empty state for stig/nightly scans
     const hasStigData = (scan.stig_total || 0) > 0;
-    const scanTypeHasStig = ['stig', 'nightly'].includes(scan.scan_type);
+    const scanTypeHasStig = ['stig', 'nightly', 'full', 'baseline'].includes(scan.scan_type);
     let stigCard = '';
     if (hasStigData) {
       const reports = scan.stig_reports || [];
@@ -1084,6 +1084,10 @@ async function renderScanDetail(scanId) {
                  View Dashboard ↗
                </button>`
             : ''}
+          <a class="btn" href="/api/scans/${encodeURIComponent(scanId)}/download" download
+             title="Download all scan artifacts as ZIP for ATO/IATT submission">
+            ↓ Download ZIP
+          </a>
           <button class="btn btn-danger"
             onclick="deleteScan('${esc(scanId)}', '${esc(scan.target)}')"
             title="Permanently delete this scan">
@@ -1135,6 +1139,8 @@ async function renderScanDetail(scanId) {
 
       ${buildFindingsSection(scan.findings)}
 
+      ${buildEnrichmentCard(scan.findings)}
+
       ${buildSuppressedSection(scan.suppressed_findings)}
 
       ${stigCard}
@@ -1174,6 +1180,43 @@ async function renderScanDetail(scanId) {
 function buildPicklescanCard(scan) { return ''; } // merged into buildModelSecurityCard
 
 function buildModelCardCard(scan) { return ''; }  // merged into buildModelSecurityCard
+
+function buildEnrichmentCard(findings) {
+  if (!findings) return '';
+  const enr = findings.enrichment;
+  if (!enr || (enr.cisa_kev_total == null && enr.nvd_total == null)) return '';
+  const kevTotal = enr.cisa_kev_total || 0;
+  const nvdTotal = enr.nvd_total || 0;
+  if (kevTotal === 0 && nvdTotal === 0) return '';
+  return `
+    <div class="result-section-box" style="border-color:${kevTotal > 0 ? 'var(--critical)' : 'var(--border)'}">
+      <div class="result-section-box-title" style="display:flex;align-items:center;gap:8px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        Threat Intelligence Enrichment
+      </div>
+      <div class="detail-grid" style="margin-top:10px;margin-bottom:0">
+        ${kevTotal > 0 ? `
+        <div class="detail-card" style="border-color:#7f1d1d;background:rgba(127,29,29,0.12)">
+          <div class="label" style="color:#fca5a5">CISA KEV Matches</div>
+          <div class="value" style="color:#fca5a5">${esc(kevTotal)}</div>
+        </div>` : ''}
+        ${nvdTotal > 0 ? `
+        <div class="detail-card">
+          <div class="label">NVD Enriched CVEs</div>
+          <div class="value">${esc(nvdTotal)}</div>
+        </div>` : ''}
+      </div>
+      ${kevTotal > 0 ? `
+        <p style="color:#fca5a5;font-size:12px;margin:8px 0 0">
+          ⚠ ${esc(kevTotal)} finding${kevTotal > 1 ? 's' : ''} match CISA's Known Exploited Vulnerabilities catalog —
+          actively exploited in the wild. Scroll up to findings marked <strong>KEV</strong> for details.
+        </p>` : ''}
+    </div>`;
+}
 
 function buildNetworkDiscoveryCard(scan) {
   const nd = scan.network_discovery;
@@ -1923,7 +1966,7 @@ function _buildFindingRows(items) {
 
     const idCell = id.startsWith('CVE-')
       ? `<a href="https://nvd.nist.gov/vuln/detail/${id}" target="_blank" rel="noopener noreferrer"
-            onclick="event.stopPropagation()"><code>${id}</code></a>`
+            onclick="event.stopPropagation()"><code>${id}</code></a>${f.cisa_kev ? ' <span style="background:#7f1d1d;color:#fca5a5;font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;vertical-align:middle" title="CISA Known Exploited Vulnerability">KEV</span>' : ''}`
       : `<code>${id}</code>`;
 
     return `
@@ -3904,10 +3947,14 @@ function openFindingDetail(id) {
   const fixed   = f.fixed_version || '';
   const target  = f.target || '';
   const refs    = f.references || [];
+  const cisaKev  = f.cisa_kev === true;
+  const cvssScore = f.nvd_cvss_v3_score != null ? f.nvd_cvss_v3_score : null;
+  const cvssSev   = f.nvd_cvss_v3_severity || '';
+  const nvdUrl    = f.nvd_url || (fid.startsWith('CVE-') ? `https://nvd.nist.gov/vuln/detail/${fid}` : '');
 
   const idDisplay = fid.startsWith('CVE-')
     ? `<a class="finding-detail-id-link"
-          href="https://nvd.nist.gov/vuln/detail/${esc(fid)}"
+          href="${esc(nvdUrl || 'https://nvd.nist.gov/vuln/detail/' + esc(fid))}"
           target="_blank" rel="noopener noreferrer">
          ${esc(fid)}
          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
@@ -3915,7 +3962,7 @@ function openFindingDetail(id) {
            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
            <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
          </svg>
-       </a>`
+       </a>${cisaKev ? ' <span style="background:#7f1d1d;color:#fca5a5;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px" title="CISA Known Exploited Vulnerability">KEV</span>' : ''}`
     : `<code>${esc(fid)}</code>`;
 
   const refsHtml = refs.length
@@ -3978,9 +4025,18 @@ function openFindingDetail(id) {
         </div>
         <div class="finding-detail-section">
           <div class="finding-detail-label">Severity</div>
-          <div class="finding-detail-value"><span class="sev-badge ${esc(sev)}">${ucFirst(sev)}</span></div>
+          <div class="finding-detail-value"><span class="sev-badge ${esc(sev)}">${ucFirst(sev)}</span>${cvssScore != null ? ` <span style="color:var(--text-muted);font-size:12px">CVSS ${esc(String(cvssScore))}${cvssSev ? ' · ' + esc(cvssSev) : ''}</span>` : ''}</div>
         </div>
       </div>
+
+      ${cisaKev ? `
+        <div style="background:#450a0a;border:1px solid #7f1d1d;border-radius:var(--radius);padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
+          <span style="font-size:16px">⚠️</span>
+          <div>
+            <div style="color:#fca5a5;font-weight:600;font-size:13px">CISA Known Exploited Vulnerability (KEV)</div>
+            <div style="color:#fca5a5;font-size:12px;margin-top:2px">This CVE is actively exploited in the wild. CISA mandates remediation for federal agencies. Treat as highest priority.</div>
+          </div>
+        </div>` : ''}
 
       ${target ? `
         <div class="finding-detail-section">

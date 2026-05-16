@@ -619,6 +619,7 @@ def parse_scan_findings(scan_dir: Path) -> dict:
         + parse_checkov_dir(scan_dir)
         + parse_clamav_dir(scan_dir)
         + parse_xeol_dir(scan_dir)
+        + parse_sonarqube_dir(scan_dir)
     )
 
     by_tool = set(f["tool"] for f in all_findings)
@@ -640,6 +641,142 @@ def parse_scan_findings(scan_dir: Path) -> dict:
         "medium_findings":   by_sev["medium"],
         "low_findings":      by_sev["low"],
     }
+
+
+def parse_sonarqube_dir(scan_dir: Path) -> list[dict]:
+    """Layer 3 — SonarQube / SonarCloud code quality issues.
+
+    Reads ``scan_dir/sonar/sonar-issues.json`` produced by run-sonar-analysis.sh.
+    The file is either the raw SonarQube API response
+    ``{issues: [{key, rule, severity, component, line, message, ...}]}``
+    or a plain list of the same objects.
+    """
+    issues_file = scan_dir / "sonar" / "sonar-issues.json"
+    if not issues_file.exists():
+        return []
+    try:
+        raw = json.loads(issues_file.read_text())
+        if isinstance(raw, dict):
+            issues = raw.get("issues", [])
+        elif isinstance(raw, list):
+            issues = raw
+        else:
+            return []
+    except Exception:
+        return []
+
+    _sonar_sev_map = {
+        "BLOCKER":  "critical",
+        "CRITICAL": "critical",
+        "MAJOR":    "high",
+        "MINOR":    "medium",
+        "INFO":     "low",
+    }
+
+    findings: list[dict] = []
+    for issue in issues:
+        if not isinstance(issue, dict):
+            continue
+        raw_sev  = (issue.get("severity") or "").upper()
+        severity = _sonar_sev_map.get(raw_sev, "low")
+        component = issue.get("component") or issue.get("path") or ""
+        line      = issue.get("line") or issue.get("textRange", {}).get("startLine")
+        location  = f"{component}:{line}" if line else component
+        rule      = issue.get("rule") or issue.get("ruleId") or "—"
+        message   = issue.get("message") or issue.get("primaryMessage") or rule
+        findings.append({
+            "tool":     "SonarQube",
+            "type":     "code_quality",
+            "severity": severity,
+            "id":       rule,
+            "title":    message[:200],
+            "package":  "",
+            "version":  "",
+            "fixed_version": "",
+            "target":   location[:200],
+            "references": [],
+        })
+    return findings
+
+
+def load_enriched_findings(scan_dir: Path) -> dict | None:
+    """Return findings from ``security-findings-summary.json`` (enriched with CISA KEV / NVD data).
+
+    Field names are normalised to match the web format used by the SPA:
+      vulnerability_id  → id
+      package_name      → package
+      package_version   → version
+      fix_versions[0]   → fixed_version
+    CISA KEV, nvd_url, nvd_cvss_v3_score, nvd_cvss_v3_severity are preserved.
+    Returns None when the file is absent or cannot be parsed.
+    """
+    summary_file = scan_dir / "security-findings-summary.json"
+    if not summary_file.exists():
+        return None
+    try:
+        raw = json.loads(summary_file.read_text())
+    except Exception:
+        return None
+    if not isinstance(raw, dict):
+        return None
+
+    def _norm(findings: list) -> list:
+        out = []
+        for f in (findings or []):
+            if not isinstance(f, dict):
+                continue
+            fix_versions = f.get("fix_versions") or []
+            out.append({
+                "tool":              f.get("tool", ""),
+                "type":              f.get("type", ""),
+                "severity":          (f.get("severity") or "unknown").lower(),
+                "id":                f.get("vulnerability_id") or f.get("id") or "—",
+                "title":             (f.get("description") or f.get("title") or "")[:200],
+                "package":           f.get("package_name") or f.get("package") or "",
+                "version":           f.get("package_version") or f.get("version") or "",
+                "fixed_version":     fix_versions[0] if fix_versions else f.get("fixed_version", ""),
+                "target":            f.get("target") or "",
+                "references":        f.get("nvd_references") or f.get("references") or [],
+                # Enrichment fields
+                "cisa_kev":          bool(f.get("cisa_kev", False)),
+                "nvd_url":           f.get("nvd_url") or "",
+                "nvd_cvss_v3_score": f.get("nvd_cvss_v3_score"),
+                "nvd_cvss_v3_severity": f.get("nvd_cvss_v3_severity") or "",
+            })
+        return out
+
+    summary = raw.get("summary") or {}
+    enrichment = raw.get("enrichment") or {}
+
+    return {
+        "summary": {
+            "total_critical": summary.get("total_critical", 0),
+            "total_high":     summary.get("total_high", 0),
+            "total_medium":   summary.get("total_medium", 0),
+            "total_low":      summary.get("total_low", 0),
+            "tools_analyzed": summary.get("tools_analyzed", []),
+        },
+        "critical_findings": _norm(raw.get("critical_findings", [])),
+        "high_findings":     _norm(raw.get("high_findings", [])),
+        "medium_findings":   _norm(raw.get("medium_findings", [])),
+        "low_findings":      _norm(raw.get("low_findings", [])),
+        "enrichment":        enrichment,
+    }
+
+
+def parse_enrichment_summary(scan_dir: Path) -> dict | None:
+    """Return the ``enrichment`` block from ``security-findings-summary.json`` or None."""
+    summary_file = scan_dir / "security-findings-summary.json"
+    if not summary_file.exists():
+        return None
+    try:
+        raw = json.loads(summary_file.read_text())
+        enrichment = raw.get("enrichment") if isinstance(raw, dict) else None
+        if enrichment and isinstance(enrichment, dict) and enrichment:
+            return enrichment
+    except Exception:
+        pass
+    return None
 
 
 def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
@@ -816,6 +953,11 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
     suppressed = parse_suppressed_findings(scan_dir)
     if suppressed:
         data["suppressed_findings"] = suppressed
+
+    # ── Enrichment summary (CISA KEV / NVD totals) ───────────────────────────
+    enrichment = parse_enrichment_summary(scan_dir)
+    if enrichment:
+        data["enrichment"] = enrichment
 
     return data
 

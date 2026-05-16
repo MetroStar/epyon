@@ -726,7 +726,7 @@ async def trigger_scan(request: Request, response: Response):
     target    = (body.get("target") or "").strip()
     scan_type = body.get("scan_type", "full")
     run_garak = bool(body.get("run_garak", False))
-    run_stig  = bool(body.get("run_stig",  True))
+    run_stig  = bool(body.get("run_stig",  False))
 
     if not target:
         raise HTTPException(400, "target is required")

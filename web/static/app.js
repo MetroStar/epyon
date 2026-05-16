@@ -516,7 +516,7 @@ const api = {
   triggerScan(target, scanType, runGarak, runStig = true) {
     const body = { target, scan_type: scanType };
     if (runGarak) body.run_garak = true;
-    if (!runStig) body.run_stig = false;
+    if (runStig)  body.run_stig  = true;
     return this._post('/api/scans', body);
   },
   getJob(id)    { return this._get(`/api/jobs/${encodeURIComponent(id)}`); },
@@ -2296,12 +2296,12 @@ async function renderNewScan(prefill = '') {
         <div class="form-group" id="stig-checkbox-row">
           <label>STIG Compliance (Layer 13)</label>
           <div class="seg-ctrl" id="stig-ctrl">
-            <button type="button" class="seg-btn" data-value="off"
+            <button type="button" class="seg-btn active" data-value="off"
               onclick="_setStig('off')">Off</button>
-            <button type="button" class="seg-btn active" data-value="on"
+            <button type="button" class="seg-btn" data-value="on"
               onclick="_setStig('on')">On</button>
           </div>
-          <small>Requires <code>OPENAI_API_KEY</code> to be set. On by default.</small>
+          <small>Requires <code>OPENAI_API_KEY</code> to be set.</small>
         </div>
 
         <div class="form-group">
@@ -2530,7 +2530,7 @@ async function submitScan() {
   const activeGarak = document.querySelector('#garak-ctrl .seg-btn.active');
   const runGarak  = activeGarak?.dataset.value === 'on';
   const activeStig = document.querySelector('#stig-ctrl .seg-btn.active');
-  const runStig   = activeStig ? activeStig.dataset.value === 'on' : true;
+  const runStig   = activeStig ? activeStig.dataset.value === 'on' : false;
   const btn       = document.getElementById('run-btn');
 
   const target = (document.getElementById('scan-target')?.value || '').trim();

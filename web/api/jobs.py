@@ -61,7 +61,7 @@ async def run_scan_job(
     script_path: Path,
     epyon_root: Path,
     run_garak: bool = False,
-    run_stig:  bool = True,
+    run_stig:  bool = False,
 ) -> None:
     job = jobs[job_id]
     job["status"] = "running"

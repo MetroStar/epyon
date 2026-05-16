@@ -1237,54 +1237,60 @@ function buildEnrichmentCard(findings) {
     } catch (_) { enrichedAt = enr.enriched_at; }
   }
 
-  const nvdRows = nvdFindings.map(f => {
-    const id  = esc(f.id || f.cve_id || f.vulnerability_id || '—');
-    const pkg = esc((f.package || f.component || '—') + (f.version ? ` ${f.version}` : ''));
-    const score = f.nvd_cvss_v3_score != null ? esc(String(f.nvd_cvss_v3_score)) : '—';
-    const scoreColor = score !== '—'
-      ? (parseFloat(score) >= 9 ? 'var(--critical)' : parseFloat(score) >= 7 ? 'var(--high)' : parseFloat(score) >= 4 ? 'var(--medium)' : 'var(--low)')
-      : 'var(--text-muted)';
-    const nvdHref = f.nvd_url ? `href="${esc(f.nvd_url)}" target="_blank" rel="noopener"` : '';
-    const kevBadge = f.cisa_kev
-      ? `<span style="background:#7f1d1d;color:#fca5a5;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;vertical-align:middle;margin-left:4px">KEV</span>`
-      : '';
-    const fixed = f.fixed_version ? `<span style="color:var(--clean);font-size:11px">→ ${esc(f.fixed_version)}</span>` : '';
-    return `
-      <tr style="border-top:1px solid var(--border)">
-        <td style="padding:4px 8px 4px 0">
-          <span class="sev-badge sev-${esc(f.sev)}" style="font-size:10px">${esc(f.sev)}</span>
-        </td>
-        <td style="padding:4px 8px 4px 0;font-family:monospace;font-size:12px;white-space:nowrap">
-          ${nvdHref ? `<a ${nvdHref} style="color:var(--accent)">${id}</a>` : id}${kevBadge}
-        </td>
-        <td style="padding:4px 8px 4px 0;font-size:12px;color:var(--text-muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pkg}</td>
-        <td style="padding:4px 8px 4px 0;font-size:12px;font-weight:600;color:${scoreColor}">${score}</td>
-        <td style="padding:4px 0;font-size:11px;color:var(--text-muted)">${fixed}</td>
-      </tr>`;
-  }).join('');
+  // Register all NVD findings and store for sort
+  const _nvdFindingsForSort = nvdFindings.map(f => ({ ...f, _rid: _registerFinding(f) }));
+  window._enrichmentFindings = _nvdFindingsForSort;
+  window._enrichmentSortState = { col: null, dir: 'asc' };
 
-  const nvdTable = nvdFindings.length ? `
+  function buildNvdRows(items) {
+    return items.map(f => {
+      const id  = esc(f.id || f.cve_id || f.vulnerability_id || '—');
+      const pkg = esc((f.package || f.component || '—') + (f.version ? ` ${f.version}` : ''));
+      const score = f.nvd_cvss_v3_score != null ? esc(String(f.nvd_cvss_v3_score)) : '—';
+      const scoreColor = score !== '—'
+        ? (parseFloat(score) >= 9 ? 'var(--critical)' : parseFloat(score) >= 7 ? 'var(--high)' : parseFloat(score) >= 4 ? 'var(--medium)' : 'var(--low)')
+        : 'var(--text-muted)';
+      const kevBadge = f.cisa_kev
+        ? `<span style="background:#7f1d1d;color:#fca5a5;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;vertical-align:middle;margin-left:4px">KEV</span>`
+        : '';
+      const fixed = f.fixed_version ? `<span style="color:var(--clean);font-size:11px">→ ${esc(f.fixed_version)}</span>` : '';
+      return `
+        <tr class="finding-row" onclick="openFindingDetail(${f._rid})" title="Click to view details">
+          <td style="padding:5px 8px 5px 0">
+            <span class="sev-badge sev-${esc(f.sev)}" style="font-size:10px">${esc(f.sev)}</span>
+          </td>
+          <td style="padding:5px 8px 5px 0;font-family:monospace;font-size:12px;white-space:nowrap">
+            <code>${id}</code>${kevBadge}
+          </td>
+          <td style="padding:5px 8px 5px 0;font-size:12px;color:var(--text-muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pkg}</td>
+          <td style="padding:5px 8px 5px 0;font-size:12px;font-weight:600;color:${scoreColor}">${score}</td>
+          <td style="padding:5px 0;font-size:11px;color:var(--text-muted)">${fixed}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  const nvdTable = _nvdFindingsForSort.length ? `
     <div style="margin-top:14px">
       <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
         NVD Enriched Findings
       </div>
       <div style="overflow-x:auto">
-        <table style="width:100%;border-collapse:collapse">
+        <table id="enrichment-nvd-table" style="width:100%;border-collapse:collapse">
           <thead>
             <tr style="color:var(--text-muted);font-size:11px">
-              <th style="text-align:left;padding:2px 8px 4px 0;font-weight:500">Sev</th>
-              <th style="text-align:left;padding:2px 8px 4px 0;font-weight:500">CVE / ID</th>
-              <th style="text-align:left;padding:2px 8px 4px 0;font-weight:500">Package</th>
-              <th style="text-align:left;padding:2px 8px 4px 0;font-weight:500">CVSS</th>
-              <th style="text-align:left;padding:2px 0 4px;font-weight:500">Fix</th>
+              <th class="sortable-th" data-col="sev"     onclick="sortEnrichmentTable('sev')"     style="text-align:left;padding:2px 8px 4px 0">Sev <span class="sort-icon">⇅</span></th>
+              <th class="sortable-th" data-col="id"      onclick="sortEnrichmentTable('id')"      style="text-align:left;padding:2px 8px 4px 0">CVE / ID <span class="sort-icon">⇅</span></th>
+              <th class="sortable-th" data-col="package" onclick="sortEnrichmentTable('package')" style="text-align:left;padding:2px 8px 4px 0">Package <span class="sort-icon">⇅</span></th>
+              <th class="sortable-th" data-col="score"   onclick="sortEnrichmentTable('score')"   style="text-align:left;padding:2px 8px 4px 0">CVSS <span class="sort-icon">⇅</span></th>
+              <th style="text-align:left;padding:2px 0 4px">Fix</th>
             </tr>
           </thead>
-          <tbody>${nvdRows}</tbody>
+          <tbody id="enrichment-nvd-tbody">${buildNvdRows(_nvdFindingsForSort)}</tbody>
         </table>
       </div>
     </div>` : '';
 
-  const kevTable = ''; // superseded by nvdTable (KEV rows are included with badge)
+  const kevTable = ''; // superseded by nvdTable (KEV rows included with badge)
 
   const catalogLink = enr.kev_catalog_url
     ? `<a href="${esc(enr.kev_catalog_url)}" target="_blank" rel="noopener"
@@ -2805,6 +2811,61 @@ window.sortPpsmTable = function(tableId, col) {
     } else {
       icon.textContent = '⇅';
     }
+  });
+};
+
+const _SEV_ORDER = { critical: 0, high: 1, medium: 2, low: 3, unknown: 4 };
+
+window.sortEnrichmentTable = function(col) {
+  const items = window._enrichmentFindings;
+  if (!items || !items.length) return;
+  const st = window._enrichmentSortState || { col: null, dir: 'asc' };
+  const dir = (st.col === col && st.dir === 'asc') ? 'desc' : 'asc';
+  window._enrichmentSortState = { col, dir };
+  const d = dir === 'asc' ? 1 : -1;
+
+  items.sort((a, b) => {
+    switch (col) {
+      case 'sev':     return d * ((_SEV_ORDER[a.sev] ?? 4) - (_SEV_ORDER[b.sev] ?? 4));
+      case 'id':      return d * (a.id || '').localeCompare(b.id || '');
+      case 'package': return d * ((a.package || '').localeCompare(b.package || ''));
+      case 'score': {
+        const as = a.nvd_cvss_v3_score ?? -1, bs = b.nvd_cvss_v3_score ?? -1;
+        return d * (as - bs);
+      }
+      default: return 0;
+    }
+  });
+
+  const tbody = document.getElementById('enrichment-nvd-tbody');
+  const tbl   = document.getElementById('enrichment-nvd-table');
+  if (!tbody) return;
+
+  // Re-render rows (reuse the same registered IDs)
+  tbody.innerHTML = items.map(f => {
+    const id  = esc(f.id || f.cve_id || '—');
+    const pkg = esc((f.package || f.component || '—') + (f.version ? ` ${f.version}` : ''));
+    const score = f.nvd_cvss_v3_score != null ? esc(String(f.nvd_cvss_v3_score)) : '—';
+    const scoreColor = score !== '—'
+      ? (parseFloat(score) >= 9 ? 'var(--critical)' : parseFloat(score) >= 7 ? 'var(--high)' : parseFloat(score) >= 4 ? 'var(--medium)' : 'var(--low)')
+      : 'var(--text-muted)';
+    const kevBadge = f.cisa_kev
+      ? `<span style="background:#7f1d1d;color:#fca5a5;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;vertical-align:middle;margin-left:4px">KEV</span>`
+      : '';
+    const fixed = f.fixed_version ? `<span style="color:var(--clean);font-size:11px">→ ${esc(f.fixed_version)}</span>` : '';
+    return `
+      <tr class="finding-row" onclick="openFindingDetail(${f._rid})" title="Click to view details">
+        <td style="padding:5px 8px 5px 0"><span class="sev-badge sev-${esc(f.sev)}" style="font-size:10px">${esc(f.sev)}</span></td>
+        <td style="padding:5px 8px 5px 0;font-family:monospace;font-size:12px;white-space:nowrap"><code>${id}</code>${kevBadge}</td>
+        <td style="padding:5px 8px 5px 0;font-size:12px;color:var(--text-muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pkg}</td>
+        <td style="padding:5px 8px 5px 0;font-size:12px;font-weight:600;color:${scoreColor}">${score}</td>
+        <td style="padding:5px 0;font-size:11px;color:var(--text-muted)">${fixed}</td>
+      </tr>`;
+  }).join('');
+
+  if (tbl) tbl.querySelectorAll('th[data-col]').forEach(th => {
+    const icon = th.querySelector('.sort-icon');
+    if (icon) icon.textContent = th.dataset.col === col ? (dir === 'asc' ? '↑' : '↓') : '⇅';
   });
 };
 

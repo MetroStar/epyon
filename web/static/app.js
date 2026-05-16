@@ -1220,9 +1220,11 @@ function buildEnrichmentCard(findings) {
 
   // Collect all KEV-matched findings across severity buckets for the detail table
   const kevFindings = [];
+  const nvdFindings = [];
   for (const sev of ['critical', 'high', 'medium', 'low']) {
     for (const f of (findings[`${sev}_findings`] || [])) {
       if (f.cisa_kev === true) kevFindings.push({ sev, ...f });
+      if (f.nvd_url || f.nvd_cvss_v3_score != null) nvdFindings.push({ sev, ...f });
     }
   }
 
@@ -1235,41 +1237,54 @@ function buildEnrichmentCard(findings) {
     } catch (_) { enrichedAt = enr.enriched_at; }
   }
 
-  const kevRows = kevFindings.map(f => {
-    const id = esc(f.id || f.cve_id || f.vulnerability_id || '—');
-    const pkg = esc(f.package || f.component || '—');
+  const nvdRows = nvdFindings.map(f => {
+    const id  = esc(f.id || f.cve_id || f.vulnerability_id || '—');
+    const pkg = esc((f.package || f.component || '—') + (f.version ? ` ${f.version}` : ''));
     const score = f.nvd_cvss_v3_score != null ? esc(String(f.nvd_cvss_v3_score)) : '—';
+    const scoreColor = score !== '—'
+      ? (parseFloat(score) >= 9 ? 'var(--critical)' : parseFloat(score) >= 7 ? 'var(--high)' : parseFloat(score) >= 4 ? 'var(--medium)' : 'var(--low)')
+      : 'var(--text-muted)';
     const nvdHref = f.nvd_url ? `href="${esc(f.nvd_url)}" target="_blank" rel="noopener"` : '';
+    const kevBadge = f.cisa_kev
+      ? `<span style="background:#7f1d1d;color:#fca5a5;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;vertical-align:middle;margin-left:4px">KEV</span>`
+      : '';
+    const fixed = f.fixed_version ? `<span style="color:var(--clean);font-size:11px">→ ${esc(f.fixed_version)}</span>` : '';
     return `
       <tr style="border-top:1px solid var(--border)">
-        <td style="padding:4px 10px 4px 0">
+        <td style="padding:4px 8px 4px 0">
           <span class="sev-badge sev-${esc(f.sev)}" style="font-size:10px">${esc(f.sev)}</span>
         </td>
-        <td style="padding:4px 10px 4px 0;font-family:monospace;font-size:12px">
-          ${nvdHref ? `<a ${nvdHref} style="color:var(--accent)">${id}</a>` : id}
+        <td style="padding:4px 8px 4px 0;font-family:monospace;font-size:12px;white-space:nowrap">
+          ${nvdHref ? `<a ${nvdHref} style="color:var(--accent)">${id}</a>` : id}${kevBadge}
         </td>
-        <td style="padding:4px 10px 4px 0;font-size:12px;color:var(--text-muted)">${pkg}</td>
-        <td style="padding:4px 0;font-size:12px;font-weight:600;color:${score !== '—' && parseFloat(score) >= 9 ? 'var(--critical)' : score !== '—' && parseFloat(score) >= 7 ? 'var(--high)' : 'var(--text-muted)'}">${score}</td>
+        <td style="padding:4px 8px 4px 0;font-size:12px;color:var(--text-muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pkg}</td>
+        <td style="padding:4px 8px 4px 0;font-size:12px;font-weight:600;color:${scoreColor}">${score}</td>
+        <td style="padding:4px 0;font-size:11px;color:var(--text-muted)">${fixed}</td>
       </tr>`;
   }).join('');
 
-  const kevTable = kevFindings.length ? `
+  const nvdTable = nvdFindings.length ? `
     <div style="margin-top:14px">
-      <div style="font-size:11px;font-weight:600;color:#fca5a5;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
-        ⚠ Actively Exploited CVEs (CISA KEV)
+      <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
+        NVD Enriched Findings
       </div>
-      <table style="width:100%;border-collapse:collapse">
-        <thead>
-          <tr style="color:var(--text-muted);font-size:11px">
-            <th style="text-align:left;padding:2px 10px 4px 0;font-weight:500">Sev</th>
-            <th style="text-align:left;padding:2px 10px 4px 0;font-weight:500">CVE / ID</th>
-            <th style="text-align:left;padding:2px 10px 4px 0;font-weight:500">Package</th>
-            <th style="text-align:left;padding:2px 0 4px;font-weight:500">CVSS</th>
-          </tr>
-        </thead>
-        <tbody>${kevRows}</tbody>
-      </table>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="color:var(--text-muted);font-size:11px">
+              <th style="text-align:left;padding:2px 8px 4px 0;font-weight:500">Sev</th>
+              <th style="text-align:left;padding:2px 8px 4px 0;font-weight:500">CVE / ID</th>
+              <th style="text-align:left;padding:2px 8px 4px 0;font-weight:500">Package</th>
+              <th style="text-align:left;padding:2px 8px 4px 0;font-weight:500">CVSS</th>
+              <th style="text-align:left;padding:2px 0 4px;font-weight:500">Fix</th>
+            </tr>
+          </thead>
+          <tbody>${nvdRows}</tbody>
+        </table>
+      </div>
     </div>` : '';
+
+  const kevTable = ''; // superseded by nvdTable (KEV rows are included with badge)
 
   const catalogLink = enr.kev_catalog_url
     ? `<a href="${esc(enr.kev_catalog_url)}" target="_blank" rel="noopener"
@@ -1313,7 +1328,7 @@ function buildEnrichmentCard(findings) {
               <div class="value" style="font-size:12px">${enrichedAt}</div>
             </div>` : ''}
           </div>
-          ${kevTable}
+          ${nvdTable}
           ${hasKev ? `
           <p style="color:#fca5a5;font-size:12px;margin:12px 0 4px">
             ⚠ ${esc(kevTotal)} finding${kevTotal > 1 ? 's' : ''} match CISA's Known Exploited Vulnerabilities catalog —

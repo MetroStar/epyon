@@ -2329,7 +2329,7 @@ const _SCAN_MODE_INFO = {
   },
   nightly: {
     label: 'Nightly Scan',
-    desc: 'Identical to Full. Designed for scheduled overnight runs — all 16 layers including STIG.',,
+    desc: 'Identical to Full. Designed for scheduled overnight runs — all 16 layers including STIG.',
     layers: [
       { n: 1,  name: 'SBOM Generation',        tool: 'Syft' },
       { n: 2,  name: 'Secret Detection',        tool: 'TruffleHog' },

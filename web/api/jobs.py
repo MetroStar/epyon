@@ -21,6 +21,10 @@ OUTPUT_BUFFER_MAX   = 10000
 jobs:  dict[str, dict[str, Any]] = {}
 procs: dict[str, asyncio.subprocess.Process] = {}
 
+# Optional callback invoked when a scan job reaches completed/failed/error.
+# Set by main.py at startup to invalidate the scan data cache.
+_on_scan_complete_cb = None
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -57,6 +61,7 @@ async def run_scan_job(
     script_path: Path,
     epyon_root: Path,
     run_garak: bool = False,
+    run_stig:  bool = False,
 ) -> None:
     job = jobs[job_id]
     job["status"] = "running"
@@ -129,7 +134,6 @@ async def run_scan_job(
         f"GARAK_PROBES=promptinject,dan,knownbadsignatures,encoding,continuation",
         "SKIP_SBOM=false",
         "SKIP_TRUFFLEHOG=false",
-        "SKIP_SONAR=true",
         "SKIP_CLAMAV=false",
         "SKIP_HELM=false",
         "SKIP_CHECKOV=false",
@@ -138,7 +142,7 @@ async def run_scan_job(
         "SKIP_XEOL=false",
         "SKIP_ANCHORE=false",
         "SKIP_API_DISCOVERY=false",
-        "SKIP_STIG=false",
+        f"SKIP_STIG={'false' if run_stig else 'true'}",
         f"SCAN_DIR={scan_dir}",
         f"SCAN_NAME={scan_name}",
         f"SCAN_ID={scan_name}",
@@ -146,6 +150,15 @@ async def run_scan_job(
     # Garak opt-in from UI checkbox
     if run_garak:
         env_lines.append("RUN_GARAK=true")
+    # SonarQube — enable only when SONAR_TOKEN is available in environment
+    sonar_token = os.environ.get("SONAR_TOKEN", "")
+    if sonar_token:
+        env_lines.append("SKIP_SONAR=false")
+        env_lines.append(f"SONAR_TOKEN={sonar_token}")
+        sonar_host = os.environ.get("SONAR_HOST_URL", "https://sonarcloud.io")
+        env_lines.append(f"SONAR_HOST_URL={sonar_host}")
+    else:
+        env_lines.append("SKIP_SONAR=true")
     # Local model weight scan — picklescan + modelcard only, no remote clone
     if scan_type == "local_model":
         env_lines.append("RUN_PICKLESCAN=true")
@@ -266,6 +279,8 @@ async def run_scan_job(
             job["exit_code"]    = return_code
             job["status"]       = "completed" if return_code == 0 else "failed"
             job["completed_at"] = _now()
+            if _on_scan_complete_cb:
+                _on_scan_complete_cb()
 
     except Exception as exc:
         procs.pop(job_id, None)

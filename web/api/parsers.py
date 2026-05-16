@@ -357,6 +357,69 @@ def parse_xeol_dir(scan_dir: Path) -> list[dict]:
     return findings
 
 
+def parse_network_discovery_dir(scan_dir: Path) -> dict | None:
+    """Return normalized network-discovery data, or None if not present."""
+    result_file = scan_dir / "network" / "network-discovery.json"
+    if not result_file.exists():
+        return None
+    raw = _read_json(result_file)
+    if not raw or not isinstance(raw, dict):
+        return None
+    summary = raw.get("summary") or {}
+    sd      = raw.get("static_discovery") or {}
+    active  = raw.get("active_scan") or {}
+
+    # Flatten docker-compose service/port entries into a simple list
+    compose_ports: list[dict] = []
+    for compose_file in (sd.get("docker_compose") or []):
+        for svc in (compose_file.get("services") or []):
+            for p in (svc.get("ports") or []):
+                compose_ports.append({
+                    "file":    compose_file.get("file", ""),
+                    "service": svc.get("name", ""),
+                    "port":    p.get("container_port"),
+                    "mapping": p.get("mapping", ""),
+                })
+
+    # Flatten dockerfile EXPOSE entries
+    dockerfile_ports: list[dict] = []
+    for df in (sd.get("dockerfiles") or []):
+        for p in (df.get("ports") or []):
+            dockerfile_ports.append({
+                "file": df.get("file", ""),
+                "port": p.get("port") or p,
+            })
+
+    # Kubernetes / Helm ports
+    k8s_ports: list[dict] = []
+    for obj in (sd.get("kubernetes") or []):
+        for p in (obj.get("ports") or []):
+            k8s_ports.append({"file": obj.get("file", ""), "port": p.get("port") or p})
+    for chart in (sd.get("helm_charts") or []):
+        for p in (chart.get("ports") or []):
+            k8s_ports.append({"file": chart.get("file", ""), "port": p.get("port") or p})
+
+    # App config / .env ports
+    config_ports: list[dict] = []
+    for cfg in list(sd.get("app_configs") or []) + list(sd.get("env_files") or []):
+        for p in (cfg.get("ports") or []):
+            config_ports.append({"file": cfg.get("file", ""), "port": p.get("port") or p})
+
+    return {
+        "total_ports":    summary.get("total_ports_discovered", 0),
+        "unique_ports":   summary.get("unique_ports", []),
+        "protocols":      summary.get("protocols", []),
+        "services":       summary.get("inferred_services", []),
+        "static_sources": summary.get("static_sources_found", 0),
+        "active_scan_run": summary.get("active_scan_run", False),
+        "compose_ports":   compose_ports,
+        "dockerfile_ports": dockerfile_ports,
+        "k8s_ports":       k8s_ports,
+        "config_ports":    config_ports,
+        "active_results":  active,
+    }
+
+
 def parse_picklescan_dir(scan_dir: Path) -> dict | None:
     """Return the normalized picklescan result dict, or None if not present."""
     result_file = scan_dir / "picklescan" / "picklescan-results.json"
@@ -556,6 +619,7 @@ def parse_scan_findings(scan_dir: Path) -> dict:
         + parse_checkov_dir(scan_dir)
         + parse_clamav_dir(scan_dir)
         + parse_xeol_dir(scan_dir)
+        + parse_sonarqube_dir(scan_dir)
     )
 
     by_tool = set(f["tool"] for f in all_findings)
@@ -577,6 +641,142 @@ def parse_scan_findings(scan_dir: Path) -> dict:
         "medium_findings":   by_sev["medium"],
         "low_findings":      by_sev["low"],
     }
+
+
+def parse_sonarqube_dir(scan_dir: Path) -> list[dict]:
+    """Layer 3 — SonarQube / SonarCloud code quality issues.
+
+    Reads ``scan_dir/sonar/sonar-issues.json`` produced by run-sonar-analysis.sh.
+    The file is either the raw SonarQube API response
+    ``{issues: [{key, rule, severity, component, line, message, ...}]}``
+    or a plain list of the same objects.
+    """
+    issues_file = scan_dir / "sonar" / "sonar-issues.json"
+    if not issues_file.exists():
+        return []
+    try:
+        raw = json.loads(issues_file.read_text())
+        if isinstance(raw, dict):
+            issues = raw.get("issues", [])
+        elif isinstance(raw, list):
+            issues = raw
+        else:
+            return []
+    except Exception:
+        return []
+
+    _sonar_sev_map = {
+        "BLOCKER":  "critical",
+        "CRITICAL": "critical",
+        "MAJOR":    "high",
+        "MINOR":    "medium",
+        "INFO":     "low",
+    }
+
+    findings: list[dict] = []
+    for issue in issues:
+        if not isinstance(issue, dict):
+            continue
+        raw_sev  = (issue.get("severity") or "").upper()
+        severity = _sonar_sev_map.get(raw_sev, "low")
+        component = issue.get("component") or issue.get("path") or ""
+        line      = issue.get("line") or issue.get("textRange", {}).get("startLine")
+        location  = f"{component}:{line}" if line else component
+        rule      = issue.get("rule") or issue.get("ruleId") or "—"
+        message   = issue.get("message") or issue.get("primaryMessage") or rule
+        findings.append({
+            "tool":     "SonarQube",
+            "type":     "code_quality",
+            "severity": severity,
+            "id":       rule,
+            "title":    message[:200],
+            "package":  "",
+            "version":  "",
+            "fixed_version": "",
+            "target":   location[:200],
+            "references": [],
+        })
+    return findings
+
+
+def load_enriched_findings(scan_dir: Path) -> dict | None:
+    """Return findings from ``security-findings-summary.json`` (enriched with CISA KEV / NVD data).
+
+    Field names are normalised to match the web format used by the SPA:
+      vulnerability_id  → id
+      package_name      → package
+      package_version   → version
+      fix_versions[0]   → fixed_version
+    CISA KEV, nvd_url, nvd_cvss_v3_score, nvd_cvss_v3_severity are preserved.
+    Returns None when the file is absent or cannot be parsed.
+    """
+    summary_file = scan_dir / "security-findings-summary.json"
+    if not summary_file.exists():
+        return None
+    try:
+        raw = json.loads(summary_file.read_text())
+    except Exception:
+        return None
+    if not isinstance(raw, dict):
+        return None
+
+    def _norm(findings: list) -> list:
+        out = []
+        for f in (findings or []):
+            if not isinstance(f, dict):
+                continue
+            fix_versions = f.get("fix_versions") or []
+            out.append({
+                "tool":              f.get("tool", ""),
+                "type":              f.get("type", ""),
+                "severity":          (f.get("severity") or "unknown").lower(),
+                "id":                f.get("vulnerability_id") or f.get("id") or "—",
+                "title":             (f.get("description") or f.get("title") or "")[:200],
+                "package":           f.get("package_name") or f.get("package") or "",
+                "version":           f.get("package_version") or f.get("version") or "",
+                "fixed_version":     fix_versions[0] if fix_versions else f.get("fixed_version", ""),
+                "target":            f.get("target") or "",
+                "references":        f.get("nvd_references") or f.get("references") or [],
+                # Enrichment fields
+                "cisa_kev":          bool(f.get("cisa_kev", False)),
+                "nvd_url":           f.get("nvd_url") or "",
+                "nvd_cvss_v3_score": f.get("nvd_cvss_v3_score"),
+                "nvd_cvss_v3_severity": f.get("nvd_cvss_v3_severity") or "",
+            })
+        return out
+
+    summary = raw.get("summary") or {}
+    enrichment = raw.get("enrichment") or {}
+
+    return {
+        "summary": {
+            "total_critical": summary.get("total_critical", 0),
+            "total_high":     summary.get("total_high", 0),
+            "total_medium":   summary.get("total_medium", 0),
+            "total_low":      summary.get("total_low", 0),
+            "tools_analyzed": summary.get("tools_analyzed", []),
+        },
+        "critical_findings": _norm(raw.get("critical_findings", [])),
+        "high_findings":     _norm(raw.get("high_findings", [])),
+        "medium_findings":   _norm(raw.get("medium_findings", [])),
+        "low_findings":      _norm(raw.get("low_findings", [])),
+        "enrichment":        enrichment,
+    }
+
+
+def parse_enrichment_summary(scan_dir: Path) -> dict | None:
+    """Return the ``enrichment`` block from ``security-findings-summary.json`` or None."""
+    summary_file = scan_dir / "security-findings-summary.json"
+    if not summary_file.exists():
+        return None
+    try:
+        raw = json.loads(summary_file.read_text())
+        enrichment = raw.get("enrichment") if isinstance(raw, dict) else None
+        if enrichment and isinstance(enrichment, dict) and enrichment:
+            return enrichment
+    except Exception:
+        pass
+    return None
 
 
 def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
@@ -631,27 +831,28 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
             if ci_meta_early and ci_meta_early.get("event") == "schedule" and has_vuln:
                 data["scan_type"] = "nightly"
 
-    raw_findings = parse_scan_findings(scan_dir)
-    has_raw = len(raw_findings["summary"]["tools_analyzed"]) > 0
-
-    if has_raw:
-        s = raw_findings["summary"]
-        data["critical"]       = s["total_critical"]
-        data["high"]           = s["total_high"]
-        data["medium"]         = s["total_medium"]
-        data["low"]            = s["total_low"]
+    # Prefer the pre-built summary file (one small JSON read — cheap).
+    # Only fall back to full raw tool-output parsing when the summary is absent
+    # (e.g. scan still in-progress or very old scan predating the summary step).
+    summary_file = _read_json(scan_dir / "security-findings-summary.json")
+    if summary_file:
+        s = summary_file.get("summary") or summary_file
+        data["critical"]       = s.get("total_critical", 0)
+        data["high"]           = s.get("total_high", 0)
+        data["medium"]         = s.get("total_medium", 0)
+        data["low"]            = s.get("total_low", 0)
         data["total"]          = data["critical"] + data["high"] + data["medium"] + data["low"]
-        data["tools_analyzed"] = s["tools_analyzed"]
+        data["tools_analyzed"] = s.get("tools_analyzed", [])
     else:
-        fallback = _read_json(scan_dir / "security-findings-summary.json")
-        if fallback:
-            s = fallback.get("summary") or fallback
-            data["critical"]       = s.get("total_critical", 0)
-            data["high"]           = s.get("total_high", 0)
-            data["medium"]         = s.get("total_medium", 0)
-            data["low"]            = s.get("total_low", 0)
+        raw_findings = parse_scan_findings(scan_dir)
+        if raw_findings["summary"]["tools_analyzed"]:
+            s = raw_findings["summary"]
+            data["critical"]       = s["total_critical"]
+            data["high"]           = s["total_high"]
+            data["medium"]         = s["total_medium"]
+            data["low"]            = s["total_low"]
             data["total"]          = data["critical"] + data["high"] + data["medium"] + data["low"]
-            data["tools_analyzed"] = s.get("tools_analyzed", [])
+            data["tools_analyzed"] = s["tools_analyzed"]
 
     dashboard = (
         scan_dir / "consolidated-reports" / "dashboards" / "security-dashboard.html"
@@ -744,10 +945,20 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
     if modelcard_data is not None:
         data["modelcard"] = modelcard_data
 
+    # ── Layer 16 — Network Discovery (PPSM) ─────────────────────────────────
+    network_data = parse_network_discovery_dir(scan_dir)
+    if network_data is not None:
+        data["network_discovery"] = network_data
+
     # ── Suppressed findings ──────────────────────────────────────────────────
     suppressed = parse_suppressed_findings(scan_dir)
     if suppressed:
         data["suppressed_findings"] = suppressed
+
+    # ── Enrichment summary (CISA KEV / NVD totals) ───────────────────────────
+    enrichment = parse_enrichment_summary(scan_dir)
+    if enrichment:
+        data["enrichment"] = enrichment
 
     return data
 

@@ -496,12 +496,12 @@ const api = {
   getStats()          { return this._get('/api/stats'); },
   getApplications()   { return this._get('/api/applications'); },
   getHiddenApps()     { return this._get('/api/applications-hidden'); },
-  hideApp(name)       { return this._delete(`/api/applications/${encodeURIComponent(name)}`); },
-  restoreApp(name)    { return this._post(`/api/applications/${encodeURIComponent(name)}/restore`, {}); },
-  deleteApp(name)     { return this._delete(`/api/applications/${encodeURIComponent(name)}/data`); },
+  hideApp(name)       { return this._post('/api/applications/hide', { name }); },
+  restoreApp(name)    { return this._post('/api/applications/restore', { name }); },
+  deleteApp(name)     { return this._delete(`/api/applications/data?name=${encodeURIComponent(name)}`); },
   deleteScan(id)      { return this._delete(`/api/scans/${encodeURIComponent(id)}`); },
-  setMonitored(name)   { return this._post(`/api/applications/${encodeURIComponent(name)}/monitored`, {}); },
-  unsetMonitored(name) { return this._delete(`/api/applications/${encodeURIComponent(name)}/monitored`); },
+  setMonitored(name)   { return this._post('/api/applications/monitored', { name }); },
+  unsetMonitored(name) { return this._delete(`/api/applications/monitored?name=${encodeURIComponent(name)}`); },
   registerApp(name, url) {
     return this._post('/api/applications', { name, url });
   },
@@ -513,9 +513,10 @@ const api = {
   saveGitHubConfig(d) { return this._post('/api/github/config', d); },
   triggerGitHubSync() { return this._post('/api/github/sync', {}); },
   getGitHubSyncStatus(){ return this._get('/api/github/sync'); },
-  triggerScan(target, scanType, runGarak) {
+  triggerScan(target, scanType, runGarak, runStig = true) {
     const body = { target, scan_type: scanType };
     if (runGarak) body.run_garak = true;
+    if (runStig)  body.run_stig  = true;
     return this._post('/api/scans', body);
   },
   getJob(id)    { return this._get(`/api/jobs/${encodeURIComponent(id)}`); },
@@ -970,7 +971,7 @@ async function renderScanDetail(scanId) {
 
     // Build STIG section: show full results when available, empty state for stig/nightly scans
     const hasStigData = (scan.stig_total || 0) > 0;
-    const scanTypeHasStig = ['stig', 'nightly'].includes(scan.scan_type);
+    const scanTypeHasStig = ['stig', 'nightly', 'full', 'baseline'].includes(scan.scan_type);
     let stigCard = '';
     if (hasStigData) {
       const reports = scan.stig_reports || [];
@@ -1084,6 +1085,10 @@ async function renderScanDetail(scanId) {
                  View Dashboard ↗
                </button>`
             : ''}
+          <a class="btn" href="/api/scans/${encodeURIComponent(scanId)}/download" download
+             title="Download all scan artifacts as ZIP for ATO/IATT submission">
+            ↓ Download ZIP
+          </a>
           <button class="btn btn-danger"
             onclick="deleteScan('${esc(scanId)}', '${esc(scan.target)}')"
             title="Permanently delete this scan">
@@ -1135,22 +1140,17 @@ async function renderScanDetail(scanId) {
 
       ${buildFindingsSection(scan.findings)}
 
+      ${buildEnrichmentCard(scan.findings)}
+
       ${buildSuppressedSection(scan.suppressed_findings)}
 
       ${stigCard}
 
       ${buildModelSecurityCard(scan)}
 
-      ${dedupeTools(scan.tools_analyzed).length ? `
-        <div class="section">
-          <div class="section-title">Tools Analyzed</div>
-          <div class="tools-list">
-            ${dedupeTools(scan.tools_analyzed).map(t =>
-              `<span class="tool-tag">${esc(t)}</span>`).join('')}
-          </div>
-        </div>` : ''}
-
       ${buildSBOMSection(scan.sbom, scanId)}
+
+      ${buildNetworkDiscoveryCard(scan)}
 
       ${scan.file_statistics && Object.keys(scan.file_statistics).length ? `
         <div class="section">
@@ -1162,6 +1162,15 @@ async function renderScanDetail(scanId) {
                 <div class="value">${esc(v)}</div>
               </div>`).join('')}
           </div>
+        </div>` : ''}
+
+      ${dedupeTools(scan.tools_analyzed).length ? `
+        <div class="section">
+          <div class="section-title">Tools Analyzed</div>
+          <div class="tools-list">
+            ${dedupeTools(scan.tools_analyzed).map(t =>
+              `<span class="tool-tag">${esc(t)}</span>`).join('')}
+          </div>
         </div>` : ''}`;
     if (window._sbomPendingUid) { sbomRender(window._sbomPendingUid); window._sbomPendingUid = null; }
   } catch (e) {
@@ -1172,6 +1181,132 @@ async function renderScanDetail(scanId) {
 function buildPicklescanCard(scan) { return ''; } // merged into buildModelSecurityCard
 
 function buildModelCardCard(scan) { return ''; }  // merged into buildModelSecurityCard
+
+function buildEnrichmentCard(findings) {
+  if (!findings) return '';
+  const enr = findings.enrichment;
+  if (!enr || (enr.cisa_kev_total == null && enr.nvd_total == null)) return '';
+  const kevTotal = enr.cisa_kev_total || 0;
+  const nvdTotal = enr.nvd_total || 0;
+  if (kevTotal === 0 && nvdTotal === 0) return '';
+  return `
+    <div class="result-section-box" style="border-color:${kevTotal > 0 ? 'var(--critical)' : 'var(--border)'}">
+      <div class="result-section-box-title" style="display:flex;align-items:center;gap:8px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        Threat Intelligence Enrichment
+      </div>
+      <div class="detail-grid" style="margin-top:10px;margin-bottom:0">
+        ${kevTotal > 0 ? `
+        <div class="detail-card" style="border-color:#7f1d1d;background:rgba(127,29,29,0.12)">
+          <div class="label" style="color:#fca5a5">CISA KEV Matches</div>
+          <div class="value" style="color:#fca5a5">${esc(kevTotal)}</div>
+        </div>` : ''}
+        ${nvdTotal > 0 ? `
+        <div class="detail-card">
+          <div class="label">NVD Enriched CVEs</div>
+          <div class="value">${esc(nvdTotal)}</div>
+        </div>` : ''}
+      </div>
+      ${kevTotal > 0 ? `
+        <p style="color:#fca5a5;font-size:12px;margin:8px 0 0">
+          ⚠ ${esc(kevTotal)} finding${kevTotal > 1 ? 's' : ''} match CISA's Known Exploited Vulnerabilities catalog —
+          actively exploited in the wild. Scroll up to findings marked <strong>KEV</strong> for details.
+        </p>` : ''}
+    </div>`;
+}
+
+function buildNetworkDiscoveryCard(scan) {
+  const nd = scan.network_discovery;
+  if (!nd) return '';
+  const ports    = (nd.unique_ports || []).join(', ') || '—';
+  const protos   = (nd.protocols   || []).join(', ') || '—';
+  const services = (nd.services    || []).join(', ') || '—';
+
+  // Source breakdown rows
+  const sourceRows = [
+    { label: 'Docker Compose', items: nd.compose_ports   || [] },
+    { label: 'Dockerfile',     items: nd.dockerfile_ports || [] },
+    { label: 'Kubernetes/Helm',items: nd.k8s_ports       || [] },
+    { label: 'App Config/.env',items: nd.config_ports    || [] },
+  ].filter(r => r.items.length > 0);
+
+  const sourceHtml = sourceRows.length ? sourceRows.map((r, idx) => {
+    const tblId = `ppsm-tbl-${idx}`;
+    return `
+    <div style="margin-top:10px">
+      <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:4px">${esc(r.label)}</div>
+      <table id="${tblId}" style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="color:var(--text-muted)">
+            <th data-col="0" class="sortable-th" style="text-align:left;padding:2px 8px 2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',0)">File <span class="sort-icon">⇅</span></th>
+            <th data-col="1" class="sortable-th" style="text-align:left;padding:2px 8px 2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',1)">Service <span class="sort-icon">⇅</span></th>
+            <th data-col="2" class="sortable-th" style="text-align:left;padding:2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',2)">Port / Mapping <span class="sort-icon">⇅</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${r.items.map(p => `
+            <tr style="border-top:1px solid var(--border)">
+              <td style="padding:3px 8px 3px 0;color:var(--text-muted);font-family:monospace;font-size:11px">${esc(p.file || '')}</td>
+              <td style="padding:3px 8px 3px 0">${esc(p.service || '')}</td>
+              <td style="padding:3px 0;font-family:monospace">${esc(p.mapping || String(p.port || ''))}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  }).join('') : '<p style="color:var(--text-muted);font-size:13px;margin:8px 0 0">No static port definitions found.</p>';
+
+  const activeBadge = nd.active_scan_run
+    ? '<span style="background:var(--low-bg,#fffbe6);color:var(--low,#b8860b);border:1px solid var(--low,#b8860b);border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600">nmap active</span>'
+    : '<span style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-size:11px">static only</span>';
+
+  const portsBadge = nd.total_ports
+    ? `<span class="sev-badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(String(nd.total_ports))} ports</span>`
+    : '';
+
+  return `
+    <div class="section findings-section-wrapper">
+      <details class="findings-collapsible" style="border-left-color:var(--accent,#38bdf8)">
+        <summary class="findings-summary">
+          <span class="findings-summary-left">
+            <span class="findings-chevron" aria-hidden="true"></span>
+            <span class="findings-summary-title">🔌 Network Discovery · PPSM</span>
+            ${portsBadge}
+            ${activeBadge}
+          </span>
+          <span class="findings-summary-hint">Click to expand</span>
+        </summary>
+        <div class="findings-body" style="padding:0 18px 16px">
+          <div class="detail-grid" style="margin-bottom:12px;margin-top:12px">
+            <div class="detail-card">
+              <div class="label">Ports Found</div>
+              <div class="value">${esc(nd.total_ports)}</div>
+            </div>
+            <div class="detail-card">
+              <div class="label">Scan Method</div>
+              <div class="value" style="font-size:13px">${activeBadge}</div>
+            </div>
+            <div class="detail-card" style="grid-column:span 2">
+              <div class="label">Unique Ports</div>
+              <div class="value" style="font-size:13px;font-family:monospace">${esc(ports)}</div>
+            </div>
+            <div class="detail-card">
+              <div class="label">Protocols</div>
+              <div class="value" style="font-size:13px">${esc(protos)}</div>
+            </div>
+            <div class="detail-card">
+              <div class="label">Inferred Services</div>
+              <div class="value" style="font-size:13px">${esc(services)}</div>
+            </div>
+          </div>
+          ${sourceHtml}
+        </div>
+      </details>
+    </div>`;
+}
 
 function buildModelSecurityCard(scan) {
   const ps = scan.picklescan;
@@ -1695,26 +1830,32 @@ function buildSBOMSection(sbom, scanId) {
     : null;
 
   return `
-    <div class="section">
-      <div class="section-title" style="display:flex;align-items:center;justify-content:space-between">
-        <span>📦 SBOM — ${esc(String(sbom.total))} Packages</span>
-        ${cdxUrl ? `<a class="btn btn-sm" href="${cdxUrl}" download style="font-size:11px">↓ CycloneDX JSON</a>` : ''}
-      </div>
-      <div class="tools-list" style="margin-bottom:10px">${typeChips}</div>
-      <details id="${uid}-details">
-        <summary style="cursor:pointer;font-size:13px;color:var(--text-muted)">Show / hide package list</summary>
-        <div style="margin-top:8px">
-          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+    <div class="section findings-section-wrapper">
+      <details class="findings-collapsible" style="border-left-color:var(--accent,#38bdf8)">
+        <summary class="findings-summary">
+          <span class="findings-summary-left">
+            <span class="findings-chevron" aria-hidden="true"></span>
+            <span class="findings-summary-title">📦 SBOM</span>
+            <span class="sev-badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(String(sbom.total))} packages</span>
+            ${typeChips}
+          </span>
+          <span style="display:flex;align-items:center;gap:10px">
+            ${cdxUrl ? `<a class="btn btn-sm" href="${cdxUrl}" download style="font-size:11px" onclick="event.stopPropagation()">↓ CycloneDX JSON</a>` : ''}
+            <span class="findings-summary-hint">Click to expand</span>
+          </span>
+        </summary>
+        <div class="findings-body" style="padding:0 18px 16px">
+          <div style="margin-top:12px;display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
             <input id="${uid}-search" type="text" placeholder="Search packages…"
-              style="flex:1;min-width:180px;max-width:320px;padding:5px 10px;border-radius:6px;border:1px solid #374151;background:#1f2937;color:#f3f4f6;font-size:13px"
+              style="flex:1;min-width:180px;max-width:320px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--text);font-size:13px"
               oninput="sbomRender('${uid}')" />
-            <span id="${uid}-count" style="font-size:12px;color:#6b7280"></span>
-            <button onclick="sbomClearFilter('${uid}')" style="font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid #374151;background:transparent;color:#9ca3af;cursor:pointer">Clear filters</button>
+            <span id="${uid}-count" style="font-size:12px;color:var(--text-muted)"></span>
+            <button onclick="sbomClearFilter('${uid}')" style="font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer">Clear filters</button>
           </div>
           <div style="overflow-x:auto">
             <table style="width:100%;border-collapse:collapse;font-size:13px">
               <thead>
-                <tr style="text-align:left;border-bottom:1px solid #374151">
+                <tr style="text-align:left;border-bottom:1px solid var(--border)">
                   <th style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','name')">Name <span id="${uid}-sort-name"></span></th>
                   <th style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','version')">Version <span id="${uid}-sort-version"></span></th>
                   <th style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','type')">Type <span id="${uid}-sort-type"></span></th>
@@ -1851,7 +1992,7 @@ function _buildFindingRows(items) {
 
     const idCell = id.startsWith('CVE-')
       ? `<a href="https://nvd.nist.gov/vuln/detail/${id}" target="_blank" rel="noopener noreferrer"
-            onclick="event.stopPropagation()"><code>${id}</code></a>`
+            onclick="event.stopPropagation()"><code>${id}</code></a>${f.cisa_kev ? ' <span style="background:#7f1d1d;color:#fca5a5;font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;vertical-align:middle" title="CISA Known Exploited Vulnerability">KEV</span>' : ''}`
       : `<code>${id}</code>`;
 
     return `
@@ -2152,6 +2293,17 @@ async function renderNewScan(prefill = '') {
           <small>Requires <code>OPENAI_API_KEY</code> to be set.</small>
         </div>
 
+        <div class="form-group" id="stig-checkbox-row">
+          <label>STIG Compliance (Layer 13)</label>
+          <div class="seg-ctrl" id="stig-ctrl">
+            <button type="button" class="seg-btn active" data-value="off"
+              onclick="_setStig('off')">Off</button>
+            <button type="button" class="seg-btn" data-value="on"
+              onclick="_setStig('on')">On</button>
+          </div>
+          <small>Requires <code>OPENAI_API_KEY</code> to be set.</small>
+        </div>
+
         <div class="form-group">
           <label>Monitoring Type</label>
           <div class="seg-ctrl" id="monitoring-type-ctrl">
@@ -2205,15 +2357,16 @@ const _SCAN_MODE_INFO = {
       { n: 10, name: 'Anchore Security',        tool: 'Anchore' },
       { n: 11, name: 'API Discovery',           tool: 'Custom' },
       { n: 12, name: 'LLM Security',            tool: 'Garak',      apiKey: true, optional: true },
+      { n: 13, name: 'STIG Compliance',         tool: 'GPT-4.1-mini', apiKey: true, optional: true },
       { n: 14, name: 'Pickle / Serialization Safety', tool: 'picklescan' },
       { n: 15, name: 'Model Card Compliance',    tool: 'modelcard' },
       { n: 16, name: 'Network Discovery',        tool: 'nmap + Static' },
     ],
-    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.', 'Layers 14–15 auto-run when model weight files are detected.', 'Layer 16 active nmap scan is opt-in: set NMAP_TARGET=<host>.'],
+    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.', 'Layer 13 (STIG) requires OPENAI_API_KEY. Runs unless SKIP_STIG=true.', 'Layer 16 active nmap scan is opt-in: set NMAP_TARGET=<host>.'],
   },
   nightly: {
     label: 'Nightly Scan',
-    desc: 'Identical to Full. Designed for scheduled overnight runs — layers 1–12 with optional Garak.',
+    desc: 'Identical to Full. Designed for scheduled overnight runs — all 16 layers including STIG.',
     layers: [
       { n: 1,  name: 'SBOM Generation',        tool: 'Syft' },
       { n: 2,  name: 'Secret Detection',        tool: 'TruffleHog' },
@@ -2227,11 +2380,12 @@ const _SCAN_MODE_INFO = {
       { n: 10, name: 'Anchore Security',        tool: 'Anchore' },
       { n: 11, name: 'API Discovery',           tool: 'Custom' },
       { n: 12, name: 'LLM Security',            tool: 'Garak',      apiKey: true, optional: true },
+      { n: 13, name: 'STIG Compliance',         tool: 'GPT-4.1-mini', apiKey: true, optional: true },
       { n: 14, name: 'Pickle / Serialization Safety', tool: 'picklescan' },
       { n: 15, name: 'Model Card Compliance',    tool: 'modelcard' },
       { n: 16, name: 'Network Discovery',        tool: 'nmap + Static' },
     ],
-    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.', 'Layers 14–15 auto-run when model weight files are detected.', 'Layer 16 active nmap scan is opt-in: set NMAP_TARGET=<host>.'],
+    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.', 'Layer 13 (STIG) requires OPENAI_API_KEY. Runs unless SKIP_STIG=true.', 'Layer 16 active nmap scan is opt-in: set NMAP_TARGET=<host>.'],
   },
   quick: {
     label: 'Quick Scan',
@@ -2248,9 +2402,8 @@ const _SCAN_MODE_INFO = {
   },
   stig: {
     label: 'STIG Scan',
-    desc: 'AI-assisted STIG compliance assessment only. Layers 1–11 are skipped; runs Garak and STIG assessment.',
+    desc: 'STIG compliance assessment only (Layer 13). All other layers are skipped.',
     layers: [
-      { n: 12, name: 'LLM Security',            tool: 'Garak',        apiKey: true },
       { n: 13, name: 'STIG Compliance',         tool: 'GPT-4.1-mini', apiKey: true },
     ],
     notes: [],
@@ -2271,11 +2424,12 @@ const _SCAN_MODE_INFO = {
       { n: 10, name: 'Anchore Security',        tool: 'Anchore' },
       { n: 11, name: 'API Discovery',           tool: 'Custom' },
       { n: 12, name: 'LLM Security',            tool: 'Garak',      apiKey: true, optional: true },
+      { n: 13, name: 'STIG Compliance',         tool: 'GPT-4.1-mini', apiKey: true, optional: true },
       { n: 14, name: 'Pickle / Serialization Safety', tool: 'picklescan' },
       { n: 15, name: 'Model Card Compliance',    tool: 'modelcard' },
       { n: 16, name: 'Network Discovery',        tool: 'nmap + Static' },
     ],
-    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.', 'Layers 14–15 auto-run when model weight files are detected.', 'Layer 16 active nmap scan is opt-in: set NMAP_TARGET=<host>.'],
+    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.', 'Layer 13 (STIG) requires OPENAI_API_KEY. Runs unless SKIP_STIG=true.', 'Layer 16 active nmap scan is opt-in: set NMAP_TARGET=<host>.'],
   },
   local_model: {
     label: 'Local Model Scan',
@@ -2300,12 +2454,12 @@ function _onScanTypeChange(mode) {
       ? '/absolute/path/to/models  (e.g. /opt/models/llama3)'
       : '/absolute/path/to/project  or  https://github.com/org/repo.git';
   }
-  // Show Garak checkbox only for modes where Layer 12 applies
+  // Show Garak / STIG toggles only for modes where those layers apply
+  const optInModes = ['full', 'nightly', 'baseline'];
   const garakRow = document.getElementById('garak-checkbox-row');
-  if (garakRow) {
-    const showGarak = ['full', 'nightly', 'baseline'].includes(mode);
-    garakRow.style.display = showGarak ? '' : 'none';
-  }
+  if (garakRow) garakRow.style.display = optInModes.includes(mode) ? '' : 'none';
+  const stigRow = document.getElementById('stig-checkbox-row');
+  if (stigRow) stigRow.style.display = optInModes.includes(mode) ? '' : 'none';
 }
 
 window.updateScanInfo = (mode) => {
@@ -2359,6 +2513,12 @@ function _setGarak(value) {
   });
 }
 
+function _setStig(value) {
+  document.querySelectorAll('#stig-ctrl .seg-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.value === value);
+  });
+}
+
 function _setMonitoringType(value) {
   document.querySelectorAll('#monitoring-type-ctrl .seg-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.value === value);
@@ -2369,6 +2529,8 @@ async function submitScan() {
   const scanType  = document.getElementById('scan-type-sel').value;
   const activeGarak = document.querySelector('#garak-ctrl .seg-btn.active');
   const runGarak  = activeGarak?.dataset.value === 'on';
+  const activeStig = document.querySelector('#stig-ctrl .seg-btn.active');
+  const runStig   = activeStig ? activeStig.dataset.value === 'on' : false;
   const btn       = document.getElementById('run-btn');
 
   const target = (document.getElementById('scan-target')?.value || '').trim();
@@ -2387,7 +2549,7 @@ async function submitScan() {
   _activeJobId = null;
 
   try {
-    const job = await api.triggerScan(target, scanType, runGarak);
+    const job = await api.triggerScan(target, scanType, runGarak, runStig);
     _activeJobId = job.job_id;
     clearInterval(_pollInterval);
     _pollInterval = setInterval(() => pollJob(job.job_id, btn), 2000);
@@ -2486,6 +2648,44 @@ function toggleSection(id) {
   const el = document.getElementById(id);
   if (el) el.classList.toggle('collapsed');
 }
+
+// Sort state for PPSM port tables: { [tableId]: { col: int, dir: 'asc'|'desc' } }
+const _ppsmSortState = {};
+
+window.sortPpsmTable = function(tableId, col) {
+  const tbl = document.getElementById(tableId);
+  if (!tbl) return;
+  const tbody = tbl.querySelector('tbody');
+  if (!tbody) return;
+
+  const st = _ppsmSortState[tableId] || { col: -1, dir: 'asc' };
+  const dir = (st.col === col && st.dir === 'asc') ? 'desc' : 'asc';
+  _ppsmSortState[tableId] = { col, dir };
+
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  rows.sort((a, b) => {
+    const av = (a.cells[col] ? a.cells[col].textContent : '').trim().toLowerCase();
+    const bv = (b.cells[col] ? b.cells[col].textContent : '').trim().toLowerCase();
+    // Numeric sort for port column (col 2)
+    if (col === 2) {
+      const an = parseInt(av, 10), bn = parseInt(bv, 10);
+      if (!isNaN(an) && !isNaN(bn)) return dir === 'asc' ? an - bn : bn - an;
+    }
+    return dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+  });
+  rows.forEach(r => tbody.appendChild(r));
+
+  // Update sort indicators
+  tbl.querySelectorAll('th[data-col]').forEach(th => {
+    const icon = th.querySelector('.sort-icon');
+    if (!icon) return;
+    if (parseInt(th.dataset.col, 10) === col) {
+      icon.textContent = dir === 'asc' ? '↑' : '↓';
+    } else {
+      icon.textContent = '⇅';
+    }
+  });
+};
 
 async function renderMetrics() {
   setActive('metrics');
@@ -3830,10 +4030,14 @@ function openFindingDetail(id) {
   const fixed   = f.fixed_version || '';
   const target  = f.target || '';
   const refs    = f.references || [];
+  const cisaKev  = f.cisa_kev === true;
+  const cvssScore = f.nvd_cvss_v3_score != null ? f.nvd_cvss_v3_score : null;
+  const cvssSev   = f.nvd_cvss_v3_severity || '';
+  const nvdUrl    = f.nvd_url || (fid.startsWith('CVE-') ? `https://nvd.nist.gov/vuln/detail/${fid}` : '');
 
   const idDisplay = fid.startsWith('CVE-')
     ? `<a class="finding-detail-id-link"
-          href="https://nvd.nist.gov/vuln/detail/${esc(fid)}"
+          href="${esc(nvdUrl || 'https://nvd.nist.gov/vuln/detail/' + esc(fid))}"
           target="_blank" rel="noopener noreferrer">
          ${esc(fid)}
          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
@@ -3841,7 +4045,7 @@ function openFindingDetail(id) {
            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
            <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
          </svg>
-       </a>`
+       </a>${cisaKev ? ' <span style="background:#7f1d1d;color:#fca5a5;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px" title="CISA Known Exploited Vulnerability">KEV</span>' : ''}`
     : `<code>${esc(fid)}</code>`;
 
   const refsHtml = refs.length
@@ -3904,9 +4108,18 @@ function openFindingDetail(id) {
         </div>
         <div class="finding-detail-section">
           <div class="finding-detail-label">Severity</div>
-          <div class="finding-detail-value"><span class="sev-badge ${esc(sev)}">${ucFirst(sev)}</span></div>
+          <div class="finding-detail-value"><span class="sev-badge ${esc(sev)}">${ucFirst(sev)}</span>${cvssScore != null ? ` <span style="color:var(--text-muted);font-size:12px">CVSS ${esc(String(cvssScore))}${cvssSev ? ' · ' + esc(cvssSev) : ''}</span>` : ''}</div>
         </div>
       </div>
+
+      ${cisaKev ? `
+        <div style="background:#450a0a;border:1px solid #7f1d1d;border-radius:var(--radius);padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
+          <span style="font-size:16px">⚠️</span>
+          <div>
+            <div style="color:#fca5a5;font-weight:600;font-size:13px">CISA Known Exploited Vulnerability (KEV)</div>
+            <div style="color:#fca5a5;font-size:12px;margin-top:2px">This CVE is actively exploited in the wild. CISA mandates remediation for federal agencies. Treat as highest priority.</div>
+          </div>
+        </div>` : ''}
 
       ${target ? `
         <div class="finding-detail-section">

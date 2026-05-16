@@ -4,11 +4,13 @@ Epyon Web — FastAPI backend
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import os
 import re
 import shutil
 import time
+import zipfile
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -16,7 +18,7 @@ from typing import Any, List, Optional
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -50,6 +52,45 @@ _KEY_RE          = re.compile(r"^sk-[A-Za-z0-9_\-]{20,}$")
 _metrics_cache:    dict  = {}
 _metrics_cache_ts: float = 0.0
 _METRICS_TTL:      float = 300.0
+
+# ── Scan data cache ───────────────────────────────────────────
+# Short TTL caches for filesystem-heavy operations.
+# find_scan_dirs() is called on every list endpoint; load_scan() reads 8+ files
+# per scan directory. With 40+ scans these dominate response time.
+_scan_cache:      dict[str, tuple[dict, float]] = {}  # scan_id → (data, monotonic_ts)
+_dir_cache:       list | None = None
+_dir_cache_ts:    float = 0.0
+_SCAN_CACHE_TTL:  float = 30.0   # seconds — stale counts tolerable; scans take minutes
+_DIR_CACHE_TTL:   float = 10.0   # seconds — new scans appear within 10 s
+
+
+def _cached_find_scan_dirs() -> list:
+    global _dir_cache, _dir_cache_ts
+    now = time.monotonic()
+    if _dir_cache is not None and (now - _dir_cache_ts) < _DIR_CACHE_TTL:
+        return _dir_cache
+    _dir_cache    = parsers.find_scan_dirs(EPYON_ROOT)
+    _dir_cache_ts = now
+    return _dir_cache
+
+
+def _cached_load_scan(scan_dir) -> dict:
+    scan_id = scan_dir.name
+    now     = time.monotonic()
+    cached  = _scan_cache.get(scan_id)
+    if cached and (now - cached[1]) < _SCAN_CACHE_TTL:
+        return cached[0]
+    data = parsers.load_scan(scan_dir, EPYON_ROOT)
+    _scan_cache[scan_id] = (data, now)
+    return data
+
+
+def _invalidate_scan_cache() -> None:
+    """Call after a scan completes so the next request sees fresh data."""
+    global _dir_cache, _dir_cache_ts
+    _scan_cache.clear()
+    _dir_cache    = None
+    _dir_cache_ts = 0.0
 
 
 def _now() -> str:
@@ -116,7 +157,7 @@ def health(response: Response):
 def stats(response: Response):
     _sec_headers(response)
     hidden = _load_hidden_apps()
-    scans = [parsers.load_scan(d, EPYON_ROOT) for d in parsers.find_scan_dirs(EPYON_ROOT)]
+    scans = [_cached_load_scan(d) for d in _cached_find_scan_dirs()]
     by_target: dict[str, dict] = {}
     for s in scans:
         t = s["target"]
@@ -141,7 +182,7 @@ def stats(response: Response):
 def scan_history(response: Response):
     _sec_headers(response)
     hidden  = _load_hidden_apps()
-    scans   = [parsers.load_scan(d, EPYON_ROOT) for d in parsers.find_scan_dirs(EPYON_ROOT)
+    scans   = [_cached_load_scan(d) for d in _cached_find_scan_dirs()
                if parsers.parse_dir_name(d.name)["target"] not in hidden]
     targets = sorted({s["target"] for s in scans})
     users   = sorted({s["user"] for s in scans if s.get("user")})
@@ -228,7 +269,7 @@ def applications(response: Response):
     _sec_headers(response)
     hidden   = _load_hidden_apps()
     monitored = _load_monitored_apps()
-    scans = [parsers.load_scan(d, EPYON_ROOT) for d in parsers.find_scan_dirs(EPYON_ROOT)]
+    scans = [_cached_load_scan(d) for d in _cached_find_scan_dirs()]
     by_target: dict[str, list] = {}
     for s in scans:
         if s["target"] not in hidden:
@@ -304,56 +345,66 @@ def applications(response: Response):
     return result
 
 
-@app.delete("/api/applications/{name}")
-def hide_application(name: str, response: Response):
+# ── Application action endpoints ─────────────────────────────────────────────
+# Names are passed in the request body (POST) or as a ?name= query param
+# (DELETE) to avoid Starlette normalising %2F → / in URL path parameters,
+# which breaks routing when the application name is a full Git URL.
+
+def _require_app_name(name: str | None) -> str:
+    name = (name or "").strip()
+    if not name:
+        raise HTTPException(400, "name is required")
+    return name
+
+
+@app.post("/api/applications/hide")
+async def hide_application(request: Request, response: Response):
     _sec_headers(response)
-    if not _SAFE_ID_RE.match(name):
-        raise HTTPException(400, "Invalid application name")
+    body = await request.json()
+    name = _require_app_name(body.get("name"))
     hidden = _load_hidden_apps()
     hidden.add(name)
     _save_hidden_apps(hidden)
     return {"hidden": name}
 
 
-@app.post("/api/applications/{name}/restore")
-def restore_application(name: str, response: Response):
+@app.post("/api/applications/restore")
+async def restore_application(request: Request, response: Response):
     _sec_headers(response)
-    if not _SAFE_ID_RE.match(name):
-        raise HTTPException(400, "Invalid application name")
+    body = await request.json()
+    name = _require_app_name(body.get("name"))
     hidden = _load_hidden_apps()
     hidden.discard(name)
     _save_hidden_apps(hidden)
     return {"restored": name}
 
 
-@app.post("/api/applications/{name}/monitored")
-def set_monitored(name: str, response: Response):
+@app.post("/api/applications/monitored")
+async def set_monitored(request: Request, response: Response):
     _sec_headers(response)
-    if not _SAFE_ID_RE.match(name):
-        raise HTTPException(400, "Invalid application name")
+    body = await request.json()
+    name = _require_app_name(body.get("name"))
     monitored = _load_monitored_apps()
     monitored.add(name)
     _save_monitored_apps(monitored)
     return {"monitored": name}
 
 
-@app.delete("/api/applications/{name}/monitored")
+@app.delete("/api/applications/monitored")
 def unset_monitored(name: str, response: Response):
     _sec_headers(response)
-    if not _SAFE_ID_RE.match(name):
-        raise HTTPException(400, "Invalid application name")
+    name = _require_app_name(name)
     monitored = _load_monitored_apps()
     monitored.discard(name)
     _save_monitored_apps(monitored)
     return {"unmonitored": name}
 
 
-@app.delete("/api/applications/{name}/data")
+@app.delete("/api/applications/data")
 def delete_application(name: str, response: Response):
     """Permanently delete all scan directories for an application."""
     _sec_headers(response)
-    if not _SAFE_ID_RE.match(name):
-        raise HTTPException(400, "Invalid application name")
+    name = _require_app_name(name)
     scan_dirs = [
         d for d in parsers.find_scan_dirs(EPYON_ROOT)
         if parsers.parse_dir_name(d.name)["target"] == name
@@ -366,7 +417,6 @@ def delete_application(name: str, response: Response):
             raise HTTPException(403, "Access denied")
         shutil.rmtree(d)
         deleted.append(d.name)
-    # Also remove from hidden list if present
     hidden = _load_hidden_apps()
     if name in hidden:
         hidden.discard(name)
@@ -575,7 +625,7 @@ def scan_detail(scan_id: str, response: Response):
     if not matched:
         raise HTTPException(404, "Scan not found")
     data = parsers.load_scan(matched, EPYON_ROOT)
-    data["findings"] = parsers.parse_scan_findings(matched)
+    data["findings"] = parsers.load_enriched_findings(matched) or parsers.parse_scan_findings(matched)
     data["sbom"] = parsers.load_sbom_packages(matched)
     return data
 
@@ -620,6 +670,49 @@ def scan_sbom_cyclonedx(scan_id: str, response: Response):
     )
 
 
+@app.get("/api/scans/{scan_id}/download")
+def scan_download_zip(scan_id: str, response: Response):
+    """Stream the entire scan directory as a ZIP archive for ATO/IATT submissions."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
+    matched = next((d for d in scan_dirs if d.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+
+    epyon_root_resolved = EPYON_ROOT.resolve()
+
+    def _generate_zip():
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for file_path in sorted(matched.rglob("*")):
+                if not file_path.is_file():
+                    continue
+                # Skip large/noisy files that add no ATO value
+                rel = file_path.relative_to(matched)
+                rel_str = str(rel)
+                if any(part.startswith(".") for part in rel.parts):
+                    continue  # skip hidden dirs (.scannerwork etc)
+                if file_path.suffix in (".tar", ".gz", ".db", ".zip"):
+                    continue
+                # Path traversal guard
+                try:
+                    file_path.resolve().relative_to(epyon_root_resolved)
+                except ValueError:
+                    continue
+                zf.write(file_path, arcname=str(Path(scan_id) / rel))
+        buf.seek(0)
+        yield from buf
+
+    filename = f"epyon-scan-{scan_id}.zip"
+    return StreamingResponse(
+        _generate_zip(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 # ── Trigger scan ──────────────────────────────────────────────
 
 @app.post("/api/scans", status_code=202)
@@ -633,6 +726,7 @@ async def trigger_scan(request: Request, response: Response):
     target    = (body.get("target") or "").strip()
     scan_type = body.get("scan_type", "full")
     run_garak = bool(body.get("run_garak", False))
+    run_stig  = bool(body.get("run_stig",  False))
 
     if not target:
         raise HTTPException(400, "target is required")
@@ -650,9 +744,10 @@ async def trigger_scan(request: Request, response: Response):
 
     job_id = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     job = job_store.create_job(job_id, target, scan_type)
+    job_store._on_scan_complete_cb = _invalidate_scan_cache
     asyncio.create_task(
         job_store.run_scan_job(job_id, target, scan_type, script_path, EPYON_ROOT,
-                               run_garak=run_garak)
+                               run_garak=run_garak, run_stig=run_stig)
     )
     return {"job_id": job_id, "status": "queued"}
 

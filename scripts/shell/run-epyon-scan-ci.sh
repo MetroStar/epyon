@@ -213,16 +213,12 @@ run_sonar_layer() {
 
 run_garak_layer() {
   # Scan mode determines Garak default:
-  #   quick          → always skipped
-  #   full           → skipped unless RUN_GARAK=true (manual opt-in)
-  #   nightly        → skipped unless RUN_GARAK=true (manual opt-in)
-  #   stig           → runs by default (on-demand STIG mode)
-  #   huggingface    → skipped unless RUN_GARAK=true (opt-in; use scan-huggingface.yml for HF model probing)
+  #   quick/stig     → always skipped (stig mode runs Layer 13 only; Garak is never auto-run)
+  #   all others     → skipped unless RUN_GARAK=true (manual opt-in)
   local _should_run="false"
   case "${SCAN_MODE:-full}" in
-    stig)     _should_run="true"  ;;
-    quick)    _should_run="false" ;;
-    *)        _should_run="false" ;;
+    quick|stig) _should_run="false" ;;
+    *)          _should_run="false" ;;
   esac
 
   # Explicit RUN_GARAK from entrypoint overrides mode default (quick is never overridable).
@@ -295,20 +291,13 @@ _detect_model_files() {
 
 run_picklescan_layer() {
   # Layer 14 — Pickle/Serialization Safety (picklescan)
-  # Auto-enabled when model weight files are detected in the target directory.
-  # Always runs in huggingface and local_model modes.
+  # Runs in full/nightly/baseline/huggingface/local_model modes; skipped for quick and stig.
+  # Scripts handle the "no model files" case gracefully (0-file result).
   # Override: RUN_PICKLESCAN=true/false, SKIP_PICKLESCAN=true.
   local _should_run="false"
   case "${SCAN_MODE:-full}" in
-    huggingface|local_model) _should_run="true"  ;;
-    quick)                   _should_run="false" ;;
-    *)
-      # Auto-detect model files in any other scan mode
-      if _detect_model_files; then
-        echo "[INFO] Model weight files detected in ${TARGET_DIR} — auto-enabling Layer 14 (picklescan)"
-        _should_run="true"
-      fi
-      ;;
+    quick|stig) _should_run="false" ;;
+    *)          _should_run="true"  ;;
   esac
 
   [[ "${RUN_PICKLESCAN:-}" == "true"  ]] && _should_run="true"
@@ -316,7 +305,7 @@ run_picklescan_layer() {
   [[ "${SKIP_PICKLESCAN:-false}" == "true" ]] && _should_run="false"
 
   if [[ "$_should_run" == "false" ]]; then
-    echo "[INFO] Skipping Layer 14 - Picklescan (no model files detected; set RUN_PICKLESCAN=true to force)"
+    echo "[INFO] Skipping Layer 14 - Picklescan (scan_mode=${SCAN_MODE:-full}; set RUN_PICKLESCAN=true to force)"
     return 0
   fi
 
@@ -325,20 +314,13 @@ run_picklescan_layer() {
 
 run_modelcard_layer() {
   # Layer 15 — Model Card Compliance Checker
-  # Auto-enabled when a README.md exists alongside model files (HF-style model card).
-  # Always runs in huggingface and local_model modes.
+  # Runs in full/nightly/baseline/huggingface/local_model modes; skipped for quick and stig.
+  # Script handles missing README gracefully (status: skipped).
   # Override: RUN_MODELCARD=true/false, SKIP_MODELCARD=true.
   local _should_run="false"
   case "${SCAN_MODE:-full}" in
-    huggingface|local_model) _should_run="true"  ;;
-    quick)                   _should_run="false" ;;
-    *)
-      # Auto-detect: model files present + README exists
-      if _detect_model_files && [[ -f "${TARGET_DIR:-}/README.md" ]]; then
-        echo "[INFO] Model files + README detected in ${TARGET_DIR} — auto-enabling Layer 15 (modelcard)"
-        _should_run="true"
-      fi
-      ;;
+    quick|stig) _should_run="false" ;;
+    *)          _should_run="true"  ;;
   esac
 
   [[ "${RUN_MODELCARD:-}" == "true"  ]] && _should_run="true"
@@ -346,7 +328,7 @@ run_modelcard_layer() {
   [[ "${SKIP_MODELCARD:-false}" == "true" ]] && _should_run="false"
 
   if [[ "$_should_run" == "false" ]]; then
-    echo "[INFO] Skipping Layer 15 - Model Card Compliance (no model card detected; set RUN_MODELCARD=true to force)"
+    echo "[INFO] Skipping Layer 15 - Model Card Compliance (scan_mode=${SCAN_MODE:-full}; set RUN_MODELCARD=true to force)"
     return 0
   fi
 
@@ -608,10 +590,10 @@ fi  # end: SCAN_MODE != stig
 # ── Phase 3: Conditional sequential layers ────────────────────────────────────
 run_garak_layer
 
-# Layer 13 — STIG Compliance Assessment (stig mode only — Sundays and on-demand)
-# Runs AI-assisted AppSecDev STIG V5R3 assessment via GPT-4.1.
+# Layer 13 — STIG Compliance Assessment
+# Runs in full/nightly/baseline/stig modes when SKIP_STIG is not true; skipped for quick.
 # Requires OPENAI_API_KEY. Gracefully skips when key is absent.
-if [[ "${SCAN_MODE:-full}" == "stig" ]] && _should_run_tool SKIP_STIG; then
+if [[ "${SCAN_MODE:-full}" != "quick" ]] && _should_run_tool SKIP_STIG; then
   run_group "Layer 13 - STIG Compliance Assessment" \
     env \
       OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
@@ -627,7 +609,7 @@ if [[ "${SCAN_MODE:-full}" == "stig" ]] && _should_run_tool SKIP_STIG; then
 elif [[ "${SKIP_STIG:-false}" == "true" ]]; then
   echo "[INFO] Skipping Layer 13 - STIG (SKIP_STIG=true)"
 else
-  echo "[INFO] Skipping Layer 13 - STIG (scan_mode=${SCAN_MODE:-full}; runs in stig mode only)"
+  echo "[INFO] Skipping Layer 13 - STIG (scan_mode=${SCAN_MODE:-full}; quick mode skips STIG)"
 fi
 
 run_picklescan_layer

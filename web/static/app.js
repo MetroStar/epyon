@@ -1002,59 +1002,84 @@ async function renderScanDetail(scanId) {
         ? `<a class="btn btn-sm" href="${esc(scan.stig_cklb_url)}" download>↓ findings.cklb</a>` : '';
 
       stigCard = `
-        <div class="result-section-box stig-result-box">
-          <div class="result-section-box-header">
-            <div class="result-section-box-title">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              </svg>
-              STIG Assessment ${multiStig ? `<span style="color:var(--text-muted);font-weight:400;font-size:12px">(${reports.length} STIGs)</span>` : ''}
+        <div class="section findings-section-wrapper">
+          <details class="findings-collapsible" style="border-left-color:#38bdf8">
+            <summary class="findings-summary">
+              <span class="findings-summary-left">
+                <span class="findings-chevron" aria-hidden="true"></span>
+                <span class="findings-summary-title">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                       style="vertical-align:-2px;margin-right:5px">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  </svg>
+                  STIG Assessment${multiStig ? ` <span style="color:var(--text-muted);font-weight:400;font-size:12px">(${reports.length} STIGs)</span>` : ''}
+                </span>
+                <span class="stig-mini open">${esc(scan.stig_open || 0)} open</span>
+                <span class="stig-mini pass">${esc(scan.stig_pass || 0)} pass</span>
+                <span class="stig-mini na">${esc(scan.stig_na || 0)} n/a</span>
+                <span class="stig-mini total">${esc(scan.stig_total || 0)} total</span>
+              </span>
+              <span style="display:flex;align-items:center;gap:8px">
+                ${mdBtn ? mdBtn.replace('btn-sm', 'btn-sm').replace('>', ' onclick="event.stopPropagation()">') : ''}
+                ${cklbBtn ? cklbBtn.replace('>', ' onclick="event.stopPropagation()">') : ''}
+                <span class="findings-summary-hint">Click to expand</span>
+              </span>
+            </summary>
+            <div class="findings-body" style="padding:0 18px 16px">
+              <div class="stig-counts" style="margin-top:12px">
+                <div class="stig-count open">
+                  <span class="num">${esc(scan.stig_open || 0)}</span>
+                  <span class="lbl">Open</span>
+                </div>
+                <div class="stig-count pass">
+                  <span class="num">${esc(scan.stig_pass || 0)}</span>
+                  <span class="lbl">Not a Finding</span>
+                </div>
+                <div class="stig-count na">
+                  <span class="num">${esc(scan.stig_na || 0)}</span>
+                  <span class="lbl">N/A</span>
+                </div>
+                <div class="stig-count total">
+                  <span class="num">${esc(scan.stig_total || 0)}</span>
+                  <span class="lbl">Total</span>
+                </div>
+              </div>
+              ${multiStig ? `<div class="stig-per-stig">${perStigRows}</div>` : ''}
+              <div class="stig-view-btn-row">
+                <button class="btn btn-primary btn-sm"
+                  onclick="navigate('#/stig-viewer/${encodeURIComponent(scanId)}')">
+                  ⊞ View Findings Inline
+                </button>
+              </div>
             </div>
-            <div class="stig-download-btns">${mdBtn}${cklbBtn}</div>
-          </div>
-          <div class="stig-counts">
-            <div class="stig-count open">
-              <span class="num">${esc(scan.stig_open || 0)}</span>
-              <span class="lbl">Open</span>
-            </div>
-            <div class="stig-count pass">
-              <span class="num">${esc(scan.stig_pass || 0)}</span>
-              <span class="lbl">Not a Finding</span>
-            </div>
-            <div class="stig-count na">
-              <span class="num">${esc(scan.stig_na || 0)}</span>
-              <span class="lbl">N/A</span>
-            </div>
-            <div class="stig-count total">
-              <span class="num">${esc(scan.stig_total || 0)}</span>
-              <span class="lbl">Total</span>
-            </div>
-          </div>
-          ${multiStig ? `<div class="stig-per-stig">${perStigRows}</div>` : ''}
-          <div class="stig-view-btn-row">
-            <button class="btn btn-primary btn-sm"
-              onclick="navigate('#/stig-viewer/${encodeURIComponent(scanId)}')">
-              ⊞ View Findings Inline
-            </button>
-          </div>
+          </details>
         </div>`;
     } else {
       const noStigMsg = scanTypeHasStig
         ? 'No STIG results were recorded for this scan. Verify that STIG definitions are configured in <code>configuration/stigs/</code> and that <code>OPENAI_API_KEY</code> is set.'
         : 'STIG assessment is not included in this scan type. Run a <strong>Nightly</strong> or <strong>STIG</strong> scan to get compliance results.';
       stigCard = `
-        <div class="result-section-box stig-result-box">
-          <div class="result-section-box-header">
-            <div class="result-section-box-title">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              </svg>
-              STIG Assessment
+        <div class="section findings-section-wrapper">
+          <details class="findings-collapsible" style="border-left-color:var(--border)">
+            <summary class="findings-summary">
+              <span class="findings-summary-left">
+                <span class="findings-chevron" aria-hidden="true"></span>
+                <span class="findings-summary-title">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                       style="vertical-align:-2px;margin-right:5px">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  </svg>
+                  STIG Assessment
+                </span>
+              </span>
+              <span class="findings-summary-hint">Click to expand</span>
+            </summary>
+            <div class="findings-body" style="padding:12px 18px 16px">
+              <p style="color:var(--text-muted);font-size:13px;margin:0">${noStigMsg}</p>
             </div>
-          </div>
-          <p style="color:var(--text-muted);font-size:13px;margin:8px 0 0">${noStigMsg}</p>
+          </details>
         </div>`;
     }
 

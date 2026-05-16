@@ -1214,33 +1214,114 @@ function buildEnrichmentCard(findings) {
   const kevTotal = enr.cisa_kev_total || 0;
   const nvdTotal = enr.nvd_total || 0;
   if (kevTotal === 0 && nvdTotal === 0) return '';
+
+  const hasKev = kevTotal > 0;
+  const accentColor = hasKev ? 'var(--critical)' : 'var(--accent,#38bdf8)';
+
+  // Collect all KEV-matched findings across severity buckets for the detail table
+  const kevFindings = [];
+  for (const sev of ['critical', 'high', 'medium', 'low']) {
+    for (const f of (findings[`${sev}_findings`] || [])) {
+      if (f.cisa_kev === true) kevFindings.push({ sev, ...f });
+    }
+  }
+
+  // Format enriched_at timestamp
+  let enrichedAt = '';
+  if (enr.enriched_at) {
+    try {
+      enrichedAt = new Date(enr.enriched_at).toLocaleString(undefined,
+        { dateStyle: 'medium', timeStyle: 'short' });
+    } catch (_) { enrichedAt = enr.enriched_at; }
+  }
+
+  const kevRows = kevFindings.map(f => {
+    const id = esc(f.id || f.cve_id || f.vulnerability_id || '—');
+    const pkg = esc(f.package || f.component || '—');
+    const score = f.nvd_cvss_v3_score != null ? esc(String(f.nvd_cvss_v3_score)) : '—';
+    const nvdHref = f.nvd_url ? `href="${esc(f.nvd_url)}" target="_blank" rel="noopener"` : '';
+    return `
+      <tr style="border-top:1px solid var(--border)">
+        <td style="padding:4px 10px 4px 0">
+          <span class="sev-badge sev-${esc(f.sev)}" style="font-size:10px">${esc(f.sev)}</span>
+        </td>
+        <td style="padding:4px 10px 4px 0;font-family:monospace;font-size:12px">
+          ${nvdHref ? `<a ${nvdHref} style="color:var(--accent)">${id}</a>` : id}
+        </td>
+        <td style="padding:4px 10px 4px 0;font-size:12px;color:var(--text-muted)">${pkg}</td>
+        <td style="padding:4px 0;font-size:12px;font-weight:600;color:${score !== '—' && parseFloat(score) >= 9 ? 'var(--critical)' : score !== '—' && parseFloat(score) >= 7 ? 'var(--high)' : 'var(--text-muted)'}">${score}</td>
+      </tr>`;
+  }).join('');
+
+  const kevTable = kevFindings.length ? `
+    <div style="margin-top:14px">
+      <div style="font-size:11px;font-weight:600;color:#fca5a5;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
+        ⚠ Actively Exploited CVEs (CISA KEV)
+      </div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr style="color:var(--text-muted);font-size:11px">
+            <th style="text-align:left;padding:2px 10px 4px 0;font-weight:500">Sev</th>
+            <th style="text-align:left;padding:2px 10px 4px 0;font-weight:500">CVE / ID</th>
+            <th style="text-align:left;padding:2px 10px 4px 0;font-weight:500">Package</th>
+            <th style="text-align:left;padding:2px 0 4px;font-weight:500">CVSS</th>
+          </tr>
+        </thead>
+        <tbody>${kevRows}</tbody>
+      </table>
+    </div>` : '';
+
+  const catalogLink = enr.kev_catalog_url
+    ? `<a href="${esc(enr.kev_catalog_url)}" target="_blank" rel="noopener"
+         style="font-size:12px;color:var(--accent)">↗ CISA KEV Catalog</a>`
+    : '';
+
   return `
-    <div class="result-section-box" style="border-color:${kevTotal > 0 ? 'var(--critical)' : 'var(--border)'}">
-      <div class="result-section-box-title" style="display:flex;align-items:center;gap:8px">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-        </svg>
-        Threat Intelligence Enrichment
-      </div>
-      <div class="detail-grid" style="margin-top:10px;margin-bottom:0">
-        ${kevTotal > 0 ? `
-        <div class="detail-card" style="border-color:#7f1d1d;background:rgba(127,29,29,0.12)">
-          <div class="label" style="color:#fca5a5">CISA KEV Matches</div>
-          <div class="value" style="color:#fca5a5">${esc(kevTotal)}</div>
-        </div>` : ''}
-        ${nvdTotal > 0 ? `
-        <div class="detail-card">
-          <div class="label">NVD Enriched CVEs</div>
-          <div class="value">${esc(nvdTotal)}</div>
-        </div>` : ''}
-      </div>
-      ${kevTotal > 0 ? `
-        <p style="color:#fca5a5;font-size:12px;margin:8px 0 0">
-          ⚠ ${esc(kevTotal)} finding${kevTotal > 1 ? 's' : ''} match CISA's Known Exploited Vulnerabilities catalog —
-          actively exploited in the wild. Scroll up to findings marked <strong>KEV</strong> for details.
-        </p>` : ''}
+    <div class="section findings-section-wrapper">
+      <details class="findings-collapsible" style="border-left-color:${accentColor}">
+        <summary class="findings-summary">
+          <span class="findings-summary-left">
+            <span class="findings-chevron" aria-hidden="true"></span>
+            <span class="findings-summary-title">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                   style="vertical-align:-2px;margin-right:5px">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              Threat Intelligence Enrichment
+            </span>
+            ${hasKev ? `<span style="background:#7f1d1d;color:#fca5a5;border:1px solid #b91c1c;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:700">${esc(kevTotal)} KEV</span>` : ''}
+            <span class="sev-badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(nvdTotal)} NVD enriched</span>
+          </span>
+          <span class="findings-summary-hint">Click to expand</span>
+        </summary>
+        <div class="findings-body" style="padding:0 18px 16px">
+          <div class="detail-grid" style="margin-top:12px;margin-bottom:0">
+            ${hasKev ? `
+            <div class="detail-card" style="border-color:#7f1d1d;background:rgba(127,29,29,0.12)">
+              <div class="label" style="color:#fca5a5">CISA KEV Matches</div>
+              <div class="value" style="color:#fca5a5">${esc(kevTotal)}</div>
+            </div>` : ''}
+            <div class="detail-card">
+              <div class="label">NVD Enriched CVEs</div>
+              <div class="value">${esc(nvdTotal)}</div>
+            </div>
+            ${enrichedAt ? `
+            <div class="detail-card">
+              <div class="label">Enriched At</div>
+              <div class="value" style="font-size:12px">${enrichedAt}</div>
+            </div>` : ''}
+          </div>
+          ${kevTable}
+          ${hasKev ? `
+          <p style="color:#fca5a5;font-size:12px;margin:12px 0 4px">
+            ⚠ ${esc(kevTotal)} finding${kevTotal > 1 ? 's' : ''} match CISA's Known Exploited Vulnerabilities catalog —
+            actively exploited in the wild. Findings marked <strong>KEV</strong> above require immediate attention.
+          </p>` : ''}
+          ${catalogLink ? `<div style="margin-top:8px">${catalogLink}</div>` : ''}
+        </div>
+      </details>
     </div>`;
 }
 

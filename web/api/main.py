@@ -118,9 +118,10 @@ async def lifespan(_: FastAPI):
             cfg = _read_github_config()
             if cfg.get("token") and cfg.get("repos"):
                 await github_sync.trigger_sync(
-                    GITHUB_CONFIG_FILE, EPYON_ROOT, parsers.find_scan_dirs
+                    GITHUB_CONFIG_FILE, EPYON_ROOT, parsers.find_scan_dirs,
+                    on_complete=_invalidate_scan_cache,
                 )
-            await asyncio.sleep(3 * 60 * 60)
+            await asyncio.sleep(15 * 60)  # re-check every 15 minutes
 
     asyncio.create_task(_auto_sync_loop())
     yield
@@ -1050,7 +1051,10 @@ async def github_sync_post(response: Response):
     state = github_sync.get_sync_state()
     if state["status"] == "running":
         return {"ok": False, "message": "Sync already in progress"}
-    await github_sync.trigger_sync(GITHUB_CONFIG_FILE, EPYON_ROOT, parsers.find_scan_dirs)
+    await github_sync.trigger_sync(
+        GITHUB_CONFIG_FILE, EPYON_ROOT, parsers.find_scan_dirs,
+        on_complete=_invalidate_scan_cache,
+    )
     return {"ok": True, "message": "Sync started"}
 
 

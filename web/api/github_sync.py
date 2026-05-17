@@ -163,6 +163,7 @@ async def trigger_sync(
     config_path: Path,
     epyon_root: Path,
     find_scan_dirs_fn: Any,
+    on_complete: Any = None,
 ) -> None:
     global _sync_state
     if _sync_state["status"] == "running":
@@ -178,6 +179,12 @@ async def trigger_sync(
         except Exception as exc:
             _sync_state = {"status": "error", "started_at": _sync_state["started_at"],
                            "result": None, "error": str(exc)}
+        finally:
+            if on_complete is not None:
+                try:
+                    on_complete()
+                except Exception:
+                    pass
 
     asyncio.create_task(_run())
 

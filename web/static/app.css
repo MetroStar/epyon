@@ -2319,6 +2319,32 @@ details[open] > .findings-summary .findings-summary-hint {
 
 /* ── STIG History Matrix ──────────────────────────────────── */
 
+.stig-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.stig-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  padding: 9px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.stig-tab:hover:not(.active) { color: var(--text); }
+.stig-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
 .stig-history-filters {
   display: flex;
   flex-wrap: wrap;

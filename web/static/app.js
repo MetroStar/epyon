@@ -2352,12 +2352,19 @@ async function renderStig() {
         </div>
       </div>` : '';
 
+    const stigTabs = `
+      <div class="stig-tabs">
+        <button class="stig-tab active" onclick="navigate('#/stig')">Overview</button>
+        <button class="stig-tab" onclick="navigate('#/stig?view=history')">History &amp; MTTR</button>
+      </div>`;
+
     page.innerHTML = `
       <div class="page-header">
         <h1>STIG Compliance</h1>
         <button class="btn btn-primary"
           onclick="navigate('#/new-scan')">▶ Run STIG Scan</button>
       </div>
+      ${stigTabs}
       <p class="section-desc">
         Application Security Developer (AppSecDev) STIG and Crunchy Data PostgreSQL STIG
         compliance results. Scans run every Sunday night automatically.
@@ -3410,7 +3417,7 @@ async function triggerGitHubSync() {
 // ── STIG History Matrix & MTTR ───────────────────────────────
 
 async function renderStigHistory(selectedApp, selectedSlug) {
-  setActive('stig-history');
+  setActive('stig');
   const page = document.getElementById('page');
   page.innerHTML = loading();
 
@@ -3573,8 +3580,9 @@ async function renderStigHistory(selectedApp, selectedSlug) {
 
     page.innerHTML = `
       <div class="page-header">
-        <h1>STIG History</h1>
+        <h1>STIG Compliance</h1>
       </div>
+      ${histTabs}
       <div class="stig-history-filters">
         <div class="stig-hf-group">
           <label class="stig-hf-label">App</label>
@@ -3598,9 +3606,16 @@ async function renderStigHistory(selectedApp, selectedSlug) {
   }
 
   // ── Empty state (no apps with STIG data at all) ─────────
+  const histTabs = `
+    <div class="stig-tabs">
+      <button class="stig-tab" onclick="navigate('#/stig')">Overview</button>
+      <button class="stig-tab active" onclick="navigate('#/stig?view=history')">History &amp; MTTR</button>
+    </div>`;
+
   if (apps.length === 0) {
     page.innerHTML = `
-      <div class="page-header"><h1>STIG History</h1></div>
+      <div class="page-header"><h1>STIG Compliance</h1></div>
+      ${histTabs}
       <div class="empty-state" style="margin-top:48px">
         <p>No STIG scan data found.</p>
         <p style="color:var(--text-muted);font-size:13px">Run a STIG or nightly scan to start building the history matrix.</p>
@@ -3622,10 +3637,10 @@ async function renderStigHistory(selectedApp, selectedSlug) {
     Object.assign({ apps, app: curApp, slugs, scans, controls, summary },
       { apps: a2, app: ca2, slugs: sl2, scans: sc2, controls: co2, summary: su2 });
     // Simplest: just re-navigate
-    navigate('#/stig-history?app=' + encodeURIComponent(appVal));
+    navigate('#/stig?view=history&app=' + encodeURIComponent(appVal));
   };
   window._stigHistorySlug = async (slugVal) => {
-    navigate('#/stig-history?app=' + encodeURIComponent(curApp || '') +
+    navigate('#/stig?view=history&app=' + encodeURIComponent(curApp || '') +
              (slugVal ? '&slug=' + encodeURIComponent(slugVal) : ''));
   };
   window._stigHistoryStatus = (key) => {
@@ -4295,9 +4310,11 @@ function resolve() {
   } else if (path === '/metrics') {
     renderMetrics();
   } else if (path === '/stig') {
-    renderStig();
-  } else if (path === '/stig-history') {
-    renderStigHistory(params.get('app') || null, params.get('slug') || null);
+    if (params.get('view') === 'history') {
+      renderStigHistory(params.get('app') || null, params.get('slug') || null);
+    } else {
+      renderStig();
+    }
   } else if (path === '/settings') {
     renderSettings();
   } else {

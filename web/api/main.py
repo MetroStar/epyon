@@ -1122,8 +1122,10 @@ def stig_history(
     if not stig_scans:
         return {**_base, "apps": stig_apps, "app": selected_app, "slugs": sorted(all_slugs)}
 
-    # Build control metadata (title/severity) from the most-recent controls file
+    # Build control metadata (title/severity) and the canonical vuln_id set per slug
+    # (using the most-recent controls file per slug so the benchmark version is consistent)
     control_meta: dict[str, dict] = {}
+    slug_control_ids: dict[str, set[str]] = {}
     for s in reversed(stig_scans):
         for sl in selected_slugs:
             cf = s["path"] / f"stig-controls-{sl}.json"
@@ -1131,18 +1133,28 @@ def stig_history(
                 continue
             try:
                 cd = json.loads(cf.read_text(encoding="utf-8"))
+                ids_for_slug: set[str] = set()
                 for c in cd.get("controls", []):
                     vid = c.get("vuln_id", "")
-                    if vid and vid not in control_meta:
+                    if not vid:
+                        continue
+                    if vid not in control_meta:
                         control_meta[vid] = {
                             "title":     c.get("title", ""),
                             "severity":  c.get("severity", ""),
                             "stig_name": cd.get("stig_name", sl),
                         }
+                    ids_for_slug.add(vid)
+                # Only use the first (most-recent) controls file per slug
+                if sl not in slug_control_ids:
+                    slug_control_ids[sl] = ids_for_slug
             except Exception:
                 pass
 
-    # Build per-vuln_id timeline across all stig_scans
+    # Build per-vuln_id timeline, filling gaps with "Not Reviewed" for any
+    # benchmark control that a scan ran but didn't explicitly produce a result for.
+    # This guarantees every scan column is complete and the matrix is consistent.
+    seen_entries: set[tuple] = set()
     vuln_timelines: dict[str, list[dict]] = {}
     for s in stig_scans:
         for sl in selected_slugs:
@@ -1154,12 +1166,26 @@ def stig_history(
                 results = raw.get("assessments", raw) if "assessments" in raw else raw
             except Exception:
                 continue
+            # Explicit assessment results
             for vid, data in results.items():
-                vuln_timelines.setdefault(vid, []).append({
-                    "scan_id": s["scan_id"],
-                    "date":    s["date"],
-                    "status":  data.get("status", "Not Reviewed"),
-                })
+                key = (s["scan_id"], vid)
+                if key not in seen_entries:
+                    seen_entries.add(key)
+                    vuln_timelines.setdefault(vid, []).append({
+                        "scan_id": s["scan_id"],
+                        "date":    s["date"],
+                        "status":  data.get("status", "Not Reviewed"),
+                    })
+            # Fill any benchmark controls absent from this scan's results
+            for vid in slug_control_ids.get(sl, set()):
+                key = (s["scan_id"], vid)
+                if key not in seen_entries:
+                    seen_entries.add(key)
+                    vuln_timelines.setdefault(vid, []).append({
+                        "scan_id": s["scan_id"],
+                        "date":    s["date"],
+                        "status":  "Not Reviewed",
+                    })
 
     # Compute MTTR and assemble output
     controls_out: list[dict] = []

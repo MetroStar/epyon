@@ -3464,6 +3464,7 @@ async function renderStigHistory(selectedApp, selectedSlug) {
       let v = 0;
       if (sortKey === 'sev')    v = (SEV_ORDER[a.severity] ?? 4) - (SEV_ORDER[b.severity] ?? 4);
       if (sortKey === 'id')     v = a.vuln_id.localeCompare(b.vuln_id);
+      if (sortKey === 'title')  v = (a.title || '').localeCompare(b.title || '');
       if (sortKey === 'mttr')   v = (a.mttr_days ?? 9999) - (b.mttr_days ?? 9999);
       if (sortKey === 'status') v = (a.latest_status || '').localeCompare(b.latest_status || '');
       return v * sortDir;
@@ -3556,7 +3557,8 @@ async function renderStigHistory(selectedApp, selectedSlug) {
 
       return `
         <tr ${rowClick} title="${latestScanId ? 'Open in STIG Viewer' : ''}">
-          <td class="stig-matrix-id"><span class="sev-badge ${esc(sevCls)}">${esc(sevCls)}</span> ${esc(c.vuln_id)}</td>
+          <td class="stig-matrix-sev"><span class="sev-badge ${esc(sevCls)}">${esc(sevCls)}</span></td>
+          <td class="stig-matrix-id">${esc(c.vuln_id)}</td>
           <td class="stig-matrix-title" title="${esc(c.title)}">${esc(c.title || '—')}</td>
           <td class="stig-matrix-status ${latestCls}">${esc(c.latest_status || '—')}</td>
           ${cells}
@@ -3565,7 +3567,7 @@ async function renderStigHistory(selectedApp, selectedSlug) {
     }).join('');
 
     const emptyRow = visible.length === 0
-      ? `<tr><td colspan="${4 + visibleScans.length}" style="text-align:center;padding:32px;color:var(--text-muted)">No controls match the current filter.</td></tr>`
+      ? `<tr><td colspan="${5 + visibleScans.length}" style="text-align:center;padding:32px;color:var(--text-muted)">No controls match the current filter.</td></tr>`
       : '';
 
     const tableHtml = visibleScans.length === 0
@@ -3577,8 +3579,9 @@ async function renderStigHistory(selectedApp, selectedSlug) {
            <table class="stig-matrix-table">
              <thead>
                <tr>
+                 ${thSort('sev','Sev')}
                  ${thSort('id','Vuln ID')}
-                 ${thSort('sev','Title')}
+                 ${thSort('title','Title')}
                  ${thSort('status','Status')}
                  ${dateHeaders}
                  ${thSort('mttr','MTTR')}

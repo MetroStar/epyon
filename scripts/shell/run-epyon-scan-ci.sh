@@ -591,9 +591,9 @@ fi  # end: SCAN_MODE != stig
 run_garak_layer
 
 # Layer 13 — STIG Compliance Assessment
-# Runs in full/nightly/baseline/stig modes when SKIP_STIG is not true; skipped for quick.
-# Requires OPENAI_API_KEY. Gracefully skips when key is absent.
-if [[ "${SCAN_MODE:-full}" != "quick" ]] && _should_run_tool SKIP_STIG; then
+# Runs in full/baseline/stig modes when SKIP_STIG is not true.
+# Skipped for quick and nightly (nightly uses vuln tools only; STIG runs Sunday via stig mode).
+if [[ "${SCAN_MODE:-full}" != "quick" ]] && [[ "${SCAN_MODE:-full}" != "nightly" ]] && _should_run_tool SKIP_STIG; then
   run_group "Layer 13 - STIG Compliance Assessment" \
     env \
       OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
@@ -608,6 +608,8 @@ if [[ "${SCAN_MODE:-full}" != "quick" ]] && _should_run_tool SKIP_STIG; then
     '
 elif [[ "${SKIP_STIG:-false}" == "true" ]]; then
   echo "[INFO] Skipping Layer 13 - STIG (SKIP_STIG=true)"
+elif [[ "${SCAN_MODE:-full}" == "nightly" ]]; then
+  echo "[INFO] Skipping Layer 13 - STIG (scan_mode=nightly; STIG runs on Sunday via stig mode)"
 else
   echo "[INFO] Skipping Layer 13 - STIG (scan_mode=${SCAN_MODE:-full}; quick mode skips STIG)"
 fi

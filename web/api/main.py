@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, List, Optional
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -43,6 +43,7 @@ STATIC_DIR           = (_HERE / ".." / "static").resolve()
 # ── Validation ────────────────────────────────────────────────
 _SAFE_ID_RE      = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_\-.]*$")
 _JOB_ID_RE       = re.compile(r"^\d{14}$")
+_APP_SCAN_RE     = re.compile(r"^(.+)_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})$")
 _VALID_SCAN_TYPES = {"quick", "full", "nightly", "baseline", "stig", "local_model"}
 _TOKEN_RE        = re.compile(r"^(ghp_|github_pat_|ghs_|gho_)[a-zA-Z0-9_]+$")
 _REPO_RE         = re.compile(r"^[a-zA-Z0-9_.\-]+/[a-zA-Z0-9_.\-]+$")
@@ -1056,6 +1057,198 @@ async def github_sync_post(response: Response):
         on_complete=_invalidate_scan_cache,
     )
     return {"ok": True, "message": "Sync started"}
+
+
+# ── STIG History / MTTR ──────────────────────────────────────
+
+@app.get("/api/stig/history")
+def stig_history(
+    response: Response,
+    app: Optional[str] = Query(None),
+    slug: Optional[str] = Query(None),
+):
+    """Return STIG control status history across all scans for an app, with MTTR."""
+    _sec_headers(response)
+    scan_dirs = _cached_find_scan_dirs()
+
+    # Group scan dirs by app name, extract date/time from scan_id
+    app_scans: dict[str, list[dict]] = {}
+    for d in scan_dirs:
+        m = _APP_SCAN_RE.match(d.name)
+        if not m:
+            continue
+        app_name, date_str, time_str = m.group(1), m.group(2), m.group(3)
+        app_scans.setdefault(app_name, []).append(
+            {"scan_id": d.name, "date": date_str, "time": time_str, "path": d}
+        )
+
+    # Apps that have at least one stig-results-*.json file
+    stig_apps = sorted(
+        a for a, scans in app_scans.items()
+        if any(list(s["path"].glob("stig-results-*.json")) for s in scans)
+    )
+
+    _empty_summary = {
+        "total_controls": 0, "ever_open": 0,
+        "remediated": 0, "avg_mttr_days": None, "currently_open": 0,
+    }
+    _base = {"apps": stig_apps, "app": None, "slugs": [], "slug": slug,
+             "scans": [], "controls": [], "summary": _empty_summary}
+
+    selected_app = app or (stig_apps[0] if stig_apps else None)
+    if not selected_app:
+        return _base
+
+    # All slugs found for this app
+    all_slugs: set[str] = set()
+    for s in app_scans.get(selected_app, []):
+        for f in s["path"].glob("stig-results-*.json"):
+            all_slugs.add(f.stem[len("stig-results-"):])
+
+    selected_slugs = {slug} if (slug and slug in all_slugs) else all_slugs
+
+    # Scans for this app that have STIG files, in chronological order
+    stig_scans = sorted(
+        [
+            s for s in app_scans.get(selected_app, [])
+            if any(
+                (s["path"] / f"stig-results-{sl}.json").exists()
+                for sl in selected_slugs
+            )
+        ],
+        key=lambda s: (s["date"], s["time"]),
+    )
+
+    if not stig_scans:
+        return {**_base, "apps": stig_apps, "app": selected_app, "slugs": sorted(all_slugs)}
+
+    # Build control metadata (title/severity) and the canonical vuln_id set per slug
+    # (using the most-recent controls file per slug so the benchmark version is consistent)
+    control_meta: dict[str, dict] = {}
+    slug_control_ids: dict[str, set[str]] = {}
+    for s in reversed(stig_scans):
+        for sl in selected_slugs:
+            cf = s["path"] / f"stig-controls-{sl}.json"
+            if not cf.exists():
+                continue
+            try:
+                cd = json.loads(cf.read_text(encoding="utf-8"))
+                ids_for_slug: set[str] = set()
+                for c in cd.get("controls", []):
+                    vid = c.get("vuln_id", "")
+                    if not vid:
+                        continue
+                    if vid not in control_meta:
+                        control_meta[vid] = {
+                            "title":     c.get("title", ""),
+                            "severity":  c.get("severity", ""),
+                            "stig_name": cd.get("stig_name", sl),
+                        }
+                    ids_for_slug.add(vid)
+                # Only use the first (most-recent) controls file per slug
+                if sl not in slug_control_ids:
+                    slug_control_ids[sl] = ids_for_slug
+            except Exception:
+                pass
+
+    # Build per-vuln_id timeline, filling gaps with "Not Reviewed" for any
+    # benchmark control that a scan ran but didn't explicitly produce a result for.
+    # This guarantees every scan column is complete and the matrix is consistent.
+    seen_entries: set[tuple] = set()
+    vuln_timelines: dict[str, list[dict]] = {}
+    for s in stig_scans:
+        for sl in selected_slugs:
+            rf = s["path"] / f"stig-results-{sl}.json"
+            if not rf.exists():
+                continue
+            try:
+                raw = json.loads(rf.read_text(encoding="utf-8"))
+                results = raw.get("assessments", raw) if "assessments" in raw else raw
+            except Exception:
+                continue
+            # Explicit assessment results
+            for vid, data in results.items():
+                key = (s["scan_id"], vid)
+                if key not in seen_entries:
+                    seen_entries.add(key)
+                    vuln_timelines.setdefault(vid, []).append({
+                        "scan_id": s["scan_id"],
+                        "date":    s["date"],
+                        "status":  data.get("status", "Not Reviewed"),
+                    })
+            # Fill any benchmark controls absent from this scan's results
+            for vid in slug_control_ids.get(sl, set()):
+                key = (s["scan_id"], vid)
+                if key not in seen_entries:
+                    seen_entries.add(key)
+                    vuln_timelines.setdefault(vid, []).append({
+                        "scan_id": s["scan_id"],
+                        "date":    s["date"],
+                        "status":  "Not Reviewed",
+                    })
+
+    # Compute MTTR and assemble output
+    controls_out: list[dict] = []
+    total_mttr: list[int] = []
+    currently_open = ever_open = remediated = 0
+
+    for vid, timeline in sorted(vuln_timelines.items()):
+        tl = sorted(timeline, key=lambda t: t["date"])
+        first_open = first_closed = None
+        for entry in tl:
+            if entry["status"] == "Open" and first_open is None:
+                first_open = entry["date"]
+            if entry["status"] == "Not a Finding" and first_closed is None:
+                first_closed = entry["date"]
+
+        mttr_days = None
+        if first_open:
+            ever_open += 1
+        if first_open and first_closed and first_closed >= first_open:
+            remediated += 1
+            d1 = datetime.fromisoformat(first_open).date()
+            d2 = datetime.fromisoformat(first_closed).date()
+            mttr_days = (d2 - d1).days
+            total_mttr.append(mttr_days)
+
+        latest_status = tl[-1]["status"] if tl else "Not Reviewed"
+        if latest_status == "Open":
+            currently_open += 1
+
+        meta = control_meta.get(vid, {})
+        controls_out.append({
+            "vuln_id":       vid,
+            "title":         meta.get("title", ""),
+            "severity":      meta.get("severity", ""),
+            "stig_name":     meta.get("stig_name", ""),
+            "timeline":      tl,
+            "first_open":    first_open,
+            "first_closed":  first_closed,
+            "mttr_days":     mttr_days,
+            "latest_status": latest_status,
+        })
+
+    avg_mttr = round(sum(total_mttr) / len(total_mttr), 1) if total_mttr else None
+    scans_out = [
+        {"scan_id": s["scan_id"], "date": s["date"], "label": s["date"][5:]}
+        for s in stig_scans
+    ]
+
+    return {
+        "apps":     stig_apps,
+        "app":      selected_app,
+        "slugs":    sorted(all_slugs),
+        "slug":     slug,
+        "scans":    scans_out,
+        "controls": controls_out,
+        "summary": {
+            "total_controls": len(controls_out),
+            "ever_open":      ever_open,
+            "remediated":     remediated,
+            "avg_mttr_days":  avg_mttr,
+            "currently_open": currently_open,
+        },
+    }
 
 
 @app.get("/api/github/sync")

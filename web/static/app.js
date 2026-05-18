@@ -530,6 +530,13 @@ const api = {
   getGlobalTechnicalSummary() { return this._post('/api/technical-summary', {}); },
   getFindingFix(finding)      { return this._post('/api/findings/fix', finding); },
   getStigData(id){ return this._get(`/api/scans/${encodeURIComponent(id)}/stig-data`); },
+  getStigHistory(app, slug) {
+    const p = new URLSearchParams();
+    if (app)  p.set('app', app);
+    if (slug) p.set('slug', slug);
+    const qs = p.toString();
+    return this._get('/api/stig/history' + (qs ? '?' + qs : ''));
+  },
 };
 
 // ── Sidebar collapse ─────────────────────────────────────────
@@ -2345,12 +2352,19 @@ async function renderStig() {
         </div>
       </div>` : '';
 
+    const stigTabs = `
+      <div class="stig-tabs">
+        <button class="stig-tab active" onclick="navigate('#/stig')">Overview</button>
+        <button class="stig-tab" onclick="navigate('#/stig?view=history')">History &amp; MTTR</button>
+      </div>`;
+
     page.innerHTML = `
       <div class="page-header">
         <h1>STIG Compliance</h1>
         <button class="btn btn-primary"
           onclick="navigate('#/new-scan')">▶ Run STIG Scan</button>
       </div>
+      ${stigTabs}
       <p class="section-desc">
         Application Security Developer (AppSecDev) STIG and Crunchy Data PostgreSQL STIG
         compliance results. Scans run every Sunday night automatically.
@@ -3400,6 +3414,269 @@ async function triggerGitHubSync() {
   }, 2000);
 }
 
+// ── STIG History Matrix & MTTR ───────────────────────────────
+
+async function renderStigHistory(selectedApp, selectedSlug) {
+  setActive('stig');
+  const page = document.getElementById('page');
+  page.innerHTML = loading();
+
+  const STATUS_CLASSES = {
+    'Open':           'open',
+    'Not a Finding':  'not-a-finding',
+    'Not Applicable': 'na',
+    'Not Reviewed':   'not-reviewed',
+  };
+  const STATUS_ABBR = {
+    'Open':           'O',
+    'Not a Finding':  'P',
+    'Not Applicable': 'N/A',
+    'Not Reviewed':   '—',
+  };
+  const SEV_ORDER = { critical: 0, high: 1, medium: 2, low: 3, '': 4 };
+
+  let data;
+  try {
+    data = await api.getStigHistory(selectedApp || null, selectedSlug || null);
+  } catch (e) {
+    page.innerHTML = errBanner(e.message);
+    return;
+  }
+
+  const { apps = [], app: curApp, slugs = [], scans = [], controls = [], summary = {} } = data;
+
+  // ── Filter state ──────────────────────────────────────────
+  let statusFilter = 'all';   // 'all' | 'open' | 'pass' | 'na'
+  let daysFilter   = 30;      // 7 | 14 | 30 | 90 | 0 (all)
+  let sortKey      = 'sev';   // 'sev' | 'id' | 'mttr' | 'status'
+  let sortDir      = 1;
+
+  // ── Render helpers ────────────────────────────────────────
+  function filterControls(list) {
+    if (statusFilter === 'open')   return list.filter(c => c.latest_status === 'Open');
+    if (statusFilter === 'pass')   return list.filter(c => c.latest_status === 'Not a Finding');
+    if (statusFilter === 'na')     return list.filter(c => ['Not Applicable','Not Reviewed'].includes(c.latest_status));
+    return list;
+  }
+
+  function sortControls(list) {
+    return [...list].sort((a, b) => {
+      let v = 0;
+      if (sortKey === 'sev')    v = (SEV_ORDER[a.severity] ?? 4) - (SEV_ORDER[b.severity] ?? 4);
+      if (sortKey === 'id')     v = a.vuln_id.localeCompare(b.vuln_id);
+      if (sortKey === 'title')  v = (a.title || '').localeCompare(b.title || '');
+      if (sortKey === 'mttr')   v = (a.mttr_days ?? 9999) - (b.mttr_days ?? 9999);
+      if (sortKey === 'status') v = (a.latest_status || '').localeCompare(b.latest_status || '');
+      return v * sortDir;
+    });
+  }
+
+  function buildPage() {
+    // ── Filters row ────────────────────────────────────────
+    const appOpts = apps.map(a =>
+      `<option value="${esc(a)}" ${a === curApp ? 'selected' : ''}>${esc(a)}</option>`
+    ).join('');
+    const slugOpts = ['<option value="">All STIGs</option>',
+      ...slugs.map(s => `<option value="${esc(s)}" ${s === (selectedSlug||'') ? 'selected' : ''}>${esc(s)}</option>`)
+    ].join('');
+
+    const cutoff = daysFilter > 0
+      ? new Date(Date.now() - daysFilter * 86400000).toISOString().slice(0, 10)
+      : null;
+    const visibleScans = cutoff ? scans.filter(s => s.date >= cutoff) : scans;
+
+    const dayBtns = [[7,'7d'],[14,'14d'],[30,'30d'],[90,'90d'],[0,'All']].map(([d,l]) =>
+      `<button class="btn btn-sm${daysFilter===d?' btn-active':''}" onclick="window._stigHistoryDays(${d})">${l}</button>`
+    ).join('');
+
+    const statusBtns = [
+      ['all','All'],['open','Open'],['pass','Not a Finding'],['na','N/A / NR']
+    ].map(([k,l]) =>
+      `<button class="btn btn-sm${statusFilter===k?' btn-active':''}" onclick="window._stigHistoryStatus('${k}')">${l}</button>`
+    ).join('');
+
+    const avgMttr = summary.avg_mttr_days != null
+      ? summary.avg_mttr_days + ' days'
+      : '—';
+
+    // ── Summary strip ──────────────────────────────────────
+    const summaryStrip = `
+      <div class="stig-history-summary">
+        <div class="stig-hs-card">
+          <span class="stig-hs-num">${esc(summary.total_controls ?? 0)}</span>
+          <span class="stig-hs-lbl">Controls</span>
+        </div>
+        <div class="stig-hs-card open">
+          <span class="stig-hs-num">${esc(summary.currently_open ?? 0)}</span>
+          <span class="stig-hs-lbl">Currently Open</span>
+        </div>
+        <div class="stig-hs-card pass">
+          <span class="stig-hs-num">${esc(summary.remediated ?? 0)}</span>
+          <span class="stig-hs-lbl">Remediated</span>
+        </div>
+        <div class="stig-hs-card mttr">
+          <span class="stig-hs-num">${esc(avgMttr)}</span>
+          <span class="stig-hs-lbl">Avg MTTR</span>
+        </div>
+      </div>`;
+
+    // ── Matrix table ────────────────────────────────────────
+    const visible = sortControls(filterControls(controls));
+
+    const thSort = (key, label) => {
+      const active = sortKey === key;
+      const arrow  = active ? (sortDir === 1 ? ' ↑' : ' ↓') : '';
+      return `<th class="sortable-th${active?' sorted':''}" onclick="window._stigHistorySort('${key}')">${label}${arrow}</th>`;
+    };
+
+    const dateHeaders = visibleScans.map(s =>
+      `<th class="stig-matrix-date-th" title="${esc(s.scan_id)}">${esc(s.label)}</th>`
+    ).join('');
+
+    const rows = visible.map(c => {
+      const sevCls = c.severity || 'unknown';
+      const cells = visibleScans.map(s => {
+        const entry = c.timeline.find(t => t.scan_id === s.scan_id);
+        const status = entry ? entry.status : '';
+        const cls    = STATUS_CLASSES[status] || 'not-reviewed';
+        const abbr   = STATUS_ABBR[status] || '';
+        return `<td class="stig-matrix-cell ${cls}" title="${esc(status)}">${esc(abbr)}</td>`;
+      }).join('');
+
+      const mttrBadge = c.mttr_days != null
+        ? `<span class="mttr-badge">${c.mttr_days}d</span>`
+        : `<span class="mttr-badge none">—</span>`;
+
+      const latestCls = STATUS_CLASSES[c.latest_status] || 'not-reviewed';
+      const latestScanId = c.timeline.length
+        ? c.timeline[c.timeline.length - 1].scan_id
+        : null;
+      const rowClick = latestScanId
+        ? `onclick="navigate('#/stig-viewer/${encodeURIComponent(latestScanId)}')" style="cursor:pointer"`
+        : '';
+
+      return `
+        <tr ${rowClick} title="${latestScanId ? 'Open in STIG Viewer' : ''}">
+          <td class="stig-matrix-sev"><span class="sev-badge ${esc(sevCls)}">${esc(sevCls)}</span></td>
+          <td class="stig-matrix-id">${esc(c.vuln_id)}</td>
+          <td class="stig-matrix-title" title="${esc(c.title)}">${esc(c.title || '—')}</td>
+          <td class="stig-matrix-status ${latestCls}">${esc(c.latest_status || '—')}</td>
+          ${cells}
+          <td class="stig-matrix-mttr">${mttrBadge}</td>
+        </tr>`;
+    }).join('');
+
+    const emptyRow = visible.length === 0
+      ? `<tr><td colspan="${5 + visibleScans.length}" style="text-align:center;padding:32px;color:var(--text-muted)">No controls match the current filter.</td></tr>`
+      : '';
+
+    const tableHtml = visibleScans.length === 0
+      ? `<div class="empty-state" style="margin-top:32px">
+           <p>No STIG scans found for <strong>${esc(curApp || 'this app')}</strong>.</p>
+           <p style="color:var(--text-muted);font-size:13px">Run a STIG or nightly scan to start tracking history.</p>
+         </div>`
+      : `<div class="stig-matrix-wrap">
+           <table class="stig-matrix-table">
+             <thead>
+               <tr>
+                 ${thSort('sev','Sev')}
+                 ${thSort('id','Vuln ID')}
+                 ${thSort('title','Title')}
+                 ${thSort('status','Status')}
+                 ${dateHeaders}
+                 ${thSort('mttr','MTTR')}
+               </tr>
+             </thead>
+             <tbody>${rows}${emptyRow}</tbody>
+           </table>
+         </div>`;
+
+    page.innerHTML = `
+      <div class="page-header">
+        <h1>STIG Compliance</h1>
+      </div>
+      ${histTabs}
+      <div class="stig-history-filters">
+        <div class="stig-hf-group">
+          <label class="stig-hf-label">App</label>
+          <select class="stig-hf-select" onchange="window._stigHistoryApp(this.value)">
+            ${apps.length === 0 ? '<option value="">No apps</option>' : appOpts}
+          </select>
+        </div>
+        <div class="stig-hf-group">
+          <label class="stig-hf-label">STIG</label>
+          <select class="stig-hf-select" onchange="window._stigHistorySlug(this.value)">
+            ${slugOpts}
+          </select>
+        </div>
+        <div class="stig-hf-group">
+          <label class="stig-hf-label">Range</label>
+          <div class="stig-hf-btns">${dayBtns}</div>
+        </div>
+        <div class="stig-hf-group">
+          <label class="stig-hf-label">Status</label>
+          <div class="stig-hf-btns">${statusBtns}</div>
+        </div>
+      </div>
+      ${summaryStrip}
+      ${tableHtml}`;
+  }
+
+  // ── Empty state (no apps with STIG data at all) ─────────
+  const histTabs = `
+    <div class="stig-tabs">
+      <button class="stig-tab" onclick="navigate('#/stig')">Overview</button>
+      <button class="stig-tab active" onclick="navigate('#/stig?view=history')">History &amp; MTTR</button>
+    </div>`;
+
+  if (apps.length === 0) {
+    page.innerHTML = `
+      <div class="page-header"><h1>STIG Compliance</h1></div>
+      ${histTabs}
+      <div class="empty-state" style="margin-top:48px">
+        <p>No STIG scan data found.</p>
+        <p style="color:var(--text-muted);font-size:13px">Run a STIG or nightly scan to start building the history matrix.</p>
+      </div>`;
+    return;
+  }
+
+  // ── Event handlers wired via window (inline onclick) ────
+  window._stigHistoryApp = async (appVal) => {
+    selectedApp  = appVal || null;
+    selectedSlug = null;
+    try { data = await api.getStigHistory(selectedApp, null); } catch (_) {}
+    Object.assign(data, data);  // reassign outer var
+    // re-render by re-calling
+    const {
+      apps: a2 = [], app: ca2, slugs: sl2 = [],
+      scans: sc2 = [], controls: co2 = [], summary: su2 = {}
+    } = data;
+    Object.assign({ apps, app: curApp, slugs, scans, controls, summary },
+      { apps: a2, app: ca2, slugs: sl2, scans: sc2, controls: co2, summary: su2 });
+    // Simplest: just re-navigate
+    navigate('#/stig?view=history&app=' + encodeURIComponent(appVal));
+  };
+  window._stigHistorySlug = async (slugVal) => {
+    navigate('#/stig?view=history&app=' + encodeURIComponent(curApp || '') +
+             (slugVal ? '&slug=' + encodeURIComponent(slugVal) : ''));
+  };
+  window._stigHistoryDays = (d) => {
+    daysFilter = d;
+    buildPage();
+  };
+  window._stigHistoryStatus = (key) => {
+    statusFilter = key;
+    buildPage();
+  };
+  window._stigHistorySort = (key) => {
+    if (sortKey === key) sortDir = -sortDir;
+    else { sortKey = key; sortDir = 1; }
+    buildPage();
+  };
+
+  buildPage();
+}
+
 // ── STIG Inline Viewer ────────────────────────────────────────
 
 async function renderStigViewer(scanId) {
@@ -4054,7 +4331,11 @@ function resolve() {
   } else if (path === '/metrics') {
     renderMetrics();
   } else if (path === '/stig') {
-    renderStig();
+    if (params.get('view') === 'history') {
+      renderStigHistory(params.get('app') || null, params.get('slug') || null);
+    } else {
+      renderStig();
+    }
   } else if (path === '/settings') {
     renderSettings();
   } else {

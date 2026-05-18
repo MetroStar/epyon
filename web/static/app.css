@@ -2316,3 +2316,204 @@ details[open] > .findings-summary .findings-summary-hint {
 .sortable-th[data-sort-dir="desc"]::after {
   content: ' ↓';
 }
+
+/* ── STIG History Matrix ──────────────────────────────────── */
+
+.stig-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.stig-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  padding: 9px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.stig-tab:hover:not(.active) { color: var(--text); }
+.stig-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+.stig-history-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+  margin-bottom: 20px;
+}
+
+.stig-hf-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stig-hf-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.stig-hf-select {
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  min-width: 160px;
+  cursor: pointer;
+}
+.stig-hf-select:focus { border-color: var(--accent); outline: none; }
+
+.stig-hf-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-active {
+  background: var(--accent) !important;
+  color: #fff !important;
+  border-color: var(--accent) !important;
+}
+
+/* ── STIG History summary strip ─────────────────────────── */
+
+.stig-history-summary {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.stig-hs-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 20px;
+  min-width: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.stig-hs-card.open  { border-left: 3px solid var(--sev-critical, #e74c3c); }
+.stig-hs-card.pass  { border-left: 3px solid var(--sev-low, #27ae60); }
+.stig-hs-card.mttr  { border-left: 3px solid var(--accent); }
+
+.stig-hs-num {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.stig-hs-lbl {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+/* ── STIG Matrix table ────────────────────────────────────── */
+
+.stig-matrix-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.stig-matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  min-width: 600px;
+}
+
+.stig-matrix-table thead th {
+  background: var(--bg-card);
+  border-bottom: 2px solid var(--border);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 8px 10px;
+  text-align: left;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  cursor: pointer;
+  user-select: none;
+}
+.stig-matrix-table thead th.sorted { color: var(--accent); }
+
+.stig-matrix-table tbody tr:hover { background: var(--bg-hover, rgba(255,255,255,0.04)); }
+.stig-matrix-table tbody tr + tr { border-top: 1px solid var(--border); }
+
+.stig-matrix-table td {
+  padding: 7px 10px;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.stig-matrix-sev   { white-space: nowrap; width: 72px; }
+.stig-matrix-id    { font-family: monospace; font-size: 11px; white-space: nowrap; }
+.stig-matrix-title { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); font-size: 12px; }
+.stig-matrix-status { font-size: 11px; font-weight: 600; }
+.stig-matrix-mttr  { text-align: center; }
+
+/* ── Matrix status column colours ────────────────────────── */
+.stig-matrix-status.open          { color: #e74c3c; }
+.stig-matrix-status.not-a-finding { color: #27ae60; }
+.stig-matrix-status.na            { color: var(--text-muted); }
+.stig-matrix-status.not-reviewed  { color: var(--text-muted); }
+
+/* ── Matrix cell dots ─────────────────────────────────────── */
+.stig-matrix-date-th {
+  text-align: center;
+  min-width: 44px;
+}
+
+.stig-matrix-cell {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 3px;
+  padding: 3px 6px !important;
+}
+
+.stig-matrix-cell.open          { background: rgba(231,76,60,0.18);  color: #e74c3c; }
+.stig-matrix-cell.not-a-finding { background: rgba(39,174,96,0.15);  color: #27ae60; }
+.stig-matrix-cell.na            { background: rgba(255,193,7,0.12);  color: #f0a500; }
+.stig-matrix-cell.not-reviewed  { background: transparent;           color: var(--text-muted); }
+
+/* ── MTTR badge ───────────────────────────────────────────── */
+.mttr-badge {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 10px;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.mttr-badge.none {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}

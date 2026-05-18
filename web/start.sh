@@ -4,7 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOST="${HOST:-127.0.0.1}"
-PORT="${PORT:-8000}"
+PORT="${PORT:-8056}"
 
 echo "Checking dependencies…"
 python3 -m pip install -q -r "$SCRIPT_DIR/api/requirements.txt"

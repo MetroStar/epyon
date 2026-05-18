@@ -3447,6 +3447,7 @@ async function renderStigHistory(selectedApp, selectedSlug) {
 
   // ── Filter state ──────────────────────────────────────────
   let statusFilter = 'all';   // 'all' | 'open' | 'pass' | 'na'
+  let daysFilter   = 30;      // 7 | 14 | 30 | 90 | 0 (all)
   let sortKey      = 'sev';   // 'sev' | 'id' | 'mttr' | 'status'
   let sortDir      = 1;
 
@@ -3477,6 +3478,15 @@ async function renderStigHistory(selectedApp, selectedSlug) {
     const slugOpts = ['<option value="">All STIGs</option>',
       ...slugs.map(s => `<option value="${esc(s)}" ${s === (selectedSlug||'') ? 'selected' : ''}>${esc(s)}</option>`)
     ].join('');
+
+    const cutoff = daysFilter > 0
+      ? new Date(Date.now() - daysFilter * 86400000).toISOString().slice(0, 10)
+      : null;
+    const visibleScans = cutoff ? scans.filter(s => s.date >= cutoff) : scans;
+
+    const dayBtns = [[7,'7d'],[14,'14d'],[30,'30d'],[90,'90d'],[0,'All']].map(([d,l]) =>
+      `<button class="btn btn-sm${daysFilter===d?' btn-active':''}" onclick="window._stigHistoryDays(${d})">${l}</button>`
+    ).join('');
 
     const statusBtns = [
       ['all','All'],['open','Open'],['pass','Not a Finding'],['na','N/A / NR']
@@ -3518,13 +3528,13 @@ async function renderStigHistory(selectedApp, selectedSlug) {
       return `<th class="sortable-th${active?' sorted':''}" onclick="window._stigHistorySort('${key}')">${label}${arrow}</th>`;
     };
 
-    const dateHeaders = scans.map(s =>
+    const dateHeaders = visibleScans.map(s =>
       `<th class="stig-matrix-date-th" title="${esc(s.scan_id)}">${esc(s.label)}</th>`
     ).join('');
 
     const rows = visible.map(c => {
       const sevCls = c.severity || 'unknown';
-      const cells = scans.map(s => {
+      const cells = visibleScans.map(s => {
         const entry = c.timeline.find(t => t.scan_id === s.scan_id);
         const status = entry ? entry.status : '';
         const cls    = STATUS_CLASSES[status] || 'not-reviewed';
@@ -3555,10 +3565,10 @@ async function renderStigHistory(selectedApp, selectedSlug) {
     }).join('');
 
     const emptyRow = visible.length === 0
-      ? `<tr><td colspan="${4 + scans.length}" style="text-align:center;padding:32px;color:var(--text-muted)">No controls match the current filter.</td></tr>`
+      ? `<tr><td colspan="${4 + visibleScans.length}" style="text-align:center;padding:32px;color:var(--text-muted)">No controls match the current filter.</td></tr>`
       : '';
 
-    const tableHtml = scans.length === 0
+    const tableHtml = visibleScans.length === 0
       ? `<div class="empty-state" style="margin-top:32px">
            <p>No STIG scans found for <strong>${esc(curApp || 'this app')}</strong>.</p>
            <p style="color:var(--text-muted);font-size:13px">Run a STIG or nightly scan to start tracking history.</p>
@@ -3595,6 +3605,10 @@ async function renderStigHistory(selectedApp, selectedSlug) {
           <select class="stig-hf-select" onchange="window._stigHistorySlug(this.value)">
             ${slugOpts}
           </select>
+        </div>
+        <div class="stig-hf-group">
+          <label class="stig-hf-label">Range</label>
+          <div class="stig-hf-btns">${dayBtns}</div>
         </div>
         <div class="stig-hf-group">
           <label class="stig-hf-label">Status</label>
@@ -3642,6 +3656,10 @@ async function renderStigHistory(selectedApp, selectedSlug) {
   window._stigHistorySlug = async (slugVal) => {
     navigate('#/stig?view=history&app=' + encodeURIComponent(curApp || '') +
              (slugVal ? '&slug=' + encodeURIComponent(slugVal) : ''));
+  };
+  window._stigHistoryDays = (d) => {
+    daysFilter = d;
+    buildPage();
   };
   window._stigHistoryStatus = (key) => {
     statusFilter = key;

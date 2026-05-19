@@ -1515,12 +1515,22 @@ function buildModelSecurityCard(scan) {
       ? `<span class="hf-file-checked" title="${esc(mc.file_checked)}">${esc(mc.file_checked.split('/').pop())}</span>`
       : '';
 
-    const mcFindings = (mc.findings || []).map(f => `
-      <div class="hf-finding-row">
+    const mcFindings = (mc.findings || []).map(f => {
+      const fid = _registerFinding({
+        severity:    f.severity || 'medium',
+        id:          f.check || '',
+        tool:        'model card',
+        title:       f.message || f.check || '—',
+        description: f.recommendation || '',
+      });
+      return `
+      <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
         <span class="hf-finding-sev hf-sev-${esc(f.severity || 'medium')}">${esc(f.severity || 'medium')}</span>
         <span class="hf-finding-file">${esc(f.check || '—')}</span>
         <span class="hf-finding-msg">${esc(f.message || '')}${f.recommendation ? `<span class="hf-recommendation"> → ${esc(f.recommendation)}</span>` : ''}</span>
-      </div>`).join('');
+        <span class="hf-finding-chevron">›</span>
+      </div>`;
+    }).join('');
 
     modelCardSection = `
       <div class="ms-layer ms-layer-border">

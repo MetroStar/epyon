@@ -465,6 +465,21 @@ body:has(#sidebar:not(.collapsed)) #sidebar-toggle {
   border-radius: 5px;
   font-size: 12.5px;
 }
+.hf-finding-row--clickable {
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.hf-finding-row--clickable:hover {
+  background: var(--bg-active, rgba(255,255,255,0.07));
+}
+.hf-finding-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  margin-left: auto;
+  opacity: 0.5;
+}
 .hf-finding-sev {
   flex-shrink: 0;
   padding: 1px 7px;

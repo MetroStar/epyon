@@ -597,7 +597,7 @@ if [[ "${SCAN_MODE:-full}" != "quick" ]] && [[ "${SCAN_MODE:-full}" != "nightly"
   run_group "Layer 13 - STIG Compliance Assessment" \
     env \
       OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
-      OPENAI_MODEL="${OPENAI_MODEL:-gpt-4.1-mini}" \
+      OPENAI_MODEL="${OPENAI_MODEL:-gpt-4o-mini}" \
       SCAN_DIR="$SCAN_DIR" \
       TARGET_DIR="$TARGET_DIR" \
     bash -lc '

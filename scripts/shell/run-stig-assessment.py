@@ -1020,7 +1020,7 @@ def main() -> None:
     parser.add_argument("--target",     required=True, help="Path to application source directory")
     parser.add_argument("--scan-dir",   required=True, help="Path to scan output directory")
     parser.add_argument("--app-name",   required=True, help="Application name for report header")
-    parser.add_argument("--model",      default="gpt-4.1-mini", help="OpenAI model (default: gpt-4.1-mini)")
+    parser.add_argument("--model",      default="gpt-4o-mini", help="OpenAI model (default: gpt-4o-mini)")
     parser.add_argument("--batch-size", type=int, default=BATCH_SIZE_DEFAULT,
                         help=f"Controls per API call (default: {BATCH_SIZE_DEFAULT})")
     parser.add_argument("--delay",      type=float, default=1.0,

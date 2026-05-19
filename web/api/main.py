@@ -925,7 +925,10 @@ def get_metrics(response: Response):
                     latest_set.add(fp)
 
         try:
-            latest_dt = datetime.fromisoformat(latest_ts.replace("Z", "+00:00"))
+            _lts = latest_ts.replace("Z", "+00:00")
+            latest_dt = datetime.fromisoformat(_lts)
+            if latest_dt.tzinfo is None:
+                latest_dt = latest_dt.replace(tzinfo=timezone.utc)
         except ValueError:
             continue
 
@@ -933,7 +936,10 @@ def get_metrics(response: Response):
         for fp, first_ts in first_seen.items():
             if fp not in latest_set:
                 try:
-                    first_dt = datetime.fromisoformat(first_ts.replace("Z", "+00:00"))
+                    _fts = first_ts.replace("Z", "+00:00")
+                    first_dt = datetime.fromisoformat(_fts)
+                    if first_dt.tzinfo is None:
+                        first_dt = first_dt.replace(tzinfo=timezone.utc)
                     days = (latest_dt - first_dt).total_seconds() / 86400
                     if days >= 0:
                         all_remediation_days.append(days)
@@ -1118,6 +1124,12 @@ def stig_history(
         ],
         key=lambda s: (s["date"], s["time"]),
     )
+
+    # Deduplicate: keep only the latest STIG scan per calendar date
+    _latest_per_date: dict[str, dict] = {}
+    for s in stig_scans:
+        _latest_per_date[s["date"]] = s
+    stig_scans = list(_latest_per_date.values())
 
     if not stig_scans:
         return {**_base, "apps": stig_apps, "app": selected_app, "slugs": sorted(all_slugs)}

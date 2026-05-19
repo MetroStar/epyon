@@ -1,0 +1,414 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <!-- Title -->
+    <mxCell id="title" value="Epyon — STIG Selection &amp; Execution Workflow (Layer 13)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="327" y="20" width="1000" height="40" as="geometry" />
+    </mxCell>
+
+    <!-- START -->
+    <mxCell id="start" value="START&#xa;run-stig-scan.sh &lt;TARGET_DIR&gt;" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="627" y="80" width="240" height="60" as="geometry" />
+    </mxCell>
+
+    <!-- Check SKIP_STIG -->
+    <mxCell id="check_skip" value="SKIP_STIG=true ?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="647" y="180" width="200" height="80" as="geometry" />
+    </mxCell>
+
+    <!-- Skip exit -->
+    <mxCell id="skip_exit" value="Echo skip message&#xa;exit 0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="950" y="195" width="160" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- Validate TARGET_DIR -->
+    <mxCell id="validate_target" value="TARGET_DIR exists ?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="647" y="300" width="200" height="80" as="geometry" />
+    </mxCell>
+
+    <!-- Error: bad target -->
+    <mxCell id="err_target" value="[ERROR] Target not found&#xa;exit 1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="950" y="315" width="160" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- STIG Source decision -->
+    <mxCell id="stig_source_q" value="STIGS_FILE set ?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="647" y="420" width="200" height="80" as="geometry" />
+    </mxCell>
+
+    <!-- Single file mode -->
+    <mxCell id="single_file" value="Single-file mode&#xa;Source = STIGS_FILE&#xa;(.cklb or .xml)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="950" y="435" width="180" height="60" as="geometry" />
+    </mxCell>
+
+    <!-- Directory mode -->
+    <mxCell id="dir_mode" value="Directory mode&#xa;Source = STIGS_DIR&#xa;(default: configuration/stigs/)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="330" y="435" width="200" height="60" as="geometry" />
+    </mxCell>
+
+    <!-- Find STIG files -->
+    <mxCell id="find_files" value="find STIGS_DIR -maxdepth 1&#xa;-name *.cklb -o -name *.xml" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="330" y="540" width="200" height="55" as="geometry" />
+    </mxCell>
+
+    <!-- No files found error -->
+    <mxCell id="no_files" value="0 STIG files found ?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="340" y="630" width="180" height="70" as="geometry" />
+    </mxCell>
+
+    <mxCell id="err_no_files" value="[ERROR] No .cklb/.xml files&#xa;exit 1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="100" y="645" width="170" height="45" as="geometry" />
+    </mxCell>
+
+    <!-- Pre-flight checks -->
+    <mxCell id="preflight" value="Pre-flight checks&#xa;• python3 available ?&#xa;• openai pkg installed ?&#xa;• OPENAI_API_KEY set ?&#xa;  (warn only — assessment proceeds)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="597" y="560" width="260" height="90" as="geometry" />
+    </mxCell>
+
+    <!-- Delegate label -->
+    <mxCell id="delegate_label" value="Delegate to run-stig-assessment.py" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontStyle=2;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="597" y="670" width="260" height="30" as="geometry" />
+    </mxCell>
+
+    <!-- Collect source files -->
+    <mxCell id="collect_src" value="Collect source files&#xa;from TARGET_DIR&#xa;(py/ts/js/go/yaml/json/tf…&#xa; Dockerfiles, READMEs…&#xa; skip: node_modules, .venv, dist…)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="597" y="720" width="260" height="90" as="geometry" />
+    </mxCell>
+
+    <!-- Build app profile -->
+    <mxCell id="app_profile" value="Build App Profile&#xa;• detect language / framework&#xa;• detect web / session signals&#xa;• detect login routes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="597" y="840" width="260" height="80" as="geometry" />
+    </mxCell>
+
+    <!-- For each STIG file loop label -->
+    <mxCell id="loop_stig_label" value="FOR EACH STIG FILE" style="text;html=1;strokeColor=#6c8ebf;fillColor=#dae8fc;align=center;verticalAlign=middle;fontStyle=1;fontSize=13;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="597" y="950" width="260" height="35" as="geometry" />
+    </mxCell>
+
+    <!-- Parse STIG file -->
+    <mxCell id="parse_stig" value="parse-stig-cklb.py&#xa;Parse STIG file&#xa;• .cklb  → JSON rules array&#xa;• .xml   → XCCDF Group/Rule elements&#xa;→ list of controls with:&#xa;  vuln_id, title, severity,&#xa;  check_content, fix_text, ccis" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="597" y="1005" width="260" height="110" as="geometry" />
+    </mxCell>
+
+    <!-- Applicability check -->
+    <mxCell id="applicability" value="AI Applicability Check&#xa;(OpenAI — 1 API call)&#xa;STIG name + sample control titles&#xa;vs. App Profile&#xa;→ { applicable: bool, reason }" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="597" y="1145" width="260" height="85" as="geometry" />
+    </mxCell>
+
+    <!-- Applicable? -->
+    <mxCell id="applicable_q" value="applicable = true ?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="647" y="1265" width="160" height="70" as="geometry" />
+    </mxCell>
+
+    <!-- Not applicable path -->
+    <mxCell id="not_applicable" value="Mark ALL controls&#xa;'Not Applicable'&#xa;Write stig-results-{slug}.json&#xa;Write findings-{app}-{slug}.md&#xa;Skip to next STIG" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="950" y="1270" width="190" height="80" as="geometry" />
+    </mxCell>
+
+    <!-- Build repo manifest -->
+    <mxCell id="build_manifest" value="Build Repo Manifest&#xa;(full file tree for AI context)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="597" y="1370" width="260" height="60" as="geometry" />
+    </mxCell>
+
+    <!-- Batch controls -->
+    <mxCell id="batch_loop_label" value="FOR EACH BATCH (BATCH_SIZE controls, default 20)" style="text;html=1;strokeColor=#82b366;fillColor=#d5e8d4;align=center;verticalAlign=middle;fontStyle=1;fontSize=12;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="557" y="1460" width="340" height="35" as="geometry" />
+    </mxCell>
+
+    <!-- Extract keywords -->
+    <mxCell id="keywords" value="Extract keywords from&#xa;check_content of batch controls&#xa;(stopword-filtered, top 30)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="597" y="1515" width="260" height="65" as="geometry" />
+    </mxCell>
+
+    <!-- Rank files -->
+    <mxCell id="rank_files" value="Rank source files by keyword hits&#xa;(most relevant files first)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="597" y="1600" width="260" height="55" as="geometry" />
+    </mxCell>
+
+    <!-- Build code context -->
+    <mxCell id="build_context" value="Build code context&#xa;Fill up to 250 KB budget&#xa;with ranked files&#xa;(higher-scoring files fill first)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="597" y="1675" width="260" height="75" as="geometry" />
+    </mxCell>
+
+    <!-- Call OpenAI -->
+    <mxCell id="call_openai" value="Call OpenAI API&#xa;System: STIG analyst prompt&#xa;User: manifest + controls JSON + code context&#xa;→ JSON array of assessments:&#xa;  { vuln_id, status, evidence, confidence }" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="597" y="1770" width="260" height="95" as="geometry" />
+    </mxCell>
+
+    <!-- Delay between batches -->
+    <mxCell id="batch_delay" value="Wait BATCH_DELAY seconds&#xa;(default 1s, rate-limit buffer)&#xa;→ next batch?" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="597" y="1885" width="260" height="60" as="geometry" />
+    </mxCell>
+
+    <!-- More batches? -->
+    <mxCell id="more_batches_q" value="More batches ?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="647" y="1975" width="160" height="60" as="geometry" />
+    </mxCell>
+
+    <!-- Write output -->
+    <mxCell id="write_output" value="Write output files&#xa;• stig-controls-{slug}.json&#xa;• stig-results-{slug}.json&#xa;  (assessments + token_usage)&#xa;• findings-{app}-{slug}.md&#xa;• findings-{app}.md  (primary — first STIG)&#xa;• findings-{app}-{slug}.cklb  (if .cklb source)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="597" y="2065" width="260" height="115" as="geometry" />
+    </mxCell>
+
+    <!-- More STIGs? -->
+    <mxCell id="more_stigs_q" value="More STIG files ?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="647" y="2210" width="160" height="60" as="geometry" />
+    </mxCell>
+
+    <!-- END -->
+    <mxCell id="end_node" value="END&#xa;All STIGs assessed" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="647" y="2300" width="160" height="55" as="geometry" />
+    </mxCell>
+
+    <!-- ===== LEGEND ===== -->
+    <mxCell id="legend_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="1200" y="80" width="220" height="270" as="geometry" />
+    </mxCell>
+    <mxCell id="legend_title" value="LEGEND" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontStyle=1;fontSize=13;" vertex="1" parent="1">
+      <mxGeometry x="1200" y="88" width="220" height="25" as="geometry" />
+    </mxCell>
+    <mxCell id="leg1" value="" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="1215" y="120" width="30" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="leg1t" value="Start / End" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="1255" y="120" width="155" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="leg2" value="" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="1215" y="152" width="30" height="25" as="geometry" />
+    </mxCell>
+    <mxCell id="leg2t" value="Decision / Check" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="1255" y="155" width="155" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="leg3" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="1215" y="190" width="30" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="leg3t" value="Config / Input selection" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="1255" y="190" width="155" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="leg4" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+      <mxGeometry x="1215" y="222" width="30" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="leg4t" value="Processing step" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="1255" y="222" width="155" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="leg5" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+      <mxGeometry x="1215" y="254" width="30" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="leg5t" value="OpenAI API call" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="1255" y="254" width="155" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="leg6" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="1215" y="286" width="30" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="leg6t" value="Error / Skip path" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="1255" y="286" width="155" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="leg7" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="1215" y="318" width="30" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="leg7t" value="Output / Success" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="1255" y="318" width="155" height="20" as="geometry" />
+    </mxCell>
+
+    <!-- ===== EDGES ===== -->
+
+    <!-- start → check_skip -->
+    <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="start" target="check_skip" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- check_skip → skip_exit (yes) -->
+    <mxCell id="e2" value="Yes" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="check_skip" target="skip_exit" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- check_skip → validate_target (no) -->
+    <mxCell id="e3" value="No" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="check_skip" target="validate_target" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- validate_target → err_target (no) -->
+    <mxCell id="e4" value="No" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="validate_target" target="err_target" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- validate_target → stig_source_q (yes) -->
+    <mxCell id="e5" value="Yes" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="validate_target" target="stig_source_q" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- stig_source_q → single_file (yes) -->
+    <mxCell id="e6" value="Yes" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="stig_source_q" target="single_file" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- stig_source_q → dir_mode (no) -->
+    <mxCell id="e7" value="No" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="stig_source_q" target="dir_mode" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- dir_mode → find_files -->
+    <mxCell id="e8" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="dir_mode" target="find_files" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- find_files → no_files -->
+    <mxCell id="e9" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="find_files" target="no_files" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- no_files → err_no_files (yes — 0 files) -->
+    <mxCell id="e10" value="Yes (0 files)" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="no_files" target="err_no_files" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- no_files → preflight (no — files found) -->
+    <mxCell id="e11" value="No (files found)" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="no_files" target="preflight" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="430" y="710" />
+          <mxPoint x="430" y="605" />
+          <mxPoint x="727" y="605" />
+        </Array>
+      </mxGeometry>
+    </mxCell>
+
+    <!-- single_file → preflight -->
+    <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="single_file" target="preflight" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="1040" y="510" />
+          <mxPoint x="1040" y="605" />
+          <mxPoint x="857" y="605" />
+        </Array>
+      </mxGeometry>
+    </mxCell>
+
+    <!-- preflight → collect_src -->
+    <mxCell id="e13" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="preflight" target="collect_src" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- collect_src → app_profile -->
+    <mxCell id="e14" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="collect_src" target="app_profile" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- app_profile → loop_stig_label -->
+    <mxCell id="e15" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="app_profile" target="loop_stig_label" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- loop_stig_label → parse_stig -->
+    <mxCell id="e16" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="loop_stig_label" target="parse_stig" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- parse_stig → applicability -->
+    <mxCell id="e17" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="parse_stig" target="applicability" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- applicability → applicable_q -->
+    <mxCell id="e18" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="applicability" target="applicable_q" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- applicable_q → not_applicable (no) -->
+    <mxCell id="e19" value="No" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="applicable_q" target="not_applicable" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- applicable_q → build_manifest (yes) -->
+    <mxCell id="e20" value="Yes" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="applicable_q" target="build_manifest" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- build_manifest → batch_loop_label -->
+    <mxCell id="e21" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="build_manifest" target="batch_loop_label" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- batch_loop_label → keywords -->
+    <mxCell id="e22" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="batch_loop_label" target="keywords" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- keywords → rank_files -->
+    <mxCell id="e23" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="keywords" target="rank_files" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- rank_files → build_context -->
+    <mxCell id="e24" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="rank_files" target="build_context" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- build_context → call_openai -->
+    <mxCell id="e25" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="build_context" target="call_openai" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- call_openai → batch_delay -->
+    <mxCell id="e26" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="call_openai" target="batch_delay" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- batch_delay → more_batches_q -->
+    <mxCell id="e27" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="batch_delay" target="more_batches_q" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- more_batches_q → batch_loop_label (yes — loop back) -->
+    <mxCell id="e28" value="Yes" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="more_batches_q" target="batch_loop_label" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="480" y="2005" />
+          <mxPoint x="480" y="1477" />
+          <mxPoint x="557" y="1477" />
+        </Array>
+      </mxGeometry>
+    </mxCell>
+
+    <!-- more_batches_q → write_output (no) -->
+    <mxCell id="e29" value="No" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="more_batches_q" target="write_output" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- not_applicable → write_output (skips batch loop) -->
+    <mxCell id="e30" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="not_applicable" target="write_output" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="1040" y="1360" />
+          <mxPoint x="1040" y="2122" />
+          <mxPoint x="857" y="2122" />
+        </Array>
+      </mxGeometry>
+    </mxCell>
+
+    <!-- write_output → more_stigs_q -->
+    <mxCell id="e31" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="write_output" target="more_stigs_q" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- more_stigs_q → loop_stig_label (yes — loop back) -->
+    <mxCell id="e32" value="Yes" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="more_stigs_q" target="loop_stig_label" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="460" y="2240" />
+          <mxPoint x="460" y="967" />
+          <mxPoint x="597" y="967" />
+        </Array>
+      </mxGeometry>
+    </mxCell>
+
+    <!-- more_stigs_q → end_node (no) -->
+    <mxCell id="e33" value="No" style="edgeStyle=orthogonalEdgeStyle;" edge="1" source="more_stigs_q" target="end_node" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+  </root>
+</mxGraphModel>

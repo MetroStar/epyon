@@ -1515,12 +1515,22 @@ function buildModelSecurityCard(scan) {
       ? `<span class="hf-file-checked" title="${esc(mc.file_checked)}">${esc(mc.file_checked.split('/').pop())}</span>`
       : '';
 
-    const mcFindings = (mc.findings || []).map(f => `
-      <div class="hf-finding-row">
+    const mcFindings = (mc.findings || []).map(f => {
+      const fid = _registerFinding({
+        severity:    f.severity || 'medium',
+        id:          f.check || '',
+        tool:        'model card',
+        title:       f.message || f.check || '—',
+        description: f.recommendation || '',
+      });
+      return `
+      <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
         <span class="hf-finding-sev hf-sev-${esc(f.severity || 'medium')}">${esc(f.severity || 'medium')}</span>
         <span class="hf-finding-file">${esc(f.check || '—')}</span>
         <span class="hf-finding-msg">${esc(f.message || '')}${f.recommendation ? `<span class="hf-recommendation"> → ${esc(f.recommendation)}</span>` : ''}</span>
-      </div>`).join('');
+        <span class="hf-finding-chevron">›</span>
+      </div>`;
+    }).join('');
 
     modelCardSection = `
       <div class="ms-layer ms-layer-border">
@@ -3548,15 +3558,10 @@ async function renderStigHistory(selectedApp, selectedSlug) {
         : `<span class="mttr-badge none">—</span>`;
 
       const latestCls = STATUS_CLASSES[c.latest_status] || 'not-reviewed';
-      const latestScanId = c.timeline.length
-        ? c.timeline[c.timeline.length - 1].scan_id
-        : null;
-      const rowClick = latestScanId
-        ? `onclick="navigate('#/stig-viewer/${encodeURIComponent(latestScanId)}')" style="cursor:pointer"`
-        : '';
+      const cid = _registerStigDetail(c);
 
       return `
-        <tr ${rowClick} title="${latestScanId ? 'Open in STIG Viewer' : ''}">
+        <tr onclick="openStigDetail(${cid})" style="cursor:pointer" title="Click to view details">
           <td class="stig-matrix-sev"><span class="sev-badge ${esc(sevCls)}">${esc(sevCls)}</span></td>
           <td class="stig-matrix-id">${esc(c.vuln_id)}</td>
           <td class="stig-matrix-title" title="${esc(c.title)}">${esc(c.title || '—')}</td>
@@ -4468,6 +4473,112 @@ window.openDependencyDetail = function(did) {
   document.addEventListener('keydown', _onKey);
   drawer._onKey = _onKey;
 };
+
+// ── STIG control detail drawer ────────────────────────────────
+let _stigDetailNextId = 0;
+const _stigDetailRegistry = new Map();
+
+function _registerStigDetail(c) {
+  const id = _stigDetailNextId++;
+  _stigDetailRegistry.set(id, c);
+  return id;
+}
+
+function openStigDetail(id) {
+  const c = _stigDetailRegistry.get(id);
+  if (!c) return;
+  closeFindingDetail();
+
+  const _SC = { 'Open': 'open', 'Not a Finding': 'not-a-finding', 'Not Applicable': 'na', 'Not Reviewed': 'not-reviewed' };
+  const _SA = { 'Open': 'Open', 'Not a Finding': 'Pass', 'Not Applicable': 'N/A', 'Not Reviewed': 'Not Reviewed' };
+
+  const sev     = c.severity || 'unknown';
+  const sevCls  = sev.toLowerCase();
+  const latCls  = _SC[c.latest_status] || 'not-reviewed';
+  const latLbl  = _SA[c.latest_status] || c.latest_status || '—';
+
+  const tl = [...(c.timeline || [])].sort((a, b) => a.date < b.date ? -1 : 1);
+  const timelineRows = tl.map(t => {
+    const cls = _SC[t.status] || 'not-reviewed';
+    const lbl = _SA[t.status] || t.status;
+    return `<tr style="border-bottom:1px solid var(--border-muted)">
+      <td style="padding:5px 10px;font-size:12px;color:var(--text-muted);white-space:nowrap">${esc(t.date.slice(0, 10))}</td>
+      <td style="padding:5px 10px"><span class="stig-status-chip ${cls}">${esc(lbl)}</span></td>
+    </tr>`;
+  }).join('');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'finding-drawer-overlay';
+  overlay.id        = 'finding-drawer-overlay';
+  overlay.addEventListener('click', closeFindingDetail);
+
+  const drawer = document.createElement('div');
+  drawer.className = 'finding-drawer';
+  drawer.id        = 'finding-drawer';
+  drawer.setAttribute('role', 'dialog');
+  drawer.setAttribute('aria-modal', 'true');
+  drawer.setAttribute('aria-label', 'STIG control details');
+  drawer.addEventListener('click', e => e.stopPropagation());
+
+  drawer.innerHTML = `
+    <div class="finding-drawer-header">
+      <div class="finding-drawer-title">
+        <h2>${esc(c.title || c.vuln_id || '—')}</h2>
+        <div class="finding-drawer-badges">
+          <span class="sev-badge ${esc(sevCls)}">${ucFirst(sev)}</span>
+          <span class="tool-tag">STIG</span>
+          <code>${esc(c.vuln_id)}</code>
+        </div>
+      </div>
+      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+    </div>
+    <div class="finding-drawer-body">
+      <div class="finding-detail-grid">
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Current Status</div>
+          <div class="finding-detail-value"><span class="stig-status-chip ${latCls}">${esc(latLbl)}</span></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Benchmark</div>
+          <div class="finding-detail-value">${c.stig_name ? `<code style="font-size:11px">${esc(c.stig_name)}</code>` : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">First Open</div>
+          <div class="finding-detail-value">${c.first_open ? esc(c.first_open.slice(0, 10)) : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">First Closed</div>
+          <div class="finding-detail-value">${c.first_closed ? esc(c.first_closed.slice(0, 10)) : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">MTTR</div>
+          <div class="finding-detail-value">${c.mttr_days != null ? `<strong>${c.mttr_days} days</strong>` : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+      </div>
+      ${tl.length ? `
+      <div class="finding-detail-section">
+        <div class="finding-detail-label">Scan History</div>
+        <div class="finding-detail-desc" style="padding:0;background:none;border:1px solid var(--border-muted);border-radius:var(--radius);overflow:hidden">
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr style="background:var(--bg-hover);border-bottom:1px solid var(--border)">
+                <th style="padding:5px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left">Date</th>
+                <th style="padding:5px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left">Status</th>
+              </tr>
+            </thead>
+            <tbody>${timelineRows}</tbody>
+          </table>
+        </div>
+      </div>` : ''}
+    </div>`;
+
+  document.body.appendChild(overlay);
+  document.body.appendChild(drawer);
+
+  const _onKey = e => { if (e.key === 'Escape') { closeFindingDetail(); document.removeEventListener('keydown', _onKey); } };
+  document.addEventListener('keydown', _onKey);
+  drawer._onKey = _onKey;
+}
 
 // ── Finding detail drawer ─────────────────────────────────────
 function _registerFinding(f) {

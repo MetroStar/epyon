@@ -2517,6 +2517,19 @@ details[open] > .findings-summary .findings-summary-hint {
 .stig-matrix-cell.na            { background: rgba(255,193,7,0.12);  color: #f0a500; }
 .stig-matrix-cell.not-reviewed  { background: transparent;           color: var(--text-muted); }
 
+/* Status chip used in STIG detail drawer */
+.stig-status-chip {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 10px;
+}
+.stig-status-chip.open          { background: rgba(231,76,60,0.18);  color: #e74c3c; }
+.stig-status-chip.not-a-finding { background: rgba(39,174,96,0.15);  color: #27ae60; }
+.stig-status-chip.na            { background: rgba(255,193,7,0.12);  color: #f0a500; }
+.stig-status-chip.not-reviewed  { background: var(--bg-hover);       color: var(--text-muted); }
+
 /* ── MTTR badge ───────────────────────────────────────────── */
 .mttr-badge {
   display: inline-block;

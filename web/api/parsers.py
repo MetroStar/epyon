@@ -914,8 +914,8 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
                 "total":        s_total,
                 "has_md":       md_file.exists(),
                 "has_cklb":     cklb_file.exists(),
-                "md_url":       f"/api/scans/{scan_id}/stig-findings/{slug}.md"   if md_file.exists()   else None,
-                "cklb_url":     f"/api/scans/{scan_id}/stig-findings/{slug}.cklb" if cklb_file.exists() else None,
+                "md_url":       f"/api/scans/{scan_id}/stig-findings/{app_slug}-{slug}.md"   if md_file.exists()   else None,
+                "cklb_url":     f"/api/scans/{scan_id}/stig-findings/{app_slug}-{slug}.cklb" if cklb_file.exists() else None,
                 "token_usage":  token_usage,
             })
         if any_valid:

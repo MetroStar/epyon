@@ -11,7 +11,7 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-epyon-scan-ci.sh"
 }
 
 @test "run-epyon-scan-ci.sh has proper shebang" {
-    head -n 1 "$SCRIPT_PATH" | grep -q "^#!/bin/bash"
+    head -n 1 "$SCRIPT_PATH" | grep -qE "^#!/(bin/bash|usr/bin/env bash)"
 }
 
 @test "run-epyon-scan-ci.sh requires /tmp/epyon-env" {

@@ -3963,8 +3963,8 @@ async function renderStigViewer(scanId) {
         <h1>STIG Findings</h1>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           ${data.stigs.map(s => {
-            const mdUrl   = `/api/scans/${encodeURIComponent(scanId)}/stig-findings/${s.slug}.md`;
-            const cklbUrl = `/api/scans/${encodeURIComponent(scanId)}/stig-findings/${s.slug}.cklb`;
+            const mdUrl   = s.md_url   || `/api/scans/${encodeURIComponent(scanId)}/stig-findings/${s.slug}.md`;
+            const cklbUrl = s.cklb_url || `/api/scans/${encodeURIComponent(scanId)}/stig-findings/${s.slug}.cklb`;
             return `
               <a class="btn btn-sm" href="${esc(mdUrl)}"   download title="${esc(s.stig_name)}">↓ ${esc(s.slug.slice(0,20))}.md</a>
               <a class="btn btn-sm" href="${esc(cklbUrl)}" download title="${esc(s.stig_name)}">↓ ${esc(s.slug.slice(0,20))}.cklb</a>`;

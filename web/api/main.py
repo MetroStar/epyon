@@ -579,12 +579,17 @@ def stig_data(scan_id: str, response: Response):
                 "confidence":    assessed.get("confidence", 0),
             })
 
+        app_slug  = re.sub(r"[^a-z0-9]+", "-", re.sub(r"_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$", "", scan_id).lower()).strip("-")
+        md_file   = matched / f"findings-{app_slug}-{slug}.md"
+        cklb_file = matched / f"findings-{app_slug}-{slug}.cklb"
         stigs.append({
             "slug":        slug,
             "stig_name":   controls_data.get("stig_name", slug),
             "release_info": controls_data.get("release_info", ""),
             "total":       len(merged),
             "controls":    merged,
+            "md_url":      f"/api/scans/{scan_id}/stig-findings/{app_slug}-{slug}.md"   if md_file.exists()   else None,
+            "cklb_url":    f"/api/scans/{scan_id}/stig-findings/{app_slug}-{slug}.cklb" if cklb_file.exists() else None,
         })
 
     return {"scan_id": scan_id, "stigs": stigs}

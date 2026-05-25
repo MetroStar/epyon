@@ -12,8 +12,8 @@ NC='\033[0m'
 
 # Configuration from environment variables
 FAIL_ON_CRITICAL="${FAIL_ON_CRITICAL:-true}"
-FAIL_ON_HIGH="${FAIL_ON_HIGH:-false}"
-HIGH_THRESHOLD="${HIGH_THRESHOLD:-204}"
+FAIL_ON_HIGH="${FAIL_ON_HIGH:-true}"
+HIGH_THRESHOLD="${HIGH_THRESHOLD:-4}"
 WARNING_ONLY="${WARNING_ONLY:-false}"
 SCAN_DIR="${SCAN_DIR:-}"
 TARGET_DIR="${TARGET_DIR:-}"
@@ -492,16 +492,8 @@ if [[ "${HASH_TAMPERED:-0}" -gt 0 && "$WARNING_ONLY" != "true" ]]; then
     FAILURE_REASONS+=("")
 fi
 
-# Check if warning-only mode is enabled
-if [[ "$WARNING_ONLY" == "true" ]]; then
-    echo -e "${YELLOW}⚠️  Warning Only Mode: Build will not fail regardless of findings${NC}"
-    if [[ $TOTAL_CRITICAL -gt 0 || $TOTAL_HIGH -gt 0 ]]; then
-        FAILURE_REASONS+=("## ⚠️ Warning Only Mode - Vulnerabilities Detected")
-        FAILURE_REASONS+=("")
-        FAILURE_REASONS+=("**Note:** Build configured to report but not fail on security findings.")
-        FAILURE_REASONS+=("")
-    fi
-elif [[ "$FAIL_ON_CRITICAL" == "true" && $TOTAL_CRITICAL -gt 0 ]]; then
+# Critical findings always fail the build — WARNING_ONLY does not suppress them.
+if [[ "$FAIL_ON_CRITICAL" == "true" && $TOTAL_CRITICAL -gt 0 ]]; then
     echo -e "${RED}❌ Build Gate Failed: $TOTAL_CRITICAL critical severity findings detected${NC}"
     echo -e "${RED}   Policy: FAIL_ON_CRITICAL=true${NC}"
     ISSUES_FOUND=true
@@ -555,7 +547,18 @@ elif [[ "$FAIL_ON_CRITICAL" == "true" && $TOTAL_CRITICAL -gt 0 ]]; then
     fi
 fi
 
-if [[ "$FAIL_ON_HIGH" == "true" && $TOTAL_HIGH -ge $HIGH_THRESHOLD ]]; then
+# WARNING_ONLY suppresses high/medium gate failures but NOT critical findings above.
+if [[ "$WARNING_ONLY" == "true" && $EXIT_CODE -eq 0 ]]; then
+    echo -e "${YELLOW}⚠️  Warning Only Mode: non-critical findings will not fail the build${NC}"
+    if [[ $TOTAL_HIGH -gt 0 || $TOTAL_MEDIUM -gt 0 ]]; then
+        FAILURE_REASONS+=("## ⚠️ Warning Only Mode - Vulnerabilities Detected")
+        FAILURE_REASONS+=("")
+        FAILURE_REASONS+=("**Note:** Build configured to report but not fail on non-critical security findings.")
+        FAILURE_REASONS+=("")
+    fi
+fi
+
+if [[ "$FAIL_ON_HIGH" == "true" && "$WARNING_ONLY" != "true" && $TOTAL_HIGH -ge $HIGH_THRESHOLD ]]; then
     echo -e "${RED}❌ Build Gate Failed: $TOTAL_HIGH high severity findings detected (threshold: $HIGH_THRESHOLD)${NC}"
     echo -e "${RED}   Policy: FAIL_ON_HIGH=true, HIGH_THRESHOLD=$HIGH_THRESHOLD${NC}"
     ISSUES_FOUND=true

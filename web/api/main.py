@@ -1362,6 +1362,49 @@ async def technical_summary(scan_id: str, response: Response):
     return {"scan_id": scan_id, "summary": summary}
 
 
+@app.post("/api/scans/{scan_id}/scorecard")
+async def calculate_scorecard(scan_id: str, response: Response):
+    """Calculate security scorecard for an existing scan"""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
+    matched = next((d for d in scan_dirs if d.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+
+    scan_dir = EPYON_ROOT / "scans" / scan_id
+    trl_script = SCRIPTS_DIR / "generate-trl-score.py"
+
+    if not trl_script.exists():
+        raise HTTPException(500, "TRL scoring script not found")
+
+    # Run TRL calculation
+    import subprocess
+    result = subprocess.run(
+        ["python3", str(trl_script), "--scan-dir", str(scan_dir)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+    if result.returncode != 0:
+        raise HTTPException(500, f"Score calculation failed: {result.stderr}")
+
+    # Read and return the result
+    trl_file = scan_dir / "trl-assessment.json"
+    if not trl_file.exists():
+        raise HTTPException(500, "Score assessment file not generated")
+
+    try:
+        trl_data = json.loads(trl_file.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(500, f"Failed to parse score results: {exc}")
+
+    return {"scan_id": scan_id, **trl_data}
+
+
 @app.post("/api/executive-summary")
 async def global_exec_summary(response: Response):
     _sec_headers(response)

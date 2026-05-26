@@ -4926,6 +4926,103 @@ cat >> "$OUTPUT_HTML" << EOF
         </div>
         <div id="donut-tooltip"></div>
 
+        <!-- TRL Assessment Panel -->
+EOF
+
+# Read TRL assessment if it exists
+if [[ -f "$SCAN_DIR/trl-assessment.json" ]]; then
+    TRL_LEVEL=$(jq -r '.trl_level // 0' "$SCAN_DIR/trl-assessment.json")
+    TRL_SCORE=$(jq -r '.weighted_score // 0' "$SCAN_DIR/trl-assessment.json")
+    TRL_BLOCKERS=$(jq -r '.blockers | length' "$SCAN_DIR/trl-assessment.json")
+    TRL_SEC_SCORE=$(jq -r '.dimension_scores.security.score // 0' "$SCAN_DIR/trl-assessment.json")
+    TRL_SC_SCORE=$(jq -r '.dimension_scores.supply_chain.score // 0' "$SCAN_DIR/trl-assessment.json")
+    TRL_CQ_SCORE=$(jq -r '.dimension_scores.code_quality.score // 0' "$SCAN_DIR/trl-assessment.json")
+    TRL_COMP_SCORE=$(jq -r '.dimension_scores.compliance.score // 0' "$SCAN_DIR/trl-assessment.json")
+    TRL_OPS_SCORE=$(jq -r '.dimension_scores.operational.score // 0' "$SCAN_DIR/trl-assessment.json")
+    
+    # Map TRL level to color and description
+    if [ "$TRL_LEVEL" -ge 7 ]; then
+        TRL_COLOR="#10b981"  # green
+        TRL_DESC="Production Ready"
+        TRL_EMOJI="🟢"
+    elif [ "$TRL_LEVEL" -ge 5 ]; then
+        TRL_COLOR="#3b82f6"  # blue
+        TRL_DESC="System Prototype"
+        TRL_EMOJI="🔵"
+    elif [ "$TRL_LEVEL" -ge 3 ]; then
+        TRL_COLOR="#f59e0b"  # amber
+        TRL_DESC="Proof of Concept"
+        TRL_EMOJI="🟡"
+    else
+        TRL_COLOR="#ef4444"  # red
+        TRL_DESC="Basic Principles"
+        TRL_EMOJI="🔴"
+    fi
+    
+    cat >> "$OUTPUT_HTML" << EOF
+        <div class="ioc-summary" style="margin-top: 20px;">
+            <h3>🎯 Technical Readiness Level (TRL)</h3>
+            <div class="ioc-body" style="display: flex; gap: 30px; align-items: center;">
+                <div style="text-align: center; min-width: 200px;">
+                    <div style="font-size: 72px; font-weight: 700; color: ${TRL_COLOR}; line-height: 1;">
+                        ${TRL_EMOJI} ${TRL_LEVEL}
+                    </div>
+                    <div style="font-size: 18px; color: #9ca3af; margin-top: 10px;">
+                        <strong>${TRL_DESC}</strong><br/>
+                        <span style="font-size: 14px;">Weighted Score: ${TRL_SCORE}/100</span>
+                    </div>
+                </div>
+                <div style="flex: 1;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                        <div style="background: rgba(59,130,246,0.1); padding: 12px; border-radius: 8px; border-left: 3px solid #3b82f6;">
+                            <div style="font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: 600;">Security</div>
+                            <div style="font-size: 24px; font-weight: 700; color: #3b82f6;">${TRL_SEC_SCORE}</div>
+                        </div>
+                        <div style="background: rgba(16,185,129,0.1); padding: 12px; border-radius: 8px; border-left: 3px solid #10b981;">
+                            <div style="font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: 600;">Supply Chain</div>
+                            <div style="font-size: 24px; font-weight: 700; color: #10b981;">${TRL_SC_SCORE}</div>
+                        </div>
+                        <div style="background: rgba(168,85,247,0.1); padding: 12px; border-radius: 8px; border-left: 3px solid #a855f7;">
+                            <div style="font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: 600;">Code Quality</div>
+                            <div style="font-size: 24px; font-weight: 700; color: #a855f7;">${TRL_CQ_SCORE}</div>
+                        </div>
+                        <div style="background: rgba(251,191,36,0.1); padding: 12px; border-radius: 8px; border-left: 3px solid #fbbf24;">
+                            <div style="font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: 600;">Compliance</div>
+                            <div style="font-size: 24px; font-weight: 700; color: #fbbf24;">${TRL_COMP_SCORE}</div>
+                        </div>
+                    </div>
+                    <div style="background: rgba(239,68,68,0.1); padding: 12px; border-radius: 8px; border-left: 3px solid #ef4444;">
+                        <div style="font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: 600;">Operational Readiness</div>
+                        <div style="font-size: 24px; font-weight: 700; color: #ef4444;">${TRL_OPS_SCORE}</div>
+                    </div>
+EOF
+
+    # Add blockers if any
+    if [ "$TRL_BLOCKERS" -gt 0 ]; then
+        cat >> "$OUTPUT_HTML" << 'EOF'
+                    <div style="margin-top: 15px; padding: 12px; background: rgba(239,68,68,0.15); border-radius: 8px; border: 1px solid rgba(239,68,68,0.3);">
+                        <div style="font-size: 12px; font-weight: 600; color: #ef4444; margin-bottom: 8px;">⚠️ TRL ADVANCEMENT BLOCKERS</div>
+                        <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #d1d5db; line-height: 1.6;">
+EOF
+        jq -r '.blockers[] | "                            <li>" + . + "</li>"' "$SCAN_DIR/trl-assessment.json" >> "$OUTPUT_HTML"
+        cat >> "$OUTPUT_HTML" << 'EOF'
+                        </ul>
+                    </div>
+EOF
+    fi
+
+    cat >> "$OUTPUT_HTML" << EOF
+                </div>
+            </div>
+            <p style="font-size: 11px; color: #6b7280; margin-top: 12px; text-align: center;">
+                TRL scale: 1-3 (Proof of Concept) • 4-6 (Prototype) • 7-9 (Production Ready)
+            </p>
+        </div>
+EOF
+fi
+
+cat >> "$OUTPUT_HTML" << EOF
+
         <!-- Show suppressed findings info if any -->
         ${SUPPRESSED_HTML}
 

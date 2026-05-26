@@ -529,6 +529,7 @@ const api = {
   getGlobalExecSummary()      { return this._post('/api/executive-summary', {}); },
   getGlobalTechnicalSummary() { return this._post('/api/technical-summary', {}); },
   getFindingFix(finding)      { return this._post('/api/findings/fix', finding); },
+  calculateScorecard(id)      { return this._post(`/api/scans/${encodeURIComponent(id)}/scorecard`, {}); },
   getStigData(id){ return this._get(`/api/scans/${encodeURIComponent(id)}/stig-data`); },
   getStigHistory(app, slug) {
     const p = new URLSearchParams();
@@ -1196,6 +1197,8 @@ async function renderScanDetail(scanId) {
           </div>
         </div>` : ''}
 
+      <div id="scorecard-container"></div>
+
       ${dedupeTools(scan.tools_analyzed).length ? `
         <div class="section">
           <div class="section-title">Tools Analyzed</div>
@@ -1205,6 +1208,9 @@ async function renderScanDetail(scanId) {
           </div>
         </div>` : ''}`;
     if (window._sbomPendingUid) { sbomRender(window._sbomPendingUid); window._sbomPendingUid = null; }
+    
+    // Automatically generate scorecard
+    calculateScorecardForScan(scanId);
   } catch (e) {
     page.innerHTML = errBanner(e.message);
   }
@@ -4102,6 +4108,188 @@ async function deleteScan(scanId, appName) {
       }
     },
   });
+}
+
+async function calculateScorecardForScan(scanId) {
+  // Find scorecard container
+  let container = document.getElementById('scorecard-container');
+  if (!container) return;
+
+  // Show loading state
+  container.innerHTML = `
+    <div class="section findings-section-wrapper">
+      <details class="findings-collapsible" style="border-left-color:var(--accent)">
+        <summary class="findings-summary">
+          <span class="findings-summary-left">
+            <span class="findings-chevron" aria-hidden="true"></span>
+            <span class="findings-summary-title">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                   style="vertical-align:-2px;margin-right:5px">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <path d="M3 9h18"/>
+                <path d="M9 21V9"/>
+              </svg>
+              Security Score Card
+            </span>
+          </span>
+          <span style="color:var(--text-muted);font-size:12px">Loading...</span>
+        </summary>
+      </details>
+    </div>`;
+
+  try {
+    const scorecardData = await api.calculateScorecard(scanId);
+    container.innerHTML = buildScorecardCard(scorecardData);
+  } catch (e) {
+    container.innerHTML = `
+      <div class="section findings-section-wrapper">
+        <details class="findings-collapsible" style="border-left-color:var(--critical)">
+          <summary class="findings-summary">
+            <span class="findings-summary-left">
+              <span class="findings-chevron" aria-hidden="true"></span>
+              <span class="findings-summary-title">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     style="vertical-align:-2px;margin-right:5px">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  <path d="M3 9h18"/>
+                  <path d="M9 21V9"/>
+                </svg>
+                Security Score Card
+              </span>
+            </span>
+            <span style="color:var(--critical);font-size:12px">Error</span>
+          </summary>
+          <div class="findings-body" style="padding:12px 18px 16px">
+            <p style="color:var(--critical);font-size:13px;margin:0"><strong>Error:</strong> ${esc(e.message)}</p>
+          </div>
+        </details>
+      </div>`;
+  }
+}
+
+function buildScorecardCard(scorecardData) {
+  if (!scorecardData || !scorecardData.trl_level) return '';
+
+  const level = scorecardData.trl_level;
+  const score = (scorecardData.weighted_score || 0).toFixed(1);
+  const dims = scorecardData.dimension_scores || {};
+  const weights = scorecardData.weights || {};
+  const blockers = scorecardData.blockers || [];
+
+  // Map level to color and grade
+  const gradeInfo = {
+    9: { emoji: '🟢', label: 'A+', color: 'var(--pass, #10b981)' },
+    8: { emoji: '🟢', label: 'A', color: 'var(--pass, #10b981)' },
+    7: { emoji: '🟢', label: 'B+', color: 'var(--pass, #10b981)' },
+    6: { emoji: '🔵', label: 'B', color: '#38bdf8' },
+    5: { emoji: '🔵', label: 'C+', color: '#38bdf8' },
+    4: { emoji: '🔵', label: 'C', color: '#38bdf8' },
+    3: { emoji: '🟡', label: 'D', color: 'var(--medium, #f59e0b)' },
+    2: { emoji: '🔴', label: 'F', color: 'var(--critical, #ef4444)' },
+    1: { emoji: '🔴', label: 'F', color: 'var(--critical, #ef4444)' },
+  };
+  const info = gradeInfo[level] || gradeInfo[1];
+  
+  // Determine border color based on score
+  const borderColor = score >= 70 ? 'var(--pass)' : score >= 50 ? '#38bdf8' : 'var(--critical)';
+
+  // Build dimension cards
+  const dimOrder = ['security', 'supply_chain', 'code_quality', 'compliance', 'operational', 'mosa'];
+  const dimLabels = {
+    security: 'Security',
+    supply_chain: 'Supply Chain',
+    code_quality: 'Code Quality',
+    compliance: 'Compliance',
+    operational: 'Operational',
+    mosa: 'MOSA',
+  };
+
+  const dimCards = dimOrder.map(key => {
+    const d = dims[key] || { score: 0, weight: 0, details: {} };
+    const s = (d.score || 0).toFixed(0);
+    const w = ((weights[key] || 0) * 100).toFixed(0);
+    const barColor = s >= 70 ? 'var(--pass)' : s >= 50 ? 'var(--medium)' : 'var(--critical)';
+    const detailsId = `scorecard-details-${key}`;
+    
+    // Format details
+    const details = d.details || {};
+    const detailsHtml = Object.entries(details).map(([k, v]) => {
+      const label = k.replace(/_/g, ' ');
+      let value = v;
+      if (typeof v === 'boolean') value = v ? '✓ Yes' : '✗ No';
+      else if (typeof v === 'number') value = v.toFixed(1);
+      return `<div class="scorecard-detail-item"><span class="scorecard-detail-key">${esc(label)}:</span> <span class="scorecard-detail-val">${esc(String(value))}</span></div>`;
+    }).join('');
+    
+    return `
+      <div class="scorecard-dim-card" onclick="toggleScorecardDetails('${detailsId}')" style="cursor:pointer">
+        <div class="scorecard-dim-label">${esc(dimLabels[key])}</div>
+        <div class="scorecard-dim-score" style="color:${barColor}">${s}</div>
+        <div class="scorecard-dim-weight">${w}% weight</div>
+        <div class="scorecard-dim-bar">
+          <div class="scorecard-dim-bar-fill" style="width:${s}%;background:${barColor}"></div>
+        </div>
+        <div class="scorecard-dim-details" id="${detailsId}" style="display:block;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:11px">
+          ${detailsHtml || '<div style="color:var(--text-muted)">No details available</div>'}
+        </div>
+      </div>`;
+  }).join('');
+
+  // Build blockers list
+  const blockersHtml = blockers.length > 0 ? `
+    <div class="scorecard-blockers">
+      <div class="scorecard-blockers-title">⚠️ Critical Issues</div>
+      <ul class="scorecard-blockers-list">
+        ${blockers.map(b => `<li>${esc(b)}</li>`).join('')}
+      </ul>
+    </div>` : '';
+
+  return `
+    <div class="section findings-section-wrapper">
+      <details class="findings-collapsible" style="border-left-color:${borderColor}">
+        <summary class="findings-summary">
+          <span class="findings-summary-left">
+            <span class="findings-chevron" aria-hidden="true"></span>
+            <span class="findings-summary-title">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                   style="vertical-align:-2px;margin-right:5px">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <path d="M3 9h18"/>
+                <path d="M9 21V9"/>
+              </svg>
+              Security Score Card
+            </span>
+            <span style="margin-left:8px;font-size:24px;vertical-align:middle">${info.emoji}</span>
+            <span style="margin-left:8px;font-weight:700;font-size:15px;color:${info.color}">Grade ${info.label}</span>
+          </span>
+          <span style="display:flex;align-items:center;gap:12px">
+            <span style="font-size:18px;font-weight:700;color:var(--accent)">${score}</span>
+            <span class="findings-summary-hint">Click to expand</span>
+          </span>
+        </summary>
+        <div class="findings-body" style="padding:16px 18px">
+          <div class="scorecard-dimensions" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:${blockersHtml ? '20px' : '0'}">
+            ${dimCards}
+          </div>
+          ${blockersHtml}
+          <div style="font-size:12px;color:var(--text-muted);padding-top:16px;border-top:1px solid var(--border);margin-top:16px">
+            <strong>About Scoring:</strong> Comprehensive security assessment across 6 dimensions (Security, Supply Chain, Code Quality, Compliance, Operational, MOSA). 
+            Scores 70+ are production-ready, 50-69 need improvements, below 50 require immediate attention.
+            <br><small><strong>MOSA</strong> = Modular Open Systems Approach: modularity, open standards, interoperability, portability. Click dimension cards to view details.</small>
+          </div>
+        </div>
+      </details>
+    </div>`;
+}
+
+function toggleScorecardDetails(detailsId) {
+  const el = document.getElementById(detailsId);
+  if (el) {
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  }
 }
 
 function showAddAppModal() {

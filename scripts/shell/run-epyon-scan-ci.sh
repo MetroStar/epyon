@@ -694,6 +694,12 @@ run_group "Generate Security Dashboard" bash -lc '
     || echo "Dashboard generation completed with warnings"
 '
 
+run_group "Generate TRL Assessment" bash -lc '
+  chmod +x scripts/shell/generate-trl-score.py
+  python3 scripts/shell/generate-trl-score.py --scan-dir "$SCAN_DIR" \
+    || echo "[WARNING] TRL assessment generation failed or completed with warnings"
+'
+
 # ── Timing report ─────────────────────────────────────────────────────────────
 echo ""
 echo "::group::Timing Report"

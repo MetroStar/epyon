@@ -2714,3 +2714,14 @@ details[open] > .findings-summary .findings-summary-hint {
   font-weight: 600;
   text-align: right;
 }
+
+/* Scorecard dimension cards (clickable) */
+.scorecard-dim-card {
+  transition: all 0.2s ease;
+}
+
+.scorecard-dim-card:hover {
+  background: var(--bg-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}

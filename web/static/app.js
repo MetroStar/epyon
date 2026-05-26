@@ -4169,6 +4169,9 @@ async function calculateScorecardForScan(scanId) {
   }
 }
 
+// Store dimension data globally for modal access
+window._scorecardDimensions = {};
+
 function buildScorecardCard(scorecardData) {
   if (!scorecardData || !scorecardData.trl_level) return '';
 
@@ -4206,34 +4209,34 @@ function buildScorecardCard(scorecardData) {
     mosa: 'MOSA',
   };
 
+  // Store dimension data globally
+  window._scorecardDimensions = {};
+
   const dimCards = dimOrder.map(key => {
     const d = dims[key] || { score: 0, weight: 0, details: {} };
     const s = (d.score || 0).toFixed(0);
     const w = ((weights[key] || 0) * 100).toFixed(0);
     const barColor = s >= 70 ? 'var(--pass)' : s >= 50 ? 'var(--medium)' : 'var(--critical)';
-    const detailsId = `scorecard-details-${key}`;
     
-    // Format details
-    const details = d.details || {};
-    const detailsHtml = Object.entries(details).map(([k, v]) => {
-      const label = k.replace(/_/g, ' ');
-      let value = v;
-      if (typeof v === 'boolean') value = v ? '✓ Yes' : '✗ No';
-      else if (typeof v === 'number') value = v.toFixed(1);
-      return `<div class="scorecard-detail-item"><span class="scorecard-detail-key">${esc(label)}:</span> <span class="scorecard-detail-val">${esc(String(value))}</span></div>`;
-    }).join('');
+    // Store dimension data for modal
+    window._scorecardDimensions[key] = {
+      key: key,
+      label: dimLabels[key],
+      score: s,
+      weight: w,
+      color: barColor,
+      details: d.details || {}
+    };
     
     return `
-      <div class="scorecard-dim-card" onclick="toggleScorecardDetails('${detailsId}')" style="cursor:pointer">
+      <div class="scorecard-dim-card" onclick="showDimensionModal('${key}')" style="cursor:pointer">
         <div class="scorecard-dim-label">${esc(dimLabels[key])}</div>
         <div class="scorecard-dim-score" style="color:${barColor}">${s}</div>
         <div class="scorecard-dim-weight">${w}% weight</div>
         <div class="scorecard-dim-bar">
           <div class="scorecard-dim-bar-fill" style="width:${s}%;background:${barColor}"></div>
         </div>
-        <div class="scorecard-dim-details" id="${detailsId}" style="display:block;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:11px">
-          ${detailsHtml || '<div style="color:var(--text-muted)">No details available</div>'}
-        </div>
+        <div style="margin-top:8px;font-size:11px;color:var(--text-muted);text-align:center">Click for details</div>
       </div>`;
   }).join('');
 
@@ -4278,19 +4281,78 @@ function buildScorecardCard(scorecardData) {
           <div style="font-size:12px;color:var(--text-muted);padding-top:16px;border-top:1px solid var(--border);margin-top:16px">
             <strong>About Scoring:</strong> Comprehensive security assessment across 6 dimensions (Security, Supply Chain, Code Quality, Compliance, Operational, MOSA). 
             Scores 70+ are production-ready, 50-69 need improvements, below 50 require immediate attention.
-            <br><small><strong>MOSA</strong> = Modular Open Systems Approach: modularity, open standards, interoperability, portability. Click dimension cards to view details.</small>
+            <br><small><strong>MOSA</strong> = Modular Open Systems Approach: modularity, open standards, interoperability, portability. <strong>Click dimension cards for detailed breakdowns.</strong></small>
           </div>
         </div>
       </details>
     </div>`;
 }
 
-function toggleScorecardDetails(detailsId) {
-  const el = document.getElementById(detailsId);
-  if (el) {
-    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+function showDimensionModal(dimensionKey) {
+  const data = window._scorecardDimensions[dimensionKey];
+  if (!data) {
+    console.error('Dimension data not found:', dimensionKey);
+    return;
   }
+  
+  const { key, label, score, weight, color, details } = data;
+
+  const detailsHtml = Object.entries(details).map(([k, v]) => {
+    const itemLabel = k.replace(/_/g, ' ');
+    let value = v;
+    if (typeof v === 'boolean') value = v ? '✓ Yes' : '✗ No';
+    else if (typeof v === 'number') value = v.toFixed(1);
+    return `
+      <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border-muted)">
+        <span style="color:var(--text-muted);font-size:14px;text-transform:capitalize">${esc(itemLabel)}</span>
+        <span style="color:var(--text);font-size:14px;font-weight:600">${esc(String(value))}</span>
+      </div>`;
+  }).join('');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-container" style="max-width:600px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <h2 style="color:var(--text);margin:0;display:flex;align-items:center;gap:12px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+          ${esc(label)} Dimension
+        </h2>
+        <button class="btn" onclick="this.closest('.modal-overlay').remove()" style="padding:6px 12px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div style="background:var(--bg-card);border-radius:var(--radius);padding:24px;margin-bottom:24px;text-align:center;border:2px solid ${color}">
+        <div style="font-size:64px;font-weight:700;color:${color};margin-bottom:8px">${score}</div>
+        <div style="font-size:14px;color:var(--text-muted);margin-bottom:4px">Score out of 100</div>
+        <div style="font-size:13px;color:var(--text-muted)">${weight}% of overall score</div>
+        <div style="margin:16px auto 0;max-width:300px">
+          <div style="height:16px;background:var(--bg);border-radius:8px;overflow:hidden">
+            <div style="width:${score}%;height:100%;background:${color};transition:width 0.3s ease"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px">
+        <h3 style="font-size:14px;font-weight:600;color:var(--text);margin:0 0 16px;text-transform:uppercase;letter-spacing:0.5px">Detailed Metrics</h3>
+        ${detailsHtml || '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px 0">No detailed metrics available for this dimension.</div>'}
+      </div>
+    </div>`;
+  
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.remove();
+  });
 }
+
+
 
 function showAddAppModal() {
   const overlay = document.createElement('div');

@@ -1,0 +1,258 @@
+<mxfile host="65bd71144e">
+    <diagram id="FBz5wBjC9IgSq602SfPR" name="Page-1">
+        <mxGraphModel dx="1427" dy="827" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1700" pageHeight="2700" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="Epyon — End-to-End Security Scan Workflow" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="200" y="18" width="1300" height="44" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FAFAFA;strokeColor=#AAAAAA;" parent="1" vertex="1">
+                    <mxGeometry x="1710" y="10" width="220" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_title" value="Legend" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontStyle=1;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="1710" y="10" width="220" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg1" value="Trigger / End state" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="1720" y="40" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg2" value="Process / Script" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="1720" y="74" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg3" value="Key Orchestration Step" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="1720" y="108" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="leg4" value="Decision / Gate" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="1720" y="142" width="200" height="26" as="geometry"/>
+                </mxCell>
+                <mxCell id="entry_gh" value="&lt;b&gt;GitHub Actions&lt;/b&gt;&#xa;workflow_call&#xa;(epyon-scan.yml)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="100" y="82" width="260" height="72" as="geometry"/>
+                </mxCell>
+                <mxCell id="entry_web" value="&lt;b&gt;Web UI&lt;/b&gt;&#xa;POST /api/scans&#xa;(main.py → jobs.py)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" parent="1" vertex="1">
+                    <mxGeometry x="1340" y="82" width="260" height="72" as="geometry"/>
+                </mxCell>
+                <mxCell id="init_gh" value="&lt;b&gt;GitHub Actions Setup&lt;/b&gt;&#xa;• Checkout target repo + Epyon repo&#xa;• Pull Docker images (Trivy, Grype, Syft…)&#xa;• Install deps: jq, bats, Python, syft&#xa;• Free disk space (rm toolchains)&#xa;• Download coverage / SBOM artifact (opt)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="194" width="370" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="init_web" value="&lt;b&gt;Web UI Initialization (jobs.py)&lt;/b&gt;&#xa;• Parse target (path / git URL / HuggingFace)&#xa;• Derive target_name from URL or path&#xa;• git clone --depth=1 (if remote URL)&#xa;• Create scans/{target_name}_{ts}/ dir&#xa;• Write scan-metadata.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="1290" y="194" width="370" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="epyon_env" value="&lt;b&gt;Write /tmp/epyon-env&lt;/b&gt;&#xa;TARGET_DIR · SCAN_DIR · SCAN_MODE · SCAN_ID&#xa;SKIP_* / RUN_* flags · OPENAI_API_KEY · SONAR_TOKEN" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="555" y="352" width="590" height="66" as="geometry"/>
+                </mxCell>
+                <mxCell id="ci_orch" value="&lt;b&gt;run-epyon-scan-ci.sh&lt;/b&gt;&#xa;source /tmp/epyon-env  ·  write scan-metadata.json&#xa;initialize timing infrastructure + parallel log dirs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="555" y="458" width="590" height="72" as="geometry"/>
+                </mxCell>
+                <mxCell id="d_scan_mode" value="SCAN_MODE&#xa;== &quot;stig&quot; ?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="700" y="578" width="300" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="ph1_bg" value="Phase 1 — Independent Layers (all launched in parallel)" style="swimlane;fontStyle=1;fillColor=#EDF2FB;strokeColor=#4472C4;fontSize=12;startSize=28;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="718" width="1580" height="208" as="geometry"/>
+                </mxCell>
+                <mxCell id="l1_sbom" value="&lt;b&gt;L1: SBOM&lt;/b&gt;&#xa;Syft (native binary)&#xa;→ sbom/filesystem-cyclonedx.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ph1_bg" vertex="1">
+                    <mxGeometry x="10" y="36" width="248" height="72" as="geometry"/>
+                </mxCell>
+                <mxCell id="l2_trufflehog" value="&lt;b&gt;L2: Secret Detection&lt;/b&gt;&#xa;TruffleHog filesystem&#xa;→ trufflehog/results.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ph1_bg" vertex="1">
+                    <mxGeometry x="268" y="36" width="248" height="72" as="geometry"/>
+                </mxCell>
+                <mxCell id="l3_sonar" value="&lt;b&gt;L3: Code Quality&lt;/b&gt;&#xa;SonarQube (skip: quick mode)&#xa;removes .scannerwork on finish" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ph1_bg" vertex="1">
+                    <mxGeometry x="526" y="36" width="248" height="72" as="geometry"/>
+                </mxCell>
+                <mxCell id="l5_helm" value="&lt;b&gt;L5: Helm Build&lt;/b&gt;&#xa;run-helm-build.sh&#xa;→ helm/helm-results.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ph1_bg" vertex="1">
+                    <mxGeometry x="784" y="36" width="248" height="72" as="geometry"/>
+                </mxCell>
+                <mxCell id="l6_checkov" value="&lt;b&gt;L6: IaC Security&lt;/b&gt;&#xa;Checkov (skip: quick mode)&#xa;→ checkov/results.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ph1_bg" vertex="1">
+                    <mxGeometry x="1042" y="36" width="248" height="72" as="geometry"/>
+                </mxCell>
+                <mxCell id="l7_trivy" value="&lt;b&gt;L7: Container Security&lt;/b&gt;&#xa;Trivy (filesystem + base image)&#xa;→ trivy/trivy-*.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ph1_bg" vertex="1">
+                    <mxGeometry x="1300" y="36" width="270" height="72" as="geometry"/>
+                </mxCell>
+                <mxCell id="l9_xeol" value="&lt;b&gt;L9: End-of-Life Detection&lt;/b&gt;&#xa;Xeol → xeol/xeol-results.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ph1_bg" vertex="1">
+                    <mxGeometry x="10" y="120" width="370" height="58" as="geometry"/>
+                </mxCell>
+                <mxCell id="l10_anchore" value="&lt;b&gt;L10: Anchore Security&lt;/b&gt;&#xa;(skip: quick mode) → anchore/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ph1_bg" vertex="1">
+                    <mxGeometry x="390" y="120" width="370" height="58" as="geometry"/>
+                </mxCell>
+                <mxCell id="l11_api" value="&lt;b&gt;L11: API Discovery&lt;/b&gt;&#xa;run-api-discovery.sh → api-discovery/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ph1_bg" vertex="1">
+                    <mxGeometry x="770" y="120" width="370" height="58" as="geometry"/>
+                </mxCell>
+                <mxCell id="l16_network" value="&lt;b&gt;L16: Network Discovery&lt;/b&gt;&#xa;Static config + optional nmap → network-discovery/" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ph1_bg" vertex="1">
+                    <mxGeometry x="1150" y="120" width="420" height="58" as="geometry"/>
+                </mxCell>
+                <mxCell id="ph2_bg" value="Phase 2 — Dependent Layers (each starts after its prerequisite)" style="swimlane;fontStyle=1;fillColor=#EDF2FB;strokeColor=#4472C4;fontSize=12;startSize=28;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="936" width="1580" height="134" as="geometry"/>
+                </mxCell>
+                <mxCell id="l8_grype" value="&lt;b&gt;L8: Vulnerability Detection — Grype&lt;/b&gt; (waits for L1 SBOM to finish)&#xa;run-grype-scan.sh sbom-mode + image-mode → grype/grype-sbom.json · grype-images.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ph2_bg" vertex="1">
+                    <mxGeometry x="10" y="36" width="756" height="72" as="geometry"/>
+                </mxCell>
+                <mxCell id="l4_clamav" value="&lt;b&gt;L4: Malware Detection — ClamAV&lt;/b&gt; (waits for L3 Sonar; skip: quick mode)&#xa;run-clamav-scan.sh → clamav/clamav-results.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ph2_bg" vertex="1">
+                    <mxGeometry x="814" y="36" width="756" height="72" as="geometry"/>
+                </mxCell>
+                <mxCell id="sync_bar" value="Await all parallel layers complete  (wait for all background PIDs — replay logs in order)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0F0F0;strokeColor=#888888;fontSize=11;fontStyle=3;" parent="1" vertex="1">
+                    <mxGeometry x="350" y="1080" width="1000" height="34" as="geometry"/>
+                </mxCell>
+                <mxCell id="ph3_bg" value="Phase 3 — Sequential / Conditional Layers" style="swimlane;fontStyle=1;fillColor=#EDF2FB;strokeColor=#4472C4;fontSize=12;startSize=28;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="1124" width="1580" height="246" as="geometry"/>
+                </mxCell>
+                <mxCell id="l12_garak" value="&lt;b&gt;L12: LLM Security — Garak&lt;/b&gt;&#xa;(opt-in: RUN_GARAK=true)&#xa;(always skip: quick / stig modes)&#xa;Probes: promptinject · dan&#xa;knownbadsignatures · encoding&#xa;→ garak/garak-results.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ph3_bg" vertex="1">
+                    <mxGeometry x="10" y="36" width="348" height="132" as="geometry"/>
+                </mxCell>
+                <mxCell id="l13_stig" value="&lt;b&gt;L13: STIG Compliance Assessment&lt;/b&gt;&#xa;run-stig-scan.sh → run-stig-assessment.py&#xa;→ OpenAI API (gpt-4o-mini)&#xa;→ parse-stig-cklb.py&#xa;Outputs:  stig-results-{slug}.json&#xa;findings-{app}-{slug}.md  /  .cklb" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" parent="ph3_bg" vertex="1">
+                    <mxGeometry x="368" y="36" width="492" height="132" as="geometry"/>
+                </mxCell>
+                <mxCell id="l14_pickle" value="&lt;b&gt;L14: Pickle / Serialization Safety&lt;/b&gt;&#xa;run-picklescan.sh&#xa;(skip: quick / stig modes)&#xa;Auto-detects .pkl .pt .safetensors…&#xa;or RUN_PICKLESCAN=true&#xa;→ picklescan-results.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ph3_bg" vertex="1">
+                    <mxGeometry x="870" y="36" width="340" height="132" as="geometry"/>
+                </mxCell>
+                <mxCell id="l15_modelcard" value="&lt;b&gt;L15: Model Card Compliance&lt;/b&gt;&#xa;run-modelcard-check.sh&#xa;(skip: quick / stig modes)&#xa;Auto-detects README + model files&#xa;or RUN_MODELCARD=true&#xa;→ modelcard-results.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ph3_bg" vertex="1">
+                    <mxGeometry x="1220" y="36" width="350" height="132" as="geometry"/>
+                </mxCell>
+                <mxCell id="mode_note" value="Scan mode defaults:  quick → L1 L2 L5 L7 L8 L9 (fast subset)  |  full → all layers  |  nightly → full + Garak, skip L13  |  stig → L13 only  |  huggingface / baseline → full  |  local_model → L14 + L15 only" style="text;html=1;strokeColor=#BBBBBB;fillColor=#FFFFDD;align=center;verticalAlign=middle;fontSize=10;fontStyle=2;rounded=1;" parent="ph3_bg" vertex="1">
+                    <mxGeometry x="10" y="180" width="1560" height="28" as="geometry"/>
+                </mxCell>
+                <mxCell id="post_bg" value="Post-Scan Processing (run inside run-epyon-scan-ci.sh)" style="swimlane;fontStyle=1;fillColor=#F5F5F5;strokeColor=#666666;fontSize=12;startSize=28;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="1390" width="1580" height="246" as="geometry"/>
+                </mxCell>
+                <mxCell id="post_manifest" value="&lt;b&gt;Generate Scan Manifest&lt;/b&gt;&#xa;generate-scan-manifest.sh&#xa;SHA-256 hashes all output files&#xa;Records tool versions (Docker)&#xa;→ scan-manifest.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="post_bg" vertex="1">
+                    <mxGeometry x="10" y="38" width="350" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="post_findings" value="&lt;b&gt;Generate Findings Summary&lt;/b&gt;&#xa;generate-scan-findings-summary.sh&#xa;Aggregates critical / high / medium / low&#xa;counts across all tool outputs&#xa;→ security-findings-summary.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="post_bg" vertex="1">
+                    <mxGeometry x="380" y="38" width="350" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="post_suppress" value="&lt;b&gt;Apply Suppression Rules&lt;/b&gt;&#xa;parse-epyon-ignore.sh&#xa;filter-ignored-findings.sh&#xa;reads .epyon-ignore.yml&#xa;→ security-findings-summary-filtered.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="post_bg" vertex="1">
+                    <mxGeometry x="750" y="38" width="350" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="post_dashboard" value="&lt;b&gt;Generate Security Dashboard&lt;/b&gt;&#xa;consolidate-security-reports.sh&#xa;Merges all findings + STIG data&#xa;→ consolidated-reports/&#xa;→ dashboards/security-dashboard.html" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="post_bg" vertex="1">
+                    <mxGeometry x="1120" y="38" width="450" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_post_12" parent="post_bg" source="post_manifest" target="post_findings" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_post_23" parent="post_bg" source="post_findings" target="post_suppress" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_post_34" parent="post_bg" source="post_suppress" target="post_dashboard" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="post_timing" value="Also writes: layer-timing.json  (each layer&#39;s elapsed seconds)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8E8E8;strokeColor=#888888;fontSize=10;" parent="post_bg" vertex="1">
+                    <mxGeometry x="10" y="152" width="730" height="36" as="geometry"/>
+                </mxCell>
+                <mxCell id="web_ends" value="★ Web UI path ends here&#xa;No severity gate or CI post-scan&#xa;steps run from jobs.py" style="text;html=1;strokeColor=#AAAAAA;fillColor=#FFF8DC;align=center;verticalAlign=middle;fontSize=10;fontStyle=2;rounded=1;" vertex="1" parent="1">
+                    <mxGeometry x="60" y="1650" width="300" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="sev_gate" value="&lt;b&gt;CI — Check Severity Gate (check-severity-gate.sh)&lt;/b&gt;&#xa;FAIL_ON_CRITICAL=true  →  fail immediately on any Critical finding&#xa;FAIL_ON_HIGH=true  →  fail when High findings ≥ HIGH_THRESHOLD (default: 4)&#xa;WARNING_ONLY=true  →  Critical still fails; High / Medium gates suppressed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;" parent="1" vertex="1">
+                    <mxGeometry x="380" y="1656" width="940" height="82" as="geometry"/>
+                </mxCell>
+                <mxCell id="gate_pass" value="PASS&#xa;exit 0" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="170" y="1790" width="150" height="64" as="geometry"/>
+                </mxCell>
+                <mxCell id="gate_fail" value="FAIL&#xa;exit 1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="1380" y="1790" width="150" height="64" as="geometry"/>
+                </mxCell>
+                <mxCell id="ci_post_bg" value="CI Post-Scan — GitHub Actions Only (all steps use if: always() — run even when gate fails)" style="swimlane;fontStyle=1;fillColor=#F5F5F5;strokeColor=#666666;fontSize=12;startSize=28;rounded=1;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="1870" width="1580" height="490" as="geometry"/>
+                </mxCell>
+                <mxCell id="ci_reports" value="&lt;b&gt;Generate Reports &amp; Dashboard (CI)&lt;/b&gt;&#xa;consolidate-security-reports.sh&#xa;Embeds 90-day scan metrics trend&#xa;→ dashboards/security-dashboard.html" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="ci_post_bg">
+                    <mxGeometry x="10" y="36" width="490" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="ci_fixperms" value="&lt;b&gt;Fix Artifact Permissions&lt;/b&gt;&#xa;sudo chown runner:docker&#xa;chmod a+r on all scan output files" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="ci_post_bg">
+                    <mxGeometry x="514" y="36" width="458" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="ci_summary" value="&lt;b&gt;Generate Step Summary&lt;/b&gt;&#xa;executive-summary.md + Garak results&#xa;→ GITHUB_STEP_SUMMARY" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="ci_post_bg">
+                    <mxGeometry x="986" y="36" width="584" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="ci_metrics" value="&lt;b&gt;Write Metrics Row&lt;/b&gt;&#xa;scan-metrics.json&#xa;(nightly / workflow_dispatch only)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ci_post_bg" vertex="1">
+                    <mxGeometry x="10" y="142" width="373" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="ci_enrich" value="&lt;b&gt;Enrich Findings&lt;/b&gt;&#xa;enrich-findings.sh&#xa;NVD + CISA KEV lookup&#xa;Adds CVSS score + KEV flag" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ci_post_bg" vertex="1">
+                    <mxGeometry x="393" y="142" width="373" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="ci_artifact" value="&lt;b&gt;Upload Scan Artifact&lt;/b&gt;&#xa;actions/upload-artifact&#xa;Full scan dir → {scan_id}/&#xa;30-day retention" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ci_post_bg" vertex="1">
+                    <mxGeometry x="776" y="142" width="373" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="ci_metrics_upload" value="&lt;b&gt;Upload Metrics Artifact&lt;/b&gt;&#xa;actions/upload-artifact&#xa;scan-metrics.json → 90-day retention&#xa;(nightly / workflow_dispatch only)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="ci_post_bg">
+                    <mxGeometry x="1159" y="142" width="411" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="ci_check_sev" value="&lt;b&gt;Check Critical/High Vulnerabilities&lt;/b&gt;&#xa;(id: check-severity)&#xa;Reads security-findings-summary.json&#xa;→ sets outputs: critical / high / medium / low / has_issues" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="ci_post_bg">
+                    <mxGeometry x="10" y="248" width="373" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="ci_pr_comment" value="&lt;b&gt;Comment on PR&lt;/b&gt;&#xa;(if event == pull_request)&#xa;Posts executive-summary.md&#xa;as PR comment" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="ci_post_bg">
+                    <mxGeometry x="393" y="248" width="373" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="ci_issue" value="&lt;b&gt;Create Scan Notification Issues&lt;/b&gt;&#xa;(if has_issues == true)&#xa;One GitHub Issue per severity level&#xa;Updates existing issue if already open" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ci_post_bg" vertex="1">
+                    <mxGeometry x="776" y="248" width="373" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="ci_jira" value="&lt;b&gt;Create JIRA Tickets + Link&lt;/b&gt;&#xa;create-jira-tickets.sh&#xa;(full/nightly + JIRA secrets set)&#xa;Links JIRA tickets → GitHub Issue" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ci_post_bg" vertex="1">
+                    <mxGeometry x="1159" y="248" width="411" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="ci_fail_crit" value="&lt;b&gt;Fail on Critical Vulnerabilities&lt;/b&gt;&#xa;(if: always() &amp;&amp; check-severity.outputs.critical &gt; 0)&#xa;echo error + exit 1   —   explicit final CI failure for any Critical finding" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="ci_post_bg">
+                    <mxGeometry x="290" y="362" width="1000" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="output_box" value="Output Directory:  scans/{target_name}_{YYYY-MM-DD}_{HH-MM-SS}/&#xa;stig-results-*.json  ·  grype-*.json  ·  trivy-*.json  ·  trufflehog-*.json  ·  clamav-results.json  ·  checkov/  ·  sbom/&#xa;security-findings-summary.json  ·  security-findings-summary-filtered.json  ·  scan-manifest.json&#xa;consolidated-reports/dashboards/security-dashboard.html  ·  layer-timing.json  ·  scan-metadata.json" style="shape=parallelogram;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" parent="1" vertex="1">
+                    <mxGeometry x="200" y="2430" width="1300" height="88" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_gh_init" parent="1" source="entry_gh" target="init_gh" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_web_init" parent="1" source="entry_web" target="init_web" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_gh_env" parent="1" source="init_gh" target="epyon_env" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_web_env" parent="1" source="init_web" target="epyon_env" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_env_orch" parent="1" source="epyon_env" target="ci_orch" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_orch_dec" parent="1" source="ci_orch" target="d_scan_mode" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_dec_no" value="No" style="edgeStyle=orthogonalEdgeStyle;fontStyle=1;strokeColor=#82b366;strokeWidth=2;" parent="1" source="d_scan_mode" target="ph1_bg" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_dec_stig" value="Yes (stig only)&#xa;Layers 1–12 skipped" style="edgeStyle=orthogonalEdgeStyle;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;fontStyle=1;strokeColor=#b85450;strokeWidth=2;" parent="1" source="d_scan_mode" target="l13_stig" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1666" y="623"/>
+                            <mxPoint x="1666" y="1232"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_ph1_ph2" parent="1" source="ph1_bg" target="ph2_bg" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_l1_l8" value="awaits L1" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#6c8ebf;fontSize=9;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="l1_sbom" target="l8_grype" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_l3_l4" value="awaits L3" style="edgeStyle=orthogonalEdgeStyle;dashed=1;strokeColor=#6c8ebf;fontSize=9;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="l3_sonar" target="l4_clamav" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_ph2_sync" parent="1" source="ph2_bg" target="sync_bar" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_sync_ph3" parent="1" source="sync_bar" target="ph3_bg" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_ph3_post" parent="1" source="ph3_bg" target="post_bg" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_post_sev" parent="1" source="post_bg" target="sev_gate" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_sev_pass" value="Pass" style="fontStyle=1;strokeColor=#82b366;strokeWidth=2;" parent="1" source="sev_gate" target="gate_pass" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_sev_fail" value="Fail" style="fontStyle=1;strokeColor=#b85450;strokeWidth=2;" parent="1" source="sev_gate" target="gate_fail" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_sev_ci" value="(always continues)" style="dashed=1;strokeColor=#888888;fontSize=10;fontStyle=2;" parent="1" source="sev_gate" target="ci_post_bg" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_ci_out" parent="1" source="ci_post_bg" target="output_box" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

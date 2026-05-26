@@ -62,8 +62,15 @@ if [[ "$SONAR_HOST_URL" != https://* ]]; then
 fi
 
 if [ -z "${SONAR_TOKEN:-}" ]; then
-  echo "[ERROR] SONAR_TOKEN is not set. Export it or add it to .env.sonar." >&2
-  exit 1
+  echo "[INFO] SONAR_TOKEN is not set. Skipping SonarQube analysis." >&2
+  echo "[INFO] For local development: export SONAR_TOKEN or create .env.sonar" >&2
+  echo "[INFO] In CI: SONAR_TOKEN is provided from GitHub Secrets" >&2
+  
+  # Create minimal output to indicate scan was skipped
+  init_scan_environment "sonar"
+  record_scan_status "skipped" "SONAR_TOKEN not configured"
+  echo '{"status":"skipped","reason":"SONAR_TOKEN not configured"}' > "$OUTPUT_DIR/quality-gate.json"
+  exit 0
 fi
 
 # Locate sonar-project.properties

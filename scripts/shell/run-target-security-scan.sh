@@ -32,7 +32,7 @@ EOF
 
 # Help function
 show_help() {
-    echo -e "${GREEN}Twelve-Layer Security Scan Orchestrator${NC}"
+    echo -e "${GREEN}Fifteen-Layer Security Scan Orchestrator${NC}"
     echo ""
     echo "Usage: $0 [OPTIONS] <TARGET> [SCAN_TYPE]"
     echo "       $0 --target <TARGET> --scan-type <SCAN_TYPE> [OPTIONS]"
@@ -66,24 +66,27 @@ show_help() {
     echo "  Git Subdirectory    --subdir path/to/subdir https://github.com/user/repo.git"
     echo ""
     echo "Scan Types:"
-    echo "  quick       Fast scan - Trivy, TruffleHog, Garak, basic checks"
-    echo "  full        Complete scan - All 12 security layers (default)"
-    echo "  images      Container-focused - Image vulnerability scanning"
-    echo "  analysis    Code analysis - SonarQube, Checkov, quality checks"
+    echo "  quick       SBOM, TruffleHog, Helm, Trivy (fs+base), Grype (sbom+images), Xeol, API Discovery"
+    echo "  full        All 15 layers: SBOM, Secrets, SonarQube, ClamAV, Helm, Checkov, Trivy, Grype, Xeol, Anchore, API, Garak, Network, Picklescan, ModelCard (default)"
+    echo "  images      Container-focused: TruffleHog, Grype, Trivy, Xeol (image + base targets)"
+    echo "  analysis    SonarQube, Checkov, API Discovery, Network Discovery [+Garak opt-in]"
     echo ""
-    echo "Security Layers:"
-    echo "  Layer 1:  Container Security (Trivy)"
-    echo "  Layer 2:  Vulnerability Scanning (Grype)"
-    echo "  Layer 3:  Secret Detection (TruffleHog)"
+    echo "Security Layers (full mode):"
+    echo "  Layer 1:  SBOM Generation (Syft)"
+    echo "  Layer 2:  Secret Detection (TruffleHog)"
+    echo "  Layer 3:  Code Quality (SonarQube)"
     echo "  Layer 4:  Malware Detection (ClamAV)"
-    echo "  Layer 5:  IaC Security (Checkov)"
-    echo "  Layer 6:  SBOM Generation (Syft)"
-    echo "  Layer 7:  Code Quality (SonarQube)"
-    echo "  Layer 8:  Helm Validation"
+    echo "  Layer 5:  Helm Chart Build"
+    echo "  Layer 6:  IaC Security (Checkov)"
+    echo "  Layer 7:  Container Security (Trivy)"
+    echo "  Layer 8:  Vulnerability Scanning (Grype)"
     echo "  Layer 9:  EOL Detection (Xeol)"
     echo "  Layer 10: Container Analysis (Anchore)"
     echo "  Layer 11: API Discovery (OpenAPI, REST, GraphQL)"
-    echo "  Layer 12: LLM Security Probing (Garak)"
+    echo "  Layer 12: LLM Security Probing (Garak, opt-in via RUN_GARAK=true)"
+    echo "  Layer 13: Network Discovery (Ports, Protocols, Services)"
+    echo "  Layer 14: Pickle/Serialization Safety (Picklescan)"
+    echo "  Layer 15: Model Card Compliance (ModelCard)"
     echo ""
     echo "Output:"
     echo "  Results saved to: scans/{TARGET}_{USER}_{TIMESTAMP}/"
@@ -1087,11 +1090,25 @@ case "$SCAN_TYPE" in
             echo -e "${YELLOW}⏭️  Skipping Garak LLM Security Probing (set RUN_GARAK=true to enable)${NC}"
         fi
 
-        echo -e "${PURPLE}🔌 Layer 16: Network Discovery (Ports, Protocols, Services)${NC}"
+        echo -e "${PURPLE}🔌 Layer 13: Network Discovery (Ports, Protocols, Services)${NC}"
         if [[ "${SKIP_NETWORK_DISCOVERY:-false}" != "true" ]]; then
             run_security_tool "Network Discovery" "$SCRIPT_DIR/run-network-discovery.sh"
         else
-            echo -e "${YELLOW}⏭️  Skipping Layer 16 - Network Discovery (SKIP_NETWORK_DISCOVERY=true)${NC}"
+            echo -e "${YELLOW}⏭️  Skipping Layer 13 - Network Discovery (SKIP_NETWORK_DISCOVERY=true)${NC}"
+        fi
+
+        echo -e "${PURPLE}🥒 Layer 14: Pickle/Serialization Safety${NC}"
+        if [[ "${SKIP_PICKLESCAN:-false}" != "true" ]]; then
+            run_security_tool "Picklescan ML Safety" "$SCRIPT_DIR/run-picklescan.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Layer 14 - Picklescan (SKIP_PICKLESCAN=true)${NC}"
+        fi
+
+        echo -e "${PURPLE}📋 Layer 15: Model Card Compliance${NC}"
+        if [[ "${SKIP_MODELCARD:-false}" != "true" ]]; then
+            run_security_tool "Model Card Compliance" "$SCRIPT_DIR/run-modelcard-check.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Layer 15 - ModelCard (SKIP_MODELCARD=true)${NC}"
         fi
         ;;
         

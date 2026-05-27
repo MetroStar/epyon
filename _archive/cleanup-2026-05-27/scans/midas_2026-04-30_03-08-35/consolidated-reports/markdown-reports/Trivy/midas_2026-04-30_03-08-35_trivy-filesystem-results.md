@@ -1,0 +1,38 @@
+<!-- classification: INTERNAL USE ONLY -->
+> **INTERNAL USE ONLY**
+
+# Trivy Security Report
+
+**Scan Type:** midas_2026-04-30_03-08-35_trivy-filesystem-results  
+**Generated:** Thu Apr 30 03:26:00 UTC 2026  
+
+## Summary
+
+**Total Items:** 1
+
+```json
+{
+  "SchemaVersion": 2,
+  "Trivy": {
+    "Version": "0.70.0"
+  },
+  "ReportID": "019ddc5d-9bcb-7bf6-a42f-23fefd393d34",
+  "CreatedAt": "2026-04-30T03:10:15.499786131Z",
+  "ArtifactID": "sha256:1d8b02275f95ee2770f92412b04aac8aa4f07d6b6a3e91b4a45ea5d15ebe1bd8",
+  "ArtifactName": "/workspace",
+  "ArtifactType": "repository",
+  "Metadata": {
+    "RepoURL": "https://github.com/MetroStar/midas",
+    "Branch": "main",
+    "Commit": "baf92e5065fc806f968215938586edd33d941d50",
+    "CommitMsg": "MID-648: Include context data for deterministic evaluation of knowledge_ask (#701)\n\n* MID-648: Include context data for deterministic evaluation of knowledge_ask\n\nEmit eval_context in knowledge_ask usage events with:\n- query_id correlating tool response to audit entry\n- Full retrieval records (id, source_reference, source_type,\n  source_system, trust_level, distance, category)\n- Complete synthesis output for quality assessment\n- Category counts and totals for quick filtering\n\nPer-call usage event flush via Chronicle.flushed_count high-water\nmark. PID-qualified JSONL log files with configurable retention\n(usage_log_retention_days in Atlas config, default 7 days).\n\n195 tests pass (clean venv).\n\n* Address PR review comments: fail-fast purge_stale_logs, atlas_get validation, rename sanitizers\n\n* MID-648: use DeterministicUUIDGenerator in AdviceFacet, remove unused fake_llm",
+    "Author": "Eric Kelly <24855669+ericdatakelly@users.noreply.github.com>",
+    "Committer": "GitHub <noreply@github.com>"
+  }
+}
+```
+
+
+---
+
+> **INTERNAL USE ONLY**

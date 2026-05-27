@@ -1,0 +1,41 @@
+{
+  "file_hashes": {
+    "api/api-discovery.json": "sha256:d94a612cd711df405d2fd28c06a69262675c52f9a803111dfee8374ce47a8079",
+    "grype/midas_2026-04-30_17-07-23_grype-sbom-results.json": "sha256:138e088628529423d05835c6796549d6809ecc764a7b5dd31cd88aedf582fb80",
+    "grype/scan.log": "sha256:4c41ef4b1fb4af65b1fe4255c3bcc3052e316d8d953267cd007f349b81f350f0",
+    "helm/helm-results.json": "sha256:ecbf3d8dd4118cd14a229cd32119ffd5932d930ccd46a7f554b71c4e010b0857",
+    "sbom/filesystem.json": "sha256:58af075d8ba414d392bf09b302d64adb9c41f58b8b7d1b8e462d6a6a8e0c10b0",
+    "sbom/sbom-summary.json": "sha256:e5627aecce9f9c6c347aac00a0f7c4ea64ea15a38f1a6f691552eb5e146f2046",
+    "sbom/scan.log": "sha256:1d00201285e9b1d6c338d711272a4bd30b8a8bdd9ec71388717bb9fc6c2e28b0",
+    "trivy/midas_2026-04-30_17-07-23_trivy-filesystem-results.json": "sha256:12ba80fca5aa2e0395674fdcb09c4c64e35b3f2bbc16e189e75fc5c8c7a07ecd",
+    "trivy/scan.log": "sha256:565de8c74d316036b6ac9b83d99584396e4dd7f36c005d49444650373b0e595b",
+    "trufflehog/midas_2026-04-30_17-07-23_trufflehog-filesystem-results.json": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "trufflehog/scan.log": "sha256:577cdc0b6b8f5ef81f06cf0082070796c93f65171abe11b431af8b4fcc3629cc",
+    "xeol/midas_2026-04-30_17-07-23_xeol-filesystem-results.json": "sha256:c7f25bec4f56bcfa29e783ec4620a11007291ee73500355dbbbfb3fc6597b6eb",
+    "xeol/scan.log": "sha256:f445439a2ea03d813378ae1553a9011da52431ed1b44a55b98035bf19c54b6a6",
+    "xeol/xeol-statistics.json": "sha256:be4ae934b45bb603e0ecc996624778de1fca3bb953ea483f55413e31cefc538d"
+  },
+  "generated_at": "2026-04-30T17:08:42Z",
+  "manifest_hash": "sha256:f5f711e83fef0e49dfb95cbb4e53dbd411af75d977e1b1b711909ebb31276f6b",
+  "manifest_version": "1.0",
+  "scan_metadata": {
+    "epyon_version": "3.0.0",
+    "hostname": "runnervmeorf1",
+    "scan_id": "midas_2026-04-30_17-07-23",
+    "timestamp": "2026-04-30T17:08:42Z",
+    "username": "roscroft"
+  },
+  "target": {
+    "branch": null,
+    "commit_sha": null,
+    "repository": null,
+    "subdirectory": null
+  },
+  "tools": {
+    "checkov": "3.2.526",
+    "grype": "0.111.1",
+    "syft": "1.43.0",
+    "trivy": "0.70.0",
+    "trufflehog": "unknown"
+  }
+}

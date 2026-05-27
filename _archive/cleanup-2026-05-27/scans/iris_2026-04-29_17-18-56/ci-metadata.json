@@ -1,0 +1,11 @@
+{
+  "source": "github",
+  "repo": "MetroStar/iris",
+  "run_id": 25122876908,
+  "artifact_id": 6713475988,
+  "workflow": "CI",
+  "event": "pull_request",
+  "branch": "IRIS-1056-improve-scene-classification-and-TO-linking",
+  "commit": "59f706d",
+  "synced_at": "2026-04-29T17:48:11.228088+00:00"
+}

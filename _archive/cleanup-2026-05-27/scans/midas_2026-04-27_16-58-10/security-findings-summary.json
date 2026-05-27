@@ -1,0 +1,4353 @@
+{
+  "classification": "INTERNAL USE ONLY",
+  "summary": {
+    "scan_id": "midas_2026-04-27_16-58-10",
+    "target_directory": "/home/runner/work/midas/midas/target-repo",
+    "scan_timestamp": "2026-04-27T17:02:54Z",
+    "total_critical": 0,
+    "total_high": 41,
+    "total_medium": 94,
+    "total_low": 53,
+    "tools_analyzed": [
+      "TruffleHog",
+      "Grype-sbom",
+      "Trivy-filesystem",
+      "Checkov",
+      "Anchore-quay.io_keycloak_keycloak_26.0"
+    ],
+    "summary_by_tool": {}
+  },
+  "critical_findings": [],
+  "high_findings": [
+    {
+      "tool": "Checkov",
+      "type": "iac_misconfiguration",
+      "severity": "High",
+      "id": "CKV_GHA_7",
+      "description": "The build output cannot be affected by user parameters other than the build entry point and the top-level source location. GitHub Actions workflow_dispatch inputs MUST be empty. ",
+      "file": "/.github/workflows/ci.yml",
+      "line": [
+        9,
+        14
+      ],
+      "guideline": null,
+      "detected_by": [
+        "Checkov"
+      ],
+      "occurrences": 2
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "CVE-2025-30749",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "Vulnerability in the Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition product of Oracle Java SE (component: 2D).  Supported versions that are affected are Oracle Java SE: 8u451, 8u451-perf, 11.0.27, 17.0.15, 21.0.7, 24.0.1; Oracle GraalVM for JDK: 17.0.15, 21.0.7 and  24.0.1; Oracle GraalVM Enterprise Edition: 21.3.14. Difficult to exploit vulnerability allows unauthenticated attacker with network access via multiple protocols to compromise Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition.  Successful attacks of this vulnerability can result in takeover of Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition. Note: This vulnerability applies to Java deployments, typically in clients running sandboxed Java Web Start applications or sandboxed Java applets, that load and run untrusted code (e.g., code that comes from the internet) and rely on the Java sandbox for security. This vulnerability does not apply to Java deployments, typically in servers, that load and run only trusted code (e.g., code installed by an administrator). CVSS 3.1 Base Score 8.1 (Confidentiality, Integrity and Availability impacts).  CVSS Vector: (CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H).",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-30749",
+      "fix_versions": [
+        "1:21.0.8.0.9-1.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-07-15",
+      "nvd_cvss_v3_score": 8.1,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://www.oracle.com/security-alerts/cpujul2025.html",
+        "https://lists.debian.org/debian-lts-announce/2025/07/msg00011.html",
+        "https://lists.debian.org/debian-lts-announce/2025/08/msg00014.html"
+      ],
+      "nvd_cwe_ids": []
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "CVE-2025-50059",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "Vulnerability in the Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition product of Oracle Java SE (component: Networking).  Supported versions that are affected are Oracle Java SE: 8u451-perf, 11.0.27, 17.0.15, 21.0.7, 24.0.1; Oracle GraalVM for JDK: 17.0.15, 21.0.7 and  24.0.1; Oracle GraalVM Enterprise Edition: 21.3.14. Easily exploitable vulnerability allows unauthenticated attacker with network access via multiple protocols to compromise Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition.  While the vulnerability is in Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition, attacks may significantly impact additional products (scope change).  Successful attacks of this vulnerability can result in  unauthorized access to critical data or complete access to all Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition accessible data. Note: This vulnerability applies to Java deployments, typically in clients running sandboxed Java Web Start applications or sandboxed Java applets, that load and run untrusted code (e.g., code that comes from the internet) and rely on the Java sandbox for security. This vulnerability does not apply to Java deployments, typically in servers, that load and run only trusted code (e.g., code installed by an administrator). CVSS 3.1 Base Score 8.6 (Confidentiality impacts).  CVSS Vector: (CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:N/A:N).",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-50059",
+      "fix_versions": [
+        "1:21.0.8.0.9-1.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-07-15",
+      "nvd_cvss_v3_score": 8.6,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://www.oracle.com/security-alerts/cpujul2025.html",
+        "https://lists.debian.org/debian-lts-announce/2025/07/msg00011.html",
+        "https://lists.debian.org/debian-lts-announce/2025/08/msg00014.html"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-284"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "CVE-2025-50106",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "Vulnerability in the Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition product of Oracle Java SE (component: 2D).  Supported versions that are affected are Oracle Java SE: 8u451, 8u451-perf, 11.0.27, 17.0.15, 21.0.7, 24.0.1; Oracle GraalVM for JDK: 17.0.15, 21.0.7 and  24.0.1; Oracle GraalVM Enterprise Edition: 21.3.14. Difficult to exploit vulnerability allows unauthenticated attacker with network access via multiple protocols to compromise Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition.  Successful attacks of this vulnerability can result in takeover of Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition. Note: This vulnerability can be exploited by using APIs in the specified Component, e.g., through a web service which supplies data to the APIs. This vulnerability also applies to Java deployments, typically in clients running sandboxed Java Web Start applications or sandboxed Java applets, that load and run untrusted code (e.g., code that comes from the internet) and rely on the Java sandbox for security. CVSS 3.1 Base Score 8.1 (Confidentiality, Integrity and Availability impacts).  CVSS Vector: (CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H).",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-50106",
+      "fix_versions": [
+        "1:21.0.8.0.9-1.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-07-15",
+      "nvd_cvss_v3_score": 8.1,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://www.oracle.com/security-alerts/cpujul2025.html",
+        "https://lists.debian.org/debian-lts-announce/2025/07/msg00011.html",
+        "https://lists.debian.org/debian-lts-announce/2025/08/msg00014.html"
+      ],
+      "nvd_cwe_ids": []
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "CVE-2025-64720",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "A buffer overflow flaw has been discovered in libpng. An out-of-bounds read vulnerability exists in png_image_read_composite when processing palette images with PNG_FLAG_OPTIMIZE_ALPHA enabled. The palette compositing code in png_init_read_transformations incorrectly applies background compositing during premultiplication, violating the invariant component \u2264 alpha \u00d7 257 required by the simplified PNG API.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-64720",
+      "fix_versions": [
+        "1:21.0.10.0.7-1.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-11-25",
+      "nvd_cvss_v3_score": 7.1,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://github.com/pnggroup/libpng/commit/08da33b4c88cfcd36e5a706558a8d7e0e4773643",
+        "https://github.com/pnggroup/libpng/issues/686",
+        "https://github.com/pnggroup/libpng/pull/751",
+        "https://github.com/pnggroup/libpng/security/advisories/GHSA-hfc7-ph9c-wcww",
+        "https://github.com/pnggroup/libpng/security/advisories/GHSA-hfc7-ph9c-wcww"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-125"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "CVE-2025-65018",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "A buffer overflow flaw has been discovered in libpng. There is a heap buffer overflow vulnerability in the libpng simplified API function png_image_finish_read when processing 16-bit interlaced PNGs with 8-bit output format. Attacker-crafted interlaced PNG files cause heap writes beyond allocated buffer bounds.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-65018",
+      "fix_versions": [
+        "1:21.0.10.0.7-1.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-11-25",
+      "nvd_cvss_v3_score": 7.1,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://github.com/pnggroup/libpng/commit/16b5e3823918840aae65c0a6da57c78a5a496a4d",
+        "https://github.com/pnggroup/libpng/commit/218612ddd6b17944e21eda56caf8b4bf7779d1ea",
+        "https://github.com/pnggroup/libpng/issues/755",
+        "https://github.com/pnggroup/libpng/pull/757",
+        "https://github.com/pnggroup/libpng/security/advisories/GHSA-7wv6-48j4-hj3g"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-122",
+        "CWE-787"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "CVE-2025-66293",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "An out of bounds read vulnerability has been discovered in libpng. This vulnerability is in libpng's simplified API allows reading up to 1012 bytes beyond the png_sRGB_base[512] array when processing valid palette PNG images with partial transparency and gamma correction. The PNG files that trigger this vulnerability are valid per the PNG specification; the bug is in libpng's internal state management.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-66293",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-12-03",
+      "nvd_cvss_v3_score": 7.1,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://github.com/pnggroup/libpng/commit/788a624d7387a758ffd5c7ab010f1870dea753a1",
+        "https://github.com/pnggroup/libpng/commit/a05a48b756de63e3234ea6b3b938b8f5f862484a",
+        "https://github.com/pnggroup/libpng/issues/764",
+        "https://github.com/pnggroup/libpng/security/advisories/GHSA-9mpm-9pxh-mg4f",
+        "http://www.openwall.com/lists/oss-security/2025/12/03/6"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-125"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "CVE-2025-6965",
+      "package_name": "sqlite-libs",
+      "package_version": "3.34.1-7.el9_3",
+      "description": "A memory corruption flaw was found in SQLite. Under specific conditions a query can be generated where the number of aggregate terms could exceed the number of columns available. This issue could lead to memory corruption and subsequent unintended behavior.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-6965",
+      "fix_versions": [
+        "0:3.34.1-9.el9_7"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-07-15",
+      "nvd_cvss_v3_score": 9.8,
+      "nvd_cvss_v3_severity": "CRITICAL",
+      "nvd_references": [
+        "https://www.sqlite.org/src/info/5508b56fd24016c13981ec280ecdd833007c9d8dd595edb295b984c2b487b5c8",
+        "http://seclists.org/fulldisclosure/2025/Sep/49",
+        "http://seclists.org/fulldisclosure/2025/Sep/53",
+        "http://seclists.org/fulldisclosure/2025/Sep/56",
+        "http://seclists.org/fulldisclosure/2025/Sep/57"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-197"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "CVE-2026-21945",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "Vulnerability in the Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition product of Oracle Java SE (component: Security).  Supported versions that are affected are Oracle Java SE: 8u471, 8u471-b50, 8u471-perf, 11.0.29, 17.0.17, 21.0.9, 25.0.1; Oracle GraalVM for JDK: 17.0.17 and  21.0.9; Oracle GraalVM Enterprise Edition: 21.3.16. Easily exploitable vulnerability allows unauthenticated attacker with network access via multiple protocols to compromise Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition.  Successful attacks of this vulnerability can result in unauthorized ability to cause a hang or frequently repeatable crash (complete DOS) of Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition. Note: This vulnerability applies to Java deployments, typically in clients running sandboxed Java Web Start applications or sandboxed Java applets, that load and run untrusted code (e.g., code that comes from the internet) and rely on the Java sandbox for security. This vulnerability does not apply to Java deployments, typically in servers, that load and run only trusted code (e.g., code installed by an administrator). CVSS 3.1 Base Score 7.5 (Availability impacts).  CVSS Vector: (CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H).",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-21945",
+      "fix_versions": [
+        "1:21.0.10.0.7-1.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-01-20",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://www.oracle.com/security-alerts/cpujan2026.html"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-400"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "CVE-2026-22016",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "No description is available for this CVE.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-22016",
+      "fix_versions": [
+        "1:21.0.11.0.10-2.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-04-21",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://www.oracle.com/security-alerts/cpuapr2026.html"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-200",
+        "CWE-502"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "CVE-2026-22020",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "No description is available for this CVE.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-22020",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "CVE-2026-25646",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "A heap based buffer overflow flaw has been discovered in LibPNG. Prior to version 1.6.55, an out-of-bounds read vulnerability exists in the png_set_quantize() API function. When the function is called with no histogram and the number of colors in the palette is more than twice the maximum supported by the user's display, certain palettes will cause the function to enter into an infinite loop that reads past the end of an internal heap-allocated buffer. The images that trigger this vulnerability are valid per the PNG specification.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-25646",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-02-10",
+      "nvd_cvss_v3_score": 8.1,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://github.com/pnggroup/libpng/commit/01d03b8453eb30ade759cd45c707e5a1c7277d88",
+        "https://github.com/pnggroup/libpng/security/advisories/GHSA-g8hp-mq4h-rqm3",
+        "http://www.openwall.com/lists/oss-security/2026/02/09/7",
+        "https://github.com/pnggroup/libpng/security/advisories/GHSA-g8hp-mq4h-rqm3"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-122",
+        "CWE-126"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "CVE-2026-26740",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "A flaw was found in giflib. A remote attacker can exploit a buffer overflow vulnerability in the EGifGCBToExtension function by providing a specially crafted Graphics Control Extension (GCE) block. This allows overwriting an existing GCE block without proper size validation, leading to a denial of service (DoS) on the system.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-26740",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-03-18",
+      "nvd_cvss_v3_score": 8.2,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://github.com/zakkanijia/POC/blob/main/giflib/giftool/giflib_giftool_gce_len_heap_oobwrite_disclosure.md"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-787"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "CVE-2026-34282",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "No description is available for this CVE.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-34282",
+      "fix_versions": [
+        "1:21.0.11.0.10-2.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-04-21",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://www.oracle.com/security-alerts/cpuapr2026.html"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-400"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "CVE-2026-4878",
+      "package_name": "libcap",
+      "package_version": "2.48-9.el9_2",
+      "description": "A flaw was found in libcap. A local unprivileged user can exploit a Time-of-check-to-time-of-use (TOCTOU) race condition in the `cap_set_file()` function. This allows an attacker with write access to a parent directory to redirect file capability updates to an attacker-controlled file. By doing so, capabilities can be injected into or stripped from unintended executables, leading to privilege escalation.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-4878",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-04-09",
+      "nvd_cvss_v3_score": 6.7,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://access.redhat.com/errata/RHSA-2026:7473",
+        "https://access.redhat.com/security/cve/CVE-2026-4878",
+        "https://bugzilla.redhat.com/show_bug.cgi?id=2447554",
+        "https://bugzilla.redhat.com/show_bug.cgi?id=2451615",
+        "http://www.openwall.com/lists/oss-security/2026/04/07/14"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-367"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "CVE-2026-5358",
+      "package_name": "glibc-common",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in the GNU C Library (glibc). The obsolete `nis_local_principal` function contains a buffer overflow vulnerability. A remote attacker could exploit this by spoofing a crafted response to a User Datagram Protocol (UDP) request. This could allow the attacker to overwrite static data in the requesting application, potentially leading to data corruption or a denial of service.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-5358",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-04-20",
+      "nvd_cvss_v3_score": null,
+      "nvd_cvss_v3_severity": null,
+      "nvd_references": [],
+      "nvd_cwe_ids": []
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "CVE-2026-5358",
+      "package_name": "glibc-langpack-en",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in the GNU C Library (glibc). The obsolete `nis_local_principal` function contains a buffer overflow vulnerability. A remote attacker could exploit this by spoofing a crafted response to a User Datagram Protocol (UDP) request. This could allow the attacker to overwrite static data in the requesting application, potentially leading to data corruption or a denial of service.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-5358",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-04-20",
+      "nvd_cvss_v3_score": null,
+      "nvd_cvss_v3_severity": null,
+      "nvd_references": [],
+      "nvd_cwe_ids": []
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "CVE-2026-5358",
+      "package_name": "glibc",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in the GNU C Library (glibc). The obsolete `nis_local_principal` function contains a buffer overflow vulnerability. A remote attacker could exploit this by spoofing a crafted response to a User Datagram Protocol (UDP) request. This could allow the attacker to overwrite static data in the requesting application, potentially leading to data corruption or a denial of service.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-5358",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-04-20",
+      "nvd_cvss_v3_score": null,
+      "nvd_cvss_v3_severity": null,
+      "nvd_references": [],
+      "nvd_cwe_ids": []
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-37gf-gmxv-74wv",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak fails to verify if an Identity Provider (IdP) is enabled before issuing tokens",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-1486",
+      "fix_versions": [
+        "26.4.9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-4g8c-wm8x-jfhw",
+      "package_name": "netty-handler",
+      "package_version": "4.1.111.Final",
+      "description": "SslHandler doesn't correctly validate packets which can lead to native crash when using native SSLEngine",
+      "nvd_url": "https://github.com/netty/netty/security/advisories/GHSA-4g8c-wm8x-jfhw",
+      "fix_versions": [
+        "4.1.118.Final"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-cjm2-j6cm-6p6m",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak: Redirect URI validation bypass via ..;/ path traversal in OIDC auth endpoint",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-3872",
+      "fix_versions": [
+        "26.5.7"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-cxrx-q234-m22m",
+      "package_name": "quarkus-http-core",
+      "package_version": "5.3.2",
+      "description": "io.quarkus.http/quarkus-http-core: Quarkus HTTP Cookie Smuggling",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2024-12397",
+      "fix_versions": [
+        "5.3.4"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-f2hx-5fx3-hmcv",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak: UMA Policy Resource Injection Allows Unauthorized Cross-User Permission Grants",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-4636",
+      "fix_versions": [
+        "26.5.7"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-g9gq-3pfx-2gw2",
+      "package_name": "owasp-java-html-sanitizer",
+      "package_version": "20240325.1",
+      "description": "OWASP Java HTML Sanitizer is vulnerable to XSS via noscript tag and improper style tag sanitization",
+      "nvd_url": "https://github.com/OWASP/java-html-sanitizer/security/advisories/GHSA-g9gq-3pfx-2gw2",
+      "fix_versions": [
+        "20260101.1"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-h4wv-g838-66g3",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak: Application-Level DoS via Scope Processing",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-4634",
+      "fix_versions": [
+        "26.5.7"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-hcvw-475w-8g7p",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak affected by improper invitation token validation",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-1529",
+      "fix_versions": [
+        "26.2.13"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-hj93-h7pg-fh6v",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak: Privilege escalation via forged authorization codes due to SingleUseObjectProvider isolation flaw",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-4282",
+      "fix_versions": [
+        "26.5.7"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-hq9p-pm7w-8p54",
+      "package_name": "postgresql",
+      "package_version": "42.7.4",
+      "description": "pgjdbc Client Allows Fallback to Insecure Authentication Despite channelBinding=require Configuration",
+      "nvd_url": "https://github.com/pgjdbc/pgjdbc/security/advisories/GHSA-hq9p-pm7w-8p54",
+      "fix_versions": [
+        "42.7.7"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-hw58-3793-42gg",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak hostname verification",
+      "nvd_url": "https://github.com/keycloak/keycloak/security/advisories/GHSA-hw58-3793-42gg",
+      "fix_versions": [
+        "26.2.2"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-m297-3jv9-m927",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak allows authentication using an Identity Provider (IdP) even after it has been disabled by an administrator",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-3009",
+      "fix_versions": [
+        "26.5.5"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-m494-w24q-6f7w",
+      "package_name": "mssql-jdbc",
+      "package_version": "12.8.1",
+      "description": "JDBC Driver for SQL Server has improper input validation issue",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-59250",
+      "fix_versions": [
+        "12.8.2.jre11"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-p93r-85wp-75v3",
+      "package_name": "bcprov-jdk18on",
+      "package_version": "1.78.1",
+      "description": "Bouncy Castle Has Covert Timing Channel Vulnerability",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-5598",
+      "fix_versions": [
+        "1.84"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 2
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-phg3-gv66-q38x",
+      "package_name": "quarkus-rest-deployment",
+      "package_version": "3.15.1",
+      "description": "Quarkus REST Endpoint Request Parameter Leakage Due to Shared Instance",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-1247",
+      "fix_versions": [
+        "3.15.3.1"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-phg3-gv66-q38x",
+      "package_name": "quarkus-rest",
+      "package_version": "3.15.1",
+      "description": "Quarkus REST Endpoint Request Parameter Leakage Due to Shared Instance",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-1247",
+      "fix_versions": [
+        "3.15.3.1"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-prj3-ccx8-p6x4",
+      "package_name": "netty-codec-http2",
+      "package_version": "4.1.111.Final",
+      "description": "Netty affected by MadeYouReset HTTP/2 DDoS vulnerability",
+      "nvd_url": "https://github.com/netty/netty/security/advisories/GHSA-prj3-ccx8-p6x4",
+      "fix_versions": [
+        "4.1.124.Final"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-pwqr-wmgm-9rr8",
+      "package_name": "netty-codec-http",
+      "package_version": "4.1.111.Final",
+      "description": "Netty: HTTP Request Smuggling via Chunked Extension Quoted-String Parsing",
+      "nvd_url": "https://github.com/netty/netty/security/advisories/GHSA-pwqr-wmgm-9rr8",
+      "fix_versions": [
+        "4.1.132.Final"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-w9fj-cfpg-grvv",
+      "package_name": "netty-codec-http2",
+      "package_version": "4.1.111.Final",
+      "description": "Netty HTTP/2 CONTINUATION Frame Flood DoS via Zero-Byte Frame Bypass",
+      "nvd_url": "https://github.com/netty/netty/security/advisories/GHSA-w9fj-cfpg-grvv",
+      "fix_versions": [
+        "4.1.132.Final"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-wmxr-6j5f-838p",
+      "package_name": "keycloak-saml-core",
+      "package_version": "26.0.8",
+      "description": "Keycloak: Unauthorized access via improper validation of encrypted SAML assertions",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-2092",
+      "fix_versions": [
+        "26.2.14"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-wmxr-6j5f-838p",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak: Unauthorized access via improper validation of encrypted SAML assertions",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-2092",
+      "fix_versions": [
+        "26.2.14"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-x4p7-7chp-64hq",
+      "package_name": "keycloak-server-spi-private",
+      "package_version": "26.0.8",
+      "description": "Keycloak: Unauthorized authentication via disabled SAML Identity Provider",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-2603",
+      "fix_versions": [
+        "26.6.0"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "High",
+      "vulnerability_id": "GHSA-x4p7-7chp-64hq",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak: Unauthorized authentication via disabled SAML Identity Provider",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-2603",
+      "fix_versions": [
+        "26.6.0"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    }
+  ],
+  "medium_findings": [
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2024-12133",
+      "package_name": "libtasn1",
+      "package_version": "4.16.0-8.el9_1",
+      "description": "A flaw in libtasn1 causes inefficient handling of specific certificate data. When processing a large number of elements in a certificate, libtasn1 takes much longer than expected, which can slow down or even crash the system. This flaw allows an attacker to send a specially crafted certificate, causing a denial of service attack.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2024-12133",
+      "fix_versions": [
+        "0:4.16.0-9.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-02-10",
+      "nvd_cvss_v3_score": 5.3,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://access.redhat.com/errata/RHSA-2025:17347",
+        "https://access.redhat.com/errata/RHSA-2025:4049",
+        "https://access.redhat.com/errata/RHSA-2025:7077",
+        "https://access.redhat.com/errata/RHSA-2025:8021",
+        "https://access.redhat.com/errata/RHSA-2025:8385"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-407"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-0395",
+      "package_name": "glibc-common",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in the GNU C Library (glibc). A buffer overflow condition via the `assert()` function may be triggered due to glibc not allocating enough space for the assertion failure message string and size information. In certain conditions, a local attacker can exploit this, potentially leading to an application crash or other undefined behavior.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-0395",
+      "fix_versions": [
+        "0:2.34-125.el9_5.8"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-01-22",
+      "nvd_cvss_v3_score": 6.2,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=32582",
+        "https://sourceware.org/git/?p=glibc.git;a=blob;f=advisories/GLIBC-SA-2025-0001",
+        "https://sourceware.org/pipermail/libc-announce/2025/000044.html",
+        "https://www.openwall.com/lists/oss-security/2025/01/22/4",
+        "http://www.openwall.com/lists/oss-security/2025/01/22/4"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-131"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-0395",
+      "package_name": "glibc-langpack-en",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in the GNU C Library (glibc). A buffer overflow condition via the `assert()` function may be triggered due to glibc not allocating enough space for the assertion failure message string and size information. In certain conditions, a local attacker can exploit this, potentially leading to an application crash or other undefined behavior.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-0395",
+      "fix_versions": [
+        "0:2.34-125.el9_5.8"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-01-22",
+      "nvd_cvss_v3_score": 6.2,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=32582",
+        "https://sourceware.org/git/?p=glibc.git;a=blob;f=advisories/GLIBC-SA-2025-0001",
+        "https://sourceware.org/pipermail/libc-announce/2025/000044.html",
+        "https://www.openwall.com/lists/oss-security/2025/01/22/4",
+        "http://www.openwall.com/lists/oss-security/2025/01/22/4"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-131"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-0395",
+      "package_name": "glibc",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in the GNU C Library (glibc). A buffer overflow condition via the `assert()` function may be triggered due to glibc not allocating enough space for the assertion failure message string and size information. In certain conditions, a local attacker can exploit this, potentially leading to an application crash or other undefined behavior.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-0395",
+      "fix_versions": [
+        "0:2.34-125.el9_5.8"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-01-22",
+      "nvd_cvss_v3_score": 6.2,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=32582",
+        "https://sourceware.org/git/?p=glibc.git;a=blob;f=advisories/GLIBC-SA-2025-0001",
+        "https://sourceware.org/pipermail/libc-announce/2025/000044.html",
+        "https://www.openwall.com/lists/oss-security/2025/01/22/4",
+        "http://www.openwall.com/lists/oss-security/2025/01/22/4"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-131"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-21587",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "Vulnerability in the Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition product of Oracle Java SE (component: JSSE).  Supported versions that are affected are Oracle Java SE:8u441, 8u441-perf, 11.0.26, 17.0.14, 21.0.6, 24; Oracle GraalVM for JDK:17.0.14, 21.0.6, 24; Oracle GraalVM Enterprise Edition:20.3.17 and  21.3.13. Difficult to exploit vulnerability allows unauthenticated attacker with network access via multiple protocols to compromise Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition.  Successful attacks of this vulnerability can result in  unauthorized creation, deletion or modification access to critical data or all Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition accessible data as well as  unauthorized access to critical data or complete access to all Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition accessible data. Note: This vulnerability can be exploited by using APIs in the specified Component, e.g., through a web service which supplies data to the APIs. This vulnerability also applies to Java deployments, typically in clients running sandboxed Java Web Start applications or sandboxed Java applets, that load and run untrusted code (e.g., code that comes from the internet) and rely on the Java sandbox for security. CVSS 3.1 Base Score 7.4 (Confidentiality and Integrity impacts).  CVSS Vector: (CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N).",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-21587",
+      "fix_versions": [
+        "1:21.0.7.0.6-1.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-04-15",
+      "nvd_cvss_v3_score": 7.4,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://www.oracle.com/security-alerts/cpuapr2025.html",
+        "https://lists.debian.org/debian-lts-announce/2025/05/msg00026.html",
+        "https://security.netapp.com/advisory/ntap-20250502-0005/"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-284"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-28164",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "A flaw was found in libpng. This buffer overflow vulnerability allows a local attacker to cause a denial of service (DoS) by exploiting the `png_create_read_struct()` function. This can lead to the affected system becoming unresponsive or crashing.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-28164",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-01-27",
+      "nvd_cvss_v3_score": 5.5,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://gist.github.com/kittener/506516f8c22178005b4379c8b2a7de20",
+        "https://github.com/pnggroup/libpng/issues/655"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-401",
+        "CWE-120"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-30691",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "Vulnerability in Oracle Java SE (component: Compiler).  Supported versions that are affected are Oracle Java SE: 21.0.6, 24; Oracle GraalVM for JDK: 21.0.6 and  24. Difficult to exploit vulnerability allows unauthenticated attacker with network access via multiple protocols to compromise Oracle Java SE.  Successful attacks of this vulnerability can result in  unauthorized update, insert or delete access to some of Oracle Java SE accessible data as well as  unauthorized read access to a subset of Oracle Java SE accessible data. Note: This vulnerability can be exploited by using APIs in the specified Component, e.g., through a web service which supplies data to the APIs. This vulnerability also applies to Java deployments, typically in clients running sandboxed Java Web Start applications or sandboxed Java applets, that load and run untrusted code (e.g., code that comes from the internet) and rely on the Java sandbox for security. CVSS 3.1 Base Score 4.8 (Confidentiality and Integrity impacts).  CVSS Vector: (CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N).",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-30691",
+      "fix_versions": [
+        "1:21.0.7.0.6-1.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-04-15",
+      "nvd_cvss_v3_score": 4.8,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://www.oracle.com/security-alerts/cpuapr2025.html",
+        "https://lists.debian.org/debian-lts-announce/2025/05/msg00026.html",
+        "https://security.netapp.com/advisory/ntap-20250418-0004/"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-284"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-30698",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "Vulnerability in the Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition product of Oracle Java SE (component: 2D).  Supported versions that are affected are Oracle Java SE: 8u441, 8u441-perf, 11.0.26, 17.0.14, 21.0.6, 24; Oracle GraalVM for JDK: 17.0.14, 21.0.6, 24; Oracle GraalVM Enterprise Edition: 20.3.17 and  21.3.13. Difficult to exploit vulnerability allows unauthenticated attacker with network access via multiple protocols to compromise Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition.  Successful attacks of this vulnerability can result in  unauthorized update, insert or delete access to some of Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition accessible data as well as  unauthorized read access to a subset of Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition accessible data and unauthorized ability to cause a partial denial of service (partial DOS) of Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition. Note: This vulnerability applies to Java deployments, typically in clients running sandboxed Java Web Start applications or sandboxed Java applets, that load and run untrusted code (e.g., code that comes from the internet) and rely on the Java sandbox for security. This vulnerability does not apply to Java deployments, typically in servers, that load and run only trusted code (e.g., code installed by an administrator). CVSS 3.1 Base Score 5.6 (Confidentiality, Integrity and Availability impacts).  CVSS Vector: (CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L).",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-30698",
+      "fix_versions": [
+        "1:21.0.7.0.6-1.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-04-15",
+      "nvd_cvss_v3_score": 5.6,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://www.oracle.com/security-alerts/cpuapr2025.html",
+        "https://lists.debian.org/debian-lts-announce/2025/05/msg00026.html",
+        "https://security.netapp.com/advisory/ntap-20250502-0005/"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-284"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-30754",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "Vulnerability in the Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition product of Oracle Java SE (component: JSSE).  Supported versions that are affected are Oracle Java SE: 8u451, 8u451-perf, 11.0.27, 17.0.15, 21.0.7, 24.0.1; Oracle GraalVM for JDK: 17.0.15, 21.0.7 and  24.0.1; Oracle GraalVM Enterprise Edition: 21.3.14. Difficult to exploit vulnerability allows unauthenticated attacker with network access via TLS to compromise Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition.  Successful attacks of this vulnerability can result in  unauthorized update, insert or delete access to some of Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition accessible data as well as  unauthorized read access to a subset of Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition accessible data. Note: This vulnerability applies to Java deployments, typically in clients running sandboxed Java Web Start applications or sandboxed Java applets, that load and run untrusted code (e.g., code that comes from the internet) and rely on the Java sandbox for security. This vulnerability does not apply to Java deployments, typically in servers, that load and run only trusted code (e.g., code installed by an administrator). CVSS 3.1 Base Score 4.8 (Confidentiality and Integrity impacts).  CVSS Vector: (CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N).",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-30754",
+      "fix_versions": [
+        "1:21.0.8.0.9-1.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-07-15",
+      "nvd_cvss_v3_score": 4.8,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://www.oracle.com/security-alerts/cpujul2025.html",
+        "https://lists.debian.org/debian-lts-announce/2025/07/msg00011.html",
+        "https://lists.debian.org/debian-lts-announce/2025/08/msg00014.html"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-284"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-4802",
+      "package_name": "glibc-common",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in the glibc library. A statically linked setuid binary that calls dlopen(), including internal dlopen() calls after setlocale() or calls to NSS functions such as getaddrinfo(), may incorrectly search LD_LIBRARY_PATH to determine which library to load, allowing a local attacker to load malicious shared libraries, escalate privileges and execute arbitrary code.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-4802",
+      "fix_versions": [
+        "0:2.34-168.el9_6.19"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-05-16",
+      "nvd_cvss_v3_score": 7.8,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=32976",
+        "https://sourceware.org/cgit/glibc/commit/?id=1e18586c5820e329f741d5c710275e165581380e",
+        "http://www.openwall.com/lists/oss-security/2025/05/16/7",
+        "http://www.openwall.com/lists/oss-security/2025/05/17/2",
+        "https://lists.debian.org/debian-lts-announce/2025/05/msg00033.html"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-426"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-4802",
+      "package_name": "glibc-langpack-en",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in the glibc library. A statically linked setuid binary that calls dlopen(), including internal dlopen() calls after setlocale() or calls to NSS functions such as getaddrinfo(), may incorrectly search LD_LIBRARY_PATH to determine which library to load, allowing a local attacker to load malicious shared libraries, escalate privileges and execute arbitrary code.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-4802",
+      "fix_versions": [
+        "0:2.34-168.el9_6.19"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-05-16",
+      "nvd_cvss_v3_score": 7.8,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=32976",
+        "https://sourceware.org/cgit/glibc/commit/?id=1e18586c5820e329f741d5c710275e165581380e",
+        "http://www.openwall.com/lists/oss-security/2025/05/16/7",
+        "http://www.openwall.com/lists/oss-security/2025/05/17/2",
+        "https://lists.debian.org/debian-lts-announce/2025/05/msg00033.html"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-426"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-4802",
+      "package_name": "glibc",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in the glibc library. A statically linked setuid binary that calls dlopen(), including internal dlopen() calls after setlocale() or calls to NSS functions such as getaddrinfo(), may incorrectly search LD_LIBRARY_PATH to determine which library to load, allowing a local attacker to load malicious shared libraries, escalate privileges and execute arbitrary code.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-4802",
+      "fix_versions": [
+        "0:2.34-168.el9_6.19"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-05-16",
+      "nvd_cvss_v3_score": 7.8,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=32976",
+        "https://sourceware.org/cgit/glibc/commit/?id=1e18586c5820e329f741d5c710275e165581380e",
+        "http://www.openwall.com/lists/oss-security/2025/05/16/7",
+        "http://www.openwall.com/lists/oss-security/2025/05/17/2",
+        "https://lists.debian.org/debian-lts-announce/2025/05/msg00033.html"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-426"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-5278",
+      "package_name": "coreutils-single",
+      "package_version": "8.32-36.el9",
+      "description": "A flaw was found in GNU Coreutils. The sort utility's begfield() function is vulnerable to a heap buffer under-read. The program may access memory outside the allocated buffer if a user runs a crafted command using the traditional key format. A malicious input could lead to a crash or leak sensitive data.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-5278",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-05-27",
+      "nvd_cvss_v3_score": 4.4,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://access.redhat.com/security/cve/CVE-2025-5278",
+        "https://bugzilla.redhat.com/show_bug.cgi?id=2368764",
+        "https://cgit.git.savannah.gnu.org/cgit/coreutils.git/commit/?id=8c9602e3a145e9596dc1a63c6ed67865814b6633",
+        "http://www.openwall.com/lists/oss-security/2025/05/27/2",
+        "http://www.openwall.com/lists/oss-security/2025/05/29/1"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-121"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-53057",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "Vulnerability in the Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition product of Oracle Java SE (component: Security).  Supported versions that are affected are Oracle Java SE: 8u461, 8u461-perf, 11.0.28, 17.0.16, 21.0.8, 25; Oracle GraalVM for JDK: 17.0.16 and  21.0.8; Oracle GraalVM Enterprise Edition: 21.3.15. Difficult to exploit vulnerability allows unauthenticated attacker with network access via multiple protocols to compromise Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition.  Successful attacks of this vulnerability can result in  unauthorized creation, deletion or modification access to critical data or all Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition accessible data. Note: This vulnerability can be exploited by using APIs in the specified Component, e.g., through a web service which supplies data to the APIs. This vulnerability also applies to Java deployments, typically in clients running sandboxed Java Web Start applications or sandboxed Java applets, that load and run untrusted code (e.g., code that comes from the internet) and rely on the Java sandbox for security. CVSS 3.1 Base Score 5.9 (Integrity impacts).  CVSS Vector: (CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:N).",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-53057",
+      "fix_versions": [
+        "1:21.0.9.0.10-1.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-10-21",
+      "nvd_cvss_v3_score": 5.9,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://www.oracle.com/security-alerts/cpuoct2025.html",
+        "https://lists.debian.org/debian-lts-announce/2025/10/msg00026.html"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-284"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-53066",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "Vulnerability in the Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition product of Oracle Java SE (component: JAXP).  Supported versions that are affected are Oracle Java SE: 8u461, 8u461-perf, 11.0.28, 17.0.16, 21.0.8, 25; Oracle GraalVM for JDK: 17.0.16 and  21.0.8; Oracle GraalVM Enterprise Edition: 21.3.15. Easily exploitable vulnerability allows unauthenticated attacker with network access via multiple protocols to compromise Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition.  Successful attacks of this vulnerability can result in  unauthorized access to critical data or complete access to all Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition accessible data. Note: This vulnerability can be exploited by using APIs in the specified Component, e.g., through a web service which supplies data to the APIs. This vulnerability also applies to Java deployments, typically in clients running sandboxed Java Web Start applications or sandboxed Java applets, that load and run untrusted code (e.g., code that comes from the internet) and rely on the Java sandbox for security. CVSS 3.1 Base Score 7.5 (Confidentiality impacts).  CVSS Vector: (CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N).",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-53066",
+      "fix_versions": [
+        "1:21.0.9.0.10-1.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-10-21",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://www.oracle.com/security-alerts/cpuoct2025.html",
+        "https://lists.debian.org/debian-lts-announce/2025/10/msg00026.html"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-200"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-5702",
+      "package_name": "glibc-common",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in the optimized strcmp glibc function for the Power10 CPU architecture. GNU C library versions from 2.39 onward overwrite two vector registers in a way that can disrupt the control flow of a program.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-5702",
+      "fix_versions": [
+        "0:2.34-168.el9_6.20"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-06-05",
+      "nvd_cvss_v3_score": 5.6,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33056"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-665"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-5702",
+      "package_name": "glibc-langpack-en",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in the optimized strcmp glibc function for the Power10 CPU architecture. GNU C library versions from 2.39 onward overwrite two vector registers in a way that can disrupt the control flow of a program.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-5702",
+      "fix_versions": [
+        "0:2.34-168.el9_6.20"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-06-05",
+      "nvd_cvss_v3_score": 5.6,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33056"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-665"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-5702",
+      "package_name": "glibc",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in the optimized strcmp glibc function for the Power10 CPU architecture. GNU C library versions from 2.39 onward overwrite two vector registers in a way that can disrupt the control flow of a program.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-5702",
+      "fix_versions": [
+        "0:2.34-168.el9_6.20"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-06-05",
+      "nvd_cvss_v3_score": 5.6,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33056"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-665"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-61748",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "Vulnerability in the Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition product of Oracle Java SE (component: Libraries).  Supported versions that are affected are Oracle Java SE: 21.0.8 and  25; Oracle GraalVM for JDK: 21.0.8; Oracle GraalVM Enterprise Edition: 21.3.15. Difficult to exploit vulnerability allows unauthenticated attacker with network access via multiple protocols to compromise Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition.  Successful attacks of this vulnerability can result in  unauthorized update, insert or delete access to some of Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition accessible data. Note: This vulnerability can be exploited by using APIs in the specified Component, e.g., through a web service which supplies data to the APIs. This vulnerability also applies to Java deployments, typically in clients running sandboxed Java Web Start applications or sandboxed Java applets, that load and run untrusted code (e.g., code that comes from the internet) and rely on the Java sandbox for security. CVSS 3.1 Base Score 3.7 (Integrity impacts).  CVSS Vector: (CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N).",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-61748",
+      "fix_versions": [
+        "1:21.0.9.0.10-1.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-10-21",
+      "nvd_cvss_v3_score": 3.7,
+      "nvd_cvss_v3_severity": "LOW",
+      "nvd_references": [
+        "https://www.oracle.com/security-alerts/cpuoct2025.html"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-284"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-64505",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "A heap buffer over-read vulnerability exists in libpng's png_do_quantize function when processing PNG files with malformed palette indices. The vulnerability occurs when palette_lookup array bounds are not validated against externally-supplied image data, allowing an attacker to craft a PNG file with out-of-range palette indices that trigger out-of-bounds memory access.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-64505",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-11-25",
+      "nvd_cvss_v3_score": 6.1,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://github.com/pnggroup/libpng/commit/6a528eb5fd0dd7f6de1c39d30de0e41473431c37",
+        "https://github.com/pnggroup/libpng/pull/748",
+        "https://github.com/pnggroup/libpng/security/advisories/GHSA-4952-h5wq-4m42"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-125"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-64506",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "A buffer over read flaw has been discovered in libpng. A heap buffer over-read vulnerability exists in libpng's png_write_image_8bit function when processing 8-bit images through the simplified write API with convert_to_8bit enabled. The vulnerability affects 8-bit grayscale+alpha, RGB/RGBA, and images with incomplete row data. A conditional guard incorrectly allows 8-bit input to enter code expecting 16-bit input, causing reads up to 2 bytes beyond allocated buffer boundaries.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-64506",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-11-25",
+      "nvd_cvss_v3_score": 6.1,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://github.com/pnggroup/libpng/commit/2bd84c019c300b78e811743fbcddb67c9d9bf821",
+        "https://github.com/pnggroup/libpng/pull/749",
+        "https://github.com/pnggroup/libpng/security/advisories/GHSA-qpr4-xm66-hww6"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-125"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-8058",
+      "package_name": "glibc-common",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A double-free vulnerability has been discovered in glibc (GNU C Library). This flaw occurs during bracket expression parsing within the regcomp function, specifically when a memory allocation failure takes place. Exploitation of a double-free vulnerability can lead to memory corruption, which could enable an attacker to achieve arbitrary code execution or a denial of service condition.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-8058",
+      "fix_versions": [
+        "0:2.34-168.el9_6.23"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-07-23",
+      "nvd_cvss_v3_score": null,
+      "nvd_cvss_v3_severity": null,
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33185",
+        "https://sourceware.org/git/?p=glibc.git;a=commit;h=3ff17af18c38727b88d9115e536c069e6b5d601f",
+        "http://www.openwall.com/lists/oss-security/2025/07/23/1"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-415"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-8058",
+      "package_name": "glibc-langpack-en",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A double-free vulnerability has been discovered in glibc (GNU C Library). This flaw occurs during bracket expression parsing within the regcomp function, specifically when a memory allocation failure takes place. Exploitation of a double-free vulnerability can lead to memory corruption, which could enable an attacker to achieve arbitrary code execution or a denial of service condition.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-8058",
+      "fix_versions": [
+        "0:2.34-168.el9_6.23"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-07-23",
+      "nvd_cvss_v3_score": null,
+      "nvd_cvss_v3_severity": null,
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33185",
+        "https://sourceware.org/git/?p=glibc.git;a=commit;h=3ff17af18c38727b88d9115e536c069e6b5d601f",
+        "http://www.openwall.com/lists/oss-security/2025/07/23/1"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-415"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2025-8058",
+      "package_name": "glibc",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A double-free vulnerability has been discovered in glibc (GNU C Library). This flaw occurs during bracket expression parsing within the regcomp function, specifically when a memory allocation failure takes place. Exploitation of a double-free vulnerability can lead to memory corruption, which could enable an attacker to achieve arbitrary code execution or a denial of service condition.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-8058",
+      "fix_versions": [
+        "0:2.34-168.el9_6.23"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2025-07-23",
+      "nvd_cvss_v3_score": null,
+      "nvd_cvss_v3_severity": null,
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33185",
+        "https://sourceware.org/git/?p=glibc.git;a=commit;h=3ff17af18c38727b88d9115e536c069e6b5d601f",
+        "http://www.openwall.com/lists/oss-security/2025/07/23/1"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-415"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-0915",
+      "package_name": "glibc-common",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in glibc, the GNU C Library. When an application calls the `getnetbyaddr` or `getnetbyaddr_r` functions to resolve a network address, and the system's `nsswitch.conf` file is configured to use a DNS (Domain Name System) backend for network lookups, a query for a zero-valued network can lead to the disclosure of stack memory contents. This information is leaked to the configured DNS resolver, potentially allowing an attacker who controls the resolver to gain sensitive data from the affected system.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-0915",
+      "fix_versions": [
+        "0:2.34-231.el9_7.10"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-01-15",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33802",
+        "http://www.openwall.com/lists/oss-security/2026/01/16/6",
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33802"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-908"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-0915",
+      "package_name": "glibc-langpack-en",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in glibc, the GNU C Library. When an application calls the `getnetbyaddr` or `getnetbyaddr_r` functions to resolve a network address, and the system's `nsswitch.conf` file is configured to use a DNS (Domain Name System) backend for network lookups, a query for a zero-valued network can lead to the disclosure of stack memory contents. This information is leaked to the configured DNS resolver, potentially allowing an attacker who controls the resolver to gain sensitive data from the affected system.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-0915",
+      "fix_versions": [
+        "0:2.34-231.el9_7.10"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-01-15",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33802",
+        "http://www.openwall.com/lists/oss-security/2026/01/16/6",
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33802"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-908"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-0915",
+      "package_name": "glibc",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in glibc, the GNU C Library. When an application calls the `getnetbyaddr` or `getnetbyaddr_r` functions to resolve a network address, and the system's `nsswitch.conf` file is configured to use a DNS (Domain Name System) backend for network lookups, a query for a zero-valued network can lead to the disclosure of stack memory contents. This information is leaked to the configured DNS resolver, potentially allowing an attacker who controls the resolver to gain sensitive data from the affected system.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-0915",
+      "fix_versions": [
+        "0:2.34-231.el9_7.10"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-01-15",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33802",
+        "http://www.openwall.com/lists/oss-security/2026/01/16/6",
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33802"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-908"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-2100",
+      "package_name": "p11-kit-trust",
+      "package_version": "0.25.3-3.el9_5",
+      "description": "A flaw was found in p11-kit. A remote attacker could exploit this vulnerability by calling the C_DeriveKey function on a remote token with specific IBM kyber or IBM btc derive mechanism parameters set to NULL. This could lead to the RPC-client attempting to return an uninitialized value, potentially resulting in a NULL dereference or undefined behavior. This issue may cause an application level denial of service or other unpredictable system states.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-2100",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-03-26",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://access.redhat.com/errata/RHSA-2026:7065",
+        "https://access.redhat.com/security/cve/CVE-2026-2100",
+        "https://bugzilla.redhat.com/show_bug.cgi?id=2437308",
+        "https://github.com/p11-glue/p11-kit/pull/740"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-824"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-21925",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "Vulnerability in the Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition product of Oracle Java SE (component: RMI).  Supported versions that are affected are Oracle Java SE: 8u471, 8u471-b50, 8u471-perf, 11.0.29, 17.0.17, 21.0.9, 25.0.1; Oracle GraalVM for JDK: 17.0.17 and  21.0.9; Oracle GraalVM Enterprise Edition: 21.3.16. Difficult to exploit vulnerability allows unauthenticated attacker with network access via multiple protocols to compromise Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition.  Successful attacks of this vulnerability can result in  unauthorized update, insert or delete access to some of Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition accessible data as well as  unauthorized read access to a subset of Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition accessible data. Note: This vulnerability can be exploited by using APIs in the specified Component, e.g., through a web service which supplies data to the APIs. This vulnerability also applies to Java deployments, typically in clients running sandboxed Java Web Start applications or sandboxed Java applets, that load and run untrusted code (e.g., code that comes from the internet) and rely on the Java sandbox for security. CVSS 3.1 Base Score 4.8 (Confidentiality and Integrity impacts).  CVSS Vector: (CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N).",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-21925",
+      "fix_versions": [
+        "1:21.0.10.0.7-1.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-01-20",
+      "nvd_cvss_v3_score": 4.8,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://www.oracle.com/security-alerts/cpujan2026.html"
+      ],
+      "nvd_cwe_ids": []
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-21933",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "Vulnerability in the Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition product of Oracle Java SE (component: Networking).  Supported versions that are affected are Oracle Java SE: 8u471, 8u471-b50, 8u471-perf, 11.0.29, 17.0.17, 21.0.9, 25.0.1; Oracle GraalVM for JDK: 17.0.17 and  21.0.9; Oracle GraalVM Enterprise Edition: 21.3.16. Easily exploitable vulnerability allows unauthenticated attacker with network access via multiple protocols to compromise Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition.  Successful attacks require human interaction from a person other than the attacker and while the vulnerability is in Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition, attacks may significantly impact additional products (scope change). Successful attacks of this vulnerability can result in  unauthorized update, insert or delete access to some of Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition accessible data as well as  unauthorized read access to a subset of Oracle Java SE, Oracle GraalVM for JDK, Oracle GraalVM Enterprise Edition accessible data. Note: This vulnerability can be exploited by using APIs in the specified Component, e.g., through a web service which supplies data to the APIs. This vulnerability also applies to Java deployments, typically in clients running sandboxed Java Web Start applications or sandboxed Java applets, that load and run untrusted code (e.g., code that comes from the internet) and rely on the Java sandbox for security. CVSS 3.1 Base Score 6.1 (Confidentiality and Integrity impacts).  CVSS Vector: (CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N).",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-21933",
+      "fix_versions": [
+        "1:21.0.10.0.7-1.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-01-20",
+      "nvd_cvss_v3_score": 6.1,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://www.oracle.com/security-alerts/cpujan2026.html"
+      ],
+      "nvd_cwe_ids": []
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-22013",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "No description is available for this CVE.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-22013",
+      "fix_versions": [
+        "1:21.0.11.0.10-2.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-04-21",
+      "nvd_cvss_v3_score": 5.3,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://www.oracle.com/security-alerts/cpuapr2026.html"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-693"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-22021",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "No description is available for this CVE.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-22021",
+      "fix_versions": [
+        "1:21.0.11.0.10-2.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-04-21",
+      "nvd_cvss_v3_score": 5.3,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://www.oracle.com/security-alerts/cpuapr2026.html"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-400"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-22693",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "A null pointer dereference vector has been discovered in the harfbuzz package. A null pointer dereference vulnerability exists in the SubtableUnicodesCache::create function located in src/hb-ot-cmap-table.hh:1672-1673. The function fails to check if hb_malloc returns NULL before using placement new to construct an object at the returned pointer address. When hb_malloc fails to allocate memory (which can occur in low-memory conditions or when using custom allocators that simulate allocation failures), it returns NULL. The code then attempts to call the constructor on this null pointer using placement new syntax, resulting in undefined behavior and a Segmentation Fault.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-22693",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-01-10",
+      "nvd_cvss_v3_score": 5.3,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://github.com/harfbuzz/harfbuzz/commit/1265ff8d990284f04d8768f35b0e20ae5f60daae",
+        "https://github.com/harfbuzz/harfbuzz/security/advisories/GHSA-xvjr-f2r9-c7ww",
+        "http://www.openwall.com/lists/oss-security/2026/01/11/1",
+        "http://www.openwall.com/lists/oss-security/2026/01/12/1"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-476"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-22695",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "A flaw was found in libpng, a reference library for processing PNG (Portable Network Graphics) image files. A local attacker could exploit a heap buffer over-read vulnerability in the `png_image_finish_read` function by tricking a user into processing a specially crafted interlaced 16-bit PNG file with an 8-bit output format and non-minimal row stride. This could lead to a denial of service (DoS) and potentially information disclosure.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-22695",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-01-12",
+      "nvd_cvss_v3_score": 7.1,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://github.com/pnggroup/libpng/commit/218612ddd6b17944e21eda56caf8b4bf7779d1ea",
+        "https://github.com/pnggroup/libpng/commit/e4f7ad4ea2",
+        "https://github.com/pnggroup/libpng/issues/778",
+        "https://github.com/pnggroup/libpng/security/advisories/GHSA-mmq5-27w3-rxpp"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-125"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-22801",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "A flaw was found in libpng, a reference library for PNG (Portable Network Graphics) raster image files. An integer truncation vulnerability exists in the png_write_image_16bit and png_write_image_8bit simplified write API functions. A local attacker could exploit this flaw by providing a negative row stride (for bottom-up image layouts) or a stride exceeding 65535 bytes, leading to a heap buffer over-read. This can result in information disclosure or a denial of service (DoS) to the system.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-22801",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-01-12",
+      "nvd_cvss_v3_score": 7.8,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://github.com/pnggroup/libpng/security/advisories/GHSA-vgjq-8cw5-ggw8"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-125",
+        "CWE-190"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-23865",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "A flaw was found in Freetype. An integer overflow vulnerability exists when processing specially crafted OpenType variable fonts. A local attacker could exploit this by convincing a user to open a malicious font file, which may lead to an out-of-bounds read and potential information disclosure or denial of service.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-23865",
+      "fix_versions": [
+        "1:21.0.11.0.10-2.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-03-02",
+      "nvd_cvss_v3_score": 5.3,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://gitlab.com/freetype/freetype/-/commit/fc85a255849229c024c8e65f536fe1875d84841c",
+        "https://sourceforge.net/projects/freetype/files/freetype2/2.14.2/",
+        "https://www.facebook.com/security/advisories/cve-2026-23865",
+        "http://www.openwall.com/lists/oss-security/2026/03/03/8"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-125"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-33416",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "A flaw was found in libpng, a library used for processing PNG (Portable Network Graphics) image files. This vulnerability arises from improper memory management where a heap-allocated buffer is aliased between internal data structures. When specific functions are called, a freed memory region can still be referenced, leading to a use-after-free condition. An attacker could potentially exploit this to achieve arbitrary code execution or cause a denial of service.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-33416",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-03-26",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://github.com/pnggroup/libpng/commit/23019269764e35ed8458e517f1897bd3c54820eb",
+        "https://github.com/pnggroup/libpng/commit/7ea9eea884a2328cc7fdcb3c0c00246a50d90667",
+        "https://github.com/pnggroup/libpng/commit/a3a21443ed12bfa1ef46fa0d4fb2b74a0fa34a25",
+        "https://github.com/pnggroup/libpng/commit/c1b0318b393c90679e6fa5bc1d329fd5d5012ec1",
+        "https://github.com/pnggroup/libpng/pull/824"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-416"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-33636",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "A flaw was found in libpng. A remote attacker could exploit an out-of-bounds read and write vulnerability in the ARM/AArch64 Neon-optimized palette expansion path. This occurs when processing a final partial chunk of 8-bit paletted rows without verifying sufficient input pixels, leading to dereferencing pointers before the start of the row buffer and writing expanded pixel data to underflowed positions. This flaw can result in information disclosure and denial of service.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-33636",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-03-26",
+      "nvd_cvss_v3_score": 7.6,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://github.com/pnggroup/libpng/commit/7734cda20cf1236aef60f3bbd2267c97bbb40869",
+        "https://github.com/pnggroup/libpng/commit/aba9f18eba870d14fb52c5ba5d73451349e339c3",
+        "https://github.com/pnggroup/libpng/security/advisories/GHSA-wjr5-c57x-95m2"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-125",
+        "CWE-787"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-34757",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "A flaw was found in libpng, a library used for handling PNG (Portable Network Graphics) image files. This vulnerability arises when an application reuses a pointer, previously obtained from functions like png_get_PLTE, by passing it back to a corresponding setter function within the same image structure. This action causes the setter to access memory that has already been deallocated, leading to a use-after-free condition. A local attacker could potentially exploit this flaw to corrupt image metadata or disclose sensitive information from the application's memory.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-34757",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-04-09",
+      "nvd_cvss_v3_score": 5.1,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://github.com/pnggroup/libpng/commit/398cbe3df03f4e11bb031e07f416dfdde3684e8a",
+        "https://github.com/pnggroup/libpng/commit/55d20aaa322c9274491cda82c5cd4f99b48c6bcc",
+        "https://github.com/pnggroup/libpng/issues/836",
+        "https://github.com/pnggroup/libpng/issues/837",
+        "https://github.com/pnggroup/libpng/security/advisories/GHSA-6fr7-g8h7-v645"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-416"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-4046",
+      "package_name": "glibc-common",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in glibc, the GNU C Library. A remote attacker could exploit this vulnerability by providing specially crafted inputs using the IBM1390 or IBM1399 character sets to the `iconv()` function. This could lead to an assertion failure, causing the application to crash and resulting in a Denial of Service (DoS).",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-4046",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-03-30",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://inbox.sourceware.org/libc-announce/76814edf-cf7f-47ec-979d-2dce0a2c76bf@gotplt.org/T/#u",
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33980",
+        "https://sourceware.org/git/?p=glibc.git;a=blob_plain;f=advisories/GLIBC-SA-2026-0007;hb=HEAD"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-617"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-4046",
+      "package_name": "glibc-langpack-en",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in glibc, the GNU C Library. A remote attacker could exploit this vulnerability by providing specially crafted inputs using the IBM1390 or IBM1399 character sets to the `iconv()` function. This could lead to an assertion failure, causing the application to crash and resulting in a Denial of Service (DoS).",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-4046",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-03-30",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://inbox.sourceware.org/libc-announce/76814edf-cf7f-47ec-979d-2dce0a2c76bf@gotplt.org/T/#u",
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33980",
+        "https://sourceware.org/git/?p=glibc.git;a=blob_plain;f=advisories/GLIBC-SA-2026-0007;hb=HEAD"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-617"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-4046",
+      "package_name": "glibc",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in glibc, the GNU C Library. A remote attacker could exploit this vulnerability by providing specially crafted inputs using the IBM1390 or IBM1399 character sets to the `iconv()` function. This could lead to an assertion failure, causing the application to crash and resulting in a Denial of Service (DoS).",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-4046",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-03-30",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://inbox.sourceware.org/libc-announce/76814edf-cf7f-47ec-979d-2dce0a2c76bf@gotplt.org/T/#u",
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33980",
+        "https://sourceware.org/git/?p=glibc.git;a=blob_plain;f=advisories/GLIBC-SA-2026-0007;hb=HEAD"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-617"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-41254",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "A flaw was found in Little CMS. An integer overflow in the `CubeSize` function within `cmslut.c` occurs because the overflow check is performed after the multiplication. An attacker could exploit this vulnerability by providing a specially crafted input, potentially leading to information disclosure or a denial of service (DoS), which makes the system unavailable to legitimate users.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-41254",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-04-18",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://abhinavagarwal07.github.io/posts/lcms2-cubesize-overflow/",
+        "https://github.com/mm2/Little-CMS/commit/da6110b1d14abc394633a388209abd5ebedd7ab0",
+        "https://github.com/mm2/Little-CMS/commit/e0641b1828d0a1af5ecb1b11fe22f24fceefd4bc",
+        "https://github.com/mm2/Little-CMS/security/advisories/GHSA-4xp6-rcgg-m9qq",
+        "https://www.openwall.com/lists/oss-security/2026/04/17/16"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-696",
+        "CWE-190"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-4437",
+      "package_name": "glibc-common",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in glibc (the GNU C Library). When an application uses the `gethostbyaddr` or `gethostbyaddr_r` functions with a `nsswitch.conf` configuration that specifies glibc's DNS backend, a remote attacker can send a specially crafted DNS (Domain Name System) response. This crafted response can cause the application to incorrectly interpret a non-answer section of the DNS response as a valid answer, leading to potential misbehavior or incorrect information processing.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-4437",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-03-20",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=34014"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-125"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-4437",
+      "package_name": "glibc-langpack-en",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in glibc (the GNU C Library). When an application uses the `gethostbyaddr` or `gethostbyaddr_r` functions with a `nsswitch.conf` configuration that specifies glibc's DNS backend, a remote attacker can send a specially crafted DNS (Domain Name System) response. This crafted response can cause the application to incorrectly interpret a non-answer section of the DNS response as a valid answer, leading to potential misbehavior or incorrect information processing.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-4437",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-03-20",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=34014"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-125"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-4437",
+      "package_name": "glibc",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in glibc (the GNU C Library). When an application uses the `gethostbyaddr` or `gethostbyaddr_r` functions with a `nsswitch.conf` configuration that specifies glibc's DNS backend, a remote attacker can send a specially crafted DNS (Domain Name System) response. This crafted response can cause the application to incorrectly interpret a non-answer section of the DNS response as a valid answer, leading to potential misbehavior or incorrect information processing.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-4437",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-03-20",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=34014"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-125"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-5450",
+      "package_name": "glibc-common",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in glibc (GNU C Library). This vulnerability occurs when an application uses the `scanf` family of functions with a `%mc` format specifier, which is used for dynamically allocating memory for character input, and provides an explicit width greater than 1024. This specific combination can lead to a one-byte heap buffer overflow, potentially allowing an attacker to corrupt memory.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-5450",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-04-20",
+      "nvd_cvss_v3_score": 9.8,
+      "nvd_cvss_v3_severity": "CRITICAL",
+      "nvd_references": [
+        "https://inbox.sourceware.org/libc-announce/b11f0003-6ec1-4bd6-b9de-9e38a4efeca3@redhat.com/T/#u",
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=CVE-2026-5450",
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=CVE-2026-5450"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-122",
+        "CWE-787"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-5450",
+      "package_name": "glibc-langpack-en",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in glibc (GNU C Library). This vulnerability occurs when an application uses the `scanf` family of functions with a `%mc` format specifier, which is used for dynamically allocating memory for character input, and provides an explicit width greater than 1024. This specific combination can lead to a one-byte heap buffer overflow, potentially allowing an attacker to corrupt memory.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-5450",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-04-20",
+      "nvd_cvss_v3_score": 9.8,
+      "nvd_cvss_v3_severity": "CRITICAL",
+      "nvd_references": [
+        "https://inbox.sourceware.org/libc-announce/b11f0003-6ec1-4bd6-b9de-9e38a4efeca3@redhat.com/T/#u",
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=CVE-2026-5450",
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=CVE-2026-5450"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-122",
+        "CWE-787"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-5450",
+      "package_name": "glibc",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in glibc (GNU C Library). This vulnerability occurs when an application uses the `scanf` family of functions with a `%mc` format specifier, which is used for dynamically allocating memory for character input, and provides an explicit width greater than 1024. This specific combination can lead to a one-byte heap buffer overflow, potentially allowing an attacker to corrupt memory.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-5450",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-04-20",
+      "nvd_cvss_v3_score": 9.8,
+      "nvd_cvss_v3_severity": "CRITICAL",
+      "nvd_references": [
+        "https://inbox.sourceware.org/libc-announce/b11f0003-6ec1-4bd6-b9de-9e38a4efeca3@redhat.com/T/#u",
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=CVE-2026-5450",
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=CVE-2026-5450"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-122",
+        "CWE-787"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-5928",
+      "package_name": "glibc-common",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in glibc (GNU C Library). When the `ungetwc` function is called on a file stream using wide characters with specific overlapping single-byte and multi-byte encodings, it may attempt to read data outside of its allocated buffer. This can lead to the unintentional disclosure of sensitive information from memory or cause the program to crash, resulting in a denial of service.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-5928",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-04-20",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33998",
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33998"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-127"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-5928",
+      "package_name": "glibc-langpack-en",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in glibc (GNU C Library). When the `ungetwc` function is called on a file stream using wide characters with specific overlapping single-byte and multi-byte encodings, it may attempt to read data outside of its allocated buffer. This can lead to the unintentional disclosure of sensitive information from memory or cause the program to crash, resulting in a denial of service.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-5928",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-04-20",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33998",
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33998"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-127"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "CVE-2026-5928",
+      "package_name": "glibc",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in glibc (GNU C Library). When the `ungetwc` function is called on a file stream using wide characters with specific overlapping single-byte and multi-byte encodings, it may attempt to read data outside of its allocated buffer. This can lead to the unintentional disclosure of sensitive information from memory or cause the program to crash, resulting in a denial of service.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-5928",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-04-20",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33998",
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33998"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-127"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-27gc-wj6x-9w55",
+      "package_name": "keycloak-account-ui",
+      "package_version": "26.0.8",
+      "description": "Keycloak error_description injection on error pages that can trigger phishing attacks",
+      "nvd_url": "https://github.com/keycloak/keycloak/security/advisories/GHSA-27gc-wj6x-9w55",
+      "fix_versions": [
+        "26.2.9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-27gc-wj6x-9w55",
+      "package_name": "keycloak-admin-ui",
+      "package_version": "26.0.8",
+      "description": "Keycloak error_description injection on error pages that can trigger phishing attacks",
+      "nvd_url": "https://github.com/keycloak/keycloak/security/advisories/GHSA-27gc-wj6x-9w55",
+      "fix_versions": [
+        "26.2.9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-2935-2wfm-hhpv",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak Denial of Service (DoS) Vulnerability via JWT Token Cache",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-2559",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-2p82-5wwr-43cw",
+      "package_name": "keycloak-ldap-federation",
+      "package_version": "26.0.8",
+      "description": "Authentication Bypass Due to Missing LDAP Bind After Password Reset in Keycloak",
+      "nvd_url": "https://github.com/keycloak/keycloak/security/advisories/GHSA-2p82-5wwr-43cw",
+      "fix_versions": [
+        "26.0.10"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-389x-839f-4rhx",
+      "package_name": "netty-common",
+      "package_version": "4.1.111.Final",
+      "description": "Denial of Service attack on windows app using Netty",
+      "nvd_url": "https://github.com/netty/netty/security/advisories/GHSA-389x-839f-4rhx",
+      "fix_versions": [
+        "4.1.118.Final"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-3p8m-j85q-pgmj",
+      "package_name": "netty-codec",
+      "package_version": "4.1.111.Final",
+      "description": "Netty's decoders vulnerable to DoS via zip bomb style attack",
+      "nvd_url": "https://github.com/netty/netty/security/advisories/GHSA-3p8m-j85q-pgmj",
+      "fix_versions": [
+        "4.1.125.Final"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-4cx2-fc23-5wg6",
+      "package_name": "bcpkix-jdk18on",
+      "package_version": "1.78.1",
+      "description": "Bouncy Castle for Java bcpkix, bcprov, bcpkix-fips on All (API modules) allows Excessive Allocation",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-8916",
+      "fix_versions": [
+        "1.79"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-4hx9-48xh-5mxr",
+      "package_name": "keycloak-ldap-federation",
+      "package_version": "26.0.8",
+      "description": "Keycloak LDAP User Federation provider enables admin-triggered untrusted Java deserialization",
+      "nvd_url": "https://github.com/keycloak/keycloak/security/advisories/GHSA-4hx9-48xh-5mxr",
+      "fix_versions": [
+        "26.2.11"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-4pgc-gfrr-wcmg",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak has Improper Access Control that allows attackers with valid credentials to bypass the allowRemoteResourceManagement=false",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-4628",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-5jfq-x6xp-7rw2",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak vulnerable to two factor authentication bypass",
+      "nvd_url": "https://github.com/keycloak/keycloak/security/advisories/GHSA-5jfq-x6xp-7rw2",
+      "fix_versions": [
+        "26.2.2"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-5rfx-cp42-p624",
+      "package_name": "quarkus-rest",
+      "package_version": "3.15.1",
+      "description": "Quarkus REST has potential worker thread starvation when HTTP connection is closed while waiting to write",
+      "nvd_url": "https://github.com/quarkusio/quarkus/security/advisories/GHSA-5rfx-cp42-p624",
+      "fix_versions": [
+        "3.20.5"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-64w3-5q9m-68xf",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak does not invalidate sessions when \"Remember Me\" is disabled",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-11429",
+      "fix_versions": [
+        "26.2.11"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-72hv-8253-57qq",
+      "package_name": "jackson-core",
+      "package_version": "2.17.2",
+      "description": "jackson-core: Number Length Constraint Bypass in Async Parser Leads to Potential DoS Condition",
+      "nvd_url": "https://github.com/FasterXML/jackson-core/security/advisories/GHSA-72hv-8253-57qq",
+      "fix_versions": [
+        "2.18.6"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 2
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-7xf9-4jfc-wgm4",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak: manage-clients permission escalates to full realm admin access",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-3121",
+      "fix_versions": [
+        "26.5.6"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-84h7-rjj3-6jx4",
+      "package_name": "netty-codec-http",
+      "package_version": "4.1.111.Final",
+      "description": "Netty has a CRLF Injection vulnerability in io.netty.handler.codec.http.HttpRequestEncoder",
+      "nvd_url": "https://github.com/netty/netty/security/advisories/GHSA-84h7-rjj3-6jx4",
+      "fix_versions": [
+        "4.1.129.Final"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-895x-rfqp-jh5c",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak does not invalidate offline sessions when the offline_access scope is removed",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-12110",
+      "fix_versions": [
+        "26.2.3"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-8g9r-9wjw-37j4",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak: Improper Access Control Leading to MFA Deletion and Account Takeover in Keycloak Account REST API",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-3429",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-8hxp-qmph-w5gq",
+      "package_name": "keycloak-model-storage-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak Potential Variable Reference in Model Storage Services",
+      "nvd_url": "https://github.com/keycloak/keycloak/security/advisories/GHSA-8hxp-qmph-w5gq",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-9342-92gg-6v29",
+      "package_name": "smtp",
+      "package_version": "2.0.3",
+      "description": "Jakarta Mail vulnerable to SMTP Injection",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-7962",
+      "fix_versions": [
+        "2.0.4"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-9623-mj7j-p9v4",
+      "package_name": "quarkus-vertx",
+      "package_version": "3.15.1",
+      "description": "Quarkus potentially leaks data when duplicating a duplicated context",
+      "nvd_url": "https://github.com/quarkusio/quarkus/security/advisories/GHSA-9623-mj7j-p9v4",
+      "fix_versions": [
+        "3.15.6"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-c3fc-8qff-9hwx",
+      "package_name": "bcprov-jdk18on",
+      "package_version": "1.78.1",
+      "description": "Bouncy Castle has an LDAP injection",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-0636",
+      "fix_versions": [
+        "1.84"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 2
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-cphf-4846-3xx9",
+      "package_name": "vertx-core",
+      "package_version": "4.5.10",
+      "description": "Vert.x Web static handler component cache can be manipulated to deny the access to static files",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-1002",
+      "fix_versions": [
+        "4.5.24"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-fm6w-rrp3-2x4w",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak Affected by Broken Access Control Vulnerability in the UserManagedPermissionService",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-14778",
+      "fix_versions": [
+        "26.2.13"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Grype-sbom",
+      "type": "vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-gc5v-m9x4-r6x2",
+      "id": "GHSA-gc5v-m9x4-r6x2",
+      "package": "requests",
+      "package_name": "requests",
+      "version": "2.32.5",
+      "package_version": "2.32.5",
+      "package_type": "python",
+      "package_path": "/requirements.txt",
+      "purl": "pkg:pypi/requests@2.32.5",
+      "description": "Requests has Insecure Temp File Reuse in its extract_zipped_paths() utility function",
+      "cvss_score": 4.4,
+      "fix_available": "Yes",
+      "fixed_versions": [
+        "2.33.0"
+      ],
+      "detected_by": [
+        "Grype-sbom"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-gv3v-2cpp-3pmq",
+      "package_name": "keycloak-quarkus-server",
+      "package_version": "26.0.8",
+      "description": "Keycloak logs sensitive headers",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-11537",
+      "fix_versions": [
+        "26.5.6"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-gvgg-2r3r-53x7",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Improper Authorization in Keycloak Organization Mapper Allows Unauthorized Organization Claims",
+      "nvd_url": "https://github.com/keycloak/keycloak/security/advisories/GHSA-gvgg-2r3r-53x7",
+      "fix_versions": [
+        "26.0.10"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-h5fg-jpgr-rv9c",
+      "package_name": "vertx-web",
+      "package_version": "4.5.10",
+      "description": "Vert.x-Web Access Control Flaw in StaticHandler\u2019s Hidden File Protection for Files Under Hidden Directories",
+      "nvd_url": "https://github.com/vert-x3/vertx-web/security/advisories/GHSA-h5fg-jpgr-rv9c",
+      "fix_versions": [
+        "4.5.22"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-j288-q9x7-2f5v",
+      "package_name": "commons-lang3",
+      "package_version": "3.14.0",
+      "description": "Apache Commons Lang is vulnerable to Uncontrolled Recursion when processing long inputs",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-48924",
+      "fix_versions": [
+        "3.18.0"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-m32f-8vh9-2hh3",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak: Arbitrary code execution via Stored Cross-Site Scripting (XSS) in organization selection login page",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-37980",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-m4j5-5x4r-2xp9",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak SMTP Inject Vulnerability",
+      "nvd_url": "https://github.com/keycloak/keycloak/security/advisories/GHSA-m4j5-5x4r-2xp9",
+      "fix_versions": [
+        "26.2.8"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Grype-sbom",
+      "type": "vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-mj87-hwqh-73pj",
+      "id": "GHSA-mj87-hwqh-73pj",
+      "package": "python-multipart",
+      "package_name": "python-multipart",
+      "version": "0.0.22",
+      "package_version": "0.0.22",
+      "package_type": "python",
+      "package_path": "/requirements.txt",
+      "purl": "pkg:pypi/python-multipart@0.0.22",
+      "description": "python-multipart affected by Denial of Service via large multipart preamble or epilogue data",
+      "cvss_score": 5.3,
+      "fix_available": "Yes",
+      "fixed_versions": [
+        "0.0.26"
+      ],
+      "detected_by": [
+        "Grype-sbom"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-q35r-vvhv-vx5h",
+      "package_name": "keycloak-model-jpa",
+      "package_version": "26.0.8",
+      "description": "Keycloak: Missing Role Enforcement on UMA 2.0 Permission Ticket Endpoint Leads to Information Disclosure",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-3190",
+      "fix_versions": [
+        "26.5.6"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-q35r-vvhv-vx5h",
+      "package_name": "keycloak-server-spi-private",
+      "package_version": "26.0.8",
+      "description": "Keycloak: Missing Role Enforcement on UMA 2.0 Permission Ticket Endpoint Leads to Information Disclosure",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-3190",
+      "fix_versions": [
+        "26.5.6"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-q35r-vvhv-vx5h",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak: Missing Role Enforcement on UMA 2.0 Permission Ticket Endpoint Leads to Information Disclosure",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-3190",
+      "fix_versions": [
+        "26.5.6"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-rx66-hj7g-28h7",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak: Replay of action tokens via improper handling of single-use entries",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-4325",
+      "fix_versions": [
+        "26.5.7"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-v4jw-m6rm-399h",
+      "package_name": "keycloak-server-spi-private",
+      "package_version": "26.0.8",
+      "description": "Keycloak Server Private SPI: Improper Access Control Allows Administrators to Bypass Attribute Visibility Restrictions and Modify Unmanaged User Profile Attributes",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-0871",
+      "fix_versions": [
+        "26.5.2"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-wg6q-6289-32hp",
+      "package_name": "bcpkix-jdk18on",
+      "package_version": "1.78.1",
+      "description": "Bouncy Castle Crypto Package For Java: Use of a Broken or Risky Cryptographic Algorithm vulnerability in bcpkix modules",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-5588",
+      "fix_versions": [
+        "1.84"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-wv3h-x6c4-r867",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak services allows the issuance of access and refresh tokens for disabled users",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-14559",
+      "fix_versions": [
+        "26.4.9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-xhpr-465j-7p9q",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak phishing attack via email verification step in first login flow",
+      "nvd_url": "https://github.com/keycloak/keycloak/security/advisories/GHSA-xhpr-465j-7p9q",
+      "fix_versions": [
+        "26.0.13"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-xq3w-v528-46rv",
+      "package_name": "netty-common",
+      "package_version": "4.1.111.Final",
+      "description": "Denial of Service attack on windows app using netty",
+      "nvd_url": "https://github.com/netty/netty/security/advisories/GHSA-xq3w-v528-46rv",
+      "fix_versions": [
+        "4.1.115.Final"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-xv6h-r36f-3gp5",
+      "package_name": "keycloak-saml-core",
+      "package_version": "26.0.8",
+      "description": "Keycloak: Denial of Service due to excessive SAMLRequest decompression",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-2575",
+      "fix_versions": [
+        "26.5.4"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-xv6h-r36f-3gp5",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak: Denial of Service due to excessive SAMLRequest decompression",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-2575",
+      "fix_versions": [
+        "26.5.4"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    }
+  ],
+  "low_findings": [
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2020-12413",
+      "package_name": "nspr",
+      "package_version": "4.35.0-17.el9_2",
+      "description": "A flaw was found in Mozilla nss. A raccoon attack exploits a flaw in the TLS specification which can lead to an attacker being able to compute the pre-master secret in connections which have used a Diffie-Hellman(DH) based ciphersuite. In such a case this would result in the attacker being able to eavesdrop on all encrypted communications sent over that TLS connection. The highest threat from this vulnerability is to data confidentiality.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2020-12413",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2023-02-16",
+      "nvd_cvss_v3_score": 5.9,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://bugzilla.mozilla.org/show_bug.cgi?id=CVE-2020-12413",
+        "https://raccoon-attack.com/",
+        "https://bugzilla.mozilla.org/show_bug.cgi?id=CVE-2020-12413",
+        "https://raccoon-attack.com/"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-203"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2020-12413",
+      "package_name": "nss-softokn-freebl",
+      "package_version": "3.101.0-10.el9_2",
+      "description": "A flaw was found in Mozilla nss. A raccoon attack exploits a flaw in the TLS specification which can lead to an attacker being able to compute the pre-master secret in connections which have used a Diffie-Hellman(DH) based ciphersuite. In such a case this would result in the attacker being able to eavesdrop on all encrypted communications sent over that TLS connection. The highest threat from this vulnerability is to data confidentiality.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2020-12413",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2023-02-16",
+      "nvd_cvss_v3_score": 5.9,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://bugzilla.mozilla.org/show_bug.cgi?id=CVE-2020-12413",
+        "https://raccoon-attack.com/",
+        "https://bugzilla.mozilla.org/show_bug.cgi?id=CVE-2020-12413",
+        "https://raccoon-attack.com/"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-203"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2020-12413",
+      "package_name": "nss-softokn",
+      "package_version": "3.101.0-10.el9_2",
+      "description": "A flaw was found in Mozilla nss. A raccoon attack exploits a flaw in the TLS specification which can lead to an attacker being able to compute the pre-master secret in connections which have used a Diffie-Hellman(DH) based ciphersuite. In such a case this would result in the attacker being able to eavesdrop on all encrypted communications sent over that TLS connection. The highest threat from this vulnerability is to data confidentiality.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2020-12413",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2023-02-16",
+      "nvd_cvss_v3_score": 5.9,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://bugzilla.mozilla.org/show_bug.cgi?id=CVE-2020-12413",
+        "https://raccoon-attack.com/",
+        "https://bugzilla.mozilla.org/show_bug.cgi?id=CVE-2020-12413",
+        "https://raccoon-attack.com/"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-203"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2020-12413",
+      "package_name": "nss-sysinit",
+      "package_version": "3.101.0-10.el9_2",
+      "description": "A flaw was found in Mozilla nss. A raccoon attack exploits a flaw in the TLS specification which can lead to an attacker being able to compute the pre-master secret in connections which have used a Diffie-Hellman(DH) based ciphersuite. In such a case this would result in the attacker being able to eavesdrop on all encrypted communications sent over that TLS connection. The highest threat from this vulnerability is to data confidentiality.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2020-12413",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2023-02-16",
+      "nvd_cvss_v3_score": 5.9,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://bugzilla.mozilla.org/show_bug.cgi?id=CVE-2020-12413",
+        "https://raccoon-attack.com/",
+        "https://bugzilla.mozilla.org/show_bug.cgi?id=CVE-2020-12413",
+        "https://raccoon-attack.com/"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-203"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2020-12413",
+      "package_name": "nss-util",
+      "package_version": "3.101.0-10.el9_2",
+      "description": "A flaw was found in Mozilla nss. A raccoon attack exploits a flaw in the TLS specification which can lead to an attacker being able to compute the pre-master secret in connections which have used a Diffie-Hellman(DH) based ciphersuite. In such a case this would result in the attacker being able to eavesdrop on all encrypted communications sent over that TLS connection. The highest threat from this vulnerability is to data confidentiality.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2020-12413",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2023-02-16",
+      "nvd_cvss_v3_score": 5.9,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://bugzilla.mozilla.org/show_bug.cgi?id=CVE-2020-12413",
+        "https://raccoon-attack.com/",
+        "https://bugzilla.mozilla.org/show_bug.cgi?id=CVE-2020-12413",
+        "https://raccoon-attack.com/"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-203"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2020-12413",
+      "package_name": "nss",
+      "package_version": "3.101.0-10.el9_2",
+      "description": "A flaw was found in Mozilla nss. A raccoon attack exploits a flaw in the TLS specification which can lead to an attacker being able to compute the pre-master secret in connections which have used a Diffie-Hellman(DH) based ciphersuite. In such a case this would result in the attacker being able to eavesdrop on all encrypted communications sent over that TLS connection. The highest threat from this vulnerability is to data confidentiality.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2020-12413",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2023-02-16",
+      "nvd_cvss_v3_score": 5.9,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://bugzilla.mozilla.org/show_bug.cgi?id=CVE-2020-12413",
+        "https://raccoon-attack.com/",
+        "https://bugzilla.mozilla.org/show_bug.cgi?id=CVE-2020-12413",
+        "https://raccoon-attack.com/"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-203"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2022-27943",
+      "package_name": "libgcc",
+      "package_version": "11.5.0-5.el9_5",
+      "description": "A flaw was found in binutils, where GNU GCC is vulnerable to a denial of service caused by a stack consumption in the demangle_const() function in libiberty/rust-demangle.c. The vulnerability exists due to the application not properly controlling the consumption of internal resources. By persuading a victim to open a specially-crafted file, an attacker could cause a denial of service.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2022-27943",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2022-03-26",
+      "nvd_cvss_v3_score": 5.5,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://gcc.gnu.org/bugzilla/show_bug.cgi?id=105039",
+        "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/H424YXGW7OKXS2NCAP35OP6Y4P4AW6VG/",
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=28995",
+        "https://gcc.gnu.org/bugzilla/show_bug.cgi?id=105039",
+        "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/H424YXGW7OKXS2NCAP35OP6Y4P4AW6VG/"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-674"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2022-29458",
+      "package_name": "ncurses-base",
+      "package_version": "6.2-10.20210508.el9",
+      "description": "A segmentation fault vulnerability was found in ncurses's convert_strings() function of tinfo/read_entry.c file. This flaw occurs due to corrupted terminfo data, triggering an out-of-bounds read error.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2022-29458",
+      "fix_versions": [
+        "0:6.2-10.20210508.el9_6.2"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2022-04-18",
+      "nvd_cvss_v3_score": 7.1,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "http://seclists.org/fulldisclosure/2022/Oct/28",
+        "http://seclists.org/fulldisclosure/2022/Oct/41",
+        "https://lists.debian.org/debian-lts-announce/2022/10/msg00037.html",
+        "https://lists.gnu.org/archive/html/bug-ncurses/2022-04/msg00014.html",
+        "https://lists.gnu.org/archive/html/bug-ncurses/2022-04/msg00016.html"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-125"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2022-29458",
+      "package_name": "ncurses-libs",
+      "package_version": "6.2-10.20210508.el9",
+      "description": "A segmentation fault vulnerability was found in ncurses's convert_strings() function of tinfo/read_entry.c file. This flaw occurs due to corrupted terminfo data, triggering an out-of-bounds read error.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2022-29458",
+      "fix_versions": [
+        "0:6.2-10.20210508.el9_6.2"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2022-04-18",
+      "nvd_cvss_v3_score": 7.1,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "http://seclists.org/fulldisclosure/2022/Oct/28",
+        "http://seclists.org/fulldisclosure/2022/Oct/41",
+        "https://lists.debian.org/debian-lts-announce/2022/10/msg00037.html",
+        "https://lists.gnu.org/archive/html/bug-ncurses/2022-04/msg00014.html",
+        "https://lists.gnu.org/archive/html/bug-ncurses/2022-04/msg00016.html"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-125"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2022-41409",
+      "package_name": "pcre2-syntax",
+      "package_version": "10.40-6.el9",
+      "description": "A flaw was found in PCRE2, where it is susceptible to an integer overflow vulnerability triggered by a negative repeat value in the pcre2test subject line that causes infinite looping. This flaw allows a remote attacker to pass specially crafted data to the application, initiating an integer overflow and executing a denial of service (DoS) attack.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2022-41409",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2023-07-18",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://github.com/PCRE2Project/pcre2/commit/94e1c001761373b7d9450768aa15d04c25547a35",
+        "https://github.com/PCRE2Project/pcre2/issues/141",
+        "https://github.com/PCRE2Project/pcre2/commit/94e1c001761373b7d9450768aa15d04c25547a35",
+        "https://github.com/PCRE2Project/pcre2/issues/141"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-190"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2022-41409",
+      "package_name": "pcre2",
+      "package_version": "10.40-6.el9",
+      "description": "A flaw was found in PCRE2, where it is susceptible to an integer overflow vulnerability triggered by a negative repeat value in the pcre2test subject line that causes infinite looping. This flaw allows a remote attacker to pass specially crafted data to the application, initiating an integer overflow and executing a denial of service (DoS) attack.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2022-41409",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2023-07-18",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://github.com/PCRE2Project/pcre2/commit/94e1c001761373b7d9450768aa15d04c25547a35",
+        "https://github.com/PCRE2Project/pcre2/issues/141",
+        "https://github.com/PCRE2Project/pcre2/commit/94e1c001761373b7d9450768aa15d04c25547a35",
+        "https://github.com/PCRE2Project/pcre2/issues/141"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-190"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2023-50495",
+      "package_name": "ncurses-base",
+      "package_version": "6.2-10.20210508.el9",
+      "description": "A vulnerability was found in the NCurses package, where a segmentation fault may be triggered through _nc_wrap_entry().",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2023-50495",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2023-12-12",
+      "nvd_cvss_v3_score": 6.5,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/LU4MYMKFEZQ5VSCVLRIZGDQOUW3T44GT/",
+        "https://lists.gnu.org/archive/html/bug-ncurses/2023-04/msg00020.html",
+        "https://lists.gnu.org/archive/html/bug-ncurses/2023-04/msg00029.html",
+        "https://security.netapp.com/advisory/ntap-20240119-0008/",
+        "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/LU4MYMKFEZQ5VSCVLRIZGDQOUW3T44GT/"
+      ],
+      "nvd_cwe_ids": []
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2023-50495",
+      "package_name": "ncurses-libs",
+      "package_version": "6.2-10.20210508.el9",
+      "description": "A vulnerability was found in the NCurses package, where a segmentation fault may be triggered through _nc_wrap_entry().",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2023-50495",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2023-12-12",
+      "nvd_cvss_v3_score": 6.5,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/LU4MYMKFEZQ5VSCVLRIZGDQOUW3T44GT/",
+        "https://lists.gnu.org/archive/html/bug-ncurses/2023-04/msg00020.html",
+        "https://lists.gnu.org/archive/html/bug-ncurses/2023-04/msg00029.html",
+        "https://security.netapp.com/advisory/ntap-20240119-0008/",
+        "https://lists.fedoraproject.org/archives/list/package-announce%40lists.fedoraproject.org/message/LU4MYMKFEZQ5VSCVLRIZGDQOUW3T44GT/"
+      ],
+      "nvd_cwe_ids": []
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2024-0232",
+      "package_name": "sqlite-libs",
+      "package_version": "3.34.1-7.el9_3",
+      "description": "A heap use-after-free issue has been identified in SQLite in the jsonParseAddNodeArray() function in sqlite3.c. This flaw allows a local attacker to leverage a victim to pass specially crafted malicious input to the application, potentially causing a crash and leading to a denial of service.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2024-0232",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2024-01-16",
+      "nvd_cvss_v3_score": 5.5,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://access.redhat.com/security/cve/CVE-2024-0232",
+        "https://bugzilla.redhat.com/show_bug.cgi?id=2243754",
+        "https://access.redhat.com/security/cve/CVE-2024-0232",
+        "https://bugzilla.redhat.com/show_bug.cgi?id=2243754",
+        "https://lists.fedoraproject.org/archives/list/package-announce@lists.fedoraproject.org/message/QDCMYQ3J45NHQ4EJREM3BJNNKB5BK4Y7/"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-416"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2024-7531",
+      "package_name": "nspr",
+      "package_version": "4.35.0-17.el9_2",
+      "description": "The Mozilla Foundation Security Advisory describes this flaw as:\nCalling PK11_Encrypt() in NSS using CKM_CHACHA20 and the same buffer for input and output can result in plaintext on Intel Sandy Bridge and later processors. In Firefox this only affects the QUIC header protection feature when the connection is using the ChaCha20-Poly1305 cipher suite. The most likely outcome is connection failure, but if the connection persists despite the high packet loss it could be possible for a network observer to identify packets as coming from the same source despite a network path change.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2024-7531",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2024-08-06",
+      "nvd_cvss_v3_score": 6.5,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://bugzilla.mozilla.org/show_bug.cgi?id=1905691",
+        "https://www.mozilla.org/security/advisories/mfsa2024-33/",
+        "https://www.mozilla.org/security/advisories/mfsa2024-34/",
+        "https://www.mozilla.org/security/advisories/mfsa2024-35/"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-367"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2024-7531",
+      "package_name": "nss-softokn-freebl",
+      "package_version": "3.101.0-10.el9_2",
+      "description": "The Mozilla Foundation Security Advisory describes this flaw as:\nCalling PK11_Encrypt() in NSS using CKM_CHACHA20 and the same buffer for input and output can result in plaintext on Intel Sandy Bridge and later processors. In Firefox this only affects the QUIC header protection feature when the connection is using the ChaCha20-Poly1305 cipher suite. The most likely outcome is connection failure, but if the connection persists despite the high packet loss it could be possible for a network observer to identify packets as coming from the same source despite a network path change.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2024-7531",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2024-08-06",
+      "nvd_cvss_v3_score": 6.5,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://bugzilla.mozilla.org/show_bug.cgi?id=1905691",
+        "https://www.mozilla.org/security/advisories/mfsa2024-33/",
+        "https://www.mozilla.org/security/advisories/mfsa2024-34/",
+        "https://www.mozilla.org/security/advisories/mfsa2024-35/"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-367"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2024-7531",
+      "package_name": "nss-softokn",
+      "package_version": "3.101.0-10.el9_2",
+      "description": "The Mozilla Foundation Security Advisory describes this flaw as:\nCalling PK11_Encrypt() in NSS using CKM_CHACHA20 and the same buffer for input and output can result in plaintext on Intel Sandy Bridge and later processors. In Firefox this only affects the QUIC header protection feature when the connection is using the ChaCha20-Poly1305 cipher suite. The most likely outcome is connection failure, but if the connection persists despite the high packet loss it could be possible for a network observer to identify packets as coming from the same source despite a network path change.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2024-7531",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2024-08-06",
+      "nvd_cvss_v3_score": 6.5,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://bugzilla.mozilla.org/show_bug.cgi?id=1905691",
+        "https://www.mozilla.org/security/advisories/mfsa2024-33/",
+        "https://www.mozilla.org/security/advisories/mfsa2024-34/",
+        "https://www.mozilla.org/security/advisories/mfsa2024-35/"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-367"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2024-7531",
+      "package_name": "nss-sysinit",
+      "package_version": "3.101.0-10.el9_2",
+      "description": "The Mozilla Foundation Security Advisory describes this flaw as:\nCalling PK11_Encrypt() in NSS using CKM_CHACHA20 and the same buffer for input and output can result in plaintext on Intel Sandy Bridge and later processors. In Firefox this only affects the QUIC header protection feature when the connection is using the ChaCha20-Poly1305 cipher suite. The most likely outcome is connection failure, but if the connection persists despite the high packet loss it could be possible for a network observer to identify packets as coming from the same source despite a network path change.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2024-7531",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2024-08-06",
+      "nvd_cvss_v3_score": 6.5,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://bugzilla.mozilla.org/show_bug.cgi?id=1905691",
+        "https://www.mozilla.org/security/advisories/mfsa2024-33/",
+        "https://www.mozilla.org/security/advisories/mfsa2024-34/",
+        "https://www.mozilla.org/security/advisories/mfsa2024-35/"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-367"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2024-7531",
+      "package_name": "nss-util",
+      "package_version": "3.101.0-10.el9_2",
+      "description": "The Mozilla Foundation Security Advisory describes this flaw as:\nCalling PK11_Encrypt() in NSS using CKM_CHACHA20 and the same buffer for input and output can result in plaintext on Intel Sandy Bridge and later processors. In Firefox this only affects the QUIC header protection feature when the connection is using the ChaCha20-Poly1305 cipher suite. The most likely outcome is connection failure, but if the connection persists despite the high packet loss it could be possible for a network observer to identify packets as coming from the same source despite a network path change.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2024-7531",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2024-08-06",
+      "nvd_cvss_v3_score": 6.5,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://bugzilla.mozilla.org/show_bug.cgi?id=1905691",
+        "https://www.mozilla.org/security/advisories/mfsa2024-33/",
+        "https://www.mozilla.org/security/advisories/mfsa2024-34/",
+        "https://www.mozilla.org/security/advisories/mfsa2024-35/"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-367"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2024-7531",
+      "package_name": "nss",
+      "package_version": "3.101.0-10.el9_2",
+      "description": "The Mozilla Foundation Security Advisory describes this flaw as:\nCalling PK11_Encrypt() in NSS using CKM_CHACHA20 and the same buffer for input and output can result in plaintext on Intel Sandy Bridge and later processors. In Firefox this only affects the QUIC header protection feature when the connection is using the ChaCha20-Poly1305 cipher suite. The most likely outcome is connection failure, but if the connection persists despite the high packet loss it could be possible for a network observer to identify packets as coming from the same source despite a network path change.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2024-7531",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2024-08-06",
+      "nvd_cvss_v3_score": 6.5,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://bugzilla.mozilla.org/show_bug.cgi?id=1905691",
+        "https://www.mozilla.org/security/advisories/mfsa2024-33/",
+        "https://www.mozilla.org/security/advisories/mfsa2024-34/",
+        "https://www.mozilla.org/security/advisories/mfsa2024-35/"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-367"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2025-13151",
+      "package_name": "libtasn1",
+      "package_version": "4.16.0-8.el9_1",
+      "description": "A flaw was found in libtasn1. A remote attacker could exploit a stack-based buffer overflow vulnerability in the `asn1_expend_octet_string` function. This occurs due to a failure in validating the size of input data. Successful exploitation can lead to a Denial of Service (DoS) condition, making the affected system or application unavailable.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-13151",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-01-07",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://gitlab.com/gnutls/libtasn1",
+        "https://gitlab.com/gnutls/libtasn1/-/merge_requests/121",
+        "http://www.openwall.com/lists/oss-security/2026/01/08/5",
+        "https://www.kb.cert.org/vuls/id/271649"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-787"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2025-15281",
+      "package_name": "glibc-common",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in glibc. When the wordexp function is called with the flags WRDE_REUSE and WRDE_APPEND, it may return uninitialized memory. If the caller inspects the we_wordv array or calls the wordfree function to free the allocated memory, the process will abort, resulting in a denial of service.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-15281",
+      "fix_versions": [
+        "0:2.34-231.el9_7.10"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-01-20",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33814",
+        "http://www.openwall.com/lists/oss-security/2026/01/20/3"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-908"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2025-15281",
+      "package_name": "glibc-langpack-en",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in glibc. When the wordexp function is called with the flags WRDE_REUSE and WRDE_APPEND, it may return uninitialized memory. If the caller inspects the we_wordv array or calls the wordfree function to free the allocated memory, the process will abort, resulting in a denial of service.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-15281",
+      "fix_versions": [
+        "0:2.34-231.el9_7.10"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-01-20",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33814",
+        "http://www.openwall.com/lists/oss-security/2026/01/20/3"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-908"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2025-15281",
+      "package_name": "glibc",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in glibc. When the wordexp function is called with the flags WRDE_REUSE and WRDE_APPEND, it may return uninitialized memory. If the caller inspects the we_wordv array or calls the wordfree function to free the allocated memory, the process will abort, resulting in a denial of service.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-15281",
+      "fix_versions": [
+        "0:2.34-231.el9_7.10"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-01-20",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33814",
+        "http://www.openwall.com/lists/oss-security/2026/01/20/3"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-908"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2025-70873",
+      "package_name": "sqlite-libs",
+      "package_version": "3.34.1-7.el9_3",
+      "description": "A flaw was found in SQLite. This information disclosure vulnerability exists within the zipfile extension, specifically in the zipfileInflate function. A remote attacker could exploit this by providing a specially crafted ZIP file. Successful exploitation could lead to the disclosure of sensitive heap memory information.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-70873",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-03-12",
+      "nvd_cvss_v3_score": 7.5,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://gist.github.com/cnwangjihe/f496393f30f5ecec5b18c8f5ab072054",
+        "https://sqlite.org/forum/forumpost/761eac3c82",
+        "https://sqlite.org/src/info/3d459f1fb1bd1b5e"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-244"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2026-0861",
+      "package_name": "glibc-common",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in the glibc library. Passing an excessively large alignment value to the memalign suite of functions, such as memalign, posix_memalign, aligned_alloc, valloc and pvalloc, an integer overflow can occur during internal size calculations due to improper overflow checks, causing an allocation of a small chunk of memory which is subsequently used for writing. This issue can result in an application crash or heap memory corruption.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-0861",
+      "fix_versions": [
+        "0:2.34-231.el9_7.10"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-01-14",
+      "nvd_cvss_v3_score": 8.4,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33796",
+        "https://sourceware.org/git/?p=glibc.git;a=blob_plain;f=advisories/GLIBC-SA-2026-0001",
+        "http://www.openwall.com/lists/oss-security/2026/01/16/5"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-190"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2026-0861",
+      "package_name": "glibc-langpack-en",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in the glibc library. Passing an excessively large alignment value to the memalign suite of functions, such as memalign, posix_memalign, aligned_alloc, valloc and pvalloc, an integer overflow can occur during internal size calculations due to improper overflow checks, causing an allocation of a small chunk of memory which is subsequently used for writing. This issue can result in an application crash or heap memory corruption.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-0861",
+      "fix_versions": [
+        "0:2.34-231.el9_7.10"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-01-14",
+      "nvd_cvss_v3_score": 8.4,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33796",
+        "https://sourceware.org/git/?p=glibc.git;a=blob_plain;f=advisories/GLIBC-SA-2026-0001",
+        "http://www.openwall.com/lists/oss-security/2026/01/16/5"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-190"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2026-0861",
+      "package_name": "glibc",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in the glibc library. Passing an excessively large alignment value to the memalign suite of functions, such as memalign, posix_memalign, aligned_alloc, valloc and pvalloc, an integer overflow can occur during internal size calculations due to improper overflow checks, causing an allocation of a small chunk of memory which is subsequently used for writing. This issue can result in an application crash or heap memory corruption.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-0861",
+      "fix_versions": [
+        "0:2.34-231.el9_7.10"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-01-14",
+      "nvd_cvss_v3_score": 8.4,
+      "nvd_cvss_v3_severity": "HIGH",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=33796",
+        "https://sourceware.org/git/?p=glibc.git;a=blob_plain;f=advisories/GLIBC-SA-2026-0001",
+        "http://www.openwall.com/lists/oss-security/2026/01/16/5"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-190"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2026-22007",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "No description is available for this CVE.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-22007",
+      "fix_versions": [
+        "1:21.0.11.0.10-2.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-04-21",
+      "nvd_cvss_v3_score": 2.9,
+      "nvd_cvss_v3_severity": "LOW",
+      "nvd_references": [
+        "https://www.oracle.com/security-alerts/cpuapr2026.html"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-200"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2026-22018",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "No description is available for this CVE.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-22018",
+      "fix_versions": [
+        "1:21.0.11.0.10-2.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-04-21",
+      "nvd_cvss_v3_score": 3.7,
+      "nvd_cvss_v3_severity": "LOW",
+      "nvd_references": [
+        "https://www.oracle.com/security-alerts/cpuapr2026.html"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-770"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2026-27171",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "A flaw was found in zlib. An attacker providing specially crafted input to the `crc32_combine64` or `crc32_combine_gen64` functions could trigger an infinite loop within the `x2nmodp` function. This leads to excessive CPU consumption, which can result in a Denial of Service (DoS) for the affected system.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-27171",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-02-18",
+      "nvd_cvss_v3_score": 5.5,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://7asecurity.com/blog/2026/02/zlib-7asecurity-audit/",
+        "https://7asecurity.com/reports/pentest-report-zlib-RC1.1.pdf",
+        "https://github.com/madler/zlib/issues/904",
+        "https://github.com/madler/zlib/releases/tag/v1.3.2",
+        "https://ostif.org/zlib-audit-complete/"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-1284"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2026-27171",
+      "package_name": "zlib",
+      "package_version": "1.2.11-40.el9",
+      "description": "A flaw was found in zlib. An attacker providing specially crafted input to the `crc32_combine64` or `crc32_combine_gen64` functions could trigger an infinite loop within the `x2nmodp` function. This leads to excessive CPU consumption, which can result in a Denial of Service (DoS) for the affected system.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-27171",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-02-18",
+      "nvd_cvss_v3_score": 5.5,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://7asecurity.com/blog/2026/02/zlib-7asecurity-audit/",
+        "https://7asecurity.com/reports/pentest-report-zlib-RC1.1.pdf",
+        "https://github.com/madler/zlib/issues/904",
+        "https://github.com/madler/zlib/releases/tag/v1.3.2",
+        "https://ostif.org/zlib-audit-complete/"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-1284"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2026-34268",
+      "package_name": "java-21-openjdk-headless",
+      "package_version": "1:21.0.6.0.7-1.el9",
+      "description": "No description is available for this CVE.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-34268",
+      "fix_versions": [
+        "1:21.0.11.0.10-2.el9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-04-21",
+      "nvd_cvss_v3_score": 2.9,
+      "nvd_cvss_v3_severity": "LOW",
+      "nvd_references": [
+        "https://www.oracle.com/security-alerts/cpuapr2026.html"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-200"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2026-4438",
+      "package_name": "glibc-common",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in the GNU C library (glibc). When applications use the `gethostbyaddr` or `gethostbyaddr_r` functions with a `nsswitch.conf` configuration that specifies glibc's DNS backend, the library may return an invalid DNS hostname. This violates the DNS specification and could lead to applications receiving incorrect hostname information, potentially impacting network operations or security decisions.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-4438",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-03-20",
+      "nvd_cvss_v3_score": 5.4,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=34015"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-20",
+        "CWE-88"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2026-4438",
+      "package_name": "glibc-langpack-en",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in the GNU C library (glibc). When applications use the `gethostbyaddr` or `gethostbyaddr_r` functions with a `nsswitch.conf` configuration that specifies glibc's DNS backend, the library may return an invalid DNS hostname. This violates the DNS specification and could lead to applications receiving incorrect hostname information, potentially impacting network operations or security decisions.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-4438",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-03-20",
+      "nvd_cvss_v3_score": 5.4,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=34015"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-20",
+        "CWE-88"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "CVE-2026-4438",
+      "package_name": "glibc",
+      "package_version": "2.34-125.el9_5.1",
+      "description": "A flaw was found in the GNU C library (glibc). When applications use the `gethostbyaddr` or `gethostbyaddr_r` functions with a `nsswitch.conf` configuration that specifies glibc's DNS backend, the library may return an invalid DNS hostname. This violates the DNS specification and could lead to applications receiving incorrect hostname information, potentially impacting network operations or security decisions.",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-4438",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1,
+      "cisa_kev": false,
+      "nvd_published": "2026-03-20",
+      "nvd_cvss_v3_score": 5.4,
+      "nvd_cvss_v3_severity": "MEDIUM",
+      "nvd_references": [
+        "https://sourceware.org/bugzilla/show_bug.cgi?id=34015"
+      ],
+      "nvd_cwe_ids": [
+        "CWE-20",
+        "CWE-88"
+      ]
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "GHSA-22rm-wp4x-v5cx",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak Server-Side Request Forgery via OIDC token endpoint manipulation",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-4874",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "GHSA-45p5-v273-3qqr",
+      "package_name": "vertx-web",
+      "package_version": "4.5.10",
+      "description": "Vert.x-Web vulnerable to Stored Cross-site Scripting in directory listings via file names",
+      "nvd_url": "https://github.com/vert-x3/vertx-web/security/advisories/GHSA-45p5-v273-3qqr",
+      "fix_versions": [
+        "4.5.22"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Grype-sbom",
+      "type": "vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "GHSA-5239-wwwm-4pmq",
+      "id": "GHSA-5239-wwwm-4pmq",
+      "package": "pygments",
+      "package_name": "pygments",
+      "version": "2.19.2",
+      "package_version": "2.19.2",
+      "package_type": "python",
+      "package_path": "/requirements.txt",
+      "purl": "pkg:pypi/pygments@2.19.2",
+      "description": "Pygments has Regular Expression Denial of Service (ReDoS) due to Inefficient Regex for GUID Matching",
+      "cvss_score": 3.3,
+      "fix_available": "Yes",
+      "fixed_versions": [
+        "2.20.0"
+      ],
+      "detected_by": [
+        "Grype-sbom"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "GHSA-594w-2fwp-jwrc",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak Admin REST API exposes backend schema and rules",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-14083",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "GHSA-5v8v-xvjv-57x7",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak vulnerable to information disclosure via CORS header injection due to unvalidated JWT azp claim",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-37977",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "GHSA-63v5-26vq-m4vm",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak's missing timestamp validation allows attackers to extend SAML response validity periods",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-1190",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "GHSA-6q37-7866-h27j",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak Admin REST (Representational State Transfer) API does not properly enforce permissions",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-14082",
+      "fix_versions": [
+        "26.5.0"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "GHSA-7g5x-9c4v-4w5r",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak REST Services has a WebAuthn Attestation Statement Verification Bypass",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-12150",
+      "fix_versions": [
+        "26.4.4"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "GHSA-fghv-69vj-qj49",
+      "package_name": "netty-codec-http",
+      "package_version": "4.1.111.Final",
+      "description": "Netty vulnerable to request smuggling due to incorrect parsing of chunk extensions",
+      "nvd_url": "https://github.com/netty/netty/security/advisories/GHSA-fghv-69vj-qj49",
+      "fix_versions": [
+        "4.1.125.Final"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "GHSA-fjf4-6f34-w64q",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak: Missing Check on Disabled Client for Docker Registry Protocol",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-2733",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "GHSA-g78x-7vwx-9f58",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak Admin API allows an administrator with limited privileges to retrieve sensitive custom attributes",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2025-13881",
+      "fix_versions": [
+        "26.4.9"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "GHSA-m2w5-7xhv-w6fh",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak does not validate and update refresh token usage atomically",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-1035",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "GHSA-q4xq-445g-g6ch",
+      "package_name": "keycloak-core",
+      "package_version": "26.0.8",
+      "description": "Keycloak allows cross-site scripting (XSS)",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2024-4028",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "GHSA-rhgq-f8x5-j2jc",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak's  identity-first login flow  exposes user information",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-4633",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "GHSA-v897-pv23-r8cw",
+      "package_name": "keycloak-quarkus-server",
+      "package_version": "26.0.8",
+      "description": "Keycloak has an improper input validation vulnerability",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-0976",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "GHSA-vjr8-56p3-fmqq",
+      "package_name": "keycloak-quarkus-server",
+      "package_version": "26.0.8",
+      "description": "Keycloak unable to restrict access to the admin console",
+      "nvd_url": "https://github.com/keycloak/keycloak/security/advisories/GHSA-vjr8-56p3-fmqq",
+      "fix_versions": [
+        "26.4.4"
+      ],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "GHSA-xh32-c9wx-phrp",
+      "package_name": "keycloak-services",
+      "package_version": "26.0.8",
+      "description": "Keycloak: Information disclosure of disabled user attributes via administrative endpoint",
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2026-3911",
+      "fix_versions": [],
+      "detected_by": [
+        "Anchore"
+      ],
+      "occurrences": 1
+    }
+  ],
+  "enrichment": {
+    "enriched_at": "2026-04-27T17:12:13Z",
+    "cisa_kev_total": 0,
+    "nvd_total": 98,
+    "kev_catalog_url": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+  }
+}

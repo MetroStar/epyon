@@ -1,0 +1,19 @@
+{
+  "SchemaVersion": 2,
+  "Trivy": {
+    "Version": "0.70.0"
+  },
+  "ReportID": "019dd742-106d-7747-a442-b9e6c4ac1e42",
+  "CreatedAt": "2026-04-29T03:22:04.269479115Z",
+  "ArtifactID": "sha256:cc3b4d29b5460c47b4d49bd8f8e655d4818a8deb3efdb7dcff1a5a0db6903f11",
+  "ArtifactName": "/workspace",
+  "ArtifactType": "repository",
+  "Metadata": {
+    "RepoURL": "https://github.com/MetroStar/midas",
+    "Branch": "main",
+    "Commit": "c2b0705695bc0fed23c03f35d459210806cc273f",
+    "CommitMsg": "MID-868: Complete Audit Pipeline (#696)\n\n* MID-868 Complete audit pipeline: decompose validate_token, add tool/introspection/scope events and correlation IDs\n\n* MID-868 Complete audit pipeline: decompose validate_token, add tool/introspection/scope events and correlation IDs\n\n* MID-868 Complete audit pipeline: decompose validate_token, add tool/introspection/scope events and correlation IDs\n\n* MID-868 Complete audit pipeline: decompose validate_token, add tool/introspection/scope events and correlation IDs\n\n* MID-868 Complete audit pipeline: decompose validate_token, add tool/introspection/scope events and correlation IDs\n\n---------\n\nCo-authored-by: pkonka \u003cpkonka@U-3HHSX6U1DQ3HI.ad.metrostar.cloud\u003e",
+    "Author": "Prasad Konka \u003cpkonka@metrostarsystems.com\u003e",
+    "Committer": "GitHub \u003cnoreply@github.com\u003e"
+  }
+}

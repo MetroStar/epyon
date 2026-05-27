@@ -1,0 +1,11 @@
+{
+  "source": "github",
+  "repo": "MetroStar/iris",
+  "run_id": 25016668344,
+  "artifact_id": 6670022287,
+  "workflow": "CI",
+  "event": "pull_request",
+  "branch": "IRIS-1054-auto-dev-deploy",
+  "commit": "1602baf",
+  "synced_at": "2026-04-28T14:45:26.648069+00:00"
+}

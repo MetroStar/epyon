@@ -1,0 +1,36 @@
+
+-------------------------------------------------------------------------------
+
+/workspace/vendored: Symbolic link
+/workspace/plugins/py.typed: Empty file
+/workspace/tests/ingestion/__init__.py: Empty file
+/workspace/tests/csharp/__init__.py: Empty file
+/workspace/tests/usage/__init__.py: Empty file
+/workspace/tests/delphi/__init__.py: Empty file
+/workspace/tests/toolstore/__init__.py: Empty file
+/workspace/tests/lib/__init__.py: Empty file
+/workspace/tests/bookstore/__init__.py: Empty file
+/workspace/tests/context/__init__.py: Empty file
+/workspace/tests/graph/__init__.py: Empty file
+/workspace/tests/evaluation/__init__.py: Empty file
+/workspace/tests/parser/__init__.py: Empty file
+/workspace/tests/cobol/__init__.py: Empty file
+/workspace/lib/py.typed: Empty file
+/workspace/.athena/vendored/pypdf/py.typed: Empty file
+/workspace/knowledgebase/py.typed: Empty file
+/workspace/core/py.typed: Empty file
+/workspace/security/config/py.typed: Empty file
+/workspace/security/py.typed: Empty file
+/workspace/utils/py.typed: Empty file
+
+----------- SCAN SUMMARY -----------
+Known viruses: 3627837
+Engine version: 1.5.2
+Scanned directories: 167
+Scanned files: 1235
+Infected files: 0
+Data scanned: 233.57 MiB
+Data read: 74.09 MiB (ratio 3.15:1)
+Time: 41.825 sec (0 m 41 s)
+Start Date: 2026:04:28 17:53:41
+End Date:   2026:04:28 17:54:23

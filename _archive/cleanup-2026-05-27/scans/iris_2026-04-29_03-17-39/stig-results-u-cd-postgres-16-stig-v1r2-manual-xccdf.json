@@ -1,0 +1,446 @@
+{
+  "CD16-00-000100": {
+    "status": "Open",
+    "evidence": "Control requires static evidence of PostgreSQL session limits: max_connections (global) and rolconnlimit (per-role).\n- No postgresql.conf, pg_hba.conf, or SQL role definitions are present in the provided files.\n- No Terraform, CloudFormation, or bootstrap scripts set max_connections or rolconnlimit for PostgreSQL.\n- File: deploy/aws/iris-stack.yaml \u2014 RDS instance is provisioned, but no parameter group or session limits are set:\n  - Resource: PostgresDB (Type: AWS::RDS::DBInstance)\n  - No 'DBParameterGroupName' or session limit parameters present.\n- No evidence of ALTER ROLE ... CONNECTION LIMIT or equivalent in any bootstrap or migration script.\n- Requirement: PARTIALLY SATISFIED \u2014 RDS is provisioned, but no static artifact sets or enforces session connection limits. Manual or parameter group configuration is not evidenced."
+  },
+  "CD16-00-000200": {
+    "status": "Open",
+    "evidence": "Control requires static evidence that PostgreSQL uses organization-level authentication (e.g., LDAP, Kerberos, cert, gss, sspi) via pg_hba.conf.\n- No pg_hba.conf or equivalent static configuration is present in the repository.\n- File: deploy/aws/iris-stack.yaml \u2014 RDS instance is provisioned, but no evidence of authentication method configuration.\n- No bootstrap or Terraform script configures pg_hba.conf or sets authentication methods.\n- Application code (api/README.md, pointcloud-project/colmap_ingest.py) does not configure or document database authentication methods.\n- Requirement: NOT SATISFIED \u2014 No static artifact demonstrates use of organization-level authentication for PostgreSQL."
+  },
+  "CD16-00-000300": {
+    "status": "Open",
+    "evidence": "Control requires static evidence of role/privilege enforcement and documentation for PostgreSQL.\n- No postgresql.conf, pg_hba.conf, or SQL GRANT/REVOKE/ALTER ROLE statements are present in the repository.\n- File: pointcloud-project/colmap_ingest.py \u2014 Database schema creation and data insertion, but no explicit GRANT/REVOKE or role privilege management.\n- File: deploy/aws/iris-stack.yaml \u2014 RDS instance is provisioned, but no evidence of access control policy enforcement or documentation.\n- No evidence of role-based privilege assignment or documentation of access control policies in any provided file.\n- Requirement: NOT SATISFIED \u2014 No static artifact demonstrates enforcement or documentation of approved authorizations for logical access."
+  },
+  "CD16-00-000400": {
+    "status": "Open",
+    "evidence": "Control requires log_line_prefix to contain at least '< %m %a %u %d %r %p >' and shared_preload_libraries to include 'pgaudit'.\n- No postgresql.conf or equivalent static configuration is present in the repository.\n- No evidence of log_line_prefix or shared_preload_libraries settings in any bootstrap, Terraform, or CloudFormation script.\n- No evidence of pgaudit installation or configuration.\n- Requirement: NOT SATISFIED \u2014 No static artifact demonstrates required audit log configuration or pgaudit enablement."
+  },
+  "CD16-00-000500": {
+    "status": "Open",
+    "evidence": "Control requires audit record generation for DOD-defined events (e.g., CREATE TABLE) via pgaudit or equivalent.\n- No postgresql.conf, pgaudit configuration, or audit log settings are present in the repository.\n- No evidence of pgaudit installation or configuration in bootstrap or infrastructure scripts.\n- Requirement: NOT SATISFIED \u2014 No static artifact demonstrates audit record generation for required events."
+  },
+  "CD16-00-000600": {
+    "status": "Open",
+    "evidence": "Control requires static evidence that only ISSM or designated roles can select audit events (ownership/permissions of PGDATA, superuser role restriction).\n- No postgresql.conf, PGDATA directory, or role definitions are present in the repository.\n- No evidence of file ownership, permissions, or superuser role assignment in any script or configuration.\n- Requirement: NOT SATISFIED \u2014 No static artifact demonstrates restriction of audit configuration to ISSM or designated personnel."
+  },
+  "CD16-00-000700": {
+    "status": "Open",
+    "evidence": "Control requires pgaudit enabled (shared_preload_libraries includes 'pgaudit') and audit logging of privilege/permission retrieval.\n- No postgresql.conf or pgaudit configuration is present in the repository.\n- No evidence of pgaudit.log_catalog or pgaudit.log settings.\n- Requirement: NOT SATISFIED \u2014 No static artifact demonstrates audit logging of privilege/permission retrieval."
+  },
+  "CD16-00-000800": {
+    "status": "Open",
+    "evidence": "Control requires audit records for unsuccessful attempts to retrieve privileges/permissions (e.g., permission denied for relation pg_authid).\n- No postgresql.conf or audit log configuration is present in the repository.\n- No evidence of error logging or pgaudit configuration.\n- Requirement: NOT SATISFIED \u2014 No static artifact demonstrates audit logging of unsuccessful privilege/permission retrieval attempts."
+  },
+  "CD16-00-000900": {
+    "status": "Open",
+    "evidence": "Control requires pgaudit enabled at startup (shared_preload_libraries includes 'pgaudit') and log_destination includes 'stderr' or 'syslog'.\n- No postgresql.conf or equivalent configuration is present in the repository.\n- No evidence of pgaudit or log_destination settings in any bootstrap or infrastructure script.\n- Requirement: NOT SATISFIED \u2014 No static artifact demonstrates session auditing enabled at startup."
+  },
+  "CD16-00-001000": {
+    "status": "Open",
+    "evidence": "Control requires log_line_prefix to include event type, user, database, session, and log_connections/log_disconnections enabled.\n- No postgresql.conf or equivalent configuration is present in the repository.\n- No evidence of log_line_prefix, log_connections, or log_disconnections settings.\n- Requirement: NOT SATISFIED \u2014 No static artifact demonstrates required audit record content or connection logging."
+  },
+  "CD16-00-001100": {
+    "status": "Open",
+    "evidence": "Control requires log_line_prefix to include '%m' (timestamp with milliseconds).\n- No postgresql.conf or equivalent configuration is present in the repository.\n- No evidence of log_line_prefix settings in any bootstrap or infrastructure script.\n- Requirement: NOT SATISFIED \u2014 No static artifact demonstrates timestamp inclusion in audit records."
+  },
+  "CD16-00-001200": {
+    "status": "Open",
+    "evidence": "Control requires log_line_prefix to include '%m %u %d %s' (timestamp, user, database, session start).\n- No postgresql.conf or equivalent configuration is present in the repository.\n- No evidence of log_line_prefix settings in any bootstrap or infrastructure script.\n- Requirement: NOT SATISFIED \u2014 No static artifact demonstrates required location information in audit records."
+  },
+  "CD16-00-001300": {
+    "status": "Open",
+    "evidence": "Control requires log_line_prefix and log_hostname to provide source/origin information in audit records.\n- No postgresql.conf or equivalent configuration is present in the repository.\n- No evidence of log_line_prefix or log_hostname settings in any bootstrap or infrastructure script.\n- Requirement: NOT SATISFIED \u2014 No static artifact demonstrates source/origin information in audit records."
+  },
+  "CD16-00-001400": {
+    "status": "Open",
+    "evidence": "Control requires audit records to include outcome (success/failure) of events, including errors and denials, with pgaudit and logging enabled.\n- No postgresql.conf, pgaudit configuration, or error logging settings are present in the repository.\n- No evidence of log_line_prefix, log_error_verbosity, or pgaudit.log settings.\n- Requirement: NOT SATISFIED \u2014 No static artifact demonstrates outcome information in audit records."
+  },
+  "CD16-00-001500": {
+    "status": "Open",
+    "evidence": "Control requires log_line_prefix to include %m, %u, %d, %p, %r, %a (timestamp, user, database, process ID, remote host/port, application name).\n- No postgresql.conf or equivalent configuration is present in the repository.\n- No evidence of log_line_prefix settings in any bootstrap or infrastructure script.\n- Requirement: NOT SATISFIED \u2014 No static artifact demonstrates user/process identity in audit records."
+  },
+  "CD16-00-001600": {
+    "status": "Open",
+    "evidence": "Control requires audit records to include organization-defined additional information, as documented and configured in postgresql.conf and audit logs.\n- No postgresql.conf, pgaudit configuration, or organization-defined audit documentation is present in the repository.\n- No evidence of additional audit fields or documentation of organization requirements.\n- Requirement: NOT SATISFIED \u2014 No static artifact demonstrates inclusion of organization-defined information in audit records."
+  },
+  "CD16-00-001700": {
+    "status": "Open",
+    "evidence": "Control requires procedures or mechanisms to monitor audit log space and shut down or alert on audit failure (log space exhaustion).\n- No postgresql.conf, OS-level log monitoring scripts, or documented procedures are present in the repository.\n- No evidence of log space monitoring, alerting, or shutdown configuration in any bootstrap or infrastructure script.\n- Requirement: NOT SATISFIED \u2014 No static artifact demonstrates audit failure handling or log space monitoring."
+  },
+  "CD16-00-001800": {
+    "status": "Open",
+    "evidence": "Control requires log rotation or FIFO (first-in-first-out) mechanisms to ensure audit logs are not lost due to space exhaustion.\n- No logrotate configuration, postgresql.conf log rotation settings, or OS-level log management scripts are present in the repository.\n- No evidence of log rotation, deletion of oldest logs, or dynamic log volume management.\n- Requirement: NOT SATISFIED \u2014 No static artifact demonstrates log rotation or FIFO handling for audit logs."
+  },
+  "CD16-00-002000": {
+    "status": "Open",
+    "evidence": "Control requires log_file_mode=0600 and audit log files owned by the database owner (postgres) to prevent unauthorized read access.\n- No postgresql.conf or log_file_mode setting is present in the repository.\n- No evidence of log file permissions or ownership configuration in any bootstrap or infrastructure script.\n- Requirement: NOT SATISFIED \u2014 No static artifact demonstrates protection of audit logs from unauthorized read access."
+  },
+  "CD16-00-002100": {
+    "status": "Open",
+    "evidence": "Control requires log_file_mode=0600 and audit log files owned by the database owner (postgres) to prevent unauthorized modification.\n- No postgresql.conf or log_file_mode setting is present in the repository.\n- No evidence of log file permissions or ownership configuration in any bootstrap or infrastructure script.\n- Requirement: NOT SATISFIED \u2014 No static artifact demonstrates protection of audit logs from unauthorized modification."
+  },
+  "CD16-00-002200": {
+    "status": "Open",
+    "evidence": "Control requires PostgreSQL audit logs to be protected from unauthorized deletion (log_file_mode=0600, logs owned by postgres, etc.).\n- No postgresql.conf or explicit log_file_mode setting found in provided files.\n- No evidence of log file permissions or ownership enforcement in any bootstrap or deployment script.\n- File: deploy/aws/iris-stack.yaml \u2014 RDS PostgreSQL instance is provisioned, but no explicit configuration for log_file_mode or log directory permissions is present.\n- Requirement: PARTIALLY SATISFIED \u2014 RDS instance is created, but static evidence of log file permissions (0600) and ownership is missing. Cannot confirm audit log protection from static artifacts."
+  },
+  "CD16-00-002300": {
+    "status": "Open",
+    "evidence": "Control requires PGLOG and PGDATA directories to be owned by postgres, pgaudit extension owned by root, and superuser privileges restricted.\n- File: deploy/aws/iris-stack.yaml \u2014 RDS PostgreSQL instance is provisioned, but no static evidence of PGDATA/PGLOG directory ownership or pgaudit installation ownership.\n- No SQL or configuration files listing roles/privileges or pgaudit ownership.\n- Requirement: PARTIALLY SATISFIED \u2014 RDS instance is created, but static evidence of directory/file ownership and superuser privilege assignment is missing."
+  },
+  "CD16-00-002400": {
+    "status": "Open",
+    "evidence": "Control requires postgresql.conf to be owned by postgres with 0600 permissions and log_file_mode=0600.\n- No postgresql.conf or explicit log_file_mode setting found in provided files.\n- File: deploy/aws/iris-stack.yaml \u2014 RDS PostgreSQL instance is provisioned, but no static evidence of configuration file permissions or ownership.\n- Requirement: PARTIALLY SATISFIED \u2014 RDS instance is created, but static evidence of postgresql.conf permissions/ownership and log_file_mode is missing."
+  },
+  "CD16-00-002500": {
+    "status": "Open",
+    "evidence": "Control requires PGDATA to be owned by postgres:postgres and PostgreSQL binaries to be owned by root:root.\n- File: deploy/aws/iris-stack.yaml \u2014 RDS PostgreSQL instance is provisioned, but no static evidence of PGDATA directory or binary ownership.\n- No evidence of file system permissions or ownership for PostgreSQL binaries.\n- Requirement: PARTIALLY SATISFIED \u2014 RDS instance is created, but static evidence of directory and binary ownership is missing."
+  },
+  "CD16-00-002600": {
+    "status": "Open",
+    "evidence": "Control requires configuration files and shared libraries to be owned by authorized users (postgres/root) and not writable by others.\n- File: deploy/aws/iris-stack.yaml \u2014 RDS PostgreSQL instance is provisioned, but no static evidence of configuration file or shared library permissions/ownership.\n- No postgresql.conf or file system permission settings found.\n- Requirement: PARTIALLY SATISFIED \u2014 RDS instance is created, but static evidence of configuration/shared library permissions is missing."
+  },
+  "CD16-00-002700": {
+    "status": "Open",
+    "evidence": "Control requires procedures to restrict and track use of the PostgreSQL software installation account(s).\n- No documentation or scripts describing procedures for restricting or tracking use of the PostgreSQL installation account found in provided files.\n- File: deploy/aws/iris-stack.yaml \u2014 RDS PostgreSQL instance is provisioned, but no evidence of procedural controls.\n- Requirement: NOT SATISFIED \u2014 No static evidence of procedures for restricting/tracking installation account use."
+  },
+  "CD16-00-002800": {
+    "status": "Open",
+    "evidence": "Control requires PostgreSQL software/configuration files to be stored in dedicated directories, separate from the OS and other applications.\n- File: deploy/aws/iris-stack.yaml \u2014 RDS PostgreSQL instance is provisioned, but no static evidence of directory layout or separation from other applications.\n- No evidence of non-PostgreSQL software in PostgreSQL directories, but also no explicit confirmation of separation.\n- Requirement: PARTIALLY SATISFIED \u2014 RDS instance is created, but static evidence of directory separation is missing."
+  },
+  "CD16-00-002900": {
+    "status": "Open",
+    "evidence": "Control requires database objects to be owned by authorized PostgreSQL principals.\n- No SQL, schema, or role definitions found in provided files.\n- No evidence of object ownership or authorized role assignment.\n- Requirement: NOT SATISFIED \u2014 No static evidence of database object ownership or authorized principal assignment."
+  },
+  "CD16-00-003000": {
+    "status": "Open",
+    "evidence": "Control requires modification privileges for database structure and logic modules to be restricted to authorized users.\n- No SQL, role, or privilege definitions found in provided files.\n- No evidence of privilege assignment or restriction.\n- Requirement: NOT SATISFIED \u2014 No static evidence of privilege restriction for database structure/logic modification."
+  },
+  "CD16-00-003200": {
+    "status": "Open",
+    "evidence": "Control requires unused database components, extensions, and objects to be removed.\n- No SQL or extension management scripts found in provided files.\n- No evidence of installed extensions or removal of unused components.\n- Requirement: NOT SATISFIED \u2014 No static evidence of extension/component management."
+  },
+  "CD16-00-003300": {
+    "status": "Open",
+    "evidence": "Control requires unused integrated database components/packages to be disabled or removed.\n- No package management scripts or lists of installed packages found in provided files.\n- No evidence of removal or disabling of unused packages.\n- Requirement: NOT SATISFIED \u2014 No static evidence of package/component management."
+  },
+  "CD16-00-003400": {
+    "status": "Open",
+    "evidence": "Control requires access to external executables (e.g., via COPY command or extensions) to be restricted to superusers and only approved extensions installed.\n- No SQL, role, or extension management scripts found in provided files.\n- No evidence of superuser privilege assignment or extension approval/removal.\n- Requirement: NOT SATISFIED \u2014 No static evidence of restriction of access to external executables or extension approval."
+  },
+  "CD16-00-003500": {
+    "status": "Open",
+    "evidence": "Control requires PostgreSQL to prohibit or restrict use of organization-defined functions, ports, protocols, and/or services.\n- No postgresql.conf or explicit port/listen_addresses settings found in provided files.\n- File: deploy/aws/iris-stack.yaml \u2014 RDS PostgreSQL instance is provisioned, but no static evidence of port or listen_addresses configuration.\n- Requirement: PARTIALLY SATISFIED \u2014 RDS instance is created, but static evidence of port/protocol/service restriction is missing."
+  },
+  "CD16-00-003600": {
+    "status": "Open",
+    "evidence": "Control requires unique identification and authentication of organizational users in PostgreSQL.\n- No pg_hba.conf, role definitions, or authentication configuration found in provided files.\n- File: deploy/aws/iris-stack.yaml \u2014 RDS PostgreSQL instance is provisioned, but no static evidence of user authentication configuration.\n- Requirement: PARTIALLY SATISFIED \u2014 RDS instance is created, but static evidence of unique user authentication is missing."
+  },
+  "CD16-00-003800": {
+    "status": "Open",
+    "evidence": "Control requires PostgreSQL to store only hashed, salted representations of passwords (password_encryption = 'scram-sha-256').\n- No postgresql.conf or password_encryption setting found in provided files.\n- No evidence of password storage configuration or enforcement.\n- Requirement: NOT SATISFIED \u2014 No static evidence of password encryption configuration."
+  },
+  "CD16-00-003900": {
+    "status": "Open",
+    "evidence": "Control requires PostgreSQL to transmit only encrypted representations of passwords (pg_hba.conf must use scram-sha-256, not password or md5).\n- No pg_hba.conf or authentication method configuration found in provided files.\n- Requirement: NOT SATISFIED \u2014 No static evidence of encrypted password transmission configuration."
+  },
+  "CD16-00-004000": {
+    "status": "Open",
+    "evidence": "Control requires PKI-based authentication to validate certificates via RFC 5280-compliant path validation (ssl_crl_file, clientcert=verify-ca in pg_hba.conf).\n- No postgresql.conf, pg_hba.conf, or SSL configuration found in provided files.\n- Requirement: NOT SATISFIED \u2014 No static evidence of PKI certificate validation configuration."
+  },
+  "CD16-00-004100": {
+    "status": "Open",
+    "evidence": "Control requires PostgreSQL to enforce authorized access to all PKI private keys (ssl_key_file, directory permissions, etc.).\n- No postgresql.conf or SSL key file configuration found in provided files.\n- No evidence of directory or file permissions for PKI keys.\n- Requirement: NOT SATISFIED \u2014 No static evidence of PKI private key access control."
+  },
+  "CD16-00-004200": {
+    "status": "Open",
+    "evidence": "Control requires mapping of PKI-authenticated identity (certificate CN) to PostgreSQL user account (via pg_ident.conf or direct match).\n- No pg_ident.conf, pg_hba.conf, or user mapping configuration found in provided files.\n- Requirement: NOT SATISFIED \u2014 No static evidence of PKI identity mapping."
+  },
+  "CD16-00-004400": {
+    "status": "Open",
+    "evidence": "Control requires use of NIST FIPS 140-2/140-3 validated cryptographic modules for cryptographic operations (OS FIPS mode, FIPS OpenSSL provider).\n- No evidence of OS-level FIPS mode configuration or OpenSSL provider settings in provided files.\n- No sysctl, grub, or fips-mode-setup commands found in bootstrap or deployment scripts.\n- Requirement: NOT SATISFIED \u2014 No static evidence of FIPS mode or cryptographic module validation."
+  },
+  "CD16-00-004500": {
+    "status": "Open",
+    "evidence": "Control requires: PostgreSQL must uniquely identify and authenticate nonorganizational users (or processes acting on behalf of nonorganizational users).\n- File: pointcloud-project/colmap_ingest.py \u2014 DatabaseConfig class defines user as 'pcuser' and password as 'secure_password_here', but no evidence of per-user unique identification or role management in code.\n- File: deploy/aws/create_databases.py \u2014 Databases 'iris_data' and 'keycloak_data' are created, but no evidence of user/role creation or unique identification logic.\n- File: api/README.md \u2014 Keycloak is used for API authentication, but no static evidence of PostgreSQL role management for nonorganizational users.\n- No static SQL or configuration for \\du or CREATE ROLE/LOGIN found in provided files.\n- Requirement: PARTIALLY SATISFIED \u2014 Application-level authentication is present (Keycloak), but static evidence of unique PostgreSQL user/role management is missing. Full compliance cannot be confirmed from static artifacts alone."
+  },
+  "CD16-00-004600": {
+    "status": "Open",
+    "evidence": "Control requires: PostgreSQL must separate user functionality (including user interface services) from database management functionality, and nonadministrative roles must not have 'Superuser', 'Create role', 'Create DB', or 'Bypass RLS'.\n- File: pointcloud-project/colmap_ingest.py \u2014 DatabaseConfig uses user 'pcuser', but no evidence of role attribute assignment or separation of admin/user roles.\n- File: deploy/aws/create_databases.py \u2014 Connects as user 'iris', but no evidence of role attribute assignment or separation.\n- No static SQL for ALTER ROLE ... NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS found.\n- No evidence of role separation or privilege assignment in provided files.\n- Requirement: PARTIALLY SATISFIED \u2014 Application code does not grant elevated privileges, but static evidence of role separation and privilege assignment is missing. Full compliance cannot be confirmed from static artifacts alone."
+  },
+  "CD16-00-004700": {
+    "status": "Open",
+    "evidence": "Control requires: PostgreSQL must invalidate session identifiers upon user logout or other session termination, and settings 'tcp_keepalives_idle', 'tcp_keepalives_interval', 'tcp_keepalives_count', and 'statement_timeout' must be set to non-zero values.\n- No postgresql.conf or equivalent configuration file found in provided files.\n- No static evidence of these settings in application or deployment scripts.\n- Requirement: NOT SATISFIED \u2014 No static evidence of required PostgreSQL session timeout/keepalive settings. Cannot confirm compliance."
+  },
+  "CD16-00-004900": {
+    "status": "Open",
+    "evidence": "Control requires: PostgreSQL must have 'ssl = on' in postgresql.conf.\n- No postgresql.conf or equivalent configuration file found in provided files.\n- No static evidence of 'ssl = on' in application or deployment scripts.\n- Requirement: NOT SATISFIED \u2014 No static evidence of PostgreSQL SSL configuration. Cannot confirm compliance."
+  },
+  "CD16-00-005200": {
+    "status": "Open",
+    "evidence": "Control requires: Data at rest must be protected, e.g., via pgcrypto or disk encryption.\n- No evidence of pgcrypto extension installation or usage in provided files.\n- No evidence of disk encryption configuration in infrastructure-as-code or documentation.\n- File: api/README.md \u2014 Mentions PostgreSQL usage but not encryption.\n- Requirement: NOT SATISFIED \u2014 No static evidence of data-at-rest encryption (pgcrypto or disk). Cannot confirm compliance."
+  },
+  "CD16-00-005300": {
+    "status": "Open",
+    "evidence": "Control requires: Security functions must be isolated from nonsecurity functions, and access to pg_catalog/information_schema must be restricted.\n- No static evidence of schema separation or GRANT/REVOKE statements in provided files.\n- No evidence of custom security schema or restricted access to pg_catalog/information_schema.\n- Requirement: NOT SATISFIED \u2014 No static evidence of security function isolation or access restriction. Cannot confirm compliance."
+  },
+  "CD16-00-005400": {
+    "status": "Open",
+    "evidence": "Control requires: Database contents must be protected from unauthorized and unintended information transfer by enforcement of a data-transfer policy.\n- File: api/README.md \u2014 Describes ingestion and processing pipelines, but no evidence of data transfer policy enforcement or secure handling of production data copies.\n- File: pointcloud-project/colmap_ingest.py \u2014 Ingests data into PostgreSQL, but no evidence of policy enforcement or secure deletion of temporary data.\n- Requirement: PARTIALLY SATISFIED \u2014 Data movement is described, but no static enforcement of data-transfer policy or secure deletion. Cannot confirm compliance."
+  },
+  "CD16-00-005600": {
+    "status": "Open",
+    "evidence": "Control requires: Access to database files must be limited to relevant processes and authorized users (file permissions, ownership).\n- No static evidence of file system permissions or ownership configuration for PostgreSQL data files in provided files.\n- No postgresql.conf or deployment script setting file permissions found.\n- Requirement: NOT SATISFIED \u2014 No static evidence of database file access controls. Cannot confirm compliance."
+  },
+  "CD16-00-005700": {
+    "status": "Open",
+    "evidence": "Control requires: PostgreSQL and application code must check validity of all data inputs and use prepared statements.\n- File: pointcloud-project/colmap_ingest.py \u2014 Uses psycopg2 and execute_batch for database inserts, which supports parameterized queries (e.g., 'INSERT INTO ... VALUES (%s, %s, ...)').\n- File: vlm-testing/fpv_analyzer_rag.py \u2014 Uses QdrantClient for vector DB, not PostgreSQL.\n- No evidence of direct SQL string concatenation for user input in provided files.\n- No evidence of column constraints or triggers in provided files (except for schema definitions in colmap_ingest.py).\n- Requirement: PARTIALLY SATISFIED \u2014 Application code uses parameterized queries for inserts, but full coverage of input validation and constraints cannot be confirmed from static artifacts alone."
+  },
+  "CD16-00-005800": {
+    "status": "Open",
+    "evidence": "Control requires: Dynamic code execution must be reserved for necessary cases only, and user input should be handled through prepared statements.\n- File: pointcloud-project/colmap_ingest.py \u2014 No evidence of dynamic SQL execution; uses parameterized queries.\n- File: vlm-testing/fpv_analyzer_rag.py \u2014 No dynamic SQL execution; uses QdrantClient and local embedding.\n- No evidence of unsafe dynamic code execution in provided files.\n- Requirement: PARTIALLY SATISFIED \u2014 No evidence of improper dynamic code execution, but cannot confirm for all database interactions without full codebase."
+  },
+  "CD16-00-005900": {
+    "status": "Open",
+    "evidence": "Control requires: When dynamic code execution is used, input data must be scanned for invalid values to prevent code injection.\n- File: pointcloud-project/colmap_ingest.py \u2014 No evidence of dynamic SQL execution; uses parameterized queries.\n- File: vlm-testing/fpv_analyzer_rag.py \u2014 No dynamic SQL execution.\n- No evidence of input scanning for code injection in dynamic execution contexts (none found).\n- Requirement: PARTIALLY SATISFIED \u2014 No dynamic code execution found, but cannot confirm for all code paths. Cannot confirm compliance for all cases."
+  },
+  "CD16-00-006000": {
+    "status": "Open",
+    "evidence": "Control requires: PostgreSQL 'client_min_messages' must be set to 'error'.\n- No postgresql.conf or equivalent configuration file found in provided files.\n- No static evidence of 'client_min_messages = error' setting.\n- Requirement: NOT SATISFIED \u2014 No static evidence of required error message configuration. Cannot confirm compliance."
+  },
+  "CD16-00-006100": {
+    "status": "Open",
+    "evidence": "Control requires: Detailed error messages must only be revealed to authorized personnel, and PostgreSQL logs must be owned by the DBA with permissions 0600.\n- No postgresql.conf or log configuration found in provided files.\n- No static evidence of 'client_min_messages = error' or log_file_mode/permissions.\n- Requirement: NOT SATISFIED \u2014 No static evidence of error message or log file access controls. Cannot confirm compliance."
+  },
+  "CD16-00-006200": {
+    "status": "Open",
+    "evidence": "Control requires: PostgreSQL must automatically terminate a user session after organization-defined conditions or trigger events requiring session disconnect.\n- No static evidence of session termination logic, cron jobs, or scripts for session disconnect in provided files.\n- No postgresql.conf or automation scripts for session management found.\n- Requirement: NOT SATISFIED \u2014 No static evidence of automatic session termination configuration. Cannot confirm compliance."
+  },
+  "CD16-00-006400": {
+    "status": "Open",
+    "evidence": "Control requires: Security labels must be associated with information in storage if required by the organization.\n- No evidence of security labeling (e.g., row-level security policies, RLS) in provided files.\n- No static SQL for RLS or security labels found.\n- Requirement: NOT SATISFIED \u2014 No static evidence of security labeling implementation. Cannot confirm compliance."
+  },
+  "CD16-00-006500": {
+    "status": "Open",
+    "evidence": "Control requires: Security labels must be associated with information in process if required by the organization.\n- No evidence of security labeling (e.g., row-level security policies, RLS) in provided files.\n- No static SQL for RLS or security labels found.\n- Requirement: NOT SATISFIED \u2014 No static evidence of security labeling implementation. Cannot confirm compliance."
+  },
+  "CD16-00-006600": {
+    "status": "Open",
+    "evidence": "Control requires: Security labels must be associated with information in transmission if required by the organization.\n- No evidence of security labeling (e.g., row-level security policies, RLS) in provided files.\n- No static SQL for RLS or security labels found.\n- Requirement: NOT SATISFIED \u2014 No static evidence of security labeling implementation. Cannot confirm compliance."
+  },
+  "CD16-00-006700": {
+    "status": "Open",
+    "evidence": "Control requires: PostgreSQL must enforce discretionary access control (DAC) policies as defined by the data owner.\n- File: pointcloud-project/colmap_ingest.py \u2014 Table schemas are defined, but no evidence of GRANT/REVOKE statements or DAC policy enforcement.\n- No static evidence of object ownership or privilege assignment in provided files.\n- Requirement: PARTIALLY SATISFIED \u2014 Table schemas exist, but no static evidence of DAC policy enforcement. Cannot confirm compliance."
+  },
+  "CD16-00-006800": {
+    "status": "Open",
+    "evidence": "Control requires: PostgreSQL must prevent nonprivileged users from executing privileged functions, and use of procedural languages (pl/Python, pl/R) must be AO-authorized.\n- No evidence of procedural language extension usage (pl/Python, pl/R) in provided files.\n- No static evidence of privileged function protection or REVOKE statements.\n- Requirement: PARTIALLY SATISFIED \u2014 No evidence of prohibited procedural language usage, but no static evidence of privileged function protection. Cannot confirm compliance."
+  },
+  "CD16-00-006900": {
+    "status": "Open",
+    "evidence": "Control requires: Execution of software modules with elevated privileges (SECURITY DEFINER) must be restricted to necessary cases only and documented.\n- No evidence of SECURITY DEFINER functions or privilege elevation in provided files.\n- No static SQL for function creation with SECURITY DEFINER found.\n- Requirement: PARTIALLY SATISFIED \u2014 No evidence of privilege elevation, but cannot confirm for all database functions. Cannot confirm compliance."
+  },
+  "CD16-00-007000": {
+    "status": "Open",
+    "evidence": "Control requires PostgreSQL to use syslog for centralized audit log management (log_destination = 'syslog').\n- No postgresql.conf or RDS parameter group configuration is present in the provided files.\n- In deploy/aws/iris-stack.yaml, the RDS instance is created (resource: PostgresDB), but there is no evidence of log_destination or syslog configuration for PostgreSQL audit logs.\n- No evidence of syslog configuration or forwarding for PostgreSQL logs in any bootstrap or infrastructure script.\n- Requirement: PARTIALLY SATISFIED \u2014 RDS PostgreSQL is provisioned, but there is no static evidence that log_destination is set to 'syslog' or that logs are forwarded to a centralized log management system."
+  },
+  "CD16-00-007200": {
+    "status": "Open",
+    "evidence": "Control requires allocation of sufficient audit log storage for PostgreSQL.\n- In deploy/aws/iris-stack.yaml, the RDS instance (PostgresDB) is provisioned with AllocatedStorage: 20 (GB), AllowedValues: [20, 25].\n- No evidence of monitoring or alerting for audit log storage capacity.\n- No evidence of log file/table space configuration specific to audit logs.\n- Requirement: PARTIALLY SATISFIED \u2014 RDS storage is statically allocated, but there is no evidence that this allocation is based on audit log storage requirements or that audit log space is monitored."
+  },
+  "CD16-00-007300": {
+    "status": "Open",
+    "evidence": "Control requires a script or tool to monitor PostgreSQL log directory storage and notify staff at 75% utilization.\n- No evidence of any monitoring script, cron job, or alerting mechanism for RDS/PostgreSQL log storage in deploy/aws/iris-stack.yaml or any bootstrap script.\n- No CloudWatch alarm or SNS notification for RDS storage utilization is defined in the CloudFormation template.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit log storage monitoring or alerting at 75% utilization."
+  },
+  "CD16-00-007400": {
+    "status": "Open",
+    "evidence": "Control requires real-time alerting to support staff on audit log failures.\n- No evidence of any alerting configuration for PostgreSQL audit log failures in deploy/aws/iris-stack.yaml or bootstrap scripts.\n- No CloudWatch alarm, SNS topic, or third-party integration for audit log failure events is present.\n- Requirement: NOT SATISFIED \u2014 No static evidence of real-time alerting for audit log failures."
+  },
+  "CD16-00-007500": {
+    "status": "Open",
+    "evidence": "Control requires log_timezone to be set to UTC in PostgreSQL.\n- No postgresql.conf or RDS parameter group configuration is present in the provided files.\n- In deploy/aws/iris-stack.yaml, the RDS instance is created, but there is no evidence of log_timezone configuration.\n- Requirement: NOT SATISFIED \u2014 No static evidence that log_timezone is set to 'UTC' for PostgreSQL audit records."
+  },
+  "CD16-00-007600": {
+    "status": "Open",
+    "evidence": "Control requires log_line_prefix to contain %m for timestamp granularity of at least one second.\n- No postgresql.conf or RDS parameter group configuration is present in the provided files.\n- No evidence of log_line_prefix configuration in any infrastructure or bootstrap script.\n- Requirement: NOT SATISFIED \u2014 No static evidence that log_line_prefix includes %m for timestamped audit records."
+  },
+  "CD16-00-007700": {
+    "status": "Open",
+    "evidence": "Control requires that only privileged users can create/alter logic modules (functions, triggers, etc.).\n- No evidence of PostgreSQL role or privilege management in any provided file.\n- No evidence of explicit GRANT/REVOKE statements or role definitions for logic module creation.\n- Requirement: NOT SATISFIED \u2014 No static evidence of access restriction for logic module creation in PostgreSQL."
+  },
+  "CD16-00-007800": {
+    "status": "Open",
+    "evidence": "Control requires enforcement of access restrictions for DBMS configuration changes (e.g., SUPERUSER privilege, CREATE/UPDATE on schemas).\n- No evidence of PostgreSQL role or privilege management in any provided file.\n- No evidence of ALTER ROLE or REVOKE statements for restricting configuration changes.\n- Requirement: NOT SATISFIED \u2014 No static evidence of access restriction enforcement for DBMS configuration changes."
+  },
+  "CD16-00-007900": {
+    "status": "Open",
+    "evidence": "Control requires audit records of enforcement of access restrictions (e.g., logging permission denials) and secure ownership/permissions on postgresql.conf.\n- No evidence of PostgreSQL logging configuration or file permissions for postgresql.conf in any provided file.\n- No evidence of pgaudit or similar extension enabled for logging denied actions.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit logging for denied configuration changes or secure configuration file permissions."
+  },
+  "CD16-00-008000": {
+    "status": "Open",
+    "evidence": "Control requires disabling nonsecure network functions, ports, and protocols for PostgreSQL.\n- In deploy/aws/iris-stack.yaml, RdsSecurityGroup allows inbound TCP 5432 only from the EC2 security group (IrisSecurityGroup).\n- No evidence of disabling nonsecure protocols at the PostgreSQL configuration level (e.g., listen_addresses, SSL enforcement).\n- Requirement: PARTIALLY SATISFIED \u2014 Network access to PostgreSQL is restricted at the security group level, but there is no static evidence of protocol/service hardening in PostgreSQL configuration."
+  },
+  "CD16-00-008100": {
+    "status": "Open",
+    "evidence": "Control requires mechanisms to force user reauthentication (e.g., via pg_terminate_backend for session termination).\n- No evidence of any script, automation, or application logic invoking 'SELECT pg_terminate_backend(pid)' or similar in any provided file.\n- Requirement: NOT SATISFIED \u2014 No static evidence of reauthentication enforcement or session termination mechanisms."
+  },
+  "CD16-00-008300": {
+    "status": "Open",
+    "evidence": "Control requires PostgreSQL to use NSA-approved cryptography (SSL) for classified data.\n- No postgresql.conf or RDS parameter group configuration is present in the provided files.\n- No evidence of 'ssl = on' or SSL enforcement for PostgreSQL in any infrastructure or bootstrap script.\n- Requirement: NOT SATISFIED \u2014 No static evidence that SSL is enabled for PostgreSQL."
+  },
+  "CD16-00-008400": {
+    "status": "Open",
+    "evidence": "Control requires PostgreSQL to accept only DOD PKI or DOD-approved CA certificates (ssl_ca_file, ssl_cert_file).\n- No postgresql.conf or RDS parameter group configuration is present in the provided files.\n- No evidence of ssl_ca_file or ssl_cert_file configuration for PostgreSQL in any infrastructure or bootstrap script.\n- Requirement: NOT SATISFIED \u2014 No static evidence that only DOD-approved CA certificates are accepted."
+  },
+  "CD16-00-008500": {
+    "status": "Open",
+    "evidence": "Control requires cryptographic mechanisms to prevent unauthorized modification of information at rest (e.g., pgcrypto, disk encryption).\n- No evidence of pgcrypto extension installation or use in any provided file.\n- No evidence of disk or filesystem encryption for RDS or EC2 volumes in deploy/aws/iris-stack.yaml (RDS StorageType: gp3, but no encryption parameter).\n- Requirement: NOT SATISFIED \u2014 No static evidence of cryptographic protection for data at rest in PostgreSQL."
+  },
+  "CD16-00-008600": {
+    "status": "Open",
+    "evidence": "Control requires cryptographic mechanisms to prevent unauthorized disclosure of information at rest (e.g., pgcrypto, disk encryption).\n- No evidence of pgcrypto extension installation or use in any provided file.\n- No evidence of disk or filesystem encryption for RDS or EC2 volumes in deploy/aws/iris-stack.yaml (RDS StorageType: gp3, but no encryption parameter).\n- Requirement: NOT SATISFIED \u2014 No static evidence of cryptographic protection for data at rest in PostgreSQL."
+  },
+  "CD16-00-008800": {
+    "status": "Open",
+    "evidence": "Control requires confidentiality and integrity of information during preparation for transmission (SSL enabled for PostgreSQL).\n- No postgresql.conf or RDS parameter group configuration is present in the provided files.\n- No evidence of 'ssl = on' or SSL enforcement for PostgreSQL in any infrastructure or bootstrap script.\n- Requirement: NOT SATISFIED \u2014 No static evidence that SSL is enabled for PostgreSQL."
+  },
+  "CD16-00-008900": {
+    "status": "Open",
+    "evidence": "Control requires confidentiality and integrity of information during reception (SSL enabled for PostgreSQL).\n- No postgresql.conf or RDS parameter group configuration is present in the provided files.\n- No evidence of 'ssl = on' or SSL enforcement for PostgreSQL in any infrastructure or bootstrap script.\n- Requirement: NOT SATISFIED \u2014 No static evidence that SSL is enabled for PostgreSQL."
+  },
+  "CD16-00-009000": {
+    "status": "Open",
+    "evidence": "Control requires predictable and documented error handling for invalid inputs, and logging of syntax errors in PostgreSQL.\n- No postgresql.conf or RDS parameter group configuration is present in the provided files.\n- No evidence of logging configuration or error handling documentation for PostgreSQL in any infrastructure or bootstrap script.\n- Requirement: NOT SATISFIED \u2014 No static evidence of error logging configuration or error handling documentation for PostgreSQL."
+  },
+  "CD16-00-009100": {
+    "status": "Open",
+    "evidence": "Control requires removal of unused or replaced PostgreSQL software components after updates.\n- No evidence of package management, update, or removal scripts for PostgreSQL in any provided file.\n- No evidence of automation to remove old PostgreSQL versions after updates.\n- Requirement: NOT SATISFIED \u2014 No static evidence of removal of unused PostgreSQL components after updates."
+  },
+  "CD16-00-009200": {
+    "status": "Open",
+    "evidence": "Control requires timely installation of security-relevant PostgreSQL updates.\n- No evidence of patch management, update automation, or version checks for PostgreSQL in any provided file.\n- No evidence of policies or procedures for applying security updates to PostgreSQL.\n- Requirement: NOT SATISFIED \u2014 No static evidence of security update management for PostgreSQL."
+  },
+  "CD16-00-009400": {
+    "status": "Open",
+    "evidence": "Control requires PostgreSQL to have pgaudit enabled and configured to log 'role', 'read', 'write', and 'ddl' actions.\n- No file in the provided manifest or content (including pointcloud-project/docker-compose.yml, pointcloud-project/colmap_ingest.py, or any bootstrap/infra scripts) configures PostgreSQL with `shared_preload_libraries = 'pgaudit'` or sets `pgaudit.log`.\n- No postgresql.conf or explicit RDS parameter group configuration is present in the repository.\n- The docker-compose file for pointcloud-project/postgres does not reference pgaudit or any audit configuration.\n- Requirement: PARTIALLY SATISFIED \u2014 PostgreSQL is present, but there is no static evidence of pgaudit being enabled or configured for required audit categories."
+  },
+  "CD16-00-009500": {
+    "status": "Open",
+    "evidence": "Control requires PostgreSQL to log unsuccessful attempts to access security objects (denials/errors) via audit logs, typically with pgaudit and logging enabled.\n- No evidence in pointcloud-project/docker-compose.yml, pointcloud-project/colmap_ingest.py, or any infra script that PostgreSQL logging is enabled (`logging_collector`, `log_statement`, or `log_connections`), nor that pgaudit is installed/configured.\n- No postgresql.conf or RDS parameter group is present in the repo.\n- Requirement: PARTIALLY SATISFIED \u2014 PostgreSQL is deployed, but there is no static evidence of logging or pgaudit configuration to ensure denials are audited."
+  },
+  "CD16-00-009600": {
+    "status": "Open",
+    "evidence": "Control requires pgaudit.log to include 'ddl, write, role' for auditing access to categories of information.\n- No static configuration for pgaudit or pgaudit.log found in any provided file (including docker-compose, bootstrap scripts, or application code).\n- No postgresql.conf or parameter group present.\n- Requirement: NOT SATISFIED \u2014 No evidence of pgaudit.log including required categories."
+  },
+  "CD16-00-009700": {
+    "status": "Open",
+    "evidence": "Control requires pgaudit.log to include 'ddl, write, role' to audit unsuccessful attempts to access categories of information.\n- No static configuration for pgaudit or pgaudit.log found in any provided file.\n- No postgresql.conf or parameter group present.\n- Requirement: NOT SATISFIED \u2014 No evidence of pgaudit.log including required categories."
+  },
+  "CD16-00-009800": {
+    "status": "Open",
+    "evidence": "Control requires audit records for privilege/permission additions (e.g., GRANT/REVOKE) via pgaudit.log='role'.\n- No static configuration for pgaudit or pgaudit.log found in any provided file.\n- No postgresql.conf or parameter group present.\n- Requirement: NOT SATISFIED \u2014 No evidence of pgaudit.log including 'role'."
+  },
+  "CD16-00-009900": {
+    "status": "Open",
+    "evidence": "Control requires audit records for unsuccessful attempts to add privileges/permissions (denials/errors), typically via pgaudit and logging enabled.\n- No static configuration for pgaudit or PostgreSQL logging found in any provided file.\n- No postgresql.conf or parameter group present.\n- Requirement: NOT SATISFIED \u2014 No evidence of logging or pgaudit configuration for unsuccessful privilege changes."
+  },
+  "CD16-00-010000": {
+    "status": "Open",
+    "evidence": "Control requires pgaudit enabled and pgaudit.log including 'role' to audit privilege/permission modifications.\n- No static configuration for pgaudit or pgaudit.log found in any provided file.\n- No postgresql.conf or parameter group present.\n- Requirement: NOT SATISFIED \u2014 No evidence of pgaudit.log including 'role'."
+  },
+  "CD16-00-010100": {
+    "status": "Open",
+    "evidence": "Control requires audit records for unsuccessful attempts to modify privileges/permissions (denials/errors), typically via pgaudit and logging enabled.\n- No static configuration for pgaudit or PostgreSQL logging found in any provided file.\n- No postgresql.conf or parameter group present.\n- Requirement: NOT SATISFIED \u2014 No evidence of logging or pgaudit configuration for unsuccessful privilege modifications."
+  },
+  "CD16-00-010200": {
+    "status": "Open",
+    "evidence": "Control requires pgaudit enabled, pgaudit.log including 'ddl, role, read, write', and pgaudit.log_catalog = 'on'.\n- No static configuration for pgaudit, pgaudit.log, or pgaudit.log_catalog found in any provided file.\n- No postgresql.conf or parameter group present.\n- Requirement: NOT SATISFIED \u2014 No evidence of pgaudit.log_catalog or required audit categories."
+  },
+  "CD16-00-010300": {
+    "status": "Open",
+    "evidence": "Control requires audit records for unsuccessful attempts to modify security objects (denials/errors), typically via pgaudit and logging enabled.\n- No static configuration for pgaudit or PostgreSQL logging found in any provided file.\n- No postgresql.conf or parameter group present.\n- Requirement: NOT SATISFIED \u2014 No evidence of logging or pgaudit configuration for unsuccessful security object modifications."
+  },
+  "CD16-00-010400": {
+    "status": "Open",
+    "evidence": "Control requires pgaudit enabled and pgaudit.log including 'ddl, role, read, write' for auditing modifications to categories of information.\n- No static configuration for pgaudit or pgaudit.log found in any provided file.\n- No postgresql.conf or parameter group present.\n- Requirement: NOT SATISFIED \u2014 No evidence of pgaudit.log including required categories."
+  },
+  "CD16-00-010500": {
+    "status": "Open",
+    "evidence": "Control requires pgaudit enabled and pgaudit.log including 'ddl, role, read, write' for unsuccessful attempts to modify categories of information.\n- No static configuration for pgaudit or pgaudit.log found in any provided file.\n- No postgresql.conf or parameter group present.\n- Requirement: NOT SATISFIED \u2014 No evidence of pgaudit.log including required categories."
+  },
+  "CD16-00-010600": {
+    "status": "Open",
+    "evidence": "Control requires pgaudit enabled and pgaudit.log including 'role, read, write, ddl' for auditing privilege/permission deletions.\n- No static configuration for pgaudit or pgaudit.log found in any provided file.\n- No postgresql.conf or parameter group present.\n- Requirement: NOT SATISFIED \u2014 No evidence of pgaudit.log including required categories."
+  },
+  "CD16-00-010700": {
+    "status": "Open",
+    "evidence": "Control requires audit records for unsuccessful attempts to delete privileges/permissions (denials/errors), typically via pgaudit and logging enabled.\n- No static configuration for pgaudit or PostgreSQL logging found in any provided file.\n- No postgresql.conf or parameter group present.\n- Requirement: NOT SATISFIED \u2014 No evidence of logging or pgaudit configuration for unsuccessful privilege deletions."
+  },
+  "CD16-00-010800": {
+    "status": "Open",
+    "evidence": "Control requires audit records for security object deletions (e.g., DROP POLICY, ALTER TABLE ... DISABLE ROW LEVEL SECURITY) via pgaudit.log='ddl'.\n- No static configuration for pgaudit or pgaudit.log found in any provided file.\n- No postgresql.conf or parameter group present.\n- Requirement: NOT SATISFIED \u2014 No evidence of pgaudit.log including 'ddl'."
+  },
+  "CD16-00-010900": {
+    "status": "Open",
+    "evidence": "Control requires pgaudit enabled and pgaudit.log including 'ddl, role, read, write' for unsuccessful attempts to delete security objects.\n- No static configuration for pgaudit or pgaudit.log found in any provided file.\n- No postgresql.conf or parameter group present.\n- Requirement: NOT SATISFIED \u2014 No evidence of pgaudit.log including required categories."
+  },
+  "CD16-00-011000": {
+    "status": "Open",
+    "evidence": "Control requires pgaudit enabled and pgaudit.log including 'ddl, role, read, write' for auditing deletions of categories of information.\n- No static configuration for pgaudit or pgaudit.log found in any provided file.\n- No postgresql.conf or parameter group present.\n- Requirement: NOT SATISFIED \u2014 No evidence of pgaudit.log including required categories."
+  },
+  "CD16-00-011100": {
+    "status": "Open",
+    "evidence": "Control requires pgaudit enabled and pgaudit.log including 'ddl, role, read, write' for unsuccessful attempts to delete categories of information.\n- No static configuration for pgaudit or pgaudit.log found in any provided file.\n- No postgresql.conf or parameter group present.\n- Requirement: NOT SATISFIED \u2014 No evidence of pgaudit.log including required categories."
+  },
+  "CD16-00-011200": {
+    "status": "Open",
+    "evidence": "Control requires PostgreSQL to have log_connections = on and log_line_prefix set to include time, username, database, and session ID.\n- No postgresql.conf or RDS parameter group is present in the repository.\n- No docker-compose or bootstrap script sets log_connections or log_line_prefix.\n- Requirement: NOT SATISFIED \u2014 No evidence of log_connections or log_line_prefix configuration."
+  },
+  "CD16-00-011300": {
+    "status": "Open",
+    "evidence": "Control requires PostgreSQL to log unsuccessful logon/connection attempts (FATAL errors), typically via log_connections = on and appropriate log_line_prefix.\n- No postgresql.conf or RDS parameter group is present in the repository.\n- No docker-compose or bootstrap script sets log_connections or log_line_prefix.\n- Requirement: NOT SATISFIED \u2014 No evidence of log_connections or log_line_prefix configuration."
+  },
+  "CD16-00-011400": {
+    "status": "Open",
+    "evidence": "Control requires: PostgreSQL must have pgaudit enabled and configured to log 'role, read, write, ddl'.\n- No postgresql.conf or RDS parameter group configuration is present in any provided file.\n- No evidence of 'shared_preload_libraries = 'pgaudit'' or 'pgaudit.log = 'ddl, role, read, write'' in any static configuration or IaC file (e.g., deploy/aws/iris-stack.yaml, pointcloud-project/colmap_ingest.py, etc.).\n- The RDS instance in deploy/aws/iris-stack.yaml is created with 'Engine: postgres', but no parameter group or custom config is specified for pgaudit.\n- No Dockerfile or bootstrap script installs or configures pgaudit for PostgreSQL.\n- Requirement: PARTIALLY SATISFIED \u2014 PostgreSQL is provisioned, but there is no static evidence that pgaudit is enabled or configured to log the required activities. Manual verification of DB parameter group or postgresql.conf is required."
+  },
+  "CD16-00-011500": {
+    "status": "Open",
+    "evidence": "Control requires: PostgreSQL must generate audit records for unsuccessful privileged activity attempts (e.g., permission denied errors must be logged).\n- No postgresql.conf or logging configuration is present in any provided file.\n- No evidence of 'log_destination', 'logging_collector', or related settings in deploy/aws/iris-stack.yaml or any other static config.\n- No evidence of pgaudit or error logging configuration in RDS or EC2 PostgreSQL setup.\n- No application code (e.g., pointcloud-project/colmap_ingest.py) configures PostgreSQL logging.\n- Requirement: PARTIALLY SATISFIED \u2014 PostgreSQL is provisioned, but there is no static evidence that error/audit logging is enabled for unsuccessful privileged actions. Manual review of DB logs or parameter group is required."
+  },
+  "CD16-00-011600": {
+    "status": "Open",
+    "evidence": "Control requires: PostgreSQL must log connection and disconnection events with time, username, and session ID.\n- No postgresql.conf or RDS parameter group configuration is present in any provided file.\n- No evidence of 'log_connections = on', 'log_disconnections = on', or 'log_line_prefix' settings in any static config (e.g., deploy/aws/iris-stack.yaml).\n- No application code or IaC file configures these settings.\n- Requirement: PARTIALLY SATISFIED \u2014 PostgreSQL is provisioned, but there is no static evidence that connection/disconnection logging is enabled. Manual review of DB parameter group or postgresql.conf is required."
+  },
+  "CD16-00-011700": {
+    "status": "Open",
+    "evidence": "Control requires: PostgreSQL must log concurrent logons/connections by the same user from different workstations, with log_connections, log_disconnections, and log_line_prefix including %m %u %d %c.\n- No postgresql.conf or RDS parameter group configuration is present in any provided file.\n- No evidence of 'log_connections', 'log_disconnections', or 'log_line_prefix' settings in any static config (e.g., deploy/aws/iris-stack.yaml).\n- No application code or IaC file configures these settings.\n- Requirement: PARTIALLY SATISFIED \u2014 PostgreSQL is provisioned, but there is no static evidence that the required logging is enabled. Manual review of DB parameter group or postgresql.conf is required."
+  },
+  "CD16-00-011800": {
+    "status": "Open",
+    "evidence": "Control requires: PostgreSQL must generate audit records for successful accesses to objects (pgaudit enabled, pgaudit.log includes 'read, write').\n- No postgresql.conf or RDS parameter group configuration is present in any provided file.\n- No evidence of 'shared_preload_libraries = 'pgaudit'' or 'pgaudit.log = 'read, write'' in any static configuration or IaC file (e.g., deploy/aws/iris-stack.yaml).\n- No Dockerfile or bootstrap script installs or configures pgaudit for PostgreSQL.\n- Requirement: PARTIALLY SATISFIED \u2014 PostgreSQL is provisioned, but there is no static evidence that pgaudit is enabled or configured to log successful object access. Manual verification of DB parameter group or postgresql.conf is required."
+  },
+  "CD16-00-011900": {
+    "status": "Open",
+    "evidence": "Control requires: PostgreSQL must generate audit records for unsuccessful accesses to objects (permission denied errors must be logged).\n- No postgresql.conf or logging configuration is present in any provided file.\n- No evidence of 'log_destination', 'logging_collector', or related settings in deploy/aws/iris-stack.yaml or any other static config.\n- No evidence of pgaudit or error logging configuration in RDS or EC2 PostgreSQL setup.\n- No application code (e.g., pointcloud-project/colmap_ingest.py) configures PostgreSQL logging.\n- Requirement: PARTIALLY SATISFIED \u2014 PostgreSQL is provisioned, but there is no static evidence that error/audit logging is enabled for unsuccessful object access. Manual review of DB logs or parameter group is required."
+  },
+  "CD16-00-012000": {
+    "status": "Open",
+    "evidence": "Control requires: PostgreSQL must have pgaudit enabled and log_connections/log_disconnections enabled.\n- No postgresql.conf or RDS parameter group configuration is present in any provided file.\n- No evidence of 'shared_preload_libraries = 'pgaudit'', 'pgaudit.log', 'log_connections', or 'log_disconnections' in any static configuration or IaC file (e.g., deploy/aws/iris-stack.yaml).\n- No Dockerfile or bootstrap script installs or configures pgaudit for PostgreSQL.\n- Requirement: PARTIALLY SATISFIED \u2014 PostgreSQL is provisioned, but there is no static evidence that pgaudit is enabled or that connection/disconnection logging is configured. Manual verification of DB parameter group or postgresql.conf is required."
+  },
+  "CD16-00-012200": {
+    "status": "Open",
+    "evidence": "Control requires: PostgreSQL must use NIST FIPS 140-2/3 validated cryptographic modules (FIPS mode enabled at OS level).\n- No evidence of FIPS mode configuration in any provided file.\n- No evidence of 'fips_enabled', OpenSSL FIPS configuration, or RHEL system-wide crypto policy in deploy/aws/iris-stack.yaml, Dockerfiles, or bootstrap scripts.\n- No post-install script or user-data block enables FIPS mode on EC2 or RDS.\n- Requirement: NOT SATISFIED \u2014 No static evidence that FIPS mode is enabled for OpenSSL or PostgreSQL. Manual verification of /proc/sys/crypto/fips_enabled or OS crypto policy is required."
+  },
+  "CD16-00-012300": {
+    "status": "Open",
+    "evidence": "Control requires: PostgreSQL must use NIST FIPS 140-2/3 validated cryptographic modules for confidentiality (FIPS mode enabled at OS level).\n- No evidence of FIPS mode configuration in any provided file.\n- No evidence of 'fips_enabled', OpenSSL FIPS configuration, or RHEL system-wide crypto policy in deploy/aws/iris-stack.yaml, Dockerfiles, or bootstrap scripts.\n- No post-install script or user-data block enables FIPS mode on EC2 or RDS.\n- Requirement: NOT SATISFIED \u2014 No static evidence that FIPS mode is enabled for OpenSSL or PostgreSQL. Manual verification of /proc/sys/crypto/fips_enabled or OS crypto policy is required."
+  },
+  "CD16-00-012400": {
+    "status": "Open",
+    "evidence": "Control requires: PostgreSQL must offload audit data to a separate log management facility (log_destination = 'syslog', syslog_facility set).\n- No postgresql.conf or RDS parameter group configuration is present in any provided file.\n- No evidence of 'log_destination = 'syslog'' or 'syslog_facility' in any static configuration or IaC file (e.g., deploy/aws/iris-stack.yaml).\n- No application code or bootstrap script configures PostgreSQL to use syslog.\n- Requirement: NOT SATISFIED \u2014 No static evidence that PostgreSQL audit logs are offloaded to syslog or a centralized log management system. Manual review of DB parameter group or postgresql.conf is required."
+  },
+  "CD16-00-009300": {
+    "status": "Open",
+    "evidence": "Control requires: PostgreSQL must be a vendor-supported version.\n- File: deploy/aws/iris-stack.yaml \u2014 RDS resource 'PostgresDB' is created with 'Engine: postgres', but no version is specified (defaults to AWS RDS default, which may or may not be supported).\n- No explicit version pinning or enforcement is present in any IaC or Dockerfile.\n- No evidence of version checks or enforcement in application code.\n- Requirement: PARTIALLY SATISFIED \u2014 PostgreSQL is provisioned, but there is no static evidence that the deployed version is vendor-supported. Manual review of the actual RDS instance version or EC2 PostgreSQL package is required."
+  }
+}

@@ -1,0 +1,47 @@
+EPYON SCAN MANIFEST SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Generated: 2026-04-27T19:39:21Z
+Manifest Hash: sha256:93c404c3c5f6254cb9a56cfcd9a806a013c3d84f7ed923eb0803d3767087be10
+
+SCAN INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Scan ID:        midas_2026-04-27_19-38-00
+Username:       sketch0395
+Hostname:       runnervmeorf1
+Epyon Version:  3.0.0
+
+TARGET INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Repository:     N/A
+Commit SHA:     N/A
+Branch:         N/A
+Subdirectory:   N/A
+
+INTEGRITY VERIFICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This manifest contains SHA-256 hashes of all scan report files.
+To verify integrity, run:
+
+  ./scripts/shell/verify-scan-manifest.sh /home/runner/work/midas/midas/epyon/scans/midas_2026-04-27_19-38-00
+
+TRACKED FILES: 14
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✓ api/api-discovery.json
+  ✓ grype/midas_2026-04-27_19-38-00_grype-sbom-results.json
+  ✓ grype/scan.log
+  ✓ helm/helm-results.json
+  ✓ sbom/filesystem.json
+  ✓ sbom/sbom-summary.json
+  ✓ sbom/scan.log
+  ✓ trivy/midas_2026-04-27_19-38-00_trivy-filesystem-results.json
+  ✓ trivy/scan.log
+  ✓ trufflehog/midas_2026-04-27_19-38-00_trufflehog-filesystem-results.json
+  ✓ trufflehog/scan.log
+  ✓ xeol/midas_2026-04-27_19-38-00_xeol-filesystem-results.json
+  ✓ xeol/scan.log
+  ✓ xeol/xeol-statistics.json
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For full manifest details, see: scan-manifest.json

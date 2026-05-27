@@ -1,0 +1,69 @@
+EPYON SCAN MANIFEST SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Generated: 2026-04-28T03:31:40Z
+Manifest Hash: sha256:c881323e211d0f7d04ae4c7a4edff409f6ed64ebf2809ab240f74aa26c0cf2ca
+
+SCAN INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Scan ID:        midas_2026-04-28_03-19-16
+Username:       sketch0395
+Hostname:       runnervmeorf1
+Epyon Version:  3.0.0
+
+TARGET INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Repository:     N/A
+Commit SHA:     N/A
+Branch:         N/A
+Subdirectory:   N/A
+
+INTEGRITY VERIFICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This manifest contains SHA-256 hashes of all scan report files.
+To verify integrity, run:
+
+  ./scripts/shell/verify-scan-manifest.sh /home/runner/work/midas/midas/epyon/scans/midas_2026-04-28_03-19-16
+
+TRACKED FILES: 36
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✓ anchore/anchore-filesystem-results.json
+  ✓ anchore/anchore-sbom-results.json
+  ✓ anchore/anchore-scan.log
+  ✓ anchore/images/quay.io_keycloak_keycloak_26.0.json
+  ✓ api/api-discovery.json
+  ✓ checkov/checkov-statistics.json
+  ✓ checkov/midas_2026-04-28_03-19-16_checkov-results.json
+  ✓ checkov/midas_2026-04-28_03-19-16_checkov-scan.log
+  ✓ clamav/clamav-results.json
+  ✓ clamav/scan.log
+  ✓ findings-u-asd-stig-v6r4-manual-xccdf.md
+  ✓ findings-u-cd-postgres-16-stig-v1r2-manual-xccdf.md
+  ✓ findings.md
+  ✓ garak/garak-results.json
+  ✓ garak/midas_2026-04-28_03-19-16_garak-console.log
+  ✓ garak/midas_2026-04-28_03-19-16_garak-results.json
+  ✓ garak/midas_2026-04-28_03-19-16_garak-scan.log
+  ✓ garak/status.json
+  ✓ grype/midas_2026-04-28_03-19-16_grype-sbom-results.json
+  ✓ grype/scan.log
+  ✓ helm/helm-results.json
+  ✓ sbom/filesystem.json
+  ✓ sbom/sbom-summary.json
+  ✓ sbom/scan.log
+  ✓ sonar/sonar-scan.log
+  ✓ stig-controls-u-asd-stig-v6r4-manual-xccdf.json
+  ✓ stig-controls-u-cd-postgres-16-stig-v1r2-manual-xccdf.json
+  ✓ stig-results-u-asd-stig-v6r4-manual-xccdf.json
+  ✓ stig-results-u-cd-postgres-16-stig-v1r2-manual-xccdf.json
+  ✓ trivy/midas_2026-04-28_03-19-16_trivy-filesystem-results.json
+  ✓ trivy/scan.log
+  ✓ trufflehog/midas_2026-04-28_03-19-16_trufflehog-filesystem-results.json
+  ✓ trufflehog/scan.log
+  ✓ xeol/midas_2026-04-28_03-19-16_xeol-filesystem-results.json
+  ✓ xeol/scan.log
+  ✓ xeol/xeol-statistics.json
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For full manifest details, see: scan-manifest.json

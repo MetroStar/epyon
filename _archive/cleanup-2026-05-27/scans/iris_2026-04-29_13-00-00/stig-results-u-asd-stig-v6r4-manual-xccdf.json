@@ -1,0 +1,1146 @@
+{
+  "APSC-DV-000010": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000060": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000070": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000080": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000090": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000100": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000110": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000120": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000130": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000160": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000170": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000180": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000190": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000200": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000210": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000220": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000230": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000240": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000250": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000260": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000280": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000290": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000300": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000310": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000320": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000330": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000340": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000350": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000360": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000370": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000380": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000390": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000400": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000410": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000420": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000430": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000440": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000450": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000460": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000470": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000480": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000490": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000500": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000510": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000520": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000530": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000540": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000550": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000560": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000570": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000580": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000590": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000600": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000620": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000630": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000640": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000650": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000660": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000670": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000680": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000690": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000700": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000710": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000720": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000730": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000740": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000750": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000760": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000770": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000780": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000790": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000800": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000810": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000820": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000830": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000840": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000850": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000860": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000870": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000880": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000910": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000940": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000950": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000960": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000970": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000980": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-000990": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001000": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001010": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001020": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001030": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001040": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001050": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001070": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001080": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001090": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001100": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001110": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001120": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001130": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001140": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001150": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001160": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001170": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001180": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001190": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001200": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001210": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001220": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001250": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001260": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001270": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001280": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001290": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001300": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001310": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001320": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001330": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001340": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001350": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001360": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001370": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001390": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001410": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001420": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001430": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001440": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001460": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001480": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001490": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001500": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001510": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001520": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001530": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001540": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001550": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001560": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001570": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001580": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001590": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001600": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001610": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001620": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001630": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001640": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001650": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001660": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001670": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001680": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001690": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001700": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001710": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001720": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001730": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001740": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001750": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001760": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001770": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001780": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001790": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001795": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001800": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001810": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001820": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001830": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001840": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001850": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001860": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001870": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001880": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001890": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001900": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001910": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001930": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001940": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001950": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001960": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001970": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001980": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-001995": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002000": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002020": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002030": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002040": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002050": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002150": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002210": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002220": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002230": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002240": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002250": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002260": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002270": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002280": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002290": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002300": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002310": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002320": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002330": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002340": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002350": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002360": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002370": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002380": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002390": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002400": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002410": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002440": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002450": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002460": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002470": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002480": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002485": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002490": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002500": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002510": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002520": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002530": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002540": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002550": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002560": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002570": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002580": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002590": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002610": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002630": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002760": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002770": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002780": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002870": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002880": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002890": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002900": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002910": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002920": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002930": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002950": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002960": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002970": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002980": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002990": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002995": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003000": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003010": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003020": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003030": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003040": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003050": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003060": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003070": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003080": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003090": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003100": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003110": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003120": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003130": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003140": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003150": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003160": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003170": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003180": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003190": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003200": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003210": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003215": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003220": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003230": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003235": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003236": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003240": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003250": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003260": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003270": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003280": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003285": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003290": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003300": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003310": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003320": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003330": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003340": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003345": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003350": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003360": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-003400": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  },
+  "APSC-DV-002010": {
+    "status": "Not Reviewed",
+    "evidence": "STIG assessment skipped: OPENAI_API_KEY not configured."
+  }
+}

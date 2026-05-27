@@ -1,0 +1,41 @@
+Unable to find image 'ghcr.io/aquasecurity/trivy:latest' locally
+latest: Pulling from aquasecurity/trivy
+589002ba0eae: Already exists
+bd497c3c7308: Pulling fs layer
+77ddeac46eeb: Pulling fs layer
+fcdcff3e8f06: Pulling fs layer
+bd497c3c7308: Verifying Checksum
+bd497c3c7308: Download complete
+fcdcff3e8f06: Verifying Checksum
+fcdcff3e8f06: Download complete
+77ddeac46eeb: Verifying Checksum
+77ddeac46eeb: Download complete
+bd497c3c7308: Pull complete
+77ddeac46eeb: Pull complete
+fcdcff3e8f06: Pull complete
+Digest: sha256:be1190afcb28352bfddc4ddeb71470835d16462af68d310f9f4bca710961a41e
+Status: Downloaded newer image for ghcr.io/aquasecurity/trivy:latest
+2026-04-28T15:39:16Z	INFO	[vulndb] Need to update DB
+2026-04-28T15:39:16Z	INFO	[vulndb] Downloading vulnerability DB...
+2026-04-28T15:39:16Z	INFO	[vulndb] Downloading artifact...	repo="mirror.gcr.io/aquasec/trivy-db:2"
+7.80 MiB / 91.47 MiB [----->_________________________________________________________] 8.52% ? p/s ?30.88 MiB / 91.47 MiB [-------------------->________________________________________] 33.76% ? p/s ?44.18 MiB / 91.47 MiB [----------------------------->_______________________________] 48.30% ? p/s ?61.22 MiB / 91.47 MiB [-------------------------------->_______________] 66.93% 88.97 MiB p/s ETA 0s68.88 MiB / 91.47 MiB [------------------------------------>___________] 75.30% 88.97 MiB p/s ETA 0s85.28 MiB / 91.47 MiB [-------------------------------------------->___] 93.23% 88.97 MiB p/s ETA 0s91.47 MiB / 91.47 MiB [---------------------------------------------->] 100.00% 86.48 MiB p/s ETA 0s91.47 MiB / 91.47 MiB [---------------------------------------------->] 100.00% 86.48 MiB p/s ETA 0s91.47 MiB / 91.47 MiB [---------------------------------------------->] 100.00% 86.48 MiB p/s ETA 0s91.47 MiB / 91.47 MiB [---------------------------------------------->] 100.00% 80.90 MiB p/s ETA 0s91.47 MiB / 91.47 MiB [---------------------------------------------->] 100.00% 80.90 MiB p/s ETA 0s91.47 MiB / 91.47 MiB [---------------------------------------------->] 100.00% 80.90 MiB p/s ETA 0s91.47 MiB / 91.47 MiB [---------------------------------------------->] 100.00% 75.68 MiB p/s ETA 0s91.47 MiB / 91.47 MiB [---------------------------------------------->] 100.00% 75.68 MiB p/s ETA 0s91.47 MiB / 91.47 MiB [---------------------------------------------->] 100.00% 75.68 MiB p/s ETA 0s91.47 MiB / 91.47 MiB [---------------------------------------------->] 100.00% 70.80 MiB p/s ETA 0s91.47 MiB / 91.47 MiB [---------------------------------------------->] 100.00% 70.80 MiB p/s ETA 0s91.47 MiB / 91.47 MiB [---------------------------------------------->] 100.00% 70.80 MiB p/s ETA 0s91.47 MiB / 91.47 MiB [---------------------------------------------->] 100.00% 66.23 MiB p/s ETA 0s91.47 MiB / 91.47 MiB [---------------------------------------------->] 100.00% 66.23 MiB p/s ETA 0s91.47 MiB / 91.47 MiB [---------------------------------------------->] 100.00% 66.23 MiB p/s ETA 0s91.47 MiB / 91.47 MiB [-------------------------------------------------] 100.00% 22.56 MiB p/s 4.3s2026-04-28T15:39:21Z	INFO	[vulndb] Artifact successfully downloaded	repo="mirror.gcr.io/aquasec/trivy-db:2"
+Version: 0.70.0
+  Version: 2
+2026-04-28T15:39:26Z	INFO	[vuln] Vulnerability scanning is enabled
+2026-04-28T15:39:26Z	INFO	[secret] Secret scanning is enabled
+2026-04-28T15:39:26Z	INFO	[secret] If your scanning is slow, please try '--scanners vuln' to disable secret scanning
+2026-04-28T15:39:26Z	INFO	[secret] Please see https://trivy.dev/docs/v0.70/guide/scanner/secret#recommendation for faster secret detection
+2026-04-28T15:39:26Z	WARN	[conda] Unable to detect the dependency versions from `environment.yml` as those versions are not pinned. Use `conda env export` to pin versions.
+2026-04-28T15:39:26Z	WARN	[conda] Unable to detect the dependency versions from `environment.yml` as those versions are not pinned. Use `conda env export` to pin versions.
+2026-04-28T15:39:26Z	WARN	[conda] Unable to detect the dependency versions from `environment.yml` as those versions are not pinned. Use `conda env export` to pin versions.
+2026-04-28T15:39:26Z	INFO	[npm] To collect the license information of packages, "npm install" needs to be performed beforehand	dir="node_modules"
+2026-04-28T15:39:26Z	INFO	Suppressing dependencies for development and testing. To display them, try the '--include-dev-deps' flag.
+2026-04-28T15:39:26Z	INFO	Number of language-specific files	num=4
+2026-04-28T15:39:26Z	INFO	[conda-environment] Detecting vulnerabilities...
+2026-04-28T15:39:26Z	WARN	Conda package is supported for SBOM, not for vulnerability scanning
+2026-04-28T15:39:26Z	WARN	Conda package is supported for SBOM, not for vulnerability scanning
+2026-04-28T15:39:26Z	WARN	Conda package is supported for SBOM, not for vulnerability scanning
+2026-04-28T15:39:26Z	INFO	[npm] Detecting vulnerabilities...
+Version: 0.70.0
+  Version: 2
+Error response from daemon: pull access denied for dhi/caddy, repository does not exist or may require 'docker login': denied: requested access to the resource is denied

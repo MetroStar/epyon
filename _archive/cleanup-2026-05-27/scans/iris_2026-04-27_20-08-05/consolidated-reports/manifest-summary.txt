@@ -1,0 +1,40 @@
+EPYON SCAN MANIFEST SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Generated: 2026-04-27T20:13:59Z
+Manifest Hash: sha256:c656fb5d22740abe9417597f90d0007d02de140d1412dad7477c634bf087ab01
+
+SCAN INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Scan ID:        iris_2026-04-27_20-08-05
+Username:       sketch0395
+Hostname:       runnervmeorf1
+Epyon Version:  3.0.0
+
+TARGET INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Repository:     N/A
+Commit SHA:     N/A
+Branch:         N/A
+Subdirectory:   N/A
+
+INTEGRITY VERIFICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This manifest contains SHA-256 hashes of all scan report files.
+To verify integrity, run:
+
+  ./scripts/shell/verify-scan-manifest.sh /home/runner/work/iris/iris/epyon/scans/iris_2026-04-27_20-08-05
+
+TRACKED FILES: 7
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✓ findings-u-asd-stig-v6r4-manual-xccdf.md
+  ✓ findings-u-cd-postgres-16-stig-v1r2-manual-xccdf.md
+  ✓ findings.md
+  ✓ stig-controls-u-asd-stig-v6r4-manual-xccdf.json
+  ✓ stig-controls-u-cd-postgres-16-stig-v1r2-manual-xccdf.json
+  ✓ stig-results-u-asd-stig-v6r4-manual-xccdf.json
+  ✓ stig-results-u-cd-postgres-16-stig-v1r2-manual-xccdf.json
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For full manifest details, see: scan-manifest.json

@@ -1,0 +1,79 @@
+{
+  "trl_level": 3,
+  "trl_description": "TRL 3/9",
+  "weighted_score": 34.5,
+  "weight_profile": "default",
+  "weights": {
+    "security": 0.35,
+    "supply_chain": 0.2,
+    "code_quality": 0.15,
+    "compliance": 0.2,
+    "operational": 0.1
+  },
+  "dimension_scores": {
+    "security": {
+      "score": 0,
+      "max": 100,
+      "details": {
+        "critical_cve": 8,
+        "high_cve": 138,
+        "medium_cve": 186,
+        "low_cve": 80,
+        "has_secrets": false,
+        "has_malware": false,
+        "pickle_issues": false,
+        "garak_pass_rate": 100.0
+      }
+    },
+    "supply_chain": {
+      "score": 0,
+      "max": 100,
+      "details": {
+        "sbom_exists": false,
+        "component_count": 0,
+        "eol_components": 0,
+        "critical_eol": 0,
+        "vuln_ratio": 0.0
+      }
+    },
+    "code_quality": {
+      "score": 90.0,
+      "max": 100,
+      "details": {
+        "sonar_quality_gate": null,
+        "sonar_debt_ratio": null,
+        "checkov_pass_rate": null
+      }
+    },
+    "compliance": {
+      "score": 70.0,
+      "max": 100,
+      "details": {
+        "stig_pass_rate": null,
+        "stig_cat1_pass_rate": null,
+        "stig_files_assessed": 1,
+        "modelcard_completeness": null,
+        "api_endpoints_found": 0
+      }
+    },
+    "operational": {
+      "score": 70.0,
+      "max": 100,
+      "details": {
+        "helm_valid": false,
+        "unexpected_network_ports": 0,
+        "trend_direction": "stable"
+      }
+    }
+  },
+  "blockers": [
+    "CRITICAL: 8 critical CVE(s) present",
+    "BLOCKER: No SBOM present"
+  ],
+  "scan_metadata": {
+    "scan_id": null,
+    "scan_type": null,
+    "scan_timestamp": null
+  },
+  "generated_at": "2026-04-27T17:24:18Z"
+}

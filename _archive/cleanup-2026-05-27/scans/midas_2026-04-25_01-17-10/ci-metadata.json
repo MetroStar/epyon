@@ -1,0 +1,11 @@
+{
+  "source": "github",
+  "repo": "MetroStar/midas",
+  "run_id": 24918884703,
+  "artifact_id": 6636399886,
+  "workflow": "CI",
+  "event": "push",
+  "branch": "main",
+  "commit": "a62a3ef",
+  "synced_at": "2026-04-28T14:46:09.491681+00:00"
+}

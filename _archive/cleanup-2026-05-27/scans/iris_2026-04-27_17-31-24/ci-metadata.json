@@ -1,0 +1,11 @@
+{
+  "source": "github",
+  "repo": "MetroStar/iris",
+  "run_id": 25009447461,
+  "artifact_id": 6667064489,
+  "workflow": "CI",
+  "event": "pull_request",
+  "branch": "feature/ironbank-image-migration",
+  "commit": "1f49665",
+  "synced_at": "2026-04-28T14:45:32.468832+00:00"
+}

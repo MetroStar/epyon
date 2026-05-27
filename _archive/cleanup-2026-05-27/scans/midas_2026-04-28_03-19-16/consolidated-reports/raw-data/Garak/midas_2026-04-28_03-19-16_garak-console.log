@@ -1,0 +1,7 @@
+garak LLM vulnerability scanner v0.14.1 ( https://github.com/NVIDIA/garak ) at 2026-04-28T03:25:38.561218
+📜 logging to /home/runner/.local/share/garak/garak.log
+🦜 loading [1m[95mgenerator[0m: OpenAI: gpt-4o-mini
+⚠️  This run can be sped up 🥳 Generator 'OpenAI gpt-4o-mini' supports parallelism! Consider using `--parallel_attempts 16` (or more) to greatly accelerate your run. 🐌
+📜 reporting to /home/runner/work/midas/midas/epyon/scans/midas_2026-04-28_03-19-16/garak/midas_2026-04-28_03-19-16_garak.report.jsonl
+🕵️  queue of [1m[93mprobes:[0m promptinject.HijackHateHumans, promptinject.HijackKillHumans, promptinject.HijackLongPrompt
+Preparing prompts:   0%|[38;2;0;243;180m          [0m| 0/256 [00:00<?, ?it/s]                                                            0%|          | 0/256 [00:00<?, ?it/s]probes.promptinject.HijackHateHumans:   0%|          | 0/256 [00:00<?, ?it/s]

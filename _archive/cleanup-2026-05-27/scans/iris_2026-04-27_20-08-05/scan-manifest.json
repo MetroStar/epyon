@@ -1,0 +1,34 @@
+{
+  "file_hashes": {
+    "findings-u-asd-stig-v6r4-manual-xccdf.md": "sha256:63da3cd3747cf05577a46467d24deadf1d2a10fc73bbbd107725293d87a8682c",
+    "findings-u-cd-postgres-16-stig-v1r2-manual-xccdf.md": "sha256:d5a94b78d538d8d59737c1bc69850805f46b818c662348f7f9e19a4aa7fd452c",
+    "findings.md": "sha256:63da3cd3747cf05577a46467d24deadf1d2a10fc73bbbd107725293d87a8682c",
+    "stig-controls-u-asd-stig-v6r4-manual-xccdf.json": "sha256:165f26d2955ae99b591a5e70603fa33b9d214a6ececfe1589fb9bfd7abb2c996",
+    "stig-controls-u-cd-postgres-16-stig-v1r2-manual-xccdf.json": "sha256:e27e160fcbe7cf1006a83a91e5ec93414241957fa7e2a3f1ce8c6371516b2b23",
+    "stig-results-u-asd-stig-v6r4-manual-xccdf.json": "sha256:f051a26103fc3184444f3b6090bf716bd8960eccd150a9ccca75fdae7abfcc72",
+    "stig-results-u-cd-postgres-16-stig-v1r2-manual-xccdf.json": "sha256:2638eb44184fd08b89ed5cff40fc69e08aa9d8e717142d03ffca23ff501d019d"
+  },
+  "generated_at": "2026-04-27T20:13:59Z",
+  "manifest_hash": "sha256:c656fb5d22740abe9417597f90d0007d02de140d1412dad7477c634bf087ab01",
+  "manifest_version": "1.0",
+  "scan_metadata": {
+    "epyon_version": "3.0.0",
+    "hostname": "runnervmeorf1",
+    "scan_id": "iris_2026-04-27_20-08-05",
+    "timestamp": "2026-04-27T20:13:59Z",
+    "username": "sketch0395"
+  },
+  "target": {
+    "branch": null,
+    "commit_sha": null,
+    "repository": null,
+    "subdirectory": null
+  },
+  "tools": {
+    "checkov": "3.2.525",
+    "grype": "0.111.1",
+    "syft": "1.43.0",
+    "trivy": "0.70.0",
+    "trufflehog": "unknown"
+  }
+}

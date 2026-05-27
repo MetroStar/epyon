@@ -1,0 +1,37 @@
+<!-- classification: INTERNAL USE ONLY -->
+> **INTERNAL USE ONLY**
+
+# Trivy Security Report
+
+**Scan Type:** midas_2026-04-27_11-34-46_trivy-filesystem-results  
+**Generated:** Mon Apr 27 11:36:33 UTC 2026  
+
+## Summary
+
+**Total Items:** 1
+
+```json
+{
+  "SchemaVersion": 2,
+  "Trivy": {
+    "Version": "0.70.0"
+  },
+  "ReportID": "019dceb8-d323-7ce6-8070-ab6cce767cce",
+  "CreatedAt": "2026-04-27T11:35:12.419846787Z",
+  "ArtifactID": "sha256:631ed2719d62718b572ee29887e4bd04512bb360662e70d645c875fee9e250b6",
+  "ArtifactName": "/workspace",
+  "ArtifactType": "repository",
+  "Metadata": {
+    "RepoURL": "https://github.com/MetroStar/midas",
+    "Commit": "6d3f7dba028f933605515c57e7a177544045ef6d",
+    "CommitMsg": "Merge 3df89250c6dbc25104cc28317110e53d6685a4b8 into a62a3efec536e0d5e6d0e3ff7dba303acf62052d",
+    "Author": "Prasad Konka <pkonka@svg-it.com>",
+    "Committer": "GitHub <noreply@github.com>"
+  }
+}
+```
+
+
+---
+
+> **INTERNAL USE ONLY**

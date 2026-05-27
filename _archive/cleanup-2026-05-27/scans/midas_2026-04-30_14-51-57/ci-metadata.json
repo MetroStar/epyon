@@ -1,0 +1,11 @@
+{
+  "source": "github",
+  "repo": "MetroStar/midas",
+  "run_id": 25171990858,
+  "artifact_id": 6733081440,
+  "workflow": "CI",
+  "event": "pull_request",
+  "branch": "MID-993-export-toolspec-from-lib-tooling",
+  "commit": "364b663",
+  "synced_at": "2026-04-30T15:06:12.107980+00:00"
+}

@@ -1,0 +1,56 @@
+{
+  "file_hashes": {
+    "anchore/anchore-filesystem-results.json": "sha256:369453e111938c08fd4222dcdf2582d72286d71ec2e995b55647303824dca706",
+    "anchore/anchore-sbom-results.json": "sha256:1ba928c906521fa965e3cd2a2ce7c164cffdc9f508de4c841d3d8a8978defb96",
+    "anchore/anchore-scan.log": "sha256:29d7737b43b9fca5cd104784a3951cf62fa692ed8edf264bcb0dbd90b8a1e37c",
+    "anchore/images/quay.io_keycloak_keycloak_26.0.json": "sha256:5391069244b0534970c7d770ad8d57ed617a0358f21c2b1957ac4289ee4d2e20",
+    "api/api-discovery.json": "sha256:134cfbbbad9c299afb1b58ffc1aca60edd15c689189b7e70ebe795a2befb5c31",
+    "checkov/checkov-statistics.json": "sha256:d59d9aae1504b7b2cb98eb2194dc017895abdd444fc62fc978020f4579cc9772",
+    "checkov/midas_2026-04-26_03-18-31_checkov-results.json": "sha256:95ed0e9b277bb3d28a0908e4b429f6aaf8f65a7c82a76f727caa83c2d8354b76",
+    "checkov/midas_2026-04-26_03-18-31_checkov-scan.log": "sha256:60b7f71d58e43578ac082ac35ea89203460994ecf296907f57a06c604d43adc5",
+    "clamav/clamav-results.json": "sha256:0df6c4afdeeb1fd2a5d79c9236cd4a0cb5acd9ad40b13c589f190ec040152208",
+    "clamav/scan.log": "sha256:2a210e889cf50e11158b52c29381c76a57940f30f74f9cae2bdd217659239f4f",
+    "garak/garak-results.json": "sha256:560e2dce89e666a1e60c84869ed2949663330e0675f20fa63c44badf30ffc9e1",
+    "garak/midas_2026-04-26_03-18-31_garak-console.log": "sha256:122bf9bccb359de54e257c1271e64296c6880d0541dd0806ee24755d25414ec0",
+    "garak/midas_2026-04-26_03-18-31_garak-results.json": "sha256:560e2dce89e666a1e60c84869ed2949663330e0675f20fa63c44badf30ffc9e1",
+    "garak/midas_2026-04-26_03-18-31_garak-scan.log": "sha256:1d2a490d484583cf46bf285927db2b56169427af62fdd5e7d1b366d537f96061",
+    "garak/status.json": "sha256:754cd354af2b7ed0fcfee757c987f27e618abe36ccdbc30cbb68a6dd5d3e37ee",
+    "grype/midas_2026-04-26_03-18-31_grype-sbom-results.json": "sha256:8f7cfdfcc13de9d8a25b0b0784144b98f566b57969f76a840c7942ed23bb0673",
+    "grype/scan.log": "sha256:3fed87fcdfed0221556c155523efda923205259ef74a7a440b1d6241deb496e9",
+    "helm/helm-results.json": "sha256:aa612f68b54d321ee18a3f07bd87ae3ae5fb82fe79d10c2e247dccd3e6a77f40",
+    "sbom/filesystem.json": "sha256:cf9030a31d83eb3fff7278bdecebc00eebc1152b6696215a0e47ae66cfe9a3a3",
+    "sbom/sbom-summary.json": "sha256:9619cc6b7c15e098f212505b8542d0af670a789dcc348fd50baed41a0ee8063b",
+    "sbom/scan.log": "sha256:ecd2e033f42c39c567afedbe8637a46c851f83268c3013470767df88d984160e",
+    "sonar/sonar-scan.log": "sha256:81efdda50a93757e27755601ecce5995cfe89236af93f6c20b1d658860f7bfa5",
+    "trivy/midas_2026-04-26_03-18-31_trivy-filesystem-results.json": "sha256:711e8dc34f1d455c545a7405b10812db88e37bb43ecdc0e8021763d21cb8229d",
+    "trivy/scan.log": "sha256:6fb4ae0ff6eaea0241efdaf740adc56a377aaf77b2507ef45ab8ed8ba48f4a96",
+    "trufflehog/midas_2026-04-26_03-18-31_trufflehog-filesystem-results.json": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "trufflehog/scan.log": "sha256:fe77680d5756787ab906ef64b99e9824aa4773578d52a95b0dc6eac2b97ec660",
+    "xeol/midas_2026-04-26_03-18-31_xeol-filesystem-results.json": "sha256:35d735a89b80c772b37075621d2d99cc661098aa9526c1cb57a503691e65e385",
+    "xeol/scan.log": "sha256:e88898722bbe0ebbd8a3f0fce8d9a031414f501046a41e001fcc3bd1f886d8b8",
+    "xeol/xeol-statistics.json": "sha256:be4ae934b45bb603e0ecc996624778de1fca3bb953ea483f55413e31cefc538d"
+  },
+  "generated_at": "2026-04-26T03:30:06Z",
+  "manifest_hash": "sha256:8759dbe38014385ec1457593e2f1ce14b12ee416c11cb8cea10e174f710a9789",
+  "manifest_version": "1.0",
+  "scan_metadata": {
+    "epyon_version": "3.0.0",
+    "hostname": "runnervmeorf1",
+    "scan_id": "midas_2026-04-26_03-18-31",
+    "timestamp": "2026-04-26T03:30:06Z",
+    "username": "sketch0395"
+  },
+  "target": {
+    "branch": null,
+    "commit_sha": null,
+    "repository": null,
+    "subdirectory": null
+  },
+  "tools": {
+    "checkov": "3.2.524",
+    "grype": "0.111.1",
+    "syft": "1.43.0",
+    "trivy": "0.70.0",
+    "trufflehog": "unknown"
+  }
+}

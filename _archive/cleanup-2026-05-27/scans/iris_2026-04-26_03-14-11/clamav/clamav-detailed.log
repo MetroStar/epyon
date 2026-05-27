@@ -1,0 +1,37 @@
+
+-------------------------------------------------------------------------------
+
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/5a106e60-2d66-4b54-800b-f32b09849379/payload_index/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/5a106e60-2d66-4b54-800b-f32b09849379/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/3c8e321d-4803-42e6-8369-7e2ce9597e08/payload_index/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/3c8e321d-4803-42e6-8369-7e2ce9597e08/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/df7e7085-3364-44fc-a574-8c8d4b3d9125/payload_index/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/df7e7085-3364-44fc-a574-8c8d4b3d9125/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/ae137f1d-0e82-4fb2-82ee-17b61726e0e4/payload_index/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/ae137f1d-0e82-4fb2-82ee-17b61726e0e4/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/51ad52c7-1811-47f5-9f83-e9059a98e825/payload_index/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/51ad52c7-1811-47f5-9f83-e9059a98e825/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/f3c8420c-c4cb-476f-8ade-7ca309b66eec/payload_index/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/f3c8420c-c4cb-476f-8ade-7ca309b66eec/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/2f409b68-7abe-4827-9be2-bda4808e6c6f/payload_index/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/2f409b68-7abe-4827-9be2-bda4808e6c6f/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/eaa7e3d1-ac06-404a-9c8d-0f937f56b72f/payload_index/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/eaa7e3d1-ac06-404a-9c8d-0f937f56b72f/LOCK: Empty file
+/workspace/vlm-testing/.qdrant-initialized: Empty file
+/workspace/api/tests/__init__.py: Empty file
+/workspace/api/app/health/__init__.py: Empty file
+/workspace/api/app/video_search/__init__.py: Empty file
+/workspace/api/app/__init__.py: Empty file
+/workspace/deploy/terraform/README.md: Empty file
+
+----------- SCAN SUMMARY -----------
+Known viruses: 3627837
+Engine version: 1.5.2
+Scanned directories: 143
+Scanned files: 647
+Infected files: 0
+Data scanned: 1.34 GiB
+Data read: 670.05 MiB (ratio 2.05:1)
+Time: 672.205 sec (11 m 12 s)
+Start Date: 2026:04:26 03:14:36
+End Date:   2026:04:26 03:25:48

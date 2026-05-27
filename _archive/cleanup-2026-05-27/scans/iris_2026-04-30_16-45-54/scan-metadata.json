@@ -1,0 +1,8 @@
+{
+  "scan_type": "stig",
+  "target_name": "iris",
+  "scan_timestamp": "2026-04-30T16:45:54.249775",
+  "target_directory": "/Users/rnelson/Desktop/Side_Projects/epyon/tmp/clone-20260430214554",
+  "epyon_version": "3.0.0",
+  "triggered_by": "web-ui"
+}

@@ -1,0 +1,57 @@
+EPYON SCAN MANIFEST SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Generated: 2026-04-29T16:50:34Z
+Manifest Hash: sha256:40eec5e9a0367cc01d28c34e7da2b72fc4cf397372e4d6f2e97ce4a37c21816b
+
+SCAN INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Scan ID:        midas_2026-04-29_16-45-43
+Username:       ericdatakelly
+Hostname:       runnervmeorf1
+Epyon Version:  3.0.0
+
+TARGET INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Repository:     N/A
+Commit SHA:     N/A
+Branch:         N/A
+Subdirectory:   N/A
+
+INTEGRITY VERIFICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This manifest contains SHA-256 hashes of all scan report files.
+To verify integrity, run:
+
+  ./scripts/shell/verify-scan-manifest.sh /home/runner/work/midas/midas/epyon/scans/midas_2026-04-29_16-45-43
+
+TRACKED FILES: 24
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✓ anchore/anchore-filesystem-results.json
+  ✓ anchore/anchore-sbom-results.json
+  ✓ anchore/anchore-scan.log
+  ✓ anchore/images/quay.io_keycloak_keycloak_26.0.json
+  ✓ api/api-discovery.json
+  ✓ checkov/checkov-statistics.json
+  ✓ checkov/midas_2026-04-29_16-45-43_checkov-results.json
+  ✓ checkov/midas_2026-04-29_16-45-43_checkov-scan.log
+  ✓ clamav/clamav-results.json
+  ✓ clamav/scan.log
+  ✓ grype/midas_2026-04-29_16-45-43_grype-sbom-results.json
+  ✓ grype/scan.log
+  ✓ helm/helm-results.json
+  ✓ sbom/filesystem.json
+  ✓ sbom/sbom-summary.json
+  ✓ sbom/scan.log
+  ✓ sonar/sonar-scan.log
+  ✓ trivy/midas_2026-04-29_16-45-43_trivy-filesystem-results.json
+  ✓ trivy/scan.log
+  ✓ trufflehog/midas_2026-04-29_16-45-43_trufflehog-filesystem-results.json
+  ✓ trufflehog/scan.log
+  ✓ xeol/midas_2026-04-29_16-45-43_xeol-filesystem-results.json
+  ✓ xeol/scan.log
+  ✓ xeol/xeol-statistics.json
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For full manifest details, see: scan-manifest.json

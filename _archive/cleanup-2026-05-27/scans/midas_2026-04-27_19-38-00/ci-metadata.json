@@ -1,0 +1,11 @@
+{
+  "source": "github",
+  "repo": "MetroStar/midas",
+  "run_id": 25015282604,
+  "artifact_id": 6669408669,
+  "workflow": "CI",
+  "event": "pull_request",
+  "branch": "MID-992-Update-Scan-Private-Repo.yml",
+  "commit": "7af4266",
+  "synced_at": "2026-04-28T14:45:55.328603+00:00"
+}

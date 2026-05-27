@@ -1,0 +1,1697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Security Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #2d3748;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.8em;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header .subtitle {
+            color: #718096;
+            font-size: 1.1em;
+            margin-top: 10px;
+        }
+        
+        .alert-banner {
+            background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 20px rgba(229, 62, 62, 0.3);
+            text-align: center;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+        
+        .alert-banner h2 {
+            font-size: 1.8em;
+            margin-bottom: 10px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+        }
+        
+        .stat-number {
+            font-size: 3em;
+            font-weight: bold;
+            margin: 15px 0;
+        }
+        
+        .stat-label {
+            color: #718096;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+        
+        .critical-stat { color: #e53e3e; border-top: 4px solid #e53e3e; }
+        .high-stat { color: #dd6b20; border-top: 4px solid #dd6b20; }
+        .medium-stat { color: #d69e2e; border-top: 4px solid #d69e2e; }
+        .low-stat { color: #38a169; border-top: 4px solid #38a169; }
+        
+        .tools-section {
+            display: grid;
+            gap: 20px;
+        }
+        
+        .tool-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .tool-header {
+            padding: 25px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+            border-bottom: 2px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+        
+        .tool-header:hover {
+            background: linear-gradient(135deg, #edf2f7 0%, #e2e8f0 100%);
+        }
+        
+        .tool-header.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .tool-title {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 1.4em;
+            font-weight: 600;
+        }
+        
+        .tool-icon {
+            font-size: 1.5em;
+        }
+        
+        .tool-stats {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .tool-stat-badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .badge-critical { background: #fed7d7; color: #c53030; }
+        .badge-high { background: #feebc8; color: #c05621; }
+        .badge-medium { background: #fef5e7; color: #d69e2e; }
+        .badge-low { background: #c6f6d5; color: #2f855a; }
+        .badge-clean { background: #c6f6d5; color: #2f855a; }
+        
+        .tool-header.active .tool-stat-badge {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+        
+        .expand-icon {
+            font-size: 1.2em;
+            transition: transform 0.3s ease;
+        }
+        
+        .tool-header.active .expand-icon {
+            transform: rotate(180deg);
+        }
+        
+        .tool-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease;
+        }
+        
+        .tool-content.active {
+            max-height: 2000px;
+            overflow-y: auto;
+        }
+        
+        .tool-findings {
+            padding: 30px;
+        }
+        
+        .finding-item {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #cbd5e0;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .finding-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .finding-item.expanded {
+            transform: translateX(5px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            border-left-width: 6px;
+        }
+        
+        .finding-item .finding-details {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #e2e8f0;
+            animation: slideDown 0.3s ease;
+        }
+        
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .finding-item.severity-critical {
+            border-left-color: #e53e3e;
+            background: #fff5f5;
+        }
+        
+        .finding-item.severity-high {
+            border-left-color: #dd6b20;
+            background: #fffaf0;
+        }
+        
+        .finding-item.severity-medium {
+            border-left-color: #d69e2e;
+            background: #fef5e7;
+        }
+        
+        .finding-item.severity-low {
+            border-left-color: #38a169;
+            background: #f0fff4;
+        }
+        
+        .finding-header {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        
+        .badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        
+        .badge-tool {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .badge-verified {
+            background: #e53e3e;
+            color: white;
+            animation: pulse-badge 2s infinite;
+        }
+        
+        @keyframes pulse-badge {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .finding-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #2d3748;
+        }
+        
+        .finding-desc {
+            color: #4a5568;
+            margin-bottom: 12px;
+            line-height: 1.6;
+        }
+        
+        .finding-details {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            font-size: 0.9em;
+        }
+        
+        .finding-details div {
+            margin-bottom: 8px;
+        }
+        
+        .finding-details div:last-child {
+            margin-bottom: 0;
+        }
+        
+        .finding-details code {
+            background: #edf2f7;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+            word-break: break-all;
+        }
+        
+        /* Detail sections for expanded findings */
+        .detail-section {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 12px;
+        }
+        
+        .detail-section h5 {
+            color: #4a5568;
+            margin: 0 0 12px 0;
+            font-size: 0.95em;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 8px;
+        }
+        
+        .detail-section div {
+            margin-bottom: 6px;
+        }
+        
+        /* False Positive Checklist */
+        .fp-checklist {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .fp-checklist label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.9em;
+        }
+        
+        .fp-checklist label:hover {
+            background: #edf2f7;
+            border-color: #cbd5e0;
+        }
+        
+        .fp-check {
+            width: 18px;
+            height: 18px;
+            accent-color: #38a169;
+        }
+        
+        .fp-checklist label:has(.fp-check:checked) {
+            background: #c6f6d5;
+            border-color: #9ae6b4;
+            color: #276749;
+        }
+        
+        /* Status badge colors */
+        .status-fixed {
+            background: #c6f6d5 !important;
+            color: #2f855a !important;
+        }
+        
+        .status-affected {
+            background: #fed7d7 !important;
+            color: #c53030 !important;
+        }
+        
+        .status-unknown {
+            background: #feebc8 !important;
+            color: #c05621 !important;
+        }
+        
+        .stats-detail-box {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border: 1px solid #7dd3fc;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stats-detail-box h4 {
+            color: #0369a1;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        
+        .stats-grid-small {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+        
+        .stat-item {
+            background: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .stat-item strong {
+            color: #0369a1;
+        }
+        
+        .finding-summary {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        
+        .no-findings {
+            text-align: center;
+            padding: 40px;
+            color: #38a169;
+            font-size: 1.2em;
+        }
+        
+        /* SBOM Viewer Styles */
+        .sbom-controls {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border: 1px solid #7dd3fc;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .sbom-filter-section {
+            margin-bottom: 15px;
+        }
+        
+        .sbom-filter-section .filter-label,
+        .sbom-sort-section .filter-label {
+            font-weight: 600;
+            color: #0369a1;
+            margin-right: 10px;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+        
+        .sbom-filter-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .sbom-filter-chip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: white;
+            border: 2px solid #7dd3fc;
+            border-radius: 20px;
+            padding: 6px 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.9em;
+        }
+        
+        .sbom-filter-chip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            background: #e0f2fe;
+        }
+        
+        .sbom-filter-chip.active {
+            background: linear-gradient(135deg, #0369a1 0%, #0284c7 100%);
+            border-color: #0369a1;
+            color: white;
+        }
+        
+        .sbom-filter-chip.active .type-name {
+            color: white;
+        }
+        
+        .sbom-filter-chip.active .type-count {
+            background: rgba(255,255,255,0.3);
+            color: white;
+        }
+        
+        .sbom-filter-chip .type-name {
+            font-weight: 600;
+            color: #0369a1;
+        }
+        
+        .sbom-filter-chip .type-count {
+            background: #e0f2fe;
+            color: #0369a1;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        
+        .sbom-sort-section {
+            margin-bottom: 15px;
+        }
+        
+        .sbom-sort-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .sbom-sort-btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+            background: white;
+            color: #4a5568;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .sbom-sort-btn:hover {
+            background: #f7fafc;
+            border-color: #cbd5e0;
+        }
+        
+        .sbom-sort-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .sbom-results-bar {
+            background: #f7fafc;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        #sbom-results-count {
+            font-weight: 600;
+            color: #4a5568;
+        }
+        
+        .sbom-type-breakdown {
+            margin-bottom: 20px;
+        }
+        
+        .sbom-type-breakdown h4 {
+            color: #0369a1;
+            margin-bottom: 15px;
+        }
+        
+        .sbom-types-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .sbom-type-chip {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+            border: 1px solid #7dd3fc;
+            border-radius: 20px;
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .sbom-type-chip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .sbom-type-chip .type-name {
+            font-weight: 600;
+            color: #0369a1;
+        }
+        
+        .sbom-type-chip .type-count {
+            background: white;
+            color: #0369a1;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        
+        .sbom-version-badge {
+            background: #e0f2fe !important;
+            color: #0369a1 !important;
+        }
+        
+        .sbom-lang-badge {
+            background: #fef3c7 !important;
+            color: #92400e !important;
+        }
+        
+        .sbom-search-box {
+            margin-top: 15px;
+        }
+        
+        .sbom-search-box input {
+            width: 100%;
+            padding: 12px 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1em;
+            transition: all 0.2s ease;
+        }
+        
+        .sbom-search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        }
+        
+        .sbom-package-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+        
+        .sbom-package-item {
+            background: #f7fafc;
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin-bottom: 10px;
+            border-left: 4px solid #7dd3fc;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .sbom-package-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .sbom-package-item.expanded {
+            background: #e0f2fe;
+            border-left-width: 6px;
+        }
+        
+        .sbom-package-item.filtered-out {
+            display: none;
+        }
+        
+        .footer {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-top: 30px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .footer-links {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .footer-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        .footer-link:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+        
+        /* Filter Controls */
+        .filter-bar {
+            background: white;
+            border-radius: 12px;
+            padding: 20px 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .filter-label {
+            font-weight: 600;
+            color: #4a5568;
+            margin-right: 10px;
+        }
+        
+        .filter-chips {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-chip {
+            padding: 8px 16px;
+            border-radius: 25px;
+            border: 2px solid transparent;
+            font-weight: 600;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .filter-chip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .filter-chip.active {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .filter-chip-all {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+        .filter-chip-all.active {
+            background: #4a5568;
+            color: white;
+            border-color: #2d3748;
+        }
+        
+        .filter-chip-critical {
+            background: #fff5f5;
+            color: #e53e3e;
+            border-color: #feb2b2;
+        }
+        .filter-chip-critical.active {
+            background: #e53e3e;
+            color: white;
+            border-color: #c53030;
+        }
+        
+        .filter-chip-high {
+            background: #fffaf0;
+            color: #dd6b20;
+            border-color: #fbd38d;
+        }
+        .filter-chip-high.active {
+            background: #dd6b20;
+            color: white;
+            border-color: #c05621;
+        }
+        
+        .filter-chip-medium {
+            background: #fffff0;
+            color: #d69e2e;
+            border-color: #faf089;
+        }
+        .filter-chip-medium.active {
+            background: #d69e2e;
+            color: white;
+            border-color: #b7791f;
+        }
+        
+        .filter-chip-low {
+            background: #f0fff4;
+            color: #38a169;
+            border-color: #9ae6b4;
+        }
+        .filter-chip-low.active {
+            background: #38a169;
+            color: white;
+            border-color: #276749;
+        }
+        
+        .filter-chip .chip-count {
+            background: rgba(0,0,0,0.1);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.85em;
+        }
+        
+        .filter-chip.active .chip-count {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .sort-controls {
+            display: flex;
+            gap: 10px;
+            margin-left: auto;
+            align-items: center;
+        }
+        
+        .sort-btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            color: #4a5568;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .sort-btn:hover {
+            background: #f7fafc;
+            border-color: #cbd5e0;
+        }
+        
+        .sort-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .filter-results {
+            background: #f7fafc;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .filter-results-count {
+            font-weight: 600;
+            color: #4a5568;
+        }
+        
+        .clear-filter {
+            color: #667eea;
+            text-decoration: none;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .clear-filter:hover {
+            text-decoration: underline;
+        }
+        
+        .finding-item.filtered-out {
+            display: none !important;
+        }
+        
+        .tool-card.filtered-out {
+            opacity: 0.4;
+        }
+        
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .tool-header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+            
+            .tool-stats {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛡️ Interactive Security Dashboard</h1>
+            <p class="subtitle"><strong>Scan:</strong> grype-test_test_2025-12-02_09-08-36</p>
+            <p class="subtitle"><strong>Generated:</strong> December 02, 2025 at 09:15 AM</p>
+        </div>
+
+        <!-- Scan Overview Section -->
+        <div class="scan-overview" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; padding: 24px; margin-bottom: 24px; color: white; box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);">
+            <h2 style="margin: 0 0 16px 0; font-size: 1.4em; display: flex; align-items: center; gap: 10px;">
+                📊 Scan Overview
+            </h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+                <div style="background: rgba(255,255,255,0.15); border-radius: 12px; padding: 16px; backdrop-filter: blur(10px);">
+                    <div style="font-size: 2em; font-weight: bold;">0</div>
+                    <div style="opacity: 0.9;">📄 Total Files Scanned</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.15); border-radius: 12px; padding: 16px; backdrop-filter: blur(10px);">
+                    <div style="font-size: 2em; font-weight: bold;">10</div>
+                    <div style="opacity: 0.9;">🛡️ Security Layers</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.15); border-radius: 12px; padding: 16px; backdrop-filter: blur(10px);">
+                    <div style="font-size: 2em; font-weight: bold;">0</div>
+                    <div style="opacity: 0.9;">🔍 Total Findings</div>
+                </div>
+            </div>
+            
+            <!-- File Type Breakdown -->
+            <div style="margin-top: 20px; background: rgba(255,255,255,0.1); border-radius: 12px; padding: 16px;">
+                <h3 style="margin: 0 0 12px 0; font-size: 1em; opacity: 0.9;">📁 Files Analyzed by Type</h3>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                    <span style="background: rgba(255,255,255,0.2); padding: 6px 12px; border-radius: 20px; font-size: 0.85em; font-style: italic;">
+                        ℹ️ File statistics not available for this scan
+                    </span>
+                </div>
+            </div>
+            
+            <div style="margin-top: 12px; font-size: 0.85em; opacity: 0.8;">
+                <strong>Target:</strong> <code style="background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 4px;">N/A</code>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card critical-stat">
+                <div class="stat-label">Critical</div>
+                <div class="stat-number">0</div>
+                <p>Immediate action required</p>
+            </div>
+            <div class="stat-card high-stat">
+                <div class="stat-label">High</div>
+                <div class="stat-number">0</div>
+                <p>High priority issues</p>
+            </div>
+            <div class="stat-card medium-stat">
+                <div class="stat-label">Medium</div>
+                <div class="stat-number">0</div>
+                <p>Medium priority issues</p>
+            </div>
+            <div class="stat-card low-stat">
+                <div class="stat-label">Low</div>
+                <div class="stat-number">0</div>
+                <p>Low priority issues</p>
+            </div>
+        </div>
+
+        <div class="filter-bar">
+            <span class="filter-label">🔍 Filter by Severity:</span>
+            <div class="filter-chips">
+                <button class="filter-chip filter-chip-all active" onclick="filterBySeverity('all')">
+                    All <span class="chip-count">0</span>
+                </button>
+                <button class="filter-chip filter-chip-critical" onclick="filterBySeverity('critical')">
+                    ❗ Critical <span class="chip-count">0</span>
+                </button>
+                <button class="filter-chip filter-chip-high" onclick="filterBySeverity('high')">
+                    ⚠️ High <span class="chip-count">0</span>
+                </button>
+                <button class="filter-chip filter-chip-medium" onclick="filterBySeverity('medium')">
+                    ⚡ Medium <span class="chip-count">0</span>
+                </button>
+                <button class="filter-chip filter-chip-low" onclick="filterBySeverity('low')">
+                    📌 Low <span class="chip-count">0</span>
+                </button>
+            </div>
+            <div class="sort-controls">
+                <span class="filter-label">Sort:</span>
+                <button class="sort-btn active" onclick="sortFindings('severity')" id="sort-severity">
+                    ↕️ Severity
+                </button>
+                <button class="sort-btn" onclick="sortFindings('tool')" id="sort-tool">
+                    🔧 Tool
+                </button>
+            </div>
+        </div>
+        
+        <div class="filter-results" id="filter-results" style="display: none;">
+            <span class="filter-results-count" id="filter-count">Showing 0 findings</span>
+            <a class="clear-filter" onclick="filterBySeverity('all')">Clear Filter ✕</a>
+        </div>
+
+        <div class="tools-section">
+            <!-- TruffleHog -->
+            <div class="tool-card">
+                <div class="tool-header" onclick="toggleTool('trufflehog')">
+                    <div class="tool-title">
+                        <span class="tool-icon">🔍</span>
+                        <div>
+                            <div>TruffleHog</div>
+                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">Secret Detection</div>
+                        </div>
+                    </div>
+                    <div class="tool-stats">
+                        <span class="tool-stat-badge badge-clean">✅ Clean</span>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="tool-content" id="trufflehog-content">
+                    <div class="tool-findings">
+                        <div class="stats-detail-box">
+                            <h4>📊 Scan Statistics</h4>
+                            <div class="stats-grid-small">
+                                <div class="stat-item"><strong>Total Findings:</strong> 0</div>
+                                <div class="stat-item"><strong>Verified Secrets:</strong> 0</div>
+                                <div class="stat-item"><strong>Unverified:</strong> 0</div>
+                                <div class="stat-item"><strong>Detector Types Used:</strong> 0</div>
+                                <div class="stat-item"><strong>Files with Findings:</strong> 0</div>
+                            </div>
+                        </div>
+                        <p class="no-findings">No scan data available</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ClamAV -->
+            <div class="tool-card">
+                <div class="tool-header" onclick="toggleTool('clamav')">
+                    <div class="tool-title">
+                        <span class="tool-icon">🦠</span>
+                        <div>
+                            <div>ClamAV</div>
+                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">Malware Scanner</div>
+                        </div>
+                    </div>
+                    <div class="tool-stats">
+                        <span class="tool-stat-badge badge-clean">✅ Clean</span>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="tool-content" id="clamav-content">
+                    <div class="tool-findings">
+                        <div class="stats-detail-box">
+                            <h4>📊 Scan Statistics</h4>
+                            <div class="stats-grid-small">
+                                <div class="stat-item"><strong>Files Scanned:</strong> 0</div>
+                                <div class="stat-item"><strong>Directories Scanned:</strong> 0</div>
+                                <div class="stat-item"><strong>Data Scanned:</strong> 0 MB</div>
+                                <div class="stat-item"><strong>Scan Duration:</strong> N/A</div>
+                                <div class="stat-item"><strong>Engine Version:</strong> N/A</div>
+                                <div class="stat-item"><strong>Virus Database:</strong> 0 signatures</div>
+                                <div class="stat-item"><strong>Infected Files:</strong> 0</div>
+                            </div>
+                        </div>
+                        <p class="no-findings">✅ No malware detected</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SonarQube -->
+            <div class="tool-card">
+                <div class="tool-header" onclick="toggleTool('sonar')">
+                    <div class="tool-title">
+                        <span class="tool-icon">📊</span>
+                        <div>
+                            <div>SonarQube</div>
+                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">Code Quality</div>
+                        </div>
+                    </div>
+                    <div class="tool-stats">
+                        <span class="tool-stat-badge badge-clean">✅ Clean</span>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="tool-content" id="sonar-content">
+                    <div class="tool-findings">
+                        <p class="no-findings">No SonarQube data available</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Checkov -->
+            <div class="tool-card">
+                <div class="tool-header" onclick="toggleTool('checkov')">
+                    <div class="tool-title">
+                        <span class="tool-icon">🔐</span>
+                        <div>
+                            <div>Checkov</div>
+                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">IaC Security</div>
+                        </div>
+                    </div>
+                    <div class="tool-stats">
+                        <span class="tool-stat-badge badge-clean">✅ Clean</span>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="tool-content" id="checkov-content">
+                    <div class="tool-findings">
+                        <p class="no-findings">Passed: 0 | Failed: 0 | Skipped: 0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Helm -->
+            <div class="tool-card">
+                <div class="tool-header" onclick="toggleTool('helm')">
+                    <div class="tool-title">
+                        <span class="tool-icon">⚓</span>
+                        <div>
+                            <div>Helm</div>
+                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">Chart Validation</div>
+                        </div>
+                    </div>
+                    <div class="tool-stats">
+                        <span class="tool-stat-badge badge-clean">✅ Clean</span>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="tool-content" id="helm-content">
+                    <div class="tool-findings">
+                        <p class="no-findings">Helm charts scanned: 0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trivy -->
+            <div class="tool-card">
+                <div class="tool-header" onclick="toggleTool('trivy')">
+                    <div class="tool-title">
+                        <span class="tool-icon">🐳</span>
+                        <div>
+                            <div>Trivy</div>
+                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">Container Vulnerability Scanner</div>
+                        </div>
+                    </div>
+                    <div class="tool-stats">
+                        <span class="tool-stat-badge badge-clean">✅ Clean</span>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="tool-content" id="trivy-content">
+                    <div class="tool-findings">
+                        <div class="stats-detail-box">
+                            <h4>📊 Scan Statistics</h4>
+                            <div class="stats-grid-small">
+                                <div class="stat-item"><strong>Images Scanned:</strong> 0</div>
+                                <div class="stat-item"><strong>Total Vulnerabilities:</strong> 0</div>
+                                <div class="stat-item"><strong>Critical:</strong> 0</div>
+                                <div class="stat-item"><strong>High:</strong> 0</div>
+                                <div class="stat-item"><strong>Medium:</strong> 0</div>
+                                <div class="stat-item"><strong>Low:</strong> 0</div>
+                            </div>
+                        </div>
+                        <p class="no-findings">No Trivy scan data available</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grype -->
+            <div class="tool-card">
+                <div class="tool-header" onclick="toggleTool('grype')">
+                    <div class="tool-title">
+                        <span class="tool-icon">🦑</span>
+                        <div>
+                            <div>Grype</div>
+                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">Vulnerability Detector</div>
+                        </div>
+                    </div>
+                    <div class="tool-stats">
+                        <span class="tool-stat-badge badge-clean">✅ Clean</span>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="tool-content" id="grype-content">
+                    <div class="tool-findings">
+                        <div class="stats-detail-box">
+                            <h4>📊 Scan Statistics</h4>
+                            <div class="stats-grid-small">
+                                <div class="stat-item"><strong>Targets Scanned:</strong> 0</div>
+                                <div class="stat-item"><strong>Total Vulnerabilities:</strong> 0</div>
+                                <div class="stat-item"><strong>Critical:</strong> 0</div>
+                                <div class="stat-item"><strong>High:</strong> 0</div>
+                                <div class="stat-item"><strong>Medium:</strong> 0</div>
+                                <div class="stat-item"><strong>Low:</strong> 0</div>
+                            </div>
+                        </div>
+                        <p class="no-findings">No Grype scan data available</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SBOM -->
+            <div class="tool-card">
+                <div class="tool-header" onclick="toggleTool('sbom')">
+                    <div class="tool-title">
+                        <span class="tool-icon">📦</span>
+                        <div>
+                            <div>SBOM</div>
+                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">Software Bill of Materials</div>
+                        </div>
+                    </div>
+                    <div class="tool-stats">
+                        <span class="tool-stat-badge" style="background: #e0f2fe; color: #0369a1;">📊 0 packages</span>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="tool-content" id="sbom-content">
+                    <div class="tool-findings">
+                        <div class="stats-detail-box">
+                            <h4>📊 SBOM Statistics</h4>
+                            <div class="stats-grid-small">
+                                <div class="stat-item"><strong>SBOM Files Generated:</strong> 0</div>
+                                <div class="stat-item"><strong>Total Packages Cataloged:</strong> 0</div>
+                            </div>
+                        </div>
+                        <p class="no-findings">No SBOM data available</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Xeol (EOL Detection) -->
+            <div class="tool-card">
+                <div class="tool-header" onclick="toggleTool('xeol')">
+                    <div class="tool-title">
+                        <span class="tool-icon">📅</span>
+                        <div>
+                            <div>Xeol</div>
+                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">End-of-Life Detection</div>
+                        </div>
+                    </div>
+                    <div class="tool-stats">
+                        <span class="tool-stat-badge badge-clean">✅ Clean</span>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="tool-content" id="xeol-content">
+                    <div class="tool-findings">
+                        <div class="stats-detail-box">
+                            <h4>📊 EOL Detection Statistics</h4>
+                            <div class="stats-grid-small">
+                                <div class="stat-item"><strong>Images Scanned:</strong> 0</div>
+                                <div class="stat-item"><strong>EOL Components:</strong> 0</div>
+                            </div>
+                        </div>
+                        <p class="no-findings">No Xeol data available</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Anchore -->
+            <div class="tool-card">
+                <div class="tool-header" onclick="toggleTool('anchore')">
+                    <div class="tool-title">
+                        <span class="tool-icon">⚓</span>
+                        <div>
+                            <div>Anchore</div>
+                            <div style="font-size: 0.6em; font-weight: 400; color: #718096;">Enterprise Security Scanner</div>
+                        </div>
+                    </div>
+                    <div class="tool-stats">
+                        <span class="tool-stat-badge badge-clean">✅ Clean</span>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                </div>
+                <div class="tool-content" id="anchore-content">
+                    <div class="tool-findings">
+                        <div class="stats-detail-box">
+                            <h4>📊 Anchore Statistics</h4>
+                            <div class="stats-grid-small">
+                                <div class="stat-item"><strong>Status:</strong> N/A</div>
+                                <div class="stat-item"><strong>Total Vulnerabilities:</strong> 0</div>
+                                <div class="stat-item"><strong>Critical:</strong> 0</div>
+                                <div class="stat-item"><strong>High:</strong> 0</div>
+                                <div class="stat-item"><strong>Medium:</strong> 0</div>
+                                <div class="stat-item"><strong>Low:</strong> 0</div>
+                            </div>
+                        </div>
+                        <p class="no-findings">No Anchore data available</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p style="color: #718096; margin-bottom: 10px;">
+                Comprehensive Security Architecture Scanner
+            </p>
+            <p style="color: #a0aec0; font-size: 0.9em;">
+                Total Findings: <strong style="color: #2d3748;">0</strong> • 
+                Tools: <strong style="color: #2d3748;">10</strong> • 
+                Files Scanned: <strong style="color: #2d3748;">0</strong> •
+                Images Scanned: <strong style="color: #2d3748;">0</strong>
+            </p>
+            <div class="footer-links">
+                <a href="../index.html" class="footer-link">📄 All Reports</a>
+                <a href="../html-reports/" class="footer-link">📊 HTML Reports</a>
+                <a href="../markdown-reports/" class="footer-link">📝 Markdown</a>
+                <a href="../csv-reports/" class="footer-link">📈 CSV Data</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Current filter state
+        let currentFilter = 'all';
+        let currentSort = 'severity';
+        
+        // Severity priority for sorting
+        const severityOrder = { 'critical': 0, 'high': 1, 'medium': 2, 'low': 3 };
+        
+        function toggleTool(toolId) {
+            const header = document.querySelector('#' + toolId + '-content').previousElementSibling;
+            const content = document.getElementById(toolId + '-content');
+            
+            // Close all other tools
+            document.querySelectorAll('.tool-header').forEach(h => {
+                if (h !== header) {
+                    h.classList.remove('active');
+                }
+            });
+            document.querySelectorAll('.tool-content').forEach(c => {
+                if (c !== content) {
+                    c.classList.remove('active');
+                }
+            });
+            
+            // Toggle current tool
+            header.classList.toggle('active');
+            content.classList.toggle('active');
+        }
+        
+        // Toggle individual finding details
+        function toggleFindingDetails(element) {
+            event.stopPropagation();
+            const details = element.querySelector('.finding-details');
+            const isExpanded = details.style.display === 'block';
+            
+            // Collapse all other findings in the same tool section
+            const parent = element.closest('.tool-findings');
+            if (parent) {
+                parent.querySelectorAll('.finding-details').forEach(d => {
+                    d.style.display = 'none';
+                });
+                parent.querySelectorAll('.finding-item').forEach(f => {
+                    f.classList.remove('expanded');
+                });
+            }
+            
+            // Toggle this finding
+            if (!isExpanded) {
+                details.style.display = 'block';
+                element.classList.add('expanded');
+                element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+        
+        // Filter findings by severity
+        function filterBySeverity(severity) {
+            currentFilter = severity;
+            
+            // Update chip active states
+            document.querySelectorAll('.filter-chip').forEach(chip => {
+                chip.classList.remove('active');
+            });
+            document.querySelector('.filter-chip-' + severity).classList.add('active');
+            
+            // Get all finding items
+            const findings = document.querySelectorAll('.finding-item');
+            let visibleCount = 0;
+            
+            findings.forEach(finding => {
+                if (severity === 'all') {
+                    finding.classList.remove('filtered-out');
+                    visibleCount++;
+                } else {
+                    const hasSeverity = finding.classList.contains('severity-' + severity);
+                    if (hasSeverity) {
+                        finding.classList.remove('filtered-out');
+                        visibleCount++;
+                    } else {
+                        finding.classList.add('filtered-out');
+                    }
+                }
+            });
+            
+            // Update tool card opacity based on visible findings
+            document.querySelectorAll('.tool-card').forEach(card => {
+                const visibleInCard = card.querySelectorAll('.finding-item:not(.filtered-out)').length;
+                if (severity !== 'all' && visibleInCard === 0) {
+                    card.classList.add('filtered-out');
+                } else {
+                    card.classList.remove('filtered-out');
+                }
+            });
+            
+            // Show/hide filter results bar
+            const resultsBar = document.getElementById('filter-results');
+            const countSpan = document.getElementById('filter-count');
+            
+            if (severity === 'all') {
+                resultsBar.style.display = 'none';
+            } else {
+                resultsBar.style.display = 'flex';
+                countSpan.textContent = 'Showing ' + visibleCount + ' ' + severity.toUpperCase() + ' findings';
+            }
+            
+            // Expand tools with visible findings
+            if (severity !== 'all') {
+                document.querySelectorAll('.tool-card:not(.filtered-out)').forEach(card => {
+                    const content = card.querySelector('.tool-content');
+                    const header = card.querySelector('.tool-header');
+                    if (content && !content.classList.contains('active')) {
+                        header.classList.add('active');
+                        content.classList.add('active');
+                    }
+                });
+            }
+        }
+        
+        // Sort findings within each tool
+        function sortFindings(sortType) {
+            currentSort = sortType;
+            
+            // Update sort button states
+            document.querySelectorAll('.sort-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('sort-' + sortType).classList.add('active');
+            
+            // Get all tool finding containers
+            document.querySelectorAll('.tool-findings').forEach(container => {
+                const findings = Array.from(container.querySelectorAll('.finding-item'));
+                
+                if (findings.length === 0) return;
+                
+                // Sort based on type
+                if (sortType === 'severity') {
+                    findings.sort((a, b) => {
+                        const aSeverity = getSeverityFromClasses(a.classList);
+                        const bSeverity = getSeverityFromClasses(b.classList);
+                        return severityOrder[aSeverity] - severityOrder[bSeverity];
+                    });
+                } else if (sortType === 'tool') {
+                    // Already grouped by tool, so just sort by tool badge text
+                    findings.sort((a, b) => {
+                        const aTool = a.querySelector('.badge-tool')?.textContent || '';
+                        const bTool = b.querySelector('.badge-tool')?.textContent || '';
+                        return aTool.localeCompare(bTool);
+                    });
+                }
+                
+                // Re-append in sorted order (moves elements)
+                findings.forEach(finding => container.appendChild(finding));
+            });
+        }
+        
+        // Helper to get severity from class list
+        function getSeverityFromClasses(classList) {
+            if (classList.contains('severity-critical')) return 'critical';
+            if (classList.contains('severity-high')) return 'high';
+            if (classList.contains('severity-medium')) return 'medium';
+            if (classList.contains('severity-low')) return 'low';
+            return 'low';
+        }
+        
+        // Click on stat cards to filter
+        document.querySelectorAll('.stat-card').forEach(card => {
+            card.style.cursor = 'pointer';
+            card.addEventListener('click', () => {
+                if (card.classList.contains('critical-stat')) filterBySeverity('critical');
+                else if (card.classList.contains('high-stat')) filterBySeverity('high');
+                else if (card.classList.contains('medium-stat')) filterBySeverity('medium');
+                else if (card.classList.contains('low-stat')) filterBySeverity('low');
+            });
+        });
+        
+        // Filter SBOM packages by search term
+        let currentSBOMTypeFilter = 'all';
+        let currentSBOMSort = 'name';
+        
+        function filterSBOMPackages(searchTerm) {
+            const packages = document.querySelectorAll('.sbom-package-item');
+            const term = searchTerm.toLowerCase().trim();
+            let visibleCount = 0;
+            
+            packages.forEach(pkg => {
+                const name = pkg.dataset.name || '';
+                const type = pkg.dataset.type || '';
+                const version = pkg.dataset.version || '';
+                const language = pkg.dataset.language || '';
+                
+                const matchesSearch = term === '' || 
+                    name.includes(term) || 
+                    type.toLowerCase().includes(term) || 
+                    version.toLowerCase().includes(term) ||
+                    language.toLowerCase().includes(term);
+                
+                const matchesType = currentSBOMTypeFilter === 'all' || type === currentSBOMTypeFilter;
+                
+                if (matchesSearch && matchesType) {
+                    pkg.classList.remove('filtered-out');
+                    visibleCount++;
+                } else {
+                    pkg.classList.add('filtered-out');
+                }
+            });
+            
+            updateSBOMResultsBar(visibleCount, term !== '' || currentSBOMTypeFilter !== 'all');
+        }
+        
+        // Filter SBOM by package type
+        function filterSBOMByType(button, type) {
+            currentSBOMTypeFilter = type;
+            
+            // Update active chip state
+            document.querySelectorAll('.sbom-filter-chip').forEach(chip => {
+                chip.classList.remove('active');
+            });
+            button.classList.add('active');
+            
+            // Re-apply filters
+            const searchTerm = document.getElementById('sbom-search')?.value || '';
+            filterSBOMPackages(searchTerm);
+        }
+        
+        // Sort SBOM packages
+        function sortSBOMPackages(sortBy) {
+            currentSBOMSort = sortBy;
+            
+            // Update active button
+            document.querySelectorAll('.sbom-sort-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('sbom-sort-' + sortBy)?.classList.add('active');
+            
+            const container = document.getElementById('sbom-package-list');
+            if (!container) return;
+            
+            const packages = Array.from(container.querySelectorAll('.sbom-package-item'));
+            
+            packages.sort((a, b) => {
+                let aVal, bVal;
+                
+                switch(sortBy) {
+                    case 'name':
+                        aVal = a.dataset.name || '';
+                        bVal = b.dataset.name || '';
+                        return aVal.localeCompare(bVal);
+                    case 'type':
+                        aVal = a.dataset.type || '';
+                        bVal = b.dataset.type || '';
+                        return aVal.localeCompare(bVal) || (a.dataset.name || '').localeCompare(b.dataset.name || '');
+                    case 'version':
+                        aVal = a.dataset.version || '0';
+                        bVal = b.dataset.version || '0';
+                        // Simple version comparison
+                        return bVal.localeCompare(aVal, undefined, {numeric: true});
+                    default:
+                        return 0;
+                }
+            });
+            
+            // Re-append in sorted order
+            packages.forEach(pkg => container.appendChild(pkg));
+        }
+        
+        // Update SBOM results bar
+        function updateSBOMResultsBar(count, hasFilter) {
+            const countEl = document.getElementById('sbom-results-count');
+            const clearEl = document.getElementById('sbom-clear-filter');
+            
+            if (countEl) {
+                let filterText = '';
+                if (currentSBOMTypeFilter !== 'all') {
+                    filterText = ' (' + currentSBOMTypeFilter + ')';
+                }
+                countEl.textContent = 'Showing ' + count + ' packages' + filterText;
+            }
+            
+            if (clearEl) {
+                clearEl.style.display = hasFilter ? 'inline' : 'none';
+            }
+        }
+        
+        // Reset SBOM filters
+        function resetSBOMFilters() {
+            currentSBOMTypeFilter = 'all';
+            
+            // Reset search
+            const searchInput = document.getElementById('sbom-search');
+            if (searchInput) searchInput.value = '';
+            
+            // Reset type filter chips
+            document.querySelectorAll('.sbom-filter-chip').forEach(chip => {
+                chip.classList.remove('active');
+                if (chip.dataset.type === 'all') chip.classList.add('active');
+            });
+            
+            // Show all packages
+            document.querySelectorAll('.sbom-package-item').forEach(pkg => {
+                pkg.classList.remove('filtered-out');
+            });
+            
+            // Update results bar
+            const totalPackages = document.querySelectorAll('.sbom-package-item').length;
+            updateSBOMResultsBar(totalPackages, false);
+        }
+        
+        // Trivy-specific filters
+        let currentTrivyStatusFilter = 'all';
+        let currentTrivySearchTerm = '';
+        
+        function filterTrivyByStatus(status) {
+            currentTrivyStatusFilter = status;
+            
+            // Update button states in trivy section
+            const trivyContent = document.getElementById('trivy-content');
+            if (trivyContent) {
+                trivyContent.querySelectorAll('.trivy-controls .filter-chip').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+                event.target.classList.add('active');
+            }
+            
+            applyTrivyFilters();
+        }
+        
+        function filterTrivyBySearch(searchTerm) {
+            currentTrivySearchTerm = searchTerm.toLowerCase().trim();
+            applyTrivyFilters();
+        }
+        
+        function applyTrivyFilters() {
+            const trivyContent = document.getElementById('trivy-content');
+            if (!trivyContent) return;
+            
+            const findings = trivyContent.querySelectorAll('.finding-item');
+            let visibleCount = 0;
+            
+            findings.forEach(finding => {
+                let showByStatus = true;
+                let showBySearch = true;
+                
+                // Check status filter
+                if (currentTrivyStatusFilter !== 'all') {
+                    const status = finding.dataset.status || '';
+                    if (currentTrivyStatusFilter === 'fixed') {
+                        showByStatus = status === 'fixed';
+                    } else if (currentTrivyStatusFilter === 'affected') {
+                        showByStatus = status !== 'fixed';
+                    }
+                }
+                
+                // Check search filter
+                if (currentTrivySearchTerm) {
+                    const cve = (finding.dataset.cve || '').toLowerCase();
+                    const pkg = (finding.dataset.pkg || '').toLowerCase();
+                    const title = (finding.querySelector('.finding-title')?.textContent || '').toLowerCase();
+                    const desc = (finding.querySelector('.finding-desc')?.textContent || '').toLowerCase();
+                    
+                    showBySearch = cve.includes(currentTrivySearchTerm) || 
+                                   pkg.includes(currentTrivySearchTerm) ||
+                                   title.includes(currentTrivySearchTerm) ||
+                                   desc.includes(currentTrivySearchTerm);
+                }
+                
+                if (showByStatus && showBySearch) {
+                    finding.classList.remove('filtered-out');
+                    visibleCount++;
+                } else {
+                    finding.classList.add('filtered-out');
+                }
+            });
+            
+            // Show filtered count
+            console.log('Trivy filter: showing ' + visibleCount + ' of ' + findings.length);
+        }
+        
+        // Auto-expand first tool with findings
+        window.addEventListener('DOMContentLoaded', () => {
+            const badges = Array.from(document.querySelectorAll('.tool-stat-badge'));
+            const firstIssue = badges.find(badge => badge.textContent.includes('❗') || badge.textContent.includes('⚠️'));
+            
+            if (firstIssue) {
+                const toolCard = firstIssue.closest('.tool-card');
+                const toolHeader = toolCard.querySelector('.tool-header');
+                toolHeader.click();
+            }
+            
+            // Initial sort by severity
+            sortFindings('severity');
+        });
+    </script>
+</body>
+</html>

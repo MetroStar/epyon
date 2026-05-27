@@ -1,0 +1,52 @@
+{
+  "scan_date": "2026-04-24T21:47:46Z",
+  "target_directory": "/home/runner/work/midas/midas/target-repo",
+  "discovery_methods": {
+    "openapi_specs": [
+    ],
+    "code_routes": {
+      "python": [
+        {"framework": "FastAPI", "method": "GET", "path": "/", "function": "root", "name": "Root", "auth": "None", "tags": "", "file": "/home/runner/work/midas/midas/target-repo/etc/demo_visualizers/demo_visualizer/server.py"},
+        {"framework": "FastAPI", "method": "POST", "path": "/api/upload", "function": "upload_ast_data", "name": "Upload Ast Data", "auth": "None", "tags": "", "file": "/home/runner/work/midas/midas/target-repo/etc/demo_visualizers/demo_visualizer/server.py"},
+        {"framework": "FastAPI", "method": "POST", "path": "/api/parse-and-load", "function": "parse_and_load_source", "name": "Parse And Load Source", "auth": "None", "tags": "", "file": "/home/runner/work/midas/midas/target-repo/etc/demo_visualizers/demo_visualizer/server.py"},
+        {"framework": "FastAPI", "method": "GET", "path": "/api/stats", "function": "get_stats", "name": "Get Stats", "auth": "None", "tags": "", "file": "/home/runner/work/midas/midas/target-repo/etc/demo_visualizers/demo_visualizer/server.py"},
+        {"framework": "FastAPI", "method": "GET", "path": "/api/graph", "function": "get_graph", "name": "Get Graph", "auth": "None", "tags": "", "file": "/home/runner/work/midas/midas/target-repo/etc/demo_visualizers/demo_visualizer/server.py"},
+        {"framework": "FastAPI", "method": "GET", "path": "/api/nodes", "function": "get_nodes", "name": "Get Nodes", "auth": "None", "tags": "", "file": "/home/runner/work/midas/midas/target-repo/etc/demo_visualizers/demo_visualizer/server.py"},
+        {"framework": "FastAPI", "method": "GET", "path": "/api/edges", "function": "get_edges", "name": "Get Edges", "auth": "None", "tags": "", "file": "/home/runner/work/midas/midas/target-repo/etc/demo_visualizers/demo_visualizer/server.py"},
+        {"framework": "FastAPI", "method": "GET", "path": "/api/node/{node_id:path}", "function": "get_node_info", "name": "Get Node Info", "auth": "None", "tags": "", "file": "/home/runner/work/midas/midas/target-repo/etc/demo_visualizers/demo_visualizer/server.py"},
+        {"framework": "FastAPI", "method": "POST", "path": "/api/subgraph", "function": "get_subgraph", "name": "Get Subgraph", "auth": "None", "tags": "", "file": "/home/runner/work/midas/midas/target-repo/etc/demo_visualizers/demo_visualizer/server.py"},
+        {"framework": "FastAPI", "method": "POST", "path": "/api/filter", "function": "filter_graph", "name": "Filter Graph", "auth": "None", "tags": "", "file": "/home/runner/work/midas/midas/target-repo/etc/demo_visualizers/demo_visualizer/server.py"},
+        {"framework": "FastAPI", "method": "GET", "path": "/api/node-types", "function": "get_node_types", "name": "Get Node Types", "auth": "None", "tags": "", "file": "/home/runner/work/midas/midas/target-repo/etc/demo_visualizers/demo_visualizer/server.py"},
+        {"framework": "FastAPI", "method": "GET", "path": "/api/relation-types", "function": "get_relation_types", "name": "Get Relation Types", "auth": "None", "tags": "", "file": "/home/runner/work/midas/midas/target-repo/etc/demo_visualizers/demo_visualizer/server.py"},
+        {"framework": "FastAPI", "method": "GET", "path": "/api/files", "function": "get_files", "name": "Get Files", "auth": "None", "tags": "", "file": "/home/runner/work/midas/midas/target-repo/etc/demo_visualizers/demo_visualizer/server.py"},
+        {"framework": "FastAPI", "method": "GET", "path": "/api/hierarchy/{file_path:path}", "function": "get_file_hierarchy", "name": "Get File Hierarchy", "auth": "None", "tags": "", "file": "/home/runner/work/midas/midas/target-repo/etc/demo_visualizers/demo_visualizer/server.py"},
+        {"framework": "FastAPI", "method": "DELETE", "path": "/api/graph", "function": "clear_graph", "name": "Clear Graph", "auth": "None", "tags": "", "file": "/home/runner/work/midas/midas/target-repo/etc/demo_visualizers/demo_visualizer/server.py"},
+        {"framework": "FastAPI", "method": "GET", "path": "/api/cloud-view", "function": "get_cloud_view", "name": "Get Cloud View", "auth": "None", "tags": "", "file": "/home/runner/work/midas/midas/target-repo/etc/demo_visualizers/demo_visualizer/server.py"},
+        {"framework": "FastAPI", "method": "GET", "path": "/api/node-calls/{node_id:path}", "function": "get_node_calls", "name": "Get Node Calls", "auth": "None", "tags": "", "file": "/home/runner/work/midas/midas/target-repo/etc/demo_visualizers/demo_visualizer/server.py"},
+        {"framework": "FastAPI", "method": "GET", "path": "/api/breadcrumb/{node_id:path}", "function": "get_breadcrumb", "name": "Get Breadcrumb", "auth": "None", "tags": "", "file": "/home/runner/work/midas/midas/target-repo/etc/demo_visualizers/demo_visualizer/server.py"},
+        {"framework": "FastAPI", "method": "GET", "path": "/visualizer", "function": "visualizer_page", "name": "Visualizer Page", "auth": "None", "tags": "", "file": "/home/runner/work/midas/midas/target-repo/etc/demo_visualizers/demo_visualizer/server.py"},
+        {"framework": "FastAPI", "method": "GET", "path": "/api/pyvis", "function": "get_pyvis_graph", "name": "Get Pyvis Graph", "auth": "None", "tags": "", "file": "/home/runner/work/midas/midas/target-repo/etc/demo_visualizers/demo_visualizer/server.py"},
+        {"framework": "FastAPI", "method": "GET", "path": "/pyvis", "function": "pyvis_page", "name": "Pyvis Page", "auth": "None", "tags": "", "file": "/home/runner/work/midas/midas/target-repo/etc/demo_visualizers/demo_visualizer/server.py"}
+      ],
+      "nodejs": [
+      ],
+      "java": [],
+      "other": []
+    },
+    "documentation_endpoints": [],
+    "graphql_schemas": [
+    ]
+  },
+  "summary": {
+    "total_specs_found": 0,
+    "total_routes_found": 30,
+    "total_endpoints_discovered": 30,
+    "python_routes": 21,
+    "nodejs_routes": 0,
+    "java_routes": 9,
+    "graphql_schemas": 0,
+    "documentation_patterns": 0,
+    "frameworks_detected": ["FastAPI"]
+  },
+  "recommendations": []
+}

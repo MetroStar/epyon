@@ -1,0 +1,96 @@
+[2026-04-29 14:20:53] ═══════════════════════════════════════════════════════════
+[2026-04-29 14:20:53] Starting Anchore vulnerability scan
+[2026-04-29 14:20:53] ═══════════════════════════════════════════════════════════
+[2026-04-29 14:20:53] Target: /home/runner/work/midas/midas/target-repo
+[2026-04-29 14:20:53] Scan ID: midas_2026-04-29_14-18-06
+[2026-04-29 14:20:53] Output Directory: /home/runner/work/midas/midas/epyon/scans/midas_2026-04-29_14-18-06/anchore
+[2026-04-29 14:20:53] Scan Mode: all
+[2026-04-29 14:20:53] ═══════════════════════════════════════════════════════════
+[2026-04-29 14:20:53] ✅ Docker is available
+[2026-04-29 14:20:53] 
+[2026-04-29 14:20:53] 
+[2026-04-29 14:20:53] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-29 14:20:53] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-29 14:20:53] 🔍 Scanning Filesystem with Anchore
+[2026-04-29 14:20:53] 📦 Scanning SBOM with Anchore
+[2026-04-29 14:20:53] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-29 14:20:53] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-29 14:20:53] ℹ Found existing SBOM: filesystem.json (from Grype/Syft)
+[2026-04-29 14:20:53] ℹ Scanning directory: /home/runner/work/midas/midas/target-repo
+[2026-04-29 14:20:53] ℹ This may take several minutes for large repositories...
+[2026-04-29 14:20:53] ℹ Scanning SBOM for vulnerabilities: filesystem.json
+[0000]  WARN no explicit name and version provided for directory source, deriving artifact ID from the given path (which is not ideal) from=syft
+[2026-04-29 14:22:03] ✅ SBOM scan complete: 3 vulnerabilities found
+[2026-04-29 14:22:03] ✅ Filesystem scan complete: 0 vulnerabilities found
+[2026-04-29 14:22:03]   • Critical: 0
+[2026-04-29 14:22:03]   • High: 0
+[2026-04-29 14:22:03]   • Medium: 0
+[2026-04-29 14:22:03]   • Low: 0
+[2026-04-29 14:22:03] 
+[2026-04-29 14:22:03] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-29 14:22:03] 🐳 Scanning Container Images with Anchore
+[2026-04-29 14:22:03] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-29 14:22:03] ℹ ANCHORE_SKIP_BUILD=true — skipping docker compose build, will pull images from registry
+[2026-04-29 14:22:03] ℹ Found compose file: /home/runner/work/midas/midas/target-repo/docker-compose.dev.yml
+[2026-04-29 14:22:03] ℹ Found 1 image(s) to scan
+[2026-04-29 14:22:03] ℹ Scanning image: quay.io/keycloak/keycloak:26.0
+[2026-04-29 14:22:03]   ℹ Image not found locally, attempting to pull: quay.io/keycloak/keycloak:26.0
+26.0: Pulling from keycloak/keycloak
+f85b91ff2bfd: Pulling fs layer
+e3a2c2426f91: Pulling fs layer
+fc9beb5ca6a3: Pulling fs layer
+d6ea156ac0fb: Pulling fs layer
+11dfa8a13442: Pulling fs layer
+d6ea156ac0fb: Waiting
+11dfa8a13442: Waiting
+e3a2c2426f91: Verifying Checksum
+e3a2c2426f91: Download complete
+f85b91ff2bfd: Verifying Checksum
+f85b91ff2bfd: Download complete
+11dfa8a13442: Verifying Checksum
+11dfa8a13442: Download complete
+fc9beb5ca6a3: Verifying Checksum
+fc9beb5ca6a3: Download complete
+f85b91ff2bfd: Pull complete
+e3a2c2426f91: Pull complete
+d6ea156ac0fb: Verifying Checksum
+d6ea156ac0fb: Download complete
+fc9beb5ca6a3: Pull complete
+d6ea156ac0fb: Pull complete
+11dfa8a13442: Pull complete
+Digest: sha256:09a381c715ab0b111835b70f2905955274843a219c6f27efb348e4d9f4086858
+Status: Downloaded newer image for quay.io/keycloak/keycloak:26.0
+quay.io/keycloak/keycloak:26.0
+[2026-04-29 14:22:12]   ✅ Image pulled successfully: quay.io/keycloak/keycloak:26.0
+[2026-04-29 14:22:53]   ✅ Scan complete: 187 vulnerabilities
+[2026-04-29 14:22:53]   🧹 Removing image to free disk space: quay.io/keycloak/keycloak:26.0
+Untagged: quay.io/keycloak/keycloak:26.0
+Untagged: quay.io/keycloak/keycloak@sha256:09a381c715ab0b111835b70f2905955274843a219c6f27efb348e4d9f4086858
+Deleted: sha256:e447933b6a5015646c24a1b927a40202ce07adbadac839e7a1f99c463d68a224
+Deleted: sha256:416afb83fb00d364c2c1561e996f19336f255c75de6334fe42872f625523ab30
+Deleted: sha256:1360c350761e2668c3968fee2b5987a046ca6e124f3019b11dab3f5701ffb03c
+Deleted: sha256:61613e4326829a1f918d0e3e12c30b0cdf2acaa0dc2458a726aa1831b34a2853
+Deleted: sha256:b57925074f768a55d9713c15e4474d9b8b06000ed4b5e61f63f0651febd9c9c3
+Deleted: sha256:456a106fc69abcc6e07bbd99e09cdb5b34d4bbd88f7043293e012be50189f055
+[2026-04-29 14:22:54] ✅ Scanned 1 image(s) successfully
+[2026-04-29 14:22:54] 
+[2026-04-29 14:22:54] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-29 14:22:54] 🏗️  Scanning Approved Base Images with Anchore
+[2026-04-29 14:22:54] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-29 14:22:54] ℹ Primary baseline image: dhi/caddy:latest
+[2026-04-29 14:22:54] ℹ Baseline image not found locally, attempting to pull: dhi/caddy:latest
+Error response from daemon: pull access denied for dhi/caddy, repository does not exist or may require 'docker login': denied: requested access to the resource is denied
+[2026-04-29 14:22:54] ⚠️  Failed to pull baseline image: dhi/caddy:latest
+[2026-04-29 14:22:54] 
+[2026-04-29 14:22:54] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-29 14:22:54] 📊 Anchore Scan Summary
+[2026-04-29 14:22:54] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-29 14:22:54] Filesystem: 0 vulnerabilities
+[2026-04-29 14:22:54] SBOM: 3 vulnerabilities
+[2026-04-29 14:22:54] Images: 1 scanned
+[2026-04-29 14:22:54] 
+[2026-04-29 14:22:54] Total Vulnerabilities: 190
+[2026-04-29 14:22:54] 
+[2026-04-29 14:22:54] Results saved to: /home/runner/work/midas/midas/epyon/scans/midas_2026-04-29_14-18-06/anchore
+[2026-04-29 14:22:54] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2026-04-29 14:22:54] ✅ Anchore scan complete!

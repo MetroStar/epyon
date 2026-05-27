@@ -1,0 +1,27 @@
+{
+  "python": [
+    {
+      "key": "pip",
+      "package_name": "pip",
+      "installed_version": "26.0.1",
+      "required_version": "26.0.1",
+      "dependencies": []
+    },
+    {
+      "key": "pipdeptree",
+      "package_name": "pipdeptree",
+      "installed_version": "2.35.1",
+      "required_version": "2.35.1",
+      "dependencies": [
+        {
+          "key": "packaging",
+          "package_name": "packaging",
+          "installed_version": "26.2",
+          "required_version": ">=26",
+          "dependencies": []
+        }
+      ]
+    }
+  ],
+  "node": {}
+}

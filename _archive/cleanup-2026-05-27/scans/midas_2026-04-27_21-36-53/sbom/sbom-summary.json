@@ -1,0 +1,17 @@
+{
+  "scan_info": {
+    "scan_id": "midas_2026-04-27_21-36-53",
+    "target": "/home/runner/work/midas/midas/target-repo",
+    "timestamp": "2026-04-27T21:36:58Z",
+    "tool": "syft",
+    "scan_type": "sbom_generation"
+  },
+  "sbom_files": [
+    {"type": "filesystem", "file": "filesystem.json", "artifacts": 85}
+  ],
+  "total_artifacts": ,
+  "metadata": {
+    "generator": "comprehensive-security-architecture",
+    "version": "1.0.0"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "SchemaVersion": 2,
+  "Trivy": {
+    "Version": "0.70.0"
+  },
+  "ReportID": "019dd537-a4ad-7bc5-929a-55dfa03d58dd",
+  "CreatedAt": "2026-04-28T17:51:26.893773513Z",
+  "ArtifactID": "sha256:3fe81471cf17b3b897de21627778efc0b5786ea44cb741bef3076bfa0b33671a",
+  "ArtifactName": "/workspace",
+  "ArtifactType": "repository",
+  "Metadata": {
+    "RepoURL": "https://github.com/MetroStar/midas",
+    "Branch": "MID-648-include-context-data-for-deterministic-evaluation",
+    "Commit": "6f9687b4c822f7135a839784fcf3f63c241a3e91",
+    "CommitMsg": "Address PR review comments: fail-fast purge_stale_logs, atlas_get validation, rename sanitizers",
+    "Author": "ericdatakelly \u003cericdatakelly@gmail.com\u003e",
+    "Committer": "ericdatakelly \u003cericdatakelly@gmail.com\u003e"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "source": "github",
+  "repo": "MetroStar/midas",
+  "run_id": 25083330758,
+  "artifact_id": 6697055249,
+  "workflow": "CI",
+  "event": "pull_request",
+  "branch": "MID-1005-update-readme-and-copilot-instructions-for",
+  "commit": "9f7c95b",
+  "synced_at": "2026-04-29T13:43:13.465831+00:00"
+}

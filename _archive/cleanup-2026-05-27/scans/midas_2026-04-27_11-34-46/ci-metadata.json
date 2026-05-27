@@ -1,0 +1,11 @@
+{
+  "source": "github",
+  "repo": "MetroStar/midas",
+  "run_id": 24992408470,
+  "artifact_id": 6659695985,
+  "workflow": "CI",
+  "event": "pull_request",
+  "branch": "MID-868-complete-audit-pipeline-decompose-validate-token-add-tool-introspection-scope-events-and-correlation-i-ds",
+  "commit": "3df8925",
+  "synced_at": "2026-04-28T14:46:02.414136+00:00"
+}

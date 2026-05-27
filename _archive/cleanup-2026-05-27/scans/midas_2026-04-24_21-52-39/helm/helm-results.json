@@ -1,0 +1,15 @@
+{
+  "scan_id": "midas_2026-04-24_21-52-39",
+  "timestamp": "2026-04-24T21:52:49Z",
+  "target_dir": "/home/runner/work/midas/midas/target-repo",
+  "summary": {
+    "charts_found": 0,
+    "charts_built": 0,
+    "templates_generated": 0,
+    "lint_errors": 0,
+    "lint_warnings": 0
+  },
+  "charts": [
+  ],
+  "status": "success"
+}

@@ -1,0 +1,57 @@
+EPYON SCAN MANIFEST SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Generated: 2026-04-29T16:54:02Z
+Manifest Hash: sha256:f0c09c832976ba28a5e4e322064091eee8c840b07601c2d9694b79cbf90fdc3e
+
+SCAN INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Scan ID:        midas_2026-04-29_16-49-13
+Username:       github-actions[bot]
+Hostname:       runnervmeorf1
+Epyon Version:  3.0.0
+
+TARGET INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Repository:     N/A
+Commit SHA:     N/A
+Branch:         N/A
+Subdirectory:   N/A
+
+INTEGRITY VERIFICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This manifest contains SHA-256 hashes of all scan report files.
+To verify integrity, run:
+
+  ./scripts/shell/verify-scan-manifest.sh /home/runner/work/midas/midas/epyon/scans/midas_2026-04-29_16-49-13
+
+TRACKED FILES: 24
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✓ anchore/anchore-filesystem-results.json
+  ✓ anchore/anchore-sbom-results.json
+  ✓ anchore/anchore-scan.log
+  ✓ anchore/images/quay.io_keycloak_keycloak_26.0.json
+  ✓ api/api-discovery.json
+  ✓ checkov/checkov-statistics.json
+  ✓ checkov/midas_2026-04-29_16-49-13_checkov-results.json
+  ✓ checkov/midas_2026-04-29_16-49-13_checkov-scan.log
+  ✓ clamav/clamav-results.json
+  ✓ clamav/scan.log
+  ✓ grype/midas_2026-04-29_16-49-13_grype-sbom-results.json
+  ✓ grype/scan.log
+  ✓ helm/helm-results.json
+  ✓ sbom/filesystem.json
+  ✓ sbom/sbom-summary.json
+  ✓ sbom/scan.log
+  ✓ sonar/sonar-scan.log
+  ✓ trivy/midas_2026-04-29_16-49-13_trivy-filesystem-results.json
+  ✓ trivy/scan.log
+  ✓ trufflehog/midas_2026-04-29_16-49-13_trufflehog-filesystem-results.json
+  ✓ trufflehog/scan.log
+  ✓ xeol/midas_2026-04-29_16-49-13_xeol-filesystem-results.json
+  ✓ xeol/scan.log
+  ✓ xeol/xeol-statistics.json
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For full manifest details, see: scan-manifest.json

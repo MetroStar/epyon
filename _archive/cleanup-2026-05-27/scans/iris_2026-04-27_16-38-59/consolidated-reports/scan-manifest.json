@@ -1,0 +1,63 @@
+{
+  "file_hashes": {
+    "anchore/anchore-filesystem-results.json": "sha256:c1c9c0b4e0cb34d1c37c3898a1ad84f573625f376d5df94b227f42e5e8cee0d4",
+    "anchore/anchore-sbom-results.json": "sha256:860bc05b0b5b5d0ef38948c888273c393a39358c17ae54fd999731ba7827cb41",
+    "anchore/anchore-scan.log": "sha256:44afcd531779325cb850d01c700635767cd9c37bdaed411d132d3c9133515f64",
+    "anchore/images/postgres_15-alpine.json": "sha256:a1a1b49bd8628e6aed98395f7b2a312a21ec13d7c0e5da911bc13cdbb6a01334",
+    "anchore/images/qdrant_qdrant_latest.json": "sha256:63713bfc02959a0ce22b0673d2eb74817d66425ffa3d3d86768e16b572c03bbe",
+    "anchore/images/qdrant_qdrant_v1.17.1.json": "sha256:71ff8ae6ec908d79e4912c2f557681d7320c7fa2ff11af84cf09b0081e5ab86d",
+    "anchore/images/quay.io_keycloak_keycloak_23.0.json": "sha256:aa7031f39bc4db5bbc9b97a0b2e32c86cbbf0754e76e98c9991f78eac78d1765",
+    "api/api-discovery.json": "sha256:724307f693530e8ac008b8aef12526ac1b222a3c61cd702a7579c0c4c330ff5f",
+    "checkov/checkov-statistics.json": "sha256:2c6037b30bee6ca567be543d7a9d3ee133f8ae0ff93d22e072c281d392e58021",
+    "checkov/iris_2026-04-27_16-38-59_checkov-results.json": "sha256:7fe4680ec25f17a07565dad84cff871788d14bb0206ed2539baa6b8f35e373b8",
+    "checkov/iris_2026-04-27_16-38-59_checkov-scan.log": "sha256:c27443c06eb6163d0d4ced1b873ad67186f5b5049240a16908d7eb535be301e8",
+    "clamav/clamav-results.json": "sha256:22c05b4ce8b4ab805e83a527454d5cfaba38cc23f2c465140ed9d92a51257be5",
+    "clamav/scan.log": "sha256:f3de2ad9f5f9e7da248c70f6c2ad7a18275cc1716d8db72cd372caf55c29c9a8",
+    "findings-u-asd-stig-v6r4-manual-xccdf.md": "sha256:3ba5a9d0c7b98183de6871a6080633455505c0d4bf1e7c064d8e3eefcbda32b3",
+    "findings.md": "sha256:3ba5a9d0c7b98183de6871a6080633455505c0d4bf1e7c064d8e3eefcbda32b3",
+    "garak/garak-results.json": "sha256:1a14934c6ed40aa58b18365fe24d4bc3bc21026c59bc0acdf212f70c224171f1",
+    "garak/iris_2026-04-27_16-38-59_garak-console.log": "sha256:730068f4b7ce0661b3da38dfb66c3853f1c92703520819f6c28ea39d1c5fac82",
+    "garak/iris_2026-04-27_16-38-59_garak-results.json": "sha256:1a14934c6ed40aa58b18365fe24d4bc3bc21026c59bc0acdf212f70c224171f1",
+    "garak/iris_2026-04-27_16-38-59_garak-scan.log": "sha256:b67f5ecb83d40a7540b276f6f494b6ad2c6bc523003810712153a3d466683d63",
+    "garak/status.json": "sha256:50ce42bd5a4ea26c3de5a756f5f3654ad454158597a0e3864617329bdb8359f2",
+    "grype/iris_2026-04-27_16-38-59_grype-sbom-results.json": "sha256:3f2ad11ec14b893ab0a2bb3deebb84bdb6df9378a0cd6c09abeb0db6e3a788c1",
+    "grype/scan.log": "sha256:f033ba6408030061228243930979f3dd3635e27c7335581737cf9fb7b53cb318",
+    "helm/helm-results.json": "sha256:ef8f564f890cd1d68d2074dfe091f90d0c3fec005f0388ab951fdd94ccd1f8d4",
+    "sbom/filesystem.json": "sha256:e900265e60f6487208b685f848c155f588bad218a0816dab9b7858558626affb",
+    "sbom/sbom-summary.json": "sha256:c318019abbcdf4e45de44657b239f70ffeb96b2b1249f9303fcdbeff36e7ceac",
+    "sbom/scan.log": "sha256:ef76a14328d7ee2858460619d4f28390f3b559cce9bd72143a20260a04586012",
+    "sonar/sonar-scan.log": "sha256:81efdda50a93757e27755601ecce5995cfe89236af93f6c20b1d658860f7bfa5",
+    "stig-controls-u-asd-stig-v6r4-manual-xccdf.json": "sha256:165f26d2955ae99b591a5e70603fa33b9d214a6ececfe1589fb9bfd7abb2c996",
+    "stig-results-u-asd-stig-v6r4-manual-xccdf.json": "sha256:9676aa66a28f9b9cc71c026d51bb2d1d9ccb9945283765aa77615184e375dbac",
+    "trivy/iris_2026-04-27_16-38-59_trivy-filesystem-results.json": "sha256:56233dfdff10a3136480e98ade580bfc46717d310a4b076de76b96371a57921b",
+    "trivy/scan.log": "sha256:ebf1706368a0f9d7bbb8222c5a44704295509cc6bb9dc414316d0fcf67fb9436",
+    "trufflehog/iris_2026-04-27_16-38-59_trufflehog-filesystem-results.json": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "trufflehog/scan.log": "sha256:6da9f68b9b9914b1b7e75ae6d323a8115bcbaaaef311511da902549d9c6acafd",
+    "xeol/iris_2026-04-27_16-38-59_xeol-filesystem-results.json": "sha256:f406d11edfb28a728a77ff9140e802cfab5754999cc8ed541462ed5727174dd5",
+    "xeol/scan.log": "sha256:9f879c8959d08737ed1f22550b4aa9c851c9922dc9bbd6d8f3af973c0b69f9d1",
+    "xeol/xeol-statistics.json": "sha256:be4ae934b45bb603e0ecc996624778de1fca3bb953ea483f55413e31cefc538d"
+  },
+  "generated_at": "2026-04-27T17:08:41Z",
+  "manifest_hash": "sha256:d529fbfefe0aef3871f38d68a55448848a076a354ef202c260a65d6f8a6d3578",
+  "manifest_version": "1.0",
+  "scan_metadata": {
+    "epyon_version": "3.0.0",
+    "hostname": "runnervmeorf1",
+    "scan_id": "iris_2026-04-27_16-38-59",
+    "timestamp": "2026-04-27T17:08:41Z",
+    "username": "sketch0395"
+  },
+  "target": {
+    "branch": null,
+    "commit_sha": null,
+    "repository": null,
+    "subdirectory": null
+  },
+  "tools": {
+    "checkov": "3.2.525",
+    "grype": "0.111.1",
+    "syft": "1.43.0",
+    "trivy": "0.70.0",
+    "trufflehog": "unknown"
+  }
+}

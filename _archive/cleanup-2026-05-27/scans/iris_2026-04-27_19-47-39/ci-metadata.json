@@ -1,0 +1,11 @@
+{
+  "source": "github",
+  "repo": "MetroStar/iris",
+  "run_id": 25015573546,
+  "artifact_id": 6669547208,
+  "workflow": "CI",
+  "event": "pull_request",
+  "branch": "IRIS-1077-update-private-security-scan-yml",
+  "commit": "404d8b9",
+  "synced_at": "2026-04-28T14:45:28.129907+00:00"
+}

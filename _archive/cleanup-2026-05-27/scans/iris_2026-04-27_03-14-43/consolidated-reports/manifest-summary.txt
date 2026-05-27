@@ -1,0 +1,65 @@
+EPYON SCAN MANIFEST SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Generated: 2026-04-27T03:40:32Z
+Manifest Hash: sha256:50231f8695463cf690c214d158212aebd8f720627b2a362258d11044e09645cc
+
+SCAN INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Scan ID:        iris_2026-04-27_03-14-43
+Username:       sketch0395
+Hostname:       runnervmeorf1
+Epyon Version:  3.0.0
+
+TARGET INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Repository:     N/A
+Commit SHA:     N/A
+Branch:         N/A
+Subdirectory:   N/A
+
+INTEGRITY VERIFICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This manifest contains SHA-256 hashes of all scan report files.
+To verify integrity, run:
+
+  ./scripts/shell/verify-scan-manifest.sh /home/runner/work/iris/iris/epyon/scans/iris_2026-04-27_03-14-43
+
+TRACKED FILES: 32
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✓ anchore/anchore-filesystem-results.json
+  ✓ anchore/anchore-sbom-results.json
+  ✓ anchore/anchore-scan.log
+  ✓ anchore/images/postgres_15-alpine.json
+  ✓ anchore/images/qdrant_qdrant_latest.json
+  ✓ anchore/images/qdrant_qdrant_v1.17.1.json
+  ✓ anchore/images/quay.io_keycloak_keycloak_23.0.json
+  ✓ api/api-discovery.json
+  ✓ checkov/checkov-statistics.json
+  ✓ checkov/iris_2026-04-27_03-14-43_checkov-results.json
+  ✓ checkov/iris_2026-04-27_03-14-43_checkov-scan.log
+  ✓ clamav/clamav-results.json
+  ✓ clamav/scan.log
+  ✓ garak/garak-results.json
+  ✓ garak/iris_2026-04-27_03-14-43_garak-console.log
+  ✓ garak/iris_2026-04-27_03-14-43_garak-results.json
+  ✓ garak/iris_2026-04-27_03-14-43_garak-scan.log
+  ✓ garak/status.json
+  ✓ grype/iris_2026-04-27_03-14-43_grype-sbom-results.json
+  ✓ grype/scan.log
+  ✓ helm/helm-results.json
+  ✓ sbom/filesystem.json
+  ✓ sbom/sbom-summary.json
+  ✓ sbom/scan.log
+  ✓ sonar/sonar-scan.log
+  ✓ trivy/iris_2026-04-27_03-14-43_trivy-filesystem-results.json
+  ✓ trivy/scan.log
+  ✓ trufflehog/iris_2026-04-27_03-14-43_trufflehog-filesystem-results.json
+  ✓ trufflehog/scan.log
+  ✓ xeol/iris_2026-04-27_03-14-43_xeol-filesystem-results.json
+  ✓ xeol/scan.log
+  ✓ xeol/xeol-statistics.json
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For full manifest details, see: scan-manifest.json

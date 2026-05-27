@@ -1,0 +1,11 @@
+{
+  "source": "github",
+  "repo": "MetroStar/midas",
+  "run_id": 24910484227,
+  "artifact_id": 6633389359,
+  "workflow": "CI",
+  "event": "pull_request",
+  "branch": "MID-772-mvp-structured-audit-logging",
+  "commit": "a268530",
+  "synced_at": "2026-04-28T14:46:20.282966+00:00"
+}

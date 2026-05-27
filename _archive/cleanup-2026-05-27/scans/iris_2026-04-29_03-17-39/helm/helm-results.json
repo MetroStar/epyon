@@ -1,0 +1,15 @@
+{
+  "scan_id": "iris_2026-04-29_03-17-39",
+  "timestamp": "2026-04-29T03:28:50Z",
+  "target_dir": "/home/runner/work/iris/iris/target-repo",
+  "summary": {
+    "charts_found": 0,
+    "charts_built": 0,
+    "templates_generated": 0,
+    "lint_errors": 0,
+    "lint_warnings": 0
+  },
+  "charts": [
+  ],
+  "status": "success"
+}

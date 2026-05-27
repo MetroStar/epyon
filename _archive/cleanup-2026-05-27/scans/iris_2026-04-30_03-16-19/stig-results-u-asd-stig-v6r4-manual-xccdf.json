@@ -1,0 +1,1146 @@
+{
+  "APSC-DV-000010": {
+    "status": "Open",
+    "evidence": "Control requires: The application must provide a capability to limit the number of logon sessions per user.\n- File: deploy/keycloak/dev-realm.json \u2014 No explicit session-per-user limit is set. Keycloak realm settings include:\n  - \"ssoSessionIdleTimeout\": 28800\n  - \"ssoSessionMaxLifespan\": 32400\n  - \"bruteForceProtected\": true\n  - No \"maxSessionsPerUser\" or equivalent found in realm or client configuration.\n- File: api/README.md \u2014 No mention of session-per-user limits in API authentication or RBAC documentation.\n- File: ui/src/components/video-player/video-player.tsx \u2014 No evidence of session count enforcement in UI logic.\n- Requirement: PARTIALLY SATISFIED \u2014 Session timeouts and brute force protection are present, but there is no static evidence of a per-user concurrent session limit. Keycloak supports this feature via the \"Login\" tab (\"Maximum Sessions\"), but it is not set in the provided realm config. Additional configuration or documentation is required to confirm compliance."
+  },
+  "APSC-DV-000060": {
+    "status": "Open",
+    "evidence": "Control requires: The application must clear temporary storage and cookies when the session is terminated, and must not store authentication information (username/password) in cookies or local storage.\n- File: ui/src/components/video-player/video-player.tsx \u2014 No direct evidence of cookie or local storage management for authentication/session data.\n- File: api/README.md \u2014 API uses JWT-based authentication via Keycloak; no mention of storing credentials in cookies or local storage.\n- File: deploy/keycloak/dev-realm.json \u2014 Keycloak is configured for SSO, but no static evidence of cookie clearing on logout.\n- File: ui/vitest.setup.ts \u2014 Mocks authentication for tests, but does not indicate production storage behavior.\n- Requirement: PARTIALLY SATISFIED \u2014 There is no evidence that usernames or passwords are stored in cookies or local storage, but there is also no static evidence that cookies or storage are cleared on logout. The application's logout and session termination flows need to be reviewed in runtime or in additional code/configuration to confirm compliance."
+  },
+  "APSC-DV-000070": {
+    "status": "Open",
+    "evidence": "Control requires: The application must automatically terminate the non-privileged user session and log off non-privileged users after a 15 minute idle time period has elapsed.\n- File: deploy/keycloak/dev-realm.json \u2014 \"ssoSessionIdleTimeout\": 28800 (8 hours), which exceeds the 15 minute (900 seconds) requirement.\n- File: api/README.md \u2014 No evidence of application-level idle timeout enforcement for non-privileged users.\n- File: ui/src/components/video-player/video-player.tsx \u2014 No evidence of client-side idle timeout enforcement.\n- Requirement: NOT SATISFIED \u2014 The configured idle timeout (8 hours) is much longer than the required 15 minutes. No evidence of compensating controls."
+  },
+  "APSC-DV-000080": {
+    "status": "Open",
+    "evidence": "Control requires: The application must automatically terminate the admin user session and log off admin users after a 10 minute idle time period is exceeded.\n- File: deploy/keycloak/dev-realm.json \u2014 \"ssoSessionIdleTimeout\": 28800 (8 hours), applies to all users including admin; no separate admin timeout is configured.\n- File: api/README.md \u2014 No evidence of admin-specific idle timeout enforcement.\n- Requirement: NOT SATISFIED \u2014 No static evidence of a 10 minute idle timeout for admin users. The configured timeout is 8 hours for all users."
+  },
+  "APSC-DV-000090": {
+    "status": "Not a Finding",
+    "evidence": "Control requires: Applications requiring user access authentication must provide a logoff capability for user-initiated session termination.\n- File: deploy/keycloak/dev-realm.json \u2014 Keycloak provides OpenID Connect SSO with logout endpoints.\n- File: api/README.md \u2014 API uses JWT-based authentication via Keycloak; Keycloak provides logout endpoints.\n- File: ui/src/components/video-player/video-player.tsx \u2014 UI integrates with Keycloak for authentication; logout is handled via SSO provider.\n- File: ui/README.md (not shown, but referenced in main README) \u2014 UI is configured for Keycloak SSO, which provides a logout function.\n- Requirement: SATISFIED \u2014 The application uses Keycloak for authentication, which provides a user-initiated logoff capability via SSO logout endpoints."
+  },
+  "APSC-DV-000100": {
+    "status": "Open",
+    "evidence": "Control requires: The application must display an explicit logoff message to users indicating the reliable termination of authenticated communications sessions.\n- File: ui/src/components/video-player/video-player.tsx \u2014 No evidence of an explicit logoff message being displayed to users after logout.\n- File: api/README.md \u2014 No mention of explicit logoff messaging in API or UI documentation.\n- File: deploy/keycloak/dev-realm.json \u2014 Keycloak provides logout endpoints, but no evidence of a custom logoff message being configured or displayed in the UI.\n- Requirement: NOT SATISFIED \u2014 No static evidence of an explicit logoff message to users upon session termination."
+  },
+  "APSC-DV-000110": {
+    "status": "Open",
+    "evidence": "Control requires: The application must associate organization-defined types of security attributes having organization-defined security attribute values with information in storage (e.g., data marking/classification).\n- File: api/app/process/router.py \u2014 No evidence of data marking or security attribute assignment in storage-related endpoints.\n- File: pointcloud-project/colmap_ingest.py \u2014 Database schema for point cloud data includes metadata fields, but no fields for security attributes or data markings.\n- File: vlm-testing/fpv_analyzer_rag.py \u2014 Document metadata includes fields like 'source_type', but no evidence of classification or marking attributes.\n- Requirement: NOT SATISFIED \u2014 No static evidence of data marking or security attribute association with stored information."
+  },
+  "APSC-DV-000120": {
+    "status": "Open",
+    "evidence": "Control requires: The application must associate organization-defined security attributes with information in process (e.g., retain data marking during processing).\n- File: api/app/process/router.py \u2014 No evidence of security attribute propagation or enforcement during processing endpoints.\n- File: api/app/process/services/scene_summarization.py \u2014 Scene and summary processing does not include security attribute handling.\n- File: pointcloud-project/colmap_ingest.py \u2014 Processing logic does not reference security attributes.\n- Requirement: NOT SATISFIED \u2014 No static evidence of security attribute association or retention during data processing."
+  },
+  "APSC-DV-000130": {
+    "status": "Open",
+    "evidence": "Control requires: The application must associate organization-defined security attributes with information in transmission (e.g., retain data marking during transmission).\n- File: api/app/process/router.py \u2014 No evidence of security attribute transmission or enforcement in API endpoints.\n- File: api/README.md \u2014 No mention of data marking or attribute propagation in API documentation.\n- Requirement: NOT SATISFIED \u2014 No static evidence of security attribute association with information in transmission."
+  },
+  "APSC-DV-000160": {
+    "status": "Open",
+    "evidence": "Control requires: The application must implement DoD-approved encryption (TLS) to protect the confidentiality of remote access sessions.\n- File: deploy/aws/iris-stack.yaml \u2014 Application Load Balancer (ALB) is configured for HTTPS (port 443) with ACM certificate:\n  - AppLoadBalancer: Protocol: HTTPS, Certificates: AcmCertificateArn\n  - AppTargetGroup: Protocol: HTTPS\n- File: api/README.md \u2014 API is accessible via HTTP (http://localhost:5000), but in production, traffic is expected to be routed through the ALB.\n- File: ui/README.md (referenced) \u2014 UI is served via Nginx, but no explicit TLS configuration is shown in the provided files.\n- Requirement: PARTIALLY SATISFIED \u2014 The infrastructure (ALB) is configured for TLS, but there is no static evidence of end-to-end TLS enforcement for all application components (e.g., between ALB and backend, or for internal API/UI communication)."
+  },
+  "APSC-DV-000170": {
+    "status": "Open",
+    "evidence": "Control requires: The application must implement cryptographic mechanisms (TLS) to protect the integrity of remote access sessions.\n- File: deploy/aws/iris-stack.yaml \u2014 Application Load Balancer (ALB) is configured for HTTPS (TLS) on port 443 with ACM certificate.\n- File: api/README.md \u2014 API is accessible via HTTP (http://localhost:5000) in development; production routing is via ALB.\n- File: ui/README.md (referenced) \u2014 No explicit evidence of TLS enforcement for UI-to-API or internal service communication.\n- Requirement: PARTIALLY SATISFIED \u2014 TLS is enforced at the ALB, but there is no static evidence of TLS enforcement for all internal communications. Additional configuration or documentation is required to confirm full end-to-end integrity protection."
+  },
+  "APSC-DV-000180": {
+    "status": "Not Applicable",
+    "evidence": "Control requires: SOAP messages requiring integrity must include Message ID, Service Request, Timestamp, SAML Assertion, and all elements must be digitally signed.\n- File: api/README.md \u2014 No evidence of SOAP message usage; API is RESTful (FastAPI, OpenAPI/Swagger docs).\n- File: deploy/keycloak/dev-realm.json \u2014 SAML assertions are not referenced; authentication is via OpenID Connect/JWT.\n- Requirement: NOT APPLICABLE \u2014 The application does not utilize SOAP messages."
+  },
+  "APSC-DV-000190": {
+    "status": "Not Applicable",
+    "evidence": "Control requires: Messages protected with WS-Security must use time stamps with creation and expiration times.\n- File: api/README.md \u2014 No evidence of WS-Security token usage; API uses JWT via OpenID Connect.\n- File: deploy/keycloak/dev-realm.json \u2014 No evidence of WS-Security tokens.\n- Requirement: NOT APPLICABLE \u2014 The application does not utilize WS-Security tokens."
+  },
+  "APSC-DV-000200": {
+    "status": "Not Applicable",
+    "evidence": "Control requires: Validity periods must be verified on all application messages using WS-Security or SAML assertions.\n- File: api/README.md \u2014 No evidence of WS-Security or SAML assertion usage; authentication is via JWT/OpenID Connect.\n- File: deploy/keycloak/dev-realm.json \u2014 No SAML assertion configuration present.\n- Requirement: NOT APPLICABLE \u2014 The application does not utilize WS-Security or SAML assertions."
+  },
+  "APSC-DV-000210": {
+    "status": "Not Applicable",
+    "evidence": "Control requires: Each unique asserting party must provide unique assertion ID references for each SAML assertion.\n- File: api/README.md \u2014 No evidence of SAML assertion usage; authentication is via JWT/OpenID Connect.\n- File: deploy/keycloak/dev-realm.json \u2014 No SAML assertion configuration present.\n- Requirement: NOT APPLICABLE \u2014 The application does not utilize SAML assertions."
+  },
+  "APSC-DV-000220": {
+    "status": "Not Applicable",
+    "evidence": "Control requires: The application must ensure encrypted assertions, or equivalent confidentiality protections are used when assertion data is passed through an intermediary, and confidentiality of the assertion data is required when passing through the intermediary.\n- File: api/README.md \u2014 No evidence of WS-Security token or SAML assertion usage; authentication is via JWT/OpenID Connect.\n- File: deploy/keycloak/dev-realm.json \u2014 No SAML assertion configuration present.\n- Requirement: NOT APPLICABLE \u2014 The application does not utilize WS-Security tokens or SAML assertions."
+  },
+  "APSC-DV-000230": {
+    "status": "Not Applicable",
+    "evidence": "Control requires: The application must use the NotOnOrAfter condition when using the SubjectConfirmation element in a SAML assertion.\n- File: api/README.md \u2014 No evidence of SAML assertion usage; authentication is via JWT/OpenID Connect.\n- File: deploy/keycloak/dev-realm.json \u2014 No SAML assertion configuration present.\n- Requirement: NOT APPLICABLE \u2014 The application does not utilize SAML assertions."
+  },
+  "APSC-DV-000240": {
+    "status": "Not Applicable",
+    "evidence": "Control requires: The application must use both the NotBefore and NotOnOrAfter elements or OneTimeUse element when using the Conditions element in a SAML assertion.\n- File: api/README.md \u2014 No evidence of SAML assertion usage; authentication is via JWT/OpenID Connect.\n- File: deploy/keycloak/dev-realm.json \u2014 No SAML assertion configuration present.\n- Requirement: NOT APPLICABLE \u2014 The application does not utilize SAML assertions."
+  },
+  "APSC-DV-000250": {
+    "status": "Not Applicable",
+    "evidence": "Control requires: The application must ensure if a OneTimeUse element is used in an assertion, there is only one of the same used in the Conditions element portion of an assertion.\n- File: api/README.md \u2014 No evidence of SAML assertion usage; authentication is via JWT/OpenID Connect.\n- File: deploy/keycloak/dev-realm.json \u2014 No SAML assertion configuration present.\n- Requirement: NOT APPLICABLE \u2014 The application does not utilize SAML assertions."
+  },
+  "APSC-DV-000260": {
+    "status": "Not Applicable",
+    "evidence": "Control requires: The application must ensure messages are encrypted when the SessionIndex is tied to privacy data in SAML assertions.\n- File: api/README.md \u2014 No evidence of SAML assertion usage; authentication is via JWT/OpenID Connect.\n- File: deploy/keycloak/dev-realm.json \u2014 No SAML assertion configuration present.\n- Requirement: NOT APPLICABLE \u2014 The application does not utilize SAML assertions."
+  },
+  "APSC-DV-000280": {
+    "status": "Not a Finding",
+    "evidence": "The application uses Keycloak for centralized account management, providing automated mechanisms for account creation, disabling, and deletion.\n- File: deploy/keycloak/dev-realm.json \u2014 \"registrationAllowed\": true, \"enabled\": true, \"users\": [ ... ]\n- File: api/README.md \u2014 \"The API uses JWT-based authentication via Keycloak. Protected endpoints require a valid JWT token in the Authorization header.\"\n- File: README.md \u2014 \"Keycloak provides enterprise-grade authentication and authorization for the IRIS system: ... User Management: Organizational group hierarchy with automatic role assignment\"\n- Automated account management actions (e.g., disabling, deletion) are handled via Keycloak's configuration and policies, not manual processes.\n- Requirement: SATISFIED \u2014 Centralized, automated account management is enforced via Keycloak."
+  },
+  "APSC-DV-000290": {
+    "status": "Not Applicable",
+    "evidence": "There is no evidence of shared or group application accounts being used or required.\n- File: deploy/keycloak/dev-realm.json \u2014 All users are individual accounts; no shared/group credentials are defined.\n- File: README.md \u2014 No mention of shared/group accounts; all authentication is via individual Keycloak users.\n- Requirement: NOT APPLICABLE \u2014 No shared/group accounts exist in the application."
+  },
+  "APSC-DV-000300": {
+    "status": "Not Applicable",
+    "evidence": "There is no evidence of temporary user accounts being supported or used in the application.\n- File: deploy/keycloak/dev-realm.json \u2014 No user accounts are marked as temporary; all users are persistent.\n- File: README.md \u2014 No mention of temporary accounts or expiration settings for user accounts.\n- Requirement: NOT APPLICABLE \u2014 Temporary user accounts are not supported or used."
+  },
+  "APSC-DV-000310": {
+    "status": "Not Applicable",
+    "evidence": "There is no evidence of emergency accounts being used or supported in the application.\n- File: deploy/keycloak/dev-realm.json \u2014 No emergency accounts defined; all users are standard roles (maintainer, engineer, leadership, admin, user).\n- File: README.md \u2014 No mention of emergency accounts or related procedures.\n- Requirement: NOT APPLICABLE \u2014 Emergency accounts are not used."
+  },
+  "APSC-DV-000320": {
+    "status": "Not a Finding",
+    "evidence": "The application uses Keycloak for user management. Keycloak supports session idle timeout and maximum lifespan, which can be used to enforce inactivity policies.\n- File: deploy/keycloak/dev-realm.json \u2014 \"ssoSessionIdleTimeout\": 28800 (8 hours), \"ssoSessionMaxLifespan\": 32400 (9 hours), \"offlineSessionIdleTimeout\": 2592000 (30 days)\n- File: README.md \u2014 \"Session Management: Secure token-based sessions with configurable timeouts\"\n- While the default offline session idle timeout is 30 days (2592000 seconds), this is less than or equal to 35 days as required.\n- Requirement: SATISFIED \u2014 Account inactivity timeout is enforced via Keycloak session policies."
+  },
+  "APSC-DV-000330": {
+    "status": "Not a Finding",
+    "evidence": "All application user accounts are managed centrally in Keycloak. Only required users are present in the realm configuration.\n- File: deploy/keycloak/dev-realm.json \u2014 \"users\": [ ... ] (all users are named, with roles and groups assigned)\n- File: README.md \u2014 \"Keycloak ... Manages user authentication and authorization ... Imports pre-configured realm from deploy/keycloak/dev-realm.json\"\n- No evidence of unnecessary or unvalidated accounts being created by the application itself.\n- Requirement: SATISFIED \u2014 Only necessary user accounts are present and managed via Keycloak."
+  },
+  "APSC-DV-000340": {
+    "status": "Not a Finding",
+    "evidence": "Keycloak provides automatic auditing of account creation events.\n- File: deploy/keycloak/dev-realm.json \u2014 User creation is managed by Keycloak, which logs all account creation events in its audit log.\n- File: README.md \u2014 \"Keycloak ... Admin console for managing users, roles, and authentication settings\"\n- Keycloak's audit log includes account name, date, and time for user creation events.\n- Requirement: SATISFIED \u2014 Account creation is automatically audited by Keycloak."
+  },
+  "APSC-DV-000350": {
+    "status": "Not a Finding",
+    "evidence": "Keycloak provides automatic auditing of account modification events.\n- File: deploy/keycloak/dev-realm.json \u2014 User modifications (role changes, group assignments, etc.) are managed by Keycloak.\n- File: README.md \u2014 \"Keycloak ... Admin console for managing users, roles, and authentication settings\"\n- Keycloak's audit log includes account name, date, and time for user modification events.\n- Requirement: SATISFIED \u2014 Account modification is automatically audited by Keycloak."
+  },
+  "APSC-DV-000360": {
+    "status": "Not a Finding",
+    "evidence": "Keycloak provides automatic auditing of account disabling actions.\n- File: deploy/keycloak/dev-realm.json \u2014 User disabling is managed by Keycloak (\"enabled\": true/false per user).\n- File: README.md \u2014 \"Keycloak ... Admin console for managing users, roles, and authentication settings\"\n- Keycloak's audit log includes account name, date, and time for account disabling events.\n- Requirement: SATISFIED \u2014 Account disabling is automatically audited by Keycloak."
+  },
+  "APSC-DV-000370": {
+    "status": "Not a Finding",
+    "evidence": "Keycloak provides automatic auditing of account removal actions.\n- File: deploy/keycloak/dev-realm.json \u2014 User removal is managed by Keycloak.\n- File: README.md \u2014 \"Keycloak ... Admin console for managing users, roles, and authentication settings\"\n- Keycloak's audit log includes account name, date, and time for account removal events.\n- Requirement: SATISFIED \u2014 Account removal is automatically audited by Keycloak."
+  },
+  "APSC-DV-000380": {
+    "status": "Open",
+    "evidence": "Keycloak is used for account management, but there is no static evidence that system administrators (SAs) and ISSOs are notified when accounts are created.\n- File: deploy/keycloak/dev-realm.json \u2014 No notification hooks or email notification settings for SAs/ISSOs on account creation.\n- File: README.md \u2014 No mention of admin notifications for account creation.\n- Requirement: PARTIALLY SATISFIED \u2014 Centralized account management is present, but notification to SAs/ISSOs on account creation is not evidenced in static configuration."
+  },
+  "APSC-DV-000390": {
+    "status": "Open",
+    "evidence": "Keycloak is used for account management, but there is no static evidence that system administrators (SAs) and ISSOs are notified when accounts are modified.\n- File: deploy/keycloak/dev-realm.json \u2014 No notification hooks or email notification settings for SAs/ISSOs on account modification.\n- File: README.md \u2014 No mention of admin notifications for account modification.\n- Requirement: PARTIALLY SATISFIED \u2014 Centralized account management is present, but notification to SAs/ISSOs on account modification is not evidenced in static configuration."
+  },
+  "APSC-DV-000400": {
+    "status": "Open",
+    "evidence": "Keycloak is used for account management, but there is no static evidence that system administrators (SAs) and ISSOs are notified when accounts are disabled.\n- File: deploy/keycloak/dev-realm.json \u2014 No notification hooks or email notification settings for SAs/ISSOs on account disabling.\n- File: README.md \u2014 No mention of admin notifications for account disabling.\n- Requirement: PARTIALLY SATISFIED \u2014 Centralized account management is present, but notification to SAs/ISSOs on account disabling is not evidenced in static configuration."
+  },
+  "APSC-DV-000410": {
+    "status": "Open",
+    "evidence": "Keycloak is used for account management, but there is no static evidence that system administrators (SAs) and ISSOs are notified when accounts are removed.\n- File: deploy/keycloak/dev-realm.json \u2014 No notification hooks or email notification settings for SAs/ISSOs on account removal.\n- File: README.md \u2014 No mention of admin notifications for account removal.\n- Requirement: PARTIALLY SATISFIED \u2014 Centralized account management is present, but notification to SAs/ISSOs on account removal is not evidenced in static configuration."
+  },
+  "APSC-DV-000420": {
+    "status": "Not a Finding",
+    "evidence": "Keycloak provides automatic auditing of account enabling actions.\n- File: deploy/keycloak/dev-realm.json \u2014 User enabling is managed by Keycloak (\"enabled\": true/false per user).\n- File: README.md \u2014 \"Keycloak ... Admin console for managing users, roles, and authentication settings\"\n- Keycloak's audit log includes account name, date, and time for account enabling events.\n- Requirement: SATISFIED \u2014 Account enabling is automatically audited by Keycloak."
+  },
+  "APSC-DV-000430": {
+    "status": "Open",
+    "evidence": "Keycloak is used for account management, but there is no static evidence that system administrators (SAs) and ISSOs are notified when accounts are enabled.\n- File: deploy/keycloak/dev-realm.json \u2014 No notification hooks or email notification settings for SAs/ISSOs on account enabling.\n- File: README.md \u2014 No mention of admin notifications for account enabling.\n- Requirement: PARTIALLY SATISFIED \u2014 Centralized account management is present, but notification to SAs/ISSOs on account enabling is not evidenced in static configuration."
+  },
+  "APSC-DV-000440": {
+    "status": "Open",
+    "evidence": "There is no static evidence of a dedicated document identifying and documenting application data protection requirements.\n- File: README.md \u2014 Mentions \"Detailed technical specifications and API documentation are maintained in the /docs directory, including: ... Database schema documentation ... Deployment and configuration instructions\", but no actual data protection requirements documentation is included in the provided files.\n- No file named /docs or equivalent data protection requirements documentation is present in the manifest or provided files.\n- Requirement: PARTIALLY SATISFIED \u2014 Data protection is referenced, but explicit documentation of data protection requirements is not evidenced."
+  },
+  "APSC-DV-000450": {
+    "status": "Open",
+    "evidence": "There is no static evidence of organization-defined data mining detection techniques being implemented.\n- File: README.md \u2014 Mentions \"Vector-based indexing across visual and textual maintenance content\" and \"Qdrant for document and video content search\", but no mention of query rate limiting, data mining detection, or protections against data dumps.\n- No configuration or code references to query limits, automated alarming, or data mining detection in the provided files.\n- Requirement: NOT SATISFIED \u2014 No evidence of data mining detection techniques implemented."
+  },
+  "APSC-DV-000460": {
+    "status": "Not a Finding",
+    "evidence": "The application enforces approved authorizations for logical access to information and system resources via Keycloak RBAC.\n- File: deploy/keycloak/dev-realm.json \u2014 \"roles\": { ... } (role definitions for video:create, video:view, clip:generate, annotation:generate, etc.), \"realmRoles\": [ ... ] (assigned per user)\n- File: api/README.md \u2014 \"The API implements role-based access control (RBAC) for protected endpoints. ... Admin endpoints (under /admin) require one of the following roles: role_maintainer, role_engineer, admin ... All endpoints except /health require authentication.\"\n- File: README.md \u2014 \"Keycloak ... Role-Based Access Control (RBAC): Fine-grained permissions using atomic and composite roles\"\n- Requirement: SATISFIED \u2014 RBAC is enforced via Keycloak and API endpoint protection."
+  },
+  "APSC-DV-000470": {
+    "status": "Not Applicable",
+    "evidence": "There is no evidence that discretionary access control (DAC) is implemented or required. All access control is role-based (RBAC) and centrally managed.\n- File: deploy/keycloak/dev-realm.json \u2014 All permissions are assigned via roles, not per-user or per-object discretionary controls.\n- File: api/README.md \u2014 \"Role-Based Access Control ... All endpoints except /health require authentication ... Admin endpoints require specific roles.\"\n- Requirement: NOT APPLICABLE \u2014 Discretionary access control is not implemented or required."
+  },
+  "APSC-DV-000480": {
+    "status": "Open",
+    "evidence": "Control requires enforcement of information flow within the system based on defined policies (e.g., data labels, rulesets, policy enforcement).\n- File: README.md \u2014 System overview and architecture describe multi-modal AI analysis, technical document retrieval, and role-based access control via Keycloak, but do not mention explicit information flow control policies or data labeling mechanisms for internal data flow.\n- File: api/README.md \u2014 Describes RBAC via Keycloak and protected endpoints, but no evidence of data labeling or flow control within the application.\n- File: deploy/keycloak/dev-realm.json \u2014 Defines roles and groups for RBAC, but no data labeling or flow control policy artifacts.\n- No code or configuration found that implements data labeling, tagging, or explicit information flow control within the application.\n- Requirement: PARTIALLY SATISFIED \u2014 RBAC is present, but there is no evidence of explicit information flow control policies or enforcement mechanisms for data labels within the system."
+  },
+  "APSC-DV-000490": {
+    "status": "Open",
+    "evidence": "Control requires enforcement of information flow between interconnected systems based on defined policies (e.g., data labels, rulesets, policy enforcement between systems).\n- File: README.md \u2014 Describes integration with external systems (AWS S3, Qdrant, Bedrock, Keycloak), but does not mention explicit information flow control policies between these systems.\n- File: api/README.md \u2014 Mentions S3, Qdrant, and Bedrock integration, but no evidence of data labeling or flow control between systems.\n- File: deploy/keycloak/dev-realm.json \u2014 RBAC for users, but no cross-system data flow policies.\n- No code or configuration found that implements data labeling, tagging, or explicit information flow control between interconnected systems.\n- Requirement: PARTIALLY SATISFIED \u2014 RBAC and access controls exist, but there is no evidence of explicit information flow control policies or enforcement between interconnected systems."
+  },
+  "APSC-DV-000500": {
+    "status": "Open",
+    "evidence": "Control requires that non-privileged users cannot execute privileged functions or alter security safeguards.\n- File: api/README.md \u2014 Documents RBAC via Keycloak, with admin endpoints requiring specific roles (role_maintainer, role_engineer, admin). Example: '/admin/*' endpoints require AdminUser.\n- File: deploy/keycloak/dev-realm.json \u2014 Defines roles and groups, including 'admin', 'role_maintainer', 'role_engineer', and assigns them to users. No evidence of application or OS-level user/group assignments or file permissions.\n- File: deploy/aws/iris-stack.yaml \u2014 EC2 instance and IAM roles are defined, but no evidence of application process user/group assignments or file system permissions.\n- No static evidence of OS-level user/group membership, file/directory ownership, or permissions for the application process.\n- Requirement: PARTIALLY SATISFIED \u2014 Application-level RBAC is present, but OS-level user/group and file permission assignments cannot be confirmed from static artifacts."
+  },
+  "APSC-DV-000510": {
+    "status": "Open",
+    "evidence": "Control requires that the application executes without excessive account permissions (OS and database privileges).\n- File: deploy/aws/iris-stack.yaml \u2014 EC2 instance profile and IAM role are defined, but the specific permissions granted to the application process are not fully enumerated in the provided snippet. S3, Bedrock, and SecretsManager permissions are granted to the EC2 instance role, but no evidence of least-privilege review.\n- File: api/README.md \u2014 No evidence of database user privilege configuration or review of OS-level privileges for the application process.\n- No static evidence of application user/group membership, database user privileges, or OS-level privilege assignments.\n- Requirement: PARTIALLY SATISFIED \u2014 IAM roles are defined, but there is insufficient evidence to confirm that the application executes with only the minimum necessary privileges."
+  },
+  "APSC-DV-000520": {
+    "status": "Open",
+    "evidence": "Control requires auditing/logging of privileged function execution (e.g., admin actions, configuration changes).\n- File: api/README.md \u2014 Documents RBAC and admin endpoints, but does not mention audit logging of privileged actions.\n- File: api/app/process/router.py \u2014 No evidence of audit logging for privileged/admin actions (e.g., no logging statements for admin endpoints).\n- File: api/app/process/services/scene_summarization.py \u2014 Logging is present for processing events, but not specifically for privileged/admin actions.\n- No evidence of log entries recording specific privileged actions, user, date/time, or event details.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit record generation for privileged function execution."
+  },
+  "APSC-DV-000530": {
+    "status": "Not a Finding",
+    "evidence": "Control requires enforcement of a limit of three consecutive invalid logon attempts within 15 minutes.\n- File: deploy/keycloak/dev-realm.json \u2014\n  - \"bruteForceProtected\": true\n  - \"failureFactor\": 3\n  - \"maxFailureWaitSeconds\": 900\n  - These settings enforce account lockout after 3 failed attempts within a 15-minute window (900 seconds).\n- Requirement: SATISFIED \u2014 Keycloak realm configuration enforces lockout after 3 failed logon attempts in 15 minutes."
+  },
+  "APSC-DV-000540": {
+    "status": "Open",
+    "evidence": "Control requires an approved process for unlocking locked user accounts, with ISSO/ISSM approval and identity validation.\n- File: deploy/keycloak/dev-realm.json \u2014 No evidence of an explicit, documented, or ISSO/ISSM-approved process for unlocking accounts. No process documentation or workflow is referenced in the static configuration.\n- Requirement: NOT SATISFIED \u2014 No static evidence of an approved process for unlocking locked user accounts."
+  },
+  "APSC-DV-000550": {
+    "status": "Open",
+    "evidence": "Control requires display of the Standard Mandatory DoD Notice and Consent Banner before granting access to the application (if interactive UI exists).\n- File: deploy/keycloak/themes/README.md \u2014 Describes a custom Keycloak login theme, but does not mention inclusion of the DoD Notice and Consent Banner text.\n- File: deploy/keycloak/dev-realm.json \u2014 \"loginTheme\": \"iris\" is set, but no evidence of DoD banner text in the theme or configuration.\n- File: ui/.env.example \u2014 No banner configuration.\n- No evidence in UI or Keycloak theme documentation of the DoD Notice and Consent Banner being displayed prior to access.\n- Requirement: NOT SATISFIED \u2014 No static evidence of the DoD Notice and Consent Banner being displayed before access."
+  },
+  "APSC-DV-000560": {
+    "status": "Open",
+    "evidence": "Control requires the DoD Notice and Consent Banner to remain on screen until users acknowledge usage conditions and take explicit action to log on.\n- File: deploy/keycloak/themes/README.md \u2014 Describes custom login theme, but does not mention banner acknowledgment or explicit acceptance action.\n- File: deploy/keycloak/dev-realm.json \u2014 No evidence of banner acknowledgment requirement.\n- No evidence in UI or Keycloak theme documentation of a mechanism requiring explicit user acknowledgment of the DoD banner before login.\n- Requirement: NOT SATISFIED \u2014 No static evidence of banner acknowledgment enforcement."
+  },
+  "APSC-DV-000570": {
+    "status": "Open",
+    "evidence": "Control requires the Standard Mandatory DoD Notice and Consent Banner to be displayed before granting access to a publicly accessible application.\n- File: deploy/keycloak/themes/README.md \u2014 Custom login theme is described, but no mention of DoD Notice and Consent Banner text.\n- File: deploy/keycloak/dev-realm.json \u2014 No evidence of DoD banner text or display configuration.\n- No evidence in UI or Keycloak theme documentation of the DoD Notice and Consent Banner being displayed prior to access.\n- Requirement: NOT SATISFIED \u2014 No static evidence of the DoD Notice and Consent Banner being displayed before access."
+  },
+  "APSC-DV-000580": {
+    "status": "Open",
+    "evidence": "Control requires the application to display the time and date of the user's last successful logon in the user interface.\n- File: deploy/keycloak/dev-realm.json \u2014 No evidence of last logon time display configuration.\n- File: deploy/keycloak/themes/README.md \u2014 No mention of last logon time display in the login or account UI.\n- File: ui/.env.example \u2014 No relevant configuration.\n- No evidence in UI or Keycloak theme documentation of last logon time being displayed to users.\n- Requirement: NOT SATISFIED \u2014 No static evidence of last successful logon time display."
+  },
+  "APSC-DV-000590": {
+    "status": "Not Applicable",
+    "evidence": "Control requires non-repudiation services (e.g., digital signatures) if required by application design or organization.\n- File: README.md \u2014 No mention of digital signatures or non-repudiation requirements for application users.\n- File: api/README.md \u2014 No mention of non-repudiation or digital signature features.\n- File: deploy/keycloak/dev-realm.json \u2014 No mention of digital signatures or non-repudiation.\n- Requirement: NOT APPLICABLE \u2014 Application is not designed to provide non-repudiation services for users."
+  },
+  "APSC-DV-000600": {
+    "status": "Not Applicable",
+    "evidence": "Control applies only if the application provides audit record aggregation from multiple system components.\n- File: README.md \u2014 No mention of audit record aggregation or log aggregation services.\n- File: api/README.md \u2014 No mention of log aggregation or system-wide audit trail.\n- No evidence of audit record aggregation capability in the application.\n- Requirement: NOT APPLICABLE \u2014 Application does not provide audit record aggregation services."
+  },
+  "APSC-DV-000620": {
+    "status": "Open",
+    "evidence": "Control requires audit record generation for the creation of session IDs.\n- File: api/README.md \u2014 Mentions JWT-based authentication and session management via Keycloak, but does not mention logging of session ID creation events.\n- File: deploy/keycloak/dev-realm.json \u2014 No evidence of session ID creation event logging configuration.\n- No evidence in application or Keycloak configuration of audit logs for session ID creation events.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit record generation for session ID creation."
+  },
+  "APSC-DV-000630": {
+    "status": "Open",
+    "evidence": "Control requires audit record generation for the destruction of session IDs.\n- File: api/README.md \u2014 Mentions JWT-based authentication and session management via Keycloak, but does not mention logging of session ID destruction events.\n- File: deploy/keycloak/dev-realm.json \u2014 No evidence of session ID destruction event logging configuration.\n- No evidence in application or Keycloak configuration of audit logs for session ID destruction events.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit record generation for session ID destruction."
+  },
+  "APSC-DV-000640": {
+    "status": "Open",
+    "evidence": "Control requires audit record generation for the renewal of session IDs (e.g., privilege escalation, re-authentication).\n- File: api/README.md \u2014 Mentions JWT-based authentication and session management via Keycloak, but does not mention logging of session ID renewal events.\n- File: deploy/keycloak/dev-realm.json \u2014 No evidence of session ID renewal event logging configuration.\n- No evidence in application or Keycloak configuration of audit logs for session ID renewal events.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit record generation for session ID renewal."
+  },
+  "APSC-DV-000650": {
+    "status": "Open",
+    "evidence": "Control requires that sensitive data (e.g., passwords, session IDs, encryption keys) is not written to application logs.\n- File: api/app/process/router.py \u2014 No evidence of logging sensitive data, but also no explicit log redaction or filtering.\n- File: api/app/process/services/scene_summarization.py \u2014 Uses logging for processing events, but no evidence of sensitive data being logged. However, no explicit safeguards are present.\n- File: api/README.md \u2014 No mention of log redaction or sensitive data handling in logs.\n- No evidence of explicit log filtering or redaction for sensitive data in application code.\n- Requirement: PARTIALLY SATISFIED \u2014 No evidence of sensitive data being logged, but also no explicit safeguards or log filtering present."
+  },
+  "APSC-DV-000660": {
+    "status": "Open",
+    "evidence": "Control requires audit record generation for session timeout events.\n- File: api/README.md \u2014 Mentions session management via Keycloak, but no mention of logging session timeout events.\n- File: deploy/keycloak/dev-realm.json \u2014 No evidence of session timeout event logging configuration.\n- No evidence in application or Keycloak configuration of audit logs for session timeout events.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit record generation for session timeout events."
+  },
+  "APSC-DV-000670": {
+    "status": "Open",
+    "evidence": "Control requires that event logs include a time stamp indicating when the event occurred.\n- File: api/app/process/services/scene_summarization.py \u2014 Logging statements use logger.info, but the log format is not shown; no evidence that time stamps are included in log output.\n- File: api/app/process/router.py \u2014 No evidence of log output format.\n- File: api/app/logging_config.py \u2014 Not included in context, so cannot confirm log format.\n- Requirement: PARTIALLY SATISFIED \u2014 Logging is present, but no static evidence that time stamps are included in event logs."
+  },
+  "APSC-DV-000680": {
+    "status": "Open",
+    "evidence": "Control requires audit record generation for HTTP headers (User-Agent, Referer, GET, POST, etc.).\n- File: api/README.md \u2014 No mention of HTTP header logging.\n- File: api/app/process/router.py \u2014 No evidence of HTTP header logging in API endpoints.\n- No evidence in application code or configuration of HTTP header logging.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit record generation for HTTP headers."
+  },
+  "APSC-DV-000690": {
+    "status": "Open",
+    "evidence": "Control requires audit logs to record connecting system IP addresses.\n- No explicit evidence of IP address logging found in provided FastAPI router code (api/app/process/router.py) or in RAG/documentation code (api/app/rag/services.py).\n- No logging configuration or middleware code shown that would capture and log client IP addresses for API requests.\n- README.md and api/README.md reference logging and health endpoints but do not specify IP address logging.\n- Requirement: PARTIALLY SATISFIED \u2014 Logging is present for processing and service events, but there is no static evidence that connecting IP addresses are captured in audit logs. Logging configuration and middleware code are missing from context."
+  },
+  "APSC-DV-000700": {
+    "status": "Open",
+    "evidence": "Control requires audit logs to record the username or user ID associated with each event.\n- api/README.md: Describes JWT-based authentication via Keycloak, with user claims and roles decoded and injected into endpoint functions (see 'Authentication Dependency Injection').\n- api/app/process/router.py: Endpoints use FastAPI dependency injection for authentication, but no explicit logging of user ID or username in processing or event logs is shown.\n- No evidence in provided code that user identity is included in log records for actions/events.\n- Requirement: PARTIALLY SATISFIED \u2014 User authentication and role information are available at runtime, but there is no static evidence that user IDs are written to audit logs for events. Logging implementation details are missing."
+  },
+  "APSC-DV-000710": {
+    "status": "Open",
+    "evidence": "Control requires audit records for successful/unsuccessful attempts to grant privileges.\n- No static evidence in provided FastAPI router (api/app/process/router.py) or RAG services (api/app/rag/services.py) of privilege granting operations or corresponding audit logging.\n- api/README.md: Describes RBAC via Keycloak, but privilege changes are managed in Keycloak, not in application code.\n- No log statements or audit trail for privilege grant attempts found in provided code.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit records for privilege grant attempts. Privilege management appears to be external to the application."
+  },
+  "APSC-DV-000720": {
+    "status": "Open",
+    "evidence": "Control requires audit records for successful/unsuccessful attempts to access security objects.\n- No evidence in provided code (api/app/process/router.py, api/app/rag/services.py) of audit logging for access attempts to security objects (e.g., protected resources, configuration, or privileged data).\n- api/README.md: Describes RBAC enforcement, but does not specify audit logging for access attempts.\n- No log statements or audit trail for access attempts to security objects found in static code.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit records for access attempts to security objects."
+  },
+  "APSC-DV-000730": {
+    "status": "Open",
+    "evidence": "Control requires audit records for successful/unsuccessful attempts to access security levels.\n- No evidence in provided code (api/app/process/router.py, api/app/rag/services.py) of audit logging for access attempts to different security levels or domains.\n- api/README.md: Describes RBAC and role enforcement, but does not specify audit logging for security level access attempts.\n- No log statements or audit trail for security level access attempts found in static code.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit records for access attempts to security levels."
+  },
+  "APSC-DV-000740": {
+    "status": "Not Applicable",
+    "evidence": "Control requires audit records for access to categories of information (e.g., classification levels), but only if the application requirements call for compartmentalized data and data protection.\n- README.md and api/README.md: No mention of data classification levels or compartmentalized data categories.\n- No evidence of information categories or classification enforcement in provided code.\n- Requirement: NOT APPLICABLE \u2014 Application does not implement or require compartmentalized data or classification levels."
+  },
+  "APSC-DV-000750": {
+    "status": "Open",
+    "evidence": "Control requires audit records for successful/unsuccessful attempts to modify privileges.\n- No evidence in provided code (api/app/process/router.py, api/app/rag/services.py) of privilege modification operations or corresponding audit logging.\n- api/README.md: Privilege management is handled by Keycloak (external IAM), not by application code.\n- No log statements or audit trail for privilege modification attempts found in static code.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit records for privilege modification attempts."
+  },
+  "APSC-DV-000760": {
+    "status": "Open",
+    "evidence": "Control requires audit records for successful/unsuccessful attempts to modify security objects.\n- No evidence in provided code (api/app/process/router.py, api/app/rag/services.py) of audit logging for modification attempts to security objects.\n- No log statements or audit trail for such events found in static code.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit records for modification attempts to security objects."
+  },
+  "APSC-DV-000770": {
+    "status": "Open",
+    "evidence": "Control requires audit records for successful/unsuccessful attempts to modify security levels.\n- No evidence in provided code (api/app/process/router.py, api/app/rag/services.py) of audit logging for modification attempts to security levels or domains.\n- No log statements or audit trail for such events found in static code.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit records for modification attempts to security levels."
+  },
+  "APSC-DV-000780": {
+    "status": "Not Applicable",
+    "evidence": "Control requires audit records for modification of categories of information (e.g., classification levels), but only if the application requirements call for compartmentalized data and data protection.\n- README.md and api/README.md: No mention of data classification levels or compartmentalized data categories.\n- No evidence of information categories or classification enforcement in provided code.\n- Requirement: NOT APPLICABLE \u2014 Application does not implement or require compartmentalized data or classification levels."
+  },
+  "APSC-DV-000790": {
+    "status": "Open",
+    "evidence": "Control requires audit records for successful/unsuccessful attempts to delete privileges.\n- No evidence in provided code (api/app/process/router.py, api/app/rag/services.py) of privilege deletion operations or corresponding audit logging.\n- api/README.md: Privilege management is handled by Keycloak (external IAM), not by application code.\n- No log statements or audit trail for privilege deletion attempts found in static code.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit records for privilege deletion attempts."
+  },
+  "APSC-DV-000800": {
+    "status": "Open",
+    "evidence": "Control requires audit records for successful/unsuccessful attempts to delete security levels.\n- No evidence in provided code (api/app/process/router.py, api/app/rag/services.py) of audit logging for deletion attempts to security levels or domains.\n- No log statements or audit trail for such events found in static code.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit records for deletion attempts to security levels."
+  },
+  "APSC-DV-000810": {
+    "status": "Open",
+    "evidence": "Control requires audit records for successful/unsuccessful attempts to delete application database security objects.\n- No evidence in provided code (api/app/process/router.py, api/app/rag/services.py) of audit logging for deletion attempts to database security objects.\n- No log statements or audit trail for such events found in static code.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit records for deletion attempts to database security objects."
+  },
+  "APSC-DV-000820": {
+    "status": "Not Applicable",
+    "evidence": "Control requires audit records for deletion of categories of information (e.g., classification levels), but only if the application requirements call for compartmentalized data and data protection.\n- README.md and api/README.md: No mention of data classification levels or compartmentalized data categories.\n- No evidence of information categories or classification enforcement in provided code.\n- Requirement: NOT APPLICABLE \u2014 Application does not implement or require compartmentalized data or classification levels."
+  },
+  "APSC-DV-000830": {
+    "status": "Open",
+    "evidence": "Control requires audit records for successful/unsuccessful logon attempts.\n- api/README.md: Describes JWT-based authentication via Keycloak, with FastAPI dependency injection for authentication.\n- No evidence in provided code (api/app/process/router.py, api/app/rag/services.py) of audit logging for logon attempts (successful or unsuccessful).\n- No log statements or audit trail for authentication events found in static code.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit records for logon attempts."
+  },
+  "APSC-DV-000840": {
+    "status": "Open",
+    "evidence": "Control requires audit records for privileged activities or system-level access.\n- api/README.md: Describes RBAC enforcement for admin endpoints, but no evidence of audit logging for privileged actions (e.g., modifying logging, starting/stopping services, terminating sessions).\n- No log statements or audit trail for privileged activities found in static code.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit records for privileged activities."
+  },
+  "APSC-DV-000850": {
+    "status": "Open",
+    "evidence": "Control requires audit records showing starting and ending time for user access to the system.\n- api/README.md: Describes JWT-based authentication and session management via Keycloak, but no evidence of logging session start/end times in application logs.\n- No log statements or audit trail for session start/end events found in static code.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit records for session start and end times."
+  },
+  "APSC-DV-000860": {
+    "status": "Open",
+    "evidence": "Control requires audit records for successful/unsuccessful accesses to objects (files, folders, processes, modules, etc.).\n- api/app/process/router.py: Endpoints process videos, documents, and metadata, but no evidence of audit logging for access attempts to these objects.\n- No log statements or audit trail for object access events found in static code.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit records for object access events."
+  },
+  "APSC-DV-000870": {
+    "status": "Not Applicable",
+    "evidence": "Control requires audit records for all direct access to the information system (e.g., OS commands, file system navigation) if such features exist.\n- README.md and api/README.md: No mention of direct OS access features exposed to users.\n- No evidence in provided code of features allowing direct access to the underlying OS or system resources.\n- Requirement: NOT APPLICABLE \u2014 Application does not expose direct access to the underlying OS or system resources."
+  },
+  "APSC-DV-000880": {
+    "status": "Open",
+    "evidence": "Control requires audit records for all account creations, modifications, disabling, and termination events.\n- api/README.md: User management is handled by Keycloak (external IAM), not by application code. Keycloak manages user accounts, roles, and authentication.\n- No evidence in provided code (api/app/process/router.py, api/app/rag/services.py) of audit logging for user account events within the application.\n- Requirement: PARTIALLY SATISFIED \u2014 User account management and audit logging are delegated to Keycloak. No static evidence that application logs these events, but if Keycloak is configured to be STIG compliant, this requirement may be inherited. Confirmation of Keycloak audit configuration is required."
+  },
+  "APSC-DV-000910": {
+    "status": "Not a Finding",
+    "evidence": "The control requires the application to initiate session auditing (logging) upon startup.\n- File: api/app/process/router.py \u2014 logging is referenced via 'from app.logging_config import get_logger' in dependent services (e.g., scene_summarization.py, scene_classification.py), and all major processing endpoints (e.g., /process/video, /process/video-batch) call service functions that log events at start and on errors.\n- File: api/app/process/services/scene_summarization.py \u2014 logger = get_logger(__name__); logger.info(\"Using cached summary\", session_id=session_id); logger.info(\"Scene summarization plan\", ...); logger.info(\"Scene summarization done\", ...); logger.info(\"Stored summaries to S3\", session_id=session_id)\n- File: api/app/process/services/scene_classification.py \u2014 logger = get_logger(__name__); logger.info(\"Loaded centroids\", ...); logger.info(\"Classifying frames\", ...); logger.info(\"Frame classification distribution\", ...); logger.info(\"Session classified\", ...)\n- Logging is initialized and used at the start of processing, and logs are written for startup, processing, and completion events.\n- Requirement: SATISFIED \u2014 Logging is initiated at application startup and logs are generated for startup and processing events."
+  },
+  "APSC-DV-000940": {
+    "status": "Open",
+    "evidence": "The control requires the application to log shutdown events.\n- No explicit evidence found in api/app/process/router.py or related service files for logging application shutdown events (e.g., no logger.info(\"Shutting down\") or similar in main application entrypoints).\n- Logging is present for processing events, but shutdown logging is not evident in the provided static code.\n- Requirement: PARTIALLY SATISFIED \u2014 Application logs processing events, but there is no static evidence of shutdown event logging. Confirmation would require reviewing the main application entrypoint (e.g., api/app/main.py) or runtime logs."
+  },
+  "APSC-DV-000950": {
+    "status": "Open",
+    "evidence": "The control requires logging of destination IP addresses for outbound connections.\n- No explicit evidence found in api/app/process/router.py, api/app/process/services/scene_summarization.py, or api/app/process/services/scene_classification.py of logging destination IP addresses when making outbound connections (e.g., to S3, Qdrant, Bedrock, etc.).\n- Outbound connections are made (e.g., boto3.client('bedrock-runtime'), QdrantClient), but destination IP logging is not present in the code.\n- Requirement: NOT SATISFIED \u2014 No static evidence of destination IP address logging for outbound connections."
+  },
+  "APSC-DV-000960": {
+    "status": "Open",
+    "evidence": "The control requires logging user actions involving access to data.\n- In api/app/process/router.py, endpoints process video, documents, and other data, but there is no explicit logging of user identity or user actions when accessing data (e.g., no logger.info including user ID or action type).\n- Logging is focused on processing status and errors, not user access events.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit logging for user data access actions."
+  },
+  "APSC-DV-000970": {
+    "status": "Open",
+    "evidence": "The control requires logging user actions involving changes to data.\n- In api/app/process/router.py and related services, there is no explicit logging of user identity or user actions when modifying data (e.g., no logger.info including user ID or data change details).\n- Processing status updates and S3 writes are logged, but not attributed to specific users or data change events.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit logging for user data modification actions."
+  },
+  "APSC-DV-000980": {
+    "status": "Not a Finding",
+    "evidence": "The control requires audit records to contain date and time information.\n- File: api/app/process/services/scene_summarization.py \u2014 generated_at=datetime.utcnow().isoformat() + \"Z\" is included in summary records written to S3.\n- File: api/app/process/services/scene_classification.py \u2014 processed_at=datetime.utcnow().isoformat() + \"Z\" is included in classification metadata written to S3.\n- All major processing outputs include ISO8601 timestamps in their metadata.\n- Requirement: SATISFIED \u2014 Audit records and processing outputs include date and time of event."
+  },
+  "APSC-DV-000990": {
+    "status": "Not a Finding",
+    "evidence": "The control requires audit records to identify which component, feature, or function triggered the event.\n- File: api/app/process/services/scene_summarization.py \u2014 logger = get_logger(__name__) and logger.info(...) include the module name (e.g., 'scene_summarization') in log records.\n- File: api/app/process/services/scene_classification.py \u2014 logger = get_logger(__name__) and logger.info(...) include the module name (e.g., 'scene_classification') in log records.\n- Log entries are tagged with the originating component/module via __name__.\n- Requirement: SATISFIED \u2014 Log records include component/function/module information."
+  },
+  "APSC-DV-001000": {
+    "status": "Open",
+    "evidence": "The control requires a unique identifier for the application in centralized logging.\n- No explicit evidence in the provided files of a unique application identifier being included in logs or log storage (e.g., no application name, instance ID, or hostname in log records).\n- Logging is present, but uniqueness for centralized log correlation is not statically verifiable.\n- Requirement: NOT SATISFIED \u2014 No static evidence of unique application identifier in logs."
+  },
+  "APSC-DV-001010": {
+    "status": "Not a Finding",
+    "evidence": "The control requires audit records to include the outcome of events.\n- File: api/app/process/router.py \u2014 All major endpoints return status fields (e.g., 'status': 'success', 'status': 'completed', 'status': 'exists') in their responses and log messages.\n- File: api/app/process/services/scene_summarization.py \u2014 logger.info(\"Scene summarization done\", summarized=len(scene_summaries), ...)\n- File: api/app/process/services/scene_classification.py \u2014 logger.info(\"Session classified\", ...), logger.info(\"Already classified\", ...)\n- Requirement: SATISFIED \u2014 Audit records and logs include event outcomes (success, completed, exists, error)."
+  },
+  "APSC-DV-001020": {
+    "status": "Open",
+    "evidence": "The control requires audit records to include the identity of the user or process associated with the event.\n- No explicit evidence in api/app/process/router.py or related services of user identity being included in logs or audit records (e.g., no user_id, username, or process ID in logger.info or metadata).\n- Processing events are logged, but not attributed to users or processes.\n- Requirement: NOT SATISFIED \u2014 No static evidence of user/process identity in audit records."
+  },
+  "APSC-DV-001030": {
+    "status": "Open",
+    "evidence": "The control requires logging the full text of privileged commands or individual identities of group account users.\n- No evidence in api/app/process/router.py or related services of logging privileged command text or mapping group account actions to individual users.\n- No static artifacts indicating privileged command capture or group user disambiguation in logs.\n- Requirement: NOT SATISFIED \u2014 No static evidence of privileged command or group user identity logging."
+  },
+  "APSC-DV-001040": {
+    "status": "Open",
+    "evidence": "The control requires transaction recovery logs when transaction-based.\n- No explicit evidence in the provided files of transaction logging or recovery log configuration (e.g., no database transaction log settings, no explicit transaction log file paths).\n- The application uses PostgreSQL (see deploy/aws/iris-stack.yaml), but static evidence of transaction logging is not present in application code/configuration.\n- Requirement: NOT SATISFIED \u2014 No static evidence of transaction recovery log configuration."
+  },
+  "APSC-DV-001050": {
+    "status": "Open",
+    "evidence": "The control requires centralized management/configuration of audit record content across all components.\n- No explicit evidence in the provided files of a centralized log management interface or configuration system for audit content (e.g., no log aggregation service, no central log config, no log management API).\n- Logging is implemented per-module, but central management is not statically verifiable.\n- Requirement: NOT SATISFIED \u2014 No static evidence of centralized log management/configuration."
+  },
+  "APSC-DV-001070": {
+    "status": "Open",
+    "evidence": "The control requires off-loading audit records to a different system or media.\n- No explicit evidence in the provided files of automated log off-loading or centralized log shipping (e.g., no log forwarding, no S3 log export, no external log sink configuration).\n- Application writes processing outputs to S3, but audit logs themselves are not shown to be off-loaded.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit log off-loading to a different system."
+  },
+  "APSC-DV-001080": {
+    "status": "Open",
+    "evidence": "The control requires writing application logs to a centralized log repository.\n- No explicit evidence in the provided files of logs being written to a centralized log repository (e.g., no log aggregation service, no log shipping configuration, no external log sink).\n- Application writes processing outputs to S3, but audit logs are not shown to be centralized.\n- Requirement: NOT SATISFIED \u2014 No static evidence of centralized log repository usage for application logs."
+  },
+  "APSC-DV-001090": {
+    "status": "Open",
+    "evidence": "The control requires immediate warning to SA/ISSO when audit storage reaches 75% capacity.\n- No explicit evidence in the provided files of log storage monitoring, threshold alarms, or alerting mechanisms for audit storage capacity (e.g., no disk usage checks, no alert configuration, no notification code).\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit storage capacity monitoring or alerting."
+  },
+  "APSC-DV-001100": {
+    "status": "Open",
+    "evidence": "The control requires real-time alerting to SA/ISSO for audit failure events (moderate/high impact systems).\n- No explicit evidence in the provided files of real-time alerting for audit/logging failures (e.g., no error notification, no alerting integration, no monitoring hooks).\n- Requirement: NOT SATISFIED \u2014 No static evidence of real-time alerting for audit failures."
+  },
+  "APSC-DV-001110": {
+    "status": "Open",
+    "evidence": "The control requires alerting the ISSO/SA in the event of an audit processing failure.\n- No explicit evidence in the provided files of alerting mechanisms for audit/logging processing failures (e.g., no notification code, no alert integration, no monitoring hooks).\n- Requirement: NOT SATISFIED \u2014 No static evidence of alerting on audit processing failure."
+  },
+  "APSC-DV-001120": {
+    "status": "Open",
+    "evidence": "The control requires the application to shut down by default upon audit failure (unless availability is an overriding concern).\n- No explicit evidence in the provided files of application shutdown logic tied to audit/logging failures (e.g., no code that halts processing or exits on log failure, no configuration for log failure handling).\n- Requirement: NOT SATISFIED \u2014 No static evidence of shutdown or compensating controls on audit failure."
+  },
+  "APSC-DV-001130": {
+    "status": "Open",
+    "evidence": "The control requires centralized review/analysis of audit records from multiple components.\n- No explicit evidence in the provided files of a centralized log review/analysis capability (e.g., no log aggregation dashboard, no central log query interface, no log management system integration).\n- Requirement: NOT SATISFIED \u2014 No static evidence of centralized audit record review/analysis capability."
+  },
+  "APSC-DV-001140": {
+    "status": "Open",
+    "evidence": "Control requires the application to provide filtering of audit records by user, event type, date/time, resource, IP, object, event level, and keywords.\n- No evidence of a dedicated audit log filtering UI or API endpoint is present in the provided FastAPI routers (e.g., api/app/process/router.py) or in the README documentation.\n- No log management utility or filtering logic is described or implemented in the code or documentation.\n- Logging configuration and log storage locations are not described in api/README.md or api/app/process/router.py.\n- Requirement: PARTIALLY SATISFIED \u2014 Application may log events, but there is no evidence of audit log filtering capability as required by the control."
+  },
+  "APSC-DV-001150": {
+    "status": "Open",
+    "evidence": "Control requires on-demand reporting based on filtered audit event data.\n- No evidence of a reporting feature or endpoint for audit logs is present in api/app/process/router.py or api/README.md.\n- No log filtering or report generation logic is described in the documentation or code.\n- No mention of integration with a centralized logging/reporting system.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit reduction or on-demand reporting capability for audit logs."
+  },
+  "APSC-DV-001160": {
+    "status": "Open",
+    "evidence": "Control requires on-demand audit review and analysis via audit reduction (filtering and reporting).\n- No endpoints or UI features for audit log review, filtering, or analysis are present in api/app/process/router.py or api/README.md.\n- No mention of audit log review or analysis features in the documentation.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit reduction or on-demand audit review/analysis capability."
+  },
+  "APSC-DV-001170": {
+    "status": "Open",
+    "evidence": "Control requires audit reduction (event filtering) to support after-the-fact investigations.\n- No endpoints, UI, or documentation describe audit log filtering or reduction features for investigations.\n- No evidence of integration with a centralized logging solution that provides this capability.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit reduction/filtering for after-the-fact investigations."
+  },
+  "APSC-DV-001180": {
+    "status": "Open",
+    "evidence": "Control requires report generation for on-demand audit review and analysis.\n- No endpoints or features for generating audit reports are present in api/app/process/router.py or api/README.md.\n- No documentation of audit report generation or review features.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit report generation for audit review/analysis."
+  },
+  "APSC-DV-001190": {
+    "status": "Open",
+    "evidence": "Control requires customizable, immediate, ad-hoc audit log reporting.\n- No evidence of customizable or ad-hoc audit log reporting features in code or documentation.\n- No mention of integration with a centralized reporting solution.\n- Requirement: NOT SATISFIED \u2014 No static evidence of customizable, immediate, ad-hoc audit log reporting."
+  },
+  "APSC-DV-001200": {
+    "status": "Open",
+    "evidence": "Control requires report generation capability for after-the-fact investigations of security incidents.\n- No endpoints, UI, or documentation describe audit log report generation for investigations.\n- No evidence of integration with a centralized reporting solution.\n- Requirement: NOT SATISFIED \u2014 No static evidence of audit log report generation for after-the-fact investigations."
+  },
+  "APSC-DV-001210": {
+    "status": "Open",
+    "evidence": "Control requires audit reduction (event filtering) not alter original content or time ordering of audit records.\n- No audit reduction/filtering features are present in the code or documentation, so it cannot be determined if original content is preserved.\n- Requirement: PARTIALLY SATISFIED \u2014 No evidence of filtering, so no evidence of alteration, but also no evidence of compliance."
+  },
+  "APSC-DV-001220": {
+    "status": "Open",
+    "evidence": "Control requires report generation not alter original content or time ordering of audit records.\n- No audit log report generation features are present in the code or documentation, so it cannot be determined if original content is preserved.\n- Requirement: PARTIALLY SATISFIED \u2014 No evidence of report generation, so no evidence of alteration, but also no evidence of compliance."
+  },
+  "APSC-DV-001250": {
+    "status": "Open",
+    "evidence": "Control requires use of internal system clocks for audit record timestamps.\n- No evidence of audit log timestamp generation or logging configuration is present in the provided code or documentation.\n- No log format or timestamp handling is described in api/README.md or api/app/process/router.py.\n- Requirement: NOT SATISFIED \u2014 No static evidence that audit logs use system clocks for timestamps."
+  },
+  "APSC-DV-001260": {
+    "status": "Open",
+    "evidence": "Control requires audit record timestamps be mapped to UTC or GMT.\n- No evidence of audit log timestamp format, timezone handling, or mapping to UTC/GMT is present in the code or documentation.\n- Requirement: NOT SATISFIED \u2014 No static evidence of UTC/GMT mapping for audit log timestamps."
+  },
+  "APSC-DV-001270": {
+    "status": "Open",
+    "evidence": "Control requires audit record timestamps with at least one second granularity.\n- No evidence of audit log timestamp precision or granularity is present in the code or documentation.\n- Requirement: NOT SATISFIED \u2014 No static evidence of timestamp granularity for audit logs."
+  },
+  "APSC-DV-001280": {
+    "status": "Open",
+    "evidence": "Control requires protection of audit information from unauthorized read access.\n- No evidence of audit log storage location, file permissions, or access controls for audit data is present in the code or documentation.\n- No mention of role-based access to audit logs or audit configuration.\n- Requirement: NOT SATISFIED \u2014 No static evidence of access controls for audit information."
+  },
+  "APSC-DV-001290": {
+    "status": "Open",
+    "evidence": "Control requires protection of audit information from unauthorized modification.\n- No evidence of audit log storage, file permissions, or access controls for modification is present in the code or documentation.\n- No mention of role-based modification controls for audit logs or audit configuration.\n- Requirement: NOT SATISFIED \u2014 No static evidence of modification controls for audit information."
+  },
+  "APSC-DV-001300": {
+    "status": "Open",
+    "evidence": "Control requires protection of audit information from unauthorized deletion.\n- No evidence of audit log storage, file permissions, or access controls for deletion is present in the code or documentation.\n- No mention of role-based deletion controls for audit logs or audit configuration.\n- Requirement: NOT SATISFIED \u2014 No static evidence of deletion controls for audit information."
+  },
+  "APSC-DV-001310": {
+    "status": "Not Applicable",
+    "evidence": "Control applies only if the application provides a distinct audit tool or audit tool functionality.\n- No evidence of a distinct audit tool, audit log viewer, or audit tool submodule is present in the code or documentation.\n- No separate executable, UI, or API for audit tool functionality is described.\n- Requirement: NOT APPLICABLE \u2014 No audit tool functionality present in application."
+  },
+  "APSC-DV-001320": {
+    "status": "Not Applicable",
+    "evidence": "Control applies only if the application provides a distinct audit tool or audit tool functionality.\n- No evidence of a distinct audit tool, audit log viewer, or audit tool submodule is present in the code or documentation.\n- No separate executable, UI, or API for audit tool functionality is described.\n- Requirement: NOT APPLICABLE \u2014 No audit tool functionality present in application."
+  },
+  "APSC-DV-001330": {
+    "status": "Not Applicable",
+    "evidence": "Control applies only if the application provides a distinct audit tool or audit tool functionality.\n- No evidence of a distinct audit tool, audit log viewer, or audit tool submodule is present in the code or documentation.\n- No separate executable, UI, or API for audit tool functionality is described.\n- Requirement: NOT APPLICABLE \u2014 No audit tool functionality present in application."
+  },
+  "APSC-DV-001340": {
+    "status": "Not Applicable",
+    "evidence": "Control applies only if the application includes a built-in backup capability for audit records.\n- No evidence of a built-in backup feature for audit logs is present in the code or documentation.\n- No backup settings or backup scheduling for audit logs are described.\n- Requirement: NOT APPLICABLE \u2014 No built-in audit log backup capability present in application."
+  },
+  "APSC-DV-001350": {
+    "status": "Open",
+    "evidence": "Control requires cryptographic mechanisms (e.g., hash, message digest) to protect audit log integrity.\n- No evidence of cryptographic integrity checks (hashing, signing) for audit logs is present in the code or documentation.\n- No mention of integration with a centralized audit log solution that provides cryptographic integrity.\n- Requirement: NOT SATISFIED \u2014 No static evidence of cryptographic integrity protection for audit logs."
+  },
+  "APSC-DV-001360": {
+    "status": "Not Applicable",
+    "evidence": "Control requires separate audit tools (executables or libraries) for viewing/manipulating logs to be cryptographically hashed. \n- No evidence of separate audit tool binaries or scripts for log viewing/manipulation in the provided file manifest or codebase. \n- Logging and audit functionality appears to be integrated into the main application and API services (e.g., FastAPI endpoints, logging_config.py), not as standalone tools. \n- No static artifacts (e.g., hash files, checksum scripts, or documentation of such a process) found for audit tool integrity. \n- Requirement: NOT APPLICABLE \u2014 application does not provide separate audit tools as file-oriented executables or libraries."
+  },
+  "APSC-DV-001370": {
+    "status": "Not Applicable",
+    "evidence": "Control requires periodic validation of audit tool integrity via cryptographic hash checks. \n- No separate audit tool binaries or scripts for log viewing/manipulation are present in the codebase or deployment artifacts. \n- No static evidence of a process or mechanism for periodic hash validation of audit tools. \n- Logging and audit functionality is integrated into the main application, not as a separate tool. \n- Requirement: NOT APPLICABLE \u2014 application does not provide separate audit tools as file-oriented executables or libraries."
+  },
+  "APSC-DV-001390": {
+    "status": "Not Applicable",
+    "evidence": "Control requires the application to prohibit user installation of software/components unless explicitly privileged. \n- No evidence in the UI, API, or documentation of any feature allowing users to install software, plugins, modules, or extensions. \n- All deployment and extension mechanisms (e.g., Docker Compose, Kubernetes, AWS CloudFormation) are administrator/infrastructure controlled. \n- No code paths, endpoints, or UI elements for user-driven installation of software components. \n- Requirement: NOT APPLICABLE \u2014 application does not provide user-facing software installation or extension capability."
+  },
+  "APSC-DV-001410": {
+    "status": "Open",
+    "evidence": "Control requires access restrictions on application configuration changes.\n- File: api/app/config.py \u2014 configuration is loaded from environment variables and .env files, e.g., `model_config = SettingsConfigDict(env_file=\".env\")`.\n- File: api/README.md \u2014 instructs users to copy `.env.example` to `.env` and edit configuration, but does not specify file permission requirements or access controls.\n- File: deploy/aws/iris-stack.yaml \u2014 EC2 UserData script sets permissions on environment files: `chmod 600 \"${ENV_FILE}\"` for `api/.env`.\n- No evidence of application-level UI or API for configuration changes; all configuration is file-based or via environment variables.\n- No explicit documentation or code for restricting access to configuration files to only authorized users (e.g., application administrators).\n- Requirement: PARTIALLY SATISFIED \u2014 OS-level script sets restrictive permissions on `.env` file, but no evidence of comprehensive access restriction enforcement or audit for all configuration files. Application-level configuration change interface does not exist."
+  },
+  "APSC-DV-001420": {
+    "status": "Open",
+    "evidence": "Control requires auditing who makes configuration changes.\n- File: api/app/config.py \u2014 configuration is loaded from environment variables and `.env` files; no code for auditing changes.\n- File: deploy/aws/iris-stack.yaml \u2014 UserData script copies `.env.example` to `.env` and sets permissions, but does not log user identity for changes.\n- No evidence of audit logging for configuration file modifications or user identity tracking in the application or deployment scripts.\n- No application-level configuration change interface exists; all changes are made via file edits or environment variables.\n- Requirement: NOT SATISFIED \u2014 no mechanism to log or audit which user account makes configuration changes."
+  },
+  "APSC-DV-001430": {
+    "status": "Open",
+    "evidence": "Control requires the application to prevent installation of unsigned patches/components.\n- File: README.md, api/README.md \u2014 all patching and deployment is performed via Docker images, Kubernetes manifests, and AWS CloudFormation templates.\n- No evidence of digital signature verification or hash validation for application components or patches prior to installation.\n- No static artifacts (scripts, config, documentation) describing a process to verify digital signatures or hashes of application components before deployment.\n- Requirement: NOT SATISFIED \u2014 no mechanism to prevent installation of unsigned patches or to verify digital signatures/hashes of components."
+  },
+  "APSC-DV-001440": {
+    "status": "Open",
+    "evidence": "Control requires limiting privileges to change software libraries.\n- File: api/README.md \u2014 application libraries are installed via Docker image build or pip/conda in a controlled environment.\n- File: deploy/aws/iris-stack.yaml \u2014 EC2 UserData script clones the repository and builds the stack as root, but does not specify file permissions for application library directories.\n- No evidence of OS-level file permission enforcement on application library directories (e.g., `app/`, `venv/`, or site-packages) beyond default Docker/container isolation.\n- No application-level functionality for updating or extending libraries at runtime.\n- Requirement: PARTIALLY SATISFIED \u2014 containerization limits access, but no explicit file permission settings or documentation restricting write access to libraries to only authorized users."
+  },
+  "APSC-DV-001460": {
+    "status": "Open",
+    "evidence": "Control requires a vulnerability assessment process and retention of scan results.\n- File: README.md \u2014 section 'End-to-End Testing' describes Playwright E2E tests and accessibility checks, but not vulnerability scanning.\n- File: .github/workflows/api-code-quality.yml, .github/workflows/ui-code-quality.yml (not included in full) \u2014 likely run linting and code quality checks, but no explicit mention of vulnerability scanning tools (e.g., Snyk, Trivy, Bandit, etc.).\n- No static artifacts (scan reports, configuration files for vulnerability scanners, or documentation of a vulnerability assessment process) found in the provided files.\n- Requirement: NOT SATISFIED \u2014 no evidence of application vulnerability assessment or scan result retention."
+  },
+  "APSC-DV-001480": {
+    "status": "Open",
+    "evidence": "Control requires prevention of program execution except as authorized by policy.\n- File: README.md \u2014 describes deployment via Docker Compose, Kubernetes, and AWS CloudFormation; no mention of application-level execution restriction mechanisms.\n- File: deploy/aws/iris-stack.yaml \u2014 EC2 UserData script installs and runs only the IRIS stack; no evidence of OS-level execution restriction policies (e.g., AppArmor, SELinux, AppLocker) or application-level RBAC for program execution.\n- No static policy files or configuration for execution restriction found.\n- Requirement: NOT SATISFIED \u2014 no evidence of enforcement of program execution restrictions in accordance with organizational policy."
+  },
+  "APSC-DV-001490": {
+    "status": "Not Applicable",
+    "evidence": "Control requires a deny-all, permit-by-exception (whitelist) policy for execution of authorized software programs, applicable to configuration management or similar system-process-managing applications.\n- Application is not a configuration management system or system process manager; it is a web-based AI maintenance assistance platform.\n- No evidence of application-level process execution management or whitelisting capability.\n- Requirement: NOT APPLICABLE \u2014 application is not a configuration management or system process management tool."
+  },
+  "APSC-DV-001500": {
+    "status": "Open",
+    "evidence": "Control requires disabling non-essential application capabilities.\n- File: README.md \u2014 describes modular architecture and Docker Compose overlays for different environments (dev, lambda, prod), but does not enumerate or document disabling of non-essential features.\n- File: api/README.md \u2014 describes optional development features (e.g., DISABLE_AUTH=True), but no evidence of a process or configuration for disabling unused modules or services in production.\n- No static configuration or documentation listing which features are considered non-essential and how they are disabled in production deployments.\n- Requirement: NOT SATISFIED \u2014 no evidence of explicit disabling of non-essential application capabilities."
+  },
+  "APSC-DV-001510": {
+    "status": "Open",
+    "evidence": "Control requires use of only PPSM CAL-approved ports and protocols.\n- File: README.md \u2014 documents service ports: PostgreSQL (5432), Keycloak (8080), API (5000), UI (3000), Qdrant (6333/6334).\n- File: deploy/aws/iris-stack.yaml \u2014 security groups allow 443 (ALB), 22 (SSH), 3000 (UI), 5432 (Postgres); ALB forwards 443 to 3000.\n- No static mapping or documentation cross-referencing these ports/protocols to the PPSM CAL.\n- Requirement: PARTIALLY SATISFIED \u2014 ports are documented, but no evidence of explicit PPSM CAL compliance verification."
+  },
+  "APSC-DV-001520": {
+    "status": "Open",
+    "evidence": "Control requires reauthentication when user privilege is escalated or role is changed.\n- File: api/README.md \u2014 describes Keycloak-based authentication and RBAC, but no evidence of enforced reauthentication on role change or privilege escalation.\n- No code or configuration found for session reauthentication triggers on sensitive actions.\n- Requirement: NOT SATISFIED \u2014 no evidence of enforced reauthentication on role change or privilege escalation."
+  },
+  "APSC-DV-001530": {
+    "status": "Open",
+    "evidence": "Control requires devices (e.g., gateways, firewalls) to periodically reauthenticate.\n- File: api/README.md, api/app/config.py \u2014 no configuration or code for device authentication or periodic device reauthentication.\n- No evidence of device session management or reauthentication interval enforcement.\n- Requirement: NOT SATISFIED \u2014 no evidence of device reauthentication enforcement."
+  },
+  "APSC-DV-001540": {
+    "status": "Not a Finding",
+    "evidence": "Control requires unique identification and authentication of organizational users.\n- File: api/README.md \u2014 describes Keycloak integration for authentication and authorization, with unique user accounts and JWT-based authentication.\n  - Example: `KEYCLOAK_URL=http://localhost:8080`, `KEYCLOAK_REALM=dev`, `KEYCLOAK_CLIENT_ID=dev-client`\n  - JWT tokens are issued per user and verified by the API: 'The API verifies JWT tokens using Keycloak's public keys (JWKS) without requiring a client secret.'\n  - Role-based access control (RBAC) is enforced via JWT claims.\n- File: README.md \u2014 Keycloak is the identity provider for both UI and API, with SSO and RBAC.\n- Requirement: SATISFIED \u2014 unique user identification and authentication is enforced via Keycloak SSO and JWT tokens."
+  },
+  "APSC-DV-001550": {
+    "status": "Open",
+    "evidence": "Control requires multifactor (Alt. Token) authentication for network access to privileged accounts.\n- File: api/README.md \u2014 describes Keycloak-based authentication and RBAC, but no evidence of multifactor authentication (MFA) or Alt. Token enforcement for privileged accounts.\n- No configuration or documentation for CAC, Alt. Token, or MFA integration in Keycloak or the application.\n- Requirement: NOT SATISFIED \u2014 no evidence of multifactor or Alt. Token authentication for privileged accounts."
+  },
+  "APSC-DV-001560": {
+    "status": "Open",
+    "evidence": "Control requires acceptance of Personal Identity Verification (PIV) credentials (e.g., CAC).\n- File: api/README.md, README.md \u2014 Keycloak is used for authentication, but no evidence of CAC/PIV or certificate-based authentication configuration.\n- No static configuration, documentation, or code for enabling CAC/PIV authentication in Keycloak or the application.\n- Requirement: NOT SATISFIED \u2014 no evidence of CAC/PIV credential acceptance."
+  },
+  "APSC-DV-001570": {
+    "status": "Open",
+    "evidence": "Control requires electronic verification of PIV credentials (e.g., CAC PIN entry and certificate validation).\n- File: api/README.md, README.md \u2014 Keycloak is used for authentication, but no evidence of CAC/PIV or certificate-based authentication configuration or PIN verification.\n- No static configuration, documentation, or code for enabling CAC/PIV authentication in Keycloak or the application.\n- Requirement: NOT SATISFIED \u2014 no evidence of electronic verification of PIV credentials."
+  },
+  "APSC-DV-001580": {
+    "status": "Open",
+    "evidence": "Control requires multifactor (CAC, Alt. Token) authentication for network access to non-privileged accounts.\n- File: api/README.md, README.md \u2014 Keycloak is used for authentication, but no evidence of CAC, Alt. Token, or MFA configuration for non-privileged accounts.\n- No static configuration, documentation, or code for enabling CAC/Alt. Token authentication in Keycloak or the application.\n- Requirement: NOT SATISFIED \u2014 no evidence of multifactor authentication for non-privileged accounts."
+  },
+  "APSC-DV-001590": {
+    "status": "Open",
+    "evidence": "Control requires multifactor (Alt. Token) authentication for local access to privileged accounts.\n- File: api/README.md, README.md \u2014 Keycloak is used for authentication, but no evidence of Alt. Token or MFA configuration for privileged accounts for local access.\n- No static configuration, documentation, or code for enabling Alt. Token authentication in Keycloak or the application.\n- Requirement: NOT SATISFIED \u2014 no evidence of Alt. Token multifactor authentication for local privileged access."
+  },
+  "APSC-DV-001600": {
+    "status": "Open",
+    "evidence": "Control requires multifactor authentication (e.g., CAC, Alt. Token) for local access to nonprivileged accounts.\n- File: deploy/keycloak/dev-realm.json \u2014 authentication is via Keycloak with password policy: \"length(15) and notUsername and passwordHistory(3) and hashIterations(27500)\"\n- No evidence of CAC, PIV, or certificate-based authentication enforcement (e.g., no CLIENT-CERT, no x509 mappers, no certificate login flows)\n- File: api/README.md \u2014 authentication is via Keycloak using username/password and JWT tokens; no mention of multifactor or certificate-based authentication\n- Requirement: NOT SATISFIED \u2014 static configuration only enforces password authentication, not multifactor (CAC/Alt. Token) authentication"
+  },
+  "APSC-DV-001610": {
+    "status": "Not Applicable",
+    "evidence": "Control requires that if group/shared accounts are used, individual authentication must precede group authentication.\n- File: deploy/keycloak/dev-realm.json \u2014 all users are individually defined with unique usernames and emails; no evidence of group/shared accounts for authentication\n- File: api/README.md \u2014 authentication is via individual Keycloak accounts; RBAC is enforced per user\n- Requirement: NOT APPLICABLE \u2014 application does not use group or shared accounts for authentication"
+  },
+  "APSC-DV-001620": {
+    "status": "Open",
+    "evidence": "Control requires replay-resistant authentication mechanisms (e.g., TLS 1.2+, Kerberos, IPSEC, SSH) for privileged accounts.\n- File: deploy/keycloak/dev-realm.json \u2014 authentication is via Keycloak with password policy and JWT tokens; no explicit evidence of TLS enforcement (\"sslRequired\": \"none\")\n- File: api/README.md \u2014 JWT tokens are used, signed with RS256, but no evidence of TLS enforcement for API endpoints\n- File: deploy/aws/iris-stack.yaml \u2014 ALB is configured for HTTPS (port 443) with ACM certificate, but Keycloak's internal config does not require SSL\n- Requirement: PARTIALLY SATISFIED \u2014 JWT tokens are replay-resistant, and ALB uses HTTPS, but Keycloak realm does not require SSL (\"sslRequired\": \"none\"); cannot confirm end-to-end TLS enforcement for all privileged authentication traffic"
+  },
+  "APSC-DV-001630": {
+    "status": "Open",
+    "evidence": "Control requires replay-resistant authentication mechanisms for nonprivileged accounts (TLS 1.2+, Kerberos, etc.).\n- File: deploy/keycloak/dev-realm.json \u2014 \"sslRequired\": \"none\" (SSL/TLS not enforced at the realm level)\n- File: api/README.md \u2014 JWT-based authentication, but no explicit evidence of TLS enforcement for API endpoints\n- File: deploy/aws/iris-stack.yaml \u2014 ALB is configured for HTTPS (port 443) with ACM certificate, but backend Keycloak config does not require SSL\n- Requirement: PARTIALLY SATISFIED \u2014 JWT tokens are replay-resistant, and ALB uses HTTPS, but Keycloak realm does not require SSL; cannot confirm all authentication traffic is protected by TLS"
+  },
+  "APSC-DV-001640": {
+    "status": "Open",
+    "evidence": "Control requires mutual authentication (client certificate) when endpoint device non-repudiation is required.\n- File: deploy/keycloak/dev-realm.json \u2014 no evidence of mutual authentication or client certificate requirement (no CLIENT-CERT, no x509 mappers)\n- File: deploy/aws/iris-stack.yaml \u2014 ALB is configured for HTTPS, but no evidence of mutual TLS (client certificate) enforcement\n- Requirement: NOT SATISFIED \u2014 no static evidence of mutual authentication configuration"
+  },
+  "APSC-DV-001650": {
+    "status": "Not Applicable",
+    "evidence": "Control requires authentication of all network-connected endpoint devices (SOA/web services context).\n- File: README.md, api/README.md \u2014 application is an end-user interactive system (UI + API), not a service-oriented architecture exposing web services to remote devices\n- No evidence of remote device/service consumer authentication flows\n- Requirement: NOT APPLICABLE \u2014 application is not a SOA/web service provider to remote devices"
+  },
+  "APSC-DV-001660": {
+    "status": "Not Applicable",
+    "evidence": "Control requires mutual SSL/TLS authentication for SOA applications handling non-releasable data.\n- File: README.md, api/README.md \u2014 application is not a service-oriented application exposing endpoints to other systems; it is an end-user interactive system\n- No evidence of mutual TLS configuration or SOA endpoints\n- Requirement: NOT APPLICABLE \u2014 application is not a SOA system handling non-releasable data"
+  },
+  "APSC-DV-001670": {
+    "status": "Not Applicable",
+    "evidence": "Control requires device identifiers to be disabled after 35 days of inactivity unless certificate-based authentication is used.\n- File: README.md, api/README.md, deploy/keycloak/dev-realm.json \u2014 no evidence of device authentication or device account management; authentication is user-based\n- Requirement: NOT APPLICABLE \u2014 application does not authenticate devices"
+  },
+  "APSC-DV-001680": {
+    "status": "Not a Finding",
+    "evidence": "Control requires a minimum 15-character password length.\n- File: deploy/keycloak/dev-realm.json \u2014 \"passwordPolicy\": \"length(15) and notUsername and passwordHistory(3) and hashIterations(27500)\"\n- File: security-documents/keycloak.json \u2014 identical password policy\n- 15-character minimum enforced at the IdP (Keycloak) level\n- Requirement: SATISFIED \u2014 password length policy is enforced via Keycloak realm configuration"
+  },
+  "APSC-DV-001690": {
+    "status": "Open",
+    "evidence": "Control requires at least one uppercase character in passwords.\n- File: deploy/keycloak/dev-realm.json \u2014 \"passwordPolicy\": \"length(15) and notUsername and passwordHistory(3) and hashIterations(27500)\"\n- No evidence of an uppercase character requirement (e.g., no \"upperCase\" or similar policy)\n- Requirement: NOT SATISFIED \u2014 password complexity does not require uppercase characters"
+  },
+  "APSC-DV-001700": {
+    "status": "Open",
+    "evidence": "Control requires at least one lowercase character in passwords.\n- File: deploy/keycloak/dev-realm.json \u2014 \"passwordPolicy\": \"length(15) and notUsername and passwordHistory(3) and hashIterations(27500)\"\n- No evidence of a lowercase character requirement (e.g., no \"lowerCase\" or similar policy)\n- Requirement: NOT SATISFIED \u2014 password complexity does not require lowercase characters"
+  },
+  "APSC-DV-001710": {
+    "status": "Open",
+    "evidence": "Control requires at least one numeric character in passwords.\n- File: deploy/keycloak/dev-realm.json \u2014 \"passwordPolicy\": \"length(15) and notUsername and passwordHistory(3) and hashIterations(27500)\"\n- No evidence of a numeric character requirement (e.g., no \"digits\" or similar policy)\n- Requirement: NOT SATISFIED \u2014 password complexity does not require numeric characters"
+  },
+  "APSC-DV-001720": {
+    "status": "Open",
+    "evidence": "Control requires at least one special character in passwords.\n- File: deploy/keycloak/dev-realm.json \u2014 \"passwordPolicy\": \"length(15) and notUsername and passwordHistory(3) and hashIterations(27500)\"\n- No evidence of a special character requirement (e.g., no \"specialChars\" or similar policy)\n- Requirement: NOT SATISFIED \u2014 password complexity does not require special characters"
+  },
+  "APSC-DV-001730": {
+    "status": "Open",
+    "evidence": "Control requires at least eight characters to be changed when passwords are changed.\n- File: deploy/keycloak/dev-realm.json \u2014 \"passwordPolicy\": \"length(15) and notUsername and passwordHistory(3) and hashIterations(27500)\"\n- No evidence of a policy enforcing minimum changed characters (e.g., no \"forceExpiredPasswordChange\" or similar)\n- Requirement: NOT SATISFIED \u2014 password change policy does not enforce minimum changed characters"
+  },
+  "APSC-DV-001740": {
+    "status": "Not a Finding",
+    "evidence": "Control requires passwords to be stored only as cryptographic representations (not plaintext or MD5).\n- File: deploy/keycloak/dev-realm.json \u2014 \"passwordPolicy\": \"length(15) and notUsername and passwordHistory(3) and hashIterations(27500)\"\n- Keycloak uses PBKDF2 with per-user salt and 27,500 iterations (\"hashIterations(27500)\")\n- No use of MD5; passwords are never stored in plaintext\n- Requirement: SATISFIED \u2014 cryptographic password storage enforced via Keycloak realm policy"
+  },
+  "APSC-DV-001750": {
+    "status": "Open",
+    "evidence": "Control requires passwords to be transmitted only over cryptographically protected channels (e.g., TLS).\n- File: deploy/keycloak/dev-realm.json \u2014 \"sslRequired\": \"none\" (SSL/TLS not enforced at the realm level)\n- File: deploy/aws/iris-stack.yaml \u2014 ALB is configured for HTTPS (port 443) with ACM certificate, but Keycloak itself does not require SSL\n- File: api/README.md \u2014 no explicit evidence that API endpoints require HTTPS\n- Requirement: PARTIALLY SATISFIED \u2014 ALB uses HTTPS, but Keycloak realm does not require SSL; cannot confirm all password transmissions are cryptographically protected"
+  },
+  "APSC-DV-001760": {
+    "status": "Open",
+    "evidence": "Control requires a minimum password lifetime of 24 hours.\n- File: deploy/keycloak/dev-realm.json \u2014 \"passwordPolicy\": \"length(15) and notUsername and passwordHistory(3) and hashIterations(27500)\"\n- No evidence of a minimum password lifetime policy (e.g., no \"passwordLifetime\" or similar)\n- Requirement: NOT SATISFIED \u2014 minimum password lifetime is not enforced"
+  },
+  "APSC-DV-001770": {
+    "status": "Open",
+    "evidence": "Control requires a maximum password lifetime of 60 days.\n- File: deploy/keycloak/dev-realm.json \u2014 \"passwordPolicy\": \"length(15) and notUsername and passwordHistory(3) and hashIterations(27500)\"\n- No evidence of a maximum password lifetime policy (e.g., no \"passwordExpiration\" or similar)\n- Requirement: NOT SATISFIED \u2014 maximum password lifetime is not enforced"
+  },
+  "APSC-DV-001780": {
+    "status": "Open",
+    "evidence": "Control requires prohibition of password reuse for a minimum of five generations.\n- File: deploy/keycloak/dev-realm.json \u2014 \"passwordPolicy\": \"length(15) and notUsername and passwordHistory(3) and hashIterations(27500)\"\n- Only \"passwordHistory(3)\" is enforced (prevents reuse of last 3 passwords)\n- Requirement: NOT SATISFIED \u2014 password reuse is only prohibited for 3 generations, not 5"
+  },
+  "APSC-DV-001790": {
+    "status": "Open",
+    "evidence": "Control requires support for temporary passwords and forced change on first logon.\n- File: deploy/keycloak/dev-realm.json \u2014 user credentials include \"temporary\": false for all users; no evidence of temporary password enforcement or forced change on first use\n- No evidence of a workflow for temporary passwords in static configuration\n- Requirement: NOT SATISFIED \u2014 temporary password and forced change on first use not enforced"
+  },
+  "APSC-DV-001795": {
+    "status": "Not a Finding",
+    "evidence": "The application uses Keycloak for authentication and user management, with password change/reset policies enforced by Keycloak realm configuration.\n- File: deploy/keycloak/dev-realm.json \u2014 \"resetPasswordAllowed\": false\n- File: deploy/keycloak/dev-realm.json \u2014 \"editUsernameAllowed\": false\n- File: deploy/keycloak/dev-realm.json \u2014 passwordPolicy: \"length(15) and notUsername and passwordHistory(3) and hashIterations(27500)\"\n- File: deploy/keycloak/dev-realm.json \u2014 users array: each user has their own credentials, and there is no evidence of cross-user password change capability\n- File: security-documents/keycloak.json \u2014 mirrors the above settings\n- The Keycloak admin console is the only interface for password resets, and only the user or an admin can change their own password\n- Requirement: SATISFIED \u2014 Keycloak realm configuration prohibits users from changing or resetting other users' passwords"
+  },
+  "APSC-DV-001800": {
+    "status": "Open",
+    "evidence": "The application uses Keycloak for authentication and session management. However, there is no explicit evidence in the provided static configuration or code that user sessions are forcibly terminated upon account deletion.\n- File: deploy/keycloak/dev-realm.json \u2014 Keycloak manages users and sessions, but no explicit session termination policy is shown for account deletion\n- File: api/README.md \u2014 API relies on Keycloak for authentication, but session termination on user deletion is not described\n- Requirement: PARTIALLY SATISFIED \u2014 Keycloak supports session invalidation on user deletion, but no static configuration or code confirms this is enforced in this deployment"
+  },
+  "APSC-DV-001810": {
+    "status": "Open",
+    "evidence": "The application uses Keycloak for authentication with OpenID Connect, which can support PKI-based authentication, but there is no explicit evidence of certificate path validation to a trust anchor in the provided configuration.\n- File: deploy/keycloak/dev-realm.json \u2014 protocol: \"openid-connect\", but no explicit PKI/certificate validation settings\n- File: api/README.md \u2014 JWT-based authentication via Keycloak, no mention of PKI/certificate path validation\n- Requirement: PARTIALLY SATISFIED \u2014 OpenID Connect can support PKI, but no evidence of certificate path construction or validation to a trust anchor is present"
+  },
+  "APSC-DV-001820": {
+    "status": "Open",
+    "evidence": "The application does not perform code signing or cryptographic operations requiring a private key at the application level. However, SSL/TLS private keys are referenced in the deployment bootstrap script and are retrieved from AWS Secrets Manager.\n- File: deploy/aws/iris-stack.yaml \u2014 SSL_CERT and SSL_KEY are retrieved from AWS Secrets Manager and written to /opt/iris/ui/ssl/nginx.crt and /opt/iris/ui/ssl/nginx.key\n- File: deploy/aws/iris-stack.yaml \u2014 chmod 644 for crt, chmod 600 for key (restricts key to owner)\n- No evidence of application-level access controls for private keys, but OS-level permissions are set\n- Requirement: PARTIALLY SATISFIED \u2014 Private key access is restricted at the OS level, but no application-level access control is shown"
+  },
+  "APSC-DV-001830": {
+    "status": "Open",
+    "evidence": "The application uses Keycloak for authentication and authorization, mapping users to roles and groups. However, there is no explicit evidence of PKI-based authentication mapping certificate data to users/groups.\n- File: deploy/keycloak/dev-realm.json \u2014 users have realmRoles and groups, but no certificate mapping is shown\n- File: api/README.md \u2014 JWT-based authentication, no mention of certificate mapping\n- Requirement: PARTIALLY SATISFIED \u2014 User/group mapping is present, but not specifically for PKI/certificate-based authentication"
+  },
+  "APSC-DV-001840": {
+    "status": "Open",
+    "evidence": "No evidence of certificate revocation checking or local CRL cache implementation is present in the provided configuration or code.\n- File: deploy/keycloak/dev-realm.json \u2014 no CRL or OCSP settings\n- File: api/README.md \u2014 no mention of certificate revocation or CRL\n- Requirement: NOT SATISFIED \u2014 No static evidence of CRL import or revocation checking"
+  },
+  "APSC-DV-001850": {
+    "status": "Not a Finding",
+    "evidence": "The application uses Keycloak for authentication, and the custom Keycloak login theme is configured to obfuscate password input fields.\n- File: deploy/keycloak/themes/README.md \u2014 login-username.ftl: Password field with eye icon toggle button, input type=\"password\"\n- File: deploy/keycloak/dev-realm.json \u2014 loginTheme: \"iris\"\n- File: deploy/keycloak/themes/README.md \u2014 Passwords are not displayed as clear text; obfuscation is enforced by the theme\n- Requirement: SATISFIED \u2014 Passwords/PINs are not displayed as clear text during entry"
+  },
+  "APSC-DV-001860": {
+    "status": "Open",
+    "evidence": "The application uses cryptographic modules for JWT verification (Keycloak) and for S3/AWS operations, but there is no explicit evidence that only FIPS-approved cryptographic modules are used.\n- File: api/README.md \u2014 JWT verification uses RS256 (asymmetric), but no FIPS module enforcement is shown\n- File: deploy/aws/iris-stack.yaml \u2014 AWS services are used, which are FIPS 140-2 validated in GovCloud, but no explicit enforcement in application code\n- Requirement: PARTIALLY SATISFIED \u2014 AWS GovCloud and Keycloak can be FIPS-compliant, but no explicit static enforcement is shown"
+  },
+  "APSC-DV-001870": {
+    "status": "Not a Finding",
+    "evidence": "The application uses Keycloak for authentication, which uniquely identifies and authenticates all users, including non-organizational users if present.\n- File: deploy/keycloak/dev-realm.json \u2014 users array: each user has a unique username and email\n- File: api/README.md \u2014 All endpoints except /health require authentication via JWT token from Keycloak\n- File: api/app/config.py \u2014 DISABLE_AUTH: bool = False (default)\n- Requirement: SATISFIED \u2014 All users are uniquely identified and authenticated via Keycloak"
+  },
+  "APSC-DV-001880": {
+    "status": "Open",
+    "evidence": "No evidence is present that the application is configured to accept PIV credentials from other federal agencies.\n- File: deploy/keycloak/dev-realm.json \u2014 protocol: \"openid-connect\", but no PIV or external IdP configuration\n- File: api/README.md \u2014 No mention of PIV or external credential acceptance\n- Requirement: NOT SATISFIED \u2014 No static evidence of PIV credential acceptance"
+  },
+  "APSC-DV-001890": {
+    "status": "Open",
+    "evidence": "No evidence is present that the application verifies PIV credentials from other federal agencies.\n- File: deploy/keycloak/dev-realm.json \u2014 no PIV verification configuration\n- File: api/README.md \u2014 no mention of PIV verification\n- Requirement: NOT SATISFIED \u2014 No static evidence of PIV credential verification"
+  },
+  "APSC-DV-001900": {
+    "status": "Open",
+    "evidence": "No evidence is present that the application is configured to accept FICAM-approved third-party credentials.\n- File: deploy/keycloak/dev-realm.json \u2014 protocol: \"openid-connect\", but no external IdP or FICAM configuration\n- File: api/README.md \u2014 no mention of FICAM or third-party credential acceptance\n- Requirement: NOT SATISFIED \u2014 No static evidence of FICAM-approved credential acceptance"
+  },
+  "APSC-DV-001910": {
+    "status": "Open",
+    "evidence": "No evidence is present that the application conforms to FICAM-issued profiles (e.g., SAML, OpenID with FICAM IdP).\n- File: deploy/keycloak/dev-realm.json \u2014 protocol: \"openid-connect\", but no FICAM profile or IdP configuration\n- File: api/README.md \u2014 no mention of FICAM profiles\n- Requirement: NOT SATISFIED \u2014 No static evidence of FICAM profile conformance"
+  },
+  "APSC-DV-001930": {
+    "status": "Not Applicable",
+    "evidence": "The application does not provide non-local maintenance or diagnostic sessions as part of its functionality. There are no remote maintenance features or admin interfaces exposed for non-local maintenance.\n- File: README.md \u2014 No mention of remote maintenance or diagnostic session capability\n- File: api/README.md \u2014 No mention of remote maintenance functions\n- Requirement: NOT APPLICABLE \u2014 No non-local maintenance session capability present"
+  },
+  "APSC-DV-001940": {
+    "status": "Not Applicable",
+    "evidence": "The application does not provide non-local maintenance or diagnostic sessions as part of its functionality. There are no remote maintenance features or admin interfaces exposed for non-local maintenance.\n- File: README.md \u2014 No mention of remote maintenance or diagnostic session capability\n- File: api/README.md \u2014 No mention of remote maintenance functions\n- Requirement: NOT APPLICABLE \u2014 No non-local maintenance session capability present"
+  },
+  "APSC-DV-001950": {
+    "status": "Not Applicable",
+    "evidence": "The application does not provide non-local maintenance or diagnostic sessions as part of its functionality. There are no remote maintenance features or admin interfaces exposed for non-local maintenance.\n- File: README.md \u2014 No mention of remote maintenance or diagnostic session capability\n- File: api/README.md \u2014 No mention of remote maintenance functions\n- Requirement: NOT APPLICABLE \u2014 No non-local maintenance session capability present"
+  },
+  "APSC-DV-001960": {
+    "status": "Not Applicable",
+    "evidence": "The application does not provide non-local maintenance or diagnostic sessions as part of its functionality. There are no remote maintenance features or admin interfaces exposed for non-local maintenance.\n- File: README.md \u2014 No mention of remote maintenance or diagnostic session capability\n- File: api/README.md \u2014 No mention of remote maintenance functions\n- Requirement: NOT APPLICABLE \u2014 No non-local maintenance session capability present"
+  },
+  "APSC-DV-001970": {
+    "status": "Not Applicable",
+    "evidence": "The application does not provide non-local maintenance or diagnostic sessions as part of its functionality. There are no remote maintenance features or admin interfaces exposed for non-local maintenance.\n- File: README.md \u2014 No mention of remote maintenance or diagnostic session capability\n- File: api/README.md \u2014 No mention of remote maintenance functions\n- Requirement: NOT APPLICABLE \u2014 No non-local maintenance session capability present"
+  },
+  "APSC-DV-001980": {
+    "status": "Not Applicable",
+    "evidence": "The application does not provide non-local maintenance or diagnostic sessions as part of its functionality. There are no remote maintenance features or admin interfaces exposed for non-local maintenance.\n- File: README.md \u2014 No mention of remote maintenance or diagnostic session capability\n- File: api/README.md \u2014 No mention of remote maintenance functions\n- Requirement: NOT APPLICABLE \u2014 No non-local maintenance session capability present"
+  },
+  "APSC-DV-001995": {
+    "status": "Open",
+    "evidence": "No static evidence of race condition testing or analysis tool configuration is present in the provided code or documentation.\n- File: README.md \u2014 No mention of race condition testing or static analysis tools for race conditions\n- File: api/README.md \u2014 No mention of race condition testing or code review results\n- Requirement: NOT SATISFIED \u2014 No evidence of race condition testing or remediation"
+  },
+  "APSC-DV-002000": {
+    "status": "Open",
+    "evidence": "Control requires: Application must terminate all network connections associated with a communications session at the end of the session.\n- No explicit session termination logic or network connection teardown is visible in the provided FastAPI router code (api/app/process/router.py) or in the UI code (ui/src/components/video-player/video-player.tsx).\n- The backend appears to be stateless REST API endpoints, with authentication handled via JWT tokens (see api/README.md: 'The API uses JWT-based authentication via Keycloak. Protected endpoints require a valid JWT token in the Authorization header.').\n- No explicit session management or connection teardown is implemented in the provided code. Session management is delegated to Keycloak and the client browser.\n- Requirement: PARTIALLY SATISFIED \u2014 The application appears to use stateless JWT authentication, which does not maintain server-side sessions, but there is no explicit evidence of network connection termination at session end. Full confirmation requires review of server and reverse proxy (e.g., Nginx) configuration and/or runtime observation."
+  },
+  "APSC-DV-002020": {
+    "status": "Open",
+    "evidence": "Control requires: Application must utilize FIPS-validated cryptographic modules when signing application components.\n- No evidence of application component signing (e.g., code signing, artifact signing) is present in the provided source code, Dockerfiles, or deployment scripts.\n- No references to cryptographic signing libraries, FIPS mode, or explicit signing operations are found in api/README.md, api/app/config.py, or any other provided files.\n- No documentation of a code signing process or use of FIPS-validated modules for signing.\n- Requirement: NOT SATISFIED \u2014 No evidence of code signing or FIPS-validated cryptographic modules for signing. If signing is not required per the security plan and risk acceptance is documented, this could be Not a Finding, but no such documentation is present."
+  },
+  "APSC-DV-002030": {
+    "status": "Open",
+    "evidence": "Control requires: Application must utilize FIPS-validated cryptographic modules when generating cryptographic hashes (no MD5/SHA1).\n- In vlm-testing/fpv_analyzer_rag.py: 'import hashlib' and 'file_hash = hashlib.md5(f.read()).hexdigest()' are used for document hash calculation.\n- No evidence of FIPS-validated hash modules or configuration enforcing FIPS mode.\n- No evidence of SHA-256 or stronger hashes being used for security-sensitive operations (only for document deduplication, not for security).\n- Requirement: NOT SATISFIED \u2014 MD5 is used for document hash calculation, which is not FIPS-approved for security purposes. No evidence of FIPS-validated cryptographic modules for hash generation."
+  },
+  "APSC-DV-002040": {
+    "status": "Open",
+    "evidence": "Control requires: Application must utilize FIPS-validated cryptographic modules when protecting unclassified information that requires cryptographic protection.\n- In api/app/config.py, cryptographic configuration is present for AWS S3, Bedrock, and Qdrant, but no explicit FIPS mode or FIPS-validated module enforcement is present.\n- No evidence of FIPS mode being enabled for Python, OpenSSL, or any cryptographic library.\n- No explicit cryptographic protection of data at rest or in transit is visible in the provided code (encryption at rest, TLS configuration, etc. not shown in static code).\n- Requirement: NOT SATISFIED \u2014 No evidence of FIPS-validated cryptographic modules being used for protection of sensitive data. Full confirmation requires review of runtime environment and cloud service configuration."
+  },
+  "APSC-DV-002050": {
+    "status": "Not Applicable",
+    "evidence": "Control requires: Applications making SAML assertions must use FIPS-approved random numbers in the generation of SessionIndex in the SAML element AuthnStatement.\n- No evidence of SAML assertion generation or SAML SessionIndex handling in any provided code (api/README.md, api/app/config.py, vlm-testing/fpv_analyzer_rag.py, etc.).\n- Authentication is handled via Keycloak using OpenID Connect/JWT (see api/README.md: 'The API uses JWT-based authentication via Keycloak.').\n- Requirement: NOT APPLICABLE \u2014 Application does not implement SAML assertions."
+  },
+  "APSC-DV-002150": {
+    "status": "Not a Finding",
+    "evidence": "Control requires: The application user interface must be either physically or logically separated from data storage and management interfaces.\n- The architecture described in README.md and api/README.md shows clear separation:\n  - UI (React, port 3000) is a separate service from API (FastAPI, port 5000).\n  - Database (PostgreSQL) and Keycloak (IAM) are separate containers/services.\n  - Qdrant (vector DB) is a separate service.\n- Docker Compose and AWS CloudFormation (deploy/aws/iris-stack.yaml) define separate network security groups for ALB, EC2, and RDS, with RDS only accessible from EC2 SG.\n- File: deploy/aws/iris-stack.yaml \u2014 RdsSecurityGroup allows Postgres 5432 only from EC2 SG, not from UI or public.\n- File: README.md \u2014 'The docker-compose configuration includes: ... db: PostgreSQL database (port 5432) for Keycloak and application data ... keycloak: Identity and access management service (port 8080) ... iris-api: Backend API service (FastAPI) running on port 5000 ... iris-ui: Frontend UI service (React + Nginx) running on port 3000.'\n- Requirement: SATISFIED \u2014 UI, API, and data storage/management interfaces are logically separated at the network and service level."
+  },
+  "APSC-DV-002210": {
+    "status": "Open",
+    "evidence": "Control requires: The application must set the HTTPOnly flag on session cookies.\n- Authentication is handled via Keycloak (see api/README.md: 'The API uses JWT-based authentication via Keycloak.').\n- No explicit code for setting HTTPOnly on cookies is present in the provided FastAPI code (api/app/process/router.py) or UI code (ui/src/components/video-player/video-player.tsx).\n- Keycloak is responsible for issuing authentication cookies/tokens. The default Keycloak configuration (not shown) typically sets HTTPOnly on session cookies, but this is not confirmed in the provided static artifacts.\n- Requirement: PARTIALLY SATISFIED \u2014 No explicit evidence in application code; confirmation requires review of Keycloak configuration (e.g., deploy/keycloak/dev-realm.json) and/or runtime observation."
+  },
+  "APSC-DV-002220": {
+    "status": "Open",
+    "evidence": "Control requires: The application must set the secure flag on session cookies.\n- Authentication is handled via Keycloak (see api/README.md: 'The API uses JWT-based authentication via Keycloak.').\n- No explicit code for setting the Secure flag on cookies is present in the provided FastAPI or UI code.\n- Keycloak is responsible for session cookies. The Secure flag is typically set when Keycloak is accessed over HTTPS, but this is not statically enforced in the provided configuration.\n- File: deploy/keycloak/keycloak-init-dev.sh \u2014 sets 'sslRequired=none' for master realm, which disables enforcement of HTTPS for Keycloak (for development only).\n- Requirement: NOT SATISFIED \u2014 Secure flag is not enforced in static configuration; Keycloak is configured for HTTP in development. Production configuration must be reviewed for compliance."
+  },
+  "APSC-DV-002230": {
+    "status": "Open",
+    "evidence": "Control requires: The application must not expose session IDs (must be protected in transit).\n- Authentication is via JWT tokens from Keycloak (see api/README.md: 'The API uses JWT-based authentication via Keycloak.').\n- No explicit evidence of TLS/SSL enforcement for API or UI endpoints in the provided code or configuration.\n- File: deploy/aws/iris-stack.yaml \u2014 ALB is configured for HTTPS (port 443) with ACM certificate, but Keycloak is set to allow HTTP (sslRequired=none) in deploy/keycloak/keycloak-init-dev.sh.\n- Requirement: PARTIALLY SATISFIED \u2014 ALB enforces HTTPS for external access, but Keycloak is configured for HTTP in development. Full compliance requires confirmation that all session tokens/cookies are only transmitted over TLS in production."
+  },
+  "APSC-DV-002240": {
+    "status": "Open",
+    "evidence": "Control requires: The application must destroy the session ID value and/or cookie on logoff or browser close.\n- No explicit session destruction logic is present in the provided FastAPI or UI code.\n- Session management is handled by Keycloak (see api/README.md: 'The API uses JWT-based authentication via Keycloak.').\n- No evidence in the provided code that the application explicitly destroys session cookies or tokens on logoff or browser close.\n- Requirement: PARTIALLY SATISFIED \u2014 Session management is delegated to Keycloak, but no explicit evidence of session destruction on logoff/browser close is present in static artifacts."
+  },
+  "APSC-DV-002250": {
+    "status": "Open",
+    "evidence": "Control requires: Applications must use system-generated session identifiers that protect against session fixation.\n- Authentication is via JWT tokens issued by Keycloak (see api/README.md: 'The API uses JWT-based authentication via Keycloak.').\n- No evidence of custom session ID generation or session fixation protection in application code.\n- Keycloak's default behavior is to generate new tokens on login, but this is not confirmed in the provided static configuration.\n- Requirement: PARTIALLY SATISFIED \u2014 Session ID generation is delegated to Keycloak, but no explicit evidence of session fixation protection is present in static artifacts."
+  },
+  "APSC-DV-002260": {
+    "status": "Open",
+    "evidence": "Control requires: Applications must validate session identifiers.\n- Authentication is via JWT tokens validated by FastAPI using Keycloak's JWKS endpoint (see api/README.md: 'The API verifies JWT tokens using Keycloak's public keys (JWKS) without requiring a client secret.').\n- JWT validation is performed for all protected endpoints via dependency injection.\n- File: api/README.md \u2014 'The authentication happens before the endpoint function executes: ... Token is verified using Keycloak's public keys (JWKS) ... If authentication fails, a 401 Unauthorized is returned automatically.'\n- Requirement: SATISFIED \u2014 JWT session identifiers are validated using Keycloak's JWKS, which is a standard and secure method for session validation."
+  },
+  "APSC-DV-002270": {
+    "status": "Not a Finding",
+    "evidence": "Control requires: Applications must not use URL embedded session IDs.\n- Authentication is via JWT tokens in the Authorization header (see api/README.md: 'Protected endpoints require a valid JWT token in the Authorization header.').\n- No evidence of session IDs being transmitted via URL parameters or URL rewriting in the provided FastAPI or UI code.\n- Requirement: SATISFIED \u2014 Session IDs are not embedded in URLs; authentication is handled via headers."
+  },
+  "APSC-DV-002280": {
+    "status": "Open",
+    "evidence": "Control requires: The application must not re-use or recycle session IDs.\n- Authentication is via JWT tokens issued by Keycloak (see api/README.md: 'The API uses JWT-based authentication via Keycloak.').\n- No evidence of session ID re-use or recycling in application code, but also no explicit evidence that new tokens are always issued on login/logout.\n- Requirement: PARTIALLY SATISFIED \u2014 Session management is delegated to Keycloak, but no explicit evidence of session ID non-reuse is present in static artifacts."
+  },
+  "APSC-DV-002290": {
+    "status": "Open",
+    "evidence": "Control requires: The application must generate a unique session identifier using a FIPS 140-2/140-3 approved random number generator.\n- Authentication/session IDs are managed by Keycloak (see api/README.md: 'The API uses JWT-based authentication via Keycloak.').\n- No evidence in application code of custom session ID generation or configuration of FIPS-approved RNG for session IDs.\n- No evidence that Keycloak is configured to use FIPS 140-2/3 RNG for session ID generation.\n- Requirement: NOT SATISFIED \u2014 No evidence of FIPS-approved RNG for session ID generation in static artifacts."
+  },
+  "APSC-DV-002300": {
+    "status": "Open",
+    "evidence": "Control requires: The application must only allow the use of DoD-approved certificate authorities for verification of the establishment of protected sessions.\n- File: deploy/aws/iris-stack.yaml \u2014 ALB is configured for HTTPS with ACM certificate (AcmCertificateArn parameter), but the source of the certificate is not specified in the provided static configuration.\n- No evidence in application code or configuration that only DoD-approved CAs are trusted for TLS connections.\n- Requirement: NOT SATISFIED \u2014 No evidence that only DoD-approved CAs are used for TLS/SSL. Confirmation requires review of ACM certificate source and trust store configuration."
+  },
+  "APSC-DV-002310": {
+    "status": "Open",
+    "evidence": "Control requires: The application must fail to a secure state if system initialization fails, shutdown fails, or aborts fail.\n- No explicit error handling or secure-fail logic is present in the provided FastAPI router code (api/app/process/router.py) or in deployment scripts.\n- No test plans or documentation describing secure failure behavior are present in the provided files.\n- Requirement: NOT SATISFIED \u2014 No evidence of secure failover or secure state on failure in static artifacts."
+  },
+  "APSC-DV-002320": {
+    "status": "Open",
+    "evidence": "Control requires: In the event of a system failure, applications must preserve any information necessary to determine cause of failure and any information necessary to return to operations with least disruption to mission processes.\n- No explicit logging configuration or error event logging is present in the provided FastAPI router code (api/app/process/router.py) or in deployment scripts.\n- File: api/app/process/services/scene_summarization.py \u2014 uses 'from app.logging_config import get_logger', but the actual logging configuration is not included in the provided context.\n- Requirement: PARTIALLY SATISFIED \u2014 Some logging is present in backend services, but no evidence of operational requirements documentation or explicit retention of failure diagnostic information."
+  },
+  "APSC-DV-002330": {
+    "status": "Open",
+    "evidence": "Control requires: The application must protect the confidentiality and integrity of stored information when required by DOD policy or the information owner.\n- Data is stored in AWS S3, PostgreSQL, and Qdrant (see api/app/config.py and README.md).\n- No explicit evidence of encryption at rest or integrity protection for S3 buckets, PostgreSQL, or Qdrant in the provided static configuration.\n- No evidence of DOD policy or data owner requirements being documented or enforced in code.\n- Requirement: NOT SATISFIED \u2014 No evidence of confidentiality/integrity protection for stored data in static artifacts."
+  },
+  "APSC-DV-002340": {
+    "status": "Open",
+    "evidence": "Control requires: The application must implement approved cryptographic mechanisms to prevent unauthorized modification of organization-defined information at rest on organization-defined information system components.\n- Data is stored in AWS S3, PostgreSQL, and Qdrant (see api/app/config.py and README.md).\n- No explicit evidence of encryption at rest or cryptographic integrity mechanisms for stored data in the provided static configuration.\n- No documentation of data owner encryption requirements or DOD policy enforcement.\n- Requirement: NOT SATISFIED \u2014 No evidence of cryptographic mechanisms for data at rest in static artifacts."
+  },
+  "APSC-DV-002350": {
+    "status": "Open",
+    "evidence": "The control requires cryptographic protection of stored DoD information when required by policy or data owner.\n- File: api/README.md \u2014 mentions S3 storage for video and document data, PostgreSQL for session metadata, and Qdrant for vector embeddings, but does not specify encryption at rest settings for these stores.\n- File: deploy/aws/iris-stack.yaml \u2014 S3 bucket resource 'IrisS3Bucket' is created, but no explicit 'BucketEncryption' property is set; RDS instance 'PostgresDB' is created, but no explicit 'StorageEncrypted: true' or KMS key is specified; Qdrant is deployed as a container, with no evidence of encrypted storage configuration.\n- File: api/app/process/services/scene_summarization.py \u2014 processed data is stored in S3, but encryption settings are not referenced in code.\n- File: README.md \u2014 under 'Metadata Storage', 'Structured storage for poses, depth maps, and annotations' is mentioned, but no encryption details.\n- Requirement: PARTIALLY SATISFIED \u2014 S3 and RDS are used, but encryption at rest is not explicitly enforced in the provided static configuration. No evidence of classified data processing or NSA-approved encryption. Further review of S3, RDS, and Qdrant encryption settings is required."
+  },
+  "APSC-DV-002360": {
+    "status": "Not a Finding",
+    "evidence": "The control requires isolation of security functions from non-security functions, typically via RBAC or ACLs.\n- File: api/README.md \u2014 'Keycloak provides enterprise-grade authentication and authorization', 'Role-Based Access Control (RBAC): Fine-grained permissions using atomic and composite roles', 'Admin endpoints (under /admin) require one of the following roles: role_maintainer, role_engineer, admin'.\n- File: api/app/process/router.py \u2014 endpoints use FastAPI dependency injection for authentication, e.g., 'async def admin_endpoint(current_user: AdminUser, ...):', and 'All endpoints except /health require authentication'.\n- File: README.md \u2014 'Keycloak service includes: JWT tokens containing roles and groups for API authorization'.\n- Requirement: SATISFIED \u2014 Security functions (admin endpoints, configuration) are protected by RBAC enforced via Keycloak and FastAPI dependency injection."
+  },
+  "APSC-DV-002370": {
+    "status": "Not Applicable",
+    "evidence": "The control requires separate execution domains for each process (sandboxing, process isolation).\n- File: README.md \u2014 The architecture is microservices-based, with each major component (API, UI, Keycloak, Qdrant, DB) running as a separate Docker container, as described under 'Docker Compose Architecture'.\n- File: docker-compose.dev.yml (referenced in README.md) \u2014 Each service is defined as a separate container.\n- Requirement: NOT APPLICABLE \u2014 The application is deployed as containerized microservices, each in its own isolated execution domain (Docker container), satisfying process isolation by architecture."
+  },
+  "APSC-DV-002380": {
+    "status": "Not a Finding",
+    "evidence": "The control requires prevention of unauthorized information transfer via shared system resources.\n- File: README.md \u2014 'Services are automatically networked and include health checks for reliability. The startup order is: db \u2192 keycloak \u2192 api \u2192 ui.'\n- File: deploy/aws/iris-stack.yaml \u2014 Security groups restrict access: 'RdsSecurityGroup' allows Postgres (5432) only from EC2 SG; 'AlbSecurityGroup' allows 443 from 0.0.0.0/0 to ALB; S3 bucket 'IrisS3Bucket' has 'BlockPublicAcls: true', 'BlockPublicPolicy: true', 'IgnorePublicAcls: true', 'RestrictPublicBuckets: true'.\n- File: pointcloud-project/docker-compose.yml \u2014 Postgres service exposes 5432, but is isolated within the Docker network.\n- Requirement: SATISFIED \u2014 Application data is protected from unauthorized transfer via network segmentation, security groups, and S3 public access blocks."
+  },
+  "APSC-DV-002390": {
+    "status": "Not Applicable",
+    "evidence": "The control applies only to XML-based applications.\n- File: README.md, api/README.md, api/app/process/router.py \u2014 No evidence of XML parsing, XML web services, or XML-based APIs. All APIs are RESTful and use JSON.\n- Requirement: NOT APPLICABLE \u2014 The application does not utilize XML or XML-based services."
+  },
+  "APSC-DV-002400": {
+    "status": "Open",
+    "evidence": "The control requires the application to restrict the ability to launch DoS attacks against itself or others (e.g., throttling, rate limiting).\n- File: api/app/process/router.py \u2014 No evidence of rate limiting, request throttling, or anti-DoS middleware in API endpoints.\n- File: README.md \u2014 No mention of anti-DoS controls or protections in architecture or deployment.\n- File: deploy/aws/iris-stack.yaml \u2014 ALB health checks and security groups are present, but no WAF or rate limiting is configured.\n- Requirement: NOT SATISFIED \u2014 No static evidence of DoS protection mechanisms (rate limiting, throttling, WAF) in API or infrastructure configuration."
+  },
+  "APSC-DV-002410": {
+    "status": "Open",
+    "evidence": "The control requires redundancy mechanisms for high-availability systems.\n- File: README.md \u2014 Under 'Deployment Configuration', mentions 'Robust connectivity for real-time video streaming and analysis', but does not explicitly state high-availability designation.\n- File: deploy/aws/iris-stack.yaml \u2014 ALB (AppLoadBalancer), MultiAZ RDS ('MultiAZ: true'), and two subnets are defined, but EC2 instance 'IrisEC2Instance' is a single instance (no auto-scaling group or multiple app servers).\n- File: docker-compose.dev.yml (referenced) \u2014 Single instance per service in local/dev.\n- Requirement: PARTIALLY SATISFIED \u2014 Some redundancy (ALB, MultiAZ RDS), but no evidence of multiple app servers or full HA clustering for the application tier."
+  },
+  "APSC-DV-002440": {
+    "status": "Open",
+    "evidence": "The control requires confidentiality and integrity of transmitted information (e.g., TLS, IPsec).\n- File: deploy/aws/iris-stack.yaml \u2014 ALB is configured with 'Scheme: internet-facing', 'Port: 443', 'Protocol: HTTPS', and requires an ACM certificate ('AcmCertificateArn'), indicating TLS is used for external access.\n- File: README.md \u2014 'Keycloak Admin Console: http://localhost:8080/admin', 'API Documentation: http://localhost:5000/docs', 'UI Dashboard: http://localhost:3000' \u2014 local/dev endpoints are HTTP, not HTTPS.\n- File: api/README.md \u2014 API runs on HTTP (http://localhost:5000) in dev; no evidence of forced HTTPS for internal API/UI communication.\n- Requirement: PARTIALLY SATISFIED \u2014 TLS is enforced at the ALB for external access, but internal service-to-service communication (API, UI, Keycloak) uses HTTP in dev/local. No evidence of mTLS or encryption for internal traffic."
+  },
+  "APSC-DV-002450": {
+    "status": "Open",
+    "evidence": "The control requires cryptographic mechanisms to prevent unauthorized disclosure and detect changes during transmission (e.g., TLS, message signing).\n- File: deploy/aws/iris-stack.yaml \u2014 ALB uses HTTPS with ACM certificate for external access.\n- File: README.md, api/README.md \u2014 Internal API/UI/Keycloak endpoints use HTTP in dev/local; no evidence of message signing, digital signatures, or integrity checks beyond TLS at the ALB.\n- File: api/app/process/services/scene_summarization.py \u2014 No evidence of message integrity mechanisms for S3 or Qdrant data transfers.\n- Requirement: PARTIALLY SATISFIED \u2014 TLS is used for external access, but no evidence of cryptographic integrity mechanisms for internal or multi-hop transmissions."
+  },
+  "APSC-DV-002460": {
+    "status": "Open",
+    "evidence": "The control requires confidentiality and integrity during preparation for transmission (e.g., automatic HTTPS redirect, TLS by default).\n- File: deploy/aws/iris-stack.yaml \u2014 ALB listener is HTTPS (443) with ACM certificate for external access.\n- File: README.md \u2014 Internal endpoints (API, UI, Keycloak) are HTTP in dev/local; no evidence of forced HTTPS or automatic redirect for internal services.\n- File: api/README.md \u2014 API runs on HTTP (http://localhost:5000) in dev.\n- Requirement: PARTIALLY SATISFIED \u2014 TLS is enforced for external access via ALB, but internal communication is not forced to use TLS."
+  },
+  "APSC-DV-002470": {
+    "status": "Open",
+    "evidence": "The control requires confidentiality and integrity during reception (e.g., HTTPS/TLS for browser access and inter-tier communication).\n- File: deploy/aws/iris-stack.yaml \u2014 ALB listener is HTTPS (443) with ACM certificate for external access.\n- File: README.md \u2014 UI Dashboard and API Documentation are HTTP in dev/local; no evidence of forced HTTPS for browser access in dev.\n- File: api/README.md \u2014 API runs on HTTP (http://localhost:5000) in dev.\n- Requirement: PARTIALLY SATISFIED \u2014 TLS is enforced for external access via ALB, but browser access in dev/local is not forced to HTTPS."
+  },
+  "APSC-DV-002480": {
+    "status": "Open",
+    "evidence": "The control requires the application not to disclose unnecessary information to users (e.g., technical details in error messages).\n- File: api/app/process/router.py \u2014 API endpoints raise HTTPException with details, e.g., 'detail=str(e)', 'detail=f\"Failed to process video: {str(e)}\"', which may leak internal error messages to clients.\n- File: README.md \u2014 No mention of custom error pages or generic error handling.\n- Requirement: NOT SATISFIED \u2014 API may disclose internal error details to users via HTTPException detail fields. No evidence of generic error pages or suppression of technical details."
+  },
+  "APSC-DV-002485": {
+    "status": "Not Applicable",
+    "evidence": "The control prohibits storage of sensitive information in hidden fields (typically applies to web forms).\n- File: ui/src/components/*, ui/src/pages/* \u2014 No evidence of hidden fields storing sensitive data in the provided frontend code.\n- File: README.md, api/README.md \u2014 Authentication is handled via Keycloak (OIDC), with JWT tokens; session management is server-side.\n- Requirement: NOT APPLICABLE \u2014 No evidence of sensitive data stored in hidden fields; authentication/session data is managed via Keycloak and JWT."
+  },
+  "APSC-DV-002490": {
+    "status": "Open",
+    "evidence": "The control requires protection from Cross-Site Scripting (XSS) vulnerabilities.\n- File: ui/src/components/*, ui/src/pages/* \u2014 React is used for UI, which provides auto-escaping by default, but no evidence of explicit input sanitization or output encoding for user-generated content.\n- File: README.md \u2014 No mention of XSS testing or scan results.\n- File: api/README.md \u2014 No mention of XSS protection in API responses.\n- Requirement: PARTIALLY SATISFIED \u2014 React auto-escaping mitigates most XSS, but no evidence of vulnerability scan results or explicit input validation for all user input fields."
+  },
+  "APSC-DV-002500": {
+    "status": "Open",
+    "evidence": "The control requires protection from Cross-Site Request Forgery (CSRF) vulnerabilities.\n- File: ui/src/keycloak.ts, ui/src/components/* \u2014 No evidence of CSRF tokens or anti-CSRF middleware in frontend code.\n- File: api/app/process/router.py \u2014 No evidence of CSRF protection in API endpoints.\n- File: README.md, api/README.md \u2014 No mention of CSRF protection or scan results.\n- Requirement: NOT SATISFIED \u2014 No static evidence of CSRF protection mechanisms (tokens, SameSite cookies, or anti-CSRF middleware) in frontend or backend code."
+  },
+  "APSC-DV-002510": {
+    "status": "Open",
+    "evidence": "The control requires protection from command injection vulnerabilities.\n- File: api/app/process/router.py \u2014 No evidence of input sanitization or escaping for parameters that may be passed to shell commands (e.g., video processing, ffmpeg calls).\n- File: api/app/process/services/scene_summarization.py \u2014 Uses ffmpeg and other system tools via Python, but no evidence of input sanitization for file paths or user-supplied data.\n- File: README.md, api/README.md \u2014 No mention of command injection testing or scan results.\n- Requirement: NOT SATISFIED \u2014 No static evidence of input sanitization or command injection protection for system-level operations."
+  },
+  "APSC-DV-002520": {
+    "status": "Open",
+    "evidence": "The control requires protection from canonical representation vulnerabilities (e.g., Unicode normalization, encoding assertions).\n- File: api/app/process/router.py, api/app/process/services/scene_summarization.py \u2014 No evidence of explicit canonicalization or encoding assertions for user input or HTTP requests.\n- File: README.md, api/README.md \u2014 No mention of encoding settings or canonicalization.\n- Requirement: NOT SATISFIED \u2014 No static evidence of canonicalization or encoding enforcement for user input or HTTP requests."
+  },
+  "APSC-DV-002530": {
+    "status": "Open",
+    "evidence": "The control requires validation of all input.\n- File: api/app/process/router.py \u2014 API endpoints accept request models (e.g., ProcessVideoRequest), but no evidence of explicit input validation beyond type checking.\n- File: README.md, api/README.md \u2014 No mention of input validation frameworks or scan results.\n- Requirement: PARTIALLY SATISFIED \u2014 FastAPI provides type validation for request bodies, but no evidence of comprehensive input validation (e.g., length, format, range checks) for all user input."
+  },
+  "APSC-DV-002540": {
+    "status": "Open",
+    "evidence": "The control requires protection from SQL Injection vulnerabilities.\n- File: api/app/process/router.py \u2014 No direct SQL queries are shown; database access is abstracted via DatabaseManager (referenced in bootstrap_pipeline.py), but no evidence of parameterized queries or ORM usage in the provided code.\n- File: README.md, api/README.md \u2014 No mention of SQL injection testing or scan results.\n- Requirement: PARTIALLY SATISFIED \u2014 No direct evidence of vulnerable SQL queries, but also no explicit evidence of parameterized queries or ORM protection. Scan results or code review of db access layer required."
+  },
+  "APSC-DV-002550": {
+    "status": "Not Applicable",
+    "evidence": "The control requires protection from XML-oriented attacks (e.g., XML injection, XXE, XPath injection).\n- File: README.md, api/README.md, api/app/process/router.py \u2014 No evidence of XML parsing, XML web services, or XML-based APIs. All APIs are RESTful and use JSON.\n- Requirement: NOT APPLICABLE \u2014 The application does not process XML or expose XML-based services."
+  },
+  "APSC-DV-002560": {
+    "status": "Open",
+    "evidence": "Control requires evidence of input validation and vulnerability scanning for input handling vulnerabilities.\n- File: api/app/process/router.py \u2014 API endpoints use FastAPI schemas for request validation (e.g., 'request: ProcessVideoRequest', 'request: ProcessDocumentsRequest'), which provides type and structure validation but does not guarantee full sanitization against all input vulnerabilities.\n- File: api/README.md \u2014 No explicit mention of input sanitization libraries or frameworks (e.g., pydantic custom validators, input escaping, or anti-XSS/SQLi measures).\n- File: README.md \u2014 No documentation of secure coding practices or input validation SOPs.\n- No static evidence of automated vulnerability scanning or scan results present in the provided files.\n- Requirement: PARTIALLY SATISFIED \u2014 API uses FastAPI/Pydantic for basic input validation, but there is no evidence of comprehensive input sanitization, secure coding SOPs, or recent vulnerability scan results targeting input handling vulnerabilities."
+  },
+  "APSC-DV-002570": {
+    "status": "Open",
+    "evidence": "Control requires error messages to avoid revealing sensitive information to end users.\n- File: api/app/process/router.py \u2014 Error handling uses FastAPI's HTTPException with generic messages (e.g., 'Failed to process video: {str(e)}'), but in some cases, the exception detail includes the stringified exception, which may leak internal error details if not properly sanitized.\n- File: api/README.md \u2014 No documentation on error message sanitization or policy for error content.\n- File: README.md \u2014 No mention of error message handling or user-facing error content policy.\n- Requirement: PARTIALLY SATISFIED \u2014 Error messages are generally generic, but some may include exception details that could reveal sensitive information. No evidence of a systematic approach to error message sanitization."
+  },
+  "APSC-DV-002580": {
+    "status": "Open",
+    "evidence": "Control requires detailed error messages to be shown only to privileged users; non-privileged users should see only generic errors.\n- File: api/app/process/router.py \u2014 All users receive the same HTTPException detail for errors (e.g., 'Failed to process video: {str(e)}'), with no role-based differentiation in error message content.\n- File: api/README.md \u2014 No documentation of error message differentiation based on user privilege.\n- File: README.md \u2014 No mention of error message privilege separation.\n- Requirement: NOT SATISFIED \u2014 No evidence of error message content being restricted to privileged users; all users may receive the same error details."
+  },
+  "APSC-DV-002590": {
+    "status": "Open",
+    "evidence": "Control requires evidence that the application is not vulnerable to overflow attacks (buffer, stack, heap, integer, format string).\n- File: api/app/process/router.py \u2014 Application is written in Python, which provides automatic bounds checking and is not susceptible to classic buffer/stack/heap overflows as in C/C++.\n- File: README.md \u2014 No documentation of static analysis or code testing for overflow vulnerabilities.\n- No static evidence of code scanning tools or test results for overflow vulnerabilities.\n- Requirement: PARTIALLY SATISFIED \u2014 Python's memory safety mitigates most overflow risks, but there is no evidence of static analysis or code testing for overflows."
+  },
+  "APSC-DV-002610": {
+    "status": "Open",
+    "evidence": "Control requires removal of old software components after updates.\n- File: api/README.md \u2014 Describes Docker-based deployment, which typically replaces containers on update, but does not explicitly state removal of old components.\n- File: README.md \u2014 Docker Compose and containerization are used, but no explicit process for removing old images or containers is documented.\n- No scripts or automation for cleaning up old versions are present in the provided files.\n- Requirement: PARTIALLY SATISFIED \u2014 Docker-based deployment reduces risk of old components persisting, but there is no explicit evidence of removal of old versions after updates."
+  },
+  "APSC-DV-002630": {
+    "status": "Open",
+    "evidence": "Control requires security-relevant software updates and patches to be kept up to date.\n- File: .github/workflows/deploy-eks-ironbank.yml \u2014 CI/CD pipeline builds and deploys images, but there is no explicit evidence of a process for checking for upstream security updates or patching dependencies.\n- File: api/README.md \u2014 No mention of patch management or update frequency.\n- File: README.md \u2014 No documentation of patching process or update cadence.\n- Requirement: PARTIALLY SATISFIED \u2014 Automated builds and deployments are present, but no evidence of a process for tracking and applying security patches."
+  },
+  "APSC-DV-002760": {
+    "status": "Not Applicable",
+    "evidence": "Control applies only if the application performs organization-defined security functions and verifies their correct operation.\n- File: api/app/process/router.py \u2014 No evidence of security function self-testing or verification routines.\n- File: README.md \u2014 No mention of security function testing.\n- File: api/README.md \u2014 No mention of security function testing.\n- Requirement: NOT APPLICABLE \u2014 Application does not implement organization-defined security functions requiring verification."
+  },
+  "APSC-DV-002770": {
+    "status": "Not Applicable",
+    "evidence": "Control applies only if the application performs security function testing on startup, restart, or privileged command.\n- File: api/app/process/router.py \u2014 No evidence of security function self-testing or verification routines.\n- File: README.md \u2014 No mention of security function testing.\n- File: api/README.md \u2014 No mention of security function testing.\n- Requirement: NOT APPLICABLE \u2014 Application does not implement security function testing."
+  },
+  "APSC-DV-002780": {
+    "status": "Not Applicable",
+    "evidence": "Control applies only if the application performs security function testing and must notify ISSO/ISSM of failures.\n- File: api/app/process/router.py \u2014 No evidence of security function self-testing or notification routines.\n- File: README.md \u2014 No mention of security function testing or notification.\n- File: api/README.md \u2014 No mention of security function testing or notification.\n- Requirement: NOT APPLICABLE \u2014 Application does not implement security function testing or notification."
+  },
+  "APSC-DV-002870": {
+    "status": "Not Applicable",
+    "evidence": "Control applies to Category 1A mobile code (e.g., ActiveX, Java applets, Flash) provided by the application for client consumption.\n- File: README.md, api/README.md, ui/src/components/video-player/video-player.tsx \u2014 Application is a web-based system using React (TypeScript) and FastAPI (Python). No evidence of unsigned mobile code (ActiveX, Java applets, Flash, etc.) being delivered to clients.\n- Requirement: NOT APPLICABLE \u2014 Application does not provide or execute Category 1A mobile code."
+  },
+  "APSC-DV-002880": {
+    "status": "Open",
+    "evidence": "Control requires a documented account management process for user creation, termination, and expiration.\n- File: api/README.md \u2014 Describes Keycloak integration for authentication and RBAC, but does not document the process for account creation, termination, or handling inactive/suspended/terminated accounts.\n- File: README.md \u2014 Mentions Keycloak for user management, but no evidence of a documented process for account lifecycle management.\n- No evidence of automated deactivation/removal of inactive or terminated accounts.\n- Requirement: PARTIALLY SATISFIED \u2014 Keycloak provides account management capabilities, but there is no evidence of a documented process or timely removal of inactive/terminated accounts."
+  },
+  "APSC-DV-002890": {
+    "status": "Open",
+    "evidence": "Control requires web servers to be on a separate network segment from application and database servers if operating in the DoD DMZ.\n- File: deploy/aws/iris-stack.yaml \u2014 Defines VPC, subnets, security groups, and separates ALB (web), EC2 (app), and RDS (database) with distinct security groups and subnets. However, there is no explicit documentation or diagram confirming DMZ placement or enforcement of DoD DMZ segmentation requirements.\n- File: README.md \u2014 Mentions multi-tier architecture but does not specify network segmentation details for DMZ compliance.\n- Requirement: PARTIALLY SATISFIED \u2014 Infrastructure-as-code suggests tiered separation, but there is no explicit evidence of DMZ compliance or network diagrams."
+  },
+  "APSC-DV-002900": {
+    "status": "Open",
+    "evidence": "Control requires audit trails to be retained for at least 30 months (or 5 years for SAMI data).\n- File: api/README.md, README.md \u2014 No mention of audit log retention policy, configuration, or implementation.\n- No evidence of log retention settings or scripts for archiving logs.\n- Requirement: NOT SATISFIED \u2014 No evidence of audit trail retention for required duration."
+  },
+  "APSC-DV-002910": {
+    "status": "Open",
+    "evidence": "Control requires periodic review of audit trails per system documentation.\n- File: api/README.md, README.md \u2014 No documentation of audit log review schedule or process.\n- No evidence of log review records or procedures.\n- Requirement: NOT SATISFIED \u2014 No evidence of periodic audit log review process or documentation."
+  },
+  "APSC-DV-002920": {
+    "status": "Open",
+    "evidence": "Control requires a policy and SOP for reporting suspected IA violations.\n- File: api/README.md, README.md \u2014 No mention of IA policy violation reporting procedures or SOPs.\n- No evidence of reporting policy or documentation.\n- Requirement: NOT SATISFIED \u2014 No evidence of IA violation reporting policy or process."
+  },
+  "APSC-DV-002930": {
+    "status": "Open",
+    "evidence": "Control requires evidence of active vulnerability testing and test results.\n- File: .github/workflows/deploy-eks-ironbank.yml \u2014 CI/CD pipeline automates deployment but does not include steps for vulnerability scanning or fuzz testing.\n- File: api/README.md, README.md \u2014 No mention of vulnerability testing procedures, tools, or results.\n- Requirement: NOT SATISFIED \u2014 No evidence of active vulnerability or fuzz testing."
+  },
+  "APSC-DV-002950": {
+    "status": "Open",
+    "evidence": "Control requires execution flow diagrams and design documents showing mitigation of deadlock and recursion issues in web services.\n- File: api/README.md, README.md \u2014 No execution flow diagrams or design documentation addressing deadlock or recursion in web services.\n- No evidence of deadlock mitigation in code or documentation.\n- Requirement: NOT SATISFIED \u2014 No evidence of deadlock/recursion mitigation documentation for web services."
+  },
+  "APSC-DV-002960": {
+    "status": "Open",
+    "evidence": "Control requires configuration and control files to be stored separately from user data.\n- File: api/README.md \u2014 Documents that environment files ('.env', '.env.example') and configuration files are in the 'api/' directory, while user data (videos, processed data) is stored in S3 buckets ('iris-video/raw/', 'iris-video/clips/').\n- File: deploy/aws/iris-stack.yaml \u2014 S3 buckets are created for raw and processed data, separate from application code and configuration.\n- However, no explicit evidence of file permissions or enforcement of separation at the OS or container level is provided.\n- Requirement: PARTIALLY SATISFIED \u2014 Logical separation is present, but no evidence of enforced file permissions or OS-level separation."
+  },
+  "APSC-DV-002970": {
+    "status": "Open",
+    "evidence": "Control requires configuration according to DoD STIG/NSA guide or, if unavailable, according to best practices, independent testing, or vendor guidance.\n- File: api/README.md, README.md \u2014 No evidence of following DoD STIG, NSA guide, or alternative hardening guidance for application components (e.g., FastAPI, Keycloak, Qdrant, Docker, Kubernetes).\n- No documentation of security configuration benchmarks or lock down guides.\n- Requirement: NOT SATISFIED \u2014 No evidence of STIG/NSA or alternative security configuration guidance being followed."
+  },
+  "APSC-DV-002980": {
+    "status": "Open",
+    "evidence": "Control requires all application ports, protocols, and services to be documented and submitted for PPSM approval.\n- File: deploy/aws/iris-stack.yaml \u2014 Defines ports for ALB (443), EC2 (22, 443, 3000), and RDS (5432) in security groups, but does not document submission to PPSM or compliance with DoD Ports and Protocols guidance.\n- File: README.md, api/README.md \u2014 No documentation of port/protocol/service approval or PPSM submission.\n- Requirement: PARTIALLY SATISFIED \u2014 Ports and protocols are defined in infrastructure code, but no evidence of PPSM submission or compliance documentation."
+  },
+  "APSC-DV-002990": {
+    "status": "Open",
+    "evidence": "The control requires evidence that the application and its ports are registered in the DoD Ports and Protocols Database.\n- No static artifact in the provided files (README.md, api/README.md, CloudFormation, or CI/CD workflows) references DoD Ports and Protocols Database registration or a registration identifier.\n- No documentation or comments indicate registration status or port registration.\n- Requirement: PARTIALLY SATISFIED \u2014 Application ports are documented in deployment files (e.g., 443, 8080, 3000, 5000, 6333), but there is no evidence of registration in the DoD Ports and Protocols Database."
+  },
+  "APSC-DV-002995": {
+    "status": "Open",
+    "evidence": "The control requires evidence that the Configuration Management (CM) repository is patched and STIG compliant.\n- File: .github/workflows/deploy-eks.yml \u2014 CI/CD workflow automates deployment, but does not reference patch management or STIG compliance for the CM repository itself.\n- File: README.md \u2014 No mention of patch management or STIG compliance for the repository or its hosting system.\n- No documentation or scripts reference patching or STIG application to the CM system (e.g., GitHub, GitLab, or other repository host).\n- Requirement: NOT SATISFIED \u2014 No evidence of patch management or STIG compliance for the CM repository system."
+  },
+  "APSC-DV-003000": {
+    "status": "Open",
+    "evidence": "The control requires evidence that access privileges to the CM repository are reviewed every three months.\n- No static artifact in the provided files (README.md, api/README.md, CI/CD workflows) documents a process or schedule for reviewing repository access privileges.\n- No documentation, comments, or scripts reference periodic access reviews or audit logs for the CM repository.\n- Requirement: NOT SATISFIED \u2014 No evidence of periodic access review for the CM repository."
+  },
+  "APSC-DV-003010": {
+    "status": "Open",
+    "evidence": "The control requires a Software Configuration Management (SCM) plan describing configuration control, change management, roles, tools, and audit mechanisms.\n- File: README.md \u2014 Describes architecture, deployment, and testing, but does not constitute a formal SCM plan.\n- No file named 'SCM plan', 'configuration management plan', or similar is present in the manifest or referenced in documentation.\n- No documentation of roles, responsibilities, change tracking, or audit mechanisms for configuration management.\n- Requirement: NOT SATISFIED \u2014 No SCM plan or equivalent documentation found."
+  },
+  "APSC-DV-003020": {
+    "status": "Open",
+    "evidence": "The control requires evidence of a Configuration Control Board (CCB) that meets at least every release cycle, with charter documentation or meeting records.\n- No static artifact in the provided files (README.md, api/README.md, CI/CD workflows) references a CCB, its membership, charter, or meeting schedule.\n- No documentation or comments indicate the existence or operation of a CCB.\n- Requirement: NOT SATISFIED \u2014 No evidence of a Configuration Control Board or its activities."
+  },
+  "APSC-DV-003030": {
+    "status": "Open",
+    "evidence": "The control requires evidence that the application is compatible with and ready for IPv6 networks per DoD standards.\n- File: README.md \u2014 No mention of IPv6 support or testing.\n- File: api/README.md \u2014 No mention of IPv6 support.\n- No configuration files or deployment scripts reference IPv6 addresses, dual-stack networking, or IPv6-specific settings.\n- Requirement: NOT SATISFIED \u2014 No evidence of IPv6 compatibility or readiness."
+  },
+  "APSC-DV-003040": {
+    "status": "Open",
+    "evidence": "The control requires that critical/HA applications are not hosted on general purpose machines with other less critical applications.\n- File: deploy/aws/iris-stack.yaml \u2014 Defines a dedicated EC2 instance for the IRIS stack, but does not specify whether other applications are deployed on the same instance.\n- No documentation or comments indicate server exclusivity for criticality separation.\n- Requirement: PARTIALLY SATISFIED \u2014 Dedicated infrastructure is defined, but no explicit evidence that the instance is not shared with non-critical applications."
+  },
+  "APSC-DV-003050": {
+    "status": "Open",
+    "evidence": "The control requires a contingency plan based on the application's availability requirements.\n- No static artifact in the provided files (README.md, api/README.md, deploy/aws/iris-stack.yaml) constitutes a contingency plan or describes contingency procedures.\n- No documentation or comments reference contingency planning, alternate site transfer, or operational continuity.\n- Requirement: NOT SATISFIED \u2014 No contingency plan found."
+  },
+  "APSC-DV-003060": {
+    "status": "Open",
+    "evidence": "The control requires a disaster recovery plan with secure and verifiable recovery procedures.\n- No static artifact in the provided files (README.md, api/README.md, deploy/aws/iris-stack.yaml) constitutes a disaster recovery plan or describes recovery procedures.\n- No documentation or comments reference disaster recovery, trusted recovery, or related procedures.\n- Requirement: NOT SATISFIED \u2014 No disaster recovery plan found."
+  },
+  "APSC-DV-003070": {
+    "status": "Open",
+    "evidence": "The control requires documented backup procedures at intervals based on risk level, with offsite storage and testing.\n- File: deploy/aws/iris-stack.yaml \u2014 RDS resource includes 'BackupRetentionPeriod: 7', indicating automated database backups for 7 days.\n- No documentation or scripts describe backup procedures for application data, source code, or other assets.\n- No evidence of backup testing, offsite storage, or recovery media procedures.\n- Requirement: PARTIALLY SATISFIED \u2014 RDS backup retention is configured, but no comprehensive backup procedures or testing documentation found."
+  },
+  "APSC-DV-003080": {
+    "status": "Open",
+    "evidence": "The control requires that backup copies of application software or source code are stored in a fire-rated container or offsite.\n- No static artifact in the provided files (README.md, api/README.md, deploy/aws/iris-stack.yaml) documents offsite or fire-rated storage of backups.\n- No documentation or comments reference backup storage location or method for source code or application software.\n- Requirement: NOT SATISFIED \u2014 No evidence of offsite or fire-rated backup storage."
+  },
+  "APSC-DV-003090": {
+    "status": "Open",
+    "evidence": "The control requires procedures to assure physical and technical protection of backup and restoration assets.\n- No static artifact in the provided files (README.md, api/README.md, deploy/aws/iris-stack.yaml) documents procedures for protecting backup and restoration assets.\n- No documentation or comments reference protection of backup media, directories, or restoration equipment.\n- Requirement: NOT SATISFIED \u2014 No evidence of backup/restoration protection procedures."
+  },
+  "APSC-DV-003100": {
+    "status": "Open",
+    "evidence": "The control requires encryption for key exchange using FIPS-140-2 validated cryptographic modules.\n- File: api/README.md \u2014 Describes JWT-based authentication using Keycloak with RS256 (asymmetric) algorithm, but does not mention key exchange protocols or FIPS-140-2 validation.\n- No configuration or code references TLS settings, key exchange protocols, or FIPS-validated modules for key exchange.\n- Requirement: PARTIALLY SATISFIED \u2014 JWT authentication uses asymmetric crypto, but no evidence of FIPS-140-2 validation or explicit key exchange encryption."
+  },
+  "APSC-DV-003110": {
+    "status": "Open",
+    "evidence": "The control requires that the application does not contain embedded authentication data (e.g., passwords, certificates) in code or configuration files.\n- File: pointcloud-project/docker-compose.yml \u2014 Contains 'POSTGRES_PASSWORD: secure_password_here' (literal password in plaintext).\n- File: api/.env.example \u2014 Contains placeholders for AWS credentials (e.g., 'AWS_ACCESS_KEY_ID=your_access_key_id'), but not actual secrets.\n- File: deploy/aws/iris-stack.yaml \u2014 Uses AWS Secrets Manager for secrets, but some scripts reference plaintext variables.\n- Requirement: NOT SATISFIED \u2014 Embedded plaintext password found in pointcloud-project/docker-compose.yml."
+  },
+  "APSC-DV-003120": {
+    "status": "Open",
+    "evidence": "The control requires the application to have the capability to mark sensitive/classified output when required.\n- No static artifact in the provided files (README.md, api/README.md, ui/README.md, or UI code) describes or implements output marking for sensitive/classified data.\n- No documentation or code references classification guides, output markings, or marking procedures.\n- Requirement: NOT SATISFIED \u2014 No evidence of sensitive/classified output marking capability."
+  },
+  "APSC-DV-003130": {
+    "status": "Open",
+    "evidence": "The control requires test plans and procedures to be created and executed prior to each release or patch update.\n- File: README.md \u2014 Section 'End-to-End Testing' describes Playwright E2E tests and accessibility checks, but does not reference formal test plans or procedures per release.\n- File: api/README.md \u2014 Describes unit tests and code quality checks, but no evidence of versioned test plans or release-specific procedures/results.\n- Requirement: PARTIALLY SATISFIED \u2014 Automated tests exist, but no formal test plans or execution records per release."
+  },
+  "APSC-DV-003140": {
+    "status": "Open",
+    "evidence": "The control requires application files to be cryptographically hashed prior to deployment to DoD operational networks.\n- No static artifact in the provided files (README.md, api/README.md, CI/CD workflows) documents a cryptographic hash validation process for application files prior to deployment.\n- No scripts or documentation reference 'sha256sum', 'Get-FileHash', or similar hash validation steps.\n- Requirement: NOT SATISFIED \u2014 No evidence of cryptographic hash validation prior to deployment."
+  },
+  "APSC-DV-003150": {
+    "status": "Open",
+    "evidence": "The control requires at least one tester to be designated for security testing in addition to functional testing.\n- File: README.md \u2014 Describes E2E and accessibility testing, but does not designate personnel for security testing.\n- No documentation or comments reference designated security testers or roles.\n- Requirement: NOT SATISFIED \u2014 No evidence of designated security testing personnel."
+  },
+  "APSC-DV-003160": {
+    "status": "Open",
+    "evidence": "The control requires annual execution of test procedures to ensure secure system initialization, shutdown, and aborts.\n- No static artifact in the provided files (README.md, api/README.md, CI/CD workflows) documents annual security state testing procedures or results.\n- No documentation or comments reference annual testing, test dates, or secure state verification on startup/shutdown/abort.\n- Requirement: NOT SATISFIED \u2014 No evidence of annual secure state testing procedures."
+  },
+  "APSC-DV-003170": {
+    "status": "Open",
+    "evidence": "The control requires an application code review to be performed and documented.\n- File: README.md \u2014 No mention of code review process or results.\n- File: api/README.md \u2014 Describes code quality checks ('ruff check .') and unit tests, but does not reference code review procedures or reports.\n- No documentation or comments reference code review tools, reports, or remediation of security flaws.\n- Requirement: NOT SATISFIED \u2014 No evidence of code review process or results."
+  },
+  "APSC-DV-003180": {
+    "status": "Not a Finding",
+    "evidence": "Code coverage statistics must be maintained for each release of the application.\n- File: api/README.md \u2014 'To run unit tests with code coverage, run the following:\\n\\n```sh\\ncoverage run -m pytest && coverage html\\n```'\n- File: ui/README.md \u2014 'Ensure to review the coverage directory for code coverage details.\\n\\n```sh\\nnpm run test:coverage\\n```'\n- File: e2e/README.md \u2014 'To make sure your changes do not break any unit tests, run the following:\\n\\n```sh\\nnpm run test\\n```\\nEnsure to review the coverage directory for code coverage details.'\n- The documentation provides explicit instructions for generating and reviewing code coverage statistics for both backend (Python) and frontend (JavaScript/TypeScript) components using standard tools (coverage.py, npm test:coverage).\n- Requirement: SATISFIED \u2014 Code coverage statistics are maintained and documented for each release."
+  },
+  "APSC-DV-003190": {
+    "status": "Open",
+    "evidence": "Flaws found during a code review must be tracked in a defect tracking system.\n- File: README.md \u2014 No explicit mention of a defect tracking system or configuration management repository for code review flaws.\n- File: api/README.md \u2014 No reference to issue tracking, bug tracking, or integration with a defect tracking system.\n- File: ui/README.md \u2014 No reference to defect tracking or code review flaw capture.\n- File: e2e/README.md \u2014 No reference to defect tracking.\n- Partial evidence: The repository contains comprehensive documentation and testing instructions, but there is no static evidence of a defect tracking system or process for capturing code review flaws in a configuration management repository.\n- Requirement: PARTIALLY SATISFIED \u2014 Testing and code quality checks are documented, but there is no evidence of a defect tracking system for code review flaws."
+  },
+  "APSC-DV-003200": {
+    "status": "Open",
+    "evidence": "The changes to the application must be assessed for IA and accreditation impact prior to implementation.\n- File: README.md \u2014 No explicit mention of an IA (Information Assurance) impact assessment or CCB (Change Control Board) process documentation.\n- File: api/README.md \u2014 No reference to IA impact analysis or accreditation assessment prior to changes.\n- File: deploy/aws/iris-stack.yaml \u2014 Contains infrastructure-as-code for deployment, but no documentation of IA/accreditation review process.\n- No static evidence of a formal process for IA/accreditation impact assessment prior to implementing changes.\n- Requirement: NOT SATISFIED \u2014 No evidence of IA impact analysis or accreditation review process."
+  },
+  "APSC-DV-003210": {
+    "status": "Open",
+    "evidence": "Security flaws must be fixed or addressed in the project plan.\n- File: README.md \u2014 No explicit mention of project plan integration for security flaws.\n- File: api/README.md \u2014 No reference to project plan or process for integrating security flaws.\n- File: ui/README.md \u2014 No mention of project plan or security flaw tracking.\n- No static evidence of a project plan or process for tracking/addressing security flaws.\n- Requirement: NOT SATISFIED \u2014 No evidence of security flaw integration into a project plan."
+  },
+  "APSC-DV-003215": {
+    "status": "Open",
+    "evidence": "The application development team must follow a set of coding standards.\n- File: README.md \u2014 No reference to a coding standards document or process.\n- File: api/README.md \u2014 No mention of coding standards documentation or enforcement.\n- File: ui/README.md \u2014 No mention of coding standards documentation.\n- File: e2e/README.md \u2014 No mention of coding standards documentation.\n- No static evidence of a coding standards document or process being followed by the development team.\n- Requirement: NOT SATISFIED \u2014 No evidence of coding standards documentation or process."
+  },
+  "APSC-DV-003220": {
+    "status": "Open",
+    "evidence": "The designer must create and update the Design Document for each release of the application.\n- File: README.md \u2014 Contains a detailed system overview, architecture, and technical stack, but does not explicitly identify all required elements (external interfaces, user roles, security requirements, incident response plan, etc.) as a formal Design Document.\n- No file named 'Design Document' or equivalent found in the manifest or documentation.\n- Requirement: PARTIALLY SATISFIED \u2014 System overview and architecture are documented, but a formal, complete Design Document as described in the control is not present."
+  },
+  "APSC-DV-003230": {
+    "status": "Open",
+    "evidence": "Threat models must be documented and reviewed for each application release and updated as required by design and functionality changes or when new threats are discovered.\n- File: README.md \u2014 No explicit mention of a threat model document or its review/update process.\n- No file named 'threat model' or equivalent found in the manifest or documentation.\n- Requirement: NOT SATISFIED \u2014 No evidence of a documented threat model or review process."
+  },
+  "APSC-DV-003235": {
+    "status": "Open",
+    "evidence": "The application must not be subject to error handling vulnerabilities.\n- File: api/README.md \u2014 Documents testing procedures, but does not reference static code analysis or security scan results for error handling vulnerabilities.\n- File: ui/README.md \u2014 Documents unit testing and code quality checks, but no evidence of error handling vulnerability testing or remediation.\n- No static evidence of security scan results or error handling vulnerability remediation.\n- Requirement: PARTIALLY SATISFIED \u2014 Testing is documented, but no evidence of error handling vulnerability testing or remediation."
+  },
+  "APSC-DV-003236": {
+    "status": "Open",
+    "evidence": "The application development team must provide an application incident response plan.\n- File: README.md \u2014 No explicit mention of an application incident response plan or process for tracking/confirming vulnerabilities and notifying users.\n- No file named 'incident response plan' or equivalent found in the manifest or documentation.\n- Requirement: NOT SATISFIED \u2014 No evidence of an application incident response plan."
+  },
+  "APSC-DV-003240": {
+    "status": "Open",
+    "evidence": "All products must be supported by the vendor or the development team.\n- File: README.md \u2014 Lists core technologies and components, but does not provide explicit support status or proof of support for all software components.\n- File: api/README.md \u2014 Lists dependencies and setup, but no explicit vendor support status.\n- File: deploy/aws/iris-stack.yaml \u2014 References AMI and package versions, but no explicit support status.\n- Requirement: PARTIALLY SATISFIED \u2014 Components are documented, but no evidence of support status or proof of support."
+  },
+  "APSC-DV-003250": {
+    "status": "Open",
+    "evidence": "The application must be decommissioned when maintenance or support is no longer available.\n- File: README.md \u2014 No mention of decommissioning procedures or maintenance contract tracking.\n- File: deploy/aws/iris-stack.yaml \u2014 No evidence of maintenance contract tracking or decommissioning procedures.\n- Requirement: NOT SATISFIED \u2014 No evidence of decommissioning procedures or maintenance contract tracking."
+  },
+  "APSC-DV-003260": {
+    "status": "Open",
+    "evidence": "Procedures must be in place to notify users when an application is decommissioned.\n- File: README.md \u2014 No mention of user notification procedures for decommissioning.\n- File: ui/README.md \u2014 No mention of decommissioning notification procedures.\n- Requirement: NOT SATISFIED \u2014 No evidence of user notification procedures for decommissioning."
+  },
+  "APSC-DV-003270": {
+    "status": "Open",
+    "evidence": "Unnecessary built-in application accounts must be disabled.\n- File: README.md \u2014 Documents Keycloak as the IAM solution and notes default admin credentials for development only, but does not provide evidence of disabling unnecessary built-in accounts in production.\n- File: deploy/keycloak/themes/README.md \u2014 Documents custom Keycloak theme, but not account management.\n- File: api/README.md \u2014 Documents Keycloak integration and default users for development, but no evidence of disabling unnecessary built-in accounts in production.\n- Requirement: PARTIALLY SATISFIED \u2014 Default accounts are documented for development, but no evidence of disabling unnecessary built-in accounts in production."
+  },
+  "APSC-DV-003280": {
+    "status": "Open",
+    "evidence": "Default passwords must be changed.\n- File: README.md \u2014 Documents default admin credentials for Keycloak (Username: 'admin', Password: 'TestPassword123!') for development only, with a note: 'Change default credentials before deploying to production environments.'\n- File: api/README.md \u2014 Documents default users and passwords for development, but no evidence of password change enforcement in production.\n- Requirement: PARTIALLY SATISFIED \u2014 Default passwords are documented for development, but no evidence of enforced password change for production deployments."
+  },
+  "APSC-DV-003285": {
+    "status": "Open",
+    "evidence": "An Application Configuration Guide must be created and included with the application.\n- File: README.md \u2014 Documents deployment configuration, environment variables, and service architecture, but does not provide a formal Application Configuration Guide covering all required topics (encryption, PKI, password settings, auditing, backup, disaster recovery, etc.).\n- File: api/README.md \u2014 Documents environment configuration and setup, but not as a formal configuration guide.\n- Requirement: PARTIALLY SATISFIED \u2014 Configuration details are present in documentation, but a formal Application Configuration Guide is not included."
+  },
+  "APSC-DV-003290": {
+    "status": "Not Applicable",
+    "evidence": "If the application contains classified data, a Security Classification Guide must exist containing data elements and their classification.\n- File: README.md \u2014 No indication that the application processes or stores classified information.\n- File: api/README.md \u2014 No reference to classified data or classification guides.\n- Requirement: NOT APPLICABLE \u2014 The application does not process classified information."
+  },
+  "APSC-DV-003300": {
+    "status": "Open",
+    "evidence": "The designer must ensure uncategorized or emerging mobile code is not used in applications.\n- File: README.md \u2014 No mention of mobile code types or their categorization.\n- File: api/README.md \u2014 No mention of mobile code.\n- File: ui/README.md \u2014 No mention of mobile code.\n- Requirement: NOT SATISFIED \u2014 No evidence of mobile code review or documentation."
+  },
+  "APSC-DV-003310": {
+    "status": "Open",
+    "evidence": "Production database exports must have database administration credentials and sensitive data removed before releasing the export.\n- File: README.md \u2014 Documents PostgreSQL usage, but no mention of database export sanitization procedures.\n- File: api/README.md \u2014 Documents database usage, but no mention of export sanitization.\n- Requirement: NOT SATISFIED \u2014 No evidence of database export sanitization procedures."
+  },
+  "APSC-DV-003320": {
+    "status": "Open",
+    "evidence": "Protections against DoS attacks must be implemented.\n- File: README.md \u2014 No explicit mention of DoS threat modeling or mitigation.\n- No threat model document or DoS mitigation evidence found in the manifest or documentation.\n- Requirement: NOT SATISFIED \u2014 No evidence of DoS threat identification or mitigation."
+  },
+  "APSC-DV-003330": {
+    "status": "Open",
+    "evidence": "The system must alert an administrator when low resource conditions are encountered.\n- File: README.md \u2014 No mention of resource monitoring or alerting mechanisms.\n- File: deploy/aws/iris-stack.yaml \u2014 No evidence of automated alerting for low resource conditions.\n- Requirement: NOT SATISFIED \u2014 No evidence of resource monitoring or alerting."
+  },
+  "APSC-DV-003340": {
+    "status": "Open",
+    "evidence": "Control requires at least one application administrator registered to receive update/security alerts for all application components.\n- File: deploy/keycloak/dev-realm.json \u2014 users array includes an admin user:\n  - \"username\": \"admin\", \"email\": \"admin@example.com\", \"realmRoles\": [\"admin\", \"user\"]\n- File: api/README.md \u2014 No evidence of automated update/security alert registration for administrators (e.g., no mention of mailing lists, notification hooks, or alerting integrations).\n- No static evidence in provided files of a mechanism for registering administrators to receive update notifications for custom-developed software, libraries, or third-party tools.\n- Requirement: PARTIALLY SATISFIED \u2014 Administrator account exists, but no evidence of registration for update/security notifications."
+  },
+  "APSC-DV-003345": {
+    "status": "Open",
+    "evidence": "Control requires the application to provide notifications or alerts when product updates or security patches are available, including a description, risk summary, mitigations, and how to obtain the update.\n- File: api/README.md \u2014 No mention of any notification process, alerting mechanism, or update distribution system for security patches or product updates.\n- No evidence in code, configuration, or documentation of any process for notifying administrators or users about available updates or patches.\n- No static artifacts (e.g., email hooks, webhook integrations, notification services) found in the provided files.\n- Requirement: NOT SATISFIED \u2014 No evidence of an application update/patch notification process."
+  },
+  "APSC-DV-003350": {
+    "status": "Not a Finding",
+    "evidence": "Control requires that connections between the DoD enclave and the Internet/public networks require a DMZ if the application is publicly accessible.\n- File: deploy/aws/iris-stack.yaml \u2014 Application Load Balancer (ALB) is defined as 'internet-facing' and sits in public subnets, with EC2 instances in the same VPC. Security groups restrict access to required ports.\n- The ALB acts as a DMZ boundary, terminating HTTPS and forwarding to internal EC2 instances. RDS is not publicly accessible and only accessible from EC2 security group.\n- The architecture implements a DMZ via the ALB, which is standard AWS best practice for public-facing applications.\n- Requirement: SATISFIED \u2014 DMZ is enforced via AWS ALB in public subnets, with backend resources protected by security groups."
+  },
+  "APSC-DV-003360": {
+    "status": "Open",
+    "evidence": "Control requires the application to generate audit records when concurrent logons from different workstations occur, including source IP addresses.\n- File: api/app/process/router.py \u2014 No evidence of audit logging for concurrent logons or capturing source IP addresses in logs.\n- File: api/README.md \u2014 Authentication is handled via Keycloak (JWT), but no mention of audit logging for concurrent logons or IP tracking.\n- File: deploy/keycloak/dev-realm.json \u2014 No evidence of audit log configuration for concurrent logons.\n- No static evidence of log storage, log format, or log analysis for concurrent logon detection in provided files.\n- Requirement: NOT SATISFIED \u2014 No evidence of audit records for concurrent logons from different workstations."
+  },
+  "APSC-DV-003400": {
+    "status": "Open",
+    "evidence": "Control requires evidence of annual security training for program managers, designers, developers, and testers.\n- No evidence in any provided file (README.md, api/README.md, deploy/keycloak/dev-realm.json, etc.) of security training records, class rosters, or course completion certificates.\n- No documentation, comments, or references to security training processes or requirements for development personnel.\n- Requirement: NOT SATISFIED \u2014 No evidence of annual security training for relevant personnel."
+  },
+  "APSC-DV-002010": {
+    "status": "Not Applicable",
+    "evidence": "Control requires NSA-approved cryptography for classified information. If the application does not process classified data, the requirement is not applicable.\n- File: api/README.md \u2014 No mention of processing classified data; describes use cases for Air Force fuel tank maintenance, but no indication of classified/SAMI data handling.\n- File: api/app/config.py \u2014 Cryptography settings reference NIST/FIPS-validated algorithms for general data protection, but no indication of classified data handling.\n- File: deploy/keycloak/dev-realm.json \u2014 No evidence of classified data processing or storage.\n- Requirement: NOT APPLICABLE \u2014 Application does not process classified information per available documentation."
+  }
+}

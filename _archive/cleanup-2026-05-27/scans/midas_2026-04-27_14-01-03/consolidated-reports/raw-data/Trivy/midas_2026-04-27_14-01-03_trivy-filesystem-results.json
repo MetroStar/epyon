@@ -1,0 +1,18 @@
+{
+  "SchemaVersion": 2,
+  "Trivy": {
+    "Version": "0.70.0"
+  },
+  "ReportID": "019dcf3e-e1f5-7bf7-a270-555f312f47de",
+  "CreatedAt": "2026-04-27T14:01:38.037786562Z",
+  "ArtifactID": "sha256:34ca1177d30d9b6cd1f3dbd0e71cb6a1047ac9065952146099f00441564f07ff",
+  "ArtifactName": "/workspace",
+  "ArtifactType": "repository",
+  "Metadata": {
+    "RepoURL": "https://github.com/MetroStar/midas",
+    "Commit": "8e3acdcd3031dc537250a8c8c1eb95a48cec8096",
+    "CommitMsg": "Merge 7352f323431535bcc5d47f290da40c1792afe43d into a62a3efec536e0d5e6d0e3ff7dba303acf62052d",
+    "Author": "Prasad Konka \u003cpkonka@svg-it.com\u003e",
+    "Committer": "GitHub \u003cnoreply@github.com\u003e"
+  }
+}

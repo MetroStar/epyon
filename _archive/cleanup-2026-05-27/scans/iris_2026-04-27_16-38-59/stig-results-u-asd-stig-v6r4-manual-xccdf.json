@@ -1,0 +1,1146 @@
+{
+  "APSC-DV-000010": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000060": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000070": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000080": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000090": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000100": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000110": {
+    "status": "Open",
+    "evidence": "- No evidence of data marking or security attribute association with stored information was found in the provided codebase.\n- No schema or code references to classified, CUI, or other data markings are present."
+  },
+  "APSC-DV-000120": {
+    "status": "Open",
+    "evidence": "- No evidence of data marking or security attribute association with information in process was found in the provided codebase.\n- No code references to marking retention during processing actions."
+  },
+  "APSC-DV-000130": {
+    "status": "Open",
+    "evidence": "- No evidence of data marking or security attribute association with information in transmission was found in the provided codebase.\n- No code references to marking retention during transmission actions."
+  },
+  "APSC-DV-000160": {
+    "status": "Open",
+    "evidence": "- The application uses AWS S3 and Bedrock clients, but there is no explicit enforcement or verification of DoD-approved encryption (e.g., TLS configuration) in the code.\n- Repository artifacts do not confirm encryption settings for remote access sessions."
+  },
+  "APSC-DV-000170": {
+    "status": "Open",
+    "evidence": "- The application uses AWS S3 and Bedrock clients, but there is no explicit enforcement or verification of cryptographic integrity mechanisms (e.g., TLS configuration) in the code.\n- Repository artifacts do not confirm integrity protection for remote access sessions."
+  },
+  "APSC-DV-000180": {
+    "status": "Not Applicable",
+    "evidence": "- No evidence of SOAP message generation or processing was found in the provided codebase.\n- Application does not utilize SOAP or WS-Security; only REST and AWS SDKs are present."
+  },
+  "APSC-DV-000190": {
+    "status": "Not Applicable",
+    "evidence": "- No evidence of WS-Security token usage or SOAP messaging was found in the provided codebase.\n- Application does not utilize WS-Security or SOAP."
+  },
+  "APSC-DV-000200": {
+    "status": "Not Applicable",
+    "evidence": "- No evidence of WS-Security or SAML assertion usage was found in the provided codebase.\n- Application does not utilize WS-Security or SAML assertions."
+  },
+  "APSC-DV-000210": {
+    "status": "Not Applicable",
+    "evidence": "- No evidence of SAML assertion usage was found in the provided codebase.\n- Application does not utilize SAML assertions."
+  },
+  "APSC-DV-000220": {
+    "status": "Not Applicable",
+    "evidence": "- No evidence of WS-Security token usage was found in the provided codebase.\n- Application does not utilize WS-Security tokens."
+  },
+  "APSC-DV-000230": {
+    "status": "Not Applicable",
+    "evidence": "- No evidence of SAML assertion or <SubjectConfirmation> element usage was found in the provided codebase.\n- Application does not utilize SAML assertions."
+  },
+  "APSC-DV-000240": {
+    "status": "Not Applicable",
+    "evidence": "- No evidence of SAML assertion or <Conditions> element usage was found in the provided codebase.\n- Application does not utilize SAML assertions."
+  },
+  "APSC-DV-000250": {
+    "status": "Not Applicable",
+    "evidence": "- No evidence of SAML assertion or OneTimeUse element usage was found in the provided codebase.\n- Application does not utilize SAML assertions."
+  },
+  "APSC-DV-000260": {
+    "status": "Not Applicable",
+    "evidence": "- No evidence of SAML assertion or SessionIndex usage was found in the provided codebase.\n- Application does not utilize SAML assertions."
+  },
+  "APSC-DV-000280": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000290": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000300": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000310": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000320": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000330": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000340": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000350": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000360": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000370": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000380": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000390": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000400": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000410": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000420": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000430": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000440": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000450": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000460": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000470": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000480": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000490": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000500": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000510": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000520": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000530": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000540": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000550": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000560": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000570": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000580": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000590": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000600": {
+    "status": "Not Applicable",
+    "evidence": "- Application source code and documentation do not indicate any audit record aggregation or log correlation functionality; log aggregation is not a feature of this application."
+  },
+  "APSC-DV-000620": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000630": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000640": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000650": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000660": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000670": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000680": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000690": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000700": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000710": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000720": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000730": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000740": {
+    "status": "Open",
+    "evidence": "- No evidence of information category or classification level access controls or audit logging found in the provided code or documentation.\n- Application requirements for compartmentalized data are not clearly stated; further review of requirements and implementation is needed."
+  },
+  "APSC-DV-000750": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000760": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000770": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000780": {
+    "status": "Open",
+    "evidence": "- No evidence of information category or classification level modification controls or audit logging found in the provided code or documentation.\n- Application requirements for compartmentalized data are not clearly stated; further review of requirements and implementation is needed."
+  },
+  "APSC-DV-000790": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000800": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000810": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000820": {
+    "status": "Open",
+    "evidence": "- No evidence of information category or classification level deletion controls or audit logging found in the provided code or documentation.\n- Application requirements for compartmentalized data are not clearly stated; further review of requirements and implementation is needed."
+  },
+  "APSC-DV-000830": {
+    "status": "Open",
+    "evidence": "- The authentication flow is implemented via Keycloak and JWT in api/app/auth.py, but there is no evidence of audit record generation for successful or unsuccessful logon attempts in the repository code.\n- Logging is present for token verification, but not for authentication events."
+  },
+  "APSC-DV-000840": {
+    "status": "Open",
+    "evidence": "- Role-based access control is enforced in api/app/auth.py, but there is no evidence of privileged activity audit logging in the repository code.\n- Logging statements are present for access attempts, but these are application logs, not audit records."
+  },
+  "APSC-DV-000850": {
+    "status": "Open",
+    "evidence": "- No evidence found of audit records showing starting and ending time for user access to the system in the provided codebase.\n- Session management and logging of session start/end events are not implemented in the visible code."
+  },
+  "APSC-DV-000860": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000870": {
+    "status": "Not Applicable",
+    "evidence": "- No direct access to the underlying operating system is provided by the application according to the supplied code and documentation.\n- Application is a web-based video/document analysis tool with no OS command execution or file system navigation features."
+  },
+  "APSC-DV-000880": {
+    "status": "Open",
+    "evidence": "- User authentication and authorization are handled via Keycloak (see api/app/auth.py and deploy/keycloak/themes/README.md), but there is no evidence of audit record generation for account creation, modification, disabling, or termination events in the application code.\n- If user management is delegated entirely to Keycloak, audit logging may be handled externally; requires system-level validation."
+  },
+  "APSC-DV-000910": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000940": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000950": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000960": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000970": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-000980": {
+    "status": "Not a Finding",
+    "evidence": "- All logging calls in api/app/process/services/thumbnail.py, api/app/process/services/summarization.py, and api/app/reference_docs/services.py use logger.info/error/warning, which typically include timestamps when properly configured in app/logging_config.py."
+  },
+  "APSC-DV-000990": {
+    "status": "Not a Finding",
+    "evidence": "- Logging statements in api/app/process/services/thumbnail.py and api/app/process/services/summarization.py include contextual information such as session_id, segment_index, and operation, allowing traceability to the triggering component or function."
+  },
+  "APSC-DV-001000": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001010": {
+    "status": "Not a Finding",
+    "evidence": "- Logging statements in api/app/process/services/thumbnail.py and api/app/process/services/summarization.py include status and message fields (e.g., 'status': 'success', 'message': 'Thumbnail generated successfully'), indicating event outcomes are recorded."
+  },
+  "APSC-DV-001020": {
+    "status": "Not a Finding",
+    "evidence": "- Logging and audit records in api/app/process/services/thumbnail.py and api/app/process/services/summarization.py include session_id and other identifiers, establishing the identity of the process or user associated with the event."
+  },
+  "APSC-DV-001030": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001040": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001050": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001070": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001080": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001090": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001100": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001110": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001120": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001130": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001140": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001150": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001160": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001170": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001180": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001190": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001200": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001210": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001220": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001250": {
+    "status": "Open",
+    "evidence": "- Logging and summary generation use datetime.utcnow() for timestamps (see api/app/process/services/summarization.py, generate_video_summary_for_session), but there is no explicit evidence that the system clock is synchronized with the OS or that UTC/GMT mapping is enforced.\n- S3 object metadata may include timestamps, but system-level validation is required to confirm alignment with OS time."
+  },
+  "APSC-DV-001260": {
+    "status": "Open",
+    "evidence": "- Timestamps are generated using datetime.utcnow() (see api/app/process/services/summarization.py, generate_video_summary_for_session), but there is no explicit evidence that timestamps are mapped to UTC/GMT or that the system clock is configured accordingly.\n- System-level configuration and validation are required to confirm UTC/GMT mapping."
+  },
+  "APSC-DV-001270": {
+    "status": "Open",
+    "evidence": "- Timestamps are generated using datetime.utcnow().isoformat() + 'Z' (see api/app/process/services/summarization.py), which provides ISO 8601 format with second-level granularity.\n- However, there is no explicit evidence that the underlying system clock is synchronized to within one second of precision; system-level validation is required."
+  },
+  "APSC-DV-001280": {
+    "status": "Open",
+    "evidence": "- Audit information (e.g., summary JSON files) is stored in S3 and metadata in PostgreSQL, but there is no evidence in the repository of explicit access control enforcement for audit data at the application or infrastructure level.\n- File system and S3 bucket permissions, as well as database access controls, require system-level validation."
+  },
+  "APSC-DV-001290": {
+    "status": "Open",
+    "evidence": "- There is no evidence in the repository of explicit controls to prevent unauthorized modification of audit information (e.g., summary files in S3 or metadata in PostgreSQL).\n- Enforcement of write/modify permissions must be validated at the infrastructure and database configuration level."
+  },
+  "APSC-DV-001300": {
+    "status": "Open",
+    "evidence": "- There is no evidence in the repository of explicit controls to prevent unauthorized deletion of audit information (e.g., summary files in S3 or metadata in PostgreSQL).\n- Enforcement of delete permissions must be validated at the infrastructure and database configuration level."
+  },
+  "APSC-DV-001310": {
+    "status": "Open",
+    "evidence": "- No distinct audit tool functionality is present in the application codebase; audit access is via standard API/database/S3 interfaces.\n- If audit tools exist outside the repository, system-level validation is required to confirm access controls."
+  },
+  "APSC-DV-001320": {
+    "status": "Open",
+    "evidence": "- No distinct audit tool functionality is present in the application codebase; audit access is via standard API/database/S3 interfaces.\n- If audit tools exist outside the repository, system-level validation is required to confirm modification controls."
+  },
+  "APSC-DV-001330": {
+    "status": "Open",
+    "evidence": "- No distinct audit tool functionality is present in the application codebase; audit access is via standard API/database/S3 interfaces.\n- If audit tools exist outside the repository, system-level validation is required to confirm deletion controls."
+  },
+  "APSC-DV-001340": {
+    "status": "Not Applicable",
+    "evidence": "- The application does not include a built-in backup capability for audit records; audit data (summaries, metadata) is stored in S3 and PostgreSQL, which are managed externally.\n- Backup and retention are expected to be handled by infrastructure or cloud provider."
+  },
+  "APSC-DV-001350": {
+    "status": "Open",
+    "evidence": "- There is no evidence in the repository of cryptographic mechanisms (e.g., hashing, signing) applied to audit information (summary JSON files or metadata) to protect integrity.\n- S3 and database-level integrity controls, if any, require system-level validation."
+  },
+  "APSC-DV-001360": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001370": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001390": {
+    "status": "Open",
+    "evidence": "- No code or configuration was found that implements or restricts user installation of software, plugins, or extensions within the application.\n- Application source and documentation do not indicate any user-facing software installation capability."
+  },
+  "APSC-DV-001410": {
+    "status": "Open",
+    "evidence": "- No explicit access control logic for application configuration changes was found in the provided source code.\n- Keycloak is referenced for authentication, but enforcement of configuration change restrictions is not evident from static artifacts."
+  },
+  "APSC-DV-001420": {
+    "status": "Open",
+    "evidence": "- No evidence of audit logging for configuration changes or user attribution was found in the repository.\n- Logging is present (see api/app/process/services/summarization.py), but not for configuration changes."
+  },
+  "APSC-DV-001430": {
+    "status": "Open",
+    "evidence": "- No code or configuration was found that enforces digital signature verification for patches, service packs, or application components.\n- Deployment scripts (see .github/workflows/deploy-iris.yml) do not show signature validation steps."
+  },
+  "APSC-DV-001440": {
+    "status": "Open",
+    "evidence": "- No static evidence of file system permissions or application logic restricting modification of software libraries was found.\n- Application folder and library access controls are not defined in code or documentation."
+  },
+  "APSC-DV-001460": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001480": {
+    "status": "Open",
+    "evidence": "- No code or configuration was found that enforces program execution restrictions based on organizational policy.\n- No policy enforcement or RBAC logic for program execution is present in the reviewed files."
+  },
+  "APSC-DV-001490": {
+    "status": "Not Applicable",
+    "evidence": "- The application is not a configuration management or system process management tool; no evidence of application whitelisting or deny-all, permit-by-exception execution policy is present or required for this application type."
+  },
+  "APSC-DV-001500": {
+    "status": "Open",
+    "evidence": "- No code or configuration was found that disables or restricts non-essential capabilities or modules.\n- Application configuration (api/app/config.py) lists many features, but no mechanism for disabling features is evident."
+  },
+  "APSC-DV-001510": {
+    "status": "Open",
+    "evidence": "- Application configuration (api/app/config.py) defines ports and protocols (e.g., POSTGRES_PORT, QDRANT_PORT), but no evidence of enforcement against PPSM CAL or restriction to approved ports is present."
+  },
+  "APSC-DV-001520": {
+    "status": "Open",
+    "evidence": "- No code or configuration was found that enforces user reauthentication on privilege escalation or role change.\n- Authentication is handled via Keycloak, but reauthentication triggers are not evident in the repository."
+  },
+  "APSC-DV-001530": {
+    "status": "Open",
+    "evidence": "- No code or configuration was found that enforces device reauthentication or periodic authenticator renewal for devices.\n- Device authentication and reauthentication intervals are not addressed in the static codebase."
+  },
+  "APSC-DV-001540": {
+    "status": "Not a Finding",
+    "evidence": "- Unique user identification and authentication is implemented via Keycloak integration (see api/app/config.py: KEYCLOAK_URL, KEYCLOAK_REALM, KEYCLOAK_CLIENT_ID).\n- Frontend authentication logic is present in ui/src/hooks/use-auth.test.ts, validating user tokens and profiles."
+  },
+  "APSC-DV-001550": {
+    "status": "Open",
+    "evidence": "- No code or configuration was found that enforces multifactor (Alt. Token) authentication for privileged accounts.\n- Keycloak is referenced, but MFA enforcement for privileged access is not evident in static artifacts."
+  },
+  "APSC-DV-001560": {
+    "status": "Open",
+    "evidence": "- No code or configuration was found that enforces acceptance of PIV credentials (CAC) for authentication.\n- Keycloak integration is present, but PIV/CAC enforcement is not statically verifiable."
+  },
+  "APSC-DV-001570": {
+    "status": "Open",
+    "evidence": "- No code or configuration was found that electronically verifies PIV credentials.\n- Keycloak integration is present, but certificate validation for CAC/PIV is not statically verifiable."
+  },
+  "APSC-DV-001580": {
+    "status": "Open",
+    "evidence": "- No code or configuration was found that enforces multifactor authentication for non-privileged accounts.\n- Keycloak integration is present, but MFA enforcement is not statically verifiable."
+  },
+  "APSC-DV-001590": {
+    "status": "Open",
+    "evidence": "- No code or configuration was found that enforces multifactor (Alt. Token) authentication for local privileged access.\n- Keycloak integration is present, but local MFA enforcement is not statically verifiable."
+  },
+  "APSC-DV-001600": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001610": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001620": {
+    "status": "Open",
+    "evidence": "- The application uses JWT authentication with Keycloak and verifies tokens using RS256 (as seen in api/app/auth.py), which is replay-resistant if used over TLS.\n- No explicit evidence of TLS enforcement for all privileged authentication traffic is present in the repository; requires deployment/runtime validation.\n- No code for Kerberos, IPSEC, or SSH authentication is present."
+  },
+  "APSC-DV-001630": {
+    "status": "Open",
+    "evidence": "- JWT authentication is implemented (api/app/auth.py) and Keycloak is used for user authentication, but static code does not confirm TLS enforcement for all nonprivileged authentication traffic.\n- No explicit evidence of replay-resistant mechanisms for all network access to nonprivileged accounts; requires runtime and infra validation."
+  },
+  "APSC-DV-001640": {
+    "status": "Open",
+    "evidence": "- No static evidence of mutual authentication (e.g., two-way SSL/TLS or client certificate validation) in the application code or configuration files.\n- Keycloak is used for authentication, but mutual authentication requirements depend on Keycloak and deployment configuration, not visible in code."
+  },
+  "APSC-DV-001650": {
+    "status": "Open",
+    "evidence": "- No code or configuration found that authenticates network-connected endpoint devices before establishing connections.\n- The application uses JWT/Keycloak for user authentication, but device authentication is not addressed in the static codebase."
+  },
+  "APSC-DV-001660": {
+    "status": "Not Applicable",
+    "evidence": "- No evidence of Service-Oriented Architecture (SOA) or web services endpoints handling non-releasable data in the application codebase.\n- Application appears to be an interactive user-facing system with no SOA mutual SSL/TLS device authentication requirements."
+  },
+  "APSC-DV-001670": {
+    "status": "Open",
+    "evidence": "- No code or configuration found for device identifier/account management or inactivity-based disabling.\n- Device authentication and inactivity tracking are not implemented in the reviewed source code."
+  },
+  "APSC-DV-001680": {
+    "status": "Open",
+    "evidence": "- No password creation or change logic is present in the application codebase; authentication is delegated to Keycloak.\n- Password policy enforcement (minimum length) is managed by Keycloak and must be validated in Keycloak configuration."
+  },
+  "APSC-DV-001690": {
+    "status": "Open",
+    "evidence": "- No password complexity enforcement logic is present in the application codebase; authentication is handled by Keycloak.\n- Enforcement of uppercase character requirement must be validated in Keycloak configuration."
+  },
+  "APSC-DV-001700": {
+    "status": "Open",
+    "evidence": "- No password complexity enforcement logic is present in the application codebase; authentication is handled by Keycloak.\n- Enforcement of lowercase character requirement must be validated in Keycloak configuration."
+  },
+  "APSC-DV-001710": {
+    "status": "Open",
+    "evidence": "- No password complexity enforcement logic is present in the application codebase; authentication is handled by Keycloak.\n- Enforcement of numeric character requirement must be validated in Keycloak configuration."
+  },
+  "APSC-DV-001720": {
+    "status": "Open",
+    "evidence": "- No password complexity enforcement logic is present in the application codebase; authentication is handled by Keycloak.\n- Enforcement of special character requirement must be validated in Keycloak configuration."
+  },
+  "APSC-DV-001730": {
+    "status": "Open",
+    "evidence": "- No password change logic is present in the application codebase; authentication is handled by Keycloak.\n- Enforcement of minimum character change on password update must be validated in Keycloak configuration."
+  },
+  "APSC-DV-001740": {
+    "status": "Open",
+    "evidence": "- No password storage logic is present in the application codebase; passwords are managed by Keycloak.\n- Password storage and cryptographic protection must be validated in Keycloak configuration and database."
+  },
+  "APSC-DV-001750": {
+    "status": "Open",
+    "evidence": "- No password transmission logic is present in the application codebase; authentication is handled by Keycloak.\n- Cryptographic protection of passwords in transit must be validated in Keycloak and deployment configuration (e.g., HTTPS enforcement)."
+  },
+  "APSC-DV-001760": {
+    "status": "Open",
+    "evidence": "- No password lifetime enforcement logic is present in the application codebase; authentication is handled by Keycloak.\n- Minimum password lifetime enforcement must be validated in Keycloak configuration."
+  },
+  "APSC-DV-001770": {
+    "status": "Open",
+    "evidence": "- No password expiration logic is present in the application codebase; authentication is handled by Keycloak.\n- Maximum password lifetime enforcement must be validated in Keycloak configuration."
+  },
+  "APSC-DV-001780": {
+    "status": "Open",
+    "evidence": "- No password reuse prevention logic is present in the application codebase; authentication is handled by Keycloak.\n- Password history enforcement must be validated in Keycloak configuration."
+  },
+  "APSC-DV-001790": {
+    "status": "Open",
+    "evidence": "- No logic for temporary password issuance or forced password change on first login is present in the application codebase; authentication is handled by Keycloak.\n- Temporary password and forced change enforcement must be validated in Keycloak configuration."
+  },
+  "APSC-DV-001795": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001800": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001810": {
+    "status": "Open",
+    "evidence": "- No explicit certificate path validation logic is present in the reviewed source code. - PKI-based authentication and certificate validation are not implemented in the application code; likely delegated to Keycloak or external IdP. - Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001820": {
+    "status": "Open",
+    "evidence": "- No cryptographic private key management or access control logic is present in the application source code. - Application does not appear to perform code signing or cryptographic operations requiring private key storage. - Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001830": {
+    "status": "Open",
+    "evidence": "- No code mapping PKI certificate data to user or group accounts is present in the application source code. - Authentication and identity mapping are likely handled by Keycloak, but repository artifacts do not demonstrate this mapping. - Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001840": {
+    "status": "Open",
+    "evidence": "- No code for local caching of certificate revocation data (CRL/OCSP) is present in the application source code. - PKI revocation checking is not implemented in the application; likely handled by Keycloak or external IdP. - Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001850": {
+    "status": "Open",
+    "evidence": "- No UI code or template for password/PIN entry is present in the reviewed repository artifacts. - The Keycloak theme directory contains login templates, but the actual password field implementation and masking cannot be confirmed from static theme files alone. - Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001860": {
+    "status": "Open",
+    "evidence": "- No cryptographic module authentication logic is present in the application source code. - No evidence of FIPS-validated cryptographic module usage or authentication to such modules is present. - Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001870": {
+    "status": "Open",
+    "evidence": "- No code for unique identification and authentication of non-organizational users is present in the application source code. - User authentication is delegated to Keycloak, but repository artifacts do not demonstrate user base or account uniqueness. - Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001880": {
+    "status": "Open",
+    "evidence": "- No code or configuration for accepting PIV credentials from other federal agencies is present in the application source code. - PKI/PIV authentication is likely handled by Keycloak, but repository artifacts do not demonstrate this capability. - Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001890": {
+    "status": "Open",
+    "evidence": "- No code or configuration for electronic verification of PIV credentials from other federal agencies is present in the application source code. - PKI/PIV authentication is likely handled by Keycloak, but repository artifacts do not demonstrate this capability. - Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001900": {
+    "status": "Open",
+    "evidence": "- No code or configuration for accepting FICAM-approved third-party credentials is present in the application source code. - PKI/FICAM authentication is likely handled by Keycloak, but repository artifacts do not demonstrate this capability. - Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001910": {
+    "status": "Open",
+    "evidence": "- No code or configuration for conforming to FICAM-issued profiles (e.g., SAML, OpenID) is present in the application source code. - Identity federation and protocol conformance is likely handled by Keycloak, but repository artifacts do not demonstrate this capability. - Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001930": {
+    "status": "Open",
+    "evidence": "- No code for auditing non-local maintenance or diagnostic sessions is present in the application source code. - No evidence of audit log generation for remote maintenance actions is present. - Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001940": {
+    "status": "Open",
+    "evidence": "- No code for implementing cryptographic protection of non-local maintenance and diagnostic communications is present in the application source code. - No evidence of TLS or other encryption for remote maintenance sessions is present. - Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001950": {
+    "status": "Open",
+    "evidence": "- No code for implementing cryptographic protection of non-local maintenance and diagnostic communications is present in the application source code. - No evidence of TLS or other encryption for remote maintenance sessions is present. - Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001960": {
+    "status": "Open",
+    "evidence": "- No code for verifying remote disconnection at the termination of non-local maintenance and diagnostic sessions is present in the application source code. - No evidence of session termination or connection closure logic for remote maintenance is present. - Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001970": {
+    "status": "Open",
+    "evidence": "- No code for strong authentication mechanisms for non-local maintenance and diagnostic sessions is present in the application source code. - No evidence of CAC or equivalent strong authenticator enforcement for remote maintenance is present. - Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001980": {
+    "status": "Open",
+    "evidence": "- No code for terminating all sessions and network connections after nonlocal maintenance is completed is present in the application source code. - No evidence of session timeout or forced termination logic for privileged or nonprivileged sessions is present. - Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-001995": {
+    "status": "Open",
+    "evidence": "- No static analysis results or explicit race condition mitigation logic is present in the application source code. - Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002000": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002020": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002030": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002040": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002050": {
+    "status": "Not Applicable",
+    "evidence": "- No SAML assertion generation or SAML SessionIndex logic is present in the provided source code or documentation.\n- Application uses Keycloak for authentication, which is OIDC/OAuth2-based by default.\n- SAML-specific controls are not applicable to this architecture."
+  },
+  "APSC-DV-002150": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002210": {
+    "status": "Open",
+    "evidence": "- Application uses Keycloak for authentication and session management, but no explicit evidence of HTTPOnly flag configuration for session cookies is present in the repository.\n- Keycloak theme customization does not affect cookie flags; requires Keycloak server config review."
+  },
+  "APSC-DV-002220": {
+    "status": "Open",
+    "evidence": "- Application uses Keycloak for authentication and session management, but no explicit evidence of Secure flag configuration for session cookies is present in the repository.\n- Keycloak theme customization does not affect cookie flags; requires Keycloak server config review."
+  },
+  "APSC-DV-002230": {
+    "status": "Open",
+    "evidence": "- Application relies on Keycloak for session management, but repository artifacts do not demonstrate encryption of session IDs in transit.\n- Requires runtime validation of TLS configuration between client, UI, and Keycloak."
+  },
+  "APSC-DV-002240": {
+    "status": "Open",
+    "evidence": "- Session management is delegated to Keycloak, but repository artifacts do not demonstrate destruction of session IDs/cookies on logoff or browser close.\n- Requires Keycloak server/session config review and runtime validation."
+  },
+  "APSC-DV-002250": {
+    "status": "Open",
+    "evidence": "- Session identifier generation and fixation protection are handled by Keycloak, but no explicit evidence of anti-fixation controls is present in the repository.\n- Requires review of Keycloak server configuration and/or dynamic testing."
+  },
+  "APSC-DV-002260": {
+    "status": "Open",
+    "evidence": "- Session validation is handled by Keycloak, but repository artifacts do not demonstrate session ID validation logic or configuration.\n- Requires Keycloak server/session config review."
+  },
+  "APSC-DV-002270": {
+    "status": "Open",
+    "evidence": "- No evidence of URL-embedded session IDs or URL rewriting for session management in the repository.\n- However, explicit configuration or code preventing URL-based session IDs is not present; requires Keycloak and UI runtime validation."
+  },
+  "APSC-DV-002280": {
+    "status": "Open",
+    "evidence": "- Session ID generation and lifecycle are managed by Keycloak, but repository artifacts do not demonstrate controls to prevent session ID reuse or recycling.\n- Requires Keycloak server/session config review and/or dynamic testing."
+  },
+  "APSC-DV-002290": {
+    "status": "Open",
+    "evidence": "- Session ID generation is delegated to Keycloak, but repository artifacts do not demonstrate use of FIPS 140-2/140-3 approved random number generators for session IDs.\n- Requires Keycloak server configuration review and/or vendor documentation."
+  },
+  "APSC-DV-002300": {
+    "status": "Open",
+    "evidence": "- Application uses Keycloak for authentication, but repository artifacts do not demonstrate enforcement of DoD-approved certificate authorities for protected sessions.\n- Requires Keycloak server TLS/certificate configuration review."
+  },
+  "APSC-DV-002310": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002320": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002330": {
+    "status": "Open",
+    "evidence": "- Application processes and stores data in S3 and PostgreSQL, but repository artifacts do not demonstrate encryption or integrity controls for stored information.\n- Requires review of S3 bucket policies, encryption settings, and database configuration."
+  },
+  "APSC-DV-002340": {
+    "status": "Open",
+    "evidence": "- Application stores data in S3 and PostgreSQL, but repository artifacts do not demonstrate use of approved cryptographic mechanisms to prevent unauthorized modification of data at rest.\n- Requires review of S3 encryption settings, database encryption, and relevant policies."
+  },
+  "APSC-DV-002350": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002360": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002370": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002380": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002390": {
+    "status": "Not Applicable",
+    "evidence": "- No XML-based application code, XML parsing, or XML web service endpoints were identified in the provided source code or documentation; this application does not process XML."
+  },
+  "APSC-DV-002400": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002410": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002440": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002450": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002460": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002470": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002480": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002485": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002490": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002500": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002510": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002520": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002530": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002540": {
+    "status": "Open",
+    "evidence": "- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002550": {
+    "status": "Not Applicable",
+    "evidence": "- No XML-based application code, XML parsing, or XML web service endpoints were identified in the provided source code or documentation; this application does not process XML."
+  },
+  "APSC-DV-002560": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002570": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002580": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002590": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002610": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002630": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002760": {
+    "status": "Not Applicable",
+    "evidence": "- No code or documentation indicates the application performs organization-defined security functions or security function testing; the application is not a security function testing platform."
+  },
+  "APSC-DV-002770": {
+    "status": "Not Applicable",
+    "evidence": "- No code or documentation indicates the application performs security function testing on startup, restart, or privileged command; the application is not a security function testing platform."
+  },
+  "APSC-DV-002780": {
+    "status": "Not Applicable",
+    "evidence": "- No code or documentation indicates the application performs security function testing or notifies ISSO/ISSM of failed security verification tests; the application is not a security function testing platform."
+  },
+  "APSC-DV-002870": {
+    "status": "Not Applicable",
+    "evidence": "- No mobile code (e.g., Java applets, ActiveX, Flash, Silverlight) is present in the repository; application is not a client-distributed mobile code platform."
+  },
+  "APSC-DV-002880": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002890": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002900": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002910": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002920": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002930": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002950": {
+    "status": "Not Applicable",
+    "evidence": "- No web service implementation code or documentation is present; application does not expose or develop web services, so deadlock/recursion mitigation is not applicable."
+  },
+  "APSC-DV-002960": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002970": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002980": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002990": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002995": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003000": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003010": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003020": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003030": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003040": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003050": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003060": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003070": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003080": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003090": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003100": {
+    "status": "Open",
+    "evidence": "- The application uses AWS Bedrock and S3, which may involve key exchange, but no explicit cryptographic key exchange implementation is visible in the provided code.\n- No evidence of FIPS-140-2 validated cryptographic modules for key exchange is present in the repository.\n- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003110": {
+    "status": "Open",
+    "evidence": "- Sensitive data such as AWS credentials and PostgreSQL passwords are referenced in api/app/config.py as environment variables, not hardcoded values.\n- No embedded authentication data (e.g., plaintext passwords, certificates) was found in the code, but full assurance requires review of all configuration and deployment artifacts.\n- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003120": {
+    "status": "Open",
+    "evidence": "- No evidence of output marking for sensitive/classified data was found in the provided source code or theme templates.\n- No classification guide or marking logic is present in the repository artifacts.\n- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003130": {
+    "status": "Open",
+    "evidence": "- No test plans, procedures, or results were found in the repository.\n- No evidence of test documentation or automation for release/patch cycles is present in the supplied codebase.\n- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003140": {
+    "status": "Open",
+    "evidence": "- No cryptographic hash validation process or documentation was found in the repository.\n- No evidence of file integrity validation prior to deployment is present in the codebase.\n- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003150": {
+    "status": "Open",
+    "evidence": "- No evidence of designated security testers or related documentation was found in the repository.\n- No organization chart or personnel assignment for security testing is present in the codebase.\n- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003160": {
+    "status": "Open",
+    "evidence": "- No test procedures or documentation for system initialization, shutdown, or abort secure state validation were found in the repository.\n- No evidence of annual execution or test results is present in the codebase.\n- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003170": {
+    "status": "Open",
+    "evidence": "- No evidence of a formal code review process or code review reports was found in the repository.\n- No documentation outlining code review procedures or results is present in the codebase.\n- Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003180": {
+    "status": "Not a Finding",
+    "evidence": "- ui/README.md documents the use of 'npm run test:coverage' to generate code coverage statistics for each release.\n- The README instructs developers to review the coverage directory, indicating code coverage is maintained and available."
+  },
+  "APSC-DV-003190": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003200": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003210": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003215": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003220": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003230": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003235": {
+    "status": "Open",
+    "evidence": "- No static code analysis reports or test results for error handling vulnerabilities were found in the repository.\n- Evidence of error handling exists in exception handling (e.g., try/except blocks in api/app/process/services/summarization.py), but no proof of systematic testing or scan results."
+  },
+  "APSC-DV-003236": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003240": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003250": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003260": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003270": {
+    "status": "Open",
+    "evidence": "- No evidence of built-in application accounts or their management was found in the repository code or documentation.\n- Application appears to use Keycloak for authentication, but built-in account handling is not addressed in code artifacts."
+  },
+  "APSC-DV-003280": {
+    "status": "Open",
+    "evidence": "- No evidence of default password management or enforcement was found in the repository code or documentation.\n- Keycloak admin credentials are documented in ui/README.md for development, but production password management is not addressed."
+  },
+  "APSC-DV-003285": {
+    "status": "Open",
+    "evidence": "- No Application Configuration Guide was found in the repository.\n- While configuration details are present in api/app/config.py and some documentation, a comprehensive configuration guide as described in the control is not included."
+  },
+  "APSC-DV-003290": {
+    "status": "Not Applicable",
+    "evidence": "- No evidence was found that the application processes classified information.\n- No Security Classification Guide or references to classified data handling are present in the repository."
+  },
+  "APSC-DV-003300": {
+    "status": "Open",
+    "evidence": "- No documentation or code evidence was found regarding the use or prohibition of uncategorized or emerging mobile code.\n- Application appears to be a web service and UI, but explicit mobile code controls are not documented."
+  },
+  "APSC-DV-003310": {
+    "status": "Open",
+    "evidence": "- No evidence was found regarding the sanitization of database exports before release to test or development environments.\n- No database export scripts or sanitization routines are present in the repository."
+  },
+  "APSC-DV-003320": {
+    "status": "Open",
+    "evidence": "- No threat model documentation or code evidence was found regarding DoS protections.\n- Application code does not explicitly address DoS mitigation in repository artifacts."
+  },
+  "APSC-DV-003330": {
+    "status": "Open",
+    "evidence": "- No evidence of system resource monitoring or administrator alerting for low resource conditions was found in the repository code or documentation.\n- No monitoring or alerting integrations are present in static artifacts."
+  },
+  "APSC-DV-003340": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003345": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-003350": {
+    "status": "Open",
+    "evidence": "- No network or infrastructure configuration files (e.g., firewall, DMZ, or network topology) are present in the repository.\n- Application code and documentation do not specify DMZ enforcement or public accessibility controls.\n- Requires system/network architecture validation outside of codebase."
+  },
+  "APSC-DV-003360": {
+    "status": "Open",
+    "evidence": "- No evidence of audit logging for concurrent logons or IP address tracking was found in the provided source code.\n- No log management or session tracking implementation is visible in the reviewed files.\n- Requires dynamic testing and review of authentication/audit configuration."
+  },
+  "APSC-DV-003400": {
+    "status": "Open",
+    "evidence": "Control-specific implementation evidence was not demonstrably satisfied from repository artifacts alone; disposition set to Open pending system-level validation and artifact collection."
+  },
+  "APSC-DV-002010": {
+    "status": "Open",
+    "evidence": "- The application references AWS GovCloud and Bedrock, but there is no evidence that classified data is processed or that NSA-approved cryptography is implemented.\n- Cryptographic implementation details (e.g., FIPS/NIST/NSA module usage) are not present in the codebase.\n- Requires review of system security plan, data classification, and cryptographic configuration."
+  }
+}

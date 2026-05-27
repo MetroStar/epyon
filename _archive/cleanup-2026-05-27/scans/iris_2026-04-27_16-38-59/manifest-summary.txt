@@ -1,0 +1,69 @@
+EPYON SCAN MANIFEST SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Generated: 2026-04-27T17:08:41Z
+Manifest Hash: sha256:d529fbfefe0aef3871f38d68a55448848a076a354ef202c260a65d6f8a6d3578
+
+SCAN INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Scan ID:        iris_2026-04-27_16-38-59
+Username:       sketch0395
+Hostname:       runnervmeorf1
+Epyon Version:  3.0.0
+
+TARGET INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Repository:     N/A
+Commit SHA:     N/A
+Branch:         N/A
+Subdirectory:   N/A
+
+INTEGRITY VERIFICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This manifest contains SHA-256 hashes of all scan report files.
+To verify integrity, run:
+
+  ./scripts/shell/verify-scan-manifest.sh /home/runner/work/iris/iris/epyon/scans/iris_2026-04-27_16-38-59
+
+TRACKED FILES: 36
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✓ anchore/anchore-filesystem-results.json
+  ✓ anchore/anchore-sbom-results.json
+  ✓ anchore/anchore-scan.log
+  ✓ anchore/images/postgres_15-alpine.json
+  ✓ anchore/images/qdrant_qdrant_latest.json
+  ✓ anchore/images/qdrant_qdrant_v1.17.1.json
+  ✓ anchore/images/quay.io_keycloak_keycloak_23.0.json
+  ✓ api/api-discovery.json
+  ✓ checkov/checkov-statistics.json
+  ✓ checkov/iris_2026-04-27_16-38-59_checkov-results.json
+  ✓ checkov/iris_2026-04-27_16-38-59_checkov-scan.log
+  ✓ clamav/clamav-results.json
+  ✓ clamav/scan.log
+  ✓ findings-u-asd-stig-v6r4-manual-xccdf.md
+  ✓ findings.md
+  ✓ garak/garak-results.json
+  ✓ garak/iris_2026-04-27_16-38-59_garak-console.log
+  ✓ garak/iris_2026-04-27_16-38-59_garak-results.json
+  ✓ garak/iris_2026-04-27_16-38-59_garak-scan.log
+  ✓ garak/status.json
+  ✓ grype/iris_2026-04-27_16-38-59_grype-sbom-results.json
+  ✓ grype/scan.log
+  ✓ helm/helm-results.json
+  ✓ sbom/filesystem.json
+  ✓ sbom/sbom-summary.json
+  ✓ sbom/scan.log
+  ✓ sonar/sonar-scan.log
+  ✓ stig-controls-u-asd-stig-v6r4-manual-xccdf.json
+  ✓ stig-results-u-asd-stig-v6r4-manual-xccdf.json
+  ✓ trivy/iris_2026-04-27_16-38-59_trivy-filesystem-results.json
+  ✓ trivy/scan.log
+  ✓ trufflehog/iris_2026-04-27_16-38-59_trufflehog-filesystem-results.json
+  ✓ trufflehog/scan.log
+  ✓ xeol/iris_2026-04-27_16-38-59_xeol-filesystem-results.json
+  ✓ xeol/scan.log
+  ✓ xeol/xeol-statistics.json
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For full manifest details, see: scan-manifest.json

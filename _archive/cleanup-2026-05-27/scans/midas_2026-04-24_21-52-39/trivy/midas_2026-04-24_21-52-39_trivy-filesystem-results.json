@@ -1,0 +1,18 @@
+{
+  "SchemaVersion": 2,
+  "Trivy": {
+    "Version": "0.70.0"
+  },
+  "ReportID": "019dc17b-6ee5-767f-b461-cb67ecc94544",
+  "CreatedAt": "2026-04-24T21:53:05.253427686Z",
+  "ArtifactID": "sha256:c12f50a932b78dd42765c6e797fb123d829cc072530d8bd5dd248788713b2b75",
+  "ArtifactName": "/workspace",
+  "ArtifactType": "repository",
+  "Metadata": {
+    "RepoURL": "https://github.com/MetroStar/midas",
+    "Commit": "b534b7b209566dc4dc824a6e1fad19a6b33cb020",
+    "CommitMsg": "Merge be04acc85153e42199ea625c227d2e63b0f823cf into 803b2b76216b0863ae68dcdd7592238d1e29d144",
+    "Author": "Austin Herrling \u003cadherrling@gmail.com\u003e",
+    "Committer": "GitHub \u003cnoreply@github.com\u003e"
+  }
+}

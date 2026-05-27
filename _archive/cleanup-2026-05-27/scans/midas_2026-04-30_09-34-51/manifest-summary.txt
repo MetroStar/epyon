@@ -1,0 +1,40 @@
+EPYON SCAN MANIFEST SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Generated: 2026-04-30T14:56:00Z
+Manifest Hash: sha256:af14e54de0ec6fbc4c081ec1fe4f184b40dcaf35b57e7e34b8777d8ae5d55d3f
+
+SCAN INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Scan ID:        midas_2026-04-30_09-34-51
+Username:       web-ui
+Hostname:       ITLP01183.local
+Epyon Version:  3.0.0
+
+TARGET INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Repository:     N/A
+Commit SHA:     N/A
+Branch:         N/A
+Subdirectory:   N/A
+
+INTEGRITY VERIFICATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This manifest contains SHA-256 hashes of all scan report files.
+To verify integrity, run:
+
+  ./scripts/shell/verify-scan-manifest.sh /Users/rnelson/Desktop/Side_Projects/epyon/scans/midas_2026-04-30_09-34-51
+
+TRACKED FILES: 7
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✓ findings-u-asd-stig-v6r4-manual-xccdf.md
+  ✓ findings-u-cd-postgres-16-stig-v1r2-manual-xccdf.md
+  ✓ findings.md
+  ✓ stig-controls-u-asd-stig-v6r4-manual-xccdf.json
+  ✓ stig-controls-u-cd-postgres-16-stig-v1r2-manual-xccdf.json
+  ✓ stig-results-u-asd-stig-v6r4-manual-xccdf.json
+  ✓ stig-results-u-cd-postgres-16-stig-v1r2-manual-xccdf.json
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+For full manifest details, see: scan-manifest.json

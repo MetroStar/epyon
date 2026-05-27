@@ -1,0 +1,15 @@
+{
+  "files_scanned": 18,
+  "yaml_count": 15,
+  "terraform_count": 0,
+  "dockerfile_count": 0,
+  "json_count": 3,
+  "helm_count": 0,
+  "frameworks": "github_actions",
+  "total_checks": 176,
+  "passed": 173,
+  "failed": 2,
+  "skipped": 1,
+  "scan_duration": 29,
+  "security_status": "ISSUES_FOUND"
+}

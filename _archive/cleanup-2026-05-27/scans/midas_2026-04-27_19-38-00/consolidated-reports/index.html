@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Security Reports Index</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { text-align: center; margin-bottom: 30px; }
+        .links { display: grid; gap: 15px; }
+        .link { display: block; padding: 15px; background: #0F1F3D; color: white; text-decoration: none; border-radius: 6px; text-align: center; transition: background 0.3s; }
+        .link:hover { background: #1a2332; }
+        .dashboard-link { background: linear-gradient(135deg, #C41E3A 0%, #8B1328 100%); font-size: 18px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛡️ Security Reports</h1>
+            <p>Comprehensive DevOps Security Analysis</p>
+            <p><strong>Generated:</strong> Mon Apr 27 19:39:40 UTC 2026</p>
+        </div>
+        
+        <div class="links">
+            <a href="dashboards/security-dashboard.html" class="link dashboard-link">
+                📊 Main Security Dashboard
+            </a>
+            
+            <a href="scan-manifest.json" class="link" style="background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);">
+                🔐 Scan Manifest (Integrity Verification)
+            </a>
+            
+            <a href="manifest-summary.txt" class="link" style="background: #28a745;">
+                📋 Manifest Summary (Human-Readable)
+            </a>
+            
+            <a href="html-reports/" class="link">
+                📄 HTML Reports by Tool
+            </a>
+            
+            <a href="markdown-reports/" class="link">
+                📝 Markdown Summaries
+            </a>
+            
+            <a href="raw-data/" class="link">
+                🗃️ Raw JSON Data
+            </a>
+            
+            <a href="README.md" class="link">
+                📖 Documentation
+            </a>
+        </div>
+    </div>
+</body>
+</html>

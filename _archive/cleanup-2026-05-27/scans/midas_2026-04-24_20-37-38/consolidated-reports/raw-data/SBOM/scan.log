@@ -1,0 +1,27 @@
+SBOM generation started: 20-37-38
+Target: /home/runner/work/midas/midas/target-repo
+Syft version check:
+Generating SBOM for filesystem: /home/runner/work/midas/midas/target-repo
+Project: metrostar-libmidas (unknown)
+Using Docker version of Syft
+Unable to find image 'anchore/syft:latest' locally
+latest: Pulling from anchore/syft
+2c64d010193c: Pulling fs layer
+de92a7e8ae67: Pulling fs layer
+ef07e44cc809: Pulling fs layer
+de92a7e8ae67: Verifying Checksum
+de92a7e8ae67: Download complete
+2c64d010193c: Verifying Checksum
+2c64d010193c: Download complete
+2c64d010193c: Pull complete
+ef07e44cc809: Verifying Checksum
+ef07e44cc809: Download complete
+de92a7e8ae67: Pull complete
+ef07e44cc809: Pull complete
+Digest: sha256:0bf6a5b15e854c53bd8b09abe5d1ff12c07bdb06c6edc9b2df99643049233d28
+Status: Downloaded newer image for anchore/syft:latest
+[0000]  WARN no explicit name and version provided for directory source, deriving artifact ID from the given path (which is not ideal)
+SBOM generated successfully: /home/runner/work/midas/midas/epyon/scans/midas_2026-04-24_20-37-38/sbom/filesystem.json
+/home/runner/work/midas/midas/epyon/scripts/shell/run-sbom-scan.sh: line 237: syft: command not found
+SBOM Summary: 83 artifacts cataloged
+

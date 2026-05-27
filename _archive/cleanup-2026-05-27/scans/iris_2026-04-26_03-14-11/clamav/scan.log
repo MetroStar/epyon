@@ -1,0 +1,728 @@
+ClamAV scan started: 03-14-11
+Target: /home/runner/work/iris/iris/target-repo
+latest: Pulling from clamav/clamav
+6a0ac1617861: Pulling fs layer
+e2181bf4292b: Pulling fs layer
+428667bc3b22: Pulling fs layer
+faa4bc18cc7f: Pulling fs layer
+b9dedcb43b8f: Pulling fs layer
+a09da1f78c79: Pulling fs layer
+ddba415e0389: Pulling fs layer
+faa4bc18cc7f: Waiting
+b9dedcb43b8f: Waiting
+a09da1f78c79: Waiting
+ddba415e0389: Waiting
+e2181bf4292b: Verifying Checksum
+e2181bf4292b: Download complete
+6a0ac1617861: Verifying Checksum
+6a0ac1617861: Download complete
+faa4bc18cc7f: Verifying Checksum
+faa4bc18cc7f: Download complete
+b9dedcb43b8f: Verifying Checksum
+b9dedcb43b8f: Download complete
+a09da1f78c79: Verifying Checksum
+a09da1f78c79: Download complete
+428667bc3b22: Verifying Checksum
+428667bc3b22: Download complete
+6a0ac1617861: Pull complete
+ddba415e0389: Verifying Checksum
+ddba415e0389: Download complete
+e2181bf4292b: Pull complete
+428667bc3b22: Pull complete
+faa4bc18cc7f: Pull complete
+b9dedcb43b8f: Pull complete
+a09da1f78c79: Pull complete
+ddba415e0389: Pull complete
+Digest: sha256:c592fa56f9c538837a9c76faf17337e9b7d5e099332dd33be65c6cc80d179d0b
+Status: Downloaded newer image for clamav/clamav:latest
+docker.io/clamav/clamav:latest
+ClamAV update process started at Sun Apr 26 03:14:29 2026
+daily database available for update (local version: 27976, remote version: 27982)
+Testing database: '/var/lib/clamav/tmp.a935033208/daily.cld' ...
+Database test passed.
+daily.cld updated (version: 27982, sigs: 355428, f-level: 90, builder: svc.clamav-publisher)
+main.cvd database is up-to-date (version: 63, sigs: 3287027, f-level: 90, builder: tomjudge)
+bytecode.cvd database is up-to-date (version: 339, sigs: 80, f-level: 90, builder: nrandolp)
+WARNING: Clamd was NOT notified: Can't connect to clamd through /tmp/clamd.sock: No such file or directory
+ClamAV 1.5.2/27982/Sat Apr 25 06:24:36 2026
+/workspace/.DS_Store: OK
+/workspace/README.md: OK
+/workspace/AGENTS.md: OK
+/workspace/.github/dependabot.yml: OK
+/workspace/.github/workflows/deploy-eks.yml: OK
+/workspace/.github/workflows/ui-code-quality.yml: OK
+/workspace/.github/workflows/deploy-iris.yml: OK
+/workspace/.github/workflows/api-code-quality.yml: OK
+/workspace/.github/workflows/iris-ci.yml: OK
+/workspace/.github/workflows/scan-private-repo.yml: OK
+/workspace/.github/workflows/deploy-eks-ironbank.yml: OK
+/workspace/.github/workflows/bootstrap-eks.yml: OK
+/workspace/.github/pull_request_template.md: OK
+/workspace/ui/README.md: OK
+/workspace/ui/src/constants.ts: OK
+/workspace/ui/src/assets/react.svg: OK
+/workspace/ui/src/assets/libs/pdf.worker.min.mjs: OK
+/workspace/ui/src/App.tsx: OK
+/workspace/ui/src/utils/auth.test.ts: OK
+/workspace/ui/src/utils/annotation-exporter.ts: OK
+/workspace/ui/src/utils/helpers.test.ts: OK
+/workspace/ui/src/utils/auth.ts: OK
+/workspace/ui/src/utils/helpers.ts: OK
+/workspace/ui/src/utils/annotation-exporter.test.ts: OK
+/workspace/ui/src/components/chat-assistant/chat-assistant.test.tsx: OK
+/workspace/ui/src/components/chat-assistant/index.ts: OK
+/workspace/ui/src/components/chat-assistant/chat-assistant.tsx: OK
+/workspace/ui/src/components/filters-modal/filters-modal.test.tsx: OK
+/workspace/ui/src/components/filters-modal/index.ts: OK
+/workspace/ui/src/components/filters-modal/filters-modal.tsx: OK
+/workspace/ui/src/components/ui/dialog.tsx: OK
+/workspace/ui/src/components/ui/label.tsx: OK
+/workspace/ui/src/components/ui/input.tsx: OK
+/workspace/ui/src/components/ui/accordion.tsx: OK
+/workspace/ui/src/components/ui/table.tsx: OK
+/workspace/ui/src/components/ui/button.tsx: OK
+/workspace/ui/src/components/ui/tabs.tsx: OK
+/workspace/ui/src/components/ui/select.tsx: OK
+/workspace/ui/src/components/ui/form.tsx: OK
+/workspace/ui/src/components/ui/card.tsx: OK
+/workspace/ui/src/components/ui/multi-select.tsx: OK
+/workspace/ui/src/components/ui/calendar.tsx: OK
+/workspace/ui/src/components/ui/tooltip.tsx: OK
+/workspace/ui/src/components/ui/sidebar.tsx: OK
+/workspace/ui/src/components/ui/popover.tsx: OK
+/workspace/ui/src/components/ui/separator.tsx: OK
+/workspace/ui/src/components/ui/date-picker.tsx: OK
+/workspace/ui/src/components/ui/date-time-picker.tsx: OK
+/workspace/ui/src/components/ui/slider.tsx: OK
+/workspace/ui/src/components/ui/sheet.tsx: OK
+/workspace/ui/src/components/ui/skeleton.tsx: OK
+/workspace/ui/src/components/ui/time-picker.tsx: OK
+/workspace/ui/src/components/ui/checkbox.tsx: OK
+/workspace/ui/src/components/sidebar-nav/sidebar-nav.test.tsx: OK
+/workspace/ui/src/components/sidebar-nav/sidebar-nav.tsx: OK
+/workspace/ui/src/components/sidebar-nav/index.ts: OK
+/workspace/ui/src/components/toast-notification/toast-notification.tsx: OK
+/workspace/ui/src/components/toast-notification/toast-notification.test.tsx: OK
+/workspace/ui/src/components/toast-notification/index.ts: OK
+/workspace/ui/src/components/zoom-input/zoom-input.test.tsx: OK
+/workspace/ui/src/components/zoom-input/zoom-input.tsx: OK
+/workspace/ui/src/components/zoom-input/index.ts: OK
+/workspace/ui/src/components/breadcrumb/breadcrumb.tsx: OK
+/workspace/ui/src/components/breadcrumb/breadcrumb.test.tsx: OK
+/workspace/ui/src/components/breadcrumb/index.ts: OK
+/workspace/ui/src/components/global-header/global-header.test.tsx: OK
+/workspace/ui/src/components/global-header/index.ts: OK
+/workspace/ui/src/components/global-header/global-header.tsx: OK
+/workspace/ui/src/components/loading-spinner/loading-spinner.tsx: OK
+/workspace/ui/src/components/loading-spinner/loading-spinner.test.tsx: OK
+/workspace/ui/src/components/loading-spinner/index.ts: OK
+/workspace/ui/src/components/view-toggle/view-toggle.tsx: OK
+/workspace/ui/src/components/view-toggle/view-toggle.test.tsx: OK
+/workspace/ui/src/components/reference-type-modal/reference-type-modal.tsx: OK
+/workspace/ui/src/components/reference-type-modal/index.ts: OK
+/workspace/ui/src/components/reference-type-modal/reference-type-modal.test.tsx: OK
+/workspace/ui/src/components/clips-gallery/clip-table-view.tsx: OK
+/workspace/ui/src/components/clips-gallery/clips-gallery.tsx: OK
+/workspace/ui/src/components/clips-gallery/clips-gallery.test.tsx: OK
+/workspace/ui/src/components/clips-gallery/index.ts: OK
+/workspace/ui/src/components/page-input/page-input.test.tsx: OK
+/workspace/ui/src/components/page-input/page-input.tsx: OK
+/workspace/ui/src/components/page-input/index.ts: OK
+/workspace/ui/src/components/annotation-toolbar/index.ts: OK
+/workspace/ui/src/components/annotation-toolbar/annotation-toolbar.tsx: OK
+/workspace/ui/src/components/annotation-toolbar/annotation-toolbar.test.tsx: OK
+/workspace/ui/src/components/search-mode-modal/search-mode-modal.tsx: OK
+/workspace/ui/src/components/search-mode-modal/search-mode-modal.test.tsx: OK
+/workspace/ui/src/components/search-mode-modal/index.ts: OK
+/workspace/ui/src/components/search-bar/search-bar.test.tsx: OK
+/workspace/ui/src/components/search-bar/index.ts: OK
+/workspace/ui/src/components/search-bar/search-bar.tsx: OK
+/workspace/ui/src/components/video-player/video-header.tsx: OK
+/workspace/ui/src/components/video-player/video-controls.tsx: OK
+/workspace/ui/src/components/video-player/index.ts: OK
+/workspace/ui/src/components/video-player/video-player.tsx: OK
+/workspace/ui/src/components/video-player/video-player.test.tsx: OK
+/workspace/ui/src/components/tools-modal/tools-modal.test.tsx: OK
+/workspace/ui/src/components/tools-modal/tools-modal.tsx: OK
+/workspace/ui/src/components/tools-modal/index.ts: OK
+/workspace/ui/src/components/clip-bar/clip-bar.tsx: OK
+/workspace/ui/src/components/clip-bar/clip-bar.test.tsx: OK
+/workspace/ui/src/components/clip-bar/index.ts: OK
+/workspace/ui/src/components/annotation-canvas/annotation-canvas.test.tsx: OK
+/workspace/ui/src/components/annotation-canvas/index.ts: OK
+/workspace/ui/src/components/annotation-canvas/annotation-canvas.tsx: OK
+/workspace/ui/src/components/dialogs/download-success-dialog.tsx: OK
+/workspace/ui/src/components/dialogs/download-success-dialog.test.tsx: OK
+/workspace/ui/src/components/dialogs/download-loading-dialog.test.tsx: OK
+/workspace/ui/src/components/dialogs/download-loading-dialog.tsx: OK
+/workspace/ui/src/components/dialogs/unsaved-edits-dialog.tsx: OK
+/workspace/ui/src/components/dialogs/unsaved-edits-dialog.test.tsx: OK
+/workspace/ui/src/components/sign-out-modal/sign-out-modal.test.tsx: OK
+/workspace/ui/src/components/sign-out-modal/sign-out-modal.tsx: OK
+/workspace/ui/src/components/sign-out-modal/index.ts: OK
+/workspace/ui/src/components/view-references-panel/view-references-panel.test.tsx: OK
+/workspace/ui/src/components/view-references-panel/view-references-panel.tsx: OK
+/workspace/ui/src/components/view-references-panel/index.ts: OK
+/workspace/ui/src/components/protected-route/index.ts: OK
+/workspace/ui/src/components/protected-route/protected-route.tsx: OK
+/workspace/ui/src/components/protected-route/protected-route.test.tsx: OK
+/workspace/ui/src/components/failed-to-load/index.ts: OK
+/workspace/ui/src/components/failed-to-load/failed-to-load.test.tsx: OK
+/workspace/ui/src/components/failed-to-load/failed-to-load.tsx: OK
+/workspace/ui/src/components/smart-summary/smart-summary.tsx: OK
+/workspace/ui/src/components/smart-summary/smart-summary.test.tsx: OK
+/workspace/ui/src/components/smart-summary/index.ts: OK
+/workspace/ui/src/components/video-gallery/video-table-view.tsx: OK
+/workspace/ui/src/components/video-gallery/video-gallery.tsx: OK
+/workspace/ui/src/components/video-gallery/index.ts: OK
+/workspace/ui/src/components/video-gallery/video-gallery.test.tsx: OK
+/workspace/ui/src/components/clips-panel/clips-panel.test.tsx: OK
+/workspace/ui/src/components/clips-panel/clips-panel.tsx: OK
+/workspace/ui/src/components/clips-panel/index.ts: OK
+/workspace/ui/src/components/reference-pdf-viewer/reference-pdf-viewer.tsx: OK
+/workspace/ui/src/components/reference-pdf-viewer/reference-pdf-viewer.test.tsx: OK
+/workspace/ui/src/components/reference-pdf-viewer/index.ts: OK
+/workspace/ui/src/components/side-panel/side-panel.tsx: OK
+/workspace/ui/src/components/side-panel/index.ts: OK
+/workspace/ui/src/components/side-panel/side-panel.test.tsx: OK
+/workspace/ui/src/types.ts: OK
+/workspace/ui/src/axios.ts: OK
+/workspace/ui/src/pages/access-denied/index.ts: OK
+/workspace/ui/src/pages/access-denied/access-denied.tsx: OK
+/workspace/ui/src/pages/access-denied/access-denied.test.tsx: OK
+/workspace/ui/src/pages/not-found/not-found.tsx: OK
+/workspace/ui/src/pages/not-found/not-found.test.tsx: OK
+/workspace/ui/src/pages/not-found/index.ts: OK
+/workspace/ui/src/pages/profile/profile.test.tsx: OK
+/workspace/ui/src/pages/profile/index.ts: OK
+/workspace/ui/src/pages/profile/profile.tsx: OK
+/workspace/ui/src/pages/sign-out/index.ts: OK
+/workspace/ui/src/pages/sign-out/sign-out.tsx: OK
+/workspace/ui/src/pages/sign-out/sign-out.test.tsx: OK
+/workspace/ui/src/pages/dashboard/dashboard.tsx: OK
+/workspace/ui/src/pages/dashboard/index.ts: OK
+/workspace/ui/src/pages/dashboard/dashboard.test.tsx: OK
+/workspace/ui/src/pages/video-detail/video-detail.test.tsx: OK
+/workspace/ui/src/pages/video-detail/video-detail.tsx: OK
+/workspace/ui/src/pages/video-detail/index.ts: OK
+/workspace/ui/src/pages/search/search.tsx: OK
+/workspace/ui/src/pages/search/index.ts: OK
+/workspace/ui/src/pages/search/search.test.tsx: OK
+/workspace/ui/src/markdown.css: OK
+/workspace/ui/src/fonts.css: OK
+/workspace/ui/src/lib/utils.ts: OK
+/workspace/ui/src/index.css: OK
+/workspace/ui/src/keycloak.ts: OK
+/workspace/ui/src/main.tsx: OK
+/workspace/ui/src/store.ts: OK
+/workspace/ui/src/vitest.d.ts: OK
+/workspace/ui/src/App.css: OK
+/workspace/ui/src/hooks/use-permissions.test.ts: OK
+/workspace/ui/src/hooks/use-clip-editor.ts: OK
+/workspace/ui/src/hooks/use-mobile.test.ts: OK
+/workspace/ui/src/hooks/use-annotations.test.ts: OK
+/workspace/ui/src/hooks/use-video-download.ts: OK
+/workspace/ui/src/hooks/use-video-summary-api.ts: OK
+/workspace/ui/src/hooks/use-rag-api.ts: OK
+/workspace/ui/src/hooks/use-auth.test.ts: OK
+/workspace/ui/src/hooks/use-clip-editor.test.ts: OK
+/workspace/ui/src/hooks/use-filters.ts: OK
+/workspace/ui/src/hooks/use-storage.test.ts: OK
+/workspace/ui/src/hooks/use-video-effects.ts: OK
+/workspace/ui/src/hooks/use-filters.test.ts: OK
+/workspace/ui/src/hooks/use-mobile.ts: OK
+/workspace/ui/src/hooks/use-video-download.test.tsx: OK
+/workspace/ui/src/hooks/use-video-summary-api.test.tsx: OK
+/workspace/ui/src/hooks/use-permissions.ts: OK
+/workspace/ui/src/hooks/use-toast.test.ts: OK
+/workspace/ui/src/hooks/use-reference-document-api.test.tsx: OK
+/workspace/ui/src/hooks/use-dashboard-state.ts: OK
+/workspace/ui/src/hooks/use-reference-document-api.ts: OK
+/workspace/ui/src/hooks/use-annotations.ts: OK
+/workspace/ui/src/hooks/use-annotation-drag.ts: OK
+/workspace/ui/src/hooks/use-dashboard-state.test.tsx: OK
+/workspace/ui/src/hooks/use-video-playback.ts: OK
+/workspace/ui/src/hooks/use-video-playback.test.ts: OK
+/workspace/ui/src/hooks/use-rag-api.test.tsx: OK
+/workspace/ui/src/hooks/use-auth.ts: OK
+/workspace/ui/src/hooks/use-video-search-api.test.tsx: OK
+/workspace/ui/src/hooks/use-storage.ts: OK
+/workspace/ui/src/hooks/use-video-search-api.ts: OK
+/workspace/ui/src/hooks/use-toast.ts: OK
+/workspace/ui/public/favicon.png: OK
+/workspace/ui/public/videos/sample-1.mp4: OK
+/workspace/ui/public/fonts/space-grotesk-v22-latin-700.woff2: OK
+/workspace/ui/public/fonts/space-grotesk-v22-latin-500.woff2: OK
+/workspace/ui/public/fonts/space-grotesk-v22-latin-regular.woff2: OK
+/workspace/ui/public/fonts/space-grotesk-v22-latin-600.woff2: OK
+/workspace/ui/public/pdfs/to-123.pdf: OK
+/workspace/ui/public/iris-logo.svg: OK
+/workspace/ui/Dockerfile: OK
+/workspace/ui/vitest.config.ts: OK
+/workspace/ui/index.html: OK
+/workspace/ui/tsconfig.app.json: OK
+/workspace/ui/nginx.dev.conf: OK
+/workspace/ui/ssl/nginx.crt: OK
+/workspace/ui/.prettierignore: OK
+/workspace/ui/vitest.setup.ts: OK
+/workspace/ui/Dockerfile.dev: OK
+/workspace/ui/components.json: OK
+/workspace/ui/.gitignore: OK
+/workspace/ui/.env.example: OK
+/workspace/ui/tsconfig.node.json: OK
+/workspace/ui/vite.config.ts: OK
+/workspace/ui/.prettierrc: OK
+/workspace/ui/tsconfig.json: OK
+/workspace/ui/.dockerignore: OK
+/workspace/ui/eslint.config.js: OK
+/workspace/ui/nginx.conf: OK
+/workspace/ui/package.json: OK
+/workspace/e2e/README.md: OK
+/workspace/e2e/tests/basic-navigation.spec.ts: OK
+/workspace/e2e/tests/auth.spec.ts: OK
+/workspace/e2e/utils/auth-mock.ts: OK
+/workspace/e2e/fixtures.ts: OK
+/workspace/e2e/playwright.config.ts: OK
+/workspace/e2e/tsconfig.json: OK
+/workspace/e2e/package.json: OK
+/workspace/package-lock.json: OK
+/workspace/sonar-project.properties: OK
+/workspace/.gitattributes: OK
+/workspace/.git/objects/pack/pack-b5b78c6775301be6bb450f0c2a72919dd260d2bd.rev: OK
+/workspace/.git/objects/pack/pack-b5b78c6775301be6bb450f0c2a72919dd260d2bd.idx: OK
+/workspace/.git/objects/pack/pack-b5b78c6775301be6bb450f0c2a72919dd260d2bd.pack: OK
+/workspace/.git/index: OK
+/workspace/.git/config: OK
+/workspace/.git/config.worktree: OK
+/workspace/.git/FETCH_HEAD: OK
+/workspace/.git/refs/heads/dev: OK
+/workspace/.git/refs/remotes/origin/video_enhance_tools: OK
+/workspace/.git/refs/remotes/origin/Video_Segmentation: OK
+/workspace/.git/refs/remotes/origin/update-keycloak-url: OK
+/workspace/.git/refs/remotes/origin/feature/ironbank-image-migration: OK
+/workspace/.git/refs/remotes/origin/main: OK
+/workspace/.git/refs/remotes/origin/movie_annot: OK
+/workspace/.git/refs/remotes/origin/video_explorer: OK
+/workspace/.git/refs/remotes/origin/logo-fix: OK
+/workspace/.git/refs/remotes/origin/dataPulls: OK
+/workspace/.git/refs/remotes/origin/integrate-athena: OK
+/workspace/.git/refs/remotes/origin/info: OK
+/workspace/.git/refs/remotes/origin/create-dev-ci-pipeline: OK
+/workspace/.git/refs/remotes/origin/TO_parser: OK
+/workspace/.git/refs/remotes/origin/dev: OK
+/workspace/.git/info/exclude: OK
+/workspace/.git/description: OK
+/workspace/.git/HEAD: OK
+/workspace/.git/logs/refs/heads/dev: OK
+/workspace/.git/logs/refs/remotes/origin/video_enhance_tools: OK
+/workspace/.git/logs/refs/remotes/origin/Video_Segmentation: OK
+/workspace/.git/logs/refs/remotes/origin/update-keycloak-url: OK
+/workspace/.git/logs/refs/remotes/origin/feature/ironbank-image-migration: OK
+/workspace/.git/logs/refs/remotes/origin/main: OK
+/workspace/.git/logs/refs/remotes/origin/movie_annot: OK
+/workspace/.git/logs/refs/remotes/origin/video_explorer: OK
+/workspace/.git/logs/refs/remotes/origin/logo-fix: OK
+/workspace/.git/logs/refs/remotes/origin/dataPulls: OK
+/workspace/.git/logs/refs/remotes/origin/integrate-athena: OK
+/workspace/.git/logs/refs/remotes/origin/info: OK
+/workspace/.git/logs/refs/remotes/origin/create-dev-ci-pipeline: OK
+/workspace/.git/logs/refs/remotes/origin/TO_parser: OK
+/workspace/.git/logs/refs/remotes/origin/dev: OK
+/workspace/.git/logs/HEAD: OK
+/workspace/.git/hooks/pre-push.sample: OK
+/workspace/.git/hooks/pre-receive.sample: OK
+/workspace/.git/hooks/pre-merge-commit.sample: OK
+/workspace/.git/hooks/post-update.sample: OK
+/workspace/.git/hooks/sendemail-validate.sample: OK
+/workspace/.git/hooks/pre-commit.sample: OK
+/workspace/.git/hooks/update.sample: OK
+/workspace/.git/hooks/prepare-commit-msg.sample: OK
+/workspace/.git/hooks/fsmonitor-watchman.sample: OK
+/workspace/.git/hooks/commit-msg.sample: OK
+/workspace/.git/hooks/push-to-checkout.sample: OK
+/workspace/.git/hooks/pre-rebase.sample: OK
+/workspace/.git/hooks/pre-applypatch.sample: OK
+/workspace/.git/hooks/applypatch-msg.sample: OK
+/workspace/DATA_ARCHITECTURE.md: OK
+/workspace/docker-compose.prod.yml: OK
+/workspace/.gitignore: OK
+/workspace/vlm-testing/README.md: OK
+/workspace/vlm-testing/WIKI.md: OK
+/workspace/vlm-testing/environment_video_search.yaml: OK
+/workspace/vlm-testing/storage/aliases/data.json: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/config.json: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/version.info: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/shard_config.json: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/replica_state.json: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/wal/open-1: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/wal/first-index: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/wal/open-2: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/5a106e60-2d66-4b54-800b-f32b09849379/CURRENT: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/5a106e60-2d66-4b54-800b-f32b09849379/LOG: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/5a106e60-2d66-4b54-800b-f32b09849379/OPTIONS-000013: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/5a106e60-2d66-4b54-800b-f32b09849379/version.info: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/5a106e60-2d66-4b54-800b-f32b09849379/MANIFEST-000005: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/5a106e60-2d66-4b54-800b-f32b09849379/OPTIONS-000015: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/5a106e60-2d66-4b54-800b-f32b09849379/payload_index/CURRENT: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/5a106e60-2d66-4b54-800b-f32b09849379/payload_index/config.json: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/5a106e60-2d66-4b54-800b-f32b09849379/payload_index/LOG: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/5a106e60-2d66-4b54-800b-f32b09849379/payload_index/MANIFEST-000005: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/5a106e60-2d66-4b54-800b-f32b09849379/payload_index/OPTIONS-000007: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/5a106e60-2d66-4b54-800b-f32b09849379/payload_index/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/5a106e60-2d66-4b54-800b-f32b09849379/payload_index/IDENTITY: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/5a106e60-2d66-4b54-800b-f32b09849379/segment.json: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/5a106e60-2d66-4b54-800b-f32b09849379/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/5a106e60-2d66-4b54-800b-f32b09849379/IDENTITY: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/3c8e321d-4803-42e6-8369-7e2ce9597e08/CURRENT: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/3c8e321d-4803-42e6-8369-7e2ce9597e08/LOG: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/3c8e321d-4803-42e6-8369-7e2ce9597e08/OPTIONS-000013: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/3c8e321d-4803-42e6-8369-7e2ce9597e08/version.info: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/3c8e321d-4803-42e6-8369-7e2ce9597e08/MANIFEST-000005: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/3c8e321d-4803-42e6-8369-7e2ce9597e08/OPTIONS-000015: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/3c8e321d-4803-42e6-8369-7e2ce9597e08/payload_index/CURRENT: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/3c8e321d-4803-42e6-8369-7e2ce9597e08/payload_index/config.json: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/3c8e321d-4803-42e6-8369-7e2ce9597e08/payload_index/LOG: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/3c8e321d-4803-42e6-8369-7e2ce9597e08/payload_index/MANIFEST-000005: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/3c8e321d-4803-42e6-8369-7e2ce9597e08/payload_index/OPTIONS-000007: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/3c8e321d-4803-42e6-8369-7e2ce9597e08/payload_index/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/3c8e321d-4803-42e6-8369-7e2ce9597e08/payload_index/IDENTITY: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/3c8e321d-4803-42e6-8369-7e2ce9597e08/segment.json: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/3c8e321d-4803-42e6-8369-7e2ce9597e08/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/3c8e321d-4803-42e6-8369-7e2ce9597e08/IDENTITY: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/df7e7085-3364-44fc-a574-8c8d4b3d9125/CURRENT: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/df7e7085-3364-44fc-a574-8c8d4b3d9125/LOG: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/df7e7085-3364-44fc-a574-8c8d4b3d9125/OPTIONS-000013: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/df7e7085-3364-44fc-a574-8c8d4b3d9125/version.info: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/df7e7085-3364-44fc-a574-8c8d4b3d9125/MANIFEST-000005: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/df7e7085-3364-44fc-a574-8c8d4b3d9125/OPTIONS-000015: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/df7e7085-3364-44fc-a574-8c8d4b3d9125/payload_index/CURRENT: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/df7e7085-3364-44fc-a574-8c8d4b3d9125/payload_index/config.json: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/df7e7085-3364-44fc-a574-8c8d4b3d9125/payload_index/LOG: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/df7e7085-3364-44fc-a574-8c8d4b3d9125/payload_index/MANIFEST-000005: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/df7e7085-3364-44fc-a574-8c8d4b3d9125/payload_index/OPTIONS-000007: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/df7e7085-3364-44fc-a574-8c8d4b3d9125/payload_index/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/df7e7085-3364-44fc-a574-8c8d4b3d9125/payload_index/IDENTITY: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/df7e7085-3364-44fc-a574-8c8d4b3d9125/segment.json: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/df7e7085-3364-44fc-a574-8c8d4b3d9125/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/df7e7085-3364-44fc-a574-8c8d4b3d9125/IDENTITY: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/ae137f1d-0e82-4fb2-82ee-17b61726e0e4/CURRENT: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/ae137f1d-0e82-4fb2-82ee-17b61726e0e4/LOG: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/ae137f1d-0e82-4fb2-82ee-17b61726e0e4/OPTIONS-000013: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/ae137f1d-0e82-4fb2-82ee-17b61726e0e4/version.info: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/ae137f1d-0e82-4fb2-82ee-17b61726e0e4/MANIFEST-000005: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/ae137f1d-0e82-4fb2-82ee-17b61726e0e4/OPTIONS-000015: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/ae137f1d-0e82-4fb2-82ee-17b61726e0e4/payload_index/CURRENT: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/ae137f1d-0e82-4fb2-82ee-17b61726e0e4/payload_index/config.json: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/ae137f1d-0e82-4fb2-82ee-17b61726e0e4/payload_index/LOG: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/ae137f1d-0e82-4fb2-82ee-17b61726e0e4/payload_index/MANIFEST-000005: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/ae137f1d-0e82-4fb2-82ee-17b61726e0e4/payload_index/OPTIONS-000007: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/ae137f1d-0e82-4fb2-82ee-17b61726e0e4/payload_index/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/ae137f1d-0e82-4fb2-82ee-17b61726e0e4/payload_index/IDENTITY: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/ae137f1d-0e82-4fb2-82ee-17b61726e0e4/segment.json: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/ae137f1d-0e82-4fb2-82ee-17b61726e0e4/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/ae137f1d-0e82-4fb2-82ee-17b61726e0e4/IDENTITY: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/51ad52c7-1811-47f5-9f83-e9059a98e825/CURRENT: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/51ad52c7-1811-47f5-9f83-e9059a98e825/LOG: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/51ad52c7-1811-47f5-9f83-e9059a98e825/OPTIONS-000013: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/51ad52c7-1811-47f5-9f83-e9059a98e825/version.info: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/51ad52c7-1811-47f5-9f83-e9059a98e825/MANIFEST-000005: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/51ad52c7-1811-47f5-9f83-e9059a98e825/OPTIONS-000015: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/51ad52c7-1811-47f5-9f83-e9059a98e825/payload_index/CURRENT: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/51ad52c7-1811-47f5-9f83-e9059a98e825/payload_index/config.json: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/51ad52c7-1811-47f5-9f83-e9059a98e825/payload_index/LOG: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/51ad52c7-1811-47f5-9f83-e9059a98e825/payload_index/MANIFEST-000005: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/51ad52c7-1811-47f5-9f83-e9059a98e825/payload_index/OPTIONS-000007: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/51ad52c7-1811-47f5-9f83-e9059a98e825/payload_index/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/51ad52c7-1811-47f5-9f83-e9059a98e825/payload_index/IDENTITY: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/51ad52c7-1811-47f5-9f83-e9059a98e825/segment.json: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/51ad52c7-1811-47f5-9f83-e9059a98e825/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/51ad52c7-1811-47f5-9f83-e9059a98e825/IDENTITY: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/f3c8420c-c4cb-476f-8ade-7ca309b66eec/CURRENT: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/f3c8420c-c4cb-476f-8ade-7ca309b66eec/LOG: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/f3c8420c-c4cb-476f-8ade-7ca309b66eec/OPTIONS-000013: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/f3c8420c-c4cb-476f-8ade-7ca309b66eec/version.info: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/f3c8420c-c4cb-476f-8ade-7ca309b66eec/MANIFEST-000005: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/f3c8420c-c4cb-476f-8ade-7ca309b66eec/OPTIONS-000015: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/f3c8420c-c4cb-476f-8ade-7ca309b66eec/payload_index/CURRENT: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/f3c8420c-c4cb-476f-8ade-7ca309b66eec/payload_index/config.json: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/f3c8420c-c4cb-476f-8ade-7ca309b66eec/payload_index/LOG: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/f3c8420c-c4cb-476f-8ade-7ca309b66eec/payload_index/MANIFEST-000005: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/f3c8420c-c4cb-476f-8ade-7ca309b66eec/payload_index/OPTIONS-000007: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/f3c8420c-c4cb-476f-8ade-7ca309b66eec/payload_index/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/f3c8420c-c4cb-476f-8ade-7ca309b66eec/payload_index/IDENTITY: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/f3c8420c-c4cb-476f-8ade-7ca309b66eec/segment.json: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/f3c8420c-c4cb-476f-8ade-7ca309b66eec/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/f3c8420c-c4cb-476f-8ade-7ca309b66eec/IDENTITY: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/2f409b68-7abe-4827-9be2-bda4808e6c6f/CURRENT: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/2f409b68-7abe-4827-9be2-bda4808e6c6f/LOG: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/2f409b68-7abe-4827-9be2-bda4808e6c6f/OPTIONS-000013: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/2f409b68-7abe-4827-9be2-bda4808e6c6f/version.info: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/2f409b68-7abe-4827-9be2-bda4808e6c6f/MANIFEST-000005: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/2f409b68-7abe-4827-9be2-bda4808e6c6f/OPTIONS-000015: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/2f409b68-7abe-4827-9be2-bda4808e6c6f/payload_index/CURRENT: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/2f409b68-7abe-4827-9be2-bda4808e6c6f/payload_index/config.json: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/2f409b68-7abe-4827-9be2-bda4808e6c6f/payload_index/LOG: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/2f409b68-7abe-4827-9be2-bda4808e6c6f/payload_index/MANIFEST-000005: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/2f409b68-7abe-4827-9be2-bda4808e6c6f/payload_index/OPTIONS-000007: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/2f409b68-7abe-4827-9be2-bda4808e6c6f/payload_index/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/2f409b68-7abe-4827-9be2-bda4808e6c6f/payload_index/IDENTITY: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/2f409b68-7abe-4827-9be2-bda4808e6c6f/segment.json: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/2f409b68-7abe-4827-9be2-bda4808e6c6f/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/2f409b68-7abe-4827-9be2-bda4808e6c6f/IDENTITY: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/eaa7e3d1-ac06-404a-9c8d-0f937f56b72f/CURRENT: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/eaa7e3d1-ac06-404a-9c8d-0f937f56b72f/LOG: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/eaa7e3d1-ac06-404a-9c8d-0f937f56b72f/OPTIONS-000013: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/eaa7e3d1-ac06-404a-9c8d-0f937f56b72f/version.info: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/eaa7e3d1-ac06-404a-9c8d-0f937f56b72f/MANIFEST-000005: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/eaa7e3d1-ac06-404a-9c8d-0f937f56b72f/OPTIONS-000015: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/eaa7e3d1-ac06-404a-9c8d-0f937f56b72f/payload_index/CURRENT: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/eaa7e3d1-ac06-404a-9c8d-0f937f56b72f/payload_index/config.json: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/eaa7e3d1-ac06-404a-9c8d-0f937f56b72f/payload_index/LOG: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/eaa7e3d1-ac06-404a-9c8d-0f937f56b72f/payload_index/MANIFEST-000005: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/eaa7e3d1-ac06-404a-9c8d-0f937f56b72f/payload_index/OPTIONS-000007: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/eaa7e3d1-ac06-404a-9c8d-0f937f56b72f/payload_index/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/eaa7e3d1-ac06-404a-9c8d-0f937f56b72f/payload_index/IDENTITY: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/eaa7e3d1-ac06-404a-9c8d-0f937f56b72f/segment.json: OK
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/eaa7e3d1-ac06-404a-9c8d-0f937f56b72f/LOCK: Empty file
+/workspace/vlm-testing/storage/collections/maintenance_docs/0/segments/eaa7e3d1-ac06-404a-9c8d-0f937f56b72f/IDENTITY: OK
+/workspace/vlm-testing/storage/raft_state.json: OK
+/workspace/vlm-testing/maintenance_docs/33B-1-1.pdf: OK
+/workspace/vlm-testing/maintenance_docs/1-1-300.pdf: OK
+/workspace/vlm-testing/maintenance_docs/00-20-1.pdf: OK
+/workspace/vlm-testing/maintenance_docs/33-1-37-3.pdf: OK
+/workspace/vlm-testing/maintenance_docs/AFD-082216-00-80G-1.pdf: OK
+/workspace/vlm-testing/maintenance_docs/29 Oct_TO 1-1-3.pdf: OK
+/workspace/vlm-testing/maintenance_docs/00-25-195.pdf: OK
+/workspace/vlm-testing/maintenance_docs/00-5-15.pdf: OK
+/workspace/vlm-testing/maintenance_docs/00-5-18.pdf: OK
+/workspace/vlm-testing/maintenance_docs/dafman91-203_accsup.pdf: OK
+/workspace/vlm-testing/maintenance_docs/00-5-1.pdf: OK
+/workspace/vlm-testing/maintenance_docs/33-1-37-4.pdf: OK
+/workspace/vlm-testing/maintenance_docs/00-5-3.pdf: OK
+/workspace/vlm-testing/maintenance_docs/AFD-112818-00-85A-03-1.pdf: OK
+/workspace/vlm-testing/maintenance_docs/00-20-2.pdf: OK
+/workspace/vlm-testing/maintenance_docs/00-35A-39_1.pdf: OK
+/workspace/vlm-testing/maintenance_docs/33-1-37-5.pdf: OK
+/workspace/vlm-testing/maintenance_docs/33-1-37-1.pdf: OK
+/workspace/vlm-testing/maintenance_docs/00-20-9.pdf: OK
+/workspace/vlm-testing/maintenance_docs/AFD-191106-00-5-16.pdf: OK
+/workspace/vlm-testing/maintenance_docs/33-1-37-2.pdf: OK
+/workspace/vlm-testing/maintenance_docs/23 June_TO_00-25-172.pdf: OK
+/workspace/vlm-testing/maintenance_docs/00-25-107.pdf: OK
+/workspace/vlm-testing/maintenance_docs/00-35D-54_1.pdf: OK
+/workspace/vlm-testing/maintenance_docs/00-5-19.pdf: OK
+/workspace/vlm-testing/maintenance_docs/00-20-3.pdf: OK
+/workspace/vlm-testing/maintenance_docs/AFD-082416-1-1A-1.pdf: OK
+/workspace/vlm-testing/maintenance_docs/AFD-082416-00-85B-3.pdf: OK
+/workspace/vlm-testing/maintenance_docs/AFD-131009-054.pdf: OK
+/workspace/vlm-testing/maintenance_docs/1-1B-50_1.pdf: OK
+/workspace/vlm-testing/fpv_analyzer_rag.py: OK
+/workspace/vlm-testing/.qdrant-initialized: Empty file
+/workspace/vlm-testing/fpv_time_analyzer_rag.py: OK
+/workspace/vlm-testing/video_search.py: OK
+/workspace/vlm-testing/environment.yaml: OK
+/workspace/vlm-testing/mp4_generation/mp4_generator.py: OK
+/workspace/vlm-testing/fpv_analyzer.py: OK
+/workspace/vlm-testing/maintenance_prompt.txt: OK
+/workspace/vlm-testing/.env.example: OK
+/workspace/vlm-testing/qdrant: OK
+/workspace/security-documents/findings.md: OK
+/workspace/security-documents/keycloak.json: OK
+/workspace/security-documents/findings-keycloak-updates.md: OK
+/workspace/api/README.md: OK
+/workspace/api/tests/test_rag_search.ipynb: OK
+/workspace/api/tests/test_processing_unified.ipynb: OK
+/workspace/api/tests/test_admin.ipynb: OK
+/workspace/api/tests/test_health.py: OK
+/workspace/api/tests/test_processing_unified_with_scenes_and_documents.ipynb: OK
+/workspace/api/tests/test_processing_unified_with_scenes.ipynb: OK
+/workspace/api/tests/pipeline_benchmark.ipynb: OK
+/workspace/api/tests/test_reference_docs.ipynb: OK
+/workspace/api/tests/conftest.py: OK
+/workspace/api/tests/test_ingest.ipynb: OK
+/workspace/api/tests/test_video_search.ipynb: OK
+/workspace/api/tests/test_video_summary.ipynb: OK
+/workspace/api/tests/__init__.py: Empty file
+/workspace/api/tests/test_processing.ipynb: OK
+/workspace/api/Dockerfile: OK
+/workspace/api/scripts/fix_reference_docs_layout.py: OK
+/workspace/api/environment.yaml: OK
+/workspace/api/cached_centroids/centroids.npz: OK
+/workspace/api/app/rag/schemas.py: OK
+/workspace/api/app/rag/router.py: OK
+/workspace/api/app/rag/services.py: OK
+/workspace/api/app/rag/__init__.py: OK
+/workspace/api/app/main.py: OK
+/workspace/api/app/video_summary/schemas.py: OK
+/workspace/api/app/video_summary/router.py: OK
+/workspace/api/app/video_summary/services.py: OK
+/workspace/api/app/db.py: OK
+/workspace/api/app/config.py: OK
+/workspace/api/app/auth.py: OK
+/workspace/api/app/utils.py: OK
+/workspace/api/app/logging_config.py: OK
+/workspace/api/app/models.py: OK
+/workspace/api/app/middleware.py: OK
+/workspace/api/app/health/router.py: OK
+/workspace/api/app/health/__init__.py: Empty file
+/workspace/api/app/reference_docs/schemas.py: OK
+/workspace/api/app/reference_docs/router.py: OK
+/workspace/api/app/reference_docs/services.py: OK
+/workspace/api/app/admin/router.py: OK
+/workspace/api/app/admin/__init__.py: OK
+/workspace/api/app/video_search/schemas.py: OK
+/workspace/api/app/video_search/router.py: OK
+/workspace/api/app/video_search/services.py: OK
+/workspace/api/app/video_search/__init__.py: Empty file
+/workspace/api/app/ingest/schemas.py: OK
+/workspace/api/app/ingest/router.py: OK
+/workspace/api/app/ingest/services.py: OK
+/workspace/api/app/ingest/__init__.py: OK
+/workspace/api/app/process/schemas.py: OK
+/workspace/api/app/process/router.py: OK
+/workspace/api/app/process/services/text_chunking.py: OK
+/workspace/api/app/process/services/object_detection.py: OK
+/workspace/api/app/process/services/thumbnail.py: OK
+/workspace/api/app/process/services/qdrant_manager.py: OK
+/workspace/api/app/process/services/summarization.py: OK
+/workspace/api/app/process/services/video_processing.py: OK
+/workspace/api/app/process/services/frame_extraction.py: OK
+/workspace/api/app/process/services/document_processing.py: OK
+/workspace/api/app/process/services/pdf_parsing.py: OK
+/workspace/api/app/process/services/processing_manager.py: OK
+/workspace/api/app/process/services/scene_summarization.py: OK
+/workspace/api/app/process/services/embedding.py: OK
+/workspace/api/app/process/services/document_linking.py: OK
+/workspace/api/app/process/services/cached_centroids/centroids.npz: OK
+/workspace/api/app/process/services/video_duration.py: OK
+/workspace/api/app/process/services/scene_classification.py: OK
+/workspace/api/app/process/services/s3_manager.py: OK
+/workspace/api/app/process/services/constants.py: OK
+/workspace/api/app/process/services/video_processor.py: OK
+/workspace/api/app/process/services/scene_detection.py: OK
+/workspace/api/app/process/services/__init__.py: OK
+/workspace/api/app/process/__init__.py: OK
+/workspace/api/app/__init__.py: Empty file
+/workspace/api/.env.example: OK
+/workspace/api/pyproject.toml: OK
+/workspace/api/bootstrap_pipeline.py: OK
+/workspace/api/.dockerignore: OK
+/workspace/.vscode/settings.json: OK
+/workspace/.vscode/extensions.json: OK
+/workspace/.env.example: OK
+/workspace/deploy/aws/lb-controller-permissions-policy.json: OK
+/workspace/deploy/aws/ebs-trust-policy.json: OK
+/workspace/deploy/aws/irsa-trust-policy.json: OK
+/workspace/deploy/aws/node-role-trust-policy.json: OK
+/workspace/deploy/aws/irsa-permissions-policy.json: OK
+/workspace/deploy/aws/lb-controller-trust-policy.json: OK
+/workspace/deploy/aws/create_ssh_user.sh: OK
+/workspace/deploy/aws/s3-cors-config.json: OK
+/workspace/deploy/aws/setup-irsa.sh: OK
+/workspace/deploy/aws/trust-policy.json: OK
+/workspace/deploy/aws/setup-s3-buckets.sh: OK
+/workspace/deploy/aws/ssh-users.yaml: OK
+/workspace/deploy/aws/iris-stack.yaml: OK
+/workspace/deploy/aws/iris-manager.sh: OK
+/workspace/deploy/aws/bootstrap_pipeline.py: OK
+/workspace/deploy/aws/setup-cluster-access.sh: OK
+/workspace/deploy/aws/create_databases.py: OK
+/workspace/deploy/aws/install-eks-addons.sh: OK
+/workspace/deploy/terraform/README.md: Empty file
+/workspace/deploy/terraform/providers.tf: OK
+/workspace/deploy/terraform/main.tf: OK
+/workspace/deploy/terraform/outputs.tf: OK
+/workspace/deploy/terraform/kubernetes/iris-ui-service.yaml: OK
+/workspace/deploy/terraform/kubernetes/iris-api-deployment.yaml: OK
+/workspace/deploy/terraform/kubernetes/iris-api-serviceaccount.yaml: OK
+/workspace/deploy/terraform/kubernetes/qdrant-deployment.yaml: OK
+/workspace/deploy/terraform/kubernetes/gp3-storageclass.yaml: OK
+/workspace/deploy/terraform/kubernetes/iris-ui-deployment.yaml: OK
+/workspace/deploy/terraform/kubernetes/ingress.yaml: OK
+/workspace/deploy/terraform/kubernetes/keycloak-service.yaml: OK
+/workspace/deploy/terraform/kubernetes/configmap.yaml: OK
+/workspace/deploy/terraform/kubernetes/keycloak-deployment.yaml: OK
+/workspace/deploy/terraform/kubernetes/iris-ui-hpa.yaml: OK
+/workspace/deploy/terraform/kubernetes/iris-api-service.yaml: OK
+/workspace/deploy/terraform/kubernetes/iris-api-hpa.yaml: OK
+/workspace/deploy/terraform/kubernetes/qdrant-service.yaml: OK
+/workspace/deploy/terraform/kubernetes/iris-ui-nginx-configmap.yaml: OK
+/workspace/deploy/terraform/environments/staging/terraform.tfvars: OK
+/workspace/deploy/terraform/environments/staging/backend.tf: OK
+/workspace/deploy/terraform/environments/staging/main.tf: OK
+/workspace/deploy/terraform/environments/staging/outputs.tf: OK
+/workspace/deploy/terraform/environments/staging/variables.tf: OK
+/workspace/deploy/terraform/environments/prod/terraform.tfvars: OK
+/workspace/deploy/terraform/environments/prod/backend.tf: OK
+/workspace/deploy/terraform/environments/prod/main.tf: OK
+/workspace/deploy/terraform/environments/prod/outputs.tf: OK
+/workspace/deploy/terraform/environments/prod/variables.tf: OK
+/workspace/deploy/terraform/environments/dev/terraform.tfvars: OK
+/workspace/deploy/terraform/environments/dev/backend.tf: OK
+/workspace/deploy/terraform/environments/dev/main.tf: OK
+/workspace/deploy/terraform/environments/dev/outputs.tf: OK
+/workspace/deploy/terraform/environments/dev/trust-policy.json: OK
+/workspace/deploy/terraform/environments/dev/.terraform.lock.hcl: OK
+/workspace/deploy/terraform/environments/dev/variables.tf: OK
+/workspace/deploy/terraform/modules/vpc/main.tf: OK
+/workspace/deploy/terraform/modules/vpc/outputs.tf: OK
+/workspace/deploy/terraform/modules/vpc/variables.tf: OK
+/workspace/deploy/terraform/modules/eks/main.tf: OK
+/workspace/deploy/terraform/modules/eks/outputs.tf: OK
+/workspace/deploy/terraform/modules/eks/variables.tf: OK
+/workspace/deploy/terraform/modules/ecr/main.tf: OK
+/workspace/deploy/terraform/modules/ecr/outputs.tf: OK
+/workspace/deploy/terraform/modules/ecr/variables.tf: OK
+/workspace/deploy/terraform/modules/github-runner/main.tf: OK
+/workspace/deploy/terraform/modules/github-runner/outputs.tf: OK
+/workspace/deploy/terraform/modules/github-runner/network-storage.tf: OK
+/workspace/deploy/terraform/modules/github-runner/scripts/runner-bootstrap.sh: OK
+/workspace/deploy/terraform/modules/github-runner/scripts/webhook-handler.py: OK
+/workspace/deploy/terraform/modules/github-runner/ec2.tf: OK
+/workspace/deploy/terraform/modules/github-runner/iam.tf: OK
+/workspace/deploy/terraform/modules/github-runner/lambda.tf: OK
+/workspace/deploy/terraform/modules/github-runner/variables.tf: OK
+/workspace/deploy/terraform/modules/rds/main.tf: OK
+/workspace/deploy/terraform/modules/rds/outputs.tf: OK
+/workspace/deploy/terraform/modules/rds/variables.tf: OK
+/workspace/deploy/terraform/versions.tf: OK
+/workspace/deploy/terraform/variables.tf: OK
+/workspace/deploy/keycloak/keycloak-init-dev.sh: OK
+/workspace/deploy/keycloak/dev-realm.json: OK
+/workspace/deploy/keycloak/themes/README.md: OK
+/workspace/deploy/keycloak/themes/iris/login/resources/img/favicon.ico: OK
+/workspace/deploy/keycloak/themes/iris/login/resources/img/iris-logo.png: OK
+/workspace/deploy/keycloak/themes/iris/login/resources/css/login.css: OK
+/workspace/deploy/keycloak/themes/iris/login/register.ftl: OK
+/workspace/deploy/keycloak/themes/iris/login/theme.properties: OK
+/workspace/deploy/keycloak/themes/iris/login/login-username.ftl: OK
+/workspace/deploy/keycloak/themes/iris/login/template.ftl: OK
+/workspace/deploy/keycloak/KEYCLOAK_RBAC.md: OK
+/workspace/deploy/keycloak/keycloak-init.sh: OK
+/workspace/deploy/db/init-multiple-dbs.sh: OK
+/workspace/docker-compose.dev.yml: OK
+/workspace/docker-compose.yml: OK
+/workspace/.epyon-ignore.yml: OK
+/workspace/pointcloud-project/init-scripts/01-init.sql: OK
+/workspace/pointcloud-project/load_pointcloud_docker.py: OK
+/workspace/pointcloud-project/colmap_ingest.py: OK
+/workspace/pointcloud-project/Dockerfile.postgres: OK
+/workspace/pointcloud-project/query_examples.py: OK
+/workspace/pointcloud-project/environment.yaml: OK
+/workspace/pointcloud-project/docker-compose.yml: OK
+/workspace/pointcloud-project/README_colmap_ingest.md: OK
+/workspace/pointcloud-project/test_pointcloud.py: OK
+/workspace/docker-compose.lambda.yml: OK
+/workspace/package.json: OK
+
+----------- SCAN SUMMARY -----------
+Known viruses: 3627837
+Engine version: 1.5.2
+Scanned directories: 143
+Scanned files: 647
+Infected files: 0
+Data scanned: 1.34 GiB
+Data read: 670.05 MiB (ratio 2.05:1)
+Time: 672.205 sec (11 m 12 s)
+Start Date: 2026:04:26 03:14:36
+End Date:   2026:04:26 03:25:48

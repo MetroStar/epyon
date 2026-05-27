@@ -1,0 +1,25 @@
+Grype scan started: 14-50-38
+Target: /home/runner/work/midas/midas/epyon/sbom
+Unable to find image 'anchore/grype:latest' locally
+latest: Pulling from anchore/grype
+6c2fe4949765: Pulling fs layer
+9d165179ec88: Pulling fs layer
+d5114c175794: Pulling fs layer
+6c2fe4949765: Verifying Checksum
+6c2fe4949765: Download complete
+9d165179ec88: Verifying Checksum
+9d165179ec88: Download complete
+6c2fe4949765: Pull complete
+9d165179ec88: Pull complete
+d5114c175794: Verifying Checksum
+d5114c175794: Download complete
+d5114c175794: Pull complete
+Digest: sha256:3c1cd2ff38196e753751fb1619b3b6787a6e3e79149f2a2aec57946d2c154cd2
+Status: Downloaded newer image for anchore/grype:latest
+Vulnerability database updated to latest version!
+Path:      /cache/6/vulnerability.db
+Schema:    v6.1.4
+Built:     2026-04-29T07:42:13Z
+From:      https://grype.anchore.io/databases/v6/vulnerability-db_v6.1.4_2026-04-28T16:49:18Z_1777448533.tar.zst?checksum=sha256%3A4341d479ff3943b6802e192d873da98b1c9e1fb984c9519cec37809fe61a0def
+Status:    valid
+SBOM scan: 3 vulnerabilities

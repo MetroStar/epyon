@@ -1,0 +1,26 @@
+{
+  "classification": "INTERNAL USE ONLY",
+  "summary": {
+    "scan_id": "iris_2026-04-27_20-08-05",
+    "target_directory": "/home/runner/work/iris/iris/target-repo",
+    "scan_timestamp": "2026-04-27T20:14:22Z",
+    "total_critical": 0,
+    "total_high": 0,
+    "total_medium": 0,
+    "total_low": 0,
+    "tools_analyzed": [
+      ""
+    ],
+    "summary_by_tool": {}
+  },
+  "critical_findings": [],
+  "high_findings": [],
+  "medium_findings": [],
+  "low_findings": [],
+  "enrichment": {
+    "enriched_at": "2026-04-27T20:15:00Z",
+    "cisa_kev_total": 0,
+    "nvd_total": 0,
+    "kev_catalog_url": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+  }
+}

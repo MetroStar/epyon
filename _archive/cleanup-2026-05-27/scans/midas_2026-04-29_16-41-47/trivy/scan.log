@@ -1,0 +1,31 @@
+Unable to find image 'ghcr.io/aquasecurity/trivy:latest' locally
+latest: Pulling from aquasecurity/trivy
+589002ba0eae: Already exists
+bd497c3c7308: Pulling fs layer
+77ddeac46eeb: Pulling fs layer
+fcdcff3e8f06: Pulling fs layer
+fcdcff3e8f06: Download complete
+bd497c3c7308: Verifying Checksum
+bd497c3c7308: Download complete
+77ddeac46eeb: Verifying Checksum
+77ddeac46eeb: Download complete
+bd497c3c7308: Pull complete
+77ddeac46eeb: Pull complete
+fcdcff3e8f06: Pull complete
+Digest: sha256:be1190afcb28352bfddc4ddeb71470835d16462af68d310f9f4bca710961a41e
+Status: Downloaded newer image for ghcr.io/aquasecurity/trivy:latest
+2026-04-29T16:42:00Z	INFO	[vulndb] Need to update DB
+2026-04-29T16:42:00Z	INFO	[vulndb] Downloading vulnerability DB...
+2026-04-29T16:42:00Z	INFO	[vulndb] Downloading artifact...	repo="mirror.gcr.io/aquasec/trivy-db:2"
+14.96 MiB / 91.51 MiB [--------->___________________________________________________] 16.35% ? p/s ?50.72 MiB / 91.51 MiB [--------------------------------->___________________________] 55.42% ? p/s ?91.51 MiB / 91.51 MiB [----------------------------------------------------------->] 100.00% ? p/s ?91.51 MiB / 91.51 MiB [--------------------------------------------->] 100.00% 127.64 MiB p/s ETA 0s91.51 MiB / 91.51 MiB [--------------------------------------------->] 100.00% 127.64 MiB p/s ETA 0s91.51 MiB / 91.51 MiB [--------------------------------------------->] 100.00% 127.64 MiB p/s ETA 0s91.51 MiB / 91.51 MiB [--------------------------------------------->] 100.00% 119.40 MiB p/s ETA 0s91.51 MiB / 91.51 MiB [--------------------------------------------->] 100.00% 119.40 MiB p/s ETA 0s91.51 MiB / 91.51 MiB [--------------------------------------------->] 100.00% 119.40 MiB p/s ETA 0s91.51 MiB / 91.51 MiB [--------------------------------------------->] 100.00% 111.70 MiB p/s ETA 0s91.51 MiB / 91.51 MiB [--------------------------------------------->] 100.00% 111.70 MiB p/s ETA 0s91.51 MiB / 91.51 MiB [--------------------------------------------->] 100.00% 111.70 MiB p/s ETA 0s91.51 MiB / 91.51 MiB [--------------------------------------------->] 100.00% 104.49 MiB p/s ETA 0s91.51 MiB / 91.51 MiB [--------------------------------------------->] 100.00% 104.49 MiB p/s ETA 0s91.51 MiB / 91.51 MiB [--------------------------------------------->] 100.00% 104.49 MiB p/s ETA 0s91.51 MiB / 91.51 MiB [-------------------------------------------------] 100.00% 30.89 MiB p/s 3.2s2026-04-29T16:42:04Z	INFO	[vulndb] Artifact successfully downloaded	repo="mirror.gcr.io/aquasec/trivy-db:2"
+Version: 0.70.0
+  Version: 2
+2026-04-29T16:42:09Z	INFO	[vuln] Vulnerability scanning is enabled
+2026-04-29T16:42:09Z	INFO	[secret] Secret scanning is enabled
+2026-04-29T16:42:09Z	INFO	[secret] If your scanning is slow, please try '--scanners vuln' to disable secret scanning
+2026-04-29T16:42:09Z	INFO	[secret] Please see https://trivy.dev/docs/v0.70/guide/scanner/secret#recommendation for faster secret detection
+2026-04-29T16:42:10Z	WARN	[pip] Unable to find python `site-packages` directory. License detection is skipped.	err="unable to find path to Python executable"
+2026-04-29T16:42:10Z	INFO	Number of language-specific files	num=0
+Version: 0.70.0
+  Version: 2
+Error response from daemon: pull access denied for dhi/caddy, repository does not exist or may require 'docker login': denied: requested access to the resource is denied

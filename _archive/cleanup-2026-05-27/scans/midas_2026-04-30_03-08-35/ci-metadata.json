@@ -1,0 +1,11 @@
+{
+  "source": "github",
+  "repo": "MetroStar/midas",
+  "run_id": 25145225711,
+  "artifact_id": 6722311298,
+  "workflow": "Private Security Scan",
+  "event": "schedule",
+  "branch": "main",
+  "commit": "baf92e5",
+  "synced_at": "2026-04-30T13:39:34.271539+00:00"
+}

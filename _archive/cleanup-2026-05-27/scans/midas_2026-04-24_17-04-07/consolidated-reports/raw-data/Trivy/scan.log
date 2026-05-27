@@ -1,0 +1,32 @@
+Unable to find image 'ghcr.io/aquasecurity/trivy:latest' locally
+latest: Pulling from aquasecurity/trivy
+589002ba0eae: Already exists
+bd497c3c7308: Pulling fs layer
+77ddeac46eeb: Pulling fs layer
+fcdcff3e8f06: Pulling fs layer
+fcdcff3e8f06: Verifying Checksum
+fcdcff3e8f06: Download complete
+bd497c3c7308: Verifying Checksum
+bd497c3c7308: Download complete
+77ddeac46eeb: Verifying Checksum
+77ddeac46eeb: Download complete
+bd497c3c7308: Pull complete
+77ddeac46eeb: Pull complete
+fcdcff3e8f06: Pull complete
+Digest: sha256:be1190afcb28352bfddc4ddeb71470835d16462af68d310f9f4bca710961a41e
+Status: Downloaded newer image for ghcr.io/aquasecurity/trivy:latest
+2026-04-24T17:04:37Z	INFO	[vulndb] Need to update DB
+2026-04-24T17:04:37Z	INFO	[vulndb] Downloading vulnerability DB...
+2026-04-24T17:04:37Z	INFO	[vulndb] Downloading artifact...	repo="mirror.gcr.io/aquasec/trivy-db:2"
+671.18 KiB / 91.27 MiB [>____________________________________________________________] 0.72% ? p/s ?5.02 MiB / 91.27 MiB [--->___________________________________________________________] 5.50% ? p/s ?22.31 MiB / 91.27 MiB [-------------->______________________________________________] 24.45% ? p/s ?40.49 MiB / 91.27 MiB [--------------------->__________________________] 44.36% 66.37 MiB p/s ETA 0s58.90 MiB / 91.27 MiB [------------------------------>_________________] 64.53% 66.37 MiB p/s ETA 0s78.65 MiB / 91.27 MiB [----------------------------------------->______] 86.18% 66.37 MiB p/s ETA 0s91.27 MiB / 91.27 MiB [---------------------------------------------->] 100.00% 67.55 MiB p/s ETA 0s91.27 MiB / 91.27 MiB [---------------------------------------------->] 100.00% 67.55 MiB p/s ETA 0s91.27 MiB / 91.27 MiB [---------------------------------------------->] 100.00% 67.55 MiB p/s ETA 0s91.27 MiB / 91.27 MiB [---------------------------------------------->] 100.00% 63.19 MiB p/s ETA 0s91.27 MiB / 91.27 MiB [---------------------------------------------->] 100.00% 63.19 MiB p/s ETA 0s91.27 MiB / 91.27 MiB [---------------------------------------------->] 100.00% 63.19 MiB p/s ETA 0s91.27 MiB / 91.27 MiB [---------------------------------------------->] 100.00% 59.11 MiB p/s ETA 0s91.27 MiB / 91.27 MiB [---------------------------------------------->] 100.00% 59.11 MiB p/s ETA 0s91.27 MiB / 91.27 MiB [---------------------------------------------->] 100.00% 59.11 MiB p/s ETA 0s91.27 MiB / 91.27 MiB [---------------------------------------------->] 100.00% 55.30 MiB p/s ETA 0s91.27 MiB / 91.27 MiB [---------------------------------------------->] 100.00% 55.30 MiB p/s ETA 0s91.27 MiB / 91.27 MiB [---------------------------------------------->] 100.00% 55.30 MiB p/s ETA 0s91.27 MiB / 91.27 MiB [---------------------------------------------->] 100.00% 51.73 MiB p/s ETA 0s91.27 MiB / 91.27 MiB [---------------------------------------------->] 100.00% 51.73 MiB p/s ETA 0s91.27 MiB / 91.27 MiB [---------------------------------------------->] 100.00% 51.73 MiB p/s ETA 0s91.27 MiB / 91.27 MiB [---------------------------------------------->] 100.00% 48.40 MiB p/s ETA 0s91.27 MiB / 91.27 MiB [-------------------------------------------------] 100.00% 21.15 MiB p/s 4.5s2026-04-24T17:04:44Z	INFO	[vulndb] Artifact successfully downloaded	repo="mirror.gcr.io/aquasec/trivy-db:2"
+Version: 0.70.0
+  Version: 2
+2026-04-24T17:05:00Z	INFO	[vuln] Vulnerability scanning is enabled
+2026-04-24T17:05:00Z	INFO	[secret] Secret scanning is enabled
+2026-04-24T17:05:00Z	INFO	[secret] If your scanning is slow, please try '--scanners vuln' to disable secret scanning
+2026-04-24T17:05:00Z	INFO	[secret] Please see https://trivy.dev/docs/v0.70/guide/scanner/secret#recommendation for faster secret detection
+2026-04-24T17:05:01Z	WARN	[pip] Unable to find python `site-packages` directory. License detection is skipped.	err="unable to find path to Python executable"
+2026-04-24T17:05:01Z	INFO	Number of language-specific files	num=0
+Version: 0.70.0
+  Version: 2
+Error response from daemon: pull access denied for dhi/caddy, repository does not exist or may require 'docker login': denied: requested access to the resource is denied

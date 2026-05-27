@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkov midas_2026-04-28_03-19-16_checkov-results Security Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .header { background: linear-gradient(135deg, #C41E3A 0%, #0F1F3D 100%); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .summary { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .finding { background: white; margin: 10px 0; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .critical { border-left: 5px solid #dc3545; }
+        .high { border-left: 5px solid #fd7e14; }
+        .medium { border-left: 5px solid #ffc107; }
+        .low { border-left: 5px solid #28a745; }
+        .info { border-left: 5px solid #17a2b8; }
+        .severity { font-weight: bold; padding: 4px 8px; border-radius: 4px; color: white; }
+        .severity.critical { background-color: #dc3545; }
+        .severity.high { background-color: #fd7e14; }
+        .severity.medium { background-color: #ffc107; color: #212529; }
+        .severity.low { background-color: #28a745; }
+        .severity.info { background-color: #17a2b8; }
+        .metadata { background-color: #f8f9fa; padding: 10px; border-radius: 4px; margin-top: 10px; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        .stats { display: flex; gap: 20px; margin: 20px 0; }
+        .stat-card { background: white; padding: 15px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .stat-number { font-size: 24px; font-weight: bold; }
+        .class-banner { position: sticky; top: 0; z-index: 9999; width: 100%; text-align: center;
+            padding: 6px 16px; font-family: Arial Narrow, Arial, sans-serif; font-size: 0.85em;
+            font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+        .class-banner-bottom { width: 100%; text-align: center; padding: 6px 16px;
+            font-family: Arial Narrow, Arial, sans-serif; font-size: 0.85em;
+            font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 30px; }
+        @media print {
+            .class-banner { position: fixed; top: 0; left: 0; right: 0;
+                print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+            .class-banner-bottom { position: fixed; bottom: 0; left: 0; right: 0;
+                print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+            body { margin-top: 2em; margin-bottom: 2em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="class-banner" style="background:#1a56db;color:#ffffff;">INTERNAL USE ONLY</div>
+    <div class="header">
+        <h1>Checkov Security Report</h1>
+        <p><strong>Scan Type:</strong> midas_2026-04-28_03-19-16_checkov-results</p>
+        <p><strong>Generated:</strong> Tue Apr 28 03:31:46 UTC 2026</p>
+    </div>
+<div class="summary"><h2>Raw Data</h2><pre>[
+  {
+    &quot;check_type&quot;: &quot;github_actions&quot;,
+    &quot;results&quot;: {
+      &quot;passed_checks&quot;: [
+        {
+          &quot;check_id&quot;: &quot;CKV_GHA_7&quot;,
+          &quot;bc_check_id&quot;: null,
+          &quot;check_name&quot;: &quot;The build output cannot be affected by user parameters other than the build entry point and the top-level source location. GitHub Actions workflow_dispatch inputs MUST be empty. &quot;,
+          &quot;check_result&quot;: {
+            &quot;result&quot;: &quot;PASSED&quot;,
+            &quot;results_configuration&quot;: {
+              &quot;workflow_dispatch&quot;: null,
+              &quot;push&quot;: {
+                &quot;branches&quot;: [
+                  &quot;main&quot;
+                ],
+                &quot;__startline__&quot;: 6,
+                &quot;__endline__&quot;: 9
+              },
+              &quot;__startline__&quot;: 4,
+              &quot;__endline__&quot;: 9
+            }
+          },
+          &quot;code_block&quot;: [
+            [
+              4,
+              &quot;  workflow_dispatch:\n&quot;
+            ],
+            [
+              5,
+              &quot;  push:\n&quot;
+            ],
+            [
+              6,
+              &quot;    branches:\n&quot;
+            ],
+            [
+              7,
+              &quot;      - main\n&quot;
+            ],
+            [
+              8,
+              &quot;\n&quot;
+            ],
+            [
+              9,
+              &quot;permissions:\n&quot;
+            ],
+            [
+              10,
+              &quot;  actions: write\n&quot;
+            ]
+          ],
+          &quot;file_path&quot;: &quot;/.github/workflows/rerun-ci-on-main-update.yml&quot;,
+          &quot;file_abs_path&quot;: &quot;/workspace/.github/workflows/rerun-ci-on-main-update.yml&quot;,
+          &quot;repo_file_path&quot;: &quot;/workspace/.github/workflows/rerun-ci-on-main-update.yml&quot;,
+          &quot;file_line_range&quot;: [
+            4,
+            10
+          ],
+          &quot;resource&quot;: &quot;on(Re-run CI on open PRs when main updates)&quot;,
+          &quot;evaluations&quot;: null,
+          &quot;check_class&quot;: &quot;checkov.github_actions.checks.job.EmptyWorkflowDispatch&quot;,
+          &quot;fixed_definition&quot;: null,
+          &quot;entity_tags&quot;: null,
+          &quot;caller_file_path&quot;: null,
+          &quot;caller_file_line_range&quot;: null,
+          &quot;resource_address&quot;: null,
+          &quot;severity&quot;: null,
+          &quot;bc_category&quot;: null,
+          &quot;benchmarks&quot;: null,
+          &quot;description&quot;: null,
+          &quot;short_description&quot;: null,
+          &quot;vulnerability_details&quot;: null,
+          &quot;connected_node&quot;: null,
+          &quot;guideline&quot;: null,
+          &quot;details&quot;: [],
+          &quot;check_len&quot;: null,
+          &quot;definition_context_file_path&quot;: null,
+          &quot;triggers&quot;: [
+            [
+              &quot;push&quot;,
+              &quot;workflow_dispatch&quot;
+            ]
+          ],
+          &quot;job&quot;: [
+            &quot;&quot;
+          ],
+          &quot;workflow_name&quot;: &quot;Re-run CI on open PRs when main updates&quot;
+        },
+        {
+          &quot;check_id&quot;: &quot;CKV_GHA_5&quot;,
+          &quot;bc_check_id&quot;: null,
+          &quot;check_name&quot;: &quot;Found artifact build without evidence of cosign sign execution in pipeline&quot;,
+          &quot;check_result&quot;: {
+            &quot;result&quot;: &quot;PASSED&quot;,
+            &quot;results_configuration&quot;: {
+              &quot;rerun-ci&quot;: {
+                &quot;runs-on&quot;: &quot;self-hosted&quot;,
+                &quot;permissions&quot;: {
+                  &quot;actions&quot;: &quot;write&quot;,
+                  &quot;contents&quot;: &quot;read&quot;,
+                  &quot;pull-requests&quot;: &quot;read&quot;,
+                  &quot;__startline__&quot;: 19,
+                  &quot;__endline__&quot;: 23
+                },
+                &quot;steps&quot;: [
+                  {
+                    &quot;name&quot;: &quot;Clean stale git config&quot;,
+                    &quot;run&quot;: &quot;git config --global --list 2&gt;/dev/null | grep -i &#x27;\\.insteadof=&#x27; | sed &#x27;s/\\.insteadof=.*//&#x27; | sort -u | while read -r key; do\n  git config --global --remove-section \&quot;$key\&quot; 2&gt;/dev/null || true\ndone || true\ngit config --global --get-regexp &#x27;http\\..*\\.extraheader&#x27; 2&gt;/dev/null | awk &#x27;{print $1}&#x27; | sort -u | while read -r key; do\n  git config --global --unset-all \&quot;$key\&quot; 2&gt;/dev/null || true\ndone || true\n&quot;,
+                    &quot;__startline__&quot;: 28,
+                    &quot;__endline__&quot;: 37
+                  },
+                  {
+                    &quot;name&quot;: &quot;Checkout repository&quot;,
+                    &quot;uses&quot;: &quot;actions/checkout@v6&quot;,
+                    &quot;with&quot;: {
+                      &quot;persist-credentials&quot;: false,
+                      &quot;__startline__&quot;: 40,
+                      &quot;__endline__&quot;: 42
+                    },
+                    &quot;__startline__&quot;: 37,
+                    &quot;__endline__&quot;: 42
+                  },
+                  {
+                    &quot;name&quot;: &quot;Install GitHub CLI&quot;,
+                    &quot;run&quot;: &quot;if ! command -v gh &amp;&gt; /dev/null; then\n  # For Amazon Linux 2\n  if [ -f /etc/amazon-linux-release ]; then\n    sudo yum install -y yum-utils\n    sudo yum-config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo\n    sudo yum install -y gh\n  # For Amazon Linux 2023 (uses dnf)\n  else\n    sudo dnf install -y &#x27;dnf-command(config-manager)&#x27;\n    sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo\n    sudo dnf install -y gh\n  fi\nfi\n&quot;,
+                    &quot;__startline__&quot;: 42,
+                    &quot;__endline__&quot;: 58
+                  },
+          </pre></div>
+    <div class="class-banner-bottom" style="background:#1a56db;color:#ffffff;">INTERNAL USE ONLY</div>
+</body>
+</html>

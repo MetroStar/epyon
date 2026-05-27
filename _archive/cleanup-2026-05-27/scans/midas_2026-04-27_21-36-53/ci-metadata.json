@@ -1,0 +1,11 @@
+{
+  "source": "github",
+  "repo": "MetroStar/midas",
+  "run_id": 25020608624,
+  "artifact_id": 6671555277,
+  "workflow": "CI",
+  "event": "pull_request",
+  "branch": "MID-648-include-context-data-for-deterministic-evaluation",
+  "commit": "68f1085",
+  "synced_at": "2026-04-28T14:45:53.895013+00:00"
+}

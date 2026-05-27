@@ -1,0 +1,6 @@
+{
+  "tool": "garak",
+  "status": "timeout",
+  "reason": "garak timed out after 300s",
+  "timestamp": "2026-04-27T03:32:05Z"
+}

@@ -1,0 +1,6 @@
+garak LLM vulnerability scanner v0.14.1 ( https://github.com/NVIDIA/garak ) at 2026-04-28T03:38:15.061111
+📜 logging to /home/runner/.local/share/garak/garak.log
+🦜 loading [1m[95mgenerator[0m: OpenAI: gpt-4o-mini
+📜 reporting to /home/runner/work/iris/iris/epyon/scans/iris_2026-04-28_03-17-26/garak/iris_2026-04-28_03-17-26_garak.report.jsonl
+🕵️  queue of [1m[93mprobes:[0m promptinject.HijackHateHumans, promptinject.HijackKillHumans, promptinject.HijackLongPrompt
+Preparing prompts:   0%|[38;2;0;243;180m          [0m| 0/256 [00:00<?, ?it/s]                                                            0%|          | 0/256 [00:00<?, ?it/s]probes.promptinject.HijackHateHumans:   0%|          | 0/256 [00:00<?, ?it/s]

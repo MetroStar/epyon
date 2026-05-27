@@ -1,0 +1,102 @@
+{
+  "classification": "INTERNAL USE ONLY",
+  "summary": {
+    "scan_id": "midas_2026-04-24_17-04-07",
+    "target_directory": "/home/runner/work/midas/midas/target-repo",
+    "scan_timestamp": "2026-04-24T17:06:48Z",
+    "total_critical": 0,
+    "total_high": 0,
+    "total_medium": 2,
+    "total_low": 1,
+    "tools_analyzed": [
+      "TruffleHog",
+      "Grype-sbom",
+      "Trivy-filesystem"
+    ],
+    "summary_by_tool": {}
+  },
+  "critical_findings": [],
+  "high_findings": [],
+  "medium_findings": [
+    {
+      "tool": "Grype-sbom",
+      "type": "vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-gc5v-m9x4-r6x2",
+      "id": "GHSA-gc5v-m9x4-r6x2",
+      "package": "requests",
+      "package_name": "requests",
+      "version": "2.32.5",
+      "package_version": "2.32.5",
+      "package_type": "python",
+      "package_path": "/requirements.txt",
+      "purl": "pkg:pypi/requests@2.32.5",
+      "description": "Requests has Insecure Temp File Reuse in its extract_zipped_paths() utility function",
+      "cvss_score": 4.4,
+      "fix_available": "Yes",
+      "fixed_versions": [
+        "2.33.0"
+      ],
+      "detected_by": [
+        "Grype-sbom"
+      ],
+      "occurrences": 1
+    },
+    {
+      "tool": "Grype-sbom",
+      "type": "vulnerability",
+      "severity": "Medium",
+      "vulnerability_id": "GHSA-mj87-hwqh-73pj",
+      "id": "GHSA-mj87-hwqh-73pj",
+      "package": "python-multipart",
+      "package_name": "python-multipart",
+      "version": "0.0.22",
+      "package_version": "0.0.22",
+      "package_type": "python",
+      "package_path": "/requirements.txt",
+      "purl": "pkg:pypi/python-multipart@0.0.22",
+      "description": "python-multipart affected by Denial of Service via large multipart preamble or epilogue data",
+      "cvss_score": 5.3,
+      "fix_available": "Yes",
+      "fixed_versions": [
+        "0.0.26"
+      ],
+      "detected_by": [
+        "Grype-sbom"
+      ],
+      "occurrences": 1
+    }
+  ],
+  "low_findings": [
+    {
+      "tool": "Grype-sbom",
+      "type": "vulnerability",
+      "severity": "Low",
+      "vulnerability_id": "GHSA-5239-wwwm-4pmq",
+      "id": "GHSA-5239-wwwm-4pmq",
+      "package": "pygments",
+      "package_name": "pygments",
+      "version": "2.19.2",
+      "package_version": "2.19.2",
+      "package_type": "python",
+      "package_path": "/requirements.txt",
+      "purl": "pkg:pypi/pygments@2.19.2",
+      "description": "Pygments has Regular Expression Denial of Service (ReDoS) due to Inefficient Regex for GUID Matching",
+      "cvss_score": 3.3,
+      "fix_available": "Yes",
+      "fixed_versions": [
+        "2.20.0"
+      ],
+      "detected_by": [
+        "Grype-sbom"
+      ],
+      "occurrences": 1
+    }
+  ],
+  "enrichment": {
+    "enriched_at": "2026-04-24T17:09:56Z",
+    "cisa_kev_total": 0,
+    "nvd_total": 0,
+    "kev_catalog_url": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
+  }
+}

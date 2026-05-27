@@ -1,0 +1,33 @@
+TruffleHog scan started: 23-58-59
+Target: /home/runner/work/iris/iris/target-repo
+Unable to find image 'trufflesecurity/trufflehog:latest' locally
+latest: Pulling from trufflesecurity/trufflehog
+84f5eff04246: Pulling fs layer
+b24395adef0b: Pulling fs layer
+4f4fb700ef54: Pulling fs layer
+93e46a3cdd34: Pulling fs layer
+b32d237f586d: Pulling fs layer
+93e46a3cdd34: Waiting
+b32d237f586d: Waiting
+4f4fb700ef54: Verifying Checksum
+4f4fb700ef54: Download complete
+84f5eff04246: Download complete
+b24395adef0b: Verifying Checksum
+b24395adef0b: Download complete
+84f5eff04246: Pull complete
+b32d237f586d: Verifying Checksum
+b32d237f586d: Download complete
+b24395adef0b: Pull complete
+4f4fb700ef54: Pull complete
+93e46a3cdd34: Verifying Checksum
+93e46a3cdd34: Download complete
+93e46a3cdd34: Pull complete
+b32d237f586d: Pull complete
+Digest: sha256:49d1c4fbbc580aac487ac7cb0517bb085826bd352d7578d62bb4c0c6b7205075
+Status: Downloaded newer image for trufflesecurity/trufflehog:latest
+{"level":"info-0","ts":"2026-04-25T23:59:09Z","logger":"trufflehog","msg":"running source","source_manager_worker_id":"h8oYo","with_units":true}
+{"level":"error","ts":"2026-04-25T23:59:11Z","logger":"trufflehog","msg":"error reading chunk","source_manager_worker_id":"h8oYo","unit_kind":"unit","unit":"/workspace","path":"/workspace/vlm-testing/qdrant","mime":"application/x-mach-binary","timeout":60,"error":"brotli: PADDING_1"}
+{"level":"error","ts":"2026-04-25T23:59:12Z","logger":"trufflehog","msg":"non-critical error processing chunk","source_manager_worker_id":"h8oYo","unit_kind":"unit","unit":"/workspace","path":"/workspace/vlm-testing/qdrant","mime":"application/x-mach-binary","timeout":60,"error":"error processing file: error reading chunk: brotli: PADDING_1"}
+{"level":"info-0","ts":"2026-04-25T23:59:14Z","logger":"trufflehog","msg":"finished scanning","chunks":9144,"bytes":115968419,"verified_secrets":0,"unverified_secrets":0,"scan_duration":"5.547609145s","trufflehog_version":"3.95.2","verification_caching":{"Hits":0,"Misses":3,"HitsWasted":0,"AttemptsSaved":0,"VerificationTimeSpentMS":0}}
+filesystem scan: 0
+0 items

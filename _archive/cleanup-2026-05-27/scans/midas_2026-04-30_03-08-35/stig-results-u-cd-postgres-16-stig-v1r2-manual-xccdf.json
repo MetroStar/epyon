@@ -1,0 +1,446 @@
+{
+  "CD16-00-000100": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database or a database management system. It is an AI-powered code analysis and migration platform (MIDAS) with no embedded or managed PostgreSQL instance. No postgresql.conf, pg_hba.conf, or SQL role/connection management is present in the provided source code or configuration files.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL configuration or connection settings\n- File: README.md \u2014 no mention of PostgreSQL as a runtime dependency or embedded component\n- File: Makefile \u2014 no database setup, migration, or connection logic\n- Requirement: NOT APPLICABLE \u2014 application is not a PostgreSQL DBMS; session-count controls do not apply"
+  },
+  "CD16-00-000200": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database or DBMS. There is no pg_hba.conf, no PostgreSQL authentication configuration, and no evidence of direct PostgreSQL user/role management. The application does not embed or manage a PostgreSQL instance.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL authentication or pg_hba.conf settings\n- File: README.md \u2014 no mention of PostgreSQL authentication integration\n- File: Makefile \u2014 no database authentication or user management logic\n- Requirement: NOT APPLICABLE \u2014 application is not a PostgreSQL DBMS; authentication integration controls do not apply"
+  },
+  "CD16-00-000300": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database or DBMS. There are no SQL role/privilege management operations, no pg_hba.conf, and no database object access control configuration. The application does not manage PostgreSQL roles or privileges.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL role or privilege configuration\n- File: README.md \u2014 no mention of PostgreSQL object access control\n- File: Makefile \u2014 no database privilege management logic\n- Requirement: NOT APPLICABLE \u2014 application is not a PostgreSQL DBMS; access control policy enforcement does not apply"
+  },
+  "CD16-00-000400": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database or DBMS. There is no postgresql.conf, no log_line_prefix, and no shared_preload_libraries configuration. The application does not generate or manage PostgreSQL audit logs.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL logging or audit configuration\n- File: README.md \u2014 no mention of PostgreSQL audit log settings\n- File: Makefile \u2014 no database audit log management\n- Requirement: NOT APPLICABLE \u2014 application is not a PostgreSQL DBMS; audit repudiation controls do not apply"
+  },
+  "CD16-00-000500": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database or DBMS. There is no audit log generation for DOD-defined events at the database level, and no pgaudit or equivalent audit configuration is present.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL audit log or pgaudit configuration\n- File: README.md \u2014 no mention of PostgreSQL audit event logging\n- File: Makefile \u2014 no database audit log management\n- Requirement: NOT APPLICABLE \u2014 application is not a PostgreSQL DBMS; audit record generation controls do not apply"
+  },
+  "CD16-00-000600": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database or DBMS. There is no postgresql.conf, no audit event selection, and no database administrator role management. The application does not allow or restrict audit event selection for PostgreSQL.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL audit event configuration\n- File: README.md \u2014 no mention of PostgreSQL audit event selection\n- File: Makefile \u2014 no database audit event management\n- Requirement: NOT APPLICABLE \u2014 application is not a PostgreSQL DBMS; audit event selection controls do not apply"
+  },
+  "CD16-00-000700": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database or DBMS. There is no pgaudit, no shared_preload_libraries, and no audit record generation for privilege/permission retrieval. The application does not manage or audit PostgreSQL privileges.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL audit or pgaudit configuration\n- File: README.md \u2014 no mention of PostgreSQL privilege audit logging\n- File: Makefile \u2014 no database privilege audit logic\n- Requirement: NOT APPLICABLE \u2014 application is not a PostgreSQL DBMS; privilege audit controls do not apply"
+  },
+  "CD16-00-000800": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database or DBMS. There is no audit record generation for unsuccessful privilege/permission retrieval attempts, and no pgaudit or equivalent configuration.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL audit or pgaudit configuration\n- File: README.md \u2014 no mention of PostgreSQL unsuccessful privilege audit logging\n- File: Makefile \u2014 no database privilege audit logic\n- Requirement: NOT APPLICABLE \u2014 application is not a PostgreSQL DBMS; unsuccessful privilege audit controls do not apply"
+  },
+  "CD16-00-000900": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database or DBMS. There is no pgaudit, no shared_preload_libraries, and no log_destination configuration for session auditing. The application does not manage PostgreSQL session audit logs.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL audit or session logging configuration\n- File: README.md \u2014 no mention of PostgreSQL session audit logging\n- File: Makefile \u2014 no database session audit logic\n- Requirement: NOT APPLICABLE \u2014 application is not a PostgreSQL DBMS; session audit controls do not apply"
+  },
+  "CD16-00-001000": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database or DBMS. There is no log_line_prefix, log_connections, or log_disconnections configuration for audit record content. The application does not generate PostgreSQL audit records.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL audit log configuration\n- File: README.md \u2014 no mention of PostgreSQL audit record content\n- File: Makefile \u2014 no database audit log management\n- Requirement: NOT APPLICABLE \u2014 application is not a PostgreSQL DBMS; audit record content controls do not apply"
+  },
+  "CD16-00-001100": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database or DBMS. There is no log_line_prefix configuration for timestamped audit records. The application does not generate PostgreSQL audit logs with timestamps.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL log_line_prefix or timestamp configuration\n- File: README.md \u2014 no mention of PostgreSQL audit record timestamps\n- File: Makefile \u2014 no database audit log management\n- Requirement: NOT APPLICABLE \u2014 application is not a PostgreSQL DBMS; audit record timestamp controls do not apply"
+  },
+  "CD16-00-001200": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database or DBMS. There is no log_line_prefix configuration for location information in audit records. The application does not generate PostgreSQL audit logs with location data.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL log_line_prefix or location configuration\n- File: README.md \u2014 no mention of PostgreSQL audit record location\n- File: Makefile \u2014 no database audit log management\n- Requirement: NOT APPLICABLE \u2014 application is not a PostgreSQL DBMS; audit record location controls do not apply"
+  },
+  "CD16-00-001300": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database or DBMS. There is no log_line_prefix or log_hostname configuration for source/origin information in audit records. The application does not generate PostgreSQL audit logs with source/origin data.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL log_line_prefix or log_hostname configuration\n- File: README.md \u2014 no mention of PostgreSQL audit record source/origin\n- File: Makefile \u2014 no database audit log management\n- Requirement: NOT APPLICABLE \u2014 application is not a PostgreSQL DBMS; audit record source/origin controls do not apply"
+  },
+  "CD16-00-001400": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database or DBMS. There is no audit record generation for event outcomes (success/failure), and no pgaudit or equivalent configuration. The application does not generate PostgreSQL audit logs with event outcomes.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL audit or pgaudit configuration\n- File: README.md \u2014 no mention of PostgreSQL audit record outcomes\n- File: Makefile \u2014 no database audit log management\n- Requirement: NOT APPLICABLE \u2014 application is not a PostgreSQL DBMS; audit record outcome controls do not apply"
+  },
+  "CD16-00-001500": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database or DBMS. There is no log_line_prefix configuration for user/subject/process identity in audit records. The application does not generate PostgreSQL audit logs with user/process identity.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL log_line_prefix or identity configuration\n- File: README.md \u2014 no mention of PostgreSQL audit record identity\n- File: Makefile \u2014 no database audit log management\n- Requirement: NOT APPLICABLE \u2014 application is not a PostgreSQL DBMS; audit record identity controls do not apply"
+  },
+  "CD16-00-001600": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database or DBMS. There is no configuration or evidence of organization-defined additional audit information in PostgreSQL audit records. The application does not generate or manage PostgreSQL audit logs.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL audit or additional information configuration\n- File: README.md \u2014 no mention of PostgreSQL audit record customization\n- File: Makefile \u2014 no database audit log management\n- Requirement: NOT APPLICABLE \u2014 application is not a PostgreSQL DBMS; organization-defined audit record controls do not apply"
+  },
+  "CD16-00-001700": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database or DBMS. There is no audit log storage, monitoring, or shutdown-on-audit-failure logic for PostgreSQL. The application does not generate or manage PostgreSQL audit logs or storage.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL audit log storage or monitoring configuration\n- File: README.md \u2014 no mention of PostgreSQL audit log storage or shutdown procedures\n- File: Makefile \u2014 no database audit log management\n- Requirement: NOT APPLICABLE \u2014 application is not a PostgreSQL DBMS; audit log storage/shutdown controls do not apply"
+  },
+  "CD16-00-001800": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database or DBMS. There is no audit log rotation, FIFO, or disk space management for PostgreSQL audit logs. The application does not generate or manage PostgreSQL audit logs or log rotation.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL audit log rotation or disk management configuration\n- File: README.md \u2014 no mention of PostgreSQL audit log rotation or FIFO\n- File: Makefile \u2014 no database audit log management\n- Requirement: NOT APPLICABLE \u2014 application is not a PostgreSQL DBMS; audit log FIFO/rotation controls do not apply"
+  },
+  "CD16-00-002000": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database or DBMS. There is no log_file_mode or audit log file permission configuration for PostgreSQL. The application does not generate or manage PostgreSQL audit logs or their file permissions.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL log_file_mode or audit log permission configuration\n- File: README.md \u2014 no mention of PostgreSQL audit log file permissions\n- File: Makefile \u2014 no database audit log management\n- Requirement: NOT APPLICABLE \u2014 application is not a PostgreSQL DBMS; audit log read-access controls do not apply"
+  },
+  "CD16-00-002100": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database or DBMS. There is no log_file_mode or audit log file permission/ownership configuration for PostgreSQL. The application does not generate or manage PostgreSQL audit logs or their file permissions/ownership.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL log_file_mode or audit log permission/ownership configuration\n- File: README.md \u2014 no mention of PostgreSQL audit log file permissions/ownership\n- File: Makefile \u2014 no database audit log management\n- Requirement: NOT APPLICABLE \u2014 application is not a PostgreSQL DBMS; audit log modification controls do not apply"
+  },
+  "CD16-00-002200": {
+    "status": "Not Applicable",
+    "evidence": "This application is a Python-based AI/code analysis platform and does not include or manage a PostgreSQL database instance, nor does it configure or control PostgreSQL audit log storage or permissions.\n- No files named or referencing 'postgresql.conf', 'PGLOG', or log file permissions found in the provided source or configuration files.\n- No code or configuration for database log file management or OS-level file permissions.\n- Requirement: NOT APPLICABLE \u2014 No PostgreSQL database or audit log management present in this application."
+  },
+  "CD16-00-002300": {
+    "status": "Not Applicable",
+    "evidence": "This application does not install, configure, or manage a PostgreSQL database or its audit features.\n- No references to 'PGLOG', 'PGDATA', 'pgaudit', or PostgreSQL role/privilege management in any provided code or configuration.\n- No SQL, database user, or privilege management code present.\n- Requirement: NOT APPLICABLE \u2014 PostgreSQL audit feature access is not managed by this application."
+  },
+  "CD16-00-002400": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL database or audit configuration is present or managed by this application.\n- No 'postgresql.conf', 'PGDATA', or log_file_mode settings found in any configuration or code.\n- No code or documentation for managing database configuration file permissions.\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL audit configuration."
+  },
+  "CD16-00-002500": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL installation, binaries, or audit features are managed by this application.\n- No references to 'PGDATA', '/usr/pgsql-', or database binaries in any code or configuration.\n- No code for managing file system permissions or ownership of database files.\n- Requirement: NOT APPLICABLE \u2014 Application does not manage or remove PostgreSQL audit features."
+  },
+  "CD16-00-002600": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL configuration files, shared libraries, or binaries are present or managed by this application.\n- No code for managing permissions or ownership of database configuration or binaries.\n- No references to 'postgresql.conf', '/usr/pgsql-', or related file paths.\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL software modules or permissions."
+  },
+  "CD16-00-002700": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL software installation accounts are created, managed, or referenced by this application.\n- No code or documentation for user account management related to PostgreSQL installation.\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL installation accounts."
+  },
+  "CD16-00-002800": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL software, configuration files, or directories are installed or managed by this application.\n- No code or configuration for database software directory management.\n- Requirement: NOT APPLICABLE \u2014 Application does not install or manage PostgreSQL software directories."
+  },
+  "CD16-00-002900": {
+    "status": "Not Applicable",
+    "evidence": "No database objects (tables, indexes, stored procedures, etc.) are created or managed by this application.\n- No SQL DDL, database schema, or object ownership code present.\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL database objects or their ownership."
+  },
+  "CD16-00-003000": {
+    "status": "Not Applicable",
+    "evidence": "No code or configuration for managing PostgreSQL roles, groups, or privileges is present.\n- No SQL privilege management, role assignment, or database directory permission code found.\n- Requirement: NOT APPLICABLE \u2014 Application does not manage database structure or logic module privileges."
+  },
+  "CD16-00-003200": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL extensions or database components are installed, managed, or removed by this application.\n- No code for listing, installing, or removing database extensions.\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL extensions or components."
+  },
+  "CD16-00-003300": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL packages or integrated components are installed or managed by this application.\n- No code for package management or disabling database components.\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL packages or integrated components."
+  },
+  "CD16-00-003400": {
+    "status": "Not Applicable",
+    "evidence": "No use of PostgreSQL COPY command, superuser roles, or extensions that access external executables is present.\n- No code for database role management or extension installation.\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL access to external executables."
+  },
+  "CD16-00-003500": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL port, protocol, or service configuration is present in this application.\n- No code or configuration for database network settings.\n- Requirement: NOT APPLICABLE \u2014 Application does not configure PostgreSQL ports, protocols, or services."
+  },
+  "CD16-00-003600": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL user, role, or authentication configuration is present or managed by this application.\n- No code for user creation, authentication, or pg_hba.conf management.\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL user authentication."
+  },
+  "CD16-00-003800": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL password storage or authentication is implemented or managed by this application.\n- No code for password storage, encryption, or database user management.\n- Requirement: NOT APPLICABLE \u2014 Application does not store or manage PostgreSQL passwords."
+  },
+  "CD16-00-003900": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL authentication or password transmission is implemented or managed by this application.\n- No code for pg_hba.conf, password authentication, or transmission method configuration.\n- Requirement: NOT APPLICABLE \u2014 Application does not transmit PostgreSQL passwords."
+  },
+  "CD16-00-004000": {
+    "status": "Not Applicable",
+    "evidence": "No PKI-based authentication or certificate validation for PostgreSQL is implemented or managed by this application.\n- No code or configuration for SSL, CRL files, or certificate validation in a database context.\n- Requirement: NOT APPLICABLE \u2014 Application does not use or manage PostgreSQL PKI authentication."
+  },
+  "CD16-00-004100": {
+    "status": "Not Applicable",
+    "evidence": "No PKI private keys for PostgreSQL are stored, used, or managed by this application.\n- No code or configuration for SSL key file management or access control.\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL PKI private keys."
+  },
+  "CD16-00-004200": {
+    "status": "Not Applicable",
+    "evidence": "No PKI authentication or user mapping for PostgreSQL is implemented or managed by this application.\n- No code for certificate CN mapping, pg_ident.conf, or user mapping logic.\n- Requirement: NOT APPLICABLE \u2014 Application does not map PKI identities to PostgreSQL users."
+  },
+  "CD16-00-004400": {
+    "status": "Not Applicable",
+    "evidence": "No cryptographic operations for PostgreSQL are performed or managed by this application, nor is FIPS mode relevant to its operation.\n- No code for enabling FIPS mode, checking OpenSSL providers, or configuring cryptographic modules for a database.\n- Requirement: NOT APPLICABLE \u2014 Application does not perform PostgreSQL cryptographic operations or require FIPS validation."
+  },
+  "CD16-00-004500": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database nor does it implement or manage PostgreSQL user roles directly. No SQL, role management, or user authentication logic for PostgreSQL is present in any provided code or configuration file. All authentication is handled via OIDC/OAuth2 (see security/middleware.py and etc/atlas/config.yaml). - Requirement: NOT APPLICABLE \u2014 No PostgreSQL user management or direct DBMS role handling in scope."
+  },
+  "CD16-00-004600": {
+    "status": "Not Applicable",
+    "evidence": "This application does not implement or expose PostgreSQL user or administrative roles. All user authentication and authorization is handled via OAuth2/OIDC middleware (see security/middleware.py), and there is no evidence of PostgreSQL administrative or user role separation logic. - Requirement: NOT APPLICABLE \u2014 No PostgreSQL user/administrator role management in application scope."
+  },
+  "CD16-00-004700": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL session management or configuration is present in the application. The application does not manage PostgreSQL sessions or configure session timeouts (e.g., tcp_keepalives_idle, statement_timeout). All session management is handled at the application layer via OAuth2/OIDC (see security/middleware.py). - Requirement: NOT APPLICABLE \u2014 No PostgreSQL session management in application."
+  },
+  "CD16-00-004900": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL SSL/TLS configuration or direct database connection logic is present in the application. The application does not configure or manage PostgreSQL network security (e.g., 'ssl = on'). All network security is handled at the application layer via HTTP/ASGI/OAuth2. - Requirement: NOT APPLICABLE \u2014 No PostgreSQL network configuration in application."
+  },
+  "CD16-00-005200": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL data storage or encryption at rest is implemented or configured by the application. The application does not store or manage PostgreSQL data directly, nor does it use or configure pgcrypto or disk encryption for PostgreSQL. - Requirement: NOT APPLICABLE \u2014 No PostgreSQL data at rest in application."
+  },
+  "CD16-00-005300": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL schemas, security objects, or access controls are managed by the application. The application does not define or separate security functions within PostgreSQL schemas or databases. All security logic is implemented at the application layer (see security/middleware.py). - Requirement: NOT APPLICABLE \u2014 No PostgreSQL schema or security object management in application."
+  },
+  "CD16-00-005400": {
+    "status": "Open",
+    "evidence": "The application implements ingestion pipelines for moving and indexing data from various sources (see etc/atlas/config.yaml 'ingestion.pipelines'), but there is no explicit evidence of enforcement of a data-transfer policy or removal of production data from unprotected locations. - File: etc/atlas/config.yaml \u2014 ingestion.pipelines: defines multiple pipelines for moving data (e.g., python-project, java-project, git-project), but no explicit data-transfer policy enforcement or secure deletion logic is present. - File: lib/ingestion/security.py \u2014 InputValidator and AuditLogger provide validation and logging, but do not enforce data-transfer policy or secure deletion of production data copies. - Requirement: PARTIALLY SATISFIED \u2014 Data movement is implemented, but enforcement of organization-defined data-transfer policy and secure removal of production data from unprotected locations is not evidenced."
+  },
+  "CD16-00-005600": {
+    "status": "Not Applicable",
+    "evidence": "The application does not manage or store PostgreSQL database files, logs, or backups. All data storage is handled at the application layer (e.g., vectorstores, knowledgebase), not at the PostgreSQL file system level. No file permission logic for PostgreSQL data files is present. - Requirement: NOT APPLICABLE \u2014 No PostgreSQL file system or database file management in application."
+  },
+  "CD16-00-005700": {
+    "status": "Open",
+    "evidence": "The ingestion pipeline includes an InputValidator (lib/ingestion/security.py) that checks for path traversal, content size, encoding, and content type, but there is no evidence of database column/field constraints or prepared statement usage for PostgreSQL. - File: lib/ingestion/security.py \u2014 InputValidator: validates path traversal, content size, encoding, and content type for RawRecord objects. - File: knowledgebase/parsers/schema.py \u2014 Defines canonical output schemas for parsed files, but does not enforce database constraints. - No evidence of prepared statement usage for PostgreSQL or explicit input validation at the database layer. - Requirement: PARTIALLY SATISFIED \u2014 Application validates input at the ingestion layer, but does not use prepared statements or enforce database constraints for PostgreSQL."
+  },
+  "CD16-00-005800": {
+    "status": "Open",
+    "evidence": "No direct evidence of dynamic code execution (e.g., eval, exec, or SQL code generation) is present in the provided files. However, the ingestion pipeline and plugin system may allow for dynamic script execution (see plugins/custom_script.py, not included in context). - File: lib/ingestion/security.py \u2014 InputValidator and AuditLogger provide input validation and logging, but do not restrict dynamic code execution. - File: scripts/example.sh \u2014 Example shell script for testing, but not dynamically executed by the application. - Requirement: PARTIALLY SATISFIED \u2014 No evidence of unrestricted dynamic code execution, but enforcement of restriction to necessary cases only cannot be confirmed from static artifacts alone."
+  },
+  "CD16-00-005900": {
+    "status": "Open",
+    "evidence": "No direct evidence of dynamic code execution with input scanning for code injection is present in the provided files. InputValidator (lib/ingestion/security.py) checks for path traversal, encoding, and content type, but does not scan for code injection patterns. - File: lib/ingestion/security.py \u2014 InputValidator: validates path traversal, encoding, and content type, but does not implement code injection scanning. - Requirement: PARTIALLY SATISFIED \u2014 Input validation is present, but explicit scanning for code injection in dynamic code execution contexts is not evidenced."
+  },
+  "CD16-00-006000": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL database or configuration is present in the application. The application does not expose or configure PostgreSQL error message levels (e.g., client_min_messages). All error handling is performed at the application layer (see security/middleware.py). - Requirement: NOT APPLICABLE \u2014 No PostgreSQL error message configuration in application."
+  },
+  "CD16-00-006100": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL database or log file management is present in the application. The application does not configure client_min_messages or log_file_mode for PostgreSQL. All error handling and logging is performed at the application layer (see security/middleware.py and lib/clio.py). - Requirement: NOT APPLICABLE \u2014 No PostgreSQL error message or log file management in application."
+  },
+  "CD16-00-006200": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL session management or user session termination logic is present in the application. All session management is handled via OAuth2/OIDC middleware (see security/middleware.py), not at the PostgreSQL layer. - Requirement: NOT APPLICABLE \u2014 No PostgreSQL session termination logic in application."
+  },
+  "CD16-00-006400": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL database or security labeling is implemented or required by the application. The application does not define or manage security labels for database tables or rows. - Requirement: NOT APPLICABLE \u2014 No PostgreSQL security labeling in application."
+  },
+  "CD16-00-006500": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL database or security labeling is implemented or required by the application. The application does not define or manage security labels for information in process. - Requirement: NOT APPLICABLE \u2014 No PostgreSQL security labeling in application."
+  },
+  "CD16-00-006600": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL database or security labeling is implemented or required by the application. The application does not define or manage security labels for information in transmission. - Requirement: NOT APPLICABLE \u2014 No PostgreSQL security labeling in application."
+  },
+  "CD16-00-006700": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL database objects, schemas, or discretionary access control policies are managed by the application. All access control is handled at the application layer via OAuth2/OIDC (see security/middleware.py). - Requirement: NOT APPLICABLE \u2014 No PostgreSQL DAC policy enforcement in application."
+  },
+  "CD16-00-006800": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL privileged functions or procedural language extensions (pl/Python, pl/R) are used or managed by the application. All privileged functionality is handled at the application layer via OAuth2/OIDC and application logic. - Requirement: NOT APPLICABLE \u2014 No PostgreSQL privileged function management in application."
+  },
+  "CD16-00-006900": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL stored procedures, functions, or triggers with elevated privileges are created or managed by the application. All privilege management is handled at the application layer via OAuth2/OIDC and application logic. - Requirement: NOT APPLICABLE \u2014 No PostgreSQL SECURITY DEFINER or privilege elevation in application."
+  },
+  "CD16-00-007000": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database nor does it include any embedded PostgreSQL instance or configuration. No postgresql.conf, SQL, or database management code is present in the provided files. All configuration is for the MIDAS application and its plugins, not for a database server.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL configuration present\n- File: Makefile \u2014 no PostgreSQL service management or configuration\n- File: pyproject.toml \u2014 no PostgreSQL dependency\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL DBMS; centralized audit record management for PostgreSQL does not apply."
+  },
+  "CD16-00-007200": {
+    "status": "Not Applicable",
+    "evidence": "This application does not manage PostgreSQL audit log storage or allocate storage for PostgreSQL logs. No PostgreSQL instance or log management is present in the codebase or configuration.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL log or storage configuration\n- File: Makefile \u2014 no log storage allocation for PostgreSQL\n- File: pyproject.toml \u2014 no PostgreSQL dependency\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL audit log storage; control applies only to DBMS administrators."
+  },
+  "CD16-00-007300": {
+    "status": "Not Applicable",
+    "evidence": "No scripts, tools, or configuration in this repository monitor PostgreSQL log storage or notify support staff about audit log storage thresholds. The application does not manage PostgreSQL or its logs.\n- File: etc/atlas/config.yaml \u2014 no monitoring scripts or alerting for PostgreSQL log storage\n- File: Makefile \u2014 no cron jobs or disk monitoring for PostgreSQL\n- Requirement: NOT APPLICABLE \u2014 Application does not manage or monitor PostgreSQL audit log storage; this is a DBMS/OS administrator responsibility."
+  },
+  "CD16-00-007400": {
+    "status": "Not Applicable",
+    "evidence": "No configuration or code in this repository provides real-time alerting for PostgreSQL audit log failures. The application does not operate or monitor a PostgreSQL instance.\n- File: etc/atlas/config.yaml \u2014 no audit log failure alerting for PostgreSQL\n- File: Makefile \u2014 no alerting scripts or hooks for PostgreSQL\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL auditing or alerting; this is a DBMS/OS administrator responsibility."
+  },
+  "CD16-00-007500": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL instance or log_timezone configuration is present in the application. The application does not generate or manage PostgreSQL audit records or timestamps.\n- File: etc/atlas/config.yaml \u2014 no log_timezone or time zone configuration for PostgreSQL\n- File: Makefile \u2014 no PostgreSQL cluster initialization or timezone management\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL audit records or time zones."
+  },
+  "CD16-00-007600": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL log_line_prefix or logging configuration is present in the application. The application does not generate or manage PostgreSQL audit logs or timestamps.\n- File: etc/atlas/config.yaml \u2014 no log_line_prefix or PostgreSQL logging configuration\n- File: Makefile \u2014 no PostgreSQL logging management\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL logging or audit records."
+  },
+  "CD16-00-007700": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL user, role, or privilege management is present in the application. The application does not provide a database or stored procedure environment for users to install logic modules.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL user or privilege configuration\n- File: Makefile \u2014 no database privilege management\n- Requirement: NOT APPLICABLE \u2014 Application does not provide a PostgreSQL environment for user logic modules."
+  },
+  "CD16-00-007800": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL role, SUPERUSER, or privilege management is present in the application. The application does not provide or manage a database configuration environment.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL role or privilege configuration\n- File: Makefile \u2014 no ALTER ROLE or REVOKE commands\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL configuration or access restrictions."
+  },
+  "CD16-00-007900": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL configuration file ownership or audit denial logging is present in the application. The application does not manage or operate a PostgreSQL instance.\n- File: etc/atlas/config.yaml \u2014 no postgresql.conf or file permission management\n- File: Makefile \u2014 no PostgreSQL file management\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL configuration files or audit logging."
+  },
+  "CD16-00-008000": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL port, protocol, or network function configuration is present in the application. The application does not operate or configure a PostgreSQL server.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL port or protocol configuration\n- File: Makefile \u2014 no PostgreSQL port management\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL network functions or ports."
+  },
+  "CD16-00-008100": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL user session or reauthentication management is present in the application. The application does not provide a database or session environment for users.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL session or reauthentication configuration\n- File: Makefile \u2014 no session management for PostgreSQL\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL user sessions or reauthentication."
+  },
+  "CD16-00-008300": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL SSL or cryptography configuration is present in the application. The application does not operate a PostgreSQL server or manage classified information at the database level.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL SSL or cryptography settings\n- File: Makefile \u2014 no SSL configuration for PostgreSQL\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL cryptography or classified data."
+  },
+  "CD16-00-008400": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL certificate or CA configuration is present in the application. The application does not operate a PostgreSQL server or manage SSL/TLS certificates for database connections.\n- File: etc/atlas/config.yaml \u2014 no ssl_ca_file or ssl_cert_file settings for PostgreSQL\n- File: Makefile \u2014 no certificate management for PostgreSQL\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL certificates or CA trust."
+  },
+  "CD16-00-008500": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL data-at-rest encryption or pgcrypto extension configuration is present in the application. The application does not store or manage PII or classified information in a PostgreSQL database.\n- File: etc/atlas/config.yaml \u2014 no pgcrypto or data-at-rest encryption settings for PostgreSQL\n- File: Makefile \u2014 no encryption configuration for PostgreSQL\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL data-at-rest encryption."
+  },
+  "CD16-00-008600": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL pgcrypto extension or disk/filesystem encryption configuration is present in the application. The application does not store sensitive information in a PostgreSQL database or manage its encryption.\n- File: etc/atlas/config.yaml \u2014 no pgcrypto or disk encryption settings for PostgreSQL\n- File: Makefile \u2014 no encryption configuration for PostgreSQL\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL data-at-rest or disk encryption."
+  },
+  "CD16-00-008800": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL SSL or data-in-transit protection configuration is present in the application. The application does not operate a PostgreSQL server or manage data transmission for a database.\n- File: etc/atlas/config.yaml \u2014 no SSL or transmission protection for PostgreSQL\n- File: Makefile \u2014 no SSL configuration for PostgreSQL\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL data transmission or confidentiality/integrity during transmission."
+  },
+  "CD16-00-008900": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL SSL or data-in-transit protection configuration is present in the application. The application does not operate a PostgreSQL server or manage data reception for a database.\n- File: etc/atlas/config.yaml \u2014 no SSL or reception protection for PostgreSQL\n- File: Makefile \u2014 no SSL configuration for PostgreSQL\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL data reception or confidentiality/integrity during reception."
+  },
+  "CD16-00-009000": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL error handling or input validation for SQL is present in the application. The application does not provide a SQL interface or manage PostgreSQL error logging.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL error handling configuration\n- File: Makefile \u2014 no SQL error handling or logging\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL input validation or error logging."
+  },
+  "CD16-00-009100": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL package management or version control is present in the application. The application does not install, update, or remove PostgreSQL software components.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL package management\n- File: Makefile \u2014 no PostgreSQL installation or removal commands\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL software updates or component removal."
+  },
+  "CD16-00-009200": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL version management or update policy is present in the application. The application does not install or update PostgreSQL software or track its security advisories.\n- File: etc/atlas/config.yaml \u2014 no PostgreSQL version or update configuration\n- File: Makefile \u2014 no PostgreSQL update commands\n- Requirement: NOT APPLICABLE \u2014 Application does not manage PostgreSQL software updates or patching."
+  },
+  "CD16-00-009400": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database server and does not include any static configuration or management of PostgreSQL audit settings such as pgaudit. No postgresql.conf or SQL configuration files are present in the repository. No code or configuration manages or sets 'shared_preload_libraries' or 'pgaudit.log'.\n- File: [entire manifest] \u2014 no postgresql.conf, no SQL scripts, no pgaudit configuration\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL DBMS; database audit configuration is outside the scope of this repository."
+  },
+  "CD16-00-009500": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database server and does not include any static configuration or management of PostgreSQL audit or logging settings. No postgresql.conf or SQL configuration files are present in the repository. No code or configuration manages or sets logging for unsuccessful access attempts to security objects.\n- File: [entire manifest] \u2014 no postgresql.conf, no SQL scripts, no pgaudit or logging configuration\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL DBMS; database audit configuration is outside the scope of this repository."
+  },
+  "CD16-00-009600": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database server and does not include any static configuration or management of PostgreSQL audit settings such as pgaudit. No postgresql.conf or SQL configuration files are present in the repository. No code or configuration manages or sets 'pgaudit.log'.\n- File: [entire manifest] \u2014 no postgresql.conf, no SQL scripts, no pgaudit configuration\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL DBMS; database audit configuration is outside the scope of this repository."
+  },
+  "CD16-00-009700": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database server and does not include any static configuration or management of PostgreSQL audit settings such as pgaudit. No postgresql.conf or SQL configuration files are present in the repository. No code or configuration manages or sets 'pgaudit.log'.\n- File: [entire manifest] \u2014 no postgresql.conf, no SQL scripts, no pgaudit configuration\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL DBMS; database audit configuration is outside the scope of this repository."
+  },
+  "CD16-00-009800": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database server and does not include any static configuration or management of PostgreSQL audit settings such as pgaudit. No postgresql.conf or SQL configuration files are present in the repository. No code or configuration manages or sets 'pgaudit.log'.\n- File: [entire manifest] \u2014 no postgresql.conf, no SQL scripts, no pgaudit configuration\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL DBMS; database audit configuration is outside the scope of this repository."
+  },
+  "CD16-00-009900": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database server and does not include any static configuration or management of PostgreSQL audit or logging settings. No postgresql.conf or SQL configuration files are present in the repository. No code or configuration manages or sets logging for unsuccessful privilege/permission changes.\n- File: [entire manifest] \u2014 no postgresql.conf, no SQL scripts, no pgaudit or logging configuration\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL DBMS; database audit configuration is outside the scope of this repository."
+  },
+  "CD16-00-010000": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database server and does not include any static configuration or management of PostgreSQL audit settings such as pgaudit. No postgresql.conf or SQL configuration files are present in the repository. No code or configuration manages or sets 'pgaudit.log'.\n- File: [entire manifest] \u2014 no postgresql.conf, no SQL scripts, no pgaudit configuration\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL DBMS; database audit configuration is outside the scope of this repository."
+  },
+  "CD16-00-010100": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database server and does not include any static configuration or management of PostgreSQL audit or logging settings. No postgresql.conf or SQL configuration files are present in the repository. No code or configuration manages or sets logging for unsuccessful privilege/permission changes.\n- File: [entire manifest] \u2014 no postgresql.conf, no SQL scripts, no pgaudit or logging configuration\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL DBMS; database audit configuration is outside the scope of this repository."
+  },
+  "CD16-00-010200": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database server and does not include any static configuration or management of PostgreSQL audit settings such as pgaudit. No postgresql.conf or SQL configuration files are present in the repository. No code or configuration manages or sets 'pgaudit.log_catalog' or 'pgaudit.log'.\n- File: [entire manifest] \u2014 no postgresql.conf, no SQL scripts, no pgaudit configuration\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL DBMS; database audit configuration is outside the scope of this repository."
+  },
+  "CD16-00-010300": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database server and does not include any static configuration or management of PostgreSQL audit or logging settings. No postgresql.conf or SQL configuration files are present in the repository. No code or configuration manages or sets logging for unsuccessful security object modifications.\n- File: [entire manifest] \u2014 no postgresql.conf, no SQL scripts, no pgaudit or logging configuration\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL DBMS; database audit configuration is outside the scope of this repository."
+  },
+  "CD16-00-010400": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database server and does not include any static configuration or management of PostgreSQL audit settings such as pgaudit. No postgresql.conf or SQL configuration files are present in the repository. No code or configuration manages or sets 'pgaudit.log'.\n- File: [entire manifest] \u2014 no postgresql.conf, no SQL scripts, no pgaudit configuration\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL DBMS; database audit configuration is outside the scope of this repository."
+  },
+  "CD16-00-010500": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database server and does not include any static configuration or management of PostgreSQL audit settings such as pgaudit. No postgresql.conf or SQL configuration files are present in the repository. No code or configuration manages or sets 'pgaudit.log'.\n- File: [entire manifest] \u2014 no postgresql.conf, no SQL scripts, no pgaudit configuration\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL DBMS; database audit configuration is outside the scope of this repository."
+  },
+  "CD16-00-010600": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database server and does not include any static configuration or management of PostgreSQL audit settings such as pgaudit. No postgresql.conf or SQL configuration files are present in the repository. No code or configuration manages or sets 'pgaudit.log'.\n- File: [entire manifest] \u2014 no postgresql.conf, no SQL scripts, no pgaudit configuration\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL DBMS; database audit configuration is outside the scope of this repository."
+  },
+  "CD16-00-010700": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database server and does not include any static configuration or management of PostgreSQL audit or logging settings. No postgresql.conf or SQL configuration files are present in the repository. No code or configuration manages or sets logging for unsuccessful privilege/permission deletions.\n- File: [entire manifest] \u2014 no postgresql.conf, no SQL scripts, no pgaudit or logging configuration\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL DBMS; database audit configuration is outside the scope of this repository."
+  },
+  "CD16-00-010800": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database server and does not include any static configuration or management of PostgreSQL audit settings such as pgaudit. No postgresql.conf or SQL configuration files are present in the repository. No code or configuration manages or sets 'pgaudit.log'.\n- File: [entire manifest] \u2014 no postgresql.conf, no SQL scripts, no pgaudit configuration\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL DBMS; database audit configuration is outside the scope of this repository."
+  },
+  "CD16-00-010900": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database server and does not include any static configuration or management of PostgreSQL audit settings such as pgaudit. No postgresql.conf or SQL configuration files are present in the repository. No code or configuration manages or sets 'pgaudit.log'.\n- File: [entire manifest] \u2014 no postgresql.conf, no SQL scripts, no pgaudit configuration\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL DBMS; database audit configuration is outside the scope of this repository."
+  },
+  "CD16-00-011000": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database server and does not include any static configuration or management of PostgreSQL audit settings such as pgaudit. No postgresql.conf or SQL configuration files are present in the repository. No code or configuration manages or sets 'pgaudit.log'.\n- File: [entire manifest] \u2014 no postgresql.conf, no SQL scripts, no pgaudit configuration\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL DBMS; database audit configuration is outside the scope of this repository."
+  },
+  "CD16-00-011100": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database server and does not include any static configuration or management of PostgreSQL audit settings such as pgaudit. No postgresql.conf or SQL configuration files are present in the repository. No code or configuration manages or sets 'pgaudit.log'.\n- File: [entire manifest] \u2014 no postgresql.conf, no SQL scripts, no pgaudit configuration\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL DBMS; database audit configuration is outside the scope of this repository."
+  },
+  "CD16-00-011200": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database server and does not include any static configuration or management of PostgreSQL audit or logging settings. No postgresql.conf or SQL configuration files are present in the repository. No code or configuration manages or sets 'log_connections' or 'log_line_prefix'.\n- File: [entire manifest] \u2014 no postgresql.conf, no SQL scripts, no logging configuration\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL DBMS; database audit configuration is outside the scope of this repository."
+  },
+  "CD16-00-011300": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database server and does not include any static configuration or management of PostgreSQL audit or logging settings. No postgresql.conf or SQL configuration files are present in the repository. No code or configuration manages or sets 'log_connections' or 'log_line_prefix'.\n- File: [entire manifest] \u2014 no postgresql.conf, no SQL scripts, no logging configuration\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL DBMS; database audit configuration is outside the scope of this repository."
+  },
+  "CD16-00-011400": {
+    "status": "Not Applicable",
+    "evidence": "This application is not a PostgreSQL database nor does it contain any embedded PostgreSQL configuration or management code.\n- File: etc/atlas/config.yaml \u2014 No references to 'shared_preload_libraries', 'pgaudit', or direct PostgreSQL configuration present\n- File: README.md \u2014 No mention of PostgreSQL database setup or management; focus is on AI code analysis and ingestion pipelines\n- File: Makefile \u2014 No database setup or management targets; no SQL or PostgreSQL references\n- Requirement: NOT APPLICABLE \u2014 This is an application codebase, not a PostgreSQL database server; control applies only to PostgreSQL DBMS configuration"
+  },
+  "CD16-00-011500": {
+    "status": "Not Applicable",
+    "evidence": "This application does not manage or configure PostgreSQL logging or auditing for privileged activity attempts.\n- File: etc/atlas/config.yaml \u2014 No PostgreSQL log configuration or references to 'log_destination', 'pgaudit', or SQL auditing\n- File: README.md \u2014 No mention of database audit or error logging configuration\n- File: Makefile \u2014 No database or audit log management\n- Requirement: NOT APPLICABLE \u2014 This is not a PostgreSQL database system; control applies to DBMS audit configuration"
+  },
+  "CD16-00-011600": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL database or logging configuration is present in the application.\n- File: etc/atlas/config.yaml \u2014 No settings for 'log_connections', 'log_disconnections', or 'log_line_prefix'\n- File: README.md \u2014 No instructions for database log configuration\n- File: Makefile \u2014 No database log management\n- Requirement: NOT APPLICABLE \u2014 This application does not run or configure a PostgreSQL database; control applies to DBMS logging"
+  },
+  "CD16-00-011700": {
+    "status": "Not Applicable",
+    "evidence": "No evidence of PostgreSQL database configuration or log management for concurrent logons/connections.\n- File: etc/atlas/config.yaml \u2014 No 'log_connections', 'log_disconnections', or 'log_line_prefix' settings\n- File: README.md \u2014 No mention of database log or session management\n- File: Makefile \u2014 No database or session log management\n- Requirement: NOT APPLICABLE \u2014 This is not a PostgreSQL DBMS; control applies to database server configuration"
+  },
+  "CD16-00-011800": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL audit configuration or pgaudit settings found in the application.\n- File: etc/atlas/config.yaml \u2014 No 'pgaudit.log', 'shared_preload_libraries', or related audit settings\n- File: README.md \u2014 No mention of database audit or object access logging\n- File: Makefile \u2014 No database or audit log management\n- Requirement: NOT APPLICABLE \u2014 This application does not manage or configure a PostgreSQL database; control applies to DBMS audit configuration"
+  },
+  "CD16-00-011900": {
+    "status": "Not Applicable",
+    "evidence": "No evidence of PostgreSQL audit or error logging for unsuccessful object access attempts.\n- File: etc/atlas/config.yaml \u2014 No settings for PostgreSQL error/audit logging\n- File: README.md \u2014 No mention of database error or audit log configuration\n- File: Makefile \u2014 No database or audit log management\n- Requirement: NOT APPLICABLE \u2014 This is not a PostgreSQL DBMS; control applies to database server configuration"
+  },
+  "CD16-00-012000": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL audit or connection logging configuration present in the application.\n- File: etc/atlas/config.yaml \u2014 No 'pgaudit', 'log_connections', or 'log_disconnections' settings\n- File: README.md \u2014 No mention of database audit or connection logging\n- File: Makefile \u2014 No database or audit log management\n- Requirement: NOT APPLICABLE \u2014 This application does not run or configure a PostgreSQL database; control applies to DBMS audit configuration"
+  },
+  "CD16-00-012200": {
+    "status": "Not Applicable",
+    "evidence": "No evidence of FIPS 140-2/140-3 cryptographic module configuration or enforcement for PostgreSQL or OpenSSL.\n- File: etc/atlas/config.yaml \u2014 No references to FIPS, OpenSSL, or cryptographic module settings\n- File: README.md \u2014 No mention of FIPS mode or cryptographic module configuration\n- File: Makefile \u2014 No cryptographic or FIPS-related targets\n- Requirement: NOT APPLICABLE \u2014 This application does not manage system cryptographic modules or PostgreSQL; control applies to system/DBMS configuration"
+  },
+  "CD16-00-012300": {
+    "status": "Not Applicable",
+    "evidence": "No evidence of FIPS 140-2/140-3 cryptographic module configuration or enforcement for PostgreSQL or OpenSSL.\n- File: etc/atlas/config.yaml \u2014 No references to FIPS, OpenSSL, or cryptographic module settings\n- File: README.md \u2014 No mention of FIPS mode or cryptographic module configuration\n- File: Makefile \u2014 No cryptographic or FIPS-related targets\n- Requirement: NOT APPLICABLE \u2014 This application does not manage system cryptographic modules or PostgreSQL; control applies to system/DBMS configuration"
+  },
+  "CD16-00-012400": {
+    "status": "Not Applicable",
+    "evidence": "No evidence of PostgreSQL syslog or log offloading configuration.\n- File: etc/atlas/config.yaml \u2014 No 'log_destination', 'syslog_facility', or 'syslog_ident' settings\n- File: README.md \u2014 No mention of syslog or audit log offloading\n- File: Makefile \u2014 No syslog or log management targets\n- Requirement: NOT APPLICABLE \u2014 This application does not manage or configure PostgreSQL logging; control applies to DBMS log management"
+  },
+  "CD16-00-009300": {
+    "status": "Not Applicable",
+    "evidence": "No PostgreSQL server or client is bundled, installed, or managed by this application.\n- File: pyproject.toml \u2014 No PostgreSQL client or server dependencies (e.g., psycopg2, postgresql)\n- File: README.md \u2014 No instructions for installing or managing PostgreSQL\n- File: Makefile \u2014 No targets for database installation or version checks\n- Requirement: NOT APPLICABLE \u2014 This application does not include or manage PostgreSQL; control applies to DBMS version management"
+  }
+}

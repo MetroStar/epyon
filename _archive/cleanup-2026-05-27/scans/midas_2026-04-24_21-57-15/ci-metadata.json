@@ -1,0 +1,11 @@
+{
+  "source": "github",
+  "repo": "MetroStar/midas",
+  "run_id": 24913447480,
+  "artifact_id": 6634505935,
+  "workflow": "CI",
+  "event": "pull_request",
+  "branch": "MID-987-drop-tree-sitter-language-pack",
+  "commit": "3207dbd",
+  "synced_at": "2026-04-28T14:46:14.814389+00:00"
+}

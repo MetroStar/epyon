@@ -634,6 +634,7 @@ def scan_detail(scan_id: str, response: Response):
     data = parsers.load_scan(matched, EPYON_ROOT)
     data["findings"] = parsers.load_enriched_findings(matched) or parsers.parse_scan_findings(matched)
     data["sbom"] = parsers.load_sbom_packages(matched)
+    data["api_discovery"] = parsers.load_api_discovery(matched)
     return data
 
 
@@ -1192,6 +1193,8 @@ def stig_history(
                         "scan_id": s["scan_id"],
                         "date":    s["date"],
                         "status":  data.get("status", "Not Reviewed"),
+                        "evidence": data.get("evidence", ""),
+                        "confidence": data.get("confidence", None),
                     })
             # Fill any benchmark controls absent from this scan's results
             for vid in slug_control_ids.get(sl, set()):
@@ -1202,6 +1205,8 @@ def stig_history(
                         "scan_id": s["scan_id"],
                         "date":    s["date"],
                         "status":  "Not Reviewed",
+                        "evidence": "Control not assessed in this scan.",
+                        "confidence": None,
                     })
 
     # Compute MTTR and assemble output

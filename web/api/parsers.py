@@ -779,6 +779,74 @@ def parse_enrichment_summary(scan_dir: Path) -> dict | None:
     return None
 
 
+def load_api_discovery(scan_dir: Path) -> dict | None:
+    """Parse API discovery data from a scan directory.
+    
+    Returns dict with:
+    - endpoints: List of discovered API endpoints
+    - total: Total count of endpoints
+    - by_method: Dict of method counts (GET, POST, etc.)
+    - by_framework: Dict of framework counts (FastAPI, Express, etc.)
+    - summary: Raw summary dict from the discovery file
+    """
+    # Try multiple possible locations
+    api_locations = [
+        scan_dir / "api" / "exports" / f"api-discovery-{scan_dir.name}.json",
+        scan_dir / "api" / "api-discovery.json",
+        scan_dir / "api-discovery" / "api-inventory.json",
+        scan_dir / "api-discovery.json",
+    ]
+    
+    for api_file in api_locations:
+        if not api_file.exists():
+            continue
+        
+        try:
+            data = json.loads(api_file.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        
+        # Handle different formats
+        endpoints = []
+        summary = data.get("summary", {})
+        
+        # Format 1: Direct endpoints array (older format)
+        if "endpoints" in data and isinstance(data["endpoints"], list):
+            endpoints = data["endpoints"]
+        
+        # Format 2: discovery_methods.code_routes (current format)
+        elif "discovery_methods" in data and "code_routes" in data["discovery_methods"]:
+            routes = data["discovery_methods"]["code_routes"]
+            for lang in ["python", "nodejs", "java"]:
+                lang_routes = routes.get(lang, [])
+                if isinstance(lang_routes, list):
+                    endpoints.extend(lang_routes)
+        
+        if not endpoints and not summary:
+            continue
+        
+        # Count by method and framework
+        by_method = {}
+        by_framework = {}
+        for ep in endpoints:
+            if isinstance(ep, dict):
+                method = ep.get("method", "UNKNOWN")
+                by_method[method] = by_method.get(method, 0) + 1
+                
+                framework = ep.get("framework", "Unknown")
+                by_framework[framework] = by_framework.get(framework, 0) + 1
+        
+        return {
+            "endpoints": endpoints,
+            "total": len(endpoints),
+            "by_method": by_method,
+            "by_framework": by_framework,
+            "summary": summary,
+        }
+    
+    return None
+
+
 def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
     scan_id = scan_dir.name
     parsed  = parse_dir_name(scan_id)

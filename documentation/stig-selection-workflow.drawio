@@ -5,8 +5,8 @@
     <mxCell id="1" parent="0" />
 
     <!-- Title -->
-    <mxCell id="title" value="Epyon — STIG Selection &amp; Execution Workflow (Layer 13)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontStyle=1;" vertex="1" parent="1">
-      <mxGeometry x="327" y="20" width="1000" height="40" as="geometry" />
+    <mxCell id="title" value="Epyon — STIG Selection &amp; Execution Workflow (Layer 13)&#xa;with Automated Technology Detection &amp; Applicability Filtering" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="277" y="20" width="1100" height="50" as="geometry" />
     </mxCell>
 
     <!-- START -->
@@ -79,88 +79,88 @@
     </mxCell>
 
     <!-- Build app profile -->
-    <mxCell id="app_profile" value="Build App Profile&#xa;• detect language / framework&#xa;• detect web / session signals&#xa;• detect login routes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
-      <mxGeometry x="597" y="840" width="260" height="80" as="geometry" />
+    <mxCell id="app_profile" value="Detect Technology Stack&#xa;• Languages: Python, Java, C#, Ruby, Go, JS/TS…&#xa;• Databases: PostgreSQL, MySQL, MongoDB, Oracle…&#xa;• App Servers: Tomcat, Jetty, JBoss, WebSphere…&#xa;• Frameworks: .NET, Spring, Django, Flask, Rails…&#xa;• Web UI: detect web frameworks, login routes, sessions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="597" y="840" width="260" height="110" as="geometry" />
     </mxCell>
 
     <!-- For each STIG file loop label -->
     <mxCell id="loop_stig_label" value="FOR EACH STIG FILE" style="text;html=1;strokeColor=#6c8ebf;fillColor=#dae8fc;align=center;verticalAlign=middle;fontStyle=1;fontSize=13;rounded=1;" vertex="1" parent="1">
-      <mxGeometry x="597" y="950" width="260" height="35" as="geometry" />
+      <mxGeometry x="597" y="980" width="260" height="35" as="geometry" />
     </mxCell>
 
     <!-- Parse STIG file -->
     <mxCell id="parse_stig" value="parse-stig-cklb.py&#xa;Parse STIG file&#xa;• .cklb  → JSON rules array&#xa;• .xml   → XCCDF Group/Rule elements&#xa;→ list of controls with:&#xa;  vuln_id, title, severity,&#xa;  check_content, fix_text, ccis" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
-      <mxGeometry x="597" y="1005" width="260" height="110" as="geometry" />
+      <mxGeometry x="597" y="1035" width="260" height="110" as="geometry" />
     </mxCell>
 
     <!-- Applicability check -->
-    <mxCell id="applicability" value="AI Applicability Check&#xa;(OpenAI — 1 API call)&#xa;STIG name + sample control titles&#xa;vs. App Profile&#xa;→ { applicable: bool, reason }" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
-      <mxGeometry x="597" y="1145" width="260" height="85" as="geometry" />
+    <mxCell id="applicability" value="STIG Applicability Filter&#xa;(Deterministic — No API call)&#xa;Match STIG filename/type against&#xa;detected tech stack:&#xa;• PostgreSQL STIG ← postgresql detected?&#xa;• Tomcat STIG ← tomcat detected?&#xa;• .NET STIG ← .csproj/C# detected?&#xa;• ASD STIG ← always applicable&#xa;→ { applicable: bool, reason }" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="597" y="1175" width="260" height="130" as="geometry" />
     </mxCell>
 
     <!-- Applicable? -->
     <mxCell id="applicable_q" value="applicable = true ?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
-      <mxGeometry x="647" y="1265" width="160" height="70" as="geometry" />
+      <mxGeometry x="647" y="1340" width="160" height="70" as="geometry" />
     </mxCell>
 
     <!-- Not applicable path -->
-    <mxCell id="not_applicable" value="Mark ALL controls&#xa;'Not Applicable'&#xa;Write stig-results-{slug}.json&#xa;Write findings-{app}-{slug}.md&#xa;Skip to next STIG" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" vertex="1" parent="1">
-      <mxGeometry x="950" y="1270" width="190" height="80" as="geometry" />
+    <mxCell id="not_applicable" value="SKIP STIG&#xa;(not applicable to detected tech stack)&#xa;Log reason&#xa;Continue to next STIG" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="950" y="1345" width="190" height="80" as="geometry" />
     </mxCell>
 
     <!-- Build repo manifest -->
     <mxCell id="build_manifest" value="Build Repo Manifest&#xa;(full file tree for AI context)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
-      <mxGeometry x="597" y="1370" width="260" height="60" as="geometry" />
+      <mxGeometry x="597" y="1445" width="260" height="60" as="geometry" />
     </mxCell>
 
     <!-- Batch controls -->
-    <mxCell id="batch_loop_label" value="FOR EACH BATCH (BATCH_SIZE controls, default 20)" style="text;html=1;strokeColor=#82b366;fillColor=#d5e8d4;align=center;verticalAlign=middle;fontStyle=1;fontSize=12;rounded=1;" vertex="1" parent="1">
-      <mxGeometry x="557" y="1460" width="340" height="35" as="geometry" />
+    <mxCell id="batch_loop_label" value="FOR EACH BATCH (BATCH_SIZE controls, default 10)" style="text;html=1;strokeColor=#82b366;fillColor=#d5e8d4;align=center;verticalAlign=middle;fontStyle=1;fontSize=12;rounded=1;" vertex="1" parent="1">
+      <mxGeometry x="557" y="1535" width="340" height="35" as="geometry" />
     </mxCell>
 
     <!-- Extract keywords -->
     <mxCell id="keywords" value="Extract keywords from&#xa;check_content of batch controls&#xa;(stopword-filtered, top 30)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
-      <mxGeometry x="597" y="1515" width="260" height="65" as="geometry" />
+      <mxGeometry x="597" y="1590" width="260" height="65" as="geometry" />
     </mxCell>
 
     <!-- Rank files -->
     <mxCell id="rank_files" value="Rank source files by keyword hits&#xa;(most relevant files first)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
-      <mxGeometry x="597" y="1600" width="260" height="55" as="geometry" />
+      <mxGeometry x="597" y="1675" width="260" height="55" as="geometry" />
     </mxCell>
 
     <!-- Build code context -->
     <mxCell id="build_context" value="Build code context&#xa;Fill up to 250 KB budget&#xa;with ranked files&#xa;(higher-scoring files fill first)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
-      <mxGeometry x="597" y="1675" width="260" height="75" as="geometry" />
+      <mxGeometry x="597" y="1750" width="260" height="75" as="geometry" />
     </mxCell>
 
     <!-- Call OpenAI -->
     <mxCell id="call_openai" value="Call OpenAI API&#xa;System: STIG analyst prompt&#xa;User: manifest + controls JSON + code context&#xa;→ JSON array of assessments:&#xa;  { vuln_id, status, evidence, confidence }" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;" vertex="1" parent="1">
-      <mxGeometry x="597" y="1770" width="260" height="95" as="geometry" />
+      <mxGeometry x="597" y="1845" width="260" height="95" as="geometry" />
     </mxCell>
 
     <!-- Delay between batches -->
     <mxCell id="batch_delay" value="Wait BATCH_DELAY seconds&#xa;(default 1s, rate-limit buffer)&#xa;→ next batch?" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
-      <mxGeometry x="597" y="1885" width="260" height="60" as="geometry" />
+      <mxGeometry x="597" y="1960" width="260" height="60" as="geometry" />
     </mxCell>
 
     <!-- More batches? -->
     <mxCell id="more_batches_q" value="More batches ?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
-      <mxGeometry x="647" y="1975" width="160" height="60" as="geometry" />
+      <mxGeometry x="647" y="2050" width="160" height="60" as="geometry" />
     </mxCell>
 
     <!-- Write output -->
-    <mxCell id="write_output" value="Write output files&#xa;• stig-controls-{slug}.json&#xa;• stig-results-{slug}.json&#xa;  (assessments + token_usage)&#xa;• findings-{app}-{slug}.md&#xa;• findings-{app}.md  (primary — first STIG)&#xa;• findings-{app}-{slug}.cklb  (if .cklb source)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
-      <mxGeometry x="597" y="2065" width="260" height="115" as="geometry" />
+    <mxCell id="write_output" value="Write output files&#xa;• stig-controls-{slug}.json&#xa;• stig-results-{slug}.json&#xa;  (assessments + token_usage)&#xa;• findings-{app}-{slug}.md&#xa;• findings-{app}.md  (primary — first applicable STIG)&#xa;• findings-{app}-{slug}.cklb  (if .cklb source)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="597" y="2140" width="260" height="115" as="geometry" />
     </mxCell>
 
     <!-- More STIGs? -->
     <mxCell id="more_stigs_q" value="More STIG files ?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
-      <mxGeometry x="647" y="2210" width="160" height="60" as="geometry" />
+      <mxGeometry x="647" y="2285" width="160" height="60" as="geometry" />
     </mxCell>
 
     <!-- END -->
-    <mxCell id="end_node" value="END&#xa;All STIGs assessed" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontStyle=1;" vertex="1" parent="1">
-      <mxGeometry x="647" y="2300" width="160" height="55" as="geometry" />
+    <mxCell id="end_node" value="END&#xa;Applicable STIGs assessed&#xa;Non-applicable STIGs skipped" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="627" y="2375" width="200" height="65" as="geometry" />
     </mxCell>
 
     <!-- ===== LEGEND ===== -->
@@ -211,6 +211,28 @@
     </mxCell>
     <mxCell id="leg7t" value="Output / Success" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
       <mxGeometry x="1255" y="318" width="155" height="20" as="geometry" />
+    </mxCell>
+
+    <!-- ===== TECH DETECTION INFO BOX ===== -->
+    <mxCell id="tech_info_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left;verticalAlign=top;" vertex="1" parent="1">
+      <mxGeometry x="1200" y="370" width="220" height="240" as="geometry" />
+    </mxCell>
+    <mxCell id="tech_info_title" value="TECHNOLOGY DETECTION" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontStyle=1;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="1200" y="378" width="220" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="tech_info_text" value="Detects tech stack from source:&#xa;&#xa;Databases:&#xa;• PostgreSQL, MySQL, MongoDB&#xa;• Oracle, MSSQL, Redis, Cassandra&#xa;&#xa;App Servers:&#xa;• Tomcat, Jetty, JBoss/WildFly&#xa;• WebSphere, WebLogic&#xa;&#xa;Frameworks:&#xa;• .NET, Spring, Django, Flask&#xa;• FastAPI, Rails, Express&#xa;&#xa;Languages:&#xa;• Python, Java, C#, Ruby, Go&#xa;• JavaScript, TypeScript&#xa;&#xa;Web UI indicators:&#xa;• Framework imports, templates&#xa;• Login routes, sessions" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;fontSize=10;whiteSpace=wrap;" vertex="1" parent="1">
+      <mxGeometry x="1210" y="403" width="200" height="197" as="geometry" />
+    </mxCell>
+
+    <!-- ===== EXAMPLE FILTERING BOX ===== -->
+    <mxCell id="example_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;verticalAlign=top;" vertex="1" parent="1">
+      <mxGeometry x="1200" y="630" width="220" height="160" as="geometry" />
+    </mxCell>
+    <mxCell id="example_title" value="EXAMPLE: FastAPI App" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontStyle=1;fontSize=12;" vertex="1" parent="1">
+      <mxGeometry x="1200" y="638" width="220" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="example_text" value="Detected:&#xa;• Python, FastAPI framework&#xa;• PostgreSQL (psycopg imports)&#xa;• Web UI (HTML templates)&#xa;&#xa;STIGs Applied:&#xa;✓ ASD (Application Security)&#xa;✓ PostgreSQL STIG&#xa;&#xa;STIGs Skipped:&#xa;✗ Tomcat (not detected)&#xa;✗ .NET (not detected)&#xa;✗ MongoDB (not detected)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;fontSize=10;whiteSpace=wrap;" vertex="1" parent="1">
+      <mxGeometry x="1210" y="663" width="200" height="117" as="geometry" />
     </mxCell>
 
     <!-- ===== EDGES ===== -->

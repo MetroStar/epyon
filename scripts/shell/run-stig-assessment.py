@@ -6,6 +6,17 @@ Reads controls from one or more STIG source files (.cklb JSON or XCCDF XML),
 walks the target application source tree, batches controls with relevant
 code context, and calls the OpenAI API to produce per-control assessments.
 
+STIG Applicability Detection:
+    Before processing, the script detects the technology stack in use (databases,
+    app servers, frameworks, languages) and automatically filters STIGs based on
+    applicability. For example:
+    - PostgreSQL STIG only runs if PostgreSQL imports/config detected
+    - Tomcat STIG only runs if Tomcat classes/server.xml detected
+    - .NET STIG only runs if .csproj files or C# code detected
+    - ASD (Application Security Development) STIG always runs (applies to all apps)
+    
+    This prevents false positives from controls that don't apply to your application.
+
 Outputs (per STIG):
   {SCAN_DIR}/findings-{app}.md              — Primary findings report (first/only STIG)
   {SCAN_DIR}/findings-{app}-{slug}.md       — Per-STIG report when multiple STIGs present
@@ -29,11 +40,29 @@ Usage:
 
 Environment:
     OPENAI_API_KEY   Required. OpenAI API key.
-    OPENAI_MODEL     Optional. Overrides --model flag (default: gpt-4.1-mini).
+    OPENAI_MODEL     Optional. Overrides --model flag (default: gpt-4o-mini).
+
+Status Change Validation:
+    When previous scan results exist in the parent scans/ directory, the AI will
+    validate status changes and require concrete, file-cited evidence for any change.
+    This prevents frivolous status changes while allowing evidence text refinement.
+    
+    Behavior by environment:
+    - Web UI / Local Scans: Previous results automatically loaded, status changes validated
+    - GitHub Actions CI: scans/ directory not persisted, all assessments treated as fresh
+    
+    Status changes require one of:
+    - New code/config files that satisfy or violate the control
+    - Specific modifications to existing files with exact changes cited
+    - Architectural changes that make control applicable/inapplicable
+    
+    The AI may NOT change status based on rephrased evidence, speculation, or
+    "further analysis needed" without concrete repository artifacts.
 
 Adding a new STIG:
     Drop any .cklb or XCCDF .xml file into configuration/stigs/ — it will be
-    picked up automatically on the next nightly/stig scan run.
+    picked up automatically on the next nightly/stig scan run and filtered
+    based on detected technologies.
 """
 
 from __future__ import annotations
@@ -125,7 +154,25 @@ STEP 4 — Cross-reference against the requirement. State explicitly whether wha
 found satisfies the control criterion and why (e.g. "27,500 iterations exceeds the \
 NIST SP 800-63B minimum of 10,000 for PBKDF2").
 
-STEP 5 — Assign status:
+STEP 5 — Assign status WITH PREVIOUS STATUS VALIDATION:
+  
+IMPORTANT: Some controls may include a "previous_status" field showing the status from \
+the last scan. When a previous status exists:
+  • If your assessment reaches THE SAME status as previous_status, proceed normally.
+  • If your assessment would CHANGE the status, you MUST provide STRONG, SPECIFIC EVIDENCE \
+justifying the change. Generic observations are NOT sufficient.
+  • If you cannot find CONCRETE, FILE-CITED evidence for a status change, KEEP the previous_status \
+and update only the evidence text to reflect current repository state.
+  • Acceptable reasons for status change:
+    - New code/config files added that satisfy/violate the control (cite exact files)
+    - Existing files modified with specific changes to relevant settings (cite exact changes)
+    - Architectural changes that make control applicable/inapplicable (describe specific changes)
+  • Unacceptable reasons for status change:
+    - Rephrasing the same evidence differently
+    - "Further analysis needed" without new concrete findings
+    - Speculation about runtime behavior without code evidence
+
+Status definitions:
   "Not a Finding"  — Specific named artifacts in specific files directly and completely \
 satisfy the control. You have cited the exact file path and the exact value/construct.
   "Not Applicable" — The control is architecturally impossible for this application type. \
@@ -210,6 +257,59 @@ def slug_from_stig(stig: dict[str, Any], path: str) -> str:
 def slug_from_app_name(app_name: str) -> str:
     """Derive a filesystem-safe slug from an application name."""
     return re.sub(r"[^a-z0-9]+", "-", app_name.lower()).strip("-")
+
+
+# ---------------------------------------------------------------------------
+# Previous scan results lookup
+# ---------------------------------------------------------------------------
+
+def find_previous_scan_dir(current_scan_dir: Path, app_name: str) -> Path | None:
+    """Find the most recent previous scan directory for the same app.
+    
+    Args:
+        current_scan_dir: Path to current scan directory (e.g., scans/epyon_2026-05-26_12-00-00)
+        app_name: Application name
+    
+    Returns:
+        Path to previous scan directory, or None if no previous scan exists
+    """
+    app_slug = slug_from_app_name(app_name)
+    scans_root = current_scan_dir.parent  # scans/
+    
+    if not scans_root.exists() or not scans_root.is_dir():
+        return None
+    
+    # Find all scan directories for this app, sorted by timestamp (newest first)
+    pattern = f"{app_slug}_*"
+    scan_dirs = sorted(
+        [d for d in scans_root.glob(pattern) if d.is_dir() and d != current_scan_dir],
+        reverse=True  # newest first
+    )
+    
+    return scan_dirs[0] if scan_dirs else None
+
+
+def load_previous_stig_results(previous_scan_dir: Path, slug: str) -> dict[str, dict[str, Any]]:
+    """Load previous STIG assessment results for the given STIG slug.
+    
+    Args:
+        previous_scan_dir: Path to previous scan directory
+        slug: STIG slug (e.g., 'u-asd-stig-v6r4-manual-xccdf')
+    
+    Returns:
+        Dict mapping vuln_id -> {status, evidence, confidence}, or empty dict if not found
+    """
+    results_file = previous_scan_dir / f"stig-results-{slug}.json"
+    
+    if not results_file.exists():
+        return {}
+    
+    try:
+        data = json.loads(results_file.read_text(encoding="utf-8"))
+        return data.get("assessments", {})
+    except Exception as e:
+        print(f"[WARNING] Failed to load previous STIG results from {results_file}: {e}", file=sys.stderr)
+        return {}
 
 
 # ---------------------------------------------------------------------------
@@ -424,6 +524,190 @@ def build_app_profile(app_name: str, files: list[tuple[str, str]]) -> str:
     return "\n".join(lines)
 
 
+def detect_technologies(files: list[tuple[str, str]]) -> dict[str, Any]:
+    """Detect technologies in use from source files and dependencies.
+    
+    Returns dict with:
+        - databases: list of detected databases (postgresql, mysql, mongodb, etc.)
+        - app_servers: list of detected app servers (tomcat, jboss, jetty, etc.)
+        - frameworks: list of detected frameworks (.NET, Spring, Django, etc.)
+        - languages: list of primary languages detected
+        - has_web_ui: bool indicating if this is a web application
+    """
+    from collections import Counter
+    
+    result: dict[str, Any] = {
+        "databases": set(),
+        "app_servers": set(),
+        "frameworks": set(),
+        "languages": set(),
+        "has_web_ui": False,
+    }
+    
+    # Database detection patterns
+    _DB_PATTERNS = {
+        "postgresql": ["postgresql", "postgres", "psycopg", "pg_", "libpq", "pgcrypto"],
+        "mysql": ["mysql", "mariadb", "pymysql", "mysql-connector", "jdbc:mysql"],
+        "mongodb": ["mongodb", "mongoose", "pymongo", "mongo"],
+        "oracle": ["oracle", "oracledb", "cx_oracle", "jdbc:oracle"],
+        "mssql": ["mssql", "sqlserver", "pymssql", "tedious", "jdbc:sqlserver"],
+        "redis": ["redis", "jedis", "ioredis", "redis-py"],
+        "cassandra": ["cassandra", "datastax"],
+    }
+    
+    # App server detection patterns
+    _SERVER_PATTERNS = {
+        "tomcat": ["tomcat", "catalina", "org.apache.tomcat", "servlet-api"],
+        "jetty": ["jetty", "org.eclipse.jetty"],
+        "jboss": ["jboss", "wildfly", "org.jboss"],
+        "websphere": ["websphere", "was", "com.ibm.websphere"],
+        "weblogic": ["weblogic", "oracle.weblogic"],
+    }
+    
+    # Framework detection patterns
+    _FRAMEWORK_PATTERNS = {
+        "dotnet": [".csproj", ".vbproj", ".fsproj", "Microsoft.", "System.", "netcoreapp", "netstandard"],
+        "spring": ["springframework", "spring-boot", "spring-web", "spring-data"],
+        "django": ["django", "from django", "import django"],
+        "flask": ["from flask", "import flask", "Flask(__name__)"],
+        "fastapi": ["from fastapi", "import fastapi", "FastAPI()"],
+        "rails": ["activesupport", "activerecord", "actionpack", "rails"],
+        "express": ["express", "require('express')", "from 'express'"],
+    }
+    
+    # Language detection from extensions
+    ext_counts: Counter[str] = Counter()
+    for rel, _ in files:
+        ext = Path(rel).suffix.lower()
+        if ext:
+            ext_counts[ext] += 1
+    
+    # Map extensions to languages
+    _EXT_TO_LANG = {
+        ".py": "python",
+        ".java": "java",
+        ".cs": "csharp",
+        ".rb": "ruby",
+        ".go": "go",
+        ".js": "javascript",
+        ".ts": "typescript",
+    }
+    for ext, count in ext_counts.most_common(5):
+        if ext in _EXT_TO_LANG and count >= 3:  # require at least 3 files
+            result["languages"].add(_EXT_TO_LANG[ext])
+    
+    # Scan file contents for technology signals
+    for rel, content in files:
+        content_lower = content.lower()
+        
+        # Check databases
+        for db, patterns in _DB_PATTERNS.items():
+            if any(p in content_lower for p in patterns):
+                result["databases"].add(db)
+        
+        # Check app servers
+        for server, patterns in _SERVER_PATTERNS.items():
+            if any(p in content_lower for p in patterns):
+                result["app_servers"].add(server)
+        
+        # Check frameworks
+        for fw, patterns in _FRAMEWORK_PATTERNS.items():
+            if any(p in content_lower or p in content for p in patterns):
+                result["frameworks"].add(fw)
+        
+        # Check for web UI signals
+        if not result["has_web_ui"]:
+            web_signals = [
+                "flask", "django", "fastapi", "express", "react", "vue", "angular",
+                "@app.route", "@router", "render_template", "http.server",
+                "<html", "<body", "<!doctype html",
+            ]
+            if any(sig in content_lower for sig in web_signals):
+                result["has_web_ui"] = True
+    
+    # Convert sets to sorted lists for JSON serialization
+    result["databases"] = sorted(result["databases"])
+    result["app_servers"] = sorted(result["app_servers"])
+    result["frameworks"] = sorted(result["frameworks"])
+    result["languages"] = sorted(result["languages"])
+    
+    return result
+
+
+def is_stig_applicable(stig_filename: str, stig_name: str, tech_stack: dict[str, Any]) -> tuple[bool, str]:
+    """Check if a STIG is applicable to the detected technology stack.
+    
+    Returns:
+        (applicable, reason) - bool and explanation string
+    """
+    filename_lower = stig_filename.lower()
+    stig_name_lower = stig_name.lower()
+    
+    # ASD STIG (Application Security Development) is always applicable
+    # Match specifically: "u_asd_stig" or "application security" in name
+    if ("u_asd_stig" in filename_lower or "_asd_" in filename_lower or 
+        (("application" in stig_name_lower or "appsec" in stig_name_lower) and 
+         ("security" in stig_name_lower or "development" in stig_name_lower))):
+        return (True, "Application Security Development STIG applies to all applications")
+    
+    # Database STIGs - check if database is detected
+    if "postgres" in filename_lower or "postgres" in stig_name_lower:
+        if "postgresql" in tech_stack["databases"]:
+            return (True, f"PostgreSQL detected in codebase: {tech_stack['databases']}")
+        return (False, f"PostgreSQL STIG not applicable - databases detected: {tech_stack['databases'] or 'none'}")
+    
+    if "mysql" in filename_lower or "mysql" in stig_name_lower:
+        if "mysql" in tech_stack["databases"]:
+            return (True, f"MySQL detected in codebase: {tech_stack['databases']}")
+        return (False, f"MySQL STIG not applicable - databases detected: {tech_stack['databases'] or 'none'}")
+    
+    if "mongodb" in filename_lower or "mongo" in stig_name_lower:
+        if "mongodb" in tech_stack["databases"]:
+            return (True, f"MongoDB detected in codebase: {tech_stack['databases']}")
+        return (False, f"MongoDB STIG not applicable - databases detected: {tech_stack['databases'] or 'none'}")
+    
+    if "oracle" in filename_lower or "oracle" in stig_name_lower:
+        if "oracle" in tech_stack["databases"]:
+            return (True, f"Oracle detected in codebase: {tech_stack['databases']}")
+        return (False, f"Oracle STIG not applicable - databases detected: {tech_stack['databases'] or 'none'}")
+    
+    if "database" in filename_lower and "srg" in filename_lower:
+        if tech_stack["databases"]:
+            return (True, f"Database SRG applicable - databases detected: {tech_stack['databases']}")
+        return (False, f"Database SRG not applicable - no databases detected")
+    
+    # App server STIGs
+    if "tomcat" in filename_lower or "tomcat" in stig_name_lower:
+        if "tomcat" in tech_stack["app_servers"]:
+            return (True, f"Tomcat detected in codebase: {tech_stack['app_servers']}")
+        return (False, f"Tomcat STIG not applicable - app servers detected: {tech_stack['app_servers'] or 'none'}")
+    
+    if "jetty" in filename_lower or "jetty" in stig_name_lower:
+        if "jetty" in tech_stack["app_servers"]:
+            return (True, f"Jetty detected in codebase: {tech_stack['app_servers']}")
+        return (False, f"Jetty STIG not applicable - app servers detected: {tech_stack['app_servers'] or 'none'}")
+    
+    if "jboss" in filename_lower or "wildfly" in filename_lower:
+        if "jboss" in tech_stack["app_servers"]:
+            return (True, f"JBoss/WildFly detected in codebase: {tech_stack['app_servers']}")
+        return (False, f"JBoss STIG not applicable - app servers detected: {tech_stack['app_servers'] or 'none'}")
+    
+    # Framework STIGs
+    if "dotnet" in filename_lower or ".net" in filename_lower or "dot_net" in filename_lower or "_dotnet_" in filename_lower or "_ms_" in filename_lower:
+        if "dotnet" in tech_stack["frameworks"] or "csharp" in tech_stack["languages"]:
+            return (True, f".NET detected - frameworks: {tech_stack['frameworks']}, languages: {tech_stack['languages']}")
+        return (False, f".NET STIG not applicable - frameworks detected: {tech_stack['frameworks'] or 'none'}, languages: {tech_stack['languages'] or 'none'}")
+    
+    if "spring" in filename_lower or "spring" in stig_name_lower:
+        if "spring" in tech_stack["frameworks"]:
+            return (True, f"Spring framework detected: {tech_stack['frameworks']}")
+        return (False, f"Spring STIG not applicable - frameworks detected: {tech_stack['frameworks'] or 'none'}")
+    
+    # Default: If we don't recognize the STIG type, err on the side of running it
+    # (with a warning) to avoid missing applicable controls
+    return (True, f"STIG type not recognized - running by default to avoid missing applicable controls")
+
+
 def build_code_context(
     files: list[tuple[str, str]],
     keywords: list[str],
@@ -543,8 +827,23 @@ def call_openai(
     controls_batch: list[dict[str, Any]],
     code_context: str,
     repo_manifest: str = "",
-) -> list[dict[str, Any]]:
-    """Call GPT with a batch of controls + full repo manifest + code context."""
+    previous_assessments: dict[str, dict[str, Any]] | None = None,
+) -> tuple[list[dict[str, Any]], int, int]:
+    """Call GPT with a batch of controls + full repo manifest + code context.
+    
+    Args:
+        client: OpenAI client instance
+        model: Model name (e.g., 'gpt-4o-mini')
+        controls_batch: List of control dicts to assess
+        code_context: Application source code
+        repo_manifest: Full file tree listing
+        previous_assessments: Optional dict mapping vuln_id -> previous assessment results
+    
+    Returns:
+        Tuple of (parsed_results, prompt_tokens, completion_tokens)
+    """
+    previous_assessments = previous_assessments or {}
+    
     controls_json = json.dumps(
         [
             {
@@ -552,6 +851,7 @@ def call_openai(
                 "title":         c["title"],
                 "check_content": c["check_content"],
                 "fix_text":      c["fix_text"],
+                "previous_status": previous_assessments.get(c["vuln_id"], {}).get("status"),
             }
             for c in controls_batch
         ],
@@ -866,6 +1166,27 @@ def _assess_stig(
         # knows the full file tree even if some files exceed the context budget.
         repo_manifest = build_repo_manifest(source_files)
 
+        # Load previous STIG assessment results if they exist
+        previous_scan = find_previous_scan_dir(scan_dir, app_name)
+        previous_assessments: dict[str, dict[str, Any]] = {}
+        if previous_scan:
+            previous_assessments = load_previous_stig_results(previous_scan, slug)
+            if previous_assessments:
+                print(
+                    f"[INFO] [{slug}] Loaded {len(previous_assessments)} previous assessments from {previous_scan.name}",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    f"[INFO] [{slug}] No previous assessments found in {previous_scan.name}",
+                    file=sys.stderr,
+                )
+        else:
+            print(
+                f"[INFO] [{slug}] No previous scan found — all controls assessed fresh",
+                file=sys.stderr,
+            )
+
         print(
             f"[INFO] [{slug}] Submitting {total_batches} batches of up to {batch_size} controls "
             f"to {model} (context budget: {MAX_CODE_BYTES_PER_BATCH // 1024}KB/batch, "
@@ -888,7 +1209,9 @@ def _assess_stig(
             code_context = build_code_context(source_files, all_kw)
 
             try:
-                results, batch_pt, batch_ct = call_openai(client, model, batch, code_context, repo_manifest)
+                results, batch_pt, batch_ct = call_openai(
+                    client, model, batch, code_context, repo_manifest, previous_assessments
+                )
                 total_prompt_tokens     += batch_pt
                 total_completion_tokens += batch_ct
                 print(
@@ -1072,17 +1395,63 @@ def main() -> None:
     print(f"[INFO] Collected {len(source_files)} source files", file=sys.stderr)
     print("", file=sys.stderr)
 
-    # ── Process each STIG ─────────────────────────────────────────────────
+    # ── Detect technology stack ───────────────────────────────────────────
+    print(f"[INFO] Detecting technology stack...", file=sys.stderr)
+    tech_stack = detect_technologies(source_files)
+    print(f"[INFO] Technologies detected:", file=sys.stderr)
+    if tech_stack["languages"]:
+        print(f"         Languages: {', '.join(tech_stack['languages'])}", file=sys.stderr)
+    if tech_stack["frameworks"]:
+        print(f"         Frameworks: {', '.join(tech_stack['frameworks'])}", file=sys.stderr)
+    if tech_stack["databases"]:
+        print(f"         Databases: {', '.join(tech_stack['databases'])}", file=sys.stderr)
+    if tech_stack["app_servers"]:
+        print(f"         App Servers: {', '.join(tech_stack['app_servers'])}", file=sys.stderr)
+    print(f"         Web UI: {'Yes' if tech_stack['has_web_ui'] else 'No'}", file=sys.stderr)
+    print("", file=sys.stderr)
+
+    # ── Filter STIGs by applicability ─────────────────────────────────────
+    applicable_stigs: list[tuple[Path, dict, str, bool]] = []  # (path, data, slug, is_primary)
+    skipped_stigs: list[tuple[str, str]] = []  # (filename, reason)
+    
     for i, stig_path in enumerate(stig_files):
-        print(f"[INFO] Processing STIG {i + 1}/{len(stig_files)}: {stig_path.name}", file=sys.stderr)
         try:
             stig_data = parse_stig_file(str(stig_path))
         except (FileNotFoundError, ValueError) as e:
             print(f"[ERROR] Failed to parse {stig_path.name}: {e}", file=sys.stderr)
             continue
-
+        
+        stig_name = stig_data.get("stig_name", "")
         slug = slug_from_stig(stig_data, str(stig_path))
-        is_primary = (i == 0)  # first STIG also writes findings.md
+        
+        # Check applicability
+        is_applicable, reason = is_stig_applicable(stig_path.name, stig_name, tech_stack)
+        
+        if is_applicable:
+            is_primary = (len(applicable_stigs) == 0)  # first applicable STIG is primary
+            applicable_stigs.append((stig_path, stig_data, slug, is_primary))
+            print(f"[INFO] ✓ {stig_path.name} is applicable", file=sys.stderr)
+            print(f"       → {reason}", file=sys.stderr)
+        else:
+            skipped_stigs.append((stig_path.name, reason))
+            print(f"[INFO] ✗ {stig_path.name} skipped (not applicable)", file=sys.stderr)
+            print(f"       → {reason}", file=sys.stderr)
+    
+    print("", file=sys.stderr)
+    
+    if not applicable_stigs:
+        print(f"[WARNING] No applicable STIGs found for this application.", file=sys.stderr)
+        print(f"[WARNING] Tech stack: {tech_stack}", file=sys.stderr)
+        sys.exit(0)
+    
+    print(f"[INFO] Processing {len(applicable_stigs)} applicable STIG(s)", file=sys.stderr)
+    if skipped_stigs:
+        print(f"[INFO] Skipped {len(skipped_stigs)} non-applicable STIG(s)", file=sys.stderr)
+    print("", file=sys.stderr)
+
+    # ── Process each applicable STIG ──────────────────────────────────────
+    for stig_path, stig_data, slug, is_primary in applicable_stigs:
+        print(f"[INFO] Processing: {stig_path.name}", file=sys.stderr)
 
         _assess_stig(
             stig_data=stig_data,

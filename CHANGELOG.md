@@ -48,6 +48,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-05-26
+
+### Added
+- **Security Score Card system**: 6-dimensional weighted scoring framework evaluating Security (30%), Supply Chain (20%), Code Quality (15%), Compliance (15%), Operational (10%), and MOSA (10%) dimensions. Maps 0-100 weighted scores to DoD/NASA TRL levels 1-9 and letter grades (A+ through F).
+- **Score Card generation script** (`generate-trl-score.py`): 591-line Python engine that reads 15+ scan output files, calculates dimension scores with evidence-based logic, and outputs `trl-assessment.json`. Includes 4 weight profiles: DEFAULT (web apps), ML (ML models), STIG (compliance-focused), QUICK (fast scan subset).
+- **Score Card Web UI integration**: Auto-generates on scan detail page load via POST `/api/scans/{scan_id}/scorecard` endpoint. Renders collapsible card with overall grade, TRL level, weighted score, and 6 clickable dimension cards showing individual scores and progress bars.
+- **Score Card dimension modals**: Click any dimension card to open detailed modal with large score display, progress bar, weight percentage, and full breakdown of all contributing metrics and their values.
+- **Score Card CI integration**: Added to `run-epyon-scan-ci.sh` after dashboard generation step. Automatically produces `trl-assessment.json` in every CI scan output directory.
+- **23 BATS tests for Score Card**: Full test coverage in `test-generate-trl-score.bats` validating shebang, CLI args, dimension scoring functions, JSON output structure, TRL range (1-9), score range (0-100), and graceful handling of missing files.
+- **STIG history evidence tracking in Web UI**: STIG History & MTTR tab now displays AI-generated evidence explaining why each control status was assigned.
+  - **Evidence tooltips**: Hover over matrix cells to see tooltip with status, confidence level, and evidence text (truncated to 200 chars)
+  - **Change indicators**: 🔄 emoji appears on matrix cells when evidence changed from previous scan
+  - **Visual highlighting**: Changed cells highlighted with blue border and glow effect (`.evidence-changed` CSS class)
+  - **Detailed timeline table**: Control detail drawer shows 4-column table (Date | Status | Confidence | Evidence/Reasoning) with full evidence text and line breaks preserved
+  - **Evidence change detection**: Timeline rows highlighted when evidence differs from previous scan
+- **STIG status change validation**: AI assessments now validate status changes against previous scan results, requiring concrete, file-cited evidence for any status change.
+  - **Previous scan lookup** (`find_previous_scan_dir()`, `load_previous_stig_results()`): Automatically finds most recent previous scan for the same app and loads STIG results
+  - **Enhanced SYSTEM_PROMPT**: Added STEP 5 validation rules requiring strong evidence for status changes; AI must keep previous status unless new code/config files, specific file modifications, or architectural changes are found
+  - **`previous_status` in API calls**: Each control sent to OpenAI includes its previous status; AI must justify any deviation with specific repository artifacts
+  - **Environment-aware behavior**: Web UI/local scans automatically load previous results and validate changes; GitHub Actions CI treats all assessments as fresh (scans/ directory not persisted)
+  - **Logging**: Clear messages indicate whether previous assessments were loaded ("Loaded X previous assessments from {scan_dir}") or not found ("No previous scan found — all controls assessed fresh")
+- **Timeline newest-first sorting**: STIG control history timeline now displays most recent scans at the top (descending chronological order) for easier review of latest changes.
+
+### Changed
+- **Evidence-based Code Quality scoring**: Changed from penalty-based (100 - deductions) to evidence-based (0 + earned points). Tools that don't run now contribute 0 points instead of 90, fixing the bug where code quality showed 90% when no tools executed.
+- **Score Card placement**: Positioned as collapsible section above "Tools Analyzed" on scan detail page, matching the visual hierarchy of other scan sections.
+- **Progress bar styling**: Increased height from 6px to 8px, added margin-top: 8px, and background color for better visibility of score progress.
+- **Dimension card interactivity**: Added hover effects (lift + shadow) and cursor:pointer to indicate clickability.
+- **STIG timeline sort order**: Changed from ascending (oldest first) to descending (newest first) with `b.date.localeCompare(a.date)`.
+- **STIG evidence change comparison logic**: Updated to compare each entry with the next (older) entry in the array after sort reversal.
+- **`run-stig-assessment.py` documentation**: Added comprehensive "Status Change Validation" section explaining behavior in Web UI vs CI environments and listing acceptable/unacceptable reasons for status changes.
+
+### Fixed
+- **Missing --pass CSS variable**: Added `--pass: #3fb950` to `:root` in app.css, fixing Score Card dimension cards that referenced undefined variable.
+- **SBOM detection in Score Card**: Fixed fallback logic to check both `filesystem.cyclonedx.json` (period) and `filesystem-cyclonedx.json` (hyphen) naming conventions.
+- **Garak parsing robustness**: Added `isinstance()` checks for dict/list validation to handle varying Garak output structures.
+- **Score Card weight display**: Fixed dimension cards showing 0% by changing from `d.weight * 100` to `(weights[key] || 0) * 100`.
+- **Dimension modal JSON errors**: Stored dimension data in global `window._scorecardDimensions` object instead of inline JSON in onclick attributes, preventing parsing errors.
+- **SonarQube graceful skip**: Made SONAR_TOKEN optional; when missing, script prints INFO messages, creates minimal output with `status: "skipped"`, and exits 0 instead of failing.
+- **STIG history API timeline data**: Added `evidence` and `confidence` fields to each timeline entry, including gap-filled "Not Reviewed" entries with appropriate fallback evidence.
+
 ## [3.3.0] - 2026-05-15
 
 ### Added

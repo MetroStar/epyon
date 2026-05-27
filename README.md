@@ -18,7 +18,7 @@ Epyon is designed to be opinionated, automated, and decisive — empowering team
 
 Epyon is a **production-ready, enterprise-grade** 15-layer DevSecOps security platform with a FastAPI-backed web UI, comprehensive test coverage, baseline scanning, automated comparison, and isolated scan directory architecture. Built for real-world applications with Docker-based tooling and 641 automated tests.
 
-**Version: 3.3.0** · **Updated: May 15, 2026**
+**Version: 3.4.0** · **Updated: May 26, 2026**
 
 ## 📋 Prerequisites
 
@@ -320,7 +320,14 @@ echo "🎯 Prerequisites check complete!"
 
 ## 🖥️ Web Dashboard (GUI)
 
-Epyon ships a FastAPI-backed single-page web UI for running scans, browsing results, viewing SBOMs, and managing suppressed findings.
+Epyon ships a FastAPI-backed single-page web UI for running scans, browsing results, viewing SBOMs, managing suppressed findings, and analyzing security posture with the Security Score Card.
+
+**Key Features:**
+- **Security Score Card**: 6-dimensional weighted scoring (Security, Supply Chain, Code Quality, Compliance, Operational, MOSA) with TRL 1-9 mapping and letter grades
+- **STIG History with Evidence Tracking**: View complete evidence timeline, confidence scores, and status change reasoning with visual indicators
+- **Interactive Scan Management**: Run scans, browse results, filter findings, and manage suppressions
+- **SBOM & Dependency Analysis**: Interactive tables with sorting, searching, and supply chain verification
+- **Metrics Dashboard**: MTTR tracking, vulnerability trends, and app monitoring classification
 
 ### Setup (first time only)
 
@@ -1370,8 +1377,10 @@ Our SonarQube integration now uses **LCOV format** as the primary coverage sourc
 
 ✅ **15-Layer Security Architecture** — TruffleHog, ClamAV, Checkov, Grype, Trivy, Xeol, SonarQube, Helm, API Discovery, SBOM, Garak, API Security Testing, STIG Assessment, PickleScan, Model Card Compliance  
 ✅ **Multi-Target Scanning** — Local directories, Git repositories, HuggingFace models, monorepo subdirectories  
-✅ **FastAPI Web UI** — Run scans, browse results, view STIG findings, manage suppressions  
-✅ **AI-Powered Analysis** — STIG control assessment and scan summaries via OpenAI  
+✅ **FastAPI Web UI** — Run scans, browse results, view STIG findings with evidence tracking, manage suppressions, analyze Score Card  
+✅ **Security Score Card** — 6-dimensional weighted assessment (Security 30%, Supply Chain 20%, Code Quality 15%, Compliance 15%, Operational 10%, MOSA 10%)  
+✅ **STIG Evidence Tracking** — Complete timeline with AI-generated evidence, confidence scoring, and status change validation  
+✅ **AI-Powered Analysis** — STIG control assessment with status change validation and scan summaries via OpenAI  
 ✅ **Production-Ready** — Docker-based, container-runtime-agnostic, cross-platform  
 ✅ **641 Automated Tests** — BATS test suite covering all 44 scanner scripts
 
@@ -1532,11 +1541,25 @@ export TARGET_DIR="/workspace" && ./scripts/shell/run-target-security-scan.sh "$
 ---
 
 **Created**: November 3, 2025  
-**Updated**: May 15, 2026  
-**Version**: 3.3.0  
+**Updated**: May 26, 2026  
+**Version**: 3.4.0  
 **Status**: ✅ **ENTERPRISE PRODUCTION READY**
 
-### 🆕 Latest Updates (v3.3.0) - Metrics Overhaul & App Monitoring Classification
+### 🆕 Latest Updates (v3.4.0) - Security Score Card & STIG Evidence Tracking
+- ✅ **Security Score Card system**: 6-dimensional weighted scoring framework (Security 30%, Supply Chain 20%, Code Quality 15%, Compliance 15%, Operational 10%, MOSA 10%) mapping 0-100 scores to DoD/NASA TRL 1-9 and letter grades (A+ through F)
+- ✅ **Score Card generation engine** (`generate-trl-score.py`): 591-line Python script with evidence-based logic, reading 15+ scan output files; includes 4 weight profiles (DEFAULT, ML, STIG, QUICK); outputs `trl-assessment.json`
+- ✅ **Score Card Web UI**: Auto-generates on scan detail page via POST `/api/scans/{scan_id}/scorecard`; collapsible card with overall grade, TRL, weighted score, and 6 clickable dimension cards with progress bars
+- ✅ **Dimension detail modals**: Click any dimension card to see large score display, progress bar, weight %, and complete metric breakdown
+- ✅ **Score Card CI integration**: Automatically generates in `run-epyon-scan-ci.sh` after dashboard step; 23 BATS tests for full coverage
+- ✅ **STIG history evidence tracking**: Matrix cells show evidence tooltips (status, confidence, evidence text truncated to 200 chars); 🔄 change indicators when evidence differs from previous scan; visual highlighting with blue border + glow
+- ✅ **STIG timeline with evidence**: Control detail drawer shows 4-column table (Date | Status | Confidence | Evidence/Reasoning) with full text, line breaks preserved, and row highlighting for changes
+- ✅ **STIG status change validation**: AI requires concrete, file-cited evidence for status changes; automatically loads previous scan results (Web UI/local) or treats as fresh (CI); enhanced SYSTEM_PROMPT with validation rules
+- ✅ **Timeline newest-first**: STIG control history sorted descending (most recent scans at top) for easier review
+- ✅ **Evidence-based Code Quality scoring**: Changed from penalty-based (100 - deductions) to 0 + earned points; tools that don't run contribute 0 instead of 90
+- ✅ **Fixed missing --pass CSS variable**: Added `--pass: #3fb950` for green score indicators
+- ✅ **SonarQube graceful skip**: Optional SONAR_TOKEN; prints INFO when missing, creates status:"skipped" output, exits 0
+
+### 🆕 Previous Updates (v3.3.0) - Metrics Overhaul & App Monitoring Classification
 - ✅ **MTTR card**: Mean Time to Remediate displayed beside Fix Rate donut; shows overall average days, "N/A" when insufficient history, and fastest-remediating app pill
 - ✅ **Stacked bar vulnerability trend chart**: replaces line chart; bars broken down by Critical/High/Medium/Low; hover tooltip shows app name + date + per-severity counts; click navigates to that app
 - ✅ **Findings by Tool hover tooltip**: mousing over a bar shows the top contributing app; click navigates to that app's detail page

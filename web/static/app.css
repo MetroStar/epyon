@@ -2184,6 +2184,25 @@ tbody tr.finding-row:hover td:first-child {
   border-left-color: var(--accent);
 }
 
+/* ── API row hover/clickable styles ───────────────────────────── */
+tbody tr.api-row {
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+tbody tr.api-row:hover td {
+  background: var(--bg-hover);
+}
+
+tbody tr.api-row td:first-child {
+  border-left: 2px solid transparent;
+  transition: border-color 0.1s;
+}
+
+tbody tr.api-row:hover td:first-child {
+  border-left-color: #10b981;
+}
+
 /* ── AI fix body ─────────────────────────────────────────────── */
 .ai-fix-body { line-height: 1.65; }
 .ai-fix-body h2 { font-size: 12px; font-weight: 700; color: #a5b4fc; text-transform: uppercase; letter-spacing: 0.06em; margin: 12px 0 4px; }
@@ -2512,12 +2531,20 @@ details[open] > .findings-summary .findings-summary-hint {
   font-weight: 700;
   border-radius: 3px;
   padding: 3px 6px !important;
+  white-space: pre; /* Preserve change indicator */
 }
 
 .stig-matrix-cell.open          { background: rgba(231,76,60,0.18);  color: #e74c3c; }
 .stig-matrix-cell.not-a-finding { background: rgba(39,174,96,0.15);  color: #27ae60; }
 .stig-matrix-cell.na            { background: rgba(255,193,7,0.12);  color: #f0a500; }
 .stig-matrix-cell.not-reviewed  { background: transparent;           color: var(--text-muted); }
+
+/* Evidence changed indicator */
+.stig-matrix-cell.evidence-changed {
+  position: relative;
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 8px rgba(88, 166, 255, 0.3);
+}
 
 /* Status chip used in STIG detail drawer */
 .stig-status-chip {

@@ -13,6 +13,10 @@ let   _findingNextId        = 0;
 const _depsRegistry         = new Map();
 let   _depsNextId           = 0;
 
+// ── API endpoint detail registry (populated in apiRender) ─────
+const _apiRegistry          = new Map();
+let   _apiNextId            = 0;
+
 // ── Findings sort state (per severity) ───────────────────────
 const _currentFindingsBySev = {};
 const _sortState             = {};
@@ -1183,6 +1187,8 @@ async function renderScanDetail(scanId) {
 
       ${buildSBOMSection(scan.sbom, scanId)}
 
+      ${buildAPISection(scan.api_discovery)}
+
       ${buildNetworkDiscoveryCard(scan)}
 
       ${scan.file_statistics && Object.keys(scan.file_statistics).length ? `
@@ -1208,6 +1214,7 @@ async function renderScanDetail(scanId) {
           </div>
         </div>` : ''}`;
     if (window._sbomPendingUid) { sbomRender(window._sbomPendingUid); window._sbomPendingUid = null; }
+    if (window._apiPendingUid) { apiRender(window._apiPendingUid); window._apiPendingUid = null; }
     
     // Automatically generate scorecard
     calculateScorecardForScan(scanId);
@@ -2198,6 +2205,237 @@ window.sortFindingsBy = function(sev, col) {
         delete th.dataset.sortDir;
       }
     });
+  }
+};
+
+function buildAPISection(apiData) {
+  if (!apiData || apiData.total === 0) return '';
+  const uid = 'api-' + Math.random().toString(36).slice(2);
+
+  // Create method filter chips
+  const methodChips = Object.entries(apiData.by_method || {})
+    .sort((a, b) => b[1] - a[1])
+    .map(([method, count]) => {
+      const color = {
+        'GET': '#10b981',
+        'POST': '#f59e0b',
+        'PUT': '#3b82f6',
+        'DELETE': '#ef4444',
+        'PATCH': '#8b5cf6'
+      }[method] || '#6b7280';
+      return `<span class="tool-tag api-method-chip" style="cursor:pointer;background:${color};color:white" data-api="${uid}" data-method="${esc(method)}" onclick="apiFilterMethod('${uid}','${esc(method)}')">${esc(method)} <strong>${count}</strong></span>`;
+    })
+    .join('');
+
+  // Create framework filter chips
+  const frameworkChips = Object.entries(apiData.by_framework || {})
+    .sort((a, b) => b[1] - a[1])
+    .map(([fw, count]) => 
+      `<span class="tool-tag api-fw-chip" style="cursor:pointer" data-api="${uid}" data-fw="${esc(fw)}" onclick="apiFilterFramework('${uid}','${esc(fw)}')">${esc(fw)} <strong>${count}</strong></span>`
+    )
+    .join('');
+
+  const allEndpoints = (apiData.endpoints || []).map(ep => ({
+    method:     ep.method || '',
+    path:       ep.path || '',
+    function:   ep.function || ep.handler || '',
+    name:       ep.name || '',
+    framework:  ep.framework || '',
+    auth:       ep.auth || ep.authentication || '',
+    tags:       ep.tags || '',
+    file:       ep.file || ep.location || '',
+  }));
+
+  // Store data synchronously
+  window._apiData = window._apiData || {};
+  window._apiData[uid] = { endpoints: allEndpoints, sortCol: null, sortDir: 'asc', filterMethod: null, filterFramework: null };
+  window._apiPendingUid = uid;
+
+  return `
+    <div class="section findings-section-wrapper">
+      <details class="findings-collapsible" style="border-left-color:#10b981">
+        <summary class="findings-summary">
+          <span class="findings-summary-left">
+            <span class="findings-chevron" aria-hidden="true"></span>
+            <span class="findings-summary-title">🔌 API Discovery</span>
+            <span class="sev-badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(String(apiData.total))} endpoints</span>
+            ${methodChips}
+            ${frameworkChips}
+          </span>
+          <span class="findings-summary-hint">Click to expand</span>
+        </summary>
+        <div class="findings-body" style="padding:0 18px 16px">
+          <div style="margin-top:12px;display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+            <input id="${uid}-search" type="text" placeholder="Search endpoints…"
+              style="flex:1;min-width:180px;max-width:320px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--text);font-size:13px"
+              oninput="apiRender('${uid}')" />
+            <span id="${uid}-count" style="font-size:12px;color:var(--text-muted)"></span>
+            <button onclick="apiClearFilter('${uid}')" style="font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer">Clear filters</button>
+          </div>
+          <div style="overflow-x:auto">
+            <table style="width:100%;border-collapse:collapse;font-size:13px">
+              <thead>
+                <tr style="text-align:left;border-bottom:1px solid var(--border)">
+                  <th style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="apiSort('${uid}','method')">Method <span id="${uid}-sort-method"></span></th>
+                  <th style="padding:4px 8px;cursor:pointer;user-select:none" onclick="apiSort('${uid}','path')">Path <span id="${uid}-sort-path"></span></th>
+                  <th style="padding:4px 8px;cursor:pointer;user-select:none" onclick="apiSort('${uid}','function')">Function <span id="${uid}-sort-function"></span></th>
+                  <th style="padding:4px 8px;cursor:pointer;user-select:none" onclick="apiSort('${uid}','framework')">Framework <span id="${uid}-sort-framework"></span></th>
+                  <th style="padding:4px 8px;cursor:pointer;user-select:none" onclick="apiSort('${uid}','auth')">Auth <span id="${uid}-sort-auth"></span></th>
+                  <th style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="apiSort('${uid}','file')">File <span id="${uid}-sort-file"></span></th>
+                </tr>
+              </thead>
+              <tbody id="${uid}-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </details>
+    </div>`;
+}
+
+window.apiSort = function(uid, col) {
+  const s = window._apiData && window._apiData[uid];
+  if (!s) return;
+  if (s.sortCol === col) {
+    s.sortDir = s.sortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    s.sortCol = col;
+    s.sortDir = 'asc';
+  }
+  apiRender(uid);
+};
+
+window.apiFilterMethod = function(uid, method) {
+  const s = window._apiData && window._apiData[uid];
+  if (!s) return;
+  s.filterMethod = s.filterMethod === method ? null : method;
+  document.querySelectorAll(`.api-method-chip[data-api="${uid}"]`).forEach(el => {
+    el.style.opacity = (!s.filterMethod || el.dataset.method === s.filterMethod) ? '1' : '0.4';
+    el.style.outline = el.dataset.method === s.filterMethod ? '2px solid #6366f1' : '';
+  });
+  apiRender(uid);
+};
+
+window.apiFilterFramework = function(uid, fw) {
+  const s = window._apiData && window._apiData[uid];
+  if (!s) return;
+  s.filterFramework = s.filterFramework === fw ? null : fw;
+  document.querySelectorAll(`.api-fw-chip[data-api="${uid}"]`).forEach(el => {
+    el.style.opacity = (!s.filterFramework || el.dataset.fw === s.filterFramework) ? '1' : '0.4';
+    el.style.outline = el.dataset.fw === s.filterFramework ? '2px solid #6366f1' : '';
+  });
+  apiRender(uid);
+};
+
+window.apiClearFilter = function(uid) {
+  const s = window._apiData && window._apiData[uid];
+  if (!s) return;
+  s.filterMethod = null;
+  s.filterFramework = null;
+  s.sortCol = null;
+  s.sortDir = 'asc';
+  const input = document.getElementById(uid + '-search');
+  if (input) input.value = '';
+  document.querySelectorAll(`.api-method-chip[data-api="${uid}"],.api-fw-chip[data-api="${uid}"]`).forEach(el => {
+    el.style.opacity = '1';
+    el.style.outline = '';
+  });
+  ['method','path','function','framework','auth','file'].forEach(c => {
+    const el = document.getElementById(uid + '-sort-' + c);
+    if (el) el.textContent = '';
+  });
+  apiRender(uid);
+};
+
+window.apiRender = function(uid) {
+  const s = window._apiData && window._apiData[uid];
+  if (!s) return;
+  const tbody = document.getElementById(uid + '-tbody');
+  const countEl = document.getElementById(uid + '-count');
+  if (!tbody) return;
+
+  const query = (document.getElementById(uid + '-search') || {}).value || '';
+  const q = query.trim().toLowerCase();
+
+  let items = s.endpoints.slice();
+
+  // Filter by method
+  if (s.filterMethod) {
+    items = items.filter(ep => ep.method === s.filterMethod);
+  }
+
+  // Filter by framework
+  if (s.filterFramework) {
+    items = items.filter(ep => ep.framework === s.filterFramework);
+  }
+
+  // Filter by search
+  if (q) {
+    items = items.filter(ep =>
+      ep.method.toLowerCase().includes(q) ||
+      ep.path.toLowerCase().includes(q) ||
+      ep.function.toLowerCase().includes(q) ||
+      ep.framework.toLowerCase().includes(q) ||
+      ep.auth.toLowerCase().includes(q) ||
+      ep.file.toLowerCase().includes(q)
+    );
+  }
+
+  // Sort
+  if (s.sortCol) {
+    const col = s.sortCol;
+    const dir = s.sortDir === 'asc' ? 1 : -1;
+    items.sort((a, b) => {
+      const av = (a[col] || '').toLowerCase();
+      const bv = (b[col] || '').toLowerCase();
+      return av < bv ? -dir : av > bv ? dir : 0;
+    });
+  }
+
+  // Update sort indicators
+  ['method','path','function','framework','auth','file'].forEach(c => {
+    const el = document.getElementById(uid + '-sort-' + c);
+    if (el) {
+      if (s.sortCol === c) {
+        el.textContent = s.sortDir === 'asc' ? '▲' : '▼';
+      } else {
+        el.textContent = '';
+      }
+    }
+  });
+
+  // Render rows with registry and onclick handlers
+  tbody.innerHTML = items.map(ep => {
+    // Register endpoint for detail view
+    const epId = _apiNextId++;
+    _apiRegistry.set(epId, ep);
+
+    const methodColor = {
+      'GET': '#10b981',
+      'POST': '#f59e0b',
+      'PUT': '#3b82f6',
+      'DELETE': '#ef4444',
+      'PATCH': '#8b5cf6'
+    }[ep.method] || '#6b7280';
+    
+    const shortFile = ep.file.split('/').slice(-2).join('/') || ep.file;
+
+    return `
+      <tr class="api-row" onclick="openAPIDetail(${epId})" title="Click to view details" style="cursor:pointer;border-bottom:1px solid var(--border-subtle)">
+        <td style="padding:4px 8px"><span style="background:${methodColor};color:white;padding:2px 6px;border-radius:3px;font-size:11px;font-weight:600">${esc(ep.method)}</span></td>
+        <td style="padding:4px 8px;font-family:monospace;font-size:12px">${esc(ep.path)}</td>
+        <td style="padding:4px 8px;color:var(--text-muted);font-size:12px">${esc(ep.function) || '—'}</td>
+        <td style="padding:4px 8px"><span class="tool-tag">${esc(ep.framework) || '—'}</span></td>
+        <td style="padding:4px 8px;color:var(--text-dim);font-size:11px">${esc(ep.auth) || '—'}</td>
+        <td style="padding:4px 8px;color:var(--text-muted);font-size:11px" title="${esc(ep.file)}">${esc(shortFile) || '—'}</td>
+      </tr>`;
+  }).join('');
+
+  if (countEl) {
+    const totalCount = s.endpoints.length;
+    const filtered = items.length;
+    countEl.textContent = filtered === totalCount
+      ? `${totalCount} endpoints`
+      : `${filtered} of ${totalCount} endpoints`;
   }
 };
 
@@ -3551,12 +3789,26 @@ async function renderStigHistory(selectedApp, selectedSlug) {
 
     const rows = visible.map(c => {
       const sevCls = c.severity || 'unknown';
-      const cells = visibleScans.map(s => {
+      const cells = visibleScans.map((s, idx) => {
         const entry = c.timeline.find(t => t.scan_id === s.scan_id);
         const status = entry ? entry.status : '';
+        const evidence = entry ? entry.evidence : '';
+        const confidence = entry ? entry.confidence : null;
         const cls    = STATUS_CLASSES[status] || 'not-reviewed';
         const abbr   = STATUS_ABBR[status] || '';
-        return `<td class="stig-matrix-cell ${cls}" title="${esc(status)}">${esc(abbr)}</td>`;
+        
+        // Check if evidence changed from previous entry
+        const prevEntry = idx > 0 ? c.timeline.find(t => t.scan_id === visibleScans[idx - 1].scan_id) : null;
+        const evidenceChanged = prevEntry && prevEntry.evidence && evidence && prevEntry.evidence !== evidence && status !== 'Not Reviewed';
+        const changeIndicator = evidenceChanged ? ' 🔄' : '';
+        
+        const tooltipLines = [
+          `Status: ${status}`,
+          confidence != null ? `Confidence: ${confidence}%` : '',
+          evidence ? `\n${evidence.substring(0, 200)}${evidence.length > 200 ? '...' : ''}` : ''
+        ].filter(Boolean).join('\n');
+        
+        return `<td class="stig-matrix-cell ${cls}${evidenceChanged ? ' evidence-changed' : ''}" title="${esc(tooltipLines)}">${esc(abbr)}${changeIndicator}</td>`;
       }).join('');
 
       const mttrBadge = c.mttr_days != null
@@ -4747,13 +4999,24 @@ function openStigDetail(id) {
   const latCls  = _SC[c.latest_status] || 'not-reviewed';
   const latLbl  = _SA[c.latest_status] || c.latest_status || '—';
 
-  const tl = [...(c.timeline || [])].sort((a, b) => a.date < b.date ? -1 : 1);
-  const timelineRows = tl.map(t => {
+  const tl = [...(c.timeline || [])].sort((a, b) => b.date.localeCompare(a.date));
+  const timelineRows = tl.map((t, idx) => {
     const cls = _SC[t.status] || 'not-reviewed';
     const lbl = _SA[t.status] || t.status;
-    return `<tr style="border-bottom:1px solid var(--border-muted)">
-      <td style="padding:5px 10px;font-size:12px;color:var(--text-muted);white-space:nowrap">${esc(t.date.slice(0, 10))}</td>
-      <td style="padding:5px 10px"><span class="stig-status-chip ${cls}">${esc(lbl)}</span></td>
+    const evidence = t.evidence || 'No evidence provided.';
+    const confidence = t.confidence != null ? `${t.confidence}%` : '—';
+    
+    // Check if evidence changed from previous scan (next in array = older in time)
+    const prevEvidence = idx < tl.length - 1 ? (tl[idx + 1].evidence || '') : '';
+    const evidenceChanged = prevEvidence && evidence && prevEvidence !== evidence && t.status !== 'Not Reviewed';
+    const changeClass = evidenceChanged ? ' style="background:var(--bg-hover)"' : '';
+    const changeIcon = evidenceChanged ? ' <span style="color:var(--accent);font-size:10px" title="Evidence changed from previous scan">🔄 Changed</span>' : '';
+    
+    return `<tr${changeClass}>
+      <td style="padding:8px 12px;font-size:12px;color:var(--text-muted);white-space:nowrap;vertical-align:top">${esc(t.date.slice(0, 10))}</td>
+      <td style="padding:8px 12px;vertical-align:top"><span class="stig-status-chip ${cls}">${esc(lbl)}</span>${changeIcon}</td>
+      <td style="padding:8px 12px;font-size:11px;color:var(--text-muted);text-align:center;vertical-align:top">${confidence}</td>
+      <td style="padding:8px 12px;font-size:11px;color:var(--text);line-height:1.5;vertical-align:top">${esc(evidence).replace(/\n/g, '<br>')}</td>
     </tr>`;
   }).join('');
 
@@ -4812,8 +5075,10 @@ function openStigDetail(id) {
           <table style="width:100%;border-collapse:collapse">
             <thead>
               <tr style="background:var(--bg-hover);border-bottom:1px solid var(--border)">
-                <th style="padding:5px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left">Date</th>
-                <th style="padding:5px 10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left">Status</th>
+                <th style="padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left;width:100px">Date</th>
+                <th style="padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left;width:140px">Status</th>
+                <th style="padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:center;width:80px">Confidence</th>
+                <th style="padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left">Evidence / Reasoning</th>
               </tr>
             </thead>
             <tbody>${timelineRows}</tbody>
@@ -4977,6 +5242,147 @@ function openFindingDetail(id) {
 function closeFindingDetail() {
   const overlay = document.getElementById('finding-drawer-overlay');
   const drawer  = document.getElementById('finding-drawer');
+  if (drawer && drawer._onKey) document.removeEventListener('keydown', drawer._onKey);
+  overlay?.remove();
+  drawer?.remove();
+}
+
+// ── API endpoint detail drawer ────────────────────────────────
+function openAPIDetail(id) {
+  const ep = _apiRegistry.get(id);
+  if (!ep) return;
+
+  // Close any existing drawer
+  closeAPIDetail();
+
+  const method     = ep.method || 'UNKNOWN';
+  const path       = ep.path || '—';
+  const funcName   = ep.function || '—';
+  const name       = ep.name || '—';
+  const framework  = ep.framework || 'Unknown';
+  const auth       = ep.auth || 'None';
+  const tags       = ep.tags || '';
+  const file       = ep.file || '—';
+  const description = ep.description || '';
+  const params     = ep.parameters || ep.params || [];
+  const responses  = ep.responses || [];
+
+  const methodColor = {
+    'GET': '#10b981',
+    'POST': '#f59e0b',
+    'PUT': '#3b82f6',
+    'DELETE': '#ef4444',
+    'PATCH': '#8b5cf6'
+  }[method] || '#6b7280';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'finding-drawer-overlay';
+  overlay.id        = 'api-drawer-overlay';
+  overlay.addEventListener('click', closeAPIDetail);
+
+  const drawer = document.createElement('div');
+  drawer.className = 'finding-drawer';
+  drawer.id        = 'api-drawer';
+  drawer.setAttribute('role', 'dialog');
+  drawer.setAttribute('aria-modal', 'true');
+  drawer.setAttribute('aria-label', 'API endpoint details');
+  drawer.addEventListener('click', e => e.stopPropagation());
+
+  drawer.innerHTML = `
+    <div class="finding-drawer-header">
+      <div class="finding-drawer-title">
+        <h2 style="font-family:monospace;font-size:16px">${esc(path)}</h2>
+        <div class="finding-drawer-badges">
+          <span style="background:${methodColor};color:white;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600">${esc(method)}</span>
+          <span class="tool-tag">${esc(framework)}</span>
+        </div>
+      </div>
+      <button class="finding-drawer-close" onclick="closeAPIDetail()" aria-label="Close">✕</button>
+    </div>
+    <div class="finding-drawer-body">
+
+      <div class="finding-detail-grid">
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Function</div>
+          <div class="finding-detail-value"><code>${esc(funcName)}</code></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Name</div>
+          <div class="finding-detail-value">${name !== '—' ? esc(name) : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Framework</div>
+          <div class="finding-detail-value"><span class="tool-tag">${esc(framework)}</span></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Authentication</div>
+          <div class="finding-detail-value">${auth !== 'None' ? `<code style="font-size:11px">${esc(auth)}</code>` : '<span style="color:var(--text-dim)">None</span>'}</div>
+        </div>
+      </div>
+
+      ${description ? `
+        <div class="finding-detail-section" style="margin-top:12px">
+          <div class="finding-detail-label">Description</div>
+          <div class="finding-detail-desc">${esc(description)}</div>
+        </div>` : ''}
+
+      ${tags ? `
+        <div class="finding-detail-section" style="margin-top:12px">
+          <div class="finding-detail-label">Tags</div>
+          <div class="finding-detail-value">${esc(tags)}</div>
+        </div>` : ''}
+
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">File Location</div>
+        <div class="finding-detail-value"><code style="font-size:11px;word-break:break-all">${esc(file)}</code></div>
+      </div>
+
+      ${Array.isArray(params) && params.length > 0 ? `
+        <div class="finding-detail-section" style="margin-top:16px">
+          <div class="finding-detail-label">Parameters</div>
+          <div style="margin-top:6px">
+            ${params.map(p => `
+              <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:8px;margin-bottom:6px">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                  <code style="color:#818cf8;font-size:12px">${esc(p.name || '')}</code>
+                  ${p.required ? '<span style="color:#ef4444;font-size:10px;font-weight:600">REQUIRED</span>' : ''}
+                </div>
+                ${p.type ? `<div style="color:var(--text-muted);font-size:11px">Type: <code>${esc(p.type)}</code></div>` : ''}
+                ${p.description ? `<div style="color:var(--text-dim);font-size:11px;margin-top:3px">${esc(p.description)}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>` : ''}
+
+      ${Array.isArray(responses) && responses.length > 0 ? `
+        <div class="finding-detail-section" style="margin-top:16px">
+          <div class="finding-detail-label">Responses</div>
+          <div style="margin-top:6px">
+            ${responses.map(r => `
+              <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:8px;margin-bottom:6px">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                  <code style="color:#10b981;font-size:12px">${esc(String(r.status || r.code || ''))}</code>
+                  <span style="color:var(--text-muted);font-size:11px">${esc(r.description || '')}</span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>` : ''}
+
+    </div>`;
+
+  document.body.appendChild(overlay);
+  document.body.appendChild(drawer);
+
+  // Trap Escape key
+  const _onKey = e => { if (e.key === 'Escape') { closeAPIDetail(); document.removeEventListener('keydown', _onKey); } };
+  document.addEventListener('keydown', _onKey);
+  drawer._onKey = _onKey;
+}
+
+function closeAPIDetail() {
+  const overlay = document.getElementById('api-drawer-overlay');
+  const drawer  = document.getElementById('api-drawer');
   if (drawer && drawer._onKey) document.removeEventListener('keydown', drawer._onKey);
   overlay?.remove();
   drawer?.remove();

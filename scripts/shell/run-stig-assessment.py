@@ -29,7 +29,24 @@ Usage:
 
 Environment:
     OPENAI_API_KEY   Required. OpenAI API key.
-    OPENAI_MODEL     Optional. Overrides --model flag (default: gpt-4.1-mini).
+    OPENAI_MODEL     Optional. Overrides --model flag (default: gpt-4o-mini).
+
+Status Change Validation:
+    When previous scan results exist in the parent scans/ directory, the AI will
+    validate status changes and require concrete, file-cited evidence for any change.
+    This prevents frivolous status changes while allowing evidence text refinement.
+    
+    Behavior by environment:
+    - Web UI / Local Scans: Previous results automatically loaded, status changes validated
+    - GitHub Actions CI: scans/ directory not persisted, all assessments treated as fresh
+    
+    Status changes require one of:
+    - New code/config files that satisfy or violate the control
+    - Specific modifications to existing files with exact changes cited
+    - Architectural changes that make control applicable/inapplicable
+    
+    The AI may NOT change status based on rephrased evidence, speculation, or
+    "further analysis needed" without concrete repository artifacts.
 
 Adding a new STIG:
     Drop any .cklb or XCCDF .xml file into configuration/stigs/ — it will be
@@ -125,7 +142,25 @@ STEP 4 — Cross-reference against the requirement. State explicitly whether wha
 found satisfies the control criterion and why (e.g. "27,500 iterations exceeds the \
 NIST SP 800-63B minimum of 10,000 for PBKDF2").
 
-STEP 5 — Assign status:
+STEP 5 — Assign status WITH PREVIOUS STATUS VALIDATION:
+  
+IMPORTANT: Some controls may include a "previous_status" field showing the status from \
+the last scan. When a previous status exists:
+  • If your assessment reaches THE SAME status as previous_status, proceed normally.
+  • If your assessment would CHANGE the status, you MUST provide STRONG, SPECIFIC EVIDENCE \
+justifying the change. Generic observations are NOT sufficient.
+  • If you cannot find CONCRETE, FILE-CITED evidence for a status change, KEEP the previous_status \
+and update only the evidence text to reflect current repository state.
+  • Acceptable reasons for status change:
+    - New code/config files added that satisfy/violate the control (cite exact files)
+    - Existing files modified with specific changes to relevant settings (cite exact changes)
+    - Architectural changes that make control applicable/inapplicable (describe specific changes)
+  • Unacceptable reasons for status change:
+    - Rephrasing the same evidence differently
+    - "Further analysis needed" without new concrete findings
+    - Speculation about runtime behavior without code evidence
+
+Status definitions:
   "Not a Finding"  — Specific named artifacts in specific files directly and completely \
 satisfy the control. You have cited the exact file path and the exact value/construct.
   "Not Applicable" — The control is architecturally impossible for this application type. \
@@ -210,6 +245,59 @@ def slug_from_stig(stig: dict[str, Any], path: str) -> str:
 def slug_from_app_name(app_name: str) -> str:
     """Derive a filesystem-safe slug from an application name."""
     return re.sub(r"[^a-z0-9]+", "-", app_name.lower()).strip("-")
+
+
+# ---------------------------------------------------------------------------
+# Previous scan results lookup
+# ---------------------------------------------------------------------------
+
+def find_previous_scan_dir(current_scan_dir: Path, app_name: str) -> Path | None:
+    """Find the most recent previous scan directory for the same app.
+    
+    Args:
+        current_scan_dir: Path to current scan directory (e.g., scans/epyon_2026-05-26_12-00-00)
+        app_name: Application name
+    
+    Returns:
+        Path to previous scan directory, or None if no previous scan exists
+    """
+    app_slug = slug_from_app_name(app_name)
+    scans_root = current_scan_dir.parent  # scans/
+    
+    if not scans_root.exists() or not scans_root.is_dir():
+        return None
+    
+    # Find all scan directories for this app, sorted by timestamp (newest first)
+    pattern = f"{app_slug}_*"
+    scan_dirs = sorted(
+        [d for d in scans_root.glob(pattern) if d.is_dir() and d != current_scan_dir],
+        reverse=True  # newest first
+    )
+    
+    return scan_dirs[0] if scan_dirs else None
+
+
+def load_previous_stig_results(previous_scan_dir: Path, slug: str) -> dict[str, dict[str, Any]]:
+    """Load previous STIG assessment results for the given STIG slug.
+    
+    Args:
+        previous_scan_dir: Path to previous scan directory
+        slug: STIG slug (e.g., 'u-asd-stig-v6r4-manual-xccdf')
+    
+    Returns:
+        Dict mapping vuln_id -> {status, evidence, confidence}, or empty dict if not found
+    """
+    results_file = previous_scan_dir / f"stig-results-{slug}.json"
+    
+    if not results_file.exists():
+        return {}
+    
+    try:
+        data = json.loads(results_file.read_text(encoding="utf-8"))
+        return data.get("assessments", {})
+    except Exception as e:
+        print(f"[WARNING] Failed to load previous STIG results from {results_file}: {e}", file=sys.stderr)
+        return {}
 
 
 # ---------------------------------------------------------------------------
@@ -543,8 +631,23 @@ def call_openai(
     controls_batch: list[dict[str, Any]],
     code_context: str,
     repo_manifest: str = "",
-) -> list[dict[str, Any]]:
-    """Call GPT with a batch of controls + full repo manifest + code context."""
+    previous_assessments: dict[str, dict[str, Any]] | None = None,
+) -> tuple[list[dict[str, Any]], int, int]:
+    """Call GPT with a batch of controls + full repo manifest + code context.
+    
+    Args:
+        client: OpenAI client instance
+        model: Model name (e.g., 'gpt-4o-mini')
+        controls_batch: List of control dicts to assess
+        code_context: Application source code
+        repo_manifest: Full file tree listing
+        previous_assessments: Optional dict mapping vuln_id -> previous assessment results
+    
+    Returns:
+        Tuple of (parsed_results, prompt_tokens, completion_tokens)
+    """
+    previous_assessments = previous_assessments or {}
+    
     controls_json = json.dumps(
         [
             {
@@ -552,6 +655,7 @@ def call_openai(
                 "title":         c["title"],
                 "check_content": c["check_content"],
                 "fix_text":      c["fix_text"],
+                "previous_status": previous_assessments.get(c["vuln_id"], {}).get("status"),
             }
             for c in controls_batch
         ],
@@ -866,6 +970,27 @@ def _assess_stig(
         # knows the full file tree even if some files exceed the context budget.
         repo_manifest = build_repo_manifest(source_files)
 
+        # Load previous STIG assessment results if they exist
+        previous_scan = find_previous_scan_dir(scan_dir, app_name)
+        previous_assessments: dict[str, dict[str, Any]] = {}
+        if previous_scan:
+            previous_assessments = load_previous_stig_results(previous_scan, slug)
+            if previous_assessments:
+                print(
+                    f"[INFO] [{slug}] Loaded {len(previous_assessments)} previous assessments from {previous_scan.name}",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    f"[INFO] [{slug}] No previous assessments found in {previous_scan.name}",
+                    file=sys.stderr,
+                )
+        else:
+            print(
+                f"[INFO] [{slug}] No previous scan found — all controls assessed fresh",
+                file=sys.stderr,
+            )
+
         print(
             f"[INFO] [{slug}] Submitting {total_batches} batches of up to {batch_size} controls "
             f"to {model} (context budget: {MAX_CODE_BYTES_PER_BATCH // 1024}KB/batch, "
@@ -888,7 +1013,9 @@ def _assess_stig(
             code_context = build_code_context(source_files, all_kw)
 
             try:
-                results, batch_pt, batch_ct = call_openai(client, model, batch, code_context, repo_manifest)
+                results, batch_pt, batch_ct = call_openai(
+                    client, model, batch, code_context, repo_manifest, previous_assessments
+                )
                 total_prompt_tokens     += batch_pt
                 total_completion_tokens += batch_ct
                 print(

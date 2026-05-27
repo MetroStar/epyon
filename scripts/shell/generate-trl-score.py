@@ -82,6 +82,212 @@ def load_json(path: Path) -> Optional[Dict]:
         return None
 
 
+def get_app_name_from_scan_dir(scan_dir: Path) -> str:
+    """Extract app name from scan directory name (e.g., 'epyon_2026-05-26_12-00-00' → 'epyon')."""
+    dir_name = scan_dir.name
+    # Format: {app}_{date}_{time} or similar
+    parts = dir_name.split("_")
+    if len(parts) >= 1:
+        return parts[0]
+    return "unknown"
+
+
+def find_all_app_scans(scan_dir: Path, app_name: str) -> List[Path]:
+    """Find all scan directories for the same app, sorted by timestamp (newest first).
+    
+    Args:
+        scan_dir: Current scan directory (e.g., /path/scans/epyon_2026-05-26_12-00-00)
+        app_name: Application name
+    
+    Returns:
+        List of scan directory Paths, sorted newest to oldest
+    """
+    scans_root = scan_dir.parent  # /path/scans/
+    
+    if not scans_root.exists() or not scans_root.is_dir():
+        return [scan_dir]
+    
+    # Find all scan directories for this app
+    pattern = f"{app_name}_*"
+    all_scans = sorted(
+        [d for d in scans_root.glob(pattern) if d.is_dir()],
+        reverse=True  # Newest first
+    )
+    
+    return all_scans if all_scans else [scan_dir]
+
+
+def aggregate_stig_results(scan_dirs: List[Path]) -> Dict[str, Any]:
+    """Aggregate STIG results across multiple scan directories.
+    
+    Looks through all provided scan directories (newest to oldest) to find STIG results.
+    Uses the most recent STIG data available, not just from the current scan.
+    
+    Args:
+        scan_dirs: List of scan directory paths, sorted newest to oldest
+    
+    Returns:
+        Dict with aggregated STIG metrics:
+        - pass_rate: Overall pass rate across all controls
+        - cat1_pass_rate: Category I (high severity) pass rate
+        - files_assessed: Number of STIG files found
+        - scans_with_stigs: Number of scans that had STIG results
+        - latest_scan_with_stig: Name of most recent scan with STIG data
+    """
+    total_pass = 0
+    total_applicable = 0
+    cat1_pass = 0
+    cat1_applicable = 0
+    scans_with_stigs = 0
+    latest_scan_with_stig = None
+    all_stig_files = []
+    
+    for scan_dir in scan_dirs:
+        stig_files = list(scan_dir.glob("stig-results-*.json"))
+        if not stig_files:
+            continue
+        
+        scans_with_stigs += 1
+        if latest_scan_with_stig is None:
+            latest_scan_with_stig = scan_dir.name
+        
+        for stig_file in stig_files:
+            all_stig_files.append(stig_file)
+            stig_data = load_json(stig_file)
+            if not stig_data:
+                continue
+            
+            # Load severity mapping from controls file
+            slug = stig_file.stem.replace("stig-results-", "")
+            controls_file = scan_dir / f"stig-controls-{slug}.json"
+            severity_map = {}
+            if controls_file.exists():
+                controls_data = load_json(controls_file)
+                if controls_data and "controls" in controls_data:
+                    for ctrl in controls_data["controls"]:
+                        severity_map[ctrl["vuln_id"]] = ctrl.get("severity", "").lower()
+            
+            # Handle both old format (findings array) and new format (assessments dict)
+            findings = stig_data.get("findings", [])
+            assessments = stig_data.get("assessments", {})
+            
+            # Process old format
+            for finding in findings:
+                status = finding.get("status", "")
+                severity = finding.get("severity", "")
+                if status in ("Open", "NotAFinding", "Not a Finding"):
+                    total_applicable += 1
+                    if status in ("NotAFinding", "Not a Finding"):
+                        total_pass += 1
+                    
+                    if severity in ("high", "critical"):  # Cat I
+                        cat1_applicable += 1
+                        if status in ("NotAFinding", "Not a Finding"):
+                            cat1_pass += 1
+            
+            # Process new format (assessments dict from AI) - lookup severity from controls
+            for vuln_id, data in assessments.items():
+                status = data.get("status", "")
+                severity = severity_map.get(vuln_id, "")
+                
+                if status in ("Open", "Not a Finding", "Not Applicable"):
+                    total_applicable += 1
+                    if status == "Not a Finding":
+                        total_pass += 1
+                    
+                    # Cat I = high severity controls
+                    if severity == "high":
+                        cat1_applicable += 1
+                        if status == "Not a Finding":
+                            cat1_pass += 1
+    
+    result = {
+        "pass_rate": None,
+        "cat1_pass_rate": None,
+        "files_assessed": len(all_stig_files),
+        "scans_with_stigs": scans_with_stigs,
+        "latest_scan_with_stig": latest_scan_with_stig,
+    }
+    
+    if total_applicable > 0:
+        result["pass_rate"] = (total_pass / total_applicable) * 100.0
+    if cat1_applicable > 0:
+        result["cat1_pass_rate"] = (cat1_pass / cat1_applicable) * 100.0
+    
+    return result
+
+
+def aggregate_api_endpoints(scan_dirs: List[Path]) -> Dict[str, Any]:
+    """Aggregate API endpoint discovery across multiple scan directories.
+    
+    Looks through all provided scan directories (newest to oldest) to find API endpoints.
+    Returns the maximum number found across all scans.
+    
+    Args:
+        scan_dirs: List of scan directory paths, sorted newest to oldest
+    
+    Returns:
+        Dict with:
+        - endpoint_count: Maximum endpoints found across all scans
+        - scans_with_apis: Number of scans that had API discovery data
+        - latest_scan_with_apis: Name of most recent scan with API endpoints
+    """
+    max_endpoints = 0
+    scans_with_apis = 0
+    latest_scan_with_apis = None
+    
+    for scan_dir in scan_dirs:
+        # Try multiple possible locations for API discovery data
+        api_locations = [
+            scan_dir / "api-discovery" / "api-inventory.json",
+            scan_dir / "api" / "api-discovery.json",
+            scan_dir / "api" / "exports" / f"api-discovery-{scan_dir.name}.json",
+            scan_dir / "api-discovery.json",
+        ]
+        
+        for api_file in api_locations:
+            if not api_file.exists():
+                continue
+            
+            api_data = load_json(api_file)
+            if not api_data:
+                continue
+            
+            # Try multiple formats for endpoint count
+            endpoint_count = 0
+            
+            # Format 1: Direct endpoints array (older format)
+            if "endpoints" in api_data:
+                endpoint_count = len(api_data["endpoints"])
+            
+            # Format 2: Summary with total_endpoints_discovered (current format)
+            elif "summary" in api_data and "total_endpoints_discovered" in api_data["summary"]:
+                endpoint_count = api_data["summary"]["total_endpoints_discovered"]
+            
+            # Format 3: Count routes from discovery_methods.code_routes (fallback)
+            elif "discovery_methods" in api_data and "code_routes" in api_data["discovery_methods"]:
+                routes = api_data["discovery_methods"]["code_routes"]
+                endpoint_count = sum([
+                    len(routes.get("python", [])),
+                    len(routes.get("nodejs", [])),
+                    len(routes.get("java", [])),
+                ])
+            
+            if endpoint_count > 0:
+                scans_with_apis += 1
+                if latest_scan_with_apis is None:
+                    latest_scan_with_apis = scan_dir.name
+                if endpoint_count > max_endpoints:
+                    max_endpoints = endpoint_count
+                break  # Found API data in this scan, move to next scan
+    
+    return {
+        "endpoint_count": max_endpoints,
+        "scans_with_apis": scans_with_apis,
+        "latest_scan_with_apis": latest_scan_with_apis,
+    }
+
+
 def score_security(scan_dir: Path, findings: Dict) -> Dict[str, Any]:
     """
     Security & Safety dimension (0-100).
@@ -274,64 +480,51 @@ def score_compliance(scan_dir: Path) -> Dict[str, Any]:
     """
     Compliance & Documentation dimension (0-100).
     STIG compliance % + model card completeness + API documentation.
-    """
-    # STIG compliance (average across all STIG files)
-    stig_files = list(scan_dir.glob("stig-results-*.json"))
-    stig_pass_rate = None
-    stig_cat1_pass = None
-    if stig_files:
-        total_pass = 0
-        total_applicable = 0
-        cat1_pass = 0
-        cat1_applicable = 0
-        
-        for stig_file in stig_files:
-            stig_data = load_json(stig_file)
-            if not stig_data or "stig_slug" not in stig_data:
-                continue
-            
-            for finding in stig_data.get("findings", []):
-                status = finding.get("status", "")
-                severity = finding.get("severity", "")
-                if status in ("Open", "NotAFinding"):
-                    total_applicable += 1
-                    if status == "NotAFinding":
-                        total_pass += 1
-                    
-                    if severity == "high":  # Cat I
-                        cat1_applicable += 1
-                        if status == "NotAFinding":
-                            cat1_pass += 1
-        
-        if total_applicable > 0:
-            stig_pass_rate = (total_pass / total_applicable) * 100.0
-        if cat1_applicable > 0:
-            stig_cat1_pass = (cat1_pass / cat1_applicable) * 100.0
     
-    # Model card completeness
-    modelcard_file = scan_dir / "modelcard-results.json"
+    STIG and API data are aggregated across ALL historical scans for this app,
+    not just the current scan, since these layers aren't run every time.
+    """
+    # Get app name and find all historical scans
+    app_name = get_app_name_from_scan_dir(scan_dir)
+    all_scans = find_all_app_scans(scan_dir, app_name)
+    
+    # Aggregate STIG results across all scans
+    stig_agg = aggregate_stig_results(all_scans)
+    stig_pass_rate = stig_agg["pass_rate"]
+    stig_cat1_pass = stig_agg["cat1_pass_rate"]
+    stig_files_count = stig_agg["files_assessed"]
+    scans_with_stigs = stig_agg["scans_with_stigs"]
+    
+    # Aggregate API endpoints across all scans
+    api_agg = aggregate_api_endpoints(all_scans)
+    api_documented = api_agg["endpoint_count"]
+    scans_with_apis = api_agg["scans_with_apis"]
+    
+    # Model card completeness (current scan only - specific to ML models)
+    modelcard_file = scan_dir / "modelcard" / "modelcard-results.json"
     modelcard_data = load_json(modelcard_file)
     modelcard_score = None
     if modelcard_data:
-        modelcard_score = modelcard_data.get("completeness_score", 0.0)
-    
-    # API documentation presence
-    api_file = scan_dir / "api-discovery" / "api-inventory.json"
-    api_data = load_json(api_file)
-    api_documented = 0
-    if api_data and "endpoints" in api_data:
-        api_documented = len(api_data["endpoints"])
+        # Check for explicit completeness_score field first
+        modelcard_score = modelcard_data.get("completeness_score")
+        # If not present, calculate from passed/failed counts
+        if modelcard_score is None:
+            passed = modelcard_data.get("passed", 0)
+            failed = modelcard_data.get("failed", 0)
+            total = passed + failed
+            if total > 0:
+                modelcard_score = (passed / total) * 100.0
     
     base_score = 100.0
     
-    # STIG contributes 70% (if ran)
+    # STIG contributes 70% (if ever ran)
     if stig_pass_rate is not None:
         base_score = stig_pass_rate * 0.7
         # Extra penalty for Cat I failures
         if stig_cat1_pass is not None and stig_cat1_pass < 100:
             base_score -= (100 - stig_cat1_pass) * 0.15
     else:
-        base_score -= 30  # Penalty for no STIG assessment
+        base_score -= 30  # Penalty for no STIG assessment ever
     
     # Model card contributes 20% (if applicable)
     if modelcard_score is not None:
@@ -349,9 +542,13 @@ def score_compliance(scan_dir: Path) -> Dict[str, Any]:
         "details": {
             "stig_pass_rate": round(stig_pass_rate, 1) if stig_pass_rate is not None else None,
             "stig_cat1_pass_rate": round(stig_cat1_pass, 1) if stig_cat1_pass is not None else None,
-            "stig_files_assessed": len(stig_files),
+            "stig_files_assessed": stig_files_count,
+            "stig_scans_aggregated": scans_with_stigs,
+            "stig_latest_scan": stig_agg["latest_scan_with_stig"],
             "modelcard_completeness": round(modelcard_score, 1) if modelcard_score else None,
             "api_endpoints_found": api_documented,
+            "api_scans_aggregated": scans_with_apis,
+            "api_latest_scan": api_agg["latest_scan_with_apis"],
         }
     }
 

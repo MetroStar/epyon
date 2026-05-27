@@ -22,7 +22,7 @@ on:
   workflow_call:
     inputs:
       scan_mode:
-        description: 'Scan mode (quick/full/nightly/baseline/stig); nightly=full+Garak+STIG, stig=STIG-only'
+        description: 'Scan mode (quick/full/stig); quick runs Syft+TruffleHog+ClamAV+Trivy+Grype, stig runs Layer 13 only'
         required: false
         default: 'full'
         type: string
@@ -710,7 +710,7 @@ jobs:
           fi
 
       - name: Write Metrics Row
-        if: always() && inputs.write_metrics != false && (inputs.scan_mode == 'nightly' || github.event_name == 'workflow_dispatch')
+        if: always() && inputs.write_metrics != false && (inputs.scan_mode == 'full' || github.event_name == 'workflow_dispatch')
         run: |
           cd epyon
           SCAN_DIR="${{ steps.run-scan.outputs.scan_dir }}"
@@ -776,7 +776,7 @@ jobs:
 
       - name: Upload Metrics Row
         uses: actions/upload-artifact@v5
-        if: always() && inputs.write_metrics != false && (inputs.scan_mode == 'nightly' || github.event_name == 'workflow_dispatch')
+        if: always() && inputs.write_metrics != false && (inputs.scan_mode == 'full' || github.event_name == 'workflow_dispatch')
         with:
           name: metrics-${{ steps.run-scan.outputs.scan_id }}
           path: epyon/${{ steps.run-scan.outputs.scan_dir }}/scan-metrics.json
@@ -1118,7 +1118,7 @@ jobs:
       - name: Create JIRA Tickets for Critical/High Findings
         if: >
           always() &&
-          (inputs.scan_mode == 'full' || inputs.scan_mode == 'nightly') &&
+          (inputs.scan_mode == 'full') &&
           steps.check-severity.outputs.has_issues == 'true' &&
           env.JIRA_BASE_URL != '' &&
           env.JIRA_USER_EMAIL != '' &&
@@ -1156,7 +1156,7 @@ jobs:
       - name: Link Jira Tickets to GitHub Issue
         if: >
           always() &&
-          (inputs.scan_mode == 'full' || inputs.scan_mode == 'nightly') &&
+          (inputs.scan_mode == 'full') &&
           steps.create-github-issue.outputs.issue_number != '' &&
           env.JIRA_BASE_URL != '' &&
           env.JIRA_API_TOKEN != '' &&

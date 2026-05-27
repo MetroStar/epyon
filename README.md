@@ -410,7 +410,7 @@ Epyon automatically creates Jira Cloud tickets for critical and high severity fi
 7. **Select scan mode**:
    - **quick** - Fast scan (~2-5 minutes) ⚡
    - **full** - Complete analysis (~10-20 minutes) 🔍
-   - **baseline** - Compare against previous scans 📊
+  - **stig** - STIG-only assessment (Layer 13) 📋
 8. **Click "Run workflow"** to start
 9. **View results**:
    - Click on the workflow run
@@ -425,7 +425,7 @@ Epyon automatically creates Jira Cloud tickets for critical and high severity fi
 - `pull_request` events run `quick` scans for fast feedback
 - `push` events (including post-merge pushes to protected branches) run `full` scans
 - `schedule` events run `full` scans
-- Manual `workflow_dispatch` runs still let you choose `quick`, `full`, or `baseline`
+- Manual `workflow_dispatch` runs let you choose `quick`, `full`, or `stig`
 
 This gives short PR turnaround with deeper security checks after merge.
 
@@ -433,7 +433,7 @@ This gives short PR turnaround with deeper security checks after merge.
 
 The manual workflows expose Garak configuration fields directly in the Actions UI.
 
-For `scan-private-repo.yml`, `scan-public-repo.yml`, and `baseline-scan.yml`:
+For `scan-private-repo.yml` and `scan-public-repo.yml`:
 
 - `garak_target_type` (dropdown): `openai`, `test`, `huggingface`, `ollama`, `litellm`
 - `garak_target_name` (dropdown): includes `gpt-4o-mini`, `gpt-4.1-mini`, and test presets
@@ -652,7 +652,7 @@ Epyon uses **Docker Hardened Images (DHI)** as the default baseline for containe
 ```
 epyon/
 ├── .github/workflows/          # GitHub Actions workflows
-│   ├── baseline-scan.yml       # DHI baseline scanning (every 89 days)
+│   ├── epyon-scan.yml          # Reusable security scan workflow
 │   ├── target-scan.yml         # Target repository scanning
 │   └── scan-private-repo.yml   # Reusable workflow for any repository
 ├── scripts/shell/              # Shell scripts (Bash-compatible)
@@ -749,10 +749,10 @@ Scan any external application or directory with comprehensive security analysis 
 
 ```bash
 # Unix/Linux/macOS
-# Quick scan (4 core security tools: TruffleHog, ClamAV, Grype, Trivy)
+# Quick scan (5 core security tools: Syft, TruffleHog, ClamAV, Trivy, Grype)
 ./scripts/shell/run-target-security-scan.sh "/path/to/your/project" quick
 
-# Full scan (all 12 layers)
+# Full scan (all layers)
 ./scripts/shell/run-target-security-scan.sh "/path/to/your/project" full
 
 # Scan a Git repository directly
@@ -893,42 +893,11 @@ TARGET_DIR="/path/to/model-repo" ./scripts/shell/run-modelcard-check.sh
 
 ### Baseline Scanning for Scanner Drift Detection
 
-Epyon provides two approaches for baseline security scanning:
+Epyon currently supports local baseline scanning for scanner drift validation.
 
-#### 1. GitHub Actions Baseline Workflow (Recommended for Teams)
+GitHub Actions scan modes are `quick`, `full`, and `stig`.
 
-**Create security baselines with git commit tracking** for comparing security posture over time:
-
-**Setup:**
-```bash
-# Add baseline workflow to your repository
-mkdir -p .github/workflows
-curl -o .github/workflows/baseline-scan.yml \
-  https://raw.githubusercontent.com/MetroStar/epyon/main/.github/workflows/baseline-scan.yml
-
-git add .github/workflows/baseline-scan.yml
-git commit -m "Add Epyon baseline security scanning"
-git push
-```
-
-**Usage:**
-1. Navigate to **Actions** → **Baseline Security Scan** in your repository
-2. Click **Run workflow** (manual trigger only)
-3. Download artifacts containing:
-   - Git commit SHA for tracking
-   - Baseline metadata JSON
-   - Reduced scan reports (SBOM, Secrets, IaC, Trivy, Grype)
-   - Interactive security dashboard
-
-**Baseline Workflow Features:**
-- 🎯 **Git SHA Capture**: Records exact commit for future comparison
-- 📌 **Metadata Tracking**: Creates `baseline-metadata.json` with SHA and timestamp
-- 🔄 **Scan Naming**: Directory named `baseline_{repo}_{sha}_{user}_{timestamp}`
-- 📊 **Reduced Layers**: Runs 5 essential layers (excludes SonarQube, ClamAV, Helm, Xeol, Anchore, API)
-- 💾 **90-Day Retention**: Artifacts stored for long-term baseline comparison
-- 🔒 **Portable**: Works in any repository by checking out MetroStar/epyon
-
-#### 2. Local Baseline Scanning (Recommended for Scanner Validation)
+#### Local Baseline Scanning (Recommended for Scanner Validation)
 
 **For validating scanner consistency and detecting tool drift:**
 

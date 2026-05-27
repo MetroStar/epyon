@@ -190,6 +190,7 @@ def parse_trufflehog_dir(scan_dir: Path) -> list[dict]:
                         f"Line: {fs_data.get('line', '?')}"
                     ),
                     "target": fs_data.get("file") or fs_data.get("path", ""),
+                    "line":   fs_data.get("line", ""),
                     "references": [],
                 })
         except OSError:
@@ -735,7 +736,8 @@ def load_enriched_findings(scan_dir: Path) -> dict | None:
                 "package":           f.get("package_name") or f.get("package") or "",
                 "version":           f.get("package_version") or f.get("version") or "",
                 "fixed_version":     fix_versions[0] if fix_versions else f.get("fixed_version", ""),
-                "target":            f.get("target") or "",
+                "target":            f.get("target") or f.get("file_path") or "",
+                "line":              f.get("line_number") or f.get("line") or "",
                 "references":        f.get("nvd_references") or f.get("references") or [],
                 # Enrichment fields
                 "cisa_kev":          bool(f.get("cisa_kev", False)),

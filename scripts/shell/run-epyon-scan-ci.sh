@@ -25,6 +25,15 @@ set -a
 source /tmp/epyon-env
 set +a
 
+# Enforce supported scan modes to prevent accidental drift/false negatives.
+case "${SCAN_MODE:-full}" in
+  quick|full|stig) ;;
+  *)
+    echo "[WARNING] Unsupported SCAN_MODE='${SCAN_MODE:-}' — defaulting to 'full'"
+    SCAN_MODE="full"
+    ;;
+esac
+
 # Support invocation from workspace root or from inside ./epyon.
 if [[ -d "epyon" && -f "epyon/VERSION" ]]; then
   cd epyon || exit 1
@@ -439,14 +448,14 @@ else
 fi
 
 # Layer 5 — Helm (no deps)
-if _should_run_tool SKIP_HELM; then
+if _should_run_tool SKIP_HELM && [[ "${SCAN_MODE:-full}" != "quick" ]]; then
   _record_start "Layer 5 - Helm"
   chmod +x scripts/shell/run-helm-build.sh
   env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" scripts/shell/run-helm-build.sh \
     > "${PARALLEL_LOG_DIR}/layer-05-helm.log" 2>&1 &
   _set_parallel_pid "Layer 5 - Helm" $!
 else
-  echo "[INFO] Skipping Layer 5 - Helm (SKIP_HELM=true)"
+  [[ "${SKIP_HELM:-false}" == "true" ]] && echo "[INFO] Skipping Layer 5 - Helm (SKIP_HELM=true)" || echo "[INFO] Skipping Layer 5 (quick mode)"
 fi
 
 # Layer 6 — Checkov (no deps)
@@ -474,14 +483,14 @@ else
 fi
 
 # Layer 9 — Xeol (no deps)
-if _should_run_tool SKIP_XEOL; then
+if _should_run_tool SKIP_XEOL && [[ "${SCAN_MODE:-full}" != "quick" ]]; then
   _record_start "Layer 9 - Xeol"
   chmod +x scripts/shell/run-xeol-scan.sh
   env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" scripts/shell/run-xeol-scan.sh \
     > "${PARALLEL_LOG_DIR}/layer-09-xeol.log" 2>&1 &
   _set_parallel_pid "Layer 9 - Xeol" $!
 else
-  echo "[INFO] Skipping Layer 9 - Xeol (SKIP_XEOL=true)"
+  [[ "${SKIP_XEOL:-false}" == "true" ]] && echo "[INFO] Skipping Layer 9 - Xeol (SKIP_XEOL=true)" || echo "[INFO] Skipping Layer 9 (quick mode)"
 fi
 
 # Layer 10 — Anchore (no deps)
@@ -496,18 +505,18 @@ else
 fi
 
 # Layer 11 — API Discovery (no deps)
-if _should_run_tool SKIP_API_DISCOVERY; then
+if _should_run_tool SKIP_API_DISCOVERY && [[ "${SCAN_MODE:-full}" != "quick" ]]; then
   _record_start "Layer 11 - API Discovery"
   chmod +x scripts/shell/run-api-discovery.sh
   env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" scripts/shell/run-api-discovery.sh \
     > "${PARALLEL_LOG_DIR}/layer-11-api-discovery.log" 2>&1 &
   _set_parallel_pid "Layer 11 - API Discovery" $!
 else
-  echo "[INFO] Skipping Layer 11 - API Discovery (SKIP_API_DISCOVERY=true)"
+  [[ "${SKIP_API_DISCOVERY:-false}" == "true" ]] && echo "[INFO] Skipping Layer 11 - API Discovery (SKIP_API_DISCOVERY=true)" || echo "[INFO] Skipping Layer 11 (quick mode)"
 fi
 
 # Layer 16 — Network Discovery (no deps; active scan requires NMAP_TARGET to be set)
-if _should_run_tool SKIP_NETWORK_DISCOVERY; then
+if _should_run_tool SKIP_NETWORK_DISCOVERY && [[ "${SCAN_MODE:-full}" != "quick" ]]; then
   _record_start "Layer 16 - Network Discovery"
   chmod +x scripts/shell/run-network-discovery.sh
   env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" \
@@ -517,7 +526,7 @@ if _should_run_tool SKIP_NETWORK_DISCOVERY; then
     > "${PARALLEL_LOG_DIR}/layer-16-network-discovery.log" 2>&1 &
   _set_parallel_pid "Layer 16 - Network Discovery" $!
 else
-  echo "[INFO] Skipping Layer 16 - Network Discovery (SKIP_NETWORK_DISCOVERY=true)"
+  [[ "${SKIP_NETWORK_DISCOVERY:-false}" == "true" ]] && echo "[INFO] Skipping Layer 16 - Network Discovery (SKIP_NETWORK_DISCOVERY=true)" || echo "[INFO] Skipping Layer 16 (quick mode)"
 fi
 
 echo "[INFO] Phase 1: ${#PARALLEL_LAYER_NAMES[@]} layers launched in parallel"
@@ -546,7 +555,7 @@ else
 fi
 
 # Layer 4 — ClamAV (depends on Layer 3 Sonar completing to remove .scannerwork)
-if _should_run_tool SKIP_CLAMAV && [[ "${SCAN_MODE:-full}" != "quick" ]]; then
+if _should_run_tool SKIP_CLAMAV; then
   # Wait for Sonar to complete first (if it ran)
   if [[ -n "$SONAR_PID" ]]; then
     echo "[INFO] Layer 4 (ClamAV) waiting for Layer 3 (Sonar)..."
@@ -560,7 +569,7 @@ if _should_run_tool SKIP_CLAMAV && [[ "${SCAN_MODE:-full}" != "quick" ]]; then
     > "${PARALLEL_LOG_DIR}/layer-04-clamav.log" 2>&1 &
   _set_parallel_pid "Layer 4 - ClamAV" $!
 else
-  [[ "${SKIP_CLAMAV:-false}" == "true" ]] && echo "[INFO] Skipping Layer 4 - ClamAV (SKIP_CLAMAV=true)" || echo "[INFO] Skipping Layer 4 (quick mode)"
+  echo "[INFO] Skipping Layer 4 - ClamAV (SKIP_CLAMAV=true)"
 fi
 
 # ── Wait for all Phase 1 + Phase 2 layers ────────────────────────────────────
@@ -591,9 +600,8 @@ fi  # end: SCAN_MODE != stig
 run_garak_layer
 
 # Layer 13 — STIG Compliance Assessment
-# Runs in full/baseline/stig modes when SKIP_STIG is not true.
-# Skipped for quick and nightly (nightly uses vuln tools only; STIG runs Sunday via stig mode).
-if [[ "${SCAN_MODE:-full}" != "quick" ]] && [[ "${SCAN_MODE:-full}" != "nightly" ]] && _should_run_tool SKIP_STIG; then
+# Runs only in full/stig modes when SKIP_STIG is not true.
+if [[ "${SCAN_MODE:-full}" == "full" || "${SCAN_MODE:-full}" == "stig" ]] && _should_run_tool SKIP_STIG; then
   run_group "Layer 13 - STIG Compliance Assessment" \
     env \
       OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
@@ -608,10 +616,8 @@ if [[ "${SCAN_MODE:-full}" != "quick" ]] && [[ "${SCAN_MODE:-full}" != "nightly"
     '
 elif [[ "${SKIP_STIG:-false}" == "true" ]]; then
   echo "[INFO] Skipping Layer 13 - STIG (SKIP_STIG=true)"
-elif [[ "${SCAN_MODE:-full}" == "nightly" ]]; then
-  echo "[INFO] Skipping Layer 13 - STIG (scan_mode=nightly; STIG runs on Sunday via stig mode)"
 else
-  echo "[INFO] Skipping Layer 13 - STIG (scan_mode=${SCAN_MODE:-full}; quick mode skips STIG)"
+  echo "[INFO] Skipping Layer 13 - STIG (scan_mode=${SCAN_MODE:-full}; STIG runs only in full or stig mode)"
 fi
 
 run_picklescan_layer

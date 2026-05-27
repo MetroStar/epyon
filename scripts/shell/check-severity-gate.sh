@@ -324,9 +324,12 @@ if [[ -f "$CHECKOV_FILE" ]]; then
     else
         echo -e "${CYAN}📊 Checking Checkov results...${NC}"
         
-        # Filter failed checks by path
+        # Filter failed checks by path and dedupe repeated line-range variants
+        # using check_id + normalized file path as the stable key.
         CHECKOV_FAILED=0
         CHECKOV_TOTAL=0
+        CHECKOV_UNIQUE_FAILED=0
+        CHECKOV_DEDUP_LINES=""
         
         # Use process substitution to avoid subshell
         # Iterate through all check types and their failed checks
@@ -361,16 +364,26 @@ if [[ -f "$CHECKOV_FILE" ]]; then
             # Count if not ignored
             if [[ "$ignored" == "false" ]]; then
                 ((CHECKOV_FAILED++))
+                dedup_key="${check_id}|${clean_file_path}"
+                case "\n${CHECKOV_DEDUP_LINES}\n" in
+                    *"\n${dedup_key}\n"*)
+                        ;;
+                    *)
+                        CHECKOV_DEDUP_LINES+="${dedup_key}"$'\n'
+                        ((CHECKOV_UNIQUE_FAILED++))
+                        ;;
+                esac
             fi
         done < <(jq -c '.[]? | .results.failed_checks[]?' "$CHECKOV_FILE" 2>/dev/null)
         
         echo "  Total checks found: $CHECKOV_TOTAL"
         echo "  Failed checks: $CHECKOV_FAILED"
+        echo "  Unique failed checks (rule+file): $CHECKOV_UNIQUE_FAILED"
         if [[ $CHECKOV_FAILED -gt 0 ]]; then
             # Treat failed IaC checks as High severity
             # Only add to totals when not using dedup summary (Checkov is now included there)
             if [[ ! -f "$FINDINGS_SUMMARY" ]]; then
-                TOTAL_HIGH=$((TOTAL_HIGH + CHECKOV_FAILED))
+                TOTAL_HIGH=$((TOTAL_HIGH + CHECKOV_UNIQUE_FAILED))
             else
                 echo -e "  ${CYAN}ℹ️  Checkov counts from dedup summary; processed for suppression logging only${NC}"
             fi
@@ -588,10 +601,10 @@ if [[ "$FAIL_ON_HIGH" == "true" && "$WARNING_ONLY" != "true" && $TOTAL_HIGH -ge 
         rm -f /tmp/severity-gate-summary.txt
     fi
     
-    if [[ -f "$CHECKOV_FILE" && $CHECKOV_FAILED -gt 0 ]]; then
-        FAILURE_REASONS+=("### Checkov IaC Issues ($CHECKOV_FAILED failed checks)")
+    if [[ -f "$CHECKOV_FILE" && ${CHECKOV_UNIQUE_FAILED:-0} -gt 0 ]]; then
+        FAILURE_REASONS+=("### Checkov IaC Issues (${CHECKOV_UNIQUE_FAILED} unique failed checks)")
         FAILURE_REASONS+=("\`\`\`")
-        jq -r '.[]? | .results.failed_checks[]? | "Check: \(.check_id) | File: \(.file_path):\(.file_line_range[0]) | \(.check_name)"' "$CHECKOV_FILE" 2>/dev/null | head -20 >> /tmp/severity-gate-summary.txt || true
+        jq -r '[.[]? | .results.failed_checks[]? | {check_id, check_name, file_path}] | unique_by(.check_id, .file_path) | .[] | "Check: \(.check_id) | File: \(.file_path) | \(.check_name)"' "$CHECKOV_FILE" 2>/dev/null | head -20 >> /tmp/severity-gate-summary.txt || true
         FAILURE_REASONS+=("$(cat /tmp/severity-gate-summary.txt)")
         FAILURE_REASONS+=("\`\`\`")
         FAILURE_REASONS+=("")
@@ -672,11 +685,11 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
         echo "" >> "$GITHUB_STEP_SUMMARY"
         
         # Show Checkov IaC issues if any
-        if [[ ${CHECKOV_FAILED:-0} -gt 0 ]]; then
-            echo "### Checkov IaC Issues (${CHECKOV_FAILED})" >> "$GITHUB_STEP_SUMMARY"
+        if [[ ${CHECKOV_UNIQUE_FAILED:-0} -gt 0 ]]; then
+            echo "### Checkov IaC Issues (${CHECKOV_UNIQUE_FAILED})" >> "$GITHUB_STEP_SUMMARY"
             CHECKOV_DISPLAY_FILE=$(find "$SCAN_DIR/checkov" -type f \( -name "results_json.json" -o -name "*checkov*results.json" \) 2>/dev/null | head -1)
             if [[ -f "$CHECKOV_DISPLAY_FILE" ]]; then
-                jq -r '.[]? | .results.failed_checks[]? | "- `\(.check_id)`: \(.check_name) in `\(.file_path)`"' "$CHECKOV_DISPLAY_FILE" 2>/dev/null | head -20 >> "$GITHUB_STEP_SUMMARY"
+                jq -r '[.[]? | .results.failed_checks[]? | {check_id, check_name, file_path}] | unique_by(.check_id, .file_path) | .[] | "- `\(.check_id)`: \(.check_name) in `\(.file_path)`"' "$CHECKOV_DISPLAY_FILE" 2>/dev/null | head -20 >> "$GITHUB_STEP_SUMMARY"
             fi
             echo "" >> "$GITHUB_STEP_SUMMARY"
         fi
@@ -687,7 +700,7 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
             NON_CHECKOV_CRIT=$(jq '[.critical_findings[] | select(.tool != "checkov" and .tool != "Checkov")] | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
             VULN_COUNT=$((NON_CHECKOV_CRIT + NON_CHECKOV_HIGH))
         else
-            VULN_COUNT=$((TOTAL_CRITICAL + TOTAL_HIGH - CHECKOV_FAILED))
+            VULN_COUNT=$((TOTAL_CRITICAL + TOTAL_HIGH - CHECKOV_UNIQUE_FAILED))
         fi
         
         # Only show CVE section if there are actual vulnerability findings (not just Checkov)

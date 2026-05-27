@@ -49,6 +49,65 @@
   --radius-lg:      10px;
 }
 
+/* ── Light theme overrides ────────────────────────────────── */
+html[data-theme="light"] {
+  --bg:             #ffffff;
+  --bg-card:        #f6f8fa;
+  --bg-hover:       #eaeef2;
+  --bg-input:       #ffffff;
+  --border:         #d0d7de;
+  --border-muted:   #e6eaef;
+
+  --text:           #1f2328;
+  --text-muted:     #656d76;
+  --text-dim:       #9198a1;
+
+  --accent:         #0969da;
+  --accent-hover:   #0550ae;
+
+  --pass:           #1a7f37;
+  --pass-bg:        rgba(26, 127, 55, 0.1);
+  --critical:       #cf222e;
+  --critical-bg:    rgba(207, 34, 46, 0.1);
+  --high:           #bc4c00;
+  --high-bg:        rgba(188, 76, 0, 0.1);
+  --medium:         #9a6700;
+  --medium-bg:      rgba(154, 103, 0, 0.1);
+  --low:            #0550ae;
+  --low-bg:         rgba(5, 80, 174, 0.1);
+  --clean:          #1a7f37;
+  --clean-bg:       rgba(26, 127, 55, 0.1);
+
+  --stig-open:      #cf222e;
+  --stig-open-bg:   rgba(207, 34, 46, 0.1);
+  --stig-pass:      #1a7f37;
+  --stig-pass-bg:   rgba(26, 127, 55, 0.1);
+  --stig-na:        #656d76;
+  --stig-na-bg:     rgba(101, 109, 118, 0.1);
+}
+
+/* ── Theme toggle button ──────────────────────────────────── */
+#theme-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-dim);
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+#theme-toggle:hover { color: var(--text); }
+#theme-toggle svg { display: block; }
+
+/* ── Smooth theme transition ──────────────────────────────── */
+*, *::before, *::after {
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
 /* ── Base ─────────────────────────────────────────────────── */
 body {
   background: var(--bg);
@@ -213,11 +272,15 @@ body:has(#sidebar:not(.collapsed)) #sidebar-toggle {
 
 /* ── Sidebar footer ───────────────────────────────────────── */
 .sidebar-footer {
-  padding: 14px 16px;
+  padding: 10px 12px 10px 16px;
   border-top: 1px solid var(--border);
   color: var(--text-dim);
   font-size: 11px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 /* ── Page header ──────────────────────────────────────────── */

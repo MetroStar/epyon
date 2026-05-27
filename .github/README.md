@@ -46,7 +46,7 @@ Use Epyon as a centralized security scanning service:
 2. Click **Run workflow**
 3. Enter the Git repository URL
 4. **Optional**: Enter subdirectory path (for monorepos - e.g., `apps/api`)
-5. Select scan mode (quick/full/baseline)
+5. Select scan mode (quick/full/stig)
 6. View results in artifacts
 
 **Subdirectory Scanning (NEW):**
@@ -57,69 +57,20 @@ Use Epyon as a centralized security scanning service:
 
 ## 📋 Workflows
 
-### 1. Baseline Security Scan (`baseline-scan.yml`) - NEW
+### 1. Private Security Scan (`scan-private-repo.yml`)
 
-Manual-only workflow for creating security baselines with git commit tracking.
+Scheduled and manual scanning for private repositories.
 
 **Triggers:**
-- Manual dispatch only (not triggered by push/PR/schedule)
-
-**Setup Instructions:**
-
-Add the baseline workflow to your repository:
-
-```bash
-# In your repository directory
-mkdir -p .github/workflows
-
-# If MetroStar/epyon is public:
-curl -o .github/workflows/baseline-scan.yml \
-  https://raw.githubusercontent.com/MetroStar/epyon/main/.github/workflows/baseline-scan.yml
-
-# If MetroStar/epyon is private, clone and copy:
-git clone https://github.com/MetroStar/epyon.git /tmp/epyon
-cp /tmp/epyon/.github/workflows/baseline-scan.yml .github/workflows/baseline-scan.yml
-rm -rf /tmp/epyon
-
-# Commit and push
-git add .github/workflows/baseline-scan.yml
-git commit -m "Add Epyon baseline security scanning"
-git push
-```
-
-**Important:** After pushing the workflow file, you must:
-1. Navigate to your repository's **Actions** tab on GitHub
-2. The workflow may take a few minutes to appear
-3. Look for "**Baseline Security Scan**" in the workflows list (left sidebar)
-4. If it doesn't appear, check that:
-   - The YAML file is valid (no syntax errors)
-   - The file is in `.github/workflows/` directory
-   - You've pushed the commit to the default branch
-   - Repository Actions are enabled (Settings → Actions → General)
+- Scheduled full scans Monday-Saturday at 2 AM UTC
+- Scheduled STIG scan Sunday at 2 AM UTC
+- Manual dispatch with `quick`, `full`, or `stig`
 
 **Features:**
-- 🎯 **Git SHA Capture**: Records exact commit SHA for future comparison
-- 📌 **Metadata Tracking**: Creates `baseline-metadata.json` with SHA, date, and repo info
-- 🔄 **Smart Naming**: Directory named `baseline_{repo}_{sha}_{user}_{timestamp}`
-- 📊 **Reduced Scan**: Runs 5 essential layers (SBOM, Secrets, IaC, Trivy, Grype)
-- ⚡ **Faster Execution**: Excludes SonarQube, ClamAV, Helm, Xeol, Anchore, API Discovery
-- 💾 **Long-Term Storage**: 90-day artifact retention for baseline comparison
-- 🔒 **Portable**: Works in any repository by checking out MetroStar/epyon
-
-**Usage:**
-1. Go to **Actions** → **Baseline Security Scan**
-2. Click **Run workflow**
-3. Download artifacts containing baseline with git SHA
-4. Use SHA to compare future scans against this baseline
-
-**Artifacts:**
-- `baseline-security-scan` - Complete baseline scan with SHA metadata (90 days)
-
-**Use Cases:**
-- Establish initial security posture for new projects
-- Create snapshots before major releases
-- Track security improvements between versions
-- Compliance audit baselines with commit references
+- Full reusable Epyon workflow integration
+- Optional subdirectory scans for monorepos
+- Artifacts, summaries, and findings reports
+- STIG-only schedule support via `stig` mode
 
 ### 2. Security Scan (`security-scan.yml`)
 
@@ -247,12 +198,10 @@ env:
 - All scanners enabled
 - ~10-20 minutes
 
-**Baseline Mode** (separate workflow: `baseline-scan.yml`)
-- Manual-only workflow with git SHA capture
-- Reduced scan with 5 essential layers
-- Creates baseline for future comparison
-- 90-day artifact retention
-- See "Baseline Security Scan" workflow above
+**STIG Mode** (`stig`)
+- Runs only Layer 13 (STIG Compliance Assessment)
+- Used for focused compliance assessment
+- Also used by weekly scheduled STIG runs
 
 ### Subdirectory Scanning (Monorepo Support)
 

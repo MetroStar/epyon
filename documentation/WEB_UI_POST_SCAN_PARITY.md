@@ -135,7 +135,7 @@ Fields stored in `jira-config.json`:
 - `POST /api/jira/config` -> validates HTTPS URL, writes config
 
 **In `jobs.py`:** After the GitHub Issues step, if `jira_creds` is set and
-`scan_mode in ("full", "nightly")` and findings exist, build the required env vars
+`scan_mode == "full"` and findings exist, build the required env vars
 and call `create-jira-tickets.sh` via `_run_post_step()`.
 
 Required env vars for `create-jira-tickets.sh`:

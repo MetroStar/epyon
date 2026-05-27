@@ -544,6 +544,34 @@ const api = {
   },
 };
 
+// ── Theme ────────────────────────────────────────────────────
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  const moon = document.getElementById('theme-icon-moon');
+  const sun  = document.getElementById('theme-icon-sun');
+  if (moon) moon.style.display = theme === 'dark'  ? '' : 'none';
+  if (sun)  sun.style.display  = theme === 'light' ? '' : 'none';
+  try { localStorage.setItem('epyon-theme', theme); } catch (_) {}
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+}
+
+(function initTheme() {
+  try {
+    const stored = localStorage.getItem('epyon-theme');
+    if (stored === 'light' || stored === 'dark') {
+      applyTheme(stored);
+      return;
+    }
+  } catch (_) {}
+  // Fall back to OS preference
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  applyTheme(prefersDark ? 'dark' : 'light');
+})();
+
 // ── Sidebar collapse ─────────────────────────────────────────
 function toggleSidebar() {
   const sidebar = document.getElementById('sidebar');
@@ -4854,7 +4882,7 @@ window.addEventListener('hashchange', resolve);
 window.addEventListener('load', () => {
   resolve();
   api._get('/api/health').then(h => {
-    const el = document.getElementById('sidebar-footer');
+    const el = document.getElementById('sidebar-version');
     if (el && h.version) el.textContent = 'Epyon v' + h.version;
   }).catch(() => {});
 });
@@ -5118,6 +5146,7 @@ function openFindingDetail(id) {
   const ver     = f.version || '';
   const fixed   = f.fixed_version || '';
   const target  = f.target || '';
+  const line    = f.line ? String(f.line) : '';
   const refs    = f.references || [];
   const cisaKev  = f.cisa_kev === true;
   const cvssScore = f.nvd_cvss_v3_score != null ? f.nvd_cvss_v3_score : null;
@@ -5212,8 +5241,8 @@ function openFindingDetail(id) {
 
       ${target ? `
         <div class="finding-detail-section">
-          <div class="finding-detail-label">Location</div>
-          <div class="finding-detail-value"><code>${esc(target)}</code></div>
+          <div class="finding-detail-label">File Path</div>
+          <div class="finding-detail-value"><code style="word-break:break-all">${esc(target)}</code>${line ? ` <span style="color:var(--text-muted);font-size:11px">line ${esc(line)}</span>` : ''}</div>
         </div>` : ''}
 
       ${descSection}

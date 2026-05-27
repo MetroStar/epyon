@@ -620,8 +620,11 @@ def score_mosa(scan_dir: Path, findings: Dict, metadata: Dict) -> Dict[str, Any]
         sbom_file = scan_dir / "sbom" / "filesystem-cyclonedx.json"
     has_sbom_standard = sbom_file.exists()
     
-    api_discovery_file = scan_dir / "api-discovery" / "openapi-specs.json"
-    has_openapi = api_discovery_file.exists()
+    # Interoperability: Standard APIs, documented interfaces
+    # Use aggregate_api_endpoints to find APIs from all possible locations
+    api_result = aggregate_api_endpoints([scan_dir])
+    api_count = api_result.get("endpoint_count", 0)
+    has_openapi = api_count > 0
     
     # Modularity: Helm charts indicate modular deployment
     helm_file = scan_dir / "helm" / "helm-results.json"
@@ -649,97 +652,6 @@ def score_mosa(scan_dir: Path, findings: Dict, metadata: Dict) -> Dict[str, Any]
                 if not has_oss_license and licenses:  # Has license but not OSS
                     proprietary_count += 1
             open_source_ratio = (total_components - proprietary_count) / total_components
-    
-    # Interoperability: Standard APIs, documented interfaces
-    api_count = 0
-    if has_openapi:
-        api_data = load_json(api_discovery_file)
-        if api_data and "endpoints" in api_data:
-            api_count = len(api_data["endpoints"])
-    
-    # Scoring
-    if not has_sbom_standard:
-        base_score -= 25  # No standard SBOM format
-    
-    if not has_helm:
-        base_score -= 15  # No modular deployment pattern
-    
-    if not dockerfile_present:
-        base_score -= 15  # Not containerized/portable
-    
-    if not has_openapi:
-        base_score -= 10  # No API documentation
-    
-    if open_source_ratio < 0.5:
-        base_score -= 20  # High proprietary dependency
-    elif open_source_ratio < 0.8:
-        base_score -= 10  # Moderate proprietary dependency
-    
-    base_score = max(0, base_score)
-    
-    return {
-        "score": round(base_score, 1),
-        "max": 100,
-        "details": {
-            "has_sbom_standard": has_sbom_standard,
-            "has_helm_chart": has_helm,
-            "has_dockerfile": dockerfile_present,
-            "has_openapi_spec": has_openapi,
-            "api_endpoint_count": api_count,
-            "open_source_ratio": round(open_source_ratio * 100, 1),
-            "proprietary_components": proprietary_count,
-        }
-    }
-
-def score_mosa(scan_dir: Path, findings: Dict, metadata: Dict) -> Dict[str, Any]:
-    """
-    MOSA (Modular Open Systems Approach) dimension (0-100).
-    Evaluates modularity, open standards, interoperability, portability, vendor independence.
-    """
-    base_score = 100.0
-    
-    # Open Standards: SBOM (CycloneDX), OpenAPI specs, container standards
-    sbom_file = scan_dir / "sbom" / "filesystem.cyclonedx.json"
-    if not sbom_file.exists():
-        sbom_file = scan_dir / "sbom" / "filesystem-cyclonedx.json"
-    has_sbom_standard = sbom_file.exists()
-    
-    api_discovery_file = scan_dir / "api-discovery" / "openapi-specs.json"
-    has_openapi = api_discovery_file.exists()
-    
-    # Modularity: Helm charts indicate modular deployment
-    helm_file = scan_dir / "helm" / "helm-results.json"
-    helm_data = load_json(helm_file)
-    has_helm = helm_data is not None and helm_data.get("chart_valid") is True
-    
-    # Portability: Dockerfile/containerization
-    dockerfile_present = (scan_dir / "Dockerfile").exists() or metadata.get("has_dockerfile", False)
-    
-    # Vendor Independence: Open source ratio
-    sbom_data = load_json(sbom_file)
-    open_source_ratio = 0.0
-    proprietary_count = 0
-    if sbom_data and "components" in sbom_data:
-        total_components = len(sbom_data["components"])
-        if total_components > 0:
-            for comp in sbom_data["components"]:
-                licenses = comp.get("licenses", [])
-                # Check if component has recognizable open source license
-                has_oss_license = any(
-                    lic.get("license", {}).get("id", "").lower() in [
-                        "mit", "apache-2.0", "bsd-3-clause", "gpl-3.0", "lgpl-3.0", "isc", "mpl-2.0"
-                    ] for lic in licenses if isinstance(lic, dict)
-                )
-                if not has_oss_license and licenses:  # Has license but not OSS
-                    proprietary_count += 1
-            open_source_ratio = (total_components - proprietary_count) / total_components
-    
-    # Interoperability: Standard APIs, documented interfaces
-    api_count = 0
-    if has_openapi:
-        api_data = load_json(api_discovery_file)
-        if api_data and "endpoints" in api_data:
-            api_count = len(api_data["endpoints"])
     
     # Scoring
     if not has_sbom_standard:

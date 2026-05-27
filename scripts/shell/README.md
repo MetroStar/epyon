@@ -67,6 +67,22 @@ Shell scripts for Linux, macOS, WSL, and Git Bash.
 
 ## 🚀 Usage
 
+### Recommended Entry Point
+Use the main orchestrator for most scans:
+
+```bash
+./run-target-security-scan.sh --target /path/to/project --scan-type full
+```
+
+Canonical options:
+- `--target` / `-t`: target directory or Git URL
+- `--scan-type` / `-m`: `quick|full|images|analysis`
+- `--subdir`: sparse-checkout subdirectory for Git targets
+- `--skip-tools`: comma-separated tools to skip (`sonar,clamav,garak`)
+- `--non-interactive`: disable prompts and use defaults
+- `--baseline-image`: set baseline image explicitly
+- `--list-modes`: print available scan types
+
 ### Basic Usage
 ```bash
 # Make script executable (if needed)
@@ -88,7 +104,9 @@ chmod +x script-name.sh
 
 **Complete Security Scan**
 ```bash
-./run-target-security-scan.sh /path/to/project full
+./run-target-security-scan.sh --target /path/to/project --scan-type full
+./run-target-security-scan.sh --target https://github.com/user/repo.git --scan-type quick --skip-tools sonar,garak
+./run-target-security-scan.sh --target https://github.com/user/repo.git --subdir apps/api --scan-type analysis
 ```
 
 **CI/CD Scan**

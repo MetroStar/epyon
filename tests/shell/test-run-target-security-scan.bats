@@ -223,6 +223,25 @@ _full_block() {
     [ "$status" -eq 0 ]
 }
 
+@test "run-target-security-scan.sh supports canonical --target option" {
+    grep -q '\-t\|\-\-target' "$SCRIPT_PATH"
+}
+
+@test "run-target-security-scan.sh supports canonical --scan-type option" {
+    grep -q '\-m\|\-\-scan-type\|--scan-mode' "$SCRIPT_PATH"
+}
+
+@test "run-target-security-scan.sh supports --skip-tools option" {
+    grep -q '\-\-skip-tools' "$SCRIPT_PATH"
+}
+
+@test "run-target-security-scan.sh supports --list-modes" {
+    run bash "$SCRIPT_PATH" --list-modes
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"quick"* ]]
+    [[ "$output" == *"full"* ]]
+}
+
 @test "run-target-security-scan.sh exits non-zero when no target given" {
     run bash "$SCRIPT_PATH" 2>&1 <<< ""
     [ "$status" -ne 0 ]

@@ -15,6 +15,22 @@
 
 set -euo pipefail
 
+show_help() {
+  cat <<'EOF'
+Usage: run-sonar-analysis.sh [TARGET_DIRECTORY]
+
+Runs Sonar analysis for the target directory (or current directory if omitted).
+
+Options:
+  -h, --help    Show this help text and exit.
+EOF
+}
+
+if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
+  show_help
+  exit 0
+fi
+
 # Timeout for JS coverage commands (seconds). Can be overridden by callers.
 SONAR_JS_TEST_TIMEOUT_SECONDS="${SONAR_JS_TEST_TIMEOUT_SECONDS:-600}"
 

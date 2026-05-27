@@ -16,13 +16,18 @@ TRUFFLEHOG_IMAGE="${TRUFFLEHOG_IMAGE:-}"
 show_help() {
     echo -e "${WHITE}TruffleHog Multi-Target Secret Detection Scanner${NC}"
     echo ""
-    echo "Usage: $0 [OPTIONS]"
+    echo "Usage: $0 [OPTIONS] [TARGET_DIRECTORY] [SCAN_MODE]"
+    echo "       $0 --target <TARGET> --scan-mode <MODE>"
     echo ""
     echo "Comprehensive secret scanning for repositories, containers, and filesystems."
     echo "Detects API keys, passwords, tokens, and other sensitive credentials."
     echo ""
     echo "Options:"
     echo "  -h, --help          Show this help message and exit"
+    echo "  -t, --target PATH   Target directory to scan"
+    echo "  -m, --scan-mode     Scan mode: filesystem|git|images|all"
+    echo "      --scan-type     Alias of --scan-mode"
+    echo "      --list-modes    Print available scan modes and exit"
     echo ""
     echo "Environment Variables:"
     echo "  TARGET_DIR          Directory to scan (default: current directory)"
@@ -35,32 +40,75 @@ show_help() {
     echo "  - trufflehog-git-results.json           Git history secrets"
     echo "  - trufflehog-scan.log                   Scan process log"
     echo ""
-    echo "Detection Types:"
-    echo "  - AWS credentials (access keys, secret keys)"
-    echo "  - GitHub tokens (personal, OAuth, app tokens)"
-    echo "  - Database connection strings"
-    echo "  - Private keys (SSH, PGP, RSA)"
-    echo "  - API keys and secrets (Stripe, Twilio, etc.)"
-    echo "  - OAuth tokens and secrets"
-    echo "  - JWT tokens"
+    echo "Scan Modes:"
+    echo "  filesystem    Scan filesystem only"
+    echo "  git           Scan git history only"
+    echo "  images        Scan container images only"
+    echo "  all           Scan all sources (default)"
     echo ""
     echo "Examples:"
-    echo "  $0                              # Scan current directory"
-    echo "  TARGET_DIR=/path/to/project $0  # Scan specific directory"
+    echo "  $0                                          # Scan current directory"
+    echo "  $0 --target /path/to/project                # Scan specific directory"
+    echo "  $0 --target /path/to/project --scan-mode filesystem"
     echo ""
     echo "Notes:"
-    echo "  - Requires Docker to be installed and running"
-    echo "  - Uses ${TRUFFLEHOG_IMAGE} Docker image"
+    echo "  - Requires Docker (or local trufflehog binary)"
     echo "  - Scans both current files and git history"
     echo "  - Verified secrets are marked with higher confidence"
     exit 0
 }
 
+show_mode_help_th() {
+    printf 'Available scan modes:\n  filesystem\n  git\n  images\n  all\n'
+}
+
+_th_require_value() {
+    if [[ -z "${2:-}" ]] || [[ "${2:-}" == -* ]]; then
+        echo "❌ Error: $1 requires a value"
+        echo "Run with --help for usage examples."
+        exit 1
+    fi
+}
+
 # Parse arguments
-for arg in "$@"; do
-    case $arg in
+TH_SCAN_MODE="all"
+TH_TARGET_ARG=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
         -h|--help)
             show_help
+            ;;
+        --list-modes)
+            show_mode_help_th
+            exit 0
+            ;;
+        -t|--target)
+            _th_require_value "$1" "${2:-}"
+            TH_TARGET_ARG="$2"
+            shift 2
+            ;;
+        -m|--scan-mode|--scan-type)
+            _th_require_value "$1" "${2:-}"
+            TH_SCAN_MODE="$2"
+            shift 2
+            ;;
+        -*)
+            echo "❌ Error: Unknown option: $1"
+            echo "Run with --help for usage examples."
+            exit 1
+            ;;
+        *)
+            # Support legacy positional: mode keyword or target path
+            case "${1,,}" in
+                filesystem|git|images|all)
+                    TH_SCAN_MODE="${1,,}"
+                    ;;
+                *)
+                    [[ -z "$TH_TARGET_ARG" ]] && TH_TARGET_ARG="$1"
+                    ;;
+            esac
+            shift
             ;;
     esac
 done
@@ -102,8 +150,14 @@ fi
 # Initialize scan environment for TruffleHog
 init_scan_environment "trufflehog"
 
-# Set REPO_PATH and extract scan information
-REPO_PATH="${TARGET_DIR:-$(pwd)}"
+# Resolve REPO_PATH: explicit --target > TARGET_DIR env > cwd
+if [[ -n "$TH_TARGET_ARG" ]]; then
+    REPO_PATH="$TH_TARGET_ARG"
+elif [[ -n "${TARGET_DIR:-}" ]]; then
+    REPO_PATH="$TARGET_DIR"
+else
+    REPO_PATH="$(pwd)"
+fi
 REPO_PATH=$(realpath "${REPO_PATH}" 2>/dev/null) || { echo "ERROR: Target path does not exist or is invalid: ${REPO_PATH}" >&2; exit 1; }
 if [[ -n "$SCAN_ID" ]]; then
     TARGET_NAME=$(echo "$SCAN_ID" | cut -d'_' -f1)

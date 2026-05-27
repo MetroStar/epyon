@@ -18,13 +18,15 @@ NC='\033[0m' # No Color
 show_help() {
     echo -e "${WHITE}Xeol End-of-Life Detection Scanner${NC}"
     echo ""
-    echo "Usage: $0 [OPTIONS]"
+    echo "Usage: $0 [OPTIONS] [TARGET_DIRECTORY]"
+    echo "       $0 --target <TARGET_DIRECTORY>"
     echo ""
     echo "Detects End-of-Life (EOL) packages and technologies in your project."
     echo "Identifies software that is no longer maintained or receiving security updates."
     echo ""
     echo "Options:"
     echo "  -h, --help          Show this help message and exit"
+    echo "  -t, --target PATH   Target directory to scan"
     echo ""
     echo "Environment Variables:"
     echo "  TARGET_DIR          Directory to scan (default: current directory)"
@@ -43,8 +45,9 @@ show_help() {
     echo "  - Database EOL status"
     echo ""
     echo "Examples:"
-    echo "  $0                              # Scan current directory"
-    echo "  TARGET_DIR=/path/to/project $0  # Scan specific directory"
+    echo "  $0                                      # Scan current directory"
+    echo "  $0 --target /path/to/project            # Scan specific directory"
+    echo "  TARGET_DIR=/path/to/project $0          # Via environment variable"
     echo ""
     echo "Notes:"
     echo "  - Requires Docker to be installed and running"
@@ -53,11 +56,34 @@ show_help() {
     exit 0
 }
 
-# Parse arguments
-for arg in "$@"; do
-    case $arg in
+_xeol_require_value() {
+    if [[ -z "${2:-}" ]] || [[ "${2:-}" == -* ]]; then
+        echo "❌ Error: $1 requires a value"
+        echo "Run with --help for usage examples."
+        exit 1
+    fi
+}
+
+XEOL_TARGET_ARG=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
         -h|--help)
             show_help
+            ;;
+        -t|--target)
+            _xeol_require_value "$1" "${2:-}"
+            XEOL_TARGET_ARG="$2"
+            shift 2
+            ;;
+        -*)
+            echo "❌ Error: Unknown option: $1"
+            echo "Run with --help for usage examples."
+            exit 1
+            ;;
+        *)
+            [[ -z "$XEOL_TARGET_ARG" ]] && XEOL_TARGET_ARG="$1"
+            shift
             ;;
     esac
 done
@@ -88,8 +114,15 @@ fi
 # Initialize scan environment for Xeol
 init_scan_environment "xeol"
 
-# Set REPO_PATH and extract scan information
-REPO_PATH="${TARGET_DIR:-$(pwd)}"
+# Resolve REPO_PATH: explicit --target > TARGET_DIR env > cwd
+if [[ -n "$XEOL_TARGET_ARG" ]]; then
+    REPO_PATH="$XEOL_TARGET_ARG"
+elif [[ -n "${TARGET_DIR:-}" ]]; then
+    REPO_PATH="$TARGET_DIR"
+else
+    REPO_PATH="$(pwd)"
+fi
+REPO_PATH=$(realpath "${REPO_PATH}" 2>/dev/null) || { echo "ERROR: Target path does not exist or is invalid: ${REPO_PATH}" >&2; exit 1; }
 if [[ -n "$SCAN_ID" ]]; then
     TARGET_NAME=$(echo "$SCAN_ID" | cut -d'_' -f1)
     USERNAME=$(echo "$SCAN_ID" | cut -d'_' -f2)

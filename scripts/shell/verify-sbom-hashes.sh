@@ -12,6 +12,25 @@
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
+show_help() {
+  cat <<'EOF'
+Usage: verify-sbom-hashes.sh [--help]
+
+Cross-references CycloneDX SBOM package hashes with PyPI published digests.
+
+Environment:
+  SCAN_DIR   Required. Absolute path to scan output directory.
+
+Options:
+  -h, --help    Show this help text and exit.
+EOF
+}
+
+if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
+  show_help
+  exit 0
+fi
+
 SCAN_DIR="${SCAN_DIR:?SCAN_DIR must be set}"
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'

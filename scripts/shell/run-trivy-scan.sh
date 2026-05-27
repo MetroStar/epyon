@@ -19,15 +19,19 @@ show_help() {
     echo -e "${WHITE}Trivy Security Scanner${NC}"
     echo ""
     echo "Usage: $0 [OPTIONS] [TARGET_DIRECTORY]"
+    echo "       $0 --target <TARGET_DIRECTORY> --scan-mode <MODE>"
     echo ""
-    echo "Performs comprehensive vulnerability scanning using Trivy."
-    echo "Scans containers, filesystems, and base images for security vulnerabilities."
+    echo "Performs vulnerability scanning with Trivy against filesystem and/or images."
     echo ""
     echo "Arguments:"
     echo "  TARGET_DIRECTORY    Path to directory to scan (default: current directory)"
     echo ""
     echo "Options:"
     echo "  -h, --help          Show this help message and exit"
+    echo "  -t, --target PATH   Target directory to scan"
+    echo "  -m, --scan-mode     Scan mode: filesystem|images|base|registry|kubernetes|all"
+    echo "      --scan-type     Alias of --scan-mode"
+    echo "      --list-modes    Print available scan modes and exit"
     echo ""
     echo "Environment Variables:"
     echo "  TARGET_DIR          Alternative way to specify target directory"
@@ -40,30 +44,106 @@ show_help() {
     echo "  - trivy-base-*.json               Base image scans (if images found)"
     echo ""
     echo "Examples:"
-    echo "  $0                              # Scan current directory"
-    echo "  $0 /path/to/project             # Scan specific directory"
-    echo "  TARGET_DIR=/app $0              # Scan via environment variable"
+    echo "  $0                                     # Scan current directory (all modes)"
+    echo "  $0 /path/to/project                    # Scan target path"
+    echo "  $0 /path/to/project filesystem         # Filesystem only"
+    echo "  $0 images                              # Image-only scan using current directory context"
+    echo "  $0 --target /app --scan-mode base      # Base image scanning only"
     echo ""
     echo "Notes:"
-    echo "  - Requires Docker to be installed and running"
+    echo "  - Requires Docker (or compatible runtime) unless local Trivy handles mode"
     echo "  - Automatically skips node_modules directories"
-    echo "  - Uses dhi/trivy:latest (Docker Hardened Image) with aquasec/trivy:latest as fallback"
+    echo "  - Uses dhi/trivy:latest with official fallback if needed"
     exit 0
 }
 
+show_mode_help() {
+    cat <<'EOF'
+Available scan modes:
+  filesystem
+  images
+  base
+  registry
+  kubernetes
+  all
+EOF
+}
+
+require_option_value() {
+    local opt_name="$1"
+    local opt_value="$2"
+    if [[ -z "$opt_value" ]] || [[ "$opt_value" == -* ]]; then
+        echo -e "${RED}❌ Error: ${opt_name} requires a value${NC}"
+        echo -e "${YELLOW}Run with --help for usage examples.${NC}"
+        exit 1
+    fi
+}
+
 # Parse arguments
-SCAN_MODE=""
-for arg in "$@"; do
-    case $arg in
+SCAN_MODE="all"
+TARGET_ARG=""
+POSITIONAL_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
         -h|--help)
             show_help
             ;;
-        filesystem|images|base|registry|kubernetes|all)
-            # This is a scan mode, not a path
-            SCAN_MODE="$arg"
+        --list-modes)
+            show_mode_help
+            exit 0
+            ;;
+        -t|--target)
+            require_option_value "$1" "${2:-}"
+            TARGET_ARG="$2"
+            shift 2
+            ;;
+        -m|--scan-mode|--scan-type)
+            require_option_value "$1" "${2:-}"
+            SCAN_MODE="$2"
+            shift 2
+            ;;
+        -*)
+            echo -e "${RED}❌ Error: Unknown option: $1${NC}"
+            echo -e "${YELLOW}Run with --help for usage examples.${NC}"
+            exit 1
+            ;;
+        *)
+            POSITIONAL_ARGS+=("$1")
+            shift
             ;;
     esac
 done
+
+# Parse positional args with compatibility for either order:
+#   run-trivy-scan.sh <target> <mode>
+#   run-trivy-scan.sh <mode> <target>
+for positional in "${POSITIONAL_ARGS[@]}"; do
+    case "${positional,,}" in
+        filesystem|images|base|registry|kubernetes|all)
+            SCAN_MODE="${positional,,}"
+            ;;
+        *)
+            if [[ -z "$TARGET_ARG" ]]; then
+                TARGET_ARG="$positional"
+            else
+                echo -e "${RED}❌ Error: Unexpected extra argument: $positional${NC}"
+                echo -e "${YELLOW}Run with --help for usage examples.${NC}"
+                exit 1
+            fi
+            ;;
+    esac
+done
+
+SCAN_MODE="${SCAN_MODE,,}"
+case "$SCAN_MODE" in
+    filesystem|images|base|registry|kubernetes|all) ;;
+    *)
+        echo -e "${RED}❌ Error: Invalid scan mode: $SCAN_MODE${NC}"
+        show_mode_help
+        exit 1
+        ;;
+esac
 
 # Initialize scan environment using scan directory approach
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -110,11 +190,15 @@ fi
 # Initialize scan environment for Trivy
 init_scan_environment "trivy"
 
-# Set REPO_PATH - use TARGET_DIR from environment (preferred) or check if $1 is a valid directory
-if [ -n "$TARGET_DIR" ] && [ -d "$TARGET_DIR" ]; then
+# Set REPO_PATH - use explicit target option, then TARGET_DIR environment, then current directory.
+if [ -n "$TARGET_ARG" ] && [ -d "$TARGET_ARG" ]; then
+    REPO_PATH="$TARGET_ARG"
+elif [ -n "$TARGET_DIR" ] && [ -d "$TARGET_DIR" ]; then
     REPO_PATH="$TARGET_DIR"
-elif [ -n "$1" ] && [ -d "$1" ]; then
-    REPO_PATH="$1"
+elif [ -n "$TARGET_ARG" ] && [ ! -d "$TARGET_ARG" ]; then
+    echo -e "${RED}❌ Error: Target path does not exist: $TARGET_ARG${NC}" >&2
+    echo -e "${YELLOW}Run with --help for usage examples.${NC}" >&2
+    exit 1
 else
     REPO_PATH="$(pwd)"
 fi
@@ -124,6 +208,7 @@ echo
 echo -e "${WHITE}============================================${NC}"
 echo -e "${WHITE}Trivy Multi-Target Security Scanner${NC}"
 echo -e "${WHITE}============================================${NC}"
+echo -e "${CYAN}Mode: $SCAN_MODE${NC}"
 echo
 
 # Display file count for transparency

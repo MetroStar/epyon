@@ -3,6 +3,23 @@
 # SonarQube Configuration Checker
 # Displays your current SonarQube configuration with masked credentials
 
+show_help() {
+  cat <<'EOF'
+Usage: check-sonar-config.sh [--help]
+
+Displays SonarQube/SonarCloud configuration from .env.sonar files and
+shows which scanner binary will be used.
+
+Options:
+  -h, --help    Show this help text and exit.
+EOF
+}
+
+if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
+  show_help
+  exit 0
+fi
+
 echo "============================================"
 echo "🔍 SonarQube Configuration Checker"
 echo "============================================"

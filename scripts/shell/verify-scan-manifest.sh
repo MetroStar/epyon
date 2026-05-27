@@ -25,6 +25,7 @@ fi
 
 # Usage
 show_usage() {
+    local exit_code="${1:-1}"
     echo "Usage: $0 <scan_directory>"
     echo ""
     echo "Arguments:"
@@ -32,8 +33,12 @@ show_usage() {
     echo ""
     echo "Example:"
     echo "  $0 /path/to/scans/app_user_2026-02-06"
-    exit 1
+    exit "$exit_code"
 }
+
+if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
+    show_usage 0
+fi
 
 # Validate arguments
 if [[ $# -lt 1 ]]; then

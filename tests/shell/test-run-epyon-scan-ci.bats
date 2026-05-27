@@ -14,22 +14,22 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-epyon-scan-ci.sh"
     head -n 1 "$SCRIPT_PATH" | grep -qE "^#!/(bin/bash|usr/bin/env bash)"
 }
 
-@test "run-epyon-scan-ci.sh requires /tmp/epyon-env" {
-    grep -q "epyon-env" "$SCRIPT_PATH"
+@test "run-epyon-scan-ci.sh documents env file support" {
+    grep -q "env-file\|epyon-env" "$SCRIPT_PATH"
 }
 
-@test "run-epyon-scan-ci.sh exits with error when epyon-env is missing" {
-    # Should error before even sourcing epyon-env
-    run bash -c "
-        # Temporarily remove epyon-env if it exists
-        _orig_env=\$(cat /tmp/epyon-env 2>/dev/null || true)
-        rm -f /tmp/epyon-env
-        '$SCRIPT_PATH' 2>&1
-        rc=\$?
-        [ -n \"\$_orig_env\" ] && echo \"\$_orig_env\" > /tmp/epyon-env
-        exit \$rc
-    "
+@test "run-epyon-scan-ci.sh exits with actionable error when runtime vars are missing" {
+    run env -u SCAN_DIR -u TARGET_DIR bash "$SCRIPT_PATH" --env-file /tmp/definitely-missing-epyon-env
     [ "$status" -ne 0 ]
+    [[ "$output" == *"Missing required runtime variables"* ]]
+    [[ "$output" == *"Run with --help"* ]] || [[ "$output" == *"Example env file template"* ]]
+}
+
+@test "run-epyon-scan-ci.sh supports --list-modes" {
+    run bash "$SCRIPT_PATH" --list-modes
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"quick"* ]]
+    [[ "$output" == *"full"* ]]
 }
 
 @test "run-epyon-scan-ci.sh defines run_group function" {

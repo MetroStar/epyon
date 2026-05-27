@@ -53,6 +53,19 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-grype-scan.sh"
     grep -q "filesystem" "$SCRIPT_PATH"
 }
 
-@test "run-grype-scan.sh supports images scan mode" {
-    grep -q "images" "$SCRIPT_PATH"
+@test "run-grype-scan.sh supports --list-modes" {
+    run bash "$SCRIPT_PATH" --list-modes
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "filesystem" ]]
+}
+
+@test "run-grype-scan.sh supports canonical --target and --scan-mode options" {
+    grep -q -- "--target" "$SCRIPT_PATH"
+    grep -q -- "--scan-mode" "$SCRIPT_PATH"
+}
+
+@test "run-grype-scan.sh unknown option gives actionable hint" {
+    run bash "$SCRIPT_PATH" --invalid-flag-xyz
+    [ "$status" -ne 0 ]
+    [[ "$output" =~ "help" ]] || [[ "$output" =~ "Usage" ]]
 }

@@ -677,7 +677,7 @@ epyon/
 │   ├── export-sbom.sh
 │   ├── check-severity-gate.sh
 │   ├── update-base-images.sh
-│   └── cleanup-scripts.sh
+│   └── ... (47 scripts total)
 ├── tests/shell/                # Test suite (BATS)
 │   ├── test-run-*.bats         # Scanner tests (11 files)
 │   ├── test-generate-*.bats    # Dashboard/report tests (4 files)

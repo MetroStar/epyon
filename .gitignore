@@ -18,6 +18,9 @@ garak.log
 # Scan results (exclude all regular scans in root scans/ directory only)
 /scans/
 
+# Archive directory (cleanup archives, too large for git)
+_archive/
+
 # Baseline directory structure - include scans and reference file
 !baseline/                    # Include baseline directory
 baseline/*                    # But exclude everything in it by default

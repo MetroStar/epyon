@@ -702,10 +702,35 @@ def is_stig_applicable(stig_filename: str, stig_name: str, tech_stack: dict[str,
         if "spring" in tech_stack["frameworks"]:
             return (True, f"Spring framework detected: {tech_stack['frameworks']}")
         return (False, f"Spring STIG not applicable - frameworks detected: {tech_stack['frameworks'] or 'none'}")
-    
-    # Default: If we don't recognize the STIG type, err on the side of running it
-    # (with a warning) to avoid missing applicable controls
-    return (True, f"STIG type not recognized - running by default to avoid missing applicable controls")
+
+    # Kubernetes / container STIGs
+    if "kubernetes" in filename_lower or "k8s" in filename_lower or "kubernetes" in stig_name_lower:
+        if "kubernetes" in tech_stack.get("infrastructure", []) or any(
+            f in (" ".join(tech_stack.get("frameworks", [])) + " ".join(tech_stack.get("languages", []))).lower()
+            for f in ("kubernetes", "k8s", "helm")
+        ):
+            return (True, f"Kubernetes/container tech detected")
+        return (False, f"Kubernetes STIG not applicable - no Kubernetes/container tech detected")
+
+    if "nginx" in filename_lower or "nginx" in stig_name_lower:
+        if "nginx" in tech_stack.get("app_servers", []):
+            return (True, f"Nginx detected: {tech_stack['app_servers']}")
+        return (False, f"Nginx STIG not applicable - app servers detected: {tech_stack.get('app_servers') or 'none'}")
+
+    if "redis" in filename_lower or "redis" in stig_name_lower:
+        if "redis" in tech_stack.get("databases", []):
+            return (True, f"Redis detected: {tech_stack['databases']}")
+        return (False, f"Redis STIG not applicable - databases detected: {tech_stack.get('databases') or 'none'}")
+
+    if "node" in filename_lower and ("stig" in filename_lower or "srg" in filename_lower):
+        if "nodejs" in tech_stack.get("languages", []) or "javascript" in tech_stack.get("languages", []):
+            return (True, f"Node.js detected: {tech_stack.get('languages')}")
+        return (False, f"Node.js STIG not applicable - languages detected: {tech_stack.get('languages') or 'none'}")
+
+    # Default: unrecognized STIG type — do NOT run by default.
+    # Only the ASD STIG and explicitly matched STIGs should run automatically.
+    return (False, f"STIG type not recognized — skipping to avoid scanning against non-applicable controls. "
+                   f"To force-include, set STIGS_FILE to target this STIG directly.")
 
 
 def build_code_context(
@@ -762,7 +787,8 @@ A STIG IS applicable when the application uses, embeds, or depends on the \
 technology the STIG governs, or when the application's purpose or stack is \
 general enough that the STIG could reasonably apply.
 
-When in doubt, return applicable=true.
+When in doubt, return applicable=false. Only return applicable=true when the \
+STIG technology is clearly present in or directly relevant to this application.
 
 Reply ONLY with valid JSON — no markdown, no explanation:
 {"applicable": true, "reason": "one sentence"}"""
@@ -814,7 +840,7 @@ def check_stig_applicability(
         reason     = str(parsed.get("reason", "")).strip()
         return applicable, reason, prompt_tokens, completion_tokens
     except Exception as exc:  # pylint: disable=broad-except
-        return True, f"Applicability check failed ({exc}) — proceeding with full assessment", 0, 0
+        return False, f"Applicability check failed ({exc}) — skipping STIG to avoid scanning non-applicable controls", 0, 0
 
 
 # ---------------------------------------------------------------------------

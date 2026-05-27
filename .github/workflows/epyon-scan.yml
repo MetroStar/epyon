@@ -531,14 +531,18 @@ jobs:
           echo "🚀 Initialized scan: $SCAN_NAME"
 
       - name: Free Disk Space (pre-scan)
-        if: always()
+        # quick mode skips Garak (the memory-intensive step that needs this space).
+        # Also: avoid pruning pulled tool images — use dangling-only (-f not -af)
+        # so scanners don't have to re-pull their images during the run.
+        if: inputs.scan_mode != 'quick'
         run: |
           # Prune Docker resources that are no longer needed after image pull.
           # This typically recovers 8-15 GB on ubuntu-latest before Layer 12
           # (Garak) attempts to install torch + transformers (~2 GB unpacked).
           echo "Disk before cleanup:"
           df -h / | tail -1
-          docker image prune -af  2>/dev/null || true
+          # Use -f (dangling only), NOT -af, so the tool images pulled above are kept.
+          docker image prune -f   2>/dev/null || true
           docker container prune -f 2>/dev/null || true
           docker volume prune -f  2>/dev/null || true
           docker builder prune -af 2>/dev/null || true

@@ -117,42 +117,35 @@ def find_all_app_scans(scan_dir: Path, app_name: str) -> List[Path]:
     return all_scans if all_scans else [scan_dir]
 
 
-def aggregate_stig_results(scan_dirs: List[Path]) -> Dict[str, Any]:
-    """Aggregate STIG results across multiple scan directories.
+def get_latest_stig_results(scan_dirs: List[Path]) -> Dict[str, Any]:
+    """Get STIG results from the most recent scan with STIG data.
     
-    Looks through all provided scan directories (newest to oldest) to find STIG results.
-    Uses the most recent STIG data available, not just from the current scan.
+    Finds the most recent scan directory (newest to oldest) that has STIG results
+    and returns metrics from that scan only.
     
     Args:
         scan_dirs: List of scan directory paths, sorted newest to oldest
     
     Returns:
-        Dict with aggregated STIG metrics:
+        Dict with STIG metrics from the latest scan:
         - pass_rate: Overall pass rate across all controls
         - cat1_pass_rate: Category I (high severity) pass rate
         - files_assessed: Number of STIG files found
-        - scans_with_stigs: Number of scans that had STIG results
-        - latest_scan_with_stig: Name of most recent scan with STIG data
+        - latest_scan_with_stig: Name of scan with STIG data
     """
-    total_pass = 0
-    total_applicable = 0
-    cat1_pass = 0
-    cat1_applicable = 0
-    scans_with_stigs = 0
-    latest_scan_with_stig = None
-    all_stig_files = []
-    
+    # Find the first (most recent) scan with STIG files
     for scan_dir in scan_dirs:
         stig_files = list(scan_dir.glob("stig-results-*.json"))
         if not stig_files:
             continue
         
-        scans_with_stigs += 1
-        if latest_scan_with_stig is None:
-            latest_scan_with_stig = scan_dir.name
+        # Found the most recent scan with STIG data - process only this scan
+        total_pass = 0
+        total_applicable = 0
+        cat1_pass = 0
+        cat1_applicable = 0
         
         for stig_file in stig_files:
-            all_stig_files.append(stig_file)
             stig_data = load_json(stig_file)
             if not stig_data:
                 continue
@@ -200,21 +193,29 @@ def aggregate_stig_results(scan_dirs: List[Path]) -> Dict[str, Any]:
                         cat1_applicable += 1
                         if status == "Not a Finding":
                             cat1_pass += 1
+        
+        # Return results from this scan only
+        result = {
+            "pass_rate": None,
+            "cat1_pass_rate": None,
+            "files_assessed": len(stig_files),
+            "latest_scan_with_stig": scan_dir.name,
+        }
+        
+        if total_applicable > 0:
+            result["pass_rate"] = (total_pass / total_applicable) * 100.0
+        if cat1_applicable > 0:
+            result["cat1_pass_rate"] = (cat1_pass / cat1_applicable) * 100.0
+        
+        return result
     
-    result = {
+    # No STIG data found in any scan
+    return {
         "pass_rate": None,
         "cat1_pass_rate": None,
-        "files_assessed": len(all_stig_files),
-        "scans_with_stigs": scans_with_stigs,
-        "latest_scan_with_stig": latest_scan_with_stig,
+        "files_assessed": 0,
+        "latest_scan_with_stig": None,
     }
-    
-    if total_applicable > 0:
-        result["pass_rate"] = (total_pass / total_applicable) * 100.0
-    if cat1_applicable > 0:
-        result["cat1_pass_rate"] = (cat1_pass / cat1_applicable) * 100.0
-    
-    return result
 
 
 def aggregate_api_endpoints(scan_dirs: List[Path]) -> Dict[str, Any]:
@@ -481,19 +482,19 @@ def score_compliance(scan_dir: Path) -> Dict[str, Any]:
     Compliance & Documentation dimension (0-100).
     STIG compliance % + model card completeness + API documentation.
     
-    STIG and API data are aggregated across ALL historical scans for this app,
-    not just the current scan, since these layers aren't run every time.
+    STIG data is taken from the most recent scan with STIG results.
+    API data is aggregated across ALL historical scans since API discovery
+    may not run every time.
     """
     # Get app name and find all historical scans
     app_name = get_app_name_from_scan_dir(scan_dir)
     all_scans = find_all_app_scans(scan_dir, app_name)
     
-    # Aggregate STIG results across all scans
-    stig_agg = aggregate_stig_results(all_scans)
+    # Get STIG results from latest scan only
+    stig_agg = get_latest_stig_results(all_scans)
     stig_pass_rate = stig_agg["pass_rate"]
     stig_cat1_pass = stig_agg["cat1_pass_rate"]
     stig_files_count = stig_agg["files_assessed"]
-    scans_with_stigs = stig_agg["scans_with_stigs"]
     
     # Aggregate API endpoints across all scans
     api_agg = aggregate_api_endpoints(all_scans)
@@ -543,7 +544,6 @@ def score_compliance(scan_dir: Path) -> Dict[str, Any]:
             "stig_pass_rate": round(stig_pass_rate, 1) if stig_pass_rate is not None else None,
             "stig_cat1_pass_rate": round(stig_cat1_pass, 1) if stig_cat1_pass is not None else None,
             "stig_files_assessed": stig_files_count,
-            "stig_scans_aggregated": scans_with_stigs,
             "stig_latest_scan": stig_agg["latest_scan_with_stig"],
             "modelcard_completeness": round(modelcard_score, 1) if modelcard_score else None,
             "api_endpoints_found": api_documented,

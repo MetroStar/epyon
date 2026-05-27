@@ -11,17 +11,18 @@ NC='\033[0m'
 show_help() {
     echo -e "${WHITE}Grype Multi-Target Vulnerability Scanner${NC}"
     echo ""
-    echo "Usage: $0 [OPTIONS] [TARGET_DIRECTORY|SCAN_MODE]"
+    echo "Usage: $0 [OPTIONS] [TARGET_DIRECTORY] [SCAN_MODE]"
+    echo "       $0 --target <TARGET> --scan-mode <MODE>"
     echo ""
     echo "Comprehensive vulnerability detection for containers, filesystems, and SBOMs"
     echo "using Anchore's Grype scanner."
     echo ""
-    echo "Arguments:"
-    echo "  TARGET_DIRECTORY    Path to directory to scan (default: current directory)"
-    echo "  SCAN_MODE           Scan mode: filesystem, images, base, or all (default: all)"
-    echo ""
     echo "Options:"
     echo "  -h, --help          Show this help message and exit"
+    echo "  -t, --target PATH   Target directory to scan"
+    echo "  -m, --scan-mode     Scan mode: filesystem|sbom|images|base|all"
+    echo "      --scan-type     Alias of --scan-mode"
+    echo "      --list-modes    Print available scan modes and exit"
     echo ""
     echo "Environment Variables:"
     echo "  TARGET_DIR          Alternative way to specify target directory"
@@ -36,15 +37,16 @@ show_help() {
     echo ""
     echo "Scan Modes:"
     echo "  filesystem    Scan only the filesystem/directory"
-    echo "  images        Scan container images from docker-compose"
+    echo "  sbom          Scan using SBOM file"
+    echo "  images        Scan container images"
     echo "  base          Scan base images only"
     echo "  all           Scan everything (default)"
     echo ""
     echo "Examples:"
-    echo "  $0                              # Scan current directory (all modes)"
-    echo "  $0 /path/to/project             # Scan specific directory"
-    echo "  $0 filesystem                   # Filesystem scan only"
-    echo "  TARGET_DIR=/app $0 images       # Scan container images"
+    echo "  $0                                          # Scan current directory (all modes)"
+    echo "  $0 /path/to/project                         # Scan specific directory"
+    echo "  $0 --target /path/to/project --scan-mode sbom"
+    echo "  $0 --target /path/to/project --scan-mode filesystem"
     echo ""
     echo "Notes:"
     echo "  - Requires Docker to be installed and running"
@@ -53,14 +55,69 @@ show_help() {
     exit 0
 }
 
+show_mode_help() {
+    printf 'Available scan modes:\n  filesystem\n  sbom\n  images\n  base\n  all\n'
+}
+
+_grype_require_value() {
+    if [[ -z "${2:-}" ]] || [[ "${2:-}" == -* ]]; then
+        echo "${RED}❌ Error: $1 requires a value${NC}"
+        echo "${YELLOW}Run with --help for usage examples.${NC}"
+        exit 1
+    fi
+}
+
 # Parse arguments
-for arg in "$@"; do
-    case $arg in
+SCAN_MODE="all"
+TARGET_ARG=""
+POSITIONAL_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
         -h|--help)
             show_help
             ;;
+        --list-modes)
+            show_mode_help
+            exit 0
+            ;;
+        -t|--target)
+            _grype_require_value "$1" "${2:-}"
+            TARGET_ARG="$2"
+            shift 2
+            ;;
+        -m|--scan-mode|--scan-type)
+            _grype_require_value "$1" "${2:-}"
+            SCAN_MODE="$2"
+            shift 2
+            ;;
+        -*)
+            echo -e "${WHITE}❌ Error: Unknown option: $1${NC}"
+            echo "Run with --help for usage examples."
+            exit 1
+            ;;
+        *)
+            POSITIONAL_ARGS+=("$1")
+            shift
+            ;;
     esac
 done
+
+for _pos in "${POSITIONAL_ARGS[@]:-}"; do
+    case "${_pos,,}" in
+        filesystem|sbom|images|base|all)
+            SCAN_MODE="${_pos,,}"
+            ;;
+        "")
+            ;;
+        *)
+            if [[ -z "$TARGET_ARG" ]]; then
+                TARGET_ARG="$_pos"
+            fi
+            ;;
+    esac
+done
+unset _pos
 
 # Initialize scan environment using scan directory approach
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -88,14 +145,13 @@ fi
 # Initialize scan environment for Grype
 init_scan_environment "grype"
 
-# Set REPO_PATH and extract scan information
-REPO_PATH="${1:-${TARGET_DIR:-$(pwd)}}"
-# Handle special scan type keywords
-if [[ "$REPO_PATH" == "filesystem" ]] || [[ "$REPO_PATH" == "images" ]] || [[ "$REPO_PATH" == "base" ]] || [[ "$REPO_PATH" == "sbom" ]]; then
-    SCAN_MODE="$REPO_PATH"
-    REPO_PATH="${TARGET_DIR:-$(pwd)}"
+# Resolve REPO_PATH: explicit --target > TARGET_DIR env > cwd
+if [[ -n "$TARGET_ARG" ]]; then
+    REPO_PATH="$TARGET_ARG"
+elif [[ -n "${TARGET_DIR:-}" ]]; then
+    REPO_PATH="$TARGET_DIR"
 else
-    SCAN_MODE="all"
+    REPO_PATH="$(pwd)"
 fi
 REPO_PATH=$(realpath "${REPO_PATH}" 2>/dev/null) || { echo "ERROR: Target path does not exist or is invalid: ${REPO_PATH}" >&2; exit 1; }
 if [[ -n "$SCAN_ID" ]]; then

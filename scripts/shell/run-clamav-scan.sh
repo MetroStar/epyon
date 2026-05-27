@@ -11,13 +11,15 @@ NC='\033[0m'
 show_help() {
     echo -e "${WHITE}ClamAV Multi-Target Malware Scanner${NC}"
     echo ""
-    echo "Usage: $0 [OPTIONS]"
+    echo "Usage: $0 [OPTIONS] [TARGET_DIRECTORY]"
+    echo "       $0 --target <TARGET_DIRECTORY>"
     echo ""
     echo "Comprehensive malware detection for repositories, containers, and filesystems"
     echo "using the ClamAV antivirus engine."
     echo ""
     echo "Options:"
     echo "  -h, --help          Show this help message and exit"
+    echo "  -t, --target PATH   Target directory to scan"
     echo ""
     echo "Environment Variables:"
     echo "  TARGET_DIR          Directory to scan (default: current directory)"
@@ -37,8 +39,9 @@ show_help() {
     echo "  - Suspicious file patterns"
     echo ""
     echo "Examples:"
-    echo "  $0                              # Scan current directory"
-    echo "  TARGET_DIR=/path/to/project $0  # Scan specific directory"
+    echo "  $0                                      # Scan current directory"
+    echo "  $0 --target /path/to/project            # Scan specific directory"
+    echo "  TARGET_DIR=/path/to/project $0          # Via environment variable"
     echo ""
     echo "Notes:"
     echo "  - Requires Docker to be installed and running"
@@ -48,11 +51,34 @@ show_help() {
     exit 0
 }
 
-# Parse arguments
-for arg in "$@"; do
-    case $arg in
+_clamav_require_value() {
+    if [[ -z "${2:-}" ]] || [[ "${2:-}" == -* ]]; then
+        echo "❌ Error: $1 requires a value"
+        echo "Run with --help for usage examples."
+        exit 1
+    fi
+}
+
+CLAMAV_TARGET_ARG=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
         -h|--help)
             show_help
+            ;;
+        -t|--target)
+            _clamav_require_value "$1" "${2:-}"
+            CLAMAV_TARGET_ARG="$2"
+            shift 2
+            ;;
+        -*)
+            echo "❌ Error: Unknown option: $1"
+            echo "Run with --help for usage examples."
+            exit 1
+            ;;
+        *)
+            [[ -z "$CLAMAV_TARGET_ARG" ]] && CLAMAV_TARGET_ARG="$1"
+            shift
             ;;
     esac
 done
@@ -77,8 +103,12 @@ fi
 # Initialize scan environment for ClamAV
 init_scan_environment "clamav"
 
-# Set TARGET_DIR and extract scan information
-TARGET_DIR="${TARGET_DIR:-$(pwd)}"
+# Resolve TARGET_DIR/REPO_PATH: explicit --target > TARGET_DIR env > cwd
+if [[ -n "$CLAMAV_TARGET_ARG" ]]; then
+    TARGET_DIR="$CLAMAV_TARGET_ARG"
+elif [[ -z "${TARGET_DIR:-}" ]]; then
+    TARGET_DIR="$(pwd)"
+fi
 TARGET_DIR=$(realpath "${TARGET_DIR}" 2>/dev/null) || { echo "ERROR: Target path does not exist or is invalid: ${TARGET_DIR}" >&2; exit 1; }
 REPO_PATH="$TARGET_DIR"
 

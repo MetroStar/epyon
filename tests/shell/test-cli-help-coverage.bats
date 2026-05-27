@@ -8,6 +8,8 @@ CLI_SCRIPTS=(
   "run-epyon-scan-ci.sh"
   "run-target-security-scan.sh"
   "run-trivy-scan.sh"
+  "run-grype-scan.sh"
+  "run-checkov-scan.sh"
   "check-docker-runtime.sh"
   "check-severity-gate.sh"
   "check-sonar-config.sh"
@@ -26,6 +28,8 @@ PRIMARY_SCAN_CLI_SCRIPTS=(
   "run-epyon-scan-ci.sh"
   "run-target-security-scan.sh"
   "run-trivy-scan.sh"
+  "run-grype-scan.sh"
+  "run-checkov-scan.sh"
 )
 
 @test "all user-facing CLI scripts support --help" {

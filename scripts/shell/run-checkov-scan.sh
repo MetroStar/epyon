@@ -12,12 +12,14 @@ show_help() {
     echo -e "${WHITE}Checkov Infrastructure-as-Code Security Scanner${NC}"
     echo ""
     echo "Usage: $0 [OPTIONS]"
+    echo "       $0 --target <TARGET_DIRECTORY>"
     echo ""
     echo "Scans Helm charts, Kubernetes manifests, Terraform, CloudFormation,"
     echo "and other IaC files for security misconfigurations and best practices."
     echo ""
     echo "Options:"
     echo "  -h, --help          Show this help message and exit"
+    echo "  -t, --target PATH   Directory to scan"
     echo ""
     echo "Environment Variables:"
     echo "  TARGET_DIR              Directory to scan (default: current directory)"
@@ -42,29 +44,60 @@ show_help() {
     echo "  - Serverless framework"
     echo ""
     echo "Examples:"
-    echo "  $0                              # Scan current directory"
-    echo "  TARGET_DIR=/path/to/project $0  # Scan specific directory"
+    echo "  $0                                        # Scan current directory"
+    echo "  $0 --target /path/to/project              # Scan specific directory"
+    echo "  TARGET_DIR=/path/to/project $0            # Via environment variable"
     echo ""
     echo "Notes:"
     echo "  - Requires Docker to be installed and running"
     echo "  - Automatically skips node_modules directories"
     echo "  - Uses bridgecrew/checkov:latest Docker image"
-    echo "  - Uses --skip-download to scan Helm templates without private registry access"
-    echo "  - Scans Helm templates directly as Kubernetes manifests if dependencies fail"
     exit 0
 }
 
-# Parse arguments
-for arg in "$@"; do
-    case $arg in
+_checkov_require_value() {
+    if [[ -z "${2:-}" ]] || [[ "${2:-}" == -* ]]; then
+        echo "❌ Error: $1 requires a value"
+        echo "Run with --help for usage examples."
+        exit 1
+    fi
+}
+
+TARGET_ARG=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
         -h|--help)
             show_help
+            ;;
+        -t|--target)
+            _checkov_require_value "$1" "${2:-}"
+            TARGET_ARG="$2"
+            shift 2
+            ;;
+        -*)
+            echo "❌ Error: Unknown option: $1"
+            echo "Run with --help for usage examples."
+            exit 1
+            ;;
+        *)
+            # First positional = target directory
+            if [[ -z "$TARGET_ARG" ]]; then
+                TARGET_ARG="$1"
+            fi
+            shift
             ;;
     esac
 done
 
 # Configuration - Support target directory override
-TARGET_SCAN_DIR="${TARGET_DIR:-$(pwd)}"
+if [[ -n "$TARGET_ARG" ]]; then
+    TARGET_SCAN_DIR="$TARGET_ARG"
+elif [[ -n "${TARGET_DIR:-}" ]]; then
+    TARGET_SCAN_DIR="$TARGET_DIR"
+else
+    TARGET_SCAN_DIR="$(pwd)"
+fi
 TARGET_SCAN_DIR=$(realpath "${TARGET_SCAN_DIR}" 2>/dev/null) || { echo "ERROR: Target path does not exist or is invalid: ${TARGET_SCAN_DIR}" >&2; exit 1; }
 CHART_DIR="${TARGET_SCAN_DIR}/chart"
 

@@ -57,3 +57,13 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-checkov-scan.sh"
 @test "run-checkov-scan.sh skips node_modules" {
     grep -q "skip-path node_modules" "$SCRIPT_PATH"
 }
+
+@test "run-checkov-scan.sh supports canonical --target option" {
+    grep -q -- "--target" "$SCRIPT_PATH"
+}
+
+@test "run-checkov-scan.sh unknown option gives actionable hint" {
+    run bash "$SCRIPT_PATH" --invalid-flag-xyz
+    [ "$status" -ne 0 ]
+    [[ "$output" =~ "help" ]] || [[ "$output" =~ "Usage" ]]
+}

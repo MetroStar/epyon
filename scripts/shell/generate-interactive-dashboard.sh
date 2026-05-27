@@ -5,6 +5,22 @@
 
 set -euo pipefail
 
+show_help() {
+        cat <<'EOF'
+Usage: generate-interactive-dashboard.sh [--help]
+
+Builds an interactive HTML dashboard from the most recent scan directory.
+
+Options:
+    -h, --help    Show this help text and exit.
+EOF
+}
+
+if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
+        show_help
+        exit 0
+fi
+
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"

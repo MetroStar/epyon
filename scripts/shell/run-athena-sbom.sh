@@ -16,6 +16,29 @@
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
+show_help() {
+  cat <<'EOF'
+Usage: run-athena-sbom.sh [--help]
+
+Generates a Python-focused CycloneDX SBOM using Athena.
+
+Environment:
+  SCAN_DIR            Required. Absolute path to scan output directory.
+  TARGET_DIR          Required. Absolute path to scanned repository.
+  SKIP_ATHENA         Optional. Set true to skip execution.
+  ATHENA_REPO         Optional. Athena repo URL/path.
+  ATHENA_INSTALL_DIR  Optional. Athena install/clone directory.
+
+Options:
+  -h, --help          Show this help text and exit.
+EOF
+}
+
+if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
+  show_help
+  exit 0
+fi
+
 SCAN_DIR="${SCAN_DIR:?SCAN_DIR must be set}"
 TARGET_DIR="${TARGET_DIR:?TARGET_DIR must be set}"
 SKIP_ATHENA="${SKIP_ATHENA:-false}"

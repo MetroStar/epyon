@@ -11,19 +11,121 @@
 
 set -u -o pipefail
 
+DEFAULT_ENV_FILE="/tmp/epyon-env"
+ENV_FILE="${EPYON_ENV_FILE:-$DEFAULT_ENV_FILE}"
+SCAN_MODE_CLI=""
+
+show_help() {
+  cat <<'EOF'
+Usage: run-epyon-scan-ci.sh [OPTIONS]
+
+CI orchestrator that executes Epyon scan layers in parallel.
+
+Options:
+  -h, --help             Show this help text and exit.
+      --env-file PATH    Path to environment file (default: /tmp/epyon-env).
+      --scan-mode MODE   Override scan mode (quick|full|nightly|stig).
+      --list-modes       Print available scan modes and exit.
+
+Examples:
+  run-epyon-scan-ci.sh
+  run-epyon-scan-ci.sh --env-file /tmp/epyon-env
+  run-epyon-scan-ci.sh --scan-mode quick --env-file /tmp/epyon-env
+
+Required runtime variables (via env file or exported environment):
+  SCAN_DIR, TARGET_DIR
+
+Note:
+  If --env-file is missing, this script can still run when required variables
+  are already exported in the current environment.
+EOF
+}
+
+show_mode_help() {
+  cat <<'EOF'
+Available scan modes:
+  quick
+  full
+  nightly
+  stig
+EOF
+}
+
+require_option_value() {
+  local opt_name="$1"
+  local opt_value="$2"
+  if [[ -z "$opt_value" ]] || [[ "$opt_value" == -* ]]; then
+    echo "[ERROR] ${opt_name} requires a value"
+    echo "[INFO] Run with --help for usage examples."
+    exit 1
+  fi
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)
+      show_help
+      exit 0
+      ;;
+    --list-modes)
+      show_mode_help
+      exit 0
+      ;;
+    --env-file)
+      require_option_value "$1" "${2:-}"
+      ENV_FILE="$2"
+      shift 2
+      ;;
+    --scan-mode)
+      require_option_value "$1" "${2:-}"
+      SCAN_MODE_CLI="$2"
+      shift 2
+      ;;
+    *)
+      echo "[ERROR] Unknown option: $1"
+      echo "[INFO] Run with --help for usage examples."
+      exit 1
+      ;;
+  esac
+done
+
 RUN_SONAR_IN_QUICK="${RUN_SONAR_IN_QUICK:-false}"
 RUN_GARAK_IN_QUICK="${RUN_GARAK_IN_QUICK:-false}"
 
-if [[ ! -f /tmp/epyon-env ]]; then
-  echo "[ERROR] Missing /tmp/epyon-env"
-  exit 1
+if [[ -f "$ENV_FILE" ]]; then
+  echo "[INFO] Loading environment file: $ENV_FILE"
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+else
+  echo "[WARNING] Environment file not found: $ENV_FILE"
 fi
 
-# Export all sourced values so subshell invocations inherit them.
-set -a
-# shellcheck disable=SC1091
-source /tmp/epyon-env
-set +a
+if [[ -n "$SCAN_MODE_CLI" ]]; then
+  SCAN_MODE="$SCAN_MODE_CLI"
+fi
+
+# Enforce required runtime values early with actionable remediation.
+MISSING_VARS=()
+for required_var in SCAN_DIR TARGET_DIR; do
+  if [[ -z "${!required_var:-}" ]]; then
+    MISSING_VARS+=("$required_var")
+  fi
+done
+if [[ ${#MISSING_VARS[@]} -gt 0 ]]; then
+  echo "[ERROR] Missing required runtime variables: ${MISSING_VARS[*]}"
+  echo "[INFO] Provide variables via --env-file or export them before running."
+  echo "[INFO] Example env file template:"
+  cat <<EOF
+SCAN_DIR=/absolute/path/to/scans/<scan-id>
+TARGET_DIR=/absolute/path/to/target
+SCAN_ID=<scan-id>
+TARGET_NAME=<app-name>
+SCAN_MODE=full
+EOF
+  exit 1
+fi
 
 # Enforce supported scan modes to prevent accidental drift/false negatives.
 # nightly runs all layers 1-12 but skips STIG (Layer 13).

@@ -4,6 +4,22 @@
 
 set -euo pipefail
 
+show_help() {
+        cat <<'EOF'
+Usage: update-base-images.sh [--help]
+
+Interactive utility to pull and validate approved hardened base images.
+
+Options:
+    -h, --help    Show this help text and exit.
+EOF
+}
+
+if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
+        show_help
+        exit 0
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'

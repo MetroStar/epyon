@@ -15,9 +15,9 @@ PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Display EPYON banner
-echo -e "${CYAN}"
-cat << "EOF"
+print_banner() {
+    echo -e "${CYAN}"
+    cat << "EOF"
 ███████╗██████╗ ██╗   ██╗ ██████╗ ███╗   ██╗
 ██╔════╝██╔══██╗╚██╗ ██╔╝██╔═══██╗████╗  ██║
 █████╗  ██████╔╝ ╚████╔╝ ██║   ██║██╔██╗ ██║
@@ -25,15 +25,17 @@ cat << "EOF"
 ███████╗██║        ██║   ╚██████╔╝██║ ╚████║
 ╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══╝
 EOF
-echo -e "${NC}"
-echo -e "${GREEN}Absolute Security Control${NC}"
-echo ""
+    echo -e "${NC}"
+    echo -e "${GREEN}Absolute Security Control${NC}"
+    echo ""
+}
 
 # Help function
 show_help() {
     echo -e "${GREEN}Twelve-Layer Security Scan Orchestrator${NC}"
     echo ""
     echo "Usage: $0 [OPTIONS] <TARGET> [SCAN_TYPE]"
+    echo "       $0 --target <TARGET> --scan-type <SCAN_TYPE> [OPTIONS]"
     echo ""
     echo "Comprehensive security scanning orchestrator that runs all security tools"
     echo "in a coordinated manner on any target directory or Git repository."
@@ -44,8 +46,18 @@ show_help() {
     echo ""
     echo "Options:"
     echo "  -h, --help          Show this help message and exit"
+    echo "  -t, --target PATH   Target path or Git URL (same as positional TARGET)"
+    echo "  -m, --scan-type     Scan type: quick|full|images|analysis"
+    echo "      --scan-mode     Alias of --scan-type"
+    echo "      --list-modes    Print available scan types and exit"
     echo "  --subdir PATH       Scan only a specific subdirectory within a Git repository"
     echo "                      (only works with Git URLs, uses sparse-checkout)"
+    echo "      --skip-tools    Comma-separated tools to skip (example: sonar,clamav,garak)"
+    echo "      --no-garak      Skip Garak probing"
+    echo "      --baseline-image IMAGE"
+    echo "                      Override baseline image prompt/default"
+    echo "      --non-interactive"
+    echo "                      Disable prompts and use defaults"
     echo ""
     echo "Target Types:"
     echo "  Local Directory     /path/to/project or ./project"
@@ -94,6 +106,10 @@ show_help() {
     echo "  $0 --subdir apps/api https://github.com/user/repo.git full"
     echo "  $0 --subdir apps/sapphire-splunk/sapphire-ai-api https://github.com/MetroStar/sapphire.git"
     echo ""
+    echo "  # Canonical option style"
+    echo "  $0 --target ./my-app --scan-type quick --skip-tools sonar,garak"
+    echo "  $0 --target https://github.com/user/repo.git --scan-type full --non-interactive"
+    echo ""
     echo "Notes:"
     echo "  - Requires Docker for most scanners"
     echo "  - Git repositories are cloned with --depth 1 for speed"
@@ -103,9 +119,62 @@ show_help() {
     exit 0
 }
 
+print_mode_help() {
+    echo "Available scan types:"
+    echo "  quick     Core security tools for fast feedback"
+    echo "  full      Complete scan with all layers"
+    echo "  images    Container image focused scan"
+    echo "  analysis  Code and API analysis focused scan"
+}
+
+require_option_value() {
+    local opt_name="$1"
+    local opt_value="$2"
+    if [[ -z "$opt_value" ]] || [[ "$opt_value" == -* ]]; then
+        echo -e "${RED}❌ Error: $opt_name requires a value${NC}"
+        echo -e "${YELLOW}Run with --help for usage examples.${NC}"
+        exit 1
+    fi
+}
+
+apply_skip_tools() {
+    local skip_csv="$1"
+    local raw_tool
+    IFS=',' read -r -a raw_tools <<< "$skip_csv"
+    for raw_tool in "${raw_tools[@]}"; do
+        local tool
+        tool=$(echo "$raw_tool" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
+        [[ -z "$tool" ]] && continue
+        case "$tool" in
+            sbom) SKIP_SBOM=true ;;
+            trufflehog|secrets) SKIP_TRUFFLEHOG=true ;;
+            sonar|sonarqube) SKIP_SONAR=true ;;
+            clamav|malware) SKIP_CLAMAV=true ;;
+            helm) SKIP_HELM=true ;;
+            checkov|iac) SKIP_CHECKOV=true ;;
+            trivy) SKIP_TRIVY=true ;;
+            grype) SKIP_GRYPE=true ;;
+            xeol|eol) SKIP_XEOL=true ;;
+            anchore) SKIP_ANCHORE=true ;;
+            api|api-discovery) SKIP_API_DISCOVERY=true ;;
+            network|network-discovery) SKIP_NETWORK_DISCOVERY=true ;;
+            garak) SKIP_GARAK=true ;;
+            *)
+                echo -e "${YELLOW}⚠️  Unknown tool in --skip-tools: $tool${NC}"
+                ;;
+        esac
+    done
+}
+
 # Parse arguments
 SUBDIR_PATH=""
 SKIP_GARAK="${SKIP_GARAK:-false}"
+SKIP_TOOLS=""
+BASELINE_IMAGE_FLAG=""
+NON_INTERACTIVE="false"
+LIST_MODES="false"
+TARGET_INPUT=""
+SCAN_TYPE=""
 POSITIONAL_ARGS=()
 
 while [[ $# -gt 0 ]]; do
@@ -113,16 +182,46 @@ while [[ $# -gt 0 ]]; do
         -h|--help)
             show_help
             ;;
+        -t|--target)
+            require_option_value "$1" "${2:-}"
+            TARGET_INPUT="$2"
+            shift 2
+            ;;
+        -m|--scan-type|--scan-mode)
+            require_option_value "$1" "${2:-}"
+            SCAN_TYPE="$2"
+            shift 2
+            ;;
+        --list-modes)
+            LIST_MODES=true
+            shift
+            ;;
         --subdir)
+            require_option_value "$1" "${2:-}"
             SUBDIR_PATH="$2"
+            shift 2
+            ;;
+        --skip-tools)
+            require_option_value "$1" "${2:-}"
+            SKIP_TOOLS="$2"
             shift 2
             ;;
         --no-garak)
             SKIP_GARAK=true
             shift
             ;;
+        --baseline-image)
+            require_option_value "$1" "${2:-}"
+            BASELINE_IMAGE_FLAG="$2"
+            shift 2
+            ;;
+        --non-interactive)
+            NON_INTERACTIVE=true
+            shift
+            ;;
         -*)
             echo -e "${RED}❌ Error: Unknown option: $1${NC}"
+            echo -e "${YELLOW}Run with --help for usage examples.${NC}"
             exit 1
             ;;
         *)
@@ -135,9 +234,45 @@ done
 # Restore positional parameters
 set -- "${POSITIONAL_ARGS[@]}"
 
+if [[ "$LIST_MODES" == "true" ]]; then
+    print_mode_help
+    exit 0
+fi
+
 # Configuration
-TARGET_INPUT="$1"
-SCAN_TYPE="${2:-full}"
+if [[ -z "$TARGET_INPUT" ]] && [[ $# -ge 1 ]]; then
+    TARGET_INPUT="$1"
+fi
+
+if [[ -z "$SCAN_TYPE" ]] && [[ $# -ge 2 ]]; then
+    SCAN_TYPE="$2"
+fi
+
+if [[ $# -gt 2 ]]; then
+    echo -e "${RED}❌ Error: Unexpected extra arguments${NC}"
+    echo -e "${YELLOW}Run with --help for usage examples.${NC}"
+    exit 1
+fi
+
+SCAN_TYPE="${SCAN_TYPE:-full}"
+SCAN_TYPE=$(echo "$SCAN_TYPE" | tr '[:upper:]' '[:lower:]')
+
+case "$SCAN_TYPE" in
+    quick|full|images|analysis) ;;
+    *)
+        echo -e "${RED}❌ Invalid scan type: $SCAN_TYPE${NC}"
+        print_mode_help
+        exit 1
+        ;;
+esac
+
+if [[ -n "$SKIP_TOOLS" ]]; then
+    apply_skip_tools "$SKIP_TOOLS"
+fi
+
+if [[ ! -t 0 ]]; then
+    NON_INTERACTIVE=true
+fi
 
 # Get the script's directory to locate security tools
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -145,6 +280,7 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 # Use GITHUB_ACTOR if provided (from GitHub Actions), otherwise use whoami
 USERNAME="${GITHUB_ACTOR:-$(whoami)}"
 TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
+RUN_START_EPOCH=$(date +%s)
 
 # Ensure PyYAML is installed (needed for .epyon-ignore.yml parsing)
 if ! python3 -c "import yaml" 2>/dev/null; then
@@ -160,17 +296,27 @@ CLONE_DIR=""
 
 # Validate inputs
 if [[ -z "$TARGET_INPUT" ]]; then
-    echo -e "${RED}❌ Error: Target directory or Git URL is required${NC}"
-    echo "Usage: $0 [--subdir PATH] <target_directory|git_url> [quick|full|images|analysis]"
+    echo -e "${RED}❌ Error: TARGET is required${NC}"
+    echo "Usage: $0 [OPTIONS] <TARGET> [SCAN_TYPE]"
+    echo "   or: $0 --target <TARGET> --scan-type <SCAN_TYPE>"
     echo ""
     echo "Examples:"
-    echo "  $0 '/Users/rnelson/Desktop/my-project' full"
-    echo "  $0 './my-project' quick"
-    echo "  $0 'https://github.com/user/repo.git' full"
-    echo "  $0 'git@github.com:user/repo.git' images"
-    echo "  $0 --subdir apps/api 'https://github.com/user/repo.git' full"
+    echo "  $0 ./my-project full"
+    echo "  $0 --target ./my-project --scan-type quick"
+    echo "  $0 --target https://github.com/user/repo.git --subdir apps/api"
+    echo "  $0 --target ./my-project --scan-type full --skip-tools sonar,garak"
     exit 1
 fi
+
+print_banner
+echo -e "${CYAN}Run Configuration${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Target input: $TARGET_INPUT"
+echo "Scan type: $SCAN_TYPE"
+echo "Subdirectory filter: ${SUBDIR_PATH:-<none>}"
+echo "Non-interactive: $NON_INTERACTIVE"
+echo "Skip tools: ${SKIP_TOOLS:-<none>}"
+echo ""
 
 # Validate --subdir only used with Git URLs
 if [[ -n "$SUBDIR_PATH" ]] && ! [[ "$TARGET_INPUT" =~ ^(https?://|git@|ssh://) ]] && ! [[ "$TARGET_INPUT" =~ \.git$ ]]; then
@@ -423,65 +569,81 @@ validate_latest_image() {
 }
 DEFAULT_BASELINE="dhi/caddy:debian-13-2-fips-dev@sha256:ba86d16733750c6fd7b8866981016d2479e234c842d77413f1bf41c4404e555c"
 
-echo -e "${CYAN}🔧 Baseline Image Configuration${NC}"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "${YELLOW}Which baseline image would you like to use?${NC}"
-echo -e "  1) ${GREEN}dhi/caddy:debian-13-2-fips-dev${NC} (default - Docker Hardened with FIPS)"
-echo -e "  2) bitnami/node:latest (JavaScript/TypeScript)"
-echo -e "  3) bitnami/nginx:latest (Web server)"
-echo -e "  4) bitnami/python:latest (Python applications)"
-echo -e "  5) bitnami/postgresql:latest (Database)"
-echo -e "  6) Custom image"
-echo ""
-echo -e "${CYAN}Default will be selected in 60 seconds: dhi/caddy:debian-13-2-fips-dev${NC}"
-echo -n "Enter choice [1-6] or press Enter for default: "
+choose_baseline_image() {
+    if [[ -n "$BASELINE_IMAGE_FLAG" ]]; then
+        BASELINE_IMAGE="$BASELINE_IMAGE_FLAG"
+        echo -e "${GREEN}✓ Using --baseline-image override: $BASELINE_IMAGE${NC}"
+        return
+    fi
 
-# Read with 60 second timeout
-USER_CHOICE=""
-if read -t 60 USER_CHOICE; then
-    case "$USER_CHOICE" in
-        2)
-            BASELINE_IMAGE="bitnami/node:latest"
-            echo -e "${GREEN}✓ Selected: bitnami/node:latest${NC}"
-            ;;
-        3)
-            BASELINE_IMAGE="bitnami/nginx:latest"
-            echo -e "${GREEN}✓ Selected: bitnami/nginx:latest${NC}"
-            ;;
-        4)
-            BASELINE_IMAGE="bitnami/python:latest"
-            echo -e "${GREEN}✓ Selected: bitnami/python:latest${NC}"
-            ;;
-        5)
-            BASELINE_IMAGE="bitnami/postgresql:latest"
-            echo -e "${GREEN}✓ Selected: bitnami/postgresql:latest${NC}"
-            ;;
-        6)
-            echo -n "Enter custom image (e.g., nginx:alpine, ubuntu:22.04): "
-            read -t 60 CUSTOM_IMAGE
-            if [ -n "$CUSTOM_IMAGE" ]; then
-                BASELINE_IMAGE="$CUSTOM_IMAGE"
-                echo -e "${GREEN}✓ Selected: $CUSTOM_IMAGE${NC}"
-            else
-                echo -e "${YELLOW}⚠️  No input - using default: $DEFAULT_BASELINE${NC}"
-                BASELINE_IMAGE="$DEFAULT_BASELINE"
-            fi
-            ;;
-        ""|1)
-            BASELINE_IMAGE="$DEFAULT_BASELINE"
-            echo -e "${GREEN}✓ Using default: dhi/caddy:debian-13-2-fips-dev${NC}"
-            ;;
-        *)
-            echo -e "${YELLOW}⚠️  Invalid choice - using default: $DEFAULT_BASELINE${NC}"
-            BASELINE_IMAGE="$DEFAULT_BASELINE"
-            ;;
-    esac
-else
-    # Timeout occurred
+    if [[ "$NON_INTERACTIVE" == "true" ]]; then
+        BASELINE_IMAGE="$DEFAULT_BASELINE"
+        echo -e "${YELLOW}ℹ️  Non-interactive mode: using default baseline image${NC}"
+        return
+    fi
+
+    echo -e "${CYAN}🔧 Baseline Image Configuration${NC}"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo -e "${YELLOW}Which baseline image would you like to use?${NC}"
+    echo -e "  1) ${GREEN}dhi/caddy:debian-13-2-fips-dev${NC} (default - Docker Hardened with FIPS)"
+    echo -e "  2) bitnami/node:latest (JavaScript/TypeScript)"
+    echo -e "  3) bitnami/nginx:latest (Web server)"
+    echo -e "  4) bitnami/python:latest (Python applications)"
+    echo -e "  5) bitnami/postgresql:latest (Database)"
+    echo -e "  6) Custom image"
     echo ""
-    echo -e "${YELLOW}⏱️  Timeout - using default: dhi/caddy:debian-13-2-fips-dev${NC}"
-    BASELINE_IMAGE="$DEFAULT_BASELINE"
-fi
+    echo -e "${CYAN}Default will be selected in 60 seconds: dhi/caddy:debian-13-2-fips-dev${NC}"
+    echo -n "Enter choice [1-6] or press Enter for default: "
+
+    # Read with 60 second timeout
+    USER_CHOICE=""
+    if read -t 60 USER_CHOICE; then
+        case "$USER_CHOICE" in
+            2)
+                BASELINE_IMAGE="bitnami/node:latest"
+                echo -e "${GREEN}✓ Selected: bitnami/node:latest${NC}"
+                ;;
+            3)
+                BASELINE_IMAGE="bitnami/nginx:latest"
+                echo -e "${GREEN}✓ Selected: bitnami/nginx:latest${NC}"
+                ;;
+            4)
+                BASELINE_IMAGE="bitnami/python:latest"
+                echo -e "${GREEN}✓ Selected: bitnami/python:latest${NC}"
+                ;;
+            5)
+                BASELINE_IMAGE="bitnami/postgresql:latest"
+                echo -e "${GREEN}✓ Selected: bitnami/postgresql:latest${NC}"
+                ;;
+            6)
+                echo -n "Enter custom image (e.g., nginx:alpine, ubuntu:22.04): "
+                read -t 60 CUSTOM_IMAGE
+                if [ -n "$CUSTOM_IMAGE" ]; then
+                    BASELINE_IMAGE="$CUSTOM_IMAGE"
+                    echo -e "${GREEN}✓ Selected: $CUSTOM_IMAGE${NC}"
+                else
+                    echo -e "${YELLOW}⚠️  No input - using default: $DEFAULT_BASELINE${NC}"
+                    BASELINE_IMAGE="$DEFAULT_BASELINE"
+                fi
+                ;;
+            ""|1)
+                BASELINE_IMAGE="$DEFAULT_BASELINE"
+                echo -e "${GREEN}✓ Using default: dhi/caddy:debian-13-2-fips-dev${NC}"
+                ;;
+            *)
+                echo -e "${YELLOW}⚠️  Invalid choice - using default: $DEFAULT_BASELINE${NC}"
+                BASELINE_IMAGE="$DEFAULT_BASELINE"
+                ;;
+        esac
+    else
+        # Timeout occurred
+        echo ""
+        echo -e "${YELLOW}⏱️  Timeout - using default: dhi/caddy:debian-13-2-fips-dev${NC}"
+        BASELINE_IMAGE="$DEFAULT_BASELINE"
+    fi
+}
+
+choose_baseline_image
 
 echo ""
 
@@ -518,24 +680,53 @@ echo -e "${CYAN}📊 Target Directory Analysis${NC}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo -e "   ${YELLOW}Analyzing directory structure (this may take a moment)...${NC}"
 
+TIMEOUT_BIN=""
+if command -v timeout >/dev/null 2>&1; then
+    TIMEOUT_BIN="timeout"
+elif command -v gtimeout >/dev/null 2>&1; then
+    TIMEOUT_BIN="gtimeout"
+fi
+
 # Single optimized find with timeout to prevent hanging
 # Use a single pass through the filesystem and count everything at once
-FILE_LIST=$(timeout 30s find "$TARGET_DIR" -type f \
-    -not -path "*/node_modules/*" \
-    -not -path "*/.git/*" \
-    -not -path "*/venv/*" \
-    -not -path "*/__pycache__/*" \
-    -not -path "*/dist/*" \
-    -not -path "*/build/*" \
-    -not -path "*/vendor/*" \
-    -not -path "*/.next/*" \
-    -not -path "*/.venv/*" \
-    2>/dev/null || echo "TIMEOUT")
+if [[ -n "$TIMEOUT_BIN" ]]; then
+    FILE_LIST=$($TIMEOUT_BIN 30s find "$TARGET_DIR" -type f \
+        -not -path "*/node_modules/*" \
+        -not -path "*/.git/*" \
+        -not -path "*/venv/*" \
+        -not -path "*/__pycache__/*" \
+        -not -path "*/dist/*" \
+        -not -path "*/build/*" \
+        -not -path "*/vendor/*" \
+        -not -path "*/.next/*" \
+        -not -path "*/.venv/*" \
+        2>/dev/null || echo "TIMEOUT")
+else
+    FILE_LIST=$(find "$TARGET_DIR" -type f \
+        -not -path "*/node_modules/*" \
+        -not -path "*/.git/*" \
+        -not -path "*/venv/*" \
+        -not -path "*/__pycache__/*" \
+        -not -path "*/dist/*" \
+        -not -path "*/build/*" \
+        -not -path "*/vendor/*" \
+        -not -path "*/.next/*" \
+        -not -path "*/.venv/*" \
+        2>/dev/null)
+fi
+
+if [[ -z "$TIMEOUT_BIN" ]]; then
+    echo -e "   ${YELLOW}ℹ️  Timeout command not available; running full directory analysis without timeout${NC}"
+fi
+
+if [[ -z "$FILE_LIST" ]]; then
+    FILE_LIST="TIMEOUT"
+fi
 
 if [[ "$FILE_LIST" == "TIMEOUT" ]]; then
     echo -e "   ${YELLOW}⚠ Directory analysis timed out (large directory)${NC}"
     echo -e "   ${WHITE}Proceeding with scan...${NC}"
-    TOTAL_FILES="N/A"
+    TOTAL_FILES="0"
     JS_FILES=0
     PY_FILES=0
     YAML_FILES=0
@@ -553,7 +744,7 @@ else
     TF_FILES=$(echo "$FILE_LIST" | grep -cE '\.tf$' 2>/dev/null | tr -d '\r\n' || echo "0")
     DOCKER_FILES=$(echo "$FILE_LIST" | grep -cE 'Dockerfile' 2>/dev/null | tr -d '\r\n' || echo "0")
     SHELL_FILES=$(echo "$FILE_LIST" | grep -cE '\.(sh|bash)$' 2>/dev/null | tr -d '\r\n' || echo "0")
-    
+
     # Ensure numeric values
     TOTAL_FILES=${TOTAL_FILES//[^0-9]/}
     JS_FILES=${JS_FILES//[^0-9]/}
@@ -563,7 +754,7 @@ else
     TF_FILES=${TF_FILES//[^0-9]/}
     DOCKER_FILES=${DOCKER_FILES//[^0-9]/}
     SHELL_FILES=${SHELL_FILES//[^0-9]/}
-    
+
     echo -e "   📁 Total Files to Scan: ${WHITE}$TOTAL_FILES${NC}"
     echo ""
     echo -e "   ${WHITE}File Type Breakdown:${NC}"
@@ -1291,12 +1482,17 @@ else
     echo -e "${YELLOW}⚠️  Some analysis steps had issues, but core scanning completed${NC}"
 fi
 
+RUN_END_EPOCH=$(date +%s)
+RUN_ELAPSED_SECONDS=$((RUN_END_EPOCH - RUN_START_EPOCH))
+printf -v RUN_ELAPSED_HUMAN '%02dh:%02dm:%02ds' $((RUN_ELAPSED_SECONDS/3600)) $(((RUN_ELAPSED_SECONDS%3600)/60)) $((RUN_ELAPSED_SECONDS%60))
+
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${GREEN}🎯 Target Security Scan Finished Successfully!${NC}"
 echo -e "${CYAN}Target: $TARGET_DIR${NC}"
 echo -e "${CYAN}Scan ID: $SCAN_ID${NC}"
 echo -e "${CYAN}Scan Directory: $SCAN_DIR${NC}"
+echo -e "${CYAN}Elapsed time: $RUN_ELAPSED_HUMAN${NC}"
 echo -e "${CYAN}All scan artifacts stored in: $SCAN_DIR${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""

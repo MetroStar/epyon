@@ -23,6 +23,26 @@
 
 set -euo pipefail
 
+show_help() {
+  cat <<'EOF'
+Usage: create-jira-tickets.sh [--help]
+
+Creates or updates Jira tickets from security findings.
+Inputs are provided via environment variables by the workflow.
+
+Required environment:
+  FINDINGS_FILE, JIRA_URL, PROJECT_KEY, AUTH, REPO_NAME
+
+Options:
+  -h, --help    Show this help text and exit.
+EOF
+}
+
+if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
+  show_help
+  exit 0
+fi
+
 # ── Helper: fetch current GitHub issue body via API ──────────────────────────
 get_github_issue_body() {
   [[ -z "${GITHUB_ISSUE_NUMBER:-}" ]] && echo "" && return

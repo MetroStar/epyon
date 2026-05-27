@@ -14,6 +14,26 @@
 # ---------------------------------------------------------------------------
 set -euo pipefail
 
+show_help() {
+  cat <<'EOF'
+Usage: generate-sbom-lineage.sh [--help]
+
+Generates dependency lineage and enriches CycloneDX SBOM with dependencies[] data.
+
+Environment:
+  SCAN_DIR   Required. Absolute path to scan output directory.
+  TARGET_DIR Required. Absolute path to scanned repository.
+
+Options:
+  -h, --help    Show this help text and exit.
+EOF
+}
+
+if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
+  show_help
+  exit 0
+fi
+
 SCAN_DIR="${SCAN_DIR:?SCAN_DIR must be set}"
 TARGET_DIR="${TARGET_DIR:?TARGET_DIR must be set}"
 

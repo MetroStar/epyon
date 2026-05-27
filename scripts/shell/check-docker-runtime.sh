@@ -8,6 +8,23 @@
 
 set -euo pipefail
 
+show_help() {
+        cat <<'EOF'
+Usage: check-docker-runtime.sh [--help]
+
+Detects available container runtime (docker/podman/nerdctl), validates
+connectivity, and prints runtime/context details.
+
+Options:
+    -h, --help    Show this help text and exit.
+EOF
+}
+
+if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
+        show_help
+        exit 0
+fi
+
 # Colors
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'

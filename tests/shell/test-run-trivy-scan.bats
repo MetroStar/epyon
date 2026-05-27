@@ -23,6 +23,24 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-trivy-scan.sh"
     [[ "$output" =~ "Trivy Security Scanner" ]]
 }
 
+@test "run-trivy-scan.sh supports canonical --target and --scan-mode options" {
+    grep -q -- "--target" "$SCRIPT_PATH"
+    grep -q -- "--scan-mode" "$SCRIPT_PATH"
+}
+
+@test "run-trivy-scan.sh supports --list-modes" {
+    run bash "$SCRIPT_PATH" --list-modes
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "filesystem" ]]
+    [[ "$output" =~ "all" ]]
+}
+
+@test "run-trivy-scan.sh unknown option is actionable" {
+    run bash "$SCRIPT_PATH" --definitely-unknown-option
+    [ "$status" -ne 0 ]
+    [[ "$output" =~ "help" ]] || [[ "$output" =~ "Usage" ]]
+}
+
 @test "run-trivy-scan.sh sources scan-directory-template.sh" {
     # Verify the script sources the template
     grep -q "source.*scan-directory-template.sh" "$SCRIPT_PATH"

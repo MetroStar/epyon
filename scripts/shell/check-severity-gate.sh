@@ -3,6 +3,30 @@
 # Severity Gate Check Script
 # Checks scan results for critical/high severity findings and fails build if threshold exceeded
 
+show_help() {
+        cat <<'EOF'
+Usage: check-severity-gate.sh [--help]
+
+Evaluates scan findings in SCAN_DIR and enforces severity gates.
+
+Environment:
+    SCAN_DIR           Required. Scan directory to evaluate.
+    TARGET_DIR         Optional. Target directory used for ignore rules.
+    FAIL_ON_CRITICAL   true|false (default: true)
+    FAIL_ON_HIGH       true|false (default: true)
+    HIGH_THRESHOLD     Integer high-severity threshold (default: 4)
+    WARNING_ONLY       true|false (default: false)
+
+Options:
+    -h, --help         Show this help text and exit.
+EOF
+}
+
+if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
+        show_help
+        exit 0
+fi
+
 # Colors for output
 RED='\033[0;31m'
 YELLOW='\033[1;33m'

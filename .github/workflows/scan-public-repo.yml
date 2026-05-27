@@ -32,6 +32,7 @@ on:
         options:
           - quick
           - full
+          - nightly
           - stig
       run_picklescan:
         description: 'Force-enable Layer 14 — Pickle/Serialization Safety (auto-enabled when model files are found)'

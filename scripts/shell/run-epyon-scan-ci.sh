@@ -26,8 +26,9 @@ source /tmp/epyon-env
 set +a
 
 # Enforce supported scan modes to prevent accidental drift/false negatives.
+# nightly runs all layers 1-12 but skips STIG (Layer 13).
 case "${SCAN_MODE:-full}" in
-  quick|full|stig) ;;
+  quick|full|nightly|stig) ;;
   *)
     echo "[WARNING] Unsupported SCAN_MODE='${SCAN_MODE:-}' — defaulting to 'full'"
     SCAN_MODE="full"
@@ -600,8 +601,8 @@ fi  # end: SCAN_MODE != stig
 run_garak_layer
 
 # Layer 13 — STIG Compliance Assessment
-# Runs only in full/stig modes when SKIP_STIG is not true.
-if [[ "${SCAN_MODE:-full}" == "full" || "${SCAN_MODE:-full}" == "stig" ]] && _should_run_tool SKIP_STIG; then
+# Runs only in full/stig modes (NOT nightly) when SKIP_STIG is not true.
+if [[ ("${SCAN_MODE:-full}" == "full" || "${SCAN_MODE:-full}" == "stig") && "${SCAN_MODE:-full}" != "nightly" ]] && _should_run_tool SKIP_STIG; then
   run_group "Layer 13 - STIG Compliance Assessment" \
     env \
       OPENAI_API_KEY="${OPENAI_API_KEY:-}" \

@@ -2,7 +2,7 @@
 
 Shell scripts for Linux, macOS, WSL, and Git Bash.
 
-## 📋 Available Scripts (33 total)
+## 📋 Available Scripts (47 total)
 
 ### Security Scanners
 - `run-clamav-scan.sh` - ClamAV antivirus scanning
@@ -14,43 +14,56 @@ Shell scripts for Linux, macOS, WSL, and Git Bash.
 - `run-garak-scan.sh` - Garak LLM red-team security probing
 - `run-sonar-analysis.sh` - SonarQube code quality analysis
 - `run-helm-build.sh` - Helm chart building and validation
+- `run-picklescan.sh` - Python pickle file security scanning
+- `run-anchore-scan.sh` - Anchore container security analysis
+- `run-api-discovery.sh` - API endpoint discovery
+- `run-network-discovery.sh` - Network discovery scanning
+- `run-athena-sbom.sh` - Athena SBOM generation
+- `run-modelcard-check.sh` - ML model card validation
+- `run-vex.sh` - Vulnerability Exploitability eXchange
+- `run-baseline-scan.sh` - Baseline security scanning
+- `run-complete-sbom-scan.sh` - Complete SBOM generation
+- `run-sbom-scan.sh` - Standard SBOM generation
+- `run-stig-scan.sh` - STIG compliance assessment
+- `run-epyon-scan-ci.sh` - CI orchestrator for all security layers
 
-### Analysis Tools
-- `analyze-clamav-results.sh` - Analyze ClamAV scan results
-- `analyze-trufflehog-results.sh` - Analyze TruffleHog results
-- `analyze-trivy-results.sh` - Analyze Trivy results
-- `analyze-grype-results.sh` - Analyze Grype results
-- `analyze-xeol-results.sh` - Analyze Xeol results
-- `analyze-checkov-results.sh` - Analyze Checkov results
-- `analyze-helm-results.sh` - Analyze Helm results
-- **`generate-remediation-suggestions.sh`** - **NEW!** Generate actionable fix recommendations
+### Dashboard & Reporting
+- `generate-security-dashboard.sh` - Generate interactive security dashboard
+- `generate-interactive-dashboard.sh` - Generate enhanced interactive dashboard
+- `generate-remediation-suggestions.sh` - Generate actionable fix recommendations
+- `consolidate-security-reports.sh` - Consolidate all reports
+- `embed-dashboard-data.sh` - Embed data in dashboards
+- `embed-metrics-in-dashboard.sh` - Embed metrics in dashboards
+- `get-scan-metrics.sh` - Cross-scan metrics aggregator
 
-### Orchestration Scripts
-- `run-complete-security-scan.sh` - Run all security scans
-- `run-target-security-scan.sh` - Run targeted security scans
-- `consolidate-security-reports.sh` - Consolidate all reports into dashboard
-- `portable-app-scanner.sh` - Portable application scanner
-- `nodejs-security-scanner.sh` - Node.js specific security scanner
-- `real-nodejs-scanner.sh` - Real Node.js scanner
-- `real-nodejs-scanner-fixed.sh` - Fixed Node.js scanner
+### Orchestration & Workflow
+- `run-target-security-scan.sh` - Target-aware security scan orchestration
+- `scan-directory-template.sh` - Shared scan directory functions
 
-### Management & Utilities
-- `manage-dashboard-data.sh` - Interactive dashboard data management
-- `open-dashboard.sh` - Open security dashboard in browser
-- `open-compliance-dashboard.sh` - Open compliance dashboard for audit tracking
-- `force-refresh-dashboard.sh` - Force refresh dashboard with cache busting
-- `create-stub-dependencies.sh` - Create stub Helm dependencies
-- `resolve-helm-dependencies.sh` - Resolve Helm chart dependencies
-- `aws-ecr-helm-auth.sh` - AWS ECR authentication for Helm
-- `aws-ecr-helm-auth-guide.sh` - AWS ECR authentication guide
+### Export & Integration
+- `export-api-discovery.sh` - Export API discovery results
+- `export-sbom.sh` - Export SBOM data
+- `create-jira-tickets.sh` - Create Jira tickets from findings
 
-### Audit & Compliance
-- `audit-logger.sh` - Centralized audit logging system
-- `compliance-logger.sh` - Generate compliance dashboard and CSV reports
+### Validation & Verification
+- `check-severity-gate.sh` - Severity threshold gate checking
+- `check-sonar-config.sh` - SonarQube configuration validation
+- `check-docker-runtime.sh` - Docker runtime detection
+- `verify-sbom-hashes.sh` - SBOM hash verification
+- `verify-scan-manifest.sh` - Scan manifest verification
+- `generate-scan-manifest.sh` - Generate scan manifest
+- `generate-scan-findings-summary.sh` - Generate findings summary
 
-### Demo & Testing
-- `demo-portable-scanner.sh` - Demonstrate portable scanner
-- `test-desktop-default.sh` - Test desktop default behavior
+### SBOM & Analysis
+- `generate-sbom-lineage.sh` - Generate dependency lineage
+- `enrich-findings.sh` - Enrich security findings
+- `filter-ignored-findings.sh` - Filter ignored findings
+- `parse-epyon-ignore.sh` - Parse .epyon-ignore.yml
+
+### Utilities
+- `open-latest-dashboard.sh` - Open most recent dashboard
+- `container-runtime.sh` - Container runtime utilities
+- `update-base-images.sh` - Update approved base images
 
 ## 🚀 Usage
 
@@ -69,32 +82,31 @@ chmod +x script-name.sh
 ```bash
 ./run-trufflehog-scan.sh
 ./run-clamav-scan.sh
-./analyze-clamav-results.sh
-./open-dashboard.sh
+./generate-security-dashboard.sh
+./open-latest-dashboard.sh
 ```
 
 **Complete Security Scan**
 ```bash
-./run-complete-security-scan.sh
+./run-target-security-scan.sh /path/to/project full
 ```
 
-**Targeted Scan**
+**CI/CD Scan**
 ```bash
-./run-target-security-scan.sh
+./run-epyon-scan-ci.sh
 ```
 
-**Dashboard Management**
+**Dashboard Generation**
 ```bash
-./manage-dashboard-data.sh
-./open-dashboard.sh              # Open main security dashboard
-./open-compliance-dashboard.sh   # Open compliance audit dashboard
+./generate-security-dashboard.sh
+./generate-interactive-dashboard.sh
+./open-latest-dashboard.sh
 ```
 
-**Audit & Compliance**
+**Metrics & Analysis**
 ```bash
-./audit-logger.sh               # Manual audit logging
-./compliance-logger.sh          # Generate compliance dashboard
-./open-compliance-dashboard.sh  # View compliance dashboard
+./get-scan-metrics.sh --from-github
+./generate-remediation-suggestions.sh
 ```
 
 ## 📦 Prerequisites
@@ -105,14 +117,17 @@ chmod +x script-name.sh
 
 ## 📁 Output Locations
 
-Results are saved to parent directory:
-- `../clamav-reports/`
-- `../trufflehog-reports/`
-- `../trivy-reports/`
-- `../grype-reports/`
-- `../xeol-reports/`
-- `../checkov-reports/`
-- `../reports/security-reports/`
+Results are saved to scan directories:
+- `../../scans/{SCAN_ID}/` - Individual scan results
+  - `trivy/` - Trivy scan results
+  - `grype/` - Grype scan results
+  - `trufflehog/` - TruffleHog scan results
+  - `clamav/` - ClamAV scan results
+  - `checkov/` - Checkov scan results
+  - `sonar/` - SonarQube analysis
+  - `sbom/` - SBOM files
+  - `consolidated-reports/` - Consolidated reports and dashboards
+  - `security-dashboard.html` - Main security dashboard
 
 ## 💡 Tips
 

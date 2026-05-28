@@ -20,7 +20,7 @@ const path = require('path');
 
 // ── Source (inside the installed package) ─────────────────────────────────────
 // bin/templates/ is included via the "files" field and kept fresh by bin/prepare.js.
-const SOURCE = path.join(__dirname, 'templates', 'epyon-security-scan.yml');
+const SOURCE = path.join(__dirname, 'templates', 'scan-private-repo.yml');
 
 // ── Consumer project root ─────────────────────────────────────────────────────
 // INIT_CWD = the directory from which `npm install` was invoked (npm ≥ 5, yarn)
@@ -35,7 +35,7 @@ if (path.resolve(projectRoot) === selfRoot) {
 
 // ── Destination ───────────────────────────────────────────────────────────────
 const destDir  = path.join(projectRoot, '.github', 'workflows');
-const destFile = path.join(destDir, 'epyon-security-scan.yml');
+const destFile = path.join(destDir, 'scan-private-repo.yml');
 
 // ── Verify source exists (GitHub installs always have it; registry packs may not) ─
 if (!fs.existsSync(SOURCE)) {
@@ -63,7 +63,7 @@ console.log(
   '╚══════════════════════════════════════════════════════════════╝\n' +
   '\n  ✅  ' + destFile + '\n' +
   '\n  Next steps:\n' +
-  '    1. Commit the workflow file:  git add ' + path.join('.github', 'workflows', 'epyon-security-scan.yml') + '\n' +
+  '    1. Commit the workflow file:  git add ' + path.join('.github', 'workflows', 'scan-private-repo.yml') + '\n' +
   '    2. Configure required secrets in your GitHub repo settings:\n' +
   '         SONAR_TOKEN, SONAR_HOST_URL  (optional — enables SonarQube layer)\n' +
   '         JIRA_BASE_URL, JIRA_USER_EMAIL, JIRA_API_TOKEN, JIRA_PROJECT_KEY\n' +

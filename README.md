@@ -542,11 +542,11 @@ Want automatic scanning on every push and PR?
 npm install github:MetroStar/epyon --save-dev
 ```
 
-The postinstall script automatically writes `.github/workflows/epyon-security-scan.yml` into your project. Re-running `npm install` or `npm update` always pulls the latest workflow.
+The postinstall script automatically writes `.github/workflows/scan-private-repo.yml` into your project. Re-running `npm install` or `npm update` always pulls the latest workflow.
 
 Then commit and push:
 ```bash
-git add .github/workflows/epyon-security-scan.yml
+git add .github/workflows/scan-private-repo.yml
 git commit -m "Add Epyon security scanning"
 git push
 ```
@@ -556,13 +556,13 @@ git push
 ```bash
 # In your repository directory
 mkdir -p .github/workflows
-curl -o .github/workflows/epyon-security-scan.yml \
+curl -o .github/workflows/scan-private-repo.yml \
   https://raw.githubusercontent.com/MetroStar/epyon/main/.github/workflows/scan-private-repo.yml
 ```
 
 Then commit and push:
 ```bash
-git add .github/workflows/epyon-security-scan.yml
+git add .github/workflows/scan-private-repo.yml
 git commit -m "Add Epyon security scanning"
 git push
 ```

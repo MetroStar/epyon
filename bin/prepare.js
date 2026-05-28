@@ -19,7 +19,7 @@ const path = require('path');
 const root   = path.resolve(__dirname, '..');
 const source = path.join(root, '.github', 'workflows', 'scan-private-repo.yml');
 const destDir = path.join(__dirname, 'templates');
-const dest   = path.join(destDir, 'epyon-security-scan.yml');
+const dest   = path.join(destDir, 'scan-private-repo.yml');
 
 if (!fs.existsSync(source)) {
   // Not present in a registry-published pack — skip silently.

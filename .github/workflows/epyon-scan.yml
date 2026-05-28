@@ -389,8 +389,8 @@ jobs:
           fi
 
       - name: Free Disk Space
+        if: inputs.scan_mode != 'quick'
         run: |
-          echo "📊 Disk usage before cleanup:"
           df -h /
           # Remove large pre-installed toolchains not needed for security scanning
           sudo rm -rf /usr/local/lib/android \

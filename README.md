@@ -16,9 +16,9 @@ Epyon is designed to be opinionated, automated, and decisive — empowering team
 
 ## Overview
 
-Epyon is a **production-ready, enterprise-grade** 15-layer DevSecOps security platform with a FastAPI-backed web UI, comprehensive test coverage, baseline scanning, automated comparison, and isolated scan directory architecture. Built for real-world applications with Docker-based tooling and 641 automated tests.
+Epyon is a **production-ready, enterprise-grade** 15-layer DevSecOps security platform with a FastAPI-backed web UI, comprehensive test coverage, baseline scanning, automated comparison, and isolated scan directory architecture. Built for real-world applications with Docker-based tooling and 789 automated tests.
 
-**Version: 3.4.0** · **Updated: May 26, 2026**
+**Version: 3.4.0** · **Updated: May 27, 2026**
 
 ## 📋 Prerequisites
 
@@ -611,27 +611,27 @@ Epyon uses **Docker Hardened Images (DHI)** as the default baseline for containe
 
 ### Current Security Layers (15 Operational):
 
-1. **🔍 TruffleHog** - Multi-target secret detection with filesystem, container, and registry scanning
-2. **🦠 ClamAV** - Enterprise antivirus scanning with real-time virus definition updates  
-3. **🔒 Checkov** - Infrastructure as Code security scanning (Terraform, Kubernetes, Docker)
-4. **🎯 Grype** - Advanced vulnerability scanning with SBOM generation and multi-format support
-5. **🐳 Trivy** - Comprehensive security scanner for containers, filesystems, and Kubernetes
-6. **⏰ Xeol** - End-of-Life software detection for proactive dependency management
-7. **📊 SonarQube** - Code quality analysis with test coverage metrics
-8. **⚓ Helm** - Kubernetes chart validation, linting, and packaging
-9. **🔍 API Discovery** - Automatic API endpoint detection (OpenAPI, Express, Flask, Django, Next.js App Router)
-10. **📦 SBOM Generation** - Complete Software Bill of Materials with Syft (CycloneDX + SPDX)
-11. **🤖 Garak** - LLM vulnerability probing and red-team style safety testing
-12. **🌐 API Security Testing** - OpenAPI/Swagger validation, REST/GraphQL endpoint security analysis, and authentication testing
-13. **📋 STIG Assessment** - AI-powered DISA STIG control evaluation against source code (requires OpenAI API key)
+1. **� SBOM Generation** - Complete Software Bill of Materials with Syft (CycloneDX + SPDX)
+2. **🔍 TruffleHog** - Multi-target secret detection with filesystem, container, and registry scanning
+3. **📊 SonarQube** - Code quality analysis with test coverage metrics
+4. **🦠 ClamAV** - Enterprise antivirus scanning with real-time virus definition updates
+5. **⚓ Helm** - Kubernetes chart validation, linting, and packaging
+6. **🔒 Checkov** - Infrastructure as Code security scanning (Terraform, Kubernetes, Docker)
+7. **🐳 Trivy** - Comprehensive security scanner for containers, filesystems, and Kubernetes
+8. **🎯 Grype** - Advanced vulnerability scanning with SBOM generation and multi-format support
+9. **⏰ Xeol** - End-of-Life software detection for proactive dependency management
+10. **⚓ Anchore** - Deep container and software composition analysis
+11. **🔍 API Discovery** - Automatic API endpoint detection (OpenAPI, Express, Flask, Django, Next.js App Router)
+12. **🤖 Garak** - LLM vulnerability probing and red-team style safety testing
+13. **🌐 Network Discovery** - Port, protocol, and service enumeration from config files and manifests
 14. **🥒 PickleScan** - ML model serialization safety scanning (`.pkl`, `.pt`, `.bin`, `.h5`, `.ckpt`, etc.)
 15. **📄 Model Card Compliance** - HuggingFace model card validation against documentation standards
 
 ### Quality Assurance
 
 **✅ Comprehensive Test Coverage:**
-- **641 automated tests** across 44 test files (100% pass rate)
-- **44 shell scripts** fully covered with unit tests
+- **789 automated tests** across 50 test files (100% pass rate)
+- **48 shell scripts** fully covered with unit tests
 - **BATS** (Bash Automated Testing System) framework
 - Validates scanner integration, orchestration, dashboards, exports, and utilities
 
@@ -677,7 +677,7 @@ epyon/
 │   ├── export-sbom.sh
 │   ├── check-severity-gate.sh
 │   ├── update-base-images.sh
-│   └── ... (47 scripts total)
+│   └── ... (48 scripts total)
 ├── tests/shell/                # Test suite (BATS)
 │   ├── test-run-*.bats         # Scanner tests (11 files)
 │   ├── test-generate-*.bats    # Dashboard/report tests (4 files)
@@ -748,8 +748,13 @@ All scripts automatically detect and use whichever runtime is available.
 Scan any external application or directory with comprehensive security analysis and centralized output:
 
 ```bash
-# Unix/Linux/macOS
-# Quick scan (5 core security tools: Syft, TruffleHog, ClamAV, Trivy, Grype)
+# Quickest start — use the root entry point (no need to remember script paths)
+./epyon.sh /path/to/your/project           # Full scan (all 15 layers)
+./epyon.sh /path/to/your/project quick     # Quick scan
+./epyon.sh --help                          # Full option reference
+
+# Or call the scanner directly
+# Quick scan (core tools: Syft, TruffleHog, ClamAV, Trivy, Grype)
 ./scripts/shell/run-target-security-scan.sh "/path/to/your/project" quick
 
 # Full scan (all layers)
@@ -842,47 +847,47 @@ open scans/$LATEST_SCAN/consolidated-reports/dashboards/security-dashboard.html
 cd /path/to/epyon
 
 # Full scan - all 15 layers (recommended)
-./scripts/shell/run-target-security-scan.sh "/path/to/project" full
+./epyon.sh "/path/to/project" full
 
 # Individual Layer Execution using TARGET_DIR method:
 
-# Layer 1: Secret Detection (TruffleHog)
-TARGET_DIR="/path/to/project" ./scripts/shell/run-trufflehog-scan.sh filesystem
-
-# Layer 2: Antivirus Scanning (ClamAV)  
-TARGET_DIR="/path/to/project" ./scripts/shell/run-clamav-scan.sh
-
-# Layer 3: Infrastructure Security (Checkov) - Directory scanning fallback
-TARGET_DIR="/path/to/project" ./scripts/shell/run-checkov-scan.sh filesystem
-
-# Layer 4: Vulnerability Scanning (Grype)
-TARGET_DIR="/path/to/project" ./scripts/shell/run-grype-scan.sh filesystem
-
-# Layer 5: Container Security (Trivy)
-TARGET_DIR="/path/to/project" ./scripts/shell/run-trivy-scan.sh filesystem
-
-# Layer 6: End-of-Life Detection (Xeol)
-TARGET_DIR="/path/to/project" ./scripts/shell/run-xeol-scan.sh filesystem
-
-# Layer 7: Code Quality Analysis (SonarQube) 
-TARGET_DIR="/path/to/project" ./scripts/shell/run-sonar-analysis.sh
-
-# Layer 8: Helm Chart Building - Interactive ECR authentication
-TARGET_DIR="/path/to/project" ./scripts/shell/run-helm-build.sh
-
-# Layer 9: Anchore Container Analysis
-TARGET_DIR="/path/to/project" ./scripts/shell/run-anchore-scan.sh
-
-# Layer 10: SBOM Generation (Syft - CycloneDX + Syft JSON)
+# Layer 1: SBOM Generation (Syft - CycloneDX + Syft JSON)
 TARGET_DIR="/path/to/project" ./scripts/shell/run-sbom-scan.sh
 
-# Layer 11: LLM Vulnerability Probing (Garak)
+# Layer 2: Secret Detection (TruffleHog)
+TARGET_DIR="/path/to/project" ./scripts/shell/run-trufflehog-scan.sh filesystem
+
+# Layer 3: Code Quality Analysis (SonarQube)
+TARGET_DIR="/path/to/project" ./scripts/shell/run-sonar-analysis.sh
+
+# Layer 4: Malware Detection (ClamAV)
+TARGET_DIR="/path/to/project" ./scripts/shell/run-clamav-scan.sh
+
+# Layer 5: Helm Chart Building - Interactive ECR authentication
+TARGET_DIR="/path/to/project" ./scripts/shell/run-helm-build.sh
+
+# Layer 6: IaC Security (Checkov)
+TARGET_DIR="/path/to/project" ./scripts/shell/run-checkov-scan.sh filesystem
+
+# Layer 7: Container Security (Trivy)
+TARGET_DIR="/path/to/project" ./scripts/shell/run-trivy-scan.sh filesystem
+
+# Layer 8: Vulnerability Scanning (Grype)
+TARGET_DIR="/path/to/project" ./scripts/shell/run-grype-scan.sh filesystem
+
+# Layer 9: EOL Detection (Xeol)
+TARGET_DIR="/path/to/project" ./scripts/shell/run-xeol-scan.sh filesystem
+
+# Layer 10: Container Analysis (Anchore)
+TARGET_DIR="/path/to/project" ./scripts/shell/run-anchore-scan.sh
+
+# Layer 12: LLM Security Probing (Garak — opt-in via RUN_GARAK=true)
 TARGET_DIR="/path/to/project" ./scripts/shell/run-garak-scan.sh
 
-# Layer 14: Pickle/Serialization Safety (HuggingFace mode)
+# Layer 14: Pickle/Serialization Safety
 TARGET_DIR="/path/to/model-repo" ./scripts/shell/run-picklescan.sh
 
-# Layer 15: Model Card Compliance (HuggingFace mode)
+# Layer 15: Model Card Compliance
 TARGET_DIR="/path/to/model-repo" ./scripts/shell/run-modelcard-check.sh
 
 # Report Consolidation (integrated into complete scan)
@@ -1086,7 +1091,7 @@ Epyon provides **excellent security coverage for Python applications** with comp
 - ✅ **Dependency Security**: Detects CVEs in ML framework dependencies
 - ✅ **Container Security**: Scans ML model serving containers (TensorFlow Serving, TorchServe)
 - ✅ **Code Quality**: Analyzes ML training scripts and inference code
-- ✅ **LLM Safety (Garak)**: Prompt injection, jailbreaking, and safety probe testing (Layer 11)
+- ✅ **LLM Safety (Garak)**: Prompt injection, jailbreaking, and safety probe testing (Layer 12)
 - ✅ **ML Model Scanning (PickleScan)**: Detects malicious opcodes in `.pkl`, `.pt`, `.bin`, `.h5`, `.ckpt`, and other serialization formats (Layer 14)
 - ✅ **Model Card Compliance**: Validates HuggingFace model cards against documentation standards (Layer 15)
 - ✅ **STIG Assessment**: AI-powered static code review against DISA STIG controls (Layer 13)
@@ -1351,7 +1356,7 @@ Our SonarQube integration now uses **LCOV format** as the primary coverage sourc
 ✅ **STIG Evidence Tracking** — Complete timeline with AI-generated evidence, confidence scoring, and status change validation  
 ✅ **AI-Powered Analysis** — STIG control assessment with status change validation and scan summaries via OpenAI  
 ✅ **Production-Ready** — Docker-based, container-runtime-agnostic, cross-platform  
-✅ **641 Automated Tests** — BATS test suite covering all 44 scanner scripts
+✅ **789 Automated Tests** — BATS test suite covering all 50 test files (48 scripts)
 
 ## 🧪 Unit Testing
 
@@ -1376,8 +1381,9 @@ bats test-run-trivy-scan.bats
 ```
 
 ### Test Coverage
-- **Total Tests**: 641
-- **Scripts Covered**: 44 (all scan scripts)
+- **Total Tests**: 789
+- **Test Files**: 50
+- **Scripts Covered**: 48 (all shell scripts)
 - **Success Rate**: 100%
 
 Tests validate:
@@ -1510,7 +1516,7 @@ export TARGET_DIR="/workspace" && ./scripts/shell/run-target-security-scan.sh "$
 ---
 
 **Created**: November 3, 2025  
-**Updated**: May 26, 2026  
+**Updated**: May 27, 2026  
 **Version**: 3.4.0  
 **Status**: ✅ **ENTERPRISE PRODUCTION READY**
 

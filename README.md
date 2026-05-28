@@ -536,22 +536,48 @@ See [Scan Manifest Guide](documentation/SCAN_MANIFEST_GUIDE.md) for complete det
 
 Want automatic scanning on every push and PR?
 
-1. **Download the workflow file** to your repo:
-   ```bash
-   # In your repository directory
-   mkdir -p .github/workflows
-   curl -o .github/workflows/epyon-security-scan.yml \
-     https://raw.githubusercontent.com/MetroStar/epyon/main/.github/workflows/scan-private-repo.yml
-   ```
+#### Option A — npm (recommended)
 
-2. **Commit and push**:
-   ```bash
-   git add .github/workflows/epyon-security-scan.yml
-   git commit -m "Add Epyon security scanning"
-   git push
-   ```
+```bash
+npm install github:MetroStar/epyon --save-dev
+```
 
-3. **That's it!** Epyon will now automatically:
+The postinstall script automatically writes `.github/workflows/epyon-security-scan.yml` into your project. Re-running `npm install` or `npm update` always pulls the latest workflow.
+
+Then commit and push:
+```bash
+git add .github/workflows/epyon-security-scan.yml
+git commit -m "Add Epyon security scanning"
+git push
+```
+
+#### Option B — curl
+
+```bash
+# In your repository directory
+mkdir -p .github/workflows
+curl -o .github/workflows/epyon-security-scan.yml \
+  https://raw.githubusercontent.com/MetroStar/epyon/main/.github/workflows/scan-private-repo.yml
+```
+
+Then commit and push:
+```bash
+git add .github/workflows/epyon-security-scan.yml
+git commit -m "Add Epyon security scanning"
+git push
+```
+
+#### Required secrets (both options)
+
+Configure these in your GitHub repo **Settings → Secrets and variables → Actions**:
+
+| Secret | Required | Purpose |
+|--------|----------|---------|
+| `SONAR_TOKEN` + `SONAR_HOST_URL` | Optional | Enables SonarQube layer |
+| `JIRA_BASE_URL` + `JIRA_USER_EMAIL` + `JIRA_API_TOKEN` + `JIRA_PROJECT_KEY` | Optional | Enables Jira ticket creation |
+| `OPENAI_API_KEY` | Optional | Enables Garak LLM probing + STIG assessment |
+
+Once configured, Epyon will automatically:
    - ✅ Scan every push to `main` or `develop`
    - ✅ Scan all pull requests
    - ✅ Run daily security scans at 2 AM UTC

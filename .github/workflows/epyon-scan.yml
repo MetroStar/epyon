@@ -604,14 +604,14 @@ jobs:
           echo "DEBUG: After consolidation, manifest files in consolidated-reports:"
           ls -la "$SCAN_DIR/consolidated-reports"/scan-manifest* "$SCAN_DIR/consolidated-reports"/manifest-summary* 2>&1 || echo "Manifest files not found in consolidated-reports!"
 
-          # ─── Embed 90-day metrics trend into dashboard ────────────────────
+          # ─── Embed 30-day metrics trend into dashboard ────────────────────
           DASHBOARD_FILE="$SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html"
           METRICS_90D_FILE="$SCAN_DIR/scan-metrics-90d.json"
 
           if [ -f "$DASHBOARD_FILE" ]; then
-            echo "📈 Adding 90-day metrics trend to dashboard..."
+            echo "📈 Adding 30-day metrics trend to dashboard..."
             echo "${GH_TOKEN}" | gh auth login --with-token >/dev/null 2>&1 || true
-            SINCE_DATE=$(date -u -d '90 days ago' +%Y-%m-%d 2>/dev/null || date -u -v-90d +%Y-%m-%d)
+            SINCE_DATE=$(date -u -d '30 days ago' +%Y-%m-%d 2>/dev/null || date -u -v-30d +%Y-%m-%d)
             echo "Looking for scans since: $SINCE_DATE"
 
             chmod +x scripts/shell/get-scan-metrics.sh scripts/shell/embed-metrics-in-dashboard.sh

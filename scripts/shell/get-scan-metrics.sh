@@ -204,6 +204,7 @@ parse_findings_file() {
 # ── GitHub fetch function ─────────────────────────────────────────────────────
 # Populates SCAN_RECORDS with rows from GitHub Actions artifacts for REPO.
 # Uses metrics/github-cache/{scan_id}.json to avoid re-downloading.
+# Downloads are parallelised (up to MAX_PARALLEL concurrent gh api calls).
 fetch_github_metrics() {
     local REPO="$1"
 
@@ -226,13 +227,15 @@ fetch_github_metrics() {
     # shellcheck disable=SC2064
     trap "rm -rf '$TMP_DIR'" RETURN
 
-    local PAGE=1
     local FETCHED=0
     local CACHED=0
     local SKIPPED_FILTER=0
 
+    # ── Phase 1: list all pages; serve hits from cache; queue misses ──────────
+    local -a WORK_IDS   # artifact IDs that need downloading
+    local PAGE=1
+
     while true; do
-        # List up to 100 artifacts per page
         local ARTIFACTS_JSON
         ARTIFACTS_JSON=$(gh api \
             "repos/${REPO}/actions/artifacts?per_page=100&page=${PAGE}" \
@@ -245,25 +248,21 @@ fetch_github_metrics() {
         PAGE_COUNT=$(echo "$ARTIFACTS_JSON" | jq 'length')
         [[ "$PAGE_COUNT" -eq 0 ]] && break
 
-        # Process each artifact on this page
         while IFS= read -r ARTIFACT; do
-            local ART_NAME ART_ID ART_EXPIRED ART_SIZE ART_RUN_ID
+            local ART_NAME ART_ID ART_EXPIRED ART_SIZE
             ART_NAME=$(echo "$ARTIFACT"    | jq -r '.name')
             ART_ID=$(echo "$ARTIFACT"      | jq -r '.id')
             ART_EXPIRED=$(echo "$ARTIFACT" | jq -r '.expired')
             ART_SIZE=$(echo "$ARTIFACT"    | jq -r '.size_in_bytes // 0')
-            ART_RUN_ID=$(echo "$ARTIFACT"  | jq -r '.workflow_run.id // ""')
 
             # Only process metrics-{scan_id} artifacts (lightweight)
             [[ "$ART_NAME" != metrics-* ]] && continue
             [[ "$ART_EXPIRED" == true ]]    && continue
 
-            local SCAN_ID_FROM_ART
-            SCAN_ID_FROM_ART="${ART_NAME#metrics-}"
+            local SCAN_ID_FROM_ART="${ART_NAME#metrics-}"
 
             # Apply --since filter early (scan_id embeds the date)
             if [[ -n "$FILTER_SINCE" ]]; then
-                # Extract date portion from the scan_id (format: name_user_YYYY-MM-DD_HH-MM-SS)
                 local ART_DATE
                 ART_DATE=$(echo "$SCAN_ID_FROM_ART" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)
                 if [[ -n "$ART_DATE" && "$ART_DATE" < "$FILTER_SINCE" ]]; then
@@ -277,100 +276,134 @@ fetch_github_metrics() {
             # Skip if this scan ID was already collected locally
             _is_seen "$SCAN_ID_FROM_ART" && continue
 
-            # Skip if already cached (unless --no-cache)
+            # Serve from cache
             if [[ "$NO_CACHE" == false && -f "$CACHE_FILE" ]]; then
-                # Apply target/user filters to cached records before adding them
                 local C_TARGET C_USER
                 C_TARGET=$(jq -r '.target_name // ""' "$CACHE_FILE" 2>/dev/null)
                 C_USER=$(jq -r   '.scan_user   // ""' "$CACHE_FILE" 2>/dev/null)
                 if [[ -n "$FILTER_TARGET" && "$C_TARGET" != "$FILTER_TARGET" ]]; then continue; fi
                 if [[ -n "$FILTER_USER"   && "$C_USER"   != "$FILTER_USER"   ]]; then continue; fi
                 CACHED=$(( CACHED + 1 ))
-                local CACHED_RECORD
-                CACHED_RECORD=$(cat "$CACHE_FILE")
-                SCAN_RECORDS+=("$CACHED_RECORD")
+                SCAN_RECORDS+=("$(cat "$CACHE_FILE")")
                 _mark_seen "$SCAN_ID_FROM_ART"
                 continue
             fi
 
-            # Download the zip into a tmp subdir
-            local ART_DIR="$TMP_DIR/$ART_ID"
-            mkdir -p "$ART_DIR"
-            local ZIP_FILE="$TMP_DIR/${ART_ID}.zip"
-
-            [[ "$QUIET" == false ]] && \
-                printf "  ${BLUE}  ↓ %-55s  %s bytes${NC}\n" \
-                    "${ART_NAME:0:55}" "$ART_SIZE"
-
-            local JSONL_CONTENT
-            JSONL_CONTENT=""
-            local DOWNLOAD_ERR
-            DOWNLOAD_ERR="$TMP_DIR/download-${ART_ID}.err"
-            if ! gh api "repos/${REPO}/actions/artifacts/${ART_ID}/zip" \
-                    > "$ZIP_FILE" 2>"$DOWNLOAD_ERR"; then
-                local ERR_MSG
-                ERR_MSG=$(tr '\n' ' ' < "$DOWNLOAD_ERR" | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//')
-                [[ -z "$ERR_MSG" ]] && ERR_MSG="unknown error"
-                echo -e "${YELLOW}    ⚠️  Download failed for artifact ${ART_ID}: ${ERR_MSG}${NC}"
-
-                # Fallback path: gh run download is often more reliable in Actions context.
-                if [[ -n "$ART_RUN_ID" ]]; then
-                    rm -rf "$ART_DIR" && mkdir -p "$ART_DIR"
-                    if gh run download "$ART_RUN_ID" \
-                          --repo "$REPO" \
-                          --name "$ART_NAME" \
-                          --dir "$ART_DIR" 2>"$DOWNLOAD_ERR"; then
-                        JSONL_CONTENT=$(head -1 "$ART_DIR/scan-metrics.json" 2>/dev/null || true)
-                        if [[ -z "$JSONL_CONTENT" ]]; then
-                            echo -e "${YELLOW}    ⚠️  Fallback download succeeded but scan-metrics.json was missing (${ART_NAME})${NC}"
-                            continue
-                        fi
-                        rm -f "$DOWNLOAD_ERR"
-                    else
-                        ERR_MSG=$(tr '\n' ' ' < "$DOWNLOAD_ERR" | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//')
-                        [[ -z "$ERR_MSG" ]] && ERR_MSG="unknown error"
-                        echo -e "${YELLOW}    ⚠️  Fallback gh run download failed for run ${ART_RUN_ID}: ${ERR_MSG}${NC}"
-                        continue
-                    fi
-                else
-                    continue
-                fi
-            fi
-
-            # Extract scan-metrics.json from the zip
-            if [[ -z "${JSONL_CONTENT:-}" ]]; then
-                JSONL_CONTENT=$(unzip -p "$ZIP_FILE" 'scan-metrics.json' 2>/dev/null | head -1)
-            fi
-            rm -f "$ZIP_FILE"
-
-            if [[ -z "$JSONL_CONTENT" ]]; then
-                [[ "$QUIET" == false ]] && \
-                    echo -e "${YELLOW}    ⚠️  No scan-metrics.json in artifact ${ART_NAME}${NC}"
-                continue
-            fi
-
-            # Validate and enrich with repo/artifact URL
-            local ENRICHED
-            ENRICHED=$(echo "$JSONL_CONTENT" | jq -c \
-                --arg repo "$REPO" \
-                --arg art_id "$ART_ID" \
-                --arg art_name "$ART_NAME" \
-                'if .scan_id then
-                    . + {source: "github", artifact_id: $art_id, artifact_name: $art_name}
-                    | if (.repository == null or .repository == "") then . + {repository: $repo} else . end
-                 else empty end' 2>/dev/null) || continue
-
-            [[ -z "$ENRICHED" ]] && continue
-
-            # Write to cache
-            echo "$ENRICHED" > "$CACHE_FILE"
-            SCAN_RECORDS+=("$ENRICHED")
-            _mark_seen "$SCAN_ID_FROM_ART"
-            FETCHED=$(( FETCHED + 1 ))
+            # Queue for parallel download — stash the full artifact JSON
+            echo "$ARTIFACT" > "$TMP_DIR/work-${ART_ID}.json"
+            WORK_IDS+=("$ART_ID")
 
         done < <(echo "$ARTIFACTS_JSON" | jq -c '.[]')
 
         PAGE=$(( PAGE + 1 ))
+    done
+
+    # ── Phase 2: parallel downloads ───────────────────────────────────────────
+    local MAX_PARALLEL=8
+    local ACTIVE=0
+
+    if [[ ${#WORK_IDS[@]} -gt 0 ]]; then
+        [[ "$QUIET" == false ]] && \
+            echo -e "${CYAN}    Downloading ${#WORK_IDS[@]} new artifact(s) (${MAX_PARALLEL} parallel)...${NC}"
+
+        for ART_ID in "${WORK_IDS[@]}"; do
+            local ARTIFACT ART_NAME ART_RUN_ID ART_SIZE
+            ARTIFACT=$(cat "$TMP_DIR/work-${ART_ID}.json")
+            ART_NAME=$(echo "$ARTIFACT"   | jq -r '.name')
+            ART_RUN_ID=$(echo "$ARTIFACT" | jq -r '.workflow_run.id // ""')
+            ART_SIZE=$(echo "$ARTIFACT"   | jq -r '.size_in_bytes // 0')
+
+            [[ "$QUIET" == false ]] && \
+                printf "  ${BLUE}  ↓ %-55s  %s bytes${NC}\n" "${ART_NAME:0:55}" "$ART_SIZE"
+
+            # Each worker writes its result to $TMP_DIR/result-${ART_ID}.json on success
+            (
+                local ZIP_FILE="$TMP_DIR/${ART_ID}.zip"
+                local ART_DIR="$TMP_DIR/${ART_ID}"
+                local DOWNLOAD_ERR="$TMP_DIR/download-${ART_ID}.err"
+                local JSONL_CONTENT=""
+
+                if ! gh api "repos/${REPO}/actions/artifacts/${ART_ID}/zip" \
+                        > "$ZIP_FILE" 2>"$DOWNLOAD_ERR"; then
+                    local ERR_MSG
+                    ERR_MSG=$(tr '\n' ' ' < "$DOWNLOAD_ERR" | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//')
+                    [[ -z "$ERR_MSG" ]] && ERR_MSG="unknown error"
+                    echo -e "${YELLOW}    ⚠️  Download failed for artifact ${ART_ID}: ${ERR_MSG}${NC}"
+
+                    if [[ -n "$ART_RUN_ID" ]]; then
+                        mkdir -p "$ART_DIR"
+                        if gh run download "$ART_RUN_ID" \
+                              --repo "$REPO" \
+                              --name "$ART_NAME" \
+                              --dir "$ART_DIR" 2>"$DOWNLOAD_ERR"; then
+                            JSONL_CONTENT=$(head -1 "$ART_DIR/scan-metrics.json" 2>/dev/null || true)
+                            if [[ -z "$JSONL_CONTENT" ]]; then
+                                echo -e "${YELLOW}    ⚠️  Fallback download: scan-metrics.json missing (${ART_NAME})${NC}"
+                                exit 0
+                            fi
+                        else
+                            ERR_MSG=$(tr '\n' ' ' < "$DOWNLOAD_ERR" | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//')
+                            [[ -z "$ERR_MSG" ]] && ERR_MSG="unknown error"
+                            echo -e "${YELLOW}    ⚠️  Fallback gh run download failed for run ${ART_RUN_ID}: ${ERR_MSG}${NC}"
+                            exit 0
+                        fi
+                    else
+                        exit 0
+                    fi
+                fi
+
+                if [[ -z "$JSONL_CONTENT" ]]; then
+                    JSONL_CONTENT=$(unzip -p "$ZIP_FILE" 'scan-metrics.json' 2>/dev/null | head -1)
+                fi
+                rm -f "$ZIP_FILE"
+
+                if [[ -z "$JSONL_CONTENT" ]]; then
+                    [[ "$QUIET" == false ]] && \
+                        echo -e "${YELLOW}    ⚠️  No scan-metrics.json in artifact ${ART_NAME}${NC}"
+                    exit 0
+                fi
+
+                local ENRICHED
+                ENRICHED=$(echo "$JSONL_CONTENT" | jq -c \
+                    --arg repo "$REPO" \
+                    --arg art_id "$ART_ID" \
+                    --arg art_name "$ART_NAME" \
+                    'if .scan_id then
+                        . + {source: "github", artifact_id: $art_id, artifact_name: $art_name}
+                        | if (.repository == null or .repository == "") then . + {repository: $repo} else . end
+                     else empty end' 2>/dev/null)
+
+                [[ -z "$ENRICHED" ]] && exit 0
+                echo "$ENRICHED" > "$TMP_DIR/result-${ART_ID}.json"
+            ) &
+
+            ACTIVE=$(( ACTIVE + 1 ))
+            if [[ "$ACTIVE" -ge "$MAX_PARALLEL" ]]; then
+                # wait -n requires bash 4.3+; fall back to wait-all on older shells
+                wait -n 2>/dev/null || wait
+                ACTIVE=$(( ACTIVE - 1 ))
+            fi
+        done
+        wait  # drain remaining workers
+    fi
+
+    # ── Phase 3: collect worker results → cache + SCAN_RECORDS ───────────────
+    for ART_ID in "${WORK_IDS[@]}"; do
+        local RESULT_FILE="$TMP_DIR/result-${ART_ID}.json"
+        [[ -f "$RESULT_FILE" ]] || continue
+
+        local ENRICHED
+        ENRICHED=$(cat "$RESULT_FILE")
+        [[ -z "$ENRICHED" ]] && continue
+
+        local RESULT_SCAN_ID
+        RESULT_SCAN_ID=$(echo "$ENRICHED" | jq -r '.scan_id // ""')
+        [[ -z "$RESULT_SCAN_ID" ]] && continue
+
+        echo "$ENRICHED" > "$GH_CACHE_DIR/${RESULT_SCAN_ID}.json"
+        SCAN_RECORDS+=("$ENRICHED")
+        _mark_seen "$RESULT_SCAN_ID"
+        FETCHED=$(( FETCHED + 1 ))
     done
 
     # ── Legacy: also check full scan artifacts if requested ───────────────────

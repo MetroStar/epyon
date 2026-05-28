@@ -1,0 +1,37 @@
+{
+  "name": "epyon",
+  "version": "3.4.0",
+  "description": "Fifteen-layer DevSecOps security scanner — installs a GitHub Actions workflow for automated security scanning into your repository.",
+  "homepage": "https://github.com/MetroStar/epyon",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MetroStar/epyon.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "postinstall": "node bin/install.js"
+  },
+  "files": [
+    "bin/",
+    "README.md"
+  ],
+  "keywords": [
+    "security",
+    "devsecops",
+    "stig",
+    "sbom",
+    "sca",
+    "trivy",
+    "grype",
+    "trufflehog",
+    "clamav",
+    "checkov",
+    "sonarqube",
+    "garak",
+    "vulnerability-scanner",
+    "github-actions"
+  ]
+}

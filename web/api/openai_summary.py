@@ -32,10 +32,43 @@ def get_api_key() -> str | None:
     return os.environ.get("OPENAI_API_KEY") or None
 
 
+# Maps scan_type values to human-readable classification used in prompts.
+_CONTINUOUS_SCAN_TYPES = {"nightly"}
+_EVALUATED_SCAN_LABELS: dict[str, str] = {
+    "full":         "comprehensive point-in-time assessment",
+    "quick":        "pull-request / development check",
+    "stig":         "one-time STIG compliance assessment",
+    "baseline":     "baseline establishment scan",
+    "huggingface":  "model security evaluation",
+}
+
+
+def _classify_scan(scan_type: str) -> tuple[str, str]:
+    """
+    Returns (classification, description) where classification is
+    'continuous' or 'evaluated'.
+    """
+    if scan_type in _CONTINUOUS_SCAN_TYPES:
+        return (
+            "continuous",
+            "nightly automated monitoring scan — part of the ongoing security programme",
+        )
+    label = _EVALUATED_SCAN_LABELS.get(scan_type, "point-in-time evaluation")
+    return "evaluated", label
+
+
 _SYSTEM_PROMPT = (
     "You are a senior cybersecurity analyst. "
     "You will be given structured scan findings from an automated security scan "
-    "of a software application. "
+    "of a software application, along with a scan_classification field that is "
+    "either 'continuous' or 'evaluated'. "
+    "IMPORTANT: if scan_classification is 'evaluated', open the summary with a "
+    "prominent callout (e.g. > ⚠️ **One-time evaluation**) stating that this is "
+    "a point-in-time scan and NOT part of the routine monitoring programme, so "
+    "executives should not draw trend conclusions from it. "
+    "If scan_classification is 'continuous', frame the summary in terms of the "
+    "ongoing security posture and note whether findings have changed from prior "
+    "nightly runs if trend data is available. "
     "Produce a concise executive summary (3–5 paragraphs) written for a non-technical "
     "stakeholder such as a CISO or program manager. "
     "The summary should: "
@@ -57,12 +90,17 @@ def _build_user_message(scan_id: str, scan_meta: dict, findings: dict) -> str:
     critical_samples = critical[:15]
     high_samples     = high[:10]
 
+    scan_type = scan_meta.get("scan_type", "")
+    classification, classification_desc = _classify_scan(scan_type)
+
     payload = {
-        "scan_id":    scan_id,
-        "target":     scan_meta.get("target", ""),
-        "scan_type":  scan_meta.get("scan_type", ""),
-        "timestamp":  scan_meta.get("timestamp", ""),
-        "tools_used": scan_meta.get("tools_analyzed", []),
+        "scan_id":               scan_id,
+        "target":                scan_meta.get("target", ""),
+        "scan_type":             scan_type,
+        "scan_classification":   classification,
+        "scan_classification_note": classification_desc,
+        "timestamp":             scan_meta.get("timestamp", ""),
+        "tools_used":            scan_meta.get("tools_analyzed", []),
         "counts": {
             "critical": summary.get("total_critical", 0),
             "high":     summary.get("total_high", 0),

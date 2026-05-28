@@ -823,6 +823,7 @@ def check_stig_applicability(
         response = client.chat.completions.create(
             model=model,
             temperature=0,
+            seed=42,
             max_tokens=300,
             messages=[
                 {"role": "system", "content": _APPLICABILITY_SYSTEM_PROMPT},
@@ -894,7 +895,8 @@ def call_openai(
 
     response = client.chat.completions.create(
         model=model,
-        temperature=0.1,
+        temperature=0,
+        seed=42,
         max_tokens=8192,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -1212,6 +1214,47 @@ def _assess_stig(
                 f"[INFO] [{slug}] No previous scan found — all controls assessed fresh",
                 file=sys.stderr,
             )
+
+        # ── Freeze stable controls ────────────────────────────────────────────
+        # Controls that were assessed as "Not a Finding" or "Not Applicable" with
+        # confidence ≥ 85 in the previous scan are carried forward unchanged.
+        # This prevents high-confidence closed controls from flip-flopping between
+        # runs and builds trust in the scan results.
+        # Only "Open" and "Not Reviewed" controls are re-assessed each run.
+        _FREEZE_STATUSES    = {"Not a Finding", "Not Applicable"}
+        _FREEZE_MIN_CONF    = 85
+        frozen_assessments: dict[str, dict[str, Any]] = {}
+        controls_to_assess: list[dict[str, Any]] = []
+
+        for ctrl in controls:
+            vid  = ctrl["vuln_id"]
+            prev = previous_assessments.get(vid, {})
+            prev_status = prev.get("status", "")
+            prev_conf   = prev.get("confidence", 0)
+            if prev_status in _FREEZE_STATUSES and prev_conf >= _FREEZE_MIN_CONF:
+                frozen_assessments[vid] = {
+                    "status":             prev_status,
+                    "evidence":           prev.get("evidence", ""),
+                    "confidence":         prev_conf,
+                    "locked_by_previous": True,
+                }
+            else:
+                controls_to_assess.append(ctrl)
+
+        frozen_count = len(frozen_assessments)
+        if frozen_count:
+            print(
+                f"[INFO] [{slug}] Freezing {frozen_count} stable controls "
+                f"(status in {_FREEZE_STATUSES!r}, confidence ≥ {_FREEZE_MIN_CONF}) "
+                f"— {len(controls_to_assess)} controls will be re-assessed",
+                file=sys.stderr,
+            )
+            assessments.update(frozen_assessments)
+
+        # Re-batch only the controls that need re-assessment
+        batches      = [controls_to_assess[i : i + batch_size] for i in range(0, len(controls_to_assess), batch_size)]
+        total_batches = len(batches)
+        # ─────────────────────────────────────────────────────────────────
 
         print(
             f"[INFO] [{slug}] Submitting {total_batches} batches of up to {batch_size} controls "

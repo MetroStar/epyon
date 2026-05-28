@@ -19,7 +19,8 @@ const fs   = require('fs');
 const path = require('path');
 
 // ── Source (inside the installed package) ─────────────────────────────────────
-const SOURCE = path.join(__dirname, '..', '.github', 'workflows', 'scan-private-repo.yml');
+// bin/templates/ is included via the "files" field and kept fresh by bin/prepare.js.
+const SOURCE = path.join(__dirname, 'templates', 'epyon-security-scan.yml');
 
 // ── Consumer project root ─────────────────────────────────────────────────────
 // INIT_CWD = the directory from which `npm install` was invoked (npm ≥ 5, yarn)

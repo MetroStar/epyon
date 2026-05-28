@@ -12,6 +12,7 @@
     "node": ">=18"
   },
   "scripts": {
+    "prepare": "node bin/prepare.js",
     "postinstall": "node bin/install.js"
   },
   "files": [

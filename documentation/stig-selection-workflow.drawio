@@ -1,6 +1,6 @@
 <mxfile host="65bd71144e">
     <diagram id="eGBfwMWj5tn8r2UY065M" name="Page-1">
-        <mxGraphModel dx="1626" dy="827" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+        <mxGraphModel dx="650" dy="513" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -98,7 +98,13 @@
                     <mxGeometry x="647" y="2285" width="160" height="60" as="geometry"/>
                 </mxCell>
                 <mxCell id="end_node" value="END&#xa;Applicable STIGs assessed&#xa;Non-applicable STIGs skipped" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontStyle=1;" parent="1" vertex="1">
-                    <mxGeometry x="580.5" y="2380" width="293" height="65" as="geometry"/>
+                    <mxGeometry x="580.5" y="2610" width="293" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="load_prev" value="Load Previous Assessments&#xa;(find latest completed scan for this target)&#xa;→ dict[vuln_id → {status, confidence, evidence}]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="1">
+                    <mxGeometry x="597" y="1445" width="260" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="freeze_stable" value="Freeze Stable Controls&#xa;• Status ∈ {Not a Finding, Not Applicable}&#xa;• confidence ≥ 85&#xa;→ carry forward: locked_by_previous=true&#xa;→ skip API for these controls&#xa;Only unfrozen controls proceed to batching" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+                    <mxGeometry x="565.5" y="1535" width="323" height="105" as="geometry"/>
                 </mxCell>
                 <mxCell id="legend_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" parent="1" vertex="1">
                     <mxGeometry x="1200" y="80" width="220" height="270" as="geometry"/>
@@ -233,7 +239,13 @@
                 <mxCell id="e19" value="No" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="applicable_q" target="not_applicable" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
-                <mxCell id="e20" value="Yes" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="applicable_q" target="build_manifest" edge="1">
+                <mxCell id="e20" value="Yes" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="applicable_q" target="load_prev" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e20b" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="load_prev" target="freeze_stable">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e20c" style="edgeStyle=orthogonalEdgeStyle;" edge="1" parent="1" source="freeze_stable" target="build_manifest">
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
                 <mxCell id="e21" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="build_manifest" target="batch_loop_label" edge="1">
@@ -260,10 +272,10 @@
                 <mxCell id="e28" value="Yes" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="more_batches_q" target="batch_loop_label" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="727" y="2040"/>
-                            <mxPoint x="480" y="2040"/>
-                            <mxPoint x="480" y="1477"/>
-                            <mxPoint x="557" y="1477"/>
+                            <mxPoint x="727" y="2270"/>
+                            <mxPoint x="480" y="2270"/>
+                            <mxPoint x="480" y="1707"/>
+                            <mxPoint x="557" y="1707"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
@@ -274,8 +286,8 @@
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
                             <mxPoint x="1040" y="1360"/>
-                            <mxPoint x="1040" y="2122"/>
-                            <mxPoint x="857" y="2122"/>
+                            <mxPoint x="1040" y="2352"/>
+                            <mxPoint x="857" y="2352"/>
                         </Array>
                     </mxGeometry>
                 </mxCell>
@@ -285,8 +297,8 @@
                 <mxCell id="e32" value="Yes" style="edgeStyle=orthogonalEdgeStyle;" parent="1" source="more_stigs_q" target="loop_stig_label" edge="1">
                     <mxGeometry relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="727" y="2270"/>
-                            <mxPoint x="460" y="2270"/>
+                            <mxPoint x="727" y="2500"/>
+                            <mxPoint x="460" y="2500"/>
                             <mxPoint x="460" y="967"/>
                             <mxPoint x="597" y="967"/>
                         </Array>

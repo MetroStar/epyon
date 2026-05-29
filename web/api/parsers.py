@@ -882,7 +882,10 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
         manifest = _read_json(scan_dir / "scan-manifest.json")
         if manifest:
             data["user"] = (manifest.get("scan_metadata") or {}).get("username", "")
-    else:
+
+    # Infer scan_type from directory contents only when scan-metadata.json did not
+    # supply it (meta is falsy or had no scan_type key).
+    if not meta or not meta.get("scan_type"):
         # Infer scan_type from other files present in the scan directory
         vuln_dirs = {"grype", "trivy", "checkov", "sbom", "anchore", "xeol"}
         has_vuln = any((scan_dir / d).is_dir() for d in vuln_dirs)

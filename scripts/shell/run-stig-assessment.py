@@ -82,27 +82,42 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 SOURCE_EXTENSIONS = {
+    # Application code
     ".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".java", ".rb", ".cs",
+    ".rs", ".kt", ".kts", ".php", ".vue", ".svelte",
+    ".c", ".cpp", ".h", ".hpp",
+    # Shell / scripting
     ".sh", ".bash", ".zsh",
+    # Config / markup
     ".yml", ".yaml",
-    ".json", ".toml", ".cfg", ".ini",
-    ".tf", ".hcl",
+    ".json", ".toml", ".cfg", ".ini", ".properties", ".env", ".conf",
+    ".xml",
+    # IaC / build
+    ".tf", ".hcl", ".gradle",
+    # Templates
+    ".html", ".htm", ".jinja2", ".j2", ".tpl",
+    # Database
+    ".sql",
 }
 
 INCLUDE_FILENAMES = {
     "Dockerfile", "docker-compose.yml", "docker-compose.yaml",
-    ".env.example", ".env.template", "Makefile", "justfile",
+    ".env", ".env.example", ".env.template",
+    "Makefile", "justfile",
     "README.md", "SECURITY.md",
+    "nginx.conf", "httpd.conf", "web.xml",
+    "pom.xml", "build.gradle", "settings.gradle",
 }
 
 EXCLUDE_DIR_PREFIXES = {
     ".git", "node_modules", "__pycache__", ".venv", "venv", "env",
     "dist", "build", "coverage", ".coverage", ".tox", ".mypy_cache",
-    ".pytest_cache", ".eggs", "*.egg-info",
+    ".pytest_cache", ".eggs",
+    # Note: *.egg-info is handled via endswith() in _is_excluded_dir
 }
 
-MAX_CODE_BYTES_PER_BATCH = 250_000  # ~250 KB per API call — GPT-4.1 has 1M token context
-MAX_FILE_BYTES = 50_000             # include files up to 50 KB
+MAX_CODE_BYTES_PER_BATCH = 700_000  # ~700 KB per API call — GPT-4.1 has 1M token context
+MAX_FILE_BYTES = 100_000            # truncate (not skip) files larger than 100 KB
 BATCH_SIZE_DEFAULT = 10             # controls per API call (smaller = more focused)
 
 STATUS_MAP = {
@@ -316,9 +331,20 @@ def load_previous_stig_results(previous_scan_dir: Path, slug: str) -> dict[str, 
 # Source file collection
 # ---------------------------------------------------------------------------
 
+# Hidden directories that contain security-relevant config and should be scanned
+_ALLOWED_HIDDEN_DIRS = {
+    ".github", ".env.example",
+    ".circleci", ".drone", ".gitlab",
+    ".devcontainer", ".helm",
+}
+
+
 def _is_excluded_dir(dirname: str) -> bool:
-    return dirname.startswith(".") and dirname not in {".github", ".env.example"} \
-        or dirname in EXCLUDE_DIR_PREFIXES
+    if dirname in EXCLUDE_DIR_PREFIXES:
+        return True
+    if dirname.endswith(".egg-info"):
+        return True
+    return dirname.startswith(".") and dirname not in _ALLOWED_HIDDEN_DIRS
 
 
 def collect_source_files(target_dir: str) -> list[tuple[str, str]]:
@@ -347,13 +373,20 @@ def collect_source_files(target_dir: str) -> list[tuple[str, str]]:
             continue
 
         size = path.stat().st_size
-        if size > MAX_FILE_BYTES:
-            continue
         if size == 0:
             continue
 
         try:
-            content = path.read_text(encoding="utf-8", errors="replace")
+            if size > MAX_FILE_BYTES:
+                # Truncate to first MAX_FILE_BYTES rather than skipping entirely
+                with path.open("rb") as fh:
+                    raw = fh.read(MAX_FILE_BYTES)
+                content = raw.decode("utf-8", errors="replace") + (
+                    f"\n[... TRUNCATED — file is {size:,} bytes; "
+                    f"showing first {MAX_FILE_BYTES:,} bytes only]"
+                )
+            else:
+                content = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
 
@@ -733,6 +766,9 @@ def is_stig_applicable(stig_filename: str, stig_name: str, tech_stack: dict[str,
                    f"To force-include, set STIGS_FILE to target this STIG directly.")
 
 
+_EXCERPT_BYTES = 2_000  # bytes to include for over-budget files
+
+
 def build_code_context(
     files: list[tuple[str, str]],
     keywords: list[str],
@@ -741,30 +777,36 @@ def build_code_context(
     """Include as many source files as fit in max_bytes, ranked by relevance.
 
     All files are always considered — keyword scoring only determines priority
-    so the most relevant files fill the budget first, but lower-scoring files
-    are included if space remains.
+    so the most relevant files fill the budget first. Files that exceed the
+    remaining budget are included as brief excerpts so the model still has
+    partial visibility into every file rather than being unaware of them.
     """
     ranked = rank_files_by_relevance(files, keywords)
     parts: list[str] = []
     total = 0
-    skipped: list[str] = []
 
     for rel, content in ranked:
         snippet = f"### FILE: {rel}\n```\n{content}\n```\n"
         snippet_bytes = len(snippet.encode())
-        if total + snippet_bytes > max_bytes:
-            skipped.append(rel)
-            continue
-        parts.append(snippet)
-        total += snippet_bytes
-
-    if skipped:
-        parts.append(
-            f"### NOTE: {len(skipped)} additional file(s) exceeded context budget "
-            f"and were not included:\n"
-            + "\n".join(f"  {r}" for r in skipped)
-            + "\n"
-        )
+        if total + snippet_bytes <= max_bytes:
+            parts.append(snippet)
+            total += snippet_bytes
+        else:
+            remaining = max_bytes - total
+            if remaining >= _EXCERPT_BYTES:
+                # Include a short excerpt so the model has partial visibility
+                excerpt = content.encode()[:_EXCERPT_BYTES - 150].decode(errors="replace")
+                trunc = (
+                    f"### FILE: {rel} [TRUNCATED — first {len(excerpt):,} chars shown; "
+                    f"full file is {len(content):,} chars]\n```\n{excerpt}\n```\n"
+                )
+                parts.append(trunc)
+                total += len(trunc.encode())
+            else:
+                # No budget left for even an excerpt; note existence only
+                note = f"### FILE: {rel} [exists — content omitted, context budget exhausted]\n"
+                parts.append(note)
+                total += len(note.encode())
 
     if not parts:
         return "(No source files found in target directory)"

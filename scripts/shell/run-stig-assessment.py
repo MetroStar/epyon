@@ -82,45 +82,27 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 SOURCE_EXTENSIONS = {
-    # Application code
     ".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".java", ".rb", ".cs",
-    ".rs", ".kt", ".kts", ".php", ".vue", ".svelte",
-    ".c", ".cpp", ".h", ".hpp",
-    # Shell / scripting
     ".sh", ".bash", ".zsh",
-    # Config / markup
     ".yml", ".yaml",
-    ".json", ".toml", ".cfg", ".ini", ".properties", ".conf",
-    ".xml",
-    # IaC / build
-    ".tf", ".hcl", ".gradle",
-    # Templates
-    ".html", ".htm", ".jinja2", ".j2", ".tpl",
-    # Database
-    ".sql",
+    ".json", ".toml", ".cfg", ".ini",
+    ".tf", ".hcl",
 }
 
 INCLUDE_FILENAMES = {
     "Dockerfile", "docker-compose.yml", "docker-compose.yaml",
-    ".env.example", ".env.template",
-    "Makefile", "justfile",
+    ".env.example", ".env.template", "Makefile", "justfile",
     "README.md", "SECURITY.md",
-    "nginx.conf", "httpd.conf", "web.xml",
-    "pom.xml", "build.gradle", "settings.gradle",
 }
 
 EXCLUDE_DIR_PREFIXES = {
     ".git", "node_modules", "__pycache__", ".venv", "venv", "env",
     "dist", "build", "coverage", ".coverage", ".tox", ".mypy_cache",
-    ".pytest_cache", ".eggs",
-    # Note: *.egg-info is handled via endswith() in _is_excluded_dir
+    ".pytest_cache", ".eggs", "*.egg-info",
 }
 
-# Context budget: gpt-4o-mini has 128K tokens ≈ ~512KB of text. Leaving room for
-# system prompt + controls JSON + repo manifest, 250KB is safe for all supported models.
-# If using GPT-4.1 (1M token context) you can raise this to ~700_000.
-MAX_CODE_BYTES_PER_BATCH = 250_000  # ~250 KB per API call — safe for gpt-4o-mini (128K ctx)
-MAX_FILE_BYTES = 100_000            # truncate (not skip) files larger than 100 KB
+MAX_CODE_BYTES_PER_BATCH = 250_000  # ~250 KB per API call — GPT-4.1 has 1M token context
+MAX_FILE_BYTES = 50_000             # include files up to 50 KB
 BATCH_SIZE_DEFAULT = 10             # controls per API call (smaller = more focused)
 
 STATUS_MAP = {
@@ -334,20 +316,9 @@ def load_previous_stig_results(previous_scan_dir: Path, slug: str) -> dict[str, 
 # Source file collection
 # ---------------------------------------------------------------------------
 
-# Hidden directories that contain security-relevant config and should be scanned
-_ALLOWED_HIDDEN_DIRS = {
-    ".github", ".env.example",
-    ".circleci", ".drone", ".gitlab",
-    ".devcontainer", ".helm",
-}
-
-
 def _is_excluded_dir(dirname: str) -> bool:
-    if dirname in EXCLUDE_DIR_PREFIXES:
-        return True
-    if dirname.endswith(".egg-info"):
-        return True
-    return dirname.startswith(".") and dirname not in _ALLOWED_HIDDEN_DIRS
+    return dirname.startswith(".") and dirname not in {".github", ".env.example"} \
+        or dirname in EXCLUDE_DIR_PREFIXES
 
 
 def collect_source_files(target_dir: str) -> list[tuple[str, str]]:
@@ -371,30 +342,18 @@ def collect_source_files(target_dir: str) -> list[tuple[str, str]]:
         if name not in INCLUDE_FILENAMES and ext not in SOURCE_EXTENSIONS:
             continue
 
-        # Never send actual .env files to OpenAI — they may contain live secrets.
-        # (.env.example and .env.template are safe templates and are allowed.)
-        if name == ".env" or (name.startswith(".env.") and name not in {".env.example", ".env.template"}):
-            continue
-
         # Skip minified/lock files
         if any(pattern in name for pattern in (".min.js", ".lock", "-lock.json", ".map")):
             continue
 
         size = path.stat().st_size
+        if size > MAX_FILE_BYTES:
+            continue
         if size == 0:
             continue
 
         try:
-            if size > MAX_FILE_BYTES:
-                # Truncate to first MAX_FILE_BYTES rather than skipping entirely
-                with path.open("rb") as fh:
-                    raw = fh.read(MAX_FILE_BYTES)
-                content = raw.decode("utf-8", errors="replace") + (
-                    f"\n[... TRUNCATED — file is {size:,} bytes; "
-                    f"showing first {MAX_FILE_BYTES:,} bytes only]"
-                )
-            else:
-                content = path.read_text(encoding="utf-8", errors="replace")
+            content = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
 
@@ -774,9 +733,6 @@ def is_stig_applicable(stig_filename: str, stig_name: str, tech_stack: dict[str,
                    f"To force-include, set STIGS_FILE to target this STIG directly.")
 
 
-_EXCERPT_BYTES = 1_500  # bytes to include for over-budget files
-
-
 def build_code_context(
     files: list[tuple[str, str]],
     keywords: list[str],
@@ -784,43 +740,31 @@ def build_code_context(
 ) -> str:
     """Include as many source files as fit in max_bytes, ranked by relevance.
 
-    Keyword scoring prioritises the most relevant files to fill the budget first.
-    Files just over the limit get a brief excerpt (up to the remaining budget).
-    Once the budget is truly exhausted the loop stops — total never exceeds max_bytes.
-    Files not included are still listed in the repo manifest sent separately.
+    All files are always considered — keyword scoring only determines priority
+    so the most relevant files fill the budget first, but lower-scoring files
+    are included if space remains.
     """
     ranked = rank_files_by_relevance(files, keywords)
     parts: list[str] = []
     total = 0
+    skipped: list[str] = []
 
     for rel, content in ranked:
-        remaining = max_bytes - total
-        if remaining <= 0:
-            break  # hard stop — budget exhausted
-
         snippet = f"### FILE: {rel}\n```\n{content}\n```\n"
         snippet_bytes = len(snippet.encode())
+        if total + snippet_bytes > max_bytes:
+            skipped.append(rel)
+            continue
+        parts.append(snippet)
+        total += snippet_bytes
 
-        if snippet_bytes <= remaining:
-            # Full file fits
-            parts.append(snippet)
-            total += snippet_bytes
-        elif remaining >= 200:
-            # Space for a partial excerpt — cap to what's left
-            excerpt_bytes = min(_EXCERPT_BYTES, remaining - 150)
-            if excerpt_bytes > 0:
-                excerpt = content.encode()[:excerpt_bytes].decode(errors="replace")
-                trunc = (
-                    f"### FILE: {rel} [TRUNCATED — first {len(excerpt):,} of "
-                    f"{len(content):,} chars]\n```\n{excerpt}\n```\n"
-                )
-                trunc_bytes = len(trunc.encode())
-                if total + trunc_bytes <= max_bytes:
-                    parts.append(trunc)
-                    total += trunc_bytes
-            # After excerpt, remaining budget is nearly zero — next iteration will break
-        else:
-            break  # not enough budget for even a header line
+    if skipped:
+        parts.append(
+            f"### NOTE: {len(skipped)} additional file(s) exceeded context budget "
+            f"and were not included:\n"
+            + "\n".join(f"  {r}" for r in skipped)
+            + "\n"
+        )
 
     if not parts:
         return "(No source files found in target directory)"

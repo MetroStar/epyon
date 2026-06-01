@@ -168,23 +168,27 @@ STEP 4 — Cross-reference against the requirement. State explicitly whether wha
 found satisfies the control criterion and why (e.g. "27,500 iterations exceeds the \
 NIST SP 800-63B minimum of 10,000 for PBKDF2").
 
-STEP 5 — Assign status WITH PREVIOUS STATUS VALIDATION:
-  
-IMPORTANT: Some controls may include a "previous_status" field showing the status from \
-the last scan. When a previous status exists:
-  • If your assessment reaches THE SAME status as previous_status, proceed normally.
-  • If your assessment would CHANGE the status, you MUST provide STRONG, SPECIFIC EVIDENCE \
-justifying the change. Generic observations are NOT sufficient.
-  • If you cannot find CONCRETE, FILE-CITED evidence for a status change, KEEP the previous_status \
-and update only the evidence text to reflect current repository state.
-  • Acceptable reasons for status change:
-    - New code/config files added that satisfy/violate the control (cite exact files)
-    - Existing files modified with specific changes to relevant settings (cite exact changes)
-    - Architectural changes that make control applicable/inapplicable (describe specific changes)
-  • Unacceptable reasons for status change:
-    - Rephrasing the same evidence differently
-    - "Further analysis needed" without new concrete findings
-    - Speculation about runtime behavior without code evidence
+STEP 5 — CONFIRM or UPDATE using the previous finding:
+
+Every control includes a "previous_status" and "previous_evidence" field from the last scan.
+
+  IF previous_status is present:
+    1. Re-read the previous_evidence. Locate the exact files and values it cites in the \
+current source code.
+    2. If those artifacts STILL EXIST and STILL SATISFY (or still fail) the control → \
+CONFIRM: output the same status. You may refresh the evidence text to reflect any minor \
+wording improvements, but do not change the status.
+    3. If the artifacts have CHANGED, DISAPPEARED, or NEW artifacts materially alter \
+compliance → UPDATE: output the new status with fully re-cited evidence.
+    4. If you cannot find any of the previously cited files or values → treat as a fresh \
+assessment and provide new evidence.
+
+  IF previous_status is null (first scan for this control):
+    Assess from scratch using STEPS 1–4.
+
+  KEY RULE: A status change MUST be backed by a specific file path and literal value that \
+differs from what the previous_evidence cited. Rephrasing, vague observations, or \
+"further review needed" are NOT acceptable reasons to change status.
 
 Status definitions:
   "Not a Finding"  — Specific named artifacts in specific files directly and completely \
@@ -862,15 +866,16 @@ def check_stig_applicability(
 
     try:
         response = client.chat.completions.create(
-            model=model,
-            temperature=0,
-            seed=42,
-            max_tokens=300,
-            messages=[
-                {"role": "system", "content": _APPLICABILITY_SYSTEM_PROMPT},
-                {"role": "user",   "content": user_message},
-            ],
-        )
+        model=model,
+        temperature=0,
+        top_p=1.0,
+        seed=42,
+        max_tokens=300,
+        messages=[
+            {"role": "system", "content": _APPLICABILITY_SYSTEM_PROMPT},
+            {"role": "user",   "content": user_message},
+        ],
+    )
         usage = response.usage
         prompt_tokens     = usage.prompt_tokens     if usage else 0
         completion_tokens = usage.completion_tokens if usage else 0
@@ -915,11 +920,12 @@ def call_openai(
     controls_json = json.dumps(
         [
             {
-                "vuln_id":       c["vuln_id"],
-                "title":         c["title"],
-                "check_content": c["check_content"],
-                "fix_text":      c["fix_text"],
-                "previous_status": previous_assessments.get(c["vuln_id"], {}).get("status"),
+                "vuln_id":           c["vuln_id"],
+                "title":             c["title"],
+                "check_content":     c["check_content"],
+                "fix_text":          c["fix_text"],
+                "previous_status":   previous_assessments.get(c["vuln_id"], {}).get("status"),
+                "previous_evidence": previous_assessments.get(c["vuln_id"], {}).get("evidence"),
             }
             for c in controls_batch
         ],
@@ -934,10 +940,17 @@ def call_openai(
         f"Application source code (examine every file carefully):\n{code_context}"
     )
 
+    # Derive a deterministic seed from the batch vuln_ids so the same controls
+    # always get the same seed regardless of which run number this is.
+    import hashlib as _hashlib
+    _seed_input = ",".join(c["vuln_id"] for c in controls_batch).encode()
+    _seed = int(_hashlib.sha256(_seed_input).hexdigest()[:8], 16) % (2**31)
+
     response = client.chat.completions.create(
         model=model,
         temperature=0,
-        seed=42,
+        top_p=1.0,
+        seed=_seed,
         max_tokens=8192,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -1235,14 +1248,17 @@ def _assess_stig(
         # knows the full file tree even if some files exceed the context budget.
         repo_manifest = build_repo_manifest(source_files)
 
-        # Load previous STIG assessment results if they exist
+        # Always load previous STIG results when available. The model uses them
+        # to confirm unchanged findings or update when evidence has changed.
+        # This is the primary mechanism for scan-to-scan consistency.
         previous_scan = find_previous_scan_dir(scan_dir, app_name)
         previous_assessments: dict[str, dict[str, Any]] = {}
         if previous_scan:
             previous_assessments = load_previous_stig_results(previous_scan, slug)
             if previous_assessments:
                 print(
-                    f"[INFO] [{slug}] Loaded {len(previous_assessments)} previous assessments from {previous_scan.name}",
+                    f"[INFO] [{slug}] Loaded {len(previous_assessments)} previous assessments "
+                    f"from {previous_scan.name} — model will confirm or update each finding",
                     file=sys.stderr,
                 )
             else:

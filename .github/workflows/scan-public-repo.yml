@@ -115,6 +115,7 @@ jobs:
       target_ref: ${{ inputs.target_ref || '' }}
       subdirectory: ${{ inputs.subdirectory || '' }}
       scan_mode: ${{ inputs.scan_mode || 'full' }}
+      skip_stig: ${{ inputs.scan_mode != 'stig' }}
       run_picklescan: ${{ inputs.run_picklescan == true }}
       run_modelcard: ${{ inputs.run_modelcard == true }}
       fail_on_critical: ${{ inputs.fail_on_critical != false }}

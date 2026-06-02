@@ -272,6 +272,36 @@ async def generate_technical_summary(scan_id: str, scan_meta: dict, findings: di
     return response.choices[0].message.content or ""
 
 
+def _split_apps_by_classification(apps: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Split apps into (continuous, evaluated) using the monitored flag.
+    Falls back to scan_type classification when the flag is absent."""
+    continuous, evaluated = [], []
+    for a in apps:
+        if a.get("monitored") is True:
+            continuous.append(a)
+        elif a.get("monitored") is False:
+            evaluated.append(a)
+        else:
+            # flag not present — fall back to scan_type
+            classification, _ = _classify_scan(a.get("scan_type", ""))
+            (continuous if classification == "continuous" else evaluated).append(a)
+    return continuous, evaluated
+
+
+def _app_summary_entry(a: dict, include_samples: bool = False) -> dict:
+    entry: dict = {
+        "name":     a["name"],
+        "critical": a["critical"],
+        "high":     a["high"],
+        "medium":   a["medium"],
+        "low":      a["low"],
+        "tools":    a.get("tools_analyzed", []),
+    }
+    if include_samples:
+        entry["critical_findings_sample"] = a.get("critical_sample", [])[:5]
+    return entry
+
+
 async def generate_global_summary(apps: list[dict]) -> str:
     api_key = get_api_key()
     if not api_key:
@@ -288,34 +318,35 @@ async def generate_global_summary(apps: list[dict]) -> str:
     cfg   = read_ai_config()
     model = cfg.get("model") or "gpt-4o-mini"
 
-    totals = {
-        "critical": sum(a["critical"] for a in apps),
-        "high":     sum(a["high"]     for a in apps),
-        "medium":   sum(a["medium"]   for a in apps),
-        "low":      sum(a["low"]      for a in apps),
-    }
+    continuous, evaluated = _split_apps_by_classification(apps)
+
+    def _totals(subset: list[dict]) -> dict:
+        return {
+            "critical": sum(a["critical"] for a in subset),
+            "high":     sum(a["high"]     for a in subset),
+            "medium":   sum(a["medium"]   for a in subset),
+            "low":      sum(a["low"]      for a in subset),
+        }
 
     payload = {
         "scope":             "all_applications",
         "application_count": len(apps),
-        "totals":            totals,
-        "applications": [
-            {
-                "name":     a["name"],
-                "critical": a["critical"],
-                "high":     a["high"],
-                "medium":   a["medium"],
-                "low":      a["low"],
-                "tools":    a.get("tools_analyzed", []),
-                "critical_findings_sample": a.get("critical_sample", [])[:5],
-            }
-            for a in apps
-        ],
+        "continuously_monitored": {
+            "note":              "These applications run nightly automated scans and represent the ongoing security posture.",
+            "application_count": len(continuous),
+            "totals":            _totals(continuous),
+            "applications":      [_app_summary_entry(a, include_samples=True) for a in continuous],
+        },
+        "point_in_time_evaluations": {
+            "note":              "These are one-off assessments. Do NOT use their counts in trend or posture calculations for the continuous programme.",
+            "application_count": len(evaluated),
+            "totals":            _totals(evaluated),
+            "applications":      [_app_summary_entry(a, include_samples=True) for a in evaluated],
+        },
     }
 
     user_msg = (
-        "Please produce an executive summary for the following aggregated security scan results "
-        "across all tracked applications:\n\n"
+        "Produce the executive security brief for the following data:\n\n"
         + json.dumps(payload, indent=2)
     )
 
@@ -323,7 +354,7 @@ async def generate_global_summary(apps: list[dict]) -> str:
     response = await client.chat.completions.create(
         model=model,
         messages=[
-            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "system", "content": _GLOBAL_EXEC_SYSTEM_PROMPT},
             {"role": "user",   "content": user_msg},
         ],
         max_tokens=1400,
@@ -349,35 +380,47 @@ async def generate_global_technical_summary(apps: list[dict]) -> str:
     cfg   = read_ai_config()
     model = cfg.get("model") or "gpt-4o-mini"
 
-    totals = {
-        "critical": sum(a["critical"] for a in apps),
-        "high":     sum(a["high"]     for a in apps),
-        "medium":   sum(a["medium"]   for a in apps),
-        "low":      sum(a["low"]      for a in apps),
-    }
+    continuous, evaluated = _split_apps_by_classification(apps)
+
+    def _tech_entry(a: dict) -> dict:
+        return {
+            "name":              a["name"],
+            "critical":          a["critical"],
+            "high":              a["high"],
+            "medium":            a["medium"],
+            "low":               a["low"],
+            "tools":             a.get("tools_analyzed", []),
+            "critical_findings": a.get("critical_sample", [])[:15],
+            "high_findings":     a.get("high_sample", [])[:10],
+        }
+
+    def _totals(subset: list[dict]) -> dict:
+        return {
+            "critical": sum(a["critical"] for a in subset),
+            "high":     sum(a["high"]     for a in subset),
+            "medium":   sum(a["medium"]   for a in subset),
+            "low":      sum(a["low"]      for a in subset),
+        }
 
     payload = {
         "scope":             "all_applications",
         "application_count": len(apps),
-        "totals":            totals,
-        "applications": [
-            {
-                "name":              a["name"],
-                "critical":          a["critical"],
-                "high":              a["high"],
-                "medium":            a["medium"],
-                "low":               a["low"],
-                "tools":             a.get("tools_analyzed", []),
-                "critical_findings": a.get("critical_sample", [])[:15],
-                "high_findings":     a.get("high_sample", [])[:10],
-            }
-            for a in apps
-        ],
+        "continuously_monitored": {
+            "note":              "Nightly automated scans — counts reflect the live security posture of the programme.",
+            "application_count": len(continuous),
+            "totals":            _totals(continuous),
+            "applications":      [_tech_entry(a) for a in continuous],
+        },
+        "point_in_time_evaluations": {
+            "note":              "One-off assessments — exclude from posture trend calculations.",
+            "application_count": len(evaluated),
+            "totals":            _totals(evaluated),
+            "applications":      [_tech_entry(a) for a in evaluated],
+        },
     }
 
     user_msg = (
-        "Please produce a detailed technical security summary across all applications "
-        "for the following aggregated scan results:\n\n"
+        "Produce the technical security brief for the following data:\n\n"
         + json.dumps(payload, indent=2)
     )
 
@@ -385,7 +428,7 @@ async def generate_global_technical_summary(apps: list[dict]) -> str:
     response = await client.chat.completions.create(
         model=model,
         messages=[
-            {"role": "system", "content": _TECHNICAL_SYSTEM_PROMPT},
+            {"role": "system", "content": _GLOBAL_TECH_SYSTEM_PROMPT},
             {"role": "user",   "content": user_msg},
         ],
         max_tokens=1800,
@@ -395,6 +438,43 @@ async def generate_global_technical_summary(apps: list[dict]) -> str:
 
 
 # ── Per-finding fix suggestion ─────────────────────────────────
+
+_GLOBAL_EXEC_SYSTEM_PROMPT = (
+    "You are a senior cybersecurity analyst writing a cross-portfolio executive security brief "
+    "for a CISO or program manager. "
+    "You will receive aggregated scan data for multiple applications, already separated into "
+    "two groups: 'continuously_monitored' (nightly automated scans that represent the ongoing "
+    "security posture) and 'point_in_time_evaluations' (one-off assessments that must NOT be "
+    "used to draw trend conclusions). "
+    "Structure your response as a SINGLE document containing BOTH of these top-level sections, "
+    "in this exact order, using ## headings:\n"
+    "  ## Continuously Monitored Applications\n"
+    "  ## Point-in-Time Evaluations\n"
+    "Each section should cover: overall risk posture for that group, the most critical findings, "
+    "any secret/credential leaks or malware, and a prioritised remediation recommendation. "
+    "If a group has zero applications, still include its ## heading and state that explicitly. "
+    "Open the '## Point-in-Time Evaluations' section with a > ⚠️ blockquote reminding "
+    "executives not to draw trend conclusions from one-off assessments. "
+    "Do NOT produce a combined or blended summary across both groups. "
+    "Use plain language and Markdown formatting."
+)
+
+_GLOBAL_TECH_SYSTEM_PROMPT = (
+    "You are a senior security engineer writing a cross-portfolio technical security brief "
+    "for development and operations teams. "
+    "You will receive aggregated scan data for multiple applications, already separated into "
+    "two groups: 'continuously_monitored' (nightly automated scans) and "
+    "'point_in_time_evaluations' (one-off assessments). "
+    "Structure your response as a SINGLE document containing BOTH of these top-level sections, "
+    "in this exact order, using ## headings:\n"
+    "  ## Continuously Monitored Applications\n"
+    "  ## Point-in-Time Evaluations\n"
+    "Each section should cover: vulnerability totals per severity, notable CVEs and packages, "
+    "tool-specific findings, and concrete remediation steps. "
+    "If a group has zero applications, still include its ## heading and state that explicitly. "
+    "Do NOT merge or aggregate totals across both groups. "
+    "Use Markdown formatting with ### sub-headings per application where helpful."
+)
 
 _FIX_SYSTEM_PROMPT = (
     "You are a senior security engineer providing a precise, actionable remediation plan "

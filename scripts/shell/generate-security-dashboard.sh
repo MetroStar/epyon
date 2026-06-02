@@ -243,6 +243,17 @@ SCAN_NAME=$(basename "$LATEST_SCAN")
 echo "Generating interactive dashboard from: $SCAN_NAME"
 echo "DEBUG: LATEST_SCAN=$LATEST_SCAN" >&2
 
+# ── Prefer the Python web-UI-style generator ────────────────────────────────
+_PY_GEN="$SCRIPT_DIR/generate-dashboard.py"
+if [ -f "$_PY_GEN" ]; then
+    if python3 "$_PY_GEN" "$LATEST_SCAN" 2>&1; then
+        echo "✅ Web-UI-style dashboard generated"
+        exit 0
+    fi
+    echo "⚠️  Python generator failed — falling back to legacy dashboard" >&2
+fi
+# ─────────────────────────────────────────────────────────────────────────────
+
 # Set output to the scan directory's consolidated reports
 OUTPUT_DIR="${LATEST_SCAN}/consolidated-reports/dashboards"
 OUTPUT_HTML="${OUTPUT_DIR}/security-dashboard.html"

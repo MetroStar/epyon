@@ -40,6 +40,10 @@ REGISTERED_APPS_FILE = EPYON_ROOT / "configuration" / "registered-apps.json"
 MONITORED_APPS_FILE  = EPYON_ROOT / "configuration" / "monitored-apps.json"
 STATIC_DIR           = (_HERE / ".." / "static").resolve()
 
+# Scan types that run the full tool suite (Anchore, Trivy, Checkov, etc.)
+# Quick/stig/local_model scans do not produce complete vulnerability counts.
+_COMPREHENSIVE_SCAN_TYPES = frozenset({"full", "nightly"})
+
 # ── Validation ────────────────────────────────────────────────
 _SAFE_ID_RE      = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_\-.]*$")
 _JOB_ID_RE       = re.compile(r"^\d{14}$")
@@ -282,6 +286,13 @@ def applications(response: Response):
         tscans.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
         latest = tscans[0] if tscans else {}
 
+        # For vulnerability counts, prefer the latest comprehensive scan (full/nightly)
+        # so that quick/stig/local_model scans don't zero out the displayed counts.
+        latest_comprehensive = next(
+            (s for s in tscans if s.get("scan_type") in _COMPREHENSIVE_SCAN_TYPES),
+            latest,
+        )
+
         # Find the latest scan that actually produced STIG output
         latest_stig = next((s for s in tscans if s.get("stig_total", 0) > 0), None)
 
@@ -290,11 +301,11 @@ def applications(response: Response):
             "scan_count":          len(tscans),
             "last_scanned":        latest.get("timestamp", ""),
             "scan_type":           latest.get("scan_type", ""),
-            "critical":            latest.get("critical", 0),
-            "high":                latest.get("high", 0),
-            "medium":              latest.get("medium", 0),
-            "low":                 latest.get("low", 0),
-            "status":              parsers.get_status(latest),
+            "critical":            latest_comprehensive.get("critical", 0),
+            "high":                latest_comprehensive.get("high", 0),
+            "medium":              latest_comprehensive.get("medium", 0),
+            "low":                 latest_comprehensive.get("low", 0),
+            "status":              parsers.get_status(latest_comprehensive),
             "latest_scan_id":      latest.get("scan_id", ""),
             "stig_total":          latest_stig.get("stig_total", 0)          if latest_stig else 0,
             "stig_open":           latest_stig.get("stig_open", 0)           if latest_stig else 0,
@@ -1413,28 +1424,41 @@ async def calculate_scorecard(scan_id: str, response: Response):
 @app.post("/api/executive-summary")
 async def global_exec_summary(response: Response):
     _sec_headers(response)
-    hidden = _load_hidden_apps()
+    hidden    = _load_hidden_apps()
+    monitored = _load_monitored_apps()
     scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
 
-    by_target: dict[str, tuple] = {}
+    # Collect all scan dirs per target, then choose the latest comprehensive scan
+    # (full/nightly) for vulnerability data. Fall back to absolute latest if no
+    # comprehensive scan exists for a target.
+    by_target_all: dict[str, list[tuple]] = {}  # target -> [(dir, timestamp), ...]
     for d in scan_dirs:
         meta = parsers.parse_dir_name(d.name)
         target = meta["target"]
         if target in hidden:
             continue
-        ts = meta["timestamp"]
-        if target not in by_target or ts > by_target[target][1]:
-            by_target[target] = (d, ts)
+        by_target_all.setdefault(target, []).append((d, meta["timestamp"]))
 
-    if not by_target:
+    if not by_target_all:
         raise HTTPException(404, "No scans found")
 
+    def _best_scan_dir(entries: list[tuple]) -> object:
+        entries_sorted = sorted(entries, key=lambda x: x[1], reverse=True)
+        for d, _ in entries_sorted:
+            st = (parsers._read_json(d / "scan-metadata.json") or {}).get("scan_type", "")
+            if st in _COMPREHENSIVE_SCAN_TYPES:
+                return d
+        return entries_sorted[0][0]  # fallback to absolute latest
+
     apps = []
-    for target, (scan_dir, _) in sorted(by_target.items()):
+    for target, entries in sorted(by_target_all.items()):
+        scan_dir  = _best_scan_dir(entries)
         scan_meta = parsers.load_scan(scan_dir, EPYON_ROOT)
         findings  = parsers.parse_scan_findings(scan_dir)
         apps.append({
             "name":           target,
+            "monitored":      target in monitored,
+            "scan_type":      scan_meta.get("scan_type", "full"),
             "critical":       scan_meta.get("critical", 0),
             "high":           scan_meta.get("high", 0),
             "medium":         scan_meta.get("medium", 0),
@@ -1459,28 +1483,38 @@ async def global_exec_summary(response: Response):
 @app.post("/api/technical-summary")
 async def global_technical_summary(response: Response):
     _sec_headers(response)
-    hidden = _load_hidden_apps()
+    hidden    = _load_hidden_apps()
+    monitored = _load_monitored_apps()
     scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
 
-    by_target: dict[str, tuple] = {}
+    by_target_all: dict[str, list[tuple]] = {}
     for d in scan_dirs:
         meta = parsers.parse_dir_name(d.name)
         target = meta["target"]
         if target in hidden:
             continue
-        ts = meta["timestamp"]
-        if target not in by_target or ts > by_target[target][1]:
-            by_target[target] = (d, ts)
+        by_target_all.setdefault(target, []).append((d, meta["timestamp"]))
 
-    if not by_target:
+    if not by_target_all:
         raise HTTPException(404, "No scans found")
 
+    def _best_scan_dir(entries: list[tuple]) -> object:
+        entries_sorted = sorted(entries, key=lambda x: x[1], reverse=True)
+        for d, _ in entries_sorted:
+            st = (parsers._read_json(d / "scan-metadata.json") or {}).get("scan_type", "")
+            if st in _COMPREHENSIVE_SCAN_TYPES:
+                return d
+        return entries_sorted[0][0]
+
     apps = []
-    for target, (scan_dir, _) in sorted(by_target.items()):
+    for target, entries in sorted(by_target_all.items()):
+        scan_dir  = _best_scan_dir(entries)
         scan_meta = parsers.load_scan(scan_dir, EPYON_ROOT)
         findings  = parsers.parse_scan_findings(scan_dir)
         apps.append({
             "name":           target,
+            "monitored":      target in monitored,
+            "scan_type":      scan_meta.get("scan_type", "full"),
             "critical":       scan_meta.get("critical", 0),
             "high":           scan_meta.get("high", 0),
             "medium":         scan_meta.get("medium", 0),

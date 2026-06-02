@@ -707,7 +707,8 @@ async function renderOverview() {
         </div>
       </div>
 
-      ${buildOverviewAiSection()}
+      ${buildOverviewExecSection()}
+      ${buildOverviewTechSection()}
 
       ${appSections}`;
   } catch (e) {
@@ -1571,9 +1572,15 @@ function renderMarkdown(text) {
 
   const lines = text.split('\n');
   let html = '';
-  let inList = false;
+  let inUl = false;
+  let inOl = false;
   let inCode = false;
   let codeLines = [];
+
+  function closeList() {
+    if (inUl) { html += '</ul>'; inUl = false; }
+    if (inOl) { html += '</ol>'; inOl = false; }
+  }
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -1581,7 +1588,7 @@ function renderMarkdown(text) {
     // Fenced code blocks
     if (/^```/.test(line)) {
       if (!inCode) {
-        if (inList) { html += '</ul>'; inList = false; }
+        closeList();
         inCode = true;
         codeLines = [];
       } else {
@@ -1593,38 +1600,65 @@ function renderMarkdown(text) {
     }
     if (inCode) { codeLines.push(line); continue; }
 
-    // Headings
-    if (/^## /.test(line)) {
-      if (inList) { html += '</ul>'; inList = false; }
-      html += `<h2>${safe(line.replace(/^## /, ''))}</h2>`;
-      continue;
-    }
-    if (/^# /.test(line)) {
-      if (inList) { html += '</ul>'; inList = false; }
-      html += `<h2>${safe(line.replace(/^# /, ''))}</h2>`;
+    // Horizontal rule
+    if (/^---+$/.test(line.trim())) {
+      closeList();
+      html += '<hr>';
       continue;
     }
 
-    // Bullet list items
+    // Headings (### before ## before #)
+    if (/^### /.test(line)) {
+      closeList();
+      html += `<h3>${inlineMarkdown(safe(line.replace(/^### /, '')))}</h3>`;
+      continue;
+    }
+    if (/^## /.test(line)) {
+      closeList();
+      html += `<h2>${inlineMarkdown(safe(line.replace(/^## /, '')))}</h2>`;
+      continue;
+    }
+    if (/^# /.test(line)) {
+      closeList();
+      html += `<h2>${inlineMarkdown(safe(line.replace(/^# /, '')))}</h2>`;
+      continue;
+    }
+
+    // Blockquote
+    if (/^> /.test(line)) {
+      closeList();
+      html += `<blockquote>${inlineMarkdown(safe(line.replace(/^> /, '')))}</blockquote>`;
+      continue;
+    }
+
+    // Ordered list
+    if (/^\d+\. /.test(line)) {
+      if (inUl) { html += '</ul>'; inUl = false; }
+      if (!inOl) { html += '<ol>'; inOl = true; }
+      html += `<li>${inlineMarkdown(safe(line.replace(/^\d+\. /, '')))}</li>`;
+      continue;
+    }
+
+    // Unordered list
     if (/^[-*] /.test(line)) {
-      if (!inList) { html += '<ul>'; inList = true; }
+      if (inOl) { html += '</ol>'; inOl = false; }
+      if (!inUl) { html += '<ul>'; inUl = true; }
       html += `<li>${inlineMarkdown(safe(line.replace(/^[-*] /, '')))}</li>`;
       continue;
     }
 
-    // Close list if needed
-    if (inList && line.trim() !== '') { html += '</ul>'; inList = false; }
-
-    // Blank line
+    // Blank line — close any open list
     if (line.trim() === '') {
-      if (!inList) html += '';
+      closeList();
       continue;
     }
 
+    // Normal paragraph — close list first
+    closeList();
     html += `<p>${inlineMarkdown(safe(line))}</p>`;
   }
 
-  if (inList) html += '</ul>';
+  closeList();
   if (inCode) html += `<pre><code>${safe(codeLines.join('\n'))}</code></pre>`;
   return html;
 }
@@ -1637,24 +1671,47 @@ function inlineMarkdown(s) {
   return s;
 }
 
-function buildOverviewAiSection() {
+function buildOverviewExecSection() {
   return `
-    <div class="section" id="overview-ai-section" style="border-left:3px solid #6366f1;padding-left:16px">
+    <div class="section" id="overview-exec-section" style="border-left:3px solid #f59e0b;padding-left:16px">
+      <div class="section-title" style="display:flex;align-items:center;gap:10px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+        </svg>
+        AI Executive Summary
+      </div>
+      <div id="overview-exec-body">
+        <button class="btn btn-primary" onclick="generateOverviewExecSummary()">
+          ✦ Generate Executive Summary
+        </button>
+        <p style="margin:8px 0 0;font-size:11px;color:var(--text-muted)">
+          Leadership brief across all tracked applications, split by monitoring status.
+          Requires an OpenAI API key configured in Settings.
+        </p>
+      </div>
+    </div>`;
+}
+
+function buildOverviewTechSection() {
+  return `
+    <div class="section" id="overview-tech-section" style="border-left:3px solid #6366f1;padding-left:16px">
       <div class="section-title" style="display:flex;align-items:center;gap:10px">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6366f1"
              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2a9.96 9.96 0 0 1 7.07 2.93A10 10 0 1 1 12 2z"/>
-          <path d="M12 8v4l3 3"/>
+          <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
         </svg>
-        AI Analysis
+        AI Technical Summary
       </div>
-      <div id="overview-ai-body">
-        <button class="btn btn-primary" onclick="generateOverviewSummaries()">
-          ✦ Generate AI Analysis
+      <div id="overview-tech-body">
+        <button class="btn btn-primary" onclick="generateOverviewTechSummary()">
+          ✦ Generate Technical Summary
         </button>
         <p style="margin:8px 0 0;font-size:11px;color:var(--text-muted)">
-          Generates an executive brief (for leadership) and a technical brief (for dev teams)
-          across all tracked applications. Requires an OpenAI API key configured in Settings.
+          Detailed technical brief for engineering teams, with per-finding breakdown.
+          Requires an OpenAI API key configured in Settings.
         </p>
       </div>
     </div>`;
@@ -1663,82 +1720,68 @@ function buildOverviewAiSection() {
 // Cache last-generated overview summary text for PDF export
 let _overviewSummaryCache = { exec: null, tech: null };
 
-async function generateOverviewSummaries() {
-  const body = document.getElementById('overview-ai-body');
-  if (!body) return;
+function _summaryLoadingHtml(label) {
+  return `<div style="display:flex;align-items:center;gap:10px;padding:12px 0;color:var(--text-muted);font-size:13px">
+    <div class="spinner" style="width:16px;height:16px;border-width:2px"></div>
+    Generating ${label}… this may take 15–30 seconds
+  </div>`;
+}
 
-  // Loading state
-  body.innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px;padding:12px 0;color:var(--text-muted);font-size:13px">
-      <div class="spinner" style="width:16px;height:16px;border-width:2px"></div>
-      Generating summaries… this may take 15–30 seconds
-    </div>`;
-
-  const [execResult, techResult] = await Promise.allSettled([
-    api.getGlobalExecSummary(),
-    api.getGlobalTechnicalSummary(),
-  ]);
-
-  const execOk   = execResult.status === 'fulfilled';
-  const techOk   = techResult.status === 'fulfilled';
-  const execText = execOk  ? execResult.value.summary : null;
-  const techText = techOk  ? techResult.value.summary : null;
-  const execErr  = !execOk ? execResult.reason?.message || 'Generation failed' : null;
-  const techErr  = !techOk ? techResult.reason?.message || 'Generation failed' : null;
-
-  // Cache for PDF export
-  _overviewSummaryCache = { exec: execText, tech: techText };
-
-  function summaryCard({ title, accentColor, bgColor, content, error }) {
-    const inner = error
-      ? `<div style="color:#ef4444;font-size:12px;padding:8px 0">⚠ ${esc(error)}</div>`
-      : `<div style="line-height:1.6">${renderMarkdown(content)}</div>`;
-    return `
-      <details class="findings-collapsible" style="border-left-color:${accentColor}" open>
-        <summary class="findings-summary">
-          <span class="findings-summary-left">
-            <span class="findings-chevron"></span>
-            <span class="findings-summary-title" style="color:${accentColor}">${title}</span>
-          </span>
-          <span class="findings-summary-hint">Click to collapse</span>
-        </summary>
-        <div style="padding:12px 16px 16px 20px;background:${bgColor};border-radius:0 0 6px 6px">
-          ${inner}
-        </div>
-      </details>`;
-  }
-
-  const canExport = execText || techText;
-
-  body.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:12px">
-      ${summaryCard({
-        title:       '📋 Executive Summary',
-        accentColor: '#f59e0b',
-        bgColor:     'rgba(245,158,11,0.04)',
-        content:     execText,
-        error:       execErr,
-      })}
-      ${summaryCard({
-        title:       '🔧 Technical Summary',
-        accentColor: '#6366f1',
-        bgColor:     'rgba(99,102,241,0.04)',
-        content:     techText,
-        error:       techErr,
-      })}
-    </div>
+function _summaryResultHtml(text, err, regenerateFn, exportFn) {
+  const content = err
+    ? `<div style="color:#ef4444;font-size:12px;padding:8px 0">⚠ ${esc(err)}</div>`
+    : `<div style="line-height:1.6">${renderMarkdown(text)}</div>`;
+  return `
+    ${content}
     <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
-      <button class="btn" style="font-size:11px" onclick="generateOverviewSummaries()">
-        ↺ Regenerate
-      </button>
-      ${canExport ? `<button class="btn btn-primary" style="font-size:11px" onclick="exportOverviewSummaryPdf()">
-        ↓ Export PDF
-      </button>` : ''}
+      <button class="btn" style="font-size:11px" onclick="${regenerateFn}()">↺ Regenerate</button>
+      ${text ? `<button class="btn btn-primary" style="font-size:11px" onclick="${exportFn}()">↓ Export PDF</button>` : ''}
     </div>`;
 }
 
-function exportOverviewSummaryPdf() {
+async function generateOverviewExecSummary() {
+  const body = document.getElementById('overview-exec-body');
+  if (!body) return;
+  body.innerHTML = _summaryLoadingHtml('executive summary');
+  try {
+    const result = await api.getGlobalExecSummary();
+    _overviewSummaryCache.exec = result.summary;
+    body.innerHTML = _summaryResultHtml(result.summary, null, 'generateOverviewExecSummary', 'exportExecSummaryPdf');
+  } catch (e) {
+    body.innerHTML = _summaryResultHtml(null, e.message || 'Generation failed', 'generateOverviewExecSummary', 'exportExecSummaryPdf');
+  }
+}
+
+async function generateOverviewTechSummary() {
+  const body = document.getElementById('overview-tech-body');
+  if (!body) return;
+  body.innerHTML = _summaryLoadingHtml('technical summary');
+  try {
+    const result = await api.getGlobalTechnicalSummary();
+    _overviewSummaryCache.tech = result.summary;
+    body.innerHTML = _summaryResultHtml(result.summary, null, 'generateOverviewTechSummary', 'exportTechSummaryPdf');
+  } catch (e) {
+    body.innerHTML = _summaryResultHtml(null, e.message || 'Generation failed', 'generateOverviewTechSummary', 'exportTechSummaryPdf');
+  }
+}
+
+// Keep the old combined function as an alias so any cached references still work
+async function generateOverviewSummaries() {
+  await Promise.all([generateOverviewExecSummary(), generateOverviewTechSummary()]);
+}
+
+function exportExecSummaryPdf() {
+  exportOverviewSummaryPdf('exec');
+}
+
+function exportTechSummaryPdf() {
+  exportOverviewSummaryPdf('tech');
+}
+
+function exportOverviewSummaryPdf(only) {
   const { exec, tech } = _overviewSummaryCache;
+  const showExec = !only || only === 'exec';
+  const showTech = !only || only === 'tech';
   if (!exec && !tech) return;
 
   const dateStr = new Date().toLocaleDateString('en-US', {
@@ -1850,11 +1893,11 @@ function exportOverviewSummaryPdf() {
       <p class="report-meta">Generated: ${dateStr} &nbsp;|&nbsp; AI-Assisted Report &nbsp;|&nbsp; Confidential</p>
     </div>
 
-    <div class="section-heading exec-heading">📋 Executive Summary</div>
-    <div class="section-body">${mdToHtml(exec)}</div>
+    ${showExec ? `<div class="section-heading exec-heading">📋 Executive Summary</div>
+    <div class="section-body">${mdToHtml(exec)}</div>` : ''}
 
-    <div class="section-heading tech-heading">🔧 Technical Summary</div>
-    <div class="section-body">${mdToHtml(tech)}</div>
+    ${showTech ? `<div class="section-heading tech-heading">🔧 Technical Summary</div>
+    <div class="section-body">${mdToHtml(tech)}</div>` : ''}
 
     <div class="footer">
       Generated by Epyon Security Scanner &nbsp;·&nbsp; ${dateStr} &nbsp;·&nbsp; AI-assisted — verify findings before acting
@@ -4868,6 +4911,8 @@ function resolve() {
 
 window.addEventListener('hashchange', resolve);
 window.addEventListener('load', () => {
+  // In static (offline) mode the scan is embedded — skip API-based routing
+  if (window.__SCAN__) return;
   resolve();
   api._get('/api/health').then(h => {
     const el = document.getElementById('sidebar-version');
@@ -5449,3 +5494,211 @@ window.fetchFindingFix = async function(fid) {
     result.innerHTML = `<div style="margin-top:8px;color:var(--critical);font-size:12px">${esc(err.message)}</div>`;
   }
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATIC RENDER MODE
+// When the page is a self-contained HTML file (generated by generate-dashboard.py),
+// window.__SCAN__ is set to the full scan data object. We render the scan detail
+// page directly without any API calls or navigation.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function renderStaticScanDetail(scan) {
+  const page = document.getElementById('page');
+  if (!page) return;
+
+  const status  = computeStatus(scan);
+  const scanId  = scan.scan_id || '';
+
+  // ── STIG card (same logic as renderScanDetail, minus navigate() buttons) ──
+  const hasStigData    = (scan.stig_total || 0) > 0;
+  const scanTypeHasStig = ['stig', 'nightly', 'full', 'baseline'].includes(scan.scan_type);
+  let stigCard = '';
+  if (hasStigData) {
+    const reports  = scan.stig_reports || [];
+    const multiStig = reports.length > 1;
+
+    const perStigRows = multiStig ? reports.map(r => {
+      const slugLabel = r.slug.replace(/-/g, ' ').replace(/\bstig\b/gi, 'STIG');
+      return `
+        <div class="stig-row">
+          <span class="stig-row-label" title="${esc(r.slug)}">${esc(slugLabel)}</span>
+          <span class="stig-row-counts">
+            <span class="stig-mini open">${esc(r.open)} open</span>
+            <span class="stig-mini pass">${esc(r.pass)} pass</span>
+            <span class="stig-mini na">${esc(r.na)} n/a</span>
+            <span class="stig-mini total">${esc(r.total)} total</span>
+          </span>
+        </div>`;
+    }).join('') : '';
+
+    stigCard = `
+      <div class="section findings-section-wrapper">
+        <details class="findings-collapsible" style="border-left-color:#38bdf8">
+          <summary class="findings-summary">
+            <span class="findings-summary-left">
+              <span class="findings-chevron" aria-hidden="true"></span>
+              <span class="findings-summary-title">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     style="vertical-align:-2px;margin-right:5px">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                STIG Assessment${multiStig ? ` <span style="color:var(--text-muted);font-weight:400;font-size:12px">(${reports.length} STIGs)</span>` : ''}
+              </span>
+              <span class="stig-mini open">${esc(scan.stig_open || 0)} open</span>
+              <span class="stig-mini pass">${esc(scan.stig_pass || 0)} pass</span>
+              <span class="stig-mini na">${esc(scan.stig_na || 0)} n/a</span>
+              <span class="stig-mini total">${esc(scan.stig_total || 0)} total</span>
+            </span>
+            <span class="findings-summary-hint">Click to expand</span>
+          </summary>
+          <div class="findings-body" style="padding:0 18px 16px">
+            <div class="stig-counts" style="margin-top:12px">
+              <div class="stig-count open"><span class="num">${esc(scan.stig_open  || 0)}</span><span class="lbl">Open</span></div>
+              <div class="stig-count pass"><span class="num">${esc(scan.stig_pass  || 0)}</span><span class="lbl">Not a Finding</span></div>
+              <div class="stig-count na"  ><span class="num">${esc(scan.stig_na    || 0)}</span><span class="lbl">N/A</span></div>
+              <div class="stig-count total"><span class="num">${esc(scan.stig_total|| 0)}</span><span class="lbl">Total</span></div>
+            </div>
+            ${multiStig ? `<div class="stig-per-stig">${perStigRows}</div>` : ''}
+          </div>
+        </details>
+      </div>`;
+  } else {
+    const noStigMsg = scanTypeHasStig
+      ? 'No STIG results were recorded for this scan.'
+      : 'STIG assessment is not included in this scan type.';
+    stigCard = `
+      <div class="section findings-section-wrapper">
+        <details class="findings-collapsible" style="border-left-color:var(--border)">
+          <summary class="findings-summary">
+            <span class="findings-summary-left">
+              <span class="findings-chevron" aria-hidden="true"></span>
+              <span class="findings-summary-title">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                     style="vertical-align:-2px;margin-right:5px">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                STIG Assessment
+              </span>
+            </span>
+            <span class="findings-summary-hint">Click to expand</span>
+          </summary>
+          <div class="findings-body" style="padding:12px 18px 16px">
+            <p style="color:var(--text-muted);font-size:13px;margin:0">${noStigMsg}</p>
+          </div>
+        </details>
+      </div>`;
+  }
+
+  // ── CI source badge ────────────────────────────────────────────────────────
+  const ci = scan.ci_source;
+  const ciBadge = ci ? `
+    <div class="detail-card">
+      <div class="label">CI Source</div>
+      <div class="value" style="font-size:12px">
+        ${ci.repo ? `<a href="https://github.com/${esc(ci.repo)}" target="_blank" rel="noopener"
+            style="color:var(--accent)">${esc(ci.repo)}</a>` : '—'}
+        ${ci.branch ? `<span style="color:var(--text-muted)"> @ ${esc(ci.branch)}</span>` : ''}
+      </div>
+    </div>` : '';
+
+  page.innerHTML = `
+    <div class="breadcrumb">
+      <span>${esc(scan.target || '—')}</span>
+      <span>›</span>
+      <span>${esc(scanId)}</span>
+    </div>
+
+    <div class="page-header">
+      <h1>Scan Details ${statusBadge(status)}</h1>
+    </div>
+
+    <div class="detail-grid">
+      <div class="detail-card">
+        <div class="label">Application</div>
+        <div class="value">${esc(scan.target || '—')}</div>
+      </div>
+      <div class="detail-card">
+        <div class="label">Scan Type</div>
+        <div class="value">${esc(scanTypeLabel(scan.scan_type))}</div>
+      </div>
+      <div class="detail-card">
+        <div class="label">User</div>
+        <div class="value">${esc(scan.user || '—')}</div>
+      </div>
+      <div class="detail-card">
+        <div class="label">Timestamp</div>
+        <div class="value" style="font-size:13px">${fmtDate(scan.timestamp)}</div>
+      </div>
+      ${ciBadge}
+    </div>
+
+    <div class="result-section-box">
+      <div class="result-section-box-title">Vulnerabilities</div>
+      <div class="detail-grid" style="margin-bottom:0">
+        <div class="detail-card">
+          <div class="label">Critical</div>
+          <div class="value" style="color:var(--critical)">${esc(scan.critical)}</div>
+        </div>
+        <div class="detail-card">
+          <div class="label">High</div>
+          <div class="value" style="color:var(--high)">${esc(scan.high)}</div>
+        </div>
+        <div class="detail-card">
+          <div class="label">Medium</div>
+          <div class="value" style="color:var(--medium)">${esc(scan.medium)}</div>
+        </div>
+        <div class="detail-card">
+          <div class="label">Low</div>
+          <div class="value" style="color:var(--low)">${esc(scan.low)}</div>
+        </div>
+      </div>
+    </div>
+
+    ${buildFindingsSection(scan.findings)}
+
+    ${buildSuppressedSection(scan.suppressed_findings)}
+
+    ${stigCard}
+
+    ${buildModelSecurityCard(scan)}
+
+    ${buildSBOMSection(scan.sbom, null)}
+
+    ${buildAPISection(scan.api_discovery)}
+
+    ${buildNetworkDiscoveryCard(scan)}
+
+    ${scan.file_statistics && Object.keys(scan.file_statistics).length ? `
+      <div class="section">
+        <div class="section-title">File Statistics</div>
+        <div class="detail-grid">
+          ${Object.entries(scan.file_statistics).map(([k, v]) => `
+            <div class="detail-card">
+              <div class="label">${esc(k.replace(/_/g, ' '))}</div>
+              <div class="value">${esc(v)}</div>
+            </div>`).join('')}
+        </div>
+      </div>` : ''}
+
+    <div id="scorecard-container">${scan.scorecard ? buildScorecardCard(scan.scorecard) : ''}</div>
+
+    ${dedupeTools(scan.tools_analyzed || []).length ? `
+      <div class="section">
+        <div class="section-title">Tools Analyzed</div>
+        <div class="tools-list">
+          ${dedupeTools(scan.tools_analyzed).map(t =>
+            `<span class="tool-tag">${esc(t)}</span>`).join('')}
+        </div>
+      </div>` : ''}`;
+  if (window._sbomPendingUid) { sbomRender(window._sbomPendingUid); window._sbomPendingUid = null; }
+  if (window._apiPendingUid)  { apiRender(window._apiPendingUid);   window._apiPendingUid  = null; }
+}
+
+// Static entry point — runs when this JS is embedded in a generated dashboard
+if (typeof window !== 'undefined' && window.__SCAN__) {
+  document.addEventListener('DOMContentLoaded', function () {
+    renderStaticScanDetail(window.__SCAN__);
+  });
+}

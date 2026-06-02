@@ -47,6 +47,17 @@ SCAN_TIMESTAMP=$(echo "$SCAN_NAME" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{
 
 echo "Generating interactive dashboard from: $SCAN_NAME"
 
+# ── Prefer the Python web-UI-style generator ────────────────────────────────
+_PY_GEN="$SCRIPT_DIR/generate-dashboard.py"
+if [ -f "$_PY_GEN" ]; then
+    if python3 "$_PY_GEN" "$LATEST_SCAN" 2>&1; then
+        echo "✅ Web-UI-style dashboard generated"
+        exit 0
+    fi
+    echo "⚠️  Python generator failed — falling back to legacy dashboard" >&2
+fi
+# ─────────────────────────────────────────────────────────────────────────────
+
 # Initialize counters using separate variables
 TRUFFLEHOG_CRITICAL=0
 TRUFFLEHOG_HIGH=0

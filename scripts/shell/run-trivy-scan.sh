@@ -275,9 +275,9 @@ run_trivy_scan() {
             # Use local Trivy binary
             if [[ "$scan_type" == "base-"* ]] || [[ "$target" == *":"* ]]; then
                 echo "   Scanning container image: $target"
-                "$LOCAL_TRIVY" image "$target" --format json --quiet 2>>"$SCAN_LOG" > "$output_file"
+                "$LOCAL_TRIVY" image "$target" --scanners vuln --format json --quiet 2>>"$SCAN_LOG" > "$output_file"
             else
-                "$LOCAL_TRIVY" fs "$target" --format json 2>>"$SCAN_LOG" > "$output_file"
+                "$LOCAL_TRIVY" fs "$target" --scanners vuln --format json 2>>"$SCAN_LOG" > "$output_file"
             fi
             [ $? -eq 0 ] && [ -s "$output_file" ] && scan_ok=true
         elif [ -n "${CONTAINER_CLI:-}" ]; then
@@ -289,14 +289,14 @@ run_trivy_scan() {
                     -v "$TRIVY_CACHE_VOL:/root/.cache" \
                     "${TRIVY_IMAGE}" \
                     image "$target" \
-                    --format json --quiet 2>>"$SCAN_LOG" > "$output_file"
+                    --scanners vuln --format json --quiet 2>>"$SCAN_LOG" > "$output_file"
             else
                 ${CONTAINER_CLI} run --rm \
                     -v "${target}:/workspace:ro" \
                     -v "$TRIVY_CACHE_VOL:/root/.cache" \
                     "${TRIVY_IMAGE}" \
                     fs /workspace \
-                    --format json 2>>"$SCAN_LOG" > "$output_file"
+                    --scanners vuln --format json 2>>"$SCAN_LOG" > "$output_file"
             fi
             [ $? -eq 0 ] && [ -s "$output_file" ] && scan_ok=true
         fi
@@ -325,9 +325,25 @@ if [ "$SCAN_MODE" != "filesystem" ]; then
         BASE_IMAGES=("${APPROVED_BASE_IMAGES[@]}")
         echo "📋 Using ${#BASE_IMAGES[@]} approved base images"
     else
-        echo -e "${YELLOW}ℹ️  No base images configured — skipping container scan${NC}"
-        echo "   Set PRIMARY_BASELINE_IMAGE or configure approved-base-images.conf to enable"
-        BASE_IMAGES=()
+        echo -e "${YELLOW}ℹ️  No base images configured — attempting auto-discovery from Dockerfiles${NC}"
+        # Extract FROM images from any Dockerfiles present in the repo
+        DISCOVERED_IMAGES=()
+        while IFS= read -r dockerfile; do
+            while IFS= read -r from_image; do
+                [[ "$from_image" == "scratch" ]] && continue
+                # Strip build-arg variable references (e.g. $BASE_IMAGE)
+                [[ "$from_image" == *'$'* ]] && continue
+                DISCOVERED_IMAGES+=("$from_image")
+            done < <(grep -i '^FROM ' "$dockerfile" | awk '{print $2}')
+        done < <(find "$REPO_PATH" -name 'Dockerfile*' -not -path '*/node_modules/*' -not -path '*/.git/*' 2>/dev/null)
+        # Deduplicate
+        mapfile -t BASE_IMAGES < <(printf '%s\n' "${DISCOVERED_IMAGES[@]}" | sort -u)
+        if [ ${#BASE_IMAGES[@]} -gt 0 ]; then
+            echo -e "   ${GREEN}📋 Auto-discovered ${#BASE_IMAGES[@]} image(s) from Dockerfiles: ${BASE_IMAGES[*]}${NC}"
+        else
+            echo -e "   ${YELLOW}No Dockerfiles found. Set PRIMARY_BASELINE_IMAGE or configure approved-base-images.conf to enable container scanning.${NC}"
+            BASE_IMAGES=()
+        fi
     fi
 
     for image in "${BASE_IMAGES[@]}"; do

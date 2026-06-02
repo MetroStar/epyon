@@ -1449,6 +1449,23 @@ if [[ -f "$SCRIPT_DIR/consolidate-security-reports.sh" ]]; then
     
     if [[ $consolidation_result -eq 0 ]]; then
         echo -e "${GREEN}✅ Security reports consolidated successfully${NC}"
+
+        # ── Generate interactive dashboard + root-level shortcut ───────────────
+        if [[ -f "$SCRIPT_DIR/generate-security-dashboard.sh" ]]; then
+            echo ""
+            echo -e "${BLUE}📊 Generating interactive security dashboard...${NC}"
+            SCAN_DIR="$SCAN_DIR" "$SCRIPT_DIR/generate-security-dashboard.sh" 2>/dev/null || \
+                echo -e "${YELLOW}⚠️  Interactive dashboard generation had issues${NC}"
+        fi
+
+        # Fallback: create root symlink if neither generator ran
+        if [[ ! -f "$SCAN_DIR/security-dashboard.html" ]] && \
+           [[ -f "$SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html" ]]; then
+            ln -sf "consolidated-reports/dashboards/security-dashboard.html" \
+                "$SCAN_DIR/security-dashboard.html" 2>/dev/null || \
+            cp "$SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html" \
+                "$SCAN_DIR/security-dashboard.html" 2>/dev/null || true
+        fi
         
         # Display scan directory information
         echo ""
@@ -1460,7 +1477,9 @@ if [[ -f "$SCRIPT_DIR/consolidate-security-reports.sh" ]]; then
         echo ""
         echo -e "${BLUE}🔧 Quick Access:${NC}"
         echo -e "${YELLOW}cd $SCAN_DIR${NC}"
-        if [[ -f "$SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html" ]]; then
+        if [[ -f "$SCAN_DIR/security-dashboard.html" ]]; then
+            echo -e "${YELLOW}open $SCAN_DIR/security-dashboard.html${NC}"
+        elif [[ -f "$SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html" ]]; then
             echo -e "${YELLOW}open $SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html${NC}"
         fi
     else
@@ -1514,8 +1533,12 @@ echo -e "${CYAN}All scan artifacts stored in: $SCAN_DIR${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
-# Automatically open the dashboard
-DASHBOARD_HTML="$SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html"
+# Automatically open the dashboard (prefer root-level shortcut)
+if [[ -f "$SCAN_DIR/security-dashboard.html" ]]; then
+    DASHBOARD_HTML="$SCAN_DIR/security-dashboard.html"
+else
+    DASHBOARD_HTML="$SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html"
+fi
 if [[ -f "$DASHBOARD_HTML" ]]; then
     echo -e "${GREEN}🌐 Opening security dashboard...${NC}"
     

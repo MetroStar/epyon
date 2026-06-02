@@ -248,6 +248,10 @@ _PY_GEN="$SCRIPT_DIR/generate-dashboard.py"
 if [ -f "$_PY_GEN" ]; then
     if python3 "$_PY_GEN" "$LATEST_SCAN" 2>&1; then
         echo "✅ Web-UI-style dashboard generated"
+        # Create root-level shortcut for easy access
+        ln -sf "consolidated-reports/dashboards/security-dashboard.html" "${LATEST_SCAN}/security-dashboard.html" 2>/dev/null || \
+            cp "${LATEST_SCAN}/consolidated-reports/dashboards/security-dashboard.html" "${LATEST_SCAN}/security-dashboard.html" 2>/dev/null || true
+        echo "📋 Root shortcut: ${LATEST_SCAN}/security-dashboard.html"
         exit 0
     fi
     echo "⚠️  Python generator failed — falling back to legacy dashboard" >&2

@@ -141,7 +141,7 @@ fi
 
 # ─── Fetch PR merge counts (optional) ──────────────────────────────
 if [[ -n "$PR_REPO" ]] && command -v gh &>/dev/null; then
-    [[ "$QUIET" == false ]] && echo -e "${BLUE}🔀 Fetching PR merges from ${PR_REPO} (all branches)...${NC}" >&2
+    [[ "$QUIET" == false ]] && echo -e "${BLUE}🔀 Fetching PR merges to ${PR_BASE_BRANCH:-main} from ${PR_REPO}...${NC}" >&2
     PR_DATES="[]"
     PR_PAGE=1
     while true; do
@@ -150,8 +150,8 @@ if [[ -n "$PR_REPO" ]] && command -v gh &>/dev/null; then
         PR_PAGE_DATA=$(echo "$PR_PAGE_DATA" | jq 'if type == "array" then . else [] end' 2>/dev/null || echo "[]")
         PR_COUNT=$(echo "$PR_PAGE_DATA" | jq 'length' 2>/dev/null | tr -d '[:space:]' || echo 0)
         [[ "${PR_COUNT:-0}" -eq 0 ]] && break
-        CHUNK=$(echo "$PR_PAGE_DATA" | jq --arg since "${PR_SINCE}" \
-            '[.[] | select(.merged_at != null) | select($since == "" or .merged_at[:10] >= $since) | .merged_at[:10]]')
+        CHUNK=$(echo "$PR_PAGE_DATA" | jq --arg since "${PR_SINCE}" --arg base "${PR_BASE_BRANCH:-main}" \
+            '[.[] | select(.merged_at != null) | select($since == "" or .merged_at[:10] >= $since) | select($base == "" or .base.ref == $base) | .merged_at[:10]]')
         PR_DATES=$(printf '%s\n%s' "$PR_DATES" "$CHUNK" | jq -s 'add // []')
         if [[ -n "$PR_SINCE" ]]; then
             OLDEST=$(echo "$PR_PAGE_DATA" | jq -r '[.[] | select(.merged_at != null) | .merged_at[:10]] | min // ""')
@@ -171,6 +171,7 @@ CHART_HTML=$(cat << 'CHART_EOF'
         <script>
         (function() {
             const metricsData = METRICS_DATA_PLACEHOLDER;
+            const prBaseBranch = 'PR_BASE_BRANCH_PLACEHOLDER';
 
             // Wait for DOM to be ready and modal to open before rendering
             function renderMetricsContent() {
@@ -197,9 +198,9 @@ CHART_HTML=$(cat << 'CHART_EOF'
                     '</div>' +
                     '<div class="metrics-chart-section" style="margin: 0; padding: 24px; background: #1e2530; border-radius: 12px; border: 1px solid #2a3441;">' +
                     '<div style="display: flex; align-items: baseline; gap: 12px; margin-bottom: 6px;">' +
-                    '<h2 style="font-size: 1.4em; margin: 0; color: #e2e8f0; font-weight: 700;">🔀 PR Activity</h2>' +
+                    '<h2 style="font-size: 1.4em; margin: 0; color: #e2e8f0; font-weight: 700;">🔀 Merges to ' + prBaseBranch + '</h2>' +
                     '</div>' +
-                    '<p style="margin: 0 0 16px 0; color: #8892a4; font-size: 0.9em;">Daily PR merges across all branches.</p>' +
+                    '<p style="margin: 0 0 16px 0; color: #8892a4; font-size: 0.9em;">Daily PR merges into the ' + prBaseBranch + ' branch.</p>' +
                     '<div id="prStory" style="margin-bottom: 20px;"></div>' +
                     '<div style="overflow-x: auto;">' +
                     '<canvas id="prChart" width="400" height="110"></canvas>' +
@@ -360,8 +361,8 @@ CHART_HTML=$(cat << 'CHART_EOF'
                     prDetail   = 'Pass --pr-repo to the embed script to enable PR merge tracking.';
                 } else {
                     prIcon = '🔀'; prBorderColor = '#60a5fa';
-                    prHeadline = totalPRs + ' PRs merged in the last 90 days.';
-                    prDetail   = prs7d + ' PRs merged in the last 7 days.';
+                    prHeadline = totalPRs + ' PRs merged to ' + prBaseBranch + ' in the last 90 days.';
+                    prDetail   = prs7d + ' merged to ' + prBaseBranch + ' in the last 7 days.';
                 }
 
                 prStoryDiv.innerHTML =
@@ -404,7 +405,7 @@ CHART_HTML=$(cat << 'CHART_EOF'
                     '<div style="background:#1a1d23;padding:15px;border-radius:8px;border-left:4px solid #60a5fa;">' +
                     '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">PRs Merged (90d)</div>' +
                     '<div style="font-size:2em;font-weight:800;color:#60a5fa;line-height:1;">' + totalPRs + '</div>' +
-                    '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">across all branches</div></div>' +
+                    '<div style="font-size:0.78em;color:#9ca3af;margin-top:4px;">merged to ' + prBaseBranch + '</div></div>' +
 
                     '<div style="background:#1a1d23;padding:15px;border-radius:8px;border-left:4px solid #60a5fa;">' +
                     '<div style="color:#6b7280;font-size:0.82em;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;">PRs Last 7 Days</div>' +
@@ -439,6 +440,7 @@ CHART_EOF
 # Replace placeholders
 CHART_HTML="${CHART_HTML//METRICS_DATA_PLACEHOLDER/$(echo "$METRICS" | jq -c '.')}"
 CHART_HTML="${CHART_HTML//CHART_TYPE_PLACEHOLDER/$CHART_TYPE}"
+CHART_HTML="${CHART_HTML//PR_BASE_BRANCH_PLACEHOLDER/${PR_BASE_BRANCH:-main}}"
 
 
 # Find injection point (before closing </body> tag or append if absent)

@@ -3225,6 +3225,24 @@ async function renderMetrics() {
            <span class="mttr-fastest-days">${esc(String(m.fastest_remediator.mttr_days))}d avg</span>
          </div>`
       : '';
+
+    const totalMerges = m.total_merges_to_main || 0;
+    const mergeRows = Object.entries(m.merges_to_main || {})
+      .sort((a, b) => b[1].total - a[1].total)
+      .map(([name, f]) => {
+        const firstDate = f.dates.length ? f.dates[0] : '—';
+        const lastDate  = f.dates.length ? f.dates[f.dates.length - 1] : '—';
+        return `
+          <tr onclick="navigate('#/applications/${encodeURIComponent(name)}')" style="cursor:pointer">
+            <td><strong>${esc(name)}</strong></td>
+            <td>${esc(f.total)}</td>
+            <td>${esc(firstDate)}</td>
+            <td>${esc(lastDate)}</td>
+            <td><div class="freq-dots">${
+              f.dates.map(d => `<span class="freq-dot" title="${esc(d)}"></span>`).join('')
+            }</div></td>
+          </tr>`;
+      }).join('');
     const topCveRows = m.top_cves.length
       ? m.top_cves.map(c => `
           <tr>
@@ -3288,6 +3306,10 @@ async function renderMetrics() {
         <div class="stat-card">
           <div class="stat-value" style="font-size:16px;padding-top:6px">${esc(topTool)}</div>
           <div class="stat-label">Top Finding Tool</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${esc(String(totalMerges))}</div>
+          <div class="stat-label">Merges to Main</div>
         </div>
       </div>
 
@@ -3379,6 +3401,29 @@ async function renderMetrics() {
                 </tr>
               </thead>
               <tbody>${freqRows || '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">No scan data available</td></tr>'}</tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="section collapsible-section collapsed" id="section-merges">
+        <div class="section-title section-toggle" onclick="toggleSection('section-merges')">
+          Merges to Main
+          <span class="section-chevron">▾</span>
+        </div>
+        <div class="section-body">
+          <div class="table-container">
+            <table id="tbl-merges">
+              <thead>
+                <tr>
+                  <th data-col="name">Application <span class="sort-icon">⇅</span></th>
+                  <th data-col="total">Merges <span class="sort-icon">⇅</span></th>
+                  <th data-col="first">First Merge <span class="sort-icon">⇅</span></th>
+                  <th data-col="last">Latest Merge <span class="sort-icon">⇅</span></th>
+                  <th>History</th>
+                </tr>
+              </thead>
+              <tbody>${mergeRows || '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">No merge-to-main scans detected yet</td></tr>'}</tbody>
             </table>
           </div>
         </div>

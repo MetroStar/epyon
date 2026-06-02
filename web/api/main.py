@@ -894,6 +894,25 @@ def get_metrics(response: Response):
         for target, scan_list in by_target.items()
     }
 
+    # ── Merges to main ─────────────────────────────────────────
+    merge_dates_by_target: dict[str, list[str]] = {}
+    for _target, scan_list in by_target.items():
+        for s, _ in scan_list:
+            ci = s.get("ci_source", {})
+            if ci.get("event") == "push" and ci.get("branch") in ("main", "master"):
+                date = (s.get("timestamp") or "")[:10]
+                if date:
+                    merge_dates_by_target.setdefault(_target, []).append(date)
+
+    merges_to_main = {
+        target: {
+            "total": len(dates),
+            "dates": sorted(dates),
+        }
+        for target, dates in merge_dates_by_target.items()
+    }
+    total_merges_to_main = sum(len(d) for d in merge_dates_by_target.values())
+
     # ── MTTR (Mean Time to Remediate) ─────────────────────────
     # by_target lists are already sorted newest-first from the loop above
     all_remediation_days: list[float] = []
@@ -1006,6 +1025,8 @@ def get_metrics(response: Response):
             for k, v in top_cves
         ],
         "scan_frequency": scan_frequency,
+        "merges_to_main": merges_to_main,
+        "total_merges_to_main": total_merges_to_main,
         "metrics_filtered": metrics_filtered,
         "monitored_count":  monitored_count,
     }

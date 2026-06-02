@@ -281,6 +281,41 @@ def build_scan_object(scan_dir: Path) -> dict:
         scan["modelcard"] = modelcard
     if scorecard:
         scan["scorecard"] = scorecard
+
+    # ── Test Coverage ─────────────────────────────────────────────────────────
+    coverage_data: dict | None = None
+    _cov_summary = scan_dir / "coverage" / "coverage-summary.json"
+    if _cov_summary.exists():
+        _raw_cov = _read_json(_cov_summary)
+        if _raw_cov and isinstance(_raw_cov, dict) and _raw_cov.get("status") not in ("not_detected",):
+            coverage_data = {
+                "percentage":       round(float(_raw_cov.get("percentage", 0)), 2),
+                "language":         _raw_cov.get("language", "unknown"),
+                "framework":        _raw_cov.get("framework", "unknown"),
+                "lines_covered":    int(_raw_cov.get("lines_covered", 0)),
+                "lines_total":      int(_raw_cov.get("lines_total", 0)),
+                "branches_covered": int(_raw_cov.get("branches_covered", 0)),
+                "branches_total":   int(_raw_cov.get("branches_total", 0)),
+                "source":           "coverage-scan",
+            }
+    # Sonar fallback
+    if coverage_data is None:
+        _sonar_res = _read_json(scan_dir / "sonar" / "sonar-analysis-results.json")
+        if _sonar_res and isinstance(_sonar_res, dict):
+            _pct: float | None = None
+            for _m in (_sonar_res.get("component") or {}).get("measures", []):
+                if _m.get("metric") == "coverage":
+                    try: _pct = round(float(_m["value"]), 2)
+                    except (ValueError, TypeError): pass
+                    break
+            if _pct is None and "coverage" in _sonar_res:
+                try: _pct = round(float(_sonar_res["coverage"]), 2)
+                except (ValueError, TypeError): pass
+            if _pct is not None:
+                coverage_data = {"percentage": _pct, "framework": "sonarqube", "source": "sonarqube"}
+    if coverage_data is not None:
+        scan["test_coverage"] = coverage_data
+
     scan.update(stig)
 
     return scan
@@ -301,6 +336,60 @@ html, body { height: auto; overflow: auto; }
 """
 
 
+def _coverage_card_html(scan: dict) -> str:
+    """Return an inline HTML coverage metric card, or empty string if no data."""
+    cov = scan.get("test_coverage")
+    if not cov:
+        return ""
+    pct = cov.get("percentage", 0)
+    lang = cov.get("language", "")
+    framework = cov.get("framework", "")
+    lines_covered = cov.get("lines_covered", 0)
+    lines_total = cov.get("lines_total", 0)
+    source = cov.get("source", "")
+
+    if pct >= 80:
+        color = "#22c55e"   # green
+        icon = "✅"
+    elif pct >= 60:
+        color = "#f59e0b"   # amber
+        icon = "⚠️"
+    else:
+        color = "#ef4444"   # red
+        icon = "❌"
+
+    lines_html = ""
+    if lines_total > 0:
+        lines_html = f"<span style='font-size:0.78rem;color:#94a3b8;margin-left:8px'>{lines_covered}/{lines_total} lines</span>"
+
+    source_label = ""
+    if source == "sonarqube":
+        source_label = "<span style='font-size:0.72rem;color:#64748b;margin-left:6px'>(via SonarQube)</span>"
+    elif lang and lang != "unknown":
+        fw_display = f"{lang}/{framework}" if framework and framework not in ("unknown", lang) else lang
+        source_label = f"<span style='font-size:0.72rem;color:#64748b;margin-left:6px'>({fw_display})</span>"
+
+    return f"""
+<div style="
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin: 16px 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-family: inherit;
+">
+  <div style="font-size:1.4rem">{icon}</div>
+  <div>
+    <div style="font-size:0.8rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px">Test Coverage</div>
+    <div style="font-size:1.6rem;font-weight:700;color:{color}">{pct:.1f}%{lines_html}</div>
+    <div style="font-size:0.78rem;color:#64748b">Layer 16{source_label}</div>
+  </div>
+</div>"""
+
+
 def generate_html(scan_dir: Path, epyon_root: Path, output_path: Path) -> None:
     scan      = build_scan_object(scan_dir)
     scan_id   = scan["scan_id"]
@@ -319,6 +408,8 @@ def generate_html(scan_dir: Path, epyon_root: Path, output_path: Path) -> None:
     css = css_file.read_text(encoding="utf-8")
     js  = js_file.read_text(encoding="utf-8")
 
+    coverage_card = _coverage_card_html(scan)
+
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -332,6 +423,7 @@ def generate_html(scan_dir: Path, epyon_root: Path, output_path: Path) -> None:
 </head>
 <body>
   <div class="main-content">
+    {coverage_card}
     <div id="page"></div>
   </div>
   <script>window.__SCAN__ = {scan_json};</script>

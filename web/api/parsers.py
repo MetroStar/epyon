@@ -441,6 +441,57 @@ def parse_picklescan_dir(scan_dir: Path) -> dict | None:
     }
 
 
+def parse_coverage_dir(scan_dir: Path) -> dict | None:
+    """Return normalized test coverage data from coverage/coverage-summary.json,
+    or extract coverage % from sonar/sonar-analysis-results.json as a fallback.
+    Returns None when no coverage data is available.
+    """
+    summary_file = scan_dir / "coverage" / "coverage-summary.json"
+    if summary_file.exists():
+        data = _read_json(summary_file)
+        if data and isinstance(data, dict) and data.get("status") not in ("not_detected", None):
+            return {
+                "percentage":        round(float(data.get("percentage", 0)), 2),
+                "language":          data.get("language", "unknown"),
+                "framework":         data.get("framework", "unknown"),
+                "lines_covered":     int(data.get("lines_covered", 0)),
+                "lines_total":       int(data.get("lines_total", 0)),
+                "branches_covered":  int(data.get("branches_covered", 0)),
+                "branches_total":    int(data.get("branches_total", 0)),
+                "status":            data.get("status", "success"),
+                "timestamp":         data.get("timestamp", ""),
+                "source":            "coverage-scan",
+            }
+
+    # Fallback: SonarQube metrics
+    sonar_results = _read_json(scan_dir / "sonar" / "sonar-analysis-results.json")
+    if sonar_results and isinstance(sonar_results, dict):
+        pct: float | None = None
+        measures = (sonar_results.get("component") or {}).get("measures", [])
+        for m in measures:
+            if m.get("metric") == "coverage":
+                try:
+                    pct = round(float(m["value"]), 2)
+                except (KeyError, ValueError, TypeError):
+                    pass
+                break
+        # Flat format produced by older run-sonar-analysis.sh versions
+        if pct is None and "coverage" in sonar_results:
+            try:
+                pct = round(float(sonar_results["coverage"]), 2)
+            except (ValueError, TypeError):
+                pass
+        if pct is not None:
+            return {
+                "percentage": pct,
+                "language":   "unknown",
+                "framework":  "sonarqube",
+                "source":     "sonarqube",
+            }
+
+    return None
+
+
 def parse_modelcard_dir(scan_dir: Path) -> dict | None:
     """Return the normalized model card compliance result dict, or None if not present."""
     result_file = scan_dir / "modelcard" / "modelcard-results.json"
@@ -1022,6 +1073,11 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
     network_data = parse_network_discovery_dir(scan_dir)
     if network_data is not None:
         data["network_discovery"] = network_data
+
+    # ── Test Coverage ────────────────────────────────────────────────────────
+    coverage_data = parse_coverage_dir(scan_dir)
+    if coverage_data is not None:
+        data["test_coverage"] = coverage_data
 
     # ── Suppressed findings ──────────────────────────────────────────────────
     suppressed = parse_suppressed_findings(scan_dir)

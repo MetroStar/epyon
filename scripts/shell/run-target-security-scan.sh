@@ -87,6 +87,7 @@ show_help() {
     echo "  Layer 13: Network Discovery (Ports, Protocols, Services)"
     echo "  Layer 14: Pickle/Serialization Safety (Picklescan)"
     echo "  Layer 15: Model Card Compliance (ModelCard)"
+    echo "  Layer 16: Test Coverage (pytest/Jest/Vitest/Go)"
     echo ""
     echo "Output:"
     echo "  Results saved to: scans/{TARGET}_{USER}_{TIMESTAMP}/"
@@ -162,6 +163,7 @@ apply_skip_tools() {
             api|api-discovery) SKIP_API_DISCOVERY=true ;;
             network|network-discovery) SKIP_NETWORK_DISCOVERY=true ;;
             garak) SKIP_GARAK=true ;;
+            coverage|test-coverage) SKIP_COVERAGE=true ;;
             *)
                 echo -e "${YELLOW}⚠️  Unknown tool in --skip-tools: $tool${NC}"
                 ;;
@@ -993,6 +995,13 @@ case "$SCAN_TYPE" in
         else
             echo -e "${YELLOW}⏭️  Skipping Garak LLM Security Probing (set RUN_GARAK=true to enable)${NC}"
         fi
+
+        echo -e "${PURPLE}📊 Test Coverage Analysis${NC}"
+        if [[ "${SKIP_COVERAGE:-false}" != "true" ]]; then
+            run_security_tool "Test Coverage Scan" "$SCRIPT_DIR/run-coverage-scan.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Coverage (SKIP_COVERAGE=true)${NC}"
+        fi
         ;;
         
     "full")
@@ -1109,6 +1118,13 @@ case "$SCAN_TYPE" in
             run_security_tool "Model Card Compliance" "$SCRIPT_DIR/run-modelcard-check.sh"
         else
             echo -e "${YELLOW}⏭️  Skipping Layer 15 - ModelCard (SKIP_MODELCARD=true)${NC}"
+        fi
+
+        echo -e "${PURPLE}📊 Layer 16: Test Coverage Analysis${NC}"
+        if [[ "${SKIP_COVERAGE:-false}" != "true" ]]; then
+            run_security_tool "Test Coverage Scan" "$SCRIPT_DIR/run-coverage-scan.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Layer 16 - Coverage (SKIP_COVERAGE=true)${NC}"
         fi
         ;;
         
@@ -1382,7 +1398,20 @@ if [[ -f "$SCRIPT_DIR/check-severity-gate.sh" ]]; then
     SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" \
     "$SCRIPT_DIR/check-severity-gate.sh" || true
     echo -e "${GREEN}✅ Severity gate and suppression check complete${NC}"
-else
+fi
+
+# ── Coverage gate ──────────────────────────────────────────────────────────────
+if [[ -f "$SCRIPT_DIR/check-coverage-gate.sh" ]] && [[ "${SKIP_COVERAGE:-false}" != "true" ]]; then
+    echo ""
+    echo -e "${BLUE}📊 Checking coverage gate...${NC}"
+    SCAN_DIR="$SCAN_DIR" \
+    COVERAGE_THRESHOLD="${COVERAGE_THRESHOLD:-80}" \
+    FAIL_ON_COVERAGE="${FAIL_ON_COVERAGE:-false}" \
+    WARNING_ONLY="${COVERAGE_WARNING_ONLY:-true}" \
+    "$SCRIPT_DIR/check-coverage-gate.sh" || true
+fi
+
+if [[ ! -f "$SCRIPT_DIR/check-severity-gate.sh" ]]; then
     # Fallback: apply tool-level suppression without per-CVE logging
     echo -e "${YELLOW}⚠️  check-severity-gate.sh not found — applying tool-level suppression only${NC}"
     FINDINGS_SUMMARY="$SCAN_DIR/security-findings-summary.json"

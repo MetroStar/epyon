@@ -1413,7 +1413,8 @@ async def calculate_scorecard(scan_id: str, response: Response):
 @app.post("/api/executive-summary")
 async def global_exec_summary(response: Response):
     _sec_headers(response)
-    hidden = _load_hidden_apps()
+    hidden    = _load_hidden_apps()
+    monitored = _load_monitored_apps()
     scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
 
     by_target: dict[str, tuple] = {}
@@ -1435,6 +1436,8 @@ async def global_exec_summary(response: Response):
         findings  = parsers.parse_scan_findings(scan_dir)
         apps.append({
             "name":           target,
+            "monitored":      target in monitored,
+            "scan_type":      scan_meta.get("scan_type", "full"),
             "critical":       scan_meta.get("critical", 0),
             "high":           scan_meta.get("high", 0),
             "medium":         scan_meta.get("medium", 0),
@@ -1459,7 +1462,8 @@ async def global_exec_summary(response: Response):
 @app.post("/api/technical-summary")
 async def global_technical_summary(response: Response):
     _sec_headers(response)
-    hidden = _load_hidden_apps()
+    hidden    = _load_hidden_apps()
+    monitored = _load_monitored_apps()
     scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
 
     by_target: dict[str, tuple] = {}
@@ -1481,6 +1485,8 @@ async def global_technical_summary(response: Response):
         findings  = parsers.parse_scan_findings(scan_dir)
         apps.append({
             "name":           target,
+            "monitored":      target in monitored,
+            "scan_type":      scan_meta.get("scan_type", "full"),
             "critical":       scan_meta.get("critical", 0),
             "high":           scan_meta.get("high", 0),
             "medium":         scan_meta.get("medium", 0),

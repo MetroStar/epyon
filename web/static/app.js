@@ -1205,8 +1205,6 @@ async function renderScanDetail(scanId) {
 
       ${buildFindingsSection(scan.findings)}
 
-      ${buildEnrichmentCard(scan.findings)}
-
       ${buildSuppressedSection(scan.suppressed_findings)}
 
       ${stigCard}
@@ -1268,11 +1266,9 @@ function buildEnrichmentCard(findings) {
 
   // Collect all KEV-matched findings across severity buckets for the detail table
   const kevFindings = [];
-  const nvdFindings = [];
   for (const sev of ['critical', 'high', 'medium', 'low']) {
     for (const f of (findings[`${sev}_findings`] || [])) {
       if (f.cisa_kev === true) kevFindings.push({ sev, ...f });
-      if (f.nvd_url || f.nvd_cvss_v3_score != null) nvdFindings.push({ sev, ...f });
     }
   }
 
@@ -1285,60 +1281,7 @@ function buildEnrichmentCard(findings) {
     } catch (_) { enrichedAt = enr.enriched_at; }
   }
 
-  // Register all NVD findings and store for sort
-  const _nvdFindingsForSort = nvdFindings.map(f => ({ ...f, _rid: _registerFinding(f) }));
-  window._enrichmentFindings = _nvdFindingsForSort;
-  window._enrichmentSortState = { col: null, dir: 'asc' };
-
-  function buildNvdRows(items) {
-    return items.map(f => {
-      const id  = esc(f.id || f.cve_id || f.vulnerability_id || '—');
-      const pkg = esc((f.package || f.component || '—') + (f.version ? ` ${f.version}` : ''));
-      const score = f.nvd_cvss_v3_score != null ? esc(String(f.nvd_cvss_v3_score)) : '—';
-      const scoreColor = score !== '—'
-        ? (parseFloat(score) >= 9 ? 'var(--critical)' : parseFloat(score) >= 7 ? 'var(--high)' : parseFloat(score) >= 4 ? 'var(--medium)' : 'var(--low)')
-        : 'var(--text-muted)';
-      const kevBadge = f.cisa_kev
-        ? `<span style="background:#7f1d1d;color:#fca5a5;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;vertical-align:middle;margin-left:4px">KEV</span>`
-        : '';
-      const fixed = f.fixed_version ? `<span style="color:var(--clean);font-size:11px">→ ${esc(f.fixed_version)}</span>` : '';
-      return `
-        <tr class="finding-row" onclick="openFindingDetail(${f._rid})" title="Click to view details">
-          <td style="padding:5px 8px 5px 0">
-            <span class="sev-badge sev-${esc(f.sev)}" style="font-size:10px">${esc(f.sev)}</span>
-          </td>
-          <td style="padding:5px 8px 5px 0;font-family:monospace;font-size:12px;white-space:nowrap">
-            <code>${id}</code>${kevBadge}
-          </td>
-          <td style="padding:5px 8px 5px 0;font-size:12px;color:var(--text-muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pkg}</td>
-          <td style="padding:5px 8px 5px 0;font-size:12px;font-weight:600;color:${scoreColor}">${score}</td>
-          <td style="padding:5px 0;font-size:11px;color:var(--text-muted)">${fixed}</td>
-        </tr>`;
-    }).join('');
-  }
-
-  const nvdTable = _nvdFindingsForSort.length ? `
-    <div style="margin-top:14px">
-      <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
-        NVD Enriched Findings
-      </div>
-      <div style="overflow-x:auto">
-        <table id="enrichment-nvd-table" style="width:100%;border-collapse:collapse">
-          <thead>
-            <tr style="color:var(--text-muted);font-size:11px">
-              <th class="sortable-th" data-col="sev"     onclick="sortEnrichmentTable('sev')"     style="text-align:left;padding:2px 8px 4px 0">Sev <span class="sort-icon">⇅</span></th>
-              <th class="sortable-th" data-col="id"      onclick="sortEnrichmentTable('id')"      style="text-align:left;padding:2px 8px 4px 0">CVE / ID <span class="sort-icon">⇅</span></th>
-              <th class="sortable-th" data-col="package" onclick="sortEnrichmentTable('package')" style="text-align:left;padding:2px 8px 4px 0">Package <span class="sort-icon">⇅</span></th>
-              <th class="sortable-th" data-col="score"   onclick="sortEnrichmentTable('score')"   style="text-align:left;padding:2px 8px 4px 0">CVSS <span class="sort-icon">⇅</span></th>
-              <th style="text-align:left;padding:2px 0 4px">Fix</th>
-            </tr>
-          </thead>
-          <tbody id="enrichment-nvd-tbody">${buildNvdRows(_nvdFindingsForSort)}</tbody>
-        </table>
-      </div>
-    </div>` : '';
-
-  const kevTable = ''; // superseded by nvdTable (KEV rows included with badge)
+  const kevTable = ''; // CVSS/KEV now shown inline in the main findings table
 
   const catalogLink = enr.kev_catalog_url
     ? `<a href="${esc(enr.kev_catalog_url)}" target="_blank" rel="noopener"
@@ -1382,7 +1325,6 @@ function buildEnrichmentCard(findings) {
               <div class="value" style="font-size:12px">${enrichedAt}</div>
             </div>` : ''}
           </div>
-          ${nvdTable}
           ${hasKev ? `
           <p style="color:#fca5a5;font-size:12px;margin:12px 0 4px">
             ⚠ ${esc(kevTotal)} finding${kevTotal > 1 ? 's' : ''} match CISA's Known Exploited Vulnerabilities catalog —
@@ -2177,8 +2119,24 @@ function _buildFindingRows(items) {
 
     const idCell = id.startsWith('CVE-')
       ? `<a href="https://nvd.nist.gov/vuln/detail/${id}" target="_blank" rel="noopener noreferrer"
-            onclick="event.stopPropagation()"><code>${id}</code></a>${f.cisa_kev ? ' <span style="background:#7f1d1d;color:#fca5a5;font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;vertical-align:middle" title="CISA Known Exploited Vulnerability">KEV</span>' : ''}`
+            onclick="event.stopPropagation()"><code>${id}</code></a>`
       : `<code>${id}</code>`;
+
+    const cvssNum  = f.nvd_cvss_v3_score != null ? f.nvd_cvss_v3_score : null;
+    const cvssSev  = (f.nvd_cvss_v3_severity || '').toUpperCase();
+    const cvssColor = cvssSev === 'CRITICAL' ? 'var(--critical)'
+                    : cvssSev === 'HIGH'     ? '#f97316'
+                    : cvssSev === 'MEDIUM'   ? '#f59e0b'
+                    : cvssSev === 'LOW'      ? '#22d3ee'
+                    : 'var(--text-muted)';
+    const cvssCell = [
+      cvssNum != null
+        ? `<span style="font-weight:700;color:${cvssColor};font-size:12px" title="CVSS v3: ${cvssNum} ${cvssSev}">${cvssNum}</span>`
+        : '',
+      f.cisa_kev
+        ? `<span style="background:#7f1d1d;color:#fca5a5;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;vertical-align:middle;margin-left:${cvssNum != null ? 4 : 0}px" title="CISA Known Exploited Vulnerability">KEV</span>`
+        : ''
+    ].join('') || '<span style="color:var(--text-dim)">—</span>';
 
     return `
       <tr class="finding-row" onclick="openFindingDetail(${fid})" title="Click to view details">
@@ -2186,6 +2144,7 @@ function _buildFindingRows(items) {
         <td>${idCell}</td>
         <td style="max-width:360px">${title}</td>
         <td>${pkg}${ver ? ` <span style="color:var(--text-dim);font-size:11px">${ver}</span>` : ''}</td>
+        <td style="white-space:nowrap">${cvssCell}</td>
         <td>${fixed ? `<span style="color:var(--clean)">${fixed}</span>` : '<span style="color:var(--text-dim)">—</span>'}</td>
         <td style="color:var(--text-muted);font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${target}">${target || '—'}</td>
       </tr>`;
@@ -2212,6 +2171,7 @@ window.sortFindingsBy = function(sev, col) {
       case 'id':      av = (a.id     || a.cve_id || '').toLowerCase(); bv = (b.id || b.cve_id || '').toLowerCase(); break;
       case 'title':   av = (a.title  || a.description || '').toLowerCase(); bv = (b.title || b.description || '').toLowerCase(); break;
       case 'package': av = (a.package || a.component || '').toLowerCase(); bv = (b.package || b.component || '').toLowerCase(); break;
+      case 'cvss':    av = a.nvd_cvss_v3_score ?? -1; bv = b.nvd_cvss_v3_score ?? -1; break;
       case 'fix':     av = a.fixed_version ? 1 : 0; bv = b.fixed_version ? 1 : 0; break;
       case 'target':  av = (a.target  || '').toLowerCase(); bv = (b.target  || '').toLowerCase(); break;
       default: return 0;
@@ -2510,6 +2470,7 @@ function buildFindingsSection(findings) {
                   <th class="sortable-th" data-col="id"      onclick="sortFindingsBy('${sev}','id')">CVE / ID <span class="sort-icon">⇅</span></th>
                   <th class="sortable-th" data-col="title"   onclick="sortFindingsBy('${sev}','title')">Title <span class="sort-icon">⇅</span></th>
                   <th class="sortable-th" data-col="package" onclick="sortFindingsBy('${sev}','package')">Package <span class="sort-icon">⇅</span></th>
+                  <th class="sortable-th" data-col="cvss"    onclick="sortFindingsBy('${sev}','cvss')" style="white-space:nowrap">CVSS / KEV <span class="sort-icon">⇅</span></th>
                   <th class="sortable-th" data-col="fix"     onclick="sortFindingsBy('${sev}','fix')">Fix Available <span class="sort-icon">⇅</span></th>
                   <th class="sortable-th" data-col="target"  onclick="sortFindingsBy('${sev}','target')">Location <span class="sort-icon">⇅</span></th>
                 </tr>
@@ -2521,10 +2482,36 @@ function buildFindingsSection(findings) {
       </details>`;
   }
 
+  // ── Enrichment metadata banner ──────────────────────────────
+  const enr = findings && findings.enrichment;
+  let enrichmentBanner = '';
+  if (enr && (enr.cisa_kev_total || enr.nvd_total)) {
+    const kevTotal  = enr.cisa_kev_total || 0;
+    const nvdTotal  = enr.nvd_total || 0;
+    let enrichedAt = '';
+    if (enr.enriched_at) {
+      try { enrichedAt = new Date(enr.enriched_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); }
+      catch (_) { enrichedAt = enr.enriched_at; }
+    }
+    const catalogLink = enr.kev_catalog_url
+      ? ` &nbsp;<a href="${esc(enr.kev_catalog_url)}" target="_blank" rel="noopener"
+           style="color:var(--accent);font-size:11px">↗ CISA KEV Catalog</a>`
+      : '';
+    enrichmentBanner = `
+      <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;color:var(--text-muted)">
+        ${kevTotal > 0 ? `<span style="background:#7f1d1d;color:#fca5a5;border:1px solid #b91c1c;border-radius:4px;padding:1px 8px;font-size:11px;font-weight:700">${esc(kevTotal)} KEV</span>` : ''}
+        ${nvdTotal > 0 ? `<span style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:1px 8px;font-size:11px">${esc(nvdTotal)} NVD enriched</span>` : ''}
+        ${enrichedAt ? `<span style="font-size:11px;color:var(--text-dim)">enriched ${enrichedAt}</span>` : ''}
+        ${catalogLink}
+        ${kevTotal > 0 ? `<span style="color:#fca5a5;font-size:11px">⚠ ${esc(kevTotal)} finding${kevTotal > 1 ? 's' : ''} actively exploited in the wild — see <strong>KEV</strong> badges below</span>` : ''}
+      </div>`;
+  }
+
   if (!anyFindings) {
     return `
       <div class="section">
         <div class="section-title">Findings</div>
+        ${enrichmentBanner}
         <span class="sev-badge clean" style="padding:8px 16px">✓ No findings detected</span>
       </div>`;
   }
@@ -2532,6 +2519,7 @@ function buildFindingsSection(findings) {
   return `
     <div class="section findings-section-wrapper">
       <div class="section-title">Findings</div>
+      ${enrichmentBanner}
       ${html}
     </div>`;
 }

@@ -1572,9 +1572,15 @@ function renderMarkdown(text) {
 
   const lines = text.split('\n');
   let html = '';
-  let inList = false;
+  let inUl = false;
+  let inOl = false;
   let inCode = false;
   let codeLines = [];
+
+  function closeList() {
+    if (inUl) { html += '</ul>'; inUl = false; }
+    if (inOl) { html += '</ol>'; inOl = false; }
+  }
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -1582,7 +1588,7 @@ function renderMarkdown(text) {
     // Fenced code blocks
     if (/^```/.test(line)) {
       if (!inCode) {
-        if (inList) { html += '</ul>'; inList = false; }
+        closeList();
         inCode = true;
         codeLines = [];
       } else {
@@ -1594,38 +1600,65 @@ function renderMarkdown(text) {
     }
     if (inCode) { codeLines.push(line); continue; }
 
-    // Headings
-    if (/^## /.test(line)) {
-      if (inList) { html += '</ul>'; inList = false; }
-      html += `<h2>${safe(line.replace(/^## /, ''))}</h2>`;
-      continue;
-    }
-    if (/^# /.test(line)) {
-      if (inList) { html += '</ul>'; inList = false; }
-      html += `<h2>${safe(line.replace(/^# /, ''))}</h2>`;
+    // Horizontal rule
+    if (/^---+$/.test(line.trim())) {
+      closeList();
+      html += '<hr>';
       continue;
     }
 
-    // Bullet list items
+    // Headings (### before ## before #)
+    if (/^### /.test(line)) {
+      closeList();
+      html += `<h3>${inlineMarkdown(safe(line.replace(/^### /, '')))}</h3>`;
+      continue;
+    }
+    if (/^## /.test(line)) {
+      closeList();
+      html += `<h2>${inlineMarkdown(safe(line.replace(/^## /, '')))}</h2>`;
+      continue;
+    }
+    if (/^# /.test(line)) {
+      closeList();
+      html += `<h2>${inlineMarkdown(safe(line.replace(/^# /, '')))}</h2>`;
+      continue;
+    }
+
+    // Blockquote
+    if (/^> /.test(line)) {
+      closeList();
+      html += `<blockquote>${inlineMarkdown(safe(line.replace(/^> /, '')))}</blockquote>`;
+      continue;
+    }
+
+    // Ordered list
+    if (/^\d+\. /.test(line)) {
+      if (inUl) { html += '</ul>'; inUl = false; }
+      if (!inOl) { html += '<ol>'; inOl = true; }
+      html += `<li>${inlineMarkdown(safe(line.replace(/^\d+\. /, '')))}</li>`;
+      continue;
+    }
+
+    // Unordered list
     if (/^[-*] /.test(line)) {
-      if (!inList) { html += '<ul>'; inList = true; }
+      if (inOl) { html += '</ol>'; inOl = false; }
+      if (!inUl) { html += '<ul>'; inUl = true; }
       html += `<li>${inlineMarkdown(safe(line.replace(/^[-*] /, '')))}</li>`;
       continue;
     }
 
-    // Close list if needed
-    if (inList && line.trim() !== '') { html += '</ul>'; inList = false; }
-
-    // Blank line
+    // Blank line — close any open list
     if (line.trim() === '') {
-      if (!inList) html += '';
+      closeList();
       continue;
     }
 
+    // Normal paragraph — close list first
+    closeList();
     html += `<p>${inlineMarkdown(safe(line))}</p>`;
   }
 
-  if (inList) html += '</ul>';
+  closeList();
   if (inCode) html += `<pre><code>${safe(codeLines.join('\n'))}</code></pre>`;
   return html;
 }

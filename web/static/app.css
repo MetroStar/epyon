@@ -1493,6 +1493,17 @@ pre {
   max-height: 480px;
 }
 
+blockquote {
+  margin: 10px 0;
+  padding: 8px 14px;
+  border-left: 3px solid #f59e0b;
+  background: rgba(245,158,11,0.08);
+  border-radius: 0 4px 4px 0;
+  color: var(--text-secondary, #d1a84a);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 /* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 768px) {
   #sidebar {

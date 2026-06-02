@@ -899,7 +899,7 @@ def get_metrics(response: Response):
     for _target, scan_list in by_target.items():
         for s, _ in scan_list:
             ci = s.get("ci_source", {})
-            if ci.get("event") == "push" and ci.get("branch") in ("main", "master"):
+            if ci.get("event") in ("push", "workflow_dispatch") and ci.get("branch") in ("main", "master", "dev"):
                 date = (s.get("timestamp") or "")[:10]
                 if date:
                     merge_dates_by_target.setdefault(_target, []).append(date)

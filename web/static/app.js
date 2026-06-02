@@ -3227,22 +3227,7 @@ async function renderMetrics() {
       : '';
 
     const totalMerges = m.total_merges_to_main || 0;
-    const mergeRows = Object.entries(m.merges_to_main || {})
-      .sort((a, b) => b[1].total - a[1].total)
-      .map(([name, f]) => {
-        const firstDate = f.dates.length ? f.dates[0] : '—';
-        const lastDate  = f.dates.length ? f.dates[f.dates.length - 1] : '—';
-        return `
-          <tr onclick="navigate('#/applications/${encodeURIComponent(name)}')" style="cursor:pointer">
-            <td><strong>${esc(name)}</strong></td>
-            <td>${esc(f.total)}</td>
-            <td>${esc(firstDate)}</td>
-            <td>${esc(lastDate)}</td>
-            <td><div class="freq-dots">${
-              f.dates.map(d => `<span class="freq-dot" title="${esc(d)}"></span>`).join('')
-            }</div></td>
-          </tr>`;
-      }).join('');
+    const mergesData = m.merges_to_main || {};
     const topCveRows = m.top_cves.length
       ? m.top_cves.map(c => `
           <tr>
@@ -3309,7 +3294,7 @@ async function renderMetrics() {
         </div>
         <div class="stat-card">
           <div class="stat-value">${esc(String(totalMerges))}</div>
-          <div class="stat-label">Merges to Main</div>
+          <div class="stat-label">Merges to Primary</div>
         </div>
       </div>
 
@@ -3408,10 +3393,17 @@ async function renderMetrics() {
 
       <div class="section collapsible-section collapsed" id="section-merges">
         <div class="section-title section-toggle" onclick="toggleSection('section-merges')">
-          Merges to Main
+          Merges to Primary Branch
           <span class="section-chevron">▾</span>
         </div>
         <div class="section-body">
+          <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center">
+            <span style="font-size:12px;color:var(--text-muted);margin-right:4px">Filter:</span>
+            <button class="btn btn-sm merge-range-btn active" data-days="7">7 days</button>
+            <button class="btn btn-sm merge-range-btn" data-days="14">14 days</button>
+            <button class="btn btn-sm merge-range-btn" data-days="30">30 days</button>
+            <button class="btn btn-sm merge-range-btn" data-days="0">All time</button>
+          </div>
           <div class="table-container">
             <table id="tbl-merges">
               <thead>
@@ -3423,7 +3415,7 @@ async function renderMetrics() {
                   <th>History</th>
                 </tr>
               </thead>
-              <tbody>${mergeRows || '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">No merge-to-main scans detected yet</td></tr>'}</tbody>
+              <tbody></tbody>
             </table>
           </div>
         </div>
@@ -3528,6 +3520,81 @@ async function renderMetrics() {
             resort();
           };
         });
+        resort();
+      })();
+
+      // ── Merges to Primary Branch (filterable) ───────────────
+      (function() {
+        const tbl = document.getElementById('tbl-merges');
+        if (!tbl) return;
+        const allData = Object.entries(mergesData);
+        let activeDays = 7;
+        let sortCol = 'total', sortDir = -1;
+
+        function cutoffDate(days) {
+          if (!days) return '';
+          const d = new Date();
+          d.setDate(d.getDate() - days);
+          return d.toISOString().slice(0, 10);
+        }
+
+        function mergeRow([name, f], filteredDates) {
+          const first = filteredDates.length ? filteredDates[0] : '—';
+          const last  = filteredDates.length ? filteredDates[filteredDates.length - 1] : '—';
+          return `<tr onclick="navigate('#/applications/${encodeURIComponent(name)}')" style="cursor:pointer">
+            <td><strong>${esc(name)}</strong></td>
+            <td>${esc(filteredDates.length)}</td>
+            <td>${esc(first)}</td>
+            <td>${esc(last)}</td>
+            <td><div class="freq-dots">${filteredDates.map(d => `<span class="freq-dot" title="${esc(d)}"></span>`).join('')}</div></td>
+          </tr>`;
+        }
+
+        function resort() {
+          const cutoff = cutoffDate(activeDays);
+          const filtered = allData
+            .map(([name, f]) => {
+              const dates = cutoff ? f.dates.filter(d => d >= cutoff) : [...f.dates];
+              return [name, f, dates];
+            })
+            .filter(([,, dates]) => dates.length > 0)
+            .sort(([na,, da], [nb,, db]) => {
+              if (sortCol === 'name')  return sortDir * na.localeCompare(nb);
+              if (sortCol === 'total') return sortDir * (da.length - db.length);
+              if (sortCol === 'first') return sortDir * (da[0]||'').localeCompare(db[0]||'');
+              if (sortCol === 'last')  return sortDir * ((da[da.length-1]||'').localeCompare((db[db.length-1]||'')));
+              return 0;
+            });
+
+          tbl.querySelector('tbody').innerHTML = filtered.length
+            ? filtered.map(([name, f, dates]) => mergeRow([name, f], dates)).join('')
+            : '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">No merges in this period</td></tr>';
+
+          tbl.querySelectorAll('th[data-col]').forEach(th => {
+            const ic = th.querySelector('.sort-icon');
+            if (ic) ic.textContent = th.dataset.col === sortCol ? (sortDir > 0 ? '▲' : '▼') : '⇅';
+          });
+        }
+
+        // Filter buttons
+        document.querySelectorAll('.merge-range-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('.merge-range-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            activeDays = parseInt(btn.dataset.days, 10);
+            resort();
+          });
+        });
+
+        // Column sort
+        tbl.querySelectorAll('th[data-col]').forEach(th => {
+          th.onclick = () => {
+            if (sortCol === th.dataset.col) sortDir *= -1;
+            else { sortCol = th.dataset.col; sortDir = sortCol === 'total' ? -1 : 1; }
+            resort();
+          };
+        });
+
         resort();
       })();
     });

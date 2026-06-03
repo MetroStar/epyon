@@ -636,6 +636,189 @@ _GLOBAL_ISSO_SYSTEM_PROMPT = (
     "Output only plain Markdown text."
 )
 
+_APP_ISSO_SYSTEM_PROMPT = (
+    "You are a senior Information System Security Officer (ISSO) writing a formal single-application "
+    "compliance brief for ATO package review, cATO continuous monitoring, or eMASS submission. "
+    "Your audience is the ISSO, ISSM, Authorizing Official (AO), and auditors — not developers or executives. "
+    "You will receive comprehensive scan data for ONE application: full vulnerability findings with CVE/GHSA "
+    "IDs and CVSS scores, STIG assessment results (open/pass/NA per control with vuln_id and title), "
+    "suppression records (accepted risks with type, severity, value, and reason), scan history, "
+    "and programme-level KPIs. "
+    "\n\nStructure your response as a SINGLE Markdown document with EXACTLY these ## sections in order:\n"
+    "  ## System Compliance Overview\n"
+    "  ## Control Mapping & STIG Validation\n"
+    "  ## Evidence & Artifact Traceability\n"
+    "  ## Vulnerability Risk Assessment\n"
+    "  ## Accepted Risk Register\n"
+    "  ## POA&M Entries\n"
+    "  ## Continuous Monitoring Assessment\n"
+    "  ## Recommendations\n"
+    "\nDetailed guidance:\n"
+    "**## System Compliance Overview** — two concise paragraphs giving the ATO/cATO status for this "
+    "specific application. State overall risk level (High/Medium/Low), open critical and high vuln counts, "
+    "STIG posture (open CAT I/II counts if available), and whether the system is suitable for ATO in "
+    "its current state. Name the application explicitly.\n"
+    "**## Control Mapping & STIG Validation** — map EVERY critical finding and EVERY high finding to its "
+    "NIST SP 800-53 rev 5 control family using the exact CVE or GHSA ID from the data. "
+    "Key mappings: dependency vulns → SI-2 Flaw Remediation; secrets/credentials → IA-5, AC-2; "
+    "container misconfigs → CM-6, CM-7; IaC/config issues → CM-2, CM-6; EOL software → SA-22, CM-11; "
+    "SBOM gaps → SA-12, SA-15; insecure comms/crypto → SC-8, SC-28; injection vulns → SI-10, SI-16. "
+    "Where STIG data is present, list EVERY open control by vuln_id and title under a ### STIG Open Controls "
+    "sub-heading, noting CAT severity. Group by NIST family with ### sub-headings.\n"
+    "**## Evidence & Artifact Traceability** — for each tool that ran, state: tool name, scan date, "
+    "what it covers (SCA/secrets/IaC/STIG/SBOM), and which NIST controls the output satisfies as evidence. "
+    "Example row: '`trivy` SCA scan (DATE) → SI-2, SA-12 evidence'. "
+    "List any NIST control families that have NO automated evidence from any tool.\n"
+    "**## Vulnerability Risk Assessment** — structured entries. For EACH critical finding:\n"
+    "  - **ID**: CVE/GHSA | **Package**: name@version → fixedVersion | **CVSS**: score | "
+    "**NIST Control**: ID | **Risk**: one-sentence impact if unmitigated | **Fix Available**: Yes/No\n"
+    "Then the same format for high findings. Group under ### Critical Findings and ### High Findings.\n"
+    "**## Accepted Risk Register** — for EACH suppressed finding produce one bullet:\n"
+    "  - **Finding**: value | **Type**: type | **Severity**: sev | **Tool**: tool | "
+    "**Reason**: stated reason | **Disposition**: 'Risk Acceptance Memo required' if reason is "
+    "'accepted_risk', otherwise 'No memo required (false positive / not applicable)'\n"
+    "If no suppressions, state 'No accepted risks on record.'\n"
+    "**## POA&M Entries** — one entry per critical finding AND per open STIG control in this format:\n"
+    "  - **Weakness**: brief description | **Threat Vector**: how it could be exploited | "
+    "**Control Deficiency**: NIST control ID | **Risk Level**: Critical or High | "
+    "**Countermeasures in Place**: any mitigating controls already applied | "
+    "**Responsible Party**: System Owner | "
+    "**Scheduled Completion**: 30 days (Critical) / 90 days (High) / 180 days (Medium)\n"
+    "**## Continuous Monitoring Assessment** — using the scan_history array, summarise: "
+    "scan cadence (daily/weekly/ad-hoc), total scan count, whether critical count is trending "
+    "up/flat/down across recent scans, and whether continuous monitoring obligations appear met.\n"
+    "**## Recommendations** — a numbered priority list of the top 5–8 actions the system owner "
+    "must take next, each referencing the relevant NIST control and giving a time target.\n"
+    "\nCRITICAL RULES: "
+    "Use ONLY CVE IDs, GHSA IDs, package names, and STIG vuln_ids that appear in the input data — "
+    "do not hallucinate identifiers. "
+    "If stig is null, state 'No STIG assessment data available' in the STIG sections. "
+    "Do NOT wrap your response in a fenced code block. Output only plain Markdown text."
+)
+
+
+async def generate_app_isso_summary(
+    app_name: str,
+    scan_meta: dict,
+    findings: dict,
+    stig_detail: list[dict] | None,
+    suppressions: list[dict],
+    scan_history: list[dict],
+    metrics: dict | None = None,
+) -> str:
+    """Detailed ISSO compliance brief for a single application."""
+    api_key = get_api_key()
+    if not api_key:
+        raise RuntimeError(
+            "OpenAI API key not configured. "
+            "Add it in Settings or set OPENAI_API_KEY."
+        )
+
+    try:
+        from openai import AsyncOpenAI
+    except ImportError:
+        raise RuntimeError("The 'openai' package is not installed. Run: pip install openai")
+
+    cfg   = read_ai_config()
+    model = cfg.get("model") or "gpt-4o-mini"
+
+    critical       = findings.get("critical_findings", [])
+    high           = findings.get("high_findings", [])
+    summary_counts = findings.get("summary", {})
+
+    payload: dict = {
+        "application": app_name,
+        "scan_date":   scan_meta.get("timestamp", ""),
+        "scan_type":   scan_meta.get("scan_type", ""),
+        "tools_used":  scan_meta.get("tools_analyzed", []),
+        "vulnerability_counts": {
+            "critical": summary_counts.get("total_critical", scan_meta.get("critical", 0)),
+            "high":     summary_counts.get("total_high",     scan_meta.get("high", 0)),
+            "medium":   summary_counts.get("total_medium",   scan_meta.get("medium", 0)),
+            "low":      summary_counts.get("total_low",      scan_meta.get("low", 0)),
+        },
+        "critical_findings": [
+            {
+                "id":            f.get("id"),
+                "title":         f.get("title"),
+                "tool":          f.get("tool"),
+                "package":       f.get("package"),
+                "version":       f.get("version"),
+                "fixed_version": f.get("fixed_version"),
+                "cvss":          f.get("cvss"),
+            }
+            for f in critical[:20]
+        ],
+        "high_findings": [
+            {
+                "id":            f.get("id"),
+                "title":         f.get("title"),
+                "tool":          f.get("tool"),
+                "package":       f.get("package"),
+                "version":       f.get("version"),
+                "fixed_version": f.get("fixed_version"),
+                "cvss":          f.get("cvss"),
+            }
+            for f in high[:15]
+        ],
+        "scan_history":        scan_history,
+        "suppressed_count":    len(suppressions),
+        "suppressed_findings": [
+            {
+                "type":     s.get("type", ""),
+                "value":    s.get("value", ""),
+                "severity": s.get("severity", ""),
+                "reason":   s.get("reason", ""),
+                "tool":     s.get("tool", ""),
+            }
+            for s in suppressions[:30]
+        ],
+    }
+
+    if stig_detail:
+        open_controls = [c for c in stig_detail if c.get("status") == "Open"]
+        payload["stig"] = {
+            "total": len(stig_detail),
+            "open":  len(open_controls),
+            "pass":  sum(1 for c in stig_detail if c.get("status") == "Not a Finding"),
+            "na":    sum(1 for c in stig_detail if c.get("status") in ("Not Applicable", "Not Reviewed")),
+            "open_controls": [
+                {
+                    "vuln_id":  c.get("vuln_id"),
+                    "title":    c.get("title"),
+                    "severity": c.get("severity"),
+                }
+                for c in open_controls[:30]
+            ],
+        }
+    else:
+        payload["stig"] = None
+
+    if metrics:
+        payload["programme_metrics"] = {
+            k: metrics.get(k)
+            for k in ("sla_compliance", "mttr_days", "mttd_days",
+                      "recurrence_rate_pct", "first_time_fix_pct")
+        }
+
+    user_msg = (
+        f"Produce the ISSO compliance brief for {app_name}:\n\n"
+        + json.dumps(payload, indent=2)
+    )
+
+    client = AsyncOpenAI(api_key=api_key)
+    response = await client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": _APP_ISSO_SYSTEM_PROMPT},
+            {"role": "user",   "content": user_msg},
+        ],
+        max_tokens=2400,
+        temperature=0.2,
+    )
+    return _strip_code_fence(response.choices[0].message.content or "")
+
+
 _FIX_SYSTEM_PROMPT = (
     "You are a senior security engineer providing a precise, actionable remediation plan "
     "for a single security finding from an automated scan. "

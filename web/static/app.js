@@ -538,6 +538,7 @@ const api = {
   getGlobalExecSummary()      { return this._post('/api/executive-summary', {}); },
   getGlobalTechnicalSummary() { return this._post('/api/technical-summary', {}); },
   getGlobalIssoSummary()      { return this._post('/api/isso-summary', {}); },
+  getAppIssoSummary(name)     { return this._post(`/api/applications/${encodeURIComponent(name)}/isso-summary`, {}); },
   exportSummaryDocx(body)     { return this._post('/api/export/summary-docx', body); },
   getFindingFix(finding)      { return this._post('/api/findings/fix', finding); },
   calculateScorecard(id)      { return this._post(`/api/scans/${encodeURIComponent(id)}/scorecard`, {}); },
@@ -1010,6 +1011,7 @@ async function renderAppDetail(name) {
         </div>
       </div>
       ${statsSection}
+      ${buildAppIssoSection(name)}
       <div class="section">
         <div class="section-title">Scan History</div>
         <div class="scan-timeline">${timelineItems}</div>
@@ -1764,6 +1766,8 @@ function buildOverviewIssoSection() {
 
 // Cache last-generated overview summary text for PDF/Word export
 let _overviewSummaryCache = { exec: null, tech: null, isso: null };
+// Cache per-app ISSO summaries keyed by app name
+const _appIssoCache = {};
 
 function _summaryLoadingHtml(label) {
   return `<div style="display:flex;align-items:center;gap:10px;padding:12px 0;color:var(--text-muted);font-size:13px">
@@ -1779,9 +1783,9 @@ function _summaryResultHtml(text, err, regenerateFn, exportFn, exportDocxFn) {
   return `
     ${content}
     <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <button class="btn" style="font-size:11px" onclick="${regenerateFn}()">↺ Regenerate</button>
-      ${text ? `<button class="btn btn-primary" style="font-size:11px" onclick="${exportFn}()">↓ Export PDF</button>` : ''}
-      ${text && exportDocxFn ? `<button class="btn" style="font-size:11px;background:#1e3a5f;color:#93c5fd;border-color:#1e4976" onclick="${exportDocxFn}()">↓ Export Word</button>` : ''}
+      <button class="btn" style="font-size:11px" onclick="${regenerateFn.includes('(') ? regenerateFn : regenerateFn + '()'}">↺ Regenerate</button>
+      ${text ? `<button class="btn btn-primary" style="font-size:11px" onclick="${exportFn.includes('(') ? exportFn : exportFn + '()'}">↓ Export PDF</button>` : ''}
+      ${text && exportDocxFn ? `<button class="btn" style="font-size:11px;background:#1e3a5f;color:#93c5fd;border-color:#1e4976" onclick="${exportDocxFn.includes('(') ? exportDocxFn : exportDocxFn + '()'}">↓ Export Word</button>` : ''}
     </div>`;
 }
 
@@ -1872,6 +1876,81 @@ async function exportTechSummaryDocx() { await exportSummaryDocx('tech'); }
 async function exportIssoSummaryDocx() { await exportSummaryDocx('isso'); }
 
 function exportIssoSummaryPdf() { exportOverviewSummaryPdf('isso'); }
+
+function buildAppIssoSection(name) {
+  return `
+    <div class="section" id="app-isso-section-${esc(name)}" style="border-left:3px solid #10b981;padding-left:16px">
+      <div class="section-title" style="display:flex;align-items:center;gap:10px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        AI ISSO Compliance Brief — ${esc(name)}
+      </div>
+      <div id="app-isso-body-${esc(name)}">
+        <button class="btn btn-primary" onclick="generateAppIssoSummary('${esc(name)}')">
+          ✦ Generate Application ISSO Brief
+        </button>
+        <p style="margin:8px 0 0;font-size:11px;color:var(--text-muted)">
+          Per-application ATO/cATO brief: NIST 800-53 control mapping, STIG open controls,
+          evidence traceability, accepted risk register, and POA&amp;M entries.
+          Requires an OpenAI API key configured in Settings.
+        </p>
+      </div>
+    </div>`;
+}
+
+async function generateAppIssoSummary(name) {
+  const bodyId = `app-isso-body-${name}`;
+  const body = document.getElementById(bodyId);
+  if (!body) return;
+  body.innerHTML = _summaryLoadingHtml('ISSO compliance brief');
+  try {
+    const result = await api.getAppIssoSummary(name);
+    const text = result.summary || '';
+    _appIssoCache[name] = text;
+    body.innerHTML = _summaryResultHtml(
+      text, null,
+      `generateAppIssoSummary('${name}')`,
+      `exportAppIssoSummaryPdf('${name}')`,
+      `exportAppIssoSummaryDocx('${name}')`
+    );
+  } catch (e) {
+    _appIssoCache[name] = null;
+    body.innerHTML = _summaryResultHtml(
+      null, e.message || 'Generation failed',
+      `generateAppIssoSummary('${name}')`,
+      `exportAppIssoSummaryPdf('${name}')`,
+      `exportAppIssoSummaryDocx('${name}')`
+    );
+  }
+}
+
+function exportAppIssoSummaryPdf(name) {
+  const text = _appIssoCache[name];
+  if (!text) { alert('Generate the ISSO brief first.'); return; }
+  const doc = new window.jspdf.jsPDF();
+  doc.setFontSize(16);
+  doc.text(`ISSO Compliance Brief — ${name}`, 14, 20);
+  doc.setFontSize(10);
+  const lines = doc.splitTextToSize(text.replace(/#+\s/g, '').replace(/[*_`]/g, ''), 180);
+  doc.text(lines, 14, 30);
+  doc.save(`isso-brief-${name}.pdf`);
+}
+
+async function exportAppIssoSummaryDocx(name) {
+  const text = _appIssoCache[name];
+  if (!text) { alert('Generate the ISSO brief first.'); return; }
+  try {
+    const blob = await api.exportSummaryDocx({ isso_summary: text });
+    const url  = URL.createObjectURL(blob);
+    const a    = Object.assign(document.createElement('a'), { href: url, download: `isso-brief-${name}.docx` });
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+  } catch (e) {
+    alert('Word export failed: ' + e.message);
+  }
+}
 
 function exportOverviewSummaryPdf(only) {
   const { exec, tech, isso } = _overviewSummaryCache;

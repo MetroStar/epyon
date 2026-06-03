@@ -538,6 +538,117 @@ def app_scans(name: str, response: Response):
     return scans
 
 
+@app.post("/api/applications/{name}/isso-summary")
+async def app_isso_summary(name: str, response: Response):
+    """Per-application ISSO compliance brief: NIST control mapping, STIG, POA&M, accepted risk."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(name):
+        raise HTTPException(400, "Invalid application name")
+
+    all_dirs = parsers.find_scan_dirs(EPYON_ROOT)
+    target_entries: list[tuple] = []
+    for d in all_dirs:
+        meta = parsers.parse_dir_name(d.name)
+        if meta["target"] == name:
+            target_entries.append((d, meta["timestamp"]))
+
+    if not target_entries:
+        raise HTTPException(404, f"No scans found for application '{name}'")
+
+    # Sort newest first
+    target_entries.sort(key=lambda x: x[1], reverse=True)
+
+    # Best comprehensive scan dir for vuln findings
+    def _best_scan_dir(entries: list[tuple]) -> object:
+        for d, _ in entries:
+            st = (parsers._read_json(d / "scan-metadata.json") or {}).get("scan_type", "")
+            if st in _COMPREHENSIVE_SCAN_TYPES:
+                return d
+        return entries[0][0]
+
+    scan_dir  = _best_scan_dir(target_entries)
+    scan_meta = parsers.load_scan(scan_dir, EPYON_ROOT)
+    findings  = parsers.parse_scan_findings(scan_dir)
+
+    # STIG: walk newest-first until we find a scan with stig-results-*.json files;
+    # merge all controls from that scan into a single flat list.
+    stig_detail: list[dict] | None = None
+    for candidate, _ in target_entries:
+        stig_files = sorted(candidate.glob("stig-results-*.json"))
+        if not stig_files:
+            continue
+        merged: list[dict] = []
+        for sf in stig_files:
+            try:
+                raw = json.loads(sf.read_text(encoding="utf-8"))
+                results = raw.get("assessments", raw) if "assessments" in raw else raw
+                # Load matching controls file
+                slug = sf.stem[len("stig-results-"):]
+                cf = candidate / f"stig-controls-{slug}.json"
+                controls_data: dict = {}
+                try:
+                    controls_data = json.loads(cf.read_text(encoding="utf-8"))
+                except Exception:
+                    pass
+                for c in controls_data.get("controls", []):
+                    vid = c.get("vuln_id", "")
+                    assessed = results.get(vid, {})
+                    merged.append({
+                        "vuln_id":  vid,
+                        "title":    c.get("title", ""),
+                        "severity": c.get("severity", ""),
+                        "status":   assessed.get("status", "Not Reviewed"),
+                    })
+            except Exception:
+                pass
+        if merged:
+            stig_detail = merged
+            break
+
+    # Suppressions: walk newest-first until non-empty
+    suppressions: list[dict] = []
+    for candidate, _ in target_entries:
+        batch = parsers.parse_suppressed_findings(candidate)
+        if batch:
+            suppressions = batch
+            break
+
+    # Scan history: last 8 scans, summary counts only
+    scan_history = [
+        {
+            "timestamp": m.get("timestamp", ""),
+            "scan_type": m.get("scan_type", ""),
+            "critical":  m.get("critical", 0),
+            "high":      m.get("high", 0),
+            "medium":    m.get("medium", 0),
+            "low":       m.get("low", 0),
+        }
+        for m in (
+            parsers.load_scan(d, EPYON_ROOT)
+            for d, _ in target_entries[:8]
+        )
+    ]
+
+    _metrics = _build_summary_metrics()
+
+    try:
+        summary = await openai_summary.generate_app_isso_summary(
+            app_name=name,
+            scan_meta=scan_meta,
+            findings=findings,
+            stig_detail=stig_detail,
+            suppressions=suppressions,
+            scan_history=scan_history,
+            metrics=_metrics,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as exc:
+        raise HTTPException(502, f"OpenAI request failed: {exc}")
+
+    return {"app": name, "summary": summary}
+
+
 # ── Scan detail ───────────────────────────────────────────────
 
 @app.get("/api/scans/{scan_id}/dashboard")

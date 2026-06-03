@@ -11,6 +11,10 @@ concurrency:
   cancel-in-progress: false
 
 on:
+  pull_request:
+    branches:
+      - main
+      - master
   schedule:
     # Scheduled nightly scan — runs every night at 2 AM UTC (Mon-Sat)
     - cron: '0 2 * * 1-6'
@@ -53,6 +57,22 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  # Quick gate scan on pull requests — fast feedback, no full report generation.
+  security-scan-pr:
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      security-events: write
+      issues: write
+    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
+    with:
+      scan_mode: quick
+      skip_stig: true
+      skip_garak: true
+    secrets: inherit
+
   security-scan-main:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     permissions:

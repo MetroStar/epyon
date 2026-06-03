@@ -227,7 +227,11 @@ jobs:
       issues: write
 
     env:
-      SCAN_MODE: "${{ inputs.scan_mode }}"
+      # Auto-downgrade to quick mode for pull_request events when the caller
+      # hasn't explicitly selected a heavier mode. Callers that intentionally
+      # want a full scan on PRs should pass scan_mode: full explicitly — the
+      # auto-override only fires when the input matches the default ('full').
+      SCAN_MODE: "${{ github.event_name == 'pull_request' && inputs.scan_mode == 'full' && 'quick' || inputs.scan_mode }}"
       FAIL_ON_CRITICAL: "${{ inputs.fail_on_critical }}"
       FAIL_ON_HIGH: "${{ inputs.fail_on_high }}"
       WARNING_ONLY: "${{ inputs.warning_only }}"

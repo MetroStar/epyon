@@ -48,7 +48,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.4.0] - 2026-05-26
+## [3.5.0] - 2026-06-03
+
+### Added
+- **Quick-scan CI performance** — `pull_request` events now automatically run in `quick` mode even when the caller workflow specifies `full`, cutting scan time from >10 min back to <4 min. Applies to `epyon-scan.yml` and `scan-private-repo.yml`.
+- **PR trigger in `scan-private-repo.yml`** — `pull_request` event added with automatic quick-mode downgrade; includes a `security-scan-pr` job that runs the quick gate on every PR.
+- **`quick` mode skips for CI** — The following steps are now skipped in quick mode to eliminate unnecessary overhead: NVD enrichment step, checkov and xeol image pre-pulls, `openai` pip install.
+- **`SKIP_CLAMAV=true` in quick mode** — ClamAV is automatically bypassed in quick scans, consistent with the existing quick-mode skip list.
+- **GitHub signals tracking** (`web/api/github_metrics.py`) — New API module that fetches PR merge history, open issues, and contributor activity from the GitHub API. Persisted to `web/data/github-signals-history.json` for trend analysis.
+- **GitHub signals frontend** — Metrics page gains a GitHub Signals card showing PRs merged to primary branch, open security issues, and a contributor activity sparkline. Clicking a bar navigates to that app's scan history.
+- **Merges-to-main metrics** — Metrics page now tracks and displays PR merges to the configured primary branch with filter options and a "Primary Branch" rename from "main" for accuracy.
+- **SLA compliance, risk trends, and suppression rate cards** — Three new metric cards added to the Metrics dashboard.
+- **ISSO compliance summary endpoint** (`POST /api/scans/{scan_id}/isso-summary`) — Generates a per-application ISSO compliance summary combining STIG controls, severity findings, and suppression data. Integrated into the frontend and the summary document export flow.
+- **Summary document export** — New export button on scan detail pages produces a structured Markdown/PDF-ready summary document embedding AI summaries, metrics, and ISSO compliance data.
+- **`OPENAI_MODEL` env variable honored in web UI** — AI summary generation now reads `OPENAI_MODEL` from the environment; the AI/Config model field in the UI is display-only and shows the active model rather than overriding it.
+- **Interactive dashboard generation script** (`scripts/shell/generate-dashboard.py`) — Python-based dashboard generator that produces filterable, sortable HTML dashboards from raw scan JSON.
+- **`cleanup-scripts.sh`** — New utility to purge scan directories older than a configurable retention period (default 30 days).
+- **Test coverage scanner** (`run-test-coverage-scan.sh`) — Detects and runs test frameworks (Jest, pytest, Go test, Cargo test) in the target repo and produces a normalized coverage JSON. Includes a gate check script that fails CI when coverage drops below threshold.
+- **Trivy vulnerability scanner auto-discovery** — `run-trivy-scan.sh` now auto-detects base images from Dockerfiles in the target repo and runs targeted image scans without manual configuration.
+- **Executive and technical summary sections in dashboard** — The generated HTML dashboard now includes a collapsible executive summary (one-paragraph risk posture) and a technical summary (tool-by-tool breakdown) powered by OpenAI when `OPENAI_API_KEY` is set.
+- **CVSS/KEV enrichment metadata banner** — NVD enrichment cards replaced with inline CVSS score and KEV flag per finding, plus an enrichment metadata banner showing enrichment coverage percentage.
+- **ISSO compliance summary in export** — Summary document export now embeds the ISSO compliance table alongside severity findings for audit-ready output.
+- **STIG applicability improvements** — `run-stig-assessment.py` now correctly infers applicability for Kubernetes, Nginx, Redis, and Node.js targets; unknown STIG types default to skip rather than run.
+- **`scan-matrix.md` documentation** — New document describing which scan layers run under each scan mode (quick, full, nightly, stig, huggingface).
+- **`nightly` scan mode** — New orchestration mode that runs Layers 1–12 on a schedule without STIG (Layer 13), allowing full security coverage without the AI-gated STIG assessment.
+- **npm package support** (`package.json`, `bin/prepare.js`, `bin/install.js`) — Epyon can now be installed via `npm install github:MetroStar/epyon --save-dev`; postinstall automatically writes `scan-private-repo.yml` into the consumer project.
+- **Scan type inference fallback** — `parsers.py` and the web UI now infer `scan_type` from directory contents (presence of `picklescan/`, `modelcard/`, STIG dirs) when `scan-metadata.json` is absent or missing the `scan_type` key.
+- **30-day metrics trend in dashboard** — `embed-metrics-in-dashboard.sh` now embeds a 30-day rolling window trend instead of an all-time window when the scan mode is `full` or `nightly`.
+
+### Changed
+- **`scan-private-repo.yml` renamed** — Workflow files follow a consistent naming convention; internal step references updated.
+- **NVD enrichment conditional** — Enrichment step now uses `if: always() && inputs.scan_mode != 'quick'` so it is skipped in quick mode without blocking downstream steps.
+- **Scan mode auto-downgrade logic** — `SCAN_MODE` env var in `epyon-scan.yml` automatically coerces `full` → `quick` for `pull_request` event triggers.
+- **Dashboard metrics default to 30-day window** — Previous default was all-time; switched to a rolling 30-day window for higher signal-to-noise on Metrics page charts.
+- **Parallel GitHub artifact download** — `embed-metrics-in-dashboard.sh` now downloads metrics artifacts in parallel batches instead of serially, reducing dashboard generation time for repos with many scans.
+- **STIG selection workflow diagrams updated** — Both `.drawio` diagrams restructured with improved layout and new assessment steps reflecting the updated applicability logic.
+
+### Fixed
+- **`.epyon-ignore.yml` tool suppression not respected in severity gate** — `check-severity-gate.sh` and the Apply Suppression Rules block in `run-epyon-scan-ci.sh` previously only looked for `.epyon-ignore.yml` at `$TARGET_DIR`. When the target repo is checked out to `$GITHUB_WORKSPACE` (caller workflow layout), the file was not found and the ignore cache remained empty. Both scripts now probe multiple candidate paths (`$TARGET_DIR`, `$GITHUB_WORKSPACE`, script parent dir) in order, logging exactly which path was used. Tool-level suppressions (e.g. `type: tool, value: anchore`) now correctly zero out the corresponding findings from the severity gate.
+- **Quick scan regression (>10 min)** — Four unnecessary operations were running in quick mode: NVD enrichment (slow network call), checkov/xeol Docker image pulls, openai pip install, and ClamAV. All four now skip in quick mode.
+- **PR events running full scans** — `scan-private-repo.yml` `push` trigger was matching PR merge commits on protected branches, causing full scans where quick scans were expected. Fixed by adding an explicit `pull_request` trigger with auto-quick-mode.
+- **STIG source file context budget overflow** — Files exceeding the per-file token budget were truncated without notification. Added explicit truncation logging and adjusted the context budget allocation to prefer more files at lower per-file limits over fewer files at higher limits.
+- **OpenAI model env not honored** — AI summary endpoint was always using the hardcoded default model regardless of `OPENAI_MODEL` env var.
+
+
 
 ### Added
 - **Security Score Card system**: 6-dimensional weighted scoring framework evaluating Security (30%), Supply Chain (20%), Code Quality (15%), Compliance (15%), Operational (10%), and MOSA (10%) dimensions. Maps 0-100 weighted scores to DoD/NASA TRL levels 1-9 and letter grades (A+ through F).

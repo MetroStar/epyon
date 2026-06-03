@@ -18,7 +18,7 @@ Epyon is designed to be opinionated, automated, and decisive — empowering team
 
 Epyon is a **production-ready, enterprise-grade** 15-layer DevSecOps security platform with a FastAPI-backed web UI, comprehensive test coverage, baseline scanning, automated comparison, and isolated scan directory architecture. Built for real-world applications with Docker-based tooling and 789 automated tests.
 
-**Version: 3.4.0** · **Updated: May 27, 2026**
+**Version: 3.5.0** · **Updated: June 3, 2026**
 
 ## 📋 Prerequisites
 
@@ -327,7 +327,9 @@ Epyon ships a FastAPI-backed single-page web UI for running scans, browsing resu
 - **STIG History with Evidence Tracking**: View complete evidence timeline, confidence scores, and status change reasoning with visual indicators
 - **Interactive Scan Management**: Run scans, browse results, filter findings, and manage suppressions
 - **SBOM & Dependency Analysis**: Interactive tables with sorting, searching, and supply chain verification
-- **Metrics Dashboard**: MTTR tracking, vulnerability trends, and app monitoring classification
+- **Metrics Dashboard**: MTTR tracking, vulnerability trends, app monitoring classification, GitHub signals, SLA compliance, and suppression rate tracking
+- **ISSO Compliance Summary**: Per-application ISSO compliance report combining STIG controls, severity findings, and suppression data — exportable as a structured document
+- **Summary Document Export**: One-click export of AI-generated executive + technical summaries with embedded metrics and ISSO compliance table
 
 ### Setup (first time only)
 
@@ -408,9 +410,10 @@ Epyon automatically creates Jira Cloud tickets for critical and high severity fi
 5. **Enter the repository URL** you want to scan (e.g., `https://github.com/owner/repo.git`)
 6. **Optional: Enter subdirectory path** to scan only part of a monorepo (e.g., `apps/api`)
 7. **Select scan mode**:
-   - **quick** - Fast scan (~2-5 minutes) ⚡
+   - **quick** - Fast scan (~2-4 minutes) ⚡
    - **full** - Complete analysis (~10-20 minutes) 🔍
-  - **stig** - STIG-only assessment (Layer 13) 📋
+   - **nightly** - Full layers 1–12 without STIG, for scheduled runs 🌙
+   - **stig** - STIG-only assessment (Layer 13) 📋
 8. **Click "Run workflow"** to start
 9. **View results**:
    - Click on the workflow run
@@ -420,14 +423,16 @@ Epyon automatically creates Jira Cloud tickets for critical and high severity fi
 
 ### Automated Scan Mode Defaults
 
-`scan-private-repo.yml` now uses fixed automated defaults:
+`scan-private-repo.yml` uses fixed automated defaults:
 
-- `pull_request` events run `quick` scans for fast feedback
-- `push` events (including post-merge pushes to protected branches) run `full` scans
-- `schedule` events run `full` scans
-- Manual `workflow_dispatch` runs let you choose `quick`, `full`, or `stig`
+| Trigger | Scan Mode | Approx. Time |
+|---------|-----------|-------------|
+| `pull_request` | `quick` | 2–4 min |
+| `push` (post-merge) | `full` | 10–20 min |
+| `schedule` | `full` | 10–20 min |
+| `workflow_dispatch` | your choice | varies |
 
-This gives short PR turnaround with deeper security checks after merge.
+This gives fast PR feedback and deeper security checks after merge. Quick mode automatically skips ClamAV, NVD enrichment, Checkov, and Xeol image pre-pulls.
 
 ### Garak (LLM) Workflow Inputs
 
@@ -590,7 +595,8 @@ The workflow checks out both your repository and Epyon, then runs Epyon's scanne
 ### What You Get
 
 **📦 Artifacts (downloadable):**
-- Interactive HTML dashboard
+- Interactive HTML dashboard with executive + technical summaries
+- ISSO compliance summary document (exportable)
 - Individual tool reports (HTML, Markdown, CSV)
 - Raw JSON data
 - Complete SBOM

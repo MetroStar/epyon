@@ -927,6 +927,19 @@ async function renderAppDetail(name) {
                </button>`,
         );
 
+    // Use comprehensive-scan counts (same source as overview cards) so numbers match.
+    // If the most recent scan was a quick/stig scan, flag it so the user knows the
+    // vulnerability counts are from an earlier full scan.
+    const compTs   = appInfo.comprehensive_timestamp || '';
+    const compType = appInfo.comprehensive_scan_type  || '';
+    const countsDiffer = compTs && compTs !== latest.timestamp;
+    const countsNote = countsDiffer
+      ? `<div style="grid-column:1/-1;font-size:11px;color:var(--text-muted);margin-top:4px">
+           Vulnerability counts are from the last ${esc(scanTypeLabel(compType))} scan
+           (${fmtDate(compTs)}) — quick scans do not run all tools.
+         </div>`
+      : '';
+
     const statsSection = scans.length ? `
       <div class="detail-grid">
         <div class="detail-card">
@@ -939,20 +952,21 @@ async function renderAppDetail(name) {
         </div>
         <div class="detail-card">
           <div class="label">Critical</div>
-          <div class="value" style="color:var(--critical)">${latest.critical || 0}</div>
+          <div class="value" style="color:var(--critical)">${appInfo.critical ?? latest.critical ?? 0}</div>
         </div>
         <div class="detail-card">
           <div class="label">High</div>
-          <div class="value" style="color:var(--high)">${latest.high || 0}</div>
+          <div class="value" style="color:var(--high)">${appInfo.high ?? latest.high ?? 0}</div>
         </div>
         <div class="detail-card">
           <div class="label">Medium</div>
-          <div class="value" style="color:var(--medium)">${latest.medium || 0}</div>
+          <div class="value" style="color:var(--medium)">${appInfo.medium ?? latest.medium ?? 0}</div>
         </div>
         <div class="detail-card">
           <div class="label">Low</div>
-          <div class="value" style="color:var(--low)">${latest.low || 0}</div>
+          <div class="value" style="color:var(--low)">${appInfo.low ?? latest.low ?? 0}</div>
         </div>
+        ${countsNote}
       </div>` : '';
 
     page.innerHTML = `
@@ -3201,6 +3215,354 @@ window.sortEnrichmentTable = function(col) {
   });
 };
 
+// ── New metrics section builders ─────────────────────────────
+
+function buildSlaSection(m) {
+  const sla = m.sla_compliance || {};
+  const bySev = sla.by_severity || {};
+  const ovPct = sla.overall_pct != null ? `${sla.overall_pct}%` : 'N/A';
+  const rows = ['critical','high','medium','low'].map(sev => {
+    const d = bySev[sev] || {};
+    const pct = d.pct != null ? `${d.pct}%` : '—';
+    const bar = d.pct != null
+      ? `<div class="sla-bar-track"><div class="sla-bar-fill ${sev}" style="width:${Math.min(d.pct,100)}%"></div></div>`
+      : '<div class="sla-bar-track"></div>';
+    return `<tr>
+      <td><span class="sev-badge ${sev}">${ucFirst(sev)}</span></td>
+      <td class="sla-sla-days">≤ ${d.sla_days ?? '—'}d</td>
+      <td>${bar}</td>
+      <td class="sla-pct" style="color:${d.pct==null?'var(--text-muted)':d.pct>=80?'var(--clean)':d.pct>=50?'var(--medium)':'var(--critical)'}">${pct}</td>
+      <td style="color:var(--text-muted);font-size:12px">${d.within ?? 0} / ${(d.within??0)+(d.breached??0)}</td>
+    </tr>`;
+  }).join('');
+  return `
+  <div class="section collapsible-section collapsed" id="section-sla">
+    <div class="section-title section-toggle" onclick="toggleSection('section-sla')">
+      SLA Compliance Rate
+      <span class="section-title-right">
+        <span class="sla-overall-badge" style="color:${sla.overall_pct==null?'var(--text-muted)':sla.overall_pct>=80?'var(--clean)':sla.overall_pct>=50?'var(--medium)':'var(--critical)'}">${ovPct}</span>
+        <span class="section-chevron">▾</span>
+      </span>
+    </div>
+    <div class="section-body">
+      <p class="metrics-note">% of resolved findings fixed within severity-tiered SLA thresholds (Critical ≤7d, High ≤30d, Medium ≤90d, Low ≤180d)</p>
+      <div class="table-container">
+        <table><thead><tr><th>Severity</th><th>SLA</th><th style="min-width:160px">Compliance</th><th>Rate</th><th>Met / Total</th></tr></thead>
+        <tbody>${rows}</tbody></table>
+      </div>
+      <div style="margin-top:12px;color:var(--text-muted);font-size:12px">
+        ${sla.total_within ?? 0} within SLA · ${sla.total_breached ?? 0} exceeded SLA
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Risk trend registry ───────────────────────────────────────
+const _riskTrendRegistry = new Map();
+
+function openRiskTrendDetail(app) {
+  const pts = _riskTrendRegistry.get(app);
+  if (!pts || !pts.length) return;
+  closeFindingDetail();
+
+  const latest = pts[pts.length - 1];
+  const minScore = Math.min(...pts.map(p => p.score));
+  const maxScore = Math.max(...pts.map(p => p.score));
+
+  // Full-size SVG chart (480×120)
+  const W = 480, H = 120, padX = 36, padY = 16;
+  const innerW = W - padX * 2, innerH = H - padY * 2;
+  const range = maxScore - minScore || 1;
+  const sparkPts = pts.map((p, i) => {
+    const x = padX + (i / Math.max(pts.length - 1, 1)) * innerW;
+    const y = padY + innerH - ((p.score - minScore) / range) * innerH;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  // Y-axis labels
+  const yLabels = [minScore, Math.round((minScore + maxScore) / 2), maxScore].map((v, i) => {
+    const y = padY + innerH - (i / 2) * innerH;
+    return `<text x="${padX - 4}" y="${y.toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-muted)" dominant-baseline="middle">${v}</text>`;
+  }).join('');
+  // Dot on last point
+  const lastPt = sparkPts.split(' ').at(-1).split(',');
+  const dot = `<circle cx="${lastPt[0]}" cy="${lastPt[1]}" r="4" fill="var(--accent)"/>`;
+  const chart = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="overflow:visible;display:block;max-width:100%">
+    ${yLabels}
+    <polyline points="${sparkPts}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dot}
+  </svg>`;
+
+  // History table rows
+  const tableRows = [...pts].reverse().map(p => {
+    return `<tr>
+      <td style="color:var(--text-muted);font-size:12px">${esc(p.date)}</td>
+      <td style="font-weight:600;color:var(--accent)">${esc(String(p.score))}</td>
+      <td><span class="sev-badge critical" style="font-size:10px">${esc(String(p.critical ?? '—'))}</span></td>
+      <td><span class="sev-badge high" style="font-size:10px">${esc(String(p.high ?? '—'))}</span></td>
+      <td><span class="sev-badge medium" style="font-size:10px">${esc(String(p.medium ?? '—'))}</span></td>
+      <td><span class="sev-badge low" style="font-size:10px">${esc(String(p.low ?? '—'))}</span></td>
+    </tr>`;
+  }).join('');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'finding-drawer-overlay';
+  overlay.id = 'finding-drawer-overlay';
+  overlay.addEventListener('click', closeFindingDetail);
+
+  const drawer = document.createElement('div');
+  drawer.className = 'finding-drawer';
+  drawer.id = 'finding-drawer';
+  drawer.setAttribute('role', 'dialog');
+  drawer.setAttribute('aria-modal', 'true');
+  drawer.setAttribute('aria-label', 'Risk score trend');
+  drawer.addEventListener('click', e => e.stopPropagation());
+
+  drawer.innerHTML = `
+    <div class="finding-drawer-header">
+      <div class="finding-drawer-title">
+        <h2>${esc(app)}</h2>
+        <div class="finding-drawer-badges">
+          <span class="tool-tag">Weighted Risk Score</span>
+          <span style="font-size:12px;color:var(--accent);font-weight:600">Latest: ${esc(String(latest.score))}</span>
+        </div>
+      </div>
+      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+    </div>
+    <div class="finding-drawer-body">
+      <div style="margin-bottom:20px">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Score over time (critical×10 + high×7 + medium×4 + low×1)</div>
+        ${chart}
+      </div>
+      <div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap">
+        <div class="recurrence-card" style="min-width:100px;padding:12px">
+          <div class="recurrence-value" style="font-size:24px;color:var(--accent)">${esc(String(latest.score))}</div>
+          <div class="recurrence-label">Latest Score</div>
+        </div>
+        <div class="recurrence-card" style="min-width:100px;padding:12px">
+          <div class="recurrence-value" style="font-size:24px;color:var(--clean)">${esc(String(minScore))}</div>
+          <div class="recurrence-label">Best (lowest)</div>
+        </div>
+        <div class="recurrence-card" style="min-width:100px;padding:12px">
+          <div class="recurrence-value" style="font-size:24px;color:var(--high)">${esc(String(maxScore))}</div>
+          <div class="recurrence-label">Worst (highest)</div>
+        </div>
+        <div class="recurrence-card" style="min-width:100px;padding:12px">
+          <div class="recurrence-value" style="font-size:24px;color:var(--text-muted)">${esc(String(pts.length))}</div>
+          <div class="recurrence-label">Scans tracked</div>
+        </div>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead><tr><th>Date</th><th>Score</th><th>Critical</th><th>High</th><th>Medium</th><th>Low</th></tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+  document.body.appendChild(drawer);
+
+  const _onKey = e => { if (e.key === 'Escape') { closeFindingDetail(); document.removeEventListener('keydown', _onKey); } };
+  document.addEventListener('keydown', _onKey);
+}
+
+function buildRiskTrendSection(m) {
+  const trend = m.risk_trend || [];
+  if (!trend.length) {
+    return `<div class="section collapsible-section collapsed" id="section-risk">
+      <div class="section-title section-toggle" onclick="toggleSection('section-risk')">
+        Weighted Risk Score Trend <span class="section-chevron">▾</span>
+      </div>
+      <div class="section-body"><p class="metrics-note" style="color:var(--text-muted)">No trend data yet.</p></div>
+    </div>`;
+  }
+  // Group by target and populate registry
+  const byTarget = {};
+  trend.forEach(pt => {
+    if (!byTarget[pt.target]) byTarget[pt.target] = [];
+    byTarget[pt.target].push(pt);
+  });
+  _riskTrendRegistry.clear();
+  Object.entries(byTarget).forEach(([app, pts]) => _riskTrendRegistry.set(app, pts));
+
+  const rows = Object.entries(byTarget).map(([app, pts]) => {
+    const latest = pts[pts.length - 1];
+    const prev = pts.length > 1 ? pts[pts.length - 2] : null;
+    const delta = prev != null ? latest.score - prev.score : null;
+    const arrow = delta == null ? '' : delta > 0 ? ' ▲' : delta < 0 ? ' ▼' : '';
+    const color = delta == null ? 'var(--text-muted)' : delta > 0 ? 'var(--critical)' : delta < 0 ? 'var(--clean)' : 'var(--text-muted)';
+    const minScore = Math.min(...pts.map(p => p.score));
+    const maxScore = Math.max(...pts.map(p => p.score));
+    const sparkPts = pts.map((p, i) => {
+      const x = (i / Math.max(pts.length - 1, 1)) * 80;
+      const y = maxScore > minScore ? 20 - ((p.score - minScore) / (maxScore - minScore)) * 16 : 10;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).join(' ');
+    return `<tr class="clickable-row" onclick="openRiskTrendDetail('${esc(app)}')">
+      <td><strong>${esc(app)}</strong></td>
+      <td style="font-weight:600;color:${color}">${esc(String(latest.score))}${arrow}</td>
+      <td style="color:var(--text-muted);font-size:11px">${esc(latest.date)}</td>
+      <td><svg width="80" height="20" viewBox="0 0 80 20" style="overflow:visible">
+        <polyline points="${sparkPts}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linejoin="round"/>
+      </svg></td>
+    </tr>`;
+  }).join('');
+  return `
+  <div class="section collapsible-section collapsed" id="section-risk">
+    <div class="section-title section-toggle" onclick="toggleSection('section-risk')">
+      Weighted Risk Score Trend
+      <span class="section-title-right"><span style="font-size:12px;font-weight:normal;color:var(--text-muted)">critical×10 + high×7 + medium×4 + low×1</span><span class="section-chevron">▾</span></span>
+    </div>
+    <div class="section-body">
+      <div class="table-container">
+        <table><thead><tr><th>Application</th><th>Latest Score</th><th>Date</th><th>Trend</th></tr></thead>
+        <tbody>${rows}</tbody></table>
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildSecretTrendSection(m) {
+  const byTarget = m.secret_trend_by_target || {};
+  const hasData = Object.values(byTarget).some(pts => pts.some(p => p.total > 0));
+  const targets = Object.keys(byTarget).sort();
+  if (!targets.length) {
+    return `<div class="section collapsible-section collapsed" id="section-secrets">
+      <div class="section-title section-toggle" onclick="toggleSection('section-secrets')">
+        Secret Detection Trend <span class="section-chevron">▾</span>
+      </div>
+      <div class="section-body"><p class="metrics-note" style="color:var(--text-muted)">No TruffleHog data found in scans.</p></div>
+    </div>`;
+  }
+  const totalVerified   = (m.secret_trend || []).reduce((s,p) => s + (p.verified||0), 0);
+  const totalUnverified = (m.secret_trend || []).reduce((s,p) => s + (p.unverified||0), 0);
+  const rows = targets.map(app => {
+    const pts = byTarget[app];
+    const latest = pts[pts.length - 1] || {};
+    const totalV  = latest.verified   || 0;
+    const totalU  = latest.unverified || 0;
+    const prev = pts.length > 1 ? pts[pts.length - 2] : null;
+    const delta = prev != null ? latest.total - prev.total : null;
+    const arrow = delta == null ? '' : delta > 0 ? ' ▲' : delta < 0 ? ' ▼' : '';
+    const color = delta == null ? 'var(--text-muted)' : delta > 0 ? 'var(--critical)' : 'var(--clean)';
+    return `<tr>
+      <td><strong>${esc(app)}</strong></td>
+      <td style="color:${totalV>0?'var(--critical)':'var(--text-muted)'}">
+        ${totalV > 0 ? `<span class="sev-badge critical">${totalV} verified</span>` : '—'}
+      </td>
+      <td style="color:${totalU>0?'var(--high)':'var(--text-muted)'}">
+        ${totalU > 0 ? `<span class="sev-badge high">${totalU} unverified</span>` : '—'}
+      </td>
+      <td style="color:${color};font-weight:600">${esc(String(latest.total || 0))}${arrow}</td>
+      <td style="color:var(--text-muted);font-size:11px">${esc(latest.date || '—')}</td>
+    </tr>`;
+  }).join('');
+  const badgeLine = totalVerified > 0
+    ? `<span class="sev-badge critical" style="margin-right:8px">${totalVerified} verified secrets</span>` : '';
+  return `
+  <div class="section collapsible-section collapsed" id="section-secrets">
+    <div class="section-title section-toggle" onclick="toggleSection('section-secrets')">
+      Secret Detection Trend
+      <span class="section-title-right">${badgeLine}<span class="section-chevron">▾</span></span>
+    </div>
+    <div class="section-body">
+      <p class="metrics-note">TruffleHog findings per app from latest scan. Verified secrets indicate real credentials at risk.</p>
+      <div class="table-container">
+        <table><thead><tr><th>Application</th><th>Verified</th><th>Unverified</th><th>Total</th><th>Last Scan</th></tr></thead>
+        <tbody>${rows}</tbody></table>
+      </div>
+    </div>
+  </div>`;
+}
+
+function buildSuppressionSection(m) {
+  const sup = m.suppression || {};
+  const total = sup.total || 0;
+  const rate  = sup.rate_pct != null ? `${sup.rate_pct}%` : 'N/A';
+  const byTarget = sup.by_target || {};
+  const appsSorted = Object.keys(byTarget).sort();
+
+  const appRows = appsSorted.map(app => {
+    const items = byTarget[app] || [];
+    const rows = items.map(s => {
+      const reason = s.reason ? `<div class="sup-reason">${esc(s.reason)}</div>` : '';
+      const approver = s.approved_by ? `<span class="sup-approver">Approved by ${esc(s.approved_by)}</span>` : '';
+      return `<tr>
+        <td><code style="font-size:12px">${esc(s.value)}</code></td>
+        <td style="color:var(--text-muted);font-size:12px">${esc(s.tool)}</td>
+        <td style="color:var(--text-muted);font-size:12px;text-transform:capitalize">${esc(s.type)}</td>
+        <td>${reason}${approver}</td>
+      </tr>`;
+    }).join('');
+    return `<div class="sup-app-block">
+      <div class="sup-app-header">
+        <span class="sup-app-name">${esc(app)}</span>
+        <span class="sup-app-count">${items.length} suppression${items.length !== 1 ? 's' : ''}</span>
+      </div>
+      <table class="sup-app-table">
+        <thead><tr><th>Rule / ID</th><th>Tool</th><th>Type</th><th>Reason</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  }).join('');
+
+  const emptyState = !appsSorted.length
+    ? `<p style="color:var(--text-muted);text-align:center;padding:24px 0">No suppressions found across monitored apps.</p>`
+    : '';
+
+  return `
+  <div class="section collapsible-section collapsed" id="section-suppression">
+    <div class="section-title section-toggle" onclick="toggleSection('section-suppression')">
+      Suppression / Accepted Risk Rate
+      <span class="section-title-right">
+        <span style="font-size:13px;font-weight:600;color:var(--text-muted)">${esc(String(total))} suppressed · ${esc(String(m.total_resolved || 0))} resolved · ${rate} rate</span>
+        <span class="section-chevron">▾</span>
+      </span>
+    </div>
+    <div class="section-body">
+      <p class="metrics-note">Findings suppressed via <code>suppressed-findings.md</code> (accepted risk) vs. actively remediated. Rate = suppressed ÷ (suppressed + resolved).</p>
+      ${emptyState}
+      ${appRows}
+    </div>
+  </div>`;
+}
+
+function buildRecurrenceSection(m) {
+  const recPct  = m.recurrence_rate_pct;
+  const ftfPct  = m.first_time_fix_pct;
+  const resolved = m.total_resolved || 0;
+  const fmt = v => v != null ? `${v}%` : 'N/A';
+  const recColor = recPct == null ? 'var(--text-muted)' : recPct > 15 ? 'var(--critical)' : recPct > 5 ? 'var(--high)' : 'var(--clean)';
+  const ftfColor = ftfPct == null ? 'var(--text-muted)' : ftfPct >= 50 ? 'var(--clean)' : ftfPct >= 25 ? 'var(--medium)' : 'var(--critical)';
+  return `
+  <div class="section collapsible-section collapsed" id="section-recurrence">
+    <div class="section-title section-toggle" onclick="toggleSection('section-recurrence')">
+      Recurrence &amp; First-Time Fix Rate
+      <span class="section-chevron">▾</span>
+    </div>
+    <div class="section-body">
+      <p class="metrics-note">Recurrence: findings resolved then seen again in a later scan. First-Time Fix: findings resolved within the very next scan after they appeared.</p>
+      <div class="recurrence-grid">
+        <div class="recurrence-card">
+          <div class="recurrence-value" style="color:${recColor}">${fmt(recPct)}</div>
+          <div class="recurrence-label">Vulnerability Recurrence Rate</div>
+          <div class="recurrence-sub">lower is better</div>
+        </div>
+        <div class="recurrence-card">
+          <div class="recurrence-value" style="color:${ftfColor}">${fmt(ftfPct)}</div>
+          <div class="recurrence-label">First-Time Fix Rate</div>
+          <div class="recurrence-sub">higher is better</div>
+        </div>
+        <div class="recurrence-card">
+          <div class="recurrence-value" style="color:var(--accent)">${esc(String(resolved))}</div>
+          <div class="recurrence-label">Total Resolved (all time)</div>
+          <div class="recurrence-sub">across monitored apps</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
 async function renderMetrics() {
   setActive('metrics');
   const page = document.getElementById('page');
@@ -3216,13 +3578,6 @@ async function renderMetrics() {
     const activeApps = Object.keys(m.scan_frequency || {}).length;
     const toolH      = Math.max((m.by_tool.length || 1) * 36 + 8, 60);
 
-    const mttrVal = m.mttr_days != null ? `${m.mttr_days}` : null;
-    const mttrDisplay = mttrVal != null
-      ? `<span class="mttr-number">${esc(mttrVal)}</span><span class="mttr-unit">days</span>`
-      : `<span class="mttr-number mttr-na">N/A</span>`;
-    const mttrSub = m.mttr_days != null
-      ? 'avg across resolved findings'
-      : 'Not enough scan history';
     const fastestHtml = m.fastest_remediator
       ? `<div class="mttr-fastest">
            <span class="mttr-fastest-label">Fastest</span>
@@ -3230,6 +3585,47 @@ async function renderMetrics() {
            <span class="mttr-fastest-days">${esc(String(m.fastest_remediator.mttr_days))}d avg</span>
          </div>`
       : '';
+
+    const sevRows = (bySev) => ['critical','high','medium','low'].map(sev => {
+      const val = (bySev || {})[sev];
+      const display = val != null ? `${val}d` : '—';
+      return `<div class="mttr-sev-row">
+        <span class="sev-badge ${sev}">${ucFirst(sev)}</span>
+        <span class="mttr-sev-days">${esc(display)}</span>
+      </div>`;
+    }).join('');
+
+    function buildMttrPanelHtml(data, fastestHtml) {
+      const mttrVal = data.mttr_days != null ? `${data.mttr_days}` : null;
+      const mttrDisplay = mttrVal != null
+        ? `<span class="mttr-number">${esc(mttrVal)}</span><span class="mttr-unit">days</span>`
+        : `<span class="mttr-number mttr-na">N/A</span>`;
+      const mttrSub = data.mttr_days != null ? 'avg across resolved findings' : 'Not enough scan history';
+      const mttdVal = data.mttd_days != null ? `${data.mttd_days}` : null;
+      const mttdDisplay = mttdVal != null
+        ? `<span class="mttr-number mttd-number">${esc(mttdVal)}</span><span class="mttr-unit">days</span>`
+        : `<span class="mttr-number mttr-na">N/A</span>`;
+      const mttdSub = data.mttd_days != null ? 'avg detection window across new findings' : 'Not enough scan history';
+      return `
+        <div class="mttr-display">${mttrDisplay}</div>
+        <div class="mttr-sub">${esc(mttrSub)}</div>
+        <div class="mttr-sev-grid">${sevRows(data.mttr_by_severity)}</div>
+        ${fastestHtml || ''}
+        <div class="mttr-divider"></div>
+        <div class="section-title" style="margin-top:0">Mean Time to Detect</div>
+        <div class="mttr-display">${mttdDisplay}</div>
+        <div class="mttr-sub">${esc(mttdSub)}</div>
+        <div class="mttr-sev-grid">${sevRows(data.mttd_by_severity)}</div>`;
+    }
+
+    const overallData = {
+      mttr_days: m.mttr_days, mttr_by_severity: m.mttr_by_severity,
+      mttd_days: m.mttd_days, mttd_by_severity: m.mttd_by_severity,
+    };
+    const appList = Object.keys(m.metrics_by_target || {}).sort();
+    const appOptions = appList.map(a =>
+      `<option value="${esc(a)}">${esc(a)}</option>`
+    ).join('');
 
     const totalMerges = m.total_merges_to_main || 0;
     const mergesData = m.merges_to_main || {};
@@ -3268,7 +3664,7 @@ async function renderMetrics() {
 
     const filterNotice = m.metrics_filtered
       ? `<div class="metrics-filter-notice">
-           Filtered to ${esc(String(m.monitored_count))} continuously monitored app${m.monitored_count !== 1 ? 's' : ''} ·
+           Showing ${esc(String(m.monitored_count))} continuously monitored app${m.monitored_count !== 1 ? 's' : ''} ·
            <a href="#/applications" onclick="navigate('#/applications')">manage</a>
          </div>`
       : '';
@@ -3321,10 +3717,14 @@ async function renderMetrics() {
           </div>
         </div>
         <div class="chart-panel mttr-panel">
-          <div class="section-title">Mean Time to Remediate</div>
-          <div class="mttr-display">${mttrDisplay}</div>
-          <div class="mttr-sub">${esc(mttrSub)}</div>
-          ${fastestHtml}
+          <div class="mttr-panel-header">
+            <div class="section-title" style="margin-bottom:0">Mean Time to Remediate</div>
+            <select id="mttr-app-filter" class="mttr-app-select">
+              <option value="">All Apps</option>
+              ${appOptions}
+            </select>
+          </div>
+          <div id="mttr-panel-body">${buildMttrPanelHtml(overallData, fastestHtml)}</div>
         </div>
       </div>
 
@@ -3424,7 +3824,13 @@ async function renderMetrics() {
             </table>
           </div>
         </div>
-      </div>`;
+      </div>
+
+      ${buildSlaSection(m)}
+      ${buildRiskTrendSection(m)}
+      ${buildSecretTrendSection(m)}
+      ${buildSuppressionSection(m)}
+      ${buildRecurrenceSection(m)}`;
 
     requestAnimationFrame(() => {
       const donut = document.getElementById('donut-chart');
@@ -3432,6 +3838,21 @@ async function renderMetrics() {
         { value: m.fix_rate.with_fix,    color: '#3fb950' },
         { value: m.fix_rate.without_fix, color: '#30363d' },
       ]);
+
+      // ── MTTR/MTTD app filter dropdown ──────────────────────
+      const mttrFilter = document.getElementById('mttr-app-filter');
+      const mttrBody   = document.getElementById('mttr-panel-body');
+      if (mttrFilter && mttrBody) {
+        mttrFilter.addEventListener('change', () => {
+          const app = mttrFilter.value;
+          if (!app) {
+            mttrBody.innerHTML = buildMttrPanelHtml(overallData, fastestHtml);
+          } else {
+            const appData = (m.metrics_by_target || {})[app] || {};
+            mttrBody.innerHTML = buildMttrPanelHtml(appData, '');
+          }
+        });
+      }
 
       const toolCanvas = document.getElementById('tool-chart');
       if (toolCanvas) drawHBarChart(toolCanvas, m.by_tool.map(t => ({

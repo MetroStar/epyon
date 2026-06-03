@@ -1550,6 +1550,25 @@ blockquote {
   justify-content: space-between;
 }
 
+.mttr-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 2px;
+}
+
+.mttr-app-select {
+  font-size: 12px;
+  background: var(--bg-hover);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 4px 8px;
+  cursor: pointer;
+  max-width: 160px;
+}
+
 .mttr-display {
   display: flex;
   align-items: baseline;
@@ -1619,6 +1638,41 @@ blockquote {
   color: var(--clean);
   font-weight: 600;
   white-space: nowrap;
+}
+
+.mttr-sev-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 6px 0 10px;
+}
+
+.mttr-sev-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 10px;
+  background: var(--bg-hover);
+  border-radius: var(--radius);
+}
+
+.mttr-sev-days {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mttd-number {
+  color: var(--medium);
+}
+
+.mttr-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 14px 0 12px;
 }
 
 .donut-wrap {
@@ -1699,6 +1753,174 @@ blockquote {
 @media (max-width: 768px) {
   .metrics-two-col { flex-direction: column; }
 }
+
+/* ── New metrics sections ─────────────────────────────────── */
+
+.metrics-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+.section-sub-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+.sla-overall-badge {
+  font-size: 15px;
+  font-weight: 700;
+  margin-right: 8px;
+}
+.sla-bar-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-hover);
+  min-width: 120px;
+  overflow: hidden;
+}
+.sla-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s;
+}
+.sla-bar-fill.critical { background: var(--critical); }
+.sla-bar-fill.high     { background: var(--high); }
+.sla-bar-fill.medium   { background: var(--medium); }
+.sla-bar-fill.low      { background: var(--low); }
+.sla-pct {
+  font-weight: 700;
+  font-size: 13px;
+  min-width: 48px;
+}
+.sla-sla-days {
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.suppression-grid {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.sup-stat-card {
+  flex: 1;
+  min-width: 120px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+}
+.sup-stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text);
+}
+.sup-stat-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-top: 4px;
+}
+.suppression-breakdown {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+.suppression-breakdown > div {
+  flex: 1;
+  min-width: 160px;
+}
+.sup-app-block {
+  margin-bottom: 20px;
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.sup-app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border-muted);
+}
+.sup-app-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+.sup-app-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  border: 1px solid var(--border-muted);
+  border-radius: 10px;
+  padding: 2px 8px;
+}
+.sup-app-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.sup-app-table th,
+.sup-app-table td {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-muted);
+  vertical-align: top;
+  font-size: 13px;
+}
+.sup-app-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.sup-reason {
+  color: var(--text);
+  font-size: 12px;
+  margin-bottom: 3px;
+}
+.sup-approver {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.recurrence-grid {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.recurrence-card {
+  flex: 1;
+  min-width: 140px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-muted);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+}
+.recurrence-value {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+}
+.recurrence-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+.recurrence-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  font-style: italic;
+}
+
+/* Clickable table rows */
+tr.clickable-row { cursor: pointer; transition: background 0.15s; }
+tr.clickable-row:hover { background: var(--bg-hover, rgba(88,166,255,0.06)); }
 
 /* ─────────────────────────────────────────────────────────────
    STIG Inline Viewer

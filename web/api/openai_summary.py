@@ -32,6 +32,23 @@ def get_api_key() -> str | None:
     return os.environ.get("OPENAI_API_KEY") or None
 
 
+# Default model used when neither the UI config nor the environment specify one.
+DEFAULT_MODEL = "gpt-4o-mini"
+
+
+def get_model() -> str:
+    """Resolve the chat model name.
+
+    Precedence (mirrors get_api_key): the UI-managed ai-config.json wins so a
+    value chosen in Settings is honored, then the OPENAI_MODEL environment
+    variable (so deployments such as Quartz can point the web summaries at a
+    self-hosted model like gemma4:26b without touching the UI), and finally a
+    hard-coded default.
+    """
+    cfg = read_ai_config()
+    return cfg.get("model") or os.environ.get("OPENAI_MODEL") or DEFAULT_MODEL
+
+
 # Maps scan_type values to human-readable classification used in prompts.
 _CONTINUOUS_SCAN_TYPES = {"nightly"}
 _EVALUATED_SCAN_LABELS: dict[str, str] = {
@@ -155,8 +172,7 @@ async def generate_summary(scan_id: str, scan_meta: dict, findings: dict) -> str
     except ImportError:
         raise RuntimeError("The 'openai' package is not installed. Run: pip install openai")
 
-    cfg   = read_ai_config()
-    model = cfg.get("model") or "gpt-4o-mini"
+    model = get_model()
 
     client = AsyncOpenAI(api_key=api_key)
     response = await client.chat.completions.create(
@@ -256,8 +272,7 @@ async def generate_technical_summary(scan_id: str, scan_meta: dict, findings: di
     except ImportError:
         raise RuntimeError("The 'openai' package is not installed. Run: pip install openai")
 
-    cfg   = read_ai_config()
-    model = cfg.get("model") or "gpt-4o-mini"
+    model = get_model()
 
     client = AsyncOpenAI(api_key=api_key)
     response = await client.chat.completions.create(
@@ -315,8 +330,7 @@ async def generate_global_summary(apps: list[dict]) -> str:
     except ImportError:
         raise RuntimeError("The 'openai' package is not installed. Run: pip install openai")
 
-    cfg   = read_ai_config()
-    model = cfg.get("model") or "gpt-4o-mini"
+    model = get_model()
 
     continuous, evaluated = _split_apps_by_classification(apps)
 
@@ -377,8 +391,7 @@ async def generate_global_technical_summary(apps: list[dict]) -> str:
     except ImportError:
         raise RuntimeError("The 'openai' package is not installed. Run: pip install openai")
 
-    cfg   = read_ai_config()
-    model = cfg.get("model") or "gpt-4o-mini"
+    model = get_model()
 
     continuous, evaluated = _split_apps_by_classification(apps)
 
@@ -509,8 +522,7 @@ async def generate_fix_suggestion(finding: dict) -> str:
     except ImportError:
         raise RuntimeError("The 'openai' package is not installed. Run: pip install openai")
 
-    cfg   = read_ai_config()
-    model = cfg.get("model") or "gpt-4o-mini"
+    model = get_model()
 
     user_msg = (
         "Provide a remediation plan for the following security finding:\n\n"

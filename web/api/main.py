@@ -1322,7 +1322,7 @@ def ai_config_get(response: Response):
     return {
         "key_set":  bool(key),
         "key_hint": masked,
-        "model":    cfg.get("model") or "gpt-4.1",
+        "model":    openai_summary.get_model(),
     }
 
 

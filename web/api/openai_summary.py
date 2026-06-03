@@ -302,7 +302,7 @@ def _app_summary_entry(a: dict, include_samples: bool = False) -> dict:
     return entry
 
 
-async def generate_global_summary(apps: list[dict]) -> str:
+async def generate_global_summary(apps: list[dict], metrics: dict | None = None) -> str:
     api_key = get_api_key()
     if not api_key:
         raise RuntimeError(
@@ -344,6 +344,8 @@ async def generate_global_summary(apps: list[dict]) -> str:
             "applications":      [_app_summary_entry(a, include_samples=True) for a in evaluated],
         },
     }
+    if metrics:
+        payload["programme_metrics"] = metrics
 
     user_msg = (
         "Produce the executive security brief for the following data:\n\n"
@@ -363,7 +365,7 @@ async def generate_global_summary(apps: list[dict]) -> str:
     return response.choices[0].message.content or ""
 
 
-async def generate_global_technical_summary(apps: list[dict]) -> str:
+async def generate_global_technical_summary(apps: list[dict], metrics: dict | None = None) -> str:
     """Technical summary across all applications for the overview dashboard."""
     api_key = get_api_key()
     if not api_key:
@@ -418,6 +420,8 @@ async def generate_global_technical_summary(apps: list[dict]) -> str:
             "applications":      [_tech_entry(a) for a in evaluated],
         },
     }
+    if metrics:
+        payload["programme_metrics"] = metrics
 
     user_msg = (
         "Produce the technical security brief for the following data:\n\n"
@@ -446,11 +450,20 @@ _GLOBAL_EXEC_SYSTEM_PROMPT = (
     "two groups: 'continuously_monitored' (nightly automated scans that represent the ongoing "
     "security posture) and 'point_in_time_evaluations' (one-off assessments that must NOT be "
     "used to draw trend conclusions). "
-    "Structure your response as a SINGLE document containing BOTH of these top-level sections, "
-    "in this exact order, using ## headings:\n"
+    "You will also receive a 'programme_metrics' block with programme-level KPIs; incorporate "
+    "the most relevant of these into your summary under a dedicated ## Programme Health Metrics "
+    "section placed BEFORE the per-group sections. Cover: "
+    "(a) SLA compliance — call out any severity tier that is breaching SLA targets; "
+    "(b) weighted risk score per application — highlight the highest-scoring app and any trends; "
+    "(c) suppressed/accepted-risk count — flag if it is disproportionately high relative to open findings; "
+    "(d) secret detection — name any app with verified secrets; "
+    "(e) recurrence rate and first-time fix rate — comment on engineering maturity if recurrence is high; "
+    "(f) MTTR/MTTD if available. "
+    "Structure your response as a SINGLE document with these top-level sections, in order, using ## headings:\n"
+    "  ## Programme Health Metrics\n"
     "  ## Continuously Monitored Applications\n"
     "  ## Point-in-Time Evaluations\n"
-    "Each section should cover: overall risk posture for that group, the most critical findings, "
+    "Each per-group section should cover: overall risk posture, the most critical findings, "
     "any secret/credential leaks or malware, and a prioritised remediation recommendation. "
     "If a group has zero applications, still include its ## heading and state that explicitly. "
     "Open the '## Point-in-Time Evaluations' section with a > ⚠️ blockquote reminding "
@@ -465,11 +478,16 @@ _GLOBAL_TECH_SYSTEM_PROMPT = (
     "You will receive aggregated scan data for multiple applications, already separated into "
     "two groups: 'continuously_monitored' (nightly automated scans) and "
     "'point_in_time_evaluations' (one-off assessments). "
-    "Structure your response as a SINGLE document containing BOTH of these top-level sections, "
-    "in this exact order, using ## headings:\n"
+    "You will also receive a 'programme_metrics' block; incorporate the most actionable of "
+    "these into a ## Programme KPIs section placed BEFORE the per-group sections. Include: "
+    "SLA breach counts per severity, MTTR/MTTD values, recurrence rate and first-time fix rate, "
+    "weighted risk score per app (flag the highest), verified secret counts per app, "
+    "and suppressed-finding counts with a note if suppression is unusually high. "
+    "Structure your response as a SINGLE document with these sections, in order, using ## headings:\n"
+    "  ## Programme KPIs\n"
     "  ## Continuously Monitored Applications\n"
     "  ## Point-in-Time Evaluations\n"
-    "Each section should cover: vulnerability totals per severity, notable CVEs and packages, "
+    "Each per-group section should cover: vulnerability totals per severity, notable CVEs and packages, "
     "tool-specific findings, and concrete remediation steps. "
     "If a group has zero applications, still include its ## heading and state that explicitly. "
     "Do NOT merge or aggregate totals across both groups. "

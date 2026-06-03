@@ -537,6 +537,7 @@ const api = {
   getTechnicalSummary(id) { return this._post(`/api/scans/${encodeURIComponent(id)}/technical-summary`, {}); },
   getGlobalExecSummary()      { return this._post('/api/executive-summary', {}); },
   getGlobalTechnicalSummary() { return this._post('/api/technical-summary', {}); },
+  exportSummaryDocx(body)     { return this._post('/api/export/summary-docx', body); },
   getFindingFix(finding)      { return this._post('/api/findings/fix', finding); },
   calculateScorecard(id)      { return this._post(`/api/scans/${encodeURIComponent(id)}/scorecard`, {}); },
   getStigData(id){ return this._get(`/api/scans/${encodeURIComponent(id)}/stig-data`); },
@@ -1746,15 +1747,16 @@ function _summaryLoadingHtml(label) {
   </div>`;
 }
 
-function _summaryResultHtml(text, err, regenerateFn, exportFn) {
+function _summaryResultHtml(text, err, regenerateFn, exportFn, exportDocxFn) {
   const content = err
     ? `<div style="color:#ef4444;font-size:12px;padding:8px 0">⚠ ${esc(err)}</div>`
     : `<div style="line-height:1.6">${renderMarkdown(text)}</div>`;
   return `
     ${content}
-    <div style="margin-top:10px;display:flex;gap:8px;align-items:center">
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <button class="btn" style="font-size:11px" onclick="${regenerateFn}()">↺ Regenerate</button>
       ${text ? `<button class="btn btn-primary" style="font-size:11px" onclick="${exportFn}()">↓ Export PDF</button>` : ''}
+      ${text && exportDocxFn ? `<button class="btn" style="font-size:11px;background:#1e3a5f;color:#93c5fd;border-color:#1e4976" onclick="${exportDocxFn}()">↓ Export Word</button>` : ''}
     </div>`;
 }
 
@@ -1765,9 +1767,9 @@ async function generateOverviewExecSummary() {
   try {
     const result = await api.getGlobalExecSummary();
     _overviewSummaryCache.exec = result.summary;
-    body.innerHTML = _summaryResultHtml(result.summary, null, 'generateOverviewExecSummary', 'exportExecSummaryPdf');
+    body.innerHTML = _summaryResultHtml(result.summary, null, 'generateOverviewExecSummary', 'exportExecSummaryPdf', 'exportExecSummaryDocx');
   } catch (e) {
-    body.innerHTML = _summaryResultHtml(null, e.message || 'Generation failed', 'generateOverviewExecSummary', 'exportExecSummaryPdf');
+    body.innerHTML = _summaryResultHtml(null, e.message || 'Generation failed', 'generateOverviewExecSummary', 'exportExecSummaryPdf', 'exportExecSummaryDocx');
   }
 }
 
@@ -1778,9 +1780,9 @@ async function generateOverviewTechSummary() {
   try {
     const result = await api.getGlobalTechnicalSummary();
     _overviewSummaryCache.tech = result.summary;
-    body.innerHTML = _summaryResultHtml(result.summary, null, 'generateOverviewTechSummary', 'exportTechSummaryPdf');
+    body.innerHTML = _summaryResultHtml(result.summary, null, 'generateOverviewTechSummary', 'exportTechSummaryPdf', 'exportTechSummaryDocx');
   } catch (e) {
-    body.innerHTML = _summaryResultHtml(null, e.message || 'Generation failed', 'generateOverviewTechSummary', 'exportTechSummaryPdf');
+    body.innerHTML = _summaryResultHtml(null, e.message || 'Generation failed', 'generateOverviewTechSummary', 'exportTechSummaryPdf', 'exportTechSummaryDocx');
   }
 }
 
@@ -1796,6 +1798,38 @@ function exportExecSummaryPdf() {
 function exportTechSummaryPdf() {
   exportOverviewSummaryPdf('tech');
 }
+
+async function exportSummaryDocx(which) {
+  const { exec, tech } = _overviewSummaryCache;
+  const body = {
+    exec_summary: which === 'exec' ? (exec || null) : null,
+    tech_summary: which === 'tech' ? (tech || null) : null,
+  };
+  if (!body.exec_summary && !body.tech_summary) return;
+  try {
+    const resp = await fetch('/api/export/summary-docx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) throw new Error(`Server error ${resp.status}`);
+    const blob = await resp.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = resp.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1]
+                 || 'epyon-security-report.docx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('Word export failed: ' + e.message);
+  }
+}
+
+async function exportExecSummaryDocx() { await exportSummaryDocx('exec'); }
+async function exportTechSummaryDocx() { await exportSummaryDocx('tech'); }
 
 function exportOverviewSummaryPdf(only) {
   const { exec, tech } = _overviewSummaryCache;

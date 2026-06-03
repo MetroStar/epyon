@@ -1898,14 +1898,71 @@ async def global_exec_summary(response: Response):
             ],
         })
 
+    # Pull programme-level metrics (uses cache if warm)
+    _metrics = _build_summary_metrics()
+
     try:
-        summary = await openai_summary.generate_global_summary(apps)
+        summary = await openai_summary.generate_global_summary(apps, metrics=_metrics)
     except RuntimeError as exc:
         raise HTTPException(400, str(exc))
     except Exception as exc:
         raise HTTPException(502, f"OpenAI request failed: {exc}")
 
     return {"summary": summary, "application_count": len(apps)}
+
+
+def _build_summary_metrics() -> dict:
+    """Return a trimmed metrics dict for injection into AI summary prompts.
+    Uses the in-memory cache when warm to avoid redundant computation."""
+    import time as _time
+    if _metrics_cache and (_time.time() - _metrics_cache_ts) < _METRICS_TTL:
+        m = _metrics_cache
+    else:
+        # Cache is cold — compute now with a throwaway Response object so that
+        # _sec_headers doesn't receive None.
+        m = get_metrics(Response())
+    if not m:
+        return {}
+
+    # Latest risk score per app
+    risk_by_app: dict[str, int] = {}
+    for pt in (m.get("risk_trend") or []):
+        risk_by_app[pt["target"]] = pt["score"]
+
+    # Latest secret counts per app
+    secret_by_app: dict[str, dict] = {}
+    for target, pts in (m.get("secret_trend_by_target") or {}).items():
+        if pts:
+            latest = pts[-1]
+            secret_by_app[target] = {
+                "verified":   latest.get("verified", 0),
+                "unverified": latest.get("unverified", 0),
+            }
+
+    # Suppression counts per app
+    sup_by_app: dict[str, int] = {
+        t: len(v) for t, v in (m.get("suppression", {}).get("by_target") or {}).items()
+    }
+
+    sla = m.get("sla_compliance") or {}
+
+    return {
+        "sla_compliance": {
+            "overall_pct":    sla.get("overall_pct"),
+            "total_within":   sla.get("total_within", 0),
+            "total_breached": sla.get("total_breached", 0),
+            "by_severity":    sla.get("by_severity", {}),
+        },
+        "recurrence_rate_pct":  m.get("recurrence_rate_pct"),
+        "first_time_fix_pct":   m.get("first_time_fix_pct"),
+        "total_resolved":       m.get("total_resolved", 0),
+        "total_suppressed":     m.get("suppression", {}).get("total", 0),
+        "risk_score_by_app":    risk_by_app,
+        "secrets_by_app":       secret_by_app,
+        "suppressed_by_app":    sup_by_app,
+        "mttr_days":            m.get("mttr_days"),
+        "mttd_days":            m.get("mttd_days"),
+    }
 
 
 @app.post("/api/technical-summary")
@@ -1968,14 +2025,140 @@ async def global_technical_summary(response: Response):
             ],
         })
 
+    _metrics = _build_summary_metrics()
+
     try:
-        summary = await openai_summary.generate_global_technical_summary(apps)
+        summary = await openai_summary.generate_global_technical_summary(apps, metrics=_metrics)
     except RuntimeError as exc:
         raise HTTPException(400, str(exc))
     except Exception as exc:
         raise HTTPException(502, f"OpenAI request failed: {exc}")
 
     return {"summary": summary, "application_count": len(apps)}
+
+
+# ── Word (docx) export ─────────────────────────────────────────────────────
+class _SummaryExportBody(BaseModel):
+    exec_summary:  str | None = None
+    tech_summary:  str | None = None
+
+
+@app.post("/api/export/summary-docx")
+def export_summary_docx(body: _SummaryExportBody, response: Response):
+    """Convert AI-generated Markdown summaries to a .docx download."""
+    _sec_headers(response)
+    try:
+        from docx import Document
+        from docx.shared import Pt, RGBColor, Inches
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+    except ImportError:
+        raise HTTPException(500, "python-docx is not installed. Run: pip install python-docx")
+
+    import io, re
+    from datetime import datetime, timezone
+
+    doc = Document()
+
+    # ── Page margins ──
+    for section in doc.sections:
+        section.top_margin    = Inches(1)
+        section.bottom_margin = Inches(1)
+        section.left_margin   = Inches(1.2)
+        section.right_margin  = Inches(1.2)
+
+    # ── Cover header ──
+    title_para = doc.add_heading("Epyon Security Analysis", level=0)
+    title_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    run = title_para.runs[0]
+    run.font.size  = Pt(22)
+    run.font.color.rgb = RGBColor(0x1a, 0x1a, 0x1a)
+
+    meta = doc.add_paragraph()
+    meta.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    mr = meta.add_run(
+        f"Generated: {datetime.now(timezone.utc).strftime('%B %d, %Y')}  |  AI-Assisted Report  |  Confidential"
+    )
+    mr.font.size  = Pt(9)
+    mr.font.color.rgb = RGBColor(0x55, 0x55, 0x55)
+
+    doc.add_paragraph()  # spacer
+
+    def _add_markdown(md_text: str, section_label: str) -> None:
+        """Render a Markdown string into the Word document."""
+        heading_para = doc.add_heading(section_label, level=1)
+        heading_para.runs[0].font.size = Pt(14)
+
+        for line in md_text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("### "):
+                doc.add_heading(stripped[4:], level=3)
+            elif stripped.startswith("## "):
+                doc.add_heading(stripped[3:], level=2)
+            elif stripped.startswith("# "):
+                doc.add_heading(stripped[2:], level=2)
+            elif stripped.startswith("> "):
+                # Blockquote — indent paragraph
+                p = doc.add_paragraph(stripped[2:])
+                p.paragraph_format.left_indent = Inches(0.4)
+                p.runs[0].font.italic = True
+            elif re.match(r'^[-*] ', stripped):
+                _inline_paragraph(doc.add_paragraph(stripped[2:], style='List Bullet'))
+            elif stripped == "":
+                doc.add_paragraph()
+            else:
+                _inline_paragraph(doc.add_paragraph(stripped))
+
+    def _inline_paragraph(para) -> None:
+        """Apply bold/italic/code inline formatting to an existing paragraph."""
+        if not para.runs:
+            return
+        raw = para.runs[0].text
+        para.clear()
+        # Tokenise **bold**, *italic*, `code`
+        tokens = re.split(r'(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)', raw)
+        for tok in tokens:
+            if tok.startswith('**') and tok.endswith('**'):
+                r = para.add_run(tok[2:-2])
+                r.bold = True
+            elif tok.startswith('*') and tok.endswith('*'):
+                r = para.add_run(tok[1:-1])
+                r.italic = True
+            elif tok.startswith('`') and tok.endswith('`'):
+                r = para.add_run(tok[1:-1])
+                r.font.name = 'Courier New'
+                r.font.size = Pt(9)
+            else:
+                para.add_run(tok)
+
+    if body.exec_summary:
+        _add_markdown(body.exec_summary, "📋 Executive Summary")
+        doc.add_page_break()
+
+    if body.tech_summary:
+        _add_markdown(body.tech_summary, "🔧 Technical Summary")
+
+    # Footer note
+    doc.add_paragraph()
+    footer_p = doc.add_paragraph()
+    fr = footer_p.add_run(
+        "Generated by Epyon Security Scanner  ·  AI-assisted — verify all findings before acting"
+    )
+    fr.font.size  = Pt(8)
+    fr.font.color.rgb = RGBColor(0x88, 0x88, 0x88)
+    fr.font.italic = True
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+
+    date_slug = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    filename  = f"epyon-security-report-{date_slug}.docx"
+    from fastapi.responses import Response as _Resp
+    return _Resp(
+        content=buf.read(),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ── Per-finding fix suggestion ─────────────────────────────────

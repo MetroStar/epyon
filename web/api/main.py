@@ -2336,7 +2336,10 @@ def export_summary_docx(body: _SummaryExportBody, response: Response):
         if not para.runs:
             return
         raw = para.runs[0].text
-        para.clear()
+        # python-docx Paragraph has no public clear(); remove existing runs.
+        for run in list(para.runs):
+            run_el = run._element
+            run_el.getparent().remove(run_el)
         # Tokenise **bold**, *italic*, `code`
         tokens = re.split(r'(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)', raw)
         for tok in tokens:

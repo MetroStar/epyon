@@ -242,7 +242,7 @@ jobs:
       SKIP_SBOM: "${{ inputs.skip_sbom }}"
       SKIP_TRUFFLEHOG: "${{ inputs.skip_trufflehog }}"
       SKIP_SONAR: "${{ inputs.skip_sonar }}"
-      SKIP_CLAMAV: "${{ inputs.skip_clamav }}"
+      SKIP_CLAMAV: "${{ inputs.skip_clamav == true && 'true' || inputs.scan_mode == 'quick' && 'true' || 'false' }}"
       SKIP_HELM: "${{ inputs.skip_helm }}"
       SKIP_CHECKOV: "${{ inputs.skip_checkov }}"
       SKIP_TRIVY: "${{ inputs.skip_trivy }}"
@@ -397,14 +397,12 @@ jobs:
           mkdir -p /tmp/.buildx-cache
           # Pull images sequentially to avoid racing for disk space.
           # dhi.io images require authentication — skip if not available.
-          for image in \
-            anchore/grype:latest \
-            ghcr.io/aquasecurity/trivy:latest \
-            trufflesecurity/trufflehog:latest \
-            anchore/syft:latest \
-            clamav/clamav:latest \
-            bridgecrew/checkov:latest \
-            noqcks/xeol:latest; do
+          # In quick mode, skip checkov and xeol — those layers are not run.
+          IMAGES="anchore/grype:latest ghcr.io/aquasecurity/trivy:latest trufflesecurity/trufflehog:latest anchore/syft:latest clamav/clamav:latest"
+          if [[ "${{ inputs.scan_mode }}" != "quick" ]]; then
+            IMAGES="$IMAGES bridgecrew/checkov:latest noqcks/xeol:latest"
+          fi
+          for image in $IMAGES; do
             echo "⏬ Pulling $image..."
             docker pull "$image" || echo "⚠️  Failed to pull $image — will be pulled on demand or skipped"
           done
@@ -414,7 +412,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y jq python3 python3-pip bats
-          pip3 install pyyaml pipdeptree openai
+          if [[ "${{ inputs.scan_mode }}" != "quick" ]]; then
+            pip3 install pyyaml pipdeptree openai
+          else
+            pip3 install pyyaml pipdeptree
+          fi
           # Install Syft as a native binary so SBOM generation does not rely on Docker
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin
           syft version

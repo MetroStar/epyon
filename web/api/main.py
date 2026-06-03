@@ -568,7 +568,8 @@ async def app_isso_summary(name: str, response: Response):
 
     scan_dir  = _best_scan_dir(target_entries)
     scan_meta = parsers.load_scan(scan_dir, EPYON_ROOT)
-    findings  = parsers.parse_scan_findings(scan_dir)
+    # Prefer the pre-built deduplicated summary; fall back to raw parse only if absent
+    findings  = parsers.load_enriched_findings(scan_dir) or parsers.parse_scan_findings(scan_dir)
 
     # STIG: walk newest-first until we find a scan with stig-results-*.json files;
     # merge all controls from that scan into a single flat list.

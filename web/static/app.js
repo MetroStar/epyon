@@ -1848,8 +1848,28 @@ async function exportSummaryDocx(which) {
     tech_summary: which === 'tech' ? (tech || null) : null,
     isso_summary: which === 'isso' ? (isso || null) : null,
   };
-  if (!body.exec_summary && !body.tech_summary) return;
+  if (!body.exec_summary && !body.tech_summary && !body.isso_summary) return;
   try {
+    const resp = await fetch('/api/export/summary-docx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) throw new Error(`Server error ${resp.status}`);
+    const blob = await resp.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = resp.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1]
+                 || 'epyon-security-report.docx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('Word export failed: ' + e.message);
+  }
+}
     const resp = await fetch('/api/export/summary-docx', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

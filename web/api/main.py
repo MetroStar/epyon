@@ -2037,10 +2037,121 @@ async def global_technical_summary(response: Response):
     return {"summary": summary, "application_count": len(apps)}
 
 
+@app.post("/api/isso-summary")
+async def global_isso_summary(response: Response):
+    """ISSO compliance brief covering NIST/STIG controls, evidence, POA&M risk statements."""
+    _sec_headers(response)
+    hidden    = _load_hidden_apps()
+    monitored = _load_monitored_apps()
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
+
+    by_target_all: dict[str, list[tuple]] = {}
+    for d in scan_dirs:
+        meta   = parsers.parse_dir_name(d.name)
+        target = meta["target"]
+        if target in hidden:
+            continue
+        by_target_all.setdefault(target, []).append((d, meta["timestamp"]))
+
+    if not by_target_all:
+        raise HTTPException(404, "No scans found")
+
+    def _best_scan_dir(entries: list[tuple]) -> object:
+        entries_sorted = sorted(entries, key=lambda x: x[1], reverse=True)
+        for d, _ in entries_sorted:
+            st = (parsers._read_json(d / "scan-metadata.json") or {}).get("scan_type", "")
+            if st in _COMPREHENSIVE_SCAN_TYPES:
+                return d
+        return entries_sorted[0][0]
+
+    apps = []
+    for target, entries in sorted(by_target_all.items()):
+        scan_dir  = _best_scan_dir(entries)
+        scan_meta = parsers.load_scan(scan_dir, EPYON_ROOT)
+        findings  = parsers.parse_scan_findings(scan_dir)
+
+        # All scan dirs for this target, newest first
+        all_dirs_sorted = [d for d, _ in sorted(entries, key=lambda x: x[1], reverse=True)]
+
+        # STIG summary: use the most recent scan that has stig-results-*.json
+        stig_open = stig_pass = stig_na = stig_total = 0
+        for candidate in all_dirs_sorted:
+            stig_files = sorted(candidate.glob("stig-results-*.json"))
+            if not stig_files:
+                continue
+            for sf in stig_files:
+                try:
+                    raw = json.loads(sf.read_text(encoding="utf-8"))
+                    res = raw.get("assessments", raw) if "assessments" in raw else raw
+                    stig_open  += sum(1 for v in res.values() if v.get("status") == "Open")
+                    stig_pass  += sum(1 for v in res.values() if v.get("status") == "Not a Finding")
+                    stig_na    += sum(1 for v in res.values() if v.get("status") in ("Not Applicable", "Not Reviewed"))
+                    stig_total += len(res)
+                except Exception:
+                    pass
+            if stig_total:
+                break  # found the most recent scan with STIG data
+        stig_summary = {"open": stig_open, "pass": stig_pass, "na": stig_na, "total": stig_total} if stig_total else None
+
+        # Suppressions: use the most recent scan that has non-empty suppressed-findings.md
+        suppressions: list[dict] = []
+        for candidate in all_dirs_sorted:
+            batch = parsers.parse_suppressed_findings(candidate)
+            if batch:
+                suppressions = batch
+                break
+        sup_sample = [
+            {"type": s.get("type", ""), "severity": s.get("severity", ""), "reason": s.get("reason", "")}
+            for s in suppressions[:20]
+        ]
+
+        apps.append({
+            "name":           target,
+            "monitored":      target in monitored,
+            "scan_type":      scan_meta.get("scan_type", "full"),
+            "critical":       scan_meta.get("critical", 0),
+            "high":           scan_meta.get("high", 0),
+            "medium":         scan_meta.get("medium", 0),
+            "low":            scan_meta.get("low", 0),
+            "tools_analyzed": scan_meta.get("tools_analyzed", []),
+            "stig_summary":   stig_summary,
+            "suppressed_count": len(suppressions),
+            "suppressed_sample": sup_sample,
+            "critical_sample": [
+                {
+                    "tool": f.get("tool"), "id": f.get("id"),
+                    "package": f.get("package"), "version": f.get("version"),
+                    "title": f.get("title"), "cvss": f.get("cvss"),
+                }
+                for f in findings.get("critical_findings", [])[:12]
+            ],
+            "high_sample": [
+                {
+                    "tool": f.get("tool"), "id": f.get("id"),
+                    "package": f.get("package"), "version": f.get("version"),
+                    "title": f.get("title"), "cvss": f.get("cvss"),
+                }
+                for f in findings.get("high_findings", [])[:8]
+            ],
+        })
+
+    _metrics = _build_summary_metrics()
+
+    try:
+        summary = await openai_summary.generate_global_isso_summary(apps, metrics=_metrics)
+    except RuntimeError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as exc:
+        raise HTTPException(502, f"OpenAI request failed: {exc}")
+
+    return {"summary": summary, "application_count": len(apps)}
+
+
 # ── Word (docx) export ─────────────────────────────────────────────────────
 class _SummaryExportBody(BaseModel):
-    exec_summary:  str | None = None
-    tech_summary:  str | None = None
+    exec_summary:  Optional[str] = None
+    tech_summary:  Optional[str] = None
+    isso_summary:  Optional[str] = None
 
 
 @app.post("/api/export/summary-docx")
@@ -2136,6 +2247,11 @@ def export_summary_docx(body: _SummaryExportBody, response: Response):
 
     if body.tech_summary:
         _add_markdown(body.tech_summary, "🔧 Technical Summary")
+        if body.isso_summary:
+            doc.add_page_break()
+
+    if body.isso_summary:
+        _add_markdown(body.isso_summary, "🔒 ISSO Compliance Brief")
 
     # Footer note
     doc.add_paragraph()

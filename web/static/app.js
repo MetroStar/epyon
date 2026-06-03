@@ -537,6 +537,7 @@ const api = {
   getTechnicalSummary(id) { return this._post(`/api/scans/${encodeURIComponent(id)}/technical-summary`, {}); },
   getGlobalExecSummary()      { return this._post('/api/executive-summary', {}); },
   getGlobalTechnicalSummary() { return this._post('/api/technical-summary', {}); },
+  getGlobalIssoSummary()      { return this._post('/api/isso-summary', {}); },
   exportSummaryDocx(body)     { return this._post('/api/export/summary-docx', body); },
   getFindingFix(finding)      { return this._post('/api/findings/fix', finding); },
   calculateScorecard(id)      { return this._post(`/api/scans/${encodeURIComponent(id)}/scorecard`, {}); },
@@ -715,6 +716,7 @@ async function renderOverview() {
 
       ${buildOverviewExecSection()}
       ${buildOverviewTechSection()}
+      ${buildOverviewIssoSection()}
 
       ${appSections}`;
   } catch (e) {
@@ -1737,8 +1739,31 @@ function buildOverviewTechSection() {
     </div>`;
 }
 
-// Cache last-generated overview summary text for PDF export
-let _overviewSummaryCache = { exec: null, tech: null };
+function buildOverviewIssoSection() {
+  return `
+    <div class="section" id="overview-isso-section" style="border-left:3px solid #10b981;padding-left:16px">
+      <div class="section-title" style="display:flex;align-items:center;gap:10px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        AI ISSO Compliance Brief
+      </div>
+      <div id="overview-isso-body">
+        <button class="btn btn-primary" onclick="generateOverviewIssoSummary()">
+          ✦ Generate ISSO Compliance Brief
+        </button>
+        <p style="margin:8px 0 0;font-size:11px;color:var(--text-muted)">
+          ATO/cATO-ready brief covering NIST 800-53 control mapping, STIG validation status,
+          evidence traceability, accepted risk, and POA&amp;M risk statements.
+          Requires an OpenAI API key configured in Settings.
+        </p>
+      </div>
+    </div>`;
+}
+
+// Cache last-generated overview summary text for PDF/Word export
+let _overviewSummaryCache = { exec: null, tech: null, isso: null };
 
 function _summaryLoadingHtml(label) {
   return `<div style="display:flex;align-items:center;gap:10px;padding:12px 0;color:var(--text-muted);font-size:13px">
@@ -1791,6 +1816,19 @@ async function generateOverviewSummaries() {
   await Promise.all([generateOverviewExecSummary(), generateOverviewTechSummary()]);
 }
 
+async function generateOverviewIssoSummary() {
+  const body = document.getElementById('overview-isso-body');
+  if (!body) return;
+  body.innerHTML = _summaryLoadingHtml('ISSO compliance brief');
+  try {
+    const result = await api.getGlobalIssoSummary();
+    _overviewSummaryCache.isso = result.summary;
+    body.innerHTML = _summaryResultHtml(result.summary, null, 'generateOverviewIssoSummary', 'exportIssoSummaryPdf', 'exportIssoSummaryDocx');
+  } catch (e) {
+    body.innerHTML = _summaryResultHtml(null, e.message || 'Generation failed', 'generateOverviewIssoSummary', 'exportIssoSummaryPdf', 'exportIssoSummaryDocx');
+  }
+}
+
 function exportExecSummaryPdf() {
   exportOverviewSummaryPdf('exec');
 }
@@ -1800,10 +1838,11 @@ function exportTechSummaryPdf() {
 }
 
 async function exportSummaryDocx(which) {
-  const { exec, tech } = _overviewSummaryCache;
+  const { exec, tech, isso } = _overviewSummaryCache;
   const body = {
     exec_summary: which === 'exec' ? (exec || null) : null,
     tech_summary: which === 'tech' ? (tech || null) : null,
+    isso_summary: which === 'isso' ? (isso || null) : null,
   };
   if (!body.exec_summary && !body.tech_summary) return;
   try {
@@ -1830,12 +1869,16 @@ async function exportSummaryDocx(which) {
 
 async function exportExecSummaryDocx() { await exportSummaryDocx('exec'); }
 async function exportTechSummaryDocx() { await exportSummaryDocx('tech'); }
+async function exportIssoSummaryDocx() { await exportSummaryDocx('isso'); }
+
+function exportIssoSummaryPdf() { exportOverviewSummaryPdf('isso'); }
 
 function exportOverviewSummaryPdf(only) {
-  const { exec, tech } = _overviewSummaryCache;
+  const { exec, tech, isso } = _overviewSummaryCache;
   const showExec = !only || only === 'exec';
   const showTech = !only || only === 'tech';
-  if (!exec && !tech) return;
+  const showIsso = !only || only === 'isso';
+  if (!exec && !tech && !isso) return;
 
   const dateStr = new Date().toLocaleDateString('en-US', {
     year: 'numeric', month: 'long', day: 'numeric',
@@ -1911,6 +1954,7 @@ function exportOverviewSummaryPdf(only) {
     }
     .exec-heading  { background: #fff8e8; border-left: 4px solid #f59e0b; color: #92400e; }
     .tech-heading  { background: #eef2ff; border-left: 4px solid #6366f1; color: #3730a3; }
+    .isso-heading  { background: #ecfdf5; border-left: 4px solid #10b981; color: #065f46; }
     .section-body  { padding: 0 4px; }
     h2 { font-size: 13pt; margin: 18px 0 6px; }
     h3 { font-size: 11pt; margin: 14px 0 4px; }
@@ -1951,6 +1995,9 @@ function exportOverviewSummaryPdf(only) {
 
     ${showTech ? `<div class="section-heading tech-heading">🔧 Technical Summary</div>
     <div class="section-body">${mdToHtml(tech)}</div>` : ''}
+
+    ${showIsso ? `<div class="section-heading isso-heading">🔒 ISSO Compliance Brief</div>
+    <div class="section-body">${mdToHtml(isso)}</div>` : ''}
 
     <div class="footer">
       Generated by Epyon Security Scanner &nbsp;·&nbsp; ${dateStr} &nbsp;·&nbsp; AI-assisted — verify findings before acting

@@ -13,6 +13,16 @@ _HERE = Path(__file__).parent
 AI_CONFIG_FILE = _HERE / ".." / "ai-config.json"
 
 
+def _strip_code_fence(text: str) -> str:
+    """Remove an outer fenced code block that some models wrap their Markdown output in."""
+    import re
+    # Strip leading ```[lang] ... ``` wrapper
+    stripped = re.sub(r'^```[a-z]*\n', '', text.strip(), count=1)
+    if stripped != text.strip():
+        stripped = re.sub(r'\n```\s*$', '', stripped)
+    return stripped.strip()
+
+
 def read_ai_config() -> dict:
     try:
         return json.loads(AI_CONFIG_FILE.read_text(encoding="utf-8"))
@@ -362,7 +372,7 @@ async def generate_global_summary(apps: list[dict], metrics: dict | None = None)
         max_tokens=1400,
         temperature=0.3,
     )
-    return response.choices[0].message.content or ""
+    return _strip_code_fence(response.choices[0].message.content or "")
 
 
 async def generate_global_technical_summary(apps: list[dict], metrics: dict | None = None) -> str:
@@ -438,7 +448,87 @@ async def generate_global_technical_summary(apps: list[dict], metrics: dict | No
         max_tokens=1800,
         temperature=0.2,
     )
-    return response.choices[0].message.content or ""
+    return _strip_code_fence(response.choices[0].message.content or "")
+
+
+async def generate_global_isso_summary(apps: list[dict], metrics: dict | None = None) -> str:
+    """ISSO-focused summary covering NIST/STIG controls, evidence, validation status,
+    POA&M risk statements, and system/mission context."""
+    api_key = get_api_key()
+    if not api_key:
+        raise RuntimeError(
+            "OpenAI API key not configured. "
+            "Add it in Settings or set OPENAI_API_KEY."
+        )
+
+    try:
+        from openai import AsyncOpenAI
+    except ImportError:
+        raise RuntimeError("The 'openai' package is not installed. Run: pip install openai")
+
+    cfg   = read_ai_config()
+    model = cfg.get("model") or "gpt-4o-mini"
+
+    continuous, evaluated = _split_apps_by_classification(apps)
+
+    def _isso_entry(a: dict) -> dict:
+        return {
+            "name":              a["name"],
+            "critical":          a["critical"],
+            "high":              a["high"],
+            "medium":            a["medium"],
+            "low":               a["low"],
+            "tools":             a.get("tools_analyzed", []),
+            "stig_summary":      a.get("stig_summary"),          # open/pass/na totals
+            "suppressed_count":  a.get("suppressed_count", 0),
+            "suppressed_sample": a.get("suppressed_sample", []), # type/severity/reason
+            "critical_findings": a.get("critical_sample", [])[:12],
+            "high_findings":     a.get("high_sample", [])[:8],
+        }
+
+    def _totals(subset: list[dict]) -> dict:
+        return {
+            "critical": sum(a["critical"] for a in subset),
+            "high":     sum(a["high"]     for a in subset),
+            "medium":   sum(a["medium"]   for a in subset),
+            "low":      sum(a["low"]      for a in subset),
+        }
+
+    payload = {
+        "scope":             "all_applications",
+        "application_count": len(apps),
+        "continuously_monitored": {
+            "note":              "Nightly automated scans — authoritative posture data for ATO/cATO.",
+            "application_count": len(continuous),
+            "totals":            _totals(continuous),
+            "applications":      [_isso_entry(a) for a in continuous],
+        },
+        "point_in_time_evaluations": {
+            "note":              "One-off assessments — treat as spot audits, not posture trend data.",
+            "application_count": len(evaluated),
+            "totals":            _totals(evaluated),
+            "applications":      [_isso_entry(a) for a in evaluated],
+        },
+    }
+    if metrics:
+        payload["programme_metrics"] = metrics
+
+    user_msg = (
+        "Produce the ISSO compliance brief for the following data:\n\n"
+        + json.dumps(payload, indent=2)
+    )
+
+    client = AsyncOpenAI(api_key=api_key)
+    response = await client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": _GLOBAL_ISSO_SYSTEM_PROMPT},
+            {"role": "user",   "content": user_msg},
+        ],
+        max_tokens=2000,
+        temperature=0.2,
+    )
+    return _strip_code_fence(response.choices[0].message.content or "")
 
 
 # ── Per-finding fix suggestion ─────────────────────────────────
@@ -492,6 +582,58 @@ _GLOBAL_TECH_SYSTEM_PROMPT = (
     "If a group has zero applications, still include its ## heading and state that explicitly. "
     "Do NOT merge or aggregate totals across both groups. "
     "Use Markdown formatting with ### sub-headings per application where helpful."
+)
+
+_GLOBAL_ISSO_SYSTEM_PROMPT = (
+    "You are a senior Information System Security Officer (ISSO) writing a formal compliance brief "
+    "for ATO package review, cATO continuous monitoring, or eMASS upload preparation. "
+    "Your audience is ISSOs, ISSMs, AOs, and auditors — not developers or executives. "
+    "You will receive aggregated scan data for multiple applications already separated into "
+    "'continuously_monitored' (nightly automated scans that represent the live system posture) "
+    "and 'point_in_time_evaluations' (one-off spot audits). "
+    "You will also receive 'programme_metrics' KPIs and, where available, STIG assessment summaries "
+    "(open/pass/not-applicable counts), suppression records (accepted risks with type and reason), "
+    "and finding samples with CVE IDs, tool names, packages, and severity. "
+    "\n\nStructure your response as a SINGLE Markdown document with EXACTLY these top-level ## sections in order:\n"
+    "  ## Compliance Posture Summary\n"
+    "  ## Control Mapping & STIG Validation\n"
+    "  ## Evidence & Artifact Traceability\n"
+    "  ## Validation Status (Verified vs False Positive)\n"
+    "  ## Accepted Risk (Suppressed Findings)\n"
+    "  ## POA&M-Aligned Risk Statements\n"
+    "  ## Continuously Monitored Systems\n"
+    "  ## Point-in-Time Evaluations\n"
+    "\nGuidance for each section:\n"
+    "**## Compliance Posture Summary** — one-paragraph ATO/cATO status overview per severity tier; "
+    "call out any critical or high open findings that must be remediated before an ATO can be granted or maintained.\n"
+    "**## Control Mapping & STIG Validation** — map critical/high findings to NIST SP 800-53 control "
+    "families (e.g. SI-2 Flaw Remediation, IA-5 Authenticator Management, SC-28 Protection at Rest, "
+    "CM-6 Configuration Settings, AC-2 Account Management). "
+    "Where STIG data is available, report open/pass/NA counts per STIG and flag CAT I (critical) "
+    "open controls by name if inferable.\n"
+    "**## Evidence & Artifact Traceability** — describe what automated tool outputs serve as evidence "
+    "(e.g. Trivy SCA reports → SI-2 evidence, Gitleaks scan → IA-5 evidence, STIG assessments → "
+    "CM-6/CM-7 evidence, SBOM → SA-12/SA-15 evidence). Note scan date as evidence timestamp.\n"
+    "**## Validation Status (Verified vs False Positive)** — using suppression records and finding data, "
+    "estimate the breakdown of confirmed vulnerabilities vs accepted/suppressed/false-positive items "
+    "per application. Flag any app where suppression count is suspiciously high relative to open findings.\n"
+    "**## Accepted Risk (Suppressed Findings)** — enumerate suppressed findings by application; "
+    "include finding type, severity, and stated reason. Note which items require formal Risk Acceptance "
+    "memos if the reason is 'accepted risk' rather than 'false positive' or 'not applicable'.\n"
+    "**## POA&M-Aligned Risk Statements** — produce a concise POA&M-style risk entry for EACH "
+    "critical finding and each open CAT I STIG control, in the format:\n"
+    "  - **System**: <app name> | **Control**: <NIST control ID> | **Weakness**: <brief description> | "
+    "**Risk**: <impact if unmitigated> | **Recommended Mitigation**: <action> | "
+    "**Suggested Completion**: <30/60/90/180-day window based on severity>\n"
+    "**## Continuously Monitored Systems** — per-application breakdown of vuln counts, STIG posture, "
+    "suppression rate, and key compliance concerns.\n"
+    "**## Point-in-Time Evaluations** — open with a > ⚠️ blockquote reminding auditors these are "
+    "spot assessments, not continuous posture. Then summarise each evaluated system.\n"
+    "\nIMPORTANT: Do NOT invent CVE IDs, control numbers, or tool names not present in the data. "
+    "If STIG data is absent for an application, state 'No STIG assessment available'. "
+    "Use Markdown formatting with ### sub-headings per application in the per-system sections. "
+    "Do NOT wrap your entire response in a fenced code block (no ```markdown or ``` wrapper). "
+    "Output only plain Markdown text."
 )
 
 _FIX_SYSTEM_PROMPT = (

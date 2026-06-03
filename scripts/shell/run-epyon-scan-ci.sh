@@ -742,10 +742,27 @@ run_group "Apply Suppression Rules" bash -lc '
   fi
 
   # Build ignore cache from the target repo .epyon-ignore.yml (if present).
+  # Try multiple candidate locations to handle different workspace layouts
+  # (repo at TARGET_DIR, at GITHUB_WORKSPACE root, etc.).
   IGNORE_CACHE="${IGNORE_CACHE:-/tmp/epyon-ignore-cache.json}"
   if [[ -f "scripts/shell/parse-epyon-ignore.sh" ]]; then
     source scripts/shell/parse-epyon-ignore.sh
-    parse_ignore_rules "${TARGET_DIR}/.epyon-ignore.yml" 2>/dev/null || true
+    _IGNORE_FILE=""
+    for _candidate in \
+        "${TARGET_DIR:-}/.epyon-ignore.yml" \
+        "${GITHUB_WORKSPACE:-}/.epyon-ignore.yml"; do
+      if [[ -n "$_candidate" && -f "$_candidate" ]]; then
+        _IGNORE_FILE="$_candidate"
+        break
+      fi
+    done
+    if [[ -n "$_IGNORE_FILE" ]]; then
+      echo "[INFO] Parsing ignore rules from: $_IGNORE_FILE"
+      parse_ignore_rules "$_IGNORE_FILE" 2>/dev/null || true
+    else
+      echo "[INFO] No .epyon-ignore.yml found — skipping suppression filter"
+      echo '{"ignores": []}' > "$IGNORE_CACHE"
+    fi
   else
     echo "{\"ignores\": []}" > "$IGNORE_CACHE"
   fi

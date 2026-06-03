@@ -57,16 +57,36 @@ fi
 export IGNORE_CACHE="/tmp/epyon-ignore-cache.json"
 export SUPPRESSED_LOG="$SCAN_DIR/suppressed-findings.md"
 
-if [[ -n "$TARGET_DIR" && -f "$SCRIPT_DIR/parse-epyon-ignore.sh" ]]; then
+if [[ -f "$SCRIPT_DIR/parse-epyon-ignore.sh" ]]; then
     source "$SCRIPT_DIR/parse-epyon-ignore.sh" 2>/dev/null || {
         echo -e "${YELLOW}⚠️  Failed to load parse script, continuing without filtering${NC}"
     }
     if declare -f parse_ignore_rules >/dev/null 2>&1; then
-        echo -e "${CYAN}📋 Parsing ignore rules from: $TARGET_DIR/.epyon-ignore.yml${NC}"
-        parse_ignore_rules "$TARGET_DIR/.epyon-ignore.yml" 2>/dev/null || {
-            echo -e "${YELLOW}⚠️  Failed to parse ignore rules, continuing without filtering${NC}"
+        # Try multiple candidate locations for .epyon-ignore.yml to handle
+        # different workspace layouts (e.g., repo at TARGET_DIR, at GITHUB_WORKSPACE
+        # root, or alongside the scan directory).
+        _IGNORE_FILE=""
+        for _candidate in \
+            "${TARGET_DIR:-}/.epyon-ignore.yml" \
+            "${GITHUB_WORKSPACE:-}/.epyon-ignore.yml" \
+            "$(cd "$SCRIPT_DIR/../.." && pwd)/.epyon-ignore.yml"; do
+            if [[ -n "$_candidate" && -f "$_candidate" ]]; then
+                _IGNORE_FILE="$_candidate"
+                break
+            fi
+        done
+
+        if [[ -n "$_IGNORE_FILE" ]]; then
+            echo -e "${CYAN}📋 Parsing ignore rules from: $_IGNORE_FILE${NC}"
+            parse_ignore_rules "$_IGNORE_FILE" 2>/dev/null || {
+                echo -e "${YELLOW}⚠️  Failed to parse ignore rules, continuing without filtering${NC}"
+                echo '{"ignores": []}' > "$IGNORE_CACHE" 2>/dev/null || true
+            }
+        else
+            echo -e "${YELLOW}⚠️  No .epyon-ignore.yml found (TARGET_DIR=${TARGET_DIR:-<unset>}, GITHUB_WORKSPACE=${GITHUB_WORKSPACE:-<unset>}) — skipping suppression${NC}"
             echo '{"ignores": []}' > "$IGNORE_CACHE" 2>/dev/null || true
-        }
+        fi
+
         # Debug: Show what was parsed
         if [[ -f "$IGNORE_CACHE" ]]; then
             IGNORE_COUNT=$(jq '.ignores | length' "$IGNORE_CACHE" 2>/dev/null || echo "0")

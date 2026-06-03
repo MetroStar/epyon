@@ -17,6 +17,9 @@ let   _depsNextId           = 0;
 const _apiRegistry          = new Map();
 let   _apiNextId            = 0;
 
+// ── GitHub Signals detail (populated in renderGitHubSignals) ──
+let _ghSignalData = null;
+
 // ── Findings sort state (per severity) ───────────────────────
 const _currentFindingsBySev = {};
 const _sortState             = {};
@@ -526,7 +529,8 @@ const api = {
   getJob(id)    { return this._get(`/api/jobs/${encodeURIComponent(id)}`); },
   getJobs()     { return this._get('/api/jobs'); },
   getMetrics()       { return this._get('/api/metrics'); },
-  getGitHubMetrics()  { return this._get('/api/github-metrics'); },
+  getGitHubMetrics()         { return this._get('/api/github-metrics'); },
+  getGitHubSignalsHistory()  { return this._get('/api/github-signals-history'); },
   getAiConfig() { return this._get('/api/ai/config'); },
   saveAiConfig(d){ return this._post('/api/ai/config', d); },
   getExecSummary(id)      { return this._post(`/api/scans/${encodeURIComponent(id)}/executive-summary`, {}); },
@@ -3598,6 +3602,8 @@ async function renderMetrics() {
 
         resort();
       })();
+
+
     });
   } catch (e) {
     page.innerHTML = errBanner(e.message);
@@ -3606,13 +3612,53 @@ async function renderMetrics() {
 
 // ─────────────────────────────────────────────────────────────
 
+// ── GitHub Signals sparkline helper ──────────────────────────
+function _ghSparkline(history, field, color, labelFn) {
+  if (!history || history.length < 2) {
+    return `<div style="display:flex;align-items:center;justify-content:center;height:60px;color:var(--text-muted);font-size:12px">Not enough history yet</div>`;
+  }
+  const vals = history.map(e => e[field]);
+  const dates = history.map(e => e.date);
+  const min = Math.min(...vals.filter(v => v != null));
+  const max = Math.max(...vals.filter(v => v != null));
+  const range = max - min || 1;
+  const W = 320, H = 60, pad = 6;
+  const pts = vals.map((v, i) => {
+    const x = pad + (i / (vals.length - 1)) * (W - pad * 2);
+    const y = v == null ? null : H - pad - ((v - min) / range) * (H - pad * 2);
+    return y == null ? null : `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).filter(Boolean).join(' ');
+  const last = vals.filter(v => v != null).at(-1);
+  const first = vals.filter(v => v != null)[0];
+  const delta = last - first;
+  const deltaStr = (delta > 0 ? '+' : '') + delta + (labelFn ? '' : '');
+  const deltaColor = delta === 0 ? 'var(--text-muted)' : (
+    // For "open" signals, lower is better; for coverage/success, higher is better
+    (field === 'dep_open' || field === 'sec_open') ? (delta < 0 ? 'var(--clean)' : 'var(--critical)') : (delta > 0 ? 'var(--clean)' : 'var(--critical)')
+  );
+  return `
+    <div style="display:flex;align-items:center;gap:16px">
+      <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="flex-shrink:0">
+        <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        <circle cx="${(pad + (vals.length-1)/(vals.length-1)*(W-pad*2)).toFixed(1)}" cy="${(H-pad-((last-min)/range)*(H-pad*2)).toFixed(1)}" r="3" fill="${color}"/>
+      </svg>
+      <div style="text-align:right;min-width:64px">
+        <div style="font-size:20px;font-weight:700;color:${color}">${labelFn ? labelFn(last) : last}</div>
+        <div style="font-size:11px;color:${deltaColor}">${deltaStr !== '+0' && deltaStr !== '0' ? deltaStr : '—'} vs ${dates[0]}</div>
+      </div>
+    </div>`;
+}
+
 async function renderGitHubSignals() {
   setActive('github-signals');
   const page = document.getElementById('page');
   page.innerHTML = loading();
 
   try {
-    const g = await api.getGitHubMetrics();
+    const [g, history] = await Promise.all([
+      api.getGitHubMetrics(),
+      api.getGitHubSignalsHistory().catch(() => []),
+    ]);
 
     // ── Helpers ──────────────────────────────────────────────
     const noData = g.error && !g.dependabot.length
@@ -3624,10 +3670,11 @@ async function renderGitHubSignals() {
     // ── Dependabot summary ───────────────────────────────────
     const totalDepOpen = g.dependabot.reduce((s, r) => s + (r.open || 0), 0);
     const totalDepFixed = g.dependabot.reduce((s, r) => s + (r.fixed || 0), 0);
-    const depRows = g.dependabot.filter(r => !r.error).map(r => {
+    const _depList = g.dependabot.filter(r => !r.error);
+    const depRows = _depList.map((r, i) => {
       const sev = r.by_severity || {};
       const topPkg = (r.top_packages || []).map(p => `${esc(p.package)} (${p.count})`).join(', ') || '—';
-      return `<tr>
+      return `<tr class="finding-row" style="cursor:pointer" onclick="openGhSignalDetail('dep',${i})" title="Click to view details">
         <td><strong>${esc(r.repo.split('/')[1] || r.repo)}</strong><div style="font-size:11px;color:var(--text-muted)">${esc(r.repo)}</div></td>
         <td style="text-align:center"><span style="color:${(r.open||0)>0?'var(--critical)':'var(--clean)'};font-weight:700">${r.open || 0}</span></td>
         <td style="text-align:center;font-size:12px">
@@ -3643,9 +3690,10 @@ async function renderGitHubSignals() {
 
     // ── Security issues summary ──────────────────────────────
     const totalOpenSec = g.security_issues.reduce((s, r) => s + (r.open_security || 0), 0);
-    const issueRows = g.security_issues.filter(r => !r.error).map(r => {
+    const _secList = g.security_issues.filter(r => !r.error);
+    const issueRows = _secList.map((r, i) => {
       const avgClose = r.avg_close_days != null ? `${r.avg_close_days}d` : '—';
-      return `<tr>
+      return `<tr class="finding-row" style="cursor:pointer" onclick="openGhSignalDetail('sec',${i})" title="Click to view details">
         <td><strong>${esc(r.repo.split('/')[1] || r.repo)}</strong><div style="font-size:11px;color:var(--text-muted)">${esc(r.repo)}</div></td>
         <td style="text-align:center"><span style="color:${(r.open_security||0)>0?'var(--high)':'var(--clean)'};font-weight:700">${r.open_security || 0}</span></td>
         <td style="text-align:center">${r.closed_security || 0}</td>
@@ -3654,10 +3702,11 @@ async function renderGitHubSignals() {
     }).join('') || '<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--text-muted)">No security issue data</td></tr>';
 
     // ── Workflow success rate ────────────────────────────────
-    const runRows = g.workflow_runs.filter(r => !r.error).map(r => {
+    const _runList = g.workflow_runs.filter(r => !r.error);
+    const runRows = _runList.map((r, i) => {
       const rate = r.success_rate != null ? `${r.success_rate}%` : '—';
       const rateColor = r.success_rate == null ? 'var(--text-muted)' : r.success_rate >= 90 ? 'var(--clean)' : r.success_rate >= 70 ? '#e3b341' : 'var(--critical)';
-      return `<tr>
+      return `<tr class="finding-row" style="cursor:pointer" onclick="openGhSignalDetail('run',${i})" title="Click to view details">
         <td><strong>${esc(r.repo.split('/')[1] || r.repo)}</strong><div style="font-size:11px;color:var(--text-muted)">${esc(r.repo)}</div></td>
         <td style="text-align:center;font-weight:700;color:${rateColor}">${rate}</td>
         <td style="text-align:center">${r.total_runs || 0}</td>
@@ -3671,10 +3720,10 @@ async function renderGitHubSignals() {
     const totalPRScans = covEntries.reduce((s, [, v]) => s + v.pr_scans, 0);
     const totalCIScans = covEntries.reduce((s, [, v]) => s + v.total_ci_scans, 0);
     const overallCovPct = totalCIScans > 0 ? Math.round((totalPRScans / totalCIScans) * 100) : 0;
-    const covRows = covEntries.map(([name, v]) => {
+    const covRows = covEntries.map(([name, v], i) => {
       const pct = v.pr_coverage_pct;
       const barColor = pct >= 70 ? 'var(--clean)' : pct >= 40 ? '#e3b341' : 'var(--critical)';
-      return `<tr onclick="navigate('#/applications/${encodeURIComponent(name)}')" style="cursor:pointer">
+      return `<tr class="finding-row" style="cursor:pointer" onclick="openGhSignalDetail('cov',${i})" title="Click to view details">
         <td><strong>${esc(name)}</strong></td>
         <td style="text-align:center">${v.pr_scans}</td>
         <td style="text-align:center">${v.push_scans}</td>
@@ -3690,6 +3739,9 @@ async function renderGitHubSignals() {
         </td>
       </tr>`;
     }).join('') || '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">No CI scan data available yet</td></tr>';
+
+    // Store data for detail drawer
+    _ghSignalData = { dep: _depList, sec: _secList, run: _runList, cov: covEntries };
 
     page.innerHTML = `
       <div class="page-header">
@@ -3716,6 +3768,32 @@ async function renderGitHubSignals() {
           <div class="stat-label">PR Scan Coverage</div>
         </div>
       </div>
+
+      ${history.length >= 2 ? `
+      <div class="section">
+        <div class="section-title">
+          Historical Trends
+          <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">${history.length} daily snapshot${history.length !== 1 ? 's' : ''} · earliest ${esc(history[0].date)}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px">
+          <div class="stat-card" style="padding:16px 20px">
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Open Dependabot Alerts</div>
+            ${_ghSparkline(history, 'dep_open', 'var(--critical)', null)}
+          </div>
+          <div class="stat-card" style="padding:16px 20px">
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Open Security Issues</div>
+            ${_ghSparkline(history, 'sec_open', 'var(--high)', null)}
+          </div>
+          <div class="stat-card" style="padding:16px 20px">
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Workflow Success Rate</div>
+            ${_ghSparkline(history, 'workflow_success_rate', '#79c0ff', v => v != null ? v + '%' : '—')}
+          </div>
+          <div class="stat-card" style="padding:16px 20px">
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">PR Scan Coverage</div>
+            ${_ghSparkline(history, 'pr_coverage_pct', 'var(--clean)', v => v + '%')}
+          </div>
+        </div>
+      </div>` : ''}
 
       <div class="section">
         <div class="section-title">Dependabot Alerts</div>
@@ -5607,6 +5685,231 @@ function openFindingDetail(id) {
 function closeFindingDetail() {
   const overlay = document.getElementById('finding-drawer-overlay');
   const drawer  = document.getElementById('finding-drawer');
+  if (drawer && drawer._onKey) document.removeEventListener('keydown', drawer._onKey);
+  overlay?.remove();
+  drawer?.remove();
+}
+
+// ── GitHub Signals detail drawer ──────────────────────────────
+function openGhSignalDetail(kind, idx) {
+  if (!_ghSignalData) return;
+  closeGhSignalDetail();
+
+  let title = '', bodyHtml = '', repoUrl = '';
+
+  if (kind === 'dep') {
+    const r = _ghSignalData.dep[idx];
+    if (!r) return;
+    const sev = r.by_severity || {};
+    const repoShort = r.repo.split('/')[1] || r.repo;
+    repoUrl = `https://github.com/${r.repo}/security/dependabot`;
+    title = `Dependabot — ${repoShort}`;
+    const pkgRows = (r.top_packages || []).map(p =>
+      `<tr><td><code>${esc(p.package)}</code></td><td style="text-align:right;padding-left:16px">${p.count} alert${p.count !== 1 ? 's' : ''}</td></tr>`
+    ).join('');
+    bodyHtml = `
+      <div class="finding-detail-grid">
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Repository</div>
+          <div class="finding-detail-value"><code>${esc(r.repo)}</code></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Open Alerts</div>
+          <div class="finding-detail-value" style="color:${(r.open||0)>0?'var(--critical)':'var(--clean)'};font-weight:700;font-size:22px">${r.open || 0}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Fixed by Dependabot</div>
+          <div class="finding-detail-value" style="color:var(--clean);font-weight:600">${r.fixed || 0}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Dismissed</div>
+          <div class="finding-detail-value">${r.dismissed || 0}</div>
+        </div>
+      </div>
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">By Severity</div>
+        <div style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap">
+          <span style="background:rgba(255,123,114,.15);color:#ff7b72;padding:4px 10px;border-radius:6px;font-weight:700">Critical: ${sev.critical||0}</span>
+          <span style="background:rgba(255,166,87,.15);color:#ffa657;padding:4px 10px;border-radius:6px;font-weight:700">High: ${sev.high||0}</span>
+          <span style="background:rgba(227,179,65,.15);color:#e3b341;padding:4px 10px;border-radius:6px;font-weight:700">Medium: ${sev.medium||0}</span>
+          <span style="background:rgba(121,192,255,.15);color:#79c0ff;padding:4px 10px;border-radius:6px;font-weight:700">Low: ${sev.low||0}</span>
+        </div>
+      </div>
+      ${pkgRows ? `
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">Top Affected Packages</div>
+        <table style="margin-top:8px;width:100%;font-size:13px"><tbody>${pkgRows}</tbody></table>
+      </div>` : ''}
+      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
+        <a href="${esc(repoUrl)}" target="_blank" rel="noopener noreferrer"
+           style="display:inline-flex;align-items:center;gap:6px;color:#79c0ff;font-size:13px;text-decoration:none">
+          View on GitHub
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
+      </div>`;
+
+  } else if (kind === 'sec') {
+    const r = _ghSignalData.sec[idx];
+    if (!r) return;
+    const repoShort = r.repo.split('/')[1] || r.repo;
+    repoUrl = `https://github.com/${r.repo}/issues?q=is%3Aissue+label%3Asecurity`;
+    title = `Security Issues — ${repoShort}`;
+    const mttr = r.avg_close_days != null
+      ? `<span style="color:${r.avg_close_days <= 7 ? 'var(--clean)' : r.avg_close_days <= 30 ? '#e3b341' : 'var(--critical)'};font-weight:600">${r.avg_close_days} days</span>`
+      : '<span style="color:var(--text-muted)">—</span>';
+    bodyHtml = `
+      <div class="finding-detail-grid">
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Repository</div>
+          <div class="finding-detail-value"><code>${esc(r.repo)}</code></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Open Security Issues</div>
+          <div class="finding-detail-value" style="color:${(r.open_security||0)>0?'var(--high)':'var(--clean)'};font-weight:700;font-size:22px">${r.open_security || 0}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Closed Security Issues</div>
+          <div class="finding-detail-value" style="color:var(--clean);font-weight:600">${r.closed_security || 0}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Avg Days to Close (MTTR)</div>
+          <div class="finding-detail-value">${mttr}</div>
+        </div>
+      </div>
+      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
+        <a href="${esc(repoUrl)}" target="_blank" rel="noopener noreferrer"
+           style="display:inline-flex;align-items:center;gap:6px;color:#79c0ff;font-size:13px;text-decoration:none">
+          View on GitHub
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
+      </div>`;
+
+  } else if (kind === 'run') {
+    const r = _ghSignalData.run[idx];
+    if (!r) return;
+    const repoShort = r.repo.split('/')[1] || r.repo;
+    repoUrl = `https://github.com/${r.repo}/actions`;
+    title = `Workflow Runs — ${repoShort}`;
+    const rate = r.success_rate != null ? r.success_rate : null;
+    const rateColor = rate == null ? 'var(--text-muted)' : rate >= 90 ? 'var(--clean)' : rate >= 70 ? '#e3b341' : 'var(--critical)';
+    bodyHtml = `
+      <div class="finding-detail-grid">
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Repository</div>
+          <div class="finding-detail-value"><code>${esc(r.repo)}</code></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Success Rate (30d)</div>
+          <div class="finding-detail-value" style="color:${rateColor};font-weight:700;font-size:22px">${rate != null ? rate + '%' : '—'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Total Runs</div>
+          <div class="finding-detail-value">${r.total_runs || 0}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">In Progress / Queued</div>
+          <div class="finding-detail-value">${r.in_progress || 0}</div>
+        </div>
+      </div>
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">Run Breakdown</div>
+        <div style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap">
+          <span style="background:rgba(63,185,80,.15);color:var(--clean);padding:4px 10px;border-radius:6px;font-weight:700">✓ Success: ${r.success||0}</span>
+          <span style="background:rgba(248,81,73,.15);color:var(--critical);padding:4px 10px;border-radius:6px;font-weight:700">✗ Failed: ${r.failed||0}</span>
+          <span style="background:rgba(139,148,158,.15);color:var(--text-muted);padding:4px 10px;border-radius:6px;font-weight:700">⊘ Skipped: ${r.skipped||0}</span>
+        </div>
+      </div>
+      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
+        <a href="${esc(repoUrl)}" target="_blank" rel="noopener noreferrer"
+           style="display:inline-flex;align-items:center;gap:6px;color:#79c0ff;font-size:13px;text-decoration:none">
+          View Actions on GitHub
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
+      </div>`;
+
+  } else if (kind === 'cov') {
+    const [name, v] = _ghSignalData.cov[idx] || [];
+    if (!name) return;
+    title = `PR Scan Coverage — ${esc(name)}`;
+    const pct = v.pr_coverage_pct;
+    const barColor = pct >= 70 ? 'var(--clean)' : pct >= 40 ? '#e3b341' : 'var(--critical)';
+    bodyHtml = `
+      <div class="finding-detail-grid">
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Application</div>
+          <div class="finding-detail-value"><strong>${esc(name)}</strong></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">PR Scan Coverage</div>
+          <div class="finding-detail-value" style="color:${barColor};font-weight:700;font-size:22px">${pct}%</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">PR-Triggered Scans</div>
+          <div class="finding-detail-value">${v.pr_scans}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Total CI Scans</div>
+          <div class="finding-detail-value">${v.total_ci_scans}</div>
+        </div>
+      </div>
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">Coverage Bar</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+          <div style="flex:1;background:#30363d;border-radius:6px;height:12px;overflow:hidden">
+            <div style="width:${Math.min(pct,100)}%;background:${barColor};height:100%;border-radius:6px;transition:width .3s"></div>
+          </div>
+          <span style="font-weight:700;color:${barColor}">${pct}%</span>
+        </div>
+      </div>
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">Scan Breakdown</div>
+        <div style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap">
+          <span style="background:rgba(121,192,255,.12);color:#79c0ff;padding:4px 10px;border-radius:6px;font-weight:700">PR: ${v.pr_scans}</span>
+          <span style="background:rgba(139,148,158,.12);color:var(--text-muted);padding:4px 10px;border-radius:6px;font-weight:700">Push: ${v.push_scans}</span>
+          <span style="background:rgba(139,148,158,.12);color:var(--text-muted);padding:4px 10px;border-radius:6px;font-weight:700">Other: ${v.other_scans}</span>
+        </div>
+      </div>
+      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
+        <button onclick="closeGhSignalDetail();navigate('#/applications/${encodeURIComponent(name)}')"
+          style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);border:1px solid var(--border);background:rgba(99,102,241,0.08);color:#818cf8;font-size:12.5px;cursor:pointer;font-weight:500">
+          View Application Scans
+        </button>
+      </div>`;
+  }
+
+  const overlay = document.createElement('div');
+  overlay.className = 'finding-drawer-overlay';
+  overlay.id        = 'gh-signal-drawer-overlay';
+  overlay.addEventListener('click', closeGhSignalDetail);
+
+  const drawer = document.createElement('div');
+  drawer.className = 'finding-drawer';
+  drawer.id        = 'gh-signal-drawer';
+  drawer.setAttribute('role', 'dialog');
+  drawer.setAttribute('aria-modal', 'true');
+  drawer.setAttribute('aria-label', title);
+  drawer.addEventListener('click', e => e.stopPropagation());
+
+  drawer.innerHTML = `
+    <div class="finding-drawer-header">
+      <div class="finding-drawer-title">
+        <h2>${title}</h2>
+      </div>
+      <button class="finding-drawer-close" onclick="closeGhSignalDetail()" aria-label="Close">✕</button>
+    </div>
+    <div class="finding-drawer-body">${bodyHtml}</div>`;
+
+  document.body.appendChild(overlay);
+  document.body.appendChild(drawer);
+
+  const _onKey = e => { if (e.key === 'Escape') { closeGhSignalDetail(); document.removeEventListener('keydown', _onKey); } };
+  document.addEventListener('keydown', _onKey);
+  drawer._onKey = _onKey;
+}
+
+function closeGhSignalDetail() {
+  const overlay = document.getElementById('gh-signal-drawer-overlay');
+  const drawer  = document.getElementById('gh-signal-drawer');
   if (drawer && drawer._onKey) document.removeEventListener('keydown', drawer._onKey);
   overlay?.remove();
   drawer?.remove();

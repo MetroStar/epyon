@@ -1,0 +1,11 @@
+[
+  {
+    "date": "2026-06-03",
+    "ts": "2026-06-03T04:14:47Z",
+    "dep_open": 0,
+    "dep_fixed": 0,
+    "sec_open": 0,
+    "workflow_success_rate": null,
+    "pr_coverage_pct": 44
+  }
+]

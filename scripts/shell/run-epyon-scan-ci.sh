@@ -308,12 +308,6 @@ run_sonar_layer() {
     fi
 
     export SONAR_EXTRA_ARGS=""
-    if [[ -f "$TARGET_DIR/coverage.xml" ]]; then
-      echo "[INFO] coverage.xml found: enabling Sonar Python coverage import"
-      export SONAR_EXTRA_ARGS="-Dsonar.python.coverage.reportPaths=coverage.xml"
-    else
-      echo "[INFO] No coverage.xml found: running Sonar without coverage data"
-    fi
 
     echo "Using SONAR_PROJECT_KEY=$SONAR_PROJECT_KEY"
     echo "Using SONAR_PROJECT_NAME=$SONAR_PROJECT_NAME"

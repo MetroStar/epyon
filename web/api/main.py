@@ -63,6 +63,60 @@ _METRICS_TTL:      float = 300.0
 _gh_metrics_cache:    dict  = {}
 _gh_metrics_cache_ts: float = 0.0
 _GH_METRICS_TTL:      float = 600.0  # 10 min — GH API is rate-limited
+_GH_HISTORY_FILE = (_HERE / ".." / "data" / "github-signals-history.json").resolve()
+
+
+def _load_gh_history() -> list[dict]:
+    """Return the list of daily GitHub signals snapshots, or [] if none yet."""
+    try:
+        if _GH_HISTORY_FILE.exists():
+            return json.loads(_GH_HISTORY_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return []
+
+
+def _save_gh_snapshot(metrics: dict) -> None:
+    """Append (or update) a daily aggregate snapshot of GitHub metrics to the history file."""
+    try:
+        dep   = metrics.get("dependabot", [])
+        sec   = metrics.get("security_issues", [])
+        runs  = metrics.get("workflow_runs", [])
+        cov   = metrics.get("pr_scan_coverage", {})
+
+        dep_open  = sum(r.get("open", 0)  for r in dep  if not r.get("error"))
+        dep_fixed = sum(r.get("fixed", 0) for r in dep  if not r.get("error"))
+        sec_open  = sum(r.get("open_security", 0) for r in sec if not r.get("error"))
+
+        run_rates = [r["success_rate"] for r in runs if not r.get("error") and r.get("success_rate") is not None]
+        workflow_success_rate = round(sum(run_rates) / len(run_rates)) if run_rates else None
+
+        pr_scans  = sum(v.get("pr_scans", 0)     for v in cov.values())
+        ci_scans  = sum(v.get("total_ci_scans", 0) for v in cov.values())
+        pr_cov_pct = round(pr_scans / ci_scans * 100) if ci_scans > 0 else 0
+
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        snapshot = {
+            "date":                   today,
+            "ts":                     datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "dep_open":               dep_open,
+            "dep_fixed":              dep_fixed,
+            "sec_open":               sec_open,
+            "workflow_success_rate":  workflow_success_rate,
+            "pr_coverage_pct":        pr_cov_pct,
+        }
+
+        history = _load_gh_history()
+        # Replace the entry for today if it exists; otherwise append
+        history = [e for e in history if e.get("date") != today]
+        history.append(snapshot)
+        # Keep at most 365 daily entries
+        history = sorted(history, key=lambda e: e["date"])[-365:]
+
+        _GH_HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+        _GH_HISTORY_FILE.write_text(json.dumps(history, indent=2), encoding="utf-8")
+    except Exception:
+        pass  # never let history writes break the main metrics response
 
 # ── Scan data cache ───────────────────────────────────────────
 # Short TTL caches for filesystem-heavy operations.
@@ -1075,7 +1129,14 @@ async def get_github_metrics(response: Response):
 
     _gh_metrics_cache    = result
     _gh_metrics_cache_ts = now
+    _save_gh_snapshot(result)
     return result
+
+
+@app.get("/api/github-signals-history")
+def get_github_signals_history(response: Response):
+    _sec_headers(response)
+    return _load_gh_history()
 
 
 # ── GitHub config ─────────────────────────────────────────────

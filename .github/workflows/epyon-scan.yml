@@ -1,21 +1,13 @@
 name: Epyon Security Scan (Reusable)
 
 # Reusable workflow that can be called from any repository's CI pipeline.
-# This allows repos to sequence security scanning after their build/test jobs,
-# enabling coverage artifacts to be passed through for SonarQube analysis.
 #
 # Usage (from caller):
 #   jobs:
-#     build:
-#       runs-on: self-hosted
-#       steps: ...  # build, test, upload coverage artifact
-#
 #     security-scan:
-#       needs: build
 #       uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
 #       with:
 #         scan_mode: quick
-#         coverage_artifact: coverage-xml  # name of artifact from build job
 #       secrets: inherit
 
 on:
@@ -43,11 +35,6 @@ on:
         type: string
       target_ref:
         description: 'Optional: Branch/tag/commit to scan (external scan mode)'
-        required: false
-        default: ''
-        type: string
-      coverage_artifact:
-        description: 'Name of coverage artifact from a prior job (downloaded via gh CLI)'
         required: false
         default: ''
         type: string
@@ -259,6 +246,7 @@ jobs:
       SKIP_ANCHORE: "${{ inputs.skip_anchore }}"
       SKIP_API_DISCOVERY: "${{ inputs.skip_api_discovery }}"
       SKIP_STIG: "${{ inputs.skip_stig || inputs.scan_mode != 'stig' }}"
+      GH_TOKEN: "${{ secrets.GH_TOKEN || github.token }}"
       RUN_PICKLESCAN: "${{ inputs.run_picklescan == true && 'true' || '' }}"
       RUN_MODELCARD: "${{ inputs.run_modelcard == true && 'true' || '' }}"
       CREATE_GITHUB_ISSUE: "${{ inputs.create_github_issue }}"
@@ -344,28 +332,6 @@ jobs:
           repository: MetroStar/epyon
           path: epyon
           fetch-depth: 1
-
-      - name: Download coverage artifact
-        if: inputs.coverage_artifact != ''
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          echo "📥 Downloading coverage artifact: ${{ inputs.coverage_artifact }}"
-          gh run download "$GITHUB_RUN_ID" \
-            --repo "$GITHUB_REPOSITORY" \
-            --name "${{ inputs.coverage_artifact }}" \
-            --dir target-repo \
-          && echo "✅ Coverage artifact downloaded" \
-          || echo "⚠️ Coverage artifact not available — SonarQube will run without coverage data"
-
-          # Rewrite absolute <source> paths in coverage.xml so SonarQube can
-          # map them to the checkout directory on this runner.
-          if [[ -f target-repo/coverage.xml ]]; then
-            CHECKOUT_DIR="${{ github.workspace }}/target-repo"
-            echo "🔧 Rewriting coverage.xml source paths → $CHECKOUT_DIR"
-            sed -i -E "s|<source>[^<]+</source>|<source>${CHECKOUT_DIR}</source>|g" target-repo/coverage.xml
-          fi
 
       - name: Download SBOM artifact
         if: inputs.sbom_artifact != ''
@@ -508,6 +474,7 @@ jobs:
           echo "SKIP_XEOL=${SKIP_XEOL:-false}" >> /tmp/epyon-env
           echo "SKIP_ANCHORE=${SKIP_ANCHORE:-false}" >> /tmp/epyon-env
           echo "SKIP_API_DISCOVERY=${SKIP_API_DISCOVERY:-false}" >> /tmp/epyon-env
+          echo "SKIP_COVERAGE=${SKIP_COVERAGE:-false}" >> /tmp/epyon-env
           echo "SKIP_STIG=${SKIP_STIG:-false}" >> /tmp/epyon-env
 
           # Propagate RUN_GARAK to SKIP_GARAK for legacy consumers; run_garak_layer reads RUN_GARAK directly.

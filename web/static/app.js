@@ -539,7 +539,19 @@ const api = {
   getGlobalTechnicalSummary() { return this._post('/api/technical-summary', {}); },
   getGlobalIssoSummary()      { return this._post('/api/isso-summary', {}); },
   getAppIssoSummary(name)     { return this._post(`/api/applications/${encodeURIComponent(name)}/isso-summary`, {}); },
-  exportSummaryDocx(body)     { return this._post('/api/export/summary-docx', body); },
+  async exportSummaryDocx(body) {
+    const r = await fetch('/api/export/summary-docx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      let detail = r.statusText;
+      try { detail = (await r.json()).detail || detail; } catch (_) {}
+      throw new Error(`${detail} (${r.status})`);
+    }
+    return r.blob();
+  },
   getFindingFix(finding)      { return this._post('/api/findings/fix', finding); },
   calculateScorecard(id)      { return this._post(`/api/scans/${encodeURIComponent(id)}/scorecard`, {}); },
   getStigData(id){ return this._get(`/api/scans/${encodeURIComponent(id)}/stig-data`); },

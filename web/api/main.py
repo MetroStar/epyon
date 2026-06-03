@@ -1282,8 +1282,16 @@ def get_metrics(response: Response):
     sla_overall_pct = round(sla_total_within / sla_total * 100, 1) if sla_total > 0 else None
 
     # Aggregate risk trend (last 60 data points per target, sorted)
-    risk_trend_sorted = sorted(risk_trend, key=lambda x: (x["target"], x["date"]))[-120:]
+    by_target_trend: dict[str, list[dict]] = {}
+    for pt in risk_trend:
+        by_target_trend.setdefault(pt["target"], []).append(pt)
 
+    risk_trend_sorted: list[dict] = []
+    for target, pts in by_target_trend.items():
+        pts_sorted = sorted(pts, key=lambda x: x["date"])[-60:]
+        risk_trend_sorted.extend(pts_sorted)
+
+    risk_trend_sorted.sort(key=lambda x: (x["target"], x["date"]))
     # Aggregate secret trend (last 60 total entries)
     secret_trend_sorted = sorted(secret_trend, key=lambda x: x["date"])[-60:]
 

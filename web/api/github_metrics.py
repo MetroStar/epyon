@@ -188,15 +188,18 @@ async def _workflow_runs_for_repo(client: httpx.AsyncClient, repo: str, since_da
 
 # ── PR scan coverage (local data, no API call) ────────────────
 
-def compute_pr_scan_coverage(all_scans: list[dict]) -> dict:
+def compute_pr_scan_coverage(all_scans: list[dict], monitored: set[str] | None = None) -> dict:
     """
     Derive PR scan coverage per app from existing ci_source metadata.
     Coverage = scans where event == pull_request / total scans (that have ci_source).
+    When monitored is provided, only continuously-monitored apps are included.
     """
     by_target: dict[str, dict] = {}
     for s in all_scans:
         target = s.get("target") or ""
         if not target:
+            continue
+        if monitored and target not in monitored:
             continue
         ci = s.get("ci_source") or {}
         if not ci:
@@ -227,12 +230,12 @@ def compute_pr_scan_coverage(all_scans: list[dict]) -> dict:
 
 # ── Public entry point ────────────────────────────────────────
 
-async def fetch_all(token: str, repos: list[str], all_scans: list[dict]) -> dict:
+async def fetch_all(token: str, repos: list[str], all_scans: list[dict], monitored: set[str] | None = None) -> dict:
     """
     Fetch all GitHub metrics for the given repos.
     Returns a dict with keys: dependabot, security_issues, workflow_runs, pr_scan_coverage.
     """
-    pr_coverage = compute_pr_scan_coverage(all_scans)
+    pr_coverage = compute_pr_scan_coverage(all_scans, monitored)
 
     if not token or not repos:
         return {

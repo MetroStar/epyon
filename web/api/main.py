@@ -357,17 +357,20 @@ def applications(response: Response):
         latest_stig = next((s for s in tscans if s.get("stig_total", 0) > 0), None)
 
         result.append({
-            "name":                name,
-            "scan_count":          len(tscans),
-            "last_scanned":        latest.get("timestamp", ""),
-            "scan_type":           latest.get("scan_type", ""),
-            "critical":            latest_comprehensive.get("critical", 0),
-            "high":                latest_comprehensive.get("high", 0),
-            "medium":              latest_comprehensive.get("medium", 0),
-            "low":                 latest_comprehensive.get("low", 0),
-            "status":              parsers.get_status(latest_comprehensive),
-            "latest_scan_id":      latest.get("scan_id", ""),
-            "stig_total":          latest_stig.get("stig_total", 0)          if latest_stig else 0,
+            "name":                      name,
+            "scan_count":                len(tscans),
+            "last_scanned":              latest.get("timestamp", ""),
+            "scan_type":                 latest.get("scan_type", ""),
+            "critical":                  latest_comprehensive.get("critical", 0),
+            "high":                      latest_comprehensive.get("high", 0),
+            "medium":                    latest_comprehensive.get("medium", 0),
+            "low":                       latest_comprehensive.get("low", 0),
+            "status":                    parsers.get_status(latest_comprehensive),
+            "latest_scan_id":            latest.get("scan_id", ""),
+            "comprehensive_scan_id":     latest_comprehensive.get("scan_id", ""),
+            "comprehensive_timestamp":   latest_comprehensive.get("timestamp", ""),
+            "comprehensive_scan_type":   latest_comprehensive.get("scan_type", ""),
+            "stig_total":                latest_stig.get("stig_total", 0)          if latest_stig else 0,
             "stig_open":           latest_stig.get("stig_open", 0)           if latest_stig else 0,
             "stig_pass":           latest_stig.get("stig_pass", 0)           if latest_stig else 0,
             "stig_na":             latest_stig.get("stig_na", 0)             if latest_stig else 0,
@@ -533,6 +536,118 @@ def app_scans(name: str, response: Response):
     ]
     scans.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
     return scans
+
+
+@app.post("/api/applications/{name}/isso-summary")
+async def app_isso_summary(name: str, response: Response):
+    """Per-application ISSO compliance brief: NIST control mapping, STIG, POA&M, accepted risk."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(name):
+        raise HTTPException(400, "Invalid application name")
+
+    all_dirs = parsers.find_scan_dirs(EPYON_ROOT)
+    target_entries: list[tuple] = []
+    for d in all_dirs:
+        meta = parsers.parse_dir_name(d.name)
+        if meta["target"] == name:
+            target_entries.append((d, meta["timestamp"]))
+
+    if not target_entries:
+        raise HTTPException(404, f"No scans found for application '{name}'")
+
+    # Sort newest first
+    target_entries.sort(key=lambda x: x[1], reverse=True)
+
+    # Best comprehensive scan dir for vuln findings
+    def _best_scan_dir(entries: list[tuple]) -> object:
+        for d, _ in entries:
+            st = (parsers._read_json(d / "scan-metadata.json") or {}).get("scan_type", "")
+            if st in _COMPREHENSIVE_SCAN_TYPES:
+                return d
+        return entries[0][0]
+
+    scan_dir  = _best_scan_dir(target_entries)
+    scan_meta = parsers.load_scan(scan_dir, EPYON_ROOT)
+    # Prefer the pre-built deduplicated summary; fall back to raw parse only if absent
+    findings  = parsers.load_enriched_findings(scan_dir) or parsers.parse_scan_findings(scan_dir)
+
+    # STIG: walk newest-first until we find a scan with stig-results-*.json files;
+    # merge all controls from that scan into a single flat list.
+    stig_detail: list[dict] | None = None
+    for candidate, _ in target_entries:
+        stig_files = sorted(candidate.glob("stig-results-*.json"))
+        if not stig_files:
+            continue
+        merged: list[dict] = []
+        for sf in stig_files:
+            try:
+                raw = json.loads(sf.read_text(encoding="utf-8"))
+                results = raw.get("assessments", raw) if "assessments" in raw else raw
+                # Load matching controls file
+                slug = sf.stem[len("stig-results-"):]
+                cf = candidate / f"stig-controls-{slug}.json"
+                controls_data: dict = {}
+                try:
+                    controls_data = json.loads(cf.read_text(encoding="utf-8"))
+                except Exception:
+                    pass
+                for c in controls_data.get("controls", []):
+                    vid = c.get("vuln_id", "")
+                    assessed = results.get(vid, {})
+                    merged.append({
+                        "vuln_id":  vid,
+                        "title":    c.get("title", ""),
+                        "severity": c.get("severity", ""),
+                        "status":   assessed.get("status", "Not Reviewed"),
+                    })
+            except Exception:
+                pass
+        if merged:
+            stig_detail = merged
+            break
+
+    # Suppressions: walk newest-first until non-empty
+    suppressions: list[dict] = []
+    for candidate, _ in target_entries:
+        batch = parsers.parse_suppressed_findings(candidate)
+        if batch:
+            suppressions = batch
+            break
+
+    # Scan history: last 8 scans, summary counts only
+    scan_history = [
+        {
+            "timestamp": m.get("timestamp", ""),
+            "scan_type": m.get("scan_type", ""),
+            "critical":  m.get("critical", 0),
+            "high":      m.get("high", 0),
+            "medium":    m.get("medium", 0),
+            "low":       m.get("low", 0),
+        }
+        for m in (
+            parsers.load_scan(d, EPYON_ROOT)
+            for d, _ in target_entries[:8]
+        )
+    ]
+
+    _metrics = _build_summary_metrics()
+
+    try:
+        summary = await openai_summary.generate_app_isso_summary(
+            app_name=name,
+            scan_meta=scan_meta,
+            findings=findings,
+            stig_detail=stig_detail,
+            suppressions=suppressions,
+            scan_history=scan_history,
+            metrics=_metrics,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as exc:
+        raise HTTPException(502, f"OpenAI request failed: {exc}")
+
+    return {"app": name, "summary": summary}
 
 
 # ── Scan detail ───────────────────────────────────────────────
@@ -973,23 +1088,258 @@ def get_metrics(response: Response):
     }
     total_merges_to_main = sum(len(d) for d in merge_dates_by_target.values())
 
-    # ── MTTR (Mean Time to Remediate) ─────────────────────────
-    # by_target lists are already sorted newest-first from the loop above
+    # ── SLA Compliance Rate ────────────────────────────────────
+    # SLA thresholds (days): critical=7, high=30, medium=90, low=180
+    SLA_DAYS = {"critical": 7, "high": 30, "medium": 90, "low": 180}
+    sla_within:  dict[str, int] = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+    sla_breached: dict[str, int] = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+
+    # ── Secret Detection Trend ─────────────────────────────────
+    # Per-target, per-scan: count of TruffleHog findings over time (last 60 scans)
+    secret_trend: list[dict] = []
+    secret_trend_by_target: dict[str, list[dict]] = {}
+
+    # ── Weighted Risk Score Trend ──────────────────────────────
+    # Score = critical*10 + high*7 + medium*4 + low*1, per scan
+    RISK_WEIGHTS = {"critical": 10, "high": 7, "medium": 4, "low": 1}
+    risk_trend: list[dict] = []
+
+    # ── Suppression Rate ───────────────────────────────────────
+    total_suppressed = 0
+    suppressed_by_sev: dict[str, int] = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+    suppressed_by_tool: dict[str, int] = {}
+    suppressed_by_target: dict[str, list[dict]] = {}
+
+    # ── Recurrence + First-Time Fix Rate ──────────────────────
+    # recurrence: fingerprints that were resolved but reappeared
+    # first_time_fix: fingerprints resolved within 1 scan cycle of first appearance
+    recurrence_count   = 0
+    first_time_fixed   = 0
+    total_resolved     = 0
+
+    for _target, scan_list in by_target.items():
+        eligible = [
+            (s, d) for s, d in scan_list
+            if s.get("scan_type") not in ("stig",)
+        ]
+        if not eligible:
+            continue
+        eligible_sorted = sorted(eligible, key=lambda x: x[0].get("timestamp", ""))
+
+        # Secret trend for this target
+        t_secret_trend: list[dict] = []
+        for scan_meta, scan_dir in eligible_sorted:
+            ts = (scan_meta.get("timestamp") or "")[:10]
+            if not ts:
+                continue
+            # Risk score uses only scan_meta — compute before attempting findings parse
+            s = scan_meta
+            risk_trend.append({
+                "date":     ts,
+                "target":   _target,
+                "score":    (s.get("critical", 0) * RISK_WEIGHTS["critical"]
+                             + s.get("high",     0) * RISK_WEIGHTS["high"]
+                             + s.get("medium",   0) * RISK_WEIGHTS["medium"]
+                             + s.get("low",      0) * RISK_WEIGHTS["low"]),
+                "critical": s.get("critical", 0),
+                "high":     s.get("high",     0),
+                "medium":   s.get("medium",   0),
+                "low":      s.get("low",      0),
+            })
+            try:
+                sf = parsers.parse_scan_findings(scan_dir)
+            except Exception:
+                continue
+            secrets = [
+                f for sev in ("critical", "high", "medium", "low")
+                for f in sf.get(f"{sev}_findings", [])
+                if f.get("tool") == "TruffleHog"
+            ]
+            verified   = sum(1 for f in secrets if f.get("severity") == "critical")
+            unverified = len(secrets) - verified
+            t_secret_trend.append({
+                "date": ts, "target": _target,
+                "verified": verified, "unverified": unverified,
+                "total": len(secrets),
+            })
+        secret_trend.extend(t_secret_trend)
+        if t_secret_trend:
+            secret_trend_by_target[_target] = t_secret_trend
+
+        # Suppression: union across all scans for target (latest scan may have empty file)
+        seen_sup_keys: set[tuple] = set()
+        target_suppressions: list[dict] = []
+        for _, scan_dir in reversed(eligible_sorted):  # newest → oldest
+            try:
+                batch = parsers.parse_suppressed_findings(scan_dir)
+            except Exception:
+                continue
+            for sup in batch:
+                key = (sup.get("type", ""), sup.get("value", ""))
+                if key not in seen_sup_keys:
+                    seen_sup_keys.add(key)
+                    target_suppressions.append(sup)
+        total_suppressed += len(target_suppressions)
+        if target_suppressions:
+            suppressed_by_target[_target] = [
+                {
+                    "value":       sup.get("value", ""),
+                    "tool":        sup.get("tool", "Unknown"),
+                    "type":        sup.get("type", ""),
+                    "severity":    sup.get("severity", ""),
+                    "reason":      sup.get("reason", ""),
+                    "approved_by": sup.get("approved_by", ""),
+                }
+                for sup in target_suppressions
+            ]
+        for sup in target_suppressions:
+            raw_sev = (sup.get("severity") or "").lower()
+            if raw_sev in suppressed_by_sev:
+                suppressed_by_sev[raw_sev] += 1
+            tool_key = (sup.get("tool") or "Unknown")
+            suppressed_by_tool[tool_key] = suppressed_by_tool.get(tool_key, 0) + 1
+
+        if len(eligible_sorted) < 2:
+            continue
+
+        # Build per-scan fingerprint sets for recurrence + SLA + first-time-fix
+        fp_first_seen: dict[str, tuple[str, str]] = {}  # fp -> (timestamp, sev)
+        fp_resolved_at: dict[str, str] = {}             # fp -> resolved_scan_ts
+        fp_ever_resolved: set[str]     = set()
+        prev_fps: set[str]             = set()
+        prev_ts_str: str               = ""
+
+        for scan_meta, scan_dir in eligible_sorted:
+            ts = scan_meta.get("timestamp", "")
+            if not ts:
+                continue
+            try:
+                sf = parsers.parse_scan_findings(scan_dir)
+            except Exception:
+                prev_fps = set()
+                prev_ts_str = ts
+                continue
+            curr_fps: set[str] = set()
+            curr_fp_sev: dict[str, str] = {}
+            for sev in ("critical", "high", "medium", "low"):
+                for f in sf.get(f"{sev}_findings", []):
+                    fp = f"{f.get('tool', '')}::{f.get('id', '')}::{f.get('package', '')}"
+                    if fp:
+                        curr_fps.add(fp)
+                        curr_fp_sev[fp] = sev
+                        if fp not in fp_first_seen:
+                            fp_first_seen[fp] = (ts, sev)
+                        # Recurrence: was resolved before, now back
+                        if fp in fp_ever_resolved:
+                            recurrence_count += 1
+                            fp_ever_resolved.discard(fp)
+
+            # Fingerprints present in prev but not in current = resolved this scan
+            if prev_fps:
+                for fp in (prev_fps - curr_fps):
+                    if fp in fp_first_seen:
+                        first_ts, sev = fp_first_seen[fp]
+                        fp_ever_resolved.add(fp)
+                        fp_resolved_at[fp] = ts
+                        total_resolved += 1
+                        # First-time fix: resolved in the very next scan after first seen
+                        if prev_ts_str == first_ts:
+                            first_time_fixed += 1
+                        # SLA compliance
+                        try:
+                            first_dt = datetime.fromisoformat(first_ts.replace("Z", "+00:00"))
+                            res_dt   = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                            if first_dt.tzinfo is None:
+                                first_dt = first_dt.replace(tzinfo=timezone.utc)
+                            if res_dt.tzinfo is None:
+                                res_dt = res_dt.replace(tzinfo=timezone.utc)
+                            days = (res_dt - first_dt).total_seconds() / 86400
+                            threshold = SLA_DAYS.get(sev, 180)
+                            if days <= threshold:
+                                sla_within[sev]   += 1
+                            else:
+                                sla_breached[sev] += 1
+                        except ValueError:
+                            pass
+            prev_fps    = curr_fps
+            prev_ts_str = ts
+
+    # Aggregate SLA
+    sla_by_sev = {}
+    for sev in ("critical", "high", "medium", "low"):
+        w = sla_within[sev]
+        b = sla_breached[sev]
+        total_sla = w + b
+        sla_by_sev[sev] = {
+            "within": w,
+            "breached": b,
+            "pct": round(w / total_sla * 100, 1) if total_sla > 0 else None,
+            "sla_days": SLA_DAYS[sev],
+        }
+    sla_total_within  = sum(sla_within.values())
+    sla_total_breached = sum(sla_breached.values())
+    sla_total = sla_total_within + sla_total_breached
+    sla_overall_pct = round(sla_total_within / sla_total * 100, 1) if sla_total > 0 else None
+
+    # Aggregate risk trend (last 60 data points per target, sorted)
+    by_target_trend: dict[str, list[dict]] = {}
+    for pt in risk_trend:
+        by_target_trend.setdefault(pt["target"], []).append(pt)
+
+    risk_trend_sorted: list[dict] = []
+    for target, pts in by_target_trend.items():
+        pts_sorted = sorted(pts, key=lambda x: x["date"])[-60:]
+        risk_trend_sorted.extend(pts_sorted)
+
+    risk_trend_sorted.sort(key=lambda x: (x["target"], x["date"]))
+    # Aggregate secret trend (last 60 total entries)
+    secret_trend_sorted = sorted(secret_trend, key=lambda x: x["date"])[-60:]
+
+    # Suppression rate vs fixed
+    total_fixed_or_suppressed = total_resolved + total_suppressed
+    suppression_rate_pct = (
+        round(total_suppressed / total_fixed_or_suppressed * 100, 1)
+        if total_fixed_or_suppressed > 0 else None
+    )
+
+    # Recurrence rate
+    recurrence_rate_pct = (
+        round(recurrence_count / total_resolved * 100, 1)
+        if total_resolved > 0 else None
+    )
+
+    # First-time fix rate
+    first_time_fix_pct = (
+        round(first_time_fixed / total_resolved * 100, 1)
+        if total_resolved > 0 else None
+    )
+
+    # ── MTTR (Mean Time to Remediate) + MTTD (Mean Time to Detect) ──────────────    # by_target lists are already sorted newest-first from the loop above
     all_remediation_days: list[float] = []
+    all_remediation_days_by_sev: dict[str, list[float]] = {"critical": [], "high": [], "medium": [], "low": []}
+    all_detection_days: list[float] = []
+    all_detection_days_by_sev: dict[str, list[float]] = {"critical": [], "high": [], "medium": [], "low": []}
     target_mttr: dict[str, float] = {}
+    # Per-target detailed metrics for app-level filtering
+    metrics_by_target: dict[str, dict] = {}
     for _target, scan_list in by_target.items():
         # Only full and nightly scans carry consistent vulnerability data
         eligible = [
             (s, d) for s, d in scan_list
-            if s.get("scan_type") in ("full", "nightly")
+            if s.get("scan_type") not in ("stig",)
         ]
         if len(eligible) < 2:
             continue
         # eligible is newest-first; reverse to chronological order
         scans_to_check = list(reversed(eligible))  # oldest → newest
 
-        # Build fingerprint -> first_seen_ts mapping across historical scans
+        # Build fingerprint -> first_seen_ts + severity mapping
         first_seen: dict[str, str] = {}
+        first_seen_sev: dict[str, str] = {}
+        known_fps: set[str] = set()
+        prev_ts: str | None = None
+        t_detection_days: list[float] = []
+        t_detection_days_by_sev: dict[str, list[float]] = {"critical": [], "high": [], "medium": [], "low": []}
         for scan_meta, scan_dir in scans_to_check:
             ts = scan_meta.get("timestamp", "")
             if not ts:
@@ -997,12 +1347,42 @@ def get_metrics(response: Response):
             try:
                 scan_findings = parsers.parse_scan_findings(scan_dir)
             except Exception:
+                prev_ts = ts
                 continue
+            current_fps: set[str] = set()
+            current_fp_sev: dict[str, str] = {}
             for sev in ("critical", "high", "medium", "low"):
                 for f in scan_findings.get(f"{sev}_findings", []):
                     fp = f"{f.get('tool', '')}::{f.get('id', '')}::{f.get('package', '')}"
-                    if fp and fp not in first_seen:
-                        first_seen[fp] = ts
+                    if fp:
+                        if fp not in first_seen:
+                            first_seen[fp] = ts
+                            first_seen_sev[fp] = sev
+                        current_fps.add(fp)
+                        current_fp_sev[fp] = sev
+            # MTTD: record detection window for newly-appearing findings
+            if prev_ts:
+                try:
+                    prev_dt = datetime.fromisoformat(prev_ts.replace("Z", "+00:00"))
+                    curr_dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                    if prev_dt.tzinfo is None:
+                        prev_dt = prev_dt.replace(tzinfo=timezone.utc)
+                    if curr_dt.tzinfo is None:
+                        curr_dt = curr_dt.replace(tzinfo=timezone.utc)
+                    detect_days = (curr_dt - prev_dt).total_seconds() / 86400
+                    if detect_days >= 0:
+                        for fp in (current_fps - known_fps):
+                            sev = current_fp_sev.get(fp, "")
+                            all_detection_days.append(detect_days)
+                            t_detection_days.append(detect_days)
+                            if sev in all_detection_days_by_sev:
+                                all_detection_days_by_sev[sev].append(detect_days)
+                            if sev in t_detection_days_by_sev:
+                                t_detection_days_by_sev[sev].append(detect_days)
+                except ValueError:
+                    pass
+            known_fps |= current_fps
+            prev_ts = ts
 
         # Latest scan fingerprint set (scans_to_check[-1] is the newest)
         latest_meta, latest_dir = scans_to_check[-1]
@@ -1021,34 +1401,65 @@ def get_metrics(response: Response):
                     latest_set.add(fp)
 
         try:
-            _lts = latest_ts.replace("Z", "+00:00")
-            latest_dt = datetime.fromisoformat(_lts)
+            latest_dt = datetime.fromisoformat(latest_ts.replace("Z", "+00:00"))
             if latest_dt.tzinfo is None:
                 latest_dt = latest_dt.replace(tzinfo=timezone.utc)
         except ValueError:
             continue
 
         target_days: list[float] = []
+        t_remediation_days_by_sev: dict[str, list[float]] = {"critical": [], "high": [], "medium": [], "low": []}
         for fp, first_ts in first_seen.items():
             if fp not in latest_set:
                 try:
-                    _fts = first_ts.replace("Z", "+00:00")
-                    first_dt = datetime.fromisoformat(_fts)
+                    first_dt = datetime.fromisoformat(first_ts.replace("Z", "+00:00"))
                     if first_dt.tzinfo is None:
                         first_dt = first_dt.replace(tzinfo=timezone.utc)
                     days = (latest_dt - first_dt).total_seconds() / 86400
                     if days >= 0:
                         all_remediation_days.append(days)
                         target_days.append(days)
+                        sev = first_seen_sev.get(fp, "")
+                        if sev in all_remediation_days_by_sev:
+                            all_remediation_days_by_sev[sev].append(days)
+                        if sev in t_remediation_days_by_sev:
+                            t_remediation_days_by_sev[sev].append(days)
                 except ValueError:
                     pass
         if target_days:
             target_mttr[_target] = round(sum(target_days) / len(target_days), 1)
 
+        t_mttr = round(sum(target_days) / len(target_days), 1) if target_days else None
+        t_mttd = round(sum(t_detection_days) / len(t_detection_days), 1) if t_detection_days else None
+        metrics_by_target[_target] = {
+            "mttr_days": t_mttr,
+            "mttr_by_severity": {
+                s: round(sum(v) / len(v), 1) if v else None
+                for s, v in t_remediation_days_by_sev.items()
+            },
+            "mttd_days": t_mttd,
+            "mttd_by_severity": {
+                s: round(sum(v) / len(v), 1) if v else None
+                for s, v in t_detection_days_by_sev.items()
+            },
+        }
+
     mttr_days = (
         round(sum(all_remediation_days) / len(all_remediation_days), 1)
         if all_remediation_days else None
     )
+    mttr_by_severity = {
+        sev: round(sum(days) / len(days), 1) if days else None
+        for sev, days in all_remediation_days_by_sev.items()
+    }
+    mttd_days = (
+        round(sum(all_detection_days) / len(all_detection_days), 1)
+        if all_detection_days else None
+    )
+    mttd_by_severity = {
+        sev: round(sum(days) / len(days), 1) if days else None
+        for sev, days in all_detection_days_by_sev.items()
+    }
     fastest_remediator = (
         min(target_mttr.items(), key=lambda x: x[1])
         if target_mttr else None
@@ -1073,6 +1484,10 @@ def get_metrics(response: Response):
         ),
         "fix_rate": {"with_fix": total_with_fix, "without_fix": total_without_fix},
         "mttr_days": mttr_days,
+        "mttr_by_severity": mttr_by_severity,
+        "mttd_days": mttd_days,
+        "mttd_by_severity": mttd_by_severity,
+        "metrics_by_target": metrics_by_target,
         "fastest_remediator": {"target": fastest_remediator[0], "mttr_days": fastest_remediator[1]} if fastest_remediator else None,
         "top_cves": [
             {
@@ -1089,6 +1504,26 @@ def get_metrics(response: Response):
         "total_merges_to_main": total_merges_to_main,
         "metrics_filtered": metrics_filtered,
         "monitored_count":  monitored_count,
+        # ── New metrics ──────────────────────────────────────
+        "sla_compliance": {
+            "overall_pct":     sla_overall_pct,
+            "total_within":    sla_total_within,
+            "total_breached":  sla_total_breached,
+            "by_severity":     sla_by_sev,
+        },
+        "risk_trend":            risk_trend_sorted,
+        "secret_trend":          secret_trend_sorted,
+        "secret_trend_by_target": secret_trend_by_target,
+        "suppression": {
+            "total":       total_suppressed,
+            "by_severity": suppressed_by_sev,
+            "by_tool":     suppressed_by_tool,
+            "by_target":   suppressed_by_target,
+            "rate_pct":    suppression_rate_pct,
+        },
+        "recurrence_rate_pct":    recurrence_rate_pct,
+        "first_time_fix_pct":     first_time_fix_pct,
+        "total_resolved":         total_resolved,
     }
 
     _metrics_cache    = result
@@ -1124,8 +1559,9 @@ async def get_github_metrics(response: Response):
 
     scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
     all_scans = [parsers.load_scan(d, EPYON_ROOT) for d in scan_dirs]
+    monitored_set = set(_load_monitored_apps()) or None
 
-    result = await github_metrics.fetch_all(token, repos, all_scans)
+    result = await github_metrics.fetch_all(token, repos, all_scans, monitored_set)
 
     _gh_metrics_cache    = result
     _gh_metrics_cache_ts = now
@@ -1590,14 +2026,71 @@ async def global_exec_summary(response: Response):
             ],
         })
 
+    # Pull programme-level metrics (uses cache if warm)
+    _metrics = _build_summary_metrics()
+
     try:
-        summary = await openai_summary.generate_global_summary(apps)
+        summary = await openai_summary.generate_global_summary(apps, metrics=_metrics)
     except RuntimeError as exc:
         raise HTTPException(400, str(exc))
     except Exception as exc:
         raise HTTPException(502, f"OpenAI request failed: {exc}")
 
     return {"summary": summary, "application_count": len(apps)}
+
+
+def _build_summary_metrics() -> dict:
+    """Return a trimmed metrics dict for injection into AI summary prompts.
+    Uses the in-memory cache when warm to avoid redundant computation."""
+    import time as _time
+    if _metrics_cache and (_time.time() - _metrics_cache_ts) < _METRICS_TTL:
+        m = _metrics_cache
+    else:
+        # Cache is cold — compute now with a throwaway Response object so that
+        # _sec_headers doesn't receive None.
+        m = get_metrics(Response())
+    if not m:
+        return {}
+
+    # Latest risk score per app
+    risk_by_app: dict[str, int] = {}
+    for pt in (m.get("risk_trend") or []):
+        risk_by_app[pt["target"]] = pt["score"]
+
+    # Latest secret counts per app
+    secret_by_app: dict[str, dict] = {}
+    for target, pts in (m.get("secret_trend_by_target") or {}).items():
+        if pts:
+            latest = pts[-1]
+            secret_by_app[target] = {
+                "verified":   latest.get("verified", 0),
+                "unverified": latest.get("unverified", 0),
+            }
+
+    # Suppression counts per app
+    sup_by_app: dict[str, int] = {
+        t: len(v) for t, v in (m.get("suppression", {}).get("by_target") or {}).items()
+    }
+
+    sla = m.get("sla_compliance") or {}
+
+    return {
+        "sla_compliance": {
+            "overall_pct":    sla.get("overall_pct"),
+            "total_within":   sla.get("total_within", 0),
+            "total_breached": sla.get("total_breached", 0),
+            "by_severity":    sla.get("by_severity", {}),
+        },
+        "recurrence_rate_pct":  m.get("recurrence_rate_pct"),
+        "first_time_fix_pct":   m.get("first_time_fix_pct"),
+        "total_resolved":       m.get("total_resolved", 0),
+        "total_suppressed":     m.get("suppression", {}).get("total", 0),
+        "risk_score_by_app":    risk_by_app,
+        "secrets_by_app":       secret_by_app,
+        "suppressed_by_app":    sup_by_app,
+        "mttr_days":            m.get("mttr_days"),
+        "mttd_days":            m.get("mttd_days"),
+    }
 
 
 @app.post("/api/technical-summary")
@@ -1660,14 +2153,259 @@ async def global_technical_summary(response: Response):
             ],
         })
 
+    _metrics = _build_summary_metrics()
+
     try:
-        summary = await openai_summary.generate_global_technical_summary(apps)
+        summary = await openai_summary.generate_global_technical_summary(apps, metrics=_metrics)
     except RuntimeError as exc:
         raise HTTPException(400, str(exc))
     except Exception as exc:
         raise HTTPException(502, f"OpenAI request failed: {exc}")
 
     return {"summary": summary, "application_count": len(apps)}
+
+
+@app.post("/api/isso-summary")
+async def global_isso_summary(response: Response):
+    """ISSO compliance brief covering NIST/STIG controls, evidence, POA&M risk statements."""
+    _sec_headers(response)
+    hidden    = _load_hidden_apps()
+    monitored = _load_monitored_apps()
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
+
+    by_target_all: dict[str, list[tuple]] = {}
+    for d in scan_dirs:
+        meta   = parsers.parse_dir_name(d.name)
+        target = meta["target"]
+        if target in hidden:
+            continue
+        by_target_all.setdefault(target, []).append((d, meta["timestamp"]))
+
+    if not by_target_all:
+        raise HTTPException(404, "No scans found")
+
+    def _best_scan_dir(entries: list[tuple]) -> object:
+        entries_sorted = sorted(entries, key=lambda x: x[1], reverse=True)
+        for d, _ in entries_sorted:
+            st = (parsers._read_json(d / "scan-metadata.json") or {}).get("scan_type", "")
+            if st in _COMPREHENSIVE_SCAN_TYPES:
+                return d
+        return entries_sorted[0][0]
+
+    apps = []
+    for target, entries in sorted(by_target_all.items()):
+        scan_dir  = _best_scan_dir(entries)
+        scan_meta = parsers.load_scan(scan_dir, EPYON_ROOT)
+        findings  = parsers.parse_scan_findings(scan_dir)
+
+        # All scan dirs for this target, newest first
+        all_dirs_sorted = [d for d, _ in sorted(entries, key=lambda x: x[1], reverse=True)]
+
+        # STIG summary: use the most recent scan that has stig-results-*.json
+        stig_open = stig_pass = stig_na = stig_total = 0
+        for candidate in all_dirs_sorted:
+            stig_files = sorted(candidate.glob("stig-results-*.json"))
+            if not stig_files:
+                continue
+            for sf in stig_files:
+                try:
+                    raw = json.loads(sf.read_text(encoding="utf-8"))
+                    res = raw.get("assessments", raw) if "assessments" in raw else raw
+                    stig_open  += sum(1 for v in res.values() if v.get("status") == "Open")
+                    stig_pass  += sum(1 for v in res.values() if v.get("status") == "Not a Finding")
+                    stig_na    += sum(1 for v in res.values() if v.get("status") in ("Not Applicable", "Not Reviewed"))
+                    stig_total += len(res)
+                except Exception:
+                    pass
+            if stig_total:
+                break  # found the most recent scan with STIG data
+        stig_summary = {"open": stig_open, "pass": stig_pass, "na": stig_na, "total": stig_total} if stig_total else None
+
+        # Suppressions: use the most recent scan that has non-empty suppressed-findings.md
+        suppressions: list[dict] = []
+        for candidate in all_dirs_sorted:
+            batch = parsers.parse_suppressed_findings(candidate)
+            if batch:
+                suppressions = batch
+                break
+        sup_sample = [
+            {"type": s.get("type", ""), "severity": s.get("severity", ""), "reason": s.get("reason", "")}
+            for s in suppressions[:20]
+        ]
+
+        apps.append({
+            "name":           target,
+            "monitored":      target in monitored,
+            "scan_type":      scan_meta.get("scan_type", "full"),
+            "critical":       scan_meta.get("critical", 0),
+            "high":           scan_meta.get("high", 0),
+            "medium":         scan_meta.get("medium", 0),
+            "low":            scan_meta.get("low", 0),
+            "tools_analyzed": scan_meta.get("tools_analyzed", []),
+            "stig_summary":   stig_summary,
+            "suppressed_count": len(suppressions),
+            "suppressed_sample": sup_sample,
+            "critical_sample": [
+                {
+                    "tool": f.get("tool"), "id": f.get("id"),
+                    "package": f.get("package"), "version": f.get("version"),
+                    "title": f.get("title"), "cvss": f.get("cvss"),
+                }
+                for f in findings.get("critical_findings", [])[:12]
+            ],
+            "high_sample": [
+                {
+                    "tool": f.get("tool"), "id": f.get("id"),
+                    "package": f.get("package"), "version": f.get("version"),
+                    "title": f.get("title"), "cvss": f.get("cvss"),
+                }
+                for f in findings.get("high_findings", [])[:8]
+            ],
+        })
+
+    _metrics = _build_summary_metrics()
+
+    try:
+        summary = await openai_summary.generate_global_isso_summary(apps, metrics=_metrics)
+    except RuntimeError as exc:
+        raise HTTPException(400, str(exc))
+    except Exception as exc:
+        raise HTTPException(502, f"OpenAI request failed: {exc}")
+
+    return {"summary": summary, "application_count": len(apps)}
+
+
+# ── Word (docx) export ─────────────────────────────────────────────────────
+class _SummaryExportBody(BaseModel):
+    exec_summary:  Optional[str] = None
+    tech_summary:  Optional[str] = None
+    isso_summary:  Optional[str] = None
+
+
+@app.post("/api/export/summary-docx")
+def export_summary_docx(body: _SummaryExportBody, response: Response):
+    """Convert AI-generated Markdown summaries to a .docx download."""
+    _sec_headers(response)
+    try:
+        from docx import Document
+        from docx.shared import Pt, RGBColor, Inches
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+    except ImportError:
+        raise HTTPException(500, "python-docx is not installed. Run: pip install python-docx")
+
+    import io, re
+    from datetime import datetime, timezone
+
+    doc = Document()
+
+    # ── Page margins ──
+    for section in doc.sections:
+        section.top_margin    = Inches(1)
+        section.bottom_margin = Inches(1)
+        section.left_margin   = Inches(1.2)
+        section.right_margin  = Inches(1.2)
+
+    # ── Cover header ──
+    title_para = doc.add_heading("Epyon Security Analysis", level=0)
+    title_para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    run = title_para.runs[0]
+    run.font.size  = Pt(22)
+    run.font.color.rgb = RGBColor(0x1a, 0x1a, 0x1a)
+
+    meta = doc.add_paragraph()
+    meta.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    mr = meta.add_run(
+        f"Generated: {datetime.now(timezone.utc).strftime('%B %d, %Y')}  |  AI-Assisted Report  |  Confidential"
+    )
+    mr.font.size  = Pt(9)
+    mr.font.color.rgb = RGBColor(0x55, 0x55, 0x55)
+
+    doc.add_paragraph()  # spacer
+
+    def _add_markdown(md_text: str, section_label: str) -> None:
+        """Render a Markdown string into the Word document."""
+        heading_para = doc.add_heading(section_label, level=1)
+        heading_para.runs[0].font.size = Pt(14)
+
+        for line in md_text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("### "):
+                doc.add_heading(stripped[4:], level=3)
+            elif stripped.startswith("## "):
+                doc.add_heading(stripped[3:], level=2)
+            elif stripped.startswith("# "):
+                doc.add_heading(stripped[2:], level=2)
+            elif stripped.startswith("> "):
+                # Blockquote — indent paragraph
+                p = doc.add_paragraph(stripped[2:])
+                p.paragraph_format.left_indent = Inches(0.4)
+                p.runs[0].font.italic = True
+            elif re.match(r'^[-*] ', stripped):
+                _inline_paragraph(doc.add_paragraph(stripped[2:], style='List Bullet'))
+            elif stripped == "":
+                doc.add_paragraph()
+            else:
+                _inline_paragraph(doc.add_paragraph(stripped))
+
+    def _inline_paragraph(para) -> None:
+        """Apply bold/italic/code inline formatting to an existing paragraph."""
+        if not para.runs:
+            return
+        raw = para.runs[0].text
+        # python-docx Paragraph has no public clear(); remove existing runs.
+        for run in list(para.runs):
+            run_el = run._element
+            run_el.getparent().remove(run_el)
+        # Tokenise **bold**, *italic*, `code`
+        tokens = re.split(r'(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)', raw)
+        for tok in tokens:
+            if tok.startswith('**') and tok.endswith('**'):
+                r = para.add_run(tok[2:-2])
+                r.bold = True
+            elif tok.startswith('*') and tok.endswith('*'):
+                r = para.add_run(tok[1:-1])
+                r.italic = True
+            elif tok.startswith('`') and tok.endswith('`'):
+                r = para.add_run(tok[1:-1])
+                r.font.name = 'Courier New'
+                r.font.size = Pt(9)
+            else:
+                para.add_run(tok)
+
+    if body.exec_summary:
+        _add_markdown(body.exec_summary, "📋 Executive Summary")
+        doc.add_page_break()
+
+    if body.tech_summary:
+        _add_markdown(body.tech_summary, "🔧 Technical Summary")
+        if body.isso_summary:
+            doc.add_page_break()
+
+    if body.isso_summary:
+        _add_markdown(body.isso_summary, "🔒 ISSO Compliance Brief")
+
+    # Footer note
+    doc.add_paragraph()
+    footer_p = doc.add_paragraph()
+    fr = footer_p.add_run(
+        "Generated by Epyon Security Scanner  ·  AI-assisted — verify all findings before acting"
+    )
+    fr.font.size  = Pt(8)
+    fr.font.color.rgb = RGBColor(0x88, 0x88, 0x88)
+    fr.font.italic = True
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+
+    date_slug = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    filename  = f"epyon-security-report-{date_slug}.docx"
+    from fastapi.responses import Response as _Resp
+    return _Resp(
+        content=buf.read(),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ── Per-finding fix suggestion ─────────────────────────────────

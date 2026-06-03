@@ -43,6 +43,11 @@ on:
         required: false
         default: ''
         type: string
+      coverage_artifact:
+        description: 'Name of coverage artifact from a prior build job (e.g. coverage-xml). Accepted for caller compatibility; reserved for future SonarQube integration.'
+        required: false
+        default: ''
+        type: string
       fail_on_critical:
         description: 'Fail build on critical severity findings'
         required: false

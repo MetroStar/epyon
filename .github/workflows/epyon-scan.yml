@@ -732,7 +732,7 @@ jobs:
             }' > "$SCAN_DIR/scan-metrics.json"
 
       - name: Enrich Findings with NVD + CISA KEV
-        if: always()
+        if: always() && inputs.scan_mode != 'quick'
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
           SCAN_DIR: ${{ steps.run-scan.outputs.scan_dir }}

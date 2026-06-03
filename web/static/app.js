@@ -525,7 +525,8 @@ const api = {
   },
   getJob(id)    { return this._get(`/api/jobs/${encodeURIComponent(id)}`); },
   getJobs()     { return this._get('/api/jobs'); },
-  getMetrics()  { return this._get('/api/metrics'); },
+  getMetrics()       { return this._get('/api/metrics'); },
+  getGitHubMetrics()  { return this._get('/api/github-metrics'); },
   getAiConfig() { return this._get('/api/ai/config'); },
   saveAiConfig(d){ return this._post('/api/ai/config', d); },
   getExecSummary(id)      { return this._post(`/api/scans/${encodeURIComponent(id)}/executive-summary`, {}); },
@@ -3605,6 +3606,194 @@ async function renderMetrics() {
 
 // ─────────────────────────────────────────────────────────────
 
+async function renderGitHubSignals() {
+  setActive('github-signals');
+  const page = document.getElementById('page');
+  page.innerHTML = loading();
+
+  try {
+    const g = await api.getGitHubMetrics();
+
+    // ── Helpers ──────────────────────────────────────────────
+    const noData = g.error && !g.dependabot.length
+      ? `<div class="metrics-filter-notice" style="border-color:#f59e0b;color:#f59e0b">
+           ⚠ ${esc(g.error)} — Configure a GitHub token and repos in Settings to enable GitHub API metrics.
+           PR Scan Coverage is available without a token.
+         </div>` : '';
+
+    // ── Dependabot summary ───────────────────────────────────
+    const totalDepOpen = g.dependabot.reduce((s, r) => s + (r.open || 0), 0);
+    const totalDepFixed = g.dependabot.reduce((s, r) => s + (r.fixed || 0), 0);
+    const depRows = g.dependabot.filter(r => !r.error).map(r => {
+      const sev = r.by_severity || {};
+      const topPkg = (r.top_packages || []).map(p => `${esc(p.package)} (${p.count})`).join(', ') || '—';
+      return `<tr>
+        <td><strong>${esc(r.repo.split('/')[1] || r.repo)}</strong><div style="font-size:11px;color:var(--text-muted)">${esc(r.repo)}</div></td>
+        <td style="text-align:center"><span style="color:${(r.open||0)>0?'var(--critical)':'var(--clean)'};font-weight:700">${r.open || 0}</span></td>
+        <td style="text-align:center;font-size:12px">
+          <span style="color:#ff7b72">${sev.critical||0} C</span> ·
+          <span style="color:#ffa657">${sev.high||0} H</span> ·
+          <span style="color:#e3b341">${sev.medium||0} M</span> ·
+          <span style="color:#79c0ff">${sev.low||0} L</span>
+        </td>
+        <td style="text-align:center;color:var(--clean)">${r.fixed || 0}</td>
+        <td style="font-size:11px;color:var(--text-muted);max-width:220px">${topPkg}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">No Dependabot data — check token permissions (security_events scope)</td></tr>';
+
+    // ── Security issues summary ──────────────────────────────
+    const totalOpenSec = g.security_issues.reduce((s, r) => s + (r.open_security || 0), 0);
+    const issueRows = g.security_issues.filter(r => !r.error).map(r => {
+      const avgClose = r.avg_close_days != null ? `${r.avg_close_days}d` : '—';
+      return `<tr>
+        <td><strong>${esc(r.repo.split('/')[1] || r.repo)}</strong><div style="font-size:11px;color:var(--text-muted)">${esc(r.repo)}</div></td>
+        <td style="text-align:center"><span style="color:${(r.open_security||0)>0?'var(--high)':'var(--clean)'};font-weight:700">${r.open_security || 0}</span></td>
+        <td style="text-align:center">${r.closed_security || 0}</td>
+        <td style="text-align:center;color:var(--text-muted)">${avgClose}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--text-muted)">No security issue data</td></tr>';
+
+    // ── Workflow success rate ────────────────────────────────
+    const runRows = g.workflow_runs.filter(r => !r.error).map(r => {
+      const rate = r.success_rate != null ? `${r.success_rate}%` : '—';
+      const rateColor = r.success_rate == null ? 'var(--text-muted)' : r.success_rate >= 90 ? 'var(--clean)' : r.success_rate >= 70 ? '#e3b341' : 'var(--critical)';
+      return `<tr>
+        <td><strong>${esc(r.repo.split('/')[1] || r.repo)}</strong><div style="font-size:11px;color:var(--text-muted)">${esc(r.repo)}</div></td>
+        <td style="text-align:center;font-weight:700;color:${rateColor}">${rate}</td>
+        <td style="text-align:center">${r.total_runs || 0}</td>
+        <td style="text-align:center;color:var(--clean)">${r.success || 0}</td>
+        <td style="text-align:center;color:var(--critical)">${r.failed || 0}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">No workflow run data</td></tr>';
+
+    // ── PR scan coverage ────────────────────────────────────
+    const covEntries = Object.entries(g.pr_scan_coverage || {}).sort((a, b) => b[1].pr_coverage_pct - a[1].pr_coverage_pct);
+    const totalPRScans = covEntries.reduce((s, [, v]) => s + v.pr_scans, 0);
+    const totalCIScans = covEntries.reduce((s, [, v]) => s + v.total_ci_scans, 0);
+    const overallCovPct = totalCIScans > 0 ? Math.round((totalPRScans / totalCIScans) * 100) : 0;
+    const covRows = covEntries.map(([name, v]) => {
+      const pct = v.pr_coverage_pct;
+      const barColor = pct >= 70 ? 'var(--clean)' : pct >= 40 ? '#e3b341' : 'var(--critical)';
+      return `<tr onclick="navigate('#/applications/${encodeURIComponent(name)}')" style="cursor:pointer">
+        <td><strong>${esc(name)}</strong></td>
+        <td style="text-align:center">${v.pr_scans}</td>
+        <td style="text-align:center">${v.push_scans}</td>
+        <td style="text-align:center">${v.other_scans}</td>
+        <td style="text-align:center">${v.total_ci_scans}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="flex:1;background:#30363d;border-radius:4px;height:8px;overflow:hidden">
+              <div style="width:${Math.min(pct,100)}%;background:${barColor};height:100%;border-radius:4px;transition:width .3s"></div>
+            </div>
+            <span style="font-size:12px;font-weight:700;color:${barColor};min-width:40px;text-align:right">${pct}%</span>
+          </div>
+        </td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">No CI scan data available yet</td></tr>';
+
+    page.innerHTML = `
+      <div class="page-header">
+        <h1>GitHub Signals</h1>
+        <button class="btn btn-sm" onclick="renderGitHubSignals()">&#8635; Refresh</button>
+      </div>
+      ${noData}
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" style="color:${totalDepOpen > 0 ? 'var(--critical)' : 'var(--clean)'}">${esc(String(totalDepOpen))}</div>
+          <div class="stat-label">Open Dependabot Alerts</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color:var(--clean)">${esc(String(totalDepFixed))}</div>
+          <div class="stat-label">Fixed by Dependabot</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color:${totalOpenSec > 0 ? 'var(--high)' : 'var(--clean)'}">${esc(String(totalOpenSec))}</div>
+          <div class="stat-label">Open Security Issues</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" style="color:${overallCovPct >= 70 ? 'var(--clean)' : 'var(--high)'}">${esc(String(overallCovPct))}%</div>
+          <div class="stat-label">PR Scan Coverage</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Dependabot Alerts</div>
+        <div class="table-container">
+          <table>
+            <thead><tr>
+              <th>Repository</th>
+              <th style="text-align:center">Open</th>
+              <th style="text-align:center">By Severity</th>
+              <th style="text-align:center">Fixed</th>
+              <th>Top Affected Packages</th>
+            </tr></thead>
+            <tbody>${depRows}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Security Issues</div>
+        <div class="table-container">
+          <table>
+            <thead><tr>
+              <th>Repository</th>
+              <th style="text-align:center">Open</th>
+              <th style="text-align:center">Closed</th>
+              <th style="text-align:center">Avg Days to Close</th>
+            </tr></thead>
+            <tbody>${issueRows}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">
+          Workflow Success Rate
+          <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">last 30 days · security workflows</span>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead><tr>
+              <th>Repository</th>
+              <th style="text-align:center">Success Rate</th>
+              <th style="text-align:center">Total Runs</th>
+              <th style="text-align:center">✓ Success</th>
+              <th style="text-align:center">✗ Failed</th>
+            </tr></thead>
+            <tbody>${runRows}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">
+          PR Scan Coverage
+          <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">% of CI scans triggered by pull requests</span>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead><tr>
+              <th>Application</th>
+              <th style="text-align:center">PR Scans</th>
+              <th style="text-align:center">Push Scans</th>
+              <th style="text-align:center">Other</th>
+              <th style="text-align:center">Total CI</th>
+              <th>Coverage</th>
+            </tr></thead>
+            <tbody>${covRows}</tbody>
+          </table>
+        </div>
+      </div>`;
+
+  } catch (e) {
+    page.innerHTML = errBanner(e.message);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+
 async function renderSettings() {
   setActive('settings');
   const page = document.getElementById('page');
@@ -5008,6 +5197,8 @@ function resolve() {
     renderNewScan(params.get('target') || '');
   } else if (path === '/metrics') {
     renderMetrics();
+  } else if (path === '/github-signals') {
+    renderGitHubSignals();
   } else if (path === '/stig') {
     if (params.get('view') === 'history') {
       renderStigHistory(params.get('app') || null, params.get('slug') || null);

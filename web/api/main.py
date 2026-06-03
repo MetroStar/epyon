@@ -25,6 +25,7 @@ from pydantic import BaseModel
 from . import jobs as job_store
 from . import parsers
 from . import github_sync
+from . import github_metrics
 from . import openai_summary
 
 # ── Paths ─────────────────────────────────────────────────────
@@ -57,6 +58,11 @@ _KEY_RE          = re.compile(r"^sk-[A-Za-z0-9_\-]{20,}$")
 _metrics_cache:    dict  = {}
 _metrics_cache_ts: float = 0.0
 _METRICS_TTL:      float = 300.0
+
+# ── GitHub metrics cache ─────────────────────────────────────
+_gh_metrics_cache:    dict  = {}
+_gh_metrics_cache_ts: float = 0.0
+_GH_METRICS_TTL:      float = 600.0  # 10 min — GH API is rate-limited
 
 # ── Scan data cache ───────────────────────────────────────────
 # Short TTL caches for filesystem-heavy operations.
@@ -1046,6 +1052,30 @@ def approved_images(response: Response):
     except OSError:
         content = ""
     return {"content": content}
+
+
+# ── GitHub Metrics ────────────────────────────────────────────
+
+@app.get("/api/github-metrics")
+async def get_github_metrics(response: Response):
+    _sec_headers(response)
+    global _gh_metrics_cache, _gh_metrics_cache_ts
+    now = time.monotonic()
+    if _gh_metrics_cache and (now - _gh_metrics_cache_ts) < _GH_METRICS_TTL:
+        return _gh_metrics_cache
+
+    cfg   = _read_github_config()
+    token = cfg.get("token", "")
+    repos = cfg.get("repos") or []
+
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
+    all_scans = [parsers.load_scan(d, EPYON_ROOT) for d in scan_dirs]
+
+    result = await github_metrics.fetch_all(token, repos, all_scans)
+
+    _gh_metrics_cache    = result
+    _gh_metrics_cache_ts = now
+    return result
 
 
 # ── GitHub config ─────────────────────────────────────────────

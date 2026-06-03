@@ -1413,7 +1413,15 @@ def ai_config_get(response: Response):
     return {
         "key_set":  bool(key),
         "key_hint": masked,
-        "model":    cfg.get("model") or "gpt-4.1",
+        # `model` reflects only the UI-managed value so the Settings dropdown
+        # stays in sync with what was actually saved. Returning the resolved
+        # effective model here would surface a non-allowlisted env value (e.g.
+        # gemma4:26b) that the dropdown can't represent; the browser would then
+        # fall back to its first <option> and a subsequent Save would persist
+        # that, clobbering the env-configured model. `active_model` exposes the
+        # resolved model (UI > OPENAI_MODEL > default) for display only.
+        "model":        cfg.get("model") or "gpt-4.1",
+        "active_model": openai_summary.get_model(),
     }
 
 

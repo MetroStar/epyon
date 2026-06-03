@@ -16,10 +16,12 @@ AI_CONFIG_FILE = _HERE / ".." / "ai-config.json"
 def _strip_code_fence(text: str) -> str:
     """Remove an outer fenced code block that some models wrap their Markdown output in."""
     import re
-    # Strip leading ```[lang] ... ``` wrapper
-    stripped = re.sub(r'^```[a-z]*\n', '', text.strip(), count=1)
-    if stripped != text.strip():
-        stripped = re.sub(r'\n```\s*$', '', stripped)
+
+    t = text.strip()
+    # Strip leading ```[lang] ... ``` wrapper (case-insensitive, supports \r\n and lang like 'markdown')
+    stripped = re.sub(r"^```[\w-]*\r?\n", "", t, count=1, flags=re.IGNORECASE)
+    if stripped != t:
+        stripped = re.sub(r"\r?\n```\s*$", "", stripped)
     return stripped.strip()
 
 

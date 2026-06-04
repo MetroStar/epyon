@@ -1698,6 +1698,56 @@ blockquote {
   margin-top: 10px;
 }
 
+.fix-rate-stats {
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fix-rate-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: default;
+}
+
+.fix-rate-stat-label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.fix-rate-stat-value {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.fix-rate-stat-link {
+  cursor: pointer;
+}
+
+.fix-rate-stat-link:hover .fix-rate-stat-label {
+  color: var(--text);
+}
+
+.fix-rate-stat-link:hover .fix-rate-stat-value {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.stat-link-arrow {
+  font-size: 11px;
+  opacity: 0.55;
+  margin-left: 3px;
+  transition: opacity 0.15s;
+}
+
+.fix-rate-stat-link:hover .stat-link-arrow {
+  opacity: 1;
+}
+
 .legend-item {
   display: flex;
   align-items: center;

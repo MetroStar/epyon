@@ -511,6 +511,19 @@ def parse_modelcard_dir(scan_dir: Path) -> dict | None:
     }
 
 
+def count_suppressed_instances(scan_dir: Path) -> int:
+    """Count raw suppression instances in suppressed-findings.md (one per rule firing, not deduplicated)."""
+    md_file = scan_dir / "suppressed-findings.md"
+    if not md_file.exists():
+        return 0
+    count = 0
+    with md_file.open(encoding="utf-8", errors="replace") as fh:
+        for line in fh:
+            if line.startswith("## Suppressed:"):
+                count += 1
+    return count
+
+
 def parse_suppressed_findings(scan_dir: Path) -> list[dict]:
     """Parse suppressed-findings.md into a list of structured suppression records."""
     md_file = scan_dir / "suppressed-findings.md"

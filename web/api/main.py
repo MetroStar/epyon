@@ -1023,11 +1023,13 @@ def get_metrics(response: Response):
     tool_app_counts:  dict[str, dict[str, int]] = {}
     total_with_fix    = 0
     total_without_fix = 0
+    total_suppressed_instances = 0
     cve_counts:       dict[str, dict] = {}
 
     for _target, scan_list in by_target.items():
         scan_list.sort(key=lambda x: x[0].get("timestamp", ""), reverse=True)
         _, latest_dir = scan_list[0]
+        total_suppressed_instances += parsers.count_suppressed_instances(latest_dir)
         findings = parsers.parse_scan_findings(latest_dir)
         if not findings:
             continue
@@ -1206,6 +1208,9 @@ def get_metrics(response: Response):
         fp_first_seen: dict[str, tuple[str, str]] = {}  # fp -> (timestamp, sev)
         fp_resolved_at: dict[str, str] = {}             # fp -> resolved_scan_ts
         fp_ever_resolved: set[str]     = set()
+        # Pending-resolution: fp disappeared last scan but we require one more
+        # consecutive absence before counting it as a genuine fix (filters scanner noise).
+        fp_pending_resolution: dict[str, str] = {}      # fp -> scan_ts when it first disappeared
         prev_fps: set[str]             = set()
         prev_ts_str: str               = ""
 
@@ -1218,6 +1223,7 @@ def get_metrics(response: Response):
             except Exception:
                 prev_fps = set()
                 prev_ts_str = ts
+                fp_pending_resolution.clear()
                 continue
             curr_fps: set[str] = set()
             curr_fp_sev: dict[str, str] = {}
@@ -1233,34 +1239,55 @@ def get_metrics(response: Response):
                         if fp in fp_ever_resolved:
                             recurrence_count += 1
                             fp_ever_resolved.discard(fp)
+                        # Reappeared before confirmation — cancel the pending resolution
+                        fp_pending_resolution.pop(fp, None)
 
-            # Fingerprints present in prev but not in current = resolved this scan
+            # ── Two-scan confirmation: a finding must be absent from 2 consecutive
+            # scans before it counts as resolved. Single-scan absences (scanner noise,
+            # transient fetch failures, DB updates) are ignored. ──────────────────
             if prev_fps:
-                for fp in (prev_fps - curr_fps):
-                    if fp in fp_first_seen:
-                        first_ts, sev = fp_first_seen[fp]
-                        fp_ever_resolved.add(fp)
-                        fp_resolved_at[fp] = ts
-                        total_resolved += 1
-                        # First-time fix: resolved in the very next scan after first seen
-                        if prev_ts_str == first_ts:
-                            first_time_fixed += 1
-                        # SLA compliance
-                        try:
-                            first_dt = datetime.fromisoformat(first_ts.replace("Z", "+00:00"))
-                            res_dt   = datetime.fromisoformat(ts.replace("Z", "+00:00"))
-                            if first_dt.tzinfo is None:
-                                first_dt = first_dt.replace(tzinfo=timezone.utc)
-                            if res_dt.tzinfo is None:
-                                res_dt = res_dt.replace(tzinfo=timezone.utc)
-                            days = (res_dt - first_dt).total_seconds() / 86400
-                            threshold = SLA_DAYS.get(sev, 180)
-                            if days <= threshold:
-                                sla_within[sev]   += 1
-                            else:
-                                sla_breached[sev] += 1
-                        except ValueError:
-                            pass
+                disappeared_now = prev_fps - curr_fps
+
+                # Confirm resolutions that were pending from the previous scan
+                # (absent LAST scan AND still absent NOW → confirmed resolved)
+                sla_seen_this_transition: set[str] = set()
+                for fp, absent_since_ts in list(fp_pending_resolution.items()):
+                    if fp not in curr_fps:  # still absent — confirmed
+                        del fp_pending_resolution[fp]
+                        if fp in fp_first_seen:
+                            first_ts, sev = fp_first_seen[fp]
+                            fp_ever_resolved.add(fp)
+                            fp_resolved_at[fp] = absent_since_ts
+                            total_resolved += 1
+                            if prev_ts_str == first_ts:
+                                first_time_fixed += 1
+                            # SLA — deduplicate by CVE-ID::package (strip tool prefix)
+                            fp_parts = fp.split('::', 2)
+                            sla_key = f"{fp_parts[1]}::{fp_parts[2]}" if len(fp_parts) == 3 and fp_parts[1] else fp
+                            if sla_key not in sla_seen_this_transition:
+                                sla_seen_this_transition.add(sla_key)
+                                try:
+                                    first_dt = datetime.fromisoformat(first_ts.replace("Z", "+00:00"))
+                                    res_dt   = datetime.fromisoformat(absent_since_ts.replace("Z", "+00:00"))
+                                    if first_dt.tzinfo is None:
+                                        first_dt = first_dt.replace(tzinfo=timezone.utc)
+                                    if res_dt.tzinfo is None:
+                                        res_dt = res_dt.replace(tzinfo=timezone.utc)
+                                    days = (res_dt - first_dt).total_seconds() / 86400
+                                    threshold = SLA_DAYS.get(sev, 180)
+                                    if days <= threshold:
+                                        sla_within[sev]   += 1
+                                    else:
+                                        sla_breached[sev] += 1
+                                except ValueError:
+                                    pass
+                    # else: reappeared → already removed from pending_resolution above
+
+                # Stage newly disappeared fingerprints as pending (not yet confirmed)
+                for fp in disappeared_now:
+                    if fp not in fp_ever_resolved and fp in fp_first_seen:
+                        fp_pending_resolution[fp] = ts
+
             prev_fps    = curr_fps
             prev_ts_str = ts
 
@@ -1521,6 +1548,11 @@ def get_metrics(response: Response):
             "by_target":   suppressed_by_target,
             "rate_pct":    suppression_rate_pct,
         },
+        "accepted_risk_pct": (
+            round(total_suppressed_instances /
+                  (total_with_fix + total_without_fix + total_suppressed_instances) * 100, 1)
+            if (total_with_fix + total_without_fix + total_suppressed_instances) > 0 else None
+        ),
         "recurrence_rate_pct":    recurrence_rate_pct,
         "first_time_fix_pct":     first_time_fix_pct,
         "total_resolved":         total_resolved,
@@ -2074,12 +2106,24 @@ def _build_summary_metrics() -> dict:
 
     sla = m.get("sla_compliance") or {}
 
+    # Remap by_severity: rename 'breached' -> 'exceeded_sla' for cleaner AI output
+    raw_by_sev = sla.get("by_severity", {})
+    by_sev_for_ai = {}
+    for sev, d in raw_by_sev.items():
+        by_sev_for_ai[sev] = {
+            "sla_days":     d.get("sla_days"),
+            "within_sla":   d.get("within", 0),
+            "exceeded_sla": d.get("breached", 0),
+            "compliance_pct": d.get("pct"),
+        }
+
     return {
         "sla_compliance": {
+            "note":           "SLA counts are per resolved finding instance (unique tool + CVE ID + package combination). The same CVE affecting multiple packages counts once per package. 'exceeded_sla' = instances fixed AFTER the severity deadline (Critical ≤7d, High ≤30d, Medium ≤90d, Low ≤180d). Source: Epyon scan history.",
             "overall_pct":    sla.get("overall_pct"),
-            "total_within":   sla.get("total_within", 0),
-            "total_breached": sla.get("total_breached", 0),
-            "by_severity":    sla.get("by_severity", {}),
+            "total_within_sla":   sla.get("total_within", 0),
+            "total_exceeded_sla": sla.get("total_breached", 0),
+            "by_severity":    by_sev_for_ai,
         },
         "recurrence_rate_pct":  m.get("recurrence_rate_pct"),
         "first_time_fix_pct":   m.get("first_time_fix_pct"),

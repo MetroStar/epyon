@@ -1376,6 +1376,8 @@ function buildEnrichmentCard(findings) {
 function buildNetworkDiscoveryCard(scan) {
   const nd = scan.network_discovery;
   if (!nd) return '';
+  const scanId = scan.scan_id || scan.id || '';
+  _ppsmRegistry.set(scanId, nd);
   const ports    = (nd.unique_ports || []).join(', ') || '—';
   const protos   = (nd.protocols   || []).join(', ') || '—';
   const services = (nd.services    || []).join(', ') || '—';
@@ -1431,7 +1433,9 @@ function buildNetworkDiscoveryCard(scan) {
             ${portsBadge}
             ${activeBadge}
           </span>
-          <span class="findings-summary-hint">Click to expand</span>
+          <span class="findings-summary-right" onclick="event.stopPropagation()">
+            <button class="btn btn-sm" onclick="downloadPpsmCsv('${esc(scanId)}')" title="Download PPSM as CSV">↓ PPSM</button>
+          </span>
         </summary>
         <div class="findings-body" style="padding:0 18px 16px">
           <div class="detail-grid" style="margin-bottom:12px;margin-top:12px">
@@ -1862,26 +1866,6 @@ async function exportSummaryDocx(which) {
   };
   if (!body.exec_summary && !body.tech_summary && !body.isso_summary) return;
   try {
-    const resp = await fetch('/api/export/summary-docx', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (!resp.ok) throw new Error(`Server error ${resp.status}`);
-    const blob = await resp.blob();
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = resp.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1]
-                 || 'epyon-security-report.docx';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  } catch (e) {
-    alert('Word export failed: ' + e.message);
-  }
-}
     const resp = await fetch('/api/export/summary-docx', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2504,7 +2488,9 @@ function buildAPISection(apiData) {
             ${methodChips}
             ${frameworkChips}
           </span>
-          <span class="findings-summary-hint">Click to expand</span>
+          <span class="findings-summary-right" onclick="event.stopPropagation()">
+            <button class="btn btn-sm" onclick="downloadApiCsv('${uid}')" title="Download API endpoints as CSV">↓ API List</button>
+          </span>
         </summary>
         <div class="findings-body" style="padding:0 18px 16px">
           <div style="margin-top:12px;display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
@@ -2586,6 +2572,22 @@ window.apiClearFilter = function(uid) {
     if (el) el.textContent = '';
   });
   apiRender(uid);
+};
+
+window.downloadApiCsv = function(uid) {
+  const s = window._apiData && window._apiData[uid];
+  if (!s || !s.endpoints) return;
+  const headers = ['Method','Path','Function','Name','Framework','Auth','Tags','File'];
+  const rows = [headers, ...s.endpoints.map(ep => [
+    ep.method, ep.path, ep.function, ep.name, ep.framework, ep.auth, ep.tags, ep.file,
+  ])];
+  const csv = rows.map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), { href: url, download: `api-endpoints-${uid}.csv` });
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
 };
 
 window.apiRender = function(uid) {
@@ -3317,6 +3319,42 @@ function toggleSection(id) {
 // Sort state for PPSM port tables: { [tableId]: { col: int, dir: 'asc'|'desc' } }
 const _ppsmSortState = {};
 
+// PPSM download registry: scanId -> network_discovery object
+const _ppsmRegistry = new Map();
+
+window.downloadPpsmCsv = function(scanId) {
+  const nd = _ppsmRegistry.get(scanId);
+  if (!nd) return;
+  const sources = [
+    { label: 'Docker Compose', items: nd.compose_ports   || [] },
+    { label: 'Dockerfile',     items: nd.dockerfile_ports || [] },
+    { label: 'Kubernetes/Helm',items: nd.k8s_ports       || [] },
+    { label: 'App Config/.env',items: nd.config_ports    || [] },
+  ];
+  const rows = [['Source','File','Service','Port/Mapping','Protocol']];
+  for (const src of sources) {
+    for (const p of src.items) {
+      rows.push([
+        src.label,
+        p.file    || '',
+        p.service || '',
+        p.mapping || String(p.port || ''),
+        (nd.protocols || []).join(';'),
+      ]);
+    }
+  }
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {
+    href: url,
+    download: `ppsm-${scanId}.csv`,
+  });
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+};
+
 window.sortPpsmTable = function(tableId, col) {
   const tbl = document.getElementById(tableId);
   if (!tbl) return;
@@ -3409,44 +3447,75 @@ window.sortEnrichmentTable = function(col) {
 
 // ── New metrics section builders ─────────────────────────────
 
-function buildSlaSection(m) {
-  const sla = m.sla_compliance || {};
+// ── SLA detail registry ─────────────────────────────────────
+let _slaDetailData = null;
+
+function openSlaDetail() {
+  if (!_slaDetailData) return;
+  closeFindingDetail();
+
+  const sla   = _slaDetailData.sla_compliance || {};
   const bySev = sla.by_severity || {};
   const ovPct = sla.overall_pct != null ? `${sla.overall_pct}%` : 'N/A';
+  const ovColor = sla.overall_pct == null ? 'var(--text-muted)'
+    : sla.overall_pct >= 80 ? 'var(--clean)' : sla.overall_pct >= 50 ? 'var(--medium)' : 'var(--critical)';
+
   const rows = ['critical','high','medium','low'].map(sev => {
     const d = bySev[sev] || {};
     const pct = d.pct != null ? `${d.pct}%` : '—';
-    const bar = d.pct != null
-      ? `<div class="sla-bar-track"><div class="sla-bar-fill ${sev}" style="width:${Math.min(d.pct,100)}%"></div></div>`
-      : '<div class="sla-bar-track"></div>';
+    const fill = d.pct != null ? `<div class="sla-bar-track"><div class="sla-bar-fill ${sev}" style="width:${Math.min(d.pct,100)}%"></div></div>` : '<div class="sla-bar-track"></div>';
+    const pctColor = d.pct == null ? 'var(--text-muted)' : d.pct >= 80 ? 'var(--clean)' : d.pct >= 50 ? 'var(--medium)' : 'var(--critical)';
     return `<tr>
       <td><span class="sev-badge ${sev}">${ucFirst(sev)}</span></td>
       <td class="sla-sla-days">≤ ${d.sla_days ?? '—'}d</td>
-      <td>${bar}</td>
-      <td class="sla-pct" style="color:${d.pct==null?'var(--text-muted)':d.pct>=80?'var(--clean)':d.pct>=50?'var(--medium)':'var(--critical)'}">${pct}</td>
+      <td>${fill}</td>
+      <td style="color:${pctColor};font-weight:600">${pct}</td>
       <td style="color:var(--text-muted);font-size:12px">${d.within ?? 0} / ${(d.within??0)+(d.breached??0)}</td>
     </tr>`;
   }).join('');
-  return `
-  <div class="section collapsible-section collapsed" id="section-sla">
-    <div class="section-title section-toggle" onclick="toggleSection('section-sla')">
-      SLA Compliance Rate
-      <span class="section-title-right">
-        <span class="sla-overall-badge" style="color:${sla.overall_pct==null?'var(--text-muted)':sla.overall_pct>=80?'var(--clean)':sla.overall_pct>=50?'var(--medium)':'var(--critical)'}">${ovPct}</span>
-        <span class="section-chevron">▾</span>
-      </span>
-    </div>
-    <div class="section-body">
-      <p class="metrics-note">% of resolved findings fixed within severity-tiered SLA thresholds (Critical ≤7d, High ≤30d, Medium ≤90d, Low ≤180d)</p>
-      <div class="table-container">
-        <table><thead><tr><th>Severity</th><th>SLA</th><th style="min-width:160px">Compliance</th><th>Rate</th><th>Met / Total</th></tr></thead>
-        <tbody>${rows}</tbody></table>
+
+  const overlay = document.createElement('div');
+  overlay.className = 'finding-drawer-overlay';
+  overlay.id = 'finding-drawer-overlay';
+  overlay.addEventListener('click', closeFindingDetail);
+
+  const drawer = document.createElement('div');
+  drawer.className = 'finding-drawer';
+  drawer.id = 'finding-drawer';
+  drawer.setAttribute('role', 'dialog');
+  drawer.setAttribute('aria-modal', 'true');
+  drawer.setAttribute('aria-label', 'SLA Compliance Rate');
+  drawer.addEventListener('click', e => e.stopPropagation());
+
+  drawer.innerHTML = `
+    <div class="finding-drawer-header">
+      <div class="finding-drawer-title">
+        <h2>SLA Compliance Rate</h2>
+        <div class="finding-drawer-badges">
+          <span class="tool-tag">Overall</span>
+          <span style="font-size:14px;color:${ovColor};font-weight:600">${ovPct}</span>
+        </div>
       </div>
-      <div style="margin-top:12px;color:var(--text-muted);font-size:12px">
+      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+    </div>
+    <div class="finding-drawer-body">
+      <p style="font-size:13px;color:var(--text-muted);margin:0 0 16px">% of resolved findings fixed within severity-tiered SLA thresholds.</p>
+      <div class="table-container">
+        <table>
+          <thead><tr><th>Severity</th><th>SLA</th><th style="min-width:140px">Compliance</th><th>Rate</th><th>Met / Total</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div style="margin-top:14px;font-size:12px;color:var(--text-muted)">
         ${sla.total_within ?? 0} within SLA · ${sla.total_breached ?? 0} exceeded SLA
       </div>
-    </div>
-  </div>`;
+    </div>`;
+
+  document.body.appendChild(overlay);
+  document.body.appendChild(drawer);
+
+  const _onKey = e => { if (e.key === 'Escape') { closeFindingDetail(); document.removeEventListener('keydown', _onKey); } };
+  document.addEventListener('keydown', _onKey);
 }
 
 // ── Risk trend registry ───────────────────────────────────────
@@ -3787,6 +3856,37 @@ async function renderMetrics() {
       </div>`;
     }).join('');
 
+    function buildFixRateStats(m) {
+      const sla      = m.sla_compliance || {};
+      const ftfPct   = m.first_time_fix_pct;
+      const slaPct   = sla.overall_pct;
+
+      const fmt = (v, suffix = '%') => v != null ? `${v}${suffix}` : 'N/A';
+
+      const slaColor = slaPct == null ? 'var(--text-muted)'
+        : slaPct >= 80 ? 'var(--clean)' : slaPct >= 50 ? 'var(--medium)' : 'var(--critical)';
+      const arPct    = m.accepted_risk_pct ?? null;
+      const supColor = arPct == null ? 'var(--text-muted)'
+        : arPct <= 10 ? 'var(--clean)' : arPct <= 25 ? 'var(--medium)' : 'var(--high)';
+      const ftfColor = ftfPct == null ? 'var(--text-muted)'
+        : ftfPct >= 50 ? 'var(--clean)' : ftfPct >= 25 ? 'var(--medium)' : 'var(--critical)';
+
+      return `<div class="fix-rate-stats">
+        <div class="fix-rate-stat-row fix-rate-stat-link" title="Click to view SLA breakdown by severity" onclick="openSlaDetail()">
+          <span class="fix-rate-stat-label">SLA Compliance <span class="stat-link-arrow">›</span></span>
+          <span class="fix-rate-stat-value" style="color:${slaColor}">${fmt(slaPct)}</span>
+        </div>
+        <div class="fix-rate-stat-row" title="First-time fix rate: % of resolved findings that were not seen again in a later scan">
+          <span class="fix-rate-stat-label">First-Time Fix</span>
+          <span class="fix-rate-stat-value" style="color:${ftfColor}">${fmt(ftfPct)}</span>
+        </div>
+        <div class="fix-rate-stat-row" title="Accepted risk rate: suppressed finding instances in latest scans as a % of open + suppressed findings">
+          <span class="fix-rate-stat-label">Accepted Risk</span>
+          <span class="fix-rate-stat-value" style="color:${supColor}">${fmt(arPct)}</span>
+        </div>
+      </div>`;
+    }
+
     function buildMttrPanelHtml(data, fastestHtml) {
       const mttrVal = data.mttr_days != null ? `${data.mttr_days}` : null;
       const mttrDisplay = mttrVal != null
@@ -3907,6 +4007,7 @@ async function renderMetrics() {
               No fix (${esc(String(m.fix_rate.without_fix))})
             </span>
           </div>
+          ${buildFixRateStats(m)}
         </div>
         <div class="chart-panel mttr-panel">
           <div class="mttr-panel-header">
@@ -4018,7 +4119,7 @@ async function renderMetrics() {
         </div>
       </div>
 
-      ${buildSlaSection(m)}
+      ${(_slaDetailData = m, '')}
       ${buildRiskTrendSection(m)}
       ${buildSecretTrendSection(m)}
       ${buildSuppressionSection(m)}

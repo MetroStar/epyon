@@ -276,7 +276,38 @@ generate_sbom() {
         local artifact_count=$(jq -r '.artifacts | length' "$output_file" 2>/dev/null || echo "0")
         echo -e "${BLUE}📊 SBOM Summary: $artifact_count artifacts cataloged${NC}"
         echo "SBOM Summary: $artifact_count artifacts cataloged" >> "$SCAN_LOG"
-        
+
+        # ── Strip unpinned (0.0.0) packages ───────────────────────────────────
+        # Syft assigns version "0.0.0" to packages listed in bare requirements
+        # files without a version pin (e.g. "fastapi" instead of "fastapi==0.115.0").
+        # These produce false-positive vulnerability matches because Grype/Anchore
+        # will match every CVE for every version of the package.  Remove them from
+        # both the syft-json and the CycloneDX outputs and log a warning.
+        local zero_count=$(jq -r '[.artifacts[] | select(.version=="0.0.0")] | length' "$output_file" 2>/dev/null || echo "0")
+        if [[ "$zero_count" -gt 0 ]]; then
+            echo -e "${YELLOW}⚠️  Found $zero_count package(s) with unresolved version (0.0.0) — removing from SBOM to prevent false positives${NC}"
+            echo "WARNING: $zero_count unpinned packages (version=0.0.0) stripped from SBOM — pin versions in requirements files to improve accuracy" >> "$SCAN_LOG"
+
+            # Log which packages were affected
+            jq -r '.artifacts[] | select(.version=="0.0.0") | "  - \(.name) (\(.type)) from \(.locations[0].path // "unknown")"' \
+                "$output_file" 2>/dev/null >> "$SCAN_LOG"
+
+            # Remove 0.0.0 artifacts from syft-json in-place
+            local tmp_file="${output_file}.tmp"
+            jq 'del(.artifacts[] | select(.version=="0.0.0"))' "$output_file" > "$tmp_file" 2>/dev/null && mv "$tmp_file" "$output_file"
+
+            # Remove 0.0.0 components from CycloneDX in-place
+            if [[ -f "$cyclonedx_file" ]]; then
+                local tmp_cdx="${cyclonedx_file}.tmp"
+                jq 'del(.components[] | select(.version=="0.0.0"))' "$cyclonedx_file" > "$tmp_cdx" 2>/dev/null && mv "$tmp_cdx" "$cyclonedx_file"
+            fi
+
+            local new_count=$(jq -r '.artifacts | length' "$output_file" 2>/dev/null || echo "0")
+            echo -e "${GREEN}✅ SBOM cleaned: $new_count artifacts remaining (removed $zero_count unpinned)${NC}"
+            echo "SBOM cleaned: $new_count artifacts remaining after removing $zero_count unpinned packages" >> "$SCAN_LOG"
+        fi
+        # ── End strip unpinned ────────────────────────────────────────────────
+
         # Show top package types
         echo -e "${CYAN}📦 Package Types:${NC}"
         jq -r '.artifacts[].type' "$output_file" 2>/dev/null | sort | uniq -c | sort -nr | head -5 | while read count type; do

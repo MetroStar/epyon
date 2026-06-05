@@ -283,6 +283,18 @@ run_grype_scan() {
 
     if $scan_ok; then
         local count=$(jq '.matches | length' "$output_file" 2>/dev/null || echo "0")
+
+        # Strip false-positive matches for unpinned packages (version=0.0.0)
+        local zero_count
+        zero_count=$(jq -r '[.matches[] | select(.artifact.version=="0.0.0")] | length' "$output_file" 2>/dev/null || echo "0")
+        if [[ "$zero_count" -gt 0 ]]; then
+            echo -e "${YELLOW}   ⚠️  Removing $zero_count false-positive match(es) for unpinned packages (version=0.0.0)${NC}"
+            echo "Removed $zero_count unpinned-package (0.0.0) false positives from ${scan_type} results" >> "$SCAN_LOG"
+            local tmp_out="${output_file}.tmp"
+            jq 'del(.matches[] | select(.artifact.version=="0.0.0"))' "$output_file" > "$tmp_out" 2>/dev/null && mv "$tmp_out" "$output_file"
+            count=$(jq '.matches | length' "$output_file" 2>/dev/null || echo "0")
+        fi
+
         echo -e "${GREEN}   ✅ ${scan_type} scan completed: $count vulnerabilities found${NC}"
         echo "${scan_type} scan: $count vulnerabilities" >> "$SCAN_LOG"
         ln -sf "$(basename "$output_file")" "$current_file" 2>/dev/null
@@ -333,6 +345,18 @@ if [[ "$SCAN_TYPE" == "sbom" ]] || [[ "$SCAN_TYPE" == "all" ]]; then
 
         if $sbom_ok; then
             sbom_count=$(jq '.matches | length' "$output_file" 2>/dev/null || echo "0")
+
+            # Strip false-positive matches for unpinned packages (version=0.0.0)
+            local sbom_zero
+            sbom_zero=$(jq -r '[.matches[] | select(.artifact.version=="0.0.0")] | length' "$output_file" 2>/dev/null || echo "0")
+            if [[ "$sbom_zero" -gt 0 ]]; then
+                echo -e "${YELLOW}   ⚠️  Removing $sbom_zero false-positive match(es) for unpinned packages (version=0.0.0)${NC}"
+                echo "Removed $sbom_zero unpinned-package (0.0.0) false positives from SBOM results" >> "$SCAN_LOG"
+                local tmp_sbom="${output_file}.tmp"
+                jq 'del(.matches[] | select(.artifact.version=="0.0.0"))' "$output_file" > "$tmp_sbom" 2>/dev/null && mv "$tmp_sbom" "$output_file"
+                sbom_count=$(jq '.matches | length' "$output_file" 2>/dev/null || echo "0")
+            fi
+
             echo -e "${GREEN}   ✅ SBOM scan completed: $sbom_count vulnerabilities found${NC}"
             echo "SBOM scan: $sbom_count vulnerabilities" >> "$SCAN_LOG"
             ln -sf "$(basename "$output_file")" "$current_file" 2>/dev/null

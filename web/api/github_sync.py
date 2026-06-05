@@ -82,20 +82,36 @@ async def run_github_sync(
     global _sync_state
 
     cfg = _read_config(config_path)
-    token = cfg.get("token")
-    if not token:
+    default_token = cfg.get("token")
+    if not default_token:
         raise ValueError("GitHub token not configured")
     repos = [r.strip() for r in (cfg.get("repos") or []) if r and "/" in r]
     if not repos:
         raise ValueError("No repositories configured")
 
+    # Build a per-repo token map from extra_tokens entries.
+    # extra_tokens is a list of {"repos": ["owner/repo", ...], "token": "ghp_..."}
+    repo_token_map: dict[str, str] = {}
+    for entry in (cfg.get("extra_tokens") or []):
+        t = (entry.get("token") or "").strip()
+        if not t:
+            continue
+        for r in (entry.get("repos") or []):
+            r = r.strip()
+            if r:
+                repo_token_map[r] = t
+
+    def _token_for(repo_spec: str) -> str:
+        return repo_token_map.get(repo_spec, default_token)
+
     result: dict = {"synced": [], "skipped": [], "failed": []}
     existing_ids = {d.name for d in find_scan_dirs_fn(epyon_root)}
 
-    async with _client(token) as gh:
-        for repo_spec in repos:
-            owner, repo = repo_spec.split("/", 1)
-            try:
+    for repo_spec in repos:
+        owner, repo = repo_spec.split("/", 1)
+        token = _token_for(repo_spec)
+        try:
+            async with _client(token) as gh:
                 runs_data = await _github_get(
                     gh, f"/repos/{owner}/{repo}/actions/runs?status=completed&per_page=30"
                 )
@@ -151,8 +167,8 @@ async def run_github_sync(
                                 tmp_zip.unlink()
                             except OSError:
                                 pass
-            except Exception as exc:
-                result["failed"].append({"repo": f"{owner}/{repo}", "error": str(exc)})
+        except Exception as exc:
+            result["failed"].append({"repo": f"{owner}/{repo}", "error": str(exc)})
 
     cfg["last_sync"] = _now()
     _write_config(config_path, cfg)

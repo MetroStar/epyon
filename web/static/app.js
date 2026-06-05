@@ -4673,7 +4673,7 @@ async function renderSettings() {
         </p>
         <div style="display:grid;gap:14px;max-width:600px">
           <div>
-            <label class="field-label">Personal Access Token</label>
+            <label class="field-label">Default Personal Access Token</label>
             <input id="gh-token" type="password" class="field-input"
               placeholder="${ghCfg.token_set ? 'Token saved — enter new to replace' : 'ghp_... or github_pat_...'}"
               autocomplete="off"/>
@@ -4685,6 +4685,31 @@ async function renderSettings() {
               placeholder="MetroStar/sapphire&#10;MetroStar/comet-starter"
               style="resize:vertical">${(ghCfg.repos || []).map(r => esc(r)).join('\n')}</textarea>
           </div>
+
+          <div>
+            <label class="field-label" style="margin-bottom:8px">Additional PATs
+              <span style="color:var(--text-muted);font-weight:normal"> — for external orgs that need a separate token</span>
+            </label>
+            <div id="gh-extra-tokens" style="display:flex;flex-direction:column;gap:10px">
+              ${(ghCfg.extra_tokens || []).map((e, i) => `
+              <div class="gh-extra-row" data-idx="${i}" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:start">
+                <div>
+                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">Repositories (one per line)</div>
+                  <textarea class="field-input gh-extra-repos" rows="2" style="resize:vertical;font-size:12px"
+                    placeholder="other-org/repo">${(e.repos || []).map(r => esc(r)).join('\n')}</textarea>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">Token${e.token_set ? ` (${esc(e.token_hint)})` : ''}</div>
+                  <input type="password" class="field-input gh-extra-token"
+                    placeholder="${e.token_set ? 'Saved — enter new to replace' : 'ghp_...'}"
+                    autocomplete="off"/>
+                </div>
+                <button class="btn btn-sm" style="margin-top:18px;color:var(--critical)" onclick="this.closest('.gh-extra-row').remove()" title="Remove">✕</button>
+              </div>`).join('')}
+            </div>
+            <button class="btn btn-sm" style="margin-top:8px" onclick="addGhExtraToken()">+ Add PAT</button>
+          </div>
+
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
             <button class="btn btn-primary" onclick="saveGitHubConfig()">Save</button>
             <button class="btn btn-primary" id="sync-btn" onclick="triggerGitHubSync()">
@@ -4774,9 +4799,21 @@ async function saveGitHubConfig() {
   const repos = reposEl
     ? reposEl.value.split('\n').map(r => r.trim()).filter(Boolean)
     : [];
+
+  // Collect extra PAT rows
+  const extraTokens = [];
+  document.querySelectorAll('#gh-extra-tokens .gh-extra-row').forEach(row => {
+    const reposTa = row.querySelector('.gh-extra-repos');
+    const tokenIn = row.querySelector('.gh-extra-token');
+    const rowRepos = reposTa ? reposTa.value.split('\n').map(r => r.trim()).filter(Boolean) : [];
+    const rowToken = tokenIn ? tokenIn.value.trim() : '';
+    extraTokens.push({ repos: rowRepos, token: rowToken || 'KEEP_EXISTING' });
+  });
+
   try {
-    await api.saveGitHubConfig({ token: token || 'KEEP_EXISTING', repos });
+    await api.saveGitHubConfig({ token: token || 'KEEP_EXISTING', repos, extra_tokens: extraTokens });
     tokenEl && (tokenEl.value = '');
+    document.querySelectorAll('#gh-extra-tokens .gh-extra-token').forEach(el => { el.value = ''; });
     // Auto-mark all configured repos as Continuously Monitored
     await Promise.allSettled(
       repos.map(r => api.setMonitored(r.includes('/') ? r.split('/').pop() : r))
@@ -4789,6 +4826,30 @@ async function saveGitHubConfig() {
 }
 
 let _syncPoll = null;
+
+window.addGhExtraToken = function() {
+  const container = document.getElementById('gh-extra-tokens');
+  if (!container) return;
+  const idx = container.querySelectorAll('.gh-extra-row').length;
+  const row = document.createElement('div');
+  row.className = 'gh-extra-row';
+  row.dataset.idx = idx;
+  row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:start';
+  row.innerHTML = `
+    <div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">Repositories (one per line)</div>
+      <textarea class="field-input gh-extra-repos" rows="2" style="resize:vertical;font-size:12px"
+        placeholder="other-org/repo"></textarea>
+    </div>
+    <div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">Token</div>
+      <input type="password" class="field-input gh-extra-token"
+        placeholder="ghp_..." autocomplete="off"/>
+    </div>
+    <button class="btn btn-sm" style="margin-top:18px;color:var(--critical)" onclick="this.closest('.gh-extra-row').remove()" title="Remove">\u2715</button>`;
+  container.appendChild(row);
+};
+
 async function triggerGitHubSync() {
   const btn = document.getElementById('sync-btn');
   const statusEl = document.getElementById('sync-status');

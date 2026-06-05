@@ -1615,11 +1615,23 @@ def github_config_get(response: Response):
     cfg = _read_github_config()
     token = cfg.get("token", "")
     masked = re.sub(r"(?<=.{7}).(?=.{4})", "*", token) if token else ""
+
+    # Mask extra tokens too — return repo list + masked hint per entry
+    extra = []
+    for entry in (cfg.get("extra_tokens") or []):
+        t = entry.get("token", "")
+        extra.append({
+            "repos":      entry.get("repos") or [],
+            "token_set":  bool(t),
+            "token_hint": re.sub(r"(?<=.{7}).(?=.{4})", "*", t) if t else "",
+        })
+
     return {
-        "token_set":  bool(token),
-        "token_hint": masked,
-        "repos":      cfg.get("repos") or [],
-        "last_sync":  cfg.get("last_sync"),
+        "token_set":    bool(token),
+        "token_hint":   masked,
+        "repos":        cfg.get("repos") or [],
+        "extra_tokens": extra,
+        "last_sync":    cfg.get("last_sync"),
     }
 
 
@@ -1643,6 +1655,26 @@ async def github_config_post(request: Request, response: Response):
             r.strip() for r in body["repos"]
             if isinstance(r, str) and _REPO_RE.match(r.strip())
         ]
+
+    # extra_tokens: list of {"repos": [...], "token": "ghp_..."|"KEEP_EXISTING"}
+    if isinstance(body.get("extra_tokens"), list):
+        existing_extras = {i: e for i, e in enumerate(cfg.get("extra_tokens") or [])}
+        new_extras = []
+        for idx, entry in enumerate(body["extra_tokens"]):
+            t = (entry.get("token") or "").strip()
+            repos_list = [
+                r.strip() for r in (entry.get("repos") or [])
+                if isinstance(r, str) and _REPO_RE.match(r.strip())
+            ]
+            if t == "KEEP_EXISTING":
+                # Preserve previously stored token for this slot
+                t = (existing_extras.get(idx) or {}).get("token", "")
+            elif t and not _TOKEN_RE.match(t):
+                raise HTTPException(400, f"Extra token at index {idx} is not a valid GitHub token")
+            if repos_list or t:
+                new_extras.append({"repos": repos_list, "token": t})
+        cfg["extra_tokens"] = new_extras
+
     _write_github_config(cfg)
     return {"ok": True}
 

@@ -193,6 +193,19 @@ scan_filesystem() {
     
     if [ $? -eq 0 ] && [ -f "$FILESYSTEM_RESULTS" ]; then
         VULN_COUNT=$(jq -r '.matches | length' "$FILESYSTEM_RESULTS" 2>/dev/null || echo "0")
+
+        # Strip false-positive matches for unpinned packages (version=0.0.0)
+        local zero_matches
+        zero_matches=$(jq -r '[.matches[] | select(.artifact.version=="0.0.0")] | length' "$FILESYSTEM_RESULTS" 2>/dev/null || echo "0")
+        if [[ "$zero_matches" -gt 0 ]]; then
+            log "⚠️  Removing $zero_matches false-positive match(es) for unpinned packages (version=0.0.0)"
+            jq -r '.matches[] | select(.artifact.version=="0.0.0") | "  - \(.artifact.name) \(.vulnerability.id // "")"' \
+                "$FILESYSTEM_RESULTS" 2>/dev/null >> "$LOG_FILE"
+            local tmp_fs="${FILESYSTEM_RESULTS}.tmp"
+            jq 'del(.matches[] | select(.artifact.version=="0.0.0"))' "$FILESYSTEM_RESULTS" > "$tmp_fs" 2>/dev/null && mv "$tmp_fs" "$FILESYSTEM_RESULTS"
+            VULN_COUNT=$(jq -r '.matches | length' "$FILESYSTEM_RESULTS" 2>/dev/null || echo "0")
+        fi
+
         log "✅ Filesystem scan complete: $VULN_COUNT vulnerabilities found"
         
         # Generate severity breakdown
@@ -270,8 +283,20 @@ scan_sbom() {
         
         SBOM_FILE="$SBOM_DIR/sbom.json"
         log "✅ SBOM generated successfully"
+
+        # Strip unpinned (0.0.0) packages from the newly-generated SBOM before
+        # scanning — bare requirements entries produce false-positive matches.
+        local zero_count
+        zero_count=$(jq -r '[.artifacts[] | select(.version=="0.0.0")] | length' "$SBOM_FILE" 2>/dev/null || echo "0")
+        if [[ "$zero_count" -gt 0 ]]; then
+            log "⚠️  Removing $zero_count unpinned package(s) (version=0.0.0) from SBOM to prevent false positives"
+            jq -r '.artifacts[] | select(.version=="0.0.0") | "  - \(.name) (\(.type))"' "$SBOM_FILE" 2>/dev/null >> "$LOG_FILE"
+            local tmp_sbom="${SBOM_FILE}.tmp"
+            jq 'del(.artifacts[] | select(.version=="0.0.0"))' "$SBOM_FILE" > "$tmp_sbom" 2>/dev/null && mv "$tmp_sbom" "$SBOM_FILE"
+            log "✅ SBOM cleaned: $(jq '.artifacts | length' "$SBOM_FILE" 2>/dev/null) artifacts remaining"
+        fi
     fi
-    
+
     # Scan the SBOM with Anchore/Grype
     if [ -f "$SBOM_FILE" ]; then
         log "ℹ Scanning SBOM for vulnerabilities: $(basename "$SBOM_FILE")"
@@ -291,8 +316,17 @@ scan_sbom() {
                 --file /output/anchore-sbom-results.json \
                 >> "$LOG_FILE" 2>&1
         fi
-        
+
         if [ $? -eq 0 ] && [ -f "$SBOM_RESULTS" ]; then
+            # Strip any residual 0.0.0 matches from the grype output
+            # (can occur if grype scans the filesystem directly and encounters unpinned packages)
+            local zero_matches
+            zero_matches=$(jq -r '[.matches[] | select(.artifact.version=="0.0.0")] | length' "$SBOM_RESULTS" 2>/dev/null || echo "0")
+            if [[ "$zero_matches" -gt 0 ]]; then
+                log "⚠️  Removing $zero_matches false-positive match(es) for unpinned packages (version=0.0.0) from SBOM results"
+                local tmp_res="${SBOM_RESULTS}.tmp"
+                jq 'del(.matches[] | select(.artifact.version=="0.0.0"))' "$SBOM_RESULTS" > "$tmp_res" 2>/dev/null && mv "$tmp_res" "$SBOM_RESULTS"
+            fi
             VULN_COUNT=$(jq -r '.matches | length' "$SBOM_RESULTS" 2>/dev/null || echo "0")
             log "✅ SBOM scan complete: $VULN_COUNT vulnerabilities found"
             return 0

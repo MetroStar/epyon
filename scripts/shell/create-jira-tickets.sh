@@ -530,7 +530,8 @@ JIRA_GETIDS
       local update_summary="Epyon scan on $(date -u +%Y-%m-%d): ${summary_line} (run: ${RUN_URL})"
       local comment_adf
       comment_adf=$(build_adf_body "${severity_key}" "${update_summary}" "" "${current_ids_json}")
-      jq -n --argjson body "${comment_adf}" '{body: $body}' > /tmp/jira_comment_body.json 2>/dev/null || true
+      echo "${comment_adf}" > /tmp/jira_adf_body.json
+      jq -n --slurpfile body /tmp/jira_adf_body.json '{body: $body[0]}' > /tmp/jira_comment_body.json 2>/dev/null || true
       local comment_http
       comment_http=$(curl -s -o /tmp/jira_comment_resp.json -w "%{http_code}" \
         -X POST \
@@ -552,6 +553,7 @@ JIRA_GETIDS
   echo "--- Creating new ticket for ${label_severity} ---"
   local adf_body
   adf_body=$(build_adf_body "${severity_key}" "${summary_line}" "" "${current_ids_json}")
+  echo "${adf_body}" > /tmp/jira_adf_body.json
 
   jq -n \
     --arg project  "${PROJECT_KEY}" \
@@ -560,9 +562,9 @@ JIRA_GETIDS
     --arg priority "${priority}" \
     --arg lsev     "${label_severity}" \
     --arg lrepo    "${REPO_SLUG}" \
-    --argjson desc "${adf_body}" \
+    --slurpfile desc /tmp/jira_adf_body.json \
     '{fields: {project: {key: $project}, summary: $title, issuetype: {name: $itype},
-               priority: {name: $priority}, description: $desc,
+               priority: {name: $priority}, description: $desc[0],
                labels: ["epyon", "security", $lsev, $lrepo]}}' > /tmp/jira_payload.json
 
   local create_http
@@ -1103,9 +1105,9 @@ with open('/tmp/epyon_cve_map_current.json','w') as f: json.dump(m,f)
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 # Apply defaults for optional env vars.
-ISSUE_TYPE="${ISSUE_TYPE:-Bug}"
-TICKET_MODE="${TICKET_MODE:-severity}"        # severity | hybrid
-CVE_ISSUE_TYPE="${CVE_ISSUE_TYPE:-Subtask}"   # child issue type for hybrid mode
+ISSUE_TYPE="${ISSUE_TYPE:-Epic}"
+TICKET_MODE="${TICKET_MODE:-hybrid}"          # severity | hybrid
+CVE_ISSUE_TYPE="${CVE_ISSUE_TYPE:-Story}"     # child issue type for hybrid mode
 MAX_CVE_TICKETS="${MAX_CVE_TICKETS:-50}"      # safety cap per severity tier
 # Strip any trailing slash from JIRA_URL to prevent double-slash in API paths.
 JIRA_URL="${JIRA_URL%/}"

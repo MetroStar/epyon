@@ -174,19 +174,19 @@ on:
         default: ''
         type: string
       jira_issue_type:
-        description: 'JIRA issue type for created severity-rollup tickets'
+        description: 'JIRA issue type for the severity-rollup parent ticket in hybrid mode (e.g. Epic, Bug)'
         required: false
-        default: 'Bug'
+        default: 'Epic'
         type: string
       jira_ticket_mode:
-        description: 'Ticket generation mode: "severity" (one ticket per severity tier) or "hybrid" (severity parent + one child ticket per CVE)'
+        description: 'Ticket generation mode: "severity" (one ticket per severity tier) or "hybrid" (severity Epic + one child ticket per CVE)'
         required: false
-        default: 'severity'
+        default: 'hybrid'
         type: string
       jira_cve_issue_type:
-        description: 'JIRA issue type for per-CVE child tickets in hybrid mode (e.g. Subtask, Story, Bug)'
+        description: 'JIRA issue type for per-CVE child tickets in hybrid mode (e.g. Story, Bug, Task)'
         required: false
-        default: 'Subtask'
+        default: 'Story'
         type: string
       jira_max_cve_tickets:
         description: 'Maximum number of CVE child tickets to create per severity tier in hybrid mode'
@@ -280,7 +280,7 @@ jobs:
       JIRA_BASE_URL: "${{ secrets.JIRA_BASE_URL }}"
       JIRA_USER_EMAIL: "${{ secrets.JIRA_USER_EMAIL }}"
       JIRA_API_TOKEN: "${{ secrets.JIRA_API_TOKEN }}"
-      JIRA_TICKET_MODE: "${{ inputs.jira_ticket_mode || 'severity' }}"          # severity | hybrid
+      JIRA_TICKET_MODE: "${{ inputs.jira_ticket_mode || 'hybrid' }}"          # severity | hybrid
       JIRA_CVE_ISSUE_TYPE: "${{ inputs.jira_cve_issue_type || 'Subtask' }}"     # child issue type for hybrid mode
       JIRA_MAX_CVE_TICKETS: "${{ inputs.jira_max_cve_tickets || '50' }}"        # safety cap per severity tier
 
@@ -1117,7 +1117,7 @@ jobs:
       - name: Create JIRA Tickets for Critical/High Findings
         if: >
           always() &&
-          (inputs.scan_mode == 'full') &&
+          (inputs.scan_mode == 'full' || inputs.scan_mode == 'nightly') &&
           steps.check-severity.outputs.has_issues == 'true' &&
           env.JIRA_BASE_URL != '' &&
           env.JIRA_USER_EMAIL != '' &&
@@ -1132,7 +1132,7 @@ jobs:
           JIRA_URL: ${{ env.JIRA_BASE_URL }}
           PROJECT_KEY: ${{ env.JIRA_PROJECT_KEY }}
           ISSUE_TYPE: ${{ env.JIRA_ISSUE_TYPE }}
-          TICKET_MODE: ${{ env.JIRA_TICKET_MODE || 'severity' }}
+          TICKET_MODE: ${{ env.JIRA_TICKET_MODE || 'hybrid' }}
           CVE_ISSUE_TYPE: ${{ env.JIRA_CVE_ISSUE_TYPE || 'Subtask' }}
           MAX_CVE_TICKETS: ${{ env.JIRA_MAX_CVE_TICKETS || '50' }}
           REPO_NAME: ${{ github.repository }}
@@ -1158,7 +1158,7 @@ jobs:
       - name: Link Jira Tickets to GitHub Issue
         if: >
           always() &&
-          (inputs.scan_mode == 'full') &&
+          (inputs.scan_mode == 'full' || inputs.scan_mode == 'nightly') &&
           steps.create-github-issue.outputs.issue_number != '' &&
           env.JIRA_BASE_URL != '' &&
           env.JIRA_API_TOKEN != '' &&

@@ -102,16 +102,31 @@ PYEOF
     "${JIRA_URL}/rest/api/3/issue/${stored_key}?fields=status,summary")
 
   if [[ "${ticket_http}" == "200" ]]; then
-    local status_cat
-    status_cat=$(jq -r '.fields.status.statusCategory.key // "open"' /tmp/jira_ticket.json 2>/dev/null || echo "open")
-    if [[ "${status_cat}" != "done" ]]; then
+    # Check by statusCategory.key (Jira Cloud standard: "undefined","indeterminate","done")
+    local status_cat status_cat_name status_name
+    status_cat=$(jq -r '.fields.status.statusCategory.key // ""' /tmp/jira_ticket.json 2>/dev/null || true)
+    status_cat_name=$(jq -r '.fields.status.statusCategory.name // ""' /tmp/jira_ticket.json 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
+    status_name=$(jq -r '.fields.status.name // ""' /tmp/jira_ticket.json 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
+    echo "    Ticket ${stored_key} status — category.key='${status_cat}' category.name='${status_cat_name}' status.name='${status_name}'" >&2
+
+    local is_done="false"
+    [[ "${status_cat}" == "done" ]] && is_done="true"
+    [[ "${status_cat_name}" == "done" ]] && is_done="true"
+    case "${status_name}" in
+      done|closed|resolved|complete|completed|"won't fix"|wontfix|invalid) is_done="true" ;;
+    esac
+
+    if [[ "${is_done}" == "false" ]]; then
       echo "${stored_key}"
     else
-      echo "    Ticket ${stored_key} is closed — will create new" >&2
+      echo "    Ticket ${stored_key} is closed (status: '${status_name}') — clearing stale marker and will create new" >&2
+      # Clear the stale marker now so subsequent runs don't re-check this key
+      clear_jira_key_in_github "${label_severity}"
       echo ""
     fi
   else
     echo "    Ticket ${stored_key} lookup returned HTTP ${ticket_http} — will create new" >&2
+    clear_jira_key_in_github "${label_severity}"
     echo ""
   fi
 }
@@ -896,12 +911,20 @@ print(m.get(sys.argv[1], ''))
         -H "Authorization: Basic ${AUTH}" \
         -H "Accept: application/json" \
         "${JIRA_URL}/rest/api/3/issue/${existing_cve_key}?fields=status,summary")
-      local status_cat="open"
+      local cve_is_done="false"
       if [[ "${ticket_http}" == "200" ]]; then
-        status_cat=$(jq -r '.fields.status.statusCategory.key // "open"' /tmp/jira_cve_check.json 2>/dev/null || echo "open")
+        local _sc _scn _sn
+        _sc=$(jq -r '.fields.status.statusCategory.key // ""' /tmp/jira_cve_check.json 2>/dev/null || true)
+        _scn=$(jq -r '.fields.status.statusCategory.name // ""' /tmp/jira_cve_check.json 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
+        _sn=$(jq -r '.fields.status.name // ""' /tmp/jira_cve_check.json 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
+        [[ "${_sc}" == "done" ]] && cve_is_done="true"
+        [[ "${_scn}" == "done" ]] && cve_is_done="true"
+        case "${_sn}" in
+          done|closed|resolved|complete|completed|"won't fix"|wontfix|invalid) cve_is_done="true" ;;
+        esac
       fi
 
-      if [[ "${status_cat}" != "done" ]]; then
+      if [[ "${cve_is_done}" == "false" ]]; then
         echo "  🔄  ${cve_id} — updating existing ticket ${existing_cve_key}"
         # Add update comment
         local comment_adf

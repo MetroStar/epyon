@@ -174,9 +174,24 @@ on:
         default: ''
         type: string
       jira_issue_type:
-        description: 'JIRA issue type for created tickets'
+        description: 'JIRA issue type for created severity-rollup tickets'
         required: false
         default: 'Bug'
+        type: string
+      jira_ticket_mode:
+        description: 'Ticket generation mode: "severity" (one ticket per severity tier) or "hybrid" (severity parent + one child ticket per CVE)'
+        required: false
+        default: 'severity'
+        type: string
+      jira_cve_issue_type:
+        description: 'JIRA issue type for per-CVE child tickets in hybrid mode (e.g. Subtask, Story, Bug)'
+        required: false
+        default: 'Subtask'
+        type: string
+      jira_max_cve_tickets:
+        description: 'Maximum number of CVE child tickets to create per severity tier in hybrid mode'
+        required: false
+        default: '50'
         type: string
       pr_base_branch:
         description: 'Base branch to count merged PRs for the metrics chart (default: main)'
@@ -265,6 +280,9 @@ jobs:
       JIRA_BASE_URL: "${{ secrets.JIRA_BASE_URL }}"
       JIRA_USER_EMAIL: "${{ secrets.JIRA_USER_EMAIL }}"
       JIRA_API_TOKEN: "${{ secrets.JIRA_API_TOKEN }}"
+      JIRA_TICKET_MODE: "${{ inputs.jira_ticket_mode || 'severity' }}"          # severity | hybrid
+      JIRA_CVE_ISSUE_TYPE: "${{ inputs.jira_cve_issue_type || 'Subtask' }}"     # child issue type for hybrid mode
+      JIRA_MAX_CVE_TICKETS: "${{ inputs.jira_max_cve_tickets || '50' }}"        # safety cap per severity tier
 
     steps:
       - name: Checkout Target Repository
@@ -1114,6 +1132,9 @@ jobs:
           JIRA_URL: ${{ env.JIRA_BASE_URL }}
           PROJECT_KEY: ${{ env.JIRA_PROJECT_KEY }}
           ISSUE_TYPE: ${{ env.JIRA_ISSUE_TYPE }}
+          TICKET_MODE: ${{ env.JIRA_TICKET_MODE || 'severity' }}
+          CVE_ISSUE_TYPE: ${{ env.JIRA_CVE_ISSUE_TYPE || 'Subtask' }}
+          MAX_CVE_TICKETS: ${{ env.JIRA_MAX_CVE_TICKETS || '50' }}
           REPO_NAME: ${{ github.repository }}
           CRITICAL_COUNT: ${{ steps.check-severity.outputs.critical }}
           HIGH_COUNT: ${{ steps.check-severity.outputs.high }}

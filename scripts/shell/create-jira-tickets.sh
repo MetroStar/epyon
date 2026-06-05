@@ -33,6 +33,14 @@ Inputs are provided via environment variables by the workflow.
 Required environment:
   FINDINGS_FILE, JIRA_URL, PROJECT_KEY, AUTH, REPO_NAME
 
+Ticket modes (TICKET_MODE):
+  severity  (default) — one ticket per severity tier (critical/high/medium/low)
+  hybrid              — severity parent ticket + one child ticket per unique CVE
+
+Hybrid-mode options:
+  CVE_ISSUE_TYPE   — issue type for child CVE tickets (default: Subtask)
+  MAX_CVE_TICKETS  — max CVE child tickets per severity tier (default: 50)
+
 Options:
   -h, --help    Show this help text and exit.
 EOF
@@ -498,6 +506,7 @@ JIRA_GETIDS
   existing_key=$(find_existing_jira_ticket "${label_severity}")
 
   if [[ -n "${existing_key}" ]]; then
+      echo "${existing_key}" > /tmp/epyon_last_jira_key.txt
       echo "🔄  Found open ticket ${existing_key} — adding update comment"
       echo "## 🔄 JIRA: Update comment added to ${existing_key}" >> "${GITHUB_STEP_SUMMARY}"
       echo "- Severity group: **${label_severity}**" >> "${GITHUB_STEP_SUMMARY}"
@@ -553,6 +562,7 @@ JIRA_GETIDS
   if [[ "${create_http}" == "201" ]]; then
     local new_key
     new_key=$(jq -r '.key' /tmp/jira_create.json)
+    echo "${new_key}" > /tmp/epyon_last_jira_key.txt
     echo "✅ Created JIRA ticket: ${new_key}"
     echo "## ✅ JIRA Ticket Created" >> "${GITHUB_STEP_SUMMARY}"
     echo "- Severity group: **${label_severity}**" >> "${GITHUB_STEP_SUMMARY}"
@@ -609,9 +619,471 @@ JIRA_GETIDS
   fi
 }
 
+# ── Hybrid mode: per-CVE child ticket helpers ─────────────────────────────────
+
+# Read the CVE→key map for a severity from the GitHub issue body.
+# Outputs a JSON object: {"CVE-2024-1234": "SEC-45", ...}
+get_cve_map_from_github() {
+  local severity="$1"
+  [[ -z "${GITHUB_ISSUE_NUMBER:-}" ]] && echo '{}' && return
+  [[ -z "${GITHUB_TOKEN:-}" ]]        && echo '{}' && return
+  local issue_body
+  issue_body=$(get_github_issue_body)
+  echo "${issue_body}" > /tmp/epyon_issue_body.txt
+  python3 - "${severity}" /tmp/epyon_issue_body.txt <<'PYEOF'
+import sys, re, json
+severity, body_file = sys.argv[1], sys.argv[2]
+with open(body_file) as f:
+    body = f.read()
+m = re.search(r'<!--epyon-cve-map-' + re.escape(severity) + r':(\{.*?\})-->', body, re.DOTALL)
+if m:
+    try:
+        parsed = json.loads(m.group(1))
+        print(json.dumps(parsed))
+        sys.exit(0)
+    except Exception:
+        pass
+print('{}')
+PYEOF
+}
+
+# Write an updated CVE→key map for a severity into the GitHub issue body.
+store_cve_map_in_github() {
+  local severity="$1"
+  local map_json_file="$2"   # path to a file containing the JSON map
+  [[ -z "${GITHUB_ISSUE_NUMBER:-}" ]] && return 0
+  [[ -z "${GITHUB_TOKEN:-}" ]]        && return 0
+
+  local current_body
+  current_body=$(get_github_issue_body)
+  echo "${current_body}" > /tmp/epyon_issue_body.txt
+
+  local new_body
+  new_body=$(python3 - "${severity}" /tmp/epyon_issue_body.txt "${map_json_file}" <<'PYEOF'
+import sys, re, json
+severity, body_file, map_file = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(body_file) as f:
+    body = f.read()
+with open(map_file) as f:
+    map_json = f.read().strip()
+marker  = f'<!--epyon-cve-map-{severity}:{map_json}-->'
+pattern = r'<!--epyon-cve-map-' + re.escape(severity) + r':\{.*?\}-->'
+if re.search(pattern, body, re.DOTALL):
+    new_body = re.sub(pattern, marker, body, flags=re.DOTALL)
+else:
+    new_body = body.rstrip('\n') + '\n' + marker
+print(new_body, end='')
+PYEOF
+  )
+
+  local update_payload
+  update_payload=$(jq -n --arg body "${new_body}" '{body: $body}')
+  local update_http
+  update_http=$(curl -s -o /dev/null -w "%{http_code}" \
+    -X PATCH \
+    -H "Authorization: token ${GITHUB_TOKEN}" \
+    -H "Accept: application/vnd.github.v3+json" \
+    -H "Content-Type: application/json" \
+    --data "${update_payload}" \
+    "https://api.github.com/repos/${REPO_NAME}/issues/${GITHUB_ISSUE_NUMBER}")
+  if [[ "${update_http}" == "200" ]]; then
+    echo "📎 Updated CVE map for ${severity} in GitHub issue #${GITHUB_ISSUE_NUMBER}"
+  else
+    echo "⚠️  Could not update CVE map in GitHub issue (HTTP ${update_http}) — continuing"
+  fi
+}
+
+# Build ADF body for a single CVE child ticket.
+# Args: findings_for_cve_json_file cve_id sev_label parent_key
+build_cve_adf_body() {
+  local findings_file="$1"
+  local cve_id="$2"
+  local sev_label="$3"
+  local parent_key="$4"
+  python3 - "${findings_file}" "${cve_id}" "${sev_label}" "${parent_key}" \
+            "${RUN_URL}" "${REPO_NAME}" "${JIRA_URL}" <<'PYEOF'
+import json, sys
+
+findings_file, cve_id, sev_label, parent_key = sys.argv[1:5]
+run_url, repo_name, jira_url = sys.argv[5:8]
+
+with open(findings_file) as f:
+    findings = json.load(f)
+
+def cell_text(text):
+    return {"type": "tableCell", "attrs": {},
+            "content": [{"type": "paragraph", "content": [
+                {"type": "text", "text": str(text)[:300]}]}]}
+
+def cell_link(text, url):
+    if url:
+        return {"type": "tableCell", "attrs": {},
+                "content": [{"type": "paragraph", "content": [
+                    {"type": "text", "text": str(text)[:300],
+                     "marks": [{"type": "link", "attrs": {"href": url}}]}]}]}
+    return cell_text(text)
+
+def header_cell(text):
+    return {"type": "tableHeader", "attrs": {},
+            "content": [{"type": "paragraph", "content": [
+                {"type": "text", "text": str(text), "marks": [{"type": "strong"}]}]}]}
+
+header_row = {"type": "tableRow",
+              "content": [header_cell(h) for h in
+                          ["Package / File", "Version", "Fixed In", "Tool"]]}
+
+data_rows = []
+is_kev = False
+cisa_kev_data = None
+for f in findings:
+    pkg     = f.get("package_name") or f.get("file_path") or f.get("file") or "N/A"
+    ver     = f.get("package_version") or "-"
+    fixed   = f.get("fix_version") or f.get("fixed_version") or "—"
+    tool    = f.get("tool") or "N/A"
+    if f.get("cisa_kev"):
+        is_kev = True
+        cisa_kev_data = f
+    data_rows.append({"type": "tableRow",
+                      "content": [cell_text(pkg), cell_text(ver),
+                                  cell_text(fixed), cell_text(tool)]})
+
+table = {"type": "table",
+         "attrs": {"isNumberColumnEnabled": False, "layout": "full-width"},
+         "content": [header_row] + data_rows}
+
+desc_text = (findings[0].get("description") or "") if findings else ""
+nvd_url   = (findings[0].get("nvd_url") or "") if findings else ""
+
+kev_panel_blocks = []
+if is_kev and cisa_kev_data:
+    due  = cisa_kev_data.get("cisa_due_date") or "N/A"
+    ra   = (cisa_kev_data.get("cisa_required_action") or "")[:300]
+    rw   = cisa_kev_data.get("cisa_known_ransomware") is True
+    kev_panel_blocks = [{"type": "panel", "attrs": {"panelType": "error"},
+                         "content": [
+                             {"type": "paragraph", "content": [{"type": "text",
+                                 "text": f"\U0001f525 CISA Known Exploited Vulnerability — Due: {due}",
+                                 "marks": [{"type": "strong"}]}]},
+                             *([{"type": "paragraph", "content": [{"type": "text",
+                                 "text": f"\u26a0\ufe0f Associated with ransomware campaigns",
+                                 "marks": [{"type": "strong"}]}]}] if rw else []),
+                             *([{"type": "paragraph", "content": [{"type": "text",
+                                 "text": f"Required action: {ra}"}]}] if ra else []),
+                             {"type": "paragraph", "content": [{"type": "text",
+                                 "text": "CISA KEV Catalog",
+                                 "marks": [{"type": "link", "attrs": {
+                                     "href": "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"}}]}]},
+                         ]}]
+
+intro_content = [{"type": "text", "text": f"{cve_id} ({sev_label}) — affecting {len(findings)} package(s) in {repo_name}"}]
+if nvd_url:
+    intro_content.append({"type": "text", "text": " [NVD]",
+                           "marks": [{"type": "link", "attrs": {"href": nvd_url}}]})
+
+content_blocks = [
+    *kev_panel_blocks,
+    {"type": "paragraph", "content": intro_content},
+]
+if desc_text:
+    content_blocks.append({"type": "paragraph", "content": [
+        {"type": "text", "text": desc_text[:500]}]})
+content_blocks.append(table)
+
+if parent_key:
+    content_blocks.append({"type": "paragraph", "content": [
+        {"type": "text", "text": "Parent ticket: "},
+        {"type": "text", "text": parent_key,
+         "marks": [{"type": "link", "attrs": {"href": f"{jira_url}/browse/{parent_key}"}}]}]})
+
+content_blocks += [
+    {"type": "heading", "attrs": {"level": 3},
+     "content": [{"type": "text", "text": "Acceptance Criteria"}]},
+    {"type": "bulletList", "content": [
+        {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text",
+            "text": f"All packages affected by {cve_id} are patched, updated to a fixed version, or formally risk-accepted"}]}]},
+        {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text",
+            "text": f"Follow-up Epyon scan shows {cve_id} no longer present at this severity"}]}]},
+        *([{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text",
+            "text": f"CISA KEV due date ({cisa_kev_data.get('cisa_due_date')}) is met"}]}]}]
+          if is_kev and cisa_kev_data else []),
+    ]},
+    {"type": "paragraph", "content": [
+        {"type": "text", "text": "Repository: "},
+        {"type": "text", "text": repo_name, "marks": [{"type": "code"}]}]},
+    {"type": "paragraph", "content": [
+        {"type": "text", "text": "Workflow run: "},
+        {"type": "text", "text": run_url,
+         "marks": [{"type": "link", "attrs": {"href": run_url}}]}]},
+    {"type": "paragraph", "content": [
+        {"type": "text", "text": "\U0001f916 Automated ticket created by Epyon Security Scanner"}]},
+]
+
+adf = {"version": 1, "type": "doc", "content": content_blocks}
+print(json.dumps(adf))
+PYEOF
+}
+
+# Create or update CVE-level child tickets under a parent severity ticket.
+# Args: parent_key severity_label priority severity_key
+# e.g.: create_cve_tickets "SEC-42" "critical" "Highest" "critical_findings"
+create_cve_tickets() {
+  local parent_key="$1"
+  local sev_label="$2"
+  local priority="$3"
+  local severity_key="$4"
+
+  echo "--- Hybrid mode: processing CVE child tickets for ${sev_label} (parent: ${parent_key}) ---"
+
+  # Extract unique CVE IDs and their findings from FINDINGS_FILE
+  python3 - "${FINDINGS_FILE}" "${severity_key}" <<'PYEOF' > /tmp/epyon_cve_groups.json
+import json, sys
+fpath, skey = sys.argv[1], sys.argv[2]
+with open(fpath) as f:
+    data = json.load(f)
+groups = {}
+for finding in data.get(skey, []):
+    cve_id = (finding.get("vulnerability_id") or finding.get("check_id")
+              or finding.get("detector") or "UNKNOWN")
+    if cve_id not in groups:
+        groups[cve_id] = []
+    groups[cve_id].append(finding)
+print(json.dumps(groups))
+PYEOF
+
+  local cve_count
+  cve_count=$(jq 'keys | length' /tmp/epyon_cve_groups.json 2>/dev/null || echo 0)
+  echo "  Found ${cve_count} unique CVE(s) for ${sev_label}"
+
+  # Load existing CVE→key map from GitHub issue
+  local cve_map_json
+  cve_map_json=$(get_cve_map_from_github "${sev_label}")
+  echo "${cve_map_json}" > /tmp/epyon_cve_map_current.json
+
+  # Get current CVE IDs
+  local current_cve_ids
+  current_cve_ids=$(jq -r 'keys[]' /tmp/epyon_cve_groups.json 2>/dev/null || true)
+
+  local cap="${MAX_CVE_TICKETS:-50}"
+  local processed=0
+
+  # --- Create/update tickets for current CVEs ---
+  while IFS= read -r cve_id; do
+    [[ -z "${cve_id}" ]] && continue
+    if [[ "${processed}" -ge "${cap}" ]]; then
+      echo "  ⚠️  Reached MAX_CVE_TICKETS (${cap}) — stopping. Remaining CVEs skipped."
+      break
+    fi
+
+    # Write findings for this CVE to a temp file
+    jq --arg cve "${cve_id}" '.[$cve]' /tmp/epyon_cve_groups.json > /tmp/epyon_cve_findings.json
+
+    # Sanitize CVE ID for use as a map key (already safe, but be explicit)
+    local safe_key="${cve_id}"
+
+    # Check if we already have a ticket for this CVE
+    local existing_cve_key
+    existing_cve_key=$(python3 -c "
+import json, sys
+with open('/tmp/epyon_cve_map_current.json') as f:
+    m = json.load(f)
+print(m.get(sys.argv[1], ''))
+" "${safe_key}" 2>/dev/null || echo "")
+
+    if [[ -n "${existing_cve_key}" ]]; then
+      # Verify ticket is still open
+      local ticket_http
+      ticket_http=$(curl -s -o /tmp/jira_cve_check.json -w "%{http_code}" \
+        -H "Authorization: Basic ${AUTH}" \
+        -H "Accept: application/json" \
+        "${JIRA_URL}/rest/api/3/issue/${existing_cve_key}?fields=status,summary")
+      local status_cat="open"
+      if [[ "${ticket_http}" == "200" ]]; then
+        status_cat=$(jq -r '.fields.status.statusCategory.key // "open"' /tmp/jira_cve_check.json 2>/dev/null || echo "open")
+      fi
+
+      if [[ "${status_cat}" != "done" ]]; then
+        echo "  🔄  ${cve_id} — updating existing ticket ${existing_cve_key}"
+        # Add update comment
+        local comment_adf
+        comment_adf=$(build_cve_adf_body /tmp/epyon_cve_findings.json "${cve_id}" "${sev_label}" "${parent_key}")
+        jq -n --argjson body "${comment_adf}" '{body: $body}' > /tmp/jira_cve_comment.json 2>/dev/null || true
+        curl -s -o /dev/null \
+          -X POST \
+          -H "Authorization: Basic ${AUTH}" \
+          -H "Content-Type: application/json" \
+          -H "Accept: application/json" \
+          --data @/tmp/jira_cve_comment.json \
+          "${JIRA_URL}/rest/api/3/issue/${existing_cve_key}/comment" || true
+        processed=$((processed + 1))
+        continue
+      else
+        echo "  🔁  ${cve_id} — ticket ${existing_cve_key} was closed but CVE reappeared — creating new"
+        # Remove old key from map so we create fresh
+        python3 -c "
+import json
+with open('/tmp/epyon_cve_map_current.json') as f: m=json.load(f)
+m.pop('${safe_key}', None)
+with open('/tmp/epyon_cve_map_current.json','w') as f: json.dump(m,f)
+" 2>/dev/null || true
+        existing_cve_key=""
+      fi
+    fi
+
+    # --- Create new CVE ticket ---
+    local pkg_count
+    pkg_count=$(jq 'length' /tmp/epyon_cve_findings.json 2>/dev/null || echo 1)
+    local first_pkg
+    first_pkg=$(jq -r '.[0].package_name // .[0].file_path // "unknown"' /tmp/epyon_cve_findings.json 2>/dev/null || echo "unknown")
+    local more_label=""
+    if [[ "${pkg_count}" -gt 1 ]]; then
+      more_label=" (+$((pkg_count - 1)) more)"
+    fi
+    local is_kev
+    is_kev=$(jq -r '[.[] | select(.cisa_kev == true)] | length > 0' /tmp/epyon_cve_findings.json 2>/dev/null || echo "false")
+    local kev_prefix=""
+    [[ "${is_kev}" == "true" ]] && kev_prefix="🔥 KEV | "
+
+    local ticket_title="${kev_prefix}${cve_id} — ${first_pkg}${more_label} [${sev_label}] ${REPO_NAME##*/}"
+
+    local adf_body
+    adf_body=$(build_cve_adf_body /tmp/epyon_cve_findings.json "${cve_id}" "${sev_label}" "${parent_key}")
+
+    # Build payload — include parent key for Jira next-gen hierarchy
+    if [[ -n "${parent_key}" ]]; then
+      jq -n \
+        --arg project  "${PROJECT_KEY}" \
+        --arg title    "${ticket_title}" \
+        --arg itype    "${CVE_ISSUE_TYPE}" \
+        --arg priority "${priority}" \
+        --arg lsev     "epyon-${sev_label}" \
+        --arg lrepo    "${REPO_SLUG}" \
+        --arg parent   "${parent_key}" \
+        --argjson desc "${adf_body}" \
+        '{fields: {project: {key: $project}, summary: $title, issuetype: {name: $itype},
+                   priority: {name: $priority}, description: $desc,
+                   parent: {key: $parent},
+                   labels: ["epyon", "security", "cve", $lsev, $lrepo]}}' > /tmp/jira_cve_payload.json
+    else
+      jq -n \
+        --arg project  "${PROJECT_KEY}" \
+        --arg title    "${ticket_title}" \
+        --arg itype    "${CVE_ISSUE_TYPE}" \
+        --arg priority "${priority}" \
+        --arg lsev     "epyon-${sev_label}" \
+        --arg lrepo    "${REPO_SLUG}" \
+        --argjson desc "${adf_body}" \
+        '{fields: {project: {key: $project}, summary: $title, issuetype: {name: $itype},
+                   priority: {name: $priority}, description: $desc,
+                   labels: ["epyon", "security", "cve", $lsev, $lrepo]}}' > /tmp/jira_cve_payload.json
+    fi
+
+    local create_http
+    create_http=$(curl -s -o /tmp/jira_cve_create.json -w "%{http_code}" \
+      -X POST \
+      -H "Authorization: Basic ${AUTH}" \
+      -H "Content-Type: application/json" \
+      -H "Accept: application/json" \
+      --data @/tmp/jira_cve_payload.json \
+      "${JIRA_URL}/rest/api/3/issue")
+
+    if [[ "${create_http}" == "201" ]]; then
+      local new_cve_key
+      new_cve_key=$(jq -r '.key' /tmp/jira_cve_create.json)
+      echo "  ✅  ${cve_id} → ${new_cve_key}"
+      echo "- \`${cve_id}\` → [${new_cve_key}](${JIRA_URL}/browse/${new_cve_key}) (${sev_label})" >> "${GITHUB_STEP_SUMMARY}"
+      # Store in map
+      python3 -c "
+import json
+with open('/tmp/epyon_cve_map_current.json') as f: m=json.load(f)
+m['${safe_key}'] = '${new_cve_key}'
+with open('/tmp/epyon_cve_map_current.json','w') as f: json.dump(m,f)
+" 2>/dev/null || true
+    else
+      # If parent field rejected (classic Jira), retry without parent
+      if [[ "${create_http}" == "400" ]] && jq -e '.errors.parent' /tmp/jira_cve_create.json >/dev/null 2>&1; then
+        echo "  ⚠️  ${cve_id} — parent field rejected (classic Jira?), retrying without parent link"
+        jq 'del(.fields.parent)' /tmp/jira_cve_payload.json > /tmp/jira_cve_payload_noparent.json
+        create_http=$(curl -s -o /tmp/jira_cve_create.json -w "%{http_code}" \
+          -X POST \
+          -H "Authorization: Basic ${AUTH}" \
+          -H "Content-Type: application/json" \
+          -H "Accept: application/json" \
+          --data @/tmp/jira_cve_payload_noparent.json \
+          "${JIRA_URL}/rest/api/3/issue")
+        if [[ "${create_http}" == "201" ]]; then
+          local new_cve_key
+          new_cve_key=$(jq -r '.key' /tmp/jira_cve_create.json)
+          echo "  ✅  ${cve_id} → ${new_cve_key} (standalone)"
+          echo "- \`${cve_id}\` → [${new_cve_key}](${JIRA_URL}/browse/${new_cve_key}) (${sev_label}, standalone)" >> "${GITHUB_STEP_SUMMARY}"
+          # Add issue link to parent as fallback
+          if [[ -n "${parent_key}" ]]; then
+            jq -n --arg inward "${new_cve_key}" --arg outward "${parent_key}" \
+              '{"type":{"name":"Relates"},"inwardIssue":{"key":$inward},"outwardIssue":{"key":$outward}}' \
+              > /tmp/jira_link_payload.json
+            curl -s -o /dev/null \
+              -X POST \
+              -H "Authorization: Basic ${AUTH}" \
+              -H "Content-Type: application/json" \
+              "${JIRA_URL}/rest/api/3/issueLink" \
+              --data @/tmp/jira_link_payload.json || true
+          fi
+          python3 -c "
+import json
+with open('/tmp/epyon_cve_map_current.json') as f: m=json.load(f)
+m['${safe_key}'] = '${new_cve_key}'
+with open('/tmp/epyon_cve_map_current.json','w') as f: json.dump(m,f)
+" 2>/dev/null || true
+        else
+          echo "  ❌  ${cve_id} — failed to create ticket (HTTP ${create_http})"
+        fi
+      else
+        echo "  ❌  ${cve_id} — failed to create ticket (HTTP ${create_http})"
+        cat /tmp/jira_cve_create.json 2>/dev/null | head -5 || true
+      fi
+    fi
+    processed=$((processed + 1))
+  done <<< "${current_cve_ids}"
+
+  # --- Close tickets for CVEs that are no longer present ---
+  local old_cve_ids
+  old_cve_ids=$(jq -r 'keys[]' /tmp/epyon_cve_map_current.json 2>/dev/null || true)
+  while IFS= read -r old_cve; do
+    [[ -z "${old_cve}" ]] && continue
+    # Check if still present in current scan
+    local still_present
+    still_present=$(jq --arg cve "${old_cve}" 'has($cve)' /tmp/epyon_cve_groups.json 2>/dev/null || echo "false")
+    if [[ "${still_present}" == "false" ]]; then
+      local old_key
+      old_key=$(python3 -c "
+import json
+with open('/tmp/epyon_cve_map_current.json') as f: m=json.load(f)
+print(m.get('${old_cve}', ''))
+" 2>/dev/null || echo "")
+      if [[ -n "${old_key}" ]]; then
+        echo "  🔒  ${old_cve} resolved — auto-closing ${old_key}"
+        close_jira_ticket "${old_key}" "epyon-${sev_label}-${old_cve}"
+        # Remove from map
+        python3 -c "
+import json
+with open('/tmp/epyon_cve_map_current.json') as f: m=json.load(f)
+m.pop('${old_cve}', None)
+with open('/tmp/epyon_cve_map_current.json','w') as f: json.dump(m,f)
+" 2>/dev/null || true
+      fi
+    fi
+  done <<< "${old_cve_ids}"
+
+  # Persist updated CVE map to GitHub issue
+  store_cve_map_in_github "${sev_label}" /tmp/epyon_cve_map_current.json
+  echo "--- CVE child tickets complete for ${sev_label}: ${processed} processed ---"
+}
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 # Apply defaults for optional env vars.
 ISSUE_TYPE="${ISSUE_TYPE:-Bug}"
+TICKET_MODE="${TICKET_MODE:-severity}"        # severity | hybrid
+CVE_ISSUE_TYPE="${CVE_ISSUE_TYPE:-Subtask}"   # child issue type for hybrid mode
+MAX_CVE_TICKETS="${MAX_CVE_TICKETS:-50}"      # safety cap per severity tier
 # Strip any trailing slash from JIRA_URL to prevent double-slash in API paths.
 JIRA_URL="${JIRA_URL%/}"
 
@@ -660,41 +1132,69 @@ if [[ "${proj_http}" != "200" ]]; then
 fi
 echo "✅ JIRA project '${PROJECT_KEY}' accessible"
 
+if [[ "${TICKET_MODE}" == "hybrid" ]]; then
+  echo "🔀 Ticket mode: hybrid (severity parent + per-CVE child tickets)"
+  echo "## Hybrid Ticket Mode" >> "${GITHUB_STEP_SUMMARY}"
+  echo "One parent ticket per severity tier with individual child tickets per CVE." >> "${GITHUB_STEP_SUMMARY}"
+else
+  echo "🎟️  Ticket mode: severity (one ticket per severity tier)"
+fi
+
 # Titles intentionally omit the date — one stable title per severity+repo so label
 # searches reliably find the existing open ticket across multiple scan runs.
 # The date appears in the ticket description and in update comments.
 if [[ "${CRITICAL_COUNT:-0}" -gt 0 ]]; then
+  rm -f /tmp/epyon_last_jira_key.txt
   create_jira_ticket \
     "Epyon Critical Security Findings - ${REPO_NAME##*/}" \
     "epyon-critical" "Highest" "critical_findings" \
     "Epyon found ${CRITICAL_COUNT} critical severity finding(s) in ${REPO_NAME} on ${TODAY}."
+  if [[ "${TICKET_MODE}" == "hybrid" ]] && [[ -f /tmp/epyon_last_jira_key.txt ]]; then
+    _parent_key=$(cat /tmp/epyon_last_jira_key.txt)
+    create_cve_tickets "${_parent_key}" "critical" "Highest" "critical_findings"
+  fi
 else
   maybe_close_jira_ticket "epyon-critical" "${CRITICAL_COUNT:-0}"
 fi
 
 if [[ "${HIGH_COUNT:-0}" -gt 0 ]]; then
+  rm -f /tmp/epyon_last_jira_key.txt
   create_jira_ticket \
     "Epyon High Security Findings - ${REPO_NAME##*/}" \
     "epyon-high" "High" "high_findings" \
     "Epyon found ${HIGH_COUNT} high severity finding(s) in ${REPO_NAME} on ${TODAY}."
+  if [[ "${TICKET_MODE}" == "hybrid" ]] && [[ -f /tmp/epyon_last_jira_key.txt ]]; then
+    _parent_key=$(cat /tmp/epyon_last_jira_key.txt)
+    create_cve_tickets "${_parent_key}" "high" "High" "high_findings"
+  fi
 else
   maybe_close_jira_ticket "epyon-high" "${HIGH_COUNT:-0}"
 fi
 
 if [[ "${MEDIUM_COUNT:-0}" -gt 0 ]]; then
+  rm -f /tmp/epyon_last_jira_key.txt
   create_jira_ticket \
     "Epyon Medium Security Findings - ${REPO_NAME##*/}" \
     "epyon-medium" "Medium" "medium_findings" \
     "Epyon found ${MEDIUM_COUNT} medium severity finding(s) in ${REPO_NAME} on ${TODAY}."
+  if [[ "${TICKET_MODE}" == "hybrid" ]] && [[ -f /tmp/epyon_last_jira_key.txt ]]; then
+    _parent_key=$(cat /tmp/epyon_last_jira_key.txt)
+    create_cve_tickets "${_parent_key}" "medium" "Medium" "medium_findings"
+  fi
 else
   maybe_close_jira_ticket "epyon-medium" "${MEDIUM_COUNT:-0}"
 fi
 
 if [[ "${LOW_COUNT:-0}" -gt 0 ]]; then
+  rm -f /tmp/epyon_last_jira_key.txt
   create_jira_ticket \
     "Epyon Low Security Findings - ${REPO_NAME##*/}" \
     "epyon-low" "Low" "low_findings" \
     "Epyon found ${LOW_COUNT} low severity finding(s) in ${REPO_NAME} on ${TODAY}."
+  if [[ "${TICKET_MODE}" == "hybrid" ]] && [[ -f /tmp/epyon_last_jira_key.txt ]]; then
+    _parent_key=$(cat /tmp/epyon_last_jira_key.txt)
+    create_cve_tickets "${_parent_key}" "low" "Low" "low_findings"
+  fi
 else
   maybe_close_jira_ticket "epyon-low" "${LOW_COUNT:-0}"
 fi

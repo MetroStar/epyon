@@ -217,7 +217,7 @@ _FMT_NOTES=(
     "MessagePack — binary serialization, no arbitrary code execution"
 )
 
-# Count files per format
+# Count files per format (and collect relative paths for UI display)
 FILE_COUNT=0
 TOTAL_FORMAT_COUNT=0
 FORMATS_FOUND_JSON="["
@@ -226,7 +226,28 @@ declare -a _FMT_COUNT=()
 
 for i in "${!_FMT_EXT[@]}"; do
     ext="${_FMT_EXT[$i]}"
-    cnt=$(find "$TARGET_SCAN_DIR" -type f -name "*.${ext}" 2>/dev/null | wc -l | tr -d ' ')
+    # Collect file paths and count via Python (handles spaces/special chars safely)
+    _fmt_result=$(python3 - <<PYFMT 2>/dev/null
+import os, json
+target = ${TARGET_SCAN_DIR@Q}
+ext = ${ext@Q}
+found = []
+for root, dirs, files in os.walk(target):
+    dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ('__pycache__', '.git', 'node_modules')]
+    for fname in files:
+        if fname.lower().endswith('.' + ext):
+            rel = os.path.relpath(os.path.join(root, fname), target)
+            found.append(rel)
+found.sort()
+print(len(found))
+print(json.dumps(found[:50]))
+PYFMT
+)
+    cnt=$(echo "$_fmt_result" | head -1 | tr -d '[:space:]')
+    files_json=$(echo "$_fmt_result" | tail -1)
+    [[ -z "$cnt" || ! "$cnt" =~ ^[0-9]+$ ]] && cnt=0
+    [[ -z "$files_json" ]] && files_json="[]"
+
     _FMT_COUNT[$i]=$cnt
     TOTAL_FORMAT_COUNT=$((TOTAL_FORMAT_COUNT + cnt))
     if [[ "$cnt" -gt 0 ]]; then
@@ -235,7 +256,7 @@ for i in "${!_FMT_EXT[@]}"; do
         notes="${_FMT_NOTES[$i]}"
         pickle="${_FMT_PICKLE[$i]}"
         [[ "$_JSON_FIRST" -eq 0 ]] && FORMATS_FOUND_JSON+=","
-        FORMATS_FOUND_JSON+="{\"ext\":\"${ext}\",\"count\":${cnt},\"risk\":\"${risk}\",\"label\":\"${label}\",\"notes\":\"${notes}\",\"pickle_scannable\":${pickle}}"
+        FORMATS_FOUND_JSON+="{\"ext\":\"${ext}\",\"count\":${cnt},\"risk\":\"${risk}\",\"label\":\"${label}\",\"notes\":\"${notes}\",\"pickle_scannable\":${pickle},\"files\":${files_json}}"
         _JSON_FIRST=0
         if [[ "$pickle" == "true" ]]; then
             FILE_COUNT=$((FILE_COUNT + cnt))

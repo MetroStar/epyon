@@ -571,7 +571,7 @@ body:has(#sidebar:not(.collapsed)) #sidebar-toggle {
 /* ── Weight Format Inventory ────────────────────────────────── */
 .fmt-inventory { padding: 10px 16px 14px; border-top: 1px solid var(--border); }
 .fmt-inventory-title { font-size: 0.78em; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
-.fmt-row { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 6px; margin: 3px 0; font-size: 0.875em; }
+.fmt-row { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 10px; padding: 5px 8px; border-radius: 6px; margin: 3px 0; font-size: 0.875em; }
 .fmt-row-critical { background: rgba(197,48,48,.12); }
 .fmt-row-high     { background: rgba(192,86,33,.10); }
 .fmt-row-medium   { background: rgba(251,146,60,.08); }
@@ -588,6 +588,10 @@ body:has(#sidebar:not(.collapsed)) #sidebar-toggle {
 .fmt-safe-flag   { font-size: 0.85em; }
 .fmt-count { color: #9ca3af; font-size: 0.85em; min-width: 60px; }
 .fmt-notes { color: var(--text-muted); font-size: 0.82em; flex: 1; }
+.fmt-file-list { width: 100%; margin-top: 5px; display: flex; flex-wrap: wrap; gap: 4px; padding-left: 4px; }
+.fmt-file-path { font-family: var(--font-mono); font-size: 0.78em; color: #a5b4fc; background: rgba(99,102,241,.1); border-radius: 3px; padding: 1px 5px; word-break: break-all; }
+.ms-scan-target { padding: 4px 14px 6px; font-size: 0.82em; color: var(--text-muted); }
+.ms-scan-target-lbl { font-weight: 600; }
 
 /* ── Result section boxes (Vulnerabilities, STIG) ────────── */
 .result-section-box {

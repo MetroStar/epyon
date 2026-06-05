@@ -1492,6 +1492,9 @@ function buildModelSecurityCard(scan) {
       const pickleWarn = f.pickle_scannable
         ? `<span class="fmt-pickle-flag" title="Scanned by picklescan">🔬</span>`
         : `<span class="fmt-safe-flag" title="No pickle — not code-executable">🛡️</span>`;
+      const fileList = (f.files && f.files.length > 0)
+        ? `<div class="fmt-file-list">${f.files.map(fp => `<code class="fmt-file-path">${esc(fp)}</code>`).join('')}</div>`
+        : '';
       return `
         <div class="fmt-row fmt-row-${f.risk}">
           <code class="fmt-ext">${esc(f.label)}</code>
@@ -1499,6 +1502,7 @@ function buildModelSecurityCard(scan) {
           ${pickleWarn}
           <span class="fmt-count">${f.count} file${f.count !== 1 ? 's' : ''}</span>
           <span class="fmt-notes">${esc(f.notes)}</span>
+          ${fileList}
         </div>`;
     }).join('');
 
@@ -1508,6 +1512,14 @@ function buildModelSecurityCard(scan) {
         <code class="hf-finding-file">${esc(f.file || '—')}</code>
         <span class="hf-finding-msg">${esc(f.message || 'Malicious pickle opcode detected')}</span>
       </div>`).join('');
+
+    const psTargetDisplay = ps.target
+      ? (() => {
+          const parts = ps.target.replace(/\\/g, '/').split('/');
+          const short = parts.slice(-3).join('/');
+          return `<div class="ms-scan-target" title="${esc(ps.target)}"><span class="ms-scan-target-lbl">Scanned:</span> <code>${esc(short)}</code></div>`;
+        })()
+      : '';
 
     pickleSection = `
       <div class="ms-layer">
@@ -1519,6 +1531,7 @@ function buildModelSecurityCard(scan) {
           </div>
           <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
         </div>
+        ${psTargetDisplay}
         <div class="hf-tool-stats" style="margin-bottom:0">
           <div class="hf-stat"><span class="hf-stat-num">${totalWeightFiles}</span><span class="hf-stat-lbl">weight files</span></div>
           <div class="hf-stat"><span class="hf-stat-num">${ps.file_count ?? 0}</span><span class="hf-stat-lbl">pickle-scannable</span></div>

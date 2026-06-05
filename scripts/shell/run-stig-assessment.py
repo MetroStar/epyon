@@ -285,30 +285,41 @@ def slug_from_app_name(app_name: str) -> str:
 # Previous scan results lookup
 # ---------------------------------------------------------------------------
 
-def find_previous_scan_dir(current_scan_dir: Path, app_name: str) -> Path | None:
-    """Find the most recent previous scan directory for the same app.
-    
+def find_previous_scan_dirs(current_scan_dir: Path, app_name: str) -> list[Path]:
+    """Return all previous scan directories for the same app, newest first.
+
     Args:
-        current_scan_dir: Path to current scan directory (e.g., scans/epyon_2026-05-26_12-00-00)
+        current_scan_dir: Path to current scan directory
         app_name: Application name
-    
+
     Returns:
-        Path to previous scan directory, or None if no previous scan exists
+        List of previous scan directories sorted newest-first (may be empty)
     """
     app_slug = slug_from_app_name(app_name)
     scans_root = current_scan_dir.parent  # scans/
-    
+
     if not scans_root.exists() or not scans_root.is_dir():
-        return None
-    
-    # Find all scan directories for this app, sorted by timestamp (newest first)
+        return []
+
     pattern = f"{app_slug}_*"
-    scan_dirs = sorted(
+    return sorted(
         [d for d in scans_root.glob(pattern) if d.is_dir() and d != current_scan_dir],
-        reverse=True  # newest first
+        reverse=True,  # newest first
     )
-    
-    return scan_dirs[0] if scan_dirs else None
+
+
+def find_previous_scan_dir(current_scan_dir: Path, app_name: str) -> Path | None:
+    """Find the most recent previous scan directory for the same app.
+
+    Args:
+        current_scan_dir: Path to current scan directory
+        app_name: Application name
+
+    Returns:
+        Path to previous scan directory, or None if no previous scan exists
+    """
+    dirs = find_previous_scan_dirs(current_scan_dir, app_name)
+    return dirs[0] if dirs else None
 
 
 def load_previous_stig_results(previous_scan_dir: Path, slug: str) -> dict[str, dict[str, Any]]:
@@ -1251,21 +1262,24 @@ def _assess_stig(
         # Always load previous STIG results when available. The model uses them
         # to confirm unchanged findings or update when evidence has changed.
         # This is the primary mechanism for scan-to-scan consistency.
-        previous_scan = find_previous_scan_dir(scan_dir, app_name)
+        # Walk backwards through ALL previous scans for this app until we find
+        # one that has a results file for this specific STIG slug — the most
+        # recent scan may not have run a STIG assessment at all.
         previous_assessments: dict[str, dict[str, Any]] = {}
-        if previous_scan:
-            previous_assessments = load_previous_stig_results(previous_scan, slug)
-            if previous_assessments:
-                print(
-                    f"[INFO] [{slug}] Loaded {len(previous_assessments)} previous assessments "
-                    f"from {previous_scan.name} — model will confirm or update each finding",
-                    file=sys.stderr,
-                )
-            else:
-                print(
-                    f"[INFO] [{slug}] No previous assessments found in {previous_scan.name}",
-                    file=sys.stderr,
-                )
+        previous_scan_used: Path | None = None
+        for candidate in find_previous_scan_dirs(scan_dir, app_name):
+            loaded = load_previous_stig_results(candidate, slug)
+            if loaded:
+                previous_assessments = loaded
+                previous_scan_used = candidate
+                break
+
+        if previous_scan_used:
+            print(
+                f"[INFO] [{slug}] Loaded {len(previous_assessments)} previous assessments "
+                f"from {previous_scan_used.name} — model will confirm or update each finding",
+                file=sys.stderr,
+            )
         else:
             print(
                 f"[INFO] [{slug}] No previous scan found — all controls assessed fresh",

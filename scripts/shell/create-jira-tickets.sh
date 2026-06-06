@@ -930,8 +930,9 @@ print(m.get(sys.argv[1], ''))
         echo "  🔄  ${cve_id} — updating existing ticket ${existing_cve_key}"
         # Add update comment
         local comment_adf
-        comment_adf=$(build_cve_adf_body /tmp/epyon_cve_findings.json "${cve_id}" "${sev_label}" "${parent_key}")
-        jq -n --argjson body "${comment_adf}" '{body: $body}' > /tmp/jira_cve_comment.json 2>/dev/null || true
+        comment_adf=$(build_cve_adf_body /tmp/epyon_cve_findings.json "${cve_id}" "${sev_label}" "${parent_key}") || true
+        echo "${comment_adf}" > /tmp/jira_cve_adf.json
+        jq -n --slurpfile body /tmp/jira_cve_adf.json '{body: $body[0]}' > /tmp/jira_cve_comment.json 2>/dev/null || true
         curl -s -o /dev/null \
           -X POST \
           -H "Authorization: Basic ${AUTH}" \
@@ -971,7 +972,8 @@ with open('/tmp/epyon_cve_map_current.json','w') as f: json.dump(m,f)
     local ticket_title="${kev_prefix}${cve_id} — ${first_pkg}${more_label} [${sev_label}] ${REPO_NAME##*/}"
 
     local adf_body
-    adf_body=$(build_cve_adf_body /tmp/epyon_cve_findings.json "${cve_id}" "${sev_label}" "${parent_key}")
+    adf_body=$(build_cve_adf_body /tmp/epyon_cve_findings.json "${cve_id}" "${sev_label}" "${parent_key}") || true
+    echo "${adf_body}" > /tmp/jira_cve_adf.json
 
     # Build payload — include parent key for Jira next-gen hierarchy
     if [[ -n "${parent_key}" ]]; then
@@ -983,9 +985,9 @@ with open('/tmp/epyon_cve_map_current.json','w') as f: json.dump(m,f)
         --arg lsev     "epyon-${sev_label}" \
         --arg lrepo    "${REPO_SLUG}" \
         --arg parent   "${parent_key}" \
-        --argjson desc "${adf_body}" \
+        --slurpfile desc /tmp/jira_cve_adf.json \
         '{fields: {project: {key: $project}, summary: $title, issuetype: {name: $itype},
-                   priority: {name: $priority}, description: $desc,
+                   priority: {name: $priority}, description: $desc[0],
                    parent: {key: $parent},
                    labels: ["epyon", "security", "cve", $lsev, $lrepo]}}' > /tmp/jira_cve_payload.json
     else
@@ -996,9 +998,9 @@ with open('/tmp/epyon_cve_map_current.json','w') as f: json.dump(m,f)
         --arg priority "${priority}" \
         --arg lsev     "epyon-${sev_label}" \
         --arg lrepo    "${REPO_SLUG}" \
-        --argjson desc "${adf_body}" \
+        --slurpfile desc /tmp/jira_cve_adf.json \
         '{fields: {project: {key: $project}, summary: $title, issuetype: {name: $itype},
-                   priority: {name: $priority}, description: $desc,
+                   priority: {name: $priority}, description: $desc[0],
                    labels: ["epyon", "security", "cve", $lsev, $lrepo]}}' > /tmp/jira_cve_payload.json
     fi
 
@@ -1173,13 +1175,13 @@ if [[ "${CRITICAL_COUNT:-0}" -gt 0 ]]; then
   create_jira_ticket \
     "Epyon Critical Security Findings - ${REPO_NAME##*/}" \
     "epyon-critical" "Highest" "critical_findings" \
-    "Epyon found ${CRITICAL_COUNT} critical severity finding(s) in ${REPO_NAME} on ${TODAY}."
+    "Epyon found ${CRITICAL_COUNT} critical severity finding(s) in ${REPO_NAME} on ${TODAY}." || true
   if [[ "${TICKET_MODE}" == "hybrid" ]] && [[ -f /tmp/epyon_last_jira_key.txt ]]; then
     _parent_key=$(cat /tmp/epyon_last_jira_key.txt)
-    create_cve_tickets "${_parent_key}" "critical" "Highest" "critical_findings"
+    create_cve_tickets "${_parent_key}" "critical" "Highest" "critical_findings" || true
   fi
 else
-  maybe_close_jira_ticket "epyon-critical" "${CRITICAL_COUNT:-0}"
+  maybe_close_jira_ticket "epyon-critical" "${CRITICAL_COUNT:-0}" || true
 fi
 
 if [[ "${HIGH_COUNT:-0}" -gt 0 ]]; then
@@ -1187,13 +1189,13 @@ if [[ "${HIGH_COUNT:-0}" -gt 0 ]]; then
   create_jira_ticket \
     "Epyon High Security Findings - ${REPO_NAME##*/}" \
     "epyon-high" "High" "high_findings" \
-    "Epyon found ${HIGH_COUNT} high severity finding(s) in ${REPO_NAME} on ${TODAY}."
+    "Epyon found ${HIGH_COUNT} high severity finding(s) in ${REPO_NAME} on ${TODAY}." || true
   if [[ "${TICKET_MODE}" == "hybrid" ]] && [[ -f /tmp/epyon_last_jira_key.txt ]]; then
     _parent_key=$(cat /tmp/epyon_last_jira_key.txt)
-    create_cve_tickets "${_parent_key}" "high" "High" "high_findings"
+    create_cve_tickets "${_parent_key}" "high" "High" "high_findings" || true
   fi
 else
-  maybe_close_jira_ticket "epyon-high" "${HIGH_COUNT:-0}"
+  maybe_close_jira_ticket "epyon-high" "${HIGH_COUNT:-0}" || true
 fi
 
 if [[ "${MEDIUM_COUNT:-0}" -gt 0 ]]; then
@@ -1201,13 +1203,13 @@ if [[ "${MEDIUM_COUNT:-0}" -gt 0 ]]; then
   create_jira_ticket \
     "Epyon Medium Security Findings - ${REPO_NAME##*/}" \
     "epyon-medium" "Medium" "medium_findings" \
-    "Epyon found ${MEDIUM_COUNT} medium severity finding(s) in ${REPO_NAME} on ${TODAY}."
+    "Epyon found ${MEDIUM_COUNT} medium severity finding(s) in ${REPO_NAME} on ${TODAY}." || true
   if [[ "${TICKET_MODE}" == "hybrid" ]] && [[ -f /tmp/epyon_last_jira_key.txt ]]; then
     _parent_key=$(cat /tmp/epyon_last_jira_key.txt)
-    create_cve_tickets "${_parent_key}" "medium" "Medium" "medium_findings"
+    create_cve_tickets "${_parent_key}" "medium" "Medium" "medium_findings" || true
   fi
 else
-  maybe_close_jira_ticket "epyon-medium" "${MEDIUM_COUNT:-0}"
+  maybe_close_jira_ticket "epyon-medium" "${MEDIUM_COUNT:-0}" || true
 fi
 
 if [[ "${LOW_COUNT:-0}" -gt 0 ]]; then
@@ -1215,12 +1217,11 @@ if [[ "${LOW_COUNT:-0}" -gt 0 ]]; then
   create_jira_ticket \
     "Epyon Low Security Findings - ${REPO_NAME##*/}" \
     "epyon-low" "Low" "low_findings" \
-    "Epyon found ${LOW_COUNT} low severity finding(s) in ${REPO_NAME} on ${TODAY}."
+    "Epyon found ${LOW_COUNT} low severity finding(s) in ${REPO_NAME} on ${TODAY}." || true
   if [[ "${TICKET_MODE}" == "hybrid" ]] && [[ -f /tmp/epyon_last_jira_key.txt ]]; then
     _parent_key=$(cat /tmp/epyon_last_jira_key.txt)
-    create_cve_tickets "${_parent_key}" "low" "Low" "low_findings"
+    create_cve_tickets "${_parent_key}" "low" "Low" "low_findings" || true
   fi
 else
-  maybe_close_jira_ticket "epyon-low" "${LOW_COUNT:-0}"
+  maybe_close_jira_ticket "epyon-low" "${LOW_COUNT:-0}" || true
 fi
-

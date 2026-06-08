@@ -41,7 +41,19 @@ def get_api_key() -> str | None:
     cfg = read_ai_config()
     if cfg.get("api_key"):
         return cfg["api_key"]
-    return os.environ.get("OPENAI_API_KEY") or None
+    env_key = os.environ.get("OPENAI_API_KEY")
+    if env_key:
+        return env_key
+    # Self-hosted, OpenAI-compatible backends (Ollama, vLLM, LocalAI, an
+    # in-cluster AI gateway, ...) typically do not authenticate requests, but
+    # the OpenAI SDK still refuses to initialize with an empty key. When a
+    # custom (non-OpenAI) base URL is configured, fall back to a non-secret
+    # placeholder so summaries work without a real key. A genuine
+    # api.openai.com endpoint still returns None here and surfaces the
+    # "key not configured" guidance.
+    if _is_self_hosted(get_base_url()):
+        return _PLACEHOLDER_API_KEY
+    return None
 
 
 # Default model used when neither the UI config nor the environment specify one.
@@ -59,6 +71,37 @@ def get_model() -> str:
     """
     cfg = read_ai_config()
     return cfg.get("model") or os.environ.get("OPENAI_MODEL") or DEFAULT_MODEL
+
+
+# A non-secret placeholder used when talking to a self-hosted, OpenAI-compatible
+# endpoint that does not authenticate requests. The OpenAI SDK rejects an empty
+# api_key, so we supply a dummy one whenever a non-OpenAI base URL is configured.
+_PLACEHOLDER_API_KEY = "sk-local-noauth"
+
+# Substrings identifying the real, authenticated OpenAI API. A request to one of
+# these genuinely requires a user-supplied key, so we never substitute a
+# placeholder for them.
+_OPENAI_PUBLIC_HOSTS = ("api.openai.com",)
+
+
+def get_base_url() -> str | None:
+    """Resolve the OpenAI-compatible base URL.
+
+    Precedence mirrors get_api_key()/get_model(): the UI-managed ai-config.json
+    wins, then the OPENAI_BASE_URL environment variable, then None (the SDK's
+    default, i.e. the public OpenAI API). The OpenAI SDK only auto-reads the
+    environment variable, so a base URL chosen in the Settings UI must be passed
+    to the client explicitly (see the AsyncOpenAI call sites below).
+    """
+    cfg = read_ai_config()
+    return cfg.get("base_url") or os.environ.get("OPENAI_BASE_URL") or None
+
+
+def _is_self_hosted(base_url: str | None) -> bool:
+    """True when base_url points at something other than the public OpenAI API."""
+    if not base_url:
+        return False
+    return not any(host in base_url for host in _OPENAI_PUBLIC_HOSTS)
 
 
 # Maps scan_type values to human-readable classification used in prompts.
@@ -186,7 +229,7 @@ async def generate_summary(scan_id: str, scan_meta: dict, findings: dict) -> str
 
     model = get_model()
 
-    client = AsyncOpenAI(api_key=api_key)
+    client = AsyncOpenAI(api_key=api_key, base_url=get_base_url())
     response = await client.chat.completions.create(
         model=model,
         messages=[
@@ -286,7 +329,7 @@ async def generate_technical_summary(scan_id: str, scan_meta: dict, findings: di
 
     model = get_model()
 
-    client = AsyncOpenAI(api_key=api_key)
+    client = AsyncOpenAI(api_key=api_key, base_url=get_base_url())
     response = await client.chat.completions.create(
         model=model,
         messages=[
@@ -378,7 +421,7 @@ async def generate_global_summary(apps: list[dict], metrics: dict | None = None)
         + json.dumps(payload, indent=2)
     )
 
-    client = AsyncOpenAI(api_key=api_key)
+    client = AsyncOpenAI(api_key=api_key, base_url=get_base_url())
     response = await client.chat.completions.create(
         model=model,
         messages=[
@@ -453,7 +496,7 @@ async def generate_global_technical_summary(apps: list[dict], metrics: dict | No
         + json.dumps(payload, indent=2)
     )
 
-    client = AsyncOpenAI(api_key=api_key)
+    client = AsyncOpenAI(api_key=api_key, base_url=get_base_url())
     response = await client.chat.completions.create(
         model=model,
         messages=[
@@ -481,8 +524,7 @@ async def generate_global_isso_summary(apps: list[dict], metrics: dict | None = 
     except ImportError:
         raise RuntimeError("The 'openai' package is not installed. Run: pip install openai")
 
-    cfg   = read_ai_config()
-    model = cfg.get("model") or "gpt-4o-mini"
+    model = get_model()
 
     continuous, evaluated = _split_apps_by_classification(apps)
 
@@ -533,7 +575,7 @@ async def generate_global_isso_summary(apps: list[dict], metrics: dict | None = 
         + json.dumps(payload, indent=2)
     )
 
-    client = AsyncOpenAI(api_key=api_key)
+    client = AsyncOpenAI(api_key=api_key, base_url=get_base_url())
     response = await client.chat.completions.create(
         model=model,
         messages=[
@@ -738,8 +780,7 @@ async def generate_app_isso_summary(
     except ImportError:
         raise RuntimeError("The 'openai' package is not installed. Run: pip install openai")
 
-    cfg   = read_ai_config()
-    model = cfg.get("model") or "gpt-4o-mini"
+    model = get_model()
 
     critical       = findings.get("critical_findings", [])
     high           = findings.get("high_findings", [])
@@ -825,7 +866,7 @@ async def generate_app_isso_summary(
         + json.dumps(payload, indent=2)
     )
 
-    client = AsyncOpenAI(api_key=api_key)
+    client = AsyncOpenAI(api_key=api_key, base_url=get_base_url())
     response = await client.chat.completions.create(
         model=model,
         messages=[
@@ -878,7 +919,7 @@ async def generate_fix_suggestion(finding: dict) -> str:
         + json.dumps(finding, indent=2)
     )
 
-    client = AsyncOpenAI(api_key=api_key)
+    client = AsyncOpenAI(api_key=api_key, base_url=get_base_url())
     response = await client.chat.completions.create(
         model=model,
         messages=[

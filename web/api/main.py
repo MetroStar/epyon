@@ -55,7 +55,6 @@ _APP_SCAN_RE     = re.compile(r"^(.+)_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})$")
 _VALID_SCAN_TYPES = {"quick", "full", "nightly", "baseline", "stig", "local_model"}
 _TOKEN_RE        = re.compile(r"^(ghp_|github_pat_|ghs_|gho_)[a-zA-Z0-9_]+$")
 _REPO_RE         = re.compile(r"^[a-zA-Z0-9_.\-]+/[a-zA-Z0-9_.\-]+$")
-_KEY_RE          = re.compile(r"^sk-[A-Za-z0-9_\-]{20,}$")
 
 # ── Metrics cache ─────────────────────────────────────────────
 _metrics_cache:    dict  = {}
@@ -1966,6 +1965,11 @@ def ai_config_get(response: Response):
         # resolved model (UI > OPENAI_MODEL > default) for display only.
         "model":        cfg.get("model") or "gpt-4.1",
         "active_model": openai_summary.get_model(),
+        # The configured custom endpoint (UI value), plus the effective base URL
+        # actually in use (UI > OPENAI_BASE_URL env > OpenAI default) for
+        # display. Empty string means the public OpenAI API.
+        "base_url":        cfg.get("base_url", ""),
+        "active_base_url": openai_summary.get_base_url() or "",
     }
 
 
@@ -1980,13 +1984,33 @@ async def ai_config_post(request: Request, response: Response):
     cfg = openai_summary.read_ai_config()
     new_key = (body.get("api_key") or "").strip()
     if new_key and new_key != "KEEP_EXISTING":
-        if not _KEY_RE.match(new_key):
-            raise HTTPException(400, "api_key does not look like a valid OpenAI secret key")
+        # Accept real OpenAI secret keys (sk-...) as well as arbitrary tokens
+        # used by self-hosted, OpenAI-compatible gateways (vLLM, LiteLLM, ...).
+        # Reject only obviously unsafe values (whitespace / shell metacharacters
+        # / control chars) rather than locking to the OpenAI key format.
+        if len(new_key) > 200 or re.search(r"[\s;&|`$()<>'\"\\]", new_key):
+            raise HTTPException(400, "api_key contains invalid characters")
         cfg["api_key"] = new_key
 
-    allowed_models = {"gpt-4.1", "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo"}
-    if body.get("model") in allowed_models:
-        cfg["model"] = body["model"]
+    if "base_url" in body:
+        base_url = (body.get("base_url") or "").strip()
+        if base_url:
+            # Allow https:// for public providers and http:// for in-cluster /
+            # self-hosted endpoints (e.g. http://ollama.ollama:11434/v1).
+            if not re.match(r"^https?://[A-Za-z0-9.\-]+(:\d+)?(/[\w./\-]*)?$", base_url):
+                raise HTTPException(400, "base_url must be a valid http(s) URL")
+            cfg["base_url"] = base_url
+        else:
+            cfg.pop("base_url", None)  # explicit clear → fall back to env/default
+
+    if body.get("model"):
+        model = str(body["model"]).strip()
+        # Accept curated OpenAI models and any self-hosted model id
+        # (e.g. gemma4:26b, llama3.1:8b). Validate the character set so the
+        # value is safe to use in request bodies and file paths.
+        if not re.match(r"^[A-Za-z0-9._:\-/]{1,100}$", model):
+            raise HTTPException(400, "model contains invalid characters")
+        cfg["model"] = model
 
     openai_summary.write_ai_config(cfg)
     return {"ok": True}

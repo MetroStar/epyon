@@ -48,6 +48,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Self-hosted / OpenAI-compatible endpoints now work without an OpenAI key** —
+  the AI summary and STIG-triage features previously failed with
+  "OpenAI API key not configured" whenever `OPENAI_API_KEY` was empty, even when
+  `OPENAI_BASE_URL` pointed at a keyless local backend (Ollama, vLLM, LocalAI,
+  an in-cluster AI gateway). `get_api_key()` now falls back to a non-secret
+  placeholder when a non-OpenAI base URL is configured; a real `api.openai.com`
+  endpoint still requires a user-supplied key.
+- **Custom `OPENAI_BASE_URL` from the Settings UI is now honored** — the OpenAI
+  SDK only auto-reads the base URL from the environment, so a value saved in
+  Settings was silently ignored. The resolved base URL is now passed explicitly
+  to every `AsyncOpenAI` client.
+- **ISSO summaries honor the configured model** — `generate_global_isso_summary`
+  and `generate_app_isso_summary` hard-coded `gpt-4o-mini` instead of resolving
+  the model via `get_model()`, so they failed against self-hosted models
+  (e.g. `gemma4:26b`) while the executive/technical summaries succeeded.
+
+### Changed
+- **AI config API accepts self-hosted setups** — `POST /api/ai/config` now
+  accepts a `base_url` (http:// allowed for in-cluster endpoints) and arbitrary
+  model ids (e.g. `gemma4:26b`, `llama3.1:8b`) instead of only a fixed OpenAI
+  model allowlist, and no longer rejects non-`sk-` API tokens. `GET /api/ai/config`
+  surfaces the configured and effective base URL.
+
 ## [3.5.0] - 2026-06-03
 
 ### Added

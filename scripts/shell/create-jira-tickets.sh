@@ -375,7 +375,10 @@ header_row = {"type": "tableRow",
                           ["ID / CVE", "Package / File", "Version", "Tool", "Description"]]}
 
 data_rows = []
-for r in rows:
+TABLE_ROW_CAP = 30  # Jira description hard limit is 32,767 chars; cap table rows on parent Epic
+truncated = len(rows) > TABLE_ROW_CAP
+display_rows = rows[:TABLE_ROW_CAP]
+for r in display_rows:
     kev_prefix = "\U0001f525 " if r["is_kev"] else ""
     id_cell = cell_link(kev_prefix + r["id"], r["nvd_url"]) if r["nvd_url"] else cell_text(kev_prefix + r["id"])
     data_rows.append({"type": "tableRow",
@@ -437,6 +440,11 @@ adf = {"version": 1, "type": "doc",
            *kev_panel_blocks,
            {"type": "paragraph", "content": [{"type": "text", "text": summary_line}]},
            table,
+           *([ {"type": "panel", "attrs": {"panelType": "info"},
+                "content": [{"type": "paragraph", "content": [{"type": "text",
+                    "text": f"Showing {TABLE_ROW_CAP} of {len(rows)} findings. "
+                             "Each CVE has its own child ticket — see the Epic's child issues for the full list."}]}]}
+             ] if truncated else []),
            ac_heading,
            ac_list,
            dod_heading,

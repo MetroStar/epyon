@@ -430,6 +430,7 @@ def generate_html(scan_dir: Path, epyon_root: Path, output_path: Path) -> None:
   <script>
 {js}
   </script>
+<!-- __EPYON_METRICS__ -->
 </body>
 </html>"""
 

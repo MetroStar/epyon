@@ -443,17 +443,42 @@ CHART_HTML="${CHART_HTML//CHART_TYPE_PLACEHOLDER/$CHART_TYPE}"
 CHART_HTML="${CHART_HTML//PR_BASE_BRANCH_PLACEHOLDER/${PR_BASE_BRANCH:-main}}"
 
 
-# Find injection point (before closing </body> tag or append if absent)
-if grep -q "</body>" "$DASHBOARD_FILE"; then
-    # Write chart HTML to a temp file, then use awk to insert it before </body>
+# Find injection point — use the unique marker left by generate-dashboard.py.
+# Falling back to </body> risks hitting the one inside the embedded app.js
+# template literal (print report HTML), which lives inside a <script> block.
+if grep -q "<!-- __EPYON_METRICS__ -->" "$DASHBOARD_FILE"; then
+    # Replace the marker with the chart HTML
     TEMP_HTML=$(mktemp)
     echo "$CHART_HTML" > "$TEMP_HTML"
     awk -v chart_file="$TEMP_HTML" '
-        /<\/body>/ {
+        /<!-- __EPYON_METRICS__ -->/ {
             while ((getline line < chart_file) > 0) print line
             close(chart_file)
+            next
         }
         { print }
+    ' "$DASHBOARD_FILE" > "${DASHBOARD_FILE}.tmp" && mv "${DASHBOARD_FILE}.tmp" "$DASHBOARD_FILE"
+    rm -f "$TEMP_HTML"
+elif grep -q "</body>" "$DASHBOARD_FILE"; then
+    # Legacy fallback: insert before the LAST </body> in the file to avoid
+    # hitting </body> tags inside embedded JavaScript template literals.
+    TEMP_HTML=$(mktemp)
+    echo "$CHART_HTML" > "$TEMP_HTML"
+    awk -v chart_file="$TEMP_HTML" '
+        { lines[NR] = $0 }
+        END {
+            last = 0
+            for (i = NR; i >= 1; i--) {
+                if (lines[i] ~ /<\/body>/) { last = i; break }
+            }
+            for (i = 1; i <= NR; i++) {
+                if (i == last) {
+                    while ((getline line < chart_file) > 0) print line
+                    close(chart_file)
+                }
+                print lines[i]
+            }
+        }
     ' "$DASHBOARD_FILE" > "${DASHBOARD_FILE}.tmp" && mv "${DASHBOARD_FILE}.tmp" "$DASHBOARD_FILE"
     rm -f "$TEMP_HTML"
 else

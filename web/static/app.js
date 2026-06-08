@@ -562,6 +562,11 @@ const api = {
     const qs = p.toString();
     return this._get('/api/stig/history' + (qs ? '?' + qs : ''));
   },
+  getJiraConfig()      { return this._get('/api/jira/config'); },
+  saveJiraConfig(d)    { return this._post('/api/jira/config', d); },
+  testJiraConnection() { return this._post('/api/jira/test', {}); },
+  getJiraTickets()     { return this._get('/api/jira/tickets'); },
+  syncJiraApp(name)    { return this._post(`/api/jira/sync/${encodeURIComponent(name)}`, {}); },
 };
 
 // ── Theme ────────────────────────────────────────────────────
@@ -4605,12 +4610,13 @@ async function renderSettings() {
   page.innerHTML = loading();
 
   try {
-    const [images, history, ghCfg, aiCfg, health] = await Promise.all([
+    const [images, history, ghCfg, aiCfg, health, jiraCfg] = await Promise.all([
       api.getApprovedImages(),
       api.getScanHistory(),
       api.getGitHubConfig(),
       api.getAiConfig(),
       api._get('/api/health'),
+      api.getJiraConfig().catch(() => ({})),
     ]);
     const epyonVersion = health.version || '—';
 
@@ -4731,6 +4737,81 @@ async function renderSettings() {
             <span id="sync-status" style="font-size:13px;color:var(--text-muted)">
               ${ghCfg.last_sync ? 'Last synced: ' + fmtDate(ghCfg.last_sync) : 'Not yet synced'}
             </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Jira Integration</div>
+        <p class="section-desc">
+          Automatically close Jira tickets when security findings are remediated in a subsequent scan.
+          Requires a Jira Cloud account with an API token (Atlassian account settings → Security → API tokens).
+        </p>
+        <div style="display:grid;gap:14px;max-width:600px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <label class="field-label">Jira Base URL</label>
+              <input id="jira-url" type="url" class="field-input"
+                placeholder="https://your-org.atlassian.net"
+                value="${esc(jiraCfg.base_url || '')}"/>
+            </div>
+            <div>
+              <label class="field-label">Email</label>
+              <input id="jira-email" type="email" class="field-input"
+                placeholder="user@company.com"
+                value="${esc(jiraCfg.email || '')}"/>
+            </div>
+          </div>
+          <div>
+            <label class="field-label">API Token</label>
+            <input id="jira-token" type="password" class="field-input"
+              placeholder="${jiraCfg.token_set ? 'Token saved — enter new to replace' : 'Atlassian API token'}"
+              autocomplete="off"/>
+            ${jiraCfg.token_set ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Token saved</div>` : ''}
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+            <div>
+              <label class="field-label">Project Key</label>
+              <input id="jira-project" type="text" class="field-input"
+                placeholder="SEC"
+                value="${esc(jiraCfg.project_key || '')}"/>
+            </div>
+            <div>
+              <label class="field-label">Issue Type</label>
+              <input id="jira-issue-type" type="text" class="field-input"
+                placeholder="Bug"
+                value="${esc(jiraCfg.issue_type || 'Bug')}"/>
+            </div>
+            <div>
+              <label class="field-label">Done Transition</label>
+              <input id="jira-done" type="text" class="field-input"
+                placeholder="Done"
+                value="${esc(jiraCfg.done_transition || 'Done')}"/>
+            </div>
+          </div>
+          <div>
+            <label class="field-label">Minimum Severity to Track</label>
+            <select id="jira-minsev" class="field-input" style="max-width:200px">
+              <option value="critical" ${jiraCfg.min_severity === 'critical' ? 'selected' : ''}>Critical only</option>
+              <option value="high" ${(jiraCfg.min_severity || 'high') === 'high' ? 'selected' : ''}>High and above</option>
+              <option value="medium" ${jiraCfg.min_severity === 'medium' ? 'selected' : ''}>Medium and above</option>
+              <option value="low" ${jiraCfg.min_severity === 'low' ? 'selected' : ''}>All severities</option>
+            </select>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:13px">
+              <input type="checkbox" id="jira-auto-close" ${jiraCfg.auto_close ? 'checked' : ''}/>
+              Auto-close tickets when findings are remediated (runs after each scan)
+            </label>
+            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:13px">
+              <input type="checkbox" id="jira-create-new" ${jiraCfg.create_on_new ? 'checked' : ''}/>
+              Auto-create tickets for new findings
+            </label>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="saveJiraConfig()">Save</button>
+            <button class="btn" id="jira-test-btn" onclick="testJiraConnection()">Test Connection</button>
+            <span id="jira-status" style="font-size:13px;color:var(--text-muted)"></span>
           </div>
         </div>
       </div>
@@ -4892,6 +4973,52 @@ async function triggerGitHubSync() {
       }
     } catch (_) {}
   }, 2000);
+}
+
+// ── Jira Settings helpers ─────────────────────────────────────
+
+async function saveJiraConfig() {
+  const statusEl = document.getElementById('jira-status');
+  if (statusEl) statusEl.textContent = 'Saving…';
+  const body = {
+    base_url:        (document.getElementById('jira-url')?.value   || '').trim(),
+    email:           (document.getElementById('jira-email')?.value  || '').trim(),
+    api_token:       (document.getElementById('jira-token')?.value  || '').trim() || 'KEEP_EXISTING',
+    project_key:     (document.getElementById('jira-project')?.value || '').trim(),
+    issue_type:      (document.getElementById('jira-issue-type')?.value || '').trim() || 'Bug',
+    done_transition: (document.getElementById('jira-done')?.value   || '').trim() || 'Done',
+    min_severity:    document.getElementById('jira-minsev')?.value  || 'high',
+    auto_close:      document.getElementById('jira-auto-close')?.checked ?? false,
+    create_on_new:   document.getElementById('jira-create-new')?.checked ?? false,
+  };
+  try {
+    await api.saveJiraConfig(body);
+    const tokenEl = document.getElementById('jira-token');
+    if (tokenEl) tokenEl.value = '';
+    if (statusEl) statusEl.textContent = 'Saved.';
+  } catch (e) {
+    if (statusEl) statusEl.textContent = 'Error: ' + e.message;
+  }
+}
+
+async function testJiraConnection() {
+  const btn      = document.getElementById('jira-test-btn');
+  const statusEl = document.getElementById('jira-status');
+  if (btn) { btn.disabled = true; btn.textContent = 'Testing…'; }
+  if (statusEl) statusEl.textContent = '';
+  // Save current form values first so the test uses the latest credentials
+  await saveJiraConfig().catch(() => {});
+  try {
+    const result = await api.testJiraConnection();
+    if (statusEl) {
+      statusEl.style.color = result.ok ? 'var(--pass)' : 'var(--critical)';
+      statusEl.textContent = result.message || (result.ok ? 'Connected' : 'Failed');
+    }
+  } catch (e) {
+    if (statusEl) { statusEl.style.color = 'var(--critical)'; statusEl.textContent = e.message; }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Test Connection'; }
+  }
 }
 
 // ── STIG History Matrix & MTTR ───────────────────────────────

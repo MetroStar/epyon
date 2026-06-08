@@ -280,7 +280,7 @@ async def run_scan_job(
             job["status"]       = "completed" if return_code == 0 else "failed"
             job["completed_at"] = _now()
             if _on_scan_complete_cb:
-                _on_scan_complete_cb()
+                _on_scan_complete_cb(target_name, scan_name)
 
     except Exception as exc:
         procs.pop(job_id, None)

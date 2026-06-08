@@ -27,6 +27,7 @@ from . import parsers
 from . import github_sync
 from . import github_metrics
 from . import openai_summary
+from . import jira_client
 
 # ── Paths ─────────────────────────────────────────────────────
 _HERE        = Path(__file__).parent
@@ -37,6 +38,8 @@ SCRIPTS_DIR  = EPYON_ROOT / "scripts" / "shell"
 APPROVED_IMAGES_FILE = EPYON_ROOT / "configuration" / "approved-base-images.conf"
 GITHUB_CONFIG_FILE   = _HERE / ".." / "github-config.json"
 HIDDEN_APPS_FILE     = EPYON_ROOT / "configuration" / "hidden-apps.json"
+JIRA_CONFIG_FILE     = (_HERE / ".." / "data" / "jira-config.json").resolve()
+JIRA_TICKETS_FILE    = (_HERE / ".." / "data" / "jira-tickets.json").resolve()
 REGISTERED_APPS_FILE = EPYON_ROOT / "configuration" / "registered-apps.json"
 MONITORED_APPS_FILE  = EPYON_ROOT / "configuration" / "monitored-apps.json"
 STATIC_DIR           = (_HERE / ".." / "static").resolve()
@@ -156,6 +159,47 @@ def _invalidate_scan_cache() -> None:
     _scan_cache.clear()
     _dir_cache    = None
     _dir_cache_ts = 0.0
+
+
+async def _jira_post_scan(target_name: str) -> None:
+    """Auto-reconcile Jira tickets after a scan finishes for target_name."""
+    try:
+        cfg = jira_client.read_config()
+        if not cfg.get("auto_close") or not cfg.get("api_token"):
+            return
+
+        all_dirs = parsers.find_scan_dirs(EPYON_ROOT)
+        target_dirs = sorted(
+            [d for d in all_dirs if parsers.parse_dir_name(d.name)["target"] == target_name],
+            key=lambda d: d.name,
+            reverse=True,
+        )
+        if len(target_dirs) < 2:
+            return  # need at least two scans to compare
+
+        current_raw  = (parsers.load_enriched_findings(target_dirs[0])
+                        or parsers.parse_scan_findings(target_dirs[0]))
+        previous_raw = (parsers.load_enriched_findings(target_dirs[1])
+                        or parsers.parse_scan_findings(target_dirs[1]))
+
+        ticket_map = jira_client.read_ticket_map()
+        await jira_client.reconcile_app(
+            target_name,
+            jira_client.flatten_findings(current_raw),
+            jira_client.flatten_findings(previous_raw),
+            cfg,
+            ticket_map,
+        )
+        jira_client.write_ticket_map(ticket_map)
+    except Exception:
+        pass  # never let Jira errors break the scan pipeline
+
+
+def _on_scan_complete(target_name: str = "", scan_name: str = "") -> None:
+    """Callback invoked by jobs.py when a scan finishes."""
+    _invalidate_scan_cache()
+    if target_name:
+        asyncio.create_task(_jira_post_scan(target_name))
 
 
 def _now() -> str:
@@ -938,7 +982,7 @@ async def trigger_scan(request: Request, response: Response):
 
     job_id = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     job = job_store.create_job(job_id, target, scan_type)
-    job_store._on_scan_complete_cb = _invalidate_scan_cache
+    job_store._on_scan_complete_cb = _on_scan_complete
     asyncio.create_task(
         job_store.run_scan_job(job_id, target, scan_type, script_path, EPYON_ROOT,
                                run_garak=run_garak, run_stig=run_stig)
@@ -2512,6 +2556,140 @@ async def finding_fix(body: _FindingFixRequest, response: Response):
     except Exception as exc:
         raise HTTPException(502, f"OpenAI request failed: {exc}")
     return {"fix": fix}
+
+
+# ── Jira integration ──────────────────────────────────────────
+
+_JIRA_URL_RE    = re.compile(r"^https://[a-zA-Z0-9.\-]+/")
+_JIRA_TOKEN_RE  = re.compile(r"^[A-Za-z0-9_\-]{10,}$")
+
+
+@app.get("/api/jira/config")
+def jira_config_get(response: Response):
+    _sec_headers(response)
+    cfg   = jira_client.read_config()
+    token = cfg.get("api_token", "")
+    masked = re.sub(r"(?<=.{4}).(?=.{4})", "*", token) if len(token) > 8 else ("*" * len(token))
+    return {
+        "token_set":       bool(token),
+        "token_hint":      masked,
+        "base_url":        cfg.get("base_url", ""),
+        "email":           cfg.get("email", ""),
+        "project_key":     cfg.get("project_key", ""),
+        "issue_type":      cfg.get("issue_type", "Bug"),
+        "done_transition": cfg.get("done_transition", "Done"),
+        "min_severity":    cfg.get("min_severity", "high"),
+        "auto_close":      cfg.get("auto_close", False),
+        "create_on_new":   cfg.get("create_on_new", False),
+    }
+
+
+@app.post("/api/jira/config")
+async def jira_config_post(request: Request, response: Response):
+    _sec_headers(response)
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Invalid JSON")
+
+    cfg = jira_client.read_config()
+
+    base_url = (body.get("base_url") or "").strip()
+    if base_url:
+        if not base_url.startswith("https://"):
+            raise HTTPException(400, "base_url must use HTTPS")
+        if re.search(r"[;&|`$\(\)\n\r<>'\"\\]", base_url):
+            raise HTTPException(400, "base_url contains invalid characters")
+        cfg["base_url"] = base_url
+
+    email = (body.get("email") or "").strip()
+    if email:
+        if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+            raise HTTPException(400, "Invalid email address")
+        cfg["email"] = email
+
+    new_token = (body.get("api_token") or "").strip()
+    if new_token and new_token != "KEEP_EXISTING":
+        cfg["api_token"] = new_token
+
+    if body.get("project_key") is not None:
+        pk = (body["project_key"] or "").strip().upper()
+        if pk and not re.match(r"^[A-Z][A-Z0-9]{0,9}$", pk):
+            raise HTTPException(400, "project_key must be 1-10 uppercase alphanumeric characters")
+        cfg["project_key"] = pk
+
+    for str_field in ("issue_type", "done_transition"):
+        if body.get(str_field) is not None:
+            val = (body[str_field] or "").strip()
+            if val and re.search(r"[<>\"';&|`$]", val):
+                raise HTTPException(400, f"{str_field} contains invalid characters")
+            cfg[str_field] = val
+
+    if body.get("min_severity") in ("critical", "high", "medium", "low"):
+        cfg["min_severity"] = body["min_severity"]
+
+    if "auto_close" in body:
+        cfg["auto_close"] = bool(body["auto_close"])
+    if "create_on_new" in body:
+        cfg["create_on_new"] = bool(body["create_on_new"])
+
+    jira_client.write_config(cfg)
+    return {"ok": True}
+
+
+@app.post("/api/jira/test")
+async def jira_test(response: Response):
+    _sec_headers(response)
+    cfg = jira_client.read_config()
+    result = await jira_client.test_connection(cfg)
+    return result
+
+
+@app.get("/api/jira/tickets")
+def jira_tickets_list(response: Response):
+    _sec_headers(response)
+    tmap = jira_client.read_ticket_map()
+    # Return sorted list, newest created first
+    entries = list(tmap.values())
+    entries.sort(key=lambda e: e.get("created_at", ""), reverse=True)
+    return {"total": len(entries), "tickets": entries}
+
+
+@app.post("/api/jira/sync/{app_name}")
+async def jira_sync_app(app_name: str, response: Response):
+    """Manually trigger Jira reconciliation for a specific application."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(app_name):
+        raise HTTPException(400, "Invalid app_name")
+
+    cfg = jira_client.read_config()
+    if not cfg.get("api_token"):
+        raise HTTPException(400, "Jira is not configured — set api_token first")
+
+    all_dirs = parsers.find_scan_dirs(EPYON_ROOT)
+    target_dirs = sorted(
+        [d for d in all_dirs if parsers.parse_dir_name(d.name)["target"] == app_name],
+        key=lambda d: d.name,
+        reverse=True,
+    )
+    if len(target_dirs) < 2:
+        raise HTTPException(400, "Need at least two scans for this application to compare findings")
+
+    current_raw  = (parsers.load_enriched_findings(target_dirs[0])
+                    or parsers.parse_scan_findings(target_dirs[0]))
+    previous_raw = (parsers.load_enriched_findings(target_dirs[1])
+                    or parsers.parse_scan_findings(target_dirs[1]))
+
+    ticket_map = jira_client.read_ticket_map()
+    result = await jira_client.reconcile_app(
+        app_name,
+        jira_client.flatten_findings(current_raw),
+        jira_client.flatten_findings(previous_raw),
+        cfg,
+        ticket_map,
+    )
+    jira_client.write_ticket_map(ticket_map)
+    return result
 
 
 # ── SPA / static file serving ─────────────────────────────────

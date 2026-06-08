@@ -2581,6 +2581,7 @@ def jira_config_get(response: Response):
         "min_severity":    cfg.get("min_severity", "high"),
         "auto_close":      cfg.get("auto_close", False),
         "create_on_new":   cfg.get("create_on_new", False),
+        "_from_env":       cfg.get("_from_env", False),
     }
 
 

@@ -4747,6 +4747,11 @@ async function renderSettings() {
           Automatically close Jira tickets when security findings are remediated in a subsequent scan.
           Requires a Jira Cloud account with an API token (Atlassian account settings → Security → API tokens).
         </p>
+        ${jiraCfg._from_env ? `
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>Credentials loaded from environment variables (<code style="background:var(--bg-input);padding:1px 4px;border-radius:3px">JIRA_BASE_URL</code>, <code style="background:var(--bg-input);padding:1px 4px;border-radius:3px">JIRA_USER_EMAIL</code>, <code style="background:var(--bg-input);padding:1px 4px;border-radius:3px">JIRA_API_TOKEN</code>). Fill in the form below to override with saved settings.</span>
+        </div>` : ''}
         <div style="display:grid;gap:14px;max-width:600px">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
@@ -4765,7 +4770,7 @@ async function renderSettings() {
           <div>
             <label class="field-label">API Token</label>
             <input id="jira-token" type="password" class="field-input"
-              placeholder="${jiraCfg.token_set ? 'Token saved — enter new to replace' : 'Atlassian API token'}"
+              placeholder="${jiraCfg.token_set ? 'Token saved — enter new to replace' : (jiraCfg._from_env ? 'Set via JIRA_API_TOKEN env var' : 'Atlassian API token')}"
               autocomplete="off"/>
             ${jiraCfg.token_set ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Token saved</div>` : ''}
           </div>

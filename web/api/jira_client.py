@@ -2,11 +2,19 @@
 
 Config is stored in  web/data/jira-config.json.
 Ticket map           web/data/jira-tickets.json  (fingerprint → issue metadata)
+
+Credentials are resolved in priority order:
+  1. web/data/jira-config.json  (saved via Settings UI)
+  2. Environment variables      (JIRA_BASE_URL, JIRA_USER_EMAIL, JIRA_API_TOKEN,
+                                 JIRA_PROJECT_KEY) — same names used by the
+                                 GitHub Actions workflow so repo secrets work
+                                 without any manual configuration.
 """
 from __future__ import annotations
 
 import hashlib
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -22,13 +30,45 @@ _TICKETS_FILE = _DATA_DIR / "jira-tickets.json"
 
 # ── Config helpers ────────────────────────────────────────────
 
+def _env_config() -> dict:
+    """Build a config dict from environment variables (same names as the
+    GitHub Actions workflow so repo secrets require zero extra setup)."""
+    base_url  = os.environ.get("JIRA_BASE_URL", "").strip()
+    email     = os.environ.get("JIRA_USER_EMAIL", "").strip()
+    token     = os.environ.get("JIRA_API_TOKEN", "").strip()
+    project   = os.environ.get("JIRA_PROJECT_KEY", "").strip()
+    if not (base_url and email and token):
+        return {}
+    return {
+        "base_url":        base_url,
+        "email":           email,
+        "api_token":       token,
+        "project_key":     project,
+        "issue_type":      os.environ.get("JIRA_ISSUE_TYPE", "Bug").strip(),
+        "done_transition":  os.environ.get("JIRA_DONE_TRANSITION", "Done").strip(),
+        "min_severity":    os.environ.get("JIRA_MIN_SEVERITY", "high").strip(),
+        "auto_close":      True,
+        "create_on_new":   False,
+        "_from_env":       True,   # marker so the UI can show "from environment"
+    }
+
+
 def read_config() -> dict:
+    """Return merged config: file values take precedence over env vars."""
+    file_cfg: dict = {}
     try:
         if _CONFIG_FILE.exists():
-            return json.loads(_CONFIG_FILE.read_text(encoding="utf-8"))
+            file_cfg = json.loads(_CONFIG_FILE.read_text(encoding="utf-8"))
     except Exception:
         pass
-    return {}
+    if file_cfg:
+        # If the file has credentials, use it as-is
+        if file_cfg.get("api_token"):
+            return file_cfg
+        # File exists but is incomplete — merge env vars as fallback for missing keys
+        merged = {**_env_config(), **file_cfg}
+        return merged
+    return _env_config()
 
 
 def write_config(cfg: dict) -> None:

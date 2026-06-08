@@ -4,10 +4,12 @@ of scan findings using the OpenAI Chat Completions API.
 """
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 _HERE = Path(__file__).parent
 AI_CONFIG_FILE = _HERE / ".." / "ai-config.json"
@@ -78,9 +80,9 @@ def get_model() -> str:
 # api_key, so we supply a dummy one whenever a non-OpenAI base URL is configured.
 _PLACEHOLDER_API_KEY = "sk-local-noauth"
 
-# Substrings identifying the real, authenticated OpenAI API. A request to one of
-# these genuinely requires a user-supplied key, so we never substitute a
-# placeholder for them.
+# Hostnames of the real, authenticated OpenAI API. A request to one of these
+# genuinely requires a user-supplied key, so we never substitute a placeholder.
+# Matched against the parsed URL hostname exactly (see _hostname/_is_self_hosted).
 _OPENAI_PUBLIC_HOSTS = ("api.openai.com",)
 
 
@@ -97,11 +99,60 @@ def get_base_url() -> str | None:
     return cfg.get("base_url") or os.environ.get("OPENAI_BASE_URL") or None
 
 
-def _is_self_hosted(base_url: str | None) -> bool:
-    """True when base_url points at something other than the public OpenAI API."""
+def _hostname(base_url: str | None) -> str | None:
+    """Extract the lowercased hostname from a base URL, or None if unparseable."""
     if not base_url:
+        return None
+    try:
+        return (urlparse(base_url).hostname or "").lower() or None
+    except Exception:
+        return None
+
+
+def _is_self_hosted(base_url: str | None) -> bool:
+    """True when base_url points at something other than the public OpenAI API.
+
+    Compares the parsed hostname exactly (not a substring) so a look-alike host
+    such as ``api.openai.com.evil.com`` is correctly treated as self-hosted.
+    """
+    host = _hostname(base_url)
+    if not host:
         return False
-    return not any(host in base_url for host in _OPENAI_PUBLIC_HOSTS)
+    return host not in _OPENAI_PUBLIC_HOSTS
+
+
+def _is_internal_host(host: str) -> bool:
+    """True for loopback / cluster-internal / RFC1918 hosts that are safe
+    targets for a self-hosted inference endpoint."""
+    if host == "localhost":
+        return True
+    if host.endswith((".svc", ".svc.cluster.local", ".cluster.local",
+                      ".local", ".internal")):
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+        return ip.is_private or ip.is_loopback or ip.is_link_local
+    except ValueError:
+        return False
+
+
+def base_url_allowed(base_url: str) -> bool:
+    """Guard against SSRF / credential exfiltration.
+
+    ``POST /api/ai/config`` lets a caller persist a custom ``base_url``; if a
+    real OpenAI key is also stored, an attacker could otherwise redirect
+    requests (and the bearer token) to a host they control. A configured
+    ``base_url`` is therefore accepted only when its hostname is the public
+    OpenAI API, a cluster-internal / private address, or an entry in the
+    operator-provided ``EPYON_AI_ALLOWED_HOSTS`` allowlist (comma-separated).
+    """
+    host = _hostname(base_url)
+    if not host:
+        return False
+    if host in _OPENAI_PUBLIC_HOSTS or _is_internal_host(host):
+        return True
+    allow = os.environ.get("EPYON_AI_ALLOWED_HOSTS", "")
+    return host in {h.strip().lower() for h in allow.split(",") if h.strip()}
 
 
 # Maps scan_type values to human-readable classification used in prompts.

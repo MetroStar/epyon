@@ -1963,7 +1963,7 @@ def ai_config_get(response: Response):
         # fall back to its first <option> and a subsequent Save would persist
         # that, clobbering the env-configured model. `active_model` exposes the
         # resolved model (UI > OPENAI_MODEL > default) for display only.
-        "model":        cfg.get("model") or "gpt-4.1",
+        "model":        cfg.get("model") or openai_summary.DEFAULT_MODEL,
         "active_model": openai_summary.get_model(),
         # The configured custom endpoint (UI value), plus the effective base URL
         # actually in use (UI > OPENAI_BASE_URL env > OpenAI default) for
@@ -1999,6 +1999,16 @@ async def ai_config_post(request: Request, response: Response):
             # self-hosted endpoints (e.g. http://ollama.ollama:11434/v1).
             if not re.match(r"^https?://[A-Za-z0-9.\-]+(:\d+)?(/[\w./\-]*)?$", base_url):
                 raise HTTPException(400, "base_url must be a valid http(s) URL")
+            # SSRF / credential-exfil guard: only the public OpenAI API,
+            # cluster-internal/private hosts, or an operator allowlist
+            # (EPYON_AI_ALLOWED_HOSTS) may be targeted, so this endpoint cannot
+            # be used to redirect a stored API key to an attacker host.
+            if not openai_summary.base_url_allowed(base_url):
+                raise HTTPException(
+                    400,
+                    "base_url host is not allowed; use the public OpenAI API, a "
+                    "cluster-internal endpoint, or add it to EPYON_AI_ALLOWED_HOSTS",
+                )
             cfg["base_url"] = base_url
         else:
             cfg.pop("base_url", None)  # explicit clear → fall back to env/default

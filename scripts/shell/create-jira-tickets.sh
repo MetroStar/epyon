@@ -1115,7 +1115,7 @@ with open('/tmp/epyon_cve_map_current.json','w') as f: json.dump(m,f)
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 # Apply defaults for optional env vars.
-ISSUE_TYPE="${ISSUE_TYPE:-Epic}"
+ISSUE_TYPE="${ISSUE_TYPE:-Bug}"
 TICKET_MODE="${TICKET_MODE:-hybrid}"          # severity | hybrid
 CVE_ISSUE_TYPE="${CVE_ISSUE_TYPE:-Story}"     # child issue type for hybrid mode
 MAX_CVE_TICKETS="${MAX_CVE_TICKETS:-50}"      # safety cap per severity tier

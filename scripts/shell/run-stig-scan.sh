@@ -219,21 +219,23 @@ else
     STIG_ARG=("--stigs-dir" "$STIGS_DIR")
 fi
 
-# Build optional base-url argument for local/self-hosted models
-BASE_URL_ARG=()
+# Build the assessment command; append --base-url only when set
+# (avoids "unbound variable" from empty array expansion under set -u)
+ASSESSMENT_CMD=(
+    python3 "$ASSESSMENT_SCRIPT"
+    "${STIG_ARG[@]}"
+    --target     "$TARGET_DIR"
+    --scan-dir   "$SCAN_DIR"
+    --app-name   "$APP_NAME"
+    --model      "$OPENAI_MODEL"
+    --batch-size "$BATCH_SIZE"
+    --delay      "$BATCH_DELAY"
+)
 if [[ -n "${OPENAI_BASE_URL:-}" ]]; then
-    BASE_URL_ARG=("--base-url" "$OPENAI_BASE_URL")
+    ASSESSMENT_CMD+=(--base-url "$OPENAI_BASE_URL")
 fi
 
-python3 "$ASSESSMENT_SCRIPT" \
-    "${STIG_ARG[@]}"         \
-    --target     "$TARGET_DIR"      \
-    --scan-dir   "$SCAN_DIR"        \
-    --app-name   "$APP_NAME"        \
-    --model      "$OPENAI_MODEL"    \
-    --batch-size "$BATCH_SIZE"      \
-    --delay      "$BATCH_DELAY"     \
-    "${BASE_URL_ARG[@]}"
+"${ASSESSMENT_CMD[@]}"
 
 RC=$?
 echo ""

@@ -1746,9 +1746,17 @@ def main() -> None:
 
     # Validate base_url if provided — SSRF guard
     if base_url:
-        if not re.match(r"^https?://[A-Za-z0-9.\-]+(:\d+)?(/[\w./\-]*)?$", base_url):
-            print(f"[ERROR] --base-url / OPENAI_BASE_URL is not a valid http(s) URL: {base_url}",
-                  file=sys.stderr)
+        parsed = urllib.parse.urlparse(base_url)
+        if (
+            parsed.scheme not in ("http", "https")
+            or not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+        ):
+            print(
+                f"[ERROR] --base-url / OPENAI_BASE_URL is not a valid http(s) URL: {base_url}",
+                file=sys.stderr,
+            )
             sys.exit(1)
         if not _base_url_allowed(base_url):
             print(

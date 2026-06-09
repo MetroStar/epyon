@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.6.0] - 2026-06-09
 
+### Added
+- **Local model support** (`run-stig-assessment.py`): STIG assessment can now run against any OpenAI-compatible local inference server (Ollama, LM Studio, vLLM, LocalAI, etc.) via `--base-url` flag or `OPENAI_BASE_URL` env var. Internal/localhost endpoints auto-fill a placeholder API key so no secret is required. SSRF guard blocks non-OpenAI public hostnames to prevent credential exfiltration; operator-allowlisted hosts accepted via `EPYON_AI_ALLOWED_HOSTS`.
+
 ### Fixed
 - **STIG assessment repeatability** (`run-stig-assessment.py`): resolved six root causes of scan-to-scan inconsistency:
   - Reduced default batch size from 10 to 5 controls per API call — doubles available code context per control and halves output token pressure, reducing truncation-driven variation.

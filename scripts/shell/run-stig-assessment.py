@@ -39,8 +39,26 @@ Usage:
         --app-name  <ApplicationName>
 
 Environment:
-    OPENAI_API_KEY   Required. OpenAI API key.
+    OPENAI_API_KEY   Required for OpenAI. Optional for local models that don't require auth.
     OPENAI_MODEL     Optional. Overrides --model flag (default: gpt-4o-mini).
+    OPENAI_BASE_URL  Optional. Override the API endpoint. Use this to point at a
+                     local inference server (Ollama, LM Studio, vLLM, LocalAI, etc.)
+                     that exposes an OpenAI-compatible /v1/chat/completions endpoint.
+
+                     Common local model endpoints:
+                       Ollama:    http://localhost:11434/v1
+                       LM Studio: http://localhost:1234/v1
+                       vLLM:      http://localhost:8000/v1
+                       LocalAI:   http://localhost:8080/v1
+
+                     When OPENAI_BASE_URL points to localhost / RFC1918 / cluster-
+                     internal addresses, OPENAI_API_KEY is optional (set it to any
+                     non-empty string, e.g. 'local', to satisfy the SDK validation).
+
+                     A self-hosted base_url must resolve to localhost, a private IP,
+                     a Kubernetes service hostname, or a host listed in
+                     EPYON_AI_ALLOWED_HOSTS (comma-separated) — public non-OpenAI
+                     endpoints are blocked to prevent credential exfiltration.
 
 Status Change Validation:
     When previous scan results exist in the parent scans/ directory, the AI will
@@ -68,11 +86,13 @@ Adding a new STIG:
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import os
 import re
 import sys
 import time
+import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -178,6 +198,53 @@ FALLBACK_EVIDENCE = (
     "from repository artifacts alone; disposition set to Open pending "
     "system-level validation and artifact collection."
 )
+
+# ---------------------------------------------------------------------------
+# Local / self-hosted endpoint helpers
+# ---------------------------------------------------------------------------
+
+_OPENAI_PUBLIC_HOSTS: frozenset[str] = frozenset({
+    "api.openai.com",
+    "openai.azure.com",
+})
+
+
+def _hostname(url: str) -> str:
+    """Return the lowercase hostname from a URL, or '' on parse failure."""
+    try:
+        return urllib.parse.urlparse(url).hostname or ""
+    except Exception:  # pragma: no cover
+        return ""
+
+
+def _is_internal_host(host: str) -> bool:
+    """True for localhost, RFC1918 addresses, and cluster-internal names."""
+    if host in ("localhost", "127.0.0.1", "::1"):
+        return True
+    if host.endswith((".svc", ".svc.cluster.local", ".cluster.local",
+                      ".local", ".internal")):
+        return True
+    try:
+        ip = ipaddress.ip_address(host)
+        return ip.is_private or ip.is_loopback or ip.is_link_local
+    except ValueError:
+        return False
+
+
+def _base_url_allowed(base_url: str) -> bool:
+    """Guard against SSRF: only allow public OpenAI hosts, internal/private
+    addresses (local models), or operator-allowlisted hosts.
+
+    Blocks public non-OpenAI hostnames so a real API key cannot be silently
+    exfiltrated to an attacker-controlled endpoint.
+    """
+    host = _hostname(base_url)
+    if not host:
+        return False
+    if host in _OPENAI_PUBLIC_HOSTS or _is_internal_host(host):
+        return True
+    allow = os.environ.get("EPYON_AI_ALLOWED_HOSTS", "")
+    return host in {h.strip().lower() for h in allow.split(",") if h.strip()}
 
 SYSTEM_PROMPT = """You are a certified DISA STIG compliance analyst performing a thorough \
 static source-code review. Your task is to assess a set of DISA STIG controls against the \
@@ -1328,6 +1395,7 @@ def _assess_stig(
     batch_size: int,
     delay: float,
     api_key: str,
+    base_url: str,
     scan_date: str,
     slug: str,
     is_primary: bool,
@@ -1364,7 +1432,7 @@ def _assess_stig(
             )
             sys.exit(1)
 
-        client = OpenAI(api_key=api_key)
+        client = OpenAI(api_key=api_key, **(dict(base_url=base_url) if base_url else {}))
 
         # ── Applicability pre-check ───────────────────────────────────────
         app_profile = build_app_profile(app_name, source_files)
@@ -1656,14 +1724,44 @@ def main() -> None:
     parser.add_argument("--scan-dir",   required=True, help="Path to scan output directory")
     parser.add_argument("--app-name",   required=True, help="Application name for report header")
     parser.add_argument("--model",      default="gpt-4o-mini", help="OpenAI model (default: gpt-4o-mini)")
+    parser.add_argument("--base-url",   default="",
+                        help="Override the OpenAI API base URL (e.g. http://localhost:11434/v1 for Ollama). "
+                             "Also read from OPENAI_BASE_URL env var.")
     parser.add_argument("--batch-size", type=int, default=BATCH_SIZE_DEFAULT,
                         help=f"Controls per API call (default: {BATCH_SIZE_DEFAULT})")
     parser.add_argument("--delay",      type=float, default=1.0,
                         help="Seconds between API calls (default: 1.0)")
     args = parser.parse_args()
 
-    model   = os.environ.get("OPENAI_MODEL", args.model)
-    api_key = os.environ.get("OPENAI_API_KEY", "")
+    model    = os.environ.get("OPENAI_MODEL", args.model)
+    api_key  = os.environ.get("OPENAI_API_KEY", "")
+    base_url = os.environ.get("OPENAI_BASE_URL", args.base_url).strip()
+
+    # Validate base_url if provided — SSRF guard
+    if base_url:
+        if not re.match(r"^https?://[A-Za-z0-9.\-]+(:\d+)?(/[\w./\-]*)?$", base_url):
+            print(f"[ERROR] --base-url / OPENAI_BASE_URL is not a valid http(s) URL: {base_url}",
+                  file=sys.stderr)
+            sys.exit(1)
+        if not _base_url_allowed(base_url):
+            print(
+                f"[ERROR] --base-url host is not allowed.\n"
+                f"  Allowed: public OpenAI API, localhost, private/RFC1918 addresses, "
+                f"Kubernetes service hostnames, or hosts in EPYON_AI_ALLOWED_HOSTS.\n"
+                f"  Got: {base_url}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    # Local models often don't require a real API key
+    # Accept a placeholder ('local', 'ollama', etc.) to satisfy the SDK
+    if not api_key and base_url and _is_internal_host(_hostname(base_url)):
+        api_key = "local"
+        print(
+            "[INFO] Local model endpoint detected — using placeholder API key. "
+            "Set OPENAI_API_KEY if your server requires authentication.",
+            file=sys.stderr,
+        )
 
     if not api_key:
         print(
@@ -1775,6 +1873,7 @@ def main() -> None:
             batch_size=args.batch_size,
             delay=args.delay,
             api_key=api_key,
+            base_url=base_url,
             scan_date=scan_date,
             slug=slug,
             is_primary=is_primary,

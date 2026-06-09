@@ -135,8 +135,14 @@ EXCLUDE_DIR_PREFIXES = {
     # Note: *.egg-info directories are handled via endswith() in _is_excluded_dir
 }
 
-MAX_CODE_BYTES_PER_BATCH = 250_000  # ~250 KB per API call — safe for gpt-4o-mini (128K ctx)
-MAX_FILE_BYTES = 100_000            # truncate (not skip) files larger than 100 KB
+# Context budget — bytes are NOT tokens.  For dense source code (Python/JS/shell)
+# the OpenAI cl100k_base tokeniser produces roughly 1 token per 2–3 bytes, so
+# 250 KB of code ≈ 83 k–125 k tokens, far exceeding gpt-4o-mini's 128 K limit
+# once the manifest, system prompt, and controls are added.  Use a conservative
+# 60 KB ceiling which yields ≈ 20 k–30 k code tokens regardless of code density.
+MAX_CODE_BYTES_PER_BATCH = 60_000   # 60 KB ≈ 20–30 k tokens — safe for 128 K ctx models
+MAX_FILE_BYTES = 25_000             # truncate (not skip) files larger than 25 KB
+_MAX_MANIFEST_LINES = 400           # cap repo manifest to 400 paths (~10 k tokens)
 BATCH_SIZE_DEFAULT = 5              # controls per API call — smaller batches give each control more context
 
 # Valid canonical status values — any model output is normalized to these before storage.
@@ -563,10 +569,24 @@ def rank_files_by_relevance(
 
 
 def build_repo_manifest(files: list[tuple[str, str]]) -> str:
-    """Build a compact file tree listing all files in the repo."""
-    lines = ["Repository file manifest (all files):", ""]
-    for rel, _ in sorted(files, key=lambda x: x[0]):
+    """Build a compact file tree listing all files in the repo.
+
+    Capped at _MAX_MANIFEST_LINES paths to avoid blowing the model's context
+    window when scanning large repositories.  The full list of collected source
+    files is sorted alphabetically; the first _MAX_MANIFEST_LINES entries are
+    shown and any remainder is summarised as a truncation note.
+    """
+    sorted_rels = sorted(rel for rel, _ in files)
+    truncated = len(sorted_rels) > _MAX_MANIFEST_LINES
+    shown = sorted_rels[:_MAX_MANIFEST_LINES]
+    lines = ["Repository file manifest (selected files):", ""]
+    for rel in shown:
         lines.append(f"  {rel}")
+    if truncated:
+        omitted = len(sorted_rels) - _MAX_MANIFEST_LINES
+        lines.append(
+            f"\n  [... {omitted} additional file(s) omitted from manifest to stay within context budget]"
+        )
     return "\n".join(lines)
 
 
@@ -944,7 +964,7 @@ def build_code_context(
 # How many of the top-ranked files each control is guaranteed in the context window.
 # With the smaller default batch size (5 controls), 8 files per control = up to 40
 # unique files in the priority pool before the global budget fill.
-_GUARANTEED_FILES_PER_CONTROL = 8
+_GUARANTEED_FILES_PER_CONTROL = 3  # was 8; reduced to keep batch token budget in check
 
 
 def build_code_context_for_batch(
@@ -1558,17 +1578,19 @@ def _assess_stig(
                 file=sys.stderr,
             )
 
-            # Build context that guarantees each control's most-relevant files
-            # are included, then fills remaining budget with globally-ranked files.
-            code_context = build_code_context_for_batch(source_files, batch)
-
             # Retry loop — up to _MAX_BATCH_RETRIES attempts on JSON/API failure
-            # before falling back to Open.  A single failed parse used to silently
-            # zero out every control in the batch, which caused flip-flopping on
-            # the next scan when those controls were re-assessed with different context.
+            # before falling back to Open.  On context_length_exceeded we halve
+            # the code budget and rebuild the context before retrying so the
+            # second attempt uses a smaller (and therefore fitting) payload.
             results: list[dict[str, Any]] = []
             last_err: str = ""
+            code_budget = MAX_CODE_BYTES_PER_BATCH
             for attempt in range(1, _MAX_BATCH_RETRIES + 1):
+                # (Re)build context — uses current code_budget, which may have
+                # been reduced on a previous context_length_exceeded error.
+                code_context = build_code_context_for_batch(
+                    source_files, batch, max_bytes=code_budget
+                )
                 try:
                     results, batch_pt, batch_ct = call_openai(
                         client, model, batch, code_context, repo_manifest, previous_assessments
@@ -1591,10 +1613,20 @@ def _assess_stig(
                     )
                 except Exception as e:  # pylint: disable=broad-except
                     last_err = f"API error: {e}"
-                    print(
-                        f"[WARNING] [{slug}] Batch {idx} attempt {attempt}/{_MAX_BATCH_RETRIES} — {last_err}",
-                        file=sys.stderr,
-                    )
+                    err_str = str(e)
+                    if "context_length_exceeded" in err_str:
+                        new_budget = max(10_000, code_budget // 2)
+                        print(
+                            f"[WARNING] [{slug}] Batch {idx} attempt {attempt}/{_MAX_BATCH_RETRIES} — "
+                            f"{last_err}  →  reducing code budget {code_budget // 1024}KB → {new_budget // 1024}KB",
+                            file=sys.stderr,
+                        )
+                        code_budget = new_budget
+                    else:
+                        print(
+                            f"[WARNING] [{slug}] Batch {idx} attempt {attempt}/{_MAX_BATCH_RETRIES} — {last_err}",
+                            file=sys.stderr,
+                        )
             if last_err:
                 print(
                     f"[WARNING] [{slug}] Batch {idx} failed after {_MAX_BATCH_RETRIES} attempts — "

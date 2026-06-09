@@ -88,6 +88,9 @@
 const _findingsRegistry     = new Map();
 let   _findingNextId        = 0;
 
+// ── STIG control detail registry (populated in renderStigViewer) ─
+const _stigRegistry = new Map();
+
 // ── Dependency detail registry (populated in sbomRender) ──────
 const _depsRegistry         = new Map();
 let   _depsNextId           = 0;
@@ -734,9 +737,11 @@ function setActive(routeKey) {
   // Clear findings registry and close any open drawer on navigation
   _findingsRegistry.clear();
   _findingNextId = 0;
+  _stigRegistry.clear();
   for (const k of Object.keys(_currentFindingsBySev)) delete _currentFindingsBySev[k];
   for (const k of Object.keys(_sortState))             delete _sortState[k];
   closeFindingDetail();
+  closeStigDetail();
 }
 
 function navigate(hash) {
@@ -5536,94 +5541,24 @@ async function renderStigViewer(scanId) {
                   return `<th class="stig-sortable-th${active ? ' stig-sort-active' : ''}" ${style} onclick="setStigSort('${col}')">${label} <span class="stig-sort-icon">${icon}</span></th>`;
                 }).join('')}
                 ${stigNames.length > 1 ? '<th style="width:140px">STIG</th>' : ''}
-                <th style="width:40px"></th>
               </tr>
             </thead>
             <tbody>
               ${rows.map(c => {
+                const regKey = `${c.vuln_id}__${c._slug}`;
+                _stigRegistry.set(regKey, { c, scanId });
                 const rowId = `stig-row-${esc(c.vuln_id)}-${esc(c._slug)}`;
-                const detId = `stig-det-${esc(c.vuln_id)}-${esc(c._slug)}`;
                 const sname = c._stig_name.replace(/.*?(ASD|Postgres|STIG)/gi, '$1').trim().slice(0, 40);
                 const conf  = c.confidence ?? 0;
                 const confClass = conf >= 90 ? 'conf-high' : conf >= 70 ? 'conf-med' : conf >= 40 ? 'conf-low' : 'conf-none';
                 return `
-                  <tr class="stig-tr" id="${rowId}" onclick="toggleStigRow('${detId}', '${rowId}')">
+                  <tr class="stig-tr stig-tr-clickable" id="${rowId}" onclick="openStigDetail('${esc(regKey)}')">
                     <td><code class="stig-id">${esc(c.group_id || c.vuln_id)}</code></td>
                     <td><span class="stig-sev stig-sev-${esc(c.severity)}">${esc(c.severity || '—')}</span></td>
                     <td><span class="${esc(STATUS_CLASS[c.status] || 'stig-status-nr')}">${esc(c.status)}</span>${c.locked_by_human ? ' <span class="stig-lock-badge" title="Manually locked by human reviewer">🔒</span>' : ''}</td>
                     <td><span class="stig-confidence ${confClass}" title="${conf}/100">${conf}</span></td>
                     <td class="stig-title-cell">${esc(c.title)}</td>
                     ${stigNames.length > 1 ? `<td class="stig-stig-cell" title="${esc(c._stig_name)}">${esc(sname)}</td>` : ''}
-                    <td class="stig-chevron-cell"><span class="stig-chevron" id="chev-${esc(c.vuln_id)}-${esc(c._slug)}">›</span></td>
-                  </tr>
-                  <tr class="stig-detail-row" id="${detId}" style="display:none">
-                    <td colspan="${stigNames.length > 1 ? 7 : 6}">
-                      <div class="stig-detail-body">
-                        <div class="stig-detail-grid">
-                          <div class="stig-detail-section">
-                            <div class="stig-detail-label">Vuln ID</div>
-                            <div class="stig-detail-val"><code>${esc(c.vuln_id)}</code></div>
-                          </div>
-                          <div class="stig-detail-section">
-                            <div class="stig-detail-label">Rule ID</div>
-                            <div class="stig-detail-val"><code>${esc(c.rule_id)}</code></div>
-                          </div>
-                          <div class="stig-detail-section">
-                            <div class="stig-detail-label">Group ID</div>
-                            <div class="stig-detail-val"><code>${esc(c.group_id)}</code></div>
-                          </div>
-                          <div class="stig-detail-section">
-                            <div class="stig-detail-label">Confidence</div>
-                            <div class="stig-detail-val">
-                              ${(() => {
-                                const cv = c.confidence ?? 0;
-                                const cls = cv >= 90 ? 'conf-high' : cv >= 70 ? 'conf-med' : cv >= 40 ? 'conf-low' : 'conf-none';
-                                const lbl = cv >= 90 ? 'High' : cv >= 70 ? 'Medium' : cv >= 40 ? 'Low' : 'Insufficient';
-                                return `<span class="stig-confidence ${cls}">${cv}/100</span> <span class="stig-conf-label">${lbl}</span>`;
-                              })()}
-                            </div>
-                          </div>
-                        </div>
-                        <div class="stig-detail-section">
-                          <div class="stig-detail-label">Evidence</div>
-                          <div class="stig-detail-val stig-evidence">${esc(c.evidence || '—').replace(/\n/g, '<br>')}</div>
-                        </div>
-                        <div class="stig-detail-section">
-                          <div class="stig-detail-label">Check</div>
-                          <div class="stig-detail-val stig-check">${esc(c.check_content).replace(/\n/g, '<br>')}</div>
-                        </div>
-                        <div class="stig-detail-section">
-                          <div class="stig-detail-label">Remediation</div>
-                          <div class="stig-detail-val">${esc(c.fix_text || '—').replace(/\n/g, '<br>')}</div>
-                        </div>
-                        <div class="stig-detail-section stig-override-section">
-                          <div class="stig-detail-label">Manual Override ${c.locked_by_human ? '<span class="stig-lock-badge">🔒 Locked by reviewer</span>' : ''}</div>
-                          <div class="stig-override-form" id="override-form-${esc(c.vuln_id)}-${esc(c._slug)}">
-                            <div class="stig-override-row">
-                              <label class="stig-override-label">Status</label>
-                              <select class="stig-override-select" id="override-status-${esc(c.vuln_id)}-${esc(c._slug)}">
-                                ${['Not a Finding','Not Applicable','Open','Not Reviewed'].map(s =>
-                                  `<option value="${esc(s)}"${c.status === s ? ' selected' : ''}>${esc(s)}</option>`
-                                ).join('')}
-                              </select>
-                            </div>
-                            <div class="stig-override-row">
-                              <label class="stig-override-label">Justification</label>
-                              <textarea class="stig-override-textarea" id="override-just-${esc(c.vuln_id)}-${esc(c._slug)}"
-                                placeholder="Explain why this control is met (required)"
-                                rows="3">${esc(c.locked_by_human && c.evidence ? c.evidence.replace(/^\[Human override\] /, '').split('\n')[0] : '')}</textarea>
-                            </div>
-                            <div class="stig-override-row stig-override-actions">
-                              <button class="btn-stig-override-save" onclick="saveStigOverride('${esc(scanId)}','${esc(c._slug)}','${esc(c.vuln_id)}')">
-                                🔒 Lock Override
-                              </button>
-                              ${c.locked_by_human ? `<button class="btn-stig-override-clear" onclick="clearStigOverride('${esc(scanId)}','${esc(c._slug)}','${esc(c.vuln_id)}')">Clear Lock</button>` : ''}
-                              <span class="stig-override-msg" id="override-msg-${esc(c.vuln_id)}-${esc(c._slug)}"></span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </td>
                   </tr>`;
               }).join('')}
             </tbody>
@@ -5699,72 +5634,8 @@ async function renderStigViewer(scanId) {
       }
       repaint();
     };
-    window.toggleStigRow = (detId, rowId) => {
-      const det  = document.getElementById(detId);
-      const row  = document.getElementById(rowId);
-      const parts = detId.replace('stig-det-', '').split('-');
-      // Reconstruct vuln_id + slug for chevron id — use row IDs which embed them
-      const chevId = 'chev-' + detId.replace('stig-det-', '');
-      const chev = document.getElementById(chevId);
-      if (!det) return;
-      const open = det.style.display !== 'none';
-      det.style.display = open ? 'none' : 'table-row';
-      if (row) row.classList.toggle('stig-tr-open', !open);
-      if (chev) chev.textContent = open ? '›' : '⌄';
-    };
-
-    window.saveStigOverride = async (sid, slug, vulnId) => {
-      const statusEl = document.getElementById(`override-status-${vulnId}-${slug}`);
-      const justEl   = document.getElementById(`override-just-${vulnId}-${slug}`);
-      const msgEl    = document.getElementById(`override-msg-${vulnId}-${slug}`);
-      if (!statusEl || !justEl || !msgEl) return;
-      const justification = justEl.value.trim();
-      if (!justification) {
-        msgEl.textContent = 'Justification is required.';
-        msgEl.className = 'stig-override-msg stig-override-err';
-        return;
-      }
-      msgEl.textContent = 'Saving…';
-      msgEl.className = 'stig-override-msg';
-      try {
-        const res = await fetch(`/api/scans/${encodeURIComponent(sid)}/stig-override`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slug, vuln_id: vulnId, status: statusEl.value, justification }),
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ detail: res.statusText }));
-          throw new Error(err.detail || res.statusText);
-        }
-        msgEl.textContent = '✓ Locked';
-        msgEl.className = 'stig-override-msg stig-override-ok';
-        // Reload the viewer so the lock badge + updated status appear
-        setTimeout(() => renderStigViewer(sid), 800);
-      } catch (e) {
-        msgEl.textContent = `Error: ${e.message}`;
-        msgEl.className = 'stig-override-msg stig-override-err';
-      }
-    };
-
-    window.clearStigOverride = async (sid, slug, vulnId) => {
-      const msgEl = document.getElementById(`override-msg-${vulnId}-${slug}`);
-      if (msgEl) { msgEl.textContent = 'Clearing…'; msgEl.className = 'stig-override-msg'; }
-      try {
-        // Clear lock by saving with status=Open, no justification, locked_by_human removed
-        const res = await fetch(`/api/scans/${encodeURIComponent(sid)}/stig-override`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slug, vuln_id: vulnId, status: 'Open', justification: '', clear_lock: true }),
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({ detail: res.statusText }));
-          throw new Error(err.detail || res.statusText);
-        }
-        if (msgEl) { msgEl.textContent = '✓ Lock cleared'; msgEl.className = 'stig-override-msg stig-override-ok'; }
-        setTimeout(() => renderStigViewer(sid), 800);
-      } catch (e) {
-        if (msgEl) { msgEl.textContent = `Error: ${e.message}`; msgEl.className = 'stig-override-msg stig-override-err'; }
-      }
+    window.openStigDetail = (regKey) => {
+      openStigViewerDetail(regKey);
     };
 
     const counts = countsByStatus();
@@ -6548,7 +6419,207 @@ window.openDependencyDetail = function(did) {
   drawer._onKey = _onKey;
 };
 
-// ── STIG control detail drawer ────────────────────────────────
+  document.addEventListener('keydown', _onKey);
+  drawer._onKey = _onKey;
+};
+
+// ── STIG Viewer control detail drawer ────────────────────────
+// Opened when the user clicks a row in the STIG Viewer (renderStigViewer).
+// Uses the shared finding-drawer overlay so Escape / click-outside close it.
+function openStigViewerDetail(regKey) {
+  const entry = _stigRegistry.get(regKey);
+  if (!entry) return;
+  closeFindingDetail();
+
+  const { c, scanId } = entry;
+
+  const STATUS_CLASS_MAP = {
+    'Open':          'stig-status-open',
+    'Not a Finding': 'stig-status-pass',
+    'Not Applicable':'stig-status-na',
+    'Not Reviewed':  'stig-status-nr',
+  };
+
+  const conf    = c.confidence ?? 0;
+  const confCls = conf >= 90 ? 'conf-high' : conf >= 70 ? 'conf-med' : conf >= 40 ? 'conf-low' : 'conf-none';
+  const confLbl = conf >= 90 ? 'High' : conf >= 70 ? 'Medium' : conf >= 40 ? 'Low' : 'Insufficient';
+  const sev     = (c.severity || 'unknown').toLowerCase();
+  const statusCls = STATUS_CLASS_MAP[c.status] || 'stig-status-nr';
+
+  const justPrefilled = c.locked_by_human && c.evidence
+    ? esc(c.evidence.replace(/^\[Human override\] /, '').split('\n')[0])
+    : '';
+
+  const overrideOptions = ['Not a Finding', 'Not Applicable', 'Open', 'Not Reviewed']
+    .map(s => `<option value="${esc(s)}"${c.status === s ? ' selected' : ''}>${esc(s)}</option>`).join('');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'finding-drawer-overlay';
+  overlay.id        = 'finding-drawer-overlay';
+  overlay.addEventListener('click', closeFindingDetail);
+
+  const drawer = document.createElement('div');
+  drawer.className = 'finding-drawer';
+  drawer.id        = 'finding-drawer';
+  drawer.setAttribute('role', 'dialog');
+  drawer.setAttribute('aria-modal', 'true');
+  drawer.setAttribute('aria-label', 'STIG control details');
+  drawer.addEventListener('click', e => e.stopPropagation());
+
+  drawer.innerHTML = `
+    <div class="finding-drawer-header">
+      <div class="finding-drawer-title">
+        <h2>${esc(c.title || c.vuln_id)}</h2>
+        <div class="finding-drawer-badges">
+          <span class="stig-sev stig-sev-${esc(sev)}">${ucFirst(sev)}</span>
+          <span class="${esc(statusCls)}">${esc(c.status)}</span>
+          ${c.locked_by_human ? '<span class="stig-lock-badge" title="Manually locked by reviewer">🔒</span>' : ''}
+          <code style="font-size:11px">${esc(c.group_id || c.vuln_id)}</code>
+        </div>
+      </div>
+      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+    </div>
+    <div class="finding-drawer-body">
+
+      <div class="finding-detail-grid">
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Vuln ID</div>
+          <div class="finding-detail-value"><code>${esc(c.vuln_id)}</code></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Rule ID</div>
+          <div class="finding-detail-value"><code>${esc(c.rule_id || '—')}</code></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Group ID</div>
+          <div class="finding-detail-value"><code>${esc(c.group_id || '—')}</code></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Confidence</div>
+          <div class="finding-detail-value">
+            <span class="stig-confidence ${confCls}">${conf}/100</span>
+            <span style="margin-left:6px;font-size:12px;color:var(--text-muted)">${confLbl}</span>
+          </div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">STIG</div>
+          <div class="finding-detail-value" style="font-size:12px;color:var(--text-muted)">${esc(c._stig_name || '—')}</div>
+        </div>
+      </div>
+
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">Evidence</div>
+        <div class="stig-evidence" style="margin-top:6px">${esc(c.evidence || '—').replace(/\n/g, '<br>')}</div>
+      </div>
+
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">Check Content</div>
+        <div class="stig-check" style="margin-top:6px">${esc(c.check_content || '—').replace(/\n/g, '<br>')}</div>
+      </div>
+
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">Remediation</div>
+        <div style="margin-top:6px;font-size:13px;line-height:1.6;color:var(--text)">${esc(c.fix_text || '—').replace(/\n/g, '<br>')}</div>
+      </div>
+
+      <div class="stig-override-section" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
+        <div class="finding-detail-label" style="margin-bottom:10px">
+          Manual Override
+          ${c.locked_by_human ? '<span class="stig-lock-badge" style="margin-left:8px">🔒 Locked by reviewer</span>' : ''}
+        </div>
+        <div class="stig-override-form">
+          <div class="stig-override-row">
+            <label class="stig-override-label">Status</label>
+            <select class="stig-override-select" id="sd-status-${esc(c.vuln_id)}-${esc(c._slug)}">
+              ${overrideOptions}
+            </select>
+          </div>
+          <div class="stig-override-row">
+            <label class="stig-override-label">Justification</label>
+            <textarea class="stig-override-textarea" id="sd-just-${esc(c.vuln_id)}-${esc(c._slug)}"
+              placeholder="Explain why this control is met (required)" rows="3">${justPrefilled}</textarea>
+          </div>
+          <div class="stig-override-row stig-override-actions">
+            <button class="btn-stig-override-save"
+              onclick="saveStigOverrideFromDrawer('${esc(scanId)}','${esc(c._slug)}','${esc(c.vuln_id)}')"
+            >🔒 Lock Override</button>
+            ${c.locked_by_human
+              ? `<button class="btn-stig-override-clear"
+                  onclick="clearStigOverrideFromDrawer('${esc(scanId)}','${esc(c._slug)}','${esc(c.vuln_id)}')"
+                >Clear Lock</button>`
+              : ''}
+            <span class="stig-override-msg" id="sd-msg-${esc(c.vuln_id)}-${esc(c._slug)}"></span>
+          </div>
+        </div>
+      </div>
+
+    </div>`;
+
+  document.body.appendChild(overlay);
+  document.body.appendChild(drawer);
+
+  const _onKey = e => { if (e.key === 'Escape') { closeFindingDetail(); document.removeEventListener('keydown', _onKey); } };
+  document.addEventListener('keydown', _onKey);
+  drawer._onKey = _onKey;
+}
+
+function closeStigDetail() {
+  closeFindingDetail();
+}
+
+window.saveStigOverrideFromDrawer = async (sid, slug, vulnId) => {
+  const statusEl = document.getElementById(`sd-status-${vulnId}-${slug}`);
+  const justEl   = document.getElementById(`sd-just-${vulnId}-${slug}`);
+  const msgEl    = document.getElementById(`sd-msg-${vulnId}-${slug}`);
+  if (!statusEl || !justEl || !msgEl) return;
+  const justification = justEl.value.trim();
+  if (!justification) {
+    msgEl.textContent = 'Justification is required.';
+    msgEl.className = 'stig-override-msg stig-override-err';
+    return;
+  }
+  msgEl.textContent = 'Saving…';
+  msgEl.className = 'stig-override-msg';
+  try {
+    const res = await fetch(`/api/scans/${encodeURIComponent(sid)}/stig-override`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, vuln_id: vulnId, status: statusEl.value, justification }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || res.statusText);
+    }
+    msgEl.textContent = '✓ Locked';
+    msgEl.className = 'stig-override-msg stig-override-ok';
+    setTimeout(() => { closeFindingDetail(); renderStigViewer(sid); }, 800);
+  } catch (e) {
+    msgEl.textContent = `Error: ${e.message}`;
+    msgEl.className = 'stig-override-msg stig-override-err';
+  }
+};
+
+window.clearStigOverrideFromDrawer = async (sid, slug, vulnId) => {
+  const msgEl = document.getElementById(`sd-msg-${vulnId}-${slug}`);
+  if (msgEl) { msgEl.textContent = 'Clearing…'; msgEl.className = 'stig-override-msg'; }
+  try {
+    const res = await fetch(`/api/scans/${encodeURIComponent(sid)}/stig-override`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, vuln_id: vulnId, status: 'Open', justification: '', clear_lock: true }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || res.statusText);
+    }
+    if (msgEl) { msgEl.textContent = '✓ Lock cleared'; msgEl.className = 'stig-override-msg stig-override-ok'; }
+    setTimeout(() => { closeFindingDetail(); renderStigViewer(sid); }, 800);
+  } catch (e) {
+    if (msgEl) { msgEl.textContent = `Error: ${e.message}`; msgEl.className = 'stig-override-msg stig-override-err'; }
+  }
+};
+
+// ── STIG control detail drawer (History view) ────────────────
 let _stigDetailNextId = 0;
 const _stigDetailRegistry = new Map();
 

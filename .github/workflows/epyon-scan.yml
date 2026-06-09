@@ -1203,29 +1203,6 @@ jobs:
             });
             console.log(`Posted ${lines.length} Jira ticket link(s) to GitHub issue #${issueNumber}`);
 
-            // Update the GitHub issue title to include the JIRA key(s)
-            const keys = lines.map(line => line.split('|')[0]).filter(Boolean);
-            if (keys.length > 0) {
-              const currentIssue = await github.rest.issues.get({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueNumber,
-              });
-              const currentTitle = currentIssue.data.title;
-              const jiraPrefix = keys.join(', ');
-              // Only prepend if not already present
-              if (!currentTitle.startsWith(jiraPrefix)) {
-                const newTitle = `${jiraPrefix}: ${currentTitle}`;
-                await github.rest.issues.update({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issueNumber,
-                  title: newTitle,
-                });
-                console.log(`Updated issue #${issueNumber} title to: ${newTitle}`);
-              }
-            }
-
       - name: Fail on Critical Vulnerabilities
         if: always() && steps.check-severity.outputs.critical > 0
         run: |

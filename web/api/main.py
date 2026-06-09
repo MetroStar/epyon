@@ -1091,15 +1091,23 @@ def get_metrics(response: Response):
                     total_without_fix += 1
                 cve_id = f.get("id") or ""
                 if cve_id.startswith("CVE-"):
+                    ftype = (f.get("type") or "").lower()
+                    ftool = (f.get("tool") or "").lower()
+                    if ftype == "container_vulnerability" or "anchore" in ftool:
+                        cve_source = "container"
+                    else:
+                        cve_source = "code"
                     if cve_id not in cve_counts:
                         cve_counts[cve_id] = {
                             "count":    0,
                             "severity": sev,
                             "title":    (f.get("title") or "")[:120],
                             "apps":     set(),
+                            "sources":  set(),
                         }
                     cve_counts[cve_id]["count"] += 1
                     cve_counts[cve_id]["apps"].add(_target)
+                    cve_counts[cve_id]["sources"].add(cve_source)
 
     top_cves = sorted(cve_counts.items(), key=lambda x: x[1]["count"], reverse=True)[:20]
 
@@ -1566,6 +1574,7 @@ def get_metrics(response: Response):
                 "severity": v["severity"],
                 "title":    v["title"],
                 "apps":     sorted(v["apps"]),
+                "sources":  sorted(v["sources"]),
             }
             for k, v in top_cves
         ],
@@ -1878,21 +1887,26 @@ def stig_history(
     # Compute MTTR and assemble output
     controls_out: list[dict] = []
     total_mttr: list[int] = []
-    currently_open = ever_open = remediated = 0
+    currently_open = ever_open = remediated = currently_satisfied = 0
 
     for vid, timeline in sorted(vuln_timelines.items()):
         tl = sorted(timeline, key=lambda t: t["date"])
-        first_open = first_closed = None
+        first_open = None
+        first_closed = None  # first "Not a Finding" AFTER first_open
         for entry in tl:
             if entry["status"] == "Open" and first_open is None:
                 first_open = entry["date"]
-            if entry["status"] == "Not a Finding" and first_closed is None:
+            # Only count as remediated if it closed AFTER it was first opened
+            if (entry["status"] == "Not a Finding"
+                    and first_open is not None
+                    and first_closed is None
+                    and entry["date"] >= first_open):
                 first_closed = entry["date"]
 
         mttr_days = None
         if first_open:
             ever_open += 1
-        if first_open and first_closed and first_closed >= first_open:
+        if first_open and first_closed:
             remediated += 1
             d1 = datetime.fromisoformat(first_open).date()
             d2 = datetime.fromisoformat(first_closed).date()
@@ -1902,6 +1916,8 @@ def stig_history(
         latest_status = tl[-1]["status"] if tl else "Not Reviewed"
         if latest_status == "Open":
             currently_open += 1
+        if latest_status in ("Not a Finding", "Not Applicable"):
+            currently_satisfied += 1
 
         meta = control_meta.get(vid, {})
         controls_out.append({
@@ -1930,11 +1946,12 @@ def stig_history(
         "scans":    scans_out,
         "controls": controls_out,
         "summary": {
-            "total_controls": len(controls_out),
-            "ever_open":      ever_open,
-            "remediated":     remediated,
-            "avg_mttr_days":  avg_mttr,
-            "currently_open": currently_open,
+            "total_controls":     len(controls_out),
+            "ever_open":          ever_open,
+            "remediated":         remediated,
+            "avg_mttr_days":      avg_mttr,
+            "currently_open":     currently_open,
+            "currently_satisfied": currently_satisfied,
         },
     }
 

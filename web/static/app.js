@@ -149,6 +149,35 @@ function sevBadge(severity, count) {
   return `<span class="sev-badge ${esc(severity)}">${esc(count)} ${ucFirst(severity)}</span>`;
 }
 
+// ── Finding source classification ────────────────────────────
+function findingSource(f) {
+  const type = (f.type || '').toLowerCase();
+  const tool = (f.tool || '').toLowerCase();
+  if (type === 'container_vulnerability' || tool === 'anchore') return 'container';
+  if (type === 'iac_misconfiguration' || tool === 'checkov')   return 'iac';
+  if (type.includes('credential') || type.includes('secret') || tool === 'trufflehog') return 'secret';
+  if (type === 'eol_package' || tool === 'xeol')               return 'eol';
+  return 'code';
+}
+
+function findingSourceBadge(f) {
+  const src = findingSource(f);
+  const cfg = {
+    container: { style: 'background:#0f4c8a22;color:#60a5fa;border:1px solid #1d4ed866', label: '📦 Container' },
+    code:      { style: 'background:#16521622;color:#4ade80;border:1px solid #15803d66', label: '💻 Code'      },
+    iac:       { style: 'background:#4a1d9622;color:#c084fc;border:1px solid #7e22ce66', label: '🔧 IaC'       },
+    secret:    { style: 'background:#7f1d1d22;color:#fca5a5;border:1px solid #b91c1c66', label: '🔑 Secret'    },
+    eol:       { style: 'background:#92400022;color:#fbbf24;border:1px solid #b4530066', label: '⏱ EOL'        },
+  };
+  const { style, label } = cfg[src] || cfg.code;
+  return `<span style="font-size:10px;padding:1px 6px;border-radius:3px;white-space:nowrap;${style}">${label}</span>`;
+}
+
+// Returns a source badge from a sources array (top_cves aggregated data)
+function sourcesBadges(sources) {
+  return (sources || []).map(s => findingSourceBadge({ type: s === 'container' ? 'container_vulnerability' : 'vulnerability' })).join(' ');
+}
+
 function sevBadgeRow(scan) {
   const parts = [];
   if (scan.critical > 0) parts.push(sevBadge('critical', scan.critical));
@@ -1100,6 +1129,7 @@ async function renderScanDetail(scanId) {
                 <span class="stig-mini open">${esc(scan.stig_open || 0)} open</span>
                 <span class="stig-mini pass">${esc(scan.stig_pass || 0)} pass</span>
                 <span class="stig-mini na">${esc(scan.stig_na || 0)} n/a</span>
+                ${(scan.stig_nr || 0) > 0 ? `<span class="stig-mini" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(scan.stig_nr || 0)} not reviewed</span>` : ''}
                 <span class="stig-mini total">${esc(scan.stig_total || 0)} total</span>
               </span>
               <span style="display:flex;align-items:center;gap:8px">
@@ -1120,8 +1150,13 @@ async function renderScanDetail(scanId) {
                 </div>
                 <div class="stig-count na">
                   <span class="num">${esc(scan.stig_na || 0)}</span>
-                  <span class="lbl">N/A</span>
+                  <span class="lbl">Not Applicable</span>
                 </div>
+                ${(scan.stig_nr || 0) > 0 ? `
+                <div class="stig-count" style="background:var(--bg-input);border-color:var(--border)">
+                  <span class="num" style="color:var(--text-muted)">${esc(scan.stig_nr || 0)}</span>
+                  <span class="lbl">Not Reviewed</span>
+                </div>` : ''}
                 <div class="stig-count total">
                   <span class="num">${esc(scan.stig_total || 0)}</span>
                   <span class="lbl">Total</span>
@@ -2396,7 +2431,10 @@ function _buildFindingRows(items) {
 
     return `
       <tr class="finding-row" onclick="openFindingDetail(${fid})" title="Click to view details">
-        <td><span class="tool-tag">${tool}</span></td>
+        <td>
+          <span class="tool-tag">${tool}</span>
+          <div style="margin-top:3px">${findingSourceBadge(f)}</div>
+        </td>
         <td>${idCell}</td>
         <td style="max-width:360px">${title}</td>
         <td>${pkg}${ver ? ` <span style="color:var(--text-dim);font-size:11px">${ver}</span>` : ''}</td>
@@ -2838,8 +2876,13 @@ async function renderStig() {
                 </div>
                 <div class="stig-count na">
                   <span class="num">${esc(app.stig_na || 0)}</span>
-                  <span class="lbl">N/A</span>
+                  <span class="lbl">Not Applicable</span>
                 </div>
+                ${(app.stig_nr || 0) > 0 ? `
+                <div class="stig-count" style="background:var(--bg-input);border-color:var(--border)">
+                  <span class="num" style="color:var(--text-muted)">${esc(app.stig_nr || 0)}</span>
+                  <span class="lbl">Not Reviewed</span>
+                </div>` : ''}
                 <div class="stig-count total">
                   <span class="num">${esc(app.stig_total || 0)}</span>
                   <span class="lbl">Total</span>
@@ -3946,10 +3989,11 @@ async function renderMetrics() {
                    target="_blank" rel="noopener noreferrer"><code>${esc(c.cve_id)}</code></a></td>
             <td><span class="sev-badge ${esc(c.severity)}">${ucFirst(c.severity)}</span></td>
             <td>${esc(c.count)}</td>
-            <td style="max-width:360px">${esc(c.title || '—')}</td>
+            <td style="max-width:280px">${esc(c.title || '—')}</td>
+            <td>${sourcesBadges(c.sources)}</td>
             <td style="font-size:11px;color:var(--text-muted)">${c.apps.map(a => esc(a)).join(', ')}</td>
           </tr>`).join('')
-      : '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">No CVE data — run a scan to populate</td></tr>';
+      : '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">No CVE data — run a scan to populate</td></tr>';
 
     const freqRows = Object.entries(m.scan_frequency || {})
       .sort((a, b) => b[1].total - a[1].total)
@@ -4075,6 +4119,7 @@ async function renderMetrics() {
                   <th data-col="severity">Severity <span class="sort-icon">⇅</span></th>
                   <th data-col="count">Count <span class="sort-icon">⇅</span></th>
                   <th>Title</th>
+                  <th data-col="source">Source <span class="sort-icon">⇅</span></th>
                   <th data-col="apps">Applications <span class="sort-icon">⇅</span></th>
                 </tr>
               </thead>
@@ -4192,7 +4237,8 @@ async function renderMetrics() {
             <td><a href="https://nvd.nist.gov/vuln/detail/${esc(c.cve_id)}" target="_blank" rel="noopener noreferrer"><code>${esc(c.cve_id)}</code></a></td>
             <td><span class="sev-badge ${esc(c.severity)}">${ucFirst(c.severity)}</span></td>
             <td>${esc(c.count)}</td>
-            <td style="max-width:360px">${esc(c.title || '\u2014')}</td>
+            <td style="max-width:280px">${esc(c.title || '\u2014')}</td>
+            <td>${sourcesBadges(c.sources)}</td>
             <td style="font-size:11px;color:var(--text-muted)">${c.apps.map(a => esc(a)).join(', ')}</td>
           </tr>`;
         }
@@ -4201,6 +4247,7 @@ async function renderMetrics() {
             if (sortCol === 'severity') return sortDir * ((SEV[a.severity] ?? 9) - (SEV[b.severity] ?? 9));
             if (sortCol === 'count')    return sortDir * (a.count - b.count);
             if (sortCol === 'apps')     return sortDir * (a.apps.length - b.apps.length);
+            if (sortCol === 'source')   return sortDir * ((a.sources||[]).join().localeCompare((b.sources||[]).join()));
             return sortDir * String(a[sortCol]).localeCompare(String(b[sortCol]));
           });
           tbl.querySelector('tbody').innerHTML = rows.map(cveRow).join('');
@@ -5123,8 +5170,12 @@ async function renderStigHistory(selectedApp, selectedSlug) {
           <span class="stig-hs-lbl">Currently Open</span>
         </div>
         <div class="stig-hs-card pass">
+          <span class="stig-hs-num">${esc(summary.currently_satisfied ?? 0)}</span>
+          <span class="stig-hs-lbl">Currently Satisfied</span>
+        </div>
+        <div class="stig-hs-card pass" style="opacity:0.7">
           <span class="stig-hs-num">${esc(summary.remediated ?? 0)}</span>
-          <span class="stig-hs-lbl">Remediated</span>
+          <span class="stig-hs-lbl">Ever Remediated</span>
         </div>
         <div class="stig-hs-card mttr">
           <span class="stig-hs-num">${esc(avgMttr)}</span>
@@ -7043,7 +7094,7 @@ function renderStaticScanDetail(scan) {
     const reports  = scan.stig_reports || [];
     const multiStig = reports.length > 1;
 
-    const perStigRows = multiStig ? reports.map(r => {
+      const perStigRows = multiStig ? reports.map(r => {
       const slugLabel = r.slug.replace(/-/g, ' ').replace(/\bstig\b/gi, 'STIG');
       return `
         <div class="stig-row">
@@ -7052,6 +7103,7 @@ function renderStaticScanDetail(scan) {
             <span class="stig-mini open">${esc(r.open)} open</span>
             <span class="stig-mini pass">${esc(r.pass)} pass</span>
             <span class="stig-mini na">${esc(r.na)} n/a</span>
+            ${(r.nr || 0) > 0 ? `<span class="stig-mini" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(r.nr)} not reviewed</span>` : ''}
             <span class="stig-mini total">${esc(r.total)} total</span>
           </span>
         </div>`;
@@ -7074,6 +7126,7 @@ function renderStaticScanDetail(scan) {
               <span class="stig-mini open">${esc(scan.stig_open || 0)} open</span>
               <span class="stig-mini pass">${esc(scan.stig_pass || 0)} pass</span>
               <span class="stig-mini na">${esc(scan.stig_na || 0)} n/a</span>
+              ${(scan.stig_nr || 0) > 0 ? `<span class="stig-mini" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(scan.stig_nr || 0)} not reviewed</span>` : ''}
               <span class="stig-mini total">${esc(scan.stig_total || 0)} total</span>
             </span>
             <span class="findings-summary-hint">Click to expand</span>
@@ -7082,7 +7135,8 @@ function renderStaticScanDetail(scan) {
             <div class="stig-counts" style="margin-top:12px">
               <div class="stig-count open"><span class="num">${esc(scan.stig_open  || 0)}</span><span class="lbl">Open</span></div>
               <div class="stig-count pass"><span class="num">${esc(scan.stig_pass  || 0)}</span><span class="lbl">Not a Finding</span></div>
-              <div class="stig-count na"  ><span class="num">${esc(scan.stig_na    || 0)}</span><span class="lbl">N/A</span></div>
+              <div class="stig-count na"  ><span class="num">${esc(scan.stig_na    || 0)}</span><span class="lbl">Not Applicable</span></div>
+              ${(scan.stig_nr || 0) > 0 ? `<div class="stig-count" style="background:var(--bg-input);border-color:var(--border)"><span class="num" style="color:var(--text-muted)">${esc(scan.stig_nr || 0)}</span><span class="lbl">Not Reviewed</span></div>` : ''}
               <div class="stig-count total"><span class="num">${esc(scan.stig_total|| 0)}</span><span class="lbl">Total</span></div>
             </div>
             ${multiStig ? `<div class="stig-per-stig">${perStigRows}</div>` : ''}

@@ -827,6 +827,90 @@ def build_code_context(
     return "\n".join(parts)
 
 
+# How many of the top-ranked files each control is guaranteed in the context window.
+_GUARANTEED_FILES_PER_CONTROL = 5
+
+
+def build_code_context_for_batch(
+    files: list[tuple[str, str]],
+    controls_batch: list[dict[str, Any]],
+    max_bytes: int = MAX_CODE_BYTES_PER_BATCH,
+) -> str:
+    """Build code context that guarantees each control's most-relevant files.
+
+    Problem with the naive combined-keyword approach: files relevant to only
+    one control get crowded out by files relevant to many controls, so the AI
+    never sees the specific artifacts needed to satisfy that control.
+
+    This function:
+      1. Gives each control a guaranteed slot of its top-N most-relevant files
+         (ranked by that control's keywords alone).
+      2. Fills remaining budget with globally-ranked files (combined keywords).
+      3. Deduplicates — each file appears only once regardless of how many
+         controls need it.
+
+    Result: every control is guaranteed to have at least some of its most
+    relevant files present, even when sharing a batch with 9 other controls.
+    """
+    file_dict = {rel: content for rel, content in files}
+
+    # Step 1 — per-control guaranteed files (ordered: most-shared first)
+    from collections import Counter as _Counter
+    slot_counts: _Counter[str] = _Counter()
+    per_control_tops: dict[str, list[str]] = {}  # vuln_id -> [rel, ...]
+    for c in controls_batch:
+        kw = extract_keywords(c["check_content"])
+        ranked = rank_files_by_relevance(files, kw)
+        top_rels = [rel for rel, _ in ranked[:_GUARANTEED_FILES_PER_CONTROL]]
+        per_control_tops[c["vuln_id"]] = top_rels
+        for rel in top_rels:
+            slot_counts[rel] += 1
+
+    # Priority order: files needed by most controls first, then alphabetically
+    priority_rels = [rel for rel, _ in slot_counts.most_common()]
+
+    # Step 2 — global fallback ranked by combined keywords
+    all_kw: list[str] = []
+    for c in controls_batch:
+        all_kw.extend(extract_keywords(c["check_content"]))
+    global_ranked = [rel for rel, _ in rank_files_by_relevance(files, all_kw)]
+
+    # Step 3 — merge: priority first, then globally ranked, deduped
+    seen: set[str] = set()
+    ordered_rels: list[str] = []
+    for rel in priority_rels + global_ranked:
+        if rel not in seen:
+            seen.add(rel)
+            ordered_rels.append(rel)
+
+    # Step 4 — fill within budget
+    parts: list[str] = []
+    total = 0
+    skipped: list[str] = []
+
+    for rel in ordered_rels:
+        content = file_dict.get(rel, "")
+        snippet = f"### FILE: {rel}\n```\n{content}\n```\n"
+        snippet_bytes = len(snippet.encode())
+        if total + snippet_bytes > max_bytes:
+            skipped.append(rel)
+            continue
+        parts.append(snippet)
+        total += snippet_bytes
+
+    if skipped:
+        parts.append(
+            f"### NOTE: {len(skipped)} additional file(s) exceeded context budget "
+            f"and were not included:\n"
+            + "\n".join(f"  {r}" for r in skipped)
+            + "\n"
+        )
+
+    if not parts:
+        return "(No source files found in target directory)"
+    return "\n".join(parts)
+
+
 # ---------------------------------------------------------------------------
 # STIG applicability pre-check
 # ---------------------------------------------------------------------------
@@ -1341,12 +1425,9 @@ def _assess_stig(
                 file=sys.stderr,
             )
 
-            # Gather keywords from all controls in this batch to prioritise
-            # the most relevant files, then fill remaining budget with others.
-            all_kw: list[str] = []
-            for c in batch:
-                all_kw.extend(extract_keywords(c["check_content"]))
-            code_context = build_code_context(source_files, all_kw)
+            # Build context that guarantees each control's most-relevant files
+            # are included, then fills remaining budget with globally-ranked files.
+            code_context = build_code_context_for_batch(source_files, batch)
 
             try:
                 results, batch_pt, batch_ct = call_openai(

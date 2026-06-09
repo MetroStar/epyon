@@ -919,7 +919,7 @@ jobs:
 
       - name: Create Scan Notification Issues
         id: create-github-issue
-        if: always() && steps.check-severity.outputs.has_issues == 'true'
+        if: always() && steps.check-severity.outputs.has_issues == 'true' && env.CREATE_GITHUB_ISSUE != 'false'
         uses: actions/github-script@v7
         with:
           script: |

@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import io
 import json
+import logging
 import os
 import re
 import shutil
@@ -18,6 +19,7 @@ from typing import Any, List, Optional
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -47,6 +49,36 @@ STATIC_DIR           = (_HERE / ".." / "static").resolve()
 # Scan types that run the full tool suite (Anchore, Trivy, Checkov, etc.)
 # Quick/stig/local_model scans do not produce complete vulnerability counts.
 _COMPREHENSIVE_SCAN_TYPES = frozenset({"full", "nightly"})
+
+# ── Audit logging ────────────────────────────────────────────
+_AUDIT_LOG_FILE = (_HERE / ".." / "data" / "audit.log").resolve()
+
+
+def _setup_audit_logger() -> logging.Logger:
+    logger = logging.getLogger("epyon.audit")
+    if not logger.handlers:
+        _AUDIT_LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        handler = logging.FileHandler(str(_AUDIT_LOG_FILE), encoding="utf-8")
+        handler.setFormatter(logging.Formatter(
+            "%(asctime)s %(levelname)s %(message)s",
+            datefmt="%Y-%m-%dT%H:%M:%SZ",
+        ))
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+        logger.propagate = False
+    return logger
+
+
+_audit_logger = logging.getLogger("epyon.audit")
+
+
+def _audit(request: Request, action: str, detail: str = "") -> None:
+    """Write a single line to the audit log."""
+    global _audit_logger
+    if not _audit_logger.handlers:
+        _audit_logger = _setup_audit_logger()
+    client = getattr(request.client, "host", "unknown") if request.client else "unknown"
+    _audit_logger.info("action=%s client=%s detail=%s", action, client, detail)
 
 # ── Validation ────────────────────────────────────────────────
 _SAFE_ID_RE      = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_\-.]*$")
@@ -235,21 +267,83 @@ async def lifespan(_: FastAPI):
     yield
 
 
+# ── Security header constants ─────────────────────────────────
+# CSP allows 'unsafe-inline' because app.js builds HTML via template literals
+# with inline onclick handlers.  Removing it requires a full JS refactor and
+# is tracked as a future hardening item (see APSC-DV-001600 evidence).
+_CSP = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline'; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: blob:; "
+    "connect-src 'self'; "
+    "font-src 'self'; "
+    "object-src 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self';"
+)
+_PERMISSIONS_POLICY = "geolocation=(), microphone=(), camera=(), payment=(), usb=()"
+
+
 # ── App ───────────────────────────────────────────────────────
 
 app = FastAPI(title="Epyon Web", lifespan=lifespan)
 
+# Restrict CORS to same-origin by default; override via EPYON_ALLOWED_ORIGINS
+# (comma-separated list).  Never use wildcard in production deployments.
+_ALLOWED_ORIGINS = [
+    o.strip()
+    for o in os.getenv(
+        "EPYON_ALLOWED_ORIGINS",
+        "http://localhost:8000,http://127.0.0.1:8000",
+    ).split(",")
+    if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=_ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
 )
 
 
+class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Apply security headers to every response (APSC-DV-001600 et al.)."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"]  = "nosniff"
+        response.headers["X-Frame-Options"]         = "SAMEORIGIN"
+        response.headers["X-XSS-Protection"]        = "0"
+        response.headers["Referrer-Policy"]         = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"]      = _PERMISSIONS_POLICY
+        response.headers["Content-Security-Policy"] = _CSP
+        if request.url.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
+            response.headers["Pragma"]        = "no-cache"
+        return response
+
+
+app.add_middleware(_SecurityHeadersMiddleware)
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Return a generic 500 without leaking internal details (APSC-DV-002390)."""
+    _audit(request, "server_error", type(exc).__name__)
+    return JSONResponse(status_code=500, content={"detail": "An internal error occurred."})
+
+
 def _sec_headers(response: Response) -> None:
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"]        = "SAMEORIGIN"
+    response.headers["X-Content-Type-Options"]  = "nosniff"
+    response.headers["X-Frame-Options"]         = "SAMEORIGIN"
+    response.headers["X-XSS-Protection"]        = "0"
+    response.headers["Referrer-Policy"]         = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"]      = _PERMISSIONS_POLICY
+    response.headers["Content-Security-Policy"] = _CSP
+    response.headers["Cache-Control"]           = "no-store, no-cache, must-revalidate, private"
+    response.headers["Pragma"]                  = "no-cache"
 
 
 # ── Health ────────────────────────────────────────────────────
@@ -520,10 +614,11 @@ def unset_monitored(name: str, response: Response):
 
 
 @app.delete("/api/applications/data")
-def delete_application(name: str, response: Response):
+def delete_application(name: str, request: Request, response: Response):
     """Permanently delete all scan directories for an application."""
     _sec_headers(response)
     name = _require_app_name(name)
+    _audit(request, "delete_application", f"app={name}")
     scan_dirs = [
         d for d in parsers.find_scan_dirs(EPYON_ROOT)
         if parsers.parse_dir_name(d.name)["target"] == name
@@ -544,9 +639,10 @@ def delete_application(name: str, response: Response):
 
 
 @app.delete("/api/scans/{scan_id}")
-def delete_scan(scan_id: str, response: Response):
+def delete_scan(scan_id: str, request: Request, response: Response):
     """Permanently delete a single scan directory."""
     _sec_headers(response)
+    _audit(request, "delete_scan", f"scan_id={scan_id}")
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
     scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
@@ -980,6 +1076,7 @@ async def trigger_scan(request: Request, response: Response):
         raise HTTPException(500, "Scan script not found")
 
     job_id = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    _audit(request, "scan_triggered", f"target={target} scan_type={scan_type}")
     job = job_store.create_job(job_id, target, scan_type)
     job_store._on_scan_complete_cb = _on_scan_complete
     asyncio.create_task(
@@ -1993,6 +2090,7 @@ def ai_config_get(response: Response):
 @app.post("/api/ai/config")
 async def ai_config_post(request: Request, response: Response):
     _sec_headers(response)
+    _audit(request, "ai_config_changed")
     try:
         body = await request.json()
     except Exception:
@@ -2686,6 +2784,7 @@ async def jira_config_post(request: Request, response: Response):
         cfg["create_on_new"] = bool(body["create_on_new"])
 
     jira_client.write_config(cfg)
+    _audit(request, "jira_config_changed")
     return {"ok": True}
 
 

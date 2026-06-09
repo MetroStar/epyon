@@ -8,18 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.6.0] - 2026-06-09
 
 ### Added
-- **Local model support** (`run-stig-assessment.py`): STIG assessment can now run against any OpenAI-compatible local inference server (Ollama, LM Studio, vLLM, LocalAI, etc.) via `--base-url` flag or `OPENAI_BASE_URL` env var. Internal/localhost endpoints auto-fill a placeholder API key so no secret is required. SSRF guard blocks non-OpenAI public hostnames to prevent credential exfiltration; operator-allowlisted hosts accepted via `EPYON_AI_ALLOWED_HOSTS`.
+- **STIG compliance (APSC-DV-001600)** — `Content-Security-Policy` header on all responses via `_SecurityHeadersMiddleware`; restricts default sources to `'self'` with `'unsafe-inline'` allowed pending JS refactor
+- **STIG compliance (APSC-DV-001670)** — `Referrer-Policy: strict-origin-when-cross-origin` header
+- **STIG compliance (APSC-DV-000530 / Permissions-Policy)** — `Permissions-Policy` header blocking geolocation, microphone, camera, payment, and USB access
+- **STIG compliance (APSC-DV-002360)** — CORS restricted from wildcard `*` to `localhost` by default; configurable via `EPYON_ALLOWED_ORIGINS` env var
+- **STIG compliance (APSC-DV-000070 / APSC-DV-000080)** — 15-minute inactivity timeout in the web UI with 60-second warning banner and expired session modal
+- **STIG compliance (APSC-DV-002390)** — Global FastAPI exception handler returns generic 500 message; internal error details are no longer reflected to clients
+- **Audit logging** — All sensitive operations (scan trigger, scan/application delete, AI config change, Jira config change) are written to `web/data/audit.log` with timestamp, action, and client IP
+- `Cache-Control: no-store` and `Pragma: no-cache` on all `/api/` responses to prevent caching of security-sensitive data (APSC-DV-001630)
+- `X-XSS-Protection: 0` header to disable legacy browser XSS filter (modern browsers only)
 
-### Fixed
-- **STIG assessment repeatability** (`run-stig-assessment.py`): resolved six root causes of scan-to-scan inconsistency:
-  - Reduced default batch size from 10 to 5 controls per API call — doubles available code context per control and halves output token pressure, reducing truncation-driven variation.
-  - Added `normalize_status()`: any model-returned status variant (`"not_a_finding"`, `"NOT APPLICABLE"`, lowercase, etc.) is normalised to the canonical enum before storage; unrecognised values fall back to `"Open"` rather than being stored as-is and silently breaking freeze logic.
-  - Added retry logic (`_MAX_BATCH_RETRIES = 2`): a single JSON parse failure no longer marks an entire batch as Open/confidence=0, which previously caused every control in the batch to be re-assessed on the next run with potentially different context and different results.
-  - Added confidence floor (`_MIN_CONFIDENCE_FOR_CLOSED_STATUS = 40`): a model that returns `"Not a Finding"` or `"Not Applicable"` with confidence < 40 has the status downgraded to `"Open"` — prevents untrustworthy low-confidence closures from accumulating in the results JSON.
-  - Controls are sorted by `vuln_id` before batching — identical control sets always produce identical batch splits regardless of STIG file parse order, making re-runs deterministic.
-  - Increased `_GUARANTEED_FILES_PER_CONTROL` from 5 to 8 in `build_code_context_for_batch` — complex controls (session management, crypto, authentication) now have more of their most-relevant files guaranteed in the context window.
+### Changed
+- `_sec_headers()` helper now sets the full header suite (previously only `X-Content-Type-Options` and `X-Frame-Options`)
 
-## [2.5.0] - 2026-02-12
+
 
 ### Added
 - Version control system with VERSION file

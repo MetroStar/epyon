@@ -976,6 +976,12 @@ def build_code_context_for_batch(
     per_control_tops: dict[str, list[str]] = {}  # vuln_id -> [rel, ...]
     for c in controls_batch:
         kw = extract_keywords(c["check_content"])
+        # Include the vuln_id itself (e.g. "APSC-DV-000070") as a keyword so
+        # that any file with the control ID cited in a comment always scores
+        # highest — this is the most reliable signal that a file implements
+        # a specific control (developers often annotate compliance code with
+        # the STIG ID).
+        kw.append(c["vuln_id"].lower())
         ranked = rank_files_by_relevance(files, kw)
         top_rels = [rel for rel, _ in ranked[:_GUARANTEED_FILES_PER_CONTROL]]
         per_control_tops[c["vuln_id"]] = top_rels
@@ -989,6 +995,7 @@ def build_code_context_for_batch(
     all_kw: list[str] = []
     for c in controls_batch:
         all_kw.extend(extract_keywords(c["check_content"]))
+        all_kw.append(c["vuln_id"].lower())
     global_ranked = [rel for rel, _ in rank_files_by_relevance(files, all_kw)]
 
     # Step 3 — merge: priority first, then globally ranked, deduped

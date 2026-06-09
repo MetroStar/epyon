@@ -142,7 +142,7 @@ async def run_scan_job(
         "SKIP_XEOL=false",
         "SKIP_ANCHORE=false",
         "SKIP_API_DISCOVERY=false",
-        f"SKIP_STIG={'false' if run_stig else 'true'}",
+        f"SKIP_STIG={'false' if (run_stig or scan_type == 'stig') else 'true'}",
         f"SCAN_DIR={scan_dir}",
         f"SCAN_NAME={scan_name}",
         f"SCAN_ID={scan_name}",

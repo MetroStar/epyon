@@ -963,7 +963,9 @@ async def trigger_scan(request: Request, response: Response):
     target    = (body.get("target") or "").strip()
     scan_type = body.get("scan_type", "full")
     run_garak = bool(body.get("run_garak", False))
-    run_stig  = bool(body.get("run_stig",  False))
+    # run_stig is implicit when scan_type == "stig"; can also be set explicitly
+    # for full/nightly scans that should include the STIG layer.
+    run_stig  = bool(body.get("run_stig", False)) or scan_type == "stig"
 
     if not target:
         raise HTTPException(400, "target is required")

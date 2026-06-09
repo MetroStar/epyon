@@ -5471,7 +5471,7 @@ async function renderStigViewer(scanId) {
                   <tr class="stig-tr" id="${rowId}" onclick="toggleStigRow('${detId}', '${rowId}')">
                     <td><code class="stig-id">${esc(c.group_id || c.vuln_id)}</code></td>
                     <td><span class="stig-sev stig-sev-${esc(c.severity)}">${esc(c.severity || '—')}</span></td>
-                    <td><span class="${esc(STATUS_CLASS[c.status] || 'stig-status-nr')}">${esc(c.status)}</span></td>
+                    <td><span class="${esc(STATUS_CLASS[c.status] || 'stig-status-nr')}">${esc(c.status)}</span>${c.locked_by_human ? ' <span class="stig-lock-badge" title="Manually locked by human reviewer">🔒</span>' : ''}</td>
                     <td><span class="stig-confidence ${confClass}" title="${conf}/100">${conf}</span></td>
                     <td class="stig-title-cell">${esc(c.title)}</td>
                     ${stigNames.length > 1 ? `<td class="stig-stig-cell" title="${esc(c._stig_name)}">${esc(sname)}</td>` : ''}
@@ -5516,6 +5516,32 @@ async function renderStigViewer(scanId) {
                         <div class="stig-detail-section">
                           <div class="stig-detail-label">Remediation</div>
                           <div class="stig-detail-val">${esc(c.fix_text || '—').replace(/\n/g, '<br>')}</div>
+                        </div>
+                        <div class="stig-detail-section stig-override-section">
+                          <div class="stig-detail-label">Manual Override ${c.locked_by_human ? '<span class="stig-lock-badge">🔒 Locked by reviewer</span>' : ''}</div>
+                          <div class="stig-override-form" id="override-form-${esc(c.vuln_id)}-${esc(c._slug)}">
+                            <div class="stig-override-row">
+                              <label class="stig-override-label">Status</label>
+                              <select class="stig-override-select" id="override-status-${esc(c.vuln_id)}-${esc(c._slug)}">
+                                ${['Not a Finding','Not Applicable','Open','Not Reviewed'].map(s =>
+                                  `<option value="${esc(s)}"${c.status === s ? ' selected' : ''}>${esc(s)}</option>`
+                                ).join('')}
+                              </select>
+                            </div>
+                            <div class="stig-override-row">
+                              <label class="stig-override-label">Justification</label>
+                              <textarea class="stig-override-textarea" id="override-just-${esc(c.vuln_id)}-${esc(c._slug)}"
+                                placeholder="Explain why this control is met (required)"
+                                rows="3">${esc(c.locked_by_human && c.evidence ? c.evidence.replace(/^\[Human override\] /, '').split('\n')[0] : '')}</textarea>
+                            </div>
+                            <div class="stig-override-row stig-override-actions">
+                              <button class="btn-stig-override-save" onclick="saveStigOverride(${JSON.stringify(scanId)},${JSON.stringify(c._slug)},${JSON.stringify(c.vuln_id)})">
+                                🔒 Lock Override
+                              </button>
+                              ${c.locked_by_human ? `<button class="btn-stig-override-clear" onclick="clearStigOverride(${JSON.stringify(scanId)},${JSON.stringify(c._slug)},${JSON.stringify(c.vuln_id)})">Clear Lock</button>` : ''}
+                              <span class="stig-override-msg" id="override-msg-${esc(c.vuln_id)}-${esc(c._slug)}"></span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -5606,6 +5632,60 @@ async function renderStigViewer(scanId) {
       det.style.display = open ? 'none' : 'table-row';
       if (row) row.classList.toggle('stig-tr-open', !open);
       if (chev) chev.textContent = open ? '›' : '⌄';
+    };
+
+    window.saveStigOverride = async (sid, slug, vulnId) => {
+      const statusEl = document.getElementById(`override-status-${vulnId}-${slug}`);
+      const justEl   = document.getElementById(`override-just-${vulnId}-${slug}`);
+      const msgEl    = document.getElementById(`override-msg-${vulnId}-${slug}`);
+      if (!statusEl || !justEl || !msgEl) return;
+      const justification = justEl.value.trim();
+      if (!justification) {
+        msgEl.textContent = 'Justification is required.';
+        msgEl.className = 'stig-override-msg stig-override-err';
+        return;
+      }
+      msgEl.textContent = 'Saving…';
+      msgEl.className = 'stig-override-msg';
+      try {
+        const res = await fetch(`/api/scans/${encodeURIComponent(sid)}/stig-override`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug, vuln_id: vulnId, status: statusEl.value, justification }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: res.statusText }));
+          throw new Error(err.detail || res.statusText);
+        }
+        msgEl.textContent = '✓ Locked';
+        msgEl.className = 'stig-override-msg stig-override-ok';
+        // Reload the viewer so the lock badge + updated status appear
+        setTimeout(() => renderStigViewer(sid), 800);
+      } catch (e) {
+        msgEl.textContent = `Error: ${e.message}`;
+        msgEl.className = 'stig-override-msg stig-override-err';
+      }
+    };
+
+    window.clearStigOverride = async (sid, slug, vulnId) => {
+      const msgEl = document.getElementById(`override-msg-${vulnId}-${slug}`);
+      if (msgEl) { msgEl.textContent = 'Clearing…'; msgEl.className = 'stig-override-msg'; }
+      try {
+        // Clear lock by saving with status=Open, no justification, locked_by_human removed
+        const res = await fetch(`/api/scans/${encodeURIComponent(sid)}/stig-override`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug, vuln_id: vulnId, status: 'Open', justification: '', clear_lock: true }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: res.statusText }));
+          throw new Error(err.detail || res.statusText);
+        }
+        if (msgEl) { msgEl.textContent = '✓ Lock cleared'; msgEl.className = 'stig-override-msg stig-override-ok'; }
+        setTimeout(() => renderStigViewer(sid), 800);
+      } catch (e) {
+        if (msgEl) { msgEl.textContent = `Error: ${e.message}`; msgEl.className = 'stig-override-msg stig-override-err'; }
+      }
     };
 
     const counts = countsByStatus();

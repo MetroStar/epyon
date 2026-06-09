@@ -5,7 +5,23 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.5.0] - 2026-02-12
+## [3.6.0] - 2026-06-09
+
+### Added
+- **STIG compliance (APSC-DV-001600)** — `Content-Security-Policy` header on all responses via `_SecurityHeadersMiddleware`; restricts default sources to `'self'` with `'unsafe-inline'` allowed pending JS refactor
+- **STIG compliance (APSC-DV-001670)** — `Referrer-Policy: strict-origin-when-cross-origin` header
+- **STIG compliance (APSC-DV-000530 / Permissions-Policy)** — `Permissions-Policy` header blocking geolocation, microphone, camera, payment, and USB access
+- **STIG compliance (APSC-DV-002360)** — CORS restricted from wildcard `*` to `localhost` by default; configurable via `EPYON_ALLOWED_ORIGINS` env var
+- **STIG compliance (APSC-DV-000070 / APSC-DV-000080)** — 15-minute inactivity timeout in the web UI with 60-second warning banner and expired session modal
+- **STIG compliance (APSC-DV-002390)** — Global FastAPI exception handler returns generic 500 message; internal error details are no longer reflected to clients
+- **Audit logging** — All sensitive operations (scan trigger, scan/application delete, AI config change, Jira config change) are written to `web/data/audit.log` with timestamp, action, and client IP
+- `Cache-Control: no-store` and `Pragma: no-cache` on all `/api/` responses to prevent caching of security-sensitive data (APSC-DV-001630)
+- `X-XSS-Protection: 0` header to disable legacy browser XSS filter (modern browsers only)
+
+### Changed
+- `_sec_headers()` helper now sets the full header suite (previously only `X-Content-Type-Options` and `X-Frame-Options`)
+
+
 
 ### Added
 - Version control system with VERSION file

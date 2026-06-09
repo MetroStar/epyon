@@ -3102,3 +3102,58 @@ details[open] > .findings-summary .findings-summary-hint {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
+
+/* ── Inactivity timeout UI (APSC-DV-000070) ────────────────── */
+#epyon-session-warning {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 9999;
+  background: #7c3d00;
+  color: #ffd580;
+  border: 1px solid #b85c00;
+  border-radius: 8px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  max-width: 380px;
+}
+
+#epyon-session-expired {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(0,0,0,0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.epyon-session-modal {
+  background: var(--bg-card, #1e2030);
+  border: 1px solid var(--border, #2a2d3e);
+  border-radius: 12px;
+  padding: 40px 48px;
+  text-align: center;
+  max-width: 380px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+.epyon-session-modal h2 {
+  margin: 12px 0 8px;
+  font-size: 20px;
+  color: var(--text, #e0e0e0);
+}
+
+.epyon-session-modal p {
+  color: var(--text-muted, #8b95a1);
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+.epyon-session-icon {
+  font-size: 40px;
+}

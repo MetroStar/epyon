@@ -6419,10 +6419,6 @@ window.openDependencyDetail = function(did) {
   drawer._onKey = _onKey;
 };
 
-  document.addEventListener('keydown', _onKey);
-  drawer._onKey = _onKey;
-};
-
 // ── STIG Viewer control detail drawer ────────────────────────
 // Opened when the user clicks a row in the STIG Viewer (renderStigViewer).
 // Uses the shared finding-drawer overlay so Escape / click-outside close it.

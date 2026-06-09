@@ -126,7 +126,8 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 STIGS_DIR="${STIGS_DIR:-${PROJECT_ROOT}/configuration/stigs}"
 STIGS_FILE="${STIGS_FILE:-}"
 OPENAI_MODEL="${OPENAI_MODEL:-gpt-4o-mini}"
-BATCH_SIZE="${BATCH_SIZE:-20}"
+OPENAI_BASE_URL="${OPENAI_BASE_URL:-}"
+BATCH_SIZE="${BATCH_SIZE:-5}"
 BATCH_DELAY="${BATCH_DELAY:-1}"
 APP_NAME="${APP_NAME:-$(basename "$(realpath "$TARGET_DIR")")}"
 
@@ -218,6 +219,12 @@ else
     STIG_ARG=("--stigs-dir" "$STIGS_DIR")
 fi
 
+# Build optional base-url argument for local/self-hosted models
+BASE_URL_ARG=()
+if [[ -n "${OPENAI_BASE_URL:-}" ]]; then
+    BASE_URL_ARG=("--base-url" "$OPENAI_BASE_URL")
+fi
+
 python3 "$ASSESSMENT_SCRIPT" \
     "${STIG_ARG[@]}"         \
     --target     "$TARGET_DIR"      \
@@ -225,7 +232,8 @@ python3 "$ASSESSMENT_SCRIPT" \
     --app-name   "$APP_NAME"        \
     --model      "$OPENAI_MODEL"    \
     --batch-size "$BATCH_SIZE"      \
-    --delay      "$BATCH_DELAY"
+    --delay      "$BATCH_DELAY"     \
+    "${BASE_URL_ARG[@]}"
 
 RC=$?
 echo ""

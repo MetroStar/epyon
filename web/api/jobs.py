@@ -178,6 +178,9 @@ async def run_scan_job(
     openai_key = openai_summary.get_api_key() or os.environ.get("OPENAI_API_KEY", "")
     if openai_key:
         env_lines.append(f"OPENAI_API_KEY={openai_key}")
+    openai_base_url = openai_summary.get_base_url() or os.environ.get("OPENAI_BASE_URL", "")
+    if openai_base_url:
+        env_lines.append(f"OPENAI_BASE_URL={openai_base_url}")
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if anthropic_key:
         env_lines.append(f"ANTHROPIC_API_KEY={anthropic_key}")
@@ -234,6 +237,8 @@ async def run_scan_job(
            "TARGET_NAME":      target_name}
     if openai_key:
         env["OPENAI_API_KEY"] = openai_key
+    if openai_base_url:
+        env["OPENAI_BASE_URL"] = openai_base_url
 
     # Prefer a bash 4+ binary (Homebrew on macOS) over the system /bin/bash 3.2
     import shutil as _shutil

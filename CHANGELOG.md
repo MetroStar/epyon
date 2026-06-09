@@ -5,6 +5,11 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.1] - 2026-06-09
+
+### Fixed
+- **STIG freeze logic** — human-locked controls (`locked_by_human=True`) are now preserved across scans regardless of status or confidence, preventing the Web UI lock badge from disappearing on the next scan run
+
 ## [3.6.0] - 2026-06-09
 
 ### Added

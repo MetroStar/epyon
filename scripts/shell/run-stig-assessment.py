@@ -1508,23 +1508,27 @@ def _assess_stig(
         for ctrl in controls:
             vid  = ctrl["vuln_id"]
             prev = previous_assessments.get(vid, {})
-            prev_status = prev.get("status", "")
-            prev_conf   = prev.get("confidence", 0)
-            if prev_status in _FREEZE_STATUSES and prev_conf >= _FREEZE_MIN_CONF:
+            prev_status     = prev.get("status", "")
+            prev_conf       = prev.get("confidence", 0)
+            locked_by_human = bool(prev.get("locked_by_human", False))
+            if locked_by_human or (prev_status in _FREEZE_STATUSES and prev_conf >= _FREEZE_MIN_CONF):
                 frozen_assessments[vid] = {
                     "status":             prev_status,
                     "evidence":           prev.get("evidence", ""),
                     "confidence":         prev_conf,
                     "locked_by_previous": True,
+                    "locked_by_human":    locked_by_human,
                 }
             else:
                 controls_to_assess.append(ctrl)
 
         frozen_count = len(frozen_assessments)
         if frozen_count:
+            human_locked = sum(1 for v in frozen_assessments.values() if v.get("locked_by_human"))
             print(
                 f"[INFO] [{slug}] Freezing {frozen_count} stable controls "
-                f"(status in {_FREEZE_STATUSES!r}, confidence ≥ {_FREEZE_MIN_CONF}) "
+                f"({human_locked} human-locked, remainder automatically frozen: status in {_FREEZE_STATUSES!r} "
+                f"with confidence ≥ {_FREEZE_MIN_CONF}) "
                 f"— {len(controls_to_assess)} controls will be re-assessed",
                 file=sys.stderr,
             )

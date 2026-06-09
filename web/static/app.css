@@ -2277,6 +2277,91 @@ tr.clickable-row:hover { background: var(--bg-hover, rgba(88,166,255,0.06)); }
   white-space: pre-wrap;
 }
 
+/* ── STIG manual override form ──────────────────────────────── */
+.stig-override-section {
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+  padding-top: 12px;
+}
+.stig-lock-badge {
+  font-size: 11px;
+  background: #1f4a1f;
+  color: #7ee787;
+  border: 1px solid #2ea043;
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+.stig-override-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.stig-override-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.stig-override-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 90px;
+  padding-top: 4px;
+}
+.stig-override-select {
+  background: var(--bg-input, #161b22);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+.stig-override-textarea {
+  flex: 1;
+  background: var(--bg-input, #161b22);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 12px;
+  resize: vertical;
+  font-family: inherit;
+}
+.stig-override-actions {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.btn-stig-override-save {
+  background: #1f4a1f;
+  color: #7ee787;
+  border: 1px solid #2ea043;
+  border-radius: 4px;
+  padding: 5px 14px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.btn-stig-override-save:hover { background: #2ea043; color: #fff; }
+.btn-stig-override-clear {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.btn-stig-override-clear:hover { color: var(--text-primary); border-color: var(--text-muted); }
+.stig-override-msg {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.stig-override-ok  { color: #7ee787; }
+.stig-override-err { color: #f85149; }
+
+
 .stig-empty {
   padding: 48px;
   text-align: center;

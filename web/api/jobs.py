@@ -142,7 +142,7 @@ async def run_scan_job(
         "SKIP_XEOL=false",
         "SKIP_ANCHORE=false",
         "SKIP_API_DISCOVERY=false",
-        f"SKIP_STIG={'false' if run_stig else 'true'}",
+        f"SKIP_STIG={'false' if (run_stig or scan_type == 'stig') else 'true'}",
         f"SCAN_DIR={scan_dir}",
         f"SCAN_NAME={scan_name}",
         f"SCAN_ID={scan_name}",
@@ -178,11 +178,16 @@ async def run_scan_job(
     openai_key = openai_summary.get_api_key() or os.environ.get("OPENAI_API_KEY", "")
     if openai_key:
         env_lines.append(f"OPENAI_API_KEY={openai_key}")
+    openai_base_url = openai_summary.get_base_url() or os.environ.get("OPENAI_BASE_URL", "")
+    if openai_base_url:
+        env_lines.append(f"OPENAI_BASE_URL={openai_base_url}")
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if anthropic_key:
         env_lines.append(f"ANTHROPIC_API_KEY={anthropic_key}")
 
-    Path("/tmp/epyon-env").write_text("\n".join(env_lines) + "\n")
+    _env_path = Path("/tmp/epyon-env")
+    _env_path.write_text("\n".join(env_lines) + "\n")
+    _env_path.chmod(0o600)  # owner-only: file contains API keys
     _append_line(job, f"[web-ui] Initialized scan: {scan_name}")
 
     # ── Write scan-metadata.json so the parser can read scan_type ────────────
@@ -234,6 +239,8 @@ async def run_scan_job(
            "TARGET_NAME":      target_name}
     if openai_key:
         env["OPENAI_API_KEY"] = openai_key
+    if openai_base_url:
+        env["OPENAI_BASE_URL"] = openai_base_url
 
     # Prefer a bash 4+ binary (Homebrew on macOS) over the system /bin/bash 3.2
     import shutil as _shutil

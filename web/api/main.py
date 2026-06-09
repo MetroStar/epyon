@@ -890,18 +890,19 @@ def stig_data(scan_id: str, response: Response):
             vid = c.get("vuln_id", "")
             assessed = results.get(vid, {})
             merged.append({
-                "vuln_id":       vid,
-                "group_id":      c.get("group_id", ""),
-                "rule_id":       c.get("rule_id", ""),
-                "number":        c.get("number"),
-                "severity":      c.get("severity", ""),
-                "title":         c.get("title", ""),
-                "check_content": c.get("check_content", ""),
-                "fix_text":      c.get("fix_text", ""),
-                "discussion":    c.get("discussion", ""),
-                "status":        assessed.get("status",     "Not Reviewed"),
-                "evidence":      assessed.get("evidence",   ""),
-                "confidence":    assessed.get("confidence", 0),
+                "vuln_id":        vid,
+                "group_id":       c.get("group_id", ""),
+                "rule_id":        c.get("rule_id", ""),
+                "number":         c.get("number"),
+                "severity":       c.get("severity", ""),
+                "title":          c.get("title", ""),
+                "check_content":  c.get("check_content", ""),
+                "fix_text":       c.get("fix_text", ""),
+                "discussion":     c.get("discussion", ""),
+                "status":         assessed.get("status",          "Not Reviewed"),
+                "evidence":       assessed.get("evidence",         ""),
+                "confidence":     assessed.get("confidence",       0),
+                "locked_by_human": bool(assessed.get("locked_by_human", False)),
             })
 
         app_slug  = re.sub(r"[^a-z0-9]+", "-", re.sub(r"_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$", "", scan_id).lower()).strip("-")
@@ -921,6 +922,103 @@ def stig_data(scan_id: str, response: Response):
 
 
 _SAFE_SLUG_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_\-]*\.(md|cklb)$")
+_VALID_STIG_STATUSES = {"Not a Finding", "Not Applicable", "Open", "Not Reviewed"}
+
+
+class StigOverride(BaseModel):
+    slug: str
+    vuln_id: str
+    status: str
+    evidence: str = ""
+    justification: str = ""  # human rationale stored alongside evidence
+    clear_lock: bool = False  # when True, removes the human lock and resets to Open
+
+
+@app.patch("/api/scans/{scan_id}/stig-override")
+def stig_override(scan_id: str, body: StigOverride, response: Response):
+    """Apply a human-reviewed override to a single STIG control.
+
+    Sets status, updates evidence, marks locked_by_human=True and
+    confidence=95 so the freeze logic carries this forward on subsequent scans.
+    The justification is prepended to the evidence text so it is visible in
+    the findings report.
+    """
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    # Validate slug to prevent path traversal
+    if not re.match(r'^[a-z0-9][a-z0-9\-]*$', body.slug):
+        raise HTTPException(400, "Invalid slug")
+    if body.status not in _VALID_STIG_STATUSES:
+        raise HTTPException(400, f"Invalid status. Must be one of: {sorted(_VALID_STIG_STATUSES)}")
+    # Validate vuln_id format (e.g. APSC-DV-000070, TCAT-AS-000010)
+    if not re.match(r'^[A-Z0-9]{2,}-[A-Z0-9]{2,}-[0-9]{4,}$', body.vuln_id):
+        raise HTTPException(400, "Invalid vuln_id format")
+
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
+    matched = next((d for d in scan_dirs if d.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+
+    results_file = matched / f"stig-results-{body.slug}.json"
+    if not results_file.exists():
+        raise HTTPException(404, f"STIG results file not found for slug: {body.slug}")
+
+    # Resolve and verify the path is inside the scan directory (no traversal)
+    try:
+        results_file.resolve().relative_to(EPYON_ROOT.resolve())
+    except ValueError:
+        raise HTTPException(403, "Access denied")
+
+    try:
+        raw = json.loads(results_file.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise HTTPException(500, f"Could not read results file: {exc}") from exc
+
+    assessments = raw.get("assessments", raw) if "assessments" in raw else raw
+
+    # Build the updated evidence text — prepend justification if provided
+    new_evidence = body.evidence
+    if body.justification:
+        prefix = f"[Human override] {body.justification}\n"
+        if not new_evidence.startswith(prefix):
+            new_evidence = prefix + new_evidence
+
+    if body.clear_lock:
+        # Remove the human lock; reset to Open with confidence 0 so AI re-assesses next scan
+        assessments[body.vuln_id] = {
+            **assessments.get(body.vuln_id, {}),
+            "status":          "Open",
+            "evidence":        "",
+            "confidence":      0,
+            "locked_by_human": False,
+        }
+    else:
+        assessments[body.vuln_id] = {
+            **assessments.get(body.vuln_id, {}),
+            "status":          body.status,
+            "evidence":        new_evidence,
+            "confidence":      95,
+            "locked_by_human": True,
+        }
+
+    # Write back in the wrapped format
+    if "assessments" in raw:
+        raw["assessments"] = assessments
+    else:
+        raw = {"assessments": assessments}
+
+    results_file.write_text(json.dumps(raw, indent=2, ensure_ascii=False), encoding="utf-8")
+    results_file.chmod(0o600)
+
+    return {
+        "scan_id":  scan_id,
+        "slug":     body.slug,
+        "vuln_id":  body.vuln_id,
+        "status":   "Open" if body.clear_lock else body.status,
+        "locked":   not body.clear_lock,
+    }
+
 
 @app.get("/api/scans/{scan_id}/stig-findings/{filename}")
 def stig_findings_named(scan_id: str, filename: str, response: Response):
@@ -1059,7 +1157,9 @@ async def trigger_scan(request: Request, response: Response):
     target    = (body.get("target") or "").strip()
     scan_type = body.get("scan_type", "full")
     run_garak = bool(body.get("run_garak", False))
-    run_stig  = bool(body.get("run_stig",  False))
+    # run_stig is implicit when scan_type == "stig"; can also be set explicitly
+    # for full/nightly scans that should include the STIG layer.
+    run_stig  = bool(body.get("run_stig", False)) or scan_type == "stig"
 
     if not target:
         raise HTTPException(400, "target is required")

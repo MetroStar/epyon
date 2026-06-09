@@ -126,7 +126,8 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 STIGS_DIR="${STIGS_DIR:-${PROJECT_ROOT}/configuration/stigs}"
 STIGS_FILE="${STIGS_FILE:-}"
 OPENAI_MODEL="${OPENAI_MODEL:-gpt-4o-mini}"
-BATCH_SIZE="${BATCH_SIZE:-20}"
+OPENAI_BASE_URL="${OPENAI_BASE_URL:-}"
+BATCH_SIZE="${BATCH_SIZE:-5}"
 BATCH_DELAY="${BATCH_DELAY:-1}"
 APP_NAME="${APP_NAME:-$(basename "$(realpath "$TARGET_DIR")")}"
 
@@ -218,14 +219,23 @@ else
     STIG_ARG=("--stigs-dir" "$STIGS_DIR")
 fi
 
-python3 "$ASSESSMENT_SCRIPT" \
-    "${STIG_ARG[@]}"         \
-    --target     "$TARGET_DIR"      \
-    --scan-dir   "$SCAN_DIR"        \
-    --app-name   "$APP_NAME"        \
-    --model      "$OPENAI_MODEL"    \
-    --batch-size "$BATCH_SIZE"      \
+# Build the assessment command; append --base-url only when set
+# (avoids "unbound variable" from empty array expansion under set -u)
+ASSESSMENT_CMD=(
+    python3 "$ASSESSMENT_SCRIPT"
+    "${STIG_ARG[@]}"
+    --target     "$TARGET_DIR"
+    --scan-dir   "$SCAN_DIR"
+    --app-name   "$APP_NAME"
+    --model      "$OPENAI_MODEL"
+    --batch-size "$BATCH_SIZE"
     --delay      "$BATCH_DELAY"
+)
+if [[ -n "${OPENAI_BASE_URL:-}" ]]; then
+    ASSESSMENT_CMD+=(--base-url "$OPENAI_BASE_URL")
+fi
+
+"${ASSESSMENT_CMD[@]}"
 
 RC=$?
 echo ""

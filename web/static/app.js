@@ -5614,10 +5614,10 @@ async function renderStigViewer(scanId) {
                                 rows="3">${esc(c.locked_by_human && c.evidence ? c.evidence.replace(/^\[Human override\] /, '').split('\n')[0] : '')}</textarea>
                             </div>
                             <div class="stig-override-row stig-override-actions">
-                              <button class="btn-stig-override-save" onclick="saveStigOverride(${JSON.stringify(scanId)},${JSON.stringify(c._slug)},${JSON.stringify(c.vuln_id)})">
+                              <button class="btn-stig-override-save" onclick="saveStigOverride('${esc(scanId)}','${esc(c._slug)}','${esc(c.vuln_id)}')">
                                 🔒 Lock Override
                               </button>
-                              ${c.locked_by_human ? `<button class="btn-stig-override-clear" onclick="clearStigOverride(${JSON.stringify(scanId)},${JSON.stringify(c._slug)},${JSON.stringify(c.vuln_id)})">Clear Lock</button>` : ''}
+                              ${c.locked_by_human ? `<button class="btn-stig-override-clear" onclick="clearStigOverride('${esc(scanId)}','${esc(c._slug)}','${esc(c.vuln_id)}')">Clear Lock</button>` : ''}
                               <span class="stig-override-msg" id="override-msg-${esc(c.vuln_id)}-${esc(c._slug)}"></span>
                             </div>
                           </div>

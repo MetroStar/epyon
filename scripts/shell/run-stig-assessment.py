@@ -117,7 +117,54 @@ EXCLUDE_DIR_PREFIXES = {
 
 MAX_CODE_BYTES_PER_BATCH = 250_000  # ~250 KB per API call — safe for gpt-4o-mini (128K ctx)
 MAX_FILE_BYTES = 100_000            # truncate (not skip) files larger than 100 KB
-BATCH_SIZE_DEFAULT = 10             # controls per API call (smaller = more focused)
+BATCH_SIZE_DEFAULT = 5              # controls per API call — smaller batches give each control more context
+
+# Valid canonical status values — any model output is normalized to these before storage.
+VALID_STATUSES: frozenset[str] = frozenset({
+    "Not a Finding",
+    "Not Applicable",
+    "Open",
+    "Not Reviewed",
+})
+
+# Normalisation map: handles common model variations → canonical value.
+_STATUS_ALIASES: dict[str, str] = {
+    "not a finding":  "Not a Finding",
+    "not_a_finding":  "Not a Finding",
+    "notafinding":    "Not a Finding",
+    "not applicable": "Not Applicable",
+    "not_applicable": "Not Applicable",
+    "notapplicable":  "Not Applicable",
+    "n/a":            "Not Applicable",
+    "na":             "Not Applicable",
+    "open":           "Open",
+    "not reviewed":   "Not Reviewed",
+    "not_reviewed":   "Not Reviewed",
+    "notreviewed":    "Not Reviewed",
+}
+
+
+def normalize_status(raw: str | None) -> str:
+    """Return a canonical STIG status from any model-returned string.
+
+    Falls back to 'Open' if the value cannot be recognized — never stores an
+    invalid status that would silently break freeze logic or UI rendering.
+    """
+    if raw is None:
+        return "Open"
+    if raw in VALID_STATUSES:
+        return raw
+    candidate = _STATUS_ALIASES.get(raw.strip().lower())
+    return candidate if candidate else "Open"
+
+
+# Minimum confidence that a non-Open status must carry to be stored as-is.
+# A model that returns "Not a Finding" with confidence < this threshold is
+# untrustworthy — we downgrade to "Open" rather than risk a false satisfaction.
+_MIN_CONFIDENCE_FOR_CLOSED_STATUS = 40
+
+# Maximum retries for a single batch before falling back to Open.
+_MAX_BATCH_RETRIES = 2
 
 STATUS_MAP = {
     "not_reviewed":   "Not Reviewed",
@@ -828,7 +875,9 @@ def build_code_context(
 
 
 # How many of the top-ranked files each control is guaranteed in the context window.
-_GUARANTEED_FILES_PER_CONTROL = 5
+# With the smaller default batch size (5 controls), 8 files per control = up to 40
+# unique files in the priority pool before the global budget fill.
+_GUARANTEED_FILES_PER_CONTROL = 8
 
 
 def build_code_context_for_batch(
@@ -1406,6 +1455,11 @@ def _assess_stig(
             )
             assessments.update(frozen_assessments)
 
+        # Sort controls by vuln_id before batching so identical control sets always
+        # produce identical batches regardless of STIG file parse order.  Deterministic
+        # batching is necessary for reproducible scan-to-scan results.
+        controls_to_assess.sort(key=lambda c: c["vuln_id"])
+
         # Re-batch only the controls that need re-assessment
         batches      = [controls_to_assess[i : i + batch_size] for i in range(0, len(controls_to_assess), batch_size)]
         total_batches = len(batches)
@@ -1429,24 +1483,45 @@ def _assess_stig(
             # are included, then fills remaining budget with globally-ranked files.
             code_context = build_code_context_for_batch(source_files, batch)
 
-            try:
-                results, batch_pt, batch_ct = call_openai(
-                    client, model, batch, code_context, repo_manifest, previous_assessments
-                )
-                total_prompt_tokens     += batch_pt
-                total_completion_tokens += batch_ct
+            # Retry loop — up to _MAX_BATCH_RETRIES attempts on JSON/API failure
+            # before falling back to Open.  A single failed parse used to silently
+            # zero out every control in the batch, which caused flip-flopping on
+            # the next scan when those controls were re-assessed with different context.
+            results: list[dict[str, Any]] = []
+            last_err: str = ""
+            for attempt in range(1, _MAX_BATCH_RETRIES + 1):
+                try:
+                    results, batch_pt, batch_ct = call_openai(
+                        client, model, batch, code_context, repo_manifest, previous_assessments
+                    )
+                    total_prompt_tokens     += batch_pt
+                    total_completion_tokens += batch_ct
+                    print(
+                        f"[INFO] [{slug}] Batch {idx} tokens — "
+                        f"prompt: {batch_pt:,}  completion: {batch_ct:,}  "
+                        f"total so far: {total_prompt_tokens + total_completion_tokens:,}",
+                        file=sys.stderr,
+                    )
+                    last_err = ""
+                    break  # success
+                except json.JSONDecodeError as e:
+                    last_err = f"invalid JSON: {e}"
+                    print(
+                        f"[WARNING] [{slug}] Batch {idx} attempt {attempt}/{_MAX_BATCH_RETRIES} — {last_err}",
+                        file=sys.stderr,
+                    )
+                except Exception as e:  # pylint: disable=broad-except
+                    last_err = f"API error: {e}"
+                    print(
+                        f"[WARNING] [{slug}] Batch {idx} attempt {attempt}/{_MAX_BATCH_RETRIES} — {last_err}",
+                        file=sys.stderr,
+                    )
+            if last_err:
                 print(
-                    f"[INFO] [{slug}] Batch {idx} tokens — "
-                    f"prompt: {batch_pt:,}  completion: {batch_ct:,}  "
-                    f"total so far: {total_prompt_tokens + total_completion_tokens:,}",
+                    f"[WARNING] [{slug}] Batch {idx} failed after {_MAX_BATCH_RETRIES} attempts — "
+                    f"controls will be marked Open/0",
                     file=sys.stderr,
                 )
-            except json.JSONDecodeError as e:
-                print(f"[WARNING] [{slug}] Batch {idx} returned invalid JSON: {e}", file=sys.stderr)
-                results = []
-            except Exception as e:  # pylint: disable=broad-except
-                print(f"[WARNING] [{slug}] Batch {idx} API error: {e}", file=sys.stderr)
-                results = []
 
             assessed_ids: set[str] = set()
             for item in results:
@@ -1457,8 +1532,24 @@ def _assess_stig(
                         conf = min(100, max(0, int(raw_conf)))
                     except (TypeError, ValueError):
                         conf = 0
+
+                    # Normalize status to canonical enum value
+                    status = normalize_status(item.get("status"))
+
+                    # Confidence floor: a non-Open assessment with very low confidence
+                    # is untrustworthy.  Downgrade to Open so it gets re-assessed when
+                    # the model has better context rather than being carried forward as
+                    # a false satisfaction.
+                    if status in ("Not a Finding", "Not Applicable") and conf < _MIN_CONFIDENCE_FOR_CLOSED_STATUS:
+                        print(
+                            f"[WARNING] [{slug}] {vid}: status '{status}' downgraded to 'Open' "
+                            f"(confidence {conf} < minimum {_MIN_CONFIDENCE_FOR_CLOSED_STATUS})",
+                            file=sys.stderr,
+                        )
+                        status = "Open"
+
                     assessments[vid] = {
-                        "status":     item.get("status",   "Open"),
+                        "status":     status,
                         "evidence":   item.get("evidence", FALLBACK_EVIDENCE),
                         "confidence": conf,
                     }

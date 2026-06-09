@@ -185,7 +185,9 @@ async def run_scan_job(
     if anthropic_key:
         env_lines.append(f"ANTHROPIC_API_KEY={anthropic_key}")
 
-    Path("/tmp/epyon-env").write_text("\n".join(env_lines) + "\n")
+    _env_path = Path("/tmp/epyon-env")
+    _env_path.write_text("\n".join(env_lines) + "\n")
+    _env_path.chmod(0o600)  # owner-only: file contains API keys
     _append_line(job, f"[web-ui] Initialized scan: {scan_name}")
 
     # ── Write scan-metadata.json so the parser can read scan_type ────────────

@@ -281,7 +281,7 @@ jobs:
       JIRA_USER_EMAIL: "${{ secrets.JIRA_USER_EMAIL }}"
       JIRA_API_TOKEN: "${{ secrets.JIRA_API_TOKEN }}"
       JIRA_TICKET_MODE: "${{ inputs.jira_ticket_mode || 'hybrid' }}"          # severity | hybrid
-      JIRA_CVE_ISSUE_TYPE: "${{ inputs.jira_cve_issue_type || 'Subtask' }}"     # child issue type for hybrid mode
+      JIRA_CVE_ISSUE_TYPE: "${{ inputs.jira_cve_issue_type || 'Task' }}"        # child issue type for hybrid mode
       JIRA_MAX_CVE_TICKETS: "${{ inputs.jira_max_cve_tickets || '50' }}"        # safety cap per severity tier
 
     steps:

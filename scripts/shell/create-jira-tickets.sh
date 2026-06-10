@@ -646,6 +646,60 @@ JIRA_GETIDS
 
 # ── Hybrid mode: per-CVE child ticket helpers ─────────────────────────────────
 
+# Resolve the best available issue type for child CVE tickets.
+# Tries CVE_ISSUE_TYPE first; if that's invalid (400 issuetype), queries the
+# project's issue types and picks the first non-Epic/non-Subtask type, then
+# caches the result in /tmp/epyon_resolved_cve_issuetype so subsequent calls
+# skip the extra API round-trip.
+resolve_cve_issue_type() {
+  # Return cached value if already resolved this run
+  if [[ -f /tmp/epyon_resolved_cve_issuetype ]]; then
+    cat /tmp/epyon_resolved_cve_issuetype
+    return 0
+  fi
+  echo "${CVE_ISSUE_TYPE}"
+}
+
+# Called once after the first 400 "issuetype" failure to discover a valid type.
+discover_and_cache_cve_issue_type() {
+  echo "  ⚠️  Issue type '${CVE_ISSUE_TYPE}' rejected — querying project for valid types..." >&2
+  local discovered
+  discovered=$(curl -s \
+    -H "Authorization: Basic ${AUTH}" \
+    -H "Accept: application/json" \
+    "${JIRA_URL}/rest/api/3/project/${PROJECT_KEY}" \
+    | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    types = data.get('issueTypes', [])
+    # Prefer: Task > Story > Bug > Security Findings > anything non-Epic/non-Subtask
+    preferred = ['Task', 'Story', 'Bug', 'Security Findings', 'Feature', 'Improvement']
+    type_names = [t.get('name','') for t in types if t.get('subtask') is False]
+    for p in preferred:
+        if p in type_names:
+            print(p)
+            sys.exit(0)
+    # Fall back to first non-subtask type
+    for t in types:
+        if not t.get('subtask', False) and t.get('name','').lower() not in ('epic',):
+            print(t['name'])
+            sys.exit(0)
+    print('')
+except Exception:
+    print('')
+" 2>/dev/null || echo "")
+  if [[ -n "${discovered}" ]]; then
+    echo "  ℹ️  Using discovered issue type: '${discovered}'" >&2
+    echo "${discovered}" > /tmp/epyon_resolved_cve_issuetype
+    echo "${discovered}"
+  else
+    echo "  ❌  Could not discover a valid issue type — child tickets will be skipped" >&2
+    echo "" > /tmp/epyon_resolved_cve_issuetype
+    echo ""
+  fi
+}
+
 # Read the CVE→key map for a severity from the GitHub issue body.
 # Outputs a JSON object: {"CVE-2024-1234": "SEC-45", ...}
 get_cve_map_from_github() {
@@ -859,6 +913,61 @@ create_cve_tickets() {
 
   echo "--- Hybrid mode: processing CVE child tickets for ${sev_label} (parent: ${parent_key}) ---"
 
+  # ── Preflight: validate CVE_ISSUE_TYPE before the first ticket attempt ────
+  # Runs at most once per invocation (cached in /tmp/epyon_resolved_cve_issuetype).
+  # Queries the project's issue types and auto-selects a valid one when the
+  # configured type is not in the project's list, avoiding a guaranteed 400.
+  if [[ ! -f /tmp/epyon_resolved_cve_issuetype ]]; then
+    local project_types
+    project_types=$(curl -s \
+      -H "Authorization: Basic ${AUTH}" \
+      -H "Accept: application/json" \
+      "${JIRA_URL}/rest/api/3/project/${PROJECT_KEY}" \
+      | python3 -c "
+import sys, json
+try:
+    data = json.load(sys.stdin)
+    names = [t.get('name','') for t in data.get('issueTypes', []) if not t.get('subtask', False)]
+    print(json.dumps(names))
+except Exception:
+    print('[]')
+" 2>/dev/null || echo '[]')
+
+    local is_valid
+    is_valid=$(python3 -c "
+import sys, json
+names = json.loads('${project_types}')
+current = '${CVE_ISSUE_TYPE}'
+print('yes' if current in names else 'no')
+" 2>/dev/null || echo 'no')
+
+    if [[ "${is_valid}" == "yes" ]]; then
+      echo "  ℹ️  CVE issue type: '${CVE_ISSUE_TYPE}' (validated)"
+      echo "${CVE_ISSUE_TYPE}" > /tmp/epyon_resolved_cve_issuetype
+    else
+      echo "  ⚠️  Issue type '${CVE_ISSUE_TYPE}' is not valid for project ${PROJECT_KEY}"
+      echo "  ℹ️  Available types: $(echo "${project_types}" | python3 -c "import sys,json; print(', '.join(json.load(sys.stdin)))")" 2>/dev/null || true
+      # Auto-select best available type
+      local best
+      best=$(python3 -c "
+import sys, json
+names = json.loads('${project_types}')
+for p in ['Task','Story','Bug','Security Findings','Feature','Improvement','Issue']:
+    if p in names:
+        print(p)
+        sys.exit(0)
+print(names[0] if names else '')
+" 2>/dev/null || echo '')
+      if [[ -n "${best}" ]]; then
+        echo "  ✅  Auto-selected issue type: '${best}'"
+        echo "${best}" > /tmp/epyon_resolved_cve_issuetype
+      else
+        echo "  ❌  Could not discover a valid issue type — child tickets will be skipped"
+        echo '' > /tmp/epyon_resolved_cve_issuetype
+      fi
+    fi
+  fi
+
   # Extract unique CVE IDs and their findings from FINDINGS_FILE
   python3 - "${FINDINGS_FILE}" "${severity_key}" <<'PYEOF' > /tmp/epyon_cve_groups.json
 import json, sys
@@ -983,12 +1092,16 @@ with open('/tmp/epyon_cve_map_current.json','w') as f: json.dump(m,f)
     adf_body=$(build_cve_adf_body /tmp/epyon_cve_findings.json "${cve_id}" "${sev_label}" "${parent_key}") || true
     echo "${adf_body}" > /tmp/jira_cve_adf.json
 
+    # Resolve issue type — uses cached value after first discovery
+    local effective_itype
+    effective_itype=$(resolve_cve_issue_type)
+
     # Build payload — include parent key for Jira next-gen hierarchy
     if [[ -n "${parent_key}" ]]; then
       jq -n \
         --arg project  "${PROJECT_KEY}" \
         --arg title    "${ticket_title}" \
-        --arg itype    "${CVE_ISSUE_TYPE}" \
+        --arg itype    "${effective_itype}" \
         --arg priority "${priority}" \
         --arg lsev     "epyon-${sev_label}" \
         --arg lrepo    "${REPO_SLUG}" \
@@ -1002,7 +1115,7 @@ with open('/tmp/epyon_cve_map_current.json','w') as f: json.dump(m,f)
       jq -n \
         --arg project  "${PROJECT_KEY}" \
         --arg title    "${ticket_title}" \
-        --arg itype    "${CVE_ISSUE_TYPE}" \
+        --arg itype    "${effective_itype}" \
         --arg priority "${priority}" \
         --arg lsev     "epyon-${sev_label}" \
         --arg lrepo    "${REPO_SLUG}" \
@@ -1020,6 +1133,25 @@ with open('/tmp/epyon_cve_map_current.json','w') as f: json.dump(m,f)
       -H "Accept: application/json" \
       --data @/tmp/jira_cve_payload.json \
       "${JIRA_URL}/rest/api/3/issue")
+
+    # ── Retry: invalid issue type — discover what the project supports ───────
+    if [[ "${create_http}" == "400" ]] && jq -e '.errors.issuetype' /tmp/jira_cve_create.json >/dev/null 2>&1; then
+      local discovered_itype
+      discovered_itype=$(discover_and_cache_cve_issue_type)
+      if [[ -n "${discovered_itype}" ]]; then
+        jq --arg itype "${discovered_itype}" '.fields.issuetype.name = $itype' \
+          /tmp/jira_cve_payload.json > /tmp/jira_cve_payload_retype.json
+        create_http=$(curl -s -o /tmp/jira_cve_create.json -w "%{http_code}" \
+          -X POST \
+          -H "Authorization: Basic ${AUTH}" \
+          -H "Content-Type: application/json" \
+          -H "Accept: application/json" \
+          --data @/tmp/jira_cve_payload_retype.json \
+          "${JIRA_URL}/rest/api/3/issue")
+        # Use the retried payload as the canonical payload for subsequent fallbacks
+        [[ "${create_http}" != "201" ]] && cp /tmp/jira_cve_payload_retype.json /tmp/jira_cve_payload.json || true
+      fi
+    fi
 
     if [[ "${create_http}" == "201" ]]; then
       local new_cve_key

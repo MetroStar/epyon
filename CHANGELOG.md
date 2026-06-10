@@ -5,6 +5,11 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.4] - 2026-06-10
+
+### Fixed
+- **Jira CVE child tickets: invalid issue type** — the workflow hardcoded `CVE_ISSUE_TYPE: 'Subtask'` as the fallback, causing all CVE child-ticket creation attempts to fail with HTTP 400 `"Specify a valid issue type"` on boards where `Subtask` is not a valid independent issue type. Changed the workflow fallback to `'Task'` (near-universally available). Added a preflight validation at the start of `create_cve_tickets` that queries `GET /rest/api/3/project/{PROJECT_KEY}` to verify the configured type is valid and auto-selects the best available alternative (`Task → Story → Bug → ...`) when it is not, so the script self-heals without needing a manual `JIRA_CVE_ISSUE_TYPE` override. Result is cached for the run to avoid redundant API calls.
+
 ## [3.6.3] - 2026-06-10
 
 ### Fixed

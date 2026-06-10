@@ -1137,7 +1137,7 @@ jobs:
           PROJECT_KEY: ${{ env.JIRA_PROJECT_KEY }}
           ISSUE_TYPE: ${{ env.JIRA_ISSUE_TYPE }}
           TICKET_MODE: ${{ env.JIRA_TICKET_MODE || 'hybrid' }}
-          CVE_ISSUE_TYPE: ${{ env.JIRA_CVE_ISSUE_TYPE || 'Subtask' }}
+          CVE_ISSUE_TYPE: ${{ env.JIRA_CVE_ISSUE_TYPE || 'Task' }}
           MAX_CVE_TICKETS: ${{ env.JIRA_MAX_CVE_TICKETS || '50' }}
           REPO_NAME: ${{ github.repository }}
           CRITICAL_COUNT: ${{ steps.check-severity.outputs.critical }}

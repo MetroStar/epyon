@@ -38,7 +38,7 @@ Ticket modes (TICKET_MODE):
   hybrid              — severity parent ticket + one child ticket per unique CVE
 
 Hybrid-mode options:
-  CVE_ISSUE_TYPE   — issue type for child CVE tickets (default: Subtask)
+  CVE_ISSUE_TYPE   — issue type for child CVE tickets (default: Security Findings)
   MAX_CVE_TICKETS  — max CVE child tickets per severity tier (default: 50)
 
 Options:
@@ -1117,7 +1117,7 @@ with open('/tmp/epyon_cve_map_current.json','w') as f: json.dump(m,f)
 # Apply defaults for optional env vars.
 ISSUE_TYPE="${ISSUE_TYPE:-Bug}"
 TICKET_MODE="${TICKET_MODE:-hybrid}"          # severity | hybrid
-CVE_ISSUE_TYPE="${CVE_ISSUE_TYPE:-Story}"     # child issue type for hybrid mode
+CVE_ISSUE_TYPE="${CVE_ISSUE_TYPE:-Security Findings}"     # child issue type for hybrid mode
 MAX_CVE_TICKETS="${MAX_CVE_TICKETS:-50}"      # safety cap per severity tier
 # Strip any trailing slash from JIRA_URL to prevent double-slash in API paths.
 JIRA_URL="${JIRA_URL%/}"

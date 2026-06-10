@@ -184,9 +184,9 @@ on:
         default: 'hybrid'
         type: string
       jira_cve_issue_type:
-        description: 'JIRA issue type for per-CVE child tickets in hybrid mode (e.g. Story, Bug, Task)'
+        description: 'JIRA issue type for per-CVE child tickets in hybrid mode (e.g. Security Finding, Task, Bug)'
         required: false
-        default: 'Story'
+        default: 'Security Finding'
         type: string
       jira_max_cve_tickets:
         description: 'Maximum number of CVE child tickets to create per severity tier in hybrid mode'

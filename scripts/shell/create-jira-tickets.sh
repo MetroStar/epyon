@@ -38,7 +38,7 @@ Ticket modes (TICKET_MODE):
   hybrid              — severity parent ticket + one child ticket per unique CVE
 
 Hybrid-mode options:
-  CVE_ISSUE_TYPE   — issue type for child CVE tickets (default: Security Findings)
+  CVE_ISSUE_TYPE   — issue type for child CVE tickets (default: Security Finding)
   MAX_CVE_TICKETS  — max CVE child tickets per severity tier (default: 50)
 
 Options:
@@ -673,8 +673,8 @@ import sys, json
 try:
     data = json.load(sys.stdin)
     types = data.get('issueTypes', [])
-    # Prefer: Task > Story > Bug > Security Findings > anything non-Epic/non-Subtask
-    preferred = ['Task', 'Story', 'Bug', 'Security Findings', 'Feature', 'Improvement']
+    # Prefer: Task > Story > Bug > Security Finding > anything non-Epic/non-Subtask
+    preferred = ['Task', 'Story', 'Bug', 'Security Finding', 'Feature', 'Improvement']
     type_names = [t.get('name','') for t in types if t.get('subtask') is False]
     for p in preferred:
         if p in type_names:
@@ -952,7 +952,7 @@ print('yes' if current in names else 'no')
       best=$(python3 -c "
 import sys, json
 names = json.loads('${project_types}')
-for p in ['Task','Story','Bug','Security Findings','Feature','Improvement','Issue']:
+for p in ['Task','Story','Bug','Security Finding','Feature','Improvement','Issue']:
     if p in names:
         print(p)
         sys.exit(0)
@@ -1319,7 +1319,7 @@ with open('/tmp/epyon_cve_map_current.json','w') as f: json.dump(m,f)
 # Apply defaults for optional env vars.
 ISSUE_TYPE="${ISSUE_TYPE:-Bug}"
 TICKET_MODE="${TICKET_MODE:-hybrid}"          # severity | hybrid
-CVE_ISSUE_TYPE="${CVE_ISSUE_TYPE:-Security Findings}"     # child issue type for hybrid mode
+CVE_ISSUE_TYPE="${CVE_ISSUE_TYPE:-Security Finding}"     # child issue type for hybrid mode
 MAX_CVE_TICKETS="${MAX_CVE_TICKETS:-50}"      # safety cap per severity tier
 # Strip any trailing slash from JIRA_URL to prevent double-slash in API paths.
 JIRA_URL="${JIRA_URL%/}"

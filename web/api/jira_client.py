@@ -12,6 +12,7 @@ Credentials are resolved in priority order:
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import os
@@ -20,6 +21,23 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+
+# Prevents concurrent reconcile calls (auto post-scan + manual sync) from
+# reading the same stale ticket map and creating duplicate Jira tickets.
+_RECONCILE_LOCK: asyncio.Lock | None = None
+
+
+def _get_lock() -> asyncio.Lock:
+    """Return (or lazily create) the module-level reconcile lock.
+
+    Deferring creation to first use avoids 'no current event loop' errors
+    that occur if the lock is instantiated at import time in some test
+    environments.
+    """
+    global _RECONCILE_LOCK
+    if _RECONCILE_LOCK is None:
+        _RECONCILE_LOCK = asyncio.Lock()
+    return _RECONCILE_LOCK
 
 # ── Paths (set once at import time, same convention as openai_summary.py) ────
 _HERE         = Path(__file__).parent
@@ -95,17 +113,36 @@ def write_ticket_map(tmap: dict) -> None:
 
 # ── Finding fingerprint ───────────────────────────────────────
 
+def _norm_path(v: str) -> str:
+    """Reduce absolute paths to their last two components for fingerprint stability.
+
+    Tools like Checkov, ClamAV, and TruffleHog report absolute paths that
+    include the temp clone directory (e.g. /tmp/clone-abc123/src/app.py).
+    That prefix changes every scan, so including it raw in the fingerprint
+    produces a new key — and a new Jira ticket — for the same finding on
+    every run.  Normalising to the last two path components (src/app.py)
+    keeps the fingerprint stable while still distinguishing different files.
+    Non-absolute values are returned unchanged.
+    """
+    if not v or not v.startswith("/"):
+        return v
+    parts = [p for p in Path(v).parts if p != "/"]
+    return "/".join(parts[-2:]) if len(parts) >= 2 else (parts[-1] if parts else v)
+
+
 def finding_fingerprint(finding: dict, app_name: str) -> str:
     """Stable key for a finding that is consistent across scans.
 
     Identity is: tool + CVE/check id + package + target + app_name.
+    Absolute paths in package/target are normalised to their last two
+    components so that temp-clone prefixes do not break stability.
     Returns a short SHA-256 hex prefix combined with the id for readability.
     """
     parts = "|".join([
         (finding.get("tool")    or "").strip(),
         (finding.get("id")      or "").strip(),
-        (finding.get("package") or "").strip(),
-        (finding.get("target")  or "").strip(),
+        _norm_path((finding.get("package") or "").strip()),
+        _norm_path((finding.get("target")  or "").strip()),
         app_name.strip(),
     ])
     h   = hashlib.sha256(parts.encode()).hexdigest()[:16]
@@ -347,4 +384,27 @@ async def reconcile_app(
                     f"Failed to create ticket for {finding.get('id', fp[:12])}"
                 )
 
+    return result
+
+
+async def reconcile_and_save(
+    app_name: str,
+    current_findings: list[dict],
+    previous_findings: list[dict],
+    cfg: dict,
+) -> dict:
+    """Atomically read → reconcile → write the ticket map under a shared lock.
+
+    Both the automatic post-scan hook and the manual /api/jira/sync endpoint
+    call this function.  The lock prevents the race condition where both paths
+    read the same stale ticket map concurrently, each create tickets for the
+    same new findings, and the second write silently discards the first's
+    entries — resulting in duplicate Jira issues.
+    """
+    async with _get_lock():
+        ticket_map = read_ticket_map()
+        result = await reconcile_app(
+            app_name, current_findings, previous_findings, cfg, ticket_map
+        )
+        write_ticket_map(ticket_map)
     return result

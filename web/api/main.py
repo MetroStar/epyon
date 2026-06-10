@@ -213,15 +213,12 @@ async def _jira_post_scan(target_name: str) -> None:
         previous_raw = (parsers.load_enriched_findings(target_dirs[1])
                         or parsers.parse_scan_findings(target_dirs[1]))
 
-        ticket_map = jira_client.read_ticket_map()
-        await jira_client.reconcile_app(
+        await jira_client.reconcile_and_save(
             target_name,
             jira_client.flatten_findings(current_raw),
             jira_client.flatten_findings(previous_raw),
             cfg,
-            ticket_map,
         )
-        jira_client.write_ticket_map(ticket_map)
     except Exception:
         pass  # never let Jira errors break the scan pipeline
 
@@ -2932,14 +2929,12 @@ async def jira_sync_app(app_name: str, response: Response):
                     or parsers.parse_scan_findings(target_dirs[1]))
 
     ticket_map = jira_client.read_ticket_map()
-    result = await jira_client.reconcile_app(
+    result = await jira_client.reconcile_and_save(
         app_name,
         jira_client.flatten_findings(current_raw),
         jira_client.flatten_findings(previous_raw),
         cfg,
-        ticket_map,
     )
-    jira_client.write_ticket_map(ticket_map)
     return result
 
 

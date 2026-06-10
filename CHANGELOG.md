@@ -5,6 +5,11 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.6] - 2026-06-10
+
+### Fixed
+- **Jira CVE tickets: required custom fields** — Jira projects that enforce required custom fields (e.g. `customfield_12709` “Definition of Done”) rejected all CVE child tickets with HTTP 400. Added a fallback retry that detects `errors` containing `customfield_*` keys, builds a merged payload with ADF paragraph placeholders for rich-text fields and plain-string placeholders for others, and retries creation. Works generically for any number of required custom fields without board-specific configuration.
+
 ## [3.6.5] - 2026-06-10
 
 ### Fixed

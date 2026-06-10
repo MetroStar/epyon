@@ -5,6 +5,12 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.5] - 2026-06-10
+
+### Fixed
+- **Jira CVE tickets: garbage parent key from cleared stale marker** — `clear_jira_key_in_github` was printing its status message (`"📎 Cleared Jira key..."`) to stdout. Because it was called inside `find_existing_jira_ticket` (a stdout-capture context), that string was returned as the parent key. Every child CVE ticket was then sent with `parent: {key: "📎 Cleared Jira key..."}`, causing an unconditional 400 `errors.parent` rejection. Fixed by redirecting all `clear_jira_key_in_github` output to stderr.
+- **Jira CVE tickets: priority field rejection** — added a fallback retry that strips the `priority` field when Jira returns 400 `errors.priority`, matching the existing `parent` and `issuetype` fallback pattern.
+
 ## [3.6.4] - 2026-06-10
 
 ### Fixed

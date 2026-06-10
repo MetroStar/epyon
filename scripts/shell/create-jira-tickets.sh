@@ -207,9 +207,9 @@ PYEOF
     --data "${update_payload}" \
     "https://api.github.com/repos/${REPO_NAME}/issues/${GITHUB_ISSUE_NUMBER}")
   if [[ "${update_http}" == "200" ]]; then
-    echo "📎 Cleared Jira key for ${label_severity} from GitHub issue #${GITHUB_ISSUE_NUMBER}"
+    echo "📎 Cleared Jira key for ${label_severity} from GitHub issue #${GITHUB_ISSUE_NUMBER}" >&2
   else
-    echo "⚠️  Could not clear Jira key in GitHub issue (HTTP ${update_http}) — continuing"
+    echo "⚠️  Could not clear Jira key in GitHub issue (HTTP ${update_http}) — continuing" >&2
   fi
 }
 
@@ -1202,6 +1202,33 @@ with open('/tmp/epyon_cve_map_current.json','w') as f: json.dump(m,f)
 " 2>/dev/null || true
         else
           echo "  ❌  ${cve_id} — failed to create ticket (HTTP ${create_http})"
+          cat /tmp/jira_cve_create.json 2>/dev/null | head -3 || true
+        fi
+      # If priority field rejected, retry without priority
+      elif [[ "${create_http}" == "400" ]] && jq -e '.errors.priority' /tmp/jira_cve_create.json >/dev/null 2>&1; then
+        echo "  ⚠️  ${cve_id} — priority field rejected, retrying without priority"
+        jq 'del(.fields.priority)' /tmp/jira_cve_payload.json > /tmp/jira_cve_payload_nopriority.json
+        create_http=$(curl -s -o /tmp/jira_cve_create.json -w "%{http_code}" \
+          -X POST \
+          -H "Authorization: Basic ${AUTH}" \
+          -H "Content-Type: application/json" \
+          -H "Accept: application/json" \
+          --data @/tmp/jira_cve_payload_nopriority.json \
+          "${JIRA_URL}/rest/api/3/issue")
+        if [[ "${create_http}" == "201" ]]; then
+          local new_cve_key
+          new_cve_key=$(jq -r '.key' /tmp/jira_cve_create.json)
+          echo "  ✅  ${cve_id} → ${new_cve_key} (no-priority)"
+          echo "- \`${cve_id}\` → [${new_cve_key}](${JIRA_URL}/browse/${new_cve_key}) (${sev_label})" >> "${GITHUB_STEP_SUMMARY}"
+          python3 -c "
+import json
+with open('/tmp/epyon_cve_map_current.json') as f: m=json.load(f)
+m['${safe_key}'] = '${new_cve_key}'
+with open('/tmp/epyon_cve_map_current.json','w') as f: json.dump(m,f)
+" 2>/dev/null || true
+        else
+          echo "  ❌  ${cve_id} — failed to create ticket (HTTP ${create_http})"
+          cat /tmp/jira_cve_create.json 2>/dev/null | head -3 || true
         fi
       else
         echo "  ❌  ${cve_id} — failed to create ticket (HTTP ${create_http})"

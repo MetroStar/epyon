@@ -5,6 +5,12 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.2] - 2026-06-10
+
+### Fixed
+- **STIG mode: skip Docker image pulls** — `Pull Security Tool Images` step now has `if: inputs.scan_mode != 'stig'`; in stig mode only Layer 13 (Python-based STIG assessment) runs so pulling grype, trivy, trufflehog, syft, clamav, checkov, and xeol was pure waste (~3–4 min and several GB per run)
+- **STIG token overflow: drop manifest on last retry** — `_MAX_MANIFEST_LINES` reduced 400 → 150 (≈ 2 300 tokens); `_MAX_BATCH_RETRIES` increased 2 → 3; third retry drops the repo manifest entirely and restores the full code budget, unblocking batches where the manifest alone exceeded the 128 K context window
+
 ## [3.6.1] - 2026-06-09
 
 ### Fixed

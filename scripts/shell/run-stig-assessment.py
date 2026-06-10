@@ -142,7 +142,7 @@ EXCLUDE_DIR_PREFIXES = {
 # 60 KB ceiling which yields ≈ 20 k–30 k code tokens regardless of code density.
 MAX_CODE_BYTES_PER_BATCH = 60_000   # 60 KB ≈ 20–30 k tokens — safe for 128 K ctx models
 MAX_FILE_BYTES = 25_000             # truncate (not skip) files larger than 25 KB
-_MAX_MANIFEST_LINES = 400           # cap repo manifest to 400 paths (~10 k tokens)
+_MAX_MANIFEST_LINES = 150           # cap repo manifest to 150 paths (150 × 60 chars / 4 ≈ 2 300 tokens)
 BATCH_SIZE_DEFAULT = 5              # controls per API call — smaller batches give each control more context
 
 # Valid canonical status values — any model output is normalized to these before storage.
@@ -190,7 +190,9 @@ def normalize_status(raw: str | None) -> str:
 _MIN_CONFIDENCE_FOR_CLOSED_STATUS = 40
 
 # Maximum retries for a single batch before falling back to Open.
-_MAX_BATCH_RETRIES = 2
+# 3 attempts: attempt 1 = full code budget + manifest; attempt 2 = halved code
+# budget + manifest; attempt 3 = halved code budget, NO manifest (last resort).
+_MAX_BATCH_RETRIES = 3
 
 STATUS_MAP = {
     "not_reviewed":   "Not Reviewed",
@@ -1585,6 +1587,7 @@ def _assess_stig(
             results: list[dict[str, Any]] = []
             last_err: str = ""
             code_budget = MAX_CODE_BYTES_PER_BATCH
+            active_manifest = repo_manifest  # may be dropped on overflow
             for attempt in range(1, _MAX_BATCH_RETRIES + 1):
                 # (Re)build context — uses current code_budget, which may have
                 # been reduced on a previous context_length_exceeded error.
@@ -1593,7 +1596,7 @@ def _assess_stig(
                 )
                 try:
                     results, batch_pt, batch_ct = call_openai(
-                        client, model, batch, code_context, repo_manifest, previous_assessments
+                        client, model, batch, code_context, active_manifest, previous_assessments
                     )
                     total_prompt_tokens     += batch_pt
                     total_completion_tokens += batch_ct
@@ -1616,12 +1619,24 @@ def _assess_stig(
                     err_str = str(e)
                     if "context_length_exceeded" in err_str:
                         new_budget = max(10_000, code_budget // 2)
-                        print(
-                            f"[WARNING] [{slug}] Batch {idx} attempt {attempt}/{_MAX_BATCH_RETRIES} — "
-                            f"{last_err}  →  reducing code budget {code_budget // 1024}KB → {new_budget // 1024}KB",
-                            file=sys.stderr,
-                        )
-                        code_budget = new_budget
+                        if active_manifest and attempt >= _MAX_BATCH_RETRIES - 1:
+                            # Last retry: drop the manifest entirely so the code
+                            # context has the full budget.  The AI loses file-tree
+                            # awareness but can still assess from the code snippets.
+                            print(
+                                f"[WARNING] [{slug}] Batch {idx} attempt {attempt}/{_MAX_BATCH_RETRIES} — "
+                                f"{last_err}  →  dropping manifest and using full code budget {MAX_CODE_BYTES_PER_BATCH // 1024}KB",
+                                file=sys.stderr,
+                            )
+                            active_manifest = ""
+                            code_budget = MAX_CODE_BYTES_PER_BATCH
+                        else:
+                            print(
+                                f"[WARNING] [{slug}] Batch {idx} attempt {attempt}/{_MAX_BATCH_RETRIES} — "
+                                f"{last_err}  →  reducing code budget {code_budget // 1024}KB → {new_budget // 1024}KB",
+                                file=sys.stderr,
+                            )
+                            code_budget = new_budget
                     else:
                         print(
                             f"[WARNING] [{slug}] Batch {idx} attempt {attempt}/{_MAX_BATCH_RETRIES} — {last_err}",

@@ -415,6 +415,10 @@ jobs:
             ${{ runner.os }}-docker-
 
       - name: Pull Security Tool Images
+        # In stig mode only Layer 13 (Python-based STIG assessment) runs — no
+        # Docker-based scan tools are invoked, so skip all image pulls to save
+        # ~3-4 minutes and several GB of disk I/O.
+        if: inputs.scan_mode != 'stig'
         run: |
           mkdir -p /tmp/.buildx-cache
           # Pull images sequentially to avoid racing for disk space.

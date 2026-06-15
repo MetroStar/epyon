@@ -5,6 +5,11 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.7] - 2026-06-15
+
+### Changed
+- **GitHub Issues alerts: critical-only** — The `Create Scan Notification Issues` workflow step now creates/updates issues only for **critical** severity findings. High, medium, and low findings no longer generate GitHub issues, reducing inbox noise for repository watchers. The step condition was also tightened to skip the step entirely when the critical count is zero. Updated the `create_github_issue` input description to reflect the new behaviour.
+
 ## [3.6.6] - 2026-06-10
 
 ### Fixed

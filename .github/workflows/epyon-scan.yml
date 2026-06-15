@@ -159,7 +159,7 @@ on:
         default: false
         type: boolean
       create_github_issue:
-        description: 'Create a GitHub issue for critical and high severity findings'
+        description: 'Create a GitHub issue for critical severity findings only'
         required: false
         default: true
         type: boolean
@@ -923,7 +923,7 @@ jobs:
 
       - name: Create Scan Notification Issues
         id: create-github-issue
-        if: always() && steps.check-severity.outputs.has_issues == 'true' && env.CREATE_GITHUB_ISSUE != 'false'
+        if: always() && steps.check-severity.outputs.critical != '0' && env.CREATE_GITHUB_ISSUE != 'false'
         uses: actions/github-script@v7
         with:
           script: |
@@ -958,10 +958,7 @@ jobs:
 
             // ── Per-severity config: one GitHub issue is maintained per severity level ─
             const SEVERITIES = [
-              { key: 'critical', label: 'critical',        emoji: '🔴', count: critical, findingsKey: 'critical_findings', labelName: 'Critical' },
-              { key: 'high',     label: 'high-severity',   emoji: '🟠', count: high,     findingsKey: 'high_findings',     labelName: 'High'     },
-              { key: 'medium',   label: 'medium-severity', emoji: '🟡', count: medium,   findingsKey: 'medium_findings',   labelName: 'Medium'   },
-              { key: 'low',      label: 'low-severity',    emoji: '🔵', count: low,      findingsKey: 'low_findings',      labelName: 'Low'      },
+              { key: 'critical', label: 'critical', emoji: '🔴', count: critical, findingsKey: 'critical_findings', labelName: 'Critical' },
             ];
 
             // The tracking marker is an invisible HTML comment embedded in issue/comment

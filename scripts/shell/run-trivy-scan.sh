@@ -275,9 +275,9 @@ run_trivy_scan() {
             # Use local Trivy binary
             if [[ "$scan_type" == "base-"* ]] || [[ "$target" == *":"* ]]; then
                 echo "   Scanning container image: $target"
-                "$LOCAL_TRIVY" image "$target" --scanners vuln --format json --quiet 2>>"$SCAN_LOG" > "$output_file"
+                "$LOCAL_TRIVY" image "$target" --scanners vuln,misconfig,secret --format json 2>>"$SCAN_LOG" > "$output_file"
             else
-                "$LOCAL_TRIVY" fs "$target" --scanners vuln --format json 2>>"$SCAN_LOG" > "$output_file"
+                "$LOCAL_TRIVY" fs "$target" --scanners vuln,misconfig,secret --format json 2>>"$SCAN_LOG" > "$output_file"
             fi
             [ $? -eq 0 ] && [ -s "$output_file" ] && scan_ok=true
         elif [ -n "${CONTAINER_CLI:-}" ]; then
@@ -289,14 +289,14 @@ run_trivy_scan() {
                     -v "$TRIVY_CACHE_VOL:/root/.cache" \
                     "${TRIVY_IMAGE}" \
                     image "$target" \
-                    --scanners vuln --format json --quiet 2>>"$SCAN_LOG" > "$output_file"
+                    --scanners vuln,misconfig,secret --format json 2>>"$SCAN_LOG" > "$output_file"
             else
                 ${CONTAINER_CLI} run --rm \
                     -v "${target}:/workspace:ro" \
                     -v "$TRIVY_CACHE_VOL:/root/.cache" \
                     "${TRIVY_IMAGE}" \
                     fs /workspace \
-                    --scanners vuln --format json 2>>"$SCAN_LOG" > "$output_file"
+                    --scanners vuln,misconfig,secret --format json 2>>"$SCAN_LOG" > "$output_file"
             fi
             [ $? -eq 0 ] && [ -s "$output_file" ] && scan_ok=true
         fi

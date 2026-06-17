@@ -63,6 +63,7 @@ Available scan modes:
   filesystem
   images
   base
+  config
   registry
   kubernetes
   all
@@ -120,7 +121,7 @@ done
 #   run-trivy-scan.sh <mode> <target>
 for positional in "${POSITIONAL_ARGS[@]}"; do
     case "${positional,,}" in
-        filesystem|images|base|registry|kubernetes|all)
+        filesystem|images|base|config|registry|kubernetes|all)
             SCAN_MODE="${positional,,}"
             ;;
         *)
@@ -137,7 +138,7 @@ done
 
 SCAN_MODE="${SCAN_MODE,,}"
 case "$SCAN_MODE" in
-    filesystem|images|base|registry|kubernetes|all) ;;
+    filesystem|images|base|config|registry|kubernetes|all) ;;
     *)
         echo -e "${RED}❌ Error: Invalid scan mode: $SCAN_MODE${NC}"
         show_mode_help
@@ -275,9 +276,9 @@ run_trivy_scan() {
             # Use local Trivy binary
             if [[ "$scan_type" == "base-"* ]] || [[ "$target" == *":"* ]]; then
                 echo "   Scanning container image: $target"
-                "$LOCAL_TRIVY" image "$target" --scanners vuln,misconfig,secret --format json 2>>"$SCAN_LOG" > "$output_file"
+                "$LOCAL_TRIVY" image "$target" --scanners vuln,misconfig,secret --format json --skip-check-update 2>>"$SCAN_LOG" > "$output_file"
             else
-                "$LOCAL_TRIVY" fs "$target" --scanners vuln,misconfig,secret --format json 2>>"$SCAN_LOG" > "$output_file"
+                "$LOCAL_TRIVY" fs "$target" --scanners vuln,misconfig,secret --format json --skip-check-update 2>>"$SCAN_LOG" > "$output_file"
             fi
             [ $? -eq 0 ] && [ -s "$output_file" ] && scan_ok=true
         elif [ -n "${CONTAINER_CLI:-}" ]; then
@@ -289,14 +290,14 @@ run_trivy_scan() {
                     -v "$TRIVY_CACHE_VOL:/root/.cache" \
                     "${TRIVY_IMAGE}" \
                     image "$target" \
-                    --scanners vuln,misconfig,secret --format json 2>>"$SCAN_LOG" > "$output_file"
+                    --scanners vuln,misconfig,secret --format json --skip-check-update 2>>"$SCAN_LOG" > "$output_file"
             else
                 ${CONTAINER_CLI} run --rm \
                     -v "${target}:/workspace:ro" \
                     -v "$TRIVY_CACHE_VOL:/root/.cache" \
                     "${TRIVY_IMAGE}" \
                     fs /workspace \
-                    --scanners vuln,misconfig,secret --format json 2>>"$SCAN_LOG" > "$output_file"
+                    --scanners vuln,misconfig,secret --format json --skip-check-update 2>>"$SCAN_LOG" > "$output_file"
             fi
             [ $? -eq 0 ] && [ -s "$output_file" ] && scan_ok=true
         fi
@@ -366,13 +367,51 @@ if [ "$SCAN_MODE" != "filesystem" ]; then
     done
 fi
 
-# 2. Filesystem scan (skip if mode is "base" or "images" only)
-if [ "$SCAN_MODE" != "base" ] && [ "$SCAN_MODE" != "images" ]; then
+# 2. Filesystem scan (skip if mode is "base", "config", or "images" only)
+if [ "$SCAN_MODE" != "base" ] && [ "$SCAN_MODE" != "images" ] && [ "$SCAN_MODE" != "config" ]; then
     if [ ! -z "$REPO_PATH" ] && [ -d "$REPO_PATH" ]; then
         echo -e "${CYAN}🛡️  Step 2: Filesystem Security Scan${NC}"
         echo "=================================="
         echo -e "${BLUE}📁 Scanning filesystem: $REPO_PATH${NC}"
         run_trivy_scan "filesystem" "$REPO_PATH"
+    fi
+fi
+
+# 3. Infrastructure-as-Code config scan (Terraform/Dockerfile/Kubernetes-focused, like Athena)
+if [ "$SCAN_MODE" = "config" ] || [ "$SCAN_MODE" = "all" ]; then
+    if [ ! -z "$REPO_PATH" ] && [ -d "$REPO_PATH" ]; then
+        echo -e "${CYAN}🛡️  Step 3: Infrastructure-as-Code Security Scan${NC}"
+        echo "=================================="
+        echo -e "${BLUE}📋 Scanning IaC configs: $REPO_PATH${NC}"
+        
+        IaC_OUTPUT="$OUTPUT_DIR/${SCAN_ID}_trivy-config-results.json"
+        
+        if [ -n "$LOCAL_TRIVY" ]; then
+            "$LOCAL_TRIVY" config "$REPO_PATH" \
+                --format json \
+                --skip-check-update \
+                --misconfig-scanners terraform,dockerfile,kubernetes \
+                --skip-dirs .terraform,node_modules,.git 2>>"$SCAN_LOG" > "$IaC_OUTPUT"
+        else
+            ${CONTAINER_CLI} run --rm \
+                -v "${REPO_PATH}:/workspace:ro" \
+                -v "$TRIVY_CACHE_VOL:/root/.cache" \
+                "${TRIVY_IMAGE}" \
+                config /workspace \
+                --format json \
+                --skip-check-update \
+                --misconfig-scanners terraform,dockerfile,kubernetes \
+                --skip-dirs .terraform,node_modules,.git 2>>"$SCAN_LOG" > "$IaC_OUTPUT"
+        fi
+        
+        if [ $? -eq 0 ] && [ -s "$IaC_OUTPUT" ]; then
+            IaC_COUNT=$(jq -r '.Results | length' "$IaC_OUTPUT" 2>/dev/null || echo "0")
+            echo -e "${GREEN}✅ IaC scan completed: $IaC_COUNT result(s) found${NC}"
+            ln -sf "$(basename "$IaC_OUTPUT")" "$OUTPUT_DIR/trivy-config-results.json" 2>/dev/null
+        else
+            echo -e "${YELLOW}⚠️  IaC scan skipped or produced no output${NC}"
+        fi
+        echo
     fi
 fi
 

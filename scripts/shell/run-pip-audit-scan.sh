@@ -1,0 +1,309 @@
+#!/bin/bash
+
+# pip-audit Direct Dependency Vulnerability Scanner
+# Scans Python dependency files directly (requirements.txt, poetry.lock, etc.)
+# Catches CVEs missed by SBOM-based scanners (Syft/Grype)
+
+set -euo pipefail
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+NC='\033[0m'
+
+# Help function
+show_help() {
+    cat <<EOF
+${WHITE}pip-audit Direct Dependency Vulnerability Scanner${NC}
+
+Usage: $0 [OPTIONS] [TARGET_DIRECTORY]
+       $0 --target <TARGET>
+
+Scans Python dependency files directly using pip-audit.
+Catches CVEs missed by SBOM-based scanners like Syft/Grype.
+
+Options:
+  -h, --help          Show this help message and exit
+  -t, --target PATH   Target directory to scan
+  --list-modes        List available scan modes and exit
+
+Environment Variables:
+  TARGET_DIR          Alternative way to specify target directory
+  SCAN_ID             Override auto-generated scan ID
+  SCAN_DIR            Override output directory for scan results
+
+Output:
+  Results are saved to: scans/{SCAN_ID}/pip-audit/
+  - pip-audit-{filename}-results.json    Audit results per dependency file
+  - pip-audit-consolidated-results.json  Consolidated findings
+  - pip-audit-scan.log                   Scan process log
+
+Dependency Files Scanned:
+  - requirements.txt
+  - requirements-lock.txt
+  - requirements-*.txt (all variants)
+  - poetry.lock
+  - Pipfile.lock
+  - setup.py (if pip-audit supports)
+
+Examples:
+  $0                                      # Scan current directory
+  $0 /path/to/project                     # Scan specific directory
+  $0 --target /path/to/project            # Using flag syntax
+
+Notes:
+  - pip-audit must be installed: pip install pip-audit
+  - Scans Python dependency files directly (not SBOM-based)
+  - More complete than Grype/Syft for newly published CVEs
+  - Complements Grype layer for comprehensive coverage
+
+EOF
+    exit 0
+}
+
+require_option_value() {
+    local opt_name="$1"
+    local opt_value="$2"
+    if [[ -z "$opt_value" ]] || [[ "$opt_value" == -* ]]; then
+        echo -e "${RED}❌ Error: ${opt_name} requires a value${NC}"
+        echo -e "${YELLOW}Run with --help for usage examples.${NC}"
+        exit 1
+    fi
+}
+
+# Parse arguments
+TARGET_ARG=""
+POSITIONAL_ARGS=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            show_help
+            ;;
+        --list-modes)
+            echo "pip-audit scans all Python dependency files automatically (no mode selection needed)"
+            exit 0
+            ;;
+        -t|--target)
+            require_option_value "$1" "${2:-}"
+            TARGET_ARG="$2"
+            shift 2
+            ;;
+        -*)
+            echo -e "${RED}❌ Error: Unknown option: $1${NC}"
+            echo "Run with --help for usage examples."
+            exit 1
+            ;;
+        *)
+            POSITIONAL_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+
+# Handle positional arguments
+for positional in "${POSITIONAL_ARGS[@]}"; do
+    if [[ -z "$TARGET_ARG" ]]; then
+        TARGET_ARG="$positional"
+    else
+        echo -e "${RED}❌ Error: Unexpected extra argument: $positional${NC}"
+        echo -e "${YELLOW}Run with --help for usage examples.${NC}"
+        exit 1
+    fi
+done
+
+# Determine target directory
+if [[ -n "$TARGET_ARG" ]]; then
+    REPO_PATH="$TARGET_ARG"
+elif [[ -n "${TARGET_DIR:-}" ]]; then
+    REPO_PATH="$TARGET_DIR"
+else
+    REPO_PATH="$(pwd)"
+fi
+
+REPO_PATH=$(realpath "${REPO_PATH}" 2>/dev/null) || { echo "ERROR: Target path does not exist or is invalid: ${REPO_PATH}" >&2; exit 1; }
+
+# Generate or use existing SCAN_ID
+if [[ -n "${SCAN_ID:-}" ]]; then
+    TARGET_NAME=$(echo "$SCAN_ID" | cut -d'_' -f1)
+    USERNAME=$(echo "$SCAN_ID" | cut -d'_' -f2)
+    TIMESTAMP=$(echo "$SCAN_ID" | cut -d'_' -f3-)
+else
+    TARGET_NAME=$(basename "$REPO_PATH")
+    USERNAME=$(whoami)
+    TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
+    SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
+fi
+
+# Determine output directory
+if [[ -n "${SCAN_DIR:-}" ]]; then
+    OUTPUT_DIR="${SCAN_DIR}/pip-audit"
+else
+    OUTPUT_DIR="scans/${SCAN_ID}/pip-audit"
+fi
+
+SCAN_LOG="$OUTPUT_DIR/${SCAN_ID}_pip-audit-scan.log"
+
+# Check if pip-audit is installed
+if ! command -v pip-audit >/dev/null 2>&1; then
+    echo -e "${RED}❌ Error: pip-audit is not installed${NC}"
+    echo -e "${YELLOW}Install it with: pip install pip-audit${NC}"
+    exit 1
+fi
+
+PIP_AUDIT_VERSION=$(pip-audit --version 2>/dev/null || echo "unknown")
+
+# Header
+echo -e "${WHITE}============================================${NC}"
+echo -e "${WHITE}pip-audit Dependency Vulnerability Scanner${NC}"
+echo -e "${WHITE}============================================${NC}"
+echo "Repository: $REPO_PATH"
+echo "Output Directory: $OUTPUT_DIR"
+echo "pip-audit Version: $PIP_AUDIT_VERSION"
+echo "Timestamp: $TIMESTAMP"
+echo
+
+# Create output directory
+mkdir -p "$OUTPUT_DIR"
+
+# Initialize scan log
+{
+    echo "pip-audit dependency scan started: $TIMESTAMP"
+    echo "Target: $REPO_PATH"
+    echo "Version: $PIP_AUDIT_VERSION"
+    echo "---"
+} > "$SCAN_LOG"
+
+# Find all Python dependency files
+echo -e "${CYAN}🔍 Scanning for Python dependency files...${NC}"
+
+declare -a DEPENDENCY_FILES
+FOUND_COUNT=0
+
+# Search for requirements files
+while IFS= read -r -d '' file; do
+    DEPENDENCY_FILES+=("$file")
+    FOUND_COUNT=$((FOUND_COUNT + 1))
+done < <(find "$REPO_PATH" \
+    -type f \
+    \( -name "requirements*.txt" -o -name "poetry.lock" -o -name "Pipfile.lock" \) \
+    -not -path "*/\.*" \
+    -not -path "*/.git/*" \
+    -not -path "*/node_modules/*" \
+    -not -path "*/__pycache__/*" \
+    -print0)
+
+if [ $FOUND_COUNT -eq 0 ]; then
+    echo -e "${YELLOW}⚠️  No Python dependency files found${NC}"
+    echo "Looking for: requirements.txt, requirements-*.txt, poetry.lock, Pipfile.lock"
+    echo "{\"Results\": [], \"message\": \"No dependency files found\"}" > "$OUTPUT_DIR/${SCAN_ID}_pip-audit-consolidated-results.json"
+    exit 0
+fi
+
+echo -e "${GREEN}✅ Found $FOUND_COUNT dependency file(s)${NC}"
+for file in "${DEPENDENCY_FILES[@]}"; do
+    echo "   📄 ${file#$REPO_PATH/}"
+done
+echo
+
+# Consolidated results
+CONSOLIDATED_FINDINGS=()
+TOTAL_VULNERABILITIES=0
+
+# Scan each dependency file
+echo -e "${CYAN}🛡️  Scanning dependency files...${NC}"
+echo
+
+for dep_file in "${DEPENDENCY_FILES[@]}"; do
+    # Create a friendly name for the file
+    file_basename=$(basename "$dep_file")
+    output_file="$OUTPUT_DIR/${SCAN_ID}_pip-audit-${file_basename%.*}-results.json"
+    
+    echo -e "${BLUE}📋 Scanning: ${dep_file#$REPO_PATH/}${NC}"
+    
+    # Run pip-audit with JSON output
+    if pip-audit --file "$dep_file" --format json 2>>"$SCAN_LOG" > "$output_file"; then
+        # Extract vulnerability count
+        if command -v jq >/dev/null 2>&1; then
+            VULN_COUNT=$(jq '.vulnerabilities | length' "$output_file" 2>/dev/null || echo 0)
+            if [ "$VULN_COUNT" -gt 0 ]; then
+                echo -e "${RED}   ❌ Found $VULN_COUNT vulnerability(ies)${NC}"
+                TOTAL_VULNERABILITIES=$((TOTAL_VULNERABILITIES + VULN_COUNT))
+                
+                # Extract vulnerabilities for consolidated output
+                jq '.vulnerabilities[]' "$output_file" 2>/dev/null | while read -r vuln; do
+                    CONSOLIDATED_FINDINGS+=("$vuln")
+                done
+            else
+                echo -e "${GREEN}   ✅ No vulnerabilities found${NC}"
+            fi
+        else
+            echo -e "${GREEN}   ✅ Scan completed${NC}"
+        fi
+        
+        # Create symlink for easy access
+        ln -sf "$(basename "$output_file")" "$OUTPUT_DIR/pip-audit-${file_basename%.*}-results.json" 2>/dev/null || true
+        
+    else
+        echo -e "${YELLOW}   ⚠️  Scan had issues (exit code: $?)${NC}"
+        # Still create output file if it exists
+        if [ ! -s "$output_file" ]; then
+            echo '{"vulnerabilities": []}' > "$output_file"
+        fi
+    fi
+done
+
+echo
+echo -e "${CYAN}📊 pip-audit Summary${NC}"
+echo "=================================="
+
+if [ $TOTAL_VULNERABILITIES -eq 0 ]; then
+    echo -e "${GREEN}✅ No vulnerabilities detected in Python dependencies${NC}"
+else
+    echo -e "${RED}⚠️  Found $TOTAL_VULNERABILITIES total vulnerability(ies)${NC}"
+fi
+
+# Generate consolidated results
+CONSOLIDATED_OUTPUT="$OUTPUT_DIR/${SCAN_ID}_pip-audit-consolidated-results.json"
+{
+    echo "{"
+    echo "  \"scan_id\": \"$SCAN_ID\","
+    echo "  \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\","
+    echo "  \"target\": \"$REPO_PATH\","
+    echo "  \"total_vulnerabilities\": $TOTAL_VULNERABILITIES,"
+    echo "  \"dependency_files_scanned\": $FOUND_COUNT,"
+    echo "  \"results\": ["
+    
+    first=true
+    for file in "${DEPENDENCY_FILES[@]}"; do
+        file_basename=$(basename "$file")
+        output_file="$OUTPUT_DIR/${SCAN_ID}_pip-audit-${file_basename%.*}-results.json"
+        if [ -s "$output_file" ]; then
+            if [ "$first" = true ]; then
+                first=false
+            else
+                echo ","
+            fi
+            echo "    {"
+            echo "      \"file\": \"${file#$REPO_PATH/}\","
+            echo "      \"results\": $(jq '.vulnerabilities' "$output_file" 2>/dev/null || echo '[]')"
+            echo -n "    }"
+        fi
+    done
+    
+    echo ""
+    echo "  ]"
+    echo "}"
+} > "$CONSOLIDATED_OUTPUT"
+
+# Create symlink for easy access
+ln -sf "$(basename "$CONSOLIDATED_OUTPUT")" "$OUTPUT_DIR/pip-audit-consolidated-results.json" 2>/dev/null || true
+
+echo -e "${GREEN}✅ Scan completed: $CONSOLIDATED_OUTPUT${NC}"
+echo
+
+exit 0

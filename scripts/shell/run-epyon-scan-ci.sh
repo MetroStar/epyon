@@ -612,6 +612,18 @@ else
   [[ "${SKIP_API_DISCOVERY:-false}" == "true" ]] && echo "[INFO] Skipping Layer 11 - API Discovery (SKIP_API_DISCOVERY=true)" || echo "[INFO] Skipping Layer 11 (quick mode)"
 fi
 
+# Layer 11.5 — pip-audit (Direct Dependency Scanning)
+# Complements Grype by scanning requirements.txt directly, catching CVEs missed by SBOM-based scanners
+if _should_run_tool SKIP_PIP_AUDIT; then
+  _record_start "Layer 11.5 - pip-audit"
+  chmod +x scripts/shell/run-pip-audit-scan.sh
+  env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" scripts/shell/run-pip-audit-scan.sh \
+    > "${PARALLEL_LOG_DIR}/layer-11.5-pip-audit.log" 2>&1 &
+  _set_parallel_pid "Layer 11.5 - pip-audit" $!
+else
+  [[ "${SKIP_PIP_AUDIT:-false}" == "true" ]] && echo "[INFO] Skipping Layer 11.5 - pip-audit (SKIP_PIP_AUDIT=true)"
+fi
+
 # Layer 16 — Network Discovery (no deps; active scan requires NMAP_TARGET to be set)
 if _should_run_tool SKIP_NETWORK_DISCOVERY && [[ "${SCAN_MODE:-full}" != "quick" ]]; then
   _record_start "Layer 16 - Network Discovery"

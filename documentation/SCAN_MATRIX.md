@@ -12,6 +12,7 @@ This table shows which layers run in each scan mode. Layers marked ✅ run by de
 | 6  | IaC Security           | Checkov       | ⬜ | ✅ | ✅ | ⬜ | `SKIP_CHECKOV=true` |
 | 7  | Container Security     | Trivy         | ✅ | ✅ | ✅ | ⬜ | `SKIP_TRIVY=true` |
 | 8  | Vulnerability Scanning | Grype         | ✅ | ✅ | ✅ | ⬜ | `SKIP_GRYPE=true` |
+| 8.5| Direct Dependency Scan | pip-audit     | ✅ | ✅ | ✅ | ⬜ | `SKIP_PIP_AUDIT=true` |
 | 9  | EOL Detection          | Xeol          | ⬜ | ✅ | ✅ | ⬜ | `SKIP_XEOL=true` |
 | 10 | Container Analysis     | Anchore       | ⬜ | ✅ | ✅ | ⬜ | `SKIP_ANCHORE=true` |
 | 11 | API Discovery          | Custom        | ⬜ | ✅ | ✅ | ⬜ | `SKIP_API_DISCOVERY=true` |
@@ -33,10 +34,11 @@ This table shows which layers run in each scan mode. Layers marked ✅ run by de
 
 ## Notes
 
-- **`quick`** — Fast feedback on PRs. Runs only the dependency and secrets layers (1, 2, 7, 8). Completes in ~3–5 minutes.
+- **`quick`** — Fast feedback on PRs. Runs only the dependency and secrets layers (1, 2, 7, 8, 8.5). Completes in ~3–5 minutes.
 - **`nightly`** — Full vulnerability coverage without the expensive AI-powered layers. Ideal for Mon–Sat automated runs.
 - **`full`** — All layers including STIG. Used for the weekly Sunday scheduled scan and on-demand assessments.
 - **`stig`** — STIG-only run. Skips layers 1–12 entirely and runs only the Layer 13 compliance assessment.
+- **Layer 8.5 (pip-audit)** complements Layer 8 (Grype) by scanning Python dependency files directly. Catches CVEs that SBOM-based scanners (Syft/Grype) miss, especially recently published advisories. Requires `pip-audit` to be installed.
 - **Layer 12 (Garak)** is always opt-in regardless of scan mode — requires `RUN_GARAK=true` and `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`.
 - **Layer 13 (STIG)** requires `OPENAI_API_KEY`. Without it, all controls are marked `Not Reviewed`.
 - **Layers 14–15** (Pickle, Model Card) auto-enable in `full`/`nightly` but are no-ops if no model weight files or README are found.

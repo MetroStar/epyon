@@ -375,6 +375,39 @@ try:
                 </div>
             </div>'''
     
+    elif '$tool_name' == 'pip-audit':
+        # pip-audit direct dependency vulnerability scanner
+        scan_results = data.get('scan_results', [])
+        total_vulns = 0
+        for result in scan_results:
+            total_vulns += len(result.get('results', []))
+        
+        html_content += f'<div class=\"summary\"><h2>Summary</h2><p>Total Python Dependency Vulnerabilities: {total_vulns}</p></div>'
+        
+        for result in scan_results[:10]:  # Limit to first 10 files
+            file_path = result.get('file', 'unknown')
+            vulns = result.get('results', [])
+            
+            if vulns:
+                html_content += f'<div class=\"summary\"><h3>File: {html.escape(file_path)}</h3><p>Vulnerabilities: {len(vulns)}</p></div>'
+                
+                for vuln in vulns[:20]:  # Top 20 per file
+                    vuln_id = vuln.get('id', 'unknown')
+                    description = vuln.get('description', 'No description available')
+                    fix_versions = vuln.get('fix_versions', [])
+                    severity = 'medium' if fix_versions else 'high'
+                    
+                    html_content += f'''<div class=\"finding {severity}\">
+                        <h3>{html.escape(vuln_id)}</h3>
+                        <span class=\"severity {severity}\">{severity.upper()}</span>
+                        <p><strong>Description:</strong> {html.escape(description[:200])}...</p>
+                        <div class=\"metadata\">
+                            <p><strong>Package:</strong> {html.escape(vuln.get('name', 'unknown'))} @ {html.escape(vuln.get('v', 'unknown'))}</p>
+                            <p><strong>Fix Available:</strong> {'Yes (' + ', '.join(fix_versions[:3]) + ')' if fix_versions else 'No'}</p>
+                            <p><strong>Published:</strong> {html.escape(str(vuln.get('published', 'unknown')))}</p>
+                        </div>
+                    </div>'''
+    
     else:
         # Generic JSON display
         html_content += f'<div class=\"summary\"><h2>Raw Data</h2><pre>{html.escape(json.dumps(data, indent=2)[:5000])}</pre></div>'
@@ -555,6 +588,39 @@ try:
 
 '''
     
+    elif tool_name == 'pip-audit':
+        # pip-audit direct dependency scanner markdown
+        scan_results = data.get('scan_results', [])
+        total_vulns = 0
+        
+        for result in scan_results:
+            total_vulns += len(result.get('results', []))
+        
+        md_content += f'**Total Python Dependency Vulnerabilities:** {total_vulns}' + chr(10) + chr(10)
+        
+        md_content += '## Vulnerabilities by Dependency File' + chr(10) + chr(10)
+        
+        for result in scan_results[:10]:  # Top 10 files
+            file_path = result.get('file', 'unknown')
+            vulns = result.get('results', [])
+            
+            if vulns:
+                md_content += f'### {file_path}' + chr(10) + chr(10)
+                md_content += f'**Found {len(vulns)} vulnerability(ies)**' + chr(10) + chr(10)
+                
+                for i, vuln in enumerate(vulns[:10], 1):  # Top 10 per file
+                    vuln_id = vuln.get('id', 'unknown')
+                    name = vuln.get('name', 'unknown')
+                    version = vuln.get('v', 'unknown')
+                    description = vuln.get('description', 'No description')
+                    fix_versions = vuln.get('fix_versions', [])
+                    
+                    md_content += f'#### {i}. {vuln_id}' + chr(10) + chr(10)
+                    md_content += f'**Package:** {name} @ {version}' + chr(10)
+                    md_content += f'**Description:** {description[:300]}' + chr(10)
+                    md_content += f'**Fix Available:** {"Yes - " + ", ".join(fix_versions[:3]) if fix_versions else "No"}' + chr(10)
+                    md_content += chr(10)
+    
     else:
         # Generic format
         md_content += f'**Total Items:** {len(data) if isinstance(data, list) else 1}' + chr(10) + chr(10)
@@ -639,6 +705,7 @@ consolidate_tool_reports "Helm" "$SCAN_DIR/helm" "*.yaml"
 consolidate_tool_reports "Checkov" "$SCAN_DIR/checkov" "*.json"
 consolidate_tool_reports "Trivy" "$SCAN_DIR/trivy" "*.json"
 consolidate_tool_reports "Grype" "$SCAN_DIR/grype" "*.json"
+consolidate_tool_reports "pip-audit" "$SCAN_DIR/pip-audit" "*.json"
 consolidate_tool_reports "Xeol" "$SCAN_DIR/xeol" "*.json"
 consolidate_tool_reports "SBOM" "$SCAN_DIR/sbom" "*.json"
 consolidate_tool_reports "Anchore" "$SCAN_DIR/anchore" "*.json"

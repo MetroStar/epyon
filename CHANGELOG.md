@@ -5,6 +5,14 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.7.0] - 2026-06-16
+
+### Added
+- **Layer 8.5 (pip-audit)** — Direct Python dependency vulnerability scanner. Complements Grype (Layer 8) by scanning `requirements.txt`, `poetry.lock`, and `Pipfile.lock` directly, catching CVEs missed by SBOM-based scanners (Syft/Grype), especially recently published GitHub Security Advisories. Runs in all scan modes (quick, nightly, full, stig). Requires `pip-audit` to be installed (`pip install pip-audit`).
+
+### Changed
+- Epyon now orchestrates **16 security tool layers** (was 15)
+
 ## [3.6.7] - 2026-06-15
 
 ### Changed

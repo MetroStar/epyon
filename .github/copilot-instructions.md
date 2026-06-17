@@ -1,10 +1,10 @@
 # Epyon — Copilot Instructions
 
-Epyon is a 15-layer DevSecOps security scanner that installs a GitHub Actions workflow into target repositories. It is built for **human-centered cybersecurity workflows**: the tool must be as usable as it is secure.
+Epyon is a 16-layer DevSecOps security scanner that installs a GitHub Actions workflow into target repositories. It is built for **human-centered cybersecurity workflows**: the tool must be as usable as it is secure.
 
 ## What Epyon Does
 
-- Orchestrates 15 security tool layers in a single run (quick / nightly / full / stig modes)
+- Orchestrates 16 security tool layers in a single run (quick / nightly / full / stig modes)
 - Produces a self-contained `security-dashboard.html` deliverable for stakeholders
 - Provides a FastAPI-backed web UI for scan management, findings review, STIG history, and score card
 - Pushes findings to Jira Cloud and GitHub Issues
@@ -22,6 +22,7 @@ Epyon is a 15-layer DevSecOps security scanner that installs a GitHub Actions wo
 | 6 | IaC Security | Checkov | nightly, full |
 | 7 | Container Security | Trivy | quick, nightly, full |
 | 8 | Vulnerability Scanning | Grype | quick, nightly, full |
+| 8.5 | Direct Dependency Scanning | pip-audit | quick, nightly, full, stig |
 | 9 | EOL Detection | Xeol | nightly, full |
 | 10 | Container Analysis | Anchore | nightly, full |
 | 11 | API Discovery | Custom | nightly, full |

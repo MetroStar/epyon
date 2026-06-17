@@ -16,9 +16,9 @@ Epyon is designed to be opinionated, automated, and decisive — empowering team
 
 ## Overview
 
-Epyon is a **production-ready, enterprise-grade** 15-layer DevSecOps security platform with a FastAPI-backed web UI, comprehensive test coverage, baseline scanning, automated comparison, and isolated scan directory architecture. Built for real-world applications with Docker-based tooling and 789 automated tests.
+Epyon is a **production-ready, enterprise-grade** 16-layer DevSecOps security platform with a FastAPI-backed web UI, comprehensive test coverage, baseline scanning, automated comparison, and isolated scan directory architecture. Built for real-world applications with Docker-based tooling and 789 automated tests.
 
-**Version: 3.6.1** · **Updated: June 9, 2026**
+**Version: 3.7.0** · **Updated: June 16, 2026**
 
 ## 📋 Prerequisites
 

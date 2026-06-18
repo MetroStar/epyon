@@ -434,16 +434,22 @@ jobs:
           done
           echo "✅ Security tool images ready"
 
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq python3 python3-pip bats
+          sudo apt-get install -y jq bats
+          python -m pip install --upgrade pip
           # Python dependency vulnerability scanners used by Layers 11.5/11.6
-          pip3 install pip-audit safety
+          python -m pip install pip-audit safety
           if [[ "${{ inputs.scan_mode }}" != "quick" ]]; then
-            pip3 install pyyaml pipdeptree openai
+            python -m pip install pyyaml pipdeptree openai
           else
-            pip3 install pyyaml pipdeptree
+            python -m pip install pyyaml pipdeptree
           fi
           # Install Syft as a native binary so SBOM generation does not rely on Docker
           curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin

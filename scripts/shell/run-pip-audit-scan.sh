@@ -48,6 +48,7 @@ Dependency Files Scanned:
   - requirements-*.txt (all variants)
   - poetry.lock
   - Pipfile.lock
+    - pyproject.toml
   - setup.py (if pip-audit supports)
 
 Examples:
@@ -164,6 +165,7 @@ echo -e "${WHITE}============================================${NC}"
 echo "Repository: $REPO_PATH"
 echo "Output Directory: $OUTPUT_DIR"
 echo "pip-audit Version: $PIP_AUDIT_VERSION"
+echo "Advisory Service: OSV"
 echo "Timestamp: $TIMESTAMP"
 echo
 
@@ -190,7 +192,7 @@ while IFS= read -r -d '' file; do
     FOUND_COUNT=$((FOUND_COUNT + 1))
 done < <(find "$REPO_PATH" \
     -type f \
-    \( -name "requirements*.txt" -o -name "poetry.lock" -o -name "Pipfile.lock" \) \
+    \( -name "requirements*.txt" -o -name "poetry.lock" -o -name "Pipfile.lock" -o -name "pyproject.toml" \) \
     -not -path "*/\.*" \
     -not -path "*/.git/*" \
     -not -path "*/node_modules/*" \
@@ -199,8 +201,8 @@ done < <(find "$REPO_PATH" \
 
 if [ $FOUND_COUNT -eq 0 ]; then
     echo -e "${YELLOW}⚠️  No Python dependency files found${NC}"
-    echo "Looking for: requirements.txt, requirements-*.txt, poetry.lock, Pipfile.lock"
-    echo "{\"Results\": [], \"message\": \"No dependency files found\"}" > "$OUTPUT_DIR/${SCAN_ID}_pip-audit-consolidated-results.json"
+    echo "Looking for: requirements.txt, requirements-*.txt, poetry.lock, Pipfile.lock, pyproject.toml"
+    echo "{\"scan_results\": [], \"message\": \"No dependency files found\"}" > "$OUTPUT_DIR/${SCAN_ID}_pip-audit-consolidated-results.json"
     exit 0
 fi
 
@@ -225,8 +227,22 @@ for dep_file in "${DEPENDENCY_FILES[@]}"; do
     
     echo -e "${BLUE}📋 Scanning: ${dep_file#$REPO_PATH/}${NC}"
     
-    # Run pip-audit with JSON output
-    if pip-audit --file "$dep_file" --format json 2>>"$SCAN_LOG" > "$output_file"; then
+    # Build pip-audit command based on dependency file type
+    dep_basename=$(basename "$dep_file")
+    dep_dir=$(dirname "$dep_file")
+    if [[ "$dep_basename" == requirements*.txt ]]; then
+        PIP_AUDIT_CMD=(pip-audit -r "$dep_file" --format json -s osv)
+    elif [[ "$dep_basename" == "poetry.lock" || "$dep_basename" == "Pipfile.lock" ]]; then
+        PIP_AUDIT_CMD=(pip-audit -r "$dep_file" --locked --format json -s osv)
+    elif [[ "$dep_basename" == "pyproject.toml" ]]; then
+        # Project mode can resolve transitive dependencies from pyproject context.
+        PIP_AUDIT_CMD=(pip-audit "$dep_dir" --format json -s osv)
+    else
+        PIP_AUDIT_CMD=(pip-audit -r "$dep_file" --format json -s osv)
+    fi
+
+    # Run pip-audit with JSON output (non-zero exit can still include findings JSON)
+    if "${PIP_AUDIT_CMD[@]}" 2>>"$SCAN_LOG" > "$output_file"; then
         # Extract vulnerability count
         if command -v jq >/dev/null 2>&1; then
             VULN_COUNT=$(jq '.vulnerabilities | length' "$output_file" 2>/dev/null || echo 0)
@@ -249,13 +265,65 @@ for dep_file in "${DEPENDENCY_FILES[@]}"; do
         ln -sf "$(basename "$output_file")" "$OUTPUT_DIR/pip-audit-${file_basename%.*}-results.json" 2>/dev/null || true
         
     else
-        echo -e "${YELLOW}   ⚠️  Scan had issues (exit code: $?)${NC}"
-        # Still create output file if it exists
-        if [ ! -s "$output_file" ]; then
-            echo '{"vulnerabilities": []}' > "$output_file"
+        exit_code=$?
+        if [ -s "$output_file" ] && jq -e '.vulnerabilities' "$output_file" >/dev/null 2>&1; then
+            VULN_COUNT=$(jq '.vulnerabilities | length' "$output_file" 2>/dev/null || echo 0)
+            if [ "$VULN_COUNT" -gt 0 ]; then
+                echo -e "${RED}   ❌ Found $VULN_COUNT vulnerability(ies)${NC}"
+                TOTAL_VULNERABILITIES=$((TOTAL_VULNERABILITIES + VULN_COUNT))
+            else
+                echo -e "${YELLOW}   ⚠️  Scan exited non-zero ($exit_code) with no findings${NC}"
+            fi
+        else
+            echo -e "${YELLOW}   ⚠️  Scan failed (exit code: $exit_code)${NC}"
+            echo '{"vulnerabilities": [], "error": "scan failed"}' > "$output_file"
         fi
     fi
 done
+
+# Optional: resolved environment audit for transitive dependencies.
+# This aligns closer to Athena-style checks that inspect installed dependency graphs.
+ENV_OUTPUT_FILE="$OUTPUT_DIR/${SCAN_ID}_pip-audit-environment-results.json"
+if [[ -f "$REPO_PATH/pyproject.toml" ]]; then
+    echo
+    echo -e "${CYAN}🧪 Running resolved dependency audit (environment mode)...${NC}"
+    AUDIT_VENV="$OUTPUT_DIR/.pip-audit-venv"
+    rm -rf "$AUDIT_VENV"
+
+    if python3 -m venv "$AUDIT_VENV" 2>>"$SCAN_LOG"; then
+        if "$AUDIT_VENV/bin/python" -m pip install --upgrade pip >>"$SCAN_LOG" 2>&1 && \
+           "$AUDIT_VENV/bin/python" -m pip install pip-audit >>"$SCAN_LOG" 2>&1; then
+            # Try dev extras first; fallback to core install.
+            if "$AUDIT_VENV/bin/python" -m pip install "$REPO_PATH[dev]" >>"$SCAN_LOG" 2>&1 || \
+               "$AUDIT_VENV/bin/python" -m pip install "$REPO_PATH" >>"$SCAN_LOG" 2>&1; then
+                if "$AUDIT_VENV/bin/pip-audit" -l --format json -s osv > "$ENV_OUTPUT_FILE" 2>>"$SCAN_LOG"; then
+                    ENV_VULN_COUNT=$(jq '.vulnerabilities | length' "$ENV_OUTPUT_FILE" 2>/dev/null || echo 0)
+                    if [ "$ENV_VULN_COUNT" -gt 0 ]; then
+                        echo -e "${RED}   ❌ Environment audit found $ENV_VULN_COUNT vulnerability(ies)${NC}"
+                        TOTAL_VULNERABILITIES=$((TOTAL_VULNERABILITIES + ENV_VULN_COUNT))
+                    else
+                        echo -e "${GREEN}   ✅ Environment audit found no vulnerabilities${NC}"
+                    fi
+                else
+                    if [ -s "$ENV_OUTPUT_FILE" ] && jq -e '.vulnerabilities' "$ENV_OUTPUT_FILE" >/dev/null 2>&1; then
+                        ENV_VULN_COUNT=$(jq '.vulnerabilities | length' "$ENV_OUTPUT_FILE" 2>/dev/null || echo 0)
+                        if [ "$ENV_VULN_COUNT" -gt 0 ]; then
+                            echo -e "${RED}   ❌ Environment audit found $ENV_VULN_COUNT vulnerability(ies)${NC}"
+                            TOTAL_VULNERABILITIES=$((TOTAL_VULNERABILITIES + ENV_VULN_COUNT))
+                        fi
+                    else
+                        echo '{"vulnerabilities": [], "error": "environment audit failed"}' > "$ENV_OUTPUT_FILE"
+                        echo -e "${YELLOW}   ⚠️  Environment audit failed; see $SCAN_LOG${NC}"
+                    fi
+                fi
+            else
+                echo -e "${YELLOW}   ⚠️  Could not install project into audit venv; skipping environment audit${NC}"
+            fi
+        fi
+    fi
+
+    rm -rf "$AUDIT_VENV" 2>/dev/null || true
+fi
 
 echo
 echo -e "${CYAN}📊 pip-audit Summary${NC}"
@@ -276,7 +344,7 @@ CONSOLIDATED_OUTPUT="$OUTPUT_DIR/${SCAN_ID}_pip-audit-consolidated-results.json"
     echo "  \"target\": \"$REPO_PATH\","
     echo "  \"total_vulnerabilities\": $TOTAL_VULNERABILITIES,"
     echo "  \"dependency_files_scanned\": $FOUND_COUNT,"
-    echo "  \"results\": ["
+    echo "  \"scan_results\": ["
     
     first=true
     for file in "${DEPENDENCY_FILES[@]}"; do
@@ -294,6 +362,18 @@ CONSOLIDATED_OUTPUT="$OUTPUT_DIR/${SCAN_ID}_pip-audit-consolidated-results.json"
             echo -n "    }"
         fi
     done
+
+    if [ -s "$ENV_OUTPUT_FILE" ]; then
+        if [ "$first" = true ]; then
+            first=false
+        else
+            echo ","
+        fi
+        echo "    {"
+        echo "      \"file\": \"__resolved_environment__\"," 
+        echo "      \"results\": $(jq '.vulnerabilities' "$ENV_OUTPUT_FILE" 2>/dev/null || echo '[]')"
+        echo -n "    }"
+    fi
     
     echo ""
     echo "  ]"

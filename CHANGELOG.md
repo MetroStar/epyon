@@ -5,6 +5,14 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.8.3] - 2026-06-18
+
+### Fixed
+- **pip-audit CLI compatibility regression** — `run-pip-audit-scan.sh` used deprecated/invalid `--file` flag while CI installs `pip-audit 2.10.x`, causing scanner failures with empty fallback outputs and no findings in dashboards. Updated invocation to use supported flags (`-r`, `--locked`, and project-path mode) and OSV service (`-s osv`).
+- **pip-audit consolidated schema mismatch** — scanner wrote `results` while parsers expected `scan_results`, which prevented findings from flowing into `security-findings-summary.json` and dashboard renderers. Normalized consolidated output to `scan_results`.
+- **Transitive dependency visibility gap vs Athena** — added resolved environment audit path in `run-pip-audit-scan.sh` that creates an isolated venv, installs project dependencies (`.[dev]` fallback to core), runs `pip-audit -l`, and merges discovered vulnerabilities into consolidated output as `__resolved_environment__`.
+- **CI Python runtime alignment** — workflow now provisions Python 3.13 before dependency scanners, matching target project requirements and improving resolver parity with Athena checks.
+
 ## [3.8.2] - 2026-06-18
 
 ### Fixed

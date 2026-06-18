@@ -5,6 +5,16 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.8.5] - 2026-06-18
+
+### Fixed
+- **pip-audit and safety findings not appearing in dashboards** — `generate-scan-findings-summary.sh` used `jq -r` flag on extraction filters, which output newline-delimited JSON (NDJSON) instead of proper JSON arrays. Downstream `jq` filters expecting arrays (`.[] | select(...)`) operated on raw text and silently produced no results. Fixed by removing `-r` flag and wrapping extraction filters in `[...]` to produce valid arrays, ensuring Python CVE findings from both pip-audit and safety layers now categorize correctly by severity and flow through to `security-findings-summary.json` and dashboard rendering.
+
+## [3.8.4] - 2026-06-18
+
+### Fixed
+- **Dashboard HTML corruption from CVE descriptions** — `generate-dashboard.py` was embedding `window.__SCAN__` JSON directly into a `<script>` block without escaping `</script>` sequences. CVE descriptions (e.g. DOMPurify disclosures) that contained the literal string `</script>` would prematurely terminate the script tag, breaking dashboard rendering entirely. Fixed by escaping `</` → `<\/` in the serialized JSON before injection. The escaping is transparent to JSON.parse in the browser — values round-trip correctly.
+
 ## [3.8.3] - 2026-06-18
 
 ### Fixed

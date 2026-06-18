@@ -408,7 +408,7 @@ EOF
             # Extract findings by severity (pip-audit uses different severity naming)
             # Note: pip-audit doesn't directly provide severity; we infer from fix_versions availability
             
-            local pip_audit_vulns=$(jq -r --arg tool "pip-audit" '
+            local pip_audit_vulns=$(jq --arg tool "pip-audit" '[
                 .scan_results[]? | .results[]? | select(. != null) | {
                     tool: $tool,
                     type: "vulnerability",
@@ -426,7 +426,8 @@ EOF
                     fixed_versions: (.fix_versions // []),
                     published: .published,
                     advisory: .advisory
-                }' "$pip_audit_consolidated" 2>/dev/null || echo "[]")
+                }
+            ]' "$pip_audit_consolidated" 2>/dev/null || echo "[]")
             
             # Categorize by severity
             local pip_critical=$(echo "$pip_audit_vulns" | jq '[.[] | select(.severity == "Critical")]' 2>/dev/null || echo "[]")
@@ -465,7 +466,7 @@ EOF
             # Extract findings by severity
             # Safety provides severity info directly when available
             
-            local safety_vulns=$(jq -r --arg tool "safety" '
+            local safety_vulns=$(jq --arg tool "safety" '[
                 .scan_results[]? | .results[]? | select(. != null) | {
                     tool: $tool,
                     type: "vulnerability",
@@ -483,7 +484,8 @@ EOF
                     fixed_versions: (if .safe_version then [.safe_version] else [] end),
                     safe_version: (.safe_version // ""),
                     advisory: .advisory
-                }' "$safety_consolidated" 2>/dev/null || echo "[]")
+                }
+            ]' "$safety_consolidated" 2>/dev/null || echo "[]")
             
             # Categorize by severity
             local safety_critical=$(echo "$safety_vulns" | jq '[.[] | select(.severity == "Critical")]' 2>/dev/null || echo "[]")

@@ -394,6 +394,11 @@ def generate_html(scan_dir: Path, epyon_root: Path, output_path: Path) -> None:
     scan      = build_scan_object(scan_dir)
     scan_id   = scan["scan_id"]
     scan_json = json.dumps(scan, ensure_ascii=False, separators=(",", ":"))
+    # Escape </script> sequences so a CVE description containing that literal
+    # string cannot prematurely terminate the <script> block and corrupt the
+    # dashboard HTML.  The JSON value is still valid — JS sees the unicode
+    # escape as an identical string at parse time.
+    scan_json = scan_json.replace("</", r"<\/")
 
     css_file = epyon_root / "web" / "static" / "app.css"
     js_file  = epyon_root / "web" / "static" / "app.js"

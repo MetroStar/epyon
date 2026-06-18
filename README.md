@@ -676,6 +676,7 @@ Epyon uses **Docker Hardened Images (DHI)** as the default baseline for containe
 - **Safety Artifact Upload**: Fixed self-referential symlink loop causing GitHub Actions `upload-artifact` `ELOOP` failures
 - **Python CVE Layer Reliability**: CI now installs `pip-audit` and `safety` explicitly so dependency CVEs are detected and rendered into dashboards consistently
 - **Athena Parity Improvements**: pip-audit scanner now uses OSV-backed compatible CLI flags for v2.10+, writes parser-compatible `scan_results` output, and adds resolved environment auditing to catch transitive CVEs not visible from raw requirements files alone
+- **Dashboard corruption from CVE descriptions**: Fixed `generate-dashboard.py` to escape `</script>` sequences in embedded scan JSON so long/complex CVE descriptions (e.g. DOMPurify disclosures) can no longer break the stakeholder dashboard
 
 **✅ Baseline Scanning:**
 - Scans DHI baseline images (`dhi/caddy:latest`)

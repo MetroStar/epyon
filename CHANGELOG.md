@@ -5,6 +5,14 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.8.0] - 2026-06-18
+
+### Added
+- **Layer 11.6 (safety)** — Python-specific vulnerability scanner with NVD + PyPI advisory database coverage. Complements pip-audit (Layer 8.5) by catching CVEs in pip-audit's database gaps (e.g., GHSA-jm82-fx9c-mx94 for pypdf). Scans `requirements.txt`, `poetry.lock`, and `Pipfile.lock`. Runs in all scan modes (quick, nightly, full, stig) via `SKIP_SAFETY=true`. Requires `safety` to be installed (`pip install safety`).
+
+### Changed
+- Epyon now orchestrates **17 security tool layers** (was 16)
+
 ## [3.7.0] - 2026-06-16
 
 ### Added

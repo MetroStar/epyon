@@ -453,6 +453,63 @@ EOF
         fi
     fi
     
+    # Process safety results (scan directory structure)
+    # Python vulnerability scanner with NVD + PyPI advisory coverage (complements pip-audit)
+    local safety_dir="$SCAN_DIR/safety"
+    if [[ -d "$safety_dir" ]]; then
+        tools_analyzed+=("safety")
+        
+        # Process consolidated safety results
+        local safety_consolidated="$safety_dir/safety-consolidated-results.json"
+        if [[ -f "$safety_consolidated" ]]; then
+            # Extract findings by severity
+            # Safety provides severity info directly when available
+            
+            local safety_vulns=$(jq -r --arg tool "safety" '
+                .scan_results[]? | .results[]? | select(. != null) | {
+                    tool: $tool,
+                    type: "vulnerability",
+                    severity: (.severity // "Medium"),
+                    vulnerability_id: (.advisory_id // .id // "unknown"),
+                    id: (.advisory_id // .id // "unknown"),
+                    package: .package,
+                    package_name: .package,
+                    version: .installed_version,
+                    package_version: .installed_version,
+                    package_type: "python",
+                    purl: ("pkg:pypi/" + .package + "@" + .installed_version),
+                    description: .advisory,
+                    fix_available: (if .safe_version and (.safe_version != "") then "Yes" else "No" end),
+                    fixed_versions: (if .safe_version then [.safe_version] else [] end),
+                    safe_version: (.safe_version // ""),
+                    advisory: .advisory
+                }' "$safety_consolidated" 2>/dev/null || echo "[]")
+            
+            # Categorize by severity
+            local safety_critical=$(echo "$safety_vulns" | jq '[.[] | select(.severity == "Critical")]' 2>/dev/null || echo "[]")
+            local safety_high=$(echo "$safety_vulns" | jq '[.[] | select(.severity == "High")]' 2>/dev/null || echo "[]")
+            local safety_medium=$(echo "$safety_vulns" | jq '[.[] | select(.severity == "Medium")]' 2>/dev/null || echo "[]")
+            local safety_low=$(echo "$safety_vulns" | jq '[.[] | select(.severity == "Low")]' 2>/dev/null || echo "[]")
+            
+            # Add to findings summary (deduplicate with pip-audit)
+            jq --argjson critical "$safety_critical" --argjson high "$safety_high" --argjson medium "$safety_medium" --argjson low "$safety_low" '
+                .critical_findings += ($critical | map(select(.vulnerability_id as $id | .critical_findings[].vulnerability_id != $id))) |
+                .high_findings += ($high | map(select(.vulnerability_id as $id | .high_findings[].vulnerability_id != $id))) |
+                .medium_findings += ($medium | map(select(.vulnerability_id as $id | .medium_findings[].vulnerability_id != $id))) |
+                .low_findings += ($low | map(select(.vulnerability_id as $id | .low_findings[].vulnerability_id != $id)))' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+            
+            local crit_count=$(echo "$safety_critical" | jq 'length' 2>/dev/null || echo "0")
+            local high_count=$(echo "$safety_high" | jq 'length' 2>/dev/null || echo "0")
+            local med_count=$(echo "$safety_medium" | jq 'length' 2>/dev/null || echo "0")
+            local low_count=$(echo "$safety_low" | jq 'length' 2>/dev/null || echo "0")
+            
+            total_critical=$((total_critical + crit_count))
+            total_high=$((total_high + high_count))
+            total_medium=$((total_medium + med_count))
+            total_low=$((total_low + low_count))
+        fi
+    fi
+    
     # Process Trivy results (scan directory structure)
     local trivy_dir="$SCAN_DIR/trivy"
     if [[ -d "$trivy_dir" ]]; then

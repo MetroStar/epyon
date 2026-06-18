@@ -408,6 +408,38 @@ try:
                         </div>
                     </div>'''
     
+    elif '$tool_name' == 'safety':
+        # safety Python vulnerability scanner (NVD + PyPI advisory database)
+        scan_results = data.get('scan_results', [])
+        total_vulns = sum(len(result.get('results', [])) for result in scan_results)
+        
+        html_content += f'<div class=\"summary\"><h2>Summary</h2><p>Total Python Vulnerabilities (Safety): {total_vulns}</p></div>'
+        
+        for result in scan_results[:10]:  # Limit to first 10 files
+            file_path = result.get('file', 'unknown')
+            vulns = result.get('results', [])
+            
+            if vulns:
+                html_content += f'<div class=\"summary\"><h3>File: {html.escape(file_path)}</h3><p>Vulnerabilities: {len(vulns)}</p></div>'
+                
+                for vuln in vulns[:20]:  # Top 20 per file
+                    vuln_id = vuln.get('advisory_id', vuln.get('id', 'unknown'))
+                    description = vuln.get('advisory', 'No description available')
+                    safe_version = vuln.get('safe_version', '')
+                    severity = vuln.get('severity', 'Medium')
+                    severity_class = severity.lower()
+                    
+                    html_content += f'''<div class=\"finding {severity_class}\">
+                        <h3>{html.escape(vuln_id)}</h3>
+                        <span class=\"severity {severity_class}\">{severity.upper()}</span>
+                        <p><strong>Description:</strong> {html.escape(description[:200])}...</p>
+                        <div class=\"metadata\">
+                            <p><strong>Package:</strong> {html.escape(vuln.get('package', 'unknown'))} @ {html.escape(vuln.get('installed_version', 'unknown'))}</p>
+                            <p><strong>Fix Available:</strong> {safe_version if safe_version else 'No'}</p>
+                            <p><strong>Severity:</strong> {severity}</p>
+                        </div>
+                    </div>'''
+    
     else:
         # Generic JSON display
         html_content += f'<div class=\"summary\"><h2>Raw Data</h2><pre>{html.escape(json.dumps(data, indent=2)[:5000])}</pre></div>'
@@ -621,6 +653,38 @@ try:
                     md_content += f'**Fix Available:** {"Yes - " + ", ".join(fix_versions[:3]) if fix_versions else "No"}' + chr(10)
                     md_content += chr(10)
     
+    elif tool_name == 'safety':
+        # safety Python vulnerability scanner markdown
+        scan_results = data.get('scan_results', [])
+        total_vulns = sum(len(result.get('results', [])) for result in scan_results)
+        
+        md_content += f'**Total Python Vulnerabilities (Safety):** {total_vulns}' + chr(10) + chr(10)
+        
+        md_content += '## Vulnerabilities by Dependency File' + chr(10) + chr(10)
+        
+        for result in scan_results[:10]:  # Top 10 files
+            file_path = result.get('file', 'unknown')
+            vulns = result.get('results', [])
+            
+            if vulns:
+                md_content += f'### {file_path}' + chr(10) + chr(10)
+                md_content += f'**Found {len(vulns)} vulnerability(ies)**' + chr(10) + chr(10)
+                
+                for i, vuln in enumerate(vulns[:10], 1):  # Top 10 per file
+                    vuln_id = vuln.get('advisory_id', vuln.get('id', 'unknown'))
+                    package = vuln.get('package', 'unknown')
+                    version = vuln.get('installed_version', 'unknown')
+                    description = vuln.get('advisory', 'No description')
+                    safe_version = vuln.get('safe_version', '')
+                    severity = vuln.get('severity', 'Unknown')
+                    
+                    md_content += f'#### {i}. {vuln_id}' + chr(10) + chr(10)
+                    md_content += f'**Package:** {package} @ {version}' + chr(10)
+                    md_content += f'**Severity:** {severity}' + chr(10)
+                    md_content += f'**Description:** {description[:300]}' + chr(10)
+                    md_content += f'**Safe Version:** {safe_version if safe_version else "No fix available"}' + chr(10)
+                    md_content += chr(10)
+    
     else:
         # Generic format
         md_content += f'**Total Items:** {len(data) if isinstance(data, list) else 1}' + chr(10) + chr(10)
@@ -706,6 +770,7 @@ consolidate_tool_reports "Checkov" "$SCAN_DIR/checkov" "*.json"
 consolidate_tool_reports "Trivy" "$SCAN_DIR/trivy" "*.json"
 consolidate_tool_reports "Grype" "$SCAN_DIR/grype" "*.json"
 consolidate_tool_reports "pip-audit" "$SCAN_DIR/pip-audit" "*.json"
+consolidate_tool_reports "safety" "$SCAN_DIR/safety" "*.json"
 consolidate_tool_reports "Xeol" "$SCAN_DIR/xeol" "*.json"
 consolidate_tool_reports "SBOM" "$SCAN_DIR/sbom" "*.json"
 consolidate_tool_reports "Anchore" "$SCAN_DIR/anchore" "*.json"

@@ -624,6 +624,18 @@ else
   [[ "${SKIP_PIP_AUDIT:-false}" == "true" ]] && echo "[INFO] Skipping Layer 11.5 - pip-audit (SKIP_PIP_AUDIT=true)"
 fi
 
+# Layer 11.6 — Python Vulnerability Safety (complement pip-audit with NVD + PyPI advisory coverage)
+# Catches CVEs in pip-audit's database gaps (e.g., GHSA-jm82-fx9c-mx94 for pypdf)
+if _should_run_tool SKIP_SAFETY; then
+  _record_start "Layer 11.6 - Python Safety Check"
+  chmod +x scripts/shell/run-safety-scan.sh
+  env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" scripts/shell/run-safety-scan.sh \
+    > "${PARALLEL_LOG_DIR}/layer-11.6-safety.log" 2>&1 &
+  _set_parallel_pid "Layer 11.6 - Python Safety Check" $!
+else
+  [[ "${SKIP_SAFETY:-false}" == "true" ]] && echo "[INFO] Skipping Layer 11.6 - Python Safety Check (SKIP_SAFETY=true)"
+fi
+
 # Layer 16 — Network Discovery (no deps; active scan requires NMAP_TARGET to be set)
 if _should_run_tool SKIP_NETWORK_DISCOVERY && [[ "${SCAN_MODE:-full}" != "quick" ]]; then
   _record_start "Layer 16 - Network Discovery"

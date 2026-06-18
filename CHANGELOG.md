@@ -5,6 +5,11 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.8.1] - 2026-06-18
+
+### Fixed
+- **Safety artifact upload ELOOP** — `run-safety-scan.sh` was creating self-referential symlinks (`safety-*-results.json` -> itself), which caused GitHub Actions artifact upload to fail with `ELOOP: too many symbolic links encountered`. Removed self-link creation, added stale safety symlink cleanup at scan start, and fixed invalid `local` usage outside function scope in scan loop.
+
 ## [3.8.0] - 2026-06-18
 
 ### Added

@@ -641,7 +641,7 @@ Epyon uses **Docker Hardened Images (DHI)** as the default baseline for containe
 
 ---
 
-### Current Security Layers (15 Operational):
+### Current Security Layers (17 Operational):
 
 1. **� SBOM Generation** - Complete Software Bill of Materials with Syft (CycloneDX + SPDX)
 2. **🔍 TruffleHog** - Multi-target secret detection with filesystem, container, and registry scanning
@@ -651,13 +651,15 @@ Epyon uses **Docker Hardened Images (DHI)** as the default baseline for containe
 6. **🔒 Checkov** - Infrastructure as Code security scanning (Terraform, Kubernetes, Docker)
 7. **🐳 Trivy** - Comprehensive security scanner for containers, filesystems, and Kubernetes
 8. **🎯 Grype** - Advanced vulnerability scanning with SBOM generation and multi-format support
-9. **⏰ Xeol** - End-of-Life software detection for proactive dependency management
-10. **⚓ Anchore** - Deep container and software composition analysis
-11. **🔍 API Discovery** - Automatic API endpoint detection (OpenAPI, Express, Flask, Django, Next.js App Router)
-12. **🤖 Garak** - LLM vulnerability probing and red-team style safety testing
-13. **🌐 Network Discovery** - Port, protocol, and service enumeration from config files and manifests
-14. **🥒 PickleScan** - ML model serialization safety scanning (`.pkl`, `.pt`, `.bin`, `.h5`, `.ckpt`, etc.)
-15. **📄 Model Card Compliance** - HuggingFace model card validation against documentation standards
+9. **🐍 pip-audit** - Direct Python dependency CVE scanning from dependency files
+10. **🛡️ Safety** - Python vulnerability scanning with OSV-backed advisory coverage
+11. **⏰ Xeol** - End-of-Life software detection for proactive dependency management
+12. **⚓ Anchore** - Deep container and software composition analysis
+13. **🔍 API Discovery** - Automatic API endpoint detection (OpenAPI, Express, Flask, Django, Next.js App Router)
+14. **🤖 Garak** - LLM vulnerability probing and red-team style safety testing
+15. **🌐 Network Discovery** - Port, protocol, and service enumeration from config files and manifests
+16. **🥒 PickleScan** - ML model serialization safety scanning (`.pkl`, `.pt`, `.bin`, `.h5`, `.ckpt`, etc.)
+17. **📄 Model Card Compliance** - HuggingFace model card validation against documentation standards
 
 ### Quality Assurance
 
@@ -671,6 +673,7 @@ Epyon uses **Docker Hardened Images (DHI)** as the default baseline for containe
 - **CVE GHSA-5xr6-xhww-33m4**: Updated artifact download action (v3→v6)
 - **API Discovery**: Fixed duplicate `fi` syntax error breaking Next.js detection
 - **Checkov Parsing**: Fixed array format handling in dashboard generation
+- **Safety Artifact Upload**: Fixed self-referential symlink loop causing GitHub Actions `upload-artifact` `ELOOP` failures
 
 **✅ Baseline Scanning:**
 - Scans DHI baseline images (`dhi/caddy:latest`)

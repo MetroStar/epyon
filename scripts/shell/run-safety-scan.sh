@@ -32,6 +32,9 @@ SAFETY_CONSOLIDATED="$SAFETY_DIR/safety-consolidated-results.json"
 # Initialize
 mkdir -p "$SAFETY_DIR"
 
+# Clean stale safety symlinks from prior runs (can cause ELOOP during artifact upload)
+find "$SAFETY_DIR" -maxdepth 1 -type l -name "safety-*-results.json" -delete 2>/dev/null || true
+
 echo "[INFO] Layer 11.5: Python Safety Check"
 echo "[INFO] Target: $TARGET_DIR"
 echo "[INFO] Output: $SAFETY_DIR"
@@ -105,7 +108,7 @@ find "$TARGET_DIR" -type f \( -name "requirements*.txt" -o -name "poetry.lock" -
         
         # Standard requirements.txt
         if eval "$SAFETY_CMD --file $dep_file --json" > "$output_file" 2>/dev/null; then
-            local vuln_count=$(jq '.vulnerabilities // [] | length' "$output_file" 2>/dev/null || echo "0")
+            vuln_count=$(jq '.vulnerabilities // [] | length' "$output_file" 2>/dev/null || echo "0")
             if [[ $vuln_count -gt 0 ]]; then
                 echo -e "${YELLOW}[WARN] Found $vuln_count vulnerabilities in $rel_path${NC}"
             else
@@ -114,16 +117,13 @@ find "$TARGET_DIR" -type f \( -name "requirements*.txt" -o -name "poetry.lock" -
         else
             # Safety found vulnerabilities or error - still capture output
             if [[ -s "$output_file" ]]; then
-                local vuln_count=$(jq '.vulnerabilities // [] | length' "$output_file" 2>/dev/null || echo "?")
+                vuln_count=$(jq '.vulnerabilities // [] | length' "$output_file" 2>/dev/null || echo "?")
                 echo -e "${YELLOW}[WARN] Found vulnerabilities in $rel_path${NC}"
             else
                 echo -e "${RED}[ERROR] Failed to scan $rel_path${NC}" >&2
                 echo '{"vulnerabilities": [], "error": "scan failed"}' > "$output_file"
             fi
         fi
-        
-        # Create symlink for easy access
-        ln -sf "$(basename "$output_file")" "$SAFETY_DIR/safety-${safe_name}-results.json" 2>/dev/null || true
     fi
 done
 

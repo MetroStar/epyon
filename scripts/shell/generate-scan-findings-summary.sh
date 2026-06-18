@@ -491,12 +491,12 @@ EOF
             local safety_medium=$(echo "$safety_vulns" | jq '[.[] | select(.severity == "Medium")]' 2>/dev/null || echo "[]")
             local safety_low=$(echo "$safety_vulns" | jq '[.[] | select(.severity == "Low")]' 2>/dev/null || echo "[]")
             
-            # Add to findings summary (deduplicate with pip-audit)
+            # Add to findings summary; global dedupe pass runs at end of script.
             jq --argjson critical "$safety_critical" --argjson high "$safety_high" --argjson medium "$safety_medium" --argjson low "$safety_low" '
-                .critical_findings += ($critical | map(select(.vulnerability_id as $id | .critical_findings[].vulnerability_id != $id))) |
-                .high_findings += ($high | map(select(.vulnerability_id as $id | .high_findings[].vulnerability_id != $id))) |
-                .medium_findings += ($medium | map(select(.vulnerability_id as $id | .medium_findings[].vulnerability_id != $id))) |
-                .low_findings += ($low | map(select(.vulnerability_id as $id | .low_findings[].vulnerability_id != $id)))' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+                .critical_findings += $critical |
+                .high_findings += $high |
+                .medium_findings += $medium |
+                .low_findings += $low' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
             
             local crit_count=$(echo "$safety_critical" | jq 'length' 2>/dev/null || echo "0")
             local high_count=$(echo "$safety_high" | jq 'length' 2>/dev/null || echo "0")

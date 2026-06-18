@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ################################################################################
-# Layer 11.5: Python Safety Check - Direct dependency vulnerability scanner
+# Layer 11.6: Python Safety Check - Direct dependency vulnerability scanner
 #
 # Purpose: Scan Python dependencies against Safety's vulnerability database
 #          (complements pip-audit by providing NVD + PyPI advisory coverage)
@@ -35,7 +35,7 @@ mkdir -p "$SAFETY_DIR"
 # Clean stale safety symlinks from prior runs (can cause ELOOP during artifact upload)
 find "$SAFETY_DIR" -maxdepth 1 -type l -name "safety-*-results.json" -delete 2>/dev/null || true
 
-echo "[INFO] Layer 11.5: Python Safety Check"
+echo "[INFO] Layer 11.6: Python Safety Check"
 echo "[INFO] Target: $TARGET_DIR"
 echo "[INFO] Output: $SAFETY_DIR"
 
@@ -69,8 +69,31 @@ consolidate_safety_results() {
                 continue
             fi
             
-            local file_path=$(basename "$result_file" | sed 's/safety-//;s/-results\.json//')
-            local results=$(cat "$result_file" 2>/dev/null | jq '.vulnerabilities // []' 2>/dev/null || echo '[]')
+            local file_path
+            file_path=$(basename "$result_file" | sed 's/safety-//;s/-results\.json//')
+
+            # Normalize safety JSON across versions/providers to a common schema
+            local results
+            results=$(jq -c '
+                def normalize:
+                    {
+                        id: (.advisory_id // .vulnerability_id // .id // .CVE // .cve // "unknown"),
+                        package: (.package_name // .package // .name // "unknown"),
+                        installed_version: (.analyzed_version // .installed_version // .version // "unknown"),
+                        safe_version: (.safe_version // .fixed_version // .fixed_versions // ""),
+                        advisory: (.advisory // .description // .summary // .details // "No advisory details available"),
+                        severity: (.severity // "Medium")
+                    };
+                if type == "array" then
+                    map(normalize)
+                elif .vulnerabilities? then
+                    (.vulnerabilities | map(normalize))
+                elif .report? and .report.vulnerabilities? then
+                    (.report.vulnerabilities | map(normalize))
+                else
+                    []
+                end
+            ' "$result_file" 2>/dev/null || echo '[]')
             local vuln_count=$(echo "$results" | jq 'length')
             
             total_vulns=$((total_vulns + vuln_count))
@@ -93,14 +116,17 @@ find "$TARGET_DIR" -type f \( -name "requirements*.txt" -o -name "poetry.lock" -
     
     # Run safety check
     if [[ -f "$dep_file" ]]; then
+        local dep_basename
+        dep_basename=$(basename "$dep_file")
+
         # Skip Pipfile.lock for now (requires special handling)
-        if [[ "$dep_file" == *.lock ]] && [[ "$safe_name" == *"Pipfile"* ]]; then
+        if [[ "$dep_basename" == "Pipfile.lock" ]]; then
             echo "[SKIP] Pipfile.lock requires pipenv (not supported yet)"
             continue
         fi
         
         # For poetry.lock, extract requirements
-        if [[ "$dep_file" == "poetry.lock" ]]; then
+        if [[ "$dep_basename" == "poetry.lock" ]]; then
             # poetry.lock requires different handling - skip for now
             echo "[SKIP] poetry.lock requires poetry (not auto-convertible)"
             continue

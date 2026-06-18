@@ -674,6 +674,7 @@ Epyon uses **Docker Hardened Images (DHI)** as the default baseline for containe
 - **API Discovery**: Fixed duplicate `fi` syntax error breaking Next.js detection
 - **Checkov Parsing**: Fixed array format handling in dashboard generation
 - **Safety Artifact Upload**: Fixed self-referential symlink loop causing GitHub Actions `upload-artifact` `ELOOP` failures
+- **Python CVE Layer Reliability**: CI now installs `pip-audit` and `safety` explicitly so dependency CVEs are detected and rendered into dashboards consistently
 
 **✅ Baseline Scanning:**
 - Scans DHI baseline images (`dhi/caddy:latest`)

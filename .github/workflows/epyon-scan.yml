@@ -438,6 +438,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y jq python3 python3-pip bats
+          # Python dependency vulnerability scanners used by Layers 11.5/11.6
+          pip3 install pip-audit safety
           if [[ "${{ inputs.scan_mode }}" != "quick" ]]; then
             pip3 install pyyaml pipdeptree openai
           else
@@ -504,6 +506,8 @@ jobs:
           echo "SKIP_CHECKOV=${SKIP_CHECKOV:-false}" >> /tmp/epyon-env
           echo "SKIP_TRIVY=${SKIP_TRIVY:-false}" >> /tmp/epyon-env
           echo "SKIP_GRYPE=${SKIP_GRYPE:-false}" >> /tmp/epyon-env
+          echo "SKIP_PIP_AUDIT=${SKIP_PIP_AUDIT:-false}" >> /tmp/epyon-env
+          echo "SKIP_SAFETY=${SKIP_SAFETY:-false}" >> /tmp/epyon-env
           echo "SKIP_XEOL=${SKIP_XEOL:-false}" >> /tmp/epyon-env
           echo "SKIP_ANCHORE=${SKIP_ANCHORE:-false}" >> /tmp/epyon-env
           echo "SKIP_API_DISCOVERY=${SKIP_API_DISCOVERY:-false}" >> /tmp/epyon-env

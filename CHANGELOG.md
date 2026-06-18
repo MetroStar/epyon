@@ -5,6 +5,14 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.8.2] - 2026-06-18
+
+### Fixed
+- **Python dependency layers not executing in CI** — GitHub workflow dependency install step did not install `pip-audit` or `safety`, so Layers 11.5/11.6 could start but produce no scan outputs. Added explicit `pip3 install pip-audit safety` in `.github/workflows/epyon-scan.yml` and propagated `SKIP_PIP_AUDIT` / `SKIP_SAFETY` into `/tmp/epyon-env`.
+- **Safety findings missing from summary/dashboard** — corrected invalid jq filtering logic in `generate-scan-findings-summary.sh` safety block so findings are appended and deduplicated by the existing global dedupe pass.
+- **Safety output normalization across JSON schemas** — `run-safety-scan.sh` now normalizes safety JSON into a stable internal schema (`id`, `package`, `installed_version`, `safe_version`, `advisory`, `severity`) before consolidation, improving compatibility across safety output variants.
+- **Lockfile detection bug in safety scanner** — fixed basename checks for `poetry.lock` and `Pipfile.lock` so path comparisons work correctly with absolute file paths.
+
 ## [3.8.1] - 2026-06-18
 
 ### Fixed

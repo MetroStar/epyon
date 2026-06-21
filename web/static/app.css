@@ -14,6 +14,12 @@
   --bg-card:        #161b22;
   --bg-hover:       #1c2128;
   --bg-input:       #0d1117;
+  --surface:        #0d1117;
+  --surface-2:      #161b22;
+  --notice-bg:      rgba(255, 166, 87, 0.08);
+  --notice-border:  rgba(255, 166, 87, 0.25);
+  --inline-code-bg: rgba(255, 255, 255, 0.06);
+  --log-bg:         #010409;
   --border:         #30363d;
   --border-muted:   #21262d;
 
@@ -55,6 +61,12 @@ html[data-theme="light"] {
   --bg-card:        #f6f8fa;
   --bg-hover:       #eaeef2;
   --bg-input:       #ffffff;
+  --surface:        #ffffff;
+  --surface-2:      #f6f8fa;
+  --notice-bg:      rgba(188, 76, 0, 0.08);
+  --notice-border:  rgba(188, 76, 0, 0.26);
+  --inline-code-bg: rgba(31, 35, 40, 0.08);
+  --log-bg:         #f6f8fa;
   --border:         #d0d7de;
   --border-muted:   #e6eaef;
 
@@ -1029,8 +1041,8 @@ tbody tr:hover td { background: var(--bg-hover); }
   font-weight: 600;
   padding: 1px 6px;
   border-radius: 8px;
-  background: rgba(255,166,87,.15);
-  color: #e3a040;
+  background: var(--notice-bg);
+  color: var(--high);
   letter-spacing: .2px;
 }
 .scan-info-opt-badge {
@@ -1052,8 +1064,8 @@ tbody tr:hover td { background: var(--bg-hover); }
   align-items: flex-start;
   margin-top: 14px;
   padding: 10px 12px;
-  background: rgba(255,166,87,.08);
-  border: 1px solid rgba(255,166,87,.25);
+  background: var(--notice-bg);
+  border: 1px solid var(--notice-border);
   border-radius: 6px;
   font-size: 12.5px;
   color: var(--text);
@@ -1062,7 +1074,7 @@ tbody tr:hover td { background: var(--bg-hover); }
 .scan-info-notice-icon { flex-shrink: 0; font-size: 14px; }
 .scan-info-apikey-notice code {
   font-size: 11.5px;
-  background: rgba(255,255,255,.06);
+  background: var(--inline-code-bg);
   padding: 0 4px;
   border-radius: 3px;
 }
@@ -1111,7 +1123,7 @@ tbody tr:hover td { background: var(--bg-hover); }
 
 /* ── Log output ───────────────────────────────────────────── */
 .log-card {
-  background: #010409;
+  background: var(--log-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 16px;
@@ -1219,10 +1231,10 @@ th[data-col]:hover { color: var(--text); }
 /* Scan form segment control */
 .seg-ctrl {
   display: inline-flex;
-  border: 1px solid var(--border, #30363d);
+  border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
-  background: var(--surface, #0d1117);
+  background: var(--surface);
 }
 .seg-btn {
   flex: 1;
@@ -1232,27 +1244,27 @@ th[data-col]:hover { color: var(--text); }
   font-family: inherit;
   border: none;
   background: none;
-  color: var(--text-muted, #8b949e);
+  color: var(--text-muted);
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
   white-space: nowrap;
 }
 .seg-btn:not(:last-child) {
-  border-right: 1px solid var(--border, #30363d);
+  border-right: 1px solid var(--border);
 }
 .seg-btn.active[data-value="continuous"],
 .seg-btn.active[data-value="on"] {
   background: rgba(88,166,255,0.15);
-  color: var(--accent, #58a6ff);
+  color: var(--accent);
 }
 .seg-btn.active[data-value="evaluation"],
 .seg-btn.active[data-value="off"] {
-  background: var(--surface-2, #161b22);
-  color: var(--text, #e6edf3);
+  background: var(--surface-2);
+  color: var(--text);
 }
 .seg-btn:not(.active):hover {
-  background: var(--surface-2, #161b22);
-  color: var(--text, #e6edf3);
+  background: var(--surface-2);
+  color: var(--text);
 }
 
 /* App monitoring classification badge */

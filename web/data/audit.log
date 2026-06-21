@@ -1,2 +1,9 @@
 2026-06-09T19:35:56Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/MetroStar/epyon.git scan_type=stig
 2026-06-15T13:31:03Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/MetroStar/iris.git scan_type=stig
+2026-06-18T18:53:44Z INFO action=server_error client=127.0.0.1 detail=AttributeError
+2026-06-18T18:54:36Z INFO action=server_error client=127.0.0.1 detail=AttributeError
+2026-06-18T18:54:46Z INFO action=server_error client=127.0.0.1 detail=AttributeError
+2026-06-18T20:06:48Z INFO action=ai_config_changed client=127.0.0.1 detail=
+2026-06-18T20:06:56Z INFO action=ai_config_changed client=127.0.0.1 detail=
+2026-06-20T22:31:47Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/MertoStar/midas.git scan_type=quick
+2026-06-20T22:33:13Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/MetroStar/midas.git scan_type=quick

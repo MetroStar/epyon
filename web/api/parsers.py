@@ -171,28 +171,35 @@ def parse_trufflehog_dir(scan_dir: Path) -> list[dict]:
                     obj = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                if not obj.get("DetectorName"):
-                    continue
-                meta = (obj.get("SourceMetadata") or {}).get("Data") or {}
-                fs_data = meta.get("Filesystem") or meta.get("Git") or {}
-                verified = bool(obj.get("Verified"))
-                findings.append({
-                    "tool": "TruffleHog",
-                    "id": obj.get("DetectorName", "SECRET"),
-                    "severity": "critical" if verified else "high",
-                    "package": obj.get("DetectorName", ""),
-                    "version": "",
-                    "fixed_version": "",
-                    "title": f"{'Verified' if verified else 'Unverified'} secret: {obj.get('DetectorName', '')}",
-                    "description": (
-                        f"Detector: {obj.get('DetectorName', '')}. "
-                        f"File: {fs_data.get('file') or fs_data.get('path', 'unknown')}. "
-                        f"Line: {fs_data.get('line', '?')}"
-                    ),
-                    "target": fs_data.get("file") or fs_data.get("path", ""),
-                    "line":   fs_data.get("line", ""),
-                    "references": [],
-                })
+                # Handle both single objects and arrays
+                if isinstance(obj, list):
+                    objects = obj
+                else:
+                    objects = [obj]
+                
+                for item in objects:
+                    if not isinstance(item, dict) or not item.get("DetectorName"):
+                        continue
+                    meta = (item.get("SourceMetadata") or {}).get("Data") or {}
+                    fs_data = meta.get("Filesystem") or meta.get("Git") or {}
+                    verified = bool(item.get("Verified"))
+                    findings.append({
+                        "tool": "TruffleHog",
+                        "id": item.get("DetectorName", "SECRET"),
+                        "severity": "critical" if verified else "high",
+                        "package": item.get("DetectorName", ""),
+                        "version": "",
+                        "fixed_version": "",
+                        "title": f"{'Verified' if verified else 'Unverified'} secret: {item.get('DetectorName', '')}",
+                        "description": (
+                            f"Detector: {item.get('DetectorName', '')}. "
+                            f"File: {fs_data.get('file') or fs_data.get('path', 'unknown')}. "
+                            f"Line: {fs_data.get('line', '?')}"
+                        ),
+                        "target": fs_data.get("file") or fs_data.get("path", ""),
+                        "line":   fs_data.get("line", ""),
+                        "references": [],
+                    })
         except OSError:
             continue
     return findings

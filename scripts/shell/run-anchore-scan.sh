@@ -56,6 +56,8 @@ show_help() {
     echo "  - Uses anchore/grype:latest for CLI-based scanning"
     echo "  - Compatible with Anchore Enterprise and Engine"
     echo "  - Provides policy compliance and detailed CVE analysis"
+    echo "  - Auto-detects image architecture and runtime (Node.js/Python/Go/Java)"
+    echo "  - Automatically excludes build-stage dependencies from production scans"
     exit 0
 }
 
@@ -441,6 +443,124 @@ scan_sbom() {
     fi
 }
 
+# Function to auto-detect image characteristics and configure scanner
+# Usage: auto_configure_scanner <image_name>
+# Sets ANCHORE_PLATFORM and ANCHORE_EXCLUDE_TYPES based on image inspection
+auto_configure_scanner() {
+    local image="$1"
+    
+    # Skip if image doesn't exist locally (will be handled by pull logic)
+    if ! docker image inspect "$image" > /dev/null 2>&1; then
+        return 0
+    fi
+    
+    # Detect architecture
+    local arch
+    arch=$(docker image inspect "$image" --format '{{.Architecture}}' 2>/dev/null || echo "amd64")
+    
+    # Override platform only if not already set by user
+    if [[ -z "${ANCHORE_PLATFORM_OVERRIDE:-}" ]]; then
+        case "$arch" in
+            arm64|aarch64)
+                export ANCHORE_PLATFORM="linux/arm64"
+                log "  ℹ Auto-detected architecture: ARM64"
+                ;;
+            amd64|x86_64)
+                export ANCHORE_PLATFORM="linux/amd64"
+                log "  ℹ Auto-detected architecture: AMD64"
+                ;;
+            *)
+                export ANCHORE_PLATFORM="linux/$arch"
+                log "  ℹ Auto-detected architecture: $arch"
+                ;;
+        esac
+    fi
+    
+    # Detect OS/distro from image labels and config
+    local os_name os_family
+    os_name=$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.base.name"}}' 2>/dev/null || echo "")
+    [[ -z "$os_name" ]] && os_name=$(docker image inspect "$image" --format '{{.Os}}' 2>/dev/null || echo "linux")
+    
+    # Try to detect distro from base image name
+    if [[ "$os_name" =~ alpine ]]; then
+        os_family="alpine"
+    elif [[ "$os_name" =~ debian ]]; then
+        os_family="debian"
+    elif [[ "$os_name" =~ ubuntu ]]; then
+        os_family="ubuntu"
+    else
+        # Try to detect from layers or image history
+        local history
+        history=$(docker image history --no-trunc "$image" 2>/dev/null | head -20 || echo "")
+        if echo "$history" | grep -qi "alpine"; then
+            os_family="alpine"
+        elif echo "$history" | grep -qi "debian"; then
+            os_family="debian"
+        elif echo "$history" | grep -qi "ubuntu"; then
+            os_family="ubuntu"
+        else
+            os_family="unknown"
+        fi
+    fi
+    
+    log "  ℹ Detected base OS: $os_family"
+    
+    # Auto-configure exclusions based on primary runtime
+    # Only if user hasn't already set ANCHORE_EXCLUDE_TYPES
+    if [[ -z "${ANCHORE_EXCLUDE_TYPES:-}" ]]; then
+        local runtime_langs=()
+        
+        # Detect runtime languages from image
+        local image_env
+        image_env=$(docker image inspect "$image" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null || echo "")
+        
+        # Check for Node.js
+        if echo "$image_env" | grep -q "NODE_VERSION" || \
+           docker run --rm --entrypoint sh "$image" -c "which node 2>/dev/null" > /dev/null 2>&1; then
+            runtime_langs+=("node")
+            log "  ℹ Detected runtime: Node.js"
+        fi
+        
+        # Check for Python
+        if echo "$image_env" | grep -q "PYTHON_VERSION" || \
+           docker run --rm --entrypoint sh "$image" -c "which python3 2>/dev/null || which python 2>/dev/null" > /dev/null 2>&1; then
+            runtime_langs+=("python")
+            log "  ℹ Detected runtime: Python"
+        fi
+        
+        # Check for Go
+        if echo "$image_env" | grep -q "GOLANG_VERSION" || \
+           docker run --rm --entrypoint sh "$image" -c "which go 2>/dev/null" > /dev/null 2>&1; then
+            runtime_langs+=("go")
+            log "  ℹ Detected runtime: Go"
+        fi
+        
+        # Check for Java
+        if echo "$image_env" | grep -q "JAVA_VERSION" || \
+           docker run --rm --entrypoint sh "$image" -c "which java 2>/dev/null" > /dev/null 2>&1; then
+            runtime_langs+=("java")
+            log "  ℹ Detected runtime: Java"
+        fi
+        
+        # Smart exclusion: if ONLY Node.js is detected, exclude Python/Go/Java build deps
+        if [[ ${#runtime_langs[@]} -eq 1 ]] && [[ "${runtime_langs[0]}" == "node" ]]; then
+            export ANCHORE_EXCLUDE_TYPES="python,go,java,ruby"
+            log "  🔧 Auto-excluding build-stage deps: python,go,java,ruby (Node.js-only runtime)"
+        # If ONLY Python is detected, exclude Go/Java/Node build deps
+        elif [[ ${#runtime_langs[@]} -eq 1 ]] && [[ "${runtime_langs[0]}" == "python" ]]; then
+            export ANCHORE_EXCLUDE_TYPES="go,java,node,ruby"
+            log "  🔧 Auto-excluding build-stage deps: go,java,node,ruby (Python-only runtime)"
+        # If ONLY Go is detected, exclude Python/Java/Node build deps
+        elif [[ ${#runtime_langs[@]} -eq 1 ]] && [[ "${runtime_langs[0]}" == "go" ]]; then
+            export ANCHORE_EXCLUDE_TYPES="python,java,node,ruby"
+            log "  🔧 Auto-excluding build-stage deps: python,java,node,ruby (Go-only runtime)"
+        # If multiple runtimes or none detected, don't auto-exclude
+        else
+            log "  ℹ Multiple or unknown runtimes detected, scanning all packages"
+        fi
+    fi
+}
+
 # Function to scan container images
 scan_images() {
     log ""
@@ -527,6 +647,9 @@ scan_images() {
                 continue
             fi
         fi
+        
+        # Auto-detect image characteristics and configure scanner
+        auto_configure_scanner "$image"
 
         IMAGE_SAFE_NAME=$(echo "$image" | tr '/:' '_')
         IMAGE_RESULT="$IMAGE_RESULTS_DIR/${IMAGE_SAFE_NAME}.json"
@@ -607,6 +730,9 @@ scan_base_images() {
             return 1
         fi
     fi
+    
+    # Auto-detect image characteristics and configure scanner
+    auto_configure_scanner "$PRIMARY_BASELINE_IMAGE"
 
     BASE_IMAGE_RESULT="$IMAGE_RESULTS_DIR/baseline-$(echo "$PRIMARY_BASELINE_IMAGE" | tr '/:' '_').json"
 

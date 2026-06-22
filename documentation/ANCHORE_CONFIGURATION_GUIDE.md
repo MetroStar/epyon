@@ -2,7 +2,27 @@
 
 ## Overview
 
-Epyon's Anchore/Grype scanner can misidentify container operating systems and report false positives when scanning multi-stage builds or cross-platform images. This guide shows how to configure the scanner to prevent false positives and accurately detect vulnerabilities.
+Epyon's Anchore/Grype scanner **automatically detects** container characteristics (OS, architecture, runtime) to prevent false positives. The scanner inspects Docker images before scanning and configures itself appropriately — no manual configuration required for most cases.
+
+### Auto-Detection Features (v3.9.0+)
+
+✅ **Architecture Detection**: Automatically detects ARM64/AMD64 and sets correct platform  
+✅ **OS/Distro Detection**: Identifies Alpine/Debian/Ubuntu from image metadata  
+✅ **Runtime Detection**: Detects Node.js/Python/Go/Java from environment variables and binaries  
+✅ **Smart Exclusions**: Automatically excludes build-stage dependencies for single-runtime images  
+✅ **GitHub Actions Compatible**: Works transparently in CI/CD without user intervention
+
+## How Auto-Detection Works
+
+When scanning container images, Epyon:
+
+1. **Inspects image metadata** using `docker image inspect`
+2. **Detects architecture** (arm64/amd64) and sets `--platform` flag
+3. **Identifies base OS** from labels, image name, and history layers
+4. **Probes runtime binaries** by checking env vars and running `which` commands
+5. **Configures exclusions** based on detected runtime (e.g., Node.js-only → exclude Python/Go/Java)
+
+All detection happens automatically in GitHub Actions workflows — users don't need to set env vars.
 
 ## Common False Positive Scenarios
 
@@ -29,51 +49,86 @@ Epyon's Anchore/Grype scanner can misidentify container operating systems and re
 
 ## Configuration Options
 
-### Environment Variables
+**Note:** These environment variables are **optional overrides** for the auto-detection system. In most cases (especially GitHub Actions), you don't need to set them — the scanner configures itself automatically.
+
+### Environment Variables (Manual Override)
 
 | Variable | Values | Default | Purpose |
 |----------|--------|---------|---------|
-| `ANCHORE_PLATFORM` | `linux/amd64`<br>`linux/arm64`<br>`linux/aarch64` | Auto-detected | Force scanner to use specific platform architecture |
-| `ANCHORE_EXCLUDE_TYPES` | `python,go,java,ruby`<br>(comma-separated) | _(none)_ | Exclude package ecosystems from scan results |
+| `ANCHORE_PLATFORM` | `linux/amd64`<br>`linux/arm64`<br>`linux/aarch64` | Auto-detected from image | Override auto-detected platform architecture |
+| `ANCHORE_EXCLUDE_TYPES` | `python,go,java,ruby`<br>(comma-separated) | Auto-configured | Override auto-detected runtime exclusions |
 | `ANCHORE_SHOW_DISTRO` | `true` / `false` | `true` | Log detected OS/distro after each scan for debugging |
 | `ANCHORE_SKIP_BUILD` | `true` / `false` | `false` | Skip `docker compose build`, pull images from registry instead |
 
 ### Usage Examples
 
-#### Scan Alpine Node.js container from Mac ARM64
+#### Override auto-detection (rarely needed)
 ```bash
-export ANCHORE_PLATFORM="linux/arm64"
-export ANCHORE_EXCLUDE_TYPES="python,go"
-export ANCHORE_SHOW_DISTRO="true"
+# Force specific platform (overrides auto-detection)
+export ANCHORE_PLATFORM="linux/amd64"
+
+# Manually specify exclusions (overrides runtime detection)
+export ANCHORE_EXCLUDE_TYPES="python,go,java"
 
 ./epyon.sh --target /path/to/app --app-name myapp
 ```
 
-#### CI/CD: Skip build, scan production image only
+#### Debug auto-detection behavior
 ```bash
-export ANCHORE_SKIP_BUILD="true"
-export ANCHORE_EXCLUDE_TYPES="python,go,java"
-
-./scripts/shell/run-anchore-scan.sh /path/to/app
-```
-
-#### Debug false positives: Show OS detection
-```bash
+# See what the scanner detects
 export ANCHORE_SHOW_DISTRO="true"
-./scripts/shell/run-anchore-scan.sh --target /app
+./epyon.sh --target /path/to/app --app-name myapp
+
+# Check logs
+grep "Auto-detected\|Detected runtime" scans/*/anchore/anchore-scan.log
 ```
 
-**Output:**
+**Expected output:**
 ```
-[2026-06-22 14:30:45] ℹ Detected OS: alpine 3.21.5
-[2026-06-22 14:30:45] ℹ Image OS: alpine 3.21.5
+[2026-06-22 14:30:45] ℹ Auto-detected architecture: ARM64
+[2026-06-22 14:30:45] ℹ Detected base OS: alpine
+[2026-06-22 14:30:45] ℹ Detected runtime: Node.js
+[2026-06-22 14:30:45] 🔧 Auto-excluding build-stage deps: python,go,java,ruby (Node.js-only runtime)
+[2026-06-22 14:30:46] ℹ Detected OS: alpine 3.21.5
 ```
-
-If you see `debian` when expecting `alpine`, review your Dockerfile and ensure no Debian layers are leaking through.
 
 ## Remediation Workflows
 
-### Step 1: Identify False Positives
+### Step 1: Verify Auto-Detection (v3.9.0+)
+
+**In most cases, you don't need to configure anything.** The scanner automatically detects your image characteristics.
+
+Run a scan and check the logs:
+```bash
+./epyon.sh --target /path/to/app --app-name myapp --scan-mode quick
+
+# Check auto-detection logs
+grep "Auto-detected\|Detected runtime\|Auto-excluding" scans/myapp_*/anchore/anchore-scan.log
+```
+
+**Expected output for Alpine Node.js image:**
+```
+ℹ Auto-detected architecture: ARM64
+ℹ Detected base OS: alpine
+ℹ Detected runtime: Node.js
+🔧 Auto-excluding build-stage deps: python,go,java,ruby (Node.js-only runtime)
+ℹ Detected OS: alpine 3.21.5
+```
+
+✅ If you see these logs, auto-detection is working — false positives should be eliminated automatically.
+
+### Step 2: Manual Override (If Needed)
+
+Only use manual overrides if auto-detection fails or you have special requirements:
+
+```bash
+# Force specific configuration (overrides auto-detection)
+export ANCHORE_PLATFORM="linux/arm64"
+export ANCHORE_EXCLUDE_TYPES="python,go,java"
+./epyon.sh --target /path/to/app --app-name myapp
+```
+
+### Step 3: Identify Remaining False Positives
 
 Run a scan with distro detection enabled:
 ```bash

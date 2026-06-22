@@ -7,3 +7,7 @@
 2026-06-18T20:06:56Z INFO action=ai_config_changed client=127.0.0.1 detail=
 2026-06-20T22:31:47Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/MertoStar/midas.git scan_type=quick
 2026-06-20T22:33:13Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/MetroStar/midas.git scan_type=quick
+2026-06-22T00:16:09Z INFO action=delete_application client=127.0.0.1 detail=app=proof_scan_final
+2026-06-22T00:16:13Z INFO action=delete_application client=127.0.0.1 detail=app=proof_scan_test
+2026-06-22T00:16:15Z INFO action=delete_application client=127.0.0.1 detail=app=proof_scan_test2
+2026-06-22T00:16:36Z INFO action=delete_application client=127.0.0.1 detail=app=proof_scan_test3

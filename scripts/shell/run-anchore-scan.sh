@@ -27,6 +27,10 @@ show_help() {
     echo "  TARGET_DIR          Alternative way to specify target directory"
     echo "  SCAN_ID             Override auto-generated scan ID"
     echo "  SCAN_DIR            Override output directory for scan results"
+    echo "  ANCHORE_PLATFORM    Force platform (linux/amd64, linux/arm64, linux/aarch64)"
+    echo "  ANCHORE_EXCLUDE_TYPES   Exclude package types (comma-separated: python,go,java)"
+    echo "  ANCHORE_SHOW_DISTRO     Show detected distro after each scan (true/false)"
+    echo "  ANCHORE_SKIP_BUILD      Skip docker compose build, pull from registry (true/false)"
     echo ""
     echo "Output:"
     echo "  Results are saved to: scans/{SCAN_ID}/anchore/"
@@ -117,6 +121,57 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
+# Function to filter excluded package types from scan results
+# Usage: filter_excluded_types <results_file>
+filter_excluded_types() {
+    local results_file="$1"
+    
+    # Skip if no exclusions configured or file doesn't exist
+    [[ -z "$ANCHORE_EXCLUDE_TYPES" ]] && return 0
+    [[ ! -f "$results_file" ]] && return 0
+    
+    # Convert comma-separated list to jq filter array
+    local types_array
+    IFS=',' read -ra types_array <<< "$ANCHORE_EXCLUDE_TYPES"
+    
+    # Build jq filter to exclude packages
+    local filter='['
+    for type in "${types_array[@]}"; do
+        type=$(echo "$type" | xargs)  # trim whitespace
+        # Match on artifact.type, artifact.language, or artifact.metadata.type
+        filter+=".matches[] | select("
+        filter+="(.artifact.type // \"\" | ascii_downcase) != \"$type\" and "
+        filter+="(.artifact.language // \"\" | ascii_downcase) != \"$type\" and "
+        filter+="(.artifact.metadata.type // \"\" | ascii_downcase) != \"$type\""
+        filter+="),"
+    done
+    filter="${filter%,}]"  # remove trailing comma
+    
+    # Apply filter and count removed matches
+    local original_count filtered_count removed_count
+    original_count=$(jq -r '.matches | length' "$results_file" 2>/dev/null || echo "0")
+    
+    if [[ "$original_count" -gt 0 ]]; then
+        local tmp_file="${results_file}.filtered"
+        jq ".matches |= $filter" "$results_file" > "$tmp_file" 2>/dev/null
+        
+        if [[ -f "$tmp_file" ]]; then
+            filtered_count=$(jq -r '.matches | length' "$tmp_file" 2>/dev/null || echo "0")
+            removed_count=$((original_count - filtered_count))
+            
+            if [[ $removed_count -gt 0 ]]; then
+                mv "$tmp_file" "$results_file"
+                log "  🔧 Filtered $removed_count excluded package type(s) (${ANCHORE_EXCLUDE_TYPES})"
+                return 0
+            else
+                rm -f "$tmp_file"
+            fi
+        fi
+    fi
+    
+    return 0
+}
+
 # Display banner
 cat << 'EOF'
 
@@ -159,6 +214,32 @@ else
     SYFT_CMD="docker"
 fi
 
+# ── Platform Detection ────────────────────────────────────────────────────────
+# Auto-detect platform for proper OS identification (prevents false positives)
+if [[ -z "${ANCHORE_PLATFORM:-}" ]]; then
+    # Auto-detect: Mac ARM64 → linux/arm64, otherwise linux/amd64
+    if [[ "$(uname -s)" == "Darwin" ]] && [[ "$(uname -m)" == "arm64" ]]; then
+        ANCHORE_PLATFORM="linux/arm64"
+        log "ℹ Auto-detected platform: linux/arm64 (Apple Silicon)"
+    else
+        ANCHORE_PLATFORM="linux/amd64"
+        log "ℹ Auto-detected platform: linux/amd64"
+    fi
+else
+    log "ℹ Using configured platform: $ANCHORE_PLATFORM"
+fi
+
+# ── Package Filtering ─────────────────────────────────────────────────────────
+# Exclude specific package ecosystems to reduce false positives
+# Example: ANCHORE_EXCLUDE_TYPES="python,go,java" to skip build-stage deps
+ANCHORE_EXCLUDE_TYPES="${ANCHORE_EXCLUDE_TYPES:-}"
+if [[ -n "$ANCHORE_EXCLUDE_TYPES" ]]; then
+    log "ℹ Excluding package types: $ANCHORE_EXCLUDE_TYPES"
+fi
+
+# ── Distro Detection Logging ──────────────────────────────────────────────────
+ANCHORE_SHOW_DISTRO="${ANCHORE_SHOW_DISTRO:-true}"
+
 # Function to scan filesystem with Anchore (using Grype CLI)
 scan_filesystem() {
     log ""
@@ -176,12 +257,14 @@ scan_filesystem() {
 
     # Run Anchore/Grype scan on filesystem
     if [ "$GRYPE_CMD" = "grype" ]; then
-        grype "dir:$REPO_PATH" \
-            -o json \
-            --file "$OUTPUT_DIR/anchore-filesystem-results.json" \
-            >> "$LOG_FILE" 2>&1
+        # Build grype command with optional platform flag
+        GRYPE_ARGS=("dir:$REPO_PATH" "-o" "json" "--file" "$OUTPUT_DIR/anchore-filesystem-results.json")
+        [[ -n "$ANCHORE_PLATFORM" ]] && GRYPE_ARGS+=("--platform" "$ANCHORE_PLATFORM")
+        
+        grype "${GRYPE_ARGS[@]}" >> "$LOG_FILE" 2>&1
     else
         docker run --rm \
+            --platform "$ANCHORE_PLATFORM" \
             -v "$REPO_PATH:/scan:ro" \
             -v "$OUTPUT_DIR:/output" \
             anchore/grype:latest \
@@ -192,6 +275,15 @@ scan_filesystem() {
     fi
     
     if [ $? -eq 0 ] && [ -f "$FILESYSTEM_RESULTS" ]; then
+        # Show detected distro for debugging false positives
+        if [[ "$ANCHORE_SHOW_DISTRO" == "true" ]]; then
+            local detected_distro
+            detected_distro=$(jq -r '.distro.name // .distro.type // "unknown"' "$FILESYSTEM_RESULTS" 2>/dev/null || echo "unknown")
+            local detected_version
+            detected_version=$(jq -r '.distro.version // ""' "$FILESYSTEM_RESULTS" 2>/dev/null || echo "")
+            log "ℹ Detected OS: $detected_distro $detected_version"
+        fi
+        
         VULN_COUNT=$(jq -r '.matches | length' "$FILESYSTEM_RESULTS" 2>/dev/null || echo "0")
 
         # Strip false-positive matches for unpinned packages (version=0.0.0)
@@ -203,8 +295,12 @@ scan_filesystem() {
                 "$FILESYSTEM_RESULTS" 2>/dev/null >> "$LOG_FILE"
             local tmp_fs="${FILESYSTEM_RESULTS}.tmp"
             jq 'del(.matches[] | select(.artifact.version=="0.0.0"))' "$FILESYSTEM_RESULTS" > "$tmp_fs" 2>/dev/null && mv "$tmp_fs" "$FILESYSTEM_RESULTS"
-            VULN_COUNT=$(jq -r '.matches | length' "$FILESYSTEM_RESULTS" 2>/dev/null || echo "0")
         fi
+        
+        # Filter excluded package types
+        filter_excluded_types "$FILESYSTEM_RESULTS"
+        
+        VULN_COUNT=$(jq -r '.matches | length' "$FILESYSTEM_RESULTS" 2>/dev/null || echo "0")
 
         log "✅ Filesystem scan complete: $VULN_COUNT vulnerabilities found"
         
@@ -302,12 +398,13 @@ scan_sbom() {
         log "ℹ Scanning SBOM for vulnerabilities: $(basename "$SBOM_FILE")"
 
         if [ "$GRYPE_CMD" = "grype" ]; then
-            grype "sbom:$SBOM_FILE" \
-                -o json \
-                --file "$OUTPUT_DIR/anchore-sbom-results.json" \
-                >> "$LOG_FILE" 2>&1
+            GRYPE_SBOM_ARGS=("sbom:$SBOM_FILE" "-o" "json" "--file" "$OUTPUT_DIR/anchore-sbom-results.json")
+            [[ -n "$ANCHORE_PLATFORM" ]] && GRYPE_SBOM_ARGS+=("--platform" "$ANCHORE_PLATFORM")
+            
+            grype "${GRYPE_SBOM_ARGS[@]}" >> "$LOG_FILE" 2>&1
         else
             docker run --rm \
+                --platform "$ANCHORE_PLATFORM" \
                 -v "$(dirname "$SBOM_FILE"):/sbom:ro" \
                 -v "$OUTPUT_DIR:/output" \
                 anchore/grype:latest \
@@ -327,6 +424,10 @@ scan_sbom() {
                 local tmp_res="${SBOM_RESULTS}.tmp"
                 jq 'del(.matches[] | select(.artifact.version=="0.0.0"))' "$SBOM_RESULTS" > "$tmp_res" 2>/dev/null && mv "$tmp_res" "$SBOM_RESULTS"
             fi
+            
+            # Filter excluded package types
+            filter_excluded_types "$SBOM_RESULTS"
+            
             VULN_COUNT=$(jq -r '.matches | length' "$SBOM_RESULTS" 2>/dev/null || echo "0")
             log "✅ SBOM scan complete: $VULN_COUNT vulnerabilities found"
             return 0
@@ -431,12 +532,13 @@ scan_images() {
         IMAGE_RESULT="$IMAGE_RESULTS_DIR/${IMAGE_SAFE_NAME}.json"
 
         if [ "$GRYPE_CMD" = "grype" ]; then
-            grype "$image" \
-                -o json \
-                --file "$IMAGE_RESULTS_DIR/${IMAGE_SAFE_NAME}.json" \
-                >> "$LOG_FILE" 2>&1
+            GRYPE_IMG_ARGS=("$image" "-o" "json" "--file" "$IMAGE_RESULTS_DIR/${IMAGE_SAFE_NAME}.json")
+            [[ -n "$ANCHORE_PLATFORM" ]] && GRYPE_IMG_ARGS+=("--platform" "$ANCHORE_PLATFORM")
+            
+            grype "${GRYPE_IMG_ARGS[@]}" >> "$LOG_FILE" 2>&1
         else
             docker run --rm \
+                --platform "$ANCHORE_PLATFORM" \
                 -v /var/run/docker.sock:/var/run/docker.sock \
                 -v "$OUTPUT_DIR:/output" \
                 anchore/grype:latest \
@@ -447,6 +549,18 @@ scan_images() {
         fi
 
         if [ $? -eq 0 ] && [ -f "$IMAGE_RESULT" ]; then
+            # Show detected distro for debugging false positives
+            if [[ "$ANCHORE_SHOW_DISTRO" == "true" ]]; then
+                local img_distro
+                img_distro=$(jq -r '.distro.name // .distro.type // "unknown"' "$IMAGE_RESULT" 2>/dev/null || echo "unknown")
+                local img_version
+                img_version=$(jq -r '.distro.version // ""' "$IMAGE_RESULT" 2>/dev/null || echo "")
+                log "  ℹ Image OS: $img_distro $img_version"
+            fi
+            
+            # Filter excluded package types
+            filter_excluded_types "$IMAGE_RESULT"
+            
             VULN_COUNT=$(jq -r '.matches | length' "$IMAGE_RESULT" 2>/dev/null || echo "0")
             log "  ✅ Scan complete: $VULN_COUNT vulnerabilities"
             ((scan_count++))
@@ -497,13 +611,14 @@ scan_base_images() {
     BASE_IMAGE_RESULT="$IMAGE_RESULTS_DIR/baseline-$(echo "$PRIMARY_BASELINE_IMAGE" | tr '/:' '_').json"
 
     if [ "$GRYPE_CMD" = "grype" ]; then
-        grype "$PRIMARY_BASELINE_IMAGE" \
-            -o json \
-            --file "$BASE_IMAGE_RESULT" \
-            >> "$LOG_FILE" 2>&1
+        GRYPE_BASE_ARGS=("$PRIMARY_BASELINE_IMAGE" "-o" "json" "--file" "$BASE_IMAGE_RESULT")
+        [[ -n "$ANCHORE_PLATFORM" ]] && GRYPE_BASE_ARGS+=("--platform" "$ANCHORE_PLATFORM")
+        
+        grype "${GRYPE_BASE_ARGS[@]}" >> "$LOG_FILE" 2>&1
         local _base_scan_exit=$?
     else
         docker run --rm \
+            --platform "$ANCHORE_PLATFORM" \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v "$OUTPUT_DIR:/output" \
             anchore/grype:latest \

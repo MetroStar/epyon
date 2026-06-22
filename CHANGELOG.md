@@ -5,6 +5,22 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.9.0] - 2026-06-22
+
+### Added
+- **Anchore false-positive prevention** — Platform detection, distro logging, and package filtering to prevent OS misidentification and build-stage dependency false positives
+  - `ANCHORE_PLATFORM`: Force scanner platform (linux/amd64, linux/arm64, linux/aarch64); auto-detects Apple Silicon → linux/arm64
+  - `ANCHORE_EXCLUDE_TYPES`: Exclude package ecosystems (comma-separated: python,go,java,ruby) to filter build-stage dependencies from production scans
+  - `ANCHORE_SHOW_DISTRO`: Log detected OS/distro after each scan (default: true) for debugging false positives
+  - Platform flags propagated to all Grype invocations (filesystem, SBOM, image, baseline scans)
+  - Post-scan filtering removes excluded package types from results with count logging
+  - Distro detection output shows Alpine vs Debian to catch OS misidentification
+- **ANCHORE_CONFIGURATION_GUIDE.md** — Comprehensive documentation for preventing false positives, with remediation workflows, multi-stage Dockerfile best practices, and troubleshooting guides
+
+### Changed
+- Anchore scanner now auto-detects platform on macOS ARM64 to prevent cross-platform false positives
+- Scan logs now show detected OS distribution and version for all Anchore scans when `ANCHORE_SHOW_DISTRO=true`
+
 ## [3.8.5] - 2026-06-18
 
 ### Fixed

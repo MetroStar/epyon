@@ -372,8 +372,15 @@ Then open **http://127.0.0.1:8000** in your browser.
 | `PORT` | `8000` | Port for `start.sh` |
 | `EPYON_SCANS_DIR` | `../scans` (relative to `web/`) | Directory where scan results are stored |
 | `OPENAI_API_KEY` | *(optional)* | Enables AI-powered scan summaries |
+| **Anchore/Grype Configuration** |||
+| `ANCHORE_PLATFORM` | Auto-detected | Force scanner platform: `linux/amd64`, `linux/arm64`, `linux/aarch64`. Auto-detects Apple Silicon → `linux/arm64` |
+| `ANCHORE_EXCLUDE_TYPES` | *(none)* | Exclude package types (comma-separated): `python,go,java,ruby` to filter build-stage deps |
+| `ANCHORE_SHOW_DISTRO` | `true` | Log detected OS/distro after each scan for debugging false positives |
+| `ANCHORE_SKIP_BUILD` | `false` | Skip `docker compose build`, pull images from registry instead |
 
 > **Note:** The scans displayed in the UI are read from the `scans/` directory at the repo root by default. Point `EPYON_SCANS_DIR` to a different path if your results live elsewhere.
+>
+> **Anchore False Positives:** If you see mismatched OS vulnerabilities (e.g., Debian CVEs in Alpine containers) or build-stage dependency CVEs (Go/Python in Node.js-only images), see **[documentation/ANCHORE_CONFIGURATION_GUIDE.md](documentation/ANCHORE_CONFIGURATION_GUIDE.md)** for remediation steps.
 
 ---
 
@@ -1379,6 +1386,7 @@ Our SonarQube integration now uses **LCOV format** as the primary coverage sourc
 - **[documentation/SCAN_MANIFEST_GUIDE.md](documentation/SCAN_MANIFEST_GUIDE.md)** - Cryptographic manifest creation and verification
 - **[documentation/DEPLOYMENT_SUMMARY_MANIFEST_SYSTEM.md](documentation/DEPLOYMENT_SUMMARY_MANIFEST_SYSTEM.md)** - Manifest system deployment and validation results
 - **[documentation/IGNORE_RULES_GUIDE.md](documentation/IGNORE_RULES_GUIDE.md)** - `.epyon-ignore.yml` suppression configuration guide
+- **[documentation/ANCHORE_CONFIGURATION_GUIDE.md](documentation/ANCHORE_CONFIGURATION_GUIDE.md)** - Anchore false-positive prevention and scanner configuration
 - **[documentation/DEDUPLICATION_IMPLEMENTATION.md](documentation/DEDUPLICATION_IMPLEMENTATION.md)** - Finding deduplication logic and implementation details
 - **[documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md](documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md)** - Security review and test coverage analysis
 - **[documentation/STIG_COMPLIANCE_GUIDE.md](documentation/STIG_COMPLIANCE_GUIDE.md)** - STIG and RMF compliance documentation
@@ -1526,6 +1534,7 @@ export HIGH_ALERT_THRESHOLD="5"
 - **[documentation/SCAN_MANIFEST_GUIDE.md](documentation/SCAN_MANIFEST_GUIDE.md)** - Cryptographic manifest creation and verification
 - **[documentation/DEPLOYMENT_SUMMARY_MANIFEST_SYSTEM.md](documentation/DEPLOYMENT_SUMMARY_MANIFEST_SYSTEM.md)** - Manifest system deployment and validation
 - **[documentation/IGNORE_RULES_GUIDE.md](documentation/IGNORE_RULES_GUIDE.md)** - `.epyon-ignore.yml` suppression configuration guide
+- **[documentation/ANCHORE_CONFIGURATION_GUIDE.md](documentation/ANCHORE_CONFIGURATION_GUIDE.md)** - Anchore false-positive prevention and scanner configuration
 - **[documentation/DEDUPLICATION_IMPLEMENTATION.md](documentation/DEDUPLICATION_IMPLEMENTATION.md)** - Finding deduplication logic and implementation
 - **[documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md](documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md)** - Security review and test coverage analysis
 - **[documentation/STIG_COMPLIANCE_GUIDE.md](documentation/STIG_COMPLIANCE_GUIDE.md)** - STIG and RMF compliance documentation

@@ -5,6 +5,35 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.11.0] - 2026-06-23
+
+### Added
+- **Multi-Feed CVE Enrichment** — CVE findings now enriched from seven international vulnerability feeds
+  - **OSV.dev** — Open source package vulnerabilities across all ecosystems
+  - **GitHub Security Advisories (GHSA)** — OSS ecosystem advisories with CVSS scores and patch info
+  - **JVN (Japan Vulnerability Notes)** — Japanese vulnerability database with international CVE coverage
+  - **EUVD (ENISA)** — European Vulnerability Database (planned)
+  - **GitLab Advisory Database** — Git-backed OSS advisories (planned)
+  - Existing feeds: NVD (NIST), CISA KEV
+- **New Scripts**:
+  - `fetch-cve-feeds.py` — Python feed aggregator with caching (24-hour TTL)
+  - `enrich-findings-multi-feed.sh` — Multi-feed enrichment wrapper integrated into scan pipeline
+- **Feed-Specific Data** — Findings now include `feed_sources` field with:
+  - List of feeds that returned data
+  - Feed-specific summaries (OSV summary, GHSA severity/count)
+  - Timestamp of enrichment
+- **Comprehensive Documentation** — `documentation/MULTI_FEED_CVE_ENRICHMENT.md` with:
+  - Feed capabilities and coverage comparison
+  - Configuration guide (GitHub token, cache settings)
+  - Manual enrichment instructions
+  - Troubleshooting guide
+  - Instructions for adding new feeds
+
+### Changed
+- Scan orchestration now runs multi-feed enrichment automatically after NVD/KEV enrichment
+- Default limit: 50 CVEs per scan (configurable via `MAX_FEED_CVES` environment variable)
+- Feed data cached locally for 24 hours to minimize API calls
+
 ## [3.10.2] - 2026-06-23
 
 ### Changed

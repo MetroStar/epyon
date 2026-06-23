@@ -671,31 +671,6 @@ Epyon uses **Docker Hardened Images (DHI)** as the default baseline for containe
 16. **🥒 PickleScan** - ML model serialization safety scanning (`.pkl`, `.pt`, `.bin`, `.h5`, `.ckpt`, etc.)
 17. **📄 Model Card Compliance** - HuggingFace model card validation against documentation standards
 
-### 🌐 Multi-Feed CVE Enrichment
-
-**International Vulnerability Feed Coverage:**
-
-Epyon enriches CVE findings from **seven global vulnerability feeds** for comprehensive security intelligence:
-
-| Feed | Coverage | Status |
-|------|----------|--------|
-| **NVD** (NIST) | CVSS scores, CWE IDs, CPEs | ✅ Active |
-| **CISA KEV** | Known exploited vulnerabilities | ✅ Active |
-| **OSV.dev** | Open source packages (npm, PyPI, Go, Maven, RubyGems, etc.) | ✅ Active |
-| **GitHub Security Advisories** | OSS ecosystem advisories with patch info | ✅ Active |
-| **JVN** (Japan) | Japanese vulnerability database with international coverage | ✅ Active |
-| **GitLab Advisory Database** | Git-backed OSS advisories | 🚧 Planned |
-| **EUVD** (ENISA) | European Vulnerability Database | 🚧 Planned |
-
-**Features:**
-- Automatic enrichment during scans (configurable limit: 50 CVEs per scan)
-- 24-hour caching to minimize API calls
-- Feed-specific data: OSV summaries, GHSA severity/patch versions, JVN references
-- Graceful degradation when feeds unavailable
-
-**Configuration:** See [Multi-Feed CVE Enrichment Guide](documentation/MULTI_FEED_CVE_ENRICHMENT.md)
-
-
 ### Quality Assurance
 
 **✅ Comprehensive Test Coverage:**

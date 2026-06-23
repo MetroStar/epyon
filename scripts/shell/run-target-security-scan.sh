@@ -1455,6 +1455,15 @@ else
     echo -e "${YELLOW}⚠️  enrich-findings.sh not found, skipping enrichment${NC}"
 fi
 
+# ── Step 3.5: Enrich with international CVE feeds ────────────────────────────
+echo ""
+echo -e "${BLUE}🌐 Enriching with international CVE feeds (OSV, GHSA, JVN, etc.)...${NC}"
+if [[ -f "$SCRIPT_DIR/enrich-findings-multi-feed.sh" ]]; then
+    "$SCRIPT_DIR/enrich-findings-multi-feed.sh" --scan-dir "$SCAN_DIR" || true
+else
+    echo -e "${YELLOW}⚠️  enrich-findings-multi-feed.sh not found, skipping multi-feed enrichment${NC}"
+fi
+
 # ── Step 4: Consolidate + generate dashboard (reads findings summary + suppressed-findings.md) ─
 # Run the unified report consolidation
 if [[ -f "$SCRIPT_DIR/consolidate-security-reports.sh" ]]; then

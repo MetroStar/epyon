@@ -5,6 +5,23 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.11.4] - 2026-06-23
+
+### Fixed
+- **Web UI PATH Environment** — Ensured subprocess PATH includes Homebrew locations (`/opt/homebrew/bin`, `/usr/local/bin`, `/home/linuxbrew/.linuxbrew/bin`)
+  - Fixes issue where shell auto-detection couldn't find bash 4+ because web server's PATH didn't include Homebrew
+  - Script shebang `#!/usr/bin/env bash` now correctly finds bash 4+ when invoked by web API
+  - Works across macOS (Homebrew), Linux (Linuxbrew), and standard system paths
+
+## [3.11.3] - 2026-06-23
+
+### Fixed
+- **Web UI Shell Compatibility** — Added shell auto-detection to `run-epyon-scan-ci.sh` (the script invoked by web UI)
+  - Web API now lets script shebang and auto-detection handle shell selection instead of forcing bash interpreter
+  - Removed explicit bash invocation in `web/api/jobs.py` that was bypassing shell detection logic
+  - Previously, web UI forced a bash interpreter which could be bash 3.2 on macOS, causing syntax errors
+  - Scripts now correctly detect and use bash 4+ regardless of parent process shell
+
 ## [3.11.2] - 2026-06-23
 
 ### Fixed

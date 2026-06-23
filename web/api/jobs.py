@@ -242,6 +242,14 @@ async def run_scan_job(
     if openai_base_url:
         env["OPENAI_BASE_URL"] = openai_base_url
 
+    # Ensure PATH includes Homebrew locations so script can find bash 4+
+    current_path = env.get("PATH", "")
+    homebrew_paths = "/opt/homebrew/bin:/usr/local/bin:/home/linuxbrew/.linuxbrew/bin"
+    if current_path:
+        env["PATH"] = f"{homebrew_paths}:{current_path}"
+    else:
+        env["PATH"] = f"{homebrew_paths}:/usr/bin:/bin"
+
     # Let the script's shebang and shell auto-detection handle bash selection.
     # The script contains shell auto-detection logic that finds bash 4+ and re-execs.
     # Invoking as `bash script.sh` would bypass that logic, so we invoke directly.

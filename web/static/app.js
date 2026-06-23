@@ -644,6 +644,8 @@ const api = {
   getGitHubSignalsHistory()  { return this._get('/api/github-signals-history'); },
   getAiConfig() { return this._get('/api/ai/config'); },
   saveAiConfig(d){ return this._post('/api/ai/config', d); },
+  getNvdConfig() { return this._get('/api/nvd/config'); },
+  saveNvdConfig(d){ return this._post('/api/nvd/config', d); },
   getExecSummary(id)      { return this._post(`/api/scans/${encodeURIComponent(id)}/executive-summary`, {}); },
   getTechnicalSummary(id) { return this._post(`/api/scans/${encodeURIComponent(id)}/technical-summary`, {}); },
   getGlobalExecSummary()      { return this._post('/api/executive-summary', {}); },
@@ -4741,11 +4743,12 @@ async function renderSettings() {
   page.innerHTML = loading();
 
   try {
-    const [images, history, ghCfg, aiCfg, health, jiraCfg] = await Promise.all([
+    const [images, history, ghCfg, aiCfg, nvdCfg, health, jiraCfg] = await Promise.all([
       api.getApprovedImages(),
       api.getScanHistory(),
       api.getGitHubConfig(),
       api.getAiConfig(),
+      api.getNvdConfig(),
       api._get('/api/health'),
       api.getJiraConfig().catch(() => ({})),
     ]);
@@ -4809,6 +4812,30 @@ async function renderSettings() {
           </div>
           <div>
             <button class="btn btn-primary" onclick="saveAiConfig()">Save AI Config</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">NVD API Key</div>
+        <p class="section-desc">
+          Configure an API key for the <a href="https://nvd.nist.gov/developers/request-an-api-key" target="_blank" style="color:var(--accent)">National Vulnerability Database</a> to increase CVSS enrichment rate from 5 requests per 30 seconds (unauthenticated) to 50 requests per 30 seconds (with key). This dramatically speeds up scan enrichment for large CVE lists.
+        </p>
+        ${nvdCfg.from_env ? `
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>Key loaded from environment variable (<code style="background:var(--bg-input);padding:1px 4px;border-radius:3px">NVD_API_KEY</code>). Fill in the form below to override with saved settings.</span>
+        </div>` : ''}
+        <div style="display:grid;gap:14px;max-width:600px">
+          <div>
+            <label class="field-label">NVD API Key</label>
+            <input id="nvd-key" type="password" class="field-input"
+              placeholder="${nvdCfg.key_set ? 'Key saved — enter new to replace' : (nvdCfg.from_env ? 'Set via NVD_API_KEY env var' : 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')}"
+              autocomplete="off"/>
+            ${nvdCfg.key_set && !nvdCfg.from_env ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Current: ${esc(nvdCfg.key_hint)}</div>` : ''}
+          </div>
+          <div>
+            <button class="btn btn-primary" onclick="saveNvdConfig()">Save NVD Config</button>
           </div>
         </div>
       </div>
@@ -5019,6 +5046,18 @@ async function saveAiConfig() {
     if (keyEl) keyEl.value = '';
   } catch (e) {
     alert('Failed to save AI config: ' + e.message);
+  }
+}
+
+async function saveNvdConfig() {
+  const keyEl = document.getElementById('nvd-key');
+  const key = keyEl ? keyEl.value.trim() : '';
+  try {
+    await api.saveNvdConfig({ api_key: key || 'KEEP_EXISTING' });
+    if (keyEl) keyEl.value = '';
+    alert('NVD API key saved successfully. Scans will now use up to 50 requests per 30 seconds.');
+  } catch (e) {
+    alert('Failed to save NVD config: ' + e.message);
   }
 }
 

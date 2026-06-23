@@ -372,6 +372,7 @@ Then open **http://127.0.0.1:8000** in your browser.
 | `PORT` | `8000` | Port for `start.sh` |
 | `EPYON_SCANS_DIR` | `../scans` (relative to `web/`) | Directory where scan results are stored |
 | `OPENAI_API_KEY` | *(optional)* | Enables AI-powered scan summaries |
+| `NVD_API_KEY` | *(optional)* | NVD API key for CVSS enrichment (50 req/30s vs 5 req/30s unauthenticated). Get one at [nvd.nist.gov/developers/request-an-api-key](https://nvd.nist.gov/developers/request-an-api-key). Also configurable via web UI Settings page. |
 | **Anchore/Grype Auto-Detection (v3.9.0+)** |||
 | *(auto)* | *(inspects images)* | **Automatically detects**: architecture (ARM64/AMD64), base OS (Alpine/Debian/Ubuntu), runtime (Node.js/Python/Go/Java), and excludes build-stage dependencies. No configuration needed for GitHub Actions. |
 | **Anchore Manual Overrides (optional)** |||

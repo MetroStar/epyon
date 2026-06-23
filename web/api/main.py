@@ -2238,6 +2238,70 @@ async def ai_config_post(request: Request, response: Response):
     return {"ok": True}
 
 
+# ── NVD API config ────────────────────────────────────────────
+
+NVD_CONFIG_FILE = Path("data/nvd-config.json")
+
+def read_nvd_config() -> dict:
+    """Read NVD API key config from data/nvd-config.json."""
+    if NVD_CONFIG_FILE.exists():
+        try:
+            with open(NVD_CONFIG_FILE) as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def write_nvd_config(cfg: dict):
+    """Write NVD API key config to data/nvd-config.json."""
+    NVD_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(NVD_CONFIG_FILE, "w") as f:
+        json.dump(cfg, f, indent=2)
+
+@app.get("/api/nvd/config")
+def nvd_config_get(response: Response):
+    _sec_headers(response)
+    # Check env var first (takes priority)
+    env_key = os.getenv("NVD_API_KEY", "")
+    if env_key:
+        masked = re.sub(r"(?<=.{4}).(?=.{4})", "*", env_key) if env_key else ""
+        return {
+            "key_set": True,
+            "key_hint": masked,
+            "from_env": True,
+        }
+    
+    # Otherwise check saved config
+    cfg = read_nvd_config()
+    key = cfg.get("api_key", "")
+    masked = re.sub(r"(?<=.{4}).(?=.{4})", "*", key) if key else ""
+    return {
+        "key_set": bool(key),
+        "key_hint": masked,
+        "from_env": False,
+    }
+
+@app.post("/api/nvd/config")
+async def nvd_config_post(request: Request, response: Response):
+    _sec_headers(response)
+    _audit(request, "nvd_config_changed")
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Invalid JSON")
+
+    cfg = read_nvd_config()
+    new_key = (body.get("api_key") or "").strip()
+    if new_key and new_key != "KEEP_EXISTING":
+        # NVD API keys are UUIDs with dashes
+        if not re.match(r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$", new_key, re.IGNORECASE):
+            raise HTTPException(400, "api_key must be a valid NVD API key (UUID format)")
+        cfg["api_key"] = new_key
+    
+    write_nvd_config(cfg)
+    return {"ok": True}
+
+
 # ── Executive summary ─────────────────────────────────────────
 
 @app.post("/api/scans/{scan_id}/executive-summary")

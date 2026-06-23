@@ -43,6 +43,22 @@ while [[ $# -gt 0 ]]; do
 done
 
 log()  { [[ "$QUIET" == false ]] && echo -e "$*" >&2 || true; }
+
+# ── Load NVD API key from config file if not set ─────────────────────────────
+if [[ -z "$NVD_API_KEY" ]]; then
+    NVD_CONFIG_FILE="$(dirname "$0")/../../web/data/nvd-config.json"
+    if [[ -f "$NVD_CONFIG_FILE" ]]; then
+        NVD_API_KEY=$(python3 -c "
+import json, sys
+try:
+    with open('$NVD_CONFIG_FILE') as f:
+        cfg = json.load(f)
+        print(cfg.get('api_key', ''), end='')
+except:
+    pass
+" 2>/dev/null || true)
+    fi
+fi
 warn() { echo -e "${YELLOW}⚠️  $*${NC}" >&2; }
 info() { log "${CYAN}ℹ️  $*${NC}"; }
 ok()   { log "${GREEN}✅ $*${NC}"; }
@@ -160,28 +176,53 @@ NVD_BASE = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 # Authenticated:  50 requests / 30 s  → sleep 0.7 s between calls
 SLEEP_INTERVAL = 0.7 if nvd_api_key else 6.0
 
+# Timeout and retry configuration
+NVD_TIMEOUT = int(os.getenv("NVD_TIMEOUT", "45"))  # seconds
+NVD_MAX_RETRIES = int(os.getenv("NVD_MAX_RETRIES", "3"))
+
 nvd_cache: dict = {}
 
 def fetch_nvd(cve_id: str) -> dict | None:
-    """Return the NVD CVE item dict or None on failure."""
+    """Return the NVD CVE item dict or None on failure. Retries with exponential backoff."""
     params = {"cveId": cve_id}
     url = NVD_BASE + "?" + urllib.parse.urlencode(params)
     headers = {"User-Agent": "epyon-security-scanner/1.0"}
     if nvd_api_key:
         headers["apiKey"] = nvd_api_key
-    try:
-        req = urllib.request.Request(url, headers=headers)
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            body = json.load(resp)
-        vulns = body.get("vulnerabilities", [])
-        if vulns:
-            return vulns[0].get("cve", {})
-    except urllib.error.HTTPError as e:
-        if e.code == 404:
-            return None  # CVE not in NVD
-        print(f"  NVD HTTP {e.code} for {cve_id}", file=sys.stderr)
-    except Exception as e:
-        print(f"  NVD error for {cve_id}: {e}", file=sys.stderr)
+    
+    for attempt in range(NVD_MAX_RETRIES):
+        try:
+            req = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(req, timeout=NVD_TIMEOUT) as resp:
+                body = json.load(resp)
+            vulns = body.get("vulnerabilities", [])
+            if vulns:
+                return vulns[0].get("cve", {})
+            return None  # Empty result
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return None  # CVE not in NVD
+            # Retry on 5xx errors
+            if e.code >= 500 and attempt < NVD_MAX_RETRIES - 1:
+                wait_time = (2 ** attempt) * 2  # 2s, 4s, 8s
+                print(f"  NVD HTTP {e.code} for {cve_id}, retrying in {wait_time}s (attempt {attempt+1}/{NVD_MAX_RETRIES})", file=sys.stderr)
+                time.sleep(wait_time)
+                continue
+            print(f"  NVD HTTP {e.code} for {cve_id}", file=sys.stderr)
+            return None
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            # Retry on network/timeout errors
+            if attempt < NVD_MAX_RETRIES - 1:
+                wait_time = (2 ** attempt) * 2  # 2s, 4s, 8s
+                print(f"  NVD timeout for {cve_id}, retrying in {wait_time}s (attempt {attempt+1}/{NVD_MAX_RETRIES})", file=sys.stderr)
+                time.sleep(wait_time)
+                continue
+            print(f"  NVD error for {cve_id}: {e}", file=sys.stderr)
+            return None
+        except Exception as e:
+            print(f"  NVD error for {cve_id}: {e}", file=sys.stderr)
+            return None
+    
     return None
 
 def nvd_enrich(cve_id: str) -> dict:

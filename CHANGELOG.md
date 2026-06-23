@@ -5,6 +5,22 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.10.0] - 2026-06-22
+
+### Added
+- **NVD API Key configuration in web UI** — Settings page now includes a dedicated section for NVD (National Vulnerability Database) API key configuration
+  - New `/api/nvd/config` endpoint (GET/POST) for managing NVD API keys
+  - Supports both environment variable (`NVD_API_KEY`) and UI-managed config (`web/data/nvd-config.json`)
+  - Environment variable takes priority when set; UI shows notification when env var is active
+  - Key validation enforces UUID format required by NVD API 2.0
+  - `enrich-findings.sh` automatically loads key from config file if not set via environment
+  - Increases CVSS enrichment rate from 5 requests/30s (unauthenticated) to 50 requests/30s (with key)
+  - Dramatically speeds up enrichment for scans with 20+ CVEs (from 6+ minutes to <30 seconds)
+
+### Changed
+- NVD API key can now be configured through web UI Settings page in addition to environment variable
+- Enrichment script reads from `web/data/nvd-config.json` as fallback when `NVD_API_KEY` env var not set
+
 ## [3.9.0] - 2026-06-22
 
 ### Added

@@ -200,7 +200,7 @@ async def _jira_post_scan(target_name: str) -> None:
         if not cfg.get("auto_close") or not cfg.get("api_token"):
             return
 
-        all_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+        all_dirs = parsers.find_scan_dirs(EPYON_ROOT)
         target_dirs = sorted(
             [d for d in all_dirs if parsers.parse_dir_name(d.name)["target"] == target_name],
             key=lambda d: d.name,
@@ -618,7 +618,7 @@ def delete_application(name: str, request: Request, response: Response):
     name = _require_app_name(name)
     _audit(request, "delete_application", f"app={name}")
     scan_dirs = [
-        d for d in parsers.find_scan_dirs(EPYON_ROOT, days=35)
+        d for d in parsers.find_scan_dirs(EPYON_ROOT)
         if parsers.parse_dir_name(d.name)["target"] == name
     ]
     deleted = []
@@ -643,7 +643,7 @@ def delete_scan(scan_id: str, request: Request, response: Response):
     _audit(request, "delete_scan", f"scan_id={scan_id}")
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
     matched = next((d for d in scan_dirs if d.name == scan_id), None)
     if not matched:
         raise HTTPException(404, "Scan not found")
@@ -668,7 +668,7 @@ def app_scans(name: str, response: Response):
         raise HTTPException(400, "Invalid application name")
     scans = [
         parsers.load_scan(d, EPYON_ROOT)
-        for d in parsers.find_scan_dirs(EPYON_ROOT, days=35)
+        for d in parsers.find_scan_dirs(EPYON_ROOT)
         if parsers.parse_dir_name(d.name)["target"] == name
     ]
     scans.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
@@ -682,7 +682,7 @@ async def app_isso_summary(name: str, response: Response):
     if not _SAFE_ID_RE.match(name):
         raise HTTPException(400, "Invalid application name")
 
-    all_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    all_dirs = parsers.find_scan_dirs(EPYON_ROOT)
     target_entries: list[tuple] = []
     for d in all_dirs:
         meta = parsers.parse_dir_name(d.name)
@@ -793,7 +793,7 @@ async def app_isso_summary(name: str, response: Response):
 def scan_dashboard(scan_id: str, response: Response):
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
     matched = next((d for d in scan_dirs if d.name == scan_id), None)
     if not matched:
         raise HTTPException(404, "Scan not found")
@@ -813,7 +813,7 @@ def stig_findings_md(scan_id: str, response: Response):
     _sec_headers(response)
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
     matched = next((d for d in scan_dirs if d.name == scan_id), None)
     if not matched:
         raise HTTPException(404, "Scan not found")
@@ -835,7 +835,7 @@ def stig_findings_cklb(scan_id: str, response: Response):
     _sec_headers(response)
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
     matched = next((d for d in scan_dirs if d.name == scan_id), None)
     if not matched:
         raise HTTPException(404, "Scan not found")
@@ -857,7 +857,7 @@ def stig_data(scan_id: str, response: Response):
     _sec_headers(response)
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
     matched = next((d for d in scan_dirs if d.name == scan_id), None)
     if not matched:
         raise HTTPException(404, "Scan not found")
@@ -953,7 +953,7 @@ def stig_override(scan_id: str, body: StigOverride, response: Response):
     if not re.match(r'^[A-Z0-9]{2,}-[A-Z0-9]{2,}-[0-9]{4,}$', body.vuln_id):
         raise HTTPException(400, "Invalid vuln_id format")
 
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
     matched = next((d for d in scan_dirs if d.name == scan_id), None)
     if not matched:
         raise HTTPException(404, "Scan not found")
@@ -1026,7 +1026,7 @@ def stig_findings_named(scan_id: str, filename: str, response: Response):
         raise HTTPException(400, "Invalid scan_id")
     if not _SAFE_SLUG_RE.match(filename):
         raise HTTPException(400, "Invalid filename")
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
     matched = next((d for d in scan_dirs if d.name == scan_id), None)
     if not matched:
         raise HTTPException(404, "Scan not found")
@@ -1048,7 +1048,7 @@ def scan_detail(scan_id: str, response: Response):
     _sec_headers(response)
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
     matched = next((d for d in scan_dirs if d.name == scan_id), None)
     if not matched:
         raise HTTPException(404, "Scan not found")
@@ -1065,7 +1065,7 @@ def scan_sbom(scan_id: str, response: Response):
     _sec_headers(response)
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
     matched = next((d for d in scan_dirs if d.name == scan_id), None)
     if not matched:
         raise HTTPException(404, "Scan not found")
@@ -1078,7 +1078,7 @@ def scan_sbom_cyclonedx(scan_id: str, response: Response):
     _sec_headers(response)
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
     matched = next((d for d in scan_dirs if d.name == scan_id), None)
     if not matched:
         raise HTTPException(404, "Scan not found")
@@ -1105,7 +1105,7 @@ def scan_download_zip(scan_id: str, response: Response):
     _sec_headers(response)
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
     matched = next((d for d in scan_dirs if d.name == scan_id), None)
     if not matched:
         raise HTTPException(404, "Scan not found")
@@ -1836,7 +1836,7 @@ async def get_github_metrics(response: Response):
     token = cfg.get("token", "")
     repos = cfg.get("repos") or []
 
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
     all_scans = [parsers.load_scan(d, EPYON_ROOT) for d in scan_dirs]
     monitored_set = set(_load_monitored_apps()) or None
 
@@ -2311,7 +2311,7 @@ async def exec_summary(scan_id: str, response: Response):
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
 
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
     matched = next((d for d in scan_dirs if d.name == scan_id), None)
     if not matched:
         raise HTTPException(404, "Scan not found")
@@ -2335,7 +2335,7 @@ async def technical_summary(scan_id: str, response: Response):
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
 
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
     matched = next((d for d in scan_dirs if d.name == scan_id), None)
     if not matched:
         raise HTTPException(404, "Scan not found")
@@ -2360,7 +2360,7 @@ async def calculate_scorecard(scan_id: str, response: Response):
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
 
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
     matched = next((d for d in scan_dirs if d.name == scan_id), None)
     if not matched:
         raise HTTPException(404, "Scan not found")
@@ -2401,7 +2401,7 @@ async def global_exec_summary(response: Response):
     _sec_headers(response)
     hidden    = _load_hidden_apps()
     monitored = _load_monitored_apps()
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
 
     # Collect all scan dirs per target, then choose the latest comprehensive scan
     # (full/nightly) for vulnerability data. Fall back to absolute latest if no
@@ -2529,7 +2529,7 @@ async def global_technical_summary(response: Response):
     _sec_headers(response)
     hidden    = _load_hidden_apps()
     monitored = _load_monitored_apps()
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
 
     by_target_all: dict[str, list[tuple]] = {}
     for d in scan_dirs:
@@ -2602,7 +2602,7 @@ async def global_isso_summary(response: Response):
     _sec_headers(response)
     hidden    = _load_hidden_apps()
     monitored = _load_monitored_apps()
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT)
 
     by_target_all: dict[str, list[tuple]] = {}
     for d in scan_dirs:
@@ -2979,7 +2979,7 @@ async def jira_sync_app(app_name: str, response: Response):
     if not cfg.get("api_token"):
         raise HTTPException(400, "Jira is not configured — set api_token first")
 
-    all_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    all_dirs = parsers.find_scan_dirs(EPYON_ROOT)
     target_dirs = sorted(
         [d for d in all_dirs if parsers.parse_dir_name(d.name)["target"] == app_name],
         key=lambda d: d.name,

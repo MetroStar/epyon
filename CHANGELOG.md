@@ -5,6 +5,16 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.10.2] - 2026-06-23
+
+### Changed
+- **Major performance improvement for scan history loading** — All API endpoints now load only the last 35 days of scans by default
+  - Reduces scan directory traversal from 1,200+ scans to ~35-50 scans
+  - Dramatically improves page load times for Stats, Metrics, Applications, and STIG History pages
+  - Added `days` parameter to `find_scan_dirs()` function with date-based filtering at filesystem level
+  - Scan directory cache now aware of days parameter for efficient repeated queries
+  - Older scans remain accessible via direct URL but are excluded from aggregate views
+
 ## [3.10.1] - 2026-06-23
 
 ### Changed

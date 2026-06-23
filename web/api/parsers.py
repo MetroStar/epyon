@@ -50,12 +50,30 @@ def parse_dir_name(name: str) -> dict:
     return {"target": name, "user": "", "timestamp": ""}
 
 
-def find_scan_dirs(epyon_root: Path) -> list[Path]:
+def find_scan_dirs(epyon_root: Path, days: int = 0) -> list[Path]:
+    """
+    Find all scan directories within epyon_root.
+    
+    Args:
+        epyon_root: Root directory of the Epyon installation
+        days: If > 0, only return scans from the last N days (based on directory name timestamp)
+    
+    Returns:
+        List of Path objects for scan directories, sorted by name (chronological)
+    """
     search = [
         epyon_root / "scans",
         epyon_root / "baseline" / "scans",
         epyon_root / "scripts" / "scans",
     ]
+    
+    # Calculate cutoff date if filtering by days
+    cutoff_date = None
+    if days > 0:
+        from datetime import datetime, timedelta, timezone
+        cutoff_dt = datetime.now(timezone.utc) - timedelta(days=days)
+        cutoff_date = cutoff_dt.strftime("%Y-%m-%d")
+    
     dirs: list[Path] = []
     for base in search:
         if not base.exists():
@@ -72,6 +90,14 @@ def find_scan_dirs(epyon_root: Path) -> list[Path]:
                     continue
                 # Ensure it's inside epyon_root (path traversal guard)
                 entry.resolve().relative_to(epyon_root.resolve())
+                
+                # Filter by date if requested
+                if cutoff_date:
+                    parsed = parse_dir_name(entry.name)
+                    scan_date = parsed.get("timestamp", "")[:10]  # YYYY-MM-DD
+                    if scan_date and scan_date < cutoff_date:
+                        continue  # Skip scans older than cutoff
+                
                 dirs.append(entry)
             except (OSError, ValueError):
                 continue

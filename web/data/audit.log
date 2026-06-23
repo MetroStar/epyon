@@ -12,3 +12,5 @@
 2026-06-22T00:16:15Z INFO action=delete_application client=127.0.0.1 detail=app=proof_scan_test2
 2026-06-22T00:16:36Z INFO action=delete_application client=127.0.0.1 detail=app=proof_scan_test3
 2026-06-23T11:30:26Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/MetroStar/iris.git scan_type=full
+2026-06-23T14:50:41Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/MetroStar/midas.git scan_type=full
+2026-06-23T14:56:51Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/MetroStar/midas.git scan_type=full

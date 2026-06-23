@@ -20,6 +20,90 @@ Epyon is a **production-ready, enterprise-grade** 17-layer DevSecOps security pl
 
 **Version: 3.7.0** · **Updated: June 16, 2026**
 
+## 🌍 Platform Support
+
+Epyon is **cross-platform compatible** and runs on:
+
+| Platform | Shell | Status | Notes |
+|----------|-------|--------|-------|
+| **Linux** | bash 4.0+ | ✅ Fully Supported | Primary development platform |
+| **macOS** | bash 4.0+<br>zsh (auto-switches) | ✅ Fully Supported | Auto-detects shell, re-execs in bash if needed |
+| **Windows** | Git Bash<br>WSL<br>Cygwin | ✅ Fully Supported | Git Bash recommended<br>WSL2 fully supported<br>Native PowerShell/CMD not supported |
+
+### Shell Compatibility
+
+**Automatic Shell Detection**: Epyon automatically detects your shell and switches to bash if needed. You don't need to manually invoke bash.
+
+```bash
+# All of these work — Epyon auto-detects and switches to bash:
+./epyon.sh /path/to/project              # ✅ Works in zsh, bash, sh
+zsh ./epyon.sh /path/to/project          # ✅ Auto-switches to bash
+bash ./epyon.sh /path/to/project         # ✅ Already bash
+```
+
+**Requirements**:
+- **bash 4.0 or later** (for associative arrays, parameter expansion)
+- macOS users: System bash is 3.2 — install bash 4+ via Homebrew: `brew install bash`
+
+**Windows Users**:
+- **Git Bash** (recommended): Included with [Git for Windows](https://git-scm.com/download/win)
+- **WSL2** (recommended): Full Linux compatibility
+- **Cygwin**: Supported with bash package installed
+- **PowerShell/CMD**: Not supported — use Git Bash or WSL
+
+### Quick Platform-Specific Setup
+
+<details>
+<summary><b>macOS Setup</b></summary>
+
+```bash
+# Install bash 4+ via Homebrew (system bash is 3.2)
+brew install bash
+
+# Verify bash version
+bash --version  # Should show 4.0 or higher
+
+# Run Epyon (auto-detects shell)
+./epyon.sh /path/to/project
+```
+</details>
+
+<details>
+<summary><b>Windows Setup (Git Bash)</b></summary>
+
+1. **Install Git for Windows**: https://git-scm.com/download/win
+   - ✅ Includes Git Bash with bash 4+
+   - ✅ Includes common Unix tools (grep, sed, awk)
+
+2. **Open Git Bash** (not PowerShell/CMD)
+
+3. **Run Epyon**:
+```bash
+cd /c/Users/YourName/epyon
+./epyon.sh /path/to/project
+```
+</details>
+
+<details>
+<summary><b>Windows Setup (WSL2)</b></summary>
+
+1. **Install WSL2**:
+```powershell
+# Run in PowerShell as Administrator
+wsl --install
+```
+
+2. **Install Docker Desktop** (enables Docker in WSL):
+   - Download: https://docker.com
+   - Enable "Use WSL 2 based engine" in Docker Desktop settings
+
+3. **Run Epyon in WSL**:
+```bash
+# In WSL terminal (Ubuntu, Debian, etc.)
+./epyon.sh /path/to/project
+```
+</details>
+
 ## 📋 Prerequisites
 
 Before using this security architecture, ensure you have the following tools installed and configured.

@@ -5,6 +5,27 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.11.1] - 2026-06-23
+
+### Added
+- **Cross-Platform Shell Auto-Detection** — `epyon.sh` automatically detects the current shell and re-executes in bash if needed
+  - Eliminates bash syntax errors when run from zsh, sh, or other shells
+  - Works identically across Linux (bash), macOS (zsh/bash), and Windows (Git Bash/WSL)
+  - Auto-detects bash version and requires 4.0+ with clear upgrade instructions
+- **Windows Batch Launcher** — `epyon.bat` provides helpful guidance for Windows CMD/PowerShell users
+  - Detects installed Git Bash and offers to launch it
+  - Clear setup instructions for Git Bash and WSL
+- **Platform Support Documentation** — Comprehensive platform compatibility matrix in README
+  - Setup guides for macOS, Windows (Git Bash), Windows (WSL)
+  - Shell compatibility details and requirements
+
+### Fixed
+- **Shell Compatibility Issues** — Scripts now work identically whether run from CLI or GitHub Actions
+  - Fixed `bad substitution` errors in pip-audit, safety, picklescan when run from zsh
+  - Fixed lowercase parameter expansion (`${var,,}`) failures in non-bash shells
+  - Eliminated differences between GitHub Actions (bash) and macOS CLI (zsh) execution
+- **macOS Scan Failures** — Layers 11.5, 11.6, and 14 now complete successfully on macOS
+
 ## [3.11.0] - 2026-06-23
 
 ### Added

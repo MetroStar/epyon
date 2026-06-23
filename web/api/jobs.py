@@ -242,18 +242,12 @@ async def run_scan_job(
     if openai_base_url:
         env["OPENAI_BASE_URL"] = openai_base_url
 
-    # Prefer a bash 4+ binary (Homebrew on macOS) over the system /bin/bash 3.2
-    import shutil as _shutil
-    _bash = _shutil.which("bash") or "bash"
-    # On macOS, /bin/bash is 3.2 (no declare -A); prefer Homebrew bash if available
-    for _candidate in ["/opt/homebrew/bin/bash", "/usr/local/bin/bash", _bash]:
-        if _candidate and Path(_candidate).exists():
-            _bash = _candidate
-            break
-
+    # Let the script's shebang and shell auto-detection handle bash selection.
+    # The script contains shell auto-detection logic that finds bash 4+ and re-execs.
+    # Invoking as `bash script.sh` would bypass that logic, so we invoke directly.
     try:
         proc = await asyncio.create_subprocess_exec(
-            _bash, str(script_path),
+            str(script_path),
             cwd=str(epyon_root),
             env=env,
             stdin=asyncio.subprocess.DEVNULL,

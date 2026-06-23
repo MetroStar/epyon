@@ -3428,6 +3428,7 @@ async function pollJob(jobId, btn) {
           ? `<button class="btn btn-primary" onclick="navigate('#/applications')">
                View Applications
              </button>
+             <button class="btn" onclick="copyScanLogs()">Copy Logs</button>
              <button class="btn" onclick="navigate('#/new-scan')">Run Another Scan</button>`
           : `<div class="error-banner" style="margin:0">
                Scan ${
@@ -3439,6 +3440,7 @@ async function pollJob(jobId, btn) {
                }.
                ${job.status !== 'cancelled' ? 'Check the log output above.' : ''}
              </div>
+             <button class="btn" onclick="copyScanLogs()">Copy Logs</button>
              <button class="btn" onclick="navigate('#/new-scan')">Run Another Scan</button>`;
       }
     }
@@ -3454,6 +3456,31 @@ async function cancelScan() {
   try {
     await fetch(`/api/jobs/${encodeURIComponent(_activeJobId)}/cancel`, { method: 'POST' });
   } catch (_) {}
+}
+
+function copyScanLogs() {
+  const logOut = document.getElementById('log-output');
+  if (!logOut) return;
+  
+  // Get plain text from the log output
+  const logText = logOut.innerText || logOut.textContent || '';
+  
+  navigator.clipboard.writeText(logText).then(() => {
+    // Briefly show success feedback
+    const btn = event?.target;
+    if (btn) {
+      const originalText = btn.textContent;
+      btn.textContent = '✓ Copied!';
+      btn.classList.add('btn-success');
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.classList.remove('btn-success');
+      }, 2000);
+    }
+  }).catch(err => {
+    console.error('Failed to copy logs:', err);
+    alert('Failed to copy logs to clipboard');
+  });
 }
 
 // ─────────────────────────────────────────────────────────────

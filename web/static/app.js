@@ -5229,7 +5229,7 @@ async function renderStigHistory(selectedApp, selectedSlug) {
 
   // ── Filter state ──────────────────────────────────────────
   let statusFilter = 'all';   // 'all' | 'open' | 'pass' | 'na'
-  let daysFilter   = 30;      // 7 | 14 | 30 | 90 | 0 (all)
+  let daysFilter   = 30;      // 7 | 14 | 30 | 35 | 0 (all)
   let sortKey      = 'sev';   // 'sev' | 'id' | 'mttr' | 'status'
   let sortDir      = 1;
 
@@ -5267,7 +5267,7 @@ async function renderStigHistory(selectedApp, selectedSlug) {
       : null;
     const visibleScans = cutoff ? scans.filter(s => s.date >= cutoff) : scans;
 
-    const dayBtns = [[7,'7d'],[14,'14d'],[30,'30d'],[90,'90d'],[0,'All']].map(([d,l]) =>
+    const dayBtns = [[7,'7d'],[14,'14d'],[30,'30d'],[35,'35d'],[0,'All']].map(([d,l]) =>
       `<button class="btn btn-sm${daysFilter===d?' btn-active':''}" onclick="window._stigHistoryDays(${d})">${l}</button>`
     ).join('');
 

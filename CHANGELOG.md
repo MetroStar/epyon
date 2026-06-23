@@ -5,6 +5,14 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.10.1] - 2026-06-23
+
+### Changed
+- **STIG History date filter** — Reduced maximum time range from 90 days to 35 days to improve page load performance
+  - Filter button options now: 7d, 14d, 30d, 35d, All (was: 7d, 14d, 30d, 90d, All)
+  - Default remains 30 days
+  - Reduces query time for large scan histories
+
 ## [3.10.0] - 2026-06-22
 
 ### Added

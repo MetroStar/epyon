@@ -741,13 +741,23 @@ EOF
                 local scan_type
                 scan_type=$(basename "$anchore_file" .json)
                 tools_analyzed+=("Anchore-${scan_type}")
+                
+                # Extract container/image name from filename (decode _ back to : and /)
+                local container_name="filesystem"
+                if [[ "$anchore_file" == *"/images/"* ]]; then
+                    # Decode: first _ → :, remaining _ → /
+                    container_name=$(echo "$scan_type" | sed 's/_/:/1' | sed 's/_/\//g')
+                fi
+                
                 local anchore_findings
-                anchore_findings=$(jq -r --arg tool "Anchore" '[
+                anchore_findings=$(jq -r --arg tool "Anchore" --arg container "$container_name" '[
                     .matches[]? |
                     select(.vulnerability.severity and .vulnerability.severity != "Negligible") |
                     {
                         tool: $tool,
                         type: "container_vulnerability",
+                        container_image: $container,
+                        target: $container,
                         severity: (.vulnerability.severity |
                             if . == "Critical" then "Critical"
                             elif . == "High" then "High"
@@ -756,7 +766,7 @@ EOF
                         vulnerability_id: (.vulnerability.id // "N/A"),
                         package_name: (.artifact.name // "N/A"),
                         package_version: (.artifact.version // "N/A"),
-                        description: (.vulnerability.description // ("Container image vulnerability: " + (.vulnerability.id // "unknown"))),
+                        description: (.vulnerability.description // ("Container image vulnerability in " + $container + ": " + (.vulnerability.id // "unknown"))),
                         nvd_url: ((.vulnerability.urls // []) | first // null),
                         fix_versions: (.vulnerability.fix.versions // [])
                     }

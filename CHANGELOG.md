@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.9.0] - 2026-06-22
 
 ### Added
+- **Container-specific vulnerability tracking in dashboards** — Scan findings now include container image names for all Anchore/Grype vulnerabilities
+  - Each container vulnerability shows which image it came from (e.g., `myapp:latest`, `postgres:15-alpine`)
+  - Web UI displays container name in "Container Image" field in finding detail modal
+  - Dashboard tables show container name in "Location" column with 📦 Container badge
+  - New helper script `list-container-vulnerabilities.sh` shows per-container breakdown with severity counts
+  - CSV export functionality documented for container-specific analysis
 - **Anchore automatic image detection** — Scanner now automatically detects container characteristics before scanning, eliminating false positives without manual configuration
   - Auto-detects architecture (ARM64/AMD64) from `docker image inspect` and sets `--platform` flag
   - Auto-detects base OS (Alpine/Debian/Ubuntu) from image labels, names, and history layers

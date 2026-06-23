@@ -6852,7 +6852,7 @@ function openFindingDetail(id) {
 
       ${target ? `
         <div class="finding-detail-section">
-          <div class="finding-detail-label">File Path</div>
+          <div class="finding-detail-label">${findingSource(f) === 'container' ? 'Container Image' : 'File Path'}</div>
           <div class="finding-detail-value"><code style="word-break:break-all">${esc(target)}</code>${line ? ` <span style="color:var(--text-muted);font-size:11px">line ${esc(line)}</span>` : ''}</div>
         </div>` : ''}
 

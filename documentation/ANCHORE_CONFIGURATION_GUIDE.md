@@ -323,3 +323,205 @@ After configuring, verify:
 - [Multi-Stage Docker Builds](https://docs.docker.com/build/building/multi-stage/)
 - [SCAN_MATRIX.md](./SCAN_MATRIX.md) — Epyon scan layer orchestration
 - [IGNORE_RULES_GUIDE.md](./IGNORE_RULES_GUIDE.md) — Suppressing confirmed false positives
+
+---
+
+## Tracking Vulnerabilities to Specific Containers
+
+### File Locations
+
+Epyon stores container-specific vulnerability data in the scan directory:
+
+```
+scans/{app_name}_{timestamp}/
+└── anchore/
+    ├── anchore-scan.log                    # Scan process log with image names
+    ├── anchore-filesystem-results.json      # Filesystem/directory scan results
+    ├── anchore-sbom-results.json           # SBOM-based scan results
+    └── images/                             # Per-container results
+        ├── myapp_latest.json               # Vulnerabilities in myapp:latest
+        ├── postgres_15-alpine.json         # Vulnerabilities in postgres:15-alpine
+        └── baseline-dhi_caddy_latest.json  # Baseline image vulnerabilities
+```
+
+**Naming convention:** Image names are sanitized (`:` and `/` replaced with `_`):
+- `myapp:latest` → `myapp_latest.json`
+- `postgres:15-alpine` → `postgres_15-alpine.json`
+- `ghcr.io/owner/app:v1.2.3` → `ghcr.io_owner_app_v1.2.3.json`
+
+### Quick Reference Script
+
+Use the provided script to see which containers have which vulnerabilities:
+
+```bash
+# View latest scan
+./scripts/shell/list-container-vulnerabilities.sh
+
+# View specific scan
+./scripts/shell/list-container-vulnerabilities.sh scans/myapp_2026-06-22_14-30-45
+```
+
+**Example output:**
+```
+═══════════════════════════════════════════════════════════
+   Container Vulnerability Breakdown
+═══════════════════════════════════════════════════════════
+Scan: myapp_2026-06-22_14-30-45
+
+━━━ Container Image Scan Results (3 images) ━━━
+
+🚨 myapp:latest
+   OS: alpine 3.21.5
+   Total: 12 vulnerabilities
+   Critical: 2
+   High: 5
+
+   Top Critical/High CVEs:
+   • CVE-2026-12087 [Critical] in perl-base@5.40.1-6
+   • CVE-2026-27143 [Critical] in stdlib@go1.26.0
+   • CVE-2026-3805 [High] in curl@8.14.1-2
+   ... and 4 more critical/high vulnerabilities
+
+✅ postgres:15-alpine
+   OS: alpine 3.21.0
+   Total: 0 vulnerabilities
+   No vulnerabilities found
+
+⚠️  nginx:1.25-alpine
+   OS: alpine 3.21.3
+   Total: 8 vulnerabilities
+   High: 3
+
+   Top Critical/High CVEs:
+   • CVE-2026-5773 [High] in libcurl4@8.14.1
+   ... and 2 more critical/high vulnerabilities
+```
+
+### Querying Specific Containers
+
+#### Find all CVEs in a specific container
+
+```bash
+# List all CVEs in myapp:latest
+jq -r '.matches[] | "\(.vulnerability.id) [\(.vulnerability.severity)] in \(.artifact.name)@\(.artifact.version)"' \
+  scans/myapp_*/anchore/images/myapp_latest.json
+```
+
+#### Find which container has a specific CVE
+
+```bash
+# Find CVE-2026-12087 across all containers
+for f in scans/myapp_*/anchore/images/*.json; do
+  if jq -e '.matches[] | select(.vulnerability.id=="CVE-2026-12087")' "$f" > /dev/null 2>&1; then
+    echo "Found in: $(basename "$f" .json | sed 's/_/:/2' | sed 's/_/\//g')"
+    jq -r '.matches[] | select(.vulnerability.id=="CVE-2026-12087") | 
+           "  Package: \(.artifact.name)@\(.artifact.version)"' "$f"
+  fi
+done
+```
+
+#### Export CVEs to CSV
+
+```bash
+# Export all container CVEs to CSV
+echo "Container,CVE,Severity,Package,Version,Fix Available" > container_cves.csv
+
+for f in scans/myapp_*/anchore/images/*.json; do
+  container=$(basename "$f" .json | sed 's/_/:/2' | sed 's/_/\//g')
+  jq -r --arg container "$container" \
+    '.matches[] | [$container, .vulnerability.id, .vulnerability.severity, 
+     .artifact.name, .artifact.version, 
+     (.vulnerability.fix.versions[0] // "No fix")] | @csv' "$f" >> container_cves.csv
+done
+
+echo "Exported to container_cves.csv"
+```
+
+#### Get OS/distro for each container
+
+```bash
+# Show detected OS for all scanned containers
+for f in scans/myapp_*/anchore/images/*.json; do
+  container=$(basename "$f" .json | sed 's/_/:/2' | sed 's/_/\//g')
+  os=$(jq -r '.distro.name // .distro.type // "unknown"' "$f")
+  version=$(jq -r '.distro.version // ""' "$f")
+  echo "$container: $os $version"
+done
+```
+
+### Web UI Integration
+
+The Epyon Web UI shows container-specific vulnerabilities in the scan detail view:
+
+1. Start the web server:
+   ```bash
+   cd web && ./start.sh
+   ```
+
+2. Open http://127.0.0.1:8000
+
+3. Click on a scan → **Container Vulnerabilities** section
+
+4. Each container shows:
+   - Image name with registry
+   - Detected OS/distro
+   - Vulnerability counts by severity
+   - Expandable CVE list with package details
+
+### Programmatic Access
+
+For automation and CI/CD integration:
+
+```python
+import json
+from pathlib import Path
+
+def get_container_vulnerabilities(scan_dir: str) -> dict:
+    """Parse Anchore container scan results."""
+    anchore_dir = Path(scan_dir) / "anchore" / "images"
+    
+    results = {}
+    for json_file in anchore_dir.glob("*.json"):
+        # Decode image name
+        image_name = json_file.stem.replace("_", ":", 1).replace("_", "/")
+        
+        with open(json_file) as f:
+            data = json.load(f)
+        
+        # Extract key info
+        results[image_name] = {
+            "os": data.get("distro", {}).get("name", "unknown"),
+            "os_version": data.get("distro", {}).get("version", ""),
+            "vulnerabilities": {
+                "critical": [m for m in data.get("matches", []) 
+                           if m["vulnerability"]["severity"] == "Critical"],
+                "high": [m for m in data.get("matches", []) 
+                       if m["vulnerability"]["severity"] == "High"],
+                "total": len(data.get("matches", []))
+            }
+        }
+    
+    return results
+
+# Usage
+vulns = get_container_vulnerabilities("scans/myapp_2026-06-22_14-30-45")
+for image, data in vulns.items():
+    print(f"{image}: {data['vulnerabilities']['total']} vulnerabilities")
+```
+
+### Finding Root Cause Images
+
+If you see Debian CVEs in your Alpine container, trace back to the source:
+
+```bash
+# Show image build history to find Debian layers
+docker image history --no-trunc myapp:latest | grep -i debian
+
+# Check all base layers
+docker image inspect myapp:latest | jq -r '.RootFS.Layers[]'
+
+# See what the scanner detected
+grep "Detected base OS\|Image OS" scans/myapp_*/anchore/anchore-scan.log
+```
+
+This helps identify multi-stage build leakage or incorrect base images.

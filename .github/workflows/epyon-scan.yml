@@ -572,12 +572,14 @@ jobs:
           SONAR_PR_NUMBER: ${{ github.event.pull_request.number }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ github.token }}
           ANCHORE_BUILD_TIMEOUT: "900"
           ANCHORE_SKIP_BUILD: "true"
         run: |
           # Append API keys to /tmp/epyon-env so they are explicitly exported to all subshells.
           [[ -n "${OPENAI_API_KEY:-}" ]]    && echo "OPENAI_API_KEY=${OPENAI_API_KEY}"       >> /tmp/epyon-env
           [[ -n "${ANTHROPIC_API_KEY:-}" ]] && echo "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}" >> /tmp/epyon-env
+          [[ -n "${GITHUB_TOKEN:-}" ]]      && echo "GITHUB_TOKEN=${GITHUB_TOKEN}"           >> /tmp/epyon-env
           chmod +x epyon/scripts/shell/run-epyon-scan-ci.sh
           ./epyon/scripts/shell/run-epyon-scan-ci.sh
 

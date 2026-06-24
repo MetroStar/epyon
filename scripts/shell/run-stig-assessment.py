@@ -3,8 +3,9 @@
 run-stig-assessment.py — AI-powered STIG compliance assessment engine.
 
 Reads controls from one or more STIG source files (.cklb JSON or XCCDF XML),
-walks the target application source tree, batches controls with relevant
-code context, and calls the OpenAI API to produce per-control assessments.
+walks the target application source tree (including all markdown/JSON files 
+with existing findings or compliance documentation), batches controls with 
+relevant code context, and calls the OpenAI API to produce per-control assessments.
 
 STIG Applicability Detection:
     Before processing, the script detects the technology stack in use (databases,
@@ -118,12 +119,13 @@ SOURCE_EXTENSIONS = {
     ".html", ".htm", ".jinja2", ".j2", ".tpl",
     # Database
     ".sql",
+    # Documentation
+    ".md",
 }
 
 INCLUDE_FILENAMES = {
     "Dockerfile", "docker-compose.yml", "docker-compose.yaml",
     ".env.example", ".env.template", "Makefile", "justfile",
-    "README.md", "SECURITY.md",
     "nginx.conf", "httpd.conf", "web.xml",
     "pom.xml", "build.gradle", "settings.gradle",
 }
@@ -260,9 +262,17 @@ complete source code of an application repository.
 
 You will be given:
 1. A manifest listing EVERY file in the repository so you understand the full scope.
-2. The full content of as many files as fit within this context window, prioritised by \
-relevance to the controls being assessed.
-3. A list of controls to assess.
+2. Security findings from the current scan (vulnerabilities, secrets, IaC issues, malware) \
+   from tools like Grype, Trivy, TruffleHog, Checkov, ClamAV.
+3. Risk acceptance/suppression rules (.epyon-ignore.yml) showing what findings have been \
+   accepted as risks with justifications and approvals.
+4. The full content of as many source files as fit within this context window, prioritised by \
+   relevance to the controls being assessed.
+5. A list of controls to assess.
+
+Use the security findings to inform vulnerability management, secrets handling, and secure \
+configuration controls. Use the suppression rules to understand the organization's risk \
+management practices and exception handling policies.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ASSESSMENT METHODOLOGY — follow this exactly
@@ -538,6 +548,128 @@ def collect_source_files(target_dir: str) -> list[tuple[str, str]]:
         files.append((rel, content))
 
     return files
+
+
+def collect_security_findings(scan_dir: Path) -> str:
+    """Load security findings from the current scan for additional context.
+    
+    Returns a formatted string with summary of vulnerabilities, secrets, and issues
+    found by other security tools. Returns empty string if no findings available.
+    """
+    findings_file = scan_dir / "security-findings-summary.json"
+    if not findings_file.exists():
+        return ""
+    
+    try:
+        with findings_file.open(encoding="utf-8") as f:
+            data = json.load(f)
+        
+        summary = data.get("summary", {})
+        total_critical = summary.get("total_critical", 0)
+        total_high = summary.get("total_high", 0)
+        total_medium = summary.get("total_medium", 0)
+        total_low = summary.get("total_low", 0)
+        
+        lines = [
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            "SECURITY SCAN FINDINGS (Current Scan)",
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            "",
+            f"Scan ID: {summary.get('scan_id', 'N/A')}",
+            f"Scan Time: {summary.get('scan_timestamp', 'N/A')}",
+            f"Tools: {', '.join(summary.get('tools_analyzed', []))}",
+            "",
+            f"Severity Summary:",
+            f"  Critical: {total_critical}",
+            f"  High:     {total_high}",
+            f"  Medium:   {total_medium}",
+            f"  Low:      {total_low}",
+            "",
+        ]
+        
+        # Include sample findings if available (limit to 5 per severity)
+        for severity, findings in [
+            ("Critical", data.get("critical_findings", [])),
+            ("High", data.get("high_findings", [])),
+        ]:
+            if findings:
+                lines.append(f"{severity} Findings (sample):")
+                for finding in findings[:5]:
+                    tool = finding.get("tool", "unknown")
+                    cve = finding.get("id", finding.get("cve", "N/A"))
+                    pkg = finding.get("package", finding.get("artifact", ""))
+                    lines.append(f"  - [{tool}] {cve} in {pkg}" if pkg else f"  - [{tool}] {cve}")
+                lines.append("")
+        
+        enrichment = data.get("enrichment", {})
+        if enrichment.get("cisa_kev_total", 0) > 0:
+            lines.append(f"⚠️  {enrichment['cisa_kev_total']} findings match CISA Known Exploited Vulnerabilities")
+            lines.append("")
+        
+        lines.append("Use this context when assessing vulnerability management, secrets handling, and secure configuration controls.")
+        lines.append("")
+        
+        return "\n".join(lines)
+    except Exception as e:
+        print(f"[WARNING] Failed to load security findings: {e}", file=sys.stderr)
+        return ""
+
+
+def collect_suppression_rules(target_dir: str) -> str:
+    """Load suppression rules from .epyon-ignore.yml for risk management context.
+    
+    Returns a formatted string showing accepted risks and their justifications.
+    Returns empty string if no suppression file exists.
+    """
+    target_path = Path(target_dir).resolve()
+    ignore_file = target_path / ".epyon-ignore.yml"
+    
+    if not ignore_file.exists():
+        return ""
+    
+    try:
+        with ignore_file.open(encoding="utf-8") as f:
+            import yaml
+            data = yaml.safe_load(f) or {}
+        
+        rules = data.get("rules", [])
+        if not rules:
+            return ""
+        
+        lines = [
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            "RISK ACCEPTANCE / SUPPRESSION RULES",
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            "",
+            f"The following {len(rules)} finding(s) have been accepted as risks:",
+            "",
+        ]
+        
+        for i, rule in enumerate(rules[:20], 1):  # Limit to 20 rules
+            rule_type = rule.get("type", "unknown")
+            value = rule.get("value", rule.get("id", "N/A"))
+            tool = rule.get("tool", "all tools")
+            reason = rule.get("reason", "No reason provided")
+            approved_by = rule.get("approved_by", "Unknown")
+            expiration = rule.get("expiration", "None")
+            
+            lines.append(f"{i}. Type: {rule_type}, Value: {value}")
+            lines.append(f"   Tool: {tool}")
+            lines.append(f"   Reason: {reason}")
+            lines.append(f"   Approved by: {approved_by}, Expires: {expiration}")
+            lines.append("")
+        
+        if len(rules) > 20:
+            lines.append(f"... and {len(rules) - 20} more rules")
+            lines.append("")
+        
+        lines.append("Use this context when assessing risk management and exception handling controls.")
+        lines.append("")
+        
+        return "\n".join(lines)
+    except Exception as e:
+        print(f"[WARNING] Failed to load suppression rules: {e}", file=sys.stderr)
+        return ""
 
 
 def extract_keywords(check_content: str) -> list[str]:
@@ -1141,6 +1273,8 @@ def call_openai(
     code_context: str,
     repo_manifest: str = "",
     previous_assessments: dict[str, dict[str, Any]] | None = None,
+    security_findings: str = "",
+    suppression_rules: str = "",
 ) -> tuple[list[dict[str, Any]], int, int]:
     """Call GPT with a batch of controls + full repo manifest + code context.
     
@@ -1151,6 +1285,8 @@ def call_openai(
         code_context: Application source code
         repo_manifest: Full file tree listing
         previous_assessments: Optional dict mapping vuln_id -> previous assessment results
+        security_findings: Current scan's security findings summary
+        suppression_rules: Risk acceptance/suppression rules from .epyon-ignore.yml
     
     Returns:
         Tuple of (parsed_results, prompt_tokens, completion_tokens)
@@ -1173,9 +1309,13 @@ def call_openai(
     )
 
     manifest_section = f"{repo_manifest}\n\n" if repo_manifest else ""
+    security_section = f"{security_findings}\n\n" if security_findings else ""
+    suppression_section = f"{suppression_rules}\n\n" if suppression_rules else ""
 
     user_message = (
         f"{manifest_section}"
+        f"{security_section}"
+        f"{suppression_section}"
         f"Controls to assess ({len(controls_batch)} total):\n{controls_json}\n\n"
         f"Application source code (examine every file carefully):\n{code_context}"
     )
@@ -1428,6 +1568,7 @@ def _assess_stig(
     scan_date: str,
     slug: str,
     is_primary: bool,
+    target_dir: str,
 ) -> None:
     """Run assessment for a single STIG and write output files."""
     controls  = stig_data["controls"]
@@ -1439,6 +1580,15 @@ def _assess_stig(
     controls_path = scan_dir / f"stig-controls-{slug}.json"
     controls_path.write_text(json.dumps(stig_data, indent=2), encoding="utf-8")
     print(f"[INFO] [{slug}] Controls written to {controls_path}", file=sys.stderr)
+    
+    # Collect additional context for AI assessments
+    security_findings_context = collect_security_findings(scan_dir)
+    suppression_rules_context = collect_suppression_rules(target_dir)
+    
+    if security_findings_context:
+        print(f"[INFO] [{slug}] Loaded security findings from current scan", file=sys.stderr)
+    if suppression_rules_context:
+        print(f"[INFO] [{slug}] Loaded suppression rules from .epyon-ignore.yml", file=sys.stderr)
 
     assessments: dict[str, dict[str, str]] = {}
     total_prompt_tokens     = 0
@@ -1596,7 +1746,8 @@ def _assess_stig(
                 )
                 try:
                     results, batch_pt, batch_ct = call_openai(
-                        client, model, batch, code_context, active_manifest, previous_assessments
+                        client, model, batch, code_context, active_manifest, previous_assessments,
+                        security_findings_context, suppression_rules_context
                     )
                     total_prompt_tokens     += batch_pt
                     total_completion_tokens += batch_ct
@@ -1943,6 +2094,7 @@ def main() -> None:
             scan_date=scan_date,
             slug=slug,
             is_primary=is_primary,
+            target_dir=args.target,
         )
 
 

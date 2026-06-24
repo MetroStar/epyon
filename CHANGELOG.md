@@ -5,12 +5,36 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.11.7] - 2026-06-24
+
+### Changed
+- **Settings UI Cleanup** — Removed "Approved Base Images" section from Settings page
+  - This configuration file is managed directly in `configuration/approved-base-images.conf`
+  - Not a runtime setting, doesn't need to be in the UI
+
+## [3.11.6] - 2026-06-24
+
+### Fixed
+- **Settings UI - NVD Key Display** — Fixed NVD API key not showing "Current: XXX" hint after saving
+  - Removed `&& !nvdCfg.from_env` condition that was inconsistent with OpenAI config behavior
+  - Added automatic settings view refresh after saving AI and NVD configs to display updated key hints
+  - NVD and OpenAI API key hints now consistently show for all saved keys
+
+## [3.11.5] - 2026-06-23
+
+### Fixed
+- **Web API Cache Invalidation Bug** — Fixed `AttributeError: 'NoneType' object has no attribute 'get'` in `/api/applications` and `/api/stats` endpoints
+  - `_invalidate_scan_cache()` was setting `_dir_cache = None` instead of calling `_dir_cache.clear()`
+  - Caused crashes when loading scan lists after cache invalidation
+  - Removed obsolete `_dir_cache_ts` variable reference
+
 ## [3.11.4] - 2026-06-23
 
 ### Fixed
-- **Web UI PATH Environment** — Ensured subprocess PATH includes Homebrew locations (`/opt/homebrew/bin`, `/usr/local/bin`, `/home/linuxbrew/.linuxbrew/bin`)
-  - Fixes issue where shell auto-detection couldn't find bash 4+ because web server's PATH didn't include Homebrew
-  - Script shebang `#!/usr/bin/env bash` now correctly finds bash 4+ when invoked by web API
+- **Web UI Shell Auto-Detection Logic** — Fixed bash version detection to work when shebang starts in bash 3.2
+  - Previous logic only checked if BASH_VERSION was unset, but `#!/usr/bin/env bash` always sets it (even for 3.2)
+  - Now checks if current bash version < 4 and searches for bash 4+ to re-exec regardless of whether already in bash
+  - Added Homebrew paths to subprocess PATH environment to help script find bash 4+ installations
   - Works across macOS (Homebrew), Linux (Linuxbrew), and standard system paths
 
 ## [3.11.3] - 2026-06-23

@@ -4859,7 +4859,7 @@ async function renderSettings() {
             <input id="nvd-key" type="password" class="field-input"
               placeholder="${nvdCfg.key_set ? 'Key saved — enter new to replace' : (nvdCfg.from_env ? 'Set via NVD_API_KEY env var' : 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')}"
               autocomplete="off"/>
-            ${nvdCfg.key_set && !nvdCfg.from_env ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Current: ${esc(nvdCfg.key_hint)}</div>` : ''}
+            ${nvdCfg.key_set ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Current: ${esc(nvdCfg.key_hint)}</div>` : ''}
           </div>
           <div>
             <button class="btn btn-primary" onclick="saveNvdConfig()">Save NVD Config</button>
@@ -5030,15 +5030,6 @@ async function renderSettings() {
       </div>
 
       <div class="section">
-        <div class="section-title">Approved Base Images</div>
-        <p class="section-desc">
-          Docker Hardened Images approved for scans and deployments.
-          Managed in <code>configuration/approved-base-images.conf</code>.
-        </p>
-        <pre>${esc(images.content || '(No approved-base-images.conf found)')}</pre>
-      </div>
-
-      <div class="section">
         <div class="section-title">About Epyon</div>
         <div class="detail-grid">
           <div class="detail-card">
@@ -5071,6 +5062,8 @@ async function saveAiConfig() {
   try {
     await api.saveAiConfig({ api_key: key || 'KEEP_EXISTING', model });
     if (keyEl) keyEl.value = '';
+    // Reload settings to show the updated key hint
+    await renderSettings();
   } catch (e) {
     alert('Failed to save AI config: ' + e.message);
   }
@@ -5083,6 +5076,8 @@ async function saveNvdConfig() {
     await api.saveNvdConfig({ api_key: key || 'KEEP_EXISTING' });
     if (keyEl) keyEl.value = '';
     alert('NVD API key saved successfully. Scans will now use up to 50 requests per 30 seconds.');
+    // Reload settings to show the updated key hint
+    await renderSettings();
   } catch (e) {
     alert('Failed to save NVD config: ' + e.message);
   }

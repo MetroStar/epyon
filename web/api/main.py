@@ -187,10 +187,9 @@ def _cached_load_scan(scan_dir) -> dict:
 
 def _invalidate_scan_cache() -> None:
     """Call after a scan completes so the next request sees fresh data."""
-    global _dir_cache, _dir_cache_ts
+    global _dir_cache
     _scan_cache.clear()
-    _dir_cache    = None
-    _dir_cache_ts = 0.0
+    _dir_cache.clear()
 
 
 async def _jira_post_scan(target_name: str) -> None:

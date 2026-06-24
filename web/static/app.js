@@ -6824,6 +6824,27 @@ function openFindingDetail(id) {
   const cvssScore = f.nvd_cvss_v3_score != null ? f.nvd_cvss_v3_score : null;
   const cvssSev   = f.nvd_cvss_v3_severity || '';
   const nvdUrl    = f.nvd_url || (fid.startsWith('CVE-') ? `https://nvd.nist.gov/vuln/detail/${fid}` : '');
+  const cveSource = f.cve_source || '';
+
+  // CVE source badge
+  const sourceIcons = {
+    'GHSA': { icon: '🛡️', label: 'GitHub Advisory', color: '#6e40aa' },
+    'NVD': { icon: '🏛️', label: 'NIST NVD', color: '#1e40af' },
+    'OSV': { icon: '🔓', label: 'OSV', color: '#059669' },
+    'Alpine': { icon: '🏔️', label: 'Alpine SecDB', color: '#0d9488' },
+    'Debian': { icon: '🌀', label: 'Debian Security', color: '#a90e3c' },
+    'Ubuntu': { icon: '🟠', label: 'Ubuntu Security', color: '#e95420' },
+    'RHEL': { icon: '🎩', label: 'Red Hat', color: '#cc0000' },
+    'Trivy': { icon: '🔍', label: 'Trivy DB', color: '#1f2937' },
+    'Grype': { icon: '🦑', label: 'Grype DB', color: '#475569' },
+  };
+  
+  const sourceInfo = sourceIcons[cveSource] || null;
+  const sourceBadge = sourceInfo
+    ? `<span style="display:inline-flex;align-items:center;gap:4px;background:${sourceInfo.color};color:#fff;font-size:10px;font-weight:600;padding:2px 6px;border-radius:3px;margin-left:6px" title="Source: ${sourceInfo.label}">
+         ${sourceInfo.icon} ${cveSource}
+       </span>`
+    : '';
 
   const idDisplay = fid.startsWith('CVE-')
     ? `<a class="finding-detail-id-link"
@@ -6835,8 +6856,8 @@ function openFindingDetail(id) {
            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
            <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
          </svg>
-       </a>${cisaKev ? ' <span style="background:#7f1d1d;color:#fca5a5;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px" title="CISA Known Exploited Vulnerability">KEV</span>' : ''}`
-    : `<code>${esc(fid)}</code>`;
+       </a>${cisaKev ? ' <span style="background:#7f1d1d;color:#fca5a5;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px" title="CISA Known Exploited Vulnerability">KEV</span>' : ''}${sourceBadge}`
+    : `<code>${esc(fid)}</code>${sourceBadge}`;
 
   const refsHtml = refs.length
     ? `<div class="finding-detail-section">

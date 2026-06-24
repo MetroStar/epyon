@@ -29,6 +29,39 @@ def norm_sev(s: str | None) -> str:
     return "unknown"
 
 
+def _determine_cve_source(data_source: str, namespace: str) -> str:
+    """Determine the CVE database source from Grype/Anchore metadata."""
+    data_source = data_source.lower()
+    namespace = namespace.lower()
+    
+    # GitHub Security Advisory
+    if "github" in data_source or "ghsa" in namespace:
+        return "GHSA"
+    
+    # NVD (National Vulnerability Database)
+    if "nvd" in data_source or "nvd.nist.gov" in data_source:
+        return "NVD"
+    
+    # Alpine SecDB
+    if "alpine" in namespace or "alpine" in data_source:
+        return "Alpine"
+    
+    # Debian
+    if "debian" in namespace or "debian" in data_source:
+        return "Debian"
+    
+    # Ubuntu
+    if "ubuntu" in namespace or "ubuntu" in data_source:
+        return "Ubuntu"
+    
+    # RHEL / Red Hat
+    if "rhel" in namespace or "redhat" in namespace or "rhel" in data_source:
+        return "RHEL"
+    
+    # Default to Grype DB if we can't determine specific source
+    return "Grype"
+
+
 # ── Directory/path helpers ────────────────────────────────────
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -136,6 +169,7 @@ def parse_trivy_dir(scan_dir: Path) -> list[dict]:
             continue
         for result in raw.get("Results", []):
             for v in result.get("Vulnerabilities") or []:
+                # For Trivy, we default to "Trivy" since it doesn't expose source metadata
                 findings.append({
                     "tool": "Trivy",
                     "id": v.get("VulnerabilityID", ""),
@@ -147,6 +181,7 @@ def parse_trivy_dir(scan_dir: Path) -> list[dict]:
                     "description": v.get("Description", ""),
                     "target": result.get("Target", ""),
                     "references": (v.get("References") or [])[:3],
+                    "cve_source": "Trivy",
                 })
     return findings
 
@@ -162,6 +197,12 @@ def parse_grype_dir(scan_dir: Path) -> list[dict]:
             art  = m.get("artifact", {})
             locs = art.get("locations") or []
             fix_vers = (vuln.get("fix") or {}).get("versions") or []
+            
+            # Determine CVE source from dataSource and namespace
+            data_source = vuln.get("dataSource", "")
+            namespace = vuln.get("namespace", "")
+            cve_source = _determine_cve_source(data_source, namespace)
+            
             findings.append({
                 "tool": "Grype",
                 "id": vuln.get("id", ""),
@@ -173,6 +214,7 @@ def parse_grype_dir(scan_dir: Path) -> list[dict]:
                 "description": vuln.get("description", ""),
                 "target": locs[0].get("path", "") if locs else "",
                 "references": (vuln.get("urls") or [])[:3],
+                "cve_source": cve_source,
             })
     return findings
 
@@ -347,6 +389,12 @@ def parse_anchore_dir(scan_dir: Path) -> list[dict]:
             art  = m.get("artifact", {})
             locs = art.get("locations") or []
             fix_vers = (vuln.get("fix") or {}).get("versions") or []
+            
+            # Determine CVE source from dataSource and namespace
+            data_source = vuln.get("dataSource", "")
+            namespace = vuln.get("namespace", "")
+            cve_source = _determine_cve_source(data_source, namespace)
+            
             findings.append({
                 "tool": "Anchore",
                 "id": vuln.get("id", ""),
@@ -358,6 +406,7 @@ def parse_anchore_dir(scan_dir: Path) -> list[dict]:
                 "description": vuln.get("description", ""),
                 "target": locs[0].get("path", "") if locs else "",
                 "references": vuln.get("urls") or [],
+                "cve_source": cve_source,
             })
     return findings
 

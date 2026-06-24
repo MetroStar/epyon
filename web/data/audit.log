@@ -34,3 +34,4 @@
 2026-06-23T15:48:34Z INFO action=server_error client=127.0.0.1 detail=AttributeError
 2026-06-24T08:46:43Z INFO action=ai_config_changed client=127.0.0.1 detail=
 2026-06-24T09:26:33Z INFO action=nvd_config_changed client=127.0.0.1 detail=
+2026-06-24T10:10:29Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/MetroStar/iris.git scan_type=stig

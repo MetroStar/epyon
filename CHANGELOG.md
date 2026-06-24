@@ -5,6 +5,15 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.11.8] - 2026-06-24
+
+### Added
+- **CVE Source Indicators** — Added colored source badges showing which vulnerability database each CVE comes from
+  - Tracks source for Grype, Anchore, and Trivy findings (GHSA, NVD, Alpine, Debian, Ubuntu, RHEL, etc.)
+  - Visual icons with tooltips: 🛡️ GHSA, 🏛️ NVD, 🏔️ Alpine, 🌀 Debian, 🟠 Ubuntu, 🎩 RHEL, 🔍 Trivy, 🦑 Grype
+  - Helps security teams understand the provenance and reliability of vulnerability data
+  - Displayed next to CVE IDs in scan finding details
+
 ## [3.11.7] - 2026-06-24
 
 ### Changed

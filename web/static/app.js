@@ -3428,6 +3428,7 @@ async function pollJob(jobId, btn) {
           ? `<button class="btn btn-primary" onclick="navigate('#/applications')">
                View Applications
              </button>
+             <button class="btn" onclick="copyScanLogs()">Copy Logs</button>
              <button class="btn" onclick="navigate('#/new-scan')">Run Another Scan</button>`
           : `<div class="error-banner" style="margin:0">
                Scan ${
@@ -3439,6 +3440,7 @@ async function pollJob(jobId, btn) {
                }.
                ${job.status !== 'cancelled' ? 'Check the log output above.' : ''}
              </div>
+             <button class="btn" onclick="copyScanLogs()">Copy Logs</button>
              <button class="btn" onclick="navigate('#/new-scan')">Run Another Scan</button>`;
       }
     }
@@ -3454,6 +3456,31 @@ async function cancelScan() {
   try {
     await fetch(`/api/jobs/${encodeURIComponent(_activeJobId)}/cancel`, { method: 'POST' });
   } catch (_) {}
+}
+
+function copyScanLogs() {
+  const logOut = document.getElementById('log-output');
+  if (!logOut) return;
+  
+  // Get plain text from the log output
+  const logText = logOut.innerText || logOut.textContent || '';
+  
+  navigator.clipboard.writeText(logText).then(() => {
+    // Briefly show success feedback
+    const btn = event?.target;
+    if (btn) {
+      const originalText = btn.textContent;
+      btn.textContent = '✓ Copied!';
+      btn.classList.add('btn-success');
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.classList.remove('btn-success');
+      }, 2000);
+    }
+  }).catch(err => {
+    console.error('Failed to copy logs:', err);
+    alert('Failed to copy logs to clipboard');
+  });
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -4832,7 +4859,7 @@ async function renderSettings() {
             <input id="nvd-key" type="password" class="field-input"
               placeholder="${nvdCfg.key_set ? 'Key saved — enter new to replace' : (nvdCfg.from_env ? 'Set via NVD_API_KEY env var' : 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')}"
               autocomplete="off"/>
-            ${nvdCfg.key_set && !nvdCfg.from_env ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Current: ${esc(nvdCfg.key_hint)}</div>` : ''}
+            ${nvdCfg.key_set ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Current: ${esc(nvdCfg.key_hint)}</div>` : ''}
           </div>
           <div>
             <button class="btn btn-primary" onclick="saveNvdConfig()">Save NVD Config</button>
@@ -5003,15 +5030,6 @@ async function renderSettings() {
       </div>
 
       <div class="section">
-        <div class="section-title">Approved Base Images</div>
-        <p class="section-desc">
-          Docker Hardened Images approved for scans and deployments.
-          Managed in <code>configuration/approved-base-images.conf</code>.
-        </p>
-        <pre>${esc(images.content || '(No approved-base-images.conf found)')}</pre>
-      </div>
-
-      <div class="section">
         <div class="section-title">About Epyon</div>
         <div class="detail-grid">
           <div class="detail-card">
@@ -5044,6 +5062,8 @@ async function saveAiConfig() {
   try {
     await api.saveAiConfig({ api_key: key || 'KEEP_EXISTING', model });
     if (keyEl) keyEl.value = '';
+    // Reload settings to show the updated key hint
+    await renderSettings();
   } catch (e) {
     alert('Failed to save AI config: ' + e.message);
   }
@@ -5056,6 +5076,8 @@ async function saveNvdConfig() {
     await api.saveNvdConfig({ api_key: key || 'KEEP_EXISTING' });
     if (keyEl) keyEl.value = '';
     alert('NVD API key saved successfully. Scans will now use up to 50 requests per 30 seconds.');
+    // Reload settings to show the updated key hint
+    await renderSettings();
   } catch (e) {
     alert('Failed to save NVD config: ' + e.message);
   }
@@ -6802,6 +6824,27 @@ function openFindingDetail(id) {
   const cvssScore = f.nvd_cvss_v3_score != null ? f.nvd_cvss_v3_score : null;
   const cvssSev   = f.nvd_cvss_v3_severity || '';
   const nvdUrl    = f.nvd_url || (fid.startsWith('CVE-') ? `https://nvd.nist.gov/vuln/detail/${fid}` : '');
+  const cveSource = f.cve_source || '';
+
+  // CVE source badge
+  const sourceIcons = {
+    'GHSA': { icon: '🛡️', label: 'GitHub Advisory', color: '#6e40aa' },
+    'NVD': { icon: '🏛️', label: 'NIST NVD', color: '#1e40af' },
+    'OSV': { icon: '🔓', label: 'OSV', color: '#059669' },
+    'Alpine': { icon: '🏔️', label: 'Alpine SecDB', color: '#0d9488' },
+    'Debian': { icon: '🌀', label: 'Debian Security', color: '#a90e3c' },
+    'Ubuntu': { icon: '🟠', label: 'Ubuntu Security', color: '#e95420' },
+    'RHEL': { icon: '🎩', label: 'Red Hat', color: '#cc0000' },
+    'Trivy': { icon: '🔍', label: 'Trivy DB', color: '#1f2937' },
+    'Grype': { icon: '🦑', label: 'Grype DB', color: '#475569' },
+  };
+  
+  const sourceInfo = sourceIcons[cveSource] || null;
+  const sourceBadge = sourceInfo
+    ? `<span style="display:inline-flex;align-items:center;gap:4px;background:${sourceInfo.color};color:#fff;font-size:10px;font-weight:600;padding:2px 6px;border-radius:3px;margin-left:6px" title="Source: ${sourceInfo.label}">
+         ${sourceInfo.icon} ${cveSource}
+       </span>`
+    : '';
 
   const idDisplay = fid.startsWith('CVE-')
     ? `<a class="finding-detail-id-link"
@@ -6813,8 +6856,8 @@ function openFindingDetail(id) {
            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
            <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
          </svg>
-       </a>${cisaKev ? ' <span style="background:#7f1d1d;color:#fca5a5;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px" title="CISA Known Exploited Vulnerability">KEV</span>' : ''}`
-    : `<code>${esc(fid)}</code>`;
+       </a>${cisaKev ? ' <span style="background:#7f1d1d;color:#fca5a5;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px" title="CISA Known Exploited Vulnerability">KEV</span>' : ''}${sourceBadge}`
+    : `<code>${esc(fid)}</code>${sourceBadge}`;
 
   const refsHtml = refs.length
     ? `<div class="finding-detail-section">

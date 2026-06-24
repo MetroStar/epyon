@@ -1,6 +1,54 @@
 #!/bin/bash
 
+# ══════════════════════════════════════════════════════════════════════════════
+# SHELL COMPATIBILITY AUTO-DETECTION
+# ══════════════════════════════════════════════════════════════════════════════
+# This script requires bash 4+ for array operations and parameter expansion.
+# If invoked from a non-bash shell (e.g., zsh via web UI), it will automatically
+# re-execute itself in bash to ensure compatibility.
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Check if we're already running in bash
+if [ -z "${BASH_VERSION:-}" ]; then
+    # Try common bash locations (prefer newer versions first)
+    for bash_path in \
+        /opt/homebrew/bin/bash \
+        /usr/local/bin/bash \
+        /home/linuxbrew/.linuxbrew/bin/bash \
+        /usr/bin/bash \
+        /bin/bash \
+        bash; do
+        if command -v "$bash_path" >/dev/null 2>&1; then
+            # Check version before re-executing
+            FOUND_VERSION=$("$bash_path" --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+' | head -1)
+            FOUND_MAJOR=$(echo "$FOUND_VERSION" | cut -d. -f1)
+            
+            # Only use bash 4.0+
+            if [ -n "$FOUND_MAJOR" ] && [ "$FOUND_MAJOR" -ge 4 ]; then
+                # Found suitable bash — re-execute this script with bash
+                exec "$bash_path" "$0" "$@"
+            fi
+        fi
+    done
+    
+    # Bash not found — print error and exit
+    echo "ERROR: This script requires bash 4.0+ but it was not found."
+    echo "Current shell: ${SHELL:-unknown}"
+    echo "Please install bash 4+ or run: bash $0 \$@"
+    exit 1
+fi
+
+# Verify bash version
+BASH_VERSION_MAJOR="${BASH_VERSINFO[0]:-0}"
+if [ "$BASH_VERSION_MAJOR" -lt 4 ]; then
+    echo "ERROR: This script requires bash 4.0 or later (found: ${BASH_VERSION})"
+    echo "macOS users: Install bash 4+ via Homebrew: brew install bash"
+    exit 1
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Target-Aware Complete Security Scan Orchestration Script
+# ══════════════════════════════════════════════════════════════════════════════
 # Runs all security layers with multi-target scanning capabilities on external directories
 # Usage: ./run-target-security-scan.sh <target_directory> [quick|full|images|analysis]
 
@@ -1453,6 +1501,15 @@ if [[ -f "$SCRIPT_DIR/enrich-findings.sh" ]]; then
     "$SCRIPT_DIR/enrich-findings.sh" --scan-dir "$SCAN_DIR" || true
 else
     echo -e "${YELLOW}⚠️  enrich-findings.sh not found, skipping enrichment${NC}"
+fi
+
+# ── Step 3.5: Enrich with international CVE feeds ────────────────────────────
+echo ""
+echo -e "${BLUE}🌐 Enriching with international CVE feeds (OSV, GHSA, JVN, etc.)...${NC}"
+if [[ -f "$SCRIPT_DIR/enrich-findings-multi-feed.sh" ]]; then
+    "$SCRIPT_DIR/enrich-findings-multi-feed.sh" --scan-dir "$SCAN_DIR" || true
+else
+    echo -e "${YELLOW}⚠️  enrich-findings-multi-feed.sh not found, skipping multi-feed enrichment${NC}"
 fi
 
 # ── Step 4: Consolidate + generate dashboard (reads findings summary + suppressed-findings.md) ─

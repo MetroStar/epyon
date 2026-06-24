@@ -488,6 +488,34 @@ _ALLOWED_HIDDEN_DIRS = {
     ".devcontainer", ".helm",
 }
 
+# Compliance-relevant markdown/JSON files (case-insensitive stem matching)
+# Only these markdown/JSON files will be collected to avoid context overflow
+_COMPLIANCE_DOCS = {
+    "readme", "security", "compliance", "stig", "findings", 
+    "audit", "controls", "assessment", "ato", "isso",
+    "vulnerabilities", "cve", "changelog", "contributing",
+}
+
+
+def _is_compliance_relevant_doc(path: Path) -> bool:
+    """Check if a markdown/JSON file is compliance-relevant."""
+    ext = path.suffix.lower()
+    if ext not in {".md", ".json"}:
+        return False
+    
+    stem_lower = path.stem.lower()
+    
+    # Allow any markdown/JSON in these specific directories
+    if any(part in {".github", "docs", "documentation", ".compliance"} for part in path.parts):
+        return True
+    
+    # Check if filename stem matches known compliance docs
+    for keyword in _COMPLIANCE_DOCS:
+        if keyword in stem_lower:
+            return True
+    
+    return False
+
 
 def _is_excluded_dir(dirname: str) -> bool:
     if dirname in EXCLUDE_DIR_PREFIXES:
@@ -515,7 +543,11 @@ def collect_source_files(target_dir: str) -> list[tuple[str, str]]:
         name = path.name
         ext = path.suffix.lower()
 
-        if name not in INCLUDE_FILENAMES and ext not in SOURCE_EXTENSIONS:
+        # For markdown/JSON, only collect compliance-relevant docs
+        if ext in {".md", ".json"}:
+            if not _is_compliance_relevant_doc(path):
+                continue
+        elif name not in INCLUDE_FILENAMES and ext not in SOURCE_EXTENSIONS:
             continue
 
         # Never send actual .env files — they may contain live secrets.
@@ -550,8 +582,12 @@ def collect_source_files(target_dir: str) -> list[tuple[str, str]]:
     return files
 
 
-def collect_security_findings(scan_dir: Path) -> str:
+def collect_security_findings(scan_dir: Path, max_findings: int = 3) -> str:
     """Load security findings from the current scan for additional context.
+    
+    Args:
+        scan_dir: Path to scan directory containing security-findings-summary.json
+        max_findings: Maximum findings per severity to include (default 3 for token budget)
     
     Returns a formatted string with summary of vulnerabilities, secrets, and issues
     found by other security tools. Returns empty string if no findings available.
@@ -571,43 +607,29 @@ def collect_security_findings(scan_dir: Path) -> str:
         total_low = summary.get("total_low", 0)
         
         lines = [
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-            "SECURITY SCAN FINDINGS (Current Scan)",
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-            "",
-            f"Scan ID: {summary.get('scan_id', 'N/A')}",
-            f"Scan Time: {summary.get('scan_timestamp', 'N/A')}",
+            "SECURITY SCAN FINDINGS (Current Scan):",
+            f"Critical: {total_critical}, High: {total_high}, Medium: {total_medium}, Low: {total_low}",
             f"Tools: {', '.join(summary.get('tools_analyzed', []))}",
-            "",
-            f"Severity Summary:",
-            f"  Critical: {total_critical}",
-            f"  High:     {total_high}",
-            f"  Medium:   {total_medium}",
-            f"  Low:      {total_low}",
             "",
         ]
         
-        # Include sample findings if available (limit to 5 per severity)
+        # Include only top findings (limited for token budget)
         for severity, findings in [
             ("Critical", data.get("critical_findings", [])),
             ("High", data.get("high_findings", [])),
         ]:
-            if findings:
-                lines.append(f"{severity} Findings (sample):")
-                for finding in findings[:5]:
+            if findings and max_findings > 0:
+                lines.append(f"{severity} (top {min(max_findings, len(findings))}):")  
+                for finding in findings[:max_findings]:
                     tool = finding.get("tool", "unknown")
                     cve = finding.get("id", finding.get("cve", "N/A"))
                     pkg = finding.get("package", finding.get("artifact", ""))
-                    lines.append(f"  - [{tool}] {cve} in {pkg}" if pkg else f"  - [{tool}] {cve}")
+                    lines.append(f"  [{tool}] {cve} in {pkg}" if pkg else f"  [{tool}] {cve}")
                 lines.append("")
         
         enrichment = data.get("enrichment", {})
         if enrichment.get("cisa_kev_total", 0) > 0:
-            lines.append(f"⚠️  {enrichment['cisa_kev_total']} findings match CISA Known Exploited Vulnerabilities")
-            lines.append("")
-        
-        lines.append("Use this context when assessing vulnerability management, secrets handling, and secure configuration controls.")
-        lines.append("")
+            lines.append(f"⚠️ {enrichment['cisa_kev_total']} CISA KEV findings")
         
         return "\n".join(lines)
     except Exception as e:
@@ -615,8 +637,12 @@ def collect_security_findings(scan_dir: Path) -> str:
         return ""
 
 
-def collect_suppression_rules(target_dir: str) -> str:
+def collect_suppression_rules(target_dir: str, max_rules: int = 10) -> str:
     """Load suppression rules from .epyon-ignore.yml for risk management context.
+    
+    Args:
+        target_dir: Target repository directory
+        max_rules: Maximum rules to include (default 10 for token budget)
     
     Returns a formatted string showing accepted risks and their justifications.
     Returns empty string if no suppression file exists.
@@ -637,34 +663,21 @@ def collect_suppression_rules(target_dir: str) -> str:
             return ""
         
         lines = [
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-            "RISK ACCEPTANCE / SUPPRESSION RULES",
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
-            "",
-            f"The following {len(rules)} finding(s) have been accepted as risks:",
+            f"RISK ACCEPTANCE / SUPPRESSION RULES ({len(rules)} total):",
             "",
         ]
         
-        for i, rule in enumerate(rules[:20], 1):  # Limit to 20 rules
+        for i, rule in enumerate(rules[:max_rules], 1):
             rule_type = rule.get("type", "unknown")
             value = rule.get("value", rule.get("id", "N/A"))
-            tool = rule.get("tool", "all tools")
             reason = rule.get("reason", "No reason provided")
             approved_by = rule.get("approved_by", "Unknown")
-            expiration = rule.get("expiration", "None")
             
-            lines.append(f"{i}. Type: {rule_type}, Value: {value}")
-            lines.append(f"   Tool: {tool}")
-            lines.append(f"   Reason: {reason}")
-            lines.append(f"   Approved by: {approved_by}, Expires: {expiration}")
-            lines.append("")
+            lines.append(f"{i}. {rule_type}: {value}")
+            lines.append(f"   Reason: {reason} (approved: {approved_by})")
         
-        if len(rules) > 20:
-            lines.append(f"... and {len(rules) - 20} more rules")
-            lines.append("")
-        
-        lines.append("Use this context when assessing risk management and exception handling controls.")
-        lines.append("")
+        if len(rules) > max_rules:
+            lines.append(f"... and {len(rules) - max_rules} more")
         
         return "\n".join(lines)
     except Exception as e:
@@ -1581,14 +1594,15 @@ def _assess_stig(
     controls_path.write_text(json.dumps(stig_data, indent=2), encoding="utf-8")
     print(f"[INFO] [{slug}] Controls written to {controls_path}", file=sys.stderr)
     
-    # Collect additional context for AI assessments
-    security_findings_context = collect_security_findings(scan_dir)
-    suppression_rules_context = collect_suppression_rules(target_dir)
+    # Collect additional context for AI assessments (limited to avoid context overflow)
+    # These will be reduced further on retry if context_length_exceeded occurs
+    security_findings_context = collect_security_findings(scan_dir, max_findings=3)
+    suppression_rules_context = collect_suppression_rules(target_dir, max_rules=10)
     
     if security_findings_context:
-        print(f"[INFO] [{slug}] Loaded security findings from current scan", file=sys.stderr)
+        print(f"[INFO] [{slug}] Loaded security findings from current scan (limited for token budget)", file=sys.stderr)
     if suppression_rules_context:
-        print(f"[INFO] [{slug}] Loaded suppression rules from .epyon-ignore.yml", file=sys.stderr)
+        print(f"[INFO] [{slug}] Loaded suppression rules from .epyon-ignore.yml (limited for token budget)", file=sys.stderr)
 
     assessments: dict[str, dict[str, str]] = {}
     total_prompt_tokens     = 0
@@ -1731,13 +1745,14 @@ def _assess_stig(
             )
 
             # Retry loop — up to _MAX_BATCH_RETRIES attempts on JSON/API failure
-            # before falling back to Open.  On context_length_exceeded we halve
-            # the code budget and rebuild the context before retrying so the
-            # second attempt uses a smaller (and therefore fitting) payload.
+            # before falling back to Open.  On context_length_exceeded we progressively
+            # reduce ALL context sources: code budget, manifest, findings, suppressions.
             results: list[dict[str, Any]] = []
             last_err: str = ""
             code_budget = MAX_CODE_BYTES_PER_BATCH
             active_manifest = repo_manifest  # may be dropped on overflow
+            active_findings = security_findings_context
+            active_suppressions = suppression_rules_context
             for attempt in range(1, _MAX_BATCH_RETRIES + 1):
                 # (Re)build context — uses current code_budget, which may have
                 # been reduced on a previous context_length_exceeded error.
@@ -1747,7 +1762,7 @@ def _assess_stig(
                 try:
                     results, batch_pt, batch_ct = call_openai(
                         client, model, batch, code_context, active_manifest, previous_assessments,
-                        security_findings_context, suppression_rules_context
+                        active_findings, active_suppressions
                     )
                     total_prompt_tokens     += batch_pt
                     total_completion_tokens += batch_ct
@@ -1769,19 +1784,29 @@ def _assess_stig(
                     last_err = f"API error: {e}"
                     err_str = str(e)
                     if "context_length_exceeded" in err_str:
-                        new_budget = max(10_000, code_budget // 2)
-                        if active_manifest and attempt >= _MAX_BATCH_RETRIES - 1:
-                            # Last retry: drop the manifest entirely so the code
-                            # context has the full budget.  The AI loses file-tree
-                            # awareness but can still assess from the code snippets.
+                        # Progressive reduction strategy on context overflow:
+                        # Attempt 1: Drop findings/suppressions, keep manifest, halve code
+                        # Attempt 2: Drop manifest too, use full code budget
+                        # Attempt 3: Halve code again as last resort
+                        if attempt == 1:
                             print(
                                 f"[WARNING] [{slug}] Batch {idx} attempt {attempt}/{_MAX_BATCH_RETRIES} — "
-                                f"{last_err}  →  dropping manifest and using full code budget {MAX_CODE_BYTES_PER_BATCH // 1024}KB",
+                                f"{last_err}  →  dropping findings/suppressions, reducing code {code_budget // 1024}KB → {code_budget // 2 // 1024}KB",
+                                file=sys.stderr,
+                            )
+                            active_findings = ""
+                            active_suppressions = ""
+                            code_budget = max(10_000, code_budget // 2)
+                        elif attempt == 2:
+                            print(
+                                f"[WARNING] [{slug}] Batch {idx} attempt {attempt}/{_MAX_BATCH_RETRIES} — "
+                                f"{last_err}  →  dropping manifest, restoring code budget to {MAX_CODE_BYTES_PER_BATCH // 1024}KB",
                                 file=sys.stderr,
                             )
                             active_manifest = ""
                             code_budget = MAX_CODE_BYTES_PER_BATCH
                         else:
+                            new_budget = max(10_000, code_budget // 2)
                             print(
                                 f"[WARNING] [{slug}] Batch {idx} attempt {attempt}/{_MAX_BATCH_RETRIES} — "
                                 f"{last_err}  →  reducing code budget {code_budget // 1024}KB → {new_budget // 1024}KB",

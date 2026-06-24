@@ -256,6 +256,20 @@ if [[ $RC -eq 0 ]]; then
         echo -e "       Not a Finding   : ${GREEN}${NAF_COUNT}${NC}"
         echo -e "       Not Applicable  : ${BLUE}${NA_COUNT}${NC}"
         echo -e "       Not Reviewed    : ${YELLOW}${NR_COUNT}${NC}"
+        echo ""
+        
+        # ── Create/Update PR with findings ─────────────────────────────────
+        echo -e "${BLUE}[STIG] Checking if PR creation is needed...${NC}"
+        
+        PR_SCRIPT="${SCRIPT_DIR}/create-stig-pr.sh"
+        if [[ -x "$PR_SCRIPT" ]]; then
+            "$PR_SCRIPT" --target "$TARGET_DIR" --scan-dir "$SCAN_DIR" --app-name "$APP_NAME" || {
+                echo -e "${YELLOW}[WARNING] PR creation script exited with code $? (non-fatal)${NC}"
+            }
+        else
+            echo -e "${YELLOW}[WARNING] PR creation script not found or not executable: $PR_SCRIPT${NC}"
+        fi
+        echo ""
     else
         echo -e "${YELLOW}[STIG] Assessment finished but findings-${APP_SLUG}.md was not produced.${NC}"
     fi

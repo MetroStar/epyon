@@ -4,6 +4,7 @@ In-memory async job queue for running Epyon security scans.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import re
 from datetime import datetime, timezone
@@ -41,6 +42,15 @@ def _append_line(job: dict, line: str) -> None:
     job["output"].append(clean)
     if len(job["output"]) > OUTPUT_BUFFER_MAX:
         job["output"] = job["output"][-OUTPUT_BUFFER_MAX:]
+
+
+def _read_github_config() -> dict:
+    """Read GitHub configuration from web/github-config.json."""
+    config_file = Path(__file__).parent.parent / "github-config.json"
+    try:
+        return json.loads(config_file.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
 
 
 async def _read_stream(stream: asyncio.StreamReader, job: dict) -> None:
@@ -184,6 +194,12 @@ async def run_scan_job(
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if anthropic_key:
         env_lines.append(f"ANTHROPIC_API_KEY={anthropic_key}")
+    
+    # GitHub PAT — read from github-config.json for STIG PR creation
+    github_config = _read_github_config()
+    github_token = github_config.get("token", "")
+    if github_token:
+        env_lines.append(f"GH_PAT={github_token}")
 
     _env_path = Path("/tmp/epyon-env")
     _env_path.write_text("\n".join(env_lines) + "\n")
@@ -241,6 +257,8 @@ async def run_scan_job(
         env["OPENAI_API_KEY"] = openai_key
     if openai_base_url:
         env["OPENAI_BASE_URL"] = openai_base_url
+    if github_token:
+        env["GH_PAT"] = github_token
 
     # Ensure PATH includes Homebrew locations so script can find bash 4+
     current_path = env.get("PATH", "")

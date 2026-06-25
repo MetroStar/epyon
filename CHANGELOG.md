@@ -5,6 +5,33 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.11.9] - 2026-06-25
+
+### Fixed
+- **JIRA Duplicate Tickets** — Removed GitHub Actions JIRA integration to prevent duplicate ticket creation
+  - **Root cause**: Two separate JIRA systems were running concurrently without coordination:
+    - GitHub Actions workflow (`create-jira-tickets.sh`) created epic-style "Epyon High Security Findings" tickets
+    - Web backend (`jira_client.py`) created individual finding tickets via auto-reconciliation
+  - Both systems used different deduplication strategies (GitHub issue markers vs. `jira-tickets.json` map)
+  - Result: Same findings generated multiple tickets (e.g., MID-2033/MID-2038, MID-2034/MID-2039)
+  - **Solution**: Removed GitHub Actions integration entirely; kept only web backend system
+  - **Improved fingerprinting** — Updated `finding_fingerprint()` to include `project_key` parameter
+    - Prevents duplicates when tracking the same app across multiple JIRA projects
+    - Normalizes app names (lowercase, hyphens) for consistent fingerprinting
+    - Improved path normalization from 2 to 3 components for better uniqueness
+    - Handles Windows paths (backslash → forward slash conversion)
+    - Ticket map now stores `project_key` for audit trail
+  - **JIRA integration now managed exclusively through**:
+    - Web UI Settings page (`/api/jira/config`)
+    - Environment variables (`JIRA_BASE_URL`, `JIRA_USER_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY`)
+    - Auto-reconciliation after scan completion via `_jira_post_scan()`
+    - Manual sync via `POST /api/jira/sync/{app_name}`
+- **Removed workflow inputs and steps**:
+  - Deleted `create_jira_tickets`, `jira_project_key`, `jira_issue_type`, `jira_ticket_mode`, `jira_cve_issue_type`, `jira_max_cve_tickets` inputs
+  - Removed "Create JIRA Tickets for Critical/High Findings" workflow step
+  - Removed "Link Jira Tickets to GitHub Issue" workflow step
+  - Kept JIRA credential environment variables (used by web backend for auto-reconciliation)
+
 ## [3.11.8] - 2026-06-24
 
 ### Added

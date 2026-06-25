@@ -384,9 +384,9 @@ try:
         
         html_content += f'<div class=\"summary\"><h2>Summary</h2><p>Total Python Dependency Vulnerabilities: {total_vulns}</p></div>'
         
-        for result in scan_results[:10]:  # Limit to first 10 files
+        for result in (scan_results or [])[:10]:  # Limit to first 10 files
             file_path = result.get('file', 'unknown')
-            vulns = result.get('results', [])
+            vulns = result.get('results') or []
             
             if vulns:
                 html_content += f'<div class=\"summary\"><h3>File: {html.escape(file_path)}</h3><p>Vulnerabilities: {len(vulns)}</p></div>'
@@ -394,7 +394,7 @@ try:
                 for vuln in vulns[:20]:  # Top 20 per file
                     vuln_id = vuln.get('id', 'unknown')
                     description = vuln.get('description', 'No description available')
-                    fix_versions = vuln.get('fix_versions', [])
+                    fix_versions = vuln.get('fix_versions') or []
                     severity = 'medium' if fix_versions else 'high'
                     
                     html_content += f'''<div class=\"finding {severity}\">
@@ -622,19 +622,20 @@ try:
     
     elif tool_name == 'pip-audit':
         # pip-audit direct dependency scanner markdown
-        scan_results = data.get('scan_results', [])
+        scan_results = data.get('scan_results') or []
         total_vulns = 0
         
-        for result in scan_results:
-            total_vulns += len(result.get('results', []))
+        for result in (scan_results or []):
+            results = result.get('results') or []
+            total_vulns += len(results)
         
         md_content += f'**Total Python Dependency Vulnerabilities:** {total_vulns}' + chr(10) + chr(10)
         
         md_content += '## Vulnerabilities by Dependency File' + chr(10) + chr(10)
         
-        for result in scan_results[:10]:  # Top 10 files
+        for result in (scan_results or [])[:10]:  # Top 10 files
             file_path = result.get('file', 'unknown')
-            vulns = result.get('results', [])
+            vulns = result.get('results') or []
             
             if vulns:
                 md_content += f'### {file_path}' + chr(10) + chr(10)
@@ -645,7 +646,7 @@ try:
                     name = vuln.get('name', 'unknown')
                     version = vuln.get('v', 'unknown')
                     description = vuln.get('description', 'No description')
-                    fix_versions = vuln.get('fix_versions', [])
+                    fix_versions = vuln.get('fix_versions') or []
                     
                     md_content += f'#### {i}. {vuln_id}' + chr(10) + chr(10)
                     md_content += f'**Package:** {name} @ {version}' + chr(10)

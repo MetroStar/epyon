@@ -656,16 +656,16 @@ try:
     
     elif tool_name == 'safety':
         # safety Python vulnerability scanner markdown
-        scan_results = data.get('scan_results', [])
-        total_vulns = sum(len(result.get('results', [])) for result in scan_results)
+        scan_results = data.get('scan_results') or []
+        total_vulns = sum(len((result.get('results') or [])) for result in (scan_results or []))
         
         md_content += f'**Total Python Vulnerabilities (Safety):** {total_vulns}' + chr(10) + chr(10)
         
         md_content += '## Vulnerabilities by Dependency File' + chr(10) + chr(10)
         
-        for result in scan_results[:10]:  # Top 10 files
+        for result in (scan_results or [])[:10]:  # Top 10 files
             file_path = result.get('file', 'unknown')
-            vulns = result.get('results', [])
+            vulns = result.get('results') or []
             
             if vulns:
                 md_content += f'### {file_path}' + chr(10) + chr(10)

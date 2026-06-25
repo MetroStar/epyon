@@ -2889,8 +2889,8 @@ def jira_config_get(response: Response):
         "issue_type":      cfg.get("issue_type", "Bug"),
         "done_transition": cfg.get("done_transition", "Done"),
         "min_severity":    cfg.get("min_severity", "high"),
-        "auto_close":      cfg.get("auto_close", False),
-        "create_on_new":   cfg.get("create_on_new", False),
+        "auto_close":      cfg.get("auto_close", True),
+        "create_on_new":   cfg.get("create_on_new", True),
         "_from_env":       cfg.get("_from_env", False),
     }
 

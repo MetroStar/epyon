@@ -491,18 +491,18 @@ Configure via **Web UI Settings** or environment variables:
 | `JIRA_PROJECT_KEY` | Project key in uppercase (e.g. `SAP`, `SEC`) |
 
 **Features:**
-- **Auto-reconciliation**: Automatically creates tickets for new findings and closes tickets for remediated findings
+- **Auto-reconciliation**: Automatically creates tickets for new findings and closes tickets for remediated findings (enabled by default)
 - **Project isolation**: Separate fingerprinting per JIRA project prevents cross-project duplicates
 - **Deduplication**: Uses stable fingerprints based on tool + CVE + package + target + app + project
 - **Configurable**: Set minimum severity threshold, issue type, and auto-close behavior in Settings
 - **Manual sync**: Trigger reconciliation via web UI or API endpoint
 
-**Configuration Options:**
-- `auto_close`: Automatically transition tickets to "Done" when findings are remediated
-- `create_on_new`: Create new tickets when findings first appear (default: false, manual only)
-- `min_severity`: Minimum severity to create tickets for (critical/high/medium/low)
-- `issue_type`: Jira issue type (e.g., Bug, Task, Security Finding)
-- `done_transition`: Transition name to close tickets (e.g., Done, Closed)
+**Configuration Options** (defaults shown):
+- `auto_close` (default: `true`): Automatically transition tickets to "Done" when findings are remediated
+- `create_on_new` (default: `true`): Create new tickets when findings first appear
+- `min_severity` (default: `high`): Minimum severity to create tickets for (critical/high/medium/low)
+- `issue_type` (default: `Bug`): Jira issue type (e.g., Bug, Task, Security Finding)
+- `done_transition` (default: `Done`): Transition name to close tickets (e.g., Done, Closed)
 
 **Note**: The previous GitHub Actions JIRA integration has been removed to prevent duplicate ticket creation. All JIRA functionality is now managed through the web backend.
 

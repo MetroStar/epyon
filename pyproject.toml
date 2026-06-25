@@ -1,0 +1,89 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "epyon-scanner"
+version = "3.11.8"
+description = "Sixteen-layer DevSecOps security scanner with GitHub Actions workflow automation"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "MetroStar Systems", email = "opensource@metrostar.com" }
+]
+keywords = [
+    "security",
+    "devsecops",
+    "stig",
+    "sbom",
+    "sca",
+    "trivy",
+    "grype",
+    "trufflehog",
+    "clamav",
+    "checkov",
+    "sonarqube",
+    "garak",
+    "vulnerability-scanner",
+    "github-actions",
+    "compliance",
+    "disa-stig"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: System :: Monitoring",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+]
+dependencies = [
+    "openai>=1.0.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+web = [
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.23.0",
+    "jinja2>=3.1.0",
+    "python-multipart>=0.0.6",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/MetroStar/epyon"
+Documentation = "https://github.com/MetroStar/epyon/blob/main/README.md"
+Repository = "https://github.com/MetroStar/epyon"
+Issues = "https://github.com/MetroStar/epyon/issues"
+Changelog = "https://github.com/MetroStar/epyon/blob/main/CHANGELOG.md"
+
+[project.scripts]
+epyon = "epyon.cli:main"
+epyon-web = "epyon.web_ui:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["epyon*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=epyon --cov-report=term-missing"

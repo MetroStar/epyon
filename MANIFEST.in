@@ -1,0 +1,36 @@
+# Include documentation
+include README.md
+include LICENSE.md
+include CHANGELOG.md
+include VERSION
+
+# Include main entry point
+include epyon.sh
+include epyon.bat
+
+# Include all scripts
+recursive-include scripts *.sh *.py
+
+# Include configuration
+recursive-include configuration *
+
+# Include bin templates
+recursive-include bin/templates *.yml
+
+# Include web UI
+recursive-include web/static *
+recursive-include web/templates *
+include web/api/*.py
+
+# Exclude unwanted files
+global-exclude __pycache__
+global-exclude *.py[cod]
+global-exclude .DS_Store
+global-exclude *.swp
+global-exclude .git*
+
+# Exclude test and scan artifacts
+recursive-exclude tests *
+recursive-exclude scans *
+recursive-exclude coverage *
+recursive-exclude tmp *

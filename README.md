@@ -650,7 +650,39 @@ git commit -m "Add Epyon security scanning"
 git push
 ```
 
-#### Option B — curl
+#### Option B — pip (Python)
+
+```bash
+pip install git+https://github.com/MetroStar/epyon.git
+# or if published to PyPI:
+# pip install epyon-scanner
+```
+
+Install the workflow into your repository:
+```bash
+epyon install-workflow
+```
+
+Then commit and push:
+```bash
+git add .github/workflows/scan-private-repo.yml
+git commit -m "Add Epyon security scanning"
+git push
+```
+
+**Additional pip commands:**
+```bash
+# Run a local scan
+epyon scan --target /path/to/app --mode full
+
+# Start the web UI
+epyon web
+
+# Or use the standalone web command
+epyon-web --port 8000 --reload
+```
+
+#### Option C — curl
 
 ```bash
 # In your repository directory
@@ -666,7 +698,7 @@ git commit -m "Add Epyon security scanning"
 git push
 ```
 
-#### Required secrets (both options)
+#### Required secrets (all options)
 
 Configure these in your GitHub repo **Settings → Secrets and variables → Actions**:
 

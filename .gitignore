@@ -58,6 +58,13 @@ env/
 venv/
 ENV/
 
+# Python packaging
+dist/
+build/
+*.egg-info/
+.eggs/
+src/*.egg-info/
+
 # IDE files
 .vscode/
 .idea/

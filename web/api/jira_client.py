@@ -114,28 +114,37 @@ def write_ticket_map(tmap: dict) -> None:
 # ── Finding fingerprint ───────────────────────────────────────
 
 def _norm_path(v: str) -> str:
-    """Reduce absolute paths to their last two components for fingerprint stability.
+    """Reduce absolute paths to their last components for fingerprint stability.
 
     Tools like Checkov, ClamAV, and TruffleHog report absolute paths that
     include the temp clone directory (e.g. /tmp/clone-abc123/src/app.py).
     That prefix changes every scan, so including it raw in the fingerprint
     produces a new key — and a new Jira ticket — for the same finding on
-    every run.  Normalising to the last two path components (src/app.py)
+    every run.  Normalising to the last components (src/subdir/app.py)
     keeps the fingerprint stable while still distinguishing different files.
     Non-absolute values are returned unchanged.
     """
-    if not v or not v.startswith("/"):
-        return v
-    parts = [p for p in Path(v).parts if p != "/"]
-    return "/".join(parts[-2:]) if len(parts) >= 2 else (parts[-1] if parts else v)
+    if not v:
+        return ""
+    # Convert Windows paths to Unix-style for consistency
+    v = v.replace("\\", "/")
+    if not v.startswith("/"):
+        return v  # Relative path, use as-is
+    parts = [p for p in Path(v).parts if p not in ("/", "\\")]
+    # Use last 3 components for better uniqueness while removing temp prefixes
+    if len(parts) >= 3:
+        return "/".join(parts[-3:])
+    return "/".join(parts) if parts else v
 
 
-def finding_fingerprint(finding: dict, app_name: str) -> str:
-    """Stable key for a finding that is consistent across scans.
+def finding_fingerprint(finding: dict, app_name: str, project_key: str = "") -> str:
+    """Stable key for a finding that is consistent across scans within a project.
 
-    Identity is: tool + CVE/check id + package + target + app_name.
-    Absolute paths in package/target are normalised to their last two
-    components so that temp-clone prefixes do not break stability.
+    Identity is: tool + CVE/check id + package + target + app_name + project_key.
+    Absolute paths in package/target are normalised to their last components
+    so that temp-clone prefixes do not break stability.
+    Including project_key prevents duplicates when the same app is tracked
+    across multiple Jira projects.
     Returns a short SHA-256 hex prefix combined with the id for readability.
     """
     parts = "|".join([
@@ -143,7 +152,8 @@ def finding_fingerprint(finding: dict, app_name: str) -> str:
         (finding.get("id")      or "").strip(),
         _norm_path((finding.get("package") or "").strip()),
         _norm_path((finding.get("target")  or "").strip()),
-        app_name.strip(),
+        app_name.strip().lower().replace(" ", "-"),  # Normalize app name
+        project_key.strip().upper(),  # Normalize project key
     ])
     h   = hashlib.sha256(parts.encode()).hexdigest()[:16]
     fid = (finding.get("id") or "unknown")[:40]
@@ -334,11 +344,12 @@ async def reconcile_app(
     create_on_new = bool(cfg.get("create_on_new", False))
     min_sev       = (cfg.get("min_severity") or "high").lower()
     min_rank      = _SEV_RANK.get(min_sev, 1)
+    project_key   = (cfg.get("project_key") or "").strip()
 
     now_ts = datetime.now(timezone.utc).isoformat()
 
-    current_fps  = {finding_fingerprint(f, app_name): f for f in current_findings}
-    previous_fps = {finding_fingerprint(f, app_name): f for f in previous_findings}
+    current_fps  = {finding_fingerprint(f, app_name, project_key): f for f in current_findings}
+    previous_fps = {finding_fingerprint(f, app_name, project_key): f for f in previous_findings}
 
     # ── Remediated findings ──────────────────────────────────
     for fp, finding in previous_fps.items():
@@ -372,6 +383,7 @@ async def reconcile_app(
                 ticket_map[fp] = {
                     "issue_key":  issue_key,
                     "app":        app_name,
+                    "project_key": project_key,
                     "finding_id": finding.get("id", ""),
                     "severity":   finding.get("severity", ""),
                     "tool":       finding.get("tool", ""),

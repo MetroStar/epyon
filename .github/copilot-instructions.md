@@ -66,6 +66,7 @@ Every layer can be skipped with `SKIP_<LAYERNAME>=true`. See `documentation/SCAN
 - **STIG split**: `stig_na` counts `"Not Applicable"` only; `stig_nr` counts `"Not Reviewed"` only. Never conflate them — they have different compliance meanings.
 - **CVE source classification**: `type == "container_vulnerability"` or `tool == "anchore"` → container; `tool == "checkov"` → iac; `tool == "trufflehog"` → secret; `tool == "xeol"` → eol; otherwise → code.
 - **Jira credentials**: `JIRA_BASE_URL`, `JIRA_USER_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY` env vars take priority over `web/data/jira-config.json`. The `_from_env` flag passes through the API to the UI.
+- **Jira fingerprinting**: `finding_fingerprint()` creates stable keys from `tool + id + package + target + app_name + project_key` with normalized paths (last 3 components) and normalized app names (lowercase, hyphens). Project key isolation prevents duplicates when tracking the same app across multiple Jira projects. Ticket map stores `project_key` for audit trail.
 - **AI config**: `OPENAI_API_KEY` or self-hosted endpoint. SSRF guard enforced on any user-supplied base URL. Without a key, STIG controls are marked `Not Reviewed`.
 
 ## Web UI — FastAPI API Surface

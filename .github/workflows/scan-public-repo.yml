@@ -125,6 +125,5 @@ jobs:
       garak_target_type: ${{ needs.resolve-target.outputs.garak_target_type }}
       garak_target_name: ${{ needs.resolve-target.outputs.garak_target_name }}
       create_github_issue: false
-      create_jira_tickets: false
       write_metrics: false
     secrets: inherit

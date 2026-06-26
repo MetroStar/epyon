@@ -971,6 +971,9 @@ jobs:
             // ── Per-severity config: one GitHub issue is maintained per severity level ─
             const SEVERITIES = [
               { key: 'critical', label: 'critical', emoji: '🔴', count: critical, findingsKey: 'critical_findings', labelName: 'Critical' },
+              { key: 'high', label: 'high', emoji: '🟠', count: high, findingsKey: 'high_findings', labelName: 'High' },
+              { key: 'medium', label: 'medium', emoji: '🟡', count: medium, findingsKey: 'medium_findings', labelName: 'Medium' },
+              { key: 'low', label: 'low', emoji: '🟢', count: low, findingsKey: 'low_findings', labelName: 'Low' },
             ];
 
             // The tracking marker is an invisible HTML comment embedded in issue/comment

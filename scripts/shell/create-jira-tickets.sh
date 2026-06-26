@@ -51,6 +51,28 @@ if [[ "${1:-}" == "--help" ]] || [[ "${1:-}" == "-h" ]]; then
   exit 0
 fi
 
+# ── Helper: find GitHub issue number by severity label ───────────────────────
+# Maps label_severity (epyon-critical, epyon-high, etc.) to GitHub issue number
+# by searching for open issues with the matching severity label.
+find_github_issue_by_severity() {
+  local label_severity="$1"
+  [[ -z "${GITHUB_TOKEN:-}" ]] && echo "" && return
+  [[ -z "${REPO_NAME:-}" ]]    && echo "" && return
+  
+  # Map epyon-critical → critical, epyon-high → high, etc.
+  local github_label="${label_severity#epyon-}"
+  
+  # Search for open issue with this severity label
+  local issue_number
+  issue_number=$(curl -s \
+    -H "Authorization: token ${GITHUB_TOKEN}" \
+    -H "Accept: application/vnd.github.v3+json" \
+    "https://api.github.com/repos/${REPO_NAME}/issues?state=open&labels=security-scan,epyon,${github_label}&per_page=1" \
+    | jq -r '.[0].number // ""')
+  
+  echo "${issue_number}"
+}
+
 # ── Helper: fetch current GitHub issue body via API ──────────────────────────
 get_github_issue_body() {
   [[ -z "${GITHUB_ISSUE_NUMBER:-}" ]] && echo "" && return
@@ -62,6 +84,21 @@ get_github_issue_body() {
     | jq -r '.body // ""'
 }
 
+# ── Helper: fetch GitHub issue body by severity label ─────────────────────────
+get_github_issue_body_by_severity() {
+  local label_severity="$1"
+  local issue_num
+  issue_num=$(find_github_issue_by_severity "${label_severity}")
+  [[ -z "${issue_num}" ]] && echo "" && return
+  
+  [[ -z "${GITHUB_TOKEN:-}" ]] && echo "" && return
+  curl -s \
+    -H "Authorization: token ${GITHUB_TOKEN}" \
+    -H "Accept: application/vnd.github.v3+json" \
+    "https://api.github.com/repos/${REPO_NAME}/issues/${issue_num}" \
+    | jq -r '.body // ""'
+}
+
 # ── Helper: find existing open Jira ticket via key stored in GitHub issue body ─
 # Avoids Jira search entirely. After creating a ticket we embed
 # <!--epyon-jira-{label}:KEY--> in the GitHub issue body. On subsequent runs we
@@ -69,11 +106,10 @@ get_github_issue_body() {
 # All status messages go to stderr; only the key (or empty string) goes to stdout.
 find_existing_jira_ticket() {
   local label_severity="$1"
-  [[ -z "${GITHUB_ISSUE_NUMBER:-}" ]] && echo "" && return
-  [[ -z "${GITHUB_TOKEN:-}" ]]        && echo "" && return
+  [[ -z "${GITHUB_TOKEN:-}" ]] && echo "" && return
 
   local issue_body
-  issue_body=$(get_github_issue_body)
+  issue_body=$(get_github_issue_body_by_severity "${label_severity}")
   [[ -z "${issue_body}" ]] && echo "" && return
 
   echo "${issue_body}" > /tmp/epyon_issue_body.txt
@@ -135,11 +171,19 @@ PYEOF
 store_jira_key_in_github() {
   local label_severity="$1"
   local jira_key="$2"
-  [[ -z "${GITHUB_ISSUE_NUMBER:-}" ]] && return 0
-  [[ -z "${GITHUB_TOKEN:-}" ]]        && return 0
+  [[ -z "${GITHUB_TOKEN:-}" ]] && return 0
+
+  # Find the GitHub issue for this severity level
+  local issue_number
+  issue_number=$(find_github_issue_by_severity "${label_severity}")
+  [[ -z "${issue_number}" ]] && return 0
 
   local current_body
-  current_body=$(get_github_issue_body)
+  current_body=$(curl -s \
+    -H "Authorization: token ${GITHUB_TOKEN}" \
+    -H "Accept: application/vnd.github.v3+json" \
+    "https://api.github.com/repos/${REPO_NAME}/issues/${issue_number}" \
+    | jq -r '.body // ""')
   echo "${current_body}" > /tmp/epyon_issue_body.txt
 
   local new_body
@@ -167,9 +211,9 @@ PYEOF
     -H "Accept: application/vnd.github.v3+json" \
     -H "Content-Type: application/json" \
     --data "${update_payload}" \
-    "https://api.github.com/repos/${REPO_NAME}/issues/${GITHUB_ISSUE_NUMBER}")
+    "https://api.github.com/repos/${REPO_NAME}/issues/${issue_number}")
   if [[ "${update_http}" == "200" ]]; then
-    echo "📎 Stored Jira key ${jira_key} in GitHub issue #${GITHUB_ISSUE_NUMBER}"
+    echo "📎 Stored Jira key ${jira_key} in GitHub issue #${issue_number} (${label_severity})"
   else
     echo "⚠️  Could not store Jira key in GitHub issue (HTTP ${update_http}) — continuing"
   fi
@@ -178,11 +222,19 @@ PYEOF
 # ── Helper: remove Jira ticket key from GitHub issue body ────────────────────
 clear_jira_key_in_github() {
   local label_severity="$1"
-  [[ -z "${GITHUB_ISSUE_NUMBER:-}" ]] && return 0
-  [[ -z "${GITHUB_TOKEN:-}" ]]        && return 0
+  [[ -z "${GITHUB_TOKEN:-}" ]] && return 0
+
+  # Find the GitHub issue for this severity level
+  local issue_number
+  issue_number=$(find_github_issue_by_severity "${label_severity}")
+  [[ -z "${issue_number}" ]] && return 0
 
   local current_body
-  current_body=$(get_github_issue_body)
+  current_body=$(curl -s \
+    -H "Authorization: token ${GITHUB_TOKEN}" \
+    -H "Accept: application/vnd.github.v3+json" \
+    "https://api.github.com/repos/${REPO_NAME}/issues/${issue_number}" \
+    | jq -r '.body // ""')
   echo "${current_body}" > /tmp/epyon_issue_body.txt
 
   local new_body
@@ -205,9 +257,9 @@ PYEOF
     -H "Accept: application/vnd.github.v3+json" \
     -H "Content-Type: application/json" \
     --data "${update_payload}" \
-    "https://api.github.com/repos/${REPO_NAME}/issues/${GITHUB_ISSUE_NUMBER}")
+    "https://api.github.com/repos/${REPO_NAME}/issues/${issue_number}")
   if [[ "${update_http}" == "200" ]]; then
-    echo "📎 Cleared Jira key for ${label_severity} from GitHub issue #${GITHUB_ISSUE_NUMBER}" >&2
+    echo "📎 Cleared Jira key for ${label_severity} from GitHub issue #${issue_number}" >&2
   else
     echo "⚠️  Could not clear Jira key in GitHub issue (HTTP ${update_http}) — continuing" >&2
   fi

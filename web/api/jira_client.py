@@ -66,7 +66,7 @@ def _env_config() -> dict:
         "done_transition":  os.environ.get("JIRA_DONE_TRANSITION", "Done").strip(),
         "min_severity":    os.environ.get("JIRA_MIN_SEVERITY", "high").strip(),
         "auto_close":      True,
-        "create_on_new":   True,  # Changed to True - create tickets for new findings
+        "create_on_new":   False,
         "_from_env":       True,   # marker so the UI can show "from environment"
     }
 

@@ -5,17 +5,6 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.11.10] - 2026-06-25
-
-### Changed
-- **JIRA Integration Defaults** — Changed `create_on_new` and `auto_close` defaults from `False` to `True`
-  - After removing GitHub Actions JIRA integration, web backend now creates tickets by default
-  - Previous behavior: Only closed tickets for remediated findings, did not create new ones
-  - New behavior: Creates tickets for new findings AND closes tickets for remediated findings
-  - Users can still disable this in Web UI Settings if desired
-  - Defaults updated in both `jira_client.py` (`_env_config()`) and `main.py` (`GET /api/jira/config`)
-  - Matches expected behavior after GitHub Actions integration removal
-
 ## [3.11.9] - 2026-06-25
 
 ### Fixed

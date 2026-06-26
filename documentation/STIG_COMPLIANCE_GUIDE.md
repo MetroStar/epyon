@@ -3601,7 +3601,7 @@ Configure the application to use cryptographic protections to prevent unauthoriz
 Status: Compliant
 
 Evidence:
-- Scan result data transmitted to JIRA (via web backend jira_client.py) is sent exclusively over HTTPS.
+- Scan result data transmitted to JIRA (via create-jira-tickets.sh) is sent exclusively over HTTPS.
 - All API payloads are prepared and transmitted within established TLS sessions.
 - No pre-transmission buffering to insecure storage occurs.
 
@@ -3980,8 +3980,8 @@ Status: Compliant
 
 Evidence:
 - Epyon scan failures generate structured records in scan-metadata.json with failure context.
-- CI/CD pipeline sends failure notifications to configured channels (GitHub Actions notifications, JIRA tickets via web backend).
-- Web backend jira_client.py automatically creates tickets for new findings and reconciles remediated findings.
+- CI/CD pipeline sends failure notifications to configured channels (GitHub Actions notifications, JIRA tickets).
+- create-jira-tickets.sh automatically creates tickets for critical/high findings, including pipeline failures.
 - The security dashboard HTML report prominently displays failed layer results for review.
 
 Remediation:

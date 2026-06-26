@@ -353,11 +353,11 @@ Only scan on specific conditions:
   run: ./scripts/shell/run-target-security-scan.sh
 ```
 
-### Jira Integration
+### Jira Ticket Creation
 
-Epyon integrates with Jira Cloud through the **web UI backend** for automated ticket management.
+Epyon automatically creates Jira Cloud tickets when critical or high severity findings are detected.
 
-**To enable web backend Jira integration, set these GitHub secrets:**
+**Required secrets (set once at repo or org level):**
 
 | Secret | Description |
 |--------|-------------|
@@ -366,13 +366,14 @@ Epyon integrates with Jira Cloud through the **web UI backend** for automated ti
 | `JIRA_API_TOKEN` | [Jira Cloud personal API token](https://id.atlassian.com/manage-profile/security/api-tokens) |
 | `JIRA_PROJECT_KEY` | Project key in uppercase, e.g. `SAP` |
 
-**Features:**
-- Auto-reconciliation after each scan completion
-- Creates tickets for new findings and closes tickets for remediated findings
-- Project-isolated fingerprinting prevents cross-project duplicates
-- Configure behavior via web UI Settings page
+**Behavior:**
+- Creates up to four tickets per scan: one each for critical, high, medium, and low findings
+- Ticket body contains an ADF table with CVE/ID, package, version, and tool for every finding
+- Deduplicates: skips creation if an unresolved ticket with the same severity + repo-slug labels already exists
+- Skipped silently if `JIRA_*` secrets are absent
 
-**Note**: Jira ticket management is now handled exclusively through the web backend. The previous GitHub Actions integration has been removed to prevent duplicate tickets.
+**Optional input (workflow_dispatch):**
+- `jira_issue_type` — Jira issue type for created tickets (default: `Bug`)
 
 ### Custom Notifications
 

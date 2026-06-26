@@ -21,7 +21,7 @@ This document describes a plan to bring the Web UI to full parity.
 | Rebuild Metrics History | `get-scan-metrics.sh` | ❌ Not run |
 | Embed Metrics Chart in Dashboard | `embed-metrics-in-dashboard.sh` | ❌ Not run |
 | Create GitHub Issues | GitHub REST API (JS in workflow) | ❌ Not run |
-| JIRA Integration | `jira_client.py` auto-reconciliation | ✅ Runs automatically via `_jira_post_scan()` |
+| Create JIRA Tickets | `create-jira-tickets.sh` | ❌ Not run |
 | Artifact Download | `actions/upload-artifact` | ✅ Already exists (`GET /api/scans/{id}/download`) |
 | Fix Artifact Permissions | CI runner `chown` step | N/A (not needed for Web UI) |
 | Generate Step Summary | `GITHUB_STEP_SUMMARY` | N/A (GitHub Actions only) |

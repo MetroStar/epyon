@@ -475,36 +475,25 @@ Then open **http://127.0.0.1:8000** in your browser.
 
 **Use Epyon as a GitHub Action to automatically scan repositories!**
 
-### 🎟️ Jira Integration (Web Backend)
+### 🎟️ Jira Ticket Creation
 
-Epyon integrates with Jira Cloud through the **web UI backend** for automated ticket management.
+Epyon automatically creates Jira Cloud tickets for critical and high severity findings.
 
-**Setup:**
+**Setup (one-time, in GitHub repo or org secrets):**
 
-Configure via **Web UI Settings** or environment variables:
-
-| Secret / Setting | Value |
+| Secret | Value |
 |--------|-------|
 | `JIRA_BASE_URL` | `https://yourcompany.atlassian.net` |
 | `JIRA_USER_EMAIL` | Email tied to your Jira API token |
 | `JIRA_API_TOKEN` | [Jira Cloud personal API token](https://id.atlassian.com/manage-profile/security/api-tokens) |
 | `JIRA_PROJECT_KEY` | Project key in uppercase (e.g. `SAP`, `SEC`) |
 
-**Features:**
-- **Auto-reconciliation**: Automatically creates tickets for new findings and closes tickets for remediated findings
-- **Project isolation**: Separate fingerprinting per JIRA project prevents cross-project duplicates
-- **Deduplication**: Uses stable fingerprints based on tool + CVE + package + target + app + project
-- **Configurable**: Set minimum severity threshold, issue type, and auto-close behavior in Settings
-- **Manual sync**: Trigger reconciliation via web UI or API endpoint
-
-**Configuration Options:**
-- `auto_close`: Automatically transition tickets to "Done" when findings are remediated
-- `create_on_new`: Create new tickets when findings first appear (default: false, manual only)
-- `min_severity`: Minimum severity to create tickets for (critical/high/medium/low)
-- `issue_type`: Jira issue type (e.g., Bug, Task, Security Finding)
-- `done_transition`: Transition name to close tickets (e.g., Done, Closed)
-
-**Note**: The previous GitHub Actions JIRA integration has been removed to prevent duplicate ticket creation. All JIRA functionality is now managed through the web backend.
+**Behavior:**
+- One ticket is created per severity group per repo: critical, high, medium, and low
+- Each ticket contains an ADF table listing CVE/ID, package, version, and scanner tool for every finding
+- Tickets are labeled `epyon`, `security`, `epyon-critical`/`epyon-high`/`epyon-medium`/`epyon-low`, and a repo slug
+- **Deduplication**: if an unresolved ticket with matching labels already exists, creation is skipped and the existing ticket URL is logged
+- Ticket creation is skipped entirely if `JIRA_*` secrets are not configured
 
 ### Quick Start - Scan Any Repository
 
@@ -716,7 +705,10 @@ Configure these in your GitHub repo **Settings → Secrets and variables → Act
 | Secret | Required | Purpose |
 |--------|----------|---------|
 | `SONAR_TOKEN` + `SONAR_HOST_URL` | Optional | Enables SonarQube layer |
-| `JIRA_BASE_URL` + `JIRA_USER_EMAIL` + `JIRA_API_TOKEN` + `JIRA_PROJECT_KEY` | Optional | Enables web backend Jira integration |
+| `JIRA_BASE_URL` + `JIRA_USER_EMAIL` + `JIRA_API_TOKEN` + `JIRA_PROJECT_KEY` | Optional | Enables Jira ticket creation |
+| `OPENAI_API_KEY` | Optional | Enables Garak LLM probing + STIG assessment |
+
+Once configured, Epyon will automatically:
    - ✅ Scan every push to `main` or `develop`
    - ✅ Scan all pull requests
    - ✅ Run daily security scans at 2 AM UTC

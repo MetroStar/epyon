@@ -1092,22 +1092,6 @@ jobs:
               core.setOutput('issue_url', firstIssueUrl);
             }
 
-      - name: Sync JIRA Findings
-        if: >
-          always() &&
-          (inputs.scan_mode == 'full' || inputs.scan_mode == 'nightly') &&
-          env.JIRA_BASE_URL != '' &&
-          env.JIRA_USER_EMAIL != '' &&
-          env.JIRA_API_TOKEN != '' &&
-          env.JIRA_PROJECT_KEY != ''
-        continue-on-error: true
-        shell: bash
-        run: |
-          cd epyon
-          python3 scripts/shell/sync-jira-findings.py \
-            --app-name "${{ github.event.repository.name }}" \
-            --epyon-root "$PWD"
-
       - name: Fail on Critical Vulnerabilities
         if: always() && steps.check-severity.outputs.critical > 0
         run: |

@@ -492,7 +492,6 @@ Configure via **Web UI Settings** or environment variables:
 
 **Features:**
 - **Auto-reconciliation**: Automatically creates tickets for new findings and closes tickets for remediated findings (enabled by default)
-- **GitHub Actions integration**: Runs automatically after CI scans complete (uses same logic as web backend)
 - **Project isolation**: Separate fingerprinting per JIRA project prevents cross-project duplicates
 - **Deduplication**: Uses stable fingerprints based on tool + CVE + package + target + app + project
 - **Configurable**: Set minimum severity threshold, issue type, and auto-close behavior in Settings
@@ -505,10 +504,7 @@ Configure via **Web UI Settings** or environment variables:
 - `issue_type` (default: `Bug`): Jira issue type (e.g., Bug, Task, Security Finding)
 - `done_transition` (default: `Done`): Transition name to close tickets (e.g., Done, Closed)
 
-**How it works:**
-- **GitHub Actions**: After scan completion, `sync-jira-findings.py` compares current vs previous scan and reconciles tickets
-- **Web UI**: When a scan completes, `_jira_post_scan()` automatically reconciles tickets
-- Both use the same `jira_client.py` module with consistent fingerprinting and deduplication logic
+**Note**: The previous GitHub Actions JIRA integration has been removed to prevent duplicate ticket creation. All JIRA functionality is now managed through the web backend.
 
 ### Quick Start - Scan Any Repository
 

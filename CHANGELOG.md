@@ -5,19 +5,6 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [3.11.11] - 2026-06-25
-
-### Added
-- **GitHub Actions JIRA Sync** — Added `sync-jira-findings.py` script for JIRA reconciliation from CI
-  - Uses the same `jira_client.py` logic as web backend (consistent fingerprinting, deduplication)
-  - Automatically compares current vs previous scan and creates/closes tickets
-  - Runs after scan completion in GitHub Actions (full/nightly modes only)
-  - Requires JIRA credentials configured as GitHub secrets
-  - Skips gracefully if credentials not set or if only one scan exists
-  - Script is standalone - doesn't require web backend to be running
-  - Added "Sync JIRA Findings" step to epyon-scan.yml workflow
-  - Ensures JIRA tickets are created from CI runs, not just web UI scans
-
 ## [3.11.10] - 2026-06-25
 
 ### Changed

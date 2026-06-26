@@ -62,13 +62,32 @@ find_github_issue_by_severity() {
   # Map epyon-critical → critical, epyon-high → high, etc.
   local github_label="${label_severity#epyon-}"
   
+  echo "🔍 Searching for GitHub issue: repo=${REPO_NAME}, labels=security-scan,epyon,${github_label}" >&2
+  
   # Search for open issue with this severity label
-  local issue_number
-  issue_number=$(curl -s \
+  local search_url="https://api.github.com/repos/${REPO_NAME}/issues?state=open&labels=security-scan,epyon,${github_label}&per_page=1"
+  local api_response
+  api_response=$(curl -s \
     -H "Authorization: token ${GITHUB_TOKEN}" \
     -H "Accept: application/vnd.github.v3+json" \
-    "https://api.github.com/repos/${REPO_NAME}/issues?state=open&labels=security-scan,epyon,${github_label}&per_page=1" \
-    | jq -r '.[0].number // ""')
+    "${search_url}")
+  
+  local issue_number
+  issue_number=$(echo "${api_response}" | jq -r '.[0].number // ""')
+  
+  if [[ -n "${issue_number}" ]]; then
+    echo "✅ Found GitHub issue #${issue_number} for ${label_severity}" >&2
+  else
+    echo "❌ No GitHub issue found for ${label_severity}" >&2
+    # Debug: show first result if any
+    local issue_count
+    issue_count=$(echo "${api_response}" | jq '. | length')
+    if [[ "${issue_count}" == "0" ]]; then
+      echo "   API returned 0 issues" >&2
+    else
+      echo "   API error or unexpected format: $(echo "${api_response}" | jq -c '.')" >&2
+    fi
+  fi
   
   echo "${issue_number}"
 }

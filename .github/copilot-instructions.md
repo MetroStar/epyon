@@ -74,7 +74,7 @@ Every layer can be skipped with `SKIP_<LAYERNAME>=true`. See `documentation/SCAN
 Key endpoint groups (all under `/api/`):
 - `GET /scans/{scan_id}` — full parsed scan data
 - `POST /scans` — trigger a new scan (async job)
-- `GET/POST /jira/config`, `POST /jira/sync/{app_name}` — Jira integration (web backend only; GitHub Actions integration removed to prevent duplicates)
+- `GET/POST /jira/config`, `POST /jira/sync/{app_name}` — Jira integration
 - `GET/POST /github/config`, `POST /github/sync` — GitHub metrics sync
 - `GET/POST /ai/config` — AI/OpenAI configuration
 - `GET /stig/history` — cross-scan STIG trend data

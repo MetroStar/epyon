@@ -545,12 +545,20 @@ PYEOF
 # ── Helper: add a Jira Remote Link pointing back to the GitHub issue ──────────
 link_jira_to_github() {
   local jira_key="$1"
-  [[ -z "${GITHUB_ISSUE_URL:-}" ]] && return 0
+  local label_severity="$2"
+  [[ -z "${GITHUB_TOKEN:-}" ]] && return 0
+  
+  # Find the GitHub issue for this severity level
+  local issue_number
+  issue_number=$(find_github_issue_by_severity "${label_severity}")
+  [[ -z "${issue_number}" ]] && return 0
+  
+  local gh_url="https://github.com/${REPO_NAME}/issues/${issue_number}"
   local link_payload
   link_payload=$(jq -n \
-    --arg global_id "github-issue-${GITHUB_ISSUE_NUMBER:-0}" \
-    --arg gh_url    "${GITHUB_ISSUE_URL}" \
-    --arg gh_title  "GitHub Issue #${GITHUB_ISSUE_NUMBER:-}" \
+    --arg global_id "github-issue-${issue_number}" \
+    --arg gh_url    "${gh_url}" \
+    --arg gh_title  "GitHub Issue #${issue_number}" \
     '{globalId: $global_id, relationship: "GitHub Issue",
       object: {url: $gh_url, title: $gh_title,
                icon: {url16x16: "https://github.com/favicon.ico", title: "GitHub"}}}')
@@ -563,7 +571,7 @@ link_jira_to_github() {
     --data "${link_payload}" \
     "${JIRA_URL}/rest/api/3/issue/${jira_key}/remotelink")
   if [[ "${link_http}" == "201" ]]; then
-    echo "✅ Linked ${jira_key} → GitHub issue #${GITHUB_ISSUE_NUMBER}"
+    echo "✅ Linked ${jira_key} → GitHub issue #${issue_number} (${label_severity})"
   else
     echo "⚠️  Remote link on ${jira_key} returned HTTP ${link_http} — continuing"
   fi
@@ -664,7 +672,7 @@ JIRA_GETIDS
     echo "- Severity group: **${label_severity}**" >> "${GITHUB_STEP_SUMMARY}"
     echo "- Ticket: [${new_key}](${JIRA_URL}/browse/${new_key})" >> "${GITHUB_STEP_SUMMARY}"
     echo "${new_key}|${JIRA_URL}/browse/${new_key}" >> /tmp/jira_created_tickets.txt
-    link_jira_to_github "${new_key}"
+    link_jira_to_github "${new_key}" "${label_severity}"
     store_jira_key_in_github "${label_severity}" "${new_key}"
 
     # Assign to active sprint (best-effort).
@@ -775,10 +783,14 @@ except Exception:
 # Outputs a JSON object: {"CVE-2024-1234": "SEC-45", ...}
 get_cve_map_from_github() {
   local severity="$1"
-  [[ -z "${GITHUB_ISSUE_NUMBER:-}" ]] && echo '{}' && return
-  [[ -z "${GITHUB_TOKEN:-}" ]]        && echo '{}' && return
+  [[ -z "${GITHUB_TOKEN:-}" ]] && echo '{}' && return
+  
+  # Find the GitHub issue for this severity level
+  local label_severity="epyon-${severity}"
   local issue_body
-  issue_body=$(get_github_issue_body)
+  issue_body=$(get_github_issue_body_by_severity "${label_severity}")
+  [[ -z "${issue_body}" ]] && echo '{}' && return
+  
   echo "${issue_body}" > /tmp/epyon_issue_body.txt
   python3 - "${severity}" /tmp/epyon_issue_body.txt <<'PYEOF'
 import sys, re, json
@@ -801,11 +813,20 @@ PYEOF
 store_cve_map_in_github() {
   local severity="$1"
   local map_json_file="$2"   # path to a file containing the JSON map
-  [[ -z "${GITHUB_ISSUE_NUMBER:-}" ]] && return 0
-  [[ -z "${GITHUB_TOKEN:-}" ]]        && return 0
+  [[ -z "${GITHUB_TOKEN:-}" ]] && return 0
+
+  # Find the GitHub issue for this severity level
+  local label_severity="epyon-${severity}"
+  local issue_number
+  issue_number=$(find_github_issue_by_severity "${label_severity}")
+  [[ -z "${issue_number}" ]] && return 0
 
   local current_body
-  current_body=$(get_github_issue_body)
+  current_body=$(curl -s \
+    -H "Authorization: token ${GITHUB_TOKEN}" \
+    -H "Accept: application/vnd.github.v3+json" \
+    "https://api.github.com/repos/${REPO_NAME}/issues/${issue_number}" \
+    | jq -r '.body // ""')
   echo "${current_body}" > /tmp/epyon_issue_body.txt
 
   local new_body
@@ -835,9 +856,9 @@ PYEOF
     -H "Accept: application/vnd.github.v3+json" \
     -H "Content-Type: application/json" \
     --data "${update_payload}" \
-    "https://api.github.com/repos/${REPO_NAME}/issues/${GITHUB_ISSUE_NUMBER}")
+    "https://api.github.com/repos/${REPO_NAME}/issues/${issue_number}")
   if [[ "${update_http}" == "200" ]]; then
-    echo "📎 Updated CVE map for ${severity} in GitHub issue #${GITHUB_ISSUE_NUMBER}"
+    echo "📎 Updated CVE map for ${severity} in GitHub issue #${issue_number} (${label_severity})"
   else
     echo "⚠️  Could not update CVE map in GitHub issue (HTTP ${update_http}) — continuing"
   fi

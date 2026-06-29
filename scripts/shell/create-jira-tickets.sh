@@ -64,13 +64,33 @@ find_github_issue_by_severity() {
   
   echo "🔍 Searching for GitHub issue: repo=${REPO_NAME}, labels=security-scan,epyon,${github_label}" >&2
   
-  # Search for open issue with this severity label
+  # Search for open issue with this severity label (with retry logic)
   local search_url="https://api.github.com/repos/${REPO_NAME}/issues?state=open&labels=security-scan,epyon,${github_label}&per_page=1"
   local api_response
-  api_response=$(curl -s \
-    -H "Authorization: token ${GITHUB_TOKEN}" \
-    -H "Accept: application/vnd.github.v3+json" \
-    "${search_url}")
+  local attempt=1
+  local max_attempts=3
+  
+  while [[ ${attempt} -le ${max_attempts} ]]; do
+    api_response=$(curl -s -w "\n%{http_code}" \
+      -H "Authorization: token ${GITHUB_TOKEN}" \
+      -H "Accept: application/vnd.github.v3+json" \
+      "${search_url}")
+    
+    local http_code
+    http_code=$(echo "${api_response}" | tail -1)
+    api_response=$(echo "${api_response}" | sed '$d')
+    
+    if [[ "${http_code}" == "200" ]]; then
+      break
+    elif [[ "${http_code}" == "403" ]]; then
+      echo "⚠️  GitHub API rate limit hit (attempt ${attempt}/${max_attempts})" >&2
+      [[ ${attempt} -lt ${max_attempts} ]] && sleep $((2 * attempt))
+    else
+      echo "⚠️  GitHub API returned HTTP ${http_code} (attempt ${attempt}/${max_attempts})" >&2
+      [[ ${attempt} -lt ${max_attempts} ]] && sleep 2
+    fi
+    attempt=$((attempt + 1))
+  done
   
   local issue_number
   issue_number=$(echo "${api_response}" | jq -r '.[0].number // ""')
@@ -81,7 +101,7 @@ find_github_issue_by_severity() {
     echo "❌ No GitHub issue found for ${label_severity}" >&2
     # Debug: show first result if any
     local issue_count
-    issue_count=$(echo "${api_response}" | jq '. | length')
+    issue_count=$(echo "${api_response}" | jq '. | length' 2>/dev/null || echo "0")
     if [[ "${issue_count}" == "0" ]]; then
       echo "   API returned 0 issues" >&2
     else
@@ -1081,9 +1101,18 @@ PYEOF
   echo "  Found ${cve_count} unique CVE(s) for ${sev_label}"
 
   # Load existing CVE→key map from GitHub issue
+  echo "  🔍 Loading CVE deduplication map from GitHub issue (epyon-${sev_label})..." >&2
   local cve_map_json
   cve_map_json=$(get_cve_map_from_github "${sev_label}")
   echo "${cve_map_json}" > /tmp/epyon_cve_map_current.json
+  
+  local tracked_count
+  tracked_count=$(jq 'keys | length' /tmp/epyon_cve_map_current.json 2>/dev/null || echo 0)
+  if [[ "${tracked_count}" -gt 0 ]]; then
+    echo "  ✅ Found ${tracked_count} previously tracked CVE(s) in GitHub issue" >&2
+  else
+    echo "  🆕 No previous CVE map found — first scan for this severity" >&2
+  fi
 
   # Get current CVE IDs
   local current_cve_ids
@@ -1117,6 +1146,7 @@ print(m.get(sys.argv[1], ''))
 
     if [[ -n "${existing_cve_key}" ]]; then
       # Verify ticket is still open
+      echo "  🔍 ${cve_id} — found tracked ticket ${existing_cve_key}, verifying status..." >&2
       local ticket_http
       ticket_http=$(curl -s -o /tmp/jira_cve_check.json -w "%{http_code}" \
         -H "Authorization: Basic ${AUTH}" \
@@ -1136,6 +1166,7 @@ print(m.get(sys.argv[1], ''))
       fi
 
       if [[ "${cve_is_done}" == "false" ]]; then
+        echo "  🔄  ${cve_id} — reusing open ticket ${existing_cve_key}" >&2
         echo "  🔄  ${cve_id} — updating existing ticket ${existing_cve_key}"
         # Add update comment
         local comment_adf
@@ -1152,6 +1183,7 @@ print(m.get(sys.argv[1], ''))
         processed=$((processed + 1))
         continue
       else
+        echo "  🔁  ${cve_id} — ticket ${existing_cve_key} was closed but CVE reappeared, creating new" >&2
         echo "  🔁  ${cve_id} — ticket ${existing_cve_key} was closed but CVE reappeared — creating new"
         # Remove old key from map so we create fresh
         python3 -c "
@@ -1162,6 +1194,8 @@ with open('/tmp/epyon_cve_map_current.json','w') as f: json.dump(m,f)
 " 2>/dev/null || true
         existing_cve_key=""
       fi
+    else
+      echo "  🆕 ${cve_id} — new CVE, creating ticket..." >&2
     fi
 
     # --- Create new CVE ticket ---
@@ -1403,6 +1437,7 @@ with open('/tmp/epyon_cve_map_current.json','w') as f: json.dump(m,f)
   done <<< "${old_cve_ids}"
 
   # Persist updated CVE map to GitHub issue
+  echo "  💾 Persisting CVE map (${tracked_count} tracked → $(jq 'keys | length' /tmp/epyon_cve_map_current.json 2>/dev/null || echo 0) tracked)..." >&2
   store_cve_map_in_github "${sev_label}" /tmp/epyon_cve_map_current.json
   echo "--- CVE child tickets complete for ${sev_label}: ${processed} processed ---"
 }

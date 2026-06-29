@@ -322,16 +322,46 @@ close_jira_ticket() {
     return 0
   fi
 
-  # Pick the first transition whose statusCategory is "done".
+  # Pick a transition that closes the ticket. Try multiple strategies:
   local transition_id
+  
+  # Strategy 1: statusCategory.key == "done"
   transition_id=$(jq -r '
     [.transitions[] | select(.to.statusCategory.key == "done")] | first | .id // empty
   ' /tmp/jira_transitions.json 2>/dev/null || true)
+  
+  # Strategy 2: statusCategory.name contains "done" or "complete" (case-insensitive)
+  if [[ -z "${transition_id}" ]]; then
+    transition_id=$(jq -r '
+      [.transitions[] | select(.to.statusCategory.name | ascii_downcase | test("done|complete"))] | first | .id // empty
+    ' /tmp/jira_transitions.json 2>/dev/null || true)
+  fi
+  
+  # Strategy 3: transition name matches common close patterns
+  if [[ -z "${transition_id}" ]]; then
+    transition_id=$(jq -r '
+      [.transitions[] | select(.name | ascii_downcase | test("^(close|done|resolve|complete|closed|resolved)$"))] | first | .id // empty
+    ' /tmp/jira_transitions.json 2>/dev/null || true)
+  fi
+  
+  # Strategy 4: any transition with "close" or "done" in the name
+  if [[ -z "${transition_id}" ]]; then
+    transition_id=$(jq -r '
+      [.transitions[] | select(.name | ascii_downcase | test("close|done"))] | first | .id // empty
+    ' /tmp/jira_transitions.json 2>/dev/null || true)
+  fi
 
   if [[ -z "${transition_id}" ]]; then
-    echo "⚠️  No 'done' transition found for ${jira_key} — skipping auto-close"
+    echo "⚠️  No closing transition found for ${jira_key}" >&2
+    echo "   Available transitions:" >&2
+    jq -r '.transitions[] | "   - \(.name) → \(.to.name) (category: \(.to.statusCategory.name // "none"))"' /tmp/jira_transitions.json 2>/dev/null | head -10 >&2 || true
+    echo "   Skipping auto-close" >&2
     return 0
   fi
+  
+  local transition_name
+  transition_name=$(jq -r --arg id "${transition_id}" '.transitions[] | select(.id == $id) | .name' /tmp/jira_transitions.json 2>/dev/null || echo "unknown")
+  echo "   Using transition: ${transition_name} (id: ${transition_id})" >&2
 
   # Execute the transition.
   local close_http

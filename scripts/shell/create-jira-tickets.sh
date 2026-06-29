@@ -310,7 +310,7 @@ close_jira_ticket() {
   local jira_key="$1"
   local label_severity="$2"
 
-  # Fetch available transitions.
+  # Fetch current status and available transitions
   local trans_http
   trans_http=$(curl -s -o /tmp/jira_transitions.json -w "%{http_code}" \
     -H "Authorization: Basic ${AUTH}" \
@@ -319,8 +319,13 @@ close_jira_ticket() {
 
   if [[ "${trans_http}" != "200" ]]; then
     echo "⚠️  Could not fetch transitions for ${jira_key} (HTTP ${trans_http}) — skipping auto-close"
-    return 0
+    return 1
   fi
+
+  # Show current status for debugging
+  local current_status
+  current_status=$(jq -r '.transitions[0].to.statusCategory.name // "unknown"' /tmp/jira_transitions.json 2>/dev/null || echo "unknown")
+  echo "   Current ticket status: ${current_status}" >&2
 
   # Pick a transition that closes the ticket. Try multiple strategies:
   local transition_id
@@ -382,7 +387,7 @@ close_jira_ticket() {
   else
     echo "⚠️  Could not close ${jira_key} (HTTP ${close_http}) — leaving open"
     cat /tmp/jira_close_resp.json 2>/dev/null || true
-    return 0
+    return 1
   fi
 
   # Add a closing comment.
@@ -1454,14 +1459,18 @@ print(m.get('${old_cve}', ''))
 " 2>/dev/null || echo "")
       if [[ -n "${old_key}" ]]; then
         echo "  🔒  ${old_cve} resolved — auto-closing ${old_key}"
-        close_jira_ticket "${old_key}" "epyon-${sev_label}-${old_cve}"
-        # Remove from map
-        python3 -c "
+        if close_jira_ticket "${old_key}" "epyon-${sev_label}-${old_cve}"; then
+          # Only remove from map if close succeeded
+          python3 -c "
 import json
 with open('/tmp/epyon_cve_map_current.json') as f: m=json.load(f)
 m.pop('${old_cve}', None)
 with open('/tmp/epyon_cve_map_current.json','w') as f: json.dump(m,f)
 " 2>/dev/null || true
+          echo "   ✅ Removed ${old_cve} from tracking map" >&2
+        else
+          echo "   ⚠️  Auto-close failed — keeping ${old_cve} in tracking map to retry next scan" >&2
+        fi
       fi
     fi
   done <<< "${old_cve_ids}"

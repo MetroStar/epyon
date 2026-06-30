@@ -22,6 +22,9 @@
 
 set -euo pipefail
 
+# Debug mode - set EPYON_WEBHOOK_DEBUG=1 to enable verbose logging
+DEBUG="${EPYON_WEBHOOK_DEBUG:-0}"
+
 # Colors for logging
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -29,17 +32,29 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+debug_log() {
+    if [[ "$DEBUG" == "1" ]]; then
+        echo -e "${BLUE}[webhook-debug]${NC} $*" >&2
+    fi
+}
+
 # Parse arguments
 EVENT_TYPE="${1:-unknown}"
 MESSAGE="${2:-No message provided}"
 STATUS="${3:-info}"
 TOOL_NAME="${4:-}"
 
+debug_log "Event: $EVENT_TYPE, Status: $STATUS, Tool: $TOOL_NAME"
+
 # Check if webhook is configured
 if [[ -z "${EPYON_CALLBACK_URL:-}" ]]; then
     # Webhook not configured - silent skip (not an error)
+    debug_log "EPYON_CALLBACK_URL not set - skipping webhook"
     exit 0
 fi
+
+debug_log "Callback URL: $EPYON_CALLBACK_URL"
+debug_log "Job ID: ${EPYON_JOB_ID:-unknown}"
 
 # Optional: validate URL format (basic check)
 if [[ ! "$EPYON_CALLBACK_URL" =~ ^https?:// ]]; then
@@ -74,7 +89,10 @@ if [[ -n "${EPYON_WEBHOOK_SECRET:-}" ]]; then
     SIGNATURE=$(echo -n "$JSON_PAYLOAD" | openssl dgst -sha256 -hmac "$EPYON_WEBHOOK_SECRET" | sed 's/^.* //')
     HEADERS+=(-H "X-Epyon-Signature: sha256=$SIGNATURE")
     HEADERS+=(-H "X-Epyon-Job-Id: $JOB_ID")
+    debug_log "HMAC signature generated"
 fi
+
+debug_log "Payload: $JSON_PAYLOAD"
 
 # Send webhook with retry logic
 MAX_RETRIES=3
@@ -82,26 +100,26 @@ RETRY_DELAY=2
 SUCCESS=false
 
 for ((i=1; i<=MAX_RETRIES; i++)); do
-    if curl -s -S -X POST "$EPYON_CALLBACK_URL" \
+    debug_log "Attempt $i/$MAX_RETRIES: POST to $EPYON_CALLBACK_URL"
+    
+    HTTP_CODE=$(curl -s -S -X POST "$EPYON_CALLBACK_URL" \
         "${HEADERS[@]}" \
         -d "$JSON_PAYLOAD" \
         --max-time 10 \
         --connect-timeout 5 \
         -o /dev/null \
-        -w "%{http_code}" | grep -qE '^(200|201|202|204)$'; then
+        -w "%{http_code}" 2>&1 || echo "000")
+    
+    debug_log "Response: HTTP $HTTP_CODE"
+    
+    if echo "$HTTP_CODE" | grep -qE '^(200|201|202|204)$'; then
         SUCCESS=true
+        debug_log "Webhook delivered successfully"
         break
     else
-        HTTP_CODE=$(curl -s -S -X POST "$EPYON_CALLBACK_URL" \
-            "${HEADERS[@]}" \
-            -d "$JSON_PAYLOAD" \
-            --max-time 10 \
-            --connect-timeout 5 \
-            -o /dev/null \
-            -w "%{http_code}" || echo "000")
-        
         if [[ "$i" -lt "$MAX_RETRIES" ]]; then
             echo -e "${YELLOW}⚠️  Webhook notification failed (attempt $i/$MAX_RETRIES, HTTP $HTTP_CODE), retrying in ${RETRY_DELAY}s...${NC}" >&2
+            debug_log "Retrying after ${RETRY_DELAY}s delay..."
             sleep "$RETRY_DELAY"
         fi
     fi
@@ -109,9 +127,11 @@ done
 
 if [[ "$SUCCESS" != "true" ]]; then
     echo -e "${YELLOW}⚠️  Webhook notification failed after $MAX_RETRIES attempts - continuing scan${NC}" >&2
+    debug_log "Final status: FAILED after $MAX_RETRIES attempts"
     # Soft fail - don't block the scan
     exit 0
 fi
 
+debug_log "Final status: SUCCESS"
 # Silent success - don't clutter logs
 exit 0

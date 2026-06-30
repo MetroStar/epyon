@@ -1161,6 +1161,12 @@ async def trigger_scan(request: Request, response: Response):
     # Webhook configuration (optional)
     webhook_url    = (body.get("webhook_url") or "").strip()
     webhook_secret = (body.get("webhook_secret") or "").strip()
+    
+    # Log webhook config if present (for debugging)
+    if webhook_url:
+        print(f"[scan-trigger] Webhook URL: {webhook_url}", flush=True)
+    if webhook_secret:
+        print(f"[scan-trigger] Webhook secret: {'*' * len(webhook_secret)} (redacted)", flush=True)
 
     if not target:
         raise HTTPException(400, "target is required")

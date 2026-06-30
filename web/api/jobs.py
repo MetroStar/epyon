@@ -265,8 +265,10 @@ async def run_scan_job(
     if webhook_url:
         env["EPYON_CALLBACK_URL"] = webhook_url
         env["EPYON_JOB_ID"] = job_id
+        _append_line(job, f"[web-ui] Webhook configured: {webhook_url}")
     if webhook_secret:
         env["EPYON_WEBHOOK_SECRET"] = webhook_secret
+        _append_line(job, f"[web-ui] Webhook secret: configured")
 
     # Ensure PATH includes Homebrew locations so script can find bash 4+
     current_path = env.get("PATH", "")

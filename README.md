@@ -1202,6 +1202,22 @@ fi
 - **Multi-Format Analysis**: Source code, containers, infrastructure, dependencies
 - **Compliance Support**: NIST, OWASP, CIS benchmarks integration
 
+### 🔔 Real-Time Webhook Notifications
+- **Progress Tracking**: Real-time scan progress updates without polling
+- **Zero Workflow Changes**: Works with any workflow that runs Epyon
+- **Secure HMAC Signatures**: Cryptographic validation of webhook payloads
+- **Graceful Degradation**: Automatic retry with soft failures — never blocks scans
+- **Management UI Integration**: Native support for Barbatos and other orchestration tools
+
+Configure webhooks via environment variables — no workflow modifications required:
+```bash
+export EPYON_CALLBACK_URL="https://your-server.com/webhook/epyon"
+export EPYON_JOB_ID="scan-12345"
+export EPYON_WEBHOOK_SECRET="your-shared-secret"
+```
+
+See [Webhook Integration Guide](documentation/WEBHOOK_INTEGRATION_GUIDE.md) for full details.
+
 ### � Intelligent Severity Gates
 - **Container Exclusion**: Container image vulnerabilities marked informational only (not included in build failures)
 - **Filesystem Focus**: Build failures based on application code and filesystem vulnerabilities

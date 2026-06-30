@@ -715,6 +715,9 @@ if [ -f "$CONFIG_DIR/approved-base-images.conf" ]; then
     echo ""
 fi
 
+# Send webhook notification: scan starting
+"$SCRIPT_DIR/send-webhook-notification.sh" "scan_start" "Security scan started for $APP_NAME" "in_progress" "" 2>/dev/null || true
+
 echo "============================================"
 echo "🛡️  Twelve-Layer Security Scan Orchestrator"
 echo "============================================"
@@ -867,11 +870,17 @@ run_security_tool() {
     local script_path="$2"
     local args="$3"
     
+    # Extract tool name for webhook (e.g., "trivy" from "Trivy Security Analysis")
+    local tool_slug=$(echo "$tool_name" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/[^a-z0-9-]//g')
+    
     echo -e "${YELLOW}🔍 Running $tool_name...${NC}"
     echo "Command: $script_path $args"
     echo "Target: $TARGET_DIR"
     echo "Started: $(date)"
     echo ""
+    
+    # Send webhook notification: tool starting
+    "$SCRIPT_DIR/send-webhook-notification.sh" "tool_start" "Starting $tool_name" "in_progress" "$tool_slug" 2>/dev/null || true
     
     if [[ -x "$script_path" ]]; then
         # Change to security tools directory to run scripts
@@ -883,13 +892,21 @@ run_security_tool() {
             env TARGET_DIR="$TARGET_DIR" SCAN_ID="$SCAN_ID" SCAN_DIR="$SCAN_DIR" PRIMARY_BASELINE_IMAGE="${PRIMARY_BASELINE_IMAGE:-}" "$script_path"
         fi
         
-        if [[ $? -eq 0 ]]; then
+        local exit_code=$?
+        
+        if [[ $exit_code -eq 0 ]]; then
             echo -e "${GREEN}✅ $tool_name completed successfully${NC}"
+            # Send webhook notification: tool completed successfully
+            "$SCRIPT_DIR/send-webhook-notification.sh" "tool_complete" "$tool_name completed successfully" "success" "$tool_slug" 2>/dev/null || true
         else
             echo -e "${YELLOW}⚠️  $tool_name completed with warnings${NC}"
+            # Send webhook notification: tool completed with warnings
+            "$SCRIPT_DIR/send-webhook-notification.sh" "tool_complete" "$tool_name completed with warnings" "warning" "$tool_slug" 2>/dev/null || true
         fi
     else
         echo -e "${RED}❌ $tool_name script not found or not executable: $script_path${NC}"
+        # Send webhook notification: tool failed
+        "$SCRIPT_DIR/send-webhook-notification.sh" "tool_error" "$tool_name script not found" "error" "$tool_slug" 2>/dev/null || true
         return 1
     fi
     echo ""
@@ -1592,6 +1609,13 @@ fi
 RUN_END_EPOCH=$(date +%s)
 RUN_ELAPSED_SECONDS=$((RUN_END_EPOCH - RUN_START_EPOCH))
 printf -v RUN_ELAPSED_HUMAN '%02dh:%02dm:%02ds' $((RUN_ELAPSED_SECONDS/3600)) $(((RUN_ELAPSED_SECONDS%3600)/60)) $((RUN_ELAPSED_SECONDS%60))
+
+# Send webhook notification: scan complete
+if [[ "$analysis_success" == "true" ]]; then
+    "$SCRIPT_DIR/send-webhook-notification.sh" "scan_complete" "Security scan completed successfully for $APP_NAME" "success" "" 2>/dev/null || true
+else
+    "$SCRIPT_DIR/send-webhook-notification.sh" "scan_complete" "Security scan completed with warnings for $APP_NAME" "warning" "" 2>/dev/null || true
+fi
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"

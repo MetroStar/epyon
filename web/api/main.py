@@ -1157,6 +1157,10 @@ async def trigger_scan(request: Request, response: Response):
     # run_stig is implicit when scan_type == "stig"; can also be set explicitly
     # for full/nightly scans that should include the STIG layer.
     run_stig  = bool(body.get("run_stig", False)) or scan_type == "stig"
+    
+    # Webhook configuration (optional)
+    webhook_url    = (body.get("webhook_url") or "").strip()
+    webhook_secret = (body.get("webhook_secret") or "").strip()
 
     if not target:
         raise HTTPException(400, "target is required")
@@ -1178,7 +1182,8 @@ async def trigger_scan(request: Request, response: Response):
     job_store._on_scan_complete_cb = _on_scan_complete
     asyncio.create_task(
         job_store.run_scan_job(job_id, target, scan_type, script_path, EPYON_ROOT,
-                               run_garak=run_garak, run_stig=run_stig)
+                               run_garak=run_garak, run_stig=run_stig,
+                               webhook_url=webhook_url, webhook_secret=webhook_secret)
     )
     return {"job_id": job_id, "status": "queued"}
 

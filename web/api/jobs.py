@@ -72,6 +72,8 @@ async def run_scan_job(
     epyon_root: Path,
     run_garak: bool = False,
     run_stig:  bool = False,
+    webhook_url: str = "",
+    webhook_secret: str = "",
 ) -> None:
     job = jobs[job_id]
     job["status"] = "running"
@@ -259,6 +261,12 @@ async def run_scan_job(
         env["OPENAI_BASE_URL"] = openai_base_url
     if github_token:
         env["GH_PAT"] = github_token
+    # Webhook configuration (optional)
+    if webhook_url:
+        env["EPYON_CALLBACK_URL"] = webhook_url
+        env["EPYON_JOB_ID"] = job_id
+    if webhook_secret:
+        env["EPYON_WEBHOOK_SECRET"] = webhook_secret
 
     # Ensure PATH includes Homebrew locations so script can find bash 4+
     current_path = env.get("PATH", "")

@@ -198,6 +198,21 @@ on:
         required: false
         default: 'main'
         type: string
+      epyon_callback_url:
+        description: 'Optional webhook URL for real-time scan progress notifications'
+        required: false
+        default: ''
+        type: string
+      epyon_job_id:
+        description: 'Optional job identifier for webhook notifications (passed back in payloads)'
+        required: false
+        default: ''
+        type: string
+      epyon_webhook_secret:
+        description: 'Optional shared secret for HMAC-SHA256 webhook signature validation'
+        required: false
+        default: ''
+        type: string
       write_metrics:
         description: 'Write and upload a metrics row for this scan'
         required: false
@@ -575,11 +590,19 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           ANCHORE_BUILD_TIMEOUT: "900"
           ANCHORE_SKIP_BUILD: "true"
+          EPYON_CALLBACK_URL: ${{ inputs.epyon_callback_url }}
+          EPYON_JOB_ID: ${{ inputs.epyon_job_id }}
+          EPYON_WEBHOOK_SECRET: ${{ inputs.epyon_webhook_secret }}
         run: |
           # Append API keys to /tmp/epyon-env so they are explicitly exported to all subshells.
           [[ -n "${OPENAI_API_KEY:-}" ]]    && echo "OPENAI_API_KEY=${OPENAI_API_KEY}"       >> /tmp/epyon-env
           [[ -n "${ANTHROPIC_API_KEY:-}" ]] && echo "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}" >> /tmp/epyon-env
           [[ -n "${GITHUB_TOKEN:-}" ]]      && echo "GITHUB_TOKEN=${GITHUB_TOKEN}"           >> /tmp/epyon-env
+          # Append webhook configuration for real-time progress notifications
+          [[ -n "${EPYON_CALLBACK_URL:-}" ]]    && echo "EPYON_CALLBACK_URL=${EPYON_CALLBACK_URL}"       >> /tmp/epyon-env
+          [[ -n "${EPYON_JOB_ID:-}" ]]          && echo "EPYON_JOB_ID=${EPYON_JOB_ID}"                   >> /tmp/epyon-env
+          [[ -n "${EPYON_WEBHOOK_SECRET:-}" ]]  && echo "EPYON_WEBHOOK_SECRET=${EPYON_WEBHOOK_SECRET}"   >> /tmp/epyon-env
+          [[ -n "${EPYON_CALLBACK_URL:-}" ]]    && echo "🔔 Webhook notifications enabled: ${EPYON_CALLBACK_URL}"
           chmod +x epyon/scripts/shell/run-epyon-scan-ci.sh
           ./epyon/scripts/shell/run-epyon-scan-ci.sh
 

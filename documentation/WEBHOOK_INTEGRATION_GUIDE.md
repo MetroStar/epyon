@@ -28,29 +28,80 @@ Epyon reads three **environment variables** for webhook configuration:
 
 #### Option 1: GitHub Actions Workflow (Recommended)
 
-The workflow can set these from repository secrets or pass them from workflow inputs:
+The reusable workflow accepts webhook inputs that are automatically passed as environment variables to Epyon:
 
 ```yaml
 jobs:
   security-scan:
-    runs-on: ubuntu-latest
-    env:
-      # Pass webhook config from workflow inputs
-      EPYON_CALLBACK_URL: ${{ inputs.epyon_callback_url }}
-      EPYON_JOB_ID: ${{ inputs.epyon_job_id }}
-      EPYON_WEBHOOK_SECRET: ${{ secrets.EPYON_WEBHOOK_SECRET }}
-    
-    steps:
-      - name: Checkout Epyon
-        uses: actions/checkout@v4
-        with:
-          repository: MetroStar/epyon
-          
-      - name: Run Security Scan
-        run: ./epyon.sh --target . --app-name ${{ github.event.repository.name }}
+    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
+    with:
+      scan_mode: full
+      epyon_callback_url: https://srtm.dialtone.cc/api/security-scan-webhook
+      epyon_job_id: ${{ github.run_id }}-${{ github.run_attempt }}
+      epyon_webhook_secret: ${{ secrets.EPYON_WEBHOOK_SECRET }}
+    secrets: inherit
 ```
 
-#### Option 2: Repository Secrets
+**Workflow Inputs:**
+
+| Input | Required | Description |
+|-------|----------|-------------|
+| `epyon_callback_url` | No | Webhook endpoint URL where notifications will be POSTed |
+| `epyon_job_id` | No | Unique identifier for this scan job (passed back in payloads) |
+| `epyon_webhook_secret` | No | Shared secret for HMAC-SHA256 signature generation |
+
+**For workflow_dispatch events** (when Barbatos triggers scans):
+
+```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      scan_mode:
+        type: string
+        default: 'full'
+      epyon_callback_url:
+        description: 'Webhook URL for progress notifications'
+        type: string
+        required: false
+      epyon_job_id:
+        description: 'Job identifier'
+        type: string
+        required: false
+      epyon_webhook_secret:
+        description: 'Webhook HMAC secret'
+        type: string
+        required: false
+
+jobs:
+  security-scan:
+    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
+    with:
+      scan_mode: ${{ inputs.scan_mode }}
+      epyon_callback_url: ${{ inputs.epyon_callback_url }}
+      epyon_job_id: ${{ inputs.epyon_job_id }}
+      epyon_webhook_secret: ${{ inputs.epyon_webhook_secret }}
+    secrets: inherit
+```
+
+Then Barbatos can dispatch with:
+
+```bash
+curl -X POST \
+  "https://api.github.com/repos/org/repo/actions/workflows/security-scan.yml/dispatches" \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ref": "main",
+    "inputs": {
+      "scan_mode": "full",
+      "epyon_callback_url": "https://srtm.dialtone.cc/api/security-scan-webhook",
+      "epyon_job_id": "scan-12345",
+      "epyon_webhook_secret": "your-shared-secret"
+    }
+  }'
+```
+
+#### Option 2: Repository Secrets (Static Configuration)
 
 Store webhook configuration as repository secrets and reference them in your workflow:
 
@@ -295,14 +346,63 @@ Barbatos (the Epyon management UI) automatically configures webhooks when trigge
 
 1. User clicks **"Run Security Scan"** in Barbatos
 2. Barbatos creates a job ID and webhook endpoint
-3. Dispatches GitHub Actions workflow with:
-   - `epyon_callback_url`: `https://barbatos.example.com/api/webhooks/scans`
-   - `epyon_job_id`: `job_abc123`
+3. Dispatches GitHub Actions workflow with workflow inputs:
+   - `epyon_callback_url`: `https://srtm.dialtone.cc/api/security-scan-webhook`
+   - `epyon_job_id`: `scan-12345`
    - `epyon_webhook_secret`: Shared secret from Barbatos config
-4. Epyon sends progress updates back to Barbatos during the scan
-5. Barbatos updates the UI in real-time
+4. The target repository's workflow passes these inputs to the reusable Epyon workflow
+5. Epyon automatically sends progress updates back to Barbatos during the scan
+6. Barbatos updates the UI in real-time
 
-**No workflow modifications needed** — the workflow just needs to pass environment variables through to Epyon.
+**Example workflow_dispatch call from Barbatos:**
+
+```bash
+curl -X POST \
+  "https://api.github.com/repos/org/repo/actions/workflows/security-scan.yml/dispatches" \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ref": "main",
+    "inputs": {
+      "scan_mode": "full",
+      "epyon_callback_url": "https://srtm.dialtone.cc/api/security-scan-webhook",
+      "epyon_job_id": "scan-20260630-123456",
+      "epyon_webhook_secret": "barbatos-shared-secret"
+    }
+  }'
+```
+
+**Target repository workflow** (needs these inputs defined and passed through):
+
+```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      scan_mode:
+        type: string
+        default: 'full'
+      epyon_callback_url:
+        type: string
+        required: false
+      epyon_job_id:
+        type: string
+        required: false
+      epyon_webhook_secret:
+        type: string
+        required: false
+
+jobs:
+  security-scan:
+    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
+    with:
+      scan_mode: ${{ inputs.scan_mode }}
+      epyon_callback_url: ${{ inputs.epyon_callback_url }}
+      epyon_job_id: ${{ inputs.epyon_job_id }}
+      epyon_webhook_secret: ${{ inputs.epyon_webhook_secret }}
+    secrets: inherit
+```
+
+**No other modifications needed** — the reusable workflow automatically propagates these inputs as environment variables to Epyon.
 
 ## Troubleshooting
 

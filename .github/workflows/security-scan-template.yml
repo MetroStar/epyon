@@ -1,0 +1,67 @@
+name: Security Scan with Webhook Support
+
+# This workflow calls the reusable Epyon security scan workflow and forwards
+# webhook configuration for real-time progress notifications to Barbatos.
+#
+# Copy this file to: .github/workflows/security-scan.yml
+
+on:
+  workflow_dispatch:
+    inputs:
+      scan_mode:
+        description: 'Scan mode (quick/full/nightly/stig)'
+        required: false
+        default: 'full'
+        type: string
+      subdirectory:
+        description: 'Optional: Subdirectory to scan'
+        required: false
+        default: ''
+        type: string
+      # Webhook configuration inputs (required for Barbatos integration)
+      epyon_callback_url:
+        description: 'Webhook URL for progress notifications'
+        required: false
+        default: ''
+        type: string
+      epyon_job_id:
+        description: 'Job identifier for webhook correlation'
+        required: false
+        default: ''
+        type: string
+      epyon_webhook_secret:
+        description: 'Shared secret for webhook HMAC validation'
+        required: false
+        default: ''
+        type: string
+  
+  push:
+    branches:
+      - main
+      - develop
+  
+  pull_request:
+    branches:
+      - main
+      - develop
+  
+  schedule:
+    # Run nightly scan at 2 AM UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  security-scan:
+    name: Epyon Security Scan
+    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
+    with:
+      scan_mode: ${{ inputs.scan_mode || 'full' }}
+      subdirectory: ${{ inputs.subdirectory || '' }}
+      # Forward webhook configuration to Epyon
+      epyon_callback_url: ${{ inputs.epyon_callback_url || '' }}
+      epyon_job_id: ${{ inputs.epyon_job_id || '' }}
+      epyon_webhook_secret: ${{ inputs.epyon_webhook_secret || '' }}
+      # Optional: customize scan behavior
+      fail_on_critical: true
+      fail_on_high: true
+      warning_only: false
+    secrets: inherit

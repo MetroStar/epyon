@@ -475,6 +475,32 @@ Then open **http://127.0.0.1:8000** in your browser.
 
 **Use Epyon as a GitHub Action to automatically scan repositories!**
 
+### 🔔 Real-Time Webhook Notifications (Barbatos Integration)
+
+Epyon supports **real-time progress notifications** to management UIs like Barbatos during GitHub Actions scans.
+
+**For Target Repositories:**
+
+1. **Copy the webhook-enabled workflow template:**
+   ```bash
+   curl -o .github/workflows/security-scan.yml \
+     https://raw.githubusercontent.com/MetroStar/epyon/main/.github/workflows/security-scan-template.yml
+   ```
+
+2. **Validate your workflow:**
+   ```bash
+   curl -sSL https://raw.githubusercontent.com/MetroStar/epyon/main/validate-target-repo-workflow.sh | bash
+   ```
+
+3. **Barbatos will automatically send webhooks** when triggering scans.
+
+**Quick Check:**
+- ✅ Workflow accepts `epyon_callback_url` input
+- ✅ Workflow forwards input to reusable Epyon workflow  
+- ✅ GitHub Actions logs show: `🔔 Webhook notifications enabled`
+
+See [Target Repository Setup Guide](.github/TARGET_REPO_SETUP.md) and [Webhook Integration Guide](documentation/WEBHOOK_INTEGRATION_GUIDE.md) for details.
+
 ### 🎟️ Jira Ticket Creation
 
 Epyon automatically creates Jira Cloud tickets for critical and high severity findings.

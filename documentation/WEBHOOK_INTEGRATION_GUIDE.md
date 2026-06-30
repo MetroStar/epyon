@@ -79,6 +79,52 @@ export EPYON_WEBHOOK_SECRET="your-shared-secret"
 ./epyon.sh --target /path/to/app --app-name myapp
 ```
 
+#### Option 4: FastAPI Web UI
+
+When triggering scans via the FastAPI backend (`POST /api/scans`), include webhook configuration in the request body:
+
+```bash
+curl -X POST http://localhost:8000/api/scans \
+  -H "Content-Type: application/json" \
+  -d '{
+    "target": "/path/to/app",
+    "scan_type": "full",
+    "webhook_url": "https://barbatos.example.com/api/webhooks/scans",
+    "webhook_secret": "your-shared-secret"
+  }'
+```
+
+**Request Body Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `target` | string | Yes | Path or Git URL to scan |
+| `scan_type` | string | No | Scan mode: `quick`, `full`, `nightly`, `stig` (default: `full`) |
+| `webhook_url` | string | No | Webhook endpoint URL |
+| `webhook_secret` | string | No | Shared secret for HMAC signatures |
+| `run_garak` | boolean | No | Enable Garak LLM security probing (default: `false`) |
+| `run_stig` | boolean | No | Enable STIG assessment (default: `false` unless `scan_type == "stig"`) |
+
+The API automatically sets `EPYON_JOB_ID` to the job's timestamp ID.
+
+**JavaScript Example:**
+
+```javascript
+const response = await fetch('http://localhost:8000/api/scans', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    target: '/path/to/app',
+    scan_type: 'full',
+    webhook_url: 'https://barbatos.example.com/api/webhooks/scans',
+    webhook_secret: 'your-shared-secret'
+  })
+});
+
+const { job_id, status } = await response.json();
+console.log(`Scan started: ${job_id} (${status})`);
+```
+
 ## Webhook Payload Format
 
 Every webhook notification POSTs a JSON payload:

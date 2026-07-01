@@ -220,12 +220,11 @@ send_webhook() {
         return 0
     fi
     
-    # Find the webhook script relative to this script's location
-    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    local webhook_script="${script_dir}/send-webhook-notification.sh"
+    # Use the same relative path pattern as other scripts in this orchestrator
+    local webhook_script="scripts/shell/send-webhook-notification.sh"
     
     if [[ ! -x "$webhook_script" ]]; then
-        [[ "${EPYON_WEBHOOK_DEBUG:-0}" == "1" ]] && echo "[webhook-debug] send-webhook-notification.sh not found or not executable" >&2
+        [[ "${EPYON_WEBHOOK_DEBUG:-0}" == "1" ]] && echo "[webhook-debug] send-webhook-notification.sh not found or not executable at $webhook_script" >&2
         return 0
     fi
     
@@ -233,6 +232,10 @@ send_webhook() {
         # Debug mode - show all output
         "$webhook_script" "$event_type" "$message" "$status" "$tool_name" || true
     else
+        # Silent mode - suppress stderr
+        "$webhook_script" "$event_type" "$message" "$status" "$tool_name" 2>/dev/null || true
+    fi
+}
         # Silent mode - suppress stderr
         "$webhook_script" "$event_type" "$message" "$status" "$tool_name" 2>/dev/null || true
     fi

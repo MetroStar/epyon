@@ -62,7 +62,7 @@ if [[ ! "$EPYON_CALLBACK_URL" =~ ^https?:// ]]; then
     exit 0  # Soft fail - don't block the scan
 fi
 
-# Build JSON payload
+# Build JSON payload (camelCase for Barbatos compatibility)
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 JOB_ID="${EPYON_JOB_ID:-unknown}"
 APP_NAME="${APP_NAME:-unknown}"
@@ -70,13 +70,13 @@ SCAN_ID="${SCAN_ID:-unknown}"
 
 JSON_PAYLOAD=$(cat <<EOF
 {
-  "event_type": "$EVENT_TYPE",
-  "job_id": "$JOB_ID",
-  "app_name": "$APP_NAME",
-  "scan_id": "$SCAN_ID",
+  "eventType": "$EVENT_TYPE",
+  "jobId": "$JOB_ID",
+  "appName": "$APP_NAME",
+  "scanId": "$SCAN_ID",
   "message": "$MESSAGE",
   "status": "$STATUS",
-  "tool_name": "$TOOL_NAME",
+  "toolName": "$TOOL_NAME",
   "timestamp": "$TIMESTAMP"
 }
 EOF

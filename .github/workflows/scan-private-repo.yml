@@ -52,22 +52,6 @@ on:
         required: false
         default: 'promptinject'
         type: string
-      # Webhook configuration for Barbatos integration
-      epyon_callback_url:
-        description: 'Webhook URL for real-time progress notifications'
-        required: false
-        default: ''
-        type: string
-      epyon_job_id:
-        description: 'Job identifier for webhook correlation'
-        required: false
-        default: ''
-        type: string
-      epyon_webhook_secret:
-        description: 'Shared secret for webhook HMAC validation'
-        required: false
-        default: ''
-        type: string
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -87,10 +71,6 @@ jobs:
       scan_mode: quick
       skip_garak: true
       # Note: STIG (Layer 13) is opt-in by default. Set run_stig: true to enable.
-      # Forward webhook configuration (no-op for PR events, but keeps consistency)
-      epyon_callback_url: ${{ github.event.inputs.epyon_callback_url || '' }}
-      epyon_job_id: ${{ github.event.inputs.epyon_job_id || '' }}
-      epyon_webhook_secret: ${{ github.event.inputs.epyon_webhook_secret || '' }}
     secrets: inherit
 
   security-scan-main:
@@ -110,8 +90,4 @@ jobs:
       garak_target_type: ${{ github.event.inputs.garak_target_type || 'openai' }}
       garak_target_name: ${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
       garak_probes: ${{ github.event.inputs.garak_probes || 'promptinject' }}
-      # Forward webhook configuration for Barbatos integration
-      epyon_callback_url: ${{ github.event.inputs.epyon_callback_url || '' }}
-      epyon_job_id: ${{ github.event.inputs.epyon_job_id || '' }}
-      epyon_webhook_secret: ${{ github.event.inputs.epyon_webhook_secret || '' }}
     secrets: inherit

@@ -254,6 +254,57 @@ _extract_layer_number() {
 # Sanitize a layer name into a valid filename/variable-name suffix.
 _pkey() { printf '%s' "${1//[^a-zA-Z0-9]/_}"; }
 
+# Map layer name to its primary JSON result file path (for webhook results payload)
+_get_layer_result_file() {
+  local layer_name="$1"
+  case "$layer_name" in
+    "Layer 1 - SBOM")
+      echo "${SCAN_DIR}/sbom/filesystem-cyclonedx.json"
+      ;;
+    "Layer 2 - TruffleHog")
+      echo "${SCAN_DIR}/trufflehog/trufflehog-results.json"
+      ;;
+    "Layer 3 - SonarQube")
+      # SonarQube doesn't produce a local JSON file we can send
+      echo ""
+      ;;
+    "Layer 4 - ClamAV")
+      echo "${SCAN_DIR}/clamav/clamav-results.json"
+      ;;
+    "Layer 5 - Helm")
+      # Helm produces charts, not scan results
+      echo ""
+      ;;
+    "Layer 6 - Checkov")
+      echo "${SCAN_DIR}/checkov/checkov-results.json"
+      ;;
+    "Layer 7 - Trivy")
+      echo "${SCAN_DIR}/trivy/trivy-results.json"
+      ;;
+    "Layer 8 - Grype")
+      echo "${SCAN_DIR}/grype/grype-results.json"
+      ;;
+    "Layer 9 - Xeol")
+      echo "${SCAN_DIR}/xeol/xeol-results.json"
+      ;;
+    "Layer 10 - Anchore")
+      echo "${SCAN_DIR}/anchore/anchore-results.json"
+      ;;
+    "Layer 11 - API Discovery")
+      echo "${SCAN_DIR}/api-discovery/api-discovery-results.json"
+      ;;
+    "Layer 11.5 - pip-audit")
+      echo "${SCAN_DIR}/pip-audit/pip-audit-results.json"
+      ;;
+    "Layer 11.6 - Python Safety Check")
+      echo "${SCAN_DIR}/safety/safety-results.json"
+      ;;
+    *)
+      echo ""
+      ;;
+  esac
+}
+
 _record_start() {
   local layer_name="$1"
   echo "$SECONDS" > "${TIMING_DIR}/start_$(_pkey "$layer_name")"
@@ -762,7 +813,13 @@ if _should_run_tool SKIP_GRYPE; then
   if [[ "$SBOM_READY" == "false" ]]; then
     echo "[INFO] Layer 8 (Grype) waiting for Layer 1 (SBOM)..."
     await_layer "Layer 1 - SBOM"
-    _record_end "Layer 1 - SBOM"
+    # Send SBOM results to Barbatos
+    result_file="${SCAN_DIR}/sbom/filesystem-cyclonedx.json"
+    if [[ -f "$result_file" ]]; then
+      _record_end "Layer 1 - SBOM" "$result_file"
+    else
+      _record_end "Layer 1 - SBOM"
+    fi
     SBOM_READY=true
   fi
 
@@ -783,6 +840,7 @@ if _should_run_tool SKIP_CLAMAV; then
   if [[ -n "$SONAR_PID" ]]; then
     echo "[INFO] Layer 4 (ClamAV) waiting for Layer 3 (Sonar)..."
     await_layer "Layer 3 - SonarQube"
+    # SonarQube doesn't produce a local JSON file to send
     _record_end "Layer 3 - SonarQube"
   fi
 
@@ -803,7 +861,13 @@ for layer_name in "${PARALLEL_LAYER_NAMES[@]}"; do
   wait "$local_pid" || true
   # Record end time for layers that haven't been recorded yet
   if [[ ! -f "${TIMING_DIR}/end_$(_pkey "$layer_name")" ]]; then
-    _record_end "$layer_name"
+    # Get the result file path for this layer (if it exists)
+    result_file=$(_get_layer_result_file "$layer_name")
+    if [[ -n "$result_file" && -f "$result_file" ]]; then
+      _record_end "$layer_name" "$result_file"
+    else
+      _record_end "$layer_name"
+    fi
   fi
 done
 

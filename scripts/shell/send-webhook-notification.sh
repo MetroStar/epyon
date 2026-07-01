@@ -158,11 +158,34 @@ case "$EVENT_TYPE" in
         if [[ -n "$RESULT_FILE" && -f "$RESULT_FILE" ]]; then
             # Read the actual tool JSON output and wrap it
             debug_log "Reading tool results from: $RESULT_FILE"
-            TOOL_JSON=$(cat "$RESULT_FILE")
-            # Construct payload with actual tool results
-            # Note: This requires the result file to be valid JSON
-            JSON_PAYLOAD="{\"tool\":\"$SIMPLE_TOOL\",\"content\":$TOOL_JSON}"
-            debug_log "Payload: tool results for $SIMPLE_TOOL ($(wc -c < "$RESULT_FILE") bytes)"
+            
+            # Check file size (warn if > 5MB, skip if > 10MB)
+            FILE_SIZE=$(stat -f%z "$RESULT_FILE" 2>/dev/null || stat -c%s "$RESULT_FILE" 2>/dev/null || echo "0")
+            if [[ "$FILE_SIZE" -gt 10485760 ]]; then
+                debug_log "WARNING: Result file too large (${FILE_SIZE} bytes > 10MB), sending progress instead"
+                JSON_PAYLOAD="{\"progress\":{\"layer\":${LAYER_NUM:-0},\"name\":\"$SIMPLE_TOOL\",\"total\":$TOTAL_LAYERS}}"
+            elif [[ "$FILE_SIZE" -gt 5242880 ]]; then
+                debug_log "WARNING: Large result file (${FILE_SIZE} bytes > 5MB), sending anyway but may be slow"
+                TOOL_JSON=$(cat "$RESULT_FILE")
+                # Validate it's valid JSON by checking first character
+                if [[ "$TOOL_JSON" =~ ^[[:space:]]*[\{\[] ]]; then
+                    JSON_PAYLOAD="{\"tool\":\"$SIMPLE_TOOL\",\"content\":$TOOL_JSON}"
+                    debug_log "Payload: tool results for $SIMPLE_TOOL ($FILE_SIZE bytes)"
+                else
+                    debug_log "WARNING: Result file doesn't look like JSON, sending progress instead"
+                    JSON_PAYLOAD="{\"progress\":{\"layer\":${LAYER_NUM:-0},\"name\":\"$SIMPLE_TOOL\",\"total\":$TOTAL_LAYERS}}"
+                fi
+            else
+                TOOL_JSON=$(cat "$RESULT_FILE")
+                # Validate it's valid JSON by checking first character
+                if [[ "$TOOL_JSON" =~ ^[[:space:]]*[\{\[] ]]; then
+                    JSON_PAYLOAD="{\"tool\":\"$SIMPLE_TOOL\",\"content\":$TOOL_JSON}"
+                    debug_log "Payload: tool results for $SIMPLE_TOOL ($FILE_SIZE bytes)"
+                else
+                    debug_log "WARNING: Result file doesn't look like JSON, sending progress instead"
+                    JSON_PAYLOAD="{\"progress\":{\"layer\":${LAYER_NUM:-0},\"name\":\"$SIMPLE_TOOL\",\"total\":$TOTAL_LAYERS}}"
+                fi
+            fi
         else
             # No results file - send progress update instead
             # This happens when tool completes but we don't have JSON to send yet

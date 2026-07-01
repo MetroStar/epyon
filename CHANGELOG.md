@@ -4,6 +4,22 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.12.3] - 2026-07-01
+
+### Fixed
+- **Backward Compatibility**: Restored `skip_stig` workflow input (deprecated) to prevent breaking existing repositories
+  - v3.12.0 removed `skip_stig` in favor of `run_stig`, breaking production workflows
+  - Repos using `skip_stig: true` in their workflows got error: "Invalid input, skip_stig is not defined"
+  - Both `skip_stig` (old) and `run_stig` (new) now work during transition period
+  - `skip_stig` is marked as DEPRECATED and will be removed in a future major version
+  - SKIP_STIG logic now handles both inputs: `skip_stig: true` → skip, `run_stig: true` → enable
+  - Existing repos can migrate at their own pace without immediate workflow failures
+
+### Migration Guide
+- **If using `skip_stig: true`**: Remove it entirely (STIG now skipped by default)
+- **If using `skip_stig: false`**: Change to `run_stig: true` (explicit opt-in)
+- **If not using skip_stig**: No action needed (already using new default behavior)
+
 ## [3.12.2] - 2026-07-01
 
 ### Fixed

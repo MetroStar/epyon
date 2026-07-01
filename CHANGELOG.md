@@ -4,6 +4,23 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.12.0] - 2026-07-01
+
+### Changed
+- **BREAKING**: STIG (Layer 13) is now **opt-in** by default instead of opt-out
+  - Added `run_stig` workflow input (default: `false`)
+  - Removed `skip_stig` workflow input
+  - STIG now only runs when `run_stig: true` OR `scan_mode: stig`
+  - **Full scans (`scan_mode: full`) no longer include STIG by default**
+  - Rationale: STIG assessments are expensive (OpenAI API costs) and not needed for most CI pushes
+  - Weekly Sunday scheduled scans still run STIG via explicit `run_stig: true`
+  - To enable STIG on CI pushes to main: set `run_stig: true` in workflow inputs
+
+### Migration Guide
+- **If you want STIG on full scans**: Add `run_stig: true` to your workflow inputs
+- **If you were using `skip_stig: true`**: Remove it (this is now the default behavior)
+- **scan_mode: stig**: Still automatically enables STIG (no change needed)
+
 ## [3.11.9] - 2026-07-01
 
 ### Fixed

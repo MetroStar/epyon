@@ -284,7 +284,7 @@ jobs:
       SKIP_XEOL: "${{ inputs.skip_xeol }}"
       SKIP_ANCHORE: "${{ inputs.skip_anchore }}"
       SKIP_API_DISCOVERY: "${{ inputs.skip_api_discovery }}"
-      SKIP_STIG: "${{ inputs.skip_stig == true || (inputs.scan_mode != 'stig' && inputs.scan_mode != 'full') }}"
+      SKIP_STIG: "${{ (inputs.skip_stig == true || (inputs.scan_mode != 'stig' && inputs.scan_mode != 'full')) && 'true' || 'false' }}"
       GH_TOKEN: "${{ secrets.GH_TOKEN || github.token }}"
       RUN_PICKLESCAN: "${{ inputs.run_picklescan == true && 'true' || '' }}"
       RUN_MODELCARD: "${{ inputs.run_modelcard == true && 'true' || '' }}"

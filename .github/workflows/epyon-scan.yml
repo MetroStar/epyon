@@ -602,6 +602,7 @@ jobs:
           [[ -n "${EPYON_CALLBACK_URL:-}" ]]    && echo "EPYON_CALLBACK_URL=${EPYON_CALLBACK_URL}"       >> /tmp/epyon-env
           [[ -n "${EPYON_JOB_ID:-}" ]]          && echo "EPYON_JOB_ID=${EPYON_JOB_ID}"                   >> /tmp/epyon-env
           [[ -n "${EPYON_WEBHOOK_SECRET:-}" ]]  && echo "EPYON_WEBHOOK_SECRET=${EPYON_WEBHOOK_SECRET}"   >> /tmp/epyon-env
+          [[ -n "${EPYON_CALLBACK_URL:-}" ]]    && echo "EPYON_WEBHOOK_DEBUG=1"                          >> /tmp/epyon-env
           [[ -n "${EPYON_CALLBACK_URL:-}" ]]    && echo "🔔 Webhook notifications enabled: ${EPYON_CALLBACK_URL}"
           chmod +x epyon/scripts/shell/run-epyon-scan-ci.sh
           ./epyon/scripts/shell/run-epyon-scan-ci.sh

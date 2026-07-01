@@ -333,6 +333,26 @@ USERNAME="${GITHUB_ACTOR:-$(whoami)}"
 TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
 RUN_START_EPOCH=$(date +%s)
 
+# ══════════════════════════════════════════════════════════════════════════════
+# Webhook Helper Function
+# ══════════════════════════════════════════════════════════════════════════════
+# Calls send-webhook-notification.sh with conditional logging based on
+# EPYON_WEBHOOK_DEBUG environment variable.
+send_webhook() {
+    local event_type="$1"
+    local message="$2"
+    local status="${3:-info}"
+    local tool_name="${4:-}"
+    
+    if [[ "${EPYON_WEBHOOK_DEBUG:-0}" == "1" ]]; then
+        # Debug mode - show all output including stderr
+        "$SCRIPT_DIR/send-webhook-notification.sh" "$event_type" "$message" "$status" "$tool_name" || true
+    else
+        # Silent mode - suppress stderr, only show critical failures
+        "$SCRIPT_DIR/send-webhook-notification.sh" "$event_type" "$message" "$status" "$tool_name" 2>/dev/null || true
+    fi
+}
+
 # Ensure PyYAML is installed (needed for .epyon-ignore.yml parsing)
 if ! python3 -c "import yaml" 2>/dev/null; then
     echo -e "${CYAN}📦 Installing PyYAML for ignore rule parsing...${NC}"
@@ -716,7 +736,7 @@ if [ -f "$CONFIG_DIR/approved-base-images.conf" ]; then
 fi
 
 # Send webhook notification: scan starting
-"$SCRIPT_DIR/send-webhook-notification.sh" "scan_start" "Security scan started for $APP_NAME" "in_progress" "" 2>/dev/null || true
+send_webhook "scan_start" "Security scan started for $APP_NAME" "in_progress" ""
 
 echo "============================================"
 echo "🛡️  Twelve-Layer Security Scan Orchestrator"
@@ -880,7 +900,7 @@ run_security_tool() {
     echo ""
     
     # Send webhook notification: tool starting
-    "$SCRIPT_DIR/send-webhook-notification.sh" "tool_start" "Starting $tool_name" "in_progress" "$tool_slug" 2>/dev/null || true
+    send_webhook "tool_start" "Starting $tool_name" "in_progress" "$tool_slug"
     
     if [[ -x "$script_path" ]]; then
         # Change to security tools directory to run scripts
@@ -897,16 +917,16 @@ run_security_tool() {
         if [[ $exit_code -eq 0 ]]; then
             echo -e "${GREEN}✅ $tool_name completed successfully${NC}"
             # Send webhook notification: tool completed successfully
-            "$SCRIPT_DIR/send-webhook-notification.sh" "tool_complete" "$tool_name completed successfully" "success" "$tool_slug" 2>/dev/null || true
+            send_webhook "tool_complete" "$tool_name completed successfully" "success" "$tool_slug"
         else
             echo -e "${YELLOW}⚠️  $tool_name completed with warnings${NC}"
             # Send webhook notification: tool completed with warnings
-            "$SCRIPT_DIR/send-webhook-notification.sh" "tool_complete" "$tool_name completed with warnings" "warning" "$tool_slug" 2>/dev/null || true
+            send_webhook "tool_complete" "$tool_name completed with warnings" "warning" "$tool_slug"
         fi
     else
         echo -e "${RED}❌ $tool_name script not found or not executable: $script_path${NC}"
         # Send webhook notification: tool failed
-        "$SCRIPT_DIR/send-webhook-notification.sh" "tool_error" "$tool_name script not found" "error" "$tool_slug" 2>/dev/null || true
+        send_webhook "tool_error" "$tool_name script not found" "error" "$tool_slug"
         return 1
     fi
     echo ""
@@ -1612,9 +1632,9 @@ printf -v RUN_ELAPSED_HUMAN '%02dh:%02dm:%02ds' $((RUN_ELAPSED_SECONDS/3600)) $(
 
 # Send webhook notification: scan complete
 if [[ "$analysis_success" == "true" ]]; then
-    "$SCRIPT_DIR/send-webhook-notification.sh" "scan_complete" "Security scan completed successfully for $APP_NAME" "success" "" 2>/dev/null || true
+    send_webhook "scan_complete" "Security scan completed successfully for $APP_NAME" "success" ""
 else
-    "$SCRIPT_DIR/send-webhook-notification.sh" "scan_complete" "Security scan completed with warnings for $APP_NAME" "warning" "" 2>/dev/null || true
+    send_webhook "scan_complete" "Security scan completed with warnings for $APP_NAME" "warning" ""
 fi
 
 echo ""

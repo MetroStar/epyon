@@ -4,7 +4,24 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.11.9] - 2026-07-01
 
+### Fixed
+- **Webhook Integration**: Complete rewrite of webhook system to match official Barbatos Security Scan Webhook API v1.0 specification
+  - Fixed HTTP 400 errors caused by payload structure mismatches
+  - Implemented 5 distinct payload types per Barbatos API contract:
+    1. Progress (layer): `{"progress": {"layer": 1, "name": "syft", "total": 16}}`
+    2. Progress (step): `{"progress": {"step": "checkout-repo", "label": "message"}}`
+    3. Tool results: `{"tool": "grype", "content": {...actual JSON...}}`
+    4. Completion: `{"done": true}`
+    5. Error: `{"error": "message"}`
+  - Job ID now sent ONLY in `X-Epyon-Job-Id` header (removed from body)
+  - Tool names standardized to lowercase: syft, grype, trivy, trufflehog, checkov, xeol
+  - Added layer number tracking (1-16) for real-time progress indicators
+  - Removed unnecessary fields from payload: jobId, appName, scanId, timestamp, eventType, status
+  - Added `scan_start` and `scan_complete` webhook notifications
+  - Added support for sending actual tool JSON output via `result_file` parameter
+  - Tool name mapping: `layer-1---sbom` → `syft`, `layer-8---grype` → `grype`, etc.
 ## [3.11.8] - 2026-06-24
 
 ### Added

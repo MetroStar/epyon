@@ -43,6 +43,7 @@ EVENT_TYPE="${1:-unknown}"
 MESSAGE="${2:-No message provided}"
 STATUS="${3:-info}"
 TOOL_NAME="${4:-}"
+PROGRESS="${5:-}"
 
 debug_log "Event: $EVENT_TYPE, Status: $STATUS, Tool: $TOOL_NAME"
 
@@ -62,28 +63,83 @@ if [[ ! "$EPYON_CALLBACK_URL" =~ ^https?:// ]]; then
     exit 0  # Soft fail - don't block the scan
 fi
 
-# Build JSON payload (camelCase for Barbatos compatibility)
-TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-JOB_ID="${EPYON_JOB_ID:-unknown}"
-APP_NAME="${APP_NAME:-unknown}"
-SCAN_ID="${SCAN_ID:-unknown}"
-
-JSON_PAYLOAD=$(cat <<EOF
-{
-  "eventType": "$EVENT_TYPE",
-  "jobId": "$JOB_ID",
-  "appName": "$APP_NAME",
-  "scanId": "$SCAN_ID",
-  "message": "$MESSAGE",
-  "status": "$STATUS",
-  "toolName": "$TOOL_NAME",
-  "timestamp": "$TIMESTAMP"
+# Map Epyon layer names to Barbatos tool names (lowercase, simple)
+map_tool_name() {
+    local layer_name="$1"
+    case "$layer_name" in
+        layer-1---sbom|sbom) echo "syft" ;;
+        layer-2---trufflehog|trufflehog) echo "trufflehog" ;;
+        layer-3---sonar|sonar) echo "sonarqube" ;;
+        layer-4---clamav|clamav) echo "clamav" ;;
+        layer-5---helm|helm) echo "helm" ;;
+        layer-6---checkov|checkov) echo "checkov" ;;
+        layer-7---trivy|trivy) echo "trivy" ;;
+        layer-8---grype|grype) echo "grype" ;;
+        layer-9---xeol|xeol) echo "xeol" ;;
+        layer-10---anchore|anchore) echo "anchore" ;;
+        layer-11---api-discovery|api-discovery) echo "api-discovery" ;;
+        layer-115---pip-audit|pip-audit) echo "pip-audit" ;;
+        layer-116---python-safety-check|safety) echo "safety" ;;
+        *) echo "${layer_name}" ;;
+    esac
 }
+
+# Build Barbatos-compatible JSON payload
+# Barbatos API contract:
+# - Progress: { tool: "grype", content: "message", progress: 0.5 }
+# - Completion: { done: true }
+# - Error: { error: "message" }
+# - jobId goes in header only (X-Epyon-Job-Id), NOT in body
+
+SIMPLE_TOOL=$(map_tool_name "$TOOL_NAME")
+
+case "$EVENT_TYPE" in
+    scan_complete)
+        # Scan finished - simple done flag
+        JSON_PAYLOAD='{"done":true}'
+        ;;
+    error|scan_error)
+        # Error occurred
+        JSON_PAYLOAD=$(cat <<EOF
+{"error":"$MESSAGE"}
 EOF
 )
+        ;;
+    tool_start|tool_complete|scan_start)
+        # Progress update - tool + content + optional progress
+        if [[ -n "$PROGRESS" ]]; then
+            JSON_PAYLOAD=$(cat <<EOF
+{"tool":"$SIMPLE_TOOL","content":"$MESSAGE","progress":$PROGRESS}
+EOF
+)
+        else
+            JSON_PAYLOAD=$(cat <<EOF
+{"tool":"$SIMPLE_TOOL","content":"$MESSAGE"}
+EOF
+)
+        fi
+        ;;
+    *)
+        # Unknown event - send as content with tool name if available
+        if [[ -n "$SIMPLE_TOOL" ]]; then
+            JSON_PAYLOAD=$(cat <<EOF
+{"tool":"$SIMPLE_TOOL","content":"$MESSAGE"}
+EOF
+)
+        else
+            JSON_PAYLOAD=$(cat <<EOF
+{"content":"$MESSAGE"}
+EOF
+)
+        fi
+        ;;
+esac
 
-# Always send Job ID header (required for webhook correlation)
+# Job ID is sent via header only (NOT in payload body per Barbatos API contract)
+JOB_ID="${EPYON_JOB_ID:-unknown}"
 HEADERS=(-H "Content-Type: application/json" -H "X-Epyon-Job-Id: $JOB_ID")
+
+debug_log "Simplified payload: $JSON_PAYLOAD"
 
 # Generate HMAC signature if secret is provided (optional security layer)
 if [[ -n "${EPYON_WEBHOOK_SECRET:-}" ]]; then
@@ -91,8 +147,6 @@ if [[ -n "${EPYON_WEBHOOK_SECRET:-}" ]]; then
     HEADERS+=(-H "X-Epyon-Signature: sha256=$SIGNATURE")
     debug_log "HMAC signature generated"
 fi
-
-debug_log "Payload: $JSON_PAYLOAD"
 
 # Send webhook with retry logic
 MAX_RETRIES=3

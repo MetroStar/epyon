@@ -379,6 +379,18 @@ if [[ -z "$TARGET_INPUT" ]]; then
     exit 1
 fi
 
+# Source webhook environment variables if they exist (set by GitHub Actions workflow)
+if [[ -f /tmp/epyon-env ]]; then
+    source /tmp/epyon-env
+    if [[ "${EPYON_WEBHOOK_DEBUG:-0}" == "1" && -n "${EPYON_CALLBACK_URL:-}" ]]; then
+        echo -e "${BLUE}🔔 Loaded webhook config from /tmp/epyon-env${NC}"
+        echo "   Callback URL: ${EPYON_CALLBACK_URL}"
+        echo "   Job ID: ${EPYON_JOB_ID:-<not set>}"
+        echo "   Debug mode: enabled"
+        echo ""
+    fi
+fi
+
 print_banner
 echo -e "${CYAN}Run Configuration${NC}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

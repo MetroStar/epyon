@@ -259,16 +259,19 @@ _get_layer_result_file() {
   local layer_name="$1"
   case "$layer_name" in
     "Layer 1 - SBOM")
-      echo "${SCAN_DIR}/sbom/filesystem-cyclonedx.json"
+      # SBOM produces filesystem.cyclonedx.json (with dot, not hyphen)
+      echo "${SCAN_DIR}/sbom/filesystem.cyclonedx.json"
       ;;
     "Layer 2 - TruffleHog")
-      echo "${SCAN_DIR}/trufflehog/trufflehog-results.json"
+      # TruffleHog runs in filesystem mode
+      echo "${SCAN_DIR}/trufflehog/trufflehog-filesystem-results.json"
       ;;
     "Layer 3 - SonarQube")
       # SonarQube doesn't produce a local JSON file we can send
       echo ""
       ;;
     "Layer 4 - ClamAV")
+      # ClamAV produces clamav-results.json
       echo "${SCAN_DIR}/clamav/clamav-results.json"
       ;;
     "Layer 5 - Helm")
@@ -276,27 +279,35 @@ _get_layer_result_file() {
       echo ""
       ;;
     "Layer 6 - Checkov")
+      # Checkov produces checkov-results.json (no mode suffix)
       echo "${SCAN_DIR}/checkov/checkov-results.json"
       ;;
     "Layer 7 - Trivy")
-      echo "${SCAN_DIR}/trivy/trivy-results.json"
+      # Trivy runs in filesystem mode, produces trivy-filesystem-results.json
+      echo "${SCAN_DIR}/trivy/trivy-filesystem-results.json"
       ;;
     "Layer 8 - Grype")
-      echo "${SCAN_DIR}/grype/grype-results.json"
+      # Grype runs in sbom mode first (primary scan), produces grype-sbom-results.json
+      echo "${SCAN_DIR}/grype/grype-sbom-results.json"
       ;;
     "Layer 9 - Xeol")
-      echo "${SCAN_DIR}/xeol/xeol-results.json"
+      # Xeol runs in filesystem mode, produces xeol-filesystem-results.json
+      echo "${SCAN_DIR}/xeol/xeol-filesystem-results.json"
       ;;
     "Layer 10 - Anchore")
+      # Anchore produces anchore-results.json
       echo "${SCAN_DIR}/anchore/anchore-results.json"
       ;;
     "Layer 11 - API Discovery")
+      # API Discovery produces api-discovery-results.json
       echo "${SCAN_DIR}/api-discovery/api-discovery-results.json"
       ;;
     "Layer 11.5 - pip-audit")
+      # pip-audit produces pip-audit-results.json
       echo "${SCAN_DIR}/pip-audit/pip-audit-results.json"
       ;;
     "Layer 11.6 - Python Safety Check")
+      # Safety produces safety-results.json
       echo "${SCAN_DIR}/safety/safety-results.json"
       ;;
     *)

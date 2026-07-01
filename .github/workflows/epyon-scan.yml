@@ -372,6 +372,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: MetroStar/epyon
+          ref: main
           path: epyon
           fetch-depth: 1
 
@@ -595,14 +596,14 @@ jobs:
           EPYON_WEBHOOK_SECRET: ${{ inputs.epyon_webhook_secret }}
         run: |
           # Append API keys to /tmp/epyon-env so they are explicitly exported to all subshells.
-          [[ -n "${OPENAI_API_KEY:-}" ]]    && echo "OPENAI_API_KEY=${OPENAI_API_KEY}"       >> /tmp/epyon-env
-          [[ -n "${ANTHROPIC_API_KEY:-}" ]] && echo "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}" >> /tmp/epyon-env
-          [[ -n "${GITHUB_TOKEN:-}" ]]      && echo "GITHUB_TOKEN=${GITHUB_TOKEN}"           >> /tmp/epyon-env
+          [[ -n "${OPENAI_API_KEY:-}" ]]    && echo "export OPENAI_API_KEY=${OPENAI_API_KEY}"       >> /tmp/epyon-env
+          [[ -n "${ANTHROPIC_API_KEY:-}" ]] && echo "export ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}" >> /tmp/epyon-env
+          [[ -n "${GITHUB_TOKEN:-}" ]]      && echo "export GITHUB_TOKEN=${GITHUB_TOKEN}"           >> /tmp/epyon-env
           # Append webhook configuration for real-time progress notifications
-          [[ -n "${EPYON_CALLBACK_URL:-}" ]]    && echo "EPYON_CALLBACK_URL=${EPYON_CALLBACK_URL}"       >> /tmp/epyon-env
-          [[ -n "${EPYON_JOB_ID:-}" ]]          && echo "EPYON_JOB_ID=${EPYON_JOB_ID}"                   >> /tmp/epyon-env
-          [[ -n "${EPYON_WEBHOOK_SECRET:-}" ]]  && echo "EPYON_WEBHOOK_SECRET=${EPYON_WEBHOOK_SECRET}"   >> /tmp/epyon-env
-          [[ -n "${EPYON_CALLBACK_URL:-}" ]]    && echo "EPYON_WEBHOOK_DEBUG=1"                          >> /tmp/epyon-env
+          [[ -n "${EPYON_CALLBACK_URL:-}" ]]    && echo "export EPYON_CALLBACK_URL=${EPYON_CALLBACK_URL}"       >> /tmp/epyon-env
+          [[ -n "${EPYON_JOB_ID:-}" ]]          && echo "export EPYON_JOB_ID=${EPYON_JOB_ID}"                   >> /tmp/epyon-env
+          [[ -n "${EPYON_WEBHOOK_SECRET:-}" ]]  && echo "export EPYON_WEBHOOK_SECRET=${EPYON_WEBHOOK_SECRET}"   >> /tmp/epyon-env
+          [[ -n "${EPYON_CALLBACK_URL:-}" ]]    && echo "export EPYON_WEBHOOK_DEBUG=1"                          >> /tmp/epyon-env
           [[ -n "${EPYON_CALLBACK_URL:-}" ]]    && echo "🔔 Webhook notifications enabled: ${EPYON_CALLBACK_URL}"
           chmod +x epyon/scripts/shell/run-epyon-scan-ci.sh
           ./epyon/scripts/shell/run-epyon-scan-ci.sh

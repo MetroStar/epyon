@@ -207,6 +207,7 @@ mkdir -p "$TIMING_DIR"
 ORCHESTRATOR_START=$SECONDS
 
 # ── Webhook notification support ──────────────────────────────────────────────
+# ── Webhook notification support ──────────────────────────────────────────────
 # Send progress notifications to Barbatos or other management UIs.
 # Reads: EPYON_CALLBACK_URL, EPYON_JOB_ID, EPYON_WEBHOOK_SECRET, EPYON_WEBHOOK_DEBUG
 send_webhook() {
@@ -232,10 +233,6 @@ send_webhook() {
         # Debug mode - show all output
         "$webhook_script" "$event_type" "$message" "$status" "$tool_name" || true
     else
-        # Silent mode - suppress stderr
-        "$webhook_script" "$event_type" "$message" "$status" "$tool_name" 2>/dev/null || true
-    fi
-}
         # Silent mode - suppress stderr
         "$webhook_script" "$event_type" "$message" "$status" "$tool_name" 2>/dev/null || true
     fi

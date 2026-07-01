@@ -4,6 +4,19 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.12.2] - 2026-07-01
+
+### Fixed
+- **Critical**: Corrected tool result file paths in `_get_layer_result_file()` causing webhook results to not be sent
+  - SBOM: `filesystem.cyclonedx.json` (was looking for `filesystem-cyclonedx.json` with hyphen)
+  - Grype: `grype-sbom-results.json` (was looking for `grype-results.json` without mode suffix)
+  - Trivy: `trivy-filesystem-results.json` (was looking for `trivy-results.json`)
+  - TruffleHog: `trufflehog-filesystem-results.json` (was looking for `trufflehog-results.json`)
+  - Xeol: `xeol-filesystem-results.json` (was looking for `xeol-results.json`)
+  - Each tool appends its scan mode to the filename - this was not accounted for in v3.12.1
+  - Files didn't exist at expected paths, so webhook fell back to progress updates only
+  - Barbatos received no actual findings data despite successful scans
+
 ## [3.12.1] - 2026-07-01
 
 ### Fixed

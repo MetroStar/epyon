@@ -98,6 +98,7 @@ debug_log "Payload: $JSON_PAYLOAD"
 MAX_RETRIES=3
 RETRY_DELAY=2
 SUCCESS=false
+RESPONSE_FILE=$(mktemp)
 
 for ((i=1; i<=MAX_RETRIES; i++)); do
     debug_log "Attempt $i/$MAX_RETRIES: POST to $EPYON_CALLBACK_URL"
@@ -107,14 +108,23 @@ for ((i=1; i<=MAX_RETRIES; i++)); do
         -d "$JSON_PAYLOAD" \
         --max-time 10 \
         --connect-timeout 5 \
-        -o /dev/null \
+        -o "$RESPONSE_FILE" \
         -w "%{http_code}" 2>&1 || echo "000")
     
     debug_log "Response: HTTP $HTTP_CODE"
     
+    # Show response body for non-success status codes in debug mode
+    if [[ "$EPYON_WEBHOOK_DEBUG" == "1" ]] && ! echo "$HTTP_CODE" | grep -qE '^(200|201|202|204)$'; then
+        RESPONSE_BODY=$(cat "$RESPONSE_FILE" 2>/dev/null | head -c 500)
+        if [[ -n "$RESPONSE_BODY" ]]; then
+            debug_log "Response body: $RESPONSE_BODY"
+        fi
+    fi
+    
     if echo "$HTTP_CODE" | grep -qE '^(200|201|202|204)$'; then
         SUCCESS=true
         debug_log "Webhook delivered successfully"
+        rm -f "$RESPONSE_FILE"
         break
     else
         if [[ "$i" -lt "$MAX_RETRIES" ]]; then
@@ -124,6 +134,8 @@ for ((i=1; i<=MAX_RETRIES; i++)); do
         fi
     fi
 done
+
+rm -f "$RESPONSE_FILE"
 
 if [[ "$SUCCESS" != "true" ]]; then
     echo -e "${YELLOW}⚠️  Webhook notification failed after $MAX_RETRIES attempts - continuing scan${NC}" >&2

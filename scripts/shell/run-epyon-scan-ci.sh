@@ -215,6 +215,9 @@ send_webhook() {
     local message="$2"
     local status="${3:-info}"
     local tool_name="${4:-}"
+    local layer_num="${5:-}"
+    local total_layers="${6:-16}"
+    local result_file="${7:-}"
     
     # Only send if callback URL is configured
     if [[ -z "${EPYON_CALLBACK_URL:-}" ]]; then
@@ -231,10 +234,20 @@ send_webhook() {
     
     if [[ "${EPYON_WEBHOOK_DEBUG:-0}" == "1" ]]; then
         # Debug mode - show all output
-        "$webhook_script" "$event_type" "$message" "$status" "$tool_name" || true
+        "$webhook_script" "$event_type" "$message" "$status" "$tool_name" "$layer_num" "$total_layers" "$result_file" || true
     else
         # Silent mode - suppress stderr
-        "$webhook_script" "$event_type" "$message" "$status" "$tool_name" 2>/dev/null || true
+        "$webhook_script" "$event_type" "$message" "$status" "$tool_name" "$layer_num" "$total_layers" "$result_file" 2>/dev/null || true
+    fi
+}
+
+# Extract layer number from layer name (e.g., "Layer 1 - SBOM" → "1")
+_extract_layer_number() {
+    local layer_name="$1"
+    if [[ "$layer_name" =~ [Ll]ayer[[:space:]]+([0-9]+) ]]; then
+        echo "${BASH_REMATCH[1]}"
+    else
+        echo ""
     fi
 }
 
@@ -245,22 +258,25 @@ _record_start() {
   local layer_name="$1"
   echo "$SECONDS" > "${TIMING_DIR}/start_$(_pkey "$layer_name")"
   
-  # Send webhook: tool starting
+  # Send webhook: tool starting (with layer progress)
   local tool_slug=$(echo "$layer_name" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/[^a-z0-9-]//g')
-  send_webhook "tool_start" "Starting $layer_name" "in_progress" "$tool_slug"
+  local layer_num=$(_extract_layer_number "$layer_name")
+  send_webhook "tool_start" "Starting $layer_name" "in_progress" "$tool_slug" "$layer_num" "16"
 }
 
 _record_end() {
   local layer_name="$1"
+  local result_file="${2:-}"  # Optional: path to tool JSON output
   echo "$SECONDS" > "${TIMING_DIR}/end_$(_pkey "$layer_name")"
   local start
   start=$(cat "${TIMING_DIR}/start_$(_pkey "$layer_name")" 2>/dev/null || echo "$SECONDS")
   local elapsed=$(( SECONDS - start ))
   echo "[TIMING] $layer_name: ${elapsed}s"
   
-  # Send webhook: tool completed
+  # Send webhook: tool completed (with results if available)
   local tool_slug=$(echo "$layer_name" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/[^a-z0-9-]//g')
-  send_webhook "tool_complete" "$layer_name completed in ${elapsed}s" "success" "$tool_slug"
+  local layer_num=$(_extract_layer_number "$layer_name")
+  send_webhook "tool_complete" "$layer_name completed in ${elapsed}s" "success" "$tool_slug" "$layer_num" "16" "$result_file"
 }
 
 _write_timing_report() {
@@ -578,6 +594,9 @@ _install_prebuilt_sbom() {
 #   Phase 2 (after L3):  Layer 4 (ClamAV — needs .scannerwork removed)
 #   Phase 3:             Layers 12, 13, 14, 15 (conditional, run sequentially)
 # ══════════════════════════════════════════════════════════════════════════════
+
+# Send scan start webhook (Barbatos format: progress step)
+send_webhook "scan_start" "Security scan initialized - starting layers" "info" "scan-init"
 
 # Layers 1-12 — skipped entirely when SCAN_MODE=stig (STIG-only run)
 if [[ "${SCAN_MODE:-full}" == "stig" ]]; then
@@ -937,6 +956,9 @@ echo "::endgroup::"
 
 # Clean up parallel log directory
 rm -rf "$PARALLEL_LOG_DIR"
+
+# Send scan completion webhook (Barbatos format: {"done": true})
+send_webhook "scan_complete" "Scan completed successfully" "success"
 
 SCAN_DIR_REL="${SCAN_DIR#${PWD}/}"
 SCAN_ID_VALUE="$(basename "$SCAN_DIR")"

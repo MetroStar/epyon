@@ -143,6 +143,11 @@ on:
         required: false
         default: false
         type: boolean
+      skip_stig:
+        description: 'DEPRECATED - Use run_stig instead. Skip Layer 13 - STIG compliance assessment'
+        required: false
+        default: false
+        type: boolean
       run_stig:
         description: 'Enable Layer 13 - STIG compliance assessment (AppSecDev STIG V5R3). By default, STIG is skipped unless explicitly enabled or scan_mode is "stig"'
         required: false
@@ -284,7 +289,7 @@ jobs:
       SKIP_XEOL: "${{ inputs.skip_xeol }}"
       SKIP_ANCHORE: "${{ inputs.skip_anchore }}"
       SKIP_API_DISCOVERY: "${{ inputs.skip_api_discovery }}"
-      SKIP_STIG: "${{ !(inputs.run_stig || inputs.scan_mode == 'stig') && 'true' || 'false' }}"
+      SKIP_STIG: "${{ (inputs.skip_stig == true || !(inputs.run_stig == true || inputs.scan_mode == 'stig')) && 'true' || 'false' }}"
       GH_TOKEN: "${{ secrets.GH_TOKEN || github.token }}"
       RUN_PICKLESCAN: "${{ inputs.run_picklescan == true && 'true' || '' }}"
       RUN_MODELCARD: "${{ inputs.run_modelcard == true && 'true' || '' }}"

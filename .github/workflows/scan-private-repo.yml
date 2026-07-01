@@ -85,8 +85,8 @@ jobs:
     uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
     with:
       scan_mode: quick
-      skip_stig: true
       skip_garak: true
+      # Note: STIG (Layer 13) is opt-in by default. Set run_stig: true to enable.
       # Forward webhook configuration (no-op for PR events, but keeps consistency)
       epyon_callback_url: ${{ github.event.inputs.epyon_callback_url || '' }}
       epyon_job_id: ${{ github.event.inputs.epyon_job_id || '' }}
@@ -105,7 +105,7 @@ jobs:
     with:
       scan_mode: ${{ github.event_name == 'schedule' && (github.event.schedule == '0 2 * * 0' && 'full' || 'nightly') || github.event.inputs.scan_mode || 'full' }}
       # STIG runs only on the weekly Sunday full scan or when explicitly chosen via workflow_dispatch
-      skip_stig: ${{ !(github.event_name == 'schedule' && github.event.schedule == '0 2 * * 0') && github.event.inputs.scan_mode != 'stig' }}
+      run_stig: ${{ (github.event_name == 'schedule' && github.event.schedule == '0 2 * * 0') || github.event.inputs.scan_mode == 'stig' }}
       subdirectory: ${{ github.event.inputs.subdirectory || '' }}
       garak_target_type: ${{ github.event.inputs.garak_target_type || 'openai' }}
       garak_target_name: ${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}

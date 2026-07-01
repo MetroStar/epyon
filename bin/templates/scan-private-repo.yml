@@ -65,7 +65,7 @@ jobs:
     with:
       scan_mode: ${{ github.event_name == 'schedule' && (github.event.schedule == '0 2 * * 0' && 'full' || 'nightly') || github.event.inputs.scan_mode || 'full' }}
       # STIG runs only on the weekly Sunday full scan or when explicitly chosen via workflow_dispatch
-      skip_stig: ${{ !(github.event_name == 'schedule' && github.event.schedule == '0 2 * * 0') && github.event.inputs.scan_mode != 'stig' }}
+      run_stig: ${{ (github.event_name == 'schedule' && github.event.schedule == '0 2 * * 0') || github.event.inputs.scan_mode == 'stig' }}
       subdirectory: ${{ github.event.inputs.subdirectory || '' }}
       garak_target_type: ${{ github.event.inputs.garak_target_type || 'openai' }}
       garak_target_name: ${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}

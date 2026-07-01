@@ -46,4 +46,4 @@ jobs:
     with:
       scan_mode: ${{ github.event_name == 'push' && 'full' || 'quick' }}
       skip_garak: true
-      skip_stig: true
+      # Note: STIG (Layer 13) is opt-in by default. Set run_stig: true to enable.

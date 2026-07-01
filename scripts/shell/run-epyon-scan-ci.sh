@@ -206,18 +206,61 @@ TIMING_DIR="${SCAN_DIR}/.layer-timing"
 mkdir -p "$TIMING_DIR"
 ORCHESTRATOR_START=$SECONDS
 
+# ── Webhook notification support ──────────────────────────────────────────────
+# Send progress notifications to Barbatos or other management UIs.
+# Reads: EPYON_CALLBACK_URL, EPYON_JOB_ID, EPYON_WEBHOOK_SECRET, EPYON_WEBHOOK_DEBUG
+send_webhook() {
+    local event_type="$1"
+    local message="$2"
+    local status="${3:-info}"
+    local tool_name="${4:-}"
+    
+    # Only send if callback URL is configured
+    if [[ -z "${EPYON_CALLBACK_URL:-}" ]]; then
+        return 0
+    fi
+    
+    # Find the webhook script relative to this script's location
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local webhook_script="${script_dir}/send-webhook-notification.sh"
+    
+    if [[ ! -x "$webhook_script" ]]; then
+        [[ "${EPYON_WEBHOOK_DEBUG:-0}" == "1" ]] && echo "[webhook-debug] send-webhook-notification.sh not found or not executable" >&2
+        return 0
+    fi
+    
+    if [[ "${EPYON_WEBHOOK_DEBUG:-0}" == "1" ]]; then
+        # Debug mode - show all output
+        "$webhook_script" "$event_type" "$message" "$status" "$tool_name" || true
+    else
+        # Silent mode - suppress stderr
+        "$webhook_script" "$event_type" "$message" "$status" "$tool_name" 2>/dev/null || true
+    fi
+}
+
 # Sanitize a layer name into a valid filename/variable-name suffix.
 _pkey() { printf '%s' "${1//[^a-zA-Z0-9]/_}"; }
 
 _record_start() {
-  echo "$SECONDS" > "${TIMING_DIR}/start_$(_pkey "$1")"
+  local layer_name="$1"
+  echo "$SECONDS" > "${TIMING_DIR}/start_$(_pkey "$layer_name")"
+  
+  # Send webhook: tool starting
+  local tool_slug=$(echo "$layer_name" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/[^a-z0-9-]//g')
+  send_webhook "tool_start" "Starting $layer_name" "in_progress" "$tool_slug"
 }
+
 _record_end() {
-  echo "$SECONDS" > "${TIMING_DIR}/end_$(_pkey "$1")"
+  local layer_name="$1"
+  echo "$SECONDS" > "${TIMING_DIR}/end_$(_pkey "$layer_name")"
   local start
-  start=$(cat "${TIMING_DIR}/start_$(_pkey "$1")" 2>/dev/null || echo "$SECONDS")
+  start=$(cat "${TIMING_DIR}/start_$(_pkey "$layer_name")" 2>/dev/null || echo "$SECONDS")
   local elapsed=$(( SECONDS - start ))
-  echo "[TIMING] $1: ${elapsed}s"
+  echo "[TIMING] $layer_name: ${elapsed}s"
+  
+  # Send webhook: tool completed
+  local tool_slug=$(echo "$layer_name" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/[^a-z0-9-]//g')
+  send_webhook "tool_complete" "$layer_name completed in ${elapsed}s" "success" "$tool_slug"
 }
 
 _write_timing_report() {

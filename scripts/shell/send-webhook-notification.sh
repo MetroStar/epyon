@@ -82,13 +82,13 @@ JSON_PAYLOAD=$(cat <<EOF
 EOF
 )
 
-# Generate HMAC signature if secret is provided
-HEADERS=(-H "Content-Type: application/json")
+# Always send Job ID header (required for webhook correlation)
+HEADERS=(-H "Content-Type: application/json" -H "X-Epyon-Job-Id: $JOB_ID")
+
+# Generate HMAC signature if secret is provided (optional security layer)
 if [[ -n "${EPYON_WEBHOOK_SECRET:-}" ]]; then
-    # Generate HMAC-SHA256 signature
     SIGNATURE=$(echo -n "$JSON_PAYLOAD" | openssl dgst -sha256 -hmac "$EPYON_WEBHOOK_SECRET" | sed 's/^.* //')
     HEADERS+=(-H "X-Epyon-Signature: sha256=$SIGNATURE")
-    HEADERS+=(-H "X-Epyon-Job-Id: $JOB_ID")
     debug_log "HMAC signature generated"
 fi
 

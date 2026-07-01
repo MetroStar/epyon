@@ -64,6 +64,22 @@ on:
         required: false
         default: false
         type: boolean
+      # Webhook configuration for Barbatos integration
+      epyon_callback_url:
+        description: 'Webhook URL for real-time progress notifications'
+        required: false
+        default: ''
+        type: string
+      epyon_job_id:
+        description: 'Job identifier for webhook correlation'
+        required: false
+        default: ''
+        type: string
+      epyon_webhook_secret:
+        description: 'Shared secret for webhook HMAC validation'
+        required: false
+        default: ''
+        type: string
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -127,4 +143,8 @@ jobs:
       create_github_issue: false
       create_jira_tickets: false
       write_metrics: false
+      # Forward webhook configuration for Barbatos integration
+      epyon_callback_url: ${{ inputs.epyon_callback_url || '' }}
+      epyon_job_id: ${{ inputs.epyon_job_id || '' }}
+      epyon_webhook_secret: ${{ inputs.epyon_webhook_secret || '' }}
     secrets: inherit

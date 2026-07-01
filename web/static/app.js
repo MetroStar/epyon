@@ -6751,8 +6751,8 @@ function openFindingDetail(id) {
   const pkg     = f.package || f.component || '';
   const ver     = f.version || '';
   const fixed   = f.fixed_version || '';
-  const target  = f.target || '';
-  const line    = f.line ? String(f.line) : '';
+  const target  = f.target || f.file || '';
+  const line    = f.line ? (Array.isArray(f.line) && f.line.length === 2 ? (f.line[0] === f.line[1] ? String(f.line[0]) : `${f.line[0]}-${f.line[1]}`) : String(f.line)) : '';
   const refs    = f.references || [];
   const cisaKev  = f.cisa_kev === true;
   const cvssScore = f.nvd_cvss_v3_score != null ? f.nvd_cvss_v3_score : null;

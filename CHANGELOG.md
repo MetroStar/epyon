@@ -4,6 +4,18 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [3.12.1] - 2026-07-01
+
+### Fixed
+- **Critical Webhook Bug**: Tool scan results were not being sent to Barbatos, causing 0 findings to appear even when scans succeeded
+  - Added `_get_layer_result_file()` function to map layer names to JSON output paths
+  - Updated parallel layer completion to pass result file paths to webhook sender
+  - SBOM, Grype, Trivy, TruffleHog, Checkov, and other tool results now sent to Barbatos
+  - Added file size validation (warn >5MB, skip >10MB) to prevent oversized payloads
+  - Added JSON validation before sending to catch malformed output files
+  - Graceful fallback to progress updates if result files are missing or invalid
+  - Barbatos will now show actual CVEs, secrets, IaC issues, API endpoints, and SBOM data
+
 ## [3.12.0] - 2026-07-01
 
 ### Changed

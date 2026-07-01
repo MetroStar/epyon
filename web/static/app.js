@@ -2436,6 +2436,19 @@ function _buildFindingRows(items) {
         : ''
     ].join('') || '<span style="color:var(--text-dim)">—</span>';
 
+    // For IaC/Checkov findings, show file path and line numbers
+    const isIaC = f.type === 'iac_misconfiguration' || f.tool === 'Checkov';
+    let locationCell = '';
+    if (isIaC && f.file) {
+      const filePath = esc(f.file);
+      const fileName = filePath.split('/').pop();
+      let lineInfo = '';
+      if (f.line && Array.isArray(f.line) && f.line.length === 2) {
+        lineInfo = f.line[0] === f.line[1] ? `:${f.line[0]}` : `:${f.line[0]}-${f.line[1]}`;
+      }
+      locationCell = `<code style="font-size:11px;color:var(--accent)" title="${filePath}${lineInfo}">${fileName}${lineInfo}</code>`;
+    }
+
     return `
       <tr class="finding-row" onclick="openFindingDetail(${fid})" title="Click to view details">
         <td>
@@ -2443,7 +2456,7 @@ function _buildFindingRows(items) {
           <div style="margin-top:3px">${findingSourceBadge(f)}</div>
         </td>
         <td>${idCell}</td>
-        <td style="max-width:360px">${title}</td>
+        <td style="max-width:360px">${title}${locationCell ? `<div style="margin-top:4px">${locationCell}</div>` : ''}</td>
         <td>${pkg}${ver ? ` <span style="color:var(--text-dim);font-size:11px">${ver}</span>` : ''}</td>
         <td style="white-space:nowrap">${cvssCell}</td>
         <td>${fixed ? `<span style="color:var(--clean)">${fixed}</span>` : '<span style="color:var(--text-dim)">—</span>'}</td>

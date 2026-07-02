@@ -893,11 +893,11 @@ with open(body_file) as f:
 with open(map_file) as f:
     map_json = f.read().strip()
 marker  = f'<!--epyon-cve-map-{severity}:{map_json}-->'
-pattern = r'<!--epyon-cve-map-' + re.escape(severity) + r':\{.*?\}-->'
-if re.search(pattern, body, re.DOTALL):
-    new_body = re.sub(pattern, marker, body, flags=re.DOTALL)
-else:
-    new_body = body.rstrip('\n') + '\n' + marker
+# Remove ALL existing map markers for this severity (handles duplicate/stale markers)
+pattern = r'<!--epyon-cve-map-' + re.escape(severity) + r':.*?-->'
+new_body = re.sub(pattern, '', body, flags=re.DOTALL)
+# Append fresh marker at the end
+new_body = new_body.rstrip('\n') + '\n' + marker
 print(new_body, end='')
 PYEOF
   )
@@ -1443,6 +1443,8 @@ with open('/tmp/epyon_cve_map_current.json','w') as f: json.dump(m,f)
   done <<< "${current_cve_ids}"
 
   # --- Close tickets for CVEs that are no longer present ---
+  echo "  🔍 Checking for resolved CVEs to close..." >&2
+  local closed_count=0
   local old_cve_ids
   old_cve_ids=$(jq -r 'keys[]' /tmp/epyon_cve_map_current.json 2>/dev/null || true)
   while IFS= read -r old_cve; do
@@ -1468,16 +1470,33 @@ m.pop('${old_cve}', None)
 with open('/tmp/epyon_cve_map_current.json','w') as f: json.dump(m,f)
 " 2>/dev/null || true
           echo "   ✅ Removed ${old_cve} from tracking map" >&2
+          closed_count=$((closed_count + 1))
         else
           echo "   ⚠️  Auto-close failed — keeping ${old_cve} in tracking map to retry next scan" >&2
         fi
       fi
     fi
   done <<< "${old_cve_ids}"
+  
+  if [[ "${closed_count}" -gt 0 ]]; then
+    echo "  ✅ Closed ${closed_count} resolved CVE ticket(s)" >&2
+  else
+    echo "  ℹ️  No resolved CVEs to close" >&2
+  fi
 
   # Persist updated CVE map to GitHub issue
-  echo "  💾 Persisting CVE map (${tracked_count} tracked → $(jq 'keys | length' /tmp/epyon_cve_map_current.json 2>/dev/null || echo 0) tracked)..." >&2
+  local final_count
+  final_count=$(jq 'keys | length' /tmp/epyon_cve_map_current.json 2>/dev/null || echo 0)
+  echo "  💾 Persisting CVE map (${tracked_count} tracked → ${final_count} tracked)..." >&2
   store_cve_map_in_github "${sev_label}" /tmp/epyon_cve_map_current.json
+  
+  # Verify persistence (debug)
+  if [[ "${EPYON_DEBUG:-false}" == "true" ]]; then
+    local verified_count
+    verified_count=$(get_cve_map_from_github "${sev_label}" | jq 'keys | length' 2>/dev/null || echo 0)
+    echo "  🔍 Verification: ${verified_count} CVEs readable from GitHub issue" >&2
+  fi
+  
   echo "--- CVE child tickets complete for ${sev_label}: ${processed} processed ---"
 }
 

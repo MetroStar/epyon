@@ -4,6 +4,19 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [3.12.4] - 2026-07-02
+
+### Fixed
+- **Critical: Jira ticket auto-closure not working** — resolved CVEs were not closing tracked tickets
+  - Root cause: CVE map persistence logic in `create-jira-tickets.sh` was failing to replace large/complex JSON maps stored in GitHub issue comments, causing old maps to be retained while new ones were appended. The read function always found the oldest/smallest map, so newly resolved CVEs were never detected for closure.
+  - Changed `store_cve_map_in_github()` to remove ALL existing map markers before appending fresh one, preventing duplicate/stale markers
+  - Changed regex pattern from attempting conditional replace to unconditional remove-then-append
+  - Added closure loop summary logging: "✅ Closed N resolved CVE ticket(s)" or "ℹ️ No resolved CVEs to close"
+  - Added debug verification when `EPYON_DEBUG=true` to confirm map round-trip persistence
+  - Symptom: scans showing "11 previously tracked CVEs" when previous scan persisted 57 — 46 CVEs should have been closed but weren't
+  - Impact: tickets for remediated vulnerabilities remained open indefinitely, inflating security debt metrics
+
 ## [3.12.3] - 2026-07-01
 
 ### Fixed

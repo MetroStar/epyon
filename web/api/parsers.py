@@ -251,6 +251,14 @@ def parse_trufflehog_dir(scan_dir: Path) -> list[dict]:
                     meta = (item.get("SourceMetadata") or {}).get("Data") or {}
                     fs_data = meta.get("Filesystem") or meta.get("Git") or {}
                     verified = bool(item.get("Verified"))
+                    file_path = fs_data.get("file") or fs_data.get("path", "")
+                    line_num = fs_data.get("line", "")
+                    
+                    # Build location string with file path and line number
+                    location = file_path
+                    if file_path and line_num:
+                        location = f"{file_path}#L{line_num}"
+                    
                     findings.append({
                         "tool": "TruffleHog",
                         "id": item.get("DetectorName", "SECRET"),
@@ -261,11 +269,12 @@ def parse_trufflehog_dir(scan_dir: Path) -> list[dict]:
                         "title": f"{'Verified' if verified else 'Unverified'} secret: {item.get('DetectorName', '')}",
                         "description": (
                             f"Detector: {item.get('DetectorName', '')}. "
-                            f"File: {fs_data.get('file') or fs_data.get('path', 'unknown')}. "
-                            f"Line: {fs_data.get('line', '?')}"
+                            f"File: {file_path}. "
+                            f"Line: {line_num or '?'}"
                         ),
-                        "target": fs_data.get("file") or fs_data.get("path", ""),
-                        "line":   fs_data.get("line", ""),
+                        "target": file_path,
+                        "location": location,
+                        "line":   line_num,
                         "references": [],
                     })
         except OSError:
@@ -314,19 +323,41 @@ def parse_checkov_dir(scan_dir: Path) -> list[dict]:
                 if sev == "unknown":
                     sev = "medium"
                 line_range = check.get("file_line_range") or []
+                file_path = check.get("file_path", "")
+                resource = check.get("resource", "")
+                
+                # Build location string with file path and line range
+                location = file_path
+                if line_range:
+                    if len(line_range) == 2:
+                        location = f"{file_path}#L{line_range[0]}-L{line_range[1]}"
+                    elif len(line_range) == 1:
+                        location = f"{file_path}#L{line_range[0]}"
+                
+                # Build description with check name and resource context
+                check_name = check.get("check_name") or check.get("check_id", "")
+                description = check_name
+                if resource:
+                    description = f"{check_name} — Resource: {resource}"
+                if file_path and line_range:
+                    line_range_str = '-'.join(str(x) for x in line_range)
+                    description = f"{check_name} — {file_path}:{line_range_str}"
+                    if resource:
+                        description = f"{check_name} — Resource: {resource} in {file_path}:{line_range_str}"
+                
                 findings.append({
                     "tool": "Checkov",
                     "id": check.get("check_id", ""),
                     "severity": sev,
-                    "package": check.get("file_path", ""),
+                    "package": file_path,
                     "version": "",
                     "fixed_version": "",
-                    "title": check.get("check_name") or check.get("check_id", ""),
-                    "description": (
-                        f"{check.get('check_name', '')} — "
-                        f"{check.get('file_path', '')}:{'-'.join(str(x) for x in line_range)}"
-                    ),
-                    "target": check.get("file_path", ""),
+                    "title": check_name,
+                    "description": description,
+                    "target": file_path,
+                    "location": location,
+                    "resource": resource,
+                    "file_line_range": line_range,
                     "references": [check["guideline"]] if check.get("guideline") else [],
                 })
     return findings
@@ -830,6 +861,12 @@ def parse_sonarqube_dir(scan_dir: Path) -> list[dict]:
         component = issue.get("component") or issue.get("path") or ""
         line      = issue.get("line") or issue.get("textRange", {}).get("startLine")
         location  = f"{component}:{line}" if line else component
+        
+        # Build GitHub-style location anchor if line number is available
+        github_location = component
+        if component and line:
+            github_location = f"{component}#L{line}"
+        
         rule      = issue.get("rule") or issue.get("ruleId") or "—"
         message   = issue.get("message") or issue.get("primaryMessage") or rule
         findings.append({
@@ -842,6 +879,8 @@ def parse_sonarqube_dir(scan_dir: Path) -> list[dict]:
             "version":  "",
             "fixed_version": "",
             "target":   location[:200],
+            "location": github_location[:200],
+            "line":     line,
             "references": [],
         })
     return findings

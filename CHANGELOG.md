@@ -5,6 +5,17 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.12.5] - 2026-07-06
+
+### Fixed
+- **Critical: Web UI Jira ticket auto-closure not working** — tickets for remediated vulnerabilities were not being closed by the FastAPI-based reconciliation system
+  - Root cause: `reconcile_app()` only checked findings from the immediate previous scan to determine what to close. If a vulnerability was remediated multiple scans ago, its fingerprint wouldn't appear in `previous_fps`, so the loop never attempted to close that ticket.
+  - Changed logic to iterate over ALL open tickets in the ticket map and close any that are not present in the current scan, regardless of when they were remediated
+  - Added app_name and project_key filtering to prevent closing tickets for other applications
+  - Improved ticket creation logic to allow creating new tickets for previously-closed findings that reappear (e.g., reintroduced vulnerabilities)
+  - Impact: tickets remained open indefinitely even after vulnerabilities were fixed, causing inflated security metrics and manual cleanup burden
+  - Note: This fix is for the Python-based `web/api/jira_client.py` system used by the web UI. The shell-based `scripts/shell/create-jira-tickets.sh` used in GitHub Actions workflows was fixed separately in v3.12.4.
+
 ## [3.12.4] - 2026-07-02
 
 ### Fixed

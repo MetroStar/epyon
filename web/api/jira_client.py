@@ -352,15 +352,23 @@ async def reconcile_app(
     previous_fps = {finding_fingerprint(f, app_name, project_key): f for f in previous_findings}
 
     # ── Remediated findings ──────────────────────────────────
-    for fp, finding in previous_fps.items():
+    # Check ALL open tickets in the ticket map, not just those from the previous scan.
+    # A finding may have been remediated multiple scans ago, so it won't appear in
+    # previous_fps, but we still need to close its ticket if it's not in the current scan.
+    for fp, entry in ticket_map.items():
+        # Skip if already closed
+        if entry.get("closed_at"):
+            continue
+        # Skip if not for this app+project (ticket map is global)
+        if entry.get("app") != app_name or entry.get("project_key") != project_key:
+            continue
+        # Skip if finding still present in current scan
         if fp in current_fps:
             continue
-        entry = ticket_map.get(fp)
-        if not entry:
-            continue
+        # Finding is gone → close the ticket
         issue_key = entry.get("issue_key", "")
-        if not issue_key or entry.get("closed_at"):
-            continue  # already closed or never tracked
+        if not issue_key:
+            continue
         ok = await close_ticket(cfg, issue_key)
         if ok:
             ticket_map[fp]["closed_at"] = now_ts
@@ -373,8 +381,10 @@ async def reconcile_app(
         for fp, finding in current_fps.items():
             if fp in previous_fps:
                 continue
-            if fp in ticket_map:
-                continue
+            # Check if ticket already exists and is still open
+            existing = ticket_map.get(fp)
+            if existing and not existing.get("closed_at"):
+                continue  # Ticket already open, skip
             sev_rank = _SEV_RANK.get((finding.get("severity") or "low").lower(), 3)
             if sev_rank > min_rank:
                 continue

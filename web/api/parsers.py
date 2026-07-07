@@ -666,6 +666,101 @@ def parse_suppressed_findings(scan_dir: Path) -> list[dict]:
     return results
 
 
+def _is_finding_suppressed(finding: dict, suppressions: list[dict]) -> bool:
+    """Check if a finding matches any suppression rule.
+    
+    Matching logic:
+    - CVE suppression: matches finding["id"] (e.g., CVE-2024-1234)
+    - Secret suppression: matches finding["id"] (detector name)
+    - IaC suppression: matches finding["id"] (check ID like CKV_AWS_1)
+    - Wildcard "*" suppresses all findings of that type
+    """
+    if not suppressions:
+        return False
+    
+    finding_id = (finding.get("id") or "").strip()
+    finding_tool = (finding.get("tool") or "").strip().lower()
+    
+    # Determine finding type from tool
+    finding_type = ""
+    if finding_tool in ("grype", "trivy", "anchore", "pip-audit"):
+        finding_type = "cve"
+    elif finding_tool == "trufflehog":
+        finding_type = "secret"
+    elif finding_tool == "checkov":
+        finding_type = "iac"
+    elif finding_tool == "clamav":
+        finding_type = "malware"
+    elif finding_tool == "xeol":
+        finding_type = "eol"
+    elif finding_tool == "sonarqube":
+        finding_type = "code_quality"
+    
+    for suppression in suppressions:
+        supp_type = (suppression.get("type") or "").strip().lower()
+        supp_value = (suppression.get("value") or "").strip()
+        
+        # Type must match (or suppression has no type specified)
+        if supp_type and supp_type != finding_type:
+            continue
+        
+        # Wildcard suppresses all findings of this type
+        if supp_value == "*":
+            return True
+        
+        # Exact match on finding ID
+        if supp_value == finding_id:
+            return True
+        
+        # For CVEs, also check if suppression is a partial match (e.g., CVE-2024-* pattern)
+        if finding_type == "cve" and "*" in supp_value:
+            pattern = supp_value.replace("*", ".*").replace("?", ".")
+            try:
+                if re.match(f"^{pattern}$", finding_id):
+                    return True
+            except re.error:
+                pass
+    
+    return False
+
+
+def _filter_suppressed_findings(findings_dict: dict, suppressions: list[dict]) -> dict:
+    """Remove suppressed findings from a findings dictionary.
+    
+    Args:
+        findings_dict: Dict with critical_findings, high_findings, etc.
+        suppressions: List of suppression records from parse_suppressed_findings()
+    
+    Returns:
+        New findings dict with suppressed findings removed and summary updated
+    """
+    if not suppressions:
+        return findings_dict
+    
+    filtered: dict = {"summary": {}, "critical_findings": [], "high_findings": [], 
+                      "medium_findings": [], "low_findings": []}
+    
+    # Preserve enrichment data if present
+    if "enrichment" in findings_dict:
+        filtered["enrichment"] = findings_dict["enrichment"]
+    
+    for sev in ("critical", "high", "medium", "low"):
+        key = f"{sev}_findings"
+        original = findings_dict.get(key, [])
+        filtered[key] = [f for f in original if not _is_finding_suppressed(f, suppressions)]
+    
+    # Recalculate summary
+    filtered["summary"] = {
+        "total_critical": len(filtered["critical_findings"]),
+        "total_high":     len(filtered["high_findings"]),
+        "total_medium":   len(filtered["medium_findings"]),
+        "total_low":      len(filtered["low_findings"]),
+        "tools_analyzed": findings_dict.get("summary", {}).get("tools_analyzed", []),
+    }
+    
+    return filtered
+
+
 # ── Aggregate ─────────────────────────────────────────────────
 
 def load_sbom_packages(scan_dir: Path) -> dict:
@@ -807,7 +902,7 @@ def parse_scan_findings(scan_dir: Path) -> dict:
         s = f["severity"] if f["severity"] != "unknown" else "low"
         by_sev.setdefault(s, []).append(f)
 
-    return {
+    findings_dict = {
         "summary": {
             "total_critical": len(by_sev["critical"]),
             "total_high":     len(by_sev["high"]),
@@ -820,6 +915,13 @@ def parse_scan_findings(scan_dir: Path) -> dict:
         "medium_findings":   by_sev["medium"],
         "low_findings":      by_sev["low"],
     }
+    
+    # Filter out suppressed findings
+    suppressions = parse_suppressed_findings(scan_dir)
+    if suppressions:
+        findings_dict = _filter_suppressed_findings(findings_dict, suppressions)
+    
+    return findings_dict
 
 
 def parse_sonarqube_dir(scan_dir: Path) -> list[dict]:
@@ -936,7 +1038,7 @@ def load_enriched_findings(scan_dir: Path) -> dict | None:
     summary = raw.get("summary") or {}
     enrichment = raw.get("enrichment") or {}
 
-    return {
+    findings_dict = {
         "summary": {
             "total_critical": summary.get("total_critical", 0),
             "total_high":     summary.get("total_high", 0),
@@ -950,6 +1052,13 @@ def load_enriched_findings(scan_dir: Path) -> dict | None:
         "low_findings":      _norm(raw.get("low_findings", [])),
         "enrichment":        enrichment,
     }
+    
+    # Filter out suppressed findings
+    suppressions = parse_suppressed_findings(scan_dir)
+    if suppressions:
+        findings_dict = _filter_suppressed_findings(findings_dict, suppressions)
+    
+    return findings_dict
 
 
 def parse_enrichment_summary(scan_dir: Path) -> dict | None:

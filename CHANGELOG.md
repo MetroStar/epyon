@@ -5,6 +5,18 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.12.6] - 2026-07-07
+
+### Fixed
+- **Critical: Suppressed findings appearing in dashboard** — findings marked as suppressed via `.epyon-ignore.yml` rules were still showing up in the web UI dashboard and scan detail views
+  - Root cause: `parse_scan_findings()` and `load_enriched_findings()` collected all findings from tool outputs but never filtered against the suppressed findings list from `suppressed-findings.md`
+  - Added `_is_finding_suppressed()` to check if a finding matches any suppression rule (exact match, wildcard, or pattern match)
+  - Added `_filter_suppressed_findings()` to remove suppressed findings from the critical/high/medium/low arrays and recalculate summary counts
+  - Integrated filtering into both `parse_scan_findings()` (raw tool output parsing) and `load_enriched_findings()` (enriched summary file)
+  - Suppressed findings remain available in the separate `suppressed_findings` array for audit/reporting purposes
+  - Matching logic: CVE suppressions match on vulnerability ID; secret suppressions match on detector name; IaC suppressions match on check ID; wildcards (`*`) suppress all findings of that type
+  - Impact: dashboards showed inflated vulnerability counts including findings that were intentionally suppressed with documented justifications, creating noise and reducing trust in metrics
+
 ## [3.12.5] - 2026-07-06
 
 ### Fixed

@@ -9,6 +9,17 @@ Credentials are resolved in priority order:
                                  JIRA_PROJECT_KEY) — same names used by the
                                  GitHub Actions workflow so repo secrets work
                                  without any manual configuration.
+
+Environment variables (all optional except credentials):
+  JIRA_BASE_URL           — Jira Cloud base URL (required, e.g., https://org.atlassian.net)
+  JIRA_USER_EMAIL         — Jira user email (required)
+  JIRA_API_TOKEN          — Jira API token (required)
+  JIRA_PROJECT_KEY        — Jira project key (e.g., SEC)
+  JIRA_ISSUE_TYPE         — Issue type for new tickets (default: Bug)
+  JIRA_DONE_TRANSITION    — Transition name to close tickets (default: Done)
+  JIRA_MIN_SEVERITY       — Minimum severity to create tickets (default: high)
+  JIRA_AUTO_CLOSE         — Auto-close remediated findings (default: true)
+  JIRA_CREATE_ON_NEW      — Auto-create tickets for new findings (default: false)
 """
 from __future__ import annotations
 
@@ -57,6 +68,14 @@ def _env_config() -> dict:
     project   = os.environ.get("JIRA_PROJECT_KEY", "").strip()
     if not (base_url and email and token):
         return {}
+    
+    # Parse boolean environment variables
+    auto_close_env = os.environ.get("JIRA_AUTO_CLOSE", "true").strip().lower()
+    auto_close = auto_close_env in ("true", "1", "yes", "on")
+    
+    create_on_new_env = os.environ.get("JIRA_CREATE_ON_NEW", "false").strip().lower()
+    create_on_new = create_on_new_env in ("true", "1", "yes", "on")
+    
     return {
         "base_url":        base_url,
         "email":           email,
@@ -65,8 +84,8 @@ def _env_config() -> dict:
         "issue_type":      os.environ.get("JIRA_ISSUE_TYPE", "Bug").strip(),
         "done_transition":  os.environ.get("JIRA_DONE_TRANSITION", "Done").strip(),
         "min_severity":    os.environ.get("JIRA_MIN_SEVERITY", "high").strip(),
-        "auto_close":      True,
-        "create_on_new":   False,
+        "auto_close":      auto_close,
+        "create_on_new":   create_on_new,
         "_from_env":       True,   # marker so the UI can show "from environment"
     }
 
@@ -379,15 +398,32 @@ async def reconcile_app(
     # ── New findings (opt-in) ────────────────────────────────
     if create_on_new:
         for fp, finding in current_fps.items():
+            # PRIMARY CHECK: Prevent duplicates - if we already have a ticket for this
+            # fingerprint (open or closed), handle appropriately
+            existing = ticket_map.get(fp)
+            if existing:
+                # If ticket exists and is still open, skip (prevents duplicate tickets)
+                if not existing.get("closed_at"):
+                    continue
+                # If ticket exists but was closed, this is a reappearance
+                # We'll create a new ticket below, but only if it wasn't in the previous scan
+            
+            # SECONDARY CHECK: If finding was in previous scan, it's not "new"
+            # (it's a persistent finding, not a new discovery)
             if fp in previous_fps:
                 continue
-            # Check if ticket already exists and is still open
-            existing = ticket_map.get(fp)
-            if existing and not existing.get("closed_at"):
-                continue  # Ticket already open, skip
+            
+            # At this point:
+            # - No open ticket exists for this fingerprint
+            # - Finding wasn't in the previous scan
+            # This is either genuinely new, or a reappeared vulnerability
+            
+            # Check severity threshold
             sev_rank = _SEV_RANK.get((finding.get("severity") or "low").lower(), 3)
             if sev_rank > min_rank:
                 continue
+            
+            # Create the ticket
             issue_key = await create_ticket(cfg, finding, app_name)
             if issue_key:
                 ticket_map[fp] = {

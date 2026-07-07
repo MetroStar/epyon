@@ -5,6 +5,33 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.12.8] - 2026-07-07
+
+### Fixed
+- **Critical: Duplicate Jira tickets created on every scan** — strengthened duplicate prevention logic to ensure only one ticket per vulnerability
+  - Root cause: The ticket map check was performed AFTER the previous scan check, creating a race condition where persistent findings could bypass the duplicate check if the previous scan comparison failed
+  - Changed check order: ticket map is now checked FIRST (absolute source of truth), then previous scan (determines if "new")
+  - Logic flow now guarantees:
+    1. If open ticket exists for fingerprint → skip (prevents duplicates)
+    2. If closed ticket exists → allow new ticket only if finding wasn't in previous scan (handles reappearances)
+    3. If finding was in previous scan → skip (persistent finding, not new)
+    4. Only create ticket if: no open ticket exists AND finding is genuinely new
+  - Added detailed comments explaining the two-phase check and edge cases
+  - Impact: Multiple tickets were being created for the same vulnerability across scans, causing Jira spam and inflated metrics
+  - **Fingerprinting is stable**: Uses normalized paths and tool+id+package+target+app+project to ensure same finding = same fingerprint across scans
+
+## [3.12.7] - 2026-07-07
+
+### Fixed
+- **Jira ticket creation not working from environment variables** — new findings were not creating tickets even when expected
+  - Root cause: `create_on_new` setting was hardcoded to `False` when loading Jira config from environment variables. Only the web UI config file allowed enabling automatic ticket creation.
+  - Added `JIRA_CREATE_ON_NEW` environment variable (accepts: true/false/1/0/yes/no/on/off, default: false)
+  - Added `JIRA_AUTO_CLOSE` environment variable for consistency (was hardcoded to `true`, now configurable)
+  - Updated module docstring to document all supported environment variables
+  - Impact: CI/CD workflows and automated deployments could not enable automatic ticket creation without manually editing the web UI config file, blocking unattended operation
+  - **To enable automatic ticket creation**: Set `JIRA_CREATE_ON_NEW=true` in your environment or workflow secrets
+  - **Default behavior unchanged**: Auto-creation remains disabled by default to prevent Jira spam; auto-closure remains enabled by default
+
 ## [3.12.6] - 2026-07-07
 
 ### Fixed

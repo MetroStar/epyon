@@ -1202,15 +1202,28 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
     # Prefer the pre-built summary file (one small JSON read — cheap).
     # Only fall back to full raw tool-output parsing when the summary is absent
     # (e.g. scan still in-progress or very old scan predating the summary step).
+    # NOTE: Summary file counts include suppressed findings, so we must filter.
     summary_file = _read_json(scan_dir / "security-findings-summary.json")
     if summary_file:
-        s = summary_file.get("summary") or summary_file
-        data["critical"]       = s.get("total_critical", 0)
-        data["high"]           = s.get("total_high", 0)
-        data["medium"]         = s.get("total_medium", 0)
-        data["low"]            = s.get("total_low", 0)
-        data["total"]          = data["critical"] + data["high"] + data["medium"] + data["low"]
-        data["tools_analyzed"] = s.get("tools_analyzed", [])
+        # Load and filter the enriched findings to get accurate counts
+        filtered_findings = load_enriched_findings(scan_dir)
+        if filtered_findings and filtered_findings.get("summary"):
+            s = filtered_findings["summary"]
+            data["critical"]       = s.get("total_critical", 0)
+            data["high"]           = s.get("total_high", 0)
+            data["medium"]         = s.get("total_medium", 0)
+            data["low"]            = s.get("total_low", 0)
+            data["total"]          = data["critical"] + data["high"] + data["medium"] + data["low"]
+            data["tools_analyzed"] = s.get("tools_analyzed", [])
+        else:
+            # Fallback: use raw summary counts (no filtering applied)
+            s = summary_file.get("summary") or summary_file
+            data["critical"]       = s.get("total_critical", 0)
+            data["high"]           = s.get("total_high", 0)
+            data["medium"]         = s.get("total_medium", 0)
+            data["low"]            = s.get("total_low", 0)
+            data["total"]          = data["critical"] + data["high"] + data["medium"] + data["low"]
+            data["tools_analyzed"] = s.get("tools_analyzed", [])
     else:
         raw_findings = parse_scan_findings(scan_dir)
         if raw_findings["summary"]["tools_analyzed"]:

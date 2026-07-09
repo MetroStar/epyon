@@ -5,6 +5,16 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.12.9] - 2026-07-09
+
+### Fixed
+- **Suppressed findings still showing in scan list dashboard** — scan overview counts were not filtering out suppressed findings
+  - Root cause: `load_scan()` was reading counts directly from `security-findings-summary.json` (which includes all findings) without applying suppression filtering. The v3.12.6 filter was only applied in detail views (`load_enriched_findings()` and `parse_scan_findings()`), not in the scan list.
+  - Changed `load_scan()` to call `load_enriched_findings()` (which applies filtering) instead of reading raw summary counts
+  - Fallback to raw counts only if filtered findings cannot be loaded
+  - Impact: Scan list dashboard (home page) showed inflated critical/high/medium/low counts including suppressed findings, while drill-down detail views showed correct filtered counts — creating confusing metric discrepancies
+  - Now both scan list AND detail views exclude suppressed findings consistently
+
 ## [3.12.8] - 2026-07-07
 
 ### Fixed

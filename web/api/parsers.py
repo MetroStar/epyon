@@ -471,6 +471,97 @@ def parse_xeol_dir(scan_dir: Path) -> list[dict]:
     return findings
 
 
+def parse_pip_audit_dir(scan_dir: Path) -> list[dict]:
+    """Parse pip-audit direct dependency scan results.
+    
+    Reads pip-audit-consolidated-results.json which contains scan_results
+    with vulnerability findings for Python dependencies.
+    """
+    findings = []
+    pip_audit_dir = scan_dir / "pip-audit"
+    if not pip_audit_dir.exists():
+        return findings
+    
+    consolidated = pip_audit_dir / "pip-audit-consolidated-results.json"
+    if not consolidated.exists():
+        return findings
+    
+    raw = _read_json(consolidated)
+    if not raw:
+        return findings
+    
+    for scan_result in raw.get("scan_results") or []:
+        file_path = scan_result.get("file", "")
+        results = scan_result.get("results") or []
+        
+        for vuln in results:
+            # pip-audit provides: id, name, v (version), description, fix_versions, published, advisory
+            fix_versions = vuln.get("fix_versions") or []
+            # Infer severity: if fix available -> medium, else -> high
+            severity = "medium" if fix_versions else "high"
+            
+            findings.append({
+                "tool": "pip-audit",
+                "id": vuln.get("id", ""),
+                "severity": severity,
+                "package": vuln.get("name", ""),
+                "version": vuln.get("v", ""),
+                "fixed_version": fix_versions[0] if fix_versions else "",
+                "title": vuln.get("id", ""),
+                "description": vuln.get("description", ""),
+                "target": file_path,
+                "references": [vuln.get("advisory")] if vuln.get("advisory") else [],
+                "cve_source": "OSV",
+            })
+    
+    return findings
+
+
+def parse_safety_dir(scan_dir: Path) -> list[dict]:
+    """Parse Safety Python vulnerability scan results.
+    
+    Reads safety-consolidated-results.json which contains scan_results
+    with vulnerability findings from Safety's vulnerability database.
+    """
+    findings = []
+    safety_dir = scan_dir / "safety"
+    if not safety_dir.exists():
+        return findings
+    
+    consolidated = safety_dir / "safety-consolidated-results.json"
+    if not consolidated.exists():
+        return findings
+    
+    raw = _read_json(consolidated)
+    if not raw:
+        return findings
+    
+    for scan_result in raw.get("scan_results") or []:
+        file_path = scan_result.get("file", "")
+        results = scan_result.get("results") or []
+        
+        for vuln in results:
+            # Safety provides: advisory_id/id, package, installed_version, safe_version, severity, advisory
+            severity = (vuln.get("severity") or "medium").lower()
+            safe_version = vuln.get("safe_version") or ""
+            
+            findings.append({
+                "tool": "safety",
+                "id": vuln.get("advisory_id") or vuln.get("id", ""),
+                "severity": severity,
+                "package": vuln.get("package", ""),
+                "version": vuln.get("installed_version", ""),
+                "fixed_version": safe_version,
+                "title": vuln.get("advisory_id") or vuln.get("id", ""),
+                "description": vuln.get("advisory", ""),
+                "target": file_path,
+                "references": [],
+                "cve_source": "Safety DB",
+            })
+    
+    return findings
+
+
 def parse_network_discovery_dir(scan_dir: Path) -> dict | None:
     """Return normalized network-discovery data, or None if not present."""
     result_file = scan_dir / "network" / "network-discovery.json"
@@ -683,7 +774,7 @@ def _is_finding_suppressed(finding: dict, suppressions: list[dict]) -> bool:
     
     # Determine finding type from tool
     finding_type = ""
-    if finding_tool in ("grype", "trivy", "anchore", "pip-audit"):
+    if finding_tool in ("grype", "trivy", "anchore", "pip-audit", "safety"):
         finding_type = "cve"
     elif finding_tool == "trufflehog":
         finding_type = "secret"
@@ -889,6 +980,8 @@ def parse_scan_findings(scan_dir: Path) -> dict:
         parse_trivy_dir(scan_dir)
         + parse_grype_dir(scan_dir)
         + parse_anchore_dir(scan_dir)
+        + parse_pip_audit_dir(scan_dir)
+        + parse_safety_dir(scan_dir)
         + parse_trufflehog_dir(scan_dir)
         + parse_checkov_dir(scan_dir)
         + parse_clamav_dir(scan_dir)

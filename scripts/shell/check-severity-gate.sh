@@ -136,7 +136,7 @@ if [[ -f "$FINDINGS_SUMMARY" ]]; then
 
     # Build a jq select filter that excludes findings from any tool suppressed via .epyon-ignore.yml.
     SUPPRESSED_TOOLS_JQ=""
-    for tool_name in grype trivy trufflehog checkov clamav anchore xeol; do
+    for tool_name in grype trivy trufflehog checkov clamav anchore xeol pip-audit safety; do
         if declare -f is_tool_ignored >/dev/null 2>&1 && is_tool_ignored "$tool_name" 2>/dev/null; then
             echo -e "${YELLOW}⚠️  Excluding $tool_name findings from severity totals (suppressed by .epyon-ignore.yml)${NC}"
             SUPPRESSED_TOOLS_JQ="${SUPPRESSED_TOOLS_JQ} and ((.tool // \"\" | ascii_downcase) | startswith(\"${tool_name}\") | not)"
@@ -176,7 +176,8 @@ if [[ -f "$FINDINGS_SUMMARY" ]]; then
     fi
     echo -e "${GREEN}✅ Using unique vulnerability counts (deduplicated)${NC}"
 
-    # NOTE: Deduplicated summary includes TruffleHog, Trivy, Grype, Checkov, and Anchore.
+    # NOTE: Deduplicated summary includes all tool findings (Trivy, Grype, Anchore, pip-audit,
+    # safety, TruffleHog, Checkov, ClamAV, Xeol, SonarQube) from security-findings-summary.json.
     # Individual tool blocks below run for suppression logging but only add to totals
     # when the dedup summary is absent (to avoid double-counting).
 else

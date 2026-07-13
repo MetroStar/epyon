@@ -976,7 +976,7 @@ run_group "Apply Suppression Rules" bash -lc '
 
   # Build a jq select filter that removes any tool suppressed in .epyon-ignore.yml.
   SUPPRESSED_TOOLS_JQ=""
-  for tool_name in grype trivy trufflehog checkov clamav anchore xeol; do
+  for tool_name in grype trivy trufflehog checkov clamav anchore xeol pip-audit safety; do
     if declare -f is_tool_ignored >/dev/null 2>&1 && is_tool_ignored "$tool_name" 2>/dev/null; then
       echo "[INFO] Suppressing findings from tool: $tool_name"
       SUPPRESSED_TOOLS_JQ="${SUPPRESSED_TOOLS_JQ} and ((.tool // \"\" | ascii_downcase) | startswith(\"${tool_name}\") | not)"

@@ -328,7 +328,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `parse_xeol_dir(scan_dir: Path) -> list[dict]`
-**Location:** [web/api/parsers.py:414](../web/api/parsers.py#L414)  
+**Location:** [web/api/parsers.py:445](../web/api/parsers.py#L445)  
 **Layer:** 9 - EOL Detection
 
 **Purpose:** Parses Xeol end-of-life package detection results.
@@ -356,8 +356,76 @@ Complete reference for all parsing functions in the Epyon security scanner.
 
 ---
 
+### `parse_pip_audit_dir(scan_dir: Path) -> list[dict]`
+**Location:** [web/api/parsers.py:474](../web/api/parsers.py#L474)  
+**Layer:** 8.5 - Direct Dependency Scanning
+
+**Purpose:** Parses pip-audit direct Python dependency vulnerability scan results. Complements SBOM-based scanners by checking Python dependencies directly against OSV database.
+
+**Parameters:**
+- `scan_dir` (Path): Scan directory containing `pip-audit/` subdirectory
+
+**Reads From:** `scan_dir/pip-audit/pip-audit-consolidated-results.json`
+
+**Returns:** `list[dict]` - Python dependency vulnerabilities:
+```python
+{
+    "tool": "pip-audit",
+    "id": str,                # Vulnerability ID (e.g., "PYSEC-2024-1234")
+    "severity": str,          # "medium" if fix available, else "high"
+    "package": str,           # Package name
+    "version": str,           # Installed version
+    "fixed_version": str,     # First fixed version if available
+    "title": str,             # Vulnerability ID
+    "description": str,       # Vulnerability description
+    "target": str,            # Dependency file path (requirements.txt, pyproject.toml, etc.)
+    "references": list[str],  # Advisory URL if present
+    "cve_source": "OSV"       # Always OSV
+}
+```
+
+**Consolidated Format:** Reads `scan_results` array containing objects with `file` (dependency file path) and `results` (array of vulnerabilities) per scanned dependency file.
+
+**Severity Logic:** pip-audit doesn't provide explicit severity, so it's inferred:
+- Has fix available (`fix_versions` not empty) → `"medium"`
+- No fix available → `"high"`
+
+---
+
+### `parse_safety_dir(scan_dir: Path) -> list[dict]`
+**Location:** [web/api/parsers.py:520](../web/api/parsers.py#L520)  
+**Layer:** 11.6 - Python Safety Check
+
+**Purpose:** Parses Safety Python vulnerability scan results. Complements pip-audit by checking dependencies against Safety's vulnerability database (NVD + PyPI advisories).
+
+**Parameters:**
+- `scan_dir` (Path): Scan directory containing `safety/` subdirectory
+
+**Reads From:** `scan_dir/safety/safety-consolidated-results.json`
+
+**Returns:** `list[dict]` - Python dependency vulnerabilities:
+```python
+{
+    "tool": "safety",
+    "id": str,                # Advisory ID
+    "severity": str,          # Severity from Safety DB (critical/high/medium/low)
+    "package": str,           # Package name
+    "version": str,           # Installed version
+    "fixed_version": str,     # Safe version if available
+    "title": str,             # Advisory ID
+    "description": str,       # Advisory text
+    "target": str,            # Dependency file path
+    "references": [],
+    "cve_source": "Safety DB"
+}
+```
+
+**Consolidated Format:** Reads `scan_results` array containing objects with `file` (dependency file path) and `results` (array of vulnerabilities) per scanned dependency file.
+
+---
+
 ### `parse_sonarqube_dir(scan_dir: Path) -> list[dict]`
-**Location:** [web/api/parsers.py:794](../web/api/parsers.py#L794)  
+**Location:** [web/api/parsers.py:521](../web/api/parsers.py#L521)  
 **Layer:** 3 - Code Quality
 
 **Purpose:** Parses SonarQube/SonarCloud code quality issues.
@@ -677,14 +745,14 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `parse_scan_findings(scan_dir: Path) -> dict`
-**Location:** [web/api/parsers.py:761](../web/api/parsers.py#L761)
+**Location:** [web/api/parsers.py:983](../web/api/parsers.py#L983)
 
 **Purpose:** Aggregates findings from all security tools and groups by severity.
 
 **Parameters:**
 - `scan_dir` (Path): Scan directory
 
-**Calls:** All per-tool parsers (Trivy, Grype, Anchore, TruffleHog, Checkov, ClamAV, Xeol, SonarQube)
+**Calls:** All per-tool parsers (Trivy, Grype, Anchore, pip-audit, safety, TruffleHog, Checkov, ClamAV, Xeol, SonarQube)
 
 **Returns:** `dict`:
 ```python

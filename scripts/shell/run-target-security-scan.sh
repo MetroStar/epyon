@@ -1514,7 +1514,7 @@ if [[ ! -f "$SCRIPT_DIR/check-severity-gate.sh" ]]; then
         fi
 
         SUPPRESSED_TOOLS_JQ=""
-        for tool_name in grype trivy trufflehog checkov clamav anchore xeol; do
+        for tool_name in grype trivy trufflehog checkov clamav anchore xeol pip-audit safety; do
             if declare -f is_tool_ignored >/dev/null 2>&1 && is_tool_ignored "$tool_name" 2>/dev/null; then
                 echo -e "${YELLOW}   Suppressing findings from tool: $tool_name${NC}"
                 SUPPRESSED_TOOLS_JQ="${SUPPRESSED_TOOLS_JQ} and ((.tool // \"\" | ascii_downcase) | startswith(\"${tool_name}\") | not)"

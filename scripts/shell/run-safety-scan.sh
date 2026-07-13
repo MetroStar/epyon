@@ -116,7 +116,6 @@ find "$TARGET_DIR" -type f \( -name "requirements*.txt" -o -name "poetry.lock" -
     
     # Run safety check
     if [[ -f "$dep_file" ]]; then
-        local dep_basename
         dep_basename=$(basename "$dep_file")
 
         # Skip Pipfile.lock for now (requires special handling)

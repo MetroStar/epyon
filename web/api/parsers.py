@@ -761,6 +761,7 @@ def _is_finding_suppressed(finding: dict, suppressions: list[dict]) -> bool:
     """Check if a finding matches any suppression rule.
     
     Matching logic:
+    - Tool suppression: matches finding["tool"] (e.g., tool: checkov suppresses all Checkov findings)
     - CVE suppression: matches finding["id"] (e.g., CVE-2024-1234)
     - Secret suppression: matches finding["id"] (detector name)
     - IaC suppression: matches finding["id"] (check ID like CKV_AWS_1)
@@ -789,7 +790,13 @@ def _is_finding_suppressed(finding: dict, suppressions: list[dict]) -> bool:
     
     for suppression in suppressions:
         supp_type = (suppression.get("type") or "").strip().lower()
-        supp_value = (suppression.get("value") or "").strip()
+        supp_value = (suppression.get("value") or "").strip().lower()
+        
+        # Tool-level suppression: suppress all findings from a specific tool
+        if supp_type == "tool":
+            if supp_value == "*" or supp_value == finding_tool:
+                return True
+            continue
         
         # Type must match (or suppression has no type specified)
         if supp_type and supp_type != finding_type:
@@ -799,15 +806,15 @@ def _is_finding_suppressed(finding: dict, suppressions: list[dict]) -> bool:
         if supp_value == "*":
             return True
         
-        # Exact match on finding ID
-        if supp_value == finding_id:
+        # Exact match on finding ID (case-insensitive for comparison)
+        if supp_value == finding_id.lower():
             return True
         
         # For CVEs, also check if suppression is a partial match (e.g., CVE-2024-* pattern)
         if finding_type == "cve" and "*" in supp_value:
             pattern = supp_value.replace("*", ".*").replace("?", ".")
             try:
-                if re.match(f"^{pattern}$", finding_id):
+                if re.match(f"^{pattern}$", finding_id.lower()):
                     return True
             except re.error:
                 pass
@@ -816,40 +823,53 @@ def _is_finding_suppressed(finding: dict, suppressions: list[dict]) -> bool:
 
 
 def _filter_suppressed_findings(findings_dict: dict, suppressions: list[dict]) -> dict:
-    """Remove suppressed findings from a findings dictionary.
+    """Mark suppressed findings and update summary counts.
+    
+    Instead of removing suppressed findings, this function marks them with
+    suppressed=True and updates the summary to show both total and suppressed counts.
     
     Args:
         findings_dict: Dict with critical_findings, high_findings, etc.
         suppressions: List of suppression records from parse_suppressed_findings()
     
     Returns:
-        New findings dict with suppressed findings removed and summary updated
+        Updated findings dict with suppressed flags and summary counts
     """
     if not suppressions:
         return findings_dict
     
-    filtered: dict = {"summary": {}, "critical_findings": [], "high_findings": [], 
-                      "medium_findings": [], "low_findings": []}
-    
-    # Preserve enrichment data if present
-    if "enrichment" in findings_dict:
-        filtered["enrichment"] = findings_dict["enrichment"]
+    result = findings_dict.copy()
+    suppressed_counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
     
     for sev in ("critical", "high", "medium", "low"):
         key = f"{sev}_findings"
-        original = findings_dict.get(key, [])
-        filtered[key] = [f for f in original if not _is_finding_suppressed(f, suppressions)]
+        findings = result.get(key, [])
+        
+        # Mark suppressed findings
+        for finding in findings:
+            if _is_finding_suppressed(finding, suppressions):
+                finding["suppressed"] = True
+                suppressed_counts[sev] += 1
+            else:
+                finding["suppressed"] = False
     
-    # Recalculate summary
-    filtered["summary"] = {
-        "total_critical": len(filtered["critical_findings"]),
-        "total_high":     len(filtered["high_findings"]),
-        "total_medium":   len(filtered["medium_findings"]),
-        "total_low":      len(filtered["low_findings"]),
-        "tools_analyzed": findings_dict.get("summary", {}).get("tools_analyzed", []),
-    }
+    # Update summary to include suppressed counts
+    if "summary" not in result:
+        result["summary"] = {}
     
-    return filtered
+    result["summary"].update({
+        "total_critical": len(result.get("critical_findings", [])),
+        "total_high":     len(result.get("high_findings", [])),
+        "total_medium":   len(result.get("medium_findings", [])),
+        "total_low":      len(result.get("low_findings", [])),
+        "suppressed_critical": suppressed_counts["critical"],
+        "suppressed_high":     suppressed_counts["high"],
+        "suppressed_medium":   suppressed_counts["medium"],
+        "suppressed_low":      suppressed_counts["low"],
+        "total_suppressed":    sum(suppressed_counts.values()),
+    })
+    
+    return result
 
 
 # ── Aggregate ─────────────────────────────────────────────────

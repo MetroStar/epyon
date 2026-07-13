@@ -2414,6 +2414,7 @@ function _buildFindingRows(items) {
     const fixed  = esc(f.fixed_version || '');
     const title  = esc((f.title || f.description || f.check_name || '').substring(0, 160));
     const target = esc((f.target || '').substring(0, 80));
+    const isSuppressed = f.suppressed === true;
 
     const idCell = id.startsWith('CVE-')
       ? `<a href="https://nvd.nist.gov/vuln/detail/${id}" target="_blank" rel="noopener noreferrer"
@@ -2436,6 +2437,11 @@ function _buildFindingRows(items) {
         : ''
     ].join('') || '<span style="color:var(--text-dim)">—</span>';
 
+    // Suppressed badge
+    const suppressedBadge = isSuppressed
+      ? `<span style="background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b44;border-radius:3px;padding:1px 6px;font-size:9px;font-weight:700;margin-left:6px" title="Suppressed by .epyon-ignore.yml">SUPPRESSED</span>`
+      : '';
+
     // For IaC/Checkov findings, show file path and line numbers
     const isIaC = f.type === 'iac_misconfiguration' || f.tool === 'Checkov';
     let locationCell = '';
@@ -2449,10 +2455,13 @@ function _buildFindingRows(items) {
       locationCell = `<code style="font-size:11px;color:var(--accent)" title="${filePath}${lineInfo}">${fileName}${lineInfo}</code>`;
     }
 
+    // Apply dimmed styling to suppressed findings
+    const rowStyle = isSuppressed ? 'opacity:0.5' : '';
+
     return `
-      <tr class="finding-row" onclick="openFindingDetail(${fid})" title="Click to view details">
+      <tr class="finding-row" onclick="openFindingDetail(${fid})" title="Click to view details" style="${rowStyle}">
         <td>
-          <span class="tool-tag">${tool}</span>
+          <span class="tool-tag">${tool}</span>${suppressedBadge}
           <div style="margin-top:3px">${findingSourceBadge(f)}</div>
         </td>
         <td>${idCell}</td>
@@ -2778,10 +2787,19 @@ function buildFindingsSection(findings) {
     const items = allItems.slice(0, 200);
     _currentFindingsBySev[sev] = items;
 
+    // Count suppressed findings
+    const suppressedCount = allItems.filter(f => f.suppressed === true).length;
+    const activeCount = allItems.length - suppressedCount;
+
     const overflow = allItems.length > 200
       ? `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:12px">
            … and ${allItems.length - 200} more. Open the Dashboard for the full list.
          </td></tr>` : '';
+
+    // Build count badge with suppressed indicator
+    const countBadge = suppressedCount > 0
+      ? `<span class="sev-badge ${esc(sev)}">${activeCount}</span><span style="background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b44;border-radius:3px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px" title="${suppressedCount} suppressed by .epyon-ignore.yml">${suppressedCount} suppressed</span>`
+      : `<span class="sev-badge ${esc(sev)}">${allItems.length}</span>`;
 
     html += `
       <details class="findings-collapsible findings-${esc(sev)}" id="findings-section-${esc(sev)}">
@@ -2789,7 +2807,7 @@ function buildFindingsSection(findings) {
           <span class="findings-summary-left">
             <span class="findings-chevron" aria-hidden="true"></span>
             <span class="findings-summary-title">${ucFirst(sev)} Findings</span>
-            <span class="sev-badge ${esc(sev)}">${allItems.length}</span>
+            ${countBadge}
           </span>
           <span class="findings-summary-hint">Click to expand</span>
         </summary>
@@ -2812,6 +2830,7 @@ function buildFindingsSection(findings) {
           </div>
         </div>
       </details>`;
+  }
   }
 
   // ── Enrichment metadata banner ──────────────────────────────

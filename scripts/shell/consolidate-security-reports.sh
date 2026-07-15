@@ -380,7 +380,7 @@ try:
         scan_results = data.get('scan_results', [])
         total_vulns = 0
         for result in scan_results:
-            total_vulns += len(result.get('results', []))
+            total_vulns += len(result.get('results') or [])
         
         html_content += f'<div class=\"summary\"><h2>Summary</h2><p>Total Python Dependency Vulnerabilities: {total_vulns}</p></div>'
         
@@ -411,13 +411,13 @@ try:
     elif '$tool_name' == 'safety':
         # safety Python vulnerability scanner (NVD + PyPI advisory database)
         scan_results = data.get('scan_results', [])
-        total_vulns = sum(len(result.get('results', [])) for result in scan_results)
+        total_vulns = sum(len(result.get('results') or []) for result in scan_results)
         
         html_content += f'<div class=\"summary\"><h2>Summary</h2><p>Total Python Vulnerabilities (Safety): {total_vulns}</p></div>'
         
         for result in scan_results[:10]:  # Limit to first 10 files
             file_path = result.get('file', 'unknown')
-            vulns = result.get('results', [])
+            vulns = result.get('results') or []
             
             if vulns:
                 html_content += f'<div class=\"summary\"><h3>File: {html.escape(file_path)}</h3><p>Vulnerabilities: {len(vulns)}</p></div>'

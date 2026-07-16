@@ -18,8 +18,10 @@ Environment variables (all optional except credentials):
   JIRA_ISSUE_TYPE         — Issue type for new tickets (default: Bug)
   JIRA_DONE_TRANSITION    — Transition name to close tickets (default: Done)
   JIRA_MIN_SEVERITY       — Minimum severity to create tickets (default: high)
-  JIRA_AUTO_CLOSE         — Auto-close remediated findings (default: true)
   JIRA_CREATE_ON_NEW      — Auto-create tickets for new findings (default: false)
+
+Note: Tickets are ALWAYS automatically closed when findings are remediated.
+      This behavior is not configurable to ensure proper ticket lifecycle management.
 """
 from __future__ import annotations
 
@@ -70,9 +72,6 @@ def _env_config() -> dict:
         return {}
     
     # Parse boolean environment variables
-    auto_close_env = os.environ.get("JIRA_AUTO_CLOSE", "true").strip().lower()
-    auto_close = auto_close_env in ("true", "1", "yes", "on")
-    
     create_on_new_env = os.environ.get("JIRA_CREATE_ON_NEW", "false").strip().lower()
     create_on_new = create_on_new_env in ("true", "1", "yes", "on")
     
@@ -84,7 +83,6 @@ def _env_config() -> dict:
         "issue_type":      os.environ.get("JIRA_ISSUE_TYPE", "Bug").strip(),
         "done_transition":  os.environ.get("JIRA_DONE_TRANSITION", "Done").strip(),
         "min_severity":    os.environ.get("JIRA_MIN_SEVERITY", "high").strip(),
-        "auto_close":      auto_close,
         "create_on_new":   create_on_new,
         "_from_env":       True,   # marker so the UI can show "from environment"
     }
@@ -374,6 +372,7 @@ async def reconcile_app(
     # Check ALL open tickets in the ticket map, not just those from the previous scan.
     # A finding may have been remediated multiple scans ago, so it won't appear in
     # previous_fps, but we still need to close its ticket if it's not in the current scan.
+    # Always close tickets for remediated findings (auto_close is always enabled).
     for fp, entry in ticket_map.items():
         # Skip if already closed
         if entry.get("closed_at"):

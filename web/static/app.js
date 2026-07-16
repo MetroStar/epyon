@@ -4941,9 +4941,9 @@ async function renderSettings() {
             </select>
           </div>
           <div style="display:flex;flex-direction:column;gap:8px">
-            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:13px">
-              <input type="checkbox" id="jira-auto-close" ${jiraCfg.auto_close ? 'checked' : ''}/>
-              Auto-close tickets when findings are remediated (runs after each scan)
+            <label style="display:flex;gap:8px;align-items:center;cursor:not-allowed;font-size:13px;opacity:0.7">
+              <input type="checkbox" id="jira-auto-close" checked disabled/>
+              Auto-close tickets when findings are remediated (always enabled)
             </label>
             <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:13px">
               <input type="checkbox" id="jira-create-new" ${jiraCfg.create_on_new ? 'checked' : ''}/>
@@ -5137,7 +5137,7 @@ async function saveJiraConfig() {
     issue_type:      (document.getElementById('jira-issue-type')?.value || '').trim() || 'Bug',
     done_transition: (document.getElementById('jira-done')?.value   || '').trim() || 'Done',
     min_severity:    document.getElementById('jira-minsev')?.value  || 'high',
-    auto_close:      document.getElementById('jira-auto-close')?.checked ?? false,
+    auto_close:      true,  // Always enabled - not configurable
     create_on_new:   document.getElementById('jira-create-new')?.checked ?? false,
   };
   try {

@@ -2831,7 +2831,6 @@ function buildFindingsSection(findings) {
         </div>
       </details>`;
   }
-  }
 
   // ── Enrichment metadata banner ──────────────────────────────
   const enr = findings && findings.enrichment;

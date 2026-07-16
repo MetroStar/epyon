@@ -5,6 +5,10 @@ name: Security Scan with Webhook Support
 #
 # Copy this file to: .github/workflows/security-scan.yml
 
+permissions:
+  contents: read
+
+# checkov:skip=CKV_GHA_7:Workflow inputs control scan parameters and webhook configuration, not build artifacts or output
 on:
   workflow_dispatch:
     inputs:

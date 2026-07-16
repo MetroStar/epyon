@@ -10,6 +10,7 @@ name: Epyon Security Scan (Reusable)
 #         scan_mode: quick
 #       secrets: inherit
 
+# checkov:skip=CKV_GHA_7:Workflow inputs control scan parameters and configuration, not build artifacts or output
 on:
   workflow_call:
     inputs:

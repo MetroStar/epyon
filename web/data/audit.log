@@ -37,3 +37,4 @@
 2026-06-24T10:10:29Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/MetroStar/iris.git scan_type=stig
 2026-06-30T09:44:26Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/credativ/plutono.git scan_type=full
 2026-07-16T07:57:58Z INFO action=delete_application client=127.0.0.1 detail=app=portfolio
+2026-07-16T17:50:06Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/metrostar/midas scan_type=full

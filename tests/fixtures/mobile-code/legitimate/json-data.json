@@ -1,0 +1,17 @@
+{
+  "description": "Legitimate JSON data file - NOT mobile code",
+  "data": {
+    "users": [
+      {"id": 1, "name": "Alice", "role": "admin"},
+      {"id": 2, "name": "Bob", "role": "user"}
+    ],
+    "settings": {
+      "theme": "dark",
+      "language": "en"
+    }
+  },
+  "metadata": {
+    "created": "2026-07-27T00:00:00Z",
+    "version": "1.0.0"
+  }
+}

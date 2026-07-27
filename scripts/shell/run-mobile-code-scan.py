@@ -22,28 +22,37 @@ import json
 import os
 import re
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Any, Set
+from typing import Dict, List, Any, Set, Tuple
 
 # Mobile code patterns and signatures
 MOBILE_CODE_PATTERNS = {
-    "javascript_web": {
-        "description": "JavaScript in web contexts (HTML, JSP, PHP)",
-        "risk_level": "medium",
-        "category": "Category 2",
+    "inline_javascript": {
+        "description": "Inline JavaScript (unsigned)",
+        "risk_level": "critical",
+        "category": "Category 1A",
         "patterns": [
-            r"<script[^>]*>",  # Inline scripts
-            r"<script[^>]*src=",  # External scripts
-            r"\.js[\"']",  # JS file references
+            r"<script[^>]*>(?!<\s*/\s*script)",  # Inline scripts (not empty tags)
             r"on\w+=[\"']",  # Event handlers
+        ],
+        "file_extensions": [".html", ".htm", ".jsp", ".php", ".aspx", ".erb"],
+    },
+    "external_javascript": {
+        "description": "External JavaScript",
+        "risk_level": "high",
+        "category": "Category 1B",
+        "patterns": [
+            r"<script[^>]*src=",  # External scripts
+            r"\.js[\"']",  # JS file references (in script tags or links)
         ],
         "file_extensions": [".html", ".htm", ".jsp", ".php", ".aspx", ".erb"],
     },
     "java_applet": {
         "description": "Java Applets",
-        "risk_level": "high",
-        "category": "Category 1B",
+        "risk_level": "critical",
+        "category": "Category 1A",
         "patterns": [
             r"<applet[^>]*>",
             r"<object[^>]*classid.*java",
@@ -54,8 +63,8 @@ MOBILE_CODE_PATTERNS = {
     },
     "flash": {
         "description": "Adobe Flash/Shockwave",
-        "risk_level": "high",
-        "category": "Category 1B",
+        "risk_level": "critical",
+        "category": "Category 1A",
         "patterns": [
             r"<object[^>]*application/x-shockwave-flash",
             r"<embed[^>]*\.swf",
@@ -78,8 +87,8 @@ MOBILE_CODE_PATTERNS = {
     },
     "vbscript": {
         "description": "VBScript",
-        "risk_level": "high",
-        "category": "Category 1B",
+        "risk_level": "critical",
+        "category": "Category 1A",
         "patterns": [
             r"<script[^>]*type=[\"']text/vbscript",
             r"language=[\"']VBScript",
@@ -94,7 +103,7 @@ MOBILE_CODE_PATTERNS = {
         "indicators": ["manifest.json", "background.js", "content_scripts"],
         "file_patterns": ["manifest.json", "background.js", "popup.html"],
     },
-    "webstart": {
+    "java_webstart": {
         "description": "Java WebStart (JNLP)",
         "risk_level": "high",
         "category": "Category 1B",
@@ -104,8 +113,8 @@ MOBILE_CODE_PATTERNS = {
     },
     "downloadable_executable": {
         "description": "Downloadable Executables",
-        "risk_level": "high",
-        "category": "Category 1B",
+        "risk_level": "medium",
+        "category": "Category 2",
         "patterns": [
             r"href=[\"'][^\"']*\.exe[\"']",
             r"href=[\"'][^\"']*\.msi[\"']",
@@ -194,14 +203,31 @@ def scan_file_for_patterns(file_path: Path, mobile_code_type: str, config: Dict)
     return findings
 
 
-def detect_browser_extension(target_dir: Path) -> List[Dict]:
-    """Detect browser extensions by looking for manifest.json."""
+def detect_browser_extension(target_dir: Path) -> Tuple[List[Dict], Dict]:
+    """Detect browser extensions by looking for manifest.json.
+    
+    Returns:
+        Tuple of (findings_list, diagnostics_dict) where diagnostics contains:
+        - manifests_found: count of manifest.json files
+        - manifests_parsed: count successfully parsed
+        - manifests_malformed: count of parse failures
+        - malformed_files: list of file paths that failed to parse
+    """
     findings = []
+    diagnostics = {
+        "manifests_found": 0,
+        "manifests_parsed": 0,
+        "manifests_malformed": 0,
+        "malformed_files": [],
+    }
     
     for manifest_path in target_dir.rglob("manifest.json"):
+        diagnostics["manifests_found"] += 1
         try:
             with open(manifest_path, "r", encoding="utf-8") as f:
                 manifest = json.load(f)
+            
+            diagnostics["manifests_parsed"] += 1
                 
             # Check for browser extension indicators
             if any(key in manifest for key in ["browser_action", "page_action", "content_scripts", "background"]):
@@ -218,26 +244,40 @@ def detect_browser_extension(target_dir: Path) -> List[Dict]:
                     "extension_version": manifest.get("version"),
                 })
         except Exception as e:
+            diagnostics["manifests_malformed"] += 1
+            diagnostics["malformed_files"].append(str(manifest_path))
             print(f"⚠️  Error parsing manifest {manifest_path}: {e}", file=sys.stderr)
     
-    return findings
+    return findings, diagnostics
 
 
-def load_policy(policy_file: Path = None) -> Dict[str, Any]:
-    """Load mobile code policy if it exists."""
+def load_policy(policy_file: Path = None) -> Tuple[Dict[str, Any], str]:
+    """Load mobile code policy if it exists.
+    
+    Returns:
+        Tuple of (policy_dict, status) where status is one of:
+        - "loaded" (policy file found and parsed successfully)
+        - "default" (no policy file, using default)
+        - "failed" (policy file exists but failed to parse)
+    """
     if policy_file and policy_file.exists():
         try:
             with open(policy_file, "r", encoding="utf-8") as f:
-                return json.load(f)
+                policy = json.load(f)
+            return policy, "loaded"
         except Exception as e:
             print(f"⚠️  Could not load policy file: {e}", file=sys.stderr)
+            # Fall through to default policy
     
     # Default policy: all mobile code requires approval
-    return {
+    default_policy = {
         "approved_types": [],
         "approved_files": [],
         "approval_required": True,
     }
+    
+    status = "failed" if (policy_file and policy_file.exists()) else "default"
+    return default_policy, status
 
 
 def check_approval_status(finding: Dict, policy: Dict) -> str:
@@ -261,15 +301,45 @@ def check_approval_status(finding: Dict, policy: Dict) -> str:
     return "unapproved"
 
 
-def scan_target_directory(target_dir: Path, policy: Dict) -> List[Dict]:
-    """Scan target directory for all mobile code types."""
+def scan_target_directory(target_dir: Path, policy: Dict) -> Tuple[List[Dict], Dict]:
+    """Scan target directory for all mobile code types.
+    
+    Returns:
+        Tuple of (findings_list, diagnostics_dict) where diagnostics contains:
+        - files_considered: total files encountered
+        - files_scanned: files actually scanned
+        - files_skipped_by_extension: count
+        - files_skipped_by_ignore_rules: count
+        - files_skipped_is_directory: count
+        - files_unreadable: count
+        - unreadable_files: list of file paths that couldn't be read
+        - pattern_matches_before_dedup: count of raw pattern matches
+        - scan_errors: list of error messages
+    """
     all_findings = []
+    diagnostics = {
+        "files_considered": 0,
+        "files_scanned": 0,
+        "files_skipped_by_extension": 0,
+        "files_skipped_by_ignore_rules": 0,
+        "files_skipped_is_directory": 0,
+        "files_unreadable": 0,
+        "unreadable_files": [],
+        "pattern_matches_before_dedup": 0,
+        "scan_errors": [],
+    }
+    
+    # Ignored directory patterns
+    IGNORE_PATTERNS = ["node_modules", "vendor", ".git", "__pycache__", "venv", ".venv",
+                       "dist", "build", "__py", "coverage", ".pytest_cache", "egg-info"]
     
     print(f"🔍 Scanning {target_dir} for mobile code...")
     
     # Detect browser extensions first (special case)
-    extension_findings = detect_browser_extension(target_dir)
+    extension_findings, ext_diag = detect_browser_extension(target_dir)
     all_findings.extend(extension_findings)
+    # Merge browser extension diagnostics
+    diagnostics.update(ext_diag)
     
     # Scan for other mobile code types
     for mobile_code_type, config in MOBILE_CODE_PATTERNS.items():
@@ -282,28 +352,68 @@ def scan_target_directory(target_dir: Path, policy: Dict) -> List[Dict]:
         scan_extensions = set(config.get("file_extensions", []) + config.get("file_types", []))
         
         for file_path in target_dir.rglob("*"):
+            diagnostics["files_considered"] += 1
+            
             if not file_path.is_file():
+                diagnostics["files_skipped_is_directory"] += 1
                 continue
             
             # Skip common ignore patterns
             if any(part.startswith(".") for part in file_path.parts):
+                diagnostics["files_skipped_by_ignore_rules"] += 1
                 continue
-            if any(part in ["node_modules", "vendor", ".git", "__pycache__", "venv"] for part in file_path.parts):
+            if any(part in IGNORE_PATTERNS for part in file_path.parts):
+                diagnostics["files_skipped_by_ignore_rules"] += 1
                 continue
             
             # Check if file matches target extensions
             if scan_extensions and file_path.suffix not in scan_extensions:
+                diagnostics["files_skipped_by_extension"] += 1
                 continue
             
-            findings = scan_file_for_patterns(file_path, mobile_code_type, config)
-            all_findings.extend(findings)
+            # Attempt to scan file
+            try:
+                findings = scan_file_for_patterns(file_path, mobile_code_type, config)
+                diagnostics["pattern_matches_before_dedup"] += len(findings)
+                all_findings.extend(findings)
+                diagnostics["files_scanned"] += 1
+            except PermissionError:
+                diagnostics["files_unreadable"] += 1
+                diagnostics["unreadable_files"].append(str(file_path))
+                diagnostics["scan_errors"].append(f"Permission denied: {file_path}")
+            except UnicodeDecodeError:
+                # Binary file or encoding issue — skip silently
+                diagnostics["files_skipped_by_extension"] += 1
+            except Exception as e:
+                diagnostics["files_unreadable"] += 1
+                diagnostics["unreadable_files"].append(str(file_path))
+                diagnostics["scan_errors"].append(f"Error scanning {file_path}: {str(e)}")
+    
+    # Deduplicate findings based on (file, line, type)
+    findings_before_dedup = len(all_findings)
+    seen_keys: Set[Tuple[str, int, str]] = set()
+    deduplicated_findings = []
+    
+    for finding in all_findings:
+        key = (finding["file"], finding["line"], finding["type"])
+        if key not in seen_keys:
+            seen_keys.add(key)
+            deduplicated_findings.append(finding)
+    
+    all_findings = deduplicated_findings
+    findings_after_dedup = len(all_findings)
+    diagnostics["findings_after_dedup"] = findings_after_dedup
+    diagnostics["deduplication_ratio"] = round(
+        (findings_before_dedup - findings_after_dedup) / findings_before_dedup
+        if findings_before_dedup > 0 else 0, 2
+    )
     
     # Apply policy approval status to all findings
     for finding in all_findings:
         finding["approval_status"] = check_approval_status(finding, policy)
         finding["requires_authorization"] = finding["approval_status"] == "requires_approval"
     
-    return all_findings
+    return all_findings, diagnostics
 
 
 def generate_summary(findings: List[Dict]) -> Dict[str, Any]:
@@ -373,6 +483,7 @@ def write_results(output_file: Path, findings: List[Dict], summary: Dict, scan_m
 
 def main():
     """Main execution function."""
+    scan_start_time = time.time()
     args = parse_args()
     
     target_dir = Path(args.target).resolve()
@@ -381,7 +492,7 @@ def main():
     
     # Load policy if provided
     policy_file = Path(args.policy_file) if args.policy_file else None
-    policy = load_policy(policy_file)
+    policy, policy_status = load_policy(policy_file)
     
     print("=" * 70)
     print("Layer 17: Mobile Code Detection Scanner")
@@ -389,7 +500,7 @@ def main():
     print(f"Target:    {target_dir}")
     print(f"Scan Dir:  {scan_dir}")
     print(f"App Name:  {args.app_name}")
-    print(f"Policy:    {'Loaded' if policy_file and policy_file.exists() else 'Default (all require approval)'}")
+    print(f"Policy:    {policy_status.capitalize()} {'(default: all require approval)' if policy_status == 'default' else ''}")
     print("=" * 70)
     
     if not target_dir.exists():
@@ -397,17 +508,32 @@ def main():
         return 1
     
     # Run scan
-    findings = scan_target_directory(target_dir, policy)
+    findings, scan_diagnostics = scan_target_directory(target_dir, policy)
+    scan_duration = time.time() - scan_start_time
+    
     summary = generate_summary(findings)
     
-    # Scan metadata
+    # Scan metadata with comprehensive diagnostics
     scan_metadata = {
         "target": str(target_dir),
         "app_name": args.app_name,
         "scan_timestamp": datetime.now(timezone.utc).isoformat(),
-        "scanner_version": "1.0.0",
+        "scanner_version": f"1.0.0+{datetime.now(timezone.utc).strftime('%Y%m%d')}",  # Version with date
         "layer": 17,
         "layer_name": "Mobile Code Detection",
+        "scan_duration_seconds": round(scan_duration, 2),
+        "policy_file": str(policy_file) if policy_file else None,
+        "policy_status": policy_status,
+        "diagnostics": {
+            **scan_diagnostics,
+            "pattern_types_checked": len([k for k in MOBILE_CODE_PATTERNS.keys() if k != "browser_extension"]),
+            "findings_after_dedup": len(findings),
+            "deduplication_ratio": round(
+                1 - (len(findings) / scan_diagnostics["pattern_matches_before_dedup"])
+                if scan_diagnostics["pattern_matches_before_dedup"] > 0 else 0,
+                3
+            ),
+        },
     }
     
     # Write results
@@ -420,6 +546,13 @@ def main():
     print(f"Total Findings:         {summary['total_findings']}")
     print(f"Unique Files:           {summary['unique_files']}")
     print(f"Requires Authorization: {summary['unauthorized_count']}")
+    print(f"\nScan Duration:          {scan_duration:.2f} seconds")
+    print(f"Files Scanned:          {scan_diagnostics['files_scanned']}")
+    print(f"Files Skipped:          {scan_diagnostics['files_skipped_by_extension'] + scan_diagnostics['files_skipped_by_ignore_rules']}")
+    print(f"  By extension:         {scan_diagnostics['files_skipped_by_extension']}")
+    print(f"  By ignore rules:      {scan_diagnostics['files_skipped_by_ignore_rules']}")
+    print(f"Files Unreadable:       {scan_diagnostics['files_unreadable']}")
+    
     print("\nBy Risk Level:")
     for level in ["critical", "high", "medium", "low"]:
         count = summary["by_risk_level"].get(level, 0)
@@ -436,6 +569,12 @@ def main():
         for mobile_type, count in summary["by_type"].items():
             type_desc = MOBILE_CODE_PATTERNS.get(mobile_type, {}).get("description", mobile_type)
             print(f"  {type_desc:30s}: {count}")
+    
+    if scan_diagnostics.get("manifests_malformed", 0) > 0:
+        print(f"\n⚠️  Warning: {scan_diagnostics['manifests_malformed']} malformed manifest.json files")
+    
+    if scan_diagnostics.get("scan_errors"):
+        print(f"\n⚠️  Warning: {len(scan_diagnostics['scan_errors'])} scan errors occurred")
     
     print("=" * 70)
     

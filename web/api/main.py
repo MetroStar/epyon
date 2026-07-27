@@ -168,15 +168,31 @@ _APPS_CACHE_TTL:  float = 120.0  # 2 minutes — app list
 _DEFAULT_SCAN_DAYS: int = 35     # Only load last 35 days of scans by default
 _CACHE_VERSION:   int = 0        # Increment on scan completion to bust frontend caches
 
+# ── Cache metrics instrumentation ───────────────────────────
+_cache_metrics = {
+    "hits": {"scan": 0, "dir": 0, "stats": 0, "apps": 0},
+    "misses": {"scan": 0, "dir": 0, "stats": 0, "apps": 0},
+    "writes": {"scan": 0, "dir": 0, "stats": 0, "apps": 0},
+    "invalidations": [],  # List of {timestamp, reason, version, scan_id}
+    "staleness_seconds": [],  # List of staleness measurements for observability
+}
+_cache_metrics_logger = logging.getLogger("epyon.cache")
+
 
 def _cached_find_scan_dirs(days: int = _DEFAULT_SCAN_DAYS) -> list:
     global _dir_cache
     now = time.monotonic()
     cached = _dir_cache.get(days)
     if cached and (now - cached[1]) < _DIR_CACHE_TTL:
+        _cache_metrics["hits"]["dir"] += 1
+        _cache_metrics_logger.debug(f"cache_read source=memory endpoint=scan_dirs hit=true days={days}")
         return cached[0]
+    _cache_metrics["misses"]["dir"] += 1
+    _cache_metrics_logger.debug(f"cache_read source=memory endpoint=scan_dirs hit=false days={days}")
     dirs = parsers.find_scan_dirs(EPYON_ROOT, days=days)
     _dir_cache[days] = (dirs, now)
+    _cache_metrics["writes"]["dir"] += 1
+    _cache_metrics_logger.debug(f"cache_write endpoint=scan_dirs success=true days={days} count={len(dirs)}")
     return dirs
 
 
@@ -185,20 +201,45 @@ def _cached_load_scan(scan_dir) -> dict:
     now     = time.monotonic()
     cached  = _scan_cache.get(scan_id)
     if cached and (now - cached[1]) < _SCAN_CACHE_TTL:
+        age = now - cached[1]
+        _cache_metrics["hits"]["scan"] += 1
+        _cache_metrics_logger.debug(f"cache_read source=memory endpoint=scan hit=true scan_id={scan_id} age_seconds={age:.1f}")
         return cached[0]
+    _cache_metrics["misses"]["scan"] += 1
+    _cache_metrics_logger.debug(f"cache_read source=memory endpoint=scan hit=false scan_id={scan_id}")
     data = parsers.load_scan(scan_dir, EPYON_ROOT)
     _scan_cache[scan_id] = (data, now)
+    _cache_metrics["writes"]["scan"] += 1
+    _cache_metrics_logger.debug(f"cache_write endpoint=scan success=true scan_id={scan_id}")
     return data
 
 
-def _invalidate_scan_cache() -> None:
+def _invalidate_scan_cache(reason: str = "scan_completion", scan_id: str = None) -> None:
     """Call after a scan completes so the next request sees fresh data."""
     global _dir_cache, _stats_cache, _apps_cache, _CACHE_VERSION
+    old_version = _CACHE_VERSION
     _scan_cache.clear()
     _dir_cache.clear()
     _stats_cache = None
     _apps_cache = None
     _CACHE_VERSION += 1  # Bust frontend caches
+    
+    # Record invalidation event
+    invalidation_event = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "reason": reason,
+        "old_version": old_version,
+        "new_version": _CACHE_VERSION,
+        "scan_id": scan_id,
+    }
+    _cache_metrics["invalidations"].append(invalidation_event)
+    # Keep only last 100 invalidation events
+    _cache_metrics["invalidations"] = _cache_metrics["invalidations"][-100:]
+    
+    _cache_metrics_logger.info(
+        f"cache_invalidation reason={reason} old_version={old_version} "
+        f"new_version={_CACHE_VERSION} scan_id={scan_id or 'N/A'}"
+    )
 
 
 async def _jira_post_scan(target_name: str) -> None:
@@ -234,7 +275,7 @@ async def _jira_post_scan(target_name: str) -> None:
 
 def _on_scan_complete(target_name: str = "", scan_name: str = "") -> None:
     """Callback invoked by jobs.py when a scan finishes."""
-    _invalidate_scan_cache()
+    _invalidate_scan_cache(reason="scan_completion", scan_id=scan_name)
     if target_name:
         asyncio.create_task(_jira_post_scan(target_name))
 
@@ -369,12 +410,17 @@ def stats(response: Response):
     
     # Return cached stats if available
     if _stats_cache and (now - _stats_cache[1]) < _STATS_CACHE_TTL:
+        age = now - _stats_cache[1]
+        _cache_metrics["hits"]["stats"] += 1
+        _cache_metrics_logger.debug(f"cache_read source=memory endpoint=stats hit=true age_seconds={age:.1f}")
         result = _stats_cache[0]
         # Allow browser caching for 60s
         response.headers["Cache-Control"] = "public, max-age=60"
         response.headers["X-Cache-Version"] = str(_CACHE_VERSION)
         return result
     
+    _cache_metrics["misses"]["stats"] += 1
+    _cache_metrics_logger.debug("cache_read source=memory endpoint=stats hit=false")
     _sec_headers(response)
     hidden = _load_hidden_apps()
     scans = [_cached_load_scan(d) for d in _cached_find_scan_dirs()]
@@ -396,6 +442,8 @@ def stats(response: Response):
     }
     
     _stats_cache = (result, now)
+    _cache_metrics["writes"]["stats"] += 1
+    _cache_metrics_logger.debug("cache_write endpoint=stats success=true")
     response.headers["Cache-Control"] = "public, max-age=60"
     response.headers["X-Cache-Version"] = str(_CACHE_VERSION)
     return result
@@ -496,10 +544,15 @@ def applications(response: Response):
     
     # Return cached app list if available
     if _apps_cache and (now - _apps_cache[1]) < _APPS_CACHE_TTL:
+        age = now - _apps_cache[1]
+        _cache_metrics["hits"]["apps"] += 1
+        _cache_metrics_logger.debug(f"cache_read source=memory endpoint=applications hit=true age_seconds={age:.1f}")
         response.headers["Cache-Control"] = "public, max-age=60"
         response.headers["X-Cache-Version"] = str(_CACHE_VERSION)
         return _apps_cache[0]
     
+    _cache_metrics["misses"]["apps"] += 1
+    _cache_metrics_logger.debug("cache_read source=memory endpoint=applications hit=false")
     _sec_headers(response)
     hidden   = _load_hidden_apps()
     monitored = _load_monitored_apps()
@@ -588,6 +641,8 @@ def applications(response: Response):
     result.sort(key=lambda x: x.get("last_scanned", "") or x.get("added_at", ""), reverse=True)
     
     _apps_cache = (result, now)
+    _cache_metrics["writes"]["apps"] += 1
+    _cache_metrics_logger.debug(f"cache_write endpoint=applications success=true count={len(result)}")
     response.headers["Cache-Control"] = "public, max-age=60"
     response.headers["X-Cache-Version"] = str(_CACHE_VERSION)
     return result
@@ -1858,6 +1913,53 @@ def get_metrics(response: Response):
     return result
 
 
+# ── Cache Metrics ─────────────────────────────────────────────
+
+@app.get("/api/metrics/cache")
+def get_cache_metrics(response: Response):
+    """Return cache performance metrics and observability data."""
+    _sec_headers(response)
+    
+    # Calculate hit rates
+    def _hit_rate(cache_type: str) -> float | None:
+        hits = _cache_metrics["hits"][cache_type]
+        misses = _cache_metrics["misses"][cache_type]
+        total = hits + misses
+        return round(hits / total * 100, 1) if total > 0 else None
+    
+    # Calculate cache sizes
+    cache_sizes = {
+        "scan": len(_scan_cache),
+        "dir": len(_dir_cache),
+        "stats": 1 if _stats_cache else 0,
+        "apps": 1 if _apps_cache else 0,
+    }
+    
+    # Recent invalidations (last 10)
+    recent_invalidations = _cache_metrics["invalidations"][-10:]
+    
+    return {
+        "cache_version": _CACHE_VERSION,
+        "hit_rates": {
+            "scan": _hit_rate("scan"),
+            "dir": _hit_rate("dir"),
+            "stats": _hit_rate("stats"),
+            "apps": _hit_rate("apps"),
+        },
+        "hits": _cache_metrics["hits"].copy(),
+        "misses": _cache_metrics["misses"].copy(),
+        "writes": _cache_metrics["writes"].copy(),
+        "cache_sizes": cache_sizes,
+        "recent_invalidations": recent_invalidations,
+        "ttls": {
+            "scan_seconds": _SCAN_CACHE_TTL,
+            "dir_seconds": _DIR_CACHE_TTL,
+            "stats_seconds": _STATS_CACHE_TTL,
+            "apps_seconds": _APPS_CACHE_TTL,
+        },
+    }
+
+
 # ── Settings ──────────────────────────────────────────────────
 
 @app.get("/api/settings/approved-images")
@@ -3104,13 +3206,33 @@ async def approve_mobile_code_type_endpoint(request: Request, response: Response
     """Approve a specific mobile code type."""
     _sec_headers(response)
     try:
-        from . import mobile_code_policy
+        from . import mobile_code_policy, mobile_code_policy_audit
         body = await request.json()
         mobile_type = body.get("type")
+        reason = body.get("reason", "")
+        reference = body.get("reference", "")
         if not mobile_type:
             raise HTTPException(400, "Missing 'type' field")
         
+        # Get current policy to determine previous status
+        policy = mobile_code_policy.read_policy()
+        was_approved = mobile_type in policy.get("approved_types", [])
+        
         success = mobile_code_policy.approve_mobile_code_type(mobile_type)
+        
+        # Log to audit trail
+        if success:
+            user = getattr(request.client, "host", "unknown") if request.client else "system"
+            mobile_code_policy_audit.log_policy_change(
+                action="approve_type",
+                target=mobile_type,
+                user=user,
+                previous_status="requires_approval",
+                new_status="approved",
+                reason=reason,
+                reference=reference
+            )
+        
         return {
             "status": "success" if success else "already_approved",
             "type": mobile_type,
@@ -3127,13 +3249,29 @@ async def unapprove_mobile_code_type_endpoint(request: Request, response: Respon
     """Remove approval for a specific mobile code type."""
     _sec_headers(response)
     try:
-        from . import mobile_code_policy
+        from . import mobile_code_policy, mobile_code_policy_audit
         body = await request.json()
         mobile_type = body.get("type")
+        reason = body.get("reason", "")
+        reference = body.get("reference", "")
         if not mobile_type:
             raise HTTPException(400, "Missing 'type' field")
         
         success = mobile_code_policy.unapprove_mobile_code_type(mobile_type)
+        
+        # Log to audit trail
+        if success:
+            user = getattr(request.client, "host", "unknown") if request.client else "system"
+            mobile_code_policy_audit.log_policy_change(
+                action="unapprove_type",
+                target=mobile_type,
+                user=user,
+                previous_status="approved",
+                new_status="requires_approval",
+                reason=reason,
+                reference=reference
+            )
+        
         return {
             "status": "success" if success else "not_found",
             "type": mobile_type,
@@ -3150,13 +3288,29 @@ async def approve_file_endpoint(request: Request, response: Response):
     """Approve a specific file containing mobile code."""
     _sec_headers(response)
     try:
-        from . import mobile_code_policy
+        from . import mobile_code_policy, mobile_code_policy_audit
         body = await request.json()
         file_path = body.get("file")
+        reason = body.get("reason", "")
+        reference = body.get("reference", "")
         if not file_path:
             raise HTTPException(400, "Missing 'file' field")
         
         success = mobile_code_policy.approve_file(file_path)
+        
+        # Log to audit trail
+        if success:
+            user = getattr(request.client, "host", "unknown") if request.client else "system"
+            mobile_code_policy_audit.log_policy_change(
+                action="approve_file",
+                target=file_path,
+                user=user,
+                previous_status="requires_approval",
+                new_status="approved",
+                reason=reason,
+                reference=reference
+            )
+        
         return {
             "status": "success" if success else "already_approved",
             "file": file_path,
@@ -3173,13 +3327,29 @@ async def unapprove_file_endpoint(request: Request, response: Response):
     """Remove approval for a specific file."""
     _sec_headers(response)
     try:
-        from . import mobile_code_policy
+        from . import mobile_code_policy, mobile_code_policy_audit
         body = await request.json()
         file_path = body.get("file")
+        reason = body.get("reason", "")
+        reference = body.get("reference", "")
         if not file_path:
             raise HTTPException(400, "Missing 'file' field")
         
         success = mobile_code_policy.unapprove_file(file_path)
+        
+        # Log to audit trail
+        if success:
+            user = getattr(request.client, "host", "unknown") if request.client else "system"
+            mobile_code_policy_audit.log_policy_change(
+                action="unapprove_file",
+                target=file_path,
+                user=user,
+                previous_status="approved",
+                new_status="requires_approval",
+                reason=reason,
+                reference=reference
+            )
+        
         return {
             "status": "success" if success else "not_found",
             "file": file_path,
@@ -3189,6 +3359,52 @@ async def unapprove_file_endpoint(request: Request, response: Response):
         raise
     except Exception as e:
         raise HTTPException(500, f"Failed to unapprove file: {e}")
+
+
+@app.get("/api/mobile-code/policy/audit")
+async def get_mobile_code_policy_audit(
+    response: Response,
+    limit: int = Query(100, ge=1, le=1000),
+    action: str = Query(None),
+    user: str = Query(None),
+    target: str = Query(None)
+):
+    """Get mobile code policy audit log with optional filtering."""
+    _sec_headers(response)
+    try:
+        from . import mobile_code_policy_audit
+        
+        entries = mobile_code_policy_audit.read_audit_log(
+            limit=limit,
+            action_filter=action,
+            user_filter=user,
+            target_filter=target
+        )
+        
+        return {
+            "total": len(entries),
+            "limit": limit,
+            "filters": {
+                "action": action,
+                "user": user,
+                "target": target,
+            },
+            "entries": entries,
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Failed to read audit log: {e}")
+
+
+@app.get("/api/mobile-code/policy/audit/stats")
+async def get_mobile_code_policy_audit_stats(response: Response):
+    """Get statistics about mobile code policy changes."""
+    _sec_headers(response)
+    try:
+        from . import mobile_code_policy_audit
+        stats = mobile_code_policy_audit.get_policy_change_stats()
+        return stats
+    except Exception as e:
+        raise HTTPException(500, f"Failed to get audit stats: {e}")
 
 
 # ── SPA / static file serving ─────────────────────────────────

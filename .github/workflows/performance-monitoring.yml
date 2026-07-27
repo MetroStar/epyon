@@ -1,0 +1,166 @@
+name: Performance Monitoring
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+  workflow_dispatch:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'web/api/**'
+      - 'web/static/**'
+      - 'scripts/shell/run-mobile-code-scan.py'
+
+jobs:
+  cache-performance:
+    name: Cache Performance Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          cd web
+          pip install -r api/requirements.txt
+      
+      - name: Start API server
+        run: |
+          cd web
+          python3 -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --app-dir . &
+          sleep 5
+      
+      - name: Warm up cache
+        run: |
+          curl -s http://localhost:8000/api/stats > /dev/null
+          curl -s http://localhost:8000/api/applications > /dev/null
+      
+      - name: Measure cache performance
+        id: cache-perf
+        run: |
+          # Measure cold request (cache miss)
+          cold_time=$(curl -w "%{time_total}" -o /dev/null -s http://localhost:8000/api/stats)
+          echo "cold_ms=$(echo "$cold_time * 1000" | bc)" >> $GITHUB_OUTPUT
+          
+          # Measure hot request (cache hit)
+          hot_time=$(curl -w "%{time_total}" -o /dev/null -s http://localhost:8000/api/stats)
+          echo "hot_ms=$(echo "$hot_time * 1000" | bc)" >> $GITHUB_OUTPUT
+          
+          # Get cache metrics
+          curl -s http://localhost:8000/api/metrics/cache > cache-metrics.json
+          
+          # Extract hit rate
+          hit_rate=$(jq -r '.hit_rates.stats' cache-metrics.json)
+          echo "hit_rate=${hit_rate}" >> $GITHUB_OUTPUT
+      
+      - name: Upload cache metrics
+        uses: actions/upload-artifact@v3
+        with:
+          name: cache-metrics
+          path: cache-metrics.json
+      
+      - name: Check performance thresholds
+        run: |
+          cold_ms=${{ steps.cache-perf.outputs.cold_ms }}
+          hot_ms=${{ steps.cache-perf.outputs.hot_ms }}
+          
+          echo "Cold request: ${cold_ms}ms"
+          echo "Hot request: ${hot_ms}ms"
+          
+          # Fail if cold request > 2000ms or hot request > 100ms
+          if (( $(echo "$cold_ms > 2000" | bc -l) )); then
+            echo "::error::Cold cache performance degraded: ${cold_ms}ms > 2000ms threshold"
+            exit 1
+          fi
+          
+          if (( $(echo "$hot_ms > 100" | bc -l) )); then
+            echo "::error::Hot cache performance degraded: ${hot_ms}ms > 100ms threshold"
+            exit 1
+          fi
+  
+  mobile-code-scanner-accuracy:
+    name: Mobile Code Scanner Accuracy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Run scanner validation
+        id: scanner-validation
+        run: |
+          cd tests
+          python3 validate-mobile-code-scanner.py > validation-results.txt 2>&1 || true
+          
+          # Extract F1 score
+          f1_score=$(grep "F1 Score:" validation-results.txt | awk '{print $3}')
+          echo "f1_score=${f1_score}" >> $GITHUB_OUTPUT
+          
+          # Extract precision and recall
+          precision=$(grep "Precision:" validation-results.txt | awk '{print $2}' | tr -d '%')
+          recall=$(grep "Recall:" validation-results.txt | awk '{print $2}' | tr -d '%')
+          echo "precision=${precision}" >> $GITHUB_OUTPUT
+          echo "recall=${recall}" >> $GITHUB_OUTPUT
+          
+          cat validation-results.txt
+      
+      - name: Upload validation results
+        uses: actions/upload-artifact@v3
+        with:
+          name: scanner-validation
+          path: tests/validation-results.txt
+      
+      - name: Check accuracy thresholds
+        run: |
+          f1=${{ steps.scanner-validation.outputs.f1_score }}
+          precision=${{ steps.scanner-validation.outputs.precision }}
+          recall=${{ steps.scanner-validation.outputs.recall }}
+          
+          echo "F1 Score: ${f1}"
+          echo "Precision: ${precision}%"
+          echo "Recall: ${recall}%"
+          
+          # Fail if F1 < 0.90
+          if (( $(echo "$f1 < 0.90" | bc -l) )); then
+            echo "::error::Scanner accuracy degraded: F1 ${f1} < 0.90 threshold"
+            exit 1
+          fi
+          
+          # Fail if precision < 80%
+          if (( $(echo "$precision < 80" | bc -l) )); then
+            echo "::error::Scanner precision degraded: ${precision}% < 80% threshold"
+            exit 1
+          fi
+          
+          # Fail if recall < 90%
+          if (( $(echo "$recall < 90" | bc -l) )); then
+            echo "::error::Scanner recall degraded: ${recall}% < 90% threshold"
+            exit 1
+          fi
+  
+  report-metrics:
+    name: Report Metrics
+    runs-on: ubuntu-latest
+    needs: [cache-performance, mobile-code-scanner-accuracy]
+    if: always()
+    steps:
+      - name: Create performance summary
+        run: |
+          echo "## Performance Monitoring Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Cache Performance" >> $GITHUB_STEP_SUMMARY
+          echo "- Cold request: ${{ needs.cache-performance.outputs.cold_ms }}ms" >> $GITHUB_STEP_SUMMARY
+          echo "- Hot request: ${{ needs.cache-performance.outputs.hot_ms }}ms" >> $GITHUB_STEP_SUMMARY
+          echo "- Hit rate: ${{ needs.cache-performance.outputs.hit_rate }}%" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Mobile Code Scanner Accuracy" >> $GITHUB_STEP_SUMMARY
+          echo "- F1 Score: ${{ needs.mobile-code-scanner-accuracy.outputs.f1_score }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Precision: ${{ needs.mobile-code-scanner-accuracy.outputs.precision }}%" >> $GITHUB_STEP_SUMMARY
+          echo "- Recall: ${{ needs.mobile-code-scanner-accuracy.outputs.recall }}%" >> $GITHUB_STEP_SUMMARY

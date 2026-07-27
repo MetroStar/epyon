@@ -1,0 +1,365 @@
+<mxfile host="app.diagrams.net" modified="2026-07-22T00:00:00.000Z" agent="Epyon" version="21.6.5" etag="system-architecture-v1">
+  <diagram id="epyon-system-architecture" name="Epyon System Architecture">
+    <mxGraphModel dx="1434" dy="844" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        
+        <!-- Title -->
+        <mxCell id="title" value="Epyon System Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="600" y="20" width="400" height="40" as="geometry"/>
+        </mxCell>
+        
+        <!-- External Interfaces Layer -->
+        <mxCell id="external-layer" value="External Interfaces" style="swimlane;fontSize=16;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="80" width="1520" height="140" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="github-actions" value="GitHub Actions&#xa;&#xa;• Workflows&#xa;• Secrets&#xa;• PR Scans&#xa;• Scheduled Runs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="external-layer">
+          <mxGeometry x="40" y="40" width="160" height="80" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="jira-cloud" value="Jira Cloud&#xa;&#xa;• Ticket Creation&#xa;• Auto-close (always)&#xa;• Fingerprint Tracking" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="external-layer">
+          <mxGeometry x="240" y="40" width="160" height="80" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="github-issues" value="GitHub Issues&#xa;&#xa;• Findings Summary&#xa;• Bidirectional Links&#xa;• Auto-update" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="external-layer">
+          <mxGeometry x="440" y="40" width="160" height="80" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="webhooks" value="Webhooks&#xa;&#xa;• Real-time Progress&#xa;• HMAC Signatures&#xa;• Barbatos Integration" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="external-layer">
+          <mxGeometry x="640" y="40" width="160" height="80" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="openai-api" value="OpenAI API&#xa;&#xa;• STIG Assessment&#xa;• Executive Summary&#xa;• ISSO Reports" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="external-layer">
+          <mxGeometry x="840" y="40" width="160" height="80" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="sonarqube-server" value="SonarQube Server&#xa;&#xa;• Code Quality&#xa;• Technical Debt&#xa;• Security Hotspots" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="external-layer">
+          <mxGeometry x="1040" y="40" width="160" height="80" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="container-registries" value="Container Registries&#xa;&#xa;• DHI Baseline Images&#xa;• Custom Images&#xa;• SBOM Artifacts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="external-layer">
+          <mxGeometry x="1240" y="40" width="160" height="80" as="geometry"/>
+        </mxCell>
+        
+        <!-- Core Components Layer -->
+        <mxCell id="core-layer" value="Core Components" style="swimlane;fontSize=16;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="40" y="240" width="1520" height="520" as="geometry"/>
+        </mxCell>
+        
+        <!-- CLI Orchestrator -->
+        <mxCell id="cli-orchestrator" value="CLI Orchestrator Layer" style="swimlane;fontSize=14;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="core-layer">
+          <mxGeometry x="20" y="40" width="1480" height="100" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="epyon-sh" value="epyon.sh&#xa;Entry Point" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;" vertex="1" parent="cli-orchestrator">
+          <mxGeometry x="20" y="40" width="120" height="45" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="orchestrator-sh" value="run-target-security-scan.sh&#xa;Main Orchestrator" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;" vertex="1" parent="cli-orchestrator">
+          <mxGeometry x="160" y="40" width="200" height="45" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="container-runtime" value="Container Runtime&#xa;Docker/Podman/nerdctl" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;" vertex="1" parent="cli-orchestrator">
+          <mxGeometry x="380" y="40" width="180" height="45" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="scan-modes" value="Scan Mode Routing&#xa;quick/nightly/full/stig" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;" vertex="1" parent="cli-orchestrator">
+          <mxGeometry x="580" y="40" width="180" height="45" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="webhook-notifier" value="Webhook Notifier&#xa;Progress Updates" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;" vertex="1" parent="cli-orchestrator">
+          <mxGeometry x="780" y="40" width="160" height="45" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="jira-reconcile" value="Jira Reconciliation&#xa;Post-scan Trigger" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;" vertex="1" parent="cli-orchestrator">
+          <mxGeometry x="960" y="40" width="160" height="45" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="ignore-parser" value="Suppression Parser&#xa;parse-epyon-ignore.sh" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;" vertex="1" parent="cli-orchestrator">
+          <mxGeometry x="1140" y="40" width="160" height="45" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="baseline-scanner" value="Baseline Scanner&#xa;DHI Image Audits" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;" vertex="1" parent="cli-orchestrator">
+          <mxGeometry x="1320" y="40" width="140" height="45" as="geometry"/>
+        </mxCell>
+        
+        <!-- Security Scan Engine -->
+        <mxCell id="scan-engine" value="16-Layer Security Scan Engine" style="swimlane;fontSize=14;fontStyle=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="core-layer">
+          <mxGeometry x="20" y="160" width="960" height="340" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="layer1" value="Layer 1: SBOM&#xa;Syft" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="scan-engine">
+          <mxGeometry x="20" y="35" width="100" height="40" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="layer2" value="Layer 2: Secrets&#xa;TruffleHog" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="scan-engine">
+          <mxGeometry x="135" y="35" width="100" height="40" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="layer3" value="Layer 3: Quality&#xa;SonarQube" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="scan-engine">
+          <mxGeometry x="250" y="35" width="100" height="40" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="layer4" value="Layer 4: Malware&#xa;ClamAV" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="scan-engine">
+          <mxGeometry x="365" y="35" width="100" height="40" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="layer5" value="Layer 5: Helm&#xa;Chart Build" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="scan-engine">
+          <mxGeometry x="480" y="35" width="100" height="40" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="layer6" value="Layer 6: IaC&#xa;Checkov" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="scan-engine">
+          <mxGeometry x="595" y="35" width="100" height="40" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="layer7" value="Layer 7: Container&#xa;Trivy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="scan-engine">
+          <mxGeometry x="710" y="35" width="100" height="40" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="layer8" value="Layer 8: Vuln Scan&#xa;Grype" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="scan-engine">
+          <mxGeometry x="825" y="35" width="110" height="40" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="layer8-5" value="Layer 8.5: Direct&#xa;pip-audit" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="scan-engine">
+          <mxGeometry x="20" y="90" width="100" height="40" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="layer9" value="Layer 9: EOL&#xa;Xeol" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="scan-engine">
+          <mxGeometry x="135" y="90" width="100" height="40" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="layer10" value="Layer 10: Analysis&#xa;Anchore" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="scan-engine">
+          <mxGeometry x="250" y="90" width="100" height="40" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="layer11" value="Layer 11: API&#xa;Discovery" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="scan-engine">
+          <mxGeometry x="365" y="90" width="100" height="40" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="layer11-6" value="Layer 11.6: Safety&#xa;Python Safety" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="scan-engine">
+          <mxGeometry x="480" y="90" width="100" height="40" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="layer12" value="Layer 12: LLM&#xa;Garak (opt-in)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="scan-engine">
+          <mxGeometry x="595" y="90" width="100" height="40" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="layer13" value="Layer 13: STIG&#xa;AI Compliance" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;fontStyle=1" vertex="1" parent="scan-engine">
+          <mxGeometry x="710" y="90" width="100" height="40" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="layer14" value="Layer 14: Pickle&#xa;picklescan" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="scan-engine">
+          <mxGeometry x="825" y="90" width="110" height="40" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="layer15" value="Layer 15: Model&#xa;Card Check" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="scan-engine">
+          <mxGeometry x="20" y="145" width="100" height="40" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="layer16" value="Layer 16: Network&#xa;nmap" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;" vertex="1" parent="scan-engine">
+          <mxGeometry x="135" y="145" width="100" height="40" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="scan-features" value="Features:&#xa;• Modular (skip any layer)&#xa;• Parallel execution&#xa;• Graceful degradation&#xa;• 4 scan modes&#xa;• Container-agnostic" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8f8f8;strokeColor=#666666;fontSize=10;align=left;spacingLeft=5;" vertex="1" parent="scan-engine">
+          <mxGeometry x="250" y="145" width="200" height="80" as="geometry"/>
+        </mxCell>
+        
+        <!-- Consolidation & Reporting -->
+        <mxCell id="consolidation" value="Consolidation &amp; Reporting" style="swimlane;fontSize=12;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="scan-engine">
+          <mxGeometry x="20" y="240" width="915" height="85" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="findings-parser" value="Findings Parser&#xa;(all tool outputs)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;" vertex="1" parent="consolidation">
+          <mxGeometry x="10" y="30" width="100" height="45" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="consolidate-sh" value="Consolidate&#xa;HTML + Markdown" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;" vertex="1" parent="consolidation">
+          <mxGeometry x="125" y="30" width="100" height="45" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="dashboard-gen" value="Dashboard&#xa;Self-contained HTML" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;" vertex="1" parent="consolidation">
+          <mxGeometry x="240" y="30" width="100" height="45" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="metrics-embed" value="Metrics Embedder&#xa;Chart.js Injection" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;" vertex="1" parent="consolidation">
+          <mxGeometry x="355" y="30" width="110" height="45" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="trl-score" value="TRL Score&#xa;6D Weighted" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;" vertex="1" parent="consolidation">
+          <mxGeometry x="480" y="30" width="100" height="45" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="scan-manifest" value="Manifest&#xa;SHA-256 Hash" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;" vertex="1" parent="consolidation">
+          <mxGeometry x="595" y="30" width="100" height="45" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="stig-pr" value="STIG PR Creator&#xa;Auto-update Repo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;" vertex="1" parent="consolidation">
+          <mxGeometry x="710" y="30" width="100" height="45" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="jira-shell" value="Jira Shell&#xa;create-jira-tickets.sh" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;" vertex="1" parent="consolidation">
+          <mxGeometry x="825" y="30" width="80" height="45" as="geometry"/>
+        </mxCell>
+        
+        <!-- STIG Engine (special callout) -->
+        <mxCell id="stig-engine" value="STIG Compliance Engine" style="swimlane;fontSize=13;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="core-layer">
+          <mxGeometry x="1000" y="160" width="480" height="340" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="stig-assessment" value="run-stig-assessment.py&#xa;AI-Powered Static Analysis" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6e6;strokeColor=#b85450;fontSize=11;fontStyle=1" vertex="1" parent="stig-engine">
+          <mxGeometry x="20" y="35" width="180" height="50" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="stig-detection" value="Auto-detect STIGs&#xa;From Tech Stack" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;" vertex="1" parent="stig-engine">
+          <mxGeometry x="220" y="35" width="120" height="50" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="stig-context" value="Context Collection&#xa;• Source code&#xa;• Config files&#xa;• Documentation&#xa;• Security findings&#xa;• Suppressions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;align=left;spacingLeft=5;" vertex="1" parent="stig-engine">
+          <mxGeometry x="360" y="35" width="100" height="90" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="stig-freeze" value="Freeze Logic&#xa;Confidence ≥ 85" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;" vertex="1" parent="stig-engine">
+          <mxGeometry x="20" y="100" width="100" height="45" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="stig-batch" value="Batched API Calls&#xa;10 controls/batch" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;" vertex="1" parent="stig-engine">
+          <mxGeometry x="140" y="100" width="110" height="45" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="stig-confidence" value="Confidence Scoring&#xa;0-100 scale" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;" vertex="1" parent="stig-engine">
+          <mxGeometry x="270" y="100" width="110" height="45" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="stig-evidence" value="Evidence Collection&#xa;File/line refs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;" vertex="1" parent="stig-engine">
+          <mxGeometry x="20" y="160" width="110" height="45" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="stig-output" value="Output Files&#xa;• stig-results-*.json&#xa;• stig-findings.md" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;align=left;spacingLeft=5;" vertex="1" parent="stig-engine">
+          <mxGeometry x="150" y="160" width="130" height="45" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="stig-baselines" value="STIG Baselines&#xa;configuration/stigs/&#xa;• ASD v6r4&#xa;• Tomcat 9&#xa;• Postgres 16&#xa;• Database SRG&#xa;• .NET 4.0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;align=left;spacingLeft=5;" vertex="1" parent="stig-engine">
+          <mxGeometry x="300" y="160" width="160" height="95" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="stig-statuses" value="Status Values:&#xa;• Not a Finding&#xa;• Not Applicable&#xa;• Open&#xa;• Not Reviewed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;align=left;spacingLeft=5;" vertex="1" parent="stig-engine">
+          <mxGeometry x="20" y="220" width="120" height="80" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="stig-pr-auto" value="Auto PR Creation&#xa;create-stig-pr.sh&#xa;Branch: stig-update-DATE&#xa;Updates existing PRs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;align=left;spacingLeft=5;" vertex="1" parent="stig-engine">
+          <mxGeometry x="160" y="220" width="160" height="80" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="stig-human" value="Human Override&#xa;Manual edits persist&#xa;with confidence ≥ 85" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=9;align=center;fontStyle=1" vertex="1" parent="stig-engine">
+          <mxGeometry x="340" y="270" width="120" height="55" as="geometry"/>
+        </mxCell>
+        
+        <!-- Web UI & API Layer -->
+        <mxCell id="web-layer" value="Web UI &amp; API Layer" style="swimlane;fontSize=16;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="780" width="1520" height="240" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="fastapi-backend" value="FastAPI Backend" style="swimlane;fontSize=13;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="web-layer">
+          <mxGeometry x="20" y="40" width="740" height="180" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="main-py" value="main.py (~2500 lines)&#xa;&#xa;• REST API endpoints&#xa;• Scan management&#xa;• Async job queue&#xa;• Score card generation&#xa;• ISSO reports" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;align=left;spacingLeft=5;" vertex="1" parent="fastapi-backend">
+          <mxGeometry x="15" y="35" width="150" height="130" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="parsers-py" value="parsers.py&#xa;&#xa;• Parse all 16 layers&#xa;• Normalize findings&#xa;• Apply suppressions&#xa;• Source classification&#xa;• Fingerprinting" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;align=left;spacingLeft=5;" vertex="1" parent="fastapi-backend">
+          <mxGeometry x="180" y="35" width="140" height="130" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="jira-client-py" value="jira_client.py&#xa;&#xa;• Ticket lifecycle&#xa;• Auto-close (always)&#xa;• Fingerprint tracking&#xa;• Create tickets (opt-in)&#xa;• Reconciliation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;align=left;spacingLeft=5;" vertex="1" parent="fastapi-backend">
+          <mxGeometry x="335" y="35" width="140" height="130" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="github-sync-py" value="github_sync.py&#xa;&#xa;• Metrics collection&#xa;• Issue creation&#xa;• Issue updates&#xa;• Deduplication" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;align=left;spacingLeft=5;" vertex="1" parent="fastapi-backend">
+          <mxGeometry x="490" y="35" width="120" height="130" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="jobs-py" value="jobs.py&#xa;&#xa;• Async scanning&#xa;• Job queue&#xa;• Status tracking" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;align=left;spacingLeft=5;" vertex="1" parent="fastapi-backend">
+          <mxGeometry x="625" y="35" width="100" height="130" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="vanilla-js-frontend" value="Frontend (Vanilla JS)" style="swimlane;fontSize=13;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="web-layer">
+          <mxGeometry x="780" y="40" width="720" height="180" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="app-js" value="app.js (~7000+ lines)&#xa;&#xa;• Hash routing SPA&#xa;• Scan detail views&#xa;• STIG history charts&#xa;• Score card display&#xa;• Findings tables&#xa;• Suppression badges&#xa;• No framework deps" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;align=left;spacingLeft=5;" vertex="1" parent="vanilla-js-frontend">
+          <mxGeometry x="15" y="35" width="160" height="130" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="app-css" value="app.css&#xa;&#xa;• Dark theme&#xa;• Responsive layout&#xa;• Badge styles&#xa;• Chart styling" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;align=left;spacingLeft=5;" vertex="1" parent="vanilla-js-frontend">
+          <mxGeometry x="190" y="35" width="130" height="130" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="api-endpoints" value="Key API Endpoints:&#xa;&#xa;• GET/POST /api/scans&#xa;• GET /api/scans/{id}&#xa;• POST /api/jira/sync/{app}&#xa;• GET /api/stig/history&#xa;• GET /api/metrics&#xa;• POST /api/export/summary-docx&#xa;• POST /api/ai/config" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=9;align=left;spacingLeft=5;" vertex="1" parent="vanilla-js-frontend">
+          <mxGeometry x="335" y="35" width="180" height="130" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="ui-features" value="UI Features:&#xa;&#xa;• Progressive disclosure&#xa;• Severity badges&#xa;• Source badges&#xa;• Suppression indicators&#xa;• Real-time updates&#xa;• Export capabilities&#xa;• Settings management" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=9;align=left;spacingLeft=5;" vertex="1" parent="vanilla-js-frontend">
+          <mxGeometry x="530" y="35" width="170" height="130" as="geometry"/>
+        </mxCell>
+        
+        <!-- Data Persistence Layer -->
+        <mxCell id="data-layer" value="Data Persistence Layer" style="swimlane;fontSize=16;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="40" y="1040" width="1520" height="140" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="scan-dirs" value="Scan Directories&#xa;scans/{app}_{timestamp}/&#xa;&#xa;• Tool JSON outputs&#xa;• Consolidated reports&#xa;• Dashboard HTML&#xa;• STIG results&#xa;• Manifests" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;align=left;spacingLeft=5;" vertex="1" parent="data-layer">
+          <mxGeometry x="40" y="40" width="200" height="80" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="config-files" value="Configuration&#xa;&#xa;• .epyon-ignore.yml (target repo)&#xa;• configuration/stigs/*.cklb&#xa;• approved-base-images.conf&#xa;• monitored-apps.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;align=left;spacingLeft=5;" vertex="1" parent="data-layer">
+          <mxGeometry x="260" y="40" width="240" height="80" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="web-data" value="Web Data (web/data/)&#xa;&#xa;• jira-config.json&#xa;• jira-tickets.json&#xa;• github-config.json&#xa;• ai-config.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;align=left;spacingLeft=5;" vertex="1" parent="data-layer">
+          <mxGeometry x="520" y="40" width="200" height="80" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="deliverables" value="Deliverables&#xa;&#xa;• security-dashboard.html&#xa;  (self-contained)&#xa;• stig-findings.md&#xa;• scan-manifest.json&#xa;• Word exports" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;align=left;spacingLeft=5;fontStyle=1" vertex="1" parent="data-layer">
+          <mxGeometry x="740" y="40" width="200" height="80" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="fingerprints" value="Fingerprint Tracking&#xa;&#xa;• Stable across scans&#xa;• tool + id + package + target&#xa;• Project-key isolation&#xa;• Deduplication" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;align=left;spacingLeft=5;" vertex="1" parent="data-layer">
+          <mxGeometry x="960" y="40" width="200" height="80" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="cache-invalidation" value="Cache Management&#xa;&#xa;• In-memory TTL cache&#xa;• Invalidate on new scan&#xa;• Web UI auto-refresh" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;align=left;spacingLeft=5;" vertex="1" parent="data-layer">
+          <mxGeometry x="1180" y="40" width="180" height="80" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="retention" value="Data Retention&#xa;&#xa;• 35-day default&#xa;• Manual cleanup&#xa;• No auto-pruning" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=10;align=left;spacingLeft=5;" vertex="1" parent="data-layer">
+          <mxGeometry x="1380" y="40" width="120" height="80" as="geometry"/>
+        </mxCell>
+        
+        <!-- Arrows showing data flow -->
+        <mxCell id="arrow1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="external-layer" target="core-layer">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="arrow2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="core-layer" target="web-layer">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="arrow3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="web-layer" target="data-layer">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="arrow4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#666666;dashed=1;" edge="1" parent="1" source="data-layer" target="web-layer">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="arrow5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#666666;dashed=1;" edge="1" parent="1" source="web-layer" target="external-layer">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

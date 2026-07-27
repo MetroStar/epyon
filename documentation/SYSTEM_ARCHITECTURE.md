@@ -431,7 +431,7 @@ scans/{app}_{YYYY-MM-DD_HH-MM-SS}/
 ### Sandboxing
 - Shell scripts run in container sandbox by default
 - Filesystem: read-only outside workspace and $TMPDIR
-- Network: blocked unless `requestAllowNetwork=true`
+- Network: egress policy should be enforced by the runner/container runtime (no `requestAllowNetwork` flag is implemented in Epyon)
 - Scan targets are untrusted — never execute code from target repos
 
 ### OWASP Top 10 Mitigations

@@ -21,10 +21,10 @@
 
 ## Manual STIG Documentation
 
-Target repositories can provide manual STIG assessments and overrides by creating documentation files like `docs/stig-findings.md`. The Epyon STIG assessment engine (Layer 13) automatically collects and reads these files as **priority context** when performing AI-powered assessments.
+Target repositories can provide manual STIG assessments and overrides by creating documentation files like `docs/stig-findings.md` or `docs/security/stig-findings.md`. The Epyon STIG assessment engine (Layer 13) automatically collects and reads these files as **priority context** when performing AI-powered assessments.
 
 **Key Points**:
-- Manual documentation in `docs/stig-findings.md`, `COMPLIANCE.md`, or `STIG.md` takes priority over AI assessments
+- Manual documentation in `docs/stig-findings.md`, `docs/security/stig-findings.md`, `COMPLIANCE.md`, or `STIG.md` takes priority over AI assessments
 - Human-authored evidence is respected unless specific code changes invalidate it
 - Use manual documentation for runtime-only controls, policy-based controls, and complex architectural assessments
 

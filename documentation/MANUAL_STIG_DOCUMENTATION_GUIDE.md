@@ -1,15 +1,15 @@
 # STIG Findings - Manual Documentation Guide
 
-This document provides guidance on creating and maintaining `docs/stig-findings.md` in target repositories to document manual STIG assessments and overrides.
+This document provides guidance on creating and maintaining manual STIG documentation in target repositories (e.g., `docs/stig-findings.md` or `docs/security/stig-findings.md`) to document STIG assessments and overrides.
 
 ## Purpose
 
 The Epyon STIG assessment engine (Layer 13) automatically collects and reads documentation files from target repositories, including:
-- `docs/stig-findings.md` (highest priority)
+- `docs/stig-findings.md` or `docs/security/stig-findings.md` (highest priority)
 - `COMPLIANCE.md`
 - `STIG.md`
 - `SECURITY.md`
-- Any markdown/JSON files in `docs/`, `.github/`, or `.compliance/` directories
+- Any markdown/JSON files in `docs/`, `documentation/`, `security/`, `.github/`, or `.compliance/` directories
 
 These files are provided to the AI assessment engine as **priority context**. When humans have explicitly documented STIG controls with evidence, the AI will respect those assessments unless specific code changes invalidate them.
 
@@ -25,7 +25,7 @@ Use manual STIG documentation in these scenarios:
 
 ## Recommended Format
 
-Create `docs/stig-findings.md` in your target repository with this structure:
+Create `docs/stig-findings.md` (or `docs/security/stig-findings.md`) in your target repository with this structure:
 
 ```markdown
 # STIG Findings - [Application Name]
@@ -154,14 +154,14 @@ When processing STIG controls, Epyon:
 4. **Combines manual evidence** with automated static analysis for a comprehensive view
 
 The AI is specifically instructed:
-> "Manual STIG documentation from the target repository (e.g., docs/stig-findings.md, COMPLIANCE.md, STIG.md) containing human-authored STIG assessments, manual overrides, compliance notes, and human-verified evidence. **THESE FILES TAKE PRIORITY** — if a human has explicitly documented a control as satisfied with specific evidence, respect that assessment unless you find concrete code changes that invalidate it."
+> "Manual STIG documentation from the target repository (e.g., docs/stig-findings.md, docs/security/stig-findings.md, COMPLIANCE.md, STIG.md) containing human-authored STIG assessments, manual overrides, compliance notes, and human-verified evidence. **THESE FILES TAKE PRIORITY** — if a human has explicitly documented a control as satisfied with specific evidence, respect that assessment unless you find concrete code changes that invalidate it."
 
 ## Example Workflow
 
 1. **Run initial Epyon scan** to get baseline AI assessments
 2. **Review STIG findings** in the generated `stig-findings.md` report
 3. **Identify controls requiring manual assessment** (runtime checks, policy-based, etc.)
-4. **Create `docs/stig-findings.md`** with your manual evidence
+4. **Create manual documentation** at `docs/stig-findings.md` or `docs/security/stig-findings.md` with your manual evidence
 5. **Re-run Epyon scan** — AI will incorporate your manual assessments
 6. **Update manual documentation** when code changes affect documented controls
 
@@ -188,7 +188,7 @@ When you update code that affects a manually documented control, update the docu
 Epyon's STIG freeze logic works with both automated and manual assessments:
 
 - **Automated assessments** with `confidence ≥ 85` and status `Not a Finding`/`Not Applicable` freeze automatically
-- **Manual assessments** in `docs/stig-findings.md` with high confidence are respected by the AI
+- **Manual assessments** in `docs/stig-findings.md` or `docs/security/stig-findings.md` with high confidence are respected by the AI
 - **Changes to documented code** trigger AI re-assessment, but the AI will reference your manual evidence when making the new assessment
 
 This creates a layered defense:

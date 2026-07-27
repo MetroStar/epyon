@@ -716,6 +716,69 @@ def parse_modelcard_dir(scan_dir: Path) -> dict | None:
     }
 
 
+def parse_mobile_code_dir(scan_dir: Path) -> list[dict]:
+    """Parse Layer 17 mobile code detection results from mobile-code-results.json.
+    
+    Returns a list of mobile code findings with approval status.
+    Each finding includes:
+      - type: mobile code type (javascript_web, java_applet, flash, etc.)
+      - file: path to file containing mobile code
+      - line: line number (0 for file-level detections)
+      - description: human-readable description
+      - risk_level: critical/high/medium/low
+      - category: DoD mobile code category (Category 1A, 1B, 2, etc.)
+      - approval_status: approved/requires_approval/unapproved
+      - requires_authorization: boolean flag
+      - evidence: code snippet or file signature
+    """
+    mobile_code_file = scan_dir / "mobile-code-results.json"
+    if not mobile_code_file.exists():
+        return []
+    
+    try:
+        with open(mobile_code_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return []
+    
+    findings = []
+    for raw_finding in data.get("findings", []):
+        # Map risk level to severity (for consistency with other tools)
+        risk_level = raw_finding.get("risk_level", "medium")
+        severity_map = {
+            "critical": "critical",
+            "high": "high",
+            "medium": "medium",
+            "low": "low",
+        }
+        severity = severity_map.get(risk_level, "medium")
+        
+        finding = {
+            "id": f"mobile_code_{raw_finding.get('type', 'unknown')}_{raw_finding.get('line', 0)}",
+            "tool": "mobile-code",
+            "type": raw_finding.get("type", "unknown"),
+            "severity": severity,
+            "risk_level": risk_level,
+            "category": raw_finding.get("category", "Unknown"),
+            "file": raw_finding.get("file", ""),
+            "line": raw_finding.get("line", 0),
+            "description": raw_finding.get("description", ""),
+            "evidence": raw_finding.get("evidence", ""),
+            "approval_status": raw_finding.get("approval_status", "unapproved"),
+            "requires_authorization": raw_finding.get("requires_authorization", True),
+            "match_type": raw_finding.get("match_type", ""),
+        }
+        
+        # Add extension-specific fields if present
+        if "extension_name" in raw_finding:
+            finding["extension_name"] = raw_finding["extension_name"]
+            finding["extension_version"] = raw_finding.get("extension_version", "")
+        
+        findings.append(finding)
+    
+    return findings
+
+
 def count_suppressed_instances(scan_dir: Path) -> int:
     """Count raw suppression instances in suppressed-findings.md (one per rule firing, not deduplicated)."""
     md_file = scan_dir / "suppressed-findings.md"
@@ -1007,6 +1070,7 @@ def parse_scan_findings(scan_dir: Path) -> dict:
         + parse_clamav_dir(scan_dir)
         + parse_xeol_dir(scan_dir)
         + parse_sonarqube_dir(scan_dir)
+        + parse_mobile_code_dir(scan_dir)
     )
 
     by_tool = set(f["tool"] for f in all_findings)

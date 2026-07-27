@@ -25,5 +25,14 @@
     "sec_open": 0,
     "workflow_success_rate": null,
     "pr_coverage_pct": 44
+  },
+  {
+    "date": "2026-07-27",
+    "ts": "2026-07-27T16:43:21Z",
+    "dep_open": 0,
+    "dep_fixed": 0,
+    "sec_open": 1,
+    "workflow_success_rate": null,
+    "pr_coverage_pct": 47
   }
 ]

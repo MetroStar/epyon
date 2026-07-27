@@ -153,14 +153,20 @@ def _save_gh_snapshot(metrics: dict) -> None:
         pass  # never let history writes break the main metrics response
 
 # ── Scan data cache ───────────────────────────────────────────
-# Short TTL caches for filesystem-heavy operations.
+# Aggressive caching for filesystem-heavy operations.
 # find_scan_dirs() is called on every list endpoint; load_scan() reads 8+ files
 # per scan directory. With 40+ scans these dominate response time.
+# Scans are immutable once written, so long TTLs are safe.
 _scan_cache:      dict[str, tuple[dict, float]] = {}  # scan_id → (data, monotonic_ts)
 _dir_cache:       dict[int, tuple[list, float]] = {}  # days → (dirs, monotonic_ts)
-_SCAN_CACHE_TTL:  float = 30.0   # seconds — stale counts tolerable; scans take minutes
-_DIR_CACHE_TTL:   float = 10.0   # seconds — new scans appear within 10 s
+_stats_cache:     tuple[dict, float] | None = None    # (stats, monotonic_ts)
+_apps_cache:      tuple[list, float] | None = None    # (apps, monotonic_ts)
+_SCAN_CACHE_TTL:  float = 300.0  # 5 minutes — scans are immutable
+_DIR_CACHE_TTL:   float = 60.0   # 1 minute — new scans appear less frequently
+_STATS_CACHE_TTL: float = 120.0  # 2 minutes — aggregated stats
+_APPS_CACHE_TTL:  float = 120.0  # 2 minutes — app list
 _DEFAULT_SCAN_DAYS: int = 35     # Only load last 35 days of scans by default
+_CACHE_VERSION:   int = 0        # Increment on scan completion to bust frontend caches
 
 
 def _cached_find_scan_dirs(days: int = _DEFAULT_SCAN_DAYS) -> list:
@@ -187,9 +193,12 @@ def _cached_load_scan(scan_dir) -> dict:
 
 def _invalidate_scan_cache() -> None:
     """Call after a scan completes so the next request sees fresh data."""
-    global _dir_cache
+    global _dir_cache, _stats_cache, _apps_cache, _CACHE_VERSION
     _scan_cache.clear()
     _dir_cache.clear()
+    _stats_cache = None
+    _apps_cache = None
+    _CACHE_VERSION += 1  # Bust frontend caches
 
 
 async def _jira_post_scan(target_name: str) -> None:
@@ -355,6 +364,17 @@ def health(response: Response):
 
 @app.get("/api/stats")
 def stats(response: Response):
+    global _stats_cache
+    now = time.monotonic()
+    
+    # Return cached stats if available
+    if _stats_cache and (now - _stats_cache[1]) < _STATS_CACHE_TTL:
+        result = _stats_cache[0]
+        # Allow browser caching for 60s
+        response.headers["Cache-Control"] = "public, max-age=60"
+        response.headers["X-Cache-Version"] = str(_CACHE_VERSION)
+        return result
+    
     _sec_headers(response)
     hidden = _load_hidden_apps()
     scans = [_cached_load_scan(d) for d in _cached_find_scan_dirs()]
@@ -366,7 +386,7 @@ def stats(response: Response):
         if t not in by_target or s.get("timestamp", "") > by_target[t].get("timestamp", ""):
             by_target[t] = s
     latest = list(by_target.values())
-    return {
+    result = {
         "total_applications": len(by_target),
         "total_scans":        len(scans),
         "critical": sum(s["critical"] for s in latest),
@@ -374,6 +394,11 @@ def stats(response: Response):
         "medium":   sum(s["medium"]   for s in latest),
         "low":      sum(s["low"]      for s in latest),
     }
+    
+    _stats_cache = (result, now)
+    response.headers["Cache-Control"] = "public, max-age=60"
+    response.headers["X-Cache-Version"] = str(_CACHE_VERSION)
+    return result
 
 
 # ── Scan history ──────────────────────────────────────────────
@@ -466,6 +491,15 @@ async def register_application(request: Request, response: Response):
 
 @app.get("/api/applications")
 def applications(response: Response):
+    global _apps_cache
+    now = time.monotonic()
+    
+    # Return cached app list if available
+    if _apps_cache and (now - _apps_cache[1]) < _APPS_CACHE_TTL:
+        response.headers["Cache-Control"] = "public, max-age=60"
+        response.headers["X-Cache-Version"] = str(_CACHE_VERSION)
+        return _apps_cache[0]
+    
     _sec_headers(response)
     hidden   = _load_hidden_apps()
     monitored = _load_monitored_apps()
@@ -552,6 +586,10 @@ def applications(response: Response):
         })
 
     result.sort(key=lambda x: x.get("last_scanned", "") or x.get("added_at", ""), reverse=True)
+    
+    _apps_cache = (result, now)
+    response.headers["Cache-Control"] = "public, max-age=60"
+    response.headers["X-Cache-Version"] = str(_CACHE_VERSION)
     return result
 
 
@@ -3011,6 +3049,146 @@ async def jira_sync_app(app_name: str, response: Response):
         cfg,
     )
     return result
+
+
+# ── Mobile Code Policy API ────────────────────────────────────
+
+@app.get("/api/mobile-code/policy")
+async def get_mobile_code_policy(response: Response):
+    """Get the current mobile code policy configuration."""
+    _sec_headers(response)
+    try:
+        from . import mobile_code_policy
+        policy = mobile_code_policy.read_policy()
+        return policy
+    except Exception as e:
+        raise HTTPException(500, f"Failed to read mobile code policy: {e}")
+
+
+@app.post("/api/mobile-code/policy")
+async def update_mobile_code_policy(request: Request, response: Response):
+    """Update the mobile code policy configuration."""
+    _sec_headers(response)
+    try:
+        from . import mobile_code_policy
+        body = await request.json()
+        
+        # Validate required fields
+        policy = {
+            "approval_required": bool(body.get("approval_required", True)),
+            "approved_types": body.get("approved_types", []),
+            "approved_files": body.get("approved_files", []),
+            "approved_extensions": body.get("approved_extensions", []),
+            "notes": body.get("notes", ""),
+        }
+        
+        mobile_code_policy.write_policy(policy)
+        return {"status": "success", "policy": mobile_code_policy.read_policy()}
+    except Exception as e:
+        raise HTTPException(500, f"Failed to update mobile code policy: {e}")
+
+
+@app.get("/api/mobile-code/types")
+async def get_mobile_code_types(response: Response):
+    """Get list of all known mobile code types with descriptions."""
+    _sec_headers(response)
+    try:
+        from . import mobile_code_policy
+        return mobile_code_policy.get_available_mobile_code_types()
+    except Exception as e:
+        raise HTTPException(500, f"Failed to get mobile code types: {e}")
+
+
+@app.post("/api/mobile-code/approve-type")
+async def approve_mobile_code_type_endpoint(request: Request, response: Response):
+    """Approve a specific mobile code type."""
+    _sec_headers(response)
+    try:
+        from . import mobile_code_policy
+        body = await request.json()
+        mobile_type = body.get("type")
+        if not mobile_type:
+            raise HTTPException(400, "Missing 'type' field")
+        
+        success = mobile_code_policy.approve_mobile_code_type(mobile_type)
+        return {
+            "status": "success" if success else "already_approved",
+            "type": mobile_type,
+            "policy": mobile_code_policy.read_policy(),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Failed to approve mobile code type: {e}")
+
+
+@app.post("/api/mobile-code/unapprove-type")
+async def unapprove_mobile_code_type_endpoint(request: Request, response: Response):
+    """Remove approval for a specific mobile code type."""
+    _sec_headers(response)
+    try:
+        from . import mobile_code_policy
+        body = await request.json()
+        mobile_type = body.get("type")
+        if not mobile_type:
+            raise HTTPException(400, "Missing 'type' field")
+        
+        success = mobile_code_policy.unapprove_mobile_code_type(mobile_type)
+        return {
+            "status": "success" if success else "not_found",
+            "type": mobile_type,
+            "policy": mobile_code_policy.read_policy(),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Failed to unapprove mobile code type: {e}")
+
+
+@app.post("/api/mobile-code/approve-file")
+async def approve_file_endpoint(request: Request, response: Response):
+    """Approve a specific file containing mobile code."""
+    _sec_headers(response)
+    try:
+        from . import mobile_code_policy
+        body = await request.json()
+        file_path = body.get("file")
+        if not file_path:
+            raise HTTPException(400, "Missing 'file' field")
+        
+        success = mobile_code_policy.approve_file(file_path)
+        return {
+            "status": "success" if success else "already_approved",
+            "file": file_path,
+            "policy": mobile_code_policy.read_policy(),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Failed to approve file: {e}")
+
+
+@app.post("/api/mobile-code/unapprove-file")
+async def unapprove_file_endpoint(request: Request, response: Response):
+    """Remove approval for a specific file."""
+    _sec_headers(response)
+    try:
+        from . import mobile_code_policy
+        body = await request.json()
+        file_path = body.get("file")
+        if not file_path:
+            raise HTTPException(400, "Missing 'file' field")
+        
+        success = mobile_code_policy.unapprove_file(file_path)
+        return {
+            "status": "success" if success else "not_found",
+            "file": file_path,
+            "policy": mobile_code_policy.read_policy(),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Failed to unapprove file: {e}")
 
 
 # ── SPA / static file serving ─────────────────────────────────

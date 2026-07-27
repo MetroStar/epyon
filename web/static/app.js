@@ -500,16 +500,125 @@ function drawStackedBarChart(canvas, series, xLabels, barData) {
 }
 
 // ── API client ────────────────────────────────────────────────
+// ── Frontend cache ───────────────────────────────────────────
+
+const _cache = {
+  _prefix: 'epyon_cache_',
+  _version: null,
+  _ttls: {
+    '/api/stats': 60000,           // 1 minute
+    '/api/applications': 60000,    // 1 minute
+    '/api/scan-history': 120000,   // 2 minutes
+    '/api/metrics': 300000,        // 5 minutes
+    '/api/github-metrics': 600000, // 10 minutes
+    'default': 30000,              // 30 seconds
+  },
+
+  _getKey(url) {
+    return this._prefix + url;
+  },
+
+  _getTTL(url) {
+    for (const [pattern, ttl] of Object.entries(this._ttls)) {
+      if (url.includes(pattern)) return ttl;
+    }
+    return this._ttls.default;
+  },
+
+  get(url) {
+    try {
+      const key = this._getKey(url);
+      const item = localStorage.getItem(key);
+      if (!item) return null;
+
+      const { data, timestamp, version } = JSON.parse(item);
+      const ttl = this._getTTL(url);
+      const age = Date.now() - timestamp;
+
+      // Check version mismatch (scan completion invalidates cache)
+      if (this._version !== null && version !== this._version) {
+        localStorage.removeItem(key);
+        return null;
+      }
+
+      // Check TTL expiry
+      if (age > ttl) {
+        localStorage.removeItem(key);
+        return null;
+      }
+
+      return data;
+    } catch (_) {
+      return null;
+    }
+  },
+
+  set(url, data, serverVersion) {
+    try {
+      const key = this._getKey(url);
+      const item = {
+        data,
+        timestamp: Date.now(),
+        version: serverVersion !== undefined ? serverVersion : this._version,
+      };
+      localStorage.setItem(key, JSON.stringify(item));
+      
+      // Update our version tracker if server sent a new version
+      if (serverVersion !== undefined && serverVersion !== this._version) {
+        this._version = serverVersion;
+      }
+    } catch (_) {
+      // localStorage quota exceeded or disabled — fail silently
+    }
+  },
+
+  clear() {
+    try {
+      const keys = Object.keys(localStorage);
+      for (const key of keys) {
+        if (key.startsWith(this._prefix)) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch (_) {}
+  },
+
+  invalidate() {
+    this.clear();
+    this._version = null;
+  },
+};
+
+// ── API client with caching ───────────────────────────────────
+
 const api = {
-  async _get(url) {
+  async _get(url, useCache = true) {
+    // Try cache first
+    if (useCache) {
+      const cached = _cache.get(url);
+      if (cached !== null) {
+        return cached;
+      }
+    }
+
     const r = await fetch(url);
     if (!r.ok) {
       let detail = r.statusText;
       try { detail = (await r.json()).detail || detail; } catch (_) {}
       throw new Error(`${detail} (${r.status})`);
     }
-    return r.json();
+
+    const data = await r.json();
+    
+    // Store in cache if this is a cacheable endpoint
+    if (useCache) {
+      const serverVersion = r.headers.get('X-Cache-Version');
+      _cache.set(url, data, serverVersion ? parseInt(serverVersion, 10) : undefined);
+    }
+
+    return data;
   },
+  
   async _post(url, body) {
     const r = await fetch(url, {
       method: 'POST',
@@ -521,6 +630,13 @@ const api = {
       try { detail = (await r.json()).detail || detail; } catch (_) {}
       throw new Error(`${detail} (${r.status})`);
     }
+    
+    // Invalidate cache on mutations
+    if (url.includes('/scans') || url.includes('/applications') || 
+        url.includes('/hide') || url.includes('/restore') || url.includes('/monitored')) {
+      _cache.invalidate();
+    }
+    
     return r.json();
   },
   async _delete(url) {
@@ -530,6 +646,10 @@ const api = {
       try { detail = (await r.json()).detail || detail; } catch (_) {}
       throw new Error(`${detail} (${r.status})`);
     }
+    
+    // Invalidate cache on deletions
+    _cache.invalidate();
+    
     return r.json();
   },
   getStats()          { return this._get('/api/stats'); },
@@ -601,6 +721,13 @@ const api = {
   testJiraConnection() { return this._post('/api/jira/test', {}); },
   getJiraTickets()     { return this._get('/api/jira/tickets'); },
   syncJiraApp(name)    { return this._post(`/api/jira/sync/${encodeURIComponent(name)}`, {}); },
+  getMobileCodePolicy()     { return this._get('/api/mobile-code/policy'); },
+  saveMobileCodePolicy(d)   { return this._post('/api/mobile-code/policy', d); },
+  getMobileCodeTypes()      { return this._get('/api/mobile-code/types'); },
+  approveMobileCodeType(t)  { return this._post('/api/mobile-code/approve-type', { type: t }); },
+  unapproveMobileCodeType(t){ return this._post('/api/mobile-code/unapprove-type', { type: t }); },
+  approveMobileCodeFile(f)  { return this._post('/api/mobile-code/approve-file', { file: f }); },
+  unapproveMobileCodeFile(f){ return this._post('/api/mobile-code/unapprove-file', { file: f }); },
 };
 
 // ── Theme ────────────────────────────────────────────────────
@@ -616,6 +743,13 @@ function applyTheme(theme) {
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme') || 'dark';
   applyTheme(current === 'dark' ? 'light' : 'dark');
+}
+
+function clearCacheAndReload() {
+  if (confirm('Clear all cached data and reload the page?')) {
+    _cache.invalidate();
+    window.location.reload();
+  }
 }
 
 (function initTheme() {
@@ -4722,7 +4856,7 @@ async function renderSettings() {
   page.innerHTML = loading();
 
   try {
-    const [images, history, ghCfg, aiCfg, nvdCfg, health, jiraCfg] = await Promise.all([
+    const [images, history, ghCfg, aiCfg, nvdCfg, health, jiraCfg, mcPolicy, mcTypes] = await Promise.all([
       api.getApprovedImages(),
       api.getScanHistory(),
       api.getGitHubConfig(),
@@ -4730,6 +4864,8 @@ async function renderSettings() {
       api.getNvdConfig(),
       api._get('/api/health'),
       api.getJiraConfig().catch(() => ({})),
+      api.getMobileCodePolicy().catch(() => ({ approval_required: true, approved_types: [], approved_files: [] })),
+      api.getMobileCodeTypes().catch(() => []),
     ]);
     const epyonVersion = health.version || '—';
 
@@ -4959,6 +5095,93 @@ async function renderSettings() {
       </div>
 
       <div class="section">
+        <div class="section-title">Mobile Code Policy</div>
+        <p class="section-desc">
+          Manage authorization and monitoring of mobile code (JavaScript, applets, ActiveX, Flash, etc.) 
+          per DoD mobile code policy requirements. Approve mobile code types and specific files for use in applications.
+        </p>
+        <div style="display:grid;gap:14px;max-width:700px">
+          <div>
+            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:13px">
+              <input type="checkbox" id="mc-approval-required" ${mcPolicy.approval_required ? 'checked' : ''}/>
+              Require explicit approval for all mobile code (recommended)
+            </label>
+          </div>
+          
+          <div style="margin-top:10px">
+            <div style="font-weight:600;margin-bottom:8px;font-size:14px">Mobile Code Types</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
+              Click to approve/disapprove mobile code categories. Approved types will be flagged as authorized in scan results.
+            </div>
+            <div id="mc-types-grid" style="display:grid;gap:8px">
+              ${mcTypes.map(t => {
+                const approved = (mcPolicy.approved_types || []).includes(t.type);
+                const riskColors = {
+                  critical: 'var(--critical)',
+                  high: 'var(--high)',
+                  medium: 'var(--medium)',
+                  low: 'var(--low)',
+                };
+                const riskColor = riskColors[t.risk_level] || 'var(--text-muted)';
+                return `
+                <div class="mc-type-card ${approved ? 'mc-approved' : ''}" 
+                     data-type="${esc(t.type)}"
+                     onclick="toggleMobileCodeType('${esc(t.type)}')"
+                     style="padding:12px;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;
+                            transition:all 0.2s;background:var(--bg-input);position:relative">
+                  <div style="display:flex;align-items:start;gap:10px">
+                    <div style="flex:1">
+                      <div style="font-weight:600;font-size:13px;margin-bottom:4px">${esc(t.description)}</div>
+                      <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">${esc(t.category)}</div>
+                      <div style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600;
+                                  background:color-mix(in srgb,${riskColor} 20%,transparent);
+                                  color:${riskColor};border:1px solid color-mix(in srgb,${riskColor} 40%,transparent)">
+                        ${esc(t.risk_level.toUpperCase())} RISK
+                      </div>
+                    </div>
+                    <div class="mc-check" style="width:20px;height:20px;border:2px solid var(--border);border-radius:4px;
+                                                   display:flex;align-items:center;justify-content:center;flex-shrink:0;
+                                                   transition:all 0.2s;
+                                                   ${approved ? 'background:var(--pass);border-color:var(--pass)' : ''}">
+                      ${approved ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                    </div>
+                  </div>
+                </div>`;
+              }).join('')}
+            </div>
+          </div>
+
+          ${(mcPolicy.approved_files || []).length > 0 ? `
+          <div style="margin-top:10px">
+            <div style="font-weight:600;margin-bottom:8px;font-size:14px">Approved Files</div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              ${(mcPolicy.approved_files || []).map(f => `
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-input);
+                          border:1px solid var(--border);border-radius:var(--radius);font-size:12px">
+                <code style="flex:1;font-size:11px">${esc(f)}</code>
+                <button class="btn btn-sm" style="color:var(--critical);padding:2px 8px" 
+                        onclick="event.stopPropagation();removeMobileCodeFile('${esc(f).replace(/'/g, "\\'")}')">Remove</button>
+              </div>`).join('')}
+            </div>
+          </div>` : ''}
+
+          ${mcPolicy.notes ? `
+          <div style="margin-top:10px">
+            <label class="field-label">Policy Notes</label>
+            <div style="padding:10px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);
+                        font-size:12px;white-space:pre-wrap">${esc(mcPolicy.notes)}</div>
+          </div>` : ''}
+
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="saveMobileCodePolicy()">Save Policy</button>
+            <span id="mc-status" style="font-size:13px;color:var(--text-muted)">
+              ${mcPolicy.last_updated ? 'Last updated: ' + fmtDate(mcPolicy.last_updated) : ''}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
         <div class="section-title">Workflow File Setup</div>
         <p class="section-desc">
           Each repository needs the Epyon workflow file added once so that scans run
@@ -4990,7 +5213,7 @@ async function renderSettings() {
           </div>
           <div class="detail-card">
             <div class="label">Security Layers</div>
-            <div class="value">12 + STIG</div>
+            <div class="value">17 + STIG</div>
           </div>
           <div class="detail-card">
             <div class="label">Tagline</div>
@@ -5167,6 +5390,73 @@ async function testJiraConnection() {
     if (statusEl) { statusEl.style.color = 'var(--critical)'; statusEl.textContent = e.message; }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Test Connection'; }
+  }
+}
+
+// ── Mobile Code Policy helpers ────────────────────────────────
+
+async function toggleMobileCodeType(type) {
+  const card = document.querySelector(`.mc-type-card[data-type="${type}"]`);
+  if (!card) return;
+  
+  const isApproved = card.classList.contains('mc-approved');
+  const statusEl = document.getElementById('mc-status');
+  
+  try {
+    if (isApproved) {
+      await api.unapproveMobileCodeType(type);
+      card.classList.remove('mc-approved');
+      const check = card.querySelector('.mc-check');
+      if (check) {
+        check.style.background = '';
+        check.style.borderColor = 'var(--border)';
+        check.innerHTML = '';
+      }
+      if (statusEl) statusEl.textContent = `Removed approval for ${type}`;
+    } else {
+      await api.approveMobileCodeType(type);
+      card.classList.add('mc-approved');
+      const check = card.querySelector('.mc-check');
+      if (check) {
+        check.style.background = 'var(--pass)';
+        check.style.borderColor = 'var(--pass)';
+        check.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+      }
+      if (statusEl) statusEl.textContent = `Approved ${type}`;
+    }
+  } catch (e) {
+    if (statusEl) statusEl.textContent = 'Error: ' + e.message;
+  }
+}
+
+async function removeMobileCodeFile(file) {
+  const statusEl = document.getElementById('mc-status');
+  try {
+    await api.unapproveMobileCodeFile(file);
+    if (statusEl) statusEl.textContent = `Removed approval for ${file}`;
+    // Reload settings to refresh the list
+    setTimeout(() => renderSettings(), 500);
+  } catch (e) {
+    if (statusEl) statusEl.textContent = 'Error: ' + e.message;
+  }
+}
+
+async function saveMobileCodePolicy() {
+  const statusEl = document.getElementById('mc-status');
+  if (statusEl) statusEl.textContent = 'Saving…';
+  
+  try {
+    const policy = await api.getMobileCodePolicy();
+    const approvalRequired = document.getElementById('mc-approval-required')?.checked ?? true;
+    
+    // Only update approval_required flag, keep approved_types and approved_files as-is
+    // (they're managed by the toggle functions)
+    policy.approval_required = approvalRequired;
+    
+    await api.saveMobileCodePolicy(policy);
+    if (statusEl) statusEl.textContent = 'Policy saved.';
+  } catch (e) {
+    if (statusEl) statusEl.textContent = 'Error: ' + e.message;
   }
 }
 

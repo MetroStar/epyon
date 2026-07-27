@@ -266,13 +266,21 @@ You will be given:
    from tools like Grype, Trivy, TruffleHog, Checkov, ClamAV.
 3. Risk acceptance/suppression rules (.epyon-ignore.yml) showing what findings have been \
    accepted as risks with justifications and approvals.
-4. The full content of as many source files as fit within this context window, prioritised by \
+4. **Manual STIG documentation** from the target repository (e.g., docs/stig-findings.md, \
+   COMPLIANCE.md, STIG.md) containing human-authored STIG assessments, manual overrides, \
+   compliance notes, and human-verified evidence. **THESE FILES TAKE PRIORITY** — if a \
+   human has explicitly documented a control as satisfied with specific evidence, respect \
+   that assessment unless you find concrete code changes that invalidate it.
+5. The full content of as many source files as fit within this context window, prioritised by \
    relevance to the controls being assessed.
-5. A list of controls to assess.
+6. A list of controls to assess.
 
 Use the security findings to inform vulnerability management, secrets handling, and secure \
 configuration controls. Use the suppression rules to understand the organization's risk \
-management practices and exception handling policies.
+management practices and exception handling policies. **Most importantly, defer to manual \
+STIG documentation when present** — human security assessors have already reviewed these \
+controls and their judgments should only be overridden when you can cite specific code \
+changes that materially affect compliance.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ASSESSMENT METHODOLOGY — follow this exactly
@@ -498,7 +506,17 @@ _COMPLIANCE_DOCS = {
 
 
 def _is_compliance_relevant_doc(path: Path) -> bool:
-    """Check if a markdown/JSON file is compliance-relevant."""
+    """Check if a markdown/JSON file is compliance-relevant.
+    
+    Priority files for STIG assessment:
+    - docs/stig-findings.md: Manual STIG assessments and overrides
+    - COMPLIANCE.md, STIG.md, SECURITY.md: Human-authored compliance documentation
+    - Any file in docs/, .github/, .compliance/ directories
+    - Files with compliance keywords: findings, audit, controls, assessment, etc.
+    
+    These files are collected as context for the AI STIG assessment and should
+    contain human-verified evidence that takes priority over automated assessments.
+    """
     ext = path.suffix.lower()
     if ext not in {".md", ".json"}:
         return False

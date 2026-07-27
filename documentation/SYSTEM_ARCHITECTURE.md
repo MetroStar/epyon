@@ -444,10 +444,10 @@ scans/{app}_{YYYY-MM-DD_HH-MM-SS}/
 ## Performance Characteristics
 
 ### Scan Duration (typical)
-- **Quick mode:** 5-10 minutes (4 layers: Syft, TruffleHog, ClamAV, Trivy, Grype)
-- **Nightly mode:** 20-40 minutes (14 layers, skip STIG)
-- **Full mode:** 30-60 minutes (all 16 layers including STIG)
-- **STIG-only mode:** 10-20 minutes (Layer 13 only, depends on control count)
+- **Quick mode:** ~3–5 minutes (Syft, TruffleHog, Trivy, Grype, pip-audit, Safety)
+- **Nightly mode:** 20–40 minutes (all non-AI layers; STIG skipped unless explicitly enabled)
+- **Full mode:** 30–60 minutes (all non-AI layers; STIG runs only when explicitly enabled)
+- **STIG-only mode:** 10–20 minutes (Layer 13 only, depends on control count)
 
 ### Bottlenecks
 - **SonarQube:** Can hang on large codebases (timeout: 30 minutes)

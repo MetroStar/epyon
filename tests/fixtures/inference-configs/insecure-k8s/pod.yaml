@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ml-inference-pod
+spec:
+  containers:
+  - name: inference
+    image: ml-inference:latest
+    # Missing securityContext entirely

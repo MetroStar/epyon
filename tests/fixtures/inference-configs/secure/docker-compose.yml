@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  ml-inference:
+    image: ml-inference:latest
+    ports:
+      - "8080:8080"
+    user: "1000:1000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./models:/models:ro
+    security_opt:
+      - no-new-privileges:true

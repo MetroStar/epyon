@@ -1,0 +1,2 @@
+This is a benign pickle-like file for testing purposes.
+It does not contain actual pickle bytecode but serves as a test fixture.

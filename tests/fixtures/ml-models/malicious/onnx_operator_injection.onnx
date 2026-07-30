@@ -1,0 +1,7 @@
+ONNX\x08\x00\x00\x00
+This file contains suspicious operator names:
+PyOp
+PythonOp
+CustomOp
+Exec
+System

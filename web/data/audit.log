@@ -38,3 +38,7 @@
 2026-06-30T09:44:26Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/credativ/plutono.git scan_type=full
 2026-07-16T07:57:58Z INFO action=delete_application client=127.0.0.1 detail=app=portfolio
 2026-07-16T17:50:06Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/metrostar/midas scan_type=full
+2026-07-27T11:49:16Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/metrostar/epyon scan_type=full
+2026-07-27T13:01:08Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/metrostar/epyon scan_type=full
+2026-07-27T13:39:23Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/metrostar/iris scan_type=full
+2026-07-27T14:27:07Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/metrostar/iris scan_type=full

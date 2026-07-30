@@ -19,6 +19,17 @@
 > "Open" findings reflect controls requiring external SIEM/infrastructure, organizational policy,
 > or additional implementation pending future development.
 
+## Manual STIG Documentation
+
+Target repositories can provide manual STIG assessments and overrides by creating documentation files like `docs/stig-findings.md` or `docs/security/stig-findings.md`. The Epyon STIG assessment engine (Layer 13) automatically collects and reads these files as **priority context** when performing AI-powered assessments.
+
+**Key Points**:
+- Manual documentation in `docs/stig-findings.md`, `docs/security/stig-findings.md`, `COMPLIANCE.md`, or `STIG.md` takes priority over AI assessments
+- Human-authored evidence is respected unless specific code changes invalidate it
+- Use manual documentation for runtime-only controls, policy-based controls, and complex architectural assessments
+
+**See**: [Manual STIG Documentation Guide](MANUAL_STIG_DOCUMENTATION_GUIDE.md) for detailed guidance on creating and maintaining manual STIG documentation in target repositories.
+
 ---
 
 ### 1. APSC-DV-000010 | SV-222387r960735

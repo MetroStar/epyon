@@ -3199,3 +3199,35 @@ details[open] > .findings-summary .findings-summary-hint {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
+
+/* ── Mobile Code Policy ────────────────────────────────────── */
+.mc-type-card:hover {
+  border-color: var(--accent) \!important;
+  background: var(--bg-hover) \!important;
+}
+
+.mc-type-card.mc-approved {
+  border-color: var(--pass) \!important;
+  background: color-mix(in srgb, var(--pass) 8%, var(--bg-input)) \!important;
+}
+
+.mc-type-card.mc-approved:hover {
+  background: color-mix(in srgb, var(--pass) 12%, var(--bg-hover)) \!important;
+}
+
+/* ── Cache clear button ──────────────────────────────────── */
+#cache-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-dim);
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+#cache-clear:hover { color: var(--text); }
+#cache-clear svg { display: block; }

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Category 1A - ActiveX Object</title>
+</head>
+<body>
+    <h1>ActiveX Example</h1>
+    <script type="text/vbscript">
+    ' VBScript ActiveX instantiation - Category 1A (Critical Risk)
+    Set obj = CreateObject("WScript.Shell")
+    obj.Run "cmd.exe /c whoami"
+    </script>
+    
+    <object classid="clsid:8856F961-340A-11D0-A96B-00C04FD705A2">
+        <!-- ActiveX WebBrowser control -->
+    </object>
+</body>
+</html>

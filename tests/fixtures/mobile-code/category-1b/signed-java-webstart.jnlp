@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Category 1B - Java Web Start (Signed) -->
+<jnlp spec="1.0+" codebase="https://example.com/apps" href="application.jnlp">
+  <information>
+    <title>Signed Java Application</title>
+    <vendor>Example Corp</vendor>
+    <description>Category 1B - Digitally signed mobile code</description>
+  </information>
+  <security>
+    <all-permissions/>
+  </security>
+  <resources>
+    <j2se version="1.6+"/>
+    <jar href="signed-application.jar" main="true"/>
+  </resources>
+  <application-desc main-class="com.example.MainClass"/>
+</jnlp>

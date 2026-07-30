@@ -266,13 +266,21 @@ You will be given:
    from tools like Grype, Trivy, TruffleHog, Checkov, ClamAV.
 3. Risk acceptance/suppression rules (.epyon-ignore.yml) showing what findings have been \
    accepted as risks with justifications and approvals.
-4. The full content of as many source files as fit within this context window, prioritised by \
+4. **Manual STIG documentation** from the target repository (e.g., docs/stig-findings.md, \
+   COMPLIANCE.md, STIG.md) containing human-authored STIG assessments, manual overrides, \
+   compliance notes, and human-verified evidence. **THESE FILES TAKE PRIORITY** — if a \
+   human has explicitly documented a control as satisfied with specific evidence, respect \
+   that assessment unless you find concrete code changes that invalidate it.
+5. The full content of as many source files as fit within this context window, prioritised by \
    relevance to the controls being assessed.
-5. A list of controls to assess.
+6. A list of controls to assess.
 
 Use the security findings to inform vulnerability management, secrets handling, and secure \
 configuration controls. Use the suppression rules to understand the organization's risk \
-management practices and exception handling policies.
+management practices and exception handling policies. **Most importantly, defer to manual \
+STIG documentation when present** — human security assessors have already reviewed these \
+controls and their judgments should only be overridden when you can cite specific code \
+changes that materially affect compliance.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ASSESSMENT METHODOLOGY — follow this exactly
@@ -498,15 +506,25 @@ _COMPLIANCE_DOCS = {
 
 
 def _is_compliance_relevant_doc(path: Path) -> bool:
-    """Check if a markdown/JSON file is compliance-relevant."""
+    """Check if a markdown/JSON file is compliance-relevant.
+    
+    Priority files for STIG assessment:
+    - docs/stig-findings.md, docs/security/stig-findings.md: Manual STIG assessments and overrides
+    - COMPLIANCE.md, STIG.md, SECURITY.md: Human-authored compliance documentation
+    - Any file in docs/, documentation/, .github/, .compliance/, security/ directories
+    - Files with compliance keywords: findings, audit, controls, assessment, etc.
+    
+    These files are collected as context for the AI STIG assessment and should
+    contain human-verified evidence that takes priority over automated assessments.
+    """
     ext = path.suffix.lower()
     if ext not in {".md", ".json"}:
         return False
     
     stem_lower = path.stem.lower()
     
-    # Allow any markdown/JSON in these specific directories
-    if any(part in {".github", "docs", "documentation", ".compliance"} for part in path.parts):
+    # Allow any markdown/JSON in these specific directories (includes nested paths)
+    if any(part in {".github", "docs", "documentation", ".compliance", "security"} for part in path.parts):
         return True
     
     # Check if filename stem matches known compliance docs
@@ -1114,6 +1132,53 @@ def build_code_context(
 _GUARANTEED_FILES_PER_CONTROL = 3  # was 8; reduced to keep batch token budget in check
 
 
+def extract_manual_stig_docs(files: list[tuple[str, str]]) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+    """Separate manual STIG documentation from regular source files.
+    
+    Returns (manual_docs, remaining_files) where manual_docs are compliance-relevant
+    markdown/JSON files that contain human-authored STIG assessments and should be
+    presented to the AI separately with high priority.
+    
+    Manual docs are identified by:
+    - Path contains: docs/, documentation/, .github/, .compliance/, security/
+    - Filename matches: stig-findings.md, findings.md, COMPLIANCE.md, STIG.md, SECURITY.md
+    - Filename contains: stig, findings, compliance, audit, controls, assessment
+    
+    Examples of paths that will be detected:
+    - docs/stig-findings.md
+    - docs/security/stig-findings.md
+    - documentation/compliance/findings.md
+    - .github/COMPLIANCE.md
+    - STIG.md (at repo root)
+    """
+    manual_docs: list[tuple[str, str]] = []
+    remaining: list[tuple[str, str]] = []
+    
+    for rel, content in files:
+        path = Path(rel)
+        stem_lower = path.stem.lower()
+        
+        is_manual_doc = False
+        
+        # Check directory path - matches both docs/file.md and docs/security/file.md
+        if any(part in {"docs", "documentation", ".github", ".compliance", "security"} for part in path.parts):
+            if path.suffix.lower() in {".md", ".json"}:
+                is_manual_doc = True
+        
+        # Check filename patterns (catches files at repo root or in any directory)
+        if path.suffix.lower() in {".md", ".json"}:
+            manual_keywords = {"stig", "findings", "compliance", "audit", "controls", "assessment", "security"}
+            if any(keyword in stem_lower for keyword in manual_keywords):
+                is_manual_doc = True
+        
+        if is_manual_doc:
+            manual_docs.append((rel, content))
+        else:
+            remaining.append((rel, content))
+    
+    return manual_docs, remaining
+
+
 def build_code_context_for_batch(
     files: list[tuple[str, str]],
     controls_batch: list[dict[str, Any]],
@@ -1288,6 +1353,7 @@ def call_openai(
     previous_assessments: dict[str, dict[str, Any]] | None = None,
     security_findings: str = "",
     suppression_rules: str = "",
+    manual_stig_docs: str = "",
 ) -> tuple[list[dict[str, Any]], int, int]:
     """Call GPT with a batch of controls + full repo manifest + code context.
     
@@ -1300,6 +1366,7 @@ def call_openai(
         previous_assessments: Optional dict mapping vuln_id -> previous assessment results
         security_findings: Current scan's security findings summary
         suppression_rules: Risk acceptance/suppression rules from .epyon-ignore.yml
+        manual_stig_docs: Human-authored STIG assessments (stig-findings.md, COMPLIANCE.md, etc.)
     
     Returns:
         Tuple of (parsed_results, prompt_tokens, completion_tokens)
@@ -1324,11 +1391,32 @@ def call_openai(
     manifest_section = f"{repo_manifest}\n\n" if repo_manifest else ""
     security_section = f"{security_findings}\n\n" if security_findings else ""
     suppression_section = f"{suppression_rules}\n\n" if suppression_rules else ""
+    
+    # Manual STIG documentation gets top priority placement - presented BEFORE code
+    manual_docs_section = ""
+    if manual_stig_docs:
+        manual_docs_section = (
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            "MANUAL STIG DOCUMENTATION (PRIORITY — DEFER TO THESE ASSESSMENTS)\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            "\n"
+            "The following files contain human-authored STIG assessments, manual overrides,\n"
+            "compliance notes, and verified evidence. THESE TAKE ABSOLUTE PRIORITY.\n"
+            "\n"
+            "DO NOT override these manual assessments unless you find SPECIFIC CODE CHANGES\n"
+            "that materially invalidate the documented assessment. If a human has documented\n"
+            "a control as satisfied with evidence, RESPECT that assessment.\n"
+            "\n"
+            f"{manual_stig_docs}\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            "\n"
+        )
 
     user_message = (
         f"{manifest_section}"
         f"{security_section}"
         f"{suppression_section}"
+        f"{manual_docs_section}"
         f"Controls to assess ({len(controls_batch)} total):\n{controls_json}\n\n"
         f"Application source code (examine every file carefully):\n{code_context}"
     )
@@ -1571,6 +1659,7 @@ def _assess_stig(
     stig_data: dict[str, Any],
     stig_path: str,
     source_files: list[tuple[str, str]],
+    manual_docs: list[tuple[str, str]],
     scan_dir: Path,
     app_name: str,
     model: str,
@@ -1583,7 +1672,12 @@ def _assess_stig(
     is_primary: bool,
     target_dir: str,
 ) -> None:
-    """Run assessment for a single STIG and write output files."""
+    """Run assessment for a single STIG and write output files.
+    
+    Args:
+        manual_docs: Human-authored STIG documentation files (stig-findings.md, etc.)
+                     that will be presented to AI with priority
+    """
     controls  = stig_data["controls"]
     stig_name = stig_data["stig_name"]
 
@@ -1603,6 +1697,15 @@ def _assess_stig(
         print(f"[INFO] [{slug}] Loaded security findings from current scan (limited for token budget)", file=sys.stderr)
     if suppression_rules_context:
         print(f"[INFO] [{slug}] Loaded suppression rules from .epyon-ignore.yml (limited for token budget)", file=sys.stderr)
+    
+    # Build manual STIG documentation string for AI priority context
+    manual_docs_context = ""
+    if manual_docs:
+        parts = []
+        for rel, content in manual_docs:
+            parts.append(f"### FILE: {rel}\n```\n{content}\n```\n")
+        manual_docs_context = "\n".join(parts)
+        print(f"[INFO] [{slug}] Loaded {len(manual_docs)} manual STIG documentation file(s) for priority context", file=sys.stderr)
 
     assessments: dict[str, dict[str, str]] = {}
     total_prompt_tokens     = 0
@@ -1628,7 +1731,9 @@ def _assess_stig(
         client = OpenAI(api_key=api_key, **(dict(base_url=base_url) if base_url else {}))
 
         # ── Applicability pre-check ───────────────────────────────────────
-        app_profile = build_app_profile(app_name, source_files)
+        # Use all files (code + manual docs) for app profile to get complete picture
+        all_files_for_profile = source_files + manual_docs
+        app_profile = build_app_profile(app_name, all_files_for_profile)
         applicable, applicability_reason, appl_pt, appl_ct = check_stig_applicability(
             client, model, stig_data, app_profile
         )
@@ -1651,7 +1756,9 @@ def _assess_stig(
 
         # Build repo manifest once — sent with every batch so the model always
         # knows the full file tree even if some files exceed the context budget.
-        repo_manifest = build_repo_manifest(source_files)
+        # Include both code files and manual docs in the manifest.
+        all_files_for_manifest = source_files + manual_docs
+        repo_manifest = build_repo_manifest(all_files_for_manifest)
 
         # Always load previous STIG results when available. The model uses them
         # to confirm unchanged findings or update when evidence has changed.
@@ -1746,13 +1853,14 @@ def _assess_stig(
 
             # Retry loop — up to _MAX_BATCH_RETRIES attempts on JSON/API failure
             # before falling back to Open.  On context_length_exceeded we progressively
-            # reduce ALL context sources: code budget, manifest, findings, suppressions.
+            # reduce ALL context sources: code budget, manifest, findings, suppressions, manual docs.
             results: list[dict[str, Any]] = []
             last_err: str = ""
             code_budget = MAX_CODE_BYTES_PER_BATCH
             active_manifest = repo_manifest  # may be dropped on overflow
             active_findings = security_findings_context
             active_suppressions = suppression_rules_context
+            active_manual_docs = manual_docs_context
             for attempt in range(1, _MAX_BATCH_RETRIES + 1):
                 # (Re)build context — uses current code_budget, which may have
                 # been reduced on a previous context_length_exceeded error.
@@ -1762,7 +1870,7 @@ def _assess_stig(
                 try:
                     results, batch_pt, batch_ct = call_openai(
                         client, model, batch, code_context, active_manifest, previous_assessments,
-                        active_findings, active_suppressions
+                        active_findings, active_suppressions, active_manual_docs
                     )
                     total_prompt_tokens     += batch_pt
                     total_completion_tokens += batch_ct
@@ -1785,8 +1893,8 @@ def _assess_stig(
                     err_str = str(e)
                     if "context_length_exceeded" in err_str:
                         # Progressive reduction strategy on context overflow:
-                        # Attempt 1: Drop findings/suppressions, keep manifest, halve code
-                        # Attempt 2: Drop manifest too, use full code budget
+                        # Attempt 1: Drop findings/suppressions (but keep manual docs), keep manifest, halve code
+                        # Attempt 2: Drop manual docs + manifest too, restore full code budget
                         # Attempt 3: Halve code again as last resort
                         if attempt == 1:
                             print(
@@ -1800,9 +1908,10 @@ def _assess_stig(
                         elif attempt == 2:
                             print(
                                 f"[WARNING] [{slug}] Batch {idx} attempt {attempt}/{_MAX_BATCH_RETRIES} — "
-                                f"{last_err}  →  dropping manifest, restoring code budget to {MAX_CODE_BYTES_PER_BATCH // 1024}KB",
+                                f"{last_err}  →  dropping manual docs + manifest, restoring code budget to {MAX_CODE_BYTES_PER_BATCH // 1024}KB",
                                 file=sys.stderr,
                             )
+                            active_manual_docs = ""
                             active_manifest = ""
                             code_budget = MAX_CODE_BYTES_PER_BATCH
                         else:
@@ -2045,6 +2154,17 @@ def main() -> None:
     print(f"[INFO] Collecting source files from {args.target}", file=sys.stderr)
     source_files = collect_source_files(args.target)
     print(f"[INFO] Collected {len(source_files)} source files", file=sys.stderr)
+    
+    # ── Extract manual STIG documentation ──────────────────────────────────
+    manual_docs, code_files = extract_manual_stig_docs(source_files)
+    if manual_docs:
+        print(f"[INFO] Found {len(manual_docs)} manual STIG documentation file(s):", file=sys.stderr)
+        for rel, _ in manual_docs:
+            print(f"         - {rel}", file=sys.stderr)
+    
+    # Use code_files (without manual docs) for keyword ranking to avoid ranking bias
+    # Manual docs will be presented separately with priority
+    source_files_for_ranking = code_files
     print("", file=sys.stderr)
 
     # ── Detect technology stack ───────────────────────────────────────────
@@ -2108,7 +2228,8 @@ def main() -> None:
         _assess_stig(
             stig_data=stig_data,
             stig_path=str(stig_path),
-            source_files=source_files,
+            source_files=source_files_for_ranking,  # code files only (manual docs shown separately)
+            manual_docs=manual_docs,  # human-authored STIG documentation
             scan_dir=scan_dir,
             app_name=args.app_name,
             model=model,

@@ -1,10 +1,10 @@
 # Epyon — Copilot Instructions
 
-Epyon is a 16-layer DevSecOps security scanner that installs a GitHub Actions workflow into target repositories. It is built for **human-centered cybersecurity workflows**: the tool must be as usable as it is secure.
+Epyon is a 20-layer DevSecOps security scanner that installs a GitHub Actions workflow into target repositories. It is built for **human-centered cybersecurity workflows**: the tool must be as usable as it is secure.
 
 ## What Epyon Does
 
-- Orchestrates 16 security tool layers in a single run (quick / nightly / full / stig modes)
+- Orchestrates 20 security tool layers in a single run (quick / nightly / full / stig modes)
 - Produces a self-contained `security-dashboard.html` deliverable for stakeholders
 - Provides a FastAPI-backed web UI for scan management, findings review, STIG history, and score card
 - Pushes findings to Jira Cloud and GitHub Issues
@@ -22,15 +22,18 @@ Epyon is a 16-layer DevSecOps security scanner that installs a GitHub Actions wo
 | 6 | IaC Security | Checkov | nightly, full |
 | 7 | Container Security | Trivy | quick, nightly, full |
 | 8 | Vulnerability Scanning | Grype | quick, nightly, full |
-| 8.5 | Direct Dependency Scanning | pip-audit | quick, nightly, full, stig |
+| 8.5 | Direct Dependency Scanning | pip-audit (ML-aware) | quick, nightly, full, stig |
 | 9 | EOL Detection | Xeol | nightly, full |
 | 10 | Container Analysis | Anchore | nightly, full |
 | 11 | API Discovery | Custom | nightly, full |
 | 12 | LLM Security Probing | Garak | opt-in only (`RUN_GARAK=true`) |
-| 13 | STIG Compliance | AI (OpenAI) | full, stig |
-| 14 | Pickle Safety | picklescan | nightly, full |
+| 13 | STIG Compliance | AI (OpenAI + ML controls) | full, stig |
+| 14 | Comprehensive Model File Analysis | picklescan-enhanced | nightly, full |
 | 15 | Model Card Compliance | Custom | nightly, full |
 | 16 | Network Discovery | nmap/static | nightly, full |
+| 18 | Model Provenance & Threat Intelligence | Custom | nightly, full |
+| 19 | Inference Environment Security | Custom | nightly, full |
+| 20 | ML Runtime Behavioral Analysis | Custom | opt-in only (`RUN_ML_RUNTIME=true`) |
 
 Every layer can be skipped with `SKIP_<LAYERNAME>=true`. See `documentation/SCAN_MATRIX.md` for the full matrix.
 
@@ -54,7 +57,7 @@ Every layer can be skipped with `SKIP_<LAYERNAME>=true`. See `documentation/SCAN
 | Metrics embedder | `scripts/shell/embed-metrics-in-dashboard.sh` | Injects Chart.js metrics into the dashboard at `<!-- __EPYON_METRICS__ -->` (falls back to last `</body>` in the file, never first). |
 | Scan manifest | `scripts/shell/generate-scan-manifest.sh` | Produces `scan-manifest.json` with SHA-256 hash for scan integrity verification. |
 | ISSO summary | `POST /api/applications/{name}/isso-summary` | AI-generated ISSO compliance report combining STIG controls, severity findings, and suppression data. |
-| Tests | `tests/shell/*.bats` | 789 BATS tests across 50 files. Run with `./run-tests.sh`. |
+| Tests | `tests/shell/*.bats` | 886 BATS tests across 55 files (97 new ML security tests). Run with `./run-tests.sh`. |
 | CI/CD | `.github/workflows/epyon-scan.yml` | Primary reusable workflow installed into target repos. |
 | Baseline | `scripts/shell/run-baseline-scan.sh` | Scans DHI baseline images. Scheduled every 89 days. |
 
@@ -65,7 +68,7 @@ Every layer can be skipped with `SKIP_<LAYERNAME>=true`. See `documentation/SCAN
 - **STIG context sources**: The AI assessment reads four context sources beyond source code: (1) **Manual STIG documentation** from the target repo (e.g., `docs/stig-findings.md`, `docs/security/stig-findings.md`, `COMPLIANCE.md`, `STIG.md`) containing human-authored assessments and overrides — **these take priority** over AI assessments and are presented in a separate priority section before source code, (2) **Security findings** from `security-findings-summary.json` in the current scan directory (CVEs, secrets, IaC issues, malware), (3) **Suppression rules** from `.epyon-ignore.yml` in the target repo (risk acceptances with justifications), (4) **All other markdown/JSON** files in the target repo for existing documentation.
 - **STIG statuses**: `"Not a Finding"` | `"Not Applicable"` | `"Open"` | `"Not Reviewed"`. `"Not Reviewed"` is reserved for runtime-only controls with zero static indicators — use `"Open"` when in doubt.
 - **STIG split**: `stig_na` counts `"Not Applicable"` only; `stig_nr` counts `"Not Reviewed"` only. Never conflate them — they have different compliance meanings.
-- **CVE source classification**: `type == "container_vulnerability"` or `tool == "anchore"` → container; `tool == "checkov"` → iac; `tool == "trufflehog"` → secret; `tool == "xeol"` → eol; otherwise → code.
+- **CVE source classification**: `type == "container_vulnerability"` or `tool == "anchore"` → container; `tool == "checkov"` → iac; `tool == "trufflehog"` → secret; `tool == "xeol"` → eol; `tool` in {`picklescan`, `model-provenance`, `inference-security`, `ml-runtime`} → ml; otherwise → code.
 - **Jira credentials**: `JIRA_BASE_URL`, `JIRA_USER_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY` env vars take priority over `web/data/jira-config.json`. The `_from_env` flag passes through the API to the UI.
 - **Jira fingerprinting**: `finding_fingerprint()` creates stable keys from `tool + id + package + target + app_name + project_key` with normalized paths (last 3 components) and normalized app names (lowercase, hyphens). Project key isolation prevents duplicates when tracking the same app across multiple Jira projects. Ticket map stores `project_key` for audit trail.
 - **Webhook config**: `EPYON_CALLBACK_URL`, `EPYON_JOB_ID`, `EPYON_WEBHOOK_SECRET` env vars enable real-time progress notifications. All optional — gracefully degrades if not set. No workflow changes required — workflows just pass env vars through. HMAC-SHA256 signature sent in `X-Epyon-Signature` header when secret is set. See `documentation/WEBHOOK_INTEGRATION_GUIDE.md`.
@@ -97,7 +100,7 @@ Key endpoint groups (all under `/api/`):
 ## Usability Principles
 
 - **Human-readable output first**: every scan produces a markdown findings file alongside the JSON. The markdown is the artifact a human reviewer reads.
-- **Progressive disclosure**: the web UI shows severity badges, source badges (📦 Container / 💻 Code / 🔧 IaC / 🔑 Secret / ⏱ EOL), and STIG status counts without requiring the user to open raw JSON.
+- **Progressive disclosure**: the web UI shows severity badges, source badges (📦 Container / 💻 Code / 🔧 IaC / 🔑 Secret / ⏱ EOL / 🧠 ML), and STIG status counts without requiring the user to open raw JSON.
 - **Don't break the dashboard**: `security-dashboard.html` is a self-contained deliverable shared with stakeholders. Avoid changes that could silently corrupt the embedded JS or inject `<script>` tags into the middle of the app.js template literal.
 - **Confidence scores are load-bearing**: the STIG freeze logic relies on `confidence ≥ 85`. Never silently zero out confidence values; if a control can't be assessed, use a low non-zero value and status `Open`.
 - **Manual overrides must persist**: when a human marks a STIG control as `Not a Finding` in the JSON with `confidence ≥ 85`, the next scan must freeze it. Don't overwrite human-reviewed findings with AI re-assessments. Similarly, **human-authored STIG documentation in the target repo** (e.g., `docs/stig-findings.md`, `docs/security/stig-findings.md`) takes priority — the AI should defer to explicit manual assessments unless specific code changes invalidate them.

@@ -557,7 +557,8 @@ _detect_model_files() {
 }
 
 run_picklescan_layer() {
-  # Layer 14 — Pickle/Serialization Safety (picklescan)
+  # Layer 14 — Comprehensive Model File Analysis (Enhanced Picklescan)
+  # Multi-format detection: pickle, pytorch, onnx, tensorflow, config files
   # Runs in full/nightly/baseline/huggingface/local_model modes; skipped for quick and stig.
   # Scripts handle the "no model files" case gracefully (0-file result).
   # Override: RUN_PICKLESCAN=true/false, SKIP_PICKLESCAN=true.
@@ -572,11 +573,19 @@ run_picklescan_layer() {
   [[ "${SKIP_PICKLESCAN:-false}" == "true" ]] && _should_run="false"
 
   if [[ "$_should_run" == "false" ]]; then
-    echo "[INFO] Skipping Layer 14 - Picklescan (scan_mode=${SCAN_MODE:-full}; set RUN_PICKLESCAN=true to force)"
+    echo "[INFO] Skipping Layer 14 - Enhanced Picklescan (scan_mode=${SCAN_MODE:-full}; set RUN_PICKLESCAN=true to force)"
     return 0
   fi
 
-  run_layer_script "Layer 14 - Pickle/Serialization Safety (picklescan)" "scripts/shell/run-picklescan.sh"
+  # Use enhanced Python scanner with multi-format support
+  run_group "Layer 14 - Comprehensive Model File Analysis (Enhanced Picklescan)" bash -lc '
+    chmod +x scripts/shell/run-picklescan.py
+    python3 scripts/shell/run-picklescan.py \
+      --target "$TARGET_DIR" \
+      --scan-dir "$SCAN_DIR" \
+      --app-name "${TARGET_NAME:-$(basename "$TARGET_DIR")}" \
+      --formats pickle,pytorch,onnx,tensorflow,config
+  '
 }
 
 run_modelcard_layer() {
@@ -612,6 +621,82 @@ run_network_discovery_layer() {
     return 0
   fi
   run_layer_script "Layer 16 - Network Discovery" "scripts/shell/run-network-discovery.sh"
+}
+
+run_model_provenance_layer() {
+  # Layer 18 — Model Provenance & Threat Intelligence
+  # Validates model signatures, author reputation, and checks against blocklist.
+  # Runs in full/nightly/baseline modes; skipped for quick and stig.
+  # Override: RUN_MODEL_PROVENANCE=true/false, SKIP_MODEL_PROVENANCE=true.
+  local _should_run="false"
+  case "${SCAN_MODE:-full}" in
+    quick|stig) _should_run="false" ;;
+    *)          _should_run="true"  ;;
+  esac
+
+  [[ "${RUN_MODEL_PROVENANCE:-}" == "true"  ]] && _should_run="true"
+  [[ "${RUN_MODEL_PROVENANCE:-}" == "false" ]] && _should_run="false"
+  [[ "${SKIP_MODEL_PROVENANCE:-false}" == "true" ]] && _should_run="false"
+
+  if [[ "$_should_run" == "false" ]]; then
+    echo "[INFO] Skipping Layer 18 - Model Provenance (scan_mode=${SCAN_MODE:-full}; set RUN_MODEL_PROVENANCE=true to force)"
+    return 0
+  fi
+
+  run_layer_script "Layer 18 - Model Provenance & Threat Intelligence" "scripts/shell/run-model-provenance-check.sh"
+}
+
+run_inference_security_layer() {
+  # Layer 19 — Inference Environment Security
+  # Analyzes Dockerfile, docker-compose, and Kubernetes manifests for security misconfigurations.
+  # Runs in full/nightly modes; skipped for quick and stig.
+  # Override: RUN_INFERENCE_SECURITY=true/false, SKIP_INFERENCE_SECURITY=true.
+  local _should_run="false"
+  case "${SCAN_MODE:-full}" in
+    quick|stig) _should_run="false" ;;
+    *)          _should_run="true"  ;;
+  esac
+
+  [[ "${RUN_INFERENCE_SECURITY:-}" == "true"  ]] && _should_run="true"
+  [[ "${RUN_INFERENCE_SECURITY:-}" == "false" ]] && _should_run="false"
+  [[ "${SKIP_INFERENCE_SECURITY:-false}" == "true" ]] && _should_run="false"
+
+  if [[ "$_should_run" == "false" ]]; then
+    echo "[INFO] Skipping Layer 19 - Inference Security (scan_mode=${SCAN_MODE:-full}; set RUN_INFERENCE_SECURITY=true to force)"
+    return 0
+  fi
+
+  run_layer_script "Layer 19 - Inference Environment Security" "scripts/shell/run-inference-security-scan.sh"
+}
+
+run_ml_runtime_layer() {
+  # Layer 20 — ML Runtime Behavioral Analysis (Opt-in Only)
+  # Executes models in sandboxed containers to detect malicious runtime behavior.
+  # Resource-intensive: requires Docker/Podman. Defaults to disabled.
+  # Enable with: RUN_ML_RUNTIME=true
+  # Override: SKIP_ML_RUNTIME=true to force-disable.
+  local _should_run="false"
+
+  # Layer 20 is opt-in only — never runs automatically
+  [[ "${RUN_ML_RUNTIME:-false}" == "true" ]] && _should_run="true"
+  [[ "${SKIP_ML_RUNTIME:-false}" == "true" ]] && _should_run="false"
+
+  if [[ "$_should_run" == "false" ]]; then
+    if [[ "${SKIP_ML_RUNTIME:-false}" == "true" ]]; then
+      echo "[INFO] Skipping Layer 20 - ML Runtime Analysis (SKIP_ML_RUNTIME=true)"
+    else
+      echo "[INFO] Skipping Layer 20 - ML Runtime Analysis (set RUN_ML_RUNTIME=true to enable)"
+    fi
+    return 0
+  fi
+
+  run_group "Layer 20 - ML Runtime Behavioral Analysis" bash -lc '
+    chmod +x scripts/shell/run-ml-runtime-analysis.py
+    python3 scripts/shell/run-ml-runtime-analysis.py \
+      --target "$TARGET_DIR" \
+      --scan-dir "$SCAN_DIR" \
+      --app-name "${TARGET_NAME:-$(basename "$TARGET_DIR")}"
+  '
 }
 
 # ── Per-tool skip helpers ─────────────────────────────────────────────────────
@@ -921,6 +1006,12 @@ fi
 run_picklescan_layer
 
 run_modelcard_layer
+
+run_model_provenance_layer
+
+run_inference_security_layer
+
+run_ml_runtime_layer
 
 # ── Post-scan: Reports & Dashboard ───────────────────────────────────────────
 

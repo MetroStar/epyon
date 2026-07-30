@@ -1,0 +1,28 @@
+{
+  "tool": "ml-runtime-analysis",
+  "version": "1.0",
+  "status": "completed",
+  "findings": [
+    {
+      "type": "network_attempt",
+      "file": "backdoor.pkl",
+      "severity": "high",
+      "description": "Model attempted network communication",
+      "evidence": "socket.error detected"
+    },
+    {
+      "type": "suspicious_file_access",
+      "file": "filespy.pkl",
+      "severity": "critical",
+      "description": "Model attempted to access sensitive files",
+      "evidence": "Permission denied /etc/passwd"
+    },
+    {
+      "type": "subprocess_execution",
+      "file": "shell.pkl",
+      "severity": "critical",
+      "description": "Model attempted subprocess execution",
+      "evidence": "subprocess.call detected"
+    }
+  ]
+}

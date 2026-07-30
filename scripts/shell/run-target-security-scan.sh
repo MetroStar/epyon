@@ -80,7 +80,7 @@ EOF
 
 # Help function
 show_help() {
-    echo -e "${GREEN}Fifteen-Layer Security Scan Orchestrator${NC}"
+    echo -e "${GREEN}Twenty-Layer Security Scan Orchestrator${NC}"
     echo ""
     echo "Usage: $0 [OPTIONS] <TARGET> [SCAN_TYPE]"
     echo "       $0 --target <TARGET> --scan-type <SCAN_TYPE> [OPTIONS]"
@@ -115,7 +115,7 @@ show_help() {
     echo ""
     echo "Scan Types:"
     echo "  quick       SBOM, TruffleHog, Helm, Trivy (fs+base), Grype (sbom+images), Xeol, API Discovery"
-    echo "  full        All 15 layers: SBOM, Secrets, SonarQube, ClamAV, Helm, Checkov, Trivy, Grype, Xeol, Anchore, API, Garak, Network, Picklescan, ModelCard (default)"
+    echo "  full        All 20 layers: SBOM, Secrets, SonarQube, ClamAV, Helm, Checkov, Trivy, Grype, Xeol, Anchore, API, Garak, Network, Picklescan, ModelCard, Mobile, Provenance, Inference, Runtime (default)"
     echo "  images      Container-focused: TruffleHog, Grype, Trivy, Xeol (image + base targets)"
     echo "  analysis    SonarQube, Checkov, API Discovery, Network Discovery [+Garak opt-in]"
     echo ""
@@ -133,8 +133,12 @@ show_help() {
     echo "  Layer 11: API Discovery (OpenAPI, REST, GraphQL)"
     echo "  Layer 12: LLM Security Probing (Garak, opt-in via RUN_GARAK=true)"
     echo "  Layer 13: Network Discovery (Ports, Protocols, Services)"
-    echo "  Layer 14: Pickle/Serialization Safety (Picklescan)"
+    echo "  Layer 14: Comprehensive Model File Analysis (Enhanced Picklescan)"
     echo "  Layer 15: Model Card Compliance (ModelCard)"
+    echo "  Layer 17: Mobile Code Detection"
+    echo "  Layer 18: Model Provenance & Threat Intelligence"
+    echo "  Layer 19: Inference Environment Security"
+    echo "  Layer 20: ML Runtime Behavioral Analysis (opt-in via RUN_ML_RUNTIME=true)"
     echo ""
     echo "Output:"
     echo "  Results saved to: scans/{TARGET}_{USER}_{TIMESTAMP}/"
@@ -752,7 +756,7 @@ fi
 send_webhook "scan_start" "Security scan started for $APP_NAME" "in_progress" ""
 
 echo "============================================"
-echo "🛡️  Twelve-Layer Security Scan Orchestrator"
+echo "🛡️  Twenty-Layer Security Scan Orchestrator"
 echo "============================================"
 echo "Security Tools Dir: $REPO_ROOT"
 echo "Target Directory: $TARGET_DIR"
@@ -1095,7 +1099,7 @@ case "$SCAN_TYPE" in
         ;;
         
     "full")
-        print_section "Complete Twelve-Layer Security Architecture Scan - Target: $(basename "$TARGET_DIR")"
+        print_section "Complete Twenty-Layer Security Architecture Scan - Target: $(basename "$TARGET_DIR")"
         
         # SBOM FIRST - Generate bill of materials for all other tools to use (with dependency installation)
         echo -e "${PURPLE}📋 Layer 1: Software Bill of Materials (SBOM) - Foundation for all scans${NC}"
@@ -1196,11 +1200,12 @@ case "$SCAN_TYPE" in
             echo -e "${YELLOW}⏭️  Skipping Layer 13 - Network Discovery (SKIP_NETWORK_DISCOVERY=true)${NC}"
         fi
 
-        echo -e "${PURPLE}🥒 Layer 14: Pickle/Serialization Safety${NC}"
+        echo -e "${PURPLE}🥒 Layer 14: Comprehensive Model File Analysis${NC}"
         if [[ "${SKIP_PICKLESCAN:-false}" != "true" ]]; then
-            run_security_tool "Picklescan ML Safety" "$SCRIPT_DIR/run-picklescan.sh"
+            # Enhanced picklescan with multi-format support
+            run_security_tool "Enhanced Picklescan" "python3 $SCRIPT_DIR/run-picklescan.py --formats pickle,pytorch,onnx,tensorflow,config"
         else
-            echo -e "${YELLOW}⏭️  Skipping Layer 14 - Picklescan (SKIP_PICKLESCAN=true)${NC}"
+            echo -e "${YELLOW}⏭️  Skipping Layer 14 - Enhanced Picklescan (SKIP_PICKLESCAN=true)${NC}"
         fi
 
         echo -e "${PURPLE}📋 Layer 15: Model Card Compliance${NC}"
@@ -1220,6 +1225,34 @@ case "$SCAN_TYPE" in
             run_security_tool "Mobile Code Detection" "python3 $SCRIPT_DIR/run-mobile-code-scan.py $POLICY_ARG"
         else
             echo -e "${YELLOW}⏭️  Skipping Layer 17 - Mobile Code (SKIP_MOBILE_CODE=true)${NC}"
+        fi
+
+        echo -e "${PURPLE}🔐 Layer 18: Model Provenance & Threat Intelligence${NC}"
+        if [[ "${SKIP_MODEL_PROVENANCE:-false}" != "true" ]]; then
+            # Model provenance validation and threat intelligence lookup
+            run_security_tool "Model Provenance Check" "$SCRIPT_DIR/run-model-provenance-check.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Layer 18 - Model Provenance (SKIP_MODEL_PROVENANCE=true)${NC}"
+        fi
+
+        echo -e "${PURPLE}🐳 Layer 19: Inference Environment Security${NC}"
+        if [[ "${SKIP_INFERENCE_SECURITY:-false}" != "true" ]]; then
+            # Container and K8s security configuration analysis
+            run_security_tool "Inference Security Scan" "$SCRIPT_DIR/run-inference-security-scan.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Layer 19 - Inference Security (SKIP_INFERENCE_SECURITY=true)${NC}"
+        fi
+
+        echo -e "${PURPLE}🧪 Layer 20: ML Runtime Behavioral Analysis${NC}"
+        # Layer 20 is opt-in only due to resource requirements (Docker/Podman + sandbox execution)
+        if [[ "${RUN_ML_RUNTIME:-false}" == "true" ]] && [[ "${SKIP_ML_RUNTIME:-false}" != "true" ]]; then
+            run_security_tool "ML Runtime Analysis" "python3 $SCRIPT_DIR/run-ml-runtime-analysis.py"
+        else
+            if [[ "${SKIP_ML_RUNTIME:-false}" == "true" ]]; then
+                echo -e "${YELLOW}⏭️  Skipping Layer 20 - ML Runtime Analysis (SKIP_ML_RUNTIME=true)${NC}"
+            else
+                echo -e "${YELLOW}⏭️  Skipping Layer 20 - ML Runtime Analysis (set RUN_ML_RUNTIME=true to enable)${NC}"
+            fi
         fi
         ;;
         

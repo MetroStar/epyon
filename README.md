@@ -16,9 +16,9 @@ Epyon is designed to be opinionated, automated, and decisive — empowering team
 
 ## Overview
 
-Epyon is a **production-ready, enterprise-grade** 17-layer DevSecOps security platform with a FastAPI-backed web UI, comprehensive test coverage, baseline scanning, automated comparison, and isolated scan directory architecture. Built for real-world applications with Docker-based tooling and 789 automated tests.
+Epyon is a **production-ready, enterprise-grade** 20-layer DevSecOps security platform with a FastAPI-backed web UI, comprehensive test coverage, baseline scanning, automated comparison, and isolated scan directory architecture. Built for real-world applications with Docker-based tooling and 886 automated tests.
 
-**Version: 3.7.0** · **Updated: June 16, 2026**
+**Version: 3.13.0** · **Updated: July 30, 2026**
 
 ## 🌍 Platform Support
 
@@ -1319,13 +1319,16 @@ Epyon provides **excellent security coverage for Python applications** with comp
 
 **Current AI/ML Capabilities:**
 - ✅ **Python ML Libraries**: Scans vulnerabilities in TensorFlow, PyTorch, scikit-learn, etc.
-- ✅ **Dependency Security**: Detects CVEs in ML framework dependencies
+- ✅ **Dependency Security**: Detects CVEs in ML framework dependencies + typosquatted ML packages (Layer 8.5)
 - ✅ **Container Security**: Scans ML model serving containers (TensorFlow Serving, TorchServe)
 - ✅ **Code Quality**: Analyzes ML training scripts and inference code
 - ✅ **LLM Safety (Garak)**: Prompt injection, jailbreaking, and safety probe testing (Layer 12)
-- ✅ **ML Model Scanning (PickleScan)**: Detects malicious opcodes in `.pkl`, `.pt`, `.bin`, `.h5`, `.ckpt`, and other serialization formats (Layer 14)
+- ✅ **Comprehensive Model File Analysis**: Multi-format scanner for pickle, PyTorch JIT, ONNX, TensorFlow exploits (Layer 14)
 - ✅ **Model Card Compliance**: Validates HuggingFace model cards against documentation standards (Layer 15)
-- ✅ **STIG Assessment**: AI-powered static code review against DISA STIG controls (Layer 13)
+- ✅ **Model Provenance & Threat Intelligence**: Blocklist matching, typosquatting detection, signature verification (Layer 18)
+- ✅ **Inference Environment Security**: Dockerfile/K8s manifest security analysis for 25+ misconfigurations (Layer 19)
+- ✅ **ML Runtime Behavioral Analysis**: Opt-in sandboxed model loading with behavior monitoring (Layer 20)
+- ✅ **ML STIG Compliance**: 15 AI/ML security controls assessed via rule-based AI analysis (Layer 13)
 
 ### Recommended Usage for Python/AI Projects
 
@@ -1340,14 +1343,23 @@ Epyon provides **excellent security coverage for Python applications** with comp
 
 #### Python ML/AI Application
 ```bash
-# Full HuggingFace scan — standard layers + pickle safety + model card compliance
-./scripts/shell/run-target-security-scan.sh "/path/to/ml-app" huggingface
+# Full ML security scan — all 20 layers including ML provenance + infrastructure
+RUN_MODEL_PROVENANCE=true RUN_INFERENCE_SECURITY=true \
+  ./scripts/shell/run-target-security-scan.sh "/path/to/ml-app" full
 
-# Standard full scan — Python deps, containers, code quality, secrets, STIG
-./scripts/shell/run-target-security-scan.sh "/path/to/ml-app" full
+# Quick ML security check — Layers 1, 2, 7, 8, 8.5, 14, 18 only
+RUN_PICKLESCAN=true RUN_MODEL_PROVENANCE=true \
+  ./scripts/shell/run-target-security-scan.sh "/path/to/ml-app" quick
 
-# Container-focused
-./scripts/shell/run-target-security-scan.sh "/path/to/ml-app" images
+# Comprehensive audit with runtime analysis (slow, opt-in only)
+OPENAI_API_KEY=sk-xxx RUN_ML_RUNTIME=true RUN_STIG=true \
+  ./scripts/shell/run-target-security-scan.sh "/path/to/ml-app" full
+
+# HuggingFace model repository scan
+./scripts/shell/run-target-security-scan.sh "/path/to/hf-model" huggingface
+
+# Container-focused ML deployment scan
+./scripts/shell/run-target-security-scan.sh "/path/to/ml-deployment" images
 ```
 
 ### Example Scan Output (Python Application)
@@ -1789,8 +1801,11 @@ export TARGET_DIR="/workspace" && ./scripts/shell/run-target-security-scan.sh "$
 - ✅ **Deduplication of suppressed findings** across both dashboards
 
 ### 🆕 Previous Updates (v3.1.0) - HuggingFace Scanning Suite & STIG Confidence
-- ✅ **Layer 14 — Pickle/Serialization Safety** (`run-picklescan.sh`): scans ML model repos for malicious pickle opcodes in `.pkl`, `.pt`, `.pth`, `.bin`, `.ckpt`, `.npy`, `.npz`, `.joblib`, `.h5`, `.hdf5` files using `picklescan`; outputs normalized `picklescan/picklescan-results.json`; auto-installs via pip
+- ✅ **Layer 14 — Comprehensive Model File Analysis** (`run-picklescan.py`): Multi-format scanner detects malicious code in pickle (`.pkl`, `.pth`, `.bin`), PyTorch JIT (`.pt`), ONNX (`.onnx`), TensorFlow SavedModel, and config files; identifies dangerous imports (subprocess, socket, eval), JIT exploits, operator injection, and obfuscation patterns (base64, hex escapes); outputs normalized findings array to `picklescan/picklescan-results.json`
 - ✅ **Layer 15 — Model Card Compliance** (`run-modelcard-check.sh`): validates HuggingFace-style model cards against 10 documentation standards (required sections, YAML frontmatter fields, safetensors format recommendation); flexible pattern matching handles diverse card conventions
+- ✅ **Layer 18 — Model Provenance & Threat Intelligence** (`run-model-provenance-check.py`): Validates model authenticity via blocklist matching (SHA256 hashes, compromised authors/repos in `ml-blocklist.json`), typosquatting detection (Levenshtein distance < 3), optional GPG signature verification, and HuggingFace reputation checks (requires `HF_TOKEN`); supports remote threat feeds via URL
+- ✅ **Layer 19 — Inference Environment Security** (`run-inference-security-scan.sh`): Pure-bash static analysis of Dockerfile, docker-compose, and Kubernetes manifests for 25+ misconfigurations (privileged mode, root user execution, dangerous capabilities like SYS_ADMIN, missing `runAsNonRoot`, disabled AppArmor/seccomp); outputs findings to `inference-security/inference-security-results.json`
+- ✅ **Layer 20 — ML Runtime Behavioral Analysis** (`run-ml-runtime-analysis.py`): **Opt-in only** — Sandboxed model loading in isolated Docker/Podman container with network disabled, read-only filesystem, and all capabilities dropped; monitors for network attempts, unauthorized file access, subprocess execution, and timeouts; resource-intensive (~1 minute per model); requires `RUN_ML_RUNTIME=true`
 - ✅ **`scan-huggingface.yml` workflow**: dedicated GitHub Actions entry-point for scanning HuggingFace model, Space, and dataset repositories; resolves HF URLs automatically by type; supports optional Garak LLM probing for model repos
 - ✅ **`huggingface` scan mode**: new scan mode in `run-epyon-scan-ci.sh` that enables Layers 14–15 by default and skips irrelevant layers; added to all scan mode dropdowns
 - ✅ **STIG confidence scoring**: each STIG control now receives an AI-generated confidence score (0–100) based on evidence quality, specificity, and certainty; displayed as color-coded badges in the web UI and appended to `.md`/`.cklb` findings

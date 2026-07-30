@@ -1,0 +1,35 @@
+{
+  "tool": "picklescan-enhanced",
+  "version": "1.0",
+  "status": "completed",
+  "findings": [
+    {
+      "type": "dangerous_imports",
+      "file": "malicious.pkl",
+      "severity": "critical",
+      "description": "Pickle file contains dangerous imports",
+      "evidence": "Found dangerous imports: subprocess, os.system, socket"
+    },
+    {
+      "type": "obfuscation_detected",
+      "file": "config.json",
+      "severity": "high",
+      "description": "Configuration file contains obfuscated payload",
+      "evidence": "base64 encoded data detected"
+    },
+    {
+      "type": "onnx_operator_injection",
+      "file": "model.onnx",
+      "severity": "high",
+      "description": "ONNX model contains dangerous operators",
+      "evidence": "Dangerous operators: PyOp, CustomOp"
+    },
+    {
+      "type": "pytorch_jit_code",
+      "file": "pytorch_model.pt",
+      "severity": "critical",
+      "description": "PyTorch model contains embedded Python code",
+      "evidence": "Embedded code detected in ZIP archive"
+    }
+  ]
+}

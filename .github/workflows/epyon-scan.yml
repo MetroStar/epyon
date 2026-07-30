@@ -155,12 +155,27 @@ on:
         default: false
         type: boolean
       run_picklescan:
-        description: 'Force-enable Layer 14 — Pickle/Serialization Safety (auto-enabled when model weight files are detected)'
+        description: 'Force-enable Layer 14 — Comprehensive Model File Analysis (auto-enabled when model files are detected)'
         required: false
         default: false
         type: boolean
       run_modelcard:
         description: 'Force-enable Layer 15 — Model Card Compliance (auto-enabled when model files + README detected)'
+        required: false
+        default: false
+        type: boolean
+      run_model_provenance:
+        description: 'Force-enable Layer 18 — Model Provenance & Threat Intelligence (auto-enabled in full/nightly modes)'
+        required: false
+        default: false
+        type: boolean
+      run_inference_security:
+        description: 'Force-enable Layer 19 — Inference Environment Security (auto-enabled in full/nightly modes)'
+        required: false
+        default: false
+        type: boolean
+      run_ml_runtime:
+        description: 'Enable Layer 20 — ML Runtime Behavioral Analysis (sandboxed execution, opt-in only due to resource requirements)'
         required: false
         default: false
         type: boolean
@@ -294,6 +309,9 @@ jobs:
       GH_TOKEN: "${{ secrets.GH_TOKEN || github.token }}"
       RUN_PICKLESCAN: "${{ inputs.run_picklescan == true && 'true' || '' }}"
       RUN_MODELCARD: "${{ inputs.run_modelcard == true && 'true' || '' }}"
+      RUN_MODEL_PROVENANCE: "${{ inputs.run_model_provenance == true && 'true' || '' }}"
+      RUN_INFERENCE_SECURITY: "${{ inputs.run_inference_security == true && 'true' || '' }}"
+      RUN_ML_RUNTIME: "${{ inputs.run_ml_runtime == true && 'true' || '' }}"
       CREATE_GITHUB_ISSUE: "${{ inputs.create_github_issue }}"
       CREATE_JIRA_TICKETS: "${{ inputs.create_jira_tickets }}"  # true by default; set to false to disable
       JIRA_PROJECT_KEY: "${{ secrets.JIRA_PROJECT_KEY || inputs.jira_project_key }}"

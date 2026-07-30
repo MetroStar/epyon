@@ -3169,7 +3169,7 @@ async def get_mobile_code_policy(response: Response):
 
 @app.post("/api/mobile-code/policy")
 async def update_mobile_code_policy(request: Request, response: Response):
-    """Update the mobile code policy configuration."""
+    """Update the mobile code policy configuration with audit logging."""
     _sec_headers(response)
     try:
         from . import mobile_code_policy
@@ -3184,7 +3184,13 @@ async def update_mobile_code_policy(request: Request, response: Response):
             "notes": body.get("notes", ""),
         }
         
-        mobile_code_policy.write_policy(policy)
+        # Extract audit metadata
+        reason = body.get("reason", "Policy bulk update via API")
+        reference = body.get("reference", "")
+        user = request.client.host if request.client else "unknown"
+        
+        # Write with audit trail
+        mobile_code_policy.write_policy_with_audit(policy, user, reason, reference)
         return {"status": "success", "policy": mobile_code_policy.read_policy()}
     except Exception as e:
         raise HTTPException(500, f"Failed to update mobile code policy: {e}")
@@ -3238,6 +3244,9 @@ async def approve_mobile_code_type_endpoint(request: Request, response: Response
             "type": mobile_type,
             "policy": mobile_code_policy.read_policy(),
         }
+    except ValueError as e:
+        # Invalid type ID
+        raise HTTPException(400, str(e))
     except HTTPException:
         raise
     except Exception as e:

@@ -4665,7 +4665,7 @@ async function renderPerformanceDashboard() {
     // Fetch cache metrics and scanner validation history
     const [cacheMetrics, frontendMetrics] = await Promise.all([
       api._get('/api/metrics/cache'),
-      Promise.resolve(api._cache.getMetrics())
+      Promise.resolve(_cache.getMetrics())
     ]);
 
     // Combine backend and frontend metrics
@@ -4675,9 +4675,9 @@ async function renderPerformanceDashboard() {
       timestamp: new Date().toISOString()
     };
 
-    // Calculate aggregate hit rate
-    const backendHitRate = cacheMetrics.hit_rates?.scans || 0;
-    const frontendHitRate = frontendMetrics.hit_rate || 0;
+    // Calculate aggregate hit rate (average of scan cache and frontend)
+    const backendHitRate = cacheMetrics.hit_rates?.scan || 0;
+    const frontendHitRate = frontendMetrics.hit_rate_pct || 0;
     const avgHitRate = ((backendHitRate + frontendHitRate) / 2).toFixed(1);
 
     // Build cache performance summary
@@ -4710,7 +4710,7 @@ async function renderPerformanceDashboard() {
           </div>
           <div class="stat-card">
             <div class="stat-label">Backend Cache Size</div>
-            <div class="stat-value">${cacheMetrics.cache_sizes?.scans || 0} scans</div>
+            <div class="stat-value">${cacheMetrics.cache_sizes?.scan || 0} scans</div>
           </div>
         </div>
 
@@ -4718,22 +4718,22 @@ async function renderPerformanceDashboard() {
           <div>
             <h4 style="margin:0 0 12px 0;font-size:14px;color:var(--text-primary)">Backend Metrics</h4>
             <table class="info-table">
-              <tr><td>Total Hits</td><td>${cacheMetrics.hits?.scans || 0}</td></tr>
-              <tr><td>Total Misses</td><td>${cacheMetrics.misses?.scans || 0}</td></tr>
-              <tr><td>Cache Writes</td><td>${cacheMetrics.writes?.scans || 0}</td></tr>
-              <tr><td>Invalidations</td><td>${cacheMetrics.invalidations || 0}</td></tr>
-              <tr><td>Avg Staleness</td><td>${(cacheMetrics.avg_staleness_seconds?.scans || 0).toFixed(1)}s</td></tr>
+              <tr><td>Total Hits</td><td>${cacheMetrics.hits?.scan || 0}</td></tr>
+              <tr><td>Total Misses</td><td>${cacheMetrics.misses?.scan || 0}</td></tr>
+              <tr><td>Cache Writes</td><td>${cacheMetrics.writes?.scan || 0}</td></tr>
+              <tr><td>Recent Invalidations</td><td>${cacheMetrics.recent_invalidations?.length || 0}</td></tr>
             </table>
           </div>
           <div>
             <h4 style="margin:0 0 12px 0;font-size:14px;color:var(--text-primary)">Frontend Metrics</h4>
             <table class="info-table">
-              <tr><td>Total Hits</td><td>${frontendMetrics.total_hits || 0}</td></tr>
-              <tr><td>Total Misses</td><td>${frontendMetrics.total_misses || 0}</td></tr>
-              <tr><td>Cache Writes</td><td>${frontendMetrics.total_writes || 0}</td></tr>
+              <tr><td>Total Hits</td><td>${frontendMetrics.hits || 0}</td></tr>
+              <tr><td>Total Misses</td><td>${frontendMetrics.misses || 0}</td></tr>
+              <tr><td>Cache Writes</td><td>${frontendMetrics.writes || 0}</td></tr>
               <tr><td>Version Mismatches</td><td>${frontendMetrics.version_mismatches || 0}</td></tr>
               <tr><td>TTL Expirations</td><td>${frontendMetrics.ttl_expirations || 0}</td></tr>
               <tr><td>Quota Errors</td><td>${frontendMetrics.quota_errors || 0}</td></tr>
+              <tr><td>Avg Staleness</td><td>${frontendMetrics.avg_staleness_ms ? `${frontendMetrics.avg_staleness_ms.toFixed(0)}ms` : 'N/A'}</td></tr>
             </table>
           </div>
         </div>

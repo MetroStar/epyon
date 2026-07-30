@@ -15,6 +15,10 @@ jobs:
   cache-performance:
     name: Cache Performance Test
     runs-on: ubuntu-latest
+    outputs:
+      cold_ms: ${{ steps.cache-perf.outputs.cold_ms }}
+      hot_ms: ${{ steps.cache-perf.outputs.hot_ms }}
+      hit_rate: ${{ steps.cache-perf.outputs.hit_rate }}
     steps:
       - uses: actions/checkout@v4
       
@@ -44,18 +48,34 @@ jobs:
         run: |
           # Measure cold request (cache miss)
           cold_time=$(curl -w "%{time_total}" -o /dev/null -s http://localhost:8000/api/stats)
-          echo "cold_ms=$(echo "$cold_time * 1000" | bc)" >> $GITHUB_OUTPUT
+          cold_ms=$(echo "$cold_time * 1000" | bc)
+          echo "cold_ms=${cold_ms}" >> $GITHUB_OUTPUT
           
           # Measure hot request (cache hit)
           hot_time=$(curl -w "%{time_total}" -o /dev/null -s http://localhost:8000/api/stats)
-          echo "hot_ms=$(echo "$hot_time * 1000" | bc)" >> $GITHUB_OUTPUT
+          hot_ms=$(echo "$hot_time * 1000" | bc)
+          echo "hot_ms=${hot_ms}" >> $GITHUB_OUTPUT
           
           # Get cache metrics
           curl -s http://localhost:8000/api/metrics/cache > cache-metrics.json
           
           # Extract hit rate
-          hit_rate=$(jq -r '.hit_rates.stats' cache-metrics.json)
+          hit_rate=$(jq -r '.hit_rates.stats // 0' cache-metrics.json)
           echo "hit_rate=${hit_rate}" >> $GITHUB_OUTPUT
+          
+          # Validate extracted values
+          if [[ ! "$cold_ms" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+            echo "::error::Invalid cold_ms value: '${cold_ms}'"
+            exit 1
+          fi
+          if [[ ! "$hot_ms" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+            echo "::error::Invalid hot_ms value: '${hot_ms}'"
+            exit 1
+          fi
+          if [[ ! "$hit_rate" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+            echo "::error::Invalid hit_rate value: '${hit_rate}'"
+            exit 1
+          fi
       
       - name: Upload cache metrics
         uses: actions/upload-artifact@v3
@@ -85,6 +105,10 @@ jobs:
   mobile-code-scanner-accuracy:
     name: Mobile Code Scanner Accuracy
     runs-on: ubuntu-latest
+    outputs:
+      f1_score: ${{ steps.scanner-validation.outputs.f1_score }}
+      precision: ${{ steps.scanner-validation.outputs.precision }}
+      recall: ${{ steps.scanner-validation.outputs.recall }}
     steps:
       - uses: actions/checkout@v4
       
@@ -97,7 +121,8 @@ jobs:
         id: scanner-validation
         run: |
           cd tests
-          python3 validate-mobile-code-scanner.py > validation-results.txt 2>&1 || true
+          python3 validate-mobile-code-scanner.py > validation-results.txt 2>&1
+          EXIT_CODE=$?
           
           # Extract F1 score
           f1_score=$(grep "F1 Score:" validation-results.txt | awk '{print $3}')
@@ -109,7 +134,25 @@ jobs:
           echo "precision=${precision}" >> $GITHUB_OUTPUT
           echo "recall=${recall}" >> $GITHUB_OUTPUT
           
+          # Validate extracted values are numeric
+          if [[ ! "$f1_score" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+            echo "::error::Failed to extract numeric F1 score: got '${f1_score}'"
+            cat validation-results.txt
+            exit 1
+          fi
+          if [[ ! "$precision" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+            echo "::error::Failed to extract numeric precision: got '${precision}'"
+            cat validation-results.txt
+            exit 1
+          fi
+          if [[ ! "$recall" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+            echo "::error::Failed to extract numeric recall: got '${recall}'"
+            cat validation-results.txt
+            exit 1
+          fi
+          
           cat validation-results.txt
+          exit $EXIT_CODE
       
       - name: Upload validation results
         uses: actions/upload-artifact@v3
@@ -153,14 +196,30 @@ jobs:
     steps:
       - name: Create performance summary
         run: |
+          # Retrieve outputs with defaults for missing values
+          cold_ms="${{ needs.cache-performance.outputs.cold_ms }}"
+          hot_ms="${{ needs.cache-performance.outputs.hot_ms }}"
+          hit_rate="${{ needs.cache-performance.outputs.hit_rate }}"
+          f1_score="${{ needs.mobile-code-scanner-accuracy.outputs.f1_score }}"
+          precision="${{ needs.mobile-code-scanner-accuracy.outputs.precision }}"
+          recall="${{ needs.mobile-code-scanner-accuracy.outputs.recall }}"
+          
+          # Use N/A for missing values
+          cold_ms="${cold_ms:-N/A}"
+          hot_ms="${hot_ms:-N/A}"
+          hit_rate="${hit_rate:-N/A}"
+          f1_score="${f1_score:-N/A}"
+          precision="${precision:-N/A}"
+          recall="${recall:-N/A}"
+          
           echo "## Performance Monitoring Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Cache Performance" >> $GITHUB_STEP_SUMMARY
-          echo "- Cold request: ${{ needs.cache-performance.outputs.cold_ms }}ms" >> $GITHUB_STEP_SUMMARY
-          echo "- Hot request: ${{ needs.cache-performance.outputs.hot_ms }}ms" >> $GITHUB_STEP_SUMMARY
-          echo "- Hit rate: ${{ needs.cache-performance.outputs.hit_rate }}%" >> $GITHUB_STEP_SUMMARY
+          echo "- Cold request: ${cold_ms}ms" >> $GITHUB_STEP_SUMMARY
+          echo "- Hot request: ${hot_ms}ms" >> $GITHUB_STEP_SUMMARY
+          echo "- Hit rate: ${hit_rate}%" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Mobile Code Scanner Accuracy" >> $GITHUB_STEP_SUMMARY
-          echo "- F1 Score: ${{ needs.mobile-code-scanner-accuracy.outputs.f1_score }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Precision: ${{ needs.mobile-code-scanner-accuracy.outputs.precision }}%" >> $GITHUB_STEP_SUMMARY
-          echo "- Recall: ${{ needs.mobile-code-scanner-accuracy.outputs.recall }}%" >> $GITHUB_STEP_SUMMARY
+          echo "- F1 Score: ${f1_score}" >> $GITHUB_STEP_SUMMARY
+          echo "- Precision: ${precision}%" >> $GITHUB_STEP_SUMMARY
+          echo "- Recall: ${recall}%" >> $GITHUB_STEP_SUMMARY

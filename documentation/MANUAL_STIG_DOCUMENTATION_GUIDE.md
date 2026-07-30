@@ -156,6 +156,41 @@ When processing STIG controls, Epyon:
 The AI is specifically instructed:
 > "Manual STIG documentation from the target repository (e.g., docs/stig-findings.md, docs/security/stig-findings.md, COMPLIANCE.md, STIG.md) containing human-authored STIG assessments, manual overrides, compliance notes, and human-verified evidence. **THESE FILES TAKE PRIORITY** — if a human has explicitly documented a control as satisfied with specific evidence, respect that assessment unless you find concrete code changes that invalidate it."
 
+## Important Limitations of Manual Overrides
+
+**Manual STIG documentation is NOT deterministic parsing** — it is an LLM prompt instruction. This means:
+
+### What Manual Overrides DO:
+- **Provide priority context** to the AI during assessment
+- **Influence AI decisions** by presenting human-authored evidence in a high-priority section of the prompt
+- **Establish baseline assessments** that the AI is instructed to respect
+- **Reduce frivolous re-assessments** when paired with freeze logic (confidence ≥ 85)
+
+### What Manual Overrides DO NOT:
+- **Guarantee exact preservation** of status/evidence across all scans (the AI may still disagree if it finds contradictory code)
+- **Override the AI deterministically** — the AI may re-assess if it detects code changes, contradictory patterns, or ambiguous evidence
+- **Replace structured parsing** — manual documentation is interpreted by the LLM, not parsed as machine-readable configuration
+- **Bypass confidence thresholds** — low-confidence manual assessments (< 85) will NOT freeze and may be re-assessed on every scan
+
+### Practical Implications:
+
+1. **Manual overrides work best for high-confidence assessments** (≥ 85) where evidence is definitive and unlikely to be contradicted by code analysis
+2. **Runtime-only controls** (e.g., "System displays a warning banner") should be marked with very high confidence (90-100) to ensure they freeze
+3. **Ambiguous or contested controls** may still be re-assessed even with manual documentation if the AI detects code patterns that contradict the manual evidence
+4. **Version control your manual documentation** — if the AI's assessment unexpectedly changes, you can compare the manual documentation version to see if wording or evidence clarity changed
+5. **Use freeze logic as the deterministic contract** — controls with confidence ≥ 85 and status `Not a Finding`/`Not Applicable` will carry forward without re-assessment, regardless of whether they were manually documented or auto-assessed
+
+### When Determinism Is Critical:
+
+If you require **100% deterministic preservation** of STIG control statuses (e.g., for regulatory compliance where re-assessment risk is unacceptable), consider these approaches:
+
+- **Mark controls with confidence 95-100** and status `Not a Finding` or `Not Applicable` to maximize freeze stability
+- **Maintain manual documentation in a structured format** (e.g., JSON) that pairs with the freeze logic — frozen controls are never re-assessed regardless of manual documentation
+- **Use `.epyon-ignore.yml`** for vulnerability-level suppressions that require deterministic handling (STIG overrides do not use this system)
+- **Periodically validate** that frozen controls remain frozen across scans by comparing `stig-results-{slug}.json` versions
+
+**Bottom Line**: Manual STIG documentation is a powerful tool for guiding AI assessments and establishing human-verified baselines, but it is not a configuration file that deterministically controls scan output. It influences the LLM's decision-making process rather than replacing it.
+
 ## Example Workflow
 
 1. **Run initial Epyon scan** to get baseline AI assessments

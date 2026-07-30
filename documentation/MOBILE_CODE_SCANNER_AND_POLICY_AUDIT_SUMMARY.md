@@ -211,7 +211,7 @@ Automate performance baseline tracking with threshold-based CI checks.
 
 **Artifacts:**
 - `cache-metrics.json` — Backend cache metrics snapshot
-- `scanner-validation.txt` — Full validation output with confusion matrix
+- `validation-results.txt` — Full validation output with confusion matrix
 
 ---
 

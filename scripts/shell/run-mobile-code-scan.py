@@ -156,12 +156,16 @@ def scan_file_for_patterns(file_path: Path, mobile_code_type: str, config: Dict)
     """Scan a single file for mobile code patterns."""
     findings = []
     
-    # Skip if file doesn't match expected extensions
-    if "file_extensions" in config and file_path.suffix not in config["file_extensions"]:
+    # Check if file is relevant to this mobile code type
+    # File must match either file_extensions (for pattern scanning) OR file_types (for file detection)
+    matches_extension = "file_extensions" not in config or file_path.suffix in config["file_extensions"]
+    matches_type = "file_types" in config and file_path.suffix in config["file_types"]
+    
+    if not matches_extension and not matches_type:
         return findings
     
     # Check for file type matches (e.g., .swf, .jar files themselves)
-    if "file_types" in config and file_path.suffix in config["file_types"]:
+    if matches_type:
         findings.append({
             "type": mobile_code_type,
             "file": str(file_path),
@@ -178,8 +182,8 @@ def scan_file_for_patterns(file_path: Path, mobile_code_type: str, config: Dict)
     if is_binary_file(file_path):
         return findings
     
-    # Scan for patterns in text files
-    if "patterns" in config:
+    # Scan for patterns in text files (only if file matches file_extensions)
+    if matches_extension and "patterns" in config:
         try:
             with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
                 lines = f.readlines()

@@ -1753,6 +1753,7 @@ function buildModelSecurityCard(scan) {
         title:       f.description || f.type || '—',
         description: f.evidence || '',
         file:        f.file || '',
+        target:      f.file || '',
       });
       return `
       <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
@@ -1830,6 +1831,8 @@ function buildModelSecurityCard(scan) {
         tool:        'model card',
         title:       f.message || f.check || '—',
         description: f.recommendation || '',
+        file:        mc.file_checked || '',
+        target:      mc.file_checked || '',
       });
       return `
       <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
@@ -1879,6 +1882,7 @@ function buildModelSecurityCard(scan) {
         title:       f.description || f.type || '—',
         description: f.evidence || '',
         file:        f.file || '',
+        target:      f.file || '',
       });
       return `
       <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
@@ -1927,6 +1931,7 @@ function buildModelSecurityCard(scan) {
         title:       f.description || f.type || '—',
         description: f.evidence || '',
         file:        f.file || '',
+        target:      f.file || '',
       });
       return `
       <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
@@ -1975,6 +1980,7 @@ function buildModelSecurityCard(scan) {
         title:       f.description || f.type || '—',
         description: f.evidence || '',
         file:        f.file || '',
+        target:      f.file || '',
       });
       return `
       <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">

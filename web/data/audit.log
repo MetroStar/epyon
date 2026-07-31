@@ -43,3 +43,7 @@
 2026-07-27T13:39:23Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/metrostar/iris scan_type=full
 2026-07-27T14:27:07Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/metrostar/iris scan_type=full
 2026-07-30T18:32:07Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/metrostar/epyon scan_type=full
+2026-07-30T19:10:21Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/metrostar/midas scan_type=full
+2026-07-30T19:19:04Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/OWASP/NodeGoat scan_type=full
+2026-07-30T19:21:20Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/metrostar/epyon scan_type=full
+2026-07-30T19:25:35Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/orcasecurity-research/AIGoat scan_type=full

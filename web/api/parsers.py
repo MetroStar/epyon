@@ -1150,6 +1150,12 @@ def load_sbom_packages(scan_dir: Path) -> dict:
 
 
 def parse_scan_findings(scan_dir: Path) -> dict:
+    """Parse security findings for vulnerability management and Jira sync.
+    
+    NOTE: ML/AI security findings (layers 14, 17, 18, 19, 20) are intentionally
+    excluded from this function. They are parsed separately and displayed in the
+    ML/AI Security card, and are NOT synced to Jira as vulnerability findings.
+    """
     all_findings = (
         parse_trivy_dir(scan_dir)
         + parse_grype_dir(scan_dir)
@@ -1161,11 +1167,7 @@ def parse_scan_findings(scan_dir: Path) -> dict:
         + parse_clamav_dir(scan_dir)
         + parse_xeol_dir(scan_dir)
         + parse_sonarqube_dir(scan_dir)
-        + parse_mobile_code_dir(scan_dir)
-        + parse_picklescan_dir(scan_dir)
-        + parse_model_provenance_dir(scan_dir)
-        + parse_inference_security_dir(scan_dir)
-        + parse_ml_runtime_dir(scan_dir)
+        # ML/AI security findings excluded - see parse_ml_findings() below
     )
 
     by_tool = set(f["tool"] for f in all_findings)
@@ -1194,6 +1196,46 @@ def parse_scan_findings(scan_dir: Path) -> dict:
         findings_dict = _filter_suppressed_findings(findings_dict, suppressions)
     
     return findings_dict
+
+
+def parse_ml_findings(scan_dir: Path) -> dict:
+    """Parse ML/AI security findings separately from vulnerability findings.
+    
+    These findings are displayed in the ML/AI Security card and are NOT
+    synced to Jira as vulnerability findings. They represent ML-specific
+    security concerns like malicious model code, supply chain attacks,
+    container misconfigurations, and runtime behavioral issues.
+    
+    Returns:
+        dict with ML findings categorized by severity and tool
+    """
+    all_ml_findings = (
+        parse_mobile_code_dir(scan_dir)
+        + parse_picklescan_dir(scan_dir)
+        + parse_model_provenance_dir(scan_dir)
+        + parse_inference_security_dir(scan_dir)
+        + parse_ml_runtime_dir(scan_dir)
+    )
+    
+    by_tool = set(f["tool"] for f in all_ml_findings)
+    by_sev: dict[str, list] = {"critical": [], "high": [], "medium": [], "low": []}
+    for f in all_ml_findings:
+        s = f["severity"] if f["severity"] != "unknown" else "low"
+        by_sev.setdefault(s, []).append(f)
+    
+    return {
+        "summary": {
+            "total_critical": len(by_sev["critical"]),
+            "total_high":     len(by_sev["high"]),
+            "total_medium":   len(by_sev["medium"]),
+            "total_low":      len(by_sev["low"]),
+            "tools_analyzed": sorted(by_tool),
+        },
+        "critical_findings": by_sev["critical"],
+        "high_findings":     by_sev["high"],
+        "medium_findings":   by_sev["medium"],
+        "low_findings":      by_sev["low"],
+    }
 
 
 def parse_sonarqube_dir(scan_dir: Path) -> list[dict]:

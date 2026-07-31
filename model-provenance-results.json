@@ -4,7 +4,7 @@
   "status": "completed",
   "scan_id": "unknown",
   "target": "/Users/rnelson/Desktop/Side_Projects/epyon/tests/fixtures/ml-models-provenance/clean",
-  "generated_at": "2026-07-31T15:09:52.049141+00:00",
+  "generated_at": "2026-07-31T16:15:30.306836+00:00",
   "statistics": {
     "total_models": 1,
     "models_with_signatures": 0,

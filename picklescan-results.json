@@ -4,7 +4,7 @@
   "status": "completed",
   "scan_id": "unknown",
   "target": "/Users/rnelson/Desktop/Side_Projects/epyon/tests/fixtures/ml-models",
-  "generated_at": "2026-07-31T15:09:58.213384+00:00",
+  "generated_at": "2026-07-31T16:15:37.216003+00:00",
   "statistics": {
     "total_files": 2,
     "pickle_files": 0,
@@ -24,7 +24,7 @@
       "file": "malicious/config.json",
       "severity": "high",
       "description": "Model config contains dangerous imports or code execution patterns",
-      "evidence": "Imports: subprocess, os.system, socket, eval, __import__",
+      "evidence": "Imports: socket, __import__, subprocess, eval, os.system",
       "match_type": "config_import",
       "format": "config"
     },

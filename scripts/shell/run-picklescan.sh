@@ -305,131 +305,94 @@ EOF
     exit 0
 fi
 
-# ── Run picklescan ───────────────────────────────────────────────────────────
-echo -e "${CYAN}🔬 Running picklescan…${NC}"
-SCAN_EXIT=0
-$PICKLESCAN_CMD \
-    --path "$TARGET_SCAN_DIR" \
-    --json \
-    > >(tee "$RAW_FILE" | tee -a "$SCAN_LOG") \
-    2> >(tee -a "$SCAN_LOG" >&2) || SCAN_EXIT=$?
-
+# ── Run enhanced model exploit scanner ──────────────────────────────────────
+echo -e "${CYAN}🔬 Running comprehensive model file analysis…${NC}"
+echo "   Formats: pickle, PyTorch, ONNX, TensorFlow, config files"
 echo ""
 
-# ── Parse results ────────────────────────────────────────────────────────────
-FLAGGED_COUNT=0
-GLOBAL_IMPORTS="[]"
-INFECTED_FILES="[]"
+SCAN_EXIT=0
+SCANNER_SCRIPT="$SCRIPT_DIR/run-picklescan.py"
 
-if [[ -f "$RAW_FILE" ]] && python3 -c "import json,sys; json.load(open('$RAW_FILE'))" 2>/dev/null; then
-    FLAGGED_COUNT=$(python3 -c "
-import json, sys
-try:
-    d = json.load(open('$RAW_FILE'))
-    # picklescan outputs: {\"infected_files\": N, \"safe_files\": N, \"issues_by_severity\": {...}}
-    print(d.get('infected_files', 0))
-except Exception:
-    print(0)
-" 2>/dev/null)
-    GLOBAL_IMPORTS=$(python3 -c "
-import json
-try:
-    d = json.load(open('$RAW_FILE'))
-    issues = d.get('issues_by_severity', {})
-    all_issues = []
-    for severity, items in issues.items():
-        for item in (items if isinstance(items, list) else []):
-            all_issues.append({'severity': severity, 'file': item.get('source', ''), 'globals': item.get('globals', []), 'details': str(item)})
-    print(json.dumps(all_issues))
-except Exception:
-    print('[]')
-" 2>/dev/null)
-    INFECTED_FILES=$(python3 -c "
-import json
-try:
-    d = json.load(open('$RAW_FILE'))
-    issues = d.get('issues_by_severity', {})
-    files = []
-    for severity, items in issues.items():
-        for item in (items if isinstance(items, list) else []):
-            f = item.get('source', item.get('file', ''))
-            if f and f not in files:
-                files.append(f)
-    print(json.dumps(files))
-except Exception:
-    print('[]')
-" 2>/dev/null)
-fi
-
-FLAGGED_COUNT="${FLAGGED_COUNT:-0}"
-
-if [[ "$FLAGGED_COUNT" -gt 0 ]]; then
-    STATUS="open"
-    echo -e "${RED}🚨 ALERT: ${FLAGGED_COUNT} malicious file(s) detected!${NC}"
-    echo -e "${RED}   These files contain dangerous pickle opcodes that execute arbitrary code on load.${NC}"
-else
-    STATUS="success"
-    echo -e "${GREEN}✅ No malicious serialized files detected (${FILE_COUNT} file(s) scanned)${NC}"
-fi
-
-# ── Write normalized results ─────────────────────────────────────────────────
-GENERATED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-python3 - <<PYEOF
-import json
-
-findings_raw = ${GLOBAL_IMPORTS}
-infected_files = ${INFECTED_FILES}
-
-# Build a findings list compatible with the epyon findings format
-findings = []
-for item in findings_raw:
-    findings.append({
-        "severity":   item.get("severity", "high").lower(),
-        "file":       item.get("file", ""),
-        "globals":    item.get("globals", []),
-        "details":    item.get("details", ""),
-        "message":    "Malicious pickle opcode detected — arbitrary code execution risk",
-    })
-
-result = {
-    "tool":           "picklescan",
-    "status":         "${STATUS}",
-    "scan_id":        "${SCAN_ID}",
-    "target":         "${TARGET_SCAN_DIR}",
-    "generated_at":   "${GENERATED_AT}",
-    "file_count":     ${FILE_COUNT},
-    "total_weight_files": ${TOTAL_FORMAT_COUNT},
-    "flagged_count":  ${FLAGGED_COUNT},
-    "infected_files": infected_files,
-    "weight_formats": ${FORMATS_FOUND_JSON},
-    "findings":       findings,
-}
-
-with open("${RESULTS_FILE}", "w") as f:
-    json.dump(result, f, indent=2)
-print("Results written to ${RESULTS_FILE}")
-PYEOF
-
-PYEOF_EXIT=$?
-
-if [[ $PYEOF_EXIT -ne 0 ]]; then
-    # Fallback minimal output
+if [[ ! -f "$SCANNER_SCRIPT" ]]; then
+    echo -e "${RED}❌ Enhanced scanner not found: $SCANNER_SCRIPT${NC}"
     cat > "$RESULTS_FILE" <<EOF
 {
   "tool": "picklescan",
-  "status": "${STATUS}",
+  "status": "error",
+  "reason": "Enhanced scanner script not found",
   "scan_id": "${SCAN_ID}",
   "target": "${TARGET_SCAN_DIR}",
-  "generated_at": "${GENERATED_AT}",
-  "file_count": ${FILE_COUNT},
-  "total_weight_files": ${TOTAL_FORMAT_COUNT},
-  "flagged_count": ${FLAGGED_COUNT},
-  "weight_formats": [],
-  "infected_files": [],
+  "generated_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+  "file_count": 0,
+  "flagged_count": 0,
   "findings": []
 }
 EOF
+    record_scan_status "error" "Enhanced scanner script not found"
+    exit 1
 fi
+
+# Run the enhanced Python scanner
+python3 "$SCANNER_SCRIPT" \
+    --target "$TARGET_SCAN_DIR" \
+    --scan-dir "$OUTPUT_DIR" \
+    --app-name "${TARGET_NAME}" \
+    --formats "pickle,pytorch,onnx,tf,config" \
+    2>&1 | tee -a "$SCAN_LOG" || SCAN_EXIT=$?
+
+echo ""
+
+# ── Parse results from enhanced scanner ──────────────────────────────────────
+FLAGGED_COUNT=0
+CRITICAL_COUNT=0
+HIGH_COUNT=0
+
+if [[ -f "$RESULTS_FILE" ]] && python3 -c "import json,sys; json.load(open('$RESULTS_FILE'))" 2>/dev/null; then
+    FLAGGED_COUNT=$(python3 -c "
+import json, sys
+try:
+    d = json.load(open('$RESULTS_FILE'))
+    print(d.get('statistics', {}).get('flagged_count', 0))
+except Exception:
+    print(0)
+" 2>/dev/null)
+    CRITICAL_COUNT=$(python3 -c "
+import json, sys
+try:
+    d = json.load(open('$RESULTS_FILE'))
+    print(d.get('summary', {}).get('critical_findings', 0))
+except Exception:
+    print(0)
+" 2>/dev/null)
+    HIGH_COUNT=$(python3 -c "
+import json, sys
+try:
+    d = json.load(open('$RESULTS_FILE'))
+    print(d.get('summary', {}).get('high_findings', 0))
+except Exception:
+    print(0)
+" 2>/dev/null)
+else
+    echo -e "${RED}❌ Failed to read scanner results${NC}"
+    SCAN_EXIT=1
+fi
+
+FLAGGED_COUNT="${FLAGGED_COUNT:-0}"
+CRITICAL_COUNT="${CRITICAL_COUNT:-0}"
+HIGH_COUNT="${HIGH_COUNT:-0}"
+
+if [[ "$CRITICAL_COUNT" -gt 0 ]] || [[ "$HIGH_COUNT" -gt 0 ]]; then
+    STATUS="open"
+    echo -e "${RED}🚨 ALERT: ${FLAGGED_COUNT} suspicious file(s) detected!${NC}"
+    echo -e "${RED}   Critical: ${CRITICAL_COUNT}, High: ${HIGH_COUNT}${NC}"
+    echo -e "${RED}   These files may contain exploits or dangerous patterns.${NC}"
+else
+    STATUS="success"
+    echo -e "${GREEN}✅ No critical security threats detected (${FILE_COUNT} file(s) scanned)${NC}"
+fi
+
+# Results are already written by the Python scanner, just need to update status
+STATUS_MSG="Scanned ${FILE_COUNT} model files, found ${FLAGGED_COUNT} security issues (${CRITICAL_COUNT} critical, ${HIGH_COUNT} high)"
 
 echo ""
 echo "Results written to: $RESULTS_FILE"

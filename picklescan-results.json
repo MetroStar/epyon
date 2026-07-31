@@ -1,0 +1,48 @@
+{
+  "tool": "picklescan",
+  "version": "2.0-enhanced",
+  "status": "completed",
+  "scan_id": "unknown",
+  "target": "/Users/rnelson/Desktop/Side_Projects/epyon/tests/fixtures/ml-models",
+  "generated_at": "2026-07-30T17:56:10.393856+00:00",
+  "statistics": {
+    "total_files": 2,
+    "pickle_files": 0,
+    "pytorch_files": 0,
+    "onnx_files": 0,
+    "tf_files": 0,
+    "config_files": 2,
+    "flagged_count": 2
+  },
+  "formats_scanned": [
+    "pickle",
+    "config"
+  ],
+  "findings": [
+    {
+      "type": "config_dangerous_import",
+      "file": "malicious/config.json",
+      "severity": "high",
+      "description": "Model config contains dangerous imports or code execution patterns",
+      "evidence": "Imports: __import__, os.system, socket, subprocess, eval",
+      "match_type": "config_import",
+      "format": "config"
+    },
+    {
+      "type": "config_obfuscation",
+      "file": "malicious/config.json",
+      "severity": "medium",
+      "description": "Model config contains obfuscated data",
+      "evidence": "Obfuscation pattern: base64-like string (length: 68)",
+      "match_type": "obfuscation",
+      "format": "config"
+    }
+  ],
+  "summary": {
+    "total_files_scanned": 2,
+    "flagged_files": 2,
+    "critical_findings": 0,
+    "high_findings": 1,
+    "medium_findings": 1
+  }
+}

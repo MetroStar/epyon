@@ -384,6 +384,62 @@ CONSOLIDATED_OUTPUT="$OUTPUT_DIR/${SCAN_ID}_pip-audit-consolidated-results.json"
 ln -sf "$(basename "$CONSOLIDATED_OUTPUT")" "$OUTPUT_DIR/pip-audit-consolidated-results.json" 2>/dev/null || true
 
 echo -e "${GREEN}✅ Scan completed: $CONSOLIDATED_OUTPUT${NC}"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ML-Aware Analysis Enhancement
+# ═══════════════════════════════════════════════════════════════════════════
+
+echo
+echo -e "${CYAN}🤖 Running ML-aware dependency analysis...${NC}"
+
+ML_ANALYZER="$(dirname "${BASH_SOURCE[0]}")/analyze-ml-dependencies.py"
+ML_ENHANCED_OUTPUT="$OUTPUT_DIR/${SCAN_ID}_pip-audit-ml-enhanced-results.json"
+
+if [ -f "$ML_ANALYZER" ]; then
+    if python3 "$ML_ANALYZER" "$CONSOLIDATED_OUTPUT" "$ML_ENHANCED_OUTPUT" 2>&1 | tee -a "$SCAN_LOG"; then
+        echo -e "${GREEN}✅ ML-aware analysis completed${NC}"
+        
+        # Create symlink for easy access
+        ln -sf "$(basename "$ML_ENHANCED_OUTPUT")" "$OUTPUT_DIR/pip-audit-ml-enhanced-results.json" 2>/dev/null || true
+        
+        # Extract ML-specific counts
+        if command -v jq >/dev/null 2>&1 && [ -f "$ML_ENHANCED_OUTPUT" ]; then
+            ML_PACKAGES=$(jq -r '.ml_packages_detected // 0' "$ML_ENHANCED_OUTPUT" 2>/dev/null || echo 0)
+            ML_VULNS=$(jq -r '.ml_vulnerabilities_count // 0' "$ML_ENHANCED_OUTPUT" 2>/dev/null || echo 0)
+            TYPOSQUAT_WARNS=$(jq -r '.typosquat_warnings_count // 0' "$ML_ENHANCED_OUTPUT" 2>/dev/null || echo 0)
+            
+            echo
+            echo -e "${CYAN}🔬 ML-Specific Findings${NC}"
+            echo "=================================="
+            echo "ML/AI packages detected: $ML_PACKAGES"
+            echo "ML vulnerabilities: $ML_VULNS"
+            
+            if [ "$TYPOSQUAT_WARNS" -gt 0 ]; then
+                echo -e "${RED}⚠️  Typosquat warnings: $TYPOSQUAT_WARNS${NC}"
+                echo
+                echo -e "${RED}🚨 CRITICAL: Potential typosquatting attack detected!${NC}"
+                echo -e "${YELLOW}Review the ML-enhanced results file for details.${NC}"
+            fi
+        fi
+    else
+        ML_ANALYZER_EXIT=$?
+        if [ $ML_ANALYZER_EXIT -eq 2 ]; then
+            echo -e "${RED}🚨 CRITICAL: Typosquatting attack detected in dependencies!${NC}"
+            echo -e "${RED}Review: $ML_ENHANCED_OUTPUT${NC}"
+            echo
+            exit 2
+        elif [ $ML_ANALYZER_EXIT -eq 1 ]; then
+            echo -e "${YELLOW}⚠️  High-severity vulnerabilities found in ML packages${NC}"
+            # Don't fail the build, just warn (pip-audit already reported vulns)
+        else
+            echo -e "${YELLOW}⚠️  ML analysis completed with warnings${NC}"
+        fi
+    fi
+else
+    echo -e "${YELLOW}⚠️  ML analyzer not found: $ML_ANALYZER${NC}"
+    echo "   Skipping ML-specific analysis (basic pip-audit results still available)"
+fi
+
 echo
 
 exit 0

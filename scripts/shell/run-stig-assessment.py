@@ -2242,6 +2242,557 @@ def main() -> None:
             is_primary=is_primary,
             target_dir=args.target,
         )
+    
+    # ── Process ML Security Controls ──────────────────────────────────────
+    print("", file=sys.stderr)
+    print(f"[INFO] Processing ML Security Controls", file=sys.stderr)
+    assess_ml_controls(
+        scan_dir=scan_dir,
+        app_name=args.app_name,
+        scan_date=scan_date,
+        target_dir=args.target,
+    )
+
+
+def assess_ml_controls(
+    scan_dir: Path,
+    app_name: str,
+    scan_date: str,
+    target_dir: str,
+) -> None:
+    """
+    Assess ML-specific security controls based on findings from Layers 14, 18, 19, 20.
+    
+    This function:
+    1. Loads ML-Security-Checklist.json control definitions
+    2. Reads findings from ML security layers (picklescan, model-provenance, inference-security, ml-runtime)
+    3. Assesses each control based on findings (rule-based, no AI needed)
+    4. Writes results to stig-results-ml.json and findings-{app}-ml.md
+    
+    Args:
+        scan_dir: Path to scan output directory
+        app_name: Application name
+        scan_date: Scan date string (YYYY-MM-DD)
+        target_dir: Target directory being scanned
+    """
+    # Load ML control definitions
+    ml_checklist_path = Path(__file__).parent.parent.parent / "configuration" / "stigs" / "ML-Security-Checklist.json"
+    
+    if not ml_checklist_path.exists():
+        print(f"[WARNING] ML-Security-Checklist.json not found: {ml_checklist_path}", file=sys.stderr)
+        print(f"[WARNING] Skipping ML security control assessment", file=sys.stderr)
+        return
+    
+    try:
+        with open(ml_checklist_path, 'r', encoding='utf-8') as f:
+            ml_checklist = json.load(f)
+    except Exception as e:
+        print(f"[ERROR] Failed to load ML-Security-Checklist.json: {e}", file=sys.stderr)
+        return
+    
+    controls = ml_checklist.get("controls", [])
+    if not controls:
+        print(f"[WARNING] No controls found in ML-Security-Checklist.json", file=sys.stderr)
+        return
+    
+    print(f"[INFO] Loaded {len(controls)} ML security controls", file=sys.stderr)
+    
+    # Read findings from ML security layers
+    layer14_findings = _read_layer_findings(scan_dir / "picklescan" / "picklescan-results.json")
+    layer18_findings = _read_layer_findings(scan_dir / "model-provenance" / "model-provenance-results.json")
+    layer19_findings = _read_layer_findings(scan_dir / "inference-security" / "inference-security-results.json")
+    layer20_findings = _read_layer_findings(scan_dir / "ml-runtime" / "ml-runtime-analysis-results.json")
+    
+    # Assess each control
+    assessments: dict[str, dict[str, Any]] = {}
+    
+    for control in controls:
+        control_id = control["id"]
+        assessment = _assess_ml_control(
+            control,
+            layer14_findings,
+            layer18_findings,
+            layer19_findings,
+            layer20_findings,
+        )
+        assessments[control_id] = assessment
+    
+    # Write results
+    slug = "ml"
+    results_path = scan_dir / f"stig-results-{slug}.json"
+    findings_path = scan_dir / f"findings-{app_name}-{slug}.md"
+    
+    # Build results JSON
+    results_data = {
+        "stig_name": "ML/AI Security Controls",
+        "stig_version": ml_checklist.get("version", "1.0"),
+        "scan_date": scan_date,
+        "app_name": app_name,
+        "assessments": assessments,
+        "token_usage": {
+            "total_prompt_tokens": 0,
+            "total_completion_tokens": 0,
+            "note": "ML controls assessed via rule-based analysis, no AI tokens used"
+        }
+    }
+    
+    results_path.write_text(json.dumps(results_data, indent=2), encoding="utf-8")
+    print(f"[INFO] ML control results written to {results_path}", file=sys.stderr)
+    
+    # Generate markdown findings
+    md_content = _render_ml_findings_md(
+        controls=controls,
+        assessments=assessments,
+        app_name=app_name,
+        scan_date=scan_date,
+        ml_checklist=ml_checklist,
+    )
+    
+    findings_path.write_text(md_content, encoding="utf-8")
+    print(f"[INFO] ML findings written to {findings_path}", file=sys.stderr)
+    
+    # Print summary
+    status_counts = {"Not a Finding": 0, "Open": 0, "Not Applicable": 0, "Not Reviewed": 0}
+    for assessment in assessments.values():
+        status = assessment.get("status", "Not Reviewed")
+        status_counts[status] = status_counts.get(status, 0) + 1
+    
+    print("", file=sys.stderr)
+    print(f"[INFO] ML Security Control Assessment Summary:", file=sys.stderr)
+    print(f"       Total controls: {len(controls)}", file=sys.stderr)
+    print(f"       Not a Finding: {status_counts['Not a Finding']}", file=sys.stderr)
+    print(f"       Open: {status_counts['Open']}", file=sys.stderr)
+    print(f"       Not Applicable: {status_counts['Not Applicable']}", file=sys.stderr)
+    print(f"       Not Reviewed: {status_counts['Not Reviewed']}", file=sys.stderr)
+
+
+def _read_layer_findings(results_path: Path) -> dict[str, Any]:
+    """Read findings from a layer's results JSON file."""
+    if not results_path.exists():
+        return {}
+    
+    try:
+        with open(results_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _assess_ml_control(
+    control: dict[str, Any],
+    layer14: dict[str, Any],
+    layer18: dict[str, Any],
+    layer19: dict[str, Any],
+    layer20: dict[str, Any],
+) -> dict[str, Any]:
+    """
+    Assess a single ML control based on findings from security layers.
+    
+    Returns assessment dict with keys: status, evidence, confidence
+    """
+    control_id = control["id"]
+    
+    # ML-001: Model File Integrity - Dangerous Imports
+    if control_id == "ML-001":
+        findings = layer14.get("findings", [])
+        dangerous_import_findings = [
+            f for f in findings
+            if f.get("type") in ("dangerous_imports", "pickle_dangerous_imports")
+        ]
+        if dangerous_import_findings:
+            files = ", ".join(set(f.get("file", "unknown") for f in dangerous_import_findings))
+            return {
+                "status": "Open",
+                "evidence": f"Layer 14 detected dangerous imports in model files: {files}. "
+                           f"Found {len(dangerous_import_findings)} instances of dangerous imports "
+                           f"(subprocess, os.system, socket, eval, exec). These could lead to arbitrary "
+                           f"code execution during model loading.",
+                "confidence": 95,
+            }
+        return {
+            "status": "Not a Finding",
+            "evidence": "Layer 14 scanned model files and found no dangerous imports.",
+            "confidence": 90,
+        }
+    
+    # ML-002: Model File Integrity - Obfuscation Detection
+    elif control_id == "ML-002":
+        findings = layer14.get("findings", [])
+        obfuscation_findings = [f for f in findings if f.get("type") == "obfuscation_detected"]
+        if obfuscation_findings:
+            files = ", ".join(set(f.get("file", "unknown") for f in obfuscation_findings))
+            return {
+                "status": "Open",
+                "evidence": f"Layer 14 detected obfuscated payloads in configuration files: {files}. "
+                           f"Found {len(obfuscation_findings)} instances of base64/hex encoding or escape sequences.",
+                "confidence": 92,
+            }
+        return {
+            "status": "Not a Finding",
+            "evidence": "Layer 14 scanned configuration files and found no obfuscation patterns.",
+            "confidence": 88,
+        }
+    
+    # ML-003: Model File Integrity - ONNX Operator Injection
+    elif control_id == "ML-003":
+        findings = layer14.get("findings", [])
+        onnx_findings = [f for f in findings if f.get("type") == "onnx_operator_injection"]
+        if onnx_findings:
+            operators = ", ".join(set(f.get("evidence", "").split(": ")[-1] for f in onnx_findings if ": " in f.get("evidence", "")))
+            return {
+                "status": "Open",
+                "evidence": f"Layer 14 detected dangerous ONNX operators: {operators}. "
+                           f"These custom operators could execute arbitrary code.",
+                "confidence": 93,
+            }
+        return {
+            "status": "Not a Finding",
+            "evidence": "Layer 14 scanned ONNX models and found no dangerous custom operators.",
+            "confidence": 87,
+        }
+    
+    # ML-004: Model File Integrity - PyTorch JIT Exploits
+    elif control_id == "ML-004":
+        findings = layer14.get("findings", [])
+        pytorch_findings = [f for f in findings if f.get("type") == "pytorch_jit_code"]
+        if pytorch_findings:
+            files = ", ".join(set(f.get("file", "unknown") for f in pytorch_findings))
+            return {
+                "status": "Open",
+                "evidence": f"Layer 14 detected embedded Python code in PyTorch files: {files}. "
+                           f"JIT exploits with embedded code could execute during model loading.",
+                "confidence": 94,
+            }
+        return {
+            "status": "Not a Finding",
+            "evidence": "Layer 14 scanned PyTorch models and found no embedded Python code.",
+            "confidence": 86,
+        }
+    
+    # ML-005: Model Provenance - Blocked Hash Validation
+    elif control_id == "ML-005":
+        findings = layer18.get("findings", [])
+        blocked_hash_findings = [f for f in findings if f.get("type") == "blocked_hash"]
+        if blocked_hash_findings:
+            hashes = ", ".join(set(f.get("file", "unknown") for f in blocked_hash_findings))
+            return {
+                "status": "Open",
+                "evidence": f"Layer 18 detected models matching blocked hashes: {hashes}. "
+                           f"These models are known malicious per threat intelligence database.",
+                "confidence": 99,
+            }
+        return {
+            "status": "Not a Finding",
+            "evidence": "Layer 18 validated model hashes against blocklist - no matches found.",
+            "confidence": 95,
+        }
+    
+    # ML-006: Model Provenance - Author Validation
+    elif control_id == "ML-006":
+        findings = layer18.get("findings", [])
+        blocked_author_findings = [f for f in findings if f.get("type") == "blocked_author"]
+        if blocked_author_findings:
+            authors = ", ".join(set(f.get("evidence", "").split(": ")[-1] for f in blocked_author_findings if ": " in f.get("evidence", "")))
+            return {
+                "status": "Open",
+                "evidence": f"Layer 18 detected models from blocked authors: {authors}. "
+                           f"These authors are listed in threat intelligence as compromised or malicious.",
+                "confidence": 96,
+            }
+        return {
+            "status": "Not a Finding",
+            "evidence": "Layer 18 validated model authors against blocklist - no matches found.",
+            "confidence": 92,
+        }
+    
+    # ML-007: Model Provenance - Typosquatting Detection
+    elif control_id == "ML-007":
+        findings = layer18.get("findings", [])
+        typosquat_findings = [f for f in findings if f.get("type") == "typosquat"]
+        if typosquat_findings:
+            models = ", ".join(set(f"{f.get('file', 'unknown')} (distance from {f.get('evidence', '').split('from ')[-1].split(')')[0] if 'from' in f.get('evidence', '') else 'unknown'})" for f in typosquat_findings))
+            return {
+                "status": "Open",
+                "evidence": f"Layer 18 detected potential typosquatting: {models}. "
+                           f"Model names have Levenshtein distance < 3 from popular models.",
+                "confidence": 91,
+            }
+        return {
+            "status": "Not a Finding",
+            "evidence": "Layer 18 checked model names for typosquatting - none detected.",
+            "confidence": 89,
+        }
+    
+    # ML-008: Model Provenance - Signature Verification
+    elif control_id == "ML-008":
+        findings = layer18.get("findings", [])
+        unverified_findings = [f for f in findings if f.get("type") == "unverified_model"]
+        if unverified_findings:
+            count = len(unverified_findings)
+            return {
+                "status": "Open",
+                "evidence": f"Layer 18 found {count} models without GPG signatures. "
+                           f"Models should be signed for authenticity verification.",
+                "confidence": 75,
+            }
+        return {
+            "status": "Not a Finding",
+            "evidence": "Layer 18 verified all models have GPG signatures or models are internally developed.",
+            "confidence": 70,
+        }
+    
+    # ML-009: Model Provenance - Model Card Completeness
+    elif control_id == "ML-009":
+        findings = layer18.get("findings", [])
+        incomplete_card_findings = [f for f in findings if f.get("type") == "incomplete_model_card"]
+        if incomplete_card_findings:
+            count = len(incomplete_card_findings)
+            return {
+                "status": "Open",
+                "evidence": f"Layer 18 found {count} models with incomplete model cards. "
+                           f"Model cards should document intended use, limitations, and training data.",
+                "confidence": 60,
+            }
+        return {
+            "status": "Not a Finding",
+            "evidence": "Layer 18 verified all models have complete model cards with required sections.",
+            "confidence": 55,
+        }
+    
+    # ML-010: Inference Environment - Container User Privilege
+    elif control_id == "ML-010":
+        findings = layer19.get("findings", [])
+        root_user_findings = [f for f in findings if f.get("type") in ("dockerfile_root_user", "dockerfile_no_user")]
+        if root_user_findings:
+            files = ", ".join(set(f.get("file", "unknown") for f in root_user_findings))
+            return {
+                "status": "Open",
+                "evidence": f"Layer 19 detected Dockerfiles running as root: {files}. "
+                           f"Containers must specify non-root USER directive.",
+                "confidence": 97,
+            }
+        return {
+            "status": "Not a Finding",
+            "evidence": "Layer 19 verified all Dockerfiles specify non-root USER directive.",
+            "confidence": 93,
+        }
+    
+    # ML-011: Inference Environment - Container Security Context
+    elif control_id == "ML-011":
+        findings = layer19.get("findings", [])
+        k8s_security_findings = [
+            f for f in findings
+            if f.get("type") in ("k8s_run_as_root", "k8s_missing_run_as_non_root",
+                                "k8s_allow_privilege_escalation", "k8s_missing_read_only_fs",
+                                "k8s_missing_capabilities_drop")
+        ]
+        if k8s_security_findings:
+            types = ", ".join(set(f.get("type", "unknown") for f in k8s_security_findings))
+            return {
+                "status": "Open",
+                "evidence": f"Layer 19 detected Kubernetes security context issues: {types}. "
+                           f"Pods must enforce runAsNonRoot, readOnlyRootFilesystem, and drop capabilities.",
+                "confidence": 94,
+            }
+        return {
+            "status": "Not a Finding",
+            "evidence": "Layer 19 verified Kubernetes pods enforce proper securityContext settings.",
+            "confidence": 90,
+        }
+    
+    # ML-012: Inference Environment - Privileged Mode Prohibition
+    elif control_id == "ML-012":
+        findings = layer19.get("findings", [])
+        privileged_findings = [
+            f for f in findings
+            if f.get("type") in ("compose_privileged_mode", "compose_dangerous_capabilities",
+                                "k8s_privileged_container")
+        ]
+        if privileged_findings:
+            types = ", ".join(set(f.get("type", "unknown") for f in privileged_findings))
+            return {
+                "status": "Open",
+                "evidence": f"Layer 19 detected privileged mode or dangerous capabilities: {types}. "
+                           f"Containers must not run in privileged mode or with SYS_ADMIN/SYS_PTRACE capabilities.",
+                "confidence": 98,
+            }
+        return {
+            "status": "Not a Finding",
+            "evidence": "Layer 19 verified no containers run in privileged mode or with dangerous capabilities.",
+            "confidence": 95,
+        }
+    
+    # ML-013: Runtime Behavior - Network Communication
+    elif control_id == "ML-013":
+        if not layer20:
+            return {
+                "status": "Not Reviewed",
+                "evidence": "Layer 20 (ML Runtime Behavioral Analysis) was not executed. "
+                           "This is an opt-in layer requiring RUN_ML_RUNTIME=true. "
+                           "Runtime network communication cannot be verified without sandbox analysis.",
+                "confidence": 0,
+            }
+        findings = layer20.get("findings", [])
+        network_findings = [f for f in findings if f.get("type") == "network_attempt"]
+        if network_findings:
+            models = ", ".join(set(f.get("file", "unknown") for f in network_findings))
+            return {
+                "status": "Open",
+                "evidence": f"Layer 20 detected network communication attempts in models: {models}. "
+                           f"Models attempted socket connections during sandbox execution.",
+                "confidence": 96,
+            }
+        return {
+            "status": "Not a Finding",
+            "evidence": "Layer 20 sandbox analysis found no network communication attempts.",
+            "confidence": 88,
+        }
+    
+    # ML-014: Runtime Behavior - File System Access
+    elif control_id == "ML-014":
+        if not layer20:
+            return {
+                "status": "Not Reviewed",
+                "evidence": "Layer 20 (ML Runtime Behavioral Analysis) was not executed. "
+                           "This is an opt-in layer requiring RUN_ML_RUNTIME=true. "
+                           "Runtime file system access cannot be verified without sandbox analysis.",
+                "confidence": 0,
+            }
+        findings = layer20.get("findings", [])
+        file_access_findings = [f for f in findings if f.get("type") == "suspicious_file_access"]
+        if file_access_findings:
+            models = ", ".join(set(f.get("file", "unknown") for f in file_access_findings))
+            return {
+                "status": "Open",
+                "evidence": f"Layer 20 detected sensitive file access attempts in models: {models}. "
+                           f"Models attempted to access /etc/passwd, /etc/shadow, or /root/ during execution.",
+                "confidence": 97,
+            }
+        return {
+            "status": "Not a Finding",
+            "evidence": "Layer 20 sandbox analysis found no sensitive file access attempts.",
+            "confidence": 89,
+        }
+    
+    # ML-015: Runtime Behavior - Subprocess Execution
+    elif control_id == "ML-015":
+        if not layer20:
+            return {
+                "status": "Not Reviewed",
+                "evidence": "Layer 20 (ML Runtime Behavioral Analysis) was not executed. "
+                           "This is an opt-in layer requiring RUN_ML_RUNTIME=true. "
+                           "Runtime subprocess execution cannot be verified without sandbox analysis.",
+                "confidence": 0,
+            }
+        findings = layer20.get("findings", [])
+        subprocess_findings = [f for f in findings if f.get("type") == "subprocess_execution"]
+        if subprocess_findings:
+            models = ", ".join(set(f.get("file", "unknown") for f in subprocess_findings))
+            return {
+                "status": "Open",
+                "evidence": f"Layer 20 detected subprocess execution attempts in models: {models}. "
+                           f"Models attempted to execute shell commands during sandbox execution.",
+                "confidence": 98,
+            }
+        return {
+            "status": "Not a Finding",
+            "evidence": "Layer 20 sandbox analysis found no subprocess execution attempts.",
+            "confidence": 90,
+        }
+    
+    # Unknown control
+    return {
+        "status": "Not Reviewed",
+        "evidence": f"Control {control_id} assessment not implemented.",
+        "confidence": 0,
+    }
+
+
+def _render_ml_findings_md(
+    controls: list[dict[str, Any]],
+    assessments: dict[str, dict[str, Any]],
+    app_name: str,
+    scan_date: str,
+    ml_checklist: dict[str, Any],
+) -> str:
+    """Render ML control findings as markdown."""
+    lines = []
+    
+    # Header
+    lines.append(f"# ML/AI Security Controls Assessment")
+    lines.append(f"")
+    lines.append(f"**Application:** {app_name}")
+    lines.append(f"**Scan Date:** {scan_date}")
+    lines.append(f"**Control Set:** {ml_checklist.get('title', 'ML/AI Security Controls')}")
+    lines.append(f"**Version:** {ml_checklist.get('version', '1.0')}")
+    lines.append(f"")
+    
+    # Summary
+    status_counts = {"Not a Finding": 0, "Open": 0, "Not Applicable": 0, "Not Reviewed": 0}
+    for assessment in assessments.values():
+        status = assessment.get("status", "Not Reviewed")
+        status_counts[status] = status_counts.get(status, 0) + 1
+    
+    lines.append(f"## Summary")
+    lines.append(f"")
+    lines.append(f"| Status | Count |")
+    lines.append(f"|--------|-------|")
+    lines.append(f"| Not a Finding | {status_counts['Not a Finding']} |")
+    lines.append(f"| Open | {status_counts['Open']} |")
+    lines.append(f"| Not Applicable | {status_counts['Not Applicable']} |")
+    lines.append(f"| Not Reviewed | {status_counts['Not Reviewed']} |")
+    lines.append(f"| **Total** | **{len(controls)}** |")
+    lines.append(f"")
+    
+    # Group controls by category
+    categories: dict[str, list[tuple[dict[str, Any], dict[str, Any]]]] = {}
+    for control in controls:
+        category = control.get("category", "Other")
+        control_id = control["id"]
+        assessment = assessments.get(control_id, {})
+        if category not in categories:
+            categories[category] = []
+        categories[category].append((control, assessment))
+    
+    # Render each category
+    for category in sorted(categories.keys()):
+        lines.append(f"## {category}")
+        lines.append(f"")
+        
+        for control, assessment in categories[category]:
+            control_id = control["id"]
+            title = control.get("title", "Untitled")
+            severity = control.get("severity", "unknown").upper()
+            status = assessment.get("status", "Not Reviewed")
+            evidence = assessment.get("evidence", "No evidence provided")
+            confidence = assessment.get("confidence", 0)
+            
+            # Status emoji
+            status_emoji = {
+                "Not a Finding": "✅",
+                "Open": "❌",
+                "Not Applicable": "ℹ️",
+                "Not Reviewed": "⚠️",
+            }.get(status, "❓")
+            
+            lines.append(f"### {control_id}: {title}")
+            lines.append(f"")
+            lines.append(f"**Severity:** {severity} | **Status:** {status_emoji} {status} | **Confidence:** {confidence}%")
+            lines.append(f"")
+            lines.append(f"**Description:** {control.get('description', 'No description')}")
+            lines.append(f"")
+            lines.append(f"**Evidence:**")
+            lines.append(f"")
+            lines.append(f"{evidence}")
+            lines.append(f"")
+            
+            if status == "Open":
+                lines.append(f"**Remediation:**")
+                lines.append(f"")
+                lines.append(f"{control.get('fix_text', 'No remediation guidance')}")
+                lines.append(f"")
+    
+    return "\n".join(lines)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,218 @@
+{
+  "title": "ML/AI Security Controls",
+  "version": "1.0",
+  "release_date": "2026-07-30",
+  "description": "Security Technical Implementation Guide (STIG) controls for Machine Learning and Artificial Intelligence systems. Covers model security, supply chain integrity, inference environment hardening, and runtime behavior monitoring.",
+  "controls": [
+    {
+      "id": "ML-001",
+      "title": "Model File Integrity - Dangerous Imports",
+      "severity": "high",
+      "category": "Model Security",
+      "description": "ML model files (pickle, PyTorch, ONNX, TensorFlow) must not contain dangerous imports or executable code that could lead to arbitrary code execution during model loading.",
+      "check_text": "Verify that all ML model files (.pkl, .pickle, .pt, .pth, .bin, .ckpt, .onnx) have been scanned for dangerous imports (subprocess, os.system, socket, eval, exec) and malicious opcodes. Review Layer 14 (Model File Analysis) findings for any critical or high severity detections.",
+      "fix_text": "Remove or replace model files containing dangerous imports. Use safe serialization formats like safetensors or ONNX with operator validation. Implement code review for all model files before deployment.",
+      "status_guidance": {
+        "not_a_finding": "No model files contain dangerous imports or malicious code patterns.",
+        "open": "One or more model files contain dangerous imports or malicious code patterns.",
+        "not_applicable": "Application does not use ML models or serialized model files."
+      }
+    },
+    {
+      "id": "ML-002",
+      "title": "Model File Integrity - Obfuscation Detection",
+      "severity": "high",
+      "category": "Model Security",
+      "description": "ML model configuration files must not contain obfuscated payloads (base64, hex strings, escape sequences) that could hide malicious code.",
+      "check_text": "Verify that model configuration files (config.json, model_config.json) have been scanned for obfuscation patterns. Review Layer 14 findings for obfuscation detections in configuration files.",
+      "fix_text": "Remove model configuration files with obfuscated payloads. Implement configuration validation before model deployment. Use declarative configuration formats without executable code.",
+      "status_guidance": {
+        "not_a_finding": "No model configuration files contain obfuscated payloads.",
+        "open": "One or more model configuration files contain obfuscated payloads.",
+        "not_applicable": "Application does not use ML models with configuration files."
+      }
+    },
+    {
+      "id": "ML-003",
+      "title": "Model File Integrity - ONNX Operator Injection",
+      "severity": "high",
+      "category": "Model Security",
+      "description": "ONNX model files must not contain dangerous custom operators (PyOp, CustomOp, Exec, System) that could execute arbitrary code.",
+      "check_text": "Verify that ONNX model files have been scanned for operator injection attacks. Review Layer 14 findings for dangerous ONNX operators.",
+      "fix_text": "Remove ONNX models with dangerous custom operators. Use ONNX models with standard operator sets only. Implement ONNX model validation before deployment.",
+      "status_guidance": {
+        "not_a_finding": "No ONNX models contain dangerous custom operators.",
+        "open": "One or more ONNX models contain dangerous custom operators.",
+        "not_applicable": "Application does not use ONNX models."
+      }
+    },
+    {
+      "id": "ML-004",
+      "title": "Model File Integrity - PyTorch JIT Exploits",
+      "severity": "critical",
+      "category": "Model Security",
+      "description": "PyTorch model files must not contain embedded Python code in ZIP archives that could execute during model loading.",
+      "check_text": "Verify that PyTorch model files (.pt, .pth) have been scanned for JIT compilation exploits. Review Layer 14 findings for embedded Python code in PyTorch files.",
+      "fix_text": "Remove PyTorch models with embedded Python code. Use state_dict serialization instead of torch.save() with full model objects. Disable JIT compilation in production if not required.",
+      "status_guidance": {
+        "not_a_finding": "No PyTorch models contain embedded Python code.",
+        "open": "One or more PyTorch models contain embedded Python code.",
+        "not_applicable": "Application does not use PyTorch models."
+      }
+    },
+    {
+      "id": "ML-005",
+      "title": "Model Provenance - Blocked Hash Validation",
+      "severity": "critical",
+      "category": "Supply Chain Security",
+      "description": "ML models must not match known malicious model hashes from threat intelligence feeds.",
+      "check_text": "Verify that all ML models have been validated against the ML blocklist (configuration/ml-blocklist.json). Review Layer 18 (Model Provenance) findings for blocked hash detections.",
+      "fix_text": "Remove models matching blocked hashes. Implement automated model hash validation in CI/CD pipeline. Update blocklist regularly with latest threat intelligence.",
+      "status_guidance": {
+        "not_a_finding": "No models match known malicious hashes.",
+        "open": "One or more models match known malicious hashes from threat intelligence.",
+        "not_applicable": "Application does not use ML models from external sources."
+      }
+    },
+    {
+      "id": "ML-006",
+      "title": "Model Provenance - Author Validation",
+      "severity": "high",
+      "category": "Supply Chain Security",
+      "description": "ML models must not originate from blocked or compromised authors listed in threat intelligence databases.",
+      "check_text": "Verify that model authors have been validated against the ML blocklist. Review Layer 18 findings for blocked author detections in model configuration files.",
+      "fix_text": "Remove models from blocked authors. Implement author allowlist for approved model sources. Require security review for models from new authors.",
+      "status_guidance": {
+        "not_a_finding": "No models originate from blocked authors.",
+        "open": "One or more models originate from blocked authors.",
+        "not_applicable": "Application does not use models with author metadata."
+      }
+    },
+    {
+      "id": "ML-007",
+      "title": "Model Provenance - Typosquatting Detection",
+      "severity": "critical",
+      "category": "Supply Chain Security",
+      "description": "ML model names must not be typosquats of popular models (Levenshtein distance < 3 from legitimate models).",
+      "check_text": "Verify that model names have been checked for typosquatting patterns. Review Layer 18 findings for models flagged as potential typosquats of popular models (bert-base-uncased, gpt2, llama, mistral, etc.).",
+      "fix_text": "Remove models identified as typosquats. Implement name validation against known legitimate models. Require manual approval for models with similar names to popular models.",
+      "status_guidance": {
+        "not_a_finding": "No models identified as typosquats.",
+        "open": "One or more models identified as potential typosquats.",
+        "not_applicable": "Application does not use named models from external sources."
+      }
+    },
+    {
+      "id": "ML-008",
+      "title": "Model Provenance - Signature Verification",
+      "severity": "medium",
+      "category": "Supply Chain Security",
+      "description": "ML models should have GPG signatures from trusted authors to ensure authenticity and integrity.",
+      "check_text": "Verify that ML models include GPG signatures and that signatures are validated. Review Layer 18 findings for unverified models without signatures.",
+      "fix_text": "Require GPG signatures for all production ML models. Implement automated signature verification in deployment pipeline. Maintain keyring of trusted model author public keys.",
+      "status_guidance": {
+        "not_a_finding": "All models have valid GPG signatures from trusted authors.",
+        "open": "One or more models lack GPG signatures or have invalid signatures.",
+        "not_applicable": "Application uses only internally-developed models with internal signing infrastructure."
+      }
+    },
+    {
+      "id": "ML-009",
+      "title": "Model Provenance - Model Card Completeness",
+      "severity": "low",
+      "category": "Supply Chain Security",
+      "description": "ML models should include complete model cards documenting intended use, limitations, and training data.",
+      "check_text": "Verify that ML models include model cards (README.md) with required sections. Review Layer 18 findings for models with incomplete or missing model cards.",
+      "fix_text": "Require complete model cards for all ML models. Model cards should include: Model Description, Intended Use, Limitations, Training Data, Ethical Considerations, Caveats and Recommendations.",
+      "status_guidance": {
+        "not_a_finding": "All models include complete model cards with required sections.",
+        "open": "One or more models have incomplete or missing model cards.",
+        "not_applicable": "Application uses only simple models that do not require model cards."
+      }
+    },
+    {
+      "id": "ML-010",
+      "title": "Inference Environment - Container User Privilege",
+      "severity": "critical",
+      "category": "Infrastructure Security",
+      "description": "ML inference containers must not run as root user. Containers must specify non-root USER directive.",
+      "check_text": "Verify that Dockerfiles for ML inference specify USER directive with non-root user. Review Layer 19 (Inference Environment Security) findings for missing USER directives or explicit root user.",
+      "fix_text": "Add USER directive to all ML inference Dockerfiles. Use UID 1000 or higher. Ensure COPY operations use --chown flag to set proper ownership.",
+      "status_guidance": {
+        "not_a_finding": "All ML inference Dockerfiles specify non-root USER.",
+        "open": "One or more Dockerfiles missing USER directive or explicitly using root.",
+        "not_applicable": "Application does not use containerized ML inference."
+      }
+    },
+    {
+      "id": "ML-011",
+      "title": "Inference Environment - Container Security Context",
+      "severity": "high",
+      "category": "Infrastructure Security",
+      "description": "Kubernetes ML inference pods must enforce securityContext with runAsNonRoot, readOnlyRootFilesystem, and dropped capabilities.",
+      "check_text": "Verify that Kubernetes manifests for ML inference include securityContext settings. Review Layer 19 findings for missing runAsNonRoot, privileged containers, allowPrivilegeEscalation, or missing capabilities.drop settings.",
+      "fix_text": "Add securityContext to all ML inference pod specs: runAsNonRoot: true, allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities.drop: [ALL]. Grant specific capabilities only if required.",
+      "status_guidance": {
+        "not_a_finding": "All Kubernetes ML inference pods enforce proper securityContext.",
+        "open": "One or more pods missing securityContext or using insecure settings.",
+        "not_applicable": "Application does not use Kubernetes for ML inference."
+      }
+    },
+    {
+      "id": "ML-012",
+      "title": "Inference Environment - Privileged Mode Prohibition",
+      "severity": "critical",
+      "category": "Infrastructure Security",
+      "description": "ML inference containers must not run in privileged mode or with dangerous Linux capabilities.",
+      "check_text": "Verify that docker-compose and Kubernetes configurations do not use privileged mode or dangerous capabilities (ALL, SYS_ADMIN, SYS_PTRACE, SYS_MODULE). Review Layer 19 findings for privileged mode detections.",
+      "fix_text": "Remove privileged: true from docker-compose files. Remove privileged: true from Kubernetes pod specs. Drop dangerous capabilities. Use only required capabilities with minimal privilege.",
+      "status_guidance": {
+        "not_a_finding": "No ML inference containers run in privileged mode or with dangerous capabilities.",
+        "open": "One or more containers run in privileged mode or with dangerous capabilities.",
+        "not_applicable": "Application does not use containerized ML inference."
+      }
+    },
+    {
+      "id": "ML-013",
+      "title": "Runtime Behavior - Network Communication",
+      "severity": "critical",
+      "category": "Runtime Security",
+      "description": "ML models must not attempt network communication during loading or inference (except for legitimate API calls).",
+      "check_text": "Verify that ML models have been tested in sandboxed environments for network communication attempts. Review Layer 20 (ML Runtime Behavioral Analysis) findings for network attempt detections. Note: This control requires opt-in runtime analysis (RUN_ML_RUNTIME=true).",
+      "fix_text": "Remove models that attempt unauthorized network communication. Implement network isolation for ML inference environments. Use network policies to restrict model container egress.",
+      "status_guidance": {
+        "not_a_finding": "Runtime analysis found no unauthorized network communication attempts.",
+        "open": "Runtime analysis detected network communication attempts in one or more models.",
+        "not_reviewed": "Runtime behavioral analysis not performed (opt-in Layer 20 skipped)."
+      }
+    },
+    {
+      "id": "ML-014",
+      "title": "Runtime Behavior - File System Access",
+      "severity": "critical",
+      "category": "Runtime Security",
+      "description": "ML models must not attempt to access sensitive system files (/etc/passwd, /etc/shadow, /root/) during loading or inference.",
+      "check_text": "Verify that ML models have been tested in sandboxed environments for sensitive file access attempts. Review Layer 20 findings for file access detections. Note: This control requires opt-in runtime analysis.",
+      "fix_text": "Remove models that attempt to access sensitive files. Implement read-only root filesystem for ML inference containers. Use security profiles (AppArmor, SELinux) to restrict file access.",
+      "status_guidance": {
+        "not_a_finding": "Runtime analysis found no sensitive file access attempts.",
+        "open": "Runtime analysis detected sensitive file access attempts in one or more models.",
+        "not_reviewed": "Runtime behavioral analysis not performed (opt-in Layer 20 skipped)."
+      }
+    },
+    {
+      "id": "ML-015",
+      "title": "Runtime Behavior - Subprocess Execution",
+      "severity": "critical",
+      "category": "Runtime Security",
+      "description": "ML models must not attempt to execute subprocesses or shell commands during loading or inference.",
+      "check_text": "Verify that ML models have been tested in sandboxed environments for subprocess execution attempts. Review Layer 20 findings for subprocess execution detections. Note: This control requires opt-in runtime analysis.",
+      "fix_text": "Remove models that attempt to execute subprocesses. Models should only perform tensor operations and mathematical computations. Implement security profiles to prevent subprocess execution.",
+      "status_guidance": {
+        "not_a_finding": "Runtime analysis found no subprocess execution attempts.",
+        "open": "Runtime analysis detected subprocess execution attempts in one or more models.",
+        "not_reviewed": "Runtime behavioral analysis not performed (opt-in Layer 20 skipped)."
+      }
+    }
+  ]
+}

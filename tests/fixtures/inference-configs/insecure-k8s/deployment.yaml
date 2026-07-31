@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-inference-insecure
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml-inference
+  template:
+    metadata:
+      labels:
+        app: ml-inference
+    spec:
+      containers:
+      - name: inference-server
+        image: ml-inference:latest
+        ports:
+        - containerPort: 8080
+        securityContext:
+          runAsNonRoot: false
+          privileged: true
+          allowPrivilegeEscalation: true

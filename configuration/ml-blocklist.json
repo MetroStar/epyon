@@ -1,0 +1,83 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2026-07-30T00:00:00Z",
+  "description": "Static threat intelligence database for ML/AI supply chain security. Contains known malicious model file hashes, compromised authors, and suspicious repositories based on public disclosures.",
+  "blocked_hashes": [
+    {
+      "sha256": "d5e8f9c0b1a2e3f4d5c6b7a8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8",
+      "source": "huggingface.co/malicious-user/backdoor-model",
+      "date_added": "2026-05-15",
+      "severity": "critical",
+      "description": "PyTorch model with embedded reverse shell in __reduce__ method",
+      "cve": null,
+      "references": [
+        "https://example.com/disclosure/2026-05-backdoor-model"
+      ]
+    },
+    {
+      "sha256": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2",
+      "source": "huggingface.co/attacker/pickle-exploit",
+      "date_added": "2026-06-20",
+      "severity": "critical",
+      "description": "Pickle file with arbitrary code execution on deserialization",
+      "cve": null,
+      "references": [
+        "https://example.com/disclosure/2026-06-pickle-exploit"
+      ]
+    }
+  ],
+  "blocked_authors": [
+    {
+      "username": "malicious-user",
+      "platform": "huggingface.co",
+      "date_added": "2026-05-15",
+      "severity": "high",
+      "reason": "Multiple models with confirmed backdoors",
+      "references": [
+        "https://example.com/disclosure/2026-05-backdoor-campaign"
+      ]
+    },
+    {
+      "username": "suspicious-uploader",
+      "platform": "huggingface.co",
+      "date_added": "2026-07-01",
+      "severity": "medium",
+      "reason": "Typosquatting popular model names",
+      "references": []
+    }
+  ],
+  "blocked_repos": [
+    {
+      "repo": "huggingface.co/malicious-org/compromised-llm",
+      "date_added": "2026-05-20",
+      "severity": "critical",
+      "reason": "Repository compromised, all models contain malware",
+      "references": [
+        "https://example.com/disclosure/2026-05-repo-compromise"
+      ]
+    }
+  ],
+  "patterns": {
+    "suspicious_model_names": [
+      ".*-cracked$",
+      ".*-free-premium$",
+      ".*-unlocked$",
+      ".*-nulled$"
+    ],
+    "typosquat_targets": [
+      "bert-base-uncased",
+      "gpt2",
+      "distilbert-base-uncased",
+      "roberta-base",
+      "t5-base",
+      "llama",
+      "mistral"
+    ]
+  },
+  "notes": [
+    "This blocklist is maintained manually based on public security disclosures.",
+    "For dynamic threat intelligence, use the --threat-feed-url option to fetch live data.",
+    "SHA256 hashes should be computed on the raw model file (not the git-lfs pointer).",
+    "Add new entries with 'date_added' in ISO8601 format and include references when available."
+  ]
+}

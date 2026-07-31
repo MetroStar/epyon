@@ -5,6 +5,32 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.13.0] - 2026-07-30
+
+### Added
+- **Comprehensive ML/AI Security Suite** — Five integrated capabilities to detect AI supply chain attacks, malicious model exploits, and infrastructure misconfigurations
+  - **Layer 14 Enhanced**: Comprehensive Model File Analysis — Multi-format scanner detects malicious code in pickle, PyTorch, ONNX, TensorFlow, and config files; identifies dangerous imports, JIT exploits, operator injection, and obfuscation patterns
+  - **Layer 18 NEW**: Model Provenance & Threat Intelligence — Validates model authenticity via blocklist matching (SHA256 hashes, compromised authors/repos), typosquatting detection (Levenshtein distance < 3), GPG signature verification, and HuggingFace reputation checks
+  - **Layer 19 NEW**: Inference Environment Security — Static analysis of Dockerfile, docker-compose, and Kubernetes manifests for 25+ misconfigurations (privileged mode, root user, dangerous capabilities, missing security contexts)
+  - **Layer 20 NEW**: ML Runtime Behavioral Analysis — Opt-in sandboxed model loading with behavior monitoring (network attempts, file access, subprocess execution); isolates potentially malicious models in Docker/Podman containers with network disabled
+  - **Layer 8.5 Enhanced**: ML-Aware Dependency Analysis — Extended pip-audit with ML framework recognition (40+ packages), typosquatting detection for ML packages, and high-severity ML CVE highlighting
+  - **Layer 13 Enhanced**: ML STIG Compliance — 15 AI/ML security controls covering model security, supply chain, infrastructure, and runtime behavior; rule-based assessment using findings from Layers 14/18/19/20
+- **ML Threat Intelligence Blocklist** (`configuration/ml-blocklist.json`) — Versioned threat feed with blocked model hashes, compromised authors, malicious repos, suspicious name patterns, and typosquat targets; supports remote threat feeds via URL
+- **Web UI ML Security Integration** — New ML/AI Security card in scan detail view with findings from all 5 layers; 🧠 ML source badge for ML-specific findings; enhanced `buildModelSecurityCard()` supports dual schema (backward compatible)
+- **97 New BATS Tests** — Comprehensive test coverage for all ML security layers: 20 tests for Layer 14, 19 for Layer 18, 21 for Layer 19, 20 for Layer 20, 17 for enhanced Layer 8.5; all passing
+- **ML Security Guide** (`documentation/ML_SECURITY_GUIDE.md`) — 1000+ line comprehensive guide covering threat model, layer details, usage examples, best practices, threat intelligence maintenance, performance considerations, and troubleshooting
+
+### Changed
+- **Layer 14 (Pickle Safety)** — Rewritten from bash-only to Python-based scanner (`run-picklescan.py`) with multi-format support; backward-compatible JSON schema (array for enhanced, object for legacy); auto-detects and scans pickle, PyTorch JIT, ONNX, TensorFlow SavedModel, and config files
+- **Layer count** — Updated from 17 layers to 20 layers across all documentation (README, SCAN_MATRIX, copilot-instructions)
+- **Orchestration integration** — All ML layers integrated into `run-target-security-scan.sh` (local) and `run-epyon-scan-ci.sh` (CI/CD) with proper skip logic and scan mode awareness
+- **API parsers** (`web/api/parsers.py`) — Added 4 new parsers for ML layers with schema normalization; updated `parse_scan_findings()` and `load_scan()` to include ML layer data
+- **Frontend UI** (`web/static/app.js`) — Enhanced finding classification, added ML badge rendering, updated Model Security card to display 5 layers with proper status aggregation
+
+### Fixed
+- **Typosquatting false positives** — Exact matches (Levenshtein distance == 0) now excluded from typosquatting detection; prevents legitimate models from being flagged
+- **HuggingFace metadata detection** — Removed early return in `_check_hf_metadata()`; always checks `config.json` regardless of `.huggingface/` directory presence
+
 ## [3.12.9] - 2026-07-09
 
 ### Fixed

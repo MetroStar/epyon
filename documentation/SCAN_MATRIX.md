@@ -19,9 +19,12 @@ This table shows which layers run in each scan mode. Layers marked ✅ run by de
 | 11 | API Discovery          | Custom        | ⬜ | ✅ | ✅ | ⬜ | `SKIP_API_DISCOVERY=true` |
 | 12 | LLM Security Probing   | Garak         | ⬜ | ⬜ | ⬜ | ⬜ | `RUN_GARAK=true` (always opt-in) |
 | 13 | STIG Compliance        | AI Assessment | ⬜ | ⬜ | ⬜ | ✅ | `RUN_STIG=true` (opt-in; always skipped unless explicitly enabled) |
-| 14 | Pickle Safety          | picklescan    | ⬜ | ✅ | ✅ | ⬜ | `RUN_PICKLESCAN=true/false` |
+| 14 | Model File Analysis    | picklescan-enhanced | ⬜ | ✅ | ✅ | ⬜ | `RUN_PICKLESCAN=true/false` |
 | 15 | Model Card Compliance  | Custom        | ⬜ | ✅ | ✅ | ⬜ | `RUN_MODELCARD=true/false` |
 | 16 | Network Discovery      | nmap/static   | ⬜ | ✅ | ✅ | ⬜ | `SKIP_NETWORK_DISCOVERY=true` |
+| 18 | Model Provenance       | Custom        | ⬜ | ✅ | ✅ | ⬜ | `RUN_MODEL_PROVENANCE=true/false` |
+| 19 | Inference Security     | Custom        | ⬜ | ✅ | ✅ | ⬜ | `RUN_INFERENCE_SECURITY=true/false` |
+| 20 | ML Runtime Analysis    | Custom        | ⬜ | ⬜ | ⬜ | ⬜ | `RUN_ML_RUNTIME=true` (always opt-in) |
 
 ## Scheduled Scan Modes (scan-private-repo.yml)
 
@@ -40,9 +43,13 @@ This table shows which layers run in each scan mode. Layers marked ✅ run by de
 - **`full`** — All layers except STIG by default. STIG (Layer 13) requires explicit opt-in via `run_stig: true` or `scan_mode: stig`.
 - **`stig`** — Runs only Layer 13 (STIG compliance assessment). Skips all other layers.
 - **`stig`** — STIG-only run. Skips layers 1–12 entirely and runs only the Layer 13 compliance assessment.
-- **Layer 8.5 (pip-audit)** and **Layer 8.6 (safety)** are complementary Python dependency scanners. pip-audit queries GitHub Advisories; safety queries NVD + PyPI. Together they catch CVEs that SBOM-based scanners (Syft/Grype) miss. Run both in all modes for maximum Python coverage. Requires `pip-audit` and `safety` to be installed.
+- **Layer 8.5 (pip-audit)** and **Layer 8.6 (safety)** are complementary Python dependency scanners. pip-audit queries GitHub Advisories; safety queries NVD + PyPI. Together they catch CVEs that SBOM-based scanners (Syft/Grype) miss. Run both in all modes for maximum Python coverage. Requires `pip-audit` and `safety` to be installed. **Layer 8.5 Enhanced**: Now includes ML-aware typosquatting detection and ML framework CVE highlighting.
 - **Layer 12 (Garak)** is always opt-in regardless of scan mode — requires `RUN_GARAK=true` and `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`.
-- **Layer 13 (STIG)** requires `OPENAI_API_KEY`. Without it, all controls are marked `Not Reviewed`.
-- **Layers 14–15** (Pickle, Model Card) auto-enable in `full`/`nightly` but are no-ops if no model weight files or README are found.
+- **Layer 13 (STIG)** requires `OPENAI_API_KEY`. Without it, all controls are marked `Not Reviewed`. **Enhanced**: Includes 15 ML/AI security controls when ML layers are enabled.
+- **Layer 14 (Model File Analysis)** auto-enables in `full`/`nightly` but is no-op if no model weight files found. **Enhanced**: Multi-format scanner detects malicious code in pickle, PyTorch JIT, ONNX, TensorFlow, and config files.
+- **Layer 15 (Model Card)** auto-enables in `full`/`nightly` but is no-op if no README/model card found.
 - **Layer 16 (Network Discovery)** runs static config analysis in all modes. Active nmap scanning requires `NMAP_TARGET=<host>`.
+- **Layer 18 (Model Provenance)** validates model authenticity via blocklist, typosquatting detection, and optional GPG/HuggingFace checks. Auto-enables in `full`/`nightly`.
+- **Layer 19 (Inference Security)** scans Dockerfile/docker-compose/K8s manifests for infrastructure misconfigurations. Auto-enables in `full`/`nightly`.
+- **Layer 20 (ML Runtime Analysis)** is always opt-in due to resource intensity — requires `RUN_ML_RUNTIME=true` and Docker/Podman. Sandboxed model loading with behavior monitoring (~1 min per model).
 - All layers respect a per-tool `SKIP_<LAYER>=true` environment variable for manual opt-out in any mode.

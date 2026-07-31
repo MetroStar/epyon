@@ -156,6 +156,11 @@ function sevBadge(severity, count) {
 function findingSource(f) {
   const type = (f.type || '').toLowerCase();
   const tool = (f.tool || '').toLowerCase();
+  
+  // ML Security findings
+  if (tool === 'picklescan' || tool === 'model-provenance' || tool === 'inference-security' || tool === 'ml-runtime') return 'ml';
+  
+  // Traditional sources
   if (type === 'container_vulnerability' || tool === 'anchore') return 'container';
   if (type === 'iac_misconfiguration' || tool === 'checkov')   return 'iac';
   if (type.includes('credential') || type.includes('secret') || tool === 'trufflehog') return 'secret';
@@ -171,6 +176,7 @@ function findingSourceBadge(f) {
     iac:       { style: 'background:#4a1d9622;color:#c084fc;border:1px solid #7e22ce66', label: '🔧 IaC'       },
     secret:    { style: 'background:#7f1d1d22;color:#fca5a5;border:1px solid #b91c1c66', label: '🔑 Secret'    },
     eol:       { style: 'background:#92400022;color:#fbbf24;border:1px solid #b4530066', label: '⏱ EOL'        },
+    ml:        { style: 'background:#581c8722;color:#d8b4fe;border:1px solid #7c3aed66', label: '🧠 ML'         },
   };
   const { style, label } = cfg[src] || cfg.code;
   return `<span style="font-size:10px;padding:1px 6px;border-radius:3px;white-space:nowrap;${style}">${label}</span>`;
@@ -1716,59 +1722,77 @@ function buildNetworkDiscoveryCard(scan) {
 }
 
 function buildModelSecurityCard(scan) {
+  // Enhanced to support 5 ML security layers:
+  // Layer 14: picklescan (enhanced), Layer 15: modelcard
+  // Layer 18: model-provenance, Layer 19: inference-security, Layer 20: ml-runtime
   const ps = scan.picklescan;
   const mc = scan.modelcard;
-  if (!ps && !mc) return '';
+  const mp = scan.model_provenance;
+  const is = scan.inference_security;
+  const mr = scan.ml_runtime;
+  
+  if (!ps && !mc && !mp && !is && !mr) return '';
 
-  // ── Pickle section ──
+  // ── Layer 14: Enhanced Picklescan section ──
   let pickleSection = '';
-  if (ps) {
+  if (ps && Array.isArray(ps)) {
+    // New enhanced schema: ps is an array of findings
+    const findingsCount = ps.length;
+    const criticalCount = ps.filter(f => (f.severity || '').toLowerCase() === 'critical').length;
+    const highCount = ps.filter(f => (f.severity || '').toLowerCase() === 'high').length;
+    
+    const statusClass = criticalCount > 0 || highCount > 0 ? 'status-open' : 'status-clean';
+    const statusLabel = findingsCount > 0 ? `${findingsCount} finding(s)` : 'Clean';
+    const icon = findingsCount > 0 ? '🚨' : '✅';
+
+    const psFindings = ps.map(f => {
+      const fid = _registerFinding({
+        severity:    f.severity || 'high',
+        id:          f.id || f.type || '',
+        tool:        'picklescan',
+        title:       f.description || f.type || '—',
+        description: f.evidence || '',
+        file:        f.file || '',
+      });
+      return `
+      <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
+        <span class="hf-finding-sev hf-sev-${esc(f.severity || 'high')}">${esc(f.severity || 'high')}</span>
+        <code class="hf-finding-file">${esc(f.file || '—')}</code>
+        <span class="hf-finding-msg">${esc(f.description || f.type || 'Malicious content detected')}</span>
+        <span class="hf-finding-chevron">›</span>
+      </div>`;
+    }).join('');
+
+    pickleSection = `
+      <div class="ms-layer">
+        <div class="ms-layer-header">
+          <div class="ms-layer-title">
+            <span class="hf-tool-icon">🥒</span>
+            <span>Layer 14 — Comprehensive Model File Analysis</span>
+            <span class="hf-tool-name">picklescan-enhanced</span>
+          </div>
+          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
+        </div>
+        <div class="hf-tool-stats" style="margin-bottom:0">
+          <div class="hf-stat"><span class="hf-stat-num">${findingsCount}</span><span class="hf-stat-lbl">findings</span></div>
+          <div class="hf-stat"><span class="hf-stat-num ${criticalCount > 0 ? 'danger' : ''}">${criticalCount}</span><span class="hf-stat-lbl">critical</span></div>
+          <div class="hf-stat"><span class="hf-stat-num ${highCount > 0 ? 'danger' : ''}">${highCount}</span><span class="hf-stat-lbl">high</span></div>
+        </div>
+        ${psFindings ? `<div class="hf-findings" style="margin-top:10px">${psFindings}</div>` : ''}
+      </div>`;
+  } else if (ps && typeof ps === 'object') {
+    // Legacy schema support: ps is an object
     const statusClass = ps.flagged_count > 0 ? 'status-open' : 'status-clean';
     const statusLabel = ps.flagged_count > 0 ? `${ps.flagged_count} infected file(s)` : 'Clean';
     const icon = ps.flagged_count > 0 ? '🚨' : '✅';
     const totalWeightFiles = ps.total_weight_files ?? ps.file_count ?? 0;
 
-    const RISK_CONFIG = {
-      critical: { cls: 'fmt-risk-critical', label: 'CRITICAL' },
-      high:     { cls: 'fmt-risk-high',     label: 'HIGH' },
-      medium:   { cls: 'fmt-risk-medium',   label: 'MEDIUM' },
-      low:      { cls: 'fmt-risk-low',      label: 'LOW' },
-      safe:     { cls: 'fmt-risk-safe',     label: 'SAFE' },
-    };
-
-    const fmtRows = (ps.weight_formats || []).map(f => {
-      const rc = RISK_CONFIG[f.risk] || RISK_CONFIG.medium;
-      const pickleWarn = f.pickle_scannable
-        ? `<span class="fmt-pickle-flag" title="Scanned by picklescan">🔬</span>`
-        : `<span class="fmt-safe-flag" title="No pickle — not code-executable">🛡️</span>`;
-      const fileList = (f.files && f.files.length > 0)
-        ? `<div class="fmt-file-list">${f.files.map(fp => `<code class="fmt-file-path">${esc(fp)}</code>`).join('')}</div>`
-        : '';
-      return `
-        <div class="fmt-row fmt-row-${f.risk}">
-          <code class="fmt-ext">${esc(f.label)}</code>
-          <span class="fmt-risk-badge ${rc.cls}">${rc.label}</span>
-          ${pickleWarn}
-          <span class="fmt-count">${f.count} file${f.count !== 1 ? 's' : ''}</span>
-          <span class="fmt-notes">${esc(f.notes)}</span>
-          ${fileList}
-        </div>`;
-    }).join('');
-
     const psFindings = (ps.findings || []).map(f => `
       <div class="hf-finding-row">
         <span class="hf-finding-sev hf-sev-${esc(f.severity || 'high')}">${esc(f.severity || 'high')}</span>
         <code class="hf-finding-file">${esc(f.file || '—')}</code>
-        <span class="hf-finding-msg">${esc(f.message || 'Malicious pickle opcode detected')}</span>
+        <span class="hf-finding-msg">${esc(f.message || f.description || 'Malicious pickle opcode detected')}</span>
       </div>`).join('');
-
-    const psTargetDisplay = ps.target
-      ? (() => {
-          const parts = ps.target.replace(/\\/g, '/').split('/');
-          const short = parts.slice(-3).join('/');
-          return `<div class="ms-scan-target" title="${esc(ps.target)}"><span class="ms-scan-target-lbl">Scanned:</span> <code>${esc(short)}</code></div>`;
-        })()
-      : '';
 
     pickleSection = `
       <div class="ms-layer">
@@ -1780,13 +1804,11 @@ function buildModelSecurityCard(scan) {
           </div>
           <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
         </div>
-        ${psTargetDisplay}
         <div class="hf-tool-stats" style="margin-bottom:0">
           <div class="hf-stat"><span class="hf-stat-num">${totalWeightFiles}</span><span class="hf-stat-lbl">weight files</span></div>
           <div class="hf-stat"><span class="hf-stat-num">${ps.file_count ?? 0}</span><span class="hf-stat-lbl">pickle-scannable</span></div>
           <div class="hf-stat"><span class="hf-stat-num ${ps.flagged_count > 0 ? 'danger' : ''}">${ps.flagged_count ?? 0}</span><span class="hf-stat-lbl">infected</span></div>
         </div>
-        ${fmtRows ? `<div class="fmt-inventory" style="margin:10px -1px -1px">${'<div class="fmt-inventory-title">Weight Format Inventory</div>'}${fmtRows}</div>` : ''}
         ${psFindings ? `<div class="hf-findings" style="margin-top:10px">${psFindings}</div>` : ''}
       </div>`;
   }
@@ -1838,10 +1860,168 @@ function buildModelSecurityCard(scan) {
       </div>`;
   }
 
+  // ── Layer 18: Model Provenance & Threat Intelligence ──
+  let provenanceSection = '';
+  if (mp && Array.isArray(mp) && mp.length > 0) {
+    const findingsCount = mp.length;
+    const criticalCount = mp.filter(f => (f.severity || '').toLowerCase() === 'critical').length;
+    const highCount = mp.filter(f => (f.severity || '').toLowerCase() === 'high').length;
+    
+    const statusClass = criticalCount > 0 || highCount > 0 ? 'status-open' : 'status-clean';
+    const statusLabel = findingsCount > 0 ? `${findingsCount} finding(s)` : 'Clean';
+    const icon = findingsCount > 0 ? '🚨' : '✅';
+
+    const mpFindings = mp.map(f => {
+      const fid = _registerFinding({
+        severity:    f.severity || 'high',
+        id:          f.id || f.type || '',
+        tool:        'model-provenance',
+        title:       f.description || f.type || '—',
+        description: f.evidence || '',
+        file:        f.file || '',
+      });
+      return `
+      <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
+        <span class="hf-finding-sev hf-sev-${esc(f.severity || 'high')}">${esc(f.severity || 'high')}</span>
+        <code class="hf-finding-file">${esc(f.file || '—')}</code>
+        <span class="hf-finding-msg">${esc(f.description || f.type || 'Provenance issue detected')}</span>
+        <span class="hf-finding-chevron">›</span>
+      </div>`;
+    }).join('');
+
+    provenanceSection = `
+      <div class="ms-layer ms-layer-border">
+        <div class="ms-layer-header">
+          <div class="ms-layer-title">
+            <span class="hf-tool-icon">🔐</span>
+            <span>Layer 18 — Model Provenance & Threat Intelligence</span>
+            <span class="hf-tool-name">model-provenance</span>
+          </div>
+          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
+        </div>
+        <div class="hf-tool-stats" style="margin-bottom:0">
+          <div class="hf-stat"><span class="hf-stat-num">${findingsCount}</span><span class="hf-stat-lbl">findings</span></div>
+          <div class="hf-stat"><span class="hf-stat-num ${criticalCount > 0 ? 'danger' : ''}">${criticalCount}</span><span class="hf-stat-lbl">critical</span></div>
+          <div class="hf-stat"><span class="hf-stat-num ${highCount > 0 ? 'danger' : ''}">${highCount}</span><span class="hf-stat-lbl">high</span></div>
+        </div>
+        ${mpFindings ? `<div class="hf-findings" style="margin-top:10px">${mpFindings}</div>` : ''}
+      </div>`;
+  }
+
+  // ── Layer 19: Inference Environment Security ──
+  let inferenceSection = '';
+  if (is && Array.isArray(is) && is.length > 0) {
+    const findingsCount = is.length;
+    const criticalCount = is.filter(f => (f.severity || '').toLowerCase() === 'critical').length;
+    const highCount = is.filter(f => (f.severity || '').toLowerCase() === 'high').length;
+    
+    const statusClass = criticalCount > 0 || highCount > 0 ? 'status-open' : 'status-clean';
+    const statusLabel = findingsCount > 0 ? `${findingsCount} finding(s)` : 'Clean';
+    const icon = findingsCount > 0 ? '🚨' : '✅';
+
+    const isFindings = is.map(f => {
+      const fid = _registerFinding({
+        severity:    f.severity || 'high',
+        id:          f.id || f.type || '',
+        tool:        'inference-security',
+        title:       f.description || f.type || '—',
+        description: f.evidence || '',
+        file:        f.file || '',
+      });
+      return `
+      <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
+        <span class="hf-finding-sev hf-sev-${esc(f.severity || 'high')}">${esc(f.severity || 'high')}</span>
+        <code class="hf-finding-file">${esc(f.file || '—')}</code>
+        <span class="hf-finding-msg">${esc(f.description || f.type || 'Infrastructure issue detected')}</span>
+        <span class="hf-finding-chevron">›</span>
+      </div>`;
+    }).join('');
+
+    inferenceSection = `
+      <div class="ms-layer ms-layer-border">
+        <div class="ms-layer-header">
+          <div class="ms-layer-title">
+            <span class="hf-tool-icon">🐳</span>
+            <span>Layer 19 — Inference Environment Security</span>
+            <span class="hf-tool-name">inference-security</span>
+          </div>
+          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
+        </div>
+        <div class="hf-tool-stats" style="margin-bottom:0">
+          <div class="hf-stat"><span class="hf-stat-num">${findingsCount}</span><span class="hf-stat-lbl">findings</span></div>
+          <div class="hf-stat"><span class="hf-stat-num ${criticalCount > 0 ? 'danger' : ''}">${criticalCount}</span><span class="hf-stat-lbl">critical</span></div>
+          <div class="hf-stat"><span class="hf-stat-num ${highCount > 0 ? 'danger' : ''}">${highCount}</span><span class="hf-stat-lbl">high</span></div>
+        </div>
+        ${isFindings ? `<div class="hf-findings" style="margin-top:10px">${isFindings}</div>` : ''}
+      </div>`;
+  }
+
+  // ── Layer 20: ML Runtime Behavioral Analysis (Opt-in) ──
+  let runtimeSection = '';
+  if (mr && Array.isArray(mr) && mr.length > 0) {
+    const findingsCount = mr.length;
+    const criticalCount = mr.filter(f => (f.severity || '').toLowerCase() === 'critical').length;
+    const highCount = mr.filter(f => (f.severity || '').toLowerCase() === 'high').length;
+    
+    const statusClass = criticalCount > 0 || highCount > 0 ? 'status-open' : 'status-clean';
+    const statusLabel = findingsCount > 0 ? `${findingsCount} finding(s)` : 'Clean';
+    const icon = findingsCount > 0 ? '🚨' : '✅';
+
+    const mrFindings = mr.map(f => {
+      const fid = _registerFinding({
+        severity:    f.severity || 'high',
+        id:          f.id || f.type || '',
+        tool:        'ml-runtime',
+        title:       f.description || f.type || '—',
+        description: f.evidence || '',
+        file:        f.file || '',
+      });
+      return `
+      <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
+        <span class="hf-finding-sev hf-sev-${esc(f.severity || 'high')}">${esc(f.severity || 'high')}</span>
+        <code class="hf-finding-file">${esc(f.file || '—')}</code>
+        <span class="hf-finding-msg">${esc(f.description || f.type || 'Malicious runtime behavior detected')}</span>
+        <span class="hf-finding-chevron">›</span>
+      </div>`;
+    }).join('');
+
+    runtimeSection = `
+      <div class="ms-layer ms-layer-border">
+        <div class="ms-layer-header">
+          <div class="ms-layer-title">
+            <span class="hf-tool-icon">⚡</span>
+            <span>Layer 20 — ML Runtime Behavioral Analysis</span>
+            <span class="hf-tool-name">ml-runtime</span>
+            <span class="tool-tag" style="background:#581c8722;color:#d8b4fe;border:1px solid #7c3aed66;margin-left:6px">OPT-IN</span>
+          </div>
+          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
+        </div>
+        <div class="hf-tool-stats" style="margin-bottom:0">
+          <div class="hf-stat"><span class="hf-stat-num">${findingsCount}</span><span class="hf-stat-lbl">findings</span></div>
+          <div class="hf-stat"><span class="hf-stat-num ${criticalCount > 0 ? 'danger' : ''}">${criticalCount}</span><span class="hf-stat-lbl">critical</span></div>
+          <div class="hf-stat"><span class="hf-stat-num ${highCount > 0 ? 'danger' : ''}">${highCount}</span><span class="hf-stat-lbl">high</span></div>
+        </div>
+        ${mrFindings ? `<div class="hf-findings" style="margin-top:10px">${mrFindings}</div>` : ''}
+      </div>`;
+  }
+
   // ── Combined status for the summary line ──
-  const hasIssues = (ps?.flagged_count > 0) || (mc?.failed > 0) || (mc?.warnings > 0);
-  const summaryBadgeClass = (ps?.flagged_count > 0 || mc?.failed > 0) ? 'status-open' : mc?.warnings > 0 ? 'status-warn' : 'status-clean';
-  const summaryIcon       = (ps?.flagged_count > 0 || mc?.failed > 0) ? '⚠' : '✓';
+  // Count issues from all ML layers
+  const psIssues = Array.isArray(ps) ? ps.length : (ps?.flagged_count > 0);
+  const mcIssues = mc?.failed > 0 || mc?.warnings > 0;
+  const mpIssues = mp && mp.length > 0;
+  const isIssues = is && is.length > 0;
+  const mrIssues = mr && mr.length > 0;
+  
+  const hasIssues = psIssues || mcIssues || mpIssues || isIssues || mrIssues;
+  const hasCritical = (Array.isArray(ps) && ps.some(f => (f.severity || '').toLowerCase() === 'critical')) ||
+                      (mp && mp.some(f => (f.severity || '').toLowerCase() === 'critical')) ||
+                      (is && is.some(f => (f.severity || '').toLowerCase() === 'critical')) ||
+                      (mr && mr.some(f => (f.severity || '').toLowerCase() === 'critical')) ||
+                      (ps?.flagged_count > 0) || (mc?.failed > 0);
+  
+  const summaryBadgeClass = hasCritical ? 'status-open' : hasIssues ? 'status-warn' : 'status-clean';
+  const summaryIcon       = hasCritical ? '⚠' : hasIssues ? '⚠' : '✓';
   const summaryLabel      = hasIssues ? 'Issues found' : 'All clear';
 
   return `
@@ -1849,9 +2029,12 @@ function buildModelSecurityCard(scan) {
       <summary class="ms-summary">
         <span class="ms-summary-left">
           <span class="findings-chevron" aria-hidden="true"></span>
-          <span class="ms-summary-title">Model Security</span>
+          <span class="ms-summary-title">ML/AI Security</span>
           ${ps ? '<span class="tool-tag" style="font-size:11px">picklescan</span>' : ''}
           ${mc ? '<span class="tool-tag" style="font-size:11px">model card</span>' : ''}
+          ${mp ? '<span class="tool-tag" style="font-size:11px">provenance</span>' : ''}
+          ${is ? '<span class="tool-tag" style="font-size:11px">inference</span>' : ''}
+          ${mr ? '<span class="tool-tag" style="font-size:11px;background:#581c8722;color:#d8b4fe">runtime</span>' : ''}
         </span>
         <span class="ms-summary-right">
           <span class="hf-status-badge ${summaryBadgeClass}">${summaryIcon} ${summaryLabel}</span>
@@ -1861,6 +2044,9 @@ function buildModelSecurityCard(scan) {
       <div class="ms-body">
         ${pickleSection}
         ${modelCardSection}
+        ${provenanceSection}
+        ${inferenceSection}
+        ${runtimeSection}
       </div>
     </details>`;
 }

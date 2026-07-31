@@ -1,0 +1,42 @@
+{
+  "tool": "model-provenance-check",
+  "version": "1.0",
+  "status": "completed",
+  "findings": [
+    {
+      "type": "blocked_hash",
+      "file": "malicious-model.bin",
+      "severity": "critical",
+      "description": "Model matches known malicious hash",
+      "evidence": "SHA256: abc123..."
+    },
+    {
+      "type": "blocked_author",
+      "file": "untrusted-model.pkl",
+      "severity": "high",
+      "description": "Model from blocked author",
+      "evidence": "Author: malicious-user"
+    },
+    {
+      "type": "typosquat",
+      "file": "bert-base-uncased-cracked",
+      "severity": "critical",
+      "description": "Model name is potential typosquat",
+      "evidence": "Distance 2 from bert-base-uncased"
+    },
+    {
+      "type": "unverified_model",
+      "file": "unsigned-model.bin",
+      "severity": "medium",
+      "description": "Model lacks GPG signature",
+      "evidence": "No signature file found"
+    },
+    {
+      "type": "incomplete_model_card",
+      "file": "model-without-docs",
+      "severity": "low",
+      "description": "Model card missing required sections",
+      "evidence": "Missing: Intended Use, Limitations"
+    }
+  ]
+}

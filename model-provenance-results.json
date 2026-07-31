@@ -1,0 +1,27 @@
+{
+  "tool": "model-provenance-check",
+  "version": "1.0",
+  "status": "completed",
+  "scan_id": "unknown",
+  "target": "/Users/rnelson/Desktop/Side_Projects/epyon/tests/fixtures/ml-models-provenance/clean",
+  "generated_at": "2026-07-30T18:22:32.399195+00:00",
+  "statistics": {
+    "total_models": 1,
+    "models_with_signatures": 0,
+    "models_with_hf_metadata": 0,
+    "blocked_models": 0,
+    "unverified_models": 1
+  },
+  "blocklist_loaded": true,
+  "threat_feed_loaded": false,
+  "findings": [],
+  "summary": {
+    "total_models_scanned": 1,
+    "blocked_models": 0,
+    "unverified_models": 1,
+    "critical_findings": 0,
+    "high_findings": 0,
+    "medium_findings": 0,
+    "low_findings": 0
+  }
+}

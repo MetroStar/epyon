@@ -1,0 +1,35 @@
+{
+  "tool": "inference-security-scan",
+  "version": "1.0",
+  "status": "completed",
+  "findings": [
+    {
+      "type": "dockerfile_root_user",
+      "file": "Dockerfile",
+      "severity": "critical",
+      "description": "Dockerfile explicitly sets USER to root",
+      "evidence": "USER root directive found"
+    },
+    {
+      "type": "k8s_run_as_root",
+      "file": "deployment.yaml",
+      "severity": "critical",
+      "description": "Kubernetes pod allows running as root",
+      "evidence": "runAsNonRoot: false"
+    },
+    {
+      "type": "compose_privileged_mode",
+      "file": "docker-compose.yml",
+      "severity": "critical",
+      "description": "Container runs in privileged mode",
+      "evidence": "privileged: true"
+    },
+    {
+      "type": "compose_dangerous_capabilities",
+      "file": "docker-compose.yml",
+      "severity": "high",
+      "description": "Container has dangerous capabilities",
+      "evidence": "cap_add: [SYS_ADMIN]"
+    }
+  ]
+}

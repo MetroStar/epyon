@@ -1,0 +1,17 @@
+# Contains typosquatting packages (suspicious)
+# Note: These are intentionally misspelled popular packages
+# In real world, attackers publish packages with names like these
+
+# Legitimate package
+numpy==1.24.3
+
+# Typosquats (Levenshtein distance = 1 from popular packages)
+# torh is distance 1 from torch (one character substitution)
+# troch is distance 1 from torch (one character swap)
+
+# For testing purposes, we'll reference these as if they exist
+# (pip-audit won't actually find them, but our analyzer will flag the names)
+torh==2.0.0
+troch==2.0.0
+tensorflo==2.13.0
+transformres==4.30.0

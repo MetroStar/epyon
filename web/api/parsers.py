@@ -625,25 +625,32 @@ def parse_network_discovery_dir(scan_dir: Path) -> dict | None:
     }
 
 
-def parse_picklescan_dir(scan_dir: Path) -> dict | None:
-    """Return the normalized picklescan result dict, or None if not present."""
+def parse_picklescan_dir(scan_dir: Path) -> list[dict]:
+    """Parse Layer 14 (Enhanced) - Comprehensive Model File Analysis.
+    
+    Returns normalized findings list from picklescan-results.json.
+    Supports multi-format detection: pickle, pytorch, onnx, tensorflow, config.
+    """
     result_file = scan_dir / "picklescan" / "picklescan-results.json"
     if not result_file.exists():
-        return None
+        return []
     raw = _read_json(result_file)
     if not raw or not isinstance(raw, dict):
-        return None
-    return {
-        "status":             raw.get("status", "unknown"),
-        "target":             raw.get("target", ""),
-        "file_count":         raw.get("file_count", 0),
-        "total_weight_files": raw.get("total_weight_files", raw.get("file_count", 0)),
-        "flagged_count":      raw.get("flagged_count", 0),
-        "infected_files":     raw.get("infected_files", []),
-        "weight_formats":     raw.get("weight_formats", []),
-        "findings":           raw.get("findings", []),
-        "generated_at":       raw.get("generated_at", ""),
-    }
+        return []
+    
+    findings = []
+    for finding in raw.get("findings", []):
+        findings.append({
+            "tool": "picklescan",
+            "id": f"picklescan_{finding.get('type', 'unknown')}_{finding.get('file', 'unknown')}",
+            "type": finding.get("type", "unknown"),
+            "severity": norm_sev(finding.get("severity")),
+            "file": finding.get("file", ""),
+            "description": finding.get("description", ""),
+            "evidence": finding.get("evidence", ""),
+            "target": finding.get("file", ""),
+        })
+    return findings
 
 
 def parse_coverage_dir(scan_dir: Path) -> dict | None:
@@ -714,6 +721,90 @@ def parse_modelcard_dir(scan_dir: Path) -> dict | None:
         "findings":     raw.get("findings", []),
         "generated_at": raw.get("generated_at", ""),
     }
+
+
+def parse_model_provenance_dir(scan_dir: Path) -> list[dict]:
+    """Parse Layer 18 - Model Provenance & Threat Intelligence.
+    
+    Returns normalized findings list from model-provenance-results.json.
+    Validates model signatures, author reputation, and threat intelligence.
+    """
+    result_file = scan_dir / "model-provenance" / "model-provenance-results.json"
+    if not result_file.exists():
+        return []
+    raw = _read_json(result_file)
+    if not raw or not isinstance(raw, dict):
+        return []
+    
+    findings = []
+    for finding in raw.get("findings", []):
+        findings.append({
+            "tool": "model-provenance",
+            "id": f"provenance_{finding.get('type', 'unknown')}_{finding.get('file', 'unknown')}",
+            "type": finding.get("type", "unknown"),
+            "severity": norm_sev(finding.get("severity")),
+            "file": finding.get("file", ""),
+            "description": finding.get("description", ""),
+            "evidence": finding.get("evidence", ""),
+            "target": finding.get("file", ""),
+        })
+    return findings
+
+
+def parse_inference_security_dir(scan_dir: Path) -> list[dict]:
+    """Parse Layer 19 - Inference Environment Security.
+    
+    Returns normalized findings list from inference-security-results.json.
+    Analyzes Dockerfile, docker-compose, and Kubernetes manifests for misconfigurations.
+    """
+    result_file = scan_dir / "inference-security" / "inference-security-results.json"
+    if not result_file.exists():
+        return []
+    raw = _read_json(result_file)
+    if not raw or not isinstance(raw, dict):
+        return []
+    
+    findings = []
+    for finding in raw.get("findings", []):
+        findings.append({
+            "tool": "inference-security",
+            "id": f"inference_{finding.get('type', 'unknown')}_{finding.get('file', 'unknown')}",
+            "type": finding.get("type", "unknown"),
+            "severity": norm_sev(finding.get("severity")),
+            "file": finding.get("file", ""),
+            "description": finding.get("description", ""),
+            "evidence": finding.get("evidence", ""),
+            "target": finding.get("file", ""),
+        })
+    return findings
+
+
+def parse_ml_runtime_dir(scan_dir: Path) -> list[dict]:
+    """Parse Layer 20 - ML Runtime Behavioral Analysis.
+    
+    Returns normalized findings list from ml-runtime-analysis-results.json.
+    Detects malicious runtime behavior via sandboxed model execution.
+    """
+    result_file = scan_dir / "ml-runtime" / "ml-runtime-analysis-results.json"
+    if not result_file.exists():
+        return []
+    raw = _read_json(result_file)
+    if not raw or not isinstance(raw, dict):
+        return []
+    
+    findings = []
+    for finding in raw.get("findings", []):
+        findings.append({
+            "tool": "ml-runtime",
+            "id": f"runtime_{finding.get('type', 'unknown')}_{finding.get('file', 'unknown')}",
+            "type": finding.get("type", "unknown"),
+            "severity": norm_sev(finding.get("severity")),
+            "file": finding.get("file", ""),
+            "description": finding.get("description", ""),
+            "evidence": finding.get("evidence", ""),
+            "target": finding.get("file", ""),
+        })
+    return findings
 
 
 def parse_mobile_code_dir(scan_dir: Path) -> list[dict]:
@@ -1071,6 +1162,10 @@ def parse_scan_findings(scan_dir: Path) -> dict:
         + parse_xeol_dir(scan_dir)
         + parse_sonarqube_dir(scan_dir)
         + parse_mobile_code_dir(scan_dir)
+        + parse_picklescan_dir(scan_dir)
+        + parse_model_provenance_dir(scan_dir)
+        + parse_inference_security_dir(scan_dir)
+        + parse_ml_runtime_dir(scan_dir)
     )
 
     by_tool = set(f["tool"] for f in all_findings)
@@ -1497,15 +1592,30 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
                 data["has_stig_cklb"] = True
                 data["stig_cklb_url"] = f"/api/scans/{scan_id}/stig-findings-cklb"
 
-    # ── Layer 14 — Picklescan ────────────────────────────────────────────────
+    # ── Layer 14 — Comprehensive Model File Analysis (Enhanced Picklescan) ─────
     picklescan_data = parse_picklescan_dir(scan_dir)
-    if picklescan_data is not None:
+    if picklescan_data:
         data["picklescan"] = picklescan_data
 
     # ── Layer 15 — Model Card Compliance ────────────────────────────────────
     modelcard_data = parse_modelcard_dir(scan_dir)
     if modelcard_data is not None:
         data["modelcard"] = modelcard_data
+
+    # ── Layer 18 — Model Provenance & Threat Intelligence ───────────────────
+    model_provenance_data = parse_model_provenance_dir(scan_dir)
+    if model_provenance_data:
+        data["model_provenance"] = model_provenance_data
+
+    # ── Layer 19 — Inference Environment Security ───────────────────────────
+    inference_security_data = parse_inference_security_dir(scan_dir)
+    if inference_security_data:
+        data["inference_security"] = inference_security_data
+
+    # ── Layer 20 — ML Runtime Behavioral Analysis (Opt-in) ──────────────────
+    ml_runtime_data = parse_ml_runtime_dir(scan_dir)
+    if ml_runtime_data:
+        data["ml_runtime"] = ml_runtime_data
 
     # ── Layer 16 — Network Discovery (PPSM) ─────────────────────────────────
     network_data = parse_network_discovery_dir(scan_dir)

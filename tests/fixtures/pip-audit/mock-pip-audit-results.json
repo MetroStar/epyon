@@ -1,0 +1,30 @@
+{
+  "scan_id": "test_scan_2026-07-30_12-00-00",
+  "timestamp": "2026-07-30T12:00:00Z",
+  "target": "/test/path",
+  "total_vulnerabilities": 2,
+  "dependency_files_scanned": 1,
+  "scan_results": [
+    {
+      "file": "requirements.txt",
+      "results": [
+        {
+          "name": "torch",
+          "version": "1.9.0",
+          "id": "GHSA-xxxx-yyyy-zzzz",
+          "description": "PyTorch vulnerability example",
+          "fix_versions": ["2.0.0"],
+          "aliases": ["CVE-2023-12345"]
+        },
+        {
+          "name": "torh",
+          "version": "2.0.0",
+          "id": "PYSEC-2023-12345",
+          "description": "Suspicious package",
+          "fix_versions": [],
+          "aliases": []
+        }
+      ]
+    }
+  ]
+}

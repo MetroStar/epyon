@@ -9,15 +9,59 @@
 #
 # Supported environments:
 #   - Linux (bash)
-#   - macOS (zsh/bash — auto-switches to bash)
+#   - macOS (zsh/bash — auto-switches to bash 4+)
 #   - Windows (Git Bash, WSL, Cygwin)
 #
-# If this script was invoked with a non-bash shell (e.g., zsh on macOS), it will
-# automatically re-execute itself using bash. If bash is not available, it will
-# print installation instructions and exit.
+# If this script was invoked with bash 3.x (e.g., macOS default), it will
+# automatically re-execute itself using bash 4+ from Homebrew or other locations.
+# If bash 4+ is not available, it will print installation instructions and exit.
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Check if we're already running in bash
+# Check bash version FIRST and re-exec with newer bash if needed
+BASH_VERSION_MAJOR="${BASH_VERSINFO[0]:-0}"
+if [ "$BASH_VERSION_MAJOR" -lt 4 ]; then
+    # Detect OS for better error messages
+    OS_TYPE="$(uname -s 2>/dev/null || echo "Unknown")"
+    
+    # Try to find bash 4+ and re-execute
+    for bash_path in \
+        /opt/homebrew/bin/bash \
+        /usr/local/bin/bash \
+        /home/linuxbrew/.linuxbrew/bin/bash \
+        /usr/bin/bash \
+        bash; do
+        if command -v "$bash_path" >/dev/null 2>&1 && [ "$bash_path" != "/bin/bash" ]; then
+            # Check version before re-executing
+            FOUND_VERSION=$("$bash_path" --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+' | head -1)
+            FOUND_MAJOR=$(echo "$FOUND_VERSION" | cut -d. -f1)
+            
+            # Only use bash 4.0+
+            if [ -n "$FOUND_MAJOR" ] && [ "$FOUND_MAJOR" -ge 4 ]; then
+                # Found suitable bash — re-execute this script
+                exec "$bash_path" "$0" "$@"
+            fi
+        fi
+    done
+    
+    # No bash 4+ found — provide helpful error message
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "❌ ERROR: Epyon requires bash 4.0 or later"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "Current bash version: ${BASH_VERSION}"
+    echo "Required: 4.0 or later"
+    echo ""
+    echo "macOS users: System bash is 3.2 — install bash 4+ via Homebrew:"
+    echo "  brew install bash"
+    echo "  /opt/homebrew/bin/bash ./epyon.sh <target>"
+    echo ""
+    echo "Or add Homebrew bash to your PATH:"
+    echo "  export PATH=\"/opt/homebrew/bin:\$PATH\""
+    echo ""
+    exit 1
+fi
+
+# Check if we're running in a non-bash shell (e.g., zsh)
 if [ -z "${BASH_VERSION:-}" ]; then
     # Not running in bash — try to find and re-exec with bash
     
@@ -34,15 +78,8 @@ if [ -z "${BASH_VERSION:-}" ]; then
         /bin/bash \
         bash; do
         if command -v "$bash_path" >/dev/null 2>&1; then
-            # Found bash — check version before re-executing
-            FOUND_VERSION=$("$bash_path" --version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+' | head -1)
-            FOUND_MAJOR=$(echo "$FOUND_VERSION" | cut -d. -f1)
-            
-            # Only use bash 4.0+
-            if [ -n "$FOUND_MAJOR" ] && [ "$FOUND_MAJOR" -ge 4 ]; then
-                # Found suitable bash — re-execute this script with bash
-                exec "$bash_path" "$0" "$@"
-            fi
+            # Found bash — re-execute this script
+            exec "$bash_path" "$0" "$@"
         fi
     done
     

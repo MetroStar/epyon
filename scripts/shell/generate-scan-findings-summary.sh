@@ -838,6 +838,326 @@ EOF
         done
     fi
 
+    # Process ML/AI Security Layers (14, 18, 19, 20)
+    
+    # Layer 14 — Comprehensive Model File Analysis (Enhanced Picklescan)
+    local picklescan_dir="$SCAN_DIR/picklescan"
+    if [[ -d "$picklescan_dir" && -f "$picklescan_dir/picklescan-results.json" ]]; then
+        local ps_findings
+        ps_findings=$(jq -r '.findings // [] | length' "$picklescan_dir/picklescan-results.json" 2>/dev/null || echo "0")
+        if [[ "$ps_findings" -gt 0 ]]; then
+            tools_analyzed+=("picklescan-enhanced")
+            # Parse array-format findings (enhanced schema)
+            local ps_critical ps_high ps_medium ps_low
+            ps_critical=$(jq -r --arg tool "picklescan" '[
+                .findings[]? | select(.severity == "critical" or .severity == "Critical") |
+                {
+                    tool: $tool,
+                    type: "ml_model_exploit",
+                    severity: "Critical",
+                    check_id: (.id // .type // "PS-UNKNOWN"),
+                    description: .description,
+                    file_path: .file,
+                    package_name: (.file | split("/")[-1])
+                }
+            ]' "$picklescan_dir/picklescan-results.json" 2>/dev/null || echo "[]")
+            ps_high=$(jq -r --arg tool "picklescan" '[
+                .findings[]? | select(.severity == "high" or .severity == "High") |
+                {
+                    tool: $tool,
+                    type: "ml_model_exploit",
+                    severity: "High",
+                    check_id: (.id // .type // "PS-UNKNOWN"),
+                    description: .description,
+                    file_path: .file,
+                    package_name: (.file | split("/")[-1])
+                }
+            ]' "$picklescan_dir/picklescan-results.json" 2>/dev/null || echo "[]")
+            ps_medium=$(jq -r --arg tool "picklescan" '[
+                .findings[]? | select(.severity == "medium" or .severity == "Medium") |
+                {
+                    tool: $tool,
+                    type: "ml_model_exploit",
+                    severity: "Medium",
+                    check_id: (.id // .type // "PS-UNKNOWN"),
+                    description: .description,
+                    file_path: .file,
+                    package_name: (.file | split("/")[-1])
+                }
+            ]' "$picklescan_dir/picklescan-results.json" 2>/dev/null || echo "[]")
+            ps_low=$(jq -r --arg tool "picklescan" '[
+                .findings[]? | select(.severity == "low" or .severity == "Low") |
+                {
+                    tool: $tool,
+                    type: "ml_model_exploit",
+                    severity: "Low",
+                    check_id: (.id // .type // "PS-UNKNOWN"),
+                    description: .description,
+                    file_path: .file,
+                    package_name: (.file | split("/")[-1])
+                }
+            ]' "$picklescan_dir/picklescan-results.json" 2>/dev/null || echo "[]")
+            
+            local ps_crit_count ps_high_count ps_med_count ps_low_count
+            ps_crit_count=$(echo "$ps_critical" | jq 'length')
+            ps_high_count=$(echo "$ps_high" | jq 'length')
+            ps_med_count=$(echo "$ps_medium" | jq 'length')
+            ps_low_count=$(echo "$ps_low" | jq 'length')
+            
+            jq --argjson critical "$ps_critical" --argjson high "$ps_high" --argjson medium "$ps_medium" --argjson low "$ps_low" '
+                .critical_findings += $critical |
+                .high_findings     += $high |
+                .medium_findings   += $medium |
+                .low_findings      += $low' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+            
+            total_critical=$((total_critical + ps_crit_count))
+            total_high=$((total_high + ps_high_count))
+            total_medium=$((total_medium + ps_med_count))
+            total_low=$((total_low + ps_low_count))
+        fi
+    fi
+    
+    # Layer 18 — Model Provenance & Threat Intelligence
+    local provenance_dir="$SCAN_DIR/model-provenance"
+    if [[ -d "$provenance_dir" && -f "$provenance_dir/model-provenance-results.json" ]]; then
+        local mp_findings
+        mp_findings=$(jq -r 'if type == "array" then length else (.findings // [] | length) end' "$provenance_dir/model-provenance-results.json" 2>/dev/null || echo "0")
+        if [[ "$mp_findings" -gt 0 ]]; then
+            tools_analyzed+=("model-provenance")
+            local mp_critical mp_high mp_medium mp_low
+            # Support both array and object{findings:[]} schemas
+            mp_critical=$(jq -r --arg tool "model-provenance" '
+                (if type == "array" then . else (.findings // []) end) | [
+                    .[]? | select(.severity == "critical" or .severity == "Critical") |
+                    {
+                        tool: $tool,
+                        type: "ml_supply_chain",
+                        severity: "Critical",
+                        check_id: (.id // .type // "MP-UNKNOWN"),
+                        description: .description,
+                        file_path: .file,
+                        package_name: (.file | split("/")[-1])
+                    }
+                ]' "$provenance_dir/model-provenance-results.json" 2>/dev/null || echo "[]")
+            mp_high=$(jq -r --arg tool "model-provenance" '
+                (if type == "array" then . else (.findings // []) end) | [
+                    .[]? | select(.severity == "high" or .severity == "High") |
+                    {
+                        tool: $tool,
+                        type: "ml_supply_chain",
+                        severity: "High",
+                        check_id: (.id // .type // "MP-UNKNOWN"),
+                        description: .description,
+                        file_path: .file,
+                        package_name: (.file | split("/")[-1])
+                    }
+                ]' "$provenance_dir/model-provenance-results.json" 2>/dev/null || echo "[]")
+            mp_medium=$(jq -r --arg tool "model-provenance" '
+                (if type == "array" then . else (.findings // []) end) | [
+                    .[]? | select(.severity == "medium" or .severity == "Medium") |
+                    {
+                        tool: $tool,
+                        type: "ml_supply_chain",
+                        severity: "Medium",
+                        check_id: (.id // .type // "MP-UNKNOWN"),
+                        description: .description,
+                        file_path: .file,
+                        package_name: (.file | split("/")[-1])
+                    }
+                ]' "$provenance_dir/model-provenance-results.json" 2>/dev/null || echo "[]")
+            mp_low=$(jq -r --arg tool "model-provenance" '
+                (if type == "array" then . else (.findings // []) end) | [
+                    .[]? | select(.severity == "low" or .severity == "Low") |
+                    {
+                        tool: $tool,
+                        type: "ml_supply_chain",
+                        severity: "Low",
+                        check_id: (.id // .type // "MP-UNKNOWN"),
+                        description: .description,
+                        file_path: .file,
+                        package_name: (.file | split("/")[-1])
+                    }
+                ]' "$provenance_dir/model-provenance-results.json" 2>/dev/null || echo "[]")
+            
+            local mp_crit_count mp_high_count mp_med_count mp_low_count
+            mp_crit_count=$(echo "$mp_critical" | jq 'length')
+            mp_high_count=$(echo "$mp_high" | jq 'length')
+            mp_med_count=$(echo "$mp_medium" | jq 'length')
+            mp_low_count=$(echo "$mp_low" | jq 'length')
+            
+            jq --argjson critical "$mp_critical" --argjson high "$mp_high" --argjson medium "$mp_medium" --argjson low "$mp_low" '
+                .critical_findings += $critical |
+                .high_findings     += $high |
+                .medium_findings   += $medium |
+                .low_findings      += $low' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+            
+            total_critical=$((total_critical + mp_crit_count))
+            total_high=$((total_high + mp_high_count))
+            total_medium=$((total_medium + mp_med_count))
+            total_low=$((total_low + mp_low_count))
+        fi
+    fi
+    
+    # Layer 19 — Inference Environment Security
+    local inference_dir="$SCAN_DIR/inference-security"
+    if [[ -d "$inference_dir" && -f "$inference_dir/inference-security-results.json" ]]; then
+        local is_findings
+        is_findings=$(jq -r 'if type == "array" then length else (.findings // [] | length) end' "$inference_dir/inference-security-results.json" 2>/dev/null || echo "0")
+        if [[ "$is_findings" -gt 0 ]]; then
+            tools_analyzed+=("inference-security")
+            local is_critical is_high is_medium is_low
+            is_critical=$(jq -r --arg tool "inference-security" '
+                (if type == "array" then . else (.findings // []) end) | [
+                    .[]? | select(.severity == "critical" or .severity == "Critical") |
+                    {
+                        tool: $tool,
+                        type: "ml_infrastructure",
+                        severity: "Critical",
+                        check_id: (.id // .type // "IS-UNKNOWN"),
+                        description: .description,
+                        file_path: .file,
+                        package_name: (.file | split("/")[-1])
+                    }
+                ]' "$inference_dir/inference-security-results.json" 2>/dev/null || echo "[]")
+            is_high=$(jq -r --arg tool "inference-security" '
+                (if type == "array" then . else (.findings // []) end) | [
+                    .[]? | select(.severity == "high" or .severity == "High") |
+                    {
+                        tool: $tool,
+                        type: "ml_infrastructure",
+                        severity: "High",
+                        check_id: (.id // .type // "IS-UNKNOWN"),
+                        description: .description,
+                        file_path: .file,
+                        package_name: (.file | split("/")[-1])
+                    }
+                ]' "$inference_dir/inference-security-results.json" 2>/dev/null || echo "[]")
+            is_medium=$(jq -r --arg tool "inference-security" '
+                (if type == "array" then . else (.findings // []) end) | [
+                    .[]? | select(.severity == "medium" or .severity == "Medium") |
+                    {
+                        tool: $tool,
+                        type: "ml_infrastructure",
+                        severity: "Medium",
+                        check_id: (.id // .type // "IS-UNKNOWN"),
+                        description: .description,
+                        file_path: .file,
+                        package_name: (.file | split("/")[-1])
+                    }
+                ]' "$inference_dir/inference-security-results.json" 2>/dev/null || echo "[]")
+            is_low=$(jq -r --arg tool "inference-security" '
+                (if type == "array" then . else (.findings // []) end) | [
+                    .[]? | select(.severity == "low" or .severity == "Low") |
+                    {
+                        tool: $tool,
+                        type: "ml_infrastructure",
+                        severity: "Low",
+                        check_id: (.id // .type // "IS-UNKNOWN"),
+                        description: .description,
+                        file_path: .file,
+                        package_name: (.file | split("/")[-1])
+                    }
+                ]' "$inference_dir/inference-security-results.json" 2>/dev/null || echo "[]")
+            
+            local is_crit_count is_high_count is_med_count is_low_count
+            is_crit_count=$(echo "$is_critical" | jq 'length')
+            is_high_count=$(echo "$is_high" | jq 'length')
+            is_med_count=$(echo "$is_medium" | jq 'length')
+            is_low_count=$(echo "$is_low" | jq 'length')
+            
+            jq --argjson critical "$is_critical" --argjson high "$is_high" --argjson medium "$is_medium" --argjson low "$is_low" '
+                .critical_findings += $critical |
+                .high_findings     += $high |
+                .medium_findings   += $medium |
+                .low_findings      += $low' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+            
+            total_critical=$((total_critical + is_crit_count))
+            total_high=$((total_high + is_high_count))
+            total_medium=$((total_medium + is_med_count))
+            total_low=$((total_low + is_low_count))
+        fi
+    fi
+    
+    # Layer 20 — ML Runtime Behavioral Analysis (Opt-in)
+    local runtime_dir="$SCAN_DIR/ml-runtime"
+    if [[ -d "$runtime_dir" && -f "$runtime_dir/ml-runtime-analysis-results.json" ]]; then
+        local mr_findings
+        mr_findings=$(jq -r 'if type == "array" then length else (.findings // [] | length) end' "$runtime_dir/ml-runtime-analysis-results.json" 2>/dev/null || echo "0")
+        if [[ "$mr_findings" -gt 0 ]]; then
+            tools_analyzed+=("ml-runtime")
+            local mr_critical mr_high mr_medium mr_low
+            mr_critical=$(jq -r --arg tool "ml-runtime" '
+                (if type == "array" then . else (.findings // []) end) | [
+                    .[]? | select(.severity == "critical" or .severity == "Critical") |
+                    {
+                        tool: $tool,
+                        type: "ml_runtime_behavior",
+                        severity: "Critical",
+                        check_id: (.id // .type // "MR-UNKNOWN"),
+                        description: .description,
+                        file_path: .file,
+                        package_name: (.file | split("/")[-1])
+                    }
+                ]' "$runtime_dir/ml-runtime-analysis-results.json" 2>/dev/null || echo "[]")
+            mr_high=$(jq -r --arg tool "ml-runtime" '
+                (if type == "array" then . else (.findings // []) end) | [
+                    .[]? | select(.severity == "high" or .severity == "High") |
+                    {
+                        tool: $tool,
+                        type: "ml_runtime_behavior",
+                        severity: "High",
+                        check_id: (.id // .type // "MR-UNKNOWN"),
+                        description: .description,
+                        file_path: .file,
+                        package_name: (.file | split("/")[-1])
+                    }
+                ]' "$runtime_dir/ml-runtime-analysis-results.json" 2>/dev/null || echo "[]")
+            mr_medium=$(jq -r --arg tool "ml-runtime" '
+                (if type == "array" then . else (.findings // []) end) | [
+                    .[]? | select(.severity == "medium" or .severity == "Medium") |
+                    {
+                        tool: $tool,
+                        type: "ml_runtime_behavior",
+                        severity: "Medium",
+                        check_id: (.id // .type // "MR-UNKNOWN"),
+                        description: .description,
+                        file_path: .file,
+                        package_name: (.file | split("/")[-1])
+                    }
+                ]' "$runtime_dir/ml-runtime-analysis-results.json" 2>/dev/null || echo "[]")
+            mr_low=$(jq -r --arg tool "ml-runtime" '
+                (if type == "array" then . else (.findings // []) end) | [
+                    .[]? | select(.severity == "low" or .severity == "Low") |
+                    {
+                        tool: $tool,
+                        type: "ml_runtime_behavior",
+                        severity: "Low",
+                        check_id: (.id // .type // "MR-UNKNOWN"),
+                        description: .description,
+                        file_path: .file,
+                        package_name: (.file | split("/")[-1])
+                    }
+                ]' "$runtime_dir/ml-runtime-analysis-results.json" 2>/dev/null || echo "[]")
+            
+            local mr_crit_count mr_high_count mr_med_count mr_low_count
+            mr_crit_count=$(echo "$mr_critical" | jq 'length')
+            mr_high_count=$(echo "$mr_high" | jq 'length')
+            mr_med_count=$(echo "$mr_medium" | jq 'length')
+            mr_low_count=$(echo "$mr_low" | jq 'length')
+            
+            jq --argjson critical "$mr_critical" --argjson high "$mr_high" --argjson medium "$mr_medium" --argjson low "$mr_low" '
+                .critical_findings += $critical |
+                .high_findings     += $high |
+                .medium_findings   += $medium |
+                .low_findings      += $low' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+            
+            total_critical=$((total_critical + mr_crit_count))
+            total_high=$((total_high + mr_high_count))
+            total_medium=$((total_medium + mr_med_count))
+            total_low=$((total_low + mr_low_count))
+        fi
+    fi
+
     # Deduplicate findings to avoid counting the same vulnerability multiple times    echo -e "${CYAN}🔄 Deduplicating findings across tools...${NC}"
     
     # Deduplicate each severity level by creating unique keys and keeping first occurrence

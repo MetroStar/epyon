@@ -5,6 +5,17 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.13.1] - 2026-07-30
+
+### Fixed
+- **Critical: Workflow fails when GitHub Issues disabled** — added graceful degradation for repositories with Issues feature disabled
+  - Root cause: Three workflow steps (`Comment on PR`, `Create Scan Notification Issues`, `Link Jira Tickets to GitHub Issue`) made unguarded GitHub Issues API calls that returned HTTP 410 when Issues were disabled, causing the entire workflow to fail even though the security scan succeeded
+  - Added `continue-on-error: true` to all three steps to prevent workflow failure
+  - Wrapped all `github.rest.issues.*` API calls in try-catch blocks with specific error handling for 410 (Issues disabled) and 403 (insufficient permissions)
+  - Added informative console warnings explaining why issue creation was skipped
+  - Impact: Repositories with Issues disabled (common for public repos, private repos, or organizations with restricted settings) would see the Epyon scan fail completely despite successful security scanning, blocking CI/CD pipelines
+  - Now: Workflow continues successfully, all artifacts (dashboard, reports, Jira tickets) are still created, and clear warning messages explain which notification features were skipped
+
 ## [3.13.0] - 2026-07-30
 
 ### Added

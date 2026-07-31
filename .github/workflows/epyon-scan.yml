@@ -180,7 +180,7 @@ on:
         default: false
         type: boolean
       create_github_issue:
-        description: 'Create a GitHub issue for critical severity findings only'
+        description: 'Create GitHub issues for security findings (all severity levels). Gracefully skips if Issues are disabled in the repository.'
         required: false
         default: true
         type: boolean
@@ -908,6 +908,7 @@ jobs:
 
       - name: Comment on PR
         if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
         uses: actions/github-script@v7
         with:
           script: |
@@ -974,16 +975,28 @@ jobs:
               - [Markdown Reports](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
               `;
 
-              github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: comment
-              });
+              try {
+                await github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: comment
+                });
+                console.log('✅ PR comment created successfully');
+              } catch (error) {
+                console.warn(`⚠️ Could not create PR comment: ${error.message}`);
+                if (error.status === 410) {
+                  console.warn('GitHub Issues/PR comments are disabled for this repository');
+                } else if (error.status === 403) {
+                  console.warn('Insufficient permissions to create PR comments');
+                }
+                // Don't fail the workflow - scan still succeeded
+              }
             }
 
       - name: Create Scan Notification Issues
         id: create-github-issue
+        continue-on-error: true
         if: always() && (steps.check-severity.outputs.critical != '0' || steps.check-severity.outputs.high != '0' || steps.check-severity.outputs.medium != '0' || steps.check-severity.outputs.low != '0') && env.CREATE_GITHUB_ISSUE != 'false'
         uses: actions/github-script@v7
         with:
@@ -1116,16 +1129,17 @@ jobs:
               const sevFindings    = findingsData[sev.findingsKey] || [];
               const currentVulnIds = [...new Set(sevFindings.map(findingId))];
 
-              // Search for an existing open issue for this exact severity level.
-              const { data: existingList } = await github.rest.issues.listForRepo({
-                owner:    context.repo.owner,
-                repo:     context.repo.repo,
-                state:    'open',
-                labels:   `security-scan,epyon,${sev.label}`,
-                per_page: 1,
-              });
+              try {
+                // Search for an existing open issue for this exact severity level.
+                const { data: existingList } = await github.rest.issues.listForRepo({
+                  owner:    context.repo.owner,
+                  repo:     context.repo.repo,
+                  state:    'open',
+                  labels:   `security-scan,epyon,${sev.label}`,
+                  per_page: 1,
+                });
 
-              if (existingList.length > 0) {
+                if (existingList.length > 0) {
                 const issue = existingList[0];
 
                 // Extract the set of previously tracked vuln IDs from the most recent
@@ -1172,11 +1186,24 @@ jobs:
                 console.log(`[${sev.key}] Created issue #${newIssue.number}: ${newIssue.html_url}`);
                 if (!firstIssueNumber) { firstIssueNumber = String(newIssue.number); firstIssueUrl = newIssue.html_url; }
               }
+              } catch (error) {
+                // Gracefully handle errors (e.g., Issues disabled in repository)
+                console.warn(`[${sev.key}] Could not create/update GitHub issue: ${error.message}`);
+                if (error.status === 410) {
+                  console.warn(`[${sev.key}] GitHub Issues are disabled for this repository. Skipping issue creation.`);
+                } else if (error.status === 403) {
+                  console.warn(`[${sev.key}] Insufficient permissions to create issues. Check workflow permissions.`);
+                }
+                // Continue processing other severities
+              }
             }
 
             if (firstIssueNumber) {
               core.setOutput('issue_number', firstIssueNumber);
               core.setOutput('issue_url', firstIssueUrl);
+              console.log(`✅ GitHub Issue sync completed. Primary issue: #${firstIssueNumber}`);
+            } else {
+              console.log(`ℹ️ No GitHub Issues were created or updated (Issues may be disabled for this repository)`);
             }
 
       - name: Create JIRA Tickets for Critical/High Findings
@@ -1228,6 +1255,7 @@ jobs:
           env.JIRA_BASE_URL != '' &&
           env.JIRA_API_TOKEN != '' &&
           env.CREATE_JIRA_TICKETS != 'false'
+        continue-on-error: true
         uses: actions/github-script@v7
         with:
           script: |
@@ -1260,13 +1288,23 @@ jobs:
               '_Each Jira ticket also carries a remote link back to this issue._',
             ].join('\n');
 
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: issueNumber,
-              body: comment,
-            });
-            console.log(`Posted ${lines.length} Jira ticket link(s) to GitHub issue #${issueNumber}`);
+            try {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: comment,
+              });
+              console.log(`✅ Posted ${lines.length} Jira ticket link(s) to GitHub issue #${issueNumber}`);
+            } catch (error) {
+              console.warn(`⚠️ Could not link Jira tickets to GitHub issue: ${error.message}`);
+              if (error.status === 410) {
+                console.warn('GitHub Issues are disabled for this repository');
+              } else if (error.status === 403) {
+                console.warn('Insufficient permissions to comment on issues');
+              }
+              // Don't fail - Jira tickets were still created
+            }
 
       - name: Fail on Critical Vulnerabilities
         if: always() && steps.check-severity.outputs.critical > 0

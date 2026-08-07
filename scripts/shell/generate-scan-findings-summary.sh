@@ -614,6 +614,10 @@ EOF
     fi
     
     # Process Checkov results (scan directory structure)
+    # NOTE: Checkov findings are IaC misconfigurations, not CVE vulnerabilities.
+    # The web UI displays these separately in the "Misconfigurations" card via
+    # parse_misconfiguration_findings(). They are included here for backwards
+    # compatibility with scripts that read security-findings-summary.json directly.
     local checkov_dir="$SCAN_DIR/checkov"
     if [[ -d "$checkov_dir" ]]; then
         for checkov_file in "$checkov_dir"/*-results.json; do

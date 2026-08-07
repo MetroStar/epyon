@@ -1147,6 +1147,7 @@ def scan_detail(scan_id: str, response: Response):
     data = parsers.load_scan(matched, EPYON_ROOT)
     data["findings"] = parsers.load_enriched_findings(matched) or parsers.parse_scan_findings(matched)
     data["ml_findings"] = parsers.parse_ml_findings(matched)  # ML/AI findings separate from vulnerability findings
+    data["misconfigurations"] = parsers.parse_misconfiguration_findings(matched)  # Checkov IaC findings separate from vulnerabilities
     data["sbom"] = parsers.load_sbom_packages(matched)
     data["api_discovery"] = parsers.load_api_discovery(matched)
     return data

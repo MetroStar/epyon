@@ -1155,6 +1155,10 @@ def parse_scan_findings(scan_dir: Path) -> dict:
     NOTE: ML/AI security findings (layers 14, 17, 18, 19, 20) are intentionally
     excluded from this function. They are parsed separately and displayed in the
     ML/AI Security card, and are NOT synced to Jira as vulnerability findings.
+    
+    NOTE: Infrastructure misconfiguration findings (Layer 6: Checkov) are also
+    excluded from this function. They are parsed separately via parse_misconfiguration_findings()
+    and displayed in the Misconfigurations card.
     """
     all_findings = (
         parse_trivy_dir(scan_dir)
@@ -1163,11 +1167,11 @@ def parse_scan_findings(scan_dir: Path) -> dict:
         + parse_pip_audit_dir(scan_dir)
         + parse_safety_dir(scan_dir)
         + parse_trufflehog_dir(scan_dir)
-        + parse_checkov_dir(scan_dir)
+        # Checkov excluded - see parse_misconfiguration_findings() below
         + parse_clamav_dir(scan_dir)
         + parse_xeol_dir(scan_dir)
         + parse_sonarqube_dir(scan_dir)
-        # ML/AI security findings excluded - see parse_ml_findings() below
+        # ML/AI security findings excluded - see parse_ml_findings() above
     )
 
     by_tool = set(f["tool"] for f in all_findings)
@@ -1220,6 +1224,39 @@ def parse_ml_findings(scan_dir: Path) -> dict:
     by_tool = set(f["tool"] for f in all_ml_findings)
     by_sev: dict[str, list] = {"critical": [], "high": [], "medium": [], "low": []}
     for f in all_ml_findings:
+        s = f["severity"] if f["severity"] != "unknown" else "low"
+        by_sev.setdefault(s, []).append(f)
+    
+    return {
+        "summary": {
+            "total_critical": len(by_sev["critical"]),
+            "total_high":     len(by_sev["high"]),
+            "total_medium":   len(by_sev["medium"]),
+            "total_low":      len(by_sev["low"]),
+            "tools_analyzed": sorted(by_tool),
+        },
+        "critical_findings": by_sev["critical"],
+        "high_findings":     by_sev["high"],
+        "medium_findings":   by_sev["medium"],
+        "low_findings":      by_sev["low"],
+    }
+
+
+def parse_misconfiguration_findings(scan_dir: Path) -> dict:
+    """Parse infrastructure and configuration misconfigurations separately from vulnerability findings.
+    
+    These findings are displayed in the Misconfigurations card and represent
+    IaC security issues, container misconfigurations, and policy violations
+    detected by Checkov and similar tools. They are NOT treated as CVE vulnerabilities.
+    
+    Returns:
+        dict with misconfiguration findings categorized by severity and tool
+    """
+    all_misconfig_findings = parse_checkov_dir(scan_dir)
+    
+    by_tool = set(f["tool"] for f in all_misconfig_findings)
+    by_sev: dict[str, list] = {"critical": [], "high": [], "medium": [], "low": []}
+    for f in all_misconfig_findings:
         s = f["severity"] if f["severity"] != "unknown" else "low"
         by_sev.setdefault(s, []).append(f)
     

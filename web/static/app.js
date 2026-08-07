@@ -1503,6 +1503,8 @@ async function renderScanDetail(scanId) {
 
       ${buildModelSecurityCard(scan)}
 
+      ${buildMisconfigurationsCard(scan)}
+
       ${buildSBOMSection(scan.sbom, scanId)}
 
       ${buildAPISection(scan.api_discovery)}
@@ -1722,7 +1724,7 @@ function buildNetworkDiscoveryCard(scan) {
 }
 
 function buildModelSecurityCard(scan) {
-  // Enhanced to support 5 ML security layers:
+  // Enhanced to support 5 ML security layers - always show even if no findings
   // Layer 14: picklescan (enhanced), Layer 15: modelcard
   // Layer 18: model-provenance, Layer 19: inference-security, Layer 20: ml-runtime
   const ps = scan.picklescan;
@@ -1731,7 +1733,7 @@ function buildModelSecurityCard(scan) {
   const is = scan.inference_security;
   const mr = scan.ml_runtime;
   
-  if (!ps && !mc && !mp && !is && !mr) return '';
+  // Always show the card to give visibility that ML security layers ran or are available
 
   // ── Layer 14: Enhanced Picklescan section ──
   let pickleSection = '';
@@ -2029,6 +2031,14 @@ function buildModelSecurityCard(scan) {
   const summaryBadgeClass = hasCritical ? 'status-open' : hasIssues ? 'status-warn' : 'status-clean';
   const summaryIcon       = hasCritical ? '⚠' : hasIssues ? '⚠' : '✓';
   const summaryLabel      = hasIssues ? 'Issues found' : 'All clear';
+  
+  // Check if any ML layers ran
+  const anyLayersRan = ps || mc || mp || is || mr;
+  const emptyState = !anyLayersRan ? `
+    <div style="padding:16px;text-align:center;color:var(--text-muted);font-size:13px">
+      <div style="margin-bottom:8px">ℹ️ No ML/AI security layers detected in this scan</div>
+      <div style="font-size:12px;color:var(--text-dim)">ML security scanning (layers 14, 15, 18, 19, 20) only runs for repositories containing ML models or AI artifacts</div>
+    </div>` : '';
 
   return `
     <details class="ms-card" id="model-security-card">
@@ -2048,11 +2058,107 @@ function buildModelSecurityCard(scan) {
         </span>
       </summary>
       <div class="ms-body">
+        ${emptyState}
         ${pickleSection}
         ${modelCardSection}
         ${provenanceSection}
         ${inferenceSection}
         ${runtimeSection}
+      </div>
+    </details>`;
+}
+
+// ── Misconfigurations Card (Checkov IaC findings) ─────────────
+
+function buildMisconfigurationsCard(scan) {
+  // Layer 6: Checkov IaC security findings - always show even if no findings
+  const misconfigs = scan.misconfigurations;
+  const summary = misconfigs?.summary || { total_critical: 0, total_high: 0, total_medium: 0, total_low: 0, tools_analyzed: [] };
+  const totalIssues = summary.total_critical + summary.total_high + summary.total_medium + summary.total_low;
+  
+  // Build findings rows only if there are findings
+  let findingsHtml = '';
+  if (totalIssues > 0) {
+    const buildMisconfigRow = (f) => {
+      const fid = _registerFinding({
+        severity:    f.severity || 'medium',
+        id:          f.id || '',
+        tool:        f.tool || 'Checkov',
+        title:       f.title || f.description || '—',
+        description: f.description || '',
+        file:        f.file || '',
+        target:      f.target || '',
+      });
+      
+      return `
+        <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
+          <span class="hf-finding-sev hf-sev-${esc(f.severity || 'medium')}">${esc(f.severity || 'medium')}</span>
+          <code class="hf-finding-file">${esc(f.file || f.target || '—')}</code>
+          <span class="hf-finding-msg">${esc(f.title || f.description || 'Configuration issue detected')}</span>
+          <span class="hf-finding-chevron">›</span>
+        </div>`;
+    };
+    
+    const criticalFindings = (misconfigs.critical_findings || []).slice(0, 10).map(buildMisconfigRow).join('');
+    const highFindings = (misconfigs.high_findings || []).slice(0, 10).map(buildMisconfigRow).join('');
+    const mediumFindings = (misconfigs.medium_findings || []).slice(0, 5).map(buildMisconfigRow).join('');
+    
+    findingsHtml = `
+      <div class="hf-findings" style="margin-top:10px">
+        ${criticalFindings}
+        ${highFindings}
+        ${mediumFindings}
+        ${totalIssues > 25 ? `<div style="padding:8px;text-align:center;color:var(--text-muted);font-size:12px">… and ${totalIssues - 25} more. View full report in Dashboard.</div>` : ''}
+      </div>`;
+  } else {
+    findingsHtml = `
+      <div style="padding:12px;text-align:center;color:var(--text-muted);font-size:13px">
+        ✓ No infrastructure misconfigurations detected
+      </div>`;
+  }
+  
+  const statusClass = totalIssues === 0 ? 'status-clean' : summary.total_critical > 0 ? 'status-open' : summary.total_high > 0 ? 'status-warn' : 'status-clean';
+  const statusIcon = totalIssues === 0 ? '✓' : summary.total_critical > 0 ? '🚨' : summary.total_high > 0 ? '⚠' : '✓';
+  const statusLabel = totalIssues === 0 
+    ? 'All clear'
+    : summary.total_critical > 0 
+    ? `${summary.total_critical} critical issue(s)` 
+    : summary.total_high > 0 
+    ? `${summary.total_high} high issue(s)` 
+    : 'Minor issues';
+  
+  return `
+    <details class="ms-card" id="misconfigurations-card">
+      <summary class="ms-summary">
+        <span class="ms-summary-left">
+          <span class="findings-chevron" aria-hidden="true"></span>
+          <span class="ms-summary-title">Misconfigurations</span>
+          <span class="tool-tag" style="font-size:11px">Layer 6 — Checkov</span>
+        </span>
+        <span class="ms-summary-right">
+          <span class="hf-status-badge ${statusClass}">${statusIcon} ${statusLabel}</span>
+          <span class="findings-summary-hint" style="margin-left:8px">Click to expand</span>
+        </span>
+      </summary>
+      <div class="ms-body">
+        <div class="ms-layer">
+          <div class="ms-layer-header">
+            <div class="ms-layer-title">
+              <span class="hf-tool-icon">🔧</span>
+              <span>Infrastructure as Code Security</span>
+              <span class="hf-tool-name">Checkov</span>
+            </div>
+            <span class="hf-status-badge ${statusClass}">${statusIcon} ${totalIssues} finding(s)</span>
+          </div>
+          <div class="hf-tool-stats" style="margin-bottom:0">
+            <div class="hf-stat"><span class="hf-stat-num">${totalIssues}</span><span class="hf-stat-lbl">findings</span></div>
+            <div class="hf-stat"><span class="hf-stat-num ${summary.total_critical > 0 ? 'danger' : ''}">${summary.total_critical}</span><span class="hf-stat-lbl">critical</span></div>
+            <div class="hf-stat"><span class="hf-stat-num ${summary.total_high > 0 ? 'danger' : ''}">${summary.total_high}</span><span class="hf-stat-lbl">high</span></div>
+            <div class="hf-stat"><span class="hf-stat-num">${summary.total_medium}</span><span class="hf-stat-lbl">medium</span></div>
+            <div class="hf-stat"><span class="hf-stat-num">${summary.total_low}</span><span class="hf-stat-lbl">low</span></div>
+          </div>
+          ${findingsHtml}
+        </div>
       </div>
     </details>`;
 }
@@ -3173,57 +3279,77 @@ function buildFindingsSection(findings) {
     _sortState[sev] = { col: null, dir: 'asc' };
   }
 
+  // Always show all severity levels, even if empty
   for (const sev of severities) {
     const allItems = findings[`${sev}_findings`] || [];
-    if (!allItems.length) continue;
-    anyFindings = true;
-
     const items = allItems.slice(0, 200);
     _currentFindingsBySev[sev] = items;
+    
+    if (allItems.length > 0) {
+      anyFindings = true;
+      
+      // Count suppressed findings
+      const suppressedCount = allItems.filter(f => f.suppressed === true).length;
+      const activeCount = allItems.length - suppressedCount;
 
-    // Count suppressed findings
-    const suppressedCount = allItems.filter(f => f.suppressed === true).length;
-    const activeCount = allItems.length - suppressedCount;
+      const overflow = allItems.length > 200
+        ? `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:12px">
+             … and ${allItems.length - 200} more. Open the Dashboard for the full list.
+           </td></tr>` : '';
 
-    const overflow = allItems.length > 200
-      ? `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:12px">
-           … and ${allItems.length - 200} more. Open the Dashboard for the full list.
-         </td></tr>` : '';
+      // Build count badge with suppressed indicator
+      const countBadge = suppressedCount > 0
+        ? `<span class="sev-badge ${esc(sev)}">${activeCount}</span><span style="background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b44;border-radius:3px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px" title="${suppressedCount} suppressed by .epyon-ignore.yml">${suppressedCount} suppressed</span>`
+        : `<span class="sev-badge ${esc(sev)}">${allItems.length}</span>`;
 
-    // Build count badge with suppressed indicator
-    const countBadge = suppressedCount > 0
-      ? `<span class="sev-badge ${esc(sev)}">${activeCount}</span><span style="background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b44;border-radius:3px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px" title="${suppressedCount} suppressed by .epyon-ignore.yml">${suppressedCount} suppressed</span>`
-      : `<span class="sev-badge ${esc(sev)}">${allItems.length}</span>`;
-
-    html += `
-      <details class="findings-collapsible findings-${esc(sev)}" id="findings-section-${esc(sev)}">
-        <summary class="findings-summary">
-          <span class="findings-summary-left">
-            <span class="findings-chevron" aria-hidden="true"></span>
-            <span class="findings-summary-title">${ucFirst(sev)} Findings</span>
-            ${countBadge}
-          </span>
-          <span class="findings-summary-hint">Click to expand</span>
-        </summary>
-        <div class="findings-body">
-          <div class="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th class="sortable-th" data-col="tool"    onclick="sortFindingsBy('${sev}','tool')">Tool <span class="sort-icon">⇅</span></th>
-                  <th class="sortable-th" data-col="id"      onclick="sortFindingsBy('${sev}','id')">CVE / ID <span class="sort-icon">⇅</span></th>
-                  <th class="sortable-th" data-col="title"   onclick="sortFindingsBy('${sev}','title')">Title <span class="sort-icon">⇅</span></th>
-                  <th class="sortable-th" data-col="package" onclick="sortFindingsBy('${sev}','package')">Package <span class="sort-icon">⇅</span></th>
-                  <th class="sortable-th" data-col="cvss"    onclick="sortFindingsBy('${sev}','cvss')" style="white-space:nowrap">CVSS / KEV <span class="sort-icon">⇅</span></th>
-                  <th class="sortable-th" data-col="fix"     onclick="sortFindingsBy('${sev}','fix')">Fix Available <span class="sort-icon">⇅</span></th>
-                  <th class="sortable-th" data-col="target"  onclick="sortFindingsBy('${sev}','target')">Location <span class="sort-icon">⇅</span></th>
-                </tr>
-              </thead>
-              <tbody id="findings-tbody-${esc(sev)}">${_buildFindingRows(items)}${overflow}</tbody>
-            </table>
+      html += `
+        <details class="findings-collapsible findings-${esc(sev)}" id="findings-section-${esc(sev)}">
+          <summary class="findings-summary">
+            <span class="findings-summary-left">
+              <span class="findings-chevron" aria-hidden="true"></span>
+              <span class="findings-summary-title">${ucFirst(sev)} Findings</span>
+              ${countBadge}
+            </span>
+            <span class="findings-summary-hint">Click to expand</span>
+          </summary>
+          <div class="findings-body">
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th class="sortable-th" data-col="tool"    onclick="sortFindingsBy('${sev}','tool')">Tool <span class="sort-icon">⇅</span></th>
+                    <th class="sortable-th" data-col="id"      onclick="sortFindingsBy('${sev}','id')">CVE / ID <span class="sort-icon">⇅</span></th>
+                    <th class="sortable-th" data-col="title"   onclick="sortFindingsBy('${sev}','title')">Title <span class="sort-icon">⇅</span></th>
+                    <th class="sortable-th" data-col="package" onclick="sortFindingsBy('${sev}','package')">Package <span class="sort-icon">⇅</span></th>
+                    <th class="sortable-th" data-col="cvss"    onclick="sortFindingsBy('${sev}','cvss')" style="white-space:nowrap">CVSS / KEV <span class="sort-icon">⇅</span></th>
+                    <th class="sortable-th" data-col="fix"     onclick="sortFindingsBy('${sev}','fix')">Fix Available <span class="sort-icon">⇅</span></th>
+                    <th class="sortable-th" data-col="target"  onclick="sortFindingsBy('${sev}','target')">Location <span class="sort-icon">⇅</span></th>
+                  </tr>
+                </thead>
+                <tbody id="findings-tbody-${esc(sev)}">${_buildFindingRows(items)}${overflow}</tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      </details>`;
+        </details>`;
+    } else {
+      // Empty severity level - show with 0 badge
+      html += `
+        <details class="findings-collapsible findings-${esc(sev)}" id="findings-section-${esc(sev)}" style="opacity:0.6">
+          <summary class="findings-summary">
+            <span class="findings-summary-left">
+              <span class="findings-chevron" aria-hidden="true"></span>
+              <span class="findings-summary-title">${ucFirst(sev)} Findings</span>
+              <span class="sev-badge clean" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">0</span>
+            </span>
+            <span class="findings-summary-hint" style="color:var(--text-dim)">No findings</span>
+          </summary>
+          <div class="findings-body">
+            <div style="padding:12px 18px;color:var(--text-muted);font-size:13px;text-align:center">
+              ✓ No ${sev} severity findings detected
+            </div>
+          </div>
+        </details>`;
+    }
   }
 
   // ── Enrichment metadata banner ──────────────────────────────
@@ -3251,19 +3377,16 @@ function buildFindingsSection(findings) {
       </div>`;
   }
 
-  if (!anyFindings) {
-    return `
-      <div class="section">
-        <div class="section-title">Findings</div>
-        ${enrichmentBanner}
-        <span class="sev-badge clean" style="padding:8px 16px">✓ No findings detected</span>
-      </div>`;
-  }
+  // Add summary message when no findings at all
+  const summaryMessage = !anyFindings
+    ? '<div style="padding:12px 0;color:var(--text-muted);font-size:14px"><strong>✓ All vulnerability scans completed successfully with no findings.</strong></div>'
+    : '';
 
   return `
     <div class="section findings-section-wrapper">
-      <div class="section-title">Findings</div>
+      <div class="section-title">Vulnerabilities</div>
       ${enrichmentBanner}
+      ${summaryMessage}
       ${html}
     </div>`;
 }
@@ -8253,6 +8376,8 @@ function renderStaticScanDetail(scan) {
     ${stigCard}
 
     ${buildModelSecurityCard(scan)}
+
+    ${buildMisconfigurationsCard(scan)}
 
     ${buildSBOMSection(scan.sbom, null)}
 

@@ -1348,6 +1348,8 @@ def load_enriched_findings(scan_dir: Path) -> dict | None:
       package_version   → version
       fix_versions[0]   → fixed_version
     CISA KEV, nvd_url, nvd_cvss_v3_score, nvd_cvss_v3_severity are preserved.
+    
+    NOTE: Checkov findings are filtered out and handled separately via parse_misconfiguration_findings().
     Returns None when the file is absent or cannot be parsed.
     """
     summary_file = scan_dir / "security-findings-summary.json"
@@ -1364,6 +1366,10 @@ def load_enriched_findings(scan_dir: Path) -> dict | None:
         out = []
         for f in (findings or []):
             if not isinstance(f, dict):
+                continue
+            # Skip Checkov findings - they belong in misconfigurations, not vulnerabilities
+            tool_name = (f.get("tool") or "").lower()
+            if tool_name == "checkov":
                 continue
             fix_versions = f.get("fix_versions") or []
             out.append({
@@ -1388,19 +1394,30 @@ def load_enriched_findings(scan_dir: Path) -> dict | None:
 
     summary = raw.get("summary") or {}
     enrichment = raw.get("enrichment") or {}
+    
+    # Normalize and filter findings (Checkov excluded)
+    critical = _norm(raw.get("critical_findings", []))
+    high = _norm(raw.get("high_findings", []))
+    medium = _norm(raw.get("medium_findings", []))
+    low = _norm(raw.get("low_findings", []))
+    
+    # Recalculate counts after filtering
+    tools_analyzed = summary.get("tools_analyzed", [])
+    # Remove Checkov from tools list if present
+    tools_analyzed = [t for t in tools_analyzed if t.lower() != "checkov"]
 
     findings_dict = {
         "summary": {
-            "total_critical": summary.get("total_critical", 0),
-            "total_high":     summary.get("total_high", 0),
-            "total_medium":   summary.get("total_medium", 0),
-            "total_low":      summary.get("total_low", 0),
-            "tools_analyzed": summary.get("tools_analyzed", []),
+            "total_critical": len(critical),
+            "total_high":     len(high),
+            "total_medium":   len(medium),
+            "total_low":      len(low),
+            "tools_analyzed": tools_analyzed,
         },
-        "critical_findings": _norm(raw.get("critical_findings", [])),
-        "high_findings":     _norm(raw.get("high_findings", [])),
-        "medium_findings":   _norm(raw.get("medium_findings", [])),
-        "low_findings":      _norm(raw.get("low_findings", [])),
+        "critical_findings": critical,
+        "high_findings":     high,
+        "medium_findings":   medium,
+        "low_findings":      low,
         "enrichment":        enrichment,
     }
     

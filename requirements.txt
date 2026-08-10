@@ -11,3 +11,8 @@ python-multipart>=0.0.6
 # Development dependencies
 pytest>=7.0.0
 pytest-cov>=4.0.0
+
+# Additional dependencies
+transformers>=4.36.0
+torch>=2.6.0
+tensorflow>=2.14.0

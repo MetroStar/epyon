@@ -21,6 +21,10 @@ garak.log
 # Archive directory (cleanup archives, too large for git)
 _archive/
 
+# Temporary clone directories
+**/tmp-clones/
+**/.tmp-clones/
+
 # Baseline directory structure - include scans and reference file
 !baseline/                    # Include baseline directory
 baseline/*                    # But exclude everything in it by default

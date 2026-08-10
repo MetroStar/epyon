@@ -334,6 +334,53 @@ async def close_ticket(cfg: dict, issue_key: str) -> bool:
         return False
 
 
+async def _find_reopen_transition_id(cfg: dict, issue_key: str) -> str | None:
+    """Return the transition ID for reopening a closed issue.
+    Tries common reopen transition names: 'Reopen', 'To Do', 'Open', 'Backlog', etc.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(
+                f"{_base(cfg)}/rest/api/3/issue/{issue_key}/transitions",
+                auth=_auth(cfg),
+                headers={"Accept": "application/json"},
+            )
+        if r.status_code != 200:
+            return None
+        transitions = r.json().get("transitions", [])
+        # Try common reopen transition names in priority order
+        for fallback in ("reopen", "to do", "open", "backlog", "in progress", "reopened"):
+            for t in transitions:
+                if t.get("name", "").lower() == fallback:
+                    return t["id"]
+    except Exception:
+        pass
+    return None
+
+
+async def reopen_ticket(cfg: dict, issue_key: str) -> bool:
+    """Reopen a closed Jira issue. Returns True on success.
+    
+    This is used when a previously fixed vulnerability reappears in a new scan.
+    Reopening maintains a single source of truth and shows the full lifecycle
+    (open → closed → reopened) instead of creating duplicate tickets.
+    """
+    tid = await _find_reopen_transition_id(cfg, issue_key)
+    if not tid:
+        return False
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.post(
+                f"{_base(cfg)}/rest/api/3/issue/{issue_key}/transitions",
+                auth=_auth(cfg),
+                headers={"Accept": "application/json", "Content-Type": "application/json"},
+                json={"transition": {"id": tid}},
+            )
+        return r.status_code == 204
+    except Exception:
+        return False
+
+
 # ── Reconciliation ────────────────────────────────────────────
 
 _SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3}
@@ -353,10 +400,13 @@ async def reconcile_app(
 
     New (in current but absent in previous) — only when cfg.create_on_new is True:
         → create a new Jira ticket if severity meets cfg.min_severity.
+        
+    Reappeared (previously closed ticket, now finding is back):
+        → reopen the existing ticket instead of creating a duplicate.
 
     Mutates *ticket_map* in-place and returns a summary dict.
     """
-    result: dict = {"closed": [], "opened": [], "errors": []}
+    result: dict = {"closed": [], "opened": [], "reopened": [], "errors": []}
 
     create_on_new = bool(cfg.get("create_on_new", False))
     min_sev       = (cfg.get("min_severity") or "high").lower()
@@ -404,8 +454,22 @@ async def reconcile_app(
                 # If ticket exists and is still open, skip (prevents duplicate tickets)
                 if not existing.get("closed_at"):
                     continue
-                # If ticket exists but was closed, this is a reappearance
-                # We'll create a new ticket below, but only if it wasn't in the previous scan
+                # If ticket exists but was closed, this is a reappearance.
+                # Reopen the existing ticket instead of creating a duplicate.
+                # This maintains a single source of truth and shows the full lifecycle.
+                issue_key = existing.get("issue_key", "")
+                if issue_key:
+                    # Check if it wasn't in the previous scan (genuinely reappeared)
+                    if fp not in previous_fps:
+                        ok = await reopen_ticket(cfg, issue_key)
+                        if ok:
+                            ticket_map[fp]["closed_at"] = None
+                            ticket_map[fp]["reopened_at"] = now_ts
+                            result["reopened"].append(issue_key)
+                        else:
+                            result["errors"].append(f"Failed to reopen {issue_key}")
+                    # If it was in previous scan, it's persistent - skip
+                    continue
             
             # SECONDARY CHECK: If finding was in previous scan, it's not "new"
             # (it's a persistent finding, not a new discovery)
@@ -413,9 +477,9 @@ async def reconcile_app(
                 continue
             
             # At this point:
-            # - No open ticket exists for this fingerprint
+            # - No ticket exists for this fingerprint (neither open nor closed)
             # - Finding wasn't in the previous scan
-            # This is either genuinely new, or a reappeared vulnerability
+            # This is genuinely new - create a ticket
             
             # Check severity threshold
             sev_rank = _SEV_RANK.get((finding.get("severity") or "low").lower(), 3)

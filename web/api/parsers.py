@@ -1156,9 +1156,9 @@ def parse_scan_findings(scan_dir: Path) -> dict:
     excluded from this function. They are parsed separately and displayed in the
     ML/AI Security card, and are NOT synced to Jira as vulnerability findings.
     
-    NOTE: Infrastructure misconfiguration findings (Layer 6: Checkov) are also
-    excluded from this function. They are parsed separately via parse_misconfiguration_findings()
-    and displayed in the Misconfigurations card.
+    NOTE: Infrastructure misconfiguration and secret detection findings (Layer 6: Checkov,
+    Layer 2: TruffleHog) are excluded from this function. They are parsed separately via
+    parse_misconfiguration_findings() and displayed in the Misconfigurations card.
     """
     all_findings = (
         parse_trivy_dir(scan_dir)
@@ -1166,8 +1166,7 @@ def parse_scan_findings(scan_dir: Path) -> dict:
         + parse_anchore_dir(scan_dir)
         + parse_pip_audit_dir(scan_dir)
         + parse_safety_dir(scan_dir)
-        + parse_trufflehog_dir(scan_dir)
-        # Checkov excluded - see parse_misconfiguration_findings() below
+        # TruffleHog and Checkov excluded - see parse_misconfiguration_findings() below
         + parse_clamav_dir(scan_dir)
         + parse_xeol_dir(scan_dir)
         + parse_sonarqube_dir(scan_dir)
@@ -1243,16 +1242,19 @@ def parse_ml_findings(scan_dir: Path) -> dict:
 
 
 def parse_misconfiguration_findings(scan_dir: Path) -> dict:
-    """Parse infrastructure and configuration misconfigurations separately from vulnerability findings.
+    """Parse infrastructure, configuration misconfigurations, and secrets separately from vulnerability findings.
     
     These findings are displayed in the Misconfigurations card and represent
-    IaC security issues, container misconfigurations, and policy violations
-    detected by Checkov and similar tools. They are NOT treated as CVE vulnerabilities.
+    IaC security issues, secret leaks, container misconfigurations, and policy violations
+    detected by Checkov, TruffleHog, and similar tools. They are NOT treated as CVE vulnerabilities.
     
     Returns:
         dict with misconfiguration findings categorized by severity and tool
     """
-    all_misconfig_findings = parse_checkov_dir(scan_dir)
+    all_misconfig_findings = (
+        parse_checkov_dir(scan_dir)
+        + parse_trufflehog_dir(scan_dir)
+    )
     
     by_tool = set(f["tool"] for f in all_misconfig_findings)
     by_sev: dict[str, list] = {"critical": [], "high": [], "medium": [], "low": []}
@@ -1367,9 +1369,9 @@ def load_enriched_findings(scan_dir: Path) -> dict | None:
         for f in (findings or []):
             if not isinstance(f, dict):
                 continue
-            # Skip Checkov findings - they belong in misconfigurations, not vulnerabilities
+            # Skip Checkov and TruffleHog findings - they belong in misconfigurations, not vulnerabilities
             tool_name = (f.get("tool") or "").lower()
-            if tool_name == "checkov":
+            if tool_name in ("checkov", "trufflehog"):
                 continue
             fix_versions = f.get("fix_versions") or []
             out.append({
@@ -1403,8 +1405,8 @@ def load_enriched_findings(scan_dir: Path) -> dict | None:
     
     # Recalculate counts after filtering
     tools_analyzed = summary.get("tools_analyzed", [])
-    # Remove Checkov from tools list if present
-    tools_analyzed = [t for t in tools_analyzed if t.lower() != "checkov"]
+    # Remove Checkov and TruffleHog from tools list if present
+    tools_analyzed = [t for t in tools_analyzed if t.lower() not in ("checkov", "trufflehog")]
 
     findings_dict = {
         "summary": {

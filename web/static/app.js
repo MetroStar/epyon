@@ -2071,7 +2071,7 @@ function buildModelSecurityCard(scan) {
 // ── Misconfigurations Card (Checkov IaC findings) ─────────────
 
 function buildMisconfigurationsCard(scan) {
-  // Layer 6: Checkov IaC security findings - always show even if no findings
+  // Layers 2 & 6: TruffleHog secret detection + Checkov IaC security - always show even if no findings
   const misconfigs = scan.misconfigurations;
   const summary = misconfigs?.summary || { total_critical: 0, total_high: 0, total_medium: 0, total_low: 0, tools_analyzed: [] };
   const totalIssues = summary.total_critical + summary.total_high + summary.total_medium + summary.total_low;
@@ -2113,7 +2113,7 @@ function buildMisconfigurationsCard(scan) {
   } else {
     findingsHtml = `
       <div style="padding:12px;text-align:center;color:var(--text-muted);font-size:13px">
-        ✓ No infrastructure misconfigurations detected
+        ✓ No misconfigurations or secrets detected
       </div>`;
   }
   
@@ -2133,7 +2133,7 @@ function buildMisconfigurationsCard(scan) {
         <span class="ms-summary-left">
           <span class="findings-chevron" aria-hidden="true"></span>
           <span class="ms-summary-title">Misconfigurations</span>
-          <span class="tool-tag" style="font-size:11px">Layer 6 — Checkov</span>
+          <span class="tool-tag" style="font-size:11px">Layers 2 & 6 — Secrets & IaC</span>
         </span>
         <span class="ms-summary-right">
           <span class="hf-status-badge ${statusClass}">${statusIcon} ${statusLabel}</span>
@@ -2145,8 +2145,8 @@ function buildMisconfigurationsCard(scan) {
           <div class="ms-layer-header">
             <div class="ms-layer-title">
               <span class="hf-tool-icon">🔧</span>
-              <span>Infrastructure as Code Security</span>
-              <span class="hf-tool-name">Checkov</span>
+              <span>Security Misconfigurations & Secrets</span>
+              <span class="hf-tool-name">${(summary.tools_analyzed || []).join(', ') || 'Checkov, TruffleHog'}</span>
             </div>
             <span class="hf-status-badge ${statusClass}">${statusIcon} ${totalIssues} finding(s)</span>
           </div>

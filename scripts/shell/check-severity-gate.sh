@@ -329,12 +329,15 @@ if [[ -f "$TRUFFLEHOG_FILE" ]]; then
             detector=$(echo "$line" | jq -r '.DetectorName // ""' 2>/dev/null)
             file_path=$(echo "$line" | jq -r '.SourceMetadata.Data.Filesystem.file // ""' 2>/dev/null)
             
+            # Strip /workspace/ prefix added by Docker volume mount so path patterns match
+            clean_file_path="${file_path#/workspace/}"
+            
             # Check if ignored (always runs for suppression logging)
             ignored=false
             
-            if declare -f is_secret_ignored >/dev/null 2>&1 && is_secret_ignored "$detector" "$file_path" "TruffleHog"; then
+            if declare -f is_secret_ignored >/dev/null 2>&1 && is_secret_ignored "$detector" "$clean_file_path" "TruffleHog"; then
                 ignored=true
-            elif [[ -n "$file_path" ]] && declare -f is_path_ignored >/dev/null 2>&1 && is_path_ignored "$file_path" "TruffleHog"; then
+            elif [[ -n "$clean_file_path" ]] && declare -f is_path_ignored >/dev/null 2>&1 && is_path_ignored "$clean_file_path" "TruffleHog"; then
                 ignored=true
             fi
             

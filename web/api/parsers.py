@@ -252,6 +252,11 @@ def parse_trufflehog_dir(scan_dir: Path) -> list[dict]:
                     fs_data = meta.get("Filesystem") or meta.get("Git") or {}
                     verified = bool(item.get("Verified"))
                     file_path = fs_data.get("file") or fs_data.get("path", "")
+                    
+                    # Strip /workspace/ prefix added by Docker volume mount
+                    if file_path.startswith("/workspace/"):
+                        file_path = file_path[len("/workspace/"):]
+                    
                     line_num = fs_data.get("line", "")
                     
                     # Build location string with file path and line number

@@ -151,123 +151,117 @@ if [[ -f "$FINDINGS_SUMMARY" ]]; then
     # Filter findings by suppression rules (tool-level AND finding-level)
     echo -e "${CYAN}🔍 Applying suppression rules to findings...${NC}"
     
-    # Step 1: Apply tool-level filtering if any tools are suppressed
-    if [[ -n "$SUPPRESSED_TOOLS_JQ" ]]; then
-        FILTER_EXPR="select(true ${SUPPRESSED_TOOLS_JQ})"
-        echo -e "${YELLOW}  Tool-level suppression active${NC}"
-    else
-        FILTER_EXPR="select(true)"
-    fi
+    # Build a list of suppressed finding fingerprints using existing bash functions
+    # This ensures we use the same suppression logic that's already tested
+    SUPPRESSED_FINGERPRINTS=$(mktemp)
     
-    # Step 2: Apply finding-level filtering (secrets, CVEs, paths)
-    # Create temporary filtered JSON by checking each finding
-    TEMP_FILTERED=$(mktemp)
-    
-    # Function to check if a finding should be suppressed
-    is_finding_suppressed() {
-        local finding_json="$1"
-        local tool=$(echo "$finding_json" | jq -r '.tool // ""')
-        local detector=$(echo "$finding_json" | jq -r '.detector // ""')
-        local file_path=$(echo "$finding_json" | jq -r '.file_path // ""')
-        local cve=$(echo "$finding_json" | jq -r '.vulnerability_id // .id // ""')
-        local package=$(echo "$finding_json" | jq -r '.package_name // .package // ""')
-        local version=$(echo "$finding_json" | jq -r '.package_version // .version // ""')
-        
-        # Strip /workspace/ prefix if present
-        file_path="${file_path#/workspace/}"
-        
-        # Check suppressions
-        if [[ -n "$detector" && -n "$file_path" ]] && declare -f is_secret_ignored >/dev/null 2>&1; then
-            if is_secret_ignored "$detector" "$file_path" "$tool" 2>/dev/null; then
-                return 0  # suppressed
-            fi
-        fi
-        
-        if [[ -n "$cve" ]] && declare -f is_cve_ignored >/dev/null 2>&1; then
-            if is_cve_ignored "$cve" "$tool" 2>/dev/null; then
-                return 0  # suppressed
-            fi
-        fi
-        
-        if [[ -n "$package" ]] && declare -f is_package_ignored >/dev/null 2>&1; then
-            if is_package_ignored "$package" "$version" "$tool" 2>/dev/null; then
-                return 0  # suppressed
-            fi
-        fi
-        
-        if [[ -n "$file_path" ]] && declare -f is_path_ignored >/dev/null 2>&1; then
-            if is_path_ignored "$file_path" "$tool" 2>/dev/null; then
-                return 0  # suppressed
-            fi
-        fi
-        
-        return 1  # not suppressed
-    }
-    
-    # Filter each severity level
-    FILTERED_CRITICAL="[]"
-    FILTERED_HIGH="[]"
-    FILTERED_MEDIUM="[]"
-    FILTERED_LOW="[]"
-    
+    # Process each finding and check if it should be suppressed
     for severity_key in critical_findings high_findings medium_findings low_findings; do
-        filtered_array="[]"
-        while IFS= read -r finding; do
-            if [[ -z "$finding" || "$finding" == "null" ]]; then
+        jq -c ".${severity_key}[]?" "$FINDINGS_SUMMARY" 2>/dev/null | while IFS= read -r finding; do
+            if [[ -z "$finding" ]]; then
                 continue
             fi
             
-            if ! is_finding_suppressed "$finding"; then
-                filtered_array=$(echo "$filtered_array" | jq --argjson f "$finding" '. + [$f]')
+            # Extract finding details
+            tool=$(echo "$finding" | jq -r '.tool // ""')
+            detector=$(echo "$finding" | jq -r '.detector // ""')
+            file_path=$(echo "$finding" | jq -r '.file_path // ""')
+            cve=$(echo "$finding" | jq -r '.vulnerability_id // .id // ""')
+            package=$(echo "$finding" | jq -r '.package_name // .package // ""')
+            version=$(echo "$finding" | jq -r '.package_version // .version // ""')
+            line_num=$(echo "$finding" | jq -r '.line_number // ""')
+            
+            # Strip /workspace/ prefix
+            file_path="${file_path#/workspace/}"
+            
+            # Create a unique fingerprint for this finding
+            fingerprint="${tool}|${detector}|${cve}|${package}|${version}|${file_path}|${line_num}"
+            
+            # Check if suppressed using existing bash functions
+            suppressed=false
+            
+            if [[ -n "$detector" && -n "$file_path" ]] && declare -f is_secret_ignored >/dev/null 2>&1; then
+                if is_secret_ignored "$detector" "$file_path" "$tool" 2>/dev/null; then
+                    suppressed=true
+                fi
+            elif [[ -n "$cve" ]] && declare -f is_cve_ignored >/dev/null 2>&1; then
+                if is_cve_ignored "$cve" "$tool" 2>/dev/null; then
+                    suppressed=true
+                fi
+            elif [[ -n "$package" ]] && declare -f is_package_ignored >/dev/null 2>&1; then
+                if is_package_ignored "$package" "$version" "$tool" 2>/dev/null; then
+                    suppressed=true
+                fi
+            elif [[ -n "$file_path" ]] && declare -f is_path_ignored >/dev/null 2>&1; then
+                if is_path_ignored "$file_path" "$tool" 2>/dev/null; then
+                    suppressed=true
+                fi
             fi
-        done < <(jq -c ".${severity_key}[]?" "$FINDINGS_SUMMARY" 2>/dev/null)
-        
-        case "$severity_key" in
-            critical_findings) FILTERED_CRITICAL="$filtered_array" ;;
-            high_findings) FILTERED_HIGH="$filtered_array" ;;
-            medium_findings) FILTERED_MEDIUM="$filtered_array" ;;
-            low_findings) FILTERED_LOW="$filtered_array" ;;
-        esac
+            
+            if [[ "$suppressed" == "true" ]]; then
+                echo "$fingerprint" >> "$SUPPRESSED_FINGERPRINTS"
+            fi
+        done
     done
     
-    # Count filtered findings
-    TOTAL_CRITICAL=$(echo "$FILTERED_CRITICAL" | jq 'length')
-    TOTAL_HIGH=$(echo "$FILTERED_HIGH" | jq 'length')
-    TOTAL_MEDIUM=$(echo "$FILTERED_MEDIUM" | jq 'length')
-    TOTAL_LOW=$(echo "$FILTERED_LOW" | jq 'length')
+    # Now use jq to filter out the suppressed findings
+    FILTERED_SUMMARY="$SCAN_DIR/security-findings-filtered.json"
     
-    echo -e "${YELLOW}  After all suppressions — Critical: $TOTAL_CRITICAL | High: $TOTAL_HIGH | Medium: $TOTAL_MEDIUM | Low: $TOTAL_LOW${NC}"
+    # Read suppressed fingerprints into a bash array for jq
+    mapfile -t SUPPRESSED_ARRAY < "$SUPPRESSED_FINGERPRINTS"
+    SUPPRESSED_JSON=$(printf '%s\n' "${SUPPRESSED_ARRAY[@]}" | jq -R . | jq -s .)
     
-    # Write filtered JSON
-    FILTERED_SUMMARY="${FINDINGS_SUMMARY%.json}-filtered.json"
-    jq -n \
-        --argjson crit "$FILTERED_CRITICAL" \
-        --argjson high "$FILTERED_HIGH" \
-        --argjson med "$FILTERED_MEDIUM" \
-        --argjson low "$FILTERED_LOW" \
-        --argjson orig "$(cat "$FINDINGS_SUMMARY")" \
-        '{
-            critical_findings: $crit,
-            high_findings: $high,
-            medium_findings: $med,
-            low_findings: $low,
-            summary: {
-                total_critical: ($crit | length),
-                total_high: ($high | length),
-                total_medium: ($med | length),
-                total_low: ($low | length)
-            },
-            scan_metadata: $orig.scan_metadata
-        }' > "$FILTERED_SUMMARY" 2>/dev/null \
-        && echo -e "${GREEN}✅ Wrote filtered findings: $FILTERED_SUMMARY${NC}" \
-        || echo -e "${YELLOW}⚠️  Could not write filtered findings JSON${NC}"
+    jq --argjson suppressed "$SUPPRESSED_JSON" '
+    # Helper to create fingerprint from finding
+    def fingerprint:
+        [
+            (.tool // ""),
+            (.detector // ""),
+            (.vulnerability_id // .id // ""),
+            (.package_name // .package // ""),
+            (.package_version // .version // ""),
+            ((.file_path // "") | sub("^/workspace/"; "")),
+            (.line_number // "")
+        ] | join("|");
     
-    # Use the filtered file for all subsequent operations
-    if [[ -f "$FILTERED_SUMMARY" ]]; then
+    # Filter findings
+    {
+        critical_findings: [.critical_findings[]? | select(fingerprint as $fp | $suppressed | index($fp) | not)],
+        high_findings: [.high_findings[]? | select(fingerprint as $fp | $suppressed | index($fp) | not)],
+        medium_findings: [.medium_findings[]? | select(fingerprint as $fp | $suppressed | index($fp) | not)],
+        low_findings: [.low_findings[]? | select(fingerprint as $fp | $suppressed | index($fp) | not)],
+        summary: {
+            total_critical: ([.critical_findings[]? | select(fingerprint as $fp | $suppressed | index($fp) | not)] | length),
+            total_high: ([.high_findings[]? | select(fingerprint as $fp | $suppressed | index($fp) | not)] | length),
+            total_medium: ([.medium_findings[]? | select(fingerprint as $fp | $suppressed | index($fp) | not)] | length),
+            total_low: ([.low_findings[]? | select(fingerprint as $fp | $suppressed | index($fp) | not)] | length)
+        },
+        scan_metadata: .scan_metadata
+    }
+    ' "$FINDINGS_SUMMARY" > "$FILTERED_SUMMARY" 2>/dev/null
+    
+    # Check if filtering succeeded
+    if [[ $? -eq 0 && -f "$FILTERED_SUMMARY" && -s "$FILTERED_SUMMARY" ]]; then
+        # Read filtered counts
+        TOTAL_CRITICAL=$(jq -r '.summary.total_critical // 0' "$FILTERED_SUMMARY" 2>/dev/null || echo "0")
+        TOTAL_HIGH=$(jq -r '.summary.total_high // 0' "$FILTERED_SUMMARY" 2>/dev/null || echo "0")
+        TOTAL_MEDIUM=$(jq -r '.summary.total_medium // 0' "$FILTERED_SUMMARY" 2>/dev/null || echo "0")
+        TOTAL_LOW=$(jq -r '.summary.total_low // 0' "$FILTERED_SUMMARY" 2>/dev/null || echo "0")
+        
+        echo -e "${GREEN}✅ Wrote filtered findings: $FILTERED_SUMMARY${NC}"
+        echo -e "${YELLOW}  After all suppressions — Critical: $TOTAL_CRITICAL | High: $TOTAL_HIGH | Medium: $TOTAL_MEDIUM | Low: $TOTAL_LOW${NC}"
+        
+        # Use the filtered file for all subsequent operations
         FINDINGS_SUMMARY="$FILTERED_SUMMARY"
+    else
+        echo -e "${YELLOW}⚠️  Could not create filtered findings, using original counts${NC}"
+        TOTAL_CRITICAL=$(jq -r '.summary.total_critical // 0' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+        TOTAL_HIGH=$(jq -r '.summary.total_high // 0' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+        TOTAL_MEDIUM=$(jq -r '.summary.total_medium // 0' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+        TOTAL_LOW=$(jq -r '.summary.total_low // 0' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
     fi
     
-    rm -f "$TEMP_FILTERED"
+    rm -f "$SUPPRESSED_FINGERPRINTS"
     
 
     echo -e "${GREEN}✅ Using unique vulnerability counts (deduplicated)${NC}"

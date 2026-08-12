@@ -129,9 +129,10 @@ TOTAL_MEDIUM=0
 TOTAL_LOW=0
 ISSUES_FOUND=false
 
-# Try to use deduplicated summary first, prefer filtered version if it exists
+# Try to use deduplicated summary first
 FINDINGS_SUMMARY="$SCAN_DIR/security-findings-summary.json"
-FILTERED_SUMMARY="${FINDINGS_SUMMARY%.json}-filtered.json"
+# Create filtered version with name expected by workflow
+FILTERED_SUMMARY="$SCAN_DIR/security-findings-filtered.json"
 
 # After we create the filtered file below, we'll use it for display
 # For now, start with the raw summary

@@ -1053,17 +1053,60 @@ jobs:
 
             function buildFindingsTable(sevFindings) {
               if (!sevFindings || sevFindings.length === 0) return '_No findings._';
-              const header = '| ID / CVE | Package / File | Version | Tool | Description |\n|----------|----------------|---------|------|-------------|';
-              const rows = sevFindings.map(f => {
-                const id   = findingId(f);
-                const pkg  = (f.package_name || f.file_path || f.file || 'N/A').substring(0, 60);
-                const ver  = f.package_version || '-';
-                const tool = f.tool || 'N/A';
-                const desc = (f.description || '').substring(0, 100);
-                const kev  = f.cisa_kev ? ' 🔥 KEV' : '';
-                return `| \`${id}\`${kev} | ${pkg} | ${ver} | ${tool} | ${desc} |`;
-              });
-              return `${header}\n${rows.join('\n')}`;
+              
+              // Separate CVE vulnerabilities from misconfigurations (secrets/IaC)
+              const cveFindings = sevFindings.filter(f => !f.detector && f.tool !== 'checkov' && f.tool !== 'Checkov');
+              const secretFindings = sevFindings.filter(f => f.detector);
+              const iacFindings = sevFindings.filter(f => (f.tool === 'checkov' || f.tool === 'Checkov') && !f.detector);
+              
+              let output = '';
+              
+              // CVE Vulnerabilities section
+              if (cveFindings.length > 0) {
+                output += '#### Vulnerabilities (CVEs)\n\n';
+                const cveHeader = '| CVE | Package | Version | Tool | Description |\n|-----|---------|---------|------|-------------|';
+                const cveRows = cveFindings.map(f => {
+                  const id   = findingId(f);
+                  const pkg  = (f.package_name || f.package || 'N/A').substring(0, 60);
+                  const ver  = f.package_version || '-';
+                  const tool = f.tool || 'N/A';
+                  const desc = (f.description || '').substring(0, 100);
+                  const kev  = f.cisa_kev ? ' 🔥 KEV' : '';
+                  return `| \`${id}\`${kev} | ${pkg} | ${ver} | ${tool} | ${desc} |`;
+                });
+                output += `${cveHeader}\n${cveRows.join('\n')}\n\n`;
+              }
+              
+              // Secrets section
+              if (secretFindings.length > 0) {
+                output += '#### Misconfigurations (Secrets)\n\n';
+                const secretHeader = '| Detector | File | Line | Tool | Description |\n|----------|------|------|------|-------------|';
+                const secretRows = secretFindings.map(f => {
+                  const detector = f.detector || 'unknown';
+                  const file = (f.file_path || f.file || 'N/A').substring(0, 60);
+                  const line = f.line_number || '-';
+                  const tool = f.tool || 'N/A';
+                  const desc = (f.description || '').substring(0, 100);
+                  return `| \`${detector}\` | ${file} | ${line} | ${tool} | ${desc} |`;
+                });
+                output += `${secretHeader}\n${secretRows.join('\n')}\n\n`;
+              }
+              
+              // IaC issues section
+              if (iacFindings.length > 0) {
+                output += '#### Misconfigurations (IaC)\n\n';
+                const iacHeader = '| Check ID | File | Tool | Description |\n|----------|------|------|-------------|';
+                const iacRows = iacFindings.map(f => {
+                  const id   = findingId(f);
+                  const file = (f.file_path || f.file || 'N/A').substring(0, 60);
+                  const tool = f.tool || 'N/A';
+                  const desc = (f.description || '').substring(0, 100);
+                  return `| \`${id}\` | ${file} | ${tool} | ${desc} |`;
+                });
+                output += `${iacHeader}\n${iacRows.join('\n')}\n\n`;
+              }
+              
+              return output || '_No findings._';
             }
 
             function buildIssueBody(sev, sevFindings, vulnIds) {

@@ -742,10 +742,10 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
             echo "" >> "$GITHUB_STEP_SUMMARY"
         fi
         
-        # Calculate vulnerability counts (excluding Checkov IaC, which is shown above)
+        # Calculate vulnerability counts (excluding Checkov IaC and TruffleHog secrets)
         if [[ -f "$FINDINGS_SUMMARY" ]]; then
-            NON_CHECKOV_HIGH=$(jq '[.high_findings[] | select(.tool != "checkov" and .tool != "Checkov")] | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
-            NON_CHECKOV_CRIT=$(jq '[.critical_findings[] | select(.tool != "checkov" and .tool != "Checkov")] | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+            NON_CHECKOV_HIGH=$(jq '[.high_findings[] | select(.tool != "checkov" and .tool != "Checkov" and .tool != "TruffleHog")] | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+            NON_CHECKOV_CRIT=$(jq '[.critical_findings[] | select(.tool != "checkov" and .tool != "Checkov" and .tool != "TruffleHog")] | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
             VULN_COUNT=$((NON_CHECKOV_CRIT + NON_CHECKOV_HIGH))
         else
             VULN_COUNT=$((TOTAL_CRITICAL + TOTAL_HIGH - CHECKOV_UNIQUE_FAILED))
@@ -756,35 +756,54 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
             if [[ -f "$FINDINGS_SUMMARY" ]]; then
                 echo "### Vulnerabilities (CVEs)" >> "$GITHUB_STEP_SUMMARY"
                 
-                # Display critical findings (exclude Checkov IaC entries — shown above)
-                CRIT_COUNT=$(jq '[.critical_findings[] | select(.tool != "checkov" and .tool != "Checkov")] | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+                # Display critical findings (exclude Checkov IaC and TruffleHog secrets)
+                CRIT_COUNT=$(jq '[.critical_findings[] | select(.tool != "checkov" and .tool != "Checkov" and .tool != "TruffleHog")] | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
                 if [[ $CRIT_COUNT -gt 0 ]]; then
-                    jq -r '[.critical_findings[] | select(.tool != "checkov" and .tool != "Checkov")] | .[] |
-                        if .detector then
-                            "- **CRITICAL**: `\(.detector)` secret in `\(.file_path // "unknown"):\(.line_number // "?")` (\(.tool))"
-                        else
-                            "- **CRITICAL**: `\(.vulnerability_id // .id // "unknown")` in \(.package_name // .package // "unknown")@\(.package_version // .version // "unknown")" +
-                            (if (.package_path // "") != "" then " @ `\(.package_path)`" else "" end) +
-                            " (\(.tool))"
-                        end' "$FINDINGS_SUMMARY" 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
+                    jq -r '[.critical_findings[] | select(.tool != "checkov" and .tool != "Checkov" and .tool != "TruffleHog")] | .[] |
+                        "- **CRITICAL**: `\(.vulnerability_id // .id // "unknown")` in \(.package_name // .package // "unknown")@\(.package_version // .version // "unknown")" +
+                        (if (.package_path // "") != "" then " @ `\(.package_path)`" else "" end) +
+                        " (\(.tool))"' "$FINDINGS_SUMMARY" 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
                 fi
                 
-                # Display high findings (exclude Checkov IaC entries — shown above)
-                HIGH_COUNT=$(jq '[.high_findings[] | select(.tool != "checkov" and .tool != "Checkov")] | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+                # Display high findings (exclude Checkov IaC and TruffleHog secrets)
+                HIGH_COUNT=$(jq '[.high_findings[] | select(.tool != "checkov" and .tool != "Checkov" and .tool != "TruffleHog")] | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
                 if [[ $HIGH_COUNT -gt 0 ]]; then
-                    jq -r '[.high_findings[] | select(.tool != "checkov" and .tool != "Checkov")] |
+                    jq -r '[.high_findings[] | select(.tool != "checkov" and .tool != "Checkov" and .tool != "TruffleHog")] |
                         .[] |
-                        if .detector then
-                            "- **HIGH**: `\(.detector)` secret in `\(.file_path // "unknown"):\(.line_number // "?")` (\(.tool))"
-                        else
-                            "- **HIGH**: `\(.vulnerability_id // .id // "unknown")` in \(.package_name // .package // "unknown")@\(.package_version // .version // "unknown")" +
-                            (if (.package_path // "") != "" then " @ `\(.package_path)`" else "" end) +
-                            " (\(.tool))"
-                        end' "$FINDINGS_SUMMARY" 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
+                        "- **HIGH**: `\(.vulnerability_id // .id // "unknown")` in \(.package_name // .package // "unknown")@\(.package_version // .version // "unknown")" +
+                        (if (.package_path // "") != "" then " @ `\(.package_path)`" else "" end) +
+                        " (\(.tool))"' "$FINDINGS_SUMMARY" 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
                 fi
                 
                 echo "" >> "$GITHUB_STEP_SUMMARY"
                 echo "*Note: Suppressed vulnerabilities are not displayed (see .epyon-ignore.yml)*" >> "$GITHUB_STEP_SUMMARY"
+                echo "" >> "$GITHUB_STEP_SUMMARY"
+            fi
+        fi
+        
+        # Show TruffleHog secrets in separate Misconfigurations section
+        if [[ -f "$FINDINGS_SUMMARY" ]]; then
+            TRUFFLEHOG_CRIT=$(jq '[.critical_findings[] | select(.tool == "TruffleHog")] | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+            TRUFFLEHOG_HIGH=$(jq '[.high_findings[] | select(.tool == "TruffleHog")] | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+            TRUFFLEHOG_TOTAL=$((TRUFFLEHOG_CRIT + TRUFFLEHOG_HIGH))
+            
+            if [[ $TRUFFLEHOG_TOTAL -gt 0 ]]; then
+                echo "### Misconfigurations (Secrets)" >> "$GITHUB_STEP_SUMMARY"
+                
+                if [[ $TRUFFLEHOG_CRIT -gt 0 ]]; then
+                    jq -r '[.critical_findings[] | select(.tool == "TruffleHog")] | .[] |
+                        "- **CRITICAL**: `\(.detector)` secret in `\(.file_path // "unknown"):\(.line_number // "?")` (\(.tool))"' \
+                        "$FINDINGS_SUMMARY" 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
+                fi
+                
+                if [[ $TRUFFLEHOG_HIGH -gt 0 ]]; then
+                    jq -r '[.high_findings[] | select(.tool == "TruffleHog")] | .[] |
+                        "- **HIGH**: `\(.detector)` secret in `\(.file_path // "unknown"):\(.line_number // "?")` (\(.tool))"' \
+                        "$FINDINGS_SUMMARY" 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
+                fi
+                
+                echo "" >> "$GITHUB_STEP_SUMMARY"
+                echo "*Note: Suppressed secrets are not displayed (see .epyon-ignore.yml)*" >> "$GITHUB_STEP_SUMMARY"
                 echo "" >> "$GITHUB_STEP_SUMMARY"
             fi
         fi

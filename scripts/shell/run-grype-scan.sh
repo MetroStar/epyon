@@ -200,6 +200,12 @@ mkdir -p "$OUTPUT_DIR"
 # Initialize scan log
 echo "Grype scan started: $TIMESTAMP" > "$SCAN_LOG"
 echo "Target: $REPO_PATH" >> "$SCAN_LOG"
+echo "Output Directory: $OUTPUT_DIR" >> "$SCAN_LOG"
+echo "Scan Mode: $SCAN_TYPE" >> "$SCAN_LOG"
+
+# Verify prerequisites before proceeding
+echo -e "${CYAN}🔍 Checking Grype installation prerequisites...${NC}"
+echo "Checking prerequisites..." >> "$SCAN_LOG"
 
 # Prefer local Grype binary; fall back to Docker
 LOCAL_GRYPE=""
@@ -211,6 +217,23 @@ if command -v grype >/dev/null 2>&1; then
     echo -e "${CYAN}📥 Updating Grype vulnerability database...${NC}"
     grype db update 2>&1 | tee -a "$SCAN_LOG" || true
 else
+    # Check if container runtime is available
+    if [ -z "${CONTAINER_CLI:-}" ]; then
+        echo -e "${RED}❌ ERROR: Neither local Grype nor container runtime (Docker/Podman) is available${NC}"
+        echo "ERROR: Prerequisites not met - no Grype installation found" >> "$SCAN_LOG"
+        echo -e "${YELLOW}💡 Install Grype: brew install grype (macOS) or curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh${NC}"
+        exit 1
+    fi
+    
+    if ! command -v "${CONTAINER_CLI}" >/dev/null 2>&1; then
+        echo -e "${RED}❌ ERROR: Container CLI ${CONTAINER_CLI} not found${NC}"
+        echo "ERROR: Container CLI $CONTAINER_CLI not available" >> "$SCAN_LOG"
+        exit 1
+    fi
+    
+    echo -e "${YELLOW}⚠️  Local Grype not found, using containerized Grype with ${CONTAINER_CLI}${NC}"
+    echo "Using containerized Grype with $CONTAINER_CLI" >> "$SCAN_LOG"
+    
     # Create persistent volume for Grype cache to speed up subsequent scans
     GRYPE_CACHE_VOL="grype-cache"
     ${CONTAINER_CLI} volume create "$GRYPE_CACHE_VOL" 2>/dev/null || true

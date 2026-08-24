@@ -52,3 +52,4 @@
 2026-08-10T08:17:48Z INFO action=scan_triggered client=127.0.0.1 detail=target=/Users/rnelson/Desktop/Side_Projects/epyon/ scan_type=full
 2026-08-10T08:54:33Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/metrostar/epyon scan_type=full
 2026-08-10T08:55:14Z INFO action=delete_scan client=127.0.0.1 detail=scan_id=epyon_2026-08-10_13-17-48
+2026-08-21T14:20:09Z INFO action=scan_triggered client=127.0.0.1 detail=target=https://github.com/BerriAI/litellm scan_type=full

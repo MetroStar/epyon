@@ -922,8 +922,33 @@ if _should_run_tool SKIP_GRYPE; then
   _record_start "Layer 8 - Grype"
   chmod +x scripts/shell/run-grype-scan.sh
   (
-    SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-grype-scan.sh sbom || true
-    SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-grype-scan.sh images || true
+    echo "[grype-debug] Starting Grype SBOM scan..."
+    echo "[grype-debug] SCAN_DIR=$SCAN_DIR"
+    echo "[grype-debug] TARGET_DIR=$TARGET_DIR"
+    
+    # Run SBOM scan
+    if SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-grype-scan.sh sbom; then
+      echo "[grype-debug] SBOM scan completed successfully"
+    else
+      echo "[grype-error] SBOM scan failed with exit code $?"
+    fi
+    
+    # Run images scan
+    if SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-grype-scan.sh images; then
+      echo "[grype-debug] Images scan completed successfully"
+    else
+      echo "[grype-error] Images scan failed with exit code $?"
+    fi
+    
+    # Verify output was created
+    if [[ ! -d "${SCAN_DIR}/grype" ]]; then
+      echo "[grype-error] CRITICAL: grype directory was not created at ${SCAN_DIR}/grype"
+      echo "[grype-error] This indicates Grype failed before init_scan_environment completed"
+      ls -la "${SCAN_DIR}/" || true
+    else
+      echo "[grype-debug] Output directory exists: ${SCAN_DIR}/grype"
+      ls -la "${SCAN_DIR}/grype/" || true
+    fi
   ) > "${PARALLEL_LOG_DIR}/layer-08-grype.log" 2>&1 &
   _set_parallel_pid "Layer 8 - Grype" $!
 else

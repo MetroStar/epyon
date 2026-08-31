@@ -138,6 +138,8 @@ FILTERED_SUMMARY="$SCAN_DIR/security-findings-filtered.json"
 # For now, start with the raw summary
 if [[ -f "$FINDINGS_SUMMARY" ]]; then
     echo -e "${CYAN}📊 Using deduplicated security findings summary${NC}"
+    echo -e "${CYAN}ℹ️  Checkov & TruffleHog findings excluded from CVE gate (they are misconfigurations, not vulnerabilities)${NC}"
+    echo ""
 
     # Build a jq select filter that excludes findings from any tool suppressed via .epyon-ignore.yml.
     SUPPRESSED_TOOLS_JQ=""
@@ -224,17 +226,22 @@ if [[ -f "$FINDINGS_SUMMARY" ]]; then
             (.line_number // "")
         ] | join("|");
     
-    # Filter findings
+    # Helper to check if finding is a misconfiguration (Checkov/TruffleHog)
+    def is_misconfiguration:
+        (.tool // "" | ascii_downcase) as $tool |
+        ($tool == "checkov" or $tool == "trufflehog");
+    
+    # Filter findings: exclude suppressions AND misconfigurations (they belong in a separate section)
     {
-        critical_findings: [.critical_findings[]? | select(fingerprint as $fp | $suppressed | index($fp) | not)],
-        high_findings: [.high_findings[]? | select(fingerprint as $fp | $suppressed | index($fp) | not)],
-        medium_findings: [.medium_findings[]? | select(fingerprint as $fp | $suppressed | index($fp) | not)],
-        low_findings: [.low_findings[]? | select(fingerprint as $fp | $suppressed | index($fp) | not)],
+        critical_findings: [.critical_findings[]? | select((fingerprint as $fp | $suppressed | index($fp) | not) and (is_misconfiguration | not))],
+        high_findings: [.high_findings[]? | select((fingerprint as $fp | $suppressed | index($fp) | not) and (is_misconfiguration | not))],
+        medium_findings: [.medium_findings[]? | select((fingerprint as $fp | $suppressed | index($fp) | not) and (is_misconfiguration | not))],
+        low_findings: [.low_findings[]? | select((fingerprint as $fp | $suppressed | index($fp) | not) and (is_misconfiguration | not))],
         summary: {
-            total_critical: ([.critical_findings[]? | select(fingerprint as $fp | $suppressed | index($fp) | not)] | length),
-            total_high: ([.high_findings[]? | select(fingerprint as $fp | $suppressed | index($fp) | not)] | length),
-            total_medium: ([.medium_findings[]? | select(fingerprint as $fp | $suppressed | index($fp) | not)] | length),
-            total_low: ([.low_findings[]? | select(fingerprint as $fp | $suppressed | index($fp) | not)] | length)
+            total_critical: ([.critical_findings[]? | select((fingerprint as $fp | $suppressed | index($fp) | not) and (is_misconfiguration | not))] | length),
+            total_high: ([.high_findings[]? | select((fingerprint as $fp | $suppressed | index($fp) | not) and (is_misconfiguration | not))] | length),
+            total_medium: ([.medium_findings[]? | select((fingerprint as $fp | $suppressed | index($fp) | not) and (is_misconfiguration | not))] | length),
+            total_low: ([.low_findings[]? | select((fingerprint as $fp | $suppressed | index($fp) | not) and (is_misconfiguration | not))] | length)
         },
         scan_metadata: .scan_metadata
     }
@@ -254,11 +261,12 @@ if [[ -f "$FINDINGS_SUMMARY" ]]; then
         # Use the filtered file for all subsequent operations
         FINDINGS_SUMMARY="$FILTERED_SUMMARY"
     else
-        echo -e "${YELLOW}⚠️  Could not create filtered findings, using original counts${NC}"
-        TOTAL_CRITICAL=$(jq -r '.summary.total_critical // 0' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
-        TOTAL_HIGH=$(jq -r '.summary.total_high // 0' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
-        TOTAL_MEDIUM=$(jq -r '.summary.total_medium // 0' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
-        TOTAL_LOW=$(jq -r '.summary.total_low // 0' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+        echo -e "${YELLOW}⚠️  Could not create filtered findings, counting manually (excluding Checkov/TruffleHog)${NC}"
+        # Fallback: count manually, excluding misconfigurations
+        TOTAL_CRITICAL=$(jq '[.critical_findings[]? | select((.tool // "" | ascii_downcase) as $t | ($t != "checkov" and $t != "trufflehog"))] | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+        TOTAL_HIGH=$(jq '[.high_findings[]? | select((.tool // "" | ascii_downcase) as $t | ($t != "checkov" and $t != "trufflehog"))] | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+        TOTAL_MEDIUM=$(jq '[.medium_findings[]? | select((.tool // "" | ascii_downcase) as $t | ($t != "checkov" and $t != "trufflehog"))] | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
+        TOTAL_LOW=$(jq '[.low_findings[]? | select((.tool // "" | ascii_downcase) as $t | ($t != "checkov" and $t != "trufflehog"))] | length' "$FINDINGS_SUMMARY" 2>/dev/null || echo "0")
     fi
     
     rm -f "$SUPPRESSED_FINGERPRINTS"

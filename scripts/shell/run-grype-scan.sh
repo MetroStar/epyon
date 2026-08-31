@@ -338,10 +338,13 @@ echo "=================================="
 # Run SBOM-based scan (preferred method - uses pre-generated SBOM)
 if [[ "$SCAN_TYPE" == "sbom" ]] || [[ "$SCAN_TYPE" == "all" ]]; then
     # Look for SBOM file from environment or standard location
-    # Prefer CycloneDX SBOM for grype (richer format with better vuln matching)
+    # Prefer Syft JSON format (better Grype compatibility with CycloneDX 1.7+)
     SBOM_FILE="${SBOM_FILE:-$SCAN_DIR/sbom/filesystem.json}"
-    _CDX=$(find "${SCAN_DIR:-}/sbom" -maxdepth 1 \( -name "filesystem-cyclonedx.json" -o -name "*.cyclonedx.json" \) 2>/dev/null | head -1)
-    [ -n "$_CDX" ] && SBOM_FILE="$_CDX"
+    # Only use CycloneDX if Syft JSON doesn't exist
+    if [[ ! -f "$SBOM_FILE" ]]; then
+        _CDX=$(find "${SCAN_DIR:-}/sbom" -maxdepth 1 \( -name "filesystem-cyclonedx.json" -o -name "*.cyclonedx.json" \) 2>/dev/null | head -1)
+        [ -n "$_CDX" ] && SBOM_FILE="$_CDX"
+    fi
 
     if [ -f "$SBOM_FILE" ]; then
         echo -e "${GREEN}📋 Using SBOM-based vulnerability scan (recommended)${NC}"

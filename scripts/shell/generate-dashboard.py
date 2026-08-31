@@ -180,18 +180,30 @@ def build_scan_object(scan_dir: Path) -> dict:
     # ── Derive scan_type ──────────────────────────────────────────────────────
     scan_type = meta.get("scan_type", "full")
 
-    # ── Counts ────────────────────────────────────────────────────────────────
-    critical = summary.get("total_critical", 0)
-    high     = summary.get("total_high", 0)
-    medium   = summary.get("total_medium", 0)
-    low      = summary.get("total_low", 0)
-
-    # ── Findings ──────────────────────────────────────────────────────────────
+    # ── Findings (filter Checkov + TruffleHog) ────────────────────────────────
+    # These belong in misconfigurations, not vulnerabilities (matches web API behavior)
+    def _filter_misconfigs(findings_list: list) -> list:
+        return [
+            f for f in findings_list
+            if (f.get("tool") or "").lower() not in ("checkov", "trufflehog")
+        ]
+    
+    critical_filtered = _filter_misconfigs(summary_raw.get("critical_findings", []))
+    high_filtered     = _filter_misconfigs(summary_raw.get("high_findings", []))
+    medium_filtered   = _filter_misconfigs(summary_raw.get("medium_findings", []))
+    low_filtered      = _filter_misconfigs(summary_raw.get("low_findings", []))
+    
+    # Recalculate counts after filtering
+    critical = len(critical_filtered)
+    high     = len(high_filtered)
+    medium   = len(medium_filtered)
+    low      = len(low_filtered)
+    
     findings = {
-        "critical_findings": summary_raw.get("critical_findings", []),
-        "high_findings":     summary_raw.get("high_findings", []),
-        "medium_findings":   summary_raw.get("medium_findings", []),
-        "low_findings":      summary_raw.get("low_findings", []),
+        "critical_findings": critical_filtered,
+        "high_findings":     high_filtered,
+        "medium_findings":   medium_filtered,
+        "low_findings":      low_filtered,
     }
     enrichment = summary_raw.get("enrichment")
     if enrichment:
@@ -230,6 +242,8 @@ def build_scan_object(scan_dir: Path) -> dict:
     picklescan        = None
     modelcard         = None
     scorecard         = None
+    ml_findings       = None
+    misconfigurations = None
     if parsers:
         try: sbom_data         = parsers.load_sbom_packages(scan_dir)
         except Exception: pass
@@ -241,12 +255,22 @@ def build_scan_object(scan_dir: Path) -> dict:
         except Exception: pass
         try: modelcard         = parsers.parse_modelcard_dir(scan_dir)
         except Exception: pass
+        try: ml_findings       = parsers.parse_ml_findings(scan_dir)
+        except Exception: pass
+        try: misconfigurations = parsers.parse_misconfiguration_findings(scan_dir)
+        except Exception: pass
 
     # ── Security scorecard (trl-assessment.json) ──────────────────────────────
     trl = _read_json(scan_dir / "trl-assessment.json")
     if trl and trl.get("trl_level"):
         scorecard = trl
 
+    # Filter tools_analyzed list to exclude Checkov and TruffleHog
+    tools_analyzed = [
+        t for t in summary.get("tools_analyzed", [])
+        if t.lower() not in ("checkov", "trufflehog")
+    ]
+    
     scan: dict = {
         "scan_id":         scan_id,
         "target":          target,
@@ -258,7 +282,7 @@ def build_scan_object(scan_dir: Path) -> dict:
         "medium":          medium,
         "low":             low,
         "total":           critical + high + medium + low,
-        "tools_analyzed":  summary.get("tools_analyzed", []),
+        "tools_analyzed":  tools_analyzed,
         "findings":        findings,
         "has_dashboard":   False,  # we ARE the dashboard
         "source_url":      source_url,
@@ -281,6 +305,10 @@ def build_scan_object(scan_dir: Path) -> dict:
         scan["modelcard"] = modelcard
     if scorecard:
         scan["scorecard"] = scorecard
+    if ml_findings:
+        scan["ml_findings"] = ml_findings
+    if misconfigurations:
+        scan["misconfigurations"] = misconfigurations
 
     # ── Test Coverage ─────────────────────────────────────────────────────────
     coverage_data: dict | None = None

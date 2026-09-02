@@ -5,6 +5,12 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.13.2] - 2026-09-01
+
+### Fixed
+- **ML dependency fixtures** — upgraded the fixture packages used by direct dependency scanning to supported releases: PyTorch 2.8.0, Transformers 4.57.6, and NumPy 2.0.2.
+- **Typosquatted fixture packages** — replaced `tensorflo`, `torh`, `troch`, and `transformres` with legitimate package names and supported releases. Dedicated mock scanner results continue to cover typosquatting detection.
+
 ## [3.13.1] - 2026-07-30
 
 ### Fixed

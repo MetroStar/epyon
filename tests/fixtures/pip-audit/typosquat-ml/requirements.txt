@@ -1,4 +1,4 @@
-# Safe ML dependencies. Typosquatting detection uses mock-pip-audit-results.json.
+# Safe ML dependencies. Typosquatting detection uses tests/fixtures/pip-audit/mock-pip-audit-results.json.
 numpy==2.0.2
 torch==2.8.0
 tensorflow==2.20.0

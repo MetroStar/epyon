@@ -1145,8 +1145,8 @@ _write_timing_report > "$TIMING_FILE"
 cat "$TIMING_FILE"
 echo "::endgroup::"
 
-# Clean up parallel log directory
-rm -rf "$PARALLEL_LOG_DIR"
+# Retain per-layer logs in the scan artifact for failed-scan diagnosis and auditability.
+echo "[INFO] Retaining parallel layer logs: $PARALLEL_LOG_DIR"
 
 # Send scan completion webhook (Barbatos format: {"done": true})
 send_webhook "scan_complete" "Scan completed successfully" "success"

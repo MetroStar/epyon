@@ -56,7 +56,8 @@ on:
 jobs:
   security-scan:
     name: Epyon Security Scan
-    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
+    # Pin to a specific Epyon revision so the caller does not drift to a different workflow snapshot between runs.
+    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@5fa63a23
     with:
       scan_mode: ${{ inputs.scan_mode || 'full' }}
       subdirectory: ${{ inputs.subdirectory || '' }}

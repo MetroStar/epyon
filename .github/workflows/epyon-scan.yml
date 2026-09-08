@@ -827,8 +827,12 @@ jobs:
           SCAN_DIR: ${{ steps.run-scan.outputs.scan_dir }}
         run: |
           cd epyon
-          chmod +x scripts/shell/enrich-findings.sh
-          scripts/shell/enrich-findings.sh || true
+          if [ -f scripts/shell/enrich-findings.sh ]; then
+            chmod +x scripts/shell/enrich-findings.sh
+            scripts/shell/enrich-findings.sh || echo "⚠️ Findings enrichment completed with warnings"
+          else
+            echo "⚠️ scripts/shell/enrich-findings.sh not found — skipping optional findings enrichment"
+          fi
 
       - name: Upload Complete Scan Results
         uses: actions/upload-artifact@v5

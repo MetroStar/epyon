@@ -66,8 +66,7 @@ jobs:
       pull-requests: write
       security-events: write
       issues: write
-    # Pin to the same Epyon revision as scheduled/manual scans so PR results are comparable.
-    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@5fa63a23acfb8feb17de25ea36cf2b62a9f4eea5
+    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
     with:
       scan_mode: quick
       skip_garak: true
@@ -82,8 +81,7 @@ jobs:
       pull-requests: write
       security-events: write
       issues: write
-    # Pin to a specific Epyon revision so the private repo does not drift to a different workflow snapshot between runs.
-    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@5fa63a23acfb8feb17de25ea36cf2b62a9f4eea5
+    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
     with:
       scan_mode: ${{ github.event_name == 'schedule' && (github.event.schedule == '0 2 * * 0' && 'full' || 'nightly') || github.event.inputs.scan_mode || 'full' }}
       # STIG runs only on the weekly Sunday full scan or when explicitly chosen via workflow_dispatch

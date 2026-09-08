@@ -364,7 +364,8 @@ _write_timing_report() {
 
 # ── Parallel execution helpers (bash 3.2 compatible — no declare -A) ─────────
 # Each parallel layer writes its output to a log file; we cat them in order at the end.
-PARALLEL_LOG_DIR="${SCAN_DIR}/.parallel-logs"
+# Keep this directory non-hidden so actions/upload-artifact includes diagnostic logs by default.
+PARALLEL_LOG_DIR="${SCAN_DIR}/parallel-logs"
 mkdir -p "$PARALLEL_LOG_DIR"
 PARALLEL_LAYER_NAMES=()
 

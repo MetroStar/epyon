@@ -104,9 +104,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 for _pos in "${POSITIONAL_ARGS[@]:-}"; do
-    case "${_pos,,}" in
+    _pos_lower=$(printf '%s' "$_pos" | tr '[:upper:]' '[:lower:]')
+    case "$_pos_lower" in
         filesystem|sbom|images|base|all)
-            SCAN_MODE="${_pos,,}"
+            SCAN_MODE="$_pos_lower"
             ;;
         "")
             ;;
@@ -117,7 +118,9 @@ for _pos in "${POSITIONAL_ARGS[@]:-}"; do
             ;;
     esac
 done
-unset _pos
+unset _pos _pos_lower
+
+SCAN_TYPE="$SCAN_MODE"
 
 # Initialize scan environment using scan directory approach
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -259,11 +262,15 @@ fi
 
 # Show database info
 echo -e "${CYAN}📋 Checking Grype database status...${NC}"
-${CONTAINER_CLI} run --rm \
-    -e GRYPE_DB_CACHE_DIR=/cache \
-    -v "$GRYPE_CACHE_VOL:/cache" \
-    anchore/grype:latest \
-    db status 2>&1 | tee -a "$SCAN_LOG"
+if [ -n "$LOCAL_GRYPE" ]; then
+    "$LOCAL_GRYPE" db status 2>&1 | tee -a "$SCAN_LOG" || true
+else
+    ${CONTAINER_CLI} run --rm \
+        -e GRYPE_DB_CACHE_DIR=/cache \
+        -v "$GRYPE_CACHE_VOL:/cache" \
+        anchore/grype:latest \
+        db status 2>&1 | tee -a "$SCAN_LOG" || true
+fi
 echo
 
 # Function to run Grype scan
@@ -330,7 +337,7 @@ run_grype_scan() {
 }
 
 # Determine scan type based on first argument
-SCAN_TYPE="${1:-all}"
+SCAN_TYPE="${SCAN_TYPE:-all}"
 
 echo -e "${CYAN}🔍 Step 1: Vulnerability Detection${NC}"
 echo "=================================="

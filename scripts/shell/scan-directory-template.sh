@@ -145,6 +145,7 @@ get_file_breakdown() {
     [[ $docker_count -gt 0 ]] && echo "   • Docker: $docker_count files"
     [[ $shell_count -gt 0 ]] && echo "   • Shell Scripts: $shell_count files"
     [[ $helm_count -gt 0 ]] && echo "   • Helm Charts: $helm_count files"
+    return 0
 }
 
 # Function to finalize scan results

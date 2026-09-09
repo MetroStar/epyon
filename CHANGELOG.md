@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.13.3] - 2026-09-09
 
 ### Fixed
-- **Package-version suppressions** — correctly apply `package` rules to findings that also have a CVE or GHSA identifier, including vulnerability findings in the deduplicated severity-gate summary.
+- **Package-version suppressions** — correctly apply `package` rules to findings that also have a CVE or GHSA identifier, including vulnerability findings in the deduplicated severity-gate summary; filtering now also works with macOS's Bash 3.2.
 
 ## [3.13.2] - 2026-09-01
 

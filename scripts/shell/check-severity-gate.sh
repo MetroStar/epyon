@@ -215,9 +215,17 @@ if [[ -f "$FINDINGS_SUMMARY" ]]; then
     # Now use jq to filter out the suppressed findings
     FILTERED_SUMMARY="$SCAN_DIR/security-findings-filtered.json"
     
-    # Read suppressed fingerprints into a bash array for jq
-    mapfile -t SUPPRESSED_ARRAY < "$SUPPRESSED_FINGERPRINTS"
-    SUPPRESSED_JSON=$(printf '%s\n' "${SUPPRESSED_ARRAY[@]}" | jq -R . | jq -s .)
+    # Read suppressed fingerprints into a bash array for jq.
+    # Avoid mapfile because macOS ships Bash 3.2, which does not provide it.
+    SUPPRESSED_ARRAY=()
+    while IFS= read -r fingerprint; do
+        [[ -n "$fingerprint" ]] && SUPPRESSED_ARRAY+=("$fingerprint")
+    done < "$SUPPRESSED_FINGERPRINTS"
+    if [[ ${#SUPPRESSED_ARRAY[@]} -gt 0 ]]; then
+        SUPPRESSED_JSON=$(printf '%s\n' "${SUPPRESSED_ARRAY[@]}" | jq -R . | jq -s .)
+    else
+        SUPPRESSED_JSON='[]'
+    fi
     
     jq --argjson suppressed "$SUPPRESSED_JSON" '
     # Helper to create fingerprint from finding

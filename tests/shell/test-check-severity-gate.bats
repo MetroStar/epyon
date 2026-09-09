@@ -48,14 +48,14 @@ SCRIPT_PATH="${SCRIPT_DIR}/check-severity-gate.sh"
         local target_dir
         target_dir=$(mktemp -d)
 
-        cat > "$target_dir/.epyon-ignore.yml" << 'EOF'
-ignores:
-    - type: package
-        value: netty-handler@4.1.136.Final
-        reason: Waiting for updated image
-        approved_by: rnelson
-        expires: "2026-12-31"
-EOF
+        printf '%s\n' \
+            'ignores:' \
+            '  - type: package' \
+            '    value: netty-handler@4.1.136.Final' \
+            '    reason: Waiting for updated image' \
+            '    approved_by: rnelson' \
+            '    expires: "2026-12-31"' \
+            > "$target_dir/.epyon-ignore.yml"
         cat > "$scan_dir/security-findings-summary.json" << 'EOF'
 {
     "critical_findings": [{

@@ -186,15 +186,21 @@ if [[ -f "$FINDINGS_SUMMARY" ]]; then
                 if is_secret_ignored "$detector" "$file_path" "$tool" 2>/dev/null; then
                     suppressed=true
                 fi
-            elif [[ -n "$cve" ]] && declare -f is_cve_ignored >/dev/null 2>&1; then
+            fi
+
+            if [[ "$suppressed" == "false" && -n "$cve" ]] && declare -f is_cve_ignored >/dev/null 2>&1; then
                 if is_cve_ignored "$cve" "$tool" 2>/dev/null; then
                     suppressed=true
                 fi
-            elif [[ -n "$package" ]] && declare -f is_package_ignored >/dev/null 2>&1; then
+            fi
+
+            if [[ "$suppressed" == "false" && -n "$package" ]] && declare -f is_package_ignored >/dev/null 2>&1; then
                 if is_package_ignored "$package" "$version" "$tool" 2>/dev/null; then
                     suppressed=true
                 fi
-            elif [[ -n "$file_path" ]] && declare -f is_path_ignored >/dev/null 2>&1; then
+            fi
+
+            if [[ "$suppressed" == "false" && -n "$file_path" ]] && declare -f is_path_ignored >/dev/null 2>&1; then
                 if is_path_ignored "$file_path" "$tool" 2>/dev/null; then
                     suppressed=true
                 fi

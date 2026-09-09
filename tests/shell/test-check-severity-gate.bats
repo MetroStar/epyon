@@ -41,3 +41,41 @@ SCRIPT_PATH="${SCRIPT_DIR}/check-severity-gate.sh"
 @test "check-severity-gate.sh provides gate validation" {
     grep -q "pass\|fail\|exceed\|breach" "$SCRIPT_PATH" || grep -q "gate" "$SCRIPT_PATH"
 }
+
+@test "check-severity-gate.sh suppresses identified findings by package version" {
+        local scan_dir
+        scan_dir=$(mktemp -d)
+        local target_dir
+        target_dir=$(mktemp -d)
+
+        cat > "$target_dir/.epyon-ignore.yml" << 'EOF'
+ignores:
+    - type: package
+        value: netty-handler@4.1.136.Final
+        reason: Waiting for updated image
+        approved_by: rnelson
+        expires: "2026-12-31"
+EOF
+        cat > "$scan_dir/security-findings-summary.json" << 'EOF'
+{
+    "critical_findings": [{
+        "tool": "trivy",
+        "vulnerability_id": "GHSA-c4c3-7fpv-j4q5",
+        "package_name": "netty-handler",
+        "package_version": "4.1.136.Final"
+    }],
+    "high_findings": [],
+    "medium_findings": [],
+    "low_findings": [],
+    "summary": {}
+}
+EOF
+
+        run env SCAN_DIR="$scan_dir" TARGET_DIR="$target_dir" WARNING_ONLY=true "$SCRIPT_PATH"
+        [ "$status" -eq 0 ]
+
+        run jq -e '.critical_findings | length == 0' "$scan_dir/security-findings-filtered.json"
+        [ "$status" -eq 0 ]
+
+        rm -rf "$scan_dir" "$target_dir"
+}

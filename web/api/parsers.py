@@ -888,6 +888,57 @@ def count_suppressed_instances(scan_dir: Path) -> int:
     return count
 
 
+def parse_build_evidence(scan_dir: Path) -> dict:
+    """Parse container image build, SLSA provenance, and image signature evidence."""
+    build_dir = scan_dir / "build"
+    summary_file = build_dir / "build-summary.json"
+    digest_file = build_dir / "image-digest.txt"
+    manifest_file = build_dir / "oci-manifest.json"
+    provenance_file = scan_dir / "provenance.json"
+    sig_file = scan_dir / "image.sig"
+
+    build_info = None
+    if summary_file.exists():
+        try:
+            with open(summary_file, "r", encoding="utf-8") as f:
+                build_info = json.load(f)
+        except Exception:
+            pass
+
+    digest = None
+    if digest_file.exists():
+        try:
+            digest = digest_file.read_text(encoding="utf-8").strip()
+        except Exception:
+            pass
+
+    has_manifest = manifest_file.exists()
+    
+    provenance_info = None
+    if provenance_file.exists():
+        try:
+            with open(provenance_file, "r", encoding="utf-8") as f:
+                provenance_info = json.load(f)
+        except Exception:
+            pass
+
+    sig_info = None
+    if sig_file.exists():
+        try:
+            with open(sig_file, "r", encoding="utf-8") as f:
+                sig_info = json.load(f)
+        except Exception:
+            pass
+
+    return {
+        "build": build_info,
+        "digest": digest,
+        "has_manifest": has_manifest,
+        "provenance": provenance_info,
+        "signature": sig_info,
+    }
+
+
 def parse_suppressed_findings(scan_dir: Path) -> list[dict]:
     """Parse suppressed-findings.md into a list of structured suppression records."""
     md_file = scan_dir / "suppressed-findings.md"
@@ -1734,6 +1785,9 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
     suppressed = parse_suppressed_findings(scan_dir)
     if suppressed:
         data["suppressed_findings"] = suppressed
+
+    # ── Container Build & Supply Chain Evidence ──────────────────────────────
+    data["build_evidence"] = parse_build_evidence(scan_dir)
 
     # ── Enrichment summary (CISA KEV / NVD totals) ───────────────────────────
     enrichment = parse_enrichment_summary(scan_dir)

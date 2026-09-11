@@ -259,6 +259,8 @@ def build_scan_object(scan_dir: Path) -> dict:
         except Exception: pass
         try: misconfigurations = parsers.parse_misconfiguration_findings(scan_dir)
         except Exception: pass
+        try: build_evidence    = parsers.parse_build_evidence(scan_dir)
+        except Exception: pass
 
     # ── Security scorecard (trl-assessment.json) ──────────────────────────────
     trl = _read_json(scan_dir / "trl-assessment.json")
@@ -309,6 +311,8 @@ def build_scan_object(scan_dir: Path) -> dict:
         scan["ml_findings"] = ml_findings
     if misconfigurations:
         scan["misconfigurations"] = misconfigurations
+    if build_evidence:
+        scan["build_evidence"] = build_evidence
 
     # ── Test Coverage ─────────────────────────────────────────────────────────
     coverage_data: dict | None = None

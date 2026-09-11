@@ -276,6 +276,20 @@ while [[ $# -gt 0 ]]; do
             SKIP_TOOLS="$2"
             shift 2
             ;;
+        --build-image)
+            BUILD_ENABLED=true
+            shift
+            ;;
+        --image-name)
+            require_option_value "$1" "${2:-}"
+            IMAGE_NAME_ARG="$2"
+            shift 2
+            ;;
+        --image-tag)
+            require_option_value "$1" "${2:-}"
+            IMAGE_TAG_ARG="$2"
+            shift 2
+            ;;
         --no-garak)
             SKIP_GARAK=true
             shift
@@ -1007,6 +1021,19 @@ if [[ -d "$TARGET_DIR/.git" ]]; then
 fi
 
 echo ""
+
+# Phase 0: Container Image Build & Supply Chain Attestation
+BUILD_ENABLED="${BUILD_ENABLED:-false}"
+if [[ "$BUILD_ENABLED" == "true" || "$BUILD_ENABLED" == "1" ]]; then
+    print_section "Phase 0: Container Image Build & Supply Chain Attestation"
+    BUILD_ARGS=("--target" "$TARGET_DIR" "--scan-dir" "$SCAN_DIR")
+    [[ -n "${IMAGE_NAME_ARG:-}" ]] && BUILD_ARGS+=("--image-name" "$IMAGE_NAME_ARG")
+    [[ -n "${IMAGE_TAG_ARG:-}" ]] && BUILD_ARGS+=("--image-tag" "$IMAGE_TAG_ARG")
+    
+    run_security_tool "Container Image Build" "$SCRIPT_DIR/run-build-scan.sh" "${BUILD_ARGS[*]}"
+    run_security_tool "SLSA Provenance Attestation" "$SCRIPT_DIR/generate-slsa-provenance.sh" "${BUILD_ARGS[*]}"
+    run_security_tool "Cryptographic Image Signature" "$SCRIPT_DIR/sign-image-cosign.sh" "--scan-dir $SCAN_DIR ${IMAGE_NAME_ARG:+--image-name $IMAGE_NAME_ARG} ${IMAGE_TAG_ARG:+--image-tag $IMAGE_TAG_ARG}"
+fi
 
 # Main security scan execution
 case "$SCAN_TYPE" in

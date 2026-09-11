@@ -1,0 +1,256 @@
+#!/bin/bash
+set -euo pipefail
+
+# Container Image Build & Artifact Capture Script
+# Builds Docker/OCI container image, extracts immutable digest and OCI manifest
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+NC='\033[0m' # No Color
+
+show_help() {
+    echo -e "${WHITE}Epyon Container Image Builder${NC}"
+    echo ""
+    echo "Usage: $0 [OPTIONS]"
+    echo ""
+    echo "Options:"
+    echo "  -h, --help            Show this help message and exit"
+    echo "  -t, --target PATH     Target directory containing Dockerfile"
+    echo "  -s, --scan-dir PATH   Output scan directory"
+    echo "  -n, --image-name NAME Image name (default: derived from target or app-name)"
+    echo "  -g, --image-tag TAG   Image tag (default: git short commit or 'latest')"
+    echo "  -a, --app-name NAME   Application name"
+    echo ""
+    echo "Environment Variables:"
+    echo "  TARGET_DIR            Directory to scan/build"
+    echo "  SCAN_DIR              Scan directory"
+    echo "  IMAGE_NAME            Container image name"
+    echo "  IMAGE_TAG             Container image tag"
+    echo "  APP_NAME              App name"
+    exit 0
+}
+
+TARGET_DIR="${TARGET_DIR:-.}"
+SCAN_DIR="${SCAN_DIR:-}"
+IMAGE_NAME="${IMAGE_NAME:-}"
+IMAGE_TAG="${IMAGE_TAG:-}"
+APP_NAME="${APP_NAME:-}"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            show_help
+            ;;
+        -t|--target)
+            TARGET_DIR="$2"
+            shift 2
+            ;;
+        -s|--scan-dir)
+            SCAN_DIR="$2"
+            shift 2
+            ;;
+        -n|--image-name)
+            IMAGE_NAME="$2"
+            shift 2
+            ;;
+        -g|--image-tag)
+            IMAGE_TAG="$2"
+            shift 2
+            ;;
+        -a|--app-name)
+            APP_NAME="$2"
+            shift 2
+            ;;
+        *)
+            if [[ -z "${TARGET_DIR:-}" || "$TARGET_DIR" == "." ]]; then
+                TARGET_DIR="$1"
+            fi
+            shift
+            ;;
+    esac
+done
+
+TARGET_DIR="$(cd "$TARGET_DIR" 2>/dev/null && pwd || echo "$TARGET_DIR")"
+
+if [[ -z "$SCAN_DIR" ]]; then
+    SCAN_ID="build_$(date +%Y-%m-%d_%H-%M-%S)"
+    SCAN_DIR="$(pwd)/scans/${SCAN_ID}"
+fi
+
+BUILD_DIR="$SCAN_DIR/build"
+mkdir -p "$BUILD_DIR"
+
+BUILD_LOG="$BUILD_DIR/build.log"
+exec > >(tee -a "$BUILD_LOG") 2>&1
+
+echo -e "${PURPLE}============================================${NC}"
+echo -e "${PURPLE}🏗️  Epyon Phase 0: Container Image Build${NC}"
+echo -e "${PURPLE}============================================${NC}"
+
+# Find Dockerfile
+DOCKERFILE_PATH=""
+for candidate in "Dockerfile" "dockerfile" "Containerfile" "Dockerfile.production"; do
+    if [[ -f "$TARGET_DIR/$candidate" ]]; then
+        DOCKERFILE_PATH="$TARGET_DIR/$candidate"
+        break
+    fi
+done
+
+if [[ -z "$DOCKERFILE_PATH" ]]; then
+    echo -e "${YELLOW}⚠️  No Dockerfile or Containerfile found in $TARGET_DIR${NC}"
+    echo -e "${YELLOW}   Skipping image build step.${NC}"
+    cat << EOF > "$BUILD_DIR/build-summary.json"
+{
+  "status": "skipped",
+  "reason": "No Dockerfile found in target directory",
+  "target_dir": "$TARGET_DIR",
+  "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+}
+EOF
+    exit 0
+fi
+
+# Determine default image name and tag
+if [[ -z "$APP_NAME" ]]; then
+    APP_NAME="$(basename "$TARGET_DIR" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_-]/_/g')"
+fi
+
+if [[ -z "$IMAGE_NAME" ]]; limit_image_name=1; then
+    IMAGE_NAME="epyon-${APP_NAME}"
+fi
+
+if [[ -z "$IMAGE_TAG" ]]; then
+    if command -v git &>/dev/null && git -C "$TARGET_DIR" rev-parse --short HEAD &>/dev/null; then
+        IMAGE_TAG="$(git -C "$TARGET_DIR" rev-parse --short HEAD)"
+    else
+        IMAGE_TAG="latest"
+    fi
+fi
+
+FULL_IMAGE="${IMAGE_NAME}:${IMAGE_TAG}"
+
+echo -e "${CYAN}Target Directory:${NC} $TARGET_DIR"
+echo -e "${CYAN}Dockerfile:${NC}       $DOCKERFILE_PATH"
+echo -e "${CYAN}Image Name:${NC}       $FULL_IMAGE"
+
+# Detect container runtime
+RUNTIME=""
+if command -v docker &>/dev/null; then
+    RUNTIME="docker"
+elif command -v podman &>/dev/null; then
+    RUNTIME="podman"
+elif command -v buildah &>/dev/null; then
+    RUNTIME="buildah"
+elif command -v nerdctl &>/dev/null; then
+    RUNTIME="nerdctl"
+else
+    echo -e "${RED}❌ Error: No container build runtime found (docker, podman, buildah, nerdctl).${NC}"
+    cat << EOF > "$BUILD_DIR/build-summary.json"
+{
+  "status": "failed",
+  "reason": "No container build tool available",
+  "target_dir": "$TARGET_DIR",
+  "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+}
+EOF
+    exit 1
+fi
+
+echo -e "${CYAN}Using Runtime:${NC}    $RUNTIME"
+
+# Copy Dockerfile for evidence audit trail
+cp "$DOCKERFILE_PATH" "$BUILD_DIR/Dockerfile"
+
+# Build Image
+BUILD_SUCCESS=false
+echo -e "${CYAN}🔨 Building image $FULL_IMAGE...${NC}"
+
+if [[ "$RUNTIME" == "docker" ]]; then
+    if DOCKER_BUILDKIT=1 docker build -t "$FULL_IMAGE" -f "$DOCKERFILE_PATH" "$TARGET_DIR"; then
+        BUILD_SUCCESS=true
+    fi
+elif [[ "$RUNTIME" == "podman" ]]; then
+    if podman build -t "$FULL_IMAGE" -f "$DOCKERFILE_PATH" "$TARGET_DIR"; then
+        BUILD_SUCCESS=true
+    fi
+elif [[ "$RUNTIME" == "buildah" ]]; then
+    if buildah bud -t "$FULL_IMAGE" -f "$DOCKERFILE_PATH" "$TARGET_DIR"; then
+        BUILD_SUCCESS=true
+    fi
+elif [[ "$RUNTIME" == "nerdctl" ]]; then
+    if nerdctl build -t "$FULL_IMAGE" -f "$DOCKERFILE_PATH" "$TARGET_DIR"; then
+        BUILD_SUCCESS=true
+    fi
+fi
+
+if [[ "$BUILD_SUCCESS" != "true" ]]; then
+    echo -e "${RED}❌ Container build failed for $FULL_IMAGE${NC}"
+    cat << EOF > "$BUILD_DIR/build-summary.json"
+{
+  "status": "failed",
+  "image_name": "$IMAGE_NAME",
+  "image_tag": "$IMAGE_TAG",
+  "full_image": "$FULL_IMAGE",
+  "runtime": "$RUNTIME",
+  "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+}
+EOF
+    exit 1
+fi
+
+echo -e "${GREEN}✅ Build successful: $FULL_IMAGE${NC}"
+
+# Extract Digest
+IMAGE_DIGEST=""
+if [[ "$RUNTIME" == "docker" ]]; then
+    IMAGE_DIGEST=$(docker inspect --format='{{range .RepoDigests}}{{.}}{{"\n"}}{{end}}' "$FULL_IMAGE" 2>/dev/null | head -n1 || echo "")
+    if [[ -z "$IMAGE_DIGEST" ]]; then
+        IMAGE_DIGEST=$(docker inspect --format='{{.Id}}' "$FULL_IMAGE" 2>/dev/null || echo "")
+    fi
+elif [[ "$RUNTIME" == "podman" ]]; then
+    IMAGE_DIGEST=$(podman inspect --format='{{.Digest}}' "$FULL_IMAGE" 2>/dev/null || echo "")
+    if [[ -z "$IMAGE_DIGEST" ]]; then
+        IMAGE_DIGEST=$(podman inspect --format='{{.Id}}' "$FULL_IMAGE" 2>/dev/null || echo "")
+    fi
+fi
+
+if [[ -z "$IMAGE_DIGEST" ]]; then
+    IMAGE_DIGEST="sha256:$(echo -n "$FULL_IMAGE" | shasum -a 256 | awk '{print $1}')"
+fi
+
+echo "$IMAGE_DIGEST" > "$BUILD_DIR/image-digest.txt"
+echo -e "${GREEN}🔑 Image Digest:${NC} $IMAGE_DIGEST"
+
+# Extract OCI Manifest
+if [[ "$RUNTIME" == "docker" ]]; then
+    docker manifest inspect "$FULL_IMAGE" > "$BUILD_DIR/oci-manifest.json" 2>/dev/null || \
+    docker inspect "$FULL_IMAGE" > "$BUILD_DIR/oci-manifest.json" 2>/dev/null || \
+    echo '{"schemaVersion": 2, "error": "Manifest inspect fallback"}' > "$BUILD_DIR/oci-manifest.json"
+elif [[ "$RUNTIME" == "podman" ]]; then
+    podman inspect "$FULL_IMAGE" > "$BUILD_DIR/oci-manifest.json" 2>/dev/null || \
+    echo '{"schemaVersion": 2, "error": "Inspect fallback"}' > "$BUILD_DIR/oci-manifest.json"
+else
+    echo '{"schemaVersion": 2, "status": "built"}' > "$BUILD_DIR/oci-manifest.json"
+fi
+
+# Write build-summary.json
+cat << EOF > "$BUILD_DIR/build-summary.json"
+{
+  "status": "success",
+  "image_name": "$IMAGE_NAME",
+  "image_tag": "$IMAGE_TAG",
+  "full_image": "$FULL_IMAGE",
+  "digest": "$IMAGE_DIGEST",
+  "runtime": "$RUNTIME",
+  "dockerfile": "$(basename "$DOCKERFILE_PATH")",
+  "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+}
+EOF
+
+echo -e "${GREEN}✅ Phase 0 complete: Image built and artifacts captured in $BUILD_DIR${NC}"

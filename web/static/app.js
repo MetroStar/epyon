@@ -1505,6 +1505,8 @@ async function renderScanDetail(scanId) {
 
       ${buildMisconfigurationsCard(scan)}
 
+      ${buildBuildEvidenceCard(scan)}
+
       ${buildSBOMSection(scan.sbom, scanId)}
 
       ${buildAPISection(scan.api_discovery)}
@@ -2161,6 +2163,66 @@ function buildMisconfigurationsCard(scan) {
         </div>
       </div>
     </details>`;
+}
+
+// ── Container Build & Supply Chain Evidence Card ────────────────
+
+function buildBuildEvidenceCard(scan) {
+  const be = scan.build_evidence;
+  if (!be || (!be.build && !be.digest && !be.provenance && !be.signature)) return '';
+
+  const build = be.build || {};
+  const sig = be.signature || {};
+  const prov = be.provenance || {};
+  const digest = be.digest || build.digest || '';
+  const status = build.status || (be.digest ? 'success' : 'N/A');
+
+  const statusBadge = status === 'success'
+    ? `<span class="badge" style="background:#059669;color:#fff;">✅ Built</span>`
+    : (status === 'skipped' ? `<span class="badge" style="background:#6b7280;color:#fff;">⏭️ Skipped</span>` : `<span class="badge" style="background:#dc2626;color:#fff;">❌ ${esc(status)}</span>`);
+
+  const sigBadge = sig.status === 'signed'
+    ? `<span class="badge" style="background:#059669;color:#fff;">🔏 Cosign Signed</span>`
+    : `<span class="badge" style="background:#4b5563;color:#fff;">ℹ️ Unsigned</span>`;
+
+  const manifestBadge = be.has_manifest
+    ? `<span class="badge" style="background:#2563eb;color:#fff;">📦 OCI Manifest Validated</span>`
+    : `<span class="badge" style="background:#6b7280;color:#fff;">No Manifest</span>`;
+
+  const provBadge = prov.predicateType
+    ? `<span class="badge" style="background:#7c3aed;color:#fff;">📜 SLSA v1.0 Provenance Attested</span>`
+    : `<span class="badge" style="background:#6b7280;color:#fff;">No Attestation</span>`;
+
+  return `
+    <div class="section">
+      <div class="section-title">🏗️ Container Build & Supply Chain Evidence</div>
+      <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+        ${statusBadge}
+        ${manifestBadge}
+        ${provBadge}
+        ${sigBadge}
+      </div>
+      <div class="detail-grid">
+        <div class="detail-card">
+          <div class="label">Image Identifier</div>
+          <div class="value" style="font-family:monospace;font-size:0.85rem;">${esc(build.full_image || build.image_name || 'N/A')}</div>
+        </div>
+        <div class="detail-card">
+          <div class="label">Immutable SHA-256 Digest</div>
+          <div class="value" style="font-family:monospace;font-size:0.8rem;word-break:break-all;">${esc(digest || 'N/A')}</div>
+        </div>
+        <div class="detail-card">
+          <div class="label">Build Runtime</div>
+          <div class="value">${esc(build.runtime || 'N/A')}</div>
+        </div>
+        <div class="detail-card">
+          <div class="label">Dockerfile</div>
+          <div class="value">${esc(build.dockerfile || 'Dockerfile')}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
 }
 
 // ── Overview AI Summary Section ──────────────────────────────

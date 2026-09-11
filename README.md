@@ -18,7 +18,7 @@ Epyon is designed to be opinionated, automated, and decisive — empowering team
 
 Epyon is a **production-ready, enterprise-grade** 20-layer DevSecOps security platform with a FastAPI-backed web UI, comprehensive test coverage, baseline scanning, automated comparison, and isolated scan directory architecture. Built for real-world applications with Docker-based tooling and 886 automated tests.
 
-**Version: 3.13.0** · **Updated: July 30, 2026**
+**Version: 3.14.0** · **Updated: September 10, 2026**
 
 ## 🌍 Platform Support
 

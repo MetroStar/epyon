@@ -5,6 +5,17 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.14.0] - 2026-09-10
+
+### Added
+- **Phase 0 Container Image Building & Supply Chain Attestation** (`BUILD_ENABLED=true` / `--build-image`) — Optional pre-scan pipeline phase that builds Docker/OCI container images using available container runtimes (`docker`, `podman`, `buildah`, `nerdctl`).
+- **10-of-10 Release & Evidence Artifact Collection** — Extracts immutable SHA-256 image digests (`build/image-digest.txt`), OCI manifests (`build/oci-manifest.json`), and build execution logs (`build/build.log`).
+- **SLSA v1.0 Provenance Attestation** (`generate-slsa-provenance.sh`) — Generates in-toto SLSA v1.0 build provenance predicates (`provenance.jsonl` and `provenance.json`) capturing builder identity, commit SHA, source repo URL, and subject image digest.
+- **Cryptographic Image Signatures** (`sign-image-cosign.sh`) — Integrates Cosign image signing and generates signature metadata records (`image.sig`).
+- **Web UI & Dashboard Build Evidence Card** — Displays Image Identifier, Immutable SHA-256 Digest, OCI Manifest status, SLSA Provenance status, and Cosign Signature status in both Web UI and HTML dashboard deliverables.
+- **Scan Manifest Integration** — Hashes image build digests, SLSA provenance statements, and Cosign signature files into `scan-manifest.json`.
+- **New Documentation Guide** (`documentation/CONTAINER_BUILD_AND_EVIDENCE_GUIDE.md`) — Comprehensive reference for container image building, 10-of-10 artifact tracking, SLSA provenance, and Cosign verification.
+
 ## [3.13.3] - 2026-09-09
 
 ### Fixed

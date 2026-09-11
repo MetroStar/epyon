@@ -936,34 +936,311 @@ def parse_build_evidence(scan_dir: Path) -> dict:
         "has_manifest": has_manifest,
         "provenance": provenance_info,
         "signature": sig_info,
+        "artifacts": {
+            "image_digest": digest is not None,
+            "oci_manifest": has_manifest,
+            "dockerfile": (build_dir / "Dockerfile").exists(),
+            "build_log": (build_dir / "build.log").exists(),
+            "slsa_provenance": provenance_file.exists(),
+            "image_signature": sig_file.exists(),
+            "sbom": (scan_dir / "sbom").is_dir(),
+            "vuln_scans": (
+                (scan_dir / "grype").is_dir()
+                or (scan_dir / "trivy").is_dir()
+                or (scan_dir / "clamav").is_dir()
+            ),
+            "scan_manifest": (scan_dir / "scan-manifest.json").exists(),
+            "suppression_audit": (scan_dir / "suppressed-findings.md").exists(),
+            "vex_justification": (scan_dir / "grype" / "vex-applied-results.json").exists(),
+        }
     }
 
 
-def parse_suppressed_findings(scan_dir: Path) -> list[dict]:
-    """Parse suppressed-findings.md into a list of structured suppression records."""
-    md_file = scan_dir / "suppressed-findings.md"
-    if not md_file.exists():
-        return []
+def parse_ssp_evidence_matrix(scan_dir: Path) -> dict:
+    """Map scan evidence artifacts to NIST SP 800-53 / FedRAMP controls for SSP/ATO documentation."""
+    scan_id = scan_dir.name
+    manifest_data = _read_json(scan_dir / "scan-manifest.json") or {}
+    file_hashes = manifest_data.get("file_hashes") or {}
 
-    text = md_file.read_text(encoding="utf-8", errors="replace")
+    def _get_hash(rel_path: str) -> str | None:
+        if rel_path in file_hashes:
+            return file_hashes[rel_path]
+        target_file = scan_dir / rel_path
+        if target_file.is_file():
+            try:
+                import hashlib
+                h = hashlib.sha256(target_file.read_bytes()).hexdigest()
+                return f"sha256:{h}"
+            except Exception:
+                pass
+        return None
+
+    def _check_artifact(rel_path: str) -> tuple[bool, str | None]:
+        p = scan_dir / rel_path
+        exists = p.exists()
+        h = _get_hash(rel_path) if exists else None
+        return exists, h
+
+    controls = []
+
+    # CM-2 Baseline Configuration
+    c_docker_exists, c_docker_hash = _check_artifact("build/Dockerfile")
+    c_meta_exists, c_meta_hash = _check_artifact("scan-metadata.json")
+    controls.append({
+        "control_id": "CM-2",
+        "control_name": "Baseline Configuration",
+        "epyon_layer": "Phase 0 (Container Build & Config Metadata)",
+        "primary_artifact_path": "build/Dockerfile" if c_docker_exists else "scan-metadata.json",
+        "format": "Container Instructions / JSON",
+        "status": "captured" if (c_docker_exists or c_meta_exists) else "not_captured",
+        "sha256_hash": c_docker_hash or c_meta_hash or "N/A",
+        "summary": "Dockerfile instructions & target scan metadata"
+    })
+
+    # CM-6 Configuration Settings
+    c_checkov_exists, c_checkov_hash = _check_artifact("checkov/checkov-results.json")
+    c_inf_exists, c_inf_hash = _check_artifact("inference-security/inference-security-results.json")
+    controls.append({
+        "control_id": "CM-6",
+        "control_name": "Configuration Settings",
+        "epyon_layer": "Layer 6 (Checkov IaC) & Layer 19 (Inference Security)",
+        "primary_artifact_path": "checkov/checkov-results.json" if c_checkov_exists else "inference-security/inference-security-results.json",
+        "format": "IaC / Container Security JSON",
+        "status": "captured" if (c_checkov_exists or c_inf_exists) else "not_captured",
+        "sha256_hash": c_checkov_hash or c_inf_hash or "N/A",
+        "summary": "Infrastructure & container security misconfigurations"
+    })
+
+    # CM-8 Information System Component Inventory
+    c_sbom_exists, c_sbom_hash = _check_artifact("sbom/filesystem.cyclonedx.json")
+    if not c_sbom_exists:
+        c_sbom_exists, c_sbom_hash = _check_artifact("sbom/filesystem.json")
+    controls.append({
+        "control_id": "CM-8",
+        "control_name": "Information System Component Inventory",
+        "epyon_layer": "Layer 1 (Syft SBOM Generation)",
+        "primary_artifact_path": "sbom/filesystem.cyclonedx.json" if (scan_dir / "sbom/filesystem.cyclonedx.json").exists() else "sbom/filesystem.json",
+        "format": "CycloneDX / SPDX JSON",
+        "status": "captured" if c_sbom_exists else "not_captured",
+        "sha256_hash": c_sbom_hash or "N/A",
+        "summary": "Software Bill of Materials (packages, versions, purls)"
+    })
+
+    # SI-2 Flaw Remediation / Vulnerability Management
+    c_grype_exists, c_grype_hash = _check_artifact("grype/grype-sbom-results.json")
+    c_trivy_exists, c_trivy_hash = _check_artifact("trivy/trivy-results.json")
+    c_summary_exists, c_summary_hash = _check_artifact("security-findings-summary.json")
+    controls.append({
+        "control_id": "SI-2",
+        "control_name": "Flaw Remediation & Vulnerability Scanning",
+        "epyon_layer": "Layer 7 (Trivy), Layer 8 (Grype), Layer 8.5 (pip-audit)",
+        "primary_artifact_path": "security-findings-summary.json" if c_summary_exists else "grype/grype-sbom-results.json",
+        "format": "Deduplicated Vulnerability JSON",
+        "status": "captured" if (c_grype_exists or c_trivy_exists or c_summary_exists) else "not_captured",
+        "sha256_hash": c_summary_hash or c_grype_hash or c_trivy_hash or "N/A",
+        "summary": "Deduplicated CVE vulnerability findings & severity counts"
+    })
+
+    # SI-3 Malicious Code Protection
+    c_clam_exists, c_clam_hash = _check_artifact("clamav/clamav-results.json")
+    c_pickle_exists, c_pickle_hash = _check_artifact("picklescan-results.json")
+    controls.append({
+        "control_id": "SI-3",
+        "control_name": "Malicious Code Protection",
+        "epyon_layer": "Layer 4 (ClamAV) & Layer 14 (Picklescan Model Scanner)",
+        "primary_artifact_path": "clamav/clamav-results.json" if c_clam_exists else "picklescan-results.json",
+        "format": "Malware & Serialized Code Audit JSON",
+        "status": "captured" if (c_clam_exists or c_pickle_exists) else "not_captured",
+        "sha256_hash": c_clam_hash or c_pickle_hash or "N/A",
+        "summary": "Antivirus malware scans & deserialization safety analysis"
+    })
+
+    # SI-7 Software, Firmware, and Information Integrity
+    c_man_exists, c_man_hash = _check_artifact("scan-manifest.json")
+    c_prov_exists, c_prov_hash = _check_artifact("provenance.jsonl")
+    c_sig_exists, c_sig_hash = _check_artifact("image.sig")
+    controls.append({
+        "control_id": "SI-7",
+        "control_name": "Software & Information Integrity",
+        "epyon_layer": "Cryptographic Scan Manifest, SLSA Provenance & Cosign",
+        "primary_artifact_path": "scan-manifest.json",
+        "format": "SHA-256 Manifest / SLSA v1.0 / Cosign Signature",
+        "status": "captured" if c_man_exists else "not_captured",
+        "sha256_hash": c_man_hash or "N/A",
+        "summary": "Cryptographic scan manifest, SLSA provenance & image signatures"
+    })
+
+    # CA-2 / CA-7 Security Control Assessments & Continuous Monitoring
+    stig_files = list(scan_dir.glob("stig-results-*.json"))
+    c_stig_exists = len(stig_files) > 0
+    c_stig_path = stig_files[0].relative_to(scan_dir).as_posix() if c_stig_exists else "stig-results-app.json"
+    c_stig_hash = _get_hash(c_stig_path) if c_stig_exists else None
+    controls.append({
+        "control_id": "CA-2",
+        "control_name": "Security Control Assessments & STIG Compliance",
+        "epyon_layer": "Layer 13 (DISA STIG Compliance Engine)",
+        "primary_artifact_path": c_stig_path,
+        "format": "DISA STIG JSON / CKLB Checklist / Markdown",
+        "status": "captured" if c_stig_exists else "not_captured",
+        "sha256_hash": c_stig_hash or "N/A",
+        "summary": "AI-evaluated STIG controls & evidence timeline"
+    })
+
+    # IA-2 / IA-5 Identification, Authentication & Secrets
+    c_truffle_exists, c_truffle_hash = _check_artifact("trufflehog/filesystem-results.json")
+    controls.append({
+        "control_id": "IA-5",
+        "control_name": "Authenticator & Secret Management",
+        "epyon_layer": "Layer 2 (TruffleHog Secret Detection)",
+        "primary_artifact_path": "trufflehog/filesystem-results.json",
+        "format": "High-Entropy Key & Credential JSON",
+        "status": "captured" if c_truffle_exists else "not_captured",
+        "sha256_hash": c_truffle_hash or "N/A",
+        "summary": "High-entropy secrets, API keys, and credential scans"
+    })
+
+    # SA-11 / PL-2 Developer Security Testing & Risk Acceptance
+    c_supp_exists, c_supp_hash = _check_artifact("suppressed-findings.md")
+    controls.append({
+        "control_id": "SA-11",
+        "control_name": "Developer Security Testing & Risk Acceptance",
+        "epyon_layer": "Suppression Engine & Severity Gate Audit",
+        "primary_artifact_path": "suppressed-findings.md",
+        "format": "Auditor Justification & Expiration Markdown Log",
+        "status": "captured" if c_supp_exists else "not_captured",
+        "sha256_hash": c_supp_hash or "N/A",
+        "summary": "Documented risk acceptances, approvals, and expiration dates"
+    })
+
+    # RA-3 / RA-5 Risk Assessment & Vulnerability Monitoring
+    c_trl_exists, c_trl_hash = _check_artifact("trl-assessment.json")
+    controls.append({
+        "control_id": "RA-3",
+        "control_name": "Risk Assessment & Security Score Card",
+        "epyon_layer": "Security Score Card (TRL Assessment)",
+        "primary_artifact_path": "trl-assessment.json",
+        "format": "Weighted TRL 1–9 Score JSON",
+        "status": "captured" if c_trl_exists else "not_captured",
+        "sha256_hash": c_trl_hash or "N/A",
+        "summary": "6-dimensional weighted security posture score & TRL mapping"
+    })
+
+    return {
+        "scan_id": scan_id,
+        "timestamp": manifest_data.get("generated_at") or "",
+        "manifest_version": manifest_data.get("manifest_version", "1.0"),
+        "controls": controls
+    }
+
+
+def generate_ssp_evidence_markdown(matrix_data: dict) -> str:
+    """Generate a clean Markdown table mapping NIST SP 800-53 controls to artifact paths for SSP/ATO docs."""
+    scan_id = matrix_data.get("scan_id", "scan")
+    timestamp = matrix_data.get("timestamp", "")
+    controls = matrix_data.get("controls", [])
+
+    md = []
+    md.append(f"# System Security Plan (SSP) & ATO Control Evidence Matrix")
+    md.append(f"**Scan ID:** `{scan_id}`  |  **Generated:** `{timestamp}`  |  **Orchestrator:** Epyon Security Platform\n")
+    md.append("This document maps NIST SP 800-53 / FedRAMP security controls to cryptographic evidence artifacts generated by Epyon for ATO/cATO submissions.\n")
+    md.append("| NIST 800-53 Control | Control Name | Epyon Security Layer | Primary Evidence Artifact Path | Pipeline Status | SHA-256 Digest |")
+    md.append("|---------------------|--------------|----------------------|--------------------------------|-----------------|----------------|")
+
+    for c in controls:
+        status_str = "✅ Captured" if c["status"] == "captured" else "ℹ️ Optional / Skipped"
+        hash_str = f"`{c['sha256_hash'][:16]}...`" if c["sha256_hash"] and c["sha256_hash"] != "N/A" else "N/A"
+        md.append(f"| **{c['control_id']}** | {c['control_name']} | {c['epyon_layer']} | `{c['primary_artifact_path']}` | {status_str} | {hash_str} |")
+
+    md.append("\n## Artifact Path Integrity Reference\n")
+    for c in controls:
+        md.append(f"### {c['control_id']}: {c['control_name']}")
+        md.append(f"- **Epyon Layer:** {c['epyon_layer']}")
+        md.append(f"- **Primary Artifact:** `{c['primary_artifact_path']}`")
+        md.append(f"- **Format / Spec:** {c['format']}")
+        md.append(f"- **Cryptographic SHA-256 Hash:** `{c['sha256_hash']}`")
+        md.append(f"- **Evidence Summary:** {c['summary']}\n")
+
+    return "\n".join(md)
+
+
+def parse_suppressed_findings(scan_dir: Path) -> list[dict]:
+    """Parse suppressed-findings.md and/or .epyon-ignore.yml into structured suppression records."""
     results = []
     seen: set[tuple] = set()
-    # Split on "## Suppressed:" blocks
-    blocks = re.split(r"^## Suppressed:", text, flags=re.MULTILINE)
-    for block in blocks[1:]:  # skip preamble
-        lines = block.strip().splitlines()
-        record: dict = {"value": lines[0].strip() if lines else ""}
-        for line in lines[1:]:
-            m = re.match(r"-\s+\*\*(.+?)\*\*:\s*(.*)", line)
-            if m:
-                key = m.group(1).strip().lower().replace(" ", "_")
-                record[key] = m.group(2).strip()
-        # Deduplicate by (type, value) — shell script may log same rule multiple times
-        dedup_key = (record.get("type", ""), record.get("value", ""))
-        if dedup_key in seen:
-            continue
-        seen.add(dedup_key)
-        results.append(record)
+
+    # 1. Parse suppressed-findings.md if present
+    md_file = scan_dir / "suppressed-findings.md"
+    if md_file.exists():
+        text = md_file.read_text(encoding="utf-8", errors="replace")
+        blocks = re.split(r"^## Suppressed:", text, flags=re.MULTILINE)
+        for block in blocks[1:]:  # skip preamble
+            lines = block.strip().splitlines()
+            record: dict = {"value": lines[0].strip() if lines else ""}
+            for line in lines[1:]:
+                m = re.match(r"-\s+\*\*(.+?)\*\*:\s*(.*)", line)
+                if m:
+                    key = m.group(1).strip().lower().replace(" ", "_")
+                    record[key] = m.group(2).strip()
+            dedup_key = (record.get("type", "").lower(), record.get("value", "").lower())
+            if dedup_key not in seen:
+                seen.add(dedup_key)
+                results.append(record)
+
+    # 2. Also check .epyon-ignore.yml files and temporary cache
+    from datetime import datetime
+    ignore_files = [
+        scan_dir / ".epyon-ignore.yml",
+        scan_dir.parent / ".epyon-ignore.yml",
+        scan_dir.parent.parent / ".epyon-ignore.yml",
+        Path("/tmp/epyon-ignore-cache.json"),
+    ]
+
+    for yml_file in ignore_files:
+        if yml_file.exists():
+            try:
+                if yml_file.suffix == ".json":
+                    data = json.loads(yml_file.read_text(encoding="utf-8"))
+                    ignores = data.get("ignores", [])
+                else:
+                    import yaml
+                    data = yaml.safe_load(yml_file.read_text(encoding="utf-8")) or {}
+                    ignores = data.get("ignores", [])
+
+                current_date = datetime.now()
+                for rule in ignores:
+                    t = (rule.get("type") or "").strip().lower()
+                    v = (rule.get("value") or "").strip()
+                    if not v:
+                        continue
+
+                    # Check expiration
+                    expires_str = rule.get("expires") or ""
+                    is_expired = rule.get("expired", False)
+                    if expires_str and not is_expired:
+                        try:
+                            exp_dt = datetime.strptime(str(expires_str).strip(), "%Y-%m-%d")
+                            if current_date > exp_dt:
+                                is_expired = True
+                        except Exception:
+                            pass
+
+                    if is_expired:
+                        continue
+
+                    dedup_key = (t, v.lower())
+                    if dedup_key not in seen:
+                        seen.add(dedup_key)
+                        results.append({
+                            "type": t,
+                            "value": v,
+                            "reason": rule.get("reason", ""),
+                            "approved_by": rule.get("approved_by", ""),
+                            "expires": str(expires_str),
+                            "paths": rule.get("paths", [])
+                        })
+            except Exception:
+                pass
+
     return results
 
 
@@ -971,64 +1248,83 @@ def _is_finding_suppressed(finding: dict, suppressions: list[dict]) -> bool:
     """Check if a finding matches any suppression rule.
     
     Matching logic:
-    - Tool suppression: matches finding["tool"] (e.g., tool: checkov suppresses all Checkov findings)
-    - CVE suppression: matches finding["id"] (e.g., CVE-2024-1234)
-    - Secret suppression: matches finding["id"] (detector name)
-    - IaC suppression: matches finding["id"] (check ID like CKV_AWS_1)
-    - Wildcard "*" suppresses all findings of that type
+    - tool: matches finding["tool"]
+    - cve / ghsa / vulnerability: matches finding["id"]
+    - package: matches finding["package"]@finding["version"] or finding["package"]
+    - path / file: matches finding["file"] or finding["target"]
+    - secret-detector / secret: matches TruffleHog detector ID
+    - iac: matches Checkov check ID
     """
     if not suppressions:
         return False
-    
-    finding_id = (finding.get("id") or "").strip()
+
+    import fnmatch
+
+    finding_id = (finding.get("id") or "").strip().lower()
     finding_tool = (finding.get("tool") or "").strip().lower()
-    
-    # Determine finding type from tool
-    finding_type = ""
-    if finding_tool in ("grype", "trivy", "anchore", "pip-audit", "safety"):
-        finding_type = "cve"
-    elif finding_tool == "trufflehog":
-        finding_type = "secret"
-    elif finding_tool == "checkov":
-        finding_type = "iac"
-    elif finding_tool == "clamav":
-        finding_type = "malware"
-    elif finding_tool == "xeol":
-        finding_type = "eol"
-    elif finding_tool == "sonarqube":
-        finding_type = "code_quality"
-    
+    pkg_name = (finding.get("package") or "").strip().lower()
+    pkg_ver = (finding.get("version") or "").strip().lower()
+    file_path = (finding.get("file") or finding.get("target") or "").strip()
+
     for suppression in suppressions:
         supp_type = (suppression.get("type") or "").strip().lower()
         supp_value = (suppression.get("value") or "").strip().lower()
-        
-        # Tool-level suppression: suppress all findings from a specific tool
+
+        if not supp_value:
+            continue
+
+        # 1. Tool-level suppression
         if supp_type == "tool":
-            if supp_value == "*" or supp_value == finding_tool:
+            if supp_value in ("*", finding_tool):
                 return True
             continue
-        
-        # Type must match (or suppression has no type specified)
-        if supp_type and supp_type != finding_type:
-            continue
-        
-        # Wildcard suppresses all findings of this type
-        if supp_value == "*":
-            return True
-        
-        # Exact match on finding ID (case-insensitive for comparison)
-        if supp_value == finding_id.lower():
-            return True
-        
-        # For CVEs, also check if suppression is a partial match (e.g., CVE-2024-* pattern)
-        if finding_type == "cve" and "*" in supp_value:
-            pattern = supp_value.replace("*", ".*").replace("?", ".")
-            try:
-                if re.match(f"^{pattern}$", finding_id.lower()):
+
+        # 2. Package suppression (e.g., netty-handler@4.1.136.Final or netty-handler)
+        if supp_type == "package":
+            if "@" in supp_value:
+                supp_pkg, supp_ver = supp_value.split("@", 1)
+                if pkg_name == supp_pkg and (not supp_ver or pkg_ver == supp_ver):
                     return True
-            except re.error:
-                pass
-    
+            else:
+                if pkg_name == supp_value:
+                    return True
+            continue
+
+        # 3. Path / File suppression (glob matching)
+        if supp_type in ("path", "file"):
+            clean_path = file_path.replace("/workspace/", "").lstrip("/")
+            if fnmatch.fnmatch(clean_path.lower(), supp_value) or fnmatch.fnmatch(file_path.lower(), supp_value):
+                return True
+            continue
+
+        # 4. Secret detector suppression
+        if supp_type in ("secret-detector", "secret", "detector"):
+            if finding_tool == "trufflehog" and (supp_value in ("*", finding_id)):
+                paths = suppression.get("paths") or []
+                if paths:
+                    clean_path = file_path.replace("/workspace/", "").lstrip("/")
+                    if any(fnmatch.fnmatch(clean_path.lower(), p.lower()) for p in paths):
+                        return True
+                else:
+                    return True
+            continue
+
+        # 5. CVE / GHSA / Vulnerability ID suppression
+        if supp_type in ("cve", "vulnerability", "ghsa") or not supp_type:
+            if supp_value in ("*", finding_id):
+                return True
+            if "*" in supp_value:
+                pattern = supp_value.replace("*", ".*").replace("?", ".")
+                try:
+                    if re.match(f"^{pattern}$", finding_id):
+                        return True
+                except re.error:
+                    pass
+
+        # 6. Fallback matching against package name or package@version
+        if supp_value in (pkg_name, f"{pkg_name}@{pkg_ver}"):
+            return True
+
     return False
 
 

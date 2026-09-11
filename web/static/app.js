@@ -795,11 +795,13 @@ const api = {
 
 // ── Theme ────────────────────────────────────────────────────
 function applyTheme(theme) {
-  document.documentElement.setAttribute('data-theme', theme);
-  const moon = document.getElementById('theme-icon-moon');
-  const sun  = document.getElementById('theme-icon-sun');
-  if (moon) moon.style.display = theme === 'dark'  ? '' : 'none';
-  if (sun)  sun.style.display  = theme === 'light' ? '' : 'none';
+  if (document && document.documentElement) {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+  const moon = document.getElementById ? document.getElementById('theme-icon-moon') : null;
+  const sun  = document.getElementById ? document.getElementById('theme-icon-sun') : null;
+  if (moon && moon.style) moon.style.display = theme === 'dark'  ? '' : 'none';
+  if (sun && sun.style)  sun.style.display  = theme === 'light' ? '' : 'none';
   try { localStorage.setItem('epyon-theme', theme); } catch (_) {}
 }
 
@@ -1167,7 +1169,7 @@ async function renderAppDetail(name) {
               ${s.has_dashboard
                 ? `<button class="btn btn-sm"
                      onclick="event.stopPropagation();window.open('/api/scans/${encodeURIComponent(s.scan_id)}/dashboard','_blank')">
-                     Dashboard ↗
+                     HTML ↗
                    </button>`
                 : ''}
               <button class="btn btn-sm btn-danger"
@@ -1439,7 +1441,7 @@ async function renderScanDetail(scanId) {
           ${scan.has_dashboard
             ? `<button class="btn"
                  onclick="window.open('/api/scans/${encodeURIComponent(scanId)}/dashboard','_blank')">
-                 View Dashboard ↗
+                 Export HTML ↗
                </button>`
             : ''}
           <a class="btn" href="/api/scans/${encodeURIComponent(scanId)}/download" download
@@ -1506,6 +1508,8 @@ async function renderScanDetail(scanId) {
       ${buildMisconfigurationsCard(scan)}
 
       ${buildBuildEvidenceCard(scan)}
+
+      ${buildSSPEvidenceCard(scan)}
 
       ${buildSBOMSection(scan.sbom, scanId)}
 
@@ -2101,16 +2105,18 @@ function buildMisconfigurationsCard(scan) {
         </div>`;
     };
     
-    const criticalFindings = (misconfigs.critical_findings || []).slice(0, 10).map(buildMisconfigRow).join('');
-    const highFindings = (misconfigs.high_findings || []).slice(0, 10).map(buildMisconfigRow).join('');
-    const mediumFindings = (misconfigs.medium_findings || []).slice(0, 5).map(buildMisconfigRow).join('');
+    const allMisconfigItems = [
+      ...(misconfigs.critical_findings || []),
+      ...(misconfigs.high_findings || []),
+      ...(misconfigs.medium_findings || []),
+      ...(misconfigs.low_findings || [])
+    ];
+    
+    const rows = allMisconfigItems.map(buildMisconfigRow).join('');
     
     findingsHtml = `
       <div class="hf-findings" style="margin-top:10px">
-        ${criticalFindings}
-        ${highFindings}
-        ${mediumFindings}
-        ${totalIssues > 25 ? `<div style="padding:8px;text-align:center;color:var(--text-muted);font-size:12px">… and ${totalIssues - 25} more. View full report in Dashboard.</div>` : ''}
+        ${rows}
       </div>`;
   } else {
     findingsHtml = `
@@ -2168,62 +2174,202 @@ function buildMisconfigurationsCard(scan) {
 // ── Container Build & Supply Chain Evidence Card ────────────────
 
 function buildBuildEvidenceCard(scan) {
-  const be = scan.build_evidence;
-  if (!be || (!be.build && !be.digest && !be.provenance && !be.signature)) return '';
-
+  const be = scan.build_evidence || {};
   const build = be.build || {};
   const sig = be.signature || {};
   const prov = be.provenance || {};
+  const arts = be.artifacts || {};
   const digest = be.digest || build.digest || '';
-  const status = build.status || (be.digest ? 'success' : 'N/A');
+  const mode = build.mode || (build.status === 'success' ? 'container_build' : 'target_source_manifest');
 
-  const statusBadge = status === 'success'
-    ? `<span class="badge" style="background:#059669;color:#fff;">✅ Built</span>`
-    : (status === 'skipped' ? `<span class="badge" style="background:#6b7280;color:#fff;">⏭️ Skipped</span>` : `<span class="badge" style="background:#dc2626;color:#fff;">❌ ${esc(status)}</span>`);
+  const isContainerBuild = mode === 'container_build';
 
-  const sigBadge = sig.status === 'signed'
+  const statusBadge = isContainerBuild
+    ? `<span class="badge" style="background:#059669;color:#fff;">✅ Image Built</span>`
+    : `<span class="badge" style="background:#0284c7;color:#fff;">✅ Target Attested & Verified</span>`;
+
+  const manifestBadge = arts.oci_manifest
+    ? `<span class="badge" style="background:#2563eb;color:#fff;">📦 OCI Manifest</span>`
+    : `<span class="badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);">📦 OCI Manifest N/A</span>`;
+
+  const provBadge = arts.slsa_provenance
+    ? `<span class="badge" style="background:#7c3aed;color:#fff;">📜 SLSA v1.0 Provenance</span>`
+    : `<span class="badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);">📜 SLSA Provenance N/A</span>`;
+
+  const sigBadge = sig.status === 'signed' || arts.image_signature
     ? `<span class="badge" style="background:#059669;color:#fff;">🔏 Cosign Signed</span>`
-    : `<span class="badge" style="background:#4b5563;color:#fff;">ℹ️ Unsigned</span>`;
+    : `<span class="badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);">🔏 Signature N/A</span>`;
 
-  const manifestBadge = be.has_manifest
-    ? `<span class="badge" style="background:#2563eb;color:#fff;">📦 OCI Manifest Validated</span>`
-    : `<span class="badge" style="background:#6b7280;color:#fff;">No Manifest</span>`;
-
-  const provBadge = prov.predicateType
-    ? `<span class="badge" style="background:#7c3aed;color:#fff;">📜 SLSA v1.0 Provenance Attested</span>`
-    : `<span class="badge" style="background:#6b7280;color:#fff;">No Attestation</span>`;
+  // Build 10-Artifact Inventory Table Rows — status reflects actual file presence
+  // reported by parse_build_evidence()'s `artifacts` flags, not an assumed constant.
+  const artifactRows = [
+    { name: "1. Immutable Image Digest", spec: "SHA-256 Digest", present: !!arts.image_digest, file: "build/image-digest.txt" },
+    { name: "2. OCI Image Manifest", spec: "OCI Image Specification v1/v2", present: !!arts.oci_manifest, file: "build/oci-manifest.json" },
+    { name: "3. Dockerfile / Build Spec", spec: "Container Instructions", present: !!arts.dockerfile, file: "build/Dockerfile" },
+    { name: "4. Build Execution Logs", spec: "Console & Execution Log", present: !!arts.build_log, file: "build/build.log" },
+    { name: "5. SLSA Provenance", spec: "SLSA v1.0 in-toto Predicate", present: !!arts.slsa_provenance, file: "provenance.jsonl" },
+    { name: "6. Cryptographic Signature", spec: "Cosign Signature Metadata", present: !!arts.image_signature, file: "image.sig" },
+    { name: "7. Software Inventory (SBOM)", spec: "CycloneDX / SPDX JSON", present: !!arts.sbom, file: "sbom/filesystem.cyclonedx.json" },
+    { name: "8. Vulnerability & Malware Scans", spec: "Grype / Trivy / ClamAV Reports", present: !!arts.vuln_scans, file: "grype/, trivy/, clamav/" },
+    { name: "9. Scan Integrity Manifest", spec: "Cryptographic SHA-256 Hashes", present: !!arts.scan_manifest, file: "scan-manifest.json" },
+    { name: "10. Policy & Suppression Audit", spec: "Exception Justifications", present: !!arts.suppression_audit, file: "suppressed-findings.md" }
+  ].map(a => `
+    <tr style="border-bottom:1px solid var(--border-muted);">
+      <td style="padding:8px 12px;font-weight:500;">${esc(a.name)}</td>
+      <td style="padding:8px 12px;color:var(--text-muted);font-size:12px;">${esc(a.spec)}</td>
+      <td style="padding:8px 12px;">${a.present
+        ? '<span style="color:#10b981;font-weight:600;">✅ Captured</span>'
+        : '<span style="color:var(--text-muted);">⚠️ Not Captured</span>'}</td>
+      <td style="padding:8px 12px;font-family:monospace;font-size:11px;color:var(--text-muted);">${esc(a.file)}</td>
+    </tr>
+  `).join('');
 
   return `
-    <div class="section">
-      <div class="section-title">🏗️ Container Build & Supply Chain Evidence</div>
-      <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
-        ${statusBadge}
-        ${manifestBadge}
-        ${provBadge}
-        ${sigBadge}
+    <details class="ms-card" id="build-evidence-card" open style="border-left-color:#8b5cf6;margin-top:20px;">
+      <summary class="ms-summary">
+        <span class="ms-summary-left">
+          <span class="findings-chevron" aria-hidden="true"></span>
+          <span class="ms-summary-title">Build Artifacts & Supply Chain Evidence</span>
+          <span class="tool-tag" style="font-size:11px">Phase 0 — Container Build & Attestation</span>
+        </span>
+        <span class="ms-summary-right">
+          ${statusBadge}
+          <span class="findings-summary-hint" style="margin-left:8px">Click to expand</span>
+        </span>
+      </summary>
+      <div class="ms-body">
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+          ${statusBadge}
+          ${manifestBadge}
+          ${provBadge}
+          ${sigBadge}
+        </div>
+        
+        <div class="detail-grid" style="margin-bottom:16px;">
+          <div class="detail-card">
+            <div class="label">Image Identifier</div>
+            <div class="value" style="font-family:monospace;font-size:0.85rem;">${esc(build.full_image || build.image_name || scan.target || 'N/A')}</div>
+          </div>
+          <div class="detail-card">
+            <div class="label">Immutable SHA-256 Digest</div>
+            <div class="value" style="font-family:monospace;font-size:0.8rem;word-break:break-all;">${esc(digest || 'N/A (Pre-built target)')}</div>
+          </div>
+          <div class="detail-card">
+            <div class="label">Build Runtime</div>
+            <div class="value">${esc(build.runtime || 'N/A (Source scan)')}</div>
+          </div>
+          <div class="detail-card">
+            <div class="label">Dockerfile</div>
+            <div class="value">${esc(build.dockerfile || 'Dockerfile')}</div>
+          </div>
+        </div>
+
+        <div class="section-title" style="font-size:0.9rem;margin-bottom:8px;color:var(--text);">📦 Release & Evidence Artifact Inventory</div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;">
+            <thead>
+              <tr style="background:var(--bg-card);border-bottom:1px solid var(--border);text-align:left;">
+                <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Artifact Name</th>
+                <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Specification / Format</th>
+                <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Pipeline Status</th>
+                <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Artifact Path</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${artifactRows}
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div class="detail-grid">
-        <div class="detail-card">
-          <div class="label">Image Identifier</div>
-          <div class="value" style="font-family:monospace;font-size:0.85rem;">${esc(build.full_image || build.image_name || 'N/A')}</div>
+    </details>`;
+}
+
+// ── NIST SP 800-53 / FedRAMP SSP Evidence Matrix Card ─────────
+
+function buildSSPEvidenceCard(scan) {
+  const matrix = scan.ssp_evidence || {};
+  const controls = matrix.controls || [];
+  if (!controls.length) return '';
+
+  const scanId = scan.scan_id || '';
+
+  const rows = controls.map(c => {
+    const isCap = c.status === 'captured';
+    const hash = c.sha256_hash || 'N/A';
+    const hashShort = hash.length > 20 ? hash.slice(0, 18) + '…' : hash;
+    return `
+      <tr style="border-bottom:1px solid var(--border-muted);">
+        <td style="padding:8px 12px;font-weight:600;color:var(--accent);">${esc(c.control_id)}</td>
+        <td style="padding:8px 12px;font-weight:500;">${esc(c.control_name)}</td>
+        <td style="padding:8px 12px;color:var(--text-muted);font-size:12px;">${esc(c.epyon_layer)}</td>
+        <td style="padding:8px 12px;font-family:monospace;font-size:11px;"><code style="color:#a78bfa;">${esc(c.primary_artifact_path)}</code></td>
+        <td style="padding:8px 12px;">${isCap ? '<span style="color:#10b981;font-weight:600;">✅ Captured</span>' : '<span style="color:var(--text-muted);">ℹ️ Optional / Skipped</span>'}</td>
+        <td style="padding:8px 12px;font-family:monospace;font-size:11px;color:var(--text-muted);" title="${esc(hash)}">${esc(hashShort)}</td>
+      </tr>`;
+  }).join('');
+
+  const downloadMdBtn = scanId
+    ? `<a class="btn btn-sm" href="/api/scans/${encodeURIComponent(scanId)}/ssp-evidence/md" download title="Download NIST SP 800-53 Control Evidence Matrix as Markdown">↓ Export Matrix (.md)</a>`
+    : '';
+
+  const downloadDocxBtn = scanId
+    ? `<button class="btn btn-sm" onclick="exportSSPDocx('${esc(scanId)}')" title="Export NIST SP 800-53 Control Evidence Matrix as Word .docx">↓ Export Word (.docx)</button>`
+    : '';
+
+  return `
+    <details class="ms-card" id="ssp-evidence-card" open style="border-left-color:#10b981;margin-top:20px;">
+      <summary class="ms-summary">
+        <span class="ms-summary-left">
+          <span class="findings-chevron" aria-hidden="true"></span>
+          <span class="ms-summary-title">NIST SP 800-53 / FedRAMP Control Evidence Matrix</span>
+          <span class="tool-tag" style="font-size:11px;background:#10b98122;color:#10b981;border:1px solid #10b98144">SSP / ATO Package</span>
+        </span>
+        <span class="ms-summary-right" onclick="event.stopPropagation()" style="gap:8px;display:flex;align-items:center;">
+          ${downloadMdBtn}
+          ${downloadDocxBtn}
+          <span class="findings-summary-hint" style="margin-left:8px">Click to expand</span>
+        </span>
+      </summary>
+      <div class="ms-body">
+        <div style="padding:12px 18px 0;color:var(--text-muted);font-size:13px;">
+          Maps Epyon's security scanning layers, build provenance, and scan manifests directly to NIST SP 800-53 Rev. 5 / FedRAMP control families for System Security Plans (SSP) and ATO submissions.
         </div>
-        <div class="detail-card">
-          <div class="label">Immutable SHA-256 Digest</div>
-          <div class="value" style="font-family:monospace;font-size:0.8rem;word-break:break-all;">${esc(digest || 'N/A')}</div>
-        </div>
-        <div class="detail-card">
-          <div class="label">Build Runtime</div>
-          <div class="value">${esc(build.runtime || 'N/A')}</div>
-        </div>
-        <div class="detail-card">
-          <div class="label">Dockerfile</div>
-          <div class="value">${esc(build.dockerfile || 'Dockerfile')}</div>
+        <div style="overflow-x:auto;padding:12px 18px 18px;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;">
+            <thead>
+              <tr style="background:var(--bg-card);border-bottom:1px solid var(--border);text-align:left;">
+                <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Control</th>
+                <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;">NIST Control Name</th>
+                <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Epyon Security Layer</th>
+                <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Primary Evidence Artifact Path</th>
+                <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Status</th>
+                <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Cryptographic SHA-256 Digest</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
         </div>
       </div>
-    </div>
-  `;
+    </details>`;
 }
-}
+
+window.exportSSPDocx = async function(scanId) {
+  try {
+    const res = await fetch('/api/scans/' + encodeURIComponent(scanId) + '/export/ssp-docx', { method: 'POST' });
+    if (!res.ok) throw new Error('Export failed');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'ssp-ato-evidence-' + scanId + '.docx';
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('Failed to export Word document: ' + err.message);
+  }
+};
 
 // ── Overview AI Summary Section ──────────────────────────────
 
@@ -3356,7 +3502,7 @@ function buildFindingsSection(findings) {
 
       const overflow = allItems.length > 200
         ? `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:12px">
-             … and ${allItems.length - 200} more. Open the Dashboard for the full list.
+             … showing first 200 of ${allItems.length} findings.
            </td></tr>` : '';
 
       // Build count badge with suppressed indicator
@@ -8441,6 +8587,10 @@ function renderStaticScanDetail(scan) {
 
     ${buildMisconfigurationsCard(scan)}
 
+    ${buildBuildEvidenceCard(scan)}
+
+    ${buildSSPEvidenceCard(scan)}
+
     ${buildSBOMSection(scan.sbom, null)}
 
     ${buildAPISection(scan.api_discovery)}
@@ -8475,7 +8625,11 @@ function renderStaticScanDetail(scan) {
 
 // Static entry point — runs when this JS is embedded in a generated dashboard
 if (typeof window !== 'undefined' && window.__SCAN__) {
-  document.addEventListener('DOMContentLoaded', function () {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () {
+      renderStaticScanDetail(window.__SCAN__);
+    });
+  } else {
     renderStaticScanDetail(window.__SCAN__);
-  });
+  }
 }

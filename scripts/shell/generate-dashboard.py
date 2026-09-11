@@ -236,30 +236,43 @@ def build_scan_object(scan_dir: Path) -> dict:
 
     # ── Rich sections via web API parsers ────────────────────────────────────
     parsers = _get_parsers()
-    sbom_data         = None
-    api_data          = None
-    network_discovery = None
-    picklescan        = None
-    modelcard         = None
-    scorecard         = None
-    ml_findings       = None
-    misconfigurations = None
+    sbom_data          = None
+    api_data           = None
+    network_discovery  = None
+    picklescan         = None
+    modelcard          = None
+    scorecard          = None
+    ml_findings        = None
+    misconfigurations  = None
+    model_provenance   = None
+    inference_security = None
+    ml_runtime         = None
+    build_evidence     = None
+    ssp_evidence       = None
     if parsers:
-        try: sbom_data         = parsers.load_sbom_packages(scan_dir)
+        try: sbom_data          = parsers.load_sbom_packages(scan_dir)
         except Exception: pass
-        try: api_data          = parsers.load_api_discovery(scan_dir)
+        try: api_data           = parsers.load_api_discovery(scan_dir)
         except Exception: pass
-        try: network_discovery = parsers.parse_network_discovery_dir(scan_dir)
+        try: network_discovery  = parsers.parse_network_discovery_dir(scan_dir)
         except Exception: pass
-        try: picklescan        = parsers.parse_picklescan_dir(scan_dir)
+        try: picklescan         = parsers.parse_picklescan_dir(scan_dir)
         except Exception: pass
-        try: modelcard         = parsers.parse_modelcard_dir(scan_dir)
+        try: modelcard          = parsers.parse_modelcard_dir(scan_dir)
         except Exception: pass
-        try: ml_findings       = parsers.parse_ml_findings(scan_dir)
+        try: ml_findings        = parsers.parse_ml_findings(scan_dir)
         except Exception: pass
-        try: misconfigurations = parsers.parse_misconfiguration_findings(scan_dir)
+        try: misconfigurations  = parsers.parse_misconfiguration_findings(scan_dir)
         except Exception: pass
-        try: build_evidence    = parsers.parse_build_evidence(scan_dir)
+        try: model_provenance   = parsers.parse_model_provenance_dir(scan_dir)
+        except Exception: pass
+        try: inference_security = parsers.parse_inference_security_dir(scan_dir)
+        except Exception: pass
+        try: ml_runtime         = parsers.parse_ml_runtime_dir(scan_dir)
+        except Exception: pass
+        try: build_evidence     = parsers.parse_build_evidence(scan_dir)
+        except Exception: pass
+        try: ssp_evidence       = parsers.parse_ssp_evidence_matrix(scan_dir)
         except Exception: pass
 
     # ── Security scorecard (trl-assessment.json) ──────────────────────────────
@@ -311,8 +324,16 @@ def build_scan_object(scan_dir: Path) -> dict:
         scan["ml_findings"] = ml_findings
     if misconfigurations:
         scan["misconfigurations"] = misconfigurations
+    if model_provenance:
+        scan["model_provenance"] = model_provenance
+    if inference_security:
+        scan["inference_security"] = inference_security
+    if ml_runtime:
+        scan["ml_runtime"] = ml_runtime
     if build_evidence:
         scan["build_evidence"] = build_evidence
+    if ssp_evidence:
+        scan["ssp_evidence"] = ssp_evidence
 
     # ── Test Coverage ─────────────────────────────────────────────────────────
     coverage_data: dict | None = None
@@ -448,7 +469,7 @@ def generate_html(scan_dir: Path, epyon_root: Path, output_path: Path) -> None:
     coverage_card = _coverage_card_html(scan)
 
     html = f"""<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">

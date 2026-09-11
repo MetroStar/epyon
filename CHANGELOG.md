@@ -5,6 +5,16 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.14.2] - 2026-09-11
+
+### Fixed
+- **Build Evidence Card showed false "Captured" status for missing artifacts** — `buildBuildEvidenceCard()` in `app.js` hardcoded `present: true` for all 10 rows of the "Release & Evidence Artifact Inventory" table (Image Digest, OCI Manifest, Dockerfile, Build Log, SLSA Provenance, Cosign Signature, SBOM, Vulnerability Scans, Scan Manifest, Suppression Audit), and always rendered the OCI Manifest / SLSA Provenance badges regardless of whether those files actually existed. Source-only scans (no `BUILD_ENABLED=true`) falsely showed all 10 artifacts as "✅ Captured" even when `build/`, `provenance.jsonl`, and `image.sig` were never generated. Rows now reflect the real `artifacts` flags returned by `parse_build_evidence()` in `web/api/parsers.py`, showing "⚠️ Not Captured" when a file is absent. Added a new `vuln_scans` flag (checks for `grype/`, `trivy/`, `clamav/` directories) to support the Vulnerability & Malware Scans row. Affects both the web UI and the static `security-dashboard.html` export, since both share `buildBuildEvidenceCard()`.
+
+## [3.14.1] - 2026-09-11
+
+### Fixed
+- **Static Dashboard / Web UI Parity for ML Security Layers** — `generate-dashboard.py` (the self-contained `security-dashboard.html` generator) was missing Layer 18 (Model Provenance & Threat Intelligence), Layer 19 (Inference Environment Security), and Layer 20 (ML Runtime Behavioral Analysis) data, so the ML/AI Security card silently omitted these findings in the exported static dashboard while the web UI showed them. The static generator now calls `parse_model_provenance_dir()`, `parse_inference_security_dir()`, and `parse_ml_runtime_dir()` from `web/api/parsers.py` and includes their results in the embedded `window.__SCAN__` object, matching the `GET /api/scans/{scan_id}` response.
+
 ## [3.14.0] - 2026-09-10
 
 ### Added

@@ -20,7 +20,7 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-build-scan.sh"
     [[ "$output" =~ "Container Image Builder" ]]
 }
 
-@test "run-build-scan.sh skips gracefully when no Dockerfile present" {
+@test "run-build-scan.sh generates target manifest when no Dockerfile present" {
     local target_dir
     target_dir=$(mktemp -d)
     local scan_dir
@@ -29,8 +29,11 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-build-scan.sh"
     run bash "$SCRIPT_PATH" --target "$target_dir" --scan-dir "$scan_dir"
     [ "$status" -eq 0 ]
     [ -f "$scan_dir/build/build-summary.json" ]
+    [ -f "$scan_dir/build/image-digest.txt" ]
+    [ -f "$scan_dir/build/oci-manifest.json" ]
+    [ -f "$scan_dir/build/Dockerfile" ]
     run jq -r '.status' "$scan_dir/build/build-summary.json"
-    [ "$output" = "skipped" ]
+    [ "$output" = "success" ]
 
     rm -rf "$target_dir" "$scan_dir"
 }

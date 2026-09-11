@@ -1150,7 +1150,59 @@ def scan_detail(scan_id: str, response: Response):
     data["misconfigurations"] = parsers.parse_misconfiguration_findings(matched)  # Checkov IaC findings separate from vulnerabilities
     data["sbom"] = parsers.load_sbom_packages(matched)
     data["api_discovery"] = parsers.load_api_discovery(matched)
+    data["ssp_evidence"] = parsers.parse_ssp_evidence_matrix(matched)
     return data
+
+
+@app.get("/api/scans/{scan_id}/ssp-evidence")
+def scan_ssp_evidence(scan_id: str, response: Response):
+    """Return NIST SP 800-53 / FedRAMP control evidence & artifact mapping matrix."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    matched = next((d for d in scan_dirs if d.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+    
+    matrix = parsers.parse_ssp_evidence_matrix(matched)
+    
+    # Save package files asynchronously/on-demand
+    try:
+        json_out = matched / "ssp-ato-evidence-package.json"
+        md_out = matched / "ssp-ato-evidence-matrix.md"
+        if not json_out.exists():
+            json_out.write_text(json.dumps(matrix, indent=2), encoding="utf-8")
+        if not md_out.exists():
+            md_out.write_text(parsers.generate_ssp_evidence_markdown(matrix), encoding="utf-8")
+    except Exception:
+        pass
+        
+    return matrix
+
+
+@app.get("/api/scans/{scan_id}/ssp-evidence/md")
+def scan_ssp_evidence_md(scan_id: str, response: Response):
+    """Download Markdown matrix for NIST 800-53 control evidence."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    matched = next((d for d in scan_dirs if d.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+    
+    md_file = matched / "ssp-ato-evidence-matrix.md"
+    if not md_file.exists():
+        matrix = parsers.parse_ssp_evidence_matrix(matched)
+        md_file.write_text(parsers.generate_ssp_evidence_markdown(matrix), encoding="utf-8")
+        
+    filename = f"ssp-ato-evidence-matrix-{scan_id}.md"
+    return FileResponse(
+        str(md_file),
+        media_type="text/markdown",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
 
 
 @app.get("/api/scans/{scan_id}/sbom")
@@ -2983,6 +3035,92 @@ def export_summary_docx(body: _SummaryExportBody, response: Response):
 
     date_slug = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     filename  = f"epyon-security-report-{date_slug}.docx"
+    from fastapi.responses import Response as _Resp
+    return _Resp(
+        content=buf.read(),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.post("/api/scans/{scan_id}/export/ssp-docx")
+def export_scan_ssp_docx(scan_id: str, response: Response):
+    """Export NIST SP 800-53 Control Evidence & Artifact Mapping Matrix as Word (.docx)."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    matched = next((d for d in scan_dirs if d.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+
+    try:
+        from docx import Document
+        from docx.shared import Pt, RGBColor, Inches
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+    except ImportError:
+        raise HTTPException(500, "python-docx is not installed. Run: pip install python-docx")
+
+    import io
+    from datetime import datetime, timezone
+
+    matrix_data = parsers.parse_ssp_evidence_matrix(matched)
+    controls = matrix_data.get("controls", [])
+
+    doc = Document()
+    for section in doc.sections:
+        section.top_margin = Inches(1)
+        section.bottom_margin = Inches(1)
+        section.left_margin = Inches(1)
+        section.right_margin = Inches(1)
+
+    title_para = doc.add_heading("NIST SP 800-53 Control Evidence Matrix", level=0)
+    title_para.runs[0].font.size = Pt(20)
+    title_para.runs[0].font.color.rgb = RGBColor(0x0f, 0x17, 0x2a)
+
+    meta = doc.add_paragraph()
+    mr = meta.add_run(f"Scan ID: {scan_id}  |  Generated: {datetime.now(timezone.utc).strftime('%B %d, %Y')}  |  Confidential ATO Evidence Package")
+    mr.font.size = Pt(9)
+    mr.font.color.rgb = RGBColor(0x47, 0x55, 0x69)
+
+    doc.add_paragraph()
+
+    table = doc.add_table(rows=1, cols=5)
+    table.style = 'Table Grid'
+    hdr_cells = table.rows[0].cells
+    headers = ['NIST Control', 'Control Name', 'Epyon Security Layer', 'Primary Evidence Artifact Path', 'SHA-256 Digest']
+    for i, h in enumerate(headers):
+        hdr_cells[i].text = h
+        hdr_cells[i].paragraphs[0].runs[0].font.bold = True
+        hdr_cells[i].paragraphs[0].runs[0].font.size = Pt(9)
+
+    for c in controls:
+        row_cells = table.add_row().cells
+        row_cells[0].text = c.get("control_id", "")
+        row_cells[1].text = c.get("control_name", "")
+        row_cells[2].text = c.get("epyon_layer", "")
+        row_cells[3].text = c.get("primary_artifact_path", "")
+        row_cells[4].text = c.get("sha256_hash", "N/A")
+        for cell in row_cells:
+            cell.paragraphs[0].runs[0].font.size = Pt(8.5)
+
+    doc.add_paragraph()
+    doc.add_heading("Artifact Integrity Reference", level=1)
+    for c in controls:
+        p = doc.add_paragraph()
+        p.add_run(f"{c.get('control_id')}: {c.get('control_name')}\n").bold = True
+        p.add_run(f"• Layer: {c.get('epyon_layer')}\n")
+        p.add_run(f"• Primary Artifact: {c.get('primary_artifact_path')}\n")
+        p.add_run(f"• Format: {c.get('format')}\n")
+        p.add_run(f"• SHA-256 Hash: {c.get('sha256_hash')}\n")
+        p.add_run(f"• Summary: {c.get('summary')}\n")
+        p.runs[0].font.size = Pt(9)
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    buf.seek(0)
+
+    filename = f"ssp-ato-evidence-{scan_id}.docx"
     from fastapi.responses import Response as _Resp
     return _Resp(
         content=buf.read(),

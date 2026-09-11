@@ -1023,25 +1023,23 @@ fi
 echo ""
 
 # Phase 0: Container Image Build & Supply Chain Attestation
-BUILD_ENABLED="${BUILD_ENABLED:-false}"
-if [[ "$BUILD_ENABLED" == "true" || "$BUILD_ENABLED" == "1" ]]; then
-    print_section "Phase 0: Container Image Build & Supply Chain Attestation"
-    BUILD_ARGS=("--target" "$TARGET_DIR" "--scan-dir" "$SCAN_DIR")
-    [[ -n "${IMAGE_NAME_ARG:-}" ]] && BUILD_ARGS+=("--image-name" "$IMAGE_NAME_ARG")
-    [[ -n "${IMAGE_TAG_ARG:-}" ]] && BUILD_ARGS+=("--image-tag" "$IMAGE_TAG_ARG")
-    
-    run_security_tool "Container Image Build" "$SCRIPT_DIR/run-build-scan.sh" "${BUILD_ARGS[*]}"
-    run_security_tool "SLSA Provenance Attestation" "$SCRIPT_DIR/generate-slsa-provenance.sh" "${BUILD_ARGS[*]}"
-    run_security_tool "Cryptographic Image Signature" "$SCRIPT_DIR/sign-image-cosign.sh" "--scan-dir $SCAN_DIR ${IMAGE_NAME_ARG:+--image-name $IMAGE_NAME_ARG} ${IMAGE_TAG_ARG:+--image-tag $IMAGE_TAG_ARG}"
-    
-    # If build succeeded, route newly built image directly to downstream container scanners
-    if [[ -f "$SCAN_DIR/build/build-summary.json" ]]; then
-        BUILT_IMAGE_NAME=$(jq -r '.full_image // empty' "$SCAN_DIR/build/build-summary.json" 2>/dev/null || echo "")
-        BUILD_STATUS=$(jq -r '.status // empty' "$SCAN_DIR/build/build-summary.json" 2>/dev/null || echo "")
-        if [[ "$BUILD_STATUS" == "success" && -n "$BUILT_IMAGE_NAME" ]]; then
-            export PRIMARY_BASELINE_IMAGE="$BUILT_IMAGE_NAME"
-            echo -e "${GREEN}🎯 Routing newly built container image to downstream scanners: ${PRIMARY_BASELINE_IMAGE}${NC}"
-        fi
+print_section "Phase 0: Container Image Build & Supply Chain Attestation"
+BUILD_ARGS=("--target" "$TARGET_DIR" "--scan-dir" "$SCAN_DIR")
+[[ -n "${IMAGE_NAME_ARG:-}" ]] && BUILD_ARGS+=("--image-name" "$IMAGE_NAME_ARG")
+[[ -n "${IMAGE_TAG_ARG:-}" ]] && BUILD_ARGS+=("--image-tag" "$IMAGE_TAG_ARG")
+
+run_security_tool "Container Image Build & Target Manifest" "$SCRIPT_DIR/run-build-scan.sh" "${BUILD_ARGS[*]}"
+run_security_tool "SLSA Provenance Attestation" "$SCRIPT_DIR/generate-slsa-provenance.sh" "${BUILD_ARGS[*]}"
+run_security_tool "Cryptographic Image Signature" "$SCRIPT_DIR/sign-image-cosign.sh" "--scan-dir $SCAN_DIR ${IMAGE_NAME_ARG:+--image-name $IMAGE_NAME_ARG} ${IMAGE_TAG_ARG:+--image-tag $IMAGE_TAG_ARG}"
+
+# If build succeeded, route newly built image directly to downstream container scanners
+if [[ -f "$SCAN_DIR/build/build-summary.json" ]]; then
+    BUILT_IMAGE_NAME=$(jq -r '.full_image // empty' "$SCAN_DIR/build/build-summary.json" 2>/dev/null || echo "")
+    BUILD_STATUS=$(jq -r '.status // empty' "$SCAN_DIR/build/build-summary.json" 2>/dev/null || echo "")
+    BUILD_MODE=$(jq -r '.mode // empty' "$SCAN_DIR/build/build-summary.json" 2>/dev/null || echo "")
+    if [[ "$BUILD_STATUS" == "success" && "$BUILD_MODE" == "container_build" && -n "$BUILT_IMAGE_NAME" ]]; then
+        export PRIMARY_BASELINE_IMAGE="$BUILT_IMAGE_NAME"
+        echo -e "${GREEN}🎯 Routing newly built container image to downstream scanners: ${PRIMARY_BASELINE_IMAGE}${NC}"
     fi
 fi
 
@@ -1666,6 +1664,14 @@ if [[ -f "$SCRIPT_DIR/consolidate-security-reports.sh" ]]; then
     
     if [[ $consolidation_result -eq 0 ]]; then
         echo -e "${GREEN}✅ Security reports consolidated successfully${NC}"
+
+        # ── Step 4.5: Export SSP / ATO Control Evidence Matrix ───────────────
+        if [[ -f "$SCRIPT_DIR/export-ssp-evidence.sh" ]]; then
+            echo ""
+            echo -e "${BLUE}📑 Exporting SSP / ATO Control Evidence Matrix...${NC}"
+            "$SCRIPT_DIR/export-ssp-evidence.sh" "$SCAN_DIR" 2>/dev/null || \
+                echo -e "${YELLOW}⚠️  SSP evidence export had issues${NC}"
+        fi
 
         # ── Generate interactive dashboard + root-level shortcut ───────────────
         if [[ -f "$SCRIPT_DIR/generate-security-dashboard.sh" ]]; then

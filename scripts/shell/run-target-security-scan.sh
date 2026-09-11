@@ -1033,6 +1033,16 @@ if [[ "$BUILD_ENABLED" == "true" || "$BUILD_ENABLED" == "1" ]]; then
     run_security_tool "Container Image Build" "$SCRIPT_DIR/run-build-scan.sh" "${BUILD_ARGS[*]}"
     run_security_tool "SLSA Provenance Attestation" "$SCRIPT_DIR/generate-slsa-provenance.sh" "${BUILD_ARGS[*]}"
     run_security_tool "Cryptographic Image Signature" "$SCRIPT_DIR/sign-image-cosign.sh" "--scan-dir $SCAN_DIR ${IMAGE_NAME_ARG:+--image-name $IMAGE_NAME_ARG} ${IMAGE_TAG_ARG:+--image-tag $IMAGE_TAG_ARG}"
+    
+    # If build succeeded, route newly built image directly to downstream container scanners
+    if [[ -f "$SCAN_DIR/build/build-summary.json" ]]; then
+        BUILT_IMAGE_NAME=$(jq -r '.full_image // empty' "$SCAN_DIR/build/build-summary.json" 2>/dev/null || echo "")
+        BUILD_STATUS=$(jq -r '.status // empty' "$SCAN_DIR/build/build-summary.json" 2>/dev/null || echo "")
+        if [[ "$BUILD_STATUS" == "success" && -n "$BUILT_IMAGE_NAME" ]]; then
+            export PRIMARY_BASELINE_IMAGE="$BUILT_IMAGE_NAME"
+            echo -e "${GREEN}🎯 Routing newly built container image to downstream scanners: ${PRIMARY_BASELINE_IMAGE}${NC}"
+        fi
+    fi
 fi
 
 # Main security scan execution

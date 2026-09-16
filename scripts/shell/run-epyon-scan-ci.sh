@@ -439,6 +439,49 @@ run_layer_script() {
   run_group "$title" env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" "$script_path" "$@"
 }
 
+run_phase_zero_evidence() {
+  if [[ "${BUILD_ENABLED:-false}" != "true" ]]; then
+    echo "[INFO] Skipping Phase 0 - container build evidence (BUILD_ENABLED=false)"
+    return 0
+  fi
+
+  local app_name="${TARGET_NAME:-$(basename "$TARGET_DIR")}"
+
+  run_group "Phase 0 - Container Image Build & Target Manifest" \
+    env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" IMAGE_NAME="${IMAGE_NAME:-}" IMAGE_TAG="${IMAGE_TAG:-}" APP_NAME="$app_name" \
+    bash -lc '
+      chmod +x scripts/shell/run-build-scan.sh
+      ./scripts/shell/run-build-scan.sh
+    '
+
+  run_group "Phase 0 - SLSA Provenance Attestation" \
+    env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" IMAGE_NAME="${IMAGE_NAME:-}" IMAGE_TAG="${IMAGE_TAG:-}" \
+    bash -lc '
+      chmod +x scripts/shell/generate-slsa-provenance.sh
+      ./scripts/shell/generate-slsa-provenance.sh
+    '
+
+  run_group "Phase 0 - Cryptographic Image Signature" \
+    env SCAN_DIR="$SCAN_DIR" IMAGE_NAME="${IMAGE_NAME:-}" IMAGE_TAG="${IMAGE_TAG:-}" COSIGN_KEY="${COSIGN_KEY:-}" \
+    bash -lc '
+      chmod +x scripts/shell/sign-image-cosign.sh
+      ./scripts/shell/sign-image-cosign.sh
+    '
+
+  if [[ -f "$SCAN_DIR/build/build-summary.json" ]]; then
+    local built_image_name
+    local build_status
+    local build_mode
+    built_image_name=$(jq -r '.full_image // empty' "$SCAN_DIR/build/build-summary.json" 2>/dev/null || echo "")
+    build_status=$(jq -r '.status // empty' "$SCAN_DIR/build/build-summary.json" 2>/dev/null || echo "")
+    build_mode=$(jq -r '.mode // empty' "$SCAN_DIR/build/build-summary.json" 2>/dev/null || echo "")
+    if [[ "$build_status" == "success" && "$build_mode" == "container_build" && -n "$built_image_name" ]]; then
+      export PRIMARY_BASELINE_IMAGE="$built_image_name"
+      echo "[INFO] Routing newly built container image to downstream scanners: $PRIMARY_BASELINE_IMAGE"
+    fi
+  fi
+}
+
 run_sonar_layer() {
   run_group "Layer 3 - Code Quality (SonarQube)" bash -lc '
     RAW_BASE_KEY="${SONAR_PROJECT_KEY:-${GITHUB_REPOSITORY/\//\_}}"
@@ -744,6 +787,8 @@ _install_prebuilt_sbom() {
 # ══════════════════════════════════════════════════════════════════════════════
 
 # Send scan start webhook (Barbatos format: progress step)
+run_phase_zero_evidence
+
 send_webhook "scan_start" "Security scan initialized - starting layers" "info" "scan-init"
 
 # Layers 1-12 — skipped entirely when SCAN_MODE=stig (STIG-only run)

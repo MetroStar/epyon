@@ -5,6 +5,11 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.14.4] - 2026-09-16
+
+### Fixed
+- **CI Phase 0 build evidence wiring** — the reusable GitHub Actions workflow now honors `BUILD_ENABLED`, `IMAGE_NAME`, `IMAGE_TAG`, and `COSIGN_KEY` by running the Phase 0 build, provenance, and signing scripts in `run-epyon-scan-ci.sh`, and it routes successful built images to downstream container scanners.
+
 ## [3.14.3] - 2026-09-15
 
 ### Fixed

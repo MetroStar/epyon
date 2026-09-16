@@ -2313,7 +2313,7 @@ function buildSSPEvidenceCard(scan) {
     : '';
 
   const downloadDocxBtn = scanId
-    ? `<button class="btn btn-sm" onclick="exportSSPDocx('${esc(scanId)}')" title="Export NIST SP 800-53 Control Evidence Matrix as Word .docx">↓ Export Word (.docx)</button>`
+    ? `<button type="button" class="btn btn-sm js-export-ssp-docx" data-scan-id="${esc(scanId)}" title="Export NIST SP 800-53 Control Evidence Matrix as Word .docx">↓ Export Word (.docx)</button>`
     : '';
 
   return `
@@ -2353,6 +2353,17 @@ function buildSSPEvidenceCard(scan) {
         </div>
       </div>
     </details>`;
+}
+
+if (!window.__sspDocxExportBound) {
+  document.addEventListener('click', event => {
+    const btn = event.target.closest('.js-export-ssp-docx');
+    if (!btn) return;
+    event.stopPropagation();
+    const { scanId } = btn.dataset;
+    if (scanId) window.exportSSPDocx(scanId);
+  });
+  window.__sspDocxExportBound = true;
 }
 
 window.exportSSPDocx = async function(scanId) {

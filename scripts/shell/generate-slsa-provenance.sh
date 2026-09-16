@@ -71,7 +71,8 @@ if [[ -z "$IMAGE_DIGEST" ]]; then
 fi
 
 # Clean digest hash without sha256: prefix for struct
-DIGEST_HASH="${IMAGE_DIGEST#sha256:}"
+DIGEST_HASH="${IMAGE_DIGEST##*@}"
+DIGEST_HASH="${DIGEST_HASH#sha256:}"
 
 COMMIT_SHA="unknown"
 REPO_URL="local"

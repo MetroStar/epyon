@@ -18,7 +18,8 @@ This directory contains the essential documentation for the Epyon security scann
 **Audience:** Security teams, DevOps engineers, compliance officers  
 **Status:** ✅ Current (Feb 2026)
 
----### 📊 [Master Epyon Capabilities & Scan Matrix](MASTER_EPYON_MATRIX.md)
+---
+### 📊 [Master Epyon Capabilities & Scan Matrix](MASTER_EPYON_MATRIX.md)
 **Comprehensive matrix of security layers, release artifacts, scan modes, and platform capabilities**
 - Complete 20-layer security scanning breakdown
 - 10-of-10 supply chain release & evidence artifact inventory

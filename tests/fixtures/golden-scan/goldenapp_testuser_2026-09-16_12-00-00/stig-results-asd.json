@@ -1,0 +1,33 @@
+{
+  "assessments": {
+    "APSC-DV-000010": {
+      "status": "Open",
+      "evidence": "No account lockout configuration found.",
+      "confidence": 90
+    },
+    "APSC-DV-000020": {
+      "status": "Not a Finding",
+      "evidence": "TLS 1.3 enforced in server configuration.",
+      "confidence": 95
+    },
+    "APSC-DV-000030": {
+      "status": "Not Applicable",
+      "evidence": "Application does not expose a mobile client.",
+      "confidence": 88
+    },
+    "APSC-DV-000040": {
+      "status": "Not Reviewed",
+      "evidence": "Runtime-only control; no static indicators available.",
+      "confidence": 10
+    },
+    "APSC-DV-000050": {
+      "status": "Not Reviewed",
+      "evidence": "Requires manual interview with the ISSO.",
+      "confidence": 10
+    }
+  },
+  "token_usage": {
+    "prompt_tokens": 100,
+    "completion_tokens": 50
+  }
+}

@@ -61,6 +61,14 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-epyon-scan-ci.sh"
     grep -q "run-garak-scan.sh" "$SCRIPT_PATH"
 }
 
+@test "run-epyon-scan-ci.sh wires Phase 0 build evidence behind BUILD_ENABLED" {
+    grep -q 'BUILD_ENABLED:-false' "$SCRIPT_PATH"
+    grep -q "run-build-scan.sh" "$SCRIPT_PATH"
+    grep -q "generate-slsa-provenance.sh" "$SCRIPT_PATH"
+    grep -q "sign-image-cosign.sh" "$SCRIPT_PATH"
+    grep -q "PRIMARY_BASELINE_IMAGE" "$SCRIPT_PATH"
+}
+
 @test "run-epyon-scan-ci.sh skips Garak in quick mode by default" {
     grep -q "quick.*false\|RUN_GARAK_IN_QUICK" "$SCRIPT_PATH"
 }

@@ -57,45 +57,15 @@ def _read_json(path: Path) -> dict | list | None:
         return None
 
 
-def _parse_suppressed_findings(scan_dir: Path) -> list[dict]:
-    """Mirror of parsers.py::parse_suppressed_findings."""
-    md_file = scan_dir / "suppressed-findings.md"
-    if not md_file.exists():
-        return []
-    text = md_file.read_text(encoding="utf-8", errors="replace")
-    results: list[dict] = []
-    seen: set[tuple] = set()
-    blocks = re.split(r"^## Suppressed:", text, flags=re.MULTILINE)
-    for block in blocks[1:]:
-        lines = block.strip().splitlines()
-        record: dict = {"value": lines[0].strip() if lines else ""}
-        for line in lines[1:]:
-            m = re.match(r"-\s+\*\*(.+?)\*\*:\s*(.*)", line)
-            if m:
-                key = m.group(1).strip().lower().replace(" ", "_")
-                record[key] = m.group(2).strip()
-        dedup_key = (record.get("type", ""), record.get("value", ""))
-        if dedup_key in seen:
-            continue
-        seen.add(dedup_key)
-        results.append(record)
-    return results
-
-
-def _parse_stig(scan_dir: Path, scan_id: str) -> dict:
-    """Return STIG aggregate fields matching the web UI API format."""
+def _parse_stig_fallback(scan_dir: Path) -> dict:
+    """STIG aggregates for the degraded path where web/api/parsers.py is unavailable."""
     stig_files = sorted(scan_dir.glob("stig-results-*.json"))
     if not stig_files:
         return {}
 
-    stig_open = stig_pass = stig_na = stig_total = 0
+    stig_open = stig_pass = stig_na = stig_nr = stig_total = 0
     stig_reports: list[dict] = []
     any_valid = False
-
-    app_slug = re.sub(
-        r"[^a-z0-9]+", "-",
-        re.sub(r"_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$", "", scan_id).lower()
-    ).strip("-")
 
     for stig_file in stig_files:
         stig_results = _read_json(stig_file)
@@ -108,18 +78,20 @@ def _parse_stig(scan_dir: Path, scan_id: str) -> dict:
         any_valid = True
         s_open  = sum(1 for v in stig_results.values() if v.get("status") == "Open")
         s_pass  = sum(1 for v in stig_results.values() if v.get("status") == "Not a Finding")
-        s_na    = sum(1 for v in stig_results.values() if v.get("status") in ("Not Applicable", "Not Reviewed"))
+        s_na    = sum(1 for v in stig_results.values() if v.get("status") == "Not Applicable")
+        s_nr    = sum(1 for v in stig_results.values() if v.get("status") == "Not Reviewed")
         s_total = len(stig_results)
         stig_open  += s_open
         stig_pass  += s_pass
         stig_na    += s_na
+        stig_nr    += s_nr
         stig_total += s_total
-        slug = stig_file.stem[len("stig-results-"):]
         stig_reports.append({
-            "slug":  slug,
+            "slug":  stig_file.stem[len("stig-results-"):],
             "open":  s_open,
             "pass":  s_pass,
             "na":    s_na,
+            "nr":    s_nr,
             "total": s_total,
         })
 
@@ -130,6 +102,7 @@ def _parse_stig(scan_dir: Path, scan_id: str) -> dict:
         "stig_open":    stig_open,
         "stig_pass":    stig_pass,
         "stig_na":      stig_na,
+        "stig_nr":      stig_nr,
         "stig_total":   stig_total,
         "stig_reports": stig_reports,
     }
@@ -137,8 +110,28 @@ def _parse_stig(scan_dir: Path, scan_id: str) -> dict:
 
 # ── Scan object builder ───────────────────────────────────────────────────────
 
-def build_scan_object(scan_dir: Path) -> dict:
-    """Build a scan data object that matches the web UI getScan() API response."""
+def build_scan_object(scan_dir: Path, epyon_root: Path | None = None) -> dict:
+    """Scan object for the embedded dashboard.
+
+    Delegates to ``parsers.load_scan_complete`` — the same code path the live web UI
+    uses — so the offline HTML and the web UI can never report different numbers.
+    """
+    parsers = _get_parsers()
+    if parsers is not None and hasattr(parsers, "load_scan_complete"):
+        root = epyon_root or _find_epyon_root(scan_dir)
+        scan = parsers.load_scan_complete(scan_dir, root)
+        # The offline file cannot call the scorecard endpoint, so embed it directly.
+        trl = _read_json(scan_dir / "trl-assessment.json")
+        if trl and isinstance(trl, dict) and trl.get("trl_level"):
+            scan["scorecard"] = trl
+        scan["has_dashboard"] = False
+        scan["dashboard_url"] = None
+        return scan
+    return _build_scan_object_fallback(scan_dir)
+
+
+def _build_scan_object_fallback(scan_dir: Path) -> dict:
+    """Reduced scan object used only when web/api/parsers.py cannot be imported."""
     scan_id = scan_dir.name
 
     # ── security-findings-summary.json (canonical findings source) ────────────
@@ -210,7 +203,7 @@ def build_scan_object(scan_dir: Path) -> dict:
         findings["enrichment"] = enrichment
 
     # ── Suppressed findings ───────────────────────────────────────────────────
-    suppressed = _parse_suppressed_findings(scan_dir) or None
+    suppressed = None
 
     # ── File statistics ───────────────────────────────────────────────────────
     file_statistics = meta.get("file_statistics") or {}
@@ -232,32 +225,47 @@ def build_scan_object(scan_dir: Path) -> dict:
         }
 
     # ── STIG ──────────────────────────────────────────────────────────────────
-    stig = _parse_stig(scan_dir, scan_id)
+    stig = _parse_stig_fallback(scan_dir)
 
     # ── Rich sections via web API parsers ────────────────────────────────────
     parsers = _get_parsers()
-    sbom_data         = None
-    api_data          = None
-    network_discovery = None
-    picklescan        = None
-    modelcard         = None
-    scorecard         = None
-    ml_findings       = None
-    misconfigurations = None
+    sbom_data          = None
+    api_data           = None
+    network_discovery  = None
+    picklescan         = None
+    modelcard          = None
+    scorecard          = None
+    ml_findings        = None
+    misconfigurations  = None
+    model_provenance   = None
+    inference_security = None
+    ml_runtime         = None
+    build_evidence     = None
+    ssp_evidence       = None
     if parsers:
-        try: sbom_data         = parsers.load_sbom_packages(scan_dir)
+        try: sbom_data          = parsers.load_sbom_packages(scan_dir)
         except Exception: pass
-        try: api_data          = parsers.load_api_discovery(scan_dir)
+        try: api_data           = parsers.load_api_discovery(scan_dir)
         except Exception: pass
-        try: network_discovery = parsers.parse_network_discovery_dir(scan_dir)
+        try: network_discovery  = parsers.parse_network_discovery_dir(scan_dir)
         except Exception: pass
-        try: picklescan        = parsers.parse_picklescan_dir(scan_dir)
+        try: picklescan         = parsers.parse_picklescan_dir(scan_dir)
         except Exception: pass
-        try: modelcard         = parsers.parse_modelcard_dir(scan_dir)
+        try: modelcard          = parsers.parse_modelcard_dir(scan_dir)
         except Exception: pass
-        try: ml_findings       = parsers.parse_ml_findings(scan_dir)
+        try: ml_findings        = parsers.parse_ml_findings(scan_dir)
         except Exception: pass
-        try: misconfigurations = parsers.parse_misconfiguration_findings(scan_dir)
+        try: misconfigurations  = parsers.parse_misconfiguration_findings(scan_dir)
+        except Exception: pass
+        try: model_provenance   = parsers.parse_model_provenance_dir(scan_dir)
+        except Exception: pass
+        try: inference_security = parsers.parse_inference_security_dir(scan_dir)
+        except Exception: pass
+        try: ml_runtime         = parsers.parse_ml_runtime_dir(scan_dir)
+        except Exception: pass
+        try: build_evidence     = parsers.parse_build_evidence(scan_dir)
+        except Exception: pass
+        try: ssp_evidence       = parsers.parse_ssp_evidence_matrix(scan_dir)
         except Exception: pass
 
     # ── Security scorecard (trl-assessment.json) ──────────────────────────────
@@ -309,6 +317,16 @@ def build_scan_object(scan_dir: Path) -> dict:
         scan["ml_findings"] = ml_findings
     if misconfigurations:
         scan["misconfigurations"] = misconfigurations
+    if model_provenance:
+        scan["model_provenance"] = model_provenance
+    if inference_security:
+        scan["inference_security"] = inference_security
+    if ml_runtime:
+        scan["ml_runtime"] = ml_runtime
+    if build_evidence:
+        scan["build_evidence"] = build_evidence
+    if ssp_evidence:
+        scan["ssp_evidence"] = ssp_evidence
 
     # ── Test Coverage ─────────────────────────────────────────────────────────
     coverage_data: dict | None = None
@@ -419,7 +437,7 @@ def _coverage_card_html(scan: dict) -> str:
 
 
 def generate_html(scan_dir: Path, epyon_root: Path, output_path: Path) -> None:
-    scan      = build_scan_object(scan_dir)
+    scan      = build_scan_object(scan_dir, epyon_root)
     scan_id   = scan["scan_id"]
     scan_json = json.dumps(scan, ensure_ascii=False, separators=(",", ":"))
     # Escape </script> sequences so a CVE description containing that literal
@@ -444,7 +462,7 @@ def generate_html(scan_dir: Path, epyon_root: Path, output_path: Path) -> None:
     coverage_card = _coverage_card_html(scan)
 
     html = f"""<!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">

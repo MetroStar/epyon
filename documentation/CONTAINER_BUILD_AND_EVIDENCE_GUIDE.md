@@ -61,5 +61,5 @@ When `BUILD_ENABLED=true` or `--build-image` is supplied to `epyon.sh`, Epyon ex
 
 ```bash
 # Build image and run full 20-layer security scan
-./epyon.sh --target /path/to/app --build-image --image-name myapp:v1.0.0
+./epyon.sh --target /path/to/app --build-image --image-name myapp --image-tag v1.0.0
 ```

@@ -1,0 +1,16 @@
+{
+  "scan_id": "goldenapp_testuser_2026-09-16_12-00-00",
+  "target_directory": "/tmp/goldenapp",
+  "target_name": "goldenapp",
+  "scan_type": "full",
+  "scan_user": "testuser",
+  "scan_timestamp": "2026-09-16T12:00:00Z",
+  "epyon_version": "3.14.0",
+  "source_url": "https://github.com/example/goldenapp",
+  "file_statistics": {
+    "total_files": 42,
+    "python": 12,
+    "javascript_typescript": 8,
+    "dockerfiles": 1
+  }
+}

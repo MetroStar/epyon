@@ -82,6 +82,14 @@ else
 fi
 
 echo ""
+if command -v python3 &> /dev/null && python3 -c 'import pytest' &> /dev/null; then
+    echo "Running Python tests in $SCRIPT_DIR/tests/python"
+    python3 -m pytest "$SCRIPT_DIR/tests/python"
+else
+    echo -e "${YELLOW}⚠ pytest not available - skipping Python tests${NC}"
+fi
+
+echo ""
 echo -e "${GREEN}================================${NC}"
 echo -e "${GREEN}Tests Complete${NC}"
 echo -e "${GREEN}================================${NC}"

@@ -68,6 +68,14 @@ _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _TIME_RE = re.compile(r"^\d{2}-\d{2}-\d{2}$")
 
 
+def _relative_location(scan_dir: Path, epyon_root: Path) -> str:
+    """Scan dir's parent relative to the repo root, falling back to an absolute path."""
+    try:
+        return str(scan_dir.parent.relative_to(epyon_root))
+    except ValueError:
+        return str(scan_dir.parent)
+
+
 def parse_dir_name(name: str) -> dict:
     parts = name.split("_")
     if len(parts) >= 3:
@@ -1186,13 +1194,15 @@ def parse_suppressed_findings(scan_dir: Path) -> list[dict]:
                 seen.add(dedup_key)
                 results.append(record)
 
-    # 2. Also check .epyon-ignore.yml files and temporary cache
+    # 2. Also check .epyon-ignore.yml files and the shared ignore cache
     from datetime import datetime
+    # IGNORE_CACHE is the same env var the bash matcher uses, so both agree on the path.
+    cache_path = os.environ.get("IGNORE_CACHE", "/tmp/epyon-ignore-cache.json")
     ignore_files = [
         scan_dir / ".epyon-ignore.yml",
         scan_dir.parent / ".epyon-ignore.yml",
         scan_dir.parent.parent / ".epyon-ignore.yml",
-        Path("/tmp/epyon-ignore-cache.json"),
+        Path(cache_path),
     ]
 
     for yml_file in ignore_files:
@@ -1309,7 +1319,17 @@ def _is_finding_suppressed(finding: dict, suppressions: list[dict]) -> bool:
                     return True
             continue
 
-        # 5. CVE / GHSA / Vulnerability ID suppression
+        # 5. Secret pattern suppression — regex against the detector name (mirrors jq `test()` in bash)
+        if supp_type == "secret-pattern":
+            if finding_tool == "trufflehog" and finding_id:
+                try:
+                    if re.search(supp_value, finding_id, re.IGNORECASE):
+                        return True
+                except re.error:
+                    pass
+            continue
+
+        # 6. CVE / GHSA / Vulnerability ID suppression
         if supp_type in ("cve", "vulnerability", "ghsa") or not supp_type:
             if supp_value in ("*", finding_id):
                 return True
@@ -1320,8 +1340,9 @@ def _is_finding_suppressed(finding: dict, suppressions: list[dict]) -> bool:
                         return True
                 except re.error:
                     pass
+            continue
 
-        # 6. Fallback matching against package name or package@version
+        # 7. Fallback matching against package name or package@version
         if supp_value in (pkg_name, f"{pkg_name}@{pkg_ver}"):
             return True
 
@@ -1880,7 +1901,7 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
         "tools_analyzed": [],
         "has_dashboard":  False,
         "dashboard_url":  None,
-        "location":       str(scan_dir.parent.relative_to(epyon_root)),
+        "location":       _relative_location(scan_dir, epyon_root),
     }
 
     meta = _read_json(scan_dir / "scan-metadata.json")
@@ -2090,6 +2111,22 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
     if enrichment:
         data["enrichment"] = enrichment
 
+    return data
+
+
+def load_scan_complete(scan_dir: Path, epyon_root: Path) -> dict:
+    """Single source of truth for a fully-populated scan object.
+
+    Used by both the live Web UI (``GET /api/scans/{id}``) and the self-contained
+    HTML dashboard generator so the two can never drift apart.
+    """
+    data = load_scan(scan_dir, epyon_root)
+    data["findings"]          = load_enriched_findings(scan_dir) or parse_scan_findings(scan_dir)
+    data["ml_findings"]       = parse_ml_findings(scan_dir)
+    data["misconfigurations"] = parse_misconfiguration_findings(scan_dir)
+    data["sbom"]              = load_sbom_packages(scan_dir)
+    data["api_discovery"]     = load_api_discovery(scan_dir)
+    data["ssp_evidence"]      = parse_ssp_evidence_matrix(scan_dir)
     return data
 
 

@@ -1138,6 +1138,20 @@ run_group "Generate TRL Assessment" bash -lc '
     || echo "[WARNING] TRL assessment generation failed or completed with warnings"
 '
 
+run_group "Export SSP Evidence" bash -lc '
+  chmod +x scripts/shell/export-ssp-evidence.sh
+  ./scripts/shell/export-ssp-evidence.sh "$SCAN_DIR"
+'
+
+run_group "Validate Scan Output Contract" bash -lc '
+  chmod +x scripts/shell/validate-scan-output.sh
+  VALIDATOR_ARGS=""
+  if [[ "${BUILD_ENABLED:-false}" == "true" ]]; then
+    VALIDATOR_ARGS="--require-build"
+  fi
+  ./scripts/shell/validate-scan-output.sh "$SCAN_DIR" --require-ssp $VALIDATOR_ARGS
+'
+
 # ── Timing report ─────────────────────────────────────────────────────────────
 echo ""
 echo "::group::Timing Report"

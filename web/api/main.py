@@ -1144,14 +1144,7 @@ def scan_detail(scan_id: str, response: Response):
     matched = next((d for d in scan_dirs if d.name == scan_id), None)
     if not matched:
         raise HTTPException(404, "Scan not found")
-    data = parsers.load_scan(matched, EPYON_ROOT)
-    data["findings"] = parsers.load_enriched_findings(matched) or parsers.parse_scan_findings(matched)
-    data["ml_findings"] = parsers.parse_ml_findings(matched)  # ML/AI findings separate from vulnerability findings
-    data["misconfigurations"] = parsers.parse_misconfiguration_findings(matched)  # Checkov IaC findings separate from vulnerabilities
-    data["sbom"] = parsers.load_sbom_packages(matched)
-    data["api_discovery"] = parsers.load_api_discovery(matched)
-    data["ssp_evidence"] = parsers.parse_ssp_evidence_matrix(matched)
-    return data
+    return parsers.load_scan_complete(matched, EPYON_ROOT)
 
 
 @app.get("/api/scans/{scan_id}/ssp-evidence")

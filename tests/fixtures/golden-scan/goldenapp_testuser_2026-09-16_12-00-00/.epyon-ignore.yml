@@ -1,0 +1,8 @@
+version: "1.0"
+ignores:
+  - type: package
+    value: netty-handler@4.1.136.Final
+    reason: >
+      Waiting on new Keycloak images from Docker Enterprise.
+    approved_by: "testuser"
+    expires: "2099-12-31"

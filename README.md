@@ -18,7 +18,7 @@ Epyon is designed to be opinionated, automated, and decisive — empowering team
 
 Epyon is a **production-ready, enterprise-grade** 20-layer DevSecOps security platform with a FastAPI-backed web UI, comprehensive test coverage, baseline scanning, automated comparison, and isolated scan directory architecture. Built for real-world applications with Docker-based tooling and 886 automated tests.
 
-**Version: 3.14.0** · **Updated: September 10, 2026**
+**Version: 3.14.3** · **Updated: September 16, 2026**
 
 ## 🌍 Platform Support
 
@@ -1195,6 +1195,9 @@ open scans/comet_rnelson_2025-11-25_09-40-22/consolidated-reports/dashboards/sec
 # Open latest baseline scan dashboard
 LATEST_BASELINE=$(ls -t scans/comet-starter_* | head -1)
 open $LATEST_BASELINE/consolidated-reports/dashboards/security-dashboard.html
+
+# Validate required review artifacts after a scan
+bash scripts/shell/validate-scan-output.sh "scans/$LATEST_SCAN"
 
 # Open official baseline dashboard (if set)
 if [ -f baseline/.baseline-reference ]; then

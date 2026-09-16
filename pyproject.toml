@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "epyon-scanner"
-version = "3.11.8"
+version = "3.14.3"
 description = "Sixteen-layer DevSecOps security scanner with GitHub Actions workflow automation"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -82,8 +82,8 @@ where = ["src"]
 include = ["epyon*"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests/python"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --cov=epyon --cov-report=term-missing"
+addopts = "-v"

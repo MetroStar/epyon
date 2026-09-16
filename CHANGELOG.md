@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Draft pull requests triggered security scans** — `scan-private-repo.yml`'s `pull_request` trigger had no `types:` filter, so GitHub's default event types (`opened`, `synchronize`, `reopened`) fired the `security-scan-pr` job on draft PRs too. The job now requires `github.event.pull_request.draft == false`, and the trigger explicitly lists `opened`, `synchronize`, `reopened`, and `ready_for_review` so the quick-gate scan runs automatically as soon as a draft is marked "Ready for review" (or on the next push), instead of scanning drafts that aren't ready for review.
+- **Dashboard and suppression parity** — the Web UI and offline dashboard now share the same scan-data loader, preserve separate STIG `Not Applicable` and `Not Reviewed` counts, and apply package, wildcard CVE, and secret-pattern suppressions consistently.
+- **Scan output validation** — CLI and CI scans now validate their core review artifacts before reporting completion, with optional checks for container-build evidence.
 
 ## [3.14.2] - 2026-09-11
 

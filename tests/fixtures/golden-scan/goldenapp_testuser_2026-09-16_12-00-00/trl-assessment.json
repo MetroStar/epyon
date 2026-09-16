@@ -1,0 +1,13 @@
+{
+  "trl_level": 6,
+  "grade": "C",
+  "overall_score": 72.5,
+  "dimensions": {
+    "security": 68.0,
+    "supply_chain": 80.0,
+    "code_quality": 70.0,
+    "compliance": 75.0,
+    "operational": 72.0,
+    "mosa": 71.0
+  }
+}

@@ -1730,6 +1730,22 @@ if [[ -f "$SCRIPT_DIR/consolidate-security-reports.sh" ]]; then
         echo -e "${YELLOW}⚠️  Manifest generation script not found${NC}"
     fi
 
+    if [[ -f "$SCRIPT_DIR/validate-scan-output.sh" ]]; then
+        echo ""
+        echo -e "${BLUE}🧾 Validating scan output contract...${NC}"
+        validator_args=()
+        if [[ "${BUILD_ENABLED:-false}" == "true" ]]; then
+            validator_args+=("--require-build")
+        fi
+        validator_args+=("--require-ssp")
+        if "$SCRIPT_DIR/validate-scan-output.sh" "$SCAN_DIR" "${validator_args[@]}"; then
+            echo -e "${GREEN}✅ Scan output contract validated${NC}"
+        else
+            echo -e "${RED}❌ Scan output contract validation failed${NC}"
+            analysis_success=false
+        fi
+    fi
+
 else
     echo -e "${YELLOW}⚠️  Report consolidation script not found${NC}"
 fi

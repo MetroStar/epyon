@@ -66,7 +66,8 @@ if [[ -f "$DIGEST_FILE" ]]; then
 fi
 
 if [[ -z "$IMAGE_DIGEST" ]]; then
-    IMAGE_DIGEST="sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    echo -e "${YELLOW}⚠️  No image digest found; refusing to generate provenance.${NC}" >&2
+    exit 1
 fi
 
 # Clean digest hash without sha256: prefix for struct

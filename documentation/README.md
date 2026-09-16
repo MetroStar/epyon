@@ -28,7 +28,8 @@ This directory contains the essential documentation for the Epyon security scann
 **Audience:** Security teams, DevOps engineers, compliance officers, release managers  
 **Status:** ✅ Current (Sep 2026)
 
----### �️ [Container Build & Evidence Guide](CONTAINER_BUILD_AND_EVIDENCE_GUIDE.md)
+---
+### [Container Build & Evidence Guide](CONTAINER_BUILD_AND_EVIDENCE_GUIDE.md)
 **Container image building, OCI manifest extraction, SLSA provenance, and Cosign signing**
 - Phase 0 container image build module
 - 10-of-10 release and evidence artifact matrix

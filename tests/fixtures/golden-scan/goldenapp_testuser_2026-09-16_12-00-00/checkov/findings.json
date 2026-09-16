@@ -1,0 +1,1 @@
+[{"results":{"failed_checks":[{"check_id":"CKV_DOCKER_3","check":"Ensure that a user for the container has been created","severity":"MEDIUM","file_path":"Dockerfile","resource":"dockerfile.user"}]}}]

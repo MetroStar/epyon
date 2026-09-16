@@ -39,6 +39,21 @@ on:
         required: false
         default: ''
         type: string
+      build_enabled:
+        description: 'Build Docker/OCI container image before running security scan'
+        required: false
+        default: false
+        type: boolean
+      image_name:
+        description: 'Optional: Custom image name for build'
+        required: false
+        default: ''
+        type: string
+      image_tag:
+        description: 'Optional: Custom image tag for build'
+        required: false
+        default: ''
+        type: string
       sbom_artifact:
         description: 'Name of SBOM artifact from a prior job (CycloneDX JSON). When provided, Layer 1 (Syft) is skipped and this SBOM is used for vulnerability scanning.'
         required: false
@@ -312,6 +327,10 @@ jobs:
       RUN_MODEL_PROVENANCE: "${{ inputs.run_model_provenance == true && 'true' || '' }}"
       RUN_INFERENCE_SECURITY: "${{ inputs.run_inference_security == true && 'true' || '' }}"
       RUN_ML_RUNTIME: "${{ inputs.run_ml_runtime == true && 'true' || '' }}"
+      BUILD_ENABLED: "${{ inputs.build_enabled }}"
+      IMAGE_NAME: "${{ inputs.image_name }}"
+      IMAGE_TAG: "${{ inputs.image_tag }}"
+      COSIGN_KEY: "${{ secrets.COSIGN_KEY }}"
       CREATE_GITHUB_ISSUE: "${{ inputs.create_github_issue }}"
       CREATE_JIRA_TICKETS: "${{ inputs.create_jira_tickets }}"  # true by default; set to false to disable
       JIRA_PROJECT_KEY: "${{ secrets.JIRA_PROJECT_KEY || inputs.jira_project_key }}"

@@ -19,6 +19,29 @@ This directory contains the essential documentation for the Epyon security scann
 **Status:** ✅ Current (Feb 2026)
 
 ---
+### 📊 [Master Epyon Capabilities & Scan Matrix](MASTER_EPYON_MATRIX.md)
+**Comprehensive matrix of security layers, release artifacts, scan modes, and platform capabilities**
+- Complete 20-layer security scanning breakdown
+- 10-of-10 supply chain release & evidence artifact inventory
+- Execution modes (`quick`, `nightly`, `full`, `stig`, `images`, `analysis`)
+- Platform features, policy enforcement, compliance, and CI/CD integrations
+
+**Audience:** Security teams, DevOps engineers, compliance officers, release managers  
+**Status:** ✅ Current (Sep 2026)
+
+---
+### [Container Build & Evidence Guide](CONTAINER_BUILD_AND_EVIDENCE_GUIDE.md)
+**Container image building, OCI manifest extraction, SLSA provenance, and Cosign signing**
+- Phase 0 container image build module
+- 10-of-10 release and evidence artifact matrix
+- SLSA v1.0 in-toto provenance attestation (`provenance.jsonl`)
+- Cosign cryptographic image signature records (`image.sig`)
+- CI/CD integration and Web UI evidence rendering
+
+**Audience:** Security teams, DevOps engineers, release managers  
+**Status:** ✅ Current (Sep 2026)
+
+---
 ### 🎯 [Deduplication Implementation](DEDUPLICATION_IMPLEMENTATION.md)
 **Vulnerability deduplication to eliminate inflated counts**
 - Removes duplicate CVE counting across multiple tools

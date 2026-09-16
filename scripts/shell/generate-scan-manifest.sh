@@ -190,7 +190,7 @@ while IFS= read -r -d '' file; do
         echo "   ✓ $relative_path"
         ((FILE_COUNT++))
     fi
-done < <(find "$SCAN_DIR" -type f \( -name "*.json" -o -name "*.html" -o -name "*.csv" -o -name "*.md" -o -name "*.log" \) -print0 2>/dev/null)
+done < <(find "$SCAN_DIR" -type f \( -name "*.json" -o -name "*.html" -o -name "*.csv" -o -name "*.md" -o -name "*.log" -o -name "*.txt" -o -name "*.jsonl" -o -name "*.sig" \) -print0 2>/dev/null)
 
 FILE_HASHES_JSON+="}"
 

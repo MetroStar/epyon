@@ -18,7 +18,7 @@ Epyon is designed to be opinionated, automated, and decisive — empowering team
 
 Epyon is a **production-ready, enterprise-grade** 20-layer DevSecOps security platform with a FastAPI-backed web UI, comprehensive test coverage, baseline scanning, automated comparison, and isolated scan directory architecture. Built for real-world applications with Docker-based tooling and 886 automated tests.
 
-**Version: 3.13.0** · **Updated: July 30, 2026**
+**Version: 3.14.4** · **Updated: September 16, 2026**
 
 ## 🌍 Platform Support
 
@@ -547,12 +547,12 @@ Epyon automatically creates Jira Cloud tickets for critical and high severity fi
 
 | Trigger | Scan Mode | Approx. Time |
 |---------|-----------|-------------|
-| `pull_request` | `quick` | 2–4 min |
+| `pull_request` (opened/synchronize/reopened/ready_for_review, non-draft) | `quick` | 2–4 min |
 | `push` (post-merge) | `full` | 10–20 min |
 | `schedule` | `full` | 10–20 min |
 | `workflow_dispatch` | your choice | varies |
 
-This gives fast PR feedback and deeper security checks after merge. Quick mode automatically skips ClamAV, NVD enrichment, Checkov, and Xeol image pre-pulls.
+This gives fast PR feedback and deeper security checks after merge. Quick mode automatically skips ClamAV, NVD enrichment, Checkov, and Xeol image pre-pulls. Draft pull requests are skipped — the scan runs automatically once the PR is marked "Ready for review" or receives a new push.
 
 ### Garak (LLM) Workflow Inputs
 
@@ -1195,6 +1195,9 @@ open scans/comet_rnelson_2025-11-25_09-40-22/consolidated-reports/dashboards/sec
 # Open latest baseline scan dashboard
 LATEST_BASELINE=$(ls -t scans/comet-starter_* | head -1)
 open $LATEST_BASELINE/consolidated-reports/dashboards/security-dashboard.html
+
+# Validate required review artifacts after a scan
+bash scripts/shell/validate-scan-output.sh "scans/$LATEST_SCAN"
 
 # Open official baseline dashboard (if set)
 if [ -f baseline/.baseline-reference ]; then
@@ -2053,4 +2056,3 @@ cat "${LATEST_SCAN}sonar/sonar-scan.log"
 # Check for errors
 grep -i error "${LATEST_SCAN}"*/scan.log
 ```
-

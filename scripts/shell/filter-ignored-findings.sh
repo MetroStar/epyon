@@ -105,7 +105,37 @@ is_cve_ignored() {
         log_suppressed "$tool" "cve" "$cve_id" "$reason" "Varies" "$approved_by"
         return 0
     fi
-    
+
+    # Wildcard rules (e.g. CVE-2024-*) — keeps parity with the Python matcher
+    local patterns
+    patterns=$(jq -r '.ignores[] | select(.type == "cve" and .expired == false) | .value' "$IGNORE_CACHE" 2>/dev/null || echo "")
+
+    while IFS= read -r pattern; do
+        if [[ -z "$pattern" ]]; then
+            continue
+        fi
+        if [[ "$pattern" != *"*"* ]] && [[ "$pattern" != *"?"* ]]; then
+            continue
+        fi
+        # shellcheck disable=SC2053
+        if [[ "$cve_id" == $pattern ]]; then
+            local reason=$(jq -r --arg pat "$pattern" '
+                .ignores[] |
+                select(.type == "cve" and .value == $pat and .expired == false) |
+                .reason
+            ' "$IGNORE_CACHE" 2>/dev/null || echo "No reason provided")
+
+            local approved_by=$(jq -r --arg pat "$pattern" '
+                .ignores[] |
+                select(.type == "cve" and .value == $pat and .expired == false) |
+                .approved_by // "Not specified"
+            ' "$IGNORE_CACHE" 2>/dev/null || echo "Not specified")
+
+            log_suppressed "$tool" "cve" "$cve_id (matched: $pattern)" "$reason" "Varies" "$approved_by"
+            return 0
+        fi
+    done <<< "$patterns"
+
     return 1
 }
 
@@ -261,7 +291,8 @@ is_secret_ignored() {
     local pattern_entry=$(jq -r --arg pattern "$detector_name" '
         .ignores[] | 
         select(.type == "secret-pattern" and .expired == false) |
-        select($pattern | test(.value))
+        . as $entry |
+        select($pattern | test($entry.value; "i"))
     ' "$IGNORE_CACHE" 2>/dev/null || echo "")
     
     if [[ -n "$pattern_entry" ]]; then

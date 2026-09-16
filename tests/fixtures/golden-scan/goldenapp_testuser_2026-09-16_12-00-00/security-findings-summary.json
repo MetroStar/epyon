@@ -1,0 +1,80 @@
+{
+  "summary": {
+    "total_critical": 1,
+    "total_high": 2,
+    "total_medium": 1,
+    "total_low": 1,
+    "tools_analyzed": ["Grype", "Anchore", "Trivy", "Checkov", "TruffleHog"]
+  },
+  "enrichment": {
+    "cisa_kev_count": 1,
+    "nvd_enriched_count": 2
+  },
+  "critical_findings": [
+    {
+      "tool": "Grype",
+      "type": "vulnerability",
+      "severity": "critical",
+      "vulnerability_id": "CVE-2024-00001",
+      "description": "Remote code execution in example-lib",
+      "package_name": "example-lib",
+      "package_version": "1.0.0",
+      "fix_versions": ["1.0.1"],
+      "target": "/app/requirements.txt",
+      "cisa_kev": true,
+      "nvd_url": "https://nvd.nist.gov/vuln/detail/CVE-2024-00001",
+      "nvd_cvss_v3_score": 9.8,
+      "nvd_cvss_v3_severity": "CRITICAL"
+    }
+  ],
+  "high_findings": [
+    {
+      "tool": "Anchore",
+      "type": "container_vulnerability",
+      "severity": "high",
+      "vulnerability_id": "GHSA-c4c3-7fpv-j4q5",
+      "description": "Netty: SNI Routing Bypass via Fragmented TLS ClientHello",
+      "package_name": "netty-handler",
+      "package_version": "4.1.136.Final",
+      "fix_versions": ["4.1.137.Final"],
+      "target": "reg.example.dev:keycloak-fips/v1"
+    },
+    {
+      "tool": "TruffleHog",
+      "type": "secret",
+      "severity": "high",
+      "vulnerability_id": "Gitlab",
+      "description": "Unverified secret: Gitlab",
+      "package_name": "Gitlab",
+      "package_version": "",
+      "file_path": "scripts/shell/fetch-cve-feeds.py",
+      "line_number": 42
+    }
+  ],
+  "medium_findings": [
+    {
+      "tool": "Checkov",
+      "type": "misconfiguration",
+      "severity": "medium",
+      "vulnerability_id": "CKV_DOCKER_3",
+      "description": "Ensure that a user for the container has been created",
+      "package_name": "",
+      "package_version": "",
+      "file_path": "Dockerfile",
+      "line_number": 1
+    }
+  ],
+  "low_findings": [
+    {
+      "tool": "Trivy",
+      "type": "vulnerability",
+      "severity": "low",
+      "vulnerability_id": "CVE-2023-99999",
+      "description": "Minor information disclosure in sample-pkg",
+      "package_name": "sample-pkg",
+      "package_version": "2.1.0",
+      "fix_versions": [],
+      "target": "/app/go.sum"
+    }
+  ]
+}

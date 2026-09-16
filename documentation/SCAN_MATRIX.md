@@ -1,6 +1,6 @@
 # Epyon Scan Matrix
 
-> 💡 **For the complete platform matrix** (including Layer 0 Container Build, 10-of-10 Release Evidence Artifacts, Scorecard, and Integrations), see **[documentation/MASTER_EPYON_MATRIX.md](MASTER_EPYON_MATRIX.md)**.
+> 💡 **For Layer 0 container build and release evidence details**, see **[documentation/CONTAINER_BUILD_AND_EVIDENCE_GUIDE.md](CONTAINER_BUILD_AND_EVIDENCE_GUIDE.md)**.
 
 This table shows which layers run in each scan mode. Layers marked ✅ run by default; ⬜ means skipped; 🔧 means opt-in only (requires an explicit flag).
 

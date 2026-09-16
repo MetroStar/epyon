@@ -41,7 +41,7 @@ This directory contains the essential documentation for the Epyon security scann
 **Status:** ✅ Current (Sep 2026)
 
 ---
-### �🎯 [Deduplication Implementation](DEDUPLICATION_IMPLEMENTATION.md)
+### 🎯 [Deduplication Implementation](DEDUPLICATION_IMPLEMENTATION.md)
 **Vulnerability deduplication to eliminate inflated counts**
 - Removes duplicate CVE counting across multiple tools
 - Unique key generation (CVE + package + version)

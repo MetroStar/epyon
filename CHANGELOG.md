@@ -5,6 +5,11 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.14.3] - 2026-09-15
+
+### Fixed
+- **Draft pull requests triggered security scans** — `scan-private-repo.yml`'s `pull_request` trigger had no `types:` filter, so GitHub's default event types (`opened`, `synchronize`, `reopened`) fired the `security-scan-pr` job on draft PRs too. The job now requires `github.event.pull_request.draft == false`, and the trigger explicitly lists `opened`, `synchronize`, `reopened`, and `ready_for_review` so the quick-gate scan runs automatically as soon as a draft is marked "Ready for review" (or on the next push), instead of scanning drafts that aren't ready for review.
+
 ## [3.14.2] - 2026-09-11
 
 ### Fixed

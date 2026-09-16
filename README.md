@@ -547,12 +547,12 @@ Epyon automatically creates Jira Cloud tickets for critical and high severity fi
 
 | Trigger | Scan Mode | Approx. Time |
 |---------|-----------|-------------|
-| `pull_request` | `quick` | 2–4 min |
+| `pull_request` (opened/synchronize/reopened/ready_for_review, non-draft) | `quick` | 2–4 min |
 | `push` (post-merge) | `full` | 10–20 min |
 | `schedule` | `full` | 10–20 min |
 | `workflow_dispatch` | your choice | varies |
 
-This gives fast PR feedback and deeper security checks after merge. Quick mode automatically skips ClamAV, NVD enrichment, Checkov, and Xeol image pre-pulls.
+This gives fast PR feedback and deeper security checks after merge. Quick mode automatically skips ClamAV, NVD enrichment, Checkov, and Xeol image pre-pulls. Draft pull requests are skipped — the scan runs automatically once the PR is marked "Ready for review" or receives a new push.
 
 ### Garak (LLM) Workflow Inputs
 

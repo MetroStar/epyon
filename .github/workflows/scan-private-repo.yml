@@ -12,6 +12,11 @@ concurrency:
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
     branches:
       - main
       - master
@@ -58,8 +63,10 @@ env:
 
 jobs:
   # Quick gate scan on pull requests — fast feedback, no full report generation.
+  # Skipped for draft PRs; re-runs automatically once marked "Ready for review"
+  # (which fires a synchronize/ready_for_review event) or on the next push.
   security-scan-pr:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
     permissions:
       contents: read
       actions: read

@@ -95,50 +95,64 @@ echo -e "${PURPLE}============================================${NC}"
 PROVENANCE_FILE="$SCAN_DIR/provenance.jsonl"
 PROVENANCE_JSON="$SCAN_DIR/provenance.json"
 
-python3 -c "
+python3 - "$PROVENANCE_JSON" "$PROVENANCE_FILE" "$SUBJ_NAME" "$DIGEST_HASH" "$REPO_URL" "$BRANCH" "$COMMIT_SHA" "$SCAN_ID" "$TIMESTAMP" <<'PY'
 import json
+import sys
+
+(
+    provenance_json,
+    provenance_file,
+    subject_name,
+    digest_hash,
+    repo_url,
+    branch,
+    commit_sha,
+    scan_id,
+    timestamp,
+) = sys.argv[1:]
 
 statement = {
-    \"_type\": \"https://in-toto.io/Statement/v0.1\",
-    \"subject\": [
+    "_type": "https://in-toto.io/Statement/v0.1",
+    "subject": [
         {
-            \"name\": \"$SUBJ_NAME\",
-            \"digest\": {
-                \"sha256\": \"$DIGEST_HASH\"
+            "name": subject_name,
+            "digest": {
+                "sha256": digest_hash
             }
         }
     ],
-    \"predicateType\": \"https://slsa.dev/provenance/v1\",
-    \"predicate\": {
-        \"buildDefinition\": {
-            \"buildType\": \"https://github.com/epyon-security/epyon-build-runner@v1\",
-            \"externalParameters\": {
-                \"repository\": \"$REPO_URL\",
-                \"ref\": \"$BRANCH\"
+    "predicateType": "https://slsa.dev/provenance/v1",
+    "predicate": {
+        "buildDefinition": {
+            "buildType": "https://github.com/epyon-security/epyon-build-runner@v1",
+            "externalParameters": {
+                "repository": repo_url,
+                "ref": branch
             },
-            \"internalParameters\": {
-                \"commit_sha\": \"$COMMIT_SHA\"
+            "internalParameters": {
+                "commit_sha": commit_sha
             },
-            \"resolvedDependencies\": []
+            "resolvedDependencies": []
         },
-        \"runDetails\": {
-            \"builder\": {
-                \"id\": \"epyon-security-scanner\"
+        "runDetails": {
+            "builder": {
+                "id": "epyon-security-scanner"
             },
-            \"metadata\": {
-                \"invocationId\": \"$SCAN_ID\",
-                \"startedOn\": \"$TIMESTAMP\",
-                \"finishedOn\": \"$TIMESTAMP\"
+            "metadata": {
+                "invocationId": scan_id,
+                "startedOn": timestamp,
+                "finishedOn": timestamp
             }
         }
     }
 }
 
-with open('$PROVENANCE_JSON', 'w') as f:
+with open(provenance_json, 'w') as f:
     json.dump(statement, f, indent=2)
 
-with open('$PROVENANCE_FILE', 'w') as f:
-    f.write(json.dumps(statement) + '\n')
-"
+with open(provenance_file, 'w') as f:
+    json.dump(statement, f)
+    f.write('\n')
+PY
 
 echo -e "${GREEN}✅ Wrote SLSA Provenance: $PROVENANCE_FILE${NC}"

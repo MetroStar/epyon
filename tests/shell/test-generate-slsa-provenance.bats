@@ -30,3 +30,33 @@ SCRIPT_PATH="${SCRIPT_DIR}/generate-slsa-provenance.sh"
 
     rm -rf "$scan_dir"
 }
+
+@test "generate-slsa-provenance.sh safely serializes special characters in metadata" {
+    local target_dir scan_dir
+    target_dir=$(mktemp -d)
+    scan_dir="${BATS_TEST_TMPDIR}/scan-\"quote\\slash"
+
+    mkdir -p "$scan_dir/build"
+    git -C "$target_dir" init
+    git -C "$target_dir" config user.name "Test User"
+    git -C "$target_dir" config user.email "test@example.com"
+    printf 'content\n' > "$target_dir/file.txt"
+    git -C "$target_dir" add file.txt
+    git -C "$target_dir" commit -m "init"
+    git -C "$target_dir" remote add origin 'https://example.com/org/repo"quoted".git'
+    echo "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef" > "$scan_dir/build/image-digest.txt"
+
+    run bash "$SCRIPT_PATH" --scan-dir "$scan_dir" --target "$target_dir" --image-name 'my"app\name' --image-tag "v1.0.0"
+    [ "$status" -eq 0 ]
+
+    run jq -r '.subject[0].name' "$scan_dir/provenance.json"
+    [ "$output" = 'my"app\name:v1.0.0' ]
+
+    run jq -r '.predicate.buildDefinition.externalParameters.repository' "$scan_dir/provenance.json"
+    [ "$output" = 'https://example.com/org/repo"quoted".git' ]
+
+    run jq -r '.predicate.runDetails.metadata.invocationId' "$scan_dir/provenance.json"
+    [ "$output" = 'scan-"quote\slash' ]
+
+    rm -rf "$target_dir" "$scan_dir"
+}

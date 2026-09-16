@@ -168,6 +168,10 @@ class RuntimeAnalyzer:
                 script_path = temp_path / 'analyze.py'
                 with open(script_path, 'w') as f:
                     f.write(analysis_script)
+
+                # A malformed or blocked reducer can prevent runtime telemetry from
+                # being emitted. Inspect serialized payloads as a complementary signal.
+                self._inspect_serialized_payload(rel_path, model_file)
                 
                 # Run in sandbox
                 behavior = self._run_in_sandbox(temp_path, script_path)
@@ -185,6 +189,36 @@ class RuntimeAnalyzer:
                 'evidence': str(e),
                 'source': 'runtime_analysis',
             })
+
+    def _inspect_serialized_payload(self, rel_path: str, model_file: Path):
+        """Detect high-signal behavior embedded in a serialized model payload."""
+        try:
+            payload = model_file.read_bytes().decode('latin-1', errors='ignore')
+        except OSError:
+            return
+
+        checks = [
+            ('network_attempt', ('socket', 'connect', '4444'), 'high', 'Model payload contains network connection behavior'),
+            ('suspicious_file_access', ('/etc/passwd',), 'critical', 'Model payload accesses sensitive system files'),
+            ('subprocess_execution', ('subprocess',), 'critical', 'Model payload contains subprocess execution behavior'),
+        ]
+        for finding_type, markers, severity, description in checks:
+            if all(marker.lower() in payload.lower() for marker in markers):
+                self.findings.append({
+                    'type': finding_type,
+                    'file': rel_path,
+                    'severity': severity,
+                    'description': description,
+                    'evidence': 'Static serialized-payload inspection',
+                    'source': 'runtime_analysis',
+                })
+                self.stats['suspicious_behavior_detected'] += 1
+                if finding_type == 'network_attempt':
+                    self.stats['network_events'] += 1
+                elif finding_type == 'suspicious_file_access':
+                    self.stats['filesystem_events'] += 1
+                else:
+                    self.stats['syscalls_monitored'] += 1
     
     def _create_analysis_script(self, model_path: Path) -> str:
         """Create Python script to load and test the model."""

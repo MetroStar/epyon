@@ -520,8 +520,10 @@ def main():
     # Scan metadata with comprehensive diagnostics
     scan_metadata = {
         "target": str(target_dir),
+        "target_directory": str(target_dir),
         "app_name": args.app_name,
         "scan_timestamp": datetime.now(timezone.utc).isoformat(),
+        "scan_date": datetime.now(timezone.utc).isoformat(),
         "scanner_version": f"1.0.0+{datetime.now(timezone.utc).strftime('%Y%m%d')}",  # Version with date
         "layer": 17,
         "layer_name": "Mobile Code Detection",

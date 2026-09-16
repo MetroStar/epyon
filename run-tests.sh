@@ -82,7 +82,9 @@ else
 fi
 
 echo ""
-if command -v python3 &> /dev/null && python3 -c 'import pytest' &> /dev/null; then
+if [ "${EPYON_SKIP_PYTHON_TESTS:-false}" = "true" ]; then
+    echo -e "${YELLOW}⚠ Python tests skipped by EPYON_SKIP_PYTHON_TESTS${NC}"
+elif command -v python3 &> /dev/null && python3 -c 'import pytest' &> /dev/null; then
     echo "Running Python tests in $SCRIPT_DIR/tests/python"
     python3 -m pytest "$SCRIPT_DIR/tests/python"
 else

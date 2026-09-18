@@ -70,7 +70,7 @@ This turns the suppress-list into a **continuous feedback loop** that reduces ma
 
 This transforms Epyon from a *detector* into an *advisor* — measurably cutting mean time to remediation (MTTR), a direct KPI for the CIO.
 
-- **Where to build:** extend `create-jira-tickets.sh` with an AI enrichment call
+- **Where to build:** enrich the manual Jira Review candidate payload before user approval
 
 ---
 

@@ -1,4 +1,6 @@
-# Potential Enhancement: Web UI Full Post-Scan Step Parity with CI
+# Web UI Post-Scan Step Parity
+
+> Jira creation is intentionally excluded from automated post-scan processing. New Jira tickets require explicit selection in the Web UI's Jira Review screen.
 
 ## Background
 
@@ -21,7 +23,7 @@ This document describes a plan to bring the Web UI to full parity.
 | Rebuild Metrics History | `get-scan-metrics.sh` | ❌ Not run |
 | Embed Metrics Chart in Dashboard | `embed-metrics-in-dashboard.sh` | ❌ Not run |
 | Create GitHub Issues | GitHub REST API (JS in workflow) | ❌ Not run |
-| Create JIRA Tickets | `create-jira-tickets.sh` | ❌ Not run |
+| Create JIRA Tickets | Manual Jira Review API/UI | ✅ User-selected findings; workflow automation removed |
 | Artifact Download | `actions/upload-artifact` | ✅ Already exists (`GET /api/scans/{id}/download`) |
 | Fix Artifact Permissions | CI runner `chown` step | N/A (not needed for Web UI) |
 | Generate Step Summary | `GITHUB_STEP_SUMMARY` | N/A (GitHub Actions only) |
@@ -67,7 +69,7 @@ This document describes a plan to bring the Web UI to full parity.
 | 3 | `get-scan-metrics.sh --scans-dir {scans} --output scan-history.json --quiet` | logged; skipped on error |
 | 4 | `embed-metrics-in-dashboard.sh --metrics scan-history.json --dashboard {dashboard.html}` | skipped if dashboard HTML absent |
 | 5 | GitHub Issues (Python module, Phase 2) | skipped if non-GitHub target or no token |
-| 6 | `create-jira-tickets.sh` | skipped if JIRA not configured |
+| 6 | Jira Review | Manual user action; never run as a post-scan step |
 
 Env additions to all post-scan subprocesses (same defaults as CI):
 - `FAIL_ON_CRITICAL` (default: `true`)
@@ -134,16 +136,9 @@ Fields stored in `jira-config.json`:
 - `GET /api/jira/config` -> `{configured, jira_url, project_key, issue_type}` (no secret)
 - `POST /api/jira/config` -> validates HTTPS URL, writes config
 
-**In `jobs.py`:** After the GitHub Issues step, if `jira_creds` is set and
-`scan_mode == "full"` and findings exist, build the required env vars
-and call `create-jira-tickets.sh` via `_run_post_step()`.
-
-Required env vars for `create-jira-tickets.sh`:
-`FINDINGS_FILE`, `JIRA_URL`, `PROJECT_KEY`, `ISSUE_TYPE`,
-`AUTH` (base64-encoded `email:token`), `REPO_NAME`, `REPO_SLUG`,
-`TODAY`, `RUN_URL` (web-ui placeholder), `CRITICAL_COUNT`, `HIGH_COUNT`,
-`MEDIUM_COUNT`, `LOW_COUNT`, `GITHUB_ISSUE_URL` (from step 5 if available),
-`GITHUB_ISSUE_NUMBER`, `GITHUB_TOKEN`
+Jira is not part of the post-scan subprocess chain. The scan-scoped candidate
+and creation APIs resolve user-selected fingerprints server-side and route them
+to the application's configured Jira project.
 
 ---
 
@@ -171,8 +166,8 @@ Required env vars for `create-jira-tickets.sh`:
 5. **Dashboard:** `security-dashboard.html` contains the embedded metrics chart.
 6. **GitHub Issues:** with GH token set in Settings and a GitHub URL target, confirm
    an issue is created in the target repo.
-7. **JIRA:** with JIRA config set, confirm `create-jira-tickets.sh` is called with
-   the correct env vars.
+7. **JIRA:** with Jira configured, confirm no ticket is created after a scan;
+  select findings in Jira Review and confirm only those selections are created.
 8. Run `bash run-tests.sh` — all 750 BATS tests still pass (no shell scripts modified).
 
 ---

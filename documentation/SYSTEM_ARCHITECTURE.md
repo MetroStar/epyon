@@ -243,19 +243,15 @@ Epyon is a 16-layer DevSecOps security scanner designed for human-centered cyber
   - Manual workflow_dispatch with configurable scan modes
   - SBOM artifact support (skip Layer 1 if SBOM provided)
   - GitHub Issue creation with findings summary
-  - Jira ticket creation/closure via `create-jira-tickets.sh`
+  - Manual Jira ticket creation through the Web UI review queue
   - Severity gate with configurable thresholds
   - STIG PR automation
 
 **Jira Cloud:**
-- **Shell script path:** `scripts/shell/create-jira-tickets.sh` (called from GitHub Actions)
-- **Python API path:** `web/api/jira_client.py` (called from Web UI)
-- **Ticket modes:**
-  - `severity` — One ticket per severity tier (critical/high/medium/low)
-  - `hybrid` — Severity parent + CVE children (max 50 per tier)
-- **Auto-close:** Always enabled on both paths
-  - Shell script: Closes when severity count = 0
-  - Python API: Closes when finding fingerprint absent from current scan
+- **Python API path:** `web/api/jira_client.py` (called from Jira Review)
+- **Creation:** User-selected findings only; GitHub Actions never creates Jira tickets
+- **Project routing:** Global credentials with a per-application Jira project key
+- **Lifecycle:** Tracked tickets close when their fingerprint is absent and reopen if it recurs
 
 **GitHub Issues:**
 - Automatic issue creation for scan results

@@ -199,7 +199,7 @@
           <mxGeometry x="710" y="30" width="100" height="45" as="geometry"/>
         </mxCell>
         
-        <mxCell id="jira-shell" value="Jira Shell&#xa;create-jira-tickets.sh" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;" vertex="1" parent="consolidation">
+        <mxCell id="jira-shell" value="Manual Jira Review&#xa;Web API + user selection" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;" vertex="1" parent="consolidation">
           <mxGeometry x="825" y="30" width="80" height="45" as="geometry"/>
         </mxCell>
         

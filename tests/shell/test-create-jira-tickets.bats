@@ -4,6 +4,7 @@
 
 SCRIPT_DIR="${BATS_TEST_DIRNAME}/../../scripts/shell"
 SCRIPT_PATH="${SCRIPT_DIR}/create-jira-tickets.sh"
+WORKFLOW_PATH="${BATS_TEST_DIRNAME}/../../.github/workflows/epyon-scan.yml"
 
 @test "create-jira-tickets.sh exists and is executable" {
     [ -f "$SCRIPT_PATH" ]
@@ -101,4 +102,16 @@ SCRIPT_PATH="${SCRIPT_DIR}/create-jira-tickets.sh"
 
 @test "create-jira-tickets.sh includes GITHUB_TOKEN for issue body read and dedup" {
     grep -q "GITHUB_TOKEN" "$SCRIPT_PATH"
+}
+
+@test "reusable workflow marks Jira ticket creation input deprecated and ignored" {
+    grep -q "Deprecated and ignored; Jira tickets require manual review" "$WORKFLOW_PATH"
+}
+
+@test "reusable workflow never invokes the Jira ticket creation script" {
+    ! grep -q "create-jira-tickets.sh" "$WORKFLOW_PATH"
+}
+
+@test "reusable workflow does not forward an automatic Jira creation flag" {
+    ! grep -q "CREATE_JIRA_TICKETS" "$WORKFLOW_PATH"
 }

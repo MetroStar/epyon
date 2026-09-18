@@ -87,6 +87,9 @@ helm-packages/*.tgz
 *.json.bakreports/
 web/github-config.json
 web/ai-config.json
+web/data/jira-config.json
+web/data/jira-tickets.json
+web/data/audit.log
 
 # Frontend build artifacts and dependencies (comet-starter)
 baseline/comet-starter/node_modules/

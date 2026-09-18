@@ -17,8 +17,6 @@ Environment variables (all optional except credentials):
   JIRA_PROJECT_KEY        — Jira project key (e.g., SEC)
   JIRA_ISSUE_TYPE         — Issue type for new tickets (default: Bug)
   JIRA_DONE_TRANSITION    — Transition name to close tickets (default: Done)
-  JIRA_MIN_SEVERITY       — Minimum severity to create tickets (default: high)
-  JIRA_CREATE_ON_NEW      — Auto-create tickets for new findings (default: false)
 
 Note: Tickets are ALWAYS automatically closed when findings are remediated.
       This behavior is not configurable to ensure proper ticket lifecycle management.
@@ -29,6 +27,7 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -71,10 +70,6 @@ def _env_config() -> dict:
     if not (base_url and email and token):
         return {}
     
-    # Parse boolean environment variables
-    create_on_new_env = os.environ.get("JIRA_CREATE_ON_NEW", "false").strip().lower()
-    create_on_new = create_on_new_env in ("true", "1", "yes", "on")
-    
     return {
         "base_url":        base_url,
         "email":           email,
@@ -82,14 +77,12 @@ def _env_config() -> dict:
         "project_key":     project,
         "issue_type":      os.environ.get("JIRA_ISSUE_TYPE", "Bug").strip(),
         "done_transition":  os.environ.get("JIRA_DONE_TRANSITION", "Done").strip(),
-        "min_severity":    os.environ.get("JIRA_MIN_SEVERITY", "high").strip(),
-        "create_on_new":   create_on_new,
         "_from_env":       True,   # marker so the UI can show "from environment"
     }
 
 
-def read_config() -> dict:
-    """Return merged config: file values take precedence over env vars."""
+def read_config(app_name: str | None = None) -> dict:
+    """Return Jira config with an optional per-application project override."""
     file_cfg: dict = {}
     try:
         if _CONFIG_FILE.exists():
@@ -99,16 +92,45 @@ def read_config() -> dict:
     if file_cfg:
         # If the file has credentials, use it as-is
         if file_cfg.get("api_token"):
-            return file_cfg
-        # File exists but is incomplete — merge env vars as fallback for missing keys
-        merged = {**_env_config(), **file_cfg}
-        return merged
-    return _env_config()
+            config = file_cfg
+        else:
+            # File exists but is incomplete — merge env vars as fallback for missing keys
+            config = {**_env_config(), **file_cfg}
+    else:
+        config = _env_config()
+
+    if app_name:
+        project_keys = config.get("project_keys") or {}
+        override = project_keys.get(app_name)
+        if isinstance(override, str) and override.strip():
+            config = {**config, "project_key": override.strip().upper()}
+    return config
 
 
 def write_config(cfg: dict) -> None:
     _CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
     _CONFIG_FILE.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+
+
+def set_project_key(app_name: str, project_key: str) -> None:
+    """Persist an app project override without copying environment credentials."""
+    normalized_key = project_key.strip().upper()
+    if not re.fullmatch(r"[A-Z][A-Z0-9]{0,9}", normalized_key):
+        raise ValueError("Invalid Jira project key")
+    file_cfg: dict = {}
+    try:
+        if _CONFIG_FILE.exists():
+            loaded = json.loads(_CONFIG_FILE.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                file_cfg = loaded
+    except Exception:
+        pass
+    project_keys = file_cfg.get("project_keys")
+    if not isinstance(project_keys, dict):
+        project_keys = {}
+    project_keys[app_name] = normalized_key
+    file_cfg["project_keys"] = project_keys
+    write_config(file_cfg)
 
 
 # ── Ticket map helpers ────────────────────────────────────────
@@ -125,7 +147,9 @@ def read_ticket_map() -> dict:
 
 def write_ticket_map(tmap: dict) -> None:
     _TICKETS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    _TICKETS_FILE.write_text(json.dumps(tmap, indent=2), encoding="utf-8")
+    temporary = _TICKETS_FILE.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(tmap, indent=2), encoding="utf-8")
+    temporary.replace(_TICKETS_FILE)
 
 
 # ── Finding fingerprint ───────────────────────────────────────
@@ -183,6 +207,55 @@ def flatten_findings(findings_dict: dict) -> list[dict]:
     for sev in ("critical", "high", "medium", "low"):
         out.extend(findings_dict.get(f"{sev}_findings", []))
     return out
+
+
+def flatten_ticketable_findings(scan_data: dict) -> list[dict]:
+    """Flatten all finding categories that can be manually ticketed."""
+    findings: list[dict] = []
+    for key in ("findings", "misconfigurations", "ml_findings"):
+        findings.extend(flatten_findings(scan_data.get(key, {})))
+    return [finding for finding in findings if not finding.get("suppressed")]
+
+
+def build_ticket_candidates(
+    scan_data: dict,
+    app_name: str,
+    project_key: str = "",
+    ticket_map: dict | None = None,
+) -> list[dict]:
+    """Build categorized, fingerprinted Jira candidates from parsed scan data."""
+    tickets = ticket_map or {}
+    candidates: list[dict] = []
+    display_fields = (
+        "tool", "type", "id", "severity", "package", "version",
+        "fixed_version", "title", "description", "target", "location",
+        "line", "references", "cisa_kev", "nvd_cvss_v3_score",
+        "nvd_cvss_v3_severity", "suppressed", "suppression_reason",
+    )
+    categories = (
+        ("vulnerability", scan_data.get("findings", {})),
+        ("misconfiguration", scan_data.get("misconfigurations", {})),
+        ("ml", scan_data.get("ml_findings", {})),
+    )
+
+    for category, findings in categories:
+        for finding in flatten_findings(findings):
+            fingerprint = finding_fingerprint(finding, app_name, project_key)
+            ticket = tickets.get(fingerprint)
+            suppressed = bool(finding.get("suppressed"))
+            candidate = {key: finding[key] for key in display_fields if key in finding}
+            candidate.update({
+                "category": category,
+                "fingerprint": fingerprint,
+                "selectable": not suppressed and ticket is None,
+                "selection_reason": (
+                    "suppressed" if suppressed else "already_ticketed" if ticket else None
+                ),
+                "jira_ticket": ticket,
+            })
+            candidates.append(candidate)
+
+    return candidates
 
 
 # ── Jira REST API helpers ─────────────────────────────────────
@@ -383,8 +456,6 @@ async def reopen_ticket(cfg: dict, issue_key: str) -> bool:
 
 # ── Reconciliation ────────────────────────────────────────────
 
-_SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-
 
 async def reconcile_app(
     app_name: str,
@@ -398,9 +469,6 @@ async def reconcile_app(
     Remediated (in previous but absent in current):
         → close the tracked Jira ticket if one exists and is still open.
 
-    New (in current but absent in previous) — only when cfg.create_on_new is True:
-        → create a new Jira ticket if severity meets cfg.min_severity.
-        
     Reappeared (previously closed ticket, now finding is back):
         → reopen the existing ticket instead of creating a duplicate.
 
@@ -408,9 +476,6 @@ async def reconcile_app(
     """
     result: dict = {"closed": [], "opened": [], "reopened": [], "errors": []}
 
-    create_on_new = bool(cfg.get("create_on_new", False))
-    min_sev       = (cfg.get("min_severity") or "high").lower()
-    min_rank      = _SEV_RANK.get(min_sev, 1)
     project_key   = (cfg.get("project_key") or "").strip()
 
     now_ts = datetime.now(timezone.utc).isoformat()
@@ -444,66 +509,92 @@ async def reconcile_app(
         else:
             result["errors"].append(f"Failed to close {issue_key}")
 
-    # ── New findings (opt-in) ────────────────────────────────
-    if create_on_new:
-        for fp, finding in current_fps.items():
-            # PRIMARY CHECK: Prevent duplicates - if we already have a ticket for this
-            # fingerprint (open or closed), handle appropriately
-            existing = ticket_map.get(fp)
+    # ── Reappeared findings ─────────────────────────────────
+    # Reopening is lifecycle management and remains automatic even when new
+    # ticket creation requires manual review.
+    for fp in current_fps:
+        existing = ticket_map.get(fp)
+        if not existing or not existing.get("closed_at") or fp in previous_fps:
+            continue
+        issue_key = existing.get("issue_key", "")
+        if not issue_key:
+            continue
+        ok = await reopen_ticket(cfg, issue_key)
+        if ok:
+            ticket_map[fp]["closed_at"] = None
+            ticket_map[fp]["reopened_at"] = now_ts
+            result["reopened"].append(issue_key)
+        else:
+            result["errors"].append(f"Failed to reopen {issue_key}")
+
+    return result
+
+
+async def create_tickets_batch(
+    app_name: str,
+    findings_by_fingerprint: dict[str, dict],
+    requested_fingerprints: list[str],
+    cfg: dict,
+) -> dict:
+    """Create selected Jira tickets idempotently and persist each success."""
+    result = {
+        "requested": len(requested_fingerprints),
+        "created": [],
+        "already_exists": [],
+        "ineligible": [],
+        "failed": [],
+    }
+    project_key = (cfg.get("project_key") or "").strip()
+
+    async with _get_lock():
+        ticket_map = read_ticket_map()
+        for fingerprint in dict.fromkeys(requested_fingerprints):
+            finding = findings_by_fingerprint.get(fingerprint)
+            if finding is None:
+                result["ineligible"].append({
+                    "fingerprint": fingerprint,
+                    "reason": "unknown_fingerprint",
+                })
+                continue
+            if finding.get("suppressed"):
+                result["ineligible"].append({
+                    "fingerprint": fingerprint,
+                    "reason": "suppressed",
+                })
+                continue
+            existing = ticket_map.get(fingerprint)
             if existing:
-                # If ticket exists and is still open, skip (prevents duplicate tickets)
-                if not existing.get("closed_at"):
-                    continue
-                # If ticket exists but was closed, this is a reappearance.
-                # Reopen the existing ticket instead of creating a duplicate.
-                # This maintains a single source of truth and shows the full lifecycle.
-                issue_key = existing.get("issue_key", "")
-                if issue_key:
-                    # Check if it wasn't in the previous scan (genuinely reappeared)
-                    if fp not in previous_fps:
-                        ok = await reopen_ticket(cfg, issue_key)
-                        if ok:
-                            ticket_map[fp]["closed_at"] = None
-                            ticket_map[fp]["reopened_at"] = now_ts
-                            result["reopened"].append(issue_key)
-                        else:
-                            result["errors"].append(f"Failed to reopen {issue_key}")
-                    # If it was in previous scan, it's persistent - skip
-                    continue
-            
-            # SECONDARY CHECK: If finding was in previous scan, it's not "new"
-            # (it's a persistent finding, not a new discovery)
-            if fp in previous_fps:
+                result["already_exists"].append({
+                    "fingerprint": fingerprint,
+                    "issue_key": existing.get("issue_key", ""),
+                })
                 continue
-            
-            # At this point:
-            # - No ticket exists for this fingerprint (neither open nor closed)
-            # - Finding wasn't in the previous scan
-            # This is genuinely new - create a ticket
-            
-            # Check severity threshold
-            sev_rank = _SEV_RANK.get((finding.get("severity") or "low").lower(), 3)
-            if sev_rank > min_rank:
-                continue
-            
-            # Create the ticket
+
             issue_key = await create_ticket(cfg, finding, app_name)
-            if issue_key:
-                ticket_map[fp] = {
-                    "issue_key":  issue_key,
-                    "app":        app_name,
-                    "project_key": project_key,
-                    "finding_id": finding.get("id", ""),
-                    "severity":   finding.get("severity", ""),
-                    "tool":       finding.get("tool", ""),
-                    "created_at": now_ts,
-                    "closed_at":  None,
-                }
-                result["opened"].append(issue_key)
-            else:
-                result["errors"].append(
-                    f"Failed to create ticket for {finding.get('id', fp[:12])}"
-                )
+            if not issue_key:
+                result["failed"].append({
+                    "fingerprint": fingerprint,
+                    "reason": "jira_creation_failed",
+                })
+                continue
+
+            now_ts = datetime.now(timezone.utc).isoformat()
+            ticket_map[fingerprint] = {
+                "issue_key": issue_key,
+                "app": app_name,
+                "project_key": project_key,
+                "finding_id": finding.get("id", ""),
+                "severity": finding.get("severity", ""),
+                "tool": finding.get("tool", ""),
+                "created_at": now_ts,
+                "closed_at": None,
+                "creation_source": "manual",
+            }
+            write_ticket_map(ticket_map)
+            result["created"].append({
+                "fingerprint": fingerprint,
+                "issue_key": issue_key,
+            })
 
     return result
 

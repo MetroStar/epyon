@@ -2756,6 +2756,149 @@ details[open] > .findings-summary .findings-summary-hint {
   display: none;
 }
 
+/* ── Manual Jira ticket review ─────────────────────────────── */
+.jira-review-subtitle {
+  margin-top: 5px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.jira-review-config {
+  margin-bottom: 16px;
+}
+
+.jira-review-project {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) 150px auto;
+  align-items: end;
+  gap: 12px;
+  padding: 14px;
+  margin-bottom: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.jira-review-project .field-input {
+  min-height: 36px;
+}
+
+.jira-review-toolbar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(140px, 190px)) minmax(220px, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.jira-review-toolbar label {
+  display: grid;
+  gap: 5px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.jira-review-toolbar select,
+.jira-review-toolbar input {
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 9px;
+  color: var(--text);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.jira-review-category-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.jira-review-table-wrap {
+  margin-bottom: 76px;
+}
+
+.jira-review-table {
+  min-width: 940px;
+  table-layout: fixed;
+}
+
+.jira-review-table th:nth-child(1) { width: 42px; }
+.jira-review-table th:nth-child(2) { width: 132px; }
+.jira-review-table th:nth-child(3) { width: 92px; }
+.jira-review-table th:nth-child(4) { width: 120px; }
+.jira-review-table th:nth-child(6) { width: 190px; }
+.jira-review-table th:nth-child(7) { width: 120px; }
+
+.jira-review-check {
+  text-align: center;
+}
+
+.jira-review-check input {
+  width: 16px;
+  height: 16px;
+}
+
+.jira-review-row.is-disabled {
+  opacity: 0.55;
+}
+
+.jira-review-finding-link {
+  padding: 0;
+  color: var(--accent);
+  background: none;
+  border: 0;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.jira-review-title {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.jira-review-empty {
+  padding: 28px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.jira-review-actionbar {
+  position: sticky;
+  bottom: 12px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 58px;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 800px) {
+  .jira-review-project {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .jira-review-toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .jira-review-search {
+    grid-column: 1 / -1;
+  }
+}
+
 .findings-body .table-container {
   border-radius: 0;
   border: none;

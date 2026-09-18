@@ -181,7 +181,7 @@
                 <mxCell id="ci_issue" value="&lt;b&gt;Create Scan Notification Issues&lt;/b&gt;&#xa;(if has_issues == true)&#xa;One GitHub Issue per severity level&#xa;Updates existing issue if already open" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ci_post_bg" vertex="1">
                     <mxGeometry x="776" y="248" width="373" height="90" as="geometry"/>
                 </mxCell>
-                <mxCell id="ci_jira" value="&lt;b&gt;Create JIRA Tickets + Link&lt;/b&gt;&#xa;create-jira-tickets.sh&#xa;(full/nightly + JIRA secrets set)&#xa;Links JIRA tickets → GitHub Issue" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ci_post_bg" vertex="1">
+                <mxCell id="ci_jira" value="&lt;b&gt;Manual Jira Review&lt;/b&gt;&#xa;User-selected findings only&#xa;No workflow ticket creation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" parent="ci_post_bg" vertex="1">
                     <mxGeometry x="1159" y="248" width="411" height="90" as="geometry"/>
                 </mxCell>
                 <mxCell id="ci_fail_crit" value="&lt;b&gt;Fail on Critical Vulnerabilities&lt;/b&gt;&#xa;(if: always() &amp;&amp; check-severity.outputs.critical &gt; 0)&#xa;echo error + exit 1   —   explicit final CI failure for any Critical finding" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;fontStyle=1;" vertex="1" parent="ci_post_bg">

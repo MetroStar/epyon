@@ -503,7 +503,7 @@ See [Target Repository Setup Guide](.github/TARGET_REPO_SETUP.md) and [Webhook I
 
 ### 🎟️ Jira Ticket Creation
 
-Epyon automatically creates Jira Cloud tickets for critical and high severity findings.
+Epyon uses a manual review queue by default so scans do not create unwanted Jira tickets. Open a scan, select **Jira Review**, filter or inspect the findings, select individual findings or use the bulk controls, and then choose **Create Jira Tickets**.
 
 **Setup (one-time, in GitHub repo or org secrets):**
 
@@ -515,11 +515,14 @@ Epyon automatically creates Jira Cloud tickets for critical and high severity fi
 | `JIRA_PROJECT_KEY` | Project key in uppercase (e.g. `SAP`, `SEC`) |
 
 **Behavior:**
-- One ticket is created per severity group per repo: critical, high, medium, and low
-- Each ticket contains an ADF table listing CVE/ID, package, version, and scanner tool for every finding
-- Tickets are labeled `epyon`, `security`, `epyon-critical`/`epyon-high`/`epyon-medium`/`epyon-low`, and a repo slug
-- **Deduplication**: if an unresolved ticket with matching labels already exists, creation is skipped and the existing ticket URL is logged
-- Ticket creation is skipped entirely if `JIRA_*` secrets are not configured
+- Vulnerabilities, IaC findings, secrets, and ML/AI findings can be reviewed and ticketed.
+- Each application can use a different Jira project key. Set it in that scan's **Jira Review** screen; the key in Settings is the fallback for applications without an override.
+- Suppressed findings remain visible but cannot be selected until their suppression is removed.
+- Each selected finding creates one Jira issue. Stable fingerprints prevent duplicate issues across retries and scans.
+- Remediated tracked findings close automatically; recurring findings reopen their existing issue.
+- Ticket creation is unavailable if `JIRA_*` credentials are not configured.
+
+The reusable GitHub Actions workflow never creates Jira tickets. New tickets can only be created by a user from **Jira Review**. Automatic reconciliation is limited to closing remediated tracked tickets and reopening those tickets if their findings recur.
 
 ### Quick Start - Scan Any Repository
 

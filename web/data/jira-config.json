@@ -1,0 +1,11 @@
+{
+  "base_url": "https://metrostarsystems.atlassian.net/",
+  "email": "rlnelson@metrostar.com",
+  "api_token": "ATATT3xFfGF0lPcTnrqTU9EHyWk-XRUx8gEHhYA6nxkwXV6Q90cPYugkIbMDuNfj7SDyVapN5qw9abAMtGq-bCWXO478kwjHqFCHTBHsGI3lK692Szw7u0X7w8G32-KNyPBZB6510oQpvHutt7LOYqZv4Nyjrl2BAyR8tHOB2yApyBu96mNrdkI=539E2E94",
+  "project_key": "EMR",
+  "issue_type": "Security Finding",
+  "done_transition": "Done",
+  "min_severity": "high",
+  "auto_close": true,
+  "create_on_new": false
+}

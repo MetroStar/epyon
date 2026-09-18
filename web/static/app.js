@@ -8,6 +8,7 @@
 
 const _findingsRegistry     = new Map();
 let   _findingNextId        = 0;
+let   _jiraReviewState      = null;
 
 // ── STIG control detail registry (populated in renderStigViewer) ─
 const _stigRegistry = new Map();
@@ -783,6 +784,13 @@ const api = {
   testJiraConnection() { return this._post('/api/jira/test', {}); },
   getJiraTickets()     { return this._get('/api/jira/tickets'); },
   syncJiraApp(name)    { return this._post(`/api/jira/sync/${encodeURIComponent(name)}`, {}); },
+  getJiraCandidates(id) { return this._get(`/api/scans/${encodeURIComponent(id)}/jira-candidates`, false); },
+  createJiraTickets(id, fingerprints) {
+    return this._post(`/api/scans/${encodeURIComponent(id)}/jira-tickets`, { fingerprints });
+  },
+  setJiraProject(id, projectKey) {
+    return this._post(`/api/scans/${encodeURIComponent(id)}/jira-project`, { project_key: projectKey });
+  },
   getMobileCodePolicy()     { return this._get('/api/mobile-code/policy'); },
   saveMobileCodePolicy(d)   { return this._post('/api/mobile-code/policy', d); },
   getMobileCodeTypes()      { return this._get('/api/mobile-code/types'); },
@@ -1432,6 +1440,10 @@ async function renderScanDetail(scanId) {
       <div class="page-header">
         <h1>Scan Details ${statusBadge(status)}</h1>
         <div style="display:flex;gap:8px">
+          <button class="btn" onclick="navigate('#/jira-review/${encodeURIComponent(scanId)}')"
+            title="Select findings to create as Jira tickets">
+            Jira Review
+          </button>
           ${repoUrl
             ? `<button class="btn btn-primary"
                  onclick="navigate('#/new-scan?target=${encodeURIComponent(repoUrl)}')">
@@ -5849,7 +5861,7 @@ async function renderSettings() {
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
             <div>
-              <label class="field-label">Project Key</label>
+              <label class="field-label">Default Project Key</label>
               <input id="jira-project" type="text" class="field-input"
                 placeholder="SEC"
                 value="${esc(jiraCfg.project_key || '')}"/>
@@ -5867,24 +5879,14 @@ async function renderSettings() {
                 value="${esc(jiraCfg.done_transition || 'Done')}"/>
             </div>
           </div>
-          <div>
-            <label class="field-label">Minimum Severity to Track</label>
-            <select id="jira-minsev" class="field-input" style="max-width:200px">
-              <option value="critical" ${jiraCfg.min_severity === 'critical' ? 'selected' : ''}>Critical only</option>
-              <option value="high" ${(jiraCfg.min_severity || 'high') === 'high' ? 'selected' : ''}>High and above</option>
-              <option value="medium" ${jiraCfg.min_severity === 'medium' ? 'selected' : ''}>Medium and above</option>
-              <option value="low" ${jiraCfg.min_severity === 'low' ? 'selected' : ''}>All severities</option>
-            </select>
-          </div>
           <div style="display:flex;flex-direction:column;gap:8px">
             <label style="display:flex;gap:8px;align-items:center;cursor:not-allowed;font-size:13px;opacity:0.7">
               <input type="checkbox" id="jira-auto-close" checked disabled/>
               Auto-close tickets when findings are remediated (always enabled)
             </label>
-            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:13px">
-              <input type="checkbox" id="jira-create-new" ${jiraCfg.create_on_new ? 'checked' : ''}/>
-              Auto-create tickets for new findings
-            </label>
+            <div style="font-size:12px;color:var(--text-muted)">
+              New tickets can only be created from a scan's Jira Review screen.
+            </div>
           </div>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
             <button class="btn btn-primary" onclick="saveJiraConfig()">Save</button>
@@ -6159,9 +6161,7 @@ async function saveJiraConfig() {
     project_key:     (document.getElementById('jira-project')?.value || '').trim(),
     issue_type:      (document.getElementById('jira-issue-type')?.value || '').trim() || 'Bug',
     done_transition: (document.getElementById('jira-done')?.value   || '').trim() || 'Done',
-    min_severity:    document.getElementById('jira-minsev')?.value  || 'high',
     auto_close:      true,  // Always enabled - not configurable
-    create_on_new:   document.getElementById('jira-create-new')?.checked ?? false,
   };
   try {
     await api.saveJiraConfig(body);
@@ -7354,6 +7354,270 @@ function showAddAppModal() {
   urlInput.focus();
 }
 
+// ── Manual Jira ticket review ────────────────────────────────
+async function renderJiraReview(scanId) {
+  setActive('');
+  const page = document.getElementById('page');
+  page.innerHTML = loading();
+
+  try {
+    const data = await api.getJiraCandidates(scanId);
+    _jiraReviewState = {
+      scanId,
+      data,
+      selected: new Set(),
+      submitting: false,
+    };
+    renderJiraReviewPage();
+  } catch (error) {
+    page.innerHTML = errBanner(error.message);
+  }
+}
+
+function jiraReviewFilteredCandidates() {
+  if (!_jiraReviewState) return [];
+  const category = document.getElementById('jira-review-category')?.value || 'all';
+  const severity = document.getElementById('jira-review-severity')?.value || 'all';
+  const tool = document.getElementById('jira-review-tool')?.value || 'all';
+  const query = (document.getElementById('jira-review-search')?.value || '').trim().toLowerCase();
+  return _jiraReviewState.data.candidates.filter(candidate => {
+    if (category !== 'all' && candidate.category !== category) return false;
+    if (severity !== 'all' && candidate.severity !== severity) return false;
+    if (tool !== 'all' && candidate.tool !== tool) return false;
+    if (!query) return true;
+    return [candidate.id, candidate.title, candidate.package, candidate.target, candidate.tool]
+      .some(value => String(value || '').toLowerCase().includes(query));
+  });
+}
+
+function renderJiraReviewPage() {
+  const state = _jiraReviewState;
+  if (!state) return;
+  const page = document.getElementById('page');
+  const { data } = state;
+  const tools = [...new Set(data.candidates.map(candidate => candidate.tool).filter(Boolean))].sort();
+
+  page.innerHTML = `
+    <div class="breadcrumb">
+      <a href="#/scans/${encodeURIComponent(state.scanId)}">Scan Details</a>
+      <span>›</span><span>Jira Review</span>
+    </div>
+    <div class="page-header">
+      <div>
+        <h1>Jira Ticket Review</h1>
+        <div class="jira-review-subtitle">${esc(data.app_name)} · ${esc(state.scanId)}</div>
+      </div>
+      <button class="btn" onclick="navigate('#/scans/${encodeURIComponent(state.scanId)}')">Back to Scan</button>
+    </div>
+    <div class="jira-review-project">
+      <div>
+        <label class="field-label" for="jira-review-project-key">Jira project for ${esc(data.app_name)}</label>
+        <div class="jira-review-subtitle">This key applies to this application and all of its scans.</div>
+      </div>
+      <input id="jira-review-project-key" class="field-input" type="text" maxlength="10"
+        placeholder="PROJECT" value="${esc(data.project_key || '')}"
+        oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
+      <button id="jira-review-project-save" class="btn" onclick="jiraReviewSaveProject()">Save Project</button>
+    </div>
+    ${data.jira_configured ? '' : `
+      <div class="alert alert-warning jira-review-config">
+        Jira credentials and an application project key are required. Review is available, but ticket creation is disabled.
+        <a href="#/settings">Open Settings</a>
+      </div>`}
+    <div class="jira-review-toolbar" aria-label="Finding filters">
+      <label>Category
+        <select id="jira-review-category" onchange="jiraReviewRefresh()">
+          <option value="all">All categories</option>
+          <option value="vulnerability">Vulnerabilities</option>
+          <option value="misconfiguration">Misconfigurations</option>
+          <option value="ml">ML/AI Security</option>
+        </select>
+      </label>
+      <label>Severity
+        <select id="jira-review-severity" onchange="jiraReviewRefresh()">
+          <option value="all">All severities</option>
+          <option value="critical">Critical</option><option value="high">High</option>
+          <option value="medium">Medium</option><option value="low">Low</option>
+        </select>
+      </label>
+      <label>Tool
+        <select id="jira-review-tool" onchange="jiraReviewRefresh()">
+          <option value="all">All tools</option>
+          ${tools.map(tool => `<option value="${esc(tool)}">${esc(tool)}</option>`).join('')}
+        </select>
+      </label>
+      <label class="jira-review-search">Search
+        <input id="jira-review-search" type="search" placeholder="ID, package, location"
+          oninput="jiraReviewRefresh()">
+      </label>
+    </div>
+    <div class="jira-review-category-actions">
+      <button class="btn btn-sm" onclick="jiraReviewSelectCategory('vulnerability')">Select vulnerabilities</button>
+      <button class="btn btn-sm" onclick="jiraReviewSelectCategory('misconfiguration')">Select misconfigurations</button>
+      <button class="btn btn-sm" onclick="jiraReviewSelectCategory('ml')">Select ML/AI</button>
+      <button class="btn btn-sm" onclick="jiraReviewClearSelection()">Clear selection</button>
+    </div>
+    <div class="table-container jira-review-table-wrap">
+      <table class="jira-review-table">
+        <thead><tr>
+          <th class="jira-review-check"><input id="jira-review-select-all" type="checkbox"
+            aria-label="Select all filtered findings" onchange="jiraReviewToggleAll(this.checked)"></th>
+          <th>Category</th><th>Severity</th><th>Tool</th><th>Finding</th>
+          <th>Package / Target</th><th>Status</th>
+        </tr></thead>
+        <tbody id="jira-review-rows"></tbody>
+      </table>
+    </div>
+    <div class="jira-review-actionbar">
+      <div><strong id="jira-review-selected-count">0 selected</strong>
+        <span id="jira-review-visible-count" class="jira-review-subtitle"></span></div>
+      <button id="jira-review-create" class="btn btn-primary" onclick="jiraReviewCreateTickets()"
+        ${data.jira_configured ? '' : 'disabled title="Configure Jira in Settings first"'}>
+        Create Jira Tickets
+      </button>
+    </div>`;
+  jiraReviewRefresh();
+}
+
+function jiraReviewRefresh() {
+  const state = _jiraReviewState;
+  if (!state) return;
+  const candidates = jiraReviewFilteredCandidates();
+  const rows = document.getElementById('jira-review-rows');
+  rows.innerHTML = candidates.length ? candidates.map(candidate => {
+    const detailId = _findingNextId++;
+    _findingsRegistry.set(detailId, candidate);
+    const selected = state.selected.has(candidate.fingerprint);
+    const ticket = candidate.jira_ticket?.issue_key;
+    const reason = candidate.selection_reason === 'suppressed'
+      ? 'Suppressed' : candidate.selection_reason === 'already_ticketed'
+        ? (ticket || 'Ticketed') : 'Ready';
+    const location = candidate.package || candidate.target || '—';
+    return `<tr class="jira-review-row${candidate.selectable ? '' : ' is-disabled'}"
+        data-fingerprint="${esc(candidate.fingerprint)}">
+      <td class="jira-review-check"><input type="checkbox" ${selected ? 'checked' : ''}
+        ${candidate.selectable ? '' : 'disabled'} aria-label="Select ${esc(candidate.id || candidate.title)}"></td>
+      <td>${esc(candidate.category === 'ml' ? 'ML/AI' : ucFirst(candidate.category))}</td>
+      <td>${sevBadge(candidate.severity || 'low')}</td>
+      <td><span class="tool-tag">${esc(candidate.tool || 'Unknown')}</span></td>
+      <td><button class="jira-review-finding-link" onclick="openFindingDetail(${detailId})">
+        ${esc(candidate.id || candidate.title || 'Finding')}</button>
+        <div class="jira-review-title">${esc(candidate.title || '')}</div></td>
+      <td title="${esc(candidate.target || '')}">${esc(location)}</td>
+      <td>${ticket && state.data.jira_base_url
+        ? `<a href="${esc(state.data.jira_base_url)}/browse/${esc(ticket)}" target="_blank" rel="noopener">${esc(ticket)}</a>`
+        : esc(reason)}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="7" class="jira-review-empty">No findings match these filters.</td></tr>';
+
+  rows.querySelectorAll('tr[data-fingerprint]').forEach(row => {
+    const checkbox = row.querySelector('input[type="checkbox"]');
+    if (!checkbox || checkbox.disabled) return;
+    checkbox.addEventListener('change', () => {
+      if (checkbox.checked) state.selected.add(row.dataset.fingerprint);
+      else state.selected.delete(row.dataset.fingerprint);
+      jiraReviewUpdateSelection(candidates);
+    });
+  });
+  jiraReviewUpdateSelection(candidates);
+}
+
+function jiraReviewUpdateSelection(filtered = jiraReviewFilteredCandidates()) {
+  const state = _jiraReviewState;
+  if (!state) return;
+  const selectable = filtered.filter(candidate => candidate.selectable);
+  const selectedVisible = selectable.filter(candidate => state.selected.has(candidate.fingerprint)).length;
+  const selectAll = document.getElementById('jira-review-select-all');
+  if (selectAll) {
+    selectAll.checked = selectable.length > 0 && selectedVisible === selectable.length;
+    selectAll.indeterminate = selectedVisible > 0 && selectedVisible < selectable.length;
+    selectAll.disabled = selectable.length === 0;
+  }
+  document.getElementById('jira-review-selected-count').textContent = `${state.selected.size} selected`;
+  document.getElementById('jira-review-visible-count').textContent = ` · ${filtered.length} visible`;
+  const createButton = document.getElementById('jira-review-create');
+  createButton.disabled = !state.data.jira_configured || state.selected.size === 0 || state.submitting;
+}
+
+function jiraReviewToggleAll(checked) {
+  const state = _jiraReviewState;
+  jiraReviewFilteredCandidates().filter(candidate => candidate.selectable).forEach(candidate => {
+    if (checked) state.selected.add(candidate.fingerprint);
+    else state.selected.delete(candidate.fingerprint);
+  });
+  jiraReviewRefresh();
+}
+
+function jiraReviewSelectCategory(category) {
+  const state = _jiraReviewState;
+  state.data.candidates.filter(candidate => candidate.category === category && candidate.selectable)
+    .forEach(candidate => state.selected.add(candidate.fingerprint));
+  jiraReviewRefresh();
+}
+
+function jiraReviewClearSelection() {
+  _jiraReviewState?.selected.clear();
+  jiraReviewRefresh();
+}
+
+async function jiraReviewSaveProject() {
+  const state = _jiraReviewState;
+  if (!state || state.submitting) return;
+  const input = document.getElementById('jira-review-project-key');
+  const button = document.getElementById('jira-review-project-save');
+  const projectKey = input.value.trim().toUpperCase();
+  if (!/^[A-Z][A-Z0-9]{0,9}$/.test(projectKey)) {
+    alert('Project key must be 1-10 uppercase letters or numbers and start with a letter.');
+    input.focus();
+    return;
+  }
+  button.disabled = true;
+  button.textContent = 'Saving…';
+  try {
+    await api.setJiraProject(state.scanId, projectKey);
+    await renderJiraReview(state.scanId);
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = 'Save Project';
+    alert(`Could not save Jira project: ${error.message}`);
+  }
+}
+
+async function jiraReviewCreateTickets() {
+  const state = _jiraReviewState;
+  if (!state || state.submitting || state.selected.size === 0) return;
+  const selected = [...state.selected];
+  if (!window.confirm(`Create ${selected.length} Jira ticket${selected.length === 1 ? '' : 's'}?`)) return;
+
+  state.submitting = true;
+  jiraReviewUpdateSelection();
+  const button = document.getElementById('jira-review-create');
+  button.textContent = 'Creating tickets…';
+  const failed = new Set();
+  let created = 0;
+  let existing = 0;
+  try {
+    for (let index = 0; index < selected.length; index += 200) {
+      const result = await api.createJiraTickets(state.scanId, selected.slice(index, index + 200));
+      created += result.created.length;
+      existing += result.already_exists.length;
+      result.failed.concat(result.ineligible).forEach(item => failed.add(item.fingerprint));
+      button.textContent = `Creating ${Math.min(index + 200, selected.length)} of ${selected.length}…`;
+    }
+    const data = await api.getJiraCandidates(state.scanId);
+    state.data = data;
+    state.selected = failed;
+    state.submitting = false;
+    renderJiraReviewPage();
+    alert(`Created ${created} ticket${created === 1 ? '' : 's'}. ${existing} already existed. ${failed.size} failed or became ineligible.`);
+  } catch (error) {
+    state.submitting = false;
+    button.textContent = 'Create Jira Tickets';
+    jiraReviewUpdateSelection();
+    alert(`Ticket creation failed: ${error.message}`);
+  }
+}
+
 // ── Router ────────────────────────────────────────────────────
 function resolve() {
   const hash = window.location.hash.slice(1) || '/';
@@ -7372,6 +7636,9 @@ function resolve() {
   } else if (path.startsWith('/stig-viewer/')) {
     const scanId = decodeURIComponent(path.slice('/stig-viewer/'.length));
     scanId ? renderStigViewer(scanId) : renderStig();
+  } else if (path.startsWith('/jira-review/')) {
+    const scanId = decodeURIComponent(path.slice('/jira-review/'.length));
+    scanId ? renderJiraReview(scanId) : renderApplications();
   } else if (path.startsWith('/scans/')) {
     const scanId = decodeURIComponent(path.slice('/scans/'.length));
     scanId ? renderScanDetail(scanId) : renderApplications();

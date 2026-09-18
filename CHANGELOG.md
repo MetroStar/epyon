@@ -5,6 +5,16 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.15.0] - 2026-09-18
+
+### Added
+- **Manual Jira ticket review** — scan details now link to a review queue where users can filter and select vulnerability, misconfiguration, secret, and ML/AI findings before creating Jira tickets. The queue supports filter-aware and per-category bulk selection, finding details, duplicate status, chunked creation, and partial-failure retry.
+- **Scan-scoped Jira APIs** — added candidate and fingerprint-only batch creation endpoints with server-side finding resolution, suppression enforcement, stable deduplication, and immediate persistence after each successful Jira issue creation.
+- **Per-application Jira projects** — each application can set its own Jira project key from Jira Review while sharing global Jira credentials; the Settings key remains the backward-compatible fallback.
+
+### Changed
+- **Jira creation is always manual** — automatic creation has been removed from both web reconciliation and GitHub Actions. New tickets can only be created through Jira Review; automatic closure of remediated tickets and reopening of recurring findings remain enabled for tracked tickets across all finding categories.
+
 ## [3.14.4] - 2026-09-16
 
 ### Fixed

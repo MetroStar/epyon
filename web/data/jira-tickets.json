@@ -1,0 +1,24 @@
+{
+  "1721a61920d6cc16|CVE-2026-18924": {
+    "issue_key": "EMR-43",
+    "app": "iris",
+    "project_key": "EMR",
+    "finding_id": "CVE-2026-18924",
+    "severity": "critical",
+    "tool": "Anchore",
+    "created_at": "2026-09-18T18:15:24.365860+00:00",
+    "closed_at": null,
+    "creation_source": "manual"
+  },
+  "a6e569dda7734c47|CVE-2026-19931": {
+    "issue_key": "EMR-44",
+    "app": "iris",
+    "project_key": "EMR",
+    "finding_id": "CVE-2026-19931",
+    "severity": "critical",
+    "tool": "Anchore",
+    "created_at": "2026-09-18T18:15:25.477096+00:00",
+    "closed_at": null,
+    "creation_source": "manual"
+  }
+}

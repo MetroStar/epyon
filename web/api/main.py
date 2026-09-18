@@ -82,6 +82,7 @@ def _audit(request: Request, action: str, detail: str = "") -> None:
 
 # ── Validation ────────────────────────────────────────────────
 _SAFE_ID_RE      = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_\-.]*$")
+_JIRA_FP_RE      = re.compile(r"^[a-f0-9]{16}\|[^\x00-\x1f]{1,40}$")
 _JOB_ID_RE       = re.compile(r"^\d{14}$")
 _APP_SCAN_RE     = re.compile(r"^(.+)_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})$")
 _VALID_SCAN_TYPES = {"quick", "full", "nightly", "baseline", "stig", "local_model"}
@@ -245,7 +246,7 @@ def _invalidate_scan_cache(reason: str = "scan_completion", scan_id: str = None)
 async def _jira_post_scan(target_name: str) -> None:
     """Auto-reconcile Jira tickets after a scan finishes for target_name."""
     try:
-        cfg = jira_client.read_config()
+        cfg = jira_client.read_config(target_name)
         if not cfg.get("auto_close") or not cfg.get("api_token"):
             return
 
@@ -258,15 +259,13 @@ async def _jira_post_scan(target_name: str) -> None:
         if len(target_dirs) < 2:
             return  # need at least two scans to compare
 
-        current_raw  = (parsers.load_enriched_findings(target_dirs[0])
-                        or parsers.parse_scan_findings(target_dirs[0]))
-        previous_raw = (parsers.load_enriched_findings(target_dirs[1])
-                        or parsers.parse_scan_findings(target_dirs[1]))
+        current_scan = parsers.load_scan_complete(target_dirs[0], EPYON_ROOT)
+        previous_scan = parsers.load_scan_complete(target_dirs[1], EPYON_ROOT)
 
         await jira_client.reconcile_and_save(
             target_name,
-            jira_client.flatten_findings(current_raw),
-            jira_client.flatten_findings(previous_raw),
+            jira_client.flatten_ticketable_findings(current_scan),
+            jira_client.flatten_ticketable_findings(previous_scan),
             cfg,
         )
     except Exception:
@@ -1145,6 +1144,132 @@ def scan_detail(scan_id: str, response: Response):
     if not matched:
         raise HTTPException(404, "Scan not found")
     return parsers.load_scan_complete(matched, EPYON_ROOT)
+
+
+@app.get("/api/scans/{scan_id}/jira-candidates")
+def scan_jira_candidates(scan_id: str, response: Response):
+    """Return display-safe findings eligible for manual Jira ticket creation."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    matched = next((directory for directory in scan_dirs if directory.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+
+    scan_data = parsers.load_scan_complete(matched, EPYON_ROOT)
+    app_name = scan_data.get("target") or parsers.parse_dir_name(scan_id)["target"]
+    cfg = jira_client.read_config(app_name)
+    candidates = jira_client.build_ticket_candidates(
+        scan_data,
+        app_name,
+        cfg.get("project_key", ""),
+        jira_client.read_ticket_map(),
+    )
+    selectable = sum(candidate["selectable"] for candidate in candidates)
+    return {
+        "scan_id": scan_id,
+        "app_name": app_name,
+        "jira_configured": bool(
+            cfg.get("base_url") and cfg.get("email") and cfg.get("api_token")
+            and cfg.get("project_key")
+        ),
+        "jira_base_url": cfg.get("base_url", "").rstrip("/"),
+        "project_key": cfg.get("project_key", ""),
+        "summary": {
+            "total": len(candidates),
+            "selectable": selectable,
+            "suppressed": sum(
+                candidate["selection_reason"] == "suppressed"
+                for candidate in candidates
+            ),
+            "already_ticketed": sum(
+                candidate["selection_reason"] == "already_ticketed"
+                for candidate in candidates
+            ),
+        },
+        "candidates": candidates,
+    }
+
+
+class JiraTicketCreateRequest(BaseModel):
+    fingerprints: List[str]
+
+
+class JiraProjectKeyRequest(BaseModel):
+    project_key: str
+
+
+@app.post("/api/scans/{scan_id}/jira-project")
+def scan_jira_project_update(
+    scan_id: str,
+    body: JiraProjectKeyRequest,
+    request: Request,
+    response: Response,
+):
+    """Set the Jira project key used by an application and all of its scans."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    project_key = body.project_key.strip().upper()
+    if not re.fullmatch(r"[A-Z][A-Z0-9]{0,9}", project_key):
+        raise HTTPException(400, "project_key must be 1-10 uppercase alphanumeric characters")
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    matched = next((directory for directory in scan_dirs if directory.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+    scan_data = parsers.load_scan_complete(matched, EPYON_ROOT)
+    app_name = scan_data.get("target") or parsers.parse_dir_name(scan_id)["target"]
+    jira_client.set_project_key(app_name, project_key)
+    _audit(request, "jira_project_key_changed", f"app={app_name} project={project_key}")
+    return {"app_name": app_name, "project_key": project_key}
+
+
+@app.post("/api/scans/{scan_id}/jira-tickets")
+async def scan_jira_tickets_create(
+    scan_id: str,
+    body: JiraTicketCreateRequest,
+    request: Request,
+    response: Response,
+):
+    """Create Jira tickets for explicitly selected findings from one scan."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    fingerprints = list(dict.fromkeys(body.fingerprints))
+    if not fingerprints:
+        raise HTTPException(400, "At least one fingerprint is required")
+    if len(fingerprints) > 200:
+        raise HTTPException(400, "A maximum of 200 findings can be submitted at once")
+    if any(not _JIRA_FP_RE.fullmatch(fingerprint) for fingerprint in fingerprints):
+        raise HTTPException(400, "Invalid fingerprint")
+
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    matched = next((directory for directory in scan_dirs if directory.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+
+    scan_data = parsers.load_scan_complete(matched, EPYON_ROOT)
+    app_name = scan_data.get("target") or parsers.parse_dir_name(scan_id)["target"]
+    cfg = jira_client.read_config(app_name)
+    required = ("base_url", "email", "api_token", "project_key")
+    if any(not cfg.get(key) for key in required):
+        raise HTTPException(400, "Jira is not fully configured")
+    candidates = jira_client.build_ticket_candidates(
+        scan_data, app_name, cfg["project_key"], jira_client.read_ticket_map()
+    )
+    findings_by_fingerprint = {
+        candidate["fingerprint"]: candidate for candidate in candidates
+    }
+    result = await jira_client.create_tickets_batch(
+        app_name, findings_by_fingerprint, fingerprints, cfg
+    )
+    _audit(
+        request,
+        "jira_tickets_created",
+        f"scan_id={scan_id} requested={len(fingerprints)} created={len(result['created'])}",
+    )
+    return result
 
 
 @app.get("/api/scans/{scan_id}/ssp-evidence")
@@ -3172,9 +3297,7 @@ def jira_config_get(response: Response):
         "project_key":     cfg.get("project_key", ""),
         "issue_type":      cfg.get("issue_type", "Bug"),
         "done_transition": cfg.get("done_transition", "Done"),
-        "min_severity":    cfg.get("min_severity", "high"),
         "auto_close":      cfg.get("auto_close", False),
-        "create_on_new":   cfg.get("create_on_new", False),
         "_from_env":       cfg.get("_from_env", False),
     }
 
@@ -3220,13 +3343,9 @@ async def jira_config_post(request: Request, response: Response):
                 raise HTTPException(400, f"{str_field} contains invalid characters")
             cfg[str_field] = val
 
-    if body.get("min_severity") in ("critical", "high", "medium", "low"):
-        cfg["min_severity"] = body["min_severity"]
-
     if "auto_close" in body:
         cfg["auto_close"] = bool(body["auto_close"])
-    if "create_on_new" in body:
-        cfg["create_on_new"] = bool(body["create_on_new"])
+    cfg.pop("create_on_new", None)
 
     jira_client.write_config(cfg)
     _audit(request, "jira_config_changed")
@@ -3258,7 +3377,7 @@ async def jira_sync_app(app_name: str, response: Response):
     if not _SAFE_ID_RE.match(app_name):
         raise HTTPException(400, "Invalid app_name")
 
-    cfg = jira_client.read_config()
+    cfg = jira_client.read_config(app_name)
     if not cfg.get("api_token"):
         raise HTTPException(400, "Jira is not configured — set api_token first")
 
@@ -3271,16 +3390,13 @@ async def jira_sync_app(app_name: str, response: Response):
     if len(target_dirs) < 2:
         raise HTTPException(400, "Need at least two scans for this application to compare findings")
 
-    current_raw  = (parsers.load_enriched_findings(target_dirs[0])
-                    or parsers.parse_scan_findings(target_dirs[0]))
-    previous_raw = (parsers.load_enriched_findings(target_dirs[1])
-                    or parsers.parse_scan_findings(target_dirs[1]))
+    current_scan = parsers.load_scan_complete(target_dirs[0], EPYON_ROOT)
+    previous_scan = parsers.load_scan_complete(target_dirs[1], EPYON_ROOT)
 
-    ticket_map = jira_client.read_ticket_map()
     result = await jira_client.reconcile_and_save(
         app_name,
-        jira_client.flatten_findings(current_raw),
-        jira_client.flatten_findings(previous_raw),
+        jira_client.flatten_ticketable_findings(current_scan),
+        jira_client.flatten_ticketable_findings(previous_scan),
         cfg,
     )
     return result

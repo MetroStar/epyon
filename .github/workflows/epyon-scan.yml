@@ -200,9 +200,9 @@ on:
         default: true
         type: boolean
       create_jira_tickets:
-        description: 'Disable JIRA ticket creation even when secrets are present (set to false to skip)'
+        description: 'Deprecated and ignored; Jira tickets require manual review in the Epyon web UI'
         required: false
-        default: true
+        default: false
         type: boolean
       jira_project_key:
         description: 'JIRA project key to create tickets in (e.g. SEC, INFRA)'
@@ -332,7 +332,6 @@ jobs:
       IMAGE_TAG: "${{ inputs.image_tag }}"
       COSIGN_KEY: "${{ secrets.COSIGN_KEY }}"
       CREATE_GITHUB_ISSUE: "${{ inputs.create_github_issue }}"
-      CREATE_JIRA_TICKETS: "${{ inputs.create_jira_tickets }}"  # true by default; set to false to disable
       JIRA_PROJECT_KEY: "${{ secrets.JIRA_PROJECT_KEY || inputs.jira_project_key }}"
       JIRA_ISSUE_TYPE: "${{ inputs.jira_issue_type }}"
       JIRA_BASE_URL: "${{ secrets.JIRA_BASE_URL }}"
@@ -1270,106 +1269,6 @@ jobs:
               console.log(`✅ GitHub Issue sync completed. Primary issue: #${firstIssueNumber}`);
             } else {
               console.log(`ℹ️ No GitHub Issues were created or updated (Issues may be disabled for this repository)`);
-            }
-
-      - name: Create JIRA Tickets for Critical/High Findings
-        if: >
-          always() &&
-          (inputs.scan_mode == 'full' || inputs.scan_mode == 'nightly') &&
-          steps.check-severity.outputs.has_issues == 'true' &&
-          env.JIRA_BASE_URL != '' &&
-          env.JIRA_USER_EMAIL != '' &&
-          env.JIRA_API_TOKEN != '' &&
-          env.CREATE_JIRA_TICKETS != 'false'
-        shell: bash
-        env:
-          GITHUB_ISSUE_URL: ${{ steps.create-github-issue.outputs.issue_url }}
-          GITHUB_ISSUE_NUMBER: ${{ steps.create-github-issue.outputs.issue_number }}
-          FINDINGS_FILE: epyon/${{ steps.run-scan.outputs.scan_dir }}/security-findings-filtered.json
-          FINDINGS_FILE_FALLBACK: epyon/${{ steps.run-scan.outputs.scan_dir }}/security-findings-summary.json
-          JIRA_URL: ${{ env.JIRA_BASE_URL }}
-          PROJECT_KEY: ${{ env.JIRA_PROJECT_KEY }}
-          ISSUE_TYPE: ${{ env.JIRA_ISSUE_TYPE }}
-          TICKET_MODE: ${{ env.JIRA_TICKET_MODE || 'hybrid' }}
-          CVE_ISSUE_TYPE: ${{ env.JIRA_CVE_ISSUE_TYPE || 'Task' }}
-          MAX_CVE_TICKETS: ${{ env.JIRA_MAX_CVE_TICKETS || '50' }}
-          REPO_NAME: ${{ github.repository }}
-          CRITICAL_COUNT: ${{ steps.check-severity.outputs.critical }}
-          HIGH_COUNT: ${{ steps.check-severity.outputs.high }}
-          MEDIUM_COUNT: ${{ steps.check-severity.outputs.medium }}
-          LOW_COUNT: ${{ steps.check-severity.outputs.low }}
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          # Prefer filtered findings (suppressed tools removed); fall back to full summary.
-          if [ ! -f "${FINDINGS_FILE}" ] && [ -f "${FINDINGS_FILE_FALLBACK}" ]; then
-            export FINDINGS_FILE="${FINDINGS_FILE_FALLBACK}"
-          fi
-          AUTH=$(echo -n "${JIRA_USER_EMAIL}:${JIRA_API_TOKEN}" | base64 -w0)
-          REPO_SLUG=$(echo "${REPO_NAME}" | tr '/' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
-          TODAY=$(date -u +"%Y-%m-%d")
-          RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          export AUTH REPO_SLUG TODAY RUN_URL ISSUE_TYPE
-          chmod +x epyon/scripts/shell/create-jira-tickets.sh
-          ./epyon/scripts/shell/create-jira-tickets.sh
-
-      - name: Link Jira Tickets to GitHub Issue
-        if: >
-          always() &&
-          (inputs.scan_mode == 'full' || inputs.scan_mode == 'nightly') &&
-          steps.create-github-issue.outputs.issue_number != '' &&
-          env.JIRA_BASE_URL != '' &&
-          env.JIRA_API_TOKEN != '' &&
-          env.CREATE_JIRA_TICKETS != 'false'
-        continue-on-error: true
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const issueNumber = parseInt('${{ steps.create-github-issue.outputs.issue_number }}');
-            if (!issueNumber) { console.log('No GitHub issue number — skipping Jira link comment'); return; }
-
-            const ticketsFile = '/tmp/jira_created_tickets.txt';
-            if (!fs.existsSync(ticketsFile)) {
-              console.log('No Jira tickets were created this run — skipping link comment');
-              return;
-            }
-
-            const lines = fs.readFileSync(ticketsFile, 'utf8').trim().split('\n').filter(Boolean);
-            if (!lines.length) { console.log('Jira tickets file is empty — skipping'); return; }
-
-            const jiraBaseUrl = '${{ env.JIRA_BASE_URL }}';
-            const ticketLinks = lines.map(line => {
-              const [key, url] = line.split('|');
-              return `- [${key}](${url})`;
-            }).join('\n');
-
-            const comment = [
-              '### 🎫 Jira Tickets Created',
-              '',
-              'The following Jira tickets were opened for these security findings:',
-              '',
-              ticketLinks,
-              '',
-              '_Each Jira ticket also carries a remote link back to this issue._',
-            ].join('\n');
-
-            try {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issueNumber,
-                body: comment,
-              });
-              console.log(`✅ Posted ${lines.length} Jira ticket link(s) to GitHub issue #${issueNumber}`);
-            } catch (error) {
-              console.warn(`⚠️ Could not link Jira tickets to GitHub issue: ${error.message}`);
-              if (error.status === 410) {
-                console.warn('GitHub Issues are disabled for this repository');
-              } else if (error.status === 403) {
-                console.warn('Insufficient permissions to comment on issues');
-              }
-              // Don't fail - Jira tickets were still created
             }
 
       - name: Fail on Critical Vulnerabilities

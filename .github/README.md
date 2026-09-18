@@ -355,7 +355,7 @@ Only scan on specific conditions:
 
 ### Jira Ticket Creation
 
-Epyon automatically creates Jira Cloud tickets when critical or high severity findings are detected.
+Epyon defaults to manual Jira creation. In the web UI, open a scan and select **Jira Review** to choose the vulnerability, misconfiguration, secret, and ML/AI findings that should become tickets.
 
 **Required secrets (set once at repo or org level):**
 
@@ -367,12 +367,13 @@ Epyon automatically creates Jira Cloud tickets when critical or high severity fi
 | `JIRA_PROJECT_KEY` | Project key in uppercase, e.g. `SAP` |
 
 **Behavior:**
-- Creates up to four tickets per scan: one each for critical, high, medium, and low findings
-- Ticket body contains an ADF table with CVE/ID, package, version, and tool for every finding
-- Deduplicates: skips creation if an unresolved ticket with the same severity + repo-slug labels already exists
-- Skipped silently if `JIRA_*` secrets are absent
+- Suppressed findings are visible but cannot be selected.
+- Jira credentials are global, while each application can set its own project key from the scan's **Jira Review** screen. The Settings project key is used as a fallback.
+- Stable finding fingerprints prevent duplicate tickets and make retries idempotent.
+- Tracked tickets close when remediated and reopen if the finding recurs.
+- Ticket creation is unavailable if `JIRA_*` secrets are absent.
 
-**Optional input (workflow_dispatch):**
+**Optional inputs:**
 - `jira_issue_type` — Jira issue type for created tickets (default: `Bug`)
 
 ### Custom Notifications

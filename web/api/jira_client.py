@@ -26,6 +26,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import os
 import re
 from datetime import datetime, timezone
@@ -33,6 +34,8 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 # Prevents concurrent reconcile calls (auto post-scan + manual sync) from
 # reading the same stale ticket map and creating duplicate Jira tickets.
@@ -190,6 +193,61 @@ async def list_project_epics(cfg: dict, project_key: str) -> list[dict]:
         ]
     except Exception:
         return []
+
+
+_ISSUE_TYPE_CACHE: dict[tuple[str, str], list[dict]] = {}  # (base_url, project_key) → issue types
+
+
+async def list_project_issue_types(cfg: dict, project_key: str) -> list[dict]:
+    """Return creatable, non-subtask issue types for a project as
+    [{id, name}, ...]. Used to validate/repair the configured issue type
+    before ticket creation.
+    """
+    if not project_key:
+        return []
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(
+                f"{_base(cfg)}/rest/api/3/issue/createmeta/{project_key}/issuetypes",
+                auth=_auth(cfg),
+                headers={"Accept": "application/json"},
+            )
+        if r.status_code != 200:
+            return []
+        return [
+            {"id": t.get("id"), "name": t.get("name")}
+            for t in r.json().get("issueTypes", [])
+            if not t.get("subtask")
+        ]
+    except Exception:
+        return []
+
+
+async def _resolve_issue_type(cfg: dict, project_key: str, requested: str) -> str:
+    """Return an issue type name valid for creation in this project.
+
+    Falls back to the project's first non-subtask issue type if the
+    configured name (default "Bug") isn't part of this project's issue type
+    scheme — a common misconfiguration that otherwise makes every ticket
+    creation fail with a 400 ("Specify a valid issue type") and no way to
+    recover without a manual Settings change.
+    """
+    cache_key = (_base(cfg), project_key)
+    types = _ISSUE_TYPE_CACHE.get(cache_key)
+    if types is None:
+        types = await list_project_issue_types(cfg, project_key)
+        _ISSUE_TYPE_CACHE[cache_key] = types
+    if not types:
+        return requested  # couldn't look it up — try the configured value as-is
+    if any((t.get("name") or "").strip().lower() == requested.strip().lower() for t in types):
+        return requested
+    fallback = types[0].get("name") or requested
+    logger.warning(
+        "Configured Jira issue type %r is not valid for project %s; falling back to %r. "
+        "Available issue types: %s",
+        requested, project_key, fallback, [t.get("name") for t in types],
+    )
+    return fallback
 
 
 _FIELD_CACHE: dict[str, dict] = {}  # base_url → {"epic_link": id|None, "epic_name": id|None}
@@ -448,11 +506,16 @@ async def create_ticket(
     finding: dict,
     app_name: str,
     epic_key: str | None = None,
+    issue_type: str | None = None,
 ) -> str | None:
     """Create a Jira issue for a finding. Returns the issue key or None.
 
     If epic_key is given, the new issue is best-effort linked to that Epic
     after creation; a link failure never fails ticket creation itself.
+    issue_type overrides cfg's configured default (e.g. a user's explicit
+    choice from the "Create Jira Tickets" modal); either way it is validated
+    against the project's real issue type scheme and auto-repaired if
+    invalid, so a stale/wrong configured type never silently fails.
     """
     project_key = (cfg.get("project_key") or "").strip()
     if not project_key:
@@ -495,7 +558,8 @@ async def create_ticket(
         ],
     }
 
-    issue_type = (cfg.get("issue_type") or "Bug").strip()
+    requested_issue_type = (issue_type or cfg.get("issue_type") or "Bug").strip()
+    issue_type = await _resolve_issue_type(cfg, project_key, requested_issue_type)
     labels = ["epyon", "security", tool.lower().replace(" ", "-"),
               sev.lower(), app_name.lower().replace(" ", "-")]
 
@@ -522,8 +586,13 @@ async def create_ticket(
             if key and epic_key:
                 await link_issue_to_epic(cfg, key, epic_key)
             return key
+        logger.warning(
+            "Jira ticket creation failed for %s/%s: HTTP %s — %s",
+            project_key, fid, r.status_code, r.text[:500],
+        )
         return None
     except Exception:
+        logger.warning("Jira ticket creation raised an exception for %s/%s", project_key, fid, exc_info=True)
         return None
 
 
@@ -716,12 +785,15 @@ async def create_tickets_batch(
     requested_fingerprints: list[str],
     cfg: dict,
     epic_key: str | None = None,
+    issue_type: str | None = None,
 ) -> dict:
     """Create selected Jira tickets idempotently and persist each success.
 
     If epic_key is given, every ticket created in this batch is linked to it
     (the caller resolves the user's Epic choice — existing or newly created —
-    once per batch via resolve_epic_selection()).
+    once per batch via resolve_epic_selection()). If issue_type is given, it
+    overrides cfg's configured default ticket type for the whole batch (the
+    user's explicit choice from the "Create Jira Tickets" modal).
     """
     result = {
         "requested": len(requested_fingerprints),
@@ -737,6 +809,13 @@ async def create_tickets_batch(
         for fingerprint in dict.fromkeys(requested_fingerprints):
             finding = findings_by_fingerprint.get(fingerprint)
             if finding is None:
+                logger.warning(
+                    "Jira ticket creation: fingerprint %s not found among current scan candidates "
+                    "for app=%s project=%s (stale selection or the finding's fingerprint inputs "
+                    "changed, e.g. target path/app/project — remediated findings simply disappear "
+                    "from this list, which is expected).",
+                    fingerprint, app_name, project_key,
+                )
                 result["ineligible"].append({
                     "fingerprint": fingerprint,
                     "reason": "unknown_fingerprint",
@@ -756,7 +835,7 @@ async def create_tickets_batch(
                 })
                 continue
 
-            issue_key = await create_ticket(cfg, finding, app_name, epic_key)
+            issue_key = await create_ticket(cfg, finding, app_name, epic_key, issue_type)
             if not issue_key:
                 result["failed"].append({
                     "fingerprint": fingerprint,
@@ -771,6 +850,7 @@ async def create_tickets_batch(
                 "project_key": project_key,
                 "category": finding.get("category") or "",
                 "epic_key": epic_key,
+                "issue_type": issue_type or cfg.get("issue_type") or "Bug",
                 "finding_id": finding.get("id", ""),
                 "severity": finding.get("severity", ""),
                 "tool": finding.get("tool", ""),
@@ -798,20 +878,37 @@ async def create_tickets_batch(
 # fingerprint stays tracked and lifecycle management keeps working.
 
 async def _issue_exists(cfg: dict, issue_key: str) -> bool:
-    """Return False only on a confirmed 404 (issue deleted). Any other outcome
-    (network error, auth failure, etc.) is treated as 'exists' so transient
-    problems never trigger an unnecessary — and disruptive — recreation.
+    """Return False if the issue is permanently deleted OR sitting in Jira's
+    trash — both make the ticket unusable from a tracking perspective.
+
+    We deliberately use a JQL search rather than `GET /rest/api/3/issue/{key}`:
+    Jira Cloud's issue trash keeps a "deleted" issue retrievable via direct
+    GET (200) for up to ~60 days after a user deletes it from the UI, so a
+    direct GET can't tell a live issue apart from a trashed one. A bare
+    `issuekey = X` JQL clause is known to sometimes bypass Jira's trash
+    filtering too (it resolves via a direct-key-lookup fast path rather than
+    the normal search index); scoping the query with `project = ...` avoids
+    that fast path and reliably excludes trashed/deleted issues.
+
+    Any other outcome (network error, auth failure, non-200/400 response) is
+    treated as 'exists' so transient problems never trigger an unnecessary —
+    and disruptive — recreation.
     """
+    project_key = (cfg.get("project_key") or issue_key.split("-")[0]).strip()
+    jql = f'project = "{project_key}" AND key = "{issue_key}"' if project_key else f'key = "{issue_key}"'
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.get(
-                f"{_base(cfg)}/rest/api/3/issue/{issue_key}?fields=key",
+                f"{_base(cfg)}/rest/api/3/search/jql",
                 auth=_auth(cfg),
                 headers={"Accept": "application/json"},
+                params={"jql": jql, "fields": "key", "maxResults": 1},
             )
         if r.status_code == 404:
             return False
-        return True
+        if r.status_code != 200:
+            return True
+        return bool(r.json().get("issues"))
     except Exception:
         return True
 
@@ -850,8 +947,9 @@ async def reassign_orphaned_tickets(
             "tool": entry.get("tool", ""),
         }
         epic_key = entry.get("epic_key")
+        issue_type = entry.get("issue_type")
 
-        new_key = await create_ticket(cfg, finding, app_name, epic_key)
+        new_key = await create_ticket(cfg, finding, app_name, epic_key, issue_type)
         if not new_key:
             result["errors"].append(f"Failed to reassign {issue_key}")
             continue

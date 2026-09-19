@@ -1308,6 +1308,7 @@ class JiraTicketCreateRequest(BaseModel):
     fingerprints: List[str]
     epic_key: Optional[str] = None
     epic_name: Optional[str] = None
+    issue_type: Optional[str] = None
 
 
 class JiraProjectKeyRequest(BaseModel):
@@ -1365,6 +1366,9 @@ async def scan_jira_tickets_create(
         raise HTTPException(400, "epic_name contains invalid characters")
     if epic_name and len(epic_name) > 200:
         raise HTTPException(400, "epic_name is too long")
+    issue_type = (body.issue_type or "").strip() or None
+    if issue_type and (re.search(r"[<>\"';&|`$\n\r]", issue_type) or len(issue_type) > 100):
+        raise HTTPException(400, "issue_type is invalid")
 
     scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
     matched = next((directory for directory in scan_dirs if directory.name == scan_id), None)
@@ -1389,7 +1393,7 @@ async def scan_jira_tickets_create(
     if (epic_key or epic_name) and not resolved_epic_key:
         raise HTTPException(502, "Failed to resolve or create the selected Epic")
     result = await jira_client.create_tickets_batch(
-        app_name, findings_by_fingerprint, fingerprints, cfg, resolved_epic_key
+        app_name, findings_by_fingerprint, fingerprints, cfg, resolved_epic_key, issue_type
     )
     _audit(
         request,
@@ -3443,11 +3447,12 @@ async def jira_test(response: Response):
 
 @app.get("/api/scans/{scan_id}/jira-epics")
 async def scan_jira_epics(scan_id: str, response: Response):
-    """List existing Jira Epics for this scan's application/project, plus
-    Epyon's suggested severity-based names for creating a new one.
+    """List existing Jira Epics and issue types for this scan's
+    application/project, plus Epyon's suggested severity-based Epic names.
 
-    Powers the Epic picker shown in the "Create Jira Tickets" modal — always
-    offer real existing Epics first so duplicates aren't created.
+    Powers the Epic + ticket-type pickers shown in the "Create Jira Tickets"
+    modal — always offer real existing Epics/issue types so duplicates
+    aren't created and invalid types aren't submitted.
     """
     _sec_headers(response)
     if not _SAFE_ID_RE.match(scan_id):
@@ -3462,8 +3467,10 @@ async def scan_jira_epics(scan_id: str, response: Response):
     project_key = (cfg.get("project_key") or "").strip()
 
     existing: List[dict] = []
+    issue_types: List[dict] = []
     if project_key and cfg.get("api_token"):
         existing = await jira_client.list_project_epics(cfg, project_key)
+        issue_types = await jira_client.list_project_issue_types(cfg, project_key)
 
     return {
         "project_key": project_key,
@@ -3472,6 +3479,8 @@ async def scan_jira_epics(scan_id: str, response: Response):
             {"label": label, "name": jira_client.suggested_epic_name(label)}
             for label in jira_client.SEVERITY_EPIC_LABELS
         ],
+        "issue_types": issue_types,
+        "default_issue_type": cfg.get("issue_type") or "Bug",
     }
 
 

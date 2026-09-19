@@ -128,6 +128,81 @@ def test_resolve_epic_selection_returns_none_when_nothing_chosen(repo_root):
     assert result is None
 
 
+def test_list_project_issue_types_excludes_subtasks(repo_root, monkeypatch):
+    jira_client = _load_jira_client(repo_root)
+
+    class FakeResponse:
+        status_code = 200
+        def json(self):
+            return {
+                "issueTypes": [
+                    {"id": "1", "name": "Task", "subtask": False},
+                    {"id": "2", "name": "Bug", "subtask": False},
+                    {"id": "3", "name": "Sub-task", "subtask": True},
+                ]
+            }
+
+    class FakeClient:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): return False
+        async def get(self, url, **kwargs):
+            assert url.endswith("/issue/createmeta/MID/issuetypes")
+            return FakeResponse()
+
+    monkeypatch.setattr(jira_client.httpx, "AsyncClient", lambda **kwargs: FakeClient())
+    cfg = {"base_url": "https://x.atlassian.net", "email": "a@b.com", "api_token": "t"}
+    types = asyncio.run(jira_client.list_project_issue_types(cfg, "MID"))
+    assert types == [{"id": "1", "name": "Task"}, {"id": "2", "name": "Bug"}]
+
+
+def test_resolve_issue_type_falls_back_when_configured_type_invalid(repo_root, monkeypatch):
+    """Reproduces the real failure: a project whose issue type scheme has no
+    "Bug" type rejects every ticket with 400 'Specify a valid issue type'."""
+    jira_client = _load_jira_client(repo_root)
+
+    async def fake_list_types(cfg, project_key):
+        return [{"id": "1", "name": "Task"}, {"id": "2", "name": "Story"}]
+
+    monkeypatch.setattr(jira_client, "list_project_issue_types", fake_list_types)
+    cfg = {"base_url": "https://x.atlassian.net", "email": "a@b.com", "api_token": "t"}
+    result = asyncio.run(jira_client._resolve_issue_type(cfg, "MID", "Bug"))
+    assert result == "Task"  # falls back to the project's first valid type
+
+
+def test_resolve_issue_type_keeps_valid_configured_type(repo_root, monkeypatch):
+    jira_client = _load_jira_client(repo_root)
+
+    async def fake_list_types(cfg, project_key):
+        return [{"id": "1", "name": "Task"}, {"id": "2", "name": "Bug"}]
+
+    monkeypatch.setattr(jira_client, "list_project_issue_types", fake_list_types)
+    cfg = {"base_url": "https://x.atlassian.net", "email": "a@b.com", "api_token": "t"}
+    result = asyncio.run(jira_client._resolve_issue_type(cfg, "MID", "bug"))  # case-insensitive
+    assert result == "bug"
+
+
+def test_create_tickets_batch_passes_issue_type_through(repo_root, tmp_path, monkeypatch):
+    jira_client = _load_jira_client(repo_root)
+    monkeypatch.setattr(jira_client, "_TICKETS_FILE", tmp_path / "jira-tickets.json")
+    monkeypatch.setattr(jira_client, "_RECONCILE_LOCK", None)
+
+    seen = []
+
+    async def fake_create_ticket(cfg, finding, app_name, epic_key=None, issue_type=None):
+        seen.append(issue_type)
+        return f"SEC-{finding['id']}"
+
+    monkeypatch.setattr(jira_client, "create_ticket", fake_create_ticket)
+    findings = {"one": {"id": "CVE-1", "tool": "Grype", "severity": "high"}}
+    cfg = {"project_key": "SEC"}
+
+    result = asyncio.run(
+        jira_client.create_tickets_batch("example", findings, ["one"], cfg, None, "Task")
+    )
+    assert seen == ["Task"]
+    assert jira_client.read_ticket_map()["one"]["issue_type"] == "Task"
+
+
 def test_create_ticket_links_to_epic_when_provided(repo_root, monkeypatch):
     jira_client = _load_jira_client(repo_root)
 
@@ -175,7 +250,7 @@ def test_create_tickets_batch_links_every_ticket_to_the_same_epic(
 
     seen_epic_keys = []
 
-    async def fake_create_ticket(cfg, finding, app_name, epic_key=None):
+    async def fake_create_ticket(cfg, finding, app_name, epic_key=None, issue_type=None):
         seen_epic_keys.append(epic_key)
         return f"SEC-{finding['id']}"
 
@@ -198,13 +273,71 @@ def test_create_tickets_batch_links_every_ticket_to_the_same_epic(
     assert saved["two"]["epic_key"] == "SEC-777"
 
 
+def test_issue_exists_true_for_live_issue_via_search(repo_root, monkeypatch):
+    jira_client = _load_jira_client(repo_root)
+
+    class FakeResponse:
+        status_code = 200
+        def json(self):
+            return {"issues": [{"key": "MID-3078"}]}
+
+    class FakeClient:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): return False
+        async def get(self, url, **kwargs):
+            assert kwargs["params"]["jql"] == 'project = "MID" AND key = "MID-3078"'
+            return FakeResponse()
+
+    monkeypatch.setattr(jira_client.httpx, "AsyncClient", lambda **kwargs: FakeClient())
+    assert asyncio.run(jira_client._issue_exists({"base_url": "https://x.atlassian.net", "email": "a@b.com", "api_token": "t"}, "MID-3078")) is True
+
+
+def test_issue_exists_false_for_trashed_issue_excluded_from_search(repo_root, monkeypatch):
+    """Jira Cloud's trash keeps a "deleted" issue retrievable via direct GET
+    for ~60 days, but JQL search excludes it immediately — this is why
+    `_issue_exists` uses search rather than a direct issue GET."""
+    jira_client = _load_jira_client(repo_root)
+
+    class FakeResponse:
+        status_code = 200
+        def json(self):
+            return {"issues": []}  # trashed: excluded from search results
+
+    class FakeClient:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): return False
+        async def get(self, url, **kwargs):
+            return FakeResponse()
+
+    monkeypatch.setattr(jira_client.httpx, "AsyncClient", lambda **kwargs: FakeClient())
+    assert asyncio.run(jira_client._issue_exists({"base_url": "https://x.atlassian.net", "email": "a@b.com", "api_token": "t"}, "MID-3078")) is False
+
+
+def test_issue_exists_true_on_error_response(repo_root, monkeypatch):
+    jira_client = _load_jira_client(repo_root)
+
+    class FakeResponse:
+        status_code = 500
+        def json(self):
+            return {}
+
+    class FakeClient:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *args): return False
+        async def get(self, url, **kwargs):
+            return FakeResponse()
+
+    monkeypatch.setattr(jira_client.httpx, "AsyncClient", lambda **kwargs: FakeClient())
+    assert asyncio.run(jira_client._issue_exists({"base_url": "https://x.atlassian.net", "email": "a@b.com", "api_token": "t"}, "MID-3078")) is True
+
+
 def test_reassign_orphaned_tickets_recreates_deleted_issue(repo_root, monkeypatch):
     jira_client = _load_jira_client(repo_root)
 
     async def fake_issue_exists(cfg, issue_key):
         return issue_key != "SEC-1"  # SEC-1 was deleted
 
-    async def fake_create_ticket(cfg, finding, app_name, epic_key=None):
+    async def fake_create_ticket(cfg, finding, app_name, epic_key=None, issue_type=None):
         assert finding["id"] == "CVE-1"  # rebuilt from finding_snapshot
         assert epic_key == "SEC-999"  # reuses the epic recorded at creation time
         return "SEC-2"

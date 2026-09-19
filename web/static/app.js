@@ -7553,23 +7553,41 @@ async function jiraReviewCheckDeleted() {
   const state = _jiraReviewState;
   if (!state || state.submitting) return;
   const button = document.getElementById('jira-review-reassign');
-  const statusEl = document.getElementById('jira-review-reassign-status');
   button.disabled = true;
   button.textContent = 'Checking…';
-  if (statusEl) statusEl.textContent = '';
+  const prevStatusEl = document.getElementById('jira-review-reassign-status');
+  if (prevStatusEl) prevStatusEl.textContent = '';
+  let message = '';
+  let isError = false;
   try {
     const result = await api.reassignJiraTickets(state.data.app_name);
-    if (statusEl) {
-      statusEl.textContent = result.reassigned.length
-        ? `Checked ${result.checked} ticket(s) — recreated ${result.reassigned.length} deleted ticket(s).`
-        : `Checked ${result.checked} ticket(s) — none were deleted.`;
+    message = result.reassigned.length
+      ? `Checked ${result.checked} ticket(s) — recreated ${result.reassigned.length} deleted ticket(s): ` +
+        result.reassigned.map(r => `${r.old} → ${r.new}`).join(', ') + '.'
+      : `Checked ${result.checked} ticket(s) — none were deleted.`;
+    if (result.errors && result.errors.length) {
+      message += ` ${result.errors.length} error(s): ${result.errors.join('; ')}`;
+      isError = true;
     }
+    // renderJiraReview() fully replaces the page DOM (including this status
+    // element) to reload the refreshed candidate/ticket list, so the status
+    // text must be (re-)applied to the *new* element afterwards — setting it
+    // beforehand gets silently wiped out by the re-render.
     await renderJiraReview(state.scanId);
   } catch (error) {
-    if (statusEl) statusEl.textContent = `Error: ${error.message}`;
+    message = `Error: ${error.message}`;
+    isError = true;
   } finally {
-    button.disabled = false;
-    button.textContent = 'Check for Deleted Tickets';
+    const statusEl = document.getElementById('jira-review-reassign-status');
+    if (statusEl) {
+      statusEl.textContent = message;
+      statusEl.style.color = isError ? 'var(--danger, #dc2626)' : '';
+    }
+    const freshButton = document.getElementById('jira-review-reassign');
+    if (freshButton) {
+      freshButton.disabled = false;
+      freshButton.textContent = 'Check for Deleted Tickets';
+    }
   }
 }
 
@@ -7589,12 +7607,12 @@ async function showJiraEpicModal() {
   overlay.innerHTML = `
     <div class="modal-container" style="max-width:520px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <h2 style="color:var(--text);margin:0">Assign a Jira Epic</h2>
+        <h2 style="color:var(--text);margin:0">Create Jira Tickets</h2>
         <button class="btn" onclick="this.closest('.modal-overlay').remove()" style="padding:6px 12px">✕</button>
       </div>
       <p style="color:var(--text-muted);font-size:13px;margin:0 0 16px">
-        Creating ${selectedCount} ticket${selectedCount === 1 ? '' : 's'} for this scan. Pick an existing Epic
-        from Jira, create a new one, or leave unassigned.
+        Creating ${selectedCount} ticket${selectedCount === 1 ? '' : 's'} for this scan. Pick a ticket type,
+        and optionally an Epic to link them to.
       </p>
       <div id="jira-epic-modal-body">${loading()}</div>
       <div class="modal-actions" style="margin-top:20px;display:flex;justify-content:flex-end;gap:10px">
@@ -7609,12 +7627,22 @@ async function showJiraEpicModal() {
 
   try {
     const epics = await api.getScanJiraEpics(state.scanId);
-    _jiraEpicModalState = { existing: epics.existing || [], suggested: epics.suggested || [], choice: null };
+    _jiraEpicModalState = {
+      existing: epics.existing || [],
+      suggested: epics.suggested || [],
+      choice: null,
+      issueTypes: epics.issue_types || [],
+      defaultIssueType: epics.default_issue_type || 'Bug',
+      issueType: epics.default_issue_type || 'Bug',
+    };
     renderJiraEpicModalBody();
   } catch (error) {
     document.getElementById('jira-epic-modal-body').innerHTML =
       `<div class="alert alert-warning">Could not load existing Epics: ${esc(error.message)}. You can still create tickets unassigned or create a new Epic.</div>`;
-    _jiraEpicModalState = { existing: [], suggested: [], choice: null };
+    _jiraEpicModalState = {
+      existing: [], suggested: [], choice: null,
+      issueTypes: [], defaultIssueType: 'Bug', issueType: 'Bug',
+    };
     renderJiraEpicModalBody();
   }
 }
@@ -7623,8 +7651,21 @@ function renderJiraEpicModalBody() {
   const body = document.getElementById('jira-epic-modal-body');
   if (!body) return;
   const state = _jiraEpicModalState;
+  const hasIssueTypes = state.issueTypes.length > 0;
   body.innerHTML = `
     <div style="display:grid;gap:14px">
+      <div>
+        <label class="field-label">Ticket type</label>
+        <select id="jira-issue-type-select" class="field-input" onchange="jiraEpicModalPickIssueType(this.value)"
+          ${hasIssueTypes ? '' : 'disabled'}>
+          ${hasIssueTypes
+            ? state.issueTypes.map(t => `<option value="${esc(t.name)}" ${t.name === state.issueType ? 'selected' : ''}>${esc(t.name)}</option>`).join('')
+            : `<option>${esc(state.defaultIssueType)}</option>`}
+        </select>
+        ${hasIssueTypes
+          ? ''
+          : `<div style="font-size:12px;color:var(--text-muted);margin-top:4px">Could not load this project's ticket types — using the configured default (${esc(state.defaultIssueType)}).</div>`}
+      </div>
       <div>
         <label class="field-label">Use an existing Epic</label>
         <select id="jira-epic-existing-select" class="field-input" onchange="jiraEpicModalPickExisting(this.value)">
@@ -7643,6 +7684,12 @@ function renderJiraEpicModalBody() {
       </div>
       <div id="jira-epic-modal-selection" style="font-size:13px;color:var(--text-muted)">No Epic selected — tickets will be created unassigned.</div>
     </div>`;
+}
+
+function jiraEpicModalPickIssueType(name) {
+  const state = _jiraEpicModalState;
+  if (!state) return;
+  state.issueType = name;
 }
 
 function jiraEpicModalPickExisting(epicKey) {
@@ -7715,7 +7762,11 @@ function jiraEpicModalUpdateSelectionText() {
 async function jiraReviewCreateTicketsConfirmed() {
   const state = _jiraReviewState;
   if (!state || state.submitting || state.selected.size === 0) return;
-  const epicChoice = _jiraEpicModalState?.choice || {};
+  const modalState = _jiraEpicModalState;
+  const requestExtras = {
+    ...(modalState?.choice || {}),
+    ...(modalState?.issueType ? { issue_type: modalState.issueType } : {}),
+  };
   const selected = [...state.selected];
   document.querySelector('.modal-overlay')?.remove();
 
@@ -7724,14 +7775,19 @@ async function jiraReviewCreateTicketsConfirmed() {
   const button = document.getElementById('jira-review-create');
   if (button) button.textContent = 'Creating tickets…';
   const failed = new Set();
+  const reasonCounts = {};
   let created = 0;
   let existing = 0;
   try {
     for (let index = 0; index < selected.length; index += 200) {
-      const result = await api.createJiraTickets(state.scanId, selected.slice(index, index + 200), epicChoice);
+      const result = await api.createJiraTickets(state.scanId, selected.slice(index, index + 200), requestExtras);
       created += result.created.length;
       existing += result.already_exists.length;
-      result.failed.concat(result.ineligible).forEach(item => failed.add(item.fingerprint));
+      result.failed.concat(result.ineligible).forEach(item => {
+        failed.add(item.fingerprint);
+        const reason = item.reason || 'unknown';
+        reasonCounts[reason] = (reasonCounts[reason] || 0) + 1;
+      });
       if (button) button.textContent = `Creating ${Math.min(index + 200, selected.length)} of ${selected.length}…`;
     }
     const data = await api.getJiraCandidates(state.scanId);
@@ -7739,7 +7795,18 @@ async function jiraReviewCreateTicketsConfirmed() {
     state.selected = failed;
     state.submitting = false;
     renderJiraReviewPage();
-    alert(`Created ${created} ticket${created === 1 ? '' : 's'}. ${existing} already existed. ${failed.size} failed or became ineligible.`);
+    const reasonLabels = {
+      unknown_fingerprint: 'no longer eligible in this scan (e.g. remediated, or its fingerprint changed)',
+      suppressed: 'suppressed by an ignore rule',
+      jira_creation_failed: 'rejected by Jira (see server logs for the exact API error)',
+    };
+    const reasonText = Object.entries(reasonCounts)
+      .map(([reason, count]) => `${count} ${reasonLabels[reason] || reason}`)
+      .join('; ');
+    alert(
+      `Created ${created} ticket${created === 1 ? '' : 's'}. ${existing} already existed. ` +
+      `${failed.size} failed or became ineligible${reasonText ? ` (${reasonText})` : ''}.`
+    );
   } catch (error) {
     state.submitting = false;
     if (button) button.textContent = 'Create Jira Tickets';

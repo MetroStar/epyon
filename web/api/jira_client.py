@@ -148,54 +148,48 @@ def write_ticket_map(tmap: dict) -> None:
     temporary.replace(_TICKETS_FILE)
 
 
-# ── Epic management ───────────────────────────────────────────
-# Epyon groups tickets into one Jira Epic per finding category (vulnerability /
-# misconfiguration / ml). Epyon creates and owns these Epics — the admin only
-# picks a display color used to badge findings/tickets in the Epyon UI; the
-# Epic itself lives in Jira like any other issue and can be viewed there too.
+# ── Epic lookup & linking ─────────────────────────────────────
+# Epic assignment is chosen per ticket-creation batch (i.e. per scan, when
+# the user clicks "Create Jira Tickets") rather than persisted globally.
+# The severity-based Epics below are just suggested names for a "create new"
+# option — Epyon always lets the user pick from Jira's real existing Epics
+# first so duplicates aren't created.
 
-EPIC_CATEGORIES = ("vulnerability", "misconfiguration", "ml")
-_DEFAULT_EPIC_NAMES = {
-    "vulnerability": "Epyon - Vulnerabilities",
-    "misconfiguration": "Epyon - Misconfigurations",
-    "ml": "Epyon - ML/AI Security",
-}
-_DEFAULT_EPIC_COLORS = {
-    "vulnerability": "#e74c3c",
-    "misconfiguration": "#f39c12",
-    "ml": "#8e44ad",
-}
+SEVERITY_EPIC_LABELS = ("Critical", "High", "Medium", "Low")
 
 
-def _load_file_cfg() -> dict:
-    """Read the raw on-disk config file (no env overlay, no secrets stripped)."""
-    try:
-        if _CONFIG_FILE.exists():
-            loaded = json.loads(_CONFIG_FILE.read_text(encoding="utf-8"))
-            if isinstance(loaded, dict):
-                return loaded
-    except Exception:
-        pass
-    return {}
+def suggested_epic_name(severity_label: str) -> str:
+    """Default name offered when the user chooses to create a new Epic."""
+    return f"Epyon {severity_label}"
 
 
-def get_epics(project_key: str) -> dict:
-    """Return {category: {epic_key, name, color}} for one Jira project.
-
-    Categories without an assignment yet are included with epic_key=None so
-    the UI can render all three rows even before anything has been created.
+async def list_project_epics(cfg: dict, project_key: str) -> list[dict]:
+    """Return existing Epic issues in a Jira project as [{key, summary}, ...],
+    newest first. Used to populate the Epic picker so users can reuse an
+    existing Epic instead of creating a duplicate.
     """
-    file_cfg = _load_file_cfg()
-    stored = ((file_cfg.get("epics") or {}).get(project_key) or {})
-    result: dict = {}
-    for category in EPIC_CATEGORIES:
-        record = stored.get(category) or {}
-        result[category] = {
-            "epic_key": record.get("epic_key"),
-            "name": record.get("name") or _DEFAULT_EPIC_NAMES[category],
-            "color": record.get("color") or _DEFAULT_EPIC_COLORS[category],
-        }
-    return result
+    if not project_key:
+        return []
+    jql = f'project = "{project_key}" AND issuetype = Epic ORDER BY created DESC'
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(
+                # NOTE: the legacy `/rest/api/3/search` endpoint was removed by
+                # Atlassian on 2025-08-01; `/rest/api/3/search/jql` is its
+                # replacement (same JQL semantics, `nextPageToken` pagination).
+                f"{_base(cfg)}/rest/api/3/search/jql",
+                auth=_auth(cfg),
+                headers={"Accept": "application/json"},
+                params={"jql": jql, "fields": "summary", "maxResults": 100},
+            )
+        if r.status_code != 200:
+            return []
+        return [
+            {"key": issue.get("key"), "summary": (issue.get("fields") or {}).get("summary", "")}
+            for issue in r.json().get("issues", [])
+        ]
+    except Exception:
+        return []
 
 
 _FIELD_CACHE: dict[str, dict] = {}  # base_url → {"epic_link": id|None, "epic_name": id|None}
@@ -232,7 +226,7 @@ async def _discover_epic_fields(cfg: dict) -> dict:
     return result
 
 
-async def _create_epic_issue(cfg: dict, project_key: str, name: str) -> str | None:
+async def create_epic(cfg: dict, project_key: str, name: str) -> str | None:
     """Create a new Epic issue in Jira and return its issue key, or None on failure."""
     fields: dict[str, Any] = {
         "project": {"key": project_key},
@@ -285,43 +279,35 @@ async def link_issue_to_epic(cfg: dict, issue_key: str, epic_key: str) -> bool:
     return False
 
 
-async def assign_epic(
+async def resolve_epic_selection(
     cfg: dict,
     project_key: str,
-    category: str,
-    color: str,
-    name: str | None = None,
-) -> dict:
-    """Get-or-create the Epyon-managed Epic for (project_key, category) and
-    persist the chosen display color. Creates the Epic in Jira on first use.
+    epic_key: str | None,
+    epic_name: str | None,
+) -> str | None:
+    """Resolve a ticket-creation request's Epic choice to a concrete key.
+
+    - epic_key given → use it directly (user picked an existing Epic).
+    - epic_name given (no epic_key) → reuse an existing Epic whose summary
+      starts with that name (case-insensitive), else create a new one. This
+      guards against duplicate Epics if a client resubmits a "create" choice
+      for a name that already exists (e.g. re-clicking a quick-create button).
+    - neither given → no Epic (tickets created unassigned).
     """
-    if category not in EPIC_CATEGORIES:
-        raise ValueError(f"Unknown category: {category}")
-    if not re.fullmatch(r"#[0-9a-fA-F]{6}", color or ""):
-        raise ValueError("color must be a #rrggbb hex value")
-
-    file_cfg = _load_file_cfg()
-    epics = file_cfg.setdefault("epics", {})
-    proj_epics = epics.setdefault(project_key, {})
-    record = dict(proj_epics.get(category) or {})
-
-    display_name = (name or record.get("name") or _DEFAULT_EPIC_NAMES[category]).strip()
-    if not record.get("epic_key"):
-        epic_key = await _create_epic_issue(cfg, project_key, display_name)
-        if not epic_key:
-            raise RuntimeError("Failed to create Epic issue in Jira")
-        record["epic_key"] = epic_key
-
-    record["name"] = display_name
-    record["color"] = color
-    proj_epics[category] = record
-    epics[project_key] = proj_epics
-    file_cfg["epics"] = epics
-    write_config(file_cfg)
-    return {"category": category, **record}
+    if epic_key:
+        return epic_key
+    name = (epic_name or "").strip()
+    if name:
+        needle = name.lower()
+        for epic in await list_project_epics(cfg, project_key):
+            if (epic.get("summary") or "").strip().lower().startswith(needle):
+                return epic.get("key")
+        return await create_epic(cfg, project_key, name)
+    return None
 
 
 # ── Finding fingerprint ───────────────────────────────────────
+
 
 def _norm_path(v: str) -> str:
     """Reduce absolute paths to their last components for fingerprint stability.
@@ -729,8 +715,14 @@ async def create_tickets_batch(
     findings_by_fingerprint: dict[str, dict],
     requested_fingerprints: list[str],
     cfg: dict,
+    epic_key: str | None = None,
 ) -> dict:
-    """Create selected Jira tickets idempotently and persist each success."""
+    """Create selected Jira tickets idempotently and persist each success.
+
+    If epic_key is given, every ticket created in this batch is linked to it
+    (the caller resolves the user's Epic choice — existing or newly created —
+    once per batch via resolve_epic_selection()).
+    """
     result = {
         "requested": len(requested_fingerprints),
         "created": [],
@@ -764,10 +756,6 @@ async def create_tickets_batch(
                 })
                 continue
 
-            category = finding.get("category") or ""
-            epic = get_epics(project_key).get(category) if category else None
-            epic_key = epic.get("epic_key") if epic else None
-
             issue_key = await create_ticket(cfg, finding, app_name, epic_key)
             if not issue_key:
                 result["failed"].append({
@@ -781,7 +769,7 @@ async def create_tickets_batch(
                 "issue_key": issue_key,
                 "app": app_name,
                 "project_key": project_key,
-                "category": category,
+                "category": finding.get("category") or "",
                 "epic_key": epic_key,
                 "finding_id": finding.get("id", ""),
                 "severity": finding.get("severity", ""),
@@ -861,9 +849,7 @@ async def reassign_orphaned_tickets(
             "severity": entry.get("severity", ""),
             "tool": entry.get("tool", ""),
         }
-        category = entry.get("category") or ""
-        epic = get_epics(project_key).get(category) if category else None
-        epic_key = epic.get("epic_key") if epic else entry.get("epic_key")
+        epic_key = entry.get("epic_key")
 
         new_key = await create_ticket(cfg, finding, app_name, epic_key)
         if not new_key:

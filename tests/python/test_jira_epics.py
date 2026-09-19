@@ -1,4 +1,4 @@
-"""Tests for Jira Epic assignment and orphaned-ticket reassignment."""
+"""Tests for Jira Epic selection (per-scan) and orphaned-ticket reassignment."""
 from __future__ import annotations
 
 import asyncio
@@ -20,74 +20,112 @@ def _load_jira_client(repo_root: Path):
     return module
 
 
-def test_get_epics_returns_defaults_when_unassigned(repo_root, tmp_path, monkeypatch):
+def test_suggested_epic_names_cover_all_severities(repo_root):
     jira_client = _load_jira_client(repo_root)
-    monkeypatch.setattr(jira_client, "_CONFIG_FILE", tmp_path / "jira-config.json")
-
-    epics = jira_client.get_epics("SEC")
-
-    assert set(epics) == set(jira_client.EPIC_CATEGORIES)
-    for category, record in epics.items():
-        assert record["epic_key"] is None
-        assert record["color"]
-        assert record["name"]
+    names = [jira_client.suggested_epic_name(label) for label in jira_client.SEVERITY_EPIC_LABELS]
+    assert names == ["Epyon Critical", "Epyon High", "Epyon Medium", "Epyon Low"]
 
 
-def test_assign_epic_creates_issue_and_persists_color(repo_root, tmp_path, monkeypatch):
+def test_list_project_epics_returns_existing_epics(repo_root, monkeypatch):
     jira_client = _load_jira_client(repo_root)
-    monkeypatch.setattr(jira_client, "_CONFIG_FILE", tmp_path / "jira-config.json")
 
-    async def fake_create_epic_issue(cfg, project_key, name):
-        return "SEC-500"
+    class FakeResponse:
+        status_code = 200
 
-    monkeypatch.setattr(jira_client, "_create_epic_issue", fake_create_epic_issue)
+        def json(self):
+            return {
+                "issues": [
+                    {"key": "IRIS-2603", "fields": {"summary": "Epyon Critical Security Findings - iris"}},
+                    {"key": "IRIS-2579", "fields": {"summary": "Epyon High Security Findings - iris"}},
+                ]
+            }
 
-    record = asyncio.run(
-        jira_client.assign_epic({}, "SEC", "vulnerability", "#123456")
+    class FakeClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def get(self, url, **kwargs):
+            assert "search" in url
+            assert kwargs["params"]["jql"].startswith('project = "IRIS"')
+            return FakeResponse()
+
+    monkeypatch.setattr(jira_client.httpx, "AsyncClient", lambda **kwargs: FakeClient())
+
+    epics = asyncio.run(jira_client.list_project_epics(
+        {"base_url": "https://x.atlassian.net", "email": "a@b.com", "api_token": "t"}, "IRIS"
+    ))
+
+    assert epics == [
+        {"key": "IRIS-2603", "summary": "Epyon Critical Security Findings - iris"},
+        {"key": "IRIS-2579", "summary": "Epyon High Security Findings - iris"},
+    ]
+
+
+def test_list_project_epics_returns_empty_without_project_key(repo_root):
+    jira_client = _load_jira_client(repo_root)
+    assert asyncio.run(jira_client.list_project_epics({}, "")) == []
+
+
+def test_resolve_epic_selection_prefers_existing_key(repo_root, monkeypatch):
+    jira_client = _load_jira_client(repo_root)
+
+    async def fail_if_called(cfg, project_key, name):
+        raise AssertionError("should not create a new epic when epic_key is given")
+
+    monkeypatch.setattr(jira_client, "create_epic", fail_if_called)
+
+    result = asyncio.run(
+        jira_client.resolve_epic_selection({}, "SEC", "SEC-101", "Epyon Critical")
     )
-
-    assert record["epic_key"] == "SEC-500"
-    assert record["color"] == "#123456"
-
-    # Persisted — a second read (fresh call) sees the same assignment and does
-    # not attempt to recreate the epic.
-    epics = jira_client.get_epics("SEC")
-    assert epics["vulnerability"]["epic_key"] == "SEC-500"
-    assert epics["vulnerability"]["color"] == "#123456"
+    assert result == "SEC-101"
 
 
-def test_assign_epic_updates_color_without_recreating_existing_epic(
-    repo_root, tmp_path, monkeypatch
-):
+def test_resolve_epic_selection_creates_when_only_name_given(repo_root, monkeypatch):
     jira_client = _load_jira_client(repo_root)
-    monkeypatch.setattr(jira_client, "_CONFIG_FILE", tmp_path / "jira-config.json")
 
-    calls = []
+    async def fake_create_epic(cfg, project_key, name):
+        assert project_key == "SEC"
+        assert name == "Epyon Critical"
+        return "SEC-900"
 
-    async def fake_create_epic_issue(cfg, project_key, name):
-        calls.append(name)
-        return "SEC-501"
+    monkeypatch.setattr(jira_client, "create_epic", fake_create_epic)
 
-    monkeypatch.setattr(jira_client, "_create_epic_issue", fake_create_epic_issue)
-
-    asyncio.run(jira_client.assign_epic({}, "SEC", "ml", "#111111"))
-    asyncio.run(jira_client.assign_epic({}, "SEC", "ml", "#222222"))
-
-    assert len(calls) == 1  # Epic only created once
-    epics = jira_client.get_epics("SEC")
-    assert epics["ml"]["epic_key"] == "SEC-501"
-    assert epics["ml"]["color"] == "#222222"
+    result = asyncio.run(
+        jira_client.resolve_epic_selection({}, "SEC", None, "Epyon Critical")
+    )
+    assert result == "SEC-900"
 
 
-def test_assign_epic_rejects_invalid_color(repo_root, tmp_path, monkeypatch):
+def test_resolve_epic_selection_reuses_existing_epic_matching_name(repo_root, monkeypatch):
+    """Re-submitting a quick-create name that already exists in Jira must reuse
+    the existing Epic instead of creating a duplicate."""
     jira_client = _load_jira_client(repo_root)
-    monkeypatch.setattr(jira_client, "_CONFIG_FILE", tmp_path / "jira-config.json")
 
-    try:
-        asyncio.run(jira_client.assign_epic({}, "SEC", "vulnerability", "red"))
-        assert False, "expected ValueError"
-    except ValueError:
-        pass
+    async def fake_list_project_epics(cfg, project_key):
+        return [
+            {"key": "IRIS-2579", "summary": "Epyon High Security Findings - iris"},
+            {"key": "IRIS-2603", "summary": "Epyon Critical Security Findings - iris"},
+        ]
+
+    async def fail_if_called(cfg, project_key, name):
+        raise AssertionError("should not create a duplicate epic when a name match exists")
+
+    monkeypatch.setattr(jira_client, "list_project_epics", fake_list_project_epics)
+    monkeypatch.setattr(jira_client, "create_epic", fail_if_called)
+
+    result = asyncio.run(
+        jira_client.resolve_epic_selection({}, "IRIS", None, "Epyon High")
+    )
+    assert result == "IRIS-2579"
+
+
+def test_resolve_epic_selection_returns_none_when_nothing_chosen(repo_root):
+    jira_client = _load_jira_client(repo_root)
+    result = asyncio.run(jira_client.resolve_epic_selection({}, "SEC", None, None))
+    assert result is None
 
 
 def test_create_ticket_links_to_epic_when_provided(repo_root, monkeypatch):
@@ -128,6 +166,38 @@ def test_create_ticket_links_to_epic_when_provided(repo_root, monkeypatch):
     assert linked == {"issue_key": "SEC-42", "epic_key": "SEC-101"}
 
 
+def test_create_tickets_batch_links_every_ticket_to_the_same_epic(
+    repo_root, tmp_path, monkeypatch
+):
+    jira_client = _load_jira_client(repo_root)
+    monkeypatch.setattr(jira_client, "_TICKETS_FILE", tmp_path / "jira-tickets.json")
+    monkeypatch.setattr(jira_client, "_RECONCILE_LOCK", None)
+
+    seen_epic_keys = []
+
+    async def fake_create_ticket(cfg, finding, app_name, epic_key=None):
+        seen_epic_keys.append(epic_key)
+        return f"SEC-{finding['id']}"
+
+    monkeypatch.setattr(jira_client, "create_ticket", fake_create_ticket)
+
+    findings = {
+        "one": {"id": "CVE-1", "tool": "Grype", "severity": "high"},
+        "two": {"id": "CVE-2", "tool": "Trivy", "severity": "critical"},
+    }
+    cfg = {"project_key": "SEC"}
+
+    result = asyncio.run(
+        jira_client.create_tickets_batch("example", findings, ["one", "two"], cfg, "SEC-777")
+    )
+
+    assert seen_epic_keys == ["SEC-777", "SEC-777"]
+    assert {c["issue_key"] for c in result["created"]} == {"SEC-CVE-1", "SEC-CVE-2"}
+    saved = jira_client.read_ticket_map()
+    assert saved["one"]["epic_key"] == "SEC-777"
+    assert saved["two"]["epic_key"] == "SEC-777"
+
+
 def test_reassign_orphaned_tickets_recreates_deleted_issue(repo_root, monkeypatch):
     jira_client = _load_jira_client(repo_root)
 
@@ -136,15 +206,11 @@ def test_reassign_orphaned_tickets_recreates_deleted_issue(repo_root, monkeypatc
 
     async def fake_create_ticket(cfg, finding, app_name, epic_key=None):
         assert finding["id"] == "CVE-1"  # rebuilt from finding_snapshot
-        assert epic_key == "SEC-999"
+        assert epic_key == "SEC-999"  # reuses the epic recorded at creation time
         return "SEC-2"
 
     monkeypatch.setattr(jira_client, "_issue_exists", fake_issue_exists)
     monkeypatch.setattr(jira_client, "create_ticket", fake_create_ticket)
-    monkeypatch.setattr(
-        jira_client, "get_epics",
-        lambda project_key: {"vulnerability": {"epic_key": "SEC-999", "color": "#fff", "name": "Vulns"}},
-    )
 
     ticket_map = {
         "fp-1": {

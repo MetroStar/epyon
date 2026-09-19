@@ -119,6 +119,7 @@ def _audit(request: Request, action: str, detail: str = "") -> None:
 # ── Validation ────────────────────────────────────────────────
 _SAFE_ID_RE      = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_\-.]*$")
 _JIRA_FP_RE      = re.compile(r"^[a-f0-9]{16}\|[^\x00-\x1f]{1,40}$")
+_JIRA_EPIC_KEY_RE = re.compile(r"^[A-Z][A-Z0-9]{0,9}-\d+$")
 _JOB_ID_RE       = re.compile(r"^\d{14}$")
 _APP_SCAN_RE     = re.compile(r"^(.+)_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})$")
 _VALID_SCAN_TYPES = {"quick", "full", "nightly", "baseline", "stig", "local_model"}
@@ -1287,7 +1288,6 @@ def scan_jira_candidates(scan_id: str, response: Response):
         ),
         "jira_base_url": cfg.get("base_url", "").rstrip("/"),
         "project_key": cfg.get("project_key", ""),
-        "epics": jira_client.get_epics(cfg.get("project_key", "")),
         "summary": {
             "total": len(candidates),
             "selectable": selectable,
@@ -1306,6 +1306,8 @@ def scan_jira_candidates(scan_id: str, response: Response):
 
 class JiraTicketCreateRequest(BaseModel):
     fingerprints: List[str]
+    epic_key: Optional[str] = None
+    epic_name: Optional[str] = None
 
 
 class JiraProjectKeyRequest(BaseModel):
@@ -1355,6 +1357,14 @@ async def scan_jira_tickets_create(
         raise HTTPException(400, "A maximum of 200 findings can be submitted at once")
     if any(not _JIRA_FP_RE.fullmatch(fingerprint) for fingerprint in fingerprints):
         raise HTTPException(400, "Invalid fingerprint")
+    epic_key = (body.epic_key or "").strip().upper() or None
+    if epic_key and not _JIRA_EPIC_KEY_RE.fullmatch(epic_key):
+        raise HTTPException(400, "epic_key must look like PROJECT-123")
+    epic_name = (body.epic_name or "").strip() or None
+    if epic_name and re.search(r"[<>\"';&|`$\n\r]", epic_name):
+        raise HTTPException(400, "epic_name contains invalid characters")
+    if epic_name and len(epic_name) > 200:
+        raise HTTPException(400, "epic_name is too long")
 
     scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
     matched = next((directory for directory in scan_dirs if directory.name == scan_id), None)
@@ -1373,8 +1383,13 @@ async def scan_jira_tickets_create(
     findings_by_fingerprint = {
         candidate["fingerprint"]: candidate for candidate in candidates
     }
+    resolved_epic_key = await jira_client.resolve_epic_selection(
+        cfg, cfg["project_key"], epic_key, epic_name
+    )
+    if (epic_key or epic_name) and not resolved_epic_key:
+        raise HTTPException(502, "Failed to resolve or create the selected Epic")
     result = await jira_client.create_tickets_batch(
-        app_name, findings_by_fingerprint, fingerprints, cfg
+        app_name, findings_by_fingerprint, fingerprints, cfg, resolved_epic_key
     )
     _audit(
         request,
@@ -3426,45 +3441,38 @@ async def jira_test(response: Response):
     return result
 
 
-@app.get("/api/jira/epics")
-def jira_epics_get(response: Response):
-    """Return the Epyon-managed Epic assignment (key/name/color) per finding
-    category for the default Jira project."""
+@app.get("/api/scans/{scan_id}/jira-epics")
+async def scan_jira_epics(scan_id: str, response: Response):
+    """List existing Jira Epics for this scan's application/project, plus
+    Epyon's suggested severity-based names for creating a new one.
+
+    Powers the Epic picker shown in the "Create Jira Tickets" modal — always
+    offer real existing Epics first so duplicates aren't created.
+    """
     _sec_headers(response)
-    cfg = jira_client.read_config()
-    project_key = cfg.get("project_key", "")
-    return {"project_key": project_key, "epics": jira_client.get_epics(project_key)}
-
-
-class JiraEpicAssignRequest(BaseModel):
-    category: str
-    color: str
-    name: Optional[str] = None
-
-
-@app.post("/api/jira/epics")
-async def jira_epics_post(body: JiraEpicAssignRequest, request: Request, response: Response):
-    """Assign (creating if necessary) the Epyon-managed Epic for a category
-    and persist its display color."""
-    _sec_headers(response)
-    cfg = jira_client.read_config()
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    matched = next((directory for directory in scan_dirs if directory.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+    scan_data = parsers.load_scan_complete(matched, EPYON_ROOT)
+    app_name = scan_data.get("target") or parsers.parse_dir_name(scan_id)["target"]
+    cfg = jira_client.read_config(app_name)
     project_key = (cfg.get("project_key") or "").strip()
-    if not project_key:
-        raise HTTPException(400, "Set a default Jira project key first")
-    if body.category not in jira_client.EPIC_CATEGORIES:
-        raise HTTPException(400, f"category must be one of {jira_client.EPIC_CATEGORIES}")
-    if not re.fullmatch(r"#[0-9a-fA-F]{6}", body.color or ""):
-        raise HTTPException(400, "color must be a #rrggbb hex value")
-    if not cfg.get("api_token"):
-        raise HTTPException(400, "Jira is not configured — set api_token first")
-    try:
-        record = await jira_client.assign_epic(
-            cfg, project_key, body.category, body.color, body.name
-        )
-    except RuntimeError as exc:
-        raise HTTPException(502, str(exc))
-    _audit(request, "jira_epic_assigned", f"project={project_key} category={body.category}")
-    return record
+
+    existing: List[dict] = []
+    if project_key and cfg.get("api_token"):
+        existing = await jira_client.list_project_epics(cfg, project_key)
+
+    return {
+        "project_key": project_key,
+        "existing": existing,
+        "suggested": [
+            {"label": label, "name": jira_client.suggested_epic_name(label)}
+            for label in jira_client.SEVERITY_EPIC_LABELS
+        ],
+    }
 
 
 @app.get("/api/jira/tickets")

@@ -1287,6 +1287,7 @@ def scan_jira_candidates(scan_id: str, response: Response):
         ),
         "jira_base_url": cfg.get("base_url", "").rstrip("/"),
         "project_key": cfg.get("project_key", ""),
+        "epics": jira_client.get_epics(cfg.get("project_key", "")),
         "summary": {
             "total": len(candidates),
             "selectable": selectable,
@@ -3425,6 +3426,47 @@ async def jira_test(response: Response):
     return result
 
 
+@app.get("/api/jira/epics")
+def jira_epics_get(response: Response):
+    """Return the Epyon-managed Epic assignment (key/name/color) per finding
+    category for the default Jira project."""
+    _sec_headers(response)
+    cfg = jira_client.read_config()
+    project_key = cfg.get("project_key", "")
+    return {"project_key": project_key, "epics": jira_client.get_epics(project_key)}
+
+
+class JiraEpicAssignRequest(BaseModel):
+    category: str
+    color: str
+    name: Optional[str] = None
+
+
+@app.post("/api/jira/epics")
+async def jira_epics_post(body: JiraEpicAssignRequest, request: Request, response: Response):
+    """Assign (creating if necessary) the Epyon-managed Epic for a category
+    and persist its display color."""
+    _sec_headers(response)
+    cfg = jira_client.read_config()
+    project_key = (cfg.get("project_key") or "").strip()
+    if not project_key:
+        raise HTTPException(400, "Set a default Jira project key first")
+    if body.category not in jira_client.EPIC_CATEGORIES:
+        raise HTTPException(400, f"category must be one of {jira_client.EPIC_CATEGORIES}")
+    if not re.fullmatch(r"#[0-9a-fA-F]{6}", body.color or ""):
+        raise HTTPException(400, "color must be a #rrggbb hex value")
+    if not cfg.get("api_token"):
+        raise HTTPException(400, "Jira is not configured — set api_token first")
+    try:
+        record = await jira_client.assign_epic(
+            cfg, project_key, body.category, body.color, body.name
+        )
+    except RuntimeError as exc:
+        raise HTTPException(502, str(exc))
+    _audit(request, "jira_epic_assigned", f"project={project_key} category={body.category}")
+    return record
+
+
 @app.get("/api/jira/tickets")
 def jira_tickets_list(response: Response):
     _sec_headers(response)
@@ -3433,6 +3475,19 @@ def jira_tickets_list(response: Response):
     entries = list(tmap.values())
     entries.sort(key=lambda e: e.get("created_at", ""), reverse=True)
     return {"total": len(entries), "tickets": entries}
+
+
+@app.post("/api/jira/reassign/{app_name}")
+async def jira_reassign_app(app_name: str, response: Response):
+    """Check this application's tracked tickets for deleted Jira issues and
+    recreate any that were removed out-of-band."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(app_name):
+        raise HTTPException(400, "Invalid app_name")
+    cfg = jira_client.read_config(app_name)
+    if not cfg.get("api_token"):
+        raise HTTPException(400, "Jira is not configured — set api_token first")
+    return await jira_client.reassign_orphaned_and_save(app_name, cfg)
 
 
 @app.post("/api/jira/sync/{app_name}")

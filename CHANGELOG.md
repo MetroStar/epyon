@@ -5,6 +5,12 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.19.0] - 2026-09-19
+
+### Added
+- **Jira Epic assignment with color badges** — Epyon now groups tickets into one Epic per finding category (Vulnerabilities, Misconfigurations, ML/AI Security). Assigning a color in Settings → Jira Epics creates the Epic in Jira on first use (`jira_client.assign_epic()`), and every new ticket in that category is automatically linked to it (`link_issue_to_epic()`, supporting both classic "Epic Link" custom fields and team-managed "parent" linking). The color is an Epyon-only display badge shown next to findings in the Jira Review screen. New endpoints: `GET/POST /api/jira/epics`.
+- **Orphaned Jira ticket reassignment** — if a tracked Jira issue is deleted out-of-band, Epyon detects it (`jira_client.reassign_orphaned_tickets()`) and automatically recreates the ticket (re-linked to its original Epic) using a snapshot of the finding captured at creation time, preserving the same fingerprint and history. Runs automatically on every post-scan/manual sync, and on-demand via a new "Check for Deleted Tickets" button on the Jira Review screen or `POST /api/jira/reassign/{app_name}`.
+
 ## [3.18.0] - 2026-09-19
 
 ### Added

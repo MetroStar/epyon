@@ -153,6 +153,15 @@ function sevBadge(severity, count) {
   return `<span class="sev-badge ${esc(severity)}">${esc(count)} ${ucFirst(severity)}</span>`;
 }
 
+// Small colored dot showing the Jira Epic assigned to a finding category
+// (colors come from Settings → Jira Epics; purely cosmetic in Epyon's UI).
+function jiraEpicBadge(category) {
+  const color = _jiraReviewState?.data?.epics?.[category]?.color;
+  if (!color) return '';
+  return `<span title="Epic color" style="display:inline-block;width:8px;height:8px;border-radius:50%;` +
+    `background:${esc(color)};margin-right:6px;vertical-align:middle"></span>`;
+}
+
 // ── Finding source classification ────────────────────────────
 function findingSource(f) {
   const type = (f.type || '').toLowerCase();
@@ -782,6 +791,9 @@ const api = {
   saveJiraConfig(d)    { return this._post('/api/jira/config', d); },
   testJiraConnection() { return this._post('/api/jira/test', {}); },
   getJiraTickets()     { return this._get('/api/jira/tickets'); },
+  getJiraEpics()       { return this._get('/api/jira/epics'); },
+  saveJiraEpic(d)      { return this._post('/api/jira/epics', d); },
+  reassignJiraTickets(name) { return this._post(`/api/jira/reassign/${encodeURIComponent(name)}`, {}); },
   syncJiraApp(name)    { return this._post(`/api/jira/sync/${encodeURIComponent(name)}`, {}); },
   getJiraCandidates(id) { return this._get(`/api/scans/${encodeURIComponent(id)}/jira-candidates`, false); },
   createJiraTickets(id, fingerprints) {
@@ -5667,7 +5679,7 @@ async function renderSettings() {
   page.innerHTML = loading();
 
   try {
-    const [images, history, ghCfg, aiCfg, nvdCfg, health, jiraCfg, mcPolicy, mcTypes] = await Promise.all([
+    const [images, history, ghCfg, aiCfg, nvdCfg, health, jiraCfg, mcPolicy, mcTypes, jiraEpics] = await Promise.all([
       api.getApprovedImages(),
       api.getScanHistory(),
       api.getGitHubConfig(),
@@ -5677,6 +5689,7 @@ async function renderSettings() {
       api.getJiraConfig().catch(() => ({})),
       api.getMobileCodePolicy().catch(() => ({ approval_required: true, approved_types: [], approved_files: [] })),
       api.getMobileCodeTypes().catch(() => []),
+      api.getJiraEpics().catch(() => ({ project_key: '', epics: {} })),
     ]);
     const epyonVersion = health.version || '—';
 
@@ -5904,6 +5917,38 @@ async function renderSettings() {
       </div>
 
       <div class="section">
+        <div class="section-title">Jira Epics</div>
+        <p class="section-desc">
+          Epyon groups tickets into one Epic per finding category and creates each Epic in Jira
+          automatically the first time it's assigned a color. The color is used as a badge in the
+          Epyon UI (it is not written back to Jira's own board color).
+        </p>
+        <div class="table-container" style="max-width:700px">
+          <table class="jira-review-table">
+            <thead><tr><th>Category</th><th>Color</th><th>Epic</th><th></th></tr></thead>
+            <tbody>
+              ${['vulnerability', 'misconfiguration', 'ml'].map(category => {
+                const epic = jiraEpics.epics?.[category] || {};
+                return `<tr>
+                  <td>${esc(category === 'ml' ? 'ML/AI Security' : ucFirst(category) + 's')}</td>
+                  <td><input type="color" id="jira-epic-color-${category}" value="${esc(epic.color || '#888888')}"
+                    style="width:44px;height:28px;padding:0;border:1px solid var(--border);border-radius:4px;cursor:pointer"/></td>
+                  <td>${epic.epic_key
+                    ? (jiraCfg.base_url
+                        ? `<a href="${esc(jiraCfg.base_url.replace(/\/$/, ''))}/browse/${esc(epic.epic_key)}" target="_blank" rel="noopener">${esc(epic.epic_key)}</a>`
+                        : esc(epic.epic_key))
+                    : '<span style="color:var(--text-muted)">not yet created</span>'}</td>
+                  <td><button class="btn btn-sm" onclick="saveJiraEpic('${category}')">
+                    ${epic.epic_key ? 'Update Color' : 'Create Epic'}</button></td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div id="jira-epics-status" style="font-size:13px;color:var(--text-muted);margin-top:8px"></div>
+      </div>
+
+      <div class="section">
         <div class="section-title">Mobile Code Policy</div>
         <p class="section-desc">
           Manage authorization and monitoring of mobile code (JavaScript, applets, ActiveX, Flash, etc.) 
@@ -6124,6 +6169,19 @@ async function saveJiraConfig() {
   try {
     await api.saveJiraConfig(body);
     if (statusEl) statusEl.textContent = 'Saved.';
+  } catch (e) {
+    if (statusEl) statusEl.textContent = 'Error: ' + e.message;
+  }
+}
+
+async function saveJiraEpic(category) {
+  const statusEl = document.getElementById('jira-epics-status');
+  const color = document.getElementById(`jira-epic-color-${category}`)?.value || '#888888';
+  if (statusEl) statusEl.textContent = 'Saving…';
+  try {
+    await api.saveJiraEpic({ category, color });
+    if (statusEl) statusEl.textContent = 'Epic saved.';
+    await renderSettings();
   } catch (e) {
     if (statusEl) statusEl.textContent = 'Error: ' + e.message;
   }
@@ -7374,7 +7432,11 @@ function renderJiraReviewPage() {
         placeholder="PROJECT" value="${esc(data.project_key || '')}"
         oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
       <button id="jira-review-project-save" class="btn" onclick="jiraReviewSaveProject()">Save Project</button>
+      <button id="jira-review-reassign" class="btn" onclick="jiraReviewCheckDeleted()"
+        title="Detect tickets whose Jira issue was deleted and recreate them"
+        ${data.jira_configured ? '' : 'disabled'}>Check for Deleted Tickets</button>
     </div>
+    <div id="jira-review-reassign-status" class="jira-review-subtitle"></div>
     ${data.jira_configured ? '' : `
       <div class="alert alert-warning jira-review-config">
         Jira credentials and an application project key are required. Review is available, but ticket creation is disabled.
@@ -7453,7 +7515,7 @@ function jiraReviewRefresh() {
         data-fingerprint="${esc(candidate.fingerprint)}">
       <td class="jira-review-check"><input type="checkbox" ${selected ? 'checked' : ''}
         ${candidate.selectable ? '' : 'disabled'} aria-label="Select ${esc(candidate.id || candidate.title)}"></td>
-      <td>${esc(candidate.category === 'ml' ? 'ML/AI' : ucFirst(candidate.category))}</td>
+      <td>${jiraEpicBadge(candidate.category)}${esc(candidate.category === 'ml' ? 'ML/AI' : ucFirst(candidate.category))}</td>
       <td>${sevBadge(candidate.severity || 'low')}</td>
       <td><span class="tool-tag">${esc(candidate.tool || 'Unknown')}</span></td>
       <td><button class="jira-review-finding-link" onclick="openFindingDetail(${detailId})">
@@ -7536,6 +7598,30 @@ async function jiraReviewSaveProject() {
     button.disabled = false;
     button.textContent = 'Save Project';
     alert(`Could not save Jira project: ${error.message}`);
+  }
+}
+
+async function jiraReviewCheckDeleted() {
+  const state = _jiraReviewState;
+  if (!state || state.submitting) return;
+  const button = document.getElementById('jira-review-reassign');
+  const statusEl = document.getElementById('jira-review-reassign-status');
+  button.disabled = true;
+  button.textContent = 'Checking…';
+  if (statusEl) statusEl.textContent = '';
+  try {
+    const result = await api.reassignJiraTickets(state.data.app_name);
+    if (statusEl) {
+      statusEl.textContent = result.reassigned.length
+        ? `Checked ${result.checked} ticket(s) — recreated ${result.reassigned.length} deleted ticket(s).`
+        : `Checked ${result.checked} ticket(s) — none were deleted.`;
+    }
+    await renderJiraReview(state.scanId);
+  } catch (error) {
+    if (statusEl) statusEl.textContent = `Error: ${error.message}`;
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Check for Deleted Tickets';
   }
 }
 

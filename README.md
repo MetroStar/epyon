@@ -414,6 +414,7 @@ Epyon ships a FastAPI-backed single-page web UI for running scans, browsing resu
 - **Metrics Dashboard**: MTTR tracking, vulnerability trends, app monitoring classification, GitHub signals, SLA compliance, and suppression rate tracking
 - **ISSO Compliance Summary**: Per-application ISSO compliance report combining STIG controls, severity findings, and suppression data — exportable as a structured document
 - **Summary Document Export**: One-click export of AI-generated executive + technical summaries with embedded metrics and ISSO compliance table
+- **Local-first AI provider with OpenAI fallback**: Point AI summaries at a locally hosted, OpenAI-compatible LLM (e.g. [Ollama](https://ollama.com) at `http://localhost:11434/v1`) as the primary provider, keeping scan data on-premises. Optionally enable an automatic, one-time retry against the public OpenAI API if the primary endpoint is unreachable — configurable per-deployment in Settings → AI Executive Summary.
 
 ### Setup (first time only)
 
@@ -474,7 +475,10 @@ docker compose up -d --build
 | `HOST` | `127.0.0.1` | Bind address for `start.sh` |
 | `PORT` | `8000` | Port for `start.sh` |
 | `EPYON_SCANS_DIR` | `../scans` (relative to `web/`) | Directory where scan results are stored |
-| `OPENAI_API_KEY` | *(optional)* | Enables AI-powered scan summaries |
+| `OPENAI_API_KEY` | *(optional)* | Enables AI-powered scan summaries. Used as the secondary/fallback provider when a self-hosted primary (e.g. Ollama) is configured — see below. |
+| `OPENAI_BASE_URL` | *(optional)* | Primary AI endpoint when not set via Settings — e.g. `http://localhost:11434/v1` for a locally hosted [Ollama](https://ollama.com) instance. |
+| `OPENAI_MODEL` | *(optional)* | Primary model when not set via Settings — e.g. `llama3.1:8b`. |
+| `OPENAI_FALLBACK_MODEL` | `gpt-4o-mini` | OpenAI model used for the secondary/fallback call when not set via Settings. |
 | `NVD_API_KEY` | *(optional)* | NVD API key for CVSS enrichment (50 req/30s vs 5 req/30s unauthenticated). Get one at [nvd.nist.gov/developers/request-an-api-key](https://nvd.nist.gov/developers/request-an-api-key). Also configurable via web UI Settings page. |
 | **Anchore/Grype Auto-Detection (v3.9.0+)** |||
 | *(auto)* | *(inspects images)* | **Automatically detects**: architecture (ARM64/AMD64), base OS (Alpine/Debian/Ubuntu), runtime (Node.js/Python/Go/Java), and excludes build-stage dependencies. No configuration needed for GitHub Actions. |
@@ -547,7 +551,7 @@ The reusable GitHub Actions workflow never creates Jira tickets. New tickets can
 
 Jira, GitHub, OpenAI, and NVD credentials are environment-only. The Settings page never accepts them, API responses never return token hints, and JSON preference files contain no credentials.
 
-For local development, copy `.env.local.example` to `.env.local`, set the required variables, then use `./start-api-with-debug.sh`. The file is gitignored and the launcher changes its permissions to `600`.
+For local development, copy `.env.local.example` to `.env.local`, set the required variables, then use `./start-epyon`. The file is gitignored and the launcher changes its permissions to `600`.
 
 ```bash
 export JIRA_API_TOKEN=your-atlassian-token

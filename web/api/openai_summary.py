@@ -144,6 +144,89 @@ def _is_internal_host(host: str) -> bool:
         return False
 
 
+def get_fallback_enabled() -> bool:
+    """Whether an OpenAI fallback should be attempted after a primary failure."""
+    return bool(read_ai_config().get("fallback_enabled"))
+
+
+def get_fallback_model() -> str:
+    """Model used for the OpenAI fallback call (independent of the primary model)."""
+    cfg = read_ai_config()
+    return cfg.get("fallback_model") or os.environ.get("OPENAI_FALLBACK_MODEL") or DEFAULT_MODEL
+
+
+def fallback_available() -> bool:
+    """True when a secondary OpenAI call should be attempted if the primary
+    (e.g. a locally hosted Ollama endpoint) fails or is unreachable.
+
+    Requires an explicit opt-in (``fallback_enabled`` in ai-config.json / the
+    Settings UI) and a real ``OPENAI_API_KEY`` in the server environment.
+    Fallback is only meaningful when the primary endpoint is not already the
+    public OpenAI API — if it were, retrying against the same API with the
+    same key would just fail again.
+    """
+    if not get_fallback_enabled():
+        return False
+    if not os.environ.get("OPENAI_API_KEY", "").strip():
+        return False
+    return _is_self_hosted(get_base_url())
+
+
+async def _chat_completion(
+    messages: list[dict],
+    *,
+    max_tokens: int,
+    temperature: float,
+) -> str:
+    """Call the configured chat-completion endpoint.
+
+    Primary provider is whatever ``base_url``/``model``/``api_key`` resolve to
+    (see ``get_base_url``/``get_model``/``get_api_key``) — typically a locally
+    hosted Ollama instance at ``http://localhost:11434/v1`` when configured in
+    Settings, or the public OpenAI API otherwise. If the primary call fails
+    (e.g. Ollama is not running) and ``fallback_available()`` is true, the
+    request is retried once against the public OpenAI API using
+    ``get_fallback_model()``.
+    """
+    api_key = get_api_key()
+    if not api_key:
+        raise RuntimeError(
+            "AI endpoint not configured. Point Settings → Base URL at a "
+            "self-hosted endpoint (e.g. http://localhost:11434/v1 for Ollama) "
+            "or set OPENAI_API_KEY."
+        )
+
+    try:
+        from openai import AsyncOpenAI
+    except ImportError:
+        raise RuntimeError("The 'openai' package is not installed. Run: pip install openai")
+
+    async def _call(key: str, url: str | None, mdl: str) -> str:
+        client = AsyncOpenAI(api_key=key, base_url=url)
+        response = await client.chat.completions.create(
+            model=mdl,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
+        return response.choices[0].message.content or ""
+
+    try:
+        return await _call(api_key, get_base_url(), get_model())
+    except Exception as primary_err:
+        if not fallback_available():
+            raise
+        try:
+            return await _call(
+                os.environ["OPENAI_API_KEY"], None, get_fallback_model(),
+            )
+        except Exception as fallback_err:
+            raise RuntimeError(
+                f"Primary AI endpoint failed ({primary_err}); "
+                f"OpenAI fallback also failed ({fallback_err})"
+            ) from fallback_err
+
+
 def base_url_allowed(base_url: str) -> bool:
     """Guard against SSRF / credential exfiltration.
 
@@ -274,31 +357,14 @@ def _build_user_message(scan_id: str, scan_meta: dict, findings: dict) -> str:
 
 
 async def generate_summary(scan_id: str, scan_meta: dict, findings: dict) -> str:
-    api_key = get_api_key()
-    if not api_key:
-        raise RuntimeError(
-            "OpenAI API key not configured. "
-            "Add it in Settings or set OPENAI_API_KEY."
-        )
-
-    try:
-        from openai import AsyncOpenAI
-    except ImportError:
-        raise RuntimeError("The 'openai' package is not installed. Run: pip install openai")
-
-    model = get_model()
-
-    client = AsyncOpenAI(api_key=api_key, base_url=get_base_url())
-    response = await client.chat.completions.create(
-        model=model,
-        messages=[
+    return await _chat_completion(
+        [
             {"role": "system", "content": _SYSTEM_PROMPT},
             {"role": "user",   "content": _build_user_message(scan_id, scan_meta, findings)},
         ],
         max_tokens=1200,
         temperature=0.3,
     )
-    return response.choices[0].message.content or ""
 
 
 _TECHNICAL_SYSTEM_PROMPT = (
@@ -374,31 +440,14 @@ def _build_technical_user_message(scan_id: str, scan_meta: dict, findings: dict)
 
 
 async def generate_technical_summary(scan_id: str, scan_meta: dict, findings: dict) -> str:
-    api_key = get_api_key()
-    if not api_key:
-        raise RuntimeError(
-            "OpenAI API key not configured. "
-            "Add it in Settings or set OPENAI_API_KEY."
-        )
-
-    try:
-        from openai import AsyncOpenAI
-    except ImportError:
-        raise RuntimeError("The 'openai' package is not installed. Run: pip install openai")
-
-    model = get_model()
-
-    client = AsyncOpenAI(api_key=api_key, base_url=get_base_url())
-    response = await client.chat.completions.create(
-        model=model,
-        messages=[
+    return await _chat_completion(
+        [
             {"role": "system", "content": _TECHNICAL_SYSTEM_PROMPT},
             {"role": "user",   "content": _build_technical_user_message(scan_id, scan_meta, findings)},
         ],
         max_tokens=1600,
         temperature=0.2,
     )
-    return response.choices[0].message.content or ""
 
 
 def _split_apps_by_classification(apps: list[dict]) -> tuple[list[dict], list[dict]]:
@@ -432,20 +481,6 @@ def _app_summary_entry(a: dict, include_samples: bool = False) -> dict:
 
 
 async def generate_global_summary(apps: list[dict], metrics: dict | None = None) -> str:
-    api_key = get_api_key()
-    if not api_key:
-        raise RuntimeError(
-            "OpenAI API key not configured. "
-            "Add it in Settings or set OPENAI_API_KEY."
-        )
-
-    try:
-        from openai import AsyncOpenAI
-    except ImportError:
-        raise RuntimeError("The 'openai' package is not installed. Run: pip install openai")
-
-    model = get_model()
-
     continuous, evaluated = _split_apps_by_classification(apps)
 
     def _totals(subset: list[dict]) -> dict:
@@ -480,35 +515,19 @@ async def generate_global_summary(apps: list[dict], metrics: dict | None = None)
         + json.dumps(payload, indent=2)
     )
 
-    client = AsyncOpenAI(api_key=api_key, base_url=get_base_url())
-    response = await client.chat.completions.create(
-        model=model,
-        messages=[
+    content = await _chat_completion(
+        [
             {"role": "system", "content": _GLOBAL_EXEC_SYSTEM_PROMPT},
             {"role": "user",   "content": user_msg},
         ],
         max_tokens=1400,
         temperature=0.3,
     )
-    return _strip_code_fence(response.choices[0].message.content or "")
+    return _strip_code_fence(content)
 
 
 async def generate_global_technical_summary(apps: list[dict], metrics: dict | None = None) -> str:
     """Technical summary across all applications for the overview dashboard."""
-    api_key = get_api_key()
-    if not api_key:
-        raise RuntimeError(
-            "OpenAI API key not configured. "
-            "Add it in Settings or set OPENAI_API_KEY."
-        )
-
-    try:
-        from openai import AsyncOpenAI
-    except ImportError:
-        raise RuntimeError("The 'openai' package is not installed. Run: pip install openai")
-
-    model = get_model()
-
     continuous, evaluated = _split_apps_by_classification(apps)
 
     def _tech_entry(a: dict) -> dict:
@@ -555,36 +574,20 @@ async def generate_global_technical_summary(apps: list[dict], metrics: dict | No
         + json.dumps(payload, indent=2)
     )
 
-    client = AsyncOpenAI(api_key=api_key, base_url=get_base_url())
-    response = await client.chat.completions.create(
-        model=model,
-        messages=[
+    content = await _chat_completion(
+        [
             {"role": "system", "content": _GLOBAL_TECH_SYSTEM_PROMPT},
             {"role": "user",   "content": user_msg},
         ],
         max_tokens=1800,
         temperature=0.2,
     )
-    return _strip_code_fence(response.choices[0].message.content or "")
+    return _strip_code_fence(content)
 
 
 async def generate_global_isso_summary(apps: list[dict], metrics: dict | None = None) -> str:
     """ISSO-focused summary covering NIST/STIG controls, evidence, validation status,
     POA&M risk statements, and system/mission context."""
-    api_key = get_api_key()
-    if not api_key:
-        raise RuntimeError(
-            "OpenAI API key not configured. "
-            "Add it in Settings or set OPENAI_API_KEY."
-        )
-
-    try:
-        from openai import AsyncOpenAI
-    except ImportError:
-        raise RuntimeError("The 'openai' package is not installed. Run: pip install openai")
-
-    model = get_model()
-
     continuous, evaluated = _split_apps_by_classification(apps)
 
     def _isso_entry(a: dict) -> dict:
@@ -634,17 +637,15 @@ async def generate_global_isso_summary(apps: list[dict], metrics: dict | None = 
         + json.dumps(payload, indent=2)
     )
 
-    client = AsyncOpenAI(api_key=api_key, base_url=get_base_url())
-    response = await client.chat.completions.create(
-        model=model,
-        messages=[
+    content = await _chat_completion(
+        [
             {"role": "system", "content": _GLOBAL_ISSO_SYSTEM_PROMPT},
             {"role": "user",   "content": user_msg},
         ],
         max_tokens=2000,
         temperature=0.2,
     )
-    return _strip_code_fence(response.choices[0].message.content or "")
+    return _strip_code_fence(content)
 
 
 # ── Per-finding fix suggestion ─────────────────────────────────
@@ -827,20 +828,6 @@ async def generate_app_isso_summary(
     metrics: dict | None = None,
 ) -> str:
     """Detailed ISSO compliance brief for a single application."""
-    api_key = get_api_key()
-    if not api_key:
-        raise RuntimeError(
-            "OpenAI API key not configured. "
-            "Add it in Settings or set OPENAI_API_KEY."
-        )
-
-    try:
-        from openai import AsyncOpenAI
-    except ImportError:
-        raise RuntimeError("The 'openai' package is not installed. Run: pip install openai")
-
-    model = get_model()
-
     critical       = findings.get("critical_findings", [])
     high           = findings.get("high_findings", [])
     summary_counts = findings.get("summary", {})
@@ -925,17 +912,15 @@ async def generate_app_isso_summary(
         + json.dumps(payload, indent=2)
     )
 
-    client = AsyncOpenAI(api_key=api_key, base_url=get_base_url())
-    response = await client.chat.completions.create(
-        model=model,
-        messages=[
+    content = await _chat_completion(
+        [
             {"role": "system", "content": _APP_ISSO_SYSTEM_PROMPT},
             {"role": "user",   "content": user_msg},
         ],
         max_tokens=2400,
         temperature=0.2,
     )
-    return _strip_code_fence(response.choices[0].message.content or "")
+    return _strip_code_fence(content)
 
 
 _FIX_SYSTEM_PROMPT = (
@@ -959,33 +944,16 @@ _FIX_SYSTEM_PROMPT = (
 
 
 async def generate_fix_suggestion(finding: dict) -> str:
-    api_key = get_api_key()
-    if not api_key:
-        raise RuntimeError(
-            "OpenAI API key not configured. "
-            "Add it in Settings or set OPENAI_API_KEY."
-        )
-
-    try:
-        from openai import AsyncOpenAI
-    except ImportError:
-        raise RuntimeError("The 'openai' package is not installed. Run: pip install openai")
-
-    model = get_model()
-
     user_msg = (
         "Provide a remediation plan for the following security finding:\n\n"
         + json.dumps(finding, indent=2)
     )
 
-    client = AsyncOpenAI(api_key=api_key, base_url=get_base_url())
-    response = await client.chat.completions.create(
-        model=model,
-        messages=[
+    return await _chat_completion(
+        [
             {"role": "system", "content": _FIX_SYSTEM_PROMPT},
             {"role": "user",   "content": user_msg},
         ],
         max_tokens=800,
         temperature=0.1,
     )
-    return response.choices[0].message.content or ""

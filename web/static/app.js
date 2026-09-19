@@ -5717,8 +5717,11 @@ async function renderSettings() {
       <div class="section">
         <div class="section-title">AI Executive Summary</div>
         <p class="section-desc">
-          Configure the model used for executive summaries. Set <code>OPENAI_API_KEY</code>
-          in the server environment when the selected endpoint requires authentication.
+          Point the primary endpoint at a locally hosted, OpenAI-compatible server such as
+          <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a>
+          (<code>http://localhost:11434/v1</code>) to keep scan data on-premises, or leave it blank
+          to use the public OpenAI API. Set <code>OPENAI_API_KEY</code> in the server environment
+          when the selected endpoint requires authentication.
         </p>
         <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -5728,17 +5731,64 @@ async function renderSettings() {
         </div>
         <div style="display:grid;gap:14px;max-width:600px">
           <div>
-            <label class="field-label">Model</label>
-            <select id="ai-model" class="field-input">
-              <option value="gpt-4.1" ${aiCfg.model === 'gpt-4.1' ? 'selected' : ''}>gpt-4.1</option>
-              <option value="gpt-4o" ${aiCfg.model === 'gpt-4o' ? 'selected' : ''}>gpt-4o</option>
-              <option value="gpt-4o-mini" ${aiCfg.model === 'gpt-4o-mini' ? 'selected' : ''}>gpt-4o-mini</option>
-              <option value="gpt-4-turbo" ${aiCfg.model === 'gpt-4-turbo' ? 'selected' : ''}>gpt-4-turbo</option>
-            </select>
+            <label class="field-label">Primary Base URL <span style="color:var(--text-muted);font-weight:normal">(blank = public OpenAI API)</span></label>
+            <input id="ai-base-url" type="text" class="field-input"
+              placeholder="http://localhost:11434/v1"
+              value="${esc(aiCfg.base_url || '')}"/>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
+              Active: <code>${esc(aiCfg.active_base_url || 'https://api.openai.com/v1 (default)')}</code>
+            </div>
           </div>
           <div>
-            <button class="btn btn-primary" onclick="saveAiConfig()">Save AI Config</button>
+            <label class="field-label">Primary Model</label>
+            <input id="ai-model" type="text" class="field-input" list="ai-model-suggestions"
+              placeholder="gpt-4o-mini, llama3.1:8b, gemma4:26b, ..."
+              value="${esc(aiCfg.model || '')}"/>
+            <datalist id="ai-model-suggestions">
+              <option value="gpt-4.1">
+              <option value="gpt-4o">
+              <option value="gpt-4o-mini">
+              <option value="gpt-4-turbo">
+              <option value="llama3.1:8b">
+              <option value="gemma4:26b">
+            </datalist>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
+              Active: <code>${esc(aiCfg.active_model || '')}</code>
+            </div>
           </div>
+        </div>
+
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+          <div style="font-weight:600;font-size:13px;margin-bottom:6px">Secondary (Fallback) — OpenAI</div>
+          <p class="section-desc" style="margin-top:0">
+            If the primary endpoint above is self-hosted (e.g. Ollama) and fails or is unreachable,
+            optionally retry once against the public OpenAI API using <code>OPENAI_API_KEY</code>.
+          </p>
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span>${aiCfg.fallback_available
+              ? 'Fallback is active — the primary endpoint is self-hosted and OPENAI_API_KEY is set.'
+              : 'Fallback is inactive — requires a self-hosted primary Base URL and OPENAI_API_KEY in the server environment.'}</span>
+          </div>
+          <div style="display:grid;gap:14px;max-width:600px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+              <input type="checkbox" id="ai-fallback-enabled" ${aiCfg.fallback_enabled ? 'checked' : ''}/>
+              Enable OpenAI fallback when the primary endpoint fails
+            </label>
+            <div>
+              <label class="field-label">Fallback Model</label>
+              <select id="ai-fallback-model" class="field-input">
+                <option value="gpt-4.1" ${aiCfg.fallback_model === 'gpt-4.1' ? 'selected' : ''}>gpt-4.1</option>
+                <option value="gpt-4o" ${aiCfg.fallback_model === 'gpt-4o' ? 'selected' : ''}>gpt-4o</option>
+                <option value="gpt-4o-mini" ${aiCfg.fallback_model === 'gpt-4o-mini' ? 'selected' : ''}>gpt-4o-mini</option>
+                <option value="gpt-4-turbo" ${aiCfg.fallback_model === 'gpt-4-turbo' ? 'selected' : ''}>gpt-4-turbo</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:16px">
+          <button class="btn btn-primary" onclick="saveAiConfig()">Save AI Config</button>
         </div>
       </div>
 
@@ -5989,10 +6039,17 @@ async function renderSettings() {
 }
 
 async function saveAiConfig() {
-  const modelEl = document.getElementById('ai-model');
-  const model = modelEl ? modelEl.value         : '';
+  const model          = document.getElementById('ai-model')?.value           || '';
+  const baseUrl         = document.getElementById('ai-base-url')?.value       || '';
+  const fallbackEnabled = document.getElementById('ai-fallback-enabled')?.checked || false;
+  const fallbackModel   = document.getElementById('ai-fallback-model')?.value  || '';
   try {
-    await api.saveAiConfig({ model });
+    await api.saveAiConfig({
+      model,
+      base_url: baseUrl.trim(),
+      fallback_enabled: fallbackEnabled,
+      fallback_model: fallbackModel,
+    });
     await renderSettings();
   } catch (e) {
     alert('Failed to save AI config: ' + e.message);

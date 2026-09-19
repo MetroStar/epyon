@@ -1427,8 +1427,6 @@ async def trigger_scan(request: Request, response: Response):
     # Log webhook config if present (for debugging)
     if webhook_url:
         print(f"[scan-trigger] Webhook URL: {webhook_url}", flush=True)
-    if webhook_secret:
-        print(f"[scan-trigger] Webhook secret: {'*' * len(webhook_secret)} (redacted)", flush=True)
 
     if not target:
         raise HTTPException(400, "target is required")
@@ -2467,6 +2465,12 @@ def ai_config_get(response: Response):
         # display. Empty string means the public OpenAI API.
         "base_url":        cfg.get("base_url", ""),
         "active_base_url": openai_summary.get_base_url() or "",
+        # Secondary (fallback) OpenAI provider — only takes effect when the
+        # primary endpoint above is self-hosted (e.g. a local Ollama instance)
+        # and OPENAI_API_KEY is present in the server environment.
+        "fallback_enabled":   openai_summary.get_fallback_enabled(),
+        "fallback_model":     cfg.get("fallback_model") or openai_summary.DEFAULT_MODEL,
+        "fallback_available": openai_summary.fallback_available(),
     }
 
 
@@ -2516,6 +2520,18 @@ async def ai_config_post(request: Request, response: Response):
         if not re.match(r"^[A-Za-z0-9._:\-/]{1,100}$", model):
             raise HTTPException(400, "model contains invalid characters")
         cfg["model"] = model
+
+    if "fallback_enabled" in body:
+        cfg["fallback_enabled"] = bool(body["fallback_enabled"])
+
+    if "fallback_model" in body:
+        fallback_model = str(body.get("fallback_model") or "").strip()
+        if fallback_model:
+            if not re.match(r"^[A-Za-z0-9._:\-/]{1,100}$", fallback_model):
+                raise HTTPException(400, "fallback_model contains invalid characters")
+            cfg["fallback_model"] = fallback_model
+        else:
+            cfg.pop("fallback_model", None)  # explicit clear → fall back to default
 
     openai_summary.write_ai_config(cfg)
     return {"ok": True}

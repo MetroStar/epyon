@@ -5,6 +5,11 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.17.0] - 2026-09-18
+
+### Added
+- **Local-first AI provider with OpenAI fallback** — the AI Executive Summary primary endpoint can now point at a locally hosted, OpenAI-compatible LLM (e.g. [Ollama](https://ollama.com) at `http://localhost:11434/v1`), configurable via Settings → AI Executive Summary or the `OPENAI_BASE_URL`/`OPENAI_MODEL` env vars. An optional secondary OpenAI fallback (`fallback_enabled` + `fallback_model`, or `OPENAI_FALLBACK_MODEL`) automatically retries once against the public OpenAI API if the self-hosted primary fails or is unreachable and `OPENAI_API_KEY` is set. All AI summary/fix-suggestion call sites in `web/api/openai_summary.py` now route through a single `_chat_completion()` helper that implements this failover.
+
 ## [3.16.0] - 2026-09-18
 
 ### Added

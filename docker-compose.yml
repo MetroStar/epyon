@@ -18,6 +18,9 @@ services:
       JIRA_USER_EMAIL: ${JIRA_USER_EMAIL:-}
       GH_PAT: ${GH_PAT:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL_DOCKER:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+      OPENAI_FALLBACK_MODEL: ${OPENAI_FALLBACK_MODEL:-}
       NVD_API_KEY: ${NVD_API_KEY:-}
     volumes:
       # Docker-outside-of-docker: scan layers are spawned as sibling
@@ -28,6 +31,8 @@ services:
       - ./configuration:/app/configuration
       - ./web/data:/app/web/data
       - ./.epyon-ignore.yml:/app/.epyon-ignore.yml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - path: .env
         required: false

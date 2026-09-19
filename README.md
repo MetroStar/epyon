@@ -475,8 +475,11 @@ docker compose up -d --build
 | `HOST` | `127.0.0.1` | Bind address for `start.sh` |
 | `PORT` | `8000` | Port for `start.sh` |
 | `EPYON_SCANS_DIR` | `../scans` (relative to `web/`) | Directory where scan results are stored |
+| `EPYON_SCAN_RETENTION_DAYS` | `90` | Days a raw scan folder is kept on disk before being archived (tar+gzip into `web/data/epyon.db`) and deleted. See [Scan Storage & Retention](#️-scan-storage--retention). |
+| `EPYON_SCAN_RESTORE_HOURS` | `24` | Hours an archived scan's raw files stay restored to disk after `POST /api/scans/{id}/restore`. |
 | `OPENAI_API_KEY` | *(optional)* | Enables AI-powered scan summaries. Used as the secondary/fallback provider when a self-hosted primary (e.g. Ollama) is configured — see below. |
-| `OPENAI_BASE_URL` | *(optional)* | Primary AI endpoint when not set via Settings — e.g. `http://localhost:11434/v1` for a locally hosted [Ollama](https://ollama.com) instance. |
+| `OPENAI_BASE_URL` | *(optional)* | Primary AI endpoint for the native launcher — e.g. `http://localhost:11434/v1` for a locally hosted [Ollama](https://ollama.com) instance. |
+| `OPENAI_BASE_URL_DOCKER` | *(optional)* | Primary AI endpoint for Docker Compose. For Ollama running on the Docker host, use `http://host.docker.internal:11435/v1`. |
 | `OPENAI_MODEL` | *(optional)* | Primary model when not set via Settings — e.g. `llama3.1:8b`. |
 | `OPENAI_FALLBACK_MODEL` | `gpt-4o-mini` | OpenAI model used for the secondary/fallback call when not set via Settings. |
 | `NVD_API_KEY` | *(optional)* | NVD API key for CVSS enrichment (50 req/30s vs 5 req/30s unauthenticated). Get one at [nvd.nist.gov/developers/request-an-api-key](https://nvd.nist.gov/developers/request-an-api-key). Also configurable via web UI Settings page. |
@@ -983,6 +986,35 @@ epyon/
     ├── SECURITY_AND_QUALITY_SETUP.md
     └── COMPREHENSIVE_SECURITY_ARCHITECTURE.md
 ```
+
+## 🗄️ Scan Storage & Retention
+
+`scans/` can grow unbounded over time (raw tool output for every scan, every run). Epyon's web backend now bounds this with a durable SQLite database plus an automatic retention sweep:
+
+- **Database**: `web/data/epyon.db` stores each scan's parsed summary (findings, STIG results, score card) — the same data the dashboard renders. Raw scan scripts are unchanged; they still write to `scans/{app}_{timestamp}/` as before.
+- **Retention window**: folders older than `EPYON_SCAN_RETENTION_DAYS` (default **90**) are compressed (tar+gzip, typically ~10x smaller) into the database and removed from disk. Their summary/history remains available indefinitely — dashboards, trend charts, and `GET /api/scans/{id}` keep working.
+- **Restoring raw files**: endpoints that need raw files (SBOM downloads, ZIP export, STIG markdown/CKLB) return `410 Gone` with a hint once a scan is archived. Call `POST /api/scans/{id}/restore` to re-extract its files to disk for `EPYON_SCAN_RESTORE_HOURS` (default **24**).
+- **Automatic sweep**: the backend runs the ingest+archive sweep once at startup and then daily. Manually trigger it with `POST /api/retention/run`, or check status with `GET /api/retention/status`.
+- **CLI tool**: `scripts/shell/scan-db-tool.py` supports one-time backfill of existing scans and cron/manual operation:
+
+```bash
+# One-time: ingest every existing scans/ folder into the DB (idempotent, safe to re-run)
+python3 scripts/shell/scan-db-tool.py backfill
+
+# Ingest new scans and archive+prune anything already older than 90 days
+python3 scripts/shell/scan-db-tool.py backfill --apply-retention
+
+# Manual/cron-driven sweep (same logic the backend runs daily)
+python3 scripts/shell/scan-db-tool.py sweep [--retention-days 90] [--dry-run]
+
+# Check retention status/history
+python3 scripts/shell/scan-db-tool.py status
+
+# Temporarily restore an archived scan's raw files
+python3 scripts/shell/scan-db-tool.py restore --scan-id <scan_id> [--hours 24]
+```
+
+> **Disk space note**: run `backfill --apply-retention` (or `sweep`) when you have adequate free disk space — it briefly holds each folder in memory while compressing, and writes to `web/data/epyon.db`. On a nearly-full disk, prefer running it once during a maintenance window rather than as a background task.
 
 ## 🚀 Quick Start
 

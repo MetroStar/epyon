@@ -5,6 +5,16 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.18.0] - 2026-09-19
+
+### Added
+- **Scan database & 90-day retention** — `scans/` no longer grows unbounded. A new SQLite database (`web/data/epyon.db`, see `web/api/db.py` / `web/api/scan_store.py`) durably stores each scan's parsed summary (findings, STIG results, score card) via `parsers.load_scan_complete()`. A daily background sweep (`_retention_loop` in `web/api/main.py`) ingests new/changed scan folders, then compresses (tar+gzip, ~10x smaller) any folder older than `EPYON_SCAN_RETENTION_DAYS` (default 90) into the database and removes it from disk, freeing space while keeping full history available. `GET /api/scans/{id}` transparently falls back to the DB summary for archived scans; raw-file endpoints (SBOM, dashboard, STIG md/cklb, ZIP export) return `410` with a restore hint instead of `404`. `POST /api/scans/{id}/restore` re-extracts an archived scan's raw files to disk for `EPYON_SCAN_RESTORE_HOURS` (default 24). New admin endpoints `GET /api/retention/status` and `POST /api/retention/run`, plus a standalone CLI (`scripts/shell/scan-db-tool.py backfill|sweep|status|restore`) for one-time backfill of existing scans and manual/cron-driven operation. `DELETE /api/scans/{id}` now also purges the DB row/archive blob for archived scans.
+
+## [3.17.1] - 2026-09-19
+
+### Fixed
+- **Docker-hosted Ollama configuration** — Docker Compose now passes the configured AI model and a Docker-specific endpoint through to the web container, and resolves `host.docker.internal` to the host gateway. This allows a locally running Ollama service to remain the primary AI provider while the native launcher continues to use `localhost`.
+
 ## [3.17.0] - 2026-09-18
 
 ### Added

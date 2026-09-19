@@ -357,7 +357,7 @@ Only scan on specific conditions:
 
 Epyon defaults to manual Jira creation. In the web UI, open a scan and select **Jira Review** to choose the vulnerability, misconfiguration, secret, and ML/AI findings that should become tickets.
 
-**Required secrets (set once at repo or org level):**
+**Required web service environment variables:**
 
 | Secret | Description |
 |--------|-------------|
@@ -372,6 +372,8 @@ Epyon defaults to manual Jira creation. In the web UI, open a scan and select **
 - Stable finding fingerprints prevent duplicate tickets and make retries idempotent.
 - Tracked tickets close when remediated and reopen if the finding recurs.
 - Ticket creation is unavailable if `JIRA_*` secrets are absent.
+- Service credentials cannot be entered in the Settings page or stored in JSON configuration files. Inject `JIRA_API_TOKEN`, `GH_PAT`/`GITHUB_TOKEN`, `OPENAI_API_KEY`, and `NVD_API_KEY` when starting the Epyon web service.
+- GitHub Secrets cannot be read back through the API; an Actions job must map `${{ secrets.JIRA_API_TOKEN }}` and `${{ secrets.EPYON_GH_PAT }}` into the server process environment.
 
 **Optional inputs:**
 - `jira_issue_type` — Jira issue type for created tickets (default: `Bug`)

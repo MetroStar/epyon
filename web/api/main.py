@@ -28,6 +28,7 @@ from . import jobs as job_store
 from . import parsers
 from . import github_sync
 from . import github_metrics
+from . import github_config
 from . import openai_summary
 from . import jira_client
 
@@ -86,7 +87,6 @@ _JIRA_FP_RE      = re.compile(r"^[a-f0-9]{16}\|[^\x00-\x1f]{1,40}$")
 _JOB_ID_RE       = re.compile(r"^\d{14}$")
 _APP_SCAN_RE     = re.compile(r"^(.+)_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})$")
 _VALID_SCAN_TYPES = {"quick", "full", "nightly", "baseline", "stig", "local_model"}
-_TOKEN_RE        = re.compile(r"^(ghp_|github_pat_|ghs_|gho_)[a-zA-Z0-9_]+$")
 _REPO_RE         = re.compile(r"^[a-zA-Z0-9_.\-]+/[a-zA-Z0-9_.\-]+$")
 
 # ── Metrics cache ─────────────────────────────────────────────
@@ -284,14 +284,11 @@ def _now() -> str:
 
 
 def _read_github_config() -> dict:
-    try:
-        return json.loads(GITHUB_CONFIG_FILE.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
+    return github_config.read_config(GITHUB_CONFIG_FILE)
 
 
 def _write_github_config(cfg: dict) -> None:
-    GITHUB_CONFIG_FILE.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    github_config.write_config(GITHUB_CONFIG_FILE, cfg)
 
 
 # ── Lifespan ─────────────────────────────────────────────────
@@ -2183,23 +2180,10 @@ def github_config_get(response: Response):
     _sec_headers(response)
     cfg = _read_github_config()
     token = cfg.get("token", "")
-    masked = re.sub(r"(?<=.{7}).(?=.{4})", "*", token) if token else ""
-
-    # Mask extra tokens too — return repo list + masked hint per entry
-    extra = []
-    for entry in (cfg.get("extra_tokens") or []):
-        t = entry.get("token", "")
-        extra.append({
-            "repos":      entry.get("repos") or [],
-            "token_set":  bool(t),
-            "token_hint": re.sub(r"(?<=.{7}).(?=.{4})", "*", t) if t else "",
-        })
-
     return {
         "token_set":    bool(token),
-        "token_hint":   masked,
+        "from_env":     bool(cfg.get("_from_env")),
         "repos":        cfg.get("repos") or [],
-        "extra_tokens": extra,
         "last_sync":    cfg.get("last_sync"),
     }
 
@@ -2212,37 +2196,18 @@ async def github_config_post(request: Request, response: Response):
     except Exception:
         raise HTTPException(400, "Invalid JSON")
 
-    cfg = _read_github_config()
-    new_token = (body.get("token") or "").strip()
-    if new_token and new_token != "KEEP_EXISTING":
-        if not _TOKEN_RE.match(new_token):
-            raise HTTPException(400, "Token does not look like a valid GitHub token")
-        cfg["token"] = new_token
+    if "token" in body or "extra_tokens" in body:
+        raise HTTPException(
+            400,
+            "GitHub tokens cannot be set in the UI; use GITHUB_TOKEN or GH_PAT",
+        )
 
+    cfg = _read_github_config()
     if isinstance(body.get("repos"), list):
         cfg["repos"] = [
             r.strip() for r in body["repos"]
             if isinstance(r, str) and _REPO_RE.match(r.strip())
         ]
-
-    # extra_tokens: list of {"repos": [...], "token": "ghp_..."|"KEEP_EXISTING"}
-    if isinstance(body.get("extra_tokens"), list):
-        existing_extras = {i: e for i, e in enumerate(cfg.get("extra_tokens") or [])}
-        new_extras = []
-        for idx, entry in enumerate(body["extra_tokens"]):
-            t = (entry.get("token") or "").strip()
-            repos_list = [
-                r.strip() for r in (entry.get("repos") or [])
-                if isinstance(r, str) and _REPO_RE.match(r.strip())
-            ]
-            if t == "KEEP_EXISTING":
-                # Preserve previously stored token for this slot
-                t = (existing_extras.get(idx) or {}).get("token", "")
-            elif t and not _TOKEN_RE.match(t):
-                raise HTTPException(400, f"Extra token at index {idx} is not a valid GitHub token")
-            if repos_list or t:
-                new_extras.append({"repos": repos_list, "token": t})
-        cfg["extra_tokens"] = new_extras
 
     _write_github_config(cfg)
     return {"ok": True}
@@ -2485,11 +2450,9 @@ def github_sync_status(response: Response):
 def ai_config_get(response: Response):
     _sec_headers(response)
     cfg = openai_summary.read_ai_config()
-    key = cfg.get("api_key", "")
-    masked = re.sub(r"(?<=.{7}).(?=.{4})", "*", key) if key else ""
     return {
-        "key_set":  bool(key),
-        "key_hint": masked,
+        "key_set":  bool(os.environ.get("OPENAI_API_KEY", "").strip()),
+        "from_env": bool(os.environ.get("OPENAI_API_KEY", "").strip()),
         # `model` reflects only the UI-managed value so the Settings dropdown
         # stays in sync with what was actually saved. Returning the resolved
         # effective model here would surface a non-allowlisted env value (e.g.
@@ -2516,16 +2479,13 @@ async def ai_config_post(request: Request, response: Response):
     except Exception:
         raise HTTPException(400, "Invalid JSON")
 
+    if "api_key" in body:
+        raise HTTPException(
+            400,
+            "OpenAI API keys cannot be set in the UI; use OPENAI_API_KEY",
+        )
+
     cfg = openai_summary.read_ai_config()
-    new_key = (body.get("api_key") or "").strip()
-    if new_key and new_key != "KEEP_EXISTING":
-        # Accept real OpenAI secret keys (sk-...) as well as arbitrary tokens
-        # used by self-hosted, OpenAI-compatible gateways (vLLM, LiteLLM, ...).
-        # Reject only obviously unsafe values (whitespace / shell metacharacters
-        # / control chars) rather than locking to the OpenAI key format.
-        if len(new_key) > 200 or re.search(r"[\s;&|`$()<>'\"\\]", new_key):
-            raise HTTPException(400, "api_key contains invalid characters")
-        cfg["api_key"] = new_key
 
     if "base_url" in body:
         base_url = (body.get("base_url") or "").strip()
@@ -2563,45 +2523,40 @@ async def ai_config_post(request: Request, response: Response):
 
 # ── NVD API config ────────────────────────────────────────────
 
-NVD_CONFIG_FILE = Path("data/nvd-config.json")
+NVD_CONFIG_FILE = (_HERE / ".." / "data" / "nvd-config.json").resolve()
 
 def read_nvd_config() -> dict:
-    """Read NVD API key config from data/nvd-config.json."""
+    """Remove legacy file keys; NVD authentication is environment-only."""
     if NVD_CONFIG_FILE.exists():
         try:
             with open(NVD_CONFIG_FILE) as f:
-                return json.load(f)
+                config = json.load(f)
+            if not isinstance(config, dict):
+                return {}
+            if "api_key" in config:
+                config.pop("api_key", None)
+                write_nvd_config(config)
+            return config
         except Exception:
             return {}
     return {}
 
 def write_nvd_config(cfg: dict):
-    """Write NVD API key config to data/nvd-config.json."""
+    """Write non-secret NVD preferences only."""
+    safe_config = {key: value for key, value in cfg.items() if key != "api_key"}
     NVD_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(NVD_CONFIG_FILE, "w") as f:
-        json.dump(cfg, f, indent=2)
+        json.dump(safe_config, f, indent=2)
+    NVD_CONFIG_FILE.chmod(0o600)
 
 @app.get("/api/nvd/config")
 def nvd_config_get(response: Response):
     _sec_headers(response)
-    # Check env var first (takes priority)
+    read_nvd_config()
     env_key = os.getenv("NVD_API_KEY", "")
-    if env_key:
-        masked = re.sub(r"(?<=.{4}).(?=.{4})", "*", env_key) if env_key else ""
-        return {
-            "key_set": True,
-            "key_hint": masked,
-            "from_env": True,
-        }
-    
-    # Otherwise check saved config
-    cfg = read_nvd_config()
-    key = cfg.get("api_key", "")
-    masked = re.sub(r"(?<=.{4}).(?=.{4})", "*", key) if key else ""
     return {
-        "key_set": bool(key),
-        "key_hint": masked,
-        "from_env": False,
+        "key_set": bool(env_key),
+        "from_env": bool(env_key),
     }
 
 @app.post("/api/nvd/config")
@@ -2613,15 +2568,8 @@ async def nvd_config_post(request: Request, response: Response):
     except Exception:
         raise HTTPException(400, "Invalid JSON")
 
-    cfg = read_nvd_config()
-    new_key = (body.get("api_key") or "").strip()
-    if new_key and new_key != "KEEP_EXISTING":
-        # NVD API keys are UUIDs with dashes
-        if not re.match(r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$", new_key, re.IGNORECASE):
-            raise HTTPException(400, "api_key must be a valid NVD API key (UUID format)")
-        cfg["api_key"] = new_key
-    
-    write_nvd_config(cfg)
+    if "api_key" in body:
+        raise HTTPException(400, "NVD API keys cannot be set in the UI; use NVD_API_KEY")
     return {"ok": True}
 
 
@@ -3279,19 +3227,13 @@ async def finding_fix(body: _FindingFixRequest, response: Response):
 
 # ── Jira integration ──────────────────────────────────────────
 
-_JIRA_URL_RE    = re.compile(r"^https://[a-zA-Z0-9.\-]+/")
-_JIRA_TOKEN_RE  = re.compile(r"^[A-Za-z0-9_\-]{10,}$")
-
-
 @app.get("/api/jira/config")
 def jira_config_get(response: Response):
     _sec_headers(response)
     cfg   = jira_client.read_config()
     token = cfg.get("api_token", "")
-    masked = re.sub(r"(?<=.{4}).(?=.{4})", "*", token) if len(token) > 8 else ("*" * len(token))
     return {
         "token_set":       bool(token),
-        "token_hint":      masked,
         "base_url":        cfg.get("base_url", ""),
         "email":           cfg.get("email", ""),
         "project_key":     cfg.get("project_key", ""),
@@ -3326,9 +3268,11 @@ async def jira_config_post(request: Request, response: Response):
             raise HTTPException(400, "Invalid email address")
         cfg["email"] = email
 
-    new_token = (body.get("api_token") or "").strip()
-    if new_token and new_token != "KEEP_EXISTING":
-        cfg["api_token"] = new_token
+    if "api_token" in body:
+        raise HTTPException(
+            400,
+            "Jira API tokens cannot be set in the UI; use JIRA_API_TOKEN",
+        )
 
     if body.get("project_key") is not None:
         pk = (body["project_key"] or "").strip().upper()

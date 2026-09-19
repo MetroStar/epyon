@@ -90,6 +90,7 @@ web/ai-config.json
 web/data/jira-config.json
 web/data/jira-tickets.json
 web/data/audit.log
+web/data/nvd-config.json
 
 # Frontend build artifacts and dependencies (comet-starter)
 baseline/comet-starter/node_modules/

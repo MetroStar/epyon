@@ -1,0 +1,33 @@
+name: epyon
+
+services:
+  epyon-web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+    image: epyon-web:latest
+    container_name: epyon-web
+    restart: unless-stopped
+    ports:
+      - "${EPYON_PORT:-8057}:8057"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8057
+      JIRA_API_TOKEN: ${JIRA_API_TOKEN:-}
+      JIRA_BASE_URL: ${JIRA_BASE_URL:-}
+      JIRA_USER_EMAIL: ${JIRA_USER_EMAIL:-}
+      GH_PAT: ${GH_PAT:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      NVD_API_KEY: ${NVD_API_KEY:-}
+    volumes:
+      # Docker-outside-of-docker: scan layers are spawned as sibling
+      # containers on the host engine, not nested inside this container.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Persist scan results, app config, and STIG state across rebuilds.
+      - ./scans:/app/scans
+      - ./configuration:/app/configuration
+      - ./web/data:/app/web/data
+      - ./.epyon-ignore.yml:/app/.epyon-ignore.yml:ro
+    env_file:
+      - path: .env
+        required: false

@@ -61,43 +61,34 @@ _TICKETS_FILE = _DATA_DIR / "jira-tickets.json"
 # ── Config helpers ────────────────────────────────────────────
 
 def _env_config() -> dict:
-    """Build a config dict from environment variables (same names as the
-    GitHub Actions workflow so repo secrets require zero extra setup)."""
-    base_url  = os.environ.get("JIRA_BASE_URL", "").strip()
-    email     = os.environ.get("JIRA_USER_EMAIL", "").strip()
-    token     = os.environ.get("JIRA_API_TOKEN", "").strip()
-    project   = os.environ.get("JIRA_PROJECT_KEY", "").strip()
-    if not (base_url and email and token):
-        return {}
-    
-    return {
-        "base_url":        base_url,
-        "email":           email,
-        "api_token":       token,
-        "project_key":     project,
-        "issue_type":      os.environ.get("JIRA_ISSUE_TYPE", "Bug").strip(),
-        "done_transition":  os.environ.get("JIRA_DONE_TRANSITION", "Done").strip(),
-        "_from_env":       True,   # marker so the UI can show "from environment"
+    """Build environment overrides; the API token is never read from disk."""
+    fields = {
+        "base_url": os.environ.get("JIRA_BASE_URL", "").strip(),
+        "email": os.environ.get("JIRA_USER_EMAIL", "").strip(),
+        "api_token": os.environ.get("JIRA_API_TOKEN", "").strip(),
+        "project_key": os.environ.get("JIRA_PROJECT_KEY", "").strip(),
+        "issue_type": os.environ.get("JIRA_ISSUE_TYPE", "").strip(),
+        "done_transition": os.environ.get("JIRA_DONE_TRANSITION", "").strip(),
     }
+    return {key: value for key, value in fields.items() if value}
 
 
 def read_config(app_name: str | None = None) -> dict:
-    """Return Jira config with an optional per-application project override."""
+    """Return non-secret file settings with environment credential overrides."""
     file_cfg: dict = {}
+    had_legacy_token = False
     try:
         if _CONFIG_FILE.exists():
             file_cfg = json.loads(_CONFIG_FILE.read_text(encoding="utf-8"))
+            had_legacy_token = "api_token" in file_cfg
     except Exception:
         pass
-    if file_cfg:
-        # If the file has credentials, use it as-is
-        if file_cfg.get("api_token"):
-            config = file_cfg
-        else:
-            # File exists but is incomplete — merge env vars as fallback for missing keys
-            config = {**_env_config(), **file_cfg}
-    else:
-        config = _env_config()
+    file_cfg.pop("api_token", None)
+    if had_legacy_token:
+        write_config(file_cfg)
+    config = {**file_cfg, **_env_config()}
+    config["api_token"] = os.environ.get("JIRA_API_TOKEN", "").strip()
+    config["_from_env"] = bool(config["api_token"])
 
     if app_name:
         project_keys = config.get("project_keys") or {}
@@ -108,8 +99,13 @@ def read_config(app_name: str | None = None) -> dict:
 
 
 def write_config(cfg: dict) -> None:
+    safe_config = {
+        key: value for key, value in cfg.items()
+        if key not in {"api_token", "_from_env"}
+    }
     _CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    _CONFIG_FILE.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    _CONFIG_FILE.write_text(json.dumps(safe_config, indent=2), encoding="utf-8")
+    _CONFIG_FILE.chmod(0o600)
 
 
 def set_project_key(app_name: str, project_key: str) -> None:

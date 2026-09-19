@@ -28,21 +28,29 @@ def _strip_code_fence(text: str) -> str:
 
 
 def read_ai_config() -> dict:
+    config: dict = {}
+    had_legacy_key = False
     try:
-        return json.loads(AI_CONFIG_FILE.read_text(encoding="utf-8"))
+        loaded = json.loads(AI_CONFIG_FILE.read_text(encoding="utf-8"))
+        if isinstance(loaded, dict):
+            config = loaded
+            had_legacy_key = "api_key" in config
     except Exception:
-        return {}
+        pass
+    config.pop("api_key", None)
+    if had_legacy_key:
+        write_ai_config(config)
+    return config
 
 
 def write_ai_config(cfg: dict) -> None:
+    safe_config = {key: value for key, value in cfg.items() if key != "api_key"}
     AI_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    AI_CONFIG_FILE.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    AI_CONFIG_FILE.write_text(json.dumps(safe_config, indent=2), encoding="utf-8")
+    AI_CONFIG_FILE.chmod(0o600)
 
 
 def get_api_key() -> str | None:
-    cfg = read_ai_config()
-    if cfg.get("api_key"):
-        return cfg["api_key"]
     env_key = os.environ.get("OPENAI_API_KEY")
     if env_key:
         return env_key

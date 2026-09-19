@@ -448,6 +448,25 @@ python3 -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --app-dir . --reloa
 
 Then open **http://127.0.0.1:8000** in your browser.
 
+### Deploy with Docker
+
+For a containerized deployment (local Docker engine or a remote SSH host), use `scripts/deploy.sh`. It builds `web/Dockerfile` (FastAPI app + Docker CLI for docker-outside-of-docker scan execution) and runs it via `docker-compose.yml`, mounting the host's container socket so scan layers still run on the host engine.
+
+```bash
+./scripts/deploy.sh
+```
+
+The script prompts for:
+- **Deployment mode** — `local` (runs `docker compose up -d --build` on this machine) or `ssh` (builds an amd64 image, `scp`s it plus `docker-compose.yml`/`.env`/`.epyon-ignore.yml` to a remote host, and swaps the running container)
+- **SSH connection details** (ssh mode only) — server IP/hostname, username, and optional SSH key generation/copy
+
+The container listens on **port 8057** by default (override with `EPYON_PORT`) to avoid clashing with other locally-deployed dashboards. `scans/`, `configuration/`, and `web/data/` are bind-mounted so scan history and app config persist across rebuilds.
+
+```bash
+# Manual equivalent (local only)
+docker compose up -d --build
+```
+
 ### Environment variables
 
 | Variable | Default | Description |
@@ -505,9 +524,9 @@ See [Target Repository Setup Guide](.github/TARGET_REPO_SETUP.md) and [Webhook I
 
 Epyon uses a manual review queue by default so scans do not create unwanted Jira tickets. Open a scan, select **Jira Review**, filter or inspect the findings, select individual findings or use the bulk controls, and then choose **Create Jira Tickets**.
 
-**Setup (one-time, in GitHub repo or org secrets):**
+**Web service environment:**
 
-| Secret | Value |
+| Variable | Value |
 |--------|-------|
 | `JIRA_BASE_URL` | `https://yourcompany.atlassian.net` |
 | `JIRA_USER_EMAIL` | Email tied to your Jira API token |
@@ -523,6 +542,31 @@ Epyon uses a manual review queue by default so scans do not create unwanted Jira
 - Ticket creation is unavailable if `JIRA_*` credentials are not configured.
 
 The reusable GitHub Actions workflow never creates Jira tickets. New tickets can only be created by a user from **Jira Review**. Automatic reconciliation is limited to closing remediated tracked tickets and reopening those tickets if their findings recur.
+
+### Integration Secrets
+
+Jira, GitHub, OpenAI, and NVD credentials are environment-only. The Settings page never accepts them, API responses never return token hints, and JSON preference files contain no credentials.
+
+For local development, copy `.env.local.example` to `.env.local`, set the required variables, then use `./start-api-with-debug.sh`. The file is gitignored and the launcher changes its permissions to `600`.
+
+```bash
+export JIRA_API_TOKEN=your-atlassian-token
+export GH_PAT=your-github-pat
+export OPENAI_API_KEY=your-openai-key
+export NVD_API_KEY=your-nvd-key
+```
+
+For a web service started by GitHub Actions, inject repository or organization secrets into the process environment:
+
+```yaml
+env:
+  JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+  GH_PAT: ${{ secrets.EPYON_GH_PAT }}
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+```
+
+GitHub Secrets are write-only: Epyon cannot fetch their values through the GitHub API. The workflow, container platform, or service manager must inject them when starting the server. `GITHUB_TOKEN` takes precedence over `GH_PAT` when both are set.
 
 ### Quick Start - Scan Any Repository
 
@@ -734,7 +778,7 @@ Configure these in your GitHub repo **Settings → Secrets and variables → Act
 | Secret | Required | Purpose |
 |--------|----------|---------|
 | `SONAR_TOKEN` + `SONAR_HOST_URL` | Optional | Enables SonarQube layer |
-| `JIRA_BASE_URL` + `JIRA_USER_EMAIL` + `JIRA_API_TOKEN` + `JIRA_PROJECT_KEY` | Optional | Enables Jira ticket creation |
+| `JIRA_BASE_URL` + `JIRA_USER_EMAIL` + `JIRA_API_TOKEN` + `JIRA_PROJECT_KEY` | Optional | Supplies Jira settings to an Epyon web service started by the job; scan workflows do not create Jira tickets |
 | `OPENAI_API_KEY` | Optional | Enables Garak LLM probing + STIG assessment |
 
 Once configured, Epyon will automatically:

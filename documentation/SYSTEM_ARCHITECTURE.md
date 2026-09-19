@@ -110,7 +110,7 @@ Epyon is a 16-layer DevSecOps security scanner designed for human-centered cyber
 │    • configuration/monitored-apps.json                                 │
 │                                                                         │
 │  Web Data (web/data/):                                                 │
-│    • jira-config.json (credentials, preferences)                       │
+│    • jira-config.json (non-secret preferences only)                    │
 │    • jira-tickets.json (fingerprint → ticket map)                      │
 │    • github-config.json                                                │
 │    • ai-config.json (OpenAI endpoint)                                  │
@@ -206,7 +206,7 @@ Epyon is a 16-layer DevSecOps security scanner designed for human-centered cyber
 - `GET /api/stig/history` — Cross-scan STIG trend data
 - `GET/POST /api/jira/config` — Jira credentials and preferences
 - `POST /api/jira/sync/{app_name}` — Manual Jira reconciliation
-- `GET/POST /api/github/config` — GitHub token and settings
+- `GET/POST /api/github/config` — repository preferences; token is environment-only
 - `POST /api/github/sync` — Sync GitHub metrics
 - `GET/POST /api/ai/config` — OpenAI endpoint configuration
 - `GET /api/metrics` — Aggregate metrics (MTTR, top CVEs, SLA compliance)
@@ -419,7 +419,7 @@ scans/{app}_{YYYY-MM-DD_HH-MM-SS}/
 
 ### Secrets Management
 - Never log API tokens or credentials
-- Environment variables take precedence over config files in CI
+- Jira, GitHub, OpenAI, and NVD credentials are accepted only from environment variables and are never persisted
 - API tokens scoped narrowly (Jira: read+write issues only)
 - GitHub tokens: read repo + write issues
 - OpenAI tokens: inference only (no fine-tuning access)

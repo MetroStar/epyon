@@ -15,6 +15,8 @@ from typing import Any
 
 import httpx
 
+from . import github_config
+
 SCAN_ID_RE = re.compile(
     r"^[a-zA-Z0-9][a-zA-Z0-9_-]*_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$"
 )
@@ -81,7 +83,7 @@ async def run_github_sync(
 ) -> dict:
     global _sync_state
 
-    cfg = _read_config(config_path)
+    cfg = github_config.read_config(config_path)
     default_token = cfg.get("token")
     if not default_token:
         raise ValueError("GitHub token not configured")
@@ -89,27 +91,12 @@ async def run_github_sync(
     if not repos:
         raise ValueError("No repositories configured")
 
-    # Build a per-repo token map from extra_tokens entries.
-    # extra_tokens is a list of {"repos": ["owner/repo", ...], "token": "ghp_..."}
-    repo_token_map: dict[str, str] = {}
-    for entry in (cfg.get("extra_tokens") or []):
-        t = (entry.get("token") or "").strip()
-        if not t:
-            continue
-        for r in (entry.get("repos") or []):
-            r = r.strip()
-            if r:
-                repo_token_map[r] = t
-
-    def _token_for(repo_spec: str) -> str:
-        return repo_token_map.get(repo_spec, default_token)
-
     result: dict = {"synced": [], "skipped": [], "failed": []}
     existing_ids = {d.name for d in find_scan_dirs_fn(epyon_root)}
 
     for repo_spec in repos:
         owner, repo = repo_spec.split("/", 1)
-        token = _token_for(repo_spec)
+        token = default_token
         try:
             async with _client(token) as gh:
                 runs_data = await _github_get(
@@ -171,7 +158,7 @@ async def run_github_sync(
             result["failed"].append({"repo": f"{owner}/{repo}", "error": str(exc)})
 
     cfg["last_sync"] = _now()
-    _write_config(config_path, cfg)
+    github_config.write_config(config_path, cfg)
     return result
 
 
@@ -205,12 +192,3 @@ async def trigger_sync(
     asyncio.create_task(_run())
 
 
-def _read_config(path: Path) -> dict:
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
-
-
-def _write_config(path: Path, cfg: dict) -> None:
-    path.write_text(json.dumps(cfg, indent=2), encoding="utf-8")

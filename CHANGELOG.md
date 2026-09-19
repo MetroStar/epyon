@@ -5,6 +5,11 @@ All notable changes to the EPYON Security Scanner will be documented in this fil
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.16.0] - 2026-09-18
+
+### Added
+- **Web UI Docker deployment** — added `web/Dockerfile`, root `docker-compose.yml`, and `scripts/deploy.sh` for containerized deployment of the Epyon dashboard to a local Docker engine or a remote host over SSH. The container bundles the Docker CLI and bind-mounts the host's container socket (docker-outside-of-docker) so scan layers still execute on the host engine; `scans/`, `configuration/`, and `web/data/` are bind-mounted for persistence. Defaults to port `8057` (override with `EPYON_PORT`).
+
 ## [3.15.0] - 2026-09-18
 
 ### Added
@@ -14,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Jira creation is always manual** — automatic creation has been removed from both web reconciliation and GitHub Actions. New tickets can only be created through Jira Review; automatic closure of remediated tickets and reopening of recurring findings remain enabled for tracked tickets across all finding categories.
+- **Integration tokens are environment-only** — Jira, GitHub, OpenAI, and NVD credentials can no longer be entered in Settings or persisted in JSON files. Legacy file tokens are removed on read; deployments inject `JIRA_API_TOKEN`, `GITHUB_TOKEN`/`GH_PAT`, `OPENAI_API_KEY`, and `NVD_API_KEY` through the process environment.
 
 ## [3.14.4] - 2026-09-16
 

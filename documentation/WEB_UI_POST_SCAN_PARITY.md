@@ -114,8 +114,8 @@ Auth: `Authorization: token {github_token}`.
 
 **Target repo derivation in `jobs.py`:** `github_repo` is derived from `clone_url`
 only when the URL matches `github.com/{owner}/{repo}`. Skipped for local path scans.
-GitHub token is read from the existing `github-config.json` via the new
-`github_config.read_github_config()`.
+GitHub authentication is read only from `GITHUB_TOKEN` or `GH_PAT` in the web
+service environment. `github-config.json` stores repository preferences only.
 
 ---
 
@@ -129,7 +129,8 @@ GitHub token is read from the existing `github-config.json` via the new
 - `get_jira_creds() -> dict | None` — returns `None` if any required field is missing
 
 Fields stored in `jira-config.json`:
-`jira_url`, `user_email`, `api_token`, `project_key`, `issue_type`
+`jira_url`, `user_email`, `project_key`, `issue_type`. `JIRA_API_TOKEN` is
+environment-only and is never accepted by the Settings API.
 
 **New endpoints in `web/api/main.py`** (mirrors `/api/github/config` pattern):
 

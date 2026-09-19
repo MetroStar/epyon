@@ -749,7 +749,6 @@ const api = {
   getAiConfig() { return this._get('/api/ai/config'); },
   saveAiConfig(d){ return this._post('/api/ai/config', d); },
   getNvdConfig() { return this._get('/api/nvd/config'); },
-  saveNvdConfig(d){ return this._post('/api/nvd/config', d); },
   getExecSummary(id)      { return this._post(`/api/scans/${encodeURIComponent(id)}/executive-summary`, {}); },
   getTechnicalSummary(id) { return this._post(`/api/scans/${encodeURIComponent(id)}/technical-summary`, {}); },
   getGlobalExecSummary()      { return this._post('/api/executive-summary', {}); },
@@ -5718,16 +5717,16 @@ async function renderSettings() {
       <div class="section">
         <div class="section-title">AI Executive Summary</div>
         <p class="section-desc">
-          Configure the OpenAI API key used for generating executive summaries of scan results.
+          Configure the model used for executive summaries. Set <code>OPENAI_API_KEY</code>
+          in the server environment when the selected endpoint requires authentication.
         </p>
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>${aiCfg.key_set
+            ? 'OpenAI authentication is configured through the server environment.'
+            : 'No <code>OPENAI_API_KEY</code> is configured. Self-hosted no-auth endpoints can still operate.'}</span>
+        </div>
         <div style="display:grid;gap:14px;max-width:600px">
-          <div>
-            <label class="field-label">OpenAI API Key</label>
-            <input id="ai-key" type="password" class="field-input"
-              placeholder="${aiCfg.key_set ? 'Key saved — enter new to replace' : 'sk-...'}"
-              autocomplete="off"/>
-            ${aiCfg.key_set ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Current: ${esc(aiCfg.key_hint)}</div>` : ''}
-          </div>
           <div>
             <label class="field-label">Model</label>
             <select id="ai-model" class="field-input">
@@ -5746,24 +5745,13 @@ async function renderSettings() {
       <div class="section">
         <div class="section-title">NVD API Key</div>
         <p class="section-desc">
-          Configure an API key for the <a href="https://nvd.nist.gov/developers/request-an-api-key" target="_blank" style="color:var(--accent)">National Vulnerability Database</a> to increase CVSS enrichment rate from 5 requests per 30 seconds (unauthenticated) to 50 requests per 30 seconds (with key). This dramatically speeds up scan enrichment for large CVE lists.
+          Set <code>NVD_API_KEY</code> in the server environment to increase CVSS enrichment rate from 5 requests per 30 seconds to 50 requests per 30 seconds.
         </p>
-        ${nvdCfg.from_env ? `
         <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span>Key loaded from environment variable (<code style="background:var(--bg-input);padding:1px 4px;border-radius:3px">NVD_API_KEY</code>). Fill in the form below to override with saved settings.</span>
-        </div>` : ''}
-        <div style="display:grid;gap:14px;max-width:600px">
-          <div>
-            <label class="field-label">NVD API Key</label>
-            <input id="nvd-key" type="password" class="field-input"
-              placeholder="${nvdCfg.key_set ? 'Key saved — enter new to replace' : (nvdCfg.from_env ? 'Set via NVD_API_KEY env var' : 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx')}"
-              autocomplete="off"/>
-            ${nvdCfg.key_set ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Current: ${esc(nvdCfg.key_hint)}</div>` : ''}
-          </div>
-          <div>
-            <button class="btn btn-primary" onclick="saveNvdConfig()">Save NVD Config</button>
-          </div>
+          <span>${nvdCfg.key_set
+            ? 'NVD authentication is configured through the server environment.'
+            : 'No <code>NVD_API_KEY</code> is configured; enrichment will use the unauthenticated rate limit.'}</span>
         </div>
       </div>
 
@@ -5771,47 +5759,22 @@ async function renderSettings() {
         <div class="section-title">GitHub Actions Integration</div>
         <p class="section-desc">
           Import scan results from GitHub Actions directly into this dashboard.
-          Epyon workflows upload scan artifacts automatically — enter a
-          <strong>Personal Access Token</strong> (needs <code>actions:read</code> scope)
-          and the repositories to watch.
+          Epyon workflows upload scan artifacts automatically. Configure
+          <code>GITHUB_TOKEN</code> or <code>GH_PAT</code> in the server environment
+          and list the repositories to watch below.
         </p>
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>${ghCfg.token_set
+            ? 'GitHub authentication is configured through the server environment.'
+            : 'GitHub authentication is not configured. Set <code>GITHUB_TOKEN</code> or <code>GH_PAT</code> in the server environment.'}</span>
+        </div>
         <div style="display:grid;gap:14px;max-width:600px">
-          <div>
-            <label class="field-label">Default Personal Access Token</label>
-            <input id="gh-token" type="password" class="field-input"
-              placeholder="${ghCfg.token_set ? 'Token saved — enter new to replace' : 'ghp_... or github_pat_...'}"
-              autocomplete="off"/>
-            ${ghCfg.token_set ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Current: ${esc(ghCfg.token_hint)}</div>` : ''}
-          </div>
           <div>
             <label class="field-label">Repositories <span style="color:var(--text-muted);font-weight:normal">(one per line: owner/repo)</span></label>
             <textarea id="gh-repos" class="field-input" rows="4"
               placeholder="MetroStar/sapphire&#10;MetroStar/comet-starter"
               style="resize:vertical">${(ghCfg.repos || []).map(r => esc(r)).join('\n')}</textarea>
-          </div>
-
-          <div>
-            <label class="field-label" style="margin-bottom:8px">Additional PATs
-              <span style="color:var(--text-muted);font-weight:normal"> — for external orgs that need a separate token</span>
-            </label>
-            <div id="gh-extra-tokens" style="display:flex;flex-direction:column;gap:10px">
-              ${(ghCfg.extra_tokens || []).map((e, i) => `
-              <div class="gh-extra-row" data-idx="${i}" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:start">
-                <div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">Repositories (one per line)</div>
-                  <textarea class="field-input gh-extra-repos" rows="2" style="resize:vertical;font-size:12px"
-                    placeholder="other-org/repo">${(e.repos || []).map(r => esc(r)).join('\n')}</textarea>
-                </div>
-                <div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">Token${e.token_set ? ` (${esc(e.token_hint)})` : ''}</div>
-                  <input type="password" class="field-input gh-extra-token"
-                    placeholder="${e.token_set ? 'Saved — enter new to replace' : 'ghp_...'}"
-                    autocomplete="off"/>
-                </div>
-                <button class="btn btn-sm" style="margin-top:18px;color:var(--critical)" onclick="this.closest('.gh-extra-row').remove()" title="Remove">✕</button>
-              </div>`).join('')}
-            </div>
-            <button class="btn btn-sm" style="margin-top:8px" onclick="addGhExtraToken()">+ Add PAT</button>
           </div>
 
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -5832,11 +5795,12 @@ async function renderSettings() {
           Automatically close Jira tickets when security findings are remediated in a subsequent scan.
           Requires a Jira Cloud account with an API token (Atlassian account settings → Security → API tokens).
         </p>
-        ${jiraCfg._from_env ? `
         <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span>Credentials loaded from environment variables (<code style="background:var(--bg-input);padding:1px 4px;border-radius:3px">JIRA_BASE_URL</code>, <code style="background:var(--bg-input);padding:1px 4px;border-radius:3px">JIRA_USER_EMAIL</code>, <code style="background:var(--bg-input);padding:1px 4px;border-radius:3px">JIRA_API_TOKEN</code>). Fill in the form below to override with saved settings.</span>
-        </div>` : ''}
+          <span>${jiraCfg.token_set
+            ? 'Jira authentication is configured through <code>JIRA_API_TOKEN</code> in the server environment.'
+            : 'Jira authentication is not configured. Set <code>JIRA_API_TOKEN</code> in the server environment.'}</span>
+        </div>
         <div style="display:grid;gap:14px;max-width:600px">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
             <div>
@@ -5851,13 +5815,6 @@ async function renderSettings() {
                 placeholder="user@company.com"
                 value="${esc(jiraCfg.email || '')}"/>
             </div>
-          </div>
-          <div>
-            <label class="field-label">API Token</label>
-            <input id="jira-token" type="password" class="field-input"
-              placeholder="${jiraCfg.token_set ? 'Token saved — enter new to replace' : (jiraCfg._from_env ? 'Set via JIRA_API_TOKEN env var' : 'Atlassian API token')}"
-              autocomplete="off"/>
-            ${jiraCfg.token_set ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Token saved</div>` : ''}
           </div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
             <div>
@@ -6032,56 +5989,24 @@ async function renderSettings() {
 }
 
 async function saveAiConfig() {
-  const keyEl   = document.getElementById('ai-key');
   const modelEl = document.getElementById('ai-model');
-  const key   = keyEl   ? keyEl.value.trim()   : '';
   const model = modelEl ? modelEl.value         : '';
   try {
-    await api.saveAiConfig({ api_key: key || 'KEEP_EXISTING', model });
-    if (keyEl) keyEl.value = '';
-    // Reload settings to show the updated key hint
+    await api.saveAiConfig({ model });
     await renderSettings();
   } catch (e) {
     alert('Failed to save AI config: ' + e.message);
   }
 }
 
-async function saveNvdConfig() {
-  const keyEl = document.getElementById('nvd-key');
-  const key = keyEl ? keyEl.value.trim() : '';
-  try {
-    await api.saveNvdConfig({ api_key: key || 'KEEP_EXISTING' });
-    if (keyEl) keyEl.value = '';
-    alert('NVD API key saved successfully. Scans will now use up to 50 requests per 30 seconds.');
-    // Reload settings to show the updated key hint
-    await renderSettings();
-  } catch (e) {
-    alert('Failed to save NVD config: ' + e.message);
-  }
-}
-
 async function saveGitHubConfig() {
-  const tokenEl = document.getElementById('gh-token');
   const reposEl = document.getElementById('gh-repos');
-  const token = tokenEl ? tokenEl.value.trim() : '';
   const repos = reposEl
     ? reposEl.value.split('\n').map(r => r.trim()).filter(Boolean)
     : [];
 
-  // Collect extra PAT rows
-  const extraTokens = [];
-  document.querySelectorAll('#gh-extra-tokens .gh-extra-row').forEach(row => {
-    const reposTa = row.querySelector('.gh-extra-repos');
-    const tokenIn = row.querySelector('.gh-extra-token');
-    const rowRepos = reposTa ? reposTa.value.split('\n').map(r => r.trim()).filter(Boolean) : [];
-    const rowToken = tokenIn ? tokenIn.value.trim() : '';
-    extraTokens.push({ repos: rowRepos, token: rowToken || 'KEEP_EXISTING' });
-  });
-
   try {
-    await api.saveGitHubConfig({ token: token || 'KEEP_EXISTING', repos, extra_tokens: extraTokens });
-    tokenEl && (tokenEl.value = '');
-    document.querySelectorAll('#gh-extra-tokens .gh-extra-token').forEach(el => { el.value = ''; });
+    await api.saveGitHubConfig({ repos });
     // Auto-mark all configured repos as Continuously Monitored
     await Promise.allSettled(
       repos.map(r => api.setMonitored(r.includes('/') ? r.split('/').pop() : r))
@@ -6094,29 +6019,6 @@ async function saveGitHubConfig() {
 }
 
 let _syncPoll = null;
-
-window.addGhExtraToken = function() {
-  const container = document.getElementById('gh-extra-tokens');
-  if (!container) return;
-  const idx = container.querySelectorAll('.gh-extra-row').length;
-  const row = document.createElement('div');
-  row.className = 'gh-extra-row';
-  row.dataset.idx = idx;
-  row.style.cssText = 'display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:start';
-  row.innerHTML = `
-    <div>
-      <div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">Repositories (one per line)</div>
-      <textarea class="field-input gh-extra-repos" rows="2" style="resize:vertical;font-size:12px"
-        placeholder="other-org/repo"></textarea>
-    </div>
-    <div>
-      <div style="font-size:11px;color:var(--text-muted);margin-bottom:3px">Token</div>
-      <input type="password" class="field-input gh-extra-token"
-        placeholder="ghp_..." autocomplete="off"/>
-    </div>
-    <button class="btn btn-sm" style="margin-top:18px;color:var(--critical)" onclick="this.closest('.gh-extra-row').remove()" title="Remove">\u2715</button>`;
-  container.appendChild(row);
-};
 
 async function triggerGitHubSync() {
   const btn = document.getElementById('sync-btn');
@@ -6157,7 +6059,6 @@ async function saveJiraConfig() {
   const body = {
     base_url:        (document.getElementById('jira-url')?.value   || '').trim(),
     email:           (document.getElementById('jira-email')?.value  || '').trim(),
-    api_token:       (document.getElementById('jira-token')?.value  || '').trim() || 'KEEP_EXISTING',
     project_key:     (document.getElementById('jira-project')?.value || '').trim(),
     issue_type:      (document.getElementById('jira-issue-type')?.value || '').trim() || 'Bug',
     done_transition: (document.getElementById('jira-done')?.value   || '').trim() || 'Done',
@@ -6165,8 +6066,6 @@ async function saveJiraConfig() {
   };
   try {
     await api.saveJiraConfig(body);
-    const tokenEl = document.getElementById('jira-token');
-    if (tokenEl) tokenEl.value = '';
     if (statusEl) statusEl.textContent = 'Saved.';
   } catch (e) {
     if (statusEl) statusEl.textContent = 'Error: ' + e.message;

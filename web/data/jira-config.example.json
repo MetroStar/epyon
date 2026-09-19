@@ -1,7 +1,6 @@
 {
   "base_url": "https://your-org.atlassian.net",
   "email": "security@example.com",
-  "api_token": "",
   "project_key": "SEC",
   "issue_type": "Security Finding",
   "done_transition": "Done",

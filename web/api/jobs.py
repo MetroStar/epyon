@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from . import openai_summary
+from . import github_config
 
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[mGKHF]")
 
@@ -45,12 +46,9 @@ def _append_line(job: dict, line: str) -> None:
 
 
 def _read_github_config() -> dict:
-    """Read GitHub configuration from web/github-config.json."""
+    """Read non-secret GitHub preferences with environment authentication."""
     config_file = Path(__file__).parent.parent / "github-config.json"
-    try:
-        return json.loads(config_file.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
+    return github_config.read_config(config_file)
 
 
 async def _read_stream(stream: asyncio.StreamReader, job: dict) -> None:
@@ -128,7 +126,7 @@ async def run_scan_job(
     scan_dir     = epyon_root / "scans" / scan_name
     scan_dir.mkdir(parents=True, exist_ok=True)
 
-    # ── Write /tmp/epyon-env ─────────────────────────────────────
+    # ── Write non-secret scan state to /tmp/epyon-env ────────────
     epyon_version = "unknown"
     version_file = epyon_root / "VERSION"
     if version_file.exists():
@@ -166,7 +164,6 @@ async def run_scan_job(
     sonar_token = os.environ.get("SONAR_TOKEN", "")
     if sonar_token:
         env_lines.append("SKIP_SONAR=false")
-        env_lines.append(f"SONAR_TOKEN={sonar_token}")
         sonar_host = os.environ.get("SONAR_HOST_URL", "https://sonarcloud.io")
         env_lines.append(f"SONAR_HOST_URL={sonar_host}")
     else:
@@ -186,26 +183,20 @@ async def run_scan_job(
         env_lines.append("SKIP_ANCHORE=true")
         env_lines.append("SKIP_API_DISCOVERY=true")
         env_lines.append("SKIP_STIG=true")
-    # Propagate API keys — prefer ai-config.json, fall back to environment
+    # Secrets are passed only through the subprocess environment, never this file.
     openai_key = openai_summary.get_api_key() or os.environ.get("OPENAI_API_KEY", "")
-    if openai_key:
-        env_lines.append(f"OPENAI_API_KEY={openai_key}")
     openai_base_url = openai_summary.get_base_url() or os.environ.get("OPENAI_BASE_URL", "")
     if openai_base_url:
         env_lines.append(f"OPENAI_BASE_URL={openai_base_url}")
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if anthropic_key:
-        env_lines.append(f"ANTHROPIC_API_KEY={anthropic_key}")
-    
-    # GitHub PAT — read from github-config.json for STIG PR creation
+
+    # GitHub authentication comes only from GITHUB_TOKEN/GH_PAT in the environment.
     github_config = _read_github_config()
     github_token = github_config.get("token", "")
-    if github_token:
-        env_lines.append(f"GH_PAT={github_token}")
 
     _env_path = Path("/tmp/epyon-env")
     _env_path.write_text("\n".join(env_lines) + "\n")
-    _env_path.chmod(0o600)  # owner-only: file contains API keys
+    _env_path.chmod(0o600)
     _append_line(job, f"[web-ui] Initialized scan: {scan_name}")
 
     # ── Write scan-metadata.json so the parser can read scan_type ────────────

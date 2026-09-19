@@ -137,7 +137,7 @@ trap cleanup EXIT
 
 # ── Docker build + save ────────────────────────────────────────────────────────
 echo "📦 Building Docker image for AMD64 (x86_64) server..."
-docker build --no-cache --platform linux/amd64 -f web/Dockerfile -t "${APP_NAME}:latest" .
+docker build --no-cache --platform linux/amd64 -f Dockerfile -t "${APP_NAME}:latest" .
 
 echo "💾 Saving Docker image..."
 docker save "${APP_NAME}:latest" -o "${APP_NAME}.tar"

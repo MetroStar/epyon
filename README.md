@@ -451,7 +451,7 @@ Then open **http://127.0.0.1:8000** in your browser.
 
 ### Deploy with Docker
 
-For a containerized deployment (local Docker engine or a remote SSH host), use `scripts/deploy.sh`. It builds `web/Dockerfile` (FastAPI app + Docker CLI for docker-outside-of-docker scan execution) and runs it via `docker-compose.yml`, mounting the host's container socket so scan layers still run on the host engine.
+For a containerized deployment (local Docker engine or a remote SSH host), use `scripts/deploy.sh`. It builds `Dockerfile` (FastAPI app + Docker CLI for docker-outside-of-docker scan execution) and runs it via `docker-compose.yml`, mounting the host's container socket so scan layers still run on the host engine.
 
 ```bash
 ./scripts/deploy.sh

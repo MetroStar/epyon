@@ -331,19 +331,17 @@ def test_issue_exists_true_on_error_response(repo_root, monkeypatch):
     assert asyncio.run(jira_client._issue_exists({"base_url": "https://x.atlassian.net", "email": "a@b.com", "api_token": "t"}, "MID-3078")) is True
 
 
-def test_reassign_orphaned_tickets_recreates_deleted_issue(repo_root, monkeypatch):
+def test_reassign_orphaned_tickets_resets_deleted_issue_to_unsubmitted(repo_root, monkeypatch):
     jira_client = _load_jira_client(repo_root)
 
     async def fake_issue_exists(cfg, issue_key):
         return issue_key != "SEC-1"  # SEC-1 was deleted
 
-    async def fake_create_ticket(cfg, finding, app_name, epic_key=None, issue_type=None):
-        assert finding["id"] == "CVE-1"  # rebuilt from finding_snapshot
-        assert epic_key == "SEC-999"  # reuses the epic recorded at creation time
-        return "SEC-2"
+    def fail_create_ticket(*args, **kwargs):
+        raise AssertionError("orphan detection must never auto-recreate a Jira issue")
 
     monkeypatch.setattr(jira_client, "_issue_exists", fake_issue_exists)
-    monkeypatch.setattr(jira_client, "create_ticket", fake_create_ticket)
+    monkeypatch.setattr(jira_client, "create_ticket", fail_create_ticket)
 
     ticket_map = {
         "fp-1": {
@@ -373,10 +371,10 @@ def test_reassign_orphaned_tickets_recreates_deleted_issue(repo_root, monkeypatc
 
     assert result["checked"] == 2
     assert result["orphaned"] == ["SEC-1"]
-    assert result["reassigned"] == [{"old": "SEC-1", "new": "SEC-2"}]
-    assert ticket_map["fp-1"]["issue_key"] == "SEC-2"
-    assert ticket_map["fp-1"]["previous_issue_keys"] == ["SEC-1"]
-    assert ticket_map["fp-1"]["reassigned_at"]
+    assert result["reassigned"] == [{"old": "SEC-1", "new": None}]
+    # The orphaned fingerprint's ticket-map entry is removed entirely — the
+    # finding goes back to its original, unsubmitted state.
+    assert "fp-1" not in ticket_map
     assert ticket_map["fp-2"]["issue_key"] == "SEC-3"
 
 

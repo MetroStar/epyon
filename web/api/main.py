@@ -1391,7 +1391,10 @@ async def scan_jira_tickets_create(
         cfg, cfg["project_key"], epic_key, epic_name
     )
     if (epic_key or epic_name) and not resolved_epic_key:
-        raise HTTPException(502, "Failed to resolve or create the selected Epic")
+        raise HTTPException(
+            502,
+            "Failed to resolve or create the selected Epic — check server logs for the exact Jira API error",
+        )
     result = await jira_client.create_tickets_batch(
         app_name, findings_by_fingerprint, fingerprints, cfg, resolved_epic_key, issue_type
     )
@@ -3497,7 +3500,9 @@ def jira_tickets_list(response: Response):
 @app.post("/api/jira/reassign/{app_name}")
 async def jira_reassign_app(app_name: str, response: Response):
     """Check this application's tracked tickets for deleted Jira issues and
-    recreate any that were removed out-of-band."""
+    reset any that were removed out-of-band back to an unsubmitted state,
+    so they can be manually re-submitted. Never recreates a Jira issue
+    automatically."""
     _sec_headers(response)
     if not _SAFE_ID_RE.match(app_name):
         raise HTTPException(400, "Invalid app_name")

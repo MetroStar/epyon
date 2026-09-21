@@ -51,6 +51,24 @@ def _read_github_config() -> dict:
     return github_config.read_config(config_file)
 
 
+def _authenticated_clone_url(clone_url: str, github_token: str) -> str:
+    """Inject GITHUB_TOKEN/GH_PAT credentials into an https://github.com URL.
+
+    Without this, cloning any private GitHub repo fails with git's generic
+    "could not read Username ... No such device or address" — there's no
+    TTY in the container to prompt for credentials, and no credential
+    helper is configured. Only github.com https URLs are rewritten (SSH
+    URLs, HuggingFace, and other hosts already carry or don't need auth
+    this way); the token is never logged (see the redaction in the clone
+    output loop below).
+    """
+    if not github_token or not clone_url.startswith("https://github.com/"):
+        return clone_url
+    return clone_url.replace(
+        "https://github.com/", f"https://x-access-token:{github_token}@github.com/", 1
+    )
+
+
 async def _read_stream(stream: asyncio.StreamReader, job: dict) -> None:
     while True:
         try:
@@ -218,7 +236,8 @@ async def run_scan_job(
         Path(clone_root).mkdir(parents=True, exist_ok=True)
 
         clone_env = dict(os.environ)
-        clone_cmd = ["git", "clone", "--depth=1", clone_url, clone_root]
+        auth_clone_url = _authenticated_clone_url(clone_url, github_token)
+        clone_cmd = ["git", "clone", "--depth=1", auth_clone_url, clone_root]
 
         clone_proc = await asyncio.create_subprocess_exec(
             *clone_cmd,
@@ -229,6 +248,9 @@ async def run_scan_job(
         clone_out, clone_err = await clone_proc.communicate()
         for line in (clone_out + clone_err).decode("utf-8", errors="replace").splitlines():
             if line.strip():
+                # Never let the injected token leak into job output/logs.
+                if github_token:
+                    line = line.replace(github_token, "***")
                 _append_line(job, f"[git] {line}")
         if clone_proc.returncode != 0:
             job["status"]       = "failed"

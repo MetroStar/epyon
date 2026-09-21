@@ -284,12 +284,47 @@ async def _discover_epic_fields(cfg: dict) -> dict:
     return result
 
 
+async def _resolve_epic_issue_type(cfg: dict, project_key: str) -> str:
+    """Return the issue type name this project actually uses for Epics.
+
+    Most projects call it exactly "Epic", but the createmeta list is the
+    source of truth — some instances rename/relabel it (Atlassian has also
+    renamed the "Epic" hierarchy level to "Parent" in some team-managed
+    projects), and using an invalid name makes Jira reject the create call
+    with 400 ("Specify a valid issue type"), which previously surfaced only
+    as an opaque 502 in the UI.
+    """
+    cache_key = (_base(cfg), project_key)
+    types = _ISSUE_TYPE_CACHE.get(cache_key)
+    if types is None:
+        types = await list_project_issue_types(cfg, project_key)
+        _ISSUE_TYPE_CACHE[cache_key] = types
+    if not types:
+        return "Epic"  # couldn't look it up — try the standard name as-is
+    names = [(t.get("name") or "").strip() for t in types]
+    for candidate in ("epic", "parent"):
+        for name in names:
+            if name.lower() == candidate:
+                return name
+    for candidate in ("epic", "parent"):
+        for name in names:
+            if candidate in name.lower():
+                return name
+    logger.warning(
+        "Project %s has no 'Epic'/'Parent' issue type in its scheme; Epic "
+        "creation will likely fail. Available issue types: %s",
+        project_key, names,
+    )
+    return "Epic"
+
+
 async def create_epic(cfg: dict, project_key: str, name: str) -> str | None:
     """Create a new Epic issue in Jira and return its issue key, or None on failure."""
+    issue_type = await _resolve_epic_issue_type(cfg, project_key)
     fields: dict[str, Any] = {
         "project": {"key": project_key},
         "summary": name,
-        "issuetype": {"name": "Epic"},
+        "issuetype": {"name": issue_type},
     }
     epic_fields = await _discover_epic_fields(cfg)
     if epic_fields.get("epic_name"):
@@ -304,8 +339,12 @@ async def create_epic(cfg: dict, project_key: str, name: str) -> str | None:
             )
         if r.status_code == 201:
             return r.json().get("key")
+        logger.warning(
+            "Jira Epic creation failed for %s (%r): HTTP %s — %s",
+            project_key, name, r.status_code, r.text[:500],
+        )
     except Exception:
-        pass
+        logger.warning("Jira Epic creation raised an exception for %s (%r)", project_key, name, exc_info=True)
     return None
 
 
@@ -870,12 +909,15 @@ async def create_tickets_batch(
     return result
 
 
-# ── Orphaned ticket detection & reassignment ──────────────────
+# ── Orphaned ticket detection & recreation ────────────────────
 # A tracked ticket can vanish from Jira out-of-band (a user deletes the issue,
 # or an admin purges a project). Epyon's ticket map would otherwise keep
 # pointing at a dead issue key forever ("already_ticketed" but unclickable).
-# reassign_orphaned_tickets() detects this and recreates the ticket so the
-# fingerprint stays tracked and lifecycle management keeps working.
+# reassign_orphaned_tickets() detects this and drops the ticket-map entry
+# entirely, putting the finding back in its original, unsubmitted state so it
+# reappears as an eligible candidate the user can manually re-submit via the
+# normal "Create Jira Ticket" flow — Epyon never recreates the Jira issue
+# automatically.
 
 async def _issue_exists(cfg: dict, issue_key: str) -> bool:
     """Return False if the issue is permanently deleted OR sitting in Jira's
@@ -918,19 +960,21 @@ async def reassign_orphaned_tickets(
     cfg: dict,
     ticket_map: dict,
 ) -> dict:
-    """Detect tickets whose Jira issue was deleted and recreate them.
+    """Detect tickets whose Jira issue was deleted and reset them to an
+    unsubmitted state.
 
-    Mutates *ticket_map* in-place and returns a summary dict. Recreated
-    tickets reuse the original fingerprint (so history is preserved) and,
-    when available, the finding snapshot captured at creation time so a
-    faithful ticket can be rebuilt even if the finding is no longer present
-    in any current scan.
+    Mutates *ticket_map* in-place and returns a summary dict. Epyon never
+    recreates the Jira issue automatically — the ticket-map entry for an
+    orphaned fingerprint is simply removed, so the underlying finding goes
+    back to looking exactly like it did before any ticket was ever created
+    for it. It will reappear as an eligible candidate in the Jira review UI,
+    and the user can manually submit a brand-new ticket for it whenever they
+    choose.
     """
     result: dict = {"checked": 0, "orphaned": [], "reassigned": [], "errors": []}
     project_key = (cfg.get("project_key") or "").strip()
-    now_ts = datetime.now(timezone.utc).isoformat()
 
-    for fp, entry in ticket_map.items():
+    for fp, entry in list(ticket_map.items()):
         if entry.get("app") != app_name or entry.get("project_key") != project_key:
             continue
         issue_key = entry.get("issue_key", "")
@@ -941,39 +985,19 @@ async def reassign_orphaned_tickets(
             continue
 
         result["orphaned"].append(issue_key)
-        finding = entry.get("finding_snapshot") or {
-            "id": entry.get("finding_id", ""),
-            "severity": entry.get("severity", ""),
-            "tool": entry.get("tool", ""),
-        }
-        epic_key = entry.get("epic_key")
-        issue_type = entry.get("issue_type")
-
-        new_key = await create_ticket(cfg, finding, app_name, epic_key, issue_type)
-        if not new_key:
-            result["errors"].append(f"Failed to reassign {issue_key}")
-            continue
-
-        previous = list(entry.get("previous_issue_keys") or [])
-        previous.append(issue_key)
-        entry["previous_issue_keys"] = previous
-        entry["issue_key"] = new_key
-        entry["epic_key"] = epic_key
-        entry["closed_at"] = None
-        entry["reopened_at"] = None
-        entry["reassigned_at"] = now_ts
-        ticket_map[fp] = entry
-        result["reassigned"].append({"old": issue_key, "new": new_key})
+        del ticket_map[fp]
+        result["reassigned"].append({"old": issue_key, "new": None})
 
     return result
 
 
 async def reassign_orphaned_and_save(app_name: str, cfg: dict) -> dict:
-    """Atomically read → check-for-deleted-tickets → reassign → write.
+    """Atomically read → check-for-deleted-tickets → reset → write.
 
     Exposed for the manual "Check for deleted tickets" UI action; also used
-    internally by reconcile_and_save so orphans are cleared up automatically
-    on every post-scan/sync reconciliation.
+    internally by reconcile_and_save so orphaned entries are cleared out
+    automatically on every post-scan/sync reconciliation. Orphaned findings
+    are reset to their original unsubmitted state, never auto-recreated.
     """
     async with _get_lock():
         ticket_map = read_ticket_map()
@@ -996,8 +1020,11 @@ async def reconcile_and_save(
     same new findings, and the second write silently discards the first's
     entries — resulting in duplicate Jira issues.
 
-    Orphaned-ticket reassignment runs first so a deleted issue is recreated
-    before the normal close/reopen pass evaluates it.
+    Orphaned-ticket detection runs first so a deleted issue's entry is
+    dropped — resetting the finding to its unsubmitted state — before the
+    normal close/reopen pass evaluates it. This never recreates a Jira
+    issue automatically; the finding simply becomes eligible for manual
+    re-submission again.
     """
     async with _get_lock():
         ticket_map = read_ticket_map()

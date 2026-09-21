@@ -176,3 +176,23 @@ def test_scan_state_file_never_receives_integration_secrets(repo_root):
     for variable in ("JIRA_API_TOKEN", "GITHUB_TOKEN", "GH_PAT"):
         assert f'env_lines.append(f"{variable}=' not in source
         assert f'env_lines.append("{variable}=' not in source
+
+
+def test_authenticated_clone_url_injects_token_for_github_https(repo_root):
+    from web.api import jobs
+
+    url = jobs._authenticated_clone_url("https://github.com/org/repo.git", "ghp_secrettoken")
+    assert url == "https://x-access-token:ghp_secrettoken@github.com/org/repo.git"
+
+
+def test_authenticated_clone_url_leaves_other_hosts_and_no_token_untouched(repo_root):
+    from web.api import jobs
+
+    # No token configured — URL passed through unchanged.
+    assert jobs._authenticated_clone_url("https://github.com/org/repo.git", "") == \
+        "https://github.com/org/repo.git"
+    # Non-GitHub / SSH URLs are never rewritten.
+    assert jobs._authenticated_clone_url("git@github.com:org/repo.git", "tok") == \
+        "git@github.com:org/repo.git"
+    assert jobs._authenticated_clone_url("https://huggingface.co/org/model", "tok") == \
+        "https://huggingface.co/org/model"

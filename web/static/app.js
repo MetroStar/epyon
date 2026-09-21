@@ -7562,8 +7562,8 @@ async function jiraReviewCheckDeleted() {
   try {
     const result = await api.reassignJiraTickets(state.data.app_name);
     message = result.reassigned.length
-      ? `Checked ${result.checked} ticket(s) — recreated ${result.reassigned.length} deleted ticket(s): ` +
-        result.reassigned.map(r => `${r.old} → ${r.new}`).join(', ') + '.'
+      ? `Checked ${result.checked} ticket(s) — ${result.reassigned.length} deleted ticket(s) reset to unsubmitted: ` +
+        result.reassigned.map(r => r.old).join(', ') + '. You can manually re-submit them below.'
       : `Checked ${result.checked} ticket(s) — none were deleted.`;
     if (result.errors && result.errors.length) {
       message += ` ${result.errors.length} error(s): ${result.errors.join('; ')}`;

@@ -167,7 +167,7 @@ if [[ -f "$FINDINGS_SUMMARY" ]]; then
             # Extract finding details
             tool=$(echo "$finding" | jq -r '.tool // ""')
             detector=$(echo "$finding" | jq -r '.detector // ""')
-            file_path=$(echo "$finding" | jq -r '.file_path // ""')
+            file_path=$(echo "$finding" | jq -r '.file_path // .target // .container_image // ""')
             cve=$(echo "$finding" | jq -r '.vulnerability_id // .id // ""')
             package=$(echo "$finding" | jq -r '.package_name // .package // ""')
             version=$(echo "$finding" | jq -r '.package_version // .version // ""')

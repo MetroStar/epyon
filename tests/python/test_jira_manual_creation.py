@@ -196,7 +196,7 @@ def test_create_tickets_batch_persists_successes_and_is_idempotent(
     }
     calls = []
 
-    async def fake_create_ticket(cfg, finding, app_name):
+    async def fake_create_ticket(cfg, finding, app_name, epic_key=None, issue_type=None):
         calls.append(finding["id"])
         return "SEC-1" if finding["id"] == "CVE-1" else None
 

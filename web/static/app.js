@@ -9,6 +9,7 @@
 const _findingsRegistry     = new Map();
 let   _findingNextId        = 0;
 let   _jiraReviewState      = null;
+let   _jiraEpicModalState   = null;
 
 // ── STIG control detail registry (populated in renderStigViewer) ─
 const _stigRegistry = new Map();
@@ -782,10 +783,15 @@ const api = {
   saveJiraConfig(d)    { return this._post('/api/jira/config', d); },
   testJiraConnection() { return this._post('/api/jira/test', {}); },
   getJiraTickets()     { return this._get('/api/jira/tickets'); },
+  reassignJiraTickets(name) { return this._post(`/api/jira/reassign/${encodeURIComponent(name)}`, {}); },
   syncJiraApp(name)    { return this._post(`/api/jira/sync/${encodeURIComponent(name)}`, {}); },
   getJiraCandidates(id) { return this._get(`/api/scans/${encodeURIComponent(id)}/jira-candidates`, false); },
-  createJiraTickets(id, fingerprints) {
-    return this._post(`/api/scans/${encodeURIComponent(id)}/jira-tickets`, { fingerprints });
+  getScanJiraEpics(id) { return this._get(`/api/scans/${encodeURIComponent(id)}/jira-epics`, false); },
+  createJiraTickets(id, fingerprints, epicChoice) {
+    return this._post(`/api/scans/${encodeURIComponent(id)}/jira-tickets`, {
+      fingerprints,
+      ...(epicChoice || {}),
+    });
   },
   setJiraProject(id, projectKey) {
     return this._post(`/api/scans/${encodeURIComponent(id)}/jira-project`, { project_key: projectKey });
@@ -7374,7 +7380,11 @@ function renderJiraReviewPage() {
         placeholder="PROJECT" value="${esc(data.project_key || '')}"
         oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
       <button id="jira-review-project-save" class="btn" onclick="jiraReviewSaveProject()">Save Project</button>
+      <button id="jira-review-reassign" class="btn" onclick="jiraReviewCheckDeleted()"
+        title="Detect tickets whose Jira issue was deleted and recreate them"
+        ${data.jira_configured ? '' : 'disabled'}>Check for Deleted Tickets</button>
     </div>
+    <div id="jira-review-reassign-status" class="jira-review-subtitle"></div>
     ${data.jira_configured ? '' : `
       <div class="alert alert-warning jira-review-config">
         Jira credentials and an application project key are required. Review is available, but ticket creation is disabled.
@@ -7539,40 +7549,272 @@ async function jiraReviewSaveProject() {
   }
 }
 
+async function jiraReviewCheckDeleted() {
+  const state = _jiraReviewState;
+  if (!state || state.submitting) return;
+  const button = document.getElementById('jira-review-reassign');
+  button.disabled = true;
+  button.textContent = 'Checking…';
+  const prevStatusEl = document.getElementById('jira-review-reassign-status');
+  if (prevStatusEl) prevStatusEl.textContent = '';
+  let message = '';
+  let isError = false;
+  try {
+    const result = await api.reassignJiraTickets(state.data.app_name);
+    message = result.reassigned.length
+      ? `Checked ${result.checked} ticket(s) — ${result.reassigned.length} deleted ticket(s) reset to unsubmitted: ` +
+        result.reassigned.map(r => r.old).join(', ') + '. You can manually re-submit them below.'
+      : `Checked ${result.checked} ticket(s) — none were deleted.`;
+    if (result.errors && result.errors.length) {
+      message += ` ${result.errors.length} error(s): ${result.errors.join('; ')}`;
+      isError = true;
+    }
+    // renderJiraReview() fully replaces the page DOM (including this status
+    // element) to reload the refreshed candidate/ticket list, so the status
+    // text must be (re-)applied to the *new* element afterwards — setting it
+    // beforehand gets silently wiped out by the re-render.
+    await renderJiraReview(state.scanId);
+  } catch (error) {
+    message = `Error: ${error.message}`;
+    isError = true;
+  } finally {
+    const statusEl = document.getElementById('jira-review-reassign-status');
+    if (statusEl) {
+      statusEl.textContent = message;
+      statusEl.style.color = isError ? 'var(--danger, #dc2626)' : '';
+    }
+    const freshButton = document.getElementById('jira-review-reassign');
+    if (freshButton) {
+      freshButton.disabled = false;
+      freshButton.textContent = 'Check for Deleted Tickets';
+    }
+  }
+}
+
 async function jiraReviewCreateTickets() {
   const state = _jiraReviewState;
   if (!state || state.submitting || state.selected.size === 0) return;
+  await showJiraEpicModal();
+}
+
+async function showJiraEpicModal() {
+  const state = _jiraReviewState;
+  if (!state) return;
+  const selectedCount = state.selected.size;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-container" style="max-width:520px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h2 style="color:var(--text);margin:0">Create Jira Tickets</h2>
+        <button class="btn" onclick="this.closest('.modal-overlay').remove()" style="padding:6px 12px">✕</button>
+      </div>
+      <p style="color:var(--text-muted);font-size:13px;margin:0 0 16px">
+        Creating ${selectedCount} ticket${selectedCount === 1 ? '' : 's'} for this scan. Pick a ticket type,
+        and optionally an Epic to link them to.
+      </p>
+      <div id="jira-epic-modal-body">${loading()}</div>
+      <div class="modal-actions" style="margin-top:20px;display:flex;justify-content:flex-end;gap:10px">
+        <button class="btn" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+        <button id="jira-epic-modal-confirm" class="btn btn-primary" onclick="jiraReviewCreateTicketsConfirmed()">
+          Create Tickets
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+  try {
+    const epics = await api.getScanJiraEpics(state.scanId);
+    _jiraEpicModalState = {
+      existing: epics.existing || [],
+      suggested: epics.suggested || [],
+      choice: null,
+      issueTypes: epics.issue_types || [],
+      defaultIssueType: epics.default_issue_type || 'Bug',
+      issueType: epics.default_issue_type || 'Bug',
+    };
+    renderJiraEpicModalBody();
+  } catch (error) {
+    document.getElementById('jira-epic-modal-body').innerHTML =
+      `<div class="alert alert-warning">Could not load existing Epics: ${esc(error.message)}. You can still create tickets unassigned or create a new Epic.</div>`;
+    _jiraEpicModalState = {
+      existing: [], suggested: [], choice: null,
+      issueTypes: [], defaultIssueType: 'Bug', issueType: 'Bug',
+    };
+    renderJiraEpicModalBody();
+  }
+}
+
+function renderJiraEpicModalBody() {
+  const body = document.getElementById('jira-epic-modal-body');
+  if (!body) return;
+  const state = _jiraEpicModalState;
+  const hasIssueTypes = state.issueTypes.length > 0;
+  body.innerHTML = `
+    <div style="display:grid;gap:14px">
+      <div>
+        <label class="field-label">Ticket type</label>
+        <select id="jira-issue-type-select" class="field-input" onchange="jiraEpicModalPickIssueType(this.value)"
+          ${hasIssueTypes ? '' : 'disabled'}>
+          ${hasIssueTypes
+            ? state.issueTypes.map(t => `<option value="${esc(t.name)}" ${t.name === state.issueType ? 'selected' : ''}>${esc(t.name)}</option>`).join('')
+            : `<option>${esc(state.defaultIssueType)}</option>`}
+        </select>
+        ${hasIssueTypes
+          ? ''
+          : `<div style="font-size:12px;color:var(--text-muted);margin-top:4px">Could not load this project's ticket types — using the configured default (${esc(state.defaultIssueType)}).</div>`}
+      </div>
+      <div>
+        <label class="field-label">Use an existing Epic</label>
+        <select id="jira-epic-existing-select" class="field-input" onchange="jiraEpicModalPickExisting(this.value)">
+          <option value="">— None —</option>
+          ${state.existing.map(e => `<option value="${esc(e.key)}">${esc(e.key)} — ${esc(e.summary)}</option>`).join('')}
+        </select>
+        ${state.existing.length === 0 ? '<div style="font-size:12px;color:var(--text-muted);margin-top:4px">No existing Epics found in this project.</div>' : ''}
+      </div>
+      <div>
+        <label class="field-label">Or create a new Epic</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          ${state.suggested.map(s => `<button type="button" class="btn btn-sm" onclick="jiraEpicModalQuickCreate('${esc(s.name)}')">${esc(s.label)}</button>`).join('')}
+        </div>
+        <input id="jira-epic-new-name" class="field-input" type="text" maxlength="200"
+          placeholder="Custom Epic name…" oninput="jiraEpicModalTypedName(this.value)">
+      </div>
+      <div id="jira-epic-modal-selection" style="font-size:13px;color:var(--text-muted)">No Epic selected — tickets will be created unassigned.</div>
+    </div>`;
+}
+
+function jiraEpicModalPickIssueType(name) {
+  const state = _jiraEpicModalState;
+  if (!state) return;
+  state.issueType = name;
+}
+
+function jiraEpicModalPickExisting(epicKey) {
+  const state = _jiraEpicModalState;
+  if (!state) return;
+  if (epicKey) {
+    state.choice = { epic_key: epicKey };
+    document.getElementById('jira-epic-new-name').value = '';
+  } else {
+    state.choice = null;
+  }
+  jiraEpicModalUpdateSelectionText();
+}
+
+function _findExistingEpicByName(state, name) {
+  const needle = name.trim().toLowerCase();
+  if (!needle) return null;
+  return state.existing.find(e => (e.summary || '').trim().toLowerCase().startsWith(needle)) || null;
+}
+
+function jiraEpicModalQuickCreate(name) {
+  const state = _jiraEpicModalState;
+  if (!state) return;
+  const match = _findExistingEpicByName(state, name);
+  document.getElementById('jira-epic-new-name').value = name;
+  if (match) {
+    // Reuse the existing Epic instead of creating a duplicate.
+    document.getElementById('jira-epic-existing-select').value = match.key;
+    state.choice = { epic_key: match.key };
+  } else {
+    document.getElementById('jira-epic-existing-select').value = '';
+    state.choice = { epic_name: name };
+  }
+  jiraEpicModalUpdateSelectionText();
+}
+
+function jiraEpicModalTypedName(name) {
+  const state = _jiraEpicModalState;
+  if (!state) return;
+  const trimmed = name.trim();
+  if (trimmed) {
+    const match = _findExistingEpicByName(state, trimmed);
+    if (match) {
+      document.getElementById('jira-epic-existing-select').value = match.key;
+      state.choice = { epic_key: match.key };
+    } else {
+      document.getElementById('jira-epic-existing-select').value = '';
+      state.choice = { epic_name: trimmed };
+    }
+  } else {
+    state.choice = null;
+  }
+  jiraEpicModalUpdateSelectionText();
+}
+
+function jiraEpicModalUpdateSelectionText() {
+  const el = document.getElementById('jira-epic-modal-selection');
+  const state = _jiraEpicModalState;
+  if (!el || !state) return;
+  if (state.choice?.epic_key) {
+    const match = state.existing.find(e => e.key === state.choice.epic_key);
+    el.textContent = `Will link tickets to ${state.choice.epic_key}${match ? ' — ' + match.summary : ''}.`;
+  } else if (state.choice?.epic_name) {
+    el.textContent = `Will create a new Epic named "${state.choice.epic_name}" and link tickets to it.`;
+  } else {
+    el.textContent = 'No Epic selected — tickets will be created unassigned.';
+  }
+}
+
+async function jiraReviewCreateTicketsConfirmed() {
+  const state = _jiraReviewState;
+  if (!state || state.submitting || state.selected.size === 0) return;
+  const modalState = _jiraEpicModalState;
+  const requestExtras = {
+    ...(modalState?.choice || {}),
+    ...(modalState?.issueType ? { issue_type: modalState.issueType } : {}),
+  };
   const selected = [...state.selected];
-  if (!window.confirm(`Create ${selected.length} Jira ticket${selected.length === 1 ? '' : 's'}?`)) return;
+  document.querySelector('.modal-overlay')?.remove();
 
   state.submitting = true;
   jiraReviewUpdateSelection();
   const button = document.getElementById('jira-review-create');
-  button.textContent = 'Creating tickets…';
+  if (button) button.textContent = 'Creating tickets…';
   const failed = new Set();
+  const reasonCounts = {};
   let created = 0;
   let existing = 0;
   try {
     for (let index = 0; index < selected.length; index += 200) {
-      const result = await api.createJiraTickets(state.scanId, selected.slice(index, index + 200));
+      const result = await api.createJiraTickets(state.scanId, selected.slice(index, index + 200), requestExtras);
       created += result.created.length;
       existing += result.already_exists.length;
-      result.failed.concat(result.ineligible).forEach(item => failed.add(item.fingerprint));
-      button.textContent = `Creating ${Math.min(index + 200, selected.length)} of ${selected.length}…`;
+      result.failed.concat(result.ineligible).forEach(item => {
+        failed.add(item.fingerprint);
+        const reason = item.reason || 'unknown';
+        reasonCounts[reason] = (reasonCounts[reason] || 0) + 1;
+      });
+      if (button) button.textContent = `Creating ${Math.min(index + 200, selected.length)} of ${selected.length}…`;
     }
     const data = await api.getJiraCandidates(state.scanId);
     state.data = data;
     state.selected = failed;
     state.submitting = false;
     renderJiraReviewPage();
-    alert(`Created ${created} ticket${created === 1 ? '' : 's'}. ${existing} already existed. ${failed.size} failed or became ineligible.`);
+    const reasonLabels = {
+      unknown_fingerprint: 'no longer eligible in this scan (e.g. remediated, or its fingerprint changed)',
+      suppressed: 'suppressed by an ignore rule',
+      jira_creation_failed: 'rejected by Jira (see server logs for the exact API error)',
+    };
+    const reasonText = Object.entries(reasonCounts)
+      .map(([reason, count]) => `${count} ${reasonLabels[reason] || reason}`)
+      .join('; ');
+    alert(
+      `Created ${created} ticket${created === 1 ? '' : 's'}. ${existing} already existed. ` +
+      `${failed.size} failed or became ineligible${reasonText ? ` (${reasonText})` : ''}.`
+    );
   } catch (error) {
     state.submitting = false;
-    button.textContent = 'Create Jira Tickets';
+    if (button) button.textContent = 'Create Jira Tickets';
     jiraReviewUpdateSelection();
     alert(`Ticket creation failed: ${error.message}`);
   }
 }
+
 
 // ── Router ────────────────────────────────────────────────────
 function resolve() {

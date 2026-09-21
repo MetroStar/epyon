@@ -31,6 +31,8 @@ from . import github_metrics
 from . import github_config
 from . import openai_summary
 from . import jira_client
+from . import db as scan_db
+from . import scan_store
 
 # ── Paths ─────────────────────────────────────────────────────
 _HERE        = Path(__file__).parent
@@ -50,6 +52,39 @@ STATIC_DIR           = (_HERE / ".." / "static").resolve()
 # Scan types that run the full tool suite (Anchore, Trivy, Checkov, etc.)
 # Quick/stig/local_model scans do not produce complete vulnerability counts.
 _COMPREHENSIVE_SCAN_TYPES = frozenset({"full", "nightly"})
+
+# ── Scan database & retention ─────────────────────────────────
+# Raw scan folders under scans/ are archived (compressed into the SQLite DB)
+# and removed from disk once older than this many days. The parsed summary
+# stays in the DB forever. See scan_store.py for the ingestion/archival logic.
+_RETENTION_DAYS  = int(os.environ.get("EPYON_SCAN_RETENTION_DAYS", str(scan_store.DEFAULT_RETENTION_DAYS)))
+_RESTORE_HOURS   = int(os.environ.get("EPYON_SCAN_RESTORE_HOURS", str(scan_store.DEFAULT_RESTORE_HOURS)))
+_RETENTION_SWEEP_INTERVAL_SECONDS = 24 * 60 * 60
+
+_scan_db_conn = scan_db.get_conn(EPYON_ROOT)
+
+
+def _find_live_scan_dir(scan_id: str, days: int = 35):
+    """Return the live (on-disk) scan directory Path, or None."""
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=days)
+    return next((d for d in scan_dirs if d.name == scan_id), None)
+
+
+def _require_scan_dir(scan_id: str, days: int = 35) -> Path:
+    """Resolve scan_id to a live directory. Raises 410 if the scan has been
+    archived under the retention policy (with a restore hint), or 404 if the
+    scan is unknown entirely."""
+    matched = _find_live_scan_dir(scan_id, days=days)
+    if matched:
+        return matched
+    if scan_store.is_archived(_scan_db_conn, scan_id):
+        raise HTTPException(
+            410,
+            f"Scan '{scan_id}' was archived under the {_RETENTION_DAYS}-day retention policy. "
+            f"POST /api/scans/{scan_id}/restore to temporarily restore its raw files.",
+        )
+    raise HTTPException(404, "Scan not found")
+
 
 # ── Audit logging ────────────────────────────────────────────
 _AUDIT_LOG_FILE = (_HERE / ".." / "data" / "audit.log").resolve()
@@ -84,6 +119,7 @@ def _audit(request: Request, action: str, detail: str = "") -> None:
 # ── Validation ────────────────────────────────────────────────
 _SAFE_ID_RE      = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_\-.]*$")
 _JIRA_FP_RE      = re.compile(r"^[a-f0-9]{16}\|[^\x00-\x1f]{1,40}$")
+_JIRA_EPIC_KEY_RE = re.compile(r"^[A-Z][A-Z0-9]{0,9}-\d+$")
 _JOB_ID_RE       = re.compile(r"^\d{14}$")
 _APP_SCAN_RE     = re.compile(r"^(.+)_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})$")
 _VALID_SCAN_TYPES = {"quick", "full", "nightly", "baseline", "stig", "local_model"}
@@ -275,6 +311,15 @@ async def _jira_post_scan(target_name: str) -> None:
 def _on_scan_complete(target_name: str = "", scan_name: str = "") -> None:
     """Callback invoked by jobs.py when a scan finishes."""
     _invalidate_scan_cache(reason="scan_completion", scan_id=scan_name)
+    if scan_name:
+        matched = _find_live_scan_dir(scan_name, days=0)
+        if matched:
+            try:
+                scan_store.ingest_scan_dir(_scan_db_conn, matched, EPYON_ROOT)
+            except Exception:
+                logging.getLogger("epyon.scan_store").exception(
+                    "failed to ingest completed scan %s", scan_name
+                )
     if target_name:
         asyncio.create_task(_jira_post_scan(target_name))
 
@@ -306,7 +351,29 @@ async def lifespan(_: FastAPI):
                 )
             await asyncio.sleep(15 * 60)  # re-check every 15 minutes
 
+    async def _retention_loop() -> None:
+        """Ingest new/changed scans and archive+prune folders older than the
+        retention window (default 90 days). Runs once shortly after startup,
+        then daily."""
+        await asyncio.sleep(30)
+        log = logging.getLogger("epyon.scan_store")
+        while True:
+            try:
+                result = await asyncio.to_thread(
+                    scan_store.run_retention_sweep, _scan_db_conn, EPYON_ROOT, _RETENTION_DAYS
+                )
+                if result["ingested"] or result["archived"]:
+                    log.info(
+                        "retention sweep: ingested=%d archived=%d bytes_freed=%d errors=%d",
+                        result["ingested"], result["archived"], result["bytes_freed"], len(result["errors"]),
+                    )
+                    _invalidate_scan_cache(reason="retention_sweep")
+            except Exception:
+                log.exception("retention sweep failed")
+            await asyncio.sleep(_RETENTION_SWEEP_INTERVAL_SECONDS)
+
     asyncio.create_task(_auto_sync_loop())
+    asyncio.create_task(_retention_loop())
     yield
 
 
@@ -726,21 +793,75 @@ def delete_application(name: str, request: Request, response: Response):
 
 @app.delete("/api/scans/{scan_id}")
 def delete_scan(scan_id: str, request: Request, response: Response):
-    """Permanently delete a single scan directory."""
+    """Permanently delete a single scan (raw folder and/or archived DB copy)."""
     _sec_headers(response)
     _audit(request, "delete_scan", f"scan_id={scan_id}")
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=0)
     matched = next((d for d in scan_dirs if d.name == scan_id), None)
-    if not matched:
+    if matched:
+        try:
+            matched.resolve().relative_to(EPYON_ROOT.resolve())
+        except ValueError:
+            raise HTTPException(403, "Access denied")
+        shutil.rmtree(matched)
+    elif not scan_store.is_archived(_scan_db_conn, scan_id):
         raise HTTPException(404, "Scan not found")
-    try:
-        matched.resolve().relative_to(EPYON_ROOT.resolve())
-    except ValueError:
-        raise HTTPException(403, "Access denied")
-    shutil.rmtree(matched)
+    _scan_db_conn.execute("DELETE FROM scan_archives WHERE scan_id = ?", (scan_id,))
+    _scan_db_conn.execute("DELETE FROM scans WHERE scan_id = ?", (scan_id,))
+    _scan_db_conn.commit()
+    _invalidate_scan_cache(reason="delete_scan", scan_id=scan_id)
     return {"deleted": scan_id}
+
+
+@app.post("/api/scans/{scan_id}/restore")
+def restore_scan(scan_id: str, request: Request, response: Response):
+    """Temporarily restore an archived scan's raw files to disk (for
+    _RESTORE_HOURS) so downloads/full-detail endpoints work again."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    _audit(request, "restore_scan", f"scan_id={scan_id}")
+    dest = scan_store.restore_scan(_scan_db_conn, scan_id, EPYON_ROOT, hours=_RESTORE_HOURS)
+    if dest is None:
+        raise HTTPException(404, "Archived scan not found")
+    _invalidate_scan_cache(reason="restore_scan", scan_id=scan_id)
+    return {
+        "scan_id": scan_id,
+        "restored_path": str(dest),
+        "restored_for_hours": _RESTORE_HOURS,
+    }
+
+
+@app.get("/api/retention/status")
+def retention_status(response: Response):
+    """Retention/archival configuration and recent sweep history."""
+    _sec_headers(response)
+    row = _scan_db_conn.execute(
+        "SELECT COUNT(*) AS n, COALESCE(SUM(raw_size_bytes), 0) AS bytes FROM scans WHERE archived = 1"
+    ).fetchone()
+    last_runs = _scan_db_conn.execute(
+        "SELECT started_at, finished_at, ingested_count, archived_count, bytes_freed, errors_json "
+        "FROM retention_runs ORDER BY id DESC LIMIT 10"
+    ).fetchall()
+    return {
+        "retention_days": _RETENTION_DAYS,
+        "restore_hours": _RESTORE_HOURS,
+        "archived_scans": row["n"],
+        "bytes_freed_total": row["bytes"],
+        "recent_runs": [dict(r) for r in last_runs],
+    }
+
+
+@app.post("/api/retention/run")
+def retention_run_now(response: Response):
+    """Manually trigger an ingest + archive sweep (normally runs daily)."""
+    _sec_headers(response)
+    result = scan_store.run_retention_sweep(_scan_db_conn, EPYON_ROOT, _RETENTION_DAYS)
+    if result["ingested"] or result["archived"]:
+        _invalidate_scan_cache(reason="retention_sweep_manual")
+    return result
 
 
 @app.get("/api/applications-hidden")
@@ -881,10 +1002,7 @@ async def app_isso_summary(name: str, response: Response):
 def scan_dashboard(scan_id: str, response: Response):
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
-    matched = next((d for d in scan_dirs if d.name == scan_id), None)
-    if not matched:
-        raise HTTPException(404, "Scan not found")
+    matched = _require_scan_dir(scan_id)
     dashboard = matched / "consolidated-reports" / "dashboards" / "security-dashboard.html"
     try:
         dashboard.resolve().relative_to(EPYON_ROOT.resolve())
@@ -901,10 +1019,7 @@ def stig_findings_md(scan_id: str, response: Response):
     _sec_headers(response)
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
-    matched = next((d for d in scan_dirs if d.name == scan_id), None)
-    if not matched:
-        raise HTTPException(404, "Scan not found")
+    matched = _require_scan_dir(scan_id)
     app_slug = re.sub(r"[^a-z0-9]+", "-", re.sub(r"_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$", "", scan_id).lower()).strip("-")
     report = matched / f"findings-{app_slug}.md"
     try:
@@ -923,10 +1038,7 @@ def stig_findings_cklb(scan_id: str, response: Response):
     _sec_headers(response)
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
-    matched = next((d for d in scan_dirs if d.name == scan_id), None)
-    if not matched:
-        raise HTTPException(404, "Scan not found")
+    matched = _require_scan_dir(scan_id)
     app_slug = re.sub(r"[^a-z0-9]+", "-", re.sub(r"_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$", "", scan_id).lower()).strip("-")
     report = matched / f"findings-{app_slug}.cklb"
     try:
@@ -1139,6 +1251,9 @@ def scan_detail(scan_id: str, response: Response):
     scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
     matched = next((d for d in scan_dirs if d.name == scan_id), None)
     if not matched:
+        summary = scan_store.get_scan_summary(_scan_db_conn, scan_id)
+        if summary is not None:
+            return summary
         raise HTTPException(404, "Scan not found")
     return parsers.load_scan_complete(matched, EPYON_ROOT)
 
@@ -1191,6 +1306,9 @@ def scan_jira_candidates(scan_id: str, response: Response):
 
 class JiraTicketCreateRequest(BaseModel):
     fingerprints: List[str]
+    epic_key: Optional[str] = None
+    epic_name: Optional[str] = None
+    issue_type: Optional[str] = None
 
 
 class JiraProjectKeyRequest(BaseModel):
@@ -1240,6 +1358,17 @@ async def scan_jira_tickets_create(
         raise HTTPException(400, "A maximum of 200 findings can be submitted at once")
     if any(not _JIRA_FP_RE.fullmatch(fingerprint) for fingerprint in fingerprints):
         raise HTTPException(400, "Invalid fingerprint")
+    epic_key = (body.epic_key or "").strip().upper() or None
+    if epic_key and not _JIRA_EPIC_KEY_RE.fullmatch(epic_key):
+        raise HTTPException(400, "epic_key must look like PROJECT-123")
+    epic_name = (body.epic_name or "").strip() or None
+    if epic_name and re.search(r"[<>\"';&|`$\n\r]", epic_name):
+        raise HTTPException(400, "epic_name contains invalid characters")
+    if epic_name and len(epic_name) > 200:
+        raise HTTPException(400, "epic_name is too long")
+    issue_type = (body.issue_type or "").strip() or None
+    if issue_type and (re.search(r"[<>\"';&|`$\n\r]", issue_type) or len(issue_type) > 100):
+        raise HTTPException(400, "issue_type is invalid")
 
     scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
     matched = next((directory for directory in scan_dirs if directory.name == scan_id), None)
@@ -1258,8 +1387,16 @@ async def scan_jira_tickets_create(
     findings_by_fingerprint = {
         candidate["fingerprint"]: candidate for candidate in candidates
     }
+    resolved_epic_key = await jira_client.resolve_epic_selection(
+        cfg, cfg["project_key"], epic_key, epic_name
+    )
+    if (epic_key or epic_name) and not resolved_epic_key:
+        raise HTTPException(
+            502,
+            "Failed to resolve or create the selected Epic — check server logs for the exact Jira API error",
+        )
     result = await jira_client.create_tickets_batch(
-        app_name, findings_by_fingerprint, fingerprints, cfg
+        app_name, findings_by_fingerprint, fingerprints, cfg, resolved_epic_key, issue_type
     )
     _audit(
         request,
@@ -1326,10 +1463,7 @@ def scan_sbom(scan_id: str, response: Response):
     _sec_headers(response)
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
-    matched = next((d for d in scan_dirs if d.name == scan_id), None)
-    if not matched:
-        raise HTTPException(404, "Scan not found")
+    matched = _require_scan_dir(scan_id)
     return parsers.load_sbom_packages(matched)
 
 
@@ -1339,10 +1473,7 @@ def scan_sbom_cyclonedx(scan_id: str, response: Response):
     _sec_headers(response)
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
-    matched = next((d for d in scan_dirs if d.name == scan_id), None)
-    if not matched:
-        raise HTTPException(404, "Scan not found")
+    matched = _require_scan_dir(scan_id)
     sbom_dir = matched / "sbom"
     # Prefer the dedicated cyclonedx file, fall back to any *.cyclonedx.json
     candidates = [
@@ -1366,10 +1497,7 @@ def scan_download_zip(scan_id: str, response: Response):
     _sec_headers(response)
     if not _SAFE_ID_RE.match(scan_id):
         raise HTTPException(400, "Invalid scan_id")
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
-    matched = next((d for d in scan_dirs if d.name == scan_id), None)
-    if not matched:
-        raise HTTPException(404, "Scan not found")
+    matched = _require_scan_dir(scan_id)
 
     epyon_root_resolved = EPYON_ROOT.resolve()
 
@@ -3320,6 +3448,45 @@ async def jira_test(response: Response):
     return result
 
 
+@app.get("/api/scans/{scan_id}/jira-epics")
+async def scan_jira_epics(scan_id: str, response: Response):
+    """List existing Jira Epics and issue types for this scan's
+    application/project, plus Epyon's suggested severity-based Epic names.
+
+    Powers the Epic + ticket-type pickers shown in the "Create Jira Tickets"
+    modal — always offer real existing Epics/issue types so duplicates
+    aren't created and invalid types aren't submitted.
+    """
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    matched = next((directory for directory in scan_dirs if directory.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+    scan_data = parsers.load_scan_complete(matched, EPYON_ROOT)
+    app_name = scan_data.get("target") or parsers.parse_dir_name(scan_id)["target"]
+    cfg = jira_client.read_config(app_name)
+    project_key = (cfg.get("project_key") or "").strip()
+
+    existing: List[dict] = []
+    issue_types: List[dict] = []
+    if project_key and cfg.get("api_token"):
+        existing = await jira_client.list_project_epics(cfg, project_key)
+        issue_types = await jira_client.list_project_issue_types(cfg, project_key)
+
+    return {
+        "project_key": project_key,
+        "existing": existing,
+        "suggested": [
+            {"label": label, "name": jira_client.suggested_epic_name(label)}
+            for label in jira_client.SEVERITY_EPIC_LABELS
+        ],
+        "issue_types": issue_types,
+        "default_issue_type": cfg.get("issue_type") or "Bug",
+    }
+
+
 @app.get("/api/jira/tickets")
 def jira_tickets_list(response: Response):
     _sec_headers(response)
@@ -3328,6 +3495,21 @@ def jira_tickets_list(response: Response):
     entries = list(tmap.values())
     entries.sort(key=lambda e: e.get("created_at", ""), reverse=True)
     return {"total": len(entries), "tickets": entries}
+
+
+@app.post("/api/jira/reassign/{app_name}")
+async def jira_reassign_app(app_name: str, response: Response):
+    """Check this application's tracked tickets for deleted Jira issues and
+    reset any that were removed out-of-band back to an unsubmitted state,
+    so they can be manually re-submitted. Never recreates a Jira issue
+    automatically."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(app_name):
+        raise HTTPException(400, "Invalid app_name")
+    cfg = jira_client.read_config(app_name)
+    if not cfg.get("api_token"):
+        raise HTTPException(400, "Jira is not configured — set api_token first")
+    return await jira_client.reassign_orphaned_and_save(app_name, cfg)
 
 
 @app.post("/api/jira/sync/{app_name}")

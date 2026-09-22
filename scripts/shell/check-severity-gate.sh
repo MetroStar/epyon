@@ -236,7 +236,7 @@ if [[ -f "$FINDINGS_SUMMARY" ]]; then
             (.vulnerability_id // .id // ""),
             (.package_name // .package // ""),
             (.package_version // .version // ""),
-            ((.file_path // "") | sub("^/workspace/"; "")),
+            ((.file_path // .target // .container_image // "") | sub("^/workspace/"; "")),
             (.line_number // "")
         ] | join("|");
     

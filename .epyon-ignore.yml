@@ -3,7 +3,19 @@
 
 version: "1.0"
 
-ignores: []
+ignores:
+  - type: package
+    value: "transformers@4.57.6"
+    reason: >
+      transformers==4.57.6 is pinned only in test fixtures
+      (tests/fixtures/pip-audit/clean-ml/requirements.txt and
+      tests/fixtures/pip-audit/typosquat-ml/requirements.txt) used to exercise the
+      ML-aware pip-audit scanner; it is not a real Epyon runtime dependency. 4.57.6 is
+      also the latest version currently published on PyPI, so there is no newer
+      version to pin to for CVE-2026-4372 / CVE-2026-5241 / CVE-2026-9856
+      (GHSA-29pf-2h5f-8g72, GHSA-fgcw-684q-jj6r, GHSA-xrqw-3rrv-vx5w).
+    approved_by: "rnelson"
+    expires: "2027-03-31"
 
 # Notes:
 # - Previously suppressed CKV2_GHA_1 and CKV_GHA_7 findings have been fixed:

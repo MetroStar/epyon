@@ -195,3 +195,62 @@ def test_expired_rules_are_ignored(parsers, tmp_path, monkeypatch):
 
     rules = parsers.parse_suppressed_findings(tmp_path)
     assert rules == [], "expired rule should not be loaded"
+
+
+def test_markdown_suppression_extracts_matched_pattern(parsers, tmp_path):
+    """suppressed-findings.md logs path/cve rules as '<finding> (matched: <pattern>)'.
+
+    The reusable glob pattern (e.g. "reg.mini.dev:keycloak-fips/*") must be extracted
+    as the rule value — not the one-off matched-finding text — or future findings
+    against the same rule will never match.
+    """
+    md = tmp_path / "suppressed-findings.md"
+    md.write_text(
+        "# Suppressed Security Findings Report\n\n"
+        "## Suppressed: reg.mini.dev:keycloak-fips/v26.7.4-dev "
+        "(matched: reg.mini.dev:keycloak-fips/*)\n"
+        "- **Tool**: Anchore\n"
+        "- **Type**: path\n"
+        "- **Value**: reg.mini.dev:keycloak-fips/v26.7.4-dev "
+        "(matched: reg.mini.dev:keycloak-fips/*)\n"
+        "- **Reason**: Accepted risk pending upstream remediation\n"
+        "- **Approved By**: rnelson\n"
+        "- **Severity**: Varies\n",
+        encoding="utf-8",
+    )
+
+    rules = parsers.parse_suppressed_findings(tmp_path)
+    path_rules = [r for r in rules if r.get("type") == "path"]
+    assert len(path_rules) == 1
+    assert path_rules[0]["value"] == "reg.mini.dev:keycloak-fips/*"
+
+    other_finding = {
+        "tool": "anchore",
+        "id": "GHSA-9pwp-9qqc-pr26",
+        "package": "bc-fips",
+        "version": "2.1.2",
+        "target": "reg.mini.dev:keycloak-fips/v27.0.0-dev",
+    }
+    assert parsers._is_finding_suppressed(other_finding, rules) is True
+
+
+def test_filter_suppressed_findings_excludes_suppressed_from_totals(parsers):
+    """total_<sev> counts feed the top-level summary cards and must reflect only
+    active findings — suppressed findings must not inflate the headline counts."""
+    findings_dict = {
+        "critical_findings": [
+            {"tool": "anchore", "id": "GHSA-1", "package": "bc-fips", "version": "2.1.2"},
+            {"tool": "anchore", "id": "GHSA-2", "package": "netty-handler", "version": "4.1.136.Final"},
+        ],
+        "high_findings": [],
+        "medium_findings": [],
+        "low_findings": [],
+    }
+    suppressions = [{"type": "package", "value": "netty-handler@4.1.136.Final"}]
+
+    result = parsers._filter_suppressed_findings(findings_dict, suppressions)
+
+    assert result["summary"]["total_critical"] == 1
+    assert result["summary"]["suppressed_critical"] == 1
+    assert result["critical_findings"][0]["suppressed"] is False
+    assert result["critical_findings"][1]["suppressed"] is True

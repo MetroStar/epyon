@@ -1104,6 +1104,13 @@ run_group "Apply Suppression Rules" bash -lc '
     exit 0
   fi
 
+  # Reuse the severity-gate filter so package, CVE, and path rules are applied
+  # consistently before reports and dashboards are generated.
+  FAIL_ON_CRITICAL=false FAIL_ON_HIGH=false WARNING_ONLY=true \
+    SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" \
+    bash scripts/shell/check-severity-gate.sh
+  exit 0
+
   # Build ignore cache from the target repo .epyon-ignore.yml (if present).
   # Try multiple candidate locations to handle different workspace layouts
   # (repo at TARGET_DIR, at GITHUB_WORKSPACE root, etc.).

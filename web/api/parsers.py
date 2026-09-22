@@ -1181,6 +1181,13 @@ def parse_suppressed_findings(scan_dir: Path) -> list[dict]:
     if md_file.exists():
         text = md_file.read_text(encoding="utf-8", errors="replace")
         blocks = re.split(r"^## Suppressed:", text, flags=re.MULTILINE)
+        # bash's filter-ignored-findings.sh logs path/cve suppressions as
+        # "<matched finding> (matched: <original rule pattern>)". The rule pattern
+        # (often containing a glob like "foo/*") is what _is_finding_suppressed()
+        # needs to re-match future findings — the matched-finding text itself is a
+        # one-off value and will never match anything else.
+        matched_pattern_re = re.compile(r"^(.*?)\s*\(matched:\s*(.+?)\)\s*$")
+
         for block in blocks[1:]:  # skip preamble
             lines = block.strip().splitlines()
             record: dict = {"value": lines[0].strip() if lines else ""}
@@ -1189,6 +1196,12 @@ def parse_suppressed_findings(scan_dir: Path) -> list[dict]:
                 if m:
                     key = m.group(1).strip().lower().replace(" ", "_")
                     record[key] = m.group(2).strip()
+
+            value = record.get("value", "")
+            m = matched_pattern_re.match(value)
+            if m:
+                record["value"] = m.group(2).strip()
+
             dedup_key = (record.get("type", "").lower(), record.get("value", "").lower())
             if dedup_key not in seen:
                 seen.add(dedup_key)
@@ -1380,15 +1393,19 @@ def _filter_suppressed_findings(findings_dict: dict, suppressions: list[dict]) -
             else:
                 finding["suppressed"] = False
     
-    # Update summary to include suppressed counts
+    # Update summary to include suppressed counts.
+    # total_<sev> reflects only ACTIVE (non-suppressed) findings, since this is what
+    # drives the top-level severity summary cards; suppressed findings remain visible
+    # in the per-section finding lists (marked suppressed=True) but must not inflate
+    # the headline counts.
     if "summary" not in result:
         result["summary"] = {}
     
     result["summary"].update({
-        "total_critical": len(result.get("critical_findings", [])),
-        "total_high":     len(result.get("high_findings", [])),
-        "total_medium":   len(result.get("medium_findings", [])),
-        "total_low":      len(result.get("low_findings", [])),
+        "total_critical": len(result.get("critical_findings", [])) - suppressed_counts["critical"],
+        "total_high":     len(result.get("high_findings", []))     - suppressed_counts["high"],
+        "total_medium":   len(result.get("medium_findings", []))   - suppressed_counts["medium"],
+        "total_low":      len(result.get("low_findings", []))      - suppressed_counts["low"],
         "suppressed_critical": suppressed_counts["critical"],
         "suppressed_high":     suppressed_counts["high"],
         "suppressed_medium":   suppressed_counts["medium"],

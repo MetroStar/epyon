@@ -1103,6 +1103,8 @@ def stig_data(scan_id: str, response: Response):
                 "evidence":       assessed.get("evidence",         ""),
                 "confidence":     assessed.get("confidence",       0),
                 "locked_by_human": bool(assessed.get("locked_by_human", False)),
+                "locked_by_stability": bool(assessed.get("locked_by_stability", False)),
+                "stable_count":    assessed.get("stable_count", 0),
             })
 
         app_slug  = re.sub(r"[^a-z0-9]+", "-", re.sub(r"_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$", "", scan_id).lower()).strip("-")

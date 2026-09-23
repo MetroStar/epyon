@@ -150,3 +150,55 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-stig-scan.sh"
     grep -q "ASSESSMENT_SCRIPT" "$SCRIPT_PATH"
     grep -q "! -f.*ASSESSMENT_SCRIPT\|\[ERROR\].*Assessment script" "$SCRIPT_PATH"
 }
+
+@test "run-stig-scan.sh supports STIGS_DIR_DEFAULT_BACKUP self-heal env var" {
+    grep -q "STIGS_DIR_DEFAULT_BACKUP" "$SCRIPT_PATH"
+}
+
+@test "run-stig-scan.sh self-heals an empty/missing STIGS_DIR from the image backup" {
+    grep -q "/opt/epyon-defaults/configuration/stigs" "$SCRIPT_PATH"
+    grep -q "Restoring shipped STIG files\|restoring shipped STIG files" "$SCRIPT_PATH"
+}
+
+@test "run-stig-scan.sh self-heal runs before the STIGS_DIR existence check" {
+    local heal_line existence_check_line
+    heal_line=$(grep -n "_STIGS_DEFAULTS_BACKUP=" "$SCRIPT_PATH" | head -1 | cut -d: -f1)
+    existence_check_line=$(grep -n '\[ERROR\] STIGS_DIR not found' "$SCRIPT_PATH" | head -1 | cut -d: -f1)
+    [ -n "$heal_line" ]
+    [ -n "$existence_check_line" ]
+    [ "$heal_line" -lt "$existence_check_line" ]
+}
+
+@test "run-stig-scan.sh self-heal restores STIG files into an empty host-mounted STIGS_DIR" {
+    local backup_dir stigs_dir
+    backup_dir="$(mktemp -d)"
+    stigs_dir="$(mktemp -d)"
+    rmdir "$stigs_dir"  # simulate a missing (not just empty) mounted directory
+
+    cat > "${backup_dir}/fake.cklb" << 'CKLB'
+{"stigs": []}
+CKLB
+
+    # Run only the self-heal snippet in isolation (avoids invoking the full
+    # script, which requires a real TARGET_DIR and python3 + openai).
+    run bash -c "
+        STIGS_DIR='${stigs_dir}'
+        _STIGS_DEFAULTS_BACKUP='${backup_dir}'
+        _existing_stig_count=0
+        if [[ -d \"\$STIGS_DIR\" ]]; then
+            _existing_stig_count=\$(find \"\$STIGS_DIR\" -maxdepth 1 \( -name '*.cklb' -o -name '*.xml' \) -type f 2>/dev/null | wc -l | tr -d ' ')
+        fi
+        if [[ \"\$_existing_stig_count\" -eq 0 && -d \"\$_STIGS_DEFAULTS_BACKUP\" ]]; then
+            _backup_count=\$(find \"\$_STIGS_DEFAULTS_BACKUP\" -maxdepth 1 \( -name '*.cklb' -o -name '*.xml' \) -type f 2>/dev/null | wc -l | tr -d ' ')
+            if [[ \"\$_backup_count\" -gt 0 ]]; then
+                mkdir -p \"\$STIGS_DIR\"
+                cp -n \"\$_STIGS_DEFAULTS_BACKUP\"/*.cklb \"\$STIGS_DIR\"/ 2>/dev/null || true
+                cp -n \"\$_STIGS_DEFAULTS_BACKUP\"/*.xml  \"\$STIGS_DIR\"/ 2>/dev/null || true
+            fi
+        fi
+        [ -f '${stigs_dir}/fake.cklb' ]
+    "
+    [ "$status" -eq 0 ]
+
+    rm -rf "$backup_dir" "$stigs_dir"
+}

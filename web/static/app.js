@@ -6625,7 +6625,7 @@ async function renderStigViewer(scanId) {
                   <tr class="stig-tr stig-tr-clickable" id="${rowId}" onclick="openStigDetail('${esc(regKey)}')">
                     <td><code class="stig-id">${esc(c.group_id || c.vuln_id)}</code></td>
                     <td><span class="stig-sev stig-sev-${esc(c.severity)}">${esc(c.severity || '—')}</span></td>
-                    <td><span class="${esc(STATUS_CLASS[c.status] || 'stig-status-nr')}">${esc(c.status)}</span>${c.locked_by_human ? ' <span class="stig-lock-badge" title="Manually locked by human reviewer">🔒</span>' : ''}</td>
+                    <td><span class="${esc(STATUS_CLASS[c.status] || 'stig-status-nr')}">${esc(c.status)}</span>${c.locked_by_human ? ' <span class="stig-lock-badge" title="Manually locked by human reviewer">🔒</span>' : ''}${c.locked_by_stability ? ' <span class="stig-lock-badge" title="No repository evidence found across repeated scans — not re-assessed by AI to save time/tokens until code changes">💤</span>' : ''}</td>
                     <td><span class="stig-confidence ${confClass}" title="${conf}/100">${conf}</span></td>
                     <td class="stig-title-cell">${esc(c.title)}</td>
                     ${stigNames.length > 1 ? `<td class="stig-stig-cell" title="${esc(c._stig_name)}">${esc(sname)}</td>` : ''}

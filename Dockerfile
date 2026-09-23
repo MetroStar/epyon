@@ -30,6 +30,15 @@ RUN python3 -m pip install --no-cache-dir -r /app/web/api/requirements.txt
 # available to the API at runtime (see EPYON_ROOT resolution in main.py).
 COPY . /app
 
+# Immutable, build-time copy of the shipped STIG source files. docker-compose.yml
+# bind-mounts ./configuration over /app/configuration to persist STIG scan state
+# and any user-added STIG files across image rebuilds — but that also means an
+# empty/missing host-side configuration/stigs directory silently breaks Layer 13
+# (STIG Compliance Assessment). This backup lives outside /app so the bind mount
+# can never shadow it; run-stig-scan.sh self-heals from it if configuration/stigs
+# is empty or missing at scan time. See CHANGELOG for details.
+RUN mkdir -p /opt/epyon-defaults && cp -r /app/configuration /opt/epyon-defaults/configuration
+
 ENV HOST=0.0.0.0 \
     PORT=8057 \
     PYTHONUNBUFFERED=1

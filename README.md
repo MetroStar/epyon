@@ -461,7 +461,7 @@ The script prompts for:
 - **Deployment mode** — `local` (runs `docker compose up -d --build` on this machine) or `ssh` (builds an amd64 image, `scp`s it plus `docker-compose.yml`/`.env`/`.epyon-ignore.yml` to a remote host, and swaps the running container)
 - **SSH connection details** (ssh mode only) — server IP/hostname, username, and optional SSH key generation/copy
 
-The container listens on **port 8057** by default (override with `EPYON_PORT`) to avoid clashing with other locally-deployed dashboards. `scans/`, `configuration/`, and `web/data/` are bind-mounted so scan history and app config persist across rebuilds.
+The container listens on **port 8057** by default (override with `EPYON_PORT`) to avoid clashing with other locally-deployed dashboards. `scans/`, `configuration/`, `web/data/`, and `tmp/` (web UI clone workspace) are bind-mounted so scan history, app config, and in-progress clones persist across rebuilds. `HOST_PROJECT_DIR` (defaults to the directory you run `docker compose up` from) tells scan scripts the *host's* absolute path to this checkout — since scan tools run as sibling containers on the host engine, any bind-mount path the container passes to `docker run -v` must be translated from the container's `/app/...` view to this host path (via the `to_host_path()` helper in `scripts/shell/scan-directory-template.sh`) or the sibling container sees an empty directory. If you deploy from a different working directory than the repo root, set `HOST_PROJECT_DIR` explicitly in `.env`.
 
 ```bash
 # Manual equivalent (local only)

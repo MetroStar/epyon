@@ -267,8 +267,8 @@ scan_filesystem() {
     else
         docker run --rm \
             --platform "$ANCHORE_PLATFORM" \
-            -v "$REPO_PATH:/scan:ro" \
-            -v "$OUTPUT_DIR:/output" \
+            -v "$(to_host_path "$REPO_PATH"):/scan:ro" \
+            -v "$(to_host_path "$OUTPUT_DIR"):/output" \
             anchore/grype:latest \
             dir:/scan \
             -o json \
@@ -365,8 +365,8 @@ scan_sbom() {
                 >> "$LOG_FILE" 2>&1
         else
             docker run --rm \
-                -v "$REPO_PATH:/scan:ro" \
-                -v "$SBOM_DIR:/output" \
+                -v "$(to_host_path "$REPO_PATH"):/scan:ro" \
+                -v "$(to_host_path "$SBOM_DIR"):/output" \
                 anchore/syft:latest \
                 dir:/scan \
                 -o json \
@@ -407,8 +407,8 @@ scan_sbom() {
         else
             docker run --rm \
                 --platform "$ANCHORE_PLATFORM" \
-                -v "$(dirname "$SBOM_FILE"):/sbom:ro" \
-                -v "$OUTPUT_DIR:/output" \
+                -v "$(to_host_path "$(dirname "$SBOM_FILE")"):/sbom:ro" \
+                -v "$(to_host_path "$OUTPUT_DIR"):/output" \
                 anchore/grype:latest \
                 "sbom:/sbom/$(basename "$SBOM_FILE")" \
                 -o json \
@@ -663,7 +663,7 @@ scan_images() {
             docker run --rm \
                 --platform "$ANCHORE_PLATFORM" \
                 -v /var/run/docker.sock:/var/run/docker.sock \
-                -v "$OUTPUT_DIR:/output" \
+                -v "$(to_host_path "$OUTPUT_DIR"):/output" \
                 anchore/grype:latest \
                 "$image" \
                 -o json \
@@ -746,7 +746,7 @@ scan_base_images() {
         docker run --rm \
             --platform "$ANCHORE_PLATFORM" \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            -v "$OUTPUT_DIR:/output" \
+            -v "$(to_host_path "$OUTPUT_DIR"):/output" \
             anchore/grype:latest \
             "$PRIMARY_BASELINE_IMAGE" \
             -o json \

@@ -22,6 +22,17 @@ services:
       OPENAI_MODEL: ${OPENAI_MODEL:-}
       OPENAI_FALLBACK_MODEL: ${OPENAI_FALLBACK_MODEL:-}
       NVD_API_KEY: ${NVD_API_KEY:-}
+      # Absolute host path of this checkout. Required so scan layers that
+      # spawn sibling containers via the shared docker.sock (Syft, Trivy,
+      # Checkov, Grype/Anchore, Safety) can translate a container-side path
+      # (e.g. /app/tmp/clone-<job>) to the equivalent HOST path before
+      # passing it to `docker run -v`, since bind-mount sources are always
+      # resolved by the host daemon against the host filesystem. Without
+      # this, web UI-triggered scans of cloned repos silently scan an
+      # empty directory and report a false "clean" result. Defaults to
+      # ${PWD} at `docker compose up` time — override only if that isn't
+      # this checkout's real absolute host path (e.g. a symlinked deploy dir).
+      HOST_PROJECT_DIR: ${HOST_PROJECT_DIR:-${PWD}}
     volumes:
       # Docker-outside-of-docker: scan layers are spawned as sibling
       # containers on the host engine, not nested inside this container.
@@ -31,6 +42,10 @@ services:
       - ./configuration:/app/configuration
       - ./web/data:/app/web/data
       - ./.epyon-ignore.yml:/app/.epyon-ignore.yml:ro
+      # Host-share the web UI's per-job clone workspace too — sibling scan
+      # containers (see HOST_PROJECT_DIR above) need a real host path to
+      # bind-mount, and /app/tmp has no host equivalent without this.
+      - ./tmp:/app/tmp
     extra_hosts:
       - "host.docker.internal:host-gateway"
     env_file:

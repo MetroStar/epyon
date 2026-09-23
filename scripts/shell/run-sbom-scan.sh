@@ -242,7 +242,11 @@ generate_sbom() {
         echo -e "${YELLOW}⚠️  Local Syft not found, using Docker version${NC}"
         echo "Using Docker version of Syft" >> "$SCAN_LOG"
 
-        if docker run --rm -v "$target":/workspace:ro \
+        # docker run's -v source is resolved by the HOST daemon (see
+        # to_host_path() in scan-directory-template.sh) — translate before use.
+        local host_target
+        host_target="$(to_host_path "$target")"
+        if docker run --rm -v "$host_target":/workspace:ro \
             anchore/syft:latest \
             scan "dir:/workspace" \
             --select-catalogers "+javascript-lock-cataloger" \

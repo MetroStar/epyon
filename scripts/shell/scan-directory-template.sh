@@ -162,6 +162,36 @@ finalize_scan_results() {
     fi
 }
 
+# ── Docker-outside-of-Docker path translation ─────────────────────────────────
+# When Epyon runs inside its own container (docker-compose deployment / web UI
+# job runner), it mounts the HOST's /var/run/docker.sock to spawn scan tools
+# (Syft, Trivy, Checkov, Grype/Anchore, Safety) as *sibling* containers rather
+# than nested ones. `docker run -v <path>:...` bind-mount sources are always
+# resolved by the HOST's Docker daemon against the HOST filesystem — never
+# against Epyon's own container filesystem. Any path under Epyon's container
+# (e.g. /app/tmp/clone-<job>, the web UI's per-job clone workspace) that isn't
+# ALSO bind-mounted from the host at the identical location will silently
+# resolve to an empty/nonexistent directory on the host, so the sibling
+# container "succeeds" while scanning nothing — a false-clean result with no
+# error surfaced.
+#
+# HOST_PROJECT_DIR (set in docker-compose.yml to the absolute host path of the
+# Epyon checkout) lets us translate a container path like /app/tmp/clone-123
+# to its real host equivalent (e.g. $HOST_PROJECT_DIR/tmp/clone-123) before
+# handing it to `docker run -v`, as long as the same subtree is bind-mounted
+# 1:1 between host and container (see docker-compose.yml's `./tmp:/app/tmp`
+# and `./scans:/app/scans` mounts). When HOST_PROJECT_DIR isn't set — e.g.
+# running natively (CI runners, local `./epyon.sh`) where the container-side
+# path already *is* a real host path — the path is returned unchanged.
+to_host_path() {
+    local path="$1"
+    if [[ -n "${HOST_PROJECT_DIR:-}" && "$path" == /app/* ]]; then
+        printf '%s/%s' "${HOST_PROJECT_DIR%/}" "${path#/app/}"
+    else
+        printf '%s' "$path"
+    fi
+}
+
 # ── Docker auto-start utility ─────────────────────────────────────────────────
 # Call ensure_docker_running to guarantee the Docker daemon is up before any
 # tool that requires it.  Tries Colima, Docker Desktop, Rancher Desktop,

@@ -39,3 +39,8 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-sbom-scan.sh"
 @test "run-sbom-scan.sh generates SBOM" {
     grep -q "syft" "$SCRIPT_PATH"
 }
+
+@test "run-sbom-scan.sh translates the target path via to_host_path before docker run -v" {
+    grep -q 'host_target="\$(to_host_path "\$target")"' "$SCRIPT_PATH"
+    grep -q '\-v "\$host_target":/workspace:ro' "$SCRIPT_PATH"
+}

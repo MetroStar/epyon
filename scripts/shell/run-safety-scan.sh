@@ -14,6 +14,9 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/scan-directory-template.sh"
+
 # Color output
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -42,8 +45,9 @@ echo "[INFO] Output: $SAFETY_DIR"
 # Check if safety is available
 if ! command -v safety &> /dev/null; then
     echo -e "${YELLOW}[WARN] safety not found in PATH, attempting Docker fallback...${NC}"
-    SAFETY_CMD="docker run --rm -v $TARGET_DIR:/target pyupio/safety:latest safety check"
-    TEST_CMD="docker run --rm -v $TARGET_DIR:/target pyupio/safety:latest safety --version"
+    _SAFETY_TARGET_HOST="$(to_host_path "$TARGET_DIR")"
+    SAFETY_CMD="docker run --rm -v $_SAFETY_TARGET_HOST:/target pyupio/safety:latest safety check"
+    TEST_CMD="docker run --rm -v $_SAFETY_TARGET_HOST:/target pyupio/safety:latest safety --version"
 else
     SAFETY_CMD="safety check"
     TEST_CMD="safety --version"

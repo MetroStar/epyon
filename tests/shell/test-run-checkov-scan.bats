@@ -67,3 +67,23 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-checkov-scan.sh"
     [ "$status" -ne 0 ]
     [[ "$output" =~ "help" ]] || [[ "$output" =~ "Usage" ]]
 }
+
+@test "run-checkov-scan.sh stages under /app/tmp (host-translatable) when HOST_PROJECT_DIR is set" {
+    grep -q '_CK_SRC="/app/tmp/epyon-checkov-src-\$\$"' "$SCRIPT_PATH"
+}
+
+@test "run-checkov-scan.sh falls back to /tmp staging when not containerized" {
+    grep -q '_CK_SRC="/tmp/epyon-checkov-src-\$\$"' "$SCRIPT_PATH"
+}
+
+@test "run-checkov-scan.sh passes host-translated paths (not raw _CK_SRC/_CK_OUT) to docker run -v" {
+    ! grep -q '\-v "\$_CK_SRC:/workspace"' "$SCRIPT_PATH"
+    ! grep -q '\-v "\$_CK_OUT:/output"' "$SCRIPT_PATH"
+    grep -q '\-v "\$_CK_SRC_HOST:/workspace"' "$SCRIPT_PATH"
+    grep -q '\-v "\$_CK_OUT_HOST:/output"' "$SCRIPT_PATH"
+}
+
+@test "run-checkov-scan.sh computes _CK_SRC_HOST/_CK_OUT_HOST via to_host_path" {
+    grep -q '_CK_SRC_HOST="\$(to_host_path "\$_CK_SRC")"' "$SCRIPT_PATH"
+    grep -q '_CK_OUT_HOST="\$(to_host_path "\$_CK_OUT")"' "$SCRIPT_PATH"
+}

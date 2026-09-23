@@ -330,12 +330,25 @@ PYEOF
     # Stage paths to /tmp — Docker Desktop on macOS cannot mount paths under ~/Desktop
     # due to a known VirtioFS metadata bug where /host_mnt/Users/<user>/Desktop is a
     # file instead of a directory in the Docker VM.
-    _CK_SRC="/tmp/epyon-checkov-src-$$"
-    _CK_OUT="/tmp/epyon-checkov-out-$$"
+    if [[ -n "${HOST_PROJECT_DIR:-}" ]]; then
+        # Containerized deployment (docker-compose): /app/tmp IS host-shared (see
+        # docker-compose.yml + to_host_path() in scan-directory-template.sh), so
+        # stage here instead — /tmp has no host equivalent in this case, which
+        # would make `docker run -v` bind an empty directory on the host and
+        # silently scan nothing.
+        _CK_SRC="/app/tmp/epyon-checkov-src-$$"
+        _CK_OUT="/app/tmp/epyon-checkov-out-$$"
+    else
+        _CK_SRC="/tmp/epyon-checkov-src-$$"
+        _CK_OUT="/tmp/epyon-checkov-out-$$"
+    fi
     rm -rf "$_CK_SRC" "$_CK_OUT"
     rsync -a --quiet "$TARGET_SCAN_DIR/" "$_CK_SRC/" 2>/dev/null || cp -rL "$TARGET_SCAN_DIR" "$_CK_SRC"
     mkdir -p "$_CK_OUT"
     _checkov_cleanup() { cp -r "$_CK_OUT/." "$OUTPUT_DIR/" 2>/dev/null || true; rm -rf "$_CK_SRC" "$_CK_OUT"; }
+    # Host-side equivalents to pass to `docker run -v` (no-op when not containerized).
+    _CK_SRC_HOST="$(to_host_path "$_CK_SRC")"
+    _CK_OUT_HOST="$(to_host_path "$_CK_OUT")"
 
     # Disable exit-on-error for Checkov command since it may return non-zero when findings exist
     set +e
@@ -346,8 +359,8 @@ PYEOF
         -e AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
         -e AWS_PROFILE="$AWS_PROFILE" \
         $AWS_MOUNT_ARGS \
-        -v "$_CK_SRC:/workspace" \
-        -v "$_CK_OUT:/output" \
+        -v "$_CK_SRC_HOST:/workspace" \
+        -v "$_CK_OUT_HOST:/output" \
         bridgecrew/checkov:latest \
         --directory /workspace \
         --skip-path node_modules \
@@ -375,8 +388,8 @@ PYEOF
             -e AWS_DEFAULT_REGION="$AWS_DEFAULT_REGION" \
             -e AWS_PROFILE="$AWS_PROFILE" \
             $AWS_MOUNT_ARGS \
-            -v "$_CK_SRC:/workspace" \
-            -v "$_CK_OUT:/output" \
+            -v "$_CK_SRC_HOST:/workspace" \
+            -v "$_CK_OUT_HOST:/output" \
             bridgecrew/checkov:latest \
             --directory /workspace/chart/templates \
             --framework kubernetes \
@@ -390,8 +403,8 @@ PYEOF
         set +e
         ${CONTAINER_CLI} run --rm \
             --user "$(id -u):$(id -g)" \
-            -v "$_CK_SRC:/workspace" \
-            -v "$_CK_OUT:/output" \
+            -v "$_CK_SRC_HOST:/workspace" \
+            -v "$_CK_OUT_HOST:/output" \
             bridgecrew/checkov:latest \
             --directory /workspace/chart \
             --framework secrets \
@@ -410,8 +423,8 @@ PYEOF
         set +e
         ${CONTAINER_CLI} run --rm \
             --user "$(id -u):$(id -g)" \
-            -v "$_CK_SRC:/workspace" \
-            -v "$_CK_OUT:/output" \
+            -v "$_CK_SRC_HOST:/workspace" \
+            -v "$_CK_OUT_HOST:/output" \
             bridgecrew/checkov:latest \
             --directory /workspace \
             --framework github_actions \

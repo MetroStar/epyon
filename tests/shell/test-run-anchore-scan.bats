@@ -35,3 +35,13 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-anchore-scan.sh"
 @test "run-anchore-scan.sh creates anchore results" {
     grep -q "anchore" "$SCRIPT_PATH" && grep -q "json" "$SCRIPT_PATH"
 }
+
+@test "run-anchore-scan.sh translates directory/SBOM-file scan paths via to_host_path before docker run -v" {
+    grep -q '\-v "\$(to_host_path "\$REPO_PATH"):/scan:ro"' "$SCRIPT_PATH"
+    grep -q '\-v "\$(to_host_path "\$(dirname "\$SBOM_FILE")"):/sbom:ro"' "$SCRIPT_PATH"
+}
+
+@test "run-anchore-scan.sh translates OUTPUT_DIR via to_host_path before docker run -v" {
+    ! grep -q '\-v "\$OUTPUT_DIR:/output"' "$SCRIPT_PATH"
+    grep -q '\-v "\$(to_host_path "\$OUTPUT_DIR"):/output"' "$SCRIPT_PATH"
+}

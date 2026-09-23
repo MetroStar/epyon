@@ -293,7 +293,7 @@ run_trivy_scan() {
                     --scanners vuln,misconfig,secret --format json --skip-check-update 2>>"$SCAN_LOG" > "$output_file"
             else
                 ${CONTAINER_CLI} run --rm \
-                    -v "${target}:/workspace:ro" \
+                    -v "$(to_host_path "${target}"):/workspace:ro" \
                     -v "$TRIVY_CACHE_VOL:/root/.cache" \
                     "${TRIVY_IMAGE}" \
                     fs /workspace \
@@ -394,7 +394,7 @@ if [ "$SCAN_MODE" = "config" ] || [ "$SCAN_MODE" = "all" ]; then
                 --skip-dirs .terraform,node_modules,.git 2>>"$SCAN_LOG" > "$IaC_OUTPUT"
         else
             ${CONTAINER_CLI} run --rm \
-                -v "${REPO_PATH}:/workspace:ro" \
+                -v "$(to_host_path "${REPO_PATH}"):/workspace:ro" \
                 -v "$TRIVY_CACHE_VOL:/root/.cache" \
                 "${TRIVY_IMAGE}" \
                 config /workspace \

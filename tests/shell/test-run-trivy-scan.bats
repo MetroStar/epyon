@@ -68,3 +68,8 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-trivy-scan.sh"
 @test "run-trivy-scan.sh uses Docker or native trivy" {
     grep -q "docker" "$SCRIPT_PATH" || grep -q "trivy" "$SCRIPT_PATH"
 }
+
+@test "run-trivy-scan.sh translates filesystem/config scan targets via to_host_path before docker run -v" {
+    grep -q '\-v "\$(to_host_path "\${target}"):/workspace:ro"' "$SCRIPT_PATH"
+    grep -q '\-v "\$(to_host_path "\${REPO_PATH}"):/workspace:ro"' "$SCRIPT_PATH"
+}

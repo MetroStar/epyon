@@ -564,30 +564,44 @@ If all attempts fail, controls are marked `Open` with confidence 0.
 
 ### Freeze Stable Controls
 
-**Purpose**: Build trust in scan results by preserving high-confidence closed controls across runs.
+**Purpose**: Build trust in scan results by preserving high-confidence closed controls across runs, and stop burning tokens/time re-assessing controls that keep landing on the exact same non-answer.
+
+The freeze decision is a standalone, unit-tested function (`compute_frozen_assessment()`, module scope) so the policy can be tested without running the full AI pipeline — see `tests/python/test_stig_freeze_logic.py`.
 
 ```python
-_FREEZE_STATUSES = {"Not a Finding", "Not Applicable"}
-_FREEZE_MIN_CONF = 85
+FREEZE_STATUSES = {"Not a Finding", "Not Applicable"}
+FREEZE_MIN_CONF = 85
+STABLE_OPEN_FREEZE_MIN_REPEATS = 1
+
+def compute_frozen_assessment(prev: dict) -> dict | None:
+    """Return a frozen assessment dict, or None if the control must be (re-)assessed."""
+    prev_status, prev_conf = prev.get("status", ""), prev.get("confidence", 0)
+    prev_stable = prev.get("stable_count", 0)
+    locked_by_human = bool(prev.get("locked_by_human", False))
+
+    if locked_by_human or (prev_status in FREEZE_STATUSES and prev_conf >= FREEZE_MIN_CONF):
+        return {..., "locked_by_previous": True, "locked_by_human": locked_by_human}
+
+    if prev_status == "Open" and prev_conf == 0 and prev_stable >= STABLE_OPEN_FREEZE_MIN_REPEATS:
+        return {..., "locked_by_previous": True, "locked_by_stability": True}
+
+    return None  # re-assess
 
 frozen_assessments = {}
 controls_to_assess = []
-
 for control in controls:
-    vuln_id = control["vuln_id"]
-    prev = previous_assessments.get(vuln_id, {})
-    prev_status = prev.get("status")
-    prev_conf = prev.get("confidence", 0)
-    
-    if prev_status in _FREEZE_STATUSES and prev_conf >= _FREEZE_MIN_CONF:
-        # Freeze: carry forward unchanged
-        frozen_assessments[vuln_id] = prev
+    frozen = compute_frozen_assessment(previous_assessments.get(control["vuln_id"], {}))
+    if frozen is not None:
+        frozen_assessments[control["vuln_id"]] = frozen
     else:
-        # Re-assess: Open or Not Reviewed, or low confidence
         controls_to_assess.append(control)
 ```
 
 **Frozen controls** are **never sent to the AI** — they are carried forward directly to the output.
+
+**Two independent freeze paths:**
+1. **High-confidence closed status** (original) — `Not a Finding`/`Not Applicable` with confidence ≥ 85, or any status manually locked by a human reviewer (`locked_by_human`). Builds trust by preventing high-confidence findings from flip-flopping between runs.
+2. **Stability freeze for repeated zero-evidence "Open"** (added to address wasted tokens/time on apps like Epyon's own CLI+dashboard, which have no traditional session/login system) — a control that lands on `Open` with confidence 0 (the model found *zero* static evidence, not "found evidence of a gap") is tracked with a `stable_count` in `stig-results-{slug}.json`. Once that exact Open/0 outcome has already repeated once, the control is frozen — **it stays `Open`**, it is never silently reclassified as satisfied, but it is no longer re-sent to the AI every scan since nothing in the repo is giving the model new evidence to change its mind. Frozen-by-stability controls are marked `locked_by_stability` and shown in the web UI with a 💤 badge (distinct from the 🔒 human-lock badge). A control's `stable_count` only increments when the assessment result stays exactly Open/confidence-0 across runs; any other result (including a fresh `Open` with nonzero confidence) is re-assessed normally and does not carry a stale `stable_count` forward.
 
 ### Status Change Validation
 
@@ -938,6 +952,7 @@ If `GITHUB_TOKEN` is not set or target is not a Git repo, the script **exits 0 (
 | `OPENAI_BASE_URL` | No | — | Override API endpoint (for self-hosted models) |
 | `EPYON_AI_ALLOWED_HOSTS` | No | — | Comma-separated hostnames allowed for self-hosted endpoints (SSRF protection) |
 | `STIGS_DIR` | No | `configuration/stigs` | Directory containing STIG files |
+| `STIGS_DIR_DEFAULT_BACKUP` | No | `/opt/epyon-defaults/configuration/stigs` | Image-only backup used to self-heal `STIGS_DIR` (see below) |
 | `STIGS_FILE` | No | — | Single STIG file path (overrides STIGS_DIR) |
 | `SCAN_DIR` | No | Auto-derived | Output directory for scan results |
 | `APP_NAME` | No | `basename(TARGET_DIR)` | Application name for reports |
@@ -972,6 +987,12 @@ export OPENAI_API_KEY="local"
 - Hostnames in `EPYON_AI_ALLOWED_HOSTS`
 
 Public non-OpenAI endpoints are **blocked** to prevent credential exfiltration.
+
+### `STIGS_DIR` Self-Healing (Docker Deployments)
+
+`docker-compose.yml` bind-mounts `./configuration:/app/configuration` on the host so STIG state persists across image rebuilds. This means the **host's** `configuration/stigs/` — not the copy baked into the image — is what the running container sees. If that host directory is ever empty or missing (never seeded, wiped, wrong path), Layer 13 previously failed immediately with `STIGS_DIR not found` and produced zero STIG output, with the failure swallowed as a non-fatal warning by the orchestrator.
+
+The Docker image now keeps an immutable, build-time-only copy of `configuration/` at `/opt/epyon-defaults/configuration` (outside `/app`, so the bind mount can never shadow it). At the start of `run-stig-scan.sh`, if `STIGS_DIR` contains zero `.cklb`/`.xml` files, it is restored non-destructively (`cp -n`, never overwrites existing files) from `STIGS_DIR_DEFAULT_BACKUP`. This only fixes state that's missing entirely — it never touches STIG files a user has manually added or modified.
 
 ---
 

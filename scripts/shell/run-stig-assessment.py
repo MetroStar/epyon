@@ -209,6 +209,57 @@ FALLBACK_EVIDENCE = (
     "system-level validation and artifact collection."
 )
 
+# ── Freeze logic constants ──────────────────────────────────────────────────
+# Controls assessed "Not a Finding"/"Not Applicable" with confidence ≥ this are
+# carried forward unchanged rather than re-assessed every scan.
+FREEZE_STATUSES = {"Not a Finding", "Not Applicable"}
+FREEZE_MIN_CONF = 85
+# An "Open" control whose evidence search comes up empty (confidence 0) is
+# frozen once that exact outcome has already repeated this many times, so a
+# control with genuinely zero static evidence available (e.g. a runtime-only
+# session/login control on an app with no auth system) stops being re-sent to
+# the AI every single scan once it's clear nothing is going to change.
+STABLE_OPEN_FREEZE_MIN_REPEATS = 1
+
+
+def compute_frozen_assessment(prev: dict[str, Any]) -> dict[str, Any] | None:
+    """Decide whether a control's previous assessment should be carried forward
+    unchanged (frozen) instead of being re-sent to the AI this scan.
+
+    Returns the frozen assessment dict, or None if the control should be
+    (re-)assessed this run. Pulled out as a standalone function so the freeze
+    policy can be unit-tested without running the full assessment pipeline.
+    """
+    prev_status     = prev.get("status", "")
+    prev_conf       = prev.get("confidence", 0)
+    prev_stable     = prev.get("stable_count", 0)
+    locked_by_human = bool(prev.get("locked_by_human", False))
+
+    if locked_by_human or (prev_status in FREEZE_STATUSES and prev_conf >= FREEZE_MIN_CONF):
+        return {
+            "status":             prev_status,
+            "evidence":           prev.get("evidence", ""),
+            "confidence":         prev_conf,
+            "locked_by_previous": True,
+            "locked_by_human":    locked_by_human,
+        }
+
+    is_stable_zero_evidence_open = (
+        prev_status == "Open" and prev_conf == 0
+        and prev_stable >= STABLE_OPEN_FREEZE_MIN_REPEATS
+    )
+    if is_stable_zero_evidence_open:
+        return {
+            "status":              prev_status,
+            "evidence":            prev.get("evidence", ""),
+            "confidence":          prev_conf,
+            "stable_count":        prev_stable,
+            "locked_by_previous":  True,
+            "locked_by_stability": True,
+        }
+
+    return None
+
 # ---------------------------------------------------------------------------
 # Local / self-hosted endpoint helpers
 # ---------------------------------------------------------------------------
@@ -1792,36 +1843,42 @@ def _assess_stig(
         # confidence ≥ 85 in the previous scan are carried forward unchanged.
         # This prevents high-confidence closed controls from flip-flopping between
         # runs and builds trust in the scan results.
-        # Only "Open" and "Not Reviewed" controls are re-assessed each run.
-        _FREEZE_STATUSES    = {"Not a Finding", "Not Applicable"}
-        _FREEZE_MIN_CONF    = 85
+        #
+        # Separately, controls that keep landing on "Open" with confidence 0 (the
+        # model found zero static evidence — common for runtime-only controls like
+        # session/login/cookie handling that don't apply cleanly to every app) are
+        # also frozen once that exact outcome has repeated at least once. These are
+        # NOT reclassified as closed/satisfied — they stay "Open" — but they stop
+        # being re-sent to the AI every single scan, since nothing in the repo is
+        # giving the model new evidence to change its mind. This is the single
+        # biggest source of wasted tokens/time: previously nearly every control on
+        # a repo with no traditional auth/session system re-assessed to the exact
+        # same Open/0 result on every run, indefinitely.
+        #
+        # Only "Open" (freshly-assessed or without a stable streak yet) and
+        # "Not Reviewed" controls are re-assessed each run.
+        # See compute_frozen_assessment() (module scope) for the freeze policy.
         frozen_assessments: dict[str, dict[str, Any]] = {}
         controls_to_assess: list[dict[str, Any]] = []
 
         for ctrl in controls:
-            vid  = ctrl["vuln_id"]
-            prev = previous_assessments.get(vid, {})
-            prev_status     = prev.get("status", "")
-            prev_conf       = prev.get("confidence", 0)
-            locked_by_human = bool(prev.get("locked_by_human", False))
-            if locked_by_human or (prev_status in _FREEZE_STATUSES and prev_conf >= _FREEZE_MIN_CONF):
-                frozen_assessments[vid] = {
-                    "status":             prev_status,
-                    "evidence":           prev.get("evidence", ""),
-                    "confidence":         prev_conf,
-                    "locked_by_previous": True,
-                    "locked_by_human":    locked_by_human,
-                }
+            vid    = ctrl["vuln_id"]
+            prev   = previous_assessments.get(vid, {})
+            frozen = compute_frozen_assessment(prev)
+            if frozen is not None:
+                frozen_assessments[vid] = frozen
             else:
                 controls_to_assess.append(ctrl)
 
         frozen_count = len(frozen_assessments)
         if frozen_count:
-            human_locked = sum(1 for v in frozen_assessments.values() if v.get("locked_by_human"))
+            human_locked  = sum(1 for v in frozen_assessments.values() if v.get("locked_by_human"))
+            stability_locked = sum(1 for v in frozen_assessments.values() if v.get("locked_by_stability"))
             print(
                 f"[INFO] [{slug}] Freezing {frozen_count} stable controls "
-                f"({human_locked} human-locked, remainder automatically frozen: status in {_FREEZE_STATUSES!r} "
-                f"with confidence ≥ {_FREEZE_MIN_CONF}) "
+                f"({human_locked} human-locked, {stability_locked} frozen as repeated Open/0-confidence "
+                f"no-evidence results, remainder automatically frozen: status in {FREEZE_STATUSES!r} "
+                f"with confidence ≥ {FREEZE_MIN_CONF}) "
                 f"— {len(controls_to_assess)} controls will be re-assessed",
                 file=sys.stderr,
             )
@@ -1964,6 +2021,19 @@ def _assess_stig(
                         "evidence":   item.get("evidence", FALLBACK_EVIDENCE),
                         "confidence": conf,
                     }
+                    # Track repeated "no evidence found" outcomes so a control that
+                    # keeps landing on Open/confidence-0 scan after scan (nothing in the
+                    # repo changed, the model just can't find static evidence for it —
+                    # e.g. runtime-only session/login controls) can eventually be frozen
+                    # instead of burning AI tokens re-confirming the same non-finding
+                    # every single run. See STABLE_OPEN_FREEZE_MIN_REPEATS (module scope).
+                    prev_for_vid = previous_assessments.get(vid, {})
+                    if (
+                        status == "Open" and conf == 0
+                        and prev_for_vid.get("status") == "Open"
+                        and prev_for_vid.get("confidence", 0) == 0
+                    ):
+                        assessments[vid]["stable_count"] = prev_for_vid.get("stable_count", 0) + 1
                     assessed_ids.add(vid)
             for c in batch:
                 if c["vuln_id"] not in assessed_ids:

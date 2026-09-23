@@ -138,6 +138,31 @@ if [[ -z "${SCAN_DIR:-}" ]]; then
     SCAN_DIR="${PROJECT_ROOT}/scans/${SCAN_ID}"
 fi
 
+# ── Self-heal: restore STIGS_DIR from the image's build-time backup ─────────
+# docker-compose.yml bind-mounts ./configuration over /app/configuration to
+# persist STIG state across rebuilds. If the host-side directory is empty or
+# missing (e.g. never seeded, wiped, wrong path), configuration/stigs silently
+# disappears even though the image shipped with it. Restore it automatically
+# from /opt/epyon-defaults (an image-only copy the bind mount can't shadow)
+# rather than failing the whole layer with zero output.
+_STIGS_DEFAULTS_BACKUP="${STIGS_DIR_DEFAULT_BACKUP:-/opt/epyon-defaults/configuration/stigs}"
+if [[ -z "$STIGS_FILE" ]]; then
+    _existing_stig_count=0
+    if [[ -d "$STIGS_DIR" ]]; then
+        _existing_stig_count=$(find "$STIGS_DIR" -maxdepth 1 \( -name '*.cklb' -o -name '*.xml' \) -type f 2>/dev/null | wc -l | tr -d ' ')
+    fi
+    if [[ "$_existing_stig_count" -eq 0 && -d "$_STIGS_DEFAULTS_BACKUP" ]]; then
+        _backup_count=$(find "$_STIGS_DEFAULTS_BACKUP" -maxdepth 1 \( -name '*.cklb' -o -name '*.xml' \) -type f 2>/dev/null | wc -l | tr -d ' ')
+        if [[ "$_backup_count" -gt 0 ]]; then
+            echo -e "${YELLOW}[WARNING] ${STIGS_DIR} is empty or missing — restoring shipped STIG files from ${_STIGS_DEFAULTS_BACKUP}${NC}"
+            mkdir -p "$STIGS_DIR"
+            cp -n "$_STIGS_DEFAULTS_BACKUP"/*.cklb "$STIGS_DIR"/ 2>/dev/null || true
+            cp -n "$_STIGS_DEFAULTS_BACKUP"/*.xml  "$STIGS_DIR"/ 2>/dev/null || true
+            echo -e "${GREEN}[STIG] Restored ${_backup_count} STIG file(s) to ${STIGS_DIR}${NC}"
+        fi
+    fi
+fi
+
 # ── Pre-flight checks ─────────────────────────────────────────────────────────
 if [[ -n "$STIGS_FILE" ]]; then
     echo -e "${BLUE}[INFO] STIG source     : ${STIGS_FILE} (single file)${NC}"

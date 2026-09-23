@@ -5213,10 +5213,12 @@ async function renderPerformanceDashboard() {
   page.innerHTML = loading();
 
   try {
-    // Fetch cache metrics and scanner validation history
-    const [cacheMetrics, frontendMetrics] = await Promise.all([
+    // Fetch cache metrics, scanner validation history, and live mobile code
+    // scanner accuracy (computed on-demand against its labeled test corpus).
+    const [cacheMetrics, frontendMetrics, mobileCodeAccuracy] = await Promise.all([
       api._get('/api/metrics/cache'),
-      Promise.resolve(_cache.getMetrics())
+      Promise.resolve(_cache.getMetrics()),
+      api._get('/api/metrics/mobile-code-accuracy').catch(() => null)
     ]);
 
     // Combine backend and frontend metrics
@@ -5234,6 +5236,37 @@ async function renderPerformanceDashboard() {
     // Build cache performance summary
     const cacheStatusClass = avgHitRate >= 70 ? 'clean' : avgHitRate >= 50 ? 'medium' : 'critical';
     const cacheStatusText = avgHitRate >= 70 ? 'Good' : avgHitRate >= 50 ? 'Fair' : 'Poor';
+
+    // Build mobile code scanner accuracy card from live metrics (or a
+    // graceful "unavailable" state if the endpoint couldn't be reached).
+    const mca = mobileCodeAccuracy;
+    const mcaBody = mca ? `
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <span style="font-size:48px;font-weight:700;color:var(--text-primary)">${mca.f1_score.toFixed(3)}</span>
+            <div>
+              <div style="font-weight:600;color:var(--text-primary)">Current F1 Score</div>
+              <div style="font-size:12px;color:var(--text-muted)">Target: ≥ 0.90</div>
+            </div>
+            <span class="sev-badge ${mca.f1_score >= 0.9 ? 'clean' : 'critical'}" style="margin-left:auto">${mca.f1_score >= 0.9 ? 'PASS' : 'FAIL'}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div>
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Precision</div>
+              <div style="font-size:20px;font-weight:600;color:var(--text-primary)">${(mca.precision * 100).toFixed(1)}%</div>
+              <div style="font-size:11px;color:var(--text-muted)">${mca.true_positives} true positives, ${mca.false_positives} false positives</div>
+            </div>
+            <div>
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Recall</div>
+              <div style="font-size:20px;font-weight:600;color:var(--text-primary)">${(mca.recall * 100).toFixed(1)}%</div>
+              <div style="font-size:11px;color:var(--text-muted)">${mca.false_negatives} false negatives</div>
+            </div>
+          </div>
+          <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+            <div style="font-size:12px;color:var(--text-muted)">Computed live against ${mca.total_expected_findings} labeled findings in tests/fixtures/mobile-code (${mca.total_actual_findings} findings detected).</div>
+          </div>
+    ` : `
+          <div style="color:var(--text-muted);font-size:13px">Accuracy metrics unavailable — the mobile code scanner test corpus could not be reached on this deployment.</div>
+    `;
 
     page.innerHTML = `
       <div class="page-header">
@@ -5302,35 +5335,7 @@ async function renderPerformanceDashboard() {
       <div class="section">
         <div class="section-title">Mobile Code Scanner Accuracy</div>
         <div style="padding:20px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border)">
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-            <span style="font-size:48px;font-weight:700;color:var(--text-primary)">0.900</span>
-            <div>
-              <div style="font-weight:600;color:var(--text-primary)">Current F1 Score</div>
-              <div style="font-size:12px;color:var(--text-muted)">Target: ≥ 0.90</div>
-            </div>
-            <span class="sev-badge clean" style="margin-left:auto">PASS</span>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-            <div>
-              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Precision</div>
-              <div style="font-size:20px;font-weight:600;color:var(--text-primary)">81.8%</div>
-              <div style="font-size:11px;color:var(--text-muted)">9 true positives, 2 false positives</div>
-            </div>
-            <div>
-              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Recall</div>
-              <div style="font-size:20px;font-weight:600;color:var(--text-primary)">100.0%</div>
-              <div style="font-size:11px;color:var(--text-muted)">0 false negatives</div>
-            </div>
-          </div>
-          <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-            <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Recent Improvements:</div>
-            <ul style="margin:0;padding-left:20px;font-size:12px;color:var(--text-secondary)">
-              <li>Fixed risk level mappings (1A=critical, 1B=high, 2=medium)</li>
-              <li>Split JavaScript detection (inline vs external)</li>
-              <li>Added deduplication logic (file, line, type)</li>
-              <li>Enhanced diagnostics metadata</li>
-            </ul>
-          </div>
+          ${mcaBody}
         </div>
       </div>
 
@@ -7634,6 +7639,7 @@ async function showJiraEpicModal() {
       issueTypes: epics.issue_types || [],
       defaultIssueType: epics.default_issue_type || 'Bug',
       issueType: epics.default_issue_type || 'Bug',
+      triagedBy: '',
     };
     renderJiraEpicModalBody();
   } catch (error) {
@@ -7642,6 +7648,7 @@ async function showJiraEpicModal() {
     _jiraEpicModalState = {
       existing: [], suggested: [], choice: null,
       issueTypes: [], defaultIssueType: 'Bug', issueType: 'Bug',
+      triagedBy: '',
     };
     renderJiraEpicModalBody();
   }
@@ -7682,8 +7689,23 @@ function renderJiraEpicModalBody() {
         <input id="jira-epic-new-name" class="field-input" type="text" maxlength="200"
           placeholder="Custom Epic name…" oninput="jiraEpicModalTypedName(this.value)">
       </div>
+      <div>
+        <label class="field-label">Triage note (optional)</label>
+        <input id="jira-triaged-by-input" class="field-input" type="text" maxlength="200"
+          placeholder="Your name" value="${esc(state.triagedBy || '')}"
+          oninput="jiraEpicModalTypedTriagedBy(this.value)">
+        <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
+          Posted as a Jira comment on each new ticket: "Triaged and added by: &lt;name&gt; on: ${esc(new Date().toISOString().slice(0, 10))}".
+        </div>
+      </div>
       <div id="jira-epic-modal-selection" style="font-size:13px;color:var(--text-muted)">No Epic selected — tickets will be created unassigned.</div>
     </div>`;
+}
+
+function jiraEpicModalTypedTriagedBy(value) {
+  const state = _jiraEpicModalState;
+  if (!state) return;
+  state.triagedBy = value.trim();
 }
 
 function jiraEpicModalPickIssueType(name) {
@@ -7766,6 +7788,7 @@ async function jiraReviewCreateTicketsConfirmed() {
   const requestExtras = {
     ...(modalState?.choice || {}),
     ...(modalState?.issueType ? { issue_type: modalState.issueType } : {}),
+    ...(modalState?.triagedBy ? { triaged_by: modalState.triagedBy } : {}),
   };
   const selected = [...state.selected];
   document.querySelector('.modal-overlay')?.remove();

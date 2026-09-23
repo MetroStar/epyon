@@ -198,10 +198,12 @@ _scan_cache:      dict[str, tuple[dict, float]] = {}  # scan_id → (data, monot
 _dir_cache:       dict[int, tuple[list, float]] = {}  # days → (dirs, monotonic_ts)
 _stats_cache:     tuple[dict, float] | None = None    # (stats, monotonic_ts)
 _apps_cache:      tuple[list, float] | None = None    # (apps, monotonic_ts)
+_mobile_code_accuracy_cache: tuple[dict, float] | None = None  # (metrics, monotonic_ts)
 _SCAN_CACHE_TTL:  float = 300.0  # 5 minutes — scans are immutable
 _DIR_CACHE_TTL:   float = 60.0   # 1 minute — new scans appear less frequently
 _STATS_CACHE_TTL: float = 120.0  # 2 minutes — aggregated stats
 _APPS_CACHE_TTL:  float = 120.0  # 2 minutes — app list
+_MOBILE_CODE_ACCURACY_CACHE_TTL: float = 300.0  # 5 minutes — fixture corpus is static
 _DEFAULT_SCAN_DAYS: int = 35     # Only load last 35 days of scans by default
 _CACHE_VERSION:   int = 0        # Increment on scan completion to bust frontend caches
 
@@ -1309,6 +1311,7 @@ class JiraTicketCreateRequest(BaseModel):
     epic_key: Optional[str] = None
     epic_name: Optional[str] = None
     issue_type: Optional[str] = None
+    triaged_by: Optional[str] = None
 
 
 class JiraProjectKeyRequest(BaseModel):
@@ -1369,6 +1372,13 @@ async def scan_jira_tickets_create(
     issue_type = (body.issue_type or "").strip() or None
     if issue_type and (re.search(r"[<>\"';&|`$\n\r]", issue_type) or len(issue_type) > 100):
         raise HTTPException(400, "issue_type is invalid")
+    triaged_by = (body.triaged_by or "").strip() or None
+    if triaged_by and (re.search(r"[<>`\x00-\x1f]", triaged_by) or len(triaged_by) > 200):
+        raise HTTPException(400, "triaged_by is invalid")
+    triage_note = (
+        f"Triaged and added by: {triaged_by} on: {datetime.now(timezone.utc).date().isoformat()}"
+        if triaged_by else None
+    )
 
     scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
     matched = next((directory for directory in scan_dirs if directory.name == scan_id), None)
@@ -1396,7 +1406,7 @@ async def scan_jira_tickets_create(
             "Failed to resolve or create the selected Epic — check server logs for the exact Jira API error",
         )
     result = await jira_client.create_tickets_batch(
-        app_name, findings_by_fingerprint, fingerprints, cfg, resolved_epic_key, issue_type
+        app_name, findings_by_fingerprint, fingerprints, cfg, resolved_epic_key, issue_type, triage_note
     )
     _audit(
         request,
@@ -3805,6 +3815,47 @@ async def get_mobile_code_policy_audit_stats(response: Response):
         return stats
     except Exception as e:
         raise HTTPException(500, f"Failed to get audit stats: {e}")
+
+
+def _load_mobile_code_validator():
+    """Dynamically import tests/validate-mobile-code-scanner.py (hyphenated filename)."""
+    import importlib.util
+    script_path = EPYON_ROOT / "tests" / "validate-mobile-code-scanner.py"
+    spec = importlib.util.spec_from_file_location("mobile_code_validator", script_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _cached_mobile_code_accuracy() -> dict:
+    """Run the mobile code scanner against its labeled test corpus and return
+    live precision/recall/F1 metrics, cached briefly since the fixture corpus
+    never changes at runtime."""
+    global _mobile_code_accuracy_cache
+    now = time.monotonic()
+    cached = _mobile_code_accuracy_cache
+    if cached and (now - cached[1]) < _MOBILE_CODE_ACCURACY_CACHE_TTL:
+        return cached[0]
+
+    import tempfile
+    validator = _load_mobile_code_validator()
+    test_dir = EPYON_ROOT / "tests" / "fixtures" / "mobile-code"
+    with tempfile.TemporaryDirectory(prefix="epyon-mobile-code-accuracy-") as tmp:
+        metrics = validator.compute_accuracy_metrics(test_dir, Path(tmp))
+
+    _mobile_code_accuracy_cache = (metrics, now)
+    return metrics
+
+
+@app.get("/api/metrics/mobile-code-accuracy")
+async def get_mobile_code_accuracy(response: Response):
+    """Live precision/recall/F1 for the mobile code scanner, computed by
+    running it against its labeled test-fixture corpus (tests/fixtures/mobile-code)."""
+    _sec_headers(response)
+    try:
+        return _cached_mobile_code_accuracy()
+    except Exception as e:
+        raise HTTPException(500, f"Failed to compute mobile code scanner accuracy: {e}")
 
 
 # ── SPA / static file serving ─────────────────────────────────

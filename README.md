@@ -552,6 +552,8 @@ The reusable GitHub Actions workflow never creates Jira tickets. New tickets can
 
 **Epic assignment (per scan):** clicking **Create Jira Tickets** on the Jira Review screen opens a modal to assign every ticket in that batch to a Jira Epic. Epyon first shows the project's existing Epics (queried live from Jira) so you can reuse one instead of creating a duplicate. If none fit, quick-create buttons offer **Epyon Critical / High / Medium / Low**, or you can type a custom Epic name; Epyon creates it in Jira on demand and links every ticket in the batch to it. Leaving the picker empty creates tickets unassigned.
 
+**Triage note (per scan):** the same modal has an optional "Triage note" field — enter your name and Epyon posts a Jira comment on every newly created ticket in that batch: `Triaged and added by: <name> on: <date>` (the date is filled in automatically). Leaving it blank creates tickets with no extra comment. Tickets that already existed are never touched.
+
 **Deleted-ticket reassignment:** if a tracked Jira issue is deleted out-of-band (in Jira, not Epyon), the next post-scan sync or manual **Jira Review** sync detects the missing issue and recreates it — re-linked to the same Epic it had, using the finding details captured when the original ticket was created — so the finding stays tracked without creating a duplicate history. You can also trigger this check on demand with **Check for Deleted Tickets** on the Jira Review screen.
 
 ### Integration Secrets

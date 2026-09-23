@@ -196,7 +196,7 @@ def test_create_tickets_batch_persists_successes_and_is_idempotent(
     }
     calls = []
 
-    async def fake_create_ticket(cfg, finding, app_name, epic_key=None, issue_type=None):
+    async def fake_create_ticket(cfg, finding, app_name, epic_key=None, issue_type=None, triage_note=None):
         calls.append(finding["id"])
         return "SEC-1" if finding["id"] == "CVE-1" else None
 
@@ -220,6 +220,82 @@ def test_create_tickets_batch_persists_successes_and_is_idempotent(
     ]
     assert calls == ["CVE-1", "CVE-2"]
     assert saved["one"]["creation_source"] == "manual"
+
+
+def test_create_tickets_batch_passes_triage_note_through(repo_root, tmp_path, monkeypatch):
+    """A triage note (e.g. "Triaged and added by: Jane Doe on: 2026-09-22") must
+    reach create_ticket() so it can be posted as a Jira comment on the new issue."""
+    jira_client = _load_jira_client(repo_root)
+    tickets_file = tmp_path / "jira-tickets.json"
+    monkeypatch.setattr(jira_client, "_TICKETS_FILE", tickets_file)
+    monkeypatch.setattr(jira_client, "_RECONCILE_LOCK", None)
+    findings = {"one": {"id": "CVE-1", "tool": "Grype", "severity": "high"}}
+    captured = {}
+
+    async def fake_create_ticket(cfg, finding, app_name, epic_key=None, issue_type=None, triage_note=None):
+        captured["triage_note"] = triage_note
+        return "SEC-1"
+
+    monkeypatch.setattr(jira_client, "create_ticket", fake_create_ticket)
+    cfg = {"project_key": "SEC"}
+
+    asyncio.run(
+        jira_client.create_tickets_batch(
+            "example", findings, ["one"], cfg,
+            triage_note="Triaged and added by: Jane Doe on: 2026-09-22",
+        )
+    )
+
+    assert captured["triage_note"] == "Triaged and added by: Jane Doe on: 2026-09-22"
+
+
+def test_create_ticket_posts_triage_note_as_comment(repo_root, monkeypatch):
+    """create_ticket() must post the triage note as a Jira comment only after a
+    successful issue creation, and must not fail ticket creation if it errors."""
+    jira_client = _load_jira_client(repo_root)
+    comments = []
+
+    class FakeResponse:
+        status_code = 201
+        text = ""
+
+        def json(self):
+            return {"key": "SEC-42"}
+
+    class FakeClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def post(self, url, **kwargs):
+            return FakeResponse()
+
+    monkeypatch.setattr(jira_client.httpx, "AsyncClient", lambda **kw: FakeClient())
+
+    async def fake_add_comment(cfg, issue_key, comment_text):
+        comments.append((issue_key, comment_text))
+        return True
+
+    monkeypatch.setattr(jira_client, "add_comment", fake_add_comment)
+
+    cfg = {"project_key": "SEC", "base_url": "https://x.atlassian.net", "email": "a@b.com", "api_token": "t"}
+    finding = {"id": "CVE-1", "tool": "Grype", "severity": "high"}
+
+    async def fake_resolve_issue_type(cfg, project_key, requested):
+        return requested
+
+    monkeypatch.setattr(jira_client, "_resolve_issue_type", fake_resolve_issue_type)
+
+    key = asyncio.run(
+        jira_client.create_ticket(
+            cfg, finding, "example", triage_note="Triaged and added by: Jane Doe on: 2026-09-22"
+        )
+    )
+
+    assert key == "SEC-42"
+    assert comments == [("SEC-42", "Triaged and added by: Jane Doe on: 2026-09-22")]
 
 
 def test_reconcile_reopens_when_automatic_creation_is_disabled(repo_root, monkeypatch):

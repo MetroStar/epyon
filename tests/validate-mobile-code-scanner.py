@@ -170,19 +170,27 @@ def validate_results(scan_results: Dict, test_dir: Path) -> Dict:
     }
 
 
+def compute_accuracy_metrics(test_dir: Path, scan_dir: Path) -> Dict:
+    """Run the scanner against test_dir and return validation metrics.
+
+    Shared entry point used by both the CLI below and the web API's
+    live "Mobile Code Scanner Accuracy" endpoint, so the two never drift.
+    """
+    scan_dir.mkdir(parents=True, exist_ok=True)
+    scan_results = run_scanner(test_dir, scan_dir)
+    return validate_results(scan_results, test_dir)
+
+
 def main():
     test_dir = Path(__file__).parent / "fixtures" / "mobile-code"
     scan_dir = Path(__file__).parent / "tmp" / "mobile-code-validation-scan"
-    scan_dir.mkdir(parents=True, exist_ok=True)
-    
+
     print("Running mobile code scanner against test fixtures...")
-    scan_results = run_scanner(test_dir, scan_dir)
-    
-    print(f"Scanner found {len(scan_results.get('findings', []))} findings")
+    metrics = compute_accuracy_metrics(test_dir, scan_dir)
+
+    print(f"Scanner found {metrics['total_actual_findings']} findings")
     print("\nValidating results...")
-    
-    metrics = validate_results(scan_results, test_dir)
-    
+
     print("\n" + "="*60)
     print("MOBILE CODE SCANNER VALIDATION RESULTS")
     print("="*60)

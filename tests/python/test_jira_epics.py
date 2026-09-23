@@ -188,7 +188,7 @@ def test_create_tickets_batch_passes_issue_type_through(repo_root, tmp_path, mon
 
     seen = []
 
-    async def fake_create_ticket(cfg, finding, app_name, epic_key=None, issue_type=None):
+    async def fake_create_ticket(cfg, finding, app_name, epic_key=None, issue_type=None, triage_note=None):
         seen.append(issue_type)
         return f"SEC-{finding['id']}"
 
@@ -250,7 +250,7 @@ def test_create_tickets_batch_links_every_ticket_to_the_same_epic(
 
     seen_epic_keys = []
 
-    async def fake_create_ticket(cfg, finding, app_name, epic_key=None, issue_type=None):
+    async def fake_create_ticket(cfg, finding, app_name, epic_key=None, issue_type=None, triage_note=None):
         seen_epic_keys.append(epic_key)
         return f"SEC-{finding['id']}"
 

@@ -540,12 +540,51 @@ async def test_connection(cfg: dict) -> dict:
         return {"ok": False, "message": str(exc)}
 
 
+async def add_comment(cfg: dict, issue_key: str, comment_text: str) -> bool:
+    """Post a plain-text comment on an existing Jira issue. Returns True on success.
+
+    Used for the triage note ("Triaged and added by: X on: YYYY-MM-DD") a user
+    attaches when submitting a ticket from the "Create Jira Tickets" modal — a
+    best-effort operation that never fails ticket creation itself.
+    """
+    body: dict[str, Any] = {
+        "body": {
+            "version": 1,
+            "type": "doc",
+            "content": [
+                {
+                    "type": "paragraph",
+                    "content": [{"type": "text", "text": comment_text}],
+                }
+            ],
+        }
+    }
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.post(
+                f"{_base(cfg)}/rest/api/3/issue/{issue_key}/comment",
+                auth=_auth(cfg),
+                headers={"Accept": "application/json", "Content-Type": "application/json"},
+                json=body,
+            )
+        if r.status_code == 201:
+            return True
+        logger.warning(
+            "Jira comment failed for %s: HTTP %s — %s", issue_key, r.status_code, r.text[:500],
+        )
+        return False
+    except Exception:
+        logger.warning("Jira comment raised an exception for %s", issue_key, exc_info=True)
+        return False
+
+
 async def create_ticket(
     cfg: dict,
     finding: dict,
     app_name: str,
     epic_key: str | None = None,
     issue_type: str | None = None,
+    triage_note: str | None = None,
 ) -> str | None:
     """Create a Jira issue for a finding. Returns the issue key or None.
 
@@ -555,6 +594,9 @@ async def create_ticket(
     choice from the "Create Jira Tickets" modal); either way it is validated
     against the project's real issue type scheme and auto-repaired if
     invalid, so a stale/wrong configured type never silently fails.
+    triage_note, if given, is posted as a follow-up Jira comment (e.g.
+    "Triaged and added by: Jane Doe on: 2026-09-22") — a best-effort operation
+    that never fails ticket creation itself.
     """
     project_key = (cfg.get("project_key") or "").strip()
     if not project_key:
@@ -624,6 +666,8 @@ async def create_ticket(
             key = r.json().get("key")
             if key and epic_key:
                 await link_issue_to_epic(cfg, key, epic_key)
+            if key and triage_note:
+                await add_comment(cfg, key, triage_note)
             return key
         logger.warning(
             "Jira ticket creation failed for %s/%s: HTTP %s — %s",
@@ -825,6 +869,7 @@ async def create_tickets_batch(
     cfg: dict,
     epic_key: str | None = None,
     issue_type: str | None = None,
+    triage_note: str | None = None,
 ) -> dict:
     """Create selected Jira tickets idempotently and persist each success.
 
@@ -832,7 +877,10 @@ async def create_tickets_batch(
     (the caller resolves the user's Epic choice — existing or newly created —
     once per batch via resolve_epic_selection()). If issue_type is given, it
     overrides cfg's configured default ticket type for the whole batch (the
-    user's explicit choice from the "Create Jira Tickets" modal).
+    user's explicit choice from the "Create Jira Tickets" modal). If
+    triage_note is given, it is posted as a Jira comment on every ticket
+    newly created in this batch (e.g. "Triaged and added by: Jane Doe on:
+    2026-09-22") — tickets that already existed are left untouched.
     """
     result = {
         "requested": len(requested_fingerprints),
@@ -874,7 +922,7 @@ async def create_tickets_batch(
                 })
                 continue
 
-            issue_key = await create_ticket(cfg, finding, app_name, epic_key, issue_type)
+            issue_key = await create_ticket(cfg, finding, app_name, epic_key, issue_type, triage_note)
             if not issue_key:
                 result["failed"].append({
                     "fingerprint": fingerprint,

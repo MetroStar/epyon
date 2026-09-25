@@ -742,6 +742,20 @@ const api = {
     if (runStig)  body.run_stig  = true;
     return this._post('/api/scans', body);
   },
+  async triggerScanUpload(file, scanType, runGarak, runStig = true) {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('scan_type', scanType);
+    if (runGarak) form.append('run_garak', 'true');
+    if (runStig)  form.append('run_stig', 'true');
+    const r = await fetch('/api/scans/upload', { method: 'POST', body: form });
+    if (!r.ok) {
+      let detail = r.statusText;
+      try { detail = (await r.json()).detail || detail; } catch (_) {}
+      throw new Error(`${detail} (${r.status})`);
+    }
+    return r.json();
+  },
   getJob(id)    { return this._get(`/api/jobs/${encodeURIComponent(id)}`); },
   getJobs()     { return this._get('/api/jobs'); },
   getMetrics()       { return this._get('/api/metrics'); },
@@ -3781,12 +3795,32 @@ async function renderNewScan(prefill = '') {
 
     <div class="scan-page-layout">
       <div class="form-card scan-form-col">
+        <div class="form-group">
+          <label>Source</label>
+          <div class="seg-ctrl" id="target-mode-ctrl">
+            <button type="button" class="seg-btn active" data-value="path"
+              onclick="_setTargetMode('path')">Path / Git URL</button>
+            <button type="button" class="seg-btn" data-value="upload"
+              onclick="_setTargetMode('upload')">Upload .zip</button>
+          </div>
+          <small>Deployed on a remote server? A typed absolute path is resolved on the
+            <strong>server's</strong> own filesystem, not your machine — use
+            "Upload .zip" to scan a local, not-yet-pushed project instead.</small>
+        </div>
+
         <div class="form-group" id="std-target-field">
           <label for="scan-target">Target</label>
           <input type="text" id="scan-target" autocomplete="off" spellcheck="false"
             placeholder="/absolute/path/to/project  or  https://github.com/org/repo.git"
             value="${esc(prefill)}" />
           <small>Absolute local directory path, relative path, or Git repository URL (HTTPS/SSH)</small>
+        </div>
+
+        <div class="form-group" id="upload-target-field" style="display:none">
+          <label for="scan-upload">Project archive (.zip)</label>
+          <input type="file" id="scan-upload" accept=".zip" />
+          <small>Zip the project directory (e.g. <code>zip -r project.zip project/</code>) and
+            upload it here. Extracted on the server and scanned like a local path.</small>
         </div>
 
         <div class="form-group">
@@ -4044,6 +4078,16 @@ function _setMonitoringType(value) {
   });
 }
 
+function _setTargetMode(value) {
+  document.querySelectorAll('#target-mode-ctrl .seg-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.value === value);
+  });
+  const pathField   = document.getElementById('std-target-field');
+  const uploadField = document.getElementById('upload-target-field');
+  if (pathField)   pathField.style.display   = value === 'upload' ? 'none' : '';
+  if (uploadField) uploadField.style.display = value === 'upload' ? '' : 'none';
+}
+
 async function submitScan() {
   const scanType  = document.getElementById('scan-type-sel').value;
   const activeGarak = document.querySelector('#garak-ctrl .seg-btn.active');
@@ -4052,8 +4096,16 @@ async function submitScan() {
   const runStig   = activeStig ? activeStig.dataset.value === 'on' : false;
   const btn       = document.getElementById('run-btn');
 
+  const activeMode = document.querySelector('#target-mode-ctrl .seg-btn.active')?.dataset.value || 'path';
   const target = (document.getElementById('scan-target')?.value || '').trim();
-  if (!target) {
+  const uploadFile = document.getElementById('scan-upload')?.files?.[0] || null;
+
+  if (activeMode === 'upload') {
+    if (!uploadFile) {
+      document.getElementById('scan-upload')?.focus();
+      return;
+    }
+  } else if (!target) {
     document.getElementById('scan-target').focus();
     return;
   }
@@ -4068,7 +4120,9 @@ async function submitScan() {
   _activeJobId = null;
 
   try {
-    const job = await api.triggerScan(target, scanType, runGarak, runStig);
+    const job = activeMode === 'upload'
+      ? await api.triggerScanUpload(uploadFile, scanType, runGarak, runStig)
+      : await api.triggerScan(target, scanType, runGarak, runStig);
     _activeJobId = job.job_id;
     clearInterval(_pollInterval);
     _pollInterval = setInterval(() => pollJob(job.job_id, btn), 2000);

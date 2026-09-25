@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, List, Optional
 
-from fastapi import FastAPI, HTTPException, Query, Request, Response
+from fastapi import FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
@@ -124,6 +124,9 @@ _JOB_ID_RE       = re.compile(r"^\d{14}$")
 _APP_SCAN_RE     = re.compile(r"^(.+)_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})$")
 _VALID_SCAN_TYPES = {"quick", "full", "nightly", "baseline", "stig", "local_model"}
 _REPO_RE         = re.compile(r"^[a-zA-Z0-9_.\-]+/[a-zA-Z0-9_.\-]+$")
+_UPLOAD_NAME_RE  = re.compile(r"[^a-zA-Z0-9_.\-]+")
+MAX_UPLOAD_BYTES       = int(os.environ.get("EPYON_MAX_UPLOAD_MB", "500")) * 1024 * 1024
+MAX_UPLOAD_UNZIPPED    = int(os.environ.get("EPYON_MAX_UPLOAD_UNZIPPED_MB", "2048")) * 1024 * 1024
 
 # ── Metrics cache ─────────────────────────────────────────────
 _metrics_cache:    dict  = {}
@@ -1584,6 +1587,115 @@ async def trigger_scan(request: Request, response: Response):
 
     job_id = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     _audit(request, "scan_triggered", f"target={target} scan_type={scan_type}")
+    job = job_store.create_job(job_id, target, scan_type)
+    job_store._on_scan_complete_cb = _on_scan_complete
+    asyncio.create_task(
+        job_store.run_scan_job(job_id, target, scan_type, script_path, EPYON_ROOT,
+                               run_garak=run_garak, run_stig=run_stig,
+                               webhook_url=webhook_url, webhook_secret=webhook_secret)
+    )
+    return {"job_id": job_id, "status": "queued"}
+
+
+def _safe_extract_zip(zf: zipfile.ZipFile, extract_dir: Path) -> None:
+    """Extract a zip archive defensively (zip-slip + zip-bomb protection).
+
+    Rejects any entry whose resolved destination would fall outside
+    extract_dir (path traversal / absolute paths / symlink-style names),
+    and enforces a cap on total uncompressed size to guard against
+    decompression bombs. Skips macOS '__MACOSX' metadata entries.
+    """
+    extract_root = extract_dir.resolve()
+    total_uncompressed = 0
+    for info in zf.infolist():
+        name = info.filename
+        if name.startswith("__MACOSX/") or name == "__MACOSX":
+            continue
+        if name.startswith("/") or ".." in Path(name).parts:
+            raise ValueError(f"unsafe path in archive: {name}")
+        total_uncompressed += info.file_size
+        if total_uncompressed > MAX_UPLOAD_UNZIPPED:
+            raise ValueError("archive exceeds maximum uncompressed size")
+        dest = (extract_root / name).resolve()
+        if dest != extract_root and extract_root not in dest.parents:
+            raise ValueError(f"unsafe path in archive: {name}")
+        if info.is_dir():
+            dest.mkdir(parents=True, exist_ok=True)
+            continue
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with zf.open(info) as src, open(dest, "wb") as out:
+            shutil.copyfileobj(src, out)
+
+
+@app.post("/api/scans/upload", status_code=202)
+async def trigger_scan_upload(
+    request: Request,
+    response: Response,
+    file: UploadFile = File(...),
+    scan_type: str = Form("full"),
+    run_garak: bool = Form(False),
+    run_stig: bool = Form(False),
+    webhook_url: str = Form(""),
+    webhook_secret: str = Form(""),
+):
+    """Scan a project the user uploads as a .zip, rather than a Git URL or
+    a path that must already exist on the server's own filesystem. This is
+    the supported way to scan a local, not-yet-pushed project once Epyon is
+    deployed to a remote server (an absolute path typed into the standard
+    "Target" field is resolved against the SERVER's filesystem, not the
+    browser's machine, and won't find anything there)."""
+    _sec_headers(response)
+
+    run_stig = run_stig or scan_type == "stig"
+    if scan_type not in _VALID_SCAN_TYPES:
+        raise HTTPException(400, f"scan_type must be one of: {sorted(_VALID_SCAN_TYPES)}")
+    if not file.filename or not file.filename.lower().endswith(".zip"):
+        raise HTTPException(400, "file must be a .zip archive")
+
+    script_path = SCRIPTS_DIR / "run-epyon-scan-ci.sh"
+    if not script_path.exists():
+        raise HTTPException(500, "Scan script not found")
+
+    # Spool the upload to disk with a hard size cap rather than buffering the
+    # whole thing in memory (uploads can legitimately be tens/hundreds of MB).
+    job_id  = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    tmp_dir = EPYON_ROOT / "tmp"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    zip_path = tmp_dir / f"upload-{job_id}.zip"
+    written = 0
+    try:
+        with open(zip_path, "wb") as out:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                written += len(chunk)
+                if written > MAX_UPLOAD_BYTES:
+                    raise HTTPException(413, f"upload exceeds {MAX_UPLOAD_BYTES // (1024*1024)}MB limit")
+                out.write(chunk)
+
+        if not zipfile.is_zipfile(zip_path):
+            raise HTTPException(400, "uploaded file is not a valid zip archive")
+
+        base_name = _UPLOAD_NAME_RE.sub("-", Path(file.filename).stem).strip("-") or "upload"
+        extract_dir = tmp_dir / f"upload-{base_name}-{job_id}"
+        try:
+            with zipfile.ZipFile(zip_path) as zf:
+                _safe_extract_zip(zf, extract_dir)
+        except (zipfile.BadZipFile, ValueError) as e:
+            shutil.rmtree(extract_dir, ignore_errors=True)
+            raise HTTPException(400, f"could not extract archive: {e}")
+    finally:
+        zip_path.unlink(missing_ok=True)
+
+    # If the archive is a single wrapping folder (the common case when
+    # zipping a project directory), scan that inner folder directly so the
+    # scan name/target reflects the project, not the upload wrapper.
+    entries = [e for e in extract_dir.iterdir() if e.name != "__MACOSX"]
+    target_dir = entries[0] if (len(entries) == 1 and entries[0].is_dir()) else extract_dir
+    target = str(target_dir.resolve())
+
+    _audit(request, "scan_upload_triggered", f"file={file.filename} scan_type={scan_type}")
     job = job_store.create_job(job_id, target, scan_type)
     job_store._on_scan_complete_cb = _on_scan_complete
     asyncio.create_task(

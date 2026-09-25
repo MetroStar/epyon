@@ -463,6 +463,8 @@ The script prompts for:
 
 The container listens on **port 8057** by default (override with `EPYON_PORT`) to avoid clashing with other locally-deployed dashboards. `scans/`, `configuration/`, `web/data/`, and `tmp/` (web UI clone workspace) are bind-mounted so scan history, app config, and in-progress clones persist across rebuilds. `HOST_PROJECT_DIR` (defaults to the directory you run `docker compose up` from) tells scan scripts the *host's* absolute path to this checkout — since scan tools run as sibling containers on the host engine, any bind-mount path the container passes to `docker run -v` must be translated from the container's `/app/...` view to this host path (via the `to_host_path()` helper in `scripts/shell/scan-directory-template.sh`) or the sibling container sees an empty directory. If you deploy from a different working directory than the repo root, set `HOST_PROJECT_DIR` explicitly in `.env`.
 
+> **Scanning a local project once Epyon is deployed remotely**: the "Run New Scan" form's "Target" field (an absolute path) is resolved against the **server's own filesystem**, not your machine — typing a path from your laptop won't find anything there. Either push the project to a Git remote the server can reach and use the URL field, or use the "Upload .zip" toggle to upload the project directly; it's extracted server-side and scanned like a local path.
+
 ```bash
 # Manual equivalent (local only)
 docker compose up -d --build
@@ -477,6 +479,8 @@ docker compose up -d --build
 | `EPYON_SCANS_DIR` | `../scans` (relative to `web/`) | Directory where scan results are stored |
 | `EPYON_SCAN_RETENTION_DAYS` | `90` | Days a raw scan folder is kept on disk before being archived (tar+gzip into `web/data/epyon.db`) and deleted. See [Scan Storage & Retention](#️-scan-storage--retention). |
 | `EPYON_SCAN_RESTORE_HOURS` | `24` | Hours an archived scan's raw files stay restored to disk after `POST /api/scans/{id}/restore`. |
+| `EPYON_MAX_UPLOAD_MB` | `500` | Max size of a `.zip` uploaded via "Run New Scan" → "Upload .zip" (`POST /api/scans/upload`). |
+| `EPYON_MAX_UPLOAD_UNZIPPED_MB` | `2048` | Max total uncompressed size of an uploaded `.zip`'s contents (decompression-bomb guard). |
 | `OPENAI_API_KEY` | *(optional)* | Enables AI-powered scan summaries. Used as the secondary/fallback provider when a self-hosted primary (e.g. Ollama) is configured — see below. |
 | `OPENAI_BASE_URL` | *(optional)* | Primary AI endpoint for the native launcher — e.g. `http://localhost:11434/v1` for a locally hosted [Ollama](https://ollama.com) instance. |
 | `OPENAI_BASE_URL_DOCKER` | *(optional)* | Primary AI endpoint for Docker Compose. For Ollama running on the Docker host, use `http://host.docker.internal:11435/v1`. |

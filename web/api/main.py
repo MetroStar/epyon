@@ -41,7 +41,7 @@ VERSION_FILE = EPYON_ROOT / "VERSION"
 EPYON_VERSION = VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.exists() else "unknown"
 SCRIPTS_DIR  = EPYON_ROOT / "scripts" / "shell"
 APPROVED_IMAGES_FILE = EPYON_ROOT / "configuration" / "approved-base-images.conf"
-GITHUB_CONFIG_FILE   = _HERE / ".." / "github-config.json"
+GITHUB_CONFIG_FILE   = (_HERE / ".." / "data" / "github-config.json").resolve()
 HIDDEN_APPS_FILE     = EPYON_ROOT / "configuration" / "hidden-apps.json"
 JIRA_CONFIG_FILE     = (_HERE / ".." / "data" / "jira-config.json").resolve()
 JIRA_TICKETS_FILE    = (_HERE / ".." / "data" / "jira-tickets.json").resolve()
@@ -259,11 +259,17 @@ def _cached_load_scan(scan_dir) -> dict:
 def _invalidate_scan_cache(reason: str = "scan_completion", scan_id: str = None) -> None:
     """Call after a scan completes so the next request sees fresh data."""
     global _dir_cache, _stats_cache, _apps_cache, _CACHE_VERSION
+    global _metrics_cache, _metrics_cache_ts
     old_version = _CACHE_VERSION
     _scan_cache.clear()
     _dir_cache.clear()
     _stats_cache = None
     _apps_cache = None
+    # /api/metrics keeps its own 5-minute cache separate from the caches
+    # above; without clearing it here the Metrics page kept serving
+    # pre-scan data for up to 5 minutes after a scan completed.
+    _metrics_cache    = {}
+    _metrics_cache_ts = 0.0
     _CACHE_VERSION += 1  # Bust frontend caches
     
     # Record invalidation event
@@ -339,6 +345,26 @@ def _read_github_config() -> dict:
 
 def _write_github_config(cfg: dict) -> None:
     github_config.write_config(GITHUB_CONFIG_FILE, cfg)
+
+
+def _migrate_legacy_github_config() -> None:
+    """One-time migration: GITHUB_CONFIG_FILE used to live directly under
+    web/ (outside any docker-compose bind mount), so a container redeploy
+    silently reset GitHub repo tracking to defaults on every restart even
+    though scans/configuration/web-data all persisted correctly. It now
+    lives under web/data/ (mounted), matching every other persisted config
+    file — move an existing legacy file forward so on-disk/local installs
+    don't lose their already-configured repo list."""
+    legacy_path = (_HERE / ".." / "github-config.json").resolve()
+    try:
+        if legacy_path.exists() and not GITHUB_CONFIG_FILE.exists():
+            GITHUB_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+            legacy_path.replace(GITHUB_CONFIG_FILE)
+    except Exception:
+        pass  # never let a migration hiccup block startup
+
+
+_migrate_legacy_github_config()
 
 
 # ── Lifespan ─────────────────────────────────────────────────
@@ -736,6 +762,7 @@ async def hide_application(request: Request, response: Response):
     hidden = _load_hidden_apps()
     hidden.add(name)
     _save_hidden_apps(hidden)
+    _invalidate_scan_cache(reason="hidden_apps_changed", scan_id=name)
     return {"hidden": name}
 
 
@@ -747,6 +774,7 @@ async def restore_application(request: Request, response: Response):
     hidden = _load_hidden_apps()
     hidden.discard(name)
     _save_hidden_apps(hidden)
+    _invalidate_scan_cache(reason="hidden_apps_changed", scan_id=name)
     return {"restored": name}
 
 
@@ -758,6 +786,11 @@ async def set_monitored(request: Request, response: Response):
     monitored = _load_monitored_apps()
     monitored.add(name)
     _save_monitored_apps(monitored)
+    # /api/metrics and /api/applications both filter by this list, and both
+    # cache their results independently — without busting those caches here,
+    # the Metrics page kept showing the pre-toggle monitored-app set (and any
+    # numbers derived from it) for up to 5 minutes after this change.
+    _invalidate_scan_cache(reason="monitored_apps_changed", scan_id=name)
     return {"monitored": name}
 
 
@@ -768,6 +801,7 @@ def unset_monitored(name: str, response: Response):
     monitored = _load_monitored_apps()
     monitored.discard(name)
     _save_monitored_apps(monitored)
+    _invalidate_scan_cache(reason="monitored_apps_changed", scan_id=name)
     return {"unmonitored": name}
 
 
@@ -1679,9 +1713,18 @@ async def trigger_scan_upload(
 
         base_name = _UPLOAD_NAME_RE.sub("-", Path(file.filename).stem).strip("-") or "upload"
         extract_dir = tmp_dir / f"upload-{base_name}-{job_id}"
-        try:
+
+        def _extract() -> None:
             with zipfile.ZipFile(zip_path) as zf:
                 _safe_extract_zip(zf, extract_dir)
+
+        try:
+            # Extraction is pure CPU/disk work with no `await`s in it, so run
+            # it in a worker thread rather than inline — otherwise a large
+            # archive would block the single asyncio event loop (and every
+            # other request the server is handling, including this same
+            # upload's own job-status polling) for the whole extraction.
+            await asyncio.to_thread(_extract)
         except (zipfile.BadZipFile, ValueError) as e:
             shutil.rmtree(extract_dir, ignore_errors=True)
             raise HTTPException(400, f"could not extract archive: {e}")
@@ -2999,8 +3042,11 @@ async def global_exec_summary(response: Response):
 def _build_summary_metrics() -> dict:
     """Return a trimmed metrics dict for injection into AI summary prompts.
     Uses the in-memory cache when warm to avoid redundant computation."""
-    import time as _time
-    if _metrics_cache and (_time.time() - _metrics_cache_ts) < _METRICS_TTL:
+    # get_metrics() stamps _metrics_cache_ts with time.monotonic(), so the
+    # freshness check here must use the same clock — comparing it against
+    # time.time() (wall clock) made this check always look stale, meaning
+    # this always recomputed metrics from scratch instead of using the cache.
+    if _metrics_cache and (time.monotonic() - _metrics_cache_ts) < _METRICS_TTL:
         m = _metrics_cache
     else:
         # Cache is cold — compute now with a throwaway Response object so that

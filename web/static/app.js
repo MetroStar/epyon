@@ -742,19 +742,31 @@ const api = {
     if (runStig)  body.run_stig  = true;
     return this._post('/api/scans', body);
   },
-  async triggerScanUpload(file, scanType, runGarak, runStig = true) {
+  triggerScanUpload(file, scanType, runGarak, runStig = true, onProgress = null) {
+    // Uses XMLHttpRequest (rather than fetch) specifically so we can surface
+    // upload progress — a project zip can be tens/hundreds of MB, and with
+    // no feedback the UI just looks frozen on "Starting..." the whole time.
     const form = new FormData();
     form.append('file', file);
     form.append('scan_type', scanType);
     if (runGarak) form.append('run_garak', 'true');
     if (runStig)  form.append('run_stig', 'true');
-    const r = await fetch('/api/scans/upload', { method: 'POST', body: form });
-    if (!r.ok) {
-      let detail = r.statusText;
-      try { detail = (await r.json()).detail || detail; } catch (_) {}
-      throw new Error(`${detail} (${r.status})`);
-    }
-    return r.json();
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/scans/upload');
+      xhr.upload.onprogress = (e) => {
+        if (onProgress && e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.upload.onload = () => { if (onProgress) onProgress(100, true); };
+      xhr.onload = () => {
+        let data = {};
+        try { data = JSON.parse(xhr.responseText || '{}'); } catch (_) {}
+        if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+        else reject(new Error(`${data.detail || xhr.statusText || 'Upload failed'} (${xhr.status})`));
+      };
+      xhr.onerror = () => reject(new Error('Network error during upload'));
+      xhr.send(form);
+    });
   },
   getJob(id)    { return this._get(`/api/jobs/${encodeURIComponent(id)}`); },
   getJobs()     { return this._get('/api/jobs'); },
@@ -4121,7 +4133,9 @@ async function submitScan() {
 
   try {
     const job = activeMode === 'upload'
-      ? await api.triggerScanUpload(uploadFile, scanType, runGarak, runStig)
+      ? await api.triggerScanUpload(uploadFile, scanType, runGarak, runStig, (pct, done) => {
+          btn.textContent = done ? '⏳ Extracting on server…' : `⏳ Uploading… ${pct}%`;
+        })
       : await api.triggerScan(target, scanType, runGarak, runStig);
     _activeJobId = job.job_id;
     clearInterval(_pollInterval);

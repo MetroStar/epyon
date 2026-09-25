@@ -22,6 +22,11 @@ services:
       OPENAI_MODEL: ${OPENAI_MODEL:-}
       OPENAI_FALLBACK_MODEL: ${OPENAI_FALLBACK_MODEL:-}
       NVD_API_KEY: ${NVD_API_KEY:-}
+      # "Run New Scan" -> "Upload .zip" limits (POST /api/scans/upload).
+      # Defaults (500MB / 2048MB) are decompression-bomb/DoS guards; raise
+      # them via .env if you need to upload larger projects.
+      EPYON_MAX_UPLOAD_MB: ${EPYON_MAX_UPLOAD_MB:-500}
+      EPYON_MAX_UPLOAD_UNZIPPED_MB: ${EPYON_MAX_UPLOAD_UNZIPPED_MB:-2048}
       # Absolute host path of this checkout. Required so scan layers that
       # spawn sibling containers via the shared docker.sock (Syft, Trivy,
       # Checkov, Grype/Anchore, Safety) can translate a container-side path

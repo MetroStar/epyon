@@ -4018,6 +4018,79 @@ async def get_mobile_code_accuracy(response: Response):
         raise HTTPException(500, f"Failed to compute mobile code scanner accuracy: {e}")
 
 
+def _compute_scan_integrity(scan_dirs: list, limit: int = 40) -> dict:
+    """Flag scans that likely produced a false-clean result rather than a
+    genuinely clean one — e.g. the class of bug where a tool scanned an
+    empty/missing directory (empty bind mount, bad path translation, etc.)
+    and silently reported zero findings instead of erroring.
+
+    `scan-metadata.json`'s file_statistics.total_files is the most reliable
+    signal available: it's a raw count of source files actually present in
+    the target directory at scan time, generated independently of whatever
+    any individual security tool did or didn't find — so it can't be fooled
+    by a legitimately clean project (which still has files) the way a
+    zero-findings count can.
+    """
+    scans = sorted(scan_dirs, key=lambda d: d.name, reverse=True)[:limit]
+    results: list[dict] = []
+    counts = {"healthy": 0, "suspicious": 0, "empty_target": 0, "unknown": 0}
+
+    for scan_dir in scans:
+        data = _cached_load_scan(scan_dir)
+        scan_type = data.get("scan_type", "full")
+        reasons: list[str] = []
+        status = "healthy"
+
+        if scan_type == "stig":
+            # STIG-only runs don't collect file_statistics or run vuln tools.
+            status = "unknown"
+        else:
+            file_stats = data.get("file_statistics") or {}
+            total_files = file_stats.get("total_files")
+            sbom = parsers.load_sbom_packages(scan_dir)
+
+            if total_files is None:
+                status = "unknown"
+                reasons.append("scan predates file_statistics tracking")
+            elif total_files == 0:
+                status = "empty_target"
+                reasons.append("0 source files scanned — target directory was likely empty or unreachable")
+            elif total_files < 3:
+                status = "suspicious"
+                reasons.append(f"only {total_files} source file(s) scanned — verify the target path is correct")
+
+            if status != "unknown" and (scan_dir / "sbom").is_dir() and sbom["total"] == 0:
+                if status == "healthy":
+                    status = "suspicious"
+                reasons.append("SBOM layer ran but found 0 packages/components")
+
+        counts[status] = counts.get(status, 0) + 1
+        if status != "healthy":
+            results.append({
+                "scan_id":    data.get("scan_id"),
+                "target":     data.get("target"),
+                "timestamp":  data.get("timestamp"),
+                "scan_type":  scan_type,
+                "status":     status,
+                "reasons":    reasons,
+            })
+
+    return {
+        "summary": {"total": len(scans), **counts},
+        "flagged": results,
+    }
+
+
+@app.get("/api/metrics/scan-integrity")
+def get_scan_integrity(response: Response, days: int = 35, limit: int = 40):
+    """Validate that recent scans actually ran against real target content,
+    to catch the false-clean-result bug class early instead of relying on
+    someone noticing a suspiciously quiet dashboard."""
+    _sec_headers(response)
+    scan_dirs = _cached_find_scan_dirs(days=days)
+    return _compute_scan_integrity(scan_dirs, limit=limit)
+
+
 # ── SPA / static file serving ─────────────────────────────────
 # Serves web/static/ for JS, CSS, and other assets.
 
@@ -4040,3 +4113,4 @@ else:
             {"detail": "Static directory not found"},
             status_code=503,
         )
+

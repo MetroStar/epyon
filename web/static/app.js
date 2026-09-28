@@ -5281,12 +5281,15 @@ async function renderPerformanceDashboard() {
   page.innerHTML = loading();
 
   try {
-    // Fetch cache metrics, scanner validation history, and live mobile code
-    // scanner accuracy (computed on-demand against its labeled test corpus).
-    const [cacheMetrics, frontendMetrics, mobileCodeAccuracy] = await Promise.all([
+    // Fetch cache metrics, scanner validation history, live mobile code
+    // scanner accuracy (computed on-demand against its labeled test corpus),
+    // and a scan-integrity check (flags scans that likely ran against an
+    // empty/unreachable target instead of genuinely finding nothing).
+    const [cacheMetrics, frontendMetrics, mobileCodeAccuracy, scanIntegrity] = await Promise.all([
       api._get('/api/metrics/cache'),
       Promise.resolve(_cache.getMetrics()),
-      api._get('/api/metrics/mobile-code-accuracy').catch(() => null)
+      api._get('/api/metrics/mobile-code-accuracy').catch(() => null),
+      api._get('/api/metrics/scan-integrity').catch(() => null)
     ]);
 
     // Combine backend and frontend metrics
@@ -5336,10 +5339,67 @@ async function renderPerformanceDashboard() {
           <div style="color:var(--text-muted);font-size:13px">Accuracy metrics unavailable — the mobile code scanner test corpus could not be reached on this deployment.</div>
     `;
 
+    // Build the Scan Integrity Check section — the whole point is to catch
+    // a scan silently running against an empty/unreachable target (the
+    // Docker-in-Docker false-clean class of bug) before someone has to
+    // notice a suspiciously quiet dashboard on their own.
+    const si = scanIntegrity;
+    const siBody = !si ? `
+          <div style="color:var(--text-muted);font-size:13px">Scan integrity data unavailable on this deployment.</div>
+    ` : `
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:16px">
+            <div class="stat-card">
+              <div class="stat-label">Scans Checked</div>
+              <div class="stat-value">${si.summary.total}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Healthy</div>
+              <div class="stat-value" style="color:var(--sev-clean,#22c55e)">${si.summary.healthy}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Suspicious</div>
+              <div class="stat-value" style="color:var(--sev-medium,#eab308)">${si.summary.suspicious}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Empty Target</div>
+              <div class="stat-value" style="color:var(--sev-critical,#ef4444)">${si.summary.empty_target}</div>
+            </div>
+          </div>
+          ${si.flagged.length === 0 ? `
+            <div style="color:var(--text-muted);font-size:13px">No flagged scans in the last check — every recent scan saw real target content.</div>
+          ` : `
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr><th>Scan</th><th>Target</th><th>Type</th><th>Status</th><th>Reason(s)</th></tr>
+                </thead>
+                <tbody>
+                  ${si.flagged.map(f => `
+                    <tr>
+                      <td><a href="#/scans/${esc(f.scan_id)}" style="color:var(--link)">${esc(f.scan_id)}</a></td>
+                      <td>${esc(f.target || '—')}</td>
+                      <td>${esc(f.scan_type || '—')}</td>
+                      <td><span class="sev-badge ${f.status === 'empty_target' ? 'critical' : f.status === 'suspicious' ? 'medium' : ''}" style="font-size:10px">${esc(f.status.replace('_', ' ').toUpperCase())}</span></td>
+                      <td style="font-size:12px">${f.reasons.map(esc).join('; ')}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          `}
+    `;
+
     page.innerHTML = `
       <div class="page-header">
         <h1>Performance Dashboard</h1>
-        <p style="color:var(--text-muted)">System performance metrics and trends</p>
+        <p style="color:var(--text-muted)">How Epyon itself is performing — cache efficiency, scanner accuracy, and validation that recent scans actually ran against real content.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Scan Integrity Check</div>
+        <div style="padding:20px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border)">
+          ${siBody}
+        </div>
       </div>
 
       <div class="section">
@@ -6143,10 +6203,13 @@ async function saveGitHubConfig() {
 
   try {
     await api.saveGitHubConfig({ repos });
-    // Auto-mark all configured repos as Continuously Monitored
-    await Promise.allSettled(
-      repos.map(r => api.setMonitored(r.includes('/') ? r.split('/').pop() : r))
-    );
+    // Note: this only configures which repos to pull GitHub signals
+    // (Dependabot/security issues/workflow runs) for — it intentionally does
+    // NOT change any app's "Continuously Monitored" status in Metrics. That
+    // classification is a separate, explicit per-app/per-scan choice (see
+    // the Monitoring Type toggle on "Run New Scan" and the app list), so
+    // configuring GitHub tracking here no longer silently monitors apps the
+    // user never opted into.
     const statusEl = document.getElementById('sync-status');
     if (statusEl) statusEl.textContent = 'Configuration saved.';
   } catch (e) {

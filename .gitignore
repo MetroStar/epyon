@@ -86,6 +86,7 @@ helm-packages/*.tgz
 # Large scan result files (keep structure but not massive JSON files)
 *.json.bakreports/
 web/github-config.json
+web/data/github-config.json
 web/ai-config.json
 web/data/jira-config.json
 web/data/jira-tickets.json

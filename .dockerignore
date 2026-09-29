@@ -7,6 +7,8 @@ env/
 node_modules
 tmp/
 scans/
+**/tmp-clones/
+**/.tmp-clones/
 coverage
 dist
 _archive
@@ -19,3 +21,6 @@ web/data/jira-config.json
 web/data/jira-tickets.json
 web/data/nvd-config.json
 web/data/github-signals-history.json
+web/data/epyon.db
+web/data/epyon.db-wal
+web/data/epyon.db-shm

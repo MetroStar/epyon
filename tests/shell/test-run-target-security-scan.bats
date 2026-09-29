@@ -51,6 +51,22 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-target-security-scan.sh"
     grep -q "validate_latest_image()" "$SCRIPT_PATH"
 }
 
+@test "run-target-security-scan.sh CLONE_DIR uses REPORTS_ROOT not REPO_ROOT" {
+    # Regression test: CLONE_DIR previously nested under scripts/scans/.tmp-clones
+    # (via REPO_ROOT, the scripts/ dir) instead of the true repo root, causing
+    # temp git clones to escape .dockerignore's top-level scans/ exclusion.
+    grep -q 'CLONE_DIR="\$REPORTS_ROOT/scans/.tmp-clones/' "$SCRIPT_PATH"
+}
+
+@test "run-target-security-scan.sh defines REPORTS_ROOT before first use in CLONE_DIR" {
+    local reports_root_line clone_dir_line
+    reports_root_line=$(grep -n '^REPORTS_ROOT=' "$SCRIPT_PATH" | head -1 | cut -d: -f1)
+    clone_dir_line=$(grep -n 'CLONE_DIR="\$REPORTS_ROOT' "$SCRIPT_PATH" | head -1 | cut -d: -f1)
+    [ -n "$reports_root_line" ]
+    [ -n "$clone_dir_line" ]
+    [ "$reports_root_line" -lt "$clone_dir_line" ]
+}
+
 # ── SKIP_* per-tool flags (parity with CI orchestrator) ───────────────────────
 
 @test "run-target-security-scan.sh respects SKIP_SBOM" {

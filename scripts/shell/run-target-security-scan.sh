@@ -368,6 +368,13 @@ fi
 # Get the script's directory to locate security tools
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+# REPORTS_ROOT is the true repo root (parent of scripts/); REPO_ROOT above is
+# actually the scripts/ dir itself (misleading name, kept as-is for backward
+# compatibility with existing `cd "$REPO_ROOT"` call sites that rely on it).
+# Defined here (rather than near its original later use) so early code paths
+# like the Git-clone workspace below can use the correct repo-root-relative
+# path instead of nesting under scripts/.
+REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 # Use GITHUB_ACTOR if provided (from GitHub Actions), otherwise use whoami
 USERNAME="${GITHUB_ACTOR:-$(whoami)}"
 TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
@@ -459,7 +466,7 @@ if [[ "$TARGET_INPUT" =~ ^(https?://|git@|ssh://) ]] || [[ "$TARGET_INPUT" =~ \.
     REPO_NAME=$(basename "$TARGET_INPUT" .git)
     
     # Create temporary clone directory
-    CLONE_DIR="$REPO_ROOT/scans/.tmp-clones/$REPO_NAME-$TIMESTAMP"
+    CLONE_DIR="$REPORTS_ROOT/scans/.tmp-clones/$REPO_NAME-$TIMESTAMP"
     mkdir -p "$CLONE_DIR"
     
     if [[ -n "$SUBDIR_PATH" ]]; then
@@ -534,8 +541,8 @@ fi
 
 SCAN_ID="${TARGET_NAME}_${USERNAME}_${TIMESTAMP}"
 
-# Create dedicated scan directory
-REPORTS_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
+# Create dedicated scan directory (REPORTS_ROOT is defined near the top of
+# the script, alongside REPO_ROOT/SCRIPT_DIR).
 SCAN_DIR="$REPORTS_ROOT/scans/$SCAN_ID"
 mkdir -p "$SCAN_DIR"
 

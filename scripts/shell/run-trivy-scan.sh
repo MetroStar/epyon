@@ -336,7 +336,19 @@ if [ "$SCAN_MODE" != "filesystem" ]; then
         echo "📋 Using ${#BASE_IMAGES[@]} approved base images"
     else
         echo -e "${YELLOW}ℹ️  No base images configured — attempting auto-discovery from Dockerfiles${NC}"
-        # Extract FROM images from any Dockerfiles present in the repo
+        # Extract FROM images from any Dockerfiles present in the repo, honoring
+        # the same `.epyon-ignore.yml` path exclusions as the fs/config scans
+        # above (e.g. Epyon's own self-assessment fixture's Dockerfile, which
+        # is deliberately pinned to an EOL base image for Layer 9 testing and
+        # must never be treated as a real base image in a normal scan).
+        FIND_EXCLUDE_ARGS=(-not -path '*/node_modules/*' -not -path '*/.git/*')
+        while IFS= read -r _pat; do
+            if [[ -n "$_pat" ]]; then
+                _pat_glob="${_pat%/\*\*}"
+                FIND_EXCLUDE_ARGS+=(-not -path "*/${_pat_glob}/*")
+            fi
+        done < <(get_epyon_ignore_exclude_paths "$REPO_PATH")
+
         DISCOVERED_IMAGES=()
         while IFS= read -r dockerfile; do
             while IFS= read -r from_image; do
@@ -345,7 +357,7 @@ if [ "$SCAN_MODE" != "filesystem" ]; then
                 [[ "$from_image" == *'$'* ]] && continue
                 DISCOVERED_IMAGES+=("$from_image")
             done < <(grep -i '^FROM ' "$dockerfile" | awk '{print $2}')
-        done < <(find "$REPO_PATH" -name 'Dockerfile*' -not -path '*/node_modules/*' -not -path '*/.git/*' 2>/dev/null)
+        done < <(find "$REPO_PATH" -name 'Dockerfile*' "${FIND_EXCLUDE_ARGS[@]}" 2>/dev/null)
         # Deduplicate
         mapfile -t BASE_IMAGES < <(printf '%s\n' "${DISCOVERED_IMAGES[@]}" | sort -u)
         if [ ${#BASE_IMAGES[@]} -gt 0 ]; then

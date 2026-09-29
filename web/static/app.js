@@ -189,6 +189,123 @@ function sourcesBadges(sources) {
   return (sources || []).map(s => findingSourceBadge({ type: s === 'container' ? 'container_vulnerability' : 'vulnerability' })).join(' ');
 }
 
+// Manifest layer numbers that can be individually toggled for the
+// self-diagnostic run (mirrors tests/fixtures/self-assessment/expected-
+// findings.json and _SELF_ASSESSMENT_VALID_LAYERS in web/api/main.py).
+// Layer 3 (SonarQube) and Layer 20 (ML Runtime, opt-in only) are excluded —
+// they're never run by the harness regardless of selection.
+const SELF_DIAG_LAYERS = [
+  { n: '1',  name: 'SBOM Generation' },
+  { n: '2',  name: 'Secret Detection' },
+  { n: '4',  name: 'Malware Detection' },
+  { n: '5',  name: 'Helm Chart Build' },
+  { n: '6',  name: 'IaC Security' },
+  { n: '7',  name: 'Container Security' },
+  { n: '8',  name: 'Vulnerability Scanning' },
+  { n: '8.5', name: 'Direct Dependency Scanning (pip-audit)' },
+  { n: '9',  name: 'EOL Detection' },
+  { n: '10', name: 'Container Analysis' },
+  { n: '11', name: 'API Discovery' },
+  { n: '13', name: 'STIG Compliance' },
+  { n: '14', name: 'Model File Analysis' },
+  { n: '15', name: 'Model Card Compliance' },
+  { n: '16', name: 'Network Discovery' },
+  { n: '18', name: 'Model Provenance & Threat Intel' },
+  { n: '19', name: 'Inference Environment Security' },
+];
+
+function renderSelfDiagLayerPicker() {
+  const boxes = SELF_DIAG_LAYERS.map(l => `
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input)">
+      <input type="checkbox" class="self-diag-layer-checkbox" value="${l.n}" checked>
+      <span>L${l.n} — ${esc(l.name)}</span>
+    </label>`).join('');
+  return `
+    <details style="margin-bottom:12px">
+      <summary style="cursor:pointer;font-size:13px;color:var(--text-muted)">Select layers to validate (defaults to all)</summary>
+      <div style="margin-top:10px">
+        <div style="margin-bottom:8px">
+          <button type="button" class="btn btn-sm" onclick="setSelfDiagLayers(true)">Select All</button>
+          <button type="button" class="btn btn-sm" onclick="setSelfDiagLayers(false)">Select None</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">${boxes}</div>
+      </div>
+    </details>`;
+}
+
+function setSelfDiagLayers(checked) {
+  document.querySelectorAll('.self-diag-layer-checkbox').forEach(cb => { cb.checked = checked; });
+}
+
+// Renders the Self-Assessment (cross-layer scanner validation) card body —
+// used both on initial Performance page load and to refresh in place after
+// a "Run Self-Diagnostic" job completes, without a full page re-render.
+function renderSelfAssessmentBody(sa) {
+  if (!sa || !sa.available) {
+    return `<div style="color:var(--text-muted);font-size:13px">No self-assessment has run yet on this deployment. Click "Run Self-Diagnostic" above, or run <code>scripts/shell/run-self-assessment.sh</code> manually.</div>`;
+  }
+  const gumball = {
+    pass:                { icon: '🟢', label: 'PASS',    cls: 'clean' },
+    fail:                { icon: '🔴', label: 'FAIL',    cls: 'critical' },
+    environment_limited: { icon: '🟡', label: 'ENV-LIMITED', cls: 'medium' },
+    not_validated:       { icon: '⚪', label: 'SKIP',    cls: '' },
+    skipped:             { icon: '⚪', label: 'SKIPPED', cls: '' },
+  };
+  const rows = sa.layers.map(l => {
+    const g = gumball[l.status] || { icon: '⚪', label: (l.status || '').toUpperCase(), cls: '' };
+    let reason = '—';
+    if (l.status === 'fail') {
+      reason = `Expected ≥ ${l.expected_min}, found ${l.actual}`;
+    } else if (l.status === 'pass') {
+      reason = `Found ${l.actual} (expected ≥ ${l.expected_min})`;
+    } else if (l.notes) {
+      reason = esc(l.notes);
+    }
+    return `
+      <tr>
+        <td>${esc(String(l.layer))}</td>
+        <td>${esc(l.name)}</td>
+        <td><span class="sev-badge ${g.cls}" style="font-size:10px">${g.icon} ${g.label}</span></td>
+        <td style="font-size:12px;color:var(--text-muted)">${reason}</td>
+      </tr>`;
+  }).join('');
+
+  return `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:16px">
+      <div class="stat-card">
+        <div class="stat-label">Passed</div>
+        <div class="stat-value" style="color:var(--sev-clean,#22c55e)">${sa.summary.passed}/${sa.summary.validated_layers - sa.summary.environment_limited}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Failed</div>
+        <div class="stat-value" style="color:${sa.summary.failed > 0 ? 'var(--sev-critical,#ef4444)' : 'var(--text-primary)'}">${sa.summary.failed}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Environment-Limited</div>
+        <div class="stat-value">${sa.summary.environment_limited}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Best-Effort (Not Validated)</div>
+        <div class="stat-value">${sa.summary.not_validated}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Skipped (Not Selected)</div>
+        <div class="stat-value">${sa.summary.skipped || 0}</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Last run: ${new Date(sa.generated_at).toLocaleString()} against ${esc(sa.scan_dir?.split('/').pop() || 'unknown scan')}</div>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr><th>Layer</th><th>Name</th><th>Status</th><th>Why</th></tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+    </div>`;
+}
+
 function sevBadgeRow(scan) {
   const parts = [];
   if (scan.critical > 0) parts.push(sevBadge('critical', scan.critical));
@@ -770,6 +887,7 @@ const api = {
   },
   getJob(id)    { return this._get(`/api/jobs/${encodeURIComponent(id)}`); },
   getJobs()     { return this._get('/api/jobs'); },
+  runSelfAssessment(layers) { return this._post('/api/self-assessment/run', layers && layers.length ? { layers } : {}); },
   getMetrics()       { return this._get('/api/metrics'); },
   getGitHubMetrics()         { return this._get('/api/github-metrics'); },
   getGitHubSignalsHistory()  { return this._get('/api/github-signals-history'); },
@@ -2268,7 +2386,7 @@ function buildBuildEvidenceCard(scan) {
   `).join('');
 
   return `
-    <details class="ms-card" id="build-evidence-card" open style="border-left-color:#8b5cf6;margin-top:20px;">
+    <details class="ms-card" id="build-evidence-card" style="border-left-color:#8b5cf6;margin-top:20px;">
       <summary class="ms-summary">
         <span class="ms-summary-left">
           <span class="findings-chevron" aria-hidden="true"></span>
@@ -2346,7 +2464,7 @@ function buildSSPEvidenceCard(scan) {
         <td style="padding:8px 12px;font-weight:500;">${esc(c.control_name)}</td>
         <td style="padding:8px 12px;color:var(--text-muted);font-size:12px;">${esc(c.epyon_layer)}</td>
         <td style="padding:8px 12px;font-family:monospace;font-size:11px;"><code style="color:#a78bfa;">${esc(c.primary_artifact_path)}</code></td>
-        <td style="padding:8px 12px;">${isCap ? '<span style="color:#10b981;font-weight:600;">✅ Captured</span>' : '<span style="color:var(--text-muted);">ℹ️ Optional / Skipped</span>'}</td>
+        <td style="padding:8px 12px;">${isCap ? '<span style="color:#10b981;font-weight:600;">✅ Captured</span>' : '<span style="color:#f59e0b;font-weight:600;">⚠️ Missing Evidence</span>'}</td>
         <td style="padding:8px 12px;font-family:monospace;font-size:11px;color:var(--text-muted);" title="${esc(hash)}">${esc(hashShort)}</td>
       </tr>`;
   }).join('');
@@ -2360,7 +2478,7 @@ function buildSSPEvidenceCard(scan) {
     : '';
 
   return `
-    <details class="ms-card" id="ssp-evidence-card" open style="border-left-color:#10b981;margin-top:20px;">
+    <details class="ms-card" id="ssp-evidence-card" style="border-left-color:#10b981;margin-top:20px;">
       <summary class="ms-summary">
         <span class="ms-summary-left">
           <span class="findings-chevron" aria-hidden="true"></span>
@@ -4221,6 +4339,102 @@ async function pollJob(jobId, btn) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Performance page — "Run Self-Diagnostic" (fixture-based self-assessment)
+// Kicks off scripts/shell/run-self-assessment.sh in the background, streams
+// its console output live, then re-fetches the final per-layer verdict so
+// the table shows a green/red/yellow gumball per layer with a reason.
+
+let _saPollInterval = null;
+let _saLastLogLen   = 0;
+
+async function startSelfDiagnostic() {
+  const btn = document.getElementById('run-self-diag-btn');
+  const progressDiv = document.getElementById('self-diag-progress');
+  const statusDiv   = document.getElementById('self-diag-status');
+  const logDiv      = document.getElementById('self-diag-log');
+  if (!btn || !progressDiv || !statusDiv || !logDiv) return;
+
+  const allBoxes = Array.from(document.querySelectorAll('.self-diag-layer-checkbox'));
+  const checkedBoxes = allBoxes.filter(cb => cb.checked);
+  if (allBoxes.length && checkedBoxes.length === 0) {
+    alert('Select at least one layer to validate, or click "Select All".');
+    return;
+  }
+  // Only pass a layer filter if it's a strict subset — an empty/omitted
+  // filter runs (and validates) everything, matching prior behavior.
+  const layers = (checkedBoxes.length && checkedBoxes.length < allBoxes.length)
+    ? checkedBoxes.map(cb => cb.value)
+    : null;
+
+  btn.disabled    = true;
+  btn.textContent = '⏳ Starting…';
+  progressDiv.style.display = 'block';
+  logDiv.innerHTML = '';
+  statusDiv.textContent = layers
+    ? `Starting self-diagnostic for ${layers.length} selected layer(s)…`
+    : 'Starting self-diagnostic (all layers)…';
+  _saLastLogLen = 0;
+
+  try {
+    const job = await api.runSelfAssessment(layers);
+    if (job.already_running) {
+      statusDiv.textContent = 'A self-diagnostic is already running — showing its progress.';
+    }
+    clearInterval(_saPollInterval);
+    _saPollInterval = setInterval(() => pollSelfDiagnosticJob(job.job_id), 2000);
+    pollSelfDiagnosticJob(job.job_id);
+  } catch (e) {
+    btn.disabled    = false;
+    btn.textContent = '▶ Run Self-Diagnostic';
+    statusDiv.textContent = `Error: ${e.message}`;
+  }
+}
+
+async function pollSelfDiagnosticJob(jobId) {
+  const btn        = document.getElementById('run-self-diag-btn');
+  const statusDiv   = document.getElementById('self-diag-status');
+  const logDiv      = document.getElementById('self-diag-log');
+  if (!statusDiv || !logDiv) { clearInterval(_saPollInterval); return; }
+
+  try {
+    const job = await api.getJob(jobId);
+
+    statusDiv.textContent = job.status === 'running'
+      ? '⏳ Running full 20-layer scan against the self-assessment fixture…'
+      : `Status: ${ucFirst(job.status)}`;
+
+    const lines = job.output || [];
+    if (lines.length > _saLastLogLen) {
+      const frag = lines.slice(_saLastLogLen)
+        .map(l => `<div class="log-line">${esc(l)}</div>`)
+        .join('');
+      logDiv.insertAdjacentHTML('beforeend', frag);
+      logDiv.scrollTop = logDiv.scrollHeight;
+      _saLastLogLen = lines.length;
+    }
+
+    if (['completed', 'failed', 'error', 'cancelled'].includes(job.status)) {
+      clearInterval(_saPollInterval);
+      _saPollInterval = null;
+      if (btn) { btn.disabled = false; btn.textContent = '▶ Run Self-Diagnostic'; }
+
+      // Re-fetch the freshly written per-layer verdict and re-render the
+      // table in place (comparator writes web/data/self-assessment-latest.json
+      // even when the overall job exit code is non-zero, as long as the
+      // comparison step itself ran).
+      try {
+        const sa = await api._get('/api/metrics/self-assessment', false);
+        const bodyDiv = document.getElementById('self-assessment-body');
+        if (bodyDiv) bodyDiv.innerHTML = renderSelfAssessmentBody(sa);
+        statusDiv.textContent = job.status === 'completed'
+          ? '✅ Self-diagnostic finished — results updated below.'
+          : `⚠️ Self-diagnostic ${job.status} (exit code ${job.exit_code ?? 'unknown'}) — see results below and log above for details.`;
+      } catch (_) {
+        statusDiv.textContent = `Self-diagnostic ${job.status}, but results could not be refreshed — reload the page.`;
+      }
+    }
+  } catch (_) { /* ignore transient polling errors */ }
+}
 
 async function cancelScan() {
   if (!_activeJobId) return;
@@ -5283,13 +5497,16 @@ async function renderPerformanceDashboard() {
   try {
     // Fetch cache metrics, scanner validation history, live mobile code
     // scanner accuracy (computed on-demand against its labeled test corpus),
-    // and a scan-integrity check (flags scans that likely ran against an
-    // empty/unreachable target instead of genuinely finding nothing).
-    const [cacheMetrics, frontendMetrics, mobileCodeAccuracy, scanIntegrity] = await Promise.all([
+    // a scan-integrity check (flags scans that likely ran against an
+    // empty/unreachable target instead of genuinely finding nothing), and
+    // the latest cross-layer self-assessment result (validates every
+    // scanner layer actually detects its planted fixture issue).
+    const [cacheMetrics, frontendMetrics, mobileCodeAccuracy, scanIntegrity, selfAssessment] = await Promise.all([
       api._get('/api/metrics/cache'),
       Promise.resolve(_cache.getMetrics()),
       api._get('/api/metrics/mobile-code-accuracy').catch(() => null),
-      api._get('/api/metrics/scan-integrity').catch(() => null)
+      api._get('/api/metrics/scan-integrity').catch(() => null),
+      api._get('/api/metrics/self-assessment').catch(() => null)
     ]);
 
     // Combine backend and frontend metrics
@@ -5389,6 +5606,12 @@ async function renderPerformanceDashboard() {
           `}
     `;
 
+    // Build the Self-Assessment section — cross-layer validation that every
+    // scanner actually detects its known-planted issue in
+    // tests/fixtures/self-assessment/, not just that it ran without error.
+    const sa = selfAssessment;
+    const saBody = renderSelfAssessmentBody(sa);
+
     page.innerHTML = `
       <div class="page-header">
         <h1>Performance Dashboard</h1>
@@ -5399,6 +5622,21 @@ async function renderPerformanceDashboard() {
         <div class="section-title">Scan Integrity Check</div>
         <div style="padding:20px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border)">
           ${siBody}
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <span>Self-Assessment (All Scanner Layers)</span>
+          <button id="run-self-diag-btn" class="btn btn-sm" onclick="startSelfDiagnostic()">▶ Run Self-Diagnostic</button>
+        </div>
+        <div style="padding:20px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border)">
+          ${renderSelfDiagLayerPicker()}
+          <div id="self-diag-progress" style="display:none;margin-bottom:16px">
+            <div id="self-diag-status" style="font-size:13px;margin-bottom:8px;color:var(--text-muted)"></div>
+            <div id="self-diag-log" style="max-height:220px;overflow-y:auto;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:10px;font-family:monospace;font-size:11px;line-height:1.5"></div>
+          </div>
+          <div id="self-assessment-body">${saBody}</div>
         </div>
       </div>
 

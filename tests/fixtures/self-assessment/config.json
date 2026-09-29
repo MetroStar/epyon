@@ -1,0 +1,5 @@
+{
+  "_name_or_path": "bert-base-uncased-cracked",
+  "model_type": "bert",
+  "vocab_size": 30522
+}

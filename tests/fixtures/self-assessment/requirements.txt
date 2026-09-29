@@ -1,0 +1,5 @@
+# Intentionally pinned to a version with a known, published CVE.
+# Used by the self-assessment harness to verify Grype/Trivy/pip-audit
+# actually detect real vulnerable dependencies (see run-self-assessment.sh).
+pyyaml==5.3.1
+requests==2.6.0

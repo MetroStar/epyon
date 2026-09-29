@@ -1,0 +1,9 @@
+{
+  "name": "epyon-self-assessment-fixture",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Intentionally vulnerable dependency, used only to validate that Epyon's SBOM/CVE scanners (Syft, Grype, Trivy) detect real published CVEs.",
+  "dependencies": {
+    "lodash": "4.17.4"
+  }
+}

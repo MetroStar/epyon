@@ -120,7 +120,12 @@ def analyze_pip_audit_results(results_file: Path, output_file: Path) -> Dict:
         vulnerabilities = scan_result.get('results', [])
         
         for vuln in vulnerabilities:
-            package_name = vuln.get('name', '')
+            # Package name/version are attached by run-pip-audit-scan.sh's
+            # jq flattening filter as "package"/"installed_version" (the
+            # real pip-audit schema nests vulns under each dependency
+            # object, which doesn't carry its own name/version). Fall back
+            # to "name"/"version" for older-format result files.
+            package_name = vuln.get('package', vuln.get('name', ''))
             if not package_name:
                 continue
             
@@ -137,7 +142,7 @@ def analyze_pip_audit_results(results_file: Path, output_file: Path) -> Dict:
                 # This is a vulnerability in an ML package
                 ml_vuln = {
                     'package': package_name,
-                    'version': vuln.get('version', 'unknown'),
+                    'version': vuln.get('installed_version', vuln.get('version', 'unknown')),
                     'id': vuln.get('id', 'unknown'),
                     'source_file': source_file,
                     'fix_versions': vuln.get('fix_versions', []),

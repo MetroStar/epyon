@@ -4,6 +4,18 @@
 version: "1.0"
 
 ignores:
+  - type: path
+    value: "tests/fixtures/self-assessment/**"
+    reason: >
+      Deliberately vulnerable self-assessment fixture (planted CVEs,
+      secrets, IaC misconfigs, malicious pickle, typosquat model name,
+      incomplete model card, insecure inference configs) used by
+      scripts/shell/run-self-assessment.sh to validate that every Epyon
+      scanner layer is actually detecting what it's supposed to. These
+      findings are intentional and expected — see
+      tests/fixtures/self-assessment/FIXTURE.md.
+    approved_by: "rnelson"
+
   - type: package
     value: "transformers@4.57.6"
     reason: >

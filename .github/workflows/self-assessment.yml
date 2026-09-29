@@ -1,0 +1,106 @@
+name: Self-Assessment
+
+# Runs a real Epyon scan against the deliberately vulnerable fixture at
+# tests/fixtures/self-assessment/ and verifies every scanner layer that can
+# be deterministically tested actually detected its planted issue. This
+# catches "silently broken scanner" regressions (bad mounts, config drift,
+# tool version bumps that changed CLI output, empty-target false-clean
+# results) that a normal scan of a real, unlabeled target can't reveal.
+#
+# See scripts/shell/run-self-assessment.sh and
+# tests/fixtures/self-assessment/FIXTURE.md for details.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly, Monday 06:00 UTC
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/shell/run-target-security-scan.sh'
+      - 'scripts/shell/run-self-assessment.sh'
+      - 'scripts/shell/compare-self-assessment.py'
+      - 'scripts/shell/run-*.sh'
+      - 'scripts/shell/run-*.py'
+      - 'tests/fixtures/self-assessment/**'
+
+jobs:
+  self-assessment:
+    name: Validate All Scanner Layers
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+          python -m pip install --upgrade pip
+          python -m pip install pip-audit pyyaml
+          # Native syft install so SBOM generation doesn't depend on Docker.
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin
+          syft version
+
+      - name: Pull security tool images
+        run: |
+          for image in anchore/grype:latest ghcr.io/aquasecurity/trivy:latest \
+                       trufflesecurity/trufflehog:latest clamav/clamav:latest \
+                       bridgecrew/checkov:latest noqcks/xeol:latest; do
+            echo "⏬ Pulling $image..."
+            docker pull "$image" || echo "⚠️  Failed to pull $image — will be pulled on demand or skipped"
+          done
+
+      - name: Run self-assessment
+        id: self-assessment
+        run: |
+          chmod +x scripts/shell/run-self-assessment.sh scripts/shell/compare-self-assessment.py
+          scripts/shell/run-self-assessment.sh
+        continue-on-error: true
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: self-assessment-results
+          path: web/data/self-assessment-latest.json
+          retention-days: 90
+
+      - name: Job summary
+        if: always()
+        run: |
+          echo "## Epyon Self-Assessment Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -f web/data/self-assessment-latest.json ]]; then
+            python3 <<'PYEOF' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          d = json.load(open('web/data/self-assessment-latest.json'))
+          s = d['summary']
+          print(f"- Passed: {s['passed']}/{s['validated_layers'] - s['environment_limited']}")
+          print(f"- Failed: {s['failed']}")
+          print(f"- Environment-limited: {s['environment_limited']}")
+          print(f"- Best-effort / not validated: {s['not_validated']}")
+          print()
+          print('| Layer | Name | Status |')
+          print('|---|---|---|')
+          for l in d['layers']:
+              icon = {'pass': '✅', 'fail': '❌', 'environment_limited': '🚧', 'not_validated': '⚪'}.get(l['status'], '❓')
+              print(f"| {l['layer']} | {l['name']} | {icon} {l['status']} |")
+          PYEOF
+          else
+            echo "⚠️ No results file was produced." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Fail if any layer is broken
+        if: steps.self-assessment.outcome == 'failure'
+        run: |
+          echo "::error::One or more Epyon scanner layers failed self-assessment — see the job summary and uploaded artifact for details."
+          exit 1

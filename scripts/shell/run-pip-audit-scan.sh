@@ -107,15 +107,17 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Handle positional arguments
-for positional in "${POSITIONAL_ARGS[@]}"; do
-    if [[ -z "$TARGET_ARG" ]]; then
-        TARGET_ARG="$positional"
-    else
-        echo -e "${RED}❌ Error: Unexpected extra argument: $positional${NC}"
-        echo -e "${YELLOW}Run with --help for usage examples.${NC}"
-        exit 1
-    fi
-done
+if [[ ${#POSITIONAL_ARGS[@]} -gt 0 ]]; then
+    for positional in "${POSITIONAL_ARGS[@]}"; do
+        if [[ -z "$TARGET_ARG" ]]; then
+            TARGET_ARG="$positional"
+        else
+            echo -e "${RED}❌ Error: Unexpected extra argument: $positional${NC}"
+            echo -e "${YELLOW}Run with --help for usage examples.${NC}"
+            exit 1
+        fi
+    done
+fi
 
 # Determine target directory
 if [[ -n "$TARGET_ARG" ]]; then
@@ -216,6 +218,15 @@ echo
 CONSOLIDATED_FINDINGS=()
 TOTAL_VULNERABILITIES=0
 
+# pip-audit's JSON output schema is {"dependencies": [{"name", "version",
+# "vulns": [...]}]}, not the flat {"vulnerabilities": [...]} this script
+# previously assumed. That mismatch meant every real finding was silently
+# discarded and replaced with a fake "scan failed" placeholder (jq -e
+# '.vulnerabilities' always failed since that key never exists). This
+# filter flattens the real schema into a single array, tagging each vuln
+# with its package name/version for context.
+VULN_FILTER='[.dependencies[]? // empty | . as $d | ($d.vulns // [])[] | . + {package: $d.name, installed_version: $d.version}]'
+
 # Scan each dependency file
 echo -e "${CYAN}🛡️  Scanning dependency files...${NC}"
 echo
@@ -241,17 +252,20 @@ for dep_file in "${DEPENDENCY_FILES[@]}"; do
         PIP_AUDIT_CMD=(pip-audit -r "$dep_file" --format json -s osv)
     fi
 
-    # Run pip-audit with JSON output (non-zero exit can still include findings JSON)
+    # Run pip-audit with JSON output. pip-audit exits non-zero whenever it
+    # finds vulnerabilities (by design, for CI gating) even though stdout
+    # still contains the full, valid JSON results — so a non-zero exit
+    # code alone must NOT be treated as a failed scan.
     if "${PIP_AUDIT_CMD[@]}" 2>>"$SCAN_LOG" > "$output_file"; then
         # Extract vulnerability count
         if command -v jq >/dev/null 2>&1; then
-            VULN_COUNT=$(jq '.vulnerabilities | length' "$output_file" 2>/dev/null || echo 0)
+            VULN_COUNT=$(jq "$VULN_FILTER | length" "$output_file" 2>/dev/null || echo 0)
             if [ "$VULN_COUNT" -gt 0 ]; then
                 echo -e "${RED}   ❌ Found $VULN_COUNT vulnerability(ies)${NC}"
                 TOTAL_VULNERABILITIES=$((TOTAL_VULNERABILITIES + VULN_COUNT))
                 
                 # Extract vulnerabilities for consolidated output
-                jq '.vulnerabilities[]' "$output_file" 2>/dev/null | while read -r vuln; do
+                jq -c "$VULN_FILTER[]" "$output_file" 2>/dev/null | while read -r vuln; do
                     CONSOLIDATED_FINDINGS+=("$vuln")
                 done
             else
@@ -266,8 +280,11 @@ for dep_file in "${DEPENDENCY_FILES[@]}"; do
         
     else
         exit_code=$?
-        if [ -s "$output_file" ] && jq -e '.vulnerabilities' "$output_file" >/dev/null 2>&1; then
-            VULN_COUNT=$(jq '.vulnerabilities | length' "$output_file" 2>/dev/null || echo 0)
+        # Non-zero exit can still mean "scan succeeded, vulnerabilities
+        # found" — only treat as a real failure if the output isn't valid
+        # pip-audit JSON at all (missing the "dependencies" key).
+        if [ -s "$output_file" ] && jq -e '.dependencies' "$output_file" >/dev/null 2>&1; then
+            VULN_COUNT=$(jq "$VULN_FILTER | length" "$output_file" 2>/dev/null || echo 0)
             if [ "$VULN_COUNT" -gt 0 ]; then
                 echo -e "${RED}   ❌ Found $VULN_COUNT vulnerability(ies)${NC}"
                 TOTAL_VULNERABILITIES=$((TOTAL_VULNERABILITIES + VULN_COUNT))
@@ -276,7 +293,7 @@ for dep_file in "${DEPENDENCY_FILES[@]}"; do
             fi
         else
             echo -e "${YELLOW}   ⚠️  Scan failed (exit code: $exit_code)${NC}"
-            echo '{"vulnerabilities": [], "error": "scan failed"}' > "$output_file"
+            echo '{"dependencies": [], "error": "scan failed"}' > "$output_file"
         fi
     fi
 done
@@ -297,7 +314,7 @@ if [[ -f "$REPO_PATH/pyproject.toml" ]]; then
             if "$AUDIT_VENV/bin/python" -m pip install "$REPO_PATH[dev]" >>"$SCAN_LOG" 2>&1 || \
                "$AUDIT_VENV/bin/python" -m pip install "$REPO_PATH" >>"$SCAN_LOG" 2>&1; then
                 if "$AUDIT_VENV/bin/pip-audit" -l --format json -s osv > "$ENV_OUTPUT_FILE" 2>>"$SCAN_LOG"; then
-                    ENV_VULN_COUNT=$(jq '.vulnerabilities | length' "$ENV_OUTPUT_FILE" 2>/dev/null || echo 0)
+                    ENV_VULN_COUNT=$(jq "$VULN_FILTER | length" "$ENV_OUTPUT_FILE" 2>/dev/null || echo 0)
                     if [ "$ENV_VULN_COUNT" -gt 0 ]; then
                         echo -e "${RED}   ❌ Environment audit found $ENV_VULN_COUNT vulnerability(ies)${NC}"
                         TOTAL_VULNERABILITIES=$((TOTAL_VULNERABILITIES + ENV_VULN_COUNT))
@@ -305,14 +322,14 @@ if [[ -f "$REPO_PATH/pyproject.toml" ]]; then
                         echo -e "${GREEN}   ✅ Environment audit found no vulnerabilities${NC}"
                     fi
                 else
-                    if [ -s "$ENV_OUTPUT_FILE" ] && jq -e '.vulnerabilities' "$ENV_OUTPUT_FILE" >/dev/null 2>&1; then
-                        ENV_VULN_COUNT=$(jq '.vulnerabilities | length' "$ENV_OUTPUT_FILE" 2>/dev/null || echo 0)
+                    if [ -s "$ENV_OUTPUT_FILE" ] && jq -e '.dependencies' "$ENV_OUTPUT_FILE" >/dev/null 2>&1; then
+                        ENV_VULN_COUNT=$(jq "$VULN_FILTER | length" "$ENV_OUTPUT_FILE" 2>/dev/null || echo 0)
                         if [ "$ENV_VULN_COUNT" -gt 0 ]; then
                             echo -e "${RED}   ❌ Environment audit found $ENV_VULN_COUNT vulnerability(ies)${NC}"
                             TOTAL_VULNERABILITIES=$((TOTAL_VULNERABILITIES + ENV_VULN_COUNT))
                         fi
                     else
-                        echo '{"vulnerabilities": [], "error": "environment audit failed"}' > "$ENV_OUTPUT_FILE"
+                        echo '{"dependencies": [], "error": "environment audit failed"}' > "$ENV_OUTPUT_FILE"
                         echo -e "${YELLOW}   ⚠️  Environment audit failed; see $SCAN_LOG${NC}"
                     fi
                 fi
@@ -358,7 +375,7 @@ CONSOLIDATED_OUTPUT="$OUTPUT_DIR/${SCAN_ID}_pip-audit-consolidated-results.json"
             fi
             echo "    {"
             echo "      \"file\": \"${file#$REPO_PATH/}\","
-            echo "      \"results\": $(jq '.vulnerabilities' "$output_file" 2>/dev/null || echo '[]')"
+            echo "      \"results\": $(jq "$VULN_FILTER" "$output_file" 2>/dev/null || echo '[]')"
             echo -n "    }"
         fi
     done
@@ -371,7 +388,7 @@ CONSOLIDATED_OUTPUT="$OUTPUT_DIR/${SCAN_ID}_pip-audit-consolidated-results.json"
         fi
         echo "    {"
         echo "      \"file\": \"__resolved_environment__\"," 
-        echo "      \"results\": $(jq '.vulnerabilities' "$ENV_OUTPUT_FILE" 2>/dev/null || echo '[]')"
+        echo "      \"results\": $(jq "$VULN_FILTER" "$ENV_OUTPUT_FILE" 2>/dev/null || echo '[]')"
         echo -n "    }"
     fi
     

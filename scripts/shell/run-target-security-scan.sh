@@ -114,7 +114,7 @@ show_help() {
     echo "      --list-modes    Print available scan types and exit"
     echo "  --subdir PATH       Scan only a specific subdirectory within a Git repository"
     echo "                      (only works with Git URLs, uses sparse-checkout)"
-    echo "      --skip-tools    Comma-separated tools to skip (example: sonar,clamav,garak)"
+    echo "      --skip-tools    Comma-separated tools to skip (example: sonar,clamav,garak,stig,picklescan,model-provenance,inference-security)"
     echo "      --no-garak      Skip Garak probing"
     echo "      --baseline-image IMAGE"
     echo "                      Override baseline image prompt/default"
@@ -146,9 +146,10 @@ show_help() {
     echo "  Layer 10: Container Analysis (Anchore)"
     echo "  Layer 11: API Discovery (OpenAPI, REST, GraphQL)"
     echo "  Layer 12: LLM Security Probing (Garak, opt-in via RUN_GARAK=true)"
-    echo "  Layer 13: Network Discovery (Ports, Protocols, Services)"
+    echo "  Layer 13: STIG Compliance Assessment (requires OPENAI_API_KEY)"
     echo "  Layer 14: Comprehensive Model File Analysis (Enhanced Picklescan)"
     echo "  Layer 15: Model Card Compliance (ModelCard)"
+    echo "  Layer 16: Network Discovery (Ports, Protocols, Services)"
     echo "  Layer 17: Mobile Code Detection"
     echo "  Layer 18: Model Provenance & Threat Intelligence"
     echo "  Layer 19: Inference Environment Security"
@@ -229,6 +230,12 @@ apply_skip_tools() {
             network|network-discovery) SKIP_NETWORK_DISCOVERY=true ;;
             garak) SKIP_GARAK=true ;;
             mobile-code|mobile) SKIP_MOBILE_CODE=true ;;
+            stig) SKIP_STIG=true ;;
+            picklescan|model-files) SKIP_PICKLESCAN=true ;;
+            modelcard|model-card) SKIP_MODELCARD=true ;;
+            model-provenance|provenance) SKIP_MODEL_PROVENANCE=true ;;
+            inference-security|inference) SKIP_INFERENCE_SECURITY=true ;;
+            ml-runtime) SKIP_ML_RUNTIME=true ;;
             *)
                 echo -e "${YELLOW}⚠️  Unknown tool in --skip-tools: $tool${NC}"
                 ;;
@@ -1242,17 +1249,58 @@ case "$SCAN_TYPE" in
             echo -e "${YELLOW}⏭️  Skipping Garak LLM Security Probing (set RUN_GARAK=true to enable)${NC}"
         fi
 
-        echo -e "${PURPLE}🔌 Layer 13: Network Discovery (Ports, Protocols, Services)${NC}"
+        echo -e "${PURPLE}📐 Layer 13: STIG Compliance Assessment${NC}"
+        # Mirrors run-epyon-scan-ci.sh's Layer 13 gating: runs whenever this is
+        # a full scan (this script has no separate "stig"-only mode) unless
+        # explicitly skipped. run-stig-scan.sh degrades gracefully without
+        # OPENAI_API_KEY (marks controls "Not Reviewed" instead of failing),
+        # so it's safe to always invoke here rather than silently never
+        # producing stig-results-*.json/CA-2 evidence for local/self-assessment
+        # scans the way this script previously did.
+        if [[ "${SKIP_STIG:-false}" != "true" ]]; then
+            if [[ -f "$SCRIPT_DIR/run-stig-scan.sh" ]]; then
+                chmod +x "$SCRIPT_DIR/run-stig-scan.sh" 2>/dev/null || true
+                # Deliberately do NOT default STIGS_DIR to a relative path
+                # here: run_security_tool's earlier `cd "$REPO_ROOT"` calls
+                # leave cwd one directory too shallow (a pre-existing
+                # REPO_ROOT bug), so a relative "configuration/stigs" value
+                # would silently resolve to the wrong location. Only pass
+                # STIGS_DIR through if the caller explicitly set one —
+                # otherwise let run-stig-scan.sh use its own correct
+                # PROJECT_ROOT-derived absolute default.
+                env ${STIGS_DIR:+STIGS_DIR="$STIGS_DIR"} \
+                    SCAN_DIR="$SCAN_DIR" \
+                    APP_NAME="$TARGET_NAME" \
+                    "$SCRIPT_DIR/run-stig-scan.sh" "$TARGET_DIR" || \
+                    echo -e "${YELLOW}⚠️  STIG assessment completed with warnings${NC}"
+            else
+                echo -e "${YELLOW}⚠️  run-stig-scan.sh not found, skipping Layer 13 - STIG${NC}"
+            fi
+        else
+            echo -e "${YELLOW}⏭️  Skipping Layer 13 - STIG (SKIP_STIG=true)${NC}"
+        fi
+
+        echo -e "${PURPLE}🔌 Layer 16: Network Discovery (Ports, Protocols, Services)${NC}"
         if [[ "${SKIP_NETWORK_DISCOVERY:-false}" != "true" ]]; then
             run_security_tool "Network Discovery" "$SCRIPT_DIR/run-network-discovery.sh"
         else
-            echo -e "${YELLOW}⏭️  Skipping Layer 13 - Network Discovery (SKIP_NETWORK_DISCOVERY=true)${NC}"
+            echo -e "${YELLOW}⏭️  Skipping Layer 16 - Network Discovery (SKIP_NETWORK_DISCOVERY=true)${NC}"
         fi
 
         echo -e "${PURPLE}🥒 Layer 14: Comprehensive Model File Analysis${NC}"
         if [[ "${SKIP_PICKLESCAN:-false}" != "true" ]]; then
-            # Enhanced picklescan with multi-format support
-            run_security_tool "Enhanced Picklescan" "python3 $SCRIPT_DIR/run-picklescan.py --formats pickle,pytorch,onnx,tensorflow,config"
+            # Enhanced picklescan with multi-format support.
+            # NOTE: run_security_tool checks `[[ -x "$script_path" ]]` on its
+            # second argument, so the interpreter and script+args must be
+            # passed as separate positional args (2 and 3) — combining them
+            # into one string here previously made the executable check
+            # always fail (it tested the whole "python3 /path --formats ..."
+            # string as a single, nonexistent file path), silently skipping
+            # this layer on every scan. --target/--scan-dir/--app-name are
+            # also required (argparse, no env-var fallback) — without them
+            # the script now runs but immediately exits on a missing-
+            # argument error, still producing zero output.
+            run_security_tool "Enhanced Picklescan" "$(command -v python3)" "$SCRIPT_DIR/run-picklescan.py --target $TARGET_DIR --scan-dir $SCAN_DIR --app-name $TARGET_NAME --formats pickle,pytorch,onnx,tensorflow,config"
         else
             echo -e "${YELLOW}⏭️  Skipping Layer 14 - Enhanced Picklescan (SKIP_PICKLESCAN=true)${NC}"
         fi
@@ -1271,7 +1319,10 @@ case "$SCAN_TYPE" in
             if [[ -f "$BASE_DIR/web/data/mobile-code-policy.json" ]]; then
                 POLICY_ARG="--policy-file $BASE_DIR/web/data/mobile-code-policy.json"
             fi
-            run_security_tool "Mobile Code Detection" "python3 $SCRIPT_DIR/run-mobile-code-scan.py $POLICY_ARG"
+            # --target/--scan-dir/--app-name are required (argparse, no
+            # env-var fallback) — see Layer 14's note above for why this
+            # matters.
+            run_security_tool "Mobile Code Detection" "$(command -v python3)" "$SCRIPT_DIR/run-mobile-code-scan.py --target $TARGET_DIR --scan-dir $SCAN_DIR --app-name $TARGET_NAME $POLICY_ARG"
         else
             echo -e "${YELLOW}⏭️  Skipping Layer 17 - Mobile Code (SKIP_MOBILE_CODE=true)${NC}"
         fi
@@ -1295,7 +1346,10 @@ case "$SCAN_TYPE" in
         echo -e "${PURPLE}🧪 Layer 20: ML Runtime Behavioral Analysis${NC}"
         # Layer 20 is opt-in only due to resource requirements (Docker/Podman + sandbox execution)
         if [[ "${RUN_ML_RUNTIME:-false}" == "true" ]] && [[ "${SKIP_ML_RUNTIME:-false}" != "true" ]]; then
-            run_security_tool "ML Runtime Analysis" "python3 $SCRIPT_DIR/run-ml-runtime-analysis.py"
+            # --target/--scan-dir/--app-name are required (argparse, no
+            # env-var fallback) — see Layer 14's note above for why this
+            # matters.
+            run_security_tool "ML Runtime Analysis" "$(command -v python3)" "$SCRIPT_DIR/run-ml-runtime-analysis.py --target $TARGET_DIR --scan-dir $SCAN_DIR --app-name $TARGET_NAME"
         else
             if [[ "${SKIP_ML_RUNTIME:-false}" == "true" ]]; then
                 echo -e "${YELLOW}⏭️  Skipping Layer 20 - ML Runtime Analysis (SKIP_ML_RUNTIME=true)${NC}"
@@ -1656,6 +1710,40 @@ else
     echo -e "${YELLOW}⚠️  enrich-findings-multi-feed.sh not found, skipping multi-feed enrichment${NC}"
 fi
 
+# ── Step 3.75: Generate Scan Manifest + TRL Score Card ───────────────────────
+# Must run BEFORE Step 4 (dashboard generation) — the embedded SSP Evidence
+# Matrix (SI-7/RA-3 controls) checks for scan-manifest.json/trl-assessment.json
+# on disk, and previously ran before these existed, always showing them as
+# "Not Captured"/"Optional" even on scans where the artifacts existed a few
+# steps later.
+echo ""
+echo -e "${BLUE}🔐 Generating scan manifest for integrity verification...${NC}"
+if [[ -f "$SCRIPT_DIR/generate-scan-manifest.sh" ]]; then
+    "$SCRIPT_DIR/generate-scan-manifest.sh" "$SCAN_DIR" "$TARGET_DIR"
+    manifest_result=$?
+
+    if [[ $manifest_result -eq 0 ]]; then
+        echo -e "${GREEN}✅ Scan manifest generated successfully${NC}"
+        if [[ -f "$SCAN_DIR/scan-manifest.json" ]]; then
+            echo -e "${CYAN}📋 Manifest: $SCAN_DIR/scan-manifest.json${NC}"
+            echo -e "${CYAN}🔍 Verify: ./scripts/shell/verify-scan-manifest.sh $SCAN_DIR${NC}"
+        fi
+    else
+        echo -e "${YELLOW}⚠️  Manifest generation had issues${NC}"
+    fi
+else
+    echo -e "${YELLOW}⚠️  Manifest generation script not found${NC}"
+fi
+
+echo ""
+echo -e "${BLUE}📈 Generating TRL security score card...${NC}"
+if [[ -f "$SCRIPT_DIR/generate-trl-score.py" ]]; then
+    python3 "$SCRIPT_DIR/generate-trl-score.py" --scan-dir "$SCAN_DIR" || \
+        echo -e "${YELLOW}⚠️  TRL score card generation had issues${NC}"
+else
+    echo -e "${YELLOW}⚠️  generate-trl-score.py not found, skipping TRL score card${NC}"
+fi
+
 # ── Step 4: Consolidate + generate dashboard (reads findings summary + suppressed-findings.md) ─
 # Run the unified report consolidation
 if [[ -f "$SCRIPT_DIR/consolidate-security-reports.sh" ]]; then
@@ -1708,26 +1796,6 @@ if [[ -f "$SCRIPT_DIR/consolidate-security-reports.sh" ]]; then
     else
         echo -e "${YELLOW}⚠️  Report consolidation had issues${NC}"
         analysis_success=false
-    fi
-
-    # ── Step 5: Generate Scan Manifest for Integrity Verification ─────────────
-    echo ""
-    echo -e "${BLUE}🔐 Generating scan manifest for integrity verification...${NC}"
-    if [[ -f "$SCRIPT_DIR/generate-scan-manifest.sh" ]]; then
-        "$SCRIPT_DIR/generate-scan-manifest.sh" "$SCAN_DIR" "$TARGET_DIR"
-        manifest_result=$?
-        
-        if [[ $manifest_result -eq 0 ]]; then
-            echo -e "${GREEN}✅ Scan manifest generated successfully${NC}"
-            if [[ -f "$SCAN_DIR/scan-manifest.json" ]]; then
-                echo -e "${CYAN}📋 Manifest: $SCAN_DIR/scan-manifest.json${NC}"
-                echo -e "${CYAN}🔍 Verify: ./scripts/shell/verify-scan-manifest.sh $SCAN_DIR${NC}"
-            fi
-        else
-            echo -e "${YELLOW}⚠️  Manifest generation had issues${NC}"
-        fi
-    else
-        echo -e "${YELLOW}⚠️  Manifest generation script not found${NC}"
     fi
 
     if [[ -f "$SCRIPT_DIR/validate-scan-output.sh" ]]; then

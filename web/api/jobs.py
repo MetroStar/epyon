@@ -368,3 +368,88 @@ def cancel_job(job_id: str) -> None:
         procs.pop(job_id, None)
     job["status"]       = "cancelled"
     job["completed_at"] = _now()
+
+
+async def run_self_assessment_job(
+    job_id: str,
+    script_path: Path,
+    epyon_root: Path,
+    layers: list[str] | None = None,
+) -> None:
+    """Run scripts/shell/run-self-assessment.sh (the fixture-based, cross-
+    layer scanner validation harness) as a background job, so the Performance
+    page can trigger a self-diagnostic on demand and show live step-by-step
+    progress instead of requiring someone to run it from a terminal.
+
+    `layers`, if given, restricts validation to the listed manifest layer
+    numbers (e.g. ["1", "2", "7", "8", "8.5"]) via the harness's --layers
+    flag — every other layer's underlying scan step is skipped and it's
+    reported with status "skipped" rather than pass/fail/not_validated.
+    Omit (or pass None/empty) to run the full self-assessment, unchanged.
+
+    The harness itself already writes the final structured per-layer
+    pass/fail/environment_limited/not_validated/skipped verdict to
+    web/data/self-assessment-latest.json (read by GET
+    /api/metrics/self-assessment) — this job only needs to stream the raw
+    console output live so the UI can show what's currently running, and
+    flip to completed/failed based on the script's exit code.
+    """
+    job = jobs[job_id]
+    job["status"] = "running"
+
+    env = {**os.environ,
+           "CI":              "true",
+           "NONINTERACTIVE":  "1",
+           "DEBIAN_FRONTEND": "noninteractive",
+           "TERM":            "dumb"}
+    # Ensure PATH includes Homebrew locations so the script can find bash 4+,
+    # matching run_scan_job's convention.
+    current_path = env.get("PATH", "")
+    homebrew_paths = "/opt/homebrew/bin:/usr/local/bin:/home/linuxbrew/.linuxbrew/bin"
+    env["PATH"] = f"{homebrew_paths}:{current_path}" if current_path else f"{homebrew_paths}:/usr/bin:/bin"
+
+    cmd = ["bash", str(script_path)]
+    if layers:
+        cmd += ["--layers", ",".join(str(l) for l in layers)]
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            cwd=str(epyon_root),
+            env=env,
+            stdin=asyncio.subprocess.DEVNULL,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        procs[job_id] = proc
+
+        async def _timeout_kill() -> None:
+            await asyncio.sleep(JOB_TIMEOUT_SECONDS)
+            if job["status"] == "running":
+                _append_line(job, f"[epyon] Job timed out after {JOB_TIMEOUT_SECONDS // 60} minutes")
+                try:
+                    proc.kill()
+                except ProcessLookupError:
+                    pass
+
+        timeout_task = asyncio.create_task(_timeout_kill())
+
+        await asyncio.gather(
+            _read_stream(proc.stdout, job),
+            _read_stream(proc.stderr, job),
+        )
+
+        return_code = await proc.wait()
+        timeout_task.cancel()
+
+        procs.pop(job_id, None)
+        if job["status"] == "running":
+            job["exit_code"]    = return_code
+            job["status"]       = "completed" if return_code == 0 else "failed"
+            job["completed_at"] = _now()
+
+    except Exception as exc:
+        procs.pop(job_id, None)
+        job["status"]       = "error"
+        job["error"]        = str(exc)
+        job["completed_at"] = _now()

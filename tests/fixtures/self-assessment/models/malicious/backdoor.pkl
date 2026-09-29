@@ -1,0 +1,7 @@
+This file contains dangerous patterns.
+import subprocess
+import os.system
+import socket
+eval('malicious code')
+exec('payload')
+__import__('ctypes')

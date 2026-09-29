@@ -926,6 +926,12 @@ Epyon enriches CVE findings from **seven global vulnerability feeds** for compre
 - Detects scanner drift and tool consistency issues
 - Scheduled runs every 89 days to maintain artifact retention
 
+**✅ Cross-Layer Self-Assessment (Scanner Validation):**
+- `scripts/shell/run-self-assessment.sh` runs a real full (20-layer) scan against a synthetic, intentionally-vulnerable fixture (`tests/fixtures/self-assessment/`) with known planted findings, then `scripts/shell/compare-self-assessment.py` checks that each layer actually detected what it should have — proving the scanners work, not just that they didn't crash.
+- Layers that can't be deterministically planted in a static fixture (e.g. SonarQube requires a live server, ClamAV is often preempted by desktop antivirus) are reported as `not_validated` / `environment_limited` with an explanation, never a false pass.
+- Runnable via CI (`.github/workflows/self-assessment.yml`) or on demand from the Web Dashboard's **Performance** page via the **"▶ Run Self-Diagnostic"** button, which streams live progress and refreshes a per-layer pass/fail/skip table (🟢/🔴/🟡/⚪) with a plain-language reason for each result once the run completes.
+- Individual layers can be toggled on/off before running (`run-self-assessment.sh --layers 1,2,7,8`, or via checkboxes in the Web Dashboard panel) to validate only specific scanners instead of the full ~5 minute run; unselected layers are reported as `"skipped"` rather than pass/fail.
+
 
 ## 📁 Directory Structure
 

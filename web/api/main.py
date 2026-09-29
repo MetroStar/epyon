@@ -45,6 +45,7 @@ GITHUB_CONFIG_FILE   = (_HERE / ".." / "data" / "github-config.json").resolve()
 HIDDEN_APPS_FILE     = EPYON_ROOT / "configuration" / "hidden-apps.json"
 JIRA_CONFIG_FILE     = (_HERE / ".." / "data" / "jira-config.json").resolve()
 JIRA_TICKETS_FILE    = (_HERE / ".." / "data" / "jira-tickets.json").resolve()
+SELF_ASSESSMENT_FILE = (_HERE / ".." / "data" / "self-assessment-latest.json").resolve()
 REGISTERED_APPS_FILE = EPYON_ROOT / "configuration" / "registered-apps.json"
 MONITORED_APPS_FILE  = EPYON_ROOT / "configuration" / "monitored-apps.json"
 STATIC_DIR           = (_HERE / ".." / "static").resolve()
@@ -4089,6 +4090,75 @@ def get_scan_integrity(response: Response, days: int = 35, limit: int = 40):
     _sec_headers(response)
     scan_dirs = _cached_find_scan_dirs(days=days)
     return _compute_scan_integrity(scan_dirs, limit=limit)
+
+
+@app.get("/api/metrics/self-assessment")
+def get_self_assessment(response: Response):
+    """Latest results from scripts/shell/run-self-assessment.sh — a real
+    scan of the deliberately vulnerable fixture at
+    tests/fixtures/self-assessment/, diffed against known-planted issues to
+    verify every scanner layer is actually detecting what it should (not
+    just running). Written by the harness to SELF_ASSESSMENT_FILE; absent
+    until the harness has run at least once (e.g. via the scheduled
+    self-assessment.yml workflow or a manual run)."""
+    _sec_headers(response)
+    if not SELF_ASSESSMENT_FILE.exists():
+        return {"available": False}
+    try:
+        data = json.loads(SELF_ASSESSMENT_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {"available": False}
+    data["available"] = True
+    return data
+
+
+# Mirrors the togglable layer numbers in
+# tests/fixtures/self-assessment/expected-findings.json (Layer 3/SonarQube
+# and Layer 20/ML-Runtime are intentionally excluded — never run by the
+# harness regardless of selection).
+_SELF_ASSESSMENT_VALID_LAYERS = {
+    "1", "2", "4", "5", "6", "7", "8", "8.5", "9", "10", "11",
+    "13", "14", "15", "16", "18", "19",
+}
+
+
+class SelfAssessmentRunRequest(BaseModel):
+    layers: Optional[list[str]] = None
+
+
+@app.post("/api/self-assessment/run", status_code=202)
+async def trigger_self_assessment(body: SelfAssessmentRunRequest, request: Request, response: Response):
+    """Kick off scripts/shell/run-self-assessment.sh as a background job so
+    the Performance page's "Run Self-Diagnostic" button can show live
+    step-by-step progress (via GET /api/jobs/{job_id}) and then refresh
+    GET /api/metrics/self-assessment for the final per-layer verdict.
+
+    `body.layers`, if given, restricts the run to only those manifest layer
+    numbers (e.g. ["1", "2", "7", "8", "8.5"]) so a user can validate a
+    subset of scanners instead of the full 20-layer run. Unknown values are
+    rejected (400) rather than silently ignored."""
+    _sec_headers(response)
+    layers = body.layers
+    if layers:
+        invalid = [l for l in layers if l not in _SELF_ASSESSMENT_VALID_LAYERS]
+        if invalid:
+            raise HTTPException(400, f"Unknown self-assessment layer(s): {', '.join(invalid)}")
+    # Only one self-assessment run at a time — it drives a real full scan
+    # plus pip-audit, so overlapping runs would race on the same scan
+    # directory naming and Docker/tool locks.
+    for existing in job_store.jobs.values():
+        if existing.get("target") == "self-assessment" and existing["status"] in ("queued", "running"):
+            return {"job_id": existing["job_id"], "status": existing["status"], "already_running": True}
+
+    script_path = SCRIPTS_DIR / "run-self-assessment.sh"
+    if not script_path.exists():
+        raise HTTPException(500, "run-self-assessment.sh not found")
+
+    job_id = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    _audit(request, "self_assessment_triggered", ",".join(layers) if layers else "all")
+    job = job_store.create_job(job_id, "self-assessment", "self-assessment")
+    asyncio.create_task(job_store.run_self_assessment_job(job_id, script_path, EPYON_ROOT, layers))
+    return {"job_id": job_id, "status": "queued"}
 
 
 # ── SPA / static file serving ─────────────────────────────────

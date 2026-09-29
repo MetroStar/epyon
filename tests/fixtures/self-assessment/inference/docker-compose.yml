@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  ml-inference:
+    image: ml-inference:latest
+    ports:
+      - "8080:8080"
+    privileged: true
+    volumes:
+      - ./models:/models
+    cap_add:
+      - SYS_ADMIN
+      - SYS_PTRACE
+    security_opt:
+      - apparmor:unconfined
+      - seccomp:unconfined

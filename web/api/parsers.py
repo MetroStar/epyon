@@ -1036,7 +1036,13 @@ def parse_ssp_evidence_matrix(scan_dir: Path) -> dict:
 
     # SI-2 Flaw Remediation / Vulnerability Management
     c_grype_exists, c_grype_hash = _check_artifact("grype/grype-sbom-results.json")
-    c_trivy_exists, c_trivy_hash = _check_artifact("trivy/trivy-results.json")
+    # Trivy writes per-scan-type files (trivy-filesystem-results.json,
+    # trivy-config-results.json, trivy-base-results.json) — it never writes
+    # a bare "trivy-results.json", so checking that name always missed real
+    # Trivy evidence.
+    c_trivy_exists, c_trivy_hash = _check_artifact("trivy/trivy-filesystem-results.json")
+    if not c_trivy_exists:
+        c_trivy_exists, c_trivy_hash = _check_artifact("trivy/trivy-config-results.json")
     c_summary_exists, c_summary_hash = _check_artifact("security-findings-summary.json")
     controls.append({
         "control_id": "SI-2",
@@ -1095,12 +1101,15 @@ def parse_ssp_evidence_matrix(scan_dir: Path) -> dict:
     })
 
     # IA-2 / IA-5 Identification, Authentication & Secrets
-    c_truffle_exists, c_truffle_hash = _check_artifact("trufflehog/filesystem-results.json")
+    # Real filename is prefixed with the tool name (trufflehog-filesystem-
+    # results.json), not the bare scan-type name — checking the wrong path
+    # always missed real TruffleHog evidence.
+    c_truffle_exists, c_truffle_hash = _check_artifact("trufflehog/trufflehog-filesystem-results.json")
     controls.append({
         "control_id": "IA-5",
         "control_name": "Authenticator & Secret Management",
         "epyon_layer": "Layer 2 (TruffleHog Secret Detection)",
-        "primary_artifact_path": "trufflehog/filesystem-results.json",
+        "primary_artifact_path": "trufflehog/trufflehog-filesystem-results.json",
         "format": "High-Entropy Key & Credential JSON",
         "status": "captured" if c_truffle_exists else "not_captured",
         "sha256_hash": c_truffle_hash or "N/A",
@@ -1155,7 +1164,7 @@ def generate_ssp_evidence_markdown(matrix_data: dict) -> str:
     md.append("|---------------------|--------------|----------------------|--------------------------------|-----------------|----------------|")
 
     for c in controls:
-        status_str = "✅ Captured" if c["status"] == "captured" else "ℹ️ Optional / Skipped"
+        status_str = "✅ Captured" if c["status"] == "captured" else "⚠️ Missing Evidence"
         hash_str = f"`{c['sha256_hash'][:16]}...`" if c["sha256_hash"] and c["sha256_hash"] != "N/A" else "N/A"
         md.append(f"| **{c['control_id']}** | {c['control_name']} | {c['epyon_layer']} | `{c['primary_artifact_path']}` | {status_str} | {hash_str} |")
 

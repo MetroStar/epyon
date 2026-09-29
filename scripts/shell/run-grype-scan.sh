@@ -373,7 +373,8 @@ if [[ "$SCAN_TYPE" == "sbom" ]] || [[ "$SCAN_TYPE" == "all" ]]; then
             echo -e "${BLUE}🔍 Scanning SBOM for vulnerabilities...${NC}"
             # docker run's -v source is resolved by the HOST daemon (see
             # to_host_path() in scan-directory-template.sh) — translate before use.
-            local sbom_file_host
+            # (top-level script scope here, not inside a function — `local` is invalid
+            # and aborts the script under `set -e`.)
             sbom_file_host="$(to_host_path "$SBOM_FILE")"
             ${CONTAINER_CLI} run --rm \
                 -e GRYPE_DB_CACHE_DIR=/cache \

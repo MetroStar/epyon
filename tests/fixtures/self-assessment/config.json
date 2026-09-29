@@ -1,5 +1,5 @@
 {
-  "_name_or_path": "bert-base-uncased-cracked",
-  "model_type": "bert",
+  "_name_or_path": "gpt-2",
+  "model_type": "gpt2",
   "vocab_size": 30522
 }

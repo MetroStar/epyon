@@ -283,15 +283,28 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
         # Stage paths to /tmp — Docker Desktop on macOS cannot mount paths under ~/Desktop
         # due to a known VirtioFS metadata bug where /host_mnt/Users/<user>/Desktop is a
         # file instead of a directory in the Docker VM.
-        _CL_SRC="/tmp/epyon-clamav-src-$$"
-        _CL_OUT="/tmp/epyon-clamav-out-$$"
+        if [[ -n "${HOST_PROJECT_DIR:-}" ]]; then
+            # Containerized deployment (docker-compose): /app/tmp IS host-shared (see
+            # docker-compose.yml + to_host_path() in scan-directory-template.sh), so
+            # stage here instead — /tmp has no host equivalent in this case, which
+            # would make `docker run -v` bind an empty directory on the host and
+            # silently scan nothing.
+            _CL_SRC="/app/tmp/epyon-clamav-src-$$"
+            _CL_OUT="/app/tmp/epyon-clamav-out-$$"
+        else
+            _CL_SRC="/tmp/epyon-clamav-src-$$"
+            _CL_OUT="/tmp/epyon-clamav-out-$$"
+        fi
         rm -rf "$_CL_SRC" "$_CL_OUT"
         rsync -a --quiet "$REPO_PATH/" "$_CL_SRC/" 2>/dev/null || cp -rL "$REPO_PATH" "$_CL_SRC"
         mkdir -p "$_CL_OUT"
+        # Host-side equivalents to pass to `docker run -v` (no-op when not containerized).
+        _CL_SRC_HOST="$(to_host_path "$_CL_SRC")"
+        _CL_OUT_HOST="$(to_host_path "$_CL_OUT")"
 
         ${CONTAINER_CLI} run --rm $PLATFORM_FLAG \
-            -v "$_CL_SRC:/workspace:ro" \
-            -v "$_CL_OUT:/output" \
+            -v "$_CL_SRC_HOST:/workspace:ro" \
+            -v "$_CL_OUT_HOST:/output" \
             $CLAMAV_VOL_ARGS \
             "$CLAMAV_IMAGE" \
             clamscan -r \
@@ -318,14 +331,17 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
         # Also scan decoded base64 files if any exist
         if [ $BASE64_DECODED -gt 0 ]; then
             echo -e "${BLUE}🔍 Scanning decoded base64 content...${NC}"
-            _CL_DEC="/tmp/epyon-clamav-dec-$$"
-            _CL_OUT2="/tmp/epyon-clamav-out2-$$"
+            _CL_DEC="/app/tmp/epyon-clamav-dec-$$"
+            _CL_OUT2="/app/tmp/epyon-clamav-out2-$$"
+            [[ -n "${HOST_PROJECT_DIR:-}" ]] || { _CL_DEC="/tmp/epyon-clamav-dec-$$"; _CL_OUT2="/tmp/epyon-clamav-out2-$$"; }
             rm -rf "$_CL_DEC" "$_CL_OUT2"
             rsync -a --quiet "$DECODED_DIR/" "$_CL_DEC/" 2>/dev/null || cp -rL "$DECODED_DIR" "$_CL_DEC"
             mkdir -p "$_CL_OUT2"
+            _CL_DEC_HOST="$(to_host_path "$_CL_DEC")"
+            _CL_OUT2_HOST="$(to_host_path "$_CL_OUT2")"
             ${CONTAINER_CLI} run --rm $PLATFORM_FLAG \
-                -v "$_CL_DEC:/decoded:ro" \
-                -v "$_CL_OUT2:/output" \
+                -v "$_CL_DEC_HOST:/decoded:ro" \
+                -v "$_CL_OUT2_HOST:/output" \
                 $CLAMAV_VOL_ARGS \
                 "$CLAMAV_IMAGE" \
                 clamscan -r \

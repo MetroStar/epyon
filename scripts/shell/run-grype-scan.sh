@@ -301,9 +301,13 @@ run_grype_scan() {
                 anchore/grype:latest \
                 "docker:$target" -o json 2>>"$SCAN_LOG" > "$output_file"
         else
+            # docker run's -v source is resolved by the HOST daemon (see
+            # to_host_path() in scan-directory-template.sh) — translate before use.
+            local target_host
+            target_host="$(to_host_path "$target")"
             ${CONTAINER_CLI} run --rm \
                 -e GRYPE_DB_CACHE_DIR=/cache \
-                -v "$target:/workspace:ro" \
+                -v "$target_host:/workspace:ro" \
                 -v "$GRYPE_CACHE_VOL:/cache" \
                 anchore/grype:latest \
                 dir:/workspace -o json 2>>"$SCAN_LOG" > "$output_file"
@@ -367,9 +371,13 @@ if [[ "$SCAN_TYPE" == "sbom" ]] || [[ "$SCAN_TYPE" == "all" ]]; then
             [ $? -eq 0 ] && [ -s "$output_file" ] && sbom_ok=true
         elif [ -n "${CONTAINER_CLI:-}" ]; then
             echo -e "${BLUE}🔍 Scanning SBOM for vulnerabilities...${NC}"
+            # docker run's -v source is resolved by the HOST daemon (see
+            # to_host_path() in scan-directory-template.sh) — translate before use.
+            local sbom_file_host
+            sbom_file_host="$(to_host_path "$SBOM_FILE")"
             ${CONTAINER_CLI} run --rm \
                 -e GRYPE_DB_CACHE_DIR=/cache \
-                -v "$SBOM_FILE:/sbom.json:ro" \
+                -v "$sbom_file_host:/sbom.json:ro" \
                 -v "$GRYPE_CACHE_VOL:/cache" \
                 anchore/grype:latest \
                 sbom:/sbom.json -o json 2>>"$SCAN_LOG" > "$output_file"

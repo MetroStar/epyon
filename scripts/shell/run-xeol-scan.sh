@@ -206,9 +206,13 @@ scan_target() {
         
         # Run xeol scan with Docker using cached/updated database
         if [ "$scan_type" = "dir" ]; then
-            # For directory scans, mount the target directory
+            # For directory scans, mount the target directory. docker run's -v
+            # source is resolved by the HOST daemon (see to_host_path() in
+            # scan-directory-template.sh) — translate before use.
+            local target_host
+            target_host="$(to_host_path "$target")"
             ${CONTAINER_CLI} run --rm \
-                -v "$target:/workspace:ro" \
+                -v "$target_host:/workspace:ro" \
                 -v "$XEOL_CACHE_VOL:/root/.cache" \
                 noqcks/xeol:latest \
                 dir:/workspace \

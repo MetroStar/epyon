@@ -95,6 +95,17 @@ REPO_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 SCANS_DIR="$REPO_ROOT/scans"
 BASELINE_SCANS_DIR="$REPO_ROOT/baseline/scans"
 
+# shellcheck source=scan-directory-template.sh
+# Pulls in to_host_path() — required so `docker run -v` (resolved by the HOST
+# daemon in docker-compose's docker-outside-of-docker deployment) bind-mounts
+# the real host path instead of a container-only path that resolves empty.
+source "$SCRIPT_DIR/scan-directory-template.sh" 2>/dev/null || true
+# Fallback no-op if the template couldn't be sourced (path unchanged, matches
+# to_host_path()'s native/non-containerized behavior).
+if ! declare -F to_host_path >/dev/null 2>&1; then
+    to_host_path() { printf '%s' "$1"; }
+fi
+
 # ── Classification marking (APSC-DV-003120) ───────────────────────────────────
 CLASSIFICATION_LEVEL="${CLASSIFICATION_LEVEL:-INTERNAL}"
 case "${CLASSIFICATION_LEVEL^^}" in
@@ -110,6 +121,11 @@ case "${CLASSIFICATION_LEVEL^^}" in
     *)              CLASS_LABEL="${CLASSIFICATION_LEVEL}" ;;
 esac
 # ─────────────────────────────────────────────────────────────────────────────
+
+# Find scan directory
+if [[ -z "$SCAN_ID" ]]; then
+    # Use latest scan (check both scans/ and baseline/scans/)
+    SCAN_DIR=$(find "$SCANS_DIR" "$BASELINE_SCANS_DIR" -maxdepth 1 -type d -name "*_*_*" 2>/dev/null | sort -r | head -1)
     if [[ -z "$SCAN_DIR" ]]; then
         echo -e "${RED}❌ No scans found in $SCANS_DIR or $BASELINE_SCANS_DIR${NC}"
         exit 1
@@ -189,10 +205,15 @@ export_format() {
         # Use Docker version - convert from existing SBOM
         local sbom_dir=$(dirname "$SBOM_FILE")
         local sbom_name=$(basename "$SBOM_FILE")
-        
+        # docker run's -v source is resolved by the HOST daemon (see
+        # to_host_path() in scan-directory-template.sh) — translate before use.
+        local sbom_dir_host output_dir_host
+        sbom_dir_host="$(to_host_path "$sbom_dir")"
+        output_dir_host="$(to_host_path "$OUTPUT_DIR")"
+
         if docker run --rm \
-            -v "$sbom_dir":/sbom:ro \
-            -v "$OUTPUT_DIR":/output \
+            -v "$sbom_dir_host":/sbom:ro \
+            -v "$output_dir_host":/output \
             anchore/syft:latest \
             convert "/sbom/$sbom_name" -o "$format" > "$output_file" 2>/dev/null; then
             local size=$(du -h "$output_file" | cut -f1)

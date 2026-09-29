@@ -270,10 +270,15 @@ detectors:
       sonar_token: 'sqp_[a-zA-Z0-9]{40}'
 REGEX_EOF
         
+        # docker run's -v source is resolved by the HOST daemon (see
+        # to_host_path() in scan-directory-template.sh) — translate before use.
+        local target_host output_dir_host
+        target_host="$(to_host_path "$target")"
+        output_dir_host="$(to_host_path "$OUTPUT_DIR")"
         ${CONTAINER_CLI} run --rm \
-            -v "$target:/workspace" \
-            -v "$OUTPUT_DIR/.trufflehogignore:/root/.trufflehogignore" \
-            -v "$OUTPUT_DIR/.trufflehog-custom-regex.yaml:/root/.trufflehog-custom-regex.yaml" \
+            -v "$target_host:/workspace" \
+            -v "$output_dir_host/.trufflehogignore:/root/.trufflehogignore" \
+            -v "$output_dir_host/.trufflehog-custom-regex.yaml:/root/.trufflehog-custom-regex.yaml" \
             "$TRUFFLEHOG_IMAGE" \
             filesystem /workspace \
             --json \

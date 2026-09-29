@@ -126,6 +126,20 @@ def find_scan_dirs(epyon_root: Path, days: int = 0) -> list[Path]:
         for entry in entries:
             if entry.name.startswith("."):
                 continue
+            # Self-assessment (scripts/shell/run-self-assessment.sh) runs a
+            # real full scan into scans/self-assessment_<user>_<timestamp>/
+            # to validate scanner layers against a synthetic fixture, then
+            # deletes that directory as soon as it finishes comparing
+            # results (unless invoked with --keep-scan, which this glob
+            # can't distinguish anyway). Surfacing it in scan listings
+            # (Scan Integrity Check, Applications, Scans) creates a race:
+            # a user can click into it while it's still running or in the
+            # ~60s post-completion cache window, then hit a 404 "Scan not
+            # found" once the harness's cleanup step removes it. It's
+            # synthetic housekeeping data, not a real target scan, so it's
+            # excluded from every consumer of find_scan_dirs() outright.
+            if entry.name.startswith("self-assessment_"):
+                continue
             try:
                 if not entry.is_dir():
                     continue

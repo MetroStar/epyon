@@ -494,6 +494,9 @@ docker compose up -d --build
 | `ANCHORE_EXCLUDE_TYPES` | Auto-configured | Override exclusions (comma-separated): `python,go,java,ruby` |
 | `ANCHORE_SHOW_DISTRO` | `true` | Log detected OS/distro after each scan for debugging false positives |
 | `ANCHORE_SKIP_BUILD` | `false` | Skip `docker compose build`, pull images from registry instead |
+| **Anchore Policy Evaluation (v3.25.0+)** |||
+| `ANCHORE_POLICY_MAX_CRITICAL` | `0` | Critical CVEs allowed before the policy gate (`anchore-policy-evaluation.json`) reports `stop` |
+| `ANCHORE_POLICY_MAX_HIGH` | `5` | High CVEs allowed before the policy gate reports `warn` |
 
 > **Note:** The scans displayed in the UI are read from the `scans/` directory at the repo root by default. Point `EPYON_SCANS_DIR` to a different path if your results live elsewhere.
 >
@@ -1458,6 +1461,11 @@ RUN_PICKLESCAN=true RUN_MODEL_PROVENANCE=true \
 OPENAI_API_KEY=sk-xxx RUN_ML_RUNTIME=true RUN_STIG=true \
   ./scripts/shell/run-target-security-scan.sh "/path/to/ml-app" full
 
+# Runtime analysis sandboxed against a remote Docker engine (e.g. reachable
+# only over VPN, for hosts without local container support)
+RUN_ML_RUNTIME=true ML_RUNTIME_DOCKER_HOST=tcp://172.16.20.103:11345 \
+  ./scripts/shell/run-target-security-scan.sh "/path/to/ml-app" full
+
 # HuggingFace model repository scan
 ./scripts/shell/run-target-security-scan.sh "/path/to/hf-model" huggingface
 
@@ -1908,7 +1916,7 @@ export TARGET_DIR="/workspace" && ./scripts/shell/run-target-security-scan.sh "$
 - ✅ **Layer 15 — Model Card Compliance** (`run-modelcard-check.sh`): validates HuggingFace-style model cards against 10 documentation standards (required sections, YAML frontmatter fields, safetensors format recommendation); flexible pattern matching handles diverse card conventions
 - ✅ **Layer 18 — Model Provenance & Threat Intelligence** (`run-model-provenance-check.py`): Validates model authenticity via blocklist matching (SHA256 hashes, compromised authors/repos in `ml-blocklist.json`), typosquatting detection (Levenshtein distance < 3), optional GPG signature verification, and HuggingFace reputation checks (requires `HF_TOKEN`); supports remote threat feeds via URL
 - ✅ **Layer 19 — Inference Environment Security** (`run-inference-security-scan.sh`): Pure-bash static analysis of Dockerfile, docker-compose, and Kubernetes manifests for 25+ misconfigurations (privileged mode, root user execution, dangerous capabilities like SYS_ADMIN, missing `runAsNonRoot`, disabled AppArmor/seccomp); outputs findings to `inference-security/inference-security-results.json`
-- ✅ **Layer 20 — ML Runtime Behavioral Analysis** (`run-ml-runtime-analysis.py`): **Opt-in only** — Sandboxed model loading in isolated Docker/Podman container with network disabled, read-only filesystem, and all capabilities dropped; monitors for network attempts, unauthorized file access, subprocess execution, and timeouts; resource-intensive (~1 minute per model); requires `RUN_ML_RUNTIME=true`
+- ✅ **Layer 20 — ML Runtime Behavioral Analysis** (`run-ml-runtime-analysis.py`): **Opt-in only** — Sandboxed model loading in isolated Docker/Podman container with network disabled, read-only filesystem, and all capabilities dropped; monitors for network attempts, unauthorized file access, subprocess execution, and timeouts; resource-intensive (~1 minute per model); requires `RUN_ML_RUNTIME=true`. Supports sandboxing against a remote engine via `--docker-host`/`ML_RUNTIME_DOCKER_HOST` (or the standard `DOCKER_HOST` env var) for hosts without local container support.
 - ✅ **`scan-huggingface.yml` workflow**: dedicated GitHub Actions entry-point for scanning HuggingFace model, Space, and dataset repositories; resolves HF URLs automatically by type; supports optional Garak LLM probing for model repos
 - ✅ **`huggingface` scan mode**: new scan mode in `run-epyon-scan-ci.sh` that enables Layers 14–15 by default and skips irrelevant layers; added to all scan mode dropdowns
 - ✅ **STIG confidence scoring**: each STIG control now receives an AI-generated confidence score (0–100) based on evidence quality, specificity, and certainty; displayed as color-coded badges in the web UI and appended to `.md`/`.cklb` findings

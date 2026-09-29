@@ -59,6 +59,7 @@ fi
 # (inverse of the) --layers selection, and decide whether to run the direct
 # pip-audit step (Layer 8.5, not wired into run-target-security-scan.sh).
 RUN_PIP_AUDIT=true
+RUN_XEOL_IMAGE=true
 EXTRA_SKIP_TOOLS=""
 if [[ -n "$LAYERS_FILTER" ]]; then
     IFS=',' read -r -a SELECTED_LAYERS <<< "$LAYERS_FILTER"
@@ -68,6 +69,9 @@ if [[ -n "$LAYERS_FILTER" ]]; then
     done
     if [[ -z "${SELECTED_SET[8.5]:-}" ]]; then
         RUN_PIP_AUDIT=false
+    fi
+    if [[ -z "${SELECTED_SET[9]:-}" ]]; then
+        RUN_XEOL_IMAGE=false
     fi
     for layer_num in "${!LAYER_TOOL_TOKEN[@]}"; do
         if [[ -z "${SELECTED_SET[$layer_num]:-}" ]]; then
@@ -155,6 +159,36 @@ if [[ "$RUN_PIP_AUDIT" == "true" ]]; then
         echo -e "${YELLOW}⚠️  pip-audit scan step exited non-zero — treated as a soft failure for Layer 8.5${NC}"
 else
     echo -e "${YELLOW}⚠️  Skipping Layer 8.5 (pip-audit) — not selected${NC}"
+fi
+
+# Layer 9 (EOL Detection / Xeol): the regular filesystem-mode Xeol scan
+# (run-xeol-scan.sh, via run-target-security-scan.sh) can never detect
+# anything for this fixture — Xeol's binary/package catalogers only match
+# real installed runtimes inside an actual container image, not a
+# Dockerfile FROM line in a source tree. Build the fixture's inference
+# Dockerfile (pinned to a permanently-EOL python:2.7-slim base) into a real
+# image and run Xeol in `docker:` mode against it instead.
+if [[ "$RUN_XEOL_IMAGE" == "true" ]]; then
+    echo -e "${GREEN}▶ Building fixture image and running Xeol in docker mode (Layer 9 — dir-mode scanning can't detect EOL runtimes)${NC}"
+    XEOL_IMAGE_TAG="epyon-self-assessment-xeol-fixture:latest"
+    XEOL_OUT_DIR="$NEW_SCAN_DIR/xeol"
+    mkdir -p "$XEOL_OUT_DIR"
+    if command -v docker >/dev/null 2>&1 && \
+        docker build -q -t "$XEOL_IMAGE_TAG" -f "$FIXTURE_DIR/inference/Dockerfile" "$FIXTURE_DIR" >/dev/null 2>&1; then
+        if docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            noqcks/xeol:latest "docker:$XEOL_IMAGE_TAG" -o json \
+            > "$XEOL_OUT_DIR/xeol-image-results.json" 2>/dev/null; then
+            echo -e "${GREEN}✔ Xeol image-mode scan complete${NC}"
+        else
+            echo -e "${YELLOW}⚠️  Xeol image-mode scan exited non-zero — treated as a soft failure for Layer 9${NC}"
+        fi
+        docker rmi "$XEOL_IMAGE_TAG" >/dev/null 2>&1 || true
+    else
+        echo -e "${YELLOW}⚠️  Docker unavailable or fixture image build failed — Layer 9 will report as a failure/not_validated based on the (missing) results file${NC}"
+    fi
+else
+    echo -e "${YELLOW}⚠️  Skipping Layer 9 (Xeol EOL detection) — not selected${NC}"
 fi
 
 echo -e "${GREEN}▶ Comparing results in $NEW_SCAN_DIR against $MANIFEST${NC}"

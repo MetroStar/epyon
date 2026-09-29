@@ -251,10 +251,16 @@ TEMPLATE_COUNT=$(find "$OUTPUT_DIR" -name "*.yaml" -type f 2>/dev/null | wc -l |
 LINT_ERRORS=0
 LINT_WARNINGS=0
 
-# Parse lint results if log exists
+# Parse lint results if log exists. `grep -c` exits 1 (with "0" already on
+# stdout) when there are zero matches — the common case — so a naive
+# `$(grep -c ... || echo "0")` fallback ends up running BOTH branches and
+# concatenating "0\n0" into the variable, corrupting the JSON generated
+# below. Only fall back to a literal 0 when grep produced no output at all.
 if [ -f "$SCAN_LOG" ]; then
-    LINT_ERRORS=$(grep -c "Error:" "$SCAN_LOG" 2>/dev/null || echo "0")
-    LINT_WARNINGS=$(grep -c "Warning:" "$SCAN_LOG" 2>/dev/null || echo "0")
+    LINT_ERRORS=$(grep -c "Error:" "$SCAN_LOG" 2>/dev/null)
+    LINT_ERRORS=${LINT_ERRORS:-0}
+    LINT_WARNINGS=$(grep -c "Warning:" "$SCAN_LOG" 2>/dev/null)
+    LINT_WARNINGS=${LINT_WARNINGS:-0}
 fi
 
 # Generate JSON results for dashboard

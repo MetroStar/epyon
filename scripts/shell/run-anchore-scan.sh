@@ -31,6 +31,8 @@ show_help() {
     echo "  ANCHORE_EXCLUDE_TYPES   Exclude package types (comma-separated: python,go,java)"
     echo "  ANCHORE_SHOW_DISTRO     Show detected distro after each scan (true/false)"
     echo "  ANCHORE_SKIP_BUILD      Skip docker compose build, pull from registry (true/false)"
+    echo "  ANCHORE_POLICY_MAX_CRITICAL   Critical CVEs allowed before gate STOPs (default: 0)"
+    echo "  ANCHORE_POLICY_MAX_HIGH       High CVEs allowed before gate WARNs (default: 5)"
     echo ""
     echo "Output:"
     echo "  Results are saved to: scans/{SCAN_ID}/anchore/"
@@ -259,10 +261,14 @@ scan_filesystem() {
 
     # Run Anchore/Grype scan on filesystem
     if [ "$GRYPE_CMD" = "grype" ]; then
-        # Build grype command with optional platform flag
+        # grype's own --platform flag only applies to image sources
+        # (docker:/registry:) — passing it for a dir: source errors with
+        # "platform is not supported for this source type" and silently
+        # produces an empty results file, which previously broke every
+        # filesystem scan on arm64 machines (where ANCHORE_PLATFORM is
+        # auto-detected and always set).
         GRYPE_ARGS=("dir:$REPO_PATH" "-o" "json" "--file" "$OUTPUT_DIR/anchore-filesystem-results.json")
-        [[ -n "$ANCHORE_PLATFORM" ]] && GRYPE_ARGS+=("--platform" "$ANCHORE_PLATFORM")
-        
+
         grype "${GRYPE_ARGS[@]}" >> "$LOG_FILE" 2>&1
     else
         docker run --rm \
@@ -400,9 +406,10 @@ scan_sbom() {
         log "ℹ Scanning SBOM for vulnerabilities: $(basename "$SBOM_FILE")"
 
         if [ "$GRYPE_CMD" = "grype" ]; then
+            # Same reasoning as the filesystem scan above: --platform is
+            # invalid for a sbom: source and silently produces empty results.
             GRYPE_SBOM_ARGS=("sbom:$SBOM_FILE" "-o" "json" "--file" "$OUTPUT_DIR/anchore-sbom-results.json")
-            [[ -n "$ANCHORE_PLATFORM" ]] && GRYPE_SBOM_ARGS+=("--platform" "$ANCHORE_PLATFORM")
-            
+
             grype "${GRYPE_SBOM_ARGS[@]}" >> "$LOG_FILE" 2>&1
         else
             docker run --rm \
@@ -801,6 +808,90 @@ case "$SCAN_MODE" in
         exit 1
         ;;
 esac
+
+# ── Policy Evaluation (this is what differentiates "Anchore" from a plain
+# Grype re-run: a pass/warn/stop compliance gate applied to the combined
+# vulnerability data, mirroring Anchore Engine's classic policy bundle
+# behavior). Aggregates severities across every result file this scan
+# produced and writes anchore-policy-evaluation.json — a distinct artifact
+# from anchore-filesystem-results.json / anchore-sbom-results.json, and the
+# file the dashboard/self-assessment treat as this layer's source of truth.
+write_policy_evaluation() {
+    local max_critical="${ANCHORE_POLICY_MAX_CRITICAL:-0}"
+    local max_high="${ANCHORE_POLICY_MAX_HIGH:-5}"
+    local result_files=()
+    [ -f "$FILESYSTEM_RESULTS" ] && result_files+=("$FILESYSTEM_RESULTS")
+    [ -f "$SBOM_RESULTS" ] && result_files+=("$SBOM_RESULTS")
+    if [ -d "$IMAGE_RESULTS_DIR" ]; then
+        while IFS= read -r -d '' f; do
+            result_files+=("$f")
+        done < <(find "$IMAGE_RESULTS_DIR" -name "*.json" -print0 2>/dev/null)
+    fi
+
+    if [ ${#result_files[@]} -eq 0 ]; then
+        log "⚠️  No result files available — skipping policy evaluation"
+        return
+    fi
+
+    local critical_count high_count medium_count low_count
+    critical_count=$(jq -s '[.[].matches[]? | select(.vulnerability.severity == "Critical")] | length' "${result_files[@]}" 2>/dev/null || echo "0")
+    high_count=$(jq -s '[.[].matches[]? | select(.vulnerability.severity == "High")] | length' "${result_files[@]}" 2>/dev/null || echo "0")
+    medium_count=$(jq -s '[.[].matches[]? | select(.vulnerability.severity == "Medium")] | length' "${result_files[@]}" 2>/dev/null || echo "0")
+    low_count=$(jq -s '[.[].matches[]? | select(.vulnerability.severity == "Low")] | length' "${result_files[@]}" 2>/dev/null || echo "0")
+    critical_count=${critical_count:-0}; high_count=${high_count:-0}
+    medium_count=${medium_count:-0}; low_count=${low_count:-0}
+
+    local gate_action="go"
+    local critical_rule_result="pass"
+    local high_rule_result="pass"
+    if [ "$critical_count" -gt "$max_critical" ]; then
+        gate_action="stop"
+        critical_rule_result="fail"
+    elif [ "$high_count" -gt "$max_high" ]; then
+        gate_action="warn"
+        high_rule_result="fail"
+    fi
+
+    jq -n \
+        --arg gate_action "$gate_action" \
+        --argjson critical_count "$critical_count" \
+        --argjson high_count "$high_count" \
+        --argjson medium_count "$medium_count" \
+        --argjson low_count "$low_count" \
+        --argjson max_critical "$max_critical" \
+        --argjson max_high "$max_high" \
+        --arg critical_rule_result "$critical_rule_result" \
+        --arg high_rule_result "$high_rule_result" \
+        '{
+            gate_action: $gate_action,
+            severity_counts: {
+                critical: $critical_count,
+                high: $high_count,
+                medium: $medium_count,
+                low: $low_count
+            },
+            rules_evaluated: [
+                {
+                    rule: "max_critical_vulnerabilities",
+                    threshold: $max_critical,
+                    actual: $critical_count,
+                    result: $critical_rule_result,
+                    gate_action: (if $critical_rule_result == "fail" then "stop" else "go" end)
+                },
+                {
+                    rule: "max_high_vulnerabilities",
+                    threshold: $max_high,
+                    actual: $high_count,
+                    result: $high_rule_result,
+                    gate_action: (if $high_rule_result == "fail" then "warn" else "go" end)
+                }
+            ]
+        }' > "$POLICY_RESULTS"
+
+    log "📋 Policy Evaluation: gate_action=$gate_action (critical=$critical_count, high=$high_count, medium=$medium_count, low=$low_count)"
+}
+
+write_policy_evaluation
 
 # Generate summary
 log ""

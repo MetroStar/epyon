@@ -39,8 +39,10 @@
       "layer": 5,
       "name": "Helm Chart Build",
       "tool": "helm",
-      "validate": false,
-      "notes": "Fixture has no Helm chart; this layer is skip-only for the self-assessment target (validated separately by tests/shell/test-run-helm-*.bats)."
+      "validate": true,
+      "expect": { "type": "finding_min", "min": 1 },
+      "planted_in": "helm/epyon-fixture-chart/",
+      "notes": "Minimal, always-buildable Helm chart. Validated via helm/helm-results.json's summary.charts_built count (not a findings count — a successful lint+template+package build is the pass condition)."
     },
     {
       "layer": 6,
@@ -82,23 +84,28 @@
       "layer": 9,
       "name": "EOL Detection",
       "tool": "xeol",
-      "validate": false,
+      "validate": true,
+      "expect": { "type": "finding_min", "min": 1 },
       "planted_in": "inference/Dockerfile",
-      "notes": "Base image python:3.11-slim ages out over time; EOL status is inherently time-dependent and not deterministically plantable. Best-effort only — verify the tool ran and produced an output file, not a specific finding count."
+      "notes": "Base image pinned to python:2.7-slim (permanently EOL since 2020-01-01, not time-dependent). Xeol's dir-mode filesystem scan cannot detect EOL runtimes from a Dockerfile FROM line alone (it only catalogs real installed binaries), so run-self-assessment.sh builds this fixture's Dockerfile into a real image and runs Xeol in docker: mode against it, writing xeol/xeol-image-results.json."
     },
     {
       "layer": 10,
       "name": "Container Analysis",
       "tool": "anchore",
-      "validate": false,
-      "notes": "Largely redundant with Trivy/Grype for this fixture's purposes; best-effort tool-ran check only."
+      "validate": true,
+      "expect": { "type": "finding_min", "min": 1 },
+      "planted_in": "requirements.txt (pyyaml==5.3.1 Critical CVE)",
+      "notes": "Layer 10's real differentiator from Trivy/Grype is policy-based compliance gating (Anchore's classic policy-bundle behavior), not another CVE list — run-anchore-scan.sh now writes anchore-policy-evaluation.json with a pass/warn/stop gate_action. Validated by confirming the gate correctly STOPs on this fixture's planted Critical CVE (found via anchore-filesystem-results.json, itself a grype scan — same tool as Layer 8, but the policy evaluation on top is the distinct artifact). Also fixed a real production bug: grype's --platform flag is invalid for dir:/sbom: sources and was silently zeroing out every filesystem/SBOM Anchore scan on arm64 hosts."
     },
     {
       "layer": 11,
       "name": "API Discovery",
       "tool": "custom",
-      "validate": false,
-      "notes": "No deterministic API surface planted in this fixture; best-effort tool-ran check only."
+      "validate": true,
+      "expect": { "type": "finding_min", "min": 3 },
+      "planted_in": "api/main.py",
+      "notes": "Minimal FastAPI app with 3 fixed routes (GET /health, GET /items/{item_id}, POST /items). Validated via api/api-discovery.json's summary.total_endpoints_discovered."
     },
     {
       "layer": 13,

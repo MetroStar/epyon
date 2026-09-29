@@ -70,12 +70,18 @@ class RuntimeAnalyzer:
         self,
         target_dir: Path,
         timeout: int = 60,
-        sandbox: str = 'docker'
+        sandbox: str = 'docker',
+        docker_host: str = ''
     ):
         self.target_dir = target_dir
         self.timeout = timeout
         self.sandbox = sandbox
-        
+        # Remote Docker/Podman engine (e.g. "tcp://172.16.20.103:11345"),
+        # reachable over VPN/deployed network for hosts without local
+        # container support. Falls back to the DOCKER_HOST env var so the
+        # docker CLI's own default resolution still applies when unset.
+        self.docker_host = docker_host or os.environ.get('DOCKER_HOST', '')
+
         self.findings: List[Dict] = []
         self.stats = {
             'models_analyzed': 0,
@@ -84,11 +90,21 @@ class RuntimeAnalyzer:
             'filesystem_events': 0,
             'suspicious_behavior_detected': 0,
         }
+
+    def _container_cli(self) -> List[str]:
+        """Base [docker|podman, -H, <host>] argument prefix for every
+        container CLI invocation, so a remote engine is used consistently
+        everywhere (prerequisite checks, sandbox runs, cleanup)."""
+        cmd = [self.sandbox]
+        if self.docker_host:
+            cmd += ['-H', self.docker_host]
+        return cmd
     
     def scan(self) -> Dict:
         """Run runtime behavioral analysis."""
         print(f"[INFO] Analyzing models in {self.target_dir} for runtime behavior...")
-        print(f"[INFO] Sandbox: {self.sandbox}, Timeout: {self.timeout}s")
+        print(f"[INFO] Sandbox: {self.sandbox}, Timeout: {self.timeout}s"
+              + (f", Remote host: {self.docker_host}" if self.docker_host else ""))
         
         # Check prerequisites
         if not self._check_prerequisites():
@@ -123,6 +139,24 @@ class RuntimeAnalyzer:
         missing = []
         for tool, description in required_tools.items():
             if tool == 'docker':
+                if self.docker_host:
+                    # A remote engine is configured — the local `docker`/
+                    # `podman` CLI binary still needs to exist (it's what
+                    # issues the API calls), but reachability of the engine
+                    # itself matters more than a local daemon socket.
+                    has_docker = subprocess.run(['which', 'docker'], capture_output=True).returncode == 0
+                    if not has_docker:
+                        missing.append(f"{tool} ({description})")
+                    else:
+                        probe = subprocess.run(
+                            self._container_cli() + ['version', '--format', '{{.Server.Version}}'],
+                            capture_output=True, text=True, timeout=15,
+                        )
+                        if probe.returncode != 0:
+                            missing.append(f"{tool} (remote engine {self.docker_host} unreachable: {probe.stderr.strip()})")
+                        else:
+                            print(f"[INFO] Connected to remote Docker engine {self.docker_host} (server {probe.stdout.strip()})")
+                    continue
                 # Check for docker or podman
                 has_docker = subprocess.run(['which', 'docker'], capture_output=True).returncode == 0
                 has_podman = subprocess.run(['which', 'podman'], capture_output=True).returncode == 0
@@ -265,7 +299,16 @@ print("[SANDBOX] Analysis complete")
 """
     
     def _run_in_sandbox(self, work_dir: Path, script_path: Path) -> Dict:
-        """Run analysis script in Docker/Podman sandbox with monitoring."""
+        """Run analysis script in Docker/Podman sandbox with monitoring.
+
+        Uses create + `docker cp` + start instead of a `-v host:/work`
+        bind mount. A bind mount only works when the engine and the CLI
+        share a filesystem — against a remote engine (self.docker_host,
+        e.g. tcp://172.16.20.103:11345) the daemon would try to resolve
+        work_dir on ITS OWN filesystem and fail. `docker cp` streams the
+        files over the Docker API instead, so this works identically
+        whether the engine is local or remote.
+        """
         behavior = {
             'syscalls': [],
             'network': [],
@@ -274,44 +317,63 @@ print("[SANDBOX] Analysis complete")
             'stderr': '',
             'exit_code': 0,
         }
-        
-        # Build docker run command
-        container_cmd = [
-            self.sandbox, 'run',
-            '--rm',
-            '--network', 'none',  # Disable network
-            '--read-only',  # Read-only root filesystem
-            '--tmpfs', '/tmp',  # Writable tmp
-            '--security-opt', 'no-new-privileges',
-            '--cap-drop', 'ALL',
-            '-v', f'{work_dir}:/work:ro',
-            '-w', '/work',
-            'python:3.11-slim',
-            'python3', '/work/analyze.py'
-        ]
-        
-        # Run with timeout
+
+        cli = self._container_cli()
+        container_id = ''
         try:
+            create_cmd = cli + [
+                'create',
+                '--network', 'none',  # Disable network
+                '--read-only',  # Read-only root filesystem
+                '--tmpfs', '/tmp',  # Writable tmp
+                '--security-opt', 'no-new-privileges',
+                '--cap-drop', 'ALL',
+                '-w', '/work',
+                'python:3.11-slim',
+                'python3', '/work/analyze.py'
+            ]
+            create_result = subprocess.run(
+                create_cmd, capture_output=True, text=True, timeout=30, check=False
+            )
+            if create_result.returncode != 0:
+                behavior['stderr'] = f'Sandbox container create failed: {create_result.stderr.strip()}'
+                behavior['exit_code'] = 1
+                return behavior
+            container_id = create_result.stdout.strip()
+
+            cp_result = subprocess.run(
+                cli + ['cp', f'{work_dir}/.', f'{container_id}:/work'],
+                capture_output=True, text=True, timeout=30, check=False
+            )
+            if cp_result.returncode != 0:
+                behavior['stderr'] = f'Sandbox file copy failed: {cp_result.stderr.strip()}'
+                behavior['exit_code'] = 1
+                return behavior
+
             result = subprocess.run(
-                container_cmd,
+                cli + ['start', '--attach', container_id],
                 capture_output=True,
                 text=True,
                 timeout=self.timeout,
                 check=False
             )
-            
+
             behavior['stdout'] = result.stdout
             behavior['stderr'] = result.stderr
             behavior['exit_code'] = result.returncode
-            
+
         except subprocess.TimeoutExpired:
             behavior['stderr'] = 'Analysis timed out'
             behavior['exit_code'] = 124
-        
+
         except Exception as e:
             behavior['stderr'] = f'Sandbox execution error: {e}'
             behavior['exit_code'] = 1
-        
+
+        finally:
+            if container_id:
+                subprocess.run(cli + ['rm', '-f', container_id], capture_output=True, timeout=30, check=False)
+
         return behavior
     
     def _process_behavior(self, rel_path: str, behavior: Dict):
@@ -454,6 +516,8 @@ def main():
     parser.add_argument('--app-name', required=True, help='Application name')
     parser.add_argument('--timeout', type=int, default=60, help='Timeout per model in seconds (default: 60)')
     parser.add_argument('--sandbox', choices=['docker', 'podman'], default='docker', help='Sandbox runtime (default: docker)')
+    parser.add_argument('--docker-host', default='', help='Remote Docker/Podman engine to sandbox against, '
+                         'e.g. tcp://172.16.20.103:11345 (default: $DOCKER_HOST env var, or the local engine)')
     
     args = parser.parse_args()
     
@@ -470,7 +534,8 @@ def main():
     analyzer = RuntimeAnalyzer(
         target_dir=target_dir,
         timeout=args.timeout,
-        sandbox=args.sandbox
+        sandbox=args.sandbox,
+        docker_host=args.docker_host
     )
     report = analyzer.scan()
     

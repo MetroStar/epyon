@@ -27,7 +27,13 @@ RAW_RESULT_FILES = {
     "trivy": "trivy/trivy-filesystem-results.json",
     "grype": "grype/grype-sbom-results.json",
     "pip-audit": "pip-audit/pip-audit-consolidated-results.json",
-    "xeol": "xeol/xeol-filesystem-results.json",
+    # Self-assessment's own dedicated image-mode Xeol scan (see
+    # run-self-assessment.sh) — the regular filesystem-mode scan
+    # (xeol-filesystem-results.json, written by run-xeol-scan.sh) can never
+    # match anything for this fixture, since Xeol's binary/package
+    # catalogers only detect real installed runtimes inside an actual
+    # container image, not a Dockerfile FROM line in a source tree.
+    "xeol": "xeol/xeol-image-results.json",
     "clamav": "clamav/clamav-results.json",
     # Unlike most tools, run-picklescan.py writes directly to the scan
     # dir's root rather than a dedicated subdirectory.
@@ -106,6 +112,27 @@ def _count_grype_findings(scan_dir: Path) -> int:
     return len(data.get("matches") or [])
 
 
+def _anchore_policy_gate_stopped(scan_dir: Path) -> int:
+    """Layer 10's source of truth is the policy GATE (stop/warn/go), not a
+    raw CVE count — Anchore's actual differentiator from Trivy/Grype is
+    policy-based compliance gating, not another vulnerability list. Returns
+    1 if the policy evaluation ran and its gate correctly STOPped on this
+    fixture's planted critical CVE, 0 otherwise (missing file, gate
+    didn't fire, etc.) — evaluated as a finding_min: 1 check.
+    """
+    data = _load_json(scan_dir / "anchore" / "anchore-policy-evaluation.json")
+    if not isinstance(data, dict):
+        return 0
+    return 1 if data.get("gate_action") == "stop" else 0
+
+
+def _count_api_discovery_endpoints(scan_dir: Path) -> int:
+    data = _load_json(scan_dir / "api" / "api-discovery.json")
+    if not isinstance(data, dict):
+        return 0
+    return int(data.get("summary", {}).get("total_endpoints_discovered") or 0)
+
+
 def _count_pip_audit_findings(scan_dir: Path) -> int:
     data = _load_json(scan_dir / RAW_RESULT_FILES["pip-audit"])
     if not isinstance(data, dict):
@@ -120,6 +147,22 @@ def _count_xeol_findings(scan_dir: Path) -> int:
     if not isinstance(data, dict):
         return 0
     return len(data.get("matches") or [])
+
+
+def _stig_tool_ran(scan_dir: Path) -> bool:
+    """Best-effort "did the STIG assessment actually execute" check for
+    Layer 13. Its manifest entry is permanently validate:false (STIG status
+    isn't a plantable finding-count problem), but that previously meant the
+    UI reported "not_validated" identically whether the layer was properly
+    selected+run or silently never invoked. Look for any
+    stig-results-*.json produced in the scan dir with at least one
+    assessed control, regardless of exact STIG slug.
+    """
+    for f in scan_dir.glob("stig-results-*.json"):
+        data = _load_json(f)
+        if isinstance(data, dict) and data.get("assessments"):
+            return True
+    return False
 
 
 def _count_clamav_findings(scan_dir: Path) -> int:
@@ -158,6 +201,13 @@ def _count_sbom_components(scan_dir: Path) -> int:
         # CycloneDX uses "components", SPDX uses "packages".
         total += len(data.get("components") or data.get("packages") or [])
     return total
+
+
+def _count_helm_charts_built(scan_dir: Path) -> int:
+    data = _load_json(scan_dir / "helm" / "helm-results.json")
+    if not isinstance(data, dict):
+        return 0
+    return int(data.get("summary", {}).get("charts_built") or 0)
 
 
 def _count_model_provenance_typosquat(scan_dir: Path) -> int:
@@ -226,7 +276,13 @@ def evaluate_layer(
 
     if not layer.get("validate"):
         result["status"] = "not_validated"
-        result["notes"] = layer.get("notes", "")
+        notes = layer.get("notes", "")
+        if layer["name"] == "STIG Compliance":
+            if _stig_tool_ran(scan_dir):
+                notes = f"Tool ran and produced assessed controls (best-effort — no deterministic finding count checked). {notes}".strip()
+            else:
+                notes = f"⚠️ No stig-results-*.json with assessed controls found in this scan dir — the tool may not have run. {notes}".strip()
+        result["notes"] = notes
         return result
 
     if layer["layer"] in environment_limited_layers:
@@ -249,6 +305,12 @@ def evaluate_layer(
 
     if expect.get("type") == "sbom_component_min":
         actual = _count_sbom_components(scan_dir)
+    elif layer["name"] == "Helm Chart Build":
+        actual = _count_helm_charts_built(scan_dir)
+    elif layer["name"] == "Container Analysis":
+        actual = _anchore_policy_gate_stopped(scan_dir)
+    elif layer["name"] == "API Discovery":
+        actual = _count_api_discovery_endpoints(scan_dir)
     elif layer["name"] == "Model Provenance & Threat Intelligence":
         actual = _count_model_provenance_typosquat(scan_dir)
     elif layer["name"] == "Model Card Compliance":
@@ -336,9 +398,9 @@ def main() -> int:
           f"{len(skipped)} skipped by selection)\n")
     for l in layers:
         if l["status"] == "skipped":
-            print(f"  ⚪ SKIP  L{l['layer']:<4} {l['name']} — not selected for this run")
+            print(f"  ⚪ SKIPPED L{l['layer']:<4} {l['name']} — not selected for this run")
         elif not l["validated"]:
-            print(f"  ⚪ SKIP  L{l['layer']:<4} {l['name']}")
+            print(f"  ⚪ N/A   L{l['layer']:<4} {l['name']} — {l['notes']}")
         elif l["status"] == "environment_limited":
             print(f"  🚧 ENV   L{l['layer']:<4} {l['name']} — {l['notes']}")
         elif l["status"] == "pass":

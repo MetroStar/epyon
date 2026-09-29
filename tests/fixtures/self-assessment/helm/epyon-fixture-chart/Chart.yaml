@@ -1,0 +1,8 @@
+apiVersion: v2
+name: epyon-fixture-chart
+description: Minimal Helm chart used only to validate Epyon's own Helm Chart
+  Build layer (Layer 5) against a deterministic, always-buildable fixture. Not
+  a real deployable application.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

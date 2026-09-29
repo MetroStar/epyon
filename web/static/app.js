@@ -248,7 +248,12 @@ function renderSelfAssessmentBody(sa) {
     pass:                { icon: '🟢', label: 'PASS',    cls: 'clean' },
     fail:                { icon: '🔴', label: 'FAIL',    cls: 'critical' },
     environment_limited: { icon: '🟡', label: 'ENV-LIMITED', cls: 'medium' },
-    not_validated:       { icon: '⚪', label: 'SKIP',    cls: '' },
+    // "not_validated" (best-effort — the tool ran but this layer has no
+    // deterministic pass/fail check) and "skipped" (layer wasn't selected
+    // for this run) are functionally different but look identical if both
+    // render as a gray "SKIP" gumball — label them distinctly so users
+    // don't mistake "best-effort" for "you didn't select this".
+    not_validated:       { icon: '⚪', label: 'N/A',     cls: '' },
     skipped:             { icon: '⚪', label: 'SKIPPED', cls: '' },
   };
   const rows = sa.layers.map(l => {

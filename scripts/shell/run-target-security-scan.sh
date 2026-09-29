@@ -1355,8 +1355,12 @@ case "$SCAN_TYPE" in
         if [[ "${RUN_ML_RUNTIME:-false}" == "true" ]] && [[ "${SKIP_ML_RUNTIME:-false}" != "true" ]]; then
             # --target/--scan-dir/--app-name are required (argparse, no
             # env-var fallback) — see Layer 14's note above for why this
-            # matters.
-            run_security_tool "ML Runtime Analysis" "$(command -v python3)" "$SCRIPT_DIR/run-ml-runtime-analysis.py --target $TARGET_DIR --scan-dir $SCAN_DIR --app-name $TARGET_NAME"
+            # matters. ML_RUNTIME_DOCKER_HOST optionally points the sandbox
+            # at a remote Docker/Podman engine (e.g. over VPN) for hosts
+            # without local container support.
+            ML_RUNTIME_ARGS="--target $TARGET_DIR --scan-dir $SCAN_DIR --app-name $TARGET_NAME"
+            [[ -n "${ML_RUNTIME_DOCKER_HOST:-}" ]] && ML_RUNTIME_ARGS="$ML_RUNTIME_ARGS --docker-host ${ML_RUNTIME_DOCKER_HOST}"
+            run_security_tool "ML Runtime Analysis" "$(command -v python3)" "$SCRIPT_DIR/run-ml-runtime-analysis.py $ML_RUNTIME_ARGS"
         else
             if [[ "${SKIP_ML_RUNTIME:-false}" == "true" ]]; then
                 echo -e "${YELLOW}⏭️  Skipping Layer 20 - ML Runtime Analysis (SKIP_ML_RUNTIME=true)${NC}"

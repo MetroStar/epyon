@@ -193,13 +193,31 @@ def _count_sbom_components(scan_dir: Path) -> int:
     sbom_dir = scan_dir / "sbom"
     if not sbom_dir.is_dir():
         return 0
+    # Each scan_type (e.g. "filesystem") can produce a CycloneDX file
+    # ("<type>.cyclonedx.json", using "components") AND/OR a syft-native
+    # file ("<type>.json", using "artifacts") representing the SAME
+    # underlying SBOM — summing both would double-count. Prefer the
+    # CycloneDX variant per scan_type; fall back to the syft-native
+    # "artifacts" count only when no CycloneDX conversion exists for it
+    # (e.g. the local `syft convert`/container-convert step failed).
+    cyclonedx_stems: set[str] = set()
     total = 0
-    for f in sbom_dir.glob("*.json"):
+    for f in sorted(sbom_dir.glob("*.cyclonedx.json")):
         data = _load_json(f)
         if not data:
             continue
-        # CycloneDX uses "components", SPDX uses "packages".
+        cyclonedx_stems.add(f.name[: -len(".cyclonedx.json")])
         total += len(data.get("components") or data.get("packages") or [])
+    for f in sorted(sbom_dir.glob("*.json")):
+        if f.name.endswith(".cyclonedx.json"):
+            continue
+        stem = f.name[: -len(".json")]
+        if stem in cyclonedx_stems:
+            continue  # already counted via its CycloneDX conversion above
+        data = _load_json(f)
+        if not data:
+            continue
+        total += len(data.get("components") or data.get("packages") or data.get("artifacts") or [])
     return total
 
 

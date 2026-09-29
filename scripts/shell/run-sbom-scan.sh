@@ -259,8 +259,18 @@ generate_sbom() {
             2>>"$SCAN_LOG" > "$output_file"; then
             echo -e "${GREEN}✅ SBOM generated successfully: $(basename "$output_file")${NC}"
             echo "SBOM generated successfully: $output_file" >> "$SCAN_LOG"
-            # Convert to CycloneDX after Docker run
-            if syft convert "$output_file" -o "cyclonedx-json=${cyclonedx_file}" 2>>"$SCAN_LOG"; then
+            # Convert to CycloneDX after Docker run. Local `syft` isn't
+            # available in this branch (that's why we're here), so run the
+            # conversion in a container too instead of silently no-op'ing —
+            # otherwise _count_sbom_components()/dashboard parsers relying on
+            # the CycloneDX "components" schema never see any output at all.
+            local output_dir_host
+            output_dir_host="$(to_host_path "$OUTPUT_DIR")"
+            if docker run --rm -v "$output_dir_host":/output \
+                anchore/syft:latest \
+                convert "/output/$(basename "$output_file")" \
+                -o "cyclonedx-json=/output/$(basename "$cyclonedx_file")" \
+                2>>"$SCAN_LOG"; then
                 echo -e "${GREEN}✅ CycloneDX SBOM: $(basename "$cyclonedx_file")${NC}"
             fi
         else

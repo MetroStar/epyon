@@ -6,7 +6,13 @@
 # runtime (see docker-compose.yml). Git is required for scan scripts that
 # clone target repositories. The Helm CLI is installed directly (Layer 5 —
 # Helm Chart Build — shells out to `helm` itself rather than running it in
-# its own container, unlike most other scan layers).
+# its own container, unlike most other scan layers). `jq` is required by
+# nearly every scan script's own result-summary/count logic (SBOM, Checkov,
+# Trivy, Grype, Anchore, etc. all pipe their JSON output through `jq` to
+# report a finding/artifact count); those call sites follow a
+# `jq ... || echo "0"` fallback pattern that was written assuming `jq`
+# exists, so without it installed here every one of those tools *appears* to
+# find zero results even when its underlying scan produced real findings.
 FROM python:3.12-slim
 
 ARG DOCKER_CLI_VERSION=27.3.1
@@ -16,6 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         git \
         curl \
         ca-certificates \
+        jq \
     && curl -fsSL "https://download.docker.com/linux/static/stable/$(uname -m)/docker-${DOCKER_CLI_VERSION}.tgz" \
         -o /tmp/docker-cli.tgz \
     && tar -xzf /tmp/docker-cli.tgz -C /tmp \

@@ -55,6 +55,28 @@ if [[ ! -d "$FIXTURE_DIR" ]]; then
     exit 1
 fi
 
+# ── Docker-outside-of-Docker deployments (docker-compose web UI) ─────────────
+# Sibling scan containers' `docker run -v` bind-mount sources are resolved by
+# the HOST daemon against the HOST filesystem (see to_host_path() in
+# scan-directory-template.sh). Unlike real scan targets — which the web UI
+# always clones/unzips into the host-shared tmp/ workspace before scanning —
+# this fixture is baked into the image itself (COPY . /app in Dockerfile), so
+# it has NO host-filesystem equivalent at all on a deployed instance. Any
+# tool that bind-mounts it directly (rather than staging into tmp/ first,
+# like run-checkov-scan.sh/run-clamav-scan.sh already do for an unrelated
+# macOS reason) silently scans an empty directory. Stage a copy of the whole
+# fixture into the host-shared tmp/ workspace up front so every layer sees
+# real content regardless of how its own script mounts the target.
+STAGED_FIXTURE_DIR=""
+if [[ -n "${HOST_PROJECT_DIR:-}" ]]; then
+    STAGED_FIXTURE_DIR="$REPO_ROOT/tmp/epyon-self-assessment-fixture-$$"
+    rm -rf "$STAGED_FIXTURE_DIR"
+    mkdir -p "$STAGED_FIXTURE_DIR"
+    cp -a "$FIXTURE_DIR/." "$STAGED_FIXTURE_DIR/"
+    FIXTURE_DIR="$STAGED_FIXTURE_DIR"
+    echo -e "${GREEN}▶ Staged fixture into host-shared tmp/ workspace for sibling-container scanning: $FIXTURE_DIR${NC}"
+fi
+
 # Build the --skip-tools list for run-target-security-scan.sh from the
 # (inverse of the) --layers selection, and decide whether to run the direct
 # pip-audit step (Layer 8.5, not wired into run-target-security-scan.sh).
@@ -92,6 +114,7 @@ EICAR_FILE="$EICAR_DIR/eicar.txt"
 cleanup() {
     rm -f "$EICAR_FILE" 2>/dev/null || true
     rmdir "$EICAR_DIR" 2>/dev/null || true
+    [[ -n "$STAGED_FIXTURE_DIR" ]] && rm -rf "$STAGED_FIXTURE_DIR" 2>/dev/null || true
 }
 trap cleanup EXIT
 mkdir -p "$EICAR_DIR"

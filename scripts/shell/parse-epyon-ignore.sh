@@ -55,12 +55,41 @@ try:
     
     # Process ignores and check expiration
     processed = []
+    normalization_warnings = []
     current_date = datetime.now()
-    
+
+    # Rule types actually understood by the suppression matchers
+    # (filter-ignored-findings.sh / web/api/parsers.py). A tool name used as
+    # the 'type' itself (e.g. 'type: anchore') is a common mistake — the
+    # correct form is 'type: tool, value: anchore' — and silently produces a
+    # rule that never matches anything. Normalize it instead of dropping it.
+    KNOWN_TYPES = {
+        'cve', 'ghsa', 'vulnerability', 'package', 'path', 'file', 'tool',
+        'secret-detector', 'secret', 'detector', 'secret-pattern',
+    }
+    KNOWN_TOOL_NAMES = {
+        'grype', 'trivy', 'trufflehog', 'checkov', 'clamav', 'anchore',
+        'xeol', 'pip-audit', 'safety', 'sonarqube',
+    }
+
     for ignore in data.get('ignores', []):
+        raw_type = (ignore.get('type', '') or '').strip()
+        entry_type = raw_type
+        entry_value = ignore.get('value', '')
+
+        if raw_type.lower() in KNOWN_TOOL_NAMES and raw_type.lower() not in KNOWN_TYPES:
+            normalization_warnings.append(
+                f'.epyon-ignore.yml rule has type: \"{raw_type}\" — this is not a '
+                f'recognized rule type and would silently never match. Treating it '
+                f'as type: tool, value: {raw_type} (suppress the whole tool). Update '
+                f'the rule to \"type: tool\" / \"value: {raw_type}\" to silence this warning.'
+            )
+            entry_type = 'tool'
+            entry_value = raw_type
+
         ignore_entry = {
-            'type': ignore.get('type', ''),
-            'value': ignore.get('value', ''),
+            'type': entry_type,
+            'value': entry_value,
             'reason': ignore.get('reason', ''),
             'expires': ignore.get('expires', ''),
             'approved_by': ignore.get('approved_by', ''),
@@ -79,7 +108,7 @@ try:
         
         processed.append(ignore_entry)
     
-    print(json.dumps({'ignores': processed}, indent=2))
+    print(json.dumps({'ignores': processed, 'warnings': normalization_warnings}, indent=2))
     
 except yaml.YAMLError as e:
     print(json.dumps({'ignores': [], 'error': str(e)}), file=sys.stderr)
@@ -112,6 +141,16 @@ if [[ $TOTAL_IGNORES -gt 0 ]]; then
         echo -e "${YELLOW}  ⚠️  Warning: $EXPIRED_IGNORES ignore rule(s) have expired${NC}"
         jq -r '.ignores[] | select(.expired == true) | "    - \(.type): \(.value) (expired: \(.expires))"' "$IGNORE_CACHE" 2>/dev/null || true
     fi
+fi
+
+# Surface any rule-type normalization warnings (e.g. `type: anchore` instead of
+# the correct `type: tool, value: anchore`) so a rule that would otherwise
+# silently never match gets noticed instead of quietly doing nothing.
+NORMALIZATION_WARNINGS=$(jq -r '.warnings[]? // empty' "$IGNORE_CACHE" 2>/dev/null || echo "")
+if [[ -n "$NORMALIZATION_WARNINGS" ]]; then
+    while IFS= read -r _warn; do
+        [[ -n "$_warn" ]] && echo -e "${YELLOW}  ⚠️  $_warn${NC}"
+    done <<< "$NORMALIZATION_WARNINGS"
 fi
 }
 

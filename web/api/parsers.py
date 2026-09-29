@@ -1199,6 +1199,19 @@ def parse_suppressed_findings(scan_dir: Path) -> list[dict]:
     results = []
     seen: set[tuple] = set()
 
+    # Rule types actually understood by _is_finding_suppressed(). A tool name
+    # used as the `type` itself (e.g. "type: anchore" instead of the correct
+    # "type: tool, value: anchore") is a common mistake and would otherwise
+    # silently produce a rule that never matches anything.
+    _KNOWN_TYPES = {
+        "cve", "ghsa", "vulnerability", "package", "path", "file", "tool",
+        "secret-detector", "secret", "detector", "secret-pattern",
+    }
+    _KNOWN_TOOL_NAMES = {
+        "grype", "trivy", "trufflehog", "checkov", "clamav", "anchore",
+        "xeol", "pip-audit", "safety", "sonarqube",
+    }
+
     # 1. Parse suppressed-findings.md if present
     md_file = scan_dir / "suppressed-findings.md"
     if md_file.exists():
@@ -1258,6 +1271,11 @@ def parse_suppressed_findings(scan_dir: Path) -> list[dict]:
                     v = (rule.get("value") or "").strip()
                     if not v:
                         continue
+
+                    if t in _KNOWN_TOOL_NAMES and t not in _KNOWN_TYPES:
+                        # Normalize "type: anchore" -> type: tool, value: anchore
+                        v = t
+                        t = "tool"
 
                     # Check expiration
                     expires_str = rule.get("expires") or ""

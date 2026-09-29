@@ -97,6 +97,18 @@ Disable an entire scanning tool:
 
 **Tool names:** `grype`, `trivy`, `trufflehog`, `checkov`, `clamav`, `anchore`, `xeol`
 
+> ⚠️ **Common mistake:** the tool name goes in `value`, with `type: tool` — not `type: <tool-name>`. A rule like:
+> ```yaml
+> - type: anchore   # WRONG — "anchore" is not a valid `type`
+>   value: "*"
+> ```
+> is not a recognized rule type and would otherwise silently match nothing (every Anchore finding keeps appearing despite the "suppress everything" intent). Epyon now detects this specific mistake for known tool names and treats it as `type: tool, value: anchore` with a `[WARNING]` in the scan log — but the rule should still be corrected to the form below to avoid relying on that fallback:
+> ```yaml
+> - type: tool
+>   value: anchore
+>   reason: "Swarm false positives; suppressed pending noise reduction"
+> ```
+
 ### Secret Detectors
 Ignore specific secret types in certain paths:
 ```yaml

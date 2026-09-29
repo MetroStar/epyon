@@ -254,3 +254,86 @@ def test_filter_suppressed_findings_excludes_suppressed_from_totals(parsers):
     assert result["summary"]["suppressed_critical"] == 1
     assert result["critical_findings"][0]["suppressed"] is False
     assert result["critical_findings"][1]["suppressed"] is True
+
+
+def test_tool_name_used_as_type_is_normalized_python(parsers, tmp_path):
+    """`type: anchore` (a tool name used where the rule type belongs) is a common
+    authoring mistake — the correct form is `type: tool, value: anchore`. Without
+    normalization this silently matches nothing (no branch in
+    _is_finding_suppressed checks `type == "anchore"`), so every Anchore finding
+    keeps appearing despite the "suppress everything" intent. It must be
+    normalized to a real `tool` rule instead of silently dropped."""
+    ignore_yml = tmp_path / ".epyon-ignore.yml"
+    ignore_yml.write_text(
+        "version: \"1.0\"\n"
+        "ignores:\n"
+        "  - type: anchore\n"
+        "    value: \"*\"\n"
+        "    reason: \"Swarm false positives\"\n"
+        "    approved_by: tester\n",
+        encoding="utf-8",
+    )
+
+    rules = parsers.parse_suppressed_findings(tmp_path)
+    assert len(rules) == 1
+    assert rules[0]["type"] == "tool"
+    assert rules[0]["value"] == "anchore"
+
+    finding = {
+        "tool": "Anchore",
+        "id": "CVE-2026-99999",
+        "package": "keycloak",
+        "version": "26.7.4",
+        "target": "reg.mini.dev:keycloak-fips",
+    }
+    assert parsers._is_finding_suppressed(finding, rules) is True
+
+
+def test_tool_name_used_as_type_is_normalized_bash(repo_root, tmp_path):
+    """Bash-side parity for the same `type: anchore` normalization: the ignore
+    cache parse-epyon-ignore.sh produces must rewrite it to `type: tool,
+    value: anchore` so is_tool_ignored (used by check-severity-gate.sh and the
+    legacy dashboard generator) actually suppresses it too."""
+    script = repo_root / "scripts" / "shell" / "parse-epyon-ignore.sh"
+    if not script.exists():
+        pytest.skip("parse-epyon-ignore.sh not found")
+
+    ignore_yml = tmp_path / ".epyon-ignore.yml"
+    ignore_yml.write_text(
+        "version: \"1.0\"\n"
+        "ignores:\n"
+        "  - type: anchore\n"
+        "    value: \"*\"\n"
+        "    reason: \"Swarm false positives\"\n"
+        "    approved_by: tester\n",
+        encoding="utf-8",
+    )
+    cache = tmp_path / "ignore-cache.json"
+
+    result = subprocess.run(
+        ["bash", "-c", f'source "{script}" && parse_ignore_rules "{ignore_yml}"'],
+        env={
+            "PATH": "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin",
+            "IGNORE_CACHE": str(cache),
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+
+    cache_data = json.loads(cache.read_text(encoding="utf-8"))
+    assert len(cache_data["ignores"]) == 1
+    assert cache_data["ignores"][0]["type"] == "tool"
+    assert cache_data["ignores"][0]["value"] == "anchore"
+
+    check = subprocess.run(
+        ["bash", "-c", f'source "{repo_root / "scripts" / "shell" / "filter-ignored-findings.sh"}" && is_tool_ignored "anchore"'],
+        env={
+            "PATH": "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin",
+            "IGNORE_CACHE": str(cache),
+            "SUPPRESSED_LOG": str(tmp_path / "suppressed.md"),
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert check.returncode == 0, "is_tool_ignored should suppress the normalized 'anchore' tool rule"

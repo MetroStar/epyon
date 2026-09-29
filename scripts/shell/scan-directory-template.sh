@@ -192,6 +192,47 @@ to_host_path() {
     fi
 }
 
+# ── .epyon-ignore.yml scan-time path exclusion ────────────────────────────────
+# Returns non-expired `type: path` glob patterns from a target repo's
+# .epyon-ignore.yml, one per line, so individual scan tools can pass them to
+# their native --skip-path/--skip-dirs/--exclude-paths/--exclude-dir flags and
+# genuinely never scan that content — rather than relying solely on suppressing
+# the finding after the fact (which not every tool/dashboard section honors).
+# Usage: while IFS= read -r pat; do ...; done < <(get_epyon_ignore_exclude_paths "$target")
+get_epyon_ignore_exclude_paths() {
+    local target_dir="${1:-}"
+    local ignore_file="${target_dir%/}/.epyon-ignore.yml"
+    [[ -f "$ignore_file" ]] || return 0
+    command -v python3 &>/dev/null || return 0
+    python3 -c "
+import sys
+from datetime import datetime
+try:
+    import yaml
+except ImportError:
+    sys.exit(0)
+try:
+    with open('$ignore_file') as f:
+        data = yaml.safe_load(f) or {}
+except Exception:
+    sys.exit(0)
+now = datetime.now()
+for ig in data.get('ignores', []) or []:
+    if ig.get('type') != 'path':
+        continue
+    expires = ig.get('expires')
+    if expires:
+        try:
+            if now > datetime.strptime(expires, '%Y-%m-%d'):
+                continue
+        except Exception:
+            pass
+    value = ig.get('value')
+    if value:
+        print(value)
+" 2>/dev/null
+}
+
 # ── Docker auto-start utility ─────────────────────────────────────────────────
 # Call ensure_docker_running to guarantee the Docker daemon is up before any
 # tool that requires it.  Tries Colima, Docker Desktop, Rancher Desktop,

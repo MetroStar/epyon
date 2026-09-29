@@ -205,6 +205,15 @@ else
 fi
 REPO_PATH=$(realpath "${REPO_PATH}" 2>/dev/null) || { echo "ERROR: Target path does not exist or is invalid: ${REPO_PATH}" >&2; exit 1; }
 
+# Build a comma-separated --skip-dirs value from any `type: path` rules in the
+# target's .epyon-ignore.yml (e.g. Epyon's own self-assessment fixture), on top
+# of the always-skipped node_modules/.terraform/.git, so a normal scan genuinely
+# never touches deliberately-suppressed content.
+TRIVY_SKIP_DIRS=".terraform,node_modules,.git"
+while IFS= read -r _pat; do
+    [[ -n "$_pat" ]] && TRIVY_SKIP_DIRS="${TRIVY_SKIP_DIRS},${_pat}"
+done < <(get_epyon_ignore_exclude_paths "$REPO_PATH")
+
 echo
 echo -e "${WHITE}============================================${NC}"
 echo -e "${WHITE}Trivy Multi-Target Security Scanner${NC}"
@@ -278,7 +287,7 @@ run_trivy_scan() {
                 echo "   Scanning container image: $target"
                 "$LOCAL_TRIVY" image "$target" --scanners vuln,misconfig,secret --format json --skip-check-update 2>>"$SCAN_LOG" > "$output_file"
             else
-                "$LOCAL_TRIVY" fs "$target" --scanners vuln,misconfig,secret --format json --skip-check-update 2>>"$SCAN_LOG" > "$output_file"
+                "$LOCAL_TRIVY" fs "$target" --scanners vuln,misconfig,secret --format json --skip-check-update --skip-dirs "$TRIVY_SKIP_DIRS" 2>>"$SCAN_LOG" > "$output_file"
             fi
             [ $? -eq 0 ] && [ -s "$output_file" ] && scan_ok=true
         elif [ -n "${CONTAINER_CLI:-}" ]; then
@@ -297,7 +306,7 @@ run_trivy_scan() {
                     -v "$TRIVY_CACHE_VOL:/root/.cache" \
                     "${TRIVY_IMAGE}" \
                     fs /workspace \
-                    --scanners vuln,misconfig,secret --format json --skip-check-update 2>>"$SCAN_LOG" > "$output_file"
+                    --scanners vuln,misconfig,secret --format json --skip-check-update --skip-dirs "$TRIVY_SKIP_DIRS" 2>>"$SCAN_LOG" > "$output_file"
             fi
             [ $? -eq 0 ] && [ -s "$output_file" ] && scan_ok=true
         fi
@@ -391,7 +400,7 @@ if [ "$SCAN_MODE" = "config" ] || [ "$SCAN_MODE" = "all" ]; then
                 --format json \
                 --skip-check-update \
                 --misconfig-scanners terraform,dockerfile,kubernetes \
-                --skip-dirs .terraform,node_modules,.git 2>>"$SCAN_LOG" > "$IaC_OUTPUT"
+                --skip-dirs "$TRIVY_SKIP_DIRS" 2>>"$SCAN_LOG" > "$IaC_OUTPUT"
         else
             ${CONTAINER_CLI} run --rm \
                 -v "$(to_host_path "${REPO_PATH}"):/workspace:ro" \
@@ -401,7 +410,7 @@ if [ "$SCAN_MODE" = "config" ] || [ "$SCAN_MODE" = "all" ]; then
                 --format json \
                 --skip-check-update \
                 --misconfig-scanners terraform,dockerfile,kubernetes \
-                --skip-dirs .terraform,node_modules,.git 2>>"$SCAN_LOG" > "$IaC_OUTPUT"
+                --skip-dirs "$TRIVY_SKIP_DIRS" 2>>"$SCAN_LOG" > "$IaC_OUTPUT"
         fi
         
         if [ $? -eq 0 ] && [ -s "$IaC_OUTPUT" ]; then

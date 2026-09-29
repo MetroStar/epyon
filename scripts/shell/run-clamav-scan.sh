@@ -302,6 +302,15 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
         _CL_SRC_HOST="$(to_host_path "$_CL_SRC")"
         _CL_OUT_HOST="$(to_host_path "$_CL_OUT")"
 
+        # Build --exclude-dir args from any `type: path` rules in the target's
+        # .epyon-ignore.yml (e.g. Epyon's own self-assessment fixture, which
+        # intentionally plants an EICAR-style test signature) so a normal scan
+        # doesn't flag deliberately-suppressed content as malware.
+        CLAMAV_EXCLUDE_ARGS=()
+        while IFS= read -r _pat; do
+            [[ -n "$_pat" ]] && CLAMAV_EXCLUDE_ARGS+=(--exclude-dir="${_pat%/\*\*}")
+        done < <(get_epyon_ignore_exclude_paths "$REPO_PATH")
+
         ${CONTAINER_CLI} run --rm $PLATFORM_FLAG \
             -v "$_CL_SRC_HOST:/workspace:ro" \
             -v "$_CL_OUT_HOST:/output" \
@@ -310,6 +319,7 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
             clamscan -r \
             --exclude-dir=node_modules \
             --exclude-dir=.scannerwork \
+            "${CLAMAV_EXCLUDE_ARGS[@]}" \
             --scan-mail=yes \
             --scan-html=yes \
             --scan-pdf=yes \

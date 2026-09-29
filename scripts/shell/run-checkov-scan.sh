@@ -322,6 +322,24 @@ PYEOF
         echo "  ℹ️  python3 or pyyaml not available — skipping YAML pre-validation"
     fi
 
+    # Build --skip-path args from any `type: path` rules in the target's
+    # .epyon-ignore.yml (e.g. Epyon's own deliberately-vulnerable
+    # tests/fixtures/self-assessment/ fixture) so a normal scan genuinely never
+    # touches that content, instead of relying solely on post-hoc suppression.
+    # NOTE: Checkov's --skip-path takes a *regular expression*, not a glob —
+    # passing a literal "**" (as used by other tools' glob-style excludes)
+    # triggers a Python `re.error: multiple repeat`. Strip the trailing
+    # glob suffix and escape dots so the pattern matches the directory as a
+    # literal substring instead.
+    IGNORE_SKIP_ARGS=()
+    while IFS= read -r _pat; do
+        if [[ -n "$_pat" ]]; then
+            _pat_regex="${_pat%/\*\*}"
+            _pat_regex="${_pat_regex//./\\.}"
+            IGNORE_SKIP_ARGS+=(--skip-path "$_pat_regex")
+        fi
+    done < <(get_epyon_ignore_exclude_paths "$TARGET_SCAN_DIR")
+
     # Run Checkov scan with AWS credentials
     # Using --skip-download to scan Helm templates even without access to private registries
     # This allows scanning of raw templates without requiring helm dependency resolution
@@ -368,6 +386,7 @@ PYEOF
         --skip-path scripts/anchore-results.json \
         --skip-path scripts/shell/scans \
         "${YAML_SKIP_ARGS[@]}" \
+        "${IGNORE_SKIP_ARGS[@]}" \
         --skip-download \
         --output json \
         --output-file /output/checkov-results.json \
@@ -430,6 +449,7 @@ PYEOF
             --framework github_actions \
             --skip-path node_modules \
             --skip-path scans \
+            "${IGNORE_SKIP_ARGS[@]}" \
             --output json \
             --output-file /output/checkov-github-actions-results.json \
             >> "$SCAN_LOG" 2>&1

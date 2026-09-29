@@ -130,6 +130,15 @@ fi
 
 REPO_PATH=$(realpath "${REPO_PATH}" 2>/dev/null) || { echo "ERROR: Target path does not exist or is invalid: ${REPO_PATH}" >&2; exit 1; }
 
+# Source scan-directory-template.sh (for get_epyon_ignore_exclude_paths only —
+# this script doesn't use init_scan_environment) so dependency-file discovery
+# below can honor `type: path` rules in the target's .epyon-ignore.yml.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$SCRIPT_DIR/scan-directory-template.sh" ]]; then
+    # shellcheck source=/dev/null
+    source "$SCRIPT_DIR/scan-directory-template.sh"
+fi
+
 # Generate or use existing SCAN_ID
 if [[ -n "${SCAN_ID:-}" ]]; then
     TARGET_NAME=$(echo "$SCAN_ID" | cut -d'_' -f1)
@@ -188,6 +197,16 @@ echo -e "${CYAN}🔍 Scanning for Python dependency files...${NC}"
 declare -a DEPENDENCY_FILES
 FOUND_COUNT=0
 
+# Build -not -path excludes from any `type: path` rules in the target's
+# .epyon-ignore.yml (e.g. Epyon's own self-assessment fixture) so a normal
+# scan never picks up deliberately-suppressed dependency files.
+IGNORE_FIND_EXCLUDES=()
+if declare -f get_epyon_ignore_exclude_paths >/dev/null 2>&1; then
+    while IFS= read -r _pat; do
+        [[ -n "$_pat" ]] && IGNORE_FIND_EXCLUDES+=(-not -path "$REPO_PATH/${_pat%/\*\*}/*" -not -path "$REPO_PATH/${_pat%/\*\*}")
+    done < <(get_epyon_ignore_exclude_paths "$REPO_PATH")
+fi
+
 # Search for requirements files
 while IFS= read -r -d '' file; do
     DEPENDENCY_FILES+=("$file")
@@ -199,6 +218,7 @@ done < <(find "$REPO_PATH" \
     -not -path "*/.git/*" \
     -not -path "*/node_modules/*" \
     -not -path "*/__pycache__/*" \
+    "${IGNORE_FIND_EXCLUDES[@]+"${IGNORE_FIND_EXCLUDES[@]}"}" \
     -print0)
 
 if [ $FOUND_COUNT -eq 0 ]; then

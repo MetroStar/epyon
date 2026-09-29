@@ -282,13 +282,23 @@ run_grype_scan() {
 
     echo -e "${BLUE}🔍 Scanning ${scan_type}: ${target}${NC}"
 
+    # Build --exclude args (glob) from any `type: path` rules in the target's
+    # .epyon-ignore.yml (e.g. Epyon's own self-assessment fixture), for direct
+    # dir-mode scans only — irrelevant for image/base-image scan_types.
+    local grype_exclude_args=()
+    if [[ "$scan_type" != "base-"* ]] && [[ "$target" != *":"* ]]; then
+        while IFS= read -r _pat; do
+            [[ -n "$_pat" ]] && grype_exclude_args+=(--exclude "./${_pat%/\*\*}")
+        done < <(get_epyon_ignore_exclude_paths "$target")
+    fi
+
     local scan_ok=false
     if [ -n "$LOCAL_GRYPE" ]; then
         echo "   Using local Grype binary..."
         if [[ "$scan_type" == "base-"* ]] || [[ "$target" == *":"* ]]; then
             "$LOCAL_GRYPE" "$target" -o json 2>>"$SCAN_LOG" > "$output_file"
         else
-            "$LOCAL_GRYPE" "dir:$target" -o json 2>>"$SCAN_LOG" > "$output_file"
+            "$LOCAL_GRYPE" "dir:$target" "${grype_exclude_args[@]}" -o json 2>>"$SCAN_LOG" > "$output_file"
         fi
         [ $? -eq 0 ] && [ -s "$output_file" ] && scan_ok=true
     elif [ -n "${CONTAINER_CLI:-}" ]; then
@@ -310,7 +320,7 @@ run_grype_scan() {
                 -v "$target_host:/workspace:ro" \
                 -v "$GRYPE_CACHE_VOL:/cache" \
                 anchore/grype:latest \
-                dir:/workspace -o json 2>>"$SCAN_LOG" > "$output_file"
+                dir:/workspace "${grype_exclude_args[@]}" -o json 2>>"$SCAN_LOG" > "$output_file"
         fi
         [ $? -eq 0 ] && [ -s "$output_file" ] && scan_ok=true
     fi

@@ -55,6 +55,7 @@ class ModelProvenanceChecker:
         self.hf_token = hf_token
         
         self.findings: List[Dict] = []
+        self.exclude_patterns = self._load_exclude_patterns()
         self.stats = {
             'total_models': 0,
             'models_with_signatures': 0,
@@ -68,6 +69,54 @@ class ModelProvenanceChecker:
         
         # Fetch dynamic threat feed if URL provided
         self.threat_feed = self._fetch_threat_feed() if threat_feed_url else {}
+
+    def _load_exclude_patterns(self) -> List[str]:
+        """Load non-expired `type: path` glob rules from the target's
+        .epyon-ignore.yml (e.g. Epyon's own self-assessment fixture) so a
+        normal scan never flags deliberately-suppressed content."""
+        ignore_file = self.target_dir / '.epyon-ignore.yml'
+        if not ignore_file.exists():
+            return []
+        try:
+            import yaml
+        except ImportError:
+            return []
+        try:
+            with open(ignore_file, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f) or {}
+        except Exception:
+            return []
+        now = datetime.now()
+        patterns = []
+        for ig in data.get('ignores', []) or []:
+            if ig.get('type') != 'path':
+                continue
+            expires = ig.get('expires')
+            if expires:
+                try:
+                    if now > datetime.strptime(expires, '%Y-%m-%d'):
+                        continue
+                except Exception:
+                    pass
+            value = ig.get('value')
+            if value:
+                patterns.append(value)
+        return patterns
+
+    def _is_excluded(self, file_path: Path) -> bool:
+        """Check a file's path (relative to target_dir) against the loaded
+        .epyon-ignore.yml path exclusion patterns."""
+        if not self.exclude_patterns:
+            return False
+        try:
+            rel = file_path.relative_to(self.target_dir).as_posix()
+        except ValueError:
+            return False
+        import fnmatch
+        for pattern in self.exclude_patterns:
+            if fnmatch.fnmatch(rel, pattern) or fnmatch.fnmatch(rel, pattern.rstrip('/*') + '/*'):
+                return True
+        return False
     
     def scan(self) -> Dict:
         """Run comprehensive provenance check."""
@@ -100,7 +149,7 @@ class ModelProvenanceChecker:
         found = []
         for ext in MODEL_EXTENSIONS:
             found.extend(self.target_dir.rglob(f'*{ext}'))
-        return [f for f in found if f.is_file()]
+        return [f for f in found if f.is_file() and not self._is_excluded(f)]
     
     def _check_model_file(self, model_file: Path):
         """Check a single model file for provenance issues."""

@@ -85,7 +85,7 @@ Ignore findings in specific files/directories:
 - `src/legacy/*` - Files directly in src/legacy/
 - `config.example.yml` - Specific file
 
-**Applies to:** All tools
+**Applies to:** All tools — every scanner (Checkov, Trivy, ClamAV, Syft/Grype, picklescan, model-provenance, and pip-audit) natively excludes matching, non-expired `path` rules from what it scans, in addition to hiding them from reports. A rule only takes effect when `.epyon-ignore.yml` lives in the directory actually being scanned — it isn't picked up if the excluded path itself is scanned directly as a standalone target.
 
 ### Tools
 Disable an entire scanning tool:

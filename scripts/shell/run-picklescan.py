@@ -58,6 +58,7 @@ class ModelExploitScanner:
         self.target_dir = target_dir
         self.formats = formats or {'pickle', 'pytorch', 'onnx', 'tf', 'config'}
         self.findings: List[Dict] = []
+        self.exclude_patterns = self._load_exclude_patterns()
         self.stats = {
             'total_files': 0,
             'pickle_files': 0,
@@ -67,6 +68,55 @@ class ModelExploitScanner:
             'config_files': 0,
             'flagged_count': 0,
         }
+
+    def _load_exclude_patterns(self) -> List[str]:
+        """Load non-expired `type: path` glob rules from the target's
+        .epyon-ignore.yml (e.g. Epyon's own self-assessment fixture) so a
+        normal scan never flags deliberately-suppressed content."""
+        ignore_file = self.target_dir / '.epyon-ignore.yml'
+        if not ignore_file.exists():
+            return []
+        try:
+            import yaml
+        except ImportError:
+            return []
+        try:
+            with open(ignore_file, 'r', encoding='utf-8') as f:
+                data = yaml.safe_load(f) or {}
+        except Exception:
+            return []
+        now = datetime.now()
+        patterns = []
+        for ig in data.get('ignores', []) or []:
+            if ig.get('type') != 'path':
+                continue
+            expires = ig.get('expires')
+            if expires:
+                try:
+                    if now > datetime.strptime(expires, '%Y-%m-%d'):
+                        continue
+                except Exception:
+                    pass
+            value = ig.get('value')
+            if value:
+                patterns.append(value)
+        return patterns
+
+    def _is_excluded(self, file_path: Path) -> bool:
+        """Check a file's path (relative to target_dir) against the loaded
+        .epyon-ignore.yml path exclusion patterns."""
+        if not self.exclude_patterns:
+            return False
+        try:
+            rel = file_path.relative_to(self.target_dir).as_posix()
+        except ValueError:
+            return False
+        import fnmatch
+        for pattern in self.exclude_patterns:
+            if fnmatch.fnmatch(rel, pattern) or fnmatch.fnmatch(rel, pattern.rstrip('/*')  + '/*'):
+                return True
+        return False
+
     
     def scan(self) -> Dict:
         """Run comprehensive scan across all supported formats."""
@@ -259,7 +309,7 @@ class ModelExploitScanner:
         
         for pattern in config_patterns:
             for config_file in self.target_dir.rglob(pattern):
-                if config_file.is_file():
+                if config_file.is_file() and not self._is_excluded(config_file):
                     self.stats['config_files'] += 1
                     self.stats['total_files'] += 1
                     
@@ -303,7 +353,7 @@ class ModelExploitScanner:
         found = []
         for ext in extensions:
             found.extend(self.target_dir.rglob(f'*{ext}'))
-        return [f for f in found if f.is_file()]
+        return [f for f in found if f.is_file() and not self._is_excluded(f)]
     
     def _check_file_for_imports(self, file_path: Path, format: str):
         """Check a file for dangerous imports (binary scan)."""

@@ -207,6 +207,15 @@ generate_sbom() {
     # Use .cyclonedx.json extension so the dashboard glob (*.cyclonedx.json) picks it up
     local cyclonedx_file="$OUTPUT_DIR/${scan_type}.cyclonedx.json"
 
+    # Build Syft --exclude args from any `type: path` rules in the target's
+    # .epyon-ignore.yml (e.g. Epyon's own self-assessment fixture) so Grype's
+    # SBOM-based scan (Layer 8) never inherits deliberately-suppressed
+    # components, on top of the always-excluded node_modules/.venv/vendor/.git.
+    SYFT_IGNORE_EXCLUDE_ARGS=()
+    while IFS= read -r _pat; do
+        [[ -n "$_pat" ]] && SYFT_IGNORE_EXCLUDE_ARGS+=(--exclude "./${_pat%/\*\*}")
+    done < <(get_epyon_ignore_exclude_paths "$target")
+
     if command -v syft >/dev/null 2>&1; then
         # Use local Syft installation — output syft-json AND cyclonedx-json in one pass
         echo -e "${GREEN}✅ Using local Syft installation${NC}"
@@ -226,6 +235,7 @@ generate_sbom() {
             --exclude "./.venv" \
             --exclude "./vendor" \
             --exclude "./.git" \
+            "${SYFT_IGNORE_EXCLUDE_ARGS[@]}" \
             -o "syft-json=${output_file}" \
             -o "cyclonedx-json=${cyclonedx_file}" \
             2>>"$SCAN_LOG"; then
@@ -255,6 +265,7 @@ generate_sbom() {
             --exclude "./.venv" \
             --exclude "./vendor" \
             --exclude "./.git" \
+            "${SYFT_IGNORE_EXCLUDE_ARGS[@]}" \
             -o "syft-json=/dev/stdout" \
             2>>"$SCAN_LOG" > "$output_file"; then
             echo -e "${GREEN}✅ SBOM generated successfully: $(basename "$output_file")${NC}"

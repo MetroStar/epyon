@@ -1610,10 +1610,24 @@ async function renderScanDetail(scanId) {
                  Export HTML ↗
                </button>`
             : ''}
-          <a class="btn" href="/api/scans/${encodeURIComponent(scanId)}/download" download
-             title="Download all scan artifacts as ZIP for ATO/IATT submission">
-            ↓ Download ZIP
-          </a>
+          <div class="split-btn" id="download-split-btn">
+            <a class="btn split-btn-main" href="/api/scans/${encodeURIComponent(scanId)}/download" download
+               title="Download all scan artifacts as ZIP for ATO/IATT submission">
+              ↓ Download ZIP
+            </a>
+            <button class="btn split-btn-toggle" onclick="toggleDownloadMenu(event)"
+              title="More download options" aria-haspopup="true" aria-expanded="false">▾</button>
+            <div class="split-btn-menu" id="download-split-menu" hidden>
+              <a class="split-btn-menu-item" href="/api/scans/${encodeURIComponent(scanId)}/download" download>
+                ↓ Download ZIP
+                <span class="split-btn-menu-hint">All raw scan artifacts (ATO/IATT bundle)</span>
+              </a>
+              <a class="split-btn-menu-item" href="/api/scans/${encodeURIComponent(scanId)}/download-json" download>
+                ↓ Download JSON
+                <span class="split-btn-menu-hint">Full parsed scan result (findings, STIG, ML/AI)</span>
+              </a>
+            </div>
+          </div>
           <button class="btn btn-danger"
             onclick="deleteScan('${esc(scanId)}', '${esc(scan.target)}')"
             title="Permanently delete this scan">
@@ -7244,6 +7258,28 @@ async function deleteScan(scanId, appName) {
     },
   });
 }
+
+function toggleDownloadMenu(evt) {
+  evt.stopPropagation();
+  const menu = document.getElementById('download-split-menu');
+  const toggleBtn = evt.currentTarget;
+  if (!menu) return;
+  const isOpen = !menu.hidden;
+  menu.hidden = isOpen;
+  toggleBtn.setAttribute('aria-expanded', String(!isOpen));
+  if (!isOpen) {
+    const closeOnOutsideClick = (e) => {
+      const wrap = document.getElementById('download-split-btn');
+      if (wrap && !wrap.contains(e.target)) {
+        menu.hidden = true;
+        toggleBtn.setAttribute('aria-expanded', 'false');
+        document.removeEventListener('click', closeOnOutsideClick);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', closeOnOutsideClick), 0);
+  }
+}
+
 
 async function calculateScorecardForScan(scanId) {
   // Find scorecard container

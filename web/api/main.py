@@ -1581,6 +1581,27 @@ def scan_download_zip(scan_id: str, response: Response):
     )
 
 
+@app.get("/api/scans/{scan_id}/download-json")
+def scan_download_json(scan_id: str, response: Response):
+    """Export the fully parsed scan result (findings, STIG, misconfig, ML/AI
+    security, metadata) as a single downloadable JSON file — the same data
+    model backing the scan detail page, for offline review or ingestion by
+    other tooling without needing the full ZIP of raw scan artifacts."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    matched = _require_scan_dir(scan_id)
+
+    scan_data = parsers.load_scan_complete(matched, EPYON_ROOT)
+    payload = json.dumps(scan_data, indent=2, default=str)
+    filename = f"epyon-scan-{scan_id}.json"
+    return Response(
+        content=payload,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 # ── Trigger scan ──────────────────────────────────────────────
 
 @app.post("/api/scans", status_code=202)

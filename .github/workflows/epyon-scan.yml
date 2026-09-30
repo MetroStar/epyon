@@ -42,7 +42,7 @@ on:
       build_enabled:
         description: 'Build Docker/OCI container image before running security scan'
         required: false
-        default: false
+        default: true
         type: boolean
       image_name:
         description: 'Optional: Custom image name for build'

@@ -207,19 +207,97 @@ if declare -f get_epyon_ignore_exclude_paths >/dev/null 2>&1; then
     done < <(get_epyon_ignore_exclude_paths "$REPO_PATH")
 fi
 
-# Search for requirements files
+# Search for requirements files.
+#
+# NOTE: requirements-conda-env.txt / requirements-pyproject.txt are excluded
+# by exact basename. Layer 1 (SBOM/Syft) writes throwaway files with these
+# exact names directly into the target repo (next to environment.yml /
+# pyproject.toml, respectively) so Syft's python-package-cataloger can pick up
+# conda/pyproject deps, then deletes them once its own scan finishes. Since
+# every layer runs in parallel, this scan's `find` could catch one of those
+# files while it briefly exists, but the actual `pip-audit -r ...` invocation
+# for it may not happen until minutes later in this script's own per-file
+# loop below -- by which point Layer 1 has already deleted it, causing a hard
+# "file not found" failure that looks like a real scan error. pyproject.toml
+# itself is scanned directly a few lines below (project mode), so excluding
+# its synthetic duplicate loses no coverage. Conda coverage is regenerated
+# independently, in this layer's own output directory, right after this block.
 while IFS= read -r -d '' file; do
     DEPENDENCY_FILES+=("$file")
     FOUND_COUNT=$((FOUND_COUNT + 1))
 done < <(find "$REPO_PATH" \
     -type f \
     \( -name "requirements*.txt" -o -name "poetry.lock" -o -name "Pipfile.lock" -o -name "pyproject.toml" \) \
+    -not -name "requirements-conda-env.txt" \
+    -not -name "requirements-pyproject.txt" \
     -not -path "*/\.*" \
     -not -path "*/.git/*" \
     -not -path "*/node_modules/*" \
     -not -path "*/__pycache__/*" \
     "${IGNORE_FIND_EXCLUDES[@]+"${IGNORE_FIND_EXCLUDES[@]}"}" \
     -print0)
+
+# Independently audit conda environment.yml/environment.yaml files. This
+# generates our own synthetic requirements file in THIS layer's own output
+# directory (never in the target repo), so there's no cross-layer race with
+# Layer 1's SBOM preprocessing -- see the note above.
+CONDA_ENV_IDX=0
+while IFS= read -r -d '' envfile; do
+    CONDA_ENV_IDX=$((CONDA_ENV_IDX + 1))
+    conda_req="$OUTPUT_DIR/conda-env-requirements-${CONDA_ENV_IDX}.txt"
+    python3 - "$envfile" "$conda_req" <<'PYEOF' 2>/dev/null
+import sys, re
+try:
+    import yaml
+except ImportError:
+    sys.exit(0)
+src, dst = sys.argv[1], sys.argv[2]
+with open(src) as f:
+    data = yaml.safe_load(f)
+deps = data.get("dependencies") or []
+
+def normalize_spec(spec):
+    """Convert any version spec to an exact == pin so pip-audit can resolve it."""
+    spec = spec.strip()
+    name_part = re.split(r'[=<>!;\[]', spec)[0].strip()
+    if not name_part:
+        return None
+    if '==' in spec:
+        return spec
+    m = re.search(r'[><=!]+\s*([\d][^\s,;]*)', spec)
+    if m:
+        return f"{name_part}=={m.group(1)}"
+    # Unpinned conda deps have no resolvable version for pip-audit; skip rather
+    # than guessing a fake 0.0.0 that would just report false vulnerabilities.
+    return None
+
+lines = []
+for dep in deps:
+    if isinstance(dep, str):
+        if dep.startswith("python") or dep.startswith("_") or dep.strip() == "pip":
+            continue
+        spec = re.sub(r'(?<![=<>!])=(?!=)', '==', dep)
+        result = normalize_spec(spec)
+        if result:
+            lines.append(result)
+    elif isinstance(dep, dict) and "pip" in dep:
+        for pip_dep in (dep["pip"] or []):
+            if isinstance(pip_dep, str):
+                result = normalize_spec(pip_dep)
+                if result:
+                    lines.append(result)
+if lines:
+    with open(dst, "w") as f:
+        f.write("\n".join(lines) + "\n")
+PYEOF
+    if [[ -s "$conda_req" ]]; then
+        DEPENDENCY_FILES+=("$conda_req")
+        FOUND_COUNT=$((FOUND_COUNT + 1))
+        echo "Pre-processed conda env for pip-audit: $envfile -> $conda_req" >> "$SCAN_LOG"
+    else
+        rm -f "$conda_req"
+    fi
+done < <(find "$REPO_PATH" \( -name "environment.yml" -o -name "environment.yaml" \) -not -path "*/.git/*" -print0 2>/dev/null)
 
 if [ $FOUND_COUNT -eq 0 ]; then
     echo -e "${YELLOW}⚠️  No Python dependency files found${NC}"

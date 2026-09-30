@@ -874,7 +874,7 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
                     jq -r '[.critical_findings[] | select(.tool != "checkov" and .tool != "Checkov" and .tool != "TruffleHog")] | .[] |
                         "- **CRITICAL**: `\(.vulnerability_id // .id // "unknown")` in \(.package_name // .package // "unknown")@\(.package_version // .version // "unknown")" +
                         (if (.package_path // "") != "" then " @ `\(.package_path)`" else "" end) +
-                        " (\(.tool))"' "$FINDINGS_SUMMARY" 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
+                        " (\((.detected_by // [.tool]) | join(", ")))"' "$FINDINGS_SUMMARY" 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
                 fi
                 
                 # Display high findings (exclude Checkov IaC and TruffleHog secrets)
@@ -884,7 +884,7 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
                         .[] |
                         "- **HIGH**: `\(.vulnerability_id // .id // "unknown")` in \(.package_name // .package // "unknown")@\(.package_version // .version // "unknown")" +
                         (if (.package_path // "") != "" then " @ `\(.package_path)`" else "" end) +
-                        " (\(.tool))"' "$FINDINGS_SUMMARY" 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
+                        " (\((.detected_by // [.tool]) | join(", ")))"' "$FINDINGS_SUMMARY" 2>/dev/null >> "$GITHUB_STEP_SUMMARY"
                 fi
                 
                 echo "" >> "$GITHUB_STEP_SUMMARY"

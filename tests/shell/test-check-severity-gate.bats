@@ -79,3 +79,52 @@ EOF
 
         rm -rf "$scan_dir" "$target_dir"
 }
+
+@test "check-severity-gate.sh step summary lists every tool that detected a deduplicated CVE, not just the first" {
+        # generate-scan-findings-summary.sh's dedup pass keeps only .[0] as the
+        # surviving finding but records ALL contributing tools in .detected_by.
+        # The step-summary CVE list must render .detected_by (falling back to
+        # .tool for older summaries), not just the single surviving .tool,
+        # otherwise a tool whose findings fully overlap another tool's appears
+        # to have found nothing even though it ran and agreed on the CVE.
+        local scan_dir
+        scan_dir=$(mktemp -d)
+        local target_dir
+        target_dir=$(mktemp -d)
+        local summary_file
+        summary_file=$(mktemp)
+
+        cat > "$scan_dir/security-findings-summary.json" << 'EOF'
+{
+    "critical_findings": [{
+        "tool": "grype-sbom",
+        "detected_by": ["grype-sbom", "trivy-filesystem"],
+        "vulnerability_id": "GHSA-ffc3-869f-jxw9",
+        "package_name": "pyjwt",
+        "package_version": "2.13.0",
+        "package_path": "api/requirements-pyproject.txt"
+    }],
+    "high_findings": [{
+        "tool": "grype-sbom",
+        "detected_by": ["grype-sbom", "trivy-filesystem"],
+        "vulnerability_id": "GHSA-9j54-fg26-wv3r",
+        "package_name": "pyjwt",
+        "package_version": "2.13.0",
+        "package_path": "api/requirements-pyproject.txt"
+    }],
+    "medium_findings": [],
+    "low_findings": [],
+    "summary": {}
+}
+EOF
+
+        run env SCAN_DIR="$scan_dir" TARGET_DIR="$target_dir" GITHUB_STEP_SUMMARY="$summary_file" WARNING_ONLY=true "$SCRIPT_PATH"
+
+        grep -q "trivy-filesystem" "$summary_file"
+        grep -q "grype-sbom" "$summary_file"
+        grep -q "GHSA-ffc3-869f-jxw9" "$summary_file"
+        grep -q "GHSA-9j54-fg26-wv3r" "$summary_file"
+
+        rm -rf "$scan_dir" "$target_dir"
+        rm -f "$summary_file"
+}

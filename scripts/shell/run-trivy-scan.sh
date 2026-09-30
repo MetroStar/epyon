@@ -240,17 +240,17 @@ echo "This ensures we have the latest CVE data (may take 1-2 minutes on first ru
 
 if [ -n "$LOCAL_TRIVY" ]; then
     "$LOCAL_TRIVY" image --download-db-only 2>&1 | tee -a "$SCAN_LOG"
-    DB_UPDATE_RESULT=$?
+    DB_UPDATE_RESULT="${PIPESTATUS[0]}"
 else
     ${CONTAINER_CLI} volume create "$TRIVY_CACHE_VOL" 2>/dev/null || true
     ${CONTAINER_CLI} run --rm \
         -v "$TRIVY_CACHE_VOL:/root/.cache" \
         "${TRIVY_IMAGE}" \
         image --download-db-only 2>&1 | tee -a "$SCAN_LOG"
-    DB_UPDATE_RESULT=$?
+    DB_UPDATE_RESULT="${PIPESTATUS[0]}"
 fi
 
-if [ $DB_UPDATE_RESULT -eq 0 ]; then
+if [ "$DB_UPDATE_RESULT" -eq 0 ]; then
     echo -e "${GREEN}✅ Trivy vulnerability database updated successfully${NC}"
 else
     echo -e "${YELLOW}⚠️  Database update had issues (exit code: $DB_UPDATE_RESULT)${NC}"

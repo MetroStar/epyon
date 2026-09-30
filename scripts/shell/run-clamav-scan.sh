@@ -262,8 +262,8 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
             "$CLAMAV_IMAGE" \
             freshclam --stdout 2>&1 | tee -a "$SCAN_LOG"
         
-        FRESHCLAM_RESULT=$?
-        if [ $FRESHCLAM_RESULT -eq 0 ]; then
+        FRESHCLAM_RESULT="${PIPESTATUS[0]}"
+        if [ "$FRESHCLAM_RESULT" -eq 0 ]; then
             echo -e "${GREEN}✅ Virus definitions updated successfully${NC}"
         else
             echo -e "${YELLOW}⚠️  Virus definition update had issues (exit code: $FRESHCLAM_RESULT)${NC}"
@@ -332,7 +332,7 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
             --max-filesize=2000M \
             --max-scansize=2000M \
             --log=/output/${SCAN_ID}_clamav-detailed.log /workspace 2>&1 | tee -a "$SCAN_LOG"
-        SCAN_RESULT=$?
+        SCAN_RESULT="${PIPESTATUS[0]}"
 
         # Copy output back from staging dir and clean up
         cp -r "$_CL_OUT/." "$OUTPUT_DIR/" 2>/dev/null || true
@@ -363,7 +363,7 @@ if [ -n "${CONTAINER_CLI:-}" ]; then
                 --max-filesize=2000M \
                 --max-scansize=2000M \
                 /decoded 2>&1 | tee -a "$SCAN_LOG" >> "$OUTPUT_DIR/${SCAN_ID}_clamav-detailed.log"
-            DECODED_SCAN_RESULT=$?
+            DECODED_SCAN_RESULT="${PIPESTATUS[0]}"
             cp -r "$_CL_OUT2/." "$OUTPUT_DIR/" 2>/dev/null || true
             rm -rf "$_CL_DEC" "$_CL_OUT2" "$_CL_SRC"
 

@@ -177,8 +177,8 @@ ${CONTAINER_CLI} run --rm \
     noqcks/xeol:latest \
     db update 2>&1 | tee -a "$SCAN_LOG"
 
-DB_UPDATE_RESULT=$?
-if [ $DB_UPDATE_RESULT -eq 0 ]; then
+DB_UPDATE_RESULT="${PIPESTATUS[0]}"
+if [ "$DB_UPDATE_RESULT" -eq 0 ]; then
     echo -e "${GREEN}✅ Xeol EOL database updated successfully${NC}"
 else
     echo -e "${YELLOW}⚠️  Database update had issues (exit code: $DB_UPDATE_RESULT)${NC}"

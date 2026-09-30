@@ -39,3 +39,16 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-clamav-scan.sh"
 @test "run-clamav-scan.sh updates virus definitions" {
     grep -q "freshclam" "$SCRIPT_PATH"
 }
+
+@test "run-clamav-scan.sh captures real freshclam/scan exit codes via PIPESTATUS, not tee's" {
+    # Regression test: 'cmd | tee -a log; RESULT=\$?' silently masks 'cmd's failure
+    # because \$? reflects tee's exit status (almost always 0), not freshclam's or
+    # clamscan's. This masked both stale-virus-definition failures AND, more
+    # seriously, clamscan's malware-detected exit code (1), risking silently
+    # missed malware findings.
+    run grep -cE '(FRESHCLAM_RESULT|SCAN_RESULT|DECODED_SCAN_RESULT)=\$\?' "$SCRIPT_PATH"
+    [ "$status" -ne 0 ] || [ "$output" -eq 0 ]
+    run grep -c '="\${PIPESTATUS\[0\]}"' "$SCRIPT_PATH"
+    [ "$status" -eq 0 ]
+    [ "$output" -ge 3 ]
+}

@@ -69,3 +69,17 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-grype-scan.sh"
     [ "$status" -ne 0 ]
     [[ "$output" =~ "help" ]] || [[ "$output" =~ "Usage" ]]
 }
+
+@test "run-grype-scan.sh captures the real DB update exit code via PIPESTATUS, not tee's" {
+    # Regression test: 'cmd | tee -a log; RESULT=\$?' silently masks 'cmd's failure
+    # because \$? reflects tee's exit status (almost always 0), not the DB update's.
+    # This made 'grype db update' failures (network issues, rate limits, etc.) on
+    # ephemeral CI runners silently report "updated successfully" while actually
+    # scanning with a stale/incomplete database, producing under-reported findings
+    # with no visible warning.
+    run grep -c 'DB_UPDATE_RESULT=\$?' "$SCRIPT_PATH"
+    [ "$status" -ne 0 ] || [ "$output" -eq 0 ]
+    run grep -c 'DB_UPDATE_RESULT="\${PIPESTATUS\[0\]}"' "$SCRIPT_PATH"
+    [ "$status" -eq 0 ]
+    [ "$output" -ge 1 ]
+}

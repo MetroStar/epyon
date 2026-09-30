@@ -73,3 +73,17 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-trivy-scan.sh"
     grep -q '\-v "\$(to_host_path "\${target}"):/workspace:ro"' "$SCRIPT_PATH"
     grep -q '\-v "\$(to_host_path "\${REPO_PATH}"):/workspace:ro"' "$SCRIPT_PATH"
 }
+
+@test "run-trivy-scan.sh captures the real DB update exit code via PIPESTATUS, not tee's" {
+    # Regression test: 'cmd | tee -a log; RESULT=\$?' silently masks 'cmd's failure
+    # because \$? reflects tee's exit status (almost always 0), not the DB
+    # download's. This made 'trivy image --download-db-only' failures on ephemeral
+    # CI runners silently report "updated successfully" while actually scanning
+    # with a stale/incomplete database, producing under-reported findings with no
+    # visible warning.
+    run grep -c 'DB_UPDATE_RESULT=\$?' "$SCRIPT_PATH"
+    [ "$status" -ne 0 ] || [ "$output" -eq 0 ]
+    run grep -c 'DB_UPDATE_RESULT="\${PIPESTATUS\[0\]}"' "$SCRIPT_PATH"
+    [ "$status" -eq 0 ]
+    [ "$output" -ge 2 ]
+}

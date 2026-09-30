@@ -35,3 +35,17 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-xeol-scan.sh"
 @test "run-xeol-scan.sh uses xeol image" {
     grep -q "noqcks/xeol" "$SCRIPT_PATH"
 }
+
+@test "run-xeol-scan.sh captures the real DB update exit code via PIPESTATUS, not tee's" {
+    # Regression test: 'cmd | tee -a log; RESULT=\$?' silently masks 'cmd's failure
+    # because \$? reflects tee's exit status (almost always 0), not the DB
+    # update's. This made 'xeol db update' failures on ephemeral CI runners
+    # silently report "updated successfully" while actually scanning with a
+    # stale/incomplete EOL database, producing under-reported findings with no
+    # visible warning.
+    run grep -c 'DB_UPDATE_RESULT=\$?' "$SCRIPT_PATH"
+    [ "$status" -ne 0 ] || [ "$output" -eq 0 ]
+    run grep -c 'DB_UPDATE_RESULT="\${PIPESTATUS\[0\]}"' "$SCRIPT_PATH"
+    [ "$status" -eq 0 ]
+    [ "$output" -ge 1 ]
+}

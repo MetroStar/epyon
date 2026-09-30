@@ -218,7 +218,8 @@ if command -v grype >/dev/null 2>&1; then
     echo "Using local Grype: $LOCAL_GRYPE" >> "$SCAN_LOG"
     # Update local vulnerability database
     echo -e "${CYAN}📥 Updating Grype vulnerability database...${NC}"
-    grype db update 2>&1 | tee -a "$SCAN_LOG" || true
+    grype db update 2>&1 | tee -a "$SCAN_LOG"
+    DB_UPDATE_RESULT="${PIPESTATUS[0]}"
 else
     # Check if container runtime is available
     if [ -z "${CONTAINER_CLI:-}" ]; then
@@ -250,10 +251,10 @@ else
         -v "$GRYPE_CACHE_VOL:/cache" \
         anchore/grype:latest \
         db update 2>&1 | tee -a "$SCAN_LOG"
+    DB_UPDATE_RESULT="${PIPESTATUS[0]}"
 fi
 
-DB_UPDATE_RESULT=$?
-if [ $DB_UPDATE_RESULT -eq 0 ]; then
+if [ "$DB_UPDATE_RESULT" -eq 0 ]; then
     echo -e "${GREEN}✅ Grype vulnerability database updated successfully${NC}"
 else
     echo -e "${YELLOW}⚠️  Database update had issues (exit code: $DB_UPDATE_RESULT)${NC}"

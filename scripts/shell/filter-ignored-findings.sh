@@ -49,20 +49,20 @@ is_tool_ignored() {
     
     local ignored=$(jq -r --arg tool "$tool_name" '
         .ignores[] | 
-        select(.type == "tool" and (.value | ascii_downcase) == ($tool | ascii_downcase)) |
+        select(.type == "tool" and (.value | ascii_downcase) == ($tool | ascii_downcase) and .expired == false) |
         .value
     ' "$IGNORE_CACHE" 2>/dev/null || echo "")
     
     if [[ -n "$ignored" ]]; then
         local reason=$(jq -r --arg tool "$tool_name" '
             .ignores[] | 
-            select(.type == "tool" and (.value | ascii_downcase) == ($tool | ascii_downcase)) |
+            select(.type == "tool" and (.value | ascii_downcase) == ($tool | ascii_downcase) and .expired == false) |
             .reason
         ' "$IGNORE_CACHE" 2>/dev/null || echo "No reason provided")
         
         local approved_by=$(jq -r --arg tool "$tool_name" '
             .ignores[] | 
-            select(.type == "tool" and (.value | ascii_downcase) == ($tool | ascii_downcase)) |
+            select(.type == "tool" and (.value | ascii_downcase) == ($tool | ascii_downcase) and .expired == false) |
             .approved_by // "Not specified"
         ' "$IGNORE_CACHE" 2>/dev/null || echo "Not specified")
         

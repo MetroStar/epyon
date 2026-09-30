@@ -118,3 +118,68 @@ EOF
     [ "$status" -ne 0 ]
     rm -f "$CACHE" "$LOG"
 }
+
+@test "filter-ignored-findings.sh is_tool_ignored suppresses a non-expired tool rule" {
+    local CACHE
+    CACHE=$(mktemp)
+    cat > "$CACHE" << 'EOF'
+{
+  "ignores": [
+    {
+      "type": "tool",
+      "value": "checkov",
+      "reason": "False positives from Terraform checks",
+      "approved_by": "test",
+      "expires": "2099-01-01",
+      "expired": false
+    }
+  ]
+}
+EOF
+    local LOG
+    LOG=$(mktemp)
+
+    run bash -c "
+        IGNORE_CACHE='$CACHE'
+        SUPPRESSED_LOG='$LOG'
+        source '$SCRIPT_PATH'
+        is_tool_ignored 'checkov'
+    "
+    [ "$status" -eq 0 ]
+    rm -f "$CACHE" "$LOG"
+}
+
+@test "filter-ignored-findings.sh is_tool_ignored does NOT suppress an expired tool rule" {
+    # Regression test: is_tool_ignored previously matched on type+value alone,
+    # never checking .expired, so a "type: tool" suppression (e.g. checkov,
+    # or anchore normalized from "type: anchore") never actually expired no
+    # matter what `expires:` date was set in .epyon-ignore.yml.
+    local CACHE
+    CACHE=$(mktemp)
+    cat > "$CACHE" << 'EOF'
+{
+  "ignores": [
+    {
+      "type": "tool",
+      "value": "checkov",
+      "reason": "False positives from Terraform checks",
+      "approved_by": "test",
+      "expires": "2020-01-01",
+      "expired": true
+    }
+  ]
+}
+EOF
+    local LOG
+    LOG=$(mktemp)
+
+    run bash -c "
+        IGNORE_CACHE='$CACHE'
+        SUPPRESSED_LOG='$LOG'
+        source '$SCRIPT_PATH'
+        is_tool_ignored 'checkov'
+    "
+    [ "$status" -ne 0 ]
+    rm -f "$CACHE" "$LOG"
+}
+

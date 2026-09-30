@@ -2974,6 +2974,20 @@ async def calculate_scorecard(scan_id: str, response: Response):
     if not trl_script.exists():
         raise HTTPException(500, "TRL scoring script not found")
 
+    # The scorecard needs the consolidated findings summary, which is only
+    # produced by a full run of the scan pipeline (generate-scan-findings-summary.sh).
+    # Older/interrupted/partial scans (e.g. one tool crashed before consolidation
+    # ran) legitimately won't have it — that's a data-availability problem, not a
+    # server error, so surface it as 422 with an actionable message instead of a
+    # generic 500 that looks like a bug.
+    if not (scan_dir / "security-findings-summary.json").exists():
+        raise HTTPException(
+            422,
+            "Score Card unavailable: this scan doesn't have consolidated findings "
+            "data (security-findings-summary.json). This happens with older or "
+            "interrupted scans. Re-run the scan to generate a Score Card.",
+        )
+
     # Run TRL calculation
     import subprocess
     result = subprocess.run(
@@ -2997,6 +3011,7 @@ async def calculate_scorecard(scan_id: str, response: Response):
         raise HTTPException(500, f"Failed to parse score results: {exc}")
 
     return {"scan_id": scan_id, **trl_data}
+
 
 
 @app.post("/api/executive-summary")

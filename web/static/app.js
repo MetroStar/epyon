@@ -814,7 +814,10 @@ const api = {
     if (!r.ok) {
       let detail = r.statusText;
       try { detail = (await r.json()).detail || detail; } catch (_) {}
-      throw new Error(`${detail} (${r.status})`);
+      const err = new Error(`${detail} (${r.status})`);
+      err.status = r.status;
+      err.detail = detail;
+      throw err;
     }
     
     // Invalidate cache on mutations
@@ -7313,9 +7316,18 @@ async function calculateScorecardForScan(scanId) {
     const scorecardData = await api.calculateScorecard(scanId);
     container.innerHTML = buildScorecardCard(scorecardData);
   } catch (e) {
+    // 422 = "no consolidated findings data yet" — an expected state for older/
+    // interrupted/partial scans, not a server bug. Render it as an informational
+    // notice rather than a scary red "Error" so users aren't alarmed.
+    const isUnavailable = e.status === 422;
+    const accentColor = isUnavailable ? 'var(--text-muted)' : 'var(--critical)';
+    const badgeLabel   = isUnavailable ? 'Unavailable' : 'Error';
+    const bodyMessage  = isUnavailable
+      ? esc(e.detail || e.message)
+      : `<strong>Error:</strong> ${esc(e.detail || e.message)}`;
     container.innerHTML = `
       <div class="section findings-section-wrapper">
-        <details class="findings-collapsible" style="border-left-color:var(--critical)">
+        <details class="findings-collapsible" style="border-left-color:${accentColor}">
           <summary class="findings-summary">
             <span class="findings-summary-left">
               <span class="findings-chevron" aria-hidden="true"></span>
@@ -7330,10 +7342,10 @@ async function calculateScorecardForScan(scanId) {
                 Security Score Card
               </span>
             </span>
-            <span style="color:var(--critical);font-size:12px">Error</span>
+            <span style="color:${accentColor};font-size:12px">${badgeLabel}</span>
           </summary>
           <div class="findings-body" style="padding:12px 18px 16px">
-            <p style="color:var(--critical);font-size:13px;margin:0"><strong>Error:</strong> ${esc(e.message)}</p>
+            <p style="color:${accentColor};font-size:13px;margin:0">${bodyMessage}</p>
           </div>
         </details>
       </div>`;

@@ -864,13 +864,14 @@ const api = {
   saveGitHubConfig(d) { return this._post('/api/github/config', d); },
   triggerGitHubSync() { return this._post('/api/github/sync', {}); },
   getGitHubSyncStatus(){ return this._get('/api/github/sync'); },
-  triggerScan(target, scanType, runGarak, runStig = true) {
+  triggerScan(target, scanType, runGarak, runStig = true, layers = null) {
     const body = { target, scan_type: scanType };
     if (runGarak) body.run_garak = true;
     if (runStig)  body.run_stig  = true;
+    if (layers && layers.length) body.layers = layers;
     return this._post('/api/scans', body);
   },
-  triggerScanUpload(file, scanType, runGarak, runStig = true, onProgress = null) {
+  triggerScanUpload(file, scanType, runGarak, runStig = true, onProgress = null, layers = null) {
     // Uses XMLHttpRequest (rather than fetch) specifically so we can surface
     // upload progress — a project zip can be tens/hundreds of MB, and with
     // no feedback the UI just looks frozen on "Starting..." the whole time.
@@ -879,6 +880,7 @@ const api = {
     form.append('scan_type', scanType);
     if (runGarak) form.append('run_garak', 'true');
     if (runStig)  form.append('run_stig', 'true');
+    if (layers && layers.length) form.append('layers', JSON.stringify(layers));
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/api/scans/upload');
@@ -4009,6 +4011,12 @@ async function renderNewScan(prefill = '') {
             <small>Select one or more scan types to run sequentially against the same target.</small>
           </div>
 
+          <div class="form-group" id="scan-layer-picker-wrapper">
+            <label>Scan Layers</label>
+            ${renderScanLayerPicker()}
+            <small>Only applies to Full, Nightly and Baseline scan types — Quick, STIG, and Local Model always run their fixed layer set.</small>
+          </div>
+
           <div class="form-group" id="garak-checkbox-row">
             <label>Garak LLM Scan (Layer 12)</label>
             <div class="seg-ctrl" id="garak-ctrl">
@@ -4084,6 +4092,65 @@ function setScanTypeCheckboxes(checked) {
   _onScanTypeSelectionChange();
 }
 
+// Layers selectable in the "Scan Layers" picker on the Run Scan page —
+// mirrors the Performance page's self-diagnostic layer picker (SELF_DIAG_LAYERS)
+// and the LAYER_SKIP_ENV mapping in web/api/jobs.py. Layer 3 (Sonar, gated on
+// SONAR_TOKEN), Layer 12 (Garak) and Layer 13 (STIG) are deliberately excluded
+// — they already have their own dedicated opt-in controls below — and Layer 20
+// (ML Runtime) is opt-in-only and not yet exposed as a picker option.
+const SCAN_LAYER_OPTIONS = [
+  { n: '1',  name: 'SBOM Generation' },
+  { n: '2',  name: 'Secret Detection' },
+  { n: '4',  name: 'Malware Detection' },
+  { n: '5',  name: 'Helm Chart Build' },
+  { n: '6',  name: 'IaC Security' },
+  { n: '7',  name: 'Container Security' },
+  { n: '8',  name: 'Vulnerability Scanning' },
+  { n: '8.5', name: 'Direct Dependency Scanning (pip-audit)' },
+  { n: '9',  name: 'EOL Detection' },
+  { n: '10', name: 'Container Analysis' },
+  { n: '11', name: 'API Discovery' },
+  { n: '14', name: 'Model File Analysis' },
+  { n: '15', name: 'Model Card Compliance' },
+  { n: '16', name: 'Network Discovery' },
+  { n: '18', name: 'Model Provenance & Threat Intel' },
+  { n: '19', name: 'Inference Environment Security' },
+  { n: '21', name: 'Compromised Source Detection' },
+];
+
+function renderScanLayerPicker() {
+  const boxes = SCAN_LAYER_OPTIONS.map(l => `
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input)">
+      <input type="checkbox" class="scan-layer-checkbox" value="${l.n}" checked>
+      <span>L${l.n} — ${esc(l.name)}</span>
+    </label>`).join('');
+  return `
+    <details>
+      <summary style="cursor:pointer;font-size:13px;color:var(--text-muted)">Select layers to run (defaults to all)</summary>
+      <div style="margin-top:10px">
+        <div style="margin-bottom:8px">
+          <button type="button" class="btn btn-sm" onclick="setScanLayerCheckboxes(true)">Select All</button>
+          <button type="button" class="btn btn-sm" onclick="setScanLayerCheckboxes(false)">Select None</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">${boxes}</div>
+      </div>
+    </details>`;
+}
+
+function setScanLayerCheckboxes(checked) {
+  document.querySelectorAll('.scan-layer-checkbox').forEach(cb => { cb.checked = checked; });
+}
+
+// Returns the checked layer numbers, or null if every layer is selected
+// (the default — omit the override entirely so scan-type defaults apply
+// unchanged, same as before this picker existed).
+function _getSelectedScanLayers() {
+  const boxes = Array.from(document.querySelectorAll('.scan-layer-checkbox'));
+  if (boxes.length === 0) return null;
+  const checked = boxes.filter(cb => cb.checked).map(cb => cb.value);
+  return checked.length === boxes.length ? null : checked;
+}
+
 function _getSelectedScanTypes() {
   return Array.from(document.querySelectorAll('.scan-type-checkbox'))
     .filter(cb => cb.checked).map(cb => cb.value);
@@ -4098,13 +4165,17 @@ function _onScanTypeSelectionChange() {
       ? '/absolute/path/to/models  (e.g. /opt/models/llama3)'
       : '/absolute/path/to/project  or  https://github.com/org/repo.git';
   }
-  // Show Garak / STIG toggles if any selected type supports those layers
+  // Show Garak / STIG toggles and the layer picker only if any selected
+  // type supports granular layer control (quick/stig/local_model always
+  // run their own fixed, narrow layer set regardless of these controls).
   const optInModes = ['full', 'nightly', 'baseline'];
   const anyOptIn = modes.some(m => optInModes.includes(m));
   const garakRow = document.getElementById('garak-checkbox-row');
   if (garakRow) garakRow.style.display = anyOptIn ? '' : 'none';
   const stigRow = document.getElementById('stig-checkbox-row');
   if (stigRow) stigRow.style.display = anyOptIn ? '' : 'none';
+  const layerPickerRow = document.getElementById('scan-layer-picker-wrapper');
+  if (layerPickerRow) layerPickerRow.style.display = anyOptIn ? '' : 'none';
 }
 
 function _setGarak(value) {
@@ -4141,6 +4212,7 @@ async function submitScan() {
   const runGarak  = activeGarak?.dataset.value === 'on';
   const activeStig = document.querySelector('#stig-ctrl .seg-btn.active');
   const runStig   = activeStig ? activeStig.dataset.value === 'on' : false;
+  const selectedLayers = _getSelectedScanLayers();
   const btn       = document.getElementById('run-btn');
 
   const activeMode = document.querySelector('#target-mode-ctrl .seg-btn.active')?.dataset.value || 'path';
@@ -4180,7 +4252,7 @@ async function submitScan() {
   const cancelBtn = document.getElementById('cancel-btn');
   if (cancelBtn) { cancelBtn.disabled = false; cancelBtn.textContent = '✕ Cancel'; cancelBtn.style.display = 'inline-flex'; }
 
-  runNextQueuedScan(btn, { activeMode, target, uploadFile, runGarak, runStig });
+  runNextQueuedScan(btn, { activeMode, target, uploadFile, runGarak, runStig, selectedLayers });
 }
 
 async function runNextQueuedScan(btn, ctx) {
@@ -4210,11 +4282,15 @@ async function runNextQueuedScan(btn, ctx) {
   btn.textContent = `⏳ Running ${idx}/${_scanQueueTotal}…`;
 
   try {
+    // The layer picker only applies to scan types with a flexible layer
+    // set (full/nightly/baseline) — quick/stig/local_model always run
+    // their own fixed, narrow set regardless of checkbox state.
+    const layersForThisType = ['full', 'nightly', 'baseline'].includes(scanType) ? ctx.selectedLayers : null;
     const job = ctx.activeMode === 'upload'
       ? await api.triggerScanUpload(ctx.uploadFile, scanType, ctx.runGarak, ctx.runStig, (pct, done) => {
           btn.textContent = done ? '⏳ Extracting on server…' : `⏳ Uploading… ${pct}%`;
-        })
-      : await api.triggerScan(ctx.target, scanType, ctx.runGarak, ctx.runStig);
+        }, layersForThisType)
+      : await api.triggerScan(ctx.target, scanType, ctx.runGarak, ctx.runStig, layersForThisType);
     _activeJobId = job.job_id;
     clearInterval(_pollInterval);
     _pollInterval = setInterval(() => pollJob(job.job_id, btn, scanType, label, ctx), 2000);

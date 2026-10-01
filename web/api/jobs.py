@@ -19,6 +19,35 @@ _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[mGKHF]")
 JOB_TIMEOUT_SECONDS = 7200  # 2 hours
 OUTPUT_BUFFER_MAX   = 10000
 
+# Maps each togglable scan layer number to the SKIP_<TOOL> environment
+# variable run-epyon-scan-ci.sh checks to decide whether to run it, letting
+# the Run Scan page's layer picker override scan-type defaults. Layer 3
+# (Sonar, gated on SONAR_TOKEN), Layer 12 (Garak) and Layer 13 (STIG) are
+# deliberately excluded — they already have their own dedicated opt-in
+# controls — and Layer 20 (ML Runtime) is opt-in-only and not yet exposed
+# as a picker option. Mirrors (minus 13) _SELF_ASSESSMENT_VALID_LAYERS in
+# web/api/main.py, which validates the same layer numbers for the
+# self-assessment harness.
+LAYER_SKIP_ENV: dict[str, str] = {
+    "1":    "SKIP_SBOM",
+    "2":    "SKIP_TRUFFLEHOG",
+    "4":    "SKIP_CLAMAV",
+    "5":    "SKIP_HELM",
+    "6":    "SKIP_CHECKOV",
+    "7":    "SKIP_TRIVY",
+    "8":    "SKIP_GRYPE",
+    "8.5":  "SKIP_PIP_AUDIT",
+    "9":    "SKIP_XEOL",
+    "10":   "SKIP_ANCHORE",
+    "11":   "SKIP_API_DISCOVERY",
+    "14":   "SKIP_PICKLESCAN",
+    "15":   "SKIP_MODELCARD",
+    "16":   "SKIP_NETWORK_DISCOVERY",
+    "18":   "SKIP_MODEL_PROVENANCE",
+    "19":   "SKIP_INFERENCE_SECURITY",
+    "21":   "SKIP_COMPROMISED_SOURCE",
+}
+
 # Global stores
 jobs:  dict[str, dict[str, Any]] = {}
 procs: dict[str, asyncio.subprocess.Process] = {}
@@ -90,6 +119,7 @@ async def run_scan_job(
     run_stig:  bool = False,
     webhook_url: str = "",
     webhook_secret: str = "",
+    selected_layers: list[str] | None = None,
 ) -> None:
     job = jobs[job_id]
     job["status"] = "running"
@@ -160,16 +190,32 @@ async def run_scan_job(
         f"GARAK_TARGET_TYPE=openai",
         f"GARAK_TARGET_NAME=gpt-4o-mini",
         f"GARAK_PROBES=promptinject,dan,knownbadsignatures,encoding,continuation",
-        "SKIP_SBOM=false",
-        "SKIP_TRUFFLEHOG=false",
-        "SKIP_CLAMAV=false",
-        "SKIP_HELM=false",
-        "SKIP_CHECKOV=false",
-        "SKIP_TRIVY=false",
-        "SKIP_GRYPE=false",
-        "SKIP_XEOL=false",
-        "SKIP_ANCHORE=false",
-        "SKIP_API_DISCOVERY=false",
+    ]
+    if selected_layers is not None and scan_type not in ("local_model", "stig"):
+        # Layer picker override (Run Scan page): explicitly enable/skip
+        # every togglable layer per the user's checkbox selection, taking
+        # precedence over the scan-type defaults below. Layers outside
+        # LAYER_SKIP_ENV (3/Sonar, 12/Garak, 13/STIG, 20/ML Runtime) keep
+        # their own dedicated opt-in logic untouched. Not applied for
+        # local_model/stig scan types — those already run a fixed, narrow
+        # layer set via the overrides further down.
+        selected_set = set(selected_layers)
+        for layer_num, skip_var in LAYER_SKIP_ENV.items():
+            env_lines.append(f"{skip_var}={'false' if layer_num in selected_set else 'true'}")
+    else:
+        env_lines += [
+            "SKIP_SBOM=false",
+            "SKIP_TRUFFLEHOG=false",
+            "SKIP_CLAMAV=false",
+            "SKIP_HELM=false",
+            "SKIP_CHECKOV=false",
+            "SKIP_TRIVY=false",
+            "SKIP_GRYPE=false",
+            "SKIP_XEOL=false",
+            "SKIP_ANCHORE=false",
+            "SKIP_API_DISCOVERY=false",
+        ]
+    env_lines += [
         f"SKIP_STIG={'false' if (run_stig or scan_type == 'stig') else 'true'}",
         f"SCAN_DIR={scan_dir}",
         f"SCAN_NAME={scan_name}",

@@ -1618,7 +1618,19 @@ async def trigger_scan(request: Request, response: Response):
     # run_stig is implicit when scan_type == "stig"; can also be set explicitly
     # for full/nightly scans that should include the STIG layer.
     run_stig  = bool(body.get("run_stig", False)) or scan_type == "stig"
-    
+
+    # Optional per-layer override from the Run Scan page's layer picker —
+    # restricts the scan to exactly these layer numbers (see
+    # job_store.LAYER_SKIP_ENV for the supported set). Omitted/None means
+    # "use the scan type's default layer set", preserving prior behavior.
+    layers = body.get("layers")
+    if layers is not None:
+        if not isinstance(layers, list) or not all(isinstance(l, str) for l in layers):
+            raise HTTPException(400, "layers must be an array of layer number strings")
+        invalid = [l for l in layers if l not in job_store.LAYER_SKIP_ENV]
+        if invalid:
+            raise HTTPException(400, f"Unknown scan layer(s): {', '.join(invalid)}")
+
     # Webhook configuration (optional)
     webhook_url    = (body.get("webhook_url") or "").strip()
     webhook_secret = (body.get("webhook_secret") or "").strip()
@@ -1648,7 +1660,8 @@ async def trigger_scan(request: Request, response: Response):
     asyncio.create_task(
         job_store.run_scan_job(job_id, target, scan_type, script_path, EPYON_ROOT,
                                run_garak=run_garak, run_stig=run_stig,
-                               webhook_url=webhook_url, webhook_secret=webhook_secret)
+                               webhook_url=webhook_url, webhook_secret=webhook_secret,
+                               selected_layers=layers)
     )
     return {"job_id": job_id, "status": "queued"}
 
@@ -1693,6 +1706,7 @@ async def trigger_scan_upload(
     run_stig: bool = Form(False),
     webhook_url: str = Form(""),
     webhook_secret: str = Form(""),
+    layers: str = Form(""),
 ):
     """Scan a project the user uploads as a .zip, rather than a Git URL or
     a path that must already exist on the server's own filesystem. This is
@@ -1707,6 +1721,20 @@ async def trigger_scan_upload(
         raise HTTPException(400, f"scan_type must be one of: {sorted(_VALID_SCAN_TYPES)}")
     if not file.filename or not file.filename.lower().endswith(".zip"):
         raise HTTPException(400, "file must be a .zip archive")
+
+    # Optional per-layer override from the Run Scan page's layer picker,
+    # sent as a JSON-encoded array since multipart form fields are strings.
+    selected_layers = None
+    if layers:
+        try:
+            selected_layers = json.loads(layers)
+        except (ValueError, TypeError):
+            raise HTTPException(400, "layers must be a JSON array of layer number strings")
+        if not isinstance(selected_layers, list) or not all(isinstance(l, str) for l in selected_layers):
+            raise HTTPException(400, "layers must be an array of layer number strings")
+        invalid = [l for l in selected_layers if l not in job_store.LAYER_SKIP_ENV]
+        if invalid:
+            raise HTTPException(400, f"Unknown scan layer(s): {', '.join(invalid)}")
 
     script_path = SCRIPTS_DIR / "run-epyon-scan-ci.sh"
     if not script_path.exists():
@@ -1766,7 +1794,8 @@ async def trigger_scan_upload(
     asyncio.create_task(
         job_store.run_scan_job(job_id, target, scan_type, script_path, EPYON_ROOT,
                                run_garak=run_garak, run_stig=run_stig,
-                               webhook_url=webhook_url, webhook_secret=webhook_secret)
+                               webhook_url=webhook_url, webhook_secret=webhook_secret,
+                               selected_layers=selected_layers)
     )
     return {"job_id": job_id, "status": "queued"}
 

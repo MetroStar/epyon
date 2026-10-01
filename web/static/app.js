@@ -1595,7 +1595,10 @@ async function renderScanDetail(scanId) {
       </div>
 
       <div class="page-header">
-        <h1>Scan Details ${statusBadge(status)}</h1>
+        <div>
+          <h1>Scan Details ${statusBadge(status)}</h1>
+          <p style="color:var(--text-muted)">Findings, compliance, and evidence collected for <strong>${esc(scan.target)}</strong> on ${fmtDate(scan.timestamp)}.</p>
+        </div>
         <div style="display:flex;gap:8px">
           <button class="btn" onclick="navigate('#/jira-review/${encodeURIComponent(scanId)}')"
             title="Select findings to create as Jira tickets">
@@ -1639,43 +1642,43 @@ async function renderScanDetail(scanId) {
         </div>
       </div>
 
-      <div class="detail-grid">
-        <div class="detail-card">
-          <div class="label">Application</div>
-          <div class="value">${esc(scan.target)}</div>
+      <div class="stats-grid" style="margin-bottom:24px">
+        <div class="stat-card">
+          <div class="stat-label">Application</div>
+          <div class="stat-value" style="font-size:17px;word-break:break-word">${esc(scan.target)}</div>
         </div>
-        <div class="detail-card">
-          <div class="label">Scan Type</div>
-          <div class="value">${esc(scanTypeLabel(scan.scan_type))}</div>
+        <div class="stat-card">
+          <div class="stat-label">Scan Type</div>
+          <div class="stat-value" style="font-size:17px;word-break:break-word">${esc(scanTypeLabel(scan.scan_type))}</div>
         </div>
-        <div class="detail-card">
-          <div class="label">User</div>
-          <div class="value">${esc(scan.user || '—')}</div>
+        <div class="stat-card">
+          <div class="stat-label">User</div>
+          <div class="stat-value" style="font-size:17px;word-break:break-word">${esc(scan.user || '—')}</div>
         </div>
-        <div class="detail-card">
-          <div class="label">Timestamp</div>
-          <div class="value" style="font-size:13px">${fmtDate(scan.timestamp)}</div>
+        <div class="stat-card">
+          <div class="stat-label">Timestamp</div>
+          <div class="stat-value" style="font-size:13px">${fmtDate(scan.timestamp)}</div>
         </div>
       </div>
 
       <div class="result-section-box">
         <div class="result-section-box-title">Vulnerabilities</div>
-        <div class="detail-grid" style="margin-bottom:0">
-          <div class="detail-card">
-            <div class="label">Critical</div>
-            <div class="value" style="color:var(--critical)">${esc(scan.critical)}</div>
+        <div class="stats-grid" style="margin-bottom:0">
+          <div class="stat-card critical">
+            <div class="stat-label">Critical</div>
+            <div class="stat-value">${esc(scan.critical)}</div>
           </div>
-          <div class="detail-card">
-            <div class="label">High</div>
-            <div class="value" style="color:var(--high)">${esc(scan.high)}</div>
+          <div class="stat-card high">
+            <div class="stat-label">High</div>
+            <div class="stat-value">${esc(scan.high)}</div>
           </div>
-          <div class="detail-card">
-            <div class="label">Medium</div>
-            <div class="value" style="color:var(--medium)">${esc(scan.medium)}</div>
+          <div class="stat-card medium">
+            <div class="stat-label">Medium</div>
+            <div class="stat-value">${esc(scan.medium)}</div>
           </div>
-          <div class="detail-card">
-            <div class="label">Low</div>
-            <div class="value" style="color:var(--low)">${esc(scan.low)}</div>
+          <div class="stat-card low">
+            <div class="stat-label">Low</div>
+            <div class="stat-value">${esc(scan.low)}</div>
           </div>
         </div>
       </div>
@@ -1701,13 +1704,13 @@ async function renderScanDetail(scanId) {
       ${buildNetworkDiscoveryCard(scan)}
 
       ${scan.file_statistics && Object.keys(scan.file_statistics).length ? `
-        <div class="section">
-          <div class="section-title">File Statistics</div>
-          <div class="detail-grid">
+        <div class="result-section-box">
+          <div class="result-section-box-title">File Statistics</div>
+          <div class="stats-grid" style="margin-bottom:0">
             ${Object.entries(scan.file_statistics).map(([k, v]) => `
-              <div class="detail-card">
-                <div class="label">${esc(k.replace(/_/g, ' '))}</div>
-                <div class="value">${esc(v)}</div>
+              <div class="stat-card">
+                <div class="stat-label">${esc(k.replace(/_/g, ' '))}</div>
+                <div class="stat-value" style="font-size:20px">${esc(v)}</div>
               </div>`).join('')}
           </div>
         </div>` : ''}
@@ -1715,8 +1718,8 @@ async function renderScanDetail(scanId) {
       <div id="scorecard-container"></div>
 
       ${dedupeTools(scan.tools_analyzed).length ? `
-        <div class="section">
-          <div class="section-title">Tools Analyzed</div>
+        <div class="result-section-box">
+          <div class="result-section-box-title">Tools Analyzed</div>
           <div class="tools-list">
             ${dedupeTools(scan.tools_analyzed).map(t =>
               `<span class="tool-tag">${esc(t)}</span>`).join('')}
@@ -3929,6 +3932,15 @@ let _pollInterval = null;
 let _lastLogLen   = 0;
 let _activeJobId  = null;
 
+// Sequential multi-scan-type queue state — when more than one Scan Type
+// checkbox is selected, each type is submitted as its own job, one at a
+// time, against the same target. Results are collected for the final
+// PASS/FAIL summary table (mirrors the Self-Assessment layer results).
+let _scanQueue          = [];   // remaining scan type ids still to run
+let _scanQueueResults   = [];   // [{ type, label, status, reason }]
+let _scanQueueCancelled = false;
+let _scanQueueTotal     = 0;
+
 async function renderNewScan(prefill = '') {
   setActive('new-scan');
   clearInterval(_pollInterval);
@@ -3938,279 +3950,158 @@ async function renderNewScan(prefill = '') {
   const page = document.getElementById('page');
   page.innerHTML = `
     <div class="page-header">
-      <h1>Run New Scan</h1>
+      <div>
+        <h1>Run New Scan</h1>
+        <p style="color:var(--text-muted)">Launch a security scan against a local directory or Git repository —
+          Epyon orchestrates all applicable security layers based on the selected scan type.</p>
+      </div>
     </div>
-    <p class="section-desc">
-      Launch a security scan against a local directory or Git repository.
-      Epyon orchestrates all applicable security layers based on the selected scan type.
-    </p>
 
-    <div class="scan-page-layout">
-      <div class="form-card scan-form-col">
+    <div class="section">
+      <div class="section-title">Scan Configuration</div>
+      <div class="result-section-box">
         <div class="form-group">
           <label>Source</label>
-          <div class="seg-ctrl" id="target-mode-ctrl">
-            <button type="button" class="seg-btn active" data-value="path"
-              onclick="_setTargetMode('path')">Path / Git URL</button>
-            <button type="button" class="seg-btn" data-value="upload"
-              onclick="_setTargetMode('upload')">Upload .zip</button>
+            <div class="seg-ctrl" id="target-mode-ctrl">
+              <button type="button" class="seg-btn active" data-value="path"
+                onclick="_setTargetMode('path')">Path / Git URL</button>
+              <button type="button" class="seg-btn" data-value="upload"
+                onclick="_setTargetMode('upload')">Upload .zip</button>
+            </div>
+            <small>Deployed on a remote server? A typed absolute path is resolved on the
+              <strong>server's</strong> own filesystem, not your machine — use
+              "Upload .zip" to scan a local, not-yet-pushed project instead.</small>
           </div>
-          <small>Deployed on a remote server? A typed absolute path is resolved on the
-            <strong>server's</strong> own filesystem, not your machine — use
-            "Upload .zip" to scan a local, not-yet-pushed project instead.</small>
-        </div>
 
-        <div class="form-group" id="std-target-field">
-          <label for="scan-target">Target</label>
-          <input type="text" id="scan-target" autocomplete="off" spellcheck="false"
-            placeholder="/absolute/path/to/project  or  https://github.com/org/repo.git"
-            value="${esc(prefill)}" />
-          <small>Absolute local directory path, relative path, or Git repository URL (HTTPS/SSH)</small>
-        </div>
-
-        <div class="form-group" id="upload-target-field" style="display:none">
-          <label for="scan-upload">Project archive (.zip)</label>
-          <input type="file" id="scan-upload" accept=".zip" />
-          <small>Zip the project directory (e.g. <code>zip -r project.zip project/</code>) and
-            upload it here. Extracted on the server and scanned like a local path.</small>
-        </div>
-
-        <div class="form-group">
-          <label for="scan-type-sel">Scan Type</label>
-          <select id="scan-type-sel" onchange="updateScanInfo(this.value); _onScanTypeChange(this.value)">
-            <option value="full">Full — All security layers (recommended)</option>
-            <option value="quick">Quick — Fast check: Trivy, TruffleHog, SBOM</option>
-            <option value="nightly">Nightly — Scheduled comprehensive scan (layers 1–12)</option>
-            <option value="baseline">Baseline — Establish initial security benchmark (all layers)</option>
-            <option value="stig">STIG — STIG compliance assessment only (on demand)</option>
-            <option value="local_model">Local Model — Scan model weights in a local directory (layers 14–15)</option>
-          </select>
-        </div>
-
-        <div class="form-group" id="garak-checkbox-row">
-          <label>Garak LLM Scan (Layer 12)</label>
-          <div class="seg-ctrl" id="garak-ctrl">
-            <button type="button" class="seg-btn active" data-value="off"
-              onclick="_setGarak('off')">Off</button>
-            <button type="button" class="seg-btn" data-value="on"
-              onclick="_setGarak('on')">On</button>
+          <div class="form-group" id="std-target-field">
+            <label for="scan-target">Target</label>
+            <input type="text" id="scan-target" autocomplete="off" spellcheck="false"
+              placeholder="/absolute/path/to/project  or  https://github.com/org/repo.git"
+              value="${esc(prefill)}" />
+            <small>Absolute local directory path, relative path, or Git repository URL (HTTPS/SSH)</small>
           </div>
-          <small>Requires <code>OPENAI_API_KEY</code> to be set.</small>
-        </div>
 
-        <div class="form-group" id="stig-checkbox-row">
-          <label>STIG Compliance (Layer 13)</label>
-          <div class="seg-ctrl" id="stig-ctrl">
-            <button type="button" class="seg-btn active" data-value="off"
-              onclick="_setStig('off')">Off</button>
-            <button type="button" class="seg-btn" data-value="on"
-              onclick="_setStig('on')">On</button>
+          <div class="form-group" id="upload-target-field" style="display:none">
+            <label for="scan-upload">Project archive (.zip)</label>
+            <input type="file" id="scan-upload" accept=".zip" />
+            <small>Zip the project directory (e.g. <code>zip -r project.zip project/</code>) and
+              upload it here. Extracted on the server and scanned like a local path.</small>
           </div>
-          <small>Requires <code>OPENAI_API_KEY</code> to be set.</small>
-        </div>
 
-        <div class="form-group">
-          <label>Monitoring Type</label>
-          <div class="seg-ctrl" id="monitoring-type-ctrl">
-            <button type="button" class="seg-btn active" data-value="evaluation"
-              onclick="_setMonitoringType('evaluation')">
-              &#9675; Evaluation
-            </button>
-            <button type="button" class="seg-btn" data-value="continuous"
-              onclick="_setMonitoringType('continuous')">
-              &#9679; Continuous
-            </button>
+          <div class="form-group">
+            <label>Scan Types</label>
+            <div style="margin-bottom:8px">
+              <button type="button" class="btn btn-sm" onclick="setScanTypeCheckboxes(true)">Select All</button>
+              <button type="button" class="btn btn-sm" onclick="setScanTypeCheckboxes(false)">Select None</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:8px">
+              ${SCAN_TYPE_OPTIONS.map(t => `
+                <label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input)">
+                  <input type="checkbox" class="scan-type-checkbox" value="${t.id}"
+                    ${t.id === 'full' ? 'checked' : ''} onchange="_onScanTypeSelectionChange()">
+                  <span>${esc(t.label)}</span>
+                </label>`).join('')}
+            </div>
+            <small>Select one or more scan types to run sequentially against the same target.</small>
           </div>
-          <small>Continuous apps are tracked in Metrics. Evaluation apps are excluded.</small>
-        </div>
 
-        <button id="run-btn" class="btn btn-primary" onclick="submitScan()">
-          ▶ Run Scan
-        </button>
+          <div class="form-group" id="garak-checkbox-row">
+            <label>Garak LLM Scan (Layer 12)</label>
+            <div class="seg-ctrl" id="garak-ctrl">
+              <button type="button" class="seg-btn active" data-value="off"
+                onclick="_setGarak('off')">Off</button>
+              <button type="button" class="seg-btn" data-value="on"
+                onclick="_setGarak('on')">On</button>
+            </div>
+            <small>Requires <code>OPENAI_API_KEY</code> to be set.</small>
+          </div>
+
+          <div class="form-group" id="stig-checkbox-row">
+            <label>STIG Compliance (Layer 13)</label>
+            <div class="seg-ctrl" id="stig-ctrl">
+              <button type="button" class="seg-btn active" data-value="off"
+                onclick="_setStig('off')">Off</button>
+              <button type="button" class="seg-btn" data-value="on"
+                onclick="_setStig('on')">On</button>
+            </div>
+            <small>Requires <code>OPENAI_API_KEY</code> to be set.</small>
+          </div>
+
+          <div class="form-group">
+            <label>Monitoring Type</label>
+            <div class="seg-ctrl" id="monitoring-type-ctrl">
+              <button type="button" class="seg-btn active" data-value="evaluation"
+                onclick="_setMonitoringType('evaluation')">
+                &#9675; Evaluation
+              </button>
+              <button type="button" class="seg-btn" data-value="continuous"
+                onclick="_setMonitoringType('continuous')">
+                &#9679; Continuous
+              </button>
+            </div>
+            <small>Continuous apps are tracked in Metrics. Evaluation apps are excluded.</small>
+          </div>
+
+          <button id="run-btn" class="btn btn-primary" style="width:100%;justify-content:center" onclick="submitScan()">
+            ▶ Run Scan
+          </button>
+        </div>
       </div>
-
-      <div class="scan-info-panel" id="scan-info-panel"></div>
     </div>
 
-    <div id="scan-output" style="display:none">
-      <div style="margin-top:28px;margin-bottom:12px;display:flex;align-items:center;gap:12px">
-        <div id="job-status-bar"></div>
-        <button id="cancel-btn" class="btn btn-sm" style="display:none"
-                onclick="cancelScan()">✕ Cancel</button>
+    <div id="scan-output-section" class="section" style="display:none">
+      <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <span>Scan Progress</span>
+        <span style="display:flex;align-items:center;gap:12px">
+          <div id="job-status-bar"></div>
+          <button id="cancel-btn" class="btn btn-sm" style="display:none"
+                  onclick="cancelScan()">✕ Cancel</button>
+        </span>
       </div>
       <div class="log-card" id="log-output"></div>
       <div id="scan-actions" style="display:none;gap:10px;margin-top:16px"></div>
+      <div id="scan-type-results" style="margin-top:20px"></div>
     </div>`;
-
-  updateScanInfo('full');
 }
 
-const _SCAN_MODE_INFO = {
-  full: {
-    label: 'Full Scan',
-    desc: 'Comprehensive security assessment running all available layers. Recommended for thorough coverage.',
-    layers: [
-      { n: 1,  name: 'SBOM Generation',        tool: 'Syft' },
-      { n: 2,  name: 'Secret Detection',        tool: 'TruffleHog' },
-      { n: 3,  name: 'Code Quality',            tool: 'SonarQube' },
-      { n: 4,  name: 'Malware Detection',       tool: 'ClamAV' },
-      { n: 5,  name: 'Helm Chart Build',        tool: 'Helm' },
-      { n: 6,  name: 'Infrastructure Security', tool: 'Checkov' },
-      { n: 7,  name: 'Container Security',      tool: 'Trivy' },
-      { n: 8,  name: 'Vulnerability Detection', tool: 'Grype' },
-      { n: 9,  name: 'End-of-Life Detection',   tool: 'Xeol' },
-      { n: 10, name: 'Anchore Security',        tool: 'Anchore' },
-      { n: 11, name: 'API Discovery',           tool: 'Custom' },
-      { n: 12, name: 'LLM Security',            tool: 'Garak',      apiKey: true, optional: true },
-      { n: 13, name: 'STIG Compliance',         tool: 'GPT-4.1-mini', apiKey: true, optional: true },
-      { n: 14, name: 'Pickle / Serialization Safety', tool: 'picklescan' },
-      { n: 15, name: 'Model Card Compliance',    tool: 'modelcard' },
-      { n: 16, name: 'Network Discovery',        tool: 'nmap + Static' },
-    ],
-    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.', 'Layer 13 (STIG) requires OPENAI_API_KEY. Runs unless SKIP_STIG=true.', 'Layer 16 active nmap scan is opt-in: set NMAP_TARGET=<host>.'],
-  },
-  nightly: {
-    label: 'Nightly Scan',
-    desc: 'Identical to Full. Designed for scheduled overnight runs — all 16 layers including STIG.',
-    layers: [
-      { n: 1,  name: 'SBOM Generation',        tool: 'Syft' },
-      { n: 2,  name: 'Secret Detection',        tool: 'TruffleHog' },
-      { n: 3,  name: 'Code Quality',            tool: 'SonarQube' },
-      { n: 4,  name: 'Malware Detection',       tool: 'ClamAV' },
-      { n: 5,  name: 'Helm Chart Build',        tool: 'Helm' },
-      { n: 6,  name: 'Infrastructure Security', tool: 'Checkov' },
-      { n: 7,  name: 'Container Security',      tool: 'Trivy' },
-      { n: 8,  name: 'Vulnerability Detection', tool: 'Grype' },
-      { n: 9,  name: 'End-of-Life Detection',   tool: 'Xeol' },
-      { n: 10, name: 'Anchore Security',        tool: 'Anchore' },
-      { n: 11, name: 'API Discovery',           tool: 'Custom' },
-      { n: 12, name: 'LLM Security',            tool: 'Garak',      apiKey: true, optional: true },
-      { n: 13, name: 'STIG Compliance',         tool: 'GPT-4.1-mini', apiKey: true, optional: true },
-      { n: 14, name: 'Pickle / Serialization Safety', tool: 'picklescan' },
-      { n: 15, name: 'Model Card Compliance',    tool: 'modelcard' },
-      { n: 16, name: 'Network Discovery',        tool: 'nmap + Static' },
-    ],
-    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.', 'Layer 13 (STIG) requires OPENAI_API_KEY. Runs unless SKIP_STIG=true.', 'Layer 16 active nmap scan is opt-in: set NMAP_TARGET=<host>.'],
-  },
-  quick: {
-    label: 'Quick Scan',
-    desc: 'Fast security check for rapid feedback. Skips heavier analysis tools to minimize runtime.',
-    layers: [
-      { n: 1,  name: 'SBOM Generation',        tool: 'Syft' },
-      { n: 2,  name: 'Secret Detection',        tool: 'TruffleHog' },
-      { n: 7,  name: 'Container Security',      tool: 'Trivy' },
-      { n: 8,  name: 'Vulnerability Detection', tool: 'Grype' },
-      { n: 9,  name: 'End-of-Life Detection',   tool: 'Xeol' },
-      { n: 11, name: 'API Discovery',           tool: 'Custom' },
-    ],
-    notes: ['Skips: SonarQube, ClamAV, Checkov, Anchore, Garak, STIG.'],
-  },
-  stig: {
-    label: 'STIG Scan',
-    desc: 'STIG compliance assessment only (Layer 13). All other layers are skipped.',
-    layers: [
-      { n: 13, name: 'STIG Compliance',         tool: 'GPT-4.1-mini', apiKey: true },
-    ],
-    notes: [],
-  },
-  baseline: {
-    label: 'Baseline Scan',
-    desc: 'Establishes an initial security benchmark for a repository. Runs all layers — use this for a first-time scan before enabling nightly runs.',
-    layers: [
-      { n: 1,  name: 'SBOM Generation',        tool: 'Syft' },
-      { n: 2,  name: 'Secret Detection',        tool: 'TruffleHog' },
-      { n: 3,  name: 'Code Quality',            tool: 'SonarQube' },
-      { n: 4,  name: 'Malware Detection',       tool: 'ClamAV' },
-      { n: 5,  name: 'Helm Chart Build',        tool: 'Helm' },
-      { n: 6,  name: 'Infrastructure Security', tool: 'Checkov' },
-      { n: 7,  name: 'Container Security',      tool: 'Trivy' },
-      { n: 8,  name: 'Vulnerability Detection', tool: 'Grype' },
-      { n: 9,  name: 'End-of-Life Detection',   tool: 'Xeol' },
-      { n: 10, name: 'Anchore Security',        tool: 'Anchore' },
-      { n: 11, name: 'API Discovery',           tool: 'Custom' },
-      { n: 12, name: 'LLM Security',            tool: 'Garak',      apiKey: true, optional: true },
-      { n: 13, name: 'STIG Compliance',         tool: 'GPT-4.1-mini', apiKey: true, optional: true },
-      { n: 14, name: 'Pickle / Serialization Safety', tool: 'picklescan' },
-      { n: 15, name: 'Model Card Compliance',    tool: 'modelcard' },
-      { n: 16, name: 'Network Discovery',        tool: 'nmap + Static' },
-    ],
-    notes: ['Layer 12 (Garak) is opt-in. Set RUN_GARAK=true to enable.', 'Layer 13 (STIG) requires OPENAI_API_KEY. Runs unless SKIP_STIG=true.', 'Layer 16 active nmap scan is opt-in: set NMAP_TARGET=<host>.'],
-  },
-  local_model: {
-    label: 'Local Model Scan',
-    desc: 'Scan a local directory containing AI/ML model weight files. Inventories all weight formats, checks for malicious pickle opcodes, and validates model card compliance. No git clone needed.',
-    layers: [
-      { n: 4,  name: 'Malware Detection (ClamAV)',    tool: 'ClamAV' },
-      { n: 14, name: 'Pickle / Serialization Safety', tool: 'picklescan' },
-      { n: 15, name: 'Model Card Compliance',         tool: 'modelcard' },
-    ],
-    notes: [
-      'Point at the directory where model weights live (e.g. /opt/models/llama3).',
-      'Detects .pkl, .pt, .bin, .ckpt and other risky formats.',
-      'Reports safe alternatives: .safetensors, .onnx, .gguf.',
-    ],
-  },
-};
+// Scan types selectable in the "Scan Types" checkbox picker — mirrors the
+// self-diagnostic layer picker's select-all/select-none + checkbox grid UX.
+const SCAN_TYPE_OPTIONS = [
+  { id: 'full',        label: 'Full — All security layers (recommended)' },
+  { id: 'quick',       label: 'Quick — Fast check: Trivy, TruffleHog, SBOM' },
+  { id: 'nightly',     label: 'Nightly — Scheduled comprehensive scan (layers 1–12)' },
+  { id: 'baseline',    label: 'Baseline — Establish initial security benchmark (all layers)' },
+  { id: 'stig',        label: 'STIG — STIG compliance assessment only (on demand)' },
+  { id: 'local_model', label: 'Local Model — Scan model weights in a local directory (layers 14–15)' },
+];
 
-function _onScanTypeChange(mode) {
+function setScanTypeCheckboxes(checked) {
+  document.querySelectorAll('.scan-type-checkbox').forEach(cb => { cb.checked = checked; });
+  _onScanTypeSelectionChange();
+}
+
+function _getSelectedScanTypes() {
+  return Array.from(document.querySelectorAll('.scan-type-checkbox'))
+    .filter(cb => cb.checked).map(cb => cb.value);
+}
+
+function _onScanTypeSelectionChange() {
+  const modes = _getSelectedScanTypes();
+
   const inp = document.getElementById('scan-target');
   if (inp && !inp.value) {
-    inp.placeholder = mode === 'local_model'
+    inp.placeholder = (modes.length === 1 && modes[0] === 'local_model')
       ? '/absolute/path/to/models  (e.g. /opt/models/llama3)'
       : '/absolute/path/to/project  or  https://github.com/org/repo.git';
   }
-  // Show Garak / STIG toggles only for modes where those layers apply
+  // Show Garak / STIG toggles if any selected type supports those layers
   const optInModes = ['full', 'nightly', 'baseline'];
+  const anyOptIn = modes.some(m => optInModes.includes(m));
   const garakRow = document.getElementById('garak-checkbox-row');
-  if (garakRow) garakRow.style.display = optInModes.includes(mode) ? '' : 'none';
+  if (garakRow) garakRow.style.display = anyOptIn ? '' : 'none';
   const stigRow = document.getElementById('stig-checkbox-row');
-  if (stigRow) stigRow.style.display = optInModes.includes(mode) ? '' : 'none';
+  if (stigRow) stigRow.style.display = anyOptIn ? '' : 'none';
 }
-
-window.updateScanInfo = (mode) => {
-  const panel = document.getElementById('scan-info-panel');
-  if (!panel) return;
-  const info = _SCAN_MODE_INFO[mode];
-  if (!info) { panel.innerHTML = ''; return; }
-
-  const hasApiKey = info.layers.some(l => l.apiKey);
-  const layerRows = info.layers.map(l => {
-    const badge = l.apiKey
-      ? `<span class="scan-info-key-badge" title="Requires OpenAI API key">API key</span>`
-      : '';
-    const optBadge = l.optional
-      ? `<span class="scan-info-opt-badge">opt-in</span>`
-      : '';
-    return `
-      <div class="scan-info-layer">
-        <span class="scan-info-layer-num">${l.n}</span>
-        <span class="scan-info-layer-name">${esc(l.name)}</span>
-        <span class="scan-info-layer-tool">${esc(l.tool)}</span>
-        <span class="scan-info-badges">${badge}${optBadge}</span>
-      </div>`;
-  }).join('');
-
-  const apiKeyNotice = hasApiKey ? `
-    <div class="scan-info-apikey-notice">
-      <span class="scan-info-notice-icon">🔑</span>
-      <span><strong>OpenAI API key required</strong> for Garak and STIG layers.
-      Set the <code>OPENAI_API_KEY</code> environment variable before running.</span>
-    </div>` : '';
-
-  const notesHtml = info.notes.length
-    ? info.notes.map(n => `<div class="scan-info-note">ℹ ${esc(n)}</div>`).join('')
-    : '';
-
-  panel.innerHTML = `
-    <div class="scan-info-header">
-      <div class="scan-info-title">${esc(info.label)}</div>
-      <div class="scan-info-desc">${esc(info.desc)}</div>
-    </div>
-    <div class="scan-info-layers-label">Layers included</div>
-    <div class="scan-info-layers">${layerRows}</div>
-    ${notesHtml}
-    ${apiKeyNotice}`;
-};
 
 function _setGarak(value) {
   document.querySelectorAll('#garak-ctrl .seg-btn').forEach(btn => {
@@ -4241,7 +4132,7 @@ function _setTargetMode(value) {
 }
 
 async function submitScan() {
-  const scanType  = document.getElementById('scan-type-sel').value;
+  const selectedTypes = _getSelectedScanTypes();
   const activeGarak = document.querySelector('#garak-ctrl .seg-btn.active');
   const runGarak  = activeGarak?.dataset.value === 'on';
   const activeStig = document.querySelector('#stig-ctrl .seg-btn.active');
@@ -4252,6 +4143,10 @@ async function submitScan() {
   const target = (document.getElementById('scan-target')?.value || '').trim();
   const uploadFile = document.getElementById('scan-upload')?.files?.[0] || null;
 
+  if (selectedTypes.length === 0) {
+    alert('Select at least one scan type to run.');
+    return;
+  }
   if (activeMode === 'upload') {
     if (!uploadFile) {
       document.getElementById('scan-upload')?.focus();
@@ -4265,33 +4160,70 @@ async function submitScan() {
   btn.disabled    = true;
   btn.textContent = '⏳ Starting…';
 
-  document.getElementById('scan-output').style.display = 'block';
+  document.getElementById('scan-output-section').style.display = 'block';
   document.getElementById('log-output').innerHTML = '';
   document.getElementById('scan-actions').style.display = 'none';
+  document.getElementById('scan-type-results').innerHTML = '';
   _lastLogLen  = 0;
   _activeJobId = null;
 
+  // Reset and seed the sequential queue with every selected scan type.
+  _scanQueue          = [...selectedTypes];
+  _scanQueueResults   = [];
+  _scanQueueCancelled = false;
+  _scanQueueTotal     = selectedTypes.length;
+
+  const cancelBtn = document.getElementById('cancel-btn');
+  if (cancelBtn) { cancelBtn.disabled = false; cancelBtn.textContent = '✕ Cancel'; cancelBtn.style.display = 'inline-flex'; }
+
+  runNextQueuedScan(btn, { activeMode, target, uploadFile, runGarak, runStig });
+}
+
+async function runNextQueuedScan(btn, ctx) {
+  if (_scanQueueCancelled) {
+    // Mark any scan types that never got a chance to start as skipped so
+    // the results table accounts for every originally selected type.
+    while (_scanQueue.length) {
+      const skippedType = _scanQueue.shift();
+      const skippedLabel = SCAN_TYPE_OPTIONS.find(t => t.id === skippedType)?.label || skippedType;
+      _scanQueueResults.push({ type: skippedType, label: skippedLabel, status: 'fail', reason: 'Skipped (run cancelled)' });
+    }
+    finishScanQueue(btn);
+    return;
+  }
+  if (_scanQueue.length === 0) {
+    finishScanQueue(btn);
+    return;
+  }
+
+  const scanType = _scanQueue.shift();
+  const label = SCAN_TYPE_OPTIONS.find(t => t.id === scanType)?.label || scanType;
+  const idx = _scanQueueTotal - _scanQueue.length; // 1-based position of the type now running
+
+  _lastLogLen = 0;
+  document.getElementById('log-output').insertAdjacentHTML('beforeend',
+    `<div class="log-line" style="color:var(--text);font-weight:600;margin-top:${idx > 1 ? '10px' : '0'}">── Running ${esc(label)} (${idx}/${_scanQueueTotal}) ──</div>`);
+  btn.textContent = `⏳ Running ${idx}/${_scanQueueTotal}…`;
+
   try {
-    const job = activeMode === 'upload'
-      ? await api.triggerScanUpload(uploadFile, scanType, runGarak, runStig, (pct, done) => {
+    const job = ctx.activeMode === 'upload'
+      ? await api.triggerScanUpload(ctx.uploadFile, scanType, ctx.runGarak, ctx.runStig, (pct, done) => {
           btn.textContent = done ? '⏳ Extracting on server…' : `⏳ Uploading… ${pct}%`;
         })
-      : await api.triggerScan(target, scanType, runGarak, runStig);
+      : await api.triggerScan(ctx.target, scanType, ctx.runGarak, ctx.runStig);
     _activeJobId = job.job_id;
     clearInterval(_pollInterval);
-    _pollInterval = setInterval(() => pollJob(job.job_id, btn), 2000);
-    pollJob(job.job_id, btn);
-    const cancelBtn = document.getElementById('cancel-btn');
-    if (cancelBtn) cancelBtn.style.display = 'inline-flex';
+    _pollInterval = setInterval(() => pollJob(job.job_id, btn, scanType, label, ctx), 2000);
+    pollJob(job.job_id, btn, scanType, label, ctx);
   } catch (e) {
-    btn.disabled    = false;
-    btn.textContent = '▶ Run Scan';
-    document.getElementById('log-output').innerHTML =
-      `<div class="log-line err">Error: ${esc(e.message)}</div>`;
+    _scanQueueResults.push({ type: scanType, label, status: 'error', reason: e.message });
+    document.getElementById('log-output').insertAdjacentHTML('beforeend',
+      `<div class="log-line err">Error: ${esc(e.message)}</div>`);
+    runNextQueuedScan(btn, ctx);
   }
 }
 
-async function pollJob(jobId, btn) {
+async function pollJob(jobId, btn, scanType, label, ctx) {
   try {
     const job = await api.getJob(jobId);
 
@@ -4299,10 +4231,11 @@ async function pollJob(jobId, btn) {
     const logOut    = document.getElementById('log-output');
     if (!statusBar || !logOut) { clearInterval(_pollInterval); return; }
 
+    const idx = _scanQueueTotal - _scanQueue.length;
     statusBar.innerHTML =
       `<span class="job-status ${esc(job.status)}">${ucFirst(job.status)}</span>
        <span style="color:var(--text-muted);font-size:12px">
-         — ${esc(job.target)} (${esc(job.scan_type)})
+         — ${esc(job.target)} (${esc(job.scan_type)}) · ${idx}/${_scanQueueTotal}
        </span>`;
 
     const lines = job.output || [];
@@ -4319,7 +4252,17 @@ async function pollJob(jobId, btn) {
       clearInterval(_pollInterval);
       _pollInterval = null;
       _activeJobId  = null;
-      if (btn) { btn.disabled = false; btn.textContent = '▶ Run Scan'; }
+
+      const reason = job.status === 'completed' ? `Completed successfully`
+        : job.status === 'cancelled' ? 'Cancelled by user'
+        : job.status === 'failed' ? 'Failed (non-zero exit code)'
+        : 'Encountered an error';
+      _scanQueueResults.push({
+        type: scanType, label,
+        status: job.status === 'completed' ? 'pass' : 'fail',
+        reason,
+      });
+      if (job.status === 'cancelled') _scanQueueCancelled = true;
 
       // Apply monitoring classification on successful completion
       if (job.status === 'completed' && job.target) {
@@ -4331,33 +4274,85 @@ async function pollJob(jobId, btn) {
         }
       }
 
-      const cancelBtn = document.getElementById('cancel-btn');
-      if (cancelBtn) cancelBtn.style.display = 'none';
-
-      const actionsDiv = document.getElementById('scan-actions');
-      if (actionsDiv) {
-        actionsDiv.style.display = 'flex';
-        actionsDiv.innerHTML = job.status === 'completed'
-          ? `<button class="btn btn-primary" onclick="navigate('#/applications')">
-               View Applications
-             </button>
-             <button class="btn" onclick="copyScanLogs()">Copy Logs</button>
-             <button class="btn" onclick="navigate('#/new-scan')">Run Another Scan</button>`
-          : `<div class="error-banner" style="margin:0">
-               Scan ${
-                 job.status === 'cancelled'
-                   ? 'was cancelled'
-                   : job.status === 'failed'
-                   ? 'failed (non-zero exit code)'
-                   : 'encountered an error'
-               }.
-               ${job.status !== 'cancelled' ? 'Check the log output above.' : ''}
-             </div>
-             <button class="btn" onclick="copyScanLogs()">Copy Logs</button>
-             <button class="btn" onclick="navigate('#/new-scan')">Run Another Scan</button>`;
-      }
+      runNextQueuedScan(btn, ctx);
     }
   } catch (_) { /* ignore transient polling errors */ }
+}
+
+// Called once the queue is empty (all selected scan types have run, or the
+// run was cancelled) — restores the Run button, hides Cancel, shows the
+// post-scan actions, and renders the PASS/FAIL summary table.
+function finishScanQueue(btn) {
+  if (btn) { btn.disabled = false; btn.textContent = '▶ Run Scan'; }
+
+  const cancelBtn = document.getElementById('cancel-btn');
+  if (cancelBtn) cancelBtn.style.display = 'none';
+
+  const anyFailed = _scanQueueResults.some(r => r.status !== 'pass');
+  const actionsDiv = document.getElementById('scan-actions');
+  if (actionsDiv) {
+    actionsDiv.style.display = 'flex';
+    actionsDiv.innerHTML = !anyFailed
+      ? `<button class="btn btn-primary" onclick="navigate('#/applications')">
+           View Applications
+         </button>
+         <button class="btn" onclick="copyScanLogs()">Copy Logs</button>
+         <button class="btn" onclick="navigate('#/new-scan')">Run Another Scan</button>`
+      : `<div class="error-banner" style="margin:0">
+           One or more scan types did not complete successfully. Check the log output and results below.
+         </div>
+         <button class="btn" onclick="copyScanLogs()">Copy Logs</button>
+         <button class="btn" onclick="navigate('#/new-scan')">Run Another Scan</button>`;
+  }
+
+  renderScanQueueResults();
+}
+
+// Renders the PASS/FAIL summary table for the scan types just run — same
+// stat-card + gumball-badge table pattern as the Self-Assessment results
+// (renderSelfAssessmentBody) for a consistent feel across the two pages.
+function renderScanQueueResults() {
+  const container = document.getElementById('scan-type-results');
+  if (!container) return;
+  if (_scanQueueResults.length === 0) { container.innerHTML = ''; return; }
+
+  const passed  = _scanQueueResults.filter(r => r.status === 'pass').length;
+  const failed  = _scanQueueResults.filter(r => r.status !== 'pass').length;
+
+  const rows = _scanQueueResults.map(r => {
+    const g = r.status === 'pass'
+      ? { icon: '🟢', label: 'PASS', cls: 'clean' }
+      : { icon: '🔴', label: 'FAIL', cls: 'critical' };
+    return `
+      <tr>
+        <td>${esc(r.label)}</td>
+        <td><span class="sev-badge ${g.cls}" style="font-size:10px">${g.icon} ${g.label}</span></td>
+        <td style="font-size:12px;color:var(--text-muted)">${esc(r.reason)}</td>
+      </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="section-title">Scan Type Results</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:16px">
+      <div class="stat-card">
+        <div class="stat-label">Passed</div>
+        <div class="stat-value" style="color:var(--sev-clean,#22c55e)">${passed}/${_scanQueueResults.length}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Failed</div>
+        <div class="stat-value" style="color:${failed > 0 ? 'var(--sev-critical,#ef4444)' : 'var(--text-primary)'}">${failed}</div>
+      </div>
+    </div>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr><th>Scan Type</th><th>Status</th><th>Why</th></tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+    </div>`;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -4460,6 +4455,9 @@ async function pollSelfDiagnosticJob(jobId) {
 
 async function cancelScan() {
   if (!_activeJobId) return;
+  // Stop the whole sequential queue, not just the current job — remaining
+  // not-yet-started scan types will be marked "Skipped (run cancelled)".
+  _scanQueueCancelled = true;
   const btn = document.getElementById('cancel-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Cancelling…'; }
   try {
@@ -9436,9 +9434,9 @@ function renderStaticScanDetail(scan) {
   // ── CI source badge ────────────────────────────────────────────────────────
   const ci = scan.ci_source;
   const ciBadge = ci ? `
-    <div class="detail-card">
-      <div class="label">CI Source</div>
-      <div class="value" style="font-size:12px">
+    <div class="stat-card">
+      <div class="stat-label">CI Source</div>
+      <div class="stat-value" style="font-size:12px">
         ${ci.repo ? `<a href="https://github.com/${esc(ci.repo)}" target="_blank" rel="noopener"
             style="color:var(--accent)">${esc(ci.repo)}</a>` : '—'}
         ${ci.branch ? `<span style="color:var(--text-muted)"> @ ${esc(ci.branch)}</span>` : ''}
@@ -9453,47 +9451,50 @@ function renderStaticScanDetail(scan) {
     </div>
 
     <div class="page-header">
-      <h1>Scan Details ${statusBadge(status)}</h1>
+      <div>
+        <h1>Scan Details ${statusBadge(status)}</h1>
+        <p style="color:var(--text-muted)">Findings, compliance, and evidence collected for <strong>${esc(scan.target || '—')}</strong> on ${fmtDate(scan.timestamp)}.</p>
+      </div>
     </div>
 
-    <div class="detail-grid">
-      <div class="detail-card">
-        <div class="label">Application</div>
-        <div class="value">${esc(scan.target || '—')}</div>
+    <div class="stats-grid" style="margin-bottom:24px">
+      <div class="stat-card">
+        <div class="stat-label">Application</div>
+        <div class="stat-value" style="font-size:17px;word-break:break-word">${esc(scan.target || '—')}</div>
       </div>
-      <div class="detail-card">
-        <div class="label">Scan Type</div>
-        <div class="value">${esc(scanTypeLabel(scan.scan_type))}</div>
+      <div class="stat-card">
+        <div class="stat-label">Scan Type</div>
+        <div class="stat-value" style="font-size:17px;word-break:break-word">${esc(scanTypeLabel(scan.scan_type))}</div>
       </div>
-      <div class="detail-card">
-        <div class="label">User</div>
-        <div class="value">${esc(scan.user || '—')}</div>
+      <div class="stat-card">
+        <div class="stat-label">User</div>
+        <div class="stat-value" style="font-size:17px;word-break:break-word">${esc(scan.user || '—')}</div>
       </div>
-      <div class="detail-card">
-        <div class="label">Timestamp</div>
-        <div class="value" style="font-size:13px">${fmtDate(scan.timestamp)}</div>
+      <div class="stat-card">
+        <div class="stat-label">Timestamp</div>
+        <div class="stat-value" style="font-size:13px">${fmtDate(scan.timestamp)}</div>
       </div>
       ${ciBadge}
     </div>
 
     <div class="result-section-box">
       <div class="result-section-box-title">Vulnerabilities</div>
-      <div class="detail-grid" style="margin-bottom:0">
-        <div class="detail-card">
-          <div class="label">Critical</div>
-          <div class="value" style="color:var(--critical)">${esc(scan.critical)}</div>
+      <div class="stats-grid" style="margin-bottom:0">
+        <div class="stat-card critical">
+          <div class="stat-label">Critical</div>
+          <div class="stat-value">${esc(scan.critical)}</div>
         </div>
-        <div class="detail-card">
-          <div class="label">High</div>
-          <div class="value" style="color:var(--high)">${esc(scan.high)}</div>
+        <div class="stat-card high">
+          <div class="stat-label">High</div>
+          <div class="stat-value">${esc(scan.high)}</div>
         </div>
-        <div class="detail-card">
-          <div class="label">Medium</div>
-          <div class="value" style="color:var(--medium)">${esc(scan.medium)}</div>
+        <div class="stat-card medium">
+          <div class="stat-label">Medium</div>
+          <div class="stat-value">${esc(scan.medium)}</div>
         </div>
-        <div class="detail-card">
-          <div class="label">Low</div>
-          <div class="value" style="color:var(--low)">${esc(scan.low)}</div>
+        <div class="stat-card low">
+          <div class="stat-label">Low</div>
+          <div class="stat-value">${esc(scan.low)}</div>
         </div>
       </div>
     </div>
@@ -9519,13 +9520,13 @@ function renderStaticScanDetail(scan) {
     ${buildNetworkDiscoveryCard(scan)}
 
     ${scan.file_statistics && Object.keys(scan.file_statistics).length ? `
-      <div class="section">
-        <div class="section-title">File Statistics</div>
-        <div class="detail-grid">
+      <div class="result-section-box">
+        <div class="result-section-box-title">File Statistics</div>
+        <div class="stats-grid" style="margin-bottom:0">
           ${Object.entries(scan.file_statistics).map(([k, v]) => `
-            <div class="detail-card">
-              <div class="label">${esc(k.replace(/_/g, ' '))}</div>
-              <div class="value">${esc(v)}</div>
+            <div class="stat-card">
+              <div class="stat-label">${esc(k.replace(/_/g, ' '))}</div>
+              <div class="stat-value" style="font-size:20px">${esc(v)}</div>
             </div>`).join('')}
         </div>
       </div>` : ''}
@@ -9533,8 +9534,8 @@ function renderStaticScanDetail(scan) {
     <div id="scorecard-container">${scan.scorecard ? buildScorecardCard(scan.scorecard) : ''}</div>
 
     ${dedupeTools(scan.tools_analyzed || []).length ? `
-      <div class="section">
-        <div class="section-title">Tools Analyzed</div>
+      <div class="result-section-box">
+        <div class="result-section-box-title">Tools Analyzed</div>
         <div class="tools-list">
           ${dedupeTools(scan.tools_analyzed).map(t =>
             `<span class="tool-tag">${esc(t)}</span>`).join('')}

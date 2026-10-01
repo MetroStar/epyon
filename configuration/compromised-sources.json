@@ -1,0 +1,36 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2026-09-30T00:00:00Z",
+  "description": "Registry of disclosed artifact-repository / package-registry compromises. Epyon's Layer 21 scanner cross-references target repositories against this list to flag references to known-compromised hosts and generate incident-response tasks. Add new entries as advisories are confirmed; never delete — mark resolved incidents with \"status\": \"closed\" instead.",
+  "incidents": [
+    {
+      "id": "nordix-artifactory-2026-08",
+      "host": "artifactory.nordix.org",
+      "additional_hosts": [],
+      "cve": "CVE-2026-82329",
+      "severity": "critical",
+      "status": "open",
+      "window_start": "2026-08-28",
+      "window_end": "2026-09-15",
+      "discovered": "2026-09-15",
+      "advisory_url": "https://openinfraeurope.org",
+      "description": "Unauthenticated Artifactory authentication bypass allowed administrative repository access, enabling attackers to read or replace stored artifacts and access repository integrations between 2026-08-28 and 2026-09-15.",
+      "attack_path": "Unauthenticated Artifactory authentication bypass -> administrative repository access -> read/replace stored artifacts and repository integrations -> potentially altered packages enter downstream builds and deployments.",
+      "controls": ["CM-5", "CM-8", "SA-11", "SA-12", "SI-7", "SR-3", "SR-4", "SR-11"],
+      "remediation": [
+        "Quarantine every artifact obtained from this host during the stated window.",
+        "Compare hashes, signatures and provenance with independently retained upstream releases; a matching package name or version alone is insufficient.",
+        "Rebuild critical software from reviewed source using clean, ephemeral workers.",
+        "Inventory deployments and containers derived from affected artifacts.",
+        "Rotate Artifactory tokens, build credentials and secrets reachable from the repository.",
+        "Retain suspect packages for analysis rather than deleting the only evidence."
+      ]
+    }
+  ],
+  "notes": [
+    "window_start/window_end are inclusive ISO8601 dates (UTC) bounding the confirmed compromise period.",
+    "Matches outside the window are still reported at reduced confidence since the scope of some incidents remains under investigation.",
+    "host matching is case-insensitive substring matching against URLs/hostnames found in package manager configs, container image references, and SBOM external references.",
+    "controls are NIST SP 800-53 identifiers for ATO/authorization-boundary impact analysis; they are informational only and are not evaluated against STIG checklists."
+  ]
+}

@@ -114,7 +114,7 @@ show_help() {
     echo "      --list-modes    Print available scan types and exit"
     echo "  --subdir PATH       Scan only a specific subdirectory within a Git repository"
     echo "                      (only works with Git URLs, uses sparse-checkout)"
-    echo "      --skip-tools    Comma-separated tools to skip (example: sonar,clamav,garak,stig,picklescan,model-provenance,inference-security)"
+    echo "      --skip-tools    Comma-separated tools to skip (example: sonar,clamav,garak,stig,picklescan,model-provenance,inference-security,compromised-source)"
     echo "      --no-garak      Skip Garak probing"
     echo "      --baseline-image IMAGE"
     echo "                      Override baseline image prompt/default"
@@ -236,6 +236,7 @@ apply_skip_tools() {
             model-provenance|provenance) SKIP_MODEL_PROVENANCE=true ;;
             inference-security|inference) SKIP_INFERENCE_SECURITY=true ;;
             ml-runtime) SKIP_ML_RUNTIME=true ;;
+            compromised-source|supply-chain) SKIP_COMPROMISED_SOURCE=true ;;
             *)
                 echo -e "${YELLOW}⚠️  Unknown tool in --skip-tools: $tool${NC}"
                 ;;
@@ -1367,6 +1368,16 @@ case "$SCAN_TYPE" in
             else
                 echo -e "${YELLOW}⏭️  Skipping Layer 20 - ML Runtime Analysis (set RUN_ML_RUNTIME=true to enable)${NC}"
             fi
+        fi
+
+        echo -e "${PURPLE}🔗 Layer 21: Compromised Source Detection${NC}"
+        if [[ "${SKIP_COMPROMISED_SOURCE:-false}" != "true" ]]; then
+            # Cross-references package manager configs, container manifests and
+            # SBOMs against configuration/compromised-sources.json (disclosed
+            # artifact-repository compromises).
+            run_security_tool "Compromised Source Check" "$SCRIPT_DIR/run-compromised-source-check.sh"
+        else
+            echo -e "${YELLOW}⏭️  Skipping Layer 21 - Compromised Source Detection (SKIP_COMPROMISED_SOURCE=true)${NC}"
         fi
         ;;
         

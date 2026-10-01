@@ -4154,7 +4154,7 @@ def get_self_assessment(response: Response):
 # harness regardless of selection).
 _SELF_ASSESSMENT_VALID_LAYERS = {
     "1", "2", "4", "5", "6", "7", "8", "8.5", "9", "10", "11",
-    "13", "14", "15", "16", "18", "19",
+    "13", "14", "15", "16", "18", "19", "21",
 }
 
 
@@ -4171,7 +4171,7 @@ async def trigger_self_assessment(body: SelfAssessmentRunRequest, request: Reque
 
     `body.layers`, if given, restricts the run to only those manifest layer
     numbers (e.g. ["1", "2", "7", "8", "8.5"]) so a user can validate a
-    subset of scanners instead of the full 20-layer run. Unknown values are
+    subset of scanners instead of the full 21-layer run. Unknown values are
     rejected (400) rather than silently ignored."""
     _sec_headers(response)
     layers = body.layers

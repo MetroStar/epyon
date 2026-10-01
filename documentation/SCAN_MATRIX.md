@@ -27,6 +27,7 @@ This table shows which layers run in each scan mode. Layers marked ✅ run by de
 | 18 | Model Provenance       | Custom        | ⬜ | ✅ | ✅ | ⬜ | `RUN_MODEL_PROVENANCE=true/false` |
 | 19 | Inference Security     | Custom        | ⬜ | ✅ | ✅ | ⬜ | `RUN_INFERENCE_SECURITY=true/false` |
 | 20 | ML Runtime Analysis    | Custom        | ⬜ | ⬜ | ⬜ | ⬜ | `RUN_ML_RUNTIME=true` (always opt-in) |
+| 21 | Compromised Source Detection | Custom  | ⬜ | ✅ | ✅ | ⬜ | `RUN_COMPROMISED_SOURCE=true/false` |
 
 ## Scheduled Scan Modes (scan-private-repo.yml)
 
@@ -54,4 +55,5 @@ This table shows which layers run in each scan mode. Layers marked ✅ run by de
 - **Layer 18 (Model Provenance)** validates model authenticity via blocklist, typosquatting detection, and optional GPG/HuggingFace checks. Auto-enables in `full`/`nightly`.
 - **Layer 19 (Inference Security)** scans Dockerfile/docker-compose/K8s manifests for infrastructure misconfigurations. Auto-enables in `full`/`nightly`.
 - **Layer 20 (ML Runtime Analysis)** is always opt-in due to resource intensity — requires `RUN_ML_RUNTIME=true` and Docker/Podman. Sandboxed model loading with behavior monitoring (~1 min per model).
+- **Layer 21 (Compromised Source Detection)** cross-references package manager configs, container manifests, and SBOMs against `configuration/compromised-sources.json` (disclosed artifact-repository compromises, e.g. CVE-2026-82329 / OpenInfra Nordix Artifactory). Flags references at `high`/`medium`/`low` confidence based on whether the reference was last modified inside the confirmed incident window (best-effort via `git log`). Auto-enables in `full`/`nightly`; lightweight, no Docker required.
 - All layers respect a per-tool `SKIP_<LAYER>=true` environment variable for manual opt-out in any mode.

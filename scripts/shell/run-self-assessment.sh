@@ -39,6 +39,7 @@ declare -A LAYER_TOOL_TOKEN=(
     [1]=sbom [2]=trufflehog [4]=clamav [5]=helm [6]=checkov [7]=trivy
     [8]=grype [9]=xeol [10]=anchore [11]=api [13]=stig [14]=picklescan
     [15]=modelcard [16]=network [18]=model-provenance [19]=inference-security
+    [21]=compromised-source
 )
 
 while [[ $# -gt 0 ]]; do

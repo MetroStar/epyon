@@ -743,6 +743,30 @@ run_ml_runtime_layer() {
   '
 }
 
+run_compromised_source_layer() {
+  # Layer 21 — Compromised Source / Supply Chain Incident Detection
+  # Cross-references package manager configs, container manifests, and SBOMs
+  # against configuration/compromised-sources.json (disclosed artifact-repository
+  # compromises). Lightweight (no Docker); runs in full/nightly modes.
+  # Override: RUN_COMPROMISED_SOURCE=true/false, SKIP_COMPROMISED_SOURCE=true.
+  local _should_run="false"
+  case "${SCAN_MODE:-full}" in
+    quick|stig) _should_run="false" ;;
+    *)          _should_run="true"  ;;
+  esac
+
+  [[ "${RUN_COMPROMISED_SOURCE:-}" == "true"  ]] && _should_run="true"
+  [[ "${RUN_COMPROMISED_SOURCE:-}" == "false" ]] && _should_run="false"
+  [[ "${SKIP_COMPROMISED_SOURCE:-false}" == "true" ]] && _should_run="false"
+
+  if [[ "$_should_run" == "false" ]]; then
+    echo "[INFO] Skipping Layer 21 - Compromised Source Detection (scan_mode=${SCAN_MODE:-full}; set RUN_COMPROMISED_SOURCE=true to force)"
+    return 0
+  fi
+
+  run_layer_script "Layer 21 - Compromised Source Detection" "scripts/shell/run-compromised-source-check.sh"
+}
+
 # ── Per-tool skip helpers ─────────────────────────────────────────────────────
 # Each tool respects a SKIP_<TOOL>=true env var for manual opt-out.
 _should_run_tool() {
@@ -1083,6 +1107,8 @@ run_model_provenance_layer
 run_inference_security_layer
 
 run_ml_runtime_layer
+
+run_compromised_source_layer
 
 # ── Post-scan: Reports & Dashboard ───────────────────────────────────────────
 

@@ -1,0 +1,24 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2026-01-01T00:00:00Z",
+  "description": "Test-only registry for test-run-compromised-source-check.bats. Not used in production scans.",
+  "incidents": [
+    {
+      "id": "test-incident-2026-01",
+      "host": "artifactory.test-incident.example.org",
+      "additional_hosts": [],
+      "cve": "CVE-2026-00000",
+      "severity": "critical",
+      "status": "open",
+      "window_start": "2026-01-01",
+      "window_end": "2026-01-31",
+      "discovered": "2026-02-01",
+      "advisory_url": "https://example.org/advisory/test-incident",
+      "description": "Test fixture incident for BATS tests.",
+      "attack_path": "Test attack path.",
+      "controls": ["CM-5", "SI-7"],
+      "remediation": ["Quarantine artifacts.", "Rotate credentials."]
+    }
+  ],
+  "notes": []
+}

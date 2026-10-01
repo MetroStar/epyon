@@ -666,6 +666,54 @@ EOF
         done
     fi
     
+    # Process Compromised Source results (scan directory structure)
+    # NOTE: Compromised-source findings are supply-chain reference exposures
+    # (references to disclosed artifact-repository compromises), not CVEs.
+    # The web UI displays these in the "Misconfigurations" card alongside
+    # Checkov/TruffleHog via parse_misconfiguration_findings().
+    local compromised_source_dir="$SCAN_DIR/compromised-source"
+    if [[ -d "$compromised_source_dir" ]]; then
+        local compromised_source_file="$compromised_source_dir/compromised-source-results.json"
+        if [[ -f "$compromised_source_file" ]] && [[ ! -L "$compromised_source_file" ]]; then
+            tools_analyzed+=("CompromisedSourceCheck")
+
+            local compromised_findings=$(jq -r --arg tool "CompromisedSourceCheck" '
+                [.findings[]? | {
+                    tool: $tool,
+                    type: "supply_chain_misconfiguration",
+                    severity: (.severity | ascii_downcase | if . == "critical" then "Critical" elif . == "high" then "High" elif . == "medium" then "Medium" elif . == "low" then "Low" else "Medium" end),
+                    id: .incident_id,
+                    cve: .cve,
+                    description: .description,
+                    file: .file,
+                    line: .line,
+                    confidence: .confidence,
+                    advisory_url: .advisory_url
+                }]' "$compromised_source_file" 2>/dev/null || echo "[]")
+
+            local cs_critical=$(echo "$compromised_findings" | jq '[.[] | select(.severity == "Critical")]' 2>/dev/null || echo "[]")
+            local cs_high=$(echo "$compromised_findings" | jq '[.[] | select(.severity == "High")]' 2>/dev/null || echo "[]")
+            local cs_medium=$(echo "$compromised_findings" | jq '[.[] | select(.severity == "Medium")]' 2>/dev/null || echo "[]")
+            local cs_low=$(echo "$compromised_findings" | jq '[.[] | select(.severity == "Low")]' 2>/dev/null || echo "[]")
+
+            jq --argjson critical "$cs_critical" --argjson high "$cs_high" --argjson medium "$cs_medium" --argjson low "$cs_low" '
+                .critical_findings += $critical |
+                .high_findings += $high |
+                .medium_findings += $medium |
+                .low_findings += $low' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+
+            local crit_count=$(echo "$cs_critical" | jq 'length' 2>/dev/null || echo "0")
+            local high_count=$(echo "$cs_high" | jq 'length' 2>/dev/null || echo "0")
+            local med_count=$(echo "$cs_medium" | jq 'length' 2>/dev/null || echo "0")
+            local low_count=$(echo "$cs_low" | jq 'length' 2>/dev/null || echo "0")
+
+            total_critical=$((total_critical + crit_count))
+            total_high=$((total_high + high_count))
+            total_medium=$((total_medium + med_count))
+            total_low=$((total_low + low_count))
+        fi
+    fi
+    
     # Process Xeol results — End-of-Life packages → High severity
     local xeol_dir="$SCAN_DIR/xeol"
     if [[ -d "$xeol_dir" ]]; then

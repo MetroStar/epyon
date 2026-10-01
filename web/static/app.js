@@ -167,6 +167,7 @@ function findingSource(f) {
   if (type === 'iac_misconfiguration' || tool === 'checkov')   return 'iac';
   if (type.includes('credential') || type.includes('secret') || tool === 'trufflehog') return 'secret';
   if (type === 'eol_package' || tool === 'xeol')               return 'eol';
+  if (type === 'supply_chain_misconfiguration' || tool === 'compromisedsourcecheck') return 'supply_chain';
   return 'code';
 }
 
@@ -179,6 +180,7 @@ function findingSourceBadge(f) {
     secret:    { style: 'background:#7f1d1d22;color:#fca5a5;border:1px solid #b91c1c66', label: '🔑 Secret'    },
     eol:       { style: 'background:#92400022;color:#fbbf24;border:1px solid #b4530066', label: '⏱ EOL'        },
     ml:        { style: 'background:#581c8722;color:#d8b4fe;border:1px solid #7c3aed66', label: '🧠 ML'         },
+    supply_chain: { style: 'background:#1e3a5f22;color:#7dd3fc;border:1px solid #0369a166', label: '🔗 Supply Chain' },
   };
   const { style, label } = cfg[src] || cfg.code;
   return `<span style="font-size:10px;padding:1px 6px;border-radius:3px;white-space:nowrap;${style}">${label}</span>`;
@@ -212,6 +214,7 @@ const SELF_DIAG_LAYERS = [
   { n: '16', name: 'Network Discovery' },
   { n: '18', name: 'Model Provenance & Threat Intel' },
   { n: '19', name: 'Inference Environment Security' },
+  { n: '21', name: 'Compromised Source Detection' },
 ];
 
 function renderSelfDiagLayerPicker() {
@@ -2260,7 +2263,7 @@ function buildModelSecurityCard(scan) {
 // ── Misconfigurations Card (Checkov IaC findings) ─────────────
 
 function buildMisconfigurationsCard(scan) {
-  // Layers 2 & 6: TruffleHog secret detection + Checkov IaC security - always show even if no findings
+  // Layers 2, 6 & 21: TruffleHog secret detection + Checkov IaC security + compromised-source supply chain detection - always show even if no findings
   const misconfigs = scan.misconfigurations;
   const summary = misconfigs?.summary || { total_critical: 0, total_high: 0, total_medium: 0, total_low: 0, tools_analyzed: [] };
   const totalIssues = summary.total_critical + summary.total_high + summary.total_medium + summary.total_low;
@@ -2282,6 +2285,7 @@ function buildMisconfigurationsCard(scan) {
       return `
         <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
           <span class="hf-finding-sev hf-sev-${esc(f.severity || 'medium')}">${esc(f.severity || 'medium')}</span>
+          ${findingSourceBadge(f)}
           <code class="hf-finding-file">${esc(f.file || f.target || '—')}</code>
           <span class="hf-finding-msg">${esc(f.title || f.description || 'Configuration issue detected')}</span>
           <span class="hf-finding-chevron">›</span>
@@ -2324,7 +2328,7 @@ function buildMisconfigurationsCard(scan) {
         <span class="ms-summary-left">
           <span class="findings-chevron" aria-hidden="true"></span>
           <span class="ms-summary-title">Misconfigurations</span>
-          <span class="tool-tag" style="font-size:11px">Layers 2 & 6 — Secrets & IaC</span>
+          <span class="tool-tag" style="font-size:11px">Layers 2, 6 & 21 — Secrets, IaC & Supply Chain</span>
         </span>
         <span class="ms-summary-right">
           <span class="hf-status-badge ${statusClass}">${statusIcon} ${statusLabel}</span>
@@ -4422,7 +4426,7 @@ async function pollSelfDiagnosticJob(jobId) {
     const job = await api.getJob(jobId);
 
     statusDiv.textContent = job.status === 'running'
-      ? '⏳ Running full 20-layer scan against the self-assessment fixture…'
+      ? '⏳ Running full 21-layer scan against the self-assessment fixture…'
       : `Status: ${ucFirst(job.status)}`;
 
     const lines = job.output || [];

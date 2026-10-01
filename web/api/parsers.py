@@ -1672,12 +1672,55 @@ def parse_ml_findings(scan_dir: Path) -> dict:
     }
 
 
+def parse_compromised_source_dir(scan_dir: Path) -> list[dict]:
+    """Parse Layer 21 - Compromised Source / Supply Chain Incident Detection.
+
+    Returns normalized findings list from compromised-source-results.json.
+    Flags references to artifact-repository hosts with disclosed compromises
+    (configuration/compromised-sources.json), rated by confidence based on
+    whether the reference was last modified inside the confirmed incident window.
+    """
+    result_file = scan_dir / "compromised-source" / "compromised-source-results.json"
+    if not result_file.exists():
+        return []
+    raw = _read_json(result_file)
+    if not raw or not isinstance(raw, dict):
+        return []
+
+    findings = []
+    for finding in raw.get("findings", []):
+        location = finding.get("file", "")
+        if finding.get("line"):
+            location = f"{location}#L{finding['line']}"
+        findings.append({
+            "tool": "CompromisedSourceCheck",
+            "id": finding.get("incident_id", "unknown"),
+            "severity": norm_sev(finding.get("severity")),
+            "package": finding.get("host", ""),
+            "version": "",
+            "fixed_version": "",
+            "title": f"Reference to compromised source: {finding.get('host', '')}",
+            "description": finding.get("description", ""),
+            "target": finding.get("file", ""),
+            "location": location,
+            "confidence": finding.get("confidence", "medium"),
+            "cve": finding.get("cve"),
+            "advisory_url": finding.get("advisory_url"),
+            "attack_path": finding.get("attack_path"),
+            "controls": finding.get("controls", []),
+            "remediation": finding.get("remediation", []),
+            "references": [finding["advisory_url"]] if finding.get("advisory_url") else [],
+        })
+    return findings
+
+
 def parse_misconfiguration_findings(scan_dir: Path) -> dict:
     """Parse infrastructure, configuration misconfigurations, and secrets separately from vulnerability findings.
     
     These findings are displayed in the Misconfigurations card and represent
-    IaC security issues, secret leaks, container misconfigurations, and policy violations
-    detected by Checkov, TruffleHog, and similar tools. They are NOT treated as CVE vulnerabilities.
+    IaC security issues, secret leaks, container misconfigurations, supply-chain
+    source exposures, and policy violations detected by Checkov, TruffleHog,
+    CompromisedSourceCheck, and similar tools. They are NOT treated as CVE vulnerabilities.
     
     Returns:
         dict with misconfiguration findings categorized by severity and tool
@@ -1685,6 +1728,7 @@ def parse_misconfiguration_findings(scan_dir: Path) -> dict:
     all_misconfig_findings = (
         parse_checkov_dir(scan_dir)
         + parse_trufflehog_dir(scan_dir)
+        + parse_compromised_source_dir(scan_dir)
     )
     
     by_tool = set(f["tool"] for f in all_misconfig_findings)

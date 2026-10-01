@@ -258,6 +258,14 @@ def _count_inference_security_findings(scan_dir: Path) -> int:
     return len(findings) if isinstance(findings, list) else 0
 
 
+def _count_compromised_source_findings(scan_dir: Path) -> int:
+    data = _load_json(scan_dir / "compromised-source" / "compromised-source-results.json")
+    if not data:
+        return 0
+    findings = data.get("findings", data) if isinstance(data, dict) else data
+    return len(findings) if isinstance(findings, list) else 0
+
+
 # Per-tool raw-file counters, keyed by manifest tool identifier.
 RAW_COUNTERS = {
     "trufflehog": _count_trufflehog_findings,
@@ -335,6 +343,8 @@ def evaluate_layer(
         actual = _count_model_card_findings(scan_dir)
     elif layer["name"] == "Inference Environment Security":
         actual = _count_inference_security_findings(scan_dir)
+    elif layer["name"] == "Compromised Source Detection":
+        actual = _count_compromised_source_findings(scan_dir)
     elif layer["tool"] in RAW_COUNTERS:
         actual = RAW_COUNTERS[layer["tool"]](scan_dir)
     else:

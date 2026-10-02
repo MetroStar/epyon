@@ -2213,7 +2213,31 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
     if enrichment:
         data["enrichment"] = enrichment
 
+    # ── Overall PASS/FAIL gate ────────────────────────────────────────────────
+    # Deliberately the inverse of the self-assessment harness: self-assessment
+    # PASSes when a planted finding IS detected (proves the scanner works).
+    # A real scan should PASS only when there is NOTHING to find — it FAILs as
+    # soon as any Critical/High vulnerability, misconfiguration, or secret is
+    # present. Dashboard-only; does not affect GitHub Actions workflow exit
+    # codes or CI behavior.
+    misconfig = parse_misconfiguration_findings(scan_dir)
+    misconfig_summary = misconfig.get("summary", {})
+    data["misconfig_critical"] = misconfig_summary.get("total_critical", 0)
+    data["misconfig_high"]     = misconfig_summary.get("total_high", 0)
+    data["gate_status"] = compute_gate_status(
+        data["critical"], data["high"],
+        data["misconfig_critical"], data["misconfig_high"],
+    )
+
     return data
+
+
+def compute_gate_status(critical: int, high: int, misconfig_critical: int, misconfig_high: int) -> str:
+    """Overall scan verdict: FAIL if any Critical/High vulnerability,
+    misconfiguration, or secret finding is present; PASS if none are.
+    Intentionally the opposite polarity of the self-assessment harness (see
+    call site in load_scan() for rationale)."""
+    return "fail" if (critical + high + misconfig_critical + misconfig_high) > 0 else "pass"
 
 
 def parse_scan_environment_notes(scan_dir: Path) -> list[dict]:

@@ -682,6 +682,7 @@ def applications(response: Response):
             "medium":                    latest_comprehensive.get("medium", 0),
             "low":                       latest_comprehensive.get("low", 0),
             "status":                    parsers.get_status(latest_comprehensive),
+            "gate_status":               latest_comprehensive.get("gate_status", "pass"),
             "latest_scan_id":            latest.get("scan_id", ""),
             "comprehensive_scan_id":     latest_comprehensive.get("scan_id", ""),
             "comprehensive_timestamp":   latest_comprehensive.get("timestamp", ""),

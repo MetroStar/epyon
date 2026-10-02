@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.30.0] - 2026-10-02
+
+### Added
+- **Overall scan PASS/FAIL gate** — every scan now gets a dashboard-only `gate_status` verdict: FAIL if any Critical or High severity vulnerability, misconfiguration (Checkov), or secret (TruffleHog)/compromised-source (Layer 21) finding is present; PASS only when none are. Deliberately the inverse of the self-assessment harness (which PASSes when a planted finding IS detected, proving the scanner works) — a real scan should PASS only when there's genuinely nothing to find. New `compute_gate_status()` in `web/api/parsers.py`, surfaced as a 🟢 PASS/🔴 FAIL badge on the Overview app cards, the per-application scan timeline, and the Scan Details page header. Does **not** change GitHub Actions workflow exit codes or CI behavior — dashboard/API only.
+
 ## [3.29.1] - 2026-10-02
 
 ### Added

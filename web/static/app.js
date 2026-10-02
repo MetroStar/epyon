@@ -340,6 +340,19 @@ function renderSelfAssessmentBody(sa) {
     ${timelineHtml}`;
 }
 
+function gateBadge(scan) {
+  // Overall PASS/FAIL gate — deliberately the inverse of the self-assessment
+  // harness's gumballs (which PASS when a planted finding IS detected). A
+  // real scan FAILs as soon as any Critical/High vulnerability,
+  // misconfiguration, or secret is present, and PASSes only when there's
+  // nothing to find. Dashboard-only (see compute_gate_status() in
+  // web/api/parsers.py) — does not affect CI/GitHub Actions exit codes.
+  if (!scan || scan.gate_status == null) return '';
+  return scan.gate_status === 'fail'
+    ? '<span class="sev-badge critical" title="Critical/High vulnerability, misconfiguration, or secret found">🔴 FAIL</span>'
+    : '<span class="sev-badge clean" title="No Critical/High vulnerabilities, misconfigurations, or secrets found">🟢 PASS</span>';
+}
+
 function sevBadgeRow(scan) {
   const parts = [];
   if (scan.critical > 0) parts.push(sevBadge('critical', scan.critical));
@@ -1103,7 +1116,7 @@ async function renderOverview() {
                 ? `Last scanned: ${fmtDate(app.last_scanned)} · ${esc(app.scan_type || 'full')}`
                 : 'Never scanned'}
             </div>
-            <div class="severity-row">${sevBadgeRow(app)}</div>
+            <div class="severity-row">${gateBadge(app)} ${sevBadgeRow(app)}</div>
             <div class="app-card-footer">
               ${app.scan_count} scan${app.scan_count !== 1 ? 's' : ''} total
             </div>
@@ -1347,7 +1360,7 @@ async function renderAppDetail(name) {
               <div class="scan-timeline-content">
                 <div class="scan-timeline-title">
                   ${esc(scanTypeLabel(s.scan_type))} scan
-                  <span>${sevBadgeRow(s)}</span>
+                  <span>${gateBadge(s)} ${sevBadgeRow(s)}</span>
                   ${hfStatusBadge(s)}
                   ${s.ci_source ? `<span class="badge badge-ci" title="From GitHub Actions · ${esc(s.ci_source.repo)}${s.ci_source.branch ? ' · ' + esc(s.ci_source.branch) : ''}">GH Actions</span>` : ''}
                 </div>
@@ -1639,7 +1652,7 @@ async function renderScanDetail(scanId) {
 
       <div class="page-header">
         <div>
-          <h1>Scan Details ${statusBadge(status)}</h1>
+          <h1>Scan Details ${statusBadge(status)} ${gateBadge(scan)}</h1>
           <p style="color:var(--text-muted)">Findings, compliance, and evidence collected for <strong>${esc(scan.target)}</strong> on ${fmtDate(scan.timestamp)}.</p>
         </div>
         <div style="display:flex;gap:8px">

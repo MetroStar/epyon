@@ -938,6 +938,12 @@ Epyon enriches CVE findings from **seven global vulnerability feeds** for compre
 - Layers that can't be deterministically planted in a static fixture (e.g. SonarQube requires a live server, ClamAV is often preempted by desktop antivirus) are reported as `not_validated` / `environment_limited` with an explanation, never a false pass.
 - Runnable via CI (`.github/workflows/self-assessment.yml`) or on demand from the Web Dashboard's **Performance** page via the **"▶ Run Self-Diagnostic"** button, which streams live progress and refreshes a per-layer pass/fail/skip table (🟢/🔴/🟡/⚪) with a plain-language reason for each result once the run completes. The table also includes a "Ran at" column and a chronological step-by-step timeline (reconstructed from each layer's own output-file mtime), so you can see when each layer finished even after reloading the page — the live console log itself is not persisted.
 - Individual layers can be toggled on/off before running (`run-self-assessment.sh --layers 1,2,7,8`, or via checkboxes in the Web Dashboard panel) to validate only specific scanners instead of the full ~5 minute run; unselected layers are reported as `"skipped"` rather than pass/fail.
+- **Note the inverted polarity for real scans**: self-assessment PASSes a layer when it *does* detect a planted finding (proving the scanner works). A real scan of your own target is the opposite — see the PASS/FAIL gate below.
+
+**✅ Overall Scan PASS/FAIL Gate:**
+- Every scan gets a dashboard-only 🟢 PASS / 🔴 FAIL verdict: FAIL if any Critical or High severity vulnerability, misconfiguration (Checkov), or secret/compromised-source finding (TruffleHog, Layer 21) is present; PASS only when none are found.
+- Shown on the Overview app cards, each application's scan timeline, and the Scan Details page header.
+- Does not affect GitHub Actions workflow exit codes or CI job status — this is a dashboard/API-only verdict (`gate_status` field on `GET /api/scans/{scan_id}` and `/api/applications`).
 
 
 ## 📁 Directory Structure

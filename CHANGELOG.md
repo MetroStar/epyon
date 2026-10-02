@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.31.0] - 2026-10-02
+
+### Fixed
+- **Anchore's baseline/"Approved Base Images" scan defaulted to a gated, often-irrelevant image, causing a major and silent source of cross-environment result divergence** — `configuration/approved-base-images.conf` previously set `PRIMARY_BASELINE_IMAGE="dhi/caddy:latest"` and included another `dhi/*` tag in the core `APPROVED_BASE_IMAGES` array by default. These Docker Hardened Images (DHI) tags require a paid Docker Hub DHI entitlement (`docker login`), so whichever environment happened to have that configured got a successful baseline scan while every other environment silently got `failed_pull`/`not_configured` — and even when it succeeded, comparing (e.g.) a Caddy web-server image against an unrelated Python/Node/Go repo was never a meaningful baseline anyway. `PRIMARY_BASELINE_IMAGE` is no longer set by default (documented as opt-in for orgs with DHI access) and `APPROVED_BASE_IMAGES` is now empty by default.
+- **Anchore now auto-discovers each target's own actual Dockerfile `FROM`-line image as its baseline** (mirroring logic `run-trivy-scan.sh` already had), instead of skipping the baseline scan outright when no fixed image is configured. This is public, always pullable without special credentials, and genuinely relevant to the target being scanned — eliminating the registry-access-dependent gap between local/deployed/CI runs of the same target. Surfaced via a new `baseline_image_source` field (`"configured"` vs `"auto-discovered from Dockerfile"`) in `anchore/status.json` and the Environment Notes banner.
+
+### Changed
+- **Dockerfile base-image auto-discovery logic consolidated into one shared helper** — `discover_dockerfile_base_images()` (new, in `scripts/shell/scan-directory-template.sh`) replaces the two independent, copy-pasted implementations previously maintained separately in `run-trivy-scan.sh` and `run-anchore-scan.sh`. Both tools now resolve the exact same set of candidate baseline images from a target's Dockerfiles, preventing the two scanners' baseline logic from silently drifting apart again. Trivy and Anchore/Grype remain intentionally separate scan engines (different CVE databases; Trivy additionally checks the base image for misconfigurations and secrets) — only the discovery logic was deduplicated, not the scanning itself.
+
 ## [3.30.0] - 2026-10-02
 
 ### Added

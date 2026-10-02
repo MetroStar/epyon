@@ -30,7 +30,10 @@ anchore/xeol:latest
 sonarsource/sonar-scanner-cli:latest
 clamav/clamav:latest
 
-# Base Images for Scanning
+# Base Images for Scanning (only needed if your org opts into a fixed/DHI
+# baseline in approved-base-images.conf — the default behavior auto-discovers
+# each target's own Dockerfile FROM-line image instead, so this entry is
+# optional)
 dhi/caddy:latest
 alpine:latest
 ubuntu:latest

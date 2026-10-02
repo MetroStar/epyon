@@ -341,25 +341,10 @@ if [ "$SCAN_MODE" != "filesystem" ]; then
         # above (e.g. Epyon's own self-assessment fixture's Dockerfile, which
         # is deliberately pinned to an EOL base image for Layer 9 testing and
         # must never be treated as a real base image in a normal scan).
-        FIND_EXCLUDE_ARGS=(-not -path '*/node_modules/*' -not -path '*/.git/*')
-        while IFS= read -r _pat; do
-            if [[ -n "$_pat" ]]; then
-                _pat_glob="${_pat%/\*\*}"
-                FIND_EXCLUDE_ARGS+=(-not -path "*/${_pat_glob}/*")
-            fi
-        done < <(get_epyon_ignore_exclude_paths "$REPO_PATH")
-
-        DISCOVERED_IMAGES=()
-        while IFS= read -r dockerfile; do
-            while IFS= read -r from_image; do
-                [[ "$from_image" == "scratch" ]] && continue
-                # Strip build-arg variable references (e.g. $BASE_IMAGE)
-                [[ "$from_image" == *'$'* ]] && continue
-                DISCOVERED_IMAGES+=("$from_image")
-            done < <(grep -i '^FROM ' "$dockerfile" | awk '{print $2}')
-        done < <(find "$REPO_PATH" -name 'Dockerfile*' "${FIND_EXCLUDE_ARGS[@]}" 2>/dev/null)
-        # Deduplicate
-        mapfile -t BASE_IMAGES < <(printf '%s\n' "${DISCOVERED_IMAGES[@]}" | sort -u)
+        # Shared with run-anchore-scan.sh via discover_dockerfile_base_images()
+        # (scan-directory-template.sh) so both tools baseline against the same
+        # discovered image(s).
+        mapfile -t BASE_IMAGES < <(discover_dockerfile_base_images "$REPO_PATH")
         if [ ${#BASE_IMAGES[@]} -gt 0 ]; then
             echo -e "   ${GREEN}📋 Auto-discovered ${#BASE_IMAGES[@]} image(s) from Dockerfiles: ${BASE_IMAGES[*]}${NC}"
         else

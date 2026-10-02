@@ -269,10 +269,10 @@ Epyon is a comprehensive security scanning orchestration platform that integrate
 **Mitigations:**
 - ✅ Version pinning for all scanner images
 - ✅ Approved base images list (`approved-base-images.conf`)
-- ✅ Baseline scanning of DHI images (`dhi/caddy:latest`)
+- ✅ Baseline scanning auto-discovers each target's Dockerfile base image by default (public, no gated registry access required); fixed/DHI baseline images remain available opt-in via `approved-base-images.conf`
 - ✅ Regular image updates with validation
 
-**Test Validation:** `test-run-baseline-scan.bats` validates DHI scanning
+**Test Validation:** `test-run-baseline-scan.bats` validates baseline scanning
 
 #### 4. Credential Leakage in Logs
 

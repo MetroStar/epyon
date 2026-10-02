@@ -130,6 +130,7 @@ STATUS_FILE="$OUTPUT_DIR/status.json"
 BASELINE_SCAN_STATUS="not_configured"
 BASELINE_SCAN_REASON=""
 BASELINE_IMAGE_NAME=""
+BASELINE_IMAGE_SOURCE=""
 
 # Logging function
 log() {
@@ -748,14 +749,36 @@ scan_base_images() {
     log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     log "🏗️  Scanning Approved Base Images with Anchore"
     log "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    
+
+    if [ -n "${PRIMARY_BASELINE_IMAGE:-}" ]; then
+        BASELINE_IMAGE_SOURCE="configured"
+    else
+        # No PRIMARY_BASELINE_IMAGE (not routed from a container build, and no
+        # fixed PRIMARY_BASELINE_IMAGE in approved-base-images.conf) — auto-
+        # discover the target's own actual Dockerfile FROM-line image instead
+        # of skipping the baseline scan outright. Shared with run-trivy-
+        # scan.sh via discover_dockerfile_base_images() (scan-directory-
+        # template.sh) so both tools baseline against the same image(s) and
+        # avoid depending on gated/irrelevant images (e.g. dhi/* tags
+        # requiring a DHI registry entitlement) as the default for an
+        # arbitrary repo.
+        local _discovered_images=()
+        mapfile -t _discovered_images < <(discover_dockerfile_base_images "$REPO_PATH")
+
+        if [ ${#_discovered_images[@]} -gt 0 ]; then
+            PRIMARY_BASELINE_IMAGE="${_discovered_images[0]}"
+            BASELINE_IMAGE_SOURCE="auto-discovered from Dockerfile"
+            log "📋 Auto-discovered baseline image from target's Dockerfile: $PRIMARY_BASELINE_IMAGE"
+        fi
+    fi
+
     if [ -z "${PRIMARY_BASELINE_IMAGE:-}" ]; then
-        log "ℹ No approved base images configured, skipping"
+        log "ℹ No approved base images configured and no Dockerfile found, skipping"
         BASELINE_SCAN_STATUS="not_configured"
-        BASELINE_SCAN_REASON="No PRIMARY_BASELINE_IMAGE / approved-base-images.conf entry configured"
+        BASELINE_SCAN_REASON="No PRIMARY_BASELINE_IMAGE / approved-base-images.conf entry configured, and no Dockerfile FROM-line could be auto-discovered in this target."
         return 0
     fi
-    
+
     BASELINE_IMAGE_NAME="$PRIMARY_BASELINE_IMAGE"
     log "ℹ Primary baseline image: $PRIMARY_BASELINE_IMAGE"
 
@@ -945,12 +968,14 @@ write_status_json() {
         --arg baseline_image "$BASELINE_IMAGE_NAME" \
         --arg baseline_status "$BASELINE_SCAN_STATUS" \
         --arg baseline_reason "$BASELINE_SCAN_REASON" \
+        --arg baseline_source "${BASELINE_IMAGE_SOURCE:-}" \
         --arg exclude_types "${ANCHORE_EXCLUDE_TYPES:-}" \
         --arg exclude_source "${ANCHORE_EXCLUDE_TYPES_SOURCE:-}" \
         '{
             baseline_image: $baseline_image,
             baseline_scan_status: $baseline_status,
             baseline_scan_reason: $baseline_reason,
+            baseline_image_source: $baseline_source,
             exclude_types_applied: (if $exclude_types == "" then [] else ($exclude_types | split(",")) end),
             exclude_types_source: $exclude_source
         }' > "$STATUS_FILE" 2>/dev/null || true

@@ -233,6 +233,42 @@ for ig in data.get('ignores', []) or []:
 " 2>/dev/null
 }
 
+# ── Dockerfile base-image auto-discovery ──────────────────────────────────────
+# Shared by run-trivy-scan.sh and run-anchore-scan.sh so both tools baseline
+# against the SAME, real, publicly-pullable image when no fixed
+# PRIMARY_BASELINE_IMAGE / APPROVED_BASE_IMAGES entry is configured, instead of
+# each maintaining its own copy of this logic (which previously drifted apart
+# and was a source of cross-tool/cross-environment result inconsistency).
+# Scans every Dockerfile* in $1, honoring the same .epyon-ignore.yml path
+# exclusions as the rest of the scan, and prints one deduplicated FROM-line
+# image per line (skipping `FROM scratch` and build-arg variable references
+# like `FROM $BASE_IMAGE`, which aren't real pullable images).
+# Usage: mapfile -t images < <(discover_dockerfile_base_images "$target")
+discover_dockerfile_base_images() {
+    local target_dir="${1:-}"
+    local find_exclude_args=(-not -path '*/node_modules/*' -not -path '*/.git/*')
+    local pat pat_glob
+    while IFS= read -r pat; do
+        if [[ -n "$pat" ]]; then
+            pat_glob="${pat%/\*\*}"
+            find_exclude_args+=(-not -path "*/${pat_glob}/*")
+        fi
+    done < <(get_epyon_ignore_exclude_paths "$target_dir")
+
+    local discovered=()
+    local dockerfile from_image
+    while IFS= read -r dockerfile; do
+        while IFS= read -r from_image; do
+            [[ "$from_image" == "scratch" ]] && continue
+            [[ "$from_image" == *'$'* ]] && continue
+            discovered+=("$from_image")
+        done < <(grep -i '^FROM ' "$dockerfile" | awk '{print $2}')
+    done < <(find "$target_dir" -name 'Dockerfile*' "${find_exclude_args[@]}" 2>/dev/null)
+
+    [ ${#discovered[@]} -eq 0 ] && return 0
+    printf '%s\n' "${discovered[@]}" | sort -u
+}
+
 # ── Docker auto-start utility ─────────────────────────────────────────────────
 # Call ensure_docker_running to guarantee the Docker daemon is up before any
 # tool that requires it.  Tries Colima, Docker Desktop, Rancher Desktop,

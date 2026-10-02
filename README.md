@@ -465,7 +465,9 @@ The container listens on **port 8057** by default (override with `EPYON_PORT`) t
 
 > **Why a deployed scan can find fewer/different results than a local (`./epyon.sh`) or GitHub Actions CI run of the same target**: local runs and CI runners execute every scan tool directly against the real filesystem — there's no container indirection, so bind-mount paths are always correct. The deployed web UI is the *only* mode that spawns scan tools as sibling containers via `HOST_PROJECT_DIR`/`to_host_path()` translation, above. Every scan script that shells out to a Docker-based tool (Trivy, Checkov, Safety, Anchore, TruffleHog, ClamAV, Grype, Xeol, Syft's Docker fallback) must apply this translation to its `docker run -v` paths — a script that doesn't will still "succeed" but silently scan an empty/nonexistent directory, producing a false-clean 0-findings result with no error surfaced. If you deploy a build and see a layer report 0 findings that a local/CI run of the same target catches, check that its scan script has been updated to translate its target/output paths through `to_host_path()`. Two other differences to be aware of: the deployed image must have **`jq` installed** (nearly every scan script's own summary/count logic depends on it — without it, tools still write correct results files but their own printed "N found" summary silently falls back to 0), and the **self-assessment fixture specifically** (`tests/fixtures/self-assessment/`, baked into the image at build time) has no host-filesystem equivalent on an SSH-deployed instance, so `run-self-assessment.sh` stages a host-shared copy of it into `tmp/` before scanning — this staging step is unique to the self-assessment harness and doesn't apply to real scan targets, which are always cloned/uploaded into `tmp/` already.
 >
-> **Two environments scanning the *same* target (e.g. two Web UI deployments, or Web UI vs. GitHub Actions) can still legitimately report very different vulnerability counts** even with no bugs involved, because of real host differences: (1) **Docker registry access** — the Layer 10 "Approved Base Images" baseline scan pulls `PRIMARY_BASELINE_IMAGE` (`configuration/approved-base-images.conf`); a host without registry credentials (`docker login`) for that image silently contributes zero baseline findings, while an authenticated host adds a real batch of base-OS CVEs. This now surfaces as an **"Environment Notes" banner** on the Scan Details page instead of being silent, backed by `anchore/status.json`. (2) **Vulnerability database freshness** — Grype/Trivy/Xeol's CVE databases update independently per host; a host that hasn't refreshed its DB in a while under-reports relative to one with a current DB. (3) **Git history depth** — the Web UI and GitHub Actions workflow both now perform a full clone by default (shallow only for HuggingFace targets), so TruffleHog's historical secret scan and Layer 21's git-log confidence scoring see the same history either way.
+> **Two environments scanning the *same* target (e.g. two Web UI deployments, or Web UI vs. GitHub Actions) can still legitimately report very different vulnerability counts** even with no bugs involved, because of real host differences: (1) **Vulnerability database freshness** — Grype/Trivy/Xeol's CVE databases update independently per host; a host that hasn't refreshed its DB in a while under-reports relative to one with a current DB. (2) **Git history depth** — the Web UI and GitHub Actions workflow both now perform a full clone by default (shallow only for HuggingFace targets), so TruffleHog's historical secret scan and Layer 21's git-log confidence scoring see the same history either way.
+>
+> **Layer 10 "Approved Base Images" baseline scan now auto-discovers each target's real base image by default** — Trivy and Anchore/Grype both resolve the baseline image via the same shared `discover_dockerfile_base_images()` helper (`scripts/shell/scan-directory-template.sh`): if no `PRIMARY_BASELINE_IMAGE`/`APPROVED_BASE_IMAGES` entry is explicitly configured in `configuration/approved-base-images.conf`, they extract the target's own Dockerfile `FROM`-line image(s) — a public image, always pullable without special registry credentials, and genuinely relevant to that repo. `configuration/approved-base-images.conf` no longer ships a `dhi/*` (Docker Hardened Images) default, since those tags require a paid Docker Hub DHI entitlement (`docker login`) that not every environment has — previously, whichever host happened to have that entitlement configured silently got a richer baseline scan than every other host. `anchore/status.json`'s `baseline_image_source` field (`"configured"` vs `"auto-discovered from Dockerfile"`) and the **Environment Notes banner** on the Scan Details page surface which path was used. DHI images remain available opt-in via the named `APPROVED_*` variables in the conf file for orgs that do have that entitlement.
 
 > **Scanning a local project once Epyon is deployed remotely**: the "Run New Scan" form's "Target" field (an absolute path) is resolved against the **server's own filesystem**, not your machine — typing a path from your laptop won't find anything there. Either push the project to a Git remote the server can reach and use the URL field, or use the "Upload .zip" toggle to upload the project directly; it's extracted server-side and scanned like a local path.
 
@@ -840,25 +842,11 @@ The workflow checks out both your repository and Epyon, then runs Epyon's scanne
 
 ### 🐳 Approved Base Images
 
-Epyon uses **Docker Hardened Images (DHI)** as the default baseline for container security scans:
+Epyon's Layer 10 "Approved Base Images" baseline scan defaults to **auto-discovering each target's own Dockerfile `FROM`-line image** — a public, always-pullable image that's genuinely relevant to that repo, resolved via a shared helper (`discover_dockerfile_base_images()`) used by both Trivy and Anchore/Grype so the two tools agree on the same baseline.
 
-**Primary Baseline Image:** `dhi/caddy:latest`
+**Why not a fixed default image?** A single hardcoded default (previously `dhi/caddy:latest`, a Docker Hardened Images tag) is both **gated** — DHI images require a paid Docker Hub entitlement (`docker login`), so hosts without it silently got zero baseline findings while authenticated hosts got a full batch — and **semantically irrelevant** to most repos (comparing a Caddy web-server image against an unrelated Python/Node/Go application isn't a meaningful baseline). Auto-discovery avoids both problems and keeps results consistent across local/CI/deployed environments.
 
-**Why Docker Hardened Images?**
-- 🔒 **Distroless**: Minimal attack surface with no package manager
-- ✅ **Reduced CVEs**: Significantly fewer vulnerabilities than traditional base images
-- 🛡️ **Security First**: Built with security as the primary design principle
-- 📜 **FIPS Compliant**: Meets federal security standards
-- 🔄 **Regular Updates**: Maintained with latest security patches
-
-**Available DHI Images:**
-- `dhi/caddy` - Web server and reverse proxy
-- `dhi/node` - Node.js runtime
-- `dhi/nginx` - High-performance web server
-- `dhi/httpd` - Apache HTTP server
-- `dhi/python` - Python runtime
-
-**Configuration:** Baseline images are defined in [configuration/approved-base-images.conf](configuration/approved-base-images.conf)
+**Opting into Docker Hardened Images:** orgs with a DHI entitlement can still pin a fixed baseline by uncommenting `PRIMARY_BASELINE_IMAGE` in [configuration/approved-base-images.conf](configuration/approved-base-images.conf), or populating `APPROVED_BASE_IMAGES[]` with any combination of the pre-defined `APPROVED_*` variables (`dhi/caddy`, `dhi/node`, `dhi/nginx`, `dhi/httpd`, `dhi/python`, etc.) or `bitnami/*` images already catalogued in that file.
 
 **More Info:** [Docker Hardened Images Catalog](https://hub.docker.com/hardened-images/catalog)
 
@@ -928,7 +916,7 @@ Epyon enriches CVE findings from **seven global vulnerability feeds** for compre
 - **Dashboard corruption from CVE descriptions**: Fixed `generate-dashboard.py` to escape `</script>` sequences in embedded scan JSON so long/complex CVE descriptions (e.g. DOMPurify disclosures) can no longer break the stakeholder dashboard
 
 **✅ Baseline Scanning:**
-- Scans DHI baseline images (`dhi/caddy:latest`)
+- Auto-discovers and scans each target's actual Dockerfile base image (public, no gated registry access required) — see [Approved Base Images](#-approved-base-images)
 - Automated comparison with previous scans
 - Detects scanner drift and tool consistency issues
 - Scheduled runs every 89 days to maintain artifact retention

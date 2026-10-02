@@ -16,6 +16,28 @@ ignores:
       tests/fixtures/self-assessment/FIXTURE.md.
     approved_by: "rnelson"
 
+  - type: path
+    value: "tmp/**"
+    reason: >
+      Epyon's own scratch workspace for web-UI-driven scans (per-job git
+      clones at tmp/clone-<job_id> and zip uploads at tmp/upload-*), created
+      by web/api/jobs.py and web/api/main.py. These are scan *targets*
+      belonging to other, unrelated repositories/apps — not part of the
+      Epyon codebase — and leftover/stale clones must never be traversed
+      (e.g. for Dockerfile FROM-line auto-discovery) when self-assessing
+      Epyon itself, or unrelated base images and findings bleed into
+      Epyon's own scan results.
+    approved_by: "rnelson"
+
+  - type: path
+    value: "scans/**"
+    reason: >
+      Epyon's own scan output directory (previous runs' JSON/markdown
+      reports and any extracted build/ context). Not source code — must
+      never be treated as part of the codebase being scanned during
+      self-assessment.
+    approved_by: "rnelson"
+
   - type: package
     value: "transformers@4.57.6"
     reason: >

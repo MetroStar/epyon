@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.32.1] - 2026-10-02
+
+### Fixed
+- **Self-assessment scans of the Epyon repo itself could pick up Dockerfiles belonging to completely unrelated target repos**, polluting Trivy/Anchore/Xeol base-image results with random, irrelevant findings (e.g. Red Hat/UBI/Iron Bank CVEs from someone else's app). Root cause: `discover_dockerfile_base_images()` (and the filesystem/config scan `--skip-dirs`) only ever hardcoded `node_modules`/`.terraform`/`.git` — they never excluded Epyon's own operational scratch directories, `tmp/` (per-job git clones and zip uploads created by `web/api/jobs.py`/`main.py` for Web UI-triggered scans of *other* repos) and `scans/` (previous scan output, including any extracted `build/Dockerfile` context). When a self-assessment scan targeted the Epyon repo root, these leftover/stale directories were traversed as if they were part of Epyon's own codebase.
+- Added `tmp/**` and `scans/**` as `type: path` exclusions in Epyon's own `.epyon-ignore.yml`, which `get_epyon_ignore_exclude_paths()` already feeds into both Dockerfile base-image discovery and every tool's `--skip-dirs`/skip-path list — fixing this for every scanner that shares the helper, with no code changes required.
+
+## [3.32.0] - 2026-10-02
+
+### Fixed
+- **`BUILD_ENABLED` (Phase 0 container image build/scan) defaulted differently per environment, a major remaining source of cross-environment vulnerability-count divergence** — GitHub Actions defaulted to `build_enabled=true` (builds the target's actual container image, then routes it into Trivy/Anchore as the baseline, surfacing real OS-package/dependency CVEs baked into the artifact), while the Web UI (`web/api/jobs.py`) never set `BUILD_ENABLED` at all and the local CLI (`run-target-security-scan.sh`) defaulted it to `false` unless `--build-image` was explicitly passed. This meant Web UI/local-CLI-without-the-flag scans only ever saw a generic Dockerfile base image (or source-only findings), while GitHub Actions scans of the identical target saw a much larger, more realistic set of findings — with no indication to the user that an entire scan phase had been silently skipped.
+- `BUILD_ENABLED` now defaults to `true` everywhere (Web UI, local CLI, GitHub Actions), so every environment builds and scans the target's real container image by default. Local CLI gains a new `--no-build-image` flag to opt out (e.g. no Docker available, or a non-containerized repo) alongside the existing `--build-image` flag (now a no-op default-confirming alias). Web UI scans still skip the build phase for `local_model` (not a buildable repo target) and `stig` (narrow, fast compliance-only) scan types.
+- **Fixed a latent bug in `run-build-scan.sh`'s no-Dockerfile fallback path** (generates a source-manifest + deterministic digest instead of a real image) that never wrote `build/build.log` — this would have caused `validate-scan-output.sh --require-build` to falsely report a missing/failed build artifact on every non-containerized repo now that `BUILD_ENABLED=true` is the default everywhere.
+
 ## [3.31.0] - 2026-10-02
 
 ### Fixed

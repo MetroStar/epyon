@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.32.2] - 2026-10-02
+
+### Fixed
+- **`type: tool` suppression rules in `.epyon-ignore.yml` (e.g. `type: tool, value: anchore`) were silently never applied to GitHub Actions' PR comments / `security-findings-filtered.json`**, even though they were correctly applied in the Web UI/dashboard. Root cause: `check-severity-gate.sh` built a `SUPPRESSED_TOOLS_JQ` jq clause and logged `"Excluding <tool> findings from severity totals"` for every tool-suppressed rule, but never actually used that variable in the jq filter that produces `security-findings-filtered.json` — and the per-finding suppression loop that builds the suppressed-fingerprint list checked `is_secret_ignored`/`is_cve_ignored`/`is_package_ignored`/`is_path_ignored` but never `is_tool_ignored`. The log message was cosmetic; every individual finding from a whole-tool-suppressed tool (e.g. Anchore container CVEs) still passed through into `security-findings-filtered.json`'s `critical_findings`/`high_findings`/etc. arrays and the PR comment's severity counts. The Web UI/dashboard was unaffected because it uses a separate, correct suppression implementation (`_is_finding_suppressed()` in `web/api/parsers.py`), which is why the discrepancy only showed up on GitHub.
+- Added an `is_tool_ignored` check as the first suppression test in `check-severity-gate.sh`'s per-finding loop, so `type: tool` rules now correctly suppress every finding from that tool everywhere `security-findings-filtered.json` is consumed (PR comments, GitHub Issues, Jira ticket creation), matching the Web UI's behavior. Verified against a real affected scan: previously 4 Critical / 68 High findings remained after "suppression" (mostly un-suppressed Anchore CVEs); after the fix, 0 Critical / 0 High remain, with the Anchore/Checkov findings correctly excluded.
+
 ## [3.32.1] - 2026-10-02
 
 ### Fixed

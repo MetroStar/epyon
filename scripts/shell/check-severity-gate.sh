@@ -181,8 +181,14 @@ if [[ -f "$FINDINGS_SUMMARY" ]]; then
             
             # Check if suppressed using existing bash functions
             suppressed=false
-            
-            if [[ -n "$detector" && -n "$file_path" ]] && declare -f is_secret_ignored >/dev/null 2>&1; then
+
+            if [[ -n "$tool" ]] && declare -f is_tool_ignored >/dev/null 2>&1; then
+                if is_tool_ignored "$tool" 2>/dev/null; then
+                    suppressed=true
+                fi
+            fi
+
+            if [[ "$suppressed" == "false" && -n "$detector" && -n "$file_path" ]] && declare -f is_secret_ignored >/dev/null 2>&1; then
                 if is_secret_ignored "$detector" "$file_path" "$tool" 2>/dev/null; then
                     suppressed=true
                 fi

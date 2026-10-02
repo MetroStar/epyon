@@ -2216,6 +2216,46 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
     return data
 
 
+def parse_scan_environment_notes(scan_dir: Path) -> list[dict]:
+    """Surface environment-dependent gaps that make vulnerability counts
+    non-comparable across environments scanning the same target (e.g. a
+    baseline-image registry pull failing due to missing docker login
+    credentials on this host, or an auto-exclusion filter dropping an entire
+    package ecosystem). Read from anchore/status.json, written by
+    run-anchore-scan.sh. Returns an empty list when nothing noteworthy
+    occurred, so this adds no noise to clean/complete runs.
+    """
+    notes: list[dict] = []
+    status = _read_json(scan_dir / "anchore" / "status.json")
+    if not status:
+        return notes
+
+    baseline_status = status.get("baseline_scan_status")
+    if baseline_status in ("failed_pull", "scan_failed"):
+        notes.append({
+            "layer": "Anchore — Approved Base Images",
+            "severity": "warning",
+            "message": status.get("baseline_scan_reason")
+                or "Baseline/approved base image scan did not complete; "
+                   "this run's counts may be lower than an environment where it succeeded.",
+        })
+
+    exclude_types = status.get("exclude_types_applied") or []
+    if exclude_types:
+        notes.append({
+            "layer": "Anchore — Container Image Scan",
+            "severity": "info",
+            "message": (
+                f"Package type(s) {', '.join(exclude_types)} were auto-excluded "
+                f"as build-stage dependencies ({status.get('exclude_types_source', 'auto-detected')}). "
+                "If the scanned image ships compiled binaries in an excluded "
+                "ecosystem, this run's counts may be lower than expected."
+            ),
+        })
+
+    return notes
+
+
 def load_scan_complete(scan_dir: Path, epyon_root: Path) -> dict:
     """Single source of truth for a fully-populated scan object.
 
@@ -2229,6 +2269,7 @@ def load_scan_complete(scan_dir: Path, epyon_root: Path) -> dict:
     data["sbom"]              = load_sbom_packages(scan_dir)
     data["api_discovery"]     = load_api_discovery(scan_dir)
     data["ssp_evidence"]      = parse_ssp_evidence_matrix(scan_dir)
+    data["environment_notes"] = parse_scan_environment_notes(scan_dir)
     return data
 
 

@@ -120,6 +120,17 @@ POLICY_RESULTS="$OUTPUT_DIR/anchore-policy-evaluation.json"
 IMAGE_RESULTS_DIR="$OUTPUT_DIR/images"
 mkdir -p "$IMAGE_RESULTS_DIR"
 
+# status.json surfaces environment-dependent gaps (e.g. a baseline-image
+# registry pull that fails due to missing `docker login` credentials, or an
+# auto-exclusion filter removing package types) so the dashboard can explain
+# *why* this run's counts differ from another environment's, instead of the
+# difference being buried only in anchore-scan.log. Written once at the end
+# of the script via write_status_json().
+STATUS_FILE="$OUTPUT_DIR/status.json"
+BASELINE_SCAN_STATUS="not_configured"
+BASELINE_SCAN_REASON=""
+BASELINE_IMAGE_NAME=""
+
 # Logging function
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
@@ -535,35 +546,53 @@ auto_configure_scanner() {
             log "  ℹ Detected runtime: Python"
         fi
         
-        # Check for Go
+        # Check for Go — both the toolchain (`go` binary) AND standalone
+        # Go-compiled executables shipped without the toolchain (e.g. a
+        # Python-base image that installs the Docker CLI or Helm CLI as a
+        # downloaded static binary). `which go` alone misses the latter,
+        # which previously caused images that genuinely ship Go binaries at
+        # runtime to be misclassified as "Python-only" and have their real
+        # Go-ecosystem vulnerabilities silently excluded. Go binaries embed
+        # a plaintext "go1.XX" version marker regardless of toolchain
+        # presence, so grep the binaries directly for it.
         if echo "$image_env" | grep -q "GOLANG_VERSION" || \
-           docker run --rm --entrypoint sh "$image" -c "which go 2>/dev/null" > /dev/null 2>&1; then
+           docker run --rm --entrypoint sh "$image" -c "which go 2>/dev/null" > /dev/null 2>&1 || \
+           docker run --rm --entrypoint sh "$image" -c \
+               'for f in /usr/local/bin/* /usr/bin/* /bin/*; do [ -f "$f" ] && grep -aqE "go1\.[0-9]+" "$f" 2>/dev/null && exit 0; done; exit 1' \
+               > /dev/null 2>&1; then
             runtime_langs+=("go")
-            log "  ℹ Detected runtime: Go"
+            log "  ℹ Detected runtime: Go (toolchain or compiled binary)"
         fi
-        
-        # Check for Java
+
+        # Check for Java — JDK/JRE presence OR any shipped .jar files, which
+        # indicate a real Java runtime dependency even without `java` on PATH.
         if echo "$image_env" | grep -q "JAVA_VERSION" || \
-           docker run --rm --entrypoint sh "$image" -c "which java 2>/dev/null" > /dev/null 2>&1; then
+           docker run --rm --entrypoint sh "$image" -c "which java 2>/dev/null" > /dev/null 2>&1 || \
+           docker run --rm --entrypoint sh "$image" -c \
+               'find / -xdev -maxdepth 6 -name "*.jar" 2>/dev/null | head -1 | grep -q .' \
+               > /dev/null 2>&1; then
             runtime_langs+=("java")
-            log "  ℹ Detected runtime: Java"
+            log "  ℹ Detected runtime: Java (toolchain, JRE, or shipped .jar)"
         fi
         
         # Smart exclusion: if ONLY Node.js is detected, exclude Python/Go/Java build deps
         if [[ ${#runtime_langs[@]} -eq 1 ]] && [[ "${runtime_langs[0]}" == "node" ]]; then
             export ANCHORE_EXCLUDE_TYPES="python,go,java,ruby"
+            export ANCHORE_EXCLUDE_TYPES_SOURCE="auto-detected: Node.js-only runtime"
             log "  🔧 Auto-excluding build-stage deps: python,go,java,ruby (Node.js-only runtime)"
         # If ONLY Python is detected, exclude Go/Java/Node build deps
         elif [[ ${#runtime_langs[@]} -eq 1 ]] && [[ "${runtime_langs[0]}" == "python" ]]; then
             export ANCHORE_EXCLUDE_TYPES="go,java,node,ruby"
+            export ANCHORE_EXCLUDE_TYPES_SOURCE="auto-detected: Python-only runtime"
             log "  🔧 Auto-excluding build-stage deps: go,java,node,ruby (Python-only runtime)"
         # If ONLY Go is detected, exclude Python/Java/Node build deps
         elif [[ ${#runtime_langs[@]} -eq 1 ]] && [[ "${runtime_langs[0]}" == "go" ]]; then
             export ANCHORE_EXCLUDE_TYPES="python,java,node,ruby"
+            export ANCHORE_EXCLUDE_TYPES_SOURCE="auto-detected: Go-only runtime"
             log "  🔧 Auto-excluding build-stage deps: python,java,node,ruby (Go-only runtime)"
         # If multiple runtimes or none detected, don't auto-exclude
         else
-            log "  ℹ Multiple or unknown runtimes detected, scanning all packages"
+            log "  ℹ Multiple or unknown runtimes detected ($(IFS=,; echo "${runtime_langs[*]}")), scanning all packages"
         fi
     fi
 }
@@ -722,9 +751,12 @@ scan_base_images() {
     
     if [ -z "${PRIMARY_BASELINE_IMAGE:-}" ]; then
         log "ℹ No approved base images configured, skipping"
+        BASELINE_SCAN_STATUS="not_configured"
+        BASELINE_SCAN_REASON="No PRIMARY_BASELINE_IMAGE / approved-base-images.conf entry configured"
         return 0
     fi
     
+    BASELINE_IMAGE_NAME="$PRIMARY_BASELINE_IMAGE"
     log "ℹ Primary baseline image: $PRIMARY_BASELINE_IMAGE"
 
     # Check if baseline image exists locally; pull if not
@@ -734,6 +766,12 @@ scan_base_images() {
             log "✅ Baseline image pulled successfully"
         else
             log "⚠️  Failed to pull baseline image: $PRIMARY_BASELINE_IMAGE"
+            # Surfaced to the dashboard: a registry-access gap (e.g. missing
+            # `docker login` credentials on this host) silently drops this
+            # entire layer's findings, which is a common cause of vulnerability
+            # counts differing between environments scanning the same target.
+            BASELINE_SCAN_STATUS="failed_pull"
+            BASELINE_SCAN_REASON="docker pull failed for $PRIMARY_BASELINE_IMAGE — likely missing registry credentials (docker login) or network/registry access on this host. Baseline OS-level CVEs were NOT included in this run's totals."
             return 1
         fi
     fi
@@ -769,9 +807,13 @@ scan_base_images() {
     if [ $_base_scan_exit -eq 0 ] && [ -f "$BASE_IMAGE_RESULT" ]; then
         VULN_COUNT=$(jq -r '.matches | length' "$BASE_IMAGE_RESULT" 2>/dev/null || echo "0")
         log "✅ Baseline image scan complete: $VULN_COUNT vulnerabilities"
+        BASELINE_SCAN_STATUS="success"
+        BASELINE_SCAN_REASON=""
         return 0
     else
         log "⚠️  Baseline image scan failed"
+        BASELINE_SCAN_STATUS="scan_failed"
+        BASELINE_SCAN_REASON="Baseline image was pulled but the grype scan of $PRIMARY_BASELINE_IMAGE did not complete successfully; see anchore-scan.log."
         return 1
     fi
 }
@@ -892,6 +934,29 @@ write_policy_evaluation() {
 }
 
 write_policy_evaluation
+
+# Surface environment-dependent gaps in status.json so the web UI can warn
+# that this run's totals may be lower than another environment's for reasons
+# unrelated to the target's actual security posture (registry access gaps,
+# auto-exclusion filters), rather than that difference only existing buried
+# in anchore-scan.log.
+write_status_json() {
+    jq -n \
+        --arg baseline_image "$BASELINE_IMAGE_NAME" \
+        --arg baseline_status "$BASELINE_SCAN_STATUS" \
+        --arg baseline_reason "$BASELINE_SCAN_REASON" \
+        --arg exclude_types "${ANCHORE_EXCLUDE_TYPES:-}" \
+        --arg exclude_source "${ANCHORE_EXCLUDE_TYPES_SOURCE:-}" \
+        '{
+            baseline_image: $baseline_image,
+            baseline_scan_status: $baseline_status,
+            baseline_scan_reason: $baseline_reason,
+            exclude_types_applied: (if $exclude_types == "" then [] else ($exclude_types | split(",")) end),
+            exclude_types_source: $exclude_source
+        }' > "$STATUS_FILE" 2>/dev/null || true
+}
+
+write_status_json
 
 # Generate summary
 log ""

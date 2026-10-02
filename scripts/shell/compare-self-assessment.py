@@ -266,6 +266,58 @@ def _count_compromised_source_findings(scan_dir: Path) -> int:
     return len(findings) if isinstance(findings, list) else 0
 
 
+# Primary output file (relative to scan_dir) each layer writes, used only to
+# reconstruct an approximate step-by-step timeline after the fact: run-self-
+# assessment.sh delegates to run-target-security-scan.sh, which (unlike
+# run-epyon-scan-ci.sh) never writes a layer-timing.json/parallel-logs set,
+# so this is the only signal available for "when did each step run" without
+# a live log stream. Since layers execute sequentially in that script, each
+# file's mtime is a reasonable proxy for "this layer had finished by time T".
+LAYER_OUTPUT_FILES: dict[float, str] = {
+    1: "sbom",  # directory — newest file inside used instead of a single path
+    2: RAW_RESULT_FILES["trufflehog"],
+    4: RAW_RESULT_FILES["clamav"],
+    5: "helm/helm-results.json",
+    6: RAW_RESULT_FILES["checkov"],
+    7: RAW_RESULT_FILES["trivy"],
+    8: RAW_RESULT_FILES["grype"],
+    8.5: RAW_RESULT_FILES["pip-audit"],
+    9: RAW_RESULT_FILES["xeol"],
+    10: "anchore/anchore-policy-evaluation.json",
+    11: "api/api-discovery.json",
+    14: RAW_RESULT_FILES["picklescan-enhanced"],
+    15: "modelcard/modelcard-results.json",
+    18: "model-provenance/model-provenance-results.json",
+    19: "inference-security/inference-security-results.json",
+    21: "compromised-source/compromised-source-results.json",
+}
+
+
+def _layer_completed_at(scan_dir: Path, layer_num: float) -> float | None:
+    """Best-effort mtime (epoch seconds) of the file a layer wrote, used as
+    a proxy for "when this step finished". Returns None if the layer has no
+    known output mapping, or its file never materialized (e.g. skipped,
+    tool not applicable, or crashed before writing output)."""
+    if layer_num == 13:
+        candidates = sorted(scan_dir.glob("stig-results-*.json"))
+        if not candidates:
+            return None
+        return max(f.stat().st_mtime for f in candidates)
+
+    rel = LAYER_OUTPUT_FILES.get(layer_num)
+    if rel is None:
+        return None
+    path = scan_dir / rel
+    if path.is_dir():
+        files = [f for f in path.rglob("*") if f.is_file()]
+        if not files:
+            return None
+        return max(f.stat().st_mtime for f in files)
+    if not path.exists():
+        return None
+    return path.stat().st_mtime
+
+
 # Per-tool raw-file counters, keyed by manifest tool identifier.
 RAW_COUNTERS = {
     "trufflehog": _count_trufflehog_findings,
@@ -292,6 +344,7 @@ def evaluate_layer(
         "name": layer["name"],
         "tool": layer["tool"],
         "validated": layer.get("validate", False),
+        "completed_at": _layer_completed_at(scan_dir, layer["layer"]),
     }
 
     if only_layers is not None and str(layer["layer"]) not in only_layers:
@@ -394,6 +447,37 @@ def main() -> int:
         for layer in manifest["layers"]
     ]
 
+    # Reconstruct an approximate step-by-step timeline from each layer's
+    # output-file mtime relative to the scan's start time (see
+    # _layer_completed_at — there is no live per-layer timing data for
+    # self-assessment runs, since they go through run-target-security-
+    # scan.sh rather than run-epyon-scan-ci.sh). Layers without a known
+    # output mapping, or whose file never materialized, get elapsed_seconds
+    # left out entirely rather than a misleading 0/None value.
+    scan_started_at = None
+    metadata = _load_json(args.scan_dir / "scan-metadata.json")
+    if isinstance(metadata, dict) and metadata.get("scan_timestamp"):
+        try:
+            scan_started_at = datetime.fromisoformat(
+                metadata["scan_timestamp"].replace("Z", "+00:00")
+            ).timestamp()
+        except ValueError:
+            scan_started_at = None
+
+    for l in layers:
+        completed_epoch = l.pop("completed_at", None)
+        if completed_epoch is None or scan_started_at is None:
+            continue
+        l["completed_at"] = datetime.fromtimestamp(
+            completed_epoch, tz=timezone.utc
+        ).isoformat()
+        l["elapsed_seconds"] = max(0, round(completed_epoch - scan_started_at))
+
+    timeline = sorted(
+        (l for l in layers if l.get("elapsed_seconds") is not None),
+        key=lambda l: l["elapsed_seconds"],
+    )
+
     validated = [l for l in layers if l["validated"]]
     passed = [l for l in validated if l["status"] == "pass"]
     failed = [l for l in validated if l["status"] == "fail"]
@@ -414,6 +498,20 @@ def main() -> int:
             "skipped": len(skipped),
         },
         "layers": layers,
+        # Ordered "when did each step run" view for the UI, reconstructed
+        # from output-file mtimes (see _layer_completed_at above). Omitted
+        # entirely (empty list) if scan-metadata.json's start timestamp
+        # couldn't be read, since elapsed_seconds would be meaningless.
+        "timeline": [
+            {
+                "layer": l["layer"],
+                "name": l["name"],
+                "status": l["status"],
+                "completed_at": l["completed_at"],
+                "elapsed_seconds": l["elapsed_seconds"],
+            }
+            for l in timeline
+        ],
     }
 
     args.output.parent.mkdir(parents=True, exist_ok=True)

@@ -283,7 +283,20 @@ async def run_scan_job(
 
         clone_env = dict(os.environ)
         auth_clone_url = _authenticated_clone_url(clone_url, github_token)
-        clone_cmd = ["git", "clone", "--depth=1", auth_clone_url, clone_root]
+
+        # Mirror the reusable GitHub Actions workflow's clone strategy
+        # (.github/workflows/epyon-scan.yml) so TruffleHog's historical
+        # secret scan and Layer 21's git-log confidence scoring see the same
+        # commit history here as they do in CI, instead of this path's
+        # previous unconditional --depth=1 silently truncating history and
+        # producing different findings for an identical target.
+        if hf_match:
+            # HuggingFace repos can carry huge LFS weight blobs — shallow
+            # clone + blob-size limit, same as CI.
+            clone_cmd = ["git", "clone", "--depth=1", "--filter=blob:limit=10m",
+                         auth_clone_url, clone_root]
+        else:
+            clone_cmd = ["git", "clone", auth_clone_url, clone_root]
 
         clone_proc = await asyncio.create_subprocess_exec(
             *clone_cmd,
@@ -309,7 +322,13 @@ async def run_scan_job(
            "NONINTERACTIVE":   "1",
            "DEBIAN_FRONTEND":  "noninteractive",
            "TERM":             "dumb",
-           "SKIP_GARAK":       "true",
+           # Garak is opt-in only (layer 12). `/tmp/epyon-env` (written above
+           # from env_lines) only ever *sets* RUN_GARAK=true when requested —
+           # it never clears SKIP_GARAK. run_garak_layer() in
+           # run-epyon-scan-ci.sh treats SKIP_GARAK as a hard stop that wins
+           # over RUN_GARAK, so a stale "true" here previously made Garak
+           # unrunnable from the Web UI even with the toggle enabled.
+           "SKIP_GARAK":       "false" if run_garak else "true",
            "TARGET_DIR":       target_dir,
            "SCAN_DIR":         str(scan_dir),
            "SCAN_MODE":        scan_type,

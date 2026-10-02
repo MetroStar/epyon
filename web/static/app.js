@@ -269,14 +269,39 @@ function renderSelfAssessmentBody(sa) {
     } else if (l.notes) {
       reason = esc(l.notes);
     }
+    const ran = Number.isFinite(l.elapsed_seconds)
+      ? `<span title="${esc(l.completed_at || '')}">+${l.elapsed_seconds}s</span>`
+      : '<span style="color:var(--text-muted)">—</span>';
     return `
       <tr>
         <td>${esc(String(l.layer))}</td>
         <td>${esc(l.name)}</td>
         <td><span class="sev-badge ${g.cls}" style="font-size:10px">${g.icon} ${g.label}</span></td>
         <td style="font-size:12px;color:var(--text-muted)">${reason}</td>
+        <td style="font-size:12px;color:var(--text-muted);white-space:nowrap">${ran}</td>
       </tr>`;
   }).join('');
+
+  // Chronological step-by-step view — reconstructed from each layer's
+  // output-file mtime (see compare-self-assessment.py::_layer_completed_at),
+  // since run-self-assessment.sh has no live per-layer timing data the way
+  // a regular CI scan does. Gives a genuine "when did each step run" trail
+  // even after the run has finished and the live console log is gone.
+  const timeline = Array.isArray(sa.timeline) ? sa.timeline : [];
+  const timelineHtml = timeline.length ? `
+    <div style="margin-top:16px">
+      <div style="font-size:13px;font-weight:600;margin-bottom:8px">Step-by-step timeline</div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        ${timeline.map(t => {
+          const g = gumball[t.status] || { icon: '⚪', label: (t.status || '').toUpperCase() };
+          return `<div style="display:flex;gap:10px;align-items:center;font-size:12px;color:var(--text-muted)">
+            <span style="min-width:48px;font-variant-numeric:tabular-nums">+${t.elapsed_seconds}s</span>
+            <span>${g.icon}</span>
+            <span style="color:var(--text-primary)">L${esc(String(t.layer))} ${esc(t.name)}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
 
   return `
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:16px">
@@ -305,13 +330,14 @@ function renderSelfAssessmentBody(sa) {
     <div class="table-container">
       <table>
         <thead>
-          <tr><th>Layer</th><th>Name</th><th>Status</th><th>Why</th></tr>
+          <tr><th>Layer</th><th>Name</th><th>Status</th><th>Why</th><th>Ran at</th></tr>
         </thead>
         <tbody>
           ${rows}
         </tbody>
       </table>
-    </div>`;
+    </div>
+    ${timelineHtml}`;
 }
 
 function sevBadgeRow(scan) {
@@ -1587,6 +1613,18 @@ async function renderScanDetail(scanId) {
         </div>`;
     }
 
+    // Environment-dependent gaps (e.g. a baseline-image registry pull that
+    // failed, or an auto-exclusion filter) mean this scan's counts may not
+    // be directly comparable to another environment's run of the same
+    // target. Surface them plainly instead of leaving users to guess why
+    // two scans of the same app differ.
+    const envNotes = scan.environment_notes || [];
+    const envNotesBanner = envNotes.length ? `
+      <div class="section" style="border-left:3px solid #f59e0b;padding:12px 16px;margin-bottom:16px;background:rgba(245,158,11,0.08)">
+        <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:#f59e0b">⚠ Environment Notes — results may differ from other environments</div>
+        ${envNotes.map(n => `<div style="font-size:12.5px;color:var(--text-muted);margin-top:4px"><strong>${esc(n.layer)}:</strong> ${esc(n.message)}</div>`).join('')}
+      </div>` : '';
+
     page.innerHTML = `
       <div class="breadcrumb">
         <a href="#/applications" onclick="navigate('#/applications')">Applications</a>
@@ -1646,6 +1684,8 @@ async function renderScanDetail(scanId) {
           </button>
         </div>
       </div>
+
+      ${envNotesBanner}
 
       <div class="stats-grid" style="margin-bottom:24px">
         <div class="stat-card">

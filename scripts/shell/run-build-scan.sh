@@ -159,6 +159,17 @@ EOF
 }
 EOF
 
+    # Write a build.log even in this non-containerized fallback path so that
+    # validate-scan-output.sh's --require-build check (which now applies by
+    # default on every scan, since BUILD_ENABLED defaults to true) doesn't
+    # falsely report a missing/failed build artifact for repos that simply
+    # have no Dockerfile.
+    cat << EOF > "$BUILD_LOG"
+No Dockerfile/Containerfile found in $TARGET_DIR.
+Skipped container image build; generated a target source manifest and
+deterministic digest instead (see build-summary.json, mode=target_source_manifest).
+EOF
+
     cat << EOF > "$BUILD_DIR/build-summary.json"
 {
   "status": "success",

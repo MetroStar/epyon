@@ -118,6 +118,9 @@ show_help() {
     echo "      --no-garak      Skip Garak probing"
     echo "      --baseline-image IMAGE"
     echo "                      Override baseline image prompt/default"
+    echo "      --build-image   Build the target's container image before scanning (default: on)"
+    echo "      --no-build-image"
+    echo "                      Skip the container build/scan phase (faster, less thorough)"
     echo "      --non-interactive"
     echo "                      Disable prompts and use defaults"
     echo ""
@@ -254,6 +257,12 @@ LIST_MODES="false"
 TARGET_INPUT=""
 SCAN_TYPE=""
 POSITIONAL_ARGS=()
+# Build-and-scan the target's own container image by default (Phase 0), same
+# as the GitHub Actions reusable workflow's default — this is what actually
+# surfaces OS-package/dependency CVEs baked into the real artifact, not just
+# a generic Dockerfile FROM-line baseline. Opt out with --no-build-image for
+# faster/lighter runs (e.g. no Docker available, or a non-containerized repo).
+BUILD_ENABLED="${BUILD_ENABLED:-true}"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -286,6 +295,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --build-image)
             BUILD_ENABLED=true
+            shift
+            ;;
+        --no-build-image)
+            BUILD_ENABLED=false
             shift
             ;;
         --image-name)

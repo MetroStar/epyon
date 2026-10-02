@@ -221,6 +221,15 @@ async def run_scan_job(
         f"SCAN_NAME={scan_name}",
         f"SCAN_ID={scan_name}",
     ]
+    # Build-and-scan the target's own container image before the rest of the
+    # scan (Phase 0), same default as the GitHub Actions reusable workflow —
+    # this is what surfaces OS-package/dependency CVEs baked into the real
+    # artifact rather than just a generic Dockerfile FROM-line baseline, and
+    # was previously the single biggest source of Web UI vs. CI result
+    # divergence (Web UI never set this, so it silently never built/scanned
+    # the real image). Skipped for local_model (not a buildable repo target)
+    # and stig (narrow, fast compliance-only scan type).
+    env_lines.append(f"BUILD_ENABLED={'false' if scan_type in ('local_model', 'stig') else 'true'}")
     # Garak opt-in from UI checkbox
     if run_garak:
         env_lines.append("RUN_GARAK=true")

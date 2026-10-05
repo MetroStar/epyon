@@ -785,16 +785,21 @@ scan_base_images() {
     # Check if baseline image exists locally; pull if not
     if ! docker image inspect "$PRIMARY_BASELINE_IMAGE" > /dev/null 2>&1; then
         log "ℹ Baseline image not found locally, attempting to pull: $PRIMARY_BASELINE_IMAGE"
-        if docker pull "$PRIMARY_BASELINE_IMAGE" >> "$LOG_FILE" 2>&1; then
+        local _pull_output _pull_status
+        _pull_output="$(docker pull "$PRIMARY_BASELINE_IMAGE" 2>&1)"
+        _pull_status=$?
+        echo "$_pull_output" >> "$LOG_FILE"
+        if [ $_pull_status -eq 0 ]; then
             log "✅ Baseline image pulled successfully"
         else
             log "⚠️  Failed to pull baseline image: $PRIMARY_BASELINE_IMAGE"
-            # Surfaced to the dashboard: a registry-access gap (e.g. missing
-            # `docker login` credentials on this host) silently drops this
-            # entire layer's findings, which is a common cause of vulnerability
-            # counts differing between environments scanning the same target.
+            # Surfaced to the dashboard: classify the ACTUAL docker error
+            # instead of always guessing "missing registry credentials" —
+            # misleading for genuinely public images, whose most common pull
+            # failure on shared CI runners is Docker Hub's anonymous-pull rate
+            # limit, not a per-image access problem.
             BASELINE_SCAN_STATUS="failed_pull"
-            BASELINE_SCAN_REASON="docker pull failed for $PRIMARY_BASELINE_IMAGE — likely missing registry credentials (docker login) or network/registry access on this host. Baseline OS-level CVEs were NOT included in this run's totals."
+            BASELINE_SCAN_REASON="$(classify_docker_pull_failure "$PRIMARY_BASELINE_IMAGE" "$_pull_output") Baseline OS-level CVEs were NOT included in this run's totals."
             return 1
         fi
     fi

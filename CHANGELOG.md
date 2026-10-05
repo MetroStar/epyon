@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.33.1] - 2026-10-05
+
+### Fixed
+- **A failed baseline-image `docker pull` always blamed "missing registry credentials (docker login)"**, even when the image was a genuinely public one (e.g. `python:3.12-slim-bookworm`, `ubuntu:22.04`) that failed to pull for an unrelated reason — almost always Docker Hub's anonymous-pull rate limit (100 pulls/6h per IP without `docker login`, 200/6h with a free account) on shared CI runners, not a per-image access problem. This produced a confusing, inaccurate "Environment Notes" banner on the dashboard telling users to log into Docker for images that never required any credentials in the first place.
+- Added `classify_docker_pull_failure()` (`scripts/shell/scan-directory-template.sh`), which inspects the actual captured `docker pull` output and reports the real cause: Docker Hub rate limiting (not a credentials issue — explains the real fix, i.e. wait or `docker login` to raise the *limit*, not to gain *access*), genuine registry authentication failure (private/gated image — `docker login` is the correct fix here), an unknown/nonexistent image tag (typo or removed upstream — not a credentials problem), or a generic network/registry issue. Used by both `run-anchore-scan.sh`'s baseline-image pull (feeding `anchore/status.json`'s `baseline_scan_reason` and the dashboard's Environment Notes banner) and `run-trivy-scan.sh`'s per-base-image pull loop.
+- Added BATS coverage for all four classification branches.
+
 ## [3.33.0] - 2026-10-05
 
 ### Changed

@@ -362,8 +362,11 @@ if [ "$SCAN_MODE" != "filesystem" ]; then
                 echo "   ✅ Using cached image"
             else
                 echo "   ⏬ Pulling image..."
-                if ! $CONTAINER_CLI pull "$image" >> "$SCAN_LOG" 2>&1; then
-                    echo "   ⚠️ Pull failed - skipping this image"
+                _pull_output="$($CONTAINER_CLI pull "$image" 2>&1)"
+                _pull_status=$?
+                echo "$_pull_output" >> "$SCAN_LOG"
+                if [ $_pull_status -ne 0 ]; then
+                    echo "   ⚠️ $(classify_docker_pull_failure "$image" "$_pull_output") Skipping this image."
                     continue
                 fi
             fi

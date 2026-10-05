@@ -2254,9 +2254,10 @@ def compute_gate_status(critical: int, high: int, misconfig_critical: int, misco
 def parse_scan_environment_notes(scan_dir: Path) -> list[dict]:
     """Surface environment-dependent gaps that make vulnerability counts
     non-comparable across environments scanning the same target (e.g. a
-    baseline-image registry pull failing due to missing docker login
-    credentials on this host, or an auto-exclusion filter dropping an entire
-    package ecosystem). Read from anchore/status.json, written by
+    baseline-image registry pull failing on this host — classified by
+    classify_docker_pull_failure() as a rate limit, missing credentials, an
+    unknown tag, or a network/registry issue — or an auto-exclusion filter
+    dropping an entire package ecosystem). Read from anchore/status.json, written by
     run-anchore-scan.sh. Returns an empty list when nothing noteworthy
     occurred, so this adds no noise to clean/complete runs.
     """

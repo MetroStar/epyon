@@ -151,3 +151,32 @@ DOCKERFILE
     [ "$status" -eq 0 ]
     [ -z "$output" ]
 }
+
+# ── classify_docker_pull_failure() ───────────────────────────────────────────
+
+@test "classify_docker_pull_failure identifies Docker Hub anonymous rate limiting, not a credentials problem" {
+    run bash -c "source '$SCRIPT_PATH' && classify_docker_pull_failure 'python:3.12-slim-bookworm' 'toomanyrequests: You have reached your pull rate limit'"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"rate limit"* ]]
+    [[ "$output" == *"NOT a credentials"* ]]
+}
+
+@test "classify_docker_pull_failure identifies genuine registry authentication failures" {
+    run bash -c "source '$SCRIPT_PATH' && classify_docker_pull_failure 'internal.example.com/foo:bar' 'unauthorized: authentication required'"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"authentication was required"* ]]
+    [[ "$output" == *"docker login"* ]]
+}
+
+@test "classify_docker_pull_failure identifies an unknown/nonexistent tag" {
+    run bash -c "source '$SCRIPT_PATH' && classify_docker_pull_failure 'ubuntu:99.99' 'manifest for ubuntu:99.99 not found: manifest unknown'"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"could not be found"* ]]
+    [[ "$output" == *"Not a credentials problem"* ]]
+}
+
+@test "classify_docker_pull_failure falls back to a generic network/registry reason for unrecognized errors" {
+    run bash -c "source '$SCRIPT_PATH' && classify_docker_pull_failure 'ubuntu:22.04' 'TLS handshake timeout'"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"not necessarily missing credentials"* ]]
+}

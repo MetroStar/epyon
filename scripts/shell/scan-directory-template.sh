@@ -292,6 +292,34 @@ discover_dockerfile_base_images() {
     printf '%s\n' "${discovered[@]}" | sort -u
 }
 
+# ── Docker pull failure diagnosis ──────────────────────────────────────────────
+# Classifies a failed `docker pull`'s captured output (stdout+stderr) into a
+# specific, accurate reason, instead of always guessing "missing registry
+# credentials (docker login)" — which is misleading for genuinely public
+# images (python, ubuntu, golang, etc.) that failed to pull for an unrelated
+# reason. The most common cause on shared CI runners is Docker Hub's
+# anonymous-pull rate limit (100 pulls/6h per IP without `docker login`,
+# 200/6h with a free account) — NOT a per-image access/credentials problem.
+# Usage: reason=$(classify_docker_pull_failure "$image" "$pull_output")
+classify_docker_pull_failure() {
+    local image="${1:-}"
+    local pull_output="${2:-}"
+    local lower
+    lower="$(printf '%s' "$pull_output" | tr '[:upper:]' '[:lower:]')"
+
+    if [[ "$lower" == *"toomanyrequests"* || "$lower" == *"rate limit"* || "$lower" == *"too many requests"* ]]; then
+        echo "Docker Hub anonymous pull rate limit reached while pulling '$image' (100 pulls/6h per IP without 'docker login', 200/6h with a free account) — this is NOT a credentials/access problem with the image itself, which is public. Wait for the rate-limit window to reset, or run 'docker login' with a free Docker Hub account on this host to raise the limit."
+    elif [[ "$lower" == *"unauthorized"* || "$lower" == *"authentication required"* || "$lower" == *"requested access to the resource is denied"* || "$lower" == *"denied: access"* ]]; then
+        echo "Registry authentication was required to pull '$image' — this does appear to be a private/gated image or registry, not a public one. Run 'docker login <registry>' with valid credentials on this host, or remove it from the scan configuration if it isn't meant to be scanned here."
+    elif [[ "$lower" == *"manifest unknown"* || "$lower" == *"not found"* || "$lower" == *"no such host"* || "$lower" == *"name unknown"* ]]; then
+        echo "'$image' could not be found (unknown manifest/tag, or the registry host is unreachable) — check for a typo in the image name/tag, or that it hasn't been removed/renamed upstream. Not a credentials problem."
+    elif [[ -z "$pull_output" ]]; then
+        echo "docker pull failed for '$image' for an unrecorded reason (no output captured) — check network/registry access on this host and review the scan log."
+    else
+        echo "docker pull failed for '$image' — network or registry access issue on this host, not necessarily missing credentials. Last line of the docker error: $(printf '%s' "$pull_output" | tail -1)"
+    fi
+}
+
 # ── Docker auto-start utility ─────────────────────────────────────────────────
 # Call ensure_docker_running to guarantee the Docker daemon is up before any
 # tool that requires it.  Tries Colima, Docker Desktop, Rancher Desktop,

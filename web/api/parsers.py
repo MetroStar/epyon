@@ -1736,8 +1736,8 @@ def parse_misconfiguration_findings(scan_dir: Path) -> dict:
     for f in all_misconfig_findings:
         s = f["severity"] if f["severity"] != "unknown" else "low"
         by_sev.setdefault(s, []).append(f)
-    
-    return {
+
+    findings_dict = {
         "summary": {
             "total_critical": len(by_sev["critical"]),
             "total_high":     len(by_sev["high"]),
@@ -1750,6 +1750,17 @@ def parse_misconfiguration_findings(scan_dir: Path) -> dict:
         "medium_findings":   by_sev["medium"],
         "low_findings":      by_sev["low"],
     }
+
+    # Filter out suppressed findings (mirrors parse_scan_findings() /
+    # load_enriched_findings()). Without this, a Checkov/TruffleHog finding
+    # suppressed via .epyon-ignore.yml still counted toward misconfig_critical/
+    # misconfig_high, which feeds compute_gate_status() — causing the overall
+    # scan verdict to FAIL even when every Critical/High finding was suppressed.
+    suppressions = parse_suppressed_findings(scan_dir)
+    if suppressions:
+        findings_dict = _filter_suppressed_findings(findings_dict, suppressions)
+
+    return findings_dict
 
 
 def parse_sonarqube_dir(scan_dir: Path) -> list[dict]:

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.32.3] - 2026-10-05
+
+### Fixed
+- **Web UI/dashboard scans could show an overall "FAIL" verdict even when every Critical/High finding had been suppressed via `.epyon-ignore.yml`** (e.g. a scan showing 0 Critical / 0 High vulnerabilities, only Medium/Low, still badged `FAIL`). Root cause: `compute_gate_status()` in `web/api/parsers.py` derives the verdict from `critical + high + misconfig_critical + misconfig_high`. The vulnerability counts (`critical`/`high`) were already suppression-filtered via `load_enriched_findings()`, but `misconfig_critical`/`misconfig_high` came from `parse_misconfiguration_findings()` (Checkov/TruffleHog/compromised-source findings), which built its severity counts directly from raw tool output and never called `_filter_suppressed_findings()` — so a suppressed Critical/High Checkov or TruffleHog finding still counted toward the gate and flipped the badge to FAIL, even though the same finding was correctly hidden from the Misconfigurations card's suppressed-findings list elsewhere.
+- `parse_misconfiguration_findings()` now applies the same suppression filter used by `parse_scan_findings()`/`load_enriched_findings()`, so the PASS/FAIL gate (and the Misconfigurations summary counts feeding it) are computed strictly from pass/fail-relevant *unsuppressed* findings, matching the already-correct behavior of the Vulnerabilities card.
+
 ## [3.32.2] - 2026-10-02
 
 ### Fixed

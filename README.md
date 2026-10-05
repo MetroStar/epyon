@@ -844,7 +844,7 @@ The workflow checks out both your repository and Epyon, then runs Epyon's scanne
 
 ### 🐳 Approved Base Images
 
-Epyon's Layer 10 "Approved Base Images" baseline scan defaults to **auto-discovering each target's own Dockerfile `FROM`-line image** — a public, always-pullable image that's genuinely relevant to that repo, resolved via a shared helper (`discover_dockerfile_base_images()`) used by both Trivy and Anchore/Grype so the two tools agree on the same baseline.
+Epyon's Layer 10 "Approved Base Images" baseline scan defaults to **auto-discovering each target's own Dockerfile `FROM`-line image** — a public, always-pullable image that's genuinely relevant to that repo, resolved via a shared helper (`discover_dockerfile_base_images()`) used by both Trivy and Anchore/Grype so the two tools agree on the same baseline. Only the **final build stage** of each Dockerfile is scanned; throwaway multi-stage builder images (e.g. `FROM golang:1.24-alpine AS builder`) that never ship in the deployed artifact are skipped, and `FROM <stage-name>` references are resolved back to the real external image that stage was built from.
 
 **Why not a fixed default image?** A single hardcoded default (previously `dhi/caddy:latest`, a Docker Hardened Images tag) is both **gated** — DHI images require a paid Docker Hub entitlement (`docker login`), so hosts without it silently got zero baseline findings while authenticated hosts got a full batch — and **semantically irrelevant** to most repos (comparing a Caddy web-server image against an unrelated Python/Node/Go application isn't a meaningful baseline). Auto-discovery avoids both problems and keeps results consistent across local/CI/deployed environments.
 

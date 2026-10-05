@@ -240,9 +240,17 @@ for ig in data.get('ignores', []) or []:
 # each maintaining its own copy of this logic (which previously drifted apart
 # and was a source of cross-tool/cross-environment result inconsistency).
 # Scans every Dockerfile* in $1, honoring the same .epyon-ignore.yml path
-# exclusions as the rest of the scan, and prints one deduplicated FROM-line
-# image per line (skipping `FROM scratch` and build-arg variable references
-# like `FROM $BASE_IMAGE`, which aren't real pullable images).
+# exclusions as the rest of the scan, and emits only each Dockerfile's FINAL
+# stage image (one per Dockerfile, deduplicated across the repo) — not every
+# `FROM` line. Multi-stage builder stages (e.g. `FROM golang:1.24-alpine AS
+# builder`, used only to compile a helper binary) are discarded by `docker
+# build` and never present in the shipped artifact, so treating them as a scan
+# baseline produced irrelevant, unfixable noise (and sometimes pointed at
+# internal/private-registry-only images with no bearing on the real runtime
+# image). `FROM <stage>` references to an earlier named stage are resolved to
+# that stage's image so the reported result is always a real, pullable image
+# (or correctly skipped if that chain bottoms out in `scratch` or an
+# unresolved build-arg like `FROM $BASE_IMAGE`).
 # Usage: mapfile -t images < <(discover_dockerfile_base_images "$target")
 discover_dockerfile_base_images() {
     local target_dir="${1:-}"
@@ -256,13 +264,28 @@ discover_dockerfile_base_images() {
     done < <(get_epyon_ignore_exclude_paths "$target_dir")
 
     local discovered=()
-    local dockerfile from_image
+    local dockerfile
     while IFS= read -r dockerfile; do
-        while IFS= read -r from_image; do
-            [[ "$from_image" == "scratch" ]] && continue
-            [[ "$from_image" == *'$'* ]] && continue
-            discovered+=("$from_image")
-        done < <(grep -i '^FROM ' "$dockerfile" | awk '{print $2}')
+        local -A stage_image=()
+        local final_image=""
+        local line image stage
+        while IFS= read -r line; do
+            image=$(awk '{print $2}' <<<"$line")
+            [[ -z "$image" ]] && continue
+            stage=$(awk 'BEGIN{IGNORECASE=1} {for(i=1;i<=NF;i++) if(tolower($i)=="as") print $(i+1)}' <<<"$line")
+            # If this FROM references an earlier named stage (not an external
+            # image), resolve it to that stage's already-resolved image.
+            if [[ -n "${stage_image[$image]+x}" ]]; then
+                image="${stage_image[$image]}"
+            fi
+            final_image="$image"
+            [[ -n "$stage" ]] && stage_image["$stage"]="$image"
+        done < <(grep -i '^FROM ' "$dockerfile")
+
+        [[ -z "$final_image" ]] && continue
+        [[ "$final_image" == "scratch" ]] && continue
+        [[ "$final_image" == *'$'* ]] && continue
+        discovered+=("$final_image")
     done < <(find "$target_dir" -name 'Dockerfile*' "${find_exclude_args[@]}" 2>/dev/null)
 
     [ ${#discovered[@]} -eq 0 ] && return 0

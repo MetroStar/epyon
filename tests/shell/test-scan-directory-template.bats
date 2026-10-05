@@ -84,3 +84,70 @@ SCRIPT_PATH="${SCRIPT_DIR}/scan-directory-template.sh"
     [ "$status" -eq 0 ]
     [ "$output" = "/app" ]
 }
+
+# ── discover_dockerfile_base_images() ────────────────────────────────────────
+
+@test "discover_dockerfile_base_images only reports the final stage of a multi-stage Dockerfile" {
+    local tmp_target
+    tmp_target="$(mktemp -d)"
+    cat > "${tmp_target}/Dockerfile" <<'DOCKERFILE'
+FROM golang:1.24.13-alpine AS builder
+FROM python:3.12-slim-bookworm AS runtime
+DOCKERFILE
+    run bash -c "source '$SCRIPT_PATH' && mapfile -t images < <(discover_dockerfile_base_images '$tmp_target') && printf '%s\n' \"\${images[@]}\""
+    rm -rf "$tmp_target"
+    [ "$status" -eq 0 ]
+    [[ "$output" == "python:3.12-slim-bookworm" ]]
+    [[ "$output" != *"golang"* ]]
+}
+
+@test "discover_dockerfile_base_images skips the whole Dockerfile when the final stage is an unresolved build-arg" {
+    local tmp_target
+    tmp_target="$(mktemp -d)"
+    cat > "${tmp_target}/Dockerfile" <<'DOCKERFILE'
+FROM reg.internal.example/python:3.12-dev AS builder
+FROM ${RUNTIME_IMAGE}
+DOCKERFILE
+    run bash -c "source '$SCRIPT_PATH' && mapfile -t images < <(discover_dockerfile_base_images '$tmp_target') && printf '%s\n' \"\${images[@]}\""
+    rm -rf "$tmp_target"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}
+
+@test "discover_dockerfile_base_images resolves a final FROM that references an earlier named stage" {
+    local tmp_target
+    tmp_target="$(mktemp -d)"
+    cat > "${tmp_target}/Dockerfile" <<'DOCKERFILE'
+FROM ubuntu:22.04 AS base
+FROM base AS runtime
+DOCKERFILE
+    run bash -c "source '$SCRIPT_PATH' && mapfile -t images < <(discover_dockerfile_base_images '$tmp_target') && printf '%s\n' \"\${images[@]}\""
+    rm -rf "$tmp_target"
+    [ "$status" -eq 0 ]
+    [[ "$output" == "ubuntu:22.04" ]]
+}
+
+@test "discover_dockerfile_base_images still reports a single-stage Dockerfile's only image" {
+    local tmp_target
+    tmp_target="$(mktemp -d)"
+    cat > "${tmp_target}/Dockerfile" <<'DOCKERFILE'
+FROM ubuntu:24.04
+DOCKERFILE
+    run bash -c "source '$SCRIPT_PATH' && mapfile -t images < <(discover_dockerfile_base_images '$tmp_target') && printf '%s\n' \"\${images[@]}\""
+    rm -rf "$tmp_target"
+    [ "$status" -eq 0 ]
+    [[ "$output" == "ubuntu:24.04" ]]
+}
+
+@test "discover_dockerfile_base_images skips FROM scratch final stages" {
+    local tmp_target
+    tmp_target="$(mktemp -d)"
+    cat > "${tmp_target}/Dockerfile" <<'DOCKERFILE'
+FROM golang:1.24.13-alpine AS src
+FROM scratch
+DOCKERFILE
+    run bash -c "source '$SCRIPT_PATH' && mapfile -t images < <(discover_dockerfile_base_images '$tmp_target') && printf '%s\n' \"\${images[@]}\""
+    rm -rf "$tmp_target"
+    [ "$status" -eq 0 ]
+    [ -z "$output" ]
+}

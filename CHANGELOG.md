@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.33.0] - 2026-10-05
+
+### Changed
+- **Dockerfile base-image auto-discovery (`discover_dockerfile_base_images()`, shared by Trivy/Anchore) now only scans each Dockerfile's FINAL build stage, instead of every `FROM` line.** Multi-stage Dockerfiles commonly use a throwaway builder stage to compile a helper binary (e.g. `FROM golang:1.24-alpine AS gosu-builder`) or a private/internal-registry-only image for building (e.g. `FROM internal-registry.example.com/python:3.12-dev AS builder`) before copying the compiled artifact into a slim runtime stage. These builder images are discarded by `docker build` and never present in the shipped container, so scanning them produced large amounts of irrelevant, unfixable, and sometimes unreachable (private-registry) findings that had nothing to do with the actual deployed artifact — inflating Critical/High counts and occasionally prompting unnecessary registry-login troubleshooting for images that were never going to be part of the real scan baseline anyway.
+- `FROM <stage-name>` references to an earlier named stage (e.g. `FROM base AS runtime`, which builds further on a previous stage rather than pulling a new external image) are now resolved back to that stage's real image, so the reported baseline is always the actual external image that ships — never a local stage name mistaken for a pullable image.
+- Single-stage Dockerfiles, and the already-correct `FROM scratch` / unresolved build-arg (`FROM $BASE_IMAGE`) skip behavior, are unaffected. Pulling a configured/discovered image that genuinely doesn't exist or requires registry auth was already handled gracefully (pull failure logs a warning and skips that image only) — this change reduces how often that situation is even reached by no longer attempting to pull images that were never going to ship in the first place.
+- Added BATS coverage in `tests/shell/test-scan-directory-template.bats` for multi-stage final-stage selection, named-stage resolution, single-stage passthrough, and `FROM scratch`/build-arg skip behavior.
+
 ## [3.32.3] - 2026-10-05
 
 ### Fixed

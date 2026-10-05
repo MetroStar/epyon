@@ -808,6 +808,7 @@ Configure these in your GitHub repo **Settings → Secrets and variables → Act
 | `SONAR_TOKEN` + `SONAR_HOST_URL` | Optional | Enables SonarQube layer |
 | `JIRA_BASE_URL` + `JIRA_USER_EMAIL` + `JIRA_API_TOKEN` + `JIRA_PROJECT_KEY` | Optional | Supplies Jira settings to an Epyon web service started by the job; scan workflows do not create Jira tickets |
 | `OPENAI_API_KEY` | Optional | Enables Garak LLM probing + STIG assessment |
+| `DOCKERHUB_USERNAME` + `DOCKERHUB_TOKEN` | Optional | Authenticates Docker Hub pulls (free account [access token](https://docs.docker.com/security/for-developers/access-tokens/), not your password), raising the anonymous pull rate limit from 100 to 200 pulls/6h — recommended for scheduled/nightly scans, which share GitHub's runner IP pool and hit that limit far more often than Web UI/local scans. See [Approved Base Images](#-approved-base-images). |
 
 Once configured, Epyon will automatically:
    - ✅ Scan every push to `main` or `develop`
@@ -851,6 +852,8 @@ Epyon's Layer 10 "Approved Base Images" baseline scan defaults to **auto-discove
 **Opting into Docker Hardened Images:** orgs with a DHI entitlement can still pin a fixed baseline by uncommenting `PRIMARY_BASELINE_IMAGE` in [configuration/approved-base-images.conf](configuration/approved-base-images.conf), or populating `APPROVED_BASE_IMAGES[]` with any combination of the pre-defined `APPROVED_*` variables (`dhi/caddy`, `dhi/node`, `dhi/nginx`, `dhi/httpd`, `dhi/python`, etc.) or `bitnami/*` images already catalogued in that file.
 
 **More Info:** [Docker Hardened Images Catalog](https://hub.docker.com/hardened-images/catalog)
+
+**Nightly GitHub Actions scans hitting Docker Hub pull failures?** GitHub-hosted runners share a small pool of egress IPs across every concurrent Actions job on GitHub, which routinely exhausts Docker Hub's anonymous-pull rate limit (100 pulls/6h *per IP*, shared by every other GitHub Actions job hitting that same IP at that moment) — this is why pull failures show up overwhelmingly on scheduled nightly workflow runs and rarely on Web UI/local scans from a single, non-shared IP. Each scan already pulls 5-8 Docker Hub tool images (Grype, TruffleHog, Syft, ClamAV, Checkov, Xeol) before it even reaches a target repo's own base images. Set `DOCKERHUB_USERNAME` + `DOCKERHUB_TOKEN` (a free Docker Hub account's [access token](https://docs.docker.com/security/for-developers/access-tokens/), not your password) as repo/org secrets — the reusable workflow's **Docker Hub Login** step authenticates automatically when both are present, raising the limit to 200 pulls/6h for that account. This is optional and soft-fails (falls back to anonymous pulls) if not configured.
 
 ---
 

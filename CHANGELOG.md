@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.34.0] - 2026-10-05
+
+### Added
+- **Optional Docker Hub authentication for GitHub Actions scans, to fix pull failures specific to scheduled/nightly runs.** GitHub-hosted runners share a small pool of egress IPs across every concurrent Actions job on GitHub, which routinely exhausts Docker Hub's anonymous-pull rate limit (100 pulls/6h *per IP*, shared across every other GitHub Actions job hitting that same IP at that moment) — explaining why pull failures and "Environment Notes" warnings were showing up overwhelmingly on nightly GitHub Actions runs and essentially never on Web UI/local scans from a single, non-shared IP. Every scan already pulls 5-8 Docker Hub tool images (Grype, TruffleHog, Syft, ClamAV, Checkov, Xeol) before it even reaches a target repo's own base images, compounding the problem.
+- The reusable workflow (`.github/workflows/epyon-scan.yml`) gains a new **Docker Hub Login** step that authenticates with optional `DOCKERHUB_USERNAME` + `DOCKERHUB_TOKEN` repo/org secrets (a free Docker Hub account access token, not a password) when both are configured, raising the pull-rate limit to 200/6h for that account for the rest of the job. Soft-fails and falls back to anonymous pulls if the secrets aren't set or the login attempt fails — never blocks the scan.
+- Documented the new secrets in README's "Required secrets" table and the "Approved Base Images" section.
+
 ## [3.33.1] - 2026-10-05
 
 ### Fixed

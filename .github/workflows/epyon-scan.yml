@@ -472,6 +472,36 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-docker-
 
+      - name: Docker Hub Login (optional — raises anonymous pull rate limit)
+        # GitHub-hosted runners share a small pool of egress IPs across every
+        # concurrent Actions job on GitHub, which routinely exhausts Docker
+        # Hub's anonymous-pull rate limit (100 pulls/6h per IP) well before
+        # any single workflow run does — the #1 cause of "docker pull failed"
+        # / incomplete base-image scans seen specifically on scheduled nightly
+        # runs across many repos (vs. Web UI or local scans from a single,
+        # non-shared IP, which rarely hit it). Every scan mode here pulls at
+        # least 5-8 Docker Hub tool images (grype, trufflehog, syft, clamav,
+        # checkov, xeol) plus any target-repo base images, so this adds up fast.
+        # Optional: set DOCKERHUB_USERNAME + DOCKERHUB_TOKEN (a free Docker Hub
+        # account's access token, NOT your password) as repo/org secrets to
+        # authenticate, raising the limit to 200 pulls/6h for that account.
+        # Soft-fails and never blocks the scan if the secrets aren't configured
+        # or the login itself fails.
+        if: inputs.scan_mode != 'stig'
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [[ -n "$DOCKERHUB_USERNAME" && -n "$DOCKERHUB_TOKEN" ]]; then
+            if echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin 2>&1; then
+              echo "✅ Authenticated to Docker Hub — anonymous pull rate limit raised to 200/6h for this account"
+            else
+              echo "⚠️  Docker Hub login failed — continuing with anonymous pulls (subject to the shared-runner rate limit)"
+            fi
+          else
+            echo "ℹ️  DOCKERHUB_USERNAME/DOCKERHUB_TOKEN not configured — using anonymous Docker Hub pulls, which share a rate limit across every concurrent GitHub Actions job on this IP. See documentation/SCAN_MATRIX.md for setup instructions."
+          fi
+
       - name: Pull Security Tool Images
         # In stig mode only Layer 13 (Python-based STIG assessment) runs — no
         # Docker-based scan tools are invoked, so skip all image pulls to save

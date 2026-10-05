@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.35.0] - 2026-10-05
+
+### Changed
+- **Trivy and Grype base-image CVEs are now explicitly tagged as `container_vulnerability` findings with a `container_image` field identifying exactly which image they came from**, instead of being indistinguishable from application-code findings. Previously, a base-image CVE (e.g. a CVE in `zlib1g` bundled inside `python:3.12-slim-bookworm`) carried the same generic `type: "vulnerability"` as a CVE in the app's own dependencies, so the web UI's source badge showed it as "💻 Code" rather than "📦 Container" — making it look like noise from the application itself when it was actually an OS-package CVE in a base image.
+- `generate-scan-findings-summary.sh` now detects Trivy/Grype scans of base images (filenames like `trivy-base-<image-slug>-results.json` / `grype-base-<image-slug>-results.json`, produced by the final-stage Dockerfile discovery added in 3.33.0) and tags those findings with `type: "container_vulnerability"` and `container_image: "<real image reference>"` (sourced from Trivy's own `Target` field, or Grype's `source.target.userInput`/`.tags`). Filesystem/SBOM scans of application dependencies are unaffected and keep `type: "vulnerability"`.
+- `web/api/parsers.py`'s finding normalization now passes through `container_image` and falls back to `package_path` for `target`, so the image reference is never silently dropped between the scan JSON and the API response.
+- `web/static/app.js`'s `findingSourceBadge()` now shows the specific container image inline/in a tooltip next to the "📦 Container" badge (e.g. "📦 Container · python:3.12-slim-bookworm"), and `findingSource()` also recognizes legacy `tool` names containing `-base-` for scans generated before this change.
+- Added 4 new BATS tests in `tests/shell/test-generate-scan-findings-summary.bats` covering Trivy base-image tagging, Trivy filesystem pass-through, Grype base-image tagging, and Grype directory/SBOM-sourced findings (verifying the `source.target`-as-string case doesn't crash or drop findings).
+
 ## [3.34.0] - 2026-10-05
 
 ### Added

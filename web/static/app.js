@@ -163,7 +163,11 @@ function findingSource(f) {
   if (tool === 'picklescan' || tool === 'model-provenance' || tool === 'inference-security' || tool === 'ml-runtime') return 'ml';
   
   // Traditional sources
-  if (type === 'container_vulnerability' || tool === 'anchore') return 'container';
+  // "-base-" covers Trivy/Grype base-image scans (tool names like
+  // "trivy-base-python-3.12-slim-bookworm") — they're container-origin CVEs,
+  // not application code, even though their "type" predates the
+  // container_vulnerability tagging added in generate-scan-findings-summary.sh.
+  if (type === 'container_vulnerability' || tool === 'anchore' || tool.includes('-base-')) return 'container';
   if (type === 'iac_misconfiguration' || tool === 'checkov')   return 'iac';
   if (type.includes('credential') || type.includes('secret') || tool === 'trufflehog') return 'secret';
   if (type === 'eol_package' || tool === 'xeol')               return 'eol';
@@ -183,7 +187,18 @@ function findingSourceBadge(f) {
     supply_chain: { style: 'background:#1e3a5f22;color:#7dd3fc;border:1px solid #0369a166', label: '🔗 Supply Chain' },
   };
   const { style, label } = cfg[src] || cfg.code;
-  return `<span style="font-size:10px;padding:1px 6px;border-radius:3px;white-space:nowrap;${style}">${label}</span>`;
+  // For container-origin findings, surface *which* image caused the CVE
+  // (container_image set by generate-scan-findings-summary.sh, falling back
+  // to target) so it's never mistaken for an app-code finding.
+  let containerName = '';
+  if (src === 'container') {
+    containerName = (f && (f.container_image || f.target)) || '';
+  }
+  const title = containerName ? ` title="Container: ${esc(containerName)}"` : '';
+  const nameSuffix = containerName
+    ? `<span style="opacity:0.85"> · ${esc(containerName.length > 28 ? containerName.slice(0, 28) + '…' : containerName)}</span>`
+    : '';
+  return `<span style="font-size:10px;padding:1px 6px;border-radius:3px;white-space:nowrap;${style}"${title}>${label}${nameSuffix}</span>`;
 }
 
 // Returns a source badge from a sources array (top_cves aggregated data)

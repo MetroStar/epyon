@@ -280,12 +280,22 @@ EOF
             if [[ -f "$grype_file" ]] && [[ ! -L "$grype_file" ]]; then
                 local scan_type=$(basename "$grype_file" | sed 's/.*grype-//; s/-results.json//')
                 tools_analyzed+=("Grype-$scan_type")
-                
+
+                # Base-image scans (run-grype-scan.sh names these "base-<image-slug>")
+                # are flagged so findings clearly show they originate from a
+                # container base image, not application code, and carry the
+                # actual image reference (from Grype's own source.target metadata).
+                local is_base_image=false
+                [[ "$scan_type" == base-* ]] && is_base_image=true
+
                 # Extract findings by severity
-                local critical_vulns=$(jq -r --arg tool "Grype-$scan_type" --arg scan_id "$scan_id" --arg grype_file "$grype_file" '
+                local critical_vulns=$(jq -r --arg tool "Grype-$scan_type" --arg scan_id "$scan_id" --arg grype_file "$grype_file" --argjson is_base "$is_base_image" '
+                    ((.source.target | if type == "object" then (.userInput // (.tags // [] | first)) else . end) // "unknown") as $container_img |
                     [.matches[]? | select(.vulnerability.severity == "Critical") | {
                         tool: $tool,
-                        type: "vulnerability",
+                        type: (if $is_base then "container_vulnerability" else "vulnerability" end),
+                        container_image: (if $is_base then $container_img else null end),
+                        target: (if $is_base then $container_img else "" end),
                         severity: .vulnerability.severity,
                         vulnerability_id: .vulnerability.id,
                         package_name: .artifact.name,
@@ -309,10 +319,13 @@ EOF
                         impact: "Critical vulnerability in dependency"
                     }]' "$grype_file" 2>/dev/null || echo "[]")
                 
-                local high_vulns=$(jq -r --arg tool "Grype-$scan_type" --arg scan_id "$scan_id" --arg grype_file "$grype_file" '
+                local high_vulns=$(jq -r --arg tool "Grype-$scan_type" --arg scan_id "$scan_id" --arg grype_file "$grype_file" --argjson is_base "$is_base_image" '
+                    ((.source.target | if type == "object" then (.userInput // (.tags // [] | first)) else . end) // "unknown") as $container_img |
                     [.matches[]? | select(.vulnerability.severity == "High") | {
                         tool: $tool,
-                        type: "vulnerability",
+                        type: (if $is_base then "container_vulnerability" else "vulnerability" end),
+                        container_image: (if $is_base then $container_img else null end),
+                        target: (if $is_base then $container_img else "" end),
                         severity: .vulnerability.severity,
                         vulnerability_id: .vulnerability.id,
                         package_name: .artifact.name,
@@ -336,10 +349,13 @@ EOF
                         impact: "High severity vulnerability in dependency"
                     }]' "$grype_file" 2>/dev/null || echo "[]")
                 
-                local medium_vulns=$(jq -r --arg tool "Grype-$scan_type" '
+                local medium_vulns=$(jq -r --arg tool "Grype-$scan_type" --argjson is_base "$is_base_image" '
+                    ((.source.target | if type == "object" then (.userInput // (.tags // [] | first)) else . end) // "unknown") as $container_img |
                     [.matches[]? | select(.vulnerability.severity == "Medium") | {
                         tool: $tool,
-                        type: "vulnerability",
+                        type: (if $is_base then "container_vulnerability" else "vulnerability" end),
+                        container_image: (if $is_base then $container_img else null end),
+                        target: (if $is_base then $container_img else "" end),
                         severity: .vulnerability.severity,
                         vulnerability_id: .vulnerability.id,
                         id: .vulnerability.id,
@@ -356,10 +372,13 @@ EOF
                         fixed_versions: (.vulnerability.fix.versions // [])
                     }]' "$grype_file" 2>/dev/null || echo "[]")
                 
-                local low_vulns=$(jq -r --arg tool "Grype-$scan_type" '
+                local low_vulns=$(jq -r --arg tool "Grype-$scan_type" --argjson is_base "$is_base_image" '
+                    ((.source.target | if type == "object" then (.userInput // (.tags // [] | first)) else . end) // "unknown") as $container_img |
                     [.matches[]? | select(.vulnerability.severity == "Low") | {
                         tool: $tool,
-                        type: "vulnerability",
+                        type: (if $is_base then "container_vulnerability" else "vulnerability" end),
+                        container_image: (if $is_base then $container_img else null end),
+                        target: (if $is_base then $container_img else "" end),
                         severity: .vulnerability.severity,
                         vulnerability_id: .vulnerability.id,
                         id: .vulnerability.id,
@@ -519,12 +538,21 @@ EOF
             if [[ -f "$trivy_file" ]] && [[ ! -L "$trivy_file" ]]; then
                 local scan_type=$(basename "$trivy_file" | sed 's/.*trivy-//; s/-results.json//')
                 tools_analyzed+=("Trivy-$scan_type")
-                
+
+                # Base-image scans (run-trivy-scan.sh names these "base-<image-slug>")
+                # are flagged so findings clearly show they originate from a
+                # container base image, not application code, and carry the
+                # actual image reference (from Trivy's own "Target" field).
+                local is_base_image=false
+                [[ "$scan_type" == base-* ]] && is_base_image=true
+
                 # Extract Trivy findings
-                local critical_vulns=$(jq -r --arg tool "Trivy-$scan_type" '
+                local critical_vulns=$(jq -r --arg tool "Trivy-$scan_type" --argjson is_base "$is_base_image" '
                     [.Results[] as $r | $r.Vulnerabilities[]? | select(.Severity == "CRITICAL") | {
                         tool: $tool,
-                        type: "vulnerability",
+                        type: (if $is_base then "container_vulnerability" else "vulnerability" end),
+                        container_image: (if $is_base then ($r.Target // "unknown") else null end),
+                        target: (if $is_base then ($r.Target // "") else "" end),
                         severity: .Severity,
                         vulnerability_id: .VulnerabilityID,
                         id: .VulnerabilityID,
@@ -539,10 +567,12 @@ EOF
                         fixed_versions: (if .FixedVersion and .FixedVersion != "" then [.FixedVersion] else [] end)
                     }]' "$trivy_file" 2>/dev/null || echo "[]")
                 
-                local high_vulns=$(jq -r --arg tool "Trivy-$scan_type" '
+                local high_vulns=$(jq -r --arg tool "Trivy-$scan_type" --argjson is_base "$is_base_image" '
                     [.Results[] as $r | $r.Vulnerabilities[]? | select(.Severity == "HIGH") | {
                         tool: $tool,
-                        type: "vulnerability",
+                        type: (if $is_base then "container_vulnerability" else "vulnerability" end),
+                        container_image: (if $is_base then ($r.Target // "unknown") else null end),
+                        target: (if $is_base then ($r.Target // "") else "" end),
                         severity: .Severity,
                         vulnerability_id: .VulnerabilityID,
                         id: .VulnerabilityID,
@@ -557,10 +587,12 @@ EOF
                         fixed_versions: (if .FixedVersion and .FixedVersion != "" then [.FixedVersion] else [] end)
                     }]' "$trivy_file" 2>/dev/null || echo "[]")
                 
-                local medium_vulns=$(jq -r --arg tool "Trivy-$scan_type" '
+                local medium_vulns=$(jq -r --arg tool "Trivy-$scan_type" --argjson is_base "$is_base_image" '
                     [.Results[] as $r | $r.Vulnerabilities[]? | select(.Severity == "MEDIUM") | {
                         tool: $tool,
-                        type: "vulnerability",
+                        type: (if $is_base then "container_vulnerability" else "vulnerability" end),
+                        container_image: (if $is_base then ($r.Target // "unknown") else null end),
+                        target: (if $is_base then ($r.Target // "") else "" end),
                         severity: .Severity,
                         vulnerability_id: .VulnerabilityID,
                         id: .VulnerabilityID,
@@ -575,10 +607,12 @@ EOF
                         fixed_versions: (if .FixedVersion and .FixedVersion != "" then [.FixedVersion] else [] end)
                     }]' "$trivy_file" 2>/dev/null || echo "[]")
                 
-                local low_vulns=$(jq -r --arg tool "Trivy-$scan_type" '
+                local low_vulns=$(jq -r --arg tool "Trivy-$scan_type" --argjson is_base "$is_base_image" '
                     [.Results[] as $r | $r.Vulnerabilities[]? | select(.Severity == "LOW") | {
                         tool: $tool,
-                        type: "vulnerability",
+                        type: (if $is_base then "container_vulnerability" else "vulnerability" end),
+                        container_image: (if $is_base then ($r.Target // "unknown") else null end),
+                        target: (if $is_base then ($r.Target // "") else "" end),
                         severity: .Severity,
                         vulnerability_id: .VulnerabilityID,
                         id: .VulnerabilityID,

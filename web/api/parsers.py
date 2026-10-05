@@ -1869,7 +1869,11 @@ def load_enriched_findings(scan_dir: Path) -> dict | None:
                 "package":           f.get("package_name") or f.get("package") or "",
                 "version":           f.get("package_version") or f.get("version") or "",
                 "fixed_version":     fix_versions[0] if fix_versions else f.get("fixed_version", ""),
-                "target":            f.get("target") or f.get("file_path") or "",
+                # "target"/"container_image" surface which container a CVE came from
+                # (set by generate-scan-findings-summary.sh for Trivy/Grype base-image
+                # scans) so base-image CVEs are never mistaken for app-code findings.
+                "target":            f.get("target") or f.get("file_path") or f.get("package_path") or "",
+                "container_image":   f.get("container_image") or "",
                 "line":              f.get("line_number") or f.get("line") or "",
                 "references":        f.get("nvd_references") or f.get("references") or [],
                 # Enrichment fields

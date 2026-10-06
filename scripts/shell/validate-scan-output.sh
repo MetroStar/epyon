@@ -1,16 +1,17 @@
 #!/bin/bash
 
 # Validate the artifacts that make a scan reviewable and auditable.
-# Usage: validate-scan-output.sh SCAN_DIR [--require-build] [--require-ssp]
+# Usage: validate-scan-output.sh SCAN_DIR [--require-build] [--require-ssp] [--no-require-sbom]
 
 set -euo pipefail
 
 SCAN_DIR="${1:-}"
 REQUIRE_BUILD=false
 REQUIRE_SSP=false
+REQUIRE_SBOM=true
 
 if [[ -z "$SCAN_DIR" || ! -d "$SCAN_DIR" ]]; then
-    echo "Usage: $0 SCAN_DIR [--require-build] [--require-ssp]" >&2
+    echo "Usage: $0 SCAN_DIR [--require-build] [--require-ssp] [--no-require-sbom]" >&2
     exit 2
 fi
 shift
@@ -18,6 +19,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --require-build) REQUIRE_BUILD=true ;;
         --require-ssp) REQUIRE_SSP=true ;;
+        --no-require-sbom) REQUIRE_SBOM=false ;;
         *) echo "Unknown option: $1" >&2; exit 2 ;;
     esac
     shift
@@ -43,7 +45,9 @@ require_dir() {
 require_file "security-findings-summary.json"
 require_file "scan-manifest.json"
 require_file "suppressed-findings.md"
-require_dir "sbom"
+if [[ "$REQUIRE_SBOM" == "true" ]]; then
+    require_dir "sbom"
+fi
 
 if [[ ! -s "$SCAN_DIR/security-dashboard.html" && \
       ! -s "$SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html" ]]; then

@@ -283,6 +283,13 @@ async def run_scan_job(
             "SKIP_COMPROMISED_SOURCE=true",
             "SKIP_STIG=true",
             "SKIP_GARAK=true",
+            # No source checkout exists for an image-only scan, so the Python
+            # dependency scanners (which walk the target directory for
+            # requirements.txt/Pipfile/etc.) have nothing to find — matches
+            # the CLI's --scan-image "images" layer set (TruffleHog, Trivy,
+            # Grype, Xeol only), which never invokes these at all.
+            "SKIP_PIP_AUDIT=true",
+            "SKIP_SAFETY=true",
         ]
         _env_path = Path("/tmp/epyon-env")
         _env_path.write_text("\n".join(env_lines) + "\n")

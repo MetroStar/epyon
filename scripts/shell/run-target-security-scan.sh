@@ -1988,6 +1988,9 @@ if [[ -f "$SCRIPT_DIR/consolidate-security-reports.sh" ]]; then
         if [[ "${BUILD_ENABLED:-false}" == "true" ]]; then
             validator_args+=("--require-build")
         fi
+        if [[ "$SCAN_TYPE" == "images" || "${SKIP_SBOM:-false}" == "true" ]]; then
+            validator_args+=("--no-require-sbom")
+        fi
         validator_args+=("--require-ssp")
         if "$SCRIPT_DIR/validate-scan-output.sh" "$SCAN_DIR" "${validator_args[@]}"; then
             echo -e "${GREEN}✅ Scan output contract validated${NC}"

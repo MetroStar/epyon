@@ -1225,7 +1225,10 @@ run_group "Validate Scan Output Contract" bash -lc '
   chmod +x scripts/shell/validate-scan-output.sh
   VALIDATOR_ARGS=""
   if [[ "${BUILD_ENABLED:-false}" == "true" ]]; then
-    VALIDATOR_ARGS="--require-build"
+    VALIDATOR_ARGS="$VALIDATOR_ARGS --require-build"
+  fi
+  if [[ "${SKIP_SBOM:-false}" == "true" ]]; then
+    VALIDATOR_ARGS="$VALIDATOR_ARGS --no-require-sbom"
   fi
   ./scripts/shell/validate-scan-output.sh "$SCAN_DIR" --require-ssp $VALIDATOR_ARGS
 '

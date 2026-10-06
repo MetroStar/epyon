@@ -109,6 +109,12 @@ show_help() {
     echo "Options:"
     echo "  -h, --help          Show this help message and exit"
     echo "  -t, --target PATH   Target path or Git URL (same as positional TARGET)"
+    echo "      --scan-image SRC"
+    echo "                      Scan a container image instead of source code. SRC may be:"
+    echo "                        - A local image already loaded in Docker/Podman (name:tag or digest)"
+    echo "                        - A path to a local image tarball (docker save/skopeo output)"
+    echo "                        - A registry reference to pull (e.g. ghcr.io/org/app:tag)"
+    echo "                        - An https:// URL to download an image tarball from"
     echo "  -m, --scan-type     Scan type: quick|full|images|analysis"
     echo "      --scan-mode     Alias of --scan-type"
     echo "      --list-modes    Print available scan types and exit"
@@ -183,6 +189,12 @@ show_help() {
     echo "  $0 --target ./my-app --scan-type quick --skip-tools sonar,garak"
     echo "  $0 --target https://github.com/user/repo.git --scan-type full --non-interactive"
     echo ""
+    echo "  # Container image scans (no source checkout)"
+    echo "  $0 --scan-image nginx:1.27-alpine                       # Local image already loaded"
+    echo "  $0 --scan-image ghcr.io/org/app:latest                  # Pull from registry"
+    echo "  $0 --scan-image ./my-image.tar                          # Local docker save tarball"
+    echo "  $0 --scan-image https://example.com/images/app.tar.gz   # Download & load tarball"
+    echo ""
     echo "Notes:"
     echo "  - Requires Docker for most scanners"
     echo "  - Git repositories are cloned with --depth 1 for speed"
@@ -255,6 +267,7 @@ BASELINE_IMAGE_FLAG=""
 NON_INTERACTIVE="false"
 LIST_MODES="false"
 TARGET_INPUT=""
+SCAN_IMAGE_INPUT=""
 SCAN_TYPE=""
 POSITIONAL_ARGS=()
 # Build-and-scan the target's own container image by default (Phase 0), same
@@ -300,6 +313,11 @@ while [[ $# -gt 0 ]]; do
         --no-build-image)
             BUILD_ENABLED=false
             shift
+            ;;
+        --scan-image)
+            require_option_value "$1" "${2:-}"
+            SCAN_IMAGE_INPUT="$2"
+            shift 2
             ;;
         --image-name)
             require_option_value "$1" "${2:-}"
@@ -357,6 +375,25 @@ if [[ $# -gt 2 ]]; then
     echo -e "${RED}❌ Error: Unexpected extra arguments${NC}"
     echo -e "${YELLOW}Run with --help for usage examples.${NC}"
     exit 1
+fi
+
+# --scan-image is a standalone target mode: it replaces source checkout
+# entirely, so it cannot be combined with a directory/Git TARGET.
+if [[ -n "$SCAN_IMAGE_INPUT" ]] && [[ -n "$TARGET_INPUT" ]]; then
+    echo -e "${RED}❌ Error: --scan-image cannot be combined with a TARGET (directory/Git URL)${NC}"
+    echo -e "${YELLOW}Run with --help for usage examples.${NC}"
+    exit 1
+fi
+
+if [[ -n "$SCAN_IMAGE_INPUT" ]] && [[ -n "$SUBDIR_PATH" ]]; then
+    echo -e "${RED}❌ Error: --subdir cannot be used with --scan-image${NC}"
+    exit 1
+fi
+
+# Image scans skip source code entirely, so "images" (container-focused
+# layers only) is the sensible default scan type unless the user overrides it.
+if [[ -n "$SCAN_IMAGE_INPUT" ]]; then
+    SCAN_TYPE="${SCAN_TYPE:-images}"
 fi
 
 SCAN_TYPE="${SCAN_TYPE:-full}"
@@ -425,18 +462,34 @@ fi
 # Flag to track if we cloned a repo (for cleanup)
 CLONED_REPO=false
 CLONE_DIR=""
+# Flag/paths to track an ephemeral target directory and downloaded image
+# tarball created for --scan-image mode (for cleanup)
+SCAN_IMAGE_MODE=false
+SCAN_IMAGE_TMP_DIR=""
+SCAN_IMAGE_DOWNLOADED_TARBALL=""
+RESOLVED_SCAN_IMAGE=""
+
+if [[ -n "$SCAN_IMAGE_INPUT" ]]; then
+    SCAN_IMAGE_MODE=true
+    # No source checkout exists in image-scan mode, so there is nothing for
+    # Phase 0 to build — always scan the resolved image directly.
+    BUILD_ENABLED=false
+fi
 
 # Validate inputs
-if [[ -z "$TARGET_INPUT" ]]; then
+if [[ -z "$TARGET_INPUT" ]] && [[ "$SCAN_IMAGE_MODE" != "true" ]]; then
     echo -e "${RED}❌ Error: TARGET is required${NC}"
     echo "Usage: $0 [OPTIONS] <TARGET> [SCAN_TYPE]"
     echo "   or: $0 --target <TARGET> --scan-type <SCAN_TYPE>"
+    echo "   or: $0 --scan-image <IMAGE_SOURCE> [SCAN_TYPE]"
     echo ""
     echo "Examples:"
     echo "  $0 ./my-project full"
     echo "  $0 --target ./my-project --scan-type quick"
     echo "  $0 --target https://github.com/user/repo.git --subdir apps/api"
     echo "  $0 --target ./my-project --scan-type full --skip-tools sonar,garak"
+    echo "  $0 --scan-image nginx:1.27-alpine"
+    echo "  $0 --scan-image ghcr.io/org/app:latest"
     exit 1
 fi
 
@@ -455,7 +508,11 @@ fi
 print_banner
 echo -e "${CYAN}Run Configuration${NC}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Target input: $TARGET_INPUT"
+if [[ "$SCAN_IMAGE_MODE" == "true" ]]; then
+    echo "Scan-image input: $SCAN_IMAGE_INPUT"
+else
+    echo "Target input: $TARGET_INPUT"
+fi
 echo "Scan type: $SCAN_TYPE"
 echo "Subdirectory filter: ${SUBDIR_PATH:-<none>}"
 echo "Non-interactive: $NON_INTERACTIVE"
@@ -471,8 +528,29 @@ if [[ -n "$SUBDIR_PATH" ]] && ! [[ "$TARGET_INPUT" =~ ^(https?://|git@|ssh://) ]
     exit 1
 fi
 
-# Determine if target is a Git URL or directory
-if [[ "$TARGET_INPUT" =~ ^(https?://|git@|ssh://) ]] || [[ "$TARGET_INPUT" =~ \.git$ ]]; then
+# Determine if target is a container image, a Git URL, or a directory
+if [[ "$SCAN_IMAGE_MODE" == "true" ]]; then
+    echo -e "${CYAN}📦 Container image target detected${NC}"
+    echo -e "   Source: $SCAN_IMAGE_INPUT"
+
+    # No source checkout for image scans — create an empty scratch directory
+    # so downstream source-based layers (SBOM, TruffleHog, Checkov, etc.) run
+    # cleanly against an empty target and simply report "nothing found"
+    # rather than needing special-cased skip logic throughout the script.
+    SCAN_IMAGE_TMP_DIR="$REPORTS_ROOT/scans/.tmp-images/$TIMESTAMP"
+    mkdir -p "$SCAN_IMAGE_TMP_DIR"
+    TARGET_DIR="$SCAN_IMAGE_TMP_DIR"
+
+    # Derive a filesystem/scan-id-safe name from the image reference or path
+    if [[ -z "${TARGET_NAME:-}" ]]; then
+        TARGET_NAME=$(basename "$SCAN_IMAGE_INPUT" | sed -E 's/[^A-Za-z0-9._-]+/-/g')
+        [[ -z "$TARGET_NAME" ]] && TARGET_NAME="scanned-image"
+    fi
+
+    # Resolving (pull/load) the image itself requires a running container
+    # runtime, which isn't verified until the Docker validation section
+    # below — the actual resolve_scan_image() call happens there.
+elif [[ "$TARGET_INPUT" =~ ^(https?://|git@|ssh://) ]] || [[ "$TARGET_INPUT" =~ \.git$ ]]; then
     echo -e "${CYAN}🔗 Git repository detected${NC}"
     echo -e "   URL: $TARGET_INPUT"
     
@@ -697,6 +775,70 @@ fi
 
 echo ""
 
+# ══════════════════════════════════════════════════════════════════════════════
+# --scan-image resolution (pull / load the image to scan)
+# ══════════════════════════════════════════════════════════════════════════════
+# Resolves SCAN_IMAGE_INPUT into a local image reference usable as
+# PRIMARY_BASELINE_IMAGE, supporting:
+#   - A local image already loaded in Docker/Podman (name:tag or digest)
+#   - A path to a local image tarball (docker save/skopeo output)
+#   - A registry reference to pull (e.g. ghcr.io/org/app:tag)
+#   - An https:// URL to download an image tarball from
+resolve_scan_image() {
+    local source="$1"
+    local loaded_ref=""
+
+    if [[ "$source" =~ ^https?:// ]]; then
+        echo -e "${CYAN}🌐 Downloading image archive from URL...${NC}"
+        SCAN_IMAGE_TMP_DIR="${SCAN_IMAGE_TMP_DIR:-$REPORTS_ROOT/scans/.tmp-images/$TIMESTAMP}"
+        mkdir -p "$SCAN_IMAGE_TMP_DIR"
+        SCAN_IMAGE_DOWNLOADED_TARBALL="$SCAN_IMAGE_TMP_DIR/downloaded-image.tar"
+        if ! curl --fail --location --silent --show-error --output "$SCAN_IMAGE_DOWNLOADED_TARBALL" "$source"; then
+            echo -e "${RED}❌ Error: Failed to download image archive from: $source${NC}"
+            exit 1
+        fi
+        echo -e "${GREEN}✅ Downloaded to: $SCAN_IMAGE_DOWNLOADED_TARBALL${NC}"
+        echo -e "${CYAN}📦 Loading image archive into Docker...${NC}"
+        loaded_ref=$(docker load --input "$SCAN_IMAGE_DOWNLOADED_TARBALL" 2>&1 | tee /dev/stderr | grep -oE 'Loaded image( ID)?: .*' | sed -E 's/^Loaded image( ID)?: //' | tail -1)
+        if [[ -z "$loaded_ref" ]]; then
+            echo -e "${RED}❌ Error: Failed to load downloaded image archive${NC}"
+            exit 1
+        fi
+        RESOLVED_SCAN_IMAGE="$loaded_ref"
+    elif [[ -f "$source" ]]; then
+        echo -e "${CYAN}📦 Loading local image tarball: $source${NC}"
+        loaded_ref=$(docker load --input "$source" 2>&1 | tee /dev/stderr | grep -oE 'Loaded image( ID)?: .*' | sed -E 's/^Loaded image( ID)?: //' | tail -1)
+        if [[ -z "$loaded_ref" ]]; then
+            echo -e "${RED}❌ Error: Failed to load image tarball: $source${NC}"
+            exit 1
+        fi
+        RESOLVED_SCAN_IMAGE="$loaded_ref"
+    else
+        # Treat as an image reference — use it directly if already local,
+        # otherwise attempt to pull it from a registry.
+        if docker image inspect "$source" &>/dev/null; then
+            echo -e "${GREEN}✅ Found image already loaded locally: $source${NC}"
+            RESOLVED_SCAN_IMAGE="$source"
+        else
+            echo -e "${CYAN}📥 Pulling image from registry: $source${NC}"
+            if docker pull "$source" 2>&1; then
+                RESOLVED_SCAN_IMAGE="$source"
+            else
+                echo -e "${RED}❌ Error: Image not found locally and could not be pulled: $source${NC}"
+                echo -e "${YELLOW}💡 Check the image reference, or provide a local tarball/https URL instead.${NC}"
+                exit 1
+            fi
+        fi
+    fi
+
+    echo -e "${GREEN}✅ Resolved scan image: $RESOLVED_SCAN_IMAGE${NC}"
+}
+
+if [[ "$SCAN_IMAGE_MODE" == "true" ]]; then
+    resolve_scan_image "$SCAN_IMAGE_INPUT"
+    echo ""
+fi
+
 # Load approved base images configuration
 # REPORTS_ROOT is the repo root (parent of scripts/); REPO_ROOT is the scripts dir.
 CONFIG_DIR="$REPORTS_ROOT/configuration"
@@ -714,6 +856,12 @@ validate_latest_image() {
 DEFAULT_BASELINE="dhi/caddy:debian-13-2-fips-dev@sha256:ba86d16733750c6fd7b8866981016d2479e234c842d77413f1bf41c4404e555c"
 
 choose_baseline_image() {
+    if [[ "$SCAN_IMAGE_MODE" == "true" ]]; then
+        BASELINE_IMAGE="$RESOLVED_SCAN_IMAGE"
+        echo -e "${GREEN}✓ Using resolved --scan-image target as baseline image: $BASELINE_IMAGE${NC}"
+        return
+    fi
+
     if [[ -n "$BASELINE_IMAGE_FLAG" ]]; then
         BASELINE_IMAGE="$BASELINE_IMAGE_FLAG"
         echo -e "${GREEN}✓ Using --baseline-image override: $BASELINE_IMAGE${NC}"
@@ -1915,4 +2063,12 @@ if [[ "$CLONED_REPO" == "true" ]] && [[ -n "$CLONE_DIR" ]]; then
     echo -e "${CYAN}🧹 Cleaning up cloned repository...${NC}"
     rm -rf "$CLONE_DIR"
     echo -e "${GREEN}✅ Temporary clone removed: $CLONE_DIR${NC}"
+fi
+
+# Cleanup scratch directory and downloaded tarball from --scan-image mode
+if [[ "$SCAN_IMAGE_MODE" == "true" ]] && [[ -n "$SCAN_IMAGE_TMP_DIR" ]]; then
+    echo ""
+    echo -e "${CYAN}🧹 Cleaning up temporary image scan artifacts...${NC}"
+    rm -rf "$SCAN_IMAGE_TMP_DIR"
+    echo -e "${GREEN}✅ Temporary image scan directory removed: $SCAN_IMAGE_TMP_DIR${NC}"
 fi

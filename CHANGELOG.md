@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.36.0] - 2026-10-06
+
+### Added
+- **Scan a container image directly — local, tarball, registry reference, or a downloadable URL — without needing a source checkout.** Previously every scan required a directory or Git repository target; container images could only be scanned indirectly via a Dockerfile's `FROM` line or a built artifact.
+- CLI: new `--scan-image <SOURCE>` flag on `run-target-security-scan.sh` (and `epyon.sh --scan-image <SOURCE>`, forwarded automatically). `SOURCE` may be a local image already loaded in Docker/Podman (`name:tag` or digest), a path to a local image tarball (`docker save`/skopeo output), a registry reference to pull (e.g. `ghcr.io/org/app:tag`), or an `https://` URL to download an image tarball from. Mutually exclusive with a directory/Git `TARGET`; defaults `--scan-type` to `images` (TruffleHog, Trivy, Grype, Xeol) and forces `--no-build-image` since there's no source to build.
+- Web UI: new **Container Image** scan type on the Run Scan page. The Target field is repurposed to accept an image source (registry reference or `https://` tarball URL) using the same resolution rules as the CLI flag, and is mutually exclusive with other scan types in a single run.
+- Web UI: a new **"Upload image tarball"** mode (alongside the existing "Upload .zip" for projects) lets users upload a local `docker save` tarball (`.tar`/`.tar.gz`/`.tgz`) directly from their own machine — the same escape hatch the existing zip-upload provides for unpushed source directories, since a local image name/tag or tarball path typed into the Target field only resolves against the **server's** own filesystem/Docker daemon once Epyon is deployed remotely. New `POST /api/scans/upload-image` endpoint handles the upload and hands it to the same image-resolution path.
+- `web/api/jobs.py` gained `resolve_container_image()`, used by a new `container_image` scan-type branch in `run_scan_job()` to pull/load the image and export it as `PRIMARY_BASELINE_IMAGE` for Trivy/Grype/Xeol. The scan is named after the *resolved* image (e.g. `hello-world-latest`), not the raw upload filename, so repeated uploads don't collapse onto one generic scan name.
+
 ## [3.35.0] - 2026-10-05
 
 ### Changed

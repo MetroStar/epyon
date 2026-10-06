@@ -80,6 +80,79 @@ def _read_github_config() -> dict:
     return github_config.read_config(config_file)
 
 
+class ContainerImageResolutionError(Exception):
+    """Raised when a --scan-image-equivalent source can't be pulled/loaded."""
+
+
+async def _run_cmd(*cmd: str) -> tuple[int, str]:
+    """Run a command, returning (exit_code, combined stdout+stderr text)."""
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+    )
+    out, _ = await proc.communicate()
+    return proc.returncode, out.decode("utf-8", errors="replace")
+
+
+async def resolve_container_image(image_source: str, scratch_dir: Path, job: dict) -> str:
+    """Resolve a container-image scan source into a local image reference
+    usable as PRIMARY_BASELINE_IMAGE, mirroring the CLI's --scan-image
+    resolution in run-target-security-scan.sh. Supports:
+      - A local image already loaded in Docker/Podman (name:tag or digest)
+      - A path to a local image tarball (docker save/skopeo output)
+      - A registry reference to pull (e.g. ghcr.io/org/app:tag)
+      - An https:// URL to download an image tarball from
+    Raises ContainerImageResolutionError with a user-facing message on failure.
+    """
+    tarball_path: str | None = None
+
+    if image_source.startswith("http://") or image_source.startswith("https://"):
+        _append_line(job, f"[image] Downloading image archive from: {image_source}")
+        scratch_dir.mkdir(parents=True, exist_ok=True)
+        tarball_path = str(scratch_dir / "downloaded-image.tar")
+        rc, out = await _run_cmd("curl", "--fail", "--location", "--silent", "--show-error",
+                                  "--output", tarball_path, image_source)
+        for line in out.splitlines():
+            _append_line(job, f"[image] {line}")
+        if rc != 0:
+            raise ContainerImageResolutionError(f"Failed to download image archive from: {image_source}")
+    elif Path(image_source).is_file():
+        tarball_path = image_source
+
+    if tarball_path:
+        _append_line(job, f"[image] Loading image tarball: {tarball_path}")
+        rc, out = await _run_cmd("docker", "load", "--input", tarball_path)
+        for line in out.splitlines():
+            _append_line(job, f"[image] {line}")
+        if rc != 0:
+            raise ContainerImageResolutionError(f"Failed to load image tarball: {tarball_path}")
+        match = re.search(r"Loaded image(?: ID)?:\s*(.+)", out)
+        if not match:
+            raise ContainerImageResolutionError(f"Could not parse loaded image reference from: {tarball_path}")
+        resolved = match.group(1).strip()
+        _append_line(job, f"[image] Resolved scan image: {resolved}")
+        return resolved
+
+    # Not a file/URL — treat as an image reference: use it directly if
+    # already local, otherwise attempt to pull it from a registry.
+    rc, _ = await _run_cmd("docker", "image", "inspect", image_source)
+    if rc == 0:
+        _append_line(job, f"[image] Found image already loaded locally: {image_source}")
+        return image_source
+
+    _append_line(job, f"[image] Pulling image from registry: {image_source}")
+    rc, out = await _run_cmd("docker", "pull", image_source)
+    for line in out.splitlines():
+        _append_line(job, f"[image] {line}")
+    if rc != 0:
+        raise ContainerImageResolutionError(
+            f"Image not found locally and could not be pulled: {image_source}"
+        )
+    _append_line(job, f"[image] Resolved scan image: {image_source}")
+    return image_source
+
+
 def _authenticated_clone_url(clone_url: str, github_token: str) -> str:
     """Inject GITHUB_TOKEN/GH_PAT credentials into an https://github.com URL.
 
@@ -123,6 +196,158 @@ async def run_scan_job(
 ) -> None:
     job = jobs[job_id]
     job["status"] = "running"
+
+    # ── Container image scans bypass source derivation/clone entirely ────
+    # The "target" field holds the image source (local ref, tarball path,
+    # registry ref, or https:// tarball URL) instead of a path/Git URL.
+    if scan_type == "container_image":
+        image_source = target
+        target_dir   = str(epyon_root / "tmp" / f"image-scan-{job_id}")
+        Path(target_dir).mkdir(parents=True, exist_ok=True)
+        is_remote    = False
+        subdir       = ""
+        _is_url      = False
+        clone_url    = ""
+
+        try:
+            resolved_image = await resolve_container_image(image_source, Path(target_dir), job)
+        except ContainerImageResolutionError as exc:
+            _append_line(job, f"[image] ERROR: {exc}")
+            job["status"]       = "failed"
+            job["error"]        = str(exc)
+            job["completed_at"] = _now()
+            return
+
+        # Name the scan after the resolved image (e.g. "hello-world-latest"),
+        # not the raw image_source — otherwise every tarball upload or
+        # digest-pinned pull would collapse onto the same generic
+        # "uploaded-image.tar"/"sha256-xxxx" scan name.
+        target_name = re.sub(r"[^A-Za-z0-9._-]+", "-", resolved_image).strip("-") or "scanned-image"
+
+        timestamp    = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
+        scan_name    = f"{target_name}_{timestamp}"
+        scan_dir     = epyon_root / "scans" / scan_name
+        scan_dir.mkdir(parents=True, exist_ok=True)
+
+        epyon_version = "unknown"
+        version_file = epyon_root / "VERSION"
+        if version_file.exists():
+            epyon_version = version_file.read_text().strip()
+
+        import json as _json
+        scan_meta = {
+            "scan_type":        scan_type,
+            "target_name":      target_name,
+            "scan_timestamp":   datetime.now(timezone.utc).isoformat(),
+            "target_directory": target_dir,
+            "source_url":       "",
+            "image_source":     image_source,
+            "resolved_image":   resolved_image,
+            "epyon_version":    epyon_version,
+            "triggered_by":     "web-ui",
+        }
+        (scan_dir / "scan-metadata.json").write_text(_json.dumps(scan_meta, indent=2))
+
+        # Container-focused layers only — mirrors the CLI's --scan-image
+        # default "images" scan type (TruffleHog, Trivy, Grype, Xeol).
+        # SCAN_MODE itself is passed through as "container_image", which
+        # run-epyon-scan-ci.sh doesn't recognize and falls back to "full"
+        # internally (logging a warning) — harmless, since every layer
+        # below is explicitly forced on/off via SKIP_* regardless of mode,
+        # same pattern already used for scan_type="local_model".
+        env_lines = [
+            f"TARGET_DIR={target_dir}",
+            f"SCAN_MODE={scan_type}",
+            f"TARGET_NAME={target_name}",
+            "GITHUB_ACTOR=web-ui",
+            "SUBDIR=",
+            f"EPYON_VERSION={epyon_version}",
+            f"PRIMARY_BASELINE_IMAGE={resolved_image}",
+            "BUILD_ENABLED=false",
+            "SKIP_SBOM=true",
+            "SKIP_TRUFFLEHOG=false",
+            "SKIP_SONAR=true",
+            "SKIP_CLAMAV=true",
+            "SKIP_HELM=true",
+            "SKIP_CHECKOV=true",
+            "SKIP_TRIVY=false",
+            "SKIP_GRYPE=false",
+            "SKIP_XEOL=false",
+            "SKIP_ANCHORE=true",
+            "SKIP_API_DISCOVERY=true",
+            "SKIP_NETWORK_DISCOVERY=true",
+            "SKIP_PICKLESCAN=true",
+            "SKIP_MODELCARD=true",
+            "SKIP_MODEL_PROVENANCE=true",
+            "SKIP_INFERENCE_SECURITY=true",
+            "SKIP_COMPROMISED_SOURCE=true",
+            "SKIP_STIG=true",
+            "SKIP_GARAK=true",
+        ]
+        _env_path = Path("/tmp/epyon-env")
+        _env_path.write_text("\n".join(env_lines) + "\n")
+        _env_path.chmod(0o600)
+        _append_line(job, f"[web-ui] Initialized container image scan: {scan_name}")
+
+        env = {**os.environ,
+               "CI":               "true",
+               "NONINTERACTIVE":   "1",
+               "DEBIAN_FRONTEND":  "noninteractive",
+               "TERM":             "dumb",
+               "SKIP_GARAK":       "true",
+               "TARGET_DIR":       target_dir,
+               "SCAN_DIR":         str(scan_dir),
+               "SCAN_MODE":        scan_type,
+               "TARGET_NAME":      target_name,
+               "PRIMARY_BASELINE_IMAGE": resolved_image,
+               "BUILD_ENABLED":    "false"}
+        current_path = env.get("PATH", "")
+        homebrew_paths = "/opt/homebrew/bin:/usr/local/bin:/home/linuxbrew/.linuxbrew/bin"
+        env["PATH"] = f"{homebrew_paths}:{current_path}" if current_path else f"{homebrew_paths}:/usr/bin:/bin"
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                str(script_path),
+                cwd=str(epyon_root),
+                env=env,
+                stdin=asyncio.subprocess.DEVNULL,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            procs[job_id] = proc
+
+            async def _timeout_kill() -> None:
+                await asyncio.sleep(JOB_TIMEOUT_SECONDS)
+                if job["status"] == "running":
+                    _append_line(job, f"[epyon] Job timed out after {JOB_TIMEOUT_SECONDS // 60} minutes")
+                    try:
+                        proc.kill()
+                    except ProcessLookupError:
+                        pass
+
+            timeout_task = asyncio.create_task(_timeout_kill())
+
+            await asyncio.gather(
+                _read_stream(proc.stdout, job),
+                _read_stream(proc.stderr, job),
+            )
+
+            return_code = await proc.wait()
+            timeout_task.cancel()
+
+            procs.pop(job_id, None)
+            if job["status"] == "running":
+                job["exit_code"]    = return_code
+                job["status"]       = "completed" if return_code == 0 else "failed"
+                job["completed_at"] = _now()
+                if _on_scan_complete_cb:
+                    _on_scan_complete_cb(target_name, scan_name)
+        except Exception as exc:
+            procs.pop(job_id, None)
+            job["status"]       = "error"
+            job["error"]        = str(exc)
+            job["completed_at"] = _now()
+        return
 
     # ── Derive target name and target dir ────────────────────────
     _git_re  = re.compile(r"(?:https?://|git@)[^\s]+?/([^/\s]+?)(?:\.git)?$")

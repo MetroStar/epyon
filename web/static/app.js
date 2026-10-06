@@ -134,6 +134,7 @@ const _SCAN_TYPE_LABELS = {
   baseline:    'Baseline',
   stig:        'STIG',
   local_model: 'Local Model',
+  container_image: 'Container Image',
 };
 function scanTypeLabel(type) {
   return _SCAN_TYPE_LABELS[type] || ucFirst(type || 'full');
@@ -938,6 +939,30 @@ const api = {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/api/scans/upload');
+      xhr.upload.onprogress = (e) => {
+        if (onProgress && e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.upload.onload = () => { if (onProgress) onProgress(100, true); };
+      xhr.onload = () => {
+        let data = {};
+        try { data = JSON.parse(xhr.responseText || '{}'); } catch (_) {}
+        if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+        else reject(new Error(`${data.detail || xhr.statusText || 'Upload failed'} (${xhr.status})`));
+      };
+      xhr.onerror = () => reject(new Error('Network error during upload'));
+      xhr.send(form);
+    });
+  },
+  triggerScanUploadImage(file, onProgress = null) {
+    // Same upload-with-progress approach as triggerScanUpload, but hits the
+    // dedicated container-image endpoint (tarball instead of project zip,
+    // always scan_type=container_image, no Garak/STIG/layer options since
+    // those layers don't apply to an image-only scan).
+    const form = new FormData();
+    form.append('file', file);
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/scans/upload-image');
       xhr.upload.onprogress = (e) => {
         if (onProgress && e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
       };
@@ -4037,12 +4062,12 @@ async function renderNewScan(prefill = '') {
         <div class="form-group">
           <label>Source</label>
             <div class="seg-ctrl" id="target-mode-ctrl">
-              <button type="button" class="seg-btn active" data-value="path"
+              <button type="button" class="seg-btn active" data-value="path" id="target-mode-path-btn"
                 onclick="_setTargetMode('path')">Path / Git URL</button>
-              <button type="button" class="seg-btn" data-value="upload"
+              <button type="button" class="seg-btn" data-value="upload" id="target-mode-upload-btn"
                 onclick="_setTargetMode('upload')">Upload .zip</button>
             </div>
-            <small>Deployed on a remote server? A typed absolute path is resolved on the
+            <small id="target-mode-hint">Deployed on a remote server? A typed absolute path is resolved on the
               <strong>server's</strong> own filesystem, not your machine — use
               "Upload .zip" to scan a local, not-yet-pushed project instead.</small>
           </div>
@@ -4052,13 +4077,13 @@ async function renderNewScan(prefill = '') {
             <input type="text" id="scan-target" autocomplete="off" spellcheck="false"
               placeholder="/absolute/path/to/project  or  https://github.com/org/repo.git"
               value="${esc(prefill)}" />
-            <small>Absolute local directory path, relative path, or Git repository URL (HTTPS/SSH)</small>
+            <small id="scan-target-hint">Absolute local directory path, relative path, or Git repository URL (HTTPS/SSH)</small>
           </div>
 
           <div class="form-group" id="upload-target-field" style="display:none">
-            <label for="scan-upload">Project archive (.zip)</label>
+            <label for="scan-upload" id="scan-upload-label">Project archive (.zip)</label>
             <input type="file" id="scan-upload" accept=".zip" />
-            <small>Zip the project directory (e.g. <code>zip -r project.zip project/</code>) and
+            <small id="scan-upload-hint">Zip the project directory (e.g. <code>zip -r project.zip project/</code>) and
               upload it here. Extracted on the server and scanned like a local path.</small>
           </div>
 
@@ -4153,6 +4178,7 @@ const SCAN_TYPE_OPTIONS = [
   { id: 'baseline',    label: 'Baseline — Establish initial security benchmark (all layers)' },
   { id: 'stig',        label: 'STIG — STIG compliance assessment only (on demand)' },
   { id: 'local_model', label: 'Local Model — Scan model weights in a local directory (layers 14–15)' },
+  { id: 'container_image', label: 'Container Image — Scan a local/registry/URL image (TruffleHog, Trivy, Grype, Xeol)' },
 ];
 
 function setScanTypeCheckboxes(checked) {
@@ -4228,10 +4254,51 @@ function _onScanTypeSelectionChange() {
   const modes = _getSelectedScanTypes();
 
   const inp = document.getElementById('scan-target');
+  const targetLabel = document.querySelector('label[for="scan-target"]');
+  const targetHint = document.getElementById('scan-target-hint');
+  const isImageOnly = modes.length === 1 && modes[0] === 'container_image';
   if (inp && !inp.value) {
-    inp.placeholder = (modes.length === 1 && modes[0] === 'local_model')
-      ? '/absolute/path/to/models  (e.g. /opt/models/llama3)'
-      : '/absolute/path/to/project  or  https://github.com/org/repo.git';
+    inp.placeholder = isImageOnly
+      ? 'nginx:1.27-alpine  or  ghcr.io/org/app:tag  or  ./my-image.tar  or  https://example.com/app.tar.gz'
+      : (modes.length === 1 && modes[0] === 'local_model')
+        ? '/absolute/path/to/models  (e.g. /opt/models/llama3)'
+        : '/absolute/path/to/project  or  https://github.com/org/repo.git';
+  }
+  if (targetLabel) targetLabel.textContent = isImageOnly ? 'Container Image Source' : 'Target';
+  if (targetHint) {
+    targetHint.textContent = isImageOnly
+      ? 'A registry reference to pull (e.g. ghcr.io/org/app:tag) or an https:// URL to an image tarball. ' +
+        'A local image name/tag or tarball path only works if it already exists on THIS SERVER\u2019s filesystem/Docker daemon — ' +
+        'for an image on your own machine, use "Upload image tarball" below instead.'
+      : 'Absolute local directory path, relative path, or Git repository URL (HTTPS/SSH)';
+  }
+
+  // Upload mode: repurpose the same "Path / Git URL" vs "Upload" toggle for
+  // image sources when Container Image is the sole selected type — a local
+  // tarball is as much a "not yet on the server" artifact as an unpushed
+  // project directory, so it gets the same upload escape hatch.
+  const uploadBtn   = document.getElementById('target-mode-upload-btn');
+  const modeHint    = document.getElementById('target-mode-hint');
+  const uploadLabel = document.getElementById('scan-upload-label');
+  const uploadInput = document.getElementById('scan-upload');
+  const uploadHint  = document.getElementById('scan-upload-hint');
+  if (uploadBtn)  uploadBtn.textContent = isImageOnly ? 'Upload image tarball' : 'Upload .zip';
+  if (modeHint) {
+    modeHint.innerHTML = isImageOnly
+      ? 'Deployed on a remote server? A typed local tarball path is resolved on the <strong>server\u2019s</strong> ' +
+        'own filesystem, not your machine — use "Upload image tarball" to scan a local <code>docker save</code> ' +
+        'archive instead (registry references and https:// URLs work fine from the Target field either way).'
+      : 'Deployed on a remote server? A typed absolute path is resolved on the <strong>server\u2019s</strong> ' +
+        'own filesystem, not your machine — use "Upload .zip" to scan a local, not-yet-pushed project instead.';
+  }
+  if (uploadLabel) uploadLabel.textContent = isImageOnly ? 'Image archive (.tar / .tar.gz / .tgz)' : 'Project archive (.zip)';
+  if (uploadInput) uploadInput.accept = isImageOnly ? '.tar,.tar.gz,.tgz' : '.zip';
+  if (uploadHint) {
+    uploadHint.innerHTML = isImageOnly
+      ? 'Produce one with <code>docker save -o image.tar name:tag</code> (or gzip it) and upload it here. ' +
+        'Loaded into the server\u2019s Docker daemon and scanned like a registry/local image.'
+      : 'Zip the project directory (e.g. <code>zip -r project.zip project/</code>) and ' +
+        'upload it here. Extracted on the server and scanned like a local path.';
   }
   // Show Garak / STIG toggles and the layer picker only if any selected
   // type supports granular layer control (quick/stig/local_model always
@@ -4289,6 +4356,10 @@ async function submitScan() {
 
   if (selectedTypes.length === 0) {
     alert('Select at least one scan type to run.');
+    return;
+  }
+  if (selectedTypes.includes('container_image') && selectedTypes.length > 1) {
+    alert('Container Image scans use the Target field for an image source (not a path/Git URL) and cannot be combined with other scan types in the same run. Run it on its own.');
     return;
   }
   if (activeMode === 'upload') {
@@ -4355,9 +4426,13 @@ async function runNextQueuedScan(btn, ctx) {
     // their own fixed, narrow set regardless of checkbox state.
     const layersForThisType = ['full', 'nightly', 'baseline'].includes(scanType) ? ctx.selectedLayers : null;
     const job = ctx.activeMode === 'upload'
-      ? await api.triggerScanUpload(ctx.uploadFile, scanType, ctx.runGarak, ctx.runStig, (pct, done) => {
-          btn.textContent = done ? '⏳ Extracting on server…' : `⏳ Uploading… ${pct}%`;
-        }, layersForThisType)
+      ? (scanType === 'container_image'
+          ? await api.triggerScanUploadImage(ctx.uploadFile, (pct, done) => {
+              btn.textContent = done ? '⏳ Loading image on server…' : `⏳ Uploading… ${pct}%`;
+            })
+          : await api.triggerScanUpload(ctx.uploadFile, scanType, ctx.runGarak, ctx.runStig, (pct, done) => {
+              btn.textContent = done ? '⏳ Extracting on server…' : `⏳ Uploading… ${pct}%`;
+            }, layersForThisType))
       : await api.triggerScan(ctx.target, scanType, ctx.runGarak, ctx.runStig, layersForThisType);
     _activeJobId = job.job_id;
     clearInterval(_pollInterval);

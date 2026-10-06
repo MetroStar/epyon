@@ -123,7 +123,7 @@ _JIRA_FP_RE      = re.compile(r"^[a-f0-9]{16}\|[^\x00-\x1f]{1,40}$")
 _JIRA_EPIC_KEY_RE = re.compile(r"^[A-Z][A-Z0-9]{0,9}-\d+$")
 _JOB_ID_RE       = re.compile(r"^\d{14}$")
 _APP_SCAN_RE     = re.compile(r"^(.+)_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})$")
-_VALID_SCAN_TYPES = {"quick", "full", "nightly", "baseline", "stig", "local_model"}
+_VALID_SCAN_TYPES = {"quick", "full", "nightly", "baseline", "stig", "local_model", "container_image"}
 _REPO_RE         = re.compile(r"^[a-zA-Z0-9_.\-]+/[a-zA-Z0-9_.\-]+$")
 _UPLOAD_NAME_RE  = re.compile(r"[^a-zA-Z0-9_.\-]+")
 MAX_UPLOAD_BYTES       = int(os.environ.get("EPYON_MAX_UPLOAD_MB", "500")) * 1024 * 1024
@@ -1642,9 +1642,16 @@ async def trigger_scan(request: Request, response: Response):
 
     if not target:
         raise HTTPException(400, "target is required")
-    valid_prefixes = ["/", "./", "../", "https://", "http://", "git@"]
-    if not any(target.startswith(p) for p in valid_prefixes):
-        raise HTTPException(400, "target must be an absolute path, relative path, or Git URL")
+    if scan_type == "container_image":
+        # target holds an image source instead of a path/Git URL: a local
+        # image ref (name:tag or digest), a local tarball path, a registry
+        # reference to pull, or an https:// URL to an image tarball.
+        if len(target) > 512:
+            raise HTTPException(400, "target is too long for an image source")
+    else:
+        valid_prefixes = ["/", "./", "../", "https://", "http://", "git@"]
+        if not any(target.startswith(p) for p in valid_prefixes):
+            raise HTTPException(400, "target must be an absolute path, relative path, or Git URL")
     if re.search(r"[;&|`$\(\)\n\r<>]", target):
         raise HTTPException(400, "target contains invalid characters")
     if scan_type not in _VALID_SCAN_TYPES:
@@ -1797,6 +1804,69 @@ async def trigger_scan_upload(
                                run_garak=run_garak, run_stig=run_stig,
                                webhook_url=webhook_url, webhook_secret=webhook_secret,
                                selected_layers=selected_layers)
+    )
+    return {"job_id": job_id, "status": "queued"}
+
+
+_IMAGE_UPLOAD_EXTS = (".tar", ".tar.gz", ".tgz")
+
+
+@app.post("/api/scans/upload-image", status_code=202)
+async def trigger_scan_upload_image(
+    request: Request,
+    response: Response,
+    file: UploadFile = File(...),
+    webhook_url: str = Form(""),
+    webhook_secret: str = Form(""),
+):
+    """Scan a container image the user uploads as a tarball (`docker save`
+    or `skopeo` output), rather than a registry reference or https:// URL.
+    This is the supported way to scan a local, not-yet-pushed image once
+    Epyon is deployed to a remote server — a tarball path typed into the
+    "Container Image Source" field is resolved on the SERVER's own
+    filesystem, not the browser's machine, mirroring why the project
+    "Upload .zip" option exists for directory/Git targets."""
+    _sec_headers(response)
+
+    if not file.filename or not file.filename.lower().endswith(_IMAGE_UPLOAD_EXTS):
+        raise HTTPException(400, f"file must be one of: {', '.join(_IMAGE_UPLOAD_EXTS)}")
+
+    script_path = SCRIPTS_DIR / "run-epyon-scan-ci.sh"
+    if not script_path.exists():
+        raise HTTPException(500, "Scan script not found")
+
+    # Save straight into this job's own scratch dir (the same
+    # tmp/image-scan-{job_id}/ directory run_scan_job() creates for
+    # container_image scans) so no extra copy/move step is needed —
+    # resolve_container_image() picks it up via its "local file path"
+    # branch exactly like a pre-existing path would be on local/dev use.
+    job_id      = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    scratch_dir = EPYON_ROOT / "tmp" / f"image-scan-{job_id}"
+    scratch_dir.mkdir(parents=True, exist_ok=True)
+    ext = ".tar.gz" if file.filename.lower().endswith(".tar.gz") else Path(file.filename).suffix
+    tarball_path = scratch_dir / f"uploaded-image{ext}"
+    written = 0
+    try:
+        with open(tarball_path, "wb") as out:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                written += len(chunk)
+                if written > MAX_UPLOAD_BYTES:
+                    raise HTTPException(413, f"upload exceeds {MAX_UPLOAD_BYTES // (1024*1024)}MB limit")
+                out.write(chunk)
+    except HTTPException:
+        shutil.rmtree(scratch_dir, ignore_errors=True)
+        raise
+
+    target = str(tarball_path)
+    _audit(request, "scan_upload_image_triggered", f"file={file.filename}")
+    job = job_store.create_job(job_id, target, "container_image")
+    job_store._on_scan_complete_cb = _on_scan_complete
+    asyncio.create_task(
+        job_store.run_scan_job(job_id, target, "container_image", script_path, EPYON_ROOT,
+                               webhook_url=webhook_url, webhook_secret=webhook_secret)
     )
     return {"job_id": job_id, "status": "queued"}
 

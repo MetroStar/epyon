@@ -472,6 +472,8 @@ The container listens on **port 8057** by default (override with `EPYON_PORT`) t
 > **Phase 0 container image build (`BUILD_ENABLED`) now defaults to `true` everywhere** — Web UI, local CLI (`./epyon.sh` / `run-target-security-scan.sh`), and GitHub Actions all build and scan the target's *actual* container image by default (SLSA provenance + cosign signature evidence, plus routing the real built image into Trivy/Anchore as the baseline). This used to default to `false` on the Web UI (never built at all) and on local CLI (unless `--build-image` was passed), while GitHub Actions defaulted to `true` — meaning Web UI/local scans of a target only ever saw a generic base image or source-only findings, while a GitHub Actions scan of the identical target saw the real OS-package/dependency CVEs baked into the shipped artifact, with no indication a whole scan phase had been silently skipped. Pass `--no-build-image` to the local CLI to opt back out (e.g. no Docker available, or scanning a non-containerized repo); the Web UI skips this phase automatically for `local_model` and `stig` scan types.
 
 > **Scanning a local project once Epyon is deployed remotely**: the "Run New Scan" form's "Target" field (an absolute path) is resolved against the **server's own filesystem**, not your machine — typing a path from your laptop won't find anything there. Either push the project to a Git remote the server can reach and use the URL field, or use the "Upload .zip" toggle to upload the project directly; it's extracted server-side and scanned like a local path.
+>
+> **Scanning a container image via the Web UI**: select the **Container Image** scan type — the Target field then accepts a registry reference (e.g. `ghcr.io/org/app:tag`, pulled server-side) or an `https://` URL to an image tarball (downloaded server-side). For an image that only exists on your own machine (not yet pushed to a registry), `docker save -o image.tar name:tag` it and use the **"Upload image tarball"** toggle instead — same remote-deployment caveat as local project paths applies to a locally-typed tarball path or image name/tag.
 
 ```bash
 # Manual equivalent (local only)
@@ -487,7 +489,7 @@ docker compose up -d --build
 | `EPYON_SCANS_DIR` | `../scans` (relative to `web/`) | Directory where scan results are stored |
 | `EPYON_SCAN_RETENTION_DAYS` | `90` | Days a raw scan folder is kept on disk before being archived (tar+gzip into `web/data/epyon.db`) and deleted. See [Scan Storage & Retention](#️-scan-storage--retention). |
 | `EPYON_SCAN_RESTORE_HOURS` | `24` | Hours an archived scan's raw files stay restored to disk after `POST /api/scans/{id}/restore`. |
-| `EPYON_MAX_UPLOAD_MB` | `500` | Max size of a `.zip` uploaded via "Run New Scan" → "Upload .zip" (`POST /api/scans/upload`). |
+| `EPYON_MAX_UPLOAD_MB` | `500` | Max size of a `.zip` uploaded via "Run New Scan" → "Upload .zip" (`POST /api/scans/upload`), or an image tarball uploaded via "Upload image tarball" (`POST /api/scans/upload-image`). |
 | `EPYON_MAX_UPLOAD_UNZIPPED_MB` | `2048` | Max total uncompressed size of an uploaded `.zip`'s contents (decompression-bomb guard). |
 | `OPENAI_API_KEY` | *(optional)* | Enables AI-powered scan summaries. Used as the secondary/fallback provider when a self-hosted primary (e.g. Ollama) is configured — see below. |
 | `OPENAI_BASE_URL` | *(optional)* | Primary AI endpoint for the native launcher — e.g. `http://localhost:11434/v1` for a locally hosted [Ollama](https://ollama.com) instance. |
@@ -1086,6 +1088,12 @@ Scan any external application or directory with comprehensive security analysis 
 
 # Image-focused security scan (6 container tools)
 ./scripts/shell/run-target-security-scan.sh "/path/to/your/project" images
+
+# Scan a container image directly — no source checkout required
+./scripts/shell/run-target-security-scan.sh --scan-image nginx:1.27-alpine        # Local image already loaded
+./scripts/shell/run-target-security-scan.sh --scan-image ghcr.io/org/app:latest   # Pull from a registry
+./scripts/shell/run-target-security-scan.sh --scan-image ./my-image.tar          # Local docker-save tarball
+./scripts/shell/run-target-security-scan.sh --scan-image https://example.com/images/app.tar.gz  # Download & load
 
 # Analysis-only mode (existing reports)
 ./scripts/shell/run-target-security-scan.sh "/path/to/your/project" analysis

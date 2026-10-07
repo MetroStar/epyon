@@ -167,7 +167,12 @@ if [[ -f "$FINDINGS_SUMMARY" ]]; then
             # Extract finding details
             tool=$(echo "$finding" | jq -r '.tool // ""')
             detector=$(echo "$finding" | jq -r '.detector // ""')
-            file_path=$(echo "$finding" | jq -r '.file_path // .target // .container_image // ""')
+            # package_path is how generate-scan-findings-summary.sh records a
+            # Grype dependency finding's source file (e.g. pom.xml). Grype
+            # findings also set target to "" (not null), so a plain `//`
+            # chain would short-circuit on that empty string before ever
+            # reaching package_path - filter out empty strings explicitly.
+            file_path=$(echo "$finding" | jq -r '[.file_path, .target, .package_path, .container_image] | map(select(. != null and . != "")) | (.[0] // "")')
             cve=$(echo "$finding" | jq -r '.vulnerability_id // .id // ""')
             package=$(echo "$finding" | jq -r '.package_name // .package // ""')
             version=$(echo "$finding" | jq -r '.package_version // .version // ""')

@@ -215,14 +215,25 @@ is_path_ignored() {
     # Get all path patterns
     local patterns=$(jq -r '.ignores[] | select(.type == "path" and .expired == false) | .value' "$IGNORE_CACHE" 2>/dev/null || echo "")
     
+    # Rule values are often written with a leading "/" to mean "relative to
+    # the repo root" (e.g. "/tests/fixtures/pom.xml"), but tool-reported
+    # paths (Grype/Syft locations, etc.) are almost always relative with no
+    # leading slash. Normalize both sides so a leading "/" in the rule
+    # doesn't cause an otherwise-correct match to silently fail.
+    local clean_file_path="${file_path#/workspace/}"
+    clean_file_path="${clean_file_path#/}"
+    
     while IFS= read -r pattern; do
         if [[ -z "$pattern" ]]; then
             continue
         fi
         
+        local clean_pattern="${pattern#/workspace/}"
+        clean_pattern="${clean_pattern#/}"
+        
         # Use bash glob pattern matching
         # shellcheck disable=SC2053
-        if [[ "$file_path" == $pattern ]]; then
+        if [[ "$file_path" == $pattern || "$clean_file_path" == $clean_pattern ]]; then
             local reason=$(jq -r --arg pat "$pattern" '
                 .ignores[] | 
                 select(.type == "path" and .value == $pat and .expired == false) |

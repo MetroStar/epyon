@@ -852,6 +852,7 @@ EOF
                         vulnerability_id: (.vulnerability.id // "N/A"),
                         package_name: (.artifact.name // "N/A"),
                         package_version: (.artifact.version // "N/A"),
+                        package_path: ([.artifact.locations[]?.path] | join(", ")),
                         description: (.vulnerability.description // ("Container image vulnerability in " + $container + ": " + (.vulnerability.id // "unknown"))),
                         nvd_url: ((.vulnerability.urls // []) | first // null),
                         fix_versions: (.vulnerability.fix.versions // [])

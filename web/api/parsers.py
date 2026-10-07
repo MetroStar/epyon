@@ -1357,7 +1357,20 @@ def _is_finding_suppressed(finding: dict, suppressions: list[dict]) -> bool:
         # 3. Path / File suppression (glob matching)
         if supp_type in ("path", "file"):
             clean_path = file_path.replace("/workspace/", "").lstrip("/")
-            if fnmatch.fnmatch(clean_path.lower(), supp_value) or fnmatch.fnmatch(file_path.lower(), supp_value):
+            # Rule values are often written with a leading "/" to mean
+            # "relative to the repo root" (e.g. "/tests/fixtures/pom.xml"),
+            # but tool-reported paths (Grype/Syft locations, etc.) are
+            # almost always relative with no leading slash. Normalize the
+            # rule value the same way clean_path is normalized so a leading
+            # "/" in the rule doesn't cause an otherwise-correct match to
+            # silently fail.
+            clean_supp_value = supp_value.replace("/workspace/", "").lstrip("/")
+            if (
+                fnmatch.fnmatch(clean_path.lower(), supp_value)
+                or fnmatch.fnmatch(file_path.lower(), supp_value)
+                or fnmatch.fnmatch(clean_path.lower(), clean_supp_value)
+                or fnmatch.fnmatch(file_path.lower(), clean_supp_value)
+            ):
                 return True
             continue
 

@@ -167,12 +167,14 @@ if [[ -f "$FINDINGS_SUMMARY" ]]; then
             # Extract finding details
             tool=$(echo "$finding" | jq -r '.tool // ""')
             detector=$(echo "$finding" | jq -r '.detector // ""')
-            # package_path is how generate-scan-findings-summary.sh records a
-            # Grype dependency finding's source file (e.g. pom.xml). Grype
-            # findings also set target to "" (not null), so a plain `//`
-            # chain would short-circuit on that empty string before ever
-            # reaching package_path - filter out empty strings explicitly.
-            file_path=$(echo "$finding" | jq -r '[.file_path, .target, .package_path, .container_image] | map(select(. != null and . != "")) | (.[0] // "")')
+            # package_path (a dependency's specific source file, e.g. pom.xml)
+            # is more precise than target/container_image (the whole scanned
+            # image/container name) and must be preferred when both are
+            # present - otherwise Anchore's always-non-empty target
+            # ("filesystem" or an image name) wins before package_path is
+            # even considered, breaking path-type suppression for Anchore
+            # dependency findings.
+            file_path=$(echo "$finding" | jq -r '[.file_path, .package_path, .target, .container_image] | map(select(. != null and . != "")) | (.[0] // "")')
             cve=$(echo "$finding" | jq -r '.vulnerability_id // .id // ""')
             package=$(echo "$finding" | jq -r '.package_name // .package // ""')
             version=$(echo "$finding" | jq -r '.package_version // .version // ""')
@@ -241,13 +243,18 @@ if [[ -f "$FINDINGS_SUMMARY" ]]; then
     jq --argjson suppressed "$SUPPRESSED_JSON" '
     # Helper to create fingerprint from finding
     def fingerprint:
+        # Keep this path-selection logic identical to the bash loop above
+        # (file_path=...) that builds SUPPRESSED_FINGERPRINTS - any
+        # divergence between the two means a bash-confirmed suppression
+        # will never match here and silently fail to filter the finding.
+        (([.file_path, .package_path, .target, .container_image] | map(select(. != null and . != ""))) [0] // "") as $path |
         [
             (.tool // ""),
             (.detector // ""),
             (.vulnerability_id // .id // ""),
             (.package_name // .package // ""),
             (.package_version // .version // ""),
-            ((.file_path // .target // .container_image // "") | sub("^/workspace/"; "")),
+            ($path | sub("^/workspace/"; "")),
             (.line_number // "")
         ] | join("|");
     

@@ -36,6 +36,7 @@ parse_ignore_rules() {
     local PARSE_OUTPUT=$(python3 -c "
 import sys
 import json
+import re
 from datetime import datetime
 
 try:
@@ -45,17 +46,113 @@ except ImportError:
     print(json.dumps({'ignores': []}))
     sys.exit(0)
 
+# A recurring hand-edit mistake: a newly pasted '- type: ...' entry under
+# 'ignores:' is indented differently (usually 0 spaces) than its sibling
+# entries (usually 2 spaces). YAML requires every item in a block sequence
+# to share one indentation level, so this single mismatched entry breaks
+# parsing of the *entire* ignores list — not just the new entry — and
+# PyYAML's 'expected <block end>, but found -' error gives no hint that
+# every other (previously working) suppression rule just silently stopped
+# applying too. Detect this specific shape and reindent the offending
+# entry (and its own continuation lines) to match its siblings so the file
+# still parses, while surfacing a warning so the source file still gets
+# fixed by a human.
+def autofix_sequence_indentation(text):
+    from collections import Counter
+
+    lines = text.splitlines()
+    key_re = re.compile(r'^(\s*)ignores:\s*\$')
+    marker_re = re.compile(r'^(\s*)-\s')
+
+    # Pass 1: locate the 'ignores:' block and collect every entry marker's
+    # indentation. A non-marker line only ends the block once it dedents to
+    # (or above) the 'ignores:' key's own indent — a malformed '- type: ...'
+    # marker may itself sit at that same (or shallower) indent, so markers
+    # never terminate the block on their own.
+    in_block = False
+    ignores_key_indent = 0
+    block_start = None
+    block_end = len(lines)
+    marker_indents = []
+    for i, line in enumerate(lines):
+        if not in_block:
+            m = key_re.match(line)
+            if m:
+                in_block = True
+                ignores_key_indent = len(m.group(1))
+                block_start = i + 1
+            continue
+        stripped = line.strip()
+        if stripped == '' or stripped.startswith('#'):
+            continue
+        indent = len(line) - len(line.lstrip(' '))
+        m = marker_re.match(line)
+        if m:
+            marker_indents.append(len(m.group(1)))
+            continue
+        if indent <= ignores_key_indent:
+            block_end = i
+            break
+
+    if block_start is None or not marker_indents:
+        return text, []
+
+    # The majority indentation is treated as correct; any entry (and its
+    # own continuation lines) at a different indent gets uniformly shifted
+    # to match. Which specific entries are 'the odd ones out' is cosmetic —
+    # unifying the whole list to one consistent level is what makes it
+    # parse, regardless of which level is chosen as the target.
+    base_indent = Counter(marker_indents).most_common(1)[0][0]
+
+    fixed = list(lines)
+    notes = []
+    current_delta = 0
+    for i in range(block_start, block_end):
+        line = lines[i]
+        stripped = line.strip()
+        if stripped == '' or stripped.startswith('#'):
+            continue
+        m = marker_re.match(line)
+        if m:
+            marker_indent = len(m.group(1))
+            current_delta = base_indent - marker_indent
+            if current_delta != 0:
+                notes.append(
+                    'line %d: entry indentation (%d space(s)) does not match the '
+                    'other entries under \'ignores:\' (%d space(s)) \u2014 normalized '
+                    'for this run only so the file still parses; please fix the '
+                    'indentation in the file itself so every entry is consistent.'
+                    % (i + 1, marker_indent, base_indent)
+                )
+        if current_delta > 0:
+            fixed[i] = (' ' * current_delta) + line
+        elif current_delta < 0:
+            strip_n = -current_delta
+            if line[:strip_n].strip() == '':
+                fixed[i] = line[strip_n:]
+
+    return '\n'.join(fixed) + ('\n' if text.endswith('\n') else ''), notes
+
+autofix_notes = []
 try:
     with open('$IGNORE_FILE', 'r') as f:
-        data = yaml.safe_load(f)
-    
+        raw_text = f.read()
+
+    try:
+        data = yaml.safe_load(raw_text)
+    except yaml.YAMLError:
+        fixed_text, autofix_notes = autofix_sequence_indentation(raw_text)
+        if not autofix_notes:
+            raise
+        data = yaml.safe_load(fixed_text)
+
     if not data or 'ignores' not in data:
-        print(json.dumps({'ignores': []}))
+        print(json.dumps({'ignores': [], 'warnings': autofix_notes}))
         sys.exit(0)
     
     # Process ignores and check expiration
     processed = []
-    normalization_warnings = []
+    normalization_warnings = list(autofix_notes)
     current_date = datetime.now()
 
     # Rule types actually understood by the suppression matchers

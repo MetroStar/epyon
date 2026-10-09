@@ -114,6 +114,87 @@ EOF
     rm -f "$IGNORE_FILE" "$CACHE"
 }
 
+@test "parse-epyon-ignore.sh auto-repairs a mis-indented entry under ignores:" {
+    command -v python3 &>/dev/null || skip "python3 not available"
+    python3 -c "import yaml" 2>/dev/null || skip "PyYAML not installed"
+
+    # Reproduces a real-world mistake: a new entry pasted at 0-space
+    # indentation while its siblings are indented 2 spaces. This is invalid
+    # YAML (a block sequence requires one consistent indentation level) and
+    # previously caused the *entire* ignores list to silently fail to load
+    # (0 rules), not just the new entry.
+    local IGNORE_FILE
+    IGNORE_FILE=$(mktemp).yml
+    cat > "$IGNORE_FILE" << 'EOF'
+version: "1.0"
+
+ignores:
+  - type: cve
+    value: "CKV_GHA_7"
+    reason: "pre-existing, correctly indented"
+    approved_by: "rlnelson"
+
+- type: cve
+  value: "GHSA-98qh-xjc8-98pq"
+  reason: "newly pasted at the wrong indentation"
+  approved_by: "rlnelson"
+EOF
+
+    local CACHE
+    CACHE=$(mktemp)
+
+    run bash -c "
+        IGNORE_CACHE='$CACHE'
+        source '$SCRIPT_PATH'
+        parse_ignore_rules '$IGNORE_FILE'
+    "
+    [ "$status" -eq 0 ]
+    [ -f "$CACHE" ]
+
+    # Both the pre-existing and the mis-indented entry must still load.
+    run jq -e '.ignores | length == 2' "$CACHE"
+    [ "$status" -eq 0 ]
+
+    run jq -e '[.ignores[].value] | contains(["GHSA-98qh-xjc8-98pq", "CKV_GHA_7"])' "$CACHE"
+    [ "$status" -eq 0 ]
+
+    # A warning must still be surfaced so the file itself gets fixed.
+    run jq -e '.warnings | length > 0' "$CACHE"
+    [ "$status" -eq 0 ]
+
+    rm -f "$IGNORE_FILE" "$CACHE"
+}
+
+@test "parse-epyon-ignore.sh does not alter a correctly-indented file" {
+    command -v python3 &>/dev/null || skip "python3 not available"
+    python3 -c "import yaml" 2>/dev/null || skip "PyYAML not installed"
+
+    local IGNORE_FILE
+    IGNORE_FILE=$(mktemp).yml
+    cat > "$IGNORE_FILE" << 'EOF'
+ignores:
+  - type: cve
+    value: CVE-2024-1234
+    reason: "consistent indentation"
+    approved_by: "security-team"
+EOF
+
+    local CACHE
+    CACHE=$(mktemp)
+
+    run bash -c "
+        IGNORE_CACHE='$CACHE'
+        source '$SCRIPT_PATH'
+        parse_ignore_rules '$IGNORE_FILE'
+    "
+    [ "$status" -eq 0 ]
+
+    run jq -e '.warnings | length == 0' "$CACHE"
+    [ "$status" -eq 0 ]
+
+    rm -f "$IGNORE_FILE" "$CACHE"
+}
+
 @test "parse-epyon-ignore.sh handles empty YAML file gracefully" {
     local IGNORE_FILE
     IGNORE_FILE=$(mktemp).yml

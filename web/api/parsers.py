@@ -1194,6 +1194,86 @@ def generate_ssp_evidence_markdown(matrix_data: dict) -> str:
     return "\n".join(md)
 
 
+def _autofix_ignore_yaml_indentation(text: str) -> tuple[str, list[str]]:
+    """Best-effort repair for the most common hand-edit mistake in .epyon-ignore.yml:
+    pasting a new '- type: ...' entry under 'ignores:' at a different indentation
+    level than its sibling entries. YAML requires every item in a block sequence to
+    share one indentation level, so a single mismatched entry breaks parsing of the
+    *entire* list — not just the new entry — which would otherwise silently drop
+    every suppression rule from the dashboard (not just the newly added one).
+
+    Mirrors scripts/shell/parse-epyon-ignore.sh's autofix_sequence_indentation() —
+    keep the two in sync; a test in tests/python/test_suppression_parity.py checks
+    this.
+
+    Returns (possibly-repaired text, human-readable notes about what was changed).
+    """
+    from collections import Counter
+
+    lines = text.splitlines()
+    key_re = re.compile(r"^(\s*)ignores:\s*$")
+    marker_re = re.compile(r"^(\s*)-\s")
+
+    in_block = False
+    ignores_key_indent = 0
+    block_start = None
+    block_end = len(lines)
+    marker_indents: list[int] = []
+    for i, line in enumerate(lines):
+        if not in_block:
+            m = key_re.match(line)
+            if m:
+                in_block = True
+                ignores_key_indent = len(m.group(1))
+                block_start = i + 1
+            continue
+        stripped = line.strip()
+        if stripped == "" or stripped.startswith("#"):
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        m = marker_re.match(line)
+        if m:
+            marker_indents.append(len(m.group(1)))
+            continue
+        if indent <= ignores_key_indent:
+            block_end = i
+            break
+
+    if block_start is None or not marker_indents:
+        return text, []
+
+    base_indent = Counter(marker_indents).most_common(1)[0][0]
+
+    fixed = list(lines)
+    notes: list[str] = []
+    current_delta = 0
+    for i in range(block_start, block_end):
+        line = lines[i]
+        stripped = line.strip()
+        if stripped == "" or stripped.startswith("#"):
+            continue
+        m = marker_re.match(line)
+        if m:
+            marker_indent = len(m.group(1))
+            current_delta = base_indent - marker_indent
+            if current_delta != 0:
+                notes.append(
+                    f"line {i + 1}: entry indentation ({marker_indent} space(s)) does "
+                    f"not match the other entries under 'ignores:' ({base_indent} "
+                    f"space(s)) — normalized for this run only so the file still "
+                    f"parses; please fix the indentation in the file itself so every "
+                    f"entry is consistent."
+                )
+        if current_delta > 0:
+            fixed[i] = (" " * current_delta) + line
+        elif current_delta < 0:
+            strip_n = -current_delta
+            if line[:strip_n].strip() == "":
+                fixed[i] = line[strip_n:]
+
+    return "\n".join(fixed) + ("\n" if text.endswith("\n") else ""), notes
+
+
 def parse_suppressed_findings(scan_dir: Path) -> list[dict]:
     """Parse suppressed-findings.md and/or .epyon-ignore.yml into structured suppression records."""
     results = []
@@ -1262,7 +1342,16 @@ def parse_suppressed_findings(scan_dir: Path) -> list[dict]:
                     ignores = data.get("ignores", [])
                 else:
                     import yaml
-                    data = yaml.safe_load(yml_file.read_text(encoding="utf-8")) or {}
+                    raw_yaml = yml_file.read_text(encoding="utf-8")
+                    try:
+                        data = yaml.safe_load(raw_yaml) or {}
+                    except yaml.YAMLError:
+                        fixed_yaml, autofix_notes = _autofix_ignore_yaml_indentation(raw_yaml)
+                        if not autofix_notes:
+                            raise
+                        data = yaml.safe_load(fixed_yaml) or {}
+                        for note in autofix_notes:
+                            print(f"⚠️  {yml_file}: {note}")
                     ignores = data.get("ignores", [])
 
                 current_date = datetime.now()

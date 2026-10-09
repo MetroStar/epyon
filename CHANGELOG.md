@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.37.0] - 2026-10-09
+
+### Added
+- **`.epyon-ignore.yml` suppression rules now survive the most common hand-edit mistake: a mismatched indentation level on a list entry under `ignores:`.** Pasting a new `- type: ...` suppression at a different indentation than its sibling entries (e.g. 0 spaces vs. the existing 2 spaces) is invalid YAML and previously broke parsing of the *entire* `ignores:` list silently — not just the new entry — so every previously working suppression rule stopped applying with 0 ignore rules loaded and no obvious cause in the scan output. Both `scripts/shell/parse-epyon-ignore.sh` (used by the severity gate / scan suppression) and `web/api/parsers.py` (used by the dashboard) now detect this specific shape, auto-normalize the mismatched entry's indentation for that run so every rule still loads, and print a `line N: entry indentation ... does not match` warning pointing at the file/line to actually fix. Any other YAML error (bad quoting, wrong key, etc.) still results in zero rules loaded, unchanged from previous behavior.
+
+### Fixed
+- `documentation/IGNORE_RULES_GUIDE.md` updated: the "Invalid YAML is silently skipped" validation note and the Troubleshooting section now describe the new indentation-autofix behavior and warning.
+
 ## [3.36.0] - 2026-10-06
 
 ### Added

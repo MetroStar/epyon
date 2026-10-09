@@ -289,6 +289,66 @@ def test_tool_name_used_as_type_is_normalized_python(parsers, tmp_path):
     assert parsers._is_finding_suppressed(finding, rules) is True
 
 
+_MISINDENTED_IGNORE_YML = """version: "1.0"
+
+ignores:
+  - type: cve
+    value: "CKV_GHA_7"
+    reason: "pre-existing, correctly indented"
+    approved_by: "rlnelson"
+
+- type: cve
+  value: "GHSA-98qh-xjc8-98pq"
+  reason: "newly pasted at the wrong indentation"
+  approved_by: "rlnelson"
+"""
+
+
+def test_misindented_ignore_entry_is_autofixed_python(parsers, tmp_path):
+    """A recurring hand-edit mistake: pasting a new '- type: ...' entry under
+    'ignores:' at a different indentation than its siblings. YAML requires one
+    consistent indentation level per block sequence, so this silently breaks
+    parsing of the *entire* list, not just the new entry — every previously
+    working suppression stops applying with no obvious cause. The parser must
+    auto-repair this specific shape (and keep loading the rest of the file)
+    rather than silently returning zero rules."""
+    ignore_yml = tmp_path / ".epyon-ignore.yml"
+    ignore_yml.write_text(_MISINDENTED_IGNORE_YML, encoding="utf-8")
+
+    rules = parsers.parse_suppressed_findings(tmp_path)
+    values = {r["value"] for r in rules}
+    assert values == {"CKV_GHA_7", "GHSA-98qh-xjc8-98pq"}
+
+
+def test_misindented_ignore_entry_is_autofixed_bash(repo_root, tmp_path):
+    """Bash-side parity for the same mis-indentation autofix: the ignore cache
+    parse-epyon-ignore.sh produces must contain both entries, not silently drop
+    every rule in the file."""
+    script = repo_root / "scripts" / "shell" / "parse-epyon-ignore.sh"
+    if not script.exists():
+        pytest.skip("parse-epyon-ignore.sh not found")
+
+    ignore_yml = tmp_path / ".epyon-ignore.yml"
+    ignore_yml.write_text(_MISINDENTED_IGNORE_YML, encoding="utf-8")
+    cache = tmp_path / "ignore-cache.json"
+
+    result = subprocess.run(
+        ["bash", "-c", f'source "{script}" && parse_ignore_rules "{ignore_yml}"'],
+        env={
+            "PATH": "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin",
+            "IGNORE_CACHE": str(cache),
+        },
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+
+    cache_data = json.loads(cache.read_text(encoding="utf-8"))
+    values = {entry["value"] for entry in cache_data["ignores"]}
+    assert values == {"CKV_GHA_7", "GHSA-98qh-xjc8-98pq"}
+    assert len(cache_data.get("warnings", [])) > 0
+
+
 def test_tool_name_used_as_type_is_normalized_bash(repo_root, tmp_path):
     """Bash-side parity for the same `type: anchore` normalization: the ignore
     cache parse-epyon-ignore.sh produces must rewrite it to `type: tool,

@@ -226,7 +226,14 @@ Every scan generates **`suppressed-findings.md`** with:
 
 ## Validation
 
-**Invalid YAML is silently skipped** - scan continues without ignores.
+**Invalid YAML is skipped and the scan continues without suppressions — unless the
+only problem is a mismatched indentation level on a list entry under `ignores:`.**
+That specific mistake (e.g. pasting a new `- type: ...` entry at 0-space indentation
+while its siblings use 2 spaces) is auto-repaired for the current run so your
+suppressions keep working, and a warning is printed (and surfaced in
+`suppressed-findings.md`/the parsed cache's `warnings` array) telling you which line
+to fix. Any other YAML error (bad quoting, wrong key, etc.) still results in zero
+rules loaded for that run.
 
 To test your ignore file:
 ```bash
@@ -265,6 +272,10 @@ The ignore system works with:
 3. Check for typos in `type` field
 4. Verify `value` matches exactly (CVE-2024-12345 vs cve-2024-12345)
 5. Check if ignore has expired
+6. Check the scan/CI log for a `line N: entry indentation ... does not match` warning
+   — this means a different entry had a mismatched indentation level than the one
+   you just added (every entry under `ignores:` must share one indentation level);
+   the run still applied your rule, but fix the file to silence the warning
 
 **Still counting findings:**
 - Ignores with expired dates are not applied

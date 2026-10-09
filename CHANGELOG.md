@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.38.0] - 2026-10-09
+
+### Fixed
+- **The web dashboard's "Continuously Monitored" app cards showed a 🔴 FAIL badge for apps with only a handful of High-severity findings** (e.g. an app with a single High finding), even though the real CI severity gate (`scripts/shell/check-severity-gate.sh`) would have passed it under its default policy (`FAIL_ON_CRITICAL=true`, `FAIL_ON_HIGH=true`, `HIGH_THRESHOLD=4`). `compute_gate_status()` in `web/api/parsers.py` previously used an unrelated zero-tolerance rule (any Critical *or* High finding at all meant FAIL), independent of the actual gate's threshold. It now mirrors the real policy: any Critical vulnerability/malware/secret always FAILs, but High findings (vulnerabilities + Checkov misconfigurations) only FAIL once they meet or exceed `HIGH_THRESHOLD` (default 4). Dashboard-only change — does not affect GitHub Actions workflow exit codes, which are still governed by the actual `check-severity-gate.sh` run with its configured inputs.
+
 ## [3.37.0] - 2026-10-09
 
 ### Added

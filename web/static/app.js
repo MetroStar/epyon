@@ -357,16 +357,18 @@ function renderSelfAssessmentBody(sa) {
 }
 
 function gateBadge(scan) {
-  // Overall PASS/FAIL gate — deliberately the inverse of the self-assessment
-  // harness's gumballs (which PASS when a planted finding IS detected). A
-  // real scan FAILs as soon as any Critical/High vulnerability,
-  // misconfiguration, or secret is present, and PASSes only when there's
-  // nothing to find. Dashboard-only (see compute_gate_status() in
-  // web/api/parsers.py) — does not affect CI/GitHub Actions exit codes.
+  // Overall PASS/FAIL gate — mirrors scripts/shell/check-severity-gate.sh's
+  // default CI policy (FAIL_ON_CRITICAL=true, FAIL_ON_HIGH=true,
+  // HIGH_THRESHOLD=4): FAILs on any Critical vulnerability, malware hit, or
+  // secret, or when High findings (vulnerabilities + Checkov
+  // misconfigurations) meet or exceed the threshold. A handful of High
+  // findings alone PASSes, same as the real severity gate. Dashboard-only
+  // (see compute_gate_status() in web/api/parsers.py) — does not affect
+  // CI/GitHub Actions exit codes.
   if (!scan || scan.gate_status == null) return '';
   return scan.gate_status === 'fail'
-    ? '<span class="sev-badge critical" title="Critical/High vulnerability, misconfiguration, or secret found">🔴 FAIL</span>'
-    : '<span class="sev-badge clean" title="No Critical/High vulnerabilities, misconfigurations, or secrets found">🟢 PASS</span>';
+    ? '<span class="sev-badge critical" title="Critical vulnerability/malware/secret found, or High findings at/above threshold">🔴 FAIL</span>'
+    : '<span class="sev-badge clean" title="No Critical findings and High findings below threshold">🟢 PASS</span>';
 }
 
 function sevBadgeRow(scan) {

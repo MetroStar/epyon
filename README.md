@@ -936,9 +936,9 @@ Epyon enriches CVE findings from **seven global vulnerability feeds** for compre
 - **Note the inverted polarity for real scans**: self-assessment PASSes a layer when it *does* detect a planted finding (proving the scanner works). A real scan of your own target is the opposite — see the PASS/FAIL gate below.
 
 **✅ Overall Scan PASS/FAIL Gate:**
-- Every scan gets a dashboard-only 🟢 PASS / 🔴 FAIL verdict: FAIL if any Critical or High severity vulnerability, misconfiguration (Checkov), or secret/compromised-source finding (TruffleHog, Layer 21) is present; PASS only when none are found.
+- Every scan gets a dashboard-only 🟢 PASS / 🔴 FAIL verdict that mirrors `scripts/shell/check-severity-gate.sh`'s default CI policy (`FAIL_ON_CRITICAL=true`, `FAIL_ON_HIGH=true`, `HIGH_THRESHOLD=4`): FAIL if any Critical severity vulnerability, malware hit, or secret/compromised-source finding (TruffleHog, Layer 21) is present, or if High severity vulnerabilities + misconfigurations (Checkov) meet or exceed the threshold; PASS otherwise. A small number of High findings below the threshold intentionally PASSes, matching the real severity gate.
 - Shown on the Overview app cards, each application's scan timeline, and the Scan Details page header.
-- Does not affect GitHub Actions workflow exit codes or CI job status — this is a dashboard/API-only verdict (`gate_status` field on `GET /api/scans/{scan_id}` and `/api/applications`).
+- Does not affect GitHub Actions workflow exit codes or CI job status — this is a dashboard/API-only verdict (`gate_status` field on `GET /api/scans/{scan_id}` and `/api/applications`), computed from the scan's findings independently of the actual `check-severity-gate.sh` run for that scan.
 
 
 ## 📁 Directory Structure

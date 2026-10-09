@@ -2331,12 +2331,11 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
         data["enrichment"] = enrichment
 
     # ── Overall PASS/FAIL gate ────────────────────────────────────────────────
-    # Deliberately the inverse of the self-assessment harness: self-assessment
-    # PASSes when a planted finding IS detected (proves the scanner works).
-    # A real scan should PASS only when there is NOTHING to find — it FAILs as
-    # soon as any Critical/High vulnerability, misconfiguration, or secret is
-    # present. Dashboard-only; does not affect GitHub Actions workflow exit
-    # codes or CI behavior.
+    # Mirrors scripts/shell/check-severity-gate.sh's default CI policy
+    # (FAIL_ON_CRITICAL=true, FAIL_ON_HIGH=true, HIGH_THRESHOLD=4) so the
+    # dashboard badge agrees with what the real severity gate would decide.
+    # Dashboard-only; does not affect GitHub Actions workflow exit codes or
+    # CI behavior (those are governed by the actual check-severity-gate.sh run).
     misconfig = parse_misconfiguration_findings(scan_dir)
     misconfig_summary = misconfig.get("summary", {})
     data["misconfig_critical"] = misconfig_summary.get("total_critical", 0)
@@ -2349,12 +2348,38 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
     return data
 
 
-def compute_gate_status(critical: int, high: int, misconfig_critical: int, misconfig_high: int) -> str:
-    """Overall scan verdict: FAIL if any Critical/High vulnerability,
-    misconfiguration, or secret finding is present; PASS if none are.
-    Intentionally the opposite polarity of the self-assessment harness (see
-    call site in load_scan() for rationale)."""
-    return "fail" if (critical + high + misconfig_critical + misconfig_high) > 0 else "pass"
+# Mirrors check-severity-gate.sh's default HIGH_THRESHOLD (a handful of High
+# findings alone should not fail the build/dashboard badge).
+DEFAULT_HIGH_THRESHOLD = 4
+
+
+def compute_gate_status(
+    critical: int,
+    high: int,
+    misconfig_critical: int,
+    misconfig_high: int,
+    high_threshold: int = DEFAULT_HIGH_THRESHOLD,
+) -> str:
+    """Overall scan verdict, mirroring check-severity-gate.sh's default CI
+    policy (FAIL_ON_CRITICAL=true, FAIL_ON_HIGH=true, HIGH_THRESHOLD=4):
+
+    - FAIL if any Critical vulnerability, malware hit, or secret is present
+      (critical + misconfig_critical > 0) — Critical always fails, no threshold.
+    - FAIL if High vulnerabilities + High misconfigurations (Checkov) meet or
+      exceed `high_threshold`.
+    - PASS otherwise.
+
+    A low count of High findings (fewer than the threshold) intentionally
+    PASSes, matching the real CI severity gate's behavior — the dashboard
+    should never show FAIL for an app that would have passed CI.
+    """
+    total_critical = critical + misconfig_critical
+    total_high = high + misconfig_high
+    if total_critical > 0:
+        return "fail"
+    if total_high >= high_threshold:
+        return "fail"
+    return "pass"
 
 
 def parse_scan_environment_notes(scan_dir: Path) -> list[dict]:

@@ -19,6 +19,53 @@ _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[mGKHF]")
 JOB_TIMEOUT_SECONDS = 7200  # 2 hours
 OUTPUT_BUFFER_MAX   = 10000
 
+# Directory names excluded from file_statistics counts — mirrors the `find`
+# exclusions in run-target-security-scan.sh / run-epyon-scan-ci.sh so all
+# three scan-trigger paths (CLI, CI, Web UI) produce a comparable total_files
+# signal for /api/metrics/scan-integrity.
+_FILE_STATS_EXCLUDE_DIRS = {
+    "node_modules", ".git", "venv", "__pycache__", "dist", "build",
+    "vendor", ".next", ".venv",
+}
+
+
+def _compute_file_statistics(target_dir: str) -> dict:
+    """Count source files under target_dir the same way the CLI/CI
+    orchestrators do, so a Web UI-triggered scan's scan-metadata.json carries
+    a real file_statistics.total_files for the Scan Integrity Check instead
+    of permanently reading "unknown"."""
+    stats = {
+        "total_files": 0, "javascript_typescript": 0, "python": 0,
+        "yaml_yml": 0, "json": 0, "terraform": 0, "dockerfiles": 0,
+        "shell_scripts": 0,
+    }
+    root = Path(target_dir)
+    if not root.is_dir():
+        return stats
+    for path in root.rglob("*"):
+        if not path.is_file():
+            continue
+        if _FILE_STATS_EXCLUDE_DIRS & set(path.relative_to(root).parts[:-1]):
+            continue
+        stats["total_files"] += 1
+        name = path.name
+        suffix = path.suffix.lower()
+        if suffix in (".js", ".jsx", ".ts", ".tsx"):
+            stats["javascript_typescript"] += 1
+        elif suffix == ".py":
+            stats["python"] += 1
+        elif suffix in (".yaml", ".yml"):
+            stats["yaml_yml"] += 1
+        elif suffix == ".json":
+            stats["json"] += 1
+        elif suffix == ".tf":
+            stats["terraform"] += 1
+        elif "Dockerfile" in name:
+            stats["dockerfiles"] += 1
+        elif suffix in (".sh", ".bash"):
+            stats["shell_scripts"] += 1
+    return stats
+
 # Maps each togglable scan layer number to the SKIP_<TOOL> environment
 # variable run-epyon-scan-ci.sh checks to decide whether to run it, letting
 # the Run Scan page's layer picker override scan-type defaults. Layer 3
@@ -557,6 +604,20 @@ async def run_scan_job(
             job["exit_code"]    = clone_proc.returncode
             job["completed_at"] = _now()
             return
+
+    # Merge file_statistics into the scan-metadata.json written earlier
+    # (before the clone, when target_dir was potentially still empty) now
+    # that the final content is in place — unless this is a local_model or
+    # container_image scan, which genuinely have no source checkout to
+    # count and should stay "unknown" rather than a misleading 0.
+    if scan_type not in ("local_model", "container_image"):
+        scan_meta_path = scan_dir / "scan-metadata.json"
+        try:
+            scan_meta_on_disk = json.loads(scan_meta_path.read_text())
+        except Exception:
+            scan_meta_on_disk = {}
+        scan_meta_on_disk["file_statistics"] = _compute_file_statistics(target_dir)
+        scan_meta_path.write_text(json.dumps(scan_meta_on_disk, indent=2))
 
     env = {**os.environ,
            "CI":               "true",

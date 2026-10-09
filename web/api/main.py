@@ -4155,7 +4155,7 @@ async def get_mobile_code_accuracy(response: Response):
         raise HTTPException(500, f"Failed to compute mobile code scanner accuracy: {e}")
 
 
-def _compute_scan_integrity(scan_dirs: list, limit: int = 40) -> dict:
+def _compute_scan_integrity(scan_dirs: list, limit: int = 40, per_app_limit: int = 8) -> dict:
     """Flag scans that likely produced a false-clean result rather than a
     genuinely clean one — e.g. the class of bug where a tool scanned an
     empty/missing directory (empty bind mount, bad path translation, etc.)
@@ -4167,8 +4167,23 @@ def _compute_scan_integrity(scan_dirs: list, limit: int = 40) -> dict:
     any individual security tool did or didn't find — so it can't be fooled
     by a legitimately clean project (which still has files) the way a
     zero-findings count can.
+
+    Scans are capped at `per_app_limit` most-recent-per-app (then an overall
+    `limit`) rather than a single global most-recent-N — otherwise one
+    frequently-scanned app (e.g. an hourly quick scan) fills the entire
+    window and every other app's scans never get checked at all.
     """
-    scans = sorted(scan_dirs, key=lambda d: d.name, reverse=True)[:limit]
+    by_app: dict[str, list] = {}
+    for scan_dir in sorted(scan_dirs, key=lambda d: d.name, reverse=True):
+        app = parsers.parse_dir_name(scan_dir.name)["target"]
+        bucket = by_app.setdefault(app, [])
+        if len(bucket) < per_app_limit:
+            bucket.append(scan_dir)
+
+    scans = sorted(
+        (d for bucket in by_app.values() for d in bucket),
+        key=lambda d: d.name, reverse=True,
+    )[:limit]
     results: list[dict] = []
     counts = {"healthy": 0, "suspicious": 0, "empty_target": 0, "unknown": 0}
 

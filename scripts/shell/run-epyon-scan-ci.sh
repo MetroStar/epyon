@@ -186,6 +186,45 @@ fi
 # Only write if not already present (web-ui jobs.py writes it first; CI does not).
 if [[ -n "${SCAN_DIR:-}" && ! -f "${SCAN_DIR}/scan-metadata.json" ]]; then
   mkdir -p "$SCAN_DIR"
+
+  # file_statistics lets /api/metrics/scan-integrity (Performance page's
+  # "Scan Integrity Check") distinguish a genuinely clean scan from one that
+  # silently ran against an empty/unreachable target. Counted the same way
+  # run-target-security-scan.sh does for CLI-direct scans, so both paths
+  # produce a comparable signal instead of CI scans permanently reading
+  # "unknown".
+  CI_TOTAL_FILES=0
+  CI_JS_FILES=0
+  CI_PY_FILES=0
+  CI_YAML_FILES=0
+  CI_JSON_FILES=0
+  CI_TF_FILES=0
+  CI_DOCKER_FILES=0
+  CI_SHELL_FILES=0
+  if [[ -n "${TARGET_DIR:-}" && -d "$TARGET_DIR" ]]; then
+    CI_FILE_LIST=$(find "$TARGET_DIR" -type f \
+        -not -path "*/node_modules/*" \
+        -not -path "*/.git/*" \
+        -not -path "*/venv/*" \
+        -not -path "*/__pycache__/*" \
+        -not -path "*/dist/*" \
+        -not -path "*/build/*" \
+        -not -path "*/vendor/*" \
+        -not -path "*/.next/*" \
+        -not -path "*/.venv/*" \
+        2>/dev/null)
+    if [[ -n "$CI_FILE_LIST" ]]; then
+      CI_TOTAL_FILES=$(echo "$CI_FILE_LIST" | grep -c '^')
+      CI_JS_FILES=$(echo "$CI_FILE_LIST" | grep -cE '\.(js|jsx|ts|tsx)$')
+      CI_PY_FILES=$(echo "$CI_FILE_LIST" | grep -cE '\.py$')
+      CI_YAML_FILES=$(echo "$CI_FILE_LIST" | grep -cE '\.(yaml|yml)$')
+      CI_JSON_FILES=$(echo "$CI_FILE_LIST" | grep -cE '\.json$')
+      CI_TF_FILES=$(echo "$CI_FILE_LIST" | grep -cE '\.tf$')
+      CI_DOCKER_FILES=$(echo "$CI_FILE_LIST" | grep -cE 'Dockerfile')
+      CI_SHELL_FILES=$(echo "$CI_FILE_LIST" | grep -cE '\.(sh|bash)$')
+    fi
+  fi
+
   cat > "${SCAN_DIR}/scan-metadata.json" << _META_EOF
 {
   "scan_id": "${SCAN_ID:-${SCAN_NAME:-}}",
@@ -195,7 +234,17 @@ if [[ -n "${SCAN_DIR:-}" && ! -f "${SCAN_DIR}/scan-metadata.json" ]]; then
   "scan_user": "${GITHUB_ACTOR:-ci}",
   "scan_timestamp": "$(date -u '+%Y-%m-%dT%H:%M:%SZ')",
   "epyon_version": "${EPYON_VERSION:-unknown}",
-  "triggered_by": "ci"
+  "triggered_by": "ci",
+  "file_statistics": {
+    "total_files": $CI_TOTAL_FILES,
+    "javascript_typescript": $CI_JS_FILES,
+    "python": $CI_PY_FILES,
+    "yaml_yml": $CI_YAML_FILES,
+    "json": $CI_JSON_FILES,
+    "terraform": $CI_TF_FILES,
+    "dockerfiles": $CI_DOCKER_FILES,
+    "shell_scripts": $CI_SHELL_FILES
+  }
 }
 _META_EOF
 fi

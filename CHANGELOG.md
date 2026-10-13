@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.40.0] - 2026-10-13
+
+### Fixed
+- **A `type: path`/`type: file` suppression rule written against a dependency's specific manifest (e.g. `tests/fixtures/self-assessment/requirements.txt`, `pom.xml`) could silently fail to suppress an Anchore or Trivy finding in the Web UI's scan detail page, even though the identical rule correctly suppressed the same finding in the CLI/CI severity gate.** `load_enriched_findings()` (`web/api/parsers.py`, used by `GET /api/scans/{scan_id}`) built its suppression-matching `target` field with `target or file_path or package_path`, so Anchore's always-non-empty generic `target` (the whole scanned container/image, e.g. `"filesystem"`) won before the finding's more specific `package_path` was ever considered. `check-severity-gate.sh`'s bash matcher already applies the correct precedence (`package_path` first) as of 3.36.0; this port was missed for the Python/Web UI path. Fixed by reordering to `package_path or file_path or target`, matching the bash matcher. The `container_image` field (used for the UI's "📦 Container · ..." badge) is unaffected and still shows the whole-container name.
+
+### Added
+- New regression test (`tests/python/test_suppression_parity.py`) asserting `load_enriched_findings()` prefers `package_path` over `target` for suppression matching, using the exact shape of Epyon's own planted `pyyaml==5.3.1` self-assessment fixture finding that surfaced this bug.
+
 ## [3.39.0] - 2026-10-09
 
 ### Fixed

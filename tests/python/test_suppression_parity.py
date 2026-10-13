@@ -256,6 +256,53 @@ def test_filter_suppressed_findings_excludes_suppressed_from_totals(parsers):
     assert result["critical_findings"][1]["suppressed"] is True
 
 
+def test_load_enriched_findings_prefers_package_path_over_target_for_suppression(parsers, tmp_path):
+    """An Anchore/Trivy dependency finding can carry both a generic `target`
+    (the whole scanned container/image, e.g. "filesystem") and a specific
+    `package_path` (the manifest the dependency was actually found in, e.g.
+    "tests/fixtures/self-assessment/requirements.txt"). A `type: path` rule
+    written against the specific file must still match: load_enriched_findings()
+    must prefer package_path over target when building its suppression-matching
+    field, exactly like check-severity-gate.sh's bash matcher already does.
+    Regression test for a bug where the generic `target` always won, silently
+    breaking path-type suppression for any dependency finding that also had a
+    non-empty `target`/`container_image`.
+    """
+    scan_dir = tmp_path / "scan"
+    scan_dir.mkdir()
+    (scan_dir / "security-findings-summary.json").write_text(json.dumps({
+        "summary": {"tools_analyzed": ["Anchore"]},
+        "critical_findings": [{
+            "tool": "Anchore",
+            "type": "container_vulnerability",
+            "container_image": "filesystem",
+            "target": "filesystem",
+            "severity": "Critical",
+            "vulnerability_id": "GHSA-8q59-q68h-6hv4",
+            "package_name": "pyyaml",
+            "package_version": "5.3.1",
+            "package_path": "/tests/fixtures/self-assessment/requirements.txt",
+        }],
+        "high_findings": [], "medium_findings": [], "low_findings": [],
+    }))
+    (scan_dir / ".epyon-ignore.yml").write_text(
+        "version: \"1.0\"\n"
+        "ignores:\n"
+        "  - type: path\n"
+        "    value: \"tests/fixtures/self-assessment/**\"\n"
+        "    reason: \"planted fixture CVE\"\n"
+        "    approved_by: \"test\"\n"
+    )
+
+    result = parsers.load_enriched_findings(scan_dir)
+
+    assert result["summary"]["total_critical"] == 0
+    assert result["summary"]["suppressed_critical"] == 1
+    assert result["critical_findings"][0]["suppressed"] is True
+    # container_image must still reflect the whole-container name for the UI badge
+    assert result["critical_findings"][0]["container_image"] == "filesystem"
+
+
 def test_tool_name_used_as_type_is_normalized_python(parsers, tmp_path):
     """`type: anchore` (a tool name used where the rule type belongs) is a common
     authoring mistake — the correct form is `type: tool, value: anchore`. Without

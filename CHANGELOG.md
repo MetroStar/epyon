@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.41.0] - 2026-10-13
+
+### Fixed
+- **The background GitHub Actions artifact sync (`web/api/github_sync.py`, runs automatically every 15 minutes when a GitHub token + repos are configured) re-listed every completed workflow run's artifacts on every cycle, even for runs it had already fully processed.** For each configured repo it fetched up to 30 completed runs, then made a separate `/actions/runs/{id}/artifacts` API call per run — previously it only skipped the final artifact *download* when a scan ID was already on disk, never the artifact-listing call itself, so a repo's sync cost stayed constant (≈30 extra API calls/cycle) forever instead of shrinking to near-zero once its history was ingested. Added a persisted per-repo watermark (`synced_run_ids` in `web/data/github-config.json`) of workflow run IDs whose artifacts have already been listed; since a completed run's artifact set never changes, these are now skipped entirely on subsequent syncs, and only genuinely new runs trigger an artifacts-list call.
+
+### Added
+- New `tests/python/test_github_sync.py` with 2 regression tests (using `httpx.MockTransport`) asserting already-synced runs are never re-listed, and that a newly appeared run is still listed while its already-known siblings are skipped.
+
 ## [3.40.0] - 2026-10-13
 
 ### Fixed

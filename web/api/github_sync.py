@@ -94,18 +94,36 @@ async def run_github_sync(
     result: dict = {"synced": [], "skipped": [], "failed": []}
     existing_ids = {d.name for d in find_scan_dirs_fn(epyon_root)}
 
+    # Per-repo set of workflow run IDs whose artifacts have already been fully
+    # listed (and acted on) in a previous sync. A completed run's artifact set
+    # never changes, so once a run has been listed there is nothing new to find
+    # by listing it again — skip the per-run "/actions/runs/{id}/artifacts" API
+    # call entirely for these, rather than re-fetching it on every 15-minute
+    # sync cycle. This is the dominant cost of a sync (one extra API call per
+    # run, per repo, per cycle) once a repo's history has already been ingested.
+    synced_run_ids: dict[str, list] = cfg.get("synced_run_ids") or {}
+
     for repo_spec in repos:
         owner, repo = repo_spec.split("/", 1)
         token = default_token
+        previously_synced = {int(i) for i in synced_run_ids.get(repo_spec, [])}
         try:
             async with _client(token) as gh:
                 runs_data = await _github_get(
                     gh, f"/repos/{owner}/{repo}/actions/runs?status=completed&per_page=30"
                 )
-                for run in runs_data.get("workflow_runs") or []:
+                runs = runs_data.get("workflow_runs") or []
+                now_synced: set[int] = set()
+                for run in runs:
+                    run_id = run["id"]
+                    now_synced.add(run_id)
+                    if run_id in previously_synced:
+                        # Already listed this run's artifacts in a prior sync;
+                        # nothing can have changed for a completed run.
+                        continue
                     arts_data = await _github_get(
                         gh,
-                        f"/repos/{owner}/{repo}/actions/runs/{run['id']}/artifacts?per_page=50",
+                        f"/repos/{owner}/{repo}/actions/runs/{run_id}/artifacts?per_page=50",
                     )
                     for artifact in arts_data.get("artifacts") or []:
                         name = artifact.get("name", "")
@@ -154,9 +172,13 @@ async def run_github_sync(
                                 tmp_zip.unlink()
                             except OSError:
                                 pass
+                # Keep only run IDs still present in the last 30 completed runs
+                # so this list can't grow unbounded across years of history.
+                synced_run_ids[repo_spec] = sorted(now_synced)
         except Exception as exc:
             result["failed"].append({"repo": f"{owner}/{repo}", "error": str(exc)})
 
+    cfg["synced_run_ids"] = synced_run_ids
     cfg["last_sync"] = _now()
     github_config.write_config(config_path, cfg)
     return result

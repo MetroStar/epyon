@@ -455,7 +455,7 @@ scans/{app}_{YYYY-MM-DD_HH-MM-SS}/
 - **Horizontal:** Multiple scan jobs can run in parallel (separate scan directories)
 - **Vertical:** CPU-bound during tool execution, I/O-bound during consolidation
 - **Web UI:** In-memory cache with TTL, invalidated on new scans
-- **Jira/GitHub sync:** Batched API calls, exponential backoff on rate limits
+- **Jira/GitHub sync:** Batched API calls, exponential backoff on rate limits. GitHub Actions artifact sync additionally persists a per-repo watermark of already-listed workflow run IDs (`synced_run_ids` in `web/data/github-config.json`) so the 15-minute background sync only lists artifacts for *new* completed runs, not every run on every cycle.
 
 ## Deployment Topologies
 

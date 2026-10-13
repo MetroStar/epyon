@@ -127,6 +127,11 @@ show_help() {
     echo "      --build-image   Build the target's container image before scanning (default: on)"
     echo "      --no-build-image"
     echo "                      Skip the container build/scan phase (faster, less thorough)"
+    echo "      --dockerfile PATH"
+    echo "                      Dockerfile/Containerfile to build (absolute, or relative to"
+    echo "                      TARGET). Overrides auto-discovery; required when a monorepo"
+    echo "                      has more than one Dockerfile and the wrong one would"
+    echo "                      otherwise be auto-selected."
     echo "      --non-interactive"
     echo "                      Disable prompts and use defaults"
     echo ""
@@ -327,6 +332,11 @@ while [[ $# -gt 0 ]]; do
         --image-tag)
             require_option_value "$1" "${2:-}"
             IMAGE_TAG_ARG="$2"
+            shift 2
+            ;;
+        --dockerfile)
+            require_option_value "$1" "${2:-}"
+            DOCKERFILE_ARG="$2"
             shift 2
             ;;
         --no-garak)
@@ -1203,8 +1213,12 @@ print_section "Phase 0: Container Image Build & Supply Chain Attestation"
 BUILD_ARGS=("--target" "$TARGET_DIR" "--scan-dir" "$SCAN_DIR")
 [[ -n "${IMAGE_NAME_ARG:-}" ]] && BUILD_ARGS+=("--image-name" "$IMAGE_NAME_ARG")
 [[ -n "${IMAGE_TAG_ARG:-}" ]] && BUILD_ARGS+=("--image-tag" "$IMAGE_TAG_ARG")
+# --dockerfile is only understood by run-build-scan.sh (not the SLSA/cosign
+# steps below, which never need to know which Dockerfile was used).
+BUILD_ONLY_ARGS=("${BUILD_ARGS[@]}")
+[[ -n "${DOCKERFILE_ARG:-}" ]] && BUILD_ONLY_ARGS+=("--dockerfile" "$DOCKERFILE_ARG")
 
-run_security_tool "Container Image Build & Target Manifest" "$SCRIPT_DIR/run-build-scan.sh" "${BUILD_ARGS[*]}"
+run_security_tool "Container Image Build & Target Manifest" "$SCRIPT_DIR/run-build-scan.sh" "${BUILD_ONLY_ARGS[*]}"
 run_security_tool "SLSA Provenance Attestation" "$SCRIPT_DIR/generate-slsa-provenance.sh" "${BUILD_ARGS[*]}"
 run_security_tool "Cryptographic Image Signature" "$SCRIPT_DIR/sign-image-cosign.sh" "--scan-dir $SCAN_DIR ${IMAGE_NAME_ARG:+--image-name $IMAGE_NAME_ARG} ${IMAGE_TAG_ARG:+--image-tag $IMAGE_TAG_ARG}"
 

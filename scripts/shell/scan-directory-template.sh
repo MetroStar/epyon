@@ -233,26 +233,21 @@ for ig in data.get('ignores', []) or []:
 " 2>/dev/null
 }
 
-# ── Dockerfile base-image auto-discovery ──────────────────────────────────────
-# Shared by run-trivy-scan.sh and run-anchore-scan.sh so both tools baseline
-# against the SAME, real, publicly-pullable image when no fixed
-# PRIMARY_BASELINE_IMAGE / APPROVED_BASE_IMAGES entry is configured, instead of
-# each maintaining its own copy of this logic (which previously drifted apart
-# and was a source of cross-tool/cross-environment result inconsistency).
-# Scans every Dockerfile* in $1, honoring the same .epyon-ignore.yml path
-# exclusions as the rest of the scan, and emits only each Dockerfile's FINAL
-# stage image (one per Dockerfile, deduplicated across the repo) — not every
-# `FROM` line. Multi-stage builder stages (e.g. `FROM golang:1.24-alpine AS
-# builder`, used only to compile a helper binary) are discarded by `docker
-# build` and never present in the shipped artifact, so treating them as a scan
-# baseline produced irrelevant, unfixable noise (and sometimes pointed at
-# internal/private-registry-only images with no bearing on the real runtime
-# image). `FROM <stage>` references to an earlier named stage are resolved to
-# that stage's image so the reported result is always a real, pullable image
-# (or correctly skipped if that chain bottoms out in `scratch` or an
-# unresolved build-arg like `FROM $BASE_IMAGE`).
-# Usage: mapfile -t images < <(discover_dockerfile_base_images "$target")
-discover_dockerfile_base_images() {
+# ── Dockerfile path auto-discovery ────────────────────────────────────────────
+# Shared by discover_dockerfile_base_images() below AND run-build-scan.sh, so
+# "which Dockerfile(s) does this target have" is answered identically whether
+# we're picking a baseline image to pull (Trivy/Anchore) or picking one to
+# actually BUILD (Phase 0). Previously run-build-scan.sh only looked for a
+# Dockerfile at the target's root, so monorepo-style targets with a Dockerfile
+# nested in a subdirectory (e.g. `ui/Dockerfile`) never got built — Phase 0
+# silently fell back to a non-container "target_source_manifest" build mode,
+# PRIMARY_BASELINE_IMAGE never got set, and Trivy/Anchore fell back to pulling
+# and scanning the raw, unpatched upstream base image instead of the real
+# artifact (which may apply OS package upgrades in the Dockerfile that never
+# ran in that scan). Recursing here closes that gap for both code paths.
+# Honors the same .epyon-ignore.yml path exclusions as the rest of the scan.
+# Usage: mapfile -t dockerfiles < <(discover_dockerfile_paths "$target")
+discover_dockerfile_paths() {
     local target_dir="${1:-}"
     local find_exclude_args=(-not -path '*/node_modules/*' -not -path '*/.git/*')
     local pat pat_glob
@@ -263,6 +258,30 @@ discover_dockerfile_base_images() {
         fi
     done < <(get_epyon_ignore_exclude_paths "$target_dir")
 
+    find "$target_dir" -name 'Dockerfile*' "${find_exclude_args[@]}" 2>/dev/null | sort
+}
+
+# ── Dockerfile base-image auto-discovery ──────────────────────────────────────
+# Shared by run-trivy-scan.sh and run-anchore-scan.sh so both tools baseline
+# against the SAME, real, publicly-pullable image when no fixed
+# PRIMARY_BASELINE_IMAGE / APPROVED_BASE_IMAGES entry is configured, instead of
+# each maintaining its own copy of this logic (which previously drifted apart
+# and was a source of cross-tool/cross-environment result inconsistency).
+# Scans every Dockerfile* in $1 (via discover_dockerfile_paths), honoring the
+# same .epyon-ignore.yml path exclusions as the rest of the scan, and emits
+# only each Dockerfile's FINAL stage image (one per Dockerfile, deduplicated
+# across the repo) — not every `FROM` line. Multi-stage builder stages (e.g.
+# `FROM golang:1.24-alpine AS builder`, used only to compile a helper binary)
+# are discarded by `docker build` and never present in the shipped artifact,
+# so treating them as a scan baseline produced irrelevant, unfixable noise
+# (and sometimes pointed at internal/private-registry-only images with no
+# bearing on the real runtime image). `FROM <stage>` references to an earlier
+# named stage are resolved to that stage's image so the reported result is
+# always a real, pullable image (or correctly skipped if that chain bottoms
+# out in `scratch` or an unresolved build-arg like `FROM $BASE_IMAGE`).
+# Usage: mapfile -t images < <(discover_dockerfile_base_images "$target")
+discover_dockerfile_base_images() {
+    local target_dir="${1:-}"
     local discovered=()
     local dockerfile
     while IFS= read -r dockerfile; do
@@ -286,7 +305,7 @@ discover_dockerfile_base_images() {
         [[ "$final_image" == "scratch" ]] && continue
         [[ "$final_image" == *'$'* ]] && continue
         discovered+=("$final_image")
-    done < <(find "$target_dir" -name 'Dockerfile*' "${find_exclude_args[@]}" 2>/dev/null)
+    done < <(discover_dockerfile_paths "$target_dir")
 
     [ ${#discovered[@]} -eq 0 ] && return 0
     printf '%s\n' "${discovered[@]}" | sort -u

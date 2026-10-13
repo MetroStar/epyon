@@ -497,7 +497,7 @@ run_phase_zero_evidence() {
   local app_name="${TARGET_NAME:-$(basename "$TARGET_DIR")}"
 
   run_group "Phase 0 - Container Image Build & Target Manifest" \
-    env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" IMAGE_NAME="${IMAGE_NAME:-}" IMAGE_TAG="${IMAGE_TAG:-}" APP_NAME="$app_name" \
+    env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" IMAGE_NAME="${IMAGE_NAME:-}" IMAGE_TAG="${IMAGE_TAG:-}" APP_NAME="$app_name" DOCKERFILE="${DOCKERFILE:-}" \
     bash -lc '
       chmod +x scripts/shell/run-build-scan.sh
       ./scripts/shell/run-build-scan.sh

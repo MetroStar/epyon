@@ -14,6 +14,10 @@ CYAN='\033[0;36m'
 WHITE='\033[1;37m'
 NC='\033[0m' # No Color
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./scan-directory-template.sh
+source "$SCRIPT_DIR/scan-directory-template.sh"
+
 show_help() {
     echo -e "${WHITE}Epyon Container Image Builder${NC}"
     echo ""
@@ -26,6 +30,10 @@ show_help() {
     echo "  -n, --image-name NAME Image name (default: derived from target or app-name)"
     echo "  -g, --image-tag TAG   Image tag (default: git short commit or 'latest')"
     echo "  -a, --app-name NAME   Application name"
+    echo "  -f, --dockerfile PATH Dockerfile/Containerfile to build (absolute, or relative"
+    echo "                        to --target). Overrides auto-discovery; required when a"
+    echo "                        monorepo has more than one Dockerfile and the wrong one"
+    echo "                        would otherwise be auto-selected."
     echo ""
     echo "Environment Variables:"
     echo "  TARGET_DIR            Directory to scan/build"
@@ -33,6 +41,7 @@ show_help() {
     echo "  IMAGE_NAME            Container image name"
     echo "  IMAGE_TAG             Container image tag"
     echo "  APP_NAME              App name"
+    echo "  DOCKERFILE            Dockerfile/Containerfile to build (same as --dockerfile)"
     exit 0
 }
 
@@ -40,6 +49,7 @@ TARGET_DIR="${TARGET_DIR:-.}"
 SCAN_DIR="${SCAN_DIR:-}"
 IMAGE_NAME="${IMAGE_NAME:-}"
 IMAGE_TAG="${IMAGE_TAG:-}"
+DOCKERFILE="${DOCKERFILE:-}"
 APP_NAME="${APP_NAME:-}"
 TIMESTAMP="${TIMESTAMP:-$(date -u +"%Y-%m-%dT%H:%M:%SZ")}"
 
@@ -68,6 +78,10 @@ while [[ $# -gt 0 ]]; do
             APP_NAME="$2"
             shift 2
             ;;
+        -f|--dockerfile)
+            DOCKERFILE="$2"
+            shift 2
+            ;;
         *)
             if [[ -z "${TARGET_DIR:-}" || "$TARGET_DIR" == "." ]]; then
                 TARGET_DIR="$1"
@@ -94,14 +108,45 @@ echo -e "${PURPLE}============================================${NC}"
 echo -e "${PURPLE}🏗️  Epyon Phase 0: Container Image Build${NC}"
 echo -e "${PURPLE}============================================${NC}"
 
-# Find Dockerfile
+# Find Dockerfile: an explicit --dockerfile/DOCKERFILE override always wins
+# (needed for monorepos with multiple Dockerfiles, where auto-discovery can't
+# know which one is "the" shippable artifact). Otherwise check the target's
+# root first (the common single-service-repo case), then fall back to a
+# recursive search (discover_dockerfile_paths — the same one Trivy/Anchore use
+# to pick a baseline image) so a Dockerfile nested in a subdirectory (e.g.
+# `ui/Dockerfile` in a monorepo) still gets built instead of silently falling
+# through to the no-Dockerfile branch below.
 DOCKERFILE_PATH=""
-for candidate in "Dockerfile" "dockerfile" "Containerfile" "Dockerfile.production"; do
-    if [[ -f "$TARGET_DIR/$candidate" ]]; then
-        DOCKERFILE_PATH="$TARGET_DIR/$candidate"
-        break
+if [[ -n "$DOCKERFILE" ]]; then
+    if [[ -f "$DOCKERFILE" ]]; then
+        DOCKERFILE_PATH="$DOCKERFILE"
+    elif [[ -f "$TARGET_DIR/$DOCKERFILE" ]]; then
+        DOCKERFILE_PATH="$TARGET_DIR/$DOCKERFILE"
+    else
+        echo -e "${RED}❌ --dockerfile/DOCKERFILE was set to '$DOCKERFILE' but no such file was found (checked as-is and relative to $TARGET_DIR)${NC}" >&2
+        exit 1
     fi
-done
+else
+    for candidate in "Dockerfile" "dockerfile" "Containerfile" "Dockerfile.production"; do
+        if [[ -f "$TARGET_DIR/$candidate" ]]; then
+            DOCKERFILE_PATH="$TARGET_DIR/$candidate"
+            break
+        fi
+    done
+
+    if [[ -z "$DOCKERFILE_PATH" ]]; then
+        mapfile -t DISCOVERED_DOCKERFILES < <(discover_dockerfile_paths "$TARGET_DIR")
+        if [[ ${#DISCOVERED_DOCKERFILES[@]} -gt 0 ]]; then
+            DOCKERFILE_PATH="${DISCOVERED_DOCKERFILES[0]}"
+            echo -e "${CYAN}ℹ️  No Dockerfile at the target root — auto-discovered: $DOCKERFILE_PATH${NC}"
+            if [[ ${#DISCOVERED_DOCKERFILES[@]} -gt 1 ]]; then
+                echo -e "${YELLOW}⚠️  Multiple Dockerfiles found; building only the first (alphabetically):${NC}"
+                printf '   %s\n' "${DISCOVERED_DOCKERFILES[@]}"
+                echo -e "${YELLOW}   Set --dockerfile/DOCKERFILE to pin a specific one if this picked the wrong service.${NC}"
+            fi
+        fi
+    fi
+fi
 
 # Determine default image name and tag
 if [[ -z "$APP_NAME" ]]; then
@@ -295,6 +340,7 @@ fi
 cat << EOF > "$BUILD_DIR/build-summary.json"
 {
   "status": "success",
+  "mode": "container_build",
   "image_name": "$IMAGE_NAME",
   "image_tag": "$IMAGE_TAG",
   "full_image": "$FULL_IMAGE",

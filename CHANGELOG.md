@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.39.0] - 2026-10-09
+
+### Fixed
+- **A successful Phase 0 container build never routed its own image into Trivy/Anchore as the baseline scan target.** `run-build-scan.sh`'s success-path `build-summary.json` write had never included a `"mode": "container_build"` field (only the no-Dockerfile fallback branch set `mode`), so `run-epyon-scan-ci.sh`'s and `run-target-security-scan.sh`'s `build_mode == "container_build"` check — which exports `PRIMARY_BASELINE_IMAGE` for downstream scanners — was dead code for every target repo, not just monorepos. Every successful build's actual, patched image was built and signed but never scanned as the baseline; Trivy/Anchore instead fell back to independently re-discovering and pulling the *raw* base image referenced by a Dockerfile's `FROM` line. Fixed by always setting `mode` on a successful build.
+- **Repos with a Dockerfile located anywhere other than the target root (e.g. `ui/Dockerfile` in a monorepo) never had their real image built at all.** `run-build-scan.sh` only checked for `Dockerfile`/`dockerfile`/`Containerfile`/`Dockerfile.production` at the target's root and silently fell back to a non-container `target_source_manifest`, while Trivy/Anchore's separate `discover_dockerfile_base_images()` baseline-discovery logic still recursively found that nested Dockerfile and scanned the raw upstream base image it referenced — reporting stale OS-package CVEs/EOL findings that the actual shipped image had already patched via an `apk upgrade`/`apt-get upgrade` layer, with no way to reconcile the discrepancy. `run-build-scan.sh` now recursively discovers Dockerfiles the same way Trivy/Anchore do (new shared `discover_dockerfile_paths()` helper in `scripts/shell/scan-directory-template.sh`), building the first match alphabetically and warning if more than one is found.
+- Added a `DOCKERFILE` env var / `-f`/`--dockerfile PATH` CLI flag (`run-build-scan.sh`, `run-target-security-scan.sh`, `epyon.sh`) and a matching `dockerfile_path` input on the reusable GitHub Actions workflow (`.github/workflows/epyon-scan.yml`) to explicitly pin which Dockerfile to build when a repo has more than one, overriding both root-check and auto-discovery.
+
+### Added
+- 6 new bats regression tests covering nested-Dockerfile auto-discovery, `--dockerfile` override precedence, error handling for a nonexistent override path, the `mode=container_build` fix, and the new shared `discover_dockerfile_paths()` helper.
+
 ## [3.38.0] - 2026-10-09
 
 ### Fixed

@@ -152,6 +152,38 @@ DOCKERFILE
     [ -z "$output" ]
 }
 
+# ── discover_dockerfile_paths() ──────────────────────────────────────────────
+
+@test "discover_dockerfile_paths finds a Dockerfile nested in a subdirectory" {
+    # Regression: run-build-scan.sh used to only look at the target root, so
+    # monorepo-style targets (e.g. ui/Dockerfile) never actually got built.
+    local tmp_target
+    tmp_target="$(mktemp -d)"
+    mkdir -p "${tmp_target}/ui"
+    cat > "${tmp_target}/ui/Dockerfile" <<'DOCKERFILE'
+FROM alpine:3.20
+DOCKERFILE
+    run bash -c "source '$SCRIPT_PATH' && mapfile -t files < <(discover_dockerfile_paths '$tmp_target') && printf '%s\n' \"\${files[@]}\""
+    rm -rf "$tmp_target"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"ui/Dockerfile" ]]
+}
+
+@test "discover_dockerfile_paths excludes node_modules and .git" {
+    local tmp_target
+    tmp_target="$(mktemp -d)"
+    mkdir -p "${tmp_target}/node_modules/some-pkg" "${tmp_target}/.git"
+    echo "FROM alpine" > "${tmp_target}/node_modules/some-pkg/Dockerfile"
+    echo "FROM alpine" > "${tmp_target}/.git/Dockerfile"
+    echo "FROM alpine" > "${tmp_target}/Dockerfile"
+    run bash -c "source '$SCRIPT_PATH' && mapfile -t files < <(discover_dockerfile_paths '$tmp_target') && printf '%s\n' \"\${files[@]}\""
+    rm -rf "$tmp_target"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"/Dockerfile" ]]
+    [[ "$output" != *"node_modules"* ]]
+    [[ "$output" != *".git/"* ]]
+}
+
 # ── classify_docker_pull_failure() ───────────────────────────────────────────
 
 @test "classify_docker_pull_failure identifies Docker Hub anonymous rate limiting, not a credentials problem" {

@@ -44,6 +44,18 @@ When `BUILD_ENABLED=true` or `--build-image` is supplied to `epyon.sh`, Epyon ex
 4. **Sign Image (Optional)**: Uses Cosign (keyless OIDC or key-based) to attach a cryptographic signature.
 5. **Trigger 20-Layer Scan**: Passes the newly built image directly into Grype, Trivy, Syft, Anchore, and Inference Security scanners.
 
+### Dockerfile Discovery (Monorepos)
+
+`run-build-scan.sh` locates the Dockerfile to build in this order:
+
+1. **Explicit override** — `DOCKERFILE` env var or `-f`/`--dockerfile PATH` CLI flag (path is checked as given, then relative to the target directory). Use this to pin a specific Dockerfile when a repo has more than one (e.g. `ui/Dockerfile` in a monorepo with a frontend and backend).
+2. **Target root** — `Dockerfile`, `dockerfile`, `Containerfile`, or `Dockerfile.production` directly under the target directory.
+3. **Recursive discovery** — if no root-level Dockerfile exists, Epyon recursively searches the target directory (excluding `.git`, `node_modules`, and similar) and builds the first match alphabetically, printing a warning (and suggesting `--dockerfile`) if multiple candidates are found.
+
+This mirrors the discovery logic Trivy/Anchore already use (`discover_dockerfile_base_images`) to find base images for baseline scanning, so the same Dockerfile that is scanned for `FROM` references is also the one actually built — a monorepo with only a nested Dockerfile (no root `Dockerfile`) previously fell back to a non-container scan and never had its real, patched image built or routed to Trivy/Anchore; those scanners would still find and scan the *raw upstream* base image referenced in the nested Dockerfile, reporting stale CVEs/EOL findings that the actual shipped image had already patched (e.g. via `apk upgrade`/`apt-get upgrade` layers).
+
+A successful build now also records `"mode": "container_build"` in `build-summary.json`, which `run-epyon-scan-ci.sh` and `run-target-security-scan.sh` require in order to route the freshly built image into Grype/Trivy/Anchore as `PRIMARY_BASELINE_IMAGE` instead of falling back to scanning the raw base image from the Dockerfile.
+
 ---
 
 ## Configuration
@@ -55,6 +67,7 @@ When `BUILD_ENABLED=true` or `--build-image` is supplied to `epyon.sh`, Epyon ex
 | `BUILD_ENABLED` | `false` | Enable Phase 0 container image building |
 | `IMAGE_NAME` | Target repo name | Name for built image |
 | `IMAGE_TAG` | `git rev-parse --short HEAD` | Tag for built image |
+| `DOCKERFILE` | *(auto-discovered)* | Dockerfile/Containerfile path to build, relative to the target repo (overrides auto-discovery); maps to the reusable workflow's `dockerfile_path` input |
 | `COSIGN_KEY` | *(optional)* | Private key for Cosign image signing |
 
 ### CLI Usage
@@ -62,4 +75,7 @@ When `BUILD_ENABLED=true` or `--build-image` is supplied to `epyon.sh`, Epyon ex
 ```bash
 # Build image and run full 21-layer security scan
 ./epyon.sh --target /path/to/app --build-image --image-name myapp --image-tag v1.0.0
+
+# Monorepo: pin the Dockerfile to build when more than one exists
+./epyon.sh --target /path/to/app --build-image --dockerfile ui/Dockerfile
 ```

@@ -54,6 +54,11 @@ on:
         required: false
         default: ''
         type: string
+      dockerfile_path:
+        description: 'Optional: Dockerfile/Containerfile path to build, relative to the target repo root (e.g. ui/Dockerfile). Overrides auto-discovery for monorepos with multiple Dockerfiles.'
+        required: false
+        default: ''
+        type: string
       sbom_artifact:
         description: 'Name of SBOM artifact from a prior job (CycloneDX JSON). When provided, Layer 1 (Syft) is skipped and this SBOM is used for vulnerability scanning.'
         required: false
@@ -330,6 +335,7 @@ jobs:
       BUILD_ENABLED: "${{ inputs.build_enabled }}"
       IMAGE_NAME: "${{ inputs.image_name }}"
       IMAGE_TAG: "${{ inputs.image_tag }}"
+      DOCKERFILE: "${{ inputs.dockerfile_path }}"
       COSIGN_KEY: "${{ secrets.COSIGN_KEY }}"
       CREATE_GITHUB_ISSUE: "${{ inputs.create_github_issue }}"
       JIRA_PROJECT_KEY: "${{ secrets.JIRA_PROJECT_KEY || inputs.jira_project_key }}"

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.42.0] - 2026-10-15
+
+### Added
+- **MID-4187: Jira tickets created from findings now include CVE details, acceptance criteria, and a definition of done**, so a reviewer can triage, fix, and verify a finding entirely from the ticket without going back to the scan output.
+  - **CVE Details**: CVE/advisory ID (linked to its NVD page or advisory URL when available), severity, CVSS v3 score and vector, affected package and installed version, fixed version (or an explicit "no fix currently available"). Findings with no CVE/advisory ID (e.g. Checkov, TruffleHog, ClamAV) say so explicitly rather than leaving the section blank. CISA KEV findings get an additional callout.
+  - **Acceptance Criteria**: Given/When/Then checks derived from the finding (e.g. the package is updated to the fixed version and a follow-up Epyon scan no longer reports the finding at that severity; KEV findings add a due-date criterion).
+  - **Definition of Done**: a checklist — fix merged to the default branch, a clean re-scan (or a formally risk-accepted suppression in `.epyon-ignore.yml`), and the ticket linked to the fixing PR.
+  - Applies to both ticket-creation paths: `web/api/jira_client.py` (manual **Jira Review** UI, via the new `build_finding_description()`) and `scripts/shell/create-jira-tickets.sh` (CI-driven CVE-grouped child tickets, via `build_cve_adf_body()`). Existing tickets are not rewritten; the fingerprint-to-issue map is unaffected.
+  - CVSS vector strings are now extracted alongside the existing CVSS score: from Grype/Anchore's `vulnerability.cvss[].vector`, Trivy's `CVSS.{nvd,ghsa,redhat}.V3Vector`, and NVD's `cvssData.vectorString` during enrichment (`scripts/shell/generate-scan-findings-summary.sh`, `scripts/shell/enrich-findings.sh`, `web/api/parsers.py`). NVD's vector is preferred when present; the scanner-native vector is used as a fallback (e.g. for GHSA IDs with no matching CVE).
+
+### Added (tests)
+- `tests/python/test_jira_ticket_body.py` (6 tests) covering CVE and non-CVE findings, missing CVSS data, CISA KEV callouts, GHSA ID recognition, and that `create_ticket()` delegates to the new body builder.
+- A new bats test in `tests/shell/test-create-jira-tickets.bats` that directly executes `build_cve_adf_body()` and validates the emitted ADF headings and CVSS data, plus 3 static assertions for the new sections.
+
 ## [3.41.0] - 2026-10-13
 
 ### Fixed

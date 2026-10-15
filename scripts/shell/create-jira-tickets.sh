@@ -979,6 +979,10 @@ table = {"type": "table",
 
 desc_text = (findings[0].get("description") or "") if findings else ""
 nvd_url   = (findings[0].get("nvd_url") or "") if findings else ""
+cvss_score  = next((f.get("cvss_score") for f in findings if f.get("cvss_score") not in (None, "N/A")), None)
+cvss_vector = next((f.get("cvss_vector") for f in findings if f.get("cvss_vector")), "")
+fixed_versions = sorted({f.get("fix_version") or f.get("fixed_version")
+                         for f in findings if f.get("fix_version") or f.get("fixed_version")})
 
 kev_panel_blocks = []
 if is_kev and cisa_kev_data:
@@ -1013,6 +1017,20 @@ content_blocks = [
 if desc_text:
     content_blocks.append({"type": "paragraph", "content": [
         {"type": "text", "text": desc_text[:500]}]})
+
+content_blocks.append({"type": "heading", "attrs": {"level": 3},
+                        "content": [{"type": "text", "text": "CVE Details"}]})
+content_blocks.append({"type": "paragraph", "content": [
+    {"type": "text", "text": "Severity: ", "marks": [{"type": "strong"}]},
+    {"type": "text", "text": sev_label}]})
+cvss_text = f"{cvss_score}" + (f" ({cvss_vector})" if cvss_vector else "") if cvss_score is not None else "Not available"
+content_blocks.append({"type": "paragraph", "content": [
+    {"type": "text", "text": "CVSS score/vector: ", "marks": [{"type": "strong"}]},
+    {"type": "text", "text": cvss_text}]})
+content_blocks.append({"type": "paragraph", "content": [
+    {"type": "text", "text": "Fixed version(s): ", "marks": [{"type": "strong"}]},
+    {"type": "text", "text": ", ".join(fixed_versions) if fixed_versions else "No fix currently available"}]})
+
 content_blocks.append(table)
 
 if parent_key:
@@ -1032,6 +1050,17 @@ content_blocks += [
         *([{"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text",
             "text": f"CISA KEV due date ({cisa_kev_data.get('cisa_due_date')}) is met"}]}]}]
           if is_kev and cisa_kev_data else []),
+    ]},
+    {"type": "heading", "attrs": {"level": 3},
+     "content": [{"type": "text", "text": "Definition of Done"}]},
+    {"type": "bulletList", "content": [
+        {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text",
+            "text": "Fix is merged to the default branch"}]}]},
+        {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text",
+            "text": f"A re-scan of {repo_name} is clean for {cve_id}, or the finding is formally "
+                    "risk-accepted in .epyon-ignore.yml with a documented reason and expiration date"}]}]},
+        {"type": "listItem", "content": [{"type": "paragraph", "content": [{"type": "text",
+            "text": "This ticket is linked to the pull request that resolved the finding"}]}]},
     ]},
     {"type": "paragraph", "content": [
         {"type": "text", "text": "Repository: "},

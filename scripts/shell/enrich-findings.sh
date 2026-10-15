@@ -242,6 +242,7 @@ def nvd_enrich(cve_id: str) -> dict:
     metrics = cve_data.get("metrics", {})
     cvss3_score = None
     cvss3_severity = None
+    cvss3_vector = None
     for key in ("cvssMetricV31", "cvssMetricV30"):
         entries = metrics.get(key, [])
         if entries:
@@ -249,6 +250,7 @@ def nvd_enrich(cve_id: str) -> dict:
             cvss_data = primary.get("cvssData", {})
             cvss3_score    = cvss_data.get("baseScore")
             cvss3_severity = cvss_data.get("baseSeverity")
+            cvss3_vector   = cvss_data.get("vectorString")
             break
 
     # References — first 5 URLs
@@ -271,6 +273,7 @@ def nvd_enrich(cve_id: str) -> dict:
         "nvd_published":      published,
         "nvd_cvss_v3_score":  cvss3_score,
         "nvd_cvss_v3_severity": cvss3_severity,
+        "nvd_cvss_v3_vector": cvss3_vector,
         "nvd_references":     references,
         "nvd_cwe_ids":        cwe_ids,
     }

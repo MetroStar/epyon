@@ -191,6 +191,9 @@ def parse_trivy_dir(scan_dir: Path) -> list[dict]:
             continue
         for result in raw.get("Results", []):
             for v in result.get("Vulnerabilities") or []:
+                cvss_sources = v.get("CVSS") or {}
+                # Prefer NVD's CVSS entry, then GHSA's, then Red Hat's.
+                cvss_primary = cvss_sources.get("nvd") or cvss_sources.get("ghsa") or cvss_sources.get("redhat") or {}
                 # For Trivy, we default to "Trivy" since it doesn't expose source metadata
                 findings.append({
                     "tool": "Trivy",
@@ -204,6 +207,8 @@ def parse_trivy_dir(scan_dir: Path) -> list[dict]:
                     "target": result.get("Target", ""),
                     "references": (v.get("References") or [])[:3],
                     "cve_source": "Trivy",
+                    "cvss_score": cvss_primary.get("V3Score"),
+                    "cvss_vector": cvss_primary.get("V3Vector", ""),
                 })
     return findings
 
@@ -224,7 +229,8 @@ def parse_grype_dir(scan_dir: Path) -> list[dict]:
             data_source = vuln.get("dataSource", "")
             namespace = vuln.get("namespace", "")
             cve_source = _determine_cve_source(data_source, namespace)
-            
+            cvss0 = (vuln.get("cvss") or [{}])[0]
+
             findings.append({
                 "tool": "Grype",
                 "id": vuln.get("id", ""),
@@ -237,6 +243,8 @@ def parse_grype_dir(scan_dir: Path) -> list[dict]:
                 "target": locs[0].get("path", "") if locs else "",
                 "references": (vuln.get("urls") or [])[:3],
                 "cve_source": cve_source,
+                "cvss_score": (cvss0.get("metrics") or {}).get("baseScore"),
+                "cvss_vector": cvss0.get("vector", ""),
             })
     return findings
 
@@ -452,6 +460,7 @@ def parse_anchore_dir(scan_dir: Path) -> list[dict]:
             data_source = vuln.get("dataSource", "")
             namespace = vuln.get("namespace", "")
             cve_source = _determine_cve_source(data_source, namespace)
+            cvss0 = (vuln.get("cvss") or [{}])[0]
             
             findings.append({
                 "tool": "Anchore",
@@ -465,6 +474,8 @@ def parse_anchore_dir(scan_dir: Path) -> list[dict]:
                 "target": locs[0].get("path", "") if locs else "",
                 "references": vuln.get("urls") or [],
                 "cve_source": cve_source,
+                "cvss_score": (cvss0.get("metrics") or {}).get("baseScore"),
+                "cvss_vector": cvss0.get("vector", ""),
             })
     return findings
 
@@ -1938,6 +1949,8 @@ def load_enriched_findings(scan_dir: Path) -> dict | None:
       package_version   → version
       fix_versions[0]   → fixed_version
     CISA KEV, nvd_url, nvd_cvss_v3_score, nvd_cvss_v3_severity are preserved.
+    cvss_score/cvss_vector unify the NVD-enriched and tool-reported CVSS data
+    (NVD preferred when present) for display in Jira tickets and the UI.
     
     NOTE: Checkov findings are filtered out and handled separately via parse_misconfiguration_findings().
     Returns None when the file is absent or cannot be parsed.
@@ -1989,6 +2002,13 @@ def load_enriched_findings(scan_dir: Path) -> dict | None:
                 "nvd_url":           f.get("nvd_url") or "",
                 "nvd_cvss_v3_score": f.get("nvd_cvss_v3_score"),
                 "nvd_cvss_v3_severity": f.get("nvd_cvss_v3_severity") or "",
+                # NVD's CVSS vector (post-enrichment) is preferred when present;
+                # falls back to the scanner's own tool-reported CVSS (cvss_score/
+                # cvss_vector, set in generate-scan-findings-summary.sh) for
+                # findings NVD enrichment never covers (e.g. GHSA ids with no
+                # matching CVE, or scans run without the enrichment step).
+                "cvss_score":        f.get("nvd_cvss_v3_score") if f.get("nvd_cvss_v3_score") is not None else f.get("cvss_score"),
+                "cvss_vector":       f.get("nvd_cvss_v3_vector") or f.get("cvss_vector") or "",
             })
         return out
 

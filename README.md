@@ -561,6 +561,7 @@ Epyon uses a manual review queue by default so scans do not create unwanted Jira
 
 **Behavior:**
 - Vulnerabilities, IaC findings, secrets, and ML/AI findings can be reviewed and ticketed.
+- Each ticket body includes **CVE Details** (CVE/advisory ID as a link, severity, CVSS score and vector, affected package and version, fixed version or "no fix available"), **Acceptance Criteria** (Given/When/Then checks for remediation), and a **Definition of Done** checklist (fix merged, re-scan clean, ticket linked to the fixing PR). Findings with no CVE/advisory ID say so explicitly instead of leaving the section blank.
 - Each application can use a different Jira project key. Set it in that scan's **Jira Review** screen; the key in Settings is the fallback for applications without an override.
 - Suppressed findings remain visible but cannot be selected until their suppression is removed.
 - Each selected finding creates one Jira issue. Stable fingerprints prevent duplicate issues across retries and scans.

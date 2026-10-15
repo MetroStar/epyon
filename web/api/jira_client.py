@@ -482,7 +482,8 @@ def build_ticket_candidates(
         "tool", "type", "id", "severity", "package", "version",
         "fixed_version", "title", "description", "target", "location",
         "line", "references", "cisa_kev", "nvd_cvss_v3_score",
-        "nvd_cvss_v3_severity", "suppressed", "suppression_reason",
+        "nvd_cvss_v3_severity", "cvss_score", "cvss_vector", "nvd_url",
+        "suppressed", "suppression_reason",
     )
     categories = (
         ("vulnerability", scan_data.get("findings", {})),
@@ -578,6 +579,131 @@ async def add_comment(cfg: dict, issue_key: str, comment_text: str) -> bool:
         return False
 
 
+_CVE_ID_RE = re.compile(r"^(CVE-\d{4}-\d{4,}|GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4})$", re.IGNORECASE)
+
+
+def _text(value: str, *, bold: bool = False, link: str | None = None, code: bool = False) -> dict:
+    node: dict[str, Any] = {"type": "text", "text": value}
+    marks = []
+    if bold:
+        marks.append({"type": "strong"})
+    if code:
+        marks.append({"type": "code"})
+    if link:
+        marks.append({"type": "link", "attrs": {"href": link}})
+    if marks:
+        node["marks"] = marks
+    return node
+
+
+def _para(*inline: dict) -> dict:
+    return {"type": "paragraph", "content": list(inline)}
+
+
+def _heading(text: str, level: int = 3) -> dict:
+    return {"type": "heading", "attrs": {"level": level}, "content": [_text(text)]}
+
+
+def _bullets(items: list[list[dict]]) -> dict:
+    return {
+        "type": "bulletList",
+        "content": [
+            {"type": "listItem", "content": [_para(*item)]} for item in items
+        ],
+    }
+
+
+def build_finding_description(finding: dict, app_name: str) -> dict[str, Any]:
+    """Build the ADF ticket body for a finding: CVE Details, Acceptance Criteria,
+    and Definition of Done — so a reviewer can triage, fix, and verify the
+    finding entirely from the ticket without going back to the scan output.
+    """
+    sev   = (finding.get("severity") or "unknown").upper()
+    tool  = finding.get("tool")  or "Unknown"
+    fid   = finding.get("id")    or "Unknown"
+    pkg   = finding.get("package") or ""
+    ver   = finding.get("version") or ""
+    fixed = finding.get("fixed_version") or ""
+    title = finding.get("title") or fid
+    refs  = finding.get("references") or []
+    nvd_url = finding.get("nvd_url") or ""
+    cvss_score  = finding.get("cvss_score")
+    cvss_vector = finding.get("cvss_vector") or ""
+    is_cve = bool(_CVE_ID_RE.match(fid.strip())) if fid else False
+    advisory_url = nvd_url or (refs[0] if refs else "")
+    is_kev = bool(finding.get("cisa_kev"))
+
+    content: list[dict] = [
+        _para(_text(f"Detected by Epyon scanner in application "), _text(app_name, bold=True), _text(".")),
+        _heading("CVE Details"),
+    ]
+
+    if is_cve:
+        content.append(
+            _para(_text("CVE/Advisory: ", bold=True),
+                  _text(fid, link=advisory_url) if advisory_url else _text(fid))
+        )
+    else:
+        content.append(_para(_text(
+            f"No CVE/advisory identifier is associated with this finding "
+            f"(tool: {tool}, check ID: {fid})."
+        )))
+
+    content.append(_para(_text("Severity: ", bold=True), _text(sev)))
+
+    if cvss_score is not None:
+        cvss_text = f"{cvss_score}" + (f" ({cvss_vector})" if cvss_vector else "")
+    else:
+        cvss_text = "Not available"
+    content.append(_para(_text("CVSS score/vector: ", bold=True), _text(cvss_text)))
+
+    if pkg:
+        content.append(_para(_text("Affected package: ", bold=True),
+                              _text(f"{pkg}@{ver}" if ver else pkg, code=True)))
+
+    content.append(_para(
+        _text("Fixed version: ", bold=True),
+        _text(fixed, code=True) if fixed else _text("No fix currently available"),
+    ))
+
+    if title and title != fid:
+        content.append(_para(_text("Title: ", bold=True), _text(title[:500])))
+
+    if advisory_url:
+        content.append(_para(_text("Advisory: ", bold=True), _text(advisory_url, link=advisory_url)))
+
+    if is_kev:
+        content.append(_para(_text(
+            "\U0001f525 This is a CISA Known Exploited Vulnerability (KEV).", bold=True
+        )))
+
+    # ── Acceptance Criteria ────────────────────────────────────
+    fix_target = f"updated to {fixed}" if fixed else "updated to a non-vulnerable version or otherwise remediated"
+    ac_items = [
+        [_text(
+            f"Given {fid} is currently reported in {app_name}, "
+            f"when the affected package is {fix_target}, "
+            f"then a follow-up Epyon scan no longer reports {fid} at {sev} severity."
+        )],
+    ]
+    if is_kev:
+        due = finding.get("cisa_due_date") or "the CISA-mandated due date"
+        ac_items.append([_text(f"Given this finding is a CISA KEV, when remediation is tracked, then it is resolved by {due}.")])
+    content.append(_heading("Acceptance Criteria"))
+    content.append(_bullets(ac_items))
+
+    # ── Definition of Done ─────────────────────────────────────
+    content.append(_heading("Definition of Done"))
+    content.append(_bullets([
+        [_text("Fix is merged to the default branch.")],
+        [_text(f"A re-scan of {app_name} is clean for {fid}, or the finding is formally risk-accepted "
+               f"in .epyon-ignore.yml with a documented reason and expiration date.")],
+        [_text("This ticket is linked to the pull request that resolved the finding.")],
+    ]))
+
+    return {"version": 1, "type": "doc", "content": content}
+
+
 async def create_ticket(
     cfg: dict,
     finding: dict,
@@ -606,38 +732,9 @@ async def create_ticket(
     tool  = finding.get("tool")  or "Unknown"
     fid   = finding.get("id")    or "Unknown"
     pkg   = finding.get("package") or ""
-    ver   = finding.get("version") or ""
-    fixed = finding.get("fixed_version") or ""
-    title = finding.get("title") or fid
-    refs  = finding.get("references") or []
 
     summary = f"[{sev}][{tool}] {fid} in {pkg or app_name}"[:254]
-
-    body_lines = [
-        f"Detected by Epyon scanner in application *{app_name}*.",
-        f"",
-        f"*Severity:* {sev}",
-        f"*Finding ID:* {fid}",
-        f"*Title:* {title}",
-    ]
-    if pkg:
-        body_lines.append(f"*Package:* {pkg}@{ver}" if ver else f"*Package:* {pkg}")
-    if fixed:
-        body_lines.append(f"*Fix available in:* {fixed}")
-    if refs:
-        body_lines.append("*References:*")
-        body_lines.extend(f"  - {r}" for r in refs[:3])
-
-    description: dict[str, Any] = {
-        "version": 1,
-        "type": "doc",
-        "content": [
-            {
-                "type": "paragraph",
-                "content": [{"type": "text", "text": "\n".join(body_lines)}],
-            }
-        ],
-    }
+    description = build_finding_description(finding, app_name)
 
     requested_issue_type = (issue_type or cfg.get("issue_type") or "Bug").strip()
     issue_type = await _resolve_issue_type(cfg, project_key, requested_issue_type)

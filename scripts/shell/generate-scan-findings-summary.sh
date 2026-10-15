@@ -305,6 +305,7 @@ EOF
                         purl: .artifact.purl,
                         description: .vulnerability.description,
                         cvss_score: (.vulnerability.cvss[0].metrics.baseScore // "N/A"),
+                        cvss_vector: (.vulnerability.cvss[0].vector // ""),
                         fix_available: (if .vulnerability.fix.versions then "Yes" else "No" end),
                         fixed_versions: (.vulnerability.fix.versions // []),
                         scan_location: ("scans/" + $scan_id + "/grype/"),
@@ -335,6 +336,7 @@ EOF
                         purl: .artifact.purl,
                         description: .vulnerability.description,
                         cvss_score: (.vulnerability.cvss[0].metrics.baseScore // "N/A"),
+                        cvss_vector: (.vulnerability.cvss[0].vector // ""),
                         fix_available: (if .vulnerability.fix.versions then "Yes" else "No" end),
                         fixed_versions: (.vulnerability.fix.versions // []),
                         scan_location: ("scans/" + $scan_id + "/grype/"),
@@ -368,6 +370,7 @@ EOF
                         purl: .artifact.purl,
                         description: .vulnerability.description,
                         cvss_score: (.vulnerability.cvss[0].metrics.baseScore // "N/A"),
+                        cvss_vector: (.vulnerability.cvss[0].vector // ""),
                         fix_available: (if .vulnerability.fix.versions then "Yes" else "No" end),
                         fixed_versions: (.vulnerability.fix.versions // [])
                     }]' "$grype_file" 2>/dev/null || echo "[]")
@@ -391,6 +394,7 @@ EOF
                         purl: .artifact.purl,
                         description: .vulnerability.description,
                         cvss_score: (.vulnerability.cvss[0].metrics.baseScore // "N/A"),
+                        cvss_vector: (.vulnerability.cvss[0].vector // ""),
                         fix_available: (if .vulnerability.fix.versions then "Yes" else "No" end),
                         fixed_versions: (.vulnerability.fix.versions // [])
                     }]' "$grype_file" 2>/dev/null || echo "[]")
@@ -563,6 +567,7 @@ EOF
                         package_path: ($r.Target // ""),
                         description: .Description,
                         cvss_score: (.CVSS.nvd.V3Score // "N/A"),
+                        cvss_vector: (.CVSS.nvd.V3Vector // .CVSS.ghsa.V3Vector // .CVSS.redhat.V3Vector // ""),
                         fix_available: (if .FixedVersion and .FixedVersion != "" then "Yes" else "No" end),
                         fixed_versions: (if .FixedVersion and .FixedVersion != "" then [.FixedVersion] else [] end)
                     }]' "$trivy_file" 2>/dev/null || echo "[]")
@@ -583,6 +588,7 @@ EOF
                         package_path: ($r.Target // ""),
                         description: .Description,
                         cvss_score: (.CVSS.nvd.V3Score // "N/A"),
+                        cvss_vector: (.CVSS.nvd.V3Vector // .CVSS.ghsa.V3Vector // .CVSS.redhat.V3Vector // ""),
                         fix_available: (if .FixedVersion and .FixedVersion != "" then "Yes" else "No" end),
                         fixed_versions: (if .FixedVersion and .FixedVersion != "" then [.FixedVersion] else [] end)
                     }]' "$trivy_file" 2>/dev/null || echo "[]")
@@ -603,6 +609,7 @@ EOF
                         package_path: ($r.Target // ""),
                         description: .Description,
                         cvss_score: (.CVSS.nvd.V3Score // "N/A"),
+                        cvss_vector: (.CVSS.nvd.V3Vector // .CVSS.ghsa.V3Vector // .CVSS.redhat.V3Vector // ""),
                         fix_available: (if .FixedVersion and .FixedVersion != "" then "Yes" else "No" end),
                         fixed_versions: (if .FixedVersion and .FixedVersion != "" then [.FixedVersion] else [] end)
                     }]' "$trivy_file" 2>/dev/null || echo "[]")
@@ -623,6 +630,7 @@ EOF
                         package_path: ($r.Target // ""),
                         description: .Description,
                         cvss_score: (.CVSS.nvd.V3Score // "N/A"),
+                        cvss_vector: (.CVSS.nvd.V3Vector // .CVSS.ghsa.V3Vector // .CVSS.redhat.V3Vector // ""),
                         fix_available: (if .FixedVersion and .FixedVersion != "" then "Yes" else "No" end),
                         fixed_versions: (if .FixedVersion and .FixedVersion != "" then [.FixedVersion] else [] end)
                     }]' "$trivy_file" 2>/dev/null || echo "[]")
@@ -855,6 +863,8 @@ EOF
                         package_path: ([.artifact.locations[]?.path] | join(", ")),
                         description: (.vulnerability.description // ("Container image vulnerability in " + $container + ": " + (.vulnerability.id // "unknown"))),
                         nvd_url: ((.vulnerability.urls // []) | first // null),
+                        cvss_score: (.vulnerability.cvss[0].metrics.baseScore // "N/A"),
+                        cvss_vector: (.vulnerability.cvss[0].vector // ""),
                         fix_versions: (.vulnerability.fix.versions // [])
                     }
                 ]' "$anchore_file" 2>/dev/null || echo "[]")

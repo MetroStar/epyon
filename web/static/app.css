@@ -871,8 +871,19 @@ body:has(#sidebar:not(.collapsed)) #sidebar-toggle {
   to   { opacity: 1; }
 }
 
-.modal-box {
+.modal-container {
   background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px 28px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+  animation: slideUp 0.14s ease;
+}
+
+.modal-box {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 28px 32px;

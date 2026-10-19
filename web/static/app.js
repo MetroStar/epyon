@@ -8247,36 +8247,70 @@ async function jiraReviewCreateTickets() {
   await showJiraEpicModal();
 }
 
-async function showJiraEpicModal() {
-  const state = _jiraReviewState;
+// Set when the modal is opened from the finding drawer instead of the Jira review page.
+let _jiraQuickCtx = null;
+
+function jiraEpicModalConfirm() {
+  if (_jiraQuickCtx) return jiraQuickCreateConfirmed();
+  return jiraReviewCreateTicketsConfirmed();
+}
+
+async function showJiraEpicModal(quickCtx = null) {
+  _jiraQuickCtx = quickCtx;
+  const state = quickCtx ? { scanId: quickCtx.scanId } : _jiraReviewState;
   if (!state) return;
-  const selectedCount = state.selected.size;
+  const selectedCount = quickCtx ? 1 : state.selected.size;
+  const projectKey = quickCtx ? quickCtx.projectKey : (state.data.project_key || '');
 
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
     <div class="modal-container" style="max-width:520px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <h2 style="color:var(--text);margin:0">Create Jira Tickets</h2>
-        <button class="btn" onclick="this.closest('.modal-overlay').remove()" style="padding:6px 12px">✕</button>
+        <h2 style="color:var(--text);margin:0">Create Jira Ticket${selectedCount === 1 ? '' : 's'}</h2>
+        <button class="btn" onclick="jiraEpicModalClose()" style="padding:6px 12px">✕</button>
       </div>
       <p style="color:var(--text-muted);font-size:13px;margin:0 0 16px">
-        Creating ${selectedCount} ticket${selectedCount === 1 ? '' : 's'} for this scan. Pick a ticket type,
-        and optionally an Epic to link them to.
+        Creating ${selectedCount} ticket${selectedCount === 1 ? '' : 's'} for this scan. Confirm the Jira project,
+        pick a ticket type, and optionally an Epic to link to.
       </p>
+      <div style="margin-bottom:14px">
+        <label class="field-label" for="jira-modal-project-key">Jira project (board key)</label>
+        <div style="display:flex;gap:8px">
+          <input id="jira-modal-project-key" class="field-input" type="text" maxlength="10" placeholder="PROJECT"
+            value="${esc(projectKey)}" ${quickCtx ? '' : 'readonly'}
+            oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,''); jiraModalProjectTyped()">
+          ${quickCtx ? '<button id="jira-modal-project-save" class="btn" onclick="jiraModalProjectSave()" disabled>Change</button>' : ''}
+        </div>
+        <div id="jira-modal-project-note" style="font-size:12px;color:var(--text-muted);margin-top:4px">
+          ${quickCtx
+            ? 'Changing this updates the Jira project for this whole application (same as the Jira Review page).'
+            : 'To use a different project, change it on this page before selecting findings.'}
+        </div>
+      </div>
       <div id="jira-epic-modal-body">${loading()}</div>
       <div class="modal-actions" style="margin-top:20px;display:flex;justify-content:flex-end;gap:10px">
-        <button class="btn" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-        <button id="jira-epic-modal-confirm" class="btn btn-primary" onclick="jiraReviewCreateTicketsConfirmed()">
-          Create Tickets
+        <button class="btn" onclick="jiraEpicModalClose()">Cancel</button>
+        <button id="jira-epic-modal-confirm" class="btn btn-primary" onclick="jiraEpicModalConfirm()">
+          Create Ticket${selectedCount === 1 ? '' : 's'}
         </button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
-  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  overlay.addEventListener('click', e => { if (e.target === overlay) jiraEpicModalClose(); });
+  await jiraEpicModalLoad(state.scanId);
+}
 
+function jiraEpicModalClose() {
+  document.querySelector('.modal-overlay')?.remove();
+  _jiraQuickCtx = null;
+}
+
+async function jiraEpicModalLoad(scanId) {
+  const body = document.getElementById('jira-epic-modal-body');
+  if (body) body.innerHTML = loading();
   try {
-    const epics = await api.getScanJiraEpics(state.scanId);
+    const epics = await api.getScanJiraEpics(scanId);
     _jiraEpicModalState = {
       existing: epics.existing || [],
       suggested: epics.suggested || [],
@@ -8288,7 +8322,7 @@ async function showJiraEpicModal() {
     };
     renderJiraEpicModalBody();
   } catch (error) {
-    document.getElementById('jira-epic-modal-body').innerHTML =
+    if (body) body.innerHTML =
       `<div class="alert alert-warning">Could not load existing Epics: ${esc(error.message)}. You can still create tickets unassigned or create a new Epic.</div>`;
     _jiraEpicModalState = {
       existing: [], suggested: [], choice: null,
@@ -8296,6 +8330,53 @@ async function showJiraEpicModal() {
       triagedBy: '',
     };
     renderJiraEpicModalBody();
+  }
+}
+
+function jiraModalProjectTyped() {
+  const ctx = _jiraQuickCtx;
+  if (!ctx) return;
+  const key = document.getElementById('jira-modal-project-key').value.trim();
+  const dirty = key !== ctx.projectKey;
+  document.getElementById('jira-modal-project-save').disabled = !dirty || !/^[A-Z][A-Z0-9]{0,9}$/.test(key);
+  document.getElementById('jira-epic-modal-confirm').disabled = dirty;
+}
+
+async function jiraModalProjectSave() {
+  const ctx = _jiraQuickCtx;
+  if (!ctx) return;
+  const input = document.getElementById('jira-modal-project-key');
+  const saveBtn = document.getElementById('jira-modal-project-save');
+  const note = document.getElementById('jira-modal-project-note');
+  const key = input.value.trim().toUpperCase();
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Saving…';
+  try {
+    await api.setJiraProject(ctx.scanId, key);
+    const data = await api.getJiraCandidates(ctx.scanId);
+    const candidate = jiraFindCandidate(data.candidates, ctx.finding);
+    ctx.projectKey = data.project_key || key;
+    ctx.baseUrl = data.jira_base_url;
+    ctx.fingerprint = candidate?.fingerprint || '';
+    note.style.color = 'var(--text-muted)';
+    if (!candidate || !candidate.selectable) {
+      const ticket = candidate?.jira_ticket?.issue_key;
+      jiraEpicModalClose();
+      jiraQuickMarkDone(ticket, data.jira_base_url);
+      if (!ticket) {
+        const status = document.getElementById('finding-jira-status');
+        if (status) status.textContent = 'This finding is not eligible for ticketing in that project.';
+      }
+      return;
+    }
+    await jiraEpicModalLoad(ctx.scanId);
+    jiraModalProjectTyped();
+  } catch (error) {
+    note.style.color = 'var(--danger, #dc2626)';
+    note.textContent = `Could not change project: ${error.message}`;
+  } finally {
+    saveBtn.textContent = 'Change';
+    jiraModalProjectTyped();
   }
 }
 
@@ -8423,6 +8504,120 @@ function jiraEpicModalUpdateSelectionText() {
     el.textContent = `Will create a new Epic named "${state.choice.epic_name}" and link tickets to it.`;
   } else {
     el.textContent = 'No Epic selected — tickets will be created unassigned.';
+  }
+}
+
+function _scanIdFromHash() {
+  const m = window.location.hash.match(/^#\/scans\/([^?]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
+// "Add to Jira" from the finding drawer — same flow as the Jira review page, without leaving the scan.
+async function jiraQuickAdd(id) {
+  const f = _findingsRegistry.get(id);
+  const scanId = _scanIdFromHash();
+  const btn = document.getElementById('finding-jira-btn');
+  const status = document.getElementById('finding-jira-status');
+  if (!f || !scanId || !btn) return;
+  const setStatus = (msg, isError) => {
+    if (!status) return;
+    status.textContent = msg;
+    status.style.color = isError ? 'var(--danger, #dc2626)' : 'var(--text-muted)';
+  };
+  btn.disabled = true;
+  setStatus('Checking Jira…');
+  try {
+    const data = await api.getJiraCandidates(scanId);
+    if (!data.jira_configured) {
+      setStatus('Jira is not fully configured (credentials and project key). See Settings or the Jira Review page.', true);
+      btn.disabled = false;
+      return;
+    }
+    const candidate = jiraFindCandidate(data.candidates, f);
+    if (!candidate) {
+      setStatus('This finding is not eligible for ticketing in this scan.', true);
+      btn.disabled = false;
+      return;
+    }
+    if (candidate.selection_reason === 'already_ticketed') {
+      jiraQuickMarkDone(candidate.jira_ticket?.issue_key, data.jira_base_url);
+      return;
+    }
+    if (!candidate.selectable) {
+      setStatus('This finding is suppressed by an ignore rule.', true);
+      btn.disabled = false;
+      return;
+    }
+    setStatus('');
+    btn.disabled = false;
+    await showJiraEpicModal({
+      scanId, finding: f, fingerprint: candidate.fingerprint,
+      baseUrl: data.jira_base_url, projectKey: data.project_key || '',
+    });
+  } catch (error) {
+    setStatus(`Could not reach Jira: ${error.message}`, true);
+    btn.disabled = false;
+  }
+}
+
+function jiraFindCandidate(candidates, f) {
+  const norm = v => String(v || '').trim();
+  return candidates.find(c =>
+    norm(c.tool) === norm(f.tool) && norm(c.id) === norm(f.id) &&
+    norm(c.package) === norm(f.package) && norm(c.target) === norm(f.target));
+}
+
+function jiraQuickMarkDone(issueKey, baseUrl) {
+  const btn = document.getElementById('finding-jira-btn');
+  const status = document.getElementById('finding-jira-status');
+  if (btn) { btn.disabled = true; btn.textContent = 'In Jira'; }
+  if (!status) return;
+  status.style.color = 'var(--text-muted)';
+  status.textContent = '';
+  if (issueKey && baseUrl) {
+    const a = document.createElement('a');
+    a.href = `${baseUrl}/browse/${encodeURIComponent(issueKey)}`;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = issueKey;
+    status.append('Ticket: ', a);
+  } else {
+    status.textContent = issueKey ? `Ticket: ${issueKey}` : 'Already ticketed.';
+  }
+}
+
+async function jiraQuickCreateConfirmed() {
+  const ctx = _jiraQuickCtx;
+  if (!ctx) return;
+  const modalState = _jiraEpicModalState;
+  const extras = {
+    ...(modalState?.choice || {}),
+    ...(modalState?.issueType ? { issue_type: modalState.issueType } : {}),
+    ...(modalState?.triagedBy ? { triaged_by: modalState.triagedBy } : {}),
+  };
+  jiraEpicModalClose();
+  const btn = document.getElementById('finding-jira-btn');
+  const status = document.getElementById('finding-jira-status');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating…'; }
+  try {
+    const result = await api.createJiraTickets(ctx.scanId, [ctx.fingerprint], extras);
+    const made = result.created?.[0] || result.already_exists?.[0];
+    if (made) {
+      jiraQuickMarkDone(made.issue_key || made.key, ctx.baseUrl);
+    } else {
+      const reason = (result.failed?.[0] || result.ineligible?.[0])?.reason || 'unknown';
+      if (btn) { btn.disabled = false; btn.textContent = 'Add to Jira'; }
+      if (status) {
+        status.style.color = 'var(--danger, #dc2626)';
+        status.textContent = `Ticket not created: ${reason}`;
+      }
+    }
+  } catch (error) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Add to Jira'; }
+    if (status) {
+      status.style.color = 'var(--danger, #dc2626)';
+      status.textContent = `Ticket creation failed: ${error.message}`;
+    }
   }
 }
 
@@ -9118,6 +9313,12 @@ function openFindingDetail(id) {
       ${descSection}
 
       ${refsHtml}
+
+      ${(_scanIdFromHash() && !window.__SCAN__) ? `
+      <div id="finding-jira-section" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+        <button id="finding-jira-btn" class="btn btn-primary" onclick="jiraQuickAdd(${id})">Add to Jira</button>
+        <div id="finding-jira-status" style="font-size:12px;margin-top:8px"></div>
+      </div>` : ''}
 
       <div id="finding-fix-section" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
         <button id="finding-fix-btn" onclick="fetchFindingFix(${id})" style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);border:1px solid #6366f1;background:rgba(99,102,241,0.08);color:#818cf8;font-size:12.5px;cursor:pointer;font-weight:500;transition:background 0.12s">

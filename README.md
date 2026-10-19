@@ -548,7 +548,7 @@ See [Target Repository Setup Guide](.github/TARGET_REPO_SETUP.md) and [Webhook I
 
 ### 🎟️ Jira Ticket Creation
 
-Epyon uses a manual review queue by default so scans do not create unwanted Jira tickets. Open a scan, select **Jira Review**, filter or inspect the findings, select individual findings or use the bulk controls, and then choose **Create Jira Tickets**.
+Epyon uses a manual review queue by default so scans do not create unwanted Jira tickets. Open a scan, select **Jira Review**, filter or inspect the findings, select individual findings or use the bulk controls, and then choose **Create Jira Tickets**. To ticket a single finding without leaving the scan page, click it to open the detail pane and choose **Add to Jira**; it uses the same ticket type / Epic / triage-note modal.
 
 **Web service environment:**
 

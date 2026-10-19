@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.43.0] - 2026-10-19
+
+### Added
+- **"Add to Jira" button in the scan-details finding drawer.** Individual findings can be ticketed in place (ticket type, Epic, and triage note picker included) without navigating to the Jira Review page. Already-ticketed findings show a link to the existing issue.
+- The Create Jira Ticket modal now shows the target Jira project key. From the finding drawer it can be changed in place (applies to the whole application, like the Jira Review page); Epics, ticket types and ticket status reload for the new project. The bulk flow shows it read-only.
+
+### Fixed
+- The Create Jira Tickets modal was missing its container styling (transparent background); added `.modal-container`.
+
 ## [3.42.0] - 2026-10-15
 
 ### Added

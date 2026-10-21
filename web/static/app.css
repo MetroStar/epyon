@@ -3327,3 +3327,11 @@ details[open] > .findings-summary .findings-summary-hint {
 }
 #cache-clear:hover { color: var(--text); }
 #cache-clear svg { display: block; }
+
+/* Cross-application CVE search (Overview) */
+.cve-search-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.cve-search-input { flex: 1 1 280px; min-width: 220px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card, var(--bg)); color: var(--text); }
+.cve-search-select { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card, var(--bg)); color: var(--text); }
+.cve-search-history { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--text-muted); }
+.cve-search-summary { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
+.cve-search-empty { padding: 16px; color: var(--text-muted); border: 1px dashed var(--border); border-radius: 6px; }

@@ -1229,6 +1229,7 @@ async function renderOverview() {
         </div>
       </div>
 
+      ${buildCveSearchSection()}
       ${buildOverviewExecSection()}
       ${buildOverviewTechSection()}
       ${buildOverviewIssoSection()}
@@ -1237,6 +1238,86 @@ async function renderOverview() {
   } catch (e) {
     page.innerHTML = errBanner(e.message);
   }
+}
+
+// ── Cross-application CVE search (Overview) ───────────────────
+function buildCveSearchSection() {
+  return `
+    <div class="section cve-search">
+      <div class="section-title">Search a CVE across applications</div>
+      <form class="cve-search-form" onsubmit="cveSearchRun(event)">
+        <input id="cve-search-q" class="cve-search-input" type="text" minlength="3" maxlength="100"
+               placeholder="CVE-2024-12345, GHSA-…, or package name" autocomplete="off" required>
+        <select id="cve-search-field" class="cve-search-select" aria-label="Search by">
+          <option value="id">CVE / advisory ID</option>
+          <option value="package">Package name</option>
+        </select>
+        <label class="cve-search-history">
+          <input id="cve-search-history" type="checkbox"> Include earlier scans
+        </label>
+        <button class="btn btn-primary" type="submit">Search</button>
+      </form>
+      <div id="cve-search-results"></div>
+    </div>`;
+}
+
+let _cveSearchSeq = 0;
+
+async function cveSearchRun(ev) {
+  if (ev) ev.preventDefault();
+  const out = document.getElementById('cve-search-results');
+  if (!out) return;
+  const q = document.getElementById('cve-search-q').value.trim();
+  const field = document.getElementById('cve-search-field').value;
+  const history = document.getElementById('cve-search-history').checked;
+  const seq = ++_cveSearchSeq;
+  out.innerHTML = loading();
+  try {
+    const params = new URLSearchParams({ q, field, include_history: history ? 'true' : 'false' });
+    const r = await fetch(`/api/findings/search?${params}`);
+    if (r.status === 400) throw new Error('Enter 3–100 characters: letters, digits and . _ : @ / + -');
+    if (!r.ok) throw new Error('Search failed. Please try again.');
+    const data = await r.json();
+    if (seq !== _cveSearchSeq) return;
+    out.innerHTML = cveSearchResultsHtml(data);
+  } catch (e) {
+    if (seq === _cveSearchSeq) out.innerHTML = errBanner(e.message);
+  }
+}
+
+function cveSearchResultsHtml(data) {
+  if (!data.applications.length) {
+    return `<div class="cve-search-empty">“${esc(data.query)}” was not found in any monitored application.</div>`;
+  }
+  const rows = data.applications.map(appEntry => appEntry.findings.map(f => {
+    const query = new URLSearchParams({ finding: f.id, package: f.package || '' });
+    const href = `#/scans/${encodeURIComponent(appEntry.scan_id)}?${query}`;
+    const ticket = f.jira_issue_key
+      ? (appEntry.jira_base_url
+          ? `<a href="${esc(appEntry.jira_base_url)}/browse/${encodeURIComponent(f.jira_issue_key)}" target="_blank" rel="noopener">${esc(f.jira_issue_key)}</a>`
+          : esc(f.jira_issue_key))
+      : '—';
+    return `
+      <tr class="finding-row" title="Open finding in scan">
+        <td>${esc(appEntry.app_name)}${appEntry.is_latest ? '' : ' <span class="tool-tag">earlier scan</span>'}</td>
+        <td><span class="sev-badge ${esc(f.severity)}">${esc(ucFirst(f.severity))}</span></td>
+        <td><a href="${esc(href)}" data-href="${esc(href)}" onclick="if (event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey) { event.preventDefault(); navigate(this.dataset.href); }">${esc(f.id)}</a>${f.suppressed ? ' <span class="tool-tag">suppressed</span>' : ''}</td>
+        <td>${(f.tools || []).map(t => `<span class="tool-tag">${esc(t)}</span>`).join(' ')}</td>
+        <td>${esc(f.package || '—')}</td>
+        <td>${esc(f.version || '—')}</td>
+        <td>${esc(f.fixed_version || '—')}</td>
+        <td>${esc(fmtDate(appEntry.timestamp))}</td>
+        <td>${ticket}</td>
+      </tr>`;
+  }).join('')).join('');
+  return `
+    <div class="cve-search-summary">${esc(data.total_findings)} finding${data.total_findings === 1 ? '' : 's'} across ${esc(data.total_applications)} application${data.total_applications === 1 ? '' : 's'}</div>
+    <div class="table-container">
+      <table>
+        <thead><tr><th>Application</th><th>Severity</th><th>ID</th><th>Tools</th><th>Package</th><th>Version</th><th>Fixed in</th><th>Scanned</th><th>Jira</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
 }
 
 async function toggleMonitored(name, isCurrently) {
@@ -1537,7 +1618,7 @@ async function renderAppDetail(name) {
 
 // ─────────────────────────────────────────────────────────────
 
-async function renderScanDetail(scanId) {
+async function renderScanDetail(scanId, openFindingId = '', openFindingPackage = '') {
   setActive('');
   const page = document.getElementById('page');
   page.innerHTML = loading();
@@ -1830,6 +1911,35 @@ async function renderScanDetail(scanId) {
     
     // Automatically generate scorecard
     calculateScorecardForScan(scanId);
+
+    if (openFindingId) {
+      const wantId = openFindingId.toLowerCase();
+      const wantPackage = openFindingPackage.toLowerCase();
+      let findingId = null;
+      for (const [rid, f] of _findingsRegistry) {
+        const packageName = String(f.package || f.component || '').toLowerCase();
+        if (String(f.id || '').toLowerCase() === wantId &&
+            (!wantPackage || packageName === wantPackage)) {
+          findingId = rid;
+          break;
+        }
+      }
+      if (findingId === null) {
+        const severities = ['critical', 'high', 'medium', 'low'];
+        for (const severity of severities) {
+          const finding = (scan.findings[`${severity}_findings`] || []).find(f => {
+            const packageName = String(f.package || f.component || '').toLowerCase();
+            return String(f.id || '').toLowerCase() === wantId &&
+              (!wantPackage || packageName === wantPackage);
+          });
+          if (finding) {
+            findingId = _registerFinding(finding);
+            break;
+          }
+        }
+      }
+      if (findingId !== null) openFindingDetail(findingId);
+    }
   } catch (e) {
     page.innerHTML = errBanner(e.message);
   }
@@ -8702,7 +8812,7 @@ function resolve() {
     scanId ? renderJiraReview(scanId) : renderApplications();
   } else if (path.startsWith('/scans/')) {
     const scanId = decodeURIComponent(path.slice('/scans/'.length));
-    scanId ? renderScanDetail(scanId) : renderApplications();
+    scanId ? renderScanDetail(scanId, params.get('finding') || '', params.get('package') || '') : renderApplications();
   } else if (path === '/new-scan') {
     renderNewScan(params.get('target') || '');
   } else if (path === '/metrics') {

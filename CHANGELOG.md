@@ -7,10 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.45.1] - 2026-10-21
+
+### Fixed
+- CVE search results now use keyboard-accessible links, safely navigate without interpolating scan data into JavaScript, and open the exact package finding even when it falls beyond the scan detail table's 200-row display limit.
+
 ## [3.44.1] - 2026-10-21
 
 ### Fixed
 - `GET /api/findings/search` now returns a generic 400 for missing required parameters and invalid boolean values, without exposing FastAPI validation details.
+
+## [3.45.0] - 2026-10-21
+
+### Added
+- Overview page "Search a CVE across applications" box (CVE/advisory ID or package, optional earlier scans). Results list severity, tools, package, versions, scan date and Jira ticket per application; clicking a row opens that scan with the finding pane open via `#/scans/{id}?finding={cve}` (MID-4486).
+- `GET /api/findings/search` results now include each application's `jira_base_url` for ticket links.
 
 ## [3.44.0] - 2026-10-21
 

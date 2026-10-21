@@ -3333,5 +3333,10 @@ details[open] > .findings-summary .findings-summary-hint {
 .cve-search-input { flex: 1 1 280px; min-width: 220px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card, var(--bg)); color: var(--text); }
 .cve-search-select { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card, var(--bg)); color: var(--text); }
 .cve-search-history { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--text-muted); }
-.cve-search-summary { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
+.cve-search-summary { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
 .cve-search-empty { padding: 16px; color: var(--text-muted); border: 1px dashed var(--border); border-radius: 6px; }
+
+.cve-bulk-group { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+.cve-bulk-head { display: flex; justify-content: space-between; margin-bottom: 8px; color: var(--text); }
+.cve-bulk-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cve-bulk-skipped { font-size: 12px; color: var(--text-muted); margin-top: 6px; }

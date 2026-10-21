@@ -194,3 +194,14 @@ def test_deleting_scans_drops_index_entries(api_client):
     assert len(main._search_index) == 1
     main._invalidate_scan_cache(reason="delete_scan")
     assert len(main._search_index) == 0
+
+
+def test_search_entry_reports_jira_configured(api_client, monkeypatch):
+    client, main, _, _ = api_client
+    cfg = {"base_url": "https://x.atlassian.net", "email": "a@b.c", "api_token": "t", "project_key": "MID"}
+    monkeypatch.setattr(main.jira_client, "read_config", lambda app: dict(cfg))
+    entry = client.get("/api/findings/search", params={"q": "CVE-2024-00001"}).json()["applications"][0]
+    assert entry["jira_configured"] is True
+    cfg["project_key"] = ""
+    entry = client.get("/api/findings/search", params={"q": "CVE-2024-00001"}).json()["applications"][0]
+    assert entry["jira_configured"] is False

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.46.0] - 2026-10-21
+
+### Added
+- CVE search results on the Overview page can be multi-selected and sent to Jira with **Create Jira tickets**. The confirmation step shows each application's Jira project key (editable), an optional Epic key, ticket type and triage note; already-ticketed, suppressed and unconfigured applications are reported as skipped, one request is made per scan, and a per-application summary shows created, existing, failed and skipped counts. A failure in one application does not stop the others (MID-4488).
+- `GET /api/findings/search` entries now include `jira_configured`.
+
 ## [3.45.3] - 2026-10-21
 
 ### Fixed

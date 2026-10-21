@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.44.0] - 2026-10-21
+
+### Added
+- `GET /api/findings/search` finds every application affected by a CVE/advisory ID or package across the latest scans (optionally the full 35-day history), deduplicated across tools with suppression and Jira-ticket state (MID-4485).
+
 ## [3.43.0] - 2026-10-19
 
 ### Added

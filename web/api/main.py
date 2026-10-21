@@ -12,6 +12,7 @@ import re
 import shutil
 import time
 import zipfile
+from collections import OrderedDict
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -205,6 +206,10 @@ _scan_cache:      dict[str, tuple[dict, float]] = {}  # scan_id → (data, monot
 _dir_cache:       dict[int, tuple[list, float]] = {}  # days → (dirs, monotonic_ts)
 _stats_cache:     tuple[dict, float] | None = None    # (stats, monotonic_ts)
 _apps_cache:      tuple[list, float] | None = None    # (apps, monotonic_ts)
+# CVE search index: scan_id -> ((dir mtime_ns, project_key), per-scan lookup index).
+# Scans are immutable, so the dir mtime only changes if a scan is rewritten.
+_search_index:    "OrderedDict[str, tuple[tuple, dict]]" = OrderedDict()
+_SEARCH_INDEX_MAX: int = 2000
 _mobile_code_accuracy_cache: tuple[dict, float] | None = None  # (metrics, monotonic_ts)
 _SCAN_CACHE_TTL:  float = 300.0  # 5 minutes — scans are immutable
 _DIR_CACHE_TTL:   float = 60.0   # 1 minute — new scans appear less frequently
@@ -216,9 +221,9 @@ _CACHE_VERSION:   int = 0        # Increment on scan completion to bust frontend
 
 # ── Cache metrics instrumentation ───────────────────────────
 _cache_metrics = {
-    "hits": {"scan": 0, "dir": 0, "stats": 0, "apps": 0},
-    "misses": {"scan": 0, "dir": 0, "stats": 0, "apps": 0},
-    "writes": {"scan": 0, "dir": 0, "stats": 0, "apps": 0},
+    "hits": {"scan": 0, "dir": 0, "stats": 0, "apps": 0, "search_index": 0},
+    "misses": {"scan": 0, "dir": 0, "stats": 0, "apps": 0, "search_index": 0},
+    "writes": {"scan": 0, "dir": 0, "stats": 0, "apps": 0, "search_index": 0},
     "invalidations": [],  # List of {timestamp, reason, version, scan_id}
     "staleness_seconds": [],  # List of staleness measurements for observability
 }
@@ -260,6 +265,24 @@ def _cached_load_scan(scan_dir) -> dict:
     return data
 
 
+def _scan_search_index(scan_dir, app_name: str, project_key: str) -> dict:
+    """Per-scan finding lookup index, rebuilt only when the scan directory changes."""
+    key = (scan_dir.stat().st_mtime_ns, project_key)
+    cached = _search_index.get(scan_dir.name)
+    if cached and cached[0] == key:
+        _search_index.move_to_end(scan_dir.name)
+        _cache_metrics["hits"]["search_index"] += 1
+        return cached[1]
+    _cache_metrics["misses"]["search_index"] += 1
+    scan_data = parsers.load_scan_complete(scan_dir, EPYON_ROOT)
+    index = finding_search.build_scan_index(scan_data, app_name, project_key)
+    _search_index[scan_dir.name] = (key, index)
+    _cache_metrics["writes"]["search_index"] += 1
+    while len(_search_index) > _SEARCH_INDEX_MAX:
+        _search_index.popitem(last=False)
+    return index
+
+
 def _invalidate_scan_cache(reason: str = "scan_completion", scan_id: str = None) -> None:
     """Call after a scan completes so the next request sees fresh data."""
     global _dir_cache, _stats_cache, _apps_cache, _CACHE_VERSION
@@ -267,6 +290,8 @@ def _invalidate_scan_cache(reason: str = "scan_completion", scan_id: str = None)
     old_version = _CACHE_VERSION
     _scan_cache.clear()
     _dir_cache.clear()
+    if reason in ("delete_scan", "restore_scan", "retention_sweep", "retention_sweep_manual"):
+        _search_index.clear()
     _stats_cache = None
     _apps_cache = None
     # /api/metrics keeps its own 5-minute cache separate from the caches
@@ -1331,12 +1356,14 @@ def findings_search(
 
     hidden = _load_hidden_apps()
     monitored = _load_monitored_apps()
+    all_dirs = _cached_find_scan_dirs(days=35)
+    candidates = finding_search.preselect_dirs(all_dirs, include_history, parsers.parse_dir_name)
     scans = [
-        scan for scan in (_cached_load_scan(d) for d in _cached_find_scan_dirs(days=35))
+        scan for scan in (_cached_load_scan(d) for d in candidates)
         if scan["target"] not in hidden and (not monitored or scan["target"] in monitored)
     ]
     selected = finding_search.select_scans(scans, include_history)
-    dirs_by_id = {d.name: d for d in _cached_find_scan_dirs(days=35)}
+    dirs_by_id = {d.name: d for d in candidates}
     ticket_map = jira_client.read_ticket_map()
 
     applications = []
@@ -1345,12 +1372,10 @@ def findings_search(
         if not scan_dir:
             continue
         app_name = scan["target"]
-        scan_data = parsers.load_scan_complete(scan_dir, EPYON_ROOT)
         jira_cfg = jira_client.read_config(app_name)
         project_key = jira_cfg.get("project_key", "")
-        findings = finding_search.search_scan(
-            scan_data, app_name, needle, field, project_key, ticket_map
-        )
+        index = _scan_search_index(scan_dir, app_name, project_key)
+        findings = finding_search.search_index(index, needle, field, ticket_map)
         if findings:
             applications.append({
                 "app_name": app_name,
@@ -2588,6 +2613,7 @@ def get_cache_metrics(response: Response):
         "dir": len(_dir_cache),
         "stats": 1 if _stats_cache else 0,
         "apps": 1 if _apps_cache else 0,
+        "search_index": len(_search_index),
     }
     
     # Recent invalidations (last 10)
@@ -2600,6 +2626,7 @@ def get_cache_metrics(response: Response):
             "dir": _hit_rate("dir"),
             "stats": _hit_rate("stats"),
             "apps": _hit_rate("apps"),
+            "search_index": _hit_rate("search_index"),
         },
         "hits": _cache_metrics["hits"].copy(),
         "misses": _cache_metrics["misses"].copy(),

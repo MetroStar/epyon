@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.45.3] - 2026-10-21
+
+### Fixed
+- CI now installs `web/api/requirements.txt` before the Python tests, so modules that import `fastapi` no longer fail at collection.
+
+## [3.45.2] - 2026-10-21
+
+### Changed
+- `GET /api/findings/search` picks the newest scan per application from scan directory names instead of parsing every scan in the 35-day window, and keeps a per-scan finding index (keyed by scan directory mtime and Jira project key) so repeat searches skip re-parsing. On a local set of 1,281 scan directories a cold search went from over 11 minutes to about 3 seconds, and a repeat search from about 1.9 seconds to about 4 ms. Jira ticket state is resolved at query time, so ticket links are never stale (MID-4487).
+- `GET /api/metrics/cache` now reports search index hits, misses, writes, hit rate and size.
+
 ## [3.45.1] - 2026-10-21
 
 ### Fixed

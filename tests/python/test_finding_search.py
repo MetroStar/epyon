@@ -104,3 +104,93 @@ def test_select_scans_latest_only_vs_history():
     assert {s["scan_id"] for s in latest} == {"a2", "b1"}
     history = finding_search.select_scans(scans, include_history=True)
     assert {s["scan_id"]: s["is_latest"] for s in history} == {"a1": False, "a2": True, "b1": True}
+
+
+# ── MID-4487: per-scan index and endpoint caching ─────────────
+
+def test_index_does_not_freeze_jira_ticket_state():
+    finding = _finding("grype", "CVE-2024-0001")
+    index = finding_search.build_scan_index(_scan([finding]), "app-a", "MID")
+    assert finding_search.search_index(index, "cve-2024-0001", "id")[0]["jira_issue_key"] == ""
+    fingerprint = finding_search.jira_client.finding_fingerprint(finding, "app-a", "MID")
+    found = finding_search.search_index(index, "cve-2024-0001", "id", {fingerprint: {"issue_key": "MID-9"}})
+    assert found[0]["jira_issue_key"] == "MID-9"
+
+
+def test_search_index_results_are_not_mutated_between_queries():
+    scan = _scan([_finding("grype", "CVE-2024-0001"), _finding("trivy", "CVE-2024-0001")])
+    index = finding_search.build_scan_index(scan, "app-a", "MID")
+    first = finding_search.search_index(index, "cve-2024-0001", "id")
+    first[0]["tools"].append("tampered")
+    second = finding_search.search_index(index, "cve-2024-0001", "id")
+    assert "tampered" not in second[0]["tools"]
+
+
+def test_preselect_dirs_keeps_newest_per_target_without_parsing_scans():
+    names = ["a_u_2026-10-01_00-00-00", "a_u_2026-10-10_00-00-00", "b_u_2026-10-05_00-00-00"]
+    dirs = [Path(n) for n in names]
+    parse = lambda n: {"target": n.split("_")[0], "timestamp": n.split("_", 2)[2]}
+    assert {d.name for d in finding_search.preselect_dirs(dirs, False, parse)} == {names[1], names[2]}
+    assert len(finding_search.preselect_dirs(dirs, True, parse)) == 3
+
+
+@pytest.fixture
+def api_client(tmp_path, monkeypatch):
+    import shutil
+    from fastapi.testclient import TestClient
+    from api import main
+
+    golden = REPO_ROOT / "tests/fixtures/golden-scan/goldenapp_testuser_2026-09-16_12-00-00"
+    (tmp_path / "scans").mkdir()
+    shutil.copytree(golden, tmp_path / "scans" / golden.name)
+    monkeypatch.setattr(main, "EPYON_ROOT", tmp_path)
+    monkeypatch.setattr(main, "_load_monitored_apps", lambda: set())
+    hidden: set = set()
+    monkeypatch.setattr(main, "_load_hidden_apps", lambda: hidden)
+    main._search_index.clear()
+    main._invalidate_scan_cache(reason="test")
+    return TestClient(main.app), main, tmp_path, hidden
+
+
+def test_endpoint_reuses_index_and_reports_hits(api_client):
+    client, main, _, _ = api_client
+    before = dict(main._cache_metrics["misses"])["search_index"]
+    assert client.get("/api/findings/search", params={"q": "CVE-2024-00001"}).json()["total_findings"] == 1
+    assert client.get("/api/findings/search", params={"q": "CVE-2024-00001"}).json()["total_findings"] == 1
+    assert main._cache_metrics["misses"]["search_index"] - before == 1
+    assert main._cache_metrics["hits"]["search_index"] >= 1
+    stats = client.get("/api/metrics/cache").json()
+    assert stats["hits"]["search_index"] >= 1 and stats["cache_sizes"]["search_index"] == 1
+
+
+def test_hide_and_unhide_are_reflected_without_rebuilding(api_client):
+    client, main, _, hidden = api_client
+    query = {"q": "CVE-2024-00001"}
+    assert client.get("/api/findings/search", params=query).json()["total_applications"] == 1
+    hidden.add("goldenapp")
+    main._invalidate_scan_cache(reason="hidden_apps_changed")
+    assert client.get("/api/findings/search", params=query).json()["total_applications"] == 0
+    hidden.clear()
+    main._invalidate_scan_cache(reason="hidden_apps_changed")
+    assert client.get("/api/findings/search", params=query).json()["total_applications"] == 1
+
+
+def test_new_scan_is_found_after_invalidation(api_client):
+    import shutil
+    client, main, root, _ = api_client
+    query = {"q": "CVE-2024-00001", "include_history": "true"}
+    assert client.get("/api/findings/search", params=query).json()["total_applications"] == 1
+    golden = REPO_ROOT / "tests/fixtures/golden-scan/goldenapp_testuser_2026-09-16_12-00-00"
+    shutil.copytree(golden, root / "scans" / "goldenapp_testuser_2026-09-17_12-00-00")
+    main._invalidate_scan_cache(reason="scan_completion")
+    result = client.get("/api/findings/search", params=query).json()
+    assert {a["scan_id"] for a in result["applications"]} == {
+        "goldenapp_testuser_2026-09-16_12-00-00", "goldenapp_testuser_2026-09-17_12-00-00"}
+
+
+def test_deleting_scans_drops_index_entries(api_client):
+    client, main, _, _ = api_client
+    client.get("/api/findings/search", params={"q": "CVE-2024-00001"})
+    assert len(main._search_index) == 1
+    main._invalidate_scan_cache(reason="delete_scan")
+    assert len(main._search_index) == 0

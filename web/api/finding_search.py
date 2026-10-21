@@ -5,7 +5,7 @@ Pure helpers so the matching/deduplication logic is testable without FastAPI.
 from __future__ import annotations
 
 import re
-from typing import Iterable
+from typing import Any, Iterable
 
 from . import jira_client
 
@@ -45,23 +45,31 @@ def _public_finding(candidate: dict) -> dict:
     }
 
 
-def search_scan(
-    scan_data: dict,
-    app_name: str,
-    needle: str,
-    field: str,
-    project_key: str = "",
-    ticket_map: dict | None = None,
-) -> list[dict]:
-    """Matching findings in one parsed scan, deduplicated by (id, package)."""
-    candidates = jira_client.build_ticket_candidates(
-        scan_data, app_name, project_key, ticket_map
-    )
-    merged: dict[tuple[str, str], dict] = {}
+def build_scan_index(scan_data: dict, app_name: str, project_key: str = "") -> dict:
+    """Compact, lookup-ready view of one parsed scan: finding id/package -> findings.
+
+    Jira ticket state is deliberately left out (only the fingerprint is kept) so a
+    cached index never serves a stale ticket link.
+    """
+    candidates = jira_client.build_ticket_candidates(scan_data, app_name, project_key)
+    index: dict[str, dict[str, list[dict]]] = {"id": {}, "package": {}}
     for candidate in candidates:
-        if not _matches(candidate, needle, field):
-            continue
         finding = _public_finding(candidate)
+        finding["fingerprint"] = candidate.get("fingerprint", "")
+        for field in FIELDS:
+            value = (candidate.get(field) or "").strip().lower()
+            if value:
+                index[field].setdefault(value, []).append(finding)
+    return index
+
+
+def search_index(index: dict, needle: str, field: str, ticket_map: dict | None = None) -> list[dict]:
+    """Matching findings from a scan index, deduplicated by (id, package)."""
+    tickets = ticket_map or {}
+    merged: dict[tuple[str, str], dict] = {}
+    for hit in index.get(field, {}).get(needle, []):
+        finding = {k: (list(v) if isinstance(v, list) else v) for k, v in hit.items() if k != "fingerprint"}
+        finding["jira_issue_key"] = (tickets.get(hit.get("fingerprint")) or {}).get("issue_key", "")
         key = (finding["id"].lower(), finding["package"].lower())
         existing = merged.get(key)
         if not existing:
@@ -79,6 +87,37 @@ def search_scan(
         merged.values(),
         key=lambda f: (_SEV_RANK.get(f["severity"], 9), f["id"], f["package"]),
     )
+
+
+def search_scan(
+    scan_data: dict,
+    app_name: str,
+    needle: str,
+    field: str,
+    project_key: str = "",
+    ticket_map: dict | None = None,
+) -> list[dict]:
+    """Matching findings in one parsed scan, deduplicated by (id, package)."""
+    index = build_scan_index(scan_data, app_name, project_key)
+    return search_index(index, needle, field, ticket_map)
+
+
+def preselect_dirs(dirs: Iterable, include_history: bool, parse_dir_name) -> list:
+    """Cheaply narrow scan directories by name, before any scan is parsed.
+
+    Reading metadata for every directory dominates search latency, so group by
+    the target and timestamp encoded in each directory name and keep only the
+    newest per target (or all of them with include_history).
+    """
+    by_target: dict[str, list[tuple[str, Any]]] = {}
+    for scan_dir in dirs:
+        parsed = parse_dir_name(scan_dir.name)
+        by_target.setdefault(parsed["target"], []).append((parsed["timestamp"], scan_dir))
+    chosen: list = []
+    for entries in by_target.values():
+        entries.sort(key=lambda e: e[0], reverse=True)
+        chosen.extend(d for _, d in (entries if include_history else entries[:1]))
+    return chosen
 
 
 def select_scans(scans: Iterable[dict], include_history: bool) -> list[dict]:

@@ -5,11 +5,13 @@ import sys
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "web"))
 
 from api import finding_search  # noqa: E402
+from api import main as api_main  # noqa: E402
 
 
 def _finding(tool, fid, sev="high", pkg="libfoo", **extra):
@@ -82,6 +84,14 @@ def test_valid_queries_accepted():
     assert finding_search.validate_query(" CVE-2024-0001 ") == "CVE-2024-0001"
     assert finding_search.validate_query("GHSA-abcd-1234-wxyz")
     assert finding_search.validate_query("golang.org/x/text")
+
+
+@pytest.mark.parametrize("params", [{}, {"q": "CVE-2024-0001", "include_history": "invalid"}])
+def test_search_request_validation_returns_generic_400(params):
+    response = TestClient(api_main.app).get("/api/findings/search", params=params)
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Invalid search request"}
 
 
 def test_select_scans_latest_only_vs_history():

@@ -18,6 +18,8 @@ from pathlib import Path
 from typing import Any, List, Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
@@ -476,6 +478,15 @@ async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSON
     """Return a generic 500 without leaking internal details (APSC-DV-002390)."""
     _audit(request, "server_error", type(exc).__name__)
     return JSONResponse(status_code=500, content={"detail": "An internal error occurred."})
+
+
+@app.exception_handler(RequestValidationError)
+async def _request_validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    if request.method == "GET" and request.url.path == "/api/findings/search":
+        return JSONResponse(status_code=400, content={"detail": "Invalid search request"})
+    return await request_validation_exception_handler(request, exc)
 
 
 def _sec_headers(response: Response) -> None:
@@ -4392,4 +4403,3 @@ else:
             {"detail": "Static directory not found"},
             status_code=503,
         )
-

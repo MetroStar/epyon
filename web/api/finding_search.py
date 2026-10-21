@@ -9,7 +9,7 @@ from typing import Iterable
 
 from . import jira_client
 
-QUERY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/+\-]{2,99}$")
+QUERY_RE = re.compile(r"^[A-Za-z0-9@][A-Za-z0-9._:@/+\-]{2,99}$")
 FIELDS = ("id", "package")
 
 _SEV_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3}

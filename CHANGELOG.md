@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.45.3] - 2026-10-21
+
+### Fixed
+- CI now installs `web/api/requirements.txt` before the Python tests, so modules that import `fastapi` no longer fail at collection.
+
 ## [3.45.2] - 2026-10-21
 
 ### Changed

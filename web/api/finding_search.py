@@ -31,11 +31,14 @@ def _matches(candidate: dict, needle: str, field: str) -> bool:
 
 def _public_finding(candidate: dict) -> dict:
     ticket = candidate.get("jira_ticket") or {}
+    tools = candidate.get("detected_by") or (
+        [candidate["tool"]] if candidate.get("tool") else []
+    )
     return {
         "id": candidate.get("id", ""),
         "severity": candidate.get("severity", "low"),
         "category": candidate.get("category", ""),
-        "tools": [candidate["tool"]] if candidate.get("tool") else [],
+        "tools": tools,
         "package": candidate.get("package", ""),
         "version": candidate.get("version", ""),
         "fixed_version": candidate.get("fixed_version", ""),

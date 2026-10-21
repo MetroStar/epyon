@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - `GET /api/findings/search` now returns a generic 400 for missing required parameters and invalid boolean values, without exposing FastAPI validation details.
+- Cross-application finding search now preserves all contributing scanner tools from merged findings summaries.
 
 ## [3.44.0] - 2026-10-21
 

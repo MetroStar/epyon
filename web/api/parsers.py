@@ -1977,6 +1977,7 @@ def load_enriched_findings(scan_dir: Path) -> dict | None:
             fix_versions = f.get("fix_versions") or []
             out.append({
                 "tool":              f.get("tool", ""),
+                "detected_by":       f.get("detected_by", []),
                 "type":              f.get("type", ""),
                 "severity":          (f.get("severity") or "unknown").lower(),
                 "id":                f.get("vulnerability_id") or f.get("id") or "—",

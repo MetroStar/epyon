@@ -480,6 +480,7 @@ def build_ticket_candidates(
     candidates: list[dict] = []
     display_fields = (
         "tool", "type", "id", "severity", "package", "version",
+        "detected_by",
         "fixed_version", "title", "description", "target", "location",
         "line", "references", "cisa_kev", "nvd_cvss_v3_score",
         "nvd_cvss_v3_severity", "cvss_score", "cvss_vector", "nvd_url",

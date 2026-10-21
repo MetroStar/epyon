@@ -1,6 +1,7 @@
 """Cross-application CVE/package search (MID-4485)."""
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -10,7 +11,7 @@ from fastapi.testclient import TestClient
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "web"))
 
-from api import finding_search  # noqa: E402
+from api import finding_search, parsers  # noqa: E402
 from api import main as api_main  # noqa: E402
 
 
@@ -41,6 +42,7 @@ def test_exact_match_returns_public_fields():
     assert found[0]["id"] == "CVE-2024-0001"
     assert found[0]["fixed_version"] == "1.1"
     assert found[0]["package"] == "libfoo"
+    assert found[0]["tools"] == ["grype"]
 
 
 def test_same_cve_from_two_tools_is_deduplicated_with_both_tools():
@@ -51,6 +53,27 @@ def test_same_cve_from_two_tools_is_deduplicated_with_both_tools():
     assert sorted(found[0]["tools"]) == ["grype", "trivy"]
     assert found[0]["severity"] == "critical"
     assert found[0]["fixed_version"] == "2.0"
+
+
+def test_summary_preserves_tools_merged_by_findings_summary(tmp_path):
+    summary = {
+        "summary": {"tools_analyzed": ["grype-sbom", "trivy-filesystem"]},
+        "high_findings": [{
+            "tool": "grype-sbom",
+            "detected_by": ["grype-sbom", "trivy-filesystem"],
+            "vulnerability_id": "CVE-2024-0001",
+            "severity": "high",
+            "package_name": "libfoo",
+        }],
+    }
+    (tmp_path / "security-findings-summary.json").write_text(json.dumps(summary))
+    findings = parsers.load_enriched_findings(tmp_path)
+
+    result = finding_search.search_scan(
+        {"findings": findings}, "app-a", "cve-2024-0001", "id"
+    )
+
+    assert result[0]["tools"] == ["grype-sbom", "trivy-filesystem"]
 
 
 def test_package_field_matches_package_not_id():

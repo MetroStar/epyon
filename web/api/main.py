@@ -1346,7 +1346,8 @@ def findings_search(
             continue
         app_name = scan["target"]
         scan_data = parsers.load_scan_complete(scan_dir, EPYON_ROOT)
-        project_key = jira_client.read_config(app_name).get("project_key", "")
+        jira_cfg = jira_client.read_config(app_name)
+        project_key = jira_cfg.get("project_key", "")
         findings = finding_search.search_scan(
             scan_data, app_name, needle, field, project_key, ticket_map
         )
@@ -1357,6 +1358,7 @@ def findings_search(
                 "timestamp": scan.get("timestamp", ""),
                 "is_latest": scan["is_latest"],
                 "project_key": project_key,
+                "jira_base_url": (jira_cfg.get("base_url") or "").rstrip("/"),
                 "findings": findings,
             })
     applications.sort(key=lambda a: (a["app_name"].lower(), a["timestamp"]), reverse=False)

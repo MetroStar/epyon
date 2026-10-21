@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.45.1] - 2026-10-21
+
+### Fixed
+- CVE search results now use keyboard-accessible links, safely navigate without interpolating scan data into JavaScript, and open the exact package finding even when it falls beyond the scan detail table's 200-row display limit.
+
 ## [3.44.1] - 2026-10-21
 
 ### Fixed

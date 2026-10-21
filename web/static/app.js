@@ -1290,17 +1290,18 @@ function cveSearchResultsHtml(data) {
     return `<div class="cve-search-empty">“${esc(data.query)}” was not found in any monitored application.</div>`;
   }
   const rows = data.applications.map(appEntry => appEntry.findings.map(f => {
-    const href = `#/scans/${encodeURIComponent(appEntry.scan_id)}?finding=${encodeURIComponent(f.id)}`;
+    const query = new URLSearchParams({ finding: f.id, package: f.package || '' });
+    const href = `#/scans/${encodeURIComponent(appEntry.scan_id)}?${query}`;
     const ticket = f.jira_issue_key
       ? (appEntry.jira_base_url
-          ? `<a href="${esc(appEntry.jira_base_url)}/browse/${encodeURIComponent(f.jira_issue_key)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(f.jira_issue_key)}</a>`
+          ? `<a href="${esc(appEntry.jira_base_url)}/browse/${encodeURIComponent(f.jira_issue_key)}" target="_blank" rel="noopener">${esc(f.jira_issue_key)}</a>`
           : esc(f.jira_issue_key))
       : '—';
     return `
-      <tr class="finding-row" onclick="navigate('${href}')" title="Open finding in scan">
+      <tr class="finding-row" title="Open finding in scan">
         <td>${esc(appEntry.app_name)}${appEntry.is_latest ? '' : ' <span class="tool-tag">earlier scan</span>'}</td>
         <td><span class="sev-badge ${esc(f.severity)}">${esc(ucFirst(f.severity))}</span></td>
-        <td>${esc(f.id)}${f.suppressed ? ' <span class="tool-tag">suppressed</span>' : ''}</td>
+        <td><a href="${esc(href)}" data-href="${esc(href)}" onclick="if (event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey) { event.preventDefault(); navigate(this.dataset.href); }">${esc(f.id)}</a>${f.suppressed ? ' <span class="tool-tag">suppressed</span>' : ''}</td>
         <td>${(f.tools || []).map(t => `<span class="tool-tag">${esc(t)}</span>`).join(' ')}</td>
         <td>${esc(f.package || '—')}</td>
         <td>${esc(f.version || '—')}</td>
@@ -1617,7 +1618,7 @@ async function renderAppDetail(name) {
 
 // ─────────────────────────────────────────────────────────────
 
-async function renderScanDetail(scanId, openFindingId = '') {
+async function renderScanDetail(scanId, openFindingId = '', openFindingPackage = '') {
   setActive('');
   const page = document.getElementById('page');
   page.innerHTML = loading();
@@ -1912,10 +1913,32 @@ async function renderScanDetail(scanId, openFindingId = '') {
     calculateScorecardForScan(scanId);
 
     if (openFindingId) {
-      const want = openFindingId.toLowerCase();
+      const wantId = openFindingId.toLowerCase();
+      const wantPackage = openFindingPackage.toLowerCase();
+      let findingId = null;
       for (const [rid, f] of _findingsRegistry) {
-        if (String(f.id || '').toLowerCase() === want) { openFindingDetail(rid); break; }
+        const packageName = String(f.package || f.component || '').toLowerCase();
+        if (String(f.id || '').toLowerCase() === wantId &&
+            (!wantPackage || packageName === wantPackage)) {
+          findingId = rid;
+          break;
+        }
       }
+      if (findingId === null) {
+        const severities = ['critical', 'high', 'medium', 'low'];
+        for (const severity of severities) {
+          const finding = (scan.findings[`${severity}_findings`] || []).find(f => {
+            const packageName = String(f.package || f.component || '').toLowerCase();
+            return String(f.id || '').toLowerCase() === wantId &&
+              (!wantPackage || packageName === wantPackage);
+          });
+          if (finding) {
+            findingId = _registerFinding(finding);
+            break;
+          }
+        }
+      }
+      if (findingId !== null) openFindingDetail(findingId);
     }
   } catch (e) {
     page.innerHTML = errBanner(e.message);
@@ -8789,7 +8812,7 @@ function resolve() {
     scanId ? renderJiraReview(scanId) : renderApplications();
   } else if (path.startsWith('/scans/')) {
     const scanId = decodeURIComponent(path.slice('/scans/'.length));
-    scanId ? renderScanDetail(scanId, params.get('finding') || '') : renderApplications();
+    scanId ? renderScanDetail(scanId, params.get('finding') || '', params.get('package') || '') : renderApplications();
   } else if (path === '/new-scan') {
     renderNewScan(params.get('target') || '');
   } else if (path === '/metrics') {

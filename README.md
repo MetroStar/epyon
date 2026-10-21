@@ -510,6 +510,8 @@ docker compose up -d --build
 | `ANCHORE_POLICY_MAX_CRITICAL` | `0` | Critical CVEs allowed before the policy gate (`anchore-policy-evaluation.json`) reports `stop` |
 | `ANCHORE_POLICY_MAX_HIGH` | `5` | High CVEs allowed before the policy gate reports `warn` |
 
+**Cross-application finding search (v3.44.1+):** `GET /api/findings/search?q=CVE-2024-0001` returns every monitored application whose latest scan contains that CVE/advisory ID. Add `field=package` to match a package name instead, and `include_history=true` to search every scan in the 35-day window. `q` is required and must be 3–100 characters (letters, digits, `. _ : @ / + -`); invalid or missing parameters return a generic `400`. Results include severity, tools, package/fixed version, suppression state and any linked Jira issue.
+
 > **Note:** The scans displayed in the UI are read from the `scans/` directory at the repo root by default. Point `EPYON_SCANS_DIR` to a different path if your results live elsewhere.
 >
 > **Anchore v3.9.0+:** The scanner **automatically detects** image characteristics (OS, architecture, runtime) and prevents false positives without manual configuration. Manual overrides (`ANCHORE_*` env vars) are only needed for special cases. See **[documentation/ANCHORE_CONFIGURATION_GUIDE.md](documentation/ANCHORE_CONFIGURATION_GUIDE.md)** for details.

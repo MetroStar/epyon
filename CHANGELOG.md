@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.44.1] - 2026-10-21
+
+### Fixed
+- `GET /api/findings/search` now returns a generic 400 for missing required parameters and invalid boolean values, without exposing FastAPI validation details.
+
+## [3.44.0] - 2026-10-21
+
+### Added
+- `GET /api/findings/search` finds every application affected by a CVE/advisory ID or package across the latest scans (optionally the full 35-day history), deduplicated across tools with suppression and Jira-ticket state (MID-4485).
+
 ## [3.43.0] - 2026-10-19
 
 ### Added

@@ -79,8 +79,8 @@ not a required status check in branch protection.
 
 ## Pinning Epyon in a target repository
 
-Pin the reusable workflow to a release tag, or to the commit SHA the tag points at
-for the strongest guarantee:
+Pinning the reusable workflow to a release tag or commit SHA pins the workflow
+definition, not necessarily the scanner implementation:
 
 ```yaml
 jobs:
@@ -89,5 +89,7 @@ jobs:
     # or: ...epyon-scan.yml@<full commit SHA> # vX.Y.Z
 ```
 
-The Epyon version a scan reports comes from the `VERSION` file at that ref, which
-equals the tag for every released version.
+The current workflow separately checks out the scanner from `main` and reads
+`VERSION` from that checkout. As a result, the scanner code and reported version
+can change as `main` advances, regardless of the workflow ref above. A tag or
+SHA pin alone therefore does not guarantee a fixed scanner version.

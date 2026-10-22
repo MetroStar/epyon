@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.47.1] - 2026-10-22
+
+### Fixed
+- Clarified that pinning the reusable workflow does not pin scanner implementation, which is currently checked out from `main`.
+
 ## [3.47.0] - 2026-10-21
 
 ### Added

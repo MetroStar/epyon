@@ -1464,7 +1464,7 @@ async function cveBulkConfirm() {
         res.created.forEach(c => r.keys.push(c.issue_key || c.key));
       }
     } catch (e) {
-      r.failed = g.eligible.length;
+      r.failed = g.eligible.length - r.created - r.existing;
       r.note = e.message;
     }
     results.push(r);

@@ -176,6 +176,7 @@ case "${SCAN_MODE:-full}" in
     SCAN_MODE="full"
     ;;
 esac
+export SCAN_MODE
 
 # Support invocation from workspace root or from inside ./epyon.
 if [[ -d "epyon" && -f "epyon/VERSION" ]]; then
@@ -1276,7 +1277,7 @@ run_group "Validate Scan Output Contract" bash -lc '
   if [[ "${BUILD_ENABLED:-false}" == "true" ]]; then
     VALIDATOR_ARGS="$VALIDATOR_ARGS --require-build"
   fi
-  if [[ "${SKIP_SBOM:-false}" == "true" ]]; then
+  if [[ "${SKIP_SBOM:-false}" == "true" || "${SCAN_MODE:-full}" == "stig" ]]; then
     VALIDATOR_ARGS="$VALIDATOR_ARGS --no-require-sbom"
   fi
   ./scripts/shell/validate-scan-output.sh "$SCAN_DIR" --require-ssp $VALIDATOR_ARGS

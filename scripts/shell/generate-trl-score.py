@@ -731,7 +731,7 @@ def calculate_trl(dimension_scores: Dict[str, Dict], weights: Dict[str, float]) 
         return 1
 
 
-def get_blockers(dimension_scores: Dict[str, Dict]) -> List[str]:
+def get_blockers(dimension_scores: Dict[str, Dict], scan_type: str = "full") -> List[str]:
     """Identify critical blockers that cap TRL advancement."""
     blockers = []
     
@@ -744,7 +744,8 @@ def get_blockers(dimension_scores: Dict[str, Dict]) -> List[str]:
         blockers.append(f"CRITICAL: {sec['critical_cve']} critical CVE(s) present")
     
     sc = dimension_scores["supply_chain"]["details"]
-    if not sc.get("sbom_exists"):
+    # STIG-only runs do not generate an SBOM, so its absence is not a blocker there.
+    if not sc.get("sbom_exists") and scan_type != "stig":
         blockers.append("BLOCKER: No SBOM present")
     if sc.get("critical_eol", 0) > 0:
         blockers.append(f"HIGH: {sc['critical_eol']} critical EOL component(s)")
@@ -834,7 +835,7 @@ def main():
     )
     
     # Identify blockers
-    blockers = get_blockers(dimension_scores)
+    blockers = get_blockers(dimension_scores, scan_type)
     
     # Build output
     output = {

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.53.2] - 2026-10-23
+
+### Fixed
+- STIG-only scans no longer fail the output contract with `MISSING: sbom/` or report "No SBOM present" as a Score Card blocker; Layer 1 does not run in `stig` mode, so neither check applies there.
+
 ## [3.53.1] - 2026-10-23
 
 ### Changed

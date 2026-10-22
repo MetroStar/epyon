@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.54.1] - 2026-10-22
+
+### Added
+- Settings → AI: the OpenAI model is a dropdown filled from the models your `OPENAI_API_KEY` can use (`GET /api/ai/openai-models`), with frontier models such as `gpt-5.5` listed first.
+- The web server loads the gitignored `.env.local` at startup without overriding shell variables.
+
+### Fixed
+- Scans with the OpenAI provider failed with "Connection error" because an empty `OPENAI_BASE_URL` reached the SDK. The variable is now removed.
+- STIG assessment works with `gpt-5.x` / `o`-series models, which reject `max_tokens` and `temperature=0`.
+- The OpenAI provider option is disabled, with a hint, when `OPENAI_API_KEY` is not loaded.
+
 ## [3.54.0] - 2026-10-23
 
 ### Added

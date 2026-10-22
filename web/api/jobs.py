@@ -646,7 +646,8 @@ async def run_scan_job(
     if openai_base_url:
         env["OPENAI_BASE_URL"] = openai_base_url
     elif use_openai:
-        env["OPENAI_BASE_URL"] = ""  # override any local endpoint inherited from the shell
+        # Drop any inherited local endpoint; an empty value breaks the OpenAI SDK.
+        env.pop("OPENAI_BASE_URL", None)
     env["OPENAI_MODEL"] = openai_summary.get_model()
     if github_token:
         env["GH_PAT"] = github_token

@@ -33,3 +33,17 @@ def test_auto_keeps_existing_precedence(monkeypatch, tmp_path):
     assert o.get_provider() == "auto"
     assert o.get_model() == "gemma-local"
     assert o.get_api_key() == "sk-real"
+
+
+def test_completion_kwargs_by_model():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "sa", Path(__file__).resolve().parents[2] / "scripts/shell/run-stig-assessment.py")
+    sa = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(sa)
+    gpt5 = sa._completion_kwargs("gpt-5.5", 300)
+    assert "max_tokens" not in gpt5 and "temperature" not in gpt5
+    assert gpt5["max_completion_tokens"] >= 8000
+    legacy = sa._completion_kwargs("gpt-4o-mini", 300, 7)
+    assert legacy["max_tokens"] == 300 and legacy["temperature"] == 0 and legacy["seed"] == 7
+    assert "max_completion_tokens" not in sa._completion_kwargs("gemma4-31b", 300)

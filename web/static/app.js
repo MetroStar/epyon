@@ -986,6 +986,7 @@ const api = {
   getMetrics()       { return this._get('/api/metrics'); },
   getGitHubMetrics()         { return this._get('/api/github-metrics'); },
   getGitHubSignalsHistory()  { return this._get('/api/github-signals-history'); },
+  getOpenAiModels() { return this._get('/api/ai/openai-models'); },
   getAiConfig() { return this._get('/api/ai/config'); },
   saveAiConfig(d){ return this._post('/api/ai/config', d); },
   getNvdConfig() { return this._get('/api/nvd/config'); },
@@ -6696,8 +6697,10 @@ async function renderSettings() {
           </div>
           <div id="ai-openai-model-row" style="display:${aiCfg.provider === 'openai' ? 'block' : 'none'}">
             <label class="field-label">OpenAI Model</label>
-            <input id="ai-openai-model" type="text" class="field-input" list="ai-model-suggestions"
-              placeholder="gpt-5.5" value="${esc(aiCfg.openai_model || '')}"/>
+            <select id="ai-openai-model" class="field-input">
+              ${[...new Set([aiCfg.openai_model || 'gpt-4o-mini', 'gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5', 'o3', 'gpt-4.1', 'gpt-4o', 'gpt-4o-mini'])]
+                .map(m => `<option value="${esc(m)}" ${m === (aiCfg.openai_model || 'gpt-4o-mini') ? 'selected' : ''}>${esc(m)}</option>`).join('')}
+            </select>
           </div>
           <div>
             <label class="field-label">Primary Base URL <span style="color:var(--text-muted);font-weight:normal">(blank = public OpenAI API)</span></label>
@@ -7007,9 +7010,22 @@ async function renderSettings() {
           ${tools.map(t => `<span class="tool-tag">${esc(t)}</span>`).join('')}
         </div>
       </div>`;
+    if (aiCfg.key_set) loadOpenAiModels();
   } catch (e) {
     page.innerHTML = errBanner(e.message);
   }
+}
+
+async function loadOpenAiModels() {
+  const sel = document.getElementById('ai-openai-model');
+  if (!sel) return;
+  try {
+    const { models } = await api.getOpenAiModels();
+    if (!models || !models.length) return;
+    const cur = sel.value;
+    const all = [...new Set([cur, ...models])];
+    sel.innerHTML = all.map(m => `<option value="${esc(m)}" ${m === cur ? 'selected' : ''}>${esc(m)}</option>`).join('');
+  } catch (_) { /* keep the static list */ }
 }
 
 function aiProviderChanged() {

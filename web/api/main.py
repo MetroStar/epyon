@@ -40,6 +40,24 @@ from . import scan_store
 
 # ── Paths ─────────────────────────────────────────────────────
 _HERE        = Path(__file__).parent
+
+
+def _load_env_local() -> None:
+    """Load KEY=VALUE pairs from the repo's gitignored .env.local without overriding the shell."""
+    path = _HERE.parent.parent / ".env.local"
+    if not path.is_file():
+        return
+    for line in path.read_text(errors="ignore").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, val = line.removeprefix("export ").partition("=")
+        key, val = key.strip(), val.strip().strip("'\"")
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key) and val:
+            os.environ.setdefault(key, val)
+
+
+_load_env_local()
 EPYON_ROOT   = (_HERE / ".." / "..").resolve()
 VERSION_FILE = EPYON_ROOT / "VERSION"
 EPYON_VERSION = VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.exists() else "unknown"
@@ -3085,6 +3103,35 @@ def github_sync_status(response: Response):
 
 
 # ── AI / OpenAI config ────────────────────────────────────────
+
+@app.get("/api/ai/openai-models")
+async def list_openai_models():
+    """List chat models available to the server's OPENAI_API_KEY (public OpenAI API only)."""
+    key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not key:
+        raise HTTPException(400, "OPENAI_API_KEY is not set in the server environment")
+
+    def _fetch() -> list:
+        import urllib.request
+        req = urllib.request.Request(
+            "https://api.openai.com/v1/models", headers={"Authorization": f"Bearer {key}"}
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310 - fixed https URL
+            data = json.loads(resp.read())
+        skip = ("audio", "realtime", "tts", "transcribe", "image", "search",
+                "embedding", "moderation", "instruct", "codex", "live")
+        ids = {m["id"] for m in data.get("data", [])
+               if m["id"].startswith(("gpt-", "o1", "o3", "o4"))
+               and not any(t in m["id"] for t in skip)
+               and not re.search(r"-\d{4}-\d{2}-\d{2}$", m["id"])}
+        return sorted(ids, reverse=True)
+
+    try:
+        models = await asyncio.get_running_loop().run_in_executor(None, _fetch)
+    except Exception:
+        raise HTTPException(502, "Could not list models from the OpenAI API")
+    return {"models": models}
+
 
 @app.get("/api/ai/config")
 def ai_config_get(response: Response):

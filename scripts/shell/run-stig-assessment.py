@@ -1463,6 +1463,14 @@ Reply ONLY with valid JSON — no markdown, no explanation:
 {"applicable": true, "reason": "one sentence"}"""
 
 
+def _completion_kwargs(model: str, max_out: int, seed: int = 42) -> dict:
+    """Sampling/limit kwargs; gpt-5*/o-series reject max_tokens and temperature=0."""
+    name = model.lower().split("/")[-1]
+    if name.startswith(("gpt-5", "gpt-6", "o1", "o3", "o4")) and "chat" not in name:
+        return {"max_completion_tokens": max(max_out, 8000)}
+    return {"temperature": 0, "top_p": 1.0, "seed": seed, "max_tokens": max_out}
+
+
 def check_stig_applicability(
     client: Any,
     model: str,
@@ -1491,10 +1499,7 @@ def check_stig_applicability(
     try:
         response = client.chat.completions.create(
         model=model,
-        temperature=0,
-        top_p=1.0,
-        seed=42,
-        max_tokens=300,
+        **_completion_kwargs(model, 300),
         messages=[
             {"role": "system", "content": _APPLICABILITY_SYSTEM_PROMPT},
             {"role": "user",   "content": user_message},
@@ -1606,10 +1611,7 @@ def call_openai(
 
     response = client.chat.completions.create(
         model=model,
-        temperature=0,
-        top_p=1.0,
-        seed=_seed,
-        max_tokens=int(os.environ.get("EPYON_AI_MAX_TOKENS", "16384") or 16384),
+        **_completion_kwargs(model, int(os.environ.get("EPYON_AI_MAX_TOKENS", "16384") or 16384), _seed),
         messages=[
             {"role": "system", "content": system_prompt()},
             {"role": "user",   "content": user_message},
@@ -2332,6 +2334,9 @@ def main() -> None:
     model    = os.environ.get("OPENAI_MODEL", args.model)
     api_key  = os.environ.get("OPENAI_API_KEY", "")
     base_url = os.environ.get("OPENAI_BASE_URL", args.base_url).strip()
+    if not base_url:
+        # The SDK reads OPENAI_BASE_URL itself; an empty value gives "missing protocol".
+        os.environ.pop("OPENAI_BASE_URL", None)
 
     # Validate base_url if provided — SSRF guard
     if base_url:

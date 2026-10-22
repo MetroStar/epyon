@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The ETK record output, citation verification and published-review locking from 3.48.0 to 3.50.0 are now opt-in via `EPYON_STIG_FORMAT=etk`; the default is unchanged legacy output until the new format is validated.
 - STIG documentation, README and Copilot instructions describe the switch, rollback and the scope of this release (ML controls stay on their existing path).
 
+## [3.52.1] - 2026-10-23
+
+### Added
+- Manual "Add to Jira" for STIG controls: tick controls in the STIG viewer (or use the button in a control's drawer) and choose the Jira board (project key, with known boards suggested), issue type, Epic, optional tracking ticket and triager. Nothing is redirected and the application's saved board is not changed. New endpoints `GET /api/scans/{id}/stig-jira-context` and `POST /api/scans/{id}/stig-jira-tickets`; `jira-epics` accepts a `project_key` override (MID-4536).
+
 ## [3.52.0] - 2026-10-23
 
 ### Added

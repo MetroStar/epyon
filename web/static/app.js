@@ -13,6 +13,7 @@ let   _jiraEpicModalState   = null;
 
 // ── STIG control detail registry (populated in renderStigViewer) ─
 const _stigRegistry = new Map();
+const _stigJiraSel = new Set();
 
 // ── Dependency detail registry (populated in sbomRender) ──────
 const _depsRegistry         = new Map();
@@ -1024,7 +1025,12 @@ const api = {
   reassignJiraTickets(name) { return this._post(`/api/jira/reassign/${encodeURIComponent(name)}`, {}); },
   syncJiraApp(name)    { return this._post(`/api/jira/sync/${encodeURIComponent(name)}`, {}); },
   getJiraCandidates(id) { return this._get(`/api/scans/${encodeURIComponent(id)}/jira-candidates`, false); },
-  getScanJiraEpics(id) { return this._get(`/api/scans/${encodeURIComponent(id)}/jira-epics`, false); },
+  getScanJiraEpics(id, projectKey) {
+    const q = projectKey ? `?project_key=${encodeURIComponent(projectKey)}` : '';
+    return this._get(`/api/scans/${encodeURIComponent(id)}/jira-epics${q}`, false);
+  },
+  getStigJiraContext(id) { return this._get(`/api/scans/${encodeURIComponent(id)}/stig-jira-context`, false); },
+  createStigJiraTickets(id, body) { return this._post(`/api/scans/${encodeURIComponent(id)}/stig-jira-tickets`, body); },
   createJiraTickets(id, fingerprints, epicChoice) {
     return this._post(`/api/scans/${encodeURIComponent(id)}/jira-tickets`, {
       fingerprints,
@@ -7533,11 +7539,15 @@ async function renderStigViewer(scanId) {
         return '<div class="stig-empty">No controls match the current filters.</div>';
       }
       return `
-        <div class="stig-viewer-count">${rows.length} control${rows.length !== 1 ? 's' : ''}</div>
+        <div class="stig-viewer-count" style="display:flex;align-items:center;gap:12px">
+          <span>${rows.length} control${rows.length !== 1 ? 's' : ''}</span>
+          <button class="btn" id="stig-jira-bulk" onclick="openStigJiraModal('${esc(scanId)}')" ${_stigJiraSel.size ? '' : 'disabled'}>Add ${_stigJiraSel.size || ''} to Jira</button>
+        </div>
         <div class="stig-table-wrap">
           <table class="stig-table">
             <thead>
               <tr>
+                <th style="width:32px"><input type="checkbox" aria-label="Select all shown" onclick="event.stopPropagation(); stigJiraToggleAll(this.checked)" ${rows.length && rows.every(r => _stigJiraSel.has(`${r.vuln_id}__${r._slug}`)) ? 'checked' : ''}></th>
                 ${[
                   ['vuln_id',    '100px', 'STIG #'],
                   ['severity',   '70px',  'Severity'],
@@ -7563,6 +7573,7 @@ async function renderStigViewer(scanId) {
                 const confClass = conf >= 90 ? 'conf-high' : conf >= 70 ? 'conf-med' : conf >= 40 ? 'conf-low' : 'conf-none';
                 return `
                   <tr class="stig-tr stig-tr-clickable" id="${rowId}" onclick="openStigDetail('${esc(regKey)}')">
+                    <td onclick="event.stopPropagation()"><input type="checkbox" aria-label="Select ${esc(c.vuln_id)}" ${_stigJiraSel.has(regKey) ? 'checked' : ''} onchange="stigJiraToggle('${esc(regKey)}', this.checked)"></td>
                     <td><code class="stig-id">${esc(c.group_id || c.vuln_id)}</code></td>
                     <td><span class="stig-sev stig-sev-${esc(c.severity)}">${esc(c.severity || '—')}</span></td>
                     <td><span class="${esc(STATUS_CLASS[c.status] || 'stig-status-nr')}">${esc(stigStatusLabel(c.status))}</span>${c.locked_by_human ? ' <span class="stig-lock-badge" title="Human-reviewed; locked until a listed path changes">🔒</span>' : ''}${c.locked_by_stability ? ' <span class="stig-lock-badge" title="No repository evidence found across repeated scans — not re-assessed by AI to save time/tokens until code changes">💤</span>' : ''}</td>
@@ -7646,6 +7657,18 @@ async function renderStigViewer(scanId) {
     };
     window.openStigDetail = (regKey) => {
       openStigViewerDetail(regKey);
+    };
+    _stigJiraSel.clear();
+    window.stigJiraToggle = (regKey, on) => {
+      if (on) _stigJiraSel.add(regKey); else _stigJiraSel.delete(regKey);
+      repaint();
+    };
+    window.stigJiraToggleAll = (on) => {
+      rows.forEach(r => {
+        const k = `${r.vuln_id}__${r._slug}`;
+        if (on) _stigJiraSel.add(k); else _stigJiraSel.delete(k);
+      });
+      repaint();
     };
 
     const counts = countsByStatus();
@@ -8627,6 +8650,119 @@ async function showJiraEpicModal(quickCtx = null) {
   await jiraEpicModalLoad(state.scanId);
 }
 
+async function openStigJiraModal(scanId, regKeys) {
+  const keys = regKeys || [..._stigJiraSel];
+  const controls = keys.map(k => _stigRegistry.get(k)?.c).filter(Boolean);
+  if (!controls.length) return;
+  document.querySelector('.modal-overlay')?.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal-container" style="max-width:520px"><div id="stig-jira-body">${loading()}</div></div>`;
+  document.body.appendChild(overlay);
+  const body = overlay.querySelector('#stig-jira-body');
+  let ctx;
+  try {
+    ctx = await api.getStigJiraContext(scanId);
+  } catch (e) {
+    body.innerHTML = `<p style="color:var(--danger,#dc2626)">${esc(e.message)}</p><button class="btn" onclick="stigJiraClose()">Close</button>`;
+    return;
+  }
+  if (!ctx.jira_configured) {
+    body.innerHTML = `<p style="color:var(--text)">Jira is not configured. Set it up on the Jira page first.</p><button class="btn" onclick="stigJiraClose()">Close</button>`;
+    return;
+  }
+  const n = controls.length;
+  body.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2 style="color:var(--text);margin:0">Add ${n} STIG control${n === 1 ? '' : 's'} to Jira</h2>
+      <button class="btn" onclick="stigJiraClose()" style="padding:6px 12px">✕</button>
+    </div>
+    <div style="margin-bottom:14px">
+      <label class="field-label" for="stig-jira-project">Jira board (project key)</label>
+      <input id="stig-jira-project" class="field-input" list="stig-jira-projects" maxlength="10" value="${esc(ctx.project_key)}"
+        placeholder="MID, SAP, IRIS…" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" onchange="stigJiraProjectChanged('${esc(scanId)}')">
+      <datalist id="stig-jira-projects">${(ctx.known_projects || []).map(k => `<option value="${esc(k)}">`).join('')}</datalist>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Tickets are created in this board. This does not change the application's saved board.</div>
+    </div>
+    <div style="margin-bottom:14px">
+      <label class="field-label" for="stig-jira-type">Issue type</label>
+      <select id="stig-jira-type" class="field-input"><option value="">Default</option></select>
+    </div>
+    <div style="margin-bottom:14px">
+      <label class="field-label" for="stig-jira-epic">Epic (optional)</label>
+      <select id="stig-jira-epic" class="field-input"><option value="">None</option></select>
+    </div>
+    <div style="margin-bottom:14px">
+      <label class="field-label" for="stig-jira-tracker">Tracking ticket (optional)</label>
+      <input id="stig-jira-tracker" class="field-input" maxlength="20" placeholder="e.g. MID-123"
+        oninput="this.value=this.value.toUpperCase()">
+      <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Links each new ticket to this one. Must be in the chosen board.</div>
+    </div>
+    <div style="margin-bottom:14px">
+      <label class="field-label" for="stig-jira-by">Triaged by (optional)</label>
+      <input id="stig-jira-by" class="field-input" maxlength="100">
+    </div>
+    <div id="stig-jira-result" style="font-size:13px;margin-bottom:10px"></div>
+    <div style="display:flex;justify-content:flex-end;gap:10px">
+      <button class="btn" onclick="stigJiraClose()">Close</button>
+      <button id="stig-jira-submit" class="btn btn-primary">Create ticket${n === 1 ? '' : 's'}</button>
+    </div>`;
+  const fill = async () => {
+    const pk = document.getElementById('stig-jira-project')?.value.trim();
+    const typeSel = document.getElementById('stig-jira-type');
+    const epicSel = document.getElementById('stig-jira-epic');
+    if (!pk || !typeSel) return;
+    try {
+      const e = await api.getScanJiraEpics(scanId, pk);
+      typeSel.innerHTML = '<option value="">Default</option>' +
+        (e.issue_types || []).map(t => `<option value="${esc(t.name)}">${esc(t.name)}</option>`).join('');
+      epicSel.innerHTML = '<option value="">None</option>' +
+        (e.existing || []).map(x => `<option value="${esc(x.key)}">${esc(x.key)} — ${esc(x.summary || x.name || '')}</option>`).join('');
+    } catch (_) { /* pickers stay at defaults */ }
+  };
+  window.stigJiraProjectChanged = fill;
+  document.getElementById('stig-jira-submit').onclick = async () => {
+    const btn = document.getElementById('stig-jira-submit');
+    const out = document.getElementById('stig-jira-result');
+    const val = id => document.getElementById(id).value.trim();
+    const project = val('stig-jira-project');
+    if (!project) { out.style.color = 'var(--danger,#dc2626)'; out.textContent = 'Choose a Jira board.'; return; }
+    btn.disabled = true; btn.textContent = 'Creating…';
+    try {
+      const res = await api.createStigJiraTickets(scanId, {
+        controls: controls.map(c => ({ slug: c._slug, vuln_id: c.vuln_id })),
+        project_key: project,
+        epic_key: val('stig-jira-epic') || null,
+        issue_type: val('stig-jira-type') || null,
+        tracker_key: val('stig-jira-tracker') || null,
+        triaged_by: val('stig-jira-by') || null,
+      });
+      const link = t => {
+        const href = ctx.jira_base_url ? `${ctx.jira_base_url}/browse/${encodeURIComponent(t.issue_key)}` : '';
+        return href ? `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(t.issue_key)}</a>` : esc(t.issue_key);
+      };
+      const parts = [];
+      if (res.created.length) parts.push(`Created in ${esc(res.project_key)}: ${res.created.map(link).join(', ')}`);
+      if (res.already_exists.length) parts.push(`Already ticketed: ${res.already_exists.map(link).join(', ')}`);
+      const bad = [...res.failed, ...res.ineligible];
+      if (bad.length) parts.push(`Not created: ${bad.map(b => esc(`${b.vuln_id} (${b.reason})`)).join(', ')}`);
+      out.style.color = bad.length ? 'var(--danger,#dc2626)' : 'var(--text)';
+      out.innerHTML = parts.join('<br>');
+      btn.textContent = 'Done';
+      if (res.created.length) { _stigJiraSel.clear(); }
+    } catch (e) {
+      out.style.color = 'var(--danger,#dc2626)';
+      out.textContent = `Ticket creation failed: ${e.message}`;
+      btn.disabled = false; btn.textContent = 'Create tickets';
+    }
+  };
+  fill();
+}
+
+function stigJiraClose() {
+  document.querySelector('.modal-overlay')?.remove();
+}
+
 function jiraEpicModalClose() {
   document.querySelector('.modal-overlay')?.remove();
   _jiraQuickCtx = null;
@@ -9277,6 +9413,11 @@ function openStigViewerDetail(regKey) {
       <div class="finding-detail-section" style="margin-top:12px">
         <div class="finding-detail-label">Remediation</div>
         <div style="margin-top:6px;font-size:13px;line-height:1.6;color:var(--text)">${esc(c.fix_text || '—').replace(/\n/g, '<br>')}</div>
+      </div>
+
+      <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
+        <button class="btn btn-primary" onclick="openStigJiraModal('${esc(scanId)}', ['${esc(regKey)}'])">Add to Jira</button>
+        <span id="stig-jira-drawer-status" style="margin-left:10px;font-size:12px"></span>
       </div>
 
       <div class="stig-override-section" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">

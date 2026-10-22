@@ -6688,7 +6688,7 @@ async function renderSettings() {
             <select id="ai-provider" class="field-input" onchange="aiProviderChanged()">
               <option value="auto" ${aiCfg.provider === 'auto' ? 'selected' : ''}>Auto (settings, then environment)</option>
               <option value="local" ${aiCfg.provider === 'local' ? 'selected' : ''}>Local / self-hosted (Ollama, vLLM…)</option>
-              <option value="openai" ${aiCfg.provider === 'openai' ? 'selected' : ''}>OpenAI (uses OPENAI_API_KEY)</option>
+              <option value="openai" ${aiCfg.provider === 'openai' ? 'selected' : ''} ${aiCfg.key_set ? '' : 'disabled'}>OpenAI (uses OPENAI_API_KEY)${aiCfg.key_set ? '' : ' — key not loaded; restart server with .env.local sourced'}</option>
             </select>
             <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
               Applies to summaries and STIG scans. OpenAI ignores the local URL below; Local never sends your OpenAI key.
@@ -6697,7 +6697,7 @@ async function renderSettings() {
           <div id="ai-openai-model-row" style="display:${aiCfg.provider === 'openai' ? 'block' : 'none'}">
             <label class="field-label">OpenAI Model</label>
             <input id="ai-openai-model" type="text" class="field-input" list="ai-model-suggestions"
-              placeholder="gpt-4o-mini" value="${esc(aiCfg.openai_model || '')}"/>
+              placeholder="gpt-5.5" value="${esc(aiCfg.openai_model || '')}"/>
           </div>
           <div>
             <label class="field-label">Primary Base URL <span style="color:var(--text-muted);font-weight:normal">(blank = public OpenAI API)</span></label>
@@ -6714,6 +6714,11 @@ async function renderSettings() {
               placeholder="gpt-4o-mini, llama3.1:8b, gemma4:26b, ..."
               value="${esc(aiCfg.model || '')}"/>
             <datalist id="ai-model-suggestions">
+              <option value="gpt-5.5">
+              <option value="gpt-5.4">
+              <option value="gpt-5.4-mini">
+              <option value="gpt-5">
+              <option value="o3">
               <option value="gpt-4.1">
               <option value="gpt-4o">
               <option value="gpt-4o-mini">

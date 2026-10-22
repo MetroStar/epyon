@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.53.4] - 2026-10-23
+
+### Fixed
+- Scans started from the web UI now use the model chosen in AI settings (`OPENAI_MODEL`) together with the configured base URL, instead of falling back to `gpt-4o-mini` on a self-hosted endpoint that does not serve it.
+
 ## [3.53.3] - 2026-10-23
 
 ### Fixed

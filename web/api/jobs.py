@@ -540,6 +540,10 @@ async def run_scan_job(
     openai_base_url = openai_summary.get_base_url() or os.environ.get("OPENAI_BASE_URL", "")
     if openai_base_url:
         env_lines.append(f"OPENAI_BASE_URL={openai_base_url}")
+    # Use the model chosen in AI settings, not the script's gpt-4o-mini default.
+    openai_model = openai_summary.get_model()
+    if openai_model and re.fullmatch(r"[A-Za-z0-9._:/@-]{1,100}", openai_model):
+        env_lines.append(f"OPENAI_MODEL={openai_model}")
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
 
     # GitHub authentication comes only from GITHUB_TOKEN/GH_PAT in the environment.

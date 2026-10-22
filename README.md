@@ -522,6 +522,8 @@ docker compose up -d --build
 
 **Use Epyon as a GitHub Action to automatically scan repositories!**
 
+**Pin a release (v3.47.0+):** Epyon is released as git tags with generated notes, a source archive, a CycloneDX SBOM and SHA-256 checksums on the [GitHub Releases](https://github.com/MetroStar/epyon/releases) page. Reference the reusable workflow by tag (`.../epyon-scan.yml@vX.Y.Z`) or commit SHA instead of `@main` to stay on a known version. Maintainer steps, checksum verification and pull request release-notes rules are in [documentation/RELEASE_CHECKLIST.md](documentation/RELEASE_CHECKLIST.md).
+
 ### 🔔 Real-Time Webhook Notifications (Barbatos Integration)
 
 Epyon supports **real-time progress notifications** to management UIs like Barbatos during GitHub Actions scans.

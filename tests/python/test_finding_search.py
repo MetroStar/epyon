@@ -134,6 +134,13 @@ def test_preselect_dirs_keeps_newest_per_target_without_parsing_scans():
     assert len(finding_search.preselect_dirs(dirs, True, parse)) == 3
 
 
+def _recent_name(days_ago: int) -> str:
+    """Scan directory name inside the 35-day window regardless of today's date."""
+    import datetime
+    day = datetime.date.today() - datetime.timedelta(days=days_ago)
+    return f"goldenapp_testuser_{day.isoformat()}_12-00-00"
+
+
 @pytest.fixture
 def api_client(tmp_path, monkeypatch):
     import shutil
@@ -142,7 +149,7 @@ def api_client(tmp_path, monkeypatch):
 
     golden = REPO_ROOT / "tests/fixtures/golden-scan/goldenapp_testuser_2026-09-16_12-00-00"
     (tmp_path / "scans").mkdir()
-    shutil.copytree(golden, tmp_path / "scans" / golden.name)
+    shutil.copytree(golden, tmp_path / "scans" / _recent_name(2))
     monkeypatch.setattr(main, "EPYON_ROOT", tmp_path)
     monkeypatch.setattr(main, "_load_monitored_apps", lambda: set())
     hidden: set = set()
@@ -181,11 +188,11 @@ def test_new_scan_is_found_after_invalidation(api_client):
     query = {"q": "CVE-2024-00001", "include_history": "true"}
     assert client.get("/api/findings/search", params=query).json()["total_applications"] == 1
     golden = REPO_ROOT / "tests/fixtures/golden-scan/goldenapp_testuser_2026-09-16_12-00-00"
-    shutil.copytree(golden, root / "scans" / "goldenapp_testuser_2026-09-17_12-00-00")
+    shutil.copytree(golden, root / "scans" / _recent_name(1))
     main._invalidate_scan_cache(reason="scan_completion")
     result = client.get("/api/findings/search", params=query).json()
     assert {a["scan_id"] for a in result["applications"]} == {
-        "goldenapp_testuser_2026-09-16_12-00-00", "goldenapp_testuser_2026-09-17_12-00-00"}
+        _recent_name(2), _recent_name(1)}
 
 
 def test_deleting_scans_drops_index_entries(api_client):

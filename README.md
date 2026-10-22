@@ -1705,10 +1705,37 @@ Our SonarQube integration now uses **LCOV format** as the primary coverage sourc
 - ✅ **Professional Reporting**: More accurate coverage calculation methodology
 - ✅ **TARGET_DIR Support**: Clean path handling for external project scanning
 
+## 🏷️ Releases & Versioning
+
+Epyon is released as **annotated git tags on `main`** (`vX.Y.Z`). Each tag publishes a [GitHub Release](https://github.com/MetroStar/epyon/releases) with a source archive (`epyon-X.Y.Z.tar.gz`), a CycloneDX SBOM (`epyon-X.Y.Z.cdx.json`), a `.sha256` file for each, and release notes assembled from merged pull requests. The first tagged release is `v3.47.0`.
+
+**For consumers:** pin the reusable workflow to a tag, or to a commit SHA for the strongest guarantee, instead of `@main`:
+
+```yaml
+uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@vX.Y.Z
+```
+
+The Epyon version a scan reports comes from the `VERSION` file at that ref, which equals the tag. Verify a download with `gh release download vX.Y.Z --pattern 'epyon-X.Y.Z.tar.gz*'`, then `shasum -a 256 --check epyon-X.Y.Z.tar.gz.sha256`.
+
+**For contributors:**
+- Every pull request needs a `## Release notes` block (the PR template has one) with bullets under `### Added`, `### Changed`, `### Fixed`, `### Removed`, `### Security` or `### Deprecated`, or the `no-release-notes` label. The `Release notes` check reports a missing block; it is advisory for now.
+- Every shipping change still updates `VERSION`, `CHANGELOG.md` and `README.md`.
+
+**For maintainers:** pick `X.Y.Z` from the merged PRs (PATCH for fixes and docs, MINOR for features, MAJOR for breaking changes to the CLI, scan output schema or workflow contract), then:
+
+```bash
+git fetch origin
+git tag -a vX.Y.Z -m vX.Y.Z origin/main
+git push origin vX.Y.Z
+```
+
+The tag must equal `VERSION`, or the release fails. Run `gh workflow run release.yml --ref main -f dry_run=true` to build and verify without publishing. The full checklist, including verification and recovery, is in [documentation/RELEASE_CHECKLIST.md](documentation/RELEASE_CHECKLIST.md).
+
 ## 📖 Documentation
 
 ### Complete Documentation Library
 - **[documentation/README.md](documentation/README.md)** - Documentation index and navigation guide
+- **[documentation/RELEASE_CHECKLIST.md](documentation/RELEASE_CHECKLIST.md)** - Tagging, release verification, recovery, PR release notes and pinning a release
 - **[documentation/SCAN_DIRECTORY_ARCHITECTURE.md](documentation/SCAN_DIRECTORY_ARCHITECTURE.md)** - Scan output organization and isolation model
 - **[documentation/SCAN_MANIFEST_GUIDE.md](documentation/SCAN_MANIFEST_GUIDE.md)** - Cryptographic manifest creation and verification
 - **[documentation/DEPLOYMENT_SUMMARY_MANIFEST_SYSTEM.md](documentation/DEPLOYMENT_SUMMARY_MANIFEST_SYSTEM.md)** - Manifest system deployment and validation results

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.50.0] - 2026-10-22
+
+### Added
+- `create-stig-pr.sh` publishes the STIG review records to `docs/stig-reviews/` in the target repo (index plus one entry per control, rows sorted by V-number) instead of writing `stig-findings.md`. Branch naming, update-open-PR, soft-fail without a token and `SKIP_STIG_PR=true` are unchanged (MID-4534).
+- Layer 13 reads `docs/stig-reviews/` back as priority manual STIG documentation. An entry with a human reviewer is locked and kept verbatim; if a path in its "changes that may affect this STIG" table changed since the review, the control is re-assessed and the record says why it was re-opened.
+
+### Changed
+- A human-reviewed entry already published is never overwritten by a later PR unless the scan re-opened it. `docs/stig-findings.md` and `docs/security/stig-findings.md` keep priority and are never modified.
+
 ## [3.49.0] - 2026-10-22
 
 ### Added

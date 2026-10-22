@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# create-stig-pr.sh — Create or update a PR with STIG findings in the target repository
+# create-stig-pr.sh — Create or update a PR with STIG review records in the target repository
 #
-# Creates/updates a file called `stig-findings.md` in the target repository root with the
-# latest STIG assessment results and opens a pull request for review.
+# Publishes the ETK-format STIG review records (an index README.md plus one v-xxxxx.md
+# entry per control) to docs/stig-reviews/ in the target repository and opens a pull
+# request for review. Human-reviewed entries already published are never overwritten
+# (unless the scan re-opened them), and docs/stig-findings.md is never touched.
 #
 # Requirements:
 #   - GITHUB_TOKEN or GH_PAT environment variable
@@ -39,12 +41,12 @@ show_help() {
     cat <<EOF
 Usage: create-stig-pr.sh --target <repo-path> --scan-dir <scan-output-dir> --app-name <name>
 
-Create or update a PR with STIG findings in the target repository.
+Create or update a PR publishing STIG review records to docs/stig-reviews/.
 
 Options:
   --target PATH     Target repository path (must be a Git repo)
-  --scan-dir PATH   Scan output directory containing findings-<app>.md
-  --app-name NAME   Application name (used to locate findings file)
+  --scan-dir PATH   Scan output directory containing stig-reviews-<slug>/
+  --app-name NAME   Application name
   -h, --help        Show this help message
 
 Environment Variables:
@@ -143,21 +145,20 @@ if [[ ! -d "$TARGET_DIR/.git" ]]; then
 fi
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Locate findings file
+# Locate STIG review records
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-# Derive app slug (same logic as run-stig-assessment.py)
-APP_SLUG=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]\+/-/g' | sed 's/^-\|-$//g')
+shopt -s nullglob
+RECORD_DIRS=("$SCAN_DIR"/stig-reviews-*/)
+shopt -u nullglob
 
-FINDINGS_FILE="$SCAN_DIR/findings-${APP_SLUG}.md"
-
-if [[ ! -f "$FINDINGS_FILE" ]]; then
-    echo -e "${YELLOW}[WARNING]${NC} STIG findings file not found: $FINDINGS_FILE" >&2
+if [[ ${#RECORD_DIRS[@]} -eq 0 ]]; then
+    echo -e "${YELLOW}[WARNING]${NC} No stig-reviews-*/ records found in $SCAN_DIR" >&2
     echo -e "${YELLOW}[WARNING]${NC} No STIG assessment was performed — skipping PR creation" >&2
     exit 0  # Soft fail
 fi
 
-echo -e "${GREEN}[INFO]${NC} Found STIG findings: $FINDINGS_FILE"
+echo -e "${GREEN}[INFO]${NC} Found STIG review records in: $SCAN_DIR"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Get repository information
@@ -188,31 +189,6 @@ echo -e "${GREEN}[INFO]${NC} Repository: $REPO_OWNER/$REPO_NAME"
 echo -e "${GREEN}[INFO]${NC} Default branch: $DEFAULT_BRANCH"
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Check if there are changes
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-TARGET_FILE="$TARGET_DIR/stig-findings.md"
-NEEDS_UPDATE=false
-
-if [[ -f "$TARGET_FILE" ]]; then
-    # File exists — check if content has changed
-    if ! diff -q "$FINDINGS_FILE" "$TARGET_FILE" > /dev/null 2>&1; then
-        echo -e "${YELLOW}[INFO]${NC} stig-findings.md has changes"
-        NEEDS_UPDATE=true
-    else
-        echo -e "${GREEN}[INFO]${NC} stig-findings.md is up to date — no PR needed"
-        exit 0
-    fi
-else
-    echo -e "${YELLOW}[INFO]${NC} stig-findings.md does not exist — will create"
-    NEEDS_UPDATE=true
-fi
-
-if [[ "$NEEDS_UPDATE" != "true" ]]; then
-    exit 0
-fi
-
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Create branch
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -235,30 +211,28 @@ else
 fi
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Copy findings file
+# Publish records to docs/stig-reviews/
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-cp "$FINDINGS_FILE" "$TARGET_FILE"
-echo -e "${GREEN}[INFO]${NC} Copied findings to $TARGET_FILE"
+COUNTS_JSON=$(python3 "${SCRIPT_DIR}/stig_records.py" publish --scan-dir "$SCAN_DIR" --target "$TARGET_DIR") || {
+    echo -e "${YELLOW}[WARNING]${NC} Could not publish STIG records — skipping PR creation" >&2
+    exit 0  # Soft fail
+}
+echo -e "${GREEN}[INFO]${NC} Published records to docs/stig-reviews/"
 
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# Commit changes
-# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-git add stig-findings.md
+git add docs/stig-reviews
 
 if git diff --cached --quiet; then
-    echo -e "${GREEN}[INFO]${NC} No changes to commit (file content identical)"
+    echo -e "${GREEN}[INFO]${NC} docs/stig-reviews/ is up to date — no PR needed"
     exit 0
 fi
 
-# Extract summary statistics from findings file
-TOTAL_CONTROLS=$(grep -c "^### [0-9]\\+\\." "$TARGET_FILE" || echo "0")
-OPEN_COUNT=$(grep -A2 "^| Open |" "$TARGET_FILE" | tail -1 | awk -F'|' '{print $3}' | tr -d ' ' || echo "0")
-NOT_FINDING=$(grep -A2 "^| Not a Finding |" "$TARGET_FILE" | tail -1 | awk -F'|' '{print $3}' | tr -d ' ' || echo "0")
-NOT_APPLICABLE=$(grep -A2 "^| Not Applicable |" "$TARGET_FILE" | tail -1 | awk -F'|' '{print $3}' | tr -d ' ' || echo "0")
+TOTAL_CONTROLS=$(echo "$COUNTS_JSON" | jq -r '.total // 0')
+OPEN_COUNT=$(echo "$COUNTS_JSON" | jq -r '.open // 0')
+NOT_FINDING=$(echo "$COUNTS_JSON" | jq -r '.not_a_finding // 0')
+NOT_APPLICABLE=$(echo "$COUNTS_JSON" | jq -r '.not_applicable // 0')
 
-COMMIT_MSG="chore: Update STIG findings assessment
+COMMIT_MSG="chore: Update STIG review records
 
 Automated STIG compliance assessment update from Epyon scan.
 
@@ -294,10 +268,10 @@ echo -e "${GREEN}[INFO]${NC} Pushed branch successfully"
 # Create or update PR using GitHub API
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-PR_TITLE="STIG Findings Update - ${BRANCH_DATE}"
+PR_TITLE="STIG Review Records Update - ${BRANCH_DATE}"
 PR_BODY="## STIG Compliance Assessment Update
 
-This automated PR updates the STIG findings based on the latest security scan.
+This automated PR updates the STIG review records based on the latest security scan.
 
 ### Summary
 - **Total Controls Assessed**: ${TOTAL_CONTROLS}
@@ -306,7 +280,7 @@ This automated PR updates the STIG findings based on the latest security scan.
 - **Not Applicable**: ${NOT_APPLICABLE}
 
 ### Changes
-- Updated \`stig-findings.md\` with the latest STIG assessment results
+- Updated \`docs/stig-reviews/\` (index plus one entry per control). Human-reviewed entries are kept unless a path they list changed.
 
 ### Review Checklist
 - [ ] Review new Open findings and determine remediation plans
@@ -356,4 +330,4 @@ else
     fi
 fi
 
-echo -e "${GREEN}[COMPLETE]${NC} STIG findings PR workflow completed successfully"
+echo -e "${GREEN}[COMPLETE]${NC} STIG review records PR workflow completed successfully"

@@ -1445,6 +1445,13 @@ async function cveBulkConfirm() {
         await api.setJiraProject(g.entry.scan_id, g.projectKey);
         g.originalKey = g.projectKey;
         await cveBulkResolve(g);
+        if (g.error) {
+          r.failed = g.findings.length;
+          r.skipped = 0;
+          r.note = g.error;
+          results.push(r);
+          continue;
+        }
         fingerprints = g.eligible.map(x => x.fingerprint);
         r.skipped = g.skipped.length;
         if (!fingerprints.length) { results.push(r); continue; }

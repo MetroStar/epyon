@@ -50,7 +50,23 @@ def write_ai_config(cfg: dict) -> None:
     AI_CONFIG_FILE.chmod(0o600)
 
 
+PROVIDERS = ("auto", "local", "openai")
+
+
+def get_provider() -> str:
+    """UI-selected provider: "openai" (public API), "local" (self-hosted) or "auto".
+
+    "auto" keeps the original precedence (UI config, then environment).
+    """
+    value = str(read_ai_config().get("provider") or "auto").lower()
+    return value if value in PROVIDERS else "auto"
+
+
 def get_api_key() -> str | None:
+    provider = get_provider()
+    if provider == "local" and _is_self_hosted(get_base_url()):
+        # Never send the real OpenAI key to a self-hosted endpoint.
+        return os.environ.get("OPENAI_LOCAL_API_KEY") or _PLACEHOLDER_API_KEY
     env_key = os.environ.get("OPENAI_API_KEY")
     if env_key:
         return env_key
@@ -80,6 +96,8 @@ def get_model() -> str:
     hard-coded default.
     """
     cfg = read_ai_config()
+    if get_provider() == "openai":
+        return cfg.get("openai_model") or DEFAULT_MODEL
     return cfg.get("model") or os.environ.get("OPENAI_MODEL") or DEFAULT_MODEL
 
 
@@ -104,6 +122,8 @@ def get_base_url() -> str | None:
     to the client explicitly (see the AsyncOpenAI call sites below).
     """
     cfg = read_ai_config()
+    if get_provider() == "openai":
+        return None
     return cfg.get("base_url") or os.environ.get("OPENAI_BASE_URL") or None
 
 

@@ -6684,6 +6684,22 @@ async function renderSettings() {
         </div>
         <div style="display:grid;gap:14px;max-width:600px">
           <div>
+            <label class="field-label">Provider</label>
+            <select id="ai-provider" class="field-input" onchange="aiProviderChanged()">
+              <option value="auto" ${aiCfg.provider === 'auto' ? 'selected' : ''}>Auto (settings, then environment)</option>
+              <option value="local" ${aiCfg.provider === 'local' ? 'selected' : ''}>Local / self-hosted (Ollama, vLLM…)</option>
+              <option value="openai" ${aiCfg.provider === 'openai' ? 'selected' : ''}>OpenAI (uses OPENAI_API_KEY)</option>
+            </select>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
+              Applies to summaries and STIG scans. OpenAI ignores the local URL below; Local never sends your OpenAI key.
+            </div>
+          </div>
+          <div id="ai-openai-model-row" style="display:${aiCfg.provider === 'openai' ? 'block' : 'none'}">
+            <label class="field-label">OpenAI Model</label>
+            <input id="ai-openai-model" type="text" class="field-input" list="ai-model-suggestions"
+              placeholder="gpt-4o-mini" value="${esc(aiCfg.openai_model || '')}"/>
+          </div>
+          <div>
             <label class="field-label">Primary Base URL <span style="color:var(--text-muted);font-weight:normal">(blank = public OpenAI API)</span></label>
             <input id="ai-base-url" type="text" class="field-input"
               placeholder="http://localhost:11434/v1"
@@ -6991,13 +7007,23 @@ async function renderSettings() {
   }
 }
 
+function aiProviderChanged() {
+  const p = document.getElementById('ai-provider')?.value;
+  const row = document.getElementById('ai-openai-model-row');
+  if (row) row.style.display = p === 'openai' ? 'block' : 'none';
+}
+
 async function saveAiConfig() {
+  const provider        = document.getElementById('ai-provider')?.value || 'auto';
+  const openaiModel     = document.getElementById('ai-openai-model')?.value || '';
   const model          = document.getElementById('ai-model')?.value           || '';
   const baseUrl         = document.getElementById('ai-base-url')?.value       || '';
   const fallbackEnabled = document.getElementById('ai-fallback-enabled')?.checked || false;
   const fallbackModel   = document.getElementById('ai-fallback-model')?.value  || '';
   try {
     await api.saveAiConfig({
+      provider,
+      openai_model: openaiModel.trim(),
       model,
       base_url: baseUrl.trim(),
       fallback_enabled: fallbackEnabled,

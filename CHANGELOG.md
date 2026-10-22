@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.54.0] - 2026-10-23
+
+### Added
+- AI provider switch in Settings → AI: **Auto**, **Local / self-hosted** or **OpenAI**. OpenAI uses `OPENAI_API_KEY` with its own model and ignores any local base URL (including one inherited from the shell, for web-UI scans); Local never sends the real OpenAI key to the self-hosted endpoint (use `OPENAI_LOCAL_API_KEY` if it needs one). Auto keeps the previous behaviour.
+
 ## [3.53.5] - 2026-10-23
 
 ### Fixed

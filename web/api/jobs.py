@@ -537,7 +537,9 @@ async def run_scan_job(
         env_lines.append("SKIP_STIG=true")
     # Secrets are passed only through the subprocess environment, never this file.
     openai_key = openai_summary.get_api_key() or os.environ.get("OPENAI_API_KEY", "")
-    openai_base_url = openai_summary.get_base_url() or os.environ.get("OPENAI_BASE_URL", "")
+    use_openai = openai_summary.get_provider() == "openai"
+    openai_base_url = "" if use_openai else (
+        openai_summary.get_base_url() or os.environ.get("OPENAI_BASE_URL", ""))
     if openai_base_url:
         env_lines.append(f"OPENAI_BASE_URL={openai_base_url}")
     # Use the model chosen in AI settings, not the script's gpt-4o-mini default.
@@ -643,6 +645,9 @@ async def run_scan_job(
         env["OPENAI_API_KEY"] = openai_key
     if openai_base_url:
         env["OPENAI_BASE_URL"] = openai_base_url
+    elif use_openai:
+        env["OPENAI_BASE_URL"] = ""  # override any local endpoint inherited from the shell
+    env["OPENAI_MODEL"] = openai_summary.get_model()
     if github_token:
         env["GH_PAT"] = github_token
     # Webhook configuration (optional)

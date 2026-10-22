@@ -3100,6 +3100,8 @@ def ai_config_get(response: Response):
         # fall back to its first <option> and a subsequent Save would persist
         # that, clobbering the env-configured model. `active_model` exposes the
         # resolved model (UI > OPENAI_MODEL > default) for display only.
+        "provider":     openai_summary.get_provider(),
+        "openai_model": cfg.get("openai_model") or openai_summary.DEFAULT_MODEL,
         "model":        cfg.get("model") or openai_summary.DEFAULT_MODEL,
         "active_model": openai_summary.get_model(),
         # The configured custom endpoint (UI value), plus the effective base URL
@@ -3132,6 +3134,20 @@ async def ai_config_post(request: Request, response: Response):
         )
 
     cfg = openai_summary.read_ai_config()
+
+    if "provider" in body:
+        provider = str(body["provider"] or "auto").lower()
+        if provider not in openai_summary.PROVIDERS:
+            raise HTTPException(400, "provider must be auto, local or openai")
+        if provider == "openai" and not os.environ.get("OPENAI_API_KEY", "").strip():
+            raise HTTPException(400, "OPENAI_API_KEY is not set in the server environment")
+        cfg["provider"] = provider
+
+    if body.get("openai_model"):
+        openai_model = str(body["openai_model"]).strip()
+        if not re.match(r"^[A-Za-z0-9._:\-/]{1,100}$", openai_model):
+            raise HTTPException(400, "openai_model contains invalid characters")
+        cfg["openai_model"] = openai_model
 
     if "base_url" in body:
         base_url = (body.get("base_url") or "").strip()

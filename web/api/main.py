@@ -728,6 +728,7 @@ def applications(response: Response):
             "stig_open":           latest_stig.get("stig_open", 0)           if latest_stig else 0,
             "stig_pass":           latest_stig.get("stig_pass", 0)           if latest_stig else 0,
             "stig_na":             latest_stig.get("stig_na", 0)             if latest_stig else 0,
+            "stig_nr":             latest_stig.get("stig_nr", 0)             if latest_stig else 0,
             "latest_stig_scan_id": latest_stig.get("scan_id", "")            if latest_stig else "",
             "has_stig_report":     latest_stig.get("has_stig_report", False) if latest_stig else False,
             "has_stig_cklb":       latest_stig.get("has_stig_cklb", False)   if latest_stig else False,
@@ -763,6 +764,7 @@ def applications(response: Response):
             "stig_open":           0,
             "stig_pass":           0,
             "stig_na":             0,
+            "stig_nr":             0,
             "latest_stig_scan_id": "",
             "has_stig_report":     False,
             "has_stig_cklb":       False,
@@ -1181,6 +1183,7 @@ def stig_data(scan_id: str, response: Response):
                 "locked_by_human": bool(assessed.get("locked_by_human", False)),
                 "locked_by_stability": bool(assessed.get("locked_by_stability", False)),
                 "stable_count":    assessed.get("stable_count", 0),
+                **parsers.stig_record_fields(assessed, c),
             })
 
         app_slug  = re.sub(r"[^a-z0-9]+", "-", re.sub(r"_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$", "", scan_id).lower()).strip("-")
@@ -2835,6 +2838,7 @@ def stig_history(
                             "title":     c.get("title", ""),
                             "severity":  c.get("severity", ""),
                             "stig_name": cd.get("stig_name", sl),
+                            "check_content": c.get("check_content", ""),
                         }
                     ids_for_slug.add(vid)
                 # Only use the first (most-recent) controls file per slug
@@ -2848,6 +2852,7 @@ def stig_history(
     # This guarantees every scan column is complete and the matrix is consistent.
     seen_entries: set[tuple] = set()
     vuln_timelines: dict[str, list[dict]] = {}
+    latest_record: dict[str, dict] = {}
     for s in stig_scans:
         for sl in selected_slugs:
             rf = s["path"] / f"stig-results-{sl}.json"
@@ -2869,7 +2874,9 @@ def stig_history(
                         "status":  data.get("status", "Not Reviewed"),
                         "evidence": data.get("evidence", ""),
                         "confidence": data.get("confidence", None),
+                        "human_reviewed": bool(data.get("locked_by_human", False)),
                     })
+                    latest_record[vid] = parsers.stig_record_fields(data, control_meta.get(vid, {}))
             # Fill any benchmark controls absent from this scan's results
             for vid in slug_control_ids.get(sl, set()):
                 key = (s["scan_id"], vid)
@@ -2929,6 +2936,7 @@ def stig_history(
             "first_closed":  first_closed,
             "mttr_days":     mttr_days,
             "latest_status": latest_status,
+            "record":        latest_record.get(vid),
         })
 
     avg_mttr = round(sum(total_mttr) / len(total_mttr), 1) if total_mttr else None
@@ -3456,7 +3464,7 @@ async def global_isso_summary(response: Response):
         all_dirs_sorted = [d for d, _ in sorted(entries, key=lambda x: x[1], reverse=True)]
 
         # STIG summary: use the most recent scan that has stig-results-*.json
-        stig_open = stig_pass = stig_na = stig_total = 0
+        stig_open = stig_pass = stig_na = stig_nr = stig_total = 0
         for candidate in all_dirs_sorted:
             stig_files = sorted(candidate.glob("stig-results-*.json"))
             if not stig_files:
@@ -3467,13 +3475,14 @@ async def global_isso_summary(response: Response):
                     res = raw.get("assessments", raw) if "assessments" in raw else raw
                     stig_open  += sum(1 for v in res.values() if v.get("status") == "Open")
                     stig_pass  += sum(1 for v in res.values() if v.get("status") == "Not a Finding")
-                    stig_na    += sum(1 for v in res.values() if v.get("status") in ("Not Applicable", "Not Reviewed"))
+                    stig_na    += sum(1 for v in res.values() if v.get("status") == "Not Applicable")
+                    stig_nr    += sum(1 for v in res.values() if v.get("status") == "Not Reviewed")
                     stig_total += len(res)
                 except Exception:
                     pass
             if stig_total:
                 break  # found the most recent scan with STIG data
-        stig_summary = {"open": stig_open, "pass": stig_pass, "na": stig_na, "total": stig_total} if stig_total else None
+        stig_summary = {"open": stig_open, "pass": stig_pass, "na": stig_na, "nr": stig_nr, "total": stig_total} if stig_total else None
 
         # Suppressions: use the most recent scan that has non-empty suppressed-findings.md
         suppressions: list[dict] = []

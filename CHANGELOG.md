@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.51.0] - 2026-10-23
+
+### Added
+- STIG control drawer shows the review record: changes that may affect the control, automation recommendation, verification/re-open notes, citation failures and a human-reviewed marker (MID-4535).
+- `/api/stig/history` controls carry the latest record; STIG summaries expose `nr`/`stig_nr` separately.
+
+### Changed
+- "Not Reviewed" is displayed as "Evidence needed" in the web UI; stored value and the N/A count are unchanged and never merged.
+- Score Card counts Not Reviewed controls as applicable and not passing (same as Open).
+- AI summaries receive `evidence_needed` separately from `n_a`.
+
 ## [3.50.0] - 2026-10-22
 
 ### Added

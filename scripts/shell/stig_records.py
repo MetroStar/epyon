@@ -15,6 +15,10 @@ from pathlib import Path
 from typing import Any
 
 TEMPLATE_DIR = Path(__file__).resolve().parents[2] / "configuration" / "stig-review-templates"
+if not all((TEMPLATE_DIR / name).is_file() for name in ("entry.md", "index.md")):
+    _DEFAULT_TEMPLATE_DIR = Path("/opt/epyon-defaults/configuration/stig-review-templates")
+    if all((_DEFAULT_TEMPLATE_DIR / name).is_file() for name in ("entry.md", "index.md")):
+        TEMPLATE_DIR = _DEFAULT_TEMPLATE_DIR
 RECORD_STATUSES = ("Open", "Not a Finding", "Not Applicable")
 NOT_CONFIRMABLE = "not confirmable from this repo"
 MIN_RECORD_CONFIDENCE = 1

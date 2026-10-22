@@ -146,6 +146,26 @@ MAX_CODE_BYTES_PER_BATCH = 60_000   # 60 KB ≈ 20–30 k tokens — safe for 12
 MAX_FILE_BYTES = 25_000             # truncate (not skip) files larger than 25 KB
 _MAX_MANIFEST_LINES = 150           # cap repo manifest to 150 paths (150 × 60 chars / 4 ≈ 2 300 tokens)
 BATCH_SIZE_DEFAULT = 5              # controls per API call — smaller batches give each control more context
+# Self-hosted models get a smaller window: less context keeps them on the output contract.
+LOCAL_CODE_BYTES_PER_BATCH = 24_000
+LOCAL_BATCH_SIZE_DEFAULT = 3
+_LOCAL_MODEL = False                # set in main() when the endpoint is not the public OpenAI API
+
+
+def _code_bytes_default() -> int:
+    try:
+        override = int(os.environ.get("EPYON_STIG_CODE_BYTES", "") or 0)
+    except ValueError:
+        override = 0
+    if override > 0:
+        return override
+    return LOCAL_CODE_BYTES_PER_BATCH if _LOCAL_MODEL else MAX_CODE_BYTES_PER_BATCH
+
+
+_JSON_REMINDER = (
+    "Output contract: reply with ONLY the JSON array described in the system prompt, "
+    "one object per control above. No prose, no summary, no markdown fences."
+)
 
 # Valid canonical status values — any model output is normalized to these before storage.
 VALID_STATUSES: frozenset[str] = frozenset({
@@ -1536,6 +1556,7 @@ def call_openai(
     security_findings: str = "",
     suppression_rules: str = "",
     manual_stig_docs: str = "",
+    retry_hint: str = "",
 ) -> tuple[list[dict[str, Any]], int, int]:
     """Call GPT with a batch of controls + full repo manifest + code context.
     
@@ -1594,14 +1615,19 @@ def call_openai(
             "\n"
         )
 
+    # Controls and the output contract come first; reference material follows.
     user_message = (
+        f"Assess the {len(controls_batch)} controls below and reply with a JSON array only.\n\n"
+        f"Controls to assess ({len(controls_batch)} total):\n{controls_json}\n\n"
+        "Reference material follows. Use it as evidence; do not summarize it.\n\n"
         f"{manifest_section}"
         f"{security_section}"
         f"{suppression_section}"
         f"{manual_docs_section}"
-        f"Controls to assess ({len(controls_batch)} total):\n{controls_json}\n\n"
         f"Application source code (examine every file carefully):\n{code_context}"
     )
+    if _LOCAL_MODEL or retry_hint:
+        user_message += f"\n\n{retry_hint + ' ' if retry_hint else ''}{_JSON_REMINDER}"
 
     # Derive a deterministic seed from the batch vuln_ids so the same controls
     # always get the same seed regardless of which run number this is.
@@ -2055,7 +2081,7 @@ def _assess_stig(
 
         print(
             f"[INFO] [{slug}] Submitting {total_batches} batches of up to {batch_size} controls "
-            f"to {model} (context budget: {MAX_CODE_BYTES_PER_BATCH // 1024}KB/batch, "
+            f"to {model} (context budget: {_code_bytes_default() // 1024}KB/batch, "
             f"{len(source_files)} source files)",
             file=sys.stderr,
         )
@@ -2072,7 +2098,9 @@ def _assess_stig(
             # reduce ALL context sources: code budget, manifest, findings, suppressions, manual docs.
             results: list[dict[str, Any]] = []
             last_err: str = ""
-            code_budget = MAX_CODE_BYTES_PER_BATCH
+            max_code_bytes = _code_bytes_default()
+            code_budget = max_code_bytes
+            retry_hint = ""
             active_manifest = repo_manifest  # may be dropped on overflow
             active_findings = security_findings_context
             active_suppressions = suppression_rules_context
@@ -2086,7 +2114,7 @@ def _assess_stig(
                 try:
                     results, batch_pt, batch_ct = call_openai(
                         client, model, batch, code_context, active_manifest, previous_assessments,
-                        active_findings, active_suppressions, active_manual_docs
+                        active_findings, active_suppressions, active_manual_docs, retry_hint
                     )
                     total_prompt_tokens     += batch_pt
                     total_completion_tokens += batch_ct
@@ -2100,6 +2128,7 @@ def _assess_stig(
                     break  # success
                 except json.JSONDecodeError as e:
                     last_err = f"invalid JSON: {e}"
+                    retry_hint = "Your previous reply was not a JSON array."
                     print(
                         f"[WARNING] [{slug}] Batch {idx} attempt {attempt}/{_MAX_BATCH_RETRIES} — {last_err}",
                         file=sys.stderr,
@@ -2124,12 +2153,12 @@ def _assess_stig(
                         elif attempt == 2:
                             print(
                                 f"[WARNING] [{slug}] Batch {idx} attempt {attempt}/{_MAX_BATCH_RETRIES} — "
-                                f"{last_err}  →  dropping manual docs + manifest, restoring code budget to {MAX_CODE_BYTES_PER_BATCH // 1024}KB",
+                                f"{last_err}  →  dropping manual docs + manifest, restoring code budget to {max_code_bytes // 1024}KB",
                                 file=sys.stderr,
                             )
                             active_manual_docs = ""
                             active_manifest = ""
-                            code_budget = MAX_CODE_BYTES_PER_BATCH
+                            code_budget = max_code_bytes
                         else:
                             new_budget = max(10_000, code_budget // 2)
                             print(
@@ -2325,8 +2354,9 @@ def main() -> None:
     parser.add_argument("--base-url",   default="",
                         help="Override the OpenAI API base URL (e.g. http://localhost:11434/v1 for Ollama). "
                              "Also read from OPENAI_BASE_URL env var.")
-    parser.add_argument("--batch-size", type=int, default=BATCH_SIZE_DEFAULT,
-                        help=f"Controls per API call (default: {BATCH_SIZE_DEFAULT})")
+    parser.add_argument("--batch-size", type=int, default=None,
+                        help=f"Controls per API call (default: {BATCH_SIZE_DEFAULT}; "
+                             f"{LOCAL_BATCH_SIZE_DEFAULT} for self-hosted endpoints)")
     parser.add_argument("--delay",      type=float, default=1.0,
                         help="Seconds between API calls (default: 1.0)")
     args = parser.parse_args()
@@ -2361,6 +2391,11 @@ def main() -> None:
                 file=sys.stderr,
             )
             sys.exit(1)
+
+    global _LOCAL_MODEL
+    _LOCAL_MODEL = bool(base_url) and _hostname(base_url) not in _OPENAI_PUBLIC_HOSTS
+    if args.batch_size is None:
+        args.batch_size = LOCAL_BATCH_SIZE_DEFAULT if _LOCAL_MODEL else BATCH_SIZE_DEFAULT
 
     # Local models often don't require a real API key
     # Accept a placeholder ('local', 'ollama', etc.) to satisfy the SDK

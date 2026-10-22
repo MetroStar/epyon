@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.54.2] - 2026-10-22
+
+### Changed
+- STIG assessment prompts now lead with the controls and the output contract, then the reference material (manifest, findings, manual docs, code), following MetroStar/etk context-engineering guidance.
+- Self-hosted endpoints get a smaller window: 3 controls per batch and 24 KB of code (hosted keeps 5 and 60 KB), plus a closing JSON-only reminder. Override with `BATCH_SIZE` / `--batch-size` and `EPYON_STIG_CODE_BYTES`.
+
+### Fixed
+- Local models answered batches with a prose project summary instead of JSON. Retries now name the failure ("Your previous reply was not a JSON array.").
+- `run-stig-scan.sh` no longer forces `--batch-size 5` when `BATCH_SIZE` is unset.
+
 ## [3.54.1] - 2026-10-22
 
 ### Added

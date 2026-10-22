@@ -18,7 +18,7 @@
 #   STIGS_FILE        Single STIG file path (overrides STIGS_DIR).
 #   SCAN_DIR          Output directory for scan results (default: auto-derived).
 #   APP_NAME          Application name for the report (default: basename of TARGET_DIR).
-#   BATCH_SIZE        Controls per API call (default: 20).
+#   BATCH_SIZE        Controls per API call (default: 5 hosted, 3 self-hosted).
 #   BATCH_DELAY       Seconds between API calls (default: 1).
 #   SKIP_STIG         Set to 'true' to skip this scan entirely.
 
@@ -71,7 +71,7 @@ show_help() {
     echo "  STIGS_FILE        Single STIG file path (overrides STIGS_DIR)."
     echo "  SCAN_DIR          Output directory (default: auto-derived scan directory)."
     echo "  APP_NAME          Application name for the report header."
-    echo "  BATCH_SIZE        Controls per API call (default: 20)."
+    echo "  BATCH_SIZE        Controls per API call (default: 5 hosted, 3 self-hosted)."
     echo "  BATCH_DELAY       Seconds between API calls (default: 1)."
     echo "  SKIP_STIG         Set to 'true' to skip this layer."
     echo ""
@@ -127,7 +127,7 @@ STIGS_DIR="${STIGS_DIR:-${PROJECT_ROOT}/configuration/stigs}"
 STIGS_FILE="${STIGS_FILE:-}"
 OPENAI_MODEL="${OPENAI_MODEL:-gpt-4o-mini}"
 OPENAI_BASE_URL="${OPENAI_BASE_URL:-}"
-BATCH_SIZE="${BATCH_SIZE:-5}"
+BATCH_SIZE="${BATCH_SIZE:-}"  # empty = engine default (5 hosted, 3 self-hosted)
 BATCH_DELAY="${BATCH_DELAY:-1}"
 APP_NAME="${APP_NAME:-$(basename "$(realpath "$TARGET_DIR")")}"
 
@@ -253,9 +253,11 @@ ASSESSMENT_CMD=(
     --scan-dir   "$SCAN_DIR"
     --app-name   "$APP_NAME"
     --model      "$OPENAI_MODEL"
-    --batch-size "$BATCH_SIZE"
     --delay      "$BATCH_DELAY"
 )
+if [[ -n "$BATCH_SIZE" ]]; then
+    ASSESSMENT_CMD+=(--batch-size "$BATCH_SIZE")
+fi
 if [[ -n "${OPENAI_BASE_URL:-}" ]]; then
     ASSESSMENT_CMD+=(--base-url "$OPENAI_BASE_URL")
 fi

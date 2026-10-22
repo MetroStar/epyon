@@ -47,3 +47,51 @@ def test_completion_kwargs_by_model():
     legacy = sa._completion_kwargs("gpt-4o-mini", 300, 7)
     assert legacy["max_tokens"] == 300 and legacy["temperature"] == 0 and legacy["seed"] == 7
     assert "max_completion_tokens" not in sa._completion_kwargs("gemma4-31b", 300)
+
+
+def _load_sa():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "sa2", Path(__file__).resolve().parents[2] / "scripts/shell/run-stig-assessment.py")
+    sa = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(sa)
+    return sa
+
+
+def test_local_profile_shrinks_context(monkeypatch):
+    sa = _load_sa()
+    monkeypatch.delenv("EPYON_STIG_CODE_BYTES", raising=False)
+    assert sa._code_bytes_default() == sa.MAX_CODE_BYTES_PER_BATCH
+    sa._LOCAL_MODEL = True
+    assert sa._code_bytes_default() == sa.LOCAL_CODE_BYTES_PER_BATCH
+    monkeypatch.setenv("EPYON_STIG_CODE_BYTES", "12000")
+    assert sa._code_bytes_default() == 12000
+    assert sa.LOCAL_BATCH_SIZE_DEFAULT < sa.BATCH_SIZE_DEFAULT
+
+
+def test_prompt_leads_with_controls_and_ends_with_contract():
+    sa = _load_sa()
+    captured = {}
+
+    class Msg:
+        content = "[]"
+
+    class Resp:
+        usage = None
+        choices = [type("C", (), {"message": Msg, "finish_reason": "stop"})]
+
+    class Client:
+        class chat:
+            class completions:
+                @staticmethod
+                def create(**kw):
+                    captured.update(kw)
+                    return Resp
+
+    sa._LOCAL_MODEL = True
+    ctrl = [{"vuln_id": "V-1", "title": "t", "check_content": "c", "fix_text": "f"}]
+    sa.call_openai(Client, "gemma", ctrl, "CODE", "MANIFEST", {}, "", "", "DOCS", "Not JSON.")
+    user = captured["messages"][1]["content"]
+    assert user.index("V-1") < user.index("MANIFEST") < user.index("CODE")
+    assert user.rstrip().endswith("no markdown fences.")
+    assert "Not JSON." in user

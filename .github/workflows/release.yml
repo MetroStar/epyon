@@ -48,6 +48,8 @@ jobs:
             git merge-base --is-ancestor HEAD origin/main \
               || { echo "::error::$tag is not on main"; exit 1; }
           else
+            [[ "$DRY_RUN" == "true" ]] \
+              || { echo "::error::Manual dispatch is dry-run only; publish by pushing a release tag"; exit 1; }
             tag="v$version"
           fi
           [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] \

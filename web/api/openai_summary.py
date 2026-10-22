@@ -348,6 +348,7 @@ def _build_user_message(scan_id: str, scan_meta: dict, findings: dict) -> str:
             "open":    scan_meta.get("stig_open", 0),
             "passing": scan_meta.get("stig_pass", 0),
             "n_a":     scan_meta.get("stig_na", 0),
+            "evidence_needed": scan_meta.get("stig_nr", 0),
         }
 
     return (
@@ -430,6 +431,7 @@ def _build_technical_user_message(scan_id: str, scan_meta: dict, findings: dict)
             "open":     scan_meta.get("stig_open", 0),
             "passing":  scan_meta.get("stig_pass", 0),
             "n_a":      scan_meta.get("stig_na", 0),
+            "evidence_needed": scan_meta.get("stig_nr", 0),
             "reports":  [r.get("slug") for r in scan_meta.get("stig_reports", [])],
         }
 
@@ -887,7 +889,8 @@ async def generate_app_isso_summary(
             "total": len(stig_detail),
             "open":  len(open_controls),
             "pass":  sum(1 for c in stig_detail if c.get("status") == "Not a Finding"),
-            "na":    sum(1 for c in stig_detail if c.get("status") in ("Not Applicable", "Not Reviewed")),
+            "na":    sum(1 for c in stig_detail if c.get("status") == "Not Applicable"),
+            "evidence_needed": sum(1 for c in stig_detail if c.get("status") == "Not Reviewed"),
             "open_controls": [
                 {
                     "vuln_id":  c.get("vuln_id"),

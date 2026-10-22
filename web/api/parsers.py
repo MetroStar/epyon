@@ -76,6 +76,47 @@ def _relative_location(scan_dir: Path, epyon_root: Path) -> str:
         return str(scan_dir.parent)
 
 
+def stig_record_fields(assessed: dict, control: dict) -> dict:
+    """ETK record fields for one STIG control, safe to serve to the UI.
+
+    Older scans have none of these keys; every field then falls back to an
+    empty value so they still render. "Not Reviewed" is kept as the stored
+    status (stig_na and stig_nr stay separate) and carries ``evidence_needed``.
+    """
+    def _text(value: Any, limit: int = 600) -> str:
+        return value.strip()[:limit] if isinstance(value, str) else ""
+
+    rows = []
+    for item in assessed.get("changes_that_may_affect") or []:
+        if isinstance(item, dict):
+            rows.append({
+                "change":  _text(item.get("change")),
+                "where":   _text(item.get("where") or item.get("path")),
+                "recheck": _text(item.get("recheck") or item.get("re_check")),
+            })
+    auto = assessed.get("automation_recommendation")
+    automation = (
+        {k: _text(auto.get(k)) for k in ("check", "data_source", "pass_fail_rule", "where_it_runs")}
+        if isinstance(auto, dict) else None
+    )
+    evidence_needed = ""
+    if assessed.get("status", "Not Reviewed") == "Not Reviewed":
+        flat = " ".join(str(control.get("check_content") or control.get("title") or "").split())
+        evidence_needed = re.split(r"(?<=[.!?])\s", flat, maxsplit=1)[0][:300]
+    failures = assessed.get("citation_failures")
+    return {
+        "changes_that_may_affect":   rows[:10],
+        "automation_recommendation": automation,
+        "evidence_needed":           evidence_needed,
+        "verification_note":         _text(assessed.get("verification_note")),
+        "citation_failures":         [_text(f, 300) for f in failures[:10]] if isinstance(failures, list) else [],
+        "needs_owner_confirmation":  bool(assessed.get("needs_owner_confirmation", False)),
+        "reopened_reason":           _text(assessed.get("reopened_reason")),
+        "downgraded_from":           _text(assessed.get("downgraded_from"), 40),
+        "human_reviewed":            bool(assessed.get("locked_by_human", False)),
+    }
+
+
 def parse_dir_name(name: str) -> dict:
     parts = name.split("_")
     if len(parts) >= 3:

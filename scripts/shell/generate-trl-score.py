@@ -183,7 +183,9 @@ def get_latest_stig_results(scan_dirs: List[Path]) -> Dict[str, Any]:
                 status = data.get("status", "")
                 severity = severity_map.get(vuln_id, "")
                 
-                if status in ("Open", "Not a Finding", "Not Applicable"):
+                # "Not Reviewed" is a control that could not be confirmed from static
+                # evidence; it is scored as Open (applicable, not passing), never as pass or N/A.
+                if status in ("Open", "Not a Finding", "Not Applicable", "Not Reviewed"):
                     total_applicable += 1
                     if status == "Not a Finding":
                         total_pass += 1

@@ -1893,7 +1893,7 @@ async function renderScanDetail(scanId, openFindingId = '', openFindingPackage =
                 <span class="stig-mini open">${esc(scan.stig_open || 0)} open</span>
                 <span class="stig-mini pass">${esc(scan.stig_pass || 0)} pass</span>
                 <span class="stig-mini na">${esc(scan.stig_na || 0)} n/a</span>
-                ${(scan.stig_nr || 0) > 0 ? `<span class="stig-mini" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(scan.stig_nr || 0)} not reviewed</span>` : ''}
+                ${(scan.stig_nr || 0) > 0 ? `<span class="stig-mini" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(scan.stig_nr || 0)} evidence needed</span>` : ''}
                 <span class="stig-mini total">${esc(scan.stig_total || 0)} total</span>
               </span>
               <span style="display:flex;align-items:center;gap:8px">
@@ -1919,7 +1919,7 @@ async function renderScanDetail(scanId, openFindingId = '', openFindingPackage =
                 ${(scan.stig_nr || 0) > 0 ? `
                 <div class="stig-count" style="background:var(--bg-input);border-color:var(--border)">
                   <span class="num" style="color:var(--text-muted)">${esc(scan.stig_nr || 0)}</span>
-                  <span class="lbl">Not Reviewed</span>
+                  <span class="lbl" title="Not Reviewed: open until evidence is supplied">Evidence needed</span>
                 </div>` : ''}
                 <div class="stig-count total">
                   <span class="num">${esc(scan.stig_total || 0)}</span>
@@ -4267,7 +4267,7 @@ async function renderStig() {
                 ${(app.stig_nr || 0) > 0 ? `
                 <div class="stig-count" style="background:var(--bg-input);border-color:var(--border)">
                   <span class="num" style="color:var(--text-muted)">${esc(app.stig_nr || 0)}</span>
-                  <span class="lbl">Not Reviewed</span>
+                  <span class="lbl">Evidence needed</span>
                 </div>` : ''}
                 <div class="stig-count total">
                   <span class="num">${esc(app.stig_total || 0)}</span>
@@ -7198,7 +7198,7 @@ async function renderStigHistory(selectedApp, selectedSlug) {
   const { apps = [], app: curApp, slugs = [], scans = [], controls = [], summary = {} } = data;
 
   // ── Filter state ──────────────────────────────────────────
-  let statusFilter = 'all';   // 'all' | 'open' | 'pass' | 'na'
+  let statusFilter = 'all';   // 'all' | 'open' | 'pass' | 'na' | 'nr'
   let daysFilter   = 30;      // 7 | 14 | 30 | 35 | 0 (all)
   let sortKey      = 'sev';   // 'sev' | 'id' | 'mttr' | 'status'
   let sortDir      = 1;
@@ -7207,7 +7207,8 @@ async function renderStigHistory(selectedApp, selectedSlug) {
   function filterControls(list) {
     if (statusFilter === 'open')   return list.filter(c => c.latest_status === 'Open');
     if (statusFilter === 'pass')   return list.filter(c => c.latest_status === 'Not a Finding');
-    if (statusFilter === 'na')     return list.filter(c => ['Not Applicable','Not Reviewed'].includes(c.latest_status));
+    if (statusFilter === 'na')     return list.filter(c => c.latest_status === 'Not Applicable');
+    if (statusFilter === 'nr')     return list.filter(c => c.latest_status === 'Not Reviewed');
     return list;
   }
 
@@ -7242,7 +7243,7 @@ async function renderStigHistory(selectedApp, selectedSlug) {
     ).join('');
 
     const statusBtns = [
-      ['all','All'],['open','Open'],['pass','Not a Finding'],['na','N/A / NR']
+      ['all','All'],['open','Open'],['pass','Not a Finding'],['na','N/A'],['nr','Evidence needed']
     ].map(([k,l]) =>
       `<button class="btn btn-sm${statusFilter===k?' btn-active':''}" onclick="window._stigHistoryStatus('${k}')">${l}</button>`
     ).join('');
@@ -7564,7 +7565,7 @@ async function renderStigViewer(scanId) {
                   <tr class="stig-tr stig-tr-clickable" id="${rowId}" onclick="openStigDetail('${esc(regKey)}')">
                     <td><code class="stig-id">${esc(c.group_id || c.vuln_id)}</code></td>
                     <td><span class="stig-sev stig-sev-${esc(c.severity)}">${esc(c.severity || '—')}</span></td>
-                    <td><span class="${esc(STATUS_CLASS[c.status] || 'stig-status-nr')}">${esc(c.status)}</span>${c.locked_by_human ? ' <span class="stig-lock-badge" title="Manually locked by human reviewer">🔒</span>' : ''}${c.locked_by_stability ? ' <span class="stig-lock-badge" title="No repository evidence found across repeated scans — not re-assessed by AI to save time/tokens until code changes">💤</span>' : ''}</td>
+                    <td><span class="${esc(STATUS_CLASS[c.status] || 'stig-status-nr')}">${esc(stigStatusLabel(c.status))}</span>${c.locked_by_human ? ' <span class="stig-lock-badge" title="Human-reviewed; locked until a listed path changes">🔒</span>' : ''}${c.locked_by_stability ? ' <span class="stig-lock-badge" title="No repository evidence found across repeated scans — not re-assessed by AI to save time/tokens until code changes">💤</span>' : ''}</td>
                     <td><span class="stig-confidence ${confClass}" title="${conf}/100">${conf}</span></td>
                     <td class="stig-title-cell">${esc(c.title)}</td>
                     ${stigNames.length > 1 ? `<td class="stig-stig-cell" title="${esc(c._stig_name)}">${esc(sname)}</td>` : ''}
@@ -7584,7 +7585,7 @@ async function renderStigViewer(scanId) {
             <div class="stig-filter-btns" id="filter-status">
               ${['all', ...STATUS_ORDER].map(s => `
                 <button class="stig-filter-btn${filterStatus === s ? ' active' : ''}"
-                  onclick="setStigFilter('status','${s}')">${s === 'all' ? 'All' : esc(s)}${s !== 'all' && counts[s] ? ` <span class="stig-filter-count">${counts[s]}</span>` : ''}</button>
+                  onclick="setStigFilter('status','${s}')">${s === 'all' ? 'All' : esc(stigStatusLabel(s))}${s !== 'all' && counts[s] ? ` <span class="stig-filter-count">${counts[s]}</span>` : ''}</button>
               `).join('')}
             </div>
           </div>
@@ -7689,7 +7690,7 @@ async function renderStigViewer(scanId) {
           <span class="num">${counts['Not Applicable'] || 0}</span><span class="lbl">N/A</span>
         </div>
         <div class="stig-total-chip nr">
-          <span class="num">${counts['Not Reviewed'] || 0}</span><span class="lbl">Not Reviewed</span>
+          <span class="num">${counts['Not Reviewed'] || 0}</span><span class="lbl">Evidence needed</span>
         </div>
         <div class="stig-total-chip total">
           <span class="num">${allControls.length}</span><span class="lbl">Total</span>
@@ -9266,6 +9267,8 @@ function openStigViewerDetail(regKey) {
         <div class="stig-evidence" style="margin-top:6px">${esc(c.evidence || '—').replace(/\n/g, '<br>')}</div>
       </div>
 
+      ${stigRecordHtml(c)}
+
       <div class="finding-detail-section" style="margin-top:12px">
         <div class="finding-detail-label">Check Content</div>
         <div class="stig-check" style="margin-top:6px">${esc(c.check_content || '—').replace(/\n/g, '<br>')}</div>
@@ -9315,6 +9318,44 @@ function openStigViewerDetail(regKey) {
   const _onKey = e => { if (e.key === 'Escape') { closeFindingDetail(); document.removeEventListener('keydown', _onKey); } };
   document.addEventListener('keydown', _onKey);
   drawer._onKey = _onKey;
+}
+
+// "Not Reviewed" is stored as-is (kept separate from N/A) but shown as
+// "Evidence needed": the control is open until evidence is supplied.
+function stigStatusLabel(status) {
+  return status === 'Not Reviewed' ? 'Evidence needed' : (status || '');
+}
+
+function stigRecordHtml(c) {
+  const rows = Array.isArray(c.changes_that_may_affect) ? c.changes_that_may_affect : [];
+  const auto = c.automation_recommendation;
+  const notes = [];
+  if (c.evidence_needed) notes.push(['Evidence needed', c.evidence_needed]);
+  if (c.verification_note) notes.push(['Verification', c.verification_note]);
+  if (c.reopened_reason) notes.push(['Re-opened', c.reopened_reason]);
+  if (c.downgraded_from) notes.push(['Downgraded from', c.downgraded_from]);
+  if (c.needs_owner_confirmation) notes.push(['Owner', 'Needs owner confirmation']);
+  (c.citation_failures || []).forEach(f => notes.push(['Citation failed', f]));
+  if (!rows.length && !auto && !notes.length) return '';
+  const noteHtml = notes.map(([k, v]) =>
+    `<div style="font-size:13px;margin-top:4px"><strong>${esc(k)}:</strong> ${esc(v)}</div>`).join('');
+  const tableHtml = rows.length ? `
+    <table class="stig-table" style="margin-top:6px">
+      <thead><tr><th>Change</th><th>Where</th><th>Re-check</th></tr></thead>
+      <tbody>${rows.map(r => `<tr><td>${esc(r.change)}</td><td>${esc(r.where)}</td><td>${esc(r.recheck)}</td></tr>`).join('')}</tbody>
+    </table>` : '';
+  const autoHtml = auto ? `
+    <div style="margin-top:8px;font-size:13px">
+      <strong>Automation:</strong> ${esc(auto.check || '—')}
+      ${auto.data_source ? `<div>Data source: ${esc(auto.data_source)}</div>` : ''}
+      ${auto.pass_fail_rule ? `<div>Pass/fail: ${esc(auto.pass_fail_rule)}</div>` : ''}
+      ${auto.where_it_runs ? `<div>Runs in: ${esc(auto.where_it_runs)}</div>` : ''}
+    </div>` : '';
+  return `
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">Review Record</div>
+        ${noteHtml}${rows.length ? '<div class="finding-detail-label" style="margin-top:10px">Changes that may affect this control</div>' : ''}${tableHtml}${autoHtml}
+      </div>`;
 }
 
 function closeStigDetail() {
@@ -9389,7 +9430,7 @@ function openStigDetail(id) {
   closeFindingDetail();
 
   const _SC = { 'Open': 'open', 'Not a Finding': 'not-a-finding', 'Not Applicable': 'na', 'Not Reviewed': 'not-reviewed' };
-  const _SA = { 'Open': 'Open', 'Not a Finding': 'Pass', 'Not Applicable': 'N/A', 'Not Reviewed': 'Not Reviewed' };
+  const _SA = { 'Open': 'Open', 'Not a Finding': 'Pass', 'Not Applicable': 'N/A', 'Not Reviewed': 'Evid.' };
 
   const sev     = c.severity || 'unknown';
   const sevCls  = sev.toLowerCase();
@@ -10114,7 +10155,7 @@ function renderStaticScanDetail(scan) {
             <span class="stig-mini open">${esc(r.open)} open</span>
             <span class="stig-mini pass">${esc(r.pass)} pass</span>
             <span class="stig-mini na">${esc(r.na)} n/a</span>
-            ${(r.nr || 0) > 0 ? `<span class="stig-mini" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(r.nr)} not reviewed</span>` : ''}
+            ${(r.nr || 0) > 0 ? `<span class="stig-mini" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(r.nr)} evidence needed</span>` : ''}
             <span class="stig-mini total">${esc(r.total)} total</span>
           </span>
         </div>`;
@@ -10137,7 +10178,7 @@ function renderStaticScanDetail(scan) {
               <span class="stig-mini open">${esc(scan.stig_open || 0)} open</span>
               <span class="stig-mini pass">${esc(scan.stig_pass || 0)} pass</span>
               <span class="stig-mini na">${esc(scan.stig_na || 0)} n/a</span>
-              ${(scan.stig_nr || 0) > 0 ? `<span class="stig-mini" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(scan.stig_nr || 0)} not reviewed</span>` : ''}
+              ${(scan.stig_nr || 0) > 0 ? `<span class="stig-mini" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(scan.stig_nr || 0)} evidence needed</span>` : ''}
               <span class="stig-mini total">${esc(scan.stig_total || 0)} total</span>
             </span>
             <span class="findings-summary-hint">Click to expand</span>
@@ -10147,7 +10188,7 @@ function renderStaticScanDetail(scan) {
               <div class="stig-count open"><span class="num">${esc(scan.stig_open  || 0)}</span><span class="lbl">Open</span></div>
               <div class="stig-count pass"><span class="num">${esc(scan.stig_pass  || 0)}</span><span class="lbl">Not a Finding</span></div>
               <div class="stig-count na"  ><span class="num">${esc(scan.stig_na    || 0)}</span><span class="lbl">Not Applicable</span></div>
-              ${(scan.stig_nr || 0) > 0 ? `<div class="stig-count" style="background:var(--bg-input);border-color:var(--border)"><span class="num" style="color:var(--text-muted)">${esc(scan.stig_nr || 0)}</span><span class="lbl">Not Reviewed</span></div>` : ''}
+              ${(scan.stig_nr || 0) > 0 ? `<div class="stig-count" style="background:var(--bg-input);border-color:var(--border)"><span class="num" style="color:var(--text-muted)">${esc(scan.stig_nr || 0)}</span><span class="lbl">Evidence needed</span></div>` : ''}
               <div class="stig-count total"><span class="num">${esc(scan.stig_total|| 0)}</span><span class="lbl">Total</span></div>
             </div>
             ${multiStig ? `<div class="stig-per-stig">${perStigRows}</div>` : ''}

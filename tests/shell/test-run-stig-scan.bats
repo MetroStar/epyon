@@ -223,3 +223,12 @@ CKLB
     [ "$status" -eq 0 ]
     ! grep -qE "openai|requests|urllib" "${SCRIPT_DIR}/stig_citations.py"
 }
+
+@test "stig_jira.py is opt-in and never fails the scan (MID-4536)" {
+    run env -u EPYON_STIG_JIRA python3 "${SCRIPT_DIR}/stig_jira.py" --target /tmp --scan-dir /tmp --app-name x
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"disabled"* ]]
+    run env EPYON_STIG_JIRA=true JIRA_API_TOKEN= python3 "${SCRIPT_DIR}/stig_jira.py" --target /tmp --scan-dir /nonexistent --app-name x
+    [ "$status" -eq 0 ]
+    grep -q 'EPYON_STIG_JIRA' "${SCRIPT_DIR}/run-stig-scan.sh"
+}

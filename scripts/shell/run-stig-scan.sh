@@ -295,6 +295,14 @@ if [[ $RC -eq 0 ]]; then
             echo -e "${YELLOW}[WARNING] PR creation script not found or not executable: $PR_SCRIPT${NC}"
         fi
         echo ""
+
+        # ── Post gaps to Jira (opt-in, never blocks the scan) ─────────────
+        if [[ "${EPYON_STIG_JIRA:-false}" == "true" ]]; then
+            python3 "${SCRIPT_DIR}/stig_jira.py" --target "$TARGET_DIR" --scan-dir "$SCAN_DIR" --app-name "$APP_NAME" || {
+                echo -e "${YELLOW}[WARNING] STIG Jira posting exited non-zero (non-fatal)${NC}"
+            }
+            echo ""
+        fi
     else
         echo -e "${YELLOW}[STIG] Assessment finished but findings-${APP_SLUG}.md was not produced.${NC}"
     fi

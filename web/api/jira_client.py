@@ -959,6 +959,47 @@ def _snapshot_finding(finding: dict) -> dict:
     return {key: finding[key] for key in _SNAPSHOT_FIELDS if key in finding}
 
 
+async def link_issues(cfg: dict, inward_key: str, outward_key: str, link_type: str = "Relates") -> bool:
+    """Create a "relates to" link between two issues. Best-effort; returns True on success."""
+    body = {
+        "type": {"name": link_type},
+        "inwardIssue": {"key": inward_key},
+        "outwardIssue": {"key": outward_key},
+    }
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.post(
+                f"{_base(cfg)}/rest/api/3/issueLink",
+                auth=_auth(cfg),
+                headers={"Accept": "application/json", "Content-Type": "application/json"},
+                json=body,
+            )
+        if r.status_code in (200, 201):
+            return True
+        logger.warning("Jira link %s -> %s failed: HTTP %s", inward_key, outward_key, r.status_code)
+        return False
+    except Exception:
+        logger.warning("Jira link %s -> %s raised an exception", inward_key, outward_key, exc_info=True)
+        return False
+
+
+async def search_issue_keys(cfg: dict, jql: str, max_results: int = 5) -> list[str]:
+    """Return issue keys matching a JQL query; [] on any error."""
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(
+                f"{_base(cfg)}/rest/api/3/search/jql",
+                auth=_auth(cfg),
+                headers={"Accept": "application/json"},
+                params={"jql": jql, "fields": "summary", "maxResults": max_results},
+            )
+        if r.status_code != 200:
+            return []
+        return [i["key"] for i in r.json().get("issues", []) if i.get("key")]
+    except Exception:
+        return []
+
+
 async def create_tickets_batch(
     app_name: str,
     findings_by_fingerprint: dict[str, dict],

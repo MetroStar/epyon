@@ -1335,8 +1335,8 @@ async function cveBulkResolve(group) {
       const norm = v => String(v || '').trim().toLowerCase();
       const matches = data.candidates.filter(c => norm(c.id) === norm(f.id) && norm(c.package) === norm(f.package));
       const pick = matches.find(c => c.selectable);
-      if (pick) group.eligible.push({ f, fingerprint: pick.fingerprint });
-      else if (matches.some(c => c.selection_reason === 'already_ticketed')) group.skipped.push({ f, reason: 'already ticketed' });
+      if (matches.some(c => c.jira_ticket || c.selection_reason === 'already_ticketed')) group.skipped.push({ f, reason: 'already ticketed' });
+      else if (pick) group.eligible.push({ f, fingerprint: pick.fingerprint });
       else if (matches.length) group.skipped.push({ f, reason: 'suppressed' });
       else group.skipped.push({ f, reason: 'no longer in this scan' });
     }

@@ -183,6 +183,12 @@ def render_entry(
         note_parts.append("Carried forward from the previous scan.")
     if notes:
         note_parts.append(notes)
+    if assessment.get("downgraded_from"):
+        note_parts.append(f"Downgraded from {assessment['downgraded_from']} by evidence verification.")
+    if assessment.get("verification_note"):
+        note_parts.append(f"Verification: {assessment['verification_note']}.")
+    for failure in assessment.get("citation_failures") or []:
+        note_parts.append(f"Failed citation: {failure}.")
     sev = str(control.get("severity") or "").lower()
     severity = f"{_CAT.get(sev, sev or 'not stated')}" + (f" ({rule})" if rule else "")
     if status == "Open":

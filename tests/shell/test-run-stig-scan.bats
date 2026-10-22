@@ -215,3 +215,11 @@ CKLB
     grep -q "template-version: etk-stig-review-" "${BATS_TEST_DIRNAME}/../../configuration/stig-review-templates/entry.md"
     grep -q "template-version: etk-stig-review-" "${BATS_TEST_DIRNAME}/../../configuration/stig-review-templates/index.md"
 }
+
+@test "run-stig-assessment.py verifies evidence citations without extra model calls (MID-4533)" {
+    [ -f "${SCRIPT_DIR}/stig_citations.py" ]
+    grep -q "_verify_citations" "${SCRIPT_DIR}/run-stig-assessment.py"
+    run python3 -c "import ast,sys; ast.parse(open('${SCRIPT_DIR}/stig_citations.py').read())"
+    [ "$status" -eq 0 ]
+    ! grep -qE "openai|requests|urllib" "${SCRIPT_DIR}/stig_citations.py"
+}

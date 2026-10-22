@@ -485,6 +485,27 @@ def _load_records() -> Any:
     return mod
 
 
+def _verify_citations(assessment: dict[str, Any], target_dir: str, control: dict[str, Any] | None, slug: str) -> None:
+    """Downgrade an assessment whose cited evidence cannot be verified (file reads only)."""
+    import importlib.util
+    mod = sys.modules.get("epyon_stig_citations")
+    if mod is None:
+        spec = importlib.util.spec_from_file_location(
+            "epyon_stig_citations", Path(__file__).parent / "stig_citations.py"
+        )
+        mod = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+        sys.modules["epyon_stig_citations"] = mod
+        spec.loader.exec_module(mod)  # type: ignore[union-attr]
+    before = assessment.get("status")
+    mod.verify_assessment(assessment, target_dir, control)
+    if assessment.get("verification_note"):
+        print(
+            f"[WARNING] [{slug}] {control.get('vuln_id') if control else '?'}: {before} -> "
+            f"{assessment['status']}: {assessment['verification_note']}",
+            file=sys.stderr,
+        )
+
+
 def parse_stig_file(path: str) -> dict[str, Any]:
     """Parse any supported STIG file (.cklb or XCCDF .xml)."""
     mod = _load_parser()
@@ -2058,6 +2079,11 @@ def _assess_stig(
                         assessments[vid]["changes_that_may_affect"] = item["changes_that_may_affect"]
                     if isinstance(item.get("automation_recommendation"), dict):
                         assessments[vid]["automation_recommendation"] = item["automation_recommendation"]
+                    _verify_citations(
+                        assessments[vid], target_dir,
+                        next((c for c in batch if c["vuln_id"] == vid), None), slug,
+                    )
+                    status, conf = assessments[vid]["status"], assessments[vid]["confidence"]
                     # Track repeated "no evidence found" outcomes so a control that
                     # keeps landing on Open/confidence-0 scan after scan (nothing in the
                     # repo changed, the model just can't find static evidence for it —

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.52.1] - 2026-10-23
+
+### Added
+- Manual "Add to Jira" for STIG controls: tick controls in the STIG viewer (or use the button in a control's drawer) and choose the Jira board (project key, with known boards suggested), issue type, Epic, optional tracking ticket and triager. Nothing is redirected and the application's saved board is not changed. New endpoints `GET /api/scans/{id}/stig-jira-context` and `POST /api/scans/{id}/stig-jira-tickets`; `jira-epics` accepts a `project_key` override (MID-4536).
+
 ## [3.52.0] - 2026-10-23
 
 ### Added

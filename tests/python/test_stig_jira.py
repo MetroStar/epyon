@@ -185,3 +185,41 @@ def test_publish_keeps_tracker_named_in_published_index(tmp_path):
     stig_records.publish_records(scan, target)
     index = (target / "docs" / "stig-reviews" / "README.md").read_text()
     assert stig_records.tracker_key(index, "MID") == "MID-4000"
+
+
+def manual(jc, scan, picks, **kw):
+    cfg = {**jc.read_config(), "project_key": kw.pop("project", "SAP")}
+    return asyncio.run(stig_jira.create_manual(jc, cfg, "myapp", scan, picks, **kw))
+
+
+def test_manual_creates_in_chosen_board_without_tracker(tmp_path):
+    jc = FakeJira(tmp_path, project="MID")
+    scan = make_scan(tmp_path, ["Open", "Not a Finding"])
+    r = manual(jc, scan, [("app", "APSC-DV-000000"), ("app", "APSC-DV-000001")])
+    assert [k for k, _ in jc.created] == ["SAP-100", "SAP-101"]
+    assert jc.links == [] and jc.comments == []
+    assert r["created"][0]["issue_key"] == "SAP-100"
+
+
+def test_manual_dedupes_per_board_and_links_tracker(tmp_path):
+    jc = FakeJira(tmp_path)
+    scan = make_scan(tmp_path, ["Open"])
+    pick = [("app", "APSC-DV-000000")]
+    manual(jc, scan, pick, tracker="SAP-9")
+    assert jc.links == [("SAP-100", "SAP-9")]
+    again = manual(jc, scan, pick)
+    assert again["already_exists"] and len(jc.created) == 1
+    manual(jc, scan, pick, project="IRIS")  # another board is a separate ticket
+    assert len(jc.created) == 2
+
+
+def test_manual_rejects_other_project_tracker_and_unknown_control(tmp_path):
+    jc = FakeJira(tmp_path)
+    scan = make_scan(tmp_path, ["Open"])
+    try:
+        manual(jc, scan, [("app", "APSC-DV-000000")], tracker="MID-1")
+        raise AssertionError("expected ValueError")
+    except ValueError:
+        pass
+    r = manual(jc, scan, [("app", "NOPE")])
+    assert r["ineligible"][0]["reason"] == "unknown_control" and jc.created == []

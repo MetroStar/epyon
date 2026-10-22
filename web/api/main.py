@@ -1487,6 +1487,121 @@ def scan_jira_project_update(
     return {"app_name": app_name, "project_key": project_key}
 
 
+_STIG_JIRA_MAX = 100
+
+
+class StigJiraControl(BaseModel):
+    slug: str
+    vuln_id: str
+
+
+class StigJiraTicketRequest(BaseModel):
+    controls: List[StigJiraControl]
+    project_key: str
+    epic_key: Optional[str] = None
+    issue_type: Optional[str] = None
+    tracker_key: Optional[str] = None
+    triaged_by: Optional[str] = None
+
+
+def _stig_jira_module():
+    import sys
+    shell_dir = str(EPYON_ROOT / "scripts" / "shell")
+    if shell_dir not in sys.path:
+        sys.path.insert(0, shell_dir)
+    import stig_jira
+    return stig_jira
+
+
+@app.get("/api/scans/{scan_id}/stig-jira-context")
+def scan_stig_jira_context(scan_id: str, response: Response):
+    """Default Jira board for a scan's app plus the boards Epyon already knows."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    app_name = parsers.parse_dir_name(scan_id)["target"]
+    cfg = jira_client.read_config(app_name)
+    known = {str(v).upper() for v in (cfg.get("project_keys") or {}).values() if isinstance(v, str)}
+    if cfg.get("project_key"):
+        known.add(cfg["project_key"].upper())
+    return {
+        "app_name": app_name,
+        "jira_configured": bool(cfg.get("base_url") and cfg.get("email") and cfg.get("api_token")),
+        "jira_base_url": (cfg.get("base_url") or "").rstrip("/"),
+        "project_key": cfg.get("project_key", ""),
+        "known_projects": sorted(known),
+    }
+
+
+@app.post("/api/scans/{scan_id}/stig-jira-tickets")
+async def scan_stig_jira_tickets_create(
+    scan_id: str,
+    body: StigJiraTicketRequest,
+    request: Request,
+    response: Response,
+):
+    """Create Jira tickets for user-selected STIG controls in the chosen project.
+
+    The project is taken from the request and is not persisted, so the user
+    always sees and controls which board receives the tickets.
+    """
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    if not body.controls:
+        raise HTTPException(400, "At least one control is required")
+    if len(body.controls) > _STIG_JIRA_MAX:
+        raise HTTPException(400, f"A maximum of {_STIG_JIRA_MAX} controls can be submitted at once")
+    for c in body.controls:
+        if not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", c.slug) or not re.fullmatch(r"[A-Za-z0-9._-]{1,80}", c.vuln_id):
+            raise HTTPException(400, "Invalid control")
+    project_key = body.project_key.strip().upper()
+    if not re.fullmatch(r"[A-Z][A-Z0-9]{0,9}", project_key):
+        raise HTTPException(400, "project_key must be 1-10 uppercase alphanumeric characters")
+    epic_key = (body.epic_key or "").strip().upper() or None
+    if epic_key and not _JIRA_EPIC_KEY_RE.fullmatch(epic_key):
+        raise HTTPException(400, "epic_key must look like PROJECT-123")
+    tracker = (body.tracker_key or "").strip().upper()
+    if tracker and not _JIRA_EPIC_KEY_RE.fullmatch(tracker):
+        raise HTTPException(400, "tracker_key must look like PROJECT-123")
+    if tracker and not tracker.startswith(project_key + "-"):
+        raise HTTPException(400, f"tracker_key {tracker} is not in project {project_key}")
+    issue_type = (body.issue_type or "").strip() or None
+    if issue_type and (re.search(r"[<>\"';&|`$\n\r]", issue_type) or len(issue_type) > 100):
+        raise HTTPException(400, "issue_type is invalid")
+    triaged_by = (body.triaged_by or "").strip() or None
+    if triaged_by and (re.search(r"[<>`\x00-\x1f]", triaged_by) or len(triaged_by) > 200):
+        raise HTTPException(400, "triaged_by is invalid")
+    triage_note = (
+        f"Triaged and added by: {triaged_by} on: {datetime.now(timezone.utc).date().isoformat()}"
+        if triaged_by else None
+    )
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    matched = next((d for d in scan_dirs if d.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+    app_name = parsers.parse_dir_name(scan_id)["target"]
+    cfg = jira_client.read_config(app_name)
+    if any(not cfg.get(k) for k in ("base_url", "email", "api_token")):
+        raise HTTPException(400, "Jira is not fully configured")
+    cfg = {**cfg, "project_key": project_key}
+    stig_jira = _stig_jira_module()
+    try:
+        result = await stig_jira.create_manual(
+            jira_client, cfg, app_name, matched,
+            [(c.slug, c.vuln_id) for c in body.controls],
+            tracker=tracker, epic_key=epic_key, issue_type=issue_type, triage_note=triage_note,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    result["project_key"] = project_key
+    _audit(
+        request, "stig_jira_tickets_created",
+        f"scan_id={scan_id} project={project_key} requested={len(body.controls)} created={len(result['created'])}",
+    )
+    return result
+
+
 @app.post("/api/scans/{scan_id}/jira-tickets")
 async def scan_jira_tickets_create(
     scan_id: str,
@@ -3867,7 +3982,7 @@ async def jira_test(response: Response):
 
 
 @app.get("/api/scans/{scan_id}/jira-epics")
-async def scan_jira_epics(scan_id: str, response: Response):
+async def scan_jira_epics(scan_id: str, response: Response, project_key: Optional[str] = Query(None)):
     """List existing Jira Epics and issue types for this scan's
     application/project, plus Epyon's suggested severity-based Epic names.
 
@@ -3885,7 +4000,10 @@ async def scan_jira_epics(scan_id: str, response: Response):
     scan_data = parsers.load_scan_complete(matched, EPYON_ROOT)
     app_name = scan_data.get("target") or parsers.parse_dir_name(scan_id)["target"]
     cfg = jira_client.read_config(app_name)
-    project_key = (cfg.get("project_key") or "").strip()
+    override = (project_key or "").strip().upper()
+    if override and not re.fullmatch(r"[A-Z][A-Z0-9]{0,9}", override):
+        raise HTTPException(400, "project_key must be 1-10 uppercase alphanumeric characters")
+    project_key = override or (cfg.get("project_key") or "").strip()
 
     existing: List[dict] = []
     issue_types: List[dict] = []

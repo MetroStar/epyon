@@ -115,6 +115,10 @@ def gap_finding(item: dict, app_name: str) -> dict:
         "package": "",
         "target": item["control"]["_slug"],
         "description": " ".join(str(a.get("evidence", "")).split())[:1500],
+        "stig_name": str(c.get("_stig", "")),
+        "status": str(a.get("status", "")),
+        "check_content": " ".join(str(c.get("check_content", "")).split())[:1000],
+        "fix_text": " ".join(str(c.get("fix_text", "")).split())[:1000],
     }
 
 
@@ -143,6 +147,63 @@ async def resolve_tracker(jc: Any, cfg: dict, app_name: str, target: Path, scan_
         if key:
             return key, "created"
     return "", "none"
+
+
+async def create_manual(
+    jc: Any,
+    cfg: dict,
+    app_name: str,
+    scan_dir: Path,
+    selections: list[tuple[str, str]],
+    *,
+    tracker: str = "",
+    epic_key: str | None = None,
+    issue_type: str | None = None,
+    triage_note: str | None = None,
+) -> dict:
+    """File tickets for user-selected controls in cfg["project_key"] (the chosen board).
+
+    ``selections`` are (slug, vuln_id) pairs. A tracker from another project is
+    rejected; existing tickets (by project-scoped fingerprint) are not duplicated.
+    """
+    project = cfg["project_key"]
+    if tracker and not tracker.upper().startswith(project.upper() + "-"):
+        raise ValueError(f"tracking ticket {tracker} is not in project {project}")
+    controls, assessments = load_scan(scan_dir)
+    by_key = {f"{c['_slug']}:{c['vuln_id']}": c for c in controls}
+    result: dict[str, Any] = {
+        "requested": len(selections), "created": [], "already_exists": [], "ineligible": [], "failed": [],
+    }
+    async with jc._get_lock():
+        tmap = jc.read_ticket_map()
+        for slug, vuln_id in dict.fromkeys(selections):
+            key = f"{slug}:{vuln_id}"
+            control = by_key.get(key)
+            if control is None:
+                result["ineligible"].append({"vuln_id": vuln_id, "slug": slug, "reason": "unknown_control"})
+                continue
+            finding = gap_finding({"control": control, "assessment": assessments[key]}, app_name)
+            fp = jc.finding_fingerprint(finding, app_name, project)
+            if fp in tmap:
+                result["already_exists"].append(
+                    {"vuln_id": vuln_id, "slug": slug, "issue_key": tmap[fp].get("issue_key", "")})
+                continue
+            issue_key = await jc.create_ticket(cfg, finding, app_name, epic_key, issue_type, triage_note)
+            if not issue_key:
+                result["failed"].append({"vuln_id": vuln_id, "slug": slug, "reason": "jira_creation_failed"})
+                continue
+            if tracker:
+                await jc.link_issues(cfg, issue_key, tracker)
+            tmap[fp] = {
+                "issue_key": issue_key, "app": app_name, "project_key": project, "category": "stig",
+                "epic_key": epic_key, "finding_id": finding["id"], "severity": finding["severity"],
+                "tool": "stig", "created_at": datetime.now(timezone.utc).isoformat(), "closed_at": None,
+                "creation_source": "manual-stig", "tracking_ticket": tracker or None,
+                "previous_issue_keys": [], "reassigned_at": None,
+            }
+            jc.write_ticket_map(tmap)
+            result["created"].append({"vuln_id": vuln_id, "slug": slug, "issue_key": issue_key})
+    return result
 
 
 def _state_path(jc: Any) -> Path:

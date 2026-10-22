@@ -613,6 +613,37 @@ def _bullets(items: list[list[dict]]) -> dict:
     }
 
 
+def build_stig_description(finding: dict, app_name: str) -> dict[str, Any]:
+    """ADF ticket body for a STIG control gap (tool == "stig")."""
+    sev = (finding.get("severity") or "unknown").upper()
+    fid = finding.get("id") or "Unknown"
+    content: list[dict] = [
+        _para(_text("STIG control assessed by Epyon in application "), _text(app_name, bold=True), _text(".")),
+        _heading("Control"),
+        _para(_text("Control: ", bold=True), _text(f"{fid} {finding.get('title') or ''}".strip())),
+        _para(_text("Severity: ", bold=True), _text(sev)),
+    ]
+    for label, key in (("STIG", "stig_name"), ("Status", "status")):
+        if finding.get(key):
+            content.append(_para(_text(f"{label}: ", bold=True), _text(str(finding[key])[:300])))
+    for heading, key in (("Evidence", "description"), ("Check", "check_content"), ("Fix", "fix_text")):
+        if finding.get(key):
+            content.append(_heading(heading))
+            content.append(_para(_text(str(finding[key])[:1500])))
+    content.append(_heading("Acceptance Criteria"))
+    content.append(_bullets([[_text(
+        f"Given {fid} is reported Open for {app_name}, when the control is satisfied and the "
+        "evidence is recorded in the STIG review record, then a follow-up Epyon STIG scan "
+        "reports it as Not a Finding."
+    )]]))
+    content.append(_heading("Definition of Done"))
+    content.append(_bullets([
+        [_text("The fix or documented justification is merged to the default branch.")],
+        [_text("The review record for this control is updated with the evidence.")],
+    ]))
+    return {"version": 1, "type": "doc", "content": content}
+
+
 def build_finding_description(finding: dict, app_name: str) -> dict[str, Any]:
     """Build the ADF ticket body for a finding: CVE Details, Acceptance Criteria,
     and Definition of Done — so a reviewer can triage, fix, and verify the
@@ -733,8 +764,12 @@ async def create_ticket(
     fid   = finding.get("id")    or "Unknown"
     pkg   = finding.get("package") or ""
 
-    summary = f"[{sev}][{tool}] {fid} in {pkg or app_name}"[:254]
-    description = build_finding_description(finding, app_name)
+    if tool == "stig":
+        summary = f"[{sev}][STIG] {fid}: {finding.get('title') or app_name}"[:254]
+        description = build_stig_description(finding, app_name)
+    else:
+        summary = f"[{sev}][{tool}] {fid} in {pkg or app_name}"[:254]
+        description = build_finding_description(finding, app_name)
 
     requested_issue_type = (issue_type or cfg.get("issue_type") or "Bug").strip()
     issue_type = await _resolve_issue_type(cfg, project_key, requested_issue_type)

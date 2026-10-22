@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.53.3] - 2026-10-23
+
+### Fixed
+- A failed STIG applicability call (e.g. `model 'gpt-4o-mini' is not configured`) no longer silently skips the STIG and produces no findings; the STIG is treated as applicable so the error surfaces.
+- Archived scan output (`_archive/`, `scans/`), test fixtures and `ML-Security-Checklist.json` are no longer fed to the assessment as human-authored STIG documentation (373 files in the last run).
+
 ## [3.53.2] - 2026-10-23
 
 ### Fixed

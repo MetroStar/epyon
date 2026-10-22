@@ -1323,7 +1323,15 @@ def extract_manual_stig_docs(files: list[tuple[str, str]]) -> tuple[list[tuple[s
     for rel, content in files:
         path = Path(rel)
         stem_lower = path.stem.lower()
-        
+
+        # Archived/generated scan output, fixtures and tool checklists are not human STIG docs.
+        if (
+            any(part in {"_archive", "scans", "fixtures"} for part in path.parts)
+            or path.name == "ML-Security-Checklist.json"
+        ):
+            remaining.append((rel, content))
+            continue
+
         is_manual_doc = False
         
         # Check directory path - matches both docs/file.md and docs/security/file.md
@@ -1503,7 +1511,10 @@ def check_stig_applicability(
         reason     = str(parsed.get("reason", "")).strip()
         return applicable, reason, prompt_tokens, completion_tokens
     except Exception as exc:  # pylint: disable=broad-except
-        return False, f"Applicability check failed ({exc}) — skipping STIG to avoid scanning non-applicable controls", 0, 0
+        # An unreachable or misconfigured model is not evidence the STIG is inapplicable;
+        # keep it so the failure surfaces in the assessment instead of silently skipping.
+        print(f"[WARNING] Applicability check failed ({exc}); treating the STIG as applicable", file=sys.stderr)
+        return True, f"Applicability check failed ({exc}); assumed applicable", 0, 0
 
 
 # ---------------------------------------------------------------------------

@@ -102,7 +102,16 @@ def _api(path: str, token: str) -> list | dict:
 
 def prs_in_range(repo: str, prev: str, tag: str, token: str) -> list[dict]:
     """Merged PRs whose commits are in prev..tag."""
-    commits = _api(f"repos/{repo}/compare/{prev}...{tag}", token)["commits"]
+    commits: list[dict] = []
+    page = 1
+    while True:
+        batch = _api(
+            f"repos/{repo}/compare/{prev}...{tag}?per_page=100&page={page}", token
+        )["commits"]
+        commits.extend(batch)
+        if len(batch) < 100:
+            break
+        page += 1
     prs: dict[int, dict] = {}
     for commit in commits:
         for pr in _api(f"repos/{repo}/commits/{commit['sha']}/pulls", token):

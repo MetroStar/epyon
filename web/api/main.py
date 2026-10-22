@@ -1384,6 +1384,10 @@ def findings_search(
                 "is_latest": scan["is_latest"],
                 "project_key": project_key,
                 "jira_base_url": (jira_cfg.get("base_url") or "").rstrip("/"),
+                "jira_configured": all(
+                    jira_cfg.get(key)
+                    for key in ("base_url", "email", "api_token", "project_key")
+                ),
                 "findings": findings,
             })
     applications.sort(key=lambda a: (a["app_name"].lower(), a["timestamp"]), reverse=False)

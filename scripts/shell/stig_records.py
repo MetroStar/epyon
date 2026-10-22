@@ -442,6 +442,24 @@ def _row_for_entry(name: str, info: dict[str, Any]) -> str:
     )
 
 
+_TRACKER_RE = re.compile(r"Tracked in Jira by\s+([A-Z][A-Z0-9]{1,9}-\d+)")
+
+
+def tracker_key(index_text: str, project_key: str = "") -> str:
+    """Jira key named by the index's "Tracked in Jira by" line, or "".
+
+    When ``project_key`` is given, a key from any other project is ignored so a
+    tracker is never reused across Jira projects.
+    """
+    match = _TRACKER_RE.search(index_text or "")
+    if not match:
+        return ""
+    key = match.group(1)
+    if project_key and not key.startswith(project_key.upper() + "-"):
+        return ""
+    return key
+
+
 def publish_records(scan_dir: str | Path, target_dir: str | Path) -> dict[str, int]:
     """Copy scan entries into docs/stig-reviews/ and rebuild a V-number sorted index.
 
@@ -479,6 +497,13 @@ def publish_records(scan_dir: str | Path, target_dir: str | Path) -> dict[str, i
         row_reviewer = _split_row(rows[key])[4] if key in rows and len(_split_row(rows[key])) > 4 else None
         if key not in rows or (is_human_reviewer(info["reviewer"]) and row_reviewer != info["reviewer"]):
             rows[key] = _row_for_entry(name, info)
+    published_index = dest / "README.md"
+    if sources and header and published_index.is_file():
+        kept = tracker_key(published_index.read_text(encoding="utf-8"))
+        if kept:
+            header = header.replace(
+                "no tracking ticket yet (set one when publishing these records)", kept
+            )
     if sources and header:
         table_head = (
             "| STIG | Entry | Version/Release | Reviewed | Reviewer | Status | Findings | Automation recommendation |\n"

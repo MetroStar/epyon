@@ -962,6 +962,9 @@ If `GITHUB_TOKEN` is not set or target is not a Git repo, the script **exits 0 (
 | `BATCH_DELAY` | No | `1` | Seconds between API calls |
 | `SKIP_STIG` | No | `false` | Skip STIG assessment entirely |
 | `SKIP_STIG_PR` | No | `false` | Skip PR automation |
+| `EPYON_STIG_JIRA` | No | `false` | Post STIG gaps to Jira (summary comment + one ticket per confirmed gap) |
+| `EPYON_STIG_JIRA_CREATE_TRACKER` | No | `false` | Create a tracking ticket when none is found |
+| `EPYON_STIG_JIRA_MAX_TICKETS` | No | `25` | Per-run cap on gap tickets |
 | `GITHUB_TOKEN` | No* | — | GitHub token for PR creation (*required for PR automation) |
 | `GH_PAT` | No | — | Fallback for `GITHUB_TOKEN` |
 

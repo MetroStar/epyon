@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.52.1] - 2026-10-23
+
+### Added
+- Manual "Add to Jira" for STIG controls: tick controls in the STIG viewer (or use the button in a control's drawer) and choose the Jira board (project key, with known boards suggested), issue type, Epic, optional tracking ticket and triager. Nothing is redirected and the application's saved board is not changed. New endpoints `GET /api/scans/{id}/stig-jira-context` and `POST /api/scans/{id}/stig-jira-tickets`; `jira-epics` accepts a `project_key` override (MID-4536).
+
+## [3.52.0] - 2026-10-23
+
+### Added
+- Opt-in STIG posting to Jira (`EPYON_STIG_JIRA=true`, default off): one summary comment on the project's tracking ticket (Open controls and controls whose status or evidence changed) and one ticket per confirmed gap, linked to the tracker, with fingerprint/JQL dedupe, a per-run ticket cap (`EPYON_STIG_JIRA_MAX_TICKETS`, default 25) and project-key isolation (MID-4536).
+- Tracking ticket resolution: the "Tracked in Jira by" line in the record index, then an open `stig-tracking` ticket for the app, otherwise skipped unless `EPYON_STIG_JIRA_CREATE_TRACKER=true`. A key from another Jira project is never reused.
+- `jira_client.link_issues` and `jira_client.search_issue_keys`.
+
+### Changed
+- Publishing STIG records keeps a tracking ticket already named in the published index.
+- Jira errors or missing credentials never block a scan or alter the STIG records.
+
 ## [3.51.0] - 2026-10-23
 
 ### Added

@@ -613,6 +613,37 @@ def _bullets(items: list[list[dict]]) -> dict:
     }
 
 
+def build_stig_description(finding: dict, app_name: str) -> dict[str, Any]:
+    """ADF ticket body for a STIG control gap (tool == "stig")."""
+    sev = (finding.get("severity") or "unknown").upper()
+    fid = finding.get("id") or "Unknown"
+    content: list[dict] = [
+        _para(_text("STIG control assessed by Epyon in application "), _text(app_name, bold=True), _text(".")),
+        _heading("Control"),
+        _para(_text("Control: ", bold=True), _text(f"{fid} {finding.get('title') or ''}".strip())),
+        _para(_text("Severity: ", bold=True), _text(sev)),
+    ]
+    for label, key in (("STIG", "stig_name"), ("Status", "status")):
+        if finding.get(key):
+            content.append(_para(_text(f"{label}: ", bold=True), _text(str(finding[key])[:300])))
+    for heading, key in (("Evidence", "description"), ("Check", "check_content"), ("Fix", "fix_text")):
+        if finding.get(key):
+            content.append(_heading(heading))
+            content.append(_para(_text(str(finding[key])[:1500])))
+    content.append(_heading("Acceptance Criteria"))
+    content.append(_bullets([[_text(
+        f"Given {fid} is reported Open for {app_name}, when the control is satisfied and the "
+        "evidence is recorded in the STIG review record, then a follow-up Epyon STIG scan "
+        "reports it as Not a Finding."
+    )]]))
+    content.append(_heading("Definition of Done"))
+    content.append(_bullets([
+        [_text("The fix or documented justification is merged to the default branch.")],
+        [_text("The review record for this control is updated with the evidence.")],
+    ]))
+    return {"version": 1, "type": "doc", "content": content}
+
+
 def build_finding_description(finding: dict, app_name: str) -> dict[str, Any]:
     """Build the ADF ticket body for a finding: CVE Details, Acceptance Criteria,
     and Definition of Done — so a reviewer can triage, fix, and verify the
@@ -733,8 +764,12 @@ async def create_ticket(
     fid   = finding.get("id")    or "Unknown"
     pkg   = finding.get("package") or ""
 
-    summary = f"[{sev}][{tool}] {fid} in {pkg or app_name}"[:254]
-    description = build_finding_description(finding, app_name)
+    if tool == "stig":
+        summary = f"[{sev}][STIG] {fid}: {finding.get('title') or app_name}"[:254]
+        description = build_stig_description(finding, app_name)
+    else:
+        summary = f"[{sev}][{tool}] {fid} in {pkg or app_name}"[:254]
+        description = build_finding_description(finding, app_name)
 
     requested_issue_type = (issue_type or cfg.get("issue_type") or "Bug").strip()
     issue_type = await _resolve_issue_type(cfg, project_key, requested_issue_type)
@@ -957,6 +992,47 @@ def _snapshot_finding(finding: dict) -> dict:
     the finding is no longer present in any scan when a reassignment happens.
     """
     return {key: finding[key] for key in _SNAPSHOT_FIELDS if key in finding}
+
+
+async def link_issues(cfg: dict, inward_key: str, outward_key: str, link_type: str = "Relates") -> bool:
+    """Create a "relates to" link between two issues. Best-effort; returns True on success."""
+    body = {
+        "type": {"name": link_type},
+        "inwardIssue": {"key": inward_key},
+        "outwardIssue": {"key": outward_key},
+    }
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.post(
+                f"{_base(cfg)}/rest/api/3/issueLink",
+                auth=_auth(cfg),
+                headers={"Accept": "application/json", "Content-Type": "application/json"},
+                json=body,
+            )
+        if r.status_code in (200, 201):
+            return True
+        logger.warning("Jira link %s -> %s failed: HTTP %s", inward_key, outward_key, r.status_code)
+        return False
+    except Exception:
+        logger.warning("Jira link %s -> %s raised an exception", inward_key, outward_key, exc_info=True)
+        return False
+
+
+async def search_issue_keys(cfg: dict, jql: str, max_results: int = 5) -> list[str]:
+    """Return issue keys matching a JQL query; [] on any error."""
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(
+                f"{_base(cfg)}/rest/api/3/search/jql",
+                auth=_auth(cfg),
+                headers={"Accept": "application/json"},
+                params={"jql": jql, "fields": "summary", "maxResults": max_results},
+            )
+        if r.status_code != 200:
+            return []
+        return [i["key"] for i in r.json().get("issues", []) if i.get("key")]
+    except Exception:
+        return []
 
 
 async def create_tickets_batch(

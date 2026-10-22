@@ -1359,7 +1359,7 @@ async function cveBulkOpen() {
   if (first) {
     try {
       const epics = await api.getScanJiraEpics(first.entry.scan_id);
-      issueTypes = epics.issue_types || [];
+      issueTypes = (epics.issue_types || []).map(t => t.name);
       defaultType = epics.default_issue_type || 'Bug';
     } catch (e) { /* fall back to the default type */ }
   }

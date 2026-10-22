@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.53.1] - 2026-10-23
+
+### Changed
+- The STIG scan (Layer 13) assesses only the STIG files in `configuration/stigs/` (e.g. the ASD V6R4 XCCDF). The 15 ML Security Checklist controls no longer run with it; set `EPYON_STIG_ML_CONTROLS=true` to include them.
+
 ## [3.53.0] - 2026-10-23
 
 ### Added

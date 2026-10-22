@@ -1458,7 +1458,7 @@ Epyon provides **excellent security coverage for Python applications** with comp
 - ✅ **Model Provenance & Threat Intelligence**: Blocklist matching, typosquatting detection, signature verification (Layer 18)
 - ✅ **Inference Environment Security**: Dockerfile/K8s manifest security analysis for 25+ misconfigurations (Layer 19)
 - ✅ **ML Runtime Behavioral Analysis**: Opt-in sandboxed model loading with behavior monitoring (Layer 20)
-- ✅ **ML STIG Compliance**: 15 AI/ML security controls assessed via rule-based AI analysis (Layer 13)
+- ✅ **ML STIG Compliance**: 15 AI/ML security controls assessed via rule-based analysis; opt-in with `EPYON_STIG_ML_CONTROLS=true`, not part of the default STIG scan
 
 ### Recommended Usage for Python/AI Projects
 

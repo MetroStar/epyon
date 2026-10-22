@@ -2468,15 +2468,16 @@ def main() -> None:
             target_dir=args.target,
         )
     
-    # ── Process ML Security Controls ──────────────────────────────────────
-    print("", file=sys.stderr)
-    print(f"[INFO] Processing ML Security Controls", file=sys.stderr)
-    assess_ml_controls(
-        scan_dir=scan_dir,
-        app_name=args.app_name,
-        scan_date=scan_date,
-        target_dir=args.target,
-    )
+    # ML controls are a separate assessment; the STIG scan runs them only on request.
+    if os.environ.get("EPYON_STIG_ML_CONTROLS", "").lower() == "true":
+        print("", file=sys.stderr)
+        print("[INFO] Processing ML Security Controls", file=sys.stderr)
+        assess_ml_controls(
+            scan_dir=scan_dir,
+            app_name=args.app_name,
+            scan_date=scan_date,
+            target_dir=args.target,
+        )
 
 
 def assess_ml_controls(

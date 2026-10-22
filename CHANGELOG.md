@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.53.5] - 2026-10-23
+
+### Fixed
+- STIG batches no longer fail with `invalid JSON ... char 0` on reasoning models (e.g. the self-hosted gemma): the output budget is now 16384 tokens (`EPYON_AI_MAX_TOKENS`), JSON surrounded by prose is tolerated, and an empty reply logs its finish reason.
+
 ## [3.53.4] - 2026-10-23
 
 ### Fixed

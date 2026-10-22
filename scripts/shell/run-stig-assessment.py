@@ -1609,7 +1609,7 @@ def call_openai(
         temperature=0,
         top_p=1.0,
         seed=_seed,
-        max_tokens=8192,
+        max_tokens=int(os.environ.get("EPYON_AI_MAX_TOKENS", "16384") or 16384),
         messages=[
             {"role": "system", "content": system_prompt()},
             {"role": "user",   "content": user_message},
@@ -1620,13 +1620,30 @@ def call_openai(
     prompt_tokens     = usage.prompt_tokens     if usage else 0
     completion_tokens = usage.completion_tokens if usage else 0
 
-    raw = response.choices[0].message.content.strip()
+    choice = response.choices[0]
+    raw = (choice.message.content or "").strip()
+    finish = getattr(choice, "finish_reason", "")
+    if not raw:
+        # Reasoning models can spend the whole token budget thinking and return no answer.
+        print(
+            f"[WARNING] Model returned empty content (finish_reason={finish}, "
+            f"completion_tokens={completion_tokens}); raise EPYON_AI_MAX_TOKENS or use a non-reasoning model",
+            file=sys.stderr,
+        )
 
     # Strip markdown code fences if the model added them anyway
     raw = re.sub(r"^```(?:json)?\s*", "", raw)
     raw = re.sub(r"\s*```$", "", raw)
 
-    return json.loads(raw), prompt_tokens, completion_tokens
+    try:
+        return json.loads(raw), prompt_tokens, completion_tokens
+    except json.JSONDecodeError:
+        # Tolerate prose around the JSON array.
+        start, end = raw.find("["), raw.rfind("]")
+        if raw and start != -1 and end > start:
+            return json.loads(raw[start:end + 1]), prompt_tokens, completion_tokens
+        print(f"[WARNING] Unparseable model output (finish_reason={finish}): {raw[:200]!r}", file=sys.stderr)
+        raise
 
 
 # ---------------------------------------------------------------------------

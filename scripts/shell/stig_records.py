@@ -36,7 +36,7 @@ _SECRET_PATTERNS = (
     re.compile(r"\bxox[abprs]-[A-Za-z0-9-]{10,}"),
     re.compile(r"\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}"),
     re.compile(r"(?i)\b(bearer)\s+[A-Za-z0-9._~+/=-]{16,}"),
-    re.compile(r"(?i)\b((?:password|passwd|secret|token|api[_-]?key|client[_-]?secret)\s*[:=]\s*)(?![\"']?\[REDACTED)[\"']?[^\s\"',;|]{6,}"),
+    re.compile(r"(?i)\b((?:[a-z0-9]+[_-])*(?:password|passwd|secret|token|api[_-]?key|client[_-]?secret)[\"']?\s*[:=]\s*)(?![\"']?\[REDACTED)[\"']?[^\s\"',;|]{6,}"),
 )
 _HOST_RE = re.compile(r"\b(?:[A-Za-z0-9-]+\.)+(?:internal|local|corp|lan|intra|svc|cluster\.local)\b", re.IGNORECASE)
 _IP_RE = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b")

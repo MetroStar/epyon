@@ -485,6 +485,48 @@ def _load_records() -> Any:
     return mod
 
 
+def _published_reviews(
+    controls: list[dict[str, Any]], target_dir: str, slug: str
+) -> tuple[dict[str, dict[str, Any]], dict[str, str], dict[str, dict[str, Any]]]:
+    """Read docs/stig-reviews/ from the target repo (MID-4534).
+
+    Returns (locked_by_v_number, reopen_reasons_by_vuln_id, prior_by_vuln_id):
+    entries with a human reviewer are locked unless a path listed in their
+    "changes that may affect" table changed since the review.
+    """
+    recs = _load_records()
+    published = recs.read_published(target_dir)
+    locked: dict[str, dict[str, Any]] = {}
+    reasons: dict[str, str] = {}
+    prior: dict[str, dict[str, Any]] = {}
+    for ctrl in controls:
+        name = recs.v_number(ctrl)
+        entry = published.get(name)
+        if not entry or not recs.is_human_reviewer(entry["reviewer"]):
+            continue
+        changed = recs.changed_paths(target_dir, entry)
+        if changed:
+            reasons[ctrl["vuln_id"]] = (
+                f"{', '.join(changed[:3])} changed since the {entry['reviewed']} review by {entry['reviewer']}"
+            )
+            prior[ctrl["vuln_id"]] = {"status": entry["status"], "evidence": entry["evidence"], "confidence": 0}
+            continue
+        locked[name] = entry
+        prior[ctrl["vuln_id"]] = {
+            "status": entry["status"] or "Open",
+            "evidence": entry["evidence"],
+            "confidence": max(entry["confidence"], FREEZE_MIN_CONF),
+            "locked_by_human": True,
+        }
+    if locked or reasons:
+        print(
+            f"[INFO] [{slug}] docs/stig-reviews: {len(locked)} human-reviewed control(s) locked, "
+            f"{len(reasons)} re-opened because listed paths changed",
+            file=sys.stderr,
+        )
+    return locked, reasons, prior
+
+
 def _verify_citations(assessment: dict[str, Any], target_dir: str, control: dict[str, Any] | None, slug: str) -> None:
     """Downgrade an assessment whose cited evidence cannot be verified (file reads only)."""
     import importlib.util
@@ -1816,6 +1858,8 @@ def _assess_stig(
     total_prompt_tokens     = 0
     total_completion_tokens = 0
 
+    published_locked, reopen_reasons, published_prior = _published_reviews(controls, target_dir, slug)
+
     if not api_key:
         for c in controls:
             assessments[c["vuln_id"]] = {
@@ -1823,6 +1867,9 @@ def _assess_stig(
                 "evidence":   "STIG assessment skipped: OPENAI_API_KEY not configured.",
                 "confidence": 0,
             }
+            prior = published_prior.get(c["vuln_id"])
+            if prior and prior.get("locked_by_human"):
+                assessments[c["vuln_id"]] = {**prior, "locked_by_previous": True}
     else:
         try:
             from openai import OpenAI  # type: ignore[import]
@@ -1891,6 +1938,10 @@ def _assess_stig(
                 f"[INFO] [{slug}] No previous scan found — all controls assessed fresh",
                 file=sys.stderr,
             )
+
+        # Human-reviewed entries published under docs/stig-reviews/ override the
+        # previous scan's state: locked unless a listed path changed (MID-4534).
+        previous_assessments.update(published_prior)
 
         # ── Freeze stable controls ────────────────────────────────────────────
         # Controls that were assessed as "Not a Finding" or "Not Applicable" with
@@ -2165,6 +2216,9 @@ def _assess_stig(
         cklb_primary = scan_dir / f"findings-{app_slug}.cklb"
         cklb_primary.write_text(json.dumps(cklb_data, indent=2), encoding="utf-8")
         print(f"[INFO] [{slug}] Primary findings-{app_slug}.cklb → {cklb_primary}", file=sys.stderr)
+    for vid, reason in reopen_reasons.items():
+        if vid in assessments:
+            assessments[vid]["reopened_reason"] = reason
     # ETK stig-review records: one v-xxxxx.md per control plus an index README.md
     try:
         records_dir = scan_dir / f"stig-reviews-{slug}"
@@ -2172,7 +2226,7 @@ def _assess_stig(
             records_dir, controls, assessments,
             app_name=app_name, scan_date=scan_date, stig_name=stig_name,
             release_info=str(stig_data.get("release_info") or ""),
-            model=model, has_api_key=bool(api_key),
+            model=model, has_api_key=bool(api_key), locked=published_locked,
         )
         print(f"[INFO] [{slug}] {len(written) - 1} STIG review records written to {records_dir}", file=sys.stderr)
     except Exception as exc:  # records are additive; never fail the legacy outputs

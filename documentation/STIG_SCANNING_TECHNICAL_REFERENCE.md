@@ -60,7 +60,7 @@ This ensures that human security assessors' judgments are preserved unless speci
 | **Main orchestrator** | `scripts/shell/run-stig-scan.sh` | Bash | Entry point, environment setup, STIG file discovery |
 | **AI assessment engine** | `scripts/shell/run-stig-assessment.py` | Python | Core logic: context collection, AI calls, output generation |
 | **STIG parser** | `scripts/shell/parse-stig-cklb.py` | Python | Parses .cklb JSON and XCCDF XML into unified format |
-| **PR automation** | `scripts/shell/create-stig-pr.sh` | Bash | Creates/updates PR with findings in target repo |
+| **PR automation** | `scripts/shell/create-stig-pr.sh` | Bash | Publishes STIG review records to `docs/stig-reviews/` via a PR in the target repo |
 | **STIG files** | `configuration/stigs/` | XML/JSON | DISA STIG control definitions |
 | **ML checklist** | `configuration/stigs/ML-Security-Checklist.json` | JSON | ML-specific security controls (Layer 14/18/19/20 integration) |
 
@@ -892,14 +892,16 @@ def render_findings_cklb(
 
 ## PR Automation
 
+**Read-back (MID-4534):** the next scan reads `docs/stig-reviews/*.md` as priority manual STIG documentation. An entry whose `Reviewed:` line names a human (anything not starting with "Epyon") is locked (`locked_by_human`) and carried forward verbatim. If a path in its "Changes that may affect this STIG" table changed since the entry was last committed (or since the review date in a shallow clone), the lock is dropped, the control is re-assessed, and the new record says `Re-opened: <path> changed since ...`.
+
 **Script**: `scripts/shell/create-stig-pr.sh`
 
 ### Workflow
 
-1. **Locate findings file** (`findings-{app}.md` or `findings-{app}-{slug}.md`)
-2. **Copy to target repo root** as `stig-findings.md`
+1. **Locate the records** (`stig-reviews-{slug}/` in the scan directory)
+2. **Publish to `docs/stig-reviews/`** in the target repo: one `v-xxxxx.md` per control plus a `README.md` index, rows sorted by V-number so two open PRs rebase cleanly. A human-reviewed entry already there is never overwritten unless the scan re-opened it; `docs/stig-findings.md` is never touched and no `stig-findings.md` is written.
 3. **Create branch** `stig-update-YYYY-MM-DD`
-4. **Commit** with message: `chore: update STIG compliance findings (scan YYYY-MM-DD)`
+4. **Commit** with message: `chore: Update STIG review records`
 5. **Push branch** to remote
 6. **Create/update PR** with body:
 
@@ -919,7 +921,7 @@ def render_findings_cklb(
 
 ### Review Instructions
 
-1. Review the updated `stig-findings.md` file
+1. Review the updated `docs/stig-reviews/` entries
 2. Verify evidence for any status changes from previous scan
 3. Document any manual overrides in `docs/stig-findings.md`
 4. Approve and merge when satisfied
@@ -1013,7 +1015,7 @@ The Docker image now keeps an immutable, build-time-only copy of `configuration/
 2. **Dashboard HTML** → Embeds STIG status counts in `<!-- __EPYON_METRICS__ -->` section
 3. **GitHub Issues/Jira** → Can sync STIG findings as tickets (tracked by `vuln_id`)
 4. **STIG Viewer** → Imports `.cklb` files for visual review
-5. **Target repo PR** → `stig-findings.md` via `create-stig-pr.sh`
+5. **Target repo PR** → `docs/stig-reviews/` via `create-stig-pr.sh`
 6. **Executive summary** → AI-generated summaries reference STIG compliance status
 
 ---

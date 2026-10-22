@@ -23,6 +23,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
+# EPYON_STIG_FORMAT=legacy (the default) keeps the original stig-findings.md PR.
+if [[ "$(printf '%s' "${EPYON_STIG_FORMAT:-legacy}" | tr '[:upper:]' '[:lower:]')" != "etk" ]]; then
+    exec "${SCRIPT_DIR}/create-stig-pr-legacy.sh" "$@"
+fi
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Color output
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -144,6 +144,10 @@ Always use exactly one of these four statuses:
 - `Open` — Control is not satisfied (default)
 - `Not Reviewed` — Reserved for runtime-only controls with zero static indicators
 
+## Using the ETK Record Format (`EPYON_STIG_FORMAT=etk`)
+
+With `EPYON_STIG_FORMAT=etk`, Epyon publishes `docs/stig-reviews/` (an index plus one `v-xxxxx.md` per control) instead of `docs/stig-findings.md`. To record a manual assessment, edit the entry file and set its `**Reviewed:**` line to `YYYY-MM-DD by <your name>`. Epyon treats any reviewer that is not an Epyon/AI reviewer as human: the entry is kept verbatim and locked on later scans until a path in its "Changes that may affect this control" table changes, at which point it is re-opened with the reason shown. Name the Jira tracking ticket in the index ("Tracked in Jira by KEY") and it is preserved. `docs/stig-findings.md` keeps working as priority context in both formats. See `STIG_SCANNING_TECHNICAL_REFERENCE.md` to switch back to `legacy`.
+
 ## How Epyon Uses Manual Documentation
 
 When processing STIG controls, Epyon:

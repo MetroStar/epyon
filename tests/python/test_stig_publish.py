@@ -6,9 +6,17 @@ import json
 import os
 import subprocess
 import sys
+
+import pytest
 from pathlib import Path
 
 SHELL = Path(__file__).resolve().parents[2] / "scripts" / "shell"
+
+
+
+@pytest.fixture(autouse=True)
+def _etk_format(monkeypatch):
+    monkeypatch.setenv("EPYON_STIG_FORMAT", "etk")
 
 
 def _load(name: str, filename: str):

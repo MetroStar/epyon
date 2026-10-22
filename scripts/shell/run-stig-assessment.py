@@ -225,6 +225,16 @@ STABLE_OPEN_FREEZE_MIN_REPEATS = 1
 _RECORD_FIELDS = ("changes_that_may_affect", "automation_recommendation")
 
 
+def stig_format() -> str:
+    """EPYON_STIG_FORMAT: "legacy" (default) or "etk". Anything else means legacy."""
+    value = os.environ.get("EPYON_STIG_FORMAT", "legacy").strip().lower()
+    return value if value in ("legacy", "etk") else "legacy"
+
+
+def _etk() -> bool:
+    return stig_format() == "etk"
+
+
 def _with_record_fields(frozen: dict[str, Any], prev: dict[str, Any]) -> dict[str, Any]:
     """Carry the ETK record fields of a previous assessment into a frozen one."""
     for key in _RECORD_FIELDS:
@@ -472,6 +482,16 @@ def _load_parser() -> Any:
     mod = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
     spec.loader.exec_module(mod)  # type: ignore[union-attr]
     return mod
+
+
+def system_prompt() -> str:
+    """The ETK prompt asks for record fields; legacy restores the original four-field prompt."""
+    if _etk():
+        return SYSTEM_PROMPT
+    text = SYSTEM_PROMPT.replace("these six fields", "these four fields")
+    start = text.index('  "changes_that_may_affect"')
+    end = text.index("Return ONLY the JSON array.")
+    return text[:start].rstrip("\n") + "\n\n" + text[end:]
 
 
 def _load_records() -> Any:
@@ -1580,7 +1600,7 @@ def call_openai(
         seed=_seed,
         max_tokens=8192,
         messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt()},
             {"role": "user",   "content": user_message},
         ],
     )
@@ -1831,7 +1851,8 @@ def _assess_stig(
 
     # Persist parsed controls
     controls_path = scan_dir / f"stig-controls-{slug}.json"
-    stig_data["vuln_map"] = _load_records().vuln_map(controls)
+    if _etk():
+        stig_data["vuln_map"] = _load_records().vuln_map(controls)
     controls_path.write_text(json.dumps(stig_data, indent=2), encoding="utf-8")
     print(f"[INFO] [{slug}] Controls written to {controls_path}", file=sys.stderr)
     
@@ -1858,7 +1879,10 @@ def _assess_stig(
     total_prompt_tokens     = 0
     total_completion_tokens = 0
 
-    published_locked, reopen_reasons, published_prior = _published_reviews(controls, target_dir, slug)
+    if _etk():
+        published_locked, reopen_reasons, published_prior = _published_reviews(controls, target_dir, slug)
+    else:
+        published_locked, reopen_reasons, published_prior = {}, {}, {}
 
     if not api_key:
         for c in controls:
@@ -2126,14 +2150,15 @@ def _assess_stig(
                         "evidence":   item.get("evidence", FALLBACK_EVIDENCE),
                         "confidence": conf,
                     }
-                    if isinstance(item.get("changes_that_may_affect"), list):
-                        assessments[vid]["changes_that_may_affect"] = item["changes_that_may_affect"]
-                    if isinstance(item.get("automation_recommendation"), dict):
-                        assessments[vid]["automation_recommendation"] = item["automation_recommendation"]
-                    _verify_citations(
-                        assessments[vid], target_dir,
-                        next((c for c in batch if c["vuln_id"] == vid), None), slug,
-                    )
+                    if _etk():
+                        if isinstance(item.get("changes_that_may_affect"), list):
+                            assessments[vid]["changes_that_may_affect"] = item["changes_that_may_affect"]
+                        if isinstance(item.get("automation_recommendation"), dict):
+                            assessments[vid]["automation_recommendation"] = item["automation_recommendation"]
+                        _verify_citations(
+                            assessments[vid], target_dir,
+                            next((c for c in batch if c["vuln_id"] == vid), None), slug,
+                        )
                     status, conf = assessments[vid]["status"], assessments[vid]["confidence"]
                     # Track repeated "no evidence found" outcomes so a control that
                     # keeps landing on Open/confidence-0 scan after scan (nothing in the
@@ -2220,17 +2245,18 @@ def _assess_stig(
         if vid in assessments:
             assessments[vid]["reopened_reason"] = reason
     # ETK stig-review records: one v-xxxxx.md per control plus an index README.md
-    try:
-        records_dir = scan_dir / f"stig-reviews-{slug}"
-        written = _load_records().write_records(
-            records_dir, controls, assessments,
-            app_name=app_name, scan_date=scan_date, stig_name=stig_name,
-            release_info=str(stig_data.get("release_info") or ""),
-            model=model, has_api_key=bool(api_key), locked=published_locked,
-        )
-        print(f"[INFO] [{slug}] {len(written) - 1} STIG review records written to {records_dir}", file=sys.stderr)
-    except Exception as exc:  # records are additive; never fail the legacy outputs
-        print(f"[WARNING] [{slug}] Could not write STIG review records: {exc}", file=sys.stderr)
+    if _etk():
+        try:
+            records_dir = scan_dir / f"stig-reviews-{slug}"
+            written = _load_records().write_records(
+                records_dir, controls, assessments,
+                app_name=app_name, scan_date=scan_date, stig_name=stig_name,
+                release_info=str(stig_data.get("release_info") or ""),
+                model=model, has_api_key=bool(api_key), locked=published_locked,
+            )
+            print(f"[INFO] [{slug}] {len(written) - 1} STIG review records written to {records_dir}", file=sys.stderr)
+        except Exception as exc:  # records are additive; never fail the legacy outputs
+            print(f"[WARNING] [{slug}] Could not write STIG review records: {exc}", file=sys.stderr)
     # Summary
     counts: dict[str, int] = {}
     for v in assessments.values():

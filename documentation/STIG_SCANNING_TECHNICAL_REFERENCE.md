@@ -17,7 +17,8 @@
 7. [Batching & Token Management](#batching--token-management)
 8. [Freeze Logic & Status Validation](#freeze-logic--status-validation)
 9. [ML Security Controls](#ml-security-controls)
-10. [Output Formats](#output-formats)
+10. [Output Format Switch](#output-format-switch-epyon_stig_format)
+10a. [Output Formats](#output-formats)
 11. [PR Automation](#pr-automation)
 12. [Configuration](#configuration)
 13. [Integration Points](#integration-points)
@@ -772,6 +773,35 @@ results_data = {
 
 ---
 
+## Output Format Switch (`EPYON_STIG_FORMAT`)
+
+Layer 13 has two output formats, chosen with `EPYON_STIG_FORMAT`:
+
+| Value | Behaviour |
+|---|---|
+| `legacy` (default) | The original path: `findings-{app}.md/.json/.cklb`, `stig-results-{slug}.json`, and a PR that writes `docs/stig-findings.md` (`create-stig-pr-legacy.sh`). Output is the same as before the ETK work: the original four-field prompt, no citation verification, no review records, no read-back of `docs/stig-reviews/`. |
+| `etk` | Everything in `legacy`, plus the ETK review records (`stig-reviews-{slug}/`), citation verification, ETK-field prompt, `vuln_map` in `stig-controls-{slug}.json`, and a PR that publishes `docs/stig-reviews/` with human-reviewed entries kept and locked. |
+
+Any other value is treated as `legacy`. The value is read by `run-stig-assessment.py` and `create-stig-pr.sh`.
+
+**Roll back:** unset `EPYON_STIG_FORMAT` or set it to `legacy`. Nothing is lost: `stig-results-{slug}.json` is the same shape in both formats, so the next scan carries state forward as before. Records already published under `docs/stig-reviews/` stay in the target repo and are ignored by `legacy`.
+
+**Migration:** no step is needed. State written by the legacy engine has no record fields; locked (`locked_by_human`) and frozen (confidence 85 or more on Not a Finding / Not Applicable) controls keep their status, evidence and confidence on the first `etk` scan, and the record fields fill in on the next re-assessment (`tests/python/test_stig_format_switch.py`).
+
+**Scope of this release:** every XCCDF/CKLB STIG in `configuration/stigs/` (ASD, Tomcat, Postgres, Database SRG, .NET) goes through the same engine and moves to `etk` together. The 15 ML controls (`stig-results-ml.json`) stay on their existing path and do not write ETK records yet; moving them is a later release.
+
+**Comparing the two formats** on a target (needs `OPENAI_API_KEY`; without a key every control is Not Reviewed and the comparison is not meaningful):
+
+```bash
+EPYON_STIG_FORMAT=legacy python3 scripts/shell/run-stig-assessment.py --stigs-dir configuration/stigs --target /path/to/app --scan-dir /tmp/stig-legacy --app-name app
+EPYON_STIG_FORMAT=etk    python3 scripts/shell/run-stig-assessment.py --stigs-dir configuration/stigs --target /path/to/app --scan-dir /tmp/stig-etk    --app-name app
+python3 scripts/shell/compare-stig-formats.py --legacy /tmp/stig-legacy --etk /tmp/stig-etk --label app
+```
+
+The output is a markdown table of status counts, confidence, evidence length, file citations and failed citation checks, plus the controls whose status differs.
+
+---
+
 ## Output Formats
 
 ### Per-STIG Output Files
@@ -935,6 +965,7 @@ def render_findings_cklb(
 ```bash
 GITHUB_TOKEN or GH_PAT    # Required for PR creation
 SKIP_STIG_PR=true         # Disable PR automation entirely
+EPYON_STIG_FORMAT=etk     # Publish docs/stig-reviews/ (default legacy writes docs/stig-findings.md)
 ```
 
 ### Soft Failure
@@ -962,6 +993,7 @@ If `GITHUB_TOKEN` is not set or target is not a Git repo, the script **exits 0 (
 | `BATCH_DELAY` | No | `1` | Seconds between API calls |
 | `SKIP_STIG` | No | `false` | Skip STIG assessment entirely |
 | `SKIP_STIG_PR` | No | `false` | Skip PR automation |
+| `EPYON_STIG_FORMAT` | No | `legacy` | `legacy` or `etk` output format (see Output Format Switch) |
 | `EPYON_STIG_JIRA` | No | `false` | Post STIG gaps to Jira (summary comment + one ticket per confirmed gap) |
 | `EPYON_STIG_JIRA_CREATE_TRACKER` | No | `false` | Create a tracking ticket when none is found |
 | `EPYON_STIG_JIRA_MAX_TICKETS` | No | `25` | Per-run cap on gap tickets |

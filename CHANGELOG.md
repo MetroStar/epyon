@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.53.0] - 2026-10-23
+
+### Added
+- `EPYON_STIG_FORMAT=legacy|etk` rollout switch (default `legacy`). `legacy` restores the original Layer 13 behaviour (original prompt, no records or citation checks, `docs/stig-findings.md` PR via `create-stig-pr-legacy.sh`); `etk` enables the ETK records, citation verification and `docs/stig-reviews/` publishing (MID-4537).
+- `scripts/shell/compare-stig-formats.py` compares status counts and evidence quality between a legacy and an etk scan.
+- Migration test: locked and frozen controls written by the legacy engine keep status, evidence and confidence under `etk`.
+
+### Changed
+- The ETK record output, citation verification and published-review locking from 3.48.0 to 3.50.0 are now opt-in via `EPYON_STIG_FORMAT=etk`; the default is unchanged legacy output until the new format is validated.
+- STIG documentation, README and Copilot instructions describe the switch, rollback and the scope of this release (ML controls stay on their existing path).
+
 ## [3.52.0] - 2026-10-23
 
 ### Added

@@ -10,6 +10,7 @@ setup() {
     mkdir -p "$TMP/target" "$TMP/scan/stig-reviews-asd"
     git -C "$TMP/target" init -q
     unset GITHUB_TOKEN GH_PAT SKIP_STIG_PR
+    export EPYON_STIG_FORMAT=etk
 }
 
 teardown() {

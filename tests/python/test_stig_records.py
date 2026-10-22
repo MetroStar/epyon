@@ -5,10 +5,18 @@ import importlib.util
 import json
 import re
 import sys
+
+import pytest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SHELL = REPO_ROOT / "scripts" / "shell"
+
+
+
+@pytest.fixture(autouse=True)
+def _etk_format(monkeypatch):
+    monkeypatch.setenv("EPYON_STIG_FORMAT", "etk")
 
 
 def _load(name: str, filename: str):

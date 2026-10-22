@@ -232,3 +232,12 @@ CKLB
     [ "$status" -eq 0 ]
     grep -q 'EPYON_STIG_JIRA' "${SCRIPT_DIR}/run-stig-scan.sh"
 }
+
+@test "EPYON_STIG_FORMAT defaults to legacy and legacy PR script ships (MID-4537)" {
+    grep -q 'EPYON_STIG_FORMAT:-legacy' "${SCRIPT_DIR}/create-stig-pr.sh"
+    [ -x "${SCRIPT_DIR}/create-stig-pr-legacy.sh" ]
+    run bash -n "${SCRIPT_DIR}/create-stig-pr-legacy.sh"
+    [ "$status" -eq 0 ]
+    run python3 -c "import ast; ast.parse(open('${SCRIPT_DIR}/compare-stig-formats.py').read())"
+    [ "$status" -eq 0 ]
+}

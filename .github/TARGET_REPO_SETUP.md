@@ -190,6 +190,8 @@ Test webhook delivery manually from GitHub Actions:
 
 ## See Also
 
+- [Release Checklist](../documentation/RELEASE_CHECKLIST.md) (pinning `epyon-scan.yml` to a release tag or commit SHA instead of `@main`)
+
 - [Webhook Integration Guide](../../documentation/WEBHOOK_INTEGRATION_GUIDE.md)
 - [Reusable Workflow Reference](./epyon-scan.yml)
 - [Barbatos Documentation](https://github.com/MetroStar/barbatos)

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.47.1] - 2026-10-22
+
+### Fixed
+- Clarified that pinning the reusable workflow does not pin scanner implementation, which is currently checked out from `main`.
+
+## [3.47.0] - 2026-10-21
+
+### Added
+- Release workflow (`.github/workflows/release.yml`): pushing an annotated `vX.Y.Z` tag on `main` verifies it equals `VERSION`, builds a source archive and CycloneDX SBOM with `.sha256` sidecars, and publishes a GitHub Release whose body is assembled from pull request release notes. `workflow_dispatch` with `dry_run` builds and verifies without publishing (MID-4491).
+- `scripts/shell/release-notes.py` (notes assembly and PR check), a pull request template with a `## Release notes` block, and an advisory `Release notes` PR check that accepts the `no-release-notes` label.
+- `documentation/RELEASE_CHECKLIST.md`: tagging, verification, recovery and how target repositories pin a release tag or commit SHA.
+
+### Fixed
+- CVE search tests date their scan fixtures relative to today so they no longer age out of the 35-day scan window.
+
 ## [3.46.0] - 2026-10-21
 
 ### Added

@@ -1,0 +1,25 @@
+# Fail a pull request whose body records no release notes (MID-4491).
+# Advisory at first: it reports on the PR but is not a required status check.
+name: Release notes
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+jobs:
+  release-notes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Require a release-notes block or the no-release-notes label
+        run: python3 scripts/shell/release-notes.py check-pr --event "$GITHUB_EVENT_PATH"

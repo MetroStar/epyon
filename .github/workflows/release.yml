@@ -1,0 +1,103 @@
+# Push a vX.Y.Z tag on main to release; dispatch for a dry run (MID-4491).
+# The tag must equal the VERSION file at the tagged commit.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and verify without creating a release"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    env:
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Verify the tag
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="$(tr -d '[:space:]' < VERSION)"
+          if [[ "$EVENT" == "push" ]]; then
+            tag="$REF_NAME"
+            git fetch --no-tags origin main
+            git merge-base --is-ancestor HEAD origin/main \
+              || { echo "::error::$tag is not on main"; exit 1; }
+          else
+            [[ "$DRY_RUN" == "true" ]] \
+              || { echo "::error::Manual dispatch is dry-run only; publish by pushing a release tag"; exit 1; }
+            tag="v$version"
+          fi
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+            || { echo "::error::Tag '$tag' must look like vX.Y.Z"; exit 1; }
+          [[ "$tag" == "v$version" ]] \
+            || { echo "::error::Tag $tag does not match VERSION ($version)"; exit 1; }
+          prev="$(git tag --merged HEAD --list 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | grep -vx "$tag" | head -n1 || true)"
+          {
+            echo "TAG=$tag"
+            echo "VERSION=$version"
+            echo "PREV_TAG=$prev"
+          } >> "$GITHUB_ENV"
+
+      - name: Build the source archive
+        run: |
+          set -euo pipefail
+          mkdir dist
+          git archive --format=tar.gz --prefix="epyon-${VERSION}/" -o "dist/epyon-${VERSION}.tar.gz" HEAD
+
+      - name: Generate the SBOM
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: dist/epyon-${{ env.VERSION }}.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Write and verify checksums
+        run: |
+          set -euo pipefail
+          cd dist
+          for f in epyon-*; do sha256sum "$f" > "$f.sha256"; done
+          for f in *.sha256; do sha256sum --check "$f"; done
+          ls -l
+
+      - name: Assemble the release notes
+        run: |
+          set -euo pipefail
+          head_ref="$TAG"
+          [[ "$DRY_RUN" == "true" ]] && head_ref="$GITHUB_SHA"
+          python3 scripts/shell/release-notes.py body --repo "$GITHUB_REPOSITORY" \
+            --tag "$TAG" --prev "$PREV_TAG" --head "$head_ref" > dist/release-notes.md
+          cat dist/release-notes.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish the GitHub Release
+        if: env.DRY_RUN != 'true'
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" dist/epyon-* --verify-tag \
+            --title "Epyon $TAG" --notes-file dist/release-notes.md

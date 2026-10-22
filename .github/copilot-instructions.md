@@ -195,6 +195,10 @@ Every change that ships must update three files in the same commit:
 
 3. **`README.md`** — update any section that references the changed behaviour (feature table, usage examples, CLI flags, scan layers list, config options). Do not rewrite sections that are still accurate.
 
+4. **Pull request `## Release notes` block** — the PR template provides it. Add a bullet under `### Added`/`Changed`/`Fixed`/`Removed`/`Security`/`Deprecated`, or apply the `no-release-notes` label. GitHub Release notes are assembled from these blocks.
+
+A release is an annotated tag `vX.Y.Z` on `main` that equals the `VERSION` file; pushing it runs `.github/workflows/release.yml`. See `documentation/RELEASE_CHECKLIST.md`.
+
 ## Build & Test
 
 ```bash

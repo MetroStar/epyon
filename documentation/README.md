@@ -6,6 +6,17 @@ This directory contains the essential documentation for the Epyon security scann
 
 ## 📚 Available Documentation
 
+### 🏷️ [Release Checklist](RELEASE_CHECKLIST.md)
+**How Epyon is released and how to pin a release**
+- Tagging `vX.Y.Z` on `main`, dry runs, GitHub Release contents (archive, SBOM, checksums)
+- Verifying a downloaded artifact, recovery steps
+- Pull request `## Release notes` rules and the `no-release-notes` label
+- Pinning `epyon-scan.yml` to a tag or commit SHA
+
+**Audience:** Maintainers, contributors, teams installing Epyon  
+**Status:** ✅ Current (Oct 2026)
+
+---
 ### 🔒 [Security Review & Test Coverage](SECURITY_REVIEW_AND_TEST_COVERAGE.md)
 **Comprehensive security analysis and testing documentation**
 - Complete test coverage report (304 tests)

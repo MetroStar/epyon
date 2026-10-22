@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.49.0] - 2026-10-22
+
+### Added
+- Layer 13 verifies every `File:` citation in STIG evidence with plain file reads (no extra model calls): the file must exist inside the repo, the cited line must exist, and any quoted text must appear near that line. `.env`, `node_modules`, lock files and generated directories cannot be cited (MID-4533).
+- A control that fails verification, answers Not Applicable without stating what was searched, or rests on an identity provider, infrastructure or vendor is recorded as `Open` with confidence capped at 60 (below the freeze threshold of 85), so it is re-assessed next scan. The STIG review record lists the failed citations and the evidence needed.
+
 ## [3.48.0] - 2026-10-22
 
 ### Added

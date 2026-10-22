@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.48.0] - 2026-10-22
+
+### Added
+- Layer 13 now writes ETK `stig-review` records to `stig-reviews-{slug}/` in each scan directory: one `v-xxxxx.md` per control plus a `README.md` index, built from pinned templates in `configuration/stig-review-templates/` (MID-4532).
+- The assessment prompt asks for `changes_that_may_affect` and `automation_recommendation`; both carry forward on frozen controls.
+- `stig-controls-{slug}.json` gains a `vuln_map` (APSC-DV id to V-number).
+
+### Changed
+- Records are ASCII-only, redact secrets and internal hosts, and show `Open` with confidence of at least 1 and the evidence needed when no AI key is configured. The `stig-results-*.json` status and confidence keys are unchanged.
+
 ## [3.47.1] - 2026-10-22
 
 ### Fixed

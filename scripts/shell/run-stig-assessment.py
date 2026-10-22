@@ -222,6 +222,17 @@ FREEZE_MIN_CONF = 85
 STABLE_OPEN_FREEZE_MIN_REPEATS = 1
 
 
+_RECORD_FIELDS = ("changes_that_may_affect", "automation_recommendation")
+
+
+def _with_record_fields(frozen: dict[str, Any], prev: dict[str, Any]) -> dict[str, Any]:
+    """Carry the ETK record fields of a previous assessment into a frozen one."""
+    for key in _RECORD_FIELDS:
+        if prev.get(key):
+            frozen[key] = prev[key]
+    return frozen
+
+
 def compute_frozen_assessment(prev: dict[str, Any]) -> dict[str, Any] | None:
     """Decide whether a control's previous assessment should be carried forward
     unchanged (frozen) instead of being re-sent to the AI this scan.
@@ -236,27 +247,27 @@ def compute_frozen_assessment(prev: dict[str, Any]) -> dict[str, Any] | None:
     locked_by_human = bool(prev.get("locked_by_human", False))
 
     if locked_by_human or (prev_status in FREEZE_STATUSES and prev_conf >= FREEZE_MIN_CONF):
-        return {
+        return _with_record_fields({
             "status":             prev_status,
             "evidence":           prev.get("evidence", ""),
             "confidence":         prev_conf,
             "locked_by_previous": True,
             "locked_by_human":    locked_by_human,
-        }
+        }, prev)
 
     is_stable_zero_evidence_open = (
         prev_status == "Open" and prev_conf == 0
         and prev_stable >= STABLE_OPEN_FREEZE_MIN_REPEATS
     )
     if is_stable_zero_evidence_open:
-        return {
+        return _with_record_fields({
             "status":              prev_status,
             "evidence":            prev.get("evidence", ""),
             "confidence":          prev_conf,
             "stable_count":        prev_stable,
             "locked_by_previous":  True,
             "locked_by_stability": True,
-        }
+        }, prev)
 
     return None
 
@@ -423,7 +434,7 @@ RESPONSE FORMAT
 You MUST respond with a valid JSON array and NOTHING ELSE. \
 No markdown fences, no explanation — only the JSON array.
 
-Each element MUST have exactly these four fields:
+Each element MUST have exactly these six fields:
   "vuln_id"    : the exact APSC-DV-XXXXXX identifier from the input
   "status"     : exactly one of "Open", "Not a Finding", "Not Applicable", "Not Reviewed"
   "evidence"   : detailed, specific, file-cited evidence following the format above
@@ -433,6 +444,16 @@ Each element MUST have exactly these four fields:
                    40–69  = partial evidence; key artifacts missing or inferred
                    1–39   = very little static evidence; status is mostly inferred from architecture
                    0      = no relevant evidence found; status is a best guess
+  "changes_that_may_affect" : array of 1-4 objects, each {"change": the specific kind of \
+change (file, config key, env var, dependency, auth mode, header, infrastructure) that would \
+invalidate this assessment, "where": the exact path or setting it touches, "recheck": what to \
+re-check}. Be concrete; never write generic advice such as "any code change".
+  "automation_recommendation" : object {"check": what to check, "data_source": where the \
+data comes from, "pass_fail_rule": the exact pass/fail rule, "where_it_runs": where the check \
+would run (for example CI on every pull request)}. Specific enough to turn into a ticket.
+
+Use plain ASCII characters only. Never copy secrets, tokens, passwords or internal hostnames \
+into any field; name the file and setting instead.
 
 Return ONLY the JSON array."""
 
@@ -447,6 +468,17 @@ def _load_parser() -> Any:
     script_dir = Path(__file__).parent
     spec = importlib.util.spec_from_file_location(
         "parse_stig_cklb", script_dir / "parse-stig-cklb.py"
+    )
+    mod = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+    spec.loader.exec_module(mod)  # type: ignore[union-attr]
+    return mod
+
+
+def _load_records() -> Any:
+    """Import the ETK record renderer from sibling stig_records.py."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "epyon_stig_records", Path(__file__).parent / "stig_records.py"
     )
     mod = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
     spec.loader.exec_module(mod)  # type: ignore[union-attr]
@@ -1736,6 +1768,7 @@ def _assess_stig(
 
     # Persist parsed controls
     controls_path = scan_dir / f"stig-controls-{slug}.json"
+    stig_data["vuln_map"] = _load_records().vuln_map(controls)
     controls_path.write_text(json.dumps(stig_data, indent=2), encoding="utf-8")
     print(f"[INFO] [{slug}] Controls written to {controls_path}", file=sys.stderr)
     
@@ -2021,6 +2054,10 @@ def _assess_stig(
                         "evidence":   item.get("evidence", FALLBACK_EVIDENCE),
                         "confidence": conf,
                     }
+                    if isinstance(item.get("changes_that_may_affect"), list):
+                        assessments[vid]["changes_that_may_affect"] = item["changes_that_may_affect"]
+                    if isinstance(item.get("automation_recommendation"), dict):
+                        assessments[vid]["automation_recommendation"] = item["automation_recommendation"]
                     # Track repeated "no evidence found" outcomes so a control that
                     # keeps landing on Open/confidence-0 scan after scan (nothing in the
                     # repo changed, the model just can't find static evidence for it —
@@ -2102,6 +2139,18 @@ def _assess_stig(
         cklb_primary = scan_dir / f"findings-{app_slug}.cklb"
         cklb_primary.write_text(json.dumps(cklb_data, indent=2), encoding="utf-8")
         print(f"[INFO] [{slug}] Primary findings-{app_slug}.cklb → {cklb_primary}", file=sys.stderr)
+    # ETK stig-review records: one v-xxxxx.md per control plus an index README.md
+    try:
+        records_dir = scan_dir / f"stig-reviews-{slug}"
+        written = _load_records().write_records(
+            records_dir, controls, assessments,
+            app_name=app_name, scan_date=scan_date, stig_name=stig_name,
+            release_info=str(stig_data.get("release_info") or ""),
+            model=model, has_api_key=bool(api_key),
+        )
+        print(f"[INFO] [{slug}] {len(written) - 1} STIG review records written to {records_dir}", file=sys.stderr)
+    except Exception as exc:  # records are additive; never fail the legacy outputs
+        print(f"[WARNING] [{slug}] Could not write STIG review records: {exc}", file=sys.stderr)
     # Summary
     counts: dict[str, int] = {}
     for v in assessments.values():

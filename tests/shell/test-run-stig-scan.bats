@@ -202,3 +202,16 @@ CKLB
 
     rm -rf "$backup_dir" "$stigs_dir"
 }
+
+@test "run-stig-assessment.py writes ETK stig-review records (MID-4532)" {
+    grep -q "stig_records.py" "${SCRIPT_DIR}/run-stig-assessment.py"
+    grep -q "stig-reviews-" "${SCRIPT_DIR}/run-stig-assessment.py"
+    [ -f "${SCRIPT_DIR}/stig_records.py" ]
+    [ -f "${BATS_TEST_DIRNAME}/../../configuration/stig-review-templates/entry.md" ]
+    [ -f "${BATS_TEST_DIRNAME}/../../configuration/stig-review-templates/index.md" ]
+}
+
+@test "stig review templates carry a pinned template-version marker" {
+    grep -q "template-version: etk-stig-review-" "${BATS_TEST_DIRNAME}/../../configuration/stig-review-templates/entry.md"
+    grep -q "template-version: etk-stig-review-" "${BATS_TEST_DIRNAME}/../../configuration/stig-review-templates/index.md"
+}

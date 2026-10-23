@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.55.5] - 2026-10-23
+
+### Fixed
+- Web UI colours now follow the active theme, so badges, banners, status chips and text stay readable in light mode. Added `--accent-bg`, `--purple` and `--purple-bg` theme tokens.
+
 ## [3.55.4] - 2026-10-23
 
 ### Fixed

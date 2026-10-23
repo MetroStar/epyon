@@ -180,13 +180,13 @@ function findingSource(f) {
 function findingSourceBadge(f) {
   const src = findingSource(f);
   const cfg = {
-    container: { style: 'background:#0f4c8a22;color:#60a5fa;border:1px solid #1d4ed866', label: '📦 Container' },
-    code:      { style: 'background:#16521622;color:#4ade80;border:1px solid #15803d66', label: '💻 Code'      },
-    iac:       { style: 'background:#4a1d9622;color:#c084fc;border:1px solid #7e22ce66', label: '🔧 IaC'       },
-    secret:    { style: 'background:#7f1d1d22;color:#fca5a5;border:1px solid #b91c1c66', label: '🔑 Secret'    },
-    eol:       { style: 'background:#92400022;color:#fbbf24;border:1px solid #b4530066', label: '⏱ EOL'        },
-    ml:        { style: 'background:#581c8722;color:#d8b4fe;border:1px solid #7c3aed66', label: '🧠 ML'         },
-    supply_chain: { style: 'background:#1e3a5f22;color:#7dd3fc;border:1px solid #0369a166', label: '🔗 Supply Chain' },
+    container: { style: 'background:var(--accent-bg);color:var(--accent);border:1px solid #1d4ed866', label: '📦 Container' },
+    code:      { style: 'background:var(--pass-bg);color:var(--pass);border:1px solid #15803d66', label: '💻 Code'      },
+    iac:       { style: 'background:var(--purple-bg);color:var(--purple);border:1px solid #7e22ce66', label: '🔧 IaC'       },
+    secret:    { style: 'background:var(--critical-bg);color:var(--critical);border:1px solid #b91c1c66', label: '🔑 Secret'    },
+    eol:       { style: 'background:var(--medium-bg);color:var(--medium);border:1px solid #b4530066', label: '⏱ EOL'        },
+    ml:        { style: 'background:var(--purple-bg);color:var(--purple);border:1px solid #7c3aed66', label: '🧠 ML'         },
+    supply_chain: { style: 'background:var(--accent-bg);color:var(--accent);border:1px solid #0369a166', label: '🔗 Supply Chain' },
   };
   const { style, label } = cfg[src] || cfg.code;
   // For container-origin findings, surface *which* image caused the CVE
@@ -324,11 +324,11 @@ function renderSelfAssessmentBody(sa) {
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:16px">
       <div class="stat-card">
         <div class="stat-label">Passed</div>
-        <div class="stat-value" style="color:var(--sev-clean,#22c55e)">${sa.summary.passed}/${sa.summary.validated_layers - sa.summary.environment_limited}</div>
+        <div class="stat-value" style="color:var(--clean)">${sa.summary.passed}/${sa.summary.validated_layers - sa.summary.environment_limited}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Failed</div>
-        <div class="stat-value" style="color:${sa.summary.failed > 0 ? 'var(--sev-critical,#ef4444)' : 'var(--text-primary)'}">${sa.summary.failed}</div>
+        <div class="stat-value" style="color:${sa.summary.failed > 0 ? 'var(--critical)' : 'var(--text-primary)'}">${sa.summary.failed}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Environment-Limited</div>
@@ -680,10 +680,10 @@ function drawStackedBarChart(canvas, series, xLabels, barData) {
     const lv = series[3].data[i] || 0;
     _showTooltip(e,
       `<strong>${label}</strong> <span class="tt-date">${date}</span><br>` +
-      `<span style="color:#ff7b72">■</span> ${c}&ensp;` +
-      `<span style="color:#ffa657">■</span> ${hv}&ensp;` +
-      `<span style="color:#e3b341">■</span> ${mv}&ensp;` +
-      `<span style="color:#79c0ff">■</span> ${lv}`
+      `<span style="color:var(--critical)">■</span> ${c}&ensp;` +
+      `<span style="color:var(--high)">■</span> ${hv}&ensp;` +
+      `<span style="color:var(--medium)">■</span> ${mv}&ensp;` +
+      `<span style="color:var(--accent)">■</span> ${lv}`
     );
   };
   canvas.onmouseleave = _hideTooltip;
@@ -1883,7 +1883,7 @@ async function renderScanDetail(scanId, openFindingId = '', openFindingPackage =
 
       stigCard = `
         <div class="section findings-section-wrapper">
-          <details class="findings-collapsible" style="border-left-color:#38bdf8">
+          <details class="findings-collapsible" style="border-left-color:var(--accent)">
             <summary class="findings-summary">
               <span class="findings-summary-left">
                 <span class="findings-chevron" aria-hidden="true"></span>
@@ -1976,8 +1976,8 @@ async function renderScanDetail(scanId, openFindingId = '', openFindingPackage =
     // two scans of the same app differ.
     const envNotes = scan.environment_notes || [];
     const envNotesBanner = envNotes.length ? `
-      <div class="section" style="border-left:3px solid #f59e0b;padding:12px 16px;margin-bottom:16px;background:rgba(245,158,11,0.08)">
-        <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:#f59e0b">⚠ Environment Notes — results may differ from other environments</div>
+      <div class="section" style="border-left:3px solid var(--medium);padding:12px 16px;margin-bottom:16px;background:rgba(245,158,11,0.08)">
+        <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--medium)">⚠ Environment Notes — results may differ from other environments</div>
         ${envNotes.map(n => `<div style="font-size:12.5px;color:var(--text-muted);margin-top:4px"><strong>${esc(n.layer)}:</strong> ${esc(n.message)}</div>`).join('')}
       </div>` : '';
 
@@ -2170,7 +2170,7 @@ function buildEnrichmentCard(findings) {
   if (kevTotal === 0 && nvdTotal === 0) return '';
 
   const hasKev = kevTotal > 0;
-  const accentColor = hasKev ? 'var(--critical)' : 'var(--accent,#38bdf8)';
+  const accentColor = hasKev ? 'var(--critical)' : 'var(--accent)';
 
   // Collect all KEV-matched findings across severity buckets for the detail table
   const kevFindings = [];
@@ -2211,7 +2211,7 @@ function buildEnrichmentCard(findings) {
               </svg>
               Threat Intelligence Enrichment
             </span>
-            ${hasKev ? `<span style="background:#7f1d1d;color:#fca5a5;border:1px solid #b91c1c;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:700">${esc(kevTotal)} KEV</span>` : ''}
+            ${hasKev ? `<span style="background:var(--critical-bg);color:var(--critical);border:1px solid #b91c1c;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:700">${esc(kevTotal)} KEV</span>` : ''}
             <span class="sev-badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(nvdTotal)} NVD enriched</span>
           </span>
           <span class="findings-summary-hint">Click to expand</span>
@@ -2219,9 +2219,9 @@ function buildEnrichmentCard(findings) {
         <div class="findings-body" style="padding:0 18px 16px">
           <div class="detail-grid" style="margin-top:12px;margin-bottom:0">
             ${hasKev ? `
-            <div class="detail-card" style="border-color:#7f1d1d;background:rgba(127,29,29,0.12)">
-              <div class="label" style="color:#fca5a5">CISA KEV Matches</div>
-              <div class="value" style="color:#fca5a5">${esc(kevTotal)}</div>
+            <div class="detail-card" style="border-color:var(--critical-bg);background:rgba(127,29,29,0.12)">
+              <div class="label" style="color:var(--critical)">CISA KEV Matches</div>
+              <div class="value" style="color:var(--critical)">${esc(kevTotal)}</div>
             </div>` : ''}
             <div class="detail-card">
               <div class="label">NVD Enriched CVEs</div>
@@ -2234,7 +2234,7 @@ function buildEnrichmentCard(findings) {
             </div>` : ''}
           </div>
           ${hasKev ? `
-          <p style="color:#fca5a5;font-size:12px;margin:12px 0 4px">
+          <p style="color:var(--critical);font-size:12px;margin:12px 0 4px">
             ⚠ ${esc(kevTotal)} finding${kevTotal > 1 ? 's' : ''} match CISA's Known Exploited Vulnerabilities catalog —
             actively exploited in the wild. Findings marked <strong>KEV</strong> above require immediate attention.
           </p>` : ''}
@@ -2287,7 +2287,7 @@ function buildNetworkDiscoveryCard(scan) {
   }).join('') : '<p style="color:var(--text-muted);font-size:13px;margin:8px 0 0">No static port definitions found.</p>';
 
   const activeBadge = nd.active_scan_run
-    ? '<span style="background:var(--low-bg,#fffbe6);color:var(--low,#b8860b);border:1px solid var(--low,#b8860b);border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600">nmap active</span>'
+    ? '<span style="background:var(--low-bg,#fffbe6);color:var(--low);border:1px solid var(--low);border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600">nmap active</span>'
     : '<span style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-size:11px">static only</span>';
 
   const portsBadge = nd.total_ports
@@ -2296,7 +2296,7 @@ function buildNetworkDiscoveryCard(scan) {
 
   return `
     <div class="section findings-section-wrapper">
-      <details class="findings-collapsible" style="border-left-color:var(--accent,#38bdf8)">
+      <details class="findings-collapsible" style="border-left-color:var(--accent)">
         <summary class="findings-summary">
           <span class="findings-summary-left">
             <span class="findings-chevron" aria-hidden="true"></span>
@@ -2614,7 +2614,7 @@ function buildModelSecurityCard(scan) {
             <span class="hf-tool-icon">⚡</span>
             <span>Layer 20 — ML Runtime Behavioral Analysis</span>
             <span class="hf-tool-name">ml-runtime</span>
-            <span class="tool-tag" style="background:#581c8722;color:#d8b4fe;border:1px solid #7c3aed66;margin-left:6px">OPT-IN</span>
+            <span class="tool-tag" style="background:var(--purple-bg);color:var(--purple);border:1px solid #7c3aed66;margin-left:6px">OPT-IN</span>
           </div>
           <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
         </div>
@@ -2664,7 +2664,7 @@ function buildModelSecurityCard(scan) {
           ${mc ? '<span class="tool-tag" style="font-size:11px">model card</span>' : ''}
           ${mp ? '<span class="tool-tag" style="font-size:11px">provenance</span>' : ''}
           ${is ? '<span class="tool-tag" style="font-size:11px">inference</span>' : ''}
-          ${mr ? '<span class="tool-tag" style="font-size:11px;background:#581c8722;color:#d8b4fe">runtime</span>' : ''}
+          ${mr ? '<span class="tool-tag" style="font-size:11px;background:var(--purple-bg);color:var(--purple)">runtime</span>' : ''}
         </span>
         <span class="ms-summary-right">
           <span class="hf-status-badge ${summaryBadgeClass}">${summaryIcon} ${summaryLabel}</span>
@@ -2794,19 +2794,19 @@ function buildBuildEvidenceCard(scan) {
   const isContainerBuild = mode === 'container_build';
 
   const statusBadge = isContainerBuild
-    ? `<span class="badge" style="background:#059669;color:#fff;">✅ Image Built</span>`
-    : `<span class="badge" style="background:#0284c7;color:#fff;">✅ Target Attested & Verified</span>`;
+    ? `<span class="badge" style="background:var(--pass);color:#fff;">✅ Image Built</span>`
+    : `<span class="badge" style="background:var(--accent);color:#fff;">✅ Target Attested & Verified</span>`;
 
   const manifestBadge = arts.oci_manifest
-    ? `<span class="badge" style="background:#2563eb;color:#fff;">📦 OCI Manifest</span>`
+    ? `<span class="badge" style="background:var(--accent);color:#fff;">📦 OCI Manifest</span>`
     : `<span class="badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);">📦 OCI Manifest N/A</span>`;
 
   const provBadge = arts.slsa_provenance
-    ? `<span class="badge" style="background:#7c3aed;color:#fff;">📜 SLSA v1.0 Provenance</span>`
+    ? `<span class="badge" style="background:var(--purple);color:#fff;">📜 SLSA v1.0 Provenance</span>`
     : `<span class="badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);">📜 SLSA Provenance N/A</span>`;
 
   const sigBadge = sig.status === 'signed' || arts.image_signature
-    ? `<span class="badge" style="background:#059669;color:#fff;">🔏 Cosign Signed</span>`
+    ? `<span class="badge" style="background:var(--pass);color:#fff;">🔏 Cosign Signed</span>`
     : `<span class="badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);">🔏 Signature N/A</span>`;
 
   // Build 10-Artifact Inventory Table Rows — status reflects actual file presence
@@ -2827,14 +2827,14 @@ function buildBuildEvidenceCard(scan) {
       <td style="padding:8px 12px;font-weight:500;">${esc(a.name)}</td>
       <td style="padding:8px 12px;color:var(--text-muted);font-size:12px;">${esc(a.spec)}</td>
       <td style="padding:8px 12px;">${a.present
-        ? '<span style="color:#10b981;font-weight:600;">✅ Captured</span>'
+        ? '<span style="color:var(--pass);font-weight:600;">✅ Captured</span>'
         : '<span style="color:var(--text-muted);">⚠️ Not Captured</span>'}</td>
       <td style="padding:8px 12px;font-family:monospace;font-size:11px;color:var(--text-muted);">${esc(a.file)}</td>
     </tr>
   `).join('');
 
   return `
-    <details class="ms-card" id="build-evidence-card" style="border-left-color:#8b5cf6;margin-top:20px;">
+    <details class="ms-card" id="build-evidence-card" style="border-left-color:var(--purple);margin-top:20px;">
       <summary class="ms-summary">
         <span class="ms-summary-left">
           <span class="findings-chevron" aria-hidden="true"></span>
@@ -2911,8 +2911,8 @@ function buildSSPEvidenceCard(scan) {
         <td style="padding:8px 12px;font-weight:600;color:var(--accent);">${esc(c.control_id)}</td>
         <td style="padding:8px 12px;font-weight:500;">${esc(c.control_name)}</td>
         <td style="padding:8px 12px;color:var(--text-muted);font-size:12px;">${esc(c.epyon_layer)}</td>
-        <td style="padding:8px 12px;font-family:monospace;font-size:11px;"><code style="color:#a78bfa;">${esc(c.primary_artifact_path)}</code></td>
-        <td style="padding:8px 12px;">${isCap ? '<span style="color:#10b981;font-weight:600;">✅ Captured</span>' : '<span style="color:#f59e0b;font-weight:600;">⚠️ Missing Evidence</span>'}</td>
+        <td style="padding:8px 12px;font-family:monospace;font-size:11px;"><code style="color:var(--purple);">${esc(c.primary_artifact_path)}</code></td>
+        <td style="padding:8px 12px;">${isCap ? '<span style="color:var(--pass);font-weight:600;">✅ Captured</span>' : '<span style="color:var(--medium);font-weight:600;">⚠️ Missing Evidence</span>'}</td>
         <td style="padding:8px 12px;font-family:monospace;font-size:11px;color:var(--text-muted);" title="${esc(hash)}">${esc(hashShort)}</td>
       </tr>`;
   }).join('');
@@ -2926,12 +2926,12 @@ function buildSSPEvidenceCard(scan) {
     : '';
 
   return `
-    <details class="ms-card" id="ssp-evidence-card" style="border-left-color:#10b981;margin-top:20px;">
+    <details class="ms-card" id="ssp-evidence-card" style="border-left-color:var(--pass);margin-top:20px;">
       <summary class="ms-summary">
         <span class="ms-summary-left">
           <span class="findings-chevron" aria-hidden="true"></span>
           <span class="ms-summary-title">NIST SP 800-53 / FedRAMP Control Evidence Matrix</span>
-          <span class="tool-tag" style="font-size:11px;background:#10b98122;color:#10b981;border:1px solid #10b98144">SSP / ATO Package</span>
+          <span class="tool-tag" style="font-size:11px;background:var(--pass-bg);color:var(--pass);border:1px solid #10b98144">SSP / ATO Package</span>
         </span>
         <span class="ms-summary-right" onclick="event.stopPropagation()" style="gap:8px;display:flex;align-items:center;">
           ${downloadMdBtn}
@@ -3101,7 +3101,7 @@ function inlineMarkdown(s) {
 
 function buildOverviewExecSection() {
   return `
-    <div class="section" id="overview-exec-section" style="border-left:3px solid #f59e0b;padding-left:16px">
+    <div class="section" id="overview-exec-section" style="border-left:3px solid var(--medium);padding-left:16px">
       <div class="section-title" style="display:flex;align-items:center;gap:10px">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b"
              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3125,7 +3125,7 @@ function buildOverviewExecSection() {
 
 function buildOverviewTechSection() {
   return `
-    <div class="section" id="overview-tech-section" style="border-left:3px solid #6366f1;padding-left:16px">
+    <div class="section" id="overview-tech-section" style="border-left:3px solid var(--purple);padding-left:16px">
       <div class="section-title" style="display:flex;align-items:center;gap:10px">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6366f1"
              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3147,7 +3147,7 @@ function buildOverviewTechSection() {
 
 function buildOverviewIssoSection() {
   return `
-    <div class="section" id="overview-isso-section" style="border-left:3px solid #10b981;padding-left:16px">
+    <div class="section" id="overview-isso-section" style="border-left:3px solid var(--pass);padding-left:16px">
       <div class="section-title" style="display:flex;align-items:center;gap:10px">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981"
              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3182,14 +3182,14 @@ function _summaryLoadingHtml(label) {
 
 function _summaryResultHtml(text, err, regenerateFn, exportFn, exportDocxFn) {
   const content = err
-    ? `<div style="color:#ef4444;font-size:12px;padding:8px 0">⚠ ${esc(err)}</div>`
+    ? `<div style="color:var(--critical);font-size:12px;padding:8px 0">⚠ ${esc(err)}</div>`
     : `<div style="line-height:1.6">${renderMarkdown(text)}</div>`;
   return `
     ${content}
     <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
       <button class="btn" style="font-size:11px" onclick="${regenerateFn.includes('(') ? regenerateFn : regenerateFn + '()'}">↺ Regenerate</button>
       ${text ? `<button class="btn btn-primary" style="font-size:11px" onclick="${exportFn.includes('(') ? exportFn : exportFn + '()'}">↓ Export PDF</button>` : ''}
-      ${text && exportDocxFn ? `<button class="btn" style="font-size:11px;background:#1e3a5f;color:#93c5fd;border-color:#1e4976" onclick="${exportDocxFn.includes('(') ? exportDocxFn : exportDocxFn + '()'}">↓ Export Word</button>` : ''}
+      ${text && exportDocxFn ? `<button class="btn" style="font-size:11px;background:var(--accent-bg);color:var(--accent);border-color:var(--accent-bg)" onclick="${exportDocxFn.includes('(') ? exportDocxFn : exportDocxFn + '()'}">↓ Export Word</button>` : ''}
     </div>`;
 }
 
@@ -3283,7 +3283,7 @@ function exportIssoSummaryPdf() { exportOverviewSummaryPdf('isso'); }
 
 function buildAppIssoSection(name) {
   return `
-    <div class="section" id="app-isso-section-${esc(name)}" style="border-left:3px solid #10b981;padding-left:16px">
+    <div class="section" id="app-isso-section-${esc(name)}" style="border-left:3px solid var(--pass);padding-left:16px">
       <div class="section-title" style="display:flex;align-items:center;gap:10px">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981"
              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -3368,7 +3368,7 @@ function exportOverviewSummaryPdf(only) {
   });
 
   function mdToHtml(text) {
-    if (!text) return '<p style="color:#888">Not available.</p>';
+    if (!text) return '<p style="color:var(--text-muted)">Not available.</p>';
     // Reuse inline rendering logic but produce standalone HTML
     const lines = text.split('\n');
     let html = '';
@@ -3427,7 +3427,7 @@ function exportOverviewSummaryPdf(only) {
       margin-bottom: 28px;
     }
     .report-title { font-size: 22pt; font-weight: 700; margin: 0 0 4px; }
-    .report-meta  { font-size: 10pt; color: #555; margin: 0; }
+    .report-meta  { font-size: 10pt; color: var(--text-muted); margin: 0; }
     .section-heading {
       font-size: 14pt;
       font-weight: 700;
@@ -3435,9 +3435,9 @@ function exportOverviewSummaryPdf(only) {
       padding: 8px 12px;
       border-radius: 4px;
     }
-    .exec-heading  { background: #fff8e8; border-left: 4px solid #f59e0b; color: #92400e; }
-    .tech-heading  { background: #eef2ff; border-left: 4px solid #6366f1; color: #3730a3; }
-    .isso-heading  { background: #ecfdf5; border-left: 4px solid #10b981; color: #065f46; }
+    .exec-heading  { background: var(--medium-bg); border-left: 4px solid var(--medium); color: var(--medium); }
+    .tech-heading  { background: var(--purple-bg); border-left: 4px solid var(--purple); color: var(--purple); }
+    .isso-heading  { background: #ecfdf5; border-left: 4px solid var(--pass); color: var(--pass); }
     .section-body  { padding: 0 4px; }
     h2 { font-size: 13pt; margin: 18px 0 6px; }
     h3 { font-size: 11pt; margin: 14px 0 4px; }
@@ -3456,7 +3456,7 @@ function exportOverviewSummaryPdf(only) {
       padding-top: 12px;
       border-top: 1px solid #ddd;
       font-size: 9pt;
-      color: #888;
+      color: var(--text-muted);
       text-align: center;
     }
     @media print {
@@ -3509,30 +3509,30 @@ function buildSuppressedSection(items) {
         <span class="tool-tag" style="font-size:11px;padding:1px 6px;background:${typeColor}22;color:${typeColor};border:1px solid ${typeColor}44">${esc(s.type || 'unknown')}</span>
       </td>
       <td style="padding:5px 10px;font-family:monospace;font-size:12px;font-weight:600">${esc(s.value || '—')}</td>
-      <td style="padding:5px 10px;font-size:12px;color:#9ca3af">${esc(s.tool || '—')}</td>
+      <td style="padding:5px 10px;font-size:12px;color:var(--text-muted)">${esc(s.tool || '—')}</td>
       <td style="padding:5px 10px;font-size:12px;max-width:400px">${esc(s.reason || '—')}</td>
-      <td style="padding:5px 10px;font-size:12px;color:#6b7280">${esc(s.approved_by || '—')}</td>
+      <td style="padding:5px 10px;font-size:12px;color:var(--text-muted)">${esc(s.approved_by || '—')}</td>
       <td style="padding:5px 10px;font-size:12px">
         ${s.severity && s.severity !== 'N/A'
           ? `<span class="sev-badge sev-${esc(s.severity.toLowerCase())}">${esc(s.severity)}</span>`
-          : '<span style="color:#4b5563">—</span>'}
+          : '<span style="color:var(--text-muted)">—</span>'}
       </td>
     </tr>`;
   }).join('');
 
   return `
     <div class="section findings-section-wrapper">
-      <details class="findings-collapsible" style="border-left-color:#f59e0b">
+      <details class="findings-collapsible" style="border-left-color:var(--medium)">
         <summary class="findings-summary">
           <span class="findings-summary-left">
             <span class="findings-chevron" aria-hidden="true"></span>
             <span class="findings-summary-title">Suppressed Findings</span>
-            <span class="sev-badge" style="background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b44">${items.length}</span>
+            <span class="sev-badge" style="background:var(--medium-bg);color:var(--medium);border:1px solid color-mix(in srgb, var(--medium) 27%, transparent)">${items.length}</span>
           </span>
           <span class="findings-summary-hint">Click to expand</span>
         </summary>
         <div class="findings-body">
-          <div style="font-size:12px;color:#6b7280;margin-bottom:10px">Suppressed by <code>.epyon-ignore.yml</code> rules in the scanned repository.</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Suppressed by <code>.epyon-ignore.yml</code> rules in the scanned repository.</div>
           <div class="table-container">
             <table>
               <thead>
@@ -3584,7 +3584,7 @@ function buildSBOMSection(sbom, scanId) {
 
   return `
     <div class="section findings-section-wrapper">
-      <details class="findings-collapsible" style="border-left-color:var(--accent,#38bdf8)">
+      <details class="findings-collapsible" style="border-left-color:var(--accent)">
         <summary class="findings-summary">
           <span class="findings-summary-left">
             <span class="findings-chevron" aria-hidden="true"></span>
@@ -3726,8 +3726,8 @@ window.sbomRender = function(uid) {
       <td style="font-family:monospace;font-size:12px;padding:3px 8px">${esc(p.name)}</td>
       <td style="font-size:12px;padding:3px 8px">${esc(p.version)}</td>
       <td style="padding:3px 8px"><span class="tool-tag" style="font-size:11px;padding:1px 6px">${esc(p.type)}</span></td>
-      <td style="font-size:11px;color:#888;padding:3px 8px">${esc(p.license)}</td>
-      <td style="font-family:monospace;font-size:11px;color:#6b7280;padding:3px 8px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.path)}">${esc(p.path)}</td>
+      <td style="font-size:11px;color:var(--text-muted);padding:3px 8px">${esc(p.license)}</td>
+      <td style="font-family:monospace;font-size:11px;color:var(--text-muted);padding:3px 8px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.path)}">${esc(p.path)}</td>
     </tr>`;
   }).join('');
 };
@@ -3761,13 +3761,13 @@ function _buildFindingRows(items) {
         ? `<span style="font-weight:700;color:${cvssColor};font-size:12px" title="CVSS v3: ${cvssNum} ${cvssSev}">${cvssNum}</span>`
         : '',
       f.cisa_kev
-        ? `<span style="background:#7f1d1d;color:#fca5a5;font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;vertical-align:middle;margin-left:${cvssNum != null ? 4 : 0}px" title="CISA Known Exploited Vulnerability">KEV</span>`
+        ? `<span style="background:var(--critical-bg);color:var(--critical);font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;vertical-align:middle;margin-left:${cvssNum != null ? 4 : 0}px" title="CISA Known Exploited Vulnerability">KEV</span>`
         : ''
     ].join('') || '<span style="color:var(--text-dim)">—</span>';
 
     // Suppressed badge
     const suppressedBadge = isSuppressed
-      ? `<span style="background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b44;border-radius:3px;padding:1px 6px;font-size:9px;font-weight:700;margin-left:6px" title="Suppressed by .epyon-ignore.yml">SUPPRESSED</span>`
+      ? `<span style="background:var(--medium-bg);color:var(--medium);border:1px solid color-mix(in srgb, var(--medium) 27%, transparent);border-radius:3px;padding:1px 6px;font-size:9px;font-weight:700;margin-left:6px" title="Suppressed by .epyon-ignore.yml">SUPPRESSED</span>`
       : '';
 
     // For IaC/Checkov findings, show file path and line numbers
@@ -3892,7 +3892,7 @@ function buildAPISection(apiData) {
 
   return `
     <div class="section findings-section-wrapper">
-      <details class="findings-collapsible" style="border-left-color:#10b981">
+      <details class="findings-collapsible" style="border-left-color:var(--pass)">
         <summary class="findings-summary">
           <span class="findings-summary-left">
             <span class="findings-chevron" aria-hidden="true"></span>
@@ -4127,7 +4127,7 @@ function buildFindingsSection(findings) {
 
       // Build count badge with suppressed indicator
       const countBadge = suppressedCount > 0
-        ? `<span class="sev-badge ${esc(sev)}">${activeCount}</span><span style="background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b44;border-radius:3px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px" title="${suppressedCount} suppressed by .epyon-ignore.yml">${suppressedCount} suppressed</span>`
+        ? `<span class="sev-badge ${esc(sev)}">${activeCount}</span><span style="background:var(--medium-bg);color:var(--medium);border:1px solid color-mix(in srgb, var(--medium) 27%, transparent);border-radius:3px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px" title="${suppressedCount} suppressed by .epyon-ignore.yml">${suppressedCount} suppressed</span>`
         : `<span class="sev-badge ${esc(sev)}">${allItems.length}</span>`;
 
       html += `
@@ -4197,11 +4197,11 @@ function buildFindingsSection(findings) {
       : '';
     enrichmentBanner = `
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;color:var(--text-muted)">
-        ${kevTotal > 0 ? `<span style="background:#7f1d1d;color:#fca5a5;border:1px solid #b91c1c;border-radius:4px;padding:1px 8px;font-size:11px;font-weight:700">${esc(kevTotal)} KEV</span>` : ''}
+        ${kevTotal > 0 ? `<span style="background:var(--critical-bg);color:var(--critical);border:1px solid #b91c1c;border-radius:4px;padding:1px 8px;font-size:11px;font-weight:700">${esc(kevTotal)} KEV</span>` : ''}
         ${nvdTotal > 0 ? `<span style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:1px 8px;font-size:11px">${esc(nvdTotal)} NVD enriched</span>` : ''}
         ${enrichedAt ? `<span style="font-size:11px;color:var(--text-dim)">enriched ${enrichedAt}</span>` : ''}
         ${catalogLink}
-        ${kevTotal > 0 ? `<span style="color:#fca5a5;font-size:11px">⚠ ${esc(kevTotal)} finding${kevTotal > 1 ? 's' : ''} actively exploited in the wild — see <strong>KEV</strong> badges below</span>` : ''}
+        ${kevTotal > 0 ? `<span style="color:var(--critical);font-size:11px">⚠ ${esc(kevTotal)} finding${kevTotal > 1 ? 's' : ''} actively exploited in the wild — see <strong>KEV</strong> badges below</span>` : ''}
       </div>`;
   }
 
@@ -4875,11 +4875,11 @@ function renderScanQueueResults() {
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:16px">
       <div class="stat-card">
         <div class="stat-label">Passed</div>
-        <div class="stat-value" style="color:var(--sev-clean,#22c55e)">${passed}/${_scanQueueResults.length}</div>
+        <div class="stat-value" style="color:var(--clean)">${passed}/${_scanQueueResults.length}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Failed</div>
-        <div class="stat-value" style="color:${failed > 0 ? 'var(--sev-critical,#ef4444)' : 'var(--text-primary)'}">${failed}</div>
+        <div class="stat-value" style="color:${failed > 0 ? 'var(--critical)' : 'var(--text-primary)'}">${failed}</div>
       </div>
     </div>
     <div class="table-container">
@@ -5146,7 +5146,7 @@ window.sortEnrichmentTable = function(col) {
       ? (parseFloat(score) >= 9 ? 'var(--critical)' : parseFloat(score) >= 7 ? 'var(--high)' : parseFloat(score) >= 4 ? 'var(--medium)' : 'var(--low)')
       : 'var(--text-muted)';
     const kevBadge = f.cisa_kev
-      ? `<span style="background:#7f1d1d;color:#fca5a5;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;vertical-align:middle;margin-left:4px">KEV</span>`
+      ? `<span style="background:var(--critical-bg);color:var(--critical);font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;vertical-align:middle;margin-left:4px">KEV</span>`
       : '';
     const fixed = f.fixed_version ? `<span style="color:var(--clean);font-size:11px">→ ${esc(f.fixed_version)}</span>` : '';
     return `
@@ -5721,7 +5721,7 @@ async function renderMetrics() {
               Fixable (${esc(String(m.fix_rate.with_fix))})
             </span>
             <span class="legend-item">
-              <span class="legend-dot" style="background:#30363d;border:1px solid #6e7681"></span>
+              <span class="legend-dot" style="background:var(--border);border:1px solid var(--text-dim)"></span>
               No fix (${esc(String(m.fix_rate.without_fix))})
             </span>
           </div>
@@ -6127,7 +6127,7 @@ async function renderPerformanceDashboard() {
             </div>
             <div class="stat-card">
               <div class="stat-label">Healthy</div>
-              <div class="stat-value" style="color:var(--sev-clean,#22c55e)">${si.summary.healthy}</div>
+              <div class="stat-value" style="color:var(--clean)">${si.summary.healthy}</div>
             </div>
             <div class="stat-card">
               <div class="stat-label">Suspicious</div>
@@ -6135,7 +6135,7 @@ async function renderPerformanceDashboard() {
             </div>
             <div class="stat-card">
               <div class="stat-label">Empty Target</div>
-              <div class="stat-value" style="color:var(--sev-critical,#ef4444)">${si.summary.empty_target}</div>
+              <div class="stat-value" style="color:var(--critical)">${si.summary.empty_target}</div>
             </div>
           </div>
           ${si.flagged.length === 0 ? `
@@ -6381,7 +6381,7 @@ async function renderGitHubSignals() {
 
     // ── Helpers ──────────────────────────────────────────────
     const noData = g.error && !g.dependabot.length
-      ? `<div class="metrics-filter-notice" style="border-color:#f59e0b;color:#f59e0b">
+      ? `<div class="metrics-filter-notice" style="border-color:var(--medium);color:var(--medium)">
            ⚠ ${esc(g.error)} — Configure a GitHub token and repos in Settings to enable GitHub API metrics.
            PR Scan Coverage is available without a token.
          </div>` : '';
@@ -6397,10 +6397,10 @@ async function renderGitHubSignals() {
         <td><strong>${esc(r.repo.split('/')[1] || r.repo)}</strong><div style="font-size:11px;color:var(--text-muted)">${esc(r.repo)}</div></td>
         <td style="text-align:center"><span style="color:${(r.open||0)>0?'var(--critical)':'var(--clean)'};font-weight:700">${r.open || 0}</span></td>
         <td style="text-align:center;font-size:12px">
-          <span style="color:#ff7b72">${sev.critical||0} C</span> ·
-          <span style="color:#ffa657">${sev.high||0} H</span> ·
-          <span style="color:#e3b341">${sev.medium||0} M</span> ·
-          <span style="color:#79c0ff">${sev.low||0} L</span>
+          <span style="color:var(--critical)">${sev.critical||0} C</span> ·
+          <span style="color:var(--high)">${sev.high||0} H</span> ·
+          <span style="color:var(--medium)">${sev.medium||0} M</span> ·
+          <span style="color:var(--accent)">${sev.low||0} L</span>
         </td>
         <td style="text-align:center;color:var(--clean)">${r.fixed || 0}</td>
         <td style="font-size:11px;color:var(--text-muted);max-width:220px">${topPkg}</td>
@@ -6450,7 +6450,7 @@ async function renderGitHubSignals() {
         <td style="text-align:center">${v.total_ci_scans}</td>
         <td>
           <div style="display:flex;align-items:center;gap:8px">
-            <div style="flex:1;background:#30363d;border-radius:4px;height:8px;overflow:hidden">
+            <div style="flex:1;background:var(--border);border-radius:4px;height:8px;overflow:hidden">
               <div style="width:${Math.min(pct,100)}%;background:${barColor};height:100%;border-radius:4px;transition:width .3s"></div>
             </div>
             <span style="font-size:12px;font-weight:700;color:${barColor};min-width:40px;text-align:right">${pct}%</span>
@@ -8587,7 +8587,7 @@ async function jiraReviewCheckDeleted() {
     const statusEl = document.getElementById('jira-review-reassign-status');
     if (statusEl) {
       statusEl.textContent = message;
-      statusEl.style.color = isError ? 'var(--danger, #dc2626)' : '';
+      statusEl.style.color = isError ? 'var(--critical)' : '';
     }
     const freshButton = document.getElementById('jira-review-reassign');
     if (freshButton) {
@@ -8671,7 +8671,7 @@ async function openStigJiraModal(scanId, regKeys) {
   try {
     ctx = await api.getStigJiraContext(scanId);
   } catch (e) {
-    body.innerHTML = `<p style="color:var(--danger,#dc2626)">${esc(e.message)}</p><button class="btn" onclick="stigJiraClose()">Close</button>`;
+    body.innerHTML = `<p style="color:var(--critical)">${esc(e.message)}</p><button class="btn" onclick="stigJiraClose()">Close</button>`;
     return;
   }
   if (!ctx.jira_configured) {
@@ -8733,7 +8733,7 @@ async function openStigJiraModal(scanId, regKeys) {
     const out = document.getElementById('stig-jira-result');
     const val = id => document.getElementById(id).value.trim();
     const project = val('stig-jira-project');
-    if (!project) { out.style.color = 'var(--danger,#dc2626)'; out.textContent = 'Choose a Jira board.'; return; }
+    if (!project) { out.style.color = 'var(--critical)'; out.textContent = 'Choose a Jira board.'; return; }
     btn.disabled = true; btn.textContent = 'Creating…';
     try {
       const res = await api.createStigJiraTickets(scanId, {
@@ -8753,12 +8753,12 @@ async function openStigJiraModal(scanId, regKeys) {
       if (res.already_exists.length) parts.push(`Already ticketed: ${res.already_exists.map(link).join(', ')}`);
       const bad = [...res.failed, ...res.ineligible];
       if (bad.length) parts.push(`Not created: ${bad.map(b => esc(`${b.vuln_id} (${b.reason})`)).join(', ')}`);
-      out.style.color = bad.length ? 'var(--danger,#dc2626)' : 'var(--text)';
+      out.style.color = bad.length ? 'var(--critical)' : 'var(--text)';
       out.innerHTML = parts.join('<br>');
       btn.textContent = 'Done';
       if (res.created.length) { _stigJiraSel.clear(); }
     } catch (e) {
-      out.style.color = 'var(--danger,#dc2626)';
+      out.style.color = 'var(--critical)';
       out.textContent = `Ticket creation failed: ${e.message}`;
       btn.disabled = false; btn.textContent = 'Create tickets';
     }
@@ -8841,7 +8841,7 @@ async function jiraModalProjectSave() {
     await jiraEpicModalLoad(ctx.scanId);
     jiraModalProjectTyped();
   } catch (error) {
-    note.style.color = 'var(--danger, #dc2626)';
+    note.style.color = 'var(--critical)';
     note.textContent = `Could not change project: ${error.message}`;
   } finally {
     saveBtn.textContent = 'Change';
@@ -8991,7 +8991,7 @@ async function jiraQuickAdd(id) {
   const setStatus = (msg, isError) => {
     if (!status) return;
     status.textContent = msg;
-    status.style.color = isError ? 'var(--danger, #dc2626)' : 'var(--text-muted)';
+    status.style.color = isError ? 'var(--critical)' : 'var(--text-muted)';
   };
   btn.disabled = true;
   setStatus('Checking Jira…');
@@ -9077,14 +9077,14 @@ async function jiraQuickCreateConfirmed() {
       const reason = (result.failed?.[0] || result.ineligible?.[0])?.reason || 'unknown';
       if (btn) { btn.disabled = false; btn.textContent = 'Add to Jira'; }
       if (status) {
-        status.style.color = 'var(--danger, #dc2626)';
+        status.style.color = 'var(--critical)';
         status.textContent = `Ticket not created: ${reason}`;
       }
     }
   } catch (error) {
     if (btn) { btn.disabled = false; btn.textContent = 'Add to Jira'; }
     if (status) {
-      status.style.color = 'var(--danger, #dc2626)';
+      status.style.color = 'var(--critical)';
       status.textContent = `Ticket creation failed: ${error.message}`;
     }
   }
@@ -9235,7 +9235,7 @@ window.openDependencyDetail = function(did) {
       <div class="finding-detail-value" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <code style="font-size:11px;word-break:break-all">${esc(p.purl)}</code>
         ${purlUrl ? `<a href="${esc(purlUrl)}" target="_blank" rel="noopener noreferrer"
-             style="font-size:11px;white-space:nowrap;color:#6366f1">
+             style="font-size:11px;white-space:nowrap;color:var(--purple)">
              View registry
              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                   stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle">
@@ -9284,7 +9284,7 @@ window.openDependencyDetail = function(did) {
         <div class="finding-drawer-badges">
           <span class="tool-tag">${esc(p.type)}</span>
           ${p.version ? `<code style="font-size:12px">${esc(p.version)}</code>` : ''}
-          ${p.language ? `<span class="tool-tag" style="background:#1e3a5f;color:#93c5fd">${esc(p.language)}</span>` : ''}
+          ${p.language ? `<span class="tool-tag" style="background:var(--accent-bg);color:var(--accent)">${esc(p.language)}</span>` : ''}
         </div>
       </div>
       <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
@@ -9742,7 +9742,7 @@ function openFindingDetail(id) {
            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
            <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
          </svg>
-       </a>${cisaKev ? ' <span style="background:#7f1d1d;color:#fca5a5;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px" title="CISA Known Exploited Vulnerability">KEV</span>' : ''}${sourceBadge}`
+       </a>${cisaKev ? ' <span style="background:var(--critical-bg);color:var(--critical);font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px" title="CISA Known Exploited Vulnerability">KEV</span>' : ''}${sourceBadge}`
     : `<code>${esc(fid)}</code>${sourceBadge}`;
 
   const refsHtml = refs.length
@@ -9810,11 +9810,11 @@ function openFindingDetail(id) {
       </div>
 
       ${cisaKev ? `
-        <div style="background:#450a0a;border:1px solid #7f1d1d;border-radius:var(--radius);padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
+        <div style="background:var(--critical-bg);border:1px solid var(--critical-bg);border-radius:var(--radius);padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
           <span style="font-size:16px">⚠️</span>
           <div>
-            <div style="color:#fca5a5;font-weight:600;font-size:13px">CISA Known Exploited Vulnerability (KEV)</div>
-            <div style="color:#fca5a5;font-size:12px;margin-top:2px">This CVE is actively exploited in the wild. CISA mandates remediation for federal agencies. Treat as highest priority.</div>
+            <div style="color:var(--critical);font-weight:600;font-size:13px">CISA Known Exploited Vulnerability (KEV)</div>
+            <div style="color:var(--critical);font-size:12px;margin-top:2px">This CVE is actively exploited in the wild. CISA mandates remediation for federal agencies. Treat as highest priority.</div>
           </div>
         </div>` : ''}
 
@@ -9835,7 +9835,7 @@ function openFindingDetail(id) {
       </div>` : ''}
 
       <div id="finding-fix-section" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
-        <button id="finding-fix-btn" onclick="fetchFindingFix(${id})" style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);border:1px solid #6366f1;background:rgba(99,102,241,0.08);color:#818cf8;font-size:12.5px;cursor:pointer;font-weight:500;transition:background 0.12s">
+        <button id="finding-fix-btn" onclick="fetchFindingFix(${id})" style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);border:1px solid var(--purple);background:rgba(99,102,241,0.08);color:var(--purple);font-size:12.5px;cursor:pointer;font-weight:500;transition:background 0.12s">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
           Suggest Fix with AI
         </button>
@@ -9900,10 +9900,10 @@ function openGhSignalDetail(kind, idx) {
       <div class="finding-detail-section" style="margin-top:12px">
         <div class="finding-detail-label">By Severity</div>
         <div style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap">
-          <span style="background:rgba(255,123,114,.15);color:#ff7b72;padding:4px 10px;border-radius:6px;font-weight:700">Critical: ${sev.critical||0}</span>
-          <span style="background:rgba(255,166,87,.15);color:#ffa657;padding:4px 10px;border-radius:6px;font-weight:700">High: ${sev.high||0}</span>
-          <span style="background:rgba(227,179,65,.15);color:#e3b341;padding:4px 10px;border-radius:6px;font-weight:700">Medium: ${sev.medium||0}</span>
-          <span style="background:rgba(121,192,255,.15);color:#79c0ff;padding:4px 10px;border-radius:6px;font-weight:700">Low: ${sev.low||0}</span>
+          <span style="background:rgba(255,123,114,.15);color:var(--critical);padding:4px 10px;border-radius:6px;font-weight:700">Critical: ${sev.critical||0}</span>
+          <span style="background:rgba(255,166,87,.15);color:var(--high);padding:4px 10px;border-radius:6px;font-weight:700">High: ${sev.high||0}</span>
+          <span style="background:rgba(227,179,65,.15);color:var(--medium);padding:4px 10px;border-radius:6px;font-weight:700">Medium: ${sev.medium||0}</span>
+          <span style="background:rgba(121,192,255,.15);color:var(--accent);padding:4px 10px;border-radius:6px;font-weight:700">Low: ${sev.low||0}</span>
         </div>
       </div>
       ${pkgRows ? `
@@ -9913,7 +9913,7 @@ function openGhSignalDetail(kind, idx) {
       </div>` : ''}
       <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
         <a href="${esc(repoUrl)}" target="_blank" rel="noopener noreferrer"
-           style="display:inline-flex;align-items:center;gap:6px;color:#79c0ff;font-size:13px;text-decoration:none">
+           style="display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-size:13px;text-decoration:none">
           View on GitHub
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         </a>
@@ -9949,7 +9949,7 @@ function openGhSignalDetail(kind, idx) {
       </div>
       <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
         <a href="${esc(repoUrl)}" target="_blank" rel="noopener noreferrer"
-           style="display:inline-flex;align-items:center;gap:6px;color:#79c0ff;font-size:13px;text-decoration:none">
+           style="display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-size:13px;text-decoration:none">
           View on GitHub
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         </a>
@@ -9992,7 +9992,7 @@ function openGhSignalDetail(kind, idx) {
       </div>
       <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
         <a href="${esc(repoUrl)}" target="_blank" rel="noopener noreferrer"
-           style="display:inline-flex;align-items:center;gap:6px;color:#79c0ff;font-size:13px;text-decoration:none">
+           style="display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-size:13px;text-decoration:none">
           View Actions on GitHub
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         </a>
@@ -10026,7 +10026,7 @@ function openGhSignalDetail(kind, idx) {
       <div class="finding-detail-section" style="margin-top:12px">
         <div class="finding-detail-label">Coverage Bar</div>
         <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
-          <div style="flex:1;background:#30363d;border-radius:6px;height:12px;overflow:hidden">
+          <div style="flex:1;background:var(--border);border-radius:6px;height:12px;overflow:hidden">
             <div style="width:${Math.min(pct,100)}%;background:${barColor};height:100%;border-radius:6px;transition:width .3s"></div>
           </div>
           <span style="font-weight:700;color:${barColor}">${pct}%</span>
@@ -10035,14 +10035,14 @@ function openGhSignalDetail(kind, idx) {
       <div class="finding-detail-section" style="margin-top:12px">
         <div class="finding-detail-label">Scan Breakdown</div>
         <div style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap">
-          <span style="background:rgba(121,192,255,.12);color:#79c0ff;padding:4px 10px;border-radius:6px;font-weight:700">PR: ${v.pr_scans}</span>
+          <span style="background:rgba(121,192,255,.12);color:var(--accent);padding:4px 10px;border-radius:6px;font-weight:700">PR: ${v.pr_scans}</span>
           <span style="background:rgba(139,148,158,.12);color:var(--text-muted);padding:4px 10px;border-radius:6px;font-weight:700">Push: ${v.push_scans}</span>
           <span style="background:rgba(139,148,158,.12);color:var(--text-muted);padding:4px 10px;border-radius:6px;font-weight:700">Other: ${v.other_scans}</span>
         </div>
       </div>
       <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
         <button onclick="closeGhSignalDetail();navigate('#/applications/${encodeURIComponent(name)}')"
-          style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);border:1px solid var(--border);background:rgba(99,102,241,0.08);color:#818cf8;font-size:12.5px;cursor:pointer;font-weight:500">
+          style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);border:1px solid var(--border);background:rgba(99,102,241,0.08);color:var(--purple);font-size:12.5px;cursor:pointer;font-weight:500">
           View Application Scans
         </button>
       </div>`;
@@ -10183,8 +10183,8 @@ function openAPIDetail(id) {
             ${params.map(p => `
               <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:8px;margin-bottom:6px">
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-                  <code style="color:#818cf8;font-size:12px">${esc(p.name || '')}</code>
-                  ${p.required ? '<span style="color:#ef4444;font-size:10px;font-weight:600">REQUIRED</span>' : ''}
+                  <code style="color:var(--purple);font-size:12px">${esc(p.name || '')}</code>
+                  ${p.required ? '<span style="color:var(--critical);font-size:10px;font-weight:600">REQUIRED</span>' : ''}
                 </div>
                 ${p.type ? `<div style="color:var(--text-muted);font-size:11px">Type: <code>${esc(p.type)}</code></div>` : ''}
                 ${p.description ? `<div style="color:var(--text-dim);font-size:11px;margin-top:3px">${esc(p.description)}</div>` : ''}
@@ -10200,7 +10200,7 @@ function openAPIDetail(id) {
             ${responses.map(r => `
               <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:8px;margin-bottom:6px">
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-                  <code style="color:#10b981;font-size:12px">${esc(String(r.status || r.code || ''))}</code>
+                  <code style="color:var(--pass);font-size:12px">${esc(String(r.status || r.code || ''))}</code>
                   <span style="color:var(--text-muted);font-size:11px">${esc(r.description || '')}</span>
                 </div>
               </div>
@@ -10259,7 +10259,7 @@ window.fetchFindingFix = async function(fid) {
     btn.style.display = 'none';
     result.innerHTML = `
       <div style="margin-top:12px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.25);border-radius:var(--radius);padding:14px 16px;font-size:13px">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;color:#818cf8;font-size:12px;font-weight:600">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;color:var(--purple);font-size:12px;font-weight:600">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
           AI-SUGGESTED FIX
         </div>
@@ -10311,7 +10311,7 @@ function renderStaticScanDetail(scan) {
 
     stigCard = `
       <div class="section findings-section-wrapper">
-        <details class="findings-collapsible" style="border-left-color:#38bdf8">
+        <details class="findings-collapsible" style="border-left-color:var(--accent)">
           <summary class="findings-summary">
             <span class="findings-summary-left">
               <span class="findings-chevron" aria-hidden="true"></span>

@@ -3435,6 +3435,14 @@ function exportOverviewSummaryPdf(only) {
       padding: 8px 12px;
       border-radius: 4px;
     }
+    :root {
+      --text-muted: #656d76;
+      --medium: #9a6700;
+      --medium-bg: rgba(154, 103, 0, 0.1);
+      --purple: #8250df;
+      --purple-bg: rgba(130, 80, 223, 0.1);
+      --pass: #1a7f37;
+    }
     .exec-heading  { background: var(--medium-bg); border-left: 4px solid var(--medium); color: var(--medium); }
     .tech-heading  { background: var(--purple-bg); border-left: 4px solid var(--purple); color: var(--purple); }
     .isso-heading  { background: #ecfdf5; border-left: 4px solid var(--pass); color: var(--pass); }

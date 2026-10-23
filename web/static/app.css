@@ -1579,6 +1579,22 @@ blockquote {
   .nav-links { display: flex; flex-wrap: wrap; flex: none; padding: 8px; }
   .nav-links li { margin-bottom: 0; }
 
+  /* The toggle sits on the right here, so the breadcrumb needs no clearance. */
+  #sidebar.collapsed ~ #content .breadcrumb,
+  #sidebar.collapsed + #content .breadcrumb { padding-left: 0; }
+
+  /* Touch targets: at least 44px. */
+  .btn, .nav-link, .seg-btn, .stig-filter-btn, .merge-range-btn,
+  .finding-drawer-close, .toast-close, .split-btn-toggle, .split-btn-main {
+    min-height: 44px;
+  }
+  .btn, .seg-btn, .stig-filter-btn, .merge-range-btn, .finding-drawer-close, .toast-close { min-width: 44px; }
+  .nav-link { display: flex; align-items: center; }
+  #sidebar-toggle { min-width: 44px; min-height: 44px; }
+  input:not([type=checkbox]):not([type=radio]), select, textarea { min-height: 44px; }
+  input[type=checkbox], input[type=radio] { width: 22px; height: 22px; }
+  .breadcrumb a { display: inline-flex; align-items: center; min-height: 44px; }
+
   #content {
     margin-left: 0;
     padding: 20px 16px;

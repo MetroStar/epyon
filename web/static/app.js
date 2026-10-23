@@ -1187,24 +1187,45 @@ async function clearCacheAndReload() {
 })();
 
 // ── Sidebar collapse ─────────────────────────────────────────
+const _mobileNav = () => window.matchMedia('(max-width: 768px)').matches;
+
+function _syncSidebarToggle() {
+  const sidebar = document.getElementById('sidebar');
+  const btn = document.getElementById('sidebar-toggle');
+  if (sidebar && btn) btn.setAttribute('aria-expanded', String(!sidebar.classList.contains('collapsed')));
+}
+
 function toggleSidebar() {
   const sidebar = document.getElementById('sidebar');
   const content = document.getElementById('content');
   if (!sidebar) return;
   const collapsed = sidebar.classList.toggle('collapsed');
-  if (content) content.style.marginLeft = collapsed ? '0' : '';
-  try { localStorage.setItem('epyon-sidebar-collapsed', collapsed ? '1' : ''); } catch (_) {}
+  if (content) content.style.marginLeft = _mobileNav() ? '' : (collapsed ? '0' : '');
+  // On phones the menu always starts closed, so only desktop remembers the choice.
+  if (!_mobileNav()) {
+    try { localStorage.setItem('epyon-sidebar-collapsed', collapsed ? '1' : ''); } catch (_) {}
+  }
+  _syncSidebarToggle();
 }
 
 (function initSidebar() {
-  try {
-    if (localStorage.getItem('epyon-sidebar-collapsed') === '1') {
-      const sidebar = document.getElementById('sidebar');
-      const content = document.getElementById('content');
-      if (sidebar) sidebar.classList.add('collapsed');
-      if (content) content.style.marginLeft = '0';
+  const sidebar = document.getElementById('sidebar');
+  const content = document.getElementById('content');
+  let collapsed = _mobileNav();
+  if (!collapsed) {
+    try { collapsed = localStorage.getItem('epyon-sidebar-collapsed') === '1'; } catch (_) {}
+  }
+  if (sidebar && collapsed) sidebar.classList.add('collapsed');
+  if (content && collapsed && !_mobileNav()) content.style.marginLeft = '0';
+  _syncSidebarToggle();
+
+  // Close the phone menu after choosing a page.
+  sidebar?.addEventListener('click', e => {
+    if (_mobileNav() && e.target.closest('.nav-link')) {
+      sidebar.classList.add('collapsed');
+      _syncSidebarToggle();
     }
-  } catch (_) {}
+  });
 })();
 
 // ── Navigation ────────────────────────────────────────────────
@@ -7456,6 +7477,11 @@ async function renderStigHistory(selectedApp, selectedSlug) {
          </div>`;
 
     page.innerHTML = `
+      <div class="breadcrumb">
+        <a href="#/stig">STIG Compliance</a>
+        <span>›</span>
+        <span>History</span>
+      </div>
       ${pageHeader(`STIG Compliance`)}
       ${histTabs}
       <div class="stig-history-filters">
@@ -7493,6 +7519,11 @@ async function renderStigHistory(selectedApp, selectedSlug) {
 
   if (apps.length === 0) {
     page.innerHTML = `
+      <div class="breadcrumb">
+        <a href="#/stig">STIG Compliance</a>
+        <span>›</span>
+        <span>History</span>
+      </div>
       ${pageHeader(`STIG Compliance`)}
       ${histTabs}
       ${emptyState('No STIG scan data found', 'Run a STIG or nightly scan to start building the history matrix.')}`;

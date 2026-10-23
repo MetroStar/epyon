@@ -259,7 +259,23 @@ on:
         required: false
         default: true
         type: boolean
+      ecr_registry:
+        description: 'Optional: Private Amazon ECR registry host (e.g. 123456789012.dkr.ecr.us-gov-east-1.amazonaws.com). When set, the scan logs in to ECR before scanning images using the ECR_SCAN_AWS_* secrets.'
+        required: false
+        default: ''
+        type: string
+      ecr_region:
+        description: 'AWS region of the ECR registry (e.g. us-gov-east-1). Required when ecr_registry is set.'
+        required: false
+        default: ''
+        type: string
     secrets:
+      ECR_SCAN_AWS_ACCESS_KEY_ID:
+        description: 'Access key ID of a pull-only IAM user for the private ECR registry (used only when ecr_registry is set)'
+        required: false
+      ECR_SCAN_AWS_SECRET_ACCESS_KEY:
+        description: 'Secret access key of the pull-only IAM user for the private ECR registry (used only when ecr_registry is set)'
+        required: false
       OPENAI_API_KEY:
         description: 'OpenAI API key for Garak LLM security probing'
         required: false
@@ -277,6 +293,27 @@ on:
         required: false
       JIRA_PROJECT_KEY:
         description: 'Jira project key (e.g. SAP, SEC). Takes precedence over the jira_project_key input.'
+        required: false
+      GH_TOKEN:
+        description: 'GitHub token used for issues, PR automation and API calls (falls back to the workflow token)'
+        required: false
+      COSIGN_KEY:
+        description: 'Cosign private key for signing built images'
+        required: false
+      DOCKERHUB_USERNAME:
+        description: 'Docker Hub username (with DOCKERHUB_TOKEN) to raise the anonymous pull rate limit'
+        required: false
+      DOCKERHUB_TOKEN:
+        description: 'Docker Hub access token (not your password)'
+        required: false
+      SONAR_HOST_URL:
+        description: 'SonarQube server URL'
+        required: false
+      SONAR_TOKEN:
+        description: 'SonarQube token'
+        required: false
+      NVD_API_KEY:
+        description: 'NVD API key for faster CVE lookups'
         required: false
 
 permissions:
@@ -507,6 +544,37 @@ jobs:
           else
             echo "ℹ️  DOCKERHUB_USERNAME/DOCKERHUB_TOKEN not configured — using anonymous Docker Hub pulls, which share a rate limit across every concurrent GitHub Actions job on this IP. See documentation/SCAN_MATRIX.md for setup instructions."
           fi
+
+      - name: Configure AWS credentials (optional — private ECR)
+        # The ECR login token lasts 12 hours and each scan logs in at start, so
+        # nothing needs renewing between runs. Use a pull-only IAM user
+        # (ecr:GetAuthorizationToken, BatchGetImage, GetDownloadUrlForLayer,
+        # BatchCheckLayerAvailability) — never deploy credentials.
+        if: ${{ inputs.scan_mode != 'stig' && inputs.ecr_registry != '' }}
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          aws-access-key-id: ${{ secrets.ECR_SCAN_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ECR_SCAN_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ inputs.ecr_region }}
+
+      - name: Resolve private ECR registry account
+        if: ${{ inputs.scan_mode != 'stig' && inputs.ecr_registry != '' }}
+        id: ecr-registry
+        env:
+          ECR_REGISTRY: ${{ inputs.ecr_registry }}
+        run: |
+          account_id="${ECR_REGISTRY%%.*}"
+          if [[ ! "$account_id" =~ ^[0-9]{12}$ ]]; then
+            echo "::error::ecr_registry must be an ECR hostname starting with a 12-digit AWS account ID."
+            exit 1
+          fi
+          echo "account_id=$account_id" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Amazon ECR (optional — private ECR)
+        if: ${{ inputs.scan_mode != 'stig' && inputs.ecr_registry != '' }}
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registries: ${{ steps.ecr-registry.outputs.account_id }}
 
       - name: Pull Security Tool Images
         # In stig mode only Layer 13 (Python-based STIG assessment) runs — no

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.55.0] - 2026-10-23
+
+### Added
+- Private Amazon ECR scanning in the reusable workflow: optional `ecr_registry` and `ecr_region` inputs and optional `ECR_SCAN_AWS_ACCESS_KEY_ID` / `ECR_SCAN_AWS_SECRET_ACCESS_KEY` secrets. When `ecr_registry` is set, AWS credentials are configured and Docker logs in to ECR before the image scans; callers that omit it are unaffected (MID-4730).
+- The reusable workflow now declares every secret it reads (`GH_TOKEN`, `COSIGN_KEY`, `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `SONAR_HOST_URL`, `SONAR_TOKEN`, `NVD_API_KEY`) as optional under `workflow_call.secrets`. Callers can now pass just the secrets they need by name instead of `secrets: inherit`, which sends the scan every secret in their repo. `secrets: inherit` still works (MID-4730).
+
 ## [3.54.2] - 2026-10-22
 
 ### Changed

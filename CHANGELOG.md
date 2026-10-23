@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.55.11] - 2026-10-23
+
+### Fixed
+- On phones the menu starts collapsed, opens from the toggle (with `aria-expanded`) and closes after choosing a page.
+- Buttons, nav links, inputs and the menu toggle are at least 44px tall on narrow screens.
+- The STIG History page has a breadcrumb back to STIG Compliance.
+
 ## [3.55.10] - 2026-10-23
 
 ### Changed

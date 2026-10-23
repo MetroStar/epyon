@@ -423,12 +423,25 @@ function pageHeader(title, { subtitle = '', actions = '' } = {}) {
   </div>`;
 }
 
-function loading() {
-  return '<div class="loading"><div class="spinner"></div>Loading…</div>';
+function loading(label = 'Loading…') {
+  return `<div class="loading" role="status"><div class="spinner"></div>${esc(label)}</div>`;
 }
 
-function errBanner(msg) {
-  return `<div class="error-banner">⚠ ${esc(msg)}</div>`;
+// Error panel with a Retry action that re-renders the current view.
+function errBanner(msg, { retry = true } = {}) {
+  return `<div class="error-banner" role="alert">
+    <div>⚠ ${esc(msg)}</div>
+    ${retry ? '<button class="btn btn-sm" onclick="resolve()">Retry</button>' : ''}
+  </div>`;
+}
+
+// Compact empty messages for tables and sections.
+function emptyRow(colspan, msg) {
+  return `<tr><td colspan="${colspan}" class="empty-cell">${esc(msg)}</td></tr>`;
+}
+
+function emptyNote(msg) {
+  return `<p class="empty-note">${esc(msg)}</p>`;
 }
 
 function emptyState(title, desc, action = '') {
@@ -1361,7 +1374,7 @@ async function cveSearchRun(ev) {
     _cveBulk = { data, selected: new Set() };
     out.innerHTML = cveSearchResultsHtml(data);
   } catch (e) {
-    if (seq === _cveSearchSeq) out.innerHTML = errBanner(e.message);
+    if (seq === _cveSearchSeq) out.innerHTML = errBanner(e.message, { retry: false });
   }
 }
 
@@ -1682,9 +1695,7 @@ async function renderApplications() {
               </button>
             </td>
           </tr>`).join('')
-      : `<tr><td colspan="10" style="text-align:center;padding:48px;color:var(--text-muted)">
-           No applications found. Run a scan to get started.
-         </td></tr>`;
+      : emptyRow(10, 'No applications found. Run a scan to get started.');
 
     const hiddenSection = hidden.length ? `
       <div class="section" style="margin-top:32px">
@@ -2347,7 +2358,7 @@ function buildNetworkDiscoveryCard(scan) {
         </tbody>
       </table>
     </div>`;
-  }).join('') : '<p style="color:var(--text-muted);font-size:13px;margin:8px 0 0">No static port definitions found.</p>';
+  }).join('') : emptyNote('No static port definitions found.');
 
   const activeBadge = nd.active_scan_run
     ? '<span style="background:var(--low-bg,#fffbe6);color:var(--low);border:1px solid var(--low);border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600">nmap active</span>'
@@ -5421,7 +5432,7 @@ function buildRiskTrendSection(m) {
       <div class="section-title section-toggle" onclick="toggleSection('section-risk')">
         Weighted Risk Score Trend <span class="section-chevron">▾</span>
       </div>
-      <div class="section-body"><p class="metrics-note" style="color:var(--text-muted)">No trend data yet.</p></div>
+      <div class="section-body">${emptyNote('No trend data yet.')}</div>
     </div>`;
   }
   // Group by target and populate registry
@@ -5479,7 +5490,7 @@ function buildSecretTrendSection(m) {
       <div class="section-title section-toggle" onclick="toggleSection('section-secrets')">
         Secret Detection Trend <span class="section-chevron">▾</span>
       </div>
-      <div class="section-body"><p class="metrics-note" style="color:var(--text-muted)">No TruffleHog data found in scans.</p></div>
+      <div class="section-body">${emptyNote('No TruffleHog data found in scans.')}</div>
     </div>`;
   }
   const totalVerified   = (m.secret_trend || []).reduce((s,p) => s + (p.verified||0), 0);
@@ -5555,7 +5566,7 @@ function buildSuppressionSection(m) {
   }).join('');
 
   const emptyState = !appsSorted.length
-    ? `<p style="color:var(--text-muted);text-align:center;padding:24px 0">No suppressions found across monitored apps.</p>`
+    ? `${emptyNote('No suppressions found across monitored apps.')}`
     : '';
 
   return `
@@ -5719,7 +5730,7 @@ async function renderMetrics() {
             <td>${sourcesBadges(c.sources)}</td>
             <td style="font-size:11px;color:var(--text-muted)">${c.apps.map(a => esc(a)).join(', ')}</td>
           </tr>`).join('')
-      : '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">No CVE data — run a scan to populate</td></tr>';
+      : emptyRow(6, 'No CVE data — run a scan to populate');
 
     const freqRows = Object.entries(m.scan_frequency || {})
       .sort((a, b) => b[1].total - a[1].total)
@@ -5869,7 +5880,7 @@ async function renderMetrics() {
                   <th scope="col">History</th>
                 </tr>
               </thead>
-              <tbody>${freqRows || '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">No scan data available</td></tr>'}</tbody>
+              <tbody>${freqRows || emptyRow(5, 'No scan data available')}</tbody>
             </table>
           </div>
         </div>
@@ -6075,7 +6086,7 @@ async function renderMetrics() {
 
           tbl.querySelector('tbody').innerHTML = filtered.length
             ? filtered.map(([name, f, dates]) => mergeRow([name, f], dates)).join('')
-            : '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">No merges in this period</td></tr>';
+            : emptyRow(5, 'No merges in this period');
 
           tbl.querySelectorAll('th[data-col]').forEach(th => {
             const ic = th.querySelector('.sort-icon');
@@ -6328,7 +6339,7 @@ async function renderPerformanceDashboard() {
       <div class="section">
         <div class="section-title">Policy Audit Trail</div>
         <div id="audit-log-container">
-          <div class="loading"><div class="spinner"></div>Loading audit log…</div>
+          ${loading('Loading audit log…')}
         </div>
       </div>
     `;
@@ -6349,7 +6360,7 @@ async function loadAuditLog() {
     const data = await api._get('/api/mobile-code/policy/audit?limit=50');
     
     if (!data.entries || data.entries.length === 0) {
-      container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-muted)">No policy changes recorded yet.</div>';
+      container.innerHTML = emptyNote('No policy changes recorded yet.');
       return;
     }
 
@@ -6472,7 +6483,7 @@ async function renderGitHubSignals() {
         <td style="text-align:center;color:var(--clean)">${r.fixed || 0}</td>
         <td style="font-size:11px;color:var(--text-muted);max-width:220px">${topPkg}</td>
       </tr>`;
-    }).join('') || '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">No Dependabot data — check token permissions (security_events scope)</td></tr>';
+    }).join('') || emptyRow(5, 'No Dependabot data — check token permissions (security_events scope)');
 
     // ── Security issues summary ──────────────────────────────
     const totalOpenSec = g.security_issues.reduce((s, r) => s + (r.open_security || 0), 0);
@@ -6485,7 +6496,7 @@ async function renderGitHubSignals() {
         <td style="text-align:center">${r.closed_security || 0}</td>
         <td style="text-align:center;color:var(--text-muted)">${avgClose}</td>
       </tr>`;
-    }).join('') || '<tr><td colspan="4" style="text-align:center;padding:32px;color:var(--text-muted)">No security issue data</td></tr>';
+    }).join('') || emptyRow(4, 'No security issue data');
 
     // ── Workflow success rate ────────────────────────────────
     const _runList = g.workflow_runs.filter(r => !r.error);
@@ -6499,7 +6510,7 @@ async function renderGitHubSignals() {
         <td style="text-align:center;color:var(--clean)">${r.success || 0}</td>
         <td style="text-align:center;color:var(--critical)">${r.failed || 0}</td>
       </tr>`;
-    }).join('') || '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">No workflow run data</td></tr>';
+    }).join('') || emptyRow(5, 'No workflow run data');
 
     // ── PR scan coverage ────────────────────────────────────
     const covEntries = Object.entries(g.pr_scan_coverage || {}).sort((a, b) => b[1].pr_coverage_pct - a[1].pr_coverage_pct);
@@ -6524,7 +6535,7 @@ async function renderGitHubSignals() {
           </div>
         </td>
       </tr>`;
-    }).join('') || '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">No CI scan data available yet</td></tr>';
+    }).join('') || emptyRow(6, 'No CI scan data available yet');
 
     // Store data for detail drawer
     _ghSignalData = { dep: _depList, sec: _secList, run: _runList, cov: covEntries };
@@ -7427,10 +7438,7 @@ async function renderStigHistory(selectedApp, selectedSlug) {
       : '';
 
     const tableHtml = visibleScans.length === 0
-      ? `<div class="empty-state" style="margin-top:32px">
-           <p>No STIG scans found for <strong>${esc(curApp || 'this app')}</strong>.</p>
-           <p style="color:var(--text-muted);font-size:13px">Run a STIG or nightly scan to start tracking history.</p>
-         </div>`
+      ? emptyState(`No STIG scans found for ${curApp || 'this app'}`, 'Run a STIG or nightly scan to start tracking history.')
       : `<div class="stig-matrix-wrap">
            <table class="stig-matrix-table">
              <thead>
@@ -7487,10 +7495,7 @@ async function renderStigHistory(selectedApp, selectedSlug) {
     page.innerHTML = `
       ${pageHeader(`STIG Compliance`)}
       ${histTabs}
-      <div class="empty-state" style="margin-top:48px">
-        <p>No STIG scan data found.</p>
-        <p style="color:var(--text-muted);font-size:13px">Run a STIG or nightly scan to start building the history matrix.</p>
-      </div>`;
+      ${emptyState('No STIG scan data found', 'Run a STIG or nightly scan to start building the history matrix.')}`;
     return;
   }
 
@@ -7954,7 +7959,7 @@ async function calculateScorecardForScan(scanId) {
               Security Score Card
             </span>
           </span>
-          <span style="color:var(--text-muted);font-size:12px">Loading...</span>
+          <span class="loading-inline">Loading…</span>
         </summary>
       </details>
     </div>`;
@@ -8172,7 +8177,7 @@ function showDimensionModal(dimensionKey) {
 
       <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px">
         <h3 style="font-size:14px;font-weight:600;color:var(--text);margin:0 0 16px;text-transform:uppercase;letter-spacing:0.5px">Detailed Metrics</h3>
-        ${detailsHtml || '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:20px 0">No detailed metrics available for this dimension.</div>'}
+        ${detailsHtml || emptyNote('No detailed metrics available for this dimension.')}
       </div>
     </div>`;
   

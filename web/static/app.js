@@ -862,6 +862,14 @@ const _cache = {
 
 // ── API client with caching ───────────────────────────────────
 
+// Page loads started by the previous route are aborted on navigation so a slow
+// request never blocks the next page or paints over it.
+let _navAbort = new AbortController();
+function _abortPageLoads() {
+  _navAbort.abort();
+  _navAbort = new AbortController();
+}
+
 const api = {
   async _get(url, useCache = true) {
     // Try cache first
@@ -872,15 +880,23 @@ const api = {
       }
     }
 
-    const r = await fetch(url);
-    if (!r.ok) {
-      let detail = r.statusText;
-      try { detail = (await r.json()).detail || detail; } catch (_) {}
-      throw new Error(`${detail} (${r.status})`);
+    const signal = _navAbort.signal;
+    let r, data;
+    try {
+      r = await fetch(url, { signal });
+      if (!r.ok) {
+        let detail = r.statusText;
+        try { detail = (await r.json()).detail || detail; } catch (_) {}
+        throw new Error(`${detail} (${r.status})`);
+      }
+      data = await r.json();
+    } catch (e) {
+      // The user navigated away: leave the abandoned render pending so it
+      // neither shows an error nor overwrites the page now on screen.
+      if (signal.aborted) return new Promise(() => {});
+      throw e;
     }
 
-    const data = await r.json();
-    
     // Store in cache if this is a cacheable endpoint
     if (useCache) {
       const serverVersion = r.headers.get('X-Cache-Version');
@@ -9241,6 +9257,7 @@ async function jiraReviewCreateTicketsConfirmed() {
 
 // ── Router ────────────────────────────────────────────────────
 function resolve() {
+  _abortPageLoads();
   const hash = window.location.hash.slice(1) || '/';
 
   const qIdx   = hash.indexOf('?');

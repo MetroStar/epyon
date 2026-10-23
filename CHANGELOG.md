@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.55.14] - 2026-10-23
+
+### Fixed
+- Choosing another page while one is still loading (for example Metrics) now switches immediately. Requests from the previous page are cancelled and no longer leave a loading screen or paint over the new page.
+
 ## [3.55.12] - 2026-10-23
 
 ### Fixed

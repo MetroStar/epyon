@@ -167,6 +167,7 @@ code {
 #content {
   margin-left: var(--sidebar-width);
   flex: 1;
+  min-width: 0; /* lets wide children scroll instead of widening the page */
   padding: 32px 36px;
   max-width: calc(var(--sidebar-width) + 1100px);
   transition: margin-left 0.2s ease;
@@ -298,6 +299,7 @@ body:has(#sidebar:not(.collapsed)) #sidebar-toggle {
 /* ── Page header ──────────────────────────────────────────── */
 .page-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 24px;
@@ -308,6 +310,21 @@ body:has(#sidebar:not(.collapsed)) #sidebar-toggle {
   font-size: 22px;
   font-weight: 600;
   line-height: 1.2;
+}
+
+/* Responsive grids: breakpoints used app-wide are 1024px (tablet) and 768px (mobile). */
+.resp-grid { display: grid; gap: 16px; }
+.resp-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.resp-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+@media (max-width: 1024px) {
+  #content { padding: 24px 20px; }
+  .resp-grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 768px) {
+  .resp-grid-2, .resp-grid-3 { grid-template-columns: minmax(0, 1fr); }
+  .page-header h1 { font-size: 20px; }
 }
 
 /* ── Breadcrumb ───────────────────────────────────────────── */
@@ -1477,6 +1494,9 @@ blockquote {
 
 /* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 768px) {
+  /* Stack the sidebar above the content instead of beside it. */
+  #app { flex-direction: column; }
+
   #sidebar {
     width: 100%;
     height: auto;
@@ -1485,7 +1505,17 @@ blockquote {
     border-bottom: 1px solid var(--border);
   }
 
-  .nav-links { display: flex; flex-wrap: wrap; padding: 8px; }
+  #sidebar.collapsed { width: 100%; }
+  #sidebar.collapsed .nav-links,
+  #sidebar.collapsed .sidebar-footer { display: none; }
+
+  #sidebar-toggle,
+  body:has(#sidebar:not(.collapsed)) #sidebar-toggle {
+    left: auto;
+    right: 12px;
+  }
+
+  .nav-links { display: flex; flex-wrap: wrap; flex: none; padding: 8px; }
   .nav-links li { margin-bottom: 0; }
 
   #content {

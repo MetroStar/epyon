@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.55.2] - 2026-10-23
+
+### Fixed
+- On phones the sidebar filled the whole screen and squeezed the page content beside it. The sidebar now stacks above the content, and the menu button sits top-right.
+- Wide content could widen the whole page; the content column now shrinks and scrolls instead.
+- Two- and three-column grids on Performance and Settings now collapse to fewer columns on tablet and a single column on mobile, and page headers wrap (MID-4709).
+
 ## [3.55.1] - 2026-10-23
 
 ### Fixed

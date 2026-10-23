@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.55.8] - 2026-10-23
+
+### Fixed
+- Keyboard users now see a focus ring on every control, including inputs that previously removed their outline.
+- Click-only elements (rows, cards, spans) are focusable and activate with Enter or Space.
+- Table headers use `scope="col"`.
+
 ## [3.55.7] - 2026-10-23
 
 ### Fixed

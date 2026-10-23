@@ -347,7 +347,7 @@ function renderSelfAssessmentBody(sa) {
     <div class="table-container">
       <table>
         <thead>
-          <tr><th>Layer</th><th>Name</th><th>Status</th><th>Why</th><th>Ran at</th></tr>
+          <tr><th scope="col">Layer</th><th scope="col">Name</th><th scope="col">Status</th><th scope="col">Why</th><th scope="col">Ran at</th></tr>
         </thead>
         <tbody>
           ${rows}
@@ -1504,7 +1504,7 @@ function cveBulkRenderSummary(results) {
   body.innerHTML = `
     <h2 style="color:var(--text);margin:0 0 12px">Jira tickets</h2>
     <div class="table-container"><table>
-      <thead><tr><th>Application</th><th>Created</th><th>Existing</th><th>Failed</th><th>Skipped</th><th>Reason</th></tr></thead>
+      <thead><tr><th scope="col">Application</th><th scope="col">Created</th><th scope="col">Existing</th><th scope="col">Failed</th><th scope="col">Skipped</th><th scope="col">Reason</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
     <div class="modal-actions" style="margin-top:20px;display:flex;justify-content:flex-end">
       <button class="btn btn-primary" onclick="cveBulkClose(); cveSearchRun()">Done</button>
@@ -1544,7 +1544,7 @@ function cveSearchResultsHtml(data) {
     </div>
     <div class="table-container">
       <table>
-        <thead><tr><th><input type="checkbox" id="cve-select-all" aria-label="Select all eligible findings" onchange="cveBulkToggleAll(this)"></th><th>Application</th><th>Severity</th><th>ID</th><th>Tools</th><th>Package</th><th>Version</th><th>Fixed in</th><th>Scanned</th><th>Jira</th></tr></thead>
+        <thead><tr><th scope="col"><input type="checkbox" id="cve-select-all" aria-label="Select all eligible findings" onchange="cveBulkToggleAll(this)"></th><th scope="col">Application</th><th scope="col">Severity</th><th scope="col">ID</th><th scope="col">Tools</th><th scope="col">Package</th><th scope="col">Version</th><th scope="col">Fixed in</th><th scope="col">Scanned</th><th scope="col">Jira</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
@@ -1632,8 +1632,8 @@ async function renderApplications() {
           <table>
             <thead>
               <tr>
-                <th>Application</th>
-                <th></th>
+                <th scope="col">Application</th>
+                <th scope="col"></th>
               </tr>
             </thead>
             <tbody>
@@ -1659,16 +1659,16 @@ async function renderApplications() {
         <table>
           <thead>
             <tr>
-              <th>Application</th>
-              <th>Type</th>
-              <th>Last Scanned</th>
-              <th>Scans</th>
-              <th>Critical</th>
-              <th>High</th>
-              <th>Medium</th>
-              <th>Low</th>
-              <th>Status</th>
-              <th></th>
+              <th scope="col">Application</th>
+              <th scope="col">Type</th>
+              <th scope="col">Last Scanned</th>
+              <th scope="col">Scans</th>
+              <th scope="col">Critical</th>
+              <th scope="col">High</th>
+              <th scope="col">Medium</th>
+              <th scope="col">Low</th>
+              <th scope="col">Status</th>
+              <th scope="col"></th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -2269,9 +2269,9 @@ function buildNetworkDiscoveryCard(scan) {
       <table id="${tblId}" style="width:100%;border-collapse:collapse;font-size:12px">
         <thead>
           <tr style="color:var(--text-muted)">
-            <th data-col="0" class="sortable-th" style="text-align:left;padding:2px 8px 2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',0)">File <span class="sort-icon">⇅</span></th>
-            <th data-col="1" class="sortable-th" style="text-align:left;padding:2px 8px 2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',1)">Service <span class="sort-icon">⇅</span></th>
-            <th data-col="2" class="sortable-th" style="text-align:left;padding:2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',2)">Port / Mapping <span class="sort-icon">⇅</span></th>
+            <th scope="col" data-col="0" class="sortable-th" style="text-align:left;padding:2px 8px 2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',0)">File <span class="sort-icon">⇅</span></th>
+            <th scope="col" data-col="1" class="sortable-th" style="text-align:left;padding:2px 8px 2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',1)">Service <span class="sort-icon">⇅</span></th>
+            <th scope="col" data-col="2" class="sortable-th" style="text-align:left;padding:2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',2)">Port / Mapping <span class="sort-icon">⇅</span></th>
           </tr>
         </thead>
         <tbody>
@@ -2878,10 +2878,10 @@ function buildBuildEvidenceCard(scan) {
           <table style="width:100%;border-collapse:collapse;font-size:13px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;">
             <thead>
               <tr style="background:var(--bg-card);border-bottom:1px solid var(--border);text-align:left;">
-                <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Artifact Name</th>
-                <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Specification / Format</th>
-                <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Pipeline Status</th>
-                <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Artifact Path</th>
+                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Artifact Name</th>
+                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Specification / Format</th>
+                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Pipeline Status</th>
+                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Artifact Path</th>
               </tr>
             </thead>
             <tbody>
@@ -2947,12 +2947,12 @@ function buildSSPEvidenceCard(scan) {
           <table style="width:100%;border-collapse:collapse;font-size:13px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;">
             <thead>
               <tr style="background:var(--bg-card);border-bottom:1px solid var(--border);text-align:left;">
-                <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Control</th>
-                <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;">NIST Control Name</th>
-                <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Epyon Security Layer</th>
-                <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Primary Evidence Artifact Path</th>
-                <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Status</th>
-                <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Cryptographic SHA-256 Digest</th>
+                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Control</th>
+                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">NIST Control Name</th>
+                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Epyon Security Layer</th>
+                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Primary Evidence Artifact Path</th>
+                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Status</th>
+                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Cryptographic SHA-256 Digest</th>
               </tr>
             </thead>
             <tbody>
@@ -3545,12 +3545,12 @@ function buildSuppressedSection(items) {
             <table>
               <thead>
                 <tr>
-                  <th>Type</th>
-                  <th>Value / ID</th>
-                  <th>Tool</th>
-                  <th>Reason</th>
-                  <th>Approved By</th>
-                  <th>Severity</th>
+                  <th scope="col">Type</th>
+                  <th scope="col">Value / ID</th>
+                  <th scope="col">Tool</th>
+                  <th scope="col">Reason</th>
+                  <th scope="col">Approved By</th>
+                  <th scope="col">Severity</th>
                 </tr>
               </thead>
               <tbody>${rows}</tbody>
@@ -3617,11 +3617,11 @@ function buildSBOMSection(sbom, scanId) {
             <table style="width:100%;border-collapse:collapse;font-size:13px">
               <thead>
                 <tr style="text-align:left;border-bottom:1px solid var(--border)">
-                  <th style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','name')">Name <span id="${uid}-sort-name"></span></th>
-                  <th style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','version')">Version <span id="${uid}-sort-version"></span></th>
-                  <th style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','type')">Type <span id="${uid}-sort-type"></span></th>
-                  <th style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','license')">License <span id="${uid}-sort-license"></span></th>
-                  <th style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','path')">Path <span id="${uid}-sort-path"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','name')">Name <span id="${uid}-sort-name"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','version')">Version <span id="${uid}-sort-version"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','type')">Type <span id="${uid}-sort-type"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','license')">License <span id="${uid}-sort-license"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','path')">Path <span id="${uid}-sort-path"></span></th>
                 </tr>
               </thead>
               <tbody id="${uid}-tbody"></tbody>
@@ -3925,12 +3925,12 @@ function buildAPISection(apiData) {
             <table style="width:100%;border-collapse:collapse;font-size:13px">
               <thead>
                 <tr style="text-align:left;border-bottom:1px solid var(--border)">
-                  <th style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="apiSort('${uid}','method')">Method <span id="${uid}-sort-method"></span></th>
-                  <th style="padding:4px 8px;cursor:pointer;user-select:none" onclick="apiSort('${uid}','path')">Path <span id="${uid}-sort-path"></span></th>
-                  <th style="padding:4px 8px;cursor:pointer;user-select:none" onclick="apiSort('${uid}','function')">Function <span id="${uid}-sort-function"></span></th>
-                  <th style="padding:4px 8px;cursor:pointer;user-select:none" onclick="apiSort('${uid}','framework')">Framework <span id="${uid}-sort-framework"></span></th>
-                  <th style="padding:4px 8px;cursor:pointer;user-select:none" onclick="apiSort('${uid}','auth')">Auth <span id="${uid}-sort-auth"></span></th>
-                  <th style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="apiSort('${uid}','file')">File <span id="${uid}-sort-file"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="apiSort('${uid}','method')">Method <span id="${uid}-sort-method"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none" onclick="apiSort('${uid}','path')">Path <span id="${uid}-sort-path"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none" onclick="apiSort('${uid}','function')">Function <span id="${uid}-sort-function"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none" onclick="apiSort('${uid}','framework')">Framework <span id="${uid}-sort-framework"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none" onclick="apiSort('${uid}','auth')">Auth <span id="${uid}-sort-auth"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="apiSort('${uid}','file')">File <span id="${uid}-sort-file"></span></th>
                 </tr>
               </thead>
               <tbody id="${uid}-tbody"></tbody>
@@ -4153,13 +4153,13 @@ function buildFindingsSection(findings) {
               <table>
                 <thead>
                   <tr>
-                    <th class="sortable-th" data-col="tool"    onclick="sortFindingsBy('${sev}','tool')">Tool <span class="sort-icon">⇅</span></th>
-                    <th class="sortable-th" data-col="id"      onclick="sortFindingsBy('${sev}','id')">CVE / ID <span class="sort-icon">⇅</span></th>
-                    <th class="sortable-th" data-col="title"   onclick="sortFindingsBy('${sev}','title')">Title <span class="sort-icon">⇅</span></th>
-                    <th class="sortable-th" data-col="package" onclick="sortFindingsBy('${sev}','package')">Package <span class="sort-icon">⇅</span></th>
-                    <th class="sortable-th" data-col="cvss"    onclick="sortFindingsBy('${sev}','cvss')" style="white-space:nowrap">CVSS / KEV <span class="sort-icon">⇅</span></th>
-                    <th class="sortable-th" data-col="fix"     onclick="sortFindingsBy('${sev}','fix')">Fix Available <span class="sort-icon">⇅</span></th>
-                    <th class="sortable-th" data-col="target"  onclick="sortFindingsBy('${sev}','target')">Location <span class="sort-icon">⇅</span></th>
+                    <th scope="col" class="sortable-th" data-col="tool"    onclick="sortFindingsBy('${sev}','tool')">Tool <span class="sort-icon">⇅</span></th>
+                    <th scope="col" class="sortable-th" data-col="id"      onclick="sortFindingsBy('${sev}','id')">CVE / ID <span class="sort-icon">⇅</span></th>
+                    <th scope="col" class="sortable-th" data-col="title"   onclick="sortFindingsBy('${sev}','title')">Title <span class="sort-icon">⇅</span></th>
+                    <th scope="col" class="sortable-th" data-col="package" onclick="sortFindingsBy('${sev}','package')">Package <span class="sort-icon">⇅</span></th>
+                    <th scope="col" class="sortable-th" data-col="cvss"    onclick="sortFindingsBy('${sev}','cvss')" style="white-space:nowrap">CVSS / KEV <span class="sort-icon">⇅</span></th>
+                    <th scope="col" class="sortable-th" data-col="fix"     onclick="sortFindingsBy('${sev}','fix')">Fix Available <span class="sort-icon">⇅</span></th>
+                    <th scope="col" class="sortable-th" data-col="target"  onclick="sortFindingsBy('${sev}','target')">Location <span class="sort-icon">⇅</span></th>
                   </tr>
                 </thead>
                 <tbody id="findings-tbody-${esc(sev)}">${_buildFindingRows(items)}${overflow}</tbody>
@@ -4893,7 +4893,7 @@ function renderScanQueueResults() {
     <div class="table-container">
       <table>
         <thead>
-          <tr><th>Scan Type</th><th>Status</th><th>Why</th></tr>
+          <tr><th scope="col">Scan Type</th><th scope="col">Status</th><th scope="col">Why</th></tr>
         </thead>
         <tbody>
           ${rows}
@@ -5230,7 +5230,7 @@ function openSlaDetail() {
       <p style="font-size:13px;color:var(--text-muted);margin:0 0 16px">% of resolved findings fixed within severity-tiered SLA thresholds.</p>
       <div class="table-container">
         <table>
-          <thead><tr><th>Severity</th><th>SLA</th><th style="min-width:140px">Compliance</th><th>Rate</th><th>Met / Total</th></tr></thead>
+          <thead><tr><th scope="col">Severity</th><th scope="col">SLA</th><th scope="col" style="min-width:140px">Compliance</th><th scope="col">Rate</th><th scope="col">Met / Total</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
@@ -5340,7 +5340,7 @@ function openRiskTrendDetail(app) {
       </div>
       <div class="table-container">
         <table>
-          <thead><tr><th>Date</th><th>Score</th><th>Critical</th><th>High</th><th>Medium</th><th>Low</th></tr></thead>
+          <thead><tr><th scope="col">Date</th><th scope="col">Score</th><th scope="col">Critical</th><th scope="col">High</th><th scope="col">Medium</th><th scope="col">Low</th></tr></thead>
           <tbody>${tableRows}</tbody>
         </table>
       </div>
@@ -5400,7 +5400,7 @@ function buildRiskTrendSection(m) {
     </div>
     <div class="section-body">
       <div class="table-container">
-        <table><thead><tr><th>Application</th><th>Latest Score</th><th>Date</th><th>Trend</th></tr></thead>
+        <table><thead><tr><th scope="col">Application</th><th scope="col">Latest Score</th><th scope="col">Date</th><th scope="col">Trend</th></tr></thead>
         <tbody>${rows}</tbody></table>
       </div>
     </div>
@@ -5453,7 +5453,7 @@ function buildSecretTrendSection(m) {
     <div class="section-body">
       <p class="metrics-note">TruffleHog findings per app from latest scan. Verified secrets indicate real credentials at risk.</p>
       <div class="table-container">
-        <table><thead><tr><th>Application</th><th>Verified</th><th>Unverified</th><th>Total</th><th>Last Scan</th></tr></thead>
+        <table><thead><tr><th scope="col">Application</th><th scope="col">Verified</th><th scope="col">Unverified</th><th scope="col">Total</th><th scope="col">Last Scan</th></tr></thead>
         <tbody>${rows}</tbody></table>
       </div>
     </div>
@@ -5485,7 +5485,7 @@ function buildSuppressionSection(m) {
         <span class="sup-app-count">${items.length} suppression${items.length !== 1 ? 's' : ''}</span>
       </div>
       <table class="sup-app-table">
-        <thead><tr><th>Rule / ID</th><th>Tool</th><th>Type</th><th>Reason</th></tr></thead>
+        <thead><tr><th scope="col">Rule / ID</th><th scope="col">Tool</th><th scope="col">Type</th><th scope="col">Reason</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
@@ -5775,12 +5775,12 @@ async function renderMetrics() {
             <table id="tbl-cves">
               <thead>
                 <tr>
-                  <th data-col="cve_id">CVE ID <span class="sort-icon">⇅</span></th>
-                  <th data-col="severity">Severity <span class="sort-icon">⇅</span></th>
-                  <th data-col="count">Count <span class="sort-icon">⇅</span></th>
-                  <th>Title</th>
-                  <th data-col="source">Source <span class="sort-icon">⇅</span></th>
-                  <th data-col="apps">Applications <span class="sort-icon">⇅</span></th>
+                  <th scope="col" data-col="cve_id">CVE ID <span class="sort-icon">⇅</span></th>
+                  <th scope="col" data-col="severity">Severity <span class="sort-icon">⇅</span></th>
+                  <th scope="col" data-col="count">Count <span class="sort-icon">⇅</span></th>
+                  <th scope="col">Title</th>
+                  <th scope="col" data-col="source">Source <span class="sort-icon">⇅</span></th>
+                  <th scope="col" data-col="apps">Applications <span class="sort-icon">⇅</span></th>
                 </tr>
               </thead>
               <tbody>${topCveRows}</tbody>
@@ -5799,11 +5799,11 @@ async function renderMetrics() {
             <table id="tbl-freq">
               <thead>
                 <tr>
-                  <th data-col="name">Application <span class="sort-icon">⇅</span></th>
-                  <th data-col="total">Total Scans <span class="sort-icon">⇅</span></th>
-                  <th data-col="first">First Scan <span class="sort-icon">⇅</span></th>
-                  <th data-col="last">Latest Scan <span class="sort-icon">⇅</span></th>
-                  <th>History</th>
+                  <th scope="col" data-col="name">Application <span class="sort-icon">⇅</span></th>
+                  <th scope="col" data-col="total">Total Scans <span class="sort-icon">⇅</span></th>
+                  <th scope="col" data-col="first">First Scan <span class="sort-icon">⇅</span></th>
+                  <th scope="col" data-col="last">Latest Scan <span class="sort-icon">⇅</span></th>
+                  <th scope="col">History</th>
                 </tr>
               </thead>
               <tbody>${freqRows || '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">No scan data available</td></tr>'}</tbody>
@@ -5829,11 +5829,11 @@ async function renderMetrics() {
             <table id="tbl-merges">
               <thead>
                 <tr>
-                  <th data-col="name">Application <span class="sort-icon">⇅</span></th>
-                  <th data-col="total">Merges <span class="sort-icon">⇅</span></th>
-                  <th data-col="first">First Merge <span class="sort-icon">⇅</span></th>
-                  <th data-col="last">Latest Merge <span class="sort-icon">⇅</span></th>
-                  <th>History</th>
+                  <th scope="col" data-col="name">Application <span class="sort-icon">⇅</span></th>
+                  <th scope="col" data-col="total">Merges <span class="sort-icon">⇅</span></th>
+                  <th scope="col" data-col="first">First Merge <span class="sort-icon">⇅</span></th>
+                  <th scope="col" data-col="last">Latest Merge <span class="sort-icon">⇅</span></th>
+                  <th scope="col">History</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -6148,7 +6148,7 @@ async function renderPerformanceDashboard() {
             <div class="table-container">
               <table>
                 <thead>
-                  <tr><th>Scan</th><th>Target</th><th>Type</th><th>Status</th><th>Reason(s)</th></tr>
+                  <tr><th scope="col">Scan</th><th scope="col">Target</th><th scope="col">Type</th><th scope="col">Status</th><th scope="col">Reason(s)</th></tr>
                 </thead>
                 <tbody>
                   ${si.flagged.map(f => `
@@ -6313,12 +6313,12 @@ async function loadAuditLog() {
         <table>
           <thead>
             <tr>
-              <th>Timestamp</th>
-              <th>Action</th>
-              <th>Target</th>
-              <th>User</th>
-              <th>Reason</th>
-              <th>Reference</th>
+              <th scope="col">Timestamp</th>
+              <th scope="col">Action</th>
+              <th scope="col">Target</th>
+              <th scope="col">User</th>
+              <th scope="col">Reason</th>
+              <th scope="col">Reference</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
@@ -6520,11 +6520,11 @@ async function renderGitHubSignals() {
         <div class="table-container">
           <table>
             <thead><tr>
-              <th>Repository</th>
-              <th style="text-align:center">Open</th>
-              <th style="text-align:center">By Severity</th>
-              <th style="text-align:center">Fixed</th>
-              <th>Top Affected Packages</th>
+              <th scope="col">Repository</th>
+              <th scope="col" style="text-align:center">Open</th>
+              <th scope="col" style="text-align:center">By Severity</th>
+              <th scope="col" style="text-align:center">Fixed</th>
+              <th scope="col">Top Affected Packages</th>
             </tr></thead>
             <tbody>${depRows}</tbody>
           </table>
@@ -6536,10 +6536,10 @@ async function renderGitHubSignals() {
         <div class="table-container">
           <table>
             <thead><tr>
-              <th>Repository</th>
-              <th style="text-align:center">Open</th>
-              <th style="text-align:center">Closed</th>
-              <th style="text-align:center">Avg Days to Close</th>
+              <th scope="col">Repository</th>
+              <th scope="col" style="text-align:center">Open</th>
+              <th scope="col" style="text-align:center">Closed</th>
+              <th scope="col" style="text-align:center">Avg Days to Close</th>
             </tr></thead>
             <tbody>${issueRows}</tbody>
           </table>
@@ -6554,11 +6554,11 @@ async function renderGitHubSignals() {
         <div class="table-container">
           <table>
             <thead><tr>
-              <th>Repository</th>
-              <th style="text-align:center">Success Rate</th>
-              <th style="text-align:center">Total Runs</th>
-              <th style="text-align:center">✓ Success</th>
-              <th style="text-align:center">✗ Failed</th>
+              <th scope="col">Repository</th>
+              <th scope="col" style="text-align:center">Success Rate</th>
+              <th scope="col" style="text-align:center">Total Runs</th>
+              <th scope="col" style="text-align:center">✓ Success</th>
+              <th scope="col" style="text-align:center">✗ Failed</th>
             </tr></thead>
             <tbody>${runRows}</tbody>
           </table>
@@ -6573,12 +6573,12 @@ async function renderGitHubSignals() {
         <div class="table-container">
           <table>
             <thead><tr>
-              <th>Application</th>
-              <th style="text-align:center">PR Scans</th>
-              <th style="text-align:center">Push Scans</th>
-              <th style="text-align:center">Other</th>
-              <th style="text-align:center">Total CI</th>
-              <th>Coverage</th>
+              <th scope="col">Application</th>
+              <th scope="col" style="text-align:center">PR Scans</th>
+              <th scope="col" style="text-align:center">Push Scans</th>
+              <th scope="col" style="text-align:center">Other</th>
+              <th scope="col" style="text-align:center">Total CI</th>
+              <th scope="col">Coverage</th>
             </tr></thead>
             <tbody>${covRows}</tbody>
           </table>
@@ -7310,11 +7310,11 @@ async function renderStigHistory(selectedApp, selectedSlug) {
     const thSort = (key, label) => {
       const active = sortKey === key;
       const arrow  = active ? (sortDir === 1 ? ' ↑' : ' ↓') : '';
-      return `<th class="sortable-th${active?' sorted':''}" onclick="window._stigHistorySort('${key}')">${label}${arrow}</th>`;
+      return `<th scope="col" class="sortable-th${active?' sorted':''}" onclick="window._stigHistorySort('${key}')">${label}${arrow}</th>`;
     };
 
     const dateHeaders = visibleScans.map(s =>
-      `<th class="stig-matrix-date-th" title="${esc(s.scan_id)}">${esc(s.label)}</th>`
+      `<th scope="col" class="stig-matrix-date-th" title="${esc(s.scan_id)}">${esc(s.label)}</th>`
     ).join('');
 
     const rows = visible.map(c => {
@@ -7566,7 +7566,7 @@ async function renderStigViewer(scanId) {
           <table class="stig-table">
             <thead>
               <tr>
-                <th style="width:32px"><input type="checkbox" aria-label="Select all shown" onclick="event.stopPropagation(); stigJiraToggleAll(this.checked)" ${rows.length && rows.every(r => _stigJiraSel.has(`${r.vuln_id}__${r._slug}`)) ? 'checked' : ''}></th>
+                <th scope="col" style="width:32px"><input type="checkbox" aria-label="Select all shown" onclick="event.stopPropagation(); stigJiraToggleAll(this.checked)" ${rows.length && rows.every(r => _stigJiraSel.has(`${r.vuln_id}__${r._slug}`)) ? 'checked' : ''}></th>
                 ${[
                   ['vuln_id',    '100px', 'STIG #'],
                   ['severity',   '70px',  'Severity'],
@@ -7577,9 +7577,9 @@ async function renderStigViewer(scanId) {
                   const active = sortCol === col;
                   const icon = active ? (sortDir === 'asc' ? '↑' : '↓') : '⇅';
                   const style = w ? `style="width:${w}"` : '';
-                  return `<th class="stig-sortable-th${active ? ' stig-sort-active' : ''}" ${style} onclick="setStigSort('${col}')">${label} <span class="stig-sort-icon">${icon}</span></th>`;
+                  return `<th scope="col" class="stig-sortable-th${active ? ' stig-sort-active' : ''}" ${style} onclick="setStigSort('${col}')">${label} <span class="stig-sort-icon">${icon}</span></th>`;
                 }).join('')}
-                ${stigNames.length > 1 ? '<th style="width:140px">STIG</th>' : ''}
+                ${stigNames.length > 1 ? '<th scope="col" style="width:140px">STIG</th>' : ''}
               </tr>
             </thead>
             <tbody>
@@ -8419,10 +8419,10 @@ function renderJiraReviewPage() {
     <div class="table-container jira-review-table-wrap">
       <table class="jira-review-table">
         <thead><tr>
-          <th class="jira-review-check"><input id="jira-review-select-all" type="checkbox"
+          <th scope="col" class="jira-review-check"><input id="jira-review-select-all" type="checkbox"
             aria-label="Select all filtered findings" onchange="jiraReviewToggleAll(this.checked)"></th>
-          <th>Category</th><th>Severity</th><th>Tool</th><th>Finding</th>
-          <th>Package / Target</th><th>Status</th>
+          <th scope="col">Category</th><th scope="col">Severity</th><th scope="col">Tool</th><th scope="col">Finding</th>
+          <th scope="col">Package / Target</th><th scope="col">Status</th>
         </tr></thead>
         <tbody id="jira-review-rows"></tbody>
       </table>
@@ -9470,7 +9470,7 @@ function stigRecordHtml(c) {
     `<div style="font-size:13px;margin-top:4px"><strong>${esc(k)}:</strong> ${esc(v)}</div>`).join('');
   const tableHtml = rows.length ? `
     <table class="stig-table" style="margin-top:6px">
-      <thead><tr><th>Change</th><th>Where</th><th>Re-check</th></tr></thead>
+      <thead><tr><th scope="col">Change</th><th scope="col">Where</th><th scope="col">Re-check</th></tr></thead>
       <tbody>${rows.map(r => `<tr><td>${esc(r.change)}</td><td>${esc(r.where)}</td><td>${esc(r.recheck)}</td></tr>`).join('')}</tbody>
     </table>` : '';
   const autoHtml = auto ? `
@@ -9642,10 +9642,10 @@ function openStigDetail(id) {
           <table style="width:100%;border-collapse:collapse">
             <thead>
               <tr style="background:var(--bg-hover);border-bottom:1px solid var(--border)">
-                <th style="padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left;width:100px">Date</th>
-                <th style="padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left;width:140px">Status</th>
-                <th style="padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:center;width:80px">Confidence</th>
-                <th style="padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left">Evidence / Reasoning</th>
+                <th scope="col" style="padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left;width:100px">Date</th>
+                <th scope="col" style="padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left;width:140px">Status</th>
+                <th scope="col" style="padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:center;width:80px">Confidence</th>
+                <th scope="col" style="padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left">Evidence / Reasoning</th>
               </tr>
             </thead>
             <tbody>${timelineRows}</tbody>
@@ -10515,6 +10515,37 @@ if (typeof document !== 'undefined' && !window.__overlayA11y) {
     if (!top.dialog.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
     else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+}
+
+// ── Keyboard access for click-only elements ──────────────────
+// Elements wired with onclick on non-interactive tags (rows, cards, spans)
+// become focusable and respond to Enter / Space like a button.
+const _NATIVE_INTERACTIVE = 'button,input,select,textarea,summary,a[href]';
+
+function _makeKeyboardClickable(root) {
+  if (root.nodeType !== 1) return;
+  const els = root.matches('[onclick]') ? [root] : [];
+  root.querySelectorAll?.('[onclick]').forEach(el => els.push(el));
+  els.forEach(el => {
+    if (el.matches(_NATIVE_INTERACTIVE) || el.hasAttribute('tabindex')) return;
+    el.setAttribute('tabindex', '0');
+    if (!el.hasAttribute('role') && !['TR', 'TD', 'TH'].includes(el.tagName)) el.setAttribute('role', 'button');
+  });
+}
+
+if (typeof document !== 'undefined' && !window.__keyboardClickable) {
+  window.__keyboardClickable = true;
+  _makeKeyboardClickable(document.body);
+  new MutationObserver(muts => muts.forEach(m => m.addedNodes.forEach(_makeKeyboardClickable)))
+    .observe(document.body, { childList: true, subtree: true });
+
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const el = e.target;
+    if (!el || el !== document.activeElement || !el.matches?.('[onclick][tabindex]') || el.matches(_NATIVE_INTERACTIVE)) return;
+    e.preventDefault();
+    el.click();
   });
 }
 

@@ -1004,7 +1004,9 @@ body:has(#sidebar:not(.collapsed)) #sidebar-toggle {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
   margin-bottom: 24px;
 }
 

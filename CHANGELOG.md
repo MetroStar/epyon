@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.55.1] - 2026-10-23
+
+### Fixed
+- Wide tables (findings, STIG, metrics, Jira review) were clipped on phones and tablets. Table containers now scroll horizontally instead of hiding columns, in the web UI and the generated `security-dashboard.html` (MID-4708).
+
 ## [3.55.0] - 2026-10-23
 
 ### Added

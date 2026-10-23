@@ -200,7 +200,7 @@ function findingSourceBadge(f) {
   const nameSuffix = containerName
     ? `<span style="opacity:0.85"> · ${esc(containerName.length > 28 ? containerName.slice(0, 28) + '…' : containerName)}</span>`
     : '';
-  return `<span style="font-size:10px;padding:1px 6px;border-radius:3px;white-space:nowrap;${style}"${title}>${label}${nameSuffix}</span>`;
+  return `<span style="font-size:12px;padding:1px 6px;border-radius:3px;white-space:nowrap;${style}"${title}>${label}${nameSuffix}</span>`;
 }
 
 // Returns a source badge from a sources array (top_cves aggregated data)
@@ -293,7 +293,7 @@ function renderSelfAssessmentBody(sa) {
       <tr>
         <td>${esc(String(l.layer))}</td>
         <td>${esc(l.name)}</td>
-        <td><span class="sev-badge ${g.cls}" style="font-size:10px">${g.icon} ${g.label}</span></td>
+        <td><span class="sev-badge ${g.cls}" style="font-size:12px">${g.icon} ${g.label}</span></td>
         <td style="font-size:12px;color:var(--text-muted)">${reason}</td>
         <td style="font-size:12px;color:var(--text-muted);white-space:nowrap">${ran}</td>
       </tr>`;
@@ -1676,7 +1676,7 @@ async function renderApplications() {
               style="cursor:pointer">
             <td>
               <strong>${esc(app.name)}</strong>
-              ${app.url ? `<div style="font-size:11px;color:var(--text-dim);margin-top:2px">${esc(app.url)}</div>` : ''}
+              ${app.url ? `<div style="font-size:12px;color:var(--text-dim);margin-top:2px">${esc(app.url)}</div>` : ''}
             </td>
             <td onclick="event.stopPropagation();toggleMonitored('${esc(app.name)}',${!!app.monitored})">
               <button class="app-type-badge ${app.monitored ? 'monitored' : 'evaluation'}"
@@ -1853,7 +1853,7 @@ async function renderAppDetail(name) {
     const compType = appInfo.comprehensive_scan_type  || '';
     const countsDiffer = compTs && compTs !== latest.timestamp;
     const countsNote = countsDiffer
-      ? `<div style="grid-column:1/-1;font-size:11px;color:var(--text-muted);margin-top:4px">
+      ? `<div style="grid-column:1/-1;font-size:12px;color:var(--text-muted);margin-top:4px">
            Vulnerability counts are from the last ${esc(scanTypeLabel(compType))} scan
            (${fmtDate(compTs)}) — quick scans do not run all tools.
          </div>`
@@ -2306,7 +2306,7 @@ function buildEnrichmentCard(findings) {
               </svg>
               Threat Intelligence Enrichment
             </span>
-            ${hasKev ? `<span style="background:var(--critical-bg);color:var(--critical);border:1px solid #b91c1c;border-radius:4px;padding:1px 7px;font-size:11px;font-weight:700">${esc(kevTotal)} KEV</span>` : ''}
+            ${hasKev ? `<span style="background:var(--critical-bg);color:var(--critical);border:1px solid #b91c1c;border-radius:4px;padding:1px 7px;font-size:12px;font-weight:700">${esc(kevTotal)} KEV</span>` : ''}
             <span class="sev-badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(nvdTotal)} NVD enriched</span>
           </span>
           <span class="findings-summary-hint">Click to expand</span>
@@ -2372,7 +2372,7 @@ function buildNetworkDiscoveryCard(scan) {
         <tbody>
           ${r.items.map(p => `
             <tr style="border-top:1px solid var(--border)">
-              <td style="padding:3px 8px 3px 0;color:var(--text-muted);font-family:monospace;font-size:11px">${esc(p.file || '')}</td>
+              <td style="padding:3px 8px 3px 0;color:var(--text-muted);font-family:monospace;font-size:12px">${esc(p.file || '')}</td>
               <td style="padding:3px 8px 3px 0">${esc(p.service || '')}</td>
               <td style="padding:3px 0;font-family:monospace">${esc(p.mapping || String(p.port || ''))}</td>
             </tr>`).join('')}
@@ -2382,8 +2382,8 @@ function buildNetworkDiscoveryCard(scan) {
   }).join('') : emptyNote('No static port definitions found.');
 
   const activeBadge = nd.active_scan_run
-    ? '<span style="background:var(--low-bg,#fffbe6);color:var(--low);border:1px solid var(--low);border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600">nmap active</span>'
-    : '<span style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-size:11px">static only</span>';
+    ? '<span style="background:var(--low-bg,#fffbe6);color:var(--low);border:1px solid var(--low);border-radius:4px;padding:1px 7px;font-size:12px;font-weight:600">nmap active</span>'
+    : '<span style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-size:12px">static only</span>';
 
   const portsBadge = nd.total_ports
     ? `<span class="sev-badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(String(nd.total_ports))} ports</span>`
@@ -2755,11 +2755,11 @@ function buildModelSecurityCard(scan) {
         <span class="ms-summary-left">
           <span class="findings-chevron" aria-hidden="true"></span>
           <span class="ms-summary-title">ML/AI Security</span>
-          ${ps ? '<span class="tool-tag" style="font-size:11px">picklescan</span>' : ''}
-          ${mc ? '<span class="tool-tag" style="font-size:11px">model card</span>' : ''}
-          ${mp ? '<span class="tool-tag" style="font-size:11px">provenance</span>' : ''}
-          ${is ? '<span class="tool-tag" style="font-size:11px">inference</span>' : ''}
-          ${mr ? '<span class="tool-tag" style="font-size:11px;background:var(--purple-bg);color:var(--purple)">runtime</span>' : ''}
+          ${ps ? '<span class="tool-tag" style="font-size:12px">picklescan</span>' : ''}
+          ${mc ? '<span class="tool-tag" style="font-size:12px">model card</span>' : ''}
+          ${mp ? '<span class="tool-tag" style="font-size:12px">provenance</span>' : ''}
+          ${is ? '<span class="tool-tag" style="font-size:12px">inference</span>' : ''}
+          ${mr ? '<span class="tool-tag" style="font-size:12px;background:var(--purple-bg);color:var(--purple)">runtime</span>' : ''}
         </span>
         <span class="ms-summary-right">
           <span class="hf-status-badge ${summaryBadgeClass}">${summaryIcon} ${summaryLabel}</span>
@@ -2845,7 +2845,7 @@ function buildMisconfigurationsCard(scan) {
         <span class="ms-summary-left">
           <span class="findings-chevron" aria-hidden="true"></span>
           <span class="ms-summary-title">Misconfigurations</span>
-          <span class="tool-tag" style="font-size:11px">Layers 2, 6 & 21 — Secrets, IaC & Supply Chain</span>
+          <span class="tool-tag" style="font-size:12px">Layers 2, 6 & 21 — Secrets, IaC & Supply Chain</span>
         </span>
         <span class="ms-summary-right">
           <span class="hf-status-badge ${statusClass}">${statusIcon} ${statusLabel}</span>
@@ -2924,7 +2924,7 @@ function buildBuildEvidenceCard(scan) {
       <td style="padding:8px 12px;">${a.present
         ? '<span style="color:var(--pass);font-weight:600;">✅ Captured</span>'
         : '<span style="color:var(--text-muted);">⚠️ Not Captured</span>'}</td>
-      <td style="padding:8px 12px;font-family:monospace;font-size:11px;color:var(--text-muted);">${esc(a.file)}</td>
+      <td style="padding:8px 12px;font-family:monospace;font-size:12px;color:var(--text-muted);">${esc(a.file)}</td>
     </tr>
   `).join('');
 
@@ -2934,7 +2934,7 @@ function buildBuildEvidenceCard(scan) {
         <span class="ms-summary-left">
           <span class="findings-chevron" aria-hidden="true"></span>
           <span class="ms-summary-title">Build Artifacts & Supply Chain Evidence</span>
-          <span class="tool-tag" style="font-size:11px">Phase 0 — Container Build & Attestation</span>
+          <span class="tool-tag" style="font-size:12px">Phase 0 — Container Build & Attestation</span>
         </span>
         <span class="ms-summary-right">
           ${statusBadge}
@@ -3006,9 +3006,9 @@ function buildSSPEvidenceCard(scan) {
         <td style="padding:8px 12px;font-weight:600;color:var(--accent);">${esc(c.control_id)}</td>
         <td style="padding:8px 12px;font-weight:500;">${esc(c.control_name)}</td>
         <td style="padding:8px 12px;color:var(--text-muted);font-size:12px;">${esc(c.epyon_layer)}</td>
-        <td style="padding:8px 12px;font-family:monospace;font-size:11px;"><code style="color:var(--purple);">${esc(c.primary_artifact_path)}</code></td>
+        <td style="padding:8px 12px;font-family:monospace;font-size:12px;"><code style="color:var(--purple);">${esc(c.primary_artifact_path)}</code></td>
         <td style="padding:8px 12px;">${isCap ? '<span style="color:var(--pass);font-weight:600;">✅ Captured</span>' : '<span style="color:var(--medium);font-weight:600;">⚠️ Missing Evidence</span>'}</td>
-        <td style="padding:8px 12px;font-family:monospace;font-size:11px;color:var(--text-muted);" title="${esc(hash)}">${esc(hashShort)}</td>
+        <td style="padding:8px 12px;font-family:monospace;font-size:12px;color:var(--text-muted);" title="${esc(hash)}">${esc(hashShort)}</td>
       </tr>`;
   }).join('');
 
@@ -3026,7 +3026,7 @@ function buildSSPEvidenceCard(scan) {
         <span class="ms-summary-left">
           <span class="findings-chevron" aria-hidden="true"></span>
           <span class="ms-summary-title">NIST SP 800-53 / FedRAMP Control Evidence Matrix</span>
-          <span class="tool-tag" style="font-size:11px;background:var(--pass-bg);color:var(--pass);border:1px solid #10b98144">SSP / ATO Package</span>
+          <span class="tool-tag" style="font-size:12px;background:var(--pass-bg);color:var(--pass);border:1px solid #10b98144">SSP / ATO Package</span>
         </span>
         <span class="ms-summary-right" onclick="event.stopPropagation()" style="gap:8px;display:flex;align-items:center;">
           ${downloadMdBtn}
@@ -3210,7 +3210,7 @@ function buildOverviewExecSection() {
         <button class="btn btn-primary" onclick="generateOverviewExecSummary()">
           ✦ Generate Executive Summary
         </button>
-        <p style="margin:8px 0 0;font-size:11px;color:var(--text-muted)">
+        <p style="margin:8px 0 0;font-size:12px;color:var(--text-muted)">
           Leadership brief across all tracked applications, split by monitoring status.
           Requires an OpenAI API key configured in Settings.
         </p>
@@ -3232,7 +3232,7 @@ function buildOverviewTechSection() {
         <button class="btn btn-primary" onclick="generateOverviewTechSummary()">
           ✦ Generate Technical Summary
         </button>
-        <p style="margin:8px 0 0;font-size:11px;color:var(--text-muted)">
+        <p style="margin:8px 0 0;font-size:12px;color:var(--text-muted)">
           Detailed technical brief for engineering teams, with per-finding breakdown.
           Requires an OpenAI API key configured in Settings.
         </p>
@@ -3254,7 +3254,7 @@ function buildOverviewIssoSection() {
         <button class="btn btn-primary" onclick="generateOverviewIssoSummary()">
           ✦ Generate ISSO Compliance Brief
         </button>
-        <p style="margin:8px 0 0;font-size:11px;color:var(--text-muted)">
+        <p style="margin:8px 0 0;font-size:12px;color:var(--text-muted)">
           ATO/cATO-ready brief covering NIST 800-53 control mapping, STIG validation status,
           evidence traceability, accepted risk, and POA&amp;M risk statements.
           Requires an OpenAI API key configured in Settings.
@@ -3282,9 +3282,9 @@ function _summaryResultHtml(text, err, regenerateFn, exportFn, exportDocxFn) {
   return `
     ${content}
     <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <button class="btn" style="font-size:11px" onclick="${regenerateFn.includes('(') ? regenerateFn : regenerateFn + '()'}">↺ Regenerate</button>
-      ${text ? `<button class="btn btn-primary" style="font-size:11px" onclick="${exportFn.includes('(') ? exportFn : exportFn + '()'}">↓ Export PDF</button>` : ''}
-      ${text && exportDocxFn ? `<button class="btn" style="font-size:11px;background:var(--accent-bg);color:var(--accent);border-color:var(--accent-bg)" onclick="${exportDocxFn.includes('(') ? exportDocxFn : exportDocxFn + '()'}">↓ Export Word</button>` : ''}
+      <button class="btn" style="font-size:12px" onclick="${regenerateFn.includes('(') ? regenerateFn : regenerateFn + '()'}">↺ Regenerate</button>
+      ${text ? `<button class="btn btn-primary" style="font-size:12px" onclick="${exportFn.includes('(') ? exportFn : exportFn + '()'}">↓ Export PDF</button>` : ''}
+      ${text && exportDocxFn ? `<button class="btn" style="font-size:12px;background:var(--accent-bg);color:var(--accent);border-color:var(--accent-bg)" onclick="${exportDocxFn.includes('(') ? exportDocxFn : exportDocxFn + '()'}">↓ Export Word</button>` : ''}
     </div>`;
 }
 
@@ -3390,7 +3390,7 @@ function buildAppIssoSection(name) {
         <button class="btn btn-primary" onclick="generateAppIssoSummary('${esc(name)}')">
           ✦ Generate Application ISSO Brief
         </button>
-        <p style="margin:8px 0 0;font-size:11px;color:var(--text-muted)">
+        <p style="margin:8px 0 0;font-size:12px;color:var(--text-muted)">
           Per-application ATO/cATO brief: NIST 800-53 control mapping, STIG open controls,
           evidence traceability, accepted risk register, and POA&amp;M entries.
           Requires an OpenAI API key configured in Settings.
@@ -3609,7 +3609,7 @@ function buildSuppressedSection(items) {
     const typeColor = s.type === 'tool' ? '#6366f1' : s.type === 'cve' ? '#f59e0b' : '#6b7280';
     return `<tr>
       <td style="padding:5px 10px;font-size:12px">
-        <span class="tool-tag" style="font-size:11px;padding:1px 6px;background:${typeColor}22;color:${typeColor};border:1px solid ${typeColor}44">${esc(s.type || 'unknown')}</span>
+        <span class="tool-tag" style="font-size:12px;padding:1px 6px;background:${typeColor}22;color:${typeColor};border:1px solid ${typeColor}44">${esc(s.type || 'unknown')}</span>
       </td>
       <td style="padding:5px 10px;font-family:monospace;font-size:12px;font-weight:600">${esc(s.value || '—')}</td>
       <td style="padding:5px 10px;font-size:12px;color:var(--text-muted)">${esc(s.tool || '—')}</td>
@@ -3696,7 +3696,7 @@ function buildSBOMSection(sbom, scanId) {
             ${typeChips}
           </span>
           <span style="display:flex;align-items:center;gap:10px">
-            ${cdxUrl ? `<a class="btn btn-sm" href="${cdxUrl}" download style="font-size:11px" onclick="event.stopPropagation()">↓ CycloneDX JSON</a>` : ''}
+            ${cdxUrl ? `<a class="btn btn-sm" href="${cdxUrl}" download style="font-size:12px" onclick="event.stopPropagation()">↓ CycloneDX JSON</a>` : ''}
             <span class="findings-summary-hint">Click to expand</span>
           </span>
         </summary>
@@ -3828,9 +3828,9 @@ window.sbomRender = function(uid) {
     return `<tr class="finding-row" style="cursor:pointer" onclick="openDependencyDetail(${did})" title="Click to view details">
       <td style="font-family:monospace;font-size:12px;padding:3px 8px">${esc(p.name)}</td>
       <td style="font-size:12px;padding:3px 8px">${esc(p.version)}</td>
-      <td style="padding:3px 8px"><span class="tool-tag" style="font-size:11px;padding:1px 6px">${esc(p.type)}</span></td>
-      <td style="font-size:11px;color:var(--text-muted);padding:3px 8px">${esc(p.license)}</td>
-      <td style="font-family:monospace;font-size:11px;color:var(--text-muted);padding:3px 8px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.path)}">${esc(p.path)}</td>
+      <td style="padding:3px 8px"><span class="tool-tag" style="font-size:12px;padding:1px 6px">${esc(p.type)}</span></td>
+      <td style="font-size:12px;color:var(--text-muted);padding:3px 8px">${esc(p.license)}</td>
+      <td style="font-family:monospace;font-size:12px;color:var(--text-muted);padding:3px 8px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.path)}">${esc(p.path)}</td>
     </tr>`;
   }).join('');
 };
@@ -3864,13 +3864,13 @@ function _buildFindingRows(items) {
         ? `<span style="font-weight:700;color:${cvssColor};font-size:12px" title="CVSS v3: ${cvssNum} ${cvssSev}">${cvssNum}</span>`
         : '',
       f.cisa_kev
-        ? `<span style="background:var(--critical-bg);color:var(--critical);font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;vertical-align:middle;margin-left:${cvssNum != null ? 4 : 0}px" title="CISA Known Exploited Vulnerability">KEV</span>`
+        ? `<span style="background:var(--critical-bg);color:var(--critical);font-size:12px;font-weight:700;padding:1px 5px;border-radius:3px;vertical-align:middle;margin-left:${cvssNum != null ? 4 : 0}px" title="CISA Known Exploited Vulnerability">KEV</span>`
         : ''
     ].join('') || '<span style="color:var(--text-dim)">—</span>';
 
     // Suppressed badge
     const suppressedBadge = isSuppressed
-      ? `<span style="background:var(--medium-bg);color:var(--medium);border:1px solid color-mix(in srgb, var(--medium) 27%, transparent);border-radius:3px;padding:1px 6px;font-size:9px;font-weight:700;margin-left:6px" title="Suppressed by .epyon-ignore.yml">SUPPRESSED</span>`
+      ? `<span style="background:var(--medium-bg);color:var(--medium);border:1px solid color-mix(in srgb, var(--medium) 27%, transparent);border-radius:3px;padding:1px 6px;font-size:12px;font-weight:700;margin-left:6px" title="Suppressed by .epyon-ignore.yml">SUPPRESSED</span>`
       : '';
 
     // For IaC/Checkov findings, show file path and line numbers
@@ -3883,7 +3883,7 @@ function _buildFindingRows(items) {
       if (f.line && Array.isArray(f.line) && f.line.length === 2) {
         lineInfo = f.line[0] === f.line[1] ? `:${f.line[0]}` : `:${f.line[0]}-${f.line[1]}`;
       }
-      locationCell = `<code style="font-size:11px;color:var(--accent)" title="${filePath}${lineInfo}">${fileName}${lineInfo}</code>`;
+      locationCell = `<code style="font-size:12px;color:var(--accent)" title="${filePath}${lineInfo}">${fileName}${lineInfo}</code>`;
     }
 
     // Apply dimmed styling to suppressed findings
@@ -3897,10 +3897,10 @@ function _buildFindingRows(items) {
         </td>
         <td>${idCell}</td>
         <td style="max-width:360px">${title}${locationCell ? `<div style="margin-top:4px">${locationCell}</div>` : ''}</td>
-        <td>${pkg}${ver ? ` <span style="color:var(--text-dim);font-size:11px">${ver}</span>` : ''}</td>
+        <td>${pkg}${ver ? ` <span style="color:var(--text-dim);font-size:12px">${ver}</span>` : ''}</td>
         <td style="white-space:nowrap">${cvssCell}</td>
         <td>${fixed ? `<span style="color:var(--clean)">${fixed}</span>` : '<span style="color:var(--text-dim)">—</span>'}</td>
-        <td style="color:var(--text-muted);font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${target}">${target || '—'}</td>
+        <td style="color:var(--text-muted);font-size:12px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${target}">${target || '—'}</td>
       </tr>`;
   }).join('');
 }
@@ -4181,12 +4181,12 @@ window.apiRender = function(uid) {
 
     return `
       <tr class="api-row" onclick="openAPIDetail(${epId})" title="Click to view details" style="cursor:pointer;border-bottom:1px solid var(--border-subtle)">
-        <td style="padding:4px 8px"><span style="background:${methodColor};color:white;padding:2px 6px;border-radius:3px;font-size:11px;font-weight:600">${esc(ep.method)}</span></td>
+        <td style="padding:4px 8px"><span style="background:${methodColor};color:white;padding:2px 6px;border-radius:3px;font-size:12px;font-weight:600">${esc(ep.method)}</span></td>
         <td style="padding:4px 8px;font-family:monospace;font-size:12px">${esc(ep.path)}</td>
         <td style="padding:4px 8px;color:var(--text-muted);font-size:12px">${esc(ep.function) || '—'}</td>
         <td style="padding:4px 8px"><span class="tool-tag">${esc(ep.framework) || '—'}</span></td>
-        <td style="padding:4px 8px;color:var(--text-dim);font-size:11px">${esc(ep.auth) || '—'}</td>
-        <td style="padding:4px 8px;color:var(--text-muted);font-size:11px" title="${esc(ep.file)}">${esc(shortFile) || '—'}</td>
+        <td style="padding:4px 8px;color:var(--text-dim);font-size:12px">${esc(ep.auth) || '—'}</td>
+        <td style="padding:4px 8px;color:var(--text-muted);font-size:12px" title="${esc(ep.file)}">${esc(shortFile) || '—'}</td>
       </tr>`;
   }).join('');
 
@@ -4230,7 +4230,7 @@ function buildFindingsSection(findings) {
 
       // Build count badge with suppressed indicator
       const countBadge = suppressedCount > 0
-        ? `<span class="sev-badge ${esc(sev)}">${activeCount}</span><span style="background:var(--medium-bg);color:var(--medium);border:1px solid color-mix(in srgb, var(--medium) 27%, transparent);border-radius:3px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px" title="${suppressedCount} suppressed by .epyon-ignore.yml">${suppressedCount} suppressed</span>`
+        ? `<span class="sev-badge ${esc(sev)}">${activeCount}</span><span style="background:var(--medium-bg);color:var(--medium);border:1px solid color-mix(in srgb, var(--medium) 27%, transparent);border-radius:3px;padding:1px 6px;font-size:12px;font-weight:700;margin-left:4px" title="${suppressedCount} suppressed by .epyon-ignore.yml">${suppressedCount} suppressed</span>`
         : `<span class="sev-badge ${esc(sev)}">${allItems.length}</span>`;
 
       html += `
@@ -4296,15 +4296,15 @@ function buildFindingsSection(findings) {
     }
     const catalogLink = enr.kev_catalog_url
       ? ` &nbsp;<a href="${esc(enr.kev_catalog_url)}" target="_blank" rel="noopener"
-           style="color:var(--accent);font-size:11px">↗ CISA KEV Catalog</a>`
+           style="color:var(--accent);font-size:12px">↗ CISA KEV Catalog</a>`
       : '';
     enrichmentBanner = `
       <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;color:var(--text-muted)">
-        ${kevTotal > 0 ? `<span style="background:var(--critical-bg);color:var(--critical);border:1px solid #b91c1c;border-radius:4px;padding:1px 8px;font-size:11px;font-weight:700">${esc(kevTotal)} KEV</span>` : ''}
-        ${nvdTotal > 0 ? `<span style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:1px 8px;font-size:11px">${esc(nvdTotal)} NVD enriched</span>` : ''}
-        ${enrichedAt ? `<span style="font-size:11px;color:var(--text-dim)">enriched ${enrichedAt}</span>` : ''}
+        ${kevTotal > 0 ? `<span style="background:var(--critical-bg);color:var(--critical);border:1px solid #b91c1c;border-radius:4px;padding:1px 8px;font-size:12px;font-weight:700">${esc(kevTotal)} KEV</span>` : ''}
+        ${nvdTotal > 0 ? `<span style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:1px 8px;font-size:12px">${esc(nvdTotal)} NVD enriched</span>` : ''}
+        ${enrichedAt ? `<span style="font-size:12px;color:var(--text-dim)">enriched ${enrichedAt}</span>` : ''}
         ${catalogLink}
-        ${kevTotal > 0 ? `<span style="color:var(--critical);font-size:11px">⚠ ${esc(kevTotal)} finding${kevTotal > 1 ? 's' : ''} actively exploited in the wild — see <strong>KEV</strong> badges below</span>` : ''}
+        ${kevTotal > 0 ? `<span style="color:var(--critical);font-size:12px">⚠ ${esc(kevTotal)} finding${kevTotal > 1 ? 's' : ''} actively exploited in the wild — see <strong>KEV</strong> badges below</span>` : ''}
       </div>`;
   }
 
@@ -4968,7 +4968,7 @@ function renderScanQueueResults() {
     return `
       <tr>
         <td>${esc(r.label)}</td>
-        <td><span class="sev-badge ${g.cls}" style="font-size:10px">${g.icon} ${g.label}</span></td>
+        <td><span class="sev-badge ${g.cls}" style="font-size:12px">${g.icon} ${g.label}</span></td>
         <td style="font-size:12px;color:var(--text-muted)">${esc(r.reason)}</td>
       </tr>`;
   }).join('');
@@ -5249,16 +5249,16 @@ window.sortEnrichmentTable = function(col) {
       ? (parseFloat(score) >= 9 ? 'var(--critical)' : parseFloat(score) >= 7 ? 'var(--high)' : parseFloat(score) >= 4 ? 'var(--medium)' : 'var(--low)')
       : 'var(--text-muted)';
     const kevBadge = f.cisa_kev
-      ? `<span style="background:var(--critical-bg);color:var(--critical);font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;vertical-align:middle;margin-left:4px">KEV</span>`
+      ? `<span style="background:var(--critical-bg);color:var(--critical);font-size:12px;font-weight:700;padding:1px 4px;border-radius:3px;vertical-align:middle;margin-left:4px">KEV</span>`
       : '';
-    const fixed = f.fixed_version ? `<span style="color:var(--clean);font-size:11px">→ ${esc(f.fixed_version)}</span>` : '';
+    const fixed = f.fixed_version ? `<span style="color:var(--clean);font-size:12px">→ ${esc(f.fixed_version)}</span>` : '';
     return `
       <tr class="finding-row" onclick="openFindingDetail(${f._rid})" title="Click to view details">
-        <td style="padding:5px 8px 5px 0"><span class="sev-badge sev-${esc(f.sev)}" style="font-size:10px">${esc(f.sev)}</span></td>
+        <td style="padding:5px 8px 5px 0"><span class="sev-badge sev-${esc(f.sev)}" style="font-size:12px">${esc(f.sev)}</span></td>
         <td style="padding:5px 8px 5px 0;font-family:monospace;font-size:12px;white-space:nowrap"><code>${id}</code>${kevBadge}</td>
         <td style="padding:5px 8px 5px 0;font-size:12px;color:var(--text-muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pkg}</td>
         <td style="padding:5px 8px 5px 0;font-size:12px;font-weight:600;color:${scoreColor}">${score}</td>
-        <td style="padding:5px 0;font-size:11px;color:var(--text-muted)">${fixed}</td>
+        <td style="padding:5px 0;font-size:12px;color:var(--text-muted)">${fixed}</td>
       </tr>`;
   }).join('');
 
@@ -5379,10 +5379,10 @@ function openRiskTrendDetail(app) {
     return `<tr>
       <td style="color:var(--text-muted);font-size:12px">${esc(p.date)}</td>
       <td style="font-weight:600;color:var(--accent)">${esc(String(p.score))}</td>
-      <td><span class="sev-badge critical" style="font-size:10px">${esc(String(p.critical ?? '—'))}</span></td>
-      <td><span class="sev-badge high" style="font-size:10px">${esc(String(p.high ?? '—'))}</span></td>
-      <td><span class="sev-badge medium" style="font-size:10px">${esc(String(p.medium ?? '—'))}</span></td>
-      <td><span class="sev-badge low" style="font-size:10px">${esc(String(p.low ?? '—'))}</span></td>
+      <td><span class="sev-badge critical" style="font-size:12px">${esc(String(p.critical ?? '—'))}</span></td>
+      <td><span class="sev-badge high" style="font-size:12px">${esc(String(p.high ?? '—'))}</span></td>
+      <td><span class="sev-badge medium" style="font-size:12px">${esc(String(p.medium ?? '—'))}</span></td>
+      <td><span class="sev-badge low" style="font-size:12px">${esc(String(p.low ?? '—'))}</span></td>
     </tr>`;
   }).join('');
 
@@ -5412,7 +5412,7 @@ function openRiskTrendDetail(app) {
     </div>
     <div class="finding-drawer-body">
       <div style="margin-bottom:20px">
-        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Score over time (critical×10 + high×7 + medium×4 + low×1)</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Score over time (critical×10 + high×7 + medium×4 + low×1)</div>
         ${chart}
       </div>
       <div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap">
@@ -5481,7 +5481,7 @@ function buildRiskTrendSection(m) {
     return `<tr class="clickable-row" onclick="openRiskTrendDetail('${esc(app)}')">
       <td><strong>${esc(app)}</strong></td>
       <td style="font-weight:600;color:${color}">${esc(String(latest.score))}${arrow}</td>
-      <td style="color:var(--text-muted);font-size:11px">${esc(latest.date)}</td>
+      <td style="color:var(--text-muted);font-size:12px">${esc(latest.date)}</td>
       <td><svg width="80" height="20" viewBox="0 0 80 20" style="overflow:visible">
         <polyline points="${sparkPts}" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linejoin="round"/>
       </svg></td>
@@ -5534,7 +5534,7 @@ function buildSecretTrendSection(m) {
         ${totalU > 0 ? `<span class="sev-badge high">${totalU} unverified</span>` : '—'}
       </td>
       <td style="color:${color};font-weight:600">${esc(String(latest.total || 0))}${arrow}</td>
-      <td style="color:var(--text-muted);font-size:11px">${esc(latest.date || '—')}</td>
+      <td style="color:var(--text-muted);font-size:12px">${esc(latest.date || '—')}</td>
     </tr>`;
   }).join('');
   const badgeLine = totalVerified > 0
@@ -5749,7 +5749,7 @@ async function renderMetrics() {
             <td>${esc(c.count)}</td>
             <td style="max-width:280px">${esc(c.title || '—')}</td>
             <td>${sourcesBadges(c.sources)}</td>
-            <td style="font-size:11px;color:var(--text-muted)">${c.apps.map(a => esc(a)).join(', ')}</td>
+            <td style="font-size:12px;color:var(--text-muted)">${c.apps.map(a => esc(a)).join(', ')}</td>
           </tr>`).join('')
       : emptyRow(6, 'No CVE data — run a scan to populate');
 
@@ -5994,7 +5994,7 @@ async function renderMetrics() {
             <td>${esc(c.count)}</td>
             <td style="max-width:280px">${esc(c.title || '\u2014')}</td>
             <td>${sourcesBadges(c.sources)}</td>
-            <td style="font-size:11px;color:var(--text-muted)">${c.apps.map(a => esc(a)).join(', ')}</td>
+            <td style="font-size:12px;color:var(--text-muted)">${c.apps.map(a => esc(a)).join(', ')}</td>
           </tr>`;
         }
         function resort() {
@@ -6196,12 +6196,12 @@ async function renderPerformanceDashboard() {
             <div>
               <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Precision</div>
               <div style="font-size:20px;font-weight:600;color:var(--text-primary)">${(mca.precision * 100).toFixed(1)}%</div>
-              <div style="font-size:11px;color:var(--text-muted)">${mca.true_positives} true positives, ${mca.false_positives} false positives</div>
+              <div style="font-size:12px;color:var(--text-muted)">${mca.true_positives} true positives, ${mca.false_positives} false positives</div>
             </div>
             <div>
               <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Recall</div>
               <div style="font-size:20px;font-weight:600;color:var(--text-primary)">${(mca.recall * 100).toFixed(1)}%</div>
-              <div style="font-size:11px;color:var(--text-muted)">${mca.false_negatives} false negatives</div>
+              <div style="font-size:12px;color:var(--text-muted)">${mca.false_negatives} false negatives</div>
             </div>
           </div>
           <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
@@ -6251,7 +6251,7 @@ async function renderPerformanceDashboard() {
                       <td><a href="#/scans/${esc(f.scan_id)}" style="color:var(--link)">${esc(f.scan_id)}</a></td>
                       <td>${esc(f.target || '—')}</td>
                       <td>${esc(f.scan_type || '—')}</td>
-                      <td><span class="sev-badge ${f.status === 'empty_target' ? 'critical' : f.status === 'suspicious' ? 'medium' : ''}" style="font-size:10px">${esc(f.status.replace('_', ' ').toUpperCase())}</span></td>
+                      <td><span class="sev-badge ${f.status === 'empty_target' ? 'critical' : f.status === 'suspicious' ? 'medium' : ''}" style="font-size:12px">${esc(f.status.replace('_', ' ').toUpperCase())}</span></td>
                       <td style="font-size:12px">${f.reasons.map(esc).join('; ')}</td>
                     </tr>
                   `).join('')}
@@ -6286,7 +6286,7 @@ async function renderPerformanceDashboard() {
           ${renderSelfDiagLayerPicker()}
           <div id="self-diag-progress" style="display:none;margin-bottom:16px">
             <div id="self-diag-status" style="font-size:13px;margin-bottom:8px;color:var(--text-muted)"></div>
-            <div id="self-diag-log" style="max-height:220px;overflow-y:auto;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:10px;font-family:monospace;font-size:11px;line-height:1.5"></div>
+            <div id="self-diag-log" style="max-height:220px;overflow-y:auto;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:10px;font-family:monospace;font-size:12px;line-height:1.5"></div>
           </div>
           <div id="self-assessment-body">${saBody}</div>
         </div>
@@ -6299,7 +6299,7 @@ async function renderPerformanceDashboard() {
             <div class="stat-label">Overall Hit Rate</div>
             <div class="stat-value" style="display:flex;align-items:center;gap:8px">
               ${avgHitRate}%
-              <span class="sev-badge ${cacheStatusClass}" style="font-size:11px">${cacheStatusText}</span>
+              <span class="sev-badge ${cacheStatusClass}" style="font-size:12px">${cacheStatusText}</span>
             </div>
           </div>
           <div class="stat-card">
@@ -6388,17 +6388,17 @@ async function loadAuditLog() {
     const rows = data.entries.map(entry => {
       const timestamp = new Date(entry.timestamp).toLocaleString();
       const actionBadge = entry.action.includes('approve') && !entry.action.includes('unapprove')
-        ? '<span class="sev-badge clean" style="font-size:10px">APPROVED</span>'
-        : '<span class="sev-badge medium" style="font-size:10px">REVOKED</span>';
+        ? '<span class="sev-badge clean" style="font-size:12px">APPROVED</span>'
+        : '<span class="sev-badge medium" style="font-size:12px">REVOKED</span>';
       
       return `
         <tr>
-          <td><code style="font-size:11px">${esc(timestamp)}</code></td>
+          <td><code style="font-size:12px">${esc(timestamp)}</code></td>
           <td>${actionBadge}</td>
-          <td><code style="font-size:11px">${esc(entry.target)}</code></td>
-          <td><code style="font-size:10px">${esc(entry.user)}</code></td>
-          <td style="font-size:11px">${esc(entry.reason || '—')}</td>
-          <td style="font-size:11px">${entry.reference ? `<a href="${esc(entry.reference)}" target="_blank" rel="noopener" style="color:var(--link)">Link</a>` : '—'}</td>
+          <td><code style="font-size:12px">${esc(entry.target)}</code></td>
+          <td><code style="font-size:12px">${esc(entry.user)}</code></td>
+          <td style="font-size:12px">${esc(entry.reason || '—')}</td>
+          <td style="font-size:12px">${entry.reference ? `<a href="${esc(entry.reference)}" target="_blank" rel="noopener" style="color:var(--link)">Link</a>` : '—'}</td>
         </tr>
       `;
     }).join('');
@@ -6462,7 +6462,7 @@ function _ghSparkline(history, field, color, labelFn) {
       </svg>
       <div style="text-align:right;min-width:64px">
         <div style="font-size:20px;font-weight:700;color:${color}">${labelFn ? labelFn(last) : last}</div>
-        <div style="font-size:11px;color:${deltaColor}">${deltaStr !== '+0' && deltaStr !== '0' ? deltaStr : '—'} vs ${dates[0]}</div>
+        <div style="font-size:12px;color:${deltaColor}">${deltaStr !== '+0' && deltaStr !== '0' ? deltaStr : '—'} vs ${dates[0]}</div>
       </div>
     </div>`;
 }
@@ -6493,7 +6493,7 @@ async function renderGitHubSignals() {
       const sev = r.by_severity || {};
       const topPkg = (r.top_packages || []).map(p => `${esc(p.package)} (${p.count})`).join(', ') || '—';
       return `<tr class="finding-row" style="cursor:pointer" onclick="openGhSignalDetail('dep',${i})" title="Click to view details">
-        <td><strong>${esc(r.repo.split('/')[1] || r.repo)}</strong><div style="font-size:11px;color:var(--text-muted)">${esc(r.repo)}</div></td>
+        <td><strong>${esc(r.repo.split('/')[1] || r.repo)}</strong><div style="font-size:12px;color:var(--text-muted)">${esc(r.repo)}</div></td>
         <td style="text-align:center"><span style="color:${(r.open||0)>0?'var(--critical)':'var(--clean)'};font-weight:700">${r.open || 0}</span></td>
         <td style="text-align:center;font-size:12px">
           <span style="color:var(--critical)">${sev.critical||0} C</span> ·
@@ -6502,7 +6502,7 @@ async function renderGitHubSignals() {
           <span style="color:var(--accent)">${sev.low||0} L</span>
         </td>
         <td style="text-align:center;color:var(--clean)">${r.fixed || 0}</td>
-        <td style="font-size:11px;color:var(--text-muted);max-width:220px">${topPkg}</td>
+        <td style="font-size:12px;color:var(--text-muted);max-width:220px">${topPkg}</td>
       </tr>`;
     }).join('') || emptyRow(5, 'No Dependabot data — check token permissions (security_events scope)');
 
@@ -6512,7 +6512,7 @@ async function renderGitHubSignals() {
     const issueRows = _secList.map((r, i) => {
       const avgClose = r.avg_close_days != null ? `${r.avg_close_days}d` : '—';
       return `<tr class="finding-row" style="cursor:pointer" onclick="openGhSignalDetail('sec',${i})" title="Click to view details">
-        <td><strong>${esc(r.repo.split('/')[1] || r.repo)}</strong><div style="font-size:11px;color:var(--text-muted)">${esc(r.repo)}</div></td>
+        <td><strong>${esc(r.repo.split('/')[1] || r.repo)}</strong><div style="font-size:12px;color:var(--text-muted)">${esc(r.repo)}</div></td>
         <td style="text-align:center"><span style="color:${(r.open_security||0)>0?'var(--high)':'var(--clean)'};font-weight:700">${r.open_security || 0}</span></td>
         <td style="text-align:center">${r.closed_security || 0}</td>
         <td style="text-align:center;color:var(--text-muted)">${avgClose}</td>
@@ -6525,7 +6525,7 @@ async function renderGitHubSignals() {
       const rate = r.success_rate != null ? `${r.success_rate}%` : '—';
       const rateColor = r.success_rate == null ? 'var(--text-muted)' : r.success_rate >= 90 ? 'var(--clean)' : r.success_rate >= 70 ? '#e3b341' : 'var(--critical)';
       return `<tr class="finding-row" style="cursor:pointer" onclick="openGhSignalDetail('run',${i})" title="Click to view details">
-        <td><strong>${esc(r.repo.split('/')[1] || r.repo)}</strong><div style="font-size:11px;color:var(--text-muted)">${esc(r.repo)}</div></td>
+        <td><strong>${esc(r.repo.split('/')[1] || r.repo)}</strong><div style="font-size:12px;color:var(--text-muted)">${esc(r.repo)}</div></td>
         <td style="text-align:center;font-weight:700;color:${rateColor}">${rate}</td>
         <td style="text-align:center">${r.total_runs || 0}</td>
         <td style="text-align:center;color:var(--clean)">${r.success || 0}</td>
@@ -6990,8 +6990,8 @@ async function renderSettings() {
                   <div style="display:flex;align-items:start;gap:10px">
                     <div style="flex:1">
                       <div style="font-weight:600;font-size:13px;margin-bottom:4px">${esc(t.description)}</div>
-                      <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">${esc(t.category)}</div>
-                      <div style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600;
+                      <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">${esc(t.category)}</div>
+                      <div style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600;
                                   background:color-mix(in srgb,${riskColor} 20%,transparent);
                                   color:${riskColor};border:1px solid color-mix(in srgb,${riskColor} 40%,transparent)">
                         ${esc(t.risk_level.toUpperCase())} RISK
@@ -7016,7 +7016,7 @@ async function renderSettings() {
               ${(mcPolicy.approved_files || []).map(f => `
               <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-input);
                           border:1px solid var(--border);border-radius:var(--radius);font-size:12px">
-                <code style="flex:1;font-size:11px">${esc(f)}</code>
+                <code style="flex:1;font-size:12px">${esc(f)}</code>
                 <button class="btn btn-sm" style="color:var(--critical);padding:2px 8px" 
                         onclick="event.stopPropagation();removeMobileCodeFile('${esc(f).replace(/'/g, "\\'")}')">Remove</button>
               </div>`).join('')}
@@ -7053,7 +7053,7 @@ async function renderSettings() {
         </ol>
         <div style="position:relative;max-width:700px">
           <pre id="settings-yml" style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);
-               padding:12px;font-size:11px;line-height:1.6;overflow-x:auto;margin:0;white-space:pre;color:var(--text)">${esc(WORKFLOW_YML)}</pre>
+               padding:12px;font-size:12px;line-height:1.6;overflow-x:auto;margin:0;white-space:pre;color:var(--text)">${esc(WORKFLOW_YML)}</pre>
           <button id="settings-yml-copy" class="btn btn-sm" style="position:absolute;top:8px;right:8px"
             onclick="navigator.clipboard.writeText(WORKFLOW_YML).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})">Copy</button>
         </div>
@@ -8102,7 +8102,7 @@ function buildScorecardCard(scorecardData) {
         <div class="scorecard-dim-bar">
           <div class="scorecard-dim-bar-fill" style="width:${s}%;background:${barColor}"></div>
         </div>
-        <div style="margin-top:8px;font-size:11px;color:var(--text-muted);text-align:center">Click for details</div>
+        <div style="margin-top:8px;font-size:12px;color:var(--text-muted);text-align:center">Click for details</div>
       </div>`;
   }).join('');
 
@@ -8258,7 +8258,7 @@ function showAddAppModal() {
           placeholder="my-app"
           style="width:100%;padding:8px 10px;background:var(--bg-input);border:1px solid var(--border);
                  border-radius:var(--radius);color:var(--text);font-size:13px;outline:none" />
-        <small style="font-size:11px;color:var(--text-dim)">Alphanumeric, hyphens, underscores, and dots only</small>
+        <small style="font-size:12px;color:var(--text-dim)">Alphanumeric, hyphens, underscores, and dots only</small>
       </div>
 
       <div style="margin-top:12px;display:flex;align-items:center;gap:8px">
@@ -8302,7 +8302,7 @@ function showAddAppModal() {
 
       <div style="position:relative">
         <pre id="add-app-yml" style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);
-             padding:12px;font-size:11px;line-height:1.6;overflow-x:auto;margin:0;white-space:pre;color:var(--text)">${workflowYml}</pre>
+             padding:12px;font-size:12px;line-height:1.6;overflow-x:auto;margin:0;white-space:pre;color:var(--text)">${workflowYml}</pre>
         <button id="add-app-copy" class="btn btn-sm" style="position:absolute;top:8px;right:8px">Copy</button>
       </div>
 
@@ -9324,9 +9324,9 @@ window.openDependencyDetail = function(did) {
     <div class="finding-detail-section" style="grid-column:1/-1">
       <div class="finding-detail-label">Package URL (PURL)</div>
       <div class="finding-detail-value" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <code style="font-size:11px;word-break:break-all">${esc(p.purl)}</code>
+        <code style="font-size:12px;word-break:break-all">${esc(p.purl)}</code>
         ${purlUrl ? `<a href="${esc(purlUrl)}" target="_blank" rel="noopener noreferrer"
-             style="font-size:11px;white-space:nowrap;color:var(--purple)">
+             style="font-size:12px;white-space:nowrap;color:var(--purple)">
              View registry
              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                   stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle">
@@ -9460,7 +9460,7 @@ function openStigViewerDetail(regKey) {
           <span class="stig-sev stig-sev-${esc(sev)}">${ucFirst(sev)}</span>
           <span class="${esc(statusCls)}">${esc(c.status)}</span>
           ${c.locked_by_human ? '<span class="stig-lock-badge" title="Manually locked by reviewer">🔒</span>' : ''}
-          <code style="font-size:11px">${esc(c.group_id || c.vuln_id)}</code>
+          <code style="font-size:12px">${esc(c.group_id || c.vuln_id)}</code>
         </div>
       </div>
       <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
@@ -9681,13 +9681,13 @@ function openStigDetail(id) {
     const prevEvidence = idx < tl.length - 1 ? (tl[idx + 1].evidence || '') : '';
     const evidenceChanged = prevEvidence && evidence && prevEvidence !== evidence && t.status !== 'Not Reviewed';
     const changeClass = evidenceChanged ? ' style="background:var(--bg-hover)"' : '';
-    const changeIcon = evidenceChanged ? ' <span style="color:var(--accent);font-size:10px" title="Evidence changed from previous scan">🔄 Changed</span>' : '';
+    const changeIcon = evidenceChanged ? ' <span style="color:var(--accent);font-size:12px" title="Evidence changed from previous scan">🔄 Changed</span>' : '';
     
     return `<tr${changeClass}>
       <td style="padding:8px 12px;font-size:12px;color:var(--text-muted);white-space:nowrap;vertical-align:top">${esc(t.date.slice(0, 10))}</td>
       <td style="padding:8px 12px;vertical-align:top"><span class="stig-status-chip ${cls}">${esc(lbl)}</span>${changeIcon}</td>
-      <td style="padding:8px 12px;font-size:11px;color:var(--text-muted);text-align:center;vertical-align:top">${confidence}</td>
-      <td style="padding:8px 12px;font-size:11px;color:var(--text);line-height:1.5;vertical-align:top">${esc(evidence).replace(/\n/g, '<br>')}</td>
+      <td style="padding:8px 12px;font-size:12px;color:var(--text-muted);text-align:center;vertical-align:top">${confidence}</td>
+      <td style="padding:8px 12px;font-size:12px;color:var(--text);line-height:1.5;vertical-align:top">${esc(evidence).replace(/\n/g, '<br>')}</td>
     </tr>`;
   }).join('');
 
@@ -9724,7 +9724,7 @@ function openStigDetail(id) {
         </div>
         <div class="finding-detail-section">
           <div class="finding-detail-label">Benchmark</div>
-          <div class="finding-detail-value">${c.stig_name ? `<code style="font-size:11px">${esc(c.stig_name)}</code>` : '<span style="color:var(--text-dim)">—</span>'}</div>
+          <div class="finding-detail-value">${c.stig_name ? `<code style="font-size:12px">${esc(c.stig_name)}</code>` : '<span style="color:var(--text-dim)">—</span>'}</div>
         </div>
         <div class="finding-detail-section">
           <div class="finding-detail-label">First Open</div>
@@ -9746,10 +9746,10 @@ function openStigDetail(id) {
           <table style="width:100%;border-collapse:collapse">
             <thead>
               <tr style="background:var(--bg-hover);border-bottom:1px solid var(--border)">
-                <th scope="col" style="padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left;width:100px">Date</th>
-                <th scope="col" style="padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left;width:140px">Status</th>
-                <th scope="col" style="padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:center;width:80px">Confidence</th>
-                <th scope="col" style="padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left">Evidence / Reasoning</th>
+                <th scope="col" style="padding:8px 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left;width:100px">Date</th>
+                <th scope="col" style="padding:8px 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left;width:140px">Status</th>
+                <th scope="col" style="padding:8px 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:center;width:80px">Confidence</th>
+                <th scope="col" style="padding:8px 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left">Evidence / Reasoning</th>
               </tr>
             </thead>
             <tbody>${timelineRows}</tbody>
@@ -9809,7 +9809,7 @@ function openFindingDetail(id) {
   
   const sourceInfo = sourceIcons[cveSource] || null;
   const sourceBadge = sourceInfo
-    ? `<span style="display:inline-flex;align-items:center;gap:4px;background:${sourceInfo.color};color:#fff;font-size:10px;font-weight:600;padding:2px 6px;border-radius:3px;margin-left:6px" title="Source: ${sourceInfo.label}">
+    ? `<span style="display:inline-flex;align-items:center;gap:4px;background:${sourceInfo.color};color:#fff;font-size:12px;font-weight:600;padding:2px 6px;border-radius:3px;margin-left:6px" title="Source: ${sourceInfo.label}">
          ${sourceInfo.icon} ${cveSource}
        </span>`
     : '';
@@ -9824,7 +9824,7 @@ function openFindingDetail(id) {
            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
            <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
          </svg>
-       </a>${cisaKev ? ' <span style="background:var(--critical-bg);color:var(--critical);font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px" title="CISA Known Exploited Vulnerability">KEV</span>' : ''}${sourceBadge}`
+       </a>${cisaKev ? ' <span style="background:var(--critical-bg);color:var(--critical);font-size:12px;font-weight:700;padding:2px 7px;border-radius:4px" title="CISA Known Exploited Vulnerability">KEV</span>' : ''}${sourceBadge}`
     : `<code>${esc(fid)}</code>${sourceBadge}`;
 
   const refsHtml = refs.length
@@ -9903,7 +9903,7 @@ function openFindingDetail(id) {
       ${target ? `
         <div class="finding-detail-section">
           <div class="finding-detail-label">${findingSource(f) === 'container' ? 'Container Image' : 'File Path'}</div>
-          <div class="finding-detail-value"><code style="word-break:break-all">${esc(target)}</code>${line ? ` <span style="color:var(--text-muted);font-size:11px">line ${esc(line)}</span>` : ''}</div>
+          <div class="finding-detail-value"><code style="word-break:break-all">${esc(target)}</code>${line ? ` <span style="color:var(--text-muted);font-size:12px">line ${esc(line)}</span>` : ''}</div>
         </div>` : ''}
 
       ${descSection}
@@ -10227,7 +10227,7 @@ function openAPIDetail(id) {
         </div>
         <div class="finding-detail-section">
           <div class="finding-detail-label">Authentication</div>
-          <div class="finding-detail-value">${auth !== 'None' ? `<code style="font-size:11px">${esc(auth)}</code>` : '<span style="color:var(--text-dim)">None</span>'}</div>
+          <div class="finding-detail-value">${auth !== 'None' ? `<code style="font-size:12px">${esc(auth)}</code>` : '<span style="color:var(--text-dim)">None</span>'}</div>
         </div>
       </div>
 
@@ -10245,7 +10245,7 @@ function openAPIDetail(id) {
 
       <div class="finding-detail-section" style="margin-top:12px">
         <div class="finding-detail-label">File Location</div>
-        <div class="finding-detail-value"><code style="font-size:11px;word-break:break-all">${esc(file)}</code></div>
+        <div class="finding-detail-value"><code style="font-size:12px;word-break:break-all">${esc(file)}</code></div>
       </div>
 
       ${Array.isArray(params) && params.length > 0 ? `
@@ -10256,10 +10256,10 @@ function openAPIDetail(id) {
               <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:8px;margin-bottom:6px">
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
                   <code style="color:var(--purple);font-size:12px">${esc(p.name || '')}</code>
-                  ${p.required ? '<span style="color:var(--critical);font-size:10px;font-weight:600">REQUIRED</span>' : ''}
+                  ${p.required ? '<span style="color:var(--critical);font-size:12px;font-weight:600">REQUIRED</span>' : ''}
                 </div>
-                ${p.type ? `<div style="color:var(--text-muted);font-size:11px">Type: <code>${esc(p.type)}</code></div>` : ''}
-                ${p.description ? `<div style="color:var(--text-dim);font-size:11px;margin-top:3px">${esc(p.description)}</div>` : ''}
+                ${p.type ? `<div style="color:var(--text-muted);font-size:12px">Type: <code>${esc(p.type)}</code></div>` : ''}
+                ${p.description ? `<div style="color:var(--text-dim);font-size:12px;margin-top:3px">${esc(p.description)}</div>` : ''}
               </div>
             `).join('')}
           </div>
@@ -10273,7 +10273,7 @@ function openAPIDetail(id) {
               <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:8px;margin-bottom:6px">
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
                   <code style="color:var(--pass);font-size:12px">${esc(String(r.status || r.code || ''))}</code>
-                  <span style="color:var(--text-muted);font-size:11px">${esc(r.description || '')}</span>
+                  <span style="color:var(--text-muted);font-size:12px">${esc(r.description || '')}</span>
                 </div>
               </div>
             `).join('')}

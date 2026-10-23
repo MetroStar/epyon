@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.55.12] - 2026-10-23
+
+### Fixed
+- Text smaller than 12px (about 150 rules and inline styles) is now 12px.
+- Muted and dim text, accent and status colours meet 4.5:1 contrast on the page and card backgrounds in both themes (dark `--text-dim`; light `--text-muted`, `--text-dim`, `--accent`, `--pass`, `--critical`, `--high`, `--medium`, `--purple`).
+- Animations and transitions are suppressed when the system asks for reduced motion.
+
 ## [3.55.11] - 2026-10-23
 
 ### Fixed

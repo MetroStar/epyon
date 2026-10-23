@@ -940,6 +940,7 @@ body:has(#sidebar:not(.collapsed)) #sidebar-toggle {
 }
 
 .modal-container {
+  max-width: 540px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -960,6 +961,10 @@ body:has(#sidebar:not(.collapsed)) #sidebar-toggle {
   box-shadow: 0 16px 48px rgba(0,0,0,0.5);
   animation: slideUp 0.14s ease;
 }
+
+.modal-box.modal-md, .modal-container.modal-md { max-width: 540px; }
+.modal-box.modal-lg, .modal-container.modal-lg { max-width: 640px; }
+.modal-box:focus, .modal-container:focus, .finding-drawer:focus { outline: none; }
 
 @keyframes slideUp {
   from { transform: translateY(12px); opacity: 0; }

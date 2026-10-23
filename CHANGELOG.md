@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.55.7] - 2026-10-23
+
+### Fixed
+- Modals and drawers share one behaviour: `role=dialog` and `aria-modal`, Escape and click-outside to close, a Tab focus trap, and focus returned to the opener. Replaced the per-dialog Escape handlers and inline modal widths with `modal-md` / `modal-lg` size classes.
+
 ## [3.55.6] - 2026-10-23
 
 ### Fixed

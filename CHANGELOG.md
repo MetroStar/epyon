@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.55.13] - 2026-10-23
+
+### Changed
+- Pages no longer re-parse every scan folder on each request. Per-scan results are kept in `web/data/cache/parse-cache.json` (keyed by folder name and mtime), so they survive restarts. With about 1,500 scans, `/api/applications` and `/api/metrics` drop from 39 s and over 120 s to under a second once warm.
+- `/api/metrics` builds one response at a time, serves the previous copy while refreshing after its 5-minute TTL, and reuses a compact per-scan digest for trend, SLA and recurrence figures.
+- The server warms the scan and metrics caches at startup.
+
 ## [3.55.12] - 2026-10-23
 
 ### Fixed

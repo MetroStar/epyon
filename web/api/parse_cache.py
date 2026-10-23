@@ -1,0 +1,108 @@
+"""Persistent memo for per-scan parse results.
+
+Parsing a scan directory costs tens of milliseconds and the dashboard parses
+~1,500 of them per request. Results are keyed by scan folder name and folder
+mtime and stored in one JSON file so a server restart does not start cold.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import os
+import tempfile
+import threading
+import time
+from pathlib import Path
+from typing import Any, Callable
+
+log = logging.getLogger("epyon.parse_cache")
+
+# A scan that was touched recently may still be running; never persist it.
+_SETTLE_SECONDS = 15 * 60
+_MAX_ENTRIES = 6000
+
+_lock = threading.Lock()
+_entries: dict[str, list] = {}  # "kind:scan_name" -> [mtime_ns, value]
+_dirty = False
+_path: Path | None = None
+_loaded = False
+
+
+def configure(path: Path) -> None:
+    """Set the cache file and load it. Safe to call more than once."""
+    global _path, _loaded
+    with _lock:
+        _path = path
+        _loaded = False
+    _load()
+
+
+def _load() -> None:
+    global _loaded
+    with _lock:
+        if _loaded or _path is None:
+            return
+        _loaded = True
+        try:
+            data = json.loads(_path.read_text(encoding="utf-8"))
+            if isinstance(data, dict):
+                _entries.update(data)
+        except FileNotFoundError:
+            pass
+        except Exception:
+            log.warning("parse cache unreadable, starting empty", exc_info=True)
+
+
+def get(kind: str, scan_dir: Path, compute: Callable[[], Any]) -> Any:
+    """Return the cached result for scan_dir or compute and remember it."""
+    global _dirty
+    try:
+        mtime_ns = scan_dir.stat().st_mtime_ns
+    except OSError:
+        return compute()
+    key = f"{kind}:{scan_dir.name}"
+    with _lock:
+        hit = _entries.get(key)
+        if hit and hit[0] == mtime_ns:
+            return hit[1]
+    value = compute()
+    if time.time() - mtime_ns / 1e9 > _SETTLE_SECONDS:
+        with _lock:
+            if len(_entries) < _MAX_ENTRIES or key in _entries:
+                _entries[key] = [mtime_ns, value]
+                _dirty = True
+    return value
+
+
+def invalidate(scan_name: str | None = None) -> None:
+    global _dirty
+    with _lock:
+        if scan_name is None:
+            _entries.clear()
+        else:
+            for k in [k for k in _entries if k.split(":", 1)[1] == scan_name]:
+                del _entries[k]
+        _dirty = True
+
+
+def flush() -> None:
+    """Write the cache to disk if it changed. Never raises."""
+    global _dirty
+    with _lock:
+        if not _dirty or _path is None:
+            return
+        try:
+            payload = json.dumps(_entries, default=str)
+        except Exception:
+            log.warning("parse cache not serialisable", exc_info=True)
+            return
+        _dirty = False
+        path = _path
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".parse-cache-")
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(payload)
+        os.replace(tmp, path)
+    except Exception:
+        log.warning("parse cache write failed", exc_info=True)

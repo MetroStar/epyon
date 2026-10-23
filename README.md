@@ -840,6 +840,18 @@ jobs:
     secrets: inherit
 ```
 
+To avoid sending the scan every secret in your repo (including deploy keys), pass only the secrets Epyon reads instead of `secrets: inherit`. All are optional:
+
+```yaml
+    secrets:
+      ECR_SCAN_AWS_ACCESS_KEY_ID: ${{ secrets.ECR_SCAN_AWS_ACCESS_KEY_ID }}
+      ECR_SCAN_AWS_SECRET_ACCESS_KEY: ${{ secrets.ECR_SCAN_AWS_SECRET_ACCESS_KEY }}
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+```
+
+Declared secrets: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `JIRA_BASE_URL`, `JIRA_USER_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY`, `GH_TOKEN`, `COSIGN_KEY`, `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `SONAR_HOST_URL`, `SONAR_TOKEN`, `NVD_API_KEY`, `ECR_SCAN_AWS_ACCESS_KEY_ID`, `ECR_SCAN_AWS_SECRET_ACCESS_KEY`.
+
 Use a pull-only IAM user limited to the repositories you scan (`ecr:GetAuthorizationToken`, `ecr:BatchGetImage`, `ecr:GetDownloadUrlForLayer`, `ecr:BatchCheckLayerAvailability`), never deploy credentials.
 
 Once configured, Epyon will automatically:

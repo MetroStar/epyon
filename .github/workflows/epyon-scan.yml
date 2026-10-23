@@ -294,6 +294,27 @@ on:
       JIRA_PROJECT_KEY:
         description: 'Jira project key (e.g. SAP, SEC). Takes precedence over the jira_project_key input.'
         required: false
+      GH_TOKEN:
+        description: 'GitHub token used for issues, PR automation and API calls (falls back to the workflow token)'
+        required: false
+      COSIGN_KEY:
+        description: 'Cosign private key for signing built images'
+        required: false
+      DOCKERHUB_USERNAME:
+        description: 'Docker Hub username (with DOCKERHUB_TOKEN) to raise the anonymous pull rate limit'
+        required: false
+      DOCKERHUB_TOKEN:
+        description: 'Docker Hub access token (not your password)'
+        required: false
+      SONAR_HOST_URL:
+        description: 'SonarQube server URL'
+        required: false
+      SONAR_TOKEN:
+        description: 'SonarQube token'
+        required: false
+      NVD_API_KEY:
+        description: 'NVD API key for faster CVE lookups'
+        required: false
 
 permissions:
   contents: read

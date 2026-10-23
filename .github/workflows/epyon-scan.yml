@@ -536,9 +536,24 @@ jobs:
           aws-secret-access-key: ${{ secrets.ECR_SCAN_AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ inputs.ecr_region }}
 
+      - name: Resolve private ECR registry account
+        if: ${{ inputs.scan_mode != 'stig' && inputs.ecr_registry != '' }}
+        id: ecr-registry
+        env:
+          ECR_REGISTRY: ${{ inputs.ecr_registry }}
+        run: |
+          account_id="${ECR_REGISTRY%%.*}"
+          if [[ ! "$account_id" =~ ^[0-9]{12}$ ]]; then
+            echo "::error::ecr_registry must be an ECR hostname starting with a 12-digit AWS account ID."
+            exit 1
+          fi
+          echo "account_id=$account_id" >> "$GITHUB_OUTPUT"
+
       - name: Login to Amazon ECR (optional — private ECR)
         if: ${{ inputs.scan_mode != 'stig' && inputs.ecr_registry != '' }}
         uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registries: ${{ steps.ecr-registry.outputs.account_id }}
 
       - name: Pull Security Tool Images
         # In stig mode only Layer 13 (Python-based STIG assessment) runs — no

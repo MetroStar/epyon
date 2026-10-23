@@ -6093,7 +6093,7 @@ async function renderPerformanceDashboard() {
             </div>
             <span class="sev-badge ${mca.f1_score >= 0.9 ? 'clean' : 'critical'}" style="margin-left:auto">${mca.f1_score >= 0.9 ? 'PASS' : 'FAIL'}</span>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div class="resp-grid resp-grid-2" style="gap:16px">
             <div>
               <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Precision</div>
               <div style="font-size:20px;font-weight:600;color:var(--text-primary)">${(mca.precision * 100).toFixed(1)}%</div>
@@ -6217,7 +6217,7 @@ async function renderPerformanceDashboard() {
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div class="resp-grid resp-grid-2" style="gap:20px">
           <div>
             <h4 style="margin:0 0 12px 0;font-size:14px;color:var(--text-primary)">Backend Metrics</h4>
             <table class="info-table">
@@ -6802,7 +6802,7 @@ async function renderSettings() {
             : 'Jira authentication is not configured. Set <code>JIRA_API_TOKEN</code> in the server environment.'}</span>
         </div>
         <div style="display:grid;gap:14px;max-width:600px">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="resp-grid resp-grid-2" style="gap:12px">
             <div>
               <label class="field-label">Jira Base URL</label>
               <input id="jira-url" type="url" class="field-input"
@@ -6816,7 +6816,7 @@ async function renderSettings() {
                 value="${esc(jiraCfg.email || '')}"/>
             </div>
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+          <div class="resp-grid resp-grid-3" style="gap:12px">
             <div>
               <label class="field-label">Default Project Key</label>
               <input id="jira-project" type="text" class="field-input"

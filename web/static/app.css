@@ -298,10 +298,25 @@ body:has(#sidebar:not(.collapsed)) #sidebar-toggle {
 /* ── Page header ──────────────────────────────────────────── */
 .page-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 24px;
   gap: 12px;
+}
+
+.page-header-main { flex: 1 1 280px; min-width: 0; }
+
+.page-subtitle {
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 .page-header h1 {

@@ -2331,7 +2331,7 @@ tr.clickable-row:hover { background: var(--bg-hover, rgba(88,166,255,0.06)); }
   font-size: 12px;
   cursor: pointer;
 }
-.btn-stig-override-save:hover { background: var(--pass); color: #fff; }
+.btn-stig-override-save:hover { background: var(--pass); color: var(--bg); }
 .btn-stig-override-clear {
   background: transparent;
   color: var(--text-muted);

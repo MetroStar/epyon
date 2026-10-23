@@ -259,7 +259,23 @@ on:
         required: false
         default: true
         type: boolean
+      ecr_registry:
+        description: 'Optional: Private Amazon ECR registry host (e.g. 123456789012.dkr.ecr.us-gov-east-1.amazonaws.com). When set, the scan logs in to ECR before scanning images using the ECR_SCAN_AWS_* secrets.'
+        required: false
+        default: ''
+        type: string
+      ecr_region:
+        description: 'AWS region of the ECR registry (e.g. us-gov-east-1). Required when ecr_registry is set.'
+        required: false
+        default: ''
+        type: string
     secrets:
+      ECR_SCAN_AWS_ACCESS_KEY_ID:
+        description: 'Access key ID of a pull-only IAM user for the private ECR registry (used only when ecr_registry is set)'
+        required: false
+      ECR_SCAN_AWS_SECRET_ACCESS_KEY:
+        description: 'Secret access key of the pull-only IAM user for the private ECR registry (used only when ecr_registry is set)'
+        required: false
       OPENAI_API_KEY:
         description: 'OpenAI API key for Garak LLM security probing'
         required: false
@@ -507,6 +523,22 @@ jobs:
           else
             echo "ℹ️  DOCKERHUB_USERNAME/DOCKERHUB_TOKEN not configured — using anonymous Docker Hub pulls, which share a rate limit across every concurrent GitHub Actions job on this IP. See documentation/SCAN_MATRIX.md for setup instructions."
           fi
+
+      - name: Configure AWS credentials (optional — private ECR)
+        # The ECR login token lasts 12 hours and each scan logs in at start, so
+        # nothing needs renewing between runs. Use a pull-only IAM user
+        # (ecr:GetAuthorizationToken, BatchGetImage, GetDownloadUrlForLayer,
+        # BatchCheckLayerAvailability) — never deploy credentials.
+        if: ${{ inputs.scan_mode != 'stig' && inputs.ecr_registry != '' }}
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          aws-access-key-id: ${{ secrets.ECR_SCAN_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ECR_SCAN_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ inputs.ecr_region }}
+
+      - name: Login to Amazon ECR (optional — private ECR)
+        if: ${{ inputs.scan_mode != 'stig' && inputs.ecr_registry != '' }}
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Pull Security Tool Images
         # In stig mode only Layer 13 (Python-based STIG assessment) runs — no

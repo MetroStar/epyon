@@ -1365,7 +1365,7 @@ async function cveBulkOpen() {
   if (!groups.length) return;
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
-  overlay.innerHTML = `<div class="modal-container" style="max-width:640px"><div id="cve-bulk-body">${loading()}</div></div>`;
+  overlay.innerHTML = `<div class="modal-container modal-lg"><div id="cve-bulk-body">${loading()}</div></div>`;
   document.body.appendChild(overlay);
   overlay.addEventListener('click', e => { if (e.target === overlay) cveBulkClose(); });
   await Promise.all(groups.map(cveBulkResolve));
@@ -5242,8 +5242,6 @@ function openSlaDetail() {
   document.body.appendChild(overlay);
   document.body.appendChild(drawer);
 
-  const _onKey = e => { if (e.key === 'Escape') { closeFindingDetail(); document.removeEventListener('keydown', _onKey); } };
-  document.addEventListener('keydown', _onKey);
 }
 
 // ── Risk trend registry ───────────────────────────────────────
@@ -5351,8 +5349,6 @@ function openRiskTrendDetail(app) {
   document.body.appendChild(overlay);
   document.body.appendChild(drawer);
 
-  const _onKey = e => { if (e.key === 'Escape') { closeFindingDetail(); document.removeEventListener('keydown', _onKey); } };
-  document.addEventListener('keydown', _onKey);
 }
 
 function buildRiskTrendSection(m) {
@@ -7756,7 +7752,7 @@ function showDestructiveModal({ title, body, target, confirmLabel = 'Delete', on
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
-    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-box" aria-labelledby="modal-title">
       <h2>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
              stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -7773,12 +7769,7 @@ function showDestructiveModal({ title, body, target, confirmLabel = 'Delete', on
       </div>
     </div>`;
 
-  function onKey(e) {
-    if (e.key === 'Escape') close();
-  }
-
   function close() {
-    document.removeEventListener('keydown', onKey);
     overlay.remove();
   }
 
@@ -7788,7 +7779,6 @@ function showDestructiveModal({ title, body, target, confirmLabel = 'Delete', on
     close();
     onConfirm();
   });
-  document.addEventListener('keydown', onKey);
 
   document.body.appendChild(overlay);
   overlay.querySelector('#modal-confirm').focus();
@@ -8085,7 +8075,7 @@ function showDimensionModal(dimensionKey) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
-    <div class="modal-container" style="max-width:600px">
+    <div class="modal-container modal-lg">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
         <h2 style="color:var(--text);margin:0;display:flex;align-items:center;gap:12px">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -8226,16 +8216,12 @@ function showAddAppModal() {
     </div>`;
 
   overlay.innerHTML = `
-    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="add-app-title"
-         style="max-width:540px">
+    <div class="modal-box modal-md" aria-labelledby="add-app-title">
       ${step1HTML}
       ${step2HTML}
     </div>`;
 
-  function onKey(e) { if (e.key === 'Escape') close(); }
-
   function close() {
-    document.removeEventListener('keydown', onKey);
     overlay.remove();
   }
 
@@ -8324,7 +8310,6 @@ function showAddAppModal() {
   });
 
   overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-  document.addEventListener('keydown', onKey);
 
   document.body.appendChild(overlay);
   urlInput.focus();
@@ -8623,7 +8608,7 @@ async function showJiraEpicModal(quickCtx = null) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
-    <div class="modal-container" style="max-width:520px">
+    <div class="modal-container modal-md">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <h2 style="color:var(--text);margin:0">Create Jira Ticket${selectedCount === 1 ? '' : 's'}</h2>
         <button class="btn" onclick="jiraEpicModalClose()" style="padding:6px 12px">✕</button>
@@ -8666,7 +8651,7 @@ async function openStigJiraModal(scanId, regKeys) {
   document.querySelector('.modal-overlay')?.remove();
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
-  overlay.innerHTML = `<div class="modal-container" style="max-width:520px"><div id="stig-jira-body">${loading()}</div></div>`;
+  overlay.innerHTML = `<div class="modal-container modal-md"><div id="stig-jira-body">${loading()}</div></div>`;
   document.body.appendChild(overlay);
   const body = overlay.querySelector('#stig-jira-body');
   let ctx;
@@ -9318,9 +9303,6 @@ window.openDependencyDetail = function(did) {
   document.body.appendChild(overlay);
   document.body.appendChild(drawer);
 
-  const _onKey = e => { if (e.key === 'Escape') { closeFindingDetail(); document.removeEventListener('keydown', _onKey); } };
-  document.addEventListener('keydown', _onKey);
-  drawer._onKey = _onKey;
 };
 
 // ── STIG Viewer control detail drawer ────────────────────────
@@ -9465,9 +9447,6 @@ function openStigViewerDetail(regKey) {
   document.body.appendChild(overlay);
   document.body.appendChild(drawer);
 
-  const _onKey = e => { if (e.key === 'Escape') { closeFindingDetail(); document.removeEventListener('keydown', _onKey); } };
-  document.addEventListener('keydown', _onKey);
-  drawer._onKey = _onKey;
 }
 
 // "Not Reviewed" is stored as-is (kept separate from N/A) but shown as
@@ -9678,9 +9657,6 @@ function openStigDetail(id) {
   document.body.appendChild(overlay);
   document.body.appendChild(drawer);
 
-  const _onKey = e => { if (e.key === 'Escape') { closeFindingDetail(); document.removeEventListener('keydown', _onKey); } };
-  document.addEventListener('keydown', _onKey);
-  drawer._onKey = _onKey;
 }
 
 // ── Finding detail drawer ─────────────────────────────────────
@@ -9849,16 +9825,11 @@ function openFindingDetail(id) {
   document.body.appendChild(overlay);
   document.body.appendChild(drawer);
 
-  // Trap Escape key
-  const _onKey = e => { if (e.key === 'Escape') { closeFindingDetail(); document.removeEventListener('keydown', _onKey); } };
-  document.addEventListener('keydown', _onKey);
-  drawer._onKey = _onKey;
 }
 
 function closeFindingDetail() {
   const overlay = document.getElementById('finding-drawer-overlay');
   const drawer  = document.getElementById('finding-drawer');
-  if (drawer && drawer._onKey) document.removeEventListener('keydown', drawer._onKey);
   overlay?.remove();
   drawer?.remove();
 }
@@ -10074,15 +10045,11 @@ function openGhSignalDetail(kind, idx) {
   document.body.appendChild(overlay);
   document.body.appendChild(drawer);
 
-  const _onKey = e => { if (e.key === 'Escape') { closeGhSignalDetail(); document.removeEventListener('keydown', _onKey); } };
-  document.addEventListener('keydown', _onKey);
-  drawer._onKey = _onKey;
 }
 
 function closeGhSignalDetail() {
   const overlay = document.getElementById('gh-signal-drawer-overlay');
   const drawer  = document.getElementById('gh-signal-drawer');
-  if (drawer && drawer._onKey) document.removeEventListener('keydown', drawer._onKey);
   overlay?.remove();
   drawer?.remove();
 }
@@ -10214,16 +10181,11 @@ function openAPIDetail(id) {
   document.body.appendChild(overlay);
   document.body.appendChild(drawer);
 
-  // Trap Escape key
-  const _onKey = e => { if (e.key === 'Escape') { closeAPIDetail(); document.removeEventListener('keydown', _onKey); } };
-  document.addEventListener('keydown', _onKey);
-  drawer._onKey = _onKey;
 }
 
 function closeAPIDetail() {
   const overlay = document.getElementById('api-drawer-overlay');
   const drawer  = document.getElementById('api-drawer');
-  if (drawer && drawer._onKey) document.removeEventListener('keydown', drawer._onKey);
   overlay?.remove();
   drawer?.remove();
 }
@@ -10479,6 +10441,81 @@ function renderStaticScanDetail(scan) {
       </div>` : ''}`;
   if (window._sbomPendingUid) { sbomRender(window._sbomPendingUid); window._sbomPendingUid = null; }
   if (window._apiPendingUid)  { apiRender(window._apiPendingUid);   window._apiPendingUid  = null; }
+}
+
+// ── Shared modal / drawer behaviour ──────────────────────────
+// Every `.modal-overlay` and `.finding-drawer` added to the page gets
+// role=dialog, aria-modal, Escape to close, a Tab focus trap, and focus
+// returned to the element that opened it.
+const _overlayStack = [];
+let _lastOutsideFocus = null;
+const _FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+function _overlayFocusables(dialog) {
+  return [...dialog.querySelectorAll(_FOCUSABLE)].filter(el => el.offsetParent !== null);
+}
+
+function _registerOverlay(overlay, dialog) {
+  if (!dialog || _overlayStack.some(o => o.overlay === overlay)) return;
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  if (!dialog.hasAttribute('aria-labelledby') && !dialog.hasAttribute('aria-label')) {
+    const heading = dialog.querySelector('h1,h2,h3');
+    if (heading) dialog.setAttribute('aria-label', heading.textContent.trim());
+  }
+  dialog.setAttribute('tabindex', '-1');
+  _overlayStack.push({ overlay, dialog, trigger: _lastOutsideFocus });
+  (_overlayFocusables(dialog)[0] || dialog).focus({ preventScroll: true });
+}
+
+function _closeTopOverlay() {
+  const top = _overlayStack[_overlayStack.length - 1];
+  if (!top) return;
+  // Click runs the overlay's own close handler (drawers clean up state there).
+  top.overlay.click();
+  if (top.overlay.isConnected) { top.overlay.remove(); top.dialog.remove(); }
+}
+
+function _scanOverlays(root) {
+  if (root.nodeType !== 1) return;
+  if (root.matches('.modal-overlay')) _registerOverlay(root, root.firstElementChild);
+  else if (root.matches('.finding-drawer')) _registerOverlay(root.previousElementSibling?.classList.contains('finding-drawer-overlay') ? root.previousElementSibling : root, root);
+  else root.querySelectorAll?.('.modal-overlay,.finding-drawer').forEach(_scanOverlays);
+}
+
+function _releaseOverlays() {
+  while (_overlayStack.length) {
+    const top = _overlayStack[_overlayStack.length - 1];
+    if (top.dialog.isConnected && top.overlay.isConnected) return;
+    _overlayStack.pop();
+    if (top.trigger && top.trigger.isConnected && !document.querySelector('.modal-overlay,.finding-drawer')) {
+      top.trigger.focus({ preventScroll: true });
+    }
+  }
+}
+
+if (typeof document !== 'undefined' && !window.__overlayA11y) {
+  window.__overlayA11y = true;
+  document.addEventListener('focusin', e => {
+    if (!e.target.closest?.('.modal-overlay,.finding-drawer')) _lastOutsideFocus = e.target;
+  });
+  new MutationObserver(muts => {
+    muts.forEach(m => m.addedNodes.forEach(_scanOverlays));
+    _releaseOverlays();
+  }).observe(document.body, { childList: true });
+
+  document.addEventListener('keydown', e => {
+    const top = _overlayStack[_overlayStack.length - 1];
+    if (!top) return;
+    if (e.key === 'Escape') { e.preventDefault(); _closeTopOverlay(); return; }
+    if (e.key !== 'Tab') return;
+    const items = _overlayFocusables(top.dialog);
+    if (!items.length) { e.preventDefault(); top.dialog.focus(); return; }
+    const first = items[0], last = items[items.length - 1];
+    if (!top.dialog.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
 }
 
 // Static entry point — runs when this JS is embedded in a generated dashboard

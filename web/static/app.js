@@ -2794,19 +2794,19 @@ function buildBuildEvidenceCard(scan) {
   const isContainerBuild = mode === 'container_build';
 
   const statusBadge = isContainerBuild
-    ? `<span class="badge" style="background:var(--pass);color:#fff;">✅ Image Built</span>`
-    : `<span class="badge" style="background:var(--accent);color:#fff;">✅ Target Attested & Verified</span>`;
+    ? `<span class="badge" style="background:var(--pass);color:var(--bg);">✅ Image Built</span>`
+    : `<span class="badge" style="background:var(--accent);color:var(--bg);">✅ Target Attested & Verified</span>`;
 
   const manifestBadge = arts.oci_manifest
-    ? `<span class="badge" style="background:var(--accent);color:#fff;">📦 OCI Manifest</span>`
+    ? `<span class="badge" style="background:var(--accent);color:var(--bg);">📦 OCI Manifest</span>`
     : `<span class="badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);">📦 OCI Manifest N/A</span>`;
 
   const provBadge = arts.slsa_provenance
-    ? `<span class="badge" style="background:var(--purple);color:#fff;">📜 SLSA v1.0 Provenance</span>`
+    ? `<span class="badge" style="background:var(--purple);color:var(--bg);">📜 SLSA v1.0 Provenance</span>`
     : `<span class="badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);">📜 SLSA Provenance N/A</span>`;
 
   const sigBadge = sig.status === 'signed' || arts.image_signature
-    ? `<span class="badge" style="background:var(--pass);color:#fff;">🔏 Cosign Signed</span>`
+    ? `<span class="badge" style="background:var(--pass);color:var(--bg);">🔏 Cosign Signed</span>`
     : `<span class="badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);">🔏 Signature N/A</span>`;
 
   // Build 10-Artifact Inventory Table Rows — status reflects actual file presence

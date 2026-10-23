@@ -879,6 +879,37 @@ body:has(#sidebar:not(.collapsed)) #sidebar-toggle {
   font-size: 12px;
 }
 
+.btn-secondary { /* alias of the default button */
+  background: var(--bg-card);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.btn-success {
+  background: var(--pass-bg);
+  border-color: var(--pass);
+  color: var(--pass);
+}
+
+.btn-success:hover {
+  background: var(--pass);
+  border-color: var(--pass);
+  color: var(--bg);
+}
+
+.btn-ai {
+  background: var(--purple-bg);
+  border-color: var(--purple);
+  color: var(--purple);
+}
+
+.btn-ai:hover {
+  background: var(--purple-bg);
+  border-color: var(--purple);
+  color: var(--purple);
+  filter: brightness(1.15);
+}
+
 .btn-danger {
   background: transparent;
   border-color: var(--critical);
@@ -2351,26 +2382,6 @@ tr.clickable-row:hover { background: var(--bg-hover, rgba(88,166,255,0.06)); }
   flex-wrap: wrap;
   gap: 8px;
 }
-.btn-stig-override-save {
-  background: var(--pass-bg);
-  color: var(--pass);
-  border: 1px solid var(--pass);
-  border-radius: 4px;
-  padding: 5px 14px;
-  font-size: 12px;
-  cursor: pointer;
-}
-.btn-stig-override-save:hover { background: var(--pass); color: var(--bg); }
-.btn-stig-override-clear {
-  background: transparent;
-  color: var(--text-muted);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 5px 12px;
-  font-size: 12px;
-  cursor: pointer;
-}
-.btn-stig-override-clear:hover { color: var(--text-primary); border-color: var(--text-muted); }
 .stig-override-msg {
   font-size: 12px;
   color: var(--text-muted);

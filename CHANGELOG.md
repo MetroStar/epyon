@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.55.6] - 2026-10-23
+
+### Fixed
+- Buttons share one style: defined the missing `btn-secondary`, added `btn-success` and `btn-ai` variants, and replaced one-off and inline-styled buttons (STIG override, clear filters, copy, AI fix) with the shared `btn` classes.
+
 ## [3.55.5] - 2026-10-23
 
 ### Fixed

@@ -3611,7 +3611,7 @@ function buildSBOMSection(sbom, scanId) {
               style="flex:1;min-width:180px;max-width:320px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--text);font-size:13px"
               oninput="sbomRender('${uid}')" />
             <span id="${uid}-count" style="font-size:12px;color:var(--text-muted)"></span>
-            <button onclick="sbomClearFilter('${uid}')" style="font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer">Clear filters</button>
+            <button class="btn btn-sm" onclick="sbomClearFilter('${uid}')">Clear filters</button>
           </div>
           <div style="overflow-x:auto">
             <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -3919,7 +3919,7 @@ function buildAPISection(apiData) {
               style="flex:1;min-width:180px;max-width:320px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--text);font-size:13px"
               oninput="apiRender('${uid}')" />
             <span id="${uid}-count" style="font-size:12px;color:var(--text-muted)"></span>
-            <button onclick="apiClearFilter('${uid}')" style="font-size:11px;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text-muted);cursor:pointer">Clear filters</button>
+            <button class="btn btn-sm" onclick="apiClearFilter('${uid}')">Clear filters</button>
           </div>
           <div style="overflow-x:auto">
             <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -6250,10 +6250,10 @@ async function renderPerformanceDashboard() {
         </div>
 
         <div style="margin-top:20px">
-          <button class="btn btn-secondary" onclick="api.clearCacheAndReload()" style="margin-right:8px">
+          <button class="btn" onclick="api.clearCacheAndReload()" style="margin-right:8px">
             Clear All Caches & Reload
           </button>
-          <button class="btn btn-secondary" onclick="location.reload()">
+          <button class="btn" onclick="location.reload()">
             Refresh Metrics
           </button>
         </div>
@@ -6963,10 +6963,7 @@ async function renderSettings() {
         <div style="position:relative;max-width:700px">
           <pre id="settings-yml" style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);
                padding:12px;font-size:11px;line-height:1.6;overflow-x:auto;margin:0;white-space:pre;color:var(--text)">${esc(WORKFLOW_YML)}</pre>
-          <button id="settings-yml-copy"
-            style="position:absolute;top:8px;right:8px;padding:3px 10px;font-size:11px;
-                   background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
-                   color:var(--text-muted);cursor:pointer"
+          <button id="settings-yml-copy" class="btn btn-sm" style="position:absolute;top:8px;right:8px"
             onclick="navigator.clipboard.writeText(WORKFLOW_YML).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})">Copy</button>
         </div>
       </div>
@@ -8213,10 +8210,7 @@ function showAddAppModal() {
       <div style="position:relative">
         <pre id="add-app-yml" style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);
              padding:12px;font-size:11px;line-height:1.6;overflow-x:auto;margin:0;white-space:pre;color:var(--text)">${workflowYml}</pre>
-        <button id="add-app-copy"
-          style="position:absolute;top:8px;right:8px;padding:3px 10px;font-size:11px;
-                 background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
-                 color:var(--text-muted);cursor:pointer">Copy</button>
+        <button id="add-app-copy" class="btn btn-sm" style="position:absolute;top:8px;right:8px">Copy</button>
       </div>
 
       <p style="font-size:12px;color:var(--text-dim);margin:10px 0 0">
@@ -9453,11 +9447,11 @@ function openStigViewerDetail(regKey) {
               placeholder="Explain why this control is met (required)" rows="3">${justPrefilled}</textarea>
           </div>
           <div class="stig-override-row stig-override-actions">
-            <button class="btn-stig-override-save"
+            <button class="btn btn-sm btn-success"
               onclick="saveStigOverrideFromDrawer('${esc(scanId)}','${esc(c._slug)}','${esc(c.vuln_id)}')"
             >🔒 Lock Override</button>
             ${c.locked_by_human
-              ? `<button class="btn-stig-override-clear"
+              ? `<button class="btn btn-sm"
                   onclick="clearStigOverrideFromDrawer('${esc(scanId)}','${esc(c._slug)}','${esc(c.vuln_id)}')"
                 >Clear Lock</button>`
               : ''}
@@ -9843,7 +9837,7 @@ function openFindingDetail(id) {
       </div>` : ''}
 
       <div id="finding-fix-section" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
-        <button id="finding-fix-btn" onclick="fetchFindingFix(${id})" style="display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);border:1px solid var(--purple);background:rgba(99,102,241,0.08);color:var(--purple);font-size:12.5px;cursor:pointer;font-weight:500;transition:background 0.12s">
+        <button id="finding-fix-btn" class="btn btn-ai" onclick="fetchFindingFix(${id})">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
           Suggest Fix with AI
         </button>
@@ -10049,8 +10043,7 @@ function openGhSignalDetail(kind, idx) {
         </div>
       </div>
       <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
-        <button onclick="closeGhSignalDetail();navigate('#/applications/${encodeURIComponent(name)}')"
-          style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--radius);border:1px solid var(--border);background:rgba(99,102,241,0.08);color:var(--purple);font-size:12.5px;cursor:pointer;font-weight:500">
+        <button class="btn btn-ai" onclick="closeGhSignalDetail();navigate('#/applications/${encodeURIComponent(name)}')">
           View Application Scans
         </button>
       </div>`;

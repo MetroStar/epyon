@@ -7,12 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.55.2] - 2026-10-23
+## [3.55.4] - 2026-10-23
 
 ### Fixed
-- On phones the sidebar filled the whole screen and squeezed the page content beside it. The sidebar now stacks above the content, and the menu button sits top-right.
-- Wide content could widen the whole page; the content column now shrinks and scrolls instead.
-- Two- and three-column grids on Performance and Settings now collapse to fewer columns on tablet and a single column on mobile, and page headers wrap (MID-4709).
+- Page headers wrap the title and action group onto separate rows when needed, preventing overlap on narrow layouts.
+
+## [3.55.3] - 2026-10-23
+
+### Changed
+- Every page now builds its header with one shared `pageHeader()` helper (title, optional subtitle, action buttons), so titles, subtitles and button groups share the same markup, spacing and wrapping. Inline header styles were replaced by `.page-header-main`, `.page-subtitle` and `.page-actions` (MID-4710).
 
 ## [3.55.1] - 2026-10-23
 

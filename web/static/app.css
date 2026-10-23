@@ -306,6 +306,20 @@ body:has(#sidebar:not(.collapsed)) #sidebar-toggle {
   gap: 12px;
 }
 
+.page-header-main { flex: 1 1 280px; min-width: 0; }
+
+.page-subtitle {
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 .page-header h1 {
   font-size: 22px;
   font-weight: 600;

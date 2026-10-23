@@ -412,6 +412,17 @@ function statusBadge(status) {
   return `<span class="status-badge ${esc(status)}">${labels[status] || 'Unknown'}</span>`;
 }
 
+// Shared page header: title (HTML), optional subtitle and action buttons (HTML).
+function pageHeader(title, { subtitle = '', actions = '' } = {}) {
+  return `<div class="page-header">
+    <div class="page-header-main">
+      <h1>${title}</h1>
+      ${subtitle ? `<p class="page-subtitle">${subtitle}</p>` : ''}
+    </div>
+    ${actions ? `<div class="page-actions">${actions}</div>` : ''}
+  </div>`;
+}
+
 function loading() {
   return '<div class="loading"><div class="spinner"></div>Loading…</div>';
 }
@@ -1204,10 +1215,7 @@ async function renderOverview() {
          </div>`;
 
     page.innerHTML = `
-      <div class="page-header">
-        <h1>Security Overview</h1>
-        <button class="btn btn-primary" onclick="navigate('#/new-scan')">+ Run Scan</button>
-      </div>
+      ${pageHeader(`Security Overview`, { actions: `<button class="btn btn-primary" onclick="navigate('#/new-scan')">+ Run Scan</button>` })}
 
       <div class="stats-grid">
         <div class="stat-card">
@@ -1645,13 +1653,8 @@ async function renderApplications() {
       </div>` : '';
 
     page.innerHTML = `
-      <div class="page-header">
-        <h1>Applications</h1>
-        <div style="display:flex;gap:8px">
-          <button class="btn" onclick="showAddAppModal()">+ Add Application</button>
-          <button class="btn btn-primary" onclick="navigate('#/new-scan')">▶ Run Scan</button>
-        </div>
-      </div>
+      ${pageHeader(`Applications`, { actions: `<button class="btn" onclick="showAddAppModal()">+ Add Application</button>
+          <button class="btn btn-primary" onclick="navigate('#/new-scan')">▶ Run Scan</button>` })}
       <div class="table-container">
         <table>
           <thead>
@@ -1796,10 +1799,7 @@ async function renderAppDetail(name) {
         <span>›</span>
         <span>${esc(name)}</span>
       </div>
-      <div class="page-header">
-        <h1>${esc(name)} ${statusBadge(status)}</h1>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-primary"
+      ${pageHeader(`${esc(name)} ${statusBadge(status)}`, { actions: `<button class="btn btn-primary"
             onclick="navigate('#/new-scan?target=${encodeURIComponent(appUrl)}')">
             ▶ Run Scan
           </button>
@@ -1824,9 +1824,7 @@ async function renderAppDetail(name) {
             onclick="deleteApplication('${esc(name)}')"
             title="Permanently delete all scan data for this application">
             Delete All
-          </button>
-        </div>
-      </div>
+          </button>` })}
       ${statsSection}
       ${buildAppIssoSection(name)}
       <div class="section">
@@ -1995,13 +1993,7 @@ async function renderScanDetail(scanId, openFindingId = '', openFindingPackage =
         <span>${esc(scan.scan_id)}</span>
       </div>
 
-      <div class="page-header">
-        <div>
-          <h1>Scan Details ${statusBadge(status)} ${gateBadge(scan)}</h1>
-          <p style="color:var(--text-muted)">Findings, compliance, and evidence collected for <strong>${esc(scan.target)}</strong> on ${fmtDate(scan.timestamp)}.</p>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn" onclick="navigate('#/jira-review/${encodeURIComponent(scanId)}')"
+      ${pageHeader(`Scan Details ${statusBadge(status)} ${gateBadge(scan)}`, { subtitle: `Findings, compliance, and evidence collected for <strong>${esc(scan.target)}</strong> on ${fmtDate(scan.timestamp)}.`, actions: `<button class="btn" onclick="navigate('#/jira-review/${encodeURIComponent(scanId)}')"
             title="Select findings to create as Jira tickets">
             Jira Review
           </button>
@@ -2039,9 +2031,7 @@ async function renderScanDetail(scanId, openFindingId = '', openFindingPackage =
             onclick="deleteScan('${esc(scanId)}', '${esc(scan.target)}')"
             title="Permanently delete this scan">
             Delete Scan
-          </button>
-        </div>
-      </div>
+          </button>` })}
 
       ${envNotesBanner}
 
@@ -4339,11 +4329,8 @@ async function renderStig() {
       </div>`;
 
     page.innerHTML = `
-      <div class="page-header">
-        <h1>STIG Compliance</h1>
-        <button class="btn btn-primary"
-          onclick="navigate('#/new-scan')">▶ Run STIG Scan</button>
-      </div>
+      ${pageHeader(`STIG Compliance`, { actions: `<button class="btn btn-primary"
+          onclick="navigate('#/new-scan')">▶ Run STIG Scan</button>` })}
       ${stigTabs}
       <p class="section-desc">
         Application Security Developer (AppSecDev) STIG and Crunchy Data PostgreSQL STIG
@@ -4382,13 +4369,8 @@ async function renderNewScan(prefill = '') {
 
   const page = document.getElementById('page');
   page.innerHTML = `
-    <div class="page-header">
-      <div>
-        <h1>Run New Scan</h1>
-        <p style="color:var(--text-muted)">Launch a security scan against a local directory or Git repository —
-          Epyon orchestrates all applicable security layers based on the selected scan type.</p>
-      </div>
-    </div>
+    ${pageHeader(`Run New Scan`, { subtitle: `Launch a security scan against a local directory or Git repository —
+          Epyon orchestrates all applicable security layers based on the selected scan type.` })}
 
     <div class="section">
       <div class="section-title">Scan Configuration</div>
@@ -5701,10 +5683,7 @@ async function renderMetrics() {
       : '';
 
     page.innerHTML = `
-      <div class="page-header">
-        <h1>Metrics</h1>
-        <button class="btn btn-sm" onclick="renderMetrics()">&#8635; Refresh</button>
-      </div>
+      ${pageHeader(`Metrics`, { actions: `<button class="btn btn-sm" onclick="renderMetrics()">&#8635; Refresh</button>` })}
       ${filterNotice}
 
       <div class="stats-grid">
@@ -6190,10 +6169,7 @@ async function renderPerformanceDashboard() {
     const saBody = renderSelfAssessmentBody(sa);
 
     page.innerHTML = `
-      <div class="page-header">
-        <h1>Performance Dashboard</h1>
-        <p style="color:var(--text-muted)">How Epyon itself is performing — cache efficiency, scanner accuracy, and validation that recent scans actually ran against real content.</p>
-      </div>
+      ${pageHeader(`Performance Dashboard`, { subtitle: `How Epyon itself is performing — cache efficiency, scanner accuracy, and validation that recent scans actually ran against real content.` })}
 
       <div class="section">
         <div class="section-title">Scan Integrity Check</div>
@@ -6487,10 +6463,7 @@ async function renderGitHubSignals() {
     _ghSignalData = { dep: _depList, sec: _secList, run: _runList, cov: covEntries };
 
     page.innerHTML = `
-      <div class="page-header">
-        <h1>GitHub Signals</h1>
-        <button class="btn btn-sm" onclick="renderGitHubSignals()">&#8635; Refresh</button>
-      </div>
+      ${pageHeader(`GitHub Signals`, { actions: `<button class="btn btn-sm" onclick="renderGitHubSignals()">&#8635; Refresh</button>` })}
       ${noData}
 
       <div class="stats-grid">
@@ -6640,7 +6613,7 @@ async function renderSettings() {
     ];
 
     page.innerHTML = `
-      <div class="page-header"><h1>Settings</h1></div>
+      ${pageHeader(`Settings`)}
 
       <div class="section">
         <div class="section-title">Scan History Summary</div>
@@ -7411,9 +7384,7 @@ async function renderStigHistory(selectedApp, selectedSlug) {
          </div>`;
 
     page.innerHTML = `
-      <div class="page-header">
-        <h1>STIG Compliance</h1>
-      </div>
+      ${pageHeader(`STIG Compliance`)}
       ${histTabs}
       <div class="stig-history-filters">
         <div class="stig-hf-group">
@@ -7450,7 +7421,7 @@ async function renderStigHistory(selectedApp, selectedSlug) {
 
   if (apps.length === 0) {
     page.innerHTML = `
-      <div class="page-header"><h1>STIG Compliance</h1></div>
+      ${pageHeader(`STIG Compliance`)}
       ${histTabs}
       <div class="empty-state" style="margin-top:48px">
         <p>No STIG scan data found.</p>
@@ -7736,18 +7707,13 @@ async function renderStigViewer(scanId) {
         <span>STIG Findings</span>
       </div>
 
-      <div class="page-header">
-        <h1>STIG Findings</h1>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-          ${data.stigs.map(s => {
+      ${pageHeader(`STIG Findings`, { actions: `${data.stigs.map(s => {
             const mdUrl   = s.md_url   || `/api/scans/${encodeURIComponent(scanId)}/stig-findings/${s.slug}.md`;
             const cklbUrl = s.cklb_url || `/api/scans/${encodeURIComponent(scanId)}/stig-findings/${s.slug}.cklb`;
             return `
               <a class="btn btn-sm" href="${esc(mdUrl)}"   download title="${esc(s.stig_name)}">↓ ${esc(s.slug.slice(0,20))}.md</a>
               <a class="btn btn-sm" href="${esc(cklbUrl)}" download title="${esc(s.stig_name)}">↓ ${esc(s.slug.slice(0,20))}.cklb</a>`;
-          }).join('')}
-        </div>
-      </div>
+          }).join('')}` })}
 
       <div class="stig-totals-bar">
         <div class="stig-total-chip open">
@@ -8410,13 +8376,7 @@ function renderJiraReviewPage() {
       <a href="#/scans/${encodeURIComponent(state.scanId)}">Scan Details</a>
       <span>›</span><span>Jira Review</span>
     </div>
-    <div class="page-header">
-      <div>
-        <h1>Jira Ticket Review</h1>
-        <div class="jira-review-subtitle">${esc(data.app_name)} · ${esc(state.scanId)}</div>
-      </div>
-      <button class="btn" onclick="navigate('#/scans/${encodeURIComponent(state.scanId)}')">Back to Scan</button>
-    </div>
+    ${pageHeader(`Jira Ticket Review`, { subtitle: `${esc(data.app_name)} · ${esc(state.scanId)}`, actions: `<button class="btn" onclick="navigate('#/scans/${encodeURIComponent(state.scanId)}')">Back to Scan</button>` })}
     <div class="jira-review-project">
       <div>
         <label class="field-label" for="jira-review-project-key">Jira project for ${esc(data.app_name)}</label>
@@ -10430,12 +10390,7 @@ function renderStaticScanDetail(scan) {
       <span>${esc(scanId)}</span>
     </div>
 
-    <div class="page-header">
-      <div>
-        <h1>Scan Details ${statusBadge(status)}</h1>
-        <p style="color:var(--text-muted)">Findings, compliance, and evidence collected for <strong>${esc(scan.target || '—')}</strong> on ${fmtDate(scan.timestamp)}.</p>
-      </div>
-    </div>
+    ${pageHeader(`Scan Details ${statusBadge(status)}`, { subtitle: `Findings, compliance, and evidence collected for <strong>${esc(scan.target || '—')}</strong> on ${fmtDate(scan.timestamp)}.` })}
 
     <div class="stats-grid" style="margin-bottom:24px">
       <div class="stat-card">

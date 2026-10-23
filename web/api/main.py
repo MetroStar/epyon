@@ -10,6 +10,8 @@ import logging
 import os
 import re
 import shutil
+import sys
+import threading
 import time
 import zipfile
 from collections import OrderedDict
@@ -29,6 +31,7 @@ from pydantic import BaseModel
 
 from . import jobs as job_store
 from . import parsers
+from . import parse_cache
 from . import finding_search
 from . import github_sync
 from . import github_metrics
@@ -265,6 +268,35 @@ def _cached_find_scan_dirs(days: int = _DEFAULT_SCAN_DAYS) -> list:
     return dirs
 
 
+def _memo_load_scan(scan_dir) -> dict:
+    return parse_cache.get("scan", scan_dir, lambda: parsers.load_scan(scan_dir, EPYON_ROOT))
+
+
+def _scan_digest(scan_dir) -> dict:
+    """Compact per-scan summary for trend metrics: fingerprint -> severity and secret counts.
+
+    Full findings run to hundreds of KB per scan, so only this digest is persisted.
+    """
+    def build() -> dict:
+        sf = parsers.parse_scan_findings(scan_dir)
+        fps: dict[str, str] = {}
+        secrets = verified = 0
+        for sev in ("critical", "high", "medium", "low"):
+            for f in sf.get(f"{sev}_findings", []):
+                fp = f"{f.get('tool', '')}::{f.get('id', '')}::{f.get('package', '')}"
+                fps[sys.intern(fp)] = sev
+                if f.get("tool") == "TruffleHog":
+                    secrets += 1
+                    if f.get("severity") == "critical":
+                        verified += 1
+        return {"fps": fps, "secrets": secrets, "verified": verified}
+    return parse_cache.get("digest", scan_dir, build)
+
+
+def _memo_suppressed(scan_dir) -> list:
+    return parse_cache.get("suppressed", scan_dir, lambda: parsers.parse_suppressed_findings(scan_dir))
+
+
 def _cached_load_scan(scan_dir) -> dict:
     scan_id = scan_dir.name
     now     = time.monotonic()
@@ -276,7 +308,7 @@ def _cached_load_scan(scan_dir) -> dict:
         return cached[0]
     _cache_metrics["misses"]["scan"] += 1
     _cache_metrics_logger.debug(f"cache_read source=memory endpoint=scan hit=false scan_id={scan_id}")
-    data = parsers.load_scan(scan_dir, EPYON_ROOT)
+    data = _memo_load_scan(scan_dir)
     _scan_cache[scan_id] = (data, now)
     _cache_metrics["writes"]["scan"] += 1
     _cache_metrics_logger.debug(f"cache_write endpoint=scan success=true scan_id={scan_id}")
@@ -450,8 +482,24 @@ async def lifespan(_: FastAPI):
                 log.exception("retention sweep failed")
             await asyncio.sleep(_RETENTION_SWEEP_INTERVAL_SECONDS)
 
+    async def _warm_caches() -> None:
+        """Fill the parse and metrics caches so the first page view is fast."""
+        def _warm() -> None:
+            t0 = time.monotonic()
+            try:
+                for d in _cached_find_scan_dirs():
+                    _cached_load_scan(d)
+                parse_cache.flush()
+                _compute_metrics()
+                logging.getLogger("epyon.perf").info("cache warm-up done in %.1fs", time.monotonic() - t0)
+            except Exception:
+                logging.getLogger("epyon.perf").exception("cache warm-up failed")
+        await asyncio.to_thread(_warm)
+
+    parse_cache.configure(_HERE.parent / "data" / "cache" / "parse-cache.json")
     asyncio.create_task(_auto_sync_loop())
     asyncio.create_task(_retention_loop())
+    asyncio.create_task(_warm_caches())
     yield
 
 
@@ -707,6 +755,7 @@ def applications(response: Response):
     hidden   = _load_hidden_apps()
     monitored = _load_monitored_apps()
     scans = [_cached_load_scan(d) for d in _cached_find_scan_dirs()]
+    parse_cache.flush()
     by_target: dict[str, list] = {}
     for s in scans:
         if s["target"] not in hidden:
@@ -2141,16 +2190,44 @@ def cancel_job(job_id: str, response: Response):
 
 # ── Metrics ───────────────────────────────────────────────────
 
+_metrics_lock = threading.Lock()
+
+
 @app.get("/api/metrics")
 def get_metrics(response: Response):
     _sec_headers(response)
-    global _metrics_cache, _metrics_cache_ts
-    now = time.monotonic()
-    if _metrics_cache and (now - _metrics_cache_ts) < _METRICS_TTL:
+    if _metrics_cache:
+        if (time.monotonic() - _metrics_cache_ts) >= _METRICS_TTL:
+            _refresh_metrics_async()  # serve the stale copy while a fresh one builds
         return _metrics_cache
+    return _compute_metrics()
 
+
+def _refresh_metrics_async() -> None:
+    if _metrics_lock.locked():
+        return
+    threading.Thread(target=_compute_metrics, daemon=True).start()
+
+
+def _compute_metrics() -> dict:
+    """Build the metrics payload. One build at a time; waiters reuse its result."""
+    global _metrics_cache, _metrics_cache_ts
+    with _metrics_lock:
+        if _metrics_cache and (time.monotonic() - _metrics_cache_ts) < _METRICS_TTL:
+            return _metrics_cache
+        started = time.monotonic()
+        result = _build_metrics()
+        parse_cache.flush()
+        _metrics_cache    = result
+        _metrics_cache_ts = time.monotonic()
+        logging.getLogger("epyon.perf").info("metrics built in %.1fs", _metrics_cache_ts - started)
+        return result
+
+
+def _build_metrics() -> dict:
+    now = time.monotonic()
     scan_dirs = _cached_find_scan_dirs(days=35)
-    all_scans = [parsers.load_scan(d, EPYON_ROOT) for d in scan_dirs]
+    all_scans = [_memo_load_scan(d) for d in scan_dirs]
 
     trend = sorted(
         [
@@ -2318,20 +2395,15 @@ def get_metrics(response: Response):
                 "low":      s.get("low",      0),
             })
             try:
-                sf = parsers.parse_scan_findings(scan_dir)
+                dg = _scan_digest(scan_dir)
             except Exception:
                 continue
-            secrets = [
-                f for sev in ("critical", "high", "medium", "low")
-                for f in sf.get(f"{sev}_findings", [])
-                if f.get("tool") == "TruffleHog"
-            ]
-            verified   = sum(1 for f in secrets if f.get("severity") == "critical")
-            unverified = len(secrets) - verified
+            verified   = dg["verified"]
+            unverified = dg["secrets"] - verified
             t_secret_trend.append({
                 "date": ts, "target": _target,
                 "verified": verified, "unverified": unverified,
-                "total": len(secrets),
+                "total": dg["secrets"],
             })
         secret_trend.extend(t_secret_trend)
         if t_secret_trend:
@@ -2342,7 +2414,7 @@ def get_metrics(response: Response):
         target_suppressions: list[dict] = []
         for _, scan_dir in reversed(eligible_sorted):  # newest → oldest
             try:
-                batch = parsers.parse_suppressed_findings(scan_dir)
+                batch = _memo_suppressed(scan_dir)
             except Exception:
                 continue
             for sup in batch:
@@ -2388,28 +2460,23 @@ def get_metrics(response: Response):
             if not ts:
                 continue
             try:
-                sf = parsers.parse_scan_findings(scan_dir)
+                dg = _scan_digest(scan_dir)
             except Exception:
                 prev_fps = set()
                 prev_ts_str = ts
                 fp_pending_resolution.clear()
                 continue
             curr_fps: set[str] = set()
-            curr_fp_sev: dict[str, str] = {}
-            for sev in ("critical", "high", "medium", "low"):
-                for f in sf.get(f"{sev}_findings", []):
-                    fp = f"{f.get('tool', '')}::{f.get('id', '')}::{f.get('package', '')}"
-                    if fp:
-                        curr_fps.add(fp)
-                        curr_fp_sev[fp] = sev
-                        if fp not in fp_first_seen:
-                            fp_first_seen[fp] = (ts, sev)
-                        # Recurrence: was resolved before, now back
-                        if fp in fp_ever_resolved:
-                            recurrence_count += 1
-                            fp_ever_resolved.discard(fp)
-                        # Reappeared before confirmation — cancel the pending resolution
-                        fp_pending_resolution.pop(fp, None)
+            for fp, sev in dg["fps"].items():
+                curr_fps.add(fp)
+                if fp not in fp_first_seen:
+                    fp_first_seen[fp] = (ts, sev)
+                # Recurrence: was resolved before, now back
+                if fp in fp_ever_resolved:
+                    recurrence_count += 1
+                    fp_ever_resolved.discard(fp)
+                # Reappeared before confirmation — cancel the pending resolution
+                fp_pending_resolution.pop(fp, None)
 
             # ── Two-scan confirmation: a finding must be absent from 2 consecutive
             # scans before it counts as resolved. Single-scan absences (scanner noise,
@@ -2541,21 +2608,16 @@ def get_metrics(response: Response):
             if not ts:
                 continue
             try:
-                scan_findings = parsers.parse_scan_findings(scan_dir)
+                dg = _scan_digest(scan_dir)
             except Exception:
                 prev_ts = ts
                 continue
-            current_fps: set[str] = set()
-            current_fp_sev: dict[str, str] = {}
-            for sev in ("critical", "high", "medium", "low"):
-                for f in scan_findings.get(f"{sev}_findings", []):
-                    fp = f"{f.get('tool', '')}::{f.get('id', '')}::{f.get('package', '')}"
-                    if fp:
-                        if fp not in first_seen:
-                            first_seen[fp] = ts
-                            first_seen_sev[fp] = sev
-                        current_fps.add(fp)
-                        current_fp_sev[fp] = sev
+            current_fp_sev: dict[str, str] = dg["fps"]
+            current_fps: set[str] = set(current_fp_sev)
+            for fp, sev in current_fp_sev.items():
+                if fp not in first_seen:
+                    first_seen[fp] = ts
+                    first_seen_sev[fp] = sev
             # MTTD: record detection window for newly-appearing findings
             if prev_ts:
                 try:
@@ -2728,8 +2790,6 @@ def get_metrics(response: Response):
         "total_resolved":         total_resolved,
     }
 
-    _metrics_cache    = result
-    _metrics_cache_ts = now
     return result
 
 

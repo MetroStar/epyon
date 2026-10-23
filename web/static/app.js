@@ -1074,12 +1074,75 @@ function applyTheme(theme) {
   try { localStorage.setItem('epyon-theme', theme); } catch (_) {}
 }
 
+// ── Shared toast and confirm components ──────────────────────
+// Replace browser alert()/confirm(): themed, non-blocking, and announced to
+// screen readers. Errors include a next step.
+function toast(message, kind = 'info') {
+  let host = document.getElementById('toast-host');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'toast-host';
+    host.className = 'toast-host';
+    host.setAttribute('role', 'status');
+    host.setAttribute('aria-live', 'polite');
+    document.body.appendChild(host);
+  }
+  const el = document.createElement('div');
+  el.className = `toast toast-${kind}`;
+  if (kind === 'error') el.setAttribute('role', 'alert');
+  const text = document.createElement('div');
+  text.className = 'toast-text';
+  text.textContent = message;
+  if (kind === 'error') {
+    const hint = document.createElement('div');
+    hint.className = 'toast-hint';
+    hint.textContent = 'Try again. If it keeps failing, check the Epyon server log.';
+    text.appendChild(hint);
+  }
+  const close = document.createElement('button');
+  close.className = 'toast-close';
+  close.setAttribute('aria-label', 'Dismiss');
+  close.textContent = '\u2715';
+  const dismiss = () => el.remove();
+  close.addEventListener('click', dismiss);
+  el.append(text, close);
+  host.appendChild(el);
+  setTimeout(dismiss, kind === 'error' ? 10000 : 6000);
+}
+
+function confirmDialog({ title, body, confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = true }) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-box" aria-labelledby="confirm-title">
+        <h2 style="${danger ? '' : 'color:var(--text)'}"><span id="confirm-title"></span></h2>
+        <p class="confirm-body"></p>
+        <div class="modal-actions">
+          <button class="btn" data-act="cancel"></button>
+          <button class="btn ${danger ? 'btn-danger' : 'btn-primary'}" data-act="ok"></button>
+        </div>
+      </div>`;
+    overlay.querySelector('#confirm-title').textContent = title;
+    overlay.querySelector('.confirm-body').textContent = body;
+    overlay.querySelector('[data-act=cancel]').textContent = cancelLabel;
+    overlay.querySelector('[data-act=ok]').textContent = confirmLabel;
+    let done = false;
+    const finish = value => { if (done) return; done = true; overlay.remove(); resolve(value); };
+    overlay.addEventListener('click', e => {
+      if (e.target === overlay || e.target.dataset?.act === 'cancel') finish(false);
+      else if (e.target.dataset?.act === 'ok') finish(true);
+    });
+    document.body.appendChild(overlay);
+  });
+}
+
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme') || 'dark';
   applyTheme(current === 'dark' ? 'light' : 'dark');
 }
 
-function clearCacheAndReload() {
+async function clearCacheAndReload() {
   // Show cache metrics before clearing
   const frontendMetrics = _cache.getMetrics();
   console.log('Frontend Cache Metrics:', frontendMetrics);
@@ -1091,7 +1154,7 @@ function clearCacheAndReload() {
     `  Hit Rate: ${frontendMetrics.hit_rate_pct || 'N/A'}%\n` +
     `  Avg Staleness: ${frontendMetrics.avg_staleness_ms || 'N/A'}ms`;
   
-  if (confirm(msg)) {
+  if (await confirmDialog({ title: 'Clear cache and reload', body: msg, confirmLabel: 'Clear and reload', danger: false })) {
     _cache.invalidate();
     window.location.reload();
   }
@@ -1443,7 +1506,7 @@ async function cveBulkConfirm() {
   const m = _cveBulk.modal;
   if (!m || m.running) return;
   const bad = m.groups.find(g => g.eligible.length && !/^[A-Z][A-Z0-9]{0,9}$/.test(g.projectKey));
-  if (bad) { alert(`Enter a valid Jira project key for ${bad.entry.app_name}.`); return; }
+  if (bad) { toast(`Enter a valid Jira project key for ${bad.entry.app_name}.`, 'warning'); return; }
   m.running = true;
   const body = document.getElementById('cve-bulk-body');
   const results = [];
@@ -1559,7 +1622,7 @@ async function toggleMonitored(name, isCurrently) {
     }
     renderApplications();
   } catch (e) {
-    alert('Failed to update monitoring status: ' + e.message);
+    toast('Failed to update monitoring status: ' + e.message, 'error');
   }
 }
 
@@ -1810,7 +1873,7 @@ async function renderAppDetail(name) {
                   ? `await api.unsetMonitored('${esc(name)}')`
                   : `await api.setMonitored('${esc(name)}')`};
                 renderAppDetail('${esc(name)}');
-              } catch(e) { alert(e.message); }
+              } catch(e) { toast(e.message, 'error'); }
             })()"
             title="${appInfo.monitored ? 'Continuous \u2014 click to set as Evaluation' : 'Evaluation \u2014 click to set as Continuous'}">
             ${appInfo.monitored ? '● Continuous' : '◯ Evaluation'}
@@ -2987,7 +3050,7 @@ window.exportSSPDocx = async function(scanId) {
     a.click();
     URL.revokeObjectURL(url);
   } catch (err) {
-    alert('Failed to export Word document: ' + err.message);
+    toast('Failed to export Word document: ' + err.message, 'error');
   }
 };
 
@@ -3271,7 +3334,7 @@ async function exportSummaryDocx(which) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   } catch (e) {
-    alert('Word export failed: ' + e.message);
+    toast('Word export failed: ' + e.message, 'error');
   }
 }
 
@@ -3332,7 +3395,7 @@ async function generateAppIssoSummary(name) {
 
 function exportAppIssoSummaryPdf(name) {
   const text = _appIssoCache[name];
-  if (!text) { alert('Generate the ISSO brief first.'); return; }
+  if (!text) { toast('Generate the ISSO brief first.', 'warning'); return; }
   const doc = new window.jspdf.jsPDF();
   doc.setFontSize(16);
   doc.text(`ISSO Compliance Brief — ${name}`, 14, 20);
@@ -3344,7 +3407,7 @@ function exportAppIssoSummaryPdf(name) {
 
 async function exportAppIssoSummaryDocx(name) {
   const text = _appIssoCache[name];
-  if (!text) { alert('Generate the ISSO brief first.'); return; }
+  if (!text) { toast('Generate the ISSO brief first.', 'warning'); return; }
   try {
     const blob = await api.exportSummaryDocx({ isso_summary: text });
     const url  = URL.createObjectURL(blob);
@@ -3352,7 +3415,7 @@ async function exportAppIssoSummaryDocx(name) {
     document.body.appendChild(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
   } catch (e) {
-    alert('Word export failed: ' + e.message);
+    toast('Word export failed: ' + e.message, 'error');
   }
 }
 
@@ -3500,7 +3563,7 @@ function exportOverviewSummaryPdf(only) {
 
   const win = window.open('', '_blank');
   if (!win) {
-    alert('Pop-up blocked — please allow pop-ups for this page and try again.');
+    toast('Pop-up blocked — please allow pop-ups for this page and try again.', 'warning');
     return;
   }
   win.document.write(html);
@@ -4679,11 +4742,11 @@ async function submitScan() {
   const uploadFile = document.getElementById('scan-upload')?.files?.[0] || null;
 
   if (selectedTypes.length === 0) {
-    alert('Select at least one scan type to run.');
+    toast('Select at least one scan type to run.', 'warning');
     return;
   }
   if (selectedTypes.includes('container_image') && selectedTypes.length > 1) {
-    alert('Container Image scans use the Target field for an image source (not a path/Git URL) and cannot be combined with other scan types in the same run. Run it on its own.');
+    toast('Container Image scans use the Target field for an image source (not a path/Git URL) and cannot be combined with other scan types in the same run. Run it on its own.', 'warning');
     return;
   }
   if (activeMode === 'upload') {
@@ -4921,7 +4984,7 @@ async function startSelfDiagnostic() {
   const allBoxes = Array.from(document.querySelectorAll('.self-diag-layer-checkbox'));
   const checkedBoxes = allBoxes.filter(cb => cb.checked);
   if (allBoxes.length && checkedBoxes.length === 0) {
-    alert('Select at least one layer to validate, or click "Select All".');
+    toast('Select at least one layer to validate, or click "Select All".', 'warning');
     return;
   }
   // Only pass a layer filter if it's a strict subset — an empty/omitted
@@ -5033,7 +5096,7 @@ function copyScanLogs() {
     }
   }).catch(err => {
     console.error('Failed to copy logs:', err);
-    alert('Failed to copy logs to clipboard');
+    toast('Failed to copy logs to clipboard', 'error');
   });
 }
 
@@ -7026,7 +7089,7 @@ async function saveAiConfig() {
     });
     await renderSettings();
   } catch (e) {
-    alert('Failed to save AI config: ' + e.message);
+    toast('Failed to save AI config: ' + e.message, 'error');
   }
 }
 
@@ -7048,7 +7111,7 @@ async function saveGitHubConfig() {
     const statusEl = document.getElementById('sync-status');
     if (statusEl) statusEl.textContent = 'Configuration saved.';
   } catch (e) {
-    alert('Failed to save GitHub config: ' + e.message);
+    toast('Failed to save GitHub config: ' + e.message, 'error');
   }
 }
 
@@ -7786,12 +7849,16 @@ function showDestructiveModal({ title, body, target, confirmLabel = 'Delete', on
 
 // ── Application management helpers ───────────────────────────
 async function hideApplication(name) {
-  if (!confirm(`Hide "${name}" from the applications list?\n\nThe scan data will be preserved and can be restored later.`)) return;
+  if (!await confirmDialog({
+    title: `Hide "${name}"?`,
+    body: 'It will be hidden from the applications list. The scan data is preserved and can be restored later.',
+    confirmLabel: 'Hide',
+  })) return;
   try {
     await api.hideApp(name);
     renderApplications();
   } catch (e) {
-    alert(`Failed to hide application: ${e.message}`);
+    toast(`Failed to hide application: ${e.message}`, 'error');
   }
 }
 
@@ -7800,7 +7867,7 @@ async function restoreApplication(name) {
     await api.restoreApp(name);
     renderApplications();
   } catch (e) {
-    alert(`Failed to restore application: ${e.message}`);
+    toast(`Failed to restore application: ${e.message}`, 'error');
   }
 }
 
@@ -7815,7 +7882,7 @@ async function deleteApplication(name) {
         await api.deleteApp(name);
         navigate('#/applications');
       } catch (e) {
-        alert(`Failed to delete application: ${e.message}`);
+        toast(`Failed to delete application: ${e.message}`, 'error');
       }
     },
   });
@@ -7836,7 +7903,7 @@ async function deleteScan(scanId, appName) {
           navigate('#/applications');
         }
       } catch (e) {
-        alert(`Failed to delete scan: ${e.message}`);
+        toast(`Failed to delete scan: ${e.message}`, 'error');
       }
     },
   });
@@ -8526,7 +8593,7 @@ async function jiraReviewSaveProject() {
   const button = document.getElementById('jira-review-project-save');
   const projectKey = input.value.trim().toUpperCase();
   if (!/^[A-Z][A-Z0-9]{0,9}$/.test(projectKey)) {
-    alert('Project key must be 1-10 uppercase letters or numbers and start with a letter.');
+    toast('Project key must be 1-10 uppercase letters or numbers and start with a letter.', 'warning');
     input.focus();
     return;
   }
@@ -8538,7 +8605,7 @@ async function jiraReviewSaveProject() {
   } catch (error) {
     button.disabled = false;
     button.textContent = 'Save Project';
-    alert(`Could not save Jira project: ${error.message}`);
+    toast(`Could not save Jira project: ${error.message}`, 'error');
   }
 }
 
@@ -9122,15 +9189,16 @@ async function jiraReviewCreateTicketsConfirmed() {
     const reasonText = Object.entries(reasonCounts)
       .map(([reason, count]) => `${count} ${reasonLabels[reason] || reason}`)
       .join('; ');
-    alert(
+    toast(
       `Created ${created} ticket${created === 1 ? '' : 's'}. ${existing} already existed. ` +
-      `${failed.size} failed or became ineligible${reasonText ? ` (${reasonText})` : ''}.`
+      `${failed.size} failed or became ineligible${reasonText ? ` (${reasonText})` : ''}.`,
+      failed.size ? 'warning' : 'success'
     );
   } catch (error) {
     state.submitting = false;
     if (button) button.textContent = 'Create Jira Tickets';
     jiraReviewUpdateSelection();
-    alert(`Ticket creation failed: ${error.message}`);
+    toast(`Ticket creation failed: ${error.message}`, 'error');
   }
 }
 

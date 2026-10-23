@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.55.10] - 2026-10-23
+
+### Changed
+- Loading, empty and error states use shared components. Error panels have a Retry button and loading takes a label; ad hoc loading text and empty-table messages now use `loading()`, `emptyState()`, `emptyRow()` and `emptyNote()`.
+
 ## [3.55.9] - 2026-10-23
 
 ### Changed

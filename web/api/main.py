@@ -250,6 +250,15 @@ _cache_metrics = {
 }
 _cache_metrics_logger = logging.getLogger("epyon.cache")
 
+# uvicorn leaves the root logger at WARNING, which would hide the load-time timings.
+for _name in ("epyon.perf", "epyon.parse_cache"):
+    _lg = logging.getLogger(_name)
+    _lg.setLevel(logging.INFO)
+    if not _lg.handlers:
+        _h = logging.StreamHandler()
+        _h.setFormatter(logging.Formatter("%(levelname)s:     %(name)s: %(message)s"))
+        _lg.addHandler(_h)
+
 
 def _cached_find_scan_dirs(days: int = _DEFAULT_SCAN_DAYS) -> list:
     global _dir_cache
@@ -273,24 +282,7 @@ def _memo_load_scan(scan_dir) -> dict:
 
 
 def _scan_digest(scan_dir) -> dict:
-    """Compact per-scan summary for trend metrics: fingerprint -> severity and secret counts.
-
-    Full findings run to hundreds of KB per scan, so only this digest is persisted.
-    """
-    def build() -> dict:
-        sf = parsers.parse_scan_findings(scan_dir)
-        fps: dict[str, str] = {}
-        secrets = verified = 0
-        for sev in ("critical", "high", "medium", "low"):
-            for f in sf.get(f"{sev}_findings", []):
-                fp = f"{f.get('tool', '')}::{f.get('id', '')}::{f.get('package', '')}"
-                fps[sys.intern(fp)] = sev
-                if f.get("tool") == "TruffleHog":
-                    secrets += 1
-                    if f.get("severity") == "critical":
-                        verified += 1
-        return {"fps": fps, "secrets": secrets, "verified": verified}
-    return parse_cache.get("digest", scan_dir, build)
+    return parse_cache.get("digest", scan_dir, lambda: parse_cache.build_digest(scan_dir))
 
 
 def _memo_suppressed(scan_dir) -> list:
@@ -487,9 +479,8 @@ async def lifespan(_: FastAPI):
         def _warm() -> None:
             t0 = time.monotonic()
             try:
-                for d in _cached_find_scan_dirs():
-                    _cached_load_scan(d)
-                parse_cache.flush()
+                n = parse_cache.warm(_cached_find_scan_dirs(), EPYON_ROOT)
+                logging.getLogger("epyon.perf").info("parsed %d scans in %.1fs", n, time.monotonic() - t0)
                 _compute_metrics()
                 logging.getLogger("epyon.perf").info("cache warm-up done in %.1fs", time.monotonic() - t0)
             except Exception:

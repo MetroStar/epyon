@@ -431,12 +431,13 @@ function loading(label = 'Loading…') {
 // deploy or a long idle period). Explain it and show a timer with an estimate
 // taken from the last slow load on this browser.
 (function slowLoadNotice() {
-  const SHOW_AFTER_S = 4, DEFAULT_EST_S = 30, KEY = 'epyon.coldLoadSecs';
+  const SHOW_AFTER_S = 4, DEFAULT_EST_S = 120, KEY = 'epyon.coldLoadSecs';
   const tracked = new Map(); // element -> { start, hash }
   const estimate = () => {
     const v = parseInt(localStorage.getItem(KEY) || '', 10);
     return v > 0 ? v : DEFAULT_EST_S;
   };
+  const fmt = s => (s >= 90 ? `${Math.round(s / 60)} minutes` : `${s}s`);
   const tick = () => {
     const now = Date.now();
     tracked.forEach((t, el) => {
@@ -461,8 +462,8 @@ function loading(label = 'Loading…') {
       }
       const est = estimate();
       note.textContent = secs <= est
-        ? `The server is rebuilding its data cache after being idle. This usually takes about ${est}s. ${secs}s elapsed. You can switch to another page at any time.`
-        : `Still working: ${secs}s elapsed, longer than the usual ${est}s. You can switch to another page or retry.`;
+        ? `The server is rebuilding its data cache after being idle. This usually takes about ${fmt(est)}. ${secs}s elapsed. You can switch to another page at any time.`
+        : `Still working: ${secs}s elapsed, longer than the usual ${fmt(est)}. You can switch to another page or retry.`;
     });
   };
   setInterval(tick, 1000);

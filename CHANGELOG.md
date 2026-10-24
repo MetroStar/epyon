@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.55.15] - 2026-10-24
 
 ### Added
-- A page that takes more than 4 seconds to load now explains that the server is rebuilding its cache, shows the seconds elapsed and an estimate (the last slow load in this browser, 30 s by default), and says you can switch pages.
+- A page that takes more than 4 seconds to load now explains that the server is rebuilding its cache, shows the seconds elapsed and an estimate (the last slow load in this browser, 2 minutes by default), and says you can switch pages.
 
 ## [3.55.13] - 2026-10-23
 

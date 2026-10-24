@@ -66,3 +66,11 @@ def test_recent_scan_is_not_cached(tmp_path):
     parse_cache.get("k", scan, lambda: calls.append(1) or 1)
     parse_cache.get("k", scan, lambda: calls.append(1) or 1)
     assert len(calls) == 2
+
+
+def test_warm_fills_cache_in_workers(tmp_path):
+    _reset(tmp_path / "p.json")
+    scan = _old_dir(tmp_path)
+    assert parse_cache.warm([scan], tmp_path, workers=1) == 1
+    assert parse_cache.warm([scan], tmp_path, workers=1) == 0
+    assert parse_cache.get("digest", scan, lambda: None)["secrets"] == 0

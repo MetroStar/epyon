@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.55.14] - 2026-10-23
+
+### Changed
+- After a fresh deploy the scan cache is filled by worker processes across all CPU cores (up to 8) instead of one thread. On about 1,500 scans, an empty cache is fully warm in about 25 s instead of over 3 minutes, and request handling is no longer slowed by the warm-up.
+- Cache timings (`epyon.perf`) are now written to the server log.
+
 ## [3.55.13] - 2026-10-23
 
 ### Changed

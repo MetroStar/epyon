@@ -229,7 +229,7 @@ async def _read_stream(stream: asyncio.StreamReader, job: dict) -> None:
         _append_line(job, line.decode("utf-8", errors="replace").rstrip("\n\r"))
 
 
-async def run_scan_job(
+async def _run_scan_job_inner(
     job_id: str,
     target: str,
     scan_type: str,
@@ -714,6 +714,48 @@ async def run_scan_job(
         job["status"]       = "error"
         job["error"]        = str(exc)
         job["completed_at"] = _now()
+
+
+# ── Concurrency gate ─────────────────────────────────────────
+# Scans are heavy (container tools, ClamAV, Sonar), so only a few run at once;
+# the rest wait as "queued". Two scans of the same target and scan type never
+# overlap, but different scan types on one target may.
+def _max_concurrent() -> int:
+    try:
+        return max(1, int(os.environ.get("EPYON_MAX_CONCURRENT_SCANS", "2")))
+    except ValueError:
+        return 2
+
+
+_slots: asyncio.Semaphore | None = None
+_key_locks: dict[tuple[str, str], asyncio.Lock] = {}
+
+
+def new_job_id() -> str:
+    """Timestamp id, made unique so simultaneous submissions can't collide."""
+    base = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    job_id, n = base, 1
+    while job_id in jobs:
+        n += 1
+        job_id = f"{base}{n:02d}"
+    return job_id
+
+
+async def run_scan_job(job_id: str, target: str, scan_type: str, *args, **kwargs) -> None:
+    global _slots
+    if _slots is None:
+        _slots = asyncio.Semaphore(_max_concurrent())
+    job = jobs[job_id]
+    lock = _key_locks.setdefault((target, scan_type), asyncio.Lock())
+    try:
+        async with lock:
+            async with _slots:
+                if job["status"] != "queued":  # cancelled while waiting
+                    return
+                await _run_scan_job_inner(job_id, target, scan_type, *args, **kwargs)
+    finally:
+        if not lock.locked() and not lock._waiters:  # type: ignore[attr-defined]
+            _key_locks.pop((target, scan_type), None)
 
 
 def create_job(job_id: str, target: str, scan_type: str) -> dict:

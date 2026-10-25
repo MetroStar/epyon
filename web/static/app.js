@@ -1062,8 +1062,8 @@ const api = {
       xhr.send(form);
     });
   },
-  getJob(id)    { return this._get(`/api/jobs/${encodeURIComponent(id)}`); },
-  getJobs()     { return this._get('/api/jobs'); },
+  getJob(id)    { return this._get(`/api/jobs/${encodeURIComponent(id)}`, false); },
+  getJobs()     { return this._get('/api/jobs', false); },
   runSelfAssessment(layers) { return this._post('/api/self-assessment/run', layers && layers.length ? { layers } : {}); },
   getMetrics()       { return this._get('/api/metrics'); },
   getGitHubMetrics()         { return this._get('/api/github-metrics'); },
@@ -4510,8 +4510,7 @@ async function renderStig() {
 // ─────────────────────────────────────────────────────────────
 
 let _pollInterval = null;
-let _lastLogLen   = 0;
-let _activeJobId  = null;
+let _scanJobs     = [];   // jobs submitted by the current run: { id, type, label, done, logLen, status }
 
 // Sequential multi-scan-type queue state — when more than one Scan Type
 // checkbox is selected, each type is submitted as its own job, one at a
@@ -4526,7 +4525,6 @@ async function renderNewScan(prefill = '') {
   setActive('new-scan');
   clearInterval(_pollInterval);
   _pollInterval = null;
-  _lastLogLen   = 0;
 
   const page = document.getElementById('page');
   page.innerHTML = `
@@ -4826,6 +4824,10 @@ async function submitScan() {
   const runStig   = activeStig ? activeStig.dataset.value === 'on' : false;
   const selectedLayers = _getSelectedScanLayers();
   const btn       = document.getElementById('run-btn');
+  // Runs inside the click gesture, which browsers require for the permission prompt.
+  if ('Notification' in window && Notification.permission === 'default') {
+    try { Notification.requestPermission(); } catch (_) {}
+  }
 
   const activeMode = document.querySelector('#target-mode-ctrl .seg-btn.active')?.dataset.value || 'path';
   const target = (document.getElementById('scan-target')?.value || '').trim();
@@ -4856,8 +4858,7 @@ async function submitScan() {
   document.getElementById('log-output').innerHTML = '';
   document.getElementById('scan-actions').style.display = 'none';
   document.getElementById('scan-type-results').innerHTML = '';
-  _lastLogLen  = 0;
-  _activeJobId = null;
+  _scanJobs    = [];
 
   // Reset and seed the sequential queue with every selected scan type.
   _scanQueue          = [...selectedTypes];
@@ -4871,112 +4872,102 @@ async function submitScan() {
   runNextQueuedScan(btn, { activeMode, target, uploadFile, runGarak, runStig, selectedLayers });
 }
 
+// Submits every selected scan type right away; the server runs up to its
+// concurrency cap and holds the rest as "queued". Each job gets its own log
+// section and is tracked by one shared poller.
 async function runNextQueuedScan(btn, ctx) {
-  if (_scanQueueCancelled) {
-    // Mark any scan types that never got a chance to start as skipped so
-    // the results table accounts for every originally selected type.
-    while (_scanQueue.length) {
-      const skippedType = _scanQueue.shift();
-      const skippedLabel = SCAN_TYPE_OPTIONS.find(t => t.id === skippedType)?.label || skippedType;
-      _scanQueueResults.push({ type: skippedType, label: skippedLabel, status: 'fail', reason: 'Skipped (run cancelled)' });
+  while (_scanQueue.length && !_scanQueueCancelled) {
+    const scanType = _scanQueue.shift();
+    const label = SCAN_TYPE_OPTIONS.find(t => t.id === scanType)?.label || scanType;
+    try {
+      // The layer picker only applies to scan types with a flexible layer
+      // set (full/nightly/baseline) — quick/stig/local_model always run
+      // their own fixed, narrow set regardless of checkbox state.
+      const layersForThisType = ['full', 'nightly', 'baseline'].includes(scanType) ? ctx.selectedLayers : null;
+      const job = ctx.activeMode === 'upload'
+        ? (scanType === 'container_image'
+            ? await api.triggerScanUploadImage(ctx.uploadFile, (pct, done) => {
+                btn.textContent = done ? '⏳ Loading image on server…' : `⏳ Uploading… ${pct}%`;
+              })
+            : await api.triggerScanUpload(ctx.uploadFile, scanType, ctx.runGarak, ctx.runStig, (pct, done) => {
+                btn.textContent = done ? '⏳ Extracting on server…' : `⏳ Uploading… ${pct}%`;
+              }, layersForThisType))
+        : await api.triggerScan(ctx.target, scanType, ctx.runGarak, ctx.runStig, layersForThisType);
+      _scanJobs.push({ id: job.job_id, type: scanType, label, done: false, logLen: 0 });
+      scanWatch.poke();
+      document.getElementById('log-output')?.insertAdjacentHTML('beforeend',
+        `<div class="log-line" style="color:var(--text);font-weight:600;margin-top:${_scanJobs.length > 1 ? '10px' : '0'}">── ${esc(label)} ──</div>` +
+        `<div id="log-job-${esc(job.job_id)}"></div>`);
+    } catch (e) {
+      _scanQueueResults.push({ type: scanType, label, status: 'error', reason: e.message });
+      document.getElementById('log-output')?.insertAdjacentHTML('beforeend',
+        `<div class="log-line err">Error starting ${esc(label)}: ${esc(e.message)}</div>`);
     }
-    finishScanQueue(btn);
-    return;
   }
-  if (_scanQueue.length === 0) {
-    finishScanQueue(btn);
-    return;
+  while (_scanQueue.length) {
+    const skippedType = _scanQueue.shift();
+    const skippedLabel = SCAN_TYPE_OPTIONS.find(t => t.id === skippedType)?.label || skippedType;
+    _scanQueueResults.push({ type: skippedType, label: skippedLabel, status: 'fail', reason: 'Skipped (run cancelled)' });
   }
-
-  const scanType = _scanQueue.shift();
-  const label = SCAN_TYPE_OPTIONS.find(t => t.id === scanType)?.label || scanType;
-  const idx = _scanQueueTotal - _scanQueue.length; // 1-based position of the type now running
-
-  _lastLogLen = 0;
-  document.getElementById('log-output').insertAdjacentHTML('beforeend',
-    `<div class="log-line" style="color:var(--text);font-weight:600;margin-top:${idx > 1 ? '10px' : '0'}">── Running ${esc(label)} (${idx}/${_scanQueueTotal}) ──</div>`);
-  btn.textContent = `⏳ Running ${idx}/${_scanQueueTotal}…`;
-
-  try {
-    // The layer picker only applies to scan types with a flexible layer
-    // set (full/nightly/baseline) — quick/stig/local_model always run
-    // their own fixed, narrow set regardless of checkbox state.
-    const layersForThisType = ['full', 'nightly', 'baseline'].includes(scanType) ? ctx.selectedLayers : null;
-    const job = ctx.activeMode === 'upload'
-      ? (scanType === 'container_image'
-          ? await api.triggerScanUploadImage(ctx.uploadFile, (pct, done) => {
-              btn.textContent = done ? '⏳ Loading image on server…' : `⏳ Uploading… ${pct}%`;
-            })
-          : await api.triggerScanUpload(ctx.uploadFile, scanType, ctx.runGarak, ctx.runStig, (pct, done) => {
-              btn.textContent = done ? '⏳ Extracting on server…' : `⏳ Uploading… ${pct}%`;
-            }, layersForThisType))
-      : await api.triggerScan(ctx.target, scanType, ctx.runGarak, ctx.runStig, layersForThisType);
-    _activeJobId = job.job_id;
-    clearInterval(_pollInterval);
-    _pollInterval = setInterval(() => pollJob(job.job_id, btn, scanType, label, ctx), 2000);
-    pollJob(job.job_id, btn, scanType, label, ctx);
-  } catch (e) {
-    _scanQueueResults.push({ type: scanType, label, status: 'error', reason: e.message });
-    document.getElementById('log-output').insertAdjacentHTML('beforeend',
-      `<div class="log-line err">Error: ${esc(e.message)}</div>`);
-    runNextQueuedScan(btn, ctx);
-  }
+  if (!_scanJobs.some(j => !j.done)) { finishScanQueue(btn); return; }
+  btn.textContent = `⏳ Running ${_scanJobs.length} scan${_scanJobs.length === 1 ? '' : 's'}…`;
+  clearInterval(_pollInterval);
+  _pollInterval = setInterval(() => pollJobs(btn, ctx), 2000);
+  pollJobs(btn, ctx);
 }
 
-async function pollJob(jobId, btn, scanType, label, ctx) {
-  try {
-    const job = await api.getJob(jobId);
+async function pollJobs(btn, ctx) {
+  const statusBar = document.getElementById('job-status-bar');
+  const logOut    = document.getElementById('log-output');
+  if (!statusBar || !logOut) { clearInterval(_pollInterval); return; }
 
-    const statusBar = document.getElementById('job-status-bar');
-    const logOut    = document.getElementById('log-output');
-    if (!statusBar || !logOut) { clearInterval(_pollInterval); return; }
-
-    const idx = _scanQueueTotal - _scanQueue.length;
-    statusBar.innerHTML =
-      `<span class="job-status ${esc(job.status)}">${ucFirst(job.status)}</span>
-       <span style="color:var(--text-muted);font-size:12px">
-         — ${esc(job.target)} (${esc(job.scan_type)}) · ${idx}/${_scanQueueTotal}
-       </span>`;
-
-    const lines = job.output || [];
-    if (lines.length > _lastLogLen) {
-      const frag = lines.slice(_lastLogLen)
-        .map(l => `<div class="log-line">${esc(l)}</div>`)
-        .join('');
-      logOut.insertAdjacentHTML('beforeend', frag);
-      logOut.scrollTop = logOut.scrollHeight;
-      _lastLogLen = lines.length;
-    }
-
-    if (['completed', 'failed', 'error', 'cancelled'].includes(job.status)) {
-      clearInterval(_pollInterval);
-      _pollInterval = null;
-      _activeJobId  = null;
-
-      const reason = job.status === 'completed' ? `Completed successfully`
-        : job.status === 'cancelled' ? 'Cancelled by user'
-        : job.status === 'failed' ? 'Failed (non-zero exit code)'
-        : 'Encountered an error';
-      _scanQueueResults.push({
-        type: scanType, label,
-        status: job.status === 'completed' ? 'pass' : 'fail',
-        reason,
-      });
-      if (job.status === 'cancelled') _scanQueueCancelled = true;
-
-      // Apply monitoring classification on successful completion
-      if (job.status === 'completed' && job.target) {
-        const activeBtn = document.querySelector('#monitoring-type-ctrl .seg-btn.active');
-        if (activeBtn?.dataset.value === 'continuous') {
-          try { await api.setMonitored(job.target); } catch (_) {}
-        } else {
-          try { await api.unsetMonitored(job.target); } catch (_) {}
+  await Promise.all(_scanJobs.filter(j => !j.done).map(async j => {
+    try {
+      const job = await api.getJob(j.id);
+      j.status = job.status;
+      j.target = job.target;
+      const lines = job.output || [];
+      if (lines.length > j.logLen) {
+        const section = document.getElementById(`log-job-${j.id}`);
+        if (section) {
+          section.insertAdjacentHTML('beforeend', lines.slice(j.logLen)
+            .map(l => `<div class="log-line">${esc(l)}</div>`).join(''));
+          logOut.scrollTop = logOut.scrollHeight;
+        }
+        j.logLen = lines.length;
+      }
+      if (['completed', 'failed', 'error', 'cancelled'].includes(job.status)) {
+        j.done = true;
+        _scanQueueResults.push({
+          type: j.type, label: j.label,
+          status: job.status === 'completed' ? 'pass' : 'fail',
+          reason: job.status === 'completed' ? 'Completed successfully'
+            : job.status === 'cancelled' ? 'Cancelled by user'
+            : job.status === 'failed' ? 'Failed (non-zero exit code)'
+            : 'Encountered an error',
+        });
+        // Apply monitoring classification on successful completion
+        if (job.status === 'completed' && job.target) {
+          const activeBtn = document.querySelector('#monitoring-type-ctrl .seg-btn.active');
+          try {
+            if (activeBtn?.dataset.value === 'continuous') await api.setMonitored(job.target);
+            else await api.unsetMonitored(job.target);
+          } catch (_) {}
         }
       }
+    } catch (_) { /* ignore transient polling errors */ }
+  }));
 
-      runNextQueuedScan(btn, ctx);
-    }
-  } catch (_) { /* ignore transient polling errors */ }
+  if (!document.getElementById('job-status-bar')) { clearInterval(_pollInterval); return; }
+  statusBar.innerHTML = _scanJobs.map(j =>
+    `<div><span class="job-status ${esc(j.status || 'queued')}">${ucFirst(j.status || 'queued')}</span>
+       <span style="color:var(--text-muted);font-size:12px">— ${esc(j.label)}${j.target ? ' · ' + esc(j.target) : ''}</span></div>`).join('');
+
+  if (_scanJobs.every(j => j.done)) {
+    clearInterval(_pollInterval);
+    _pollInterval = null;
+    finishScanQueue(btn);
+  }
 }
 
 // Called once the queue is empty (all selected scan types have run, or the
@@ -5154,15 +5145,12 @@ async function pollSelfDiagnosticJob(jobId) {
 }
 
 async function cancelScan() {
-  if (!_activeJobId) return;
-  // Stop the whole sequential queue, not just the current job — remaining
-  // not-yet-started scan types will be marked "Skipped (run cancelled)".
+  // Cancel every job in this run, including ones still waiting in the server queue.
   _scanQueueCancelled = true;
   const btn = document.getElementById('cancel-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Cancelling…'; }
-  try {
-    await fetch(`/api/jobs/${encodeURIComponent(_activeJobId)}/cancel`, { method: 'POST' });
-  } catch (_) {}
+  await Promise.all(_scanJobs.filter(j => !j.done).map(j =>
+    fetch(`/api/jobs/${encodeURIComponent(j.id)}/cancel`, { method: 'POST' }).catch(() => {})));
 }
 
 function copyScanLogs() {
@@ -9343,11 +9331,80 @@ function resolve() {
   }
 }
 
+// ── Scan watcher ─────────────────────────────────────────────
+// Scans run on the server whether or not a page is open. This watcher polls
+// a lightweight job list on every page so a finished scan is announced with a
+// toast (and a desktop notification if the tab is hidden and permission was
+// granted), and a badge on the Run Scan link shows how many are in flight.
+const scanWatch = (() => {
+  const ACTIVE = ['queued', 'running'];
+  const known = {};
+  let timer = null;
+  let inflight = false;
+  const baseTitle = document.title;
+
+  function tracked(id) {
+    return !!_pollInterval && _scanJobs.some(j => j.id === id && !j.done);
+  }
+
+  function announce(job) {
+    const ok = job.status === 'completed';
+    const msg = ok
+      ? `Scan finished: ${job.target} (${job.scan_type})`
+      : `Scan ${job.status}: ${job.target} (${job.scan_type})`;
+    toast(msg, ok ? 'success' : 'error');
+    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+      try {
+        const n = new Notification('Epyon scan ' + job.status, { body: msg, tag: 'epyon-scan-' + job.job_id });
+        n.onclick = () => { window.focus(); navigate('#/applications'); n.close(); };
+      } catch (_) {}
+    }
+  }
+
+  function render(jobs) {
+    const running = jobs.filter(j => j.status === 'running').length;
+    const queued  = jobs.filter(j => j.status === 'queued').length;
+    const badge = document.getElementById('scan-badge');
+    if (badge) {
+      badge.hidden = running + queued === 0;
+      badge.textContent = String(running + queued);
+      badge.title = `${running} running, ${queued} queued`;
+    }
+    document.title = running + queued ? `(${running + queued} scanning) ${baseTitle}` : baseTitle;
+  }
+
+  async function tick() {
+    inflight = true;
+    let delay = 20000;
+    try {
+      const res = await fetch('/api/jobs?summary=true');
+      if (res.ok) {
+        const jobs = await res.json();
+        for (const j of jobs) {
+          const prev = known[j.job_id];
+          if (ACTIVE.includes(prev) && !ACTIVE.includes(j.status) && !tracked(j.job_id)) announce(j);
+          known[j.job_id] = j.status;
+        }
+        render(jobs);
+        if (jobs.some(j => ACTIVE.includes(j.status))) delay = 4000;
+      }
+    } catch (_) { /* server restarting or offline — try again later */ }
+    inflight = false;
+    timer = setTimeout(tick, delay);
+  }
+
+  // Re-poll now (e.g. right after a scan is submitted) so a short scan isn't missed.
+  function poke() { if (inflight) return; clearTimeout(timer); tick(); }
+
+  return { start: tick, poke };
+})();
+
 window.addEventListener('hashchange', resolve);
 window.addEventListener('load', () => {
   // In static (offline) mode the scan is embedded — skip API-based routing
   if (window.__SCAN__) return;
   resolve();
+  scanWatch.start();
   api._get('/api/health').then(h => {
     const el = document.getElementById('sidebar-version');
     if (el && h.version) el.textContent = 'Epyon v' + h.version;

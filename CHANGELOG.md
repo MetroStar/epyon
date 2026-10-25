@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.55.16] - 2026-10-25
+
+### Fixed
+- Creating a new Epic from the ticket-creation dialog no longer fails when Jira rejects the legacy Epic Name field (not on the project's create screen); the Epic is retried without it.
+- When an Epic still cannot be created, the 502 message now includes Jira's reason instead of only pointing to the server logs.
+
 ## [3.55.15] - 2026-10-24
 
 ### Added

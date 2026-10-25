@@ -410,3 +410,51 @@ def test_reassign_orphaned_tickets_skips_other_apps_and_projects(repo_root, monk
     assert result["orphaned"] == []
     assert ticket_map["fp-other-app"]["issue_key"] == "SEC-9"
     assert ticket_map["fp-other-project"]["issue_key"] == "OPS-9"
+
+
+def _fake_client(responses, sent):
+    import httpx
+
+    class FakeClient:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def post(self, url, **kw):
+            sent.append(dict(kw["json"]["fields"]))
+            return responses.pop(0)
+
+    return FakeClient, httpx
+
+
+def test_create_epic_retries_without_epic_name_field_not_on_screen(repo_root, monkeypatch):
+    jira_client = _load_jira_client(repo_root)
+    import httpx
+
+    async def fields(cfg): return {"epic_name": "customfield_1", "epic_link": None}
+    async def itype(cfg, key): return "Epic"
+    monkeypatch.setattr(jira_client, "_discover_epic_fields", fields)
+    monkeypatch.setattr(jira_client, "_resolve_epic_issue_type", itype)
+    sent = []
+    bad = httpx.Response(400, json={"errors": {"customfield_1": "Field cannot be set."}})
+    ok = httpx.Response(201, json={"key": "EMR-9"})
+    client, _ = _fake_client([bad, ok], sent)
+    monkeypatch.setattr(jira_client.httpx, "AsyncClient", client)
+    cfg = {"base_url": "https://x.atlassian.net", "email": "a@b.c", "api_token": "t"}
+    assert asyncio.run(jira_client.create_epic(cfg, "EMR", "Epyon High")) == "EMR-9"
+    assert "customfield_1" in sent[0] and "customfield_1" not in sent[1]
+
+
+def test_create_epic_reports_jira_reason(repo_root, monkeypatch):
+    jira_client = _load_jira_client(repo_root)
+    import httpx
+
+    async def fields(cfg): return {"epic_name": None, "epic_link": None}
+    async def itype(cfg, key): return "Epic"
+    monkeypatch.setattr(jira_client, "_discover_epic_fields", fields)
+    monkeypatch.setattr(jira_client, "_resolve_epic_issue_type", itype)
+    forbidden = httpx.Response(403, json={"errorMessages": ["No permission to create issues"]})
+    client, _ = _fake_client([forbidden], [])
+    monkeypatch.setattr(jira_client.httpx, "AsyncClient", client)
+    cfg = {"base_url": "https://x.atlassian.net", "email": "a@b.c", "api_token": "t"}
+    assert asyncio.run(jira_client.create_epic(cfg, "EMR", "E")) is None
+    assert "No permission" in jira_client.last_epic_error(cfg, "EMR")

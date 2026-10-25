@@ -1720,7 +1720,10 @@ async def scan_jira_tickets_create(
     if (epic_key or epic_name) and not resolved_epic_key:
         raise HTTPException(
             502,
-            "Failed to resolve or create the selected Epic — check server logs for the exact Jira API error",
+            "Failed to resolve or create the selected Epic"
+            + (f": {jira_client.last_epic_error(cfg, cfg['project_key'])}"
+               if jira_client.last_epic_error(cfg, cfg["project_key"])
+               else " — check server logs for the exact Jira API error"),
         )
     result = await jira_client.create_tickets_batch(
         app_name, findings_by_fingerprint, fingerprints, cfg, resolved_epic_key, issue_type, triage_note

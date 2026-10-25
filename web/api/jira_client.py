@@ -318,32 +318,62 @@ async def _resolve_epic_issue_type(cfg: dict, project_key: str) -> str:
     return "Epic"
 
 
+_LAST_EPIC_ERROR: dict[tuple[str, str], str] = {}
+
+
+def last_epic_error(cfg: dict, project_key: str) -> str:
+    """Jira's reason for the most recent failed Epic creation, or ''."""
+    return _LAST_EPIC_ERROR.get((_base(cfg), project_key), "")
+
+
+def _jira_error_text(r: "httpx.Response") -> str:
+    try:
+        body = r.json()
+    except Exception:
+        return f"HTTP {r.status_code}: {r.text[:200]}"
+    parts = list(body.get("errorMessages") or [])
+    parts += [f"{k}: {v}" for k, v in (body.get("errors") or {}).items()]
+    return f"HTTP {r.status_code}: " + ("; ".join(parts) or r.text[:200])
+
+
 async def create_epic(cfg: dict, project_key: str, name: str) -> str | None:
-    """Create a new Epic issue in Jira and return its issue key, or None on failure."""
+    """Create a new Epic issue in Jira and return its issue key, or None on failure.
+
+    The reason for a failure is kept for last_epic_error(). When Jira rejects the
+    legacy 'Epic Name' field because it is not on the project's create screen
+    (common in newer projects), the request is retried without it.
+    """
+    key = (_base(cfg), project_key)
+    _LAST_EPIC_ERROR.pop(key, None)
     issue_type = await _resolve_epic_issue_type(cfg, project_key)
     fields: dict[str, Any] = {
         "project": {"key": project_key},
         "summary": name,
         "issuetype": {"name": issue_type},
     }
-    epic_fields = await _discover_epic_fields(cfg)
-    if epic_fields.get("epic_name"):
-        fields[epic_fields["epic_name"]] = name
+    epic_name_field = (await _discover_epic_fields(cfg)).get("epic_name")
+    if epic_name_field:
+        fields[epic_name_field] = name
     try:
         async with httpx.AsyncClient(timeout=15) as client:
-            r = await client.post(
-                f"{_base(cfg)}/rest/api/3/issue",
-                auth=_auth(cfg),
-                headers={"Accept": "application/json", "Content-Type": "application/json"},
-                json={"fields": fields},
-            )
-        if r.status_code == 201:
-            return r.json().get("key")
-        logger.warning(
-            "Jira Epic creation failed for %s (%r): HTTP %s — %s",
-            project_key, name, r.status_code, r.text[:500],
-        )
-    except Exception:
+            for _attempt in range(2):
+                r = await client.post(
+                    f"{_base(cfg)}/rest/api/3/issue",
+                    auth=_auth(cfg),
+                    headers={"Accept": "application/json", "Content-Type": "application/json"},
+                    json={"fields": fields},
+                )
+                if r.status_code == 201:
+                    return r.json().get("key")
+                detail = _jira_error_text(r)
+                if epic_name_field in fields and epic_name_field in detail:
+                    del fields[epic_name_field]
+                    continue
+                break
+        _LAST_EPIC_ERROR[key] = detail
+        logger.warning("Jira Epic creation failed for %s (%r): %s", project_key, name, detail)
+    except Exception as exc:
+        _LAST_EPIC_ERROR[key] = f"{type(exc).__name__}: {exc}"
         logger.warning("Jira Epic creation raised an exception for %s (%r)", project_key, name, exc_info=True)
     return None
 

@@ -4894,6 +4894,9 @@ async function runNextQueuedScan(btn, ctx) {
               }, layersForThisType))
         : await api.triggerScan(ctx.target, scanType, ctx.runGarak, ctx.runStig, layersForThisType);
       _scanJobs.push({ id: job.job_id, type: scanType, label, done: false, logLen: 0 });
+      if (_scanQueueCancelled) {
+        await fetch(`/api/jobs/${encodeURIComponent(job.job_id)}/cancel`, { method: 'POST' }).catch(() => {});
+      }
       scanWatch.poke();
       document.getElementById('log-output')?.insertAdjacentHTML('beforeend',
         `<div class="log-line" style="color:var(--text);font-weight:600;margin-top:${_scanJobs.length > 1 ? '10px' : '0'}">── ${esc(label)} ──</div>` +

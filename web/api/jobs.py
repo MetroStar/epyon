@@ -7,6 +7,7 @@ import asyncio
 import json
 import os
 import re
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,15 @@ _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[mGKHF]")
 
 JOB_TIMEOUT_SECONDS = 7200  # 2 hours
 OUTPUT_BUFFER_MAX   = 10000
+
+
+def _write_scan_env_file(env_lines: list[str]) -> Path:
+    with tempfile.NamedTemporaryFile(
+        mode="w", prefix="epyon-env-", dir="/tmp", delete=False
+    ) as env_file:
+        env_file.write("\n".join(env_lines) + "\n")
+    return Path(env_file.name)
+
 
 # Directory names excluded from file_statistics counts — mirrors the `find`
 # exclusions in run-target-security-scan.sh / run-epyon-scan-ci.sh so all
@@ -338,9 +348,6 @@ async def _run_scan_job_inner(
             "SKIP_PIP_AUDIT=true",
             "SKIP_SAFETY=true",
         ]
-        _env_path = Path("/tmp/epyon-env")
-        _env_path.write_text("\n".join(env_lines) + "\n")
-        _env_path.chmod(0o600)
         _append_line(job, f"[web-ui] Initialized container image scan: {scan_name}")
 
         env = {**os.environ,
@@ -359,6 +366,8 @@ async def _run_scan_job_inner(
         homebrew_paths = "/opt/homebrew/bin:/usr/local/bin:/home/linuxbrew/.linuxbrew/bin"
         env["PATH"] = f"{homebrew_paths}:{current_path}" if current_path else f"{homebrew_paths}:/usr/bin:/bin"
 
+        _env_path = _write_scan_env_file(env_lines)
+        env["EPYON_ENV_FILE"] = str(_env_path)
         try:
             proc = await asyncio.create_subprocess_exec(
                 str(script_path),
@@ -401,6 +410,8 @@ async def _run_scan_job_inner(
             job["status"]       = "error"
             job["error"]        = str(exc)
             job["completed_at"] = _now()
+        finally:
+            _env_path.unlink(missing_ok=True)
         return
 
     # ── Derive target name and target dir ────────────────────────
@@ -453,7 +464,6 @@ async def _run_scan_job_inner(
     scan_dir     = epyon_root / "scans" / scan_name
     scan_dir.mkdir(parents=True, exist_ok=True)
 
-    # ── Write non-secret scan state to /tmp/epyon-env ────────────
     epyon_version = "unknown"
     version_file = epyon_root / "VERSION"
     if version_file.exists():
@@ -552,9 +562,6 @@ async def _run_scan_job_inner(
     github_config = _read_github_config()
     github_token = github_config.get("token", "")
 
-    _env_path = Path("/tmp/epyon-env")
-    _env_path.write_text("\n".join(env_lines) + "\n")
-    _env_path.chmod(0o600)
     _append_line(job, f"[web-ui] Initialized scan: {scan_name}")
 
     # ── Write scan-metadata.json so the parser can read scan_type ────────────
@@ -668,6 +675,8 @@ async def _run_scan_job_inner(
     else:
         env["PATH"] = f"{homebrew_paths}:/usr/bin:/bin"
 
+    _env_path = _write_scan_env_file(env_lines)
+    env["EPYON_ENV_FILE"] = str(_env_path)
     # Let the script's shebang and shell auto-detection handle bash selection.
     # The script contains shell auto-detection logic that finds bash 4+ and re-execs.
     # Invoking as `bash script.sh` would bypass that logic, so we invoke directly.
@@ -714,6 +723,8 @@ async def _run_scan_job_inner(
         job["status"]       = "error"
         job["error"]        = str(exc)
         job["completed_at"] = _now()
+    finally:
+        _env_path.unlink(missing_ok=True)
 
 
 # ── Concurrency gate ─────────────────────────────────────────

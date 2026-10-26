@@ -86,3 +86,18 @@ def test_new_job_id_unique_within_a_second():
         ids.append(jid)
     assert len(set(ids)) == 5
     assert all(len(i) in (14, 16) and i.isdigit() for i in ids)
+
+
+def test_scan_environment_files_are_unique_per_job():
+    env_paths = [
+        jobs._write_scan_env_file(["TARGET_DIR=/target-a"]),
+        jobs._write_scan_env_file(["TARGET_DIR=/target-b"]),
+    ]
+    try:
+        assert env_paths[0] != env_paths[1]
+        assert env_paths[0].read_text() == "TARGET_DIR=/target-a\n"
+        assert env_paths[1].read_text() == "TARGET_DIR=/target-b\n"
+        assert all(path.stat().st_mode & 0o777 == 0o600 for path in env_paths)
+    finally:
+        for path in env_paths:
+            path.unlink(missing_ok=True)

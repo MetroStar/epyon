@@ -8,6 +8,7 @@ import json
 import os
 import re
 import tempfile
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -749,16 +750,25 @@ def _max_concurrent() -> int:
 
 _slots: asyncio.Semaphore | None = None
 _key_locks: dict[tuple[str, str], asyncio.Lock] = {}
+_reserved_job_ids: set[str] = set()
+_job_id_lock = threading.Lock()
 
 
 def new_job_id() -> str:
     """Timestamp id, made unique so simultaneous submissions can't collide."""
     base = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-    job_id, n = base, 1
-    while job_id in jobs:
-        n += 1
-        job_id = f"{base}{n:02d}"
-    return job_id
+    with _job_id_lock:
+        job_id, n = base, 1
+        while job_id in jobs or job_id in _reserved_job_ids:
+            n += 1
+            job_id = f"{base}{n:02d}"
+        _reserved_job_ids.add(job_id)
+        return job_id
+
+
+def release_job_id(job_id: str) -> None:
+    with _job_id_lock:
+        _reserved_job_ids.discard(job_id)
 
 
 async def run_scan_job(job_id: str, target: str, scan_type: str, *args, **kwargs) -> None:
@@ -790,7 +800,9 @@ def create_job(job_id: str, target: str, scan_type: str) -> dict:
         "output":       [],
         "error":        None,
     }
-    jobs[job_id] = job
+    with _job_id_lock:
+        jobs[job_id] = job
+        _reserved_job_ids.discard(job_id)
     return job
 
 

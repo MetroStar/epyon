@@ -17,6 +17,7 @@ def _setup(monkeypatch, cap: int):
     monkeypatch.setenv("EPYON_MAX_CONCURRENT_SCANS", str(cap))
     monkeypatch.setattr(jobs, "_slots", None)
     jobs.jobs.clear()
+    jobs._reserved_job_ids.clear()
     state = {"running": 0, "peak": 0, "targets": {}}
 
     async def fake_inner(job_id, target, scan_type, *a, **k):
@@ -81,6 +82,7 @@ def test_cancelled_while_queued_never_runs(monkeypatch):
 
 def test_new_job_id_unique_within_a_second():
     jobs.jobs.clear()
+    jobs._reserved_job_ids.clear()
     ids = []
     for _ in range(5):
         jid = jobs.new_job_id()
@@ -121,3 +123,17 @@ def test_scan_dir_reservation_uses_distinct_reader_compatible_names(monkeypatch,
     assert second_name == "my-app_2026-10-26_01-02-04"
     assert parse_dir_name(first_name)["target"] == "my-app"
     assert parse_dir_name(second_name)["target"] == "my-app"
+
+
+def test_new_job_id_reserves_ids_before_jobs_are_created():
+    jobs.jobs.clear()
+    jobs._reserved_job_ids.clear()
+
+    first = jobs.new_job_id()
+    second = jobs.new_job_id()
+
+    assert first != second
+    assert {first, second} == jobs._reserved_job_ids
+
+    jobs.release_job_id(first)
+    assert first not in jobs._reserved_job_ids

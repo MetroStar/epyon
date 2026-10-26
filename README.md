@@ -410,7 +410,7 @@ Epyon ships a FastAPI-backed single-page web UI for running scans, browsing resu
 - **Security Score Card**: 6-dimensional weighted scoring (Security, Supply Chain, Code Quality, Compliance, Operational, MOSA) with TRL 1-9 mapping and letter grades
 - **STIG History with Evidence Tracking**: View complete evidence timeline, confidence scores, and status change reasoning with visual indicators
 - **Interactive Scan Management**: Run scans, browse results, filter findings, and manage suppressions
-- **Background scans**: scans keep running when you leave the page; a badge, toast and optional desktop notification report progress and completion. Up to `EPYON_MAX_CONCURRENT_SCANS` (default 2) run at once, the rest queue.
+- **Background scans**: scans keep running when you leave the page; a badge, toast and optional desktop notification report progress and completion. Up to `EPYON_MAX_CONCURRENT_SCANS` (default 2) run at once, the rest queue. Concurrent uploads reserve distinct job IDs while their files are being processed.
 - **SBOM & Dependency Analysis**: Interactive tables with sorting, searching, and supply chain verification
 - **Metrics Dashboard**: MTTR tracking, vulnerability trends, app monitoring classification, GitHub signals, SLA compliance, and suppression rate tracking
 - **Verified STIG evidence**: every `File:` citation in AI evidence is checked against the target repo (file exists, line exists, quoted text matches) with no extra model calls. Failed citations, Not Applicable answers with no stated search, and controls owned by an identity provider, infrastructure or vendor are recorded as `Open` (confidence capped at 60, so never frozen) with the reason in the review record.

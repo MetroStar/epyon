@@ -2031,10 +2031,10 @@ async def trigger_scan_upload(
     # whole thing in memory (uploads can legitimately be tens/hundreds of MB).
     job_id  = job_store.new_job_id()
     tmp_dir = EPYON_ROOT / "tmp"
-    tmp_dir.mkdir(parents=True, exist_ok=True)
     zip_path = tmp_dir / f"upload-{job_id}.zip"
     written = 0
     try:
+        tmp_dir.mkdir(parents=True, exist_ok=True)
         with open(zip_path, "wb") as out:
             while True:
                 chunk = await file.read(1024 * 1024)
@@ -2065,26 +2065,37 @@ async def trigger_scan_upload(
         except (zipfile.BadZipFile, ValueError) as e:
             shutil.rmtree(extract_dir, ignore_errors=True)
             raise HTTPException(400, f"could not extract archive: {e}")
+    except BaseException:
+        job_store.release_job_id(job_id)
+        raise
     finally:
-        zip_path.unlink(missing_ok=True)
+        try:
+            zip_path.unlink(missing_ok=True)
+        except OSError:
+            job_store.release_job_id(job_id)
+            raise
 
-    # If the archive is a single wrapping folder (the common case when
-    # zipping a project directory), scan that inner folder directly so the
-    # scan name/target reflects the project, not the upload wrapper.
-    entries = [e for e in extract_dir.iterdir() if e.name != "__MACOSX"]
-    target_dir = entries[0] if (len(entries) == 1 and entries[0].is_dir()) else extract_dir
-    target = str(target_dir.resolve())
+    try:
+        # If the archive is a single wrapping folder (the common case when
+        # zipping a project directory), scan that inner folder directly so the
+        # scan name/target reflects the project, not the upload wrapper.
+        entries = [e for e in extract_dir.iterdir() if e.name != "__MACOSX"]
+        target_dir = entries[0] if (len(entries) == 1 and entries[0].is_dir()) else extract_dir
+        target = str(target_dir.resolve())
 
-    _audit(request, "scan_upload_triggered", f"file={file.filename} scan_type={scan_type}")
-    job = job_store.create_job(job_id, target, scan_type)
-    job_store._on_scan_complete_cb = _on_scan_complete
-    asyncio.create_task(
-        job_store.run_scan_job(job_id, target, scan_type, script_path, EPYON_ROOT,
-                               run_garak=run_garak, run_stig=run_stig,
-                               webhook_url=webhook_url, webhook_secret=webhook_secret,
-                               selected_layers=selected_layers)
-    )
-    return {"job_id": job_id, "status": "queued"}
+        _audit(request, "scan_upload_triggered", f"file={file.filename} scan_type={scan_type}")
+        job = job_store.create_job(job_id, target, scan_type)
+        job_store._on_scan_complete_cb = _on_scan_complete
+        asyncio.create_task(
+            job_store.run_scan_job(job_id, target, scan_type, script_path, EPYON_ROOT,
+                                   run_garak=run_garak, run_stig=run_stig,
+                                   webhook_url=webhook_url, webhook_secret=webhook_secret,
+                                   selected_layers=selected_layers)
+        )
+        return {"job_id": job_id, "status": "queued"}
+    except BaseException:
+        job_store.release_job_id(job_id)
+        raise
 
 
 _IMAGE_UPLOAD_EXTS = (".tar", ".tar.gz", ".tgz")
@@ -2121,11 +2132,11 @@ async def trigger_scan_upload_image(
     # branch exactly like a pre-existing path would be on local/dev use.
     job_id      = job_store.new_job_id()
     scratch_dir = EPYON_ROOT / "tmp" / f"image-scan-{job_id}"
-    scratch_dir.mkdir(parents=True, exist_ok=True)
     ext = ".tar.gz" if file.filename.lower().endswith(".tar.gz") else Path(file.filename).suffix
     tarball_path = scratch_dir / f"uploaded-image{ext}"
     written = 0
     try:
+        scratch_dir.mkdir(parents=True, exist_ok=True)
         with open(tarball_path, "wb") as out:
             while True:
                 chunk = await file.read(1024 * 1024)
@@ -2135,19 +2146,24 @@ async def trigger_scan_upload_image(
                 if written > MAX_UPLOAD_BYTES:
                     raise HTTPException(413, f"upload exceeds {MAX_UPLOAD_BYTES // (1024*1024)}MB limit")
                 out.write(chunk)
-    except HTTPException:
+    except BaseException:
         shutil.rmtree(scratch_dir, ignore_errors=True)
+        job_store.release_job_id(job_id)
         raise
 
-    target = str(tarball_path)
-    _audit(request, "scan_upload_image_triggered", f"file={file.filename}")
-    job = job_store.create_job(job_id, target, "container_image")
-    job_store._on_scan_complete_cb = _on_scan_complete
-    asyncio.create_task(
-        job_store.run_scan_job(job_id, target, "container_image", script_path, EPYON_ROOT,
-                               webhook_url=webhook_url, webhook_secret=webhook_secret)
-    )
-    return {"job_id": job_id, "status": "queued"}
+    try:
+        target = str(tarball_path)
+        _audit(request, "scan_upload_image_triggered", f"file={file.filename}")
+        job = job_store.create_job(job_id, target, "container_image")
+        job_store._on_scan_complete_cb = _on_scan_complete
+        asyncio.create_task(
+            job_store.run_scan_job(job_id, target, "container_image", script_path, EPYON_ROOT,
+                                   webhook_url=webhook_url, webhook_secret=webhook_secret)
+        )
+        return {"job_id": job_id, "status": "queued"}
+    except BaseException:
+        job_store.release_job_id(job_id)
+        raise
 
 
 # ── Jobs ──────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Concurrent scans of the same target now reserve distinct scan directories while preserving the directory-name format.
+- Uploads reserve unique job IDs while their contents are being read, preventing concurrent submissions from sharing temporary files or job records.
 
 ## [3.56.0] - 2026-10-26
 

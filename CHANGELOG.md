@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.56.1] - 2026-10-26
+
+### Fixed
+- Concurrent scans of the same target now reserve distinct scan directories while preserving the directory-name format.
+- Uploads reserve unique job IDs while their contents are being read, preventing concurrent submissions from sharing temporary files or job records.
+
+## [3.56.0] - 2026-10-26
+
+### Added
+- Scan watcher (MID-4802): a badge on **Run Scan** shows scans running or queued, and a toast announces each finish on any page. If you allow it, a desktop notification fires when the tab is in the background, and the tab title shows `(N scanning)`.
+- Concurrent scans: the server runs up to `EPYON_MAX_CONCURRENT_SCANS` (default 2) at once and holds the rest as Queued. Two scans of the same target and scan type never overlap.
+- `GET /api/jobs?summary=true` returns jobs without log output.
+
+### Changed
+- **Run Scan** submits every selected scan type at once and tracks each job, instead of running them one after another from the browser. Leaving the page no longer stops the rest of a multi-type run.
+
+### Fixed
+- Simultaneous scan submissions no longer collide on the same job id.
+- Job status polling no longer serves a cached response for up to 30 seconds.
+
 ## [3.55.16] - 2026-10-25
 
 ### Fixed

@@ -26,6 +26,7 @@ def upload_client(tmp_path, monkeypatch):
 
     monkeypatch.setattr(api_main, "EPYON_ROOT", tmp_path)
     monkeypatch.setattr(api_main, "_audit", lambda *a, **k: None)
+    job_store._reserved_job_ids.clear()
 
     calls: list[dict] = []
 
@@ -56,6 +57,8 @@ def test_upload_rejects_invalid_zip_contents(upload_client):
         data={"scan_type": "full"},
     )
     assert r.status_code == 400
+    from web.api import jobs as job_store
+    assert not job_store._reserved_job_ids
 
 
 def test_upload_rejects_zip_slip_path_traversal(upload_client):
@@ -91,6 +94,8 @@ def test_upload_extracts_and_queues_a_local_path_scan(upload_client, tmp_path):
     body = r.json()
     assert body["status"] == "queued"
     assert "job_id" in body
+    from web.api import jobs as job_store
+    assert body["job_id"] not in job_store._reserved_job_ids
 
     assert len(upload_client.upload_calls) == 1
     call = upload_client.upload_calls[0]
@@ -113,3 +118,27 @@ def test_upload_without_wrapper_folder_scans_extraction_root(upload_client):
     assert r.status_code == 202
     call = upload_client.upload_calls[0]
     assert "flat-project" in call["target"]
+
+
+def test_image_upload_reserves_id_until_job_is_created(upload_client):
+    r = upload_client.post(
+        "/api/scans/upload-image",
+        files={"file": ("image.tar", b"image archive", "application/x-tar")},
+    )
+    assert r.status_code == 202
+    assert upload_client.upload_calls[0]["scan_type"] == "container_image"
+    from web.api import jobs as job_store
+    assert r.json()["job_id"] not in job_store._reserved_job_ids
+
+
+def test_failed_image_upload_releases_reserved_id(upload_client, monkeypatch):
+    from web.api import main as api_main
+    from web.api import jobs as job_store
+
+    monkeypatch.setattr(api_main, "MAX_UPLOAD_BYTES", 1)
+    r = upload_client.post(
+        "/api/scans/upload-image",
+        files={"file": ("image.tar", b"too large", "application/x-tar")},
+    )
+    assert r.status_code == 413
+    assert not job_store._reserved_job_ids

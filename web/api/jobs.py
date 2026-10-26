@@ -7,7 +7,9 @@ import asyncio
 import json
 import os
 import re
-from datetime import datetime, timezone
+import tempfile
+import threading
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +20,15 @@ _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[mGKHF]")
 
 JOB_TIMEOUT_SECONDS = 7200  # 2 hours
 OUTPUT_BUFFER_MAX   = 10000
+
+
+def _write_scan_env_file(env_lines: list[str]) -> Path:
+    with tempfile.NamedTemporaryFile(
+        mode="w", prefix="epyon-env-", dir="/tmp", delete=False
+    ) as env_file:
+        env_file.write("\n".join(env_lines) + "\n")
+    return Path(env_file.name)
+
 
 # Directory names excluded from file_statistics counts — mirrors the `find`
 # exclusions in run-target-security-scan.sh / run-epyon-scan-ci.sh so all
@@ -106,6 +117,21 @@ _on_scan_complete_cb = None
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _reserve_scan_dir(epyon_root: Path, target_name: str) -> tuple[str, Path]:
+    scans_dir = epyon_root / "scans"
+    scans_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(timezone.utc).replace(microsecond=0)
+    while True:
+        scan_name = f"{target_name}_{timestamp.strftime('%Y-%m-%d_%H-%M-%S')}"
+        scan_dir = scans_dir / scan_name
+        try:
+            scan_dir.mkdir()
+        except FileExistsError:
+            timestamp += timedelta(seconds=1)
+        else:
+            return scan_name, scan_dir
 
 
 def _clean_line(line: str) -> str:
@@ -229,7 +255,7 @@ async def _read_stream(stream: asyncio.StreamReader, job: dict) -> None:
         _append_line(job, line.decode("utf-8", errors="replace").rstrip("\n\r"))
 
 
-async def run_scan_job(
+async def _run_scan_job_inner(
     job_id: str,
     target: str,
     scan_type: str,
@@ -271,10 +297,7 @@ async def run_scan_job(
         # "uploaded-image.tar"/"sha256-xxxx" scan name.
         target_name = re.sub(r"[^A-Za-z0-9._-]+", "-", resolved_image).strip("-") or "scanned-image"
 
-        timestamp    = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
-        scan_name    = f"{target_name}_{timestamp}"
-        scan_dir     = epyon_root / "scans" / scan_name
-        scan_dir.mkdir(parents=True, exist_ok=True)
+        scan_name, scan_dir = _reserve_scan_dir(epyon_root, target_name)
 
         epyon_version = "unknown"
         version_file = epyon_root / "VERSION"
@@ -338,9 +361,6 @@ async def run_scan_job(
             "SKIP_PIP_AUDIT=true",
             "SKIP_SAFETY=true",
         ]
-        _env_path = Path("/tmp/epyon-env")
-        _env_path.write_text("\n".join(env_lines) + "\n")
-        _env_path.chmod(0o600)
         _append_line(job, f"[web-ui] Initialized container image scan: {scan_name}")
 
         env = {**os.environ,
@@ -359,6 +379,8 @@ async def run_scan_job(
         homebrew_paths = "/opt/homebrew/bin:/usr/local/bin:/home/linuxbrew/.linuxbrew/bin"
         env["PATH"] = f"{homebrew_paths}:{current_path}" if current_path else f"{homebrew_paths}:/usr/bin:/bin"
 
+        _env_path = _write_scan_env_file(env_lines)
+        env["EPYON_ENV_FILE"] = str(_env_path)
         try:
             proc = await asyncio.create_subprocess_exec(
                 str(script_path),
@@ -401,6 +423,8 @@ async def run_scan_job(
             job["status"]       = "error"
             job["error"]        = str(exc)
             job["completed_at"] = _now()
+        finally:
+            _env_path.unlink(missing_ok=True)
         return
 
     # ── Derive target name and target dir ────────────────────────
@@ -448,12 +472,8 @@ async def run_scan_job(
         target_dir = str(Path(clone_root) / subdir) if subdir else clone_root
         is_remote  = True
 
-    timestamp    = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
-    scan_name    = f"{target_name}_{timestamp}"
-    scan_dir     = epyon_root / "scans" / scan_name
-    scan_dir.mkdir(parents=True, exist_ok=True)
+    scan_name, scan_dir = _reserve_scan_dir(epyon_root, target_name)
 
-    # ── Write non-secret scan state to /tmp/epyon-env ────────────
     epyon_version = "unknown"
     version_file = epyon_root / "VERSION"
     if version_file.exists():
@@ -552,9 +572,6 @@ async def run_scan_job(
     github_config = _read_github_config()
     github_token = github_config.get("token", "")
 
-    _env_path = Path("/tmp/epyon-env")
-    _env_path.write_text("\n".join(env_lines) + "\n")
-    _env_path.chmod(0o600)
     _append_line(job, f"[web-ui] Initialized scan: {scan_name}")
 
     # ── Write scan-metadata.json so the parser can read scan_type ────────────
@@ -668,6 +685,8 @@ async def run_scan_job(
     else:
         env["PATH"] = f"{homebrew_paths}:/usr/bin:/bin"
 
+    _env_path = _write_scan_env_file(env_lines)
+    env["EPYON_ENV_FILE"] = str(_env_path)
     # Let the script's shebang and shell auto-detection handle bash selection.
     # The script contains shell auto-detection logic that finds bash 4+ and re-execs.
     # Invoking as `bash script.sh` would bypass that logic, so we invoke directly.
@@ -714,6 +733,59 @@ async def run_scan_job(
         job["status"]       = "error"
         job["error"]        = str(exc)
         job["completed_at"] = _now()
+    finally:
+        _env_path.unlink(missing_ok=True)
+
+
+# ── Concurrency gate ─────────────────────────────────────────
+# Scans are heavy (container tools, ClamAV, Sonar), so only a few run at once;
+# the rest wait as "queued". Two scans of the same target and scan type never
+# overlap, but different scan types on one target may.
+def _max_concurrent() -> int:
+    try:
+        return max(1, int(os.environ.get("EPYON_MAX_CONCURRENT_SCANS", "2")))
+    except ValueError:
+        return 2
+
+
+_slots: asyncio.Semaphore | None = None
+_key_locks: dict[tuple[str, str], asyncio.Lock] = {}
+_reserved_job_ids: set[str] = set()
+_job_id_lock = threading.Lock()
+
+
+def new_job_id() -> str:
+    """Timestamp id, made unique so simultaneous submissions can't collide."""
+    base = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    with _job_id_lock:
+        job_id, n = base, 1
+        while job_id in jobs or job_id in _reserved_job_ids:
+            n += 1
+            job_id = f"{base}{n:02d}"
+        _reserved_job_ids.add(job_id)
+        return job_id
+
+
+def release_job_id(job_id: str) -> None:
+    with _job_id_lock:
+        _reserved_job_ids.discard(job_id)
+
+
+async def run_scan_job(job_id: str, target: str, scan_type: str, *args, **kwargs) -> None:
+    global _slots
+    if _slots is None:
+        _slots = asyncio.Semaphore(_max_concurrent())
+    job = jobs[job_id]
+    lock = _key_locks.setdefault((target, scan_type), asyncio.Lock())
+    try:
+        async with lock:
+            async with _slots:
+                if job["status"] != "queued":  # cancelled while waiting
+                    return
+                await _run_scan_job_inner(job_id, target, scan_type, *args, **kwargs)
+    finally:
+        if not lock.locked() and not lock._waiters:  # type: ignore[attr-defined]
+            _key_locks.pop((target, scan_type), None)
 
 
 def create_job(job_id: str, target: str, scan_type: str) -> dict:
@@ -728,7 +800,9 @@ def create_job(job_id: str, target: str, scan_type: str) -> dict:
         "output":       [],
         "error":        None,
     }
-    jobs[job_id] = job
+    with _job_id_lock:
+        jobs[job_id] = job
+        _reserved_job_ids.discard(job_id)
     return job
 
 

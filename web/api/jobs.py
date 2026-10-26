@@ -7,7 +7,7 @@ import asyncio
 import json
 import os
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -106,6 +106,21 @@ _on_scan_complete_cb = None
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _reserve_scan_dir(epyon_root: Path, target_name: str) -> tuple[str, Path]:
+    scans_dir = epyon_root / "scans"
+    scans_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(timezone.utc).replace(microsecond=0)
+    while True:
+        scan_name = f"{target_name}_{timestamp.strftime('%Y-%m-%d_%H-%M-%S')}"
+        scan_dir = scans_dir / scan_name
+        try:
+            scan_dir.mkdir()
+        except FileExistsError:
+            timestamp += timedelta(seconds=1)
+        else:
+            return scan_name, scan_dir
 
 
 def _clean_line(line: str) -> str:
@@ -271,10 +286,7 @@ async def _run_scan_job_inner(
         # "uploaded-image.tar"/"sha256-xxxx" scan name.
         target_name = re.sub(r"[^A-Za-z0-9._-]+", "-", resolved_image).strip("-") or "scanned-image"
 
-        timestamp    = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
-        scan_name    = f"{target_name}_{timestamp}"
-        scan_dir     = epyon_root / "scans" / scan_name
-        scan_dir.mkdir(parents=True, exist_ok=True)
+        scan_name, scan_dir = _reserve_scan_dir(epyon_root, target_name)
 
         epyon_version = "unknown"
         version_file = epyon_root / "VERSION"
@@ -448,10 +460,7 @@ async def _run_scan_job_inner(
         target_dir = str(Path(clone_root) / subdir) if subdir else clone_root
         is_remote  = True
 
-    timestamp    = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
-    scan_name    = f"{target_name}_{timestamp}"
-    scan_dir     = epyon_root / "scans" / scan_name
-    scan_dir.mkdir(parents=True, exist_ok=True)
+    scan_name, scan_dir = _reserve_scan_dir(epyon_root, target_name)
 
     # ── Write non-secret scan state to /tmp/epyon-env ────────────
     epyon_version = "unknown"

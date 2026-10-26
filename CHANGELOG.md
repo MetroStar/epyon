@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.56.1] - 2026-10-26
+
+### Fixed
+- Concurrent scans of the same target now reserve distinct scan directories while preserving the directory-name format.
+
 ## [3.56.0] - 2026-10-26
 
 ### Added

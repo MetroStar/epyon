@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import asyncio
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "web"))
 
 from api import jobs  # noqa: E402
+from api.parsers import parse_dir_name  # noqa: E402
 
 
 def _setup(monkeypatch, cap: int):
@@ -101,3 +103,21 @@ def test_scan_environment_files_are_unique_per_job():
     finally:
         for path in env_paths:
             path.unlink(missing_ok=True)
+
+
+def test_scan_dir_reservation_uses_distinct_reader_compatible_names(monkeypatch, tmp_path):
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 10, 26, 1, 2, 3, tzinfo=timezone.utc)
+
+    monkeypatch.setattr(jobs, "datetime", FixedDateTime)
+
+    first_name, first_dir = jobs._reserve_scan_dir(tmp_path, "my-app")
+    second_name, second_dir = jobs._reserve_scan_dir(tmp_path, "my-app")
+
+    assert first_dir != second_dir
+    assert first_name == "my-app_2026-10-26_01-02-03"
+    assert second_name == "my-app_2026-10-26_01-02-04"
+    assert parse_dir_name(first_name)["target"] == "my-app"
+    assert parse_dir_name(second_name)["target"] == "my-app"

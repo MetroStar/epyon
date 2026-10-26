@@ -9385,7 +9385,7 @@ const scanWatch = (() => {
         const jobs = await res.json();
         for (const j of jobs) {
           const prev = known[j.job_id];
-          if (ACTIVE.includes(prev) && !ACTIVE.includes(j.status) && !tracked(j.job_id)) announce(j);
+          if (ACTIVE.includes(prev) && !ACTIVE.includes(j.status)) announce(j);
           known[j.job_id] = j.status;
         }
         render(jobs);

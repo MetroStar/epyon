@@ -21,6 +21,26 @@ def test_openai_provider_ignores_local_env(monkeypatch, tmp_path):
     assert o.get_api_key() == "sk-real"
 
 
+def test_openai_provider_client_targets_public_api_despite_env(monkeypatch, tmp_path):
+    import asyncio
+    import openai
+
+    setup(monkeypatch, tmp_path, {"provider": "openai", "openai_model": "gpt-4o"})
+    seen = {}
+
+    class FakeClient:
+        def __init__(self, api_key, base_url):
+            seen["base_url"] = base_url
+            raise RuntimeError("stop")
+
+    monkeypatch.setattr(openai, "AsyncOpenAI", FakeClient)
+    try:
+        asyncio.run(o._chat_completion([{"role": "user", "content": "hi"}], max_tokens=5, temperature=0))
+    except RuntimeError:
+        pass
+    assert seen["base_url"] == "https://api.openai.com/v1"
+
+
 def test_local_provider_never_sends_real_key(monkeypatch, tmp_path):
     setup(monkeypatch, tmp_path, {"provider": "local"})
     assert o.get_base_url() == "http://172.16.0.5:11435/v1"

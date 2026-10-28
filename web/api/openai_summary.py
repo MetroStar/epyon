@@ -111,6 +111,10 @@ _PLACEHOLDER_API_KEY = "sk-local-noauth"
 # Matched against the parsed URL hostname exactly (see _hostname/_is_self_hosted).
 _OPENAI_PUBLIC_HOSTS = ("api.openai.com",)
 
+# Passed explicitly when no base URL is configured: the OpenAI SDK would otherwise
+# fall back to OPENAI_BASE_URL from the environment (e.g. a local LLM in .env).
+_OPENAI_PUBLIC_BASE_URL = "https://api.openai.com/v1"
+
 
 def get_base_url() -> str | None:
     """Resolve the OpenAI-compatible base URL.
@@ -222,7 +226,7 @@ async def _chat_completion(
         raise RuntimeError("The 'openai' package is not installed. Run: pip install openai")
 
     async def _call(key: str, url: str | None, mdl: str) -> str:
-        client = AsyncOpenAI(api_key=key, base_url=url)
+        client = AsyncOpenAI(api_key=key, base_url=url or _OPENAI_PUBLIC_BASE_URL)
         response = await client.chat.completions.create(
             model=mdl,
             messages=messages,

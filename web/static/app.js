@@ -1366,7 +1366,7 @@ async function renderOverview() {
          </div>`;
 
     page.innerHTML = `
-      ${pageHeader(`Security Overview`, { actions: `<button class="btn btn-primary" onclick="navigate('#/new-scan')">+ Run Scan</button>` })}
+      ${pageHeader(`Overview`, { actions: `<button class="btn btn-primary" onclick="navigate('#/new-scan')">+ Run Evaluation</button>` })}
 
       <div class="stats-grid">
         <div class="stat-card">
@@ -1375,7 +1375,7 @@ async function renderOverview() {
         </div>
         <div class="stat-card">
           <div class="stat-value">${esc(stats.total_scans)}</div>
-          <div class="stat-label">Total Scans</div>
+          <div class="stat-label">Total Evaluations</div>
         </div>
         <div class="stat-card critical">
           <div class="stat-value">${esc(stats.critical)}</div>
@@ -1803,7 +1803,7 @@ async function renderApplications() {
 
     page.innerHTML = `
       ${pageHeader(`Applications`, { actions: `<button class="btn" onclick="showAddAppModal()">+ Add Application</button>
-          <button class="btn btn-primary" onclick="navigate('#/new-scan')">▶ Run Scan</button>` })}
+          <button class="btn btn-primary" onclick="navigate('#/new-scan')">▶ Run Evaluation</button>` })}
       <div class="table-container">
         <table>
           <thead>
@@ -1811,7 +1811,7 @@ async function renderApplications() {
               <th scope="col">Application</th>
               <th scope="col">Type</th>
               <th scope="col">Last Scanned</th>
-              <th scope="col">Scans</th>
+              <th scope="col">Evaluations</th>
               <th scope="col">Critical</th>
               <th scope="col">High</th>
               <th scope="col">Medium</th>
@@ -1896,7 +1896,7 @@ async function renderAppDetail(name) {
                  </button>
                </div>`
             : `<button class="btn btn-primary" onclick="navigate('#/new-scan')" style="margin-top:16px">
-                 ▶ Run Scan
+                 ▶ Run Evaluation
                </button>`,
         );
 
@@ -1916,7 +1916,7 @@ async function renderAppDetail(name) {
     const statsSection = scans.length ? `
       <div class="detail-grid">
         <div class="detail-card">
-          <div class="label">Total Scans</div>
+          <div class="label">Total Evaluations</div>
           <div class="value">${esc(scans.length)}</div>
         </div>
         <div class="detail-card">
@@ -1950,7 +1950,7 @@ async function renderAppDetail(name) {
       </div>
       ${pageHeader(`${esc(name)} ${statusBadge(status)}`, { actions: `<button class="btn btn-primary"
             onclick="navigate('#/new-scan?target=${encodeURIComponent(appUrl)}')">
-            ▶ Run Scan
+            ▶ Run Evaluation
           </button>
           <button class="btn app-type-badge ${appInfo.monitored ? 'monitored' : 'evaluation'}"
             onclick="(async()=>{
@@ -1977,7 +1977,7 @@ async function renderAppDetail(name) {
       ${statsSection}
       ${buildAppIssoSection(name)}
       <div class="section">
-        <div class="section-title">Scan History</div>
+        <div class="section-title">Evaluation History</div>
         <div class="scan-timeline">${timelineItems}</div>
       </div>`;
   } catch (e) {
@@ -2142,16 +2142,16 @@ async function renderScanDetail(scanId, openFindingId = '', openFindingPackage =
         <span>${esc(scan.scan_id)}</span>
       </div>
 
-      ${pageHeader(`Scan Details ${statusBadge(status)} ${gateBadge(scan)}`, { subtitle: `Findings, compliance, and evidence collected for <strong>${esc(scan.target)}</strong> on ${fmtDate(scan.timestamp)}.`, actions: `<button class="btn" onclick="navigate('#/jira-review/${encodeURIComponent(scanId)}')"
+      ${pageHeader(`Evaluation Details ${statusBadge(status)} ${gateBadge(scan)}`, { subtitle: `Findings, compliance, and evidence collected for <strong>${esc(scan.target)}</strong> on ${fmtDate(scan.timestamp)}.`, actions: `<button class="btn" onclick="navigate('#/jira-review/${encodeURIComponent(scanId)}')"
             title="Select findings to create as Jira tickets">
             Jira Review
           </button>
           ${repoUrl
             ? `<button class="btn btn-primary"
                  onclick="navigate('#/new-scan?target=${encodeURIComponent(repoUrl)}')">
-                 ▶ Run Scan
+                 ▶ Run Evaluation
                </button>`
-            : `<button class="btn btn-primary" onclick="navigate('#/new-scan')">▶ Run Scan</button>`}
+            : `<button class="btn btn-primary" onclick="navigate('#/new-scan')">▶ Run Evaluation</button>`}
           ${scan.has_dashboard
             ? `<button class="btn"
                  onclick="window.open('/api/scans/${encodeURIComponent(scanId)}/dashboard','_blank')">
@@ -4394,14 +4394,14 @@ async function renderStig() {
                 </button>
                 <button class="btn btn-sm"
                   onclick="navigate('#/scans/${encodeURIComponent(stigScanId)}')">
-                  Scan Details →
+                  Evaluation Details →
                 </button>
               </div>
             </div>`;
         }).join('')
       : emptyState(
           'No STIG results yet',
-          'STIG scans run automatically every Sunday night. You can also trigger one manually using Run Scan → STIG.',
+          'STIG scans run automatically every Sunday night. You can also trigger one manually using Run Evaluation → STIG.',
           `<button class="btn btn-primary" onclick="navigate('#/new-scan')" style="margin-top:16px">
              ▶ Run STIG Scan
            </button>`,
@@ -4480,8 +4480,8 @@ async function renderNewScan(prefill = '') {
 
   const page = document.getElementById('page');
   page.innerHTML = `
-    ${pageHeader(`Run New Scan`, { subtitle: `Launch a security scan against a local directory or Git repository —
-          Quartz Evaluator orchestrates all applicable security layers based on the selected scan type.` })}
+    ${pageHeader(`Run New Evaluation`, { subtitle: `Launch a security evaluation against a local directory or Git repository —
+          Quartz Evaluator orchestrates all applicable security layers based on the selected evaluation type.` })}
 
     <div class="section">
       <div class="section-title">Scan Configuration</div>
@@ -4515,7 +4515,7 @@ async function renderNewScan(prefill = '') {
           </div>
 
           <div class="form-group">
-            <label>Scan Types</label>
+            <label>Evaluation Types</label>
             <div style="margin-bottom:8px">
               <button type="button" class="btn btn-sm" onclick="setScanTypeCheckboxes(true)">Select All</button>
               <button type="button" class="btn btn-sm" onclick="setScanTypeCheckboxes(false)">Select None</button>
@@ -4532,7 +4532,7 @@ async function renderNewScan(prefill = '') {
           </div>
 
           <div class="form-group" id="scan-layer-picker-wrapper">
-            <label>Scan Layers</label>
+            <label>Evaluation Layers</label>
             ${renderScanLayerPicker()}
             <small>Only applies to Full, Nightly and Baseline scan types — Quick, STIG, and Local Model always run their fixed layer set.</small>
           </div>
@@ -4575,7 +4575,7 @@ async function renderNewScan(prefill = '') {
           </div>
 
           <button id="run-btn" class="btn btn-primary" style="width:100%;justify-content:center" onclick="submitScan()">
-            ▶ Run Scan
+            ▶ Run Evaluation
           </button>
         </div>
       </div>
@@ -4950,7 +4950,7 @@ async function submitScan() {
   const uploadFile = document.getElementById('scan-upload')?.files?.[0] || null;
 
   if (selectedTypes.length === 0) {
-    toast('Select at least one scan type to run.', 'warning');
+    toast('Select at least one evaluation type to run.', 'warning');
     return;
   }
   if (selectedTypes.includes('container_image') && selectedTypes.length > 1) {
@@ -5090,7 +5090,7 @@ async function pollJobs(btn, ctx) {
 // post-scan actions, and renders the PASS/FAIL summary table.
 function finishScanQueue() {
   const btn = document.getElementById('run-btn');
-  if (btn) { btn.disabled = false; btn.textContent = '▶ Run Scan'; }
+  if (btn) { btn.disabled = false; btn.textContent = '▶ Run Evaluation'; }
 
   const cancelBtn = document.getElementById('cancel-btn');
   if (cancelBtn) cancelBtn.style.display = 'none';
@@ -5139,7 +5139,7 @@ function renderScanQueueResults() {
   }).join('');
 
   container.innerHTML = `
-    <div class="section-title">Scan Type Results</div>
+    <div class="section-title">Evaluation Type Results</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:16px">
       <div class="stat-card">
         <div class="stat-label">Passed</div>
@@ -5153,7 +5153,7 @@ function renderScanQueueResults() {
     <div class="table-container">
       <table>
         <thead>
-          <tr><th scope="col">Scan Type</th><th scope="col">Status</th><th scope="col">Why</th></tr>
+          <tr><th scope="col">Evaluation Type</th><th scope="col">Status</th><th scope="col">Why</th></tr>
         </thead>
         <tbody>
           ${rows}
@@ -5592,7 +5592,7 @@ function openRiskTrendDetail(app) {
         </div>
         <div class="recurrence-card" style="min-width:100px;padding:12px">
           <div class="recurrence-value" style="font-size:24px;color:var(--text-muted)">${esc(String(pts.length))}</div>
-          <div class="recurrence-label">Scans tracked</div>
+          <div class="recurrence-label">Evaluations tracked</div>
         </div>
       </div>
       <div class="table-container">
@@ -6086,7 +6086,7 @@ async function renderMetrics() {
               <thead>
                 <tr>
                   <th scope="col" data-col="name">Application <span class="sort-icon">⇅</span></th>
-                  <th scope="col" data-col="total">Total Scans <span class="sort-icon">⇅</span></th>
+                  <th scope="col" data-col="total">Total Evaluations <span class="sort-icon">⇅</span></th>
                   <th scope="col" data-col="first">First Scan <span class="sort-icon">⇅</span></th>
                   <th scope="col" data-col="last">Latest Scan <span class="sort-icon">⇅</span></th>
                   <th scope="col">History</th>
@@ -6415,7 +6415,7 @@ async function renderPerformanceDashboard() {
     ` : `
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:16px">
             <div class="stat-card">
-              <div class="stat-label">Scans Checked</div>
+              <div class="stat-label">Evaluations Checked</div>
               <div class="stat-value">${si.summary.total}</div>
             </div>
             <div class="stat-card">
@@ -6437,7 +6437,7 @@ async function renderPerformanceDashboard() {
             <div class="table-container">
               <table>
                 <thead>
-                  <tr><th scope="col">Scan</th><th scope="col">Target</th><th scope="col">Type</th><th scope="col">Status</th><th scope="col">Reason(s)</th></tr>
+                  <tr><th scope="col">Evaluation</th><th scope="col">Target</th><th scope="col">Type</th><th scope="col">Status</th><th scope="col">Reason(s)</th></tr>
                 </thead>
                 <tbody>
                   ${si.flagged.map(f => `
@@ -6765,8 +6765,8 @@ async function buildCiHealthSection() {
           <table>
             <thead><tr>
               <th scope="col">Application</th>
-              <th scope="col" style="text-align:center">PR Scans</th>
-              <th scope="col" style="text-align:center">Push Scans</th>
+              <th scope="col" style="text-align:center">PR Evaluations</th>
+              <th scope="col" style="text-align:center">Push Evaluations</th>
               <th scope="col" style="text-align:center">Other</th>
               <th scope="col" style="text-align:center">Total CI</th>
               <th scope="col">Coverage</th>
@@ -6811,14 +6811,14 @@ async function renderSettings() {
       ${pageHeader(`Settings`)}
 
       <div class="section">
-        <div class="section-title">Scan History Summary</div>
+        <div class="section-title">Evaluation History Summary</div>
         <div class="detail-grid">
           <div class="detail-card">
             <div class="label">Generated At</div>
             <div class="value" style="font-size:13px">${fmtDate(history.generated_at)}</div>
           </div>
           <div class="detail-card">
-            <div class="label">Total Scans Recorded</div>
+            <div class="label">Total Evaluations Recorded</div>
             <div class="value">${esc(history.total_scans || 0)}</div>
           </div>
           <div class="detail-card">
@@ -8008,7 +8008,7 @@ async function deleteApplication(name) {
     title:        'Delete Application',
     body:         'This will permanently remove all scan data from disk. This action cannot be undone.',
     target:       name,
-    confirmLabel: 'Delete All Scans',
+    confirmLabel: 'Delete All Evaluations',
     onConfirm:    async () => {
       try {
         await api.deleteApp(name);
@@ -8559,7 +8559,7 @@ function renderJiraReviewPage() {
 
   page.innerHTML = `
     <div class="breadcrumb">
-      <a href="#/scans/${encodeURIComponent(state.scanId)}">Scan Details</a>
+      <a href="#/scans/${encodeURIComponent(state.scanId)}">Evaluation Details</a>
       <span>›</span><span>Jira Review</span>
     </div>
     ${pageHeader(`Jira Ticket Review`, { subtitle: `${esc(data.app_name)} · ${esc(state.scanId)}`, actions: `<button class="btn" onclick="navigate('#/scans/${encodeURIComponent(state.scanId)}')">Back to Scan</button>` })}
@@ -9415,8 +9415,8 @@ const scanWatch = (() => {
   function announce(job) {
     const ok = job.status === 'completed';
     const msg = ok
-      ? `Scan finished: ${job.target} (${job.scan_type})`
-      : `Scan ${job.status}: ${job.target} (${job.scan_type})`;
+      ? `Evaluation finished: ${job.target} (${job.scan_type})`
+      : `Evaluation ${job.status}: ${job.target} (${job.scan_type})`;
     toast(msg, ok ? 'success' : 'error');
     if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
       try {
@@ -9922,7 +9922,7 @@ function openStigDetail(id) {
       </div>
       ${tl.length ? `
       <div class="finding-detail-section">
-        <div class="finding-detail-label">Scan History</div>
+        <div class="finding-detail-label">Evaluation History</div>
         <div class="finding-detail-desc" style="padding:0;background:none;border:1px solid var(--border-muted);border-radius:var(--radius);overflow:hidden">
           <table style="width:100%;border-collapse:collapse">
             <thead>
@@ -10186,11 +10186,11 @@ function openGhSignalDetail(kind, idx) {
           <div class="finding-detail-value" style="color:${barColor};font-weight:700;font-size:22px">${pct}%</div>
         </div>
         <div class="finding-detail-section">
-          <div class="finding-detail-label">PR-Triggered Scans</div>
+          <div class="finding-detail-label">PR-Triggered Evaluations</div>
           <div class="finding-detail-value">${v.pr_scans}</div>
         </div>
         <div class="finding-detail-section">
-          <div class="finding-detail-label">Total CI Scans</div>
+          <div class="finding-detail-label">Total CI Evaluations</div>
           <div class="finding-detail-value">${v.total_ci_scans}</div>
         </div>
       </div>
@@ -10213,7 +10213,7 @@ function openGhSignalDetail(kind, idx) {
       </div>
       <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
         <button class="btn btn-ai" onclick="closeGhSignalDetail();navigate('#/applications/${encodeURIComponent(name)}')">
-          View Application Scans
+          View Application Evaluations
         </button>
       </div>`;
   }
@@ -10551,7 +10551,7 @@ function renderStaticScanDetail(scan) {
       <span>${esc(scanId)}</span>
     </div>
 
-    ${pageHeader(`Scan Details ${statusBadge(status)}`, { subtitle: `Findings, compliance, and evidence collected for <strong>${esc(scan.target || '—')}</strong> on ${fmtDate(scan.timestamp)}.` })}
+    ${pageHeader(`Evaluation Details ${statusBadge(status)}`, { subtitle: `Findings, compliance, and evidence collected for <strong>${esc(scan.target || '—')}</strong> on ${fmtDate(scan.timestamp)}.` })}
 
     <div class="stats-grid" style="margin-bottom:24px">
       <div class="stat-card">

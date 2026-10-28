@@ -1205,7 +1205,7 @@ function confirmDialog({ title, body, confirmLabel = 'Confirm', cancelLabel = 'C
 }
 
 function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
   applyTheme(current === 'dark' ? 'light' : 'dark');
 }
 
@@ -1235,9 +1235,7 @@ async function clearCacheAndReload() {
       return;
     }
   } catch (_) {}
-  // Fall back to OS preference
-  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  applyTheme(prefersDark ? 'dark' : 'light');
+  applyTheme('light');
 })();
 
 // ── Sidebar collapse ─────────────────────────────────────────

@@ -41,6 +41,13 @@ def test_openai_provider_client_targets_public_api_despite_env(monkeypatch, tmp_
     assert seen["base_url"] == "https://api.openai.com/v1"
 
 
+def test_limit_kwargs_by_model():
+    assert o._limit_kwargs("gpt-5.5", 900, 0.3) == {"max_completion_tokens": 8000}
+    assert o._limit_kwargs("o3-mini", 12000, 0.3) == {"max_completion_tokens": 12000}
+    assert o._limit_kwargs("gpt-4o-mini", 900, 0.3) == {"max_tokens": 900, "temperature": 0.3}
+    assert o._limit_kwargs("gemma4:26b", 900, 0.3) == {"max_tokens": 900, "temperature": 0.3}
+
+
 def test_local_provider_never_sends_real_key(monkeypatch, tmp_path):
     setup(monkeypatch, tmp_path, {"provider": "local"})
     assert o.get_base_url() == "http://172.16.0.5:11435/v1"

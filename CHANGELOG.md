@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - AI summaries no longer fail with "Connection error (502)" when `OPENAI_BASE_URL` is set in the environment but the provider is OpenAI; the public OpenAI API is now targeted explicitly.
+- AI summaries no longer fail with `Unsupported parameter: 'max_tokens'` on gpt-5/o-series models; they now use `max_completion_tokens` and omit `temperature`.
 
 ## [3.56.1] - 2026-10-26
 

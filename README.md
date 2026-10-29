@@ -529,7 +529,7 @@ docker compose up -d --build
 
 **Use Epyon as a GitHub Action to automatically scan repositories!**
 
-**Pin a release (v3.47.0+):** Epyon is released as git tags with generated notes, a source archive, a CycloneDX SBOM and SHA-256 checksums on the [GitHub Releases](https://github.com/MetroStar/epyon/releases) page. Referencing the reusable workflow by tag (`.../epyon-scan.yml@vX.Y.Z`) or commit SHA pins the workflow definition, but the workflow currently checks out the scanner implementation from `main`; the code run and `VERSION` reported can therefore change as `main` advances. This does not pin the scanner version. Maintainer steps, checksum verification and pull request release-notes rules are in [documentation/RELEASE_CHECKLIST.md](documentation/RELEASE_CHECKLIST.md).
+**Pin a release (v3.47.0+):** Epyon is released as git tags with generated notes, a source archive, a CycloneDX SBOM and SHA-256 checksums on the [GitHub Releases](https://github.com/MetroStar/epyon/releases) page. Referencing the reusable workflow by tag (`.../epyon-scan.yml@vX.Y.Z`) or commit SHA pins the workflow definition. Starting with v3.56.2, also set `with.scanner_ref` to a scanner tag or commit SHA to pin the implementation independently. It defaults to `main` for backward compatibility; pinning only the workflow does not pin the scanner. Maintainer steps, checksum verification and pull request release-notes rules are in [documentation/RELEASE_CHECKLIST.md](documentation/RELEASE_CHECKLIST.md).
 
 ### 🔔 Real-Time Webhook Notifications (Barbatos Integration)
 

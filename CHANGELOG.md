@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.56.2] - 2026-10-29
+
+### Fixed
+- Reusable scans accept `scanner_ref` to pin the scanner source independently of the workflow definition; existing callers still default to `main`.
+
 ## [3.56.1] - 2026-10-26
 
 ### Fixed

@@ -359,13 +359,13 @@ function renderSelfAssessmentBody(sa) {
 
 function gateBadge(scan) {
   // Overall PASS/FAIL gate: FAILs on any Critical vulnerability, malware hit,
-  // or secret, or when High findings (vulnerabilities + Checkov
-  // misconfigurations) reach 5. Dashboard-only (see compute_gate_status() in
+  // or secret, or when High vulnerabilities (Checkov
+  // misconfigurations excluded) reach 5. Dashboard-only (see compute_gate_status() in
   // web/api/parsers.py) — does not affect CI/GitHub Actions exit codes.
   if (!scan || scan.gate_status == null) return '';
   return scan.gate_status === 'fail'
-    ? '<span class="sev-badge critical" title="Critical vulnerability/malware/secret found, or High findings at/above threshold">🔴 FAIL</span>'
-    : '<span class="sev-badge clean" title="No Critical findings and High findings below threshold">🟢 PASS</span>';
+    ? '<span class="sev-badge critical" title="Critical vulnerability/malware/secret found, or 5 or more High vulnerabilities">🔴 FAIL</span>'
+    : '<span class="sev-badge clean" title="No Critical findings and fewer than 5 High vulnerabilities">🟢 PASS</span>';
 }
 
 function sevBadgeRow(scan) {

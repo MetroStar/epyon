@@ -276,8 +276,7 @@ def _memo_load_scan(scan_dir) -> dict:
         # Recompute from the stored counts so a gate policy change doesn't
         # need the whole parse cache rebuilt.
         scan["gate_status"] = parsers.compute_gate_status(
-            scan.get("critical", 0), scan.get("high", 0),
-            scan.get("misconfig_critical", 0), scan.get("misconfig_high", 0),
+            scan.get("critical", 0), scan.get("high", 0), scan.get("misconfig_critical", 0),
         )
     return scan
 

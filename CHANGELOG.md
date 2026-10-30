@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Metrics now looks back 90 days by default (`EPYON_METRICS_DAYS`, minimum 7) instead of 35, and the vulnerability trend is one point per day rather than the last 60 scans.
 - GitHub sync paginates workflow runs (100 per page) across the full window instead of only the latest 30. Artifacts past GitHub's retention period cannot be restored.
 - Metrics Scan Frequency dots are colour-coded by PR vs nightly (vs push/manual) and PASS/FAIL, with a legend.
-- Dashboard PASS/FAIL chip now fails on any Critical or 5+ High findings (was 4+). `check-severity-gate.sh` and CI are unchanged at 4.
+- Dashboard PASS/FAIL chip now fails on any Critical or 5+ High vulnerabilities (was 4+ including Checkov IaC highs). `check-severity-gate.sh` and CI are unchanged at 4.
 - Cache warm-up runs in the background in parallel across the whole Metrics window, repeats every 5 minutes, and no longer waits on freshly synced scans.
 - Metrics shows "No data" / "No runs" instead of blanks, and sub-day MTTR/MTTD as hours instead of "0d".
 

@@ -2398,7 +2398,7 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
         data["enrichment"] = enrichment
 
     # ── Overall PASS/FAIL gate ────────────────────────────────────────────────
-    # Dashboard-only verdict: FAIL on any Critical or 5+ High findings. This is
+    # Dashboard-only verdict: FAIL on any Critical or 5+ High vulnerabilities (Checkov highs excluded). This is
     # deliberately one higher than check-severity-gate.sh's default
     # HIGH_THRESHOLD=4 and does not affect GitHub Actions exit codes or CI
     # behavior (those are governed by the actual check-severity-gate.sh run).
@@ -2407,8 +2407,7 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
     data["misconfig_critical"] = misconfig_summary.get("total_critical", 0)
     data["misconfig_high"]     = misconfig_summary.get("total_high", 0)
     data["gate_status"] = compute_gate_status(
-        data["critical"], data["high"],
-        data["misconfig_critical"], data["misconfig_high"],
+        data["critical"], data["high"], data["misconfig_critical"],
     )
 
     return data
@@ -2423,7 +2422,6 @@ def compute_gate_status(
     critical: int,
     high: int,
     misconfig_critical: int,
-    misconfig_high: int,
     high_threshold: int = DEFAULT_HIGH_THRESHOLD,
 ) -> str:
     """Overall scan verdict shown on the dashboard:
@@ -2436,11 +2434,9 @@ def compute_gate_status(
 
     A count of High findings below the threshold intentionally PASSes.
     """
-    total_critical = critical + misconfig_critical
-    total_high = high + misconfig_high
-    if total_critical > 0:
+    if critical + misconfig_critical > 0:
         return "fail"
-    if total_high >= high_threshold:
+    if high >= high_threshold:
         return "fail"
     return "pass"
 

@@ -1111,6 +1111,7 @@ print_section() {
 }
 
 # Function to run security tools with target directory
+FAILED_SECURITY_TOOLS=()
 run_security_tool() {
     local tool_name="$1"
     local script_path="$2"
@@ -1145,12 +1146,14 @@ run_security_tool() {
             # Send webhook notification: tool completed successfully
             send_webhook "tool_complete" "$tool_name completed successfully" "success" "$tool_slug"
         else
-            echo -e "${YELLOW}⚠️  $tool_name completed with warnings${NC}"
+            echo -e "${RED}❌ $tool_name failed (exit $exit_code)${NC}"
+            FAILED_SECURITY_TOOLS+=("$tool_name")
             # Send webhook notification: tool completed with warnings
             send_webhook "tool_complete" "$tool_name completed with warnings" "warning" "$tool_slug"
         fi
     else
         echo -e "${RED}❌ $tool_name script not found or not executable: $script_path${NC}"
+        FAILED_SECURITY_TOOLS+=("$tool_name")
         # Send webhook notification: tool failed
         send_webhook "tool_error" "$tool_name script not found" "error" "$tool_slug"
         return 1
@@ -1446,12 +1449,15 @@ case "$SCAN_TYPE" in
                 # STIGS_DIR through if the caller explicitly set one —
                 # otherwise let run-stig-scan.sh use its own correct
                 # PROJECT_ROOT-derived absolute default.
-                env ${STIGS_DIR:+STIGS_DIR="$STIGS_DIR"} \
+                if ! env ${STIGS_DIR:+STIGS_DIR="$STIGS_DIR"} \
                     SCAN_DIR="$SCAN_DIR" \
                     APP_NAME="$TARGET_NAME" \
-                    "$SCRIPT_DIR/run-stig-scan.sh" "$TARGET_DIR" || \
-                    echo -e "${YELLOW}⚠️  STIG assessment completed with warnings${NC}"
+                    "$SCRIPT_DIR/run-stig-scan.sh" "$TARGET_DIR"; then
+                    FAILED_SECURITY_TOOLS+=("STIG Compliance Assessment")
+                    echo -e "${RED}❌ STIG assessment failed${NC}"
+                fi
             else
+                FAILED_SECURITY_TOOLS+=("STIG Compliance Assessment")
                 echo -e "${YELLOW}⚠️  run-stig-scan.sh not found, skipping Layer 13 - STIG${NC}"
             fi
         else
@@ -2041,6 +2047,15 @@ echo -e "${CYAN}Elapsed time: $RUN_ELAPSED_HUMAN${NC}"
 echo -e "${CYAN}All scan artifacts stored in: $SCAN_DIR${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
+
+# Automatically open the dashboard (prefer root-level shortcut)
+if [[ ${#FAILED_SECURITY_TOOLS[@]} -gt 0 ]]; then
+    printf '%s\n' "${FAILED_SECURITY_TOOLS[@]}" > "$SCAN_DIR/failed-security-tools.txt"
+    echo -e "${RED}❌ Scanner execution failed: ${FAILED_SECURITY_TOOLS[*]}${NC}" >&2
+    if [[ "${EPYON_REQUIRE_COMPLETE:-false}" == "true" ]]; then
+        exit 1
+    fi
+fi
 
 # Automatically open the dashboard (prefer root-level shortcut)
 if [[ -f "$SCAN_DIR/security-dashboard.html" ]]; then

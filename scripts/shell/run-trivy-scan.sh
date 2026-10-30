@@ -270,6 +270,7 @@ fi
 echo
 
 # Function to scan a target
+SCAN_FAILURES=0
 run_trivy_scan() {
     local scan_type="$1"
     local target="$2"
@@ -283,7 +284,9 @@ run_trivy_scan() {
 
         if [ -n "$LOCAL_TRIVY" ]; then
             # Use local Trivy binary
-            if [[ "$scan_type" == "base-"* ]] || [[ "$target" == *":"* ]]; then
+            if [[ "$target" == oci-archive:* ]]; then
+                "$LOCAL_TRIVY" image --input "${target#oci-archive:}" --scanners vuln,misconfig,secret --format json --skip-check-update 2>>"$SCAN_LOG" > "$output_file"
+            elif [[ "$scan_type" == "base-"* ]] || [[ "$target" == *":"* ]]; then
                 echo "   Scanning container image: $target"
                 "$LOCAL_TRIVY" image "$target" --scanners vuln,misconfig,secret --format json --skip-check-update 2>>"$SCAN_LOG" > "$output_file"
             else
@@ -316,7 +319,8 @@ run_trivy_scan() {
             ln -sf "$(basename "$output_file")" "$current_file" 2>/dev/null
         else
             echo -e "${RED}❌ Scan failed for $target${NC}"
-            echo '{"Results": []}' > "$output_file"
+            mv "$output_file" "${output_file%.json}.failed-output" 2>/dev/null
+            SCAN_FAILURES=$((SCAN_FAILURES + 1))
         fi
         echo
     fi
@@ -354,7 +358,9 @@ if [ "$SCAN_MODE" != "filesystem" ]; then
     fi
 
     for image in "${BASE_IMAGES[@]}"; do
-        if [ -n "${CONTAINER_CLI:-}" ]; then
+        if [ -n "$LOCAL_TRIVY" ]; then
+            run_trivy_scan "base-$(echo "$image" | tr ':/' '-')" "$image"
+        elif [ -n "${CONTAINER_CLI:-}" ]; then
             echo -e "${BLUE}📦 Scanning base image: $image${NC}"
             
             # Check if image exists locally first
@@ -367,6 +373,7 @@ if [ "$SCAN_MODE" != "filesystem" ]; then
                 echo "$_pull_output" >> "$SCAN_LOG"
                 if [ $_pull_status -ne 0 ]; then
                     echo "   ⚠️ $(classify_docker_pull_failure "$image" "$_pull_output") Skipping this image."
+                    SCAN_FAILURES=$((SCAN_FAILURES + 1))
                     continue
                 fi
             fi
@@ -418,10 +425,16 @@ if [ "$SCAN_MODE" = "config" ] || [ "$SCAN_MODE" = "all" ]; then
             echo -e "${GREEN}✅ IaC scan completed: $IaC_COUNT result(s) found${NC}"
             ln -sf "$(basename "$IaC_OUTPUT")" "$OUTPUT_DIR/trivy-config-results.json" 2>/dev/null
         else
-            echo -e "${YELLOW}⚠️  IaC scan skipped or produced no output${NC}"
+            echo -e "${RED}❌ IaC scan failed or produced no output${NC}"
+            SCAN_FAILURES=$((SCAN_FAILURES + 1))
         fi
         echo
     fi
+fi
+
+if [ "$SCAN_FAILURES" -gt 0 ]; then
+    echo -e "${RED}❌ $SCAN_FAILURES Trivy target(s) failed; see $SCAN_LOG${NC}" >&2
+    exit 1
 fi
 
 echo

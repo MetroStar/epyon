@@ -1490,6 +1490,58 @@ def _completion_kwargs(model: str, max_out: int, seed: int = 42) -> dict:
         return {"max_completion_tokens": max(max_out, 8000)}
     return {"temperature": 0, "top_p": 1.0, "seed": seed, "max_tokens": max_out}
 
+def _structured_kwargs(schema: dict[str, Any]) -> dict[str, Any]:
+    if os.environ.get("EPYON_AI_STRUCTURED_OUTPUT", "").lower() != "true":
+        return {}
+    return {
+        "reasoning_effort": "none",
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {"name": "stig_assessment", "schema": schema},
+        },
+    }
+
+
+def _assessment_schema(controls: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "type": "array",
+        "minItems": len(controls),
+        "maxItems": len(controls),
+        "items": {
+            "type": "object",
+            "properties": {
+                "vuln_id": {"type": "string", "enum": [c["vuln_id"] for c in controls]},
+                "status": {"type": "string", "enum": sorted(VALID_STATUSES)},
+                "evidence": {"type": "string", "minLength": 1},
+                "confidence": {"type": "integer", "minimum": 0, "maximum": 100},
+            },
+            "required": ["vuln_id", "status", "evidence", "confidence"],
+        },
+    }
+
+
+def _validate_batch(results: Any, controls: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    expected = {c["vuln_id"] for c in controls}
+    if not isinstance(results, list) or len(results) != len(controls):
+        raise ValueError("Model must return one assessment per requested control")
+    seen: set[str] = set()
+    for item in results:
+        if not isinstance(item, dict) or item.get("vuln_id") not in expected:
+            raise ValueError("Model returned an unknown control or invalid assessment")
+        if item["vuln_id"] in seen:
+            raise ValueError("Model returned duplicate control assessments")
+        seen.add(item["vuln_id"])
+        if item.get("status") not in VALID_STATUSES and (
+            os.environ.get("EPYON_AI_STRUCTURED_OUTPUT", "").lower() == "true"
+        ):
+            raise ValueError("Model returned an invalid STIG status")
+        if not isinstance(item.get("evidence"), str) or not item["evidence"].strip():
+            raise ValueError("Model returned empty STIG evidence")
+        confidence = item.get("confidence")
+        if type(confidence) is not int or not 0 <= confidence <= 100:
+            raise ValueError("Model returned invalid confidence")
+    return results
+
 
 def check_stig_applicability(
     client: Any,
@@ -1520,6 +1572,11 @@ def check_stig_applicability(
         response = client.chat.completions.create(
         model=model,
         **_completion_kwargs(model, 300),
+        **_structured_kwargs({
+            "type": "object",
+            "properties": {"applicable": {"type": "boolean"}, "reason": {"type": "string"}},
+            "required": ["applicable", "reason"],
+        }),
         messages=[
             {"role": "system", "content": _APPLICABILITY_SYSTEM_PROMPT},
             {"role": "user",   "content": user_message},
@@ -1638,6 +1695,7 @@ def call_openai(
     response = client.chat.completions.create(
         model=model,
         **_completion_kwargs(model, int(os.environ.get("EPYON_AI_MAX_TOKENS", "16384") or 16384), _seed),
+        **_structured_kwargs(_assessment_schema(controls_batch)),
         messages=[
             {"role": "system", "content": system_prompt()},
             {"role": "user",   "content": user_message},
@@ -1664,12 +1722,12 @@ def call_openai(
     raw = re.sub(r"\s*```$", "", raw)
 
     try:
-        return json.loads(raw), prompt_tokens, completion_tokens
+        return _validate_batch(json.loads(raw), controls_batch), prompt_tokens, completion_tokens
     except json.JSONDecodeError:
         # Tolerate prose around the JSON array.
         start, end = raw.find("["), raw.rfind("]")
         if raw and start != -1 and end > start:
-            return json.loads(raw[start:end + 1]), prompt_tokens, completion_tokens
+            return _validate_batch(json.loads(raw[start:end + 1]), controls_batch), prompt_tokens, completion_tokens
         print(f"[WARNING] Unparseable model output (finish_reason={finish}): {raw[:200]!r}", file=sys.stderr)
         raise
 
@@ -1932,6 +1990,7 @@ def _assess_stig(
         print(f"[INFO] [{slug}] Loaded {len(manual_docs)} manual STIG documentation file(s) for priority context", file=sys.stderr)
 
     assessments: dict[str, dict[str, str]] = {}
+    failed_batches: list[int] = []
     total_prompt_tokens     = 0
     total_completion_tokens = 0
 
@@ -2173,6 +2232,7 @@ def _assess_stig(
                             file=sys.stderr,
                         )
             if last_err:
+                failed_batches.append(idx)
                 print(
                     f"[WARNING] [{slug}] Batch {idx} failed after {_MAX_BATCH_RETRIES} attempts — "
                     f"controls will be marked Open/0",
@@ -2248,6 +2308,8 @@ def _assess_stig(
     results_path = scan_dir / f"stig-results-{slug}.json"
     output_data: dict[str, Any] = {
         "assessments": assessments,
+        "assessment_complete": bool(api_key) and not failed_batches,
+        "failed_batches": failed_batches,
         "token_usage": {
             "prompt_tokens":     total_prompt_tokens     if api_key else 0,
             "completion_tokens": total_completion_tokens if api_key else 0,
@@ -2329,6 +2391,11 @@ def _assess_stig(
             print(f"    {label:<22} {n}", file=sys.stderr)
     print(f"    {'Total':<22} {len(controls)}", file=sys.stderr)
     print(f"", file=sys.stderr)
+
+    if os.environ.get("EPYON_REQUIRE_COMPLETE", "").lower() == "true" and (
+        failed_batches or not api_key
+    ):
+        raise SystemExit(f"[ERROR] [{slug}] STIG assessment incomplete; diagnostics preserved")
 
 
 def main() -> None:

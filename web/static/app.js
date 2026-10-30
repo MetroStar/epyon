@@ -9471,6 +9471,11 @@ window.addEventListener('load', () => {
   api._get('/api/health').then(h => {
     const el = document.getElementById('sidebar-version');
     if (el && h.version) el.textContent = 'Quartz Evaluator v' + h.version;
+    const logout = document.getElementById('logout-link');
+    if (logout && h.logout_url && h.logout_url.startsWith('/oauth2/sign_out?')) {
+      logout.href = h.logout_url;
+      logout.hidden = false;
+    }
   }).catch(() => {});
 });
 

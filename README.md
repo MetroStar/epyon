@@ -16,6 +16,35 @@ Epyon is designed to be opinionated, automated, and decisive — empowering team
 
 ## Overview
 
+### Hardened Jenkins execution
+
+Quartz Evaluator can scan an application image without giving its scanner pod a
+container daemon or elevated privileges. Build the image in a separate CI
+builder, label it with `org.opencontainers.image.revision` equal to the target
+Git commit, export a single-image OCI archive, and set `EPYON_IMAGE_ARCHIVE` to
+that archive. Phase 0 verifies the source revision, manifest, config and every
+layer digest before routing the archive to native Trivy, Grype and Anchore.
+
+Preserve the Maven build's local repository at `$HOME/.m2/repository` in the
+scanner agent so Java dependency resolution can reuse the actual build cache
+instead of relying on rate-limited Maven Central requests.
+
+Set `EPYON_REQUIRE_COMPLETE=true` to fail orchestration when any enabled scanner
+fails, while retaining diagnostic outputs. Failed Trivy/Grype results are not
+replaced with empty successful JSON. Optional, inapplicable layers still report
+their normal applicability status.
+
+For an Ollama-compatible endpoint supporting schema-constrained output and
+`reasoning_effort=none`, set `EPYON_AI_STRUCTURED_OUTPUT=true`. STIG batches
+request and validate one JSON assessment per control; exhausted retries cannot
+pass complete-scan enforcement. Existing hosted configurations remain opt-in.
+
+An SSO deployment can set `EPYON_LOGOUT_URL` to a local
+`/oauth2/sign_out?rd=...` URL to expose the dashboard logout control. The proxy
+must allow only the intended provider redirect host, and the provider must
+register the application's post-logout return URI. HTML and API responses use
+no-store cache headers so authenticated content is not reused after logout.
+
 Epyon is a **production-ready, enterprise-grade** 21-layer DevSecOps security platform with a FastAPI-backed web UI, comprehensive test coverage, baseline scanning, automated comparison, and isolated scan directory architecture. Built for real-world applications with Docker-based tooling and 886 automated tests.
 
 **Version: 3.14.4** · **Updated: September 16, 2026**

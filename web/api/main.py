@@ -558,7 +558,7 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"]         = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"]      = _PERMISSIONS_POLICY
         response.headers["Content-Security-Policy"] = _CSP
-        if request.url.path.startswith("/api/"):
+        if request.url.path.startswith("/api/") or "text/html" in response.headers.get("content-type", ""):
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
             response.headers["Pragma"]        = "no-cache"
         return response
@@ -599,7 +599,10 @@ def _sec_headers(response: Response) -> None:
 @app.get("/api/health")
 def health(response: Response):
     _sec_headers(response)
-    return {"status": "ok", "epyon_root": str(EPYON_ROOT), "version": EPYON_VERSION}
+    return {
+        "status": "ok", "epyon_root": str(EPYON_ROOT), "version": EPYON_VERSION,
+        "logout_url": os.environ.get("EPYON_LOGOUT_URL", ""),
+    }
 
 
 # ── Stats ─────────────────────────────────────────────────────

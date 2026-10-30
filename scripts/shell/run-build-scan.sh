@@ -42,6 +42,8 @@ show_help() {
     echo "  IMAGE_TAG             Container image tag"
     echo "  APP_NAME              App name"
     echo "  DOCKERFILE            Dockerfile/Containerfile to build (same as --dockerfile)"
+    echo "  EPYON_IMAGE_ARCHIVE   OCI archive from an external builder, labelled with"
+    echo "                        org.opencontainers.image.revision matching target HEAD"
     exit 0
 }
 
@@ -107,6 +109,11 @@ exec > >(tee -a "$BUILD_LOG") 2>&1
 echo -e "${PURPLE}============================================${NC}"
 echo -e "${PURPLE}🏗️  Epyon Phase 0: Container Image Build${NC}"
 echo -e "${PURPLE}============================================${NC}"
+
+if [[ -n "${EPYON_IMAGE_ARCHIVE:-}" ]]; then
+    python3 "$SCRIPT_DIR/import-build-archive.py" "$EPYON_IMAGE_ARCHIVE" "$TARGET_DIR" "$BUILD_DIR"
+    exit 0
+fi
 
 # Find Dockerfile: an explicit --dockerfile/DOCKERFILE override always wins
 # (needed for monorepos with multiple Dockerfiles, where auto-discovery can't

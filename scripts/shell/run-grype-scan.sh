@@ -275,6 +275,7 @@ fi
 echo
 
 # Function to run Grype scan
+SCAN_FAILURES=0
 run_grype_scan() {
     local scan_type="$1"
     local target="$2"
@@ -346,7 +347,8 @@ run_grype_scan() {
     else
         echo -e "${RED}   ❌ ${scan_type} scan failed or produced no output${NC}"
         echo "${scan_type} scan: FAILED" >> "$SCAN_LOG"
-        echo '{"matches": [], "source": {"type": "directory", "target": "'"$target"'"}}' > "$output_file"
+        mv "$output_file" "${output_file%.json}.failed-output" 2>/dev/null
+        SCAN_FAILURES=$((SCAN_FAILURES + 1))
     fi
     echo
 }
@@ -415,7 +417,8 @@ if [[ "$SCAN_TYPE" == "sbom" ]] || [[ "$SCAN_TYPE" == "all" ]]; then
             ln -sf "$(basename "$output_file")" "$current_file" 2>/dev/null
         else
             echo -e "${RED}   ❌ SBOM scan failed${NC}"
-            echo '{"matches": [], "source": {"type": "sbom", "target": "'"$SBOM_FILE"'"}}' > "$output_file"
+            mv "$output_file" "${output_file%.json}.failed-output" 2>/dev/null
+            SCAN_FAILURES=$((SCAN_FAILURES + 1))
         fi
     else
         echo -e "${YELLOW}⚠️ SBOM file not found: $SBOM_FILE${NC}"
@@ -452,7 +455,9 @@ if [[ "$SCAN_TYPE" == "images" ]] || [[ "$SCAN_TYPE" == "all" ]]; then
     
     for image in "${IMAGES_TO_SCAN[@]}"; do
         echo -e "${BLUE}📦 Scanning base image: $image${NC}"
-        if [ -n "${CONTAINER_CLI:-}" ]; then
+        if [ -n "$LOCAL_GRYPE" ]; then
+            run_grype_scan "base-$(echo "$image" | tr ':/' '-')" "$image"
+        elif [ -n "${CONTAINER_CLI:-}" ]; then
             # Check if image exists locally first
             if ${CONTAINER_CLI} image inspect "$image" &>/dev/null; then
                 echo "   ✅ Using cached image"
@@ -460,12 +465,18 @@ if [[ "$SCAN_TYPE" == "images" ]] || [[ "$SCAN_TYPE" == "all" ]]; then
                 echo "   ⏬ Pulling image..."
                 if ! ${CONTAINER_CLI} pull "$image" >> "$SCAN_LOG" 2>&1; then
                     echo "   ⚠️ Pull failed - skipping this image"
+                    SCAN_FAILURES=$((SCAN_FAILURES + 1))
                     continue
                 fi
             fi
             run_grype_scan "base-$(echo $image | tr ':/' '-')" "$image"
         fi
     done
+fi
+
+if [ "$SCAN_FAILURES" -gt 0 ]; then
+    echo -e "${RED}❌ $SCAN_FAILURES Grype target(s) failed; see $SCAN_LOG${NC}" >&2
+    exit 1
 fi
 
 # Count results

@@ -284,6 +284,8 @@ html[data-theme="light"] .logo-img {
 
 .nav-links li { margin-bottom: 2px; }
 
+#logout-link[hidden] { display: none; }
+
 .nav-link {
   display: flex;
   align-items: center;

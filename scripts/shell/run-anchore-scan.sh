@@ -777,8 +777,8 @@ scan_base_images() {
     BASELINE_IMAGE_NAME="$PRIMARY_BASELINE_IMAGE"
     log "ℹ Primary baseline image: $PRIMARY_BASELINE_IMAGE"
 
-    # Check if baseline image exists locally; pull if not
-    if ! docker image inspect "$PRIMARY_BASELINE_IMAGE" > /dev/null 2>&1; then
+    # Native Grype resolves registry images and OCI archives without a daemon.
+    if [ "$GRYPE_CMD" != "grype" ] && ! docker image inspect "$PRIMARY_BASELINE_IMAGE" > /dev/null 2>&1; then
         log "ℹ Baseline image not found locally, attempting to pull: $PRIMARY_BASELINE_IMAGE"
         local _pull_output _pull_status
         _pull_output="$(docker pull "$PRIMARY_BASELINE_IMAGE" 2>&1)"
@@ -800,7 +800,9 @@ scan_base_images() {
     fi
     
     # Auto-detect image characteristics and configure scanner
-    auto_configure_scanner "$PRIMARY_BASELINE_IMAGE"
+    if command -v docker >/dev/null 2>&1 && [[ "$PRIMARY_BASELINE_IMAGE" != oci-archive:* ]]; then
+        auto_configure_scanner "$PRIMARY_BASELINE_IMAGE"
+    fi
 
     BASE_IMAGE_RESULT="$IMAGE_RESULTS_DIR/baseline-$(echo "$PRIMARY_BASELINE_IMAGE" | tr '/:' '_').json"
 
@@ -824,8 +826,10 @@ scan_base_images() {
     fi
 
     # Remove baseline image after scan to free disk space
-    log "🧹 Removing baseline image to free disk space: $PRIMARY_BASELINE_IMAGE"
-    docker rmi "$PRIMARY_BASELINE_IMAGE" >> "$LOG_FILE" 2>&1 || log "⚠️  Could not remove baseline image (may be in use): $PRIMARY_BASELINE_IMAGE"
+    if [ "$GRYPE_CMD" != "grype" ]; then
+        log "🧹 Removing baseline image to free disk space: $PRIMARY_BASELINE_IMAGE"
+        docker rmi "$PRIMARY_BASELINE_IMAGE" >> "$LOG_FILE" 2>&1 || log "⚠️  Could not remove baseline image (may be in use): $PRIMARY_BASELINE_IMAGE"
+    fi
 
     if [ $_base_scan_exit -eq 0 ] && [ -f "$BASE_IMAGE_RESULT" ]; then
         VULN_COUNT=$(jq -r '.matches | length' "$BASE_IMAGE_RESULT" 2>/dev/null || echo "0")
@@ -860,12 +864,12 @@ case "$SCAN_MODE" in
         _pid_fs=$!
         scan_sbom &
         _pid_sbom=$!
-        wait "$_pid_fs" || true
-        wait "$_pid_sbom" || true
-        # Image scans depend on docker socket; run sequentially
-        scan_images
-        scan_base_images
         SCAN_SUCCESS=1
+        wait "$_pid_fs" || SCAN_SUCCESS=0
+        wait "$_pid_sbom" || SCAN_SUCCESS=0
+        # Image scans depend on docker socket; run sequentially
+        scan_images || SCAN_SUCCESS=0
+        scan_base_images || SCAN_SUCCESS=0
         ;;
     *)
         log "❌ Unknown scan mode: $SCAN_MODE"

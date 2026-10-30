@@ -206,7 +206,7 @@ on:
         default: false
         type: boolean
       create_github_issue:
-        description: 'Create GitHub issues for security findings (all severity levels). Gracefully skips if Issues are disabled in the repository.'
+        description: 'Create GitHub issues for critical and high security findings (medium and low do not create issues). Gracefully skips if Issues are disabled in the repository.'
         required: false
         default: true
         type: boolean
@@ -1129,7 +1129,7 @@ jobs:
       - name: Create Scan Notification Issues
         id: create-github-issue
         continue-on-error: true
-        if: always() && (steps.check-severity.outputs.critical != '0' || steps.check-severity.outputs.high != '0' || steps.check-severity.outputs.medium != '0' || steps.check-severity.outputs.low != '0') && env.CREATE_GITHUB_ISSUE != 'false'
+        if: always() && (steps.check-severity.outputs.critical != '0' || steps.check-severity.outputs.high != '0') && env.CREATE_GITHUB_ISSUE != 'false'
         uses: actions/github-script@v7
         with:
           script: |
@@ -1162,12 +1162,11 @@ jobs:
               catch (e) { console.warn(`Could not parse findings JSON: ${e.message}`); }
             }
 
-            // ── Per-severity config: one GitHub issue is maintained per severity level ─
+            // ── Per-severity config: one GitHub issue is maintained per severity level.
+            // Only critical and high raise issues; medium/low stay in the dashboard and Jira review. ─
             const SEVERITIES = [
               { key: 'critical', label: 'critical', emoji: '🔴', count: critical, findingsKey: 'critical_findings', labelName: 'Critical' },
               { key: 'high', label: 'high', emoji: '🟠', count: high, findingsKey: 'high_findings', labelName: 'High' },
-              { key: 'medium', label: 'medium', emoji: '🟡', count: medium, findingsKey: 'medium_findings', labelName: 'Medium' },
-              { key: 'low', label: 'low', emoji: '🟢', count: low, findingsKey: 'low_findings', labelName: 'Low' },
             ];
 
             // The tracking marker is an invisible HTML comment embedded in issue/comment

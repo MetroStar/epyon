@@ -285,14 +285,27 @@ run_trivy_scan() {
         if [ -n "$LOCAL_TRIVY" ]; then
             # Use local Trivy binary
             if [[ "$target" == oci-archive:* ]]; then
-                "$LOCAL_TRIVY" image --input "${target#oci-archive:}" --scanners vuln,misconfig,secret --format json --skip-check-update 2>>"$SCAN_LOG" > "$output_file"
+                # Trivy accepts an OCI directory, not a tarred OCI layout.
+                local oci_layout
+                if ! oci_layout="$(mktemp -d "${TMPDIR:-/tmp}/quartz-trivy-oci.XXXXXX")"; then
+                    echo "ERROR: Cannot create a temporary OCI layout for Trivy" >&2
+                    SCAN_FAILURES=$((SCAN_FAILURES + 1))
+                    return 1
+                fi
+                if python3 "$SCRIPT_DIR/import-build-archive.py" "${target#oci-archive:}" "$REPO_PATH" "$oci_layout/evidence" \
+                    --oci-layout "$oci_layout" >>"$SCAN_LOG" 2>&1 &&
+                    "$LOCAL_TRIVY" image --input "$oci_layout" --scanners vuln,misconfig,secret --format json --skip-check-update 2>>"$SCAN_LOG" > "$output_file"; then
+                    [ -s "$output_file" ] && scan_ok=true
+                fi
+                rm -r -- "$oci_layout"
             elif [[ "$scan_type" == "base-"* ]] || [[ "$target" == *":"* ]]; then
                 echo "   Scanning container image: $target"
                 "$LOCAL_TRIVY" image "$target" --scanners vuln,misconfig,secret --format json --skip-check-update 2>>"$SCAN_LOG" > "$output_file"
+                [ $? -eq 0 ] && [ -s "$output_file" ] && scan_ok=true
             else
                 "$LOCAL_TRIVY" fs "$target" --scanners vuln,misconfig,secret --format json --skip-check-update --skip-dirs "$TRIVY_SKIP_DIRS" 2>>"$SCAN_LOG" > "$output_file"
+                [ $? -eq 0 ] && [ -s "$output_file" ] && scan_ok=true
             fi
-            [ $? -eq 0 ] && [ -s "$output_file" ] && scan_ok=true
         elif [ -n "${CONTAINER_CLI:-}" ]; then
             # Docker fallback
             if [[ "$scan_type" == "base-"* ]] || [[ "$target" == *":"* ]]; then

@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Web UI: full-width header bar with the sidebar toggle, Epyon logo, page title, **Run Scan**.
 - Web UI: theme-aware logo lockup (outlined wordmark, no font dependency) and a new favicon.
+- Run Scan: an **Active & recent scans** list shows every job on the server (target, type, status), with a live log viewer and per-scan Cancel, so scans started from another tab or before a reload are reachable.
 
 ### Changed
 - Overview AI summary buttons (Executive, Technical, ISSO) sit in a single row; descriptions moved to tooltips.

@@ -4597,8 +4597,134 @@ async function renderNewScan(prefill = '') {
       <div class="log-card" id="log-output"></div>
       <div id="scan-actions" style="display:none;gap:10px;margin-top:16px"></div>
       <div id="scan-type-results" style="margin-top:20px"></div>
+    </div>
+
+    <div id="jobs-section" class="section">
+      <div class="section-title">Active &amp; recent scans</div>
+      <div id="jobs-list"><div class="empty-state">Loading…</div></div>
+      <div id="job-view" style="display:none;margin-top:16px">
+        <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <span id="job-view-title"></span>
+          <span style="display:flex;align-items:center;gap:8px">
+            <button class="btn btn-sm" onclick="closeJobView()">Close</button>
+          </span>
+        </div>
+        <div class="log-card" id="job-view-log"></div>
+      </div>
     </div>`;
   restoreScanRun();
+  startJobList();
+}
+
+// Lists every job the server knows about, so scans started from another tab,
+// before a reload, or by another run are still reachable from here.
+let _jobListTimer = null;
+let _viewJobId = null;
+let _viewJobLen = 0;
+const _JOB_ACTIVE = ['queued', 'running'];
+
+function startJobList() {
+  clearTimeout(_jobListTimer);
+  _viewJobId = null;
+  refreshJobList();
+}
+
+async function refreshJobList() {
+  const list = document.getElementById('jobs-list');
+  if (!list) return;  // left the page
+  let delay = 15000;
+  try {
+    const res = await fetch('/api/jobs?summary=true');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const jobs = (await res.json()).slice(0, 20);
+    if (!document.getElementById('jobs-list')) return;
+    if (jobs.some(x => _JOB_ACTIVE.includes(x.status))) delay = 3000;
+    renderJobList(jobs);
+    if (_viewJobId) await refreshJobView();
+  } catch (e) {
+    const el = document.getElementById('jobs-list');
+    if (el) el.innerHTML = `<div class="empty-state">Could not load scans (${esc(e.message)}). Retrying…</div>`;
+  }
+  clearTimeout(_jobListTimer);
+  _jobListTimer = setTimeout(refreshJobList, delay);
+}
+
+function renderJobList(jobs) {
+  const list = document.getElementById('jobs-list');
+  if (!list) return;
+  if (!jobs.length) { list.innerHTML = '<div class="empty-state">No scans yet.</div>'; return; }
+  list.innerHTML = `
+    <div class="table-container"><table>
+      <thead><tr><th>Status</th><th>Target</th><th>Type</th><th>Started</th><th></th></tr></thead>
+      <tbody>${jobs.map(x => {
+        const active = _JOB_ACTIVE.includes(x.status);
+        const id = esc(x.job_id);
+        return `<tr${x.job_id === _viewJobId ? ' style="background:var(--bg-hover)"' : ''}>
+          <td><span class="job-status ${esc(x.status)}">${ucFirst(esc(x.status))}</span></td>
+          <td>${esc(x.target)}</td>
+          <td>${esc(x.scan_type)}</td>
+          <td style="font-size:12px;color:var(--text-muted)">${fmtDate(x.started_at)}</td>
+          <td style="text-align:right;white-space:nowrap">
+            <button class="btn btn-sm" onclick="openJobView('${id}')">${x.job_id === _viewJobId ? 'Viewing' : 'View log'}</button>
+            ${active ? `<button class="btn btn-sm" onclick="cancelJobById('${id}')">Cancel</button>` : ''}
+          </td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>`;
+}
+
+async function openJobView(id) {
+  _viewJobId = id;
+  _viewJobLen = 0;
+  const view = document.getElementById('job-view');
+  const log = document.getElementById('job-view-log');
+  if (!view || !log) return;
+  log.innerHTML = '';
+  view.style.display = 'block';
+  await refreshJobView();
+  view.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  refreshJobList();
+}
+
+async function refreshJobView() {
+  const id = _viewJobId;
+  const log = document.getElementById('job-view-log');
+  if (!id || !log) return;
+  try {
+    const job = await api.getJob(id);
+    if (id !== _viewJobId) return;
+    const lines = job.output || [];
+    if (lines.length > _viewJobLen) {
+      log.insertAdjacentHTML('beforeend', lines.slice(_viewJobLen).map(l => `<div class="log-line">${esc(l)}</div>`).join(''));
+      _viewJobLen = lines.length;
+      log.scrollTop = log.scrollHeight;
+    }
+    const title = document.getElementById('job-view-title');
+    if (title) title.innerHTML = `${esc(job.target)} · ${esc(job.scan_type)} — <span class="job-status ${esc(job.status)}">${ucFirst(esc(job.status))}</span>`;
+  } catch (e) {
+    log.insertAdjacentHTML('beforeend', `<div class="log-line err">Could not load this scan: ${esc(e.message)}</div>`);
+    _viewJobId = null;
+  }
+}
+
+function closeJobView() {
+  _viewJobId = null;
+  const view = document.getElementById('job-view');
+  if (view) view.style.display = 'none';
+  refreshJobList();
+}
+
+async function cancelJobById(id) {
+  if (!await confirmDialog({ title: 'Cancel scan', body: 'Stop this scan? Partial results are kept.', confirmLabel: 'Cancel scan' })) return;
+  try {
+    const res = await fetch(`/api/jobs/${encodeURIComponent(id)}/cancel`, { method: 'POST' });
+    if (!res.ok && res.status !== 409) throw new Error(`HTTP ${res.status}`);
+    toast('Scan cancelled.', 'success');
+  } catch (e) {
+    toast(`Could not cancel the scan: ${e.message}. Try again.`, 'error');
+  }
+  scanWatch.poke();
+  refreshJobList();
 }
 
 // The run lives in module state, not the DOM, so leaving Run Scan and coming

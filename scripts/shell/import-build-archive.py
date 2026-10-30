@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """Validate an external OCI build against the checked-out source and capture evidence."""
 
+import argparse
 import hashlib
 import json
+import re
 import subprocess
-import sys
 import tarfile
 from pathlib import Path
 
 
-def capture(archive: Path, target: Path, output: Path) -> None:
+def capture(archive: Path, target: Path, output: Path, oci_layout: Path | None = None) -> None:
     revision = subprocess.check_output(
         ["git", "-C", str(target), "rev-parse", "HEAD"], text=True
     ).strip()
@@ -26,7 +27,7 @@ def capture(archive: Path, target: Path, output: Path) -> None:
         def blob(descriptor: dict) -> bytes:
             digest = descriptor["digest"]
             algorithm, value = digest.split(":", 1)
-            if algorithm != "sha256" or len(value) != 64:
+            if algorithm != "sha256" or not re.fullmatch(r"[0-9a-f]{64}", value):
                 raise ValueError(f"Unsupported OCI digest: {digest}")
             body = read("blobs/sha256/" + value)
             if hashlib.sha256(body).hexdigest() != value or len(body) != descriptor["size"]:
@@ -47,6 +48,15 @@ def capture(archive: Path, target: Path, output: Path) -> None:
         for layer in manifest["layers"]:
             blob(layer)
 
+        if oci_layout is not None:
+            if oci_layout.exists() and any(oci_layout.iterdir()):
+                raise ValueError("OCI layout destination must be empty")
+            (oci_layout / "blobs" / "sha256").mkdir(parents=True)
+            for item in [descriptor, manifest["config"], *manifest["layers"]]:
+                (oci_layout / "blobs" / "sha256" / item["digest"].split(":")[1]).write_bytes(blob(item))
+            (oci_layout / "index.json").write_text(json.dumps(index))
+            (oci_layout / "oci-layout").write_text('{"imageLayoutVersion":"1.0.0"}')
+
     output.mkdir(parents=True, exist_ok=True)
     (output / "oci-manifest.json").write_bytes(manifest_bytes)
     (output / "image-digest.txt").write_text(descriptor["digest"] + "\n")
@@ -63,7 +73,13 @@ def capture(archive: Path, target: Path, output: Path) -> None:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("archive", type=Path)
+    parser.add_argument("target", type=Path)
+    parser.add_argument("output", type=Path)
+    parser.add_argument("--oci-layout", type=Path, help="Materialize verified OCI blobs into an empty directory")
+    args = parser.parse_args()
     try:
-        capture(*(Path(arg) for arg in sys.argv[1:]))
+        capture(args.archive, args.target, args.output, args.oci_layout)
     except (OSError, ValueError, KeyError, tarfile.TarError, subprocess.CalledProcessError) as error:
         raise SystemExit(f"External OCI build validation failed: {error}") from error

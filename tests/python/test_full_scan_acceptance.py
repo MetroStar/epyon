@@ -147,11 +147,63 @@ def test_external_archive_is_bound_to_source_and_content(tmp_path, wrong_revisio
     output = tmp_path / "build"
     if wrong_revision or corrupt:
         with pytest.raises(ValueError):
-            build.capture(archive, target, output)
+            build.capture(archive, target, output, tmp_path / "layout")
         assert not (output / "build-summary.json").exists()
+        assert not (tmp_path / "layout").exists()
     else:
-        build.capture(archive, target, output)
+        layout = tmp_path / "layout"
+        build.capture(archive, target, output, layout)
         summary = json.loads((output / "build-summary.json").read_text())
         assert summary["source_revision"] == revision
         assert summary["full_image"] == "oci-archive:" + str(archive)
         assert summary["digest"].startswith("sha256:")
+        assert json.loads((layout / "oci-layout").read_text())["imageLayoutVersion"] == "1.0.0"
+        assert len(list((layout / "blobs/sha256").iterdir())) == 3
+        with pytest.raises(ValueError, match="must be empty"):
+            build.capture(archive, target, tmp_path / "other-build", layout)
+
+
+@pytest.mark.parametrize("scan_exit,temp_failure", [(0, False), (1, False), (0, True)])
+def test_trivy_oci_uses_verified_directory_and_preserves_failure(tmp_path, scan_exit, temp_failure):
+    target = tmp_path / "target"
+    target.mkdir()
+    subprocess.run(["git", "init", str(target)], check=True, capture_output=True)
+    subprocess.run([
+        "git", "-C", str(target), "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+        "-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "fixture",
+    ], check=True, capture_output=True)
+    revision = subprocess.check_output(["git", "-C", str(target), "rev-parse", "HEAD"], text=True).strip()
+    archive = tmp_path / "image.tar"
+    make_archive(archive, revision)
+    tools = tmp_path / "bin"
+    tools.mkdir()
+    trivy = tools / "trivy"
+    trivy.write_text(
+        "#!/bin/sh\n"
+        "case \"$*\" in\n"
+        "*download-db-only*) exit 0;;\n"
+        "version*) echo 'Version: test'; exit 0;;\n"
+        "esac\n"
+        "[ \"$1\" = image ] && [ \"$2\" = --input ] && "
+        "[ -f \"$3/index.json\" ] && [ -f \"$3/oci-layout\" ] || exit 2\n"
+        "printf '{\"Results\":[]}'\n"
+        "exit \"$TRIVY_TEST_EXIT\"\n"
+    )
+    trivy.chmod(0o755)
+    scan = tmp_path / "scan"
+    env = dict(os.environ, PATH=str(tools) + ":" + os.environ["PATH"],
+               SCAN_DIR=str(scan), SCAN_ID="test", HOME=str(tmp_path),
+               TMPDIR=str(tmp_path / "missing" if temp_failure else tmp_path),
+               PRIMARY_BASELINE_IMAGE="oci-archive:" + str(archive),
+               TRIVY_TEST_EXIT=str(scan_exit))
+    env.pop("TARGET_DIR", None)
+    result = subprocess.run([
+        "bash", str(ROOT / "scripts/shell/run-trivy-scan.sh"),
+        "--target", str(target), "--scan-mode", "base",
+    ], env=env, text=True, capture_output=True)
+    assert (result.returncode == 0) == (scan_exit == 0 and not temp_failure), result.stdout + result.stderr
+    assert bool(list(scan.rglob("*results.json"))) == (scan_exit == 0 and not temp_failure)
+    assert bool(list(scan.rglob("*.failed-output"))) == (scan_exit != 0)
+    if temp_failure:
+        assert "Cannot create a temporary OCI layout" in result.stderr
+    assert not list(tmp_path.glob("quartz-trivy-oci.*"))

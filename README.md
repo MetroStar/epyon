@@ -24,6 +24,9 @@ builder, label it with `org.opencontainers.image.revision` equal to the target
 Git commit, export a single-image OCI archive, and set `EPYON_IMAGE_ARCHIVE` to
 that archive. Phase 0 verifies the source revision, manifest, config and every
 layer digest before routing the archive to native Trivy, Grype and Anchore.
+Trivy reads a temporary OCI directory containing only verified blobs and OCI
+metadata; no archive layer filesystem is extracted. The directory is removed
+after scanning, including on scanner failure.
 
 Preserve the Maven build's local repository at `$HOME/.m2/repository` in the
 scanner agent so Java dependency resolution can reuse the actual build cache

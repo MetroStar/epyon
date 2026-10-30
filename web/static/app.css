@@ -54,6 +54,7 @@
   --stig-na-bg:     rgba(139, 148, 158, 0.12);
 
   --sidebar-width:  220px;
+  --header-height:  56px;
   --radius:         6px;
   --radius-lg:      10px;
 }
@@ -161,7 +162,7 @@ code {
   display: flex;
   flex-direction: column;
   position: fixed;
-  top: 0;
+  top: var(--header-height);
   left: 0;
   bottom: 0;
   z-index: 100;
@@ -172,6 +173,7 @@ code {
 
 #content {
   margin-left: var(--sidebar-width);
+  margin-top: var(--header-height);
   flex: 1;
   min-width: 0; /* lets wide children scroll instead of widening the page */
   padding: 32px 36px;
@@ -190,24 +192,36 @@ code {
   margin-left: 0;
 }
 
-/* ── Sidebar toggle button (always visible, fixed top-left) ── */
-#sidebar-toggle {
+/* ── Header bar (full width, above sidebar and content) ───── */
+#header {
   position: fixed;
-  top: 12px;
-  left: 12px;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--header-height);
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
   z-index: 200;
-  width: 32px;
-  height: 32px;
+}
+
+#sidebar-toggle {
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
+  background: none;
+  border: 1px solid transparent;
   border-radius: var(--radius);
   color: var(--text-muted);
   cursor: pointer;
-  transition: color 0.12s, background 0.12s, left 0.2s ease;
+  transition: color 0.12s, background 0.12s;
   padding: 0;
+  flex-shrink: 0;
 }
 
 #sidebar-toggle:hover {
@@ -215,41 +229,46 @@ code {
   background: var(--bg-hover);
 }
 
-#sidebar-toggle svg {
-  width: 16px;
-  height: 16px;
-  transition: transform 0.2s ease;
+#sidebar-toggle svg { width: 18px; height: 18px; }
+
+#header-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-#sidebar:not(.collapsed) ~ #sidebar-toggle,
-body:has(#sidebar:not(.collapsed)) #sidebar-toggle {
-  left: calc(var(--sidebar-width) + 8px);
-}
-
-/* \u2500\u2500 Logo \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 */
-.logo {
-  padding: 14px 16px;
+.header-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
-  border-bottom: 1px solid var(--border);
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.header-btn { text-decoration: none; }
+
+/* ── Logo ─────────────────────────────────────────────────── */
+.logo {
+  display: flex;
+  align-items: center;
   flex-shrink: 0;
   text-decoration: none;
 }
 
 .logo-img {
-  height: 24px;
-  width: 18px;
-  object-fit: contain;
-  flex-shrink: 0;
+  height: 30px;
+  width: auto;
+  display: block;
 }
 
-.logo-text {
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 3px;
-  color: var(--accent);
-}
+/* White-text lockup on dark theme, dark-text lockup on light theme */
+.logo-for-light { display: none; }
+html[data-theme="light"] .logo-for-dark { display: none; }
+html[data-theme="light"] .logo-for-light { display: block; }
 
 /* ── Navigation ───────────────────────────────────────────── */
 .nav-links {
@@ -359,12 +378,6 @@ body:has(#sidebar:not(.collapsed)) #sidebar-toggle {
 }
 
 .breadcrumb span { color: var(--text-dim); }
-
-/* Clear the fixed hamburger button when sidebar is collapsed */
-#sidebar.collapsed ~ #content .breadcrumb,
-#sidebar.collapsed + #content .breadcrumb {
-  padding-left: 36px;
-}
 
 /* ── Stats grid ───────────────────────────────────────────── */
 .stats-grid {
@@ -1566,7 +1579,7 @@ blockquote {
 /* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 768px) {
   /* Stack the sidebar above the content instead of beside it. */
-  #app { flex-direction: column; }
+  #app { flex-direction: column; padding-top: var(--header-height); }
 
   #sidebar {
     width: 100%;
@@ -1580,18 +1593,8 @@ blockquote {
   #sidebar.collapsed .nav-links,
   #sidebar.collapsed .sidebar-footer { display: none; }
 
-  #sidebar-toggle,
-  body:has(#sidebar:not(.collapsed)) #sidebar-toggle {
-    left: auto;
-    right: 12px;
-  }
-
   .nav-links { display: flex; flex-wrap: wrap; flex: none; padding: 8px; }
   .nav-links li { margin-bottom: 0; }
-
-  /* The toggle sits on the right here, so the breadcrumb needs no clearance. */
-  #sidebar.collapsed ~ #content .breadcrumb,
-  #sidebar.collapsed + #content .breadcrumb { padding-left: 0; }
 
   /* Touch targets: at least 44px. */
   .btn, .nav-link, .seg-btn, .stig-filter-btn, .merge-range-btn,
@@ -1601,12 +1604,15 @@ blockquote {
   .btn, .seg-btn, .stig-filter-btn, .merge-range-btn, .finding-drawer-close, .toast-close { min-width: 44px; }
   .nav-link { display: flex; align-items: center; }
   #sidebar-toggle { min-width: 44px; min-height: 44px; }
+  #header { padding: 0 8px; gap: 8px; }
+  .logo-img { height: 24px; }
   input:not([type=checkbox]):not([type=radio]), select, textarea { min-height: 44px; }
   input[type=checkbox], input[type=radio] { width: 22px; height: 22px; }
   .breadcrumb a { display: inline-flex; align-items: center; min-height: 44px; }
 
   #content {
     margin-left: 0;
+    margin-top: 0;
     padding: 20px 16px;
   }
 }

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.57.0] - 2026-10-30
+
+### Added
+- Web UI: full-width header bar with the sidebar toggle, Epyon logo, page title, **Run Scan**.
+- Web UI: theme-aware logo lockup (outlined wordmark, no font dependency) and a new favicon.
+
+### Changed
+- Overview AI summary buttons (Executive, Technical, ISSO) sit in a single row; descriptions moved to tooltips.
+
 ## [3.56.2] - 2026-10-29
 
 ### Fixed

@@ -8,12 +8,18 @@ name: Epyon Security Scan (Reusable)
 #       uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
 #       with:
 #         scan_mode: quick
+#         scanner_ref: main # Pin a tag or commit independently of the workflow.
 #       secrets: inherit
 
 # checkov:skip=CKV_GHA_7:Workflow inputs control scan parameters and configuration, not build artifacts or output
 on:
   workflow_call:
     inputs:
+      scanner_ref:
+        description: 'Epyon scanner branch, tag, or commit SHA (independent of the workflow ref)'
+        required: false
+        default: 'main'
+        type: string
       scan_mode:
         description: 'Scan mode (quick/full/stig); quick runs Syft+TruffleHog+ClamAV+Trivy+Grype, stig runs Layer 13 only'
         required: false
@@ -457,7 +463,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: MetroStar/epyon
-          ref: main
+          ref: ${{ inputs.scanner_ref }}
           path: epyon
           fetch-depth: 1
 

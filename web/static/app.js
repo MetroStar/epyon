@@ -6777,7 +6777,7 @@ async function buildCiHealthSection() {
       </div>`;
 
   } catch (e) {
-    return '';
+    return `<div class="section"><div class="section-title">CI Health</div>${errBanner(e.message)}</div>`;
   }
 }
 

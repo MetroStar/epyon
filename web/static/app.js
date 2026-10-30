@@ -358,14 +358,10 @@ function renderSelfAssessmentBody(sa) {
 }
 
 function gateBadge(scan) {
-  // Overall PASS/FAIL gate — mirrors scripts/shell/check-severity-gate.sh's
-  // default CI policy (FAIL_ON_CRITICAL=true, FAIL_ON_HIGH=true,
-  // HIGH_THRESHOLD=4): FAILs on any Critical vulnerability, malware hit, or
-  // secret, or when High findings (vulnerabilities + Checkov
-  // misconfigurations) meet or exceed the threshold. A handful of High
-  // findings alone PASSes, same as the real severity gate. Dashboard-only
-  // (see compute_gate_status() in web/api/parsers.py) — does not affect
-  // CI/GitHub Actions exit codes.
+  // Overall PASS/FAIL gate: FAILs on any Critical vulnerability, malware hit,
+  // or secret, or when High findings (vulnerabilities + Checkov
+  // misconfigurations) reach 5. Dashboard-only (see compute_gate_status() in
+  // web/api/parsers.py) — does not affect CI/GitHub Actions exit codes.
   if (!scan || scan.gate_status == null) return '';
   return scan.gate_status === 'fail'
     ? '<span class="sev-badge critical" title="Critical vulnerability/malware/secret found, or High findings at/above threshold">🔴 FAIL</span>'
@@ -5810,6 +5806,26 @@ function buildRecurrenceSection(m) {
 }
 
 // Days → readable duration. Sub-day values show hours so a fast detection never renders as "0d".
+const FREQ_KIND_LABEL = { pr: 'PR', nightly: 'Nightly', other: 'Push / manual' };
+const FREQ_RESULT_LABEL = { pass: 'passed', fail: 'failed', unknown: 'result unknown' };
+
+function freqDots(f) {
+  const runs = f.runs && f.runs.length ? f.runs : f.dates.map(d => ({ date: d, kind: 'other', result: 'unknown' }));
+  return `<div class="freq-dots">${runs.map(r =>
+    `<span class="freq-dot freq-${esc(r.kind)}-${esc(r.result)}" title="${esc(r.date)} · ${esc(FREQ_KIND_LABEL[r.kind] || r.kind)} ${esc(FREQ_RESULT_LABEL[r.result] || r.result)}"></span>`
+  ).join('')}</div>`;
+}
+
+function freqLegend() {
+  const items = [
+    ['pr-pass', 'PR passed'], ['pr-fail', 'PR failed'],
+    ['nightly-pass', 'Nightly passed'], ['nightly-fail', 'Nightly failed'],
+    ['other-pass', 'Push / manual passed'], ['other-fail', 'Push / manual failed'],
+  ];
+  return `<div class="freq-legend">${items.map(([c, l]) =>
+    `<span class="legend-item"><span class="freq-dot freq-${c}"></span>${l}</span>`).join('')}</div>`;
+}
+
 function fmtDays(days) {
   if (days == null || isNaN(days)) return null;
   if (days >= 1) return { num: String(Math.round(days * 10) / 10), unit: 'days' };
@@ -5940,9 +5956,7 @@ async function renderMetrics() {
             <td>${esc(f.total)}</td>
             <td>${esc(firstDate)}</td>
             <td>${esc(lastDate)}</td>
-            <td><div class="freq-dots">${
-              f.dates.map(d => `<span class="freq-dot" title="${esc(d)}"></span>`).join('')
-            }</div></td>
+            <td>${freqDots(f)}</td>
           </tr>`;
       }).join('');
 
@@ -6066,6 +6080,7 @@ async function renderMetrics() {
           <span class="section-chevron">▾</span>
         </div>
         <div class="section-body">
+          ${freqLegend()}
           <div class="table-container">
             <table id="tbl-freq">
               <thead>
@@ -6211,7 +6226,7 @@ async function renderMetrics() {
             <td>${esc(f.total)}</td>
             <td>${esc(first)}</td>
             <td>${esc(last)}</td>
-            <td><div class="freq-dots">${f.dates.map(d => `<span class="freq-dot" title="${esc(d)}"></span>`).join('')}</div></td>
+            <td>${freqDots(f)}</td>
           </tr>`;
         }
         function resort() {

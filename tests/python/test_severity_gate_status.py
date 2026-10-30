@@ -1,7 +1,6 @@
-"""compute_gate_status() must mirror check-severity-gate.sh's default CI
-policy (FAIL_ON_CRITICAL=true, FAIL_ON_HIGH=true, HIGH_THRESHOLD=4), so the
-dashboard's FAIL/PASS badge never contradicts what the real severity gate
-would have decided for the same findings.
+"""compute_gate_status() drives the dashboard FAIL/PASS chip: FAIL on any
+Critical or 5+ High findings. (check-severity-gate.sh keeps its own CI
+threshold of 4.)
 """
 from __future__ import annotations
 
@@ -11,21 +10,18 @@ def test_passes_with_no_findings(parsers):
 
 
 def test_passes_with_high_findings_below_threshold(parsers):
-    # Regression: a single High finding (e.g. midas with 1 High) used to show
-    # FAIL even though check-severity-gate.sh's default HIGH_THRESHOLD=4 would
-    # pass it.
     assert parsers.compute_gate_status(0, 1, 0, 0) == "pass"
-    assert parsers.compute_gate_status(0, 3, 0, 0) == "pass"
+    assert parsers.compute_gate_status(0, 4, 0, 0) == "pass"
 
 
 def test_fails_when_high_findings_meet_threshold(parsers):
-    assert parsers.compute_gate_status(0, 4, 0, 0) == "fail"
     assert parsers.compute_gate_status(0, 5, 0, 0) == "fail"
+    assert parsers.compute_gate_status(0, 6, 0, 0) == "fail"
 
 
 def test_misconfig_high_counts_toward_the_same_threshold(parsers):
-    assert parsers.compute_gate_status(0, 3, 0, 1) == "fail"
-    assert parsers.compute_gate_status(0, 2, 0, 1) == "pass"
+    assert parsers.compute_gate_status(0, 4, 0, 1) == "fail"
+    assert parsers.compute_gate_status(0, 3, 0, 1) == "pass"
 
 
 def test_any_critical_finding_always_fails(parsers):

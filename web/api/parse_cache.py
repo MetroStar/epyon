@@ -53,6 +53,14 @@ def _load() -> None:
             log.warning("parse cache unreadable, starting empty", exc_info=True)
 
 
+def _settled(scan_dir: Path, mtime_ns: int) -> bool:
+    """True once a scan can no longer be changing. GitHub-synced scans write
+    ci-metadata.json after extraction, so its presence means they are complete."""
+    if (scan_dir / "ci-metadata.json").exists():
+        return True
+    return time.time() - mtime_ns / 1e9 > _SETTLE_SECONDS
+
+
 def get(kind: str, scan_dir: Path, compute: Callable[[], Any]) -> Any:
     """Return the cached result for scan_dir or compute and remember it."""
     global _dirty
@@ -66,7 +74,7 @@ def get(kind: str, scan_dir: Path, compute: Callable[[], Any]) -> Any:
         if hit and hit[0] == mtime_ns:
             return hit[1]
     value = compute()
-    if time.time() - mtime_ns / 1e9 > _SETTLE_SECONDS:
+    if _settled(scan_dir, mtime_ns):
         with _lock:
             if len(_entries) < _MAX_ENTRIES or key in _entries:
                 _entries[key] = [mtime_ns, value]
@@ -134,10 +142,9 @@ def warm(scan_dirs: list[Path], root: Path, workers: int | None = None) -> int:
     import multiprocessing
     from concurrent.futures import ProcessPoolExecutor
 
-    now = time.time()
     todo = [
         d for d in scan_dirs
-        if not _is_cached(d) and now - d.stat().st_mtime > _SETTLE_SECONDS
+        if not _is_cached(d) and _settled(d, d.stat().st_mtime_ns)
     ]
     if not todo:
         return 0

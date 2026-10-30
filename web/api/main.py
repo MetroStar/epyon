@@ -271,7 +271,15 @@ def _cached_find_scan_dirs(days: int = _DEFAULT_SCAN_DAYS) -> list:
 
 
 def _memo_load_scan(scan_dir) -> dict:
-    return parse_cache.get("scan", scan_dir, lambda: parsers.load_scan(scan_dir, EPYON_ROOT))
+    scan = parse_cache.get("scan", scan_dir, lambda: parsers.load_scan(scan_dir, EPYON_ROOT))
+    if scan.get("gate_status") is not None:
+        # Recompute from the stored counts so a gate policy change doesn't
+        # need the whole parse cache rebuilt.
+        scan["gate_status"] = parsers.compute_gate_status(
+            scan.get("critical", 0), scan.get("high", 0),
+            scan.get("misconfig_critical", 0), scan.get("misconfig_high", 0),
+        )
+    return scan
 
 
 def _scan_digest(scan_dir) -> dict:
@@ -468,17 +476,29 @@ async def lifespan(_: FastAPI):
             await asyncio.sleep(_RETENTION_SWEEP_INTERVAL_SECONDS)
 
     async def _warm_caches() -> None:
-        """Fill the parse and metrics caches so the first page view is fast."""
-        def _warm() -> None:
+        """Parse scans in parallel worker processes and prebuild Metrics, in the
+        background. Repeats so scans skipped while still settling (e.g. just
+        synced from GitHub) are picked up without a request having to parse them."""
+        log = logging.getLogger("epyon.perf")
+
+        def _warm() -> int:
             t0 = time.monotonic()
             try:
-                n = parse_cache.warm(_cached_find_scan_dirs(), EPYON_ROOT)
-                logging.getLogger("epyon.perf").info("parsed %d scans in %.1fs", n, time.monotonic() - t0)
-                _compute_metrics()
-                logging.getLogger("epyon.perf").info("cache warm-up done in %.1fs", time.monotonic() - t0)
+                n = parse_cache.warm(_cached_find_scan_dirs(_METRICS_DAYS), EPYON_ROOT)
+                log.info("parsed %d scans in %.1fs", n, time.monotonic() - t0)
+                if n:
+                    _invalidate_scan_cache(reason="cache_warm")
+                if not _metrics_cache:
+                    _compute_metrics()
+                log.info("cache warm-up done in %.1fs", time.monotonic() - t0)
+                return n
             except Exception:
-                logging.getLogger("epyon.perf").exception("cache warm-up failed")
-        await asyncio.to_thread(_warm)
+                log.exception("cache warm-up failed")
+                return 0
+
+        while True:
+            await asyncio.to_thread(_warm)
+            await asyncio.sleep(5 * 60)
 
     parse_cache.configure(_HERE.parent / "data" / "cache" / "parse-cache.json")
     asyncio.create_task(_auto_sync_loop())
@@ -2230,6 +2250,27 @@ def _compute_metrics() -> dict:
         return result
 
 
+def _freq_runs(scan_list: list) -> list[dict]:
+    """Classify each scan as pr / nightly / other, and pass / fail by severity gate."""
+    runs = []
+    for s, _ in scan_list:
+        ts = s.get("timestamp") or ""
+        if not ts:
+            continue
+        ci = s.get("ci_source") or {}
+        event = ci.get("event") or ""
+        if event == "pull_request":
+            kind = "pr"
+        elif event == "schedule" or s.get("scan_type") == "nightly":
+            kind = "nightly"
+        else:
+            kind = "other"
+        result = {"fail": "fail", "pass": "pass"}.get(s.get("gate_status"), "unknown")
+        runs.append({"date": ts[:10], "ts": ts, "kind": kind, "result": result})
+    runs.sort(key=lambda r: r["ts"])
+    return runs
+
+
 def _build_metrics() -> dict:
     now = time.monotonic()
     scan_dirs = _cached_find_scan_dirs(days=_METRICS_DAYS)
@@ -2334,6 +2375,7 @@ def _build_metrics() -> dict:
                 s.get("timestamp", "")[:10]
                 for s, _ in scan_list if s.get("timestamp")
             ),
+            "runs": _freq_runs(scan_list),
         }
         for target, scan_list in by_target.items()
     }

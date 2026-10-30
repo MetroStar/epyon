@@ -251,14 +251,6 @@ code {
 
 .header-btn { text-decoration: none; }
 
-#header #theme-toggle {
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  color: var(--text-muted);
-}
-#header #theme-toggle:hover { background: var(--bg-hover); }
-
 /* ── Logo ─────────────────────────────────────────────────── */
 .logo {
   display: flex;
@@ -1611,7 +1603,7 @@ blockquote {
   }
   .btn, .seg-btn, .stig-filter-btn, .merge-range-btn, .finding-drawer-close, .toast-close { min-width: 44px; }
   .nav-link { display: flex; align-items: center; }
-  #sidebar-toggle, #header #theme-toggle { min-width: 44px; min-height: 44px; }
+  #sidebar-toggle { min-width: 44px; min-height: 44px; }
   #header { padding: 0 8px; gap: 8px; }
   .logo-img { height: 24px; }
   input:not([type=checkbox]):not([type=radio]), select, textarea { min-height: 44px; }

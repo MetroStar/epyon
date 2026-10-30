@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.57.0] - 2026-10-30
 
 ### Added
-- Web UI: full-width header bar with the sidebar toggle, Epyon logo, page title, **Run Scan** and the light/dark toggle.
+- Web UI: full-width header bar with the sidebar toggle, Epyon logo, page title, **Run Scan**.
 - Web UI: theme-aware logo lockup (outlined wordmark, no font dependency) and a new favicon.
 
 ### Changed

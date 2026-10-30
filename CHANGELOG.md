@@ -20,12 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Metrics shows "No data" / "No runs" instead of blanks, and sub-day MTTR/MTTD as hours instead of "0d".
 
 ### Fixed
-- The `Create Scan Notification Issues` workflow step created GitHub issues for medium and low findings. It now only raises issues for critical and high findings, and is skipped when there are none.
 - Workflow success rate was always empty because the `/actions/runs` response (an object, not a list) was never paginated.
 - Confirmation modals using `.modal-box` had a transparent background; they now use the card background in both themes.
 - First-time-fix rate was always 0% because the fix was compared against the wrong scan.
 
 ### Removed
+- The `Create Scan Notification Issues` workflow step: scans no longer create or update GitHub issues at any severity. Findings are tracked in Jira. The `create_github_issue` input is kept but deprecated and ignored, so existing callers keep working.
 - GitHub Signals nav item and `#/github-signals` route, plus the Dependabot Alerts and Security Issues tables, cards and detail drawers.
 
 ## [3.57.0] - 2026-10-30

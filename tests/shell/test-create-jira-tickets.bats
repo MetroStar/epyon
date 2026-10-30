@@ -161,3 +161,8 @@ print('OK')
 @test "reusable workflow does not forward an automatic Jira creation flag" {
     ! grep -q "CREATE_JIRA_TICKETS" "$WORKFLOW_PATH"
 }
+
+@test "reusable workflow never creates GitHub issues" {
+    ! grep -q "issues.create(" "$WORKFLOW_PATH"
+    ! grep -q "CREATE_GITHUB_ISSUE" "$WORKFLOW_PATH"
+}

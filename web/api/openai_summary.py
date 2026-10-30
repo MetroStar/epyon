@@ -111,6 +111,10 @@ _PLACEHOLDER_API_KEY = "sk-local-noauth"
 # Matched against the parsed URL hostname exactly (see _hostname/_is_self_hosted).
 _OPENAI_PUBLIC_HOSTS = ("api.openai.com",)
 
+# Passed explicitly when no base URL is configured: the OpenAI SDK would otherwise
+# fall back to OPENAI_BASE_URL from the environment (e.g. a local LLM in .env).
+_OPENAI_PUBLIC_BASE_URL = "https://api.openai.com/v1"
+
 
 def get_base_url() -> str | None:
     """Resolve the OpenAI-compatible base URL.
@@ -192,6 +196,18 @@ def fallback_available() -> bool:
     return _is_self_hosted(get_base_url())
 
 
+def _limit_kwargs(model: str, max_tokens: int, temperature: float) -> dict:
+    """Output-limit/sampling kwargs; gpt-5*/o-series reject max_tokens and temperature.
+
+    Reasoning models spend completion tokens on hidden reasoning, so they get a
+    larger floor to avoid empty summaries.
+    """
+    name = model.lower().split("/")[-1]
+    if name.startswith(("gpt-5", "gpt-6", "o1", "o3", "o4")) and "chat" not in name:
+        return {"max_completion_tokens": max(max_tokens, 8000)}
+    return {"max_tokens": max_tokens, "temperature": temperature}
+
+
 async def _chat_completion(
     messages: list[dict],
     *,
@@ -222,12 +238,11 @@ async def _chat_completion(
         raise RuntimeError("The 'openai' package is not installed. Run: pip install openai")
 
     async def _call(key: str, url: str | None, mdl: str) -> str:
-        client = AsyncOpenAI(api_key=key, base_url=url)
+        client = AsyncOpenAI(api_key=key, base_url=url or _OPENAI_PUBLIC_BASE_URL)
         response = await client.chat.completions.create(
             model=mdl,
             messages=messages,
-            max_tokens=max_tokens,
-            temperature=temperature,
+            **_limit_kwargs(mdl, max_tokens, temperature),
         )
         return response.choices[0].message.content or ""
 

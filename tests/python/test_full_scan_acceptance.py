@@ -5,7 +5,9 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tarfile
+from types import SimpleNamespace
 
 import pytest
 
@@ -50,6 +52,34 @@ def test_rejects_incomplete_or_invalid_assessments(results):
 
 def test_valid_batch_preserves_evidence():
     assert assess._validate_batch([RESULT], [CONTROL]) == [RESULT]
+
+def test_exhausted_stig_retries_preserve_diagnostics_and_fail(tmp_path, monkeypatch):
+    control = {
+        **CONTROL, "number": 1, "title": "Require logout", "severity": "medium",
+        "check_content": "Review authentication.", "fix_text": "Implement logout.",
+        "rule_id": "SV-1", "group_id": "V-1",
+    }
+    monkeypatch.setenv("EPYON_REQUIRE_COMPLETE", "true")
+    monkeypatch.setenv("EPYON_STIG_FORMAT", "legacy")
+    monkeypatch.setitem(sys.modules, "openai", SimpleNamespace(OpenAI=lambda **kwargs: object()))
+    monkeypatch.setattr(assess, "check_stig_applicability", lambda *args: (True, "Applicable", 0, 0))
+
+    def invalid(*args):
+        raise ValueError("Empty model response")
+
+    monkeypatch.setattr(assess, "call_openai", invalid)
+    with pytest.raises(SystemExit, match="incomplete"):
+        assess._assess_stig(
+            stig_data={"controls": [control], "stig_name": "ASD"},
+            stig_path="asd.xml", source_files=[], manual_docs=[], scan_dir=tmp_path,
+            app_name="fixture", model="local", batch_size=1, delay=0, api_key="local",
+            base_url="http://localhost:11434/v1", scan_date="2026-10-30",
+            slug="asd", is_primary=True, target_dir=str(tmp_path),
+        )
+    output = json.loads((tmp_path / "stig-results-asd.json").read_text())
+    assert output["assessment_complete"] is False
+    assert output["failed_batches"] == [1]
+    assert output["assessments"]["V-1"]["confidence"] == 0
 
 def test_trivy_failure_is_nonzero_without_empty_success(tmp_path):
     tools = tmp_path / "bin"

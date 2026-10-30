@@ -2031,15 +2031,19 @@ RUN_ELAPSED_SECONDS=$((RUN_END_EPOCH - RUN_START_EPOCH))
 printf -v RUN_ELAPSED_HUMAN '%02dh:%02dm:%02ds' $((RUN_ELAPSED_SECONDS/3600)) $(((RUN_ELAPSED_SECONDS%3600)/60)) $((RUN_ELAPSED_SECONDS%60))
 
 # Send webhook notification: scan complete
-if [[ "$analysis_success" == "true" ]]; then
+if [[ "$analysis_success" == "true" && ${#FAILED_SECURITY_TOOLS[@]} -eq 0 ]]; then
     send_webhook "scan_complete" "Security scan completed successfully for $APP_NAME" "success" ""
 else
-    send_webhook "scan_complete" "Security scan completed with warnings for $APP_NAME" "warning" ""
+    send_webhook "scan_complete" "Security scan incomplete for $APP_NAME" "error" ""
 fi
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}🎯 Target Security Scan Finished Successfully!${NC}"
+if [[ ${#FAILED_SECURITY_TOOLS[@]} -eq 0 ]]; then
+    echo -e "${GREEN}🎯 Target Security Scan Finished Successfully!${NC}"
+else
+    echo -e "${RED}❌ Target Security Scan Incomplete${NC}"
+fi
 echo -e "${CYAN}Target: $TARGET_DIR${NC}"
 echo -e "${CYAN}Scan ID: $SCAN_ID${NC}"
 echo -e "${CYAN}Scan Directory: $SCAN_DIR${NC}"
@@ -2048,7 +2052,6 @@ echo -e "${CYAN}All scan artifacts stored in: $SCAN_DIR${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
-# Automatically open the dashboard (prefer root-level shortcut)
 if [[ ${#FAILED_SECURITY_TOOLS[@]} -gt 0 ]]; then
     printf '%s\n' "${FAILED_SECURITY_TOOLS[@]}" > "$SCAN_DIR/failed-security-tools.txt"
     echo -e "${RED}❌ Scanner execution failed: ${FAILED_SECURITY_TOOLS[*]}${NC}" >&2

@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Workflow success rate was always empty because the `/actions/runs` response (an object, not a list) was never paginated.
+- Confirmation modals using `.modal-box` had a transparent background; they now use the card background in both themes.
 - First-time-fix rate was always 0% because the fix was compared against the wrong scan.
 
 ### Removed

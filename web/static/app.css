@@ -966,6 +966,7 @@ html[data-theme="light"] .logo-for-light { display: block; }
 }
 
 .modal-box {
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 28px 32px;

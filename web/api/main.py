@@ -179,14 +179,8 @@ def _load_gh_history() -> list[dict]:
 def _save_gh_snapshot(metrics: dict) -> None:
     """Append (or update) a daily aggregate snapshot of GitHub metrics to the history file."""
     try:
-        dep   = metrics.get("dependabot", [])
-        sec   = metrics.get("security_issues", [])
         runs  = metrics.get("workflow_runs", [])
         cov   = metrics.get("pr_scan_coverage", {})
-
-        dep_open  = sum(r.get("open", 0)  for r in dep  if not r.get("error"))
-        dep_fixed = sum(r.get("fixed", 0) for r in dep  if not r.get("error"))
-        sec_open  = sum(r.get("open_security", 0) for r in sec if not r.get("error"))
 
         run_rates = [r["success_rate"] for r in runs if not r.get("error") and r.get("success_rate") is not None]
         workflow_success_rate = round(sum(run_rates) / len(run_rates)) if run_rates else None
@@ -199,9 +193,6 @@ def _save_gh_snapshot(metrics: dict) -> None:
         snapshot = {
             "date":                   today,
             "ts":                     datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "dep_open":               dep_open,
-            "dep_fixed":              dep_fixed,
-            "sec_open":               sec_open,
             "workflow_success_rate":  workflow_success_rate,
             "pr_coverage_pct":        pr_cov_pct,
         }

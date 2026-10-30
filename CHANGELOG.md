@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.58.0] - 2026-10-30
+
+### Changed
+- Retired the GitHub Signals page now that findings are tracked in Jira. Workflow success rate and PR scan coverage (with history trends) moved to a "CI Health" section at the bottom of Metrics.
+- `/api/github-metrics` no longer returns `dependabot` or `security_issues`, and daily history snapshots no longer record Dependabot/security-issue counts.
+
+### Removed
+- GitHub Signals nav item and `#/github-signals` route, plus the Dependabot Alerts and Security Issues tables, cards and detail drawers.
+
 ## [3.57.0] - 2026-10-30
 
 ### Added

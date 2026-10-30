@@ -3253,73 +3253,31 @@ function inlineMarkdown(s) {
 }
 
 function buildOverviewExecSection() {
+  const tip = 'Requires an OpenAI API key configured in Settings.';
   return `
-    <div class="section" id="overview-exec-section" style="border-left:3px solid var(--medium);padding-left:16px">
-      <div class="section-title" style="display:flex;align-items:center;gap:10px">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f59e0b"
-             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-          <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/>
-          <line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
-        </svg>
-        AI Executive Summary
-      </div>
-      <div id="overview-exec-body">
-        <button class="btn btn-primary" onclick="generateOverviewExecSummary()">
+    <div class="section" id="overview-summary-section">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="generateOverviewExecSummary()"
+                title="Leadership brief across all tracked applications, split by monitoring status. ${tip}">
           ✦ Generate Executive Summary
         </button>
-        <p style="margin:8px 0 0;font-size:12px;color:var(--text-muted)">
-          Leadership brief across all tracked applications, split by monitoring status.
-          Requires an OpenAI API key configured in Settings.
-        </p>
-      </div>
-    </div>`;
-}
-
-function buildOverviewTechSection() {
-  return `
-    <div class="section" id="overview-tech-section" style="border-left:3px solid var(--purple);padding-left:16px">
-      <div class="section-title" style="display:flex;align-items:center;gap:10px">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#6366f1"
-             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
-        </svg>
-        AI Technical Summary
-      </div>
-      <div id="overview-tech-body">
-        <button class="btn btn-primary" onclick="generateOverviewTechSummary()">
+        <button class="btn btn-primary" onclick="generateOverviewTechSummary()"
+                title="Detailed technical brief for engineering teams, with per-finding breakdown. ${tip}">
           ✦ Generate Technical Summary
         </button>
-        <p style="margin:8px 0 0;font-size:12px;color:var(--text-muted)">
-          Detailed technical brief for engineering teams, with per-finding breakdown.
-          Requires an OpenAI API key configured in Settings.
-        </p>
+        <button class="btn btn-primary" onclick="generateOverviewIssoSummary()"
+                title="ATO/cATO-ready brief covering NIST 800-53 control mapping, STIG validation status, evidence traceability, accepted risk, and POA&amp;M risk statements. ${tip}">
+          ✦ Generate ISSO Compliance Brief
+        </button>
       </div>
+      <div id="overview-exec-body"></div>
+      <div id="overview-tech-body"></div>
+      <div id="overview-isso-body"></div>
     </div>`;
 }
 
-function buildOverviewIssoSection() {
-  return `
-    <div class="section" id="overview-isso-section" style="border-left:3px solid var(--pass);padding-left:16px">
-      <div class="section-title" style="display:flex;align-items:center;gap:10px">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981"
-             stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-        </svg>
-        AI ISSO Compliance Brief
-      </div>
-      <div id="overview-isso-body">
-        <button class="btn btn-primary" onclick="generateOverviewIssoSummary()">
-          ✦ Generate ISSO Compliance Brief
-        </button>
-        <p style="margin:8px 0 0;font-size:12px;color:var(--text-muted)">
-          ATO/cATO-ready brief covering NIST 800-53 control mapping, STIG validation status,
-          evidence traceability, accepted risk, and POA&amp;M risk statements.
-          Requires an OpenAI API key configured in Settings.
-        </p>
-      </div>
-    </div>`;
-}
+function buildOverviewTechSection() { return ''; }
+function buildOverviewIssoSection() { return ''; }
 
 // Cache last-generated overview summary text for PDF/Word export
 let _overviewSummaryCache = { exec: null, tech: null, isso: null };
@@ -9289,12 +9247,29 @@ async function jiraReviewCreateTicketsConfirmed() {
 
 
 // ── Router ────────────────────────────────────────────────────
+const _HEADER_TITLES = {
+  '/': 'Overview', '/applications': 'Applications', '/new-scan': 'Run Scan',
+  '/metrics': 'Metrics', '/stig': 'STIG', '/settings': 'Settings',
+  '/performance': 'Performance', '/github-signals': 'GitHub Signals',
+};
+
+function _setHeaderTitle(path) {
+  const el = document.getElementById('header-title');
+  if (!el) return;
+  if (path.startsWith('/applications/')) el.textContent = 'Application';
+  else if (path.startsWith('/scans/'))   el.textContent = 'Scan';
+  else if (path.startsWith('/stig-viewer/')) el.textContent = 'STIG';
+  else if (path.startsWith('/jira-review/')) el.textContent = 'Jira Review';
+  else el.textContent = _HEADER_TITLES[path] || 'Epyon';
+}
+
 function resolve() {
   _abortPageLoads();
   const hash = window.location.hash.slice(1) || '/';
 
   const qIdx   = hash.indexOf('?');
   const path   = qIdx === -1 ? hash : hash.slice(0, qIdx);
+  _setHeaderTitle(path);
   const params = new URLSearchParams(qIdx === -1 ? '' : hash.slice(qIdx + 1));
 
   if (path === '/' || path === '') {

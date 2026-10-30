@@ -158,6 +158,8 @@ MAX_UPLOAD_UNZIPPED    = int(os.environ.get("EPYON_MAX_UPLOAD_UNZIPPED_MB", "204
 _metrics_cache:    dict  = {}
 _metrics_cache_ts: float = 0.0
 _METRICS_TTL:      float = 300.0
+# History window for the Metrics page. 90 days matches GitHub's default artifact retention.
+_METRICS_DAYS:     int   = max(7, int(os.environ.get("EPYON_METRICS_DAYS", "90") or 90))
 
 # ── GitHub metrics cache ─────────────────────────────────────
 _gh_metrics_cache:    dict  = {}
@@ -179,14 +181,8 @@ def _load_gh_history() -> list[dict]:
 def _save_gh_snapshot(metrics: dict) -> None:
     """Append (or update) a daily aggregate snapshot of GitHub metrics to the history file."""
     try:
-        dep   = metrics.get("dependabot", [])
-        sec   = metrics.get("security_issues", [])
         runs  = metrics.get("workflow_runs", [])
         cov   = metrics.get("pr_scan_coverage", {})
-
-        dep_open  = sum(r.get("open", 0)  for r in dep  if not r.get("error"))
-        dep_fixed = sum(r.get("fixed", 0) for r in dep  if not r.get("error"))
-        sec_open  = sum(r.get("open_security", 0) for r in sec if not r.get("error"))
 
         run_rates = [r["success_rate"] for r in runs if not r.get("error") and r.get("success_rate") is not None]
         workflow_success_rate = round(sum(run_rates) / len(run_rates)) if run_rates else None
@@ -199,9 +195,6 @@ def _save_gh_snapshot(metrics: dict) -> None:
         snapshot = {
             "date":                   today,
             "ts":                     datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "dep_open":               dep_open,
-            "dep_fixed":              dep_fixed,
-            "sec_open":               sec_open,
             "workflow_success_rate":  workflow_success_rate,
             "pr_coverage_pct":        pr_cov_pct,
         }
@@ -278,7 +271,14 @@ def _cached_find_scan_dirs(days: int = _DEFAULT_SCAN_DAYS) -> list:
 
 
 def _memo_load_scan(scan_dir) -> dict:
-    return parse_cache.get("scan", scan_dir, lambda: parsers.load_scan(scan_dir, EPYON_ROOT))
+    scan = parse_cache.get("scan", scan_dir, lambda: parsers.load_scan(scan_dir, EPYON_ROOT))
+    if scan.get("gate_status") is not None:
+        # Recompute from the stored counts so a gate policy change doesn't
+        # need the whole parse cache rebuilt.
+        scan["gate_status"] = parsers.compute_gate_status(
+            scan.get("critical", 0), scan.get("high", 0), scan.get("misconfig_critical", 0),
+        )
+    return scan
 
 
 def _scan_digest(scan_dir) -> dict:
@@ -475,17 +475,29 @@ async def lifespan(_: FastAPI):
             await asyncio.sleep(_RETENTION_SWEEP_INTERVAL_SECONDS)
 
     async def _warm_caches() -> None:
-        """Fill the parse and metrics caches so the first page view is fast."""
-        def _warm() -> None:
+        """Parse scans in parallel worker processes and prebuild Metrics, in the
+        background. Repeats so scans skipped while still settling (e.g. just
+        synced from GitHub) are picked up without a request having to parse them."""
+        log = logging.getLogger("epyon.perf")
+
+        def _warm() -> int:
             t0 = time.monotonic()
             try:
-                n = parse_cache.warm(_cached_find_scan_dirs(), EPYON_ROOT)
-                logging.getLogger("epyon.perf").info("parsed %d scans in %.1fs", n, time.monotonic() - t0)
-                _compute_metrics()
-                logging.getLogger("epyon.perf").info("cache warm-up done in %.1fs", time.monotonic() - t0)
+                n = parse_cache.warm(_cached_find_scan_dirs(_METRICS_DAYS), EPYON_ROOT)
+                log.info("parsed %d scans in %.1fs", n, time.monotonic() - t0)
+                if n:
+                    _invalidate_scan_cache(reason="cache_warm")
+                if not _metrics_cache:
+                    _compute_metrics()
+                log.info("cache warm-up done in %.1fs", time.monotonic() - t0)
+                return n
             except Exception:
-                logging.getLogger("epyon.perf").exception("cache warm-up failed")
-        await asyncio.to_thread(_warm)
+                log.exception("cache warm-up failed")
+                return 0
+
+        while True:
+            await asyncio.to_thread(_warm)
+            await asyncio.sleep(5 * 60)
 
     parse_cache.configure(_HERE.parent / "data" / "cache" / "parse-cache.json")
     asyncio.create_task(_auto_sync_loop())
@@ -2237,12 +2249,33 @@ def _compute_metrics() -> dict:
         return result
 
 
+def _freq_runs(scan_list: list) -> list[dict]:
+    """Classify each scan as pr / nightly / other, and pass / fail by severity gate."""
+    runs = []
+    for s, _ in scan_list:
+        ts = s.get("timestamp") or ""
+        if not ts:
+            continue
+        ci = s.get("ci_source") or {}
+        event = ci.get("event") or ""
+        if event == "pull_request":
+            kind = "pr"
+        elif event == "schedule" or s.get("scan_type") == "nightly":
+            kind = "nightly"
+        else:
+            kind = "other"
+        result = {"fail": "fail", "pass": "pass"}.get(s.get("gate_status"), "unknown")
+        runs.append({"date": ts[:10], "ts": ts, "kind": kind, "result": result})
+    runs.sort(key=lambda r: r["ts"])
+    return runs
+
+
 def _build_metrics() -> dict:
     now = time.monotonic()
-    scan_dirs = _cached_find_scan_dirs(days=35)
+    scan_dirs = _cached_find_scan_dirs(days=_METRICS_DAYS)
     all_scans = [_memo_load_scan(d) for d in scan_dirs]
 
-    trend = sorted(
+    scan_points = sorted(
         [
             {
                 "scan_id":   s["scan_id"],
@@ -2256,7 +2289,7 @@ def _build_metrics() -> dict:
             for s in all_scans if s.get("timestamp")
         ],
         key=lambda x: x["timestamp"],
-    )[-60:]
+    )
 
     by_target: dict[str, list] = {}
     for s, d in zip(all_scans, scan_dirs):
@@ -2266,9 +2299,24 @@ def _build_metrics() -> dict:
     monitored = _load_monitored_apps()
     if monitored:
         by_target = {k: v for k, v in by_target.items() if k in monitored}
-        trend = [t for t in trend if t["target"] in monitored]
+        scan_points = [t for t in scan_points if t["target"] in monitored]
     metrics_filtered = bool(monitored)
     monitored_count  = len(monitored)
+
+    # One point per day: the latest scan of each app that day, summed across apps.
+    # Many scans per day (PR/push runs) would otherwise crowd out older history.
+    latest_per_day: dict[str, dict[str, dict]] = {}
+    for pt in scan_points:
+        latest_per_day.setdefault(pt["timestamp"][:10], {})[pt["target"]] = pt
+    trend = [
+        {
+            "scan_id":   "",
+            "target":    f"{len(apps)} app{'s' if len(apps) != 1 else ''}",
+            "timestamp": f"{day}T00:00:00Z",
+            **{sev: sum(a[sev] for a in apps.values()) for sev in ("critical", "high", "medium", "low")},
+        }
+        for day, apps in sorted(latest_per_day.items())
+    ]
 
     tool_counts:      dict[str, dict] = {}
     tool_app_counts:  dict[str, dict[str, int]] = {}
@@ -2326,6 +2374,7 @@ def _build_metrics() -> dict:
                 s.get("timestamp", "")[:10]
                 for s, _ in scan_list if s.get("timestamp")
             ),
+            "runs": _freq_runs(scan_list),
         }
         for target, scan_list in by_target.items()
     }
@@ -2465,6 +2514,7 @@ def _build_metrics() -> dict:
         # Pending-resolution: fp disappeared last scan but we require one more
         # consecutive absence before counting it as a genuine fix (filters scanner noise).
         fp_pending_resolution: dict[str, str] = {}      # fp -> scan_ts when it first disappeared
+        fp_last_present: dict[str, str] = {}            # fp -> last scan_ts it was still present
         prev_fps: set[str]             = set()
         prev_ts_str: str               = ""
 
@@ -2508,7 +2558,7 @@ def _build_metrics() -> dict:
                             fp_ever_resolved.add(fp)
                             fp_resolved_at[fp] = absent_since_ts
                             total_resolved += 1
-                            if prev_ts_str == first_ts:
+                            if fp_last_present.pop(fp, "") == first_ts:
                                 first_time_fixed += 1
                             # SLA — deduplicate by CVE-ID::package (strip tool prefix)
                             fp_parts = fp.split('::', 2)
@@ -2536,6 +2586,7 @@ def _build_metrics() -> dict:
                 for fp in disappeared_now:
                     if fp not in fp_ever_resolved and fp in fp_first_seen:
                         fp_pending_resolution[fp] = ts
+                        fp_last_present[fp] = prev_ts_str
 
             prev_fps    = curr_fps
             prev_ts_str = ts
@@ -2773,6 +2824,7 @@ def _build_metrics() -> dict:
         ],
         "scan_frequency": scan_frequency,
         "merges_to_main": merges_to_main,
+        "window_days":         _METRICS_DAYS,
         "total_merges_to_main": total_merges_to_main,
         "metrics_filtered": metrics_filtered,
         "monitored_count":  monitored_count,
@@ -2881,11 +2933,11 @@ async def get_github_metrics(response: Response):
     token = cfg.get("token", "")
     repos = cfg.get("repos") or []
 
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=_METRICS_DAYS)
     all_scans = [parsers.load_scan(d, EPYON_ROOT) for d in scan_dirs]
     monitored_set = set(_load_monitored_apps()) or None
 
-    result = await github_metrics.fetch_all(token, repos, all_scans, monitored_set)
+    result = await github_metrics.fetch_all(token, repos, all_scans, monitored_set, _METRICS_DAYS)
 
     _gh_metrics_cache    = result
     _gh_metrics_cache_ts = now

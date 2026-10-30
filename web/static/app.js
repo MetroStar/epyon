@@ -23,7 +23,7 @@ let   _depsNextId           = 0;
 const _apiRegistry          = new Map();
 let   _apiNextId            = 0;
 
-// ── GitHub Signals detail (populated in renderGitHubSignals) ──
+// ── GitHub Signals detail (populated in buildCiHealthSection) ──
 let _ghSignalData = null;
 
 // ── Findings sort state (per severity) ───────────────────────
@@ -358,18 +358,14 @@ function renderSelfAssessmentBody(sa) {
 }
 
 function gateBadge(scan) {
-  // Overall PASS/FAIL gate — mirrors scripts/shell/check-severity-gate.sh's
-  // default CI policy (FAIL_ON_CRITICAL=true, FAIL_ON_HIGH=true,
-  // HIGH_THRESHOLD=4): FAILs on any Critical vulnerability, malware hit, or
-  // secret, or when High findings (vulnerabilities + Checkov
-  // misconfigurations) meet or exceed the threshold. A handful of High
-  // findings alone PASSes, same as the real severity gate. Dashboard-only
-  // (see compute_gate_status() in web/api/parsers.py) — does not affect
-  // CI/GitHub Actions exit codes.
+  // Overall PASS/FAIL gate: FAILs on any Critical vulnerability, malware hit,
+  // or secret, or when High vulnerabilities (Checkov
+  // misconfigurations excluded) reach 5. Dashboard-only (see compute_gate_status() in
+  // web/api/parsers.py) — does not affect CI/GitHub Actions exit codes.
   if (!scan || scan.gate_status == null) return '';
   return scan.gate_status === 'fail'
-    ? '<span class="sev-badge critical" title="Critical vulnerability/malware/secret found, or High findings at/above threshold">🔴 FAIL</span>'
-    : '<span class="sev-badge clean" title="No Critical findings and High findings below threshold">🟢 PASS</span>';
+    ? '<span class="sev-badge critical" title="Critical vulnerability/malware/secret found, or 5 or more High vulnerabilities">🔴 FAIL</span>'
+    : '<span class="sev-badge clean" title="No Critical findings and fewer than 5 High vulnerabilities">🟢 PASS</span>';
 }
 
 function sevBadgeRow(scan) {
@@ -5809,6 +5805,35 @@ function buildRecurrenceSection(m) {
   </div>`;
 }
 
+// Days → readable duration. Sub-day values show hours so a fast detection never renders as "0d".
+const FREQ_KIND_LABEL = { pr: 'PR', nightly: 'Nightly', other: 'Push / manual' };
+const FREQ_RESULT_LABEL = { pass: 'passed', fail: 'failed', unknown: 'result unknown' };
+
+function freqDots(f) {
+  const runs = f.runs && f.runs.length ? f.runs : f.dates.map(d => ({ date: d, kind: 'other', result: 'unknown' }));
+  return `<div class="freq-dots">${runs.map(r =>
+    `<span class="freq-dot freq-${esc(r.kind)}-${esc(r.result)}" title="${esc(r.date)} · ${esc(FREQ_KIND_LABEL[r.kind] || r.kind)} ${esc(FREQ_RESULT_LABEL[r.result] || r.result)}"></span>`
+  ).join('')}</div>`;
+}
+
+function freqLegend() {
+  const items = [
+    ['pr-pass', 'PR passed'], ['pr-fail', 'PR failed'],
+    ['nightly-pass', 'Nightly passed'], ['nightly-fail', 'Nightly failed'],
+    ['other-pass', 'Push / manual passed'], ['other-fail', 'Push / manual failed'],
+  ];
+  return `<div class="freq-legend">${items.map(([c, l]) =>
+    `<span class="legend-item"><span class="freq-dot freq-${c}"></span>${l}</span>`).join('')}</div>`;
+}
+
+function fmtDays(days) {
+  if (days == null || isNaN(days)) return null;
+  if (days >= 1) return { num: String(Math.round(days * 10) / 10), unit: 'days' };
+  const hrs = days * 24;
+  if (hrs >= 1) return { num: String(Math.round(hrs * 10) / 10), unit: 'hours' };
+  return { num: '<1', unit: 'hour' };
+}
+
 async function renderMetrics() {
   setActive('metrics');
   const page = document.getElementById('page');
@@ -5834,7 +5859,8 @@ async function renderMetrics() {
 
     const sevRows = (bySev) => ['critical','high','medium','low'].map(sev => {
       const val = (bySev || {})[sev];
-      const display = val != null ? `${val}d` : '—';
+      const d = fmtDays(val);
+      const display = d ? `${d.num}${d.unit === 'days' ? 'd' : 'h'}` : 'No data';
       return `<div class="mttr-sev-row">
         <span class="sev-badge ${sev}">${ucFirst(sev)}</span>
         <span class="mttr-sev-days">${esc(display)}</span>
@@ -5873,16 +5899,16 @@ async function renderMetrics() {
     }
 
     function buildMttrPanelHtml(data, fastestHtml) {
-      const mttrVal = data.mttr_days != null ? `${data.mttr_days}` : null;
-      const mttrDisplay = mttrVal != null
-        ? `<span class="mttr-number">${esc(mttrVal)}</span><span class="mttr-unit">days</span>`
+      const mttr = fmtDays(data.mttr_days);
+      const mttrDisplay = mttr
+        ? `<span class="mttr-number">${esc(mttr.num)}</span><span class="mttr-unit">${mttr.unit}</span>`
         : `<span class="mttr-number mttr-na">N/A</span>`;
-      const mttrSub = data.mttr_days != null ? 'avg across resolved findings' : 'Not enough scan history';
-      const mttdVal = data.mttd_days != null ? `${data.mttd_days}` : null;
-      const mttdDisplay = mttdVal != null
-        ? `<span class="mttr-number mttd-number">${esc(mttdVal)}</span><span class="mttr-unit">days</span>`
+      const mttrSub = mttr ? 'avg across resolved findings' : 'No findings resolved yet in this period';
+      const mttd = fmtDays(data.mttd_days);
+      const mttdDisplay = mttd
+        ? `<span class="mttr-number mttd-number">${esc(mttd.num)}</span><span class="mttr-unit">${mttd.unit}</span>`
         : `<span class="mttr-number mttr-na">N/A</span>`;
-      const mttdSub = data.mttd_days != null ? 'avg detection window across new findings' : 'Not enough scan history';
+      const mttdSub = mttd ? 'avg detection window across new findings' : 'No new findings detected yet in this period';
       return `
         <div class="mttr-display">${mttrDisplay}</div>
         <div class="mttr-sub">${esc(mttrSub)}</div>
@@ -5930,9 +5956,7 @@ async function renderMetrics() {
             <td>${esc(f.total)}</td>
             <td>${esc(firstDate)}</td>
             <td>${esc(lastDate)}</td>
-            <td><div class="freq-dots">${
-              f.dates.map(d => `<span class="freq-dot" title="${esc(d)}"></span>`).join('')
-            }</div></td>
+            <td>${freqDots(f)}</td>
           </tr>`;
       }).join('');
 
@@ -6015,7 +6039,7 @@ async function renderMetrics() {
       <div class="section">
         <div class="section-title">
           Vulnerability Trend
-          <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">last ${m.trend.length} scans</span>
+          <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">${m.trend.length} day${m.trend.length !== 1 ? 's' : ''} · last ${m.window_days || 90} days</span>
         </div>
         <div class="trend-wrap">
           <canvas id="trend-chart" style="display:block;width:100%;height:200px"></canvas>
@@ -6056,6 +6080,7 @@ async function renderMetrics() {
           <span class="section-chevron">▾</span>
         </div>
         <div class="section-body">
+          ${freqLegend()}
           <div class="table-container">
             <table id="tbl-freq">
               <thead>
@@ -6201,7 +6226,7 @@ async function renderMetrics() {
             <td>${esc(f.total)}</td>
             <td>${esc(first)}</td>
             <td>${esc(last)}</td>
-            <td><div class="freq-dots">${f.dates.map(d => `<span class="freq-dot" title="${esc(d)}"></span>`).join('')}</div></td>
+            <td>${freqDots(f)}</td>
           </tr>`;
         }
         function resort() {
@@ -6303,7 +6328,9 @@ async function renderMetrics() {
         resort();
       })();
 
-
+      buildCiHealthSection().then(html => {
+        if (html && location.hash.startsWith('#/metrics')) page.insertAdjacentHTML('beforeend', html);
+      });
     });
   } catch (e) {
     page.innerHTML = errBanner(e.message);
@@ -6599,7 +6626,7 @@ async function loadAuditLog() {
 
 // ── GitHub Signals sparkline helper ──────────────────────────
 function _ghSparkline(history, field, color, labelFn) {
-  if (!history || history.length < 2) {
+  if (!history || history.filter(e => e[field] != null).length < 2) {
     return `<div style="display:flex;align-items:center;justify-content:center;height:60px;color:var(--text-muted);font-size:12px">Not enough history yet</div>`;
   }
   const vals = history.map(e => e[field]);
@@ -6617,10 +6644,7 @@ function _ghSparkline(history, field, color, labelFn) {
   const first = vals.filter(v => v != null)[0];
   const delta = last - first;
   const deltaStr = (delta > 0 ? '+' : '') + delta + (labelFn ? '' : '');
-  const deltaColor = delta === 0 ? 'var(--text-muted)' : (
-    // For "open" signals, lower is better; for coverage/success, higher is better
-    (field === 'dep_open' || field === 'sec_open') ? (delta < 0 ? 'var(--clean)' : 'var(--critical)') : (delta > 0 ? 'var(--clean)' : 'var(--critical)')
-  );
+  const deltaColor = delta === 0 ? 'var(--text-muted)' : (delta > 0 ? 'var(--clean)' : 'var(--critical)');
   return `
     <div style="display:flex;align-items:center;gap:16px">
       <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="flex-shrink:0">
@@ -6634,62 +6658,25 @@ function _ghSparkline(history, field, color, labelFn) {
     </div>`;
 }
 
-async function renderGitHubSignals() {
-  setActive('github-signals');
-  const page = document.getElementById('page');
-  page.innerHTML = loading();
-
+// CI Health section for the Metrics page: workflow success rate + PR scan coverage.
+async function buildCiHealthSection() {
   try {
     const [g, history] = await Promise.all([
       api.getGitHubMetrics(),
       api.getGitHubSignalsHistory().catch(() => []),
     ]);
 
-    // ── Helpers ──────────────────────────────────────────────
-    const noData = g.error && !g.dependabot.length
+    const runsCollected = (g.workflow_runs || []).some(r => (r.total_runs || 0) > 0);
+    const noData = !runsCollected
       ? `<div class="metrics-filter-notice" style="border-color:var(--medium);color:var(--medium)">
-           ⚠ ${esc(g.error)} — Configure a GitHub token and repos in Settings to enable GitHub API metrics.
-           PR Scan Coverage is available without a token.
+           ⚠ ${esc(g.error || 'No workflow runs were collected')} — set a GitHub token and repos in Settings to collect workflow success rates.
+           PR Scan Coverage is calculated from synced scans and doesn't need a token.
          </div>` : '';
 
-    // ── Dependabot summary ───────────────────────────────────
-    const totalDepOpen = g.dependabot.reduce((s, r) => s + (r.open || 0), 0);
-    const totalDepFixed = g.dependabot.reduce((s, r) => s + (r.fixed || 0), 0);
-    const _depList = g.dependabot.filter(r => !r.error);
-    const depRows = _depList.map((r, i) => {
-      const sev = r.by_severity || {};
-      const topPkg = (r.top_packages || []).map(p => `${esc(p.package)} (${p.count})`).join(', ') || '—';
-      return `<tr class="finding-row" style="cursor:pointer" onclick="openGhSignalDetail('dep',${i})" title="Click to view details">
-        <td><strong>${esc(r.repo.split('/')[1] || r.repo)}</strong><div style="font-size:12px;color:var(--text-muted)">${esc(r.repo)}</div></td>
-        <td style="text-align:center"><span style="color:${(r.open||0)>0?'var(--critical)':'var(--clean)'};font-weight:700">${r.open || 0}</span></td>
-        <td style="text-align:center;font-size:12px">
-          <span style="color:var(--critical)">${sev.critical||0} C</span> ·
-          <span style="color:var(--high)">${sev.high||0} H</span> ·
-          <span style="color:var(--medium)">${sev.medium||0} M</span> ·
-          <span style="color:var(--accent)">${sev.low||0} L</span>
-        </td>
-        <td style="text-align:center;color:var(--clean)">${r.fixed || 0}</td>
-        <td style="font-size:12px;color:var(--text-muted);max-width:220px">${topPkg}</td>
-      </tr>`;
-    }).join('') || emptyRow(5, 'No Dependabot data — check token permissions (security_events scope)');
-
-    // ── Security issues summary ──────────────────────────────
-    const totalOpenSec = g.security_issues.reduce((s, r) => s + (r.open_security || 0), 0);
-    const _secList = g.security_issues.filter(r => !r.error);
-    const issueRows = _secList.map((r, i) => {
-      const avgClose = r.avg_close_days != null ? `${r.avg_close_days}d` : '—';
-      return `<tr class="finding-row" style="cursor:pointer" onclick="openGhSignalDetail('sec',${i})" title="Click to view details">
-        <td><strong>${esc(r.repo.split('/')[1] || r.repo)}</strong><div style="font-size:12px;color:var(--text-muted)">${esc(r.repo)}</div></td>
-        <td style="text-align:center"><span style="color:${(r.open_security||0)>0?'var(--high)':'var(--clean)'};font-weight:700">${r.open_security || 0}</span></td>
-        <td style="text-align:center">${r.closed_security || 0}</td>
-        <td style="text-align:center;color:var(--text-muted)">${avgClose}</td>
-      </tr>`;
-    }).join('') || emptyRow(4, 'No security issue data');
-
     // ── Workflow success rate ────────────────────────────────
-    const _runList = g.workflow_runs.filter(r => !r.error);
+    const _runList = (g.workflow_runs || []).filter(r => !r.error);
     const runRows = _runList.map((r, i) => {
-      const rate = r.success_rate != null ? `${r.success_rate}%` : '—';
+      const rate = r.success_rate != null ? `${r.success_rate}%` : 'No runs';
       const rateColor = r.success_rate == null ? 'var(--text-muted)' : r.success_rate >= 90 ? 'var(--clean)' : r.success_rate >= 70 ? '#e3b341' : 'var(--critical)';
       return `<tr class="finding-row" style="cursor:pointer" onclick="openGhSignalDetail('run',${i})" title="Click to view details">
         <td><strong>${esc(r.repo.split('/')[1] || r.repo)}</strong><div style="font-size:12px;color:var(--text-muted)">${esc(r.repo)}</div></td>
@@ -6726,30 +6713,11 @@ async function renderGitHubSignals() {
     }).join('') || emptyRow(6, 'No CI scan data available yet');
 
     // Store data for detail drawer
-    _ghSignalData = { dep: _depList, sec: _secList, run: _runList, cov: covEntries };
+    _ghSignalData = { run: _runList, cov: covEntries };
 
-    page.innerHTML = `
-      ${pageHeader(`GitHub Signals`, { actions: `<button class="btn btn-sm" onclick="renderGitHubSignals()">&#8635; Refresh</button>` })}
+    return `
+      <div class="section-title" style="margin-top:32px">CI Health</div>
       ${noData}
-
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-value" style="color:${totalDepOpen > 0 ? 'var(--critical)' : 'var(--clean)'}">${esc(String(totalDepOpen))}</div>
-          <div class="stat-label">Open Dependabot Alerts</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value" style="color:var(--clean)">${esc(String(totalDepFixed))}</div>
-          <div class="stat-label">Fixed by Dependabot</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value" style="color:${totalOpenSec > 0 ? 'var(--high)' : 'var(--clean)'}">${esc(String(totalOpenSec))}</div>
-          <div class="stat-label">Open Security Issues</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value" style="color:${overallCovPct >= 70 ? 'var(--clean)' : 'var(--high)'}">${esc(String(overallCovPct))}%</div>
-          <div class="stat-label">PR Scan Coverage</div>
-        </div>
-      </div>
 
       ${history.length >= 2 ? `
       <div class="section">
@@ -6758,14 +6726,6 @@ async function renderGitHubSignals() {
           <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">${history.length} daily snapshot${history.length !== 1 ? 's' : ''} · earliest ${esc(history[0].date)}</span>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px">
-          <div class="stat-card" style="padding:16px 20px">
-            <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Open Dependabot Alerts</div>
-            ${_ghSparkline(history, 'dep_open', 'var(--critical)', null)}
-          </div>
-          <div class="stat-card" style="padding:16px 20px">
-            <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Open Security Issues</div>
-            ${_ghSparkline(history, 'sec_open', 'var(--high)', null)}
-          </div>
           <div class="stat-card" style="padding:16px 20px">
             <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Workflow Success Rate</div>
             ${_ghSparkline(history, 'workflow_success_rate', '#79c0ff', v => v != null ? v + '%' : '—')}
@@ -6778,40 +6738,9 @@ async function renderGitHubSignals() {
       </div>` : ''}
 
       <div class="section">
-        <div class="section-title">Dependabot Alerts</div>
-        <div class="table-container">
-          <table>
-            <thead><tr>
-              <th scope="col">Repository</th>
-              <th scope="col" style="text-align:center">Open</th>
-              <th scope="col" style="text-align:center">By Severity</th>
-              <th scope="col" style="text-align:center">Fixed</th>
-              <th scope="col">Top Affected Packages</th>
-            </tr></thead>
-            <tbody>${depRows}</tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Security Issues</div>
-        <div class="table-container">
-          <table>
-            <thead><tr>
-              <th scope="col">Repository</th>
-              <th scope="col" style="text-align:center">Open</th>
-              <th scope="col" style="text-align:center">Closed</th>
-              <th scope="col" style="text-align:center">Avg Days to Close</th>
-            </tr></thead>
-            <tbody>${issueRows}</tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="section">
         <div class="section-title">
           Workflow Success Rate
-          <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">last 30 days · security workflows</span>
+          <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">last ${g.window_days || 90} days · security workflows</span>
         </div>
         <div class="table-container">
           <table>
@@ -6848,7 +6777,7 @@ async function renderGitHubSignals() {
       </div>`;
 
   } catch (e) {
-    page.innerHTML = errBanner(e.message);
+    return `<div class="section"><div class="section-title">CI Health</div>${errBanner(e.message)}</div>`;
   }
 }
 
@@ -9410,7 +9339,7 @@ async function jiraReviewCreateTicketsConfirmed() {
 const _HEADER_TITLES = {
   '/': 'Overview', '/applications': 'Applications', '/new-scan': 'Run Scan',
   '/metrics': 'Metrics', '/stig': 'STIG', '/settings': 'Settings',
-  '/performance': 'Performance', '/github-signals': 'GitHub Signals',
+  '/performance': 'Performance',
 };
 
 function _setHeaderTitle(path) {
@@ -9454,8 +9383,6 @@ function resolve() {
     renderMetrics();
   } else if (path === '/performance') {
     renderPerformanceDashboard();
-  } else if (path === '/github-signals') {
-    renderGitHubSignals();
   } else if (path === '/stig') {
     if (params.get('view') === 'history') {
       renderStigHistory(params.get('app') || null, params.get('slug') || null);
@@ -10199,94 +10126,7 @@ function openGhSignalDetail(kind, idx) {
 
   let title = '', bodyHtml = '', repoUrl = '';
 
-  if (kind === 'dep') {
-    const r = _ghSignalData.dep[idx];
-    if (!r) return;
-    const sev = r.by_severity || {};
-    const repoShort = r.repo.split('/')[1] || r.repo;
-    repoUrl = `https://github.com/${r.repo}/security/dependabot`;
-    title = `Dependabot — ${repoShort}`;
-    const pkgRows = (r.top_packages || []).map(p =>
-      `<tr><td><code>${esc(p.package)}</code></td><td style="text-align:right;padding-left:16px">${p.count} alert${p.count !== 1 ? 's' : ''}</td></tr>`
-    ).join('');
-    bodyHtml = `
-      <div class="finding-detail-grid">
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Repository</div>
-          <div class="finding-detail-value"><code>${esc(r.repo)}</code></div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Open Alerts</div>
-          <div class="finding-detail-value" style="color:${(r.open||0)>0?'var(--critical)':'var(--clean)'};font-weight:700;font-size:22px">${r.open || 0}</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Fixed by Dependabot</div>
-          <div class="finding-detail-value" style="color:var(--clean);font-weight:600">${r.fixed || 0}</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Dismissed</div>
-          <div class="finding-detail-value">${r.dismissed || 0}</div>
-        </div>
-      </div>
-      <div class="finding-detail-section" style="margin-top:12px">
-        <div class="finding-detail-label">By Severity</div>
-        <div style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap">
-          <span style="background:rgba(255,123,114,.15);color:var(--critical);padding:4px 10px;border-radius:6px;font-weight:700">Critical: ${sev.critical||0}</span>
-          <span style="background:rgba(255,166,87,.15);color:var(--high);padding:4px 10px;border-radius:6px;font-weight:700">High: ${sev.high||0}</span>
-          <span style="background:rgba(227,179,65,.15);color:var(--medium);padding:4px 10px;border-radius:6px;font-weight:700">Medium: ${sev.medium||0}</span>
-          <span style="background:rgba(121,192,255,.15);color:var(--accent);padding:4px 10px;border-radius:6px;font-weight:700">Low: ${sev.low||0}</span>
-        </div>
-      </div>
-      ${pkgRows ? `
-      <div class="finding-detail-section" style="margin-top:12px">
-        <div class="finding-detail-label">Top Affected Packages</div>
-        <table style="margin-top:8px;width:100%;font-size:13px"><tbody>${pkgRows}</tbody></table>
-      </div>` : ''}
-      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
-        <a href="${esc(repoUrl)}" target="_blank" rel="noopener noreferrer"
-           style="display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-size:13px;text-decoration:none">
-          View on GitHub
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        </a>
-      </div>`;
-
-  } else if (kind === 'sec') {
-    const r = _ghSignalData.sec[idx];
-    if (!r) return;
-    const repoShort = r.repo.split('/')[1] || r.repo;
-    repoUrl = `https://github.com/${r.repo}/issues?q=is%3Aissue+label%3Asecurity`;
-    title = `Security Issues — ${repoShort}`;
-    const mttr = r.avg_close_days != null
-      ? `<span style="color:${r.avg_close_days <= 7 ? 'var(--clean)' : r.avg_close_days <= 30 ? '#e3b341' : 'var(--critical)'};font-weight:600">${r.avg_close_days} days</span>`
-      : '<span style="color:var(--text-muted)">—</span>';
-    bodyHtml = `
-      <div class="finding-detail-grid">
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Repository</div>
-          <div class="finding-detail-value"><code>${esc(r.repo)}</code></div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Open Security Issues</div>
-          <div class="finding-detail-value" style="color:${(r.open_security||0)>0?'var(--high)':'var(--clean)'};font-weight:700;font-size:22px">${r.open_security || 0}</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Closed Security Issues</div>
-          <div class="finding-detail-value" style="color:var(--clean);font-weight:600">${r.closed_security || 0}</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Avg Days to Close (MTTR)</div>
-          <div class="finding-detail-value">${mttr}</div>
-        </div>
-      </div>
-      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
-        <a href="${esc(repoUrl)}" target="_blank" rel="noopener noreferrer"
-           style="display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-size:13px;text-decoration:none">
-          View on GitHub
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        </a>
-      </div>`;
-
-  } else if (kind === 'run') {
+  if (kind === 'run') {
     const r = _ghSignalData.run[idx];
     if (!r) return;
     const repoShort = r.repo.split('/')[1] || r.repo;

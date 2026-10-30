@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.58.0] - 2026-10-30
+
+### Changed
+- Retired the GitHub Signals page now that findings are tracked in Jira. Workflow success rate and PR scan coverage (with history trends) moved to a "CI Health" section at the bottom of Metrics.
+- `/api/github-metrics` no longer returns `dependabot` or `security_issues`, and daily history snapshots no longer record Dependabot/security-issue counts.
+- Metrics now looks back 90 days by default (`EPYON_METRICS_DAYS`, minimum 7) instead of 35, and the vulnerability trend is one point per day rather than the last 60 scans.
+- GitHub sync paginates workflow runs (100 per page) across the full window instead of only the latest 30. Artifacts past GitHub's retention period cannot be restored.
+- Metrics Scan Frequency dots are colour-coded by PR vs nightly (vs push/manual) and PASS/FAIL, with a legend.
+- Dashboard PASS/FAIL chip now fails on any Critical or 5+ High vulnerabilities (was 4+ including Checkov IaC highs). `check-severity-gate.sh` and CI are unchanged at 4.
+- Cache warm-up runs in the background in parallel across the whole Metrics window, repeats every 5 minutes, and no longer waits on freshly synced scans.
+- Metrics shows "No data" / "No runs" instead of blanks, and sub-day MTTR/MTTD as hours instead of "0d".
+
+### Fixed
+- Workflow success rate was always empty because the `/actions/runs` response (an object, not a list) was never paginated.
+- Confirmation modals using `.modal-box` had a transparent background; they now use the card background in both themes.
+- First-time-fix rate was always 0% because the fix was compared against the wrong scan.
+
+### Removed
+- The `Create Scan Notification Issues` workflow step: scans no longer create or update GitHub issues at any severity. Findings are tracked in Jira. The `create_github_issue` input is kept but deprecated and ignored, so existing callers keep working.
+- GitHub Signals nav item and `#/github-signals` route, plus the Dependabot Alerts and Security Issues tables, cards and detail drawers.
+
 ## [3.57.0] - 2026-10-30
 
 ### Added

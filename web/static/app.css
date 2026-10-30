@@ -966,6 +966,7 @@ html[data-theme="light"] .logo-for-light { display: block; }
 }
 
 .modal-box {
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 28px 32px;
@@ -1893,6 +1894,30 @@ blockquote {
   display: inline-block;
   cursor: default;
 }
+
+.freq-dot.freq-pr-pass       { background: var(--accent); opacity: 1; }
+.freq-dot.freq-pr-fail       { background: #f59e0b; opacity: 1; }
+.freq-dot.freq-nightly-pass  { background: #22c55e; opacity: 1; }
+.freq-dot.freq-nightly-fail  { background: #ef4444; opacity: 1; }
+.freq-dot.freq-other-pass,
+.freq-dot.freq-other-fail,
+.freq-dot.freq-other-unknown,
+.freq-dot.freq-pr-unknown,
+.freq-dot.freq-nightly-unknown { background: var(--text-muted); opacity: 0.5; }
+.freq-dot.freq-pr-unknown      { background: var(--accent); opacity: 0.4; }
+.freq-dot.freq-nightly-unknown { background: #22c55e; opacity: 0.4; }
+.freq-dot.freq-other-pass      { background: var(--text-muted); opacity: 0.8; }
+.freq-dot.freq-other-fail      { background: #ef4444; opacity: 0.6; }
+
+.freq-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.freq-legend .legend-item { display: inline-flex; align-items: center; gap: 6px; }
 
 @media (max-width: 768px) {
   .metrics-two-col { flex-direction: column; }

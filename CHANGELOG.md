@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Overview AI summary buttons (Executive, Technical, ISSO) sit in a single row; descriptions moved to tooltips.
 
+### Fixed
+- Run Scan: leaving the page no longer loses the run. Returning shows the live progress, logs and PASS/FAIL results, polling continues in the background (so monitoring classification is still applied), and **Run Another Scan** now resets the page.
+- The Performance nav link now highlights when active; scan and Jira review pages highlight Applications.
+
 ## [3.56.2] - 2026-10-29
 
 ### Fixed

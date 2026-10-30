@@ -1992,7 +1992,7 @@ async function renderAppDetail(name) {
 // ─────────────────────────────────────────────────────────────
 
 async function renderScanDetail(scanId, openFindingId = '', openFindingPackage = '') {
-  setActive('');
+  setActive('applications');
   const page = document.getElementById('page');
   page.innerHTML = loading();
 
@@ -4481,8 +4481,6 @@ let _scanQueueTotal     = 0;
 
 async function renderNewScan(prefill = '') {
   setActive('new-scan');
-  clearInterval(_pollInterval);
-  _pollInterval = null;
 
   const page = document.getElementById('page');
   page.innerHTML = `
@@ -4600,6 +4598,44 @@ async function renderNewScan(prefill = '') {
       <div id="scan-actions" style="display:none;gap:10px;margin-top:16px"></div>
       <div id="scan-type-results" style="margin-top:20px"></div>
     </div>`;
+  restoreScanRun();
+}
+
+// The run lives in module state, not the DOM, so leaving Run Scan and coming
+// back shows the same progress, logs and results.
+function restoreScanRun() {
+  if (!_scanJobs.length) return;
+  const running = _scanJobs.some(j => !j.done);
+  document.getElementById('scan-output-section').style.display = 'block';
+  const logOut = document.getElementById('log-output');
+  logOut.innerHTML = _scanJobs.map(j =>
+    `<div class="log-line" style="color:var(--text);font-weight:600;margin-top:10px">── ${esc(j.label)} ──</div>` +
+    `<div id="log-job-${esc(j.id)}">${(j.lines || []).map(l => `<div class="log-line">${esc(l)}</div>`).join('')}</div>`
+  ).join('');
+  logOut.scrollTop = logOut.scrollHeight;
+  renderScanJobStatus();
+  const btn = document.getElementById('run-btn');
+  if (running) {
+    if (btn) { btn.disabled = true; btn.textContent = `⏳ Running ${_scanJobs.length} scan${_scanJobs.length === 1 ? '' : 's'}…`; }
+    const cancelBtn = document.getElementById('cancel-btn');
+    if (cancelBtn) cancelBtn.style.display = 'inline-flex';
+  } else {
+    finishScanQueue(btn);
+  }
+}
+
+function renderScanJobStatus() {
+  const statusBar = document.getElementById('job-status-bar');
+  if (!statusBar) return;
+  statusBar.innerHTML = _scanJobs.map(j =>
+    `<div><span class="job-status ${esc(j.status || 'queued')}">${ucFirst(j.status || 'queued')}</span>
+       <span style="color:var(--text-muted);font-size:12px">— ${esc(j.label)}${j.target ? ' · ' + esc(j.target) : ''}</span></div>`).join('');
+}
+
+function startNewScanRun() {
+  _scanJobs = [];
+  _scanQueueResults = [];
+  renderNewScan();
 }
 
 // Scan types selectable in the "Scan Types" checkbox picker — mirrors the
@@ -4827,7 +4863,8 @@ async function submitScan() {
   const cancelBtn = document.getElementById('cancel-btn');
   if (cancelBtn) { cancelBtn.disabled = false; cancelBtn.textContent = '✕ Cancel'; cancelBtn.style.display = 'inline-flex'; }
 
-  runNextQueuedScan(btn, { activeMode, target, uploadFile, runGarak, runStig, selectedLayers });
+  const monitoring = document.querySelector('#monitoring-type-ctrl .seg-btn.active')?.dataset.value || '';
+  runNextQueuedScan(btn, { activeMode, target, uploadFile, runGarak, runStig, selectedLayers, monitoring });
 }
 
 // Submits every selected scan type right away; the server runs up to its
@@ -4851,7 +4888,7 @@ async function runNextQueuedScan(btn, ctx) {
                 btn.textContent = done ? '⏳ Extracting on server…' : `⏳ Uploading… ${pct}%`;
               }, layersForThisType))
         : await api.triggerScan(ctx.target, scanType, ctx.runGarak, ctx.runStig, layersForThisType);
-      _scanJobs.push({ id: job.job_id, type: scanType, label, done: false, logLen: 0 });
+      _scanJobs.push({ id: job.job_id, type: scanType, label, done: false, logLen: 0, lines: [] });
       if (_scanQueueCancelled) {
         await fetch(`/api/jobs/${encodeURIComponent(job.job_id)}/cancel`, { method: 'POST' }).catch(() => {});
       }
@@ -4878,10 +4915,7 @@ async function runNextQueuedScan(btn, ctx) {
 }
 
 async function pollJobs(btn, ctx) {
-  const statusBar = document.getElementById('job-status-bar');
-  const logOut    = document.getElementById('log-output');
-  if (!statusBar || !logOut) { clearInterval(_pollInterval); return; }
-
+  // Keep polling while the page is elsewhere so results are still recorded.
   await Promise.all(_scanJobs.filter(j => !j.done).map(async j => {
     try {
       const job = await api.getJob(j.id);
@@ -4889,11 +4923,13 @@ async function pollJobs(btn, ctx) {
       j.target = job.target;
       const lines = job.output || [];
       if (lines.length > j.logLen) {
+        const fresh = lines.slice(j.logLen);
+        j.lines.push(...fresh);
         const section = document.getElementById(`log-job-${j.id}`);
         if (section) {
-          section.insertAdjacentHTML('beforeend', lines.slice(j.logLen)
-            .map(l => `<div class="log-line">${esc(l)}</div>`).join(''));
-          logOut.scrollTop = logOut.scrollHeight;
+          section.insertAdjacentHTML('beforeend', fresh.map(l => `<div class="log-line">${esc(l)}</div>`).join(''));
+          const logOut = document.getElementById('log-output');
+          if (logOut) logOut.scrollTop = logOut.scrollHeight;
         }
         j.logLen = lines.length;
       }
@@ -4909,9 +4945,8 @@ async function pollJobs(btn, ctx) {
         });
         // Apply monitoring classification on successful completion
         if (job.status === 'completed' && job.target) {
-          const activeBtn = document.querySelector('#monitoring-type-ctrl .seg-btn.active');
           try {
-            if (activeBtn?.dataset.value === 'continuous') await api.setMonitored(job.target);
+            if (ctx.monitoring === 'continuous') await api.setMonitored(job.target);
             else await api.unsetMonitored(job.target);
           } catch (_) {}
         }
@@ -4919,10 +4954,7 @@ async function pollJobs(btn, ctx) {
     } catch (_) { /* ignore transient polling errors */ }
   }));
 
-  if (!document.getElementById('job-status-bar')) { clearInterval(_pollInterval); return; }
-  statusBar.innerHTML = _scanJobs.map(j =>
-    `<div><span class="job-status ${esc(j.status || 'queued')}">${ucFirst(j.status || 'queued')}</span>
-       <span style="color:var(--text-muted);font-size:12px">— ${esc(j.label)}${j.target ? ' · ' + esc(j.target) : ''}</span></div>`).join('');
+  renderScanJobStatus();
 
   if (_scanJobs.every(j => j.done)) {
     clearInterval(_pollInterval);
@@ -4934,7 +4966,8 @@ async function pollJobs(btn, ctx) {
 // Called once the queue is empty (all selected scan types have run, or the
 // run was cancelled) — restores the Run button, hides Cancel, shows the
 // post-scan actions, and renders the PASS/FAIL summary table.
-function finishScanQueue(btn) {
+function finishScanQueue() {
+  const btn = document.getElementById('run-btn');
   if (btn) { btn.disabled = false; btn.textContent = '▶ Run Scan'; }
 
   const cancelBtn = document.getElementById('cancel-btn');
@@ -4949,12 +4982,12 @@ function finishScanQueue(btn) {
            View Applications
          </button>
          <button class="btn" onclick="copyScanLogs()">Copy Logs</button>
-         <button class="btn" onclick="navigate('#/new-scan')">Run Another Scan</button>`
+         <button class="btn" onclick="startNewScanRun()">Run Another Scan</button>`
       : `<div class="error-banner" style="margin:0">
            One or more scan types did not complete successfully. Check the log output and results below.
          </div>
          <button class="btn" onclick="copyScanLogs()">Copy Logs</button>
-         <button class="btn" onclick="navigate('#/new-scan')">Run Another Scan</button>`;
+         <button class="btn" onclick="startNewScanRun()">Run Another Scan</button>`;
   }
 
   renderScanQueueResults();
@@ -6153,6 +6186,7 @@ async function renderMetrics() {
 
 // ── Performance Dashboard ────────────────────────────────────
 async function renderPerformanceDashboard() {
+  setActive('performance');
   const page = document.getElementById('page');
   page.innerHTML = loading();
 

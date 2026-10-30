@@ -33,20 +33,29 @@ def _client(token: str) -> httpx.AsyncClient:
     )
 
 
-async def _get_all_pages(client: httpx.AsyncClient, path: str, per_page: int = 100) -> list:
-    """Fetch all pages of a GitHub list endpoint."""
+async def _get_all_pages(
+    client: httpx.AsyncClient,
+    path: str,
+    per_page: int = 100,
+    list_key: str | None = None,
+    params: dict | None = None,
+    max_pages: int = 20,
+) -> list:
+    """Fetch all pages of a GitHub list endpoint (``list_key`` unwraps object responses)."""
     results: list = []
     page = 1
-    while True:
+    while page <= max_pages:
         try:
             resp = await client.get(
                 f"{_GH_BASE}{path}",
-                params={"per_page": per_page, "page": page},
+                params={**(params or {}), "per_page": per_page, "page": page},
             )
             if resp.status_code in (403, 404, 451):
                 break  # no access or not found — skip silently
             resp.raise_for_status()
             data = resp.json()
+            if list_key and isinstance(data, dict):
+                data = data.get(list_key) or []
             if not isinstance(data, list) or not data:
                 break
             results.extend(data)
@@ -60,14 +69,18 @@ async def _get_all_pages(client: httpx.AsyncClient, path: str, per_page: int = 1
 
 # ── Workflow success rate ─────────────────────────────────────
 
-async def _workflow_runs_for_repo(client: httpx.AsyncClient, repo: str, since_days: int = 30) -> dict:
+async def _workflow_runs_for_repo(client: httpx.AsyncClient, repo: str, since_days: int = 90) -> dict:
     """Return workflow run success/failure rate for security-related workflows."""
     # Only look at the last N days
     since_dt = datetime.now(timezone.utc)
     from datetime import timedelta
     cutoff = (since_dt - timedelta(days=since_days)).isoformat()
 
-    runs = await _get_all_pages(client, f"/repos/{repo}/actions/runs")
+    runs = await _get_all_pages(
+        client, f"/repos/{repo}/actions/runs",
+        list_key="workflow_runs",
+        params={"created": f">={cutoff[:10]}", "status": "completed"},
+    )
 
     # Filter to security/epyon workflows and within date range
     security_keywords = {"security", "epyon", "scan", "sast", "cve"}
@@ -147,7 +160,7 @@ def compute_pr_scan_coverage(all_scans: list[dict], monitored: set[str] | None =
 
 # ── Public entry point ────────────────────────────────────────
 
-async def fetch_all(token: str, repos: list[str], all_scans: list[dict], monitored: set[str] | None = None) -> dict:
+async def fetch_all(token: str, repos: list[str], all_scans: list[dict], monitored: set[str] | None = None, since_days: int = 90) -> dict:
     """
     Fetch all GitHub metrics for the given repos.
     Returns a dict with keys: workflow_runs, pr_scan_coverage, error.
@@ -163,7 +176,7 @@ async def fetch_all(token: str, repos: list[str], all_scans: list[dict], monitor
 
     async with _client(token) as client:
         run_results = await asyncio.gather(
-            *[_workflow_runs_for_repo(client, r) for r in repos],
+            *[_workflow_runs_for_repo(client, r, since_days) for r in repos],
             return_exceptions=True,
         )
 
@@ -174,5 +187,6 @@ async def fetch_all(token: str, repos: list[str], all_scans: list[dict], monitor
     return {
         "workflow_runs":    runs,
         "pr_scan_coverage": pr_coverage,
+        "window_days":      since_days,
         "error":            None,
     }

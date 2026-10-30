@@ -12,6 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Retired the GitHub Signals page now that findings are tracked in Jira. Workflow success rate and PR scan coverage (with history trends) moved to a "CI Health" section at the bottom of Metrics.
 - `/api/github-metrics` no longer returns `dependabot` or `security_issues`, and daily history snapshots no longer record Dependabot/security-issue counts.
+- Metrics now looks back 90 days by default (`EPYON_METRICS_DAYS`, minimum 7) instead of 35, and the vulnerability trend is one point per day rather than the last 60 scans.
+- GitHub sync paginates workflow runs (100 per page) across the full window instead of only the latest 30. Artifacts past GitHub's retention period cannot be restored.
+- Metrics shows "No data" / "No runs" instead of blanks, and sub-day MTTR/MTTD as hours instead of "0d".
+
+### Fixed
+- Workflow success rate was always empty because the `/actions/runs` response (an object, not a list) was never paginated.
+- First-time-fix rate was always 0% because the fix was compared against the wrong scan.
 
 ### Removed
 - GitHub Signals nav item and `#/github-signals` route, plus the Dependabot Alerts and Security Issues tables, cards and detail drawers.

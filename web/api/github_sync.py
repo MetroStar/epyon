@@ -6,10 +6,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 import tempfile
 import zipfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,11 @@ from . import github_config
 SCAN_ID_RE = re.compile(
     r"^[a-zA-Z0-9][a-zA-Z0-9_-]*_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$"
 )
+
+# How far back to look for workflow runs; matches the Metrics page window.
+# Expired artifacts (GitHub retention) can't be downloaded and are skipped.
+_MAX_RUN_PAGES = 10
+_DEFAULT_SYNC_DAYS = max(7, int(os.environ.get("EPYON_METRICS_DAYS", "90") or 90))
 
 _sync_state: dict[str, Any] = {
     "status": "idle", "started_at": None, "result": None, "error": None
@@ -80,6 +86,7 @@ async def run_github_sync(
     config_path: Path,
     epyon_root: Path,
     find_scan_dirs_fn: Any,
+    sync_days: int = _DEFAULT_SYNC_DAYS,
 ) -> dict:
     global _sync_state
 
@@ -109,10 +116,18 @@ async def run_github_sync(
         previously_synced = {int(i) for i in synced_run_ids.get(repo_spec, [])}
         try:
             async with _client(token) as gh:
-                runs_data = await _github_get(
-                    gh, f"/repos/{owner}/{repo}/actions/runs?status=completed&per_page=30"
-                )
-                runs = runs_data.get("workflow_runs") or []
+                runs = []
+                since = (datetime.now(timezone.utc) - timedelta(days=sync_days)).strftime("%Y-%m-%d")
+                for page in range(1, _MAX_RUN_PAGES + 1):
+                    runs_data = await _github_get(
+                        gh,
+                        f"/repos/{owner}/{repo}/actions/runs"
+                        f"?status=completed&per_page=100&page={page}&created=%3E%3D{since}",
+                    )
+                    batch = runs_data.get("workflow_runs") or []
+                    runs.extend(batch)
+                    if len(batch) < 100:
+                        break
                 now_synced: set[int] = set()
                 for run in runs:
                     run_id = run["id"]
@@ -172,8 +187,8 @@ async def run_github_sync(
                                 tmp_zip.unlink()
                             except OSError:
                                 pass
-                # Keep only run IDs still present in the last 30 completed runs
-                # so this list can't grow unbounded across years of history.
+                # Keep only run IDs inside the sync window so this list can't
+                # grow unbounded across years of history.
                 synced_run_ids[repo_spec] = sorted(now_synced)
         except Exception as exc:
             result["failed"].append({"repo": f"{owner}/{repo}", "error": str(exc)})

@@ -158,6 +158,8 @@ MAX_UPLOAD_UNZIPPED    = int(os.environ.get("EPYON_MAX_UPLOAD_UNZIPPED_MB", "204
 _metrics_cache:    dict  = {}
 _metrics_cache_ts: float = 0.0
 _METRICS_TTL:      float = 300.0
+# History window for the Metrics page. 90 days matches GitHub's default artifact retention.
+_METRICS_DAYS:     int   = max(7, int(os.environ.get("EPYON_METRICS_DAYS", "90") or 90))
 
 # ── GitHub metrics cache ─────────────────────────────────────
 _gh_metrics_cache:    dict  = {}
@@ -2230,10 +2232,10 @@ def _compute_metrics() -> dict:
 
 def _build_metrics() -> dict:
     now = time.monotonic()
-    scan_dirs = _cached_find_scan_dirs(days=35)
+    scan_dirs = _cached_find_scan_dirs(days=_METRICS_DAYS)
     all_scans = [_memo_load_scan(d) for d in scan_dirs]
 
-    trend = sorted(
+    scan_points = sorted(
         [
             {
                 "scan_id":   s["scan_id"],
@@ -2247,7 +2249,7 @@ def _build_metrics() -> dict:
             for s in all_scans if s.get("timestamp")
         ],
         key=lambda x: x["timestamp"],
-    )[-60:]
+    )
 
     by_target: dict[str, list] = {}
     for s, d in zip(all_scans, scan_dirs):
@@ -2257,9 +2259,24 @@ def _build_metrics() -> dict:
     monitored = _load_monitored_apps()
     if monitored:
         by_target = {k: v for k, v in by_target.items() if k in monitored}
-        trend = [t for t in trend if t["target"] in monitored]
+        scan_points = [t for t in scan_points if t["target"] in monitored]
     metrics_filtered = bool(monitored)
     monitored_count  = len(monitored)
+
+    # One point per day: the latest scan of each app that day, summed across apps.
+    # Many scans per day (PR/push runs) would otherwise crowd out older history.
+    latest_per_day: dict[str, dict[str, dict]] = {}
+    for pt in scan_points:
+        latest_per_day.setdefault(pt["timestamp"][:10], {})[pt["target"]] = pt
+    trend = [
+        {
+            "scan_id":   "",
+            "target":    f"{len(apps)} app{'s' if len(apps) != 1 else ''}",
+            "timestamp": f"{day}T00:00:00Z",
+            **{sev: sum(a[sev] for a in apps.values()) for sev in ("critical", "high", "medium", "low")},
+        }
+        for day, apps in sorted(latest_per_day.items())
+    ]
 
     tool_counts:      dict[str, dict] = {}
     tool_app_counts:  dict[str, dict[str, int]] = {}
@@ -2456,6 +2473,7 @@ def _build_metrics() -> dict:
         # Pending-resolution: fp disappeared last scan but we require one more
         # consecutive absence before counting it as a genuine fix (filters scanner noise).
         fp_pending_resolution: dict[str, str] = {}      # fp -> scan_ts when it first disappeared
+        fp_last_present: dict[str, str] = {}            # fp -> last scan_ts it was still present
         prev_fps: set[str]             = set()
         prev_ts_str: str               = ""
 
@@ -2499,7 +2517,7 @@ def _build_metrics() -> dict:
                             fp_ever_resolved.add(fp)
                             fp_resolved_at[fp] = absent_since_ts
                             total_resolved += 1
-                            if prev_ts_str == first_ts:
+                            if fp_last_present.pop(fp, "") == first_ts:
                                 first_time_fixed += 1
                             # SLA — deduplicate by CVE-ID::package (strip tool prefix)
                             fp_parts = fp.split('::', 2)
@@ -2527,6 +2545,7 @@ def _build_metrics() -> dict:
                 for fp in disappeared_now:
                     if fp not in fp_ever_resolved and fp in fp_first_seen:
                         fp_pending_resolution[fp] = ts
+                        fp_last_present[fp] = prev_ts_str
 
             prev_fps    = curr_fps
             prev_ts_str = ts
@@ -2764,6 +2783,7 @@ def _build_metrics() -> dict:
         ],
         "scan_frequency": scan_frequency,
         "merges_to_main": merges_to_main,
+        "window_days":         _METRICS_DAYS,
         "total_merges_to_main": total_merges_to_main,
         "metrics_filtered": metrics_filtered,
         "monitored_count":  monitored_count,
@@ -2872,11 +2892,11 @@ async def get_github_metrics(response: Response):
     token = cfg.get("token", "")
     repos = cfg.get("repos") or []
 
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=_METRICS_DAYS)
     all_scans = [parsers.load_scan(d, EPYON_ROOT) for d in scan_dirs]
     monitored_set = set(_load_monitored_apps()) or None
 
-    result = await github_metrics.fetch_all(token, repos, all_scans, monitored_set)
+    result = await github_metrics.fetch_all(token, repos, all_scans, monitored_set, _METRICS_DAYS)
 
     _gh_metrics_cache    = result
     _gh_metrics_cache_ts = now

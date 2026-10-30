@@ -5809,6 +5809,15 @@ function buildRecurrenceSection(m) {
   </div>`;
 }
 
+// Days → readable duration. Sub-day values show hours so a fast detection never renders as "0d".
+function fmtDays(days) {
+  if (days == null || isNaN(days)) return null;
+  if (days >= 1) return { num: String(Math.round(days * 10) / 10), unit: 'days' };
+  const hrs = days * 24;
+  if (hrs >= 1) return { num: String(Math.round(hrs * 10) / 10), unit: 'hours' };
+  return { num: '<1', unit: 'hour' };
+}
+
 async function renderMetrics() {
   setActive('metrics');
   const page = document.getElementById('page');
@@ -5834,7 +5843,8 @@ async function renderMetrics() {
 
     const sevRows = (bySev) => ['critical','high','medium','low'].map(sev => {
       const val = (bySev || {})[sev];
-      const display = val != null ? `${val}d` : '—';
+      const d = fmtDays(val);
+      const display = d ? `${d.num}${d.unit === 'days' ? 'd' : 'h'}` : 'No data';
       return `<div class="mttr-sev-row">
         <span class="sev-badge ${sev}">${ucFirst(sev)}</span>
         <span class="mttr-sev-days">${esc(display)}</span>
@@ -5873,16 +5883,16 @@ async function renderMetrics() {
     }
 
     function buildMttrPanelHtml(data, fastestHtml) {
-      const mttrVal = data.mttr_days != null ? `${data.mttr_days}` : null;
-      const mttrDisplay = mttrVal != null
-        ? `<span class="mttr-number">${esc(mttrVal)}</span><span class="mttr-unit">days</span>`
+      const mttr = fmtDays(data.mttr_days);
+      const mttrDisplay = mttr
+        ? `<span class="mttr-number">${esc(mttr.num)}</span><span class="mttr-unit">${mttr.unit}</span>`
         : `<span class="mttr-number mttr-na">N/A</span>`;
-      const mttrSub = data.mttr_days != null ? 'avg across resolved findings' : 'Not enough scan history';
-      const mttdVal = data.mttd_days != null ? `${data.mttd_days}` : null;
-      const mttdDisplay = mttdVal != null
-        ? `<span class="mttr-number mttd-number">${esc(mttdVal)}</span><span class="mttr-unit">days</span>`
+      const mttrSub = mttr ? 'avg across resolved findings' : 'No findings resolved yet in this period';
+      const mttd = fmtDays(data.mttd_days);
+      const mttdDisplay = mttd
+        ? `<span class="mttr-number mttd-number">${esc(mttd.num)}</span><span class="mttr-unit">${mttd.unit}</span>`
         : `<span class="mttr-number mttr-na">N/A</span>`;
-      const mttdSub = data.mttd_days != null ? 'avg detection window across new findings' : 'Not enough scan history';
+      const mttdSub = mttd ? 'avg detection window across new findings' : 'No new findings detected yet in this period';
       return `
         <div class="mttr-display">${mttrDisplay}</div>
         <div class="mttr-sub">${esc(mttrSub)}</div>
@@ -6015,7 +6025,7 @@ async function renderMetrics() {
       <div class="section">
         <div class="section-title">
           Vulnerability Trend
-          <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">last ${m.trend.length} scans</span>
+          <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">${m.trend.length} day${m.trend.length !== 1 ? 's' : ''} · last ${m.window_days || 90} days</span>
         </div>
         <div class="trend-wrap">
           <canvas id="trend-chart" style="display:block;width:100%;height:200px"></canvas>
@@ -6641,16 +6651,17 @@ async function buildCiHealthSection() {
       api.getGitHubSignalsHistory().catch(() => []),
     ]);
 
-    const noData = g.error && !(g.workflow_runs || []).length
+    const runsCollected = (g.workflow_runs || []).some(r => (r.total_runs || 0) > 0);
+    const noData = !runsCollected
       ? `<div class="metrics-filter-notice" style="border-color:var(--medium);color:var(--medium)">
-           ⚠ ${esc(g.error)} — Configure a GitHub token and repos in Settings to enable workflow success rates.
-           PR Scan Coverage is available without a token.
+           ⚠ ${esc(g.error || 'No workflow runs were collected')} — set a GitHub token and repos in Settings to collect workflow success rates.
+           PR Scan Coverage is calculated from synced scans and doesn't need a token.
          </div>` : '';
 
     // ── Workflow success rate ────────────────────────────────
     const _runList = (g.workflow_runs || []).filter(r => !r.error);
     const runRows = _runList.map((r, i) => {
-      const rate = r.success_rate != null ? `${r.success_rate}%` : '—';
+      const rate = r.success_rate != null ? `${r.success_rate}%` : 'No runs';
       const rateColor = r.success_rate == null ? 'var(--text-muted)' : r.success_rate >= 90 ? 'var(--clean)' : r.success_rate >= 70 ? '#e3b341' : 'var(--critical)';
       return `<tr class="finding-row" style="cursor:pointer" onclick="openGhSignalDetail('run',${i})" title="Click to view details">
         <td><strong>${esc(r.repo.split('/')[1] || r.repo)}</strong><div style="font-size:12px;color:var(--text-muted)">${esc(r.repo)}</div></td>
@@ -6714,7 +6725,7 @@ async function buildCiHealthSection() {
       <div class="section">
         <div class="section-title">
           Workflow Success Rate
-          <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">last 30 days · security workflows</span>
+          <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">last ${g.window_days || 90} days · security workflows</span>
         </div>
         <div class="table-container">
           <table>

@@ -55,6 +55,7 @@
 
   --sidebar-width:  220px;
   --header-height:  56px;
+  --sidebar-rail-width: 56px;
   --radius:         6px;
   --radius-lg:      10px;
 }
@@ -182,14 +183,37 @@ code {
 }
 
 /* ── Collapsed sidebar ────────────────────────────────────── */
+/* Desktop: collapse to an icon rail; labels hide, icons stay (names show as tooltips). */
 #sidebar.collapsed {
-  width: 0;
-  border-right: none;
+  width: var(--sidebar-rail-width);
 }
 
 #sidebar.collapsed ~ #content,
 #sidebar.collapsed + #content {
-  margin-left: 0;
+  margin-left: var(--sidebar-rail-width);
+}
+
+#sidebar.collapsed .nav-label,
+#sidebar.collapsed #sidebar-version { display: none; }
+
+#sidebar.collapsed .nav-links { padding: 10px 6px; }
+
+#sidebar.collapsed .nav-link {
+  justify-content: center;
+  padding: 10px 0;
+  position: relative;
+}
+
+#sidebar.collapsed .scan-badge {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+}
+
+#sidebar.collapsed .sidebar-footer {
+  flex-direction: column;
+  padding: 10px 0;
+  justify-content: center;
 }
 
 /* ── Header bar (full width, above sidebar and content) ───── */
@@ -1591,6 +1615,7 @@ blockquote {
   }
 
   #sidebar.collapsed { width: 100%; }
+  #sidebar.collapsed ~ #content, #sidebar.collapsed + #content { margin-left: 0; }
   #sidebar.collapsed .nav-links,
   #sidebar.collapsed .sidebar-footer { display: none; }
 
@@ -3424,21 +3449,6 @@ details[open] > .findings-summary .findings-summary-hint {
   background: var(--bg-hover);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-/* ── Mobile Code Policy ────────────────────────────────────── */
-.mc-type-card:hover {
-  border-color: var(--accent) \!important;
-  background: var(--bg-hover) \!important;
-}
-
-.mc-type-card.mc-approved {
-  border-color: var(--pass) \!important;
-  background: color-mix(in srgb, var(--pass) 8%, var(--bg-input)) \!important;
-}
-
-.mc-type-card.mc-approved:hover {
-  background: color-mix(in srgb, var(--pass) 12%, var(--bg-hover)) \!important;
 }
 
 /* ── Cache clear button ──────────────────────────────────── */

@@ -10,6 +10,8 @@
 # Environment variables:
 #   SCAN_DIR        – path to scan directory (overridden by --scan-dir)
 #   NVD_API_KEY     – optional NVD API key (boosts rate limit to 50 req/30s)
+#   EPYON_CACHE_DIR – persistent cache root (defaults to ~/.cache/epyon)
+#   NVD_CACHE_TTL   – successful NVD response lifetime in seconds (default: 86400)
 #   QUIET           – suppress non-error output when set to "true"
 #
 # Exit codes:
@@ -127,7 +129,8 @@ if [[ "$DRY_RUN" == true ]]; then
     exit 0
 fi
 
-python3 - "$FINDINGS_FILE" "$KEV_CACHE" "${NVD_API_KEY}" <<'PYEOF'
+export NVD_API_KEY
+PYTHONPATH="$(dirname "$0")${PYTHONPATH:+:$PYTHONPATH}" python3 - "$FINDINGS_FILE" "$KEV_CACHE" <<'PYEOF'
 import json
 import sys
 import os
@@ -136,10 +139,12 @@ import urllib.request
 import urllib.parse
 import urllib.error
 import re
+from pathlib import Path
+from scan_cache import JsonCache, nvd_request_slot
 
 findings_file = sys.argv[1]
 kev_cache     = sys.argv[2]
-nvd_api_key   = sys.argv[3] if len(sys.argv) > 3 else ""
+nvd_api_key   = os.environ.get("NVD_API_KEY", "")
 
 # ── Load KEV catalog ──────────────────────────────────────────────────────────
 try:
@@ -181,6 +186,10 @@ NVD_TIMEOUT = int(os.getenv("NVD_TIMEOUT", "45"))  # seconds
 NVD_MAX_RETRIES = int(os.getenv("NVD_MAX_RETRIES", "3"))
 
 nvd_cache: dict = {}
+nvd_cache_dir = Path(os.environ.get("EPYON_CACHE_DIR", str(Path.home() / ".cache/epyon"))) / "nvd"
+persistent_cache = JsonCache(nvd_cache_dir, int(os.environ.get("NVD_CACHE_TTL", "86400")))
+cache_hits = 0
+cache_misses = 0
 
 def fetch_nvd(cve_id: str) -> dict | None:
     """Return the NVD CVE item dict or None on failure. Retries with exponential backoff."""
@@ -193,11 +202,15 @@ def fetch_nvd(cve_id: str) -> dict | None:
     for attempt in range(NVD_MAX_RETRIES):
         try:
             req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=NVD_TIMEOUT) as resp:
-                body = json.load(resp)
+            with nvd_request_slot(nvd_cache_dir, SLEEP_INTERVAL):
+                with urllib.request.urlopen(req, timeout=NVD_TIMEOUT) as resp:
+                    body = json.load(resp)
             vulns = body.get("vulnerabilities", [])
             if vulns:
-                return vulns[0].get("cve", {})
+                cve = vulns[0].get("cve", {})
+                if cve.get("id") != cve_id:
+                    raise ValueError("NVD response CVE identity mismatch")
+                return cve
             return None  # Empty result
         except urllib.error.HTTPError as e:
             if e.code == 404:
@@ -227,11 +240,18 @@ def fetch_nvd(cve_id: str) -> dict | None:
 
 def nvd_enrich(cve_id: str) -> dict:
     """Fetch NVD data for a CVE and return an enrichment dict."""
+    global cache_hits, cache_misses
     if cve_id in nvd_cache:
         return nvd_cache[cve_id]
 
-    cve_data = fetch_nvd(cve_id)
-    time.sleep(SLEEP_INTERVAL)
+    cve_data = persistent_cache.get(cve_id)
+    if isinstance(cve_data, dict) and cve_data.get("id") == cve_id:
+        cache_hits += 1
+    else:
+        cache_misses += 1
+        cve_data = fetch_nvd(cve_id)
+        if cve_data:
+            persistent_cache.put(cve_id, cve_data)
 
     if not cve_data:
         result = {"nvd_url": f"https://nvd.nist.gov/vuln/detail/{cve_id}"}
@@ -289,6 +309,7 @@ print(f"  Fetching NVD data (sleep {SLEEP_INTERVAL}s between calls)...", file=sy
 for i, cve_id in enumerate(sorted(cve_set), 1):
     print(f"  [{i}/{len(cve_set)}] NVD: {cve_id}", file=sys.stderr)
     nvd_enrich(cve_id)
+print(f"  NVD persistent cache: {cache_hits} hits, {cache_misses} misses", file=sys.stderr)
 
 # Apply enrichment to all findings
 def enrich_finding(finding: dict) -> dict:
@@ -326,6 +347,8 @@ data.setdefault("enrichment", {})
 data["enrichment"]["enriched_at"]   = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 data["enrichment"]["cisa_kev_total"] = kev_enriched
 data["enrichment"]["nvd_total"]      = nvd_enriched
+data["enrichment"]["nvd_cache_hits"] = cache_hits
+data["enrichment"]["nvd_cache_misses"] = cache_misses
 data["enrichment"]["kev_catalog_url"] = "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
 
 # ── Write back atomically ─────────────────────────────────────────────────────

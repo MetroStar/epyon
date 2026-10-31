@@ -47,6 +47,35 @@ For an Ollama-compatible endpoint supporting schema-constrained output and
 request and validate one JSON assessment per control; exhausted retries cannot
 pass complete-scan enforcement. Existing hosted configurations remain opt-in.
 
+### Persistent performance caches
+
+Set `EPYON_CACHE_DIR` to a trusted persistent directory, separate from scan reports.
+NVD caches only successful, identity-checked CVE responses for `NVD_CACHE_TTL`
+seconds (default 86400), bounded to 2048 entries. Misses and retries share a
+cross-process rate limiter. `NVD_API_KEY` uses the authenticated interval; without
+a key, the unauthenticated six-second interval remains enforced. Keys are not
+stored in cache records or passed to the enrichment Python process as arguments.
+Enrichment metadata records cache hit/miss counts.
+
+STIG reuse is opt-in through `EPYON_CACHE_DIR` and requires an immutable model
+digest: set `EPYON_STIG_MODEL_REVISION` or point
+`EPYON_STIG_MODEL_IDENTITY_URL` at a trusted Ollama `/api/tags` endpoint.
+Only complete, validated assessments with identical application, repository
+contents (including untracked, non-ignored files), supplied source/context,
+STIG definitions, model digest, endpoint, assessment implementation and settings
+are reused. Any difference requires a fresh assessment; unknown model identity
+or a non-Git target disables reuse with a warning. Failed/incomplete assessments
+are never cached. The cache holds at most 128 entries for
+`EPYON_STIG_CACHE_TTL` seconds (default 86400). Outputs retain all control results,
+the original assessment timestamp and explicit reuse provenance.
+
+`EPYON_STIG_BATCH_SIZE` accepts 1-10 controls per request.
+`EPYON_STIG_CONCURRENCY` accepts 1-4 concurrent requests (default 1).
+Concurrent results are merged in control order; every batch still uses the
+same exact-control validation, retry and strict completion rules.
+Cache storage must be writable only by trusted scanner jobs. Do not mount it
+into untrusted pull-request workloads.
+
 An SSO deployment can set `EPYON_LOGOUT_URL` to a local
 `/oauth2/sign_out?rd=...` URL to expose the dashboard logout control. The proxy
 must allow only the intended provider redirect host, and the provider must

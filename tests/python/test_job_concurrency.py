@@ -13,9 +13,10 @@ from api import jobs  # noqa: E402
 from api.parsers import parse_dir_name  # noqa: E402
 
 
-def _setup(monkeypatch, cap: int):
+def _setup(monkeypatch, tmp_path, cap: int):
     monkeypatch.setenv("EPYON_MAX_CONCURRENT_SCANS", str(cap))
-    monkeypatch.setattr(jobs, "_slots", None)
+    monkeypatch.setattr(jobs, "_gate", None)
+    monkeypatch.setattr(jobs, "SCAN_CONFIG_FILE", tmp_path / "scan-config.json")
     jobs.jobs.clear()
     jobs._reserved_job_ids.clear()
     state = {"running": 0, "peak": 0, "targets": {}}
@@ -47,21 +48,21 @@ def _submit(specs):
     asyncio.run(go())
 
 
-def test_cap_limits_parallel_scans(monkeypatch):
-    state = _setup(monkeypatch, 2)
+def test_cap_limits_parallel_scans(monkeypatch, tmp_path):
+    state = _setup(monkeypatch, tmp_path, 2)
     _submit([(f"/t{i}", "quick") for i in range(5)])
     assert state["peak"] == 2
     assert all(j["status"] == "completed" for j in jobs.jobs.values())
 
 
-def test_same_target_and_type_serialised_but_types_may_overlap(monkeypatch):
-    state = _setup(monkeypatch, 4)
+def test_same_target_and_type_serialised_but_types_may_overlap(monkeypatch, tmp_path):
+    state = _setup(monkeypatch, tmp_path, 4)
     _submit([("/a", "quick"), ("/a", "quick"), ("/a", "full")])
     assert state["peak"] == 2  # the duplicate waited; the other type ran alongside
 
 
-def test_cancelled_while_queued_never_runs(monkeypatch):
-    state = _setup(monkeypatch, 1)
+def test_cancelled_while_queued_never_runs(monkeypatch, tmp_path):
+    state = _setup(monkeypatch, tmp_path, 1)
 
     async def go():
         ids = []
@@ -137,3 +138,30 @@ def test_new_job_id_reserves_ids_before_jobs_are_created():
 
     jobs.release_job_id(first)
     assert first not in jobs._reserved_job_ids
+
+
+def test_saved_setting_overrides_env_and_clamps(monkeypatch, tmp_path):
+    _setup(monkeypatch, tmp_path, 2)
+    assert jobs.concurrency_source() == "env"
+    assert jobs.save_max_concurrent(3) == 3
+    assert jobs._max_concurrent() == 3 and jobs.concurrency_source() == "saved"
+    assert jobs.save_max_concurrent(999) == jobs.MAX_CONCURRENT_CEILING
+
+
+def test_raising_limit_releases_queued_scans(monkeypatch, tmp_path):
+    state = _setup(monkeypatch, tmp_path, 1)
+
+    async def go():
+        ids = []
+        for t in ("/a", "/b", "/c"):
+            jid = jobs.new_job_id()
+            jobs.create_job(jid, t, "quick")
+            ids.append((jid, t))
+        tasks = [asyncio.create_task(jobs.run_scan_job(i, t, "quick")) for i, t in ids]
+        await asyncio.sleep(0.01)
+        jobs.save_max_concurrent(3)
+        await jobs.wake_queue()
+        await asyncio.gather(*tasks)
+
+    asyncio.run(go())
+    assert state["peak"] == 3

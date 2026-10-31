@@ -7,13 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.58.2] - 2026-10-31
+## [3.59.0] - 2026-10-31
 
-### Changed
-- Settings → Workflow File Setup now lists the npm, pip and manual install options and shows the current `scan-private-repo.yml` (PR quick-scan job, weekly STIG run).
-- Collapsing the left navigation now leaves a slim icon rail (labels appear as tooltips) instead of hiding it completely; the scan-progress badge and the theme/cache buttons stay visible. Phones still collapse the menu fully.
-- Removed the global Mobile Code Policy (Settings card, Performance "Policy Audit Trail", `/api/mobile-code/policy*`, `approve-type`, `approve-file`, `types` endpoints, policy file and audit log). Layer 17 still detects mobile code and reports it as `requires_approval`; use `.epyon-ignore.yml` for per-app exceptions.
-- Removed the "Scan History Summary" cards (generated time, total scans, targets, users) from Settings.
+### Added
+- Settings → Scan Concurrency sets how many scans run at once (1–16). A saved value overrides `EPYON_MAX_CONCURRENT_SCANS` (default 2), takes effect for queued scans without a restart, and is stored in `web/data/scan-config.json`. New `GET/POST /api/settings/scan-concurrency`.
 
 ## [3.58.1] - 2026-10-31
 

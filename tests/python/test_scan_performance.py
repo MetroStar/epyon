@@ -154,6 +154,21 @@ def test_stig_identity_invalidates_source_model_and_context(tmp_path, monkeypatc
     assert assessor._stig_reuse_key(str(root), inputs) is None
 
 
+def test_generated_build_reports_do_not_invalidate_source_but_tracked_files_do(tmp_path, assessor):
+    root = repository(tmp_path / "repo")
+    key = assessor._stig_reuse_key(str(root), {"model": "local:1"})
+    for directory in ("target", ".scannerwork", "working/build"):
+        output = root / directory
+        output.mkdir(parents=True)
+        (output / "report.xml").write_text("<report timestamp='changes-every-build'/>")
+    assert assessor._stig_reuse_key(str(root), {"model": "local:1"}) == key
+    assert assessor.collect_source_files(str(root)) == [("auth.java", "requireAuthentication();")]
+    tracked = root / "target/source.conf"
+    tracked.write_text("auth=true")
+    subprocess.run(["git", "-C", str(root), "add", "-f", str(tracked)], check=True)
+    assert assessor._stig_reuse_key(str(root), {"model": "local:1"}) != key
+
+
 def assess_fixture(assessor, root, scan):
     scan.mkdir()
     controls = [
@@ -238,7 +253,8 @@ def test_parallel_failures_are_not_cached_or_marked_complete(tmp_path, monkeypat
     assert not list((tmp_path / "cache" / "stig").glob("*.json"))
 
 
-def test_incomplete_cached_control_set_is_rejected(tmp_path, monkeypatch, assessor):
+@pytest.mark.parametrize("corruption", ["missing-control", "missing-timestamp", "invalid-timestamp"])
+def test_incomplete_cached_control_set_is_rejected(tmp_path, monkeypatch, assessor, corruption):
     root = repository(tmp_path / "repo")
     monkeypatch.setenv("EPYON_CACHE_DIR", str(tmp_path / "cache"))
     fake_client(monkeypatch, assessor)
@@ -249,7 +265,12 @@ def test_incomplete_cached_control_set_is_rejected(tmp_path, monkeypatch, assess
     assess_fixture(assessor, root, tmp_path / "first")
     cache_file = next((tmp_path / "cache/stig").glob("*.json"))
     cached = json.loads(cache_file.read_text())
-    del cached["data"]["assessments"]["V-1"]
+    if corruption == "missing-control":
+        del cached["data"]["assessments"]["V-1"]
+    elif corruption == "missing-timestamp":
+        del cached["data"]["assessment_generated_at"]
+    else:
+        cached["data"]["assessment_generated_at"] = "invalid"
     cache_file.write_text(json.dumps(cached))
     result = assess_fixture(assessor, root, tmp_path / "second")
     assert not result["reused"] and len(result["assessments"]) == 12

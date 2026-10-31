@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Epyon — Security Control</title>
-  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
-  <link rel="stylesheet" href="/static/app.css?v=1790828404" />
+  <title>Quartz Evaluator — Security Control</title>
+  <link rel="icon" type="image/png" href="/static/quartz-logo.png?v=1" />
+  <link rel="stylesheet" href="/static/app.css?v=quartz2" />
 </head>
 <body>
   <div id="app">
@@ -19,13 +19,13 @@
           <line x1="3" y1="18" x2="21" y2="18"/>
         </svg>
       </button>
-      <a href="#/" class="logo" aria-label="Epyon home">
-        <img src="/static/logo-dark.svg" alt="Epyon" class="logo-img logo-for-dark" />
-        <img src="/static/logo-light.svg" alt="" class="logo-img logo-for-light" aria-hidden="true" />
+      <a href="#/" class="logo" aria-label="Quartz home">
+        <img src="/static/quartz-logo.png?v=1" alt="Quartz" class="logo-img" height="32" width="94" />
       </a>
       <div id="header-title" aria-live="polite">Overview</div>
       <div class="header-actions">
         <a href="#/new-scan" class="btn btn-primary header-btn">Run Scan</a>
+        <a id="logout-link" class="nav-link" hidden>Log out</a>
       </div>
     </header>
 
@@ -55,8 +55,8 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polygon points="5 3 19 12 5 21 5 3"/>
             </svg>
-            Run Scan
-            <span id="scan-badge" class="scan-badge" hidden aria-label="Scans in progress"></span>
+            Run Evaluation
+            <span id="scan-badge" class="scan-badge" hidden aria-label="Evaluations in progress"></span>
           </a>
         </li>
         <li>
@@ -115,7 +115,7 @@
             <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
           </svg>
         </button>
-        <span id="sidebar-version">Epyon</span>
+        <span id="sidebar-version">Quartz Evaluator</span>
       </div>
     </nav>
 

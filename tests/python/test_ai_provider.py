@@ -101,7 +101,7 @@ def test_prompt_leads_with_controls_and_ends_with_contract():
     captured = {}
 
     class Msg:
-        content = "[]"
+        content = '[{"vuln_id": "V-1", "status": "Open", "evidence": "e", "confidence": 50}]'
 
     class Resp:
         usage = None

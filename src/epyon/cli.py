@@ -46,9 +46,7 @@ def install_workflow(args):
     
     tag = "updated" if existed else "installed"
     print(f"""
-╔══════════════════════════════════════════════════════════════╗
-║  Epyon Security Scanner — workflow {tag:<26}║
-╚══════════════════════════════════════════════════════════════╝
+  Quartz Evaluator — workflow {tag}
 
   ✅  {dest_file}
 

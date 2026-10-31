@@ -80,12 +80,7 @@ NC='\033[0m' # No Color
 print_banner() {
     echo -e "${CYAN}"
     cat << "EOF"
-███████╗██████╗ ██╗   ██╗ ██████╗ ███╗   ██╗
-██╔════╝██╔══██╗╚██╗ ██╔╝██╔═══██╗████╗  ██║
-█████╗  ██████╔╝ ╚████╔╝ ██║   ██║██╔██╗ ██║
-██╔══╝  ██╔═══╝   ╚██╔╝  ██║   ██║██║╚██╗██║
-███████╗██║        ██║   ╚██████╔╝██║ ╚████║
-╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══╝
+QUARTZ EVALUATOR
 EOF
     echo -e "${NC}"
     echo -e "${GREEN}Absolute Security Control${NC}"
@@ -1116,6 +1111,7 @@ print_section() {
 }
 
 # Function to run security tools with target directory
+FAILED_SECURITY_TOOLS=()
 run_security_tool() {
     local tool_name="$1"
     local script_path="$2"
@@ -1150,12 +1146,14 @@ run_security_tool() {
             # Send webhook notification: tool completed successfully
             send_webhook "tool_complete" "$tool_name completed successfully" "success" "$tool_slug"
         else
-            echo -e "${YELLOW}⚠️  $tool_name completed with warnings${NC}"
+            echo -e "${RED}❌ $tool_name failed (exit $exit_code)${NC}"
+            FAILED_SECURITY_TOOLS+=("$tool_name")
             # Send webhook notification: tool completed with warnings
             send_webhook "tool_complete" "$tool_name completed with warnings" "warning" "$tool_slug"
         fi
     else
         echo -e "${RED}❌ $tool_name script not found or not executable: $script_path${NC}"
+        FAILED_SECURITY_TOOLS+=("$tool_name")
         # Send webhook notification: tool failed
         send_webhook "tool_error" "$tool_name script not found" "error" "$tool_slug"
         return 1
@@ -1451,12 +1449,15 @@ case "$SCAN_TYPE" in
                 # STIGS_DIR through if the caller explicitly set one —
                 # otherwise let run-stig-scan.sh use its own correct
                 # PROJECT_ROOT-derived absolute default.
-                env ${STIGS_DIR:+STIGS_DIR="$STIGS_DIR"} \
+                if ! env ${STIGS_DIR:+STIGS_DIR="$STIGS_DIR"} \
                     SCAN_DIR="$SCAN_DIR" \
                     APP_NAME="$TARGET_NAME" \
-                    "$SCRIPT_DIR/run-stig-scan.sh" "$TARGET_DIR" || \
-                    echo -e "${YELLOW}⚠️  STIG assessment completed with warnings${NC}"
+                    "$SCRIPT_DIR/run-stig-scan.sh" "$TARGET_DIR"; then
+                    FAILED_SECURITY_TOOLS+=("STIG Compliance Assessment")
+                    echo -e "${RED}❌ STIG assessment failed${NC}"
+                fi
             else
+                FAILED_SECURITY_TOOLS+=("STIG Compliance Assessment")
                 echo -e "${YELLOW}⚠️  run-stig-scan.sh not found, skipping Layer 13 - STIG${NC}"
             fi
         else
@@ -1490,7 +1491,7 @@ case "$SCAN_TYPE" in
 
         echo -e "${PURPLE}📋 Layer 15: Model Card Compliance${NC}"
         if [[ "${SKIP_MODELCARD:-false}" != "true" ]]; then
-            run_security_tool "Model Card Compliance" "$SCRIPT_DIR/run-modelcard-check.sh"
+            run_security_tool "Model Card Compliance" "$SCRIPT_DIR/run-modelcard-check.sh" "--report-only"
         else
             echo -e "${YELLOW}⏭️  Skipping Layer 15 - ModelCard (SKIP_MODELCARD=true)${NC}"
         fi
@@ -1521,7 +1522,7 @@ case "$SCAN_TYPE" in
         echo -e "${PURPLE}🐳 Layer 19: Inference Environment Security${NC}"
         if [[ "${SKIP_INFERENCE_SECURITY:-false}" != "true" ]]; then
             # Container and K8s security configuration analysis
-            run_security_tool "Inference Security Scan" "$SCRIPT_DIR/run-inference-security-scan.sh"
+            run_security_tool "Inference Security Scan" "$SCRIPT_DIR/run-inference-security-scan.sh" "--report-only"
         else
             echo -e "${YELLOW}⏭️  Skipping Layer 19 - Inference Security (SKIP_INFERENCE_SECURITY=true)${NC}"
         fi
@@ -2030,15 +2031,19 @@ RUN_ELAPSED_SECONDS=$((RUN_END_EPOCH - RUN_START_EPOCH))
 printf -v RUN_ELAPSED_HUMAN '%02dh:%02dm:%02ds' $((RUN_ELAPSED_SECONDS/3600)) $(((RUN_ELAPSED_SECONDS%3600)/60)) $((RUN_ELAPSED_SECONDS%60))
 
 # Send webhook notification: scan complete
-if [[ "$analysis_success" == "true" ]]; then
+if [[ "$analysis_success" == "true" && ${#FAILED_SECURITY_TOOLS[@]} -eq 0 ]]; then
     send_webhook "scan_complete" "Security scan completed successfully for $APP_NAME" "success" ""
 else
-    send_webhook "scan_complete" "Security scan completed with warnings for $APP_NAME" "warning" ""
+    send_webhook "scan_complete" "Security scan incomplete for $APP_NAME" "error" ""
 fi
 
 echo ""
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}🎯 Target Security Scan Finished Successfully!${NC}"
+if [[ ${#FAILED_SECURITY_TOOLS[@]} -eq 0 ]]; then
+    echo -e "${GREEN}🎯 Target Security Scan Finished Successfully!${NC}"
+else
+    echo -e "${RED}❌ Target Security Scan Incomplete${NC}"
+fi
 echo -e "${CYAN}Target: $TARGET_DIR${NC}"
 echo -e "${CYAN}Scan ID: $SCAN_ID${NC}"
 echo -e "${CYAN}Scan Directory: $SCAN_DIR${NC}"
@@ -2046,6 +2051,14 @@ echo -e "${CYAN}Elapsed time: $RUN_ELAPSED_HUMAN${NC}"
 echo -e "${CYAN}All scan artifacts stored in: $SCAN_DIR${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
+
+if [[ ${#FAILED_SECURITY_TOOLS[@]} -gt 0 ]]; then
+    printf '%s\n' "${FAILED_SECURITY_TOOLS[@]}" > "$SCAN_DIR/failed-security-tools.txt"
+    echo -e "${RED}❌ Scanner execution failed: ${FAILED_SECURITY_TOOLS[*]}${NC}" >&2
+    if [[ "${EPYON_REQUIRE_COMPLETE:-false}" == "true" ]]; then
+        exit 1
+    fi
+fi
 
 # Automatically open the dashboard (prefer root-level shortcut)
 if [[ -f "$SCAN_DIR/security-dashboard.html" ]]; then

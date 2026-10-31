@@ -260,15 +260,20 @@ code {
 }
 
 .logo-img {
-  height: 30px;
+  height: 32px;
   width: auto;
   display: block;
+  /* The logo artwork is black on transparent; give it a light plate on the dark theme. */
+  background: #fff;
+  border-radius: 6px;
+  padding: 2px 6px;
 }
 
-/* White-text lockup on dark theme, dark-text lockup on light theme */
-.logo-for-light { display: none; }
-html[data-theme="light"] .logo-for-dark { display: none; }
-html[data-theme="light"] .logo-for-light { display: block; }
+html[data-theme="light"] .logo-img {
+  background: none;
+  padding: 0;
+}
+
 
 /* ── Navigation ───────────────────────────────────────────── */
 .nav-links {
@@ -278,6 +283,8 @@ html[data-theme="light"] .logo-for-light { display: block; }
 }
 
 .nav-links li { margin-bottom: 2px; }
+
+#logout-link[hidden] { display: none; }
 
 .nav-link {
   display: flex;

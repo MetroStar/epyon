@@ -58,9 +58,7 @@ fs.copyFileSync(SOURCE, destFile);
 // ── Success message ───────────────────────────────────────────────────────────
 const tag = existed ? 'updated' : 'installed';
 console.log(
-  '\n╔══════════════════════════════════════════════════════════════╗\n' +
-  '║  Epyon Security Scanner — workflow ' + tag.padEnd(26) + '║\n' +
-  '╚══════════════════════════════════════════════════════════════╝\n' +
+  '\n  Quartz Evaluator — workflow ' + tag + '\n' +
   '\n  ✅  ' + destFile + '\n' +
   '\n  Next steps:\n' +
   '    1. Commit the workflow file:  git add ' + path.join('.github', 'workflows', 'scan-private-repo.yml') + '\n' +

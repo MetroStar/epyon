@@ -19,12 +19,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Display EPYON banner
 echo -e "${CYAN}"
 cat << "EOF"
-███████╗██████╗ ██╗   ██╗ ██████╗ ███╗   ██╗
-██╔════╝██╔══██╗╚██╗ ██╔╝██╔═══██╗████╗  ██║
-█████╗  ██████╔╝ ╚████╔╝ ██║   ██║██╔██╗ ██║
-██╔══╝  ██╔═══╝   ╚██╔╝  ██║   ██║██║╚██╗██║
-███████╗██║        ██║   ╚██████╔╝██║ ╚████║
-╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══╝
+QUARTZ EVALUATOR
 EOF
 echo -e "${NC}"
 echo -e "${GREEN}Absolute Security Control - Remediation Engine${NC}"
@@ -388,9 +383,8 @@ case "$OUTPUT_FORMAT" in
     text|*)
         # Text output
         {
-            echo "╔═══════════════════════════════════════════════════════════════════════════╗"
-            echo "║                    VULNERABILITY REMEDIATION REPORT                        ║"
-            echo "╚═══════════════════════════════════════════════════════════════════════════╝"
+            echo "VULNERABILITY REMEDIATION REPORT"
+            echo "================================="
             echo ""
             echo "📅 Generated: $(date '+%Y-%m-%d %H:%M:%S')"
             echo "📂 Scan: $(basename "$SCAN_DIR")"

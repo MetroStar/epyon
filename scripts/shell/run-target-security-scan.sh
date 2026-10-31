@@ -1497,15 +1497,10 @@ case "$SCAN_TYPE" in
 
         echo -e "${PURPLE}📱 Layer 17: Mobile Code Detection${NC}"
         if [[ "${SKIP_MOBILE_CODE:-false}" != "true" ]]; then
-            # Pass policy file if it exists (enables UI/API policy to affect scanner)
-            POLICY_ARG=""
-            if [[ -f "$BASE_DIR/web/data/mobile-code-policy.json" ]]; then
-                POLICY_ARG="--policy-file $BASE_DIR/web/data/mobile-code-policy.json"
-            fi
             # --target/--scan-dir/--app-name are required (argparse, no
             # env-var fallback) — see Layer 14's note above for why this
             # matters.
-            run_security_tool "Mobile Code Detection" "$(command -v python3)" "$SCRIPT_DIR/run-mobile-code-scan.py --target $TARGET_DIR --scan-dir $SCAN_DIR --app-name $TARGET_NAME $POLICY_ARG"
+            run_security_tool "Mobile Code Detection" "$(command -v python3)" "$SCRIPT_DIR/run-mobile-code-scan.py --target $TARGET_DIR --scan-dir $SCAN_DIR --app-name $TARGET_NAME"
         else
             echo -e "${YELLOW}⏭️  Skipping Layer 17 - Mobile Code (SKIP_MOBILE_CODE=true)${NC}"
         fi

@@ -44,8 +44,17 @@ concurrency:
   cancel-in-progress: false
 
 on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    branches:
+      - main
+      - master
   schedule:
-    # Nightly full scan — runs every night at 2 AM UTC (Mon-Sat)
+    # Scheduled nightly scan — runs every night at 2 AM UTC (Mon-Sat)
     - cron: '0 2 * * 1-6'
     # Weekly full scan — runs Sunday night at 2 AM UTC
     - cron: '0 2 * * 0'
@@ -57,7 +66,7 @@ on:
         required: false
         type: string
       scan_mode:
-        description: 'Scan mode (quick/full/nightly/baseline/stig)'
+        description: 'Scan mode (quick/full/nightly/stig)'
         required: false
         default: 'full'
         type: choice
@@ -65,7 +74,6 @@ on:
           - quick
           - full
           - nightly
-          - baseline
           - stig
       garak_target_type:
         description: 'Garak generator type (e.g. test, openai, huggingface)'
@@ -87,6 +95,24 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  # Quick gate scan on pull requests — fast feedback, no full report generation.
+  # Skipped for draft PRs; re-runs automatically once marked "Ready for review"
+  # (which fires a synchronize/ready_for_review event) or on the next push.
+  security-scan-pr:
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      security-events: write
+      issues: write
+    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
+    with:
+      scan_mode: quick
+      skip_garak: true
+      # Note: STIG (Layer 13) is opt-in by default. Set run_stig: true to enable.
+    secrets: inherit
+
   security-scan-main:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     permissions:
@@ -98,6 +124,8 @@ jobs:
     uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
     with:
       scan_mode: \${{ github.event_name == 'schedule' && (github.event.schedule == '0 2 * * 0' && 'full' || 'nightly') || github.event.inputs.scan_mode || 'full' }}
+      # STIG runs only on the weekly Sunday full scan or when explicitly chosen via workflow_dispatch
+      run_stig: \${{ (github.event_name == 'schedule' && github.event.schedule == '0 2 * * 0') || github.event.inputs.scan_mode == 'stig' }}
       subdirectory: \${{ github.event.inputs.subdirectory || '' }}
       garak_target_type: \${{ github.event.inputs.garak_target_type || 'openai' }}
       garak_target_name: \${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
@@ -6949,12 +6977,18 @@ async function renderSettings() {
           Each repository needs the Epyon workflow file added once so that scans run
           automatically and results are uploaded to this dashboard.
         </p>
+        <div style="font-size:13px;color:var(--text-muted);margin:0 0 6px;font-weight:600">Option A — npm (recommended)</div>
+        <pre style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:12px;margin:0 0 14px;max-width:700px;overflow-x:auto">npm install github:MetroStar/epyon --save-dev</pre>
+        <p style="font-size:13px;color:var(--text-muted);margin:0 0 14px;line-height:1.7">The postinstall script writes <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">.github/workflows/scan-private-repo.yml</code> into your project. Re-running <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">npm install</code> or <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">npm update</code> pulls the latest workflow.</p>
+        <div style="font-size:13px;color:var(--text-muted);margin:0 0 6px;font-weight:600">Option B — pip</div>
+        <pre style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:12px;margin:0 0 14px;max-width:700px;overflow-x:auto">pip install git+https://github.com/MetroStar/epyon.git
+epyon install-workflow</pre>
+        <div style="font-size:13px;color:var(--text-muted);margin:0 0 6px;font-weight:600">Option C — manual</div>
         <ol style="padding-left:18px;margin:0 0 14px;font-size:13px;color:var(--text-muted);line-height:1.9">
-          <li>In your repository, create the directory <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">.github/workflows/</code> if it doesn't exist.</li>
-          <li>Add a new file named <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">scan-private-repo.yml</code> with the contents below.</li>
-          <li>Review the <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">uses:</code> line and update the GitHub org only if your Epyon instance is hosted under a different org than <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">MetroStar/epyon</code>.</li>
-          <li>Commit and push — the workflow will run nightly at 2 AM UTC and on manual dispatch.</li>
+          <li>Create <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">.github/workflows/scan-private-repo.yml</code> in your repository with the contents below.</li>
+          <li>Review the <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">uses:</code> line and change the GitHub org only if your Epyon instance is hosted outside <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">MetroStar/epyon</code>.</li>
         </ol>
+        <div style="font-size:13px;color:var(--text-muted);margin:0 0 14px;line-height:1.7">Then commit and push (<code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">git add .github/workflows/scan-private-repo.yml &amp;&amp; git commit -m "Add Epyon security scanning" &amp;&amp; git push</code>). Pull requests get a quick scan; the workflow also runs nightly at 2 AM UTC (full + STIG on Sundays) and on manual dispatch.</div>
         <div style="position:relative;max-width:700px">
           <pre id="settings-yml" style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);
                padding:12px;font-size:12px;line-height:1.6;overflow-x:auto;margin:0;white-space:pre;color:var(--text)">${esc(WORKFLOW_YML)}</pre>

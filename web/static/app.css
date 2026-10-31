@@ -1406,6 +1406,37 @@ th[data-col]:hover { color: var(--text); }
   justify-content: space-between;
 }
 
+.settings-group-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 28px 0 12px;
+}
+
+.settings-section { margin-bottom: 12px; }
+.settings-section > summary.section-title {
+  cursor: pointer;
+  list-style: none;
+  justify-content: flex-start;
+  gap: 10px;
+  user-select: none;
+}
+.settings-section > summary.section-title::-webkit-details-marker { display: none; }
+.settings-section > summary.section-title::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+}
+.settings-section[open] > summary.section-title::before { transform: rotate(45deg); }
+.settings-section:not([open]) > summary.section-title { margin-bottom: 0; }
+.settings-section > summary.section-title:hover { color: var(--accent); }
+
 .section-desc {
   color: var(--text-muted);
   font-size: 13px;

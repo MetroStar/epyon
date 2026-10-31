@@ -207,3 +207,47 @@ def test_trivy_oci_uses_verified_directory_and_preserves_failure(tmp_path, scan_
     if temp_failure:
         assert "Cannot create a temporary OCI layout" in result.stderr
     assert not list(tmp_path.glob("quartz-trivy-oci.*"))
+
+
+@pytest.mark.parametrize("tool", ["modelcard", "inference-security"])
+def test_report_only_preserves_findings_and_standalone_gate(tmp_path, tool):
+    target = tmp_path / "source"
+    target.mkdir()
+    (target / "README.md").write_text("# Application\n")
+    (target / "Dockerfile").write_text("FROM scratch\nUSER root\n")
+    script = "run-modelcard-check.sh" if tool == "modelcard" else "run-inference-security-scan.sh"
+    reports = []
+    for report_only in (False, True):
+        scan = tmp_path / str(report_only)
+        result = subprocess.run(
+            ["bash", str(ROOT / "scripts/shell" / script)] + (["--report-only"] if report_only else []),
+            env=dict(os.environ, TARGET_DIR=str(target), SCAN_DIR=str(scan), SCAN_ID="fixture"),
+            text=True, capture_output=True,
+        )
+        assert result.returncode == (0 if report_only else 1), result.stdout + result.stderr
+        report = json.loads((scan / tool / f"{tool}-results.json").read_text())
+        assert report["findings"]
+        reports.append(report["findings"])
+    assert reports[0] == reports[1]
+
+
+@pytest.mark.parametrize("tool", ["modelcard", "inference-security"])
+def test_report_only_still_fails_python_execution_errors(tmp_path, tool):
+    target = tmp_path / "source"
+    target.mkdir()
+    (target / "README.md").write_text("# Application\n")
+    (target / "Dockerfile").write_text("FROM scratch\nUSER root\n")
+    tools = tmp_path / "bin"
+    tools.mkdir()
+    python = tools / "python3"
+    python.write_text("#!/bin/sh\necho 'controlled Python execution failure' >&2\nexit 1\n")
+    python.chmod(0o755)
+    script = "run-modelcard-check.sh" if tool == "modelcard" else "run-inference-security-scan.sh"
+    result = subprocess.run(
+        ["bash", str(ROOT / "scripts/shell" / script), "--report-only"],
+        env=dict(os.environ, TARGET_DIR=str(target), SCAN_DIR=str(tmp_path / "scan"),
+                 SCAN_ID="fixture", PATH=str(tools) + ":" + os.environ["PATH"]),
+        text=True, capture_output=True,
+    )
+    assert result.returncode != 0
+    assert "controlled Python execution failure" in result.stdout + result.stderr

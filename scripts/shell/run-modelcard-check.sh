@@ -22,6 +22,7 @@ show_help() {
     echo ""
     echo "Options:"
     echo "  -h, --help          Show this help message and exit"
+    echo "      --report-only   Retain policy findings without failing a completed check"
     echo ""
     echo "Environment Variables:"
     echo "  TARGET_DIR          Directory to scan (default: current directory)"
@@ -46,9 +47,12 @@ show_help() {
     exit 0
 }
 
+REPORT_ONLY=false
 for arg in "$@"; do
     case $arg in
         -h|--help) show_help ;;
+        --report-only) REPORT_ONLY=true ;;
+        *) echo "Unknown option: $arg" >&2; exit 2 ;;
     esac
 done
 
@@ -319,14 +323,13 @@ with open(RESULTS_FILE, "w") as f:
     json.dump(result, f, indent=2)
 
 print(f"Results written to {RESULTS_FILE}")
-sys.exit(0 if status == "success" else (1 if failed > 0 else 0))
 PYEOF
 
-PYEXIT=$?
+PYEXIT=${PIPESTATUS[0]}
 
 echo ""
 
-if [[ ! -f "$RESULTS_FILE" ]]; then
+if [[ "$PYEXIT" -ne 0 || ! -s "$RESULTS_FILE" ]]; then
     cat > "$RESULTS_FILE" <<EOF
 {
   "tool": "modelcard",
@@ -342,13 +345,37 @@ if [[ ! -f "$RESULTS_FILE" ]]; then
   "findings": []
 }
 EOF
+    record_scan_status "failed" "compliance check script failed unexpectedly"
+    echo "ERROR: Model card compliance execution failed; see $SCAN_LOG_FILE" >&2
+    exit 1
 fi
 
-STATUS=$(python3 -c "import json; print(json.load(open('${RESULTS_FILE}')).get('status','success'))" 2>/dev/null || echo "success")
-FAILED=$(python3 -c "import json; print(json.load(open('${RESULTS_FILE}')).get('failed',0))" 2>/dev/null || echo "0")
-WARNINGS=$(python3 -c "import json; print(json.load(open('${RESULTS_FILE}')).get('warnings',0))" 2>/dev/null || echo "0")
+if ! REPORT_FIELDS=$(python3 - "$RESULTS_FILE" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1]) as source:
+    result = json.load(source)
+if result["status"] not in {"open", "warning", "success"}:
+    raise ValueError("Invalid completed model card status")
+for key in ("failed", "warnings"):
+    if type(result[key]) is not int or result[key] < 0:
+        raise ValueError(f"Invalid model card {key} count")
+print(result["status"], result["failed"], result["warnings"], sep="\t")
+PY
+); then
+    record_scan_status "failed" "invalid model card report"
+    echo "ERROR: Invalid model card report: $RESULTS_FILE" >&2
+    exit 1
+fi
+IFS=$'\t' read -r STATUS FAILED WARNINGS <<< "$REPORT_FIELDS"
 
 if [[ "$STATUS" == "open" ]]; then
+    if [[ "$REPORT_ONLY" == "true" ]]; then
+        record_scan_status "open" "${FAILED} compliance finding(s); execution complete"
+        echo -e "${YELLOW}⚠️  Model card compliance: ${FAILED} finding(s), ${WARNINGS} warning(s); report-only${NC}"
+        exit 0
+    fi
     record_scan_status "failed" "${FAILED} compliance check(s) failed"
     echo -e "${RED}❌ Model card compliance: ${FAILED} failure(s), ${WARNINGS} warning(s)${NC}"
     exit 1

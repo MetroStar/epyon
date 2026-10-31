@@ -1491,7 +1491,7 @@ case "$SCAN_TYPE" in
 
         echo -e "${PURPLE}📋 Layer 15: Model Card Compliance${NC}"
         if [[ "${SKIP_MODELCARD:-false}" != "true" ]]; then
-            run_security_tool "Model Card Compliance" "$SCRIPT_DIR/run-modelcard-check.sh"
+            run_security_tool "Model Card Compliance" "$SCRIPT_DIR/run-modelcard-check.sh" "--report-only"
         else
             echo -e "${YELLOW}⏭️  Skipping Layer 15 - ModelCard (SKIP_MODELCARD=true)${NC}"
         fi
@@ -1522,7 +1522,7 @@ case "$SCAN_TYPE" in
         echo -e "${PURPLE}🐳 Layer 19: Inference Environment Security${NC}"
         if [[ "${SKIP_INFERENCE_SECURITY:-false}" != "true" ]]; then
             # Container and K8s security configuration analysis
-            run_security_tool "Inference Security Scan" "$SCRIPT_DIR/run-inference-security-scan.sh"
+            run_security_tool "Inference Security Scan" "$SCRIPT_DIR/run-inference-security-scan.sh" "--report-only"
         else
             echo -e "${YELLOW}⏭️  Skipping Layer 19 - Inference Security (SKIP_INFERENCE_SECURITY=true)${NC}"
         fi

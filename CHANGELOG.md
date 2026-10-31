@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Settings sections are grouped under AI, Integrations (Jira, GitHub, NVD) and Scanning (concurrency, workflow file) and are collapsed by default.
+
 ### Fixed
 - Settings page failed with `api.getMobileCodePolicy is not a function` after the Mobile Code Policy removal merged with the scan-concurrency card.
 

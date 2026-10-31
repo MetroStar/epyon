@@ -6762,8 +6762,9 @@ async function renderSettings() {
     page.innerHTML = `
       ${pageHeader(`Settings`)}
 
-      <div class="section">
-        <div class="section-title">AI Executive Summary</div>
+      <div class="settings-group-title">AI</div>
+      <details class="section settings-section">
+        <summary class="section-title">AI Executive Summary</summary>
         <p class="section-desc">
           Point the primary endpoint at a locally hosted, OpenAI-compatible server such as
           <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a>
@@ -6861,76 +6862,11 @@ async function renderSettings() {
         <div style="margin-top:16px">
           <button class="btn btn-primary" onclick="saveAiConfig()">Save AI Config</button>
         </div>
-      </div>
+      </details>
 
-      ${concCfg ? `<div class="section">
-        <div class="section-title">Scan Concurrency</div>
-        <p class="section-desc">
-          How many scans run at the same time. Extra scans wait as <em>queued</em> and start in order.
-          Each scan runs several container tools, so raise this only if the host has the CPU and memory for it.
-          Two scans of the same target and scan type never overlap. Changes apply to queued scans immediately.
-        </p>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-          <label class="field-label" for="scan-concurrency" style="margin:0">Max concurrent scans</label>
-          <input id="scan-concurrency" type="number" class="field-input" style="width:90px"
-                 min="1" max="${esc(concCfg.ceiling)}" step="1" value="${esc(concCfg.max_concurrent_scans)}" />
-          <button class="btn btn-primary" onclick="saveScanConcurrency()">Save</button>
-          <span style="font-size:13px;color:var(--text-muted)">
-            ${esc(concCfg.running)} running, ${esc(concCfg.queued)} queued ·
-            ${concCfg.source === 'saved' ? 'set here' : concCfg.source === 'env' ? 'from <code>EPYON_MAX_CONCURRENT_SCANS</code>' : 'default (' + esc(concCfg.default) + ')'}
-          </span>
-        </div>
-      </div>` : ''}
-
-      <div class="section">
-        <div class="section-title">NVD API Key</div>
-        <p class="section-desc">
-          Set <code>NVD_API_KEY</code> in the server environment to increase CVSS enrichment rate from 5 requests per 30 seconds to 50 requests per 30 seconds.
-        </p>
-        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span>${nvdCfg.key_set
-            ? 'NVD authentication is configured through the server environment.'
-            : 'No <code>NVD_API_KEY</code> is configured; enrichment will use the unauthenticated rate limit.'}</span>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">GitHub Actions Integration</div>
-        <p class="section-desc">
-          Import scan results from GitHub Actions directly into this dashboard.
-          Epyon workflows upload scan artifacts automatically. Configure
-          <code>GITHUB_TOKEN</code> or <code>GH_PAT</code> in the server environment
-          and list the repositories to watch below.
-        </p>
-        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span>${ghCfg.token_set
-            ? 'GitHub authentication is configured through the server environment.'
-            : 'GitHub authentication is not configured. Set <code>GITHUB_TOKEN</code> or <code>GH_PAT</code> in the server environment.'}</span>
-        </div>
-        <div style="display:grid;gap:14px;max-width:600px">
-          <div>
-            <label class="field-label">Repositories <span style="color:var(--text-muted);font-weight:normal">(one per line: owner/repo)</span></label>
-            <textarea id="gh-repos" class="field-input" rows="4"
-              placeholder="MetroStar/sapphire&#10;MetroStar/comet-starter"
-              style="resize:vertical">${(ghCfg.repos || []).map(r => esc(r)).join('\n')}</textarea>
-          </div>
-
-          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-            <button class="btn btn-primary" onclick="saveGitHubConfig()">Save</button>
-            <button class="btn btn-primary" id="sync-btn" onclick="triggerGitHubSync()">
-              ↓ Sync Now
-            </button>
-            <span id="sync-status" style="font-size:13px;color:var(--text-muted)">
-              ${ghCfg.last_sync ? 'Last synced: ' + fmtDate(ghCfg.last_sync) : 'Not yet synced'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Jira Integration</div>
+      <div class="settings-group-title">Integrations</div>
+      <details class="section settings-section">
+        <summary class="section-title">Jira Integration</summary>
         <p class="section-desc">
           Automatically close Jira tickets when security findings are remediated in a subsequent scan.
           Requires a Jira Cloud account with an API token (Atlassian account settings → Security → API tokens).
@@ -6991,10 +6927,77 @@ async function renderSettings() {
             <span id="jira-status" style="font-size:13px;color:var(--text-muted)"></span>
           </div>
         </div>
-      </div>
+      </details>
 
-      <div class="section">
-        <div class="section-title">Workflow File Setup</div>
+      <details class="section settings-section">
+        <summary class="section-title">GitHub Actions Integration</summary>
+        <p class="section-desc">
+          Import scan results from GitHub Actions directly into this dashboard.
+          Epyon workflows upload scan artifacts automatically. Configure
+          <code>GITHUB_TOKEN</code> or <code>GH_PAT</code> in the server environment
+          and list the repositories to watch below.
+        </p>
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>${ghCfg.token_set
+            ? 'GitHub authentication is configured through the server environment.'
+            : 'GitHub authentication is not configured. Set <code>GITHUB_TOKEN</code> or <code>GH_PAT</code> in the server environment.'}</span>
+        </div>
+        <div style="display:grid;gap:14px;max-width:600px">
+          <div>
+            <label class="field-label">Repositories <span style="color:var(--text-muted);font-weight:normal">(one per line: owner/repo)</span></label>
+            <textarea id="gh-repos" class="field-input" rows="4"
+              placeholder="MetroStar/sapphire&#10;MetroStar/comet-starter"
+              style="resize:vertical">${(ghCfg.repos || []).map(r => esc(r)).join('\n')}</textarea>
+          </div>
+
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="saveGitHubConfig()">Save</button>
+            <button class="btn btn-primary" id="sync-btn" onclick="triggerGitHubSync()">
+              ↓ Sync Now
+            </button>
+            <span id="sync-status" style="font-size:13px;color:var(--text-muted)">
+              ${ghCfg.last_sync ? 'Last synced: ' + fmtDate(ghCfg.last_sync) : 'Not yet synced'}
+            </span>
+          </div>
+        </div>
+      </details>
+
+      <details class="section settings-section">
+        <summary class="section-title">NVD API Key</summary>
+        <p class="section-desc">
+          Set <code>NVD_API_KEY</code> in the server environment to increase CVSS enrichment rate from 5 requests per 30 seconds to 50 requests per 30 seconds.
+        </p>
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>${nvdCfg.key_set
+            ? 'NVD authentication is configured through the server environment.'
+            : 'No <code>NVD_API_KEY</code> is configured; enrichment will use the unauthenticated rate limit.'}</span>
+        </div>
+      </details>
+
+      <div class="settings-group-title">Scanning</div>
+      ${concCfg ? `<details class="section settings-section">
+        <summary class="section-title">Scan Concurrency</summary>
+        <p class="section-desc">
+          How many scans run at the same time. Extra scans wait as <em>queued</em> and start in order.
+          Each scan runs several container tools, so raise this only if the host has the CPU and memory for it.
+          Two scans of the same target and scan type never overlap. Changes apply to queued scans immediately.
+        </p>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <label class="field-label" for="scan-concurrency" style="margin:0">Max concurrent scans</label>
+          <input id="scan-concurrency" type="number" class="field-input" style="width:90px"
+                 min="1" max="${esc(concCfg.ceiling)}" step="1" value="${esc(concCfg.max_concurrent_scans)}" />
+          <button class="btn btn-primary" onclick="saveScanConcurrency()">Save</button>
+          <span style="font-size:13px;color:var(--text-muted)">
+            ${esc(concCfg.running)} running, ${esc(concCfg.queued)} queued ·
+            ${concCfg.source === 'saved' ? 'set here' : concCfg.source === 'env' ? 'from <code>EPYON_MAX_CONCURRENT_SCANS</code>' : 'default (' + esc(concCfg.default) + ')'}
+          </span>
+        </div>
+      </details>` : ''}
+
+      <details class="section settings-section">
+        <summary class="section-title">Workflow File Setup</summary>
         <p class="section-desc">
           Each repository needs the Epyon workflow file added once so that scans run
           automatically and results are uploaded to this dashboard.
@@ -7017,7 +7020,7 @@ epyon install-workflow</pre>
           <button id="settings-yml-copy" class="btn btn-sm" style="position:absolute;top:8px;right:8px"
             onclick="navigator.clipboard.writeText(WORKFLOW_YML).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})">Copy</button>
         </div>
-      </div>
+      </details>
 
       <div class="section">
         <div class="section-title">About Epyon</div>

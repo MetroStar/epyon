@@ -582,9 +582,17 @@ def main():
     else:
         # Try default location
         script_dir = Path(__file__).parent
-        default_blocklist = script_dir / '../../configuration/ml-blocklist.json'
-        if default_blocklist.exists():
-            blocklist_path = default_blocklist.resolve()
+        # docker-compose bind-mounts the host's ./configuration over the image's,
+        # so fall back to the build-time copy when the mounted one lacks the file.
+        for default_blocklist in (
+            script_dir / '../../configuration/ml-blocklist.json',
+            Path('/opt/epyon-defaults/configuration/ml-blocklist.json'),
+        ):
+            if default_blocklist.exists():
+                blocklist_path = default_blocklist.resolve()
+                break
+        if blocklist_path is None:
+            print("[WARN] ml-blocklist.json not found; typosquat and blocklist checks are disabled", file=sys.stderr)
     
     # Get HF token from env if not provided
     hf_token = args.hf_token or os.environ.get('HF_TOKEN')

@@ -346,9 +346,15 @@ def main():
         registry_path = Path(args.registry_path)
     else:
         script_dir = Path(__file__).parent
-        default_registry = script_dir / '../../configuration/compromised-sources.json'
-        if default_registry.exists():
-            registry_path = default_registry.resolve()
+        # docker-compose bind-mounts the host's ./configuration over the image's,
+        # so fall back to the build-time copy when the mounted one lacks the file.
+        for default_registry in (
+            script_dir / '../../configuration/compromised-sources.json',
+            Path('/opt/epyon-defaults/configuration/compromised-sources.json'),
+        ):
+            if default_registry.exists():
+                registry_path = default_registry.resolve()
+                break
 
     checker = CompromisedSourceChecker(
         target_dir=target_dir, scan_dir=scan_dir, registry_path=registry_path,

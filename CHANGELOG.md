@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.58.1] - 2026-10-31
+
+### Fixed
+- Self-assessment Layers 18 (Model Provenance) and 21 (Compromised Source) reported "found 0" on deployments whose bind-mounted `./configuration` lacked `ml-blocklist.json` or `compromised-sources.json`. Both layers now fall back to the image's build-time copy in `/opt/epyon-defaults/configuration`, and Layer 18 warns when no blocklist is found.
+
 ## [3.58.0] - 2026-10-30
 
 ### Changed

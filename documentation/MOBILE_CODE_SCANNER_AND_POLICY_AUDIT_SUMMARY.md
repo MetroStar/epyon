@@ -4,6 +4,8 @@
 **Version:** Epyon v1.5.0  
 **Status:** ✅ Complete
 
+> **Superseded:** the global mobile code policy (Settings card, `/api/mobile-code/policy*` endpoints, policy file and audit trail) was removed in 3.58.2. Layer 17 still detects mobile code and reports findings as `requires_approval`; record per-app exceptions in `.epyon-ignore.yml`. The sections below describe the removed policy features and are kept as history.
+
 ---
 
 ## Overview

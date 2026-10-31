@@ -44,8 +44,17 @@ concurrency:
   cancel-in-progress: false
 
 on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    branches:
+      - main
+      - master
   schedule:
-    # Nightly full scan — runs every night at 2 AM UTC (Mon-Sat)
+    # Scheduled nightly scan — runs every night at 2 AM UTC (Mon-Sat)
     - cron: '0 2 * * 1-6'
     # Weekly full scan — runs Sunday night at 2 AM UTC
     - cron: '0 2 * * 0'
@@ -57,7 +66,7 @@ on:
         required: false
         type: string
       scan_mode:
-        description: 'Scan mode (quick/full/nightly/baseline/stig)'
+        description: 'Scan mode (quick/full/nightly/stig)'
         required: false
         default: 'full'
         type: choice
@@ -65,7 +74,6 @@ on:
           - quick
           - full
           - nightly
-          - baseline
           - stig
       garak_target_type:
         description: 'Garak generator type (e.g. test, openai, huggingface)'
@@ -87,6 +95,24 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  # Quick gate scan on pull requests — fast feedback, no full report generation.
+  # Skipped for draft PRs; re-runs automatically once marked "Ready for review"
+  # (which fires a synchronize/ready_for_review event) or on the next push.
+  security-scan-pr:
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      security-events: write
+      issues: write
+    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
+    with:
+      scan_mode: quick
+      skip_garak: true
+      # Note: STIG (Layer 13) is opt-in by default. Set run_stig: true to enable.
+    secrets: inherit
+
   security-scan-main:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     permissions:
@@ -98,6 +124,8 @@ jobs:
     uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
     with:
       scan_mode: \${{ github.event_name == 'schedule' && (github.event.schedule == '0 2 * * 0' && 'full' || 'nightly') || github.event.inputs.scan_mode || 'full' }}
+      # STIG runs only on the weekly Sunday full scan or when explicitly chosen via workflow_dispatch
+      run_stig: \${{ (github.event_name == 'schedule' && github.event.schedule == '0 2 * * 0') || github.event.inputs.scan_mode == 'stig' }}
       subdirectory: \${{ github.event.inputs.subdirectory || '' }}
       garak_target_type: \${{ github.event.inputs.garak_target_type || 'openai' }}
       garak_target_name: \${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
@@ -1121,13 +1149,6 @@ const api = {
   setJiraProject(id, projectKey) {
     return this._post(`/api/scans/${encodeURIComponent(id)}/jira-project`, { project_key: projectKey });
   },
-  getMobileCodePolicy()     { return this._get('/api/mobile-code/policy'); },
-  saveMobileCodePolicy(d)   { return this._post('/api/mobile-code/policy', d); },
-  getMobileCodeTypes()      { return this._get('/api/mobile-code/types'); },
-  approveMobileCodeType(t)  { return this._post('/api/mobile-code/approve-type', { type: t }); },
-  unapproveMobileCodeType(t){ return this._post('/api/mobile-code/unapprove-type', { type: t }); },
-  approveMobileCodeFile(f)  { return this._post('/api/mobile-code/approve-file', { file: f }); },
-  unapproveMobileCodeFile(f){ return this._post('/api/mobile-code/unapprove-file', { file: f }); },
   getCacheMetrics()         { return this._get('/api/metrics/cache', false); },  // Don't cache cache metrics
 };
 
@@ -1253,10 +1274,8 @@ function _syncSidebarToggle() {
 
 function toggleSidebar() {
   const sidebar = document.getElementById('sidebar');
-  const content = document.getElementById('content');
   if (!sidebar) return;
   const collapsed = sidebar.classList.toggle('collapsed');
-  if (content) content.style.marginLeft = _mobileNav() ? '' : (collapsed ? '0' : '');
   // On phones the menu always starts closed, so only desktop remembers the choice.
   if (!_mobileNav()) {
     try { localStorage.setItem('epyon-sidebar-collapsed', collapsed ? '1' : ''); } catch (_) {}
@@ -1266,13 +1285,11 @@ function toggleSidebar() {
 
 (function initSidebar() {
   const sidebar = document.getElementById('sidebar');
-  const content = document.getElementById('content');
   let collapsed = _mobileNav();
   if (!collapsed) {
     try { collapsed = localStorage.getItem('epyon-sidebar-collapsed') === '1'; } catch (_) {}
   }
   if (sidebar && collapsed) sidebar.classList.add('collapsed');
-  if (content && collapsed && !_mobileNav()) content.style.marginLeft = '0';
   _syncSidebarToggle();
 
   // Close the phone menu after choosing a page.
@@ -6552,75 +6569,10 @@ async function renderPerformanceDashboard() {
           ${mcaBody}
         </div>
       </div>
-
-      <div class="section">
-        <div class="section-title">Policy Audit Trail</div>
-        <div id="audit-log-container">
-          ${loading('Loading audit log…')}
-        </div>
-      </div>
     `;
-
-    // Load audit log asynchronously
-    loadAuditLog();
 
   } catch (e) {
     page.innerHTML = errBanner(e.message);
-  }
-}
-
-async function loadAuditLog() {
-  const container = document.getElementById('audit-log-container');
-  if (!container) return;
-
-  try {
-    const data = await api._get('/api/mobile-code/policy/audit?limit=50');
-    
-    if (!data.entries || data.entries.length === 0) {
-      container.innerHTML = emptyNote('No policy changes recorded yet.');
-      return;
-    }
-
-    const rows = data.entries.map(entry => {
-      const timestamp = new Date(entry.timestamp).toLocaleString();
-      const actionBadge = entry.action.includes('approve') && !entry.action.includes('unapprove')
-        ? '<span class="sev-badge clean" style="font-size:12px">APPROVED</span>'
-        : '<span class="sev-badge medium" style="font-size:12px">REVOKED</span>';
-      
-      return `
-        <tr>
-          <td><code style="font-size:12px">${esc(timestamp)}</code></td>
-          <td>${actionBadge}</td>
-          <td><code style="font-size:12px">${esc(entry.target)}</code></td>
-          <td><code style="font-size:12px">${esc(entry.user)}</code></td>
-          <td style="font-size:12px">${esc(entry.reason || '—')}</td>
-          <td style="font-size:12px">${entry.reference ? `<a href="${esc(entry.reference)}" target="_blank" rel="noopener" style="color:var(--link)">Link</a>` : '—'}</td>
-        </tr>
-      `;
-    }).join('');
-
-    container.innerHTML = `
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Timestamp</th>
-              <th scope="col">Action</th>
-              <th scope="col">Target</th>
-              <th scope="col">User</th>
-              <th scope="col">Reason</th>
-              <th scope="col">Reference</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-      <div style="margin-top:12px;font-size:12px;color:var(--text-muted)">
-        Showing last ${data.entries.length} policy changes
-      </div>
-    `;
-  } catch (e) {
-    container.innerHTML = `<div style="padding:20px;color:var(--error)">Failed to load audit log: ${esc(e.message)}</div>`;
   }
 }
 
@@ -6793,7 +6745,6 @@ async function renderSettings() {
   try {
     const [images, history, ghCfg, aiCfg, nvdCfg, health, jiraCfg, mcPolicy, mcTypes, concCfg] = await Promise.all([
       api.getApprovedImages(),
-      api.getScanHistory(),
       api.getGitHubConfig(),
       api.getAiConfig(),
       api.getNvdConfig(),
@@ -6812,32 +6763,6 @@ async function renderSettings() {
 
     page.innerHTML = `
       ${pageHeader(`Settings`)}
-
-      <div class="section">
-        <div class="section-title">Scan History Summary</div>
-        <div class="detail-grid">
-          <div class="detail-card">
-            <div class="label">Generated At</div>
-            <div class="value" style="font-size:13px">${fmtDate(history.generated_at)}</div>
-          </div>
-          <div class="detail-card">
-            <div class="label">Total Scans Recorded</div>
-            <div class="value">${esc(history.total_scans || 0)}</div>
-          </div>
-          <div class="detail-card">
-            <div class="label">Tracked Targets</div>
-            <div class="value" style="font-size:13px">
-              ${(history.targets || []).map(t => esc(t)).join(', ') || '—'}
-            </div>
-          </div>
-          <div class="detail-card">
-            <div class="label">Users</div>
-            <div class="value" style="font-size:13px">
-              ${(history.users || []).map(u => esc(u)).join(', ') || '—'}
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div class="section">
         <div class="section-title">AI Executive Summary</div>
@@ -7071,104 +6996,23 @@ async function renderSettings() {
       </div>
 
       <div class="section">
-        <div class="section-title">Mobile Code Policy</div>
-        <p class="section-desc">
-          Manage authorization and monitoring of mobile code (JavaScript, applets, ActiveX, Flash, etc.) 
-          per DoD mobile code policy requirements. Approve mobile code types and specific files for use in applications.
-        </p>
-        <div style="display:grid;gap:14px;max-width:700px">
-          <div>
-            <label style="display:flex;gap:8px;align-items:center;cursor:pointer;font-size:13px">
-              <input type="checkbox" id="mc-approval-required" ${mcPolicy.approval_required ? 'checked' : ''}/>
-              Require explicit approval for all mobile code (recommended)
-            </label>
-          </div>
-          
-          <div style="margin-top:10px">
-            <div style="font-weight:600;margin-bottom:8px;font-size:14px">Mobile Code Types</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
-              Click to approve/disapprove mobile code categories. Approved types will be flagged as authorized in scan results.
-            </div>
-            <div id="mc-types-grid" style="display:grid;gap:8px">
-              ${mcTypes.map(t => {
-                const approved = (mcPolicy.approved_types || []).includes(t.type);
-                const riskColors = {
-                  critical: 'var(--critical)',
-                  high: 'var(--high)',
-                  medium: 'var(--medium)',
-                  low: 'var(--low)',
-                };
-                const riskColor = riskColors[t.risk_level] || 'var(--text-muted)';
-                return `
-                <div class="mc-type-card ${approved ? 'mc-approved' : ''}" 
-                     data-type="${esc(t.type)}"
-                     onclick="toggleMobileCodeType('${esc(t.type)}')"
-                     style="padding:12px;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;
-                            transition:all 0.2s;background:var(--bg-input);position:relative">
-                  <div style="display:flex;align-items:start;gap:10px">
-                    <div style="flex:1">
-                      <div style="font-weight:600;font-size:13px;margin-bottom:4px">${esc(t.description)}</div>
-                      <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">${esc(t.category)}</div>
-                      <div style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600;
-                                  background:color-mix(in srgb,${riskColor} 20%,transparent);
-                                  color:${riskColor};border:1px solid color-mix(in srgb,${riskColor} 40%,transparent)">
-                        ${esc(t.risk_level.toUpperCase())} RISK
-                      </div>
-                    </div>
-                    <div class="mc-check" style="width:20px;height:20px;border:2px solid var(--border);border-radius:4px;
-                                                   display:flex;align-items:center;justify-content:center;flex-shrink:0;
-                                                   transition:all 0.2s;
-                                                   ${approved ? 'background:var(--pass);border-color:var(--pass)' : ''}">
-                      ${approved ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
-                    </div>
-                  </div>
-                </div>`;
-              }).join('')}
-            </div>
-          </div>
-
-          ${(mcPolicy.approved_files || []).length > 0 ? `
-          <div style="margin-top:10px">
-            <div style="font-weight:600;margin-bottom:8px;font-size:14px">Approved Files</div>
-            <div style="display:flex;flex-direction:column;gap:6px">
-              ${(mcPolicy.approved_files || []).map(f => `
-              <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-input);
-                          border:1px solid var(--border);border-radius:var(--radius);font-size:12px">
-                <code style="flex:1;font-size:12px">${esc(f)}</code>
-                <button class="btn btn-sm" style="color:var(--critical);padding:2px 8px" 
-                        onclick="event.stopPropagation();removeMobileCodeFile('${esc(f).replace(/'/g, "\\'")}')">Remove</button>
-              </div>`).join('')}
-            </div>
-          </div>` : ''}
-
-          ${mcPolicy.notes ? `
-          <div style="margin-top:10px">
-            <label class="field-label">Policy Notes</label>
-            <div style="padding:10px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);
-                        font-size:12px;white-space:pre-wrap">${esc(mcPolicy.notes)}</div>
-          </div>` : ''}
-
-          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-            <button class="btn btn-primary" onclick="saveMobileCodePolicy()">Save Policy</button>
-            <span id="mc-status" style="font-size:13px;color:var(--text-muted)">
-              ${mcPolicy.last_updated ? 'Last updated: ' + fmtDate(mcPolicy.last_updated) : ''}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div class="section">
         <div class="section-title">Workflow File Setup</div>
         <p class="section-desc">
           Each repository needs the Epyon workflow file added once so that scans run
           automatically and results are uploaded to this dashboard.
         </p>
+        <div style="font-size:13px;color:var(--text-muted);margin:0 0 6px;font-weight:600">Option A — npm (recommended)</div>
+        <pre style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:12px;margin:0 0 14px;max-width:700px;overflow-x:auto">npm install github:MetroStar/epyon --save-dev</pre>
+        <p style="font-size:13px;color:var(--text-muted);margin:0 0 14px;line-height:1.7">The postinstall script writes <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">.github/workflows/scan-private-repo.yml</code> into your project. Re-running <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">npm install</code> or <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">npm update</code> pulls the latest workflow.</p>
+        <div style="font-size:13px;color:var(--text-muted);margin:0 0 6px;font-weight:600">Option B — pip</div>
+        <pre style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:12px;margin:0 0 14px;max-width:700px;overflow-x:auto">pip install git+https://github.com/MetroStar/epyon.git
+epyon install-workflow</pre>
+        <div style="font-size:13px;color:var(--text-muted);margin:0 0 6px;font-weight:600">Option C — manual</div>
         <ol style="padding-left:18px;margin:0 0 14px;font-size:13px;color:var(--text-muted);line-height:1.9">
-          <li>In your repository, create the directory <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">.github/workflows/</code> if it doesn't exist.</li>
-          <li>Add a new file named <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">scan-private-repo.yml</code> with the contents below.</li>
-          <li>Review the <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">uses:</code> line and update the GitHub org only if your Epyon instance is hosted under a different org than <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">MetroStar/epyon</code>.</li>
-          <li>Commit and push — the workflow will run nightly at 2 AM UTC and on manual dispatch.</li>
+          <li>Create <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">.github/workflows/scan-private-repo.yml</code> in your repository with the contents below.</li>
+          <li>Review the <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">uses:</code> line and change the GitHub org only if your Epyon instance is hosted outside <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">MetroStar/epyon</code>.</li>
         </ol>
+        <div style="font-size:13px;color:var(--text-muted);margin:0 0 14px;line-height:1.7">Then commit and push (<code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">git add .github/workflows/scan-private-repo.yml &amp;&amp; git commit -m "Add Epyon security scanning" &amp;&amp; git push</code>). Pull requests get a quick scan; the workflow also runs nightly at 2 AM UTC (full + STIG on Sundays) and on manual dispatch.</div>
         <div style="position:relative;max-width:700px">
           <pre id="settings-yml" style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);
                padding:12px;font-size:12px;line-height:1.6;overflow-x:auto;margin:0;white-space:pre;color:var(--text)">${esc(WORKFLOW_YML)}</pre>
@@ -7347,73 +7191,6 @@ async function testJiraConnection() {
     if (statusEl) { statusEl.style.color = 'var(--critical)'; statusEl.textContent = e.message; }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Test Connection'; }
-  }
-}
-
-// ── Mobile Code Policy helpers ────────────────────────────────
-
-async function toggleMobileCodeType(type) {
-  const card = document.querySelector(`.mc-type-card[data-type="${type}"]`);
-  if (!card) return;
-  
-  const isApproved = card.classList.contains('mc-approved');
-  const statusEl = document.getElementById('mc-status');
-  
-  try {
-    if (isApproved) {
-      await api.unapproveMobileCodeType(type);
-      card.classList.remove('mc-approved');
-      const check = card.querySelector('.mc-check');
-      if (check) {
-        check.style.background = '';
-        check.style.borderColor = 'var(--border)';
-        check.innerHTML = '';
-      }
-      if (statusEl) statusEl.textContent = `Removed approval for ${type}`;
-    } else {
-      await api.approveMobileCodeType(type);
-      card.classList.add('mc-approved');
-      const check = card.querySelector('.mc-check');
-      if (check) {
-        check.style.background = 'var(--pass)';
-        check.style.borderColor = 'var(--pass)';
-        check.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-      }
-      if (statusEl) statusEl.textContent = `Approved ${type}`;
-    }
-  } catch (e) {
-    if (statusEl) statusEl.textContent = 'Error: ' + e.message;
-  }
-}
-
-async function removeMobileCodeFile(file) {
-  const statusEl = document.getElementById('mc-status');
-  try {
-    await api.unapproveMobileCodeFile(file);
-    if (statusEl) statusEl.textContent = `Removed approval for ${file}`;
-    // Reload settings to refresh the list
-    setTimeout(() => renderSettings(), 500);
-  } catch (e) {
-    if (statusEl) statusEl.textContent = 'Error: ' + e.message;
-  }
-}
-
-async function saveMobileCodePolicy() {
-  const statusEl = document.getElementById('mc-status');
-  if (statusEl) statusEl.textContent = 'Saving…';
-  
-  try {
-    const policy = await api.getMobileCodePolicy();
-    const approvalRequired = document.getElementById('mc-approval-required')?.checked ?? true;
-    
-    // Only update approval_required flag, keep approved_types and approved_files as-is
-    // (they're managed by the toggle functions)
-    policy.approval_required = approvalRequired;
-    
-    await api.saveMobileCodePolicy(policy);
-    if (statusEl) statusEl.textContent = 'Policy saved.';
-  } catch (e) {
-    if (statusEl) statusEl.textContent = 'Error: ' + e.message;
   }
 }
 

@@ -6743,15 +6743,13 @@ async function renderSettings() {
   page.innerHTML = loading();
 
   try {
-    const [images, history, ghCfg, aiCfg, nvdCfg, health, jiraCfg, mcPolicy, mcTypes, concCfg] = await Promise.all([
+    const [images, ghCfg, aiCfg, nvdCfg, health, jiraCfg, concCfg] = await Promise.all([
       api.getApprovedImages(),
       api.getGitHubConfig(),
       api.getAiConfig(),
       api.getNvdConfig(),
       api._get('/api/health'),
       api.getJiraConfig().catch(() => ({})),
-      api.getMobileCodePolicy().catch(() => ({ approval_required: true, approved_types: [], approved_files: [] })),
-      api.getMobileCodeTypes().catch(() => []),
       api.getScanConcurrency().catch(() => null),
     ]);
     const epyonVersion = health.version || '—';

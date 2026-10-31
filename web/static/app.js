@@ -1251,10 +1251,8 @@ function _syncSidebarToggle() {
 
 function toggleSidebar() {
   const sidebar = document.getElementById('sidebar');
-  const content = document.getElementById('content');
   if (!sidebar) return;
   const collapsed = sidebar.classList.toggle('collapsed');
-  if (content) content.style.marginLeft = _mobileNav() ? '' : (collapsed ? '0' : '');
   // On phones the menu always starts closed, so only desktop remembers the choice.
   if (!_mobileNav()) {
     try { localStorage.setItem('epyon-sidebar-collapsed', collapsed ? '1' : ''); } catch (_) {}
@@ -1264,13 +1262,11 @@ function toggleSidebar() {
 
 (function initSidebar() {
   const sidebar = document.getElementById('sidebar');
-  const content = document.getElementById('content');
   let collapsed = _mobileNav();
   if (!collapsed) {
     try { collapsed = localStorage.getItem('epyon-sidebar-collapsed') === '1'; } catch (_) {}
   }
   if (sidebar && collapsed) sidebar.classList.add('collapsed');
-  if (content && collapsed && !_mobileNav()) content.style.marginLeft = '0';
   _syncSidebarToggle();
 
   // Close the phone menu after choosing a page.

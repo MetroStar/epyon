@@ -36,6 +36,11 @@ Set `EPYON_REQUIRE_COMPLETE=true` to fail orchestration when any enabled scanner
 fails, while retaining diagnostic outputs. Failed Trivy/Grype results are not
 replaced with empty successful JSON. Optional, inapplicable layers still report
 their normal applicability status.
+Full scans run model-card and inference configuration checks in `--report-only`
+mode: completed checks retain all policy findings without counting those findings
+as execution failures. Their standalone policy gates remain unchanged, and
+execution/report-generation failures still fail complete scans. Sonar gates and
+vulnerability thresholds are enforced separately.
 
 For an Ollama-compatible endpoint supporting schema-constrained output and
 `reasoning_effort=none`, set `EPYON_AI_STRUCTURED_OUTPUT=true`. STIG batches

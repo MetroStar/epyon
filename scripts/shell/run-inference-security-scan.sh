@@ -26,6 +26,7 @@ show_help() {
     echo ""
     echo "Options:"
     echo "  -h, --help          Show this help message and exit"
+    echo "      --report-only   Retain policy findings without failing a completed scan"
     echo ""
     echo "Environment Variables:"
     echo "  TARGET_DIR              Directory to scan (default: current directory)"
@@ -51,9 +52,12 @@ show_help() {
     exit 0
 }
 
+REPORT_ONLY=false
 for arg in "$@"; do
     case $arg in
         -h|--help) show_help ;;
+        --report-only) REPORT_ONLY=true ;;
+        *) echo "Unknown option: $arg" >&2; exit 2 ;;
     esac
 done
 
@@ -483,7 +487,7 @@ STATUS_MSG="Found ${STATS_CRITICAL} critical and ${STATS_HIGH} high inference se
 record_scan_status "$STATUS" "$STATUS_MSG"
 
 # Exit with error if critical/high findings
-if [[ "$STATS_CRITICAL" -gt 0 ]] || [[ "$STATS_HIGH" -gt 0 ]]; then
+if [[ "$REPORT_ONLY" != "true" ]] && { [[ "$STATS_CRITICAL" -gt 0 ]] || [[ "$STATS_HIGH" -gt 0 ]]; }; then
     exit 1
 else
     exit 0

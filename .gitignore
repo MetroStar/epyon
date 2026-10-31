@@ -93,6 +93,7 @@ web/data/jira-tickets.json
 web/data/audit.log
 web/data/cache/
 web/data/nvd-config.json
+web/data/scan-config.json
 web/data/epyon.db
 web/data/epyon.db-wal
 web/data/epyon.db-shm

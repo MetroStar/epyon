@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.59.0] - 2026-10-31
+
+### Added
+- Settings → Scan Concurrency sets how many scans run at once (1–16). A saved value overrides `EPYON_MAX_CONCURRENT_SCANS` (default 2), takes effect for queued scans without a restart, and is stored in `web/data/scan-config.json`. New `GET/POST /api/settings/scan-concurrency`.
+
 ## [3.58.1] - 2026-10-31
 
 ### Fixed

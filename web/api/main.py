@@ -3419,6 +3419,40 @@ async def nvd_config_post(request: Request, response: Response):
     return {"ok": True}
 
 
+# ── Scan concurrency ──────────────────────────────────────────
+
+def _concurrency_payload() -> dict:
+    active = [j for j in job_store.jobs.values()]
+    return {
+        "max_concurrent_scans": job_store._max_concurrent(),
+        "source": job_store.concurrency_source(),
+        "default": job_store.DEFAULT_MAX_CONCURRENT,
+        "ceiling": job_store.MAX_CONCURRENT_CEILING,
+        "running": sum(1 for j in active if j.get("status") == "running"),
+        "queued": sum(1 for j in active if j.get("status") == "queued"),
+    }
+
+@app.get("/api/settings/scan-concurrency")
+def scan_concurrency_get(response: Response):
+    _sec_headers(response)
+    return _concurrency_payload()
+
+@app.post("/api/settings/scan-concurrency")
+async def scan_concurrency_post(request: Request, response: Response):
+    _sec_headers(response)
+    _audit(request, "scan_concurrency_changed")
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Invalid JSON")
+    value = body.get("max_concurrent_scans") if isinstance(body, dict) else None
+    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= job_store.MAX_CONCURRENT_CEILING:
+        raise HTTPException(400, f"max_concurrent_scans must be an integer from 1 to {job_store.MAX_CONCURRENT_CEILING}")
+    job_store.save_max_concurrent(value)
+    await job_store.wake_queue()
+    return _concurrency_payload()
+
+
 # ── Executive summary ─────────────────────────────────────────
 
 @app.post("/api/scans/{scan_id}/executive-summary")

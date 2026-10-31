@@ -741,14 +741,81 @@ async def _run_scan_job_inner(
 # Scans are heavy (container tools, ClamAV, Sonar), so only a few run at once;
 # the rest wait as "queued". Two scans of the same target and scan type never
 # overlap, but different scan types on one target may.
-def _max_concurrent() -> int:
+DEFAULT_MAX_CONCURRENT = 2
+MAX_CONCURRENT_CEILING = 16
+SCAN_CONFIG_FILE = (Path(__file__).parent / ".." / "data" / "scan-config.json").resolve()
+
+
+def _clamp_concurrency(value: Any) -> int | None:
     try:
-        return max(1, int(os.environ.get("EPYON_MAX_CONCURRENT_SCANS", "2")))
-    except ValueError:
-        return 2
+        n = int(value)
+    except (TypeError, ValueError):
+        return None
+    return max(1, min(MAX_CONCURRENT_CEILING, n))
 
 
-_slots: asyncio.Semaphore | None = None
+def _saved_max_concurrent() -> int | None:
+    try:
+        return _clamp_concurrency(json.loads(SCAN_CONFIG_FILE.read_text()).get("max_concurrent_scans"))
+    except Exception:
+        return None
+
+
+def concurrency_source() -> str:
+    if _saved_max_concurrent() is not None:
+        return "saved"
+    if _clamp_concurrency(os.environ.get("EPYON_MAX_CONCURRENT_SCANS")) is not None:
+        return "env"
+    return "default"
+
+
+def _max_concurrent() -> int:
+    """Saved Settings value, else EPYON_MAX_CONCURRENT_SCANS, else the default."""
+    saved = _saved_max_concurrent()
+    if saved is not None:
+        return saved
+    env = _clamp_concurrency(os.environ.get("EPYON_MAX_CONCURRENT_SCANS"))
+    return env if env is not None else DEFAULT_MAX_CONCURRENT
+
+
+def save_max_concurrent(value: int) -> int:
+    n = _clamp_concurrency(value)
+    if n is None:
+        raise ValueError("max_concurrent_scans must be an integer")
+    SCAN_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    SCAN_CONFIG_FILE.write_text(json.dumps({"max_concurrent_scans": n}, indent=2))
+    return n
+
+
+class _Gate:
+    """Counting gate whose limit is re-read on every check, so a changed
+    setting applies to queued scans without a restart."""
+
+    def __init__(self) -> None:
+        self.running = 0
+        self.cond = asyncio.Condition()
+
+    async def __aenter__(self) -> None:
+        async with self.cond:
+            await self.cond.wait_for(lambda: self.running < _max_concurrent())
+            self.running += 1
+
+    async def __aexit__(self, *exc: object) -> None:
+        async with self.cond:
+            self.running -= 1
+            self.cond.notify_all()
+
+
+_gate: _Gate | None = None
+
+
+async def wake_queue() -> None:
+    """Re-evaluate queued scans after the limit changed."""
+    if _gate is not None:
+        async with _gate.cond:
+            _gate.cond.notify_all()
+
+
 _key_locks: dict[tuple[str, str], asyncio.Lock] = {}
 _reserved_job_ids: set[str] = set()
 _job_id_lock = threading.Lock()
@@ -772,14 +839,14 @@ def release_job_id(job_id: str) -> None:
 
 
 async def run_scan_job(job_id: str, target: str, scan_type: str, *args, **kwargs) -> None:
-    global _slots
-    if _slots is None:
-        _slots = asyncio.Semaphore(_max_concurrent())
+    global _gate
+    if _gate is None:
+        _gate = _Gate()
     job = jobs[job_id]
     lock = _key_locks.setdefault((target, scan_type), asyncio.Lock())
     try:
         async with lock:
-            async with _slots:
+            async with _gate:
                 if job["status"] != "queued":  # cancelled while waiting
                     return
                 await _run_scan_job_inner(job_id, target, scan_type, *args, **kwargs)

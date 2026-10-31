@@ -1068,6 +1068,8 @@ const api = {
   getAiConfig() { return this._get('/api/ai/config'); },
   saveAiConfig(d){ return this._post('/api/ai/config', d); },
   getNvdConfig() { return this._get('/api/nvd/config'); },
+  getScanConcurrency() { return this._get('/api/settings/scan-concurrency'); },
+  saveScanConcurrency(n) { return this._post('/api/settings/scan-concurrency', { max_concurrent_scans: n }); },
   getExecSummary(id)      { return this._post(`/api/scans/${encodeURIComponent(id)}/executive-summary`, {}); },
   getTechnicalSummary(id) { return this._post(`/api/scans/${encodeURIComponent(id)}/technical-summary`, {}); },
   getGlobalExecSummary()      { return this._post('/api/executive-summary', {}); },
@@ -6789,7 +6791,7 @@ async function renderSettings() {
   page.innerHTML = loading();
 
   try {
-    const [images, history, ghCfg, aiCfg, nvdCfg, health, jiraCfg, mcPolicy, mcTypes] = await Promise.all([
+    const [images, history, ghCfg, aiCfg, nvdCfg, health, jiraCfg, mcPolicy, mcTypes, concCfg] = await Promise.all([
       api.getApprovedImages(),
       api.getScanHistory(),
       api.getGitHubConfig(),
@@ -6799,6 +6801,7 @@ async function renderSettings() {
       api.getJiraConfig().catch(() => ({})),
       api.getMobileCodePolicy().catch(() => ({ approval_required: true, approved_types: [], approved_files: [] })),
       api.getMobileCodeTypes().catch(() => []),
+      api.getScanConcurrency().catch(() => null),
     ]);
     const epyonVersion = health.version || '—';
 
@@ -6936,6 +6939,25 @@ async function renderSettings() {
           <button class="btn btn-primary" onclick="saveAiConfig()">Save AI Config</button>
         </div>
       </div>
+
+      ${concCfg ? `<div class="section">
+        <div class="section-title">Scan Concurrency</div>
+        <p class="section-desc">
+          How many scans run at the same time. Extra scans wait as <em>queued</em> and start in order.
+          Each scan runs several container tools, so raise this only if the host has the CPU and memory for it.
+          Two scans of the same target and scan type never overlap. Changes apply to queued scans immediately.
+        </p>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <label class="field-label" for="scan-concurrency" style="margin:0">Max concurrent scans</label>
+          <input id="scan-concurrency" type="number" class="field-input" style="width:90px"
+                 min="1" max="${esc(concCfg.ceiling)}" step="1" value="${esc(concCfg.max_concurrent_scans)}" />
+          <button class="btn btn-primary" onclick="saveScanConcurrency()">Save</button>
+          <span style="font-size:13px;color:var(--text-muted)">
+            ${esc(concCfg.running)} running, ${esc(concCfg.queued)} queued ·
+            ${concCfg.source === 'saved' ? 'set here' : concCfg.source === 'env' ? 'from <code>EPYON_MAX_CONCURRENT_SCANS</code>' : 'default (' + esc(concCfg.default) + ')'}
+          </span>
+        </div>
+      </div>` : ''}
 
       <div class="section">
         <div class="section-title">NVD API Key</div>
@@ -7218,6 +7240,17 @@ async function saveAiConfig() {
     await renderSettings();
   } catch (e) {
     toast('Failed to save AI config: ' + e.message, 'error');
+  }
+}
+
+async function saveScanConcurrency() {
+  const n = parseInt(document.getElementById('scan-concurrency')?.value, 10);
+  try {
+    await api.saveScanConcurrency(n);
+    toast('Scan concurrency saved', 'success');
+    await renderSettings();
+  } catch (e) {
+    toast('Failed to save scan concurrency: ' + e.message, 'error');
   }
 }
 

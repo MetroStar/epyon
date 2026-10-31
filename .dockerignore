@@ -20,6 +20,7 @@ web/data/audit.log
 web/data/jira-config.json
 web/data/jira-tickets.json
 web/data/nvd-config.json
+web/data/scan-config.json
 web/data/github-signals-history.json
 web/data/epyon.db
 web/data/epyon.db-wal

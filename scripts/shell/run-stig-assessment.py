@@ -137,7 +137,7 @@ INCLUDE_FILENAMES = {
 
 EXCLUDE_DIR_PREFIXES = {
     ".git", "node_modules", "__pycache__", ".venv", "venv", "env",
-    "dist", "build", "coverage", ".coverage", ".tox", ".mypy_cache",
+    "dist", "build", "target", ".scannerwork", "coverage", ".coverage", ".tox", ".mypy_cache",
     ".pytest_cache", ".eggs",
     # Note: *.egg-info directories are handled via endswith() in _is_excluded_dir
 }
@@ -566,14 +566,23 @@ def _stig_reuse_key(target_dir: str, inputs: dict[str, Any]) -> str | None:
         return None
     root = Path(target_dir).resolve()
     inventory = subprocess.run(
-        ["git", "-C", str(root), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        ["git", "-C", str(root), "ls-files", "-z", "--cached"],
         capture_output=True, check=False,
     )
-    if inventory.returncode:
+    untracked = subprocess.run(
+        ["git", "-C", str(root), "ls-files", "-z", "--others", "--exclude-standard"],
+        capture_output=True, check=False,
+    )
+    if inventory.returncode or untracked.returncode:
         print("[WARNING] STIG reuse disabled: Git source inventory unavailable", file=sys.stderr)
         return None
+    tracked_paths = set(inventory.stdout.split(b"\0")) - {b""}
+    untracked_paths = {
+        raw for raw in untracked.stdout.split(b"\0") if raw
+        and not any(_is_excluded_dir(part) for part in Path(os.fsdecode(raw)).parts[:-1])
+    }
     files = []
-    for raw in sorted(set(inventory.stdout.split(b"\0")) - {b""}):
+    for raw in sorted(tracked_paths | untracked_paths):
         relative = os.fsdecode(raw)
         path = root / relative
         if path.is_symlink():
@@ -2045,6 +2054,9 @@ def _assess_stig(
     """
     controls  = stig_data["controls"]
     stig_name = stig_data["stig_name"]
+    workers = int(os.environ.get("EPYON_STIG_CONCURRENCY", "1"))
+    if not 1 <= workers <= 4:
+        raise ValueError("EPYON_STIG_CONCURRENCY must be between 1 and 4")
 
     print(f"[INFO] [{slug}] Loaded {len(controls)} controls from '{stig_name}'", file=sys.stderr)
 
@@ -2097,6 +2109,7 @@ def _assess_stig(
             "structured": os.environ.get("EPYON_AI_STRUCTURED_OUTPUT", ""),
             "max_tokens": os.environ.get("EPYON_AI_MAX_TOKENS", "16384"),
             "batch_size": batch_size, "local": _LOCAL_MODEL,
+            "code_budget": _code_bytes_default(),
         })
         if reuse_key:
             result_cache = _scan_cache_module().JsonCache(
@@ -2109,8 +2122,14 @@ def _assess_stig(
                 try:
                     prior = cached["assessments"]
                     _validate_batch([dict(item, vuln_id=vid) for vid, item in prior.items()], controls)
+                    original_timestamp = cached["assessment_generated_at"]
+                    if not isinstance(original_timestamp, str):
+                        raise ValueError("Missing original assessment timestamp")
+                    parsed_timestamp = datetime.fromisoformat(original_timestamp)
+                    if parsed_timestamp.tzinfo is None:
+                        raise ValueError("Original assessment timestamp must include timezone")
                     cached_assessments = prior
-                    assessment_generated_at = cached["assessment_generated_at"]
+                    assessment_generated_at = original_timestamp
                 except (KeyError, TypeError, ValueError, AttributeError) as error:
                     print(f"[WARNING] Invalid cached STIG assessment; reassessing: {error}", file=sys.stderr)
 
@@ -2273,9 +2292,6 @@ def _assess_stig(
             file=sys.stderr,
         )
 
-        workers = int(os.environ.get("EPYON_STIG_CONCURRENCY", "1"))
-        if not 1 <= workers <= 4:
-            raise ValueError("EPYON_STIG_CONCURRENCY must be between 1 and 4")
         request_slots = threading.BoundedSemaphore(workers)
         request_clock = threading.Lock()
         last_request = [0.0]

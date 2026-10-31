@@ -61,13 +61,18 @@ STIG reuse is opt-in through `EPYON_CACHE_DIR` and requires an immutable model
 digest: set `EPYON_STIG_MODEL_REVISION` or point
 `EPYON_STIG_MODEL_IDENTITY_URL` at a trusted Ollama `/api/tags` endpoint.
 Only complete, validated assessments with identical application, repository
-contents (including untracked, non-ignored files), supplied source/context,
+contents (including untracked, non-ignored source files), supplied source/context,
 STIG definitions, model digest, endpoint, assessment implementation and settings
 are reused. Any difference requires a fresh assessment; unknown model identity
 or a non-Git target disables reuse with a warning. Failed/incomplete assessments
 are never cached. The cache holds at most 128 entries for
 `EPYON_STIG_CACHE_TTL` seconds (default 86400). Outputs retain all control results,
 the original assessment timestamp and explicit reuse provenance.
+Generated directories such as Maven `target`, Sonar `.scannerwork`, and build
+outputs are excluded from AI source context and untracked-file fingerprints;
+their changing timestamps are not application changes. Tracked files are always
+fingerprinted, even under these directories. This does not skip compiled-code
+Sonar analysis, vulnerability scans, or current scanner-finding context.
 
 `EPYON_STIG_BATCH_SIZE` accepts 1-10 controls per request.
 `EPYON_STIG_CONCURRENCY` accepts 1-4 concurrent requests (default 1).

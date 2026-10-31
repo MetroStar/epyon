@@ -6785,9 +6785,8 @@ async function renderSettings() {
   page.innerHTML = loading();
 
   try {
-    const [images, history, ghCfg, aiCfg, nvdCfg, health, jiraCfg, mcPolicy, mcTypes] = await Promise.all([
+    const [images, ghCfg, aiCfg, nvdCfg, health, jiraCfg, mcPolicy, mcTypes] = await Promise.all([
       api.getApprovedImages(),
-      api.getScanHistory(),
       api.getGitHubConfig(),
       api.getAiConfig(),
       api.getNvdConfig(),
@@ -6805,32 +6804,6 @@ async function renderSettings() {
 
     page.innerHTML = `
       ${pageHeader(`Settings`)}
-
-      <div class="section">
-        <div class="section-title">Scan History Summary</div>
-        <div class="detail-grid">
-          <div class="detail-card">
-            <div class="label">Generated At</div>
-            <div class="value" style="font-size:13px">${fmtDate(history.generated_at)}</div>
-          </div>
-          <div class="detail-card">
-            <div class="label">Total Scans Recorded</div>
-            <div class="value">${esc(history.total_scans || 0)}</div>
-          </div>
-          <div class="detail-card">
-            <div class="label">Tracked Targets</div>
-            <div class="value" style="font-size:13px">
-              ${(history.targets || []).map(t => esc(t)).join(', ') || '—'}
-            </div>
-          </div>
-          <div class="detail-card">
-            <div class="label">Users</div>
-            <div class="value" style="font-size:13px">
-              ${(history.users || []).map(u => esc(u)).join(', ') || '—'}
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div class="section">
         <div class="section-title">AI Executive Summary</div>

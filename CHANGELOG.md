@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Collapsing the left navigation now leaves a slim icon rail (labels appear as tooltips) instead of hiding it completely; the scan-progress badge and the theme/cache buttons stay visible. Phones still collapse the menu fully.
+- Removed the "Scan History Summary" cards (generated time, total scans, targets, users) from Settings.
 
 ## [3.58.1] - 2026-10-31
 

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Settings page failed with `api.getMobileCodePolicy is not a function` after the Mobile Code Policy removal merged with the scan-concurrency card.
+
 ## [3.59.0] - 2026-10-31
 
 ### Added

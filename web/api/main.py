@@ -624,12 +624,13 @@ def stats(response: Response):
     _cache_metrics_logger.debug("cache_read source=memory endpoint=stats hit=false")
     _sec_headers(response)
     hidden = _load_hidden_apps()
-    scans = [_cached_load_scan(d) for d in _cached_find_scan_dirs()]
+    monitored = _load_monitored_apps()
+    # Overview counts only continuously monitored apps; evaluation apps are excluded.
+    scans = [s for s in (_cached_load_scan(d) for d in _cached_find_scan_dirs())
+             if s["target"] in monitored and s["target"] not in hidden]
     by_target: dict[str, dict] = {}
     for s in scans:
         t = s["target"]
-        if t in hidden:
-            continue
         if t not in by_target or s.get("timestamp", "") > by_target[t].get("timestamp", ""):
             by_target[t] = s
     latest = list(by_target.values())

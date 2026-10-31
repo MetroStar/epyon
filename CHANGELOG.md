@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.59.1] - 2026-10-31
+
+### Changed
+- Overview counts (applications, total scans, critical/high/medium/low) now include only continuously monitored apps; evaluation apps are excluded.
+
 ### Changed
 - Settings sections are grouped under AI, Integrations (Jira, GitHub, NVD) and Scanning (concurrency, workflow file) and are collapsed by default.
 

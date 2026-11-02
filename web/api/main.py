@@ -1072,7 +1072,7 @@ async def app_isso_summary(name: str, response: Response):
     # merge all controls from that scan into a single flat list.
     stig_detail: list[dict] | None = None
     for candidate, _ in target_entries:
-        stig_files = sorted(candidate.glob("stig-results-*.json"))
+        stig_files = _real_stig_files(candidate)
         if not stig_files:
             continue
         merged: list[dict] = []
@@ -3007,6 +3007,40 @@ async def github_sync_post(response: Response):
     return {"ok": True, "message": "Sync started"}
 
 
+_STIG_PLACEHOLDER_MARK = "STIG assessment skipped"
+
+
+def _is_real_stig_result(path: Path) -> bool:
+    """False for the all-"Not Reviewed" placeholder written when a scan reached the
+    STIG layer without an AI endpoint. That scan never assessed anything, so it
+    must not count as a STIG run or replace the last real results."""
+    try:
+        key = (str(path), path.stat().st_mtime_ns)
+    except OSError:
+        return False
+    hit = _real_stig_cache.get(key)
+    if hit is not None:
+        return hit
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        res = raw.get("assessments", raw) if isinstance(raw, dict) and "assessments" in raw else raw
+        real = any(
+            not str((v or {}).get("evidence", "")).startswith(_STIG_PLACEHOLDER_MARK)
+            for v in res.values()
+        ) if isinstance(res, dict) and res else False
+    except Exception:
+        real = False
+    _real_stig_cache[key] = real
+    return real
+
+
+_real_stig_cache: dict[tuple, bool] = {}
+
+
+def _real_stig_files(scan_dir: Path) -> list[Path]:
+    return [f for f in sorted(scan_dir.glob("stig-results-*.json")) if _is_real_stig_result(f)]
+
+
 # ── STIG History / MTTR ──────────────────────────────────────
 
 @app.get("/api/stig/history")
@@ -3033,7 +3067,7 @@ def stig_history(
     # Apps that have at least one stig-results-*.json file
     stig_apps = sorted(
         a for a, scans in app_scans.items()
-        if any(list(s["path"].glob("stig-results-*.json")) for s in scans)
+        if any(_real_stig_files(s["path"]) for s in scans)
     )
 
     _empty_summary = {
@@ -3050,7 +3084,7 @@ def stig_history(
     # All slugs found for this app
     all_slugs: set[str] = set()
     for s in app_scans.get(selected_app, []):
-        for f in s["path"].glob("stig-results-*.json"):
+        for f in _real_stig_files(s["path"]):
             all_slugs.add(f.stem[len("stig-results-"):])
 
     selected_slugs = {slug} if (slug and slug in all_slugs) else all_slugs
@@ -3060,7 +3094,7 @@ def stig_history(
         [
             s for s in app_scans.get(selected_app, [])
             if any(
-                (s["path"] / f"stig-results-{sl}.json").exists()
+                _is_real_stig_result(s["path"] / f"stig-results-{sl}.json")
                 for sl in selected_slugs
             )
         ],
@@ -3115,7 +3149,7 @@ def stig_history(
     for s in stig_scans:
         for sl in selected_slugs:
             rf = s["path"] / f"stig-results-{sl}.json"
-            if not rf.exists():
+            if not _is_real_stig_result(rf):
                 continue
             try:
                 raw = json.loads(rf.read_text(encoding="utf-8"))
@@ -3840,7 +3874,7 @@ async def global_isso_summary(response: Response):
         # STIG summary: use the most recent scan that has stig-results-*.json
         stig_open = stig_pass = stig_na = stig_nr = stig_total = 0
         for candidate in all_dirs_sorted:
-            stig_files = sorted(candidate.glob("stig-results-*.json"))
+            stig_files = _real_stig_files(candidate)
             if not stig_files:
                 continue
             for sf in stig_files:

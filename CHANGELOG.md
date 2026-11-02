@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.60.1] - 2026-11-02
+
+### Fixed
+- A scan that reached the STIG layer without an AI endpoint wrote an all-"Not Reviewed" placeholder that the STIG page treated as the latest STIG scan, showing its date and clearing the real results. Placeholder results are now ignored by STIG history, app detail, metrics and ISSO summaries, so the last real STIG assessment stays in view.
+
 ## [3.60.0] - 2026-11-02
 
 ### Added

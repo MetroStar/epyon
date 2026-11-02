@@ -1002,6 +1002,7 @@ html[data-theme="light"] .logo-for-light { display: block; }
 
 .modal-box.modal-md, .modal-container.modal-md { max-width: 540px; }
 .modal-box.modal-lg, .modal-container.modal-lg { max-width: 640px; }
+.modal-container.modal-xl { max-width: 900px; }
 .modal-box:focus, .modal-container:focus, .finding-drawer:focus { outline: none; }
 
 @keyframes slideUp {

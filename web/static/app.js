@@ -3285,9 +3285,6 @@ function buildOverviewExecSection() {
           ✦ Generate ISSO Compliance Brief
         </button>
       </div>
-      <div id="overview-exec-body"></div>
-      <div id="overview-tech-body"></div>
-      <div id="overview-isso-body"></div>
     </div>`;
 }
 
@@ -3319,48 +3316,58 @@ function _summaryResultHtml(text, err, regenerateFn, exportFn, exportDocxFn) {
     </div>`;
 }
 
-async function generateOverviewExecSummary() {
-  const body = document.getElementById('overview-exec-body');
-  if (!body) return;
-  body.innerHTML = _summaryLoadingHtml('executive summary');
+const _OVERVIEW_SUMMARY_KINDS = {
+  exec: { title: 'Executive Summary',       label: 'executive summary',     fn: 'generateOverviewExecSummary', pdf: 'exportExecSummaryPdf', docx: 'exportExecSummaryDocx', call: () => api.getGlobalExecSummary() },
+  tech: { title: 'Technical Summary',       label: 'technical summary',     fn: 'generateOverviewTechSummary', pdf: 'exportTechSummaryPdf', docx: 'exportTechSummaryDocx', call: () => api.getGlobalTechnicalSummary() },
+  isso: { title: 'ISSO Compliance Brief',   label: 'ISSO compliance brief', fn: 'generateOverviewIssoSummary', pdf: 'exportIssoSummaryPdf', docx: 'exportIssoSummaryDocx', call: () => api.getGlobalIssoSummary() },
+};
+
+function closeSummaryModal() {
+  document.getElementById('summary-modal')?.remove();
+  document.removeEventListener('keydown', _summaryModalKey);
+}
+function _summaryModalKey(e) { if (e.key === 'Escape') closeSummaryModal(); }
+
+// Generates into a modal so results never push the Overview content down.
+async function _runOverviewSummary(kind) {
+  const cfg = _OVERVIEW_SUMMARY_KINDS[kind];
+  let overlay = document.getElementById('summary-modal');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'summary-modal';
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `<div class="modal-container modal-xl" role="dialog" aria-modal="true" aria-labelledby="summary-modal-title">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h2 id="summary-modal-title" style="margin:0;font-size:18px"></h2>
+        <button class="btn" onclick="closeSummaryModal()" aria-label="Close">✕</button>
+      </div>
+      <div id="summary-modal-body"></div>
+    </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeSummaryModal(); });
+    document.addEventListener('keydown', _summaryModalKey);
+  }
+  document.getElementById('summary-modal-title').textContent = cfg.title;
+  const body = document.getElementById('summary-modal-body');
+  body.innerHTML = _summaryLoadingHtml(cfg.label);
   try {
-    const result = await api.getGlobalExecSummary();
-    _overviewSummaryCache.exec = result.summary;
-    body.innerHTML = _summaryResultHtml(result.summary, null, 'generateOverviewExecSummary', 'exportExecSummaryPdf', 'exportExecSummaryDocx');
+    const result = await cfg.call();
+    _overviewSummaryCache[kind] = result.summary;
+    if (!document.getElementById('summary-modal')) return;
+    body.innerHTML = _summaryResultHtml(result.summary, null, cfg.fn, cfg.pdf, cfg.docx);
   } catch (e) {
-    body.innerHTML = _summaryResultHtml(null, e.message || 'Generation failed', 'generateOverviewExecSummary', 'exportExecSummaryPdf', 'exportExecSummaryDocx');
+    if (!document.getElementById('summary-modal')) return;
+    body.innerHTML = _summaryResultHtml(null, e.message || 'Generation failed', cfg.fn, cfg.pdf, cfg.docx);
   }
 }
 
-async function generateOverviewTechSummary() {
-  const body = document.getElementById('overview-tech-body');
-  if (!body) return;
-  body.innerHTML = _summaryLoadingHtml('technical summary');
-  try {
-    const result = await api.getGlobalTechnicalSummary();
-    _overviewSummaryCache.tech = result.summary;
-    body.innerHTML = _summaryResultHtml(result.summary, null, 'generateOverviewTechSummary', 'exportTechSummaryPdf', 'exportTechSummaryDocx');
-  } catch (e) {
-    body.innerHTML = _summaryResultHtml(null, e.message || 'Generation failed', 'generateOverviewTechSummary', 'exportTechSummaryPdf', 'exportTechSummaryDocx');
-  }
-}
+async function generateOverviewExecSummary() { await _runOverviewSummary('exec'); }
+async function generateOverviewTechSummary() { await _runOverviewSummary('tech'); }
+async function generateOverviewIssoSummary() { await _runOverviewSummary('isso'); }
 
 // Keep the old combined function as an alias so any cached references still work
 async function generateOverviewSummaries() {
   await Promise.all([generateOverviewExecSummary(), generateOverviewTechSummary()]);
-}
-
-async function generateOverviewIssoSummary() {
-  const body = document.getElementById('overview-isso-body');
-  if (!body) return;
-  body.innerHTML = _summaryLoadingHtml('ISSO compliance brief');
-  try {
-    const result = await api.getGlobalIssoSummary();
-    _overviewSummaryCache.isso = result.summary;
-    body.innerHTML = _summaryResultHtml(result.summary, null, 'generateOverviewIssoSummary', 'exportIssoSummaryPdf', 'exportIssoSummaryDocx');
-  } catch (e) {
-    body.innerHTML = _summaryResultHtml(null, e.message || 'Generation failed', 'generateOverviewIssoSummary', 'exportIssoSummaryPdf', 'exportIssoSummaryDocx');
-  }
 }
 
 function exportExecSummaryPdf() {

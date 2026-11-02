@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.59.2] - 2026-11-02
+
+### Changed
+- Overview Executive, Technical and ISSO summaries now open in a modal (close with ✕, Esc or the backdrop) instead of expanding inline and pushing the page down.
+
 ## [3.59.1] - 2026-10-31
 
 ### Changed

@@ -239,12 +239,28 @@ async def _chat_completion(
 
     async def _call(key: str, url: str | None, mdl: str) -> str:
         client = AsyncOpenAI(api_key=key, base_url=url or _OPENAI_PUBLIC_BASE_URL)
-        response = await client.chat.completions.create(
-            model=mdl,
-            messages=messages,
-            **_limit_kwargs(mdl, max_tokens, temperature),
+        budget = max_tokens
+        for attempt in range(2):
+            response = await client.chat.completions.create(
+                model=mdl,
+                messages=messages,
+                **_limit_kwargs(mdl, budget, temperature),
+            )
+            choice = response.choices[0]
+            text = (choice.message.content or "").strip()
+            if text:
+                return text
+            # Reasoning/"thinking" models can spend the whole output budget before
+            # writing any answer; retry once with a much larger budget.
+            if choice.finish_reason == "length" and attempt == 0:
+                budget = max(budget * 4, 8000)
+                continue
+            break
+        raise RuntimeError(
+            f"The model '{mdl}' returned an empty response "
+            f"(finish_reason={choice.finish_reason}). If it is a reasoning model, "
+            "try a non-reasoning model in Settings → AI."
         )
-        return response.choices[0].message.content or ""
 
     try:
         return await _call(api_key, get_base_url(), get_model())

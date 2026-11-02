@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.59.4] - 2026-11-02
+
+### Fixed
+- AI summaries no longer show a blank result when the model returns no text (typically a reasoning model using its whole output budget). Epyon retries once with a larger budget, and otherwise shows an explicit error naming the model and finish reason.
+
 ## [3.59.3] - 2026-11-02
 
 ### Changed

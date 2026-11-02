@@ -41,6 +41,41 @@ def test_openai_provider_client_targets_public_api_despite_env(monkeypatch, tmp_
     assert seen["base_url"] == "https://api.openai.com/v1"
 
 
+def _fake_client(monkeypatch, replies, calls):
+    import openai
+    from types import SimpleNamespace as NS
+
+    class FakeClient:
+        def __init__(self, api_key, base_url):
+            self.chat = NS(completions=NS(create=self.create))
+
+        async def create(self, **kw):
+            calls.append(kw)
+            content, reason = replies.pop(0)
+            return NS(choices=[NS(message=NS(content=content), finish_reason=reason)])
+
+    monkeypatch.setattr(openai, "AsyncOpenAI", FakeClient)
+
+
+def test_empty_reply_retries_with_bigger_budget(monkeypatch, tmp_path):
+    import asyncio
+    setup(monkeypatch, tmp_path, {"provider": "openai", "openai_model": "gpt-4o"})
+    calls = []
+    _fake_client(monkeypatch, [("", "length"), ("## Brief", "stop")], calls)
+    out = asyncio.run(o._chat_completion([{"role": "user", "content": "hi"}], max_tokens=2000, temperature=0))
+    assert out == "## Brief"
+    assert calls[1]["max_tokens"] == 8000
+
+
+def test_empty_reply_raises_instead_of_blank_summary(monkeypatch, tmp_path):
+    import asyncio
+    import pytest
+    setup(monkeypatch, tmp_path, {"provider": "openai", "openai_model": "gpt-4o"})
+    _fake_client(monkeypatch, [("", "stop")], [])
+    with pytest.raises(RuntimeError, match="empty response"):
+        asyncio.run(o._chat_completion([{"role": "user", "content": "hi"}], max_tokens=2000, temperature=0))
+
+
 def test_limit_kwargs_by_model():
     assert o._limit_kwargs("gpt-5.5", 900, 0.3) == {"max_completion_tokens": 8000}
     assert o._limit_kwargs("o3-mini", 12000, 0.3) == {"max_completion_tokens": 12000}

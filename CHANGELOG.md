@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.60.2] - 2026-11-02
+
+### Changed
+- The scheduled Sunday scan no longer runs the STIG layer (it consumes a lot of AI tokens). STIG now runs only when chosen manually (`scan_mode: stig`); the workflow template and STIG page text are updated.
+
 ## [3.60.1] - 2026-11-02
 
 ### Fixed

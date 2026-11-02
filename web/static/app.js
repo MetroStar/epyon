@@ -124,8 +124,8 @@ jobs:
     uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
     with:
       scan_mode: \${{ github.event_name == 'schedule' && (github.event.schedule == '0 2 * * 0' && 'full' || 'nightly') || github.event.inputs.scan_mode || 'full' }}
-      # STIG runs only on the weekly Sunday full scan or when explicitly chosen via workflow_dispatch
-      run_stig: \${{ (github.event_name == 'schedule' && github.event.schedule == '0 2 * * 0') || github.event.inputs.scan_mode == 'stig' }}
+      # STIG uses AI tokens, so it runs only when explicitly chosen via workflow_dispatch
+      run_stig: \${{ github.event.inputs.scan_mode == 'stig' }}
       subdirectory: \${{ github.event.inputs.subdirectory || '' }}
       garak_target_type: \${{ github.event.inputs.garak_target_type || 'openai' }}
       garak_target_name: \${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
@@ -4421,7 +4421,7 @@ async function renderStig() {
         }).join('')
       : emptyState(
           'No STIG results yet',
-          'STIG scans run automatically every Sunday night. You can also trigger one manually using Run Scan → STIG.',
+          'STIG scans do not run on a schedule because they use AI tokens. Trigger one using Run Scan → STIG.',
           `<button class="btn btn-primary" onclick="navigate('#/new-scan')" style="margin-top:16px">
              ▶ Run STIG Scan
            </button>`,
@@ -4469,7 +4469,7 @@ async function renderStig() {
       ${stigTabs}
       <p class="section-desc">
         Application Security Developer (AppSecDev) STIG and Crunchy Data PostgreSQL STIG
-        compliance results. Scans run every Sunday night automatically.
+        compliance results. STIG scans run only when you trigger them.
       </p>
       ${summaryBar}
       <div class="section">
@@ -7008,7 +7008,7 @@ epyon install-workflow</pre>
           <li>Create <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">.github/workflows/scan-private-repo.yml</code> in your repository with the contents below.</li>
           <li>Review the <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">uses:</code> line and change the GitHub org only if your Epyon instance is hosted outside <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">MetroStar/epyon</code>.</li>
         </ol>
-        <div style="font-size:13px;color:var(--text-muted);margin:0 0 14px;line-height:1.7">Then commit and push (<code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">git add .github/workflows/scan-private-repo.yml &amp;&amp; git commit -m "Add Epyon security scanning" &amp;&amp; git push</code>). Pull requests get a quick scan; the workflow also runs nightly at 2 AM UTC (full + STIG on Sundays) and on manual dispatch.</div>
+        <div style="font-size:13px;color:var(--text-muted);margin:0 0 14px;line-height:1.7">Then commit and push (<code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">git add .github/workflows/scan-private-repo.yml &amp;&amp; git commit -m "Add Epyon security scanning" &amp;&amp; git push</code>). Pull requests get a quick scan; the workflow also runs nightly at 2 AM UTC (full on Sundays; STIG only when triggered manually) and on manual dispatch.</div>
         <div style="position:relative;max-width:700px">
           <pre id="settings-yml" style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);
                padding:12px;font-size:12px;line-height:1.6;overflow-x:auto;margin:0;white-space:pre;color:var(--text)">${esc(WORKFLOW_YML)}</pre>

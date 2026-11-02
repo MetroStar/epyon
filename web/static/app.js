@@ -4490,7 +4490,6 @@ let _scanJobs     = [];   // jobs submitted by the current run: { id, type, labe
 // checkbox is selected, each type is submitted as its own job, one at a
 // time, against the same target. Results are collected for the final
 // PASS/FAIL summary table (mirrors the Self-Assessment layer results).
-let _scanQueue          = [];   // remaining scan type ids still to run
 let _scanQueueResults   = [];   // [{ type, label, status, reason }]
 let _scanQueueCancelled = false;
 let _scanQueueTotal     = 0;
@@ -4758,7 +4757,7 @@ function restoreScanRun() {
   renderScanJobStatus();
   const btn = document.getElementById('run-btn');
   if (running) {
-    if (btn) { btn.disabled = true; btn.textContent = `⏳ Running ${_scanJobs.length} scan${_scanJobs.length === 1 ? '' : 's'}…`; }
+    if (btn) { btn.disabled = false; btn.textContent = _runningLabel(); }
     const cancelBtn = document.getElementById('cancel-btn');
     if (cancelBtn) cancelBtn.style.display = 'inline-flex';
   } else {
@@ -4990,31 +4989,39 @@ async function submitScan() {
   btn.disabled    = true;
   btn.textContent = '⏳ Starting…';
 
+  // Scans already running keep their logs and results; a new submission adds to them.
+  const joining = _scanJobs.some(j => !j.done);
   document.getElementById('scan-output-section').style.display = 'block';
-  document.getElementById('log-output').innerHTML = '';
   document.getElementById('scan-actions').style.display = 'none';
-  document.getElementById('scan-type-results').innerHTML = '';
-  _scanJobs    = [];
-
-  // Reset and seed the sequential queue with every selected scan type.
-  _scanQueue          = [...selectedTypes];
-  _scanQueueResults   = [];
+  if (!joining) {
+    document.getElementById('log-output').innerHTML = '';
+    document.getElementById('scan-type-results').innerHTML = '';
+    _scanJobs           = [];
+    _scanQueueResults   = [];
+    _scanQueueTotal     = 0;
+  }
   _scanQueueCancelled = false;
-  _scanQueueTotal     = selectedTypes.length;
+  _scanQueueTotal += selectedTypes.length;
 
   const cancelBtn = document.getElementById('cancel-btn');
   if (cancelBtn) { cancelBtn.disabled = false; cancelBtn.textContent = '✕ Cancel'; cancelBtn.style.display = 'inline-flex'; }
 
   const monitoring = document.querySelector('#monitoring-type-ctrl .seg-btn.active')?.dataset.value || '';
-  runNextQueuedScan(btn, { activeMode, target, uploadFile, runGarak, runStig, selectedLayers, monitoring });
+  runNextQueuedScan(btn, { queue: [...selectedTypes], activeMode, target, uploadFile, runGarak, runStig, selectedLayers, monitoring });
 }
 
 // Submits every selected scan type right away; the server runs up to its
 // concurrency cap and holds the rest as "queued". Each job gets its own log
 // section and is tracked by one shared poller.
+function _runningLabel() {
+  const n = _scanJobs.filter(j => !j.done).length;
+  return `▶ Run Another Scan (${n} running)`;
+}
+
 async function runNextQueuedScan(btn, ctx) {
-  while (_scanQueue.length && !_scanQueueCancelled) {
-    const scanType = _scanQueue.shift();
+  const queue = ctx.queue;
+  while (queue.length && !_scanQueueCancelled) {
+    const scanType = queue.shift();
     const label = SCAN_TYPE_OPTIONS.find(t => t.id === scanType)?.label || scanType;
     try {
       // The layer picker only applies to scan types with a flexible layer
@@ -5030,7 +5037,7 @@ async function runNextQueuedScan(btn, ctx) {
                 btn.textContent = done ? '⏳ Extracting on server…' : `⏳ Uploading… ${pct}%`;
               }, layersForThisType))
         : await api.triggerScan(ctx.target, scanType, ctx.runGarak, ctx.runStig, layersForThisType);
-      _scanJobs.push({ id: job.job_id, type: scanType, label, done: false, logLen: 0, lines: [] });
+      _scanJobs.push({ id: job.job_id, type: scanType, label, done: false, logLen: 0, lines: [], monitoring: ctx.monitoring });
       if (_scanQueueCancelled) {
         await fetch(`/api/jobs/${encodeURIComponent(job.job_id)}/cancel`, { method: 'POST' }).catch(() => {});
       }
@@ -5044,13 +5051,14 @@ async function runNextQueuedScan(btn, ctx) {
         `<div class="log-line err">Error starting ${esc(label)}: ${esc(e.message)}</div>`);
     }
   }
-  while (_scanQueue.length) {
-    const skippedType = _scanQueue.shift();
+  while (queue.length) {
+    const skippedType = queue.shift();
     const skippedLabel = SCAN_TYPE_OPTIONS.find(t => t.id === skippedType)?.label || skippedType;
     _scanQueueResults.push({ type: skippedType, label: skippedLabel, status: 'fail', reason: 'Skipped (run cancelled)' });
   }
   if (!_scanJobs.some(j => !j.done)) { finishScanQueue(btn); return; }
-  btn.textContent = `⏳ Running ${_scanJobs.length} scan${_scanJobs.length === 1 ? '' : 's'}…`;
+  btn.disabled = false;
+  btn.textContent = _runningLabel();
   clearInterval(_pollInterval);
   _pollInterval = setInterval(() => pollJobs(btn, ctx), 2000);
   pollJobs(btn, ctx);
@@ -5088,7 +5096,7 @@ async function pollJobs(btn, ctx) {
         // Apply monitoring classification on successful completion
         if (job.status === 'completed' && job.target) {
           try {
-            if (ctx.monitoring === 'continuous') await api.setMonitored(job.target);
+            if ((j.monitoring ?? ctx.monitoring) === 'continuous') await api.setMonitored(job.target);
             else await api.unsetMonitored(job.target);
           } catch (_) {}
         }

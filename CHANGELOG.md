@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.60.3] - 2026-11-02
+
+### Fixed
+- Run Scan stayed disabled while any scan was running, so a second or third scan could not be started even with a higher concurrency setting. The button now stays enabled ("Run Another Scan (N running)"), and new scans join the running ones with their own logs and monitoring choice; the server still queues anything beyond the concurrency limit.
+
 ## [3.60.2] - 2026-11-02
 
 ### Changed

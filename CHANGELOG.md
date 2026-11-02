@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.60.0] - 2026-11-02
+
+### Added
+- Settings → AI polls the primary base URL (Ollama, vLLM, any OpenAI-compatible `/models`) and offers the available models in a dropdown. It refreshes when the provider or base URL changes or via ↻ Refresh, and falls back to a text box if the endpoint is unreachable. New `GET /api/ai/local-models` uses the same host allow-list as the AI config and does not send credentials.
+
 ## [3.59.4] - 2026-11-02
 
 ### Fixed

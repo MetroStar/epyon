@@ -3259,6 +3259,42 @@ async def list_openai_models():
     return {"models": models}
 
 
+@app.get("/api/ai/local-models")
+async def list_local_models(response: Response, base_url: str = ""):
+    """List models served by a self-hosted OpenAI-compatible endpoint (Ollama, vLLM...).
+
+    Calls ``{base_url}/models`` without credentials and without following redirects.
+    The URL is validated with the same rules and SSRF guard as ``POST /api/ai/config``.
+    """
+    _sec_headers(response)
+    base_url = (base_url or openai_summary.get_base_url() or "").strip().rstrip("/")
+    if not base_url:
+        raise HTTPException(400, "No base URL configured")
+    if not re.match(r"^https?://[A-Za-z0-9.\-]+(:\d+)?(/[\w./\-]*)?$", base_url):
+        raise HTTPException(400, "base_url must be a valid http(s) URL")
+    if not openai_summary.base_url_allowed(base_url):
+        raise HTTPException(400, "base_url host is not allowed; add it to EPYON_AI_ALLOWED_HOSTS")
+
+    def _fetch() -> list:
+        import urllib.request
+        import urllib.error
+
+        class _NoRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, *a, **kw):
+                return None
+
+        opener = urllib.request.build_opener(_NoRedirect)
+        with opener.open(base_url + "/models", timeout=6) as resp:  # noqa: S310 - validated above
+            data = json.loads(resp.read(2_000_000))
+        return sorted({m["id"] for m in data.get("data", []) if isinstance(m.get("id"), str)})
+
+    try:
+        models = await asyncio.get_running_loop().run_in_executor(None, _fetch)
+    except Exception as exc:
+        raise HTTPException(502, f"Could not reach {base_url}/models ({type(exc).__name__})")
+    return {"models": models, "base_url": base_url}
+
+
 @app.get("/api/ai/config")
 def ai_config_get(response: Response):
     _sec_headers(response)

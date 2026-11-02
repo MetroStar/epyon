@@ -1093,6 +1093,7 @@ const api = {
   getGitHubMetrics()         { return this._get('/api/github-metrics'); },
   getGitHubSignalsHistory()  { return this._get('/api/github-signals-history'); },
   getOpenAiModels() { return this._get('/api/ai/openai-models'); },
+  getLocalModels(baseUrl) { return this._get('/api/ai/local-models?base_url=' + encodeURIComponent(baseUrl || '')); },
   getAiConfig() { return this._get('/api/ai/config'); },
   saveAiConfig(d){ return this._post('/api/ai/config', d); },
   getNvdConfig() { return this._get('/api/nvd/config'); },
@@ -6801,6 +6802,7 @@ async function renderSettings() {
             <label class="field-label">Primary Base URL <span style="color:var(--text-muted);font-weight:normal">(blank = public OpenAI API)</span></label>
             <input id="ai-base-url" type="text" class="field-input"
               placeholder="http://localhost:11434/v1"
+              onchange="loadLocalModels()"
               value="${esc(aiCfg.base_url || '')}"/>
             <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
               Active: <code>${esc(aiCfg.active_base_url || 'https://api.openai.com/v1 (default)')}</code>
@@ -6808,22 +6810,15 @@ async function renderSettings() {
           </div>
           <div>
             <label class="field-label">Primary Model</label>
-            <input id="ai-model" type="text" class="field-input" list="ai-model-suggestions"
-              placeholder="gpt-4o-mini, llama3.1:8b, gemma4:26b, ..."
-              value="${esc(aiCfg.model || '')}"/>
-            <datalist id="ai-model-suggestions">
-              <option value="gpt-5.5">
-              <option value="gpt-5.4">
-              <option value="gpt-5.4-mini">
-              <option value="gpt-5">
-              <option value="o3">
-              <option value="gpt-4.1">
-              <option value="gpt-4o">
-              <option value="gpt-4o-mini">
-              <option value="gpt-4-turbo">
-              <option value="llama3.1:8b">
-              <option value="gemma4:26b">
-            </datalist>
+            <div style="display:flex;gap:8px;align-items:center">
+              <select id="ai-model-select" class="field-input" style="display:none"></select>
+              <input id="ai-model" type="text" class="field-input"
+                placeholder="gpt-4o-mini, llama3.1:8b, gemma4:26b, ..."
+                value="${esc(aiCfg.model || '')}"/>
+              <button type="button" class="btn" id="ai-model-refresh" onclick="loadLocalModels()"
+                      title="Fetch the models available at the base URL" style="white-space:nowrap">↻ Refresh</button>
+            </div>
+            <div id="ai-model-status" style="font-size:12px;color:var(--text-muted);margin-top:4px"></div>
             <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
               Active: <code>${esc(aiCfg.active_model || '')}</code>
             </div>
@@ -7043,6 +7038,7 @@ epyon install-workflow</pre>
         </div>
       </div>`;
     if (aiCfg.key_set) loadOpenAiModels();
+    if (aiCfg.provider !== 'openai') loadLocalModels();
   } catch (e) {
     page.innerHTML = errBanner(e.message);
   }
@@ -7060,10 +7056,44 @@ async function loadOpenAiModels() {
   } catch (_) { /* keep the static list */ }
 }
 
+// Poll the primary endpoint for its models and offer them in a dropdown; falls
+// back to the free-text input when the endpoint can't be reached.
+async function loadLocalModels() {
+  const input  = document.getElementById('ai-model');
+  const select = document.getElementById('ai-model-select');
+  const status = document.getElementById('ai-model-status');
+  if (!input || !select || !status) return;
+  const provider = document.getElementById('ai-provider')?.value;
+  const baseUrl  = (document.getElementById('ai-base-url')?.value || '').trim();
+  const showInput = () => { select.style.display = 'none'; input.style.display = ''; };
+  if (provider === 'openai' || !baseUrl) {
+    showInput();
+    status.textContent = provider === 'openai' ? '' : 'Enter a base URL to list its models.';
+    return;
+  }
+  status.textContent = 'Looking for models…';
+  try {
+    const { models } = await api.getLocalModels(baseUrl);
+    if (!models.length) { showInput(); status.textContent = 'The endpoint reports no models. Enter a model name.'; return; }
+    const cur = select.style.display === 'none' ? input.value.trim() : select.value;
+    const pick = models.includes(cur) ? cur : models[0];
+    select.innerHTML = models.map(m => `<option value="${esc(m)}" ${m === pick ? 'selected' : ''}>${esc(m)}</option>`).join('');
+    input.value = select.value;
+    select.onchange = () => { input.value = select.value; };
+    select.style.display = '';
+    input.style.display = 'none';
+    status.textContent = `${models.length} model${models.length === 1 ? '' : 's'} found.` + (cur && pick !== cur ? ` “${cur}” is not served here, so ${pick} is selected — save to keep it.` : '');
+  } catch (e) {
+    showInput();
+    status.textContent = `Could not list models (${e.message}). Enter a model name manually.`;
+  }
+}
+
 function aiProviderChanged() {
   const p = document.getElementById('ai-provider')?.value;
   const row = document.getElementById('ai-openai-model-row');
   if (row) row.style.display = p === 'openai' ? 'block' : 'none';
+  loadLocalModels();
 }
 
 async function saveAiConfig() {

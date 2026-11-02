@@ -3328,9 +3328,7 @@ function closeSummaryModal() {
 }
 function _summaryModalKey(e) { if (e.key === 'Escape') closeSummaryModal(); }
 
-// Generates into a modal so results never push the Overview content down.
-async function _runOverviewSummary(kind) {
-  const cfg = _OVERVIEW_SUMMARY_KINDS[kind];
+function _openSummaryModal(title, bodyHtml) {
   let overlay = document.getElementById('summary-modal');
   if (!overlay) {
     overlay = document.createElement('div');
@@ -3347,9 +3345,16 @@ async function _runOverviewSummary(kind) {
     overlay.addEventListener('click', e => { if (e.target === overlay) closeSummaryModal(); });
     document.addEventListener('keydown', _summaryModalKey);
   }
-  document.getElementById('summary-modal-title').textContent = cfg.title;
+  document.getElementById('summary-modal-title').textContent = title;
   const body = document.getElementById('summary-modal-body');
-  body.innerHTML = _summaryLoadingHtml(cfg.label);
+  body.innerHTML = bodyHtml;
+  return body;
+}
+
+// Generates into a modal so results never push the Overview content down.
+async function _runOverviewSummary(kind) {
+  const cfg = _OVERVIEW_SUMMARY_KINDS[kind];
+  const body = _openSummaryModal(cfg.title, _summaryLoadingHtml(cfg.label));
   try {
     const result = await cfg.call();
     _overviewSummaryCache[kind] = result.summary;
@@ -3424,42 +3429,30 @@ function buildAppIssoSection(name) {
         </svg>
         AI ISSO Compliance Brief — ${esc(name)}
       </div>
-      <div id="app-isso-body-${esc(name)}">
-        <button class="btn btn-primary" onclick="generateAppIssoSummary('${esc(name)}')">
-          ✦ Generate Application ISSO Brief
-        </button>
-        <p style="margin:8px 0 0;font-size:12px;color:var(--text-muted)">
-          Per-application ATO/cATO brief: NIST 800-53 control mapping, STIG open controls,
-          evidence traceability, accepted risk register, and POA&amp;M entries.
-          Requires an OpenAI API key configured in Settings.
-        </p>
-      </div>
+      <button class="btn btn-primary" onclick="generateAppIssoSummary('${esc(name)}')">
+        ✦ Generate Application ISSO Brief
+      </button>
+      <p style="margin:8px 0 0;font-size:12px;color:var(--text-muted)">
+        Per-application ATO/cATO brief: NIST 800-53 control mapping, STIG open controls,
+        evidence traceability, accepted risk register, and POA&amp;M entries.
+        Requires an OpenAI API key configured in Settings.
+      </p>
     </div>`;
 }
 
 async function generateAppIssoSummary(name) {
-  const bodyId = `app-isso-body-${name}`;
-  const body = document.getElementById(bodyId);
-  if (!body) return;
-  body.innerHTML = _summaryLoadingHtml('ISSO compliance brief');
+  const body = _openSummaryModal(`ISSO Compliance Brief — ${name}`, _summaryLoadingHtml('ISSO compliance brief'));
+  const fns = [`generateAppIssoSummary('${name}')`, `exportAppIssoSummaryPdf('${name}')`, `exportAppIssoSummaryDocx('${name}')`];
   try {
     const result = await api.getAppIssoSummary(name);
     const text = result.summary || '';
     _appIssoCache[name] = text;
-    body.innerHTML = _summaryResultHtml(
-      text, null,
-      `generateAppIssoSummary('${name}')`,
-      `exportAppIssoSummaryPdf('${name}')`,
-      `exportAppIssoSummaryDocx('${name}')`
-    );
+    if (!document.getElementById('summary-modal')) return;
+    body.innerHTML = _summaryResultHtml(text, null, ...fns);
   } catch (e) {
     _appIssoCache[name] = null;
-    body.innerHTML = _summaryResultHtml(
-      null, e.message || 'Generation failed',
-      `generateAppIssoSummary('${name}')`,
-      `exportAppIssoSummaryPdf('${name}')`,
-      `exportAppIssoSummaryDocx('${name}')`
-    );
+    if (!document.getElementById('summary-modal')) return;
+    body.innerHTML = _summaryResultHtml(null, e.message || 'Generation failed', ...fns);
   }
 }
 

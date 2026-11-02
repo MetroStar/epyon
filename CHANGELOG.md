@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.59.3] - 2026-11-02
+
+### Changed
+- The per-application ISSO Compliance Brief now opens in the same modal as the Overview summaries instead of expanding inline.
+
 ## [3.59.2] - 2026-11-02
 
 ### Changed

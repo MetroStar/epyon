@@ -11,6 +11,7 @@ import os
 import re
 import shutil
 import sys
+import tarfile
 import threading
 import time
 import zipfile
@@ -1996,6 +1997,41 @@ def _safe_extract_zip(zf: zipfile.ZipFile, extract_dir: Path) -> None:
             shutil.copyfileobj(src, out)
 
 
+_PROJECT_TAR_EXTS = (".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2", ".tar.xz", ".txz")
+
+
+def _safe_extract_tar(tf: tarfile.TarFile, extract_dir: Path) -> None:
+    """Extract a tarball defensively, mirroring _safe_extract_zip.
+
+    Rejects traversal/absolute paths and enforces the uncompressed-size cap.
+    Only regular files and directories are written; symlinks, hardlinks and
+    device nodes are skipped so an archive cannot point outside extract_dir.
+    """
+    extract_root = extract_dir.resolve()
+    total_uncompressed = 0
+    for member in tf:
+        name = member.name
+        if name.startswith("/") or ".." in Path(name).parts:
+            raise ValueError(f"unsafe path in archive: {name}")
+        if not (member.isfile() or member.isdir()):
+            continue
+        total_uncompressed += member.size
+        if total_uncompressed > MAX_UPLOAD_UNZIPPED:
+            raise ValueError("archive exceeds maximum uncompressed size")
+        dest = (extract_root / name).resolve()
+        if dest != extract_root and extract_root not in dest.parents:
+            raise ValueError(f"unsafe path in archive: {name}")
+        if member.isdir():
+            dest.mkdir(parents=True, exist_ok=True)
+            continue
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        src = tf.extractfile(member)
+        if src is None:
+            continue
+        with src, open(dest, "wb") as out:
+            shutil.copyfileobj(src, out)
+
+
 @app.post("/api/scans/upload", status_code=202)
 async def trigger_scan_upload(
     request: Request,
@@ -2008,7 +2044,7 @@ async def trigger_scan_upload(
     webhook_secret: str = Form(""),
     layers: str = Form(""),
 ):
-    """Scan a project the user uploads as a .zip, rather than a Git URL or
+    """Scan a project the user uploads as a .zip or tarball, rather than a Git URL or
     a path that must already exist on the server's own filesystem. This is
     the supported way to scan a local, not-yet-pushed project once Epyon is
     deployed to a remote server (an absolute path typed into the standard
@@ -2019,8 +2055,10 @@ async def trigger_scan_upload(
     run_stig = run_stig or scan_type == "stig"
     if scan_type not in _VALID_SCAN_TYPES:
         raise HTTPException(400, f"scan_type must be one of: {sorted(_VALID_SCAN_TYPES)}")
-    if not file.filename or not file.filename.lower().endswith(".zip"):
-        raise HTTPException(400, "file must be a .zip archive")
+    fname_lower = (file.filename or "").lower()
+    is_tar = fname_lower.endswith(_PROJECT_TAR_EXTS)
+    if not fname_lower.endswith(".zip") and not is_tar:
+        raise HTTPException(400, "file must be a .zip or .tar/.tar.gz/.tgz archive")
 
     # Optional per-layer override from the Run Scan page's layer picker,
     # sent as a JSON-encoded array since multipart form fields are strings.
@@ -2058,15 +2096,22 @@ async def trigger_scan_upload(
                     raise HTTPException(413, f"upload exceeds {MAX_UPLOAD_BYTES // (1024*1024)}MB limit")
                 out.write(chunk)
 
-        if not zipfile.is_zipfile(zip_path):
+        if is_tar:
+            if not tarfile.is_tarfile(zip_path):
+                raise HTTPException(400, "uploaded file is not a valid tar archive")
+        elif not zipfile.is_zipfile(zip_path):
             raise HTTPException(400, "uploaded file is not a valid zip archive")
 
         base_name = _UPLOAD_NAME_RE.sub("-", Path(file.filename).stem).strip("-") or "upload"
         extract_dir = tmp_dir / f"upload-{base_name}-{job_id}"
 
         def _extract() -> None:
-            with zipfile.ZipFile(zip_path) as zf:
-                _safe_extract_zip(zf, extract_dir)
+            if is_tar:
+                with tarfile.open(zip_path) as tf:
+                    _safe_extract_tar(tf, extract_dir)
+            else:
+                with zipfile.ZipFile(zip_path) as zf:
+                    _safe_extract_zip(zf, extract_dir)
 
         try:
             # Extraction is pure CPU/disk work with no `await`s in it, so run
@@ -2075,7 +2120,7 @@ async def trigger_scan_upload(
             # other request the server is handling, including this same
             # upload's own job-status polling) for the whole extraction.
             await asyncio.to_thread(_extract)
-        except (zipfile.BadZipFile, ValueError) as e:
+        except (zipfile.BadZipFile, tarfile.TarError, ValueError) as e:
             shutil.rmtree(extract_dir, ignore_errors=True)
             raise HTTPException(400, f"could not extract archive: {e}")
     except BaseException:

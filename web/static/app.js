@@ -4511,11 +4511,11 @@ async function renderNewScan(prefill = '') {
               <button type="button" class="seg-btn active" data-value="path" id="target-mode-path-btn"
                 onclick="_setTargetMode('path')">Path / Git URL</button>
               <button type="button" class="seg-btn" data-value="upload" id="target-mode-upload-btn"
-                onclick="_setTargetMode('upload')">Upload .zip</button>
+                onclick="_setTargetMode('upload')">Upload archive</button>
             </div>
             <small id="target-mode-hint">Deployed on a remote server? A typed absolute path is resolved on the
               <strong>server's</strong> own filesystem, not your machine — use
-              "Upload .zip" to scan a local, not-yet-pushed project instead.</small>
+              "Upload archive" to scan a local, not-yet-pushed project instead.</small>
           </div>
 
           <div class="form-group" id="std-target-field">
@@ -4527,9 +4527,9 @@ async function renderNewScan(prefill = '') {
           </div>
 
           <div class="form-group" id="upload-target-field" style="display:none">
-            <label for="scan-upload" id="scan-upload-label">Project archive (.zip)</label>
-            <input type="file" id="scan-upload" accept=".zip" />
-            <small id="scan-upload-hint">Zip the project directory (e.g. <code>zip -r project.zip project/</code>) and
+            <label for="scan-upload" id="scan-upload-label">Project archive (.zip / .tar.gz)</label>
+            <input type="file" id="scan-upload" accept=".zip,.tar,.tar.gz,.tgz,.tar.bz2,.tar.xz" />
+            <small id="scan-upload-hint">Zip or tar the project directory (e.g. <code>zip -r project.zip project/</code> or <code>tar -czf project.tar.gz project/</code>) and
               upload it here. Extracted on the server and scanned like a local path.</small>
           </div>
 
@@ -4892,22 +4892,22 @@ function _onScanTypeSelectionChange() {
   const uploadLabel = document.getElementById('scan-upload-label');
   const uploadInput = document.getElementById('scan-upload');
   const uploadHint  = document.getElementById('scan-upload-hint');
-  if (uploadBtn)  uploadBtn.textContent = isImageOnly ? 'Upload image tarball' : 'Upload .zip';
+  if (uploadBtn)  uploadBtn.textContent = isImageOnly ? 'Upload image tarball' : 'Upload archive';
   if (modeHint) {
     modeHint.innerHTML = isImageOnly
       ? 'Deployed on a remote server? A typed local tarball path is resolved on the <strong>server\u2019s</strong> ' +
         'own filesystem, not your machine — use "Upload image tarball" to scan a local <code>docker save</code> ' +
         'archive instead (registry references and https:// URLs work fine from the Target field either way).'
       : 'Deployed on a remote server? A typed absolute path is resolved on the <strong>server\u2019s</strong> ' +
-        'own filesystem, not your machine — use "Upload .zip" to scan a local, not-yet-pushed project instead.';
+        'own filesystem, not your machine — use "Upload archive" to scan a local, not-yet-pushed project instead.';
   }
-  if (uploadLabel) uploadLabel.textContent = isImageOnly ? 'Image archive (.tar / .tar.gz / .tgz)' : 'Project archive (.zip)';
-  if (uploadInput) uploadInput.accept = isImageOnly ? '.tar,.tar.gz,.tgz' : '.zip';
+  if (uploadLabel) uploadLabel.textContent = isImageOnly ? 'Image archive (.tar / .tar.gz / .tgz)' : 'Project archive (.zip / .tar.gz)';
+  if (uploadInput) uploadInput.accept = isImageOnly ? '.tar,.tar.gz,.tgz' : '.zip,.tar,.tar.gz,.tgz,.tar.bz2,.tar.xz';
   if (uploadHint) {
     uploadHint.innerHTML = isImageOnly
       ? 'Produce one with <code>docker save -o image.tar name:tag</code> (or gzip it) and upload it here. ' +
         'Loaded into the server\u2019s Docker daemon and scanned like a registry/local image.'
-      : 'Zip the project directory (e.g. <code>zip -r project.zip project/</code>) and ' +
+      : 'Zip or tar the project directory (e.g. <code>zip -r project.zip project/</code> or <code>tar -czf project.tar.gz project/</code>) and ' +
         'upload it here. Extracted on the server and scanned like a local path.';
   }
   // Show Garak / STIG toggles and the layer picker only if any selected

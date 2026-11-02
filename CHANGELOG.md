@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.61.0] - 2026-11-02
+
+### Added
+- Run Scan → Upload archive now accepts tarballs (`.tar`, `.tar.gz`, `.tgz`, `.tar.bz2`, `.tar.xz`) as well as `.zip`. Tar extraction has the same path-traversal and size protections as zip, and skips symlinks, hardlinks and device files.
+
 ## [3.60.3] - 2026-11-02
 
 ### Fixed

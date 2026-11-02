@@ -5,6 +5,7 @@ against the server's own filesystem, not the browser's machine)."""
 from __future__ import annotations
 
 import io
+import tarfile
 import zipfile
 
 import pytest
@@ -43,7 +44,7 @@ def upload_client(tmp_path, monkeypatch):
 def test_upload_rejects_non_zip_file(upload_client):
     r = upload_client.post(
         "/api/scans/upload",
-        files={"file": ("project.tar", b"not a zip", "application/octet-stream")},
+        files={"file": ("project.txt", b"not an archive", "application/octet-stream")},
         data={"scan_type": "full"},
     )
     assert r.status_code == 400
@@ -142,3 +143,43 @@ def test_failed_image_upload_releases_reserved_id(upload_client, monkeypatch):
     )
     assert r.status_code == 413
     assert not job_store._reserved_job_ids
+
+
+def _tar_bytes(files: dict[str, bytes], mode: str = "w:gz") -> bytes:
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode=mode) as tf:
+        for name, content in files.items():
+            info = tarfile.TarInfo(name)
+            info.size = len(content)
+            tf.addfile(info, io.BytesIO(content))
+    return buf.getvalue()
+
+
+def test_upload_accepts_tar_gz(upload_client):
+    payload = _tar_bytes({"proj/README.md": b"hello"})
+    r = upload_client.post(
+        "/api/scans/upload",
+        files={"file": ("proj.tar.gz", payload, "application/gzip")},
+        data={"scan_type": "full"},
+    )
+    assert r.status_code == 202
+    assert upload_client.upload_calls[0]["target"].endswith("proj")
+
+
+def test_upload_rejects_tar_path_traversal(upload_client):
+    payload = _tar_bytes({"../../evil.txt": b"escape"})
+    r = upload_client.post(
+        "/api/scans/upload",
+        files={"file": ("proj.tar.gz", payload, "application/gzip")},
+        data={"scan_type": "full"},
+    )
+    assert r.status_code == 400
+
+
+def test_upload_rejects_invalid_tar_contents(upload_client):
+    r = upload_client.post(
+        "/api/scans/upload",
+        files={"file": ("proj.tgz", b"not a tarball", "application/gzip")},
+        data={"scan_type": "full"},
+    )
+    assert r.status_code == 400

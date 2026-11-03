@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.61.1] - 2026-11-02
+
+### Fixed
+- STIG Findings page no longer reloads (losing scroll position and filters) when locking or clearing a control; the row and totals update in place.
+
 ## [3.61.0] - 2026-11-02
 
 ### Added

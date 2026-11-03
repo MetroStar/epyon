@@ -7721,6 +7721,20 @@ async function renderStigViewer(scanId) {
     window.openStigDetail = (regKey) => {
       openStigViewerDetail(regKey);
     };
+    window.updateStigControlInPlace = (slug, vulnId, patch) => {
+      const c = allControls.find(x => x.vuln_id === vulnId && x._slug === slug);
+      if (!c) return false;
+      Object.assign(c, patch);
+      repaint();
+      const cnt = countsByStatus();
+      document.querySelectorAll('.stig-totals-bar .stig-total-chip').forEach(chip => {
+        const num = chip.querySelector('.num');
+        const key = chip.classList.contains('open') ? 'Open' : chip.classList.contains('pass') ? 'Not a Finding'
+          : chip.classList.contains('na') ? 'Not Applicable' : chip.classList.contains('nr') ? 'Not Reviewed' : null;
+        if (num && key) num.textContent = cnt[key] || 0;
+      });
+      return true;
+    };
     _stigJiraSel.clear();
     window.stigJiraToggle = (regKey, on) => {
       if (on) _stigJiraSel.add(regKey); else _stigJiraSel.delete(regKey);
@@ -9650,7 +9664,12 @@ window.saveStigOverrideFromDrawer = async (sid, slug, vulnId) => {
     }
     msgEl.textContent = '✓ Locked';
     msgEl.className = 'stig-override-msg stig-override-ok';
-    setTimeout(() => { closeFindingDetail(); renderStigViewer(sid); }, 800);
+    const newStatus = statusEl.value;
+    setTimeout(() => {
+      closeFindingDetail();
+      const patch = { status: newStatus, confidence: 95, locked_by_human: true, evidence: `[Human override] ${justification}\n` };
+      if (!window.updateStigControlInPlace?.(slug, vulnId, patch)) renderStigViewer(sid);
+    }, 800);
   } catch (e) {
     msgEl.textContent = `Error: ${e.message}`;
     msgEl.className = 'stig-override-msg stig-override-err';
@@ -9671,7 +9690,11 @@ window.clearStigOverrideFromDrawer = async (sid, slug, vulnId) => {
       throw new Error(err.detail || res.statusText);
     }
     if (msgEl) { msgEl.textContent = '✓ Lock cleared'; msgEl.className = 'stig-override-msg stig-override-ok'; }
-    setTimeout(() => { closeFindingDetail(); renderStigViewer(sid); }, 800);
+    setTimeout(() => {
+      closeFindingDetail();
+      const patch = { status: 'Open', confidence: 0, locked_by_human: false, evidence: '' };
+      if (!window.updateStigControlInPlace?.(slug, vulnId, patch)) renderStigViewer(sid);
+    }, 800);
   } catch (e) {
     if (msgEl) { msgEl.textContent = `Error: ${e.message}`; msgEl.className = 'stig-override-msg stig-override-err'; }
   }

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.62.0] - 2026-11-03
+
+### Changed
+- STIG Findings: Shift+click a checkbox to select (or deselect) a range of controls.
+- STIG Findings: select multiple controls and use the new "🔒 Lock N" button to lock or unlock them all at once (shared status and justification; a blank justification uses each control's requirement).
+- STIG control drawer: the override justification auto-populates with the control's requirement when the status is Not a Finding or Not Applicable (typed text is never overwritten).
+
+### Added
+- Active & recent scans list is now persisted to `web/data/jobs.json` and kept for 96 hours, so it survives web UI restarts and redeploys. Scans that were queued or running at restart are shown as failed ("Interrupted by server restart").
+
 ## [3.61.1] - 2026-11-02
 
 ### Fixed

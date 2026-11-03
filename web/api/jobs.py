@@ -119,6 +119,66 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+# ── Job persistence (survives redeploys) ─────────────────────
+JOBS_FILE = (Path(__file__).parent / ".." / "data" / "jobs.json").resolve()
+JOB_RETENTION_HOURS = 96
+PERSISTED_OUTPUT_LINES = 2000
+_persisted_snapshot = ""
+
+
+def _prune_expired_jobs() -> None:
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=JOB_RETENTION_HOURS)
+    for job_id, job in list(jobs.items()):
+        if job.get("status") in ("queued", "running"):
+            continue
+        try:
+            started = datetime.fromisoformat(job.get("started_at", ""))
+        except ValueError:
+            continue
+        if started < cutoff:
+            jobs.pop(job_id, None)
+
+
+def save_jobs() -> None:
+    """Write the job list to disk if it changed since the last save."""
+    global _persisted_snapshot
+    _prune_expired_jobs()
+    items = [{**j, "output": j.get("output", [])[-PERSISTED_OUTPUT_LINES:]} for j in list(jobs.values())]
+    payload = json.dumps(items)
+    if payload == _persisted_snapshot:
+        return
+    try:
+        JOBS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=JOBS_FILE.parent, suffix=".tmp")
+        with os.fdopen(fd, "w") as f:
+            f.write(payload)
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, JOBS_FILE)
+        _persisted_snapshot = payload
+    except OSError:
+        pass
+
+
+def load_jobs() -> None:
+    """Restore persisted jobs. Scans that were queued/running when the server
+    stopped lost their subprocess, so they are marked failed."""
+    try:
+        items = json.loads(JOBS_FILE.read_text())
+    except (OSError, ValueError):
+        return
+    for job in items if isinstance(items, list) else []:
+        job_id = job.get("job_id") if isinstance(job, dict) else None
+        if not job_id or job_id in jobs:
+            continue
+        if job.get("status") in ("queued", "running"):
+            job["status"] = "failed"
+            job["error"] = "Interrupted by server restart"
+            job["completed_at"] = _now()
+        jobs[job_id] = job
+    _prune_expired_jobs()
+    save_jobs()
+
+
 def _reserve_scan_dir(epyon_root: Path, target_name: str) -> tuple[str, Path]:
     scans_dir = epyon_root / "scans"
     scans_dir.mkdir(parents=True, exist_ok=True)

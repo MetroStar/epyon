@@ -500,11 +500,19 @@ async def lifespan(_: FastAPI):
             await asyncio.to_thread(_warm)
             await asyncio.sleep(5 * 60)
 
+    async def _persist_jobs_loop() -> None:
+        while True:
+            await asyncio.sleep(5)
+            await asyncio.to_thread(job_store.save_jobs)
+
+    job_store.load_jobs()
     parse_cache.configure(_HERE.parent / "data" / "cache" / "parse-cache.json")
+    asyncio.create_task(_persist_jobs_loop())
     asyncio.create_task(_auto_sync_loop())
     asyncio.create_task(_retention_loop())
     asyncio.create_task(_warm_caches())
     yield
+    job_store.save_jobs()
 
 
 # ── Security header constants ─────────────────────────────────

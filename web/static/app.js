@@ -7605,6 +7605,7 @@ async function renderStigViewer(scanId) {
         <div class="stig-viewer-count" style="display:flex;align-items:center;gap:12px">
           <span>${rows.length} control${rows.length !== 1 ? 's' : ''}</span>
           <button class="btn" id="stig-jira-bulk" onclick="openStigJiraModal('${esc(scanId)}')" ${_stigJiraSel.size ? '' : 'disabled'}>Add ${_stigJiraSel.size || ''} to Jira</button>
+          <button class="btn" id="stig-lock-bulk" onclick="openStigBulkLockModal('${esc(scanId)}')" ${_stigJiraSel.size ? '' : 'disabled'}>🔒 Lock ${_stigJiraSel.size || ''}</button>
         </div>
         <div class="stig-table-wrap">
           <table class="stig-table">
@@ -7636,7 +7637,7 @@ async function renderStigViewer(scanId) {
                 const confClass = conf >= 90 ? 'conf-high' : conf >= 70 ? 'conf-med' : conf >= 40 ? 'conf-low' : 'conf-none';
                 return `
                   <tr class="stig-tr stig-tr-clickable" id="${rowId}" onclick="openStigDetail('${esc(regKey)}')">
-                    <td onclick="event.stopPropagation()"><input type="checkbox" aria-label="Select ${esc(c.vuln_id)}" ${_stigJiraSel.has(regKey) ? 'checked' : ''} onchange="stigJiraToggle('${esc(regKey)}', this.checked)"></td>
+                    <td onclick="event.stopPropagation()"><input type="checkbox" aria-label="Select ${esc(c.vuln_id)}" ${_stigJiraSel.has(regKey) ? 'checked' : ''} onclick="stigJiraToggle('${esc(regKey)}', this.checked, event.shiftKey)"></td>
                     <td><code class="stig-id">${esc(c.group_id || c.vuln_id)}</code></td>
                     <td><span class="stig-sev stig-sev-${esc(c.severity)}">${esc(c.severity || '—')}</span></td>
                     <td><span class="${esc(STATUS_CLASS[c.status] || 'stig-status-nr')}">${esc(stigStatusLabel(c.status))}</span>${c.locked_by_human ? ' <span class="stig-lock-badge" title="Human-reviewed; locked until a listed path changes">🔒</span>' : ''}${c.locked_by_stability ? ' <span class="stig-lock-badge" title="No repository evidence found across repeated scans — not re-assessed by AI to save time/tokens until code changes">💤</span>' : ''}</td>
@@ -7721,10 +7722,13 @@ async function renderStigViewer(scanId) {
     window.openStigDetail = (regKey) => {
       openStigViewerDetail(regKey);
     };
-    window.updateStigControlInPlace = (slug, vulnId, patch) => {
-      const c = allControls.find(x => x.vuln_id === vulnId && x._slug === slug);
-      if (!c) return false;
-      Object.assign(c, patch);
+    window.updateStigControlsInPlace = (updates) => {
+      let found = 0;
+      for (const { slug, vulnId, patch } of updates) {
+        const c = allControls.find(x => x.vuln_id === vulnId && x._slug === slug);
+        if (c) { Object.assign(c, patch); found++; }
+      }
+      if (!found) return false;
       repaint();
       const cnt = countsByStatus();
       document.querySelectorAll('.stig-totals-bar .stig-total-chip').forEach(chip => {
@@ -7735,13 +7739,21 @@ async function renderStigViewer(scanId) {
       });
       return true;
     };
+    window.updateStigControlInPlace = (slug, vulnId, patch) =>
+      window.updateStigControlsInPlace([{ slug, vulnId, patch }]);
     _stigJiraSel.clear();
-    window.stigJiraToggle = (regKey, on) => {
-      if (on) _stigJiraSel.add(regKey); else _stigJiraSel.delete(regKey);
+    let lastStigClicked = null;
+    window.stigJiraToggle = (regKey, on, shift) => {
+      const keys = filtered().map(r => `${r.vuln_id}__${r._slug}`);
+      const from = shift && lastStigClicked ? keys.indexOf(lastStigClicked) : -1;
+      const to = keys.indexOf(regKey);
+      const range = from >= 0 && to >= 0 ? keys.slice(Math.min(from, to), Math.max(from, to) + 1) : [regKey];
+      range.forEach(k => { if (on) _stigJiraSel.add(k); else _stigJiraSel.delete(k); });
+      lastStigClicked = regKey;
       repaint();
     };
     window.stigJiraToggleAll = (on) => {
-      rows.forEach(r => {
+      filtered().forEach(r => {
         const k = `${r.vuln_id}__${r._slug}`;
         if (on) _stigJiraSel.add(k); else _stigJiraSel.delete(k);
       });
@@ -8815,6 +8827,78 @@ async function openStigJiraModal(scanId, regKeys) {
   fill();
 }
 
+function openStigBulkLockModal(scanId) {
+  const controls = [..._stigJiraSel].map(k => _stigRegistry.get(k)?.c).filter(Boolean);
+  if (!controls.length) return;
+  const n = controls.length;
+  document.querySelector('.modal-overlay')?.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `<div class="modal-container modal-md">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2 style="color:var(--text);margin:0">Lock / unlock ${n} STIG control${n === 1 ? '' : 's'}</h2>
+      <button class="btn" onclick="stigJiraClose()" style="padding:6px 12px">✕</button>
+    </div>
+    <div style="margin-bottom:14px">
+      <label class="field-label" for="stig-bulk-status">Status</label>
+      <select id="stig-bulk-status" class="field-input">
+        <option>Not a Finding</option><option>Not Applicable</option><option>Open</option><option>Not Reviewed</option>
+      </select>
+    </div>
+    <div style="margin-bottom:14px">
+      <label class="field-label" for="stig-bulk-just">Justification</label>
+      <textarea id="stig-bulk-just" class="field-input" rows="3"
+        placeholder="Leave blank to use each control's requirement as its justification"></textarea>
+    </div>
+    <div id="stig-bulk-result" style="font-size:13px;margin-bottom:10px"></div>
+    <div style="display:flex;justify-content:flex-end;gap:10px">
+      <button class="btn" onclick="stigJiraClose()">Close</button>
+      <button id="stig-bulk-unlock" class="btn" title="Remove the human lock so the next scan re-assesses these controls">Unlock ${n}</button>
+      <button id="stig-bulk-submit" class="btn btn-primary">🔒 Lock ${n}</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) stigJiraClose(); });
+  const run = async (clear) => {
+    const btns = [document.getElementById('stig-bulk-submit'), document.getElementById('stig-bulk-unlock')];
+    const out = document.getElementById('stig-bulk-result');
+    const status = clear ? 'Open' : document.getElementById('stig-bulk-status').value;
+    const shared = document.getElementById('stig-bulk-just').value.trim();
+    btns.forEach(b => { b.disabled = true; });
+    const updates = [], failed = [];
+    for (let i = 0; i < controls.length; i++) {
+      const c = controls[i];
+      out.style.color = 'var(--text)';
+      out.textContent = `${clear ? 'Unlocking' : 'Locking'} ${i + 1} of ${n}…`;
+      const justification = clear ? '' : (shared || c.title || status);
+      try {
+        const res = await fetch(`/api/scans/${encodeURIComponent(scanId)}/stig-override`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug: c._slug, vuln_id: c.vuln_id, status, justification, clear_lock: clear }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: res.statusText }));
+          throw new Error(err.detail || res.statusText);
+        }
+        updates.push({ slug: c._slug, vulnId: c.vuln_id, patch: clear
+          ? { status: 'Open', confidence: 0, locked_by_human: false, evidence: '' }
+          : { status, confidence: 95, locked_by_human: true, evidence: `[Human override] ${justification}\n` } });
+        _stigJiraSel.delete(`${c.vuln_id}__${c._slug}`);
+      } catch (e) {
+        failed.push(`${c.vuln_id} (${e.message})`);
+      }
+    }
+    window.updateStigControlsInPlace?.(updates);
+    out.style.color = failed.length ? 'var(--critical)' : 'var(--text)';
+    out.textContent = `${clear ? 'Unlocked' : 'Locked'} ${updates.length} of ${n}.` + (failed.length ? ` Failed: ${failed.join(', ')}` : '');
+    if (!failed.length) setTimeout(stigJiraClose, 800);
+    else { btns.forEach(b => { b.disabled = false; }); }
+  };
+  document.getElementById('stig-bulk-submit').onclick = () => run(false);
+  document.getElementById('stig-bulk-unlock').onclick = () => run(true);
+}
+
 function stigJiraClose() {
   document.querySelector('.modal-overlay')?.remove();
 }
@@ -9479,6 +9563,9 @@ function openStigViewerDetail(regKey) {
   const justPrefilled = c.locked_by_human && c.evidence
     ? esc(c.evidence.replace(/^\[Human override\] /, '').split('\n')[0])
     : '';
+  const autoJustStatuses = ['Not a Finding', 'Not Applicable'];
+  const autoJust = c.title || '';
+  const justInitial = justPrefilled || (autoJustStatuses.includes(c.status) ? esc(autoJust) : '');
 
   const overrideOptions = ['Not a Finding', 'Not Applicable', 'Open', 'Not Reviewed']
     .map(s => `<option value="${esc(s)}"${c.status === s ? ' selected' : ''}>${esc(s)}</option>`).join('');
@@ -9567,14 +9654,16 @@ function openStigViewerDetail(regKey) {
         <div class="stig-override-form">
           <div class="stig-override-row">
             <label class="stig-override-label">Status</label>
-            <select class="stig-override-select" id="sd-status-${esc(c.vuln_id)}-${esc(c._slug)}">
+            <select class="stig-override-select" id="sd-status-${esc(c.vuln_id)}-${esc(c._slug)}"
+              data-auto-just="${esc(autoJust)}"
+              onchange="stigOverrideStatusChanged(this, 'sd-just-${esc(c.vuln_id)}-${esc(c._slug)}')">
               ${overrideOptions}
             </select>
           </div>
           <div class="stig-override-row">
             <label class="stig-override-label">Justification</label>
             <textarea class="stig-override-textarea" id="sd-just-${esc(c.vuln_id)}-${esc(c._slug)}"
-              placeholder="Explain why this control is met (required)" rows="3">${justPrefilled}</textarea>
+              placeholder="Explain why this control is met (required)" rows="3">${justInitial}</textarea>
           </div>
           <div class="stig-override-row stig-override-actions">
             <button class="btn btn-sm btn-success"
@@ -9638,6 +9727,17 @@ function stigRecordHtml(c) {
 function closeStigDetail() {
   closeFindingDetail();
 }
+
+// Auto-fill the justification with the control's requirement for Not a Finding /
+// Not Applicable, without clobbering text the reviewer typed.
+window.stigOverrideStatusChanged = (sel, justId) => {
+  const just = document.getElementById(justId);
+  if (!just) return;
+  const auto = sel.dataset.autoJust || '';
+  const val = just.value.trim();
+  if (val && val !== auto) return;
+  just.value = ['Not a Finding', 'Not Applicable'].includes(sel.value) ? auto : '';
+};
 
 window.saveStigOverrideFromDrawer = async (sid, slug, vulnId) => {
   const statusEl = document.getElementById(`sd-status-${vulnId}-${slug}`);

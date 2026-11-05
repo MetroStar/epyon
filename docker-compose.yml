@@ -38,7 +38,15 @@ services:
       # ${PWD} at `docker compose up` time — override only if that isn't
       # this checkout's real absolute host path (e.g. a symlinked deploy dir).
       HOST_PROJECT_DIR: ${HOST_PROJECT_DIR:-${PWD}}
+      # Private ECR: set ECR_REGISTRY (comma-separated hosts) to have the
+      # container log in at startup and every ECR_REFRESH_HOURS (tokens last
+      # 12h). Credentials come from the mounted ~/.aws via AWS_PROFILE.
+      ECR_REGISTRY: ${ECR_REGISTRY:-}
+      ECR_REGION: ${ECR_REGION:-}
+      AWS_PROFILE: ${AWS_PROFILE:-}
+      ECR_REFRESH_HOURS: ${ECR_REFRESH_HOURS:-6}
     volumes:
+      - ${HOME}/.aws:/root/.aws:ro
       # Docker-outside-of-docker: scan layers are spawned as sibling
       # containers on the host engine, not nested inside this container.
       - /var/run/docker.sock:/var/run/docker.sock

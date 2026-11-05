@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.62.5] - 2026-11-05
+
+### Added
+- The web container now keeps its Docker login to private ECR registries fresh automatically (`scripts/shell/ecr-refresh-loop.sh`): set `ECR_REGISTRY`, `ECR_REGION` and `AWS_PROFILE` in `.env`; `~/.aws` is mounted read-only and the token is refreshed at startup and every `ECR_REFRESH_HOURS` (default 6).
+
 ## [3.62.4] - 2026-11-05
 
 ### Fixed

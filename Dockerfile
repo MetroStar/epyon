@@ -52,6 +52,10 @@ RUN python3 -m pip install --no-cache-dir -r /app/web/api/requirements.txt
 # failure) instead of a clear error.
 RUN python3 -m pip install --no-cache-dir pip-audit
 
+# AWS CLI for scripts/shell/ecr-refresh-loop.sh, which keeps the Docker login
+# to private ECR registries fresh (see ECR_REGISTRY in docker-compose.yml).
+RUN python3 -m pip install --no-cache-dir awscli
+
 # Copy the full repository so scan scripts, configuration, and VERSION are
 # available to the API at runtime (see EPYON_ROOT resolution in main.py).
 COPY . /app
@@ -73,4 +77,4 @@ EXPOSE 8057
 
 WORKDIR /app/web
 
-CMD ["sh", "-c", "python3 -m uvicorn api.main:app --host ${HOST} --port ${PORT} --app-dir /app/web"]
+CMD ["sh", "-c", "bash /app/scripts/shell/ecr-refresh-loop.sh & exec python3 -m uvicorn api.main:app --host ${HOST} --port ${PORT} --app-dir /app/web"]

@@ -56,6 +56,29 @@ for arg in "$@"; do
 done
 
 # Function to generate scan-specific findings summary from scan directory
+# Merge four severity arrays (JSON strings) into $OUTPUT_FILE. They go through
+# temp files because a single argv string is capped at 128KB on Linux, so
+# --argjson fails ("Argument list too long") on large Checkov/Trivy result sets
+# and silently drops that tool's findings. Invalid input is treated as empty.
+merge_severity_arrays() {
+    local dir sev i=0
+    dir=$(mktemp -d)
+    for sev in "$1" "$2" "$3" "$4"; do
+        i=$((i + 1))
+        printf '%s' "$sev" > "$dir/$i.json"
+        jq -e 'type == "array"' "$dir/$i.json" >/dev/null 2>&1 || printf '[]' > "$dir/$i.json"
+    done
+    jq --slurpfile critical "$dir/1.json" --slurpfile high "$dir/2.json" \
+       --slurpfile medium "$dir/3.json" --slurpfile low "$dir/4.json" '
+        .critical_findings += $critical[0] |
+        .high_findings     += $high[0] |
+        .medium_findings   += $medium[0] |
+        .low_findings      += $low[0]' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+    local rc=$?
+    rm -rf "$dir"
+    return $rc
+}
+
 generate_scan_findings_summary() {
     local scan_id="$1"
     local target_dir="$2"
@@ -400,11 +423,7 @@ EOF
                     }]' "$grype_file" 2>/dev/null || echo "[]")
                 
                 # Add to summary
-                jq --argjson critical "$critical_vulns" --argjson high "$high_vulns" --argjson medium "$medium_vulns" --argjson low "$low_vulns" '
-                    .critical_findings += $critical |
-                    .high_findings += $high |
-                    .medium_findings += $medium |
-                    .low_findings += $low' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+                merge_severity_arrays "$critical_vulns" "$high_vulns" "$medium_vulns" "$low_vulns"
                 
                 local crit_count=$(echo "$critical_vulns" | jq 'length' 2>/dev/null || echo "0")
                 local high_count=$(echo "$high_vulns" | jq 'length' 2>/dev/null || echo "0")
@@ -459,11 +478,7 @@ EOF
             local pip_low=$(echo "$pip_audit_vulns" | jq '[.[] | select(.severity == "Low")]' 2>/dev/null || echo "[]")
             
             # Add to findings summary
-            jq --argjson critical "$pip_critical" --argjson high "$pip_high" --argjson medium "$pip_medium" --argjson low "$pip_low" '
-                .critical_findings += $critical |
-                .high_findings += $high |
-                .medium_findings += $medium |
-                .low_findings += $low' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+            merge_severity_arrays "$pip_critical" "$pip_high" "$pip_medium" "$pip_low"
             
             local crit_count=$(echo "$pip_critical" | jq 'length' 2>/dev/null || echo "0")
             local high_count=$(echo "$pip_high" | jq 'length' 2>/dev/null || echo "0")
@@ -517,11 +532,7 @@ EOF
             local safety_low=$(echo "$safety_vulns" | jq '[.[] | select(.severity == "Low")]' 2>/dev/null || echo "[]")
             
             # Add to findings summary; global dedupe pass runs at end of script.
-            jq --argjson critical "$safety_critical" --argjson high "$safety_high" --argjson medium "$safety_medium" --argjson low "$safety_low" '
-                .critical_findings += $critical |
-                .high_findings += $high |
-                .medium_findings += $medium |
-                .low_findings += $low' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+            merge_severity_arrays "$safety_critical" "$safety_high" "$safety_medium" "$safety_low"
             
             local crit_count=$(echo "$safety_critical" | jq 'length' 2>/dev/null || echo "0")
             local high_count=$(echo "$safety_high" | jq 'length' 2>/dev/null || echo "0")
@@ -636,11 +647,7 @@ EOF
                     }]' "$trivy_file" 2>/dev/null || echo "[]")
                 
                 # Add to summary
-                jq --argjson critical "$critical_vulns" --argjson high "$high_vulns" --argjson medium "$medium_vulns" --argjson low "$low_vulns" '
-                    .critical_findings += $critical |
-                    .high_findings += $high |
-                    .medium_findings += $medium |
-                    .low_findings += $low' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+                merge_severity_arrays "$critical_vulns" "$high_vulns" "$medium_vulns" "$low_vulns"
                 
                 local crit_count=$(echo "$critical_vulns" | jq 'length' 2>/dev/null || echo "0")
                 local high_count=$(echo "$high_vulns" | jq 'length' 2>/dev/null || echo "0")
@@ -689,11 +696,7 @@ EOF
                 local checkov_low=$(echo "$checkov_failures" | jq '[.[] | select(.severity == "Low")]' 2>/dev/null || echo "[]")
                 
                 # Add to summary
-                jq --argjson critical "$checkov_critical" --argjson high "$checkov_high" --argjson medium "$checkov_medium" --argjson low "$checkov_low" '
-                    .critical_findings += $critical |
-                    .high_findings += $high |
-                    .medium_findings += $medium |
-                    .low_findings += $low' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+                merge_severity_arrays "$checkov_critical" "$checkov_high" "$checkov_medium" "$checkov_low"
                 
                 local crit_count=$(echo "$checkov_critical" | jq 'length' 2>/dev/null || echo "0")
                 local high_count=$(echo "$checkov_high" | jq 'length' 2>/dev/null || echo "0")
@@ -738,11 +741,7 @@ EOF
             local cs_medium=$(echo "$compromised_findings" | jq '[.[] | select(.severity == "Medium")]' 2>/dev/null || echo "[]")
             local cs_low=$(echo "$compromised_findings" | jq '[.[] | select(.severity == "Low")]' 2>/dev/null || echo "[]")
 
-            jq --argjson critical "$cs_critical" --argjson high "$cs_high" --argjson medium "$cs_medium" --argjson low "$cs_low" '
-                .critical_findings += $critical |
-                .high_findings += $high |
-                .medium_findings += $medium |
-                .low_findings += $low' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+            merge_severity_arrays "$cs_critical" "$cs_high" "$cs_medium" "$cs_low"
 
             local crit_count=$(echo "$cs_critical" | jq 'length' 2>/dev/null || echo "0")
             local high_count=$(echo "$cs_high" | jq 'length' 2>/dev/null || echo "0")
@@ -873,11 +872,7 @@ EOF
                 a_high=$(echo "$anchore_findings" | jq '[.[] | select(.severity == "High")]' 2>/dev/null || echo "[]")
                 a_med=$(echo "$anchore_findings"  | jq '[.[] | select(.severity == "Medium")]' 2>/dev/null || echo "[]")
                 a_low=$(echo "$anchore_findings"  | jq '[.[] | select(.severity == "Low")]' 2>/dev/null || echo "[]")
-                jq --argjson critical "$a_crit" --argjson high "$a_high" --argjson medium "$a_med" --argjson low "$a_low" '
-                    .critical_findings += $critical |
-                    .high_findings     += $high |
-                    .medium_findings   += $medium |
-                    .low_findings      += $low' "$OUTPUT_FILE" > "${OUTPUT_FILE}.tmp" && mv "${OUTPUT_FILE}.tmp" "$OUTPUT_FILE"
+                merge_severity_arrays "$a_crit" "$a_high" "$a_med" "$a_low"
                 total_critical=$((total_critical + $(echo "$a_crit" | jq 'length' 2>/dev/null || echo 0)))
                 total_high=$((total_high         + $(echo "$a_high" | jq 'length' 2>/dev/null || echo 0)))
                 total_medium=$((total_medium     + $(echo "$a_med"  | jq 'length' 2>/dev/null || echo 0)))

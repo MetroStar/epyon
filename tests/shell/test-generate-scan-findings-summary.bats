@@ -179,3 +179,18 @@ JSON
 
     rm -rf "$project_root" "$tmp_target"
 }
+
+@test "merge_severity_arrays keeps findings when a severity array exceeds the 128KB argv limit" {
+    OUTPUT_FILE="$(mktemp)"
+    echo '{"critical_findings":[],"high_findings":[],"medium_findings":[],"low_findings":[]}' > "$OUTPUT_FILE"
+    sed -n '/^merge_severity_arrays()/,/^}/p' "$SCRIPT_PATH" > "${OUTPUT_FILE}.fn"
+    big="$(python3 -c "import json;print(json.dumps([{'id':'CKV_%d'%i,'file':'x'*200} for i in range(1500)]))")"
+    [ "${#big}" -gt 131072 ]
+
+    run bash -c ". '${OUTPUT_FILE}.fn'; OUTPUT_FILE='$OUTPUT_FILE'; merge_severity_arrays '[]' '$big' '' 'not json'"
+    [ "$status" -eq 0 ]
+    [ "$(jq '.high_findings | length' "$OUTPUT_FILE")" = "1500" ]
+    [ "$(jq '.low_findings | length' "$OUTPUT_FILE")" = "0" ]
+
+    rm -f "$OUTPUT_FILE" "${OUTPUT_FILE}.fn"
+}

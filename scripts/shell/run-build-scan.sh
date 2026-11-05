@@ -135,7 +135,11 @@ else
     done
 
     if [[ -z "$DOCKERFILE_PATH" ]]; then
-        mapfile -t DISCOVERED_DOCKERFILES < <(discover_dockerfile_paths "$TARGET_DIR")
+        # No mapfile: macOS ships Bash 3.2.
+        DISCOVERED_DOCKERFILES=()
+        while IFS= read -r _df; do
+            [[ -n "$_df" ]] && DISCOVERED_DOCKERFILES+=("$_df")
+        done < <(discover_dockerfile_paths "$TARGET_DIR")
         if [[ ${#DISCOVERED_DOCKERFILES[@]} -gt 0 ]]; then
             DOCKERFILE_PATH="${DISCOVERED_DOCKERFILES[0]}"
             echo -e "${CYAN}ℹ️  No Dockerfile at the target root — auto-discovered: $DOCKERFILE_PATH${NC}"

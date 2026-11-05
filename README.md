@@ -16,6 +16,77 @@ Epyon is designed to be opinionated, automated, and decisive — empowering team
 
 ## Overview
 
+### Hardened Jenkins execution
+
+Quartz Evaluator can scan an application image without giving its scanner pod a
+container daemon or elevated privileges. Build the image in a separate CI
+builder, label it with `org.opencontainers.image.revision` equal to the target
+Git commit, export a single-image OCI archive, and set `EPYON_IMAGE_ARCHIVE` to
+that archive. Phase 0 verifies the source revision, manifest, config and every
+layer digest before routing the archive to native Trivy, Grype and Anchore.
+Trivy reads a temporary OCI directory containing only verified blobs and OCI
+metadata; no archive layer filesystem is extracted. The directory is removed
+after scanning, including on scanner failure.
+
+Preserve the Maven build's local repository at `$HOME/.m2/repository` in the
+scanner agent so Java dependency resolution can reuse the actual build cache
+instead of relying on rate-limited Maven Central requests.
+
+Set `EPYON_REQUIRE_COMPLETE=true` to fail orchestration when any enabled scanner
+fails, while retaining diagnostic outputs. Failed Trivy/Grype results are not
+replaced with empty successful JSON. Optional, inapplicable layers still report
+their normal applicability status.
+Full scans run model-card and inference configuration checks in `--report-only`
+mode: completed checks retain all policy findings without counting those findings
+as execution failures. Their standalone policy gates remain unchanged, and
+execution/report-generation failures still fail complete scans. Sonar gates and
+vulnerability thresholds are enforced separately.
+
+For an Ollama-compatible endpoint supporting schema-constrained output and
+`reasoning_effort=none`, set `EPYON_AI_STRUCTURED_OUTPUT=true`. STIG batches
+request and validate one JSON assessment per control; exhausted retries cannot
+pass complete-scan enforcement. Existing hosted configurations remain opt-in.
+
+### Persistent performance caches
+
+Set `EPYON_CACHE_DIR` to a trusted persistent directory, separate from scan reports.
+NVD caches only successful, identity-checked CVE responses for `NVD_CACHE_TTL`
+seconds (default 86400), bounded to 2048 entries. Misses and retries share a
+cross-process rate limiter. `NVD_API_KEY` uses the authenticated interval; without
+a key, the unauthenticated six-second interval remains enforced. Keys are not
+stored in cache records or passed to the enrichment Python process as arguments.
+Enrichment metadata records cache hit/miss counts.
+
+STIG reuse is opt-in through `EPYON_CACHE_DIR` and requires an immutable model
+digest: set `EPYON_STIG_MODEL_REVISION` or point
+`EPYON_STIG_MODEL_IDENTITY_URL` at a trusted Ollama `/api/tags` endpoint.
+Only complete, validated assessments with identical application, repository
+contents (including untracked, non-ignored source files), supplied source/context,
+STIG definitions, model digest, endpoint, assessment implementation and settings
+are reused. Any difference requires a fresh assessment; unknown model identity
+or a non-Git target disables reuse with a warning. Failed/incomplete assessments
+are never cached. The cache holds at most 128 entries for
+`EPYON_STIG_CACHE_TTL` seconds (default 86400). Outputs retain all control results,
+the original assessment timestamp and explicit reuse provenance.
+Generated directories such as Maven `target`, Sonar `.scannerwork`, and build
+outputs are excluded from AI source context and untracked-file fingerprints;
+their changing timestamps are not application changes. Tracked files are always
+fingerprinted, even under these directories. This does not skip compiled-code
+Sonar analysis, vulnerability scans, or current scanner-finding context.
+
+`EPYON_STIG_BATCH_SIZE` accepts 1-10 controls per request.
+`EPYON_STIG_CONCURRENCY` accepts 1-4 concurrent requests (default 1).
+Concurrent results are merged in control order; every batch still uses the
+same exact-control validation, retry and strict completion rules.
+Cache storage must be writable only by trusted scanner jobs. Do not mount it
+into untrusted pull-request workloads.
+
+An SSO deployment can set `EPYON_LOGOUT_URL` to a local
+`/oauth2/sign_out?rd=...` URL to expose the dashboard logout control. The proxy
+must allow only the intended provider redirect host, and the provider must
+register the application's post-logout return URI. HTML and API responses use
+no-store cache headers so authenticated content is not reused after logout.
+
 Epyon is a **production-ready, enterprise-grade** 21-layer DevSecOps security platform with a FastAPI-backed web UI, comprehensive test coverage, baseline scanning, automated comparison, and isolated scan directory architecture. Built for real-world applications with Docker-based tooling and 886 automated tests.
 
 **Version: 3.14.4** · **Updated: September 16, 2026**

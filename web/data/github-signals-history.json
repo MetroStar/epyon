@@ -34,5 +34,11 @@
     "sec_open": 1,
     "workflow_success_rate": null,
     "pr_coverage_pct": 47
+  },
+  {
+    "date": "2026-11-05",
+    "ts": "2026-11-05T14:57:51Z",
+    "workflow_success_rate": 45,
+    "pr_coverage_pct": 100
   }
 ]

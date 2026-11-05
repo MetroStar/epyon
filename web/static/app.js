@@ -1187,7 +1187,7 @@ function toast(message, kind = 'info') {
   if (kind === 'error') {
     const hint = document.createElement('div');
     hint.className = 'toast-hint';
-    hint.textContent = 'Try again. If it keeps failing, check the Epyon server log.';
+    hint.textContent = 'Try again. If it keeps failing, check the Quartz Evaluator server log.';
     text.appendChild(hint);
   }
   const close = document.createElement('button');
@@ -1229,7 +1229,7 @@ function confirmDialog({ title, body, confirmLabel = 'Confirm', cancelLabel = 'C
 }
 
 function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
   applyTheme(current === 'dark' ? 'light' : 'dark');
 }
 
@@ -1259,9 +1259,7 @@ async function clearCacheAndReload() {
       return;
     }
   } catch (_) {}
-  // Fall back to OS preference
-  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  applyTheme(prefersDark ? 'dark' : 'light');
+  applyTheme('light');
 })();
 
 // ── Sidebar collapse ─────────────────────────────────────────
@@ -1386,7 +1384,7 @@ async function renderOverview() {
          </div>`;
 
     page.innerHTML = `
-      ${pageHeader(`Security Overview`, { actions: `<button class="btn btn-primary" onclick="navigate('#/new-scan')">+ Run Scan</button>` })}
+      ${pageHeader(`Overview`, { actions: `<button class="btn btn-primary" onclick="navigate('#/new-scan')">+ Run Evaluation</button>` })}
 
       <div class="stats-grid">
         <div class="stat-card">
@@ -1395,7 +1393,7 @@ async function renderOverview() {
         </div>
         <div class="stat-card">
           <div class="stat-value">${esc(stats.total_scans)}</div>
-          <div class="stat-label">Total Scans</div>
+          <div class="stat-label">Total Evaluations</div>
         </div>
         <div class="stat-card critical">
           <div class="stat-value">${esc(stats.critical)}</div>
@@ -1823,7 +1821,7 @@ async function renderApplications() {
 
     page.innerHTML = `
       ${pageHeader(`Applications`, { actions: `<button class="btn" onclick="showAddAppModal()">+ Add Application</button>
-          <button class="btn btn-primary" onclick="navigate('#/new-scan')">▶ Run Scan</button>` })}
+          <button class="btn btn-primary" onclick="navigate('#/new-scan')">▶ Run Evaluation</button>` })}
       <div class="table-container">
         <table>
           <thead>
@@ -1831,7 +1829,7 @@ async function renderApplications() {
               <th scope="col">Application</th>
               <th scope="col">Type</th>
               <th scope="col">Last Scanned</th>
-              <th scope="col">Scans</th>
+              <th scope="col">Evaluations</th>
               <th scope="col">Critical</th>
               <th scope="col">High</th>
               <th scope="col">Medium</th>
@@ -1916,7 +1914,7 @@ async function renderAppDetail(name) {
                  </button>
                </div>`
             : `<button class="btn btn-primary" onclick="navigate('#/new-scan')" style="margin-top:16px">
-                 ▶ Run Scan
+                 ▶ Run Evaluation
                </button>`,
         );
 
@@ -1936,7 +1934,7 @@ async function renderAppDetail(name) {
     const statsSection = scans.length ? `
       <div class="detail-grid">
         <div class="detail-card">
-          <div class="label">Total Scans</div>
+          <div class="label">Total Evaluations</div>
           <div class="value">${esc(scans.length)}</div>
         </div>
         <div class="detail-card">
@@ -1970,7 +1968,7 @@ async function renderAppDetail(name) {
       </div>
       ${pageHeader(`${esc(name)} ${statusBadge(status)}`, { actions: `<button class="btn btn-primary"
             onclick="navigate('#/new-scan?target=${encodeURIComponent(appUrl)}')">
-            ▶ Run Scan
+            ▶ Run Evaluation
           </button>
           <button class="btn app-type-badge ${appInfo.monitored ? 'monitored' : 'evaluation'}"
             onclick="(async()=>{
@@ -1997,7 +1995,7 @@ async function renderAppDetail(name) {
       ${statsSection}
       ${buildAppIssoSection(name)}
       <div class="section">
-        <div class="section-title">Scan History</div>
+        <div class="section-title">Evaluation History</div>
         <div class="scan-timeline">${timelineItems}</div>
       </div>`;
   } catch (e) {
@@ -2162,16 +2160,16 @@ async function renderScanDetail(scanId, openFindingId = '', openFindingPackage =
         <span>${esc(scan.scan_id)}</span>
       </div>
 
-      ${pageHeader(`Scan Details ${statusBadge(status)} ${gateBadge(scan)}`, { subtitle: `Findings, compliance, and evidence collected for <strong>${esc(scan.target)}</strong> on ${fmtDate(scan.timestamp)}.`, actions: `<button class="btn" onclick="navigate('#/jira-review/${encodeURIComponent(scanId)}')"
+      ${pageHeader(`Evaluation Details ${statusBadge(status)} ${gateBadge(scan)}`, { subtitle: `Findings, compliance, and evidence collected for <strong>${esc(scan.target)}</strong> on ${fmtDate(scan.timestamp)}.`, actions: `<button class="btn" onclick="navigate('#/jira-review/${encodeURIComponent(scanId)}')"
             title="Select findings to create as Jira tickets">
             Jira Review
           </button>
           ${repoUrl
             ? `<button class="btn btn-primary"
                  onclick="navigate('#/new-scan?target=${encodeURIComponent(repoUrl)}')">
-                 ▶ Run Scan
+                 ▶ Run Evaluation
                </button>`
-            : `<button class="btn btn-primary" onclick="navigate('#/new-scan')">▶ Run Scan</button>`}
+            : `<button class="btn btn-primary" onclick="navigate('#/new-scan')">▶ Run Evaluation</button>`}
           ${scan.has_dashboard
             ? `<button class="btn"
                  onclick="window.open('/api/scans/${encodeURIComponent(scanId)}/dashboard','_blank')">
@@ -3110,7 +3108,7 @@ function buildSSPEvidenceCard(scan) {
       </summary>
       <div class="ms-body">
         <div style="padding:12px 18px 0;color:var(--text-muted);font-size:13px;">
-          Maps Epyon's security scanning layers, build provenance, and scan manifests directly to NIST SP 800-53 Rev. 5 / FedRAMP control families for System Security Plans (SSP) and ATO submissions.
+          Maps Quartz Evaluator's security scanning layers, build provenance, and scan manifests directly to NIST SP 800-53 Rev. 5 / FedRAMP control families for System Security Plans (SSP) and ATO submissions.
         </div>
         <div style="overflow-x:auto;padding:12px 18px 18px;">
           <table style="width:100%;border-collapse:collapse;font-size:13px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;">
@@ -3118,7 +3116,7 @@ function buildSSPEvidenceCard(scan) {
               <tr style="background:var(--bg-card);border-bottom:1px solid var(--border);text-align:left;">
                 <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Control</th>
                 <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">NIST Control Name</th>
-                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Epyon Security Layer</th>
+                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Security Layer</th>
                 <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Primary Evidence Artifact Path</th>
                 <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Status</th>
                 <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Cryptographic SHA-256 Digest</th>
@@ -3537,7 +3535,7 @@ function exportOverviewSummaryPdf(only) {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Epyon Security Analysis — ${dateStr}</title>
+  <title>Quartz Evaluator Security Analysis — ${dateStr}</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     body {
@@ -3604,7 +3602,7 @@ function exportOverviewSummaryPdf(only) {
 <body>
   <div class="page">
     <div class="report-header">
-      <p class="report-title">Epyon Security Analysis</p>
+      <p class="report-title">Quartz Evaluator Security Analysis</p>
       <p class="report-meta">Generated: ${dateStr} &nbsp;|&nbsp; AI-Assisted Report &nbsp;|&nbsp; Confidential</p>
     </div>
 
@@ -3618,7 +3616,7 @@ function exportOverviewSummaryPdf(only) {
     <div class="section-body">${mdToHtml(isso)}</div>` : ''}
 
     <div class="footer">
-      Generated by Epyon Security Scanner &nbsp;·&nbsp; ${dateStr} &nbsp;·&nbsp; AI-assisted — verify findings before acting
+      Generated by Quartz Evaluator &nbsp;·&nbsp; ${dateStr} &nbsp;·&nbsp; AI-assisted — verify findings before acting
     </div>
   </div>
   <script>window.onload = function() { window.print(); };<\/script>
@@ -4414,14 +4412,14 @@ async function renderStig() {
                 </button>
                 <button class="btn btn-sm"
                   onclick="navigate('#/scans/${encodeURIComponent(stigScanId)}')">
-                  Scan Details →
+                  Evaluation Details →
                 </button>
               </div>
             </div>`;
         }).join('')
       : emptyState(
           'No STIG results yet',
-          'STIG scans do not run on a schedule because they use AI tokens. Trigger one using Run Scan → STIG.',
+          'STIG scans do not run on a schedule because they use AI tokens. Trigger one using Run Evaluation → STIG.',
           `<button class="btn btn-primary" onclick="navigate('#/new-scan')" style="margin-top:16px">
              ▶ Run STIG Scan
            </button>`,
@@ -4499,8 +4497,8 @@ async function renderNewScan(prefill = '') {
 
   const page = document.getElementById('page');
   page.innerHTML = `
-    ${pageHeader(`Run New Scan`, { subtitle: `Launch a security scan against a local directory or Git repository —
-          Epyon orchestrates all applicable security layers based on the selected scan type.` })}
+    ${pageHeader(`Run New Evaluation`, { subtitle: `Launch a security evaluation against a local directory or Git repository —
+          Quartz Evaluator orchestrates all applicable security layers based on the selected evaluation type.` })}
 
     <div class="section">
       <div class="section-title">Scan Configuration</div>
@@ -4534,7 +4532,7 @@ async function renderNewScan(prefill = '') {
           </div>
 
           <div class="form-group">
-            <label>Scan Types</label>
+            <label>Evaluation Types</label>
             <div style="margin-bottom:8px">
               <button type="button" class="btn btn-sm" onclick="setScanTypeCheckboxes(true)">Select All</button>
               <button type="button" class="btn btn-sm" onclick="setScanTypeCheckboxes(false)">Select None</button>
@@ -4551,7 +4549,7 @@ async function renderNewScan(prefill = '') {
           </div>
 
           <div class="form-group" id="scan-layer-picker-wrapper">
-            <label>Scan Layers</label>
+            <label>Evaluation Layers</label>
             ${renderScanLayerPicker()}
             <small>Only applies to Full, Nightly and Baseline scan types — Quick, STIG, and Local Model always run their fixed layer set.</small>
           </div>
@@ -4594,7 +4592,7 @@ async function renderNewScan(prefill = '') {
           </div>
 
           <button id="run-btn" class="btn btn-primary" style="width:100%;justify-content:center" onclick="submitScan()">
-            ▶ Run Scan
+            ▶ Run Evaluation
           </button>
         </div>
       </div>
@@ -4969,7 +4967,7 @@ async function submitScan() {
   const uploadFile = document.getElementById('scan-upload')?.files?.[0] || null;
 
   if (selectedTypes.length === 0) {
-    toast('Select at least one scan type to run.', 'warning');
+    toast('Select at least one evaluation type to run.', 'warning');
     return;
   }
   if (selectedTypes.includes('container_image') && selectedTypes.length > 1) {
@@ -5118,7 +5116,7 @@ async function pollJobs(btn, ctx) {
 // post-scan actions, and renders the PASS/FAIL summary table.
 function finishScanQueue() {
   const btn = document.getElementById('run-btn');
-  if (btn) { btn.disabled = false; btn.textContent = '▶ Run Scan'; }
+  if (btn) { btn.disabled = false; btn.textContent = '▶ Run Evaluation'; }
 
   const cancelBtn = document.getElementById('cancel-btn');
   if (cancelBtn) cancelBtn.style.display = 'none';
@@ -5167,7 +5165,7 @@ function renderScanQueueResults() {
   }).join('');
 
   container.innerHTML = `
-    <div class="section-title">Scan Type Results</div>
+    <div class="section-title">Evaluation Type Results</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:16px">
       <div class="stat-card">
         <div class="stat-label">Passed</div>
@@ -5181,7 +5179,7 @@ function renderScanQueueResults() {
     <div class="table-container">
       <table>
         <thead>
-          <tr><th scope="col">Scan Type</th><th scope="col">Status</th><th scope="col">Why</th></tr>
+          <tr><th scope="col">Evaluation Type</th><th scope="col">Status</th><th scope="col">Why</th></tr>
         </thead>
         <tbody>
           ${rows}
@@ -5620,7 +5618,7 @@ function openRiskTrendDetail(app) {
         </div>
         <div class="recurrence-card" style="min-width:100px;padding:12px">
           <div class="recurrence-value" style="font-size:24px;color:var(--text-muted)">${esc(String(pts.length))}</div>
-          <div class="recurrence-label">Scans tracked</div>
+          <div class="recurrence-label">Evaluations tracked</div>
         </div>
       </div>
       <div class="table-container">
@@ -6114,7 +6112,7 @@ async function renderMetrics() {
               <thead>
                 <tr>
                   <th scope="col" data-col="name">Application <span class="sort-icon">⇅</span></th>
-                  <th scope="col" data-col="total">Total Scans <span class="sort-icon">⇅</span></th>
+                  <th scope="col" data-col="total">Total Evaluations <span class="sort-icon">⇅</span></th>
                   <th scope="col" data-col="first">First Scan <span class="sort-icon">⇅</span></th>
                   <th scope="col" data-col="last">Latest Scan <span class="sort-icon">⇅</span></th>
                   <th scope="col">History</th>
@@ -6443,7 +6441,7 @@ async function renderPerformanceDashboard() {
     ` : `
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:16px">
             <div class="stat-card">
-              <div class="stat-label">Scans Checked</div>
+              <div class="stat-label">Evaluations Checked</div>
               <div class="stat-value">${si.summary.total}</div>
             </div>
             <div class="stat-card">
@@ -6465,7 +6463,7 @@ async function renderPerformanceDashboard() {
             <div class="table-container">
               <table>
                 <thead>
-                  <tr><th scope="col">Scan</th><th scope="col">Target</th><th scope="col">Type</th><th scope="col">Status</th><th scope="col">Reason(s)</th></tr>
+                  <tr><th scope="col">Evaluation</th><th scope="col">Target</th><th scope="col">Type</th><th scope="col">Status</th><th scope="col">Reason(s)</th></tr>
                 </thead>
                 <tbody>
                   ${si.flagged.map(f => `
@@ -6490,7 +6488,7 @@ async function renderPerformanceDashboard() {
     const saBody = renderSelfAssessmentBody(sa);
 
     page.innerHTML = `
-      ${pageHeader(`Performance Dashboard`, { subtitle: `How Epyon itself is performing — cache efficiency, scanner accuracy, and validation that recent scans actually ran against real content.` })}
+      ${pageHeader(`Performance Dashboard`, { subtitle: `How Quartz Evaluator itself is performing — cache efficiency, scanner accuracy, and validation that recent scans actually ran against real content.` })}
 
       <div class="section">
         <div class="section-title">Scan Integrity Check</div>
@@ -6728,8 +6726,8 @@ async function buildCiHealthSection() {
           <table>
             <thead><tr>
               <th scope="col">Application</th>
-              <th scope="col" style="text-align:center">PR Scans</th>
-              <th scope="col" style="text-align:center">Push Scans</th>
+              <th scope="col" style="text-align:center">PR Evaluations</th>
+              <th scope="col" style="text-align:center">Push Evaluations</th>
               <th scope="col" style="text-align:center">Other</th>
               <th scope="col" style="text-align:center">Total CI</th>
               <th scope="col">Coverage</th>
@@ -6936,7 +6934,7 @@ async function renderSettings() {
         <summary class="section-title">GitHub Actions Integration</summary>
         <p class="section-desc">
           Import scan results from GitHub Actions directly into this dashboard.
-          Epyon workflows upload scan artifacts automatically. Configure
+          Quartz Evaluator workflows upload scan artifacts automatically. Configure
           <code>GITHUB_TOKEN</code> or <code>GH_PAT</code> in the server environment
           and list the repositories to watch below.
         </p>
@@ -7002,7 +7000,7 @@ async function renderSettings() {
       <details class="section settings-section">
         <summary class="section-title">Workflow File Setup</summary>
         <p class="section-desc">
-          Each repository needs the Epyon workflow file added once so that scans run
+          Each repository needs the Quartz Evaluator workflow file added once so that scans run
           automatically and results are uploaded to this dashboard.
         </p>
         <div style="font-size:13px;color:var(--text-muted);margin:0 0 6px;font-weight:600">Option A — npm (recommended)</div>
@@ -7014,7 +7012,7 @@ epyon install-workflow</pre>
         <div style="font-size:13px;color:var(--text-muted);margin:0 0 6px;font-weight:600">Option C — manual</div>
         <ol style="padding-left:18px;margin:0 0 14px;font-size:13px;color:var(--text-muted);line-height:1.9">
           <li>Create <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">.github/workflows/scan-private-repo.yml</code> in your repository with the contents below.</li>
-          <li>Review the <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">uses:</code> line and change the GitHub org only if your Epyon instance is hosted outside <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">MetroStar/epyon</code>.</li>
+          <li>Review the <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">uses:</code> line and change the GitHub org only if your Quartz Evaluator instance is hosted outside <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">MetroStar/epyon</code>.</li>
         </ol>
         <div style="font-size:13px;color:var(--text-muted);margin:0 0 14px;line-height:1.7">Then commit and push (<code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">git add .github/workflows/scan-private-repo.yml &amp;&amp; git commit -m "Add Epyon security scanning" &amp;&amp; git push</code>). Pull requests get a quick scan; the workflow also runs nightly at 2 AM UTC (full on Sundays; STIG only when triggered manually) and on manual dispatch.</div>
         <div style="position:relative;max-width:700px">
@@ -7026,7 +7024,7 @@ epyon install-workflow</pre>
       </details>
 
       <div class="section">
-        <div class="section-title">About Epyon</div>
+        <div class="section-title">About Quartz Evaluator</div>
         <div class="detail-grid">
           <div class="detail-card">
             <div class="label">Version</div>
@@ -7883,7 +7881,7 @@ async function deleteApplication(name) {
     title:        'Delete Application',
     body:         'This will permanently remove all scan data from disk. This action cannot be undone.',
     target:       name,
-    confirmLabel: 'Delete All Scans',
+    confirmLabel: 'Delete All Evaluations',
     onConfirm:    async () => {
       try {
         await api.deleteApp(name);
@@ -8208,7 +8206,7 @@ function showAddAppModal() {
         Add Application
       </h2>
       <p style="color:var(--text-muted);font-size:13px;margin:0 0 16px">
-        Register a GitHub repository with Epyon. A name will be auto-suggested from the URL.
+        Register a GitHub repository with Quartz Evaluator. A name will be auto-suggested from the URL.
       </p>
 
       <div class="form-group">
@@ -8260,14 +8258,14 @@ function showAddAppModal() {
         GitHub Workflow Setup
       </h2>
       <p style="color:var(--text-muted);font-size:13px;margin:0 0 14px">
-        To enable automated nightly scans, add the Epyon workflow file to your repository.
-        Follow the steps below, then Epyon will pick up scan results automatically.
+        To enable automated nightly scans, add the Quartz Evaluator workflow file to your repository.
+        Follow the steps below, then Quartz Evaluator will pick up scan results automatically.
       </p>
 
       <ol style="padding-left:18px;margin:0 0 14px;font-size:13px;color:var(--text-muted);line-height:1.9">
         <li>In your repository, create the directory <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">.github/workflows/</code> if it doesn't exist.</li>
         <li>Add a new file named <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">scan-private-repo.yml</code> with the contents below.</li>
-        <li>Review the workflow references and update the GitHub org or user only if the sample points to a different Epyon host than yours.</li>
+        <li>Review the workflow references and update the GitHub org or user only if the sample points to a different Quartz Evaluator host than yours.</li>
         <li>Commit and push — the workflow will run nightly at 2 AM UTC and on manual dispatch.</li>
       </ol>
 
@@ -8280,7 +8278,7 @@ function showAddAppModal() {
       <p style="font-size:12px;color:var(--text-dim);margin:10px 0 0">
         The full workflow with all optional parameters is available in
         <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">documentation/scan-private-repo.yml</code>
-        in the Epyon repo.
+        in the Quartz Evaluator repo.
       </p>
 
       <div class="modal-actions" style="margin-top:20px">
@@ -8434,7 +8432,7 @@ function renderJiraReviewPage() {
 
   page.innerHTML = `
     <div class="breadcrumb">
-      <a href="#/scans/${encodeURIComponent(state.scanId)}">Scan Details</a>
+      <a href="#/scans/${encodeURIComponent(state.scanId)}">Evaluation Details</a>
       <span>›</span><span>Jira Review</span>
     </div>
     ${pageHeader(`Jira Ticket Review`, { subtitle: `${esc(data.app_name)} · ${esc(state.scanId)}`, actions: `<button class="btn" onclick="navigate('#/scans/${encodeURIComponent(state.scanId)}')">Back to Scan</button>` })}
@@ -9284,7 +9282,7 @@ async function jiraReviewCreateTicketsConfirmed() {
 
 // ── Router ────────────────────────────────────────────────────
 const _HEADER_TITLES = {
-  '/': 'Overview', '/applications': 'Applications', '/new-scan': 'Run Scan',
+  '/': 'Overview', '/applications': 'Applications', '/new-scan': 'Run Evaluation',
   '/metrics': 'Metrics', '/stig': 'STIG', '/settings': 'Settings',
   '/performance': 'Performance',
 };
@@ -9362,12 +9360,12 @@ const scanWatch = (() => {
   function announce(job) {
     const ok = job.status === 'completed';
     const msg = ok
-      ? `Scan finished: ${job.target} (${job.scan_type})`
-      : `Scan ${job.status}: ${job.target} (${job.scan_type})`;
+      ? `Evaluation finished: ${job.target} (${job.scan_type})`
+      : `Evaluation ${job.status}: ${job.target} (${job.scan_type})`;
     toast(msg, ok ? 'success' : 'error');
     if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
       try {
-        const n = new Notification('Epyon scan ' + job.status, { body: msg, tag: 'epyon-scan-' + job.job_id });
+        const n = new Notification('Quartz Evaluator scan ' + job.status, { body: msg, tag: 'epyon-scan-' + job.job_id });
         n.onclick = () => { window.focus(); navigate('#/applications'); n.close(); };
       } catch (_) {}
     }
@@ -9419,7 +9417,12 @@ window.addEventListener('load', () => {
   scanWatch.start();
   api._get('/api/health').then(h => {
     const el = document.getElementById('sidebar-version');
-    if (el && h.version) el.textContent = 'Epyon v' + h.version;
+    if (el && h.version) el.textContent = 'Quartz Evaluator v' + h.version;
+    const logout = document.getElementById('logout-link');
+    if (logout && h.logout_url && h.logout_url.startsWith('/oauth2/sign_out?')) {
+      logout.href = h.logout_url;
+      logout.hidden = false;
+    }
   }).catch(() => {});
 });
 
@@ -9894,7 +9897,7 @@ function openStigDetail(id) {
       </div>
       ${tl.length ? `
       <div class="finding-detail-section">
-        <div class="finding-detail-label">Scan History</div>
+        <div class="finding-detail-label">Evaluation History</div>
         <div class="finding-detail-desc" style="padding:0;background:none;border:1px solid var(--border-muted);border-radius:var(--radius);overflow:hidden">
           <table style="width:100%;border-collapse:collapse">
             <thead>
@@ -10158,11 +10161,11 @@ function openGhSignalDetail(kind, idx) {
           <div class="finding-detail-value" style="color:${barColor};font-weight:700;font-size:22px">${pct}%</div>
         </div>
         <div class="finding-detail-section">
-          <div class="finding-detail-label">PR-Triggered Scans</div>
+          <div class="finding-detail-label">PR-Triggered Evaluations</div>
           <div class="finding-detail-value">${v.pr_scans}</div>
         </div>
         <div class="finding-detail-section">
-          <div class="finding-detail-label">Total CI Scans</div>
+          <div class="finding-detail-label">Total CI Evaluations</div>
           <div class="finding-detail-value">${v.total_ci_scans}</div>
         </div>
       </div>
@@ -10185,7 +10188,7 @@ function openGhSignalDetail(kind, idx) {
       </div>
       <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
         <button class="btn btn-ai" onclick="closeGhSignalDetail();navigate('#/applications/${encodeURIComponent(name)}')">
-          View Application Scans
+          View Application Evaluations
         </button>
       </div>`;
   }
@@ -10523,7 +10526,7 @@ function renderStaticScanDetail(scan) {
       <span>${esc(scanId)}</span>
     </div>
 
-    ${pageHeader(`Scan Details ${statusBadge(status)}`, { subtitle: `Findings, compliance, and evidence collected for <strong>${esc(scan.target || '—')}</strong> on ${fmtDate(scan.timestamp)}.` })}
+    ${pageHeader(`Evaluation Details ${statusBadge(status)}`, { subtitle: `Findings, compliance, and evidence collected for <strong>${esc(scan.target || '—')}</strong> on ${fmtDate(scan.timestamp)}.` })}
 
     <div class="stats-grid" style="margin-bottom:24px">
       <div class="stat-card">

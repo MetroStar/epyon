@@ -35,12 +35,7 @@ NC='\033[0m'
 # Display EPYON banner
 echo -e "${CYAN}"
 cat << "EOF"
-███████╗██████╗ ██╗   ██╗ ██████╗ ███╗   ██╗
-██╔════╝██╔══██╗╚██╗ ██╔╝██╔═══██╗████╗  ██║
-█████╗  ██████╔╝ ╚████╔╝ ██║   ██║██╔██╗ ██║
-██╔══╝  ██╔═══╝   ╚██╔╝  ██║   ██║██║╚██╗██║
-███████╗██║        ██║   ╚██████╔╝██║ ╚████║
-╚══════╝╚═╝        ╚═╝    ╚═════╝ ╚═╝  ╚═══╝
+QUARTZ EVALUATOR
 EOF
 echo -e "${NC}"
 echo -e "${GREEN}Absolute Security Control — Layer 13: STIG Compliance Assessment${NC}"

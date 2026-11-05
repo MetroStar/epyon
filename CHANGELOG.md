@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.62.4] - 2026-11-05
+
+### Fixed
+- Private ECR credential/login steps in `epyon-scan.yml` are now non-fatal (and a malformed `ecr_registry` only warns), so scans continue pulling images from other registries.
+
 ## [3.62.3] - 2026-11-05
 
 ### Fixed

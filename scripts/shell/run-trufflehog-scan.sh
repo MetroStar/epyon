@@ -100,9 +100,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         *)
             # Support legacy positional: mode keyword or target path
-            case "${1,,}" in
+            _th_arg_lc="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
+            case "$_th_arg_lc" in
                 filesystem|git|images|all)
-                    TH_SCAN_MODE="${1,,}"
+                    TH_SCAN_MODE="$_th_arg_lc"
                     ;;
                 *)
                     [[ -z "$TH_TARGET_ARG" ]] && TH_TARGET_ARG="$1"

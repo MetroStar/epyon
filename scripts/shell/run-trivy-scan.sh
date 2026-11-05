@@ -120,9 +120,10 @@ done
 #   run-trivy-scan.sh <target> <mode>
 #   run-trivy-scan.sh <mode> <target>
 for positional in "${POSITIONAL_ARGS[@]}"; do
-    case "${positional,,}" in
+    positional_lc="$(printf '%s' "$positional" | tr '[:upper:]' '[:lower:]')"
+    case "$positional_lc" in
         filesystem|images|base|config|registry|kubernetes|all)
-            SCAN_MODE="${positional,,}"
+            SCAN_MODE="$positional_lc"
             ;;
         *)
             if [[ -z "$TARGET_ARG" ]]; then
@@ -136,7 +137,7 @@ for positional in "${POSITIONAL_ARGS[@]}"; do
     esac
 done
 
-SCAN_MODE="${SCAN_MODE,,}"
+SCAN_MODE="$(printf '%s' "$SCAN_MODE" | tr '[:upper:]' '[:lower:]')"
 case "$SCAN_MODE" in
     filesystem|images|base|config|registry|kubernetes|all) ;;
     *)

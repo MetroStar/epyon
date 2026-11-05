@@ -285,20 +285,36 @@ discover_dockerfile_base_images() {
     local discovered=()
     local dockerfile
     while IFS= read -r dockerfile; do
-        local -A stage_image=()
+        # Newline-delimited "stage=image" lookup (no associative arrays: macOS Bash 3.2).
+        local stage_map=""
         local final_image=""
-        local line image stage
+        local arg_map
+        arg_map="$(sed -nE 's/^[[:space:]]*ARG[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)=([^[:space:]]+).*/\1=\2/p' "$dockerfile" | tr -d '"\047')"
+        local line image stage mapped
         while IFS= read -r line; do
             image=$(awk '{print $2}' <<<"$line")
             [[ -z "$image" ]] && continue
+            # Resolve ${ARG}/$ARG using the Dockerfile's own `ARG NAME=default`
+            # values, so `FROM ${BUILD_IMAGE}` yields a real image.
+            if [[ "$image" == *'$'* && -n "$arg_map" ]]; then
+                local arg_line arg_name arg_val
+                while IFS= read -r arg_line; do
+                    [[ -z "$arg_line" ]] && continue
+                    arg_name="${arg_line%%=*}"
+                    arg_val="${arg_line#*=}"
+                    image="${image//\$\{$arg_name\}/$arg_val}"
+                    image="${image//\$$arg_name/$arg_val}"
+                done <<<"$arg_map"
+            fi
             stage=$(awk 'BEGIN{IGNORECASE=1} {for(i=1;i<=NF;i++) if(tolower($i)=="as") print $(i+1)}' <<<"$line")
             # If this FROM references an earlier named stage (not an external
             # image), resolve it to that stage's already-resolved image.
-            if [[ -n "${stage_image[$image]+x}" ]]; then
-                image="${stage_image[$image]}"
+            mapped="$(printf '%s\n' "$stage_map" | awk -F= -v k="$image" '$1==k {v=substr($0, length(k)+2)} END{print v}')"
+            if [[ -n "$mapped" ]]; then
+                image="$mapped"
             fi
             final_image="$image"
-            [[ -n "$stage" ]] && stage_image["$stage"]="$image"
+            [[ -n "$stage" ]] && stage_map+="${stage}=${image}"$'\n'
         done < <(grep -i '^FROM ' "$dockerfile")
 
         [[ -z "$final_image" ]] && continue

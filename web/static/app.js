@@ -9282,7 +9282,7 @@ async function jiraReviewCreateTicketsConfirmed() {
 
 // ── Router ────────────────────────────────────────────────────
 const _HEADER_TITLES = {
-  '/': 'Overview', '/applications': 'Applications', '/new-scan': 'Run Scan',
+  '/': 'Overview', '/applications': 'Applications', '/new-scan': 'Run Evaluation',
   '/metrics': 'Metrics', '/stig': 'STIG', '/settings': 'Settings',
   '/performance': 'Performance',
 };

@@ -607,7 +607,7 @@ run_garak_layer() {
     echo "[WARNING] OPENAI_API_KEY is not set or empty"
   fi
 
-  case "${_target_type,,}" in
+  case "$(printf '%s' "$_target_type" | tr '[:upper:]' '[:lower:]')" in
     openai)
       if [[ -z "${OPENAI_API_KEY:-}" ]]; then
         echo "[INFO] OPENAI_API_KEY not available; falling back to test.Blank"

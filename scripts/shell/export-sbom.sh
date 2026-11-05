@@ -108,7 +108,7 @@ fi
 
 # ── Classification marking (APSC-DV-003120) ───────────────────────────────────
 CLASSIFICATION_LEVEL="${CLASSIFICATION_LEVEL:-INTERNAL}"
-case "${CLASSIFICATION_LEVEL^^}" in
+case "$(printf '%s' "$CLASSIFICATION_LEVEL" | tr '[:lower:]' '[:upper:]')" in
     NONE|"")        CLASS_LABEL="" ;;
     UNCLASSIFIED)   CLASS_LABEL="UNCLASSIFIED" ;;
     INTERNAL)       CLASS_LABEL="INTERNAL USE ONLY" ;;

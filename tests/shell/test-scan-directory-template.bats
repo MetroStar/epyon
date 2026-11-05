@@ -94,7 +94,7 @@ SCRIPT_PATH="${SCRIPT_DIR}/scan-directory-template.sh"
 FROM golang:1.24.13-alpine AS builder
 FROM python:3.12-slim-bookworm AS runtime
 DOCKERFILE
-    run bash -c "source '$SCRIPT_PATH' && mapfile -t images < <(discover_dockerfile_base_images '$tmp_target') && printf '%s\n' \"\${images[@]}\""
+    run bash -c "source '$SCRIPT_PATH' && discover_dockerfile_base_images '$tmp_target'"
     rm -rf "$tmp_target"
     [ "$status" -eq 0 ]
     [[ "$output" == "python:3.12-slim-bookworm" ]]
@@ -108,10 +108,25 @@ DOCKERFILE
 FROM reg.internal.example/python:3.12-dev AS builder
 FROM ${RUNTIME_IMAGE}
 DOCKERFILE
-    run bash -c "source '$SCRIPT_PATH' && mapfile -t images < <(discover_dockerfile_base_images '$tmp_target') && printf '%s\n' \"\${images[@]}\""
+    run bash -c "source '$SCRIPT_PATH' && discover_dockerfile_base_images '$tmp_target'"
     rm -rf "$tmp_target"
     [ "$status" -eq 0 ]
     [ -z "$output" ]
+}
+
+@test "discover_dockerfile_base_images resolves a build-arg using its ARG default (works on Bash 3.2)" {
+    local tmp_target
+    tmp_target="$(mktemp -d)"
+    cat > "${tmp_target}/Dockerfile" <<'DOCKERFILE'
+ARG BUILD_IMAGE=123456789012.dkr.ecr.us-gov-east-1.amazonaws.com/app/node:22-dev
+ARG SERVE_IMAGE="reg.example/nginx:1.31"
+FROM ${BUILD_IMAGE} AS build
+FROM $SERVE_IMAGE
+DOCKERFILE
+    run bash -c "source '$SCRIPT_PATH' && discover_dockerfile_base_images '$tmp_target'"
+    rm -rf "$tmp_target"
+    [ "$status" -eq 0 ]
+    [[ "$output" == "reg.example/nginx:1.31" ]]
 }
 
 @test "discover_dockerfile_base_images resolves a final FROM that references an earlier named stage" {
@@ -121,7 +136,7 @@ DOCKERFILE
 FROM ubuntu:22.04 AS base
 FROM base AS runtime
 DOCKERFILE
-    run bash -c "source '$SCRIPT_PATH' && mapfile -t images < <(discover_dockerfile_base_images '$tmp_target') && printf '%s\n' \"\${images[@]}\""
+    run bash -c "source '$SCRIPT_PATH' && discover_dockerfile_base_images '$tmp_target'"
     rm -rf "$tmp_target"
     [ "$status" -eq 0 ]
     [[ "$output" == "ubuntu:22.04" ]]
@@ -133,7 +148,7 @@ DOCKERFILE
     cat > "${tmp_target}/Dockerfile" <<'DOCKERFILE'
 FROM ubuntu:24.04
 DOCKERFILE
-    run bash -c "source '$SCRIPT_PATH' && mapfile -t images < <(discover_dockerfile_base_images '$tmp_target') && printf '%s\n' \"\${images[@]}\""
+    run bash -c "source '$SCRIPT_PATH' && discover_dockerfile_base_images '$tmp_target'"
     rm -rf "$tmp_target"
     [ "$status" -eq 0 ]
     [[ "$output" == "ubuntu:24.04" ]]
@@ -146,7 +161,7 @@ DOCKERFILE
 FROM golang:1.24.13-alpine AS src
 FROM scratch
 DOCKERFILE
-    run bash -c "source '$SCRIPT_PATH' && mapfile -t images < <(discover_dockerfile_base_images '$tmp_target') && printf '%s\n' \"\${images[@]}\""
+    run bash -c "source '$SCRIPT_PATH' && discover_dockerfile_base_images '$tmp_target'"
     rm -rf "$tmp_target"
     [ "$status" -eq 0 ]
     [ -z "$output" ]
@@ -163,7 +178,7 @@ DOCKERFILE
     cat > "${tmp_target}/ui/Dockerfile" <<'DOCKERFILE'
 FROM alpine:3.20
 DOCKERFILE
-    run bash -c "source '$SCRIPT_PATH' && mapfile -t files < <(discover_dockerfile_paths '$tmp_target') && printf '%s\n' \"\${files[@]}\""
+    run bash -c "source '$SCRIPT_PATH' && discover_dockerfile_paths '$tmp_target'"
     rm -rf "$tmp_target"
     [ "$status" -eq 0 ]
     [[ "$output" == *"ui/Dockerfile" ]]
@@ -176,7 +191,7 @@ DOCKERFILE
     echo "FROM alpine" > "${tmp_target}/node_modules/some-pkg/Dockerfile"
     echo "FROM alpine" > "${tmp_target}/.git/Dockerfile"
     echo "FROM alpine" > "${tmp_target}/Dockerfile"
-    run bash -c "source '$SCRIPT_PATH' && mapfile -t files < <(discover_dockerfile_paths '$tmp_target') && printf '%s\n' \"\${files[@]}\""
+    run bash -c "source '$SCRIPT_PATH' && discover_dockerfile_paths '$tmp_target'"
     rm -rf "$tmp_target"
     [ "$status" -eq 0 ]
     [[ "$output" == *"/Dockerfile" ]]

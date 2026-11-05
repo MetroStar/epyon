@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.62.3] - 2026-11-05
+
+### Fixed
+- Trivy, TruffleHog, CI and SBOM scripts no longer use Bash 4-only `${var,,}` / `${var^^}` (`bad substitution` on macOS Bash 3.2, which broke Trivy mode parsing on locally run scans).
+- Dockerfile base-image discovery no longer uses an associative array (unsupported on Bash 3.2), so Trivy, Grype, Anchore and Xeol find base images on macOS again.
+- Base-image discovery now resolves `FROM ${ARG}` using the Dockerfile's `ARG NAME=default`, so Dockerfiles that parameterize their base image (e.g. ECR images) are scanned instead of skipped.
+
 ## [3.62.2] - 2026-11-05
 
 ### Added

@@ -56,6 +56,17 @@ RUN python3 -m pip install --no-cache-dir pip-audit
 # to private ECR registries fresh (see ECR_REGISTRY in docker-compose.yml).
 RUN python3 -m pip install --no-cache-dir awscli
 
+# The static Docker CLI tarball ships without buildx, and `docker build` with
+# DOCKER_BUILDKIT=1 (run-build-scan.sh) fails with "buildx component is
+# missing" without it.
+ARG BUILDX_VERSION=0.17.1
+RUN BX_ARCH="$(uname -m)" \
+    && case "$BX_ARCH" in x86_64) BX_ARCH=amd64 ;; aarch64) BX_ARCH=arm64 ;; esac \
+    && mkdir -p /usr/local/lib/docker/cli-plugins \
+    && curl -fsSL "https://github.com/docker/buildx/releases/download/v${BUILDX_VERSION}/buildx-v${BUILDX_VERSION}.linux-${BX_ARCH}" \
+        -o /usr/local/lib/docker/cli-plugins/docker-buildx \
+    && chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
+
 # Copy the full repository so scan scripts, configuration, and VERSION are
 # available to the API at runtime (see EPYON_ROOT resolution in main.py).
 COPY . /app

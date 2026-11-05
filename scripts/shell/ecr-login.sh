@@ -45,12 +45,16 @@ epyon_ecr_login() {
     while IFS= read -r host; do
         [[ -z "$host" ]] && continue
         region="${ECR_REGION:-$(echo "$host" | sed -E 's/^[0-9]+\.dkr\.ecr(-fips)?\.([a-z0-9-]+)\.amazonaws\.com.*/\2/')}"
-        if _epyon_aws_ecr_password "$region" 2>/dev/null \
-            | "${RUNTIME:-docker}" login --username AWS --password-stdin "$host" >/dev/null 2>&1; then
+        local err_file
+        err_file="$(mktemp)"
+        if _epyon_aws_ecr_password "$region" 2>"$err_file" \
+            | "${RUNTIME:-docker}" login --username AWS --password-stdin "$host" >>"$err_file" 2>&1; then
             echo "✅ Logged in to ECR: $host"
         else
             echo "⚠️  ECR login to $host failed (check 'aws sts get-caller-identity' / AWS_PROFILE); pulls may return 401."
+            echo "    Reason: $(grep -v '^$' "$err_file" | head -3 | tr '\n' ' ')"
         fi
+        rm -f "$err_file"
     done <<< "$registries"
     return 0
 }

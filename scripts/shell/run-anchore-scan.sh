@@ -763,7 +763,10 @@ scan_base_images() {
         # requiring a DHI registry entitlement) as the default for an
         # arbitrary repo.
         local _discovered_images=()
-        mapfile -t _discovered_images < <(discover_dockerfile_base_images "$REPO_PATH")
+        # No mapfile: macOS ships Bash 3.2.
+        while IFS= read -r _img; do
+            [[ -n "$_img" ]] && _discovered_images+=("$_img")
+        done < <(discover_dockerfile_base_images "$REPO_PATH")
 
         if [ ${#_discovered_images[@]} -gt 0 ]; then
             PRIMARY_BASELINE_IMAGE="${_discovered_images[0]}"

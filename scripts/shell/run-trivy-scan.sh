@@ -344,7 +344,11 @@ if [ "$SCAN_MODE" != "filesystem" ]; then
         # Shared with run-anchore-scan.sh via discover_dockerfile_base_images()
         # (scan-directory-template.sh) so both tools baseline against the same
         # discovered image(s).
-        mapfile -t BASE_IMAGES < <(discover_dockerfile_base_images "$REPO_PATH")
+        # No mapfile: macOS ships Bash 3.2.
+        BASE_IMAGES=()
+        while IFS= read -r _img; do
+            [[ -n "$_img" ]] && BASE_IMAGES+=("$_img")
+        done < <(discover_dockerfile_base_images "$REPO_PATH")
         if [ ${#BASE_IMAGES[@]} -gt 0 ]; then
             echo -e "   ${GREEN}📋 Auto-discovered ${#BASE_IMAGES[@]} image(s) from Dockerfiles: ${BASE_IMAGES[*]}${NC}"
         else

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.62.1] - 2026-11-05
+
+### Fixed
+- Findings summary no longer drops a tool's findings when a severity array is larger than the 128KB single-argument limit (`jq: Argument list too long`); this silently lost Checkov results in CI and gave inconsistent counts.
+- Base-image discovery (Trivy, Anchore) and Dockerfile auto-discovery (Phase 0 build) no longer use `mapfile`, which is missing on macOS Bash 3.2. Locally run scans skipped base-image scanning, so they reported far fewer findings than the nightly scan.
+
 ## [3.62.0] - 2026-11-03
 
 ### Changed

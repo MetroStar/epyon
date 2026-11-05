@@ -5,6 +5,14 @@
 SCRIPT_DIR="${BATS_TEST_DIRNAME}/../../scripts/shell"
 SCRIPT_PATH="${SCRIPT_DIR}/run-api-discovery.sh"
 
+setup() {
+    TEST_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/quartz-api-discovery.XXXXXX")"
+}
+
+teardown() {
+    [[ "$TEST_ROOT" == "${TMPDIR:-/tmp}"/quartz-api-discovery.* ]] && rm -rf -- "$TEST_ROOT"
+}
+
 @test "run-api-discovery.sh exists and is executable" {
     [ -f "$SCRIPT_PATH" ]
     [ -x "$SCRIPT_PATH" ]
@@ -99,4 +107,44 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-api-discovery.sh"
 @test "run-api-discovery.sh handles authentication middleware detection" {
     # Verify authentication patterns are extracted
     grep -q "auth.*middleware\|authenticate" "$SCRIPT_PATH"
+}
+
+@test "run-api-discovery.sh reports exact OpenAPI and Python counts without Node routes" {
+    local target="${TEST_ROOT}/source"
+    local scan="${TEST_ROOT}/scan"
+    mkdir -p "$target" "$scan"
+    printf '%s\n' '{"openapi":"3.1.0","info":{"title":"Example API","version":"0.1.0"},"paths":{}}' > "$target/openapi.json"
+    printf '%s\n' 'from fastapi import FastAPI' 'app = FastAPI()' '@app.get("/health")' 'def health():' '    return {"ok": True}' > "$target/app.py"
+
+    run env TARGET_DIR="$target" SCAN_DIR="$scan" bash "$SCRIPT_PATH"
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"integer expression expected"* ]]
+    [[ "$output" != *"syntax error"* ]]
+    run jq -e '.summary.total_specs_found == 1 and .summary.python_routes == 1 and .summary.nodejs_routes == 0 and .summary.total_endpoints_discovered == 2 and (.discovery_methods.openapi_specs | length) == 1 and (.discovery_methods.code_routes.python | length) == 1' "$scan/api/api-discovery.json"
+    [ "$status" -eq 0 ]
+}
+
+@test "run-api-discovery.sh reports zero for an empty Next pages API directory" {
+    local target="${TEST_ROOT}/source"
+    local scan="${TEST_ROOT}/scan"
+    mkdir -p "$target/pages/api" "$scan"
+
+    run env TARGET_DIR="$target" SCAN_DIR="$scan" bash "$SCRIPT_PATH"
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"integer expression expected"* ]]
+    run jq -e '.summary.total_specs_found == 0 and .summary.total_routes_found == 0 and .summary.total_endpoints_discovered == 0' "$scan/api/api-discovery.json"
+    [ "$status" -eq 0 ]
+}
+
+@test "run-api-discovery.sh retains discovered Express routes" {
+    local target="${TEST_ROOT}/source"
+    local scan="${TEST_ROOT}/scan"
+    mkdir -p "$target" "$scan"
+    printf '%s\n' 'const app = require("express")();' "app.get('/health', (_req, res) => res.json({ok: true}));" > "$target/app.js"
+
+    run env TARGET_DIR="$target" SCAN_DIR="$scan" bash "$SCRIPT_PATH"
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"integer expression expected"* ]]
+    run jq -e '.summary.nodejs_routes == 1 and (.discovery_methods.code_routes.nodejs | length) == 1 and .discovery_methods.code_routes.nodejs[0].path == "/health"' "$scan/api/api-discovery.json"
+    [ "$status" -eq 0 ]
 }

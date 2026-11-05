@@ -181,8 +181,8 @@ find_openapi_specs() {
                 if command -v jq &> /dev/null; then
                     api_title=$(jq -r '.info.title // "N/A"' "$file" 2>/dev/null || echo "N/A")
                     api_version=$(jq -r '.info.version // "N/A"' "$file" 2>/dev/null || echo "N/A")
-                    echo "    Title: $api_title"
-                    echo "    Version: $api_version"
+                    echo "    Title: $api_title" >&2
+                    echo "    Version: $api_version" >&2
                 fi
             fi
             # Write to temp file: path|title|version
@@ -228,9 +228,9 @@ find_python_routes() {
             print_success "Found $routes_found Python API endpoint(s)" >&2
             
             # Show breakdown by framework
-            local fastapi_count=$(grep -c "^FastAPI|" "$temp_routes" 2>/dev/null | tr -d ' \n' || echo "0")
-            local flask_count=$(grep -c "^Flask|" "$temp_routes" 2>/dev/null | tr -d ' \n' || echo "0")
-            local django_count=$(grep -c "^Django|" "$temp_routes" 2>/dev/null | tr -d ' \n' || echo "0")
+            local fastapi_count=$(awk -F'|' '$1 == "FastAPI" {n++} END {print n+0}' "$temp_routes")
+            local flask_count=$(awk -F'|' '$1 == "Flask" {n++} END {print n+0}' "$temp_routes")
+            local django_count=$(awk -F'|' '$1 == "Django" {n++} END {print n+0}' "$temp_routes")
             
             if [ "$fastapi_count" -gt 0 ]; then
                 print_info "  • FastAPI: $fastapi_count endpoint(s)" >&2
@@ -273,7 +273,7 @@ find_nodejs_routes() {
     # Express patterns
     print_info "Searching for Express routes..."
     local express_matches=$(grep -rn "app\.\(get\|post\|put\|delete\|patch\)\|router\.\(get\|post\|put\|delete\|patch\)" "${TARGET_DIR}" --include="*.js" --include="*.ts" --exclude-dir=node_modules 2>/dev/null)
-    local express_routes=$(echo "$express_matches" | grep -c . || echo "0")
+    local express_routes=$(printf '%s\n' "$express_matches" | awk 'length {n++} END {print n+0}')
     if [ "$express_routes" -gt 0 ]; then
         print_success "Found $express_routes Express route(s)"
         routes_found=$((routes_found + express_routes))
@@ -301,7 +301,7 @@ find_nodejs_routes() {
     # Fastify patterns
     print_info "Searching for Fastify routes..."
     local fastify_matches=$(grep -rn "fastify\.\(get\|post\|put\|delete\|patch\)" "${TARGET_DIR}" --include="*.js" --include="*.ts" --exclude-dir=node_modules 2>/dev/null)
-    local fastify_routes=$(echo "$fastify_matches" | grep -c . || echo "0")
+    local fastify_routes=$(printf '%s\n' "$fastify_matches" | awk 'length {n++} END {print n+0}')
     if [ "$fastify_routes" -gt 0 ]; then
         print_success "Found $fastify_routes Fastify route(s)"
         routes_found=$((routes_found + fastify_routes))
@@ -324,7 +324,7 @@ find_nodejs_routes() {
     # Koa patterns
     print_info "Searching for Koa routes..."
     local koa_matches=$(grep -rn "router\.\(get\|post\|put\|delete\|patch\)" "${TARGET_DIR}" --include="*.js" --include="*.ts" --exclude-dir=node_modules 2>/dev/null | grep -v "app\." | grep -v "fastify\.")
-    local koa_routes=$(echo "$koa_matches" | grep -c . || echo "0")
+    local koa_routes=$(printf '%s\n' "$koa_matches" | awk 'length {n++} END {print n+0}')
     if [ "$koa_routes" -gt 0 ]; then
         print_success "Found $koa_routes Koa route(s)"
         routes_found=$((routes_found + koa_routes))
@@ -350,7 +350,7 @@ find_nodejs_routes() {
     
     # Find all route.js and route.ts files
     local route_files=$(find "${TARGET_DIR}" -type f \( -name "route.js" -o -name "route.ts" \) 2>/dev/null)
-    local nextjs_app_routes=$(echo "$route_files" | grep -c . || echo "0")
+    local nextjs_app_routes=$(printf '%s\n' "$route_files" | awk 'length {n++} END {print n+0}')
     
     print_info "Found $nextjs_app_routes Next.js route files" >&2
     
@@ -420,7 +420,7 @@ find_nodejs_routes() {
     local nextjs_pages_routes=0
     if [ -d "${TARGET_DIR}/pages/api" ]; then
         local pages_api_files=$(find "${TARGET_DIR}/pages/api" -type f \( -name "*.js" -o -name "*.ts" \) 2>/dev/null)
-        nextjs_pages_routes=$(echo "$pages_api_files" | grep -c . || echo "0")
+        nextjs_pages_routes=$(printf '%s\n' "$pages_api_files" | awk 'length {n++} END {print n+0}')
         if [ "$nextjs_pages_routes" -gt 0 ]; then
             print_success "Found $nextjs_pages_routes Next.js Pages Router API route(s)"
             routes_found=$((routes_found + nextjs_pages_routes))

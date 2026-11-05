@@ -17,6 +17,7 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./scan-directory-template.sh
 source "$SCRIPT_DIR/scan-directory-template.sh"
+source "$SCRIPT_DIR/ecr-login.sh"
 
 show_help() {
     echo -e "${WHITE}Epyon Container Image Builder${NC}"
@@ -267,6 +268,9 @@ echo -e "${CYAN}Using Runtime:${NC}    $RUNTIME"
 
 # Copy Dockerfile for evidence audit trail
 cp "$DOCKERFILE_PATH" "$BUILD_DIR/Dockerfile"
+
+# Log in to private ECR registries referenced by the Dockerfile (best-effort)
+epyon_ecr_login "$DOCKERFILE_PATH"
 
 # Build Image
 BUILD_SUCCESS=false

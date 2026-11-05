@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.62.2] - 2026-11-05
+
+### Added
+- Phase 0 now logs in to private Amazon ECR registries referenced by the Dockerfile before building, so local and web UI scans can pull ECR base images instead of failing with `401 Unauthorized`. Uses `ECR_SCAN_AWS_ACCESS_KEY_ID` / `ECR_SCAN_AWS_SECRET_ACCESS_KEY` when set (same names as the CI secrets), otherwise the AWS CLI credential chain. Set `SKIP_ECR_LOGIN=true` to disable; `ECR_REGISTRY` / `ECR_REGION` add or override registries. Login is best-effort and never fails the scan.
+
 ## [3.62.1] - 2026-11-05
 
 ### Fixed

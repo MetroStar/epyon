@@ -78,6 +78,19 @@ Sonar analysis, vulnerability scans, or current scanner-finding context.
 `EPYON_STIG_CONCURRENCY` accepts 1-4 concurrent requests (default 1).
 Concurrent results are merged in control order; every batch still uses the
 same exact-control validation, retry and strict completion rules.
+With `EPYON_AI_STRUCTURED_OUTPUT=true`, the response schema requires one named
+property per control, with an identifier constrained to that property. This
+prevents duplicate IDs in larger batches; exported reports still use the same
+assessment format. Missing, extra, duplicate, or mismatched keys fail validation.
+Local requests select at most 6 KB of relevant manual documentation per batch,
+in addition to the existing code context. Their output reservation is bounded
+to 1,024 tokens per control (at least 2,048, never above the configured limit),
+so the default 16,384-token reservation does not unnecessarily halve the input
+window. All controls, evidence requirements, safety and completeness gates remain.
+Measure cold and warm runs separately: unauthenticated NVD enrichment is still
+limited to five requests per 30 seconds; 106 uncached CVEs take over ten minutes
+from rate limiting alone. Use a legitimate `NVD_API_KEY` or the validated shared
+cache, never increased unauthenticated request rates.
 Cache storage must be writable only by trusted scanner jobs. Do not mount it
 into untrusted pull-request workloads.
 

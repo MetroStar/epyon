@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.62.6] - 2026-11-05
 
 ### Security
-- Web image: rebuilt on patched components to clear most of the self-scan's critical/high findings — Docker CLI 27.3.1→29.9.3, Helm 3.16.4→3.22.1, buildx 0.17.1→0.38.2 (stale Go stdlib/grpc/containerd/x-net/x-crypto) and `apt-get upgrade` for Debian packages (curl, util-linux, libc, etc.). Remaining unfixed Debian HIGH CVEs are suppressed per exact package@version in `.epyon-ignore.yml`, expiring 2027-01-31.
+- Web image: rebuilt on patched components to clear most of the self-scan's critical/high findings — Docker CLI 27.3.1→29.9.3, Helm 3.16.4→3.22.1, buildx 0.17.1→0.38.2 (stale Go stdlib/grpc/containerd/x-net/x-crypto) and `apt-get upgrade` for Debian packages (curl, util-linux, libc, etc.). Remaining unfixed Debian HIGH CVEs are suppressed per exact package@version in `.epyon-ignore.yml`, expiring 2027-01-31, as is `GO-2026-6612` (x/net inside the latest buildx, no upstream rebuild yet).
 
 ## [3.62.5] - 2026-11-05
 

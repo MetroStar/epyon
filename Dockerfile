@@ -15,10 +15,11 @@
 # find zero results even when its underlying scan produced real findings.
 FROM python:3.12-slim
 
-ARG DOCKER_CLI_VERSION=27.3.1
-ARG HELM_VERSION=3.16.4
+ARG DOCKER_CLI_VERSION=29.9.3
+ARG HELM_VERSION=3.22.1
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends \
         git \
         curl \
         ca-certificates \
@@ -59,7 +60,7 @@ RUN python3 -m pip install --no-cache-dir awscli
 # The static Docker CLI tarball ships without buildx, and `docker build` with
 # DOCKER_BUILDKIT=1 (run-build-scan.sh) fails with "buildx component is
 # missing" without it.
-ARG BUILDX_VERSION=0.17.1
+ARG BUILDX_VERSION=0.38.2
 RUN BX_ARCH="$(uname -m)" \
     && case "$BX_ARCH" in x86_64) BX_ARCH=amd64 ;; aarch64) BX_ARCH=arm64 ;; esac \
     && mkdir -p /usr/local/lib/docker/cli-plugins \

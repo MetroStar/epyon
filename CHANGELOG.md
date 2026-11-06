@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Structured STIG batches require exact named control keys, preventing duplicate control IDs without weakening complete-assessment validation. Local requests bound relevant manual documentation and output reservations to avoid wasting the model context window.
+
 ## [3.62.3] - 2026-11-05
 
 ### Fixed

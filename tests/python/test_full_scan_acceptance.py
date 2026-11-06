@@ -37,7 +37,67 @@ def test_structured_output_is_opt_in_and_disables_reasoning(monkeypatch):
     options = assess._structured_kwargs(assess._assessment_schema([CONTROL]))
     assert options["reasoning_effort"] == "none"
     assert options["response_format"]["type"] == "json_schema"
-    assert options["response_format"]["json_schema"]["schema"]["minItems"] == 1
+    schema = options["response_format"]["json_schema"]["schema"]
+    assert schema["type"] == "object"
+    assert schema["required"] == ["V-1"]
+    assert schema["additionalProperties"] is False
+    assert schema["properties"]["V-1"]["properties"]["vuln_id"]["enum"] == ["V-1"]
+
+
+def test_keyed_batch_preserves_all_assessments_in_requested_order(monkeypatch):
+    monkeypatch.setenv("EPYON_AI_STRUCTURED_OUTPUT", "true")
+    controls = [{"vuln_id": f"V-{i}"} for i in range(5)]
+    response = {c["vuln_id"]: {**RESULT, **c} for c in reversed(controls)}
+    decoded = assess._decode_assessments(json.dumps(response), controls)
+    assert [r["vuln_id"] for r in decoded] == [c["vuln_id"] for c in controls]
+    assert all(r["evidence"] == RESULT["evidence"] for r in decoded)
+
+
+def test_local_manual_context_retrieves_relevant_sections_of_large_documents(monkeypatch):
+    monkeypatch.setattr(assess, "_LOCAL_MODEL", True)
+    control = {**CONTROL, "check_content": "Review authentication logout"}
+    content = "# Unrelated\n" + "ordinary text " * 12000 + "\n# Logout V-1\nRequire authentication and logout."
+    selected = assess._manual_context_for_batch([("COMPLIANCE.md", content)], [control])
+    assert "Require authentication and logout." in selected
+    assert "COMPLIANCE.md" in selected
+    assert len(selected.encode()) < 6200
+
+
+def test_local_output_budget_leaves_room_for_input_without_changing_explicit_limit(monkeypatch):
+    monkeypatch.setattr(assess, "_LOCAL_MODEL", True)
+    monkeypatch.setenv("EPYON_AI_STRUCTURED_OUTPUT", "true")
+    controls = [{**CONTROL, "vuln_id": f"V-{i}", "title": "Logout", "check_content": "Review logout", "fix_text": "Logout"}
+                for i in range(5)]
+    calls = []
+
+    def create(**kwargs):
+        calls.append(kwargs)
+        results = {c["vuln_id"]: {**RESULT, "vuln_id": c["vuln_id"]} for c in controls}
+        return SimpleNamespace(usage=None, choices=[
+            SimpleNamespace(message=SimpleNamespace(content=json.dumps(results)), finish_reason="stop")
+        ])
+
+    client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
+    monkeypatch.delenv("EPYON_AI_MAX_TOKENS", raising=False)
+    assert len(assess.call_openai(client, "gemma4:12b", controls, "CODE")[0]) == 5
+    assert calls[-1]["max_tokens"] == 5120
+    monkeypatch.setenv("EPYON_AI_MAX_TOKENS", "1000")
+    assess.call_openai(client, "gemma4:12b", controls, "CODE")
+    assert calls[-1]["max_tokens"] == 1000
+    assert "JSON array" not in calls[-1]["messages"][0]["content"]
+
+
+@pytest.mark.parametrize("response", [
+    '{}', '{"V-1":null}', '{"V-1":{},"V-2":{}}',
+    json.dumps({"V-1": {**RESULT, "vuln_id": "V-2"}}),
+    '{"V-1":' + json.dumps(RESULT) + ',"V-1":' + json.dumps(RESULT) + '}',
+    json.dumps({"V-1": {**RESULT, "confidence": True}}),
+    json.dumps([RESULT]),
+])
+def test_keyed_batch_rejects_missing_extra_mismatched_duplicate_or_invalid_controls(monkeypatch, response):
+    monkeypatch.setenv("EPYON_AI_STRUCTURED_OUTPUT", "true")
+    with pytest.raises(ValueError):
+        assess._decode_assessments(response, [CONTROL])
 
 
 @pytest.mark.parametrize("results", [

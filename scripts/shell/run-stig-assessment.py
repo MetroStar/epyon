@@ -167,6 +167,17 @@ def _code_bytes_default() -> int:
     return LOCAL_CODE_BYTES_PER_BATCH if _LOCAL_MODEL else MAX_CODE_BYTES_PER_BATCH
 
 
+def _manual_context_for_batch(manual_docs, controls):
+    if _LOCAL_MODEL:
+        sections = []
+        for path, content in manual_docs:
+            for number, section in enumerate(re.split(r"(?m)(?=^#{1,6}\s)", content)):
+                for offset in range(0, len(section), 1000):
+                    sections.append((f"{path} (section {number + 1}, offset {offset})", section[offset:offset + 1000]))
+        return build_code_context_for_batch(sections, controls, max_bytes=6000, include_omitted_paths=False)
+    return "\n".join(f"### FILE: {rel}\n```\n{content}\n```\n" for rel, content in manual_docs)
+
+
 _JSON_REMINDER = (
     "Output contract: reply with ONLY the JSON array described in the system prompt, "
     "one object per control above. No prose, no summary, no markdown fences."
@@ -1471,6 +1482,7 @@ def build_code_context_for_batch(
     files: list[tuple[str, str]],
     controls_batch: list[dict[str, Any]],
     max_bytes: int = MAX_CODE_BYTES_PER_BATCH,
+    include_omitted_paths: bool = True,
 ) -> str:
     """Build code context that guarantees each control's most-relevant files.
 
@@ -1545,7 +1557,7 @@ def build_code_context_for_batch(
         parts.append(
             f"### NOTE: {len(skipped)} additional file(s) exceeded context budget "
             f"and were not included:\n"
-            + "\n".join(f"  {r}" for r in skipped)
+            + ("\n".join(f"  {r}" for r in skipped) if include_omitted_paths else "")
             + "\n"
         )
 
@@ -1598,20 +1610,42 @@ def _structured_kwargs(schema: dict[str, Any]) -> dict[str, Any]:
 
 def _assessment_schema(controls: list[dict[str, Any]]) -> dict[str, Any]:
     return {
-        "type": "array",
-        "minItems": len(controls),
-        "maxItems": len(controls),
-        "items": {
+        "type": "object",
+        "additionalProperties": False,
+        "required": [c["vuln_id"] for c in controls],
+        "properties": {c["vuln_id"]: {
             "type": "object",
+            "additionalProperties": False,
             "properties": {
-                "vuln_id": {"type": "string", "enum": [c["vuln_id"] for c in controls]},
+                "vuln_id": {"type": "string", "enum": [c["vuln_id"]]},
                 "status": {"type": "string", "enum": sorted(VALID_STATUSES)},
                 "evidence": {"type": "string", "minLength": 1},
                 "confidence": {"type": "integer", "minimum": 0, "maximum": 100},
             },
             "required": ["vuln_id", "status", "evidence", "confidence"],
-        },
+        } for c in controls},
     }
+
+
+def _unique_json_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"Model returned a duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def _decode_assessments(raw: str, controls: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    result = json.loads(raw, object_pairs_hook=_unique_json_object)
+    if os.environ.get("EPYON_AI_STRUCTURED_OUTPUT", "").lower() == "true":
+        expected = [c["vuln_id"] for c in controls]
+        if not isinstance(result, dict) or set(result) != set(expected):
+            raise ValueError("Model must return exactly the requested control keys")
+        if any(not isinstance(result[key], dict) or result[key].get("vuln_id") != key for key in expected):
+            raise ValueError("Model returned mismatched control keys and identifiers")
+        result = [result[key] for key in expected]
+    return _validate_batch(result, controls)
 
 
 def _validate_batch(results: Any, controls: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1767,8 +1801,10 @@ def call_openai(
         )
 
     # Controls and the output contract come first; reference material follows.
+    structured = os.environ.get("EPYON_AI_STRUCTURED_OUTPUT", "").lower() == "true"
+    response_contract = "JSON object keyed by exact control ID" if structured else "JSON array"
     user_message = (
-        f"Assess the {len(controls_batch)} controls below and reply with a JSON array only.\n\n"
+        f"Assess the {len(controls_batch)} controls below and reply with a {response_contract} only.\n\n"
         f"Controls to assess ({len(controls_batch)} total):\n{controls_json}\n\n"
         "Reference material follows. Use it as evidence; do not summarize it.\n\n"
         f"{manifest_section}"
@@ -1778,7 +1814,12 @@ def call_openai(
         f"Application source code (examine every file carefully):\n{code_context}"
     )
     if _LOCAL_MODEL or retry_hint:
-        user_message += f"\n\n{retry_hint + ' ' if retry_hint else ''}{_JSON_REMINDER}"
+        reminder = (
+            "Output contract: return exactly one property per requested control ID, with its matching "
+            "vuln_id, status, evidence, and confidence. JSON object only; no markdown fences."
+            if structured else _JSON_REMINDER
+        )
+        user_message += f"\n\n{retry_hint + ' ' if retry_hint else ''}{reminder}"
 
     # Derive a deterministic seed from the batch vuln_ids so the same controls
     # always get the same seed regardless of which run number this is.
@@ -1786,12 +1827,18 @@ def call_openai(
     _seed_input = ",".join(c["vuln_id"] for c in controls_batch).encode()
     _seed = int(_hashlib.sha256(_seed_input).hexdigest()[:8], 16) % (2**31)
 
+    prompt = system_prompt()
+    if structured:
+        prompt = prompt.replace("JSON array", response_contract).replace("Each element MUST", "Each property value MUST")
+    max_out = int(os.environ.get("EPYON_AI_MAX_TOKENS", "16384") or 16384)
+    if _LOCAL_MODEL:
+        max_out = min(max_out, max(2048, 1024 * len(controls_batch)))
     response = client.chat.completions.create(
         model=model,
-        **_completion_kwargs(model, int(os.environ.get("EPYON_AI_MAX_TOKENS", "16384") or 16384), _seed),
+        **_completion_kwargs(model, max_out, _seed),
         **_structured_kwargs(_assessment_schema(controls_batch)),
         messages=[
-            {"role": "system", "content": system_prompt()},
+            {"role": "system", "content": prompt},
             {"role": "user",   "content": user_message},
         ],
     )
@@ -1816,12 +1863,14 @@ def call_openai(
     raw = re.sub(r"\s*```$", "", raw)
 
     try:
-        return _validate_batch(json.loads(raw), controls_batch), prompt_tokens, completion_tokens
+        return _decode_assessments(raw, controls_batch), prompt_tokens, completion_tokens
     except json.JSONDecodeError:
+        if structured:
+            raise
         # Tolerate prose around the JSON array.
         start, end = raw.find("["), raw.rfind("]")
         if raw and start != -1 and end > start:
-            return _validate_batch(json.loads(raw[start:end + 1]), controls_batch), prompt_tokens, completion_tokens
+            return _decode_assessments(raw[start:end + 1], controls_batch), prompt_tokens, completion_tokens
         print(f"[WARNING] Unparseable model output (finish_reason={finish}): {raw[:200]!r}", file=sys.stderr)
         raise
 
@@ -2078,12 +2127,7 @@ def _assess_stig(
         print(f"[INFO] [{slug}] Loaded suppression rules from .epyon-ignore.yml (limited for token budget)", file=sys.stderr)
     
     # Build manual STIG documentation string for AI priority context
-    manual_docs_context = ""
     if manual_docs:
-        parts = []
-        for rel, content in manual_docs:
-            parts.append(f"### FILE: {rel}\n```\n{content}\n```\n")
-        manual_docs_context = "\n".join(parts)
         print(f"[INFO] [{slug}] Loaded {len(manual_docs)} manual STIG documentation file(s) for priority context", file=sys.stderr)
 
     assessments: dict[str, dict[str, str]] = {}
@@ -2107,6 +2151,7 @@ def _assess_stig(
             "findings": security_findings_context, "suppressions": suppression_rules_context,
             "published_reviews": published_prior, "format": os.environ.get("EPYON_STIG_FORMAT", ""),
             "structured": os.environ.get("EPYON_AI_STRUCTURED_OUTPUT", ""),
+            "response_contract": "keyed-controls-v1",
             "max_tokens": os.environ.get("EPYON_AI_MAX_TOKENS", "16384"),
             "batch_size": batch_size, "local": _LOCAL_MODEL,
             "code_budget": _code_bytes_default(),
@@ -2308,7 +2353,7 @@ def _assess_stig(
                 client, model, batch,
                 build_code_context_for_batch(source_files, batch, max_bytes=_code_bytes_default()),
                 repo_manifest, previous_assessments,
-                security_findings_context, suppression_rules_context, manual_docs_context, "",
+                security_findings_context, suppression_rules_context, _manual_context_for_batch(manual_docs, batch), "",
             )
 
         initial_calls = (
@@ -2334,7 +2379,7 @@ def _assess_stig(
             active_manifest = repo_manifest  # may be dropped on overflow
             active_findings = security_findings_context
             active_suppressions = suppression_rules_context
-            active_manual_docs = manual_docs_context
+            active_manual_docs = _manual_context_for_batch(manual_docs, batch)
             for attempt in range(1, _MAX_BATCH_RETRIES + 1):
                 # (Re)build context — uses current code_budget, which may have
                 # been reduced on a previous context_length_exceeded error.

@@ -25,7 +25,8 @@ Options:
 Environment Variables:
   TARGET_DIR          Alternative way to specify target directory
   SCAN_DIR            Output directory root (required)
-  SEMGREP_CONFIGS     Space-separated rulesets (default: "p/security-audit p/secrets")
+  SEMGREP_CONFIGS     Space-separated registry rulesets (default: "p/security-audit p/secrets");
+                      Epyon's custom rules in configuration/semgrep-rules/ always run too
   SEMGREP_IMAGE       Container image used when semgrep is not installed
 
 Output:
@@ -64,17 +65,18 @@ echo -e "${WHITE}Semgrep SAST Scanner${NC}"
 echo "Target: $REPO_PATH"
 echo "Rulesets: $SEMGREP_CONFIGS"
 
+RULES_DIR="$(cd "$SCRIPT_DIR/../../configuration/semgrep-rules" && pwd)"
 config_args=()
 for c in $SEMGREP_CONFIGS; do config_args+=(--config "$c"); done
 common_args=(scan "${config_args[@]}" --json --metrics=off --quiet
-    --exclude node_modules --exclude .git --exclude dist --exclude build --exclude vendor)
+    --exclude node_modules --exclude .git --exclude dist --exclude build --exclude vendor --exclude __tests__ --exclude '*.test.*' --exclude '*.spec.*')
 
 if command -v semgrep >/dev/null 2>&1; then
-    (cd "$REPO_PATH" && semgrep "${common_args[@]}" . 2>>"$SCAN_LOG" > "$RESULTS") || true
+    (cd "$REPO_PATH" && semgrep "${common_args[@]}" --config "$RULES_DIR" . 2>>"$SCAN_LOG" > "$RESULTS") || true
 elif command -v "$CONTAINER_CLI" >/dev/null 2>&1 && "$CONTAINER_CLI" info >/dev/null 2>&1; then
     target_host="$(to_host_path "$REPO_PATH" 2>/dev/null || echo "$REPO_PATH")"
-    "$CONTAINER_CLI" run --rm -v "$target_host:/src:ro" -w /src "$SEMGREP_IMAGE" \
-        semgrep "${common_args[@]}" . 2>>"$SCAN_LOG" > "$RESULTS" || true
+    "$CONTAINER_CLI" run --rm -v "$target_host:/src:ro" -v "$(to_host_path "$RULES_DIR" 2>/dev/null || echo "$RULES_DIR"):/rules:ro" -w /src "$SEMGREP_IMAGE" \
+        semgrep "${common_args[@]}" --config /rules . 2>>"$SCAN_LOG" > "$RESULTS" || true
 else
     echo -e "${YELLOW}⚠️  Neither semgrep nor a container runtime is available — skipping${NC}"
     echo '{"results": [], "errors": []}' > "$RESULTS"
@@ -89,6 +91,8 @@ if ! jq -e '.results' "$RESULTS" >/dev/null 2>&1; then
     exit 0
 fi
 
+# "missing X" rules match once per statement; keep one finding per rule/location
+jq '.results |= unique_by(if (.check_id | test("missing-")) then [.check_id, .path] else [.check_id, .path, .start.line] end)' "$RESULTS" > "$RESULTS.tmp" && mv "$RESULTS.tmp" "$RESULTS"
 count=$(jq '.results | length' "$RESULTS")
 echo -e "${GREEN}✅ Semgrep complete: $count findings${NC}"
 record_scan_status "success" 2>/dev/null || true

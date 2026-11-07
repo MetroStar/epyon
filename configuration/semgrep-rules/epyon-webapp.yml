@@ -1,0 +1,226 @@
+rules:
+  # ── Express / Node application security ────────────────────────────────
+  - id: epyon.express-cors-wildcard-origin
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: CORS allows any origin (origin '*'), especially unsafe combined with credentials. Restrict to an allow-list.
+    metadata: {cwe: ["CWE-942"]}
+    pattern: 'cors({..., origin: "*", ...})'
+
+  - id: epyon.express-large-body-limit
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: Request body limit is very large; accepting big payloads enables denial of service. Use a small limit (e.g. 100kb).
+    metadata: {cwe: ["CWE-770"]}
+    patterns:
+      - pattern: 'express.json({..., limit: "$SIZE", ...})'
+      - metavariable-regex: {metavariable: $SIZE, regex: '^(\d{2,}|[2-9])\s*(mb|MB|gb|GB)$'}
+
+  - id: epyon.express-missing-security-headers
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: Express app does not use helmet(); CSP, HSTS and other security headers are missing.
+    metadata: {cwe: ["CWE-693"]}
+    patterns:
+      - pattern: |
+          $APP = express();
+          ...
+      - pattern-not: |
+          $APP = express();
+          ...
+          $APP.use(helmet(...));
+          ...
+
+  - id: epyon.express-missing-rate-limit
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: Express app has no rate limiting (e.g. express-rate-limit); login and API endpoints are open to brute force and DoS.
+    metadata: {cwe: ["CWE-770"]}
+    patterns:
+      - pattern: |
+          $APP = express();
+          ...
+      - pattern-not: |
+          $APP = express();
+          ...
+          $APP.use(rateLimit(...));
+          ...
+      - pattern-not: |
+          $APP = express();
+          ...
+          $APP.use(<... rateLimit(...) ...>);
+          ...
+
+  - id: epyon.express-error-message-disclosure
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: Raw error details are returned to the client, leaking internals. Log server-side and return a generic message.
+    metadata: {cwe: ["CWE-209"]}
+    patterns:
+      - pattern-either:
+          - pattern: 'res.$STATUS(...).json({..., $K: $E.message, ...})'
+          - pattern: 'res.$STATUS(...).json({..., $K: $E.stack, ...})'
+          - pattern: 'res.json({..., $K: $E.message, ...})'
+      - metavariable-regex: {metavariable: $E, regex: '^(e|err|error|ex)$'}
+
+  - id: epyon.express-debug-endpoint
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Debug/diagnostic endpoint is exposed. Remove it or restrict it to authenticated administrators in non-production.
+    metadata: {cwe: ["CWE-489", "CWE-200"]}
+    patterns:
+      - pattern-either:
+          - pattern: $APP.get($PATH, ...)
+          - pattern: $APP.post($PATH, ...)
+          - pattern: $APP.all($PATH, ...)
+      - metavariable-regex: {metavariable: $PATH, regex: '(?is).*(debug|/env["'']?$|/config["'']?$|server-info|phpinfo|actuator)'}
+
+  - id: epyon.express-process-env-exposed
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: process.env is sent to the client, exposing secrets and configuration.
+    metadata: {cwe: ["CWE-200"]}
+    pattern-either:
+      - pattern: 'res.json({..., $K: process.env, ...})'
+      - pattern: res.send(process.env)
+      - pattern: res.json(process.env)
+
+  - id: epyon.express-idor-no-ownership-check
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Query selects/updates/deletes a record by id only, with no owner (user_id) condition. Any authenticated user can access other users' records (IDOR).
+    metadata: {cwe: ["CWE-639", "CWE-862"]}
+    patterns:
+      - pattern: $POOL.query("$SQL", ...)
+      - metavariable-regex:
+          metavariable: $SQL
+          regex: '(?is)^\s*(select\s.*\sfrom|update|delete\s+from)\s+(tasks|orders|documents|projects|items|notes)\b.*\bwhere\s+id\s*=\s*\$\d+(?!.*user_?id)'
+
+  - id: epyon.weak-hash-md5-sha1
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: MD5/SHA-1 is broken and must not be used for passwords or integrity. Use bcrypt/argon2 for passwords, SHA-256+ otherwise.
+    metadata: {cwe: ["CWE-327", "CWE-328"]}
+    pattern-either:
+      - pattern: crypto.createHash("md5")
+      - pattern: crypto.createHash("sha1")
+
+  - id: epyon.browser-token-in-localstorage
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: Auth token/user data stored in localStorage is readable by any XSS payload. Prefer httpOnly, Secure, SameSite cookies.
+    metadata: {cwe: ["CWE-922", "CWE-79"]}
+    patterns:
+      - pattern: localStorage.setItem("$K", ...)
+      - metavariable-regex: {metavariable: $K, regex: '(?i).*(token|jwt|auth|session|user)'}
+
+  # ── Infrastructure / configuration ─────────────────────────────────────
+  - id: epyon.postgres-hba-trust-auth
+    languages: [generic]
+    severity: ERROR
+    message: pg_hba.conf uses 'trust' authentication; anyone who can connect gets in without a password.
+    metadata: {cwe: ["CWE-287"]}
+    paths: {include: ["pg_hba.conf"]}
+    pattern-regex: '(?m)^(?!\s*#)\s*(local|host\w*)\s+\S+\s+\S+(\s+\S+)?\s+trust\s*$'
+
+  - id: epyon.postgres-hba-open-to-world
+    languages: [generic]
+    severity: ERROR
+    message: pg_hba.conf allows connections from any address (0.0.0.0/0 or ::/0). Restrict to the application subnet.
+    metadata: {cwe: ["CWE-284"]}
+    paths: {include: ["pg_hba.conf"]}
+    pattern-regex: '(?m)^(?!\s*#)\s*host\w*\s+\S+\s+\S+\s+(0\.0\.0\.0/0|::/0)\s+\S+'
+
+  - id: epyon.postgres-hba-md5-auth
+    languages: [generic]
+    severity: WARNING
+    message: pg_hba.conf uses md5 password authentication, which is weak. Use scram-sha-256.
+    metadata: {cwe: ["CWE-327"]}
+    paths: {include: ["pg_hba.conf"]}
+    pattern-regex: '(?m)^(?!\s*#)\s*(local|host\w*)\s+\S+\s+\S+(\s+\S+)?\s+md5\s*(#.*)?$'
+
+  - id: epyon.postgres-ssl-disabled
+    languages: [generic]
+    severity: ERROR
+    message: PostgreSQL ssl is off; client/server traffic and credentials are unencrypted.
+    metadata: {cwe: ["CWE-319"]}
+    paths: {include: ["postgresql.conf"]}
+    pattern-regex: "(?m)^\\s*ssl\\s*=\\s*(off|false|0|'off')"
+
+  - id: epyon.postgres-excessive-logging
+    languages: [generic]
+    severity: WARNING
+    message: log_statement='all' logs every statement, including sensitive data such as credentials and PII.
+    metadata: {cwe: ["CWE-532"]}
+    paths: {include: ["postgresql.conf"]}
+    pattern-regex: "(?m)^\\s*log_statement\\s*=\\s*'?all'?"
+
+  - id: epyon.compose-hardcoded-credential
+    languages: [generic]
+    severity: ERROR
+    message: Credential hardcoded in compose file. Use secrets or environment-injected values.
+    metadata: {cwe: ["CWE-798"]}
+    paths: {include: ["docker-compose*.yml", "docker-compose*.yaml", "compose*.yml"]}
+    pattern-regex: '(?mi)^\s*-?\s*\w*(PASSWORD|SECRET|API_KEY|TOKEN)\w*\s*[:=]\s*["'']?(?!\$\{)[^\s"''$#]+'
+
+  - id: epyon.compose-port-all-interfaces
+    languages: [generic]
+    severity: WARNING
+    message: Published port binds to all interfaces. Bind to 127.0.0.1 unless the service must be public.
+    metadata: {cwe: ["CWE-284"]}
+    paths: {include: ["docker-compose*.yml", "docker-compose*.yaml", "compose*.yml"]}
+    pattern-regex: '(?m)^\s*-\s*["'']?(0\.0\.0\.0:)?\d{2,5}:\d{2,5}["'']?\s*$'
+
+  - id: epyon.nginx-no-tls
+    languages: [generic]
+    severity: ERROR
+    message: nginx serves plain HTTP only; no TLS listener is configured.
+    metadata: {cwe: ["CWE-319"]}
+    paths: {include: ["nginx*.conf", "*.nginx.conf"]}
+    patterns:
+      - pattern-regex: '(?s)\A.*\z'
+      - pattern-not-regex: 'listen\s+[^;]*\bssl\b'
+
+  - id: epyon.nginx-missing-csp
+    languages: [generic]
+    severity: WARNING
+    message: nginx does not set the Content-Security-Policy header.
+    metadata: {cwe: ["CWE-693"]}
+    paths: {include: ["nginx*.conf", "*.nginx.conf"]}
+    patterns:
+      - pattern-regex: '(?s)\A.*\z'
+      - pattern-not-regex: 'Content-Security-Policy'
+
+  - id: epyon.nginx-missing-hsts
+    languages: [generic]
+    severity: WARNING
+    message: nginx does not set the Strict-Transport-Security header.
+    metadata: {cwe: ["CWE-693"]}
+    paths: {include: ["nginx*.conf", "*.nginx.conf"]}
+    patterns:
+      - pattern-regex: '(?s)\A.*\z'
+      - pattern-not-regex: 'Strict-Transport-Security'
+
+  - id: epyon.nginx-cors-wildcard
+    languages: [generic]
+    severity: WARNING
+    message: nginx sets Access-Control-Allow-Origin to '*'.
+    metadata: {cwe: ["CWE-942"]}
+    paths: {include: ["nginx*.conf", "*.nginx.conf"]}
+    pattern-regex: "add_header\\s+['\"]?Access-Control-Allow-Origin['\"]?\\s+['\"]\\*['\"]"
+
+  - id: epyon.nginx-info-disclosure-endpoint
+    languages: [generic]
+    severity: WARNING
+    message: nginx exposes a server-info style endpoint that discloses version/host details.
+    metadata: {cwe: ["CWE-200"]}
+    paths: {include: ["nginx*.conf", "*.nginx.conf"]}
+    pattern-regex: 'location\s+[^{]*(server-info|server-status|nginx_status)'
+
+  - id: epyon.dockerfile-npm-install-includes-dev
+    languages: [generic]
+    severity: WARNING
+    message: npm install without --omit=dev/--production puts devDependencies into the image. Use `npm ci --omit=dev`.
+    metadata: {cwe: ["CWE-1104"]}
+    paths: {include: ["Dockerfile", "Dockerfile.*", "*.Dockerfile"]}
+    pattern-regex: '(?m)^\s*RUN\s+npm\s+(install|i|ci)\b(?!.*(--omit=dev|--production|--only=prod))[^\n]*$'

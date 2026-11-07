@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **npm audit layer (11.7)**: audits every `package.json` in the target, including projects with no lockfile. A lockfile is resolved in a temporary copy (the target is never modified), so vulnerable direct and transitive dependencies are reported even when Syft/Grype/Trivy find no components. Skip with `SKIP_NPM_AUDIT=true`.
 - **Semgrep SAST layer (11.8)**: code-level findings (SQL injection, command injection, hardcoded secrets, insecure JWT/crypto usage, container misconfigurations) using `p/security-audit` and `p/secrets`, with no server required. Runs the local `semgrep` binary or the `semgrep/semgrep` container. Override rulesets with `SEMGREP_CONFIGS`; skip with `SKIP_SEMGREP=true`.
+- Custom Semgrep ruleset `configuration/semgrep-rules/epyon-webapp.yml` (always applied) for flaws public rulesets miss: wildcard CORS, oversized body limits, missing helmet/rate limiting, error-message disclosure, debug/`process.env` endpoints, IDOR (id-only queries), `localStorage` tokens, MD5/SHA-1, PostgreSQL `trust`/`md5`/open `pg_hba.conf`, `ssl=off`, `log_statement=all`, hardcoded compose credentials, all-interface ports, nginx without TLS/CSP/HSTS, and `npm install` shipping devDependencies in Dockerfiles. Test files are excluded.
+- npm audit layer also reports deprecated packages (from the generated lockfile) as low-severity findings.
 - Both layers feed `security-findings-summary.json`, the web UI parsers, and `.epyon-ignore.yml` tool suppression (`type: tool`, `value: npm-audit` / `semgrep`).
 
 ## [3.62.8] - 2026-11-07

@@ -97,14 +97,16 @@ for pkg in "${PKG_FILES[@]}"; do
     if [[ ! -f "$work/package-lock.json" && ! -f "$work/npm-shrinkwrap.json" ]]; then
         echo "   No lockfile — resolving dependency tree in a temporary copy"
         (cd "$work" && npm install --package-lock-only --ignore-scripts --no-audit --no-fund \
-            >>"$SCAN_LOG" 2>&1) || { echo -e "${YELLOW}   ⚠️  Could not resolve dependencies for $rel${NC}"; continue; }
+            >"$work/install.log" 2>&1) || { echo -e "${YELLOW}   ⚠️  Could not resolve dependencies for $rel${NC}"; continue; }
     fi
 
+    cat "$work/install.log" >> "$SCAN_LOG" 2>/dev/null || true
     raw="$work/audit.json"
     # npm audit exits non-zero when vulnerabilities exist
     (cd "$work" && npm audit --json 2>>"$SCAN_LOG" > "$raw") || true
     jq -e '.vulnerabilities' "$raw" >/dev/null 2>&1 || { echo -e "${YELLOW}   ⚠️  No usable audit output for $rel${NC}"; continue; }
 
+    lockfile="$work/package-lock.json"; [[ -f "$lockfile" ]] || lockfile="$work/npm-shrinkwrap.json"
     # Flatten: one entry per advisory (via[] objects) per package
     results=$(jq '[
         .vulnerabilities | to_entries[] | .key as $pkgname | .value as $v
@@ -122,10 +124,15 @@ for pkg in "${PKG_FILES[@]}"; do
     ] | unique_by(.id + "|" + .name)' "$raw")
 
     # Resolve installed versions from the generated lockfile
-    lockfile="$work/package-lock.json"; [[ -f "$lockfile" ]] || lockfile="$work/npm-shrinkwrap.json"
     results=$(jq --slurpfile lock "$lockfile" '
         map(. as $r | .v = (($lock[0].packages["node_modules/" + $r.name].version) // $r.v))' <<<"$results")
 
+    # Deprecated packages are recorded in the lockfile by npm
+    deprecated=$(jq '[.packages // {} | to_entries[] | select(.value.deprecated != null and .key != "")
+        | {id: ("DEPRECATED-" + (.key | sub("^.*node_modules/"; ""))), name: (.key | sub("^.*node_modules/"; "")),
+           v: .value.version, severity: "low", title: ("Deprecated: " + .value.deprecated), advisory: "", fix_available: false}]
+        | unique_by(.id)' "$lockfile")
+    results=$(jq --argjson d "${deprecated:-[]}" '. + $d' <<<"$results")
     count=$(jq 'length' <<<"$results")
     echo -e "${GREEN}   ✅ $count advisories${NC}"
     tmp=$(mktemp)

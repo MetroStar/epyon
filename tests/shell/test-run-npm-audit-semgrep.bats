@@ -56,3 +56,13 @@ EOF
     [ "$high" -eq 1 ]
     [ "$med" -eq 1 ]
 }
+
+@test "custom semgrep rules file is present with unique rule ids" {
+    local f="${BATS_TEST_DIRNAME}/../../configuration/semgrep-rules/epyon-webapp.yml"
+    [ -f "$f" ]
+    local ids uniq_ids
+    ids=$(grep -c '^  - id: epyon\.' "$f")
+    uniq_ids=$(grep '^  - id: epyon\.' "$f" | sort -u | wc -l | tr -d ' ')
+    [ "$ids" -gt 20 ]
+    [ "$ids" -eq "$uniq_ids" ]
+}

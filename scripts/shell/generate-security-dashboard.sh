@@ -268,7 +268,13 @@ echo "DEBUG: OUTPUT_HTML=$OUTPUT_HTML" >&2
 if declare -f parse_ignore_rules >/dev/null 2>&1; then
     # Try multiple possible locations for .epyon-ignore.yml
     IGNORE_FILE=""
-    for possible_path in "${TARGET_DIR:-}/.epyon-ignore.yml" "${WORKSPACE_ROOT}/.epyon-ignore.yml" "${LATEST_SCAN}/../../.epyon-ignore.yml" "$(pwd)/.epyon-ignore.yml"; do
+    # Only the scanned target's own ignore file applies; never Epyon's (WORKSPACE_ROOT / cwd).
+    _META_TARGET=""
+    if [ -f "${LATEST_SCAN}/scan-metadata.json" ] && command -v jq &> /dev/null; then
+        _META_TARGET=$(jq -r '.target_directory // empty' "${LATEST_SCAN}/scan-metadata.json" 2>/dev/null || true)
+    fi
+    for possible_path in "${TARGET_DIR:-}/.epyon-ignore.yml" "${_META_TARGET:+$_META_TARGET/.epyon-ignore.yml}" "${GITHUB_WORKSPACE:-}/.epyon-ignore.yml"; do
+        [ -n "$possible_path" ] || continue
         if [ -f "$possible_path" ]; then
             IGNORE_FILE="$possible_path"
             break

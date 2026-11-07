@@ -80,6 +80,37 @@ EOF
         rm -rf "$scan_dir" "$target_dir"
 }
 
+@test "check-severity-gate.sh does not apply Epyon's own .epyon-ignore.yml to a target without one" {
+        # Epyon's repo-root ignore file belongs to its self-scan; a target with
+        # no ignore file of its own must not inherit those suppressions.
+        grep -q 'transformers@4.57.6' "${BATS_TEST_DIRNAME}/../../.epyon-ignore.yml" || skip "Epyon ignore rule used as the probe is gone"
+        local scan_dir target_dir
+        scan_dir=$(mktemp -d)
+        target_dir=$(mktemp -d)
+
+        cat > "$scan_dir/security-findings-summary.json" << 'EOF'
+{
+    "critical_findings": [{
+        "tool": "trivy",
+        "vulnerability_id": "CVE-2099-0001",
+        "package_name": "transformers",
+        "package_version": "4.57.6"
+    }],
+    "high_findings": [],
+    "medium_findings": [],
+    "low_findings": [],
+    "summary": {}
+}
+EOF
+
+        run env -u GITHUB_WORKSPACE SCAN_DIR="$scan_dir" TARGET_DIR="$target_dir" WARNING_ONLY=true "$SCRIPT_PATH"
+
+        run jq -e '.critical_findings | length == 1' "$scan_dir/security-findings-filtered.json"
+        [ "$status" -eq 0 ]
+
+        rm -rf "$scan_dir" "$target_dir"
+}
+
 @test "check-severity-gate.sh step summary lists every tool that detected a deduplicated CVE, not just the first" {
         # generate-scan-findings-summary.sh's dedup pass keeps only .[0] as the
         # surviving finding but records ALL contributing tools in .detected_by.

@@ -15,6 +15,8 @@ This table shows which layers run in each scan mode. Layers marked ✅ run by de
 | 7  | Container Security     | Trivy         | ✅ | ✅ | ✅ | ⬜ | `SKIP_TRIVY=true` |
 | 8  | Vulnerability Scanning | Grype         | ✅ | ✅ | ✅ | ⬜ | `SKIP_GRYPE=true` |
 | 8.5| Direct Dependency Scan | pip-audit     | ✅ | ✅ | ✅ | ⬜ | `SKIP_PIP_AUDIT=true` |
+| 11.7| Node Dependency Audit (lockfile-less) | npm audit | ✅ | ✅ | ✅ | ⬜ | `SKIP_NPM_AUDIT=true` |
+| 11.8| SAST | Semgrep | ✅ | ✅ | ✅ | ⬜ | `SKIP_SEMGREP=true` |
 | 8.6| Python Safety Check    | safety        | ✅ | ✅ | ✅ | ⬜ | `SKIP_SAFETY=true` |
 | 9  | EOL Detection          | Xeol          | ⬜ | ✅ | ✅ | ⬜ | `SKIP_XEOL=true` |
 | 10 | Container Analysis     | Anchore       | ⬜ | ✅ | ✅ | ⬜ | `SKIP_ANCHORE=true` |

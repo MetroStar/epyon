@@ -492,6 +492,58 @@ EOF
         fi
     fi
     
+    # Process npm-audit results
+    local npm_dir="$SCAN_DIR/npm-audit"
+    if [[ -f "$npm_dir/npm-audit-consolidated-results.json" ]]; then
+        tools_analyzed+=("npm-audit")
+        local npm_vulns=$(jq '[
+            .scan_results[]? | .file as $f | .results[]? | {
+                tool: "npm-audit", type: "vulnerability",
+                severity: (if .severity == "critical" then "Critical" elif .severity == "high" then "High" elif .severity == "moderate" then "Medium" else "Low" end),
+                vulnerability_id: .id, id: .id, package: .name, package_name: .name,
+                version: .v, package_version: .v, package_type: "npm",
+                purl: ("pkg:npm/" + .name + "@" + .v), description: .title,
+                title: .title, target: $f, fix_available: (if .fix_available then "Yes" else "No" end),
+                advisory: .advisory
+            }
+        ]' "$npm_dir/npm-audit-consolidated-results.json" 2>/dev/null || echo "[]")
+        local npm_critical=$(echo "$npm_vulns" | jq '[.[] | select(.severity == "Critical")]' 2>/dev/null || echo "[]")
+        local npm_high=$(echo "$npm_vulns" | jq '[.[] | select(.severity == "High")]' 2>/dev/null || echo "[]")
+        local npm_medium=$(echo "$npm_vulns" | jq '[.[] | select(.severity == "Medium")]' 2>/dev/null || echo "[]")
+        local npm_low=$(echo "$npm_vulns" | jq '[.[] | select(.severity == "Low")]' 2>/dev/null || echo "[]")
+        merge_severity_arrays "$npm_critical" "$npm_high" "$npm_medium" "$npm_low"
+        total_critical=$((total_critical + $(echo "$npm_critical" | jq 'length' 2>/dev/null || echo 0)))
+        total_high=$((total_high + $(echo "$npm_high" | jq 'length' 2>/dev/null || echo 0)))
+        total_medium=$((total_medium + $(echo "$npm_medium" | jq 'length' 2>/dev/null || echo 0)))
+        total_low=$((total_low + $(echo "$npm_low" | jq 'length' 2>/dev/null || echo 0)))
+    fi
+
+    # Process semgrep results
+    local semgrep_dir="$SCAN_DIR/semgrep"
+    if [[ -f "$semgrep_dir/semgrep-results.json" ]]; then
+        tools_analyzed+=("semgrep")
+        local semgrep_vulns=$(jq '[
+            .results[]? | {
+                tool: "semgrep", type: "sast",
+                severity: (if .extra.severity == "ERROR" then "High" elif .extra.severity == "WARNING" then "Medium" else "Low" end),
+                vulnerability_id: .check_id, id: .check_id,
+                title: (.check_id | split(".") | last), description: (.extra.message // ""),
+                target: (.path + ":" + ((.start.line // 0) | tostring)),
+                file: .path, line: .start.line,
+                cwe: (.extra.metadata.cwe // [] | if type == "array" then .[0] else . end)
+            }
+        ]' "$semgrep_dir/semgrep-results.json" 2>/dev/null || echo "[]")
+        local semgrep_critical=$(echo "$semgrep_vulns" | jq '[.[] | select(.severity == "Critical")]' 2>/dev/null || echo "[]")
+        local semgrep_high=$(echo "$semgrep_vulns" | jq '[.[] | select(.severity == "High")]' 2>/dev/null || echo "[]")
+        local semgrep_medium=$(echo "$semgrep_vulns" | jq '[.[] | select(.severity == "Medium")]' 2>/dev/null || echo "[]")
+        local semgrep_low=$(echo "$semgrep_vulns" | jq '[.[] | select(.severity == "Low")]' 2>/dev/null || echo "[]")
+        merge_severity_arrays "$semgrep_critical" "$semgrep_high" "$semgrep_medium" "$semgrep_low"
+        total_critical=$((total_critical + $(echo "$semgrep_critical" | jq 'length' 2>/dev/null || echo 0)))
+        total_high=$((total_high + $(echo "$semgrep_high" | jq 'length' 2>/dev/null || echo 0)))
+        total_medium=$((total_medium + $(echo "$semgrep_medium" | jq 'length' 2>/dev/null || echo 0)))
+        total_low=$((total_low + $(echo "$semgrep_low" | jq 'length' 2>/dev/null || echo 0)))
+    fi
+
     # Process safety results (scan directory structure)
     # Python vulnerability scanner with NVD + PyPI advisory coverage (complements pip-audit)
     local safety_dir="$SCAN_DIR/safety"

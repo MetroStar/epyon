@@ -23,6 +23,8 @@ Epyon is a 20-layer DevSecOps security scanner that installs a GitHub Actions wo
 | 7 | Container Security | Trivy | quick, nightly, full |
 | 8 | Vulnerability Scanning | Grype | quick, nightly, full |
 | 8.5 | Direct Dependency Scanning | pip-audit (ML-aware) | quick, nightly, full, stig |
+| 11.7 | Node Dependency Audit (resolves a lockfile in a temp copy) | npm audit | quick, nightly, full |
+| 11.8 | SAST | Semgrep | quick, nightly, full |
 | 9 | EOL Detection | Xeol | nightly, full |
 | 10 | Container Analysis | Anchore | nightly, full |
 | 11 | API Discovery | Custom | nightly, full |

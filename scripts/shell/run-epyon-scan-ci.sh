@@ -356,6 +356,12 @@ _get_layer_result_file() {
       # pip-audit produces pip-audit-results.json
       echo "${SCAN_DIR}/pip-audit/pip-audit-results.json"
       ;;
+    "Layer 11.7 - npm audit")
+      echo "${SCAN_DIR}/npm-audit/npm-audit-consolidated-results.json"
+      ;;
+    "Layer 11.8 - Semgrep SAST")
+      echo "${SCAN_DIR}/semgrep/semgrep-results.json"
+      ;;
     "Layer 11.6 - Python Safety Check")
       # Safety produces safety-results.json
       echo "${SCAN_DIR}/safety/safety-results.json"
@@ -993,6 +999,28 @@ else
   [[ "${SKIP_PIP_AUDIT:-false}" == "true" ]] && echo "[INFO] Skipping Layer 11.5 - pip-audit (SKIP_PIP_AUDIT=true)"
 fi
 
+# Layer 11.7 — npm audit (works without a lockfile)
+if _should_run_tool SKIP_NPM_AUDIT; then
+  _record_start "Layer 11.7 - npm audit"
+  chmod +x scripts/shell/run-npm-audit-scan.sh
+  env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" scripts/shell/run-npm-audit-scan.sh \
+    > "${PARALLEL_LOG_DIR}/layer-11.7-npm-audit.log" 2>&1 &
+  _set_parallel_pid "Layer 11.7 - npm audit" $!
+else
+  echo "[INFO] Skipping Layer 11.7 - npm audit (SKIP_NPM_AUDIT=true)"
+fi
+
+# Layer 11.8 — Semgrep SAST (code-level vulnerabilities and hardcoded secrets)
+if _should_run_tool SKIP_SEMGREP; then
+  _record_start "Layer 11.8 - Semgrep SAST"
+  chmod +x scripts/shell/run-semgrep-scan.sh
+  env SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" scripts/shell/run-semgrep-scan.sh \
+    > "${PARALLEL_LOG_DIR}/layer-11.8-semgrep.log" 2>&1 &
+  _set_parallel_pid "Layer 11.8 - Semgrep SAST" $!
+else
+  echo "[INFO] Skipping Layer 11.8 - Semgrep SAST (SKIP_SEMGREP=true)"
+fi
+
 # Layer 11.6 — Python Vulnerability Safety (complement pip-audit with NVD + PyPI advisory coverage)
 # Catches CVEs in pip-audit's database gaps (e.g., GHSA-jm82-fx9c-mx94 for pypdf)
 if _should_run_tool SKIP_SAFETY; then
@@ -1221,7 +1249,7 @@ run_group "Apply Suppression Rules" bash -lc '
 
   # Build a jq select filter that removes any tool suppressed in .epyon-ignore.yml.
   SUPPRESSED_TOOLS_JQ=""
-  for tool_name in grype trivy trufflehog checkov clamav anchore xeol pip-audit safety; do
+  for tool_name in grype trivy trufflehog checkov clamav anchore xeol pip-audit safety npm-audit semgrep; do
     if declare -f is_tool_ignored >/dev/null 2>&1 && is_tool_ignored "$tool_name" 2>/dev/null; then
       echo "[INFO] Suppressing findings from tool: $tool_name"
       SUPPRESSED_TOOLS_JQ="${SUPPRESSED_TOOLS_JQ} and ((.tool // \"\" | ascii_downcase) | startswith(\"${tool_name}\") | not)"

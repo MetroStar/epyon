@@ -1116,6 +1116,20 @@ print_section() {
 }
 
 # Function to run security tools with target directory
+# Code-level layers: npm audit (lockfile-less SCA) and Semgrep SAST
+run_code_security_layers() {
+    if [[ "${SKIP_NPM_AUDIT:-false}" != "true" ]]; then
+        run_security_tool "npm audit Dependency Scanning" "$SCRIPT_DIR/run-npm-audit-scan.sh"
+    else
+        echo -e "${YELLOW}⏭️  Skipping npm audit (SKIP_NPM_AUDIT=true)${NC}"
+    fi
+    if [[ "${SKIP_SEMGREP:-false}" != "true" ]]; then
+        run_security_tool "Semgrep SAST" "$SCRIPT_DIR/run-semgrep-scan.sh"
+    else
+        echo -e "${YELLOW}⏭️  Skipping Semgrep (SKIP_SEMGREP=true)${NC}"
+    fi
+}
+
 run_security_tool() {
     local tool_name="$1"
     local script_path="$2"
@@ -1272,6 +1286,7 @@ case "$SCAN_TYPE" in
 
         # Layer 11: API Discovery
         [[ "${SKIP_API_DISCOVERY:-false}" != "true" ]] && run_security_tool "API Discovery" "$SCRIPT_DIR/run-api-discovery.sh" || echo -e "${YELLOW}⏭️  Skipping API Discovery (SKIP_API_DISCOVERY=true)${NC}"
+        run_code_security_layers
 
         # Layer 12: Garak — skipped in quick mode (opt-in via RUN_GARAK=true)
         if [[ "${RUN_GARAK:-false}" == "true" ]] && [[ "${SKIP_GARAK:-false}" != "true" ]]; then
@@ -1321,6 +1336,7 @@ case "$SCAN_TYPE" in
         else
             echo -e "${YELLOW}⏭️  Skipping API Discovery (SKIP_API_DISCOVERY=true)${NC}"
         fi
+        run_code_security_layers
 
         echo -e "${PURPLE}🔌 Network Discovery${NC}"
         if [[ "${SKIP_NETWORK_DISCOVERY:-false}" != "true" ]]; then
@@ -1422,6 +1438,7 @@ case "$SCAN_TYPE" in
         else
             echo -e "${YELLOW}⏭️  Skipping Layer 11 - API Discovery (SKIP_API_DISCOVERY=true)${NC}"
         fi
+        run_code_security_layers
 
         echo -e "${PURPLE}🤖 Layer 12: LLM Security Probing${NC}"
         # Garak is skipped by default in full mode to match CI behavior.
@@ -1855,7 +1872,7 @@ if [[ ! -f "$SCRIPT_DIR/check-severity-gate.sh" ]]; then
         fi
 
         SUPPRESSED_TOOLS_JQ=""
-        for tool_name in grype trivy trufflehog checkov clamav anchore xeol pip-audit safety; do
+        for tool_name in grype trivy trufflehog checkov clamav anchore xeol pip-audit safety npm-audit semgrep; do
             if declare -f is_tool_ignored >/dev/null 2>&1 && is_tool_ignored "$tool_name" 2>/dev/null; then
                 echo -e "${YELLOW}   Suppressing findings from tool: $tool_name${NC}"
                 SUPPRESSED_TOOLS_JQ="${SUPPRESSED_TOOLS_JQ} and ((.tool // \"\" | ascii_downcase) | startswith(\"${tool_name}\") | not)"

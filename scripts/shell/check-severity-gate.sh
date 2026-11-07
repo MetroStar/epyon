@@ -63,13 +63,13 @@ if [[ -f "$SCRIPT_DIR/parse-epyon-ignore.sh" ]]; then
     }
     if declare -f parse_ignore_rules >/dev/null 2>&1; then
         # Try multiple candidate locations for .epyon-ignore.yml to handle
-        # different workspace layouts (e.g., repo at TARGET_DIR, at GITHUB_WORKSPACE
-        # root, or alongside the scan directory).
+        # different workspace layouts (repo at TARGET_DIR or at GITHUB_WORKSPACE
+        # root). Never fall back to Epyon's own ignore file: its rules belong to
+        # Epyon's self-scan and must not suppress findings in other targets.
         _IGNORE_FILE=""
         for _candidate in \
             "${TARGET_DIR:-}/.epyon-ignore.yml" \
-            "${GITHUB_WORKSPACE:-}/.epyon-ignore.yml" \
-            "$(cd "$SCRIPT_DIR/../.." && pwd)/.epyon-ignore.yml"; do
+            "${GITHUB_WORKSPACE:-}/.epyon-ignore.yml"; do
             if [[ -n "$_candidate" && -f "$_candidate" ]]; then
                 _IGNORE_FILE="$_candidate"
                 break

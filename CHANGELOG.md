@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.62.8] - 2026-11-07
+
+### Fixed
+- Epyon's own `.epyon-ignore.yml` no longer suppresses findings in other targets. `check-severity-gate.sh` and `generate-security-dashboard.sh` fell back to Epyon's repo-root (or working-directory) ignore file when the scanned target had none, so a target with no ignore file silently inherited Epyon's self-scan suppressions. Only the target's own ignore file is now used.
+
 ## [3.62.7] - 2026-11-06
 
 ### Security

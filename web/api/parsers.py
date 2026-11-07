@@ -596,6 +596,62 @@ def parse_pip_audit_dir(scan_dir: Path) -> list[dict]:
     return findings
 
 
+def parse_npm_audit_dir(scan_dir: Path) -> list[dict]:
+    """Parse npm audit results (lockfile-less aware Node.js SCA)."""
+    findings: list[dict] = []
+    consolidated = scan_dir / "npm-audit" / "npm-audit-consolidated-results.json"
+    raw = _read_json(consolidated) if consolidated.exists() else None
+    if not raw:
+        return findings
+    sev_map = {"critical": "critical", "high": "high", "moderate": "medium", "low": "low"}
+    for scan_result in raw.get("scan_results") or []:
+        for vuln in scan_result.get("results") or []:
+            fixed = bool(vuln.get("fix_available"))
+            findings.append({
+                "tool": "npm-audit",
+                "id": vuln.get("id", ""),
+                "severity": sev_map.get((vuln.get("severity") or "").lower(), "medium"),
+                "package": vuln.get("name", ""),
+                "version": vuln.get("v", ""),
+                "fixed_version": "available" if fixed else "",
+                "title": vuln.get("title") or vuln.get("id", ""),
+                "description": vuln.get("title", ""),
+                "target": scan_result.get("file", ""),
+                "references": [vuln.get("advisory")] if vuln.get("advisory") else [],
+                "cve_source": "OSV",
+            })
+    return findings
+
+
+def parse_semgrep_dir(scan_dir: Path) -> list[dict]:
+    """Parse Semgrep SAST results (code-level vulnerabilities and secrets)."""
+    findings: list[dict] = []
+    results_file = scan_dir / "semgrep" / "semgrep-results.json"
+    raw = _read_json(results_file) if results_file.exists() else None
+    if not raw:
+        return findings
+    sev_map = {"ERROR": "high", "WARNING": "medium", "INFO": "low"}
+    for r in raw.get("results") or []:
+        extra = r.get("extra") or {}
+        rule_id = r.get("check_id", "")
+        line = (r.get("start") or {}).get("line", 0)
+        cwe = (extra.get("metadata") or {}).get("cwe") or []
+        findings.append({
+            "tool": "semgrep",
+            "id": rule_id,
+            "severity": sev_map.get(extra.get("severity", ""), "medium"),
+            "package": "",
+            "version": "",
+            "fixed_version": "",
+            "title": rule_id.split(".")[-1],
+            "description": extra.get("message", ""),
+            "target": f"{r.get('path', '')}:{line}",
+            "references": [cwe[0] if isinstance(cwe, list) else cwe] if cwe else [],
+            "cve_source": "code",
+        })
+    return findings
+
+
 def parse_safety_dir(scan_dir: Path) -> list[dict]:
     """Parse Safety Python vulnerability scan results.
     
@@ -1341,7 +1397,7 @@ def parse_suppressed_findings(scan_dir: Path) -> list[dict]:
     }
     _KNOWN_TOOL_NAMES = {
         "grype", "trivy", "trufflehog", "checkov", "clamav", "anchore",
-        "xeol", "pip-audit", "safety", "sonarqube",
+        "xeol", "pip-audit", "safety", "sonarqube", "npm-audit", "semgrep",
     }
 
     # 1. Parse suppressed-findings.md if present
@@ -1751,6 +1807,8 @@ def parse_scan_findings(scan_dir: Path) -> dict:
         + parse_anchore_dir(scan_dir)
         + parse_pip_audit_dir(scan_dir)
         + parse_safety_dir(scan_dir)
+        + parse_npm_audit_dir(scan_dir)
+        + parse_semgrep_dir(scan_dir)
         # TruffleHog and Checkov excluded - see parse_misconfiguration_findings() below
         + parse_clamav_dir(scan_dir)
         + parse_xeol_dir(scan_dir)

@@ -915,6 +915,8 @@ Epyon's Layer 10 "Approved Base Images" baseline scan defaults to **auto-discove
 7. **🐳 Trivy** - Comprehensive security scanner for containers, filesystems, and Kubernetes
 8. **🎯 Grype** - Advanced vulnerability scanning with SBOM generation and multi-format support
 9. **🐍 pip-audit** - Direct Python dependency CVE scanning from dependency files
+9a. **📦 npm audit** - Node.js dependency CVEs, even for projects with no lockfile (resolved in a temp copy)
+9b. **🔎 Semgrep** - SAST for SQL/command injection, hardcoded secrets and insecure crypto/JWT usage
 10. **🛡️ Safety** - Python vulnerability scanning with OSV-backed advisory coverage
 11. **⏰ Xeol** - End-of-Life software detection for proactive dependency management
 12. **⚓ Anchore** - Deep container and software composition analysis

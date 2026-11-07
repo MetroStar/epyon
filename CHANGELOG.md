@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.62.7] - 2026-11-06
+
+### Security
+- Suppressed `GO-2026-6612` (golang.org/x/net v0.59.0 bundled in the latest Docker buildx plugin) in `.epyon-ignore.yml`, expiring 2027-01-31. The fix is in x/net 0.60.0 but buildx 0.38.2 has no rebuild yet. This was missed by #202, which merged before the entry landed.
+
 ## [3.62.6] - 2026-11-05
 
 ### Security

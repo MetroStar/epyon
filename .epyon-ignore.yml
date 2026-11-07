@@ -311,6 +311,16 @@ ignores:
     approved_by: "rnelson"
     expires: "2027-01-31"
 
+  - type: cve
+    value: "GO-2026-6612"
+    reason: >
+      golang.org/x/net v0.59.0 compiled into the Docker buildx plugin
+      (/usr/local/lib/docker/cli-plugins/docker-buildx). Fixed in x/net 0.60.0,
+      but buildx 0.38.2 is the latest release and still bundles v0.59.0. Re-evaluate
+      when buildx ships a rebuild.
+    approved_by: "rnelson"
+    expires: "2027-01-31"
+
 # Notes:
 # - Previously suppressed CKV2_GHA_1 and CKV_GHA_7 findings have been fixed:
 #   * CKV2_GHA_1: Removed top-level write-all permissions (job-level permissions already properly scoped)

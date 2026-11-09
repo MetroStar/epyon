@@ -26,6 +26,8 @@ setup() {
     grep -q '^COPY --from=node-runtime /usr/local/lib/node_modules/ ' "$DOCKERFILE"
     grep -q 'npm/bin/npm-cli.js /usr/local/bin/npm' "$DOCKERFILE"
     grep -q 'npm/bin/npx-cli.js /usr/local/bin/npx' "$DOCKERFILE"
+    grep -q '^ARG NPM_VERSION=12.2.2$' "$DOCKERFILE"
+    grep -q 'npm install --global "npm@${NPM_VERSION}"' "$DOCKERFILE"
     grep -q '^[[:space:]]*libatomic1' "$DOCKERFILE"
     grep -q '^[[:space:]]*libstdc++6' "$DOCKERFILE"
     grep -q 'node --version && npm --version && npx --version' "$DOCKERFILE"

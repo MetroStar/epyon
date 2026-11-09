@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.66.3] - 2026-11-09
+
+### Fixed
+- The oversized-summary regression test reads its payload inside the child shell instead of exceeding the OS argument limit in the test harness itself.
+
+### Security
+- Pin npm 12.2.2, whose bundled brace-expansion 5.0.12 and undici 6.29.1 fix the outstanding npm dependency advisories.
+
 ## [3.66.2] - 2026-11-09
 
 ### Fixed

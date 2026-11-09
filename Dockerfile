@@ -22,6 +22,7 @@ COPY --from=node-runtime /usr/local/lib/node_modules/ /usr/local/lib/node_module
 
 ARG DOCKER_CLI_VERSION=29.9.3
 ARG HELM_VERSION=3.22.1
+ARG NPM_VERSION=12.2.2
 
 RUN apt-get update && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
@@ -33,6 +34,7 @@ RUN apt-get update && apt-get upgrade -y \
         libstdc++6 \
     && ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+    && npm install --global "npm@${NPM_VERSION}" \
     && node --version && npm --version && npx --version \
     && curl -fsSL "https://download.docker.com/linux/static/stable/$(uname -m)/docker-${DOCKER_CLI_VERSION}.tgz" \
         -o /tmp/docker-cli.tgz \

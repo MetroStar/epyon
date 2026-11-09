@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.65.0] - 2026-11-09
+
+### Added
+- Findings tables in the scan detail view and the self-contained dashboard are paginated per severity (25/50/100/200 per page, First/Prev/Next/Last). Previously only the first 200 findings of each severity were shown with a "showing first 200 of N" note and the rest were unreachable. Sorting now applies to all findings, not just the visible page.
+
 ## [3.64.4] - 2026-11-09
 
 ### Fixed

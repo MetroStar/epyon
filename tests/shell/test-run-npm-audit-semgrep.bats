@@ -72,3 +72,7 @@ EOF
     grep -q 'run_pass "\$RESULTS.local" --config "\$rules_path"' "$s"
     grep -q 'run_pass "\$RESULTS.registry"' "$s"
 }
+
+@test "semgrep scan falls back to the image copy of bundled rules when configuration/ is shadowed" {
+    grep -q '/opt/epyon-defaults/configuration/semgrep-rules' "$SCRIPT_DIR/run-semgrep-scan.sh"
+}

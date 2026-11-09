@@ -66,7 +66,15 @@ echo -e "${WHITE}Semgrep SAST Scanner${NC}"
 echo "Target: $REPO_PATH"
 echo "Rulesets: $SEMGREP_CONFIGS"
 
-RULES_DIR="$(cd "$SCRIPT_DIR/../../configuration/semgrep-rules" && pwd)"
+# docker-compose bind-mounts the host's ./configuration over /app/configuration, which
+# can hide the bundled rules; fall back to the immutable image copy (see Dockerfile).
+RULES_DIR=""
+for candidate in "$SCRIPT_DIR/../../configuration/semgrep-rules" "${SEMGREP_RULES_DEFAULT_BACKUP:-/opt/epyon-defaults/configuration/semgrep-rules}"; do
+    if [[ -n "$(ls "$candidate"/*.yml 2>/dev/null)" ]]; then RULES_DIR="$(cd "$candidate" && pwd)"; break; fi
+done
+if [[ -z "$RULES_DIR" ]]; then
+    echo -e "${YELLOW}⚠️  Bundled Semgrep rules not found — using registry rulesets only${NC}"
+fi
 registry_args=()
 for c in $SEMGREP_CONFIGS; do registry_args+=(--config "$c"); done
 common_args=(scan --json --metrics=off --quiet
@@ -100,7 +108,7 @@ else
     exit 0
 fi
 
-run_pass "$RESULTS.local" --config "$rules_path"
+if [[ -n "$RULES_DIR" ]]; then run_pass "$RESULTS.local" --config "$rules_path"; fi
 run_pass "$RESULTS.registry" "${registry_args[@]}"
 
 has_local=false; has_registry=false

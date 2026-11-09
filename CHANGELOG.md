@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.64.4] - 2026-11-09
+
+### Fixed
+- Semgrep produced no findings on deployed web-UI instances: docker-compose bind-mounts the host's `./configuration` over `/app/configuration`, hiding `semgrep-rules/`, and the script aborted at `cd` under `set -e`. The scan now falls back to the image's immutable copy in `/opt/epyon-defaults/configuration/semgrep-rules` and still runs registry rulesets if no bundled rules exist.
+
 ## [3.64.3] - 2026-11-09
 
 ### Added

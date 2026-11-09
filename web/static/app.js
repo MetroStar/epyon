@@ -29,6 +29,8 @@ let _ghSignalData = null;
 // ── Findings sort state (per severity) ───────────────────────
 const _currentFindingsBySev = {};
 const _sortState             = {};
+const _pageState             = {};
+const FINDINGS_PAGE_SIZES    = [25, 50, 100, 200];
 
 // ── Epyon workflow YAML (shared by Settings page + Add App modal) ─
 const WORKFLOW_YML = `name: Private Security Scan
@@ -1313,6 +1315,7 @@ function setActive(routeKey) {
   _stigRegistry.clear();
   for (const k of Object.keys(_currentFindingsBySev)) delete _currentFindingsBySev[k];
   for (const k of Object.keys(_sortState))             delete _sortState[k];
+  for (const k of Object.keys(_pageState))             delete _pageState[k];
   closeFindingDetail();
   closeStigDetail();
 }
@@ -3947,7 +3950,7 @@ window.sortFindingsBy = function(sev, col) {
   }
   _sortState[sev] = state;
 
-  const items = [...(_currentFindingsBySev[sev] || [])];
+  const items = _currentFindingsBySev[sev] || [];
   const dir   = state.dir === 'asc' ? 1 : -1;
 
   items.sort((a, b) => {
@@ -3966,8 +3969,8 @@ window.sortFindingsBy = function(sev, col) {
     return dir * (av - bv);
   });
 
-  const tbody = document.getElementById(`findings-tbody-${sev}`);
-  if (tbody) tbody.innerHTML = _buildFindingRows(items);
+  (_pageState[sev] || (_pageState[sev] = { page: 1, size: 50 })).page = 1;
+  renderFindingsPage(sev);
 
   // Update sort-direction indicator on th elements
   const section = document.getElementById(`findings-section-${sev}`);
@@ -4231,6 +4234,61 @@ window.apiRender = function(uid) {
   }
 };
 
+function _findingsPagerHtml(sev) {
+  const all = _currentFindingsBySev[sev] || [];
+  const st = _pageState[sev];
+  if (all.length <= FINDINGS_PAGE_SIZES[0]) return '';
+  const pages = Math.max(1, Math.ceil(all.length / st.size));
+  const first = (st.page - 1) * st.size + 1;
+  const last = Math.min(all.length, st.page * st.size);
+  const btn = (label, page, disabled) =>
+    `<button type="button" class="btn btn-sm" ${disabled ? 'disabled' : ''} onclick="setFindingsPage('${sev}', ${page})">${label}</button>`;
+  const sizeOpts = FINDINGS_PAGE_SIZES.map(n => `<option value="${n}" ${n === st.size ? 'selected' : ''}>${n}</option>`).join('');
+  return `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 4px;font-size:13px;color:var(--text-muted)">
+    <span>Showing ${first}–${last} of ${all.length} findings</span>
+    <span style="display:flex;gap:6px;align-items:center">
+      <label>Per page <select onchange="setFindingsPageSize('${sev}', this.value)">${sizeOpts}</select></label>
+      ${btn('« First', 1, st.page <= 1)}${btn('‹ Prev', st.page - 1, st.page <= 1)}
+      <span>Page ${st.page} of ${pages}</span>
+      ${btn('Next ›', st.page + 1, st.page >= pages)}${btn('Last »', pages, st.page >= pages)}
+    </span>
+  </div>`;
+}
+
+window.renderFindingsPage = function(sev) {
+  const all = _currentFindingsBySev[sev] || [];
+  const st = _pageState[sev] || (_pageState[sev] = { page: 1, size: 50 });
+  const pages = Math.max(1, Math.ceil(all.length / st.size));
+  st.page = Math.min(Math.max(1, st.page), pages);
+  const tbody = document.getElementById(`findings-tbody-${sev}`);
+  if (tbody) tbody.innerHTML = _buildFindingRows(all.slice((st.page - 1) * st.size, st.page * st.size));
+  const pager = document.getElementById(`findings-pager-${sev}`);
+  if (pager) {
+    const controls = [...pager.querySelectorAll('button, select')];
+    const focusIndex = controls.indexOf(document.activeElement);
+    pager.innerHTML = _findingsPagerHtml(sev);
+    if (focusIndex >= 0) {
+      const updatedControls = [...pager.querySelectorAll('button, select')];
+      const previousControl = updatedControls[focusIndex];
+      const focusTarget = previousControl && !previousControl.disabled
+        ? previousControl
+        : updatedControls.find(control => !control.disabled);
+      focusTarget?.focus({ preventScroll: true });
+    }
+  }
+};
+
+window.setFindingsPage = function(sev, page) {
+  _pageState[sev].page = page;
+  renderFindingsPage(sev);
+};
+
+window.setFindingsPageSize = function(sev, size) {
+  _pageState[sev].size = parseInt(size, 10) || 50;
+  _pageState[sev].page = 1;
+  renderFindingsPage(sev);
+};
+
 function buildFindingsSection(findings) {
   const severities = ['critical', 'high', 'medium', 'low'];
   let html = '';
@@ -4240,13 +4298,14 @@ function buildFindingsSection(findings) {
   for (const sev of severities) {
     _currentFindingsBySev[sev] = [];
     _sortState[sev] = { col: null, dir: 'asc' };
+    _pageState[sev] = { page: 1, size: 50 };
   }
 
   // Always show all severity levels, even if empty
   for (const sev of severities) {
     const allItems = findings[`${sev}_findings`] || [];
-    const items = allItems.slice(0, 200);
-    _currentFindingsBySev[sev] = items;
+    _currentFindingsBySev[sev] = allItems;
+    const items = allItems.slice(0, _pageState[sev].size);
     
     if (allItems.length > 0) {
       anyFindings = true;
@@ -4254,11 +4313,6 @@ function buildFindingsSection(findings) {
       // Count suppressed findings
       const suppressedCount = allItems.filter(f => f.suppressed === true).length;
       const activeCount = allItems.length - suppressedCount;
-
-      const overflow = allItems.length > 200
-        ? `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:12px">
-             … showing first 200 of ${allItems.length} findings.
-           </td></tr>` : '';
 
       // Build count badge with suppressed indicator
       const countBadge = suppressedCount > 0
@@ -4289,9 +4343,10 @@ function buildFindingsSection(findings) {
                     <th scope="col" class="sortable-th" data-col="target"  onclick="sortFindingsBy('${sev}','target')">Location <span class="sort-icon">⇅</span></th>
                   </tr>
                 </thead>
-                <tbody id="findings-tbody-${esc(sev)}">${_buildFindingRows(items)}${overflow}</tbody>
+                <tbody id="findings-tbody-${esc(sev)}">${_buildFindingRows(items)}</tbody>
               </table>
             </div>
+            <div id="findings-pager-${esc(sev)}">${_findingsPagerHtml(sev)}</div>
           </div>
         </details>`;
     } else {

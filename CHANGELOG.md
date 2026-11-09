@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.66.1] - 2026-11-09
+
+### Fixed
+- The web image uses upstream Node 24 LTS and npm instead of Debian's older Node 20/npm dependency tree.
+- ML scanner fixtures use PyTorch 2.10.0, which fixes the unsafe checkpoint-loading advisory.
+- STIG XML parsing uses defusedxml to reject entity expansion.
+- Workflow inputs are passed through environment variables rather than interpolated into shell source.
+- Epyon's PR scans exercise the proposed workflow and scanner revision, with OIDC permissions forwarded by the callers.
+
 ## [3.66.0] - 2026-11-09
 
 ### Added

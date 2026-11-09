@@ -13,7 +13,12 @@
 # `jq ... || echo "0"` fallback pattern that was written assuming `jq`
 # exists, so without it installed here every one of those tools *appears* to
 # find zero results even when its underlying scan produced real findings.
+FROM node:24-trixie-slim AS node-runtime
+
 FROM python:3.12-slim
+
+COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-runtime /usr/local/lib/node_modules/ /usr/local/lib/node_modules/
 
 ARG DOCKER_CLI_VERSION=29.9.3
 ARG HELM_VERSION=3.22.1
@@ -24,8 +29,8 @@ RUN apt-get update && apt-get upgrade -y \
         curl \
         ca-certificates \
         jq \
-        nodejs \
-        npm \
+    && ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
     && curl -fsSL "https://download.docker.com/linux/static/stable/$(uname -m)/docker-${DOCKER_CLI_VERSION}.tgz" \
         -o /tmp/docker-cli.tgz \
     && tar -xzf /tmp/docker-cli.tgz -C /tmp \

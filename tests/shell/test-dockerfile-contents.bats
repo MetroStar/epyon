@@ -19,3 +19,12 @@ setup() {
 @test "Dockerfile still installs web/api/requirements.txt" {
     grep -q "pip install --no-cache-dir -r /app/web/api/requirements.txt" "$DOCKERFILE"
 }
+
+@test "Dockerfile uses upstream Node LTS without the Debian npm dependency tree" {
+    grep -q '^FROM node:24-trixie-slim AS node-runtime$' "$DOCKERFILE"
+    grep -q '^COPY --from=node-runtime /usr/local/bin/node ' "$DOCKERFILE"
+    grep -q '^COPY --from=node-runtime /usr/local/lib/node_modules/ ' "$DOCKERFILE"
+    grep -q 'npm/bin/npm-cli.js /usr/local/bin/npm' "$DOCKERFILE"
+    grep -q 'npm/bin/npx-cli.js /usr/local/bin/npx' "$DOCKERFILE"
+    ! grep -Eq '^[[:space:]]+(nodejs|npm)[[:space:]]*\\?$' "$DOCKERFILE"
+}

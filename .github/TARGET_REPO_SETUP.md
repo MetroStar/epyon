@@ -42,6 +42,13 @@ Pass the webhook inputs through to the Epyon reusable workflow:
 ```yaml
 jobs:
   security-scan:
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      security-events: write
+      issues: write
+      id-token: write
     uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
     with:
       scan_mode: ${{ inputs.scan_mode || 'full' }}

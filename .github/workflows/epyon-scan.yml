@@ -409,12 +409,11 @@ jobs:
         continue-on-error: true
         env:
           GIT_LFS_SKIP_SMUDGE: "1"
+          REPO_URL: ${{ inputs.repository_url }}
+          SUBDIR: ${{ inputs.subdirectory }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          TARGET_REF: ${{ inputs.target_ref }}
         run: |
-          REPO_URL="${{ inputs.repository_url }}"
-          SUBDIR="${{ inputs.subdirectory }}"
-          PR_NUMBER="${{ inputs.pr_number }}"
-          TARGET_REF="${{ inputs.target_ref }}"
-          SCAN_MODE="${{ inputs.scan_mode }}"
           CHECKOUT_TARGET=""
 
           if [[ -n "$PR_NUMBER" ]]; then
@@ -477,12 +476,13 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
+          SBOM_ARTIFACT: ${{ inputs.sbom_artifact }}
         run: |
-          echo "📥 Downloading SBOM artifact: ${{ inputs.sbom_artifact }}"
+          echo "📥 Downloading SBOM artifact: $SBOM_ARTIFACT"
           mkdir -p /tmp/sbom-artifact
           gh run download "$GITHUB_RUN_ID" \
             --repo "$GITHUB_REPOSITORY" \
-            --name "${{ inputs.sbom_artifact }}" \
+            --name "$SBOM_ARTIFACT" \
             --dir /tmp/sbom-artifact \
           && echo "✅ SBOM artifact downloaded" \
           || echo "⚠️ SBOM artifact not available — Layer 1 (Syft) will generate one"
@@ -611,7 +611,7 @@ jobs:
           # dhi.io images require authentication — skip if not available.
           # In quick mode, skip checkov and xeol — those layers are not run.
           IMAGES="anchore/grype:latest ghcr.io/aquasecurity/trivy:latest trufflesecurity/trufflehog:latest anchore/syft:latest clamav/clamav:latest"
-          if [[ "${{ inputs.scan_mode }}" != "quick" ]]; then
+          if [[ "$SCAN_MODE" != "quick" ]]; then
             IMAGES="$IMAGES bridgecrew/checkov:latest noqcks/xeol:latest"
           fi
           for image in $IMAGES; do
@@ -631,8 +631,8 @@ jobs:
           sudo apt-get install -y jq bats
           python -m pip install --upgrade pip
           # Python dependency vulnerability scanners used by Layers 11.5/11.6
-          python -m pip install pip-audit safety
-          if [[ "${{ inputs.scan_mode }}" != "quick" ]]; then
+          python -m pip install pip-audit safety defusedxml
+          if [[ "$SCAN_MODE" != "quick" ]]; then
             python -m pip install pyyaml pipdeptree openai
           else
             python -m pip install pyyaml pipdeptree
@@ -796,6 +796,8 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
+          METRICS_TARGET_REPOSITORY: ${{ inputs.repository_url || github.repository }}
+          METRICS_BASE_BRANCH: ${{ inputs.pr_base_branch }}
         run: |
           cd epyon
           if [ -f /tmp/epyon-env ]; then
@@ -815,7 +817,7 @@ jobs:
           DASHBOARD_FILE="$SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html"
           METRICS_90D_FILE="$SCAN_DIR/scan-metrics-90d.json"
 
-          if [ -f "$DASHBOARD_FILE" ] && [ "${{ inputs.scan_mode }}" != 'quick' ]; then
+          if [ -f "$DASHBOARD_FILE" ] && [ "$SCAN_MODE" != 'quick' ]; then
             echo "${GH_TOKEN}" | gh auth login --with-token >/dev/null 2>&1 || true
             SINCE_DATE=$(date -u -d '30 days ago' +%Y-%m-%d 2>/dev/null || date -u -v-30d +%Y-%m-%d)
             echo "Looking for scans since: $SINCE_DATE"
@@ -825,7 +827,7 @@ jobs:
             # Collect metrics (without --quiet so we see what was found)
             if ./scripts/shell/get-scan-metrics.sh \
               --github-only \
-              --from-github "${{ github.repository }}" \
+              --from-github "$GITHUB_REPOSITORY" \
               --since "$SINCE_DATE" \
               --output "$METRICS_90D_FILE"; then
               echo "✅ Metrics collected successfully"
@@ -835,9 +837,9 @@ jobs:
 
             if [ -s "$METRICS_90D_FILE" ]; then
               # Resolve base branch: use input override if set, otherwise auto-detect from repo API
-              PR_REPO="${{ inputs.repository_url || github.repository }}"
+              PR_REPO="$METRICS_TARGET_REPOSITORY"
               PR_REPO=$(echo "$PR_REPO" | sed 's|https://github.com/||; s|/$||')
-              OVERRIDE_BRANCH="${{ inputs.pr_base_branch }}"
+              OVERRIDE_BRANCH="$METRICS_BASE_BRANCH"
               if [ -n "$OVERRIDE_BRANCH" ]; then
                 PR_BASE_BRANCH="$OVERRIDE_BRANCH"
               else
@@ -921,6 +923,8 @@ jobs:
 
       - name: Write Metrics Row
         if: always() && inputs.write_metrics != false && (inputs.scan_mode == 'full' || github.event_name == 'workflow_dispatch')
+        env:
+          METRICS_TARGET_REPOSITORY: ${{ inputs.repository_url || github.repository }}
         run: |
           cd epyon
           SCAN_DIR="${{ steps.run-scan.outputs.scan_dir }}"
@@ -938,13 +942,13 @@ jobs:
 
           jq -cn \
             --arg  scan_id        "${{ steps.run-scan.outputs.scan_id }}" \
-            --arg  target_name    "${{ inputs.repository_url || github.repository }}" \
-            --arg  scan_type      "${{ inputs.scan_mode }}" \
-            --arg  scan_user      "${{ github.actor }}" \
+            --arg  target_name    "$METRICS_TARGET_REPOSITORY" \
+            --arg  scan_type      "$SCAN_MODE" \
+            --arg  scan_user      "$GITHUB_ACTOR" \
             --arg  scan_timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --arg  repository     "${{ github.repository }}" \
-            --arg  run_id         "${{ github.run_id }}" \
-            --arg  run_url        "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --arg  repository     "$GITHUB_REPOSITORY" \
+            --arg  run_id         "$GITHUB_RUN_ID" \
+            --arg  run_url        "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             --argjson critical    "$CRITICAL" \
             --argjson high        "$HIGH" \
             --argjson medium      "$MEDIUM" \

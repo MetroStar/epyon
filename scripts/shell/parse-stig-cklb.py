@@ -22,8 +22,10 @@ import json
 import re
 import sys
 import argparse
-import xml.etree.ElementTree as ET
 from pathlib import Path
+
+from defusedxml import ElementTree as ET
+from defusedxml.common import DefusedXmlException
 
 XCCDF_NS = "http://checklists.nist.gov/xccdf/1.1"
 
@@ -221,7 +223,7 @@ def main() -> None:
     except FileNotFoundError as e:
         print(f"[ERROR] {e}", file=sys.stderr)
         sys.exit(1)
-    except (json.JSONDecodeError, ValueError) as e:
+    except (json.JSONDecodeError, ValueError, DefusedXmlException) as e:
         print(f"[ERROR] Failed to parse STIG file: {e}", file=sys.stderr)
         sys.exit(1)
 

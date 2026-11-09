@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.66.4] - 2026-11-09
+
+### Fixed
+- Format an archived scan report without changing its JSON content, preventing a credential regex from spanning unrelated fields.
+- Free GitHub-hosted runner disk space for image builds in quick scans as well as full scans.
+
+### Security
+- Use patched Wolfi runtime packages while retaining Python 3.12 and Node 24.
+- Rebuild Helm 3 and Buildx with Go 1.27.3 and patched networking/archive dependencies; isolate Buildx's frozen naming utility with its license instead of linking the obsolete Docker daemon module.
+- Resolve native scanner and API dependencies together in a virtual environment using distribution-managed pip and verify them with pip check.
+- Forward only the reusable workflow's declared secrets from all shipped callers, and preserve OIDC permissions in installable templates.
+
 ## [3.66.3] - 2026-11-09
 
 ### Fixed

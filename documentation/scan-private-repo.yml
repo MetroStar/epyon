@@ -59,6 +59,7 @@ jobs:
       pull-requests: write
       security-events: write
       issues: write
+      id-token: write
     uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
     with:
       scan_mode: ${{ github.event_name == 'schedule' && 'nightly' || github.event.inputs.scan_mode || 'full' }}
@@ -66,4 +67,19 @@ jobs:
       garak_target_type: ${{ github.event.inputs.garak_target_type || 'openai' }}
       garak_target_name: ${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
       garak_probes: ${{ github.event.inputs.garak_probes || 'promptinject' }}
-    secrets: inherit
+    secrets:
+      ECR_SCAN_AWS_ACCESS_KEY_ID: ${{ secrets.ECR_SCAN_AWS_ACCESS_KEY_ID }}
+      ECR_SCAN_AWS_SECRET_ACCESS_KEY: ${{ secrets.ECR_SCAN_AWS_SECRET_ACCESS_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+      JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+      JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+      JIRA_PROJECT_KEY: ${{ secrets.JIRA_PROJECT_KEY }}
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      COSIGN_KEY: ${{ secrets.COSIGN_KEY }}
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}

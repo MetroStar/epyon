@@ -9,7 +9,8 @@ name: Epyon Security Scan (Reusable)
 #       with:
 #         scan_mode: quick
 #         scanner_ref: main # Pin a tag or commit independently of the workflow.
-#       secrets: inherit
+#       secrets:
+#         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
 # checkov:skip=CKV_GHA_7:Workflow inputs control scan parameters and configuration, not build artifacts or output
 on:
@@ -494,7 +495,7 @@ jobs:
           fi
 
       - name: Free Disk Space
-        if: inputs.scan_mode != 'quick'
+        if: inputs.scan_mode != 'quick' || inputs.build_enabled
         run: |
           df -h /
           # Remove large pre-installed toolchains not needed for security scanning

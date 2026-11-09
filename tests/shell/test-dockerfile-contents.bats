@@ -13,23 +13,31 @@ setup() {
 }
 
 @test "Dockerfile installs pip-audit for Layer 8.5" {
-    grep -q "pip install --no-cache-dir pip-audit" "$DOCKERFILE"
+    grep -q 'pip install --no-cache-dir -r /app/web/api/requirements.txt pip-audit semgrep awscli' "$DOCKERFILE"
+    grep -q 'python3 -m pip check' "$DOCKERFILE"
 }
 
 @test "Dockerfile still installs web/api/requirements.txt" {
     grep -q "pip install --no-cache-dir -r /app/web/api/requirements.txt" "$DOCKERFILE"
 }
 
-@test "Dockerfile uses upstream Node LTS without the Debian npm dependency tree" {
-    grep -q '^FROM node:24-trixie-slim AS node-runtime$' "$DOCKERFILE"
-    grep -q '^COPY --from=node-runtime /usr/local/bin/node ' "$DOCKERFILE"
-    grep -q '^COPY --from=node-runtime /usr/local/lib/node_modules/ ' "$DOCKERFILE"
+@test "Dockerfile uses patched Wolfi packages and npm without Debian's dependency tree" {
+    grep -q '^FROM cgr.dev/chainguard/wolfi-base:latest$' "$DOCKERFILE"
+    grep -q 'python-3.12 py3.12-pip nodejs-24 docker-cli' "$DOCKERFILE"
+    grep -q 'python3 -m venv --system-site-packages --without-pip /opt/venv' "$DOCKERFILE"
     grep -q 'npm/bin/npm-cli.js /usr/local/bin/npm' "$DOCKERFILE"
     grep -q 'npm/bin/npx-cli.js /usr/local/bin/npx' "$DOCKERFILE"
     grep -q '^ARG NPM_VERSION=12.2.2$' "$DOCKERFILE"
-    grep -q 'npm install --global "npm@${NPM_VERSION}"' "$DOCKERFILE"
-    grep -q '^[[:space:]]*libatomic1' "$DOCKERFILE"
-    grep -q '^[[:space:]]*libstdc++6' "$DOCKERFILE"
+    grep -q 'npm-${NPM_VERSION}.tgz' "$DOCKERFILE"
     grep -q 'node --version && npm --version && npx --version' "$DOCKERFILE"
     ! grep -Eq '^[[:space:]]+(nodejs|npm)[[:space:]]*\\?$' "$DOCKERFILE"
+}
+
+@test "Dockerfile rebuilds CLIs with patched Go dependencies and no daemon module" {
+    grep -q '^FROM golang:1.27.3-alpine AS cli-builder$' "$DOCKERFILE"
+    grep -q 'go get golang.org/x/net@v0.62.0 github.com/moby/go-archive@v0.3.0' "$DOCKERFILE"
+    grep -q 'go mod edit -droprequire=github.com/docker/docker' "$DOCKERFILE"
+    grep -q 'go test -p 2 ./store ./internal/namesgenerator' "$DOCKERFILE"
+    grep -q 'COPY --from=cli-builder /src/buildx/internal/namesgenerator/LICENSE' "$DOCKERFILE"
+    grep -q 'docker --version && docker buildx version && helm version --short' "$DOCKERFILE"
 }

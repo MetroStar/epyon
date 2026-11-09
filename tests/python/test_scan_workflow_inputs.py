@@ -43,3 +43,31 @@ def test_self_scan_uses_the_proposed_scanner_revision():
     assert job["uses"] == "./.github/workflows/epyon-scan.yml"
     assert job["with"]["scanner_ref"] == "${{ github.sha }}"
     assert job["permissions"]["id-token"] == "write"
+
+
+def test_image_builds_free_runner_disk_space_even_in_quick_mode():
+    workflow = yaml.safe_load((WORKFLOWS / "epyon-scan.yml").read_text())
+    cleanup = next(step for step in workflow["jobs"]["security-scan"]["steps"]
+                   if step["name"] == "Free Disk Space")
+    assert cleanup["if"] == "inputs.scan_mode != 'quick' || inputs.build_enabled"
+
+
+@pytest.mark.parametrize("filename", [
+    ".github/workflows/scan-private-repo.yml",
+    ".github/workflows/scan-public-repo.yml",
+    ".github/workflows/security-scan-template.yml",
+    "bin/templates/scan-private-repo.yml",
+    "documentation/scan-private-repo.yml",
+])
+def test_callers_forward_only_declared_secrets_and_oidc_permission(filename):
+    reusable = yaml.safe_load((WORKFLOWS / "epyon-scan.yml").read_text())
+    declared = reusable[True]["workflow_call"]["secrets"]
+    workflow = yaml.safe_load((ROOT / filename).read_text())
+    callers = [job for job in workflow["jobs"].values()
+               if "epyon-scan.yml" in job.get("uses", "")]
+    assert callers
+    for job in callers:
+        assert job["secrets"] == {
+            name: "${{ secrets." + name + " }}" for name in declared
+        }
+        assert job["permissions"]["id-token"] == "write"

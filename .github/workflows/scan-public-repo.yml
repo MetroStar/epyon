@@ -60,7 +60,7 @@ on:
         default: false
         type: boolean
       run_garak:
-        description: 'Run Garak LLM security probing (Layer 12); requires secrets: inherit'
+        description: 'Run Garak LLM security probing (Layer 12); requires a configured provider API key'
         required: false
         default: false
         type: boolean
@@ -147,4 +147,19 @@ jobs:
       epyon_callback_url: ${{ inputs.epyon_callback_url || '' }}
       epyon_job_id: ${{ inputs.epyon_job_id || '' }}
       epyon_webhook_secret: ${{ inputs.epyon_webhook_secret || '' }}
-    secrets: inherit
+    secrets:
+      ECR_SCAN_AWS_ACCESS_KEY_ID: ${{ secrets.ECR_SCAN_AWS_ACCESS_KEY_ID }}
+      ECR_SCAN_AWS_SECRET_ACCESS_KEY: ${{ secrets.ECR_SCAN_AWS_SECRET_ACCESS_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+      JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+      JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+      JIRA_PROJECT_KEY: ${{ secrets.JIRA_PROJECT_KEY }}
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      COSIGN_KEY: ${{ secrets.COSIGN_KEY }}
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}

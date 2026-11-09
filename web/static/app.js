@@ -4263,7 +4263,19 @@ window.renderFindingsPage = function(sev) {
   const tbody = document.getElementById(`findings-tbody-${sev}`);
   if (tbody) tbody.innerHTML = _buildFindingRows(all.slice((st.page - 1) * st.size, st.page * st.size));
   const pager = document.getElementById(`findings-pager-${sev}`);
-  if (pager) pager.innerHTML = _findingsPagerHtml(sev);
+  if (pager) {
+    const controls = [...pager.querySelectorAll('button, select')];
+    const focusIndex = controls.indexOf(document.activeElement);
+    pager.innerHTML = _findingsPagerHtml(sev);
+    if (focusIndex >= 0) {
+      const updatedControls = [...pager.querySelectorAll('button, select')];
+      const previousControl = updatedControls[focusIndex];
+      const focusTarget = previousControl && !previousControl.disabled
+        ? previousControl
+        : updatedControls.find(control => !control.disabled);
+      focusTarget?.focus({ preventScroll: true });
+    }
+  }
 };
 
 window.setFindingsPage = function(sev, page) {

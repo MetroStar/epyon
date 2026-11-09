@@ -854,6 +854,8 @@ jobs:
     secrets: inherit
 ```
 
+Archived Keycloak scan reports retain all their JSON data in line-separated form so credential regexes do not span unrelated fields.
+
 Shipped workflow callers forward only Epyon's declared secrets, rather than every repository secret (including unrelated deploy keys). For custom callers, pass only the secrets your scan needs instead of `secrets: inherit`. All are optional:
 
 ```yaml

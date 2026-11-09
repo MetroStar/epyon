@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.66.5] - 2026-11-09
+
+### Fixed
+- Format the remaining 31 archived Keycloak scan reports without changing their JSON data, preventing a credential regex from spanning unrelated fields. All 32 affected reports remain below the scanner's default file-size limit.
+
 ## [3.66.4] - 2026-11-09
 
 ### Fixed

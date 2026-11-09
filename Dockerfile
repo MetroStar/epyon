@@ -29,8 +29,11 @@ RUN apt-get update && apt-get upgrade -y \
         curl \
         ca-certificates \
         jq \
+        libatomic1 \
+        libstdc++6 \
     && ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+    && node --version && npm --version && npx --version \
     && curl -fsSL "https://download.docker.com/linux/static/stable/$(uname -m)/docker-${DOCKER_CLI_VERSION}.tgz" \
         -o /tmp/docker-cli.tgz \
     && tar -xzf /tmp/docker-cli.tgz -C /tmp \

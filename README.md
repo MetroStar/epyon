@@ -821,25 +821,34 @@ git push
 
 Configure these in your GitHub repo **Settings → Secrets and variables → Actions**:
 
-| Secret | Required | Purpose |
+| Secret or input | Required | Purpose |
 |--------|----------|---------|
 | `SONAR_TOKEN` + `SONAR_HOST_URL` | Optional | Enables SonarQube layer |
 | `JIRA_BASE_URL` + `JIRA_USER_EMAIL` + `JIRA_API_TOKEN` + `JIRA_PROJECT_KEY` | Optional | Supplies Jira settings to an Epyon web service started by the job; scan workflows do not create Jira tickets |
 | `OPENAI_API_KEY` | Optional | Enables Garak LLM probing + STIG assessment |
 | `DOCKERHUB_USERNAME` + `DOCKERHUB_TOKEN` | Optional | Authenticates Docker Hub pulls (free account [access token](https://docs.docker.com/security/for-developers/access-tokens/), not your password), raising the anonymous pull rate limit from 100 to 200 pulls/6h — recommended for scheduled/nightly scans, which share GitHub's runner IP pool and hit that limit far more often than Web UI/local scans. See [Approved Base Images](#-approved-base-images). |
-| `ECR_SCAN_AWS_ACCESS_KEY_ID` + `ECR_SCAN_AWS_SECRET_ACCESS_KEY` | Optional | Pull-only IAM user keys for scanning images in a private Amazon ECR registry. Used only when the caller sets the `ecr_registry` and `ecr_region` inputs; see [Scanning a private Amazon ECR registry](#scanning-a-private-amazon-ecr-registry). |
+| `ecr_role_to_assume` input | Optional | GitHub OIDC role ARN with pull-only access to the private ECR registry. Takes precedence over access-key secrets; the caller job must grant `id-token: write`. |
+| `ECR_SCAN_AWS_ACCESS_KEY_ID` + `ECR_SCAN_AWS_SECRET_ACCESS_KEY` | Optional | Pull-only IAM user keys for scanning images in a private Amazon ECR registry. Used when the caller sets `ecr_registry` and `ecr_region` but does not set `ecr_role_to_assume`; see [Scanning a private Amazon ECR registry](#scanning-a-private-amazon-ecr-registry). |
 
 ##### Scanning a private Amazon ECR registry
 
-ECR does not allow anonymous pulls, so scans of private ECR images need a login. Set the optional `ecr_registry` and `ecr_region` inputs and the two `ECR_SCAN_AWS_*` secrets; the workflow then runs `aws-actions/configure-aws-credentials` and `aws-actions/amazon-ecr-login` before the image scans. Callers that do not set `ecr_registry` skip both steps. The login token lasts 12 hours, and each scan logs in fresh, so nothing needs renewing between runs.
+ECR does not allow anonymous pulls, so scans of private ECR images need a login. Set the optional `ecr_registry` and `ecr_region` inputs and choose one authentication method: provide `ecr_role_to_assume` with `id-token: write` on the caller job, or configure the two `ECR_SCAN_AWS_*` secrets. OIDC is preferred; the workflow uses the role when set and otherwise falls back to access keys. It then runs `aws-actions/configure-aws-credentials` and `aws-actions/amazon-ecr-login` before image scans. Callers that do not set `ecr_registry` skip both steps.
 
 ```yaml
 jobs:
   scan:
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      security-events: write
+      issues: write
+      id-token: write
     uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
     with:
       ecr_registry: 123456789012.dkr.ecr.us-gov-east-1.amazonaws.com
       ecr_region: us-gov-east-1
+      ecr_role_to_assume: arn:aws:iam::123456789012:role/epyon-private-ecr-pull
     secrets: inherit
 ```
 

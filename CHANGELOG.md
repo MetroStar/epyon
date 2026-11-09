@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.66.0] - 2026-11-09
+
+### Added
+- Reusable scan workflows can assume a pull-only AWS role with GitHub OIDC for private ECR scans, avoiding long-lived access keys.
+
+### Fixed
+- Severity-gate suppression filtering no longer places the full fingerprint list in a command-line argument, and filtering errors fail the gate instead of falling back to raw finding counts.
+
 ## [3.65.0] - 2026-11-09
 
 ### Added

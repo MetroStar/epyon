@@ -266,12 +266,17 @@ on:
         default: true
         type: boolean
       ecr_registry:
-        description: 'Optional: Private Amazon ECR registry host (e.g. 123456789012.dkr.ecr.us-gov-east-1.amazonaws.com). When set, the scan logs in to ECR before scanning images using the ECR_SCAN_AWS_* secrets.'
+        description: 'Optional: Private Amazon ECR registry host (e.g. 123456789012.dkr.ecr.us-gov-east-1.amazonaws.com). When set, the scan logs in using ecr_role_to_assume or the ECR_SCAN_AWS_* secrets.'
         required: false
         default: ''
         type: string
       ecr_region:
         description: 'AWS region of the ECR registry (e.g. us-gov-east-1). Required when ecr_registry is set.'
+        required: false
+        default: ''
+        type: string
+      ecr_role_to_assume:
+        description: 'Optional: OIDC role ARN with pull-only access to the private ECR registry. Takes precedence over ECR_SCAN_AWS_* secrets.'
         required: false
         default: ''
         type: string
@@ -339,6 +344,7 @@ jobs:
       pull-requests: write
       security-events: write
       issues: write
+      id-token: write
 
     env:
       # Auto-downgrade to quick mode for pull_request events when the caller
@@ -550,14 +556,23 @@ jobs:
             echo "ℹ️  DOCKERHUB_USERNAME/DOCKERHUB_TOKEN not configured — using anonymous Docker Hub pulls, which share a rate limit across every concurrent GitHub Actions job on this IP. See documentation/SCAN_MATRIX.md for setup instructions."
           fi
 
-      - name: Configure AWS credentials (optional — private ECR)
+      - name: Configure AWS credentials with OIDC (optional — private ECR)
+        if: ${{ inputs.scan_mode != 'stig' && inputs.ecr_registry != '' && inputs.ecr_role_to_assume != '' }}
+        continue-on-error: true
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ inputs.ecr_role_to_assume }}
+          role-session-name: epyon-ecr-scan
+          aws-region: ${{ inputs.ecr_region }}
+
+      - name: Configure AWS credentials with access keys (optional — private ECR)
         # The ECR login token lasts 12 hours and each scan logs in at start, so
         # nothing needs renewing between runs. Use a pull-only IAM user
         # (ecr:GetAuthorizationToken, BatchGetImage, GetDownloadUrlForLayer,
         # BatchCheckLayerAvailability) — never deploy credentials.
         # Non-fatal: not every image comes from ECR, so a failure here must not
         # block scanning images from other registries.
-        if: ${{ inputs.scan_mode != 'stig' && inputs.ecr_registry != '' }}
+        if: ${{ inputs.scan_mode != 'stig' && inputs.ecr_registry != '' && inputs.ecr_role_to_assume == '' }}
         continue-on-error: true
         uses: aws-actions/configure-aws-credentials@v5
         with:

@@ -80,6 +80,51 @@ EOF
         rm -rf "$scan_dir" "$target_dir"
 }
 
+@test "check-severity-gate.sh filters fingerprints larger than a command-line argument" {
+        local scan_dir target_dir target_path
+        scan_dir=$(mktemp -d)
+        target_dir=$(mktemp -d)
+        target_path="registry.example.com/$(printf '%0140000d' 1)"
+
+        cat > "$target_dir/.epyon-ignore.yml" << 'EOF'
+ignores:
+  - type: package
+    value: large-list-package@1.0.0
+    reason: Large suppression-list regression test
+    approved_by: test
+    expires: "2099-12-31"
+EOF
+
+        {
+                printf '{\n  "critical_findings": [\n'
+                printf '    {"tool":"trivy","vulnerability_id":"CVE-2099-0001","package_name":"large-list-package","package_version":"1.0.0","target":"%s"}' "$target_path"
+                printf '\n  ],\n  "high_findings": [],\n  "medium_findings": [],\n  "low_findings": [],\n  "summary": {}\n}\n'
+        } > "$scan_dir/security-findings-summary.json"
+
+        run env SCAN_DIR="$scan_dir" TARGET_DIR="$target_dir" WARNING_ONLY=true "$SCRIPT_PATH"
+        [ "$status" -eq 0 ]
+        [[ "$output" != *"Could not create filtered findings"* ]]
+
+        run jq -e '.critical_findings | length == 0' "$scan_dir/security-findings-filtered.json"
+        [ "$status" -eq 0 ]
+
+        rm -rf "$scan_dir" "$target_dir"
+}
+
+@test "check-severity-gate.sh fails when filtered findings cannot be generated" {
+        local scan_dir target_dir
+        scan_dir=$(mktemp -d)
+        target_dir=$(mktemp -d)
+        printf '{ invalid json' > "$scan_dir/security-findings-summary.json"
+
+        run env SCAN_DIR="$scan_dir" TARGET_DIR="$target_dir" WARNING_ONLY=true "$SCRIPT_PATH"
+        [ "$status" -ne 0 ]
+        [[ "$output" == *"Could not filter security findings; refusing to count raw results"* ]]
+        [[ "$output" != *"Could not create filtered findings"* ]]
+
+        rm -rf "$scan_dir" "$target_dir"
+}
+
 @test "check-severity-gate.sh does not apply Epyon's own .epyon-ignore.yml to a target without one" {
         # Epyon's repo-root ignore file belongs to its self-scan; a target with
         # no ignore file of its own must not inherit those suppressions.

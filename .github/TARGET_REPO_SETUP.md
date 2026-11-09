@@ -51,6 +51,12 @@ jobs:
     secrets: inherit
 ```
 
+For private ECR images, also pass `ecr_registry`, `ecr_region`, and
+`ecr_role_to_assume`, and grant `id-token: write` to the caller job. The
+assumed role should have pull-only access to the required repositories. When
+`ecr_role_to_assume` is empty, the workflow retains support for the
+`ECR_SCAN_AWS_*` access-key secrets.
+
 ## Testing Webhook Integration
 
 When Barbatos triggers your workflow, it will dispatch with these inputs:

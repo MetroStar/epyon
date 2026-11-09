@@ -1431,15 +1431,13 @@ def parse_suppressed_findings(scan_dir: Path) -> list[dict]:
                 seen.add(dedup_key)
                 results.append(record)
 
-    # 2. Also check .epyon-ignore.yml files and the shared ignore cache
+    # 2. Also check this scan's own ignore rules. Only files that belong to the
+    # scan are read: never a parent directory (that is Epyon's own repo root)
+    # and never the shared /tmp cache, which holds whichever scan ran last.
     from datetime import datetime
-    # IGNORE_CACHE is the same env var the bash matcher uses, so both agree on the path.
-    cache_path = os.environ.get("IGNORE_CACHE", "/tmp/epyon-ignore-cache.json")
     ignore_files = [
         scan_dir / ".epyon-ignore.yml",
-        scan_dir.parent / ".epyon-ignore.yml",
-        scan_dir.parent.parent / ".epyon-ignore.yml",
-        Path(cache_path),
+        scan_dir / "ignore-rules.json",
     ]
 
     for yml_file in ignore_files:

@@ -24,6 +24,8 @@ RUN apt-get update && apt-get upgrade -y \
         curl \
         ca-certificates \
         jq \
+        nodejs \
+        npm \
     && curl -fsSL "https://download.docker.com/linux/static/stable/$(uname -m)/docker-${DOCKER_CLI_VERSION}.tgz" \
         -o /tmp/docker-cli.tgz \
     && tar -xzf /tmp/docker-cli.tgz -C /tmp \

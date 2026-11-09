@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.64.1] - 2026-11-09
+
+### Fixed
+- Web scans showed 0 critical/high/medium/low findings: the parser applied Epyon's own repo-root `.epyon-ignore.yml` (`tmp/**`, `scans/**` path rules) and the shared `/tmp/epyon-ignore-cache.json` to every scanned application. Suppressions are now read only from the scan's own files.
+- The ignore rules in effect for a scan are now saved to `ignore-rules.json` in the scan directory so the web UI shows that scan's suppressions.
+- The web image now includes Node.js and npm so the npm audit layer runs instead of silently skipping.
+
 ## [3.64.0] - 2026-11-07
 
 ### Added

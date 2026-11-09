@@ -9,6 +9,14 @@ CYAN='\033[0;36m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+# Persist the effective rules next to the scan so the web UI reads this scan's
+# own rules, never the shared (and therefore stale) /tmp cache.
+snapshot_ignore_rules() {
+    local cache="${1:-}"
+    [[ -n "${SCAN_DIR:-}" && -d "${SCAN_DIR}" && -f "$cache" ]] || return 0
+    cp "$cache" "${SCAN_DIR}/ignore-rules.json" 2>/dev/null || true
+}
+
 # Main parsing function (so this can be sourced without exiting)
 parse_ignore_rules() {
     local IGNORE_FILE="${1:-}"
@@ -23,6 +31,7 @@ parse_ignore_rules() {
     if [[ ! -f "$IGNORE_FILE" ]]; then
         # No ignore file - create empty cache
         echo '{"ignores": []}' > "$IGNORE_CACHE" 2>/dev/null || true
+        snapshot_ignore_rules "$IGNORE_CACHE"
         return 0
     fi
 
@@ -249,6 +258,7 @@ if [[ -n "$NORMALIZATION_WARNINGS" ]]; then
         [[ -n "$_warn" ]] && echo -e "${YELLOW}  ⚠️  $_warn${NC}"
     done <<< "$NORMALIZATION_WARNINGS"
 fi
+snapshot_ignore_rules "$IGNORE_CACHE"
 }
 
 # If script is executed (not sourced), run the function

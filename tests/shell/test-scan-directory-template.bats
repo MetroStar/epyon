@@ -101,6 +101,16 @@ DOCKERFILE
     [[ "$output" != *"golang"* ]]
 }
 
+@test "discover_dockerfile_base_images strips CRLF line endings from image names" {
+    local tmp_target
+    tmp_target="$(mktemp -d)"
+    printf 'FROM registry.access.redhat.com/ubi8/ubi:latest\r\nRUN true\r\n' > "${tmp_target}/Dockerfile"
+    run bash -c "source '$SCRIPT_PATH' && discover_dockerfile_base_images '$tmp_target'"
+    rm -rf "$tmp_target"
+    [ "$status" -eq 0 ]
+    [[ "$output" == "registry.access.redhat.com/ubi8/ubi:latest" ]]
+}
+
 @test "discover_dockerfile_base_images skips the whole Dockerfile when the final stage is an unresolved build-arg" {
     local tmp_target
     tmp_target="$(mktemp -d)"

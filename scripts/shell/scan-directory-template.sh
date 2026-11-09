@@ -289,7 +289,7 @@ discover_dockerfile_base_images() {
         local stage_map=""
         local final_image=""
         local arg_map
-        arg_map="$(sed -nE 's/^[[:space:]]*ARG[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)=([^[:space:]]+).*/\1=\2/p' "$dockerfile" | tr -d '"\047')"
+        arg_map="$(sed -nE 's/^[[:space:]]*ARG[[:space:]]+([A-Za-z_][A-Za-z0-9_]*)=([^[:space:]]+).*/\1=\2/p' "$dockerfile" | tr -d '"\047\r')"
         local line image stage mapped
         while IFS= read -r line; do
             image=$(awk '{print $2}' <<<"$line")
@@ -315,7 +315,7 @@ discover_dockerfile_base_images() {
             fi
             final_image="$image"
             [[ -n "$stage" ]] && stage_map+="${stage}=${image}"$'\n'
-        done < <(grep -i '^FROM ' "$dockerfile")
+        done < <(grep -i '^FROM ' "$dockerfile" | tr -d '\r')
 
         [[ -z "$final_image" ]] && continue
         [[ "$final_image" == "scratch" ]] && continue

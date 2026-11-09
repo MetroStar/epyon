@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.64.2] - 2026-11-09
+
+### Fixed
+- Semgrep SAST (layer 11.8) now runs in web-UI scans: the web image installs `semgrep` instead of relying on a nested container run that couldn't see the cloned target, which left code-level findings (SQL injection, XSS, weak crypto, hardcoded secrets) empty.
+- Dockerfile base-image discovery strips CRLF line endings, fixing Anchore/Trivy/Xeol pulls of `image:tag\r` ("invalid reference format") for targets with Windows-style Dockerfiles.
+- The web image build retries the buildx download so a transient GitHub 5xx no longer fails the build.
+
 ## [3.64.1] - 2026-11-09
 
 ### Fixed

@@ -55,6 +55,11 @@ RUN python3 -m pip install --no-cache-dir -r /app/web/api/requirements.txt
 # failure) instead of a clear error.
 RUN python3 -m pip install --no-cache-dir pip-audit
 
+# Semgrep SAST (Layer 11.8). Without it the web container falls back to
+# `docker run semgrep/semgrep`, which isn't reachable for scans cloned under
+# the container's own /app/tmp, so code-level findings silently came back empty.
+RUN python3 -m pip install --no-cache-dir semgrep
+
 # AWS CLI for scripts/shell/ecr-refresh-loop.sh, which keeps the Docker login
 # to private ECR registries fresh (see ECR_REGISTRY in docker-compose.yml).
 RUN python3 -m pip install --no-cache-dir awscli
@@ -66,7 +71,7 @@ ARG BUILDX_VERSION=0.38.2
 RUN BX_ARCH="$(uname -m)" \
     && case "$BX_ARCH" in x86_64) BX_ARCH=amd64 ;; aarch64) BX_ARCH=arm64 ;; esac \
     && mkdir -p /usr/local/lib/docker/cli-plugins \
-    && curl -fsSL "https://github.com/docker/buildx/releases/download/v${BUILDX_VERSION}/buildx-v${BUILDX_VERSION}.linux-${BX_ARCH}" \
+    && curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors "https://github.com/docker/buildx/releases/download/v${BUILDX_VERSION}/buildx-v${BUILDX_VERSION}.linux-${BX_ARCH}" \
         -o /usr/local/lib/docker/cli-plugins/docker-buildx \
     && chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
 

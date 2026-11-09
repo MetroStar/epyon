@@ -222,6 +222,85 @@ run_trufflehog_scan() {
     
     echo -e "${BLUE}🔍 Scanning ${scan_type}: ${target}${NC}"
     
+    # Ignore patterns are regexes matched against the full path, so they are
+    # anchored to a path-segment boundary (start of path or after a "/"). An
+    # unanchored "build/" would otherwise also skip "src/rebuild/" or "db/seed-data/".
+    cat > "$OUTPUT_DIR/.trufflehogignore" << 'EOF'
+# Exclude git directory (common false positives from .git/config)
+(^|/)\.git/
+
+# Exclude dependency and build-output directories
+(^|/)node_modules/
+(^|/)vendor/
+(^|/)venv/
+(^|/)\.venv/
+(^|/)__pycache__/
+(^|/)target/
+(^|/)build/
+(^|/)dist/
+(^|/)\.gradle/
+(^|/)\.mvn/
+
+# Exclude test fixtures and sample data at the repo root only
+^test/
+^tests/
+EOF
+
+    # Custom detectors. TruffleHog's built-in detectors only match provider-specific
+    # credential formats, so hardcoded generic passwords and signing secrets
+    # (e.g. JWT_SECRET = "supersecret") are invisible without these.
+    cat > "$OUTPUT_DIR/.trufflehog-custom-regex.yaml" << 'REGEX_EOF'
+detectors:
+  - name: SonarQube
+    keywords:
+      - sqp_
+      - sonar.login
+      - sonar.token
+    regex:
+      sonar_token: 'sqp_[a-zA-Z0-9]{40}'
+  - name: HardcodedPassword
+    keywords:
+      - password
+      - passwd
+      - pwd
+    regex:
+      secret: '(?i)\b[a-z0-9_.-]*(?:password|passwd|pwd)[a-z0-9_.-]*["'']?\s*[:=]\s*["'']([^"''\s$%{}<>]{6,})["'']'
+    exclude_words:
+      - changeme
+      - example
+      - placeholder
+      - your_password
+      - your-password
+      - process.env
+  - name: HardcodedSecretKey
+    keywords:
+      - secret
+      - jwt
+      - api_key
+      - apikey
+      - private_key
+      - auth_token
+    regex:
+      secret: '(?i)\b[a-z0-9_.-]*(?:secret|jwt|api[_-]?key|private[_-]?key|auth[_-]?token)[a-z0-9_.-]*["'']?\s*[:=]\s*["'']([^"''\s$%{}<>]{8,})["'']'
+    exclude_words:
+      - changeme
+      - example
+      - placeholder
+      - your_secret
+      - your-secret
+      - process.env
+  - name: HardcodedPasswordEnv
+    keywords:
+      - PASSWORD
+      - SECRET
+    regex:
+      secret: '(?m)^\s*(?:export\s+)?[A-Z0-9_]*(?:PASSWORD|SECRET)[A-Z0-9_]*=([^\s"''$#{}<>]{6,})\s*$'
+    exclude_words:
+      - changeme
+      - example
+      - placeholder
+REGEX_EOF
+
     if [ -n "$LOCAL_TRUFFLEHOG" ]; then
         echo "Using local TruffleHog binary..."
         "$LOCAL_TRUFFLEHOG" filesystem "$target" \
@@ -231,46 +310,6 @@ run_trufflehog_scan() {
             > "$output_file" 2>>"$SCAN_LOG"
     elif [ -n "${CONTAINER_CLI:-}" ]; then
         echo "Using container-based TruffleHog ($TRUFFLEHOG_IMAGE)..."
-        # Create a .trufflehogignore file to exclude common dependency directories
-        cat > "$OUTPUT_DIR/.trufflehogignore" << 'EOF'
-# Exclude git directory (common false positives from .git/config)
-.git/
-
-# Exclude dependency directories
-node_modules/
-vendor/
-venv/
-env/
-.env/
-__pycache__/
-.venv/
-target/
-build/
-dist/
-.gradle/
-.mvn/
-
-# Exclude test fixtures and sample data
-/test/
-/tests/
-seed-data/
-fixtures/
-sample-data/
-examples/
-EOF
-        
-        # Create custom regex for SonarQube tokens
-        cat > "$OUTPUT_DIR/.trufflehog-custom-regex.yaml" << 'REGEX_EOF'
-detectors:
-  - name: SonarQube
-    keywords:
-      - sqp_
-      - sonar.login
-      - sonar.token
-    regex:
-      sonar_token: 'sqp_[a-zA-Z0-9]{40}'
-REGEX_EOF
-        
         # docker run's -v source is resolved by the HOST daemon (see
         # to_host_path() in scan-directory-template.sh) — translate before use.
         local target_host output_dir_host

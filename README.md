@@ -907,7 +907,7 @@ Epyon's Layer 10 "Approved Base Images" baseline scan defaults to **auto-discove
 ### Current Security Layers (17 Operational):
 
 1. **� SBOM Generation** - Complete Software Bill of Materials with Syft (CycloneDX + SPDX)
-2. **🔍 TruffleHog** - Multi-target secret detection with filesystem, container, and registry scanning
+2. **🔍 TruffleHog** - Multi-target secret detection with filesystem, container, and registry scanning, plus custom detectors for hardcoded passwords and secret keys
 3. **📊 SonarQube** - Code quality analysis with test coverage metrics
 4. **🦠 ClamAV** - Enterprise antivirus scanning with real-time virus definition updates
 5. **⚓ Helm** - Kubernetes chart validation, linting, and packaging

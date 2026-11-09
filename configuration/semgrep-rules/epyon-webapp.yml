@@ -105,6 +105,31 @@ rules:
       - pattern: crypto.createHash("md5")
       - pattern: crypto.createHash("sha1")
 
+  - id: epyon.hardcoded-secret-literal
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Secret, JWT signing key or password hardcoded as a string literal. Load it from the environment or a secrets manager.
+    metadata: {cwe: ["CWE-798", "CWE-321"]}
+    patterns:
+      - pattern-either:
+          - pattern: const $V = "$LIT"
+          - pattern: let $V = "$LIT"
+          - pattern: var $V = "$LIT"
+          - pattern: $V = "$LIT"
+          - pattern: "{..., $V: \"$LIT\", ...}"
+      - metavariable-regex: {metavariable: $V, regex: '(?i).*(secret|jwt|passw(or)?d|pwd|api_?key|private_?key|auth_?token)'}
+      - metavariable-regex: {metavariable: $LIT, regex: '^[^\s$]{6,}$'}
+      - metavariable-regex: {metavariable: $LIT, regex: '(?i)^(?!.*(changeme|example|placeholder|your[_-]))'}
+
+  - id: epyon.jwt-hardcoded-signing-key
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: JWT signed/verified with a hardcoded key. Load the key from the environment or a secrets manager.
+    metadata: {cwe: ["CWE-798", "CWE-321"]}
+    pattern-either:
+      - pattern: $JWT.sign($P, "...", ...)
+      - pattern: $JWT.verify($T, "...", ...)
+
   - id: epyon.browser-token-in-localstorage
     languages: [javascript, typescript]
     severity: WARNING

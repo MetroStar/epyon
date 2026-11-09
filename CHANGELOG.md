@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.64.3] - 2026-11-09
+
+### Added
+- Semgrep rules `epyon.hardcoded-secret-literal` and `epyon.jwt-hardcoded-signing-key` for hardcoded secrets, passwords and JWT signing keys.
+- TruffleHog custom detectors for hardcoded passwords, secret/JWT/API keys, and `*PASSWORD=`/`*SECRET=` env assignments. Built-in detectors only match provider-specific formats, so generic hardcoded credentials in code and compose files were never reported.
+
+### Fixed
+- Semgrep now runs Epyon's bundled rules as their own pass: when the registry rulesets can't be downloaded (air-gapped/egress-restricted deployments) semgrep aborted and the layer produced zero findings. Registry rules are now best-effort and merged in when available.
+- Semgrep's default rulesets now include javascript, typescript, nodejs, expressjs, owasp-top-ten, jwt and python; `p/security-audit` alone missed SQL injection and XSS in Express code.
+- TruffleHog ignore patterns are now anchored to path boundaries; unanchored `build/`, `env/`, `seed-data/`, `examples/` etc. skipped any path containing those substrings. The ignore/detector files are also now written for local-binary runs (previously only the container path created them).
+- Custom TruffleHog detectors are named by their configured name (`ExtraData.name`) in the web UI instead of `CustomRegex`.
+
 ## [3.64.2] - 2026-11-09
 
 ### Fixed

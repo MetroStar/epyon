@@ -322,6 +322,11 @@ def parse_trufflehog_dir(scan_dir: Path) -> list[dict]:
                     meta = (item.get("SourceMetadata") or {}).get("Data") or {}
                     fs_data = meta.get("Filesystem") or meta.get("Git") or {}
                     verified = bool(item.get("Verified"))
+                    # User-defined detectors all report DetectorName "CustomRegex";
+                    # the configured detector name lives in ExtraData.name.
+                    detector = item.get("DetectorName", "SECRET")
+                    if detector == "CustomRegex":
+                        detector = (item.get("ExtraData") or {}).get("name") or detector
                     file_path = fs_data.get("file") or fs_data.get("path", "")
                     
                     # Strip /workspace/ prefix added by Docker volume mount
@@ -337,14 +342,14 @@ def parse_trufflehog_dir(scan_dir: Path) -> list[dict]:
                     
                     findings.append({
                         "tool": "TruffleHog",
-                        "id": item.get("DetectorName", "SECRET"),
+                        "id": detector,
                         "severity": "critical" if verified else "high",
-                        "package": item.get("DetectorName", ""),
+                        "package": detector,
                         "version": "",
                         "fixed_version": "",
-                        "title": f"{'Verified' if verified else 'Unverified'} secret: {item.get('DetectorName', '')}",
+                        "title": f"{'Verified' if verified else 'Unverified'} secret: {detector}",
                         "description": (
-                            f"Detector: {item.get('DetectorName', '')}. "
+                            f"Detector: {detector}. "
                             f"File: {file_path}. "
                             f"Line: {line_num or '?'}"
                         ),

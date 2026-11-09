@@ -66,3 +66,9 @@ EOF
     [ "$ids" -gt 20 ]
     [ "$ids" -eq "$uniq_ids" ]
 }
+
+@test "semgrep scan runs bundled rules as a separate pass so registry failures can't empty the results" {
+    local s="$SCRIPT_DIR/run-semgrep-scan.sh"
+    grep -q 'run_pass "\$RESULTS.local" --config "\$rules_path"' "$s"
+    grep -q 'run_pass "\$RESULTS.registry"' "$s"
+}

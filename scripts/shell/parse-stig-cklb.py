@@ -22,7 +22,7 @@ import json
 import re
 import sys
 import argparse
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as ET  # nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
 from pathlib import Path
 
 XCCDF_NS = "http://checklists.nist.gov/xccdf/1.1"
@@ -91,8 +91,12 @@ def _strip_xccdf_description(raw: str) -> str:
 
 
 def _parse_xccdf_xml(path: str) -> dict:
-    tree = ET.parse(path)
-    root = tree.getroot()
+    raw = Path(path).read_bytes()
+    # XCCDF never needs a DTD; rejecting DOCTYPE/ENTITY blocks XXE and entity-expansion attacks
+    # without adding a defusedxml dependency to the stdlib-only scan scripts.
+    if re.search(rb"<!(DOCTYPE|ENTITY)", raw, re.IGNORECASE):
+        raise ValueError(f"{path}: DOCTYPE/ENTITY declarations are not allowed in STIG XML")
+    root = ET.fromstring(raw)  # nosemgrep: python.lang.security.use-defused-xml-parse.use-defused-xml-parse
 
     ns = XCCDF_NS
     # Benchmark-level metadata

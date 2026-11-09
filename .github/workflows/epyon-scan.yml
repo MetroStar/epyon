@@ -403,12 +403,18 @@ jobs:
         continue-on-error: true
         env:
           GIT_LFS_SKIP_SMUDGE: "1"
+          # Passed via env, never interpolated into the script, to prevent shell injection
+          INPUT_REPOSITORY_URL: ${{ inputs.repository_url }}
+          INPUT_SUBDIRECTORY: ${{ inputs.subdirectory }}
+          INPUT_PR_NUMBER: ${{ inputs.pr_number }}
+          INPUT_TARGET_REF: ${{ inputs.target_ref }}
+          INPUT_SCAN_MODE: ${{ inputs.scan_mode }}
         run: |
-          REPO_URL="${{ inputs.repository_url }}"
-          SUBDIR="${{ inputs.subdirectory }}"
-          PR_NUMBER="${{ inputs.pr_number }}"
-          TARGET_REF="${{ inputs.target_ref }}"
-          SCAN_MODE="${{ inputs.scan_mode }}"
+          REPO_URL="$INPUT_REPOSITORY_URL"
+          SUBDIR="$INPUT_SUBDIRECTORY"
+          PR_NUMBER="$INPUT_PR_NUMBER"
+          TARGET_REF="$INPUT_TARGET_REF"
+          SCAN_MODE="$INPUT_SCAN_MODE"
           CHECKOUT_TARGET=""
 
           if [[ -n "$PR_NUMBER" ]]; then

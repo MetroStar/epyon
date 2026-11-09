@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.65.1] - 2026-11-09
+
+### Security
+- `parse-stig-cklb.py` rejects STIG XML containing DOCTYPE/ENTITY declarations (XXE / entity-expansion hardening).
+- `epyon-scan.yml` clone step passes workflow inputs through environment variables instead of interpolating them into the shell script (shell-injection hardening).
+
+### Changed
+- `.epyon-ignore.yml` excludes `_archive/**` from Epyon's self-scan.
+
 ## [3.65.0] - 2026-11-09
 
 ### Added

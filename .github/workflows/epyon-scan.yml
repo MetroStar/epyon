@@ -9,7 +9,8 @@ name: Epyon Security Scan (Reusable)
 #       with:
 #         scan_mode: quick
 #         scanner_ref: main # Pin a tag or commit independently of the workflow.
-#       secrets: inherit
+#       secrets:
+#         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
 # checkov:skip=CKV_GHA_7:Workflow inputs control scan parameters and configuration, not build artifacts or output
 on:
@@ -266,12 +267,17 @@ on:
         default: true
         type: boolean
       ecr_registry:
-        description: 'Optional: Private Amazon ECR registry host (e.g. 123456789012.dkr.ecr.us-gov-east-1.amazonaws.com). When set, the scan logs in to ECR before scanning images using the ECR_SCAN_AWS_* secrets.'
+        description: 'Optional: Private Amazon ECR registry host (e.g. 123456789012.dkr.ecr.us-gov-east-1.amazonaws.com). When set, the scan logs in using ecr_role_to_assume or the ECR_SCAN_AWS_* secrets.'
         required: false
         default: ''
         type: string
       ecr_region:
         description: 'AWS region of the ECR registry (e.g. us-gov-east-1). Required when ecr_registry is set.'
+        required: false
+        default: ''
+        type: string
+      ecr_role_to_assume:
+        description: 'Optional: OIDC role ARN with pull-only access to the private ECR registry. Takes precedence over ECR_SCAN_AWS_* secrets.'
         required: false
         default: ''
         type: string
@@ -339,6 +345,7 @@ jobs:
       pull-requests: write
       security-events: write
       issues: write
+      id-token: write
 
     env:
       # Auto-downgrade to quick mode for pull_request events when the caller
@@ -403,18 +410,11 @@ jobs:
         continue-on-error: true
         env:
           GIT_LFS_SKIP_SMUDGE: "1"
-          # Passed via env, never interpolated into the script, to prevent shell injection
-          INPUT_REPOSITORY_URL: ${{ inputs.repository_url }}
-          INPUT_SUBDIRECTORY: ${{ inputs.subdirectory }}
-          INPUT_PR_NUMBER: ${{ inputs.pr_number }}
-          INPUT_TARGET_REF: ${{ inputs.target_ref }}
-          INPUT_SCAN_MODE: ${{ inputs.scan_mode }}
+          REPO_URL: ${{ inputs.repository_url }}
+          SUBDIR: ${{ inputs.subdirectory }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+          TARGET_REF: ${{ inputs.target_ref }}
         run: |
-          REPO_URL="$INPUT_REPOSITORY_URL"
-          SUBDIR="$INPUT_SUBDIRECTORY"
-          PR_NUMBER="$INPUT_PR_NUMBER"
-          TARGET_REF="$INPUT_TARGET_REF"
-          SCAN_MODE="$INPUT_SCAN_MODE"
           CHECKOUT_TARGET=""
 
           if [[ -n "$PR_NUMBER" ]]; then
@@ -477,12 +477,13 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
+          SBOM_ARTIFACT: ${{ inputs.sbom_artifact }}
         run: |
-          echo "📥 Downloading SBOM artifact: ${{ inputs.sbom_artifact }}"
+          echo "📥 Downloading SBOM artifact: $SBOM_ARTIFACT"
           mkdir -p /tmp/sbom-artifact
           gh run download "$GITHUB_RUN_ID" \
             --repo "$GITHUB_REPOSITORY" \
-            --name "${{ inputs.sbom_artifact }}" \
+            --name "$SBOM_ARTIFACT" \
             --dir /tmp/sbom-artifact \
           && echo "✅ SBOM artifact downloaded" \
           || echo "⚠️ SBOM artifact not available — Layer 1 (Syft) will generate one"
@@ -494,7 +495,7 @@ jobs:
           fi
 
       - name: Free Disk Space
-        if: inputs.scan_mode != 'quick'
+        if: inputs.scan_mode != 'quick' || inputs.build_enabled
         run: |
           df -h /
           # Remove large pre-installed toolchains not needed for security scanning
@@ -556,14 +557,23 @@ jobs:
             echo "ℹ️  DOCKERHUB_USERNAME/DOCKERHUB_TOKEN not configured — using anonymous Docker Hub pulls, which share a rate limit across every concurrent GitHub Actions job on this IP. See documentation/SCAN_MATRIX.md for setup instructions."
           fi
 
-      - name: Configure AWS credentials (optional — private ECR)
+      - name: Configure AWS credentials with OIDC (optional — private ECR)
+        if: ${{ inputs.scan_mode != 'stig' && inputs.ecr_registry != '' && inputs.ecr_role_to_assume != '' }}
+        continue-on-error: true
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ inputs.ecr_role_to_assume }}
+          role-session-name: epyon-ecr-scan
+          aws-region: ${{ inputs.ecr_region }}
+
+      - name: Configure AWS credentials with access keys (optional — private ECR)
         # The ECR login token lasts 12 hours and each scan logs in at start, so
         # nothing needs renewing between runs. Use a pull-only IAM user
         # (ecr:GetAuthorizationToken, BatchGetImage, GetDownloadUrlForLayer,
         # BatchCheckLayerAvailability) — never deploy credentials.
         # Non-fatal: not every image comes from ECR, so a failure here must not
         # block scanning images from other registries.
-        if: ${{ inputs.scan_mode != 'stig' && inputs.ecr_registry != '' }}
+        if: ${{ inputs.scan_mode != 'stig' && inputs.ecr_registry != '' && inputs.ecr_role_to_assume == '' }}
         continue-on-error: true
         uses: aws-actions/configure-aws-credentials@v5
         with:
@@ -602,7 +612,7 @@ jobs:
           # dhi.io images require authentication — skip if not available.
           # In quick mode, skip checkov and xeol — those layers are not run.
           IMAGES="anchore/grype:latest ghcr.io/aquasecurity/trivy:latest trufflesecurity/trufflehog:latest anchore/syft:latest clamav/clamav:latest"
-          if [[ "${{ inputs.scan_mode }}" != "quick" ]]; then
+          if [[ "$SCAN_MODE" != "quick" ]]; then
             IMAGES="$IMAGES bridgecrew/checkov:latest noqcks/xeol:latest"
           fi
           for image in $IMAGES; do
@@ -622,8 +632,8 @@ jobs:
           sudo apt-get install -y jq bats
           python -m pip install --upgrade pip
           # Python dependency vulnerability scanners used by Layers 11.5/11.6
-          python -m pip install pip-audit safety
-          if [[ "${{ inputs.scan_mode }}" != "quick" ]]; then
+          python -m pip install pip-audit safety defusedxml
+          if [[ "$SCAN_MODE" != "quick" ]]; then
             python -m pip install pyyaml pipdeptree openai
           else
             python -m pip install pyyaml pipdeptree
@@ -787,6 +797,8 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
+          METRICS_TARGET_REPOSITORY: ${{ inputs.repository_url || github.repository }}
+          METRICS_BASE_BRANCH: ${{ inputs.pr_base_branch }}
         run: |
           cd epyon
           if [ -f /tmp/epyon-env ]; then
@@ -806,7 +818,7 @@ jobs:
           DASHBOARD_FILE="$SCAN_DIR/consolidated-reports/dashboards/security-dashboard.html"
           METRICS_90D_FILE="$SCAN_DIR/scan-metrics-90d.json"
 
-          if [ -f "$DASHBOARD_FILE" ] && [ "${{ inputs.scan_mode }}" != 'quick' ]; then
+          if [ -f "$DASHBOARD_FILE" ] && [ "$SCAN_MODE" != 'quick' ]; then
             echo "${GH_TOKEN}" | gh auth login --with-token >/dev/null 2>&1 || true
             SINCE_DATE=$(date -u -d '30 days ago' +%Y-%m-%d 2>/dev/null || date -u -v-30d +%Y-%m-%d)
             echo "Looking for scans since: $SINCE_DATE"
@@ -816,7 +828,7 @@ jobs:
             # Collect metrics (without --quiet so we see what was found)
             if ./scripts/shell/get-scan-metrics.sh \
               --github-only \
-              --from-github "${{ github.repository }}" \
+              --from-github "$GITHUB_REPOSITORY" \
               --since "$SINCE_DATE" \
               --output "$METRICS_90D_FILE"; then
               echo "✅ Metrics collected successfully"
@@ -826,9 +838,9 @@ jobs:
 
             if [ -s "$METRICS_90D_FILE" ]; then
               # Resolve base branch: use input override if set, otherwise auto-detect from repo API
-              PR_REPO="${{ inputs.repository_url || github.repository }}"
+              PR_REPO="$METRICS_TARGET_REPOSITORY"
               PR_REPO=$(echo "$PR_REPO" | sed 's|https://github.com/||; s|/$||')
-              OVERRIDE_BRANCH="${{ inputs.pr_base_branch }}"
+              OVERRIDE_BRANCH="$METRICS_BASE_BRANCH"
               if [ -n "$OVERRIDE_BRANCH" ]; then
                 PR_BASE_BRANCH="$OVERRIDE_BRANCH"
               else
@@ -912,6 +924,8 @@ jobs:
 
       - name: Write Metrics Row
         if: always() && inputs.write_metrics != false && (inputs.scan_mode == 'full' || github.event_name == 'workflow_dispatch')
+        env:
+          METRICS_TARGET_REPOSITORY: ${{ inputs.repository_url || github.repository }}
         run: |
           cd epyon
           SCAN_DIR="${{ steps.run-scan.outputs.scan_dir }}"
@@ -929,13 +943,13 @@ jobs:
 
           jq -cn \
             --arg  scan_id        "${{ steps.run-scan.outputs.scan_id }}" \
-            --arg  target_name    "${{ inputs.repository_url || github.repository }}" \
-            --arg  scan_type      "${{ inputs.scan_mode }}" \
-            --arg  scan_user      "${{ github.actor }}" \
+            --arg  target_name    "$METRICS_TARGET_REPOSITORY" \
+            --arg  scan_type      "$SCAN_MODE" \
+            --arg  scan_user      "$GITHUB_ACTOR" \
             --arg  scan_timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --arg  repository     "${{ github.repository }}" \
-            --arg  run_id         "${{ github.run_id }}" \
-            --arg  run_url        "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --arg  repository     "$GITHUB_REPOSITORY" \
+            --arg  run_id         "$GITHUB_RUN_ID" \
+            --arg  run_url        "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
             --argjson critical    "$CRITICAL" \
             --argjson high        "$HIGH" \
             --argjson medium      "$MEDIUM" \

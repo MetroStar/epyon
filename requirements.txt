@@ -1,6 +1,7 @@
 # Core dependencies
 openai>=1.0.0
 pyyaml>=6.0
+defusedxml>=0.7.1
 
 # Web UI dependencies (optional)
 fastapi>=0.100.0

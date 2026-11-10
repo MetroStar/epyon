@@ -42,6 +42,13 @@ Pass the webhook inputs through to the Epyon reusable workflow:
 ```yaml
 jobs:
   security-scan:
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      security-events: write
+      issues: write
+      id-token: write
     uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
     with:
       scan_mode: ${{ inputs.scan_mode || 'full' }}
@@ -50,6 +57,12 @@ jobs:
       epyon_webhook_secret: ${{ inputs.epyon_webhook_secret || '' }}
     secrets: inherit
 ```
+
+For private ECR images, also pass `ecr_registry`, `ecr_region`, and
+`ecr_role_to_assume`, and grant `id-token: write` to the caller job. The
+assumed role should have pull-only access to the required repositories. When
+`ecr_role_to_assume` is empty, the workflow retains support for the
+`ECR_SCAN_AWS_*` access-key secrets.
 
 ## Testing Webhook Integration
 

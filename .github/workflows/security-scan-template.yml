@@ -56,6 +56,13 @@ on:
 jobs:
   security-scan:
     name: Epyon Security Scan
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      security-events: write
+      issues: write
+      id-token: write
     uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
     with:
       scan_mode: ${{ inputs.scan_mode || 'full' }}
@@ -68,4 +75,19 @@ jobs:
       fail_on_critical: true
       fail_on_high: true
       warning_only: false
-    secrets: inherit
+    secrets:
+      ECR_SCAN_AWS_ACCESS_KEY_ID: ${{ secrets.ECR_SCAN_AWS_ACCESS_KEY_ID }}
+      ECR_SCAN_AWS_SECRET_ACCESS_KEY: ${{ secrets.ECR_SCAN_AWS_SECRET_ACCESS_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+      JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+      JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+      JIRA_PROJECT_KEY: ${{ secrets.JIRA_PROJECT_KEY }}
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      COSIGN_KEY: ${{ secrets.COSIGN_KEY }}
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}

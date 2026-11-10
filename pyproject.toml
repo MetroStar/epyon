@@ -49,6 +49,7 @@ classifiers = [
 dependencies = [
     "openai>=1.0.0",
     "pyyaml>=6.0",
+    "defusedxml>=0.7.1",
 ]
 
 [project.optional-dependencies]

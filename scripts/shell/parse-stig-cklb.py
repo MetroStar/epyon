@@ -22,8 +22,10 @@ import json
 import re
 import sys
 import argparse
-import xml.etree.ElementTree as ET  # nosemgrep: python.lang.security.use-defused-xml.use-defused-xml
 from pathlib import Path
+
+from defusedxml import ElementTree as ET
+from defusedxml.common import DefusedXmlException
 
 XCCDF_NS = "http://checklists.nist.gov/xccdf/1.1"
 
@@ -91,15 +93,8 @@ def _strip_xccdf_description(raw: str) -> str:
 
 
 def _parse_xccdf_xml(path: str) -> dict:
-    raw = Path(path).read_bytes()
-    # XCCDF never needs a DTD; rejecting DOCTYPE/ENTITY blocks XXE and entity-expansion attacks
-    # without adding a defusedxml dependency to the stdlib-only scan scripts.
-    class NoDTDTreeBuilder(ET.TreeBuilder):
-        def doctype(self, name: str, pubid: str, system: str) -> None:
-            raise ValueError(f"{path}: DOCTYPE/ENTITY declarations are not allowed in STIG XML")
-
-    parser = ET.XMLParser(target=NoDTDTreeBuilder())
-    root = ET.fromstring(raw, parser=parser)  # nosemgrep: python.lang.security.use-defused-xml-parse.use-defused-xml-parse
+    tree = ET.parse(path)
+    root = tree.getroot()
 
     ns = XCCDF_NS
     # Benchmark-level metadata
@@ -228,7 +223,7 @@ def main() -> None:
     except FileNotFoundError as e:
         print(f"[ERROR] {e}", file=sys.stderr)
         sys.exit(1)
-    except (json.JSONDecodeError, ValueError) as e:
+    except (json.JSONDecodeError, ValueError, DefusedXmlException) as e:
         print(f"[ERROR] Failed to parse STIG file: {e}", file=sys.stderr)
         sys.exit(1)
 

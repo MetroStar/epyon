@@ -94,9 +94,12 @@ def _parse_xccdf_xml(path: str) -> dict:
     raw = Path(path).read_bytes()
     # XCCDF never needs a DTD; rejecting DOCTYPE/ENTITY blocks XXE and entity-expansion attacks
     # without adding a defusedxml dependency to the stdlib-only scan scripts.
-    if re.search(rb"<!(DOCTYPE|ENTITY)", raw, re.IGNORECASE):
-        raise ValueError(f"{path}: DOCTYPE/ENTITY declarations are not allowed in STIG XML")
-    root = ET.fromstring(raw)  # nosemgrep: python.lang.security.use-defused-xml-parse.use-defused-xml-parse
+    class NoDTDTreeBuilder(ET.TreeBuilder):
+        def doctype(self, name: str, pubid: str, system: str) -> None:
+            raise ValueError(f"{path}: DOCTYPE/ENTITY declarations are not allowed in STIG XML")
+
+    parser = ET.XMLParser(target=NoDTDTreeBuilder())
+    root = ET.fromstring(raw, parser=parser)  # nosemgrep: python.lang.security.use-defused-xml-parse.use-defused-xml-parse
 
     ns = XCCDF_NS
     # Benchmark-level metadata

@@ -17,6 +17,9 @@ FROM python:3.12-slim
 
 ARG DOCKER_CLI_VERSION=29.9.3
 ARG HELM_VERSION=3.22.1
+# Official Node.js binary (bundles npm) instead of Debian's nodejs/npm packages, which pull in
+# dozens of unpatched node-* libs (handlebars, undici, postcss, ...) and a lagging libnode.
+ARG NODE_VERSION=24.22.2
 
 RUN apt-get update && apt-get upgrade -y \
     && apt-get install -y --no-install-recommends \
@@ -24,8 +27,7 @@ RUN apt-get update && apt-get upgrade -y \
         curl \
         ca-certificates \
         jq \
-        nodejs \
-        npm \
+        xz-utils \
     && curl -fsSL "https://download.docker.com/linux/static/stable/$(uname -m)/docker-${DOCKER_CLI_VERSION}.tgz" \
         -o /tmp/docker-cli.tgz \
     && tar -xzf /tmp/docker-cli.tgz -C /tmp \
@@ -38,6 +40,14 @@ RUN apt-get update && apt-get upgrade -y \
     && tar -xzf /tmp/helm.tgz -C /tmp \
     && mv "/tmp/linux-${HELM_ARCH}/helm" /usr/local/bin/helm \
     && rm -rf /tmp/helm.tgz "/tmp/linux-${HELM_ARCH}" \
+    && NODE_ARCH="$(uname -m)" \
+    && case "$NODE_ARCH" in x86_64) NODE_ARCH=x64 ;; aarch64) NODE_ARCH=arm64 ;; esac \
+    && NODE_TAR="node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" \
+    && curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors "https://nodejs.org/dist/v${NODE_VERSION}/${NODE_TAR}" -o "/tmp/${NODE_TAR}" \
+    && curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt" -o /tmp/SHASUMS256.txt \
+    && (cd /tmp && grep " ${NODE_TAR}\$" SHASUMS256.txt | sha256sum -c -) \
+    && tar -xJf "/tmp/${NODE_TAR}" -C /usr/local --strip-components=1 --no-same-owner \
+    && rm -rf "/tmp/${NODE_TAR}" /tmp/SHASUMS256.txt /usr/local/CHANGELOG.md /usr/local/LICENSE /usr/local/README.md \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

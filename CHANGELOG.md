@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.65.2] - 2026-11-10
+
+### Security
+- Web image installs the official Node.js 24 binary (SHA-256 verified) instead of Debian's `nodejs`/`npm`, removing the unfixed Debian `node-*`, `libnode`, and `handlebars` packages. Trivy on the image: 190 → 113 critical/high findings.
+
 ## [3.65.1] - 2026-11-09
 
 ### Security

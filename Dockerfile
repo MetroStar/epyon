@@ -13,67 +13,66 @@
 # `jq ... || echo "0"` fallback pattern that was written assuming `jq`
 # exists, so without it installed here every one of those tools *appears* to
 # find zero results even when its underlying scan produced real findings.
-FROM python:3.12-slim
+FROM golang:1.27.3-alpine AS cli-builder
 
-ARG DOCKER_CLI_VERSION=29.9.3
+ENV CGO_ENABLED=0 GOFLAGS=-mod=mod GOMAXPROCS=2
+RUN apk add --no-cache git
+
+ARG BUILDX_VERSION=0.38.2
 ARG HELM_VERSION=3.22.1
+WORKDIR /src/buildx
+# Buildx uses the obsolete daemon module only for this frozen naming utility.
+# Keep that utility and its license, not the unrelated daemon dependency.
+RUN git clone --depth=1 --branch "v${BUILDX_VERSION}" https://github.com/docker/buildx.git . \
+    && mkdir -p internal/namesgenerator \
+    && cp vendor/github.com/docker/docker/pkg/namesgenerator/names-generator.go internal/namesgenerator/ \
+    && cp vendor/github.com/docker/docker/LICENSE internal/namesgenerator/LICENSE \
+    && sed -i 's|github.com/docker/docker/pkg/namesgenerator|github.com/docker/buildx/internal/namesgenerator|' store/util.go \
+    && go mod edit -droprequire=github.com/docker/docker \
+    && go get golang.org/x/net@v0.62.0 github.com/moby/go-archive@v0.3.0 \
+    && go mod tidy \
+    && go list -m all > /tmp/buildx-modules \
+    && ! grep -q '^github.com/docker/docker ' /tmp/buildx-modules \
+    && go test -p 2 ./store ./internal/namesgenerator \
+    && go build -p 2 -trimpath -ldflags "-s -w -X github.com/docker/buildx/version.Version=v${BUILDX_VERSION}-epyon" \
+        -o /out/docker-buildx ./cmd/buildx
 
-RUN apt-get update && apt-get upgrade -y \
-    && apt-get install -y --no-install-recommends \
-        git \
-        curl \
-        ca-certificates \
-        jq \
-        nodejs \
-        npm \
-    && curl -fsSL "https://download.docker.com/linux/static/stable/$(uname -m)/docker-${DOCKER_CLI_VERSION}.tgz" \
-        -o /tmp/docker-cli.tgz \
-    && tar -xzf /tmp/docker-cli.tgz -C /tmp \
-    && mv /tmp/docker/docker /usr/local/bin/docker \
-    && rm -rf /tmp/docker-cli.tgz /tmp/docker \
-    && HELM_ARCH="$(uname -m)" \
-    && case "$HELM_ARCH" in x86_64) HELM_ARCH=amd64 ;; aarch64) HELM_ARCH=arm64 ;; esac \
-    && curl -fsSL "https://get.helm.sh/helm-v${HELM_VERSION}-linux-${HELM_ARCH}.tar.gz" \
-        -o /tmp/helm.tgz \
-    && tar -xzf /tmp/helm.tgz -C /tmp \
-    && mv "/tmp/linux-${HELM_ARCH}/helm" /usr/local/bin/helm \
-    && rm -rf /tmp/helm.tgz "/tmp/linux-${HELM_ARCH}" \
-    && rm -rf /var/lib/apt/lists/*
+WORKDIR /src/helm
+RUN git clone --depth=1 --branch "v${HELM_VERSION}" https://github.com/helm/helm.git . \
+    && go get golang.org/x/net@v0.62.0 \
+    && go build -p 2 -trimpath -ldflags "-s -w -X helm.sh/helm/v3/internal/version.version=v${HELM_VERSION}-epyon" \
+        -o /out/helm ./cmd/helm
+
+FROM cgr.dev/chainguard/wolfi-base:latest
+
+ARG NPM_VERSION=12.2.2
+
+RUN apk upgrade --no-cache \
+    && apk add --no-cache bash coreutils findutils grep sed gnutar gzip unzip \
+        git curl ca-certificates jq python-3.12 py3.12-pip nodejs-24 docker-cli \
+    && mkdir -p /usr/local/lib/node_modules/npm /usr/local/bin \
+    && curl -fsSL "https://registry.npmjs.org/npm/-/npm-${NPM_VERSION}.tgz" -o /tmp/npm.tgz \
+    && tar -xzf /tmp/npm.tgz --strip-components=1 -C /usr/local/lib/node_modules/npm \
+    && rm /tmp/npm.tgz \
+    && ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+    && node --version && npm --version && npx --version \
+    && python3 -m venv --system-site-packages --without-pip /opt/venv
+
+ENV PATH="/opt/venv/bin:${PATH}"
+COPY --from=cli-builder /out/helm /usr/local/bin/helm
+COPY --from=cli-builder /out/docker-buildx /usr/local/lib/docker/cli-plugins/docker-buildx
+COPY --from=cli-builder /src/buildx/internal/namesgenerator/LICENSE /usr/share/licenses/buildx-namesgenerator/LICENSE
+RUN docker --version && docker buildx version && helm version --short
 
 WORKDIR /app
 
 # Install Python dependencies first for better layer caching
 COPY web/api/requirements.txt /app/web/api/requirements.txt
-RUN python3 -m pip install --no-cache-dir -r /app/web/api/requirements.txt
-
-# pip-audit is shelled out to directly by scripts/shell/run-pip-audit-scan.sh
-# (Layer 8.5 — Direct Dependency Scanning), unlike the other scan layers
-# which run as their own Docker containers. Without it installed in this
-# image, any scan or self-assessment run triggered from the web UI silently
-# reports zero findings for Layer 8.5 (the script exits early with
-# "pip-audit is not installed", and the caller treats that as a soft
-# failure) instead of a clear error.
-RUN python3 -m pip install --no-cache-dir pip-audit
-
-# Semgrep SAST (Layer 11.8). Without it the web container falls back to
-# `docker run semgrep/semgrep`, which isn't reachable for scans cloned under
-# the container's own /app/tmp, so code-level findings silently came back empty.
-RUN python3 -m pip install --no-cache-dir semgrep
-
-# AWS CLI for scripts/shell/ecr-refresh-loop.sh, which keeps the Docker login
-# to private ECR registries fresh (see ECR_REGISTRY in docker-compose.yml).
-RUN python3 -m pip install --no-cache-dir awscli
-
-# The static Docker CLI tarball ships without buildx, and `docker build` with
-# DOCKER_BUILDKIT=1 (run-build-scan.sh) fails with "buildx component is
-# missing" without it.
-ARG BUILDX_VERSION=0.38.2
-RUN BX_ARCH="$(uname -m)" \
-    && case "$BX_ARCH" in x86_64) BX_ARCH=amd64 ;; aarch64) BX_ARCH=arm64 ;; esac \
-    && mkdir -p /usr/local/lib/docker/cli-plugins \
-    && curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors "https://github.com/docker/buildx/releases/download/v${BUILDX_VERSION}/buildx-v${BUILDX_VERSION}.linux-${BX_ARCH}" \
-        -o /usr/local/lib/docker/cli-plugins/docker-buildx \
-    && chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
+# Resolve the native scanners together with the API so their dependency pins
+# cannot silently leave the web environment inconsistent.
+RUN python3 -m pip install --no-cache-dir -r /app/web/api/requirements.txt pip-audit semgrep awscli \
+    && python3 -m pip check
 
 # Copy the full repository so scan scripts, configuration, and VERSION are
 # available to the API at runtime (see EPYON_ROOT resolution in main.py).

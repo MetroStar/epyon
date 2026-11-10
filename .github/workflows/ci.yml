@@ -54,8 +54,10 @@ jobs:
       pull-requests: write
       security-events: write
       issues: write
+      id-token: write
     uses: ./.github/workflows/epyon-scan.yml
     with:
+      scanner_ref: ${{ github.sha }}
       scan_mode: ${{ github.event_name == 'push' && 'full' || 'quick' }}
       skip_garak: true
       # Note: STIG (Layer 13) is opt-in by default. Set run_stig: true to enable.

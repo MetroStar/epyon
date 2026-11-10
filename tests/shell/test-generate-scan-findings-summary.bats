@@ -187,10 +187,11 @@ JSON
     big="$(python3 -c "import json;print(json.dumps([{'id':'CKV_%d'%i,'file':'x'*200} for i in range(1500)]))")"
     [ "${#big}" -gt 131072 ]
 
-    run bash -c ". '${OUTPUT_FILE}.fn'; OUTPUT_FILE='$OUTPUT_FILE'; merge_severity_arrays '[]' '$big' '' 'not json'"
+    printf '%s' "$big" > "${OUTPUT_FILE}.big"
+    run bash -c '. "$1.fn"; OUTPUT_FILE="$1"; big=$(<"$1.big"); merge_severity_arrays "[]" "$big" "" "not json"' _ "$OUTPUT_FILE"
     [ "$status" -eq 0 ]
     [ "$(jq '.high_findings | length' "$OUTPUT_FILE")" = "1500" ]
     [ "$(jq '.low_findings | length' "$OUTPUT_FILE")" = "0" ]
 
-    rm -f "$OUTPUT_FILE" "${OUTPUT_FILE}.fn"
+    rm -f "$OUTPUT_FILE" "${OUTPUT_FILE}.fn" "${OUTPUT_FILE}.big"
 }

@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.66.5] - 2026-11-09
+
+### Fixed
+- Format the remaining 31 archived Keycloak scan reports without changing their JSON data, preventing a credential regex from spanning unrelated fields. All 32 affected reports remain below the scanner's default file-size limit.
+
+## [3.66.4] - 2026-11-09
+
+### Fixed
+- Format an archived scan report without changing its JSON content, preventing a credential regex from spanning unrelated fields.
+- Free GitHub-hosted runner disk space for image builds in quick scans as well as full scans.
+
+### Security
+- Use patched Wolfi runtime packages while retaining Python 3.12 and Node 24.
+- Rebuild Helm 3 and Buildx with Go 1.27.3 and patched networking/archive dependencies; isolate Buildx's frozen naming utility with its license instead of linking the obsolete Docker daemon module.
+- Resolve native scanner and API dependencies together in a virtual environment using distribution-managed pip and verify them with pip check.
+- Forward only the reusable workflow's declared secrets from all shipped callers, and preserve OIDC permissions in installable templates.
+
+## [3.66.3] - 2026-11-09
+
+### Fixed
+- The oversized-summary regression test reads its payload inside the child shell instead of exceeding the OS argument limit in the test harness itself.
+
+### Security
+- Pin npm 12.2.2, whose bundled brace-expansion 5.0.12 and undici 6.29.1 fix the outstanding npm dependency advisories.
+
+## [3.66.2] - 2026-11-09
+
+### Fixed
+- Install Node's runtime libraries explicitly and smoke-test node, npm and npx during the image build.
+
+## [3.66.1] - 2026-11-09
+
+### Fixed
+- The web image uses upstream Node 24 LTS and npm instead of Debian's older Node 20/npm dependency tree.
+- ML scanner fixtures use PyTorch 2.10.0, which fixes the unsafe checkpoint-loading advisory.
+- STIG XML parsing uses defusedxml to reject entity expansion.
+- Workflow inputs are passed through environment variables rather than interpolated into shell source.
+- Epyon's PR scans exercise the proposed workflow and scanner revision, with OIDC permissions forwarded by the callers.
+
+## [3.66.0] - 2026-11-09
+
+### Added
+- Reusable scan workflows can assume a pull-only AWS role with GitHub OIDC for private ECR scans, avoiding long-lived access keys.
+
+### Fixed
+- Severity-gate suppression filtering no longer places the full fingerprint list in a command-line argument, and filtering errors fail the gate instead of falling back to raw finding counts.
+
 ## [3.65.0] - 2026-11-09
 
 ### Added

@@ -470,6 +470,8 @@ The script prompts for:
 
 The container listens on **port 8057** by default (override with `EPYON_PORT`) to avoid clashing with other locally-deployed dashboards. `scans/`, `configuration/`, `web/data/`, and `tmp/` (web UI clone workspace) are bind-mounted so scan history, app config, and in-progress clones persist across rebuilds. `HOST_PROJECT_DIR` (defaults to the directory you run `docker compose up` from) tells scan scripts the *host's* absolute path to this checkout — since scan tools run as sibling containers on the host engine, any bind-mount path the container passes to `docker run -v` must be translated from the container's `/app/...` view to this host path (via the `to_host_path()` helper in `scripts/shell/scan-directory-template.sh`) or the sibling container sees an empty directory. If you deploy from a different working directory than the repo root, set `HOST_PROJECT_DIR` explicitly in `.env`.
 
+The web image uses patched Wolfi runtime packages with Python 3.12 and Node 24, and pins npm 12.2.2 for its patched bundled dependencies. Helm 3 and Buildx are rebuilt with Go 1.27.3 and patched networking/archive modules; Buildx's frozen naming utility is retained with its license instead of linking the obsolete Docker daemon module. Builds use distribution-managed pip, smoke-test the CLI tools and run `pip check` against the API/native scanner environment. GitHub-hosted image builds free runner disk space even in quick scans. STIG XML parsing requires `defusedxml` (included in the CLI and web requirements) and rejects XML entity expansion. Epyon's own PR scans use the PR's workflow and scanner revision so scanner changes are tested before merging.
+
 > **Why a deployed scan can find fewer/different results than a local (`./epyon.sh`) or GitHub Actions CI run of the same target**: local runs and CI runners execute every scan tool directly against the real filesystem — there's no container indirection, so bind-mount paths are always correct. The deployed web UI is the *only* mode that spawns scan tools as sibling containers via `HOST_PROJECT_DIR`/`to_host_path()` translation, above. Every scan script that shells out to a Docker-based tool (Trivy, Checkov, Safety, Anchore, TruffleHog, ClamAV, Grype, Xeol, Syft's Docker fallback) must apply this translation to its `docker run -v` paths — a script that doesn't will still "succeed" but silently scan an empty/nonexistent directory, producing a false-clean 0-findings result with no error surfaced. If you deploy a build and see a layer report 0 findings that a local/CI run of the same target catches, check that its scan script has been updated to translate its target/output paths through `to_host_path()`. Two other differences to be aware of: the deployed image must have **`jq` installed** (nearly every scan script's own summary/count logic depends on it — without it, tools still write correct results files but their own printed "N found" summary silently falls back to 0), and the **self-assessment fixture specifically** (`tests/fixtures/self-assessment/`, baked into the image at build time) has no host-filesystem equivalent on an SSH-deployed instance, so `run-self-assessment.sh` stages a host-shared copy of it into `tmp/` before scanning — this staging step is unique to the self-assessment harness and doesn't apply to real scan targets, which are always cloned/uploaded into `tmp/` already.
 >
 > **Two environments scanning the *same* target (e.g. two Web UI deployments, or Web UI vs. GitHub Actions) can still legitimately report very different vulnerability counts** even with no bugs involved, because of real host differences: (1) **Vulnerability database freshness** — Grype/Trivy/Xeol's CVE databases update independently per host; a host that hasn't refreshed its DB in a while under-reports relative to one with a current DB. (2) **Git history depth** — the Web UI and GitHub Actions workflow both now perform a full clone by default (shallow only for HuggingFace targets), so TruffleHog's historical secret scan and Layer 21's git-log confidence scoring see the same history either way.
@@ -821,29 +823,40 @@ git push
 
 Configure these in your GitHub repo **Settings → Secrets and variables → Actions**:
 
-| Secret | Required | Purpose |
+| Secret or input | Required | Purpose |
 |--------|----------|---------|
 | `SONAR_TOKEN` + `SONAR_HOST_URL` | Optional | Enables SonarQube layer |
 | `JIRA_BASE_URL` + `JIRA_USER_EMAIL` + `JIRA_API_TOKEN` + `JIRA_PROJECT_KEY` | Optional | Supplies Jira settings to an Epyon web service started by the job; scan workflows do not create Jira tickets |
 | `OPENAI_API_KEY` | Optional | Enables Garak LLM probing + STIG assessment |
 | `DOCKERHUB_USERNAME` + `DOCKERHUB_TOKEN` | Optional | Authenticates Docker Hub pulls (free account [access token](https://docs.docker.com/security/for-developers/access-tokens/), not your password), raising the anonymous pull rate limit from 100 to 200 pulls/6h — recommended for scheduled/nightly scans, which share GitHub's runner IP pool and hit that limit far more often than Web UI/local scans. See [Approved Base Images](#-approved-base-images). |
-| `ECR_SCAN_AWS_ACCESS_KEY_ID` + `ECR_SCAN_AWS_SECRET_ACCESS_KEY` | Optional | Pull-only IAM user keys for scanning images in a private Amazon ECR registry. Used only when the caller sets the `ecr_registry` and `ecr_region` inputs; see [Scanning a private Amazon ECR registry](#scanning-a-private-amazon-ecr-registry). |
+| `ecr_role_to_assume` input | Optional | GitHub OIDC role ARN with pull-only access to the private ECR registry. Takes precedence over access-key secrets; the caller job must grant `id-token: write`. |
+| `ECR_SCAN_AWS_ACCESS_KEY_ID` + `ECR_SCAN_AWS_SECRET_ACCESS_KEY` | Optional | Pull-only IAM user keys for scanning images in a private Amazon ECR registry. Used when the caller sets `ecr_registry` and `ecr_region` but does not set `ecr_role_to_assume`; see [Scanning a private Amazon ECR registry](#scanning-a-private-amazon-ecr-registry). |
 
 ##### Scanning a private Amazon ECR registry
 
-ECR does not allow anonymous pulls, so scans of private ECR images need a login. Set the optional `ecr_registry` and `ecr_region` inputs and the two `ECR_SCAN_AWS_*` secrets; the workflow then runs `aws-actions/configure-aws-credentials` and `aws-actions/amazon-ecr-login` before the image scans. Callers that do not set `ecr_registry` skip both steps. The login token lasts 12 hours, and each scan logs in fresh, so nothing needs renewing between runs.
+ECR does not allow anonymous pulls, so scans of private ECR images need a login. Set the optional `ecr_registry` and `ecr_region` inputs and choose one authentication method: provide `ecr_role_to_assume` with `id-token: write` on the caller job, or configure the two `ECR_SCAN_AWS_*` secrets. OIDC is preferred; the workflow uses the role when set and otherwise falls back to access keys. It then runs `aws-actions/configure-aws-credentials` and `aws-actions/amazon-ecr-login` before image scans. Callers that do not set `ecr_registry` skip both steps.
 
 ```yaml
 jobs:
   scan:
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      security-events: write
+      issues: write
+      id-token: write
     uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
     with:
       ecr_registry: 123456789012.dkr.ecr.us-gov-east-1.amazonaws.com
       ecr_region: us-gov-east-1
+      ecr_role_to_assume: arn:aws:iam::123456789012:role/epyon-private-ecr-pull
     secrets: inherit
 ```
 
-To avoid sending the scan every secret in your repo (including deploy keys), pass only the secrets Epyon reads instead of `secrets: inherit`. All are optional:
+Archived Keycloak scan reports retain all their JSON data in line-separated form so credential regexes do not span unrelated fields.
+
+Shipped workflow callers forward only Epyon's declared secrets, rather than every repository secret (including unrelated deploy keys). For custom callers, pass only the secrets your scan needs instead of `secrets: inherit`. All are optional:
 
 ```yaml
     secrets:
@@ -1821,6 +1834,8 @@ bats test-run-trivy-scan.bats
 ```
 
 ### Test Coverage
+From the repository root, run `bats tests/shell/test-generate-scan-findings-summary.bats tests/shell/test-check-severity-gate.bats` to cover oversized finding arrays and suppression lists. These regression tests load their large payloads from files so the test harness itself does not exceed Linux's per-argument limit.
+
 - **Total Tests**: 789
 - **Test Files**: 50
 - **Scripts Covered**: 48 (all shell scripts)

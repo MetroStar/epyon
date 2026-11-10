@@ -30,6 +30,14 @@ ignores:
     approved_by: "rnelson"
 
   - type: path
+    value: "_archive/**"
+    reason: >
+      Archived historical scan output and cleanup snapshots, not part of the
+      running codebase. Contains third-party scan JSON (e.g. Keycloak image
+      scans) that trips secret detectors on sample tokens.
+    approved_by: "rnelson"
+
+  - type: path
     value: "scans/**"
     reason: >
       Epyon's own scan output directory (previous runs' JSON/markdown

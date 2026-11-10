@@ -8,7 +8,7 @@ SCRIPT="${BATS_TEST_DIRNAME}/../../scripts/shell/parse-stig-cklb.py"
     run python3 "$SCRIPT" "$f"
     rm -f "$f"
     [ "$status" -ne 0 ]
-    [[ "$output" == *"EntitiesForbidden"* ]]
+    [[ "$output" == *"DTDForbidden"* ]]
 }
 
 @test "parse-stig-cklb still parses the bundled XCCDF STIG" {

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.66.6] - 2026-11-10
+
+### Security
+- Reject DTD declarations during STIG XML parsing, including UTF-16 encoded input.
+
 ## [3.66.5] - 2026-11-09
 
 ### Fixed

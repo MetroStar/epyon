@@ -93,7 +93,7 @@ def _strip_xccdf_description(raw: str) -> str:
 
 
 def _parse_xccdf_xml(path: str) -> dict:
-    tree = ET.parse(path)
+    tree = ET.parse(path, forbid_dtd=True)
     root = tree.getroot()
 
     ns = XCCDF_NS

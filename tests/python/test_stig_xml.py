@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from defusedxml.common import EntitiesForbidden
+from defusedxml.common import DTDForbidden
 
 
 PARSER_PATH = Path(__file__).resolve().parents[2] / "scripts/shell/parse-stig-cklb.py"
@@ -33,16 +33,20 @@ def test_xccdf_parses_namespaced_controls(tmp_path):
     assert result["controls"][0]["rule_id"] == "SV-1"
 
 
-@pytest.mark.parametrize("suffix", [".xml", ".txt"])
-def test_xml_entities_are_rejected(tmp_path, suffix):
+@pytest.mark.parametrize(
+    ("suffix", "encoding"),
+    [(".xml", "utf-8"), (".txt", "utf-8"), (".xml", "utf-16")],
+)
+def test_xml_dtds_are_rejected(tmp_path, suffix, encoding):
     source = tmp_path / f"controls{suffix}"
-    source.write_text(
+    xml = (
+        f'<?xml version="1.0" encoding="{encoding}"?>'
         '<!DOCTYPE Benchmark [<!ENTITY payload "expanded">]>'
         '<Benchmark xmlns="http://checklists.nist.gov/xccdf/1.1">'
-        "<title>&payload;</title></Benchmark>",
-        encoding="utf-8",
+        "<title>&payload;</title></Benchmark>"
     )
-    with pytest.raises(EntitiesForbidden):
+    source.write_bytes(xml.encode(encoding))
+    with pytest.raises(DTDForbidden):
         parser.parse_stig(str(source))
 
 

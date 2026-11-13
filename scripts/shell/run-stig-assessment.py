@@ -87,13 +87,18 @@ Adding a new STIG:
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
+import hashlib
 import ipaddress
 import json
 import os
 import re
 import sys
+import subprocess
+import threading
 import time
 import urllib.parse
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -160,6 +165,17 @@ def _code_bytes_default() -> int:
     if override > 0:
         return override
     return LOCAL_CODE_BYTES_PER_BATCH if _LOCAL_MODEL else MAX_CODE_BYTES_PER_BATCH
+
+
+def _manual_context_for_batch(manual_docs, controls):
+    if _LOCAL_MODEL:
+        sections = []
+        for path, content in manual_docs:
+            for number, section in enumerate(re.split(r"(?m)(?=^#{1,6}\s)", content)):
+                for offset in range(0, len(section), 1000):
+                    sections.append((f"{path} (section {number + 1}, offset {offset})", section[offset:offset + 1000]))
+        return build_code_context_for_batch(sections, controls, max_bytes=6000, include_omitted_paths=False)
+    return "\n".join(f"### FILE: {rel}\n```\n{content}\n```\n" for rel, content in manual_docs)
 
 
 _JSON_REMINDER = (
@@ -523,6 +539,86 @@ def _load_records() -> Any:
     mod = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
     spec.loader.exec_module(mod)  # type: ignore[union-attr]
     return mod
+
+
+def _scan_cache_module() -> Any:
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "epyon_scan_cache", Path(__file__).parent / "scan_cache.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _stig_reuse_key(target_dir: str, inputs: dict[str, Any]) -> str | None:
+    """Require immutable model identity and exact repository/context identity."""
+    revision = os.environ.get("EPYON_STIG_MODEL_REVISION", "").strip()
+    identity_url = os.environ.get("EPYON_STIG_MODEL_IDENTITY_URL", "").strip()
+    if not revision and identity_url:
+        parsed = urllib.parse.urlparse(identity_url)
+        if (
+            parsed.scheme not in {"http", "https"} or parsed.username or parsed.password
+            or not parsed.hostname or not _base_url_allowed(identity_url)
+        ):
+            raise ValueError("STIG model identity URL is not allowed")
+        try:
+            with urllib.request.urlopen(identity_url, timeout=15) as response:
+                models = json.load(response)["models"]
+            revision = next(
+                item["digest"] for item in models
+                if item.get("name") == inputs["model"]
+            )
+        except (OSError, ValueError, KeyError, StopIteration) as error:
+            print(f"[WARNING] STIG reuse disabled: model identity unavailable ({type(error).__name__})", file=sys.stderr)
+            return None
+    if not re.fullmatch(r"(?:sha256:)?[0-9a-f]{64}", revision):
+        print("[WARNING] STIG reuse disabled: immutable model revision is required", file=sys.stderr)
+        return None
+    root = Path(target_dir).resolve()
+    inventory = subprocess.run(
+        ["git", "-C", str(root), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        capture_output=True, check=False,
+    )
+    if inventory.returncode:
+        print("[WARNING] STIG reuse disabled: Git source inventory unavailable", file=sys.stderr)
+        return None
+    files = []
+    for raw in sorted(set(inventory.stdout.split(b"\0")) - {b""}):
+        relative = os.fsdecode(raw)
+        path = root / relative
+        if path.is_symlink():
+            contents = os.readlink(path).encode()
+            if path.is_file():
+                contents += path.read_bytes()
+        elif path.is_file():
+            contents = path.read_bytes()
+        elif path.is_dir():
+            print("[WARNING] STIG reuse disabled: submodule requires independent source identity", file=sys.stderr)
+            return None
+        else:
+            contents = b"<deleted>"
+        files.append((relative, hashlib.sha256(contents).hexdigest()))
+    implementation = [
+        (path.name, hashlib.sha256(path.read_bytes()).hexdigest())
+        for path in sorted(Path(__file__).parent.glob("*.py"))
+    ]
+    return _scan_cache_module().fingerprint({
+        "schema": 1, "inputs": inputs, "files": files,
+        "implementation": implementation, "model_revision": revision,
+    })
+
+
+def _initial_batch_calls(batches, call, workers):
+    """Yield in control order while bounding in-flight work and preserving errors."""
+    def invoke(batch):
+        try:
+            return call(batch)
+        except Exception as error:
+            return error
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        yield from executor.map(invoke, batches)
 
 
 def _published_reviews(
@@ -1377,6 +1473,7 @@ def build_code_context_for_batch(
     files: list[tuple[str, str]],
     controls_batch: list[dict[str, Any]],
     max_bytes: int = MAX_CODE_BYTES_PER_BATCH,
+    include_omitted_paths: bool = True,
 ) -> str:
     """Build code context that guarantees each control's most-relevant files.
 
@@ -1451,7 +1548,7 @@ def build_code_context_for_batch(
         parts.append(
             f"### NOTE: {len(skipped)} additional file(s) exceeded context budget "
             f"and were not included:\n"
-            + "\n".join(f"  {r}" for r in skipped)
+            + ("\n".join(f"  {r}" for r in skipped) if include_omitted_paths else "")
             + "\n"
         )
 
@@ -1490,6 +1587,80 @@ def _completion_kwargs(model: str, max_out: int, seed: int = 42) -> dict:
         return {"max_completion_tokens": max(max_out, 8000)}
     return {"temperature": 0, "top_p": 1.0, "seed": seed, "max_tokens": max_out}
 
+def _structured_kwargs(schema: dict[str, Any]) -> dict[str, Any]:
+    if os.environ.get("EPYON_AI_STRUCTURED_OUTPUT", "").lower() != "true":
+        return {}
+    return {
+        "reasoning_effort": "none",
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {"name": "stig_assessment", "schema": schema},
+        },
+    }
+
+
+def _assessment_schema(controls: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": [c["vuln_id"] for c in controls],
+        "properties": {c["vuln_id"]: {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "vuln_id": {"type": "string", "enum": [c["vuln_id"]]},
+                "status": {"type": "string", "enum": sorted(VALID_STATUSES)},
+                "evidence": {"type": "string", "minLength": 1},
+                "confidence": {"type": "integer", "minimum": 0, "maximum": 100},
+            },
+            "required": ["vuln_id", "status", "evidence", "confidence"],
+        } for c in controls},
+    }
+
+
+def _unique_json_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"Model returned a duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def _decode_assessments(raw: str, controls: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    result = json.loads(raw, object_pairs_hook=_unique_json_object)
+    if os.environ.get("EPYON_AI_STRUCTURED_OUTPUT", "").lower() == "true":
+        expected = [c["vuln_id"] for c in controls]
+        if not isinstance(result, dict) or set(result) != set(expected):
+            raise ValueError("Model must return exactly the requested control keys")
+        if any(not isinstance(result[key], dict) or result[key].get("vuln_id") != key for key in expected):
+            raise ValueError("Model returned mismatched control keys and identifiers")
+        result = [result[key] for key in expected]
+    return _validate_batch(result, controls)
+
+
+def _validate_batch(results: Any, controls: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    expected = {c["vuln_id"] for c in controls}
+    if not isinstance(results, list) or len(results) != len(controls):
+        raise ValueError("Model must return one assessment per requested control")
+    seen: set[str] = set()
+    for item in results:
+        if not isinstance(item, dict) or item.get("vuln_id") not in expected:
+            raise ValueError("Model returned an unknown control or invalid assessment")
+        if item["vuln_id"] in seen:
+            raise ValueError("Model returned duplicate control assessments")
+        seen.add(item["vuln_id"])
+        if item.get("status") not in VALID_STATUSES and (
+            os.environ.get("EPYON_AI_STRUCTURED_OUTPUT", "").lower() == "true"
+        ):
+            raise ValueError("Model returned an invalid STIG status")
+        if not isinstance(item.get("evidence"), str) or not item["evidence"].strip():
+            raise ValueError("Model returned empty STIG evidence")
+        confidence = item.get("confidence")
+        if type(confidence) is not int or not 0 <= confidence <= 100:
+            raise ValueError("Model returned invalid confidence")
+    return results
+
 
 def check_stig_applicability(
     client: Any,
@@ -1520,6 +1691,11 @@ def check_stig_applicability(
         response = client.chat.completions.create(
         model=model,
         **_completion_kwargs(model, 300),
+        **_structured_kwargs({
+            "type": "object",
+            "properties": {"applicable": {"type": "boolean"}, "reason": {"type": "string"}},
+            "required": ["applicable", "reason"],
+        }),
         messages=[
             {"role": "system", "content": _APPLICABILITY_SYSTEM_PROMPT},
             {"role": "user",   "content": user_message},
@@ -1616,8 +1792,10 @@ def call_openai(
         )
 
     # Controls and the output contract come first; reference material follows.
+    structured = os.environ.get("EPYON_AI_STRUCTURED_OUTPUT", "").lower() == "true"
+    response_contract = "JSON object keyed by exact control ID" if structured else "JSON array"
     user_message = (
-        f"Assess the {len(controls_batch)} controls below and reply with a JSON array only.\n\n"
+        f"Assess the {len(controls_batch)} controls below and reply with a {response_contract} only.\n\n"
         f"Controls to assess ({len(controls_batch)} total):\n{controls_json}\n\n"
         "Reference material follows. Use it as evidence; do not summarize it.\n\n"
         f"{manifest_section}"
@@ -1627,7 +1805,12 @@ def call_openai(
         f"Application source code (examine every file carefully):\n{code_context}"
     )
     if _LOCAL_MODEL or retry_hint:
-        user_message += f"\n\n{retry_hint + ' ' if retry_hint else ''}{_JSON_REMINDER}"
+        reminder = (
+            "Output contract: return exactly one property per requested control ID, with its matching "
+            "vuln_id, status, evidence, and confidence. JSON object only; no markdown fences."
+            if structured else _JSON_REMINDER
+        )
+        user_message += f"\n\n{retry_hint + ' ' if retry_hint else ''}{reminder}"
 
     # Derive a deterministic seed from the batch vuln_ids so the same controls
     # always get the same seed regardless of which run number this is.
@@ -1635,11 +1818,18 @@ def call_openai(
     _seed_input = ",".join(c["vuln_id"] for c in controls_batch).encode()
     _seed = int(_hashlib.sha256(_seed_input).hexdigest()[:8], 16) % (2**31)
 
+    prompt = system_prompt()
+    if structured:
+        prompt = prompt.replace("JSON array", response_contract).replace("Each element MUST", "Each property value MUST")
+    max_out = int(os.environ.get("EPYON_AI_MAX_TOKENS", "16384") or 16384)
+    if _LOCAL_MODEL:
+        max_out = min(max_out, max(2048, 1024 * len(controls_batch)))
     response = client.chat.completions.create(
         model=model,
-        **_completion_kwargs(model, int(os.environ.get("EPYON_AI_MAX_TOKENS", "16384") or 16384), _seed),
+        **_completion_kwargs(model, max_out, _seed),
+        **_structured_kwargs(_assessment_schema(controls_batch)),
         messages=[
-            {"role": "system", "content": system_prompt()},
+            {"role": "system", "content": prompt},
             {"role": "user",   "content": user_message},
         ],
     )
@@ -1664,12 +1854,14 @@ def call_openai(
     raw = re.sub(r"\s*```$", "", raw)
 
     try:
-        return json.loads(raw), prompt_tokens, completion_tokens
+        return _decode_assessments(raw, controls_batch), prompt_tokens, completion_tokens
     except json.JSONDecodeError:
+        if structured:
+            raise
         # Tolerate prose around the JSON array.
         start, end = raw.find("["), raw.rfind("]")
         if raw and start != -1 and end > start:
-            return json.loads(raw[start:end + 1]), prompt_tokens, completion_tokens
+            return _decode_assessments(raw[start:end + 1], controls_batch), prompt_tokens, completion_tokens
         print(f"[WARNING] Unparseable model output (finish_reason={finish}): {raw[:200]!r}", file=sys.stderr)
         raise
 
@@ -1877,6 +2069,13 @@ def render_findings_cklb(
 # Main
 # ---------------------------------------------------------------------------
 
+def _max_failed_batch_pct() -> float:
+    try:
+        return float(os.environ.get("EPYON_STIG_MAX_FAILED_BATCH_PCT", "") or 10)
+    except ValueError:
+        return 10.0
+
+
 def _assess_stig(
     stig_data: dict[str, Any],
     stig_path: str,
@@ -1923,15 +2122,12 @@ def _assess_stig(
         print(f"[INFO] [{slug}] Loaded suppression rules from .epyon-ignore.yml (limited for token budget)", file=sys.stderr)
     
     # Build manual STIG documentation string for AI priority context
-    manual_docs_context = ""
     if manual_docs:
-        parts = []
-        for rel, content in manual_docs:
-            parts.append(f"### FILE: {rel}\n```\n{content}\n```\n")
-        manual_docs_context = "\n".join(parts)
         print(f"[INFO] [{slug}] Loaded {len(manual_docs)} manual STIG documentation file(s) for priority context", file=sys.stderr)
 
     assessments: dict[str, dict[str, str]] = {}
+    failed_batches: list[int] = []
+    total_batches = 0
     total_prompt_tokens     = 0
     total_completion_tokens = 0
 
@@ -1939,6 +2135,37 @@ def _assess_stig(
         published_locked, reopen_reasons, published_prior = _published_reviews(controls, target_dir, slug)
     else:
         published_locked, reopen_reasons, published_prior = {}, {}, {}
+
+    reuse_key = None
+    result_cache = None
+    cached_assessments = None
+    assessment_generated_at = datetime.now(timezone.utc).isoformat()
+    if api_key and os.environ.get("EPYON_CACHE_DIR"):
+        reuse_key = _stig_reuse_key(target_dir, {
+            "app": app_name, "model": model, "endpoint": base_url,
+            "stig": stig_data, "source_files": source_files, "manual_docs": manual_docs,
+            "findings": security_findings_context, "suppressions": suppression_rules_context,
+            "published_reviews": published_prior, "format": os.environ.get("EPYON_STIG_FORMAT", ""),
+            "structured": os.environ.get("EPYON_AI_STRUCTURED_OUTPUT", ""),
+            "response_contract": "keyed-controls-v1",
+            "max_tokens": os.environ.get("EPYON_AI_MAX_TOKENS", "16384"),
+            "batch_size": batch_size, "local": _LOCAL_MODEL,
+        })
+        if reuse_key:
+            result_cache = _scan_cache_module().JsonCache(
+                Path(os.environ["EPYON_CACHE_DIR"]) / "stig",
+                int(os.environ.get("EPYON_STIG_CACHE_TTL", "86400")),
+                max_entries=128,
+            )
+            cached = result_cache.get(reuse_key)
+            if isinstance(cached, dict) and cached.get("assessment_complete") and not cached.get("failed_batches"):
+                try:
+                    prior = cached["assessments"]
+                    _validate_batch([dict(item, vuln_id=vid) for vid, item in prior.items()], controls)
+                    cached_assessments = prior
+                    assessment_generated_at = cached["assessment_generated_at"]
+                except (KeyError, TypeError, ValueError, AttributeError) as error:
+                    print(f"[WARNING] Invalid cached STIG assessment; reassessing: {error}", file=sys.stderr)
 
     if not api_key:
         for c in controls:
@@ -1950,6 +2177,9 @@ def _assess_stig(
             prior = published_prior.get(c["vuln_id"])
             if prior and prior.get("locked_by_human"):
                 assessments[c["vuln_id"]] = {**prior, "locked_by_previous": True}
+    elif cached_assessments is not None:
+        assessments = cached_assessments
+        print(f"[INFO] [{slug}] Reusing {len(assessments)} complete assessments: exact source, model and context match", file=sys.stderr)
     else:
         try:
             from openai import OpenAI  # type: ignore[import]
@@ -2001,6 +2231,16 @@ def _assess_stig(
         previous_assessments: dict[str, dict[str, Any]] = {}
         previous_scan_used: Path | None = None
         for candidate in find_previous_scan_dirs(scan_dir, app_name):
+            candidate_path = candidate / f"stig-results-{slug}.json"
+            if not reuse_key or not candidate_path.is_file():
+                continue
+            try:
+                previous_output = json.loads(candidate_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError) as error:
+                print(f"[WARNING] Invalid prior STIG output: {error}", file=sys.stderr)
+                continue
+            if previous_output.get("reuse_key") != reuse_key or not previous_output.get("assessment_complete"):
+                continue
             loaded = load_previous_stig_results(candidate, slug)
             if loaded:
                 previous_assessments = loaded
@@ -2086,7 +2326,34 @@ def _assess_stig(
             file=sys.stderr,
         )
 
-        for idx, batch in enumerate(batches, start=1):
+        workers = int(os.environ.get("EPYON_STIG_CONCURRENCY", "1"))
+        if not 1 <= workers <= 4:
+            raise ValueError("EPYON_STIG_CONCURRENCY must be between 1 and 4")
+        request_slots = threading.BoundedSemaphore(workers)
+        request_clock = threading.Lock()
+        last_request = [0.0]
+
+        def bounded_call(*args):
+            with request_slots:
+                with request_clock:
+                    time.sleep(max(0, last_request[0] + delay - time.monotonic()))
+                    last_request[0] = time.monotonic()
+                return call_openai(*args)
+
+        def initial_call(batch):
+            return bounded_call(
+                client, model, batch,
+                build_code_context_for_batch(source_files, batch, max_bytes=_code_bytes_default()),
+                repo_manifest, previous_assessments,
+                security_findings_context, suppression_rules_context, _manual_context_for_batch(manual_docs, batch), "",
+            )
+
+        initial_calls = (
+            _initial_batch_calls(batches, initial_call, workers)
+            if workers > 1 else (None for _ in batches)
+        )
+        print(f"[INFO] [{slug}] Maximum concurrent AI requests: {workers}", file=sys.stderr)
+        for idx, (batch, initial_result) in enumerate(zip(batches, initial_calls), start=1):
             print(
                 f"[INFO] [{slug}] Batch {idx}/{total_batches}: "
                 f"{batch[0]['vuln_id']} → {batch[-1]['vuln_id']}",
@@ -2104,7 +2371,7 @@ def _assess_stig(
             active_manifest = repo_manifest  # may be dropped on overflow
             active_findings = security_findings_context
             active_suppressions = suppression_rules_context
-            active_manual_docs = manual_docs_context
+            active_manual_docs = _manual_context_for_batch(manual_docs, batch)
             for attempt in range(1, _MAX_BATCH_RETRIES + 1):
                 # (Re)build context — uses current code_budget, which may have
                 # been reduced on a previous context_length_exceeded error.
@@ -2112,10 +2379,15 @@ def _assess_stig(
                     source_files, batch, max_bytes=code_budget
                 )
                 try:
-                    results, batch_pt, batch_ct = call_openai(
-                        client, model, batch, code_context, active_manifest, previous_assessments,
-                        active_findings, active_suppressions, active_manual_docs, retry_hint
-                    )
+                    if workers > 1 and attempt == 1:
+                        if isinstance(initial_result, Exception):
+                            raise initial_result
+                        results, batch_pt, batch_ct = initial_result
+                    else:
+                        results, batch_pt, batch_ct = bounded_call(
+                            client, model, batch, code_context, active_manifest, previous_assessments,
+                            active_findings, active_suppressions, active_manual_docs, retry_hint
+                        )
                     total_prompt_tokens     += batch_pt
                     total_completion_tokens += batch_ct
                     print(
@@ -2173,6 +2445,7 @@ def _assess_stig(
                             file=sys.stderr,
                         )
             if last_err:
+                failed_batches.append(idx)
                 print(
                     f"[WARNING] [{slug}] Batch {idx} failed after {_MAX_BATCH_RETRIES} attempts — "
                     f"controls will be marked Open/0",
@@ -2241,19 +2514,24 @@ def _assess_stig(
                         "confidence": 0,
                     }
 
-            if idx < total_batches:
-                time.sleep(delay)
-
     # Write raw results
     results_path = scan_dir / f"stig-results-{slug}.json"
     output_data: dict[str, Any] = {
         "assessments": assessments,
+        "assessment_complete": bool(api_key) and not failed_batches,
+        "failed_batches": failed_batches,
+        "reuse_key": reuse_key,
+        "reused": cached_assessments is not None,
+        "assessment_generated_at": assessment_generated_at,
         "token_usage": {
             "prompt_tokens":     total_prompt_tokens     if api_key else 0,
             "completion_tokens": total_completion_tokens if api_key else 0,
             "total_tokens":      (total_prompt_tokens + total_completion_tokens) if api_key else 0,
         },
     }
+    if result_cache is not None and output_data["assessment_complete"] and cached_assessments is None:
+        _validate_batch([dict(item, vuln_id=vid) for vid, item in assessments.items()], controls)
+        result_cache.put(reuse_key, output_data)
     results_path.write_text(json.dumps(output_data, indent=2), encoding="utf-8")
     if api_key:
         print(
@@ -2330,6 +2608,19 @@ def _assess_stig(
     print(f"    {'Total':<22} {len(controls)}", file=sys.stderr)
     print(f"", file=sys.stderr)
 
+    if os.environ.get("EPYON_REQUIRE_COMPLETE", "").lower() == "true" and (
+        failed_batches or not api_key
+    ):
+        raise SystemExit(f"[ERROR] [{slug}] STIG assessment incomplete; diagnostics preserved")
+    # Even without EPYON_REQUIRE_COMPLETE, a run where too many batches failed is mostly
+    # fallback Open/0 results and must not be published as an assessment.
+    if failed_batches and len(failed_batches) * 100 > total_batches * _max_failed_batch_pct():
+        raise SystemExit(
+            f"[ERROR] [{slug}] {len(failed_batches)}/{total_batches} batches failed; results are not "
+            "trustworthy (raise EPYON_AI_MAX_TOKENS / check context size; "
+            "threshold: EPYON_STIG_MAX_FAILED_BATCH_PCT)"
+        )
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -2395,7 +2686,12 @@ def main() -> None:
     global _LOCAL_MODEL
     _LOCAL_MODEL = bool(base_url) and _hostname(base_url) not in _OPENAI_PUBLIC_HOSTS
     if args.batch_size is None:
-        args.batch_size = LOCAL_BATCH_SIZE_DEFAULT if _LOCAL_MODEL else BATCH_SIZE_DEFAULT
+        args.batch_size = int(os.environ.get(
+            "EPYON_STIG_BATCH_SIZE",
+            str(LOCAL_BATCH_SIZE_DEFAULT if _LOCAL_MODEL else BATCH_SIZE_DEFAULT),
+        ))
+    if not 1 <= args.batch_size <= 10:
+        parser.error("--batch-size / EPYON_STIG_BATCH_SIZE must be between 1 and 10")
 
     # Local models often don't require a real API key
     # Accept a placeholder ('local', 'ollama', etc.) to satisfy the SDK

@@ -16,6 +16,45 @@ Epyon is designed to be opinionated, automated, and decisive — empowering team
 
 ## Overview
 
+For an Ollama-compatible endpoint supporting schema-constrained output and
+`reasoning_effort=none`, set `EPYON_AI_STRUCTURED_OUTPUT=true`. STIG batches
+request and validate one JSON assessment per control; exhausted retries cannot
+pass complete-scan enforcement. Existing hosted configurations remain opt-in.
+
+### STIG assessment performance
+
+STIG reuse is opt-in through `EPYON_CACHE_DIR` and requires an immutable model
+digest: set `EPYON_STIG_MODEL_REVISION` or point
+`EPYON_STIG_MODEL_IDENTITY_URL` at a trusted Ollama `/api/tags` endpoint.
+Only complete, validated assessments with identical application, repository
+contents (including untracked, non-ignored source files), supplied source/context,
+STIG definitions, model digest, endpoint, assessment implementation and settings
+are reused. Any difference requires a fresh assessment; unknown model identity
+or a non-Git target disables reuse with a warning. Failed/incomplete assessments
+are never cached. The cache holds at most 128 entries for
+`EPYON_STIG_CACHE_TTL` seconds (default 86400). Outputs retain all control results,
+the original assessment timestamp and explicit reuse provenance.
+Generated directories such as Maven `target`, Sonar `.scannerwork`, and build
+outputs are excluded from AI source context and untracked-file fingerprints;
+their changing timestamps are not application changes. Tracked files are always
+fingerprinted, even under these directories. This does not skip compiled-code
+Sonar analysis, vulnerability scans, or current scanner-finding context.
+
+`EPYON_STIG_BATCH_SIZE` accepts 1-10 controls per request.
+`EPYON_STIG_CONCURRENCY` accepts 1-4 concurrent requests (default 1).
+Concurrent results are merged in control order; every batch still uses the
+same exact-control validation, retry and strict completion rules.
+With `EPYON_AI_STRUCTURED_OUTPUT=true`, the response schema requires one named
+property per control, with an identifier constrained to that property. This
+prevents duplicate IDs in larger batches; exported reports still use the same
+assessment format. Missing, extra, duplicate, or mismatched keys fail validation.
+Local requests select at most 6 KB of relevant manual documentation per batch,
+in addition to the existing code context. Their output reservation is bounded
+to 1,024 tokens per control (at least 2,048, never above the configured limit),
+so the default 16,384-token reservation does not unnecessarily halve the input
+window. All controls, evidence requirements, safety and completeness gates remain.
+Cache storage must be writable only by trusted scanner jobs. Do not mount it
+into untrusted pull-request workloads.
 Epyon is a **production-ready, enterprise-grade** 21-layer DevSecOps security platform with a FastAPI-backed web UI, comprehensive test coverage, baseline scanning, automated comparison, and isolated scan directory architecture. Built for real-world applications with Docker-based tooling and 886 automated tests.
 
 **Version: 3.14.4** · **Updated: September 16, 2026**

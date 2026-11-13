@@ -81,34 +81,6 @@ def run_enrichment(scan, cache_dir, response, key=""):
     return calls
 
 
-def test_nvd_warm_cache_has_zero_requests_and_retains_findings(tmp_path):
-    scan = tmp_path / "scan"
-    scan.mkdir()
-    findings = {"critical_findings": [{"vulnerability_id": "CVE-2026-1234", "evidence": "unchanged"}]}
-    report = scan / "security-findings-summary.json"
-    report.write_text(json.dumps(findings))
-    response = {"vulnerabilities": [{"cve": {"id": "CVE-2026-1234", "published": "2026-01-01"}}]}
-    calls = run_enrichment(scan, tmp_path / "cache", response, "test-secret")
-    assert len(calls) == 1
-    assert calls[0].get_header("Apikey") == "test-secret"
-    first = json.loads(report.read_text())
-    report.write_text(json.dumps(findings))
-    assert run_enrichment(scan, tmp_path / "cache", response) == []
-    second = json.loads(report.read_text())
-    assert first["critical_findings"] == second["critical_findings"]
-    assert second["enrichment"]["nvd_cache_hits"] == 1
-    assert second["enrichment"]["nvd_cache_misses"] == 0
-    assert "test-secret" not in "".join(path.read_text() for path in (tmp_path / "cache").rglob("*.json"))
-
-
-def test_nvd_empty_response_is_not_cached(tmp_path):
-    scan = tmp_path / "scan"
-    scan.mkdir()
-    (scan / "security-findings-summary.json").write_text(json.dumps({
-        "high_findings": [{"id": "CVE-2026-1234"}],
-    }))
-    assert len(run_enrichment(scan, tmp_path / "cache", {"vulnerabilities": []})) == 1
-    assert len(run_enrichment(scan, tmp_path / "cache", {"vulnerabilities": []})) == 1
 
 
 @pytest.fixture

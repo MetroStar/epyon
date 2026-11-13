@@ -87,13 +87,18 @@ Adding a new STIG:
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
+import hashlib
 import ipaddress
 import json
 import os
 import re
 import sys
+import subprocess
+import threading
 import time
 import urllib.parse
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -523,6 +528,86 @@ def _load_records() -> Any:
     mod = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
     spec.loader.exec_module(mod)  # type: ignore[union-attr]
     return mod
+
+
+def _scan_cache_module() -> Any:
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "epyon_scan_cache", Path(__file__).parent / "scan_cache.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _stig_reuse_key(target_dir: str, inputs: dict[str, Any]) -> str | None:
+    """Require immutable model identity and exact repository/context identity."""
+    revision = os.environ.get("EPYON_STIG_MODEL_REVISION", "").strip()
+    identity_url = os.environ.get("EPYON_STIG_MODEL_IDENTITY_URL", "").strip()
+    if not revision and identity_url:
+        parsed = urllib.parse.urlparse(identity_url)
+        if (
+            parsed.scheme not in {"http", "https"} or parsed.username or parsed.password
+            or not parsed.hostname or not _base_url_allowed(identity_url)
+        ):
+            raise ValueError("STIG model identity URL is not allowed")
+        try:
+            with urllib.request.urlopen(identity_url, timeout=15) as response:
+                models = json.load(response)["models"]
+            revision = next(
+                item["digest"] for item in models
+                if item.get("name") == inputs["model"]
+            )
+        except (OSError, ValueError, KeyError, StopIteration) as error:
+            print(f"[WARNING] STIG reuse disabled: model identity unavailable ({type(error).__name__})", file=sys.stderr)
+            return None
+    if not re.fullmatch(r"(?:sha256:)?[0-9a-f]{64}", revision):
+        print("[WARNING] STIG reuse disabled: immutable model revision is required", file=sys.stderr)
+        return None
+    root = Path(target_dir).resolve()
+    inventory = subprocess.run(
+        ["git", "-C", str(root), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        capture_output=True, check=False,
+    )
+    if inventory.returncode:
+        print("[WARNING] STIG reuse disabled: Git source inventory unavailable", file=sys.stderr)
+        return None
+    files = []
+    for raw in sorted(set(inventory.stdout.split(b"\0")) - {b""}):
+        relative = os.fsdecode(raw)
+        path = root / relative
+        if path.is_symlink():
+            contents = os.readlink(path).encode()
+            if path.is_file():
+                contents += path.read_bytes()
+        elif path.is_file():
+            contents = path.read_bytes()
+        elif path.is_dir():
+            print("[WARNING] STIG reuse disabled: submodule requires independent source identity", file=sys.stderr)
+            return None
+        else:
+            contents = b"<deleted>"
+        files.append((relative, hashlib.sha256(contents).hexdigest()))
+    implementation = [
+        (path.name, hashlib.sha256(path.read_bytes()).hexdigest())
+        for path in sorted(Path(__file__).parent.glob("*.py"))
+    ]
+    return _scan_cache_module().fingerprint({
+        "schema": 1, "inputs": inputs, "files": files,
+        "implementation": implementation, "model_revision": revision,
+    })
+
+
+def _initial_batch_calls(batches, call, workers):
+    """Yield in control order while bounding in-flight work and preserving errors."""
+    def invoke(batch):
+        try:
+            return call(batch)
+        except Exception as error:
+            return error
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        yield from executor.map(invoke, batches)
 
 
 def _published_reviews(
@@ -1999,6 +2084,36 @@ def _assess_stig(
     else:
         published_locked, reopen_reasons, published_prior = {}, {}, {}
 
+    reuse_key = None
+    result_cache = None
+    cached_assessments = None
+    assessment_generated_at = datetime.now(timezone.utc).isoformat()
+    if api_key and os.environ.get("EPYON_CACHE_DIR"):
+        reuse_key = _stig_reuse_key(target_dir, {
+            "app": app_name, "model": model, "endpoint": base_url,
+            "stig": stig_data, "source_files": source_files, "manual_docs": manual_docs,
+            "findings": security_findings_context, "suppressions": suppression_rules_context,
+            "published_reviews": published_prior, "format": os.environ.get("EPYON_STIG_FORMAT", ""),
+            "structured": os.environ.get("EPYON_AI_STRUCTURED_OUTPUT", ""),
+            "max_tokens": os.environ.get("EPYON_AI_MAX_TOKENS", "16384"),
+            "batch_size": batch_size, "local": _LOCAL_MODEL,
+        })
+        if reuse_key:
+            result_cache = _scan_cache_module().JsonCache(
+                Path(os.environ["EPYON_CACHE_DIR"]) / "stig",
+                int(os.environ.get("EPYON_STIG_CACHE_TTL", "86400")),
+                max_entries=128,
+            )
+            cached = result_cache.get(reuse_key)
+            if isinstance(cached, dict) and cached.get("assessment_complete") and not cached.get("failed_batches"):
+                try:
+                    prior = cached["assessments"]
+                    _validate_batch([dict(item, vuln_id=vid) for vid, item in prior.items()], controls)
+                    cached_assessments = prior
+                    assessment_generated_at = cached["assessment_generated_at"]
+                except (KeyError, TypeError, ValueError, AttributeError) as error:
+                    print(f"[WARNING] Invalid cached STIG assessment; reassessing: {error}", file=sys.stderr)
+
     if not api_key:
         for c in controls:
             assessments[c["vuln_id"]] = {
@@ -2009,6 +2124,9 @@ def _assess_stig(
             prior = published_prior.get(c["vuln_id"])
             if prior and prior.get("locked_by_human"):
                 assessments[c["vuln_id"]] = {**prior, "locked_by_previous": True}
+    elif cached_assessments is not None:
+        assessments = cached_assessments
+        print(f"[INFO] [{slug}] Reusing {len(assessments)} complete assessments: exact source, model and context match", file=sys.stderr)
     else:
         try:
             from openai import OpenAI  # type: ignore[import]
@@ -2060,6 +2178,16 @@ def _assess_stig(
         previous_assessments: dict[str, dict[str, Any]] = {}
         previous_scan_used: Path | None = None
         for candidate in find_previous_scan_dirs(scan_dir, app_name):
+            candidate_path = candidate / f"stig-results-{slug}.json"
+            if not reuse_key or not candidate_path.is_file():
+                continue
+            try:
+                previous_output = json.loads(candidate_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError) as error:
+                print(f"[WARNING] Invalid prior STIG output: {error}", file=sys.stderr)
+                continue
+            if previous_output.get("reuse_key") != reuse_key or not previous_output.get("assessment_complete"):
+                continue
             loaded = load_previous_stig_results(candidate, slug)
             if loaded:
                 previous_assessments = loaded
@@ -2145,7 +2273,34 @@ def _assess_stig(
             file=sys.stderr,
         )
 
-        for idx, batch in enumerate(batches, start=1):
+        workers = int(os.environ.get("EPYON_STIG_CONCURRENCY", "1"))
+        if not 1 <= workers <= 4:
+            raise ValueError("EPYON_STIG_CONCURRENCY must be between 1 and 4")
+        request_slots = threading.BoundedSemaphore(workers)
+        request_clock = threading.Lock()
+        last_request = [0.0]
+
+        def bounded_call(*args):
+            with request_slots:
+                with request_clock:
+                    time.sleep(max(0, last_request[0] + delay - time.monotonic()))
+                    last_request[0] = time.monotonic()
+                return call_openai(*args)
+
+        def initial_call(batch):
+            return bounded_call(
+                client, model, batch,
+                build_code_context_for_batch(source_files, batch, max_bytes=_code_bytes_default()),
+                repo_manifest, previous_assessments,
+                security_findings_context, suppression_rules_context, manual_docs_context, "",
+            )
+
+        initial_calls = (
+            _initial_batch_calls(batches, initial_call, workers)
+            if workers > 1 else (None for _ in batches)
+        )
+        print(f"[INFO] [{slug}] Maximum concurrent AI requests: {workers}", file=sys.stderr)
+        for idx, (batch, initial_result) in enumerate(zip(batches, initial_calls), start=1):
             print(
                 f"[INFO] [{slug}] Batch {idx}/{total_batches}: "
                 f"{batch[0]['vuln_id']} → {batch[-1]['vuln_id']}",
@@ -2171,10 +2326,15 @@ def _assess_stig(
                     source_files, batch, max_bytes=code_budget
                 )
                 try:
-                    results, batch_pt, batch_ct = call_openai(
-                        client, model, batch, code_context, active_manifest, previous_assessments,
-                        active_findings, active_suppressions, active_manual_docs, retry_hint
-                    )
+                    if workers > 1 and attempt == 1:
+                        if isinstance(initial_result, Exception):
+                            raise initial_result
+                        results, batch_pt, batch_ct = initial_result
+                    else:
+                        results, batch_pt, batch_ct = bounded_call(
+                            client, model, batch, code_context, active_manifest, previous_assessments,
+                            active_findings, active_suppressions, active_manual_docs, retry_hint
+                        )
                     total_prompt_tokens     += batch_pt
                     total_completion_tokens += batch_ct
                     print(
@@ -2301,21 +2461,24 @@ def _assess_stig(
                         "confidence": 0,
                     }
 
-            if idx < total_batches:
-                time.sleep(delay)
-
     # Write raw results
     results_path = scan_dir / f"stig-results-{slug}.json"
     output_data: dict[str, Any] = {
         "assessments": assessments,
         "assessment_complete": bool(api_key) and not failed_batches,
         "failed_batches": failed_batches,
+        "reuse_key": reuse_key,
+        "reused": cached_assessments is not None,
+        "assessment_generated_at": assessment_generated_at,
         "token_usage": {
             "prompt_tokens":     total_prompt_tokens     if api_key else 0,
             "completion_tokens": total_completion_tokens if api_key else 0,
             "total_tokens":      (total_prompt_tokens + total_completion_tokens) if api_key else 0,
         },
     }
+    if result_cache is not None and output_data["assessment_complete"] and cached_assessments is None:
+        _validate_batch([dict(item, vuln_id=vid) for vid, item in assessments.items()], controls)
+        result_cache.put(reuse_key, output_data)
     results_path.write_text(json.dumps(output_data, indent=2), encoding="utf-8")
     if api_key:
         print(
@@ -2462,7 +2625,12 @@ def main() -> None:
     global _LOCAL_MODEL
     _LOCAL_MODEL = bool(base_url) and _hostname(base_url) not in _OPENAI_PUBLIC_HOSTS
     if args.batch_size is None:
-        args.batch_size = LOCAL_BATCH_SIZE_DEFAULT if _LOCAL_MODEL else BATCH_SIZE_DEFAULT
+        args.batch_size = int(os.environ.get(
+            "EPYON_STIG_BATCH_SIZE",
+            str(LOCAL_BATCH_SIZE_DEFAULT if _LOCAL_MODEL else BATCH_SIZE_DEFAULT),
+        ))
+    if not 1 <= args.batch_size <= 10:
+        parser.error("--batch-size / EPYON_STIG_BATCH_SIZE must be between 1 and 10")
 
     # Local models often don't require a real API key
     # Accept a placeholder ('local', 'ollama', etc.) to satisfy the SDK

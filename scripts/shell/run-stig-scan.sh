@@ -257,9 +257,8 @@ if [[ -n "${OPENAI_BASE_URL:-}" ]]; then
     ASSESSMENT_CMD+=(--base-url "$OPENAI_BASE_URL")
 fi
 
-"${ASSESSMENT_CMD[@]}"
-
-RC=$?
+RC=0
+"${ASSESSMENT_CMD[@]}" || RC=$?
 echo ""
 
 if [[ $RC -eq 0 ]]; then
@@ -304,7 +303,8 @@ if [[ $RC -eq 0 ]]; then
         echo -e "${YELLOW}[STIG] Assessment finished but findings-${APP_SLUG}.md was not produced.${NC}"
     fi
 else
-    echo -e "${YELLOW}[STIG] Assessment completed with warnings (exit ${RC}).${NC}"
+    echo -e "${RED}[STIG] Assessment failed or incomplete (exit ${RC}); skipping PR/Jira publishing.${NC}"
+    exit "$RC"
 fi
 
 exit 0

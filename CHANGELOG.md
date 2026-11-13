@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- STIG assessment now exits non-zero and skips PR/Jira publishing when more than 10% of batches fail (`EPYON_STIG_MAX_FAILED_BATCH_PCT`), instead of publishing fallback Open/0 results.
 - Structured STIG batches require exact named control keys, preventing duplicate control IDs without weakening complete-assessment validation. Local requests bound relevant manual documentation and output reservations to avoid wasting the model context window.
 
 ## [3.62.3] - 2026-11-05

@@ -2078,6 +2078,13 @@ def render_findings_cklb(
 # Main
 # ---------------------------------------------------------------------------
 
+def _max_failed_batch_pct() -> float:
+    try:
+        return float(os.environ.get("EPYON_STIG_MAX_FAILED_BATCH_PCT", "") or 10)
+    except ValueError:
+        return 10.0
+
+
 def _assess_stig(
     stig_data: dict[str, Any],
     stig_path: str,
@@ -2132,6 +2139,7 @@ def _assess_stig(
 
     assessments: dict[str, dict[str, str]] = {}
     failed_batches: list[int] = []
+    total_batches = 0
     total_prompt_tokens     = 0
     total_completion_tokens = 0
 
@@ -2620,6 +2628,14 @@ def _assess_stig(
         failed_batches or not api_key
     ):
         raise SystemExit(f"[ERROR] [{slug}] STIG assessment incomplete; diagnostics preserved")
+    # Even without EPYON_REQUIRE_COMPLETE, a run where too many batches failed is mostly
+    # fallback Open/0 results and must not be published as an assessment.
+    if failed_batches and len(failed_batches) * 100 > total_batches * _max_failed_batch_pct():
+        raise SystemExit(
+            f"[ERROR] [{slug}] {len(failed_batches)}/{total_batches} batches failed; results are not "
+            "trustworthy (raise EPYON_AI_MAX_TOKENS / check context size; "
+            "threshold: EPYON_STIG_MAX_FAILED_BATCH_PCT)"
+        )
 
 
 def main() -> None:

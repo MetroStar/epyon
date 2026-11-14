@@ -12,7 +12,7 @@ SCRIPT="${BATS_TEST_DIRNAME}/../../scripts/shell/parse-stig-cklb.py"
 }
 
 @test "parse-stig-cklb still parses the bundled XCCDF STIG" {
-    run python3 "$SCRIPT" "${BATS_TEST_DIRNAME}/../../configuration/stigs/U_ASD_STIG_V6R4_Manual-xccdf.xml"
+    run python3 "$SCRIPT" "${BATS_TEST_DIRNAME}/../../configuration/stigs/U_ASD_STIG_V6R5_Manual-xccdf.xml"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Application Security and Development"* ]]
 }

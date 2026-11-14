@@ -15,7 +15,7 @@ import tarfile
 import threading
 import time
 import zipfile
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1211,17 +1211,8 @@ def stig_findings_cklb(scan_id: str, response: Response):
                         headers={"Content-Disposition": f'attachment; filename="findings-{scan_id}.cklb"'})
 
 
-@app.get("/api/scans/{scan_id}/stig-data")
-def stig_data(scan_id: str, response: Response):
-    """Return merged controls + assessment results for all STIGs in a scan as JSON."""
-    _sec_headers(response)
-    if not _SAFE_ID_RE.match(scan_id):
-        raise HTTPException(400, "Invalid scan_id")
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
-    matched = next((d for d in scan_dirs if d.name == scan_id), None)
-    if not matched:
-        raise HTTPException(404, "Scan not found")
-
+def _build_stig_entries(scan_id: str, matched: Path) -> list[dict]:
+    """Merge STIG controls with assessment results for every STIG in a scan directory."""
     stigs: list[dict] = []
     for results_file in sorted(matched.glob("stig-results-*.json")):
         slug = results_file.stem[len("stig-results-"):]
@@ -1278,6 +1269,54 @@ def stig_data(scan_id: str, response: Response):
             "md_url":      f"/api/scans/{scan_id}/stig-findings/{app_slug}-{slug}.md"   if md_file.exists()   else None,
             "cklb_url":    f"/api/scans/{scan_id}/stig-findings/{app_slug}-{slug}.cklb" if cklb_file.exists() else None,
         })
+
+    return stigs
+
+
+@app.get("/api/scans/{scan_id}/stig-findings-json")
+def stig_findings_json(scan_id: str, response: Response, slug: Optional[str] = None):
+    """Download structured STIG findings (all STIGs, or one via ?slug=) as JSON."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    if slug is not None and not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_\-]*$", slug):
+        raise HTTPException(400, "Invalid slug")
+    matched = _require_scan_dir(scan_id)
+    stigs = _build_stig_entries(scan_id, matched)
+    if slug is not None:
+        stigs = [s for s in stigs if s["slug"] == slug]
+    if not stigs:
+        raise HTTPException(404, "STIG findings not generated for this scan")
+    app_name = re.sub(r"_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$", "", scan_id)
+    payload = {
+        "scan_id": scan_id,
+        "application": app_name,
+        "stigs": [
+            {
+                **{k: v for k, v in st.items() if k not in ("controls", "md_url", "cklb_url")},
+                "summary": dict(Counter(c["status"] for c in st["controls"])),
+                "controls": st["controls"],
+            }
+            for st in stigs
+        ],
+    }
+    name = f"findings-{scan_id}{'-' + slug if slug else ''}.json"
+    return Response(json.dumps(payload, indent=2), media_type="application/json",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@app.get("/api/scans/{scan_id}/stig-data")
+def stig_data(scan_id: str, response: Response):
+    """Return merged controls + assessment results for all STIGs in a scan as JSON."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    matched = next((d for d in scan_dirs if d.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+
+    stigs = _build_stig_entries(scan_id, matched)
 
     return {"scan_id": scan_id, "stigs": stigs}
 

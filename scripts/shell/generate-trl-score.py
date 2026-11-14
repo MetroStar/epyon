@@ -147,14 +147,21 @@ def _suppression_key(f: Dict[str, Any]) -> "tuple":
 
 
 def merge_findings(history: List[Path]) -> Optional[Dict[str, Any]]:
-    """Combine consolidated findings across scans: each tool family comes from the newest scan that ran it."""
+    """Current findings come from the newest scan with consolidated findings only: findings that an older
+    scan reported and the latest one does not are closed out. Older scans only feed the trend and the list
+    of tools that have run before but not in the latest scan."""
     merged: Dict[str, Any] = {key: [] for key, _ in SEV_KEYS}
     sources: Dict[str, str] = {}
     suppressed: List[Dict[str, Any]] = []
     seen_any = False
+    not_in_latest: set = set()
     for d in history:
         raw = load_json(d / "security-findings-summary.json")
         if not raw:
+            continue
+        if seen_any:
+            earlier = {tool_family(t) for t in raw.get("summary", {}).get("tools_analyzed", [])}
+            not_in_latest |= earlier - set(sources)
             continue
         seen_any = True
         # Findings suppressed by .epyon-ignore.yml (approved risk acceptances) are not scored.
@@ -188,6 +195,7 @@ def merge_findings(history: List[Path]) -> Optional[Dict[str, Any]]:
         return None
     merged["summary"] = {f"total_{sev}": len(merged[key]) for key, sev in SEV_KEYS}
     merged["tool_sources"] = sources
+    merged["tools_not_in_latest"] = sorted(not_in_latest)
     merged["suppressed_findings"] = suppressed
     return merged
 
@@ -270,7 +278,9 @@ TEST_PATH_ITEMS: List[Dict[str, Any]] = []  # ML-layer items skipped because the
 
 def load_layer(scan_dir: Path, subdir: str, filename: str) -> "tuple[Path, Optional[Dict], List[Dict]]":
     """Load an ML layer result file (falls back to the legacy flat location)."""
-    path = locate(scan_dir, f"{subdir}/{filename}", filename)
+    latest = (_HISTORY or [scan_dir])[0]
+    path = next((p for p in (latest / subdir / filename, latest / filename) if p.exists()),
+                latest / subdir / filename)
     data = load_json(path)
     items: List[Dict] = []
     if isinstance(data, dict):
@@ -742,8 +752,14 @@ def score_security(scan_dir: Path, findings: Dict) -> Dict[str, Any]:
     if sources:
         ev.append(make_evidence(
             scan_dir, "sec-coverage", "info",
-            "Findings merged across scan history; each tool comes from its newest run",
+            "Findings are those of the latest scan; earlier findings that are gone are treated as closed out",
             len(sources), 0, None, [f"{fam} ← {scan}" for fam, scan in sorted(sources.items())]))
+    absent = findings.get("tools_not_in_latest") or []
+    if absent:
+        ev.append(make_evidence(
+            scan_dir, "sec-not-in-latest", "info",
+            "Tools that ran in earlier scans but not the latest one; their earlier findings are not counted",
+            len(absent), 0, None, list(absent)))
     if not [e for e in ev if e["kind"] != "info"]:
         ev.append(make_evidence(scan_dir, "sec-clean", "info",
                                 "No vulnerabilities, secrets, malware or ML findings were recorded",

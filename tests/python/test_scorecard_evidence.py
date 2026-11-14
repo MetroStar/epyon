@@ -49,17 +49,17 @@ def scans(tmp_path):
     return root, newest
 
 
-def test_quick_scan_keeps_findings_from_tools_it_did_not_run(scans):
+def test_only_latest_scan_findings_count_older_ones_are_closed_out(scans):
     _, newest = scans
     sec = _score(newest)["dimension_scores"]["security"]
-    assert sec["details"]["high_cve"] == 1  # Checkov (misconfiguration) is not a vulnerability
-    mis = next(e for e in sec["evidence"] if e["id"] == "sec-misconfig")
-    assert mis["refs"] == ["Checkov:CKV_1:pkg"] and mis["impact"] == -2  # lighter weight than the 5 pt CVE
+    assert sec["details"]["high_cve"] == 1
+    assert not any(e["id"] == "sec-misconfig" for e in sec["evidence"])  # Checkov's old finding is closed out
     coverage = next(e for e in sec["evidence"] if e["id"] == "sec-coverage")
-    assert "checkov ← app_2026-01-01_00-00-00" in coverage["refs"]
-    assert "trivy ← app_2026-01-02_00-00-00" in coverage["refs"]
-    stale = [e for e in sec["evidence"] if e["id"] == "sec-cve-high"]
-    assert stale and stale[0]["sha256"] and stale[0]["refs"] == ["Trivy-filesystem:CVE-2:pkg"]
+    assert coverage["refs"] == ["trivy ← app_2026-01-02_00-00-00"]
+    absent = next(e for e in sec["evidence"] if e["id"] == "sec-not-in-latest")
+    assert absent["refs"] == ["checkov"] and absent["impact"] == 0
+    high = next(e for e in sec["evidence"] if e["id"] == "sec-cve-high")
+    assert high["sha256"] and high["refs"] == ["Trivy-filesystem:CVE-2:pkg"]
 
 
 def test_score_does_not_depend_on_scan_type(scans):

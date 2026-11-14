@@ -209,6 +209,18 @@ def is_sast(f: Dict[str, Any]) -> bool:
     return str(f.get("tool", "")).lower().startswith("semgrep")
 
 
+# Misconfigurations (IaC, secrets) are not vulnerabilities: they are scored separately.
+MISCONFIG_TOOLS = {"checkov", "trufflehog"}
+
+
+def is_misconfig(f: Dict[str, Any]) -> bool:
+    return tool_family(f.get("tool")) in MISCONFIG_TOOLS
+
+
+def is_vulnerability(f: Dict[str, Any]) -> bool:
+    return not is_sast(f) and not is_misconfig(f)
+
+
 def load_layer(scan_dir: Path, subdir: str, filename: str) -> "tuple[Path, Optional[Dict], List[Dict]]":
     """Load an ML layer result file (falls back to the legacy flat location)."""
     path = locate(scan_dir, f"{subdir}/{filename}", filename)
@@ -497,14 +509,13 @@ def score_security(scan_dir: Path, findings: Dict) -> Dict[str, Any]:
     """
     ev: List[Dict[str, Any]] = []
     by_sev = findings_by_severity(findings)
-    summary = findings.get("summary", {})
     findings_file = locate(scan_dir, "security-findings-summary.json")
 
     counts: Dict[str, int] = {}
     refs: Dict[str, List[str]] = {}
     for sev, items in by_sev.items():
-        non_sast = [f for f in items if not is_sast(f)]
-        counts[sev] = len(non_sast) if items else int(summary.get(f"total_{sev}", 0) or 0)
+        non_sast = [f for f in items if is_vulnerability(f)]
+        counts[sev] = len(non_sast)
         refs[sev] = [finding_ref(f) for f in non_sast]
 
     secret_findings = [f for sev in ("critical", "high") for f in by_sev[sev]
@@ -543,12 +554,31 @@ def score_security(scan_dir: Path, findings: Dict) -> Dict[str, Any]:
         if counts[sev]:
             ev.append(make_evidence(
                 scan_dir, f"sec-cve-{sev}", "deduction",
-                f"{counts[sev]} {sev} vulnerabilities (excluding SAST) at {per} pt each",
+                f"{counts[sev]} {sev} vulnerabilities (CVEs only; misconfigurations scored separately) at {per} pt each",
                 counts[sev], impact, findings_file, refs[sev]))
+
+    # Misconfigurations (Checkov IaC) are scored on their own, lighter scale and capped so
+    # they never outweigh real vulnerabilities. Leaked secrets are handled by the secrets cap below.
+    iac = {sev: [f for f in items if tool_family(f.get("tool")) == "checkov"] for sev, items in by_sev.items()}
+    iac_points = 0.0
+    iac_detail: Dict[str, int] = {}
+    for sev, per in (("critical", 5), ("high", 2), ("medium", 0.5), ("low", 0.1)):
+        iac_detail[sev] = len(iac[sev])
+        iac_points += len(iac[sev]) * per
+    if iac_points:
+        impact = -min(25.0, iac_points)
+        base_score += impact
+        ev.append(make_evidence(
+            scan_dir, "sec-misconfig", "deduction",
+            f"{sum(iac_detail.values())} IaC misconfigurations ({iac_detail['critical']} critical / "
+            f"{iac_detail['high']} high / {iac_detail['medium']} medium / {iac_detail['low']} low) at "
+            f"5/2/0.5/0.1 pt each, max 25 — scored separately from CVEs",
+            iac_detail, impact, findings_file,
+            [finding_ref(f) for sev in ("critical", "high", "medium", "low") for f in iac[sev]]))
 
     # Known-exploited vulnerabilities are weighted extra on top of their severity.
     kev = [f for sev in ("critical", "high", "medium", "low") for f in by_sev[sev]
-           if f.get("cisa_kev") in (True, "true", "True", "Yes", "yes", 1)]
+           if is_vulnerability(f) and f.get("cisa_kev") in (True, "true", "True", "Yes", "yes", 1)]
     if kev:
         impact = -min(30, 10 * len(kev))
         base_score += impact
@@ -671,14 +701,13 @@ def score_supply_chain(scan_dir: Path, findings: Dict) -> Dict[str, Any]:
                 critical_eol += 1
                 crit_eol_refs.append(str(name))
 
-    summary = findings.get("summary", {})
-    total_cve = summary.get("total_critical", 0) + summary.get("total_high", 0) + summary.get("total_medium", 0)
+    by_sev = findings_by_severity(findings)
+    total_cve = sum(1 for sev in ("critical", "high", "medium") for f in by_sev[sev] if is_vulnerability(f))
     vuln_ratio = (total_cve / component_count) if component_count > 0 else 0.0
 
     by_sev = findings_by_severity(findings)
     patchable = [f for sev in ("critical", "high") for f in by_sev[sev]
-                 if not is_sast(f) and str(f.get("fix_available", "")).lower() in ("yes", "true")
-                 and str(f.get("tool", "")).lower() != "trufflehog"]
+                 if is_vulnerability(f) and str(f.get("fix_available", "")).lower() in ("yes", "true")]
 
     prov_path, _, prov_items = load_layer(scan_dir, "model-provenance", "model-provenance-results.json")
     typosquats = [f for f in prov_items if "typosquat" in str(f.get("type", "")).lower()]
@@ -939,8 +968,8 @@ def score_compliance(scan_dir: Path) -> Dict[str, Any]:
 def _crit_high_total(merged: Optional[Dict[str, Any]]) -> Optional[int]:
     if not merged:
         return None
-    s = merged.get("summary", {})
-    return int(s.get("total_critical", 0) or 0) * 5 + int(s.get("total_high", 0) or 0)
+    by_sev = findings_by_severity(merged)
+    return sum(1 for f in by_sev["critical"] if is_vulnerability(f)) * 5 + sum(1 for f in by_sev["high"] if is_vulnerability(f))
 
 
 def score_operational(scan_dir: Path, findings: Dict, metadata: Dict) -> Dict[str, Any]:

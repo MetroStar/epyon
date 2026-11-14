@@ -120,3 +120,20 @@ def test_unscanned_data_lowers_score_and_nothing_is_null(scans):
     assert dims["supply_chain"]["score"] == 0
     assert abs(sum(out["weights"].values()) - 1.0) < 0.01  # weights are never rescaled
     assert out["weights"]["supply_chain"] > 0
+
+
+def test_suppressed_findings_are_not_scored(scans):
+    _, newest = scans
+    crit = _finding("Anchore", "GHSA-x", "critical")
+    summary = json.loads((newest / "security-findings-summary.json").read_text())
+    summary["critical_findings"] = [crit]
+    (newest / "security-findings-summary.json").write_text(json.dumps(summary))
+    filtered = dict(summary, critical_findings=[])  # .epyon-ignore.yml suppressed it
+    (newest / "security-findings-filtered.json").write_text(json.dumps(filtered))
+    out = _score(newest)
+    sec = out["dimension_scores"]["security"]
+    assert sec["details"]["critical_cve"] == 0
+    assert not any("critical CVE" in b for b in out["blockers"])
+    sup = next(e for e in sec["evidence"] if e["id"] == "sec-suppressed")
+    assert sup["refs"] == ["[suppressed] Anchore:GHSA-x:pkg"] and sup["impact"] == 0
+    assert sup["measured"]["critical"] == 1 and sec["details"]["suppressed_findings"] == 1

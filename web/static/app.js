@@ -8444,6 +8444,7 @@ function buildScorecardCard(scorecardData) {
             <span style="margin-left:8px;font-weight:700;font-size:15px;color:${info.color}">Grade ${info.label}</span>
           </span>
           <span style="display:flex;align-items:center;gap:12px">
+            <button type="button" class="btn btn-sm" title="How the Score Card works" onclick="event.preventDefault();event.stopPropagation();showScorecardHelp()">ⓘ How it works</button>
             <span style="font-size:18px;font-weight:700;color:var(--accent)">${score}</span>
             <span class="findings-summary-hint">Click to expand</span>
           </span>
@@ -8464,6 +8465,38 @@ function buildScorecardCard(scorecardData) {
       </details>
     </div>`;
 }
+
+window.showScorecardHelp = () => {
+  const row = (a, b) => `<tr><td style="padding:6px 12px 6px 0;vertical-align:top;white-space:nowrap"><strong>${a}</strong></td><td style="padding:6px 0;color:var(--text-muted)">${b}</td></tr>`;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-container modal-lg" style="max-height:85vh;overflow:auto;font-size:13px;line-height:1.5">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h2 style="margin:0;color:var(--text)">How the Score Card works</h2>
+        <button class="btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+      </div>
+      <h3>What it measures</h3>
+      <p>The Score Card rates the <strong>application</strong>, not a single scan. Each tool's result comes from the newest scan that ran it, so a quick or STIG-only scan never hides what an earlier full scan found. Scan type does not change the score or weights.</p>
+      <h3>Six dimensions, each 0–100</h3>
+      <table>
+        ${row('Security (30%)', 'Starts at 100. Critical −15, high −5, medium −1, low −0.2 per vulnerability (SAST excluded). Known-exploited (CISA KEV) −10 each, max −30. ML layers 14/18/19/20 −25 max each. <em>Caps:</em> leaked secrets → 30, malware → 20, dangerous model files or critical provenance → 40, LLM probe pass rate under 80% → 50.')}
+        ${row('Supply Chain (20%)', 'Needs an SBOM (none = 0). Deducts for end-of-support (−20) and EOL (−5) components, vulnerability density, high/critical findings that already have a fix (−2 each, max −20) and typosquatted models.')}
+        ${row('Code Quality (15%)', 'Weighted average of tools that have run: SonarQube gate 40, Checkov IaC pass rate 30, Semgrep SAST 30. Tools that never ran are listed as missing and their weight is redistributed.')}
+        ${row('Compliance (15%)', 'STIG pass rate × 0.7, minus a CAT I penalty and a penalty for “Not a Finding” controls with no written evidence. Plus model card (×0.2) and documented APIs (+10). No STIG assessment at all: −30.')}
+        ${row('Operational (10%)', 'Helm chart builds, no non-standard open ports, and the trend against the previous scan (worse −20, better +10).')}
+        ${row('MOSA (10%)', 'Modular open systems: standard SBOM, Helm chart, Dockerfile, documented API and open-source license ratio.')}
+      </table>
+      <h3>Overall score and TRL</h3>
+      <p>Overall = Σ(dimension score × weight). It maps to a Technology Readiness Level: 90+ → TRL 9, 80+ → 8, 70+ → 7, 60+ → 6, 50+ → 5, 40+ → 4, 30+ → 3, 20+ → 2, otherwise 1. Blockers (critical CVEs, secrets, malware, KEV, no SBOM, STIG under 70%) are listed separately.</p>
+      <h3>Evidence</h3>
+      <p>Click a dimension to see every line that moved its score: the points, the source file and its SHA-256, and the finding or control IDs behind it. <strong>Evidence package</strong> downloads the score, the source files and a hash manifest; files that changed since scoring are flagged.</p>
+      <h3>Sign-off</h3>
+      <p>A reviewer can sign off on the current score by name. If a rescore changes any number, the sign-off is shown as no longer matching and must be redone.</p>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+};
 
 window.signOffScorecard = async (btn) => {
   const box = btn.closest('.scorecard-signoff'), msg = box.querySelector('.so-msg');

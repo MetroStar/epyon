@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Evidence package:** `GET /api/scans/{id}/scorecard/evidence` downloads a zip with the score, source artifacts and a re-verified hash manifest (changed or missing files are flagged).
 - **Reviewer sign-off:** `PUT/DELETE /api/scans/{id}/scorecard/signoff` records a named reviewer, comment and a digest of the score. A rescore that changes any number marks the sign-off as no longer matching.
 - **Old vs new:** the first rescore of a scan with an older scoring version keeps `trl-assessment.previous.json`; the card shows the before/after score and per-dimension change.
+- **How it works** button on the Score Card opens a modal explaining the dimensions, weights, caps, TRL mapping, evidence and sign-off.
 - New inputs: CISA KEV, Semgrep SAST (scored under Code Quality), ML layers 14/18/19/20, typosquatted models, patchable high/critical findings, STIG human locks, passes without written evidence, and a real scan-to-scan trend.
 
 ### Changed

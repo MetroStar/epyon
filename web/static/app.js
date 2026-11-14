@@ -6165,6 +6165,64 @@ function fmtDays(days) {
   return { num: '<1', unit: 'hour' };
 }
 
+function trendSparkline(points) {
+  const vals = (points || []).map(p => p.risk_index);
+  if (vals.length < 2) return '';
+  const w = 90, h = 22, max = Math.max(...vals, 1), min = Math.min(...vals);
+  const span = max - min || 1;
+  const pts = vals.map((v, i) => `${(i / (vals.length - 1) * w).toFixed(1)},${(h - 2 - (v - min) / span * (h - 4)).toFixed(1)}`).join(' ');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="var(--text-muted)" stroke-width="1.5"/></svg>`;
+}
+
+function buildAppTrendSection(m) {
+  const trends = m.app_trends || {};
+  const order = { Declining: 0, Stable: 1, Improving: 2, 'Not enough data': 3 };
+  const rows = Object.entries(trends)
+    .sort((a, b) => (order[a[1].status] - order[b[1].status]) || a[0].localeCompare(b[0]))
+    .map(([name, t]) => {
+      const color = { Improving: 'var(--clean)', Declining: 'var(--critical)', Stable: 'var(--text-muted)' }[t.status] || 'var(--text-dim)';
+      const icon = { Improving: '▼', Declining: '▲', Stable: '►' }[t.status] || '–';
+      const fmt = n => (n > 0 ? '+' : '') + n;
+      const change = t.delta === undefined ? '—'
+        : `${fmt(t.delta)}${t.delta_pct === null || t.delta_pct === undefined ? '' : ` (${fmt(t.delta_pct)}%)`}`;
+      const prev = t.since_previous === undefined ? '—' : fmt(t.since_previous);
+      const period = t.from ? `${esc(t.from)} → ${esc(t.to)}` : '—';
+      return `<tr>
+        <td>${esc(name)}</td>
+        <td><span style="color:${color};font-weight:600">${icon} ${esc(t.status)}</span></td>
+        <td>${t.risk_index === undefined ? '—' : esc(String(t.risk_index))}</td>
+        <td>${esc(change)}</td>
+        <td>${esc(prev)}</td>
+        <td>${period}</td>
+        <td>${esc(t.scan_type || '—')} · ${esc(String(t.scans_compared || 0))}</td>
+        <td>${trendSparkline(t.points)}</td>
+      </tr>`;
+    }).join('');
+  if (!rows) return '';
+  return `
+      <div class="section">
+        <div class="section-title">
+          Application Trend Status
+          <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">are applications improving or declining over time</span>
+        </div>
+        <div class="table-container">
+          <table id="tbl-app-trends">
+            <thead><tr>
+              <th scope="col">Application</th><th scope="col">Status</th><th scope="col">Risk index</th>
+              <th scope="col">Change in window</th><th scope="col">Since previous scan</th>
+              <th scope="col">Window</th><th scope="col">Scan type · points</th><th scope="col">Trend</th>
+            </tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:8px">
+          Risk index = 15×critical + 5×high + 1×medium + 0.2×low (the Score Card's vulnerability weights; lower is better).
+          Only scans of the same type are compared, one per day. Declining = risk up 10% or more, or more critical/high findings;
+          Improving = risk down 10% or more, or fewer critical/high findings.
+        </div>
+      </div>`;
+}
+
 async function renderMetrics() {
   setActive('metrics');
   const page = document.getElementById('page');
@@ -6377,6 +6435,8 @@ async function renderMetrics() {
         </div>
         <div class="chart-legend">${legendSevs}</div>
       </div>
+
+      ${buildAppTrendSection(m)}
 
       <div class="section collapsible-section collapsed" id="section-cves">
         <div class="section-title section-toggle" onclick="toggleSection('section-cves')">
@@ -8460,7 +8520,7 @@ function buildScorecardCard(scorecardData) {
           ${prevHtml}
           ${signoffHtml}
           <div style="font-size:12px;color:var(--text-muted);padding-top:16px;border-top:1px solid var(--border);margin-top:16px">
-            <strong>About Scoring:</strong> Anything never scanned in any scan of this application scores 0 rather than being ignored, so skipping a scan can never raise the score. Built from the newest result of every tool across this application's scan history, so it does not depend on the scan type. Six dimensions (Security, Supply Chain, Code Quality, Compliance, Operational, MOSA). 
+            <strong>About Scoring:</strong> Anything never scanned in any scan of this application scores 0 rather than being ignored, so skipping a scan can never raise the score. Findings come from the latest scan (earlier ones are treated as closed out); STIG results come from the last STIG run. It does not depend on the scan type. Six dimensions (Security, Supply Chain, Code Quality, Compliance, Operational, MOSA). 
             Scores 70+ are production-ready, 50-69 need improvements, below 50 require immediate attention.
             <br><small><strong>MOSA</strong> = Modular Open Systems Approach: modularity, open standards, interoperability, portability. <strong>Click dimension cards for detailed breakdowns.</strong></small>
           </div>
@@ -8480,7 +8540,7 @@ window.showScorecardHelp = () => {
         <button class="btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
       </div>
       <h3>What it measures</h3>
-      <p>The Score Card rates the <strong>application</strong>, not a single scan. Each tool's result comes from the newest scan that ran it, so a quick or STIG-only scan never hides what an earlier full scan found. Scan type does not change the score or weights.</p>
+      <p>The Score Card rates the <strong>application</strong>, not a single scan. Findings are those of the latest scan; earlier findings that are gone are treated as closed out, and history only feeds the trend. STIG results come from the last STIG run, since STIGs run on demand. Scan type does not change the score or weights.</p>
       <h3>Six dimensions, each 0–100</h3>
       <table>
         ${row('Security (30%)', 'Starts at 100. Critical −15, high −5, medium −1, low −0.2 per vulnerability (CVEs only). IaC misconfigurations (Checkov) are scored separately and more lightly: critical −5, high −2, medium −0.5, low −0.1, max −25. Semgrep SAST findings are code weaknesses, not CVEs, so they also get their own line (critical −3, high −1.5, medium −0.5, low −0.1, max −15) and still feed Code Quality. Findings under tests/fixtures-style directories (tests*, test, __tests__, fixtures, spec) are never scored — they are listed as "suppressed (test path)" at 0 weight unless the repo sets include_tests: true in .epyon-ignore.yml. Findings suppressed by approved .epyon-ignore.yml rules are listed as evidence ("suppressed") but carry 0 weight. Known-exploited (CISA KEV) −10 each, max −30. ML layers 14/18/19/20 −25 max each. <em>Caps:</em> leaked secrets → 30, malware → 20, dangerous model files or critical provenance → 40, LLM probe pass rate under 80% → 50.')}

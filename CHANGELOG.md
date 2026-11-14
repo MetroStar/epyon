@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.65.0] - 2026-11-14
+
+### Added
+- **Application Trend Status on the Metrics page.** Each application is Improving, Declining, Stable or Not enough data, with the risk index (15×critical + 5×high + 1×medium + 0.2×low), change over the window and since the previous scan, and a sparkline. Only same-type scans are compared, one per day. `/api/metrics` returns `app_trends`.
+
+### Changed
+- **Score Card findings come from the latest scan only.** Findings are no longer carried forward from older scans (they were closed out, and a scan that skipped a tool inflated counts with stale results). History feeds the trend and the new `sec-not-in-latest` note; STIG results still come from the last STIG run.
+
 ## [3.64.1] - 2026-11-14
 
 ### Fixed

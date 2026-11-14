@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Scores will differ from earlier versions; this is expected.
 
 ### Fixed
+- **Not Applicable STIG controls no longer lower the STIG pass rate.** They were counted as applicable-but-not-passing; they are now excluded from the denominator (Open and Not Reviewed still count against), and the evidence line shows how many were excluded.
 - Checkov (`checkov-results.json`, one report per framework), Helm (`status: success`), Xeol and network-discovery results were read from the wrong paths or formats, so the Score Card reported them as not run.
 - Layer 14 model-file results were read from the wrong path, so dangerous model content never capped the Security score.
 

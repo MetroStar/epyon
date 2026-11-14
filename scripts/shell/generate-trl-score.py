@@ -356,6 +356,7 @@ def get_latest_stig_results(scan_dirs: List[Path]) -> Dict[str, Any]:
 
         total_pass = 0
         total_applicable = 0
+        not_applicable = 0
         cat1_pass = 0
         cat1_applicable = 0
         open_cat1: List[str] = []
@@ -402,7 +403,11 @@ def get_latest_stig_results(scan_dirs: List[Path]) -> Dict[str, Any]:
 
                 # "Not Reviewed" is a control that could not be confirmed from static
                 # evidence; it is scored as Open (applicable, not passing), never as pass or N/A.
-                if status in ("Open", "Not a Finding", "Not Applicable", "Not Reviewed"):
+                # "Not Applicable" controls do not apply to this system, so they are left out of
+                # the pass-rate denominator rather than counted against it.
+                if status == "Not Applicable":
+                    not_applicable += 1
+                if status in ("Open", "Not a Finding", "Not Reviewed"):
                     total_applicable += 1
                     if status == "Not a Finding":
                         total_pass += 1
@@ -436,6 +441,7 @@ def get_latest_stig_results(scan_dirs: List[Path]) -> Dict[str, Any]:
             "latest_scan_dir": scan_dir,
             "sources": sources,
             "total_applicable": total_applicable,
+            "not_applicable": not_applicable,
             "total_pass": total_pass,
             "cat1_applicable": cat1_applicable,
             "open_ids": open_ids,
@@ -986,7 +992,8 @@ def score_compliance(scan_dir: Path) -> Dict[str, Any]:
         ev.append(make_evidence(
             scan_dir, "comp-stig", "component",
             f"STIG pass rate {stig_pass_rate:.1f}% ({stig_agg['total_pass']} of "
-            f"{stig_agg['total_applicable']} applicable controls), weight 70",
+            f"{stig_agg['total_applicable']} applicable controls; {stig_agg.get('not_applicable', 0)} "
+            f"Not Applicable excluded), weight 70",
             round(stig_pass_rate, 1), None, stig_src,
             stig_agg["open_ids"], note=f"from {stig_agg['latest_scan_with_stig']}"))
         if stig_cat1_pass is not None and stig_cat1_pass < 100:

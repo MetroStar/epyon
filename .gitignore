@@ -94,6 +94,7 @@ web/data/audit.log
 web/data/cache/
 web/data/nvd-config.json
 web/data/poam-config.json
+web/data/scorecard-signoffs.json
 web/data/scan-config.json
 web/data/jobs.json
 web/data/epyon.db

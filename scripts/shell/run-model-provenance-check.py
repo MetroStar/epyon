@@ -39,6 +39,15 @@ HF_METADATA_FILES = {'.huggingface', 'config.json', 'model_index.json', 'preproc
 GIT_LFS_POINTER_PATTERN = re.compile(r'^version https://git-lfs\.github\.com/spec/v1')
 
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from epyon_test_paths import include_tests, is_test_path  # noqa: E402
+
+
+def _default_test_exclusion(target_dir: Path) -> bool:
+    """Tests/fixtures are skipped unless the target's .epyon-ignore.yml sets include_tests: true."""
+    return not include_tests(Path(target_dir) / '.epyon-ignore.yml')
+
+
 class ModelProvenanceChecker:
     """Validates model provenance and checks threat intelligence."""
     
@@ -106,11 +115,13 @@ class ModelProvenanceChecker:
     def _is_excluded(self, file_path: Path) -> bool:
         """Check a file's path (relative to target_dir) against the loaded
         .epyon-ignore.yml path exclusion patterns."""
-        if not self.exclude_patterns:
-            return False
         try:
             rel = file_path.relative_to(self.target_dir).as_posix()
         except ValueError:
+            return False
+        if _default_test_exclusion(self.target_dir) and is_test_path(rel):
+            return True
+        if not self.exclude_patterns:
             return False
         import fnmatch
         for pattern in self.exclude_patterns:

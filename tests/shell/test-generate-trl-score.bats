@@ -42,15 +42,14 @@ SCRIPT_PATH="${SCRIPT_DIR}/generate-trl-score.py"
     [[ "$output" =~ "security-findings-summary.json" ]]
 }
 
-@test "generate-trl-score.py requires scan-metadata.json or fallback" {
-    # Create a temp dir with findings but no metadata
+@test "generate-trl-score.py does not require scan metadata (scan type never changes the score)" {
     temp_dir=$(mktemp -d)
     echo '{"summary":{"total_critical":0,"total_high":0,"total_medium":0,"total_low":0},"critical_findings":[],"high_findings":[],"medium_findings":[],"low_findings":[]}' > "$temp_dir/security-findings-summary.json"
     run python3 "$SCRIPT_PATH" --scan-dir "$temp_dir"
     status_code=$status
+    [ -f "$temp_dir/trl-assessment.json" ]
     rm -rf "$temp_dir"
-    [ "$status_code" -eq 1 ]
-    [[ "$output" =~ "metadata" ]]
+    [ "$status_code" -eq 0 ]
 }
 
 @test "generate-trl-score.py supports --weights argument" {

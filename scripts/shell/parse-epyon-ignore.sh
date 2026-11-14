@@ -9,6 +9,19 @@ CYAN='\033[0;36m'
 RED='\033[0;31m'
 NC='\033[0m'
 
+# Add the default test-path rules (tests*/, test/, __tests__/, fixtures/, spec/ at any depth) to the
+# rule cache unless the repo sets `include_tests: true`. Single source: epyon_test_paths.py.
+add_default_ignore_rules() {
+    local ignore_file="${1:-}" cache="${2:-}"
+    [[ -f "$cache" ]] || return 0
+    command -v python3 &>/dev/null || return 0
+    python3 "$(dirname "${BASH_SOURCE[0]}")/epyon_test_paths.py" merge-cache "$ignore_file" "$cache" 2>/dev/null || true
+    # Keep a copy with the scan so the Score Card and web UI honour include_tests for this scan.
+    if [[ -n "${SCAN_DIR:-}" && -d "${SCAN_DIR}" ]]; then
+        cp "$cache" "${SCAN_DIR}/ignore-rules.json" 2>/dev/null || true
+    fi
+}
+
 # Main parsing function (so this can be sourced without exiting)
 parse_ignore_rules() {
     local IGNORE_FILE="${1:-}"
@@ -23,6 +36,7 @@ parse_ignore_rules() {
     if [[ ! -f "$IGNORE_FILE" ]]; then
         # No ignore file - create empty cache
         echo '{"ignores": []}' > "$IGNORE_CACHE" 2>/dev/null || true
+        add_default_ignore_rules "$IGNORE_FILE" "$IGNORE_CACHE"
         return 0
     fi
 
@@ -228,7 +242,9 @@ except Exception as e:
     fi
 
 # Count and report
-TOTAL_IGNORES=$(jq '.ignores | length' "$IGNORE_CACHE" 2>/dev/null || echo "0")
+add_default_ignore_rules "$IGNORE_FILE" "$IGNORE_CACHE"
+
+TOTAL_IGNORES=$(jq '[.ignores[] | select(.default != true)] | length' "$IGNORE_CACHE" 2>/dev/null || echo "0")
 EXPIRED_IGNORES=$(jq '[.ignores[] | select(.expired == true)] | length' "$IGNORE_CACHE" 2>/dev/null || echo "0")
 
 if [[ $TOTAL_IGNORES -gt 0 ]]; then

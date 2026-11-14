@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.64.0] - 2026-11-14
+
+### Added
+- **Evidence behind every Score Card number.** Each dimension records evidence items (what moved the score, points, source artifact path, SHA-256 and the finding/control IDs behind it). The dimension drawer shows them, and `trl-assessment.json` carries `scoring_version` and an `evidence_manifest`.
+- **Evidence package:** `GET /api/scans/{id}/scorecard/evidence` downloads a zip with the score, source artifacts and a re-verified hash manifest (changed or missing files are flagged).
+- **Reviewer sign-off:** `PUT/DELETE /api/scans/{id}/scorecard/signoff` records a named reviewer, comment and a digest of the score. A rescore that changes any number marks the sign-off as no longer matching.
+- **Old vs new:** the first rescore of a scan with an older scoring version keeps `trl-assessment.previous.json`; the card shows the before/after score and per-dimension change.
+- **How it works** button on the Score Card opens a modal explaining the dimensions, weights, caps, TRL mapping, evidence and sign-off.
+- New inputs: CISA KEV, Semgrep SAST (scored under Code Quality), ML layers 14/18/19/20, typosquatted models, patchable high/critical findings, STIG human locks, passes without written evidence, and a real scan-to-scan trend.
+
+- **Tests and fixtures are never scanned or scored.** Anything under a `tests*`, `test`, `__tests__`, `fixtures` or `spec` directory (any depth, judged relative to the scan target) is excluded by built-in default rules from the ignore pipeline (`scripts/shell/epyon_test_paths.py`): Layers 14/18/19, Dockerfile discovery, the dashboard suppression filter and the Score Card. Matching findings are listed as "suppressed (test path)" at 0 weight. A repo opts back in with `include_tests: true` in `.epyon-ignore.yml`.
+- **Semgrep SAST has its own Security line** (`sec-sast`: critical −3, high −1.5, medium −0.5, low −0.1, max −15). It is not counted as a CVE, KEV or critical-CVE blocker, and still feeds Code Quality.
+
+### Changed
+- **The Score Card is built from the application's scan history, not a single scan.** Each tool's result comes from the newest scan that ran it, so a quick or STIG-only scan no longer hides what the last full scan found.
+- Weights no longer depend on the scan type (`--weights` remains an explicit override), and scan metadata is optional.
+- Code Quality is a weighted average of the tools that have ever run (SonarQube, Checkov, Semgrep) instead of scoring 0 when SonarQube is absent.
+- The Score Card is available when any scan of the app has consolidated findings.
+- Data that was never scanned is never null and never ignored: a missing STIG assessment scores the STIG component 0 and a dimension with no data (`applicable: false`) scores 0 and keeps its weight, so skipping a scan cannot raise the score. Weights are not rescaled. Missing-SBOM is no longer a blocker.
+- Findings suppressed by approved `.epyon-ignore.yml` rules are counted but carry 0 weight: the Score Card scores `security-findings-filtered.json` (as the UI and severity gate do) and lists the suppressed findings by severity as evidence annotated "[suppressed]", so a deliberately vulnerable fixture no longer raises a critical-CVE blocker.
+- Misconfigurations (Checkov IaC) no longer count as CVEs in Security: they have their own lighter deduction (5/2/0.5/0.1 pt per critical/high/medium/low, max 25), and are excluded from the CVE counts, KEV, patchable-vulnerability and trend inputs.
+- Scores will differ from earlier versions; this is expected.
+
+### Fixed
+- Checkov (`checkov-results.json`, one report per framework), Helm (`status: success`), Xeol and network-discovery results were read from the wrong paths or formats, so the Score Card reported them as not run.
+- Layer 14 model-file results were read from the wrong path, so dangerous model content never capped the Security score.
+
 ## [3.63.0] - 2026-11-13
 
 ### Added

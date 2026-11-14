@@ -258,7 +258,10 @@ discover_dockerfile_paths() {
         fi
     done < <(get_epyon_ignore_exclude_paths "$target_dir")
 
-    find "$target_dir" -name 'Dockerfile*' "${find_exclude_args[@]}" 2>/dev/null | sort
+    # Tests/fixtures are never scanned (unless include_tests: true), judged relative to the target.
+    find "$target_dir" -name 'Dockerfile*' "${find_exclude_args[@]}" -print0 2>/dev/null \
+        | python3 "$(dirname "${BASH_SOURCE[0]}")/epyon_test_paths.py" filter-null "$target_dir" 2>/dev/null \
+        | tr '\0' '\n' | sort
 }
 
 # ── Dockerfile base-image auto-discovery ──────────────────────────────────────

@@ -33,6 +33,7 @@ from pydantic import BaseModel
 from . import jobs as job_store
 from . import parsers
 from . import poam
+from . import scorecard as scorecard_store
 from . import parse_cache
 from . import finding_search
 from . import github_sync
@@ -3828,13 +3829,29 @@ async def calculate_scorecard(scan_id: str, response: Response):
     # ran) legitimately won't have it — that's a data-availability problem, not a
     # server error, so surface it as 422 with an actionable message instead of a
     # generic 500 that looks like a bug.
-    if not (scan_dir / "security-findings-summary.json").exists():
+    # The Score Card is built from the whole scan history of the app, so any scan
+    # of this app with consolidated findings is enough.
+    app_prefix = scan_id.rsplit("_", 2)[0] + "_"
+    if not any((d / "security-findings-summary.json").exists()
+               for d in (EPYON_ROOT / "scans").glob(f"{app_prefix}*") if d.is_dir() and d.name <= scan_id):
         raise HTTPException(
             422,
             "Score Card unavailable: this scan doesn't have consolidated findings "
             "data (security-findings-summary.json). This happens with older or "
             "interrupted scans. Re-run the scan to generate a Score Card.",
         )
+
+    # Keep the previous assessment when its scoring version differs, so the UI
+    # can show old vs new after a rescore. Never overwrite an existing snapshot.
+    trl_file = scan_dir / "trl-assessment.json"
+    prev_file = scan_dir / "trl-assessment.previous.json"
+    try:
+        prior = json.loads(trl_file.read_text(encoding="utf-8")) if trl_file.exists() else None
+    except Exception:
+        prior = None
+    if isinstance(prior, dict) and prior.get("scoring_version") != SCORECARD_SCORING_VERSION \
+            and not prev_file.exists():
+        prev_file.write_text(json.dumps(prior, indent=2), encoding="utf-8")
 
     # Run TRL calculation
     import subprocess
@@ -3858,7 +3875,86 @@ async def calculate_scorecard(scan_id: str, response: Response):
     except Exception as exc:
         raise HTTPException(500, f"Failed to parse score results: {exc}")
 
-    return {"scan_id": scan_id, **trl_data}
+    return _scorecard_payload(scan_id, scan_dir, trl_data)
+
+
+SCORECARD_SCORING_VERSION = "2.0"
+
+
+class ScorecardSignoffBody(BaseModel):
+    reviewer: str
+    comment: Optional[str] = None
+
+
+def _scorecard_payload(scan_id: str, scan_dir: Path, trl_data: dict) -> dict:
+    payload = {"scan_id": scan_id, **trl_data}
+    payload["signoff"] = scorecard_store.get_signoff(scan_id, trl_data)
+    prev_file = scan_dir / "trl-assessment.previous.json"
+    if prev_file.exists():
+        try:
+            prev = json.loads(prev_file.read_text(encoding="utf-8"))
+            payload["previous"] = {
+                "scoring_version": prev.get("scoring_version", "1.0"),
+                "trl_level": prev.get("trl_level"),
+                "weighted_score": prev.get("weighted_score"),
+                "dimension_scores": {k: {"score": v.get("score")}
+                                     for k, v in (prev.get("dimension_scores") or {}).items()},
+            }
+        except Exception:
+            pass
+    return payload
+
+
+def _current_scorecard(scan_id: str) -> tuple:
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    scan_dir = EPYON_ROOT / "scans" / scan_id
+    trl_file = scan_dir / "trl-assessment.json"
+    if not trl_file.is_file():
+        raise HTTPException(404, "No Score Card has been calculated for this scan")
+    try:
+        trl = json.loads(trl_file.read_text(encoding="utf-8"))
+    except Exception:
+        raise HTTPException(500, "Failed to parse score results")
+    if trl.get("scoring_version") != SCORECARD_SCORING_VERSION:
+        raise HTTPException(409, "This Score Card uses an older scoring version; recalculate it first")
+    return scan_dir, trl
+
+
+@app.put("/api/scans/{scan_id}/scorecard/signoff")
+async def sign_off_scorecard(scan_id: str, body: ScorecardSignoffBody, response: Response):
+    """Record that a named reviewer accepted the current Score Card."""
+    _sec_headers(response)
+    _, trl = _current_scorecard(scan_id)
+    try:
+        return scorecard_store.save_signoff(scan_id, trl, body.reviewer, body.comment)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.delete("/api/scans/{scan_id}/scorecard/signoff")
+async def revoke_scorecard_signoff(scan_id: str, response: Response):
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    return {"removed": scorecard_store.clear_signoff(scan_id)}
+
+
+@app.get("/api/scans/{scan_id}/scorecard/evidence")
+async def download_scorecard_evidence(scan_id: str, response: Response):
+    """Download the Score Card, hash manifest and source artifacts as a zip."""
+    _sec_headers(response)
+    scan_dir, trl = _current_scorecard(scan_id)
+    data = scorecard_store.build_evidence_zip(
+        EPYON_ROOT / "scans", scan_id, trl, scorecard_store.get_signoff(scan_id, trl))
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{scan_id}-scorecard-evidence.zip"',
+            **{k: v for k, v in response.headers.items()},
+        },
+    )
 
 
 

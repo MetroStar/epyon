@@ -638,7 +638,7 @@ python3 scripts/shell/run-stig-assessment.py \
 ```
 
 **Auto-enabled in**: `full` (with `run_stig=true`), `stig` scan modes  
-**Manual control**: `RUN_STIG=true`  
+**Manual control**: workflow input `run_stig: true` (CI); locally the layer runs unless `SKIP_STIG=true`  
 **Requires**: `OPENAI_API_KEY` environment variable
 
 ---

@@ -11,9 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Application Trend Status on the Metrics page.** Each application is Improving, Declining, Stable or Not enough data, with the risk index (15×critical + 5×high + 1×medium + 0.2×low), change over the window and since the previous scan, and a sparkline. Only same-type scans are compared, one per day. `/api/metrics` returns `app_trends`.
+- **`documentation/SCORE_CARD_GUIDE.md`**: in-depth guide to Score Card scoring, data sources, evidence and verification.
 
 ### Changed
 - **Score Card findings come from the latest scan only.** Findings are no longer carried forward from older scans (they were closed out, and a scan that skipped a tool inflated counts with stale results). History feeds the trend and the new `sec-not-in-latest` note; STIG results still come from the last STIG run.
+- **Documentation cleanup.** Rewrote the documentation index and `SCAN_DIRECTORY_ARCHITECTURE.md`; refreshed counts and layers in `SECURITY_REVIEW_AND_TEST_COVERAGE.md` and `SYSTEM_ARCHITECTURE.md`; fixed dead links and the STIG opt-in wording (`run_stig` input / `scan_mode: stig`, not `RUN_STIG`). Removed four stale or superseded docs (air-gapped plan, observability summary, manifest deployment report, mobile/policy audit summary).
 
 ## [3.64.1] - 2026-11-14
 

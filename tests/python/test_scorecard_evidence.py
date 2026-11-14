@@ -97,3 +97,24 @@ def test_evidence_zip_confines_paths_and_flags_changed_files(tmp_path):
     statuses = {a["path"]: a["status"] for a in json.loads(zf.read("manifest.json"))["artifacts"]}
     assert statuses["app_1/a.json"] == "changed since scoring"
     assert statuses["../secret.txt"].startswith("rejected")
+
+
+def _has_null(x):
+    if x is None:
+        return True
+    if isinstance(x, dict):
+        return any(_has_null(v) for v in x.values())
+    if isinstance(x, list):
+        return any(_has_null(v) for v in x)
+    return False
+
+
+def test_unscanned_data_lowers_score_and_nothing_is_null(scans):
+    _, newest = scans
+    out = _score(newest)
+    assert not _has_null(out), [k for k, v in out.items() if _has_null(v)]
+    dims = out["dimension_scores"]
+    assert dims["supply_chain"]["applicable"] is False
+    assert dims["supply_chain"]["score"] == 0
+    assert abs(sum(out["weights"].values()) - 1.0) < 0.01  # weights are never rescaled
+    assert out["weights"]["supply_chain"] > 0

@@ -1083,7 +1083,7 @@ epyon/
 ├── documentation/              # Essential documentation
 │   ├── SECURITY_REVIEW_AND_TEST_COVERAGE.md # Security review (Feb 2026)
 │   ├── SCAN_DIRECTORY_ARCHITECTURE.md       # Scan organization
-│   ├── OFFLINE_AIR_GAPPED_SETUP.md         # Air-gapped deployment
+│   ├── SCORE_CARD_GUIDE.md                  # How the Score Card is calculated
 │   └── README.md                            # Documentation index
 ├── scans/                      # Scan results (isolated directories)
 │   └── {project}_{user}_{timestamp}/
@@ -1105,9 +1105,7 @@ epyon/
 │           ├── html-reports/     # Tool-specific HTML reports
 │           ├── markdown-reports/ # Summary reports
 │           └── csv-reports/      # Data exports
-└── documentation/             # Complete setup and architecture guides
-    ├── SECURITY_AND_QUALITY_SETUP.md
-    └── COMPREHENSIVE_SECURITY_ARCHITECTURE.md
+└── documentation/             # Guides and references (see documentation/README.md)
 ```
 
 ## 🗄️ Scan Storage & Retention
@@ -1830,13 +1828,12 @@ The tag must equal `VERSION`, or the release fails. Run `gh workflow run release
 - **[documentation/RELEASE_CHECKLIST.md](documentation/RELEASE_CHECKLIST.md)** - Tagging, release verification, recovery, PR release notes and pinning a release
 - **[documentation/SCAN_DIRECTORY_ARCHITECTURE.md](documentation/SCAN_DIRECTORY_ARCHITECTURE.md)** - Scan output organization and isolation model
 - **[documentation/SCAN_MANIFEST_GUIDE.md](documentation/SCAN_MANIFEST_GUIDE.md)** - Cryptographic manifest creation and verification
-- **[documentation/DEPLOYMENT_SUMMARY_MANIFEST_SYSTEM.md](documentation/DEPLOYMENT_SUMMARY_MANIFEST_SYSTEM.md)** - Manifest system deployment and validation results
 - **[documentation/IGNORE_RULES_GUIDE.md](documentation/IGNORE_RULES_GUIDE.md)** - `.epyon-ignore.yml` suppression configuration guide, including package-version rules for identified vulnerabilities
 - **[documentation/ANCHORE_CONFIGURATION_GUIDE.md](documentation/ANCHORE_CONFIGURATION_GUIDE.md)** - Anchore false-positive prevention and scanner configuration
 - **[documentation/DEDUPLICATION_IMPLEMENTATION.md](documentation/DEDUPLICATION_IMPLEMENTATION.md)** - Finding deduplication logic and implementation details
 - **[documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md](documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md)** - Security review and test coverage analysis
 - **[documentation/STIG_COMPLIANCE_GUIDE.md](documentation/STIG_COMPLIANCE_GUIDE.md)** - STIG and RMF compliance documentation
-- **[documentation/OFFLINE_AIR_GAPPED_SETUP.md](documentation/OFFLINE_AIR_GAPPED_SETUP.md)** - Air-gapped and offline deployment guide
+- **[documentation/SCORE_CARD_GUIDE.md](documentation/SCORE_CARD_GUIDE.md)** - How the Score Card is calculated, where its numbers come from, and how to verify them
 - **[documentation/AI Integration Strategy for Epyon.md](documentation/AI%20Integration%20Strategy%20for%20Epyon.md)** - CIO roadmap for AI/ML integration opportunities
 
 ## 🏆 Achievement Summary
@@ -1980,13 +1977,12 @@ export HIGH_ALERT_THRESHOLD="5"
 - **[documentation/README.md](documentation/README.md)** - Documentation index and navigation guide
 - **[documentation/SCAN_DIRECTORY_ARCHITECTURE.md](documentation/SCAN_DIRECTORY_ARCHITECTURE.md)** - Scan output organization and isolation model
 - **[documentation/SCAN_MANIFEST_GUIDE.md](documentation/SCAN_MANIFEST_GUIDE.md)** - Cryptographic manifest creation and verification
-- **[documentation/DEPLOYMENT_SUMMARY_MANIFEST_SYSTEM.md](documentation/DEPLOYMENT_SUMMARY_MANIFEST_SYSTEM.md)** - Manifest system deployment and validation
 - **[documentation/IGNORE_RULES_GUIDE.md](documentation/IGNORE_RULES_GUIDE.md)** - `.epyon-ignore.yml` suppression configuration guide
 - **[documentation/ANCHORE_CONFIGURATION_GUIDE.md](documentation/ANCHORE_CONFIGURATION_GUIDE.md)** - Anchore false-positive prevention and scanner configuration
 - **[documentation/DEDUPLICATION_IMPLEMENTATION.md](documentation/DEDUPLICATION_IMPLEMENTATION.md)** - Finding deduplication logic and implementation
 - **[documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md](documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md)** - Security review and test coverage analysis
 - **[documentation/STIG_COMPLIANCE_GUIDE.md](documentation/STIG_COMPLIANCE_GUIDE.md)** - STIG and RMF compliance documentation
-- **[documentation/OFFLINE_AIR_GAPPED_SETUP.md](documentation/OFFLINE_AIR_GAPPED_SETUP.md)** - Air-gapped and offline deployment guide
+- **[documentation/SCORE_CARD_GUIDE.md](documentation/SCORE_CARD_GUIDE.md)** - How the Score Card is calculated, where its numbers come from, and how to verify them
 - **[documentation/AI Integration Strategy for Epyon.md](documentation/AI%20Integration%20Strategy%20for%20Epyon.md)** - CIO roadmap for AI/ML integration opportunities
 
 ### 🎯 Quick Reference Commands

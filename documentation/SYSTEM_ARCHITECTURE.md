@@ -2,7 +2,7 @@
 
 ## Overview
 
-Epyon is a 16-layer DevSecOps security scanner designed for human-centered cybersecurity workflows. It orchestrates multiple security tools in a single run, produces comprehensive reports, and integrates with external systems like Jira and GitHub.
+Epyon is a multi-layer DevSecOps security scanner designed for human-centered cybersecurity workflows. It orchestrates multiple security tools in a single run, produces comprehensive reports, and integrates with external systems like Jira and GitHub.
 
 ## High-Level Architecture
 
@@ -30,7 +30,7 @@ Epyon is a 16-layer DevSecOps security scanner designed for human-centered cyber
 │  └─────────────────────────────────────────────────────────────────┘   │
 │                                                                           │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │              16-Layer Security Scan Engine                       │   │
+│  │              Security Scan Engine (see SCAN_MATRIX.md)           │   │
 │  ├─────────────────────────────────────────────────────────────────┤   │
 │  │  Layer 1:  SBOM Generation (Syft)                                │   │
 │  │  Layer 2:  Secret Detection (TruffleHog)                         │   │
@@ -45,11 +45,17 @@ Epyon is a 16-layer DevSecOps security scanner designed for human-centered cyber
 │  │  Layer 10: Container Analysis (Anchore)                          │   │
 │  │  Layer 11: API Discovery                                         │   │
 │  │  Layer 11.6: Python Safety Check (Safety)                        │   │
+│  │  Layer 11.7: Node Dependency Audit (npm audit)                   │   │
+│  │  Layer 11.8: SAST (Semgrep)                                      │   │
 │  │  Layer 12: LLM Security (Garak) [opt-in]                         │   │
 │  │  Layer 13: STIG Compliance (AI)                                  │   │
-│  │  Layer 14: Pickle Safety (picklescan)                            │   │
+│  │  Layer 14: Model File Analysis (picklescan)                           │   │
 │  │  Layer 15: Model Card Compliance                                 │   │
 │  │  Layer 16: Network Discovery (nmap)                              │   │
+│  │  Layer 17: Mobile Code Detection                                 │   │
+│  │  Layer 18: Model Provenance & Threat Intelligence                │   │
+│  │  Layer 19: Inference Environment Security                        │   │
+│  │  Layer 20: ML Runtime Behavioral Analysis [opt-in]               │   │
 │  └─────────────────────────────────────────────────────────────────┘   │
 │                                                                           │
 │  ┌─────────────────────────────────────────────────────────────────┐   │
@@ -200,7 +206,7 @@ Epyon is a 16-layer DevSecOps security scanner designed for human-centered cyber
 **Endpoints:**
 - `GET/POST /api/scans` — List scans, trigger new scans (async jobs)
 - `GET /api/scans/{scan_id}` — Full parsed scan data
-- `POST /api/scans/{scan_id}/scorecard` — Calculate TRL score
+- `POST /api/scans/{scan_id}/scorecard` — Calculate the Score Card (see [SCORE_CARD_GUIDE.md](SCORE_CARD_GUIDE.md))
 - `POST /api/scans/{scan_id}/executive-summary` — AI-generated summary
 - `POST /api/applications/{name}/isso-summary` — ISSO compliance report
 - `GET /api/stig/history` — Cross-scan STIG trend data

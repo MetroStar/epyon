@@ -431,8 +431,8 @@ Send results to Slack, Teams, or email:
 
 - [Epyon Documentation](../documentation/)
 - [Scan Directory Architecture](../documentation/SCAN_DIRECTORY_ARCHITECTURE.md)
-- [Dashboard Guide](../documentation/DASHBOARD_QUICK_REFERENCE.md)
-- [Security Validation](../documentation/security-validation-guide.md)
+- [Score Card Guide](../documentation/SCORE_CARD_GUIDE.md)
+- [Security Review & Test Coverage](../documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md)
 
 ## 🤝 Contributing
 

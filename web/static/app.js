@@ -2005,13 +2005,15 @@ async function renderAppDetail(name) {
 
 // ─────────────────────────────────────────────────────────────
 
-// POA&M preview: Open STIG controls + unsuppressed Critical/High CVEs, loaded on first expand.
+// ── POA&M ─────────────────────────────────────────────────────
+// A ".poam-host" element carries data-base (/api/scans/{id} or /api/applications/{name}); the preview
+// table, SLA form and date pickers all read/write through that base.
 function buildPoamSection(scanId) {
-  const url = `/api/scans/${encodeURIComponent(scanId)}/poam`;
+  const base = `/api/scans/${encodeURIComponent(scanId)}`;
   return `
     <div class="section findings-section-wrapper">
-      <details class="findings-collapsible" style="border-left-color:var(--accent)"
-               ontoggle="if (this.open) loadPoamPreview(this, '${esc(scanId)}')">
+      <details class="findings-collapsible poam-host" data-base="${esc(base)}" style="border-left-color:var(--accent)"
+               ontoggle="if (this.open) loadPoamPreview(this)">
         <summary class="findings-summary">
           <span class="findings-summary-left">
             <span class="findings-chevron" aria-hidden="true"></span>
@@ -2019,7 +2021,7 @@ function buildPoamSection(scanId) {
             <span class="poam-counts" style="color:var(--text-muted);font-size:12px">Open STIG controls + Critical/High CVEs</span>
           </span>
           <span style="display:flex;align-items:center;gap:8px">
-            <a class="btn btn-sm" href="${url}" download onclick="event.stopPropagation()">↓ POA&amp;M.csv</a>
+            <a class="btn btn-sm" href="${esc(base)}/poam" download onclick="event.stopPropagation()">↓ POA&amp;M.csv</a>
             <span class="findings-summary-hint">Click to preview</span>
           </span>
         </summary>
@@ -2028,16 +2030,18 @@ function buildPoamSection(scanId) {
     </div>`;
 }
 
-window.loadPoamPreview = async (el, scanId, force = false) => {
-  if (el.dataset.loaded && !force) return;
-  el.dataset.loaded = '1';
-  const body = el.querySelector('.poam-body');
+window.loadPoamPreview = async (host, force = false) => {
+  if (host.dataset.loaded && !force) return;
+  host.dataset.loaded = '1';
+  const base = host.dataset.base;
+  const body = host.querySelector('.poam-body');
   try {
-    const res = await fetch(`/api/scans/${encodeURIComponent(scanId)}/poam?preview=true`);
+    const res = await fetch(`${base}/poam?preview=true`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const d = await res.json();
     const sev = d.by_severity || {}, src = d.by_source || {};
-    el.querySelector('.poam-counts').textContent = d.total
+    const counts = host.querySelector('.poam-counts');
+    if (counts) counts.textContent = d.total
       ? `${d.total} items · ${src.STIG || 0} STIG · ${src.CVE || 0} CVE · ${sev.Critical || 0} critical · ${sev.High || 0} high · ${sev.Medium || 0} medium`
       : 'Open STIG controls + Critical/High CVEs';
     const sla = d.sla_days || {};
@@ -2048,7 +2052,7 @@ window.loadPoamPreview = async (el, scanId, force = false) => {
           <label style="display:flex;align-items:center;gap:4px">${ucFirst(k)}
             <input type="number" min="1" max="3650" data-sla="${k}" value="${esc(sla[k])}" style="width:64px">
           </label>`).join('')}
-        <button class="btn btn-sm" onclick="savePoamSla(this, '${esc(scanId)}')">Save SLA</button>
+        <button class="btn btn-sm" onclick="savePoamSla(this)">Save SLA</button>
         <span class="poam-sla-msg" style="color:var(--text-muted)"></span>
       </div>`;
     if (!d.total) {
@@ -2057,20 +2061,23 @@ window.loadPoamPreview = async (el, scanId, force = false) => {
     }
     const cols = ['POA&M ID', 'Weakness Identifier', 'Weakness Name', 'Raw Severity', 'Detection Source', 'Affected Component', 'Remediation / Mitigation', 'Scheduled Completion Date', 'Status'];
     const clip = (v) => { const t = String(v ?? ''); return t.length > 160 ? t.slice(0, 160) + '…' : t; };
+    const today = new Date().toISOString().slice(0, 10);
     const cell = (r, c) => {
       if (c === 'Raw Severity') return `<span class="sev-badge ${esc(String(r[c]).toLowerCase())}">${esc(r[c])}</span>`;
       if (c === 'Scheduled Completion Date') {
         const manual = r['Due Date Basis'] === 'Manual';
+        const overdue = r[c] < today;
         return `<input type="date" value="${esc(r[c])}" data-key="${esc(r['Item Key'])}" data-default="${esc(r['Default Due Date'])}"
                   title="${manual ? 'Manual date' : esc(r['Due Date Basis'])} — change to set manually"
-                  onchange="savePoamDueDate(this, '${esc(scanId)}')"
-                  style="${manual ? 'font-weight:700' : ''}">
-                ${manual ? `<a href="#" title="Reset to SLA date (${esc(r['Default Due Date'])})" onclick="resetPoamDueDate(event, this, '${esc(scanId)}')">↺</a>` : ''}`;
+                  onchange="savePoamDueDate(this)"
+                  style="${manual ? 'font-weight:700;' : ''}${overdue ? 'color:var(--stig-open, #c0392b)' : ''}">
+                ${overdue ? '<span title="Past its completion date" style="color:var(--stig-open, #c0392b);font-size:11px"> overdue</span>' : ''}
+                ${manual ? `<a href="#" title="Reset to SLA date (${esc(r['Default Due Date'])})" onclick="resetPoamDueDate(event, this)">↺</a>` : ''}`;
       }
       return `<span title="${esc(r[c] ?? '')}">${esc(clip(r[c]))}</span>`;
     };
     body.innerHTML = slaForm + `
-      <div style="overflow-x:auto;max-height:480px;overflow-y:auto">
+      <div style="overflow-x:auto;max-height:${host.tagName === 'DETAILS' ? '480px' : '70vh'};overflow-y:auto">
         <table>
           <thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
           <tbody>${d.rows.map(r => `<tr>${cols.map(c => `<td>${cell(r, c)}</td>`).join('')}</tr>`).join('')}</tbody>
@@ -2078,7 +2085,7 @@ window.loadPoamPreview = async (el, scanId, force = false) => {
       </div>
       <div style="margin-top:8px;color:var(--text-muted);font-size:12px">Dates default to the SLA above, counted from the scan date. Pick a date to set it manually (bold); it is kept across rescans. Point of contact, resources and milestones are left blank in the CSV for you to complete.</div>`;
   } catch (e) {
-    el.dataset.loaded = '';
+    host.dataset.loaded = '';
     body.textContent = `Could not load POA&M preview (${e.message}).`;
   }
 };
@@ -2092,33 +2099,120 @@ async function poamSend(url, method, payload) {
   }
 }
 
-window.savePoamSla = async (btn, scanId) => {
+window.savePoamSla = async (btn) => {
   const wrap = btn.closest('.poam-sla'), msg = wrap.querySelector('.poam-sla-msg');
   const sla = {};
   wrap.querySelectorAll('input[data-sla]').forEach(i => { sla[i.dataset.sla] = parseInt(i.value, 10); });
   try {
     await poamSend('/api/poam/config', 'PUT', { sla_days: sla });
-    window.loadPoamPreview(btn.closest('details'), scanId, true);
+    window.loadPoamPreview(btn.closest('.poam-host'), true);
   } catch (e) { msg.textContent = `Not saved: ${e.message}`; }
 };
 
-window.savePoamDueDate = async (input, scanId) => {
+window.savePoamDueDate = async (input) => {
+  const host = input.closest('.poam-host');
   try {
     // Choosing the default date again clears the override
     const due = (!input.value || input.value === input.dataset.default) ? null : input.value;
-    await poamSend(`/api/scans/${encodeURIComponent(scanId)}/poam/due-date`, 'PUT', { key: input.dataset.key, due_date: due });
-    window.loadPoamPreview(input.closest('details'), scanId, true);
-  } catch (e) { input.title = `Not saved: ${e.message}`; input.style.outline = '2px solid var(--danger, red)'; }
+    await poamSend(`${host.dataset.base}/poam/due-date`, 'PUT', { key: input.dataset.key, due_date: due });
+    window.loadPoamPreview(host, true);
+  } catch (e) { input.title = `Not saved: ${e.message}`; input.style.outline = '2px solid var(--stig-open, red)'; }
 };
 
-window.resetPoamDueDate = async (ev, link, scanId) => {
+window.resetPoamDueDate = async (ev, link) => {
   ev.preventDefault();
+  const host = link.closest('.poam-host');
   const input = link.parentElement.querySelector('input[type=date]');
   try {
-    await poamSend(`/api/scans/${encodeURIComponent(scanId)}/poam/due-date`, 'PUT', { key: input.dataset.key, due_date: null });
-    window.loadPoamPreview(link.closest('details'), scanId, true);
+    await poamSend(`${host.dataset.base}/poam/due-date`, 'PUT', { key: input.dataset.key, due_date: null });
+    window.loadPoamPreview(host, true);
   } catch (e) { link.title = `Not reset: ${e.message}`; }
 };
+
+// POA&M roll-up across applications (own nav page, like STIG Compliance)
+async function renderPoam() {
+  setActive('poam');
+  const page = document.getElementById('page');
+  page.innerHTML = loading();
+  try {
+    const res = await fetch('/api/poam/summary');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const d = await res.json();
+    const t = d.totals || {}, sev = t.by_severity || {};
+    const stat = (v, label, color) => `
+      <div class="stat-card"${color ? ` style="border-left:3px solid ${color}"` : ''}>
+        <div class="stat-value"${color ? ` style="color:${color}"` : ''}>${esc(v)}</div>
+        <div class="stat-label">${esc(label)}</div>
+      </div>`;
+    const summaryBar = d.apps.length ? `
+      <div class="stats-grid" style="margin-bottom:24px">
+        ${stat(d.apps.length, 'Apps with POA&M items')}
+        ${stat(t.total || 0, 'Total POA&M items', 'var(--accent)')}
+        ${stat(t.overdue || 0, 'Overdue', (t.overdue || 0) ? 'var(--stig-open)' : '')}
+        ${stat(sev.Critical || 0, 'Critical')}
+        ${stat(sev.High || 0, 'High')}
+        ${stat(t.stig || 0, 'STIG items')}
+        ${stat(t.cve || 0, 'CVE items')}
+      </div>` : '';
+    const cards = d.apps.length ? d.apps.map(a => {
+      const s = a.by_severity || {};
+      const base = `/api/applications/${encodeURIComponent(a.name)}`;
+      return `
+        <div class="stig-app-card" onclick="navigate('#/poam-viewer/${encodeURIComponent(a.name)}')" style="cursor:pointer">
+          <div class="stig-app-card-header">
+            <span class="stig-app-name">${esc(a.name)}</span>
+            <div class="stig-download-btns" onclick="event.stopPropagation()">
+              <a class="btn btn-sm" href="${esc(base)}/poam" download>↓ POA&amp;M.csv</a>
+            </div>
+          </div>
+          <div class="stig-counts">
+            <div class="stig-count total"><span class="num">${esc(a.total)}</span><span class="lbl">Items</span></div>
+            <div class="stig-count open"><span class="num">${esc(s.Critical || 0)}</span><span class="lbl">Critical</span></div>
+            <div class="stig-count open"><span class="num">${esc(s.High || 0)}</span><span class="lbl">High</span></div>
+            <div class="stig-count na"><span class="num">${esc(s.Medium || 0)}</span><span class="lbl">Medium</span></div>
+            <div class="stig-count na"><span class="num">${esc(s.Low || 0)}</span><span class="lbl">Low</span></div>
+          </div>
+          <div style="margin-top:10px;font-size:12px;color:var(--text-muted)">
+            ${esc(a.stig)} STIG · ${esc(a.cve)} CVE ·
+            <span style="${a.overdue ? 'color:var(--stig-open);font-weight:600' : ''}">${esc(a.overdue)} overdue</span>
+            ${a.next_due ? ` · earliest due ${esc(a.next_due)}` : ''}
+            ${a.manual_dates ? ` · ${esc(a.manual_dates)} manual date${a.manual_dates === 1 ? '' : 's'}` : ''}
+          </div>
+          <div style="margin-top:12px" onclick="event.stopPropagation()">
+            <button class="btn btn-primary btn-sm" onclick="navigate('#/poam-viewer/${encodeURIComponent(a.name)}')">⊞ View POA&amp;M</button>
+          </div>
+        </div>`;
+    }).join('') : emptyState(
+      'Nothing on a POA&M yet',
+      'No application has open STIG controls or Critical/High CVEs in its latest scans.',
+      `<button class="btn btn-primary" onclick="navigate('#/stig')" style="margin-top:16px">View STIG Compliance</button>`,
+    );
+    page.innerHTML = `
+      ${pageHeader('POA&M')}
+      <p class="section-desc">
+        Plan of Action &amp; Milestones per application: Open STIG controls from the latest STIG scan plus
+        Critical/High CVEs from the latest full/nightly scan. Completion dates follow the SLA
+        (critical ${esc(d.sla_days.critical)}d · high ${esc(d.sla_days.high)}d · medium ${esc(d.sla_days.medium)}d · low ${esc(d.sla_days.low)}d)
+        unless set manually; change it on any application's POA&amp;M page.
+      </p>
+      ${summaryBar}
+      <div class="section"><div class="section-title">Applications</div>${cards}</div>`;
+  } catch (e) {
+    page.innerHTML = errBanner(e.message);
+  }
+}
+
+async function renderPoamViewer(appName) {
+  setActive('poam');
+  const page = document.getElementById('page');
+  const base = `/api/applications/${encodeURIComponent(appName)}`;
+  page.innerHTML = `
+    ${pageHeader(`POA&M — ${esc(appName)}`, { actions: `
+      <a class="btn" href="${esc(base)}/poam" download>↓ POA&amp;M.csv</a>
+      <button class="btn" onclick="navigate('#/poam')">← All applications</button>` })}
+    <div class="section poam-host" data-base="${esc(base)}"><div class="poam-body">${loading()}</div></div>`;
+  window.loadPoamPreview(page.querySelector('.poam-host'));
+}
 
 async function renderScanDetail(scanId, openFindingId = '', openFindingPackage = '') {
   setActive('applications');
@@ -9406,7 +9500,7 @@ async function jiraReviewCreateTicketsConfirmed() {
 // ── Router ────────────────────────────────────────────────────
 const _HEADER_TITLES = {
   '/': 'Overview', '/applications': 'Applications', '/new-scan': 'Run Evaluation',
-  '/metrics': 'Metrics', '/stig': 'STIG', '/settings': 'Settings',
+  '/metrics': 'Metrics', '/stig': 'STIG', '/poam': 'POA&M', '/settings': 'Settings',
   '/performance': 'Performance',
 };
 
@@ -9416,6 +9510,7 @@ function _setHeaderTitle(path) {
   if (path.startsWith('/applications/')) el.textContent = 'Application';
   else if (path.startsWith('/scans/'))   el.textContent = 'Scan';
   else if (path.startsWith('/stig-viewer/')) el.textContent = 'STIG';
+  else if (path.startsWith('/poam-viewer/')) el.textContent = 'POA&M';
   else if (path.startsWith('/jira-review/')) el.textContent = 'Jira Review';
   else el.textContent = _HEADER_TITLES[path] || 'Epyon';
 }
@@ -9436,6 +9531,11 @@ function resolve() {
   } else if (path.startsWith('/applications/')) {
     const name = decodeURIComponent(path.slice('/applications/'.length));
     name ? renderAppDetail(name) : renderApplications();
+  } else if (path === '/poam') {
+    renderPoam();
+  } else if (path.startsWith('/poam-viewer/')) {
+    const appName = decodeURIComponent(path.slice('/poam-viewer/'.length));
+    appName ? renderPoamViewer(appName) : renderPoam();
   } else if (path.startsWith('/stig-viewer/')) {
     const scanId = decodeURIComponent(path.slice('/stig-viewer/'.length));
     scanId ? renderStigViewer(scanId) : renderStig();

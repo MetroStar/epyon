@@ -179,12 +179,35 @@ def build_rows(
                 "Comments": "CISA KEV: known exploited" if f.get("cisa_kev") else "",
             }, f"cve:{vid}::{pkg}", sev))
 
+    return number_rows(rows)
+
+
+def number_rows(rows: list[dict]) -> list[dict]:
+    """Sort by severity then identifier and assign POA&M IDs."""
     order = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
     rows.sort(key=lambda r: (order[r["Raw Severity"]], r["Weakness Identifier"]))
     for i, r in enumerate(rows, 1):
         r["POA&M ID"] = f"POAM-{i:04d}"
         r["Status"] = "Ongoing"
     return rows
+
+
+def summarize(rows: list[dict], today: str | None = None) -> dict:
+    """Roll-up counts for one application's POA&M rows."""
+    today = today or datetime.utcnow().strftime("%Y-%m-%d")
+    dates = [r["Scheduled Completion Date"] for r in rows]
+    sev = {k: 0 for k in ("Critical", "High", "Medium", "Low")}
+    for r in rows:
+        sev[r["Raw Severity"]] += 1
+    return {
+        "total": len(rows),
+        "stig": sum(r["Detection Source"].startswith("Epyon STIG") for r in rows),
+        "cve": sum(not r["Detection Source"].startswith("Epyon STIG") for r in rows),
+        "by_severity": sev,
+        "overdue": sum(d < today for d in dates),
+        "manual_dates": sum(r["Due Date Basis"] == "Manual" for r in rows),
+        "next_due": min(dates) if dates else "",
+    }
 
 
 def to_csv(rows: list[dict]) -> str:

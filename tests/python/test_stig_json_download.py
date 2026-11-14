@@ -117,3 +117,36 @@ def test_poam_sla_config_and_manual_due_date(tmp_path, monkeypatch):
 
     assert put(None).status_code == 200
     assert client.get(url).json()["rows"][0]["Due Date Basis"] == "SLA (10d)"
+
+
+def test_poam_app_rollup_combines_latest_stig_and_vuln_scans(tmp_path, monkeypatch):
+    from web.api import main as api_main, poam
+
+    stig_scan = _scan_dir(tmp_path)  # myapp_2026-11-13_10-00-00 with one Open STIG
+    vuln_scan = tmp_path / "myapp_2026-11-14_10-00-00"
+    vuln_scan.mkdir()
+    meta = {
+        stig_scan.name: {"target": "myapp", "scan_id": stig_scan.name, "timestamp": "2026-11-13", "stig_total": 2, "scan_type": "stig"},
+        vuln_scan.name: {"target": "myapp", "scan_id": vuln_scan.name, "timestamp": "2026-11-14", "stig_total": 0, "scan_type": "full"},
+    }
+    findings = {"critical_findings": [{"tool": "Grype", "vulnerability_id": "CVE-9", "package_name": "p"}]}
+    dirs = [stig_scan, vuln_scan]
+    monkeypatch.setattr(poam, "_CONFIG_FILE", tmp_path / "poam-config.json")
+    monkeypatch.setattr(api_main, "_cached_find_scan_dirs", lambda days=35: dirs)
+    monkeypatch.setattr(api_main, "_cached_load_scan", lambda d: meta[d.name])
+    monkeypatch.setattr(api_main.parsers, "find_scan_dirs", lambda root, days=35: dirs)
+    monkeypatch.setattr(api_main.parsers, "load_scan_complete", lambda d, r: {"findings": findings})
+    monkeypatch.setattr(api_main, "_load_hidden_apps", lambda: set())
+    client = TestClient(api_main.app)
+
+    rows = client.get("/api/applications/myapp/poam?preview=true").json()["rows"]
+    assert [r["Weakness Identifier"] for r in rows] == ["CVE-9", "V-2 / SV-2"]
+    assert rows[0]["Scheduled Completion Date"] == "2026-11-21"  # CVE dated from the 14th: +7d
+
+    client.put("/api/applications/myapp/poam/due-date", json={"key": "stig:V-2", "due_date": "2020-01-01"})
+    summary = client.get("/api/poam/summary").json()
+    app = summary["apps"][0]
+    assert (app["name"], app["total"], app["stig"], app["cve"]) == ("myapp", 2, 1, 1)
+    assert app["overdue"] == 1 and app["manual_dates"] == 1
+    assert summary["totals"]["by_severity"]["Critical"] == 1
+    assert client.get("/api/applications/nope/poam").status_code == 404

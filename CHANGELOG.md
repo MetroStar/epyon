@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.68.0] - 2026-11-13
 
 ### Added
-- POA&M export: `GET /api/scans/{scan_id}/poam` downloads a CSV of Open STIG controls plus unsuppressed Critical/High CVEs (dates from the severity SLA; POC, resources and milestones left blank). `?preview=true` returns the rows as JSON, shown in a new collapsible POA&M section on the scan detail page.
+- POA&M export: `GET /api/scans/{scan_id}/poam` downloads a CSV of Open STIG controls plus unsuppressed Critical/High CVEs (dates from the severity SLA; POC, resources and milestones left blank). `?preview=true` returns the rows as JSON, summarised in a POA&M card on the scan detail page (pills, severity/source/overdue tiles, CSV download and a **View POA&M Inline** button that opens the full table on its own page, matching the STIG card).
 - POA&M scheduling controls: configurable per-severity SLA days (`GET/PUT /api/poam/config`, stored in `web/data/poam-config.json`) and manual per-item completion dates (`PUT /api/scans/{scan_id}/poam/due-date`) that persist across rescans of the same application. The CSV gains a `Due Date Basis` column.
 - POA&M roll-up: new **POA&M** nav page with per-application totals, severity, overdue and earliest-due counts (`GET /api/poam/summary`), and a per-application **View POA&M** page (`#/poam-viewer/{app}`, `GET /api/applications/{name}/poam`) combining Open STIG controls from the latest STIG scan with Critical/High CVEs from the latest full/nightly scan. Dates past due are flagged.
 

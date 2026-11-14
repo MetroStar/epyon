@@ -2015,25 +2015,54 @@ async function renderAppDetail(name) {
 // table, SLA form and date pickers all read/write through that base.
 function buildPoamSection(scanId) {
   const base = `/api/scans/${encodeURIComponent(scanId)}`;
+  const viewHref = `#/poam-viewer/scan/${encodeURIComponent(scanId)}`;
   return `
     <div class="section findings-section-wrapper">
-      <details class="findings-collapsible poam-host" data-base="${esc(base)}" style="border-left-color:var(--accent)"
-               ontoggle="if (this.open) loadPoamPreview(this)">
+      <details class="findings-collapsible poam-card" data-base="${esc(base)}" style="border-left-color:var(--accent)">
         <summary class="findings-summary">
           <span class="findings-summary-left">
             <span class="findings-chevron" aria-hidden="true"></span>
             <span class="findings-summary-title">POA&amp;M</span>
-            <span class="poam-counts" style="color:var(--text-muted);font-size:12px">Open STIG controls + Critical/High CVEs</span>
+            <span class="poam-pills"><span class="stig-mini total">…</span></span>
           </span>
           <span style="display:flex;align-items:center;gap:8px">
             <a class="btn btn-sm" href="${esc(base)}/poam" download onclick="event.stopPropagation()">↓ POA&amp;M.csv</a>
-            <span class="findings-summary-hint">Click to preview</span>
+            <span class="findings-summary-hint">Click to expand</span>
           </span>
         </summary>
-        <div class="findings-body poam-body" style="padding:12px 18px 16px">Loading…</div>
+        <div class="findings-body" style="padding:0 18px 16px">
+          <div class="stig-counts poam-tiles" style="margin-top:12px"></div>
+          <div class="stig-view-btn-row">
+            <button class="btn btn-primary btn-sm" onclick="navigate('${viewHref}')">⊞ View POA&amp;M Inline</button>
+          </div>
+        </div>
       </details>
     </div>`;
 }
+
+// Fill a POA&M card's pills and tiles from the preview endpoint (table lives on the viewer page).
+window.loadPoamCard = async (card) => {
+  try {
+    const res = await fetch(`${card.dataset.base}/poam?preview=true`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const d = await res.json();
+    const today = new Date().toISOString().slice(0, 10);
+    const sev = d.by_severity || {}, src = d.by_source || {};
+    const overdue = d.rows.filter(r => r['Scheduled Completion Date'] < today).length;
+    card.querySelector('.poam-pills').innerHTML = `
+      <span class="stig-mini open">${esc((sev.Critical || 0) + (sev.High || 0))} crit/high</span>
+      ${overdue ? `<span class="stig-mini open">${esc(overdue)} overdue</span>` : ''}
+      <span class="stig-mini total">${esc(d.total)} items</span>`;
+    const tile = (n, lbl, cls) => `<div class="stig-count ${cls}"><span class="num">${esc(n)}</span><span class="lbl">${esc(lbl)}</span></div>`;
+    card.querySelector('.poam-tiles').innerHTML =
+      tile(sev.Critical || 0, 'Critical', 'open') + tile(sev.High || 0, 'High', 'open') +
+      tile(sev.Medium || 0, 'Medium', 'na') + tile(sev.Low || 0, 'Low', 'na') +
+      tile(src.STIG || 0, 'STIG items', 'pass') + tile(src.CVE || 0, 'CVE items', 'pass') +
+      tile(overdue, 'Overdue', overdue ? 'open' : 'na') + tile(d.total, 'Total', 'total');
+  } catch (e) {
+    card.querySelector('.poam-pills').innerHTML = `<span class="stig-mini">unavailable</span>`;
+  }
+};
 
 window.loadPoamPreview = async (host, force = false) => {
   if (host.dataset.loaded && !force) return;
@@ -2207,14 +2236,16 @@ async function renderPoam() {
   }
 }
 
-async function renderPoamViewer(appName) {
+async function renderPoamViewer(target) {
   setActive('poam');
   const page = document.getElementById('page');
-  const base = `/api/applications/${encodeURIComponent(appName)}`;
+  const isScan = target.startsWith('scan/');
+  const appName = isScan ? target.slice(5) : target;
+  const base = `${isScan ? '/api/scans' : '/api/applications'}/${encodeURIComponent(appName)}`;
   page.innerHTML = `
     ${pageHeader(`POA&M — ${esc(appName)}`, { actions: `
       <a class="btn" href="${esc(base)}/poam" download>↓ POA&amp;M.csv</a>
-      <button class="btn" onclick="navigate('#/poam')">← All applications</button>` })}
+      <button class="btn" onclick="navigate('${isScan ? `#/scans/${encodeURIComponent(appName)}` : '#/poam'}')">${isScan ? '← Scan details' : '← All applications'}</button>` })}
     <div class="section poam-host" data-base="${esc(base)}"><div class="poam-body">${loading()}</div></div>`;
   window.loadPoamPreview(page.querySelector('.poam-host'));
 }
@@ -2538,6 +2569,7 @@ async function renderScanDetail(scanId, openFindingId = '', openFindingPackage =
       }
       if (findingId !== null) openFindingDetail(findingId);
     }
+    page.querySelectorAll('.poam-card').forEach(window.loadPoamCard);
   } catch (e) {
     page.innerHTML = errBanner(e.message);
   }

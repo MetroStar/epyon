@@ -2005,6 +2005,57 @@ async function renderAppDetail(name) {
 
 // ─────────────────────────────────────────────────────────────
 
+// POA&M preview: Open STIG controls + unsuppressed Critical/High CVEs, loaded on first expand.
+function buildPoamSection(scanId) {
+  const url = `/api/scans/${encodeURIComponent(scanId)}/poam`;
+  return `
+    <div class="section findings-section-wrapper">
+      <details class="findings-collapsible" style="border-left-color:var(--accent)"
+               ontoggle="if (this.open) loadPoamPreview(this, '${esc(scanId)}')">
+        <summary class="findings-summary">
+          <span class="findings-summary-left">
+            <span class="findings-chevron" aria-hidden="true"></span>
+            <span class="findings-summary-title">POA&amp;M</span>
+            <span class="poam-counts" style="color:var(--text-muted);font-size:12px">Open STIG controls + Critical/High CVEs</span>
+          </span>
+          <span style="display:flex;align-items:center;gap:8px">
+            <a class="btn btn-sm" href="${url}" download onclick="event.stopPropagation()">↓ POA&amp;M.csv</a>
+            <span class="findings-summary-hint">Click to preview</span>
+          </span>
+        </summary>
+        <div class="findings-body poam-body" style="padding:12px 18px 16px">Loading…</div>
+      </details>
+    </div>`;
+}
+
+window.loadPoamPreview = async (el, scanId) => {
+  if (el.dataset.loaded) return;
+  el.dataset.loaded = '1';
+  const body = el.querySelector('.poam-body');
+  try {
+    const res = await fetch(`/api/scans/${encodeURIComponent(scanId)}/poam?preview=true`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const d = await res.json();
+    if (!d.total) { body.innerHTML = '<div style="color:var(--text-muted)">No open STIG controls or Critical/High CVEs — nothing to add to a POA&amp;M.</div>'; return; }
+    const sev = d.by_severity || {}, src = d.by_source || {};
+    el.querySelector('.poam-counts').textContent =
+      `${d.total} items · ${src.STIG || 0} STIG · ${src.CVE || 0} CVE · ${sev.Critical || 0} critical · ${sev.High || 0} high · ${sev.Medium || 0} medium`;
+    const cols = ['POA&M ID', 'Weakness Identifier', 'Weakness Name', 'Raw Severity', 'Detection Source', 'Affected Component', 'Remediation / Mitigation', 'Scheduled Completion Date', 'Status'];
+    const clip = (v) => { const t = String(v ?? ''); return t.length > 160 ? t.slice(0, 160) + '…' : t; };
+    body.innerHTML = `
+      <div style="overflow-x:auto;max-height:480px;overflow-y:auto">
+        <table>
+          <thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
+          <tbody>${d.rows.map(r => `<tr>${cols.map(c => `<td title="${esc(r[c] ?? '')}">${c === 'Raw Severity' ? `<span class="sev-badge ${esc(String(r[c]).toLowerCase())}">${esc(r[c])}</span>` : esc(clip(r[c]))}</td>`).join('')}</tr>`).join('')}</tbody>
+        </table>
+      </div>
+      <div style="margin-top:8px;color:var(--text-muted);font-size:12px">Point of contact, resources and milestones are left blank in the CSV for you to complete. Completion dates use the severity SLA (critical 7d, high 30d, medium 90d, low 180d) from the scan date.</div>`;
+  } catch (e) {
+    el.dataset.loaded = '';
+    body.textContent = `Could not load POA&M preview (${e.message}).`;
+  }
+};
+
 async function renderScanDetail(scanId, openFindingId = '', openFindingPackage = '') {
   setActive('applications');
   const page = document.getElementById('page');
@@ -2251,6 +2302,8 @@ async function renderScanDetail(scanId, openFindingId = '', openFindingPackage =
       ${buildSuppressedSection(scan.suppressed_findings)}
 
       ${stigCard}
+
+      ${buildPoamSection(scanId)}
 
       ${buildModelSecurityCard(scan)}
 
@@ -4377,13 +4430,14 @@ async function renderStig() {
           const cklbBtn = app.has_stig_cklb
             ? `<a class="btn btn-sm" href="${esc(cklbUrl)}" download>↓ findings.cklb</a>` : '';
           const jsonBtn = `<a class="btn btn-sm" href="/api/scans/${encodeURIComponent(stigScanId)}/stig-findings-json" download>↓ findings.json</a>`;
+          const poamBtn = `<a class="btn btn-sm" href="/api/scans/${encodeURIComponent(stigScanId)}/poam" download title="Open STIG controls + Critical/High CVEs">↓ POA&amp;M.csv</a>`;
           return `
             <div class="stig-app-card" onclick="navigate('#/scans/${encodeURIComponent(stigScanId)}')" style="cursor:pointer">
               <div class="stig-app-card-header">
                 <span class="stig-app-name">
                   ${esc(app.name)}
                 </span>
-                <div class="stig-download-btns" onclick="event.stopPropagation()">${mdBtn}${cklbBtn}${jsonBtn}</div>
+                <div class="stig-download-btns" onclick="event.stopPropagation()">${mdBtn}${cklbBtn}${jsonBtn}${poamBtn}</div>
               </div>
               <div class="stig-counts">
                 <div class="stig-count open">

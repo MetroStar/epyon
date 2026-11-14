@@ -120,31 +120,50 @@ def tool_family(name: Any) -> str:
     return str(name or "unknown").lower().split("-")[0]
 
 
+FINDINGS_ARTIFACTS = ("security-findings-filtered.json", "security-findings-summary.json")
+
+
+def _suppression_key(f: Dict[str, Any]) -> "tuple":
+    return (str(f.get("tool")), str(f.get("vulnerability_id") or f.get("id") or f.get("title")),
+            str(f.get("package_name") or f.get("package") or ""), str(f.get("package_path") or f.get("file") or ""))
+
+
 def merge_findings(history: List[Path]) -> Optional[Dict[str, Any]]:
     """Combine consolidated findings across scans: each tool family comes from the newest scan that ran it."""
     merged: Dict[str, Any] = {key: [] for key, _ in SEV_KEYS}
     sources: Dict[str, str] = {}
+    suppressed: List[Dict[str, Any]] = []
     seen_any = False
     for d in history:
-        data = load_json(d / "security-findings-summary.json")
-        if not data:
+        raw = load_json(d / "security-findings-summary.json")
+        if not raw:
             continue
         seen_any = True
-        families = {tool_family(t) for t in data.get("summary", {}).get("tools_analyzed", [])}
+        # Findings suppressed by .epyon-ignore.yml (approved risk acceptances) are not scored.
+        filtered = load_json(d / "security-findings-filtered.json")
+        data = filtered if filtered and any(k in filtered for k, _ in SEV_KEYS) else raw
+        families = {tool_family(t) for t in raw.get("summary", {}).get("tools_analyzed", [])}
         for key, _ in SEV_KEYS:
-            for f in data.get(key, []):
+            for f in raw.get(key, []):
                 if isinstance(f, dict):
                     families.add(tool_family(f.get("tool")))
         for fam in sorted(families - set(sources)):
             sources[fam] = d.name
+        kept = {_suppression_key(f) for key, _ in SEV_KEYS for f in data.get(key, []) if isinstance(f, dict)}
         for key, _ in SEV_KEYS:
             merged[key].extend(
                 f for f in data.get(key, [])
                 if isinstance(f, dict) and sources.get(tool_family(f.get("tool"))) == d.name)
+            if data is not raw:
+                suppressed.extend(
+                    f for f in raw.get(key, [])
+                    if isinstance(f, dict) and sources.get(tool_family(f.get("tool"))) == d.name
+                    and _suppression_key(f) not in kept)
     if not seen_any:
         return None
     merged["summary"] = {f"total_{sev}": len(merged[key]) for key, sev in SEV_KEYS}
     merged["tool_sources"] = sources
+    merged["suppressed_findings"] = suppressed
     return merged
 
 
@@ -509,7 +528,7 @@ def score_security(scan_dir: Path, findings: Dict) -> Dict[str, Any]:
     """
     ev: List[Dict[str, Any]] = []
     by_sev = findings_by_severity(findings)
-    findings_file = locate(scan_dir, "security-findings-summary.json")
+    findings_file = locate(scan_dir, *FINDINGS_ARTIFACTS)
 
     counts: Dict[str, int] = {}
     refs: Dict[str, List[str]] = {}
@@ -546,6 +565,20 @@ def score_security(scan_dir: Path, findings: Dict) -> Dict[str, Any]:
             passed = sum(p.get("passed", 0) for p in probes if isinstance(p, dict))
             if total_attempts > 0:
                 garak_pass_rate = (passed / total_attempts) * 100.0
+
+    suppressed = findings.get("suppressed_findings") or []
+    suppressed_counts = {sev: 0 for _, sev in SEV_KEYS}
+    for f in suppressed:
+        sev = str(f.get("severity", "")).lower()
+        if sev in suppressed_counts:
+            suppressed_counts[sev] += 1
+    if suppressed:
+        ev.append(make_evidence(
+            scan_dir, "sec-suppressed", "info",
+            f"{len(suppressed)} suppressed finding(s) by approved .epyon-ignore.yml rules "
+            f"({suppressed_counts['critical']} critical / {suppressed_counts['high']} high / "
+            f"{suppressed_counts['medium']} medium / {suppressed_counts['low']} low) — counted, 0 pt weight",
+            suppressed_counts, 0, findings_file, [f"[suppressed] {finding_ref(f)}" for f in suppressed]))
 
     base_score = 100.0
     for sev, per in (("critical", 15), ("high", 5), ("medium", 1), ("low", 0.2)):
@@ -658,6 +691,7 @@ def score_security(scan_dir: Path, findings: Dict) -> Dict[str, Any]:
                                 0, 0, findings_file))
 
     return _dimension(base_score, {
+        "suppressed_findings": len(suppressed),
         "critical_cve": counts["critical"],
         "high_cve": counts["high"],
         "medium_cve": counts["medium"],
@@ -712,7 +746,7 @@ def score_supply_chain(scan_dir: Path, findings: Dict) -> Dict[str, Any]:
     prov_path, _, prov_items = load_layer(scan_dir, "model-provenance", "model-provenance-results.json")
     typosquats = [f for f in prov_items if "typosquat" in str(f.get("type", "")).lower()]
 
-    findings_file = locate(scan_dir, "security-findings-summary.json")
+    findings_file = locate(scan_dir, *FINDINGS_ARTIFACTS)
     base_score = 100.0
     if not sbom_exists:
         ev.append(make_evidence(scan_dir, "sc-no-sbom", "missing",
@@ -817,7 +851,7 @@ def score_code_quality(scan_dir: Path, findings: Optional[Dict] = None) -> Dict[
                                 "Checkov has not run — no evidence either way", None, None, checkov_file))
 
     semgrep_file = locate(scan_dir, "semgrep/semgrep-results.json")
-    findings_file = locate(scan_dir, "security-findings-summary.json")
+    findings_file = locate(scan_dir, *FINDINGS_ARTIFACTS)
     sast = []
     if findings:
         sast = [f for sev, items in findings_by_severity(findings).items() for f in items if is_sast(f)]
@@ -1041,7 +1075,7 @@ def score_operational(scan_dir: Path, findings: Dict, metadata: Dict) -> Dict[st
             ("deduction" if trend_direction == "degrading" else "info"),
             f"Trend {trend_direction}: critical×5+high is {current} now vs {previous} in {prev_name}",
             trend_direction, {"improving": 10, "degrading": -20}.get(trend_direction, 0),
-            locate(scan_dir, "security-findings-summary.json")))
+            locate(scan_dir, *FINDINGS_ARTIFACTS)))
     else:
         ev.append(make_evidence(scan_dir, "op-trend-none", "missing",
                                 "No earlier scan of this app to compare — no trend available"))

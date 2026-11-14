@@ -816,7 +816,7 @@ $SCAN_DIR/
   findings-{app}-{slug}.cklb     # CKLB format (for STIG Viewer import)
 ```
 
-Where `{slug}` is derived from the STIG filename (e.g., `u-asd-stig-v6r4-manual-xccdf` → `u-asd-stig-v6r4-manual-xccdf`).
+Where `{slug}` is derived from the STIG filename (e.g., `u-asd-stig-v6r5-manual-xccdf` → `u-asd-stig-v6r5-manual-xccdf`).
 
 ### Primary Report
 

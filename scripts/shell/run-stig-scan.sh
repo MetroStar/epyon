@@ -82,7 +82,7 @@ show_help() {
     echo ""
     echo "Examples:"
     echo "  OPENAI_API_KEY=sk-... $0 /path/to/my-app"
-    echo "  STIGS_FILE=configuration/stigs/U_ASD_STIG_V6R4_Manual-xccdf.xml $0 ./api"
+    echo "  STIGS_FILE=configuration/stigs/U_ASD_STIG_V6R5_Manual-xccdf.xml $0 ./api"
     echo ""
     exit 0
 }

@@ -758,7 +758,7 @@ def load_previous_stig_results(previous_scan_dir: Path, slug: str) -> dict[str, 
     
     Args:
         previous_scan_dir: Path to previous scan directory
-        slug: STIG slug (e.g., 'u-asd-stig-v6r4-manual-xccdf')
+        slug: STIG slug (e.g., 'u-asd-stig-v6r5-manual-xccdf')
     
     Returns:
         Dict mapping vuln_id -> {status, evidence, confidence}, or empty dict if not found

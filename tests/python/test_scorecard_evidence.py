@@ -176,3 +176,15 @@ def test_semgrep_has_own_security_line_and_is_not_a_cve(scans):
     assert sec["details"]["high_cve"] == 1
     sast = next(e for e in sec["evidence"] if e["id"] == "sec-sast")
     assert sast["impact"] == -1.5 and sast["measured"]["high"] == 1
+
+
+def test_not_applicable_stigs_are_excluded_from_pass_rate(scans):
+    _, newest = scans
+    (newest / "stig-results-x.json").write_text(json.dumps({"assessments": {
+        "V-1": {"status": "Not a Finding", "evidence": "x" * 30, "confidence": 90},
+        "V-2": {"status": "Open", "evidence": "", "confidence": 60},
+        "V-3": {"status": "Not Applicable", "evidence": "x" * 30, "confidence": 90},
+        "V-4": {"status": "Not Applicable", "evidence": "x" * 30, "confidence": 90}}}))
+    comp = _score(newest)["dimension_scores"]["compliance"]
+    stig = next(e for e in comp["evidence"] if "STIG pass rate" in e["label"])
+    assert "50.0%" in stig["label"] and "1 of 2 applicable" in stig["label"]

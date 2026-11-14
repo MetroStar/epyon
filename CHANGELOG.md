@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.67.0] - 2026-11-13
+
+### Added
+- STIG structured JSON download (`GET /api/scans/{scan_id}/stig-findings-json[?slug=]`) with `↓ findings.json` buttons beside `.md`/`.cklb` in the scan detail, STIG overview and STIG detail views.
+
 ## [3.66.7] - 2026-11-13
 
 ### Fixed

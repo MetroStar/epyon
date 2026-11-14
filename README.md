@@ -491,7 +491,7 @@ echo "🎯 Prerequisites check complete!"
 Epyon ships a FastAPI-backed single-page web UI for running scans, browsing results, viewing SBOMs, managing suppressed findings, and analyzing security posture with the Security Score Card.
 
 **Key Features:**
-- **Security Score Card**: 6-dimensional weighted scoring (Security, Supply Chain, Code Quality, Compliance, Operational, MOSA) with TRL 1-9 mapping and letter grades. Built from the newest result of every tool across the application's scan history (scan type never changes the score); anything never scanned scores 0 rather than being ignored, and IaC misconfigurations and Semgrep SAST findings are scored on their own lighter lines, separate from CVEs; tests/fixtures directories are never scanned or scored (opt in with `include_tests: true` in `.epyon-ignore.yml`). Every dimension lists its evidence (source file, SHA-256, finding IDs), can be downloaded as an evidence package zip, and can be signed off by a named reviewer; a rescore that changes the score invalidates the sign-off
+- **Security Score Card**: 6-dimensional weighted scoring (Security, Supply Chain, Code Quality, Compliance, Operational, MOSA) with TRL 1-9 mapping and letter grades. Findings come from the application's latest scan only (earlier findings that are gone are treated as closed out; history feeds the trend, and STIG results come from the last STIG run), and scan type never changes the score; anything never scanned scores 0 rather than being ignored, and IaC misconfigurations and Semgrep SAST findings are scored on their own lighter lines, separate from CVEs; tests/fixtures directories are never scanned or scored (opt in with `include_tests: true` in `.epyon-ignore.yml`). Every dimension lists its evidence (source file, SHA-256, finding IDs), can be downloaded as an evidence package zip, and can be signed off by a named reviewer; a rescore that changes the score invalidates the sign-off
 - **STIG History with Evidence Tracking**: View complete evidence timeline, confidence scores, and status change reasoning with visual indicators
 - **Interactive Scan Management**: Run scans, browse results, filter findings, and manage suppressions
 - **Background scans**: scans keep running when you leave the page; a badge, toast and optional desktop notification report progress and completion. Up to 2 scans run at once by default, the rest queue; change the limit (1–16) under Settings → Scan Concurrency, which overrides `EPYON_MAX_CONCURRENT_SCANS`. Concurrent uploads reserve distinct job IDs while their files are being processed.
@@ -1113,7 +1113,7 @@ epyon/
 ├── documentation/              # Essential documentation
 │   ├── SECURITY_REVIEW_AND_TEST_COVERAGE.md # Security review (Feb 2026)
 │   ├── SCAN_DIRECTORY_ARCHITECTURE.md       # Scan organization
-│   ├── OFFLINE_AIR_GAPPED_SETUP.md         # Air-gapped deployment
+│   ├── SCORE_CARD_GUIDE.md                  # How the Score Card is calculated
 │   └── README.md                            # Documentation index
 ├── scans/                      # Scan results (isolated directories)
 │   └── {project}_{user}_{timestamp}/
@@ -1135,9 +1135,7 @@ epyon/
 │           ├── html-reports/     # Tool-specific HTML reports
 │           ├── markdown-reports/ # Summary reports
 │           └── csv-reports/      # Data exports
-└── documentation/             # Complete setup and architecture guides
-    ├── SECURITY_AND_QUALITY_SETUP.md
-    └── COMPREHENSIVE_SECURITY_ARCHITECTURE.md
+└── documentation/             # Guides and references (see documentation/README.md)
 ```
 
 ## 🗄️ Scan Storage & Retention
@@ -1860,13 +1858,12 @@ The tag must equal `VERSION`, or the release fails. Run `gh workflow run release
 - **[documentation/RELEASE_CHECKLIST.md](documentation/RELEASE_CHECKLIST.md)** - Tagging, release verification, recovery, PR release notes and pinning a release
 - **[documentation/SCAN_DIRECTORY_ARCHITECTURE.md](documentation/SCAN_DIRECTORY_ARCHITECTURE.md)** - Scan output organization and isolation model
 - **[documentation/SCAN_MANIFEST_GUIDE.md](documentation/SCAN_MANIFEST_GUIDE.md)** - Cryptographic manifest creation and verification
-- **[documentation/DEPLOYMENT_SUMMARY_MANIFEST_SYSTEM.md](documentation/DEPLOYMENT_SUMMARY_MANIFEST_SYSTEM.md)** - Manifest system deployment and validation results
 - **[documentation/IGNORE_RULES_GUIDE.md](documentation/IGNORE_RULES_GUIDE.md)** - `.epyon-ignore.yml` suppression configuration guide, including package-version rules for identified vulnerabilities
 - **[documentation/ANCHORE_CONFIGURATION_GUIDE.md](documentation/ANCHORE_CONFIGURATION_GUIDE.md)** - Anchore false-positive prevention and scanner configuration
 - **[documentation/DEDUPLICATION_IMPLEMENTATION.md](documentation/DEDUPLICATION_IMPLEMENTATION.md)** - Finding deduplication logic and implementation details
 - **[documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md](documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md)** - Security review and test coverage analysis
 - **[documentation/STIG_COMPLIANCE_GUIDE.md](documentation/STIG_COMPLIANCE_GUIDE.md)** - STIG and RMF compliance documentation
-- **[documentation/OFFLINE_AIR_GAPPED_SETUP.md](documentation/OFFLINE_AIR_GAPPED_SETUP.md)** - Air-gapped and offline deployment guide
+- **[documentation/SCORE_CARD_GUIDE.md](documentation/SCORE_CARD_GUIDE.md)** - How the Score Card is calculated, where its numbers come from, and how to verify them
 - **[documentation/AI Integration Strategy for Epyon.md](documentation/AI%20Integration%20Strategy%20for%20Epyon.md)** - CIO roadmap for AI/ML integration opportunities
 
 ## 🏆 Achievement Summary
@@ -2008,13 +2005,12 @@ export HIGH_ALERT_THRESHOLD="5"
 - **[documentation/README.md](documentation/README.md)** - Documentation index and navigation guide
 - **[documentation/SCAN_DIRECTORY_ARCHITECTURE.md](documentation/SCAN_DIRECTORY_ARCHITECTURE.md)** - Scan output organization and isolation model
 - **[documentation/SCAN_MANIFEST_GUIDE.md](documentation/SCAN_MANIFEST_GUIDE.md)** - Cryptographic manifest creation and verification
-- **[documentation/DEPLOYMENT_SUMMARY_MANIFEST_SYSTEM.md](documentation/DEPLOYMENT_SUMMARY_MANIFEST_SYSTEM.md)** - Manifest system deployment and validation
 - **[documentation/IGNORE_RULES_GUIDE.md](documentation/IGNORE_RULES_GUIDE.md)** - `.epyon-ignore.yml` suppression configuration guide
 - **[documentation/ANCHORE_CONFIGURATION_GUIDE.md](documentation/ANCHORE_CONFIGURATION_GUIDE.md)** - Anchore false-positive prevention and scanner configuration
 - **[documentation/DEDUPLICATION_IMPLEMENTATION.md](documentation/DEDUPLICATION_IMPLEMENTATION.md)** - Finding deduplication logic and implementation
 - **[documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md](documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md)** - Security review and test coverage analysis
 - **[documentation/STIG_COMPLIANCE_GUIDE.md](documentation/STIG_COMPLIANCE_GUIDE.md)** - STIG and RMF compliance documentation
-- **[documentation/OFFLINE_AIR_GAPPED_SETUP.md](documentation/OFFLINE_AIR_GAPPED_SETUP.md)** - Air-gapped and offline deployment guide
+- **[documentation/SCORE_CARD_GUIDE.md](documentation/SCORE_CARD_GUIDE.md)** - How the Score Card is calculated, where its numbers come from, and how to verify them
 - **[documentation/AI Integration Strategy for Epyon.md](documentation/AI%20Integration%20Strategy%20for%20Epyon.md)** - CIO roadmap for AI/ML integration opportunities
 
 ### 🎯 Quick Reference Commands

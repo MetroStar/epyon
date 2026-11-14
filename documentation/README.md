@@ -1,181 +1,56 @@
 # Epyon Documentation
 
-**Last Updated:** February 6, 2026
+Index of the guides in this directory. Start with the architecture and scan matrix, then jump to the area you need.
 
-This directory contains the essential documentation for the Epyon security scanning platform.
+## Start here
 
-## 📚 Available Documentation
+| Document | Purpose |
+|---|---|
+| [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md) | Components, scan layers and data flow |
+| [SCAN_MATRIX.md](SCAN_MATRIX.md) | Which layers run in quick / nightly / full / stig modes and how to skip them |
+| [MASTER_EPYON_MATRIX.md](MASTER_EPYON_MATRIX.md) | Landing page for scan modes, release evidence and platform capabilities |
+| [SCAN_DIRECTORY_ARCHITECTURE.md](SCAN_DIRECTORY_ARCHITECTURE.md) | Scan output layout, naming and who reads what |
 
-### 🏷️ [Release Checklist](RELEASE_CHECKLIST.md)
-**How Epyon is released and how to pin a release**
-- Tagging `vX.Y.Z` on `main`, dry runs, GitHub Release contents (archive, SBOM, checksums)
-- Verifying a downloaded artifact, recovery steps
-- Pull request `## Release notes` rules and the `no-release-notes` label
-- Pinning `epyon-scan.yml` to a tag or commit SHA
+## Scoring and compliance
 
-**Audience:** Maintainers, contributors, teams installing Epyon  
-**Status:** ✅ Current (Oct 2026)
+| Document | Purpose |
+|---|---|
+| [SCORE_CARD_GUIDE.md](SCORE_CARD_GUIDE.md) | How the Score Card is calculated, where its numbers come from, and how to verify them |
+| [STIG_COMPLIANCE_GUIDE.md](STIG_COMPLIANCE_GUIDE.md) | STIG assessment workflow, statuses and freeze logic |
+| [STIG_SCANNING_TECHNICAL_REFERENCE.md](STIG_SCANNING_TECHNICAL_REFERENCE.md) | STIG engine internals |
+| [MANUAL_STIG_DOCUMENTATION_GUIDE.md](MANUAL_STIG_DOCUMENTATION_GUIDE.md) | Human-authored STIG documentation that takes priority over AI assessments |
+| [IGNORE_RULES_GUIDE.md](IGNORE_RULES_GUIDE.md) | `.epyon-ignore.yml` suppression rules |
 
----
-### 🔒 [Security Review & Test Coverage](SECURITY_REVIEW_AND_TEST_COVERAGE.md)
-**Comprehensive security analysis and testing documentation**
-- Complete test coverage report (304 tests)
-- Security architecture review
-- Threat model and mitigations
-- Vulnerability management
-- Compliance mapping
-- Fixed CVEs and bugs
+## Scanners and findings
 
-**Audience:** Security teams, DevOps engineers, compliance officers  
-**Status:** ✅ Current (Feb 2026)
+| Document | Purpose |
+|---|---|
+| [ANCHORE_CONFIGURATION_GUIDE.md](ANCHORE_CONFIGURATION_GUIDE.md) | Anchore configuration and false-positive prevention |
+| [GRYPE_SCAN_TROUBLESHOOTING.md](GRYPE_SCAN_TROUBLESHOOTING.md) | Grype troubleshooting |
+| [MULTI_FEED_CVE_ENRICHMENT.md](MULTI_FEED_CVE_ENRICHMENT.md) | CVE enrichment feeds |
+| [ML_SECURITY_GUIDE.md](ML_SECURITY_GUIDE.md) | ML/AI security layers (14, 18, 19, 20) |
+| [CONTAINER_BUILD_AND_EVIDENCE_GUIDE.md](CONTAINER_BUILD_AND_EVIDENCE_GUIDE.md) | Container build and evidence-based scanning |
+| [DEDUPLICATION_IMPLEMENTATION.md](DEDUPLICATION_IMPLEMENTATION.md) | Finding deduplication |
+| [PARSER_FUNCTIONS_REFERENCE.md](PARSER_FUNCTIONS_REFERENCE.md) | Parser function reference (not exhaustive) |
 
----
-### 📊 [Master Epyon Capabilities & Scan Matrix](MASTER_EPYON_MATRIX.md)
-**Comprehensive matrix of security layers, release artifacts, scan modes, and platform capabilities**
-- Complete 21-layer security scanning breakdown
-- 10-of-10 supply chain release & evidence artifact inventory
-- Execution modes (`quick`, `nightly`, `full`, `stig`, `images`, `analysis`)
-- Platform features, policy enforcement, compliance, and CI/CD integrations
+## Integrity, integrations and releases
 
-**Audience:** Security teams, DevOps engineers, compliance officers, release managers  
-**Status:** ✅ Current (Sep 2026)
+| Document | Purpose |
+|---|---|
+| [SCAN_MANIFEST_GUIDE.md](SCAN_MANIFEST_GUIDE.md) | Scan manifest and integrity verification |
+| [WEBHOOK_INTEGRATION_GUIDE.md](WEBHOOK_INTEGRATION_GUIDE.md) | Real-time scan progress webhooks |
+| [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) | Tagging and publishing a release |
+| [SECURITY.md](SECURITY.md) | Reporting vulnerabilities in Epyon |
+| [SECURITY_REVIEW_AND_TEST_COVERAGE.md](SECURITY_REVIEW_AND_TEST_COVERAGE.md) | Security review and test coverage snapshot |
 
----
-### [Container Build & Evidence Guide](CONTAINER_BUILD_AND_EVIDENCE_GUIDE.md)
-**Container image building, OCI manifest extraction, SLSA provenance, and Cosign signing**
-- Phase 0 container image build module
-- 10-of-10 release and evidence artifact matrix
-- SLSA v1.0 in-toto provenance attestation (`provenance.jsonl`)
-- Cosign cryptographic image signature records (`image.sig`)
-- CI/CD integration and Web UI evidence rendering
+## Plans and strategy (not implemented)
 
-**Audience:** Security teams, DevOps engineers, release managers  
-**Status:** ✅ Current (Sep 2026)
+| Document | Purpose |
+|---|---|
+| [WEB_UI_POST_SCAN_PARITY.md](WEB_UI_POST_SCAN_PARITY.md) | Plan for web UI post-scan step parity |
+| [AI Integration Strategy for Epyon.md](AI%20Integration%20Strategy%20for%20Epyon.md) | AI/ML integration roadmap (April 2026 memo) |
 
----
-### 🎯 [Deduplication Implementation](DEDUPLICATION_IMPLEMENTATION.md)
-**Vulnerability deduplication to eliminate inflated counts**
-- Removes duplicate CVE counting across multiple tools
-- Unique key generation (CVE + package + version)
-- Detection transparency with `detected_by` metadata
-- Impact on severity gates and dashboards
-- Before/after examples and validation
+## Maintenance
 
-**Audience:** Security teams, DevOps engineers, dashboard users  
-**Status:** ✅ Current (Feb 2026)
-
----
-### � [STIG Compliance Guide](STIG_COMPLIANCE_GUIDE.md)
-**STIG control mapping and evidence collection procedures**
-- Maps Epyon tools to STIG controls
-- Evidence collection for compliance audits
-- Coverage for Application Security, Container, Docker, DevSecOps, and OpenShift STIGs
-- Automated queries and evidence collection scripts
-- Compliance workflow and best practices
-
-**Audience:** Security teams, compliance officers, auditors  
-**Status:** ✅ Current (Feb 2026)
-
----
-
-### �📁 [Scan Directory Architecture](SCAN_DIRECTORY_ARCHITECTURE.md)
-**Implementation details for scan result organization**
-- Scan directory structure and layout
-- Timestamp consistency approach
-- Result isolation and organization
-- Legacy compatibility and symlinks
-
-**Audience:** Developers, DevOps engineers  
-**Status:** ✅ Current
-
----
-
-### 🔌 [Offline & Air-Gapped Setup](OFFLINE_AIR_GAPPED_SETUP.md)
-**Complete guide for deploying Epyon in restricted environments**
-- Docker image requirements and export procedures
-- Vulnerability database management
-- Air-gapped bundle structure
-- Implementation timeline (8-12 days)
-- Database freshness recommendations
-- Security considerations
-
-**Audience:** Enterprise deployment teams, government contractors  
-**Status:** ✅ Current (Jan 2026)
-
----
-
-## 🚀 Quick Start
-
-For most users, start with the **Security Review & Test Coverage** document to understand:
-- What Epyon does
-- How it's architected
-- What security controls are in place
-- How to validate the installation
-
-Then refer to specific guides as needed:
-- **Deploying offline?** → See Offline & Air-Gapped Setup
-- **Understanding scan organization?** → See Scan Directory Architecture
-
----
-
-## 📝 Documentation Maintenance
-
-### What's Included
-- Security and architecture documentation
-- Deployment guides for special scenarios
-- Implementation reference materials
-
-### What's NOT Included
-- Historical summaries (removed)
-- PowerShell migration documents (removed)
-- Project-specific validation guides (removed)
-- Outdated dashboards and reports (removed)
-
-### Contribution Guidelines
-- Keep documentation current with code changes
-- Update "Last Updated" dates when modifying
-- Remove outdated content proactively
-- Focus on operational value, not historical context
-
----
-
-## 🔗 Additional Resources
-
-### In Repository
-- `README.md` - Main project overview and getting started
-- `.github/workflows/` - GitHub Actions workflow examples
-- `tests/shell/` - Test suite documentation and examples
-- `scripts/shell/` - Shell script inline documentation
-
-### External
-- [BATS Testing Framework](https://github.com/bats-core/bats-core)
-- [GitHub Actions Documentation](https://docs.github.com/en/actions)
-- [Docker Security Best Practices](https://docs.docker.com/develop/security-best-practices/)
-
----
-
-## 📊 Documentation Status
-
-| Document | Lines | Last Updated | Status |
-|----------|-------|--------------|--------|
-| Security Review | ~850 | Feb 2026 | ✅ Current |
-| Scan Architecture | ~170 | Current | ✅ Current |
-| Offline Setup | ~310 | Jan 2026 | ✅ Current |
-
-**Total:** 3 active documents
-
----
-
-## 🗑️ Recently Removed
-
-Cleaned up **24 outdated documents** on Feb 6, 2026:
-- 5 PowerShell parity documents
-- 5 deployment summaries
-- 9 implementation notes
-- 5 miscellaneous outdated guides
-
-Focus is now on **actionable, current documentation** that supports ongoing operations.
-
----
-
-**For questions or improvements to documentation, please open an issue in the repository.**
+- Update a guide in the same change that alters the behavior it describes.
+- Remove one-off status reports instead of letting them go stale; the CHANGELOG is the history.

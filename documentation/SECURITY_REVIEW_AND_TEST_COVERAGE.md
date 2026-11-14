@@ -1,8 +1,10 @@
 # EPYON Security Review & Test Coverage Documentation
 
-**Last Updated:** February 6, 2026  
-**Version:** 2.0  
+**Last Updated:** November 14, 2026 (test totals); the per-file breakdown and review findings are a February 6, 2026 snapshot  
+**Version:** 2.1  
 **Status:** Production Ready
+
+> **Test counts.** At the time of this update the repository has 1,049 BATS tests in 68 files (`tests/shell/`, run with `./run-tests.sh`) and 264 Python tests (`tests/python/`, run with `python3 -m pytest tests/python`). The per-category tables and the 304-test figures in the sections below describe the February 2026 review and have not been re-derived.
 
 ---
 
@@ -11,7 +13,7 @@
 Epyon is a comprehensive security scanning orchestration platform that integrates 10+ security tools to provide multi-layered vulnerability detection, compliance checking, and security posture assessment. This document provides a complete security review of the Epyon platform, including test coverage, threat analysis, and security controls.
 
 **Security Posture:** ✅ **SECURE**
-- 304 automated unit tests with 100% pass rate
+- 1,049 BATS tests and 264 Python tests (304 BATS tests at the February 2026 review)
 - Comprehensive input validation and sanitization
 - Defense-in-depth architecture with isolated scan environments
 - CVE-tracked dependency management
@@ -37,11 +39,8 @@ Epyon is a comprehensive security scanning orchestration platform that integrate
 
 ### Summary Statistics
 
-- **Total Tests:** 304
-- **Test Files:** 29
-- **Scripts Covered:** 28/28 (100%)
-- **Pass Rate:** 100%
-- **Test Framework:** BATS (Bash Automated Testing System)
+- **Total Tests (Feb 2026 snapshot):** 304 across 29 files; **now:** 1,049 BATS tests across 68 files, plus 264 Python tests
+- **Test Frameworks:** BATS (Bash Automated Testing System) for shell scripts, pytest for the web API and Score Card
 
 ### Test Categories
 
@@ -444,7 +443,7 @@ failed=$(jq '[.[] | select(.results?) | .results.failed_checks | length] | add /
 | Xeol | Weekly (online), 30 days (offline) | ✅ Yes | ✅ Scanner tests |
 | ClamAV | 3x daily (online), 3 days (offline) | ✅ Yes | ✅ Scanner tests |
 
-**Offline Mode Documentation:** `documentation/OFFLINE_AIR_GAPPED_SETUP.md`
+**Offline mode:** an air-gapped bundle workflow is not implemented; Epyon currently needs network access to refresh vulnerability databases and pull scanner images.
 
 ---
 
@@ -578,7 +577,7 @@ failed=$(jq '[.[] | select(.results?) | .results.failed_checks | length] | add /
 2. Fix API discovery duplicate `fi` bug
 3. Fix Checkov array format parsing
 4. Achieve 100% test coverage (304 tests)
-5. Document offline/air-gapped deployment
+5. Document offline/air-gapped deployment (not implemented)
 
 ### Short-Term Improvements (Priority 2)
 

@@ -20,7 +20,7 @@ This table shows which layers run in each scan mode. Layers marked ✅ run by de
 | 10 | Container Analysis     | Anchore       | ⬜ | ✅ | ✅ | ⬜ | `SKIP_ANCHORE=true` |
 | 11 | API Discovery          | Custom        | ⬜ | ✅ | ✅ | ⬜ | `SKIP_API_DISCOVERY=true` |
 | 12 | LLM Security Probing   | Garak         | ⬜ | ⬜ | ⬜ | ⬜ | `RUN_GARAK=true` (always opt-in) |
-| 13 | STIG Compliance        | AI Assessment | ⬜ | ⬜ | ⬜ | ✅ | `RUN_STIG=true` (opt-in; always skipped unless explicitly enabled) |
+| 13 | STIG Compliance        | AI Assessment | ⬜ | ⬜ | ⬜ | ✅ | workflow input `run_stig: true` or `scan_mode: stig` (opt-in; otherwise the workflow sets `SKIP_STIG=true`) |
 | 14 | Model File Analysis    | picklescan-enhanced | ⬜ | ✅ | ✅ | ⬜ | `RUN_PICKLESCAN=true/false` |
 | 15 | Model Card Compliance  | Custom        | ⬜ | ✅ | ✅ | ⬜ | `RUN_MODELCARD=true/false` |
 | 16 | Network Discovery      | nmap/static   | ⬜ | ✅ | ✅ | ⬜ | `SKIP_NETWORK_DISCOVERY=true` |

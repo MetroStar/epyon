@@ -32,6 +32,7 @@ from pydantic import BaseModel
 
 from . import jobs as job_store
 from . import parsers
+from .app_trends import app_trend
 from . import poam
 from . import scorecard as scorecard_store
 from . import parse_cache
@@ -2599,6 +2600,11 @@ def _build_metrics() -> dict:
 
     top_cves = sorted(cve_counts.items(), key=lambda x: x[1]["count"], reverse=True)[:20]
 
+    app_trends = {
+        target: app_trend([sc for sc, _ in scan_list])
+        for target, scan_list in by_target.items()
+    }
+
     scan_frequency = {
         target: {
             "total": len(scan_list),
@@ -3055,6 +3061,7 @@ def _build_metrics() -> dict:
             for k, v in top_cves
         ],
         "scan_frequency": scan_frequency,
+        "app_trends": app_trends,
         "merges_to_main": merges_to_main,
         "window_days":         _METRICS_DAYS,
         "total_merges_to_main": total_merges_to_main,

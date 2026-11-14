@@ -107,9 +107,13 @@ def locate(scan_dir: Path, *rels: str) -> Path:
     """Newest existing copy of an artifact across scan history (else the current scan's path)."""
     for d in (_HISTORY or [scan_dir]):
         for rel in rels:
-            if (d / rel).exists():
+            if "*" in rel:
+                hits = sorted(d.glob(rel), reverse=True)
+                if hits:
+                    return hits[0]
+            elif (d / rel).exists():
                 return d / rel
-    return scan_dir / rels[0]
+    return scan_dir / rels[0].replace("*", "missing")
 
 
 def tool_family(name: Any) -> str:
@@ -160,21 +164,19 @@ def make_evidence(
     eid: str,
     kind: str,
     label: str,
-    measured: Any,
+    measured: Any = None,
     impact: Optional[float] = None,
     source: Optional[Path] = None,
     refs: Optional[List[str]] = None,
     note: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Build one evidence item. kind: deduction | cap | bonus | component | info | missing."""
-    item: Dict[str, Any] = {
-        "id": eid,
-        "kind": kind,
-        "label": label,
-        "measured": measured,
-        "impact": round(impact, 1) if impact is not None else None,
-    }
-    if source is not None:
+    item: Dict[str, Any] = {"id": eid, "kind": kind, "label": label}
+    if measured is not None:
+        item["measured"] = measured
+    if impact is not None:
+        item["impact"] = round(impact, 1)
+    if source is not None and source.is_file():
         try:
             item["source"] = source.resolve().relative_to(scan_dir.resolve().parent).as_posix()
         except ValueError:
@@ -470,8 +472,20 @@ def aggregate_api_endpoints(scan_dirs: List[Path]) -> Dict[str, Any]:
     }
 
 
-def _dimension(score: float, details: Dict[str, Any], evidence: List[Dict[str, Any]]) -> Dict[str, Any]:
-    return {"score": round(score, 1), "max": 100, "details": details, "evidence": evidence}
+def _dimension(score: Optional[float], details: Dict[str, Any], evidence: List[Dict[str, Any]],
+               applicable: bool = True) -> Dict[str, Any]:
+    """A dimension is either scored from data that exists or marked not applicable (`applicable: false`, score 0, weight kept).
+
+    Details never contain null values: anything that was not measured is left out.
+    """
+    clean = {k: v for k, v in details.items() if v is not None}
+    return {
+        "score": round(score, 1) if score is not None else 0,
+        "max": 100,
+        "applicable": applicable,
+        "details": clean,
+        "evidence": evidence,
+    }
 
 
 def score_security(scan_dir: Path, findings: Dict) -> Dict[str, Any]:
@@ -641,7 +655,7 @@ def score_supply_chain(scan_dir: Path, findings: Dict) -> Dict[str, Any]:
     if sbom_data and "components" in sbom_data:
         component_count = len(sbom_data["components"])
 
-    xeol_file = locate(scan_dir, "xeol/xeol-results.json")
+    xeol_file = locate(scan_dir, "xeol/xeol-results.json", "xeol/*xeol*results.json")
     xeol_data = load_json(xeol_file)
     eol_count = 0
     critical_eol = 0
@@ -672,9 +686,9 @@ def score_supply_chain(scan_dir: Path, findings: Dict) -> Dict[str, Any]:
     findings_file = locate(scan_dir, "security-findings-summary.json")
     base_score = 100.0
     if not sbom_exists:
-        base_score = 0
         ev.append(make_evidence(scan_dir, "sc-no-sbom", "missing",
-                                "No CycloneDX SBOM found — supply chain cannot be assessed", False, -100, sbom_file))
+                                "No SBOM in any scan of this application — Supply Chain was not scanned and scores 0"))
+        return _dimension(None, {}, ev, applicable=False)
     else:
         ev.append(make_evidence(scan_dir, "sc-sbom", "info",
                                 f"SBOM present with {component_count} components", component_count, 0, sbom_file))
@@ -751,14 +765,17 @@ def score_code_quality(scan_dir: Path, findings: Optional[Dict] = None) -> Dict[
                                 sonar_file, note="weight 40"))
     else:
         ev.append(make_evidence(scan_dir, "cq-sonar-missing", "missing",
-                                "SonarQube did not run for this scan", None, None, sonar_file))
+                                "SonarQube has not run — no evidence either way", None, None, sonar_file))
 
-    checkov_file = locate(scan_dir, "checkov/results.json")
+    checkov_file = locate(scan_dir, "checkov/checkov-results.json", "checkov/results.json")
     checkov_data = load_json(checkov_file)
+    # Checkov writes one report per framework (a list) or a single report (a dict)
+    reports = checkov_data if isinstance(checkov_data, list) else [checkov_data] if checkov_data else []
+    summaries = [r["summary"] for r in reports if isinstance(r, dict) and isinstance(r.get("summary"), dict)]
     checkov_pass_rate = 100.0
-    if checkov_data and "summary" in checkov_data:
-        passed = checkov_data["summary"].get("passed", 0)
-        failed = checkov_data["summary"].get("failed", 0)
+    if summaries:
+        passed = sum(int(x.get("passed", 0)) for x in summaries)
+        failed = sum(int(x.get("failed", 0)) for x in summaries)
         total = passed + failed
         if total > 0:
             checkov_pass_rate = (passed / total) * 100.0
@@ -768,7 +785,7 @@ def score_code_quality(scan_dir: Path, findings: Optional[Dict] = None) -> Dict[
                                 round(checkov_pass_rate, 1), None, checkov_file, note="weight 30"))
     else:
         ev.append(make_evidence(scan_dir, "cq-checkov-missing", "missing",
-                                "Checkov did not run for this scan", None, None, checkov_file))
+                                "Checkov has not run — no evidence either way", None, None, checkov_file))
 
     semgrep_file = locate(scan_dir, "semgrep/semgrep-results.json")
     findings_file = locate(scan_dir, "security-findings-summary.json")
@@ -795,10 +812,12 @@ def score_code_quality(scan_dir: Path, findings: Optional[Dict] = None) -> Dict[
                                 note="weight 30"))
     else:
         ev.append(make_evidence(scan_dir, "cq-semgrep-missing", "missing",
-                                "Semgrep did not run for this scan", None, None, semgrep_file))
+                                "Semgrep has not run — no evidence either way", None, None, semgrep_file))
 
     total_weight = sum(w for w, _ in components)
-    base_score = sum(w * s for w, s in components) / total_weight if total_weight else 0.0
+    if not total_weight:
+        return _dimension(None, {}, ev, applicable=False)
+    base_score = sum(w * s for w, s in components) / total_weight
 
     return _dimension(base_score, {
         "sonar_quality_gate": sonar_pass,
@@ -844,26 +863,26 @@ def score_compliance(scan_dir: Path) -> Dict[str, Any]:
             if total > 0:
                 modelcard_score = (passed / total) * 100.0
 
-    base_score = 100.0
     unsupported = stig_agg["unsupported_pass"]
+    components: List["tuple[float, float]"] = []  # (weight, score)
     if stig_pass_rate is not None:
-        base_score = stig_pass_rate * 0.7
+        stig_score = stig_pass_rate
         ev.append(make_evidence(
             scan_dir, "comp-stig", "component",
             f"STIG pass rate {stig_pass_rate:.1f}% ({stig_agg['total_pass']} of "
-            f"{stig_agg['total_applicable']} applicable controls) × 0.7",
-            round(stig_pass_rate, 1), round(stig_pass_rate * 0.7, 1), stig_src,
+            f"{stig_agg['total_applicable']} applicable controls), weight 70",
+            round(stig_pass_rate, 1), None, stig_src,
             stig_agg["open_ids"], note=f"from {stig_agg['latest_scan_with_stig']}"))
         if stig_cat1_pass is not None and stig_cat1_pass < 100:
-            impact = -(100 - stig_cat1_pass) * 0.15
-            base_score += impact
+            impact = -(100 - stig_cat1_pass) * 0.15 / 0.7
+            stig_score += impact
             ev.append(make_evidence(
                 scan_dir, "comp-cat1", "deduction",
                 f"CAT I pass rate {stig_cat1_pass:.1f}% — {len(stig_agg['open_cat1'])} open CAT I control(s)",
                 round(stig_cat1_pass, 1), impact, stig_src, stig_agg["open_cat1"]))
         if unsupported and stig_agg["total_pass"]:
             impact = -10.0 * len(unsupported) / stig_agg["total_pass"]
-            base_score += impact
+            stig_score += impact
             ev.append(make_evidence(
                 scan_dir, "comp-unsupported", "deduction",
                 f"{len(unsupported)} 'Not a Finding' control(s) have no written evidence "
@@ -878,24 +897,29 @@ def score_compliance(scan_dir: Path) -> Dict[str, Any]:
                 scan_dir, "comp-lowconf", "info",
                 f"{len(stig_agg['low_confidence'])} passing control(s) have confidence below 50",
                 len(stig_agg["low_confidence"]), 0, stig_src, stig_agg["low_confidence"]))
+        components.append((70, max(0.0, min(100.0, stig_score))))
     else:
-        base_score -= 30
+        components.append((70, 0.0))
         ev.append(make_evidence(scan_dir, "comp-no-stig", "missing",
-                                "No STIG assessment exists for this application", None, -30))
+                                "No STIG assessment in any scan of this application — scored 0 (weight 70)",
+                                0, -70.0))
 
     if modelcard_score is not None:
-        base_score += modelcard_score * 0.2
-        ev.append(make_evidence(scan_dir, "comp-modelcard", "bonus",
-                                f"Model card completeness {modelcard_score:.1f}% × 0.2",
-                                round(modelcard_score, 1), round(modelcard_score * 0.2, 1), modelcard_file))
+        components.append((20, float(modelcard_score)))
+        ev.append(make_evidence(scan_dir, "comp-modelcard", "component",
+                                f"Model card completeness {modelcard_score:.1f}%, weight 20",
+                                round(modelcard_score, 1), None, modelcard_file))
 
     if api_documented > 0:
-        base_score += 10
-        ev.append(make_evidence(scan_dir, "comp-api", "bonus",
-                                f"{api_documented} API endpoints documented across {scans_with_apis} scan(s)",
-                                api_documented, 10))
+        components.append((10, 100.0))
+        ev.append(make_evidence(scan_dir, "comp-api", "component",
+                                f"{api_documented} API endpoints documented across {scans_with_apis} scan(s), weight 10",
+                                api_documented))
 
-    base_score = max(0, min(100, base_score))
+    total_weight = sum(w for w, _ in components)
+    if not total_weight:
+        return _dimension(None, {}, ev, applicable=False)
+    base_score = sum(w * sc for w, sc in components) / total_weight
 
     return _dimension(base_score, {
         "stig_pass_rate": round(stig_pass_rate, 1) if stig_pass_rate is not None else None,
@@ -930,17 +954,19 @@ def score_operational(scan_dir: Path, findings: Dict, metadata: Dict) -> Dict[st
     helm_data = load_json(helm_file)
     helm_valid = None
     if helm_data:
-        helm_valid = helm_data.get("build_success", False)
+        helm_valid = bool(helm_data.get("build_success")) or helm_data.get("status") == "success"
 
-    network_file = locate(scan_dir, "network-discovery/network-inventory.json")
+    network_file = locate(scan_dir, "network/network-discovery.json", "network-discovery/network-inventory.json")
     network_data = load_json(network_file)
     unexpected: List[str] = []
+    # Only ports confirmed open by an active scan count; statically declared service ports are not exposure.
+    open_ports = []
     if network_data and "open_ports" in network_data:
-        standard_ports = {80, 443, 22, 3000, 8080, 8443}
-        for port_info in network_data["open_ports"]:
-            port = port_info.get("port", 0)
-            if port not in standard_ports:
-                unexpected.append(str(port))
+        open_ports = [p.get("port", 0) for p in network_data["open_ports"]]
+    elif network_data and (network_data.get("summary") or {}).get("active_scan_run"):
+        open_ports = list(network_data["summary"].get("unique_ports", []))
+    standard_ports = {80, 443, 22, 3000, 8080, 8443}
+    unexpected = [str(p) for p in open_ports if p not in standard_ports]
     unexpected_ports = len(unexpected)
 
     trend_direction = "stable"
@@ -964,9 +990,8 @@ def score_operational(scan_dir: Path, findings: Dict, metadata: Dict) -> Dict[st
         ev.append(make_evidence(scan_dir, "op-helm", "deduction", "Helm chart failed to build",
                                 False, -30, helm_file))
     elif helm_valid is None:
-        base_score -= 10
         ev.append(make_evidence(scan_dir, "op-helm-missing", "missing",
-                                "No Helm result (not applicable or not run)", None, -10, helm_file))
+                                "Helm has not run — no evidence either way"))
     else:
         ev.append(make_evidence(scan_dir, "op-helm", "info", "Helm chart built successfully", True, 0, helm_file))
 
@@ -989,15 +1014,16 @@ def score_operational(scan_dir: Path, findings: Dict, metadata: Dict) -> Dict[st
             trend_direction, {"improving": 10, "degrading": -20}.get(trend_direction, 0),
             locate(scan_dir, "security-findings-summary.json")))
     else:
-        ev.append(make_evidence(scan_dir, "op-trend-none", "info",
-                                "No earlier scan of this app to compare — trend treated as stable",
-                                trend_direction, 0))
+        ev.append(make_evidence(scan_dir, "op-trend-none", "missing",
+                                "No earlier scan of this app to compare — no trend available"))
 
+    if helm_valid is None and network_data is None and not prev_name:
+        return _dimension(None, {}, ev, applicable=False)
     base_score = max(0, min(100, base_score))
     return _dimension(base_score, {
         "helm_valid": helm_valid,
-        "unexpected_network_ports": unexpected_ports,
-        "trend_direction": trend_direction,
+        "unexpected_network_ports": unexpected_ports if network_data is not None else None,
+        "trend_direction": trend_direction if prev_name else None,
         "trend_compared_to": prev_name,
     }, ev)
 
@@ -1019,7 +1045,9 @@ def score_mosa(scan_dir: Path, findings: Dict, metadata: Dict) -> Dict[str, Any]
 
     helm_file = locate(scan_dir, "helm/helm-results.json")
     helm_data = load_json(helm_file)
-    has_helm = helm_data is not None and helm_data.get("chart_valid") is True
+    has_helm = helm_data is not None and (
+        helm_data.get("chart_valid") is True or helm_data.get("status") == "success"
+        or bool(helm_data.get("build_success")))
 
     dockerfile_present = any((d / "Dockerfile").exists() for d in (_HISTORY or [scan_dir])) or metadata.get("has_dockerfile", False)
 
@@ -1049,7 +1077,10 @@ def score_mosa(scan_dir: Path, findings: Dict, metadata: Dict) -> Dict[str, Any]
             ev.append(make_evidence(scan_dir, eid, "deduction", label + " — absent", False, -penalty, source))
 
     check("mosa-sbom", has_sbom_standard, "Standard CycloneDX SBOM", 25, sbom_file)
-    check("mosa-helm", has_helm, "Valid Helm chart (modular deployment)", 15, helm_file)
+    if helm_data is not None:
+        check("mosa-helm", has_helm, "Valid Helm chart (modular deployment)", 15, helm_file)
+    else:
+        ev.append(make_evidence(scan_dir, "mosa-helm-missing", "missing", "Helm has not run — no evidence either way"))
     check("mosa-docker", dockerfile_present, "Dockerfile (portable packaging)", 15)
     check("mosa-api", has_openapi, f"Documented API endpoints ({api_count})", 10)
 
@@ -1068,10 +1099,12 @@ def score_mosa(scan_dir: Path, findings: Dict, metadata: Dict) -> Dict[str, Any]
                                 f"Open-source ratio {open_source_ratio * 100:.0f}%",
                                 round(open_source_ratio * 100, 1), 0, sbom_file))
 
+    if not has_sbom_standard:
+        return _dimension(None, {}, ev, applicable=False)
     base_score = max(0, base_score)
     return _dimension(base_score, {
         "has_sbom_standard": has_sbom_standard,
-        "has_helm_chart": has_helm,
+        "has_helm_chart": has_helm if helm_data is not None else None,
         "has_dockerfile": dockerfile_present,
         "has_openapi_spec": has_openapi,
         "api_endpoint_count": api_count,
@@ -1097,8 +1130,8 @@ def calculate_trl(dimension_scores: Dict[str, Dict], weights: Dict[str, float]) 
     """
     weighted_score = 0.0
     for dimension, weight in weights.items():
-        score = dimension_scores.get(dimension, {}).get("score", 0)
-        weighted_score += score * weight
+        dim = dimension_scores.get(dimension, {})
+        weighted_score += dim.get("score", 0) * weight
     
     # Map to TRL
     if weighted_score >= 90:
@@ -1138,8 +1171,6 @@ def get_blockers(dimension_scores: Dict[str, Dict]) -> List[str]:
         blockers.append("CRITICAL: Dangerous content detected in model files (Layer 14)")
     
     sc = dimension_scores["supply_chain"]["details"]
-    if not sc.get("sbom_exists"):
-        blockers.append("BLOCKER: No SBOM present")
     if sc.get("critical_eol", 0) > 0:
         blockers.append(f"HIGH: {sc['critical_eol']} critical EOL component(s)")
     
@@ -1202,7 +1233,9 @@ def main():
         "mosa": score_mosa(scan_dir, findings, metadata),
     }
     
-    # Calculate TRL
+    # Dimensions with no data score 0 and keep their weight: not scanning must never help the score.
+    not_scored = [d for d, v in dimension_scores.items() if not v.get("applicable", True)]
+
     trl_level = calculate_trl(dimension_scores, weights)
     
     # Calculate weighted overall score
@@ -1230,14 +1263,11 @@ def main():
         "weighted_score": round(weighted_score, 1),
         "weight_profile": weight_profile,
         "weights": weights,
+        "not_scored": not_scored,
         "dimension_scores": dimension_scores,
         "blockers": blockers,
-        "scan_metadata": {
-            "scan_id": metadata.get("scan_id"),
-            "scan_type": metadata.get("scan_type"),
-            "scan_timestamp": metadata.get("scan_timestamp"),
-        },
-        "generated_at": findings.get("enrichment", {}).get("enriched_at") or metadata.get("scan_timestamp"),
+        "scan_metadata": {k: metadata[k] for k in ("scan_id", "scan_type", "scan_timestamp") if metadata.get(k) is not None},
+        "generated_at": findings.get("enrichment", {}).get("enriched_at") or metadata.get("scan_timestamp") or scan_dir.name,
     }
     
     # Write output

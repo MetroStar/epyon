@@ -8297,7 +8297,8 @@ function buildScorecardCard(scorecardData) {
   window._scorecardDimensions = {};
 
   const dimCards = dimOrder.map(key => {
-    const d = dims[key] || { score: 0, weight: 0, details: {} };
+    const d = dims[key] || { score: 0, applicable: false, details: {}, evidence: [] };
+    const applicable = d.applicable !== false && dims[key];
     const s = (d.score || 0).toFixed(0);
     const w = ((weights[key] || 0) * 100).toFixed(0);
     const barColor = s >= 70 ? 'var(--pass)' : s >= 50 ? 'var(--medium)' : 'var(--critical)';
@@ -8309,6 +8310,7 @@ function buildScorecardCard(scorecardData) {
       score: s,
       weight: w,
       color: barColor,
+      applicable: !!applicable,
       details: d.details || {},
       evidence: d.evidence || []
     };
@@ -8316,11 +8318,12 @@ function buildScorecardCard(scorecardData) {
     return `
       <div class="scorecard-dim-card" onclick="showDimensionModal('${key}')" style="cursor:pointer">
         <div class="scorecard-dim-label">${esc(dimLabels[key])}</div>
-        <div class="scorecard-dim-score" style="color:${barColor}">${s}</div>
+        ${applicable ? `<div class="scorecard-dim-score" style="color:${barColor}">${s}</div>
         <div class="scorecard-dim-weight">${w}% weight</div>
         <div class="scorecard-dim-bar">
           <div class="scorecard-dim-bar-fill" style="width:${s}%;background:${barColor}"></div>
-        </div>
+        </div>` : `<div class="scorecard-dim-score" style="color:var(--text-muted);font-size:18px">Not scanned</div>
+        <div class="scorecard-dim-weight">${w}% weight · scores 0</div>`}
         <div style="margin-top:8px;font-size:12px;color:var(--text-muted);text-align:center">Click for details</div>
       </div>`;
   }).join('');
@@ -8400,7 +8403,7 @@ function buildScorecardCard(scorecardData) {
           ${prevHtml}
           ${signoffHtml}
           <div style="font-size:12px;color:var(--text-muted);padding-top:16px;border-top:1px solid var(--border);margin-top:16px">
-            <strong>About Scoring:</strong> Built from the newest result of every tool across this application's scan history, so it does not depend on the scan type. Six dimensions (Security, Supply Chain, Code Quality, Compliance, Operational, MOSA). 
+            <strong>About Scoring:</strong> Anything never scanned in any scan of this application scores 0 rather than being ignored, so skipping a scan can never raise the score. Built from the newest result of every tool across this application's scan history, so it does not depend on the scan type. Six dimensions (Security, Supply Chain, Code Quality, Compliance, Operational, MOSA). 
             Scores 70+ are production-ready, 50-69 need improvements, below 50 require immediate attention.
             <br><small><strong>MOSA</strong> = Modular Open Systems Approach: modularity, open standards, interoperability, portability. <strong>Click dimension cards for detailed breakdowns.</strong></small>
           </div>
@@ -8424,14 +8427,14 @@ window.showScorecardHelp = () => {
       <h3>Six dimensions, each 0–100</h3>
       <table>
         ${row('Security (30%)', 'Starts at 100. Critical −15, high −5, medium −1, low −0.2 per vulnerability (SAST excluded). Known-exploited (CISA KEV) −10 each, max −30. ML layers 14/18/19/20 −25 max each. <em>Caps:</em> leaked secrets → 30, malware → 20, dangerous model files or critical provenance → 40, LLM probe pass rate under 80% → 50.')}
-        ${row('Supply Chain (20%)', 'Needs an SBOM (none = 0). Deducts for end-of-support (−20) and EOL (−5) components, vulnerability density, high/critical findings that already have a fix (−2 each, max −20) and typosquatted models.')}
+        ${row('Supply Chain (20%)', 'Needs an SBOM (without one in any scan the dimension scores 0). Deducts for end-of-support (−20) and EOL (−5) components, vulnerability density, high/critical findings that already have a fix (−2 each, max −20) and typosquatted models.')}
         ${row('Code Quality (15%)', 'Weighted average of tools that have run: SonarQube gate 40, Checkov IaC pass rate 30, Semgrep SAST 30. Tools that never ran are listed as missing and their weight is redistributed.')}
-        ${row('Compliance (15%)', 'STIG pass rate × 0.7, minus a CAT I penalty and a penalty for “Not a Finding” controls with no written evidence. Plus model card (×0.2) and documented APIs (+10). No STIG assessment at all: −30.')}
-        ${row('Operational (10%)', 'Helm chart builds, no non-standard open ports, and the trend against the previous scan (worse −20, better +10).')}
+        ${row('Compliance (15%)', 'Weighted average of STIG (70, always counted: no STIG assessment scores 0; includes a CAT I penalty and a penalty for “Not a Finding” controls with no written evidence), plus model card (20) and documented APIs (10) when present. No STIG assessment in any scan scores the STIG part 0.')}
+        ${row('Operational (10%)', 'Helm chart builds, no non-standard open ports, and the trend against the previous scan (worse −20, better +10). A missing Helm result or earlier scan adds no bonus or penalty.')}
         ${row('MOSA (10%)', 'Modular open systems: standard SBOM, Helm chart, Dockerfile, documented API and open-source license ratio.')}
       </table>
       <h3>Overall score and TRL</h3>
-      <p>Overall = Σ(dimension score × weight). It maps to a Technology Readiness Level: 90+ → TRL 9, 80+ → 8, 70+ → 7, 60+ → 6, 50+ → 5, 40+ → 4, 30+ → 3, 20+ → 2, otherwise 1. Blockers (critical CVEs, secrets, malware, KEV, no SBOM, STIG under 70%) are listed separately.</p>
+      <p>Never scanned means scored 0: a dimension with no data shows “Not scanned”, scores 0 and keeps its weight. Overall = Σ(dimension score × weight). It maps to a Technology Readiness Level: 90+ → TRL 9, 80+ → 8, 70+ → 7, 60+ → 6, 50+ → 5, 40+ → 4, 30+ → 3, 20+ → 2, otherwise 1. Blockers (critical CVEs, secrets, malware, KEV, STIG under 70%) are listed separately.</p>
       <h3>Evidence</h3>
       <p>Click a dimension to see every line that moved its score: the points, the source file and its SHA-256, and the finding or control IDs behind it. <strong>Evidence package</strong> downloads the score, the source files and a hash manifest; files that changed since scoring are flagged.</p>
       <h3>Sign-off</h3>
@@ -8457,6 +8460,12 @@ window.revokeScorecardSignoff = async (btn) => {
   if (r.ok) await calculateScorecardForScan(box.dataset.scan);
 };
 
+function flattenScoreDetail(v) {
+  if (v == null) return '';
+  if (typeof v !== 'object') return String(v);
+  return Object.entries(v).map(([k, x]) => `${k.replace(/[-_]/g, ' ')}: ${flattenScoreDetail(x)}`).join(' · ');
+}
+
 function showDimensionModal(dimensionKey) {
   const data = window._scorecardDimensions[dimensionKey];
   if (!data) {
@@ -8464,13 +8473,14 @@ function showDimensionModal(dimensionKey) {
     return;
   }
   
-  const { key, label, score, weight, color, details, evidence } = data;
+  const { key, label, score, weight, color, details, evidence, applicable } = data;
 
   const detailsHtml = Object.entries(details).map(([k, v]) => {
     const itemLabel = k.replace(/_/g, ' ');
     let value = v;
     if (typeof v === 'boolean') value = v ? '✓ Yes' : '✗ No';
-    else if (typeof v === 'number') value = v.toFixed(1);
+    else if (typeof v === 'number') value = Number.isInteger(v) ? String(v) : v.toFixed(1);
+    else if (v && typeof v === 'object') value = flattenScoreDetail(v);
     return `
       <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border-muted)">
         <span style="color:var(--text-muted);font-size:14px;text-transform:capitalize">${esc(itemLabel)}</span>
@@ -8478,6 +8488,7 @@ function showDimensionModal(dimensionKey) {
       </div>`;
   }).join('');
 
+  const kindLabel = { missing: 'not scanned' };
   const kindColor = { deduction: 'var(--critical)', cap: 'var(--critical)', missing: 'var(--medium)', bonus: 'var(--pass)', component: 'var(--accent)', info: 'var(--text-muted)' };
   const evidenceHtml = (evidence || []).map(e => {
     const impact = e.impact == null ? '' : `<span style="font-weight:700;color:${kindColor[e.kind] || 'inherit'}">${e.kind === 'cap' ? 'cap ' : (e.impact > 0 ? '+' : '')}${esc(String(e.impact))}</span>`;
@@ -8488,7 +8499,7 @@ function showDimensionModal(dimensionKey) {
     return `
       <div style="padding:10px 0;border-bottom:1px solid var(--border-muted)">
         <div style="display:flex;justify-content:space-between;gap:12px">
-          <span style="font-size:13px"><span style="color:${kindColor[e.kind] || 'inherit'};text-transform:uppercase;font-size:11px;margin-right:6px">${esc(e.kind)}</span>${esc(e.label)}</span>${impact}
+          <span style="font-size:13px"><span style="color:${kindColor[e.kind] || 'inherit'};text-transform:uppercase;font-size:11px;margin-right:6px">${esc(kindLabel[e.kind] || e.kind)}</span>${esc(e.label)}</span>${impact}
         </div>
         ${e.note ? `<div style="font-size:12px;color:var(--text-muted)">${esc(e.note)}</div>` : ''}${src}${refs}
       </div>`;
@@ -8515,10 +8526,11 @@ function showDimensionModal(dimensionKey) {
       </div>
 
       <div style="background:var(--bg-card);border-radius:var(--radius);padding:24px;margin-bottom:24px;text-align:center;border:2px solid ${color}">
-        <div style="font-size:64px;font-weight:700;color:${color};margin-bottom:8px">${score}</div>
+        ${applicable ? `<div style="font-size:64px;font-weight:700;color:${color};margin-bottom:8px">${score}</div>
         <div style="font-size:14px;color:var(--text-muted);margin-bottom:4px">Score out of 100</div>
-        <div style="font-size:13px;color:var(--text-muted)">${weight}% of overall score</div>
-        <div style="margin:16px auto 0;max-width:300px">
+        <div style="font-size:13px;color:var(--text-muted)">${weight}% of overall score</div>` : `<div style="font-size:28px;font-weight:700;color:var(--text-muted);margin-bottom:8px">Not scanned</div>
+        <div style="font-size:13px;color:var(--text-muted)">No scan of this application has produced data for this dimension, so it scores 0 and keeps its weight.</div>`}
+        <div style="margin:16px auto 0;max-width:300px;${applicable ? '' : 'display:none'}">
           <div style="height:16px;background:var(--bg);border-radius:8px;overflow:hidden">
             <div style="width:${score}%;height:100%;background:${color};transition:width 0.3s ease"></div>
           </div>

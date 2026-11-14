@@ -59,8 +59,9 @@ def test_poam_csv_has_open_stigs_and_critical_high_cves(tmp_path, monkeypatch):
     import csv
     import io
 
-    from web.api import main as api_main
+    from web.api import main as api_main, poam
 
+    monkeypatch.setattr(poam, "_CONFIG_FILE", tmp_path / "poam-config.json")
     scan = _scan_dir(tmp_path)
     findings = {
         "critical_findings": [{"tool": "Grype", "vulnerability_id": "CVE-1", "package_name": "lib",
@@ -85,3 +86,34 @@ def test_poam_csv_has_open_stigs_and_critical_high_cves(tmp_path, monkeypatch):
     assert preview["total"] == 2
     assert preview["by_source"] == {"CVE": 1, "STIG": 1}
     assert preview["rows"][0]["POA&M ID"] == "POAM-0001"
+
+
+def test_poam_sla_config_and_manual_due_date(tmp_path, monkeypatch):
+    from web.api import main as api_main, poam
+
+    scan = _scan_dir(tmp_path)
+    monkeypatch.setattr(poam, "_CONFIG_FILE", tmp_path / "poam-config.json")
+    monkeypatch.setattr(api_main.parsers, "find_scan_dirs", lambda root, days=35: [scan])
+    monkeypatch.setattr(api_main.parsers, "load_scan_complete", lambda d, r: {"findings": {}})
+    client = TestClient(api_main.app)
+    url = f"/api/scans/{scan.name}/poam?preview=true"
+
+    assert client.put("/api/poam/config", json={"sla_days": {"low": 10}}).status_code == 200
+    assert client.put("/api/poam/config", json={"sla_days": {"low": 0}}).status_code == 400
+    assert client.put("/api/poam/config", json={"sla_days": {"bogus": 5}}).status_code == 400
+    row = client.get(url).json()["rows"][0]
+    assert row["Scheduled Completion Date"] == "2026-11-23"  # low = 10 days from 2026-11-13
+    assert row["Due Date Basis"] == "SLA (10d)"
+
+    put = lambda d: client.put(f"/api/scans/{scan.name}/poam/due-date", json={"key": "stig:V-2", "due_date": d})
+    assert put("2027-01-31").status_code == 200
+    assert put("31/01/2027").status_code == 400
+    row = client.get(url).json()["rows"][0]
+    assert (row["Scheduled Completion Date"], row["Due Date Basis"]) == ("2027-01-31", "Manual")
+
+    # override is keyed by app, so a later scan of the same app keeps it
+    later = tmp_path / "myapp_2026-12-01_10-00-00"
+    assert poam.get_overrides(later.name) == {"stig:V-2": "2027-01-31"}
+
+    assert put(None).status_code == 200
+    assert client.get(url).json()["rows"][0]["Due Date Basis"] == "SLA (10d)"

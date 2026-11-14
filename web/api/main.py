@@ -1316,14 +1316,57 @@ def scan_poam(scan_id: str, response: Response, preview: bool = False):
         raise HTTPException(400, "Invalid scan_id")
     matched = _require_scan_dir(scan_id)
     scan_data = parsers.load_scan_complete(matched, EPYON_ROOT)
-    rows = poam.build_rows(scan_id, _build_stig_entries(scan_id, matched), scan_data.get("findings", {}))
+    rows = poam.build_rows(
+        scan_id, _build_stig_entries(scan_id, matched), scan_data.get("findings", {}),
+        sla_days=poam.get_sla_days(), overrides=poam.get_overrides(scan_id),
+    )
     if preview:
         return {"scan_id": scan_id, "columns": poam.COLUMNS, "total": len(rows),
+                "sla_days": poam.get_sla_days(),
                 "by_severity": dict(Counter(r["Raw Severity"] for r in rows)),
                 "by_source": dict(Counter("STIG" if r["Detection Source"].startswith("Epyon STIG") else "CVE" for r in rows)),
                 "rows": rows}
     return Response(poam.to_csv(rows), media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="poam-{scan_id}.csv"'})
+
+
+class PoamSlaBody(BaseModel):
+    sla_days: dict[str, int]
+
+
+class PoamDueDateBody(BaseModel):
+    key: str
+    due_date: Optional[str] = None  # YYYY-MM-DD; null clears the override
+
+
+@app.get("/api/poam/config")
+def get_poam_config(response: Response):
+    _sec_headers(response)
+    return {"sla_days": poam.get_sla_days(), "defaults": poam.SLA_DAYS}
+
+
+@app.put("/api/poam/config")
+def put_poam_config(body: PoamSlaBody, response: Response):
+    """Set the days-to-complete per severity used for POA&M scheduled completion dates."""
+    _sec_headers(response)
+    try:
+        return {"sla_days": poam.set_sla_days(body.sla_days)}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.put("/api/scans/{scan_id}/poam/due-date")
+def put_poam_due_date(scan_id: str, body: PoamDueDateBody, response: Response):
+    """Manually set (or clear) the completion date for one POA&M item; persists across rescans."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    _require_scan_dir(scan_id)
+    try:
+        poam.set_override(scan_id, body.key, body.due_date)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"key": body.key, "due_date": body.due_date}
 
 
 @app.get("/api/scans/{scan_id}/stig-data")

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - POA&M export: `GET /api/scans/{scan_id}/poam` downloads a CSV of Open STIG controls plus unsuppressed Critical/High CVEs (dates from the severity SLA; POC, resources and milestones left blank). `?preview=true` returns the rows as JSON, shown in a new collapsible POA&M section on the scan detail page.
+- POA&M scheduling controls: configurable per-severity SLA days (`GET/PUT /api/poam/config`, stored in `web/data/poam-config.json`) and manual per-item completion dates (`PUT /api/scans/{scan_id}/poam/due-date`) that persist across rescans of the same application. The CSV gains a `Due Date Basis` column.
 
 ## [3.67.1] - 2026-11-13
 

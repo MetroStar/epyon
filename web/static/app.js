@@ -2033,32 +2033,96 @@ function buildPoamSection(scanId) {
     </div>`;
 }
 
-window.loadPoamPreview = async (el, scanId) => {
-  if (el.dataset.loaded) return;
+window.loadPoamPreview = async (el, scanId, force = false) => {
+  if (el.dataset.loaded && !force) return;
   el.dataset.loaded = '1';
   const body = el.querySelector('.poam-body');
   try {
     const res = await fetch(`/api/scans/${encodeURIComponent(scanId)}/poam?preview=true`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const d = await res.json();
-    if (!d.total) { body.innerHTML = '<div style="color:var(--text-muted)">No open STIG controls or Critical/High CVEs — nothing to add to a POA&amp;M.</div>'; return; }
     const sev = d.by_severity || {}, src = d.by_source || {};
-    el.querySelector('.poam-counts').textContent =
-      `${d.total} items · ${src.STIG || 0} STIG · ${src.CVE || 0} CVE · ${sev.Critical || 0} critical · ${sev.High || 0} high · ${sev.Medium || 0} medium`;
+    el.querySelector('.poam-counts').textContent = d.total
+      ? `${d.total} items · ${src.STIG || 0} STIG · ${src.CVE || 0} CVE · ${sev.Critical || 0} critical · ${sev.High || 0} high · ${sev.Medium || 0} medium`
+      : 'Open STIG controls + Critical/High CVEs';
+    const sla = d.sla_days || {};
+    const slaForm = `
+      <div class="poam-sla" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px;font-size:12px">
+        <strong>SLA (days to complete):</strong>
+        ${['critical', 'high', 'medium', 'low'].map(k => `
+          <label style="display:flex;align-items:center;gap:4px">${ucFirst(k)}
+            <input type="number" min="1" max="3650" data-sla="${k}" value="${esc(sla[k])}" style="width:64px">
+          </label>`).join('')}
+        <button class="btn btn-sm" onclick="savePoamSla(this, '${esc(scanId)}')">Save SLA</button>
+        <span class="poam-sla-msg" style="color:var(--text-muted)"></span>
+      </div>`;
+    if (!d.total) {
+      body.innerHTML = slaForm + '<div style="color:var(--text-muted)">No open STIG controls or Critical/High CVEs — nothing to add to a POA&amp;M.</div>';
+      return;
+    }
     const cols = ['POA&M ID', 'Weakness Identifier', 'Weakness Name', 'Raw Severity', 'Detection Source', 'Affected Component', 'Remediation / Mitigation', 'Scheduled Completion Date', 'Status'];
     const clip = (v) => { const t = String(v ?? ''); return t.length > 160 ? t.slice(0, 160) + '…' : t; };
-    body.innerHTML = `
+    const cell = (r, c) => {
+      if (c === 'Raw Severity') return `<span class="sev-badge ${esc(String(r[c]).toLowerCase())}">${esc(r[c])}</span>`;
+      if (c === 'Scheduled Completion Date') {
+        const manual = r['Due Date Basis'] === 'Manual';
+        return `<input type="date" value="${esc(r[c])}" data-key="${esc(r['Item Key'])}" data-default="${esc(r['Default Due Date'])}"
+                  title="${manual ? 'Manual date' : esc(r['Due Date Basis'])} — change to set manually"
+                  onchange="savePoamDueDate(this, '${esc(scanId)}')"
+                  style="${manual ? 'font-weight:700' : ''}">
+                ${manual ? `<a href="#" title="Reset to SLA date (${esc(r['Default Due Date'])})" onclick="resetPoamDueDate(event, this, '${esc(scanId)}')">↺</a>` : ''}`;
+      }
+      return `<span title="${esc(r[c] ?? '')}">${esc(clip(r[c]))}</span>`;
+    };
+    body.innerHTML = slaForm + `
       <div style="overflow-x:auto;max-height:480px;overflow-y:auto">
         <table>
           <thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
-          <tbody>${d.rows.map(r => `<tr>${cols.map(c => `<td title="${esc(r[c] ?? '')}">${c === 'Raw Severity' ? `<span class="sev-badge ${esc(String(r[c]).toLowerCase())}">${esc(r[c])}</span>` : esc(clip(r[c]))}</td>`).join('')}</tr>`).join('')}</tbody>
+          <tbody>${d.rows.map(r => `<tr>${cols.map(c => `<td>${cell(r, c)}</td>`).join('')}</tr>`).join('')}</tbody>
         </table>
       </div>
-      <div style="margin-top:8px;color:var(--text-muted);font-size:12px">Point of contact, resources and milestones are left blank in the CSV for you to complete. Completion dates use the severity SLA (critical 7d, high 30d, medium 90d, low 180d) from the scan date.</div>`;
+      <div style="margin-top:8px;color:var(--text-muted);font-size:12px">Dates default to the SLA above, counted from the scan date. Pick a date to set it manually (bold); it is kept across rescans. Point of contact, resources and milestones are left blank in the CSV for you to complete.</div>`;
   } catch (e) {
     el.dataset.loaded = '';
     body.textContent = `Could not load POA&M preview (${e.message}).`;
   }
+};
+
+async function poamSend(url, method, payload) {
+  const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try { msg = (await res.json()).detail || msg; } catch (_) { /* keep status */ }
+    throw new Error(msg);
+  }
+}
+
+window.savePoamSla = async (btn, scanId) => {
+  const wrap = btn.closest('.poam-sla'), msg = wrap.querySelector('.poam-sla-msg');
+  const sla = {};
+  wrap.querySelectorAll('input[data-sla]').forEach(i => { sla[i.dataset.sla] = parseInt(i.value, 10); });
+  try {
+    await poamSend('/api/poam/config', 'PUT', { sla_days: sla });
+    window.loadPoamPreview(btn.closest('details'), scanId, true);
+  } catch (e) { msg.textContent = `Not saved: ${e.message}`; }
+};
+
+window.savePoamDueDate = async (input, scanId) => {
+  try {
+    // Choosing the default date again clears the override
+    const due = (!input.value || input.value === input.dataset.default) ? null : input.value;
+    await poamSend(`/api/scans/${encodeURIComponent(scanId)}/poam/due-date`, 'PUT', { key: input.dataset.key, due_date: due });
+    window.loadPoamPreview(input.closest('details'), scanId, true);
+  } catch (e) { input.title = `Not saved: ${e.message}`; input.style.outline = '2px solid var(--danger, red)'; }
+};
+
+window.resetPoamDueDate = async (ev, link, scanId) => {
+  ev.preventDefault();
+  const input = link.parentElement.querySelector('input[type=date]');
+  try {
+    await poamSend(`/api/scans/${encodeURIComponent(scanId)}/poam/due-date`, 'PUT', { key: input.dataset.key, due_date: null });
+    window.loadPoamPreview(link.closest('details'), scanId, true);
+  } catch (e) { link.title = `Not reset: ${e.message}`; }
 };
 
 async function renderScanDetail(scanId, openFindingId = '', openFindingPackage = '') {

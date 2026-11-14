@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.70.1] - 2026-11-14
+
+### Added
+- **`documentation/SCORE_CARD_GUIDE.md`**: in-depth guide to Score Card scoring, data sources, evidence and verification.
+
+### Changed
+- **Documentation cleanup.** Rewrote the documentation index and `SCAN_DIRECTORY_ARCHITECTURE.md`; refreshed counts and layers in `SECURITY_REVIEW_AND_TEST_COVERAGE.md` and `SYSTEM_ARCHITECTURE.md`; fixed dead links and the STIG opt-in wording (`run_stig` input / `scan_mode: stig`, not `RUN_STIG`). Removed four stale or superseded docs (air-gapped plan, observability summary, manifest deployment report, mobile/policy audit summary).
+
 ## [3.70.0] - 2026-11-14
 
 ### Added

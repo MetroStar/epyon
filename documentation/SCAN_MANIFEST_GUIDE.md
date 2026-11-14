@@ -534,7 +534,7 @@ Potential future additions:
 ## Related Documentation
 
 - [STIG Compliance Guide](STIG_COMPLIANCE_GUIDE.md) - STIG controls and evidence collection
-- [Security Architecture](COMPREHENSIVE_SECURITY_ARCHITECTURE.md) - Overall security design
+- [System Architecture](SYSTEM_ARCHITECTURE.md) - Overall security design
 - [Scan Directory Architecture](SCAN_DIRECTORY_ARCHITECTURE.md) - Scan structure and outputs
 
 ## Summary

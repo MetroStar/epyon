@@ -225,6 +225,5 @@ Generate report showing:
 - [ ] Confirmed no breaking changes to API consumers
 
 ## Related Documentation
-- [DASHBOARD_DATA_GUIDE.md](./DASHBOARD_DATA_GUIDE.md) - Data structure reference
 - [SCAN_DIRECTORY_ARCHITECTURE.md](./SCAN_DIRECTORY_ARCHITECTURE.md) - Scan result organization
-- [COMPREHENSIVE_SECURITY_ARCHITECTURE.md](./COMPREHENSIVE_SECURITY_ARCHITECTURE.md) - Security scanning overview
+- [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md) - Security scanning overview

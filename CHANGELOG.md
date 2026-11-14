@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Code Quality is a weighted average of the tools that have ever run (SonarQube, Checkov, Semgrep) instead of scoring 0 when SonarQube is absent.
 - The Score Card is available when any scan of the app has consolidated findings.
 - Data that was never scanned is never null and never ignored: a missing STIG assessment scores the STIG component 0 and a dimension with no data (`applicable: false`) scores 0 and keeps its weight, so skipping a scan cannot raise the score. Weights are not rescaled. Missing-SBOM is no longer a blocker.
+- Misconfigurations (Checkov IaC) no longer count as CVEs in Security: they have their own lighter deduction (5/2/0.5/0.1 pt per critical/high/medium/low, max 25), and are excluded from the CVE counts, KEV, patchable-vulnerability and trend inputs.
 - Fixed artifact paths so Checkov (`checkov-results.json`, one report per framework), Helm (`status: success`), Xeol and network discovery results are actually found.
 - Scores will differ from earlier versions; this is expected.
 

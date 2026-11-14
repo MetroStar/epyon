@@ -2029,6 +2029,7 @@ async function renderScanDetail(scanId, openFindingId = '', openFindingPackage =
         const slugLabel = r.slug.replace(/-/g, ' ').replace(/\bstig\b/gi, 'STIG');
         const mdBtn   = r.has_md   ? `<a class="btn btn-sm" href="${esc(r.md_url)}"   download>↓ .md</a>`   : '';
         const cklbBtn = r.has_cklb ? `<a class="btn btn-sm" href="${esc(r.cklb_url)}" download>↓ .cklb</a>` : '';
+        const jsonBtn = `<a class="btn btn-sm" href="/api/scans/${encodeURIComponent(scanId)}/stig-findings-json?slug=${encodeURIComponent(r.slug)}" download>↓ .json</a>`;
         return `
           <div class="stig-row">
             <span class="stig-row-label" title="${esc(r.slug)}">${esc(slugLabel)}</span>
@@ -2038,7 +2039,7 @@ async function renderScanDetail(scanId, openFindingId = '', openFindingPackage =
               <span class="stig-mini na">${esc(r.na)} n/a</span>
               <span class="stig-mini total">${esc(r.total)} total</span>
             </span>
-            <span class="stig-row-btns">${mdBtn}${cklbBtn}</span>
+            <span class="stig-row-btns">${mdBtn}${cklbBtn}${jsonBtn}</span>
           </div>`;
       }).join('') : '';
 
@@ -2047,6 +2048,7 @@ async function renderScanDetail(scanId, openFindingId = '', openFindingPackage =
         ? `<a class="btn btn-sm" href="${esc(scan.stig_report_url)}" download>↓ findings.md</a>` : '';
       const cklbBtn = scan.has_stig_cklb
         ? `<a class="btn btn-sm" href="${esc(scan.stig_cklb_url)}" download>↓ findings.cklb</a>` : '';
+      const jsonBtn = `<a class="btn btn-sm" href="/api/scans/${encodeURIComponent(scanId)}/stig-findings-json" download>↓ findings.json</a>`;
 
       stigCard = `
         <div class="section findings-section-wrapper">
@@ -2071,6 +2073,7 @@ async function renderScanDetail(scanId, openFindingId = '', openFindingPackage =
               <span style="display:flex;align-items:center;gap:8px">
                 ${mdBtn ? mdBtn.replace('btn-sm', 'btn-sm').replace('>', ' onclick="event.stopPropagation()">') : ''}
                 ${cklbBtn ? cklbBtn.replace('>', ' onclick="event.stopPropagation()">') : ''}
+                ${jsonBtn.replace('>', ' onclick="event.stopPropagation()">')}
                 <span class="findings-summary-hint">Click to expand</span>
               </span>
             </summary>
@@ -4373,13 +4376,14 @@ async function renderStig() {
             ? `<a class="btn btn-sm" href="${esc(mdUrl)}" download>↓ findings.md</a>` : '';
           const cklbBtn = app.has_stig_cklb
             ? `<a class="btn btn-sm" href="${esc(cklbUrl)}" download>↓ findings.cklb</a>` : '';
+          const jsonBtn = `<a class="btn btn-sm" href="/api/scans/${encodeURIComponent(stigScanId)}/stig-findings-json" download>↓ findings.json</a>`;
           return `
             <div class="stig-app-card" onclick="navigate('#/scans/${encodeURIComponent(stigScanId)}')" style="cursor:pointer">
               <div class="stig-app-card-header">
                 <span class="stig-app-name">
                   ${esc(app.name)}
                 </span>
-                <div class="stig-download-btns" onclick="event.stopPropagation()">${mdBtn}${cklbBtn}</div>
+                <div class="stig-download-btns" onclick="event.stopPropagation()">${mdBtn}${cklbBtn}${jsonBtn}</div>
               </div>
               <div class="stig-counts">
                 <div class="stig-count open">
@@ -7781,7 +7785,8 @@ async function renderStigViewer(scanId) {
             const cklbUrl = s.cklb_url || `/api/scans/${encodeURIComponent(scanId)}/stig-findings/${s.slug}.cklb`;
             return `
               <a class="btn btn-sm" href="${esc(mdUrl)}"   download title="${esc(s.stig_name)}">↓ ${esc(s.slug.slice(0,20))}.md</a>
-              <a class="btn btn-sm" href="${esc(cklbUrl)}" download title="${esc(s.stig_name)}">↓ ${esc(s.slug.slice(0,20))}.cklb</a>`;
+              <a class="btn btn-sm" href="${esc(cklbUrl)}" download title="${esc(s.stig_name)}">↓ ${esc(s.slug.slice(0,20))}.cklb</a>
+              <a class="btn btn-sm" href="/api/scans/${encodeURIComponent(scanId)}/stig-findings-json?slug=${encodeURIComponent(s.slug)}" download title="${esc(s.stig_name)}">↓ ${esc(s.slug.slice(0,20))}.json</a>`;
           }).join('')}` })}
 
       <div class="stig-totals-bar">

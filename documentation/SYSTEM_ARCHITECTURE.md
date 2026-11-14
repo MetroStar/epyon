@@ -169,7 +169,7 @@ Epyon is a 16-layer DevSecOps security scanner designed for human-centered cyber
 2. **STIG Detection:**
    - Auto-detect applicable STIGs from tech stack
    - Parse CKLB/XCCDF files from `configuration/stigs/`
-   - Currently supported: ASD v6r4, Tomcat 9, Postgres 16, Database SRG, .NET 4.0
+   - Currently supported: ASD v6r5, Tomcat 9, Postgres 16, Database SRG, .NET 4.0
 
 3. **AI Assessment:**
    - Per-control context window (top-5 most relevant files)

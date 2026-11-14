@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.67.1] - 2026-11-13
+
+### Changed
+- Updated the bundled ASD STIG from V6R4 to V6R5 (benchmark date 30 Sep 2026). The STIG slug is now `u-asd-stig-v6r5-manual-xccdf`, so the first scan against it re-assesses every control.
+
 ## [3.67.0] - 2026-11-13
 
 ### Added

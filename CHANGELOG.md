@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.69.0] - 2026-11-14
+
+### Added
+- **Evidence behind every Score Card number.** Each dimension records evidence items (what moved the score, points, source artifact path, SHA-256 and the finding/control IDs behind it). The dimension drawer shows them, and `trl-assessment.json` carries `scoring_version` and an `evidence_manifest`.
+- **Evidence package:** `GET /api/scans/{id}/scorecard/evidence` downloads a zip with the score, source artifacts and a re-verified hash manifest (changed or missing files are flagged).
+- **Reviewer sign-off:** `PUT/DELETE /api/scans/{id}/scorecard/signoff` records a named reviewer, comment and a digest of the score. A rescore that changes any number marks the sign-off as no longer matching.
+- **Old vs new:** the first rescore of a scan with an older scoring version keeps `trl-assessment.previous.json`; the card shows the before/after score and per-dimension change.
+- New inputs: CISA KEV, Semgrep SAST (scored under Code Quality), ML layers 14/18/19/20, typosquatted models, patchable high/critical findings, STIG human locks, passes without written evidence, and a real scan-to-scan trend.
+
+### Changed
+- **The Score Card is built from the application's scan history, not a single scan.** Each tool's result comes from the newest scan that ran it, so a quick or STIG-only scan no longer hides what the last full scan found.
+- Weights no longer depend on the scan type (`--weights` remains an explicit override), and scan metadata is optional.
+- Code Quality is a weighted average of the tools that have ever run (SonarQube, Checkov, Semgrep) instead of scoring 0 when SonarQube is absent.
+- The Score Card is available when any scan of the app has consolidated findings.
+- Scores will differ from earlier versions; this is expected.
+
+### Fixed
+- Layer 14 model-file results were read from the wrong path, so dangerous model content never capped the Security score.
+
 ## [3.68.0] - 2026-11-13
 
 ### Added

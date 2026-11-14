@@ -8366,7 +8366,8 @@ function buildScorecardCard(scorecardData) {
       score: s,
       weight: w,
       color: barColor,
-      details: d.details || {}
+      details: d.details || {},
+      evidence: d.evidence || []
     };
     
     return `
@@ -8389,6 +8390,39 @@ function buildScorecardCard(scorecardData) {
         ${blockers.map(b => `<li>${esc(b)}</li>`).join('')}
       </ul>
     </div>` : '';
+
+  const scanId = scorecardData.scan_id || '';
+  const prev = scorecardData.previous;
+  const prevHtml = prev ? `
+    <div class="scorecard-compare" style="margin-top:16px;font-size:13px;color:var(--text-muted)">
+      <strong>Before this scoring update</strong> (v${esc(String(prev.scoring_version))}):
+      ${esc(String(prev.weighted_score))} → <strong>${esc(score)}</strong>
+      (TRL ${esc(String(prev.trl_level))} → ${esc(String(level))}).
+      ${dimOrder.map(k => {
+        const o = prev.dimension_scores && prev.dimension_scores[k] ? prev.dimension_scores[k].score : null;
+        const n = (dims[k] || {}).score;
+        if (o == null || n == null) return '';
+        const diff = Math.round(n - o);
+        return `<span style="margin-right:10px">${esc(dimLabels[k])} ${diff >= 0 ? '+' : ''}${diff}</span>`;
+      }).join('')}
+    </div>` : '';
+  const so = scorecardData.signoff;
+  const signoffHtml = `
+    <div class="scorecard-signoff" data-scan="${esc(scanId)}" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+      <strong style="font-size:13px">Reviewer sign-off</strong>
+      ${so ? `<div style="margin-top:6px;font-size:13px;color:${so.valid ? 'var(--pass)' : 'var(--medium)'}">
+          ${so.valid ? '✓ Signed off' : '⚠ Sign-off no longer matches the current score'} by
+          <strong>${esc(so.reviewer)}</strong> on ${esc(so.signed_at)} (score ${esc(String(so.weighted_score))})
+          ${so.comment ? `<div style="color:var(--text-muted);margin-top:4px">${esc(so.comment)}</div>` : ''}
+          <button class="btn btn-sm" style="margin-top:8px" onclick="revokeScorecardSignoff(this)">Revoke</button>
+        </div>` : ''}
+      ${so && so.valid ? '' : `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <input type="text" class="so-name" maxlength="100" placeholder="Reviewer name" style="padding:6px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);color:var(--text)">
+          <input type="text" class="so-comment" maxlength="2000" placeholder="Comment (optional)" style="flex:1;min-width:200px;padding:6px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);color:var(--text)">
+          <button class="btn btn-sm btn-primary" onclick="signOffScorecard(this)">Sign off this score</button>
+        </div><div class="so-msg" style="font-size:12px;color:var(--critical);margin-top:6px"></div>`}
+      <div style="margin-top:10px"><a class="btn btn-sm" href="/api/scans/${encodeURIComponent(scanId)}/scorecard/evidence" download>↓ Evidence package (.zip)</a></div>
+    </div>`;
 
   return `
     <div class="section findings-section-wrapper">
@@ -8419,8 +8453,10 @@ function buildScorecardCard(scorecardData) {
             ${dimCards}
           </div>
           ${blockersHtml}
+          ${prevHtml}
+          ${signoffHtml}
           <div style="font-size:12px;color:var(--text-muted);padding-top:16px;border-top:1px solid var(--border);margin-top:16px">
-            <strong>About Scoring:</strong> Comprehensive security assessment across 6 dimensions (Security, Supply Chain, Code Quality, Compliance, Operational, MOSA). 
+            <strong>About Scoring:</strong> Built from the newest result of every tool across this application's scan history, so it does not depend on the scan type. Six dimensions (Security, Supply Chain, Code Quality, Compliance, Operational, MOSA). 
             Scores 70+ are production-ready, 50-69 need improvements, below 50 require immediate attention.
             <br><small><strong>MOSA</strong> = Modular Open Systems Approach: modularity, open standards, interoperability, portability. <strong>Click dimension cards for detailed breakdowns.</strong></small>
           </div>
@@ -8429,6 +8465,22 @@ function buildScorecardCard(scorecardData) {
     </div>`;
 }
 
+window.signOffScorecard = async (btn) => {
+  const box = btn.closest('.scorecard-signoff'), msg = box.querySelector('.so-msg');
+  const reviewer = box.querySelector('.so-name').value.trim();
+  try {
+    await poamSend(`/api/scans/${encodeURIComponent(box.dataset.scan)}/scorecard/signoff`, 'PUT',
+      { reviewer, comment: box.querySelector('.so-comment').value.trim() });
+    await calculateScorecardForScan(box.dataset.scan);
+  } catch (e) { msg.textContent = e.message; }
+};
+
+window.revokeScorecardSignoff = async (btn) => {
+  const box = btn.closest('.scorecard-signoff');
+  const r = await fetch(`/api/scans/${encodeURIComponent(box.dataset.scan)}/scorecard/signoff`, { method: 'DELETE' });
+  if (r.ok) await calculateScorecardForScan(box.dataset.scan);
+};
+
 function showDimensionModal(dimensionKey) {
   const data = window._scorecardDimensions[dimensionKey];
   if (!data) {
@@ -8436,7 +8488,7 @@ function showDimensionModal(dimensionKey) {
     return;
   }
   
-  const { key, label, score, weight, color, details } = data;
+  const { key, label, score, weight, color, details, evidence } = data;
 
   const detailsHtml = Object.entries(details).map(([k, v]) => {
     const itemLabel = k.replace(/_/g, ' ');
@@ -8447,6 +8499,22 @@ function showDimensionModal(dimensionKey) {
       <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border-muted)">
         <span style="color:var(--text-muted);font-size:14px;text-transform:capitalize">${esc(itemLabel)}</span>
         <span style="color:var(--text);font-size:14px;font-weight:600">${esc(String(value))}</span>
+      </div>`;
+  }).join('');
+
+  const kindColor = { deduction: 'var(--critical)', cap: 'var(--critical)', missing: 'var(--medium)', bonus: 'var(--pass)', component: 'var(--accent)', info: 'var(--text-muted)' };
+  const evidenceHtml = (evidence || []).map(e => {
+    const impact = e.impact == null ? '' : `<span style="font-weight:700;color:${kindColor[e.kind] || 'inherit'}">${e.kind === 'cap' ? 'cap ' : (e.impact > 0 ? '+' : '')}${esc(String(e.impact))}</span>`;
+    const refs = (e.refs || []).length ? `
+      <details style="margin-top:4px"><summary style="cursor:pointer;font-size:12px;color:var(--text-muted)">${esc(String(e.refs_total || e.refs.length))} item(s)${e.refs_total > e.refs.length ? ` (first ${e.refs.length} shown)` : ''}</summary>
+        <div style="font-size:12px;font-family:monospace;word-break:break-all;margin-top:4px">${e.refs.map(r => esc(r)).join('<br>')}</div></details>` : '';
+    const src = e.source ? `<div style="font-size:11px;color:var(--text-dim);font-family:monospace;word-break:break-all">${esc(e.source)}${e.sha256 ? ' · sha256 ' + esc(e.sha256.slice(0, 12)) + '…' : ''}</div>` : '';
+    return `
+      <div style="padding:10px 0;border-bottom:1px solid var(--border-muted)">
+        <div style="display:flex;justify-content:space-between;gap:12px">
+          <span style="font-size:13px"><span style="color:${kindColor[e.kind] || 'inherit'};text-transform:uppercase;font-size:11px;margin-right:6px">${esc(e.kind)}</span>${esc(e.label)}</span>${impact}
+        </div>
+        ${e.note ? `<div style="font-size:12px;color:var(--text-muted)">${esc(e.note)}</div>` : ''}${src}${refs}
       </div>`;
   }).join('');
 
@@ -8484,6 +8552,12 @@ function showDimensionModal(dimensionKey) {
       <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px">
         <h3 style="font-size:14px;font-weight:600;color:var(--text);margin:0 0 16px;text-transform:uppercase;letter-spacing:0.5px">Detailed Metrics</h3>
         ${detailsHtml || emptyNote('No detailed metrics available for this dimension.')}
+      </div>
+
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-top:16px">
+        <h3 style="font-size:14px;font-weight:600;color:var(--text);margin:0 0 4px;text-transform:uppercase;letter-spacing:0.5px">Evidence</h3>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Each line shows what moved the score, the artifact it came from and its hash.</div>
+        ${evidenceHtml || emptyNote('No evidence recorded. Recalculate the Score Card to generate it.')}
       </div>
     </div>`;
   

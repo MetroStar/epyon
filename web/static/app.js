@@ -2112,7 +2112,7 @@ window.loadPoamPreview = async (host, force = false) => {
           <tbody>${d.rows.map(r => `<tr>${cols.map(c => `<td>${cell(r, c)}</td>`).join('')}</tr>`).join('')}</tbody>
         </table>
       </div>
-      <div style="margin-top:8px;color:var(--text-muted);font-size:12px">Dates default to the SLA above, counted from the scan date. Pick a date to set it manually (bold); it is kept across rescans. Point of contact, resources and milestones are left blank in the CSV for you to complete.</div>`;
+      <div style="margin-top:8px;color:var(--text-muted);font-size:12px">Dates default to the SLA above, counted from the evaluation date. Pick a date to set it manually (bold); it is kept across rescans. Point of contact, resources and milestones are left blank in the CSV for you to complete.</div>`;
   } catch (e) {
     host.dataset.loaded = '';
     body.textContent = `Could not load POA&M preview (${e.message}).`;
@@ -2213,14 +2213,14 @@ async function renderPoam() {
         </div>`;
     }).join('') : emptyState(
       'Nothing on a POA&M yet',
-      'No application has open STIG controls or Critical/High CVEs in its latest scans.',
+      'No application has open STIG controls or Critical/High CVEs in its latest evaluations.',
       `<button class="btn btn-primary" onclick="navigate('#/stig')" style="margin-top:16px">View STIG Compliance</button>`,
     );
     page.innerHTML = `
       ${pageHeader('POA&M')}
       <p class="section-desc">
-        Plan of Action &amp; Milestones per application: Open STIG controls from the latest STIG scan plus
-        Critical/High CVEs from the latest full/nightly scan. Completion dates follow the SLA
+        Plan of Action &amp; Milestones per application: Open STIG controls from the latest STIG evaluation plus
+        Critical/High CVEs from the latest full/nightly evaluation. Completion dates follow the SLA
         (critical ${esc(d.sla_days.critical)}d · high ${esc(d.sla_days.high)}d · medium ${esc(d.sla_days.medium)}d · low ${esc(d.sla_days.low)}d)
         unless set manually; change it on any application's POA&amp;M page.
       </p>
@@ -2240,7 +2240,7 @@ async function renderPoamViewer(target) {
   page.innerHTML = `
     ${pageHeader(`POA&M — ${esc(appName)}`, { actions: `
       <a class="btn" href="${esc(base)}/poam" download>↓ POA&amp;M.csv</a>
-      <button class="btn" onclick="navigate('${isScan ? `#/scans/${encodeURIComponent(appName)}` : '#/poam'}')">${isScan ? '← Scan details' : '← All applications'}</button>` })}
+      <button class="btn" onclick="navigate('${isScan ? `#/scans/${encodeURIComponent(appName)}` : '#/poam'}')">${isScan ? '← Evaluation Details' : '← All applications'}</button>` })}
     <div class="section poam-host" data-base="${esc(base)}"><div class="poam-body">${loading()}</div></div>`;
   window.loadPoamPreview(page.querySelector('.poam-host'));
 }

@@ -6174,8 +6174,113 @@ function trendSparkline(points) {
   return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="var(--text-muted)" stroke-width="1.5"/></svg>`;
 }
 
+const _appTrendRegistry = new Map();
+
+function openAppTrendDetail(name) {
+  const t = _appTrendRegistry.get(name);
+  if (!t) return;
+  closeFindingDetail();
+  const pts = t.points || [];
+  const color = { Improving: 'var(--clean)', Declining: 'var(--critical)', Stable: 'var(--text-muted)' }[t.status] || 'var(--text-dim)';
+  const fmt = n => (n > 0 ? '+' : '') + n;
+  const hasWindow = t.delta !== undefined;
+
+  let why;
+  if (!hasWindow) {
+    why = `Only ${pts.length} comparable ${esc(t.scan_type || '')} scan day${pts.length === 1 ? '' : 's'} so far. At least two are needed to call a direction.`;
+  } else {
+    const parts = [`Risk index went from ${t.baseline_risk_index} to ${t.risk_index} (${fmt(t.delta)}${t.delta_pct == null ? '' : `, ${fmt(t.delta_pct)}%`}) between ${esc(t.from)} and ${esc(t.to)}.`];
+    parts.push(t.critical_high_delta === 0 ? 'Critical + high findings are unchanged.'
+      : `Critical + high findings ${t.critical_high_delta > 0 ? 'rose' : 'fell'} by ${Math.abs(t.critical_high_delta)}.`);
+    parts.push({
+      Declining: 'Declining because critical/high findings rose or risk rose 10% or more.',
+      Improving: 'Improving because critical/high findings fell or risk fell 10% or more.',
+      Stable: 'Stable because risk moved less than 10% and critical/high findings did not rise or fall.',
+    }[t.status] || '');
+    why = parts.join(' ');
+  }
+
+  const vals = pts.map(p => p.risk_index);
+  let chart = '';
+  if (vals.length >= 2) {
+    const W = 480, H = 120, padX = 36, padY = 16, iw = W - padX * 2, ih = H - padY * 2;
+    const min = Math.min(...vals), max = Math.max(...vals), range = max - min || 1;
+    const xy = vals.map((v, i) => [padX + i / (vals.length - 1) * iw, padY + ih - (v - min) / range * ih]);
+    const labels = [min, Math.round((min + max) / 2), max].map((v, i) =>
+      `<text x="${padX - 4}" y="${(padY + ih - i / 2 * ih).toFixed(1)}" text-anchor="end" font-size="10" fill="var(--text-muted)" dominant-baseline="middle">${v}</text>`).join('');
+    const last = xy[xy.length - 1];
+    chart = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="overflow:visible;display:block;max-width:100%" role="img" aria-label="Risk index over time">
+      ${labels}<polyline points="${xy.map(c => c[0].toFixed(1) + ',' + c[1].toFixed(1)).join(' ')}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="4" fill="${color}"/></svg>`;
+  }
+
+  const rows = pts.map((p, i) => {
+    const step = i === 0 ? '—' : fmt(Math.round((p.risk_index - pts[i - 1].risk_index) * 10) / 10);
+    return `<tr>
+      <td style="color:var(--text-muted);font-size:12px">${esc(p.date)}</td>
+      <td style="font-weight:600">${esc(String(p.risk_index))}</td>
+      <td>${esc(step)}</td>
+      <td><span class="sev-badge critical" style="font-size:12px">${esc(String(p.critical ?? 0))}</span></td>
+      <td><span class="sev-badge high" style="font-size:12px">${esc(String(p.high ?? 0))}</span></td>
+      <td><span class="sev-badge medium" style="font-size:12px">${esc(String(p.medium ?? 0))}</span></td>
+      <td><span class="sev-badge low" style="font-size:12px">${esc(String(p.low ?? 0))}</span></td>
+    </tr>`;
+  }).reverse().join('');
+
+  const card = (val, label, c) => `<div class="recurrence-card" style="min-width:100px;padding:12px">
+      <div class="recurrence-value" style="font-size:24px;color:${c}">${esc(String(val))}</div>
+      <div class="recurrence-label">${label}</div></div>`;
+  const cards = [
+    card(t.risk_index ?? (pts.length ? pts[pts.length - 1].risk_index : '—'), 'Risk index now', 'var(--accent)'),
+    hasWindow ? card(fmt(t.delta), 'Change in window', color) : '',
+    hasWindow ? card(fmt(t.since_previous), 'Since previous scan', 'var(--text-muted)') : '',
+    hasWindow ? card(fmt(t.critical_high_delta), 'Critical + high change', 'var(--text-muted)') : '',
+    card(pts.length, 'Scans compared', 'var(--text-muted)'),
+  ].join('');
+
+  const overlay = document.createElement('div');
+  overlay.className = 'finding-drawer-overlay';
+  overlay.id = 'finding-drawer-overlay';
+  overlay.addEventListener('click', closeFindingDetail);
+
+  const drawer = document.createElement('div');
+  drawer.className = 'finding-drawer';
+  drawer.id = 'finding-drawer';
+  drawer.setAttribute('role', 'dialog');
+  drawer.setAttribute('aria-modal', 'true');
+  drawer.setAttribute('aria-label', `${name} trend`);
+  drawer.addEventListener('click', e => e.stopPropagation());
+  drawer.innerHTML = `
+    <div class="finding-drawer-header">
+      <div class="finding-drawer-title">
+        <h2>${esc(name)}</h2>
+        <div class="finding-drawer-badges">
+          <span class="tool-tag">${esc(t.scan_type || 'scan')} scans</span>
+          <span style="font-size:13px;color:${color};font-weight:600">${esc(t.status)}</span>
+        </div>
+      </div>
+      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+    </div>
+    <div class="finding-drawer-body">
+      <p style="font-size:13px;margin:0 0 16px">${why}</p>
+      ${chart ? `<div style="margin-bottom:20px"><div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px">Risk index over time (15×critical + 5×high + 1×medium + 0.2×low; lower is better)</div>${chart}</div>` : ''}
+      <div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap">${cards}</div>
+      <div class="table-container">
+        <table>
+          <thead><tr><th scope="col">Date</th><th scope="col">Risk index</th><th scope="col">Change</th><th scope="col">Critical</th><th scope="col">High</th><th scope="col">Medium</th><th scope="col">Low</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div style="margin-top:14px;font-size:12px;color:var(--text-muted)">One point per day (the day's latest scan). Only ${esc(t.scan_type || 'same-type')} scans are compared, so a lighter scan is never read as an improvement.</div>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.body.appendChild(drawer);
+}
+
 function buildAppTrendSection(m) {
   const trends = m.app_trends || {};
+  _appTrendRegistry.clear();
+  Object.entries(trends).forEach(([n, t]) => _appTrendRegistry.set(n, t));
   const order = { Declining: 0, Stable: 1, Improving: 2, 'Not enough data': 3 };
   const rows = Object.entries(trends)
     .sort((a, b) => (order[a[1].status] - order[b[1].status]) || a[0].localeCompare(b[0]))
@@ -6187,7 +6292,7 @@ function buildAppTrendSection(m) {
         : `${fmt(t.delta)}${t.delta_pct === null || t.delta_pct === undefined ? '' : ` (${fmt(t.delta_pct)}%)`}`;
       const prev = t.since_previous === undefined ? '—' : fmt(t.since_previous);
       const period = t.from ? `${esc(t.from)} → ${esc(t.to)}` : '—';
-      return `<tr>
+      return `<tr class="clickable-row" tabindex="0" role="button" aria-label="Show ${esc(name)} trend details" style="cursor:pointer" onclick="openAppTrendDetail(this.dataset.app)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAppTrendDetail(this.dataset.app)}" data-app="${esc(name)}">
         <td>${esc(name)}</td>
         <td><span style="color:${color};font-weight:600">${icon} ${esc(t.status)}</span></td>
         <td>${t.risk_index === undefined ? '—' : esc(String(t.risk_index))}</td>
@@ -6218,7 +6323,7 @@ function buildAppTrendSection(m) {
         <div style="font-size:12px;color:var(--text-muted);margin-top:8px">
           Risk index = 15×critical + 5×high + 1×medium + 0.2×low (the Score Card's vulnerability weights; lower is better).
           Only scans of the same type are compared, one per day. Declining = risk up 10% or more, or more critical/high findings;
-          Improving = risk down 10% or more, or fewer critical/high findings.
+          Improving = risk down 10% or more, or fewer critical/high findings. Click a row for the full history.
         </div>
       </div>`;
 }

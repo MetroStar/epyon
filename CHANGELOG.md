@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.70.2] - 2026-11-14
+
+### Added
+- **Application Trend Status rows open a detail drawer.** Click (or press Enter on) an application to see why it is Improving, Declining or Stable, a risk-index chart, the change in the window, since the previous scan and in critical + high findings, and every scan day compared with its severity counts.
+
 ## [3.70.1] - 2026-11-14
 
 ### Added

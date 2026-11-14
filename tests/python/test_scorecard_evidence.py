@@ -137,3 +137,42 @@ def test_suppressed_findings_are_not_scored(scans):
     sup = next(e for e in sec["evidence"] if e["id"] == "sec-suppressed")
     assert sup["refs"] == ["[suppressed] Anchore:GHSA-x:pkg"] and sup["impact"] == 0
     assert sup["measured"]["critical"] == 1 and sec["details"]["suppressed_findings"] == 1
+
+
+def test_findings_under_test_paths_are_suppressed_not_scored(scans):
+    _, newest = scans
+    summary = json.loads((newest / "security-findings-summary.json").read_text())
+    planted = dict(_finding("Anchore", "GHSA-t", "critical"), package_path="/tests/fixtures/app/requirements.txt")
+    summary["critical_findings"] = [planted]
+    (newest / "security-findings-summary.json").write_text(json.dumps(summary))
+    (newest / "picklescan").mkdir()
+    (newest / "picklescan" / "picklescan-results.json").write_text(json.dumps(
+        {"summary": {"dangerous_imports": 1},
+         "findings": [{"type": "pickle_exploit", "severity": "critical", "file": "tests/fixtures/evil.pkl"}]}))
+    out = _score(newest)
+    sec = out["dimension_scores"]["security"]
+    assert sec["details"]["critical_cve"] == 0 and not out["blockers"]
+    sup = next(e for e in sec["evidence"] if e["id"] == "sec-suppressed")
+    assert sup["impact"] == 0 and sup["measured"]["critical"] == 2
+    assert all("(test path)" in r for r in sup["refs"])
+    assert not any(e["id"] in ("sec-ml-picklescan", "sec-cap-model") for e in sec["evidence"])
+
+
+def test_include_tests_opt_in_scores_test_path_findings(scans):
+    _, newest = scans
+    summary = json.loads((newest / "security-findings-summary.json").read_text())
+    summary["critical_findings"] = [dict(_finding("Anchore", "GHSA-t", "critical"), package_path="tests/x/req.txt")]
+    (newest / "security-findings-summary.json").write_text(json.dumps(summary))
+    (newest / "ignore-rules.json").write_text(json.dumps({"ignores": [], "include_tests": True}))
+    assert _score(newest)["dimension_scores"]["security"]["details"]["critical_cve"] == 1
+
+
+def test_semgrep_has_own_security_line_and_is_not_a_cve(scans):
+    _, newest = scans
+    summary = json.loads((newest / "security-findings-summary.json").read_text())
+    summary["high_findings"] = summary["high_findings"] + [_finding("semgrep", "rules.x", "high")]
+    (newest / "security-findings-summary.json").write_text(json.dumps(summary))
+    sec = _score(newest)["dimension_scores"]["security"]
+    assert sec["details"]["high_cve"] == 1
+    sast = next(e for e in sec["evidence"] if e["id"] == "sec-sast")
+    assert sast["impact"] == -1.5 and sast["measured"]["high"] == 1

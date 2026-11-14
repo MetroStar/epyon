@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **How it works** button on the Score Card opens a modal explaining the dimensions, weights, caps, TRL mapping, evidence and sign-off.
 - New inputs: CISA KEV, Semgrep SAST (scored under Code Quality), ML layers 14/18/19/20, typosquatted models, patchable high/critical findings, STIG human locks, passes without written evidence, and a real scan-to-scan trend.
 
+- **Tests and fixtures are never scanned or scored.** Anything under a `tests*`, `test`, `__tests__`, `fixtures` or `spec` directory (any depth, judged relative to the scan target) is excluded by built-in default rules from the ignore pipeline (`scripts/shell/epyon_test_paths.py`): Layers 14/18/19, Dockerfile discovery, the dashboard suppression filter and the Score Card. Matching findings are listed as "suppressed (test path)" at 0 weight. A repo opts back in with `include_tests: true` in `.epyon-ignore.yml`.
+- **Semgrep SAST has its own Security line** (`sec-sast`: critical −3, high −1.5, medium −0.5, low −0.1, max −15). It is not counted as a CVE, KEV or critical-CVE blocker, and still feeds Code Quality.
+
 ### Changed
 - **The Score Card is built from the application's scan history, not a single scan.** Each tool's result comes from the newest scan that ran it, so a quick or STIG-only scan no longer hides what the last full scan found.
 - Weights no longer depend on the scan type (`--weights` remains an explicit override), and scan metadata is optional.

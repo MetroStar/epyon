@@ -12,6 +12,15 @@ CYAN='\033[0;36m'
 WHITE='\033[1;37m'
 NC='\033[0m'
 
+# Drop NUL-delimited paths under tests/fixtures-style directories (relative to the target).
+filter_test_paths() {
+    if command -v python3 &>/dev/null; then
+        python3 "$(dirname "${BASH_SOURCE[0]}")/epyon_test_paths.py" filter-null "$TARGET_SCAN_DIR"
+    else
+        cat
+    fi
+}
+
 show_help() {
     echo -e "${WHITE}Layer 19 — Inference Environment Security Scanner${NC}"
     echo ""
@@ -215,7 +224,7 @@ print(json.dumps(findings))
         fi
     done < <(grep -oE '^\s*EXPOSE\s+([0-9]+)' "$dockerfile" | awk '{print $2}')
     
-done < <(find "$TARGET_SCAN_DIR" -type f -name 'Dockerfile*' -print0 2>/dev/null)
+done < <(find "$TARGET_SCAN_DIR" -type f -name 'Dockerfile*' -print0 2>/dev/null | filter_test_paths)
 
 echo "  Found $STATS_DOCKERFILES Dockerfile(s)"
 echo ""
@@ -281,7 +290,7 @@ print(json.dumps(findings))
         STATS_HIGH=$((STATS_HIGH + 1))
     fi
     
-done < <(find "$TARGET_SCAN_DIR" -type f \( -name 'docker-compose.yml' -o -name 'docker-compose.yaml' \) -print0 2>/dev/null)
+done < <(find "$TARGET_SCAN_DIR" -type f \( -name 'docker-compose.yml' -o -name 'docker-compose.yaml' \) -print0 2>/dev/null | filter_test_paths)
 
 echo "  Found $STATS_COMPOSE_FILES docker-compose file(s)"
 echo ""
@@ -418,7 +427,7 @@ print(json.dumps(findings))
         STATS_MEDIUM=$((STATS_MEDIUM + 1))
     fi
     
-done < <(find "$TARGET_SCAN_DIR" -type f \( -name '*.yaml' -o -name '*.yml' \) -print0 2>/dev/null)
+done < <(find "$TARGET_SCAN_DIR" -type f \( -name '*.yaml' -o -name '*.yml' \) -print0 2>/dev/null | filter_test_paths)
 
 echo "  Found $STATS_K8S_MANIFESTS Kubernetes manifest(s)"
 echo ""

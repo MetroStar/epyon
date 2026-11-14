@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.64.1] - 2026-11-14
+
+### Fixed
+- **Not Applicable STIG controls no longer lower the STIG pass rate.** They were counted as applicable-but-not-passing; they are now excluded from the denominator (Open and Not Reviewed still count against), and the evidence line shows how many were excluded.
+
 ## [3.64.0] - 2026-11-14
 
 ### Added

@@ -8354,7 +8354,8 @@ function buildScorecardCard(scorecardData) {
   window._scorecardDimensions = {};
 
   const dimCards = dimOrder.map(key => {
-    const d = dims[key] || { score: 0, weight: 0, details: {} };
+    const d = dims[key] || { score: 0, applicable: false, details: {}, evidence: [] };
+    const applicable = d.applicable !== false && dims[key];
     const s = (d.score || 0).toFixed(0);
     const w = ((weights[key] || 0) * 100).toFixed(0);
     const barColor = s >= 70 ? 'var(--pass)' : s >= 50 ? 'var(--medium)' : 'var(--critical)';
@@ -8366,17 +8367,20 @@ function buildScorecardCard(scorecardData) {
       score: s,
       weight: w,
       color: barColor,
-      details: d.details || {}
+      applicable: !!applicable,
+      details: d.details || {},
+      evidence: d.evidence || []
     };
     
     return `
       <div class="scorecard-dim-card" onclick="showDimensionModal('${key}')" style="cursor:pointer">
         <div class="scorecard-dim-label">${esc(dimLabels[key])}</div>
-        <div class="scorecard-dim-score" style="color:${barColor}">${s}</div>
+        ${applicable ? `<div class="scorecard-dim-score" style="color:${barColor}">${s}</div>
         <div class="scorecard-dim-weight">${w}% weight</div>
         <div class="scorecard-dim-bar">
           <div class="scorecard-dim-bar-fill" style="width:${s}%;background:${barColor}"></div>
-        </div>
+        </div>` : `<div class="scorecard-dim-score" style="color:var(--text-muted);font-size:18px">Not scanned</div>
+        <div class="scorecard-dim-weight">${w}% weight · scores 0</div>`}
         <div style="margin-top:8px;font-size:12px;color:var(--text-muted);text-align:center">Click for details</div>
       </div>`;
   }).join('');
@@ -8389,6 +8393,39 @@ function buildScorecardCard(scorecardData) {
         ${blockers.map(b => `<li>${esc(b)}</li>`).join('')}
       </ul>
     </div>` : '';
+
+  const scanId = scorecardData.scan_id || '';
+  const prev = scorecardData.previous;
+  const prevHtml = prev ? `
+    <div class="scorecard-compare" style="margin-top:16px;font-size:13px;color:var(--text-muted)">
+      <strong>Before this scoring update</strong> (v${esc(String(prev.scoring_version))}):
+      ${esc(String(prev.weighted_score))} → <strong>${esc(score)}</strong>
+      (TRL ${esc(String(prev.trl_level))} → ${esc(String(level))}).
+      ${dimOrder.map(k => {
+        const o = prev.dimension_scores && prev.dimension_scores[k] ? prev.dimension_scores[k].score : null;
+        const n = (dims[k] || {}).score;
+        if (o == null || n == null) return '';
+        const diff = Math.round(n - o);
+        return `<span style="margin-right:10px">${esc(dimLabels[k])} ${diff >= 0 ? '+' : ''}${diff}</span>`;
+      }).join('')}
+    </div>` : '';
+  const so = scorecardData.signoff;
+  const signoffHtml = `
+    <div class="scorecard-signoff" data-scan="${esc(scanId)}" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+      <strong style="font-size:13px">Reviewer sign-off</strong>
+      ${so ? `<div style="margin-top:6px;font-size:13px;color:${so.valid ? 'var(--pass)' : 'var(--medium)'}">
+          ${so.valid ? '✓ Signed off' : '⚠ Sign-off no longer matches the current score'} by
+          <strong>${esc(so.reviewer)}</strong> on ${esc(so.signed_at)} (score ${esc(String(so.weighted_score))})
+          ${so.comment ? `<div style="color:var(--text-muted);margin-top:4px">${esc(so.comment)}</div>` : ''}
+          <button class="btn btn-sm" style="margin-top:8px" onclick="revokeScorecardSignoff(this)">Revoke</button>
+        </div>` : ''}
+      ${so && so.valid ? '' : `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <input type="text" class="so-name" maxlength="100" placeholder="Reviewer name" style="padding:6px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);color:var(--text)">
+          <input type="text" class="so-comment" maxlength="2000" placeholder="Comment (optional)" style="flex:1;min-width:200px;padding:6px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);color:var(--text)">
+          <button class="btn btn-sm btn-primary" onclick="signOffScorecard(this)">Sign off this score</button>
+        </div><div class="so-msg" style="font-size:12px;color:var(--critical);margin-top:6px"></div>`}
+      <div style="margin-top:10px"><a class="btn btn-sm" href="/api/scans/${encodeURIComponent(scanId)}/scorecard/evidence" download>↓ Evidence package (.zip)</a></div>
+    </div>`;
 
   return `
     <div class="section findings-section-wrapper">
@@ -8410,6 +8447,7 @@ function buildScorecardCard(scorecardData) {
             <span style="margin-left:8px;font-weight:700;font-size:15px;color:${info.color}">Grade ${info.label}</span>
           </span>
           <span style="display:flex;align-items:center;gap:12px">
+            <button type="button" class="btn btn-sm" title="How the Score Card works" onclick="event.preventDefault();event.stopPropagation();showScorecardHelp()">ⓘ How it works</button>
             <span style="font-size:18px;font-weight:700;color:var(--accent)">${score}</span>
             <span class="findings-summary-hint">Click to expand</span>
           </span>
@@ -8419,14 +8457,70 @@ function buildScorecardCard(scorecardData) {
             ${dimCards}
           </div>
           ${blockersHtml}
+          ${prevHtml}
+          ${signoffHtml}
           <div style="font-size:12px;color:var(--text-muted);padding-top:16px;border-top:1px solid var(--border);margin-top:16px">
-            <strong>About Scoring:</strong> Comprehensive security assessment across 6 dimensions (Security, Supply Chain, Code Quality, Compliance, Operational, MOSA). 
+            <strong>About Scoring:</strong> Anything never scanned in any scan of this application scores 0 rather than being ignored, so skipping a scan can never raise the score. Built from the newest result of every tool across this application's scan history, so it does not depend on the scan type. Six dimensions (Security, Supply Chain, Code Quality, Compliance, Operational, MOSA). 
             Scores 70+ are production-ready, 50-69 need improvements, below 50 require immediate attention.
             <br><small><strong>MOSA</strong> = Modular Open Systems Approach: modularity, open standards, interoperability, portability. <strong>Click dimension cards for detailed breakdowns.</strong></small>
           </div>
         </div>
       </details>
     </div>`;
+}
+
+window.showScorecardHelp = () => {
+  const row = (a, b) => `<tr><td style="padding:6px 12px 6px 0;vertical-align:top;white-space:nowrap"><strong>${a}</strong></td><td style="padding:6px 0;color:var(--text-muted)">${b}</td></tr>`;
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-container modal-lg" style="max-height:85vh;overflow:auto;font-size:13px;line-height:1.5">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h2 style="margin:0;color:var(--text)">How the Score Card works</h2>
+        <button class="btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+      </div>
+      <h3>What it measures</h3>
+      <p>The Score Card rates the <strong>application</strong>, not a single scan. Each tool's result comes from the newest scan that ran it, so a quick or STIG-only scan never hides what an earlier full scan found. Scan type does not change the score or weights.</p>
+      <h3>Six dimensions, each 0–100</h3>
+      <table>
+        ${row('Security (30%)', 'Starts at 100. Critical −15, high −5, medium −1, low −0.2 per vulnerability (CVEs only). IaC misconfigurations (Checkov) are scored separately and more lightly: critical −5, high −2, medium −0.5, low −0.1, max −25. Semgrep SAST findings are code weaknesses, not CVEs, so they also get their own line (critical −3, high −1.5, medium −0.5, low −0.1, max −15) and still feed Code Quality. Findings under tests/fixtures-style directories (tests*, test, __tests__, fixtures, spec) are never scored — they are listed as "suppressed (test path)" at 0 weight unless the repo sets include_tests: true in .epyon-ignore.yml. Findings suppressed by approved .epyon-ignore.yml rules are listed as evidence ("suppressed") but carry 0 weight. Known-exploited (CISA KEV) −10 each, max −30. ML layers 14/18/19/20 −25 max each. <em>Caps:</em> leaked secrets → 30, malware → 20, dangerous model files or critical provenance → 40, LLM probe pass rate under 80% → 50.')}
+        ${row('Supply Chain (20%)', 'Needs an SBOM (without one in any scan the dimension scores 0). Deducts for end-of-support (−20) and EOL (−5) components, vulnerability density, high/critical findings that already have a fix (−2 each, max −20) and typosquatted models.')}
+        ${row('Code Quality (15%)', 'Weighted average of tools that have run: SonarQube gate 40, Checkov IaC pass rate 30, Semgrep SAST 30. Tools that never ran are listed as missing and their weight is redistributed.')}
+        ${row('Compliance (15%)', 'Weighted average of STIG (70, always counted: no STIG assessment scores 0; includes a CAT I penalty and a penalty for “Not a Finding” controls with no written evidence), plus model card (20) and documented APIs (10) when present. No STIG assessment in any scan scores the STIG part 0.')}
+        ${row('Operational (10%)', 'Helm chart builds, no non-standard open ports, and the trend against the previous scan (worse −20, better +10). A missing Helm result or earlier scan adds no bonus or penalty.')}
+        ${row('MOSA (10%)', 'Modular open systems: standard SBOM, Helm chart, Dockerfile, documented API and open-source license ratio.')}
+      </table>
+      <h3>Overall score and TRL</h3>
+      <p>Never scanned means scored 0: a dimension with no data shows “Not scanned”, scores 0 and keeps its weight. Overall = Σ(dimension score × weight). It maps to a Technology Readiness Level: 90+ → TRL 9, 80+ → 8, 70+ → 7, 60+ → 6, 50+ → 5, 40+ → 4, 30+ → 3, 20+ → 2, otherwise 1. Blockers (critical CVEs, secrets, malware, KEV, STIG under 70%) are listed separately.</p>
+      <h3>Evidence</h3>
+      <p>Click a dimension to see every line that moved its score: the points, the source file and its SHA-256, and the finding or control IDs behind it. <strong>Evidence package</strong> downloads the score, the source files and a hash manifest; files that changed since scoring are flagged.</p>
+      <h3>Sign-off</h3>
+      <p>A reviewer can sign off on the current score by name. If a rescore changes any number, the sign-off is shown as no longer matching and must be redone.</p>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+};
+
+window.signOffScorecard = async (btn) => {
+  const box = btn.closest('.scorecard-signoff'), msg = box.querySelector('.so-msg');
+  const reviewer = box.querySelector('.so-name').value.trim();
+  try {
+    await poamSend(`/api/scans/${encodeURIComponent(box.dataset.scan)}/scorecard/signoff`, 'PUT',
+      { reviewer, comment: box.querySelector('.so-comment').value.trim() });
+    await calculateScorecardForScan(box.dataset.scan);
+  } catch (e) { msg.textContent = e.message; }
+};
+
+window.revokeScorecardSignoff = async (btn) => {
+  const box = btn.closest('.scorecard-signoff');
+  const r = await fetch(`/api/scans/${encodeURIComponent(box.dataset.scan)}/scorecard/signoff`, { method: 'DELETE' });
+  if (r.ok) await calculateScorecardForScan(box.dataset.scan);
+};
+
+function flattenScoreDetail(v) {
+  if (v == null) return '';
+  if (typeof v !== 'object') return String(v);
+  return Object.entries(v).map(([k, x]) => `${k.replace(/[-_]/g, ' ')}: ${flattenScoreDetail(x)}`).join(' · ');
 }
 
 function showDimensionModal(dimensionKey) {
@@ -8436,17 +8530,35 @@ function showDimensionModal(dimensionKey) {
     return;
   }
   
-  const { key, label, score, weight, color, details } = data;
+  const { key, label, score, weight, color, details, evidence, applicable } = data;
 
   const detailsHtml = Object.entries(details).map(([k, v]) => {
     const itemLabel = k.replace(/_/g, ' ');
     let value = v;
     if (typeof v === 'boolean') value = v ? '✓ Yes' : '✗ No';
-    else if (typeof v === 'number') value = v.toFixed(1);
+    else if (typeof v === 'number') value = Number.isInteger(v) ? String(v) : v.toFixed(1);
+    else if (v && typeof v === 'object') value = flattenScoreDetail(v);
     return `
       <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border-muted)">
         <span style="color:var(--text-muted);font-size:14px;text-transform:capitalize">${esc(itemLabel)}</span>
         <span style="color:var(--text);font-size:14px;font-weight:600">${esc(String(value))}</span>
+      </div>`;
+  }).join('');
+
+  const kindLabel = { missing: 'not scanned' };
+  const kindColor = { deduction: 'var(--critical)', cap: 'var(--critical)', missing: 'var(--medium)', bonus: 'var(--pass)', component: 'var(--accent)', info: 'var(--text-muted)' };
+  const evidenceHtml = (evidence || []).map(e => {
+    const impact = e.impact == null ? '' : `<span style="font-weight:700;color:${kindColor[e.kind] || 'inherit'}">${e.kind === 'cap' ? 'cap ' : (e.impact > 0 ? '+' : '')}${esc(String(e.impact))}</span>`;
+    const refs = (e.refs || []).length ? `
+      <details style="margin-top:4px"><summary style="cursor:pointer;font-size:12px;color:var(--text-muted)">${esc(String(e.refs_total || e.refs.length))} item(s)${e.refs_total > e.refs.length ? ` (first ${e.refs.length} shown)` : ''}</summary>
+        <div style="font-size:12px;font-family:monospace;word-break:break-all;margin-top:4px">${e.refs.map(r => esc(r)).join('<br>')}</div></details>` : '';
+    const src = e.source ? `<div style="font-size:11px;color:var(--text-dim);font-family:monospace;word-break:break-all">${esc(e.source)}${e.sha256 ? ' · sha256 ' + esc(e.sha256.slice(0, 12)) + '…' : ''}</div>` : '';
+    return `
+      <div style="padding:10px 0;border-bottom:1px solid var(--border-muted)">
+        <div style="display:flex;justify-content:space-between;gap:12px">
+          <span style="font-size:13px"><span style="color:${kindColor[e.kind] || 'inherit'};text-transform:uppercase;font-size:11px;margin-right:6px">${esc(kindLabel[e.kind] || e.kind)}</span>${esc(e.label)}</span>${impact}
+        </div>
+        ${e.note ? `<div style="font-size:12px;color:var(--text-muted)">${esc(e.note)}</div>` : ''}${src}${refs}
       </div>`;
   }).join('');
 
@@ -8471,10 +8583,11 @@ function showDimensionModal(dimensionKey) {
       </div>
 
       <div style="background:var(--bg-card);border-radius:var(--radius);padding:24px;margin-bottom:24px;text-align:center;border:2px solid ${color}">
-        <div style="font-size:64px;font-weight:700;color:${color};margin-bottom:8px">${score}</div>
+        ${applicable ? `<div style="font-size:64px;font-weight:700;color:${color};margin-bottom:8px">${score}</div>
         <div style="font-size:14px;color:var(--text-muted);margin-bottom:4px">Score out of 100</div>
-        <div style="font-size:13px;color:var(--text-muted)">${weight}% of overall score</div>
-        <div style="margin:16px auto 0;max-width:300px">
+        <div style="font-size:13px;color:var(--text-muted)">${weight}% of overall score</div>` : `<div style="font-size:28px;font-weight:700;color:var(--text-muted);margin-bottom:8px">Not scanned</div>
+        <div style="font-size:13px;color:var(--text-muted)">No scan of this application has produced data for this dimension, so it scores 0 and keeps its weight.</div>`}
+        <div style="margin:16px auto 0;max-width:300px;${applicable ? '' : 'display:none'}">
           <div style="height:16px;background:var(--bg);border-radius:8px;overflow:hidden">
             <div style="width:${score}%;height:100%;background:${color};transition:width 0.3s ease"></div>
           </div>
@@ -8484,6 +8597,12 @@ function showDimensionModal(dimensionKey) {
       <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px">
         <h3 style="font-size:14px;font-weight:600;color:var(--text);margin:0 0 16px;text-transform:uppercase;letter-spacing:0.5px">Detailed Metrics</h3>
         ${detailsHtml || emptyNote('No detailed metrics available for this dimension.')}
+      </div>
+
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-top:16px">
+        <h3 style="font-size:14px;font-weight:600;color:var(--text);margin:0 0 4px;text-transform:uppercase;letter-spacing:0.5px">Evidence</h3>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Each line shows what moved the score, the artifact it came from and its hash.</div>
+        ${evidenceHtml || emptyNote('No evidence recorded. Recalculate the Score Card to generate it.')}
       </div>
     </div>`;
   

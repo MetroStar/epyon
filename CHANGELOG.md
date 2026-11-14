@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.68.0] - 2026-11-13
+
+### Added
+- POA&M export: `GET /api/scans/{scan_id}/poam` downloads a CSV of Open STIG controls plus unsuppressed Critical/High CVEs (dates from the severity SLA; POC, resources and milestones left blank). `?preview=true` returns the rows as JSON, shown in a new collapsible POA&M section on the scan detail page.
+
 ## [3.67.1] - 2026-11-13
 
 ### Changed

@@ -32,6 +32,7 @@ from pydantic import BaseModel
 
 from . import jobs as job_store
 from . import parsers
+from . import poam
 from . import parse_cache
 from . import finding_search
 from . import github_sync
@@ -1303,6 +1304,26 @@ def stig_findings_json(scan_id: str, response: Response, slug: Optional[str] = N
     name = f"findings-{scan_id}{'-' + slug if slug else ''}.json"
     return Response(json.dumps(payload, indent=2), media_type="application/json",
                     headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+@app.get("/api/scans/{scan_id}/poam")
+def scan_poam(scan_id: str, response: Response, preview: bool = False):
+    """POA&M of Open STIG controls plus unsuppressed Critical/High CVEs.
+
+    Returns a CSV download, or JSON rows when ?preview=true."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    matched = _require_scan_dir(scan_id)
+    scan_data = parsers.load_scan_complete(matched, EPYON_ROOT)
+    rows = poam.build_rows(scan_id, _build_stig_entries(scan_id, matched), scan_data.get("findings", {}))
+    if preview:
+        return {"scan_id": scan_id, "columns": poam.COLUMNS, "total": len(rows),
+                "by_severity": dict(Counter(r["Raw Severity"] for r in rows)),
+                "by_source": dict(Counter("STIG" if r["Detection Source"].startswith("Epyon STIG") else "CVE" for r in rows)),
+                "rows": rows}
+    return Response(poam.to_csv(rows), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="poam-{scan_id}.csv"'})
 
 
 @app.get("/api/scans/{scan_id}/stig-data")

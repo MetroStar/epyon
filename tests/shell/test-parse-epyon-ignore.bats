@@ -38,7 +38,7 @@ SCRIPT_PATH="${SCRIPT_DIR}/parse-epyon-ignore.sh"
     "
     [ "$status" -eq 0 ]
     [ -f "$CACHE" ]
-    run jq -e '.ignores | length == 0' "$CACHE"
+    run jq -e '[.ignores[] | select(.default != true)] | length == 0' "$CACHE"
     [ "$status" -eq 0 ]
     rm -f "$CACHE"
 }
@@ -72,10 +72,10 @@ EOF
     [ "$status" -eq 0 ]
     [ -f "$CACHE" ]
 
-    run jq -e '.ignores | length == 2' "$CACHE"
+    run jq -e '[.ignores[] | select(.default != true)] | length == 2' "$CACHE"
     [ "$status" -eq 0 ]
 
-    run jq -e '[.ignores[].value] | contains(["CVE-2024-1234"])' "$CACHE"
+    run jq -e '[.ignores[] | select(.default != true) | .value] | contains(["CVE-2024-1234"])' "$CACHE"
     [ "$status" -eq 0 ]
 
     rm -f "$IGNORE_FILE" "$CACHE"
@@ -108,7 +108,7 @@ EOF
     [ -f "$CACHE" ]
 
     # Expired entries should not appear in the active cache
-    run jq -e '[.ignores[] | select(.expired != true)] | length == 0' "$CACHE"
+    run jq -e '[.ignores[] | select(.expired != true and .default != true)] | length == 0' "$CACHE"
     [ "$status" -eq 0 ]
 
     rm -f "$IGNORE_FILE" "$CACHE"
@@ -152,10 +152,10 @@ EOF
     [ -f "$CACHE" ]
 
     # Both the pre-existing and the mis-indented entry must still load.
-    run jq -e '.ignores | length == 2' "$CACHE"
+    run jq -e '[.ignores[] | select(.default != true)] | length == 2' "$CACHE"
     [ "$status" -eq 0 ]
 
-    run jq -e '[.ignores[].value] | contains(["GHSA-98qh-xjc8-98pq", "CKV_GHA_7"])' "$CACHE"
+    run jq -e '[.ignores[] | select(.default != true) | .value] | contains(["GHSA-98qh-xjc8-98pq", "CKV_GHA_7"])' "$CACHE"
     [ "$status" -eq 0 ]
 
     # A warning must still be surfaced so the file itself gets fixed.
@@ -211,7 +211,30 @@ EOF
     [ "$status" -eq 0 ]
     [ -f "$CACHE" ]
 
-    run jq -e '.ignores | length == 0' "$CACHE"
+    run jq -e '[.ignores[] | select(.default != true)] | length == 0' "$CACHE"
+    [ "$status" -eq 0 ]
+
+    rm -f "$IGNORE_FILE" "$CACHE"
+}
+
+@test "parse-epyon-ignore.sh adds default test-path rules unless include_tests is true" {
+    command -v python3 &>/dev/null || skip "python3 not available"
+    python3 -c "import yaml" 2>/dev/null || skip "PyYAML not installed"
+
+    local IGNORE_FILE CACHE
+    IGNORE_FILE=$(mktemp).yml
+    CACHE=$(mktemp)
+    printf 'ignores:\n  - type: cve\n    value: CVE-2024-1\n    reason: r\n    approved_by: me\n' > "$IGNORE_FILE"
+
+    run bash -c "IGNORE_CACHE='$CACHE'; source '$SCRIPT_PATH'; parse_ignore_rules '$IGNORE_FILE'"
+    [ "$status" -eq 0 ]
+    run jq -e '[.ignores[] | select(.default == true) | .value] | contains(["**/fixtures/**", "tests*/**"])' "$CACHE"
+    [ "$status" -eq 0 ]
+
+    printf 'include_tests: true\nignores:\n  - type: cve\n    value: CVE-2024-1\n    reason: r\n    approved_by: me\n' > "$IGNORE_FILE"
+    run bash -c "IGNORE_CACHE='$CACHE'; source '$SCRIPT_PATH'; parse_ignore_rules '$IGNORE_FILE'"
+    [ "$status" -eq 0 ]
+    run jq -e '[.ignores[] | select(.default == true)] | length == 0' "$CACHE"
     [ "$status" -eq 0 ]
 
     rm -f "$IGNORE_FILE" "$CACHE"

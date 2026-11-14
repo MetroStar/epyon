@@ -140,6 +140,14 @@ Ignore secrets matching regex patterns:
 
 **Applies to:** TruffleHog
 
+## Test Paths Are Excluded by Default
+
+Anything under a `tests*`, `test`, `__tests__`, `fixtures` or `spec` directory (any depth, relative to the scan target) is never scanned or scored. Findings there are shown as "suppressed (test path)" with 0 weight. To scan tests anyway, add a top-level key to `.epyon-ignore.yml`:
+
+```yaml
+include_tests: true
+```
+
 ## Required Fields
 
 | Field | Required | Description |

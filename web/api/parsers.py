@@ -1444,6 +1444,14 @@ def parse_suppressed_findings(scan_dir: Path) -> list[dict]:
         scan_dir / ".epyon-ignore.yml",
         scan_dir / "ignore-rules.json",
     ]
+    # Default test-path rules: tests/fixtures are never counted (a repo opts in with include_tests: true).
+    default_rules = _default_test_path_rules(scan_dir)
+    if default_rules:
+        for rule in default_rules:
+            dedup_key = ("path", rule["value"].lower())
+            if dedup_key not in seen:
+                seen.add(dedup_key)
+                results.append({**rule, "expires": "", "paths": [], "default": True})
 
     for yml_file in ignore_files:
         if yml_file.exists():
@@ -1508,6 +1516,27 @@ def parse_suppressed_findings(scan_dir: Path) -> list[dict]:
     return results
 
 
+def _default_test_path_rules(scan_dir: Path) -> list[dict]:
+    """Default test-path ignore rules, unless the scan's rule snapshot says the repo opted in."""
+    try:
+        import sys as _sys
+        shell_dir = str(Path(__file__).resolve().parents[2] / "scripts" / "shell")
+        if shell_dir not in _sys.path:
+            _sys.path.insert(0, shell_dir)
+        import epyon_test_paths
+    except Exception:
+        return []
+    if epyon_test_paths.include_tests(scan_dir / ".epyon-ignore.yml"):
+        return []
+    try:
+        snap = json.loads((scan_dir / "ignore-rules.json").read_text(encoding="utf-8"))
+        if snap.get("include_tests") is True:
+            return []
+    except Exception:
+        pass
+    return epyon_test_paths.default_ignore_rules()
+
+
 def _is_finding_suppressed(finding: dict, suppressions: list[dict]) -> bool:
     """Check if a finding matches any suppression rule.
     
@@ -1529,6 +1558,7 @@ def _is_finding_suppressed(finding: dict, suppressions: list[dict]) -> bool:
     pkg_name = (finding.get("package") or "").strip().lower()
     pkg_ver = (finding.get("version") or "").strip().lower()
     file_path = (finding.get("file") or finding.get("target") or "").strip()
+    package_path = (finding.get("package_path") or "").strip()
 
     for suppression in suppressions:
         supp_type = (suppression.get("type") or "").strip().lower()
@@ -1565,6 +1595,12 @@ def _is_finding_suppressed(finding: dict, suppressions: list[dict]) -> bool:
             # "/" in the rule doesn't cause an otherwise-correct match to
             # silently fail.
             clean_supp_value = supp_value.replace("/workspace/", "").lstrip("/")
+            clean_pkg_path = package_path.replace("/workspace/", "").lstrip("/")
+            if package_path and (
+                fnmatch.fnmatch(clean_pkg_path.lower(), clean_supp_value)
+                or fnmatch.fnmatch(package_path.lower(), clean_supp_value)
+            ):
+                return True
             if (
                 fnmatch.fnmatch(clean_path.lower(), supp_value)
                 or fnmatch.fnmatch(file_path.lower(), supp_value)

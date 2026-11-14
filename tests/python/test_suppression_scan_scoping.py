@@ -8,6 +8,15 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 
 
+def _user_only(rules):
+    """Rules written by the repo, without Epyon's built-in default test-path rules."""
+    return [r for r in rules if not r.get("default") and r.get("approved_by") != "epyon-default"]
+
+
+def _user_rules(parsers, scan):
+    return _user_only(parsers.parse_suppressed_findings(scan))
+
+
 def _make_scan(root: Path) -> Path:
     scan = root / "scans" / "app_user_2026-01-01_00-00-00"
     scan.mkdir(parents=True)
@@ -19,7 +28,7 @@ def test_parent_ignore_file_is_not_read(tmp_path, parsers):
     (tmp_path / ".epyon-ignore.yml").write_text(
         'ignores:\n  - type: path\n    value: "scans/**"\n    reason: epyon self-scan\n'
     )
-    assert parsers.parse_suppressed_findings(scan) == []
+    assert _user_rules(parsers, scan) == []
 
 
 def test_shared_tmp_cache_is_not_read(tmp_path, monkeypatch, parsers):
@@ -27,7 +36,7 @@ def test_shared_tmp_cache_is_not_read(tmp_path, monkeypatch, parsers):
     cache = tmp_path / "stale-cache.json"
     cache.write_text(json.dumps({"ignores": [{"type": "tool", "value": "grype", "reason": "x"}]}))
     monkeypatch.setenv("IGNORE_CACHE", str(cache))
-    assert parsers.parse_suppressed_findings(scan) == []
+    assert _user_rules(parsers, scan) == []
 
 
 def test_scan_snapshot_is_read(tmp_path, parsers):
@@ -35,7 +44,7 @@ def test_scan_snapshot_is_read(tmp_path, parsers):
     (scan / "ignore-rules.json").write_text(
         json.dumps({"ignores": [{"type": "tool", "value": "grype", "reason": "x"}]})
     )
-    assert [r["value"] for r in parsers.parse_suppressed_findings(scan)] == ["grype"]
+    assert [r["value"] for r in _user_rules(parsers, scan)] == ["grype"]
 
 
 def test_parse_script_snapshots_rules_into_scan_dir(tmp_path):

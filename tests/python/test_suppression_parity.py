@@ -112,6 +112,15 @@ CASES = [
 ]
 
 
+def _user_only(rules):
+    """Rules written by the repo, without Epyon's built-in default test-path rules."""
+    return [r for r in rules if not r.get("default") and r.get("approved_by") != "epyon-default"]
+
+
+def _user_rules(parsers, scan):
+    return _user_only(parsers.parse_suppressed_findings(scan))
+
+
 def _write_cache(tmp_path, rule: dict):
     """Emit an ignore cache in the shape parse-epyon-ignore.sh produces."""
     entry = {
@@ -193,7 +202,7 @@ def test_expired_rules_are_ignored(parsers, tmp_path, monkeypatch):
     )
     monkeypatch.setenv("IGNORE_CACHE", str(cache))
 
-    rules = parsers.parse_suppressed_findings(tmp_path)
+    rules = _user_rules(parsers, tmp_path)
     assert rules == [], "expired rule should not be loaded"
 
 
@@ -219,7 +228,7 @@ def test_markdown_suppression_extracts_matched_pattern(parsers, tmp_path):
         encoding="utf-8",
     )
 
-    rules = parsers.parse_suppressed_findings(tmp_path)
+    rules = _user_rules(parsers, tmp_path)
     path_rules = [r for r in rules if r.get("type") == "path"]
     assert len(path_rules) == 1
     assert path_rules[0]["value"] == "reg.mini.dev:keycloak-fips/*"
@@ -321,7 +330,7 @@ def test_tool_name_used_as_type_is_normalized_python(parsers, tmp_path):
         encoding="utf-8",
     )
 
-    rules = parsers.parse_suppressed_findings(tmp_path)
+    rules = _user_rules(parsers, tmp_path)
     assert len(rules) == 1
     assert rules[0]["type"] == "tool"
     assert rules[0]["value"] == "anchore"
@@ -362,7 +371,7 @@ def test_misindented_ignore_entry_is_autofixed_python(parsers, tmp_path):
     ignore_yml = tmp_path / ".epyon-ignore.yml"
     ignore_yml.write_text(_MISINDENTED_IGNORE_YML, encoding="utf-8")
 
-    rules = parsers.parse_suppressed_findings(tmp_path)
+    rules = _user_rules(parsers, tmp_path)
     values = {r["value"] for r in rules}
     assert values == {"CKV_GHA_7", "GHSA-98qh-xjc8-98pq"}
 
@@ -391,7 +400,7 @@ def test_misindented_ignore_entry_is_autofixed_bash(repo_root, tmp_path):
     assert result.returncode == 0, result.stderr
 
     cache_data = json.loads(cache.read_text(encoding="utf-8"))
-    values = {entry["value"] for entry in cache_data["ignores"]}
+    values = {entry["value"] for entry in _user_only(cache_data["ignores"])}
     assert values == {"CKV_GHA_7", "GHSA-98qh-xjc8-98pq"}
     assert len(cache_data.get("warnings", [])) > 0
 
@@ -429,9 +438,9 @@ def test_tool_name_used_as_type_is_normalized_bash(repo_root, tmp_path):
     assert result.returncode == 0, result.stderr
 
     cache_data = json.loads(cache.read_text(encoding="utf-8"))
-    assert len(cache_data["ignores"]) == 1
-    assert cache_data["ignores"][0]["type"] == "tool"
-    assert cache_data["ignores"][0]["value"] == "anchore"
+    assert len(_user_only(cache_data["ignores"])) == 1
+    assert _user_only(cache_data["ignores"])[0]["type"] == "tool"
+    assert _user_only(cache_data["ignores"])[0]["value"] == "anchore"
 
     check = subprocess.run(
         ["bash", "-c", f'source "{repo_root / "scripts" / "shell" / "filter-ignored-findings.sh"}" && is_tool_ignored "anchore"'],

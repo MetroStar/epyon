@@ -31,6 +31,9 @@ import sys
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from epyon_test_paths import is_test_path  # noqa: E402
+
 # ── TRL Dimension Weights by Scan Type ────────────────────────────────────────
 # Base weights for a standard web app / general software project
 DEFAULT_WEIGHTS = {
@@ -120,6 +123,21 @@ def tool_family(name: Any) -> str:
     return str(name or "unknown").lower().split("-")[0]
 
 
+def tests_excluded(scan_dir: Path) -> bool:
+    """Tests/fixtures are never scored unless the scan's rule snapshot records include_tests: true."""
+    snap = load_json(scan_dir / "ignore-rules.json")
+    return not (isinstance(snap, dict) and snap.get("include_tests") is True)
+
+
+def finding_path(f: Dict[str, Any]) -> str:
+    return str(f.get("file") or f.get("file_path") or f.get("path") or f.get("package_path") or f.get("target") or "")
+
+
+def is_test_finding(f: Dict[str, Any]) -> bool:
+    p = finding_path(f)
+    return bool(p) and is_test_path(p)
+
+
 FINDINGS_ARTIFACTS = ("security-findings-filtered.json", "security-findings-summary.json")
 
 
@@ -150,15 +168,22 @@ def merge_findings(history: List[Path]) -> Optional[Dict[str, Any]]:
         for fam in sorted(families - set(sources)):
             sources[fam] = d.name
         kept = {_suppression_key(f) for key, _ in SEV_KEYS for f in data.get(key, []) if isinstance(f, dict)}
+        skip_tests = tests_excluded(d)
         for key, _ in SEV_KEYS:
-            merged[key].extend(
-                f for f in data.get(key, [])
-                if isinstance(f, dict) and sources.get(tool_family(f.get("tool"))) == d.name)
+            current = [f for f in data.get(key, []) if isinstance(f, dict)
+                       and sources.get(tool_family(f.get("tool"))) == d.name]
+            if skip_tests:
+                tests = [dict(f, suppression="test path") for f in current if is_test_finding(f)]
+                suppressed.extend(t for t in tests if _suppression_key(t) not in
+                                  {_suppression_key(x) for x in suppressed})
+                current = [f for f in current if not is_test_finding(f)]
+            merged[key].extend(current)
             if data is not raw:
+                have = {_suppression_key(x) for x in suppressed}
                 suppressed.extend(
                     f for f in raw.get(key, [])
                     if isinstance(f, dict) and sources.get(tool_family(f.get("tool"))) == d.name
-                    and _suppression_key(f) not in kept)
+                    and _suppression_key(f) not in kept and _suppression_key(f) not in have)
     if not seen_any:
         return None
     merged["summary"] = {f"total_{sev}": len(merged[key]) for key, sev in SEV_KEYS}
@@ -240,6 +265,9 @@ def is_vulnerability(f: Dict[str, Any]) -> bool:
     return not is_sast(f) and not is_misconfig(f)
 
 
+TEST_PATH_ITEMS: List[Dict[str, Any]] = []  # ML-layer items skipped because they sit under a test path
+
+
 def load_layer(scan_dir: Path, subdir: str, filename: str) -> "tuple[Path, Optional[Dict], List[Dict]]":
     """Load an ML layer result file (falls back to the legacy flat location)."""
     path = locate(scan_dir, f"{subdir}/{filename}", filename)
@@ -249,6 +277,14 @@ def load_layer(scan_dir: Path, subdir: str, filename: str) -> "tuple[Path, Optio
         items = [f for f in data.get("findings", []) if isinstance(f, dict)]
     elif isinstance(data, list):
         items = [f for f in data if isinstance(f, dict)]
+    if tests_excluded(scan_dir):
+        kept = [f for f in items if not is_test_finding(f)]
+        if len(kept) != len(items):
+            TEST_PATH_ITEMS.extend(dict(f, layer=subdir, suppression="test path") for f in items if is_test_finding(f))
+            if isinstance(data, dict):
+                data = dict(data, summary=dict(data.get("summary") or {}, dangerous_imports=sum(
+                    1 for f in kept if "dangerous" in str(f.get("type", "")) or "exploit" in str(f.get("type", "")))))
+        items = kept
     return path, (data if isinstance(data, dict) else None), items
 
 
@@ -548,6 +584,7 @@ def score_security(scan_dir: Path, findings: Dict) -> Dict[str, Any]:
         infected = clamav_data.get("summary", {}).get("infected_files", 0)
     has_malware = infected > 0
 
+    TEST_PATH_ITEMS.clear()
     pick_path, pick_data, pick_items = load_layer(scan_dir, "picklescan", "picklescan-results.json")
     dangerous = 0
     if pick_data:
@@ -565,20 +602,6 @@ def score_security(scan_dir: Path, findings: Dict) -> Dict[str, Any]:
             passed = sum(p.get("passed", 0) for p in probes if isinstance(p, dict))
             if total_attempts > 0:
                 garak_pass_rate = (passed / total_attempts) * 100.0
-
-    suppressed = findings.get("suppressed_findings") or []
-    suppressed_counts = {sev: 0 for _, sev in SEV_KEYS}
-    for f in suppressed:
-        sev = str(f.get("severity", "")).lower()
-        if sev in suppressed_counts:
-            suppressed_counts[sev] += 1
-    if suppressed:
-        ev.append(make_evidence(
-            scan_dir, "sec-suppressed", "info",
-            f"{len(suppressed)} suppressed finding(s) by approved .epyon-ignore.yml rules "
-            f"({suppressed_counts['critical']} critical / {suppressed_counts['high']} high / "
-            f"{suppressed_counts['medium']} medium / {suppressed_counts['low']} low) — counted, 0 pt weight",
-            suppressed_counts, 0, findings_file, [f"[suppressed] {finding_ref(f)}" for f in suppressed]))
 
     base_score = 100.0
     for sev, per in (("critical", 15), ("high", 5), ("medium", 1), ("low", 0.2)):
@@ -608,6 +631,22 @@ def score_security(scan_dir: Path, findings: Dict) -> Dict[str, Any]:
             f"5/2/0.5/0.1 pt each, max 25 — scored separately from CVEs",
             iac_detail, impact, findings_file,
             [finding_ref(f) for sev in ("critical", "high", "medium", "low") for f in iac[sev]]))
+
+    # Semgrep SAST findings are code weaknesses, not CVEs: they get their own lighter, capped line
+    # (and still feed Code Quality), and never inflate CVE counts, KEV or the critical-CVE blocker.
+    sast = {sev: [f for f in items if is_sast(f)] for sev, items in by_sev.items()}
+    sast_detail = {sev: len(sast[sev]) for sev in sast}
+    sast_points = sum(len(sast[sev]) * per for sev, per in (("critical", 3), ("high", 1.5), ("medium", 0.5), ("low", 0.1)))
+    if sast_points:
+        impact = -min(15.0, sast_points)
+        base_score += impact
+        ev.append(make_evidence(
+            scan_dir, "sec-sast", "deduction",
+            f"{sum(sast_detail.values())} Semgrep SAST findings ({sast_detail['critical']} critical / "
+            f"{sast_detail['high']} high / {sast_detail['medium']} medium / {sast_detail['low']} low) at "
+            f"3/1.5/0.5/0.1 pt each, max 15 — scored separately from CVEs",
+            sast_detail, impact, findings_file,
+            [finding_ref(f) for sev in ("critical", "high", "medium", "low") for f in sast[sev]]))
 
     # Known-exploited vulnerabilities are weighted extra on top of their severity.
     kev = [f for sev in ("critical", "high", "medium", "low") for f in by_sev[sev]
@@ -653,6 +692,20 @@ def score_security(scan_dir: Path, findings: Dict) -> Dict[str, Any]:
                                 f"Deductions total {base_score - 100:.1f} pts; score is floored at 0",
                                 round(base_score, 1), None))
     base_score = max(0, base_score)
+
+    suppressed = list(findings.get("suppressed_findings") or []) + TEST_PATH_ITEMS
+    suppressed_counts = {sev: 0 for _, sev in SEV_KEYS}
+    for f in suppressed:
+        sev = str(f.get("severity", "")).lower()
+        if sev in suppressed_counts:
+            suppressed_counts[sev] += 1
+    if suppressed:
+        ev.append(make_evidence(
+            scan_dir, "sec-suppressed", "info",
+            f"{len(suppressed)} suppressed finding(s) by approved .epyon-ignore.yml rules or in test paths "
+            f"({suppressed_counts['critical']} critical / {suppressed_counts['high']} high / "
+            f"{suppressed_counts['medium']} medium / {suppressed_counts['low']} low) — counted, 0 pt weight",
+            suppressed_counts, 0, findings_file, [f"[suppressed{' (test path)' if f.get('suppression') == 'test path' else ''}] {finding_ref(f) if f.get('tool') else str(f.get('type', 'finding')) + ':' + finding_path(f)}" for f in suppressed]))
 
     if has_secrets:
         base_score = min(base_score, 30)

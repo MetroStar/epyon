@@ -15,7 +15,7 @@ import tarfile
 import threading
 import time
 import zipfile
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -32,6 +32,7 @@ from pydantic import BaseModel
 
 from . import jobs as job_store
 from . import parsers
+from . import poam
 from . import parse_cache
 from . import finding_search
 from . import github_sync
@@ -1214,17 +1215,8 @@ def stig_findings_cklb(scan_id: str, response: Response):
                         headers={"Content-Disposition": f'attachment; filename="findings-{scan_id}.cklb"'})
 
 
-@app.get("/api/scans/{scan_id}/stig-data")
-def stig_data(scan_id: str, response: Response):
-    """Return merged controls + assessment results for all STIGs in a scan as JSON."""
-    _sec_headers(response)
-    if not _SAFE_ID_RE.match(scan_id):
-        raise HTTPException(400, "Invalid scan_id")
-    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
-    matched = next((d for d in scan_dirs if d.name == scan_id), None)
-    if not matched:
-        raise HTTPException(404, "Scan not found")
-
+def _build_stig_entries(scan_id: str, matched: Path) -> list[dict]:
+    """Merge STIG controls with assessment results for every STIG in a scan directory."""
     stigs: list[dict] = []
     for results_file in sorted(matched.glob("stig-results-*.json")):
         slug = results_file.stem[len("stig-results-"):]
@@ -1281,6 +1273,188 @@ def stig_data(scan_id: str, response: Response):
             "md_url":      f"/api/scans/{scan_id}/stig-findings/{app_slug}-{slug}.md"   if md_file.exists()   else None,
             "cklb_url":    f"/api/scans/{scan_id}/stig-findings/{app_slug}-{slug}.cklb" if cklb_file.exists() else None,
         })
+
+    return stigs
+
+
+@app.get("/api/scans/{scan_id}/stig-findings-json")
+def stig_findings_json(scan_id: str, response: Response, slug: Optional[str] = None):
+    """Download structured STIG findings (all STIGs, or one via ?slug=) as JSON."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    if slug is not None and not re.match(r"^[a-zA-Z0-9][a-zA-Z0-9_\-]*$", slug):
+        raise HTTPException(400, "Invalid slug")
+    matched = _require_scan_dir(scan_id)
+    stigs = _build_stig_entries(scan_id, matched)
+    if slug is not None:
+        stigs = [s for s in stigs if s["slug"] == slug]
+    if not stigs:
+        raise HTTPException(404, "STIG findings not generated for this scan")
+    app_name = re.sub(r"_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$", "", scan_id)
+    payload = {
+        "scan_id": scan_id,
+        "application": app_name,
+        "stigs": [
+            {
+                **{k: v for k, v in st.items() if k not in ("controls", "md_url", "cklb_url")},
+                "summary": dict(Counter(c["status"] for c in st["controls"])),
+                "controls": st["controls"],
+            }
+            for st in stigs
+        ],
+    }
+    name = f"findings-{scan_id}{'-' + slug if slug else ''}.json"
+    return Response(json.dumps(payload, indent=2), media_type="application/json",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+
+def _poam_rows(app_key_id: str, stig_scan_id: Optional[str], vuln_scan_id: Optional[str]) -> list[dict]:
+    """Rows for one application: STIG items from one scan, CVEs from another (may be the same)."""
+    sla, overrides = poam.get_sla_days(), poam.get_overrides(app_key_id)
+    rows: list[dict] = []
+    if stig_scan_id:
+        stigs = _build_stig_entries(stig_scan_id, _require_scan_dir(stig_scan_id))
+        rows += poam.build_rows(stig_scan_id, stigs, {}, sla_days=sla, overrides=overrides)
+    if vuln_scan_id:
+        data = parsers.load_scan_complete(_require_scan_dir(vuln_scan_id), EPYON_ROOT)
+        rows += poam.build_rows(vuln_scan_id, [], data.get("findings", {}), sla_days=sla, overrides=overrides)
+    return poam.number_rows(rows)
+
+
+def _poam_response(scan_ids_label: str, rows: list[dict], preview: bool, filename: str):
+    if preview:
+        return {"scan_id": scan_ids_label, "columns": poam.COLUMNS, "total": len(rows),
+                "sla_days": poam.get_sla_days(),
+                "by_severity": dict(Counter(r["Raw Severity"] for r in rows)),
+                "by_source": dict(Counter("STIG" if r["Detection Source"].startswith("Epyon STIG") else "CVE" for r in rows)),
+                "rows": rows}
+    return Response(poam.to_csv(rows), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+def _latest_poam_scans(app_name: str) -> tuple[str, str]:
+    """(latest STIG scan id, latest comprehensive scan id) for an application; '' when none."""
+    scans = [_cached_load_scan(d) for d in _cached_find_scan_dirs()]
+    scans = sorted((s for s in scans if s["target"] == app_name), key=lambda x: x.get("timestamp", ""), reverse=True)
+    stig = next((s for s in scans if s.get("stig_total", 0) > 0), None)
+    vuln = next((s for s in scans if s.get("scan_type") in _COMPREHENSIVE_SCAN_TYPES), scans[0] if scans else None)
+    return (stig["scan_id"] if stig else ""), (vuln["scan_id"] if vuln else "")
+
+
+@app.get("/api/scans/{scan_id}/poam")
+def scan_poam(scan_id: str, response: Response, preview: bool = False):
+    """POA&M of Open STIG controls plus unsuppressed Critical/High CVEs for one scan.
+
+    Returns a CSV download, or JSON rows when ?preview=true."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    rows = _poam_rows(scan_id, scan_id, scan_id)
+    return _poam_response(scan_id, rows, preview, f"poam-{scan_id}.csv")
+
+
+@app.get("/api/applications/{name}/poam")
+def app_poam(name: str, response: Response, preview: bool = False):
+    """Application POA&M: Open STIG controls from its latest STIG scan plus Critical/High CVEs
+    from its latest comprehensive scan."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(name):
+        raise HTTPException(400, "Invalid application name")
+    stig_id, vuln_id = _latest_poam_scans(name)
+    if not (stig_id or vuln_id):
+        raise HTTPException(404, "No scans found for this application")
+    rows = _poam_rows(name, stig_id, vuln_id)
+    return _poam_response(name, rows, preview, f"poam-{name}.csv")
+
+
+@app.get("/api/poam/summary")
+def poam_summary(response: Response):
+    """Per-application POA&M roll-up for the POA&M overview page."""
+    _sec_headers(response)
+    hidden = _load_hidden_apps()
+    names = sorted({s["target"] for s in (_cached_load_scan(d) for d in _cached_find_scan_dirs())} - hidden)
+    apps_out: list[dict] = []
+    for name in names:
+        if not _SAFE_ID_RE.match(name):
+            continue
+        stig_id, vuln_id = _latest_poam_scans(name)
+        if not (stig_id or vuln_id):
+            continue
+        try:
+            rows = _poam_rows(name, stig_id, vuln_id)
+        except HTTPException:
+            continue
+        apps_out.append({"name": name, "stig_scan_id": stig_id, "vuln_scan_id": vuln_id,
+                         **poam.summarize(rows)})
+    totals = {k: sum(a[k] for a in apps_out) for k in ("total", "stig", "cve", "overdue", "manual_dates")}
+    totals["by_severity"] = {k: sum(a["by_severity"][k] for a in apps_out) for k in ("Critical", "High", "Medium", "Low")}
+    return {"sla_days": poam.get_sla_days(), "totals": totals, "apps": apps_out}
+
+
+class PoamSlaBody(BaseModel):
+    sla_days: dict[str, int]
+
+
+class PoamDueDateBody(BaseModel):
+    key: str
+    due_date: Optional[str] = None  # YYYY-MM-DD; null clears the override
+
+
+@app.get("/api/poam/config")
+def get_poam_config(response: Response):
+    _sec_headers(response)
+    return {"sla_days": poam.get_sla_days(), "defaults": poam.SLA_DAYS}
+
+
+@app.put("/api/poam/config")
+def put_poam_config(body: PoamSlaBody, response: Response):
+    """Set the days-to-complete per severity used for POA&M scheduled completion dates."""
+    _sec_headers(response)
+    try:
+        return {"sla_days": poam.set_sla_days(body.sla_days)}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.put("/api/scans/{scan_id}/poam/due-date")
+def put_poam_due_date(scan_id: str, body: PoamDueDateBody, response: Response):
+    """Manually set (or clear) the completion date for one POA&M item; persists across rescans."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    _require_scan_dir(scan_id)
+    try:
+        poam.set_override(scan_id, body.key, body.due_date)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"key": body.key, "due_date": body.due_date}
+
+
+@app.put("/api/applications/{name}/poam/due-date")
+def put_app_poam_due_date(name: str, body: PoamDueDateBody, response: Response):
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(name):
+        raise HTTPException(400, "Invalid application name")
+    try:
+        poam.set_override(name, body.key, body.due_date)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"key": body.key, "due_date": body.due_date}
+
+
+@app.get("/api/scans/{scan_id}/stig-data")
+def stig_data(scan_id: str, response: Response):
+    """Return merged controls + assessment results for all STIGs in a scan as JSON."""
+    _sec_headers(response)
+    if not _SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    scan_dirs = parsers.find_scan_dirs(EPYON_ROOT, days=35)
+    matched = next((d for d in scan_dirs if d.name == scan_id), None)
+    if not matched:
+        raise HTTPException(404, "Scan not found")
+
+    stigs = _build_stig_entries(scan_id, matched)
 
     return {"scan_id": scan_id, "stigs": stigs}
 

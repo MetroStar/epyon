@@ -240,7 +240,7 @@
           <mxGeometry x="150" y="160" width="130" height="45" as="geometry"/>
         </mxCell>
         
-        <mxCell id="stig-baselines" value="STIG Baselines&#xa;configuration/stigs/&#xa;• ASD v6r4&#xa;• Tomcat 9&#xa;• Postgres 16&#xa;• Database SRG&#xa;• .NET 4.0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;align=left;spacingLeft=5;" vertex="1" parent="stig-engine">
+        <mxCell id="stig-baselines" value="STIG Baselines&#xa;configuration/stigs/&#xa;• ASD v6r5&#xa;• Tomcat 9&#xa;• Postgres 16&#xa;• Database SRG&#xa;• .NET 4.0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;align=left;spacingLeft=5;" vertex="1" parent="stig-engine">
           <mxGeometry x="300" y="160" width="160" height="95" as="geometry"/>
         </mxCell>
         

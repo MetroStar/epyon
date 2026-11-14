@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.63.0] - 2026-11-13
+
+### Added
+- STIG structured JSON download (`GET /api/scans/{scan_id}/stig-findings-json[?slug=]`) with `↓ findings.json` buttons beside `.md`/`.cklb`.
+- POA&M export, preview and roll-up: `GET /api/scans/{id}/poam`, `GET /api/applications/{name}/poam`, `GET /api/poam/summary`, a POA&M card on scan detail, a POA&M nav page and a per-application viewer. SLA days per severity are configurable (`GET/PUT /api/poam/config`, default 7/30/90/180) and completion dates can be set manually; both persist in `web/data/poam-config.json`.
+
+### Changed
+- Updated the bundled ASD STIG from V6R4 to V6R5 (benchmark 30 Sep 2026). The STIG slug is now `u-asd-stig-v6r5-manual-xccdf`, so the first run re-assesses every control.
+
 ### Fixed
 - STIG assessment now exits non-zero and skips PR/Jira publishing when more than 10% of batches fail (`EPYON_STIG_MAX_FAILED_BATCH_PCT`), instead of publishing fallback Open/0 results.
 - Structured STIG batches require exact named control keys, preventing duplicate control IDs without weakening complete-assessment validation. Local requests bound relevant manual documentation and output reservations to avoid wasting the model context window.

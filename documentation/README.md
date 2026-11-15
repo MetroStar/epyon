@@ -16,7 +16,7 @@ Index of the guides in this directory. Start with the architecture and scan matr
 | Document | Purpose |
 |---|---|
 | [SCORE_CARD_GUIDE.md](SCORE_CARD_GUIDE.md) | How the Score Card is calculated, where its numbers come from, and how to verify them |
-| [STIG_COMPLIANCE_GUIDE.md](STIG_COMPLIANCE_GUIDE.md) | STIG assessment workflow, statuses and freeze logic |
+| [STIG_SCANNING_TECHNICAL_REFERENCE.md](STIG_SCANNING_TECHNICAL_REFERENCE.md) | STIG assessment workflow, statuses, freeze logic and engine internals |
 | [STIG_SCANNING_TECHNICAL_REFERENCE.md](STIG_SCANNING_TECHNICAL_REFERENCE.md) | STIG engine internals |
 | [MANUAL_STIG_DOCUMENTATION_GUIDE.md](MANUAL_STIG_DOCUMENTATION_GUIDE.md) | Human-authored STIG documentation that takes priority over AI assessments |
 | [IGNORE_RULES_GUIDE.md](IGNORE_RULES_GUIDE.md) | `.epyon-ignore.yml` suppression rules |

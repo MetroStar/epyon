@@ -1246,7 +1246,7 @@ ls -la *.yaml *.yml
 ---
 
 For additional help, see:
-- [STIG Compliance Guide](STIG_COMPLIANCE_GUIDE.md)
+- [STIG Scanning Technical Reference](STIG_SCANNING_TECHNICAL_REFERENCE.md)
 - [Scan Matrix](SCAN_MATRIX.md)
 - [Webhook Integration Guide](WEBHOOK_INTEGRATION_GUIDE.md)
 - [Main README](../README.md)

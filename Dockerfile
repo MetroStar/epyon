@@ -50,7 +50,7 @@ RUN python3 -m pip install --no-cache-dir -r /app/web/api/requirements.txt
 # reports zero findings for Layer 8.5 (the script exits early with
 # "pip-audit is not installed", and the caller treats that as a soft
 # failure) instead of a clear error.
-RUN python3 -m pip install --no-cache-dir pip-audit
+RUN python3 -m pip install --no-cache-dir pip-audit safety "filelock>=4.2.1"
 
 # Copy the full repository so scan scripts, configuration, and VERSION are
 # available to the API at runtime (see EPYON_ROOT resolution in main.py).

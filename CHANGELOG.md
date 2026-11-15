@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Layers that silently skipped in CI now run.** The scan job had no Node.js, so SonarQube (`npx`) and npm audit (11.7) were skipped; the workflow now sets up Node 24. `picklescan` is installed so Layer 14 scans pickle files.
 - **Safety (11.6) reported zero findings even when vulnerabilities existed.** The consolidator's `[[ -f glob ]]` test never matched, so every result was dropped. Safety's deprecation banner around the JSON is now stripped, stderr is kept in `safety-*-results.err`, and a malformed `|| echo 0` count no longer breaks arithmetic.
+- **A layer that did not run can no longer look like a clean result.** Xeol, Safety and SonarQube now write `status.json` (`failed`/`skipped` with a reason), and the scan page's Environment Notes lists every layer whose status is failed or skipped. Xeol detects its EOL database being unavailable (its upstream `data.xeol.io` host currently does not resolve, so `db update` exits 0 with an empty database); SonarQube reports a missing `npx`.
+
+### Changed
+- Xeol now also scans the baseline image when it is present locally, instead of always skipping image scanning.
 
 ## [3.70.4] - 2026-11-14
 

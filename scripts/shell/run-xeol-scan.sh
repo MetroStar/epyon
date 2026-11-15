@@ -193,6 +193,16 @@ ${CONTAINER_CLI} run --rm \
     db status 2>&1 | tee -a "$SCAN_LOG"
 echo
 
+# `db update` exits 0 even when the listing host is unreachable, which leaves an empty
+# database and makes every scan fail. Detect that here so the layer reports it instead of
+# looking like a clean "0 EOL components" run.
+XEOL_DB_OK=true
+if ! ${CONTAINER_CLI} run --rm -v "$XEOL_CACHE_VOL:/root/.cache" noqcks/xeol:latest db status 2>&1 | grep -q "Status:[[:space:]]*valid"; then
+    XEOL_DB_OK=false
+    echo -e "${RED}❌ Xeol EOL database is not available (data.xeol.io unreachable or database not downloaded).${NC}"
+    echo "   EOL detection cannot run until the Xeol database host is reachable."
+fi
+
 # Function to scan a target
 scan_target() {
     local scan_type="$1"
@@ -261,10 +271,19 @@ else
 fi
 
 IMAGES_SCANNED=0
-# Skip image scanning for now - focus on filesystem scanning
-# Base image scanning can be enabled if needed, but requires accessible images
-echo -e "${YELLOW}ℹ️  Skipping base image scanning - focusing on filesystem analysis${NC}"
-echo -e "   ${CYAN}Note: To scan base images, ensure they are pulled/accessible first${NC}"
+# Scan each configured image that is already present locally (pulling unknown images
+# here would make scan time unpredictable).
+for base_image in "${BASE_IMAGES[@]}"; do
+    if ${CONTAINER_CLI} image inspect "$base_image" >/dev/null 2>&1; then
+        image_slug=$(echo "$base_image" | tr '/:@' '___')
+        output_file="${SCAN_ID}_xeol-image-${image_slug}-results.json"
+        scan_target "image" "$base_image" "$output_file"
+        ln -sf "$output_file" "$OUTPUT_DIR/xeol-image-${image_slug}-results.json" 2>/dev/null
+        IMAGES_SCANNED=$((IMAGES_SCANNED + 1))
+    else
+        echo -e "${YELLOW}ℹ️  Image not available locally, not scanned: ${base_image}${NC}"
+    fi
+done
 echo
 
 # Always scan the target filesystem
@@ -294,6 +313,14 @@ for file in "$OUTPUT_DIR"/xeol-*-results.json; do
         PACKAGES_CHECKED=$((PACKAGES_CHECKED + PKG_COUNT))
     fi
 done
+
+if [ "$XEOL_DB_OK" != "true" ]; then
+    record_scan_status "failed" "Xeol EOL database unavailable (data.xeol.io unreachable); no EOL detection was performed"
+elif grep -q "FAILED" "$SCAN_LOG" 2>/dev/null; then
+    record_scan_status "failed" "One or more Xeol scans failed; see xeol/scan.log"
+else
+    record_scan_status "success" ""
+fi
 
 # Try to get Xeol database version
 DB_VERSION=$(${CONTAINER_CLI} run --rm noqcks/xeol:latest version 2>/dev/null | grep "Application" | awk '{print $2}' || echo "unknown")

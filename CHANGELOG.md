@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.70.10] - 2026-11-15
+
+### Changed
+- Dockerfile: document why the web image runs as root (host Docker socket, `/root/.aws`, host bind mounts) and mark the semgrep `missing-user` finding with a justified `nosemgrep`.
+- `.epyon-ignore.yml`: add expiring (2026-12-15) suppressions for Wolfi `python-3.12` CVE-2026-116566 and CVE-2026-103995, which have no published fix.
+
 ## [3.70.9] - 2026-11-15
 
 ### Changed

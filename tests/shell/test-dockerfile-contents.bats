@@ -13,7 +13,7 @@ setup() {
 }
 
 @test "Dockerfile installs pip-audit for Layer 8.5" {
-    grep -q 'pip install --no-cache-dir -r /app/web/api/requirements.txt pip-audit semgrep awscli' "$DOCKERFILE"
+    grep -q 'pip install --no-cache-dir -r /app/web/api/requirements.txt "filelock>=4.2.1" pip-audit safety semgrep awscli' "$DOCKERFILE"
     grep -q 'python3 -m pip check' "$DOCKERFILE"
 }
 

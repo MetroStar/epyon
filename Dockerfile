@@ -114,4 +114,10 @@ EXPOSE 8057
 
 WORKDIR /app/web
 
+# Runs as root deliberately: the container drives the host Docker engine through the
+# mounted /var/run/docker.sock (already root-equivalent on the host, and its group id
+# differs per host), reads /root/.aws for ECR login, and writes host bind mounts
+# (scans/, configuration/, web/data/, tmp/) that a fixed non-root uid cannot write on
+# Linux hosts. Revisit if scan layers move to a rootless engine.
+# nosemgrep: dockerfile.security.missing-user.missing-user
 CMD ["sh", "-c", "bash /app/scripts/shell/ecr-refresh-loop.sh & exec python3 -m uvicorn api.main:app --host ${HOST} --port ${PORT} --app-dir /app/web"]

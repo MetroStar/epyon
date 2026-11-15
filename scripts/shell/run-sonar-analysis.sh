@@ -301,6 +301,12 @@ if [ -n "$_detected_py_ver" ]; then
   EXTRA_ARGS="$EXTRA_ARGS -Dsonar.python.version=$_detected_py_ver"
 fi
 
+if ! command -v npx >/dev/null 2>&1; then
+  echo "[ERROR] npx not found - Node.js is required to run sonarqube-scanner" >&2
+  record_scan_status "failed" "npx not found (Node.js not installed)"
+  exit 1
+fi
+
 if [ -n "$PROPS_FILE" ]; then
   # Properties file found — cd to its directory so relative paths inside it resolve
   cd "$(dirname "$PROPS_FILE")"
@@ -330,6 +336,7 @@ cd "$REPO_PATH"
 
 if [ "$SCANNER_EXIT" -ne 0 ]; then
   echo "[ERROR] SonarCloud scanner exited with code $SCANNER_EXIT" >&2
+  record_scan_status "failed" "sonarqube-scanner exited with code $SCANNER_EXIT"
   exit "$SCANNER_EXIT"
 fi
 echo ""
@@ -395,3 +402,4 @@ JSON
 echo ""
 echo "[OK] Results saved: $RESULTS_FILE"
 echo "📊 Dashboard: ${SONAR_HOST_URL}/dashboard?id=${SONAR_PROJECT_KEY}"
+record_scan_status "success" ""

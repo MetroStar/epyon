@@ -2477,6 +2477,30 @@ def compute_gate_status(
     return "pass"
 
 
+def _layer_status_notes(scan_dir: Path) -> list[dict]:
+    """Warn about layers whose own status.json says they failed or were skipped, so a
+    layer that did not actually run can never pass for a clean result."""
+    notes: list[dict] = []
+    for status_file in sorted(scan_dir.glob("*/status.json")):
+        data = _read_json(status_file)
+        if not data:
+            continue
+        state = data.get("status")
+        if state not in ("failed", "error", "skipped"):
+            continue
+        tool = data.get("tool") or status_file.parent.name
+        reason = data.get("reason") or "no reason recorded"
+        if "malicious" in reason:
+            continue  # picklescan reports "failed" when it detects threats; that layer did run
+        notes.append({
+            "layer": f"{tool}",
+            "severity": "warning",
+            "message": f"{'Did not run' if state == 'skipped' else 'Failed'}: {reason}. "
+                       "Findings from this layer are not included in this scan.",
+        })
+    return notes
+
+
 def parse_scan_environment_notes(scan_dir: Path) -> list[dict]:
     """Surface environment-dependent gaps that make vulnerability counts
     non-comparable across environments scanning the same target (e.g. a
@@ -2487,7 +2511,7 @@ def parse_scan_environment_notes(scan_dir: Path) -> list[dict]:
     run-anchore-scan.sh. Returns an empty list when nothing noteworthy
     occurred, so this adds no noise to clean/complete runs.
     """
-    notes: list[dict] = []
+    notes: list[dict] = _layer_status_notes(scan_dir)
     status = _read_json(scan_dir / "anchore" / "status.json")
     if not status:
         return notes

@@ -66,7 +66,8 @@ consolidate_safety_results() {
     local total_vulns=0
     
     # Find all safety result files
-    if [[ -f "$SAFETY_DIR"/*.json ]]; then
+    # (`[[ -f glob ]]` never matches, which silently dropped every result)
+    if compgen -G "$SAFETY_DIR/*.json" > /dev/null; then
         for result_file in "$SAFETY_DIR"/*.json; do
             # Skip the consolidated file itself
             if [[ "$(basename "$result_file")" == "safety-consolidated-results.json" ]]; then
@@ -97,7 +98,8 @@ consolidate_safety_results() {
                 else
                     []
                 end
-            ' "$result_file" 2>/dev/null || echo '[]')
+            ' "$result_file" 2>/dev/null) || results='[]'
+            [[ -n "$results" ]] || results='[]'
             local vuln_count=$(echo "$results" | jq 'length')
             
             total_vulns=$((total_vulns + vuln_count))
@@ -136,8 +138,15 @@ find "$TARGET_DIR" -type f \( -name "requirements*.txt" -o -name "poetry.lock" -
         fi
         
         # Standard requirements.txt
-        if eval "$SAFETY_CMD --file $dep_file --json" > "$output_file" 2>/dev/null; then
-            vuln_count=$(jq '.vulnerabilities // [] | length' "$output_file" 2>/dev/null || echo "0")
+        # `safety check` prints a deprecation banner before the JSON on stdout, which makes the
+        # file unparseable (every finding silently becomes zero). Keep only the JSON document and
+        # keep stderr so a failed scan says why.
+        raw_file="${output_file}.raw"
+        eval "$SAFETY_CMD --file $dep_file --json" > "$raw_file" 2> "${output_file%.json}.err" && safety_ok=true || safety_ok=false
+        awk '/^[[:space:]]*[{[]/{f=1} f' "$raw_file" | jq -n 'input' > "$output_file" 2>/dev/null || : > "$output_file"
+        rm -f "$raw_file"
+        if [[ "$safety_ok" == "true" ]]; then
+            vuln_count=$(jq '.vulnerabilities // [] | length' "$output_file" 2>/dev/null) || vuln_count=0
             if [[ $vuln_count -gt 0 ]]; then
                 echo -e "${YELLOW}[WARN] Found $vuln_count vulnerabilities in $rel_path${NC}"
             else

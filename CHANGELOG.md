@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.70.6] - 2026-11-15
+
+### Fixed
+- **Layers that silently skipped in CI now run.** The scan job had no Node.js, so SonarQube (`npx`) and npm audit (11.7) were skipped; the workflow now sets up Node 24. `picklescan` is installed so Layer 14 scans pickle files.
+- **Safety (11.6) reported zero findings even when vulnerabilities existed.** The consolidator's `[[ -f glob ]]` test never matched, so every result was dropped. Safety's deprecation banner around the JSON is now stripped, stderr is kept in `safety-*-results.err`, and a malformed `|| echo 0` count no longer breaks arithmetic.
+
 ## [3.70.4] - 2026-11-14
 
 ### Fixed

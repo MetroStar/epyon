@@ -626,6 +626,14 @@ jobs:
         with:
           python-version: '3.13'
 
+      # Layer 3 (SonarQube scanner via npx), Layer 11.7 (npm audit) and Node lineage all need
+      # node/npm; without them those layers log "command not found" and are skipped.
+      - name: Setup Node.js
+        if: inputs.scan_mode != 'stig'
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+
       - name: Install Dependencies
         run: |
           sudo apt-get update
@@ -634,7 +642,8 @@ jobs:
           # Python dependency vulnerability scanners used by Layers 11.5/11.6
           python -m pip install pip-audit safety defusedxml
           if [[ "$SCAN_MODE" != "quick" ]]; then
-            python -m pip install pyyaml pipdeptree openai
+            # picklescan is the Layer 14 pickle scanner; without it pickle files are skipped
+            python -m pip install pyyaml pipdeptree openai picklescan
           else
             python -m pip install pyyaml pipdeptree
           fi

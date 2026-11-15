@@ -20,10 +20,10 @@ jobs:
       hot_ms: ${{ steps.cache-perf.outputs.hot_ms }}
       hit_rate: ${{ steps.cache-perf.outputs.hit_rate }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4
         with:
           python-version: '3.11'
       
@@ -78,7 +78,7 @@ jobs:
           fi
       
       - name: Upload cache metrics
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3
         with:
           name: cache-metrics
           path: cache-metrics.json
@@ -110,10 +110,10 @@ jobs:
       precision: ${{ steps.scanner-validation.outputs.precision }}
       recall: ${{ steps.scanner-validation.outputs.recall }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4
         with:
           python-version: '3.11'
       
@@ -155,7 +155,7 @@ jobs:
           exit $EXIT_CODE
       
       - name: Upload validation results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3
         with:
           name: scanner-validation
           path: tests/validation-results.txt

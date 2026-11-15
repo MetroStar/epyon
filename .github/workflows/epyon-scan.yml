@@ -399,7 +399,7 @@ jobs:
     steps:
       - name: Checkout Target Repository
         if: inputs.repository_url == ''
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           path: target-repo
           fetch-depth: 0
@@ -465,7 +465,7 @@ jobs:
           fi
 
       - name: Checkout Epyon Security Scanner
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           repository: MetroStar/epyon
           ref: ${{ inputs.scanner_ref }}
@@ -517,10 +517,10 @@ jobs:
           df -h /
 
       - name: Set up Docker
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Cache Docker Images
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: /tmp/.buildx-cache
           key: ${{ runner.os }}-docker-${{ github.sha }}
@@ -560,7 +560,7 @@ jobs:
       - name: Configure AWS credentials with OIDC (optional — private ECR)
         if: ${{ inputs.scan_mode != 'stig' && inputs.ecr_registry != '' && inputs.ecr_role_to_assume != '' }}
         continue-on-error: true
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
         with:
           role-to-assume: ${{ inputs.ecr_role_to_assume }}
           role-session-name: epyon-ecr-scan
@@ -575,7 +575,7 @@ jobs:
         # block scanning images from other registries.
         if: ${{ inputs.scan_mode != 'stig' && inputs.ecr_registry != '' && inputs.ecr_role_to_assume == '' }}
         continue-on-error: true
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
         with:
           aws-access-key-id: ${{ secrets.ECR_SCAN_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.ECR_SCAN_AWS_SECRET_ACCESS_KEY }}
@@ -597,7 +597,7 @@ jobs:
       - name: Login to Amazon ECR (optional — private ECR)
         if: ${{ inputs.scan_mode != 'stig' && inputs.ecr_registry != '' && steps.ecr-registry.outputs.account_id != '' }}
         continue-on-error: true
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2
         with:
           registries: ${{ steps.ecr-registry.outputs.account_id }}
 
@@ -622,7 +622,7 @@ jobs:
           echo "✅ Security tool images ready"
 
       - name: Setup Python 3.13
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.13'
 
@@ -630,7 +630,7 @@ jobs:
       # node/npm; without them those layers log "command not found" and are skipped.
       - name: Setup Node.js
         if: inputs.scan_mode != 'stig'
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: '24'
 
@@ -995,7 +995,7 @@ jobs:
           fi
 
       - name: Upload Complete Scan Results
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         if: always()
         with:
           name: ${{ steps.run-scan.outputs.scan_id }}
@@ -1003,7 +1003,7 @@ jobs:
           retention-days: 30
 
       - name: Upload Metrics Row
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         if: always() && inputs.write_metrics != false && (inputs.scan_mode == 'full' || github.event_name == 'workflow_dispatch')
         with:
           name: metrics-${{ steps.run-scan.outputs.scan_id }}
@@ -1073,7 +1073,7 @@ jobs:
       - name: Comment on PR
         if: always() && github.event_name == 'pull_request'
         continue-on-error: true
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const fs = require('fs');

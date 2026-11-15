@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.70.4] - 2026-11-14
+
+### Fixed
+- **Application Trend Status arrows point the way people expect.** Improving is ↗ (green) and Declining is ↘ (red). They previously showed the direction of the risk index, so Declining pointed up.
+
 ## [3.70.3] - 2026-11-14
 
 ### Changed

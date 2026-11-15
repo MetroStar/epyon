@@ -6286,7 +6286,7 @@ function buildAppTrendSection(m) {
     .sort((a, b) => (order[a[1].status] - order[b[1].status]) || a[0].localeCompare(b[0]))
     .map(([name, t]) => {
       const color = { Improving: 'var(--clean)', Declining: 'var(--critical)', Stable: 'var(--text-muted)' }[t.status] || 'var(--text-dim)';
-      const icon = { Improving: '▼', Declining: '▲', Stable: '►' }[t.status] || '–';
+      const icon = { Improving: '↗', Declining: '↘', Stable: '→' }[t.status] || '–';
       const fmt = n => (n > 0 ? '+' : '') + n;
       const change = t.delta === undefined ? '—'
         : `${fmt(t.delta)}${t.delta_pct === null || t.delta_pct === undefined ? '' : ` (${fmt(t.delta_pct)}%)`}`;

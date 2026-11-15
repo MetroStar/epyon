@@ -21,8 +21,10 @@ def test_new_critical_is_declining_even_if_total_risk_drops():
     assert t["status"] == "Declining" and t["critical_high_delta"] == 1
 
 
-def test_only_same_scan_type_is_compared_and_one_point_per_day():
-    scans = [_scan(1, high=10), _scan(2, "quick", high=0), _scan(3, high=9), _scan(3, high=10)]
-    t = app_trend(scans)  # latest is a full scan; the quick scan is ignored
+def test_only_nightly_and_full_scans_count_and_one_point_per_day():
+    scans = [_scan(1, "nightly", high=10), _scan(2, "quick", high=0), _scan(3, "full", high=9),
+             _scan(3, "full", high=10), _scan(4, "stig")]
+    t = app_trend(scans)  # quick and stig are ignored; nightly and full are pooled
     assert t["scans_compared"] == 2 and t["status"] == "Stable"
-    assert app_trend([_scan(1)])["status"] == "Not enough data"
+    assert app_trend([_scan(1, "nightly")])["status"] == "Not enough data"
+    assert app_trend([_scan(1, "quick"), _scan(2, "quick")])["status"] == "Not enough data"

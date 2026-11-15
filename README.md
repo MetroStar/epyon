@@ -1832,7 +1832,7 @@ The tag must equal `VERSION`, or the release fails. Run `gh workflow run release
 - **[documentation/ANCHORE_CONFIGURATION_GUIDE.md](documentation/ANCHORE_CONFIGURATION_GUIDE.md)** - Anchore false-positive prevention and scanner configuration
 - **[documentation/DEDUPLICATION_IMPLEMENTATION.md](documentation/DEDUPLICATION_IMPLEMENTATION.md)** - Finding deduplication logic and implementation details
 - **[documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md](documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md)** - Security review and test coverage analysis
-- **[documentation/STIG_COMPLIANCE_GUIDE.md](documentation/STIG_COMPLIANCE_GUIDE.md)** - STIG and RMF compliance documentation
+- **[documentation/STIG_SCANNING_TECHNICAL_REFERENCE.md](documentation/STIG_SCANNING_TECHNICAL_REFERENCE.md)** - STIG assessment workflow, freeze logic and engine internals
 - **[documentation/SCORE_CARD_GUIDE.md](documentation/SCORE_CARD_GUIDE.md)** - How the Score Card is calculated, where its numbers come from, and how to verify them
 - **[documentation/AI Integration Strategy for Epyon.md](documentation/AI%20Integration%20Strategy%20for%20Epyon.md)** - CIO roadmap for AI/ML integration opportunities
 
@@ -1981,7 +1981,7 @@ export HIGH_ALERT_THRESHOLD="5"
 - **[documentation/ANCHORE_CONFIGURATION_GUIDE.md](documentation/ANCHORE_CONFIGURATION_GUIDE.md)** - Anchore false-positive prevention and scanner configuration
 - **[documentation/DEDUPLICATION_IMPLEMENTATION.md](documentation/DEDUPLICATION_IMPLEMENTATION.md)** - Finding deduplication logic and implementation
 - **[documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md](documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md)** - Security review and test coverage analysis
-- **[documentation/STIG_COMPLIANCE_GUIDE.md](documentation/STIG_COMPLIANCE_GUIDE.md)** - STIG and RMF compliance documentation
+- **[documentation/STIG_SCANNING_TECHNICAL_REFERENCE.md](documentation/STIG_SCANNING_TECHNICAL_REFERENCE.md)** - STIG assessment workflow, freeze logic and engine internals
 - **[documentation/SCORE_CARD_GUIDE.md](documentation/SCORE_CARD_GUIDE.md)** - How the Score Card is calculated, where its numbers come from, and how to verify them
 - **[documentation/AI Integration Strategy for Epyon.md](documentation/AI%20Integration%20Strategy%20for%20Epyon.md)** - CIO roadmap for AI/ML integration opportunities
 

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.70.5] - 2026-11-15
+
+### Security
+- **Epyon's own image no longer ships the open vulnerabilities from the 2026-11-15 self-scan.** `mcp` 1.30.0 and `opentelemetry-*` 1.45.2 now override semgrep's hard pins; npm's bundled `glob` 14.0.6 and `minimatch` 11.0.8 replace the vulnerable copies; `docker-buildx` is built with `otel/sdk` and `otel/trace` v1.47.0; the Go builder is 1.27.4 (fixes the `helm` stdlib finding). A Trivy scan of the rebuilt image shows none of the previously reported findings. Remaining: two `python-3.12` Wolfi CVEs with no fixed package yet.
+
 ## [3.70.4] - 2026-11-14
 
 ### Fixed

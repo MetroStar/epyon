@@ -13,7 +13,7 @@
 # `jq ... || echo "0"` fallback pattern that was written assuming `jq`
 # exists, so without it installed here every one of those tools *appears* to
 # find zero results even when its underlying scan produced real findings.
-FROM golang:1.27.3-alpine AS cli-builder
+FROM golang:1.27.4-alpine AS cli-builder
 
 ENV CGO_ENABLED=0 GOFLAGS=-mod=mod GOMAXPROCS=2
 RUN apk add --no-cache git
@@ -30,6 +30,7 @@ RUN git clone --depth=1 --branch "v${BUILDX_VERSION}" https://github.com/docker/
     && sed -i 's|github.com/docker/docker/pkg/namesgenerator|github.com/docker/buildx/internal/namesgenerator|' store/util.go \
     && go mod edit -droprequire=github.com/docker/docker \
     && go get golang.org/x/net@v0.62.0 github.com/moby/go-archive@v0.3.0 \
+        go.opentelemetry.io/otel/sdk@v1.47.0 go.opentelemetry.io/otel/trace@v1.47.0 \
     && go mod tidy \
     && go list -m all > /tmp/buildx-modules \
     && ! grep -q '^github.com/docker/docker ' /tmp/buildx-modules \
@@ -46,6 +47,10 @@ RUN git clone --depth=1 --branch "v${HELM_VERSION}" https://github.com/helm/helm
 FROM cgr.dev/chainguard/wolfi-base:latest
 
 ARG NPM_VERSION=12.2.2
+# npm 12.2.2 bundles glob 13.0.6 / minimatch 10.2.5, which carry GHSA-3g3m-2fjr-6pw4 and
+# GHSA-g3hv-75wg-m249. Overlay patched releases until npm ships them.
+ARG NPM_GLOB_VERSION=14.0.6
+ARG NPM_MINIMATCH_VERSION=11.0.8
 
 RUN apk upgrade --no-cache \
     && apk add --no-cache bash coreutils findutils grep sed gnutar gzip unzip \
@@ -54,6 +59,13 @@ RUN apk upgrade --no-cache \
     && curl -fsSL "https://registry.npmjs.org/npm/-/npm-${NPM_VERSION}.tgz" -o /tmp/npm.tgz \
     && tar -xzf /tmp/npm.tgz --strip-components=1 -C /usr/local/lib/node_modules/npm \
     && rm /tmp/npm.tgz \
+    && mkdir /tmp/npm-overlay && cd /tmp/npm-overlay && echo '{}' > package.json \
+    && node /usr/local/lib/node_modules/npm/bin/npm-cli.js install --no-audit --no-fund --ignore-scripts --omit=dev \
+        "glob@${NPM_GLOB_VERSION}" "minimatch@${NPM_MINIMATCH_VERSION}" \
+    && cp -r node_modules/. /usr/local/lib/node_modules/npm/node_modules/ \
+    && cd / && rm -rf /tmp/npm-overlay \
+    && test "$(node -p "require('/usr/local/lib/node_modules/npm/node_modules/glob/package.json').version")" = "${NPM_GLOB_VERSION}" \
+    && test "$(node -p "require('/usr/local/lib/node_modules/npm/node_modules/minimatch/package.json').version")" = "${NPM_MINIMATCH_VERSION}" \
     && ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
     && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
     && node --version && npm --version && npx --version \
@@ -71,8 +83,15 @@ WORKDIR /app
 COPY web/api/requirements.txt /app/web/api/requirements.txt
 # Resolve the native scanners together with the API so their dependency pins
 # cannot silently leave the web environment inconsistent.
+# semgrep hard-pins mcp==1.29.0 and opentelemetry ~=1.37, which carry published advisories
+# (mcp < 1.30.0; opentelemetry-api < 1.45.2). Install patched releases over the pins (verified
+# working with semgrep 1.185) and accept only those known semgrep pin complaints from pip check.
 RUN python3 -m pip install --no-cache-dir -r /app/web/api/requirements.txt pip-audit semgrep awscli \
-    && python3 -m pip check
+    && python3 -m pip install --no-cache-dir "mcp>=1.30.0,<2" "opentelemetry-api>=1.45.2" \
+        "opentelemetry-sdk>=1.45.2" "opentelemetry-exporter-otlp-proto-http>=1.45.2" \
+        opentelemetry-instrumentation-requests opentelemetry-instrumentation-threading \
+    && semgrep --version \
+    && ! python3 -m pip check | grep -v -e '^semgrep .* has requirement \(mcp\|opentelemetry-[a-z-]*\)[=~<>]' -e '^No broken requirements'
 
 # Copy the full repository so scan scripts, configuration, and VERSION are
 # available to the API at runtime (see EPYON_ROOT resolution in main.py).

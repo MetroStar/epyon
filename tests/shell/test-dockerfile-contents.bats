@@ -30,12 +30,15 @@ setup() {
     grep -q '^ARG NPM_VERSION=12.2.2$' "$DOCKERFILE"
     grep -q 'npm-${NPM_VERSION}.tgz' "$DOCKERFILE"
     grep -q 'node --version && npm --version && npx --version' "$DOCKERFILE"
+    grep -q '^ARG NPM_GLOB_VERSION=14.0.6$' "$DOCKERFILE"
+    grep -q '^ARG NPM_MINIMATCH_VERSION=11.0.8$' "$DOCKERFILE"
     ! grep -Eq '^[[:space:]]+(nodejs|npm)[[:space:]]*\\?$' "$DOCKERFILE"
 }
 
 @test "Dockerfile rebuilds CLIs with patched Go dependencies and no daemon module" {
-    grep -q '^FROM golang:1.27.3-alpine AS cli-builder$' "$DOCKERFILE"
+    grep -q '^FROM golang:1.27.4-alpine AS cli-builder$' "$DOCKERFILE"
     grep -q 'go get golang.org/x/net@v0.62.0 github.com/moby/go-archive@v0.3.0' "$DOCKERFILE"
+    grep -q 'go.opentelemetry.io/otel/sdk@v1.47.0 go.opentelemetry.io/otel/trace@v1.47.0' "$DOCKERFILE"
     grep -q 'go mod edit -droprequire=github.com/docker/docker' "$DOCKERFILE"
     grep -q 'go test -p 2 ./store ./internal/namesgenerator' "$DOCKERFILE"
     grep -q 'COPY --from=cli-builder /src/buildx/internal/namesgenerator/LICENSE' "$DOCKERFILE"

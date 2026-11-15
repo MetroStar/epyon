@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.70.3] - 2026-11-14
+
+### Changed
+- **Application Trend Status compares only nightly and full scans.** Quick and STIG-only scans are ignored, so an app whose latest scan was a quick or STIG run is no longer trended on those. Apps with fewer than two nightly/full scan days show Not enough data.
+
 ## [3.70.2] - 2026-11-14
 
 ### Added

@@ -6187,7 +6187,7 @@ function openAppTrendDetail(name) {
 
   let why;
   if (!hasWindow) {
-    why = `Only ${pts.length} comparable ${esc(t.scan_type || '')} scan day${pts.length === 1 ? '' : 's'} so far. At least two are needed to call a direction.`;
+    why = `Only ${pts.length} comparable nightly/full scan day${pts.length === 1 ? '' : 's'} so far. At least two are needed to call a direction.`;
   } else {
     const parts = [`Risk index went from ${t.baseline_risk_index} to ${t.risk_index} (${fmt(t.delta)}${t.delta_pct == null ? '' : `, ${fmt(t.delta_pct)}%`}) between ${esc(t.from)} and ${esc(t.to)}.`];
     parts.push(t.critical_high_delta === 0 ? 'Critical + high findings are unchanged.'
@@ -6255,7 +6255,7 @@ function openAppTrendDetail(name) {
       <div class="finding-drawer-title">
         <h2>${esc(name)}</h2>
         <div class="finding-drawer-badges">
-          <span class="tool-tag">${esc(t.scan_type || 'scan')} scans</span>
+          <span class="tool-tag">nightly/full scans</span>
           <span style="font-size:13px;color:${color};font-weight:600">${esc(t.status)}</span>
         </div>
       </div>
@@ -6271,7 +6271,7 @@ function openAppTrendDetail(name) {
           <tbody>${rows}</tbody>
         </table>
       </div>
-      <div style="margin-top:14px;font-size:12px;color:var(--text-muted)">One point per day (the day's latest scan). Only ${esc(t.scan_type || 'same-type')} scans are compared, so a lighter scan is never read as an improvement.</div>
+      <div style="margin-top:14px;font-size:12px;color:var(--text-muted)">One point per day (the day's latest scan). Only nightly and full scans are compared, so a quick or STIG-only scan is never read as an improvement or decline.</div>
     </div>`;
   document.body.appendChild(overlay);
   document.body.appendChild(drawer);
@@ -6322,7 +6322,7 @@ function buildAppTrendSection(m) {
         </div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:8px">
           Risk index = 15×critical + 5×high + 1×medium + 0.2×low (the Score Card's vulnerability weights; lower is better).
-          Only scans of the same type are compared, one per day. Declining = risk up 10% or more, or more critical/high findings;
+          Only nightly and full scans are compared, one per day. Declining = risk up 10% or more, or more critical/high findings;
           Improving = risk down 10% or more, or fewer critical/high findings. Click a row for the full history.
         </div>
       </div>`;

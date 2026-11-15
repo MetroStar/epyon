@@ -149,6 +149,9 @@ EXCLUDE_DIR_PREFIXES = {
 # 60 KB ceiling which yields ≈ 20 k–30 k code tokens regardless of code density.
 MAX_CODE_BYTES_PER_BATCH = 60_000   # 60 KB ≈ 20–30 k tokens — safe for 128 K ctx models
 MAX_FILE_BYTES = 25_000             # truncate (not skip) files larger than 25 KB
+# Listing every file that missed the budget put ~170 KB (≈100 k tokens) of paths into each
+# prompt on a 1,600-file repo — far more than the code itself — so only a sample is listed.
+_MAX_OMITTED_PATHS_LISTED = 20
 _MAX_MANIFEST_LINES = 150           # cap repo manifest to 150 paths (150 × 60 chars / 4 ≈ 2 300 tokens)
 BATCH_SIZE_DEFAULT = 5              # controls per API call — smaller batches give each control more context
 # Self-hosted models get a smaller window: less context keeps them on the output contract.
@@ -1557,7 +1560,8 @@ def build_code_context_for_batch(
         parts.append(
             f"### NOTE: {len(skipped)} additional file(s) exceeded context budget "
             f"and were not included:\n"
-            + ("\n".join(f"  {r}" for r in skipped) if include_omitted_paths else "")
+            + ("\n".join(f"  {r}" for r in skipped[:_MAX_OMITTED_PATHS_LISTED]) if include_omitted_paths else "")
+            + (f"\n  ... and {len(skipped) - _MAX_OMITTED_PATHS_LISTED} more" if include_omitted_paths and len(skipped) > _MAX_OMITTED_PATHS_LISTED else "")
             + "\n"
         )
 
@@ -1832,7 +1836,9 @@ def call_openai(
         prompt = prompt.replace("JSON array", response_contract).replace("Each element MUST", "Each property value MUST")
     max_out = int(os.environ.get("EPYON_AI_MAX_TOKENS", "16384") or 16384)
     if _LOCAL_MODEL:
-        max_out = min(max_out, max(2048, 1024 * len(controls_batch)))
+        # Reasoning models spend part of the budget thinking; 1 K/control left them with an
+        # empty or truncated reply (finish_reason=length), forcing 3 retries per batch.
+        max_out = min(max_out, max(4096, 2048 * len(controls_batch)))
     response = client.chat.completions.create(
         model=model,
         **_completion_kwargs(model, max_out, _seed),

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.70.11] - 2026-11-15
+
+### Added
+- Layer 9 (Xeol): when the Xeol database host (`data.xeol.io`) is unreachable, `run-xeol-scan.sh` now falls back to `scripts/shell/run-eol-fallback.py`, which checks runtime and base images named in Dockerfiles, compose files and the CycloneDX SBOM directly against the endoflife.date API and writes Xeol-compatible results. Coverage is narrower than Xeol's (python, node, go, postgres, redis, nginx, mysql, mariadb, ruby, php, tomcat, alpine, ubuntu); the layer status note says the fallback was used.
+
 ## [3.70.10] - 2026-11-15
 
 ### Changed

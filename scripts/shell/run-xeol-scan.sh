@@ -252,6 +252,17 @@ scan_target() {
     fi
 }
 
+XEOL_FALLBACK_USED=false
+if [ "$XEOL_DB_OK" != "true" ]; then
+    echo -e "${YELLOW}⚠️  Falling back to direct endoflife.date lookups (Dockerfile/compose images and SBOM runtimes only)${NC}"
+    if python3 "$SCRIPT_DIR/run-eol-fallback.py" --target "$REPO_PATH" --scan-dir "${SCAN_DIR:-}" \
+            --output "$OUTPUT_DIR/xeol-endoflife-results.json" 2>&1 | tee -a "$SCAN_LOG"; then
+        XEOL_FALLBACK_USED=true
+    else
+        echo -e "${RED}❌ endoflife.date fallback could not check any component${NC}"
+    fi
+    echo
+else
 # 1. End-of-Life Detection
 echo -e "${CYAN}⚰️  Step 1: End-of-Life Package Detection${NC}"
 echo "========================================"
@@ -294,6 +305,7 @@ if [ -d "$REPO_PATH" ]; then
     # Create current symlink
     ln -sf "$output_file" "$OUTPUT_DIR/xeol-filesystem-results.json" 2>/dev/null
 fi
+fi
 
 # Calculate scan duration
 SCAN_END_TIME=$(date +%s)
@@ -314,7 +326,9 @@ for file in "$OUTPUT_DIR"/xeol-*-results.json; do
     fi
 done
 
-if [ "$XEOL_DB_OK" != "true" ]; then
+if [ "$XEOL_DB_OK" != "true" ] && [ "$XEOL_FALLBACK_USED" = "true" ]; then
+    record_scan_status "success" "Xeol database unavailable (data.xeol.io unreachable); used the endoflife.date fallback, which only checks Dockerfile/compose images and SBOM runtimes"
+elif [ "$XEOL_DB_OK" != "true" ]; then
     record_scan_status "failed" "Xeol EOL database unavailable (data.xeol.io unreachable); no EOL detection was performed"
 elif grep -q "FAILED" "$SCAN_LOG" 2>/dev/null; then
     record_scan_status "failed" "One or more Xeol scans failed; see xeol/scan.log"

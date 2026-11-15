@@ -54,6 +54,24 @@ ignores:
       scanner. They are test inputs, not Epyon runtime dependencies.
     approved_by: "rnelson"
 
+  - type: cve
+    value: "CVE-2026-116566"
+    reason: >
+      Wolfi python-3.12 (3.12.16_git20261030-r0) in the web image base. No fixed
+      version is published by Wolfi yet; `apk upgrade` in the Dockerfile already
+      installs the latest available. Re-evaluate when Wolfi ships a patch.
+    approved_by: "rnelson"
+    expires: "2026-12-15"
+
+  - type: cve
+    value: "CVE-2026-103995"
+    reason: >
+      Wolfi python-3.12 (3.12.16_git20261030-r0) in the web image base. No fixed
+      version is published by Wolfi yet; `apk upgrade` in the Dockerfile already
+      installs the latest available. Re-evaluate when Wolfi ships a patch.
+    approved_by: "rnelson"
+    expires: "2026-12-15"
+
 # Notes:
 # - Previously suppressed CKV2_GHA_1 and CKV_GHA_7 findings have been fixed:
 #   * CKV2_GHA_1: Removed top-level write-all permissions (job-level permissions already properly scoped)

@@ -86,7 +86,7 @@ COPY web/api/requirements.txt /app/web/api/requirements.txt
 # semgrep hard-pins mcp==1.29.0 and opentelemetry ~=1.37, which carry published advisories
 # (mcp < 1.30.0; opentelemetry-api < 1.45.2). Install patched releases over the pins (verified
 # working with semgrep 1.185) and accept only those known semgrep pin complaints from pip check.
-RUN python3 -m pip install --no-cache-dir -r /app/web/api/requirements.txt pip-audit semgrep awscli \
+RUN python3 -m pip install --no-cache-dir -r /app/web/api/requirements.txt pip-audit safety semgrep awscli \
     && python3 -m pip install --no-cache-dir "mcp>=1.30.0,<2" "opentelemetry-api>=1.45.2" \
         "opentelemetry-sdk>=1.45.2" "opentelemetry-exporter-otlp-proto-http>=1.45.2" \
         opentelemetry-instrumentation-requests opentelemetry-instrumentation-threading \

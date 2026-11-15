@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **STIG scans no longer time out halfway.** Each batch prompt listed every source file that missed the code budget (~170 KB, about 100 k tokens on a 1,600-file repo), so a self-hosted model processed ~110 k tokens per 3 controls and reached batch 41 of 96 after 120 minutes. The list is now capped at 20 paths (prompt ≈ 26 KB of code). The paths remain in the repo manifest.
 - Self-hosted reasoning models were given only 1,024 output tokens per control and kept returning empty or truncated JSON (`finish_reason=length`), costing up to three retries per batch. The floor is now 2,048 per control (min 4,096).
 - The web job timeout can be raised with `EPYON_JOB_TIMEOUT_MINUTES` (default 120).
+- **Safety (11.6) now works in the web image.** `safety` was not installed, and its Docker fallback failed on every requirements file, so the layer produced nothing. It is installed with the other scanners; `pip check` still reports only semgrep's known mcp/opentelemetry pin overrides.
 
 ## [3.70.6] - 2026-11-15
 

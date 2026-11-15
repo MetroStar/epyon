@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.70.12] - 2026-11-15
+
+### Fixed
+- Removed the stored April 2026 STIG results (286 controls, APPSTIG V5R3) from `documentation/STIG_COMPLIANCE_GUIDE.md`. The STIG engine reads every Markdown file under `documentation/` as human-authored priority context, so these stale verdicts skewed Epyon's own STIG runs. The guide now only describes the workflow, statuses and freeze logic.
+
 ## [3.70.11] - 2026-11-15
 
 ### Added

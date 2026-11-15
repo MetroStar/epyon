@@ -128,7 +128,7 @@ EOF
 @test "check-severity-gate.sh does not apply Epyon's own .epyon-ignore.yml to a target without one" {
         # Epyon's repo-root ignore file belongs to its self-scan; a target with
         # no ignore file of its own must not inherit those suppressions.
-        grep -q 'transformers@4.57.6' "${BATS_TEST_DIRNAME}/../../.epyon-ignore.yml" || skip "Epyon ignore rule used as the probe is gone"
+        grep -q 'tests/fixtures/self-assessment/\*\*' "${BATS_TEST_DIRNAME}/../../.epyon-ignore.yml" || skip "Epyon ignore rule used as the probe is gone"
         local scan_dir target_dir
         scan_dir=$(mktemp -d)
         target_dir=$(mktemp -d)
@@ -138,8 +138,9 @@ EOF
     "critical_findings": [{
         "tool": "trivy",
         "vulnerability_id": "CVE-2099-0001",
-        "package_name": "transformers",
-        "package_version": "4.57.6"
+        "package_name": "somepkg",
+        "package_version": "1.0.0",
+        "file_path": "tests/fixtures/self-assessment/requirements.txt"
     }],
     "high_findings": [],
     "medium_findings": [],

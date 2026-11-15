@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.70.9] - 2026-11-15
+
+### Changed
+- `.epyon-ignore.yml`: removed 28 stale suppressions that matched nothing in current scans (26 Debian base-image packages from the old `python:3.12-slim` image, `transformers@4.57.6`, and `GO-2026-6612`, now fixed by the x/net v0.62.0 rebuild).
+- `.epyon-ignore.yml`: added an explicit `tests/fixtures/pip-audit/**` path rule for the ML dependency fixtures.
+
 ## [3.70.8] - 2026-11-15
 
 ### Fixed

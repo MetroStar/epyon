@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.70.8] - 2026-11-15
+
+### Fixed
+- Web image: pin `filelock>=4.2.1`, clearing CVE-2026-112940 (high) and the related medium/low filelock findings in `/opt/venv`.
+- `fetch-cve-feeds.py`: refuse non-HTTP(S) URLs before `urllib.request.urlopen` (semgrep dynamic-urllib finding).
+- CI: pin `actions/checkout` in `ci.yml` to a commit SHA (semgrep mutable-tag finding).
+
 ## [3.70.7] - 2026-11-15
 
 ### Fixed

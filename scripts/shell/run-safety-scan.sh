@@ -34,6 +34,8 @@ SAFETY_CONSOLIDATED="$SAFETY_DIR/safety-consolidated-results.json"
 
 # Initialize
 mkdir -p "$SAFETY_DIR"
+SAFETY_FAILED_FILES=0
+SCAN_STATUS_FILE="$SAFETY_DIR/status.json"
 
 # Clean stale safety symlinks from prior runs (can cause ELOOP during artifact upload)
 find "$SAFETY_DIR" -maxdepth 1 -type l -name "safety-*-results.json" -delete 2>/dev/null || true
@@ -66,7 +68,8 @@ consolidate_safety_results() {
     local total_vulns=0
     
     # Find all safety result files
-    if [[ -f "$SAFETY_DIR"/*.json ]]; then
+    # (`[[ -f glob ]]` never matches, which silently dropped every result)
+    if compgen -G "$SAFETY_DIR/*.json" > /dev/null; then
         for result_file in "$SAFETY_DIR"/*.json; do
             # Skip the consolidated file itself
             if [[ "$(basename "$result_file")" == "safety-consolidated-results.json" ]]; then
@@ -97,7 +100,8 @@ consolidate_safety_results() {
                 else
                     []
                 end
-            ' "$result_file" 2>/dev/null || echo '[]')
+            ' "$result_file" 2>/dev/null) || results='[]'
+            [[ -n "$results" ]] || results='[]'
             local vuln_count=$(echo "$results" | jq 'length')
             
             total_vulns=$((total_vulns + vuln_count))
@@ -136,8 +140,15 @@ find "$TARGET_DIR" -type f \( -name "requirements*.txt" -o -name "poetry.lock" -
         fi
         
         # Standard requirements.txt
-        if eval "$SAFETY_CMD --file $dep_file --json" > "$output_file" 2>/dev/null; then
-            vuln_count=$(jq '.vulnerabilities // [] | length' "$output_file" 2>/dev/null || echo "0")
+        # `safety check` prints a deprecation banner before the JSON on stdout, which makes the
+        # file unparseable (every finding silently becomes zero). Keep only the JSON document and
+        # keep stderr so a failed scan says why.
+        raw_file="${output_file}.raw"
+        eval "$SAFETY_CMD --file $dep_file --json" > "$raw_file" 2> "${output_file%.json}.err" && safety_ok=true || safety_ok=false
+        awk '/^[[:space:]]*[{[]/{f=1} f' "$raw_file" | jq -n 'input' > "$output_file" 2>/dev/null || : > "$output_file"
+        rm -f "$raw_file"
+        if [[ "$safety_ok" == "true" ]]; then
+            vuln_count=$(jq '.vulnerabilities // [] | length' "$output_file" 2>/dev/null) || vuln_count=0
             if [[ $vuln_count -gt 0 ]]; then
                 echo -e "${YELLOW}[WARN] Found $vuln_count vulnerabilities in $rel_path${NC}"
             else
@@ -151,6 +162,7 @@ find "$TARGET_DIR" -type f \( -name "requirements*.txt" -o -name "poetry.lock" -
             else
                 echo -e "${RED}[ERROR] Failed to scan $rel_path${NC}" >&2
                 echo '{"vulnerabilities": [], "error": "scan failed"}' > "$output_file"
+                SAFETY_FAILED_FILES=$((SAFETY_FAILED_FILES + 1))
             fi
         fi
     fi
@@ -158,6 +170,12 @@ done
 
 # Consolidate all results
 consolidate_safety_results
+
+if [[ "$SAFETY_FAILED_FILES" -gt 0 ]]; then
+    record_scan_status "failed" "safety could not scan $SAFETY_FAILED_FILES requirements file(s); see safety/*.err"
+else
+    record_scan_status "success" ""
+fi
 
 if [[ -f "$SAFETY_CONSOLIDATED" ]]; then
     echo -e "${GREEN}[OK] Consolidated results: $SAFETY_CONSOLIDATED${NC}"

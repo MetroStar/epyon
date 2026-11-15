@@ -58,7 +58,7 @@ scans/myapp_2026-11-14_16-02-08/
 | Web UI scan pages | `security-findings-filtered.json`, per-tool directories via `web/api/parsers.py` |
 | Severity gate | `security-findings-filtered.json` |
 | Score Card | findings from the **latest** scan only, plus the newest copy of other artifacts across the application's history (see [SCORE_CARD_GUIDE.md](SCORE_CARD_GUIDE.md)) |
-| STIG engine | the previous `stig-results-{slug}.json` for freeze logic (see [STIG_COMPLIANCE_GUIDE.md](STIG_COMPLIANCE_GUIDE.md)) |
+| STIG engine | the previous `stig-results-{slug}.json` for freeze logic (see [STIG_SCANNING_TECHNICAL_REFERENCE.md](STIG_SCANNING_TECHNICAL_REFERENCE.md)) |
 | Integrity verification | `scan-manifest.json` (see [SCAN_MANIFEST_GUIDE.md](SCAN_MANIFEST_GUIDE.md)) |
 
 ## Retention

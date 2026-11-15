@@ -50,6 +50,18 @@ Epyon's STIG assessment prioritizes **human-authored documentation** over automa
 
 This ensures that human security assessors' judgments are preserved unless specific code changes invalidate them.
 
+### Operator Quick Reference
+
+This document intentionally contains **no per-control results**: Epyon reads every Markdown file under `documentation/` as human-authored STIG context, so a stored copy of earlier results would be treated as a priority assessment and skew later runs. Current results are produced by each scan (`stig-results-{slug}.json` and the findings Markdown in the scan directory) and shown in the web UI.
+
+**Statuses**: `Not a Finding` | `Not Applicable` | `Open` | `Not Reviewed`. `Not Reviewed` is reserved for runtime-only controls with no static indicators; use `Open` when in doubt.
+
+**Review records and rollback**: set `EPYON_STIG_FORMAT=etk` to get one review record per control (`stig-reviews-{slug}/v-xxxxx.md` plus an index) and a PR that publishes them to `docs/stig-reviews/` in your repository. Each record lists the evidence, the changes that may affect the control, and an automation recommendation; every `File:` citation is checked against your repository, and a failed check leaves the control Open. Entries a human has reviewed are locked on the next scan unless a file the entry lists has changed. The default is `legacy` (the original `docs/stig-findings.md` flow). To roll back, unset the variable or set `EPYON_STIG_FORMAT=legacy`; your overrides and scan history are unaffected. See [Output Format Switch](#output-format-switch-epyon_stig_format).
+
+**Manual STIG documentation**: target repositories can provide manual assessments and overrides in `docs/stig-findings.md`, `docs/security/stig-findings.md`, `COMPLIANCE.md` or `STIG.md`. These are collected as priority context and take precedence over AI assessments unless specific code changes invalidate them. Use them for runtime-only, policy-based and architectural controls, and keep them current or delete them: stale verdicts are followed by the engine. See the [Manual STIG Documentation Guide](MANUAL_STIG_DOCUMENTATION_GUIDE.md).
+
+**Freeze logic**: controls with `confidence >= 85` and status `Not a Finding` or `Not Applicable` carry forward from the previous scan without re-assessment. See [Freeze Logic & Status Validation](#freeze-logic--status-validation).
+
 ---
 
 ## Architecture
@@ -1330,4 +1342,4 @@ To recreate Epyon's STIG scanning in another tool (e.g., "Barbatos"), implement:
 
 **End of Technical Reference**
 
-*This document contains complete technical specifications for recreating Epyon's STIG assessment engine. For usage instructions and end-user documentation, see `documentation/STIG_COMPLIANCE_GUIDE.md`.*
+*This document contains complete technical specifications for recreating Epyon's STIG assessment engine. For day-to-day usage, see the Operator Quick Reference near the top.*

@@ -18,7 +18,15 @@ from . import github_config
 
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[mGKHF]")
 
-JOB_TIMEOUT_SECONDS = 7200  # 2 hours
+def _job_timeout_seconds() -> int:
+    try:
+        minutes = int(os.environ.get("EPYON_JOB_TIMEOUT_MINUTES", "") or 120)
+    except ValueError:
+        minutes = 120
+    return max(minutes, 1) * 60
+
+
+JOB_TIMEOUT_SECONDS = _job_timeout_seconds()  # default 2 hours; EPYON_JOB_TIMEOUT_MINUTES overrides
 OUTPUT_BUFFER_MAX   = 10000
 
 

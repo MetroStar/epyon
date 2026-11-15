@@ -7,6 +7,8 @@ from typing import Any, Dict, List
 RISK_WEIGHTS = {"critical": 15.0, "high": 5.0, "medium": 1.0, "low": 0.2}
 STABLE_BAND_PCT = 10.0
 MAX_POINTS = 30
+# Quick scans skip layers and STIG-only scans have no vulnerability tools, so neither is a fair baseline.
+TREND_SCAN_TYPES = frozenset({"full", "nightly"})
 
 
 def risk_index(scan: Dict[str, Any]) -> float:
@@ -30,15 +32,13 @@ def _points(scans: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 def app_trend(scans: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Improving / Declining / Stable / Not enough data for one application.
 
-    Only scans of the same type as the latest scan are compared, so a quick scan that runs fewer
-    tools is never read as an improvement over a full scan.
+    Only nightly and full scans count (they run the same vulnerability layers), so a quick or STIG-only
+    scan is never read as an improvement or a decline.
     """
-    dated = [s for s in scans if s.get("timestamp")]
-    if not dated:
+    same = [s for s in scans if s.get("timestamp") and s.get("scan_type") in TREND_SCAN_TYPES]
+    if not same:
         return {"status": "Not enough data", "scans_compared": 0, "points": []}
-    latest = max(dated, key=lambda s: s["timestamp"])
-    scan_type = latest.get("scan_type") or ""
-    same = [s for s in dated if (s.get("scan_type") or "") == scan_type]
+    scan_type = "nightly/full"
     pts = _points(same)[-MAX_POINTS:]
     out: Dict[str, Any] = {"scan_type": scan_type, "scans_compared": len(pts), "points": pts}
     if len(pts) < 2:

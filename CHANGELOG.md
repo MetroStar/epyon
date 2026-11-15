@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.65.1] - 2026-11-15
+
+### Changed
+- Ported main's #222-#230: per-app trend drawer, nightly/full-only trend, trend arrow fix, scan layers no longer silently skipping (Node setup, picklescan, Safety output handling, Xeol/Sonar/Safety status notes), STIG prompt-size/timeout fix, and the Safety/filelock additions to the web image.
+- Not ported: main's Wolfi-based Dockerfile and its CVE overlays (#225, #229), and `.epyon-ignore.yml` pruning (#230), because the demo image and ignore file differ.
+
 ## [3.65.0] - 2026-11-14
 
 ### Added

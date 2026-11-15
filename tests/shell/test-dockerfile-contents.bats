@@ -13,7 +13,7 @@ setup() {
 }
 
 @test "Dockerfile installs pip-audit for Layer 8.5" {
-    grep -q "pip install --no-cache-dir pip-audit" "$DOCKERFILE"
+    grep -q "pip install --no-cache-dir pip-audit safety" "$DOCKERFILE"
 }
 
 @test "Dockerfile still installs web/api/requirements.txt" {

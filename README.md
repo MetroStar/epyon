@@ -970,7 +970,7 @@ Epyon's Layer 10 "Approved Base Images" baseline scan defaults to **auto-discove
 9a. **📦 npm audit** - Node.js dependency CVEs, even for projects with no lockfile (resolved in a temp copy)
 9b. **🔎 Semgrep** - SAST for SQL/command injection, hardcoded secrets and insecure crypto/JWT usage
 10. **🛡️ Safety** - Python vulnerability scanning with OSV-backed advisory coverage
-11. **⏰ Xeol** - End-of-Life software detection for proactive dependency management
+11. **⏰ Xeol** - End-of-Life software detection for proactive dependency management (falls back to direct endoflife.date lookups of Dockerfile/compose images and SBOM runtimes when the Xeol database host is unreachable)
 12. **⚓ Anchore** - Deep container and software composition analysis
 13. **🔍 API Discovery** - Automatic API endpoint detection (OpenAPI, Express, Flask, Django, Next.js App Router)
 14. **🤖 Garak** - LLM vulnerability probing and red-team style safety testing

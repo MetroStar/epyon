@@ -1899,6 +1899,7 @@ const SCAN_HISTORY_TABS = [
   { id: 'stig',  label: 'STIG',           types: ['stig'] },
   { id: 'other', label: 'Other',          types: null },
 ];
+const SCAN_HISTORY_PAGE_SIZE = 15;
 const _scanHistoryState = {};
 
 function scanHistoryTabOf(scan) {
@@ -1906,45 +1907,116 @@ function scanHistoryTabOf(scan) {
   return t ? t.id : 'other';
 }
 
+// Local calendar day (YYYY-MM-DD) of a scan, so the date filter matches what fmtDate shows.
+function scanLocalDay(scan) {
+  const d = new Date(scan.timestamp);
+  if (isNaN(d)) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function scanHistoryFiltered(scans, st) {
+  return scans.filter(s => {
+    if (scanHistoryTabOf(s) !== st.tab) return false;
+    const day = scanLocalDay(s);
+    if (st.from && (!day || day < st.from)) return false;
+    if (st.to && (!day || day > st.to)) return false;
+    return true;
+  });
+}
+
 function buildScanHistory(name, scans) {
+  const saved = _scanHistoryState[name] || {};
+  // Default to the tab holding the newest scan so the page never opens on an empty tab.
+  const tab = SCAN_HISTORY_TABS.some(t => t.id === saved.tab) ? saved.tab : scanHistoryTabOf(scans[0]);
+  const st = { tab, page: saved.page || 1, from: saved.from || '', to: saved.to || '' };
+  _scanHistoryState[name] = st;
+  window._scanHistoryScans = { name, scans };
   const counts = {};
   scans.forEach(s => { const id = scanHistoryTabOf(s); counts[id] = (counts[id] || 0) + 1; });
-  const saved = _scanHistoryState[name];
-  // Default to the tab holding the newest scan so the page never opens on an empty tab.
-  const active = saved && SCAN_HISTORY_TABS.some(t => t.id === saved)
-    ? saved : scanHistoryTabOf(scans[0]);
-  _scanHistoryState[name] = active;
   const tabs = SCAN_HISTORY_TABS.map(t => `
-    <button class="scan-history-tab${t.id === active ? ' active' : ''}" role="tab"
-      id="scan-tab-${t.id}" aria-selected="${t.id === active}" aria-controls="scan-history-panel"
+    <button class="scan-history-tab${t.id === tab ? ' active' : ''}" role="tab"
+      id="scan-tab-${t.id}" aria-selected="${t.id === tab}" aria-controls="scan-history-panel"
       data-tab="${t.id}" onclick="selectScanHistoryTab(this.dataset.tab)">
       ${esc(t.label)} <span class="scan-history-count">${counts[t.id] || 0}</span>
     </button>`).join('');
-  window._scanHistoryScans = { name, scans };
   return `
     <div class="scan-history-tabs" role="tablist" aria-label="Scan type">${tabs}</div>
-    <div id="scan-history-panel" role="tabpanel">${scanHistoryPanel(name, scans, active)}</div>`;
+    <div class="scan-history-filter">
+      <label>From <input type="date" id="scan-filter-from" value="${esc(st.from)}"
+        onchange="setScanHistoryDates()"></label>
+      <label>To <input type="date" id="scan-filter-to" value="${esc(st.to)}"
+        onchange="setScanHistoryDates()"></label>
+      <button class="btn btn-sm" id="scan-filter-clear" onclick="clearScanHistoryDates()"
+        ${st.from || st.to ? '' : 'hidden'}>Clear dates</button>
+    </div>
+    <div id="scan-history-panel" role="tabpanel">${scanHistoryPanel(name, scans, st)}</div>`;
 }
 
-function scanHistoryPanel(name, scans, tabId) {
-  const items = scans.filter(s => scanHistoryTabOf(s) === tabId);
+function scanHistoryPanel(name, scans, st) {
+  const items = scanHistoryFiltered(scans, st);
+  const label = SCAN_HISTORY_TABS.find(t => t.id === st.tab).label;
   if (!items.length) {
-    const label = SCAN_HISTORY_TABS.find(t => t.id === tabId).label;
-    return `<div class="scan-history-empty">No ${esc(label)} scans for this application.</div>`;
+    const why = st.from || st.to ? ' in this date range' : '';
+    return `<div class="scan-history-empty">No ${esc(label)} scans${why} for this application.</div>`;
   }
-  return items.map(s => buildScanTimelineItem(s, name)).join('');
+  const pages = Math.ceil(items.length / SCAN_HISTORY_PAGE_SIZE);
+  st.page = Math.min(Math.max(st.page, 1), pages);
+  const start = (st.page - 1) * SCAN_HISTORY_PAGE_SIZE;
+  const rows = items.slice(start, start + SCAN_HISTORY_PAGE_SIZE)
+    .map(s => buildScanTimelineItem(s, name)).join('');
+  const pager = items.length > SCAN_HISTORY_PAGE_SIZE ? `
+    <div class="scan-history-pager">
+      <button class="btn btn-sm" onclick="setScanHistoryPage(${st.page - 1})" ${st.page <= 1 ? 'disabled' : ''}>‹ Prev</button>
+      <span>Showing ${start + 1}–${Math.min(start + SCAN_HISTORY_PAGE_SIZE, items.length)} of ${items.length} · Page ${st.page} of ${pages}</span>
+      <button class="btn btn-sm" onclick="setScanHistoryPage(${st.page + 1})" ${st.page >= pages ? 'disabled' : ''}>Next ›</button>
+    </div>` : '';
+  return rows + pager;
+}
+
+function refreshScanHistory() {
+  const ctx = window._scanHistoryScans;
+  if (!ctx) return;
+  const st = _scanHistoryState[ctx.name];
+  document.querySelectorAll('.scan-history-tab').forEach(btn => {
+    const on = btn.dataset.tab === st.tab;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-selected', String(on));
+  });
+  const clear = document.getElementById('scan-filter-clear');
+  if (clear) clear.hidden = !(st.from || st.to);
+  document.getElementById('scan-history-panel').innerHTML = scanHistoryPanel(ctx.name, ctx.scans, st);
 }
 
 function selectScanHistoryTab(tabId) {
   const ctx = window._scanHistoryScans;
   if (!ctx || !SCAN_HISTORY_TABS.some(t => t.id === tabId)) return;
-  _scanHistoryState[ctx.name] = tabId;
-  document.querySelectorAll('.scan-history-tab').forEach(btn => {
-    const on = btn.dataset.tab === tabId;
-    btn.classList.toggle('active', on);
-    btn.setAttribute('aria-selected', String(on));
+  Object.assign(_scanHistoryState[ctx.name], { tab: tabId, page: 1 });
+  refreshScanHistory();
+}
+
+function setScanHistoryPage(page) {
+  const ctx = window._scanHistoryScans;
+  if (!ctx) return;
+  _scanHistoryState[ctx.name].page = page;
+  refreshScanHistory();
+}
+
+function setScanHistoryDates() {
+  const ctx = window._scanHistoryScans;
+  if (!ctx) return;
+  Object.assign(_scanHistoryState[ctx.name], {
+    from: document.getElementById('scan-filter-from').value,
+    to: document.getElementById('scan-filter-to').value,
+    page: 1,
   });
-  document.getElementById('scan-history-panel').innerHTML = scanHistoryPanel(ctx.name, ctx.scans, tabId);
+  refreshScanHistory();
+}
+
+function clearScanHistoryDates() {
+  document.getElementById('scan-filter-from').value = '';
+  document.getElementById('scan-filter-to').value = '';
+  setScanHistoryDates();
 }
 
 async function renderAppDetail(name) {

@@ -40,6 +40,9 @@ export function _summaryLoadingHtml(label) {
   </div>`;
 }
 
+// Each *Fn is a window function name, or [name, ...args] when it needs arguments.
+const _summaryAct = fn => (Array.isArray(fn) ? act(...fn) : act(fn));
+
 export function _summaryResultHtml(text, err, regenerateFn, exportFn, exportDocxFn) {
   const content = err
     ? `<div style="color:var(--critical);font-size:12px;padding:8px 0">⚠ ${esc(err)}</div>`
@@ -47,9 +50,9 @@ export function _summaryResultHtml(text, err, regenerateFn, exportFn, exportDocx
   return `
     ${content}
     <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <button class="btn" style="font-size:12px" onclick="${regenerateFn.includes('(') ? regenerateFn : regenerateFn + '()'}">↺ Regenerate</button>
-      ${text ? `<button class="btn btn-primary" style="font-size:12px" onclick="${exportFn.includes('(') ? exportFn : exportFn + '()'}">↓ Export PDF</button>` : ''}
-      ${text && exportDocxFn ? `<button class="btn" style="font-size:12px;background:var(--accent-bg);color:var(--accent);border-color:var(--accent-bg)" onclick="${exportDocxFn.includes('(') ? exportDocxFn : exportDocxFn + '()'}">↓ Export Word</button>` : ''}
+      <button class="btn" style="font-size:12px" ${_summaryAct(regenerateFn)}>↺ Regenerate</button>
+      ${text ? `<button class="btn btn-primary" style="font-size:12px" ${_summaryAct(exportFn)}>↓ Export PDF</button>` : ''}
+      ${text && exportDocxFn ? `<button class="btn" style="font-size:12px;background:var(--accent-bg);color:var(--accent);border-color:var(--accent-bg)" ${_summaryAct(exportDocxFn)}>↓ Export Word</button>` : ''}
     </div>`;
 }
 
@@ -184,7 +187,7 @@ export function buildAppIssoSection(name) {
 
 export async function generateAppIssoSummary(name) {
   const body = _openSummaryModal(`ISSO Compliance Brief — ${name}`, _summaryLoadingHtml('ISSO compliance brief'));
-  const fns = [`generateAppIssoSummary('${name}')`, `exportAppIssoSummaryPdf('${name}')`, `exportAppIssoSummaryDocx('${name}')`];
+  const fns = [['generateAppIssoSummary', name], ['exportAppIssoSummaryPdf', name], ['exportAppIssoSummaryDocx', name]];
   try {
     const result = await api.getAppIssoSummary(name);
     const text = result.summary || '';

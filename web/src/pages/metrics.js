@@ -491,6 +491,12 @@ export function trendSparkline(points) {
 
 const _appTrendRegistry = new Map();
 
+export function openAppTrendDetailOnKey(e, name) {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  e.preventDefault();
+  openAppTrendDetail(name);
+}
+
 export function openAppTrendDetail(name) {
   const t = _appTrendRegistry.get(name);
   if (!t) return;
@@ -607,7 +613,7 @@ export function buildAppTrendSection(m) {
         : `${fmt(t.delta)}${t.delta_pct === null || t.delta_pct === undefined ? '' : ` (${fmt(t.delta_pct)}%)`}`;
       const prev = t.since_previous === undefined ? '—' : fmt(t.since_previous);
       const period = t.from ? `${esc(t.from)} → ${esc(t.to)}` : '—';
-      return `<tr class="clickable-row" tabindex="0" role="button" aria-label="Show ${esc(name)} trend details" style="cursor:pointer" ${actOn('click','openAppTrendDetail', ARG.data('app'))} onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAppTrendDetail(this.dataset.app)}" data-app="${esc(name)}">
+      return `<tr class="clickable-row" tabindex="0" role="button" aria-label="Show ${esc(name)} trend details" style="cursor:pointer" ${actOn('click','openAppTrendDetail', ARG.data('app'))} ${actOn('keydown', 'openAppTrendDetailOnKey', ARG.event, ARG.data('app'))} data-app="${esc(name)}">
         <td>${esc(name)}</td>
         <td><span style="color:${color};font-weight:600">${icon} ${esc(t.status)}</span></td>
         <td>${t.risk_index === undefined ? '—' : esc(String(t.risk_index))}</td>

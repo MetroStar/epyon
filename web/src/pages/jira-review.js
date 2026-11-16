@@ -2,6 +2,7 @@ import { sevBadge } from '../components/badges.js';
 import { toast } from '../components/feedback.js';
 import { errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
+import { upperAlnumInput } from '../core/ui-helpers.js';
 import { esc, ucFirst, act, actOn, ARG } from '../lib/format.js';
 import { _findingsRegistry, _registerFinding, _stigJiraSel, _stigRegistry } from '../state/registries.js';
 
@@ -67,7 +68,7 @@ export function renderJiraReviewPage() {
       </div>
       <input id="jira-review-project-key" class="field-input" type="text" maxlength="10"
         placeholder="PROJECT" value="${esc(data.project_key || '')}"
-        oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
+        ${actOn('input', 'upperAlnumInput', ARG.el)}>
       <button id="jira-review-project-save" class="btn" ${act('jiraReviewSaveProject')}>Save Project</button>
       <button id="jira-review-reassign" class="btn" ${act('jiraReviewCheckDeleted')}
         title="Detect tickets whose Jira issue was deleted and recreate them"
@@ -317,7 +318,7 @@ export async function showJiraEpicModal(quickCtx = null) {
         <div style="display:flex;gap:8px">
           <input id="jira-modal-project-key" class="field-input" type="text" maxlength="10" placeholder="PROJECT"
             value="${esc(projectKey)}" ${quickCtx ? '' : 'readonly'}
-            oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,''); jiraModalProjectTyped()">
+            ${actOn('input', 'jiraModalProjectTyped', ARG.el)}>
           ${quickCtx ? `<button id="jira-modal-project-save" class="btn" ${act('jiraModalProjectSave')} disabled>Change</button>` : ''}
         </div>
         <div id="jira-modal-project-note" style="font-size:12px;color:var(--text-muted);margin-top:4px">
@@ -369,7 +370,7 @@ export async function openStigJiraModal(scanId, regKeys) {
     <div style="margin-bottom:14px">
       <label class="field-label" for="stig-jira-project">Jira board (project key)</label>
       <input id="stig-jira-project" class="field-input" list="stig-jira-projects" maxlength="10" value="${esc(ctx.project_key)}"
-        placeholder="MID, SAP, IRIS…" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" ${actOn('change','stigJiraProjectChanged', scanId)}>
+        placeholder="MID, SAP, IRIS…" ${actOn('input', 'upperAlnumInput', ARG.el)} ${actOn('change','stigJiraProjectChanged', scanId)}>
       <datalist id="stig-jira-projects">${(ctx.known_projects || []).map(k => `<option value="${esc(k)}">`).join('')}</datalist>
       <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Tickets are created in this board. This does not change the application's saved board.</div>
     </div>
@@ -384,7 +385,7 @@ export async function openStigJiraModal(scanId, regKeys) {
     <div style="margin-bottom:14px">
       <label class="field-label" for="stig-jira-tracker">Tracking ticket (optional)</label>
       <input id="stig-jira-tracker" class="field-input" maxlength="20" placeholder="e.g. MID-123"
-        oninput="this.value=this.value.toUpperCase()">
+        ${actOn('input', 'upperInput', ARG.el)}>
       <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Links each new ticket to this one. Must be in the chosen board.</div>
     </div>
     <div style="margin-bottom:14px">
@@ -556,7 +557,8 @@ export async function jiraEpicModalLoad(scanId) {
   }
 }
 
-export function jiraModalProjectTyped() {
+export function jiraModalProjectTyped(input) {
+  if (input) upperAlnumInput(input);
   const ctx = _jiraQuickCtx;
   if (!ctx) return;
   const key = document.getElementById('jira-modal-project-key').value.trim();

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.25] - 2026-11-16
+
+### Changed
+- Web UI: converted the remaining inline `onclick`/`oninput`/`onchange`/`onsubmit`/`onkeydown` handlers to delegated `data-act*` handlers (`submit` and `keydown` are now delegated too). Small named helpers replace the inline uppercase/sanitise, modal-close, clipboard and link-navigation code. No inline event handlers remain in `web/src`.
+
+### Fixed
+- Web UI: the Performance page "Clear All Caches & Reload" button called `api.clearCacheAndReload()`, which does not exist; it now calls the real `clearCacheAndReload`.
+
 ## [3.72.23] - 2026-11-16
 
 ### Changed

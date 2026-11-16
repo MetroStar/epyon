@@ -30,6 +30,6 @@ function dispatch(type, e) {
   }
 }
 
-for (const type of ['click', 'change', 'input']) {
+for (const type of ['click', 'change', 'input', 'submit', 'keydown']) {
   document.addEventListener(type, e => dispatch(type, e));
 }

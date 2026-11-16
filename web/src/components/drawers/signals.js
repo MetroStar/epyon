@@ -1,5 +1,6 @@
 import { closeFindingDetail } from './finding.js';
 import { esc, act } from '../../lib/format.js';
+import { navigate } from '../../core/router.js';
 import { _apiRegistry, _depsRegistry } from '../../state/registries.js';
 
 
@@ -96,7 +97,7 @@ export function openGhSignalDetail(kind, idx) {
         </div>
       </div>
       <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
-        <button class="btn btn-ai" onclick="closeGhSignalDetail();navigate('#/applications/${encodeURIComponent(name)}')">
+        <button class="btn btn-ai" ${act('openAppFromSignalDrawer', name)}>
           View Application Scans
         </button>
       </div>`;
@@ -127,6 +128,11 @@ export function openGhSignalDetail(kind, idx) {
   document.body.appendChild(overlay);
   document.body.appendChild(drawer);
 
+}
+
+export function openAppFromSignalDrawer(name) {
+  closeGhSignalDetail();
+  navigate(`#/applications/${encodeURIComponent(name)}`);
 }
 
 export function closeGhSignalDetail() {

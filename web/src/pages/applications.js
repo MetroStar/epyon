@@ -1,6 +1,7 @@
 import { gateBadge, hfStatusBadge, sevBadgeRow, statusBadge } from '../components/badges.js';
 import { emptyRow, emptyState, errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
+import { toast } from '../components/feedback.js';
 import { dedupeTools, esc, fmtDate, act, actOn, ARG } from '../lib/format.js';
 import { computeStatus, scanTypeLabel } from '../lib/scans.js';
 import { buildAppIssoSection } from '../components/summaries.js';
@@ -374,14 +375,7 @@ export async function renderAppDetail(name) {
             ▶ Run Scan
           </button>
           <button class="btn app-type-badge ${appInfo.monitored ? 'monitored' : 'evaluation'}"
-            onclick="(async()=>{
-              try {
-                ${appInfo.monitored
-                  ? `await api.unsetMonitored('${esc(name)}')`
-                  : `await api.setMonitored('${esc(name)}')`};
-                renderAppDetail('${esc(name)}');
-              } catch(e) { toast(e.message, 'error'); }
-            })()"
+            ${act('toggleMonitored', name, !!appInfo.monitored)}
             title="${appInfo.monitored ? 'Continuous \u2014 click to set as Evaluation' : 'Evaluation \u2014 click to set as Continuous'}">
             ${appInfo.monitored ? '● Continuous' : '◯ Evaluation'}
           </button>
@@ -404,4 +398,11 @@ export async function renderAppDetail(name) {
   } catch (e) {
     page.innerHTML = errBanner(e.message);
   }
+}
+
+export async function toggleMonitored(name, monitored) {
+  try {
+    await (monitored ? api.unsetMonitored(name) : api.setMonitored(name));
+    renderAppDetail(name);
+  } catch (e) { toast(e.message, 'error'); }
 }

@@ -257,7 +257,7 @@ export async function renderPoamViewer(target) {
   page.innerHTML = `
     ${pageHeader(`POA&M — ${esc(appName)}`, { actions: `
       <a class="btn" href="${esc(base)}/poam" download>↓ POA&amp;M.csv</a>
-      <button class="btn" onclick="navigate('${isScan ? `#/scans/${encodeURIComponent(appName)}` : '#/poam'}')">${isScan ? '← Scan details' : '← All applications'}</button>` })}
+      <button class="btn" ${act('navigate', isScan ? `#/scans/${encodeURIComponent(appName)}` : '#/poam')}>${isScan ? '← Scan details' : '← All applications'}</button>` })}
     <div class="section poam-host" data-base="${esc(base)}"><div class="poam-body">${loading()}</div></div>`;
   window.loadPoamPreview(page.querySelector('.poam-host'));
 }

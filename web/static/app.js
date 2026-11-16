@@ -1103,7 +1103,7 @@
     page.innerHTML = `
     ${pageHeader(`POA&M — ${esc(appName)}`, { actions: `
       <a class="btn" href="${esc(base)}/poam" download>↓ POA&amp;M.csv</a>
-      <button class="btn" onclick="navigate('${isScan ? `#/scans/${encodeURIComponent(appName)}` : "#/poam"}')">${isScan ? "← Scan details" : "← All applications"}</button>` })}
+      <button class="btn" ${act("navigate", isScan ? `#/scans/${encodeURIComponent(appName)}` : "#/poam")}>${isScan ? "← Scan details" : "← All applications"}</button>` })}
     <div class="section poam-host" data-base="${esc(base)}"><div class="poam-body">${loading()}</div></div>`;
     window.loadPoamPreview(page.querySelector(".poam-host"));
   }
@@ -1113,6 +1113,7 @@
   __export(settings_exports, {
     _syncPoll: () => _syncPoll,
     aiProviderChanged: () => aiProviderChanged,
+    copyWorkflowYml: () => copyWorkflowYml,
     loadLocalModels: () => loadLocalModels,
     loadOpenAiModels: () => loadOpenAiModels,
     renderSettings: () => renderSettings,
@@ -1572,7 +1573,7 @@ epyon install-workflow</pre>
           <pre id="settings-yml" style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);
                padding:12px;font-size:12px;line-height:1.6;overflow-x:auto;margin:0;white-space:pre;color:var(--text)">${esc(WORKFLOW_YML)}</pre>
           <button id="settings-yml-copy" class="btn btn-sm" style="position:absolute;top:8px;right:8px"
-            onclick="navigator.clipboard.writeText(WORKFLOW_YML).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})">Copy</button>
+            ${act("copyWorkflowYml", ARG.el)}>Copy</button>
         </div>
       </details>
 
@@ -1788,6 +1789,14 @@ epyon install-workflow</pre>
         btn.textContent = "Test Connection";
       }
     }
+  }
+  function copyWorkflowYml(btn) {
+    navigator.clipboard.writeText(WORKFLOW_YML).then(() => {
+      btn.textContent = "Copied!";
+      setTimeout(() => {
+        btn.textContent = "Copy";
+      }, 1500);
+    });
   }
 
   // src/pages/performance.js
@@ -2252,10 +2261,10 @@ epyon install-workflow</pre>
         </div>
 
         <div style="margin-top:20px">
-          <button class="btn" onclick="api.clearCacheAndReload()" style="margin-right:8px">
+          <button class="btn" ${act("clearCacheAndReload")} style="margin-right:8px">
             Clear All Caches & Reload
           </button>
-          <button class="btn" onclick="location.reload()">
+          <button class="btn" ${act("reloadPage")}>
             Refresh Metrics
           </button>
         </div>
@@ -2743,6 +2752,36 @@ epyon install-workflow</pre>
     showJiraEpicModal: () => showJiraEpicModal,
     stigJiraClose: () => stigJiraClose
   });
+
+  // src/core/ui-helpers.js
+  var ui_helpers_exports = {};
+  __export(ui_helpers_exports, {
+    closeModalOverlay: () => closeModalOverlay,
+    reloadPage: () => reloadPage,
+    spaLinkClick: () => spaLinkClick,
+    upperAlnumInput: () => upperAlnumInput,
+    upperInput: () => upperInput
+  });
+  function upperAlnumInput(el) {
+    el.value = el.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  }
+  function upperInput(el) {
+    el.value = el.value.toUpperCase();
+  }
+  function closeModalOverlay(el) {
+    el.closest(".modal-overlay")?.remove();
+  }
+  function reloadPage() {
+    window.location.reload();
+  }
+  function spaLinkClick(e, el) {
+    if (e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+      e.preventDefault();
+      navigate(el.dataset.href);
+    }
+  }
+
+  // src/pages/jira-review.js
   var _jiraReviewState = null;
   var _jiraEpicModalState = null;
   async function renderJiraReview(scanId) {
@@ -2795,7 +2834,7 @@ epyon install-workflow</pre>
       </div>
       <input id="jira-review-project-key" class="field-input" type="text" maxlength="10"
         placeholder="PROJECT" value="${esc(data.project_key || "")}"
-        oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
+        ${actOn("input", "upperAlnumInput", ARG.el)}>
       <button id="jira-review-project-save" class="btn" ${act("jiraReviewSaveProject")}>Save Project</button>
       <button id="jira-review-reassign" class="btn" ${act("jiraReviewCheckDeleted")}
         title="Detect tickets whose Jira issue was deleted and recreate them"
@@ -3019,7 +3058,7 @@ epyon install-workflow</pre>
         <div style="display:flex;gap:8px">
           <input id="jira-modal-project-key" class="field-input" type="text" maxlength="10" placeholder="PROJECT"
             value="${esc(projectKey)}" ${quickCtx ? "" : "readonly"}
-            oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,''); jiraModalProjectTyped()">
+            ${actOn("input", "jiraModalProjectTyped", ARG.el)}>
           ${quickCtx ? `<button id="jira-modal-project-save" class="btn" ${act("jiraModalProjectSave")} disabled>Change</button>` : ""}
         </div>
         <div id="jira-modal-project-note" style="font-size:12px;color:var(--text-muted);margin-top:4px">
@@ -3070,7 +3109,7 @@ epyon install-workflow</pre>
     <div style="margin-bottom:14px">
       <label class="field-label" for="stig-jira-project">Jira board (project key)</label>
       <input id="stig-jira-project" class="field-input" list="stig-jira-projects" maxlength="10" value="${esc(ctx.project_key)}"
-        placeholder="MID, SAP, IRIS…" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" ${actOn("change", "stigJiraProjectChanged", scanId)}>
+        placeholder="MID, SAP, IRIS…" ${actOn("input", "upperAlnumInput", ARG.el)} ${actOn("change", "stigJiraProjectChanged", scanId)}>
       <datalist id="stig-jira-projects">${(ctx.known_projects || []).map((k) => `<option value="${esc(k)}">`).join("")}</datalist>
       <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Tickets are created in this board. This does not change the application's saved board.</div>
     </div>
@@ -3085,7 +3124,7 @@ epyon install-workflow</pre>
     <div style="margin-bottom:14px">
       <label class="field-label" for="stig-jira-tracker">Tracking ticket (optional)</label>
       <input id="stig-jira-tracker" class="field-input" maxlength="20" placeholder="e.g. MID-123"
-        oninput="this.value=this.value.toUpperCase()">
+        ${actOn("input", "upperInput", ARG.el)}>
       <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Links each new ticket to this one. Must be in the chosen board.</div>
     </div>
     <div style="margin-bottom:14px">
@@ -3269,7 +3308,8 @@ epyon install-workflow</pre>
       renderJiraEpicModalBody();
     }
   }
-  function jiraModalProjectTyped() {
+  function jiraModalProjectTyped(input) {
+    if (input) upperAlnumInput(input);
     const ctx = _jiraQuickCtx;
     if (!ctx) return;
     const key = document.getElementById("jira-modal-project-key").value.trim();
@@ -3618,6 +3658,7 @@ epyon install-workflow</pre>
     freqScale: () => freqScale,
     freqTimeline: () => freqTimeline,
     openAppTrendDetail: () => openAppTrendDetail,
+    openAppTrendDetailOnKey: () => openAppTrendDetailOnKey,
     openRiskTrendDetail: () => openRiskTrendDetail,
     openSlaDetail: () => openSlaDetail,
     renderMetrics: () => renderMetrics,
@@ -4050,6 +4091,11 @@ epyon install-workflow</pre>
     return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="var(--text-muted)" stroke-width="1.5"/></svg>`;
   }
   var _appTrendRegistry = /* @__PURE__ */ new Map();
+  function openAppTrendDetailOnKey(e, name) {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    e.preventDefault();
+    openAppTrendDetail(name);
+  }
   function openAppTrendDetail(name) {
     const t = _appTrendRegistry.get(name);
     if (!t) return;
@@ -4154,7 +4200,7 @@ epyon install-workflow</pre>
       const change = t.delta === void 0 ? "—" : `${fmt(t.delta)}${t.delta_pct === null || t.delta_pct === void 0 ? "" : ` (${fmt(t.delta_pct)}%)`}`;
       const prev = t.since_previous === void 0 ? "—" : fmt(t.since_previous);
       const period = t.from ? `${esc(t.from)} → ${esc(t.to)}` : "—";
-      return `<tr class="clickable-row" tabindex="0" role="button" aria-label="Show ${esc(name)} trend details" style="cursor:pointer" ${actOn("click", "openAppTrendDetail", ARG.data("app"))} onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAppTrendDetail(this.dataset.app)}" data-app="${esc(name)}">
+      return `<tr class="clickable-row" tabindex="0" role="button" aria-label="Show ${esc(name)} trend details" style="cursor:pointer" ${actOn("click", "openAppTrendDetail", ARG.data("app"))} ${actOn("keydown", "openAppTrendDetailOnKey", ARG.event, ARG.data("app"))} data-app="${esc(name)}">
         <td>${esc(name)}</td>
         <td><span style="color:${color};font-weight:600">${icon} ${esc(t.status)}</span></td>
         <td>${t.risk_index === void 0 ? "—" : esc(String(t.risk_index))}</td>
@@ -4660,7 +4706,10 @@ epyon install-workflow</pre>
     buildCveSearchSection: () => buildCveSearchSection,
     cveBulkClose: () => cveBulkClose,
     cveBulkConfirm: () => cveBulkConfirm,
+    cveBulkDone: () => cveBulkDone,
+    cveBulkEpicTyped: () => cveBulkEpicTyped,
     cveBulkGroups: () => cveBulkGroups,
+    cveBulkIssueTypeChanged: () => cveBulkIssueTypeChanged,
     cveBulkKeyTyped: () => cveBulkKeyTyped,
     cveBulkModalState: () => cveBulkModalState,
     cveBulkOpen: () => cveBulkOpen,
@@ -4670,10 +4719,11 @@ epyon install-workflow</pre>
     cveBulkResolve: () => cveBulkResolve,
     cveBulkToggle: () => cveBulkToggle,
     cveBulkToggleAll: () => cveBulkToggleAll,
+    cveBulkTriagedByChanged: () => cveBulkTriagedByChanged,
     cveSearchResultsHtml: () => cveSearchResultsHtml,
     cveSearchRun: () => cveSearchRun,
     renderOverview: () => renderOverview,
-    toggleMonitored: () => toggleMonitored
+    toggleMonitored: () => toggleMonitored2
   });
 
   // src/pages/applications.js
@@ -4691,7 +4741,8 @@ epyon install-workflow</pre>
     scanLocalDay: () => scanLocalDay,
     selectScanHistoryTab: () => selectScanHistoryTab,
     setScanHistoryDates: () => setScanHistoryDates,
-    setScanHistoryPage: () => setScanHistoryPage
+    setScanHistoryPage: () => setScanHistoryPage,
+    toggleMonitored: () => toggleMonitored
   });
 
   // src/components/summaries.js
@@ -4757,14 +4808,15 @@ epyon install-workflow</pre>
     Generating ${label}… this may take 15–30 seconds
   </div>`;
   }
+  var _summaryAct = (fn) => Array.isArray(fn) ? act(...fn) : act(fn);
   function _summaryResultHtml(text, err, regenerateFn, exportFn, exportDocxFn) {
     const content = err ? `<div style="color:var(--critical);font-size:12px;padding:8px 0">⚠ ${esc(err)}</div>` : `<div style="line-height:1.6">${renderMarkdown(text)}</div>`;
     return `
     ${content}
     <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <button class="btn" style="font-size:12px" onclick="${regenerateFn.includes("(") ? regenerateFn : regenerateFn + "()"}">↺ Regenerate</button>
-      ${text ? `<button class="btn btn-primary" style="font-size:12px" onclick="${exportFn.includes("(") ? exportFn : exportFn + "()"}">↓ Export PDF</button>` : ""}
-      ${text && exportDocxFn ? `<button class="btn" style="font-size:12px;background:var(--accent-bg);color:var(--accent);border-color:var(--accent-bg)" onclick="${exportDocxFn.includes("(") ? exportDocxFn : exportDocxFn + "()"}">↓ Export Word</button>` : ""}
+      <button class="btn" style="font-size:12px" ${_summaryAct(regenerateFn)}>↺ Regenerate</button>
+      ${text ? `<button class="btn btn-primary" style="font-size:12px" ${_summaryAct(exportFn)}>↓ Export PDF</button>` : ""}
+      ${text && exportDocxFn ? `<button class="btn" style="font-size:12px;background:var(--accent-bg);color:var(--accent);border-color:var(--accent-bg)" ${_summaryAct(exportDocxFn)}>↓ Export Word</button>` : ""}
     </div>`;
   }
   var _OVERVIEW_SUMMARY_KINDS = {
@@ -4896,7 +4948,7 @@ epyon install-workflow</pre>
   }
   async function generateAppIssoSummary(name) {
     const body = _openSummaryModal(`ISSO Compliance Brief — ${name}`, _summaryLoadingHtml("ISSO compliance brief"));
-    const fns = [`generateAppIssoSummary('${name}')`, `exportAppIssoSummaryPdf('${name}')`, `exportAppIssoSummaryDocx('${name}')`];
+    const fns = [["generateAppIssoSummary", name], ["exportAppIssoSummaryPdf", name], ["exportAppIssoSummaryDocx", name]];
     try {
       const result = await api.getAppIssoSummary(name);
       const text = result.summary || "";
@@ -5424,12 +5476,7 @@ epyon install-workflow</pre>
             ▶ Run Scan
           </button>
           <button class="btn app-type-badge ${appInfo.monitored ? "monitored" : "evaluation"}"
-            onclick="(async()=>{
-              try {
-                ${appInfo.monitored ? `await api.unsetMonitored('${esc(name)}')` : `await api.setMonitored('${esc(name)}')`};
-                renderAppDetail('${esc(name)}');
-              } catch(e) { toast(e.message, 'error'); }
-            })()"
+            ${act("toggleMonitored", name, !!appInfo.monitored)}
             title="${appInfo.monitored ? "Continuous — click to set as Evaluation" : "Evaluation — click to set as Continuous"}">
             ${appInfo.monitored ? "● Continuous" : "◯ Evaluation"}
           </button>
@@ -5451,6 +5498,14 @@ epyon install-workflow</pre>
       </div>`;
     } catch (e) {
       page.innerHTML = errBanner(e.message);
+    }
+  }
+  async function toggleMonitored(name, monitored) {
+    try {
+      await (monitored ? api.unsetMonitored(name) : api.setMonitored(name));
+      renderAppDetail(name);
+    } catch (e) {
+      toast(e.message, "error");
     }
   }
 
@@ -5550,7 +5605,7 @@ epyon install-workflow</pre>
     return `
     <div class="section cve-search">
       <div class="section-title">Search a CVE across applications</div>
-      <form class="cve-search-form" onsubmit="cveSearchRun(event)">
+      <form class="cve-search-form" ${actOn("submit", "cveSearchRun", ARG.event)}>
         <input id="cve-search-q" class="cve-search-input" type="text" minlength="3" maxlength="100"
                placeholder="CVE-2024-12345, GHSA-…, or package name" autocomplete="off" required>
         <select id="cve-search-field" class="cve-search-select" aria-label="Search by">
@@ -5686,10 +5741,10 @@ epyon install-workflow</pre>
       <div class="cve-bulk-fields">
         <label class="field-label">Jira project (board key)
           <input class="field-input" type="text" maxlength="10" data-gi="${i}" value="${esc(g.projectKey)}"
-            oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,''); cveBulkKeyTyped(this)"></label>
+            ${actOn("input", "cveBulkKeyTyped", ARG.el)}></label>
         <label class="field-label">Epic key (optional)
           <input class="field-input" type="text" maxlength="30" placeholder="${esc(g.projectKey || "PROJECT")}-123" data-gi="${i}" value="${esc(g.epicKey || "")}"
-            oninput="this.value=this.value.toUpperCase(); cveBulkModalState().groups[${i}].epicKey=this.value.trim()"></label>
+            ${actOn("input", "cveBulkEpicTyped", ARG.el)}></label>
       </div>${sk}</div>`;
     }).join("");
     body.innerHTML = `
@@ -5701,12 +5756,12 @@ epyon install-workflow</pre>
     ${groupHtml}
     <div class="cve-bulk-fields" style="margin-top:12px">
       <label class="field-label">Ticket type
-        <select class="field-input" onchange="cveBulkModalState().issueType=this.value">
+        <select class="field-input" ${actOn("change", "cveBulkIssueTypeChanged", ARG.value)}>
           ${types.map((t) => `<option value="${esc(t)}" ${t === m.issueType ? "selected" : ""}>${esc(t)}</option>`).join("")}
         </select></label>
       <label class="field-label">Triaged by (optional)
         <input class="field-input" type="text" maxlength="200" value="${esc(m.triagedBy)}"
-          oninput="cveBulkModalState().triagedBy=this.value"></label>
+          ${actOn("input", "cveBulkTriagedByChanged", ARG.value)}></label>
     </div>
     <div class="modal-actions" style="margin-top:20px;display:flex;justify-content:flex-end;gap:10px">
       <button class="btn" ${act("cveBulkClose")}>Cancel</button>
@@ -5716,7 +5771,22 @@ epyon install-workflow</pre>
   function cveBulkModalState() {
     return _cveBulk.modal;
   }
+  function cveBulkEpicTyped(input) {
+    upperInput(input);
+    _cveBulk.modal.groups[Number(input.dataset.gi)].epicKey = input.value.trim();
+  }
+  function cveBulkIssueTypeChanged(value) {
+    _cveBulk.modal.issueType = value;
+  }
+  function cveBulkTriagedByChanged(value) {
+    _cveBulk.modal.triagedBy = value;
+  }
+  function cveBulkDone() {
+    cveBulkClose();
+    cveSearchRun();
+  }
   function cveBulkKeyTyped(input) {
+    upperAlnumInput(input);
     _cveBulk.modal.groups[Number(input.dataset.gi)].projectKey = input.value.trim();
   }
   async function cveBulkConfirm() {
@@ -5792,7 +5862,7 @@ epyon install-workflow</pre>
       <thead><tr><th scope="col">Application</th><th scope="col">Created</th><th scope="col">Existing</th><th scope="col">Failed</th><th scope="col">Skipped</th><th scope="col">Reason</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
     <div class="modal-actions" style="margin-top:20px;display:flex;justify-content:flex-end">
-      <button class="btn btn-primary" onclick="cveBulkClose(); cveSearchRun()">Done</button>
+      <button class="btn btn-primary" ${act("cveBulkDone")}>Done</button>
     </div>`;
   }
   function cveSearchResultsHtml(data) {
@@ -5809,7 +5879,7 @@ epyon install-workflow</pre>
             aria-label="Select ${esc(f.id)} in ${esc(appEntry.app_name)}" ${actOn("change", "cveBulkToggle", ARG.el)}></td>
         <td>${esc(appEntry.app_name)}${appEntry.is_latest ? "" : ' <span class="tool-tag">earlier scan</span>'}</td>
         <td><span class="sev-badge ${esc(f.severity)}">${esc(ucFirst(f.severity))}</span></td>
-        <td><a href="${esc(href)}" data-href="${esc(href)}" onclick="if (event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey) { event.preventDefault(); navigate(this.dataset.href); }">${esc(f.id)}</a>${f.suppressed ? ' <span class="tool-tag">suppressed</span>' : ""}</td>
+        <td><a href="${esc(href)}" data-href="${esc(href)}" ${act("spaLinkClick", ARG.event, ARG.el)}>${esc(f.id)}</a>${f.suppressed ? ' <span class="tool-tag">suppressed</span>' : ""}</td>
         <td>${(f.tools || []).map((t) => `<span class="tool-tag">${esc(t)}</span>`).join(" ")}</td>
         <td>${esc(f.package || "—")}</td>
         <td>${esc(f.version || "—")}</td>
@@ -5829,7 +5899,7 @@ epyon install-workflow</pre>
       </table>
     </div>`;
   }
-  async function toggleMonitored(name, isCurrently) {
+  async function toggleMonitored2(name, isCurrently) {
     try {
       if (isCurrently) {
         await api.unsetMonitored(name);
@@ -7415,7 +7485,8 @@ epyon install-workflow</pre>
     buildScorecardCard: () => buildScorecardCard,
     calculateScorecardForScan: () => calculateScorecardForScan,
     flattenScoreDetail: () => flattenScoreDetail,
-    showDimensionModal: () => showDimensionModal
+    showDimensionModal: () => showDimensionModal,
+    showScorecardHelpFromToggle: () => showScorecardHelpFromToggle
   });
   async function calculateScorecardForScan(scanId) {
     let container = document.getElementById("scorecard-container");
@@ -7593,7 +7664,7 @@ epyon install-workflow</pre>
             <span style="margin-left:8px;font-weight:700;font-size:15px;color:${info.color}">Grade ${info.label}</span>
           </span>
           <span style="display:flex;align-items:center;gap:12px">
-            <button type="button" class="btn btn-sm" title="How the Score Card works" onclick="event.preventDefault();event.stopPropagation();showScorecardHelp()">ⓘ How it works</button>
+            <button type="button" class="btn btn-sm" title="How the Score Card works" ${act("showScorecardHelpFromToggle", ARG.event)} data-stop>ⓘ How it works</button>
             <span style="font-size:18px;font-weight:700;color:var(--accent)">${score}</span>
             <span class="findings-summary-hint">Click to expand</span>
           </span>
@@ -7614,6 +7685,10 @@ epyon install-workflow</pre>
       </details>
     </div>`;
   }
+  function showScorecardHelpFromToggle(e) {
+    e.preventDefault();
+    window.showScorecardHelp();
+  }
   window.showScorecardHelp = () => {
     const row = (a, b) => `<tr><td style="padding:6px 12px 6px 0;vertical-align:top;white-space:nowrap"><strong>${a}</strong></td><td style="padding:6px 0;color:var(--text-muted)">${b}</td></tr>`;
     const overlay = document.createElement("div");
@@ -7622,7 +7697,7 @@ epyon install-workflow</pre>
     <div class="modal-container modal-lg" style="max-height:85vh;overflow:auto;font-size:13px;line-height:1.5">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <h2 style="margin:0;color:var(--text)">How the Score Card works</h2>
-        <button class="btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+        <button class="btn" ${act("closeModalOverlay", ARG.el)}>✕</button>
       </div>
       <h3>What it measures</h3>
       <p>The Score Card rates the <strong>application</strong>, not a single scan. Findings are those of the latest scan; earlier findings that are gone are treated as closed out, and history only feeds the trend. STIG results come from the last STIG run, since STIGs run on demand. Scan type does not change the score or weights.</p>
@@ -7718,7 +7793,7 @@ epyon install-workflow</pre>
           </svg>
           ${esc(label)} Dimension
         </h2>
-        <button class="btn" onclick="this.closest('.modal-overlay').remove()" style="padding:6px 12px">
+        <button class="btn" ${act("closeModalOverlay", ARG.el)} style="padding:6px 12px">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"/>
             <line x1="6" y1="6" x2="18" y2="18"/>
@@ -7912,7 +7987,7 @@ epyon install-workflow</pre>
                title="Download all scan artifacts as ZIP for ATO/IATT submission">
               ↓ Download ZIP
             </a>
-            <button class="btn split-btn-toggle" onclick="toggleDownloadMenu(event)"
+            <button class="btn split-btn-toggle" ${act("toggleDownloadMenu", ARG.event, ARG.el)} data-stop
               title="More download options" aria-haspopup="true" aria-expanded="false">▾</button>
             <div class="split-btn-menu" id="download-split-menu" hidden>
               <a class="split-btn-menu-item" href="/api/scans/${encodeURIComponent(scanId)}/download" download>
@@ -9829,10 +9904,9 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
       }
     });
   }
-  function toggleDownloadMenu(evt) {
+  function toggleDownloadMenu(evt, toggleBtn) {
     evt.stopPropagation();
     const menu = document.getElementById("download-split-menu");
-    const toggleBtn = evt.currentTarget;
     if (!menu) return;
     const isOpen = !menu.hidden;
     menu.hidden = isOpen;
@@ -10317,7 +10391,7 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
       </div>
 
       <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
-        <button class="btn btn-primary" onclick="openStigJiraModal('${esc(scanId)}', ['${esc(regKey)}'])">Add to Jira</button>
+        <button class="btn btn-primary" ${act("openStigJiraModal", scanId, [regKey])}>Add to Jira</button>
         <span id="stig-jira-drawer-status" style="margin-left:10px;font-size:12px"></span>
       </div>
 
@@ -10331,7 +10405,7 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
             <label class="stig-override-label">Status</label>
             <select class="stig-override-select" id="sd-status-${esc(c.vuln_id)}-${esc(c._slug)}"
               data-auto-just="${esc(autoJust)}"
-              onchange="stigOverrideStatusChanged(this, 'sd-just-${esc(c.vuln_id)}-${esc(c._slug)}')">
+              ${actOn("change", "stigOverrideStatusChanged", ARG.el, `sd-just-${c.vuln_id}-${c._slug}`)}>
               ${overrideOptions}
             </select>
           </div>
@@ -10577,6 +10651,7 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
     closeAPIDetail: () => closeAPIDetail,
     closeGhSignalDetail: () => closeGhSignalDetail,
     openAPIDetail: () => openAPIDetail,
+    openAppFromSignalDrawer: () => openAppFromSignalDrawer,
     openGhSignalDetail: () => openGhSignalDetail
   });
   function openGhSignalDetail(kind, idx) {
@@ -10668,7 +10743,7 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
         </div>
       </div>
       <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
-        <button class="btn btn-ai" onclick="closeGhSignalDetail();navigate('#/applications/${encodeURIComponent(name)}')">
+        <button class="btn btn-ai" ${act("openAppFromSignalDrawer", name)}>
           View Application Scans
         </button>
       </div>`;
@@ -10694,6 +10769,10 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
     <div class="finding-drawer-body">${bodyHtml}</div>`;
     document.body.appendChild(overlay);
     document.body.appendChild(drawer);
+  }
+  function openAppFromSignalDrawer(name) {
+    closeGhSignalDetail();
+    navigate(`#/applications/${encodeURIComponent(name)}`);
   }
   function closeGhSignalDetail() {
     const overlay = document.getElementById("gh-signal-drawer-overlay");
@@ -11171,7 +11250,7 @@ Frontend Cache:
       if (type === "click" && el.hasAttribute("data-stop")) return;
     }
   }
-  for (const type of ["click", "change", "input"]) {
+  for (const type of ["click", "change", "input", "submit", "keydown"]) {
     document.addEventListener(type, (e) => dispatch(type, e));
   }
 
@@ -11186,5 +11265,5 @@ Frontend Cache:
   }
 
   // src/index.js
-  Object.assign(window, format_exports, scans_exports, badges_exports, layout_exports, charts_exports, feedback_exports, cache_exports, api_exports, poam_exports, router_exports, settings_exports, performance_exports, stig_history_exports, new_scan_exports, self_diagnostic_exports, registries_exports, jira_review_exports, stig_exports, metrics_exports, overview_exports, applications_exports, model_security_exports, network_enrichment_exports, evidence_exports, scan_detail_exports, suppressed_exports, sbom_exports, api_endpoints_exports, findings_exports, summaries_exports, scorecard_exports, app_actions_exports, stig_exports2, finding_exports, signals_exports, shell_exports, ppsm_exports, self_assessment_exports, section_exports, static_dashboard_exports, workflow_exports, boot_exports);
+  Object.assign(window, format_exports, scans_exports, badges_exports, layout_exports, charts_exports, feedback_exports, cache_exports, api_exports, poam_exports, router_exports, settings_exports, performance_exports, stig_history_exports, new_scan_exports, self_diagnostic_exports, registries_exports, jira_review_exports, stig_exports, metrics_exports, overview_exports, applications_exports, model_security_exports, network_enrichment_exports, evidence_exports, scan_detail_exports, suppressed_exports, sbom_exports, api_endpoints_exports, findings_exports, summaries_exports, scorecard_exports, app_actions_exports, stig_exports2, finding_exports, signals_exports, shell_exports, ppsm_exports, self_assessment_exports, section_exports, static_dashboard_exports, workflow_exports, boot_exports, ui_helpers_exports);
 })();

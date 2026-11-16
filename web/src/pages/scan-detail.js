@@ -1,7 +1,7 @@
 import { gateBadge, statusBadge } from '../components/badges.js';
 import { errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
-import { dedupeTools, esc, fmtDate, act } from '../lib/format.js';
+import { dedupeTools, esc, fmtDate, act, ARG } from '../lib/format.js';
 import { computeStatus, scanTypeLabel } from '../lib/scans.js';
 import { buildPoamSection } from './poam.js';
 import { buildModelSecurityCard } from '../components/scan/model-security.js';
@@ -196,7 +196,7 @@ export async function renderScanDetail(scanId, openFindingId = '', openFindingPa
                title="Download all scan artifacts as ZIP for ATO/IATT submission">
               ↓ Download ZIP
             </a>
-            <button class="btn split-btn-toggle" onclick="toggleDownloadMenu(event)"
+            <button class="btn split-btn-toggle" ${act('toggleDownloadMenu', ARG.event, ARG.el)} data-stop
               title="More download options" aria-haspopup="true" aria-expanded="false">▾</button>
             <div class="split-btn-menu" id="download-split-menu" hidden>
               <a class="split-btn-menu-item" href="/api/scans/${encodeURIComponent(scanId)}/download" download>

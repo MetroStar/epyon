@@ -9,6 +9,7 @@ from fastapi import APIRouter
 from fastapi import HTTPException
 from fastapi import Response
 
+from .. import cache_state
 from .. import main as api_main
 
 router = APIRouter()
@@ -16,10 +17,10 @@ router = APIRouter()
 @router.get("/api/metrics")
 def get_metrics(response: Response):
     api_main._sec_headers(response)
-    if api_main._metrics_cache:
-        if (time.monotonic() - api_main._metrics_cache_ts) >= api_main._METRICS_TTL:
+    if cache_state.metrics:
+        if (time.monotonic() - cache_state.metrics_ts) >= api_main._METRICS_TTL:
             _refresh_metrics_async()  # serve the stale copy while a fresh one builds
-        return api_main._metrics_cache
+        return cache_state.metrics
     return api_main._compute_metrics()
 
 
@@ -47,8 +48,8 @@ def get_cache_metrics(response: Response):
     cache_sizes = {
         "scan": len(api_main._scan_cache),
         "dir": len(api_main._dir_cache),
-        "stats": 1 if api_main._stats_cache else 0,
-        "apps": 1 if api_main._apps_cache else 0,
+        "stats": 1 if cache_state.stats else 0,
+        "apps": 1 if cache_state.apps else 0,
         "search_index": len(api_main._search_index),
     }
     
@@ -56,7 +57,7 @@ def get_cache_metrics(response: Response):
     recent_invalidations = api_main._cache_metrics["invalidations"][-10:]
     
     return {
-        "cache_version": api_main._CACHE_VERSION,
+        "cache_version": cache_state.version,
         "hit_rates": {
             "scan": _hit_rate("scan"),
             "dir": _hit_rate("dir"),

@@ -8,6 +8,9 @@ from fastapi import Response
 
 from .. import github_sync
 from .. import parsers
+from .. import cache_state
+from .. import github_metrics
+import time
 from .. import main as api_main
 
 router = APIRouter()
@@ -77,3 +80,28 @@ async def github_sync_post(response: Response):
 def github_sync_status(response: Response):
     api_main._sec_headers(response)
     return github_sync.get_sync_state()
+
+
+# ── GitHub Metrics ────────────────────────────────────────────
+
+@router.get("/api/github-metrics")
+async def get_github_metrics(response: Response):
+    api_main._sec_headers(response)
+    now = time.monotonic()
+    if cache_state.gh_metrics and (now - cache_state.gh_metrics_ts) < api_main._GH_METRICS_TTL:
+        return cache_state.gh_metrics
+
+    cfg   = api_main._read_github_config()
+    token = cfg.get("token", "")
+    repos = cfg.get("repos") or []
+
+    scan_dirs = parsers.find_scan_dirs(api_main.EPYON_ROOT, days=api_main._METRICS_DAYS)
+    all_scans = [parsers.load_scan(d, api_main.EPYON_ROOT) for d in scan_dirs]
+    monitored_set = set(api_main._load_monitored_apps()) or None
+
+    result = await github_metrics.fetch_all(token, repos, all_scans, monitored_set, api_main._METRICS_DAYS)
+
+    cache_state.gh_metrics    = result
+    cache_state.gh_metrics_ts = now
+    api_main._save_gh_snapshot(result)
+    return result

@@ -11,6 +11,9 @@ from fastapi import Request
 from fastapi import Response
 
 from .. import parsers
+from .. import cache_state
+from .. import parse_cache
+import time
 from .. import main as api_main
 
 router = APIRouter()
@@ -162,3 +165,126 @@ def app_scans(name: str, response: Response):
     ]
     scans.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
     return scans
+
+
+def _load_registered_apps() -> list[dict]:
+    try:
+        if api_main.REGISTERED_APPS_FILE.exists():
+            return json.loads(api_main.REGISTERED_APPS_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return []
+
+
+@router.get("/api/applications")
+def applications(response: Response):
+    now = time.monotonic()
+    
+    # Return cached app list if available
+    if cache_state.apps and (now - cache_state.apps[1]) < api_main._APPS_CACHE_TTL:
+        age = now - cache_state.apps[1]
+        api_main._cache_metrics["hits"]["apps"] += 1
+        api_main._cache_metrics_logger.debug(f"cache_read source=memory endpoint=applications hit=true age_seconds={age:.1f}")
+        response.headers["Cache-Control"] = "public, max-age=60"
+        response.headers["X-Cache-Version"] = str(cache_state.version)
+        return cache_state.apps[0]
+    
+    api_main._cache_metrics["misses"]["apps"] += 1
+    api_main._cache_metrics_logger.debug("cache_read source=memory endpoint=applications hit=false")
+    api_main._sec_headers(response)
+    hidden   = api_main._load_hidden_apps()
+    monitored = api_main._load_monitored_apps()
+    scans = [api_main._cached_load_scan(d) for d in api_main._cached_find_scan_dirs()]
+    parse_cache.flush()
+    by_target: dict[str, list] = {}
+    for s in scans:
+        if s["target"] not in hidden:
+            by_target.setdefault(s["target"], []).append(s)
+
+    result = []
+    for name, tscans in by_target.items():
+        tscans.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        latest = tscans[0] if tscans else {}
+
+        # For vulnerability counts, prefer the latest comprehensive scan (full/nightly)
+        # so that quick/stig/local_model scans don't zero out the displayed counts.
+        latest_comprehensive = next(
+            (s for s in tscans if s.get("scan_type") in api_main._COMPREHENSIVE_SCAN_TYPES),
+            latest,
+        )
+
+        # Find the latest scan that actually produced STIG output
+        latest_stig = next((s for s in tscans if s.get("stig_total", 0) > 0), None)
+
+        result.append({
+            "name":                      name,
+            "scan_count":                len(tscans),
+            "last_scanned":              latest.get("timestamp", ""),
+            "scan_type":                 latest.get("scan_type", ""),
+            "critical":                  latest_comprehensive.get("critical", 0),
+            "high":                      latest_comprehensive.get("high", 0),
+            "medium":                    latest_comprehensive.get("medium", 0),
+            "low":                       latest_comprehensive.get("low", 0),
+            "status":                    parsers.get_status(latest_comprehensive),
+            "gate_status":               latest_comprehensive.get("gate_status", "pass"),
+            "latest_scan_id":            latest.get("scan_id", ""),
+            "comprehensive_scan_id":     latest_comprehensive.get("scan_id", ""),
+            "comprehensive_timestamp":   latest_comprehensive.get("timestamp", ""),
+            "comprehensive_scan_type":   latest_comprehensive.get("scan_type", ""),
+            "stig_total":                latest_stig.get("stig_total", 0)          if latest_stig else 0,
+            "stig_open":           latest_stig.get("stig_open", 0)           if latest_stig else 0,
+            "stig_pass":           latest_stig.get("stig_pass", 0)           if latest_stig else 0,
+            "stig_na":             latest_stig.get("stig_na", 0)             if latest_stig else 0,
+            "stig_nr":             latest_stig.get("stig_nr", 0)             if latest_stig else 0,
+            "latest_stig_scan_id": latest_stig.get("scan_id", "")            if latest_stig else "",
+            "has_stig_report":     latest_stig.get("has_stig_report", False) if latest_stig else False,
+            "has_stig_cklb":       latest_stig.get("has_stig_cklb", False)   if latest_stig else False,
+            "url":                 "",
+            "monitored":           name in monitored,
+        })
+
+    # Merge in registered-but-unscanned apps
+    scanned_names = {r["name"] for r in result}
+    registered = _load_registered_apps()
+    for reg in registered:
+        rname = reg.get("name")
+        if not rname:
+            continue
+        if rname in hidden or rname in scanned_names:
+            # If it has been scanned, backfill the URL onto the existing entry
+            for r in result:
+                if r["name"] == rname and not r["url"]:
+                    r["url"] = reg.get("url", "")
+            continue
+        result.append({
+            "name":                rname,
+            "scan_count":          0,
+            "last_scanned":        "",
+            "scan_type":           "",
+            "critical":            0,
+            "high":                0,
+            "medium":              0,
+            "low":                 0,
+            "status":              "unknown",
+            "latest_scan_id":      "",
+            "stig_total":          0,
+            "stig_open":           0,
+            "stig_pass":           0,
+            "stig_na":             0,
+            "stig_nr":             0,
+            "latest_stig_scan_id": "",
+            "has_stig_report":     False,
+            "has_stig_cklb":       False,
+            "url":                 reg.get("url", ""),
+            "added_at":            reg.get("added_at", ""),
+            "monitored":           rname in monitored,
+        })
+
+    result.sort(key=lambda x: x.get("last_scanned", "") or x.get("added_at", ""), reverse=True)
+    
+    cache_state.apps = (result, now)
+    api_main._cache_metrics["writes"]["apps"] += 1
+    api_main._cache_metrics_logger.debug(f"cache_write endpoint=applications success=true count={len(result)}")
+    response.headers["Cache-Control"] = "public, max-age=60"
+    response.headers["X-Cache-Version"] = str(cache_state.version)
+    return result

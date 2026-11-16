@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.17] - 2026-11-16
+
+### Changed
+- API refactor, no behaviour change: shared caches moved to `web/api/cache_state.py`; `_build_metrics` and `_build_stig_entries` moved to `metrics_builder.py` and `stig_entries.py`; the remaining endpoints moved into `web/api/routers/`. `main.py` is now about 800 lines.
+
 ## [3.72.16] - 2026-11-16
 
 ### Changed

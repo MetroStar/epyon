@@ -15,6 +15,7 @@ from .. import openai_summary
 from .. import parsers
 from .. import scorecard as scorecard_store
 from .metrics import get_metrics
+from .. import cache_state
 from .. import main as api_main
 
 router = APIRouter()
@@ -398,12 +399,12 @@ async def global_exec_summary(response: Response):
 def _build_summary_metrics() -> dict:
     """Return a trimmed metrics dict for injection into AI summary prompts.
     Uses the in-memory cache when warm to avoid redundant computation."""
-    # get_metrics() stamps _metrics_cache_ts with time.monotonic(), so the
+    # get_metrics() stamps cache_state.metrics_ts with time.monotonic(), so the
     # freshness check here must use the same clock — comparing it against
     # time.time() (wall clock) made this check always look stale, meaning
     # this always recomputed metrics from scratch instead of using the cache.
-    if api_main._metrics_cache and (time.monotonic() - api_main._metrics_cache_ts) < api_main._METRICS_TTL:
-        m = api_main._metrics_cache
+    if cache_state.metrics and (time.monotonic() - cache_state.metrics_ts) < api_main._METRICS_TTL:
+        m = cache_state.metrics
     else:
         # Cache is cold — compute now with a throwaway Response object so that
         # _sec_headers doesn't receive None.

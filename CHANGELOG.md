@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.23] - 2026-11-16
+
+### Changed
+- Moved the root-level `SCAN_COVERAGE_ANALYSIS.md` and `SCAN_WORKFLOW_COMPARISON.md` into `docs/scanning/` and added them to the docs index.
+
 ## [3.72.22] - 2026-11-16
 
 ### Changed

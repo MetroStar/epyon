@@ -37,6 +37,8 @@ Guides grouped by topic. Start with `architecture/` and the scan matrix, then ju
 | [GRYPE_SCAN_TROUBLESHOOTING.md](scanning/GRYPE_SCAN_TROUBLESHOOTING.md) | Grype troubleshooting |
 | [MULTI_FEED_CVE_ENRICHMENT.md](scanning/MULTI_FEED_CVE_ENRICHMENT.md) | CVE enrichment feeds |
 | [CONTAINER_BUILD_AND_EVIDENCE_GUIDE.md](scanning/CONTAINER_BUILD_AND_EVIDENCE_GUIDE.md) | Container build and evidence-based scanning |
+| [SCAN_WORKFLOW_COMPARISON.md](scanning/SCAN_WORKFLOW_COMPARISON.md) | Public vs private repo scan workflows |
+| [SCAN_COVERAGE_ANALYSIS.md](scanning/SCAN_COVERAGE_ANALYSIS.md) | Point-in-time analysis of full-scan layer coverage (midas, July 2026) |
 
 ## compliance/
 

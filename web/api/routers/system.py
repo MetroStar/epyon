@@ -16,6 +16,8 @@ from pydantic import BaseModel
 from .. import jobs as job_store
 from .. import openai_summary
 from .. import parsers
+from .. import cache_state
+import time
 from .. import main as api_main
 
 router = APIRouter()
@@ -368,3 +370,51 @@ async def trigger_self_assessment(body: SelfAssessmentRunRequest, request: Reque
     job = job_store.create_job(job_id, "self-assessment", "self-assessment")
     asyncio.create_task(job_store.run_self_assessment_job(job_id, script_path, api_main.EPYON_ROOT, layers))
     return {"job_id": job_id, "status": "queued"}
+
+
+# ── Stats ─────────────────────────────────────────────────────
+
+@router.get("/api/stats")
+def stats(response: Response):
+    now = time.monotonic()
+    
+    # Return cached stats if available
+    if cache_state.stats and (now - cache_state.stats[1]) < api_main._STATS_CACHE_TTL:
+        age = now - cache_state.stats[1]
+        api_main._cache_metrics["hits"]["stats"] += 1
+        api_main._cache_metrics_logger.debug(f"cache_read source=memory endpoint=stats hit=true age_seconds={age:.1f}")
+        result = cache_state.stats[0]
+        # Allow browser caching for 60s
+        response.headers["Cache-Control"] = "public, max-age=60"
+        response.headers["X-Cache-Version"] = str(cache_state.version)
+        return result
+    
+    api_main._cache_metrics["misses"]["stats"] += 1
+    api_main._cache_metrics_logger.debug("cache_read source=memory endpoint=stats hit=false")
+    api_main._sec_headers(response)
+    hidden = api_main._load_hidden_apps()
+    monitored = api_main._load_monitored_apps()
+    # Overview counts only continuously monitored apps; evaluation apps are excluded.
+    scans = [s for s in (api_main._cached_load_scan(d) for d in api_main._cached_find_scan_dirs())
+             if s["target"] in monitored and s["target"] not in hidden]
+    by_target: dict[str, dict] = {}
+    for s in scans:
+        t = s["target"]
+        if t not in by_target or s.get("timestamp", "") > by_target[t].get("timestamp", ""):
+            by_target[t] = s
+    latest = list(by_target.values())
+    result = {
+        "total_applications": len(by_target),
+        "total_scans":        len(scans),
+        "critical": sum(s["critical"] for s in latest),
+        "high":     sum(s["high"]     for s in latest),
+        "medium":   sum(s["medium"]   for s in latest),
+        "low":      sum(s["low"]      for s in latest),
+    }
+    
+    cache_state.stats = (result, now)
+    api_main._cache_metrics["writes"]["stats"] += 1
+    api_main._cache_metrics_logger.debug("cache_write endpoint=stats success=true")
+    response.headers["Cache-Control"] = "public, max-age=60"
+    response.headers["X-Cache-Version"] = str(cache_state.version)
+    return result

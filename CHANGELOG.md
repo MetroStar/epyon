@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.71.2] - 2026-11-15
+
+### Changed
+- Metrics > Scan Frequency and Merges to Primary Branch: the History column is now a horizontal heat strip with a date axis underneath, replacing the wrapped grid of dots (which grew to dozens of rows for busy apps). One cell per day on a date range shared by every row; intensity is the number of scans that day and the colour runs green to red with the share of failed runs. Hover a day for the PR / nightly / push breakdown. Ranges over 90 days are grouped into multi-day cells.
+
+## [3.71.0] - 2026-11-15
+
+### Added
+- Application detail page: Scan History is now split into tabs (Full / Nightly, Quick, STIG, Other) with a count on each. Each tab is paginated at 15 scans per page and can be filtered by a From/To date range. The page opens on the tab holding the newest scan and remembers the tab, page and dates while you browse.
+
 ## [3.70.15] - 2026-11-15
 
 ### Fixed

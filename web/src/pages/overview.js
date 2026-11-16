@@ -4,9 +4,10 @@ import { emptyState, errBanner, loading, pageHeader } from '../components/layout
 import { api } from '../lib/api.js';
 import { esc, fmtDate, ucFirst } from '../lib/format.js';
 import { renderApplications } from './applications.js';
+import { buildOverviewExecSection, buildOverviewIssoSection, buildOverviewTechSection } from '../components/summaries.js';
 
 // Legacy globals still provided by main.js (see index.js):
-/* global buildOverviewExecSection, buildOverviewIssoSection, buildOverviewTechSection, setActive */
+/* global setActive */
 
 export async function renderOverview() {
   setActive('overview');

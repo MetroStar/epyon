@@ -1,5 +1,5 @@
 import { closeFindingDetail } from './finding.js';
-import { esc, ucFirst, act } from '../../lib/format.js';
+import { esc, ucFirst, act, actOn, ARG } from '../../lib/format.js';
 import { renderStigViewer } from '../../pages/stig.js';
 import { _stigRegistry } from '../../state/registries.js';
 
@@ -109,7 +109,7 @@ export function openStigViewerDetail(regKey) {
       </div>
 
       <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
-        <button class="btn btn-primary" onclick="openStigJiraModal('${esc(scanId)}', ['${esc(regKey)}'])">Add to Jira</button>
+        <button class="btn btn-primary" ${act('openStigJiraModal', scanId, [regKey])}>Add to Jira</button>
         <span id="stig-jira-drawer-status" style="margin-left:10px;font-size:12px"></span>
       </div>
 
@@ -123,7 +123,7 @@ export function openStigViewerDetail(regKey) {
             <label class="stig-override-label">Status</label>
             <select class="stig-override-select" id="sd-status-${esc(c.vuln_id)}-${esc(c._slug)}"
               data-auto-just="${esc(autoJust)}"
-              onchange="stigOverrideStatusChanged(this, 'sd-just-${esc(c.vuln_id)}-${esc(c._slug)}')">
+              ${actOn('change', 'stigOverrideStatusChanged', ARG.el, `sd-just-${c.vuln_id}-${c._slug}`)}>
               ${overrideOptions}
             </select>
           </div>

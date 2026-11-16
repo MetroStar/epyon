@@ -2,6 +2,7 @@ import { gateBadge, sevBadgeRow, statusBadge } from '../components/badges.js';
 import { toast } from '../components/feedback.js';
 import { emptyState, errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
+import { upperAlnumInput, upperInput } from '../core/ui-helpers.js';
 import { esc, fmtDate, ucFirst, act, actOn, ARG } from '../lib/format.js';
 import { renderApplications } from './applications.js';
 import { buildOverviewExecSection, buildOverviewIssoSection, buildOverviewTechSection } from '../components/summaries.js';
@@ -117,7 +118,7 @@ export function buildCveSearchSection() {
   return `
     <div class="section cve-search">
       <div class="section-title">Search a CVE across applications</div>
-      <form class="cve-search-form" onsubmit="cveSearchRun(event)">
+      <form class="cve-search-form" ${actOn('submit', 'cveSearchRun', ARG.event)}>
         <input id="cve-search-q" class="cve-search-input" type="text" minlength="3" maxlength="100"
                placeholder="CVE-2024-12345, GHSA-…, or package name" autocomplete="off" required>
         <select id="cve-search-field" class="cve-search-select" aria-label="Search by">
@@ -263,10 +264,10 @@ export function cveBulkRenderForm() {
       <div class="cve-bulk-fields">
         <label class="field-label">Jira project (board key)
           <input class="field-input" type="text" maxlength="10" data-gi="${i}" value="${esc(g.projectKey)}"
-            oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,''); cveBulkKeyTyped(this)"></label>
+            ${actOn('input', 'cveBulkKeyTyped', ARG.el)}></label>
         <label class="field-label">Epic key (optional)
           <input class="field-input" type="text" maxlength="30" placeholder="${esc(g.projectKey || 'PROJECT')}-123" data-gi="${i}" value="${esc(g.epicKey || '')}"
-            oninput="this.value=this.value.toUpperCase(); cveBulkModalState().groups[${i}].epicKey=this.value.trim()"></label>
+            ${actOn('input', 'cveBulkEpicTyped', ARG.el)}></label>
       </div>${sk}</div>`;
   }).join('');
   body.innerHTML = `
@@ -278,12 +279,12 @@ export function cveBulkRenderForm() {
     ${groupHtml}
     <div class="cve-bulk-fields" style="margin-top:12px">
       <label class="field-label">Ticket type
-        <select class="field-input" onchange="cveBulkModalState().issueType=this.value">
+        <select class="field-input" ${actOn('change', 'cveBulkIssueTypeChanged', ARG.value)}>
           ${types.map(t => `<option value="${esc(t)}" ${t === m.issueType ? 'selected' : ''}>${esc(t)}</option>`).join('')}
         </select></label>
       <label class="field-label">Triaged by (optional)
         <input class="field-input" type="text" maxlength="200" value="${esc(m.triagedBy)}"
-          oninput="cveBulkModalState().triagedBy=this.value"></label>
+          ${actOn('input', 'cveBulkTriagedByChanged', ARG.value)}></label>
     </div>
     <div class="modal-actions" style="margin-top:20px;display:flex;justify-content:flex-end;gap:10px">
       <button class="btn" ${act('cveBulkClose')}>Cancel</button>
@@ -293,7 +294,22 @@ export function cveBulkRenderForm() {
 
 export function cveBulkModalState() { return _cveBulk.modal; }
 
+export function cveBulkEpicTyped(input) {
+  upperInput(input);
+  _cveBulk.modal.groups[Number(input.dataset.gi)].epicKey = input.value.trim();
+}
+
+export function cveBulkIssueTypeChanged(value) { _cveBulk.modal.issueType = value; }
+
+export function cveBulkTriagedByChanged(value) { _cveBulk.modal.triagedBy = value; }
+
+export function cveBulkDone() {
+  cveBulkClose();
+  cveSearchRun();
+}
+
 export function cveBulkKeyTyped(input) {
+  upperAlnumInput(input);
   _cveBulk.modal.groups[Number(input.dataset.gi)].projectKey = input.value.trim();
 }
 
@@ -365,7 +381,7 @@ export function cveBulkRenderSummary(results) {
       <thead><tr><th scope="col">Application</th><th scope="col">Created</th><th scope="col">Existing</th><th scope="col">Failed</th><th scope="col">Skipped</th><th scope="col">Reason</th></tr></thead>
       <tbody>${rows}</tbody></table></div>
     <div class="modal-actions" style="margin-top:20px;display:flex;justify-content:flex-end">
-      <button class="btn btn-primary" onclick="cveBulkClose(); cveSearchRun()">Done</button>
+      <button class="btn btn-primary" ${act('cveBulkDone')}>Done</button>
     </div>`;
 }
 
@@ -387,7 +403,7 @@ export function cveSearchResultsHtml(data) {
             aria-label="Select ${esc(f.id)} in ${esc(appEntry.app_name)}" ${actOn('change','cveBulkToggle', ARG.el)}></td>
         <td>${esc(appEntry.app_name)}${appEntry.is_latest ? '' : ' <span class="tool-tag">earlier scan</span>'}</td>
         <td><span class="sev-badge ${esc(f.severity)}">${esc(ucFirst(f.severity))}</span></td>
-        <td><a href="${esc(href)}" data-href="${esc(href)}" onclick="if (event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey) { event.preventDefault(); navigate(this.dataset.href); }">${esc(f.id)}</a>${f.suppressed ? ' <span class="tool-tag">suppressed</span>' : ''}</td>
+        <td><a href="${esc(href)}" data-href="${esc(href)}" ${act('spaLinkClick', ARG.event, ARG.el)}>${esc(f.id)}</a>${f.suppressed ? ' <span class="tool-tag">suppressed</span>' : ''}</td>
         <td>${(f.tools || []).map(t => `<span class="tool-tag">${esc(t)}</span>`).join(' ')}</td>
         <td>${esc(f.package || '—')}</td>
         <td>${esc(f.version || '—')}</td>

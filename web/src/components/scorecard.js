@@ -208,7 +208,7 @@ export function buildScorecardCard(scorecardData) {
             <span style="margin-left:8px;font-weight:700;font-size:15px;color:${info.color}">Grade ${info.label}</span>
           </span>
           <span style="display:flex;align-items:center;gap:12px">
-            <button type="button" class="btn btn-sm" title="How the Score Card works" onclick="event.preventDefault();event.stopPropagation();showScorecardHelp()">ⓘ How it works</button>
+            <button type="button" class="btn btn-sm" title="How the Score Card works" ${act('showScorecardHelpFromToggle', ARG.event)} data-stop>ⓘ How it works</button>
             <span style="font-size:18px;font-weight:700;color:var(--accent)">${score}</span>
             <span class="findings-summary-hint">Click to expand</span>
           </span>
@@ -230,6 +230,11 @@ export function buildScorecardCard(scorecardData) {
     </div>`;
 }
 
+export function showScorecardHelpFromToggle(e) {
+  e.preventDefault();
+  window.showScorecardHelp();
+}
+
 window.showScorecardHelp = () => {
   const row = (a, b) => `<tr><td style="padding:6px 12px 6px 0;vertical-align:top;white-space:nowrap"><strong>${a}</strong></td><td style="padding:6px 0;color:var(--text-muted)">${b}</td></tr>`;
   const overlay = document.createElement('div');
@@ -238,7 +243,7 @@ window.showScorecardHelp = () => {
     <div class="modal-container modal-lg" style="max-height:85vh;overflow:auto;font-size:13px;line-height:1.5">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <h2 style="margin:0;color:var(--text)">How the Score Card works</h2>
-        <button class="btn" onclick="this.closest('.modal-overlay').remove()">✕</button>
+        <button class="btn" ${act('closeModalOverlay', ARG.el)}>✕</button>
       </div>
       <h3>What it measures</h3>
       <p>The Score Card rates the <strong>application</strong>, not a single scan. Findings are those of the latest scan; earlier findings that are gone are treated as closed out, and history only feeds the trend. STIG results come from the last STIG run, since STIGs run on demand. Scan type does not change the score or weights.</p>
@@ -335,7 +340,7 @@ export function showDimensionModal(dimensionKey) {
           </svg>
           ${esc(label)} Dimension
         </h2>
-        <button class="btn" onclick="this.closest('.modal-overlay').remove()" style="padding:6px 12px">
+        <button class="btn" ${act('closeModalOverlay', ARG.el)} style="padding:6px 12px">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"/>
             <line x1="6" y1="6" x2="18" y2="18"/>

@@ -362,10 +362,10 @@ export async function renderPerformanceDashboard() {
         </div>
 
         <div style="margin-top:20px">
-          <button class="btn" onclick="api.clearCacheAndReload()" style="margin-right:8px">
+          <button class="btn" ${act('clearCacheAndReload')} style="margin-right:8px">
             Clear All Caches & Reload
           </button>
-          <button class="btn" onclick="location.reload()">
+          <button class="btn" ${act('reloadPage')}>
             Refresh Metrics
           </button>
         </div>

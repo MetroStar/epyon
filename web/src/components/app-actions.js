@@ -106,10 +106,9 @@ export async function deleteScan(scanId, appName) {
   });
 }
 
-export function toggleDownloadMenu(evt) {
+export function toggleDownloadMenu(evt, toggleBtn) {
   evt.stopPropagation();
   const menu = document.getElementById('download-split-menu');
-  const toggleBtn = evt.currentTarget;
   if (!menu) return;
   const isOpen = !menu.hidden;
   menu.hidden = isOpen;

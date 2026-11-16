@@ -2,7 +2,7 @@ import { WORKFLOW_YML } from '../lib/workflow.js';
 import { toast } from '../components/feedback.js';
 import { errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
-import { esc, fmtDate, act, actOn } from '../lib/format.js';
+import { esc, fmtDate, act, actOn, ARG } from '../lib/format.js';
 
 // Globals that other modules put on window (see index.js):
 /* global setActive */
@@ -282,7 +282,7 @@ epyon install-workflow</pre>
           <pre id="settings-yml" style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);
                padding:12px;font-size:12px;line-height:1.6;overflow-x:auto;margin:0;white-space:pre;color:var(--text)">${esc(WORKFLOW_YML)}</pre>
           <button id="settings-yml-copy" class="btn btn-sm" style="position:absolute;top:8px;right:8px"
-            onclick="navigator.clipboard.writeText(WORKFLOW_YML).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})">Copy</button>
+            ${act('copyWorkflowYml', ARG.el)}>Copy</button>
         </div>
       </details>
 
@@ -490,4 +490,11 @@ export async function testJiraConnection() {
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Test Connection'; }
   }
+}
+
+export function copyWorkflowYml(btn) {
+  navigator.clipboard.writeText(WORKFLOW_YML).then(() => {
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+  });
 }

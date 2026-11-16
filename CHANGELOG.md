@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.3] - 2026-11-15
+
+### Changed
+- Web UI: the API client and its cache moved to `web/src/lib/` (`api.js`, `cache.js`), and the POA&M overview, viewer and card/preview handlers moved to `web/src/pages/poam.js`. Same bundle mechanism as 3.72.2; no behaviour change.
+
 ## [3.72.2] - 2026-11-15
 
 ### Changed

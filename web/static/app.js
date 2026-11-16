@@ -723,8 +723,726 @@
     });
   }
 
+  // src/lib/cache.js
+  var cache_exports = {};
+  __export(cache_exports, {
+    _cache: () => _cache
+  });
+  var _cache = {
+    _prefix: "epyon_cache_",
+    _version: null,
+    _ttls: {
+      "/api/stats": 6e4,
+      // 1 minute
+      "/api/applications": 6e4,
+      // 1 minute
+      "/api/scan-history": 12e4,
+      // 2 minutes
+      "/api/metrics": 3e5,
+      // 5 minutes
+      "/api/github-metrics": 6e5,
+      // 10 minutes
+      "default": 3e4
+      // 30 seconds
+    },
+    // Metrics tracking
+    _metrics: {
+      hits: 0,
+      misses: 0,
+      writes: 0,
+      version_mismatches: 0,
+      ttl_expirations: 0,
+      quota_errors: 0,
+      staleness_measurements: []
+      // {endpoint, age_ms, timestamp}
+    },
+    _getKey(url) {
+      return this._prefix + url;
+    },
+    _getTTL(url) {
+      for (const [pattern, ttl] of Object.entries(this._ttls)) {
+        if (url.includes(pattern)) return ttl;
+      }
+      return this._ttls.default;
+    },
+    get(url) {
+      try {
+        const key = this._getKey(url);
+        const item = localStorage.getItem(key);
+        if (!item) {
+          this._metrics.misses++;
+          return null;
+        }
+        const { data, timestamp, version } = JSON.parse(item);
+        const ttl = this._getTTL(url);
+        const age = Date.now() - timestamp;
+        if (this._version !== null && version !== this._version) {
+          this._metrics.version_mismatches++;
+          localStorage.removeItem(key);
+          return null;
+        }
+        if (age > ttl) {
+          this._metrics.ttl_expirations++;
+          localStorage.removeItem(key);
+          return null;
+        }
+        this._metrics.hits++;
+        this._metrics.staleness_measurements.push({
+          endpoint: url,
+          age_ms: age,
+          timestamp: (/* @__PURE__ */ new Date()).toISOString()
+        });
+        if (this._metrics.staleness_measurements.length > 100) {
+          this._metrics.staleness_measurements.shift();
+        }
+        return data;
+      } catch (_) {
+        this._metrics.misses++;
+        return null;
+      }
+    },
+    set(url, data, serverVersion) {
+      try {
+        const key = this._getKey(url);
+        const item = {
+          data,
+          timestamp: Date.now(),
+          version: serverVersion !== void 0 ? serverVersion : this._version
+        };
+        localStorage.setItem(key, JSON.stringify(item));
+        this._metrics.writes++;
+        if (serverVersion !== void 0 && serverVersion !== this._version) {
+          this._version = serverVersion;
+        }
+      } catch (error) {
+        this._metrics.quota_errors++;
+        console.warn("Cache write failed:", error.message);
+      }
+    },
+    clear() {
+      try {
+        const keys = Object.keys(localStorage);
+        for (const key of keys) {
+          if (key.startsWith(this._prefix)) {
+            localStorage.removeItem(key);
+          }
+        }
+      } catch (_) {
+      }
+    },
+    invalidate() {
+      this.clear();
+      this._version = null;
+    },
+    getMetrics() {
+      const total = this._metrics.hits + this._metrics.misses;
+      const hitRate = total > 0 ? Math.round(this._metrics.hits / total * 1e3) / 10 : null;
+      const staleness = this._metrics.staleness_measurements;
+      const avgStaleness = staleness.length > 0 ? Math.round(staleness.reduce((sum, m) => sum + m.age_ms, 0) / staleness.length) : null;
+      return {
+        hits: this._metrics.hits,
+        misses: this._metrics.misses,
+        writes: this._metrics.writes,
+        hit_rate_pct: hitRate,
+        version_mismatches: this._metrics.version_mismatches,
+        ttl_expirations: this._metrics.ttl_expirations,
+        quota_errors: this._metrics.quota_errors,
+        avg_staleness_ms: avgStaleness,
+        current_version: this._version,
+        recent_staleness: staleness.slice(-10)
+      };
+    }
+  };
+
+  // src/lib/api.js
+  var api_exports = {};
+  __export(api_exports, {
+    _abortPageLoads: () => _abortPageLoads,
+    api: () => api
+  });
+  var _navAbort = new AbortController();
+  function _abortPageLoads() {
+    _navAbort.abort();
+    _navAbort = new AbortController();
+  }
+  var api = {
+    async _get(url, useCache = true) {
+      if (useCache) {
+        const cached = _cache.get(url);
+        if (cached !== null) {
+          return cached;
+        }
+      }
+      const signal = _navAbort.signal;
+      let r, data;
+      try {
+        r = await fetch(url, { signal });
+        if (!r.ok) {
+          let detail = r.statusText;
+          try {
+            detail = (await r.json()).detail || detail;
+          } catch (_) {
+          }
+          throw new Error(`${detail} (${r.status})`);
+        }
+        data = await r.json();
+      } catch (e) {
+        if (signal.aborted) return new Promise(() => {
+        });
+        throw e;
+      }
+      if (useCache) {
+        const serverVersion = r.headers.get("X-Cache-Version");
+        _cache.set(url, data, serverVersion ? parseInt(serverVersion, 10) : void 0);
+      }
+      return data;
+    },
+    async _post(url, body) {
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (!r.ok) {
+        let detail = r.statusText;
+        try {
+          detail = (await r.json()).detail || detail;
+        } catch (_) {
+        }
+        const err = new Error(`${detail} (${r.status})`);
+        err.status = r.status;
+        err.detail = detail;
+        throw err;
+      }
+      if (url.includes("/scans") || url.includes("/applications") || url.includes("/hide") || url.includes("/restore") || url.includes("/monitored")) {
+        _cache.invalidate();
+      }
+      return r.json();
+    },
+    async _delete(url) {
+      const r = await fetch(url, { method: "DELETE" });
+      if (!r.ok) {
+        let detail = r.statusText;
+        try {
+          detail = (await r.json()).detail || detail;
+        } catch (_) {
+        }
+        throw new Error(`${detail} (${r.status})`);
+      }
+      _cache.invalidate();
+      return r.json();
+    },
+    getStats() {
+      return this._get("/api/stats");
+    },
+    getApplications() {
+      return this._get("/api/applications");
+    },
+    getHiddenApps() {
+      return this._get("/api/applications-hidden");
+    },
+    hideApp(name) {
+      return this._post("/api/applications/hide", { name });
+    },
+    restoreApp(name) {
+      return this._post("/api/applications/restore", { name });
+    },
+    deleteApp(name) {
+      return this._delete(`/api/applications/data?name=${encodeURIComponent(name)}`);
+    },
+    deleteScan(id) {
+      return this._delete(`/api/scans/${encodeURIComponent(id)}`);
+    },
+    setMonitored(name) {
+      return this._post("/api/applications/monitored", { name });
+    },
+    unsetMonitored(name) {
+      return this._delete(`/api/applications/monitored?name=${encodeURIComponent(name)}`);
+    },
+    registerApp(name, url) {
+      return this._post("/api/applications", { name, url });
+    },
+    getAppScans(name) {
+      return this._get(`/api/applications/${encodeURIComponent(name)}/scans`);
+    },
+    getScan(id) {
+      return this._get(`/api/scans/${encodeURIComponent(id)}`);
+    },
+    getScanHistory() {
+      return this._get("/api/scan-history");
+    },
+    getApprovedImages() {
+      return this._get("/api/settings/approved-images");
+    },
+    getGitHubConfig() {
+      return this._get("/api/github/config");
+    },
+    saveGitHubConfig(d) {
+      return this._post("/api/github/config", d);
+    },
+    triggerGitHubSync() {
+      return this._post("/api/github/sync", {});
+    },
+    getGitHubSyncStatus() {
+      return this._get("/api/github/sync");
+    },
+    triggerScan(target, scanType, runGarak, runStig = true, layers = null) {
+      const body = { target, scan_type: scanType };
+      if (runGarak) body.run_garak = true;
+      if (runStig) body.run_stig = true;
+      if (layers && layers.length) body.layers = layers;
+      return this._post("/api/scans", body);
+    },
+    triggerScanUpload(file, scanType, runGarak, runStig = true, onProgress = null, layers = null) {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("scan_type", scanType);
+      if (runGarak) form.append("run_garak", "true");
+      if (runStig) form.append("run_stig", "true");
+      if (layers && layers.length) form.append("layers", JSON.stringify(layers));
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/scans/upload");
+        xhr.upload.onprogress = (e) => {
+          if (onProgress && e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 100));
+        };
+        xhr.upload.onload = () => {
+          if (onProgress) onProgress(100, true);
+        };
+        xhr.onload = () => {
+          let data = {};
+          try {
+            data = JSON.parse(xhr.responseText || "{}");
+          } catch (_) {
+          }
+          if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+          else reject(new Error(`${data.detail || xhr.statusText || "Upload failed"} (${xhr.status})`));
+        };
+        xhr.onerror = () => reject(new Error("Network error during upload"));
+        xhr.send(form);
+      });
+    },
+    triggerScanUploadImage(file, onProgress = null) {
+      const form = new FormData();
+      form.append("file", file);
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/scans/upload-image");
+        xhr.upload.onprogress = (e) => {
+          if (onProgress && e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 100));
+        };
+        xhr.upload.onload = () => {
+          if (onProgress) onProgress(100, true);
+        };
+        xhr.onload = () => {
+          let data = {};
+          try {
+            data = JSON.parse(xhr.responseText || "{}");
+          } catch (_) {
+          }
+          if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+          else reject(new Error(`${data.detail || xhr.statusText || "Upload failed"} (${xhr.status})`));
+        };
+        xhr.onerror = () => reject(new Error("Network error during upload"));
+        xhr.send(form);
+      });
+    },
+    getJob(id) {
+      return this._get(`/api/jobs/${encodeURIComponent(id)}`, false);
+    },
+    getJobs() {
+      return this._get("/api/jobs", false);
+    },
+    runSelfAssessment(layers) {
+      return this._post("/api/self-assessment/run", layers && layers.length ? { layers } : {});
+    },
+    getMetrics() {
+      return this._get("/api/metrics");
+    },
+    getGitHubMetrics() {
+      return this._get("/api/github-metrics");
+    },
+    getGitHubSignalsHistory() {
+      return this._get("/api/github-signals-history");
+    },
+    getOpenAiModels() {
+      return this._get("/api/ai/openai-models");
+    },
+    getLocalModels(baseUrl) {
+      return this._get("/api/ai/local-models?base_url=" + encodeURIComponent(baseUrl || ""));
+    },
+    getAiConfig() {
+      return this._get("/api/ai/config");
+    },
+    saveAiConfig(d) {
+      return this._post("/api/ai/config", d);
+    },
+    getNvdConfig() {
+      return this._get("/api/nvd/config");
+    },
+    getScanConcurrency() {
+      return this._get("/api/settings/scan-concurrency");
+    },
+    saveScanConcurrency(n) {
+      return this._post("/api/settings/scan-concurrency", { max_concurrent_scans: n });
+    },
+    getExecSummary(id) {
+      return this._post(`/api/scans/${encodeURIComponent(id)}/executive-summary`, {});
+    },
+    getTechnicalSummary(id) {
+      return this._post(`/api/scans/${encodeURIComponent(id)}/technical-summary`, {});
+    },
+    getGlobalExecSummary() {
+      return this._post("/api/executive-summary", {});
+    },
+    getGlobalTechnicalSummary() {
+      return this._post("/api/technical-summary", {});
+    },
+    getGlobalIssoSummary() {
+      return this._post("/api/isso-summary", {});
+    },
+    getAppIssoSummary(name) {
+      return this._post(`/api/applications/${encodeURIComponent(name)}/isso-summary`, {});
+    },
+    async exportSummaryDocx(body) {
+      const r = await fetch("/api/export/summary-docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (!r.ok) {
+        let detail = r.statusText;
+        try {
+          detail = (await r.json()).detail || detail;
+        } catch (_) {
+        }
+        throw new Error(`${detail} (${r.status})`);
+      }
+      return r.blob();
+    },
+    getFindingFix(finding) {
+      return this._post("/api/findings/fix", finding);
+    },
+    calculateScorecard(id) {
+      return this._post(`/api/scans/${encodeURIComponent(id)}/scorecard`, {});
+    },
+    getStigData(id) {
+      return this._get(`/api/scans/${encodeURIComponent(id)}/stig-data`);
+    },
+    getStigHistory(app, slug) {
+      const p = new URLSearchParams();
+      if (app) p.set("app", app);
+      if (slug) p.set("slug", slug);
+      const qs = p.toString();
+      return this._get("/api/stig/history" + (qs ? "?" + qs : ""));
+    },
+    getJiraConfig() {
+      return this._get("/api/jira/config");
+    },
+    saveJiraConfig(d) {
+      return this._post("/api/jira/config", d);
+    },
+    testJiraConnection() {
+      return this._post("/api/jira/test", {});
+    },
+    getJiraTickets() {
+      return this._get("/api/jira/tickets");
+    },
+    reassignJiraTickets(name) {
+      return this._post(`/api/jira/reassign/${encodeURIComponent(name)}`, {});
+    },
+    syncJiraApp(name) {
+      return this._post(`/api/jira/sync/${encodeURIComponent(name)}`, {});
+    },
+    getJiraCandidates(id) {
+      return this._get(`/api/scans/${encodeURIComponent(id)}/jira-candidates`, false);
+    },
+    getScanJiraEpics(id, projectKey) {
+      const q = projectKey ? `?project_key=${encodeURIComponent(projectKey)}` : "";
+      return this._get(`/api/scans/${encodeURIComponent(id)}/jira-epics${q}`, false);
+    },
+    getStigJiraContext(id) {
+      return this._get(`/api/scans/${encodeURIComponent(id)}/stig-jira-context`, false);
+    },
+    createStigJiraTickets(id, body) {
+      return this._post(`/api/scans/${encodeURIComponent(id)}/stig-jira-tickets`, body);
+    },
+    createJiraTickets(id, fingerprints, epicChoice) {
+      return this._post(`/api/scans/${encodeURIComponent(id)}/jira-tickets`, {
+        fingerprints,
+        ...epicChoice || {}
+      });
+    },
+    setJiraProject(id, projectKey) {
+      return this._post(`/api/scans/${encodeURIComponent(id)}/jira-project`, { project_key: projectKey });
+    },
+    getCacheMetrics() {
+      return this._get("/api/metrics/cache", false);
+    }
+    // Don't cache cache metrics
+  };
+
+  // src/pages/poam.js
+  var poam_exports = {};
+  __export(poam_exports, {
+    buildPoamSection: () => buildPoamSection,
+    poamSend: () => poamSend,
+    poamSourceLine: () => poamSourceLine,
+    renderPoam: () => renderPoam,
+    renderPoamViewer: () => renderPoamViewer
+  });
+  function poamSourceLine(sources, notes) {
+    const src = sources || {};
+    const link = (r) => `<a href="#/scans/${encodeURIComponent(r.scan_id)}" onclick="event.stopPropagation()">${esc(scanTypeLabel(r.scan_type))} scan · ${fmtDate(r.timestamp)}</a>`;
+    const parts = [];
+    if (src.vuln) parts.push(`CVEs from the ${link(src.vuln)}`);
+    if (src.stig && !(src.vuln && src.stig.scan_id === src.vuln.scan_id)) parts.push(`STIG items from the ${link(src.stig)}`);
+    else if (src.stig) parts.push("STIG items from the same scan");
+    if (src.latest_full) parts.push(`Latest full scan: ${link(src.latest_full)}`);
+    const warn = (notes || []).map((n) => `<div class="poam-source-note">⚠ ${esc(n)}</div>`).join("");
+    if (!parts.length && !warn) return "";
+    return `<div class="poam-source">${parts.length ? `<div>Source: ${parts.join(" · ")}</div>` : ""}${warn}</div>`;
+  }
+  function buildPoamSection(scanId) {
+    const base = `/api/scans/${encodeURIComponent(scanId)}`;
+    const viewHref = `#/poam-viewer/scan/${encodeURIComponent(scanId)}`;
+    return `
+    <div class="section findings-section-wrapper">
+      <details class="findings-collapsible poam-card" data-base="${esc(base)}" style="border-left-color:var(--accent)">
+        <summary class="findings-summary">
+          <span class="findings-summary-left">
+            <span class="findings-chevron" aria-hidden="true"></span>
+            <span class="findings-summary-title">POA&amp;M</span>
+            <span class="poam-pills"><span class="stig-mini total">…</span></span>
+          </span>
+          <span style="display:flex;align-items:center;gap:8px">
+            <a class="btn btn-sm" href="${esc(base)}/poam" download onclick="event.stopPropagation()">↓ POA&amp;M.csv</a>
+            <span class="findings-summary-hint">Click to expand</span>
+          </span>
+        </summary>
+        <div class="findings-body" style="padding:0 18px 16px">
+          <div class="poam-source-slot" style="margin-top:12px"></div>
+          <div class="stig-counts poam-tiles" style="margin-top:12px"></div>
+          <div class="stig-view-btn-row">
+            <button class="btn btn-primary btn-sm" onclick="navigate('${viewHref}')">⊞ View POA&amp;M Inline</button>
+          </div>
+        </div>
+      </details>
+    </div>`;
+  }
+  window.loadPoamCard = async (card) => {
+    try {
+      const res = await fetch(`${card.dataset.base}/poam?preview=true`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const d = await res.json();
+      const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+      const sev = d.by_severity || {}, src = d.by_source || {};
+      const overdue = d.rows.filter((r) => r["Scheduled Completion Date"] < today).length;
+      card.querySelector(".poam-pills").innerHTML = `
+      <span class="stig-mini open">${esc((sev.Critical || 0) + (sev.High || 0))} crit/high</span>
+      ${overdue ? `<span class="stig-mini open">${esc(overdue)} overdue</span>` : ""}
+      <span class="stig-mini total">${esc(d.total)} items</span>`;
+      card.querySelector(".poam-source-slot").innerHTML = poamSourceLine(d.sources, d.notes);
+      const tile = (n, lbl, cls) => `<div class="stig-count ${cls}"><span class="num">${esc(n)}</span><span class="lbl">${esc(lbl)}</span></div>`;
+      card.querySelector(".poam-tiles").innerHTML = tile(sev.Critical || 0, "Critical", "open") + tile(sev.High || 0, "High", "open") + tile(sev.Medium || 0, "Medium", "na") + tile(sev.Low || 0, "Low", "na") + tile(src.STIG || 0, "STIG items", "pass") + tile(src.CVE || 0, "CVE items", "pass") + tile(overdue, "Overdue", overdue ? "open" : "na") + tile(d.total, "Total", "total");
+    } catch (e) {
+      card.querySelector(".poam-pills").innerHTML = `<span class="stig-mini">unavailable</span>`;
+    }
+  };
+  window.loadPoamPreview = async (host, force = false) => {
+    if (host.dataset.loaded && !force) return;
+    host.dataset.loaded = "1";
+    const base = host.dataset.base;
+    const body = host.querySelector(".poam-body");
+    try {
+      const res = await fetch(`${base}/poam?preview=true`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const d = await res.json();
+      const sev = d.by_severity || {}, src = d.by_source || {};
+      const counts = host.querySelector(".poam-counts");
+      if (counts) counts.textContent = d.total ? `${d.total} items · ${src.STIG || 0} STIG · ${src.CVE || 0} CVE · ${sev.Critical || 0} critical · ${sev.High || 0} high · ${sev.Medium || 0} medium` : "Open STIG controls + Critical/High CVEs";
+      const sla = d.sla_days || {};
+      const slaForm = `
+      <div class="poam-sla" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px;font-size:12px">
+        <strong>SLA (days to complete):</strong>
+        ${["critical", "high", "medium", "low"].map((k) => `
+          <label style="display:flex;align-items:center;gap:4px">${ucFirst(k)}
+            <input type="number" min="1" max="3650" data-sla="${k}" value="${esc(sla[k])}" style="width:64px">
+          </label>`).join("")}
+        <button class="btn btn-sm" onclick="savePoamSla(this)">Save SLA</button>
+        <span class="poam-sla-msg" style="color:var(--text-muted)"></span>
+      </div>`;
+      if (!d.total) {
+        body.innerHTML = poamSourceLine(d.sources, d.notes) + slaForm + '<div style="color:var(--text-muted)">No open STIG controls or Critical/High CVEs — nothing to add to a POA&amp;M.</div>';
+        return;
+      }
+      const cols = ["POA&M ID", "Weakness Identifier", "Weakness Name", "Raw Severity", "Detection Source", "Affected Component", "Remediation / Mitigation", "Scheduled Completion Date", "Status"];
+      const clip = (v) => {
+        const t = String(v ?? "");
+        return t.length > 160 ? t.slice(0, 160) + "…" : t;
+      };
+      const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+      const cell = (r, c) => {
+        if (c === "Raw Severity") return `<span class="sev-badge ${esc(String(r[c]).toLowerCase())}">${esc(r[c])}</span>`;
+        if (c === "Scheduled Completion Date") {
+          const manual = r["Due Date Basis"] === "Manual";
+          const overdue = r[c] < today;
+          return `<input type="date" value="${esc(r[c])}" data-key="${esc(r["Item Key"])}" data-default="${esc(r["Default Due Date"])}"
+                  title="${manual ? "Manual date" : esc(r["Due Date Basis"])} — change to set manually"
+                  onchange="savePoamDueDate(this)"
+                  style="${manual ? "font-weight:700;" : ""}${overdue ? "color:var(--stig-open, #c0392b)" : ""}">
+                ${overdue ? '<span title="Past its completion date" style="color:var(--stig-open, #c0392b);font-size:11px"> overdue</span>' : ""}
+                ${manual ? `<a href="#" title="Reset to SLA date (${esc(r["Default Due Date"])})" onclick="resetPoamDueDate(event, this)">↺</a>` : ""}`;
+        }
+        return `<span title="${esc(r[c] ?? "")}">${esc(clip(r[c]))}</span>`;
+      };
+      body.innerHTML = poamSourceLine(d.sources, d.notes) + slaForm + `
+      <div style="overflow-x:auto;max-height:${host.tagName === "DETAILS" ? "480px" : "70vh"};overflow-y:auto">
+        <table>
+          <thead><tr>${cols.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead>
+          <tbody>${d.rows.map((r) => `<tr>${cols.map((c) => `<td>${cell(r, c)}</td>`).join("")}</tr>`).join("")}</tbody>
+        </table>
+      </div>
+      <div style="margin-top:8px;color:var(--text-muted);font-size:12px">Dates default to the SLA above, counted from the scan date. Pick a date to set it manually (bold); it is kept across rescans. Point of contact, resources and milestones are left blank in the CSV for you to complete.</div>`;
+    } catch (e) {
+      host.dataset.loaded = "";
+      body.textContent = `Could not load POA&M preview (${e.message}).`;
+    }
+  };
+  async function poamSend(url, method, payload) {
+    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    if (!res.ok) {
+      let msg = `HTTP ${res.status}`;
+      try {
+        msg = (await res.json()).detail || msg;
+      } catch (_) {
+      }
+      throw new Error(msg);
+    }
+  }
+  window.savePoamSla = async (btn) => {
+    const wrap = btn.closest(".poam-sla"), msg = wrap.querySelector(".poam-sla-msg");
+    const sla = {};
+    wrap.querySelectorAll("input[data-sla]").forEach((i) => {
+      sla[i.dataset.sla] = parseInt(i.value, 10);
+    });
+    try {
+      await poamSend("/api/poam/config", "PUT", { sla_days: sla });
+      window.loadPoamPreview(btn.closest(".poam-host"), true);
+    } catch (e) {
+      msg.textContent = `Not saved: ${e.message}`;
+    }
+  };
+  window.savePoamDueDate = async (input) => {
+    const host = input.closest(".poam-host");
+    try {
+      const due = !input.value || input.value === input.dataset.default ? null : input.value;
+      await poamSend(`${host.dataset.base}/poam/due-date`, "PUT", { key: input.dataset.key, due_date: due });
+      window.loadPoamPreview(host, true);
+    } catch (e) {
+      input.title = `Not saved: ${e.message}`;
+      input.style.outline = "2px solid var(--stig-open, red)";
+    }
+  };
+  window.resetPoamDueDate = async (ev, link) => {
+    ev.preventDefault();
+    const host = link.closest(".poam-host");
+    const input = link.parentElement.querySelector("input[type=date]");
+    try {
+      await poamSend(`${host.dataset.base}/poam/due-date`, "PUT", { key: input.dataset.key, due_date: null });
+      window.loadPoamPreview(host, true);
+    } catch (e) {
+      link.title = `Not reset: ${e.message}`;
+    }
+  };
+  async function renderPoam() {
+    setActive("poam");
+    const page = document.getElementById("page");
+    page.innerHTML = loading();
+    try {
+      const res = await fetch("/api/poam/summary");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const d = await res.json();
+      const t = d.totals || {}, sev = t.by_severity || {};
+      const stat = (v, label, color) => `
+      <div class="stat-card"${color ? ` style="border-left:3px solid ${color}"` : ""}>
+        <div class="stat-value"${color ? ` style="color:${color}"` : ""}>${esc(v)}</div>
+        <div class="stat-label">${esc(label)}</div>
+      </div>`;
+      const summaryBar = d.apps.length ? `
+      <div class="stats-grid" style="margin-bottom:24px">
+        ${stat(d.apps.length, "Apps with POA&M items")}
+        ${stat(t.total || 0, "Total POA&M items", "var(--accent)")}
+        ${stat(t.overdue || 0, "Overdue", t.overdue || 0 ? "var(--stig-open)" : "")}
+        ${stat(sev.Critical || 0, "Critical")}
+        ${stat(sev.High || 0, "High")}
+        ${stat(t.stig || 0, "STIG items")}
+        ${stat(t.cve || 0, "CVE items")}
+      </div>` : "";
+      const cards = d.apps.length ? d.apps.map((a) => {
+        const s = a.by_severity || {};
+        const base = `/api/applications/${encodeURIComponent(a.name)}`;
+        return `
+        <div class="stig-app-card" onclick="navigate('#/poam-viewer/${encodeURIComponent(a.name)}')" style="cursor:pointer">
+          <div class="stig-app-card-header">
+            <span class="stig-app-name">${esc(a.name)}</span>
+            <div class="stig-download-btns" onclick="event.stopPropagation()">
+              <a class="btn btn-sm" href="${esc(base)}/poam" download>↓ POA&amp;M.csv</a>
+            </div>
+          </div>
+          <div class="stig-counts">
+            <div class="stig-count total"><span class="num">${esc(a.total)}</span><span class="lbl">Items</span></div>
+            <div class="stig-count open"><span class="num">${esc(s.Critical || 0)}</span><span class="lbl">Critical</span></div>
+            <div class="stig-count open"><span class="num">${esc(s.High || 0)}</span><span class="lbl">High</span></div>
+            <div class="stig-count na"><span class="num">${esc(s.Medium || 0)}</span><span class="lbl">Medium</span></div>
+            <div class="stig-count na"><span class="num">${esc(s.Low || 0)}</span><span class="lbl">Low</span></div>
+          </div>
+          <div style="margin-top:10px;font-size:12px;color:var(--text-muted)">
+            ${esc(a.stig)} STIG · ${esc(a.cve)} CVE ·
+            <span style="${a.overdue ? "color:var(--stig-open);font-weight:600" : ""}">${esc(a.overdue)} overdue</span>
+            ${a.next_due ? ` · earliest due ${esc(a.next_due)}` : ""}
+            ${a.manual_dates ? ` · ${esc(a.manual_dates)} manual date${a.manual_dates === 1 ? "" : "s"}` : ""}
+          </div>
+          ${poamSourceLine(a.sources, a.notes)}
+          <div style="margin-top:12px" onclick="event.stopPropagation()">
+            <button class="btn btn-primary btn-sm" onclick="navigate('#/poam-viewer/${encodeURIComponent(a.name)}')">⊞ View POA&amp;M</button>
+          </div>
+        </div>`;
+      }).join("") : emptyState(
+        "Nothing on a POA&M yet",
+        "No application has open STIG controls or Critical/High CVEs in its latest scans.",
+        `<button class="btn btn-primary" onclick="navigate('#/stig')" style="margin-top:16px">View STIG Compliance</button>`
+      );
+      page.innerHTML = `
+      ${pageHeader("POA&M")}
+      <p class="section-desc">
+        Plan of Action &amp; Milestones per application: Open STIG controls from the latest STIG scan plus
+        Critical/High CVEs from the latest full/nightly scan. Completion dates follow the SLA
+        (critical ${esc(d.sla_days.critical)}d · high ${esc(d.sla_days.high)}d · medium ${esc(d.sla_days.medium)}d · low ${esc(d.sla_days.low)}d)
+        unless set manually; change it on any application's POA&amp;M page.
+      </p>
+      ${summaryBar}
+      <div class="section"><div class="section-title">Applications</div>${cards}</div>`;
+    } catch (e) {
+      page.innerHTML = errBanner(e.message);
+    }
+  }
+  async function renderPoamViewer(target) {
+    setActive("poam");
+    const page = document.getElementById("page");
+    const isScan = target.startsWith("scan/");
+    const appName = isScan ? target.slice(5) : target;
+    const base = `${isScan ? "/api/scans" : "/api/applications"}/${encodeURIComponent(appName)}`;
+    page.innerHTML = `
+    ${pageHeader(`POA&M — ${esc(appName)}`, { actions: `
+      <a class="btn" href="${esc(base)}/poam" download>↓ POA&amp;M.csv</a>
+      <button class="btn" onclick="navigate('${isScan ? `#/scans/${encodeURIComponent(appName)}` : "#/poam"}')">${isScan ? "← Scan details" : "← All applications"}</button>` })}
+    <div class="section poam-host" data-base="${esc(base)}"><div class="poam-body">${loading()}</div></div>`;
+    window.loadPoamPreview(page.querySelector(".poam-host"));
+  }
+
   // src/index.js
-  Object.assign(window, format_exports, scans_exports, badges_exports, layout_exports, charts_exports, feedback_exports);
+  Object.assign(window, format_exports, scans_exports, badges_exports, layout_exports, charts_exports, feedback_exports, cache_exports, api_exports, poam_exports);
 })();
 
 "use strict";
@@ -973,452 +1691,6 @@ function renderSelfAssessmentBody(sa) {
     </div>
     ${timelineHtml}`;
 }
-const _cache = {
-  _prefix: "epyon_cache_",
-  _version: null,
-  _ttls: {
-    "/api/stats": 6e4,
-    // 1 minute
-    "/api/applications": 6e4,
-    // 1 minute
-    "/api/scan-history": 12e4,
-    // 2 minutes
-    "/api/metrics": 3e5,
-    // 5 minutes
-    "/api/github-metrics": 6e5,
-    // 10 minutes
-    "default": 3e4
-    // 30 seconds
-  },
-  // Metrics tracking
-  _metrics: {
-    hits: 0,
-    misses: 0,
-    writes: 0,
-    version_mismatches: 0,
-    ttl_expirations: 0,
-    quota_errors: 0,
-    staleness_measurements: []
-    // {endpoint, age_ms, timestamp}
-  },
-  _getKey(url) {
-    return this._prefix + url;
-  },
-  _getTTL(url) {
-    for (const [pattern, ttl] of Object.entries(this._ttls)) {
-      if (url.includes(pattern)) return ttl;
-    }
-    return this._ttls.default;
-  },
-  get(url) {
-    try {
-      const key = this._getKey(url);
-      const item = localStorage.getItem(key);
-      if (!item) {
-        this._metrics.misses++;
-        return null;
-      }
-      const { data, timestamp, version } = JSON.parse(item);
-      const ttl = this._getTTL(url);
-      const age = Date.now() - timestamp;
-      if (this._version !== null && version !== this._version) {
-        this._metrics.version_mismatches++;
-        localStorage.removeItem(key);
-        return null;
-      }
-      if (age > ttl) {
-        this._metrics.ttl_expirations++;
-        localStorage.removeItem(key);
-        return null;
-      }
-      this._metrics.hits++;
-      this._metrics.staleness_measurements.push({
-        endpoint: url,
-        age_ms: age,
-        timestamp: (/* @__PURE__ */ new Date()).toISOString()
-      });
-      if (this._metrics.staleness_measurements.length > 100) {
-        this._metrics.staleness_measurements.shift();
-      }
-      return data;
-    } catch (_) {
-      this._metrics.misses++;
-      return null;
-    }
-  },
-  set(url, data, serverVersion) {
-    try {
-      const key = this._getKey(url);
-      const item = {
-        data,
-        timestamp: Date.now(),
-        version: serverVersion !== void 0 ? serverVersion : this._version
-      };
-      localStorage.setItem(key, JSON.stringify(item));
-      this._metrics.writes++;
-      if (serverVersion !== void 0 && serverVersion !== this._version) {
-        this._version = serverVersion;
-      }
-    } catch (error) {
-      this._metrics.quota_errors++;
-      console.warn("Cache write failed:", error.message);
-    }
-  },
-  clear() {
-    try {
-      const keys = Object.keys(localStorage);
-      for (const key of keys) {
-        if (key.startsWith(this._prefix)) {
-          localStorage.removeItem(key);
-        }
-      }
-    } catch (_) {
-    }
-  },
-  invalidate() {
-    this.clear();
-    this._version = null;
-  },
-  getMetrics() {
-    const total = this._metrics.hits + this._metrics.misses;
-    const hitRate = total > 0 ? Math.round(this._metrics.hits / total * 1e3) / 10 : null;
-    const staleness = this._metrics.staleness_measurements;
-    const avgStaleness = staleness.length > 0 ? Math.round(staleness.reduce((sum, m) => sum + m.age_ms, 0) / staleness.length) : null;
-    return {
-      hits: this._metrics.hits,
-      misses: this._metrics.misses,
-      writes: this._metrics.writes,
-      hit_rate_pct: hitRate,
-      version_mismatches: this._metrics.version_mismatches,
-      ttl_expirations: this._metrics.ttl_expirations,
-      quota_errors: this._metrics.quota_errors,
-      avg_staleness_ms: avgStaleness,
-      current_version: this._version,
-      recent_staleness: staleness.slice(-10)
-    };
-  }
-};
-let _navAbort = new AbortController();
-function _abortPageLoads() {
-  _navAbort.abort();
-  _navAbort = new AbortController();
-}
-const api = {
-  async _get(url, useCache = true) {
-    if (useCache) {
-      const cached = _cache.get(url);
-      if (cached !== null) {
-        return cached;
-      }
-    }
-    const signal = _navAbort.signal;
-    let r, data;
-    try {
-      r = await fetch(url, { signal });
-      if (!r.ok) {
-        let detail = r.statusText;
-        try {
-          detail = (await r.json()).detail || detail;
-        } catch (_) {
-        }
-        throw new Error(`${detail} (${r.status})`);
-      }
-      data = await r.json();
-    } catch (e) {
-      if (signal.aborted) return new Promise(() => {
-      });
-      throw e;
-    }
-    if (useCache) {
-      const serverVersion = r.headers.get("X-Cache-Version");
-      _cache.set(url, data, serverVersion ? parseInt(serverVersion, 10) : void 0);
-    }
-    return data;
-  },
-  async _post(url, body) {
-    const r = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
-    if (!r.ok) {
-      let detail = r.statusText;
-      try {
-        detail = (await r.json()).detail || detail;
-      } catch (_) {
-      }
-      const err = new Error(`${detail} (${r.status})`);
-      err.status = r.status;
-      err.detail = detail;
-      throw err;
-    }
-    if (url.includes("/scans") || url.includes("/applications") || url.includes("/hide") || url.includes("/restore") || url.includes("/monitored")) {
-      _cache.invalidate();
-    }
-    return r.json();
-  },
-  async _delete(url) {
-    const r = await fetch(url, { method: "DELETE" });
-    if (!r.ok) {
-      let detail = r.statusText;
-      try {
-        detail = (await r.json()).detail || detail;
-      } catch (_) {
-      }
-      throw new Error(`${detail} (${r.status})`);
-    }
-    _cache.invalidate();
-    return r.json();
-  },
-  getStats() {
-    return this._get("/api/stats");
-  },
-  getApplications() {
-    return this._get("/api/applications");
-  },
-  getHiddenApps() {
-    return this._get("/api/applications-hidden");
-  },
-  hideApp(name) {
-    return this._post("/api/applications/hide", { name });
-  },
-  restoreApp(name) {
-    return this._post("/api/applications/restore", { name });
-  },
-  deleteApp(name) {
-    return this._delete(`/api/applications/data?name=${encodeURIComponent(name)}`);
-  },
-  deleteScan(id) {
-    return this._delete(`/api/scans/${encodeURIComponent(id)}`);
-  },
-  setMonitored(name) {
-    return this._post("/api/applications/monitored", { name });
-  },
-  unsetMonitored(name) {
-    return this._delete(`/api/applications/monitored?name=${encodeURIComponent(name)}`);
-  },
-  registerApp(name, url) {
-    return this._post("/api/applications", { name, url });
-  },
-  getAppScans(name) {
-    return this._get(`/api/applications/${encodeURIComponent(name)}/scans`);
-  },
-  getScan(id) {
-    return this._get(`/api/scans/${encodeURIComponent(id)}`);
-  },
-  getScanHistory() {
-    return this._get("/api/scan-history");
-  },
-  getApprovedImages() {
-    return this._get("/api/settings/approved-images");
-  },
-  getGitHubConfig() {
-    return this._get("/api/github/config");
-  },
-  saveGitHubConfig(d) {
-    return this._post("/api/github/config", d);
-  },
-  triggerGitHubSync() {
-    return this._post("/api/github/sync", {});
-  },
-  getGitHubSyncStatus() {
-    return this._get("/api/github/sync");
-  },
-  triggerScan(target, scanType, runGarak, runStig = true, layers = null) {
-    const body = { target, scan_type: scanType };
-    if (runGarak) body.run_garak = true;
-    if (runStig) body.run_stig = true;
-    if (layers && layers.length) body.layers = layers;
-    return this._post("/api/scans", body);
-  },
-  triggerScanUpload(file, scanType, runGarak, runStig = true, onProgress = null, layers = null) {
-    const form = new FormData();
-    form.append("file", file);
-    form.append("scan_type", scanType);
-    if (runGarak) form.append("run_garak", "true");
-    if (runStig) form.append("run_stig", "true");
-    if (layers && layers.length) form.append("layers", JSON.stringify(layers));
-    return new Promise((resolve2, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", "/api/scans/upload");
-      xhr.upload.onprogress = (e) => {
-        if (onProgress && e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 100));
-      };
-      xhr.upload.onload = () => {
-        if (onProgress) onProgress(100, true);
-      };
-      xhr.onload = () => {
-        let data = {};
-        try {
-          data = JSON.parse(xhr.responseText || "{}");
-        } catch (_) {
-        }
-        if (xhr.status >= 200 && xhr.status < 300) resolve2(data);
-        else reject(new Error(`${data.detail || xhr.statusText || "Upload failed"} (${xhr.status})`));
-      };
-      xhr.onerror = () => reject(new Error("Network error during upload"));
-      xhr.send(form);
-    });
-  },
-  triggerScanUploadImage(file, onProgress = null) {
-    const form = new FormData();
-    form.append("file", file);
-    return new Promise((resolve2, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", "/api/scans/upload-image");
-      xhr.upload.onprogress = (e) => {
-        if (onProgress && e.lengthComputable) onProgress(Math.round(e.loaded / e.total * 100));
-      };
-      xhr.upload.onload = () => {
-        if (onProgress) onProgress(100, true);
-      };
-      xhr.onload = () => {
-        let data = {};
-        try {
-          data = JSON.parse(xhr.responseText || "{}");
-        } catch (_) {
-        }
-        if (xhr.status >= 200 && xhr.status < 300) resolve2(data);
-        else reject(new Error(`${data.detail || xhr.statusText || "Upload failed"} (${xhr.status})`));
-      };
-      xhr.onerror = () => reject(new Error("Network error during upload"));
-      xhr.send(form);
-    });
-  },
-  getJob(id) {
-    return this._get(`/api/jobs/${encodeURIComponent(id)}`, false);
-  },
-  getJobs() {
-    return this._get("/api/jobs", false);
-  },
-  runSelfAssessment(layers) {
-    return this._post("/api/self-assessment/run", layers && layers.length ? { layers } : {});
-  },
-  getMetrics() {
-    return this._get("/api/metrics");
-  },
-  getGitHubMetrics() {
-    return this._get("/api/github-metrics");
-  },
-  getGitHubSignalsHistory() {
-    return this._get("/api/github-signals-history");
-  },
-  getOpenAiModels() {
-    return this._get("/api/ai/openai-models");
-  },
-  getLocalModels(baseUrl) {
-    return this._get("/api/ai/local-models?base_url=" + encodeURIComponent(baseUrl || ""));
-  },
-  getAiConfig() {
-    return this._get("/api/ai/config");
-  },
-  saveAiConfig(d) {
-    return this._post("/api/ai/config", d);
-  },
-  getNvdConfig() {
-    return this._get("/api/nvd/config");
-  },
-  getScanConcurrency() {
-    return this._get("/api/settings/scan-concurrency");
-  },
-  saveScanConcurrency(n) {
-    return this._post("/api/settings/scan-concurrency", { max_concurrent_scans: n });
-  },
-  getExecSummary(id) {
-    return this._post(`/api/scans/${encodeURIComponent(id)}/executive-summary`, {});
-  },
-  getTechnicalSummary(id) {
-    return this._post(`/api/scans/${encodeURIComponent(id)}/technical-summary`, {});
-  },
-  getGlobalExecSummary() {
-    return this._post("/api/executive-summary", {});
-  },
-  getGlobalTechnicalSummary() {
-    return this._post("/api/technical-summary", {});
-  },
-  getGlobalIssoSummary() {
-    return this._post("/api/isso-summary", {});
-  },
-  getAppIssoSummary(name) {
-    return this._post(`/api/applications/${encodeURIComponent(name)}/isso-summary`, {});
-  },
-  async exportSummaryDocx(body) {
-    const r = await fetch("/api/export/summary-docx", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    });
-    if (!r.ok) {
-      let detail = r.statusText;
-      try {
-        detail = (await r.json()).detail || detail;
-      } catch (_) {
-      }
-      throw new Error(`${detail} (${r.status})`);
-    }
-    return r.blob();
-  },
-  getFindingFix(finding) {
-    return this._post("/api/findings/fix", finding);
-  },
-  calculateScorecard(id) {
-    return this._post(`/api/scans/${encodeURIComponent(id)}/scorecard`, {});
-  },
-  getStigData(id) {
-    return this._get(`/api/scans/${encodeURIComponent(id)}/stig-data`);
-  },
-  getStigHistory(app, slug) {
-    const p = new URLSearchParams();
-    if (app) p.set("app", app);
-    if (slug) p.set("slug", slug);
-    const qs = p.toString();
-    return this._get("/api/stig/history" + (qs ? "?" + qs : ""));
-  },
-  getJiraConfig() {
-    return this._get("/api/jira/config");
-  },
-  saveJiraConfig(d) {
-    return this._post("/api/jira/config", d);
-  },
-  testJiraConnection() {
-    return this._post("/api/jira/test", {});
-  },
-  getJiraTickets() {
-    return this._get("/api/jira/tickets");
-  },
-  reassignJiraTickets(name) {
-    return this._post(`/api/jira/reassign/${encodeURIComponent(name)}`, {});
-  },
-  syncJiraApp(name) {
-    return this._post(`/api/jira/sync/${encodeURIComponent(name)}`, {});
-  },
-  getJiraCandidates(id) {
-    return this._get(`/api/scans/${encodeURIComponent(id)}/jira-candidates`, false);
-  },
-  getScanJiraEpics(id, projectKey) {
-    const q = projectKey ? `?project_key=${encodeURIComponent(projectKey)}` : "";
-    return this._get(`/api/scans/${encodeURIComponent(id)}/jira-epics${q}`, false);
-  },
-  getStigJiraContext(id) {
-    return this._get(`/api/scans/${encodeURIComponent(id)}/stig-jira-context`, false);
-  },
-  createStigJiraTickets(id, body) {
-    return this._post(`/api/scans/${encodeURIComponent(id)}/stig-jira-tickets`, body);
-  },
-  createJiraTickets(id, fingerprints, epicChoice) {
-    return this._post(`/api/scans/${encodeURIComponent(id)}/jira-tickets`, {
-      fingerprints,
-      ...epicChoice || {}
-    });
-  },
-  setJiraProject(id, projectKey) {
-    return this._post(`/api/scans/${encodeURIComponent(id)}/jira-project`, { project_key: projectKey });
-  },
-  getCacheMetrics() {
-    return this._get("/api/metrics/cache", false);
-  }
-  // Don't cache cache metrics
-};
 function applyTheme(theme) {
   if (document && document.documentElement) {
     document.documentElement.setAttribute("data-theme", theme);
@@ -2247,255 +2519,6 @@ async function renderAppDetail(name) {
   } catch (e) {
     page.innerHTML = errBanner(e.message);
   }
-}
-function poamSourceLine(sources, notes) {
-  const src = sources || {};
-  const link = (r) => `<a href="#/scans/${encodeURIComponent(r.scan_id)}" onclick="event.stopPropagation()">${esc(scanTypeLabel(r.scan_type))} scan · ${fmtDate(r.timestamp)}</a>`;
-  const parts = [];
-  if (src.vuln) parts.push(`CVEs from the ${link(src.vuln)}`);
-  if (src.stig && !(src.vuln && src.stig.scan_id === src.vuln.scan_id)) parts.push(`STIG items from the ${link(src.stig)}`);
-  else if (src.stig) parts.push("STIG items from the same scan");
-  if (src.latest_full) parts.push(`Latest full scan: ${link(src.latest_full)}`);
-  const warn = (notes || []).map((n) => `<div class="poam-source-note">⚠ ${esc(n)}</div>`).join("");
-  if (!parts.length && !warn) return "";
-  return `<div class="poam-source">${parts.length ? `<div>Source: ${parts.join(" · ")}</div>` : ""}${warn}</div>`;
-}
-function buildPoamSection(scanId) {
-  const base = `/api/scans/${encodeURIComponent(scanId)}`;
-  const viewHref = `#/poam-viewer/scan/${encodeURIComponent(scanId)}`;
-  return `
-    <div class="section findings-section-wrapper">
-      <details class="findings-collapsible poam-card" data-base="${esc(base)}" style="border-left-color:var(--accent)">
-        <summary class="findings-summary">
-          <span class="findings-summary-left">
-            <span class="findings-chevron" aria-hidden="true"></span>
-            <span class="findings-summary-title">POA&amp;M</span>
-            <span class="poam-pills"><span class="stig-mini total">…</span></span>
-          </span>
-          <span style="display:flex;align-items:center;gap:8px">
-            <a class="btn btn-sm" href="${esc(base)}/poam" download onclick="event.stopPropagation()">↓ POA&amp;M.csv</a>
-            <span class="findings-summary-hint">Click to expand</span>
-          </span>
-        </summary>
-        <div class="findings-body" style="padding:0 18px 16px">
-          <div class="poam-source-slot" style="margin-top:12px"></div>
-          <div class="stig-counts poam-tiles" style="margin-top:12px"></div>
-          <div class="stig-view-btn-row">
-            <button class="btn btn-primary btn-sm" onclick="navigate('${viewHref}')">⊞ View POA&amp;M Inline</button>
-          </div>
-        </div>
-      </details>
-    </div>`;
-}
-window.loadPoamCard = async (card) => {
-  try {
-    const res = await fetch(`${card.dataset.base}/poam?preview=true`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const d = await res.json();
-    const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-    const sev = d.by_severity || {}, src = d.by_source || {};
-    const overdue = d.rows.filter((r) => r["Scheduled Completion Date"] < today).length;
-    card.querySelector(".poam-pills").innerHTML = `
-      <span class="stig-mini open">${esc((sev.Critical || 0) + (sev.High || 0))} crit/high</span>
-      ${overdue ? `<span class="stig-mini open">${esc(overdue)} overdue</span>` : ""}
-      <span class="stig-mini total">${esc(d.total)} items</span>`;
-    card.querySelector(".poam-source-slot").innerHTML = poamSourceLine(d.sources, d.notes);
-    const tile = (n, lbl, cls) => `<div class="stig-count ${cls}"><span class="num">${esc(n)}</span><span class="lbl">${esc(lbl)}</span></div>`;
-    card.querySelector(".poam-tiles").innerHTML = tile(sev.Critical || 0, "Critical", "open") + tile(sev.High || 0, "High", "open") + tile(sev.Medium || 0, "Medium", "na") + tile(sev.Low || 0, "Low", "na") + tile(src.STIG || 0, "STIG items", "pass") + tile(src.CVE || 0, "CVE items", "pass") + tile(overdue, "Overdue", overdue ? "open" : "na") + tile(d.total, "Total", "total");
-  } catch (e) {
-    card.querySelector(".poam-pills").innerHTML = `<span class="stig-mini">unavailable</span>`;
-  }
-};
-window.loadPoamPreview = async (host, force = false) => {
-  if (host.dataset.loaded && !force) return;
-  host.dataset.loaded = "1";
-  const base = host.dataset.base;
-  const body = host.querySelector(".poam-body");
-  try {
-    const res = await fetch(`${base}/poam?preview=true`);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const d = await res.json();
-    const sev = d.by_severity || {}, src = d.by_source || {};
-    const counts = host.querySelector(".poam-counts");
-    if (counts) counts.textContent = d.total ? `${d.total} items · ${src.STIG || 0} STIG · ${src.CVE || 0} CVE · ${sev.Critical || 0} critical · ${sev.High || 0} high · ${sev.Medium || 0} medium` : "Open STIG controls + Critical/High CVEs";
-    const sla = d.sla_days || {};
-    const slaForm = `
-      <div class="poam-sla" style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px;font-size:12px">
-        <strong>SLA (days to complete):</strong>
-        ${["critical", "high", "medium", "low"].map((k) => `
-          <label style="display:flex;align-items:center;gap:4px">${ucFirst(k)}
-            <input type="number" min="1" max="3650" data-sla="${k}" value="${esc(sla[k])}" style="width:64px">
-          </label>`).join("")}
-        <button class="btn btn-sm" onclick="savePoamSla(this)">Save SLA</button>
-        <span class="poam-sla-msg" style="color:var(--text-muted)"></span>
-      </div>`;
-    if (!d.total) {
-      body.innerHTML = poamSourceLine(d.sources, d.notes) + slaForm + '<div style="color:var(--text-muted)">No open STIG controls or Critical/High CVEs — nothing to add to a POA&amp;M.</div>';
-      return;
-    }
-    const cols = ["POA&M ID", "Weakness Identifier", "Weakness Name", "Raw Severity", "Detection Source", "Affected Component", "Remediation / Mitigation", "Scheduled Completion Date", "Status"];
-    const clip = (v) => {
-      const t = String(v ?? "");
-      return t.length > 160 ? t.slice(0, 160) + "…" : t;
-    };
-    const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-    const cell = (r, c) => {
-      if (c === "Raw Severity") return `<span class="sev-badge ${esc(String(r[c]).toLowerCase())}">${esc(r[c])}</span>`;
-      if (c === "Scheduled Completion Date") {
-        const manual = r["Due Date Basis"] === "Manual";
-        const overdue = r[c] < today;
-        return `<input type="date" value="${esc(r[c])}" data-key="${esc(r["Item Key"])}" data-default="${esc(r["Default Due Date"])}"
-                  title="${manual ? "Manual date" : esc(r["Due Date Basis"])} — change to set manually"
-                  onchange="savePoamDueDate(this)"
-                  style="${manual ? "font-weight:700;" : ""}${overdue ? "color:var(--stig-open, #c0392b)" : ""}">
-                ${overdue ? '<span title="Past its completion date" style="color:var(--stig-open, #c0392b);font-size:11px"> overdue</span>' : ""}
-                ${manual ? `<a href="#" title="Reset to SLA date (${esc(r["Default Due Date"])})" onclick="resetPoamDueDate(event, this)">↺</a>` : ""}`;
-      }
-      return `<span title="${esc(r[c] ?? "")}">${esc(clip(r[c]))}</span>`;
-    };
-    body.innerHTML = poamSourceLine(d.sources, d.notes) + slaForm + `
-      <div style="overflow-x:auto;max-height:${host.tagName === "DETAILS" ? "480px" : "70vh"};overflow-y:auto">
-        <table>
-          <thead><tr>${cols.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead>
-          <tbody>${d.rows.map((r) => `<tr>${cols.map((c) => `<td>${cell(r, c)}</td>`).join("")}</tr>`).join("")}</tbody>
-        </table>
-      </div>
-      <div style="margin-top:8px;color:var(--text-muted);font-size:12px">Dates default to the SLA above, counted from the scan date. Pick a date to set it manually (bold); it is kept across rescans. Point of contact, resources and milestones are left blank in the CSV for you to complete.</div>`;
-  } catch (e) {
-    host.dataset.loaded = "";
-    body.textContent = `Could not load POA&M preview (${e.message}).`;
-  }
-};
-async function poamSend(url, method, payload) {
-  const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-  if (!res.ok) {
-    let msg = `HTTP ${res.status}`;
-    try {
-      msg = (await res.json()).detail || msg;
-    } catch (_) {
-    }
-    throw new Error(msg);
-  }
-}
-window.savePoamSla = async (btn) => {
-  const wrap = btn.closest(".poam-sla"), msg = wrap.querySelector(".poam-sla-msg");
-  const sla = {};
-  wrap.querySelectorAll("input[data-sla]").forEach((i) => {
-    sla[i.dataset.sla] = parseInt(i.value, 10);
-  });
-  try {
-    await poamSend("/api/poam/config", "PUT", { sla_days: sla });
-    window.loadPoamPreview(btn.closest(".poam-host"), true);
-  } catch (e) {
-    msg.textContent = `Not saved: ${e.message}`;
-  }
-};
-window.savePoamDueDate = async (input) => {
-  const host = input.closest(".poam-host");
-  try {
-    const due = !input.value || input.value === input.dataset.default ? null : input.value;
-    await poamSend(`${host.dataset.base}/poam/due-date`, "PUT", { key: input.dataset.key, due_date: due });
-    window.loadPoamPreview(host, true);
-  } catch (e) {
-    input.title = `Not saved: ${e.message}`;
-    input.style.outline = "2px solid var(--stig-open, red)";
-  }
-};
-window.resetPoamDueDate = async (ev, link) => {
-  ev.preventDefault();
-  const host = link.closest(".poam-host");
-  const input = link.parentElement.querySelector("input[type=date]");
-  try {
-    await poamSend(`${host.dataset.base}/poam/due-date`, "PUT", { key: input.dataset.key, due_date: null });
-    window.loadPoamPreview(host, true);
-  } catch (e) {
-    link.title = `Not reset: ${e.message}`;
-  }
-};
-async function renderPoam() {
-  setActive("poam");
-  const page = document.getElementById("page");
-  page.innerHTML = loading();
-  try {
-    const res = await fetch("/api/poam/summary");
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const d = await res.json();
-    const t = d.totals || {}, sev = t.by_severity || {};
-    const stat = (v, label, color) => `
-      <div class="stat-card"${color ? ` style="border-left:3px solid ${color}"` : ""}>
-        <div class="stat-value"${color ? ` style="color:${color}"` : ""}>${esc(v)}</div>
-        <div class="stat-label">${esc(label)}</div>
-      </div>`;
-    const summaryBar = d.apps.length ? `
-      <div class="stats-grid" style="margin-bottom:24px">
-        ${stat(d.apps.length, "Apps with POA&M items")}
-        ${stat(t.total || 0, "Total POA&M items", "var(--accent)")}
-        ${stat(t.overdue || 0, "Overdue", t.overdue || 0 ? "var(--stig-open)" : "")}
-        ${stat(sev.Critical || 0, "Critical")}
-        ${stat(sev.High || 0, "High")}
-        ${stat(t.stig || 0, "STIG items")}
-        ${stat(t.cve || 0, "CVE items")}
-      </div>` : "";
-    const cards = d.apps.length ? d.apps.map((a) => {
-      const s = a.by_severity || {};
-      const base = `/api/applications/${encodeURIComponent(a.name)}`;
-      return `
-        <div class="stig-app-card" onclick="navigate('#/poam-viewer/${encodeURIComponent(a.name)}')" style="cursor:pointer">
-          <div class="stig-app-card-header">
-            <span class="stig-app-name">${esc(a.name)}</span>
-            <div class="stig-download-btns" onclick="event.stopPropagation()">
-              <a class="btn btn-sm" href="${esc(base)}/poam" download>↓ POA&amp;M.csv</a>
-            </div>
-          </div>
-          <div class="stig-counts">
-            <div class="stig-count total"><span class="num">${esc(a.total)}</span><span class="lbl">Items</span></div>
-            <div class="stig-count open"><span class="num">${esc(s.Critical || 0)}</span><span class="lbl">Critical</span></div>
-            <div class="stig-count open"><span class="num">${esc(s.High || 0)}</span><span class="lbl">High</span></div>
-            <div class="stig-count na"><span class="num">${esc(s.Medium || 0)}</span><span class="lbl">Medium</span></div>
-            <div class="stig-count na"><span class="num">${esc(s.Low || 0)}</span><span class="lbl">Low</span></div>
-          </div>
-          <div style="margin-top:10px;font-size:12px;color:var(--text-muted)">
-            ${esc(a.stig)} STIG · ${esc(a.cve)} CVE ·
-            <span style="${a.overdue ? "color:var(--stig-open);font-weight:600" : ""}">${esc(a.overdue)} overdue</span>
-            ${a.next_due ? ` · earliest due ${esc(a.next_due)}` : ""}
-            ${a.manual_dates ? ` · ${esc(a.manual_dates)} manual date${a.manual_dates === 1 ? "" : "s"}` : ""}
-          </div>
-          ${poamSourceLine(a.sources, a.notes)}
-          <div style="margin-top:12px" onclick="event.stopPropagation()">
-            <button class="btn btn-primary btn-sm" onclick="navigate('#/poam-viewer/${encodeURIComponent(a.name)}')">⊞ View POA&amp;M</button>
-          </div>
-        </div>`;
-    }).join("") : emptyState(
-      "Nothing on a POA&M yet",
-      "No application has open STIG controls or Critical/High CVEs in its latest scans.",
-      `<button class="btn btn-primary" onclick="navigate('#/stig')" style="margin-top:16px">View STIG Compliance</button>`
-    );
-    page.innerHTML = `
-      ${pageHeader("POA&M")}
-      <p class="section-desc">
-        Plan of Action &amp; Milestones per application: Open STIG controls from the latest STIG scan plus
-        Critical/High CVEs from the latest full/nightly scan. Completion dates follow the SLA
-        (critical ${esc(d.sla_days.critical)}d · high ${esc(d.sla_days.high)}d · medium ${esc(d.sla_days.medium)}d · low ${esc(d.sla_days.low)}d)
-        unless set manually; change it on any application's POA&amp;M page.
-      </p>
-      ${summaryBar}
-      <div class="section"><div class="section-title">Applications</div>${cards}</div>`;
-  } catch (e) {
-    page.innerHTML = errBanner(e.message);
-  }
-}
-async function renderPoamViewer(target) {
-  setActive("poam");
-  const page = document.getElementById("page");
-  const isScan = target.startsWith("scan/");
-  const appName = isScan ? target.slice(5) : target;
-  const base = `${isScan ? "/api/scans" : "/api/applications"}/${encodeURIComponent(appName)}`;
-  page.innerHTML = `
-    ${pageHeader(`POA&M — ${esc(appName)}`, { actions: `
-      <a class="btn" href="${esc(base)}/poam" download>↓ POA&amp;M.csv</a>
-      <button class="btn" onclick="navigate('${isScan ? `#/scans/${encodeURIComponent(appName)}` : "#/poam"}')">${isScan ? "← Scan details" : "← All applications"}</button>` })}
-    <div class="section poam-host" data-base="${esc(base)}"><div class="poam-body">${loading()}</div></div>`;
-  window.loadPoamPreview(page.querySelector(".poam-host"));
 }
 async function renderScanDetail(scanId, openFindingId = "", openFindingPackage = "") {
   setActive("applications");

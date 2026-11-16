@@ -239,4 +239,4 @@ This creates a layered defense:
 
 - [STIG Scanning Technical Reference](STIG_SCANNING_TECHNICAL_REFERENCE.md) — Full documentation on Epyon's STIG assessment process
 - [Freeze Logic Documentation](STIG_SCANNING_TECHNICAL_REFERENCE.md#freeze-logic--status-validation) — How Epyon prevents status changes without evidence
-- [AI Assessment Methodology](../scripts/shell/run-stig-assessment.py) — See the SYSTEM_PROMPT in the source code
+- [AI Assessment Methodology](../../scripts/shell/run-stig-assessment.py) — See the SYSTEM_PROMPT in the source code

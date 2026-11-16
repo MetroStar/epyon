@@ -480,6 +480,6 @@ You can also disable specific notifications by modifying `send-webhook-notificat
 
 ## See Also
 
-- [Epyon Documentation](../README.md)
-- [GitHub Actions Workflow Reference](../.github/workflows/epyon-scan.yml)
+- [Epyon Documentation](../../README.md)
+- [GitHub Actions Workflow Reference](../../.github/workflows/epyon-scan.yml)
 - [Barbatos Integration](https://github.com/MetroStar/barbatos)

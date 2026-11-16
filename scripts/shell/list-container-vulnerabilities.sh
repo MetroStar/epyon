@@ -200,6 +200,6 @@ echo ""
 # Export functionality
 echo -e "${BOLD}Export Options:${NC}"
 echo "  • View full JSON for an image: jq . $IMAGE_RESULTS_DIR/<image_name>.json"
-echo "  • Export CVEs to CSV: See documentation/ANCHORE_CONFIGURATION_GUIDE.md"
+echo "  • Export CVEs to CSV: See docs/scanning/ANCHORE_CONFIGURATION_GUIDE.md"
 echo "  • View in Web UI: Open http://127.0.0.1:8000 (see README.md)"
 echo ""

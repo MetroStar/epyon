@@ -225,5 +225,5 @@ Generate report showing:
 - [ ] Confirmed no breaking changes to API consumers
 
 ## Related Documentation
-- [SCAN_DIRECTORY_ARCHITECTURE.md](./SCAN_DIRECTORY_ARCHITECTURE.md) - Scan result organization
-- [SYSTEM_ARCHITECTURE.md](./SYSTEM_ARCHITECTURE.md) - Security scanning overview
+- [SCAN_DIRECTORY_ARCHITECTURE.md](SCAN_DIRECTORY_ARCHITECTURE.md) - Scan result organization
+- [SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md) - Security scanning overview

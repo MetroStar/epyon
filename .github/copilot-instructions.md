@@ -39,7 +39,7 @@ Epyon is a 21-layer DevSecOps security scanner that installs a GitHub Actions wo
 | 20 | ML Runtime Behavioral Analysis | Custom | opt-in only (`RUN_ML_RUNTIME=true`) |
 | 21 | Compromised Source Detection | Custom | nightly, full |
 
-Every layer can be skipped with `SKIP_<LAYERNAME>=true`. See `documentation/SCAN_MATRIX.md` for the full matrix.
+Every layer can be skipped with `SKIP_<LAYERNAME>=true`. See `docs/scanning/SCAN_MATRIX.md` for the full matrix.
 
 ## Architecture
 
@@ -76,7 +76,7 @@ Every layer can be skipped with `SKIP_<LAYERNAME>=true`. See `documentation/SCAN
 - **CVE source classification**: `type == "container_vulnerability"` or `tool == "anchore"` → container; `tool == "checkov"` → misconfiguration (IaC issues — displayed in Misconfigurations section, not Vulnerabilities); `tool == "trufflehog"` → misconfiguration (secrets — displayed in Misconfigurations section, not Vulnerabilities); `tool == "xeol"` → eol; `tool` in {`picklescan`, `model-provenance`, `inference-security`, `ml-runtime`} → ml; otherwise → code.
 - **Integration credentials**: `JIRA_API_TOKEN`, `GITHUB_TOKEN`/`GH_PAT`, `OPENAI_API_KEY`, and `NVD_API_KEY` are environment-only and must never be accepted from API bodies or persisted. JSON config files store non-secret preferences only.
 - **Jira fingerprinting**: `finding_fingerprint()` creates stable keys from `tool + id + package + target + app_name + project_key` with normalized paths (last 3 components) and normalized app names (lowercase, hyphens). Project key isolation prevents duplicates when tracking the same app across multiple Jira projects. Ticket map stores `project_key` for audit trail.
-- **Webhook config**: `EPYON_CALLBACK_URL`, `EPYON_JOB_ID`, `EPYON_WEBHOOK_SECRET` env vars enable real-time progress notifications. All optional — gracefully degrades if not set. No workflow changes required — workflows just pass env vars through. HMAC-SHA256 signature sent in `X-Epyon-Signature` header when secret is set. See `documentation/WEBHOOK_INTEGRATION_GUIDE.md`.
+- **Webhook config**: `EPYON_CALLBACK_URL`, `EPYON_JOB_ID`, `EPYON_WEBHOOK_SECRET` env vars enable real-time progress notifications. All optional — gracefully degrades if not set. No workflow changes required — workflows just pass env vars through. HMAC-SHA256 signature sent in `X-Epyon-Signature` header when secret is set. See `docs/integrations/WEBHOOK_INTEGRATION_GUIDE.md`.
 - **AI config**: `OPENAI_API_KEY` or self-hosted endpoint. SSRF guard enforced on any user-supplied base URL. Without a key, STIG controls are marked `Not Reviewed`.
 
 ## Web UI — FastAPI API Surface
@@ -202,7 +202,7 @@ Every change that ships must update three files in the same commit:
 
 4. **Pull request `## Release notes` block** — the PR template provides it. Add a bullet under `### Added`/`Changed`/`Fixed`/`Removed`/`Security`/`Deprecated`, or apply the `no-release-notes` label. GitHub Release notes are assembled from these blocks.
 
-A release is an annotated tag `vX.Y.Z` on `main` that equals the `VERSION` file; pushing it runs `.github/workflows/release.yml`. See `documentation/RELEASE_CHECKLIST.md`.
+A release is an annotated tag `vX.Y.Z` on `main` that equals the `VERSION` file; pushing it runs `.github/workflows/release.yml`. See `docs/releases/RELEASE_CHECKLIST.md`.
 
 ## Build & Test
 
@@ -231,4 +231,4 @@ python3 scripts/shell/run-stig-assessment.py \
 python3 scripts/shell/generate-dashboard.py scans/myapp_2026-06-09_12-00-00
 ```
 
-See `documentation/` for extended guides (STIG, scan matrix, ignore rules, deployment, ISSO, ML security).
+See `docs/` for extended guides (index in `docs/README.md`; subfolders `architecture/`, `scanning/`, `compliance/` (STIG, Score Card), `ml-security/`, `integrations/`, `releases/`, `plans/`).

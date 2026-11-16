@@ -57,7 +57,7 @@ def test_image_builds_free_runner_disk_space_even_in_quick_mode():
     ".github/workflows/scan-public-repo.yml",
     ".github/workflows/security-scan-template.yml",
     "bin/templates/scan-private-repo.yml",
-    "documentation/scan-private-repo.yml",
+    "docs/integrations/scan-private-repo.yml",
 ])
 def test_callers_forward_only_declared_secrets_and_oidc_permission(filename):
     reusable = yaml.safe_load((WORKFLOWS / "epyon-scan.yml").read_text())

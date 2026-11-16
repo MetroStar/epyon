@@ -533,9 +533,9 @@ Potential future additions:
 
 ## Related Documentation
 
-- [STIG Scanning Technical Reference](STIG_SCANNING_TECHNICAL_REFERENCE.md) - STIG controls and evidence collection
-- [System Architecture](SYSTEM_ARCHITECTURE.md) - Overall security design
-- [Scan Directory Architecture](SCAN_DIRECTORY_ARCHITECTURE.md) - Scan structure and outputs
+- [STIG Scanning Technical Reference](../compliance/STIG_SCANNING_TECHNICAL_REFERENCE.md) - STIG controls and evidence collection
+- [System Architecture](../architecture/SYSTEM_ARCHITECTURE.md) - Overall security design
+- [Scan Directory Architecture](../architecture/SCAN_DIRECTORY_ARCHITECTURE.md) - Scan structure and outputs
 
 ## Summary
 

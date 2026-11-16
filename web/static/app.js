@@ -9932,7 +9932,7 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
 
       <p style="font-size:12px;color:var(--text-dim);margin:10px 0 0">
         The full workflow with all optional parameters is available in
-        <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">documentation/scan-private-repo.yml</code>
+        <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">docs/integrations/scan-private-repo.yml</code>
         in the Epyon repo.
       </p>
 

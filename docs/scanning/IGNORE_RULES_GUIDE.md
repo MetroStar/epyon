@@ -313,4 +313,4 @@ cat scans/{SCAN_ID}/suppressed-findings.md
 
 ## Example Complete File
 
-See [`.epyon-ignore.example.yml`](../.epyon-ignore.example.yml) for a complete example with all ignore types.
+See [`.epyon-ignore.example.yml`](../../.epyon-ignore.example.yml) for a complete example with all ignore types.

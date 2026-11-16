@@ -554,7 +554,7 @@ jobs:
               echo "⚠️  Docker Hub login failed — continuing with anonymous pulls (subject to the shared-runner rate limit)"
             fi
           else
-            echo "ℹ️  DOCKERHUB_USERNAME/DOCKERHUB_TOKEN not configured — using anonymous Docker Hub pulls, which share a rate limit across every concurrent GitHub Actions job on this IP. See documentation/SCAN_MATRIX.md for setup instructions."
+            echo "ℹ️  DOCKERHUB_USERNAME/DOCKERHUB_TOKEN not configured — using anonymous Docker Hub pulls, which share a rate limit across every concurrent GitHub Actions job on this IP. See docs/scanning/SCAN_MATRIX.md for setup instructions."
           fi
 
       - name: Configure AWS credentials with OIDC (optional — private ECR)

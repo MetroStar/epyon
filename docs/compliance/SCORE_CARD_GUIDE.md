@@ -248,7 +248,7 @@ Reported with the score; they do not alter it. A blocker is a statement that the
 - Opt out with `include_tests: true` in `.epyon-ignore.yml`. The setting is recorded in the per-scan `ignore-rules.json` snapshot, which is what the Score Card reads.
 - Checkov still scans test paths; its results there are filtered afterward by the UI and the Score Card.
 
-See [IGNORE_RULES_GUIDE.md](IGNORE_RULES_GUIDE.md).
+See [IGNORE_RULES_GUIDE.md](../scanning/IGNORE_RULES_GUIDE.md).
 
 ## 13. Evidence
 

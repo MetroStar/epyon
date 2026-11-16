@@ -22,7 +22,7 @@ This document provides a single landing page for Epyon's scan-mode matrix, relea
 |-----------------|-----------|
 | Container image build evidence | [Container Build & Evidence Guide](CONTAINER_BUILD_AND_EVIDENCE_GUIDE.md) |
 | Security layer execution matrix | [Scan Matrix](SCAN_MATRIX.md) |
-| Dashboard and reporting outputs | [README.md](../README.md) |
+| Dashboard and reporting outputs | [README.md](../../README.md) |
 
 ## Platform Capability Areas
 

@@ -1,6 +1,6 @@
 # Epyon Scan Matrix
 
-> 💡 **For Layer 0 container build and release evidence details**, see **[documentation/CONTAINER_BUILD_AND_EVIDENCE_GUIDE.md](CONTAINER_BUILD_AND_EVIDENCE_GUIDE.md)**.
+> 💡 **For Layer 0 container build and release evidence details**, see **[docs/scanning/CONTAINER_BUILD_AND_EVIDENCE_GUIDE.md](CONTAINER_BUILD_AND_EVIDENCE_GUIDE.md)**.
 
 This table shows which layers run in each scan mode. Layers marked ✅ run by default; ⬜ means skipped; 🔧 means opt-in only (requires an explicit flag).
 

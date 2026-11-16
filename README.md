@@ -453,7 +453,7 @@ Epyon ships a FastAPI-backed single-page web UI for running scans, browsing resu
 - **SBOM & Dependency Analysis**: Interactive tables with sorting, searching, and supply chain verification
 - **Metrics Dashboard**: MTTR tracking, vulnerability trends, app monitoring classification, GitHub signals, SLA compliance, and suppression rate tracking
 - **Verified STIG evidence**: every `File:` citation in AI evidence is checked against the target repo (file exists, line exists, quoted text matches) with no extra model calls. Failed citations, Not Applicable answers with no stated search, and controls owned by an identity provider, infrastructure or vendor are recorded as `Open` (confidence capped at 60, so never frozen) with the reason in the review record.
-- **STIG output format switch**: `EPYON_STIG_FORMAT=legacy|etk` (default `legacy`) selects the Layer 13 output. `legacy` keeps the original `findings-{app}.md` and `docs/stig-findings.md` PR flow unchanged; `etk` turns on the records, citation verification, publishing and human-review locking described below. Roll back by unsetting it. `scripts/shell/compare-stig-formats.py` compares two scans. See `documentation/STIG_SCANNING_TECHNICAL_REFERENCE.md`.
+- **STIG output format switch**: `EPYON_STIG_FORMAT=legacy|etk` (default `legacy`) selects the Layer 13 output. `legacy` keeps the original `findings-{app}.md` and `docs/stig-findings.md` PR flow unchanged; `etk` turns on the records, citation verification, publishing and human-review locking described below. Roll back by unsetting it. `scripts/shell/compare-stig-formats.py` compares two scans. See `docs/compliance/STIG_SCANNING_TECHNICAL_REFERENCE.md`.
 - **ETK-format STIG records** (with `EPYON_STIG_FORMAT=etk`): Layer 13 also writes `stig-reviews-{slug}/v-xxxxx.md` (one per control) and a `README.md` index in the scan directory, following the ETK `stig-review` record layout (changes that may affect the control, automation recommendation). Without an AI key every record is `Open` with the evidence needed. In CI with a token, `create-stig-pr.sh` publishes them to `docs/stig-reviews/` via a PR (human-reviewed entries are kept and locked on the next scan unless a path they list changed). Existing `stig-results-*.json`, `.md` and `.cklb` outputs are unchanged.
 - **Add STIG controls to Jira manually**: in the STIG viewer, tick controls (or open one and click **Add to Jira**), pick the Jira board key (MID, SAP, IRIS…), issue type, Epic and an optional tracking ticket, then create. The board is shown and editable for every request, tickets are deduplicated per board, and you stay on the page. Scan-time posting below stays off by default.
 - **STIG gaps in Jira (opt-in)**: set `EPYON_STIG_JIRA=true` (plus the usual `JIRA_*` environment credentials) and Layer 13 posts one summary comment to the tracking ticket and files one ticket per confirmed Open control, linked to the tracker. The tracker is the key in the record index's "Tracked in Jira by" line, else an open ticket labelled `stig-tracking`; set `EPYON_STIG_JIRA_CREATE_TRACKER=true` to let Epyon create one. Re-runs never duplicate tickets, at most `EPYON_STIG_JIRA_MAX_TICKETS` (default 25) are created per run, and Jira problems never block the scan. Controls that are Not Reviewed, failed citation checks or need owner confirmation are in the comment but get no ticket.
@@ -566,7 +566,7 @@ docker compose up -d --build
 
 > **Note:** The scans displayed in the UI are read from the `scans/` directory at the repo root by default. Point `EPYON_SCANS_DIR` to a different path if your results live elsewhere.
 >
-> **Anchore v3.9.0+:** The scanner **automatically detects** image characteristics (OS, architecture, runtime) and prevents false positives without manual configuration. Manual overrides (`ANCHORE_*` env vars) are only needed for special cases. See **[documentation/ANCHORE_CONFIGURATION_GUIDE.md](documentation/ANCHORE_CONFIGURATION_GUIDE.md)** for details.
+> **Anchore v3.9.0+:** The scanner **automatically detects** image characteristics (OS, architecture, runtime) and prevents false positives without manual configuration. Manual overrides (`ANCHORE_*` env vars) are only needed for special cases. See **[docs/scanning/ANCHORE_CONFIGURATION_GUIDE.md](docs/scanning/ANCHORE_CONFIGURATION_GUIDE.md)** for details.
 
 ---
 
@@ -574,7 +574,7 @@ docker compose up -d --build
 
 **Use Epyon as a GitHub Action to automatically scan repositories!**
 
-**Pin a release (v3.47.0+):** Epyon is released as git tags with generated notes, a source archive, a CycloneDX SBOM and SHA-256 checksums on the [GitHub Releases](https://github.com/MetroStar/epyon/releases) page. Referencing the reusable workflow by tag (`.../epyon-scan.yml@vX.Y.Z`) or commit SHA pins the workflow definition. Starting with v3.56.2, also set `with.scanner_ref` to a scanner tag or commit SHA to pin the implementation independently. It defaults to `main` for backward compatibility; pinning only the workflow does not pin the scanner. Maintainer steps, checksum verification and pull request release-notes rules are in [documentation/RELEASE_CHECKLIST.md](documentation/RELEASE_CHECKLIST.md).
+**Pin a release (v3.47.0+):** Epyon is released as git tags with generated notes, a source archive, a CycloneDX SBOM and SHA-256 checksums on the [GitHub Releases](https://github.com/MetroStar/epyon/releases) page. Referencing the reusable workflow by tag (`.../epyon-scan.yml@vX.Y.Z`) or commit SHA pins the workflow definition. Starting with v3.56.2, also set `with.scanner_ref` to a scanner tag or commit SHA to pin the implementation independently. It defaults to `main` for backward compatibility; pinning only the workflow does not pin the scanner. Maintainer steps, checksum verification and pull request release-notes rules are in [docs/releases/RELEASE_CHECKLIST.md](docs/releases/RELEASE_CHECKLIST.md).
 
 ### 🔔 Real-Time Webhook Notifications (Barbatos Integration)
 
@@ -600,7 +600,7 @@ Epyon supports **real-time progress notifications** to management UIs like Barba
 - ✅ Workflow forwards input to reusable Epyon workflow  
 - ✅ GitHub Actions logs show: `🔔 Webhook notifications enabled`
 
-See [Target Repository Setup Guide](.github/TARGET_REPO_SETUP.md) and [Webhook Integration Guide](documentation/WEBHOOK_INTEGRATION_GUIDE.md) for details.
+See [Target Repository Setup Guide](.github/TARGET_REPO_SETUP.md) and [Webhook Integration Guide](docs/integrations/WEBHOOK_INTEGRATION_GUIDE.md) for details.
 
 ### 🎟️ Jira Ticket Creation
 
@@ -791,7 +791,7 @@ cat scans/<scan_id>/manifest-summary.txt
 - `1` - Tampering detected (❌ Fail)
 - `2` - Files missing (⚠️ Warning)
 
-See [Scan Manifest Guide](documentation/SCAN_MANIFEST_GUIDE.md) for complete details.
+See [Scan Manifest Guide](docs/scanning/SCAN_MANIFEST_GUIDE.md) for complete details.
 
 ### Add to Your Own Repository
 
@@ -958,7 +958,7 @@ Epyon's Layer 10 "Approved Base Images" baseline scan defaults to **auto-discove
 
 ---
 
-### Current Security Layers (see [`documentation/SCAN_MATRIX.md`](documentation/SCAN_MATRIX.md) for per-mode coverage):
+### Current Security Layers (see [`docs/scanning/SCAN_MATRIX.md`](docs/scanning/SCAN_MATRIX.md) for per-mode coverage):
 
 1. **� SBOM Generation** - Complete Software Bill of Materials with Syft (CycloneDX + SPDX)
 2. **🔍 TruffleHog** - Multi-target secret detection with filesystem, container, and registry scanning, plus custom detectors for hardcoded passwords and secret keys
@@ -1009,7 +1009,7 @@ Epyon enriches CVE findings from **seven global vulnerability feeds** for compre
 - Feed-specific data: OSV summaries, GHSA severity/patch versions, JVN references
 - Graceful degradation when feeds unavailable
 
-**Configuration:** See [Multi-Feed CVE Enrichment Guide](documentation/MULTI_FEED_CVE_ENRICHMENT.md)
+**Configuration:** See [Multi-Feed CVE Enrichment Guide](docs/scanning/MULTI_FEED_CVE_ENRICHMENT.md)
 
 
 ### Quality Assurance
@@ -1089,11 +1089,16 @@ epyon/
 │   └── run-tests.sh            # Test runner
 ├── configuration/
 │   └── approved-base-images.conf # DHI baseline images
-├── documentation/              # Essential documentation
-│   ├── SECURITY_REVIEW_AND_TEST_COVERAGE.md # Security review (Feb 2026)
-│   ├── SCAN_DIRECTORY_ARCHITECTURE.md       # Scan organization
-│   ├── SCORE_CARD_GUIDE.md                  # How the Score Card is calculated
-│   └── README.md                            # Documentation index
+├── docs/                       # Documentation (index: docs/README.md)
+│   ├── architecture/           # System and scan-directory architecture, parsers, diagrams
+│   ├── scanning/               # Scan matrix, ignore rules, Anchore/Grype, CVE enrichment
+│   ├── compliance/             # STIG, Score Card, security review and test coverage
+│   ├── ml-security/            # ML/AI security layers
+│   ├── integrations/           # Webhooks, private-repo workflow template
+│   ├── releases/               # Release checklist
+│   ├── plans/                  # Roadmap and unimplemented plans
+│   ├── SECURITY.md             # Vulnerability reporting policy
+│   └── README.md               # Documentation index
 ├── scans/                      # Scan results (isolated directories)
 │   └── {project}_{user}_{timestamp}/
 │       ├── trivy/
@@ -1114,7 +1119,7 @@ epyon/
 │           ├── html-reports/     # Tool-specific HTML reports
 │           ├── markdown-reports/ # Summary reports
 │           └── csv-reports/      # Data exports
-└── documentation/             # Guides and references (see documentation/README.md)
+└── docs/                      # Guides and references (see docs/README.md)
 ```
 
 ## 🗄️ Scan Storage & Retention
@@ -1465,7 +1470,7 @@ export EPYON_JOB_ID="scan-12345"
 export EPYON_WEBHOOK_SECRET="your-shared-secret"
 ```
 
-See [Webhook Integration Guide](documentation/WEBHOOK_INTEGRATION_GUIDE.md) for full details.
+See [Webhook Integration Guide](docs/integrations/WEBHOOK_INTEGRATION_GUIDE.md) for full details.
 
 ### � Intelligent Severity Gates
 - **Container Exclusion**: Container image vulnerabilities marked informational only (not included in build failures)
@@ -1828,22 +1833,22 @@ git tag -a vX.Y.Z -m vX.Y.Z origin/main
 git push origin vX.Y.Z
 ```
 
-The tag must equal `VERSION`, or the release fails. Run `gh workflow run release.yml --ref main -f dry_run=true` to build and verify without publishing. The full checklist, including verification and recovery, is in [documentation/RELEASE_CHECKLIST.md](documentation/RELEASE_CHECKLIST.md).
+The tag must equal `VERSION`, or the release fails. Run `gh workflow run release.yml --ref main -f dry_run=true` to build and verify without publishing. The full checklist, including verification and recovery, is in [docs/releases/RELEASE_CHECKLIST.md](docs/releases/RELEASE_CHECKLIST.md).
 
 ## 📖 Documentation
 
 ### Complete Documentation Library
-- **[documentation/README.md](documentation/README.md)** - Documentation index and navigation guide
-- **[documentation/RELEASE_CHECKLIST.md](documentation/RELEASE_CHECKLIST.md)** - Tagging, release verification, recovery, PR release notes and pinning a release
-- **[documentation/SCAN_DIRECTORY_ARCHITECTURE.md](documentation/SCAN_DIRECTORY_ARCHITECTURE.md)** - Scan output organization and isolation model
-- **[documentation/SCAN_MANIFEST_GUIDE.md](documentation/SCAN_MANIFEST_GUIDE.md)** - Cryptographic manifest creation and verification
-- **[documentation/IGNORE_RULES_GUIDE.md](documentation/IGNORE_RULES_GUIDE.md)** - `.epyon-ignore.yml` suppression configuration guide, including package-version rules for identified vulnerabilities
-- **[documentation/ANCHORE_CONFIGURATION_GUIDE.md](documentation/ANCHORE_CONFIGURATION_GUIDE.md)** - Anchore false-positive prevention and scanner configuration
-- **[documentation/DEDUPLICATION_IMPLEMENTATION.md](documentation/DEDUPLICATION_IMPLEMENTATION.md)** - Finding deduplication logic and implementation details
-- **[documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md](documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md)** - Security review and test coverage analysis
-- **[documentation/STIG_SCANNING_TECHNICAL_REFERENCE.md](documentation/STIG_SCANNING_TECHNICAL_REFERENCE.md)** - STIG assessment workflow, freeze logic and engine internals
-- **[documentation/SCORE_CARD_GUIDE.md](documentation/SCORE_CARD_GUIDE.md)** - How the Score Card is calculated, where its numbers come from, and how to verify them
-- **[documentation/AI Integration Strategy for Epyon.md](documentation/AI%20Integration%20Strategy%20for%20Epyon.md)** - CIO roadmap for AI/ML integration opportunities
+- **[docs/README.md](docs/README.md)** - Documentation index and navigation guide
+- **[docs/releases/RELEASE_CHECKLIST.md](docs/releases/RELEASE_CHECKLIST.md)** - Tagging, release verification, recovery, PR release notes and pinning a release
+- **[docs/architecture/SCAN_DIRECTORY_ARCHITECTURE.md](docs/architecture/SCAN_DIRECTORY_ARCHITECTURE.md)** - Scan output organization and isolation model
+- **[docs/scanning/SCAN_MANIFEST_GUIDE.md](docs/scanning/SCAN_MANIFEST_GUIDE.md)** - Cryptographic manifest creation and verification
+- **[docs/scanning/IGNORE_RULES_GUIDE.md](docs/scanning/IGNORE_RULES_GUIDE.md)** - `.epyon-ignore.yml` suppression configuration guide, including package-version rules for identified vulnerabilities
+- **[docs/scanning/ANCHORE_CONFIGURATION_GUIDE.md](docs/scanning/ANCHORE_CONFIGURATION_GUIDE.md)** - Anchore false-positive prevention and scanner configuration
+- **[docs/architecture/DEDUPLICATION_IMPLEMENTATION.md](docs/architecture/DEDUPLICATION_IMPLEMENTATION.md)** - Finding deduplication logic and implementation details
+- **[docs/compliance/SECURITY_REVIEW_AND_TEST_COVERAGE.md](docs/compliance/SECURITY_REVIEW_AND_TEST_COVERAGE.md)** - Security review and test coverage analysis
+- **[docs/compliance/STIG_SCANNING_TECHNICAL_REFERENCE.md](docs/compliance/STIG_SCANNING_TECHNICAL_REFERENCE.md)** - STIG assessment workflow, freeze logic and engine internals
+- **[docs/compliance/SCORE_CARD_GUIDE.md](docs/compliance/SCORE_CARD_GUIDE.md)** - How the Score Card is calculated, where its numbers come from, and how to verify them
+- **[docs/plans/AI Integration Strategy for Epyon.md](docs/plans/AI%20Integration%20Strategy%20for%20Epyon.md)** - CIO roadmap for AI/ML integration opportunities
 
 ## 🏆 Achievement Summary
 
@@ -1983,16 +1988,16 @@ export HIGH_ALERT_THRESHOLD="5"
 ## 📚 Documentation Suite
 
 ### 📖 Complete Documentation Library
-- **[documentation/README.md](documentation/README.md)** - Documentation index and navigation guide
-- **[documentation/SCAN_DIRECTORY_ARCHITECTURE.md](documentation/SCAN_DIRECTORY_ARCHITECTURE.md)** - Scan output organization and isolation model
-- **[documentation/SCAN_MANIFEST_GUIDE.md](documentation/SCAN_MANIFEST_GUIDE.md)** - Cryptographic manifest creation and verification
-- **[documentation/IGNORE_RULES_GUIDE.md](documentation/IGNORE_RULES_GUIDE.md)** - `.epyon-ignore.yml` suppression configuration guide
-- **[documentation/ANCHORE_CONFIGURATION_GUIDE.md](documentation/ANCHORE_CONFIGURATION_GUIDE.md)** - Anchore false-positive prevention and scanner configuration
-- **[documentation/DEDUPLICATION_IMPLEMENTATION.md](documentation/DEDUPLICATION_IMPLEMENTATION.md)** - Finding deduplication logic and implementation
-- **[documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md](documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md)** - Security review and test coverage analysis
-- **[documentation/STIG_SCANNING_TECHNICAL_REFERENCE.md](documentation/STIG_SCANNING_TECHNICAL_REFERENCE.md)** - STIG assessment workflow, freeze logic and engine internals
-- **[documentation/SCORE_CARD_GUIDE.md](documentation/SCORE_CARD_GUIDE.md)** - How the Score Card is calculated, where its numbers come from, and how to verify them
-- **[documentation/AI Integration Strategy for Epyon.md](documentation/AI%20Integration%20Strategy%20for%20Epyon.md)** - CIO roadmap for AI/ML integration opportunities
+- **[docs/README.md](docs/README.md)** - Documentation index and navigation guide
+- **[docs/architecture/SCAN_DIRECTORY_ARCHITECTURE.md](docs/architecture/SCAN_DIRECTORY_ARCHITECTURE.md)** - Scan output organization and isolation model
+- **[docs/scanning/SCAN_MANIFEST_GUIDE.md](docs/scanning/SCAN_MANIFEST_GUIDE.md)** - Cryptographic manifest creation and verification
+- **[docs/scanning/IGNORE_RULES_GUIDE.md](docs/scanning/IGNORE_RULES_GUIDE.md)** - `.epyon-ignore.yml` suppression configuration guide
+- **[docs/scanning/ANCHORE_CONFIGURATION_GUIDE.md](docs/scanning/ANCHORE_CONFIGURATION_GUIDE.md)** - Anchore false-positive prevention and scanner configuration
+- **[docs/architecture/DEDUPLICATION_IMPLEMENTATION.md](docs/architecture/DEDUPLICATION_IMPLEMENTATION.md)** - Finding deduplication logic and implementation
+- **[docs/compliance/SECURITY_REVIEW_AND_TEST_COVERAGE.md](docs/compliance/SECURITY_REVIEW_AND_TEST_COVERAGE.md)** - Security review and test coverage analysis
+- **[docs/compliance/STIG_SCANNING_TECHNICAL_REFERENCE.md](docs/compliance/STIG_SCANNING_TECHNICAL_REFERENCE.md)** - STIG assessment workflow, freeze logic and engine internals
+- **[docs/compliance/SCORE_CARD_GUIDE.md](docs/compliance/SCORE_CARD_GUIDE.md)** - How the Score Card is calculated, where its numbers come from, and how to verify them
+- **[docs/plans/AI Integration Strategy for Epyon.md](docs/plans/AI%20Integration%20Strategy%20for%20Epyon.md)** - CIO roadmap for AI/ML integration opportunities
 
 ### 🎯 Quick Reference Commands
 ```bash

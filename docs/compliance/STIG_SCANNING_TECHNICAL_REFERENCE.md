@@ -52,7 +52,7 @@ This ensures that human security assessors' judgments are preserved unless speci
 
 ### Operator Quick Reference
 
-This document intentionally contains **no per-control results**: Epyon reads every Markdown file under `documentation/` as human-authored STIG context, so a stored copy of earlier results would be treated as a priority assessment and skew later runs. Current results are produced by each scan (`stig-results-{slug}.json` and the findings Markdown in the scan directory) and shown in the web UI.
+This document intentionally contains **no per-control results**: Epyon reads every Markdown file under `docs/` as human-authored STIG context, so a stored copy of earlier results would be treated as a priority assessment and skew later runs. Current results are produced by each scan (`stig-results-{slug}.json` and the findings Markdown in the scan directory) and shown in the web UI.
 
 **Statuses**: `Not a Finding` | `Not Applicable` | `Open` | `Not Reviewed`. `Not Reviewed` is reserved for runtime-only controls with no static indicators; use `Open` when in doubt.
 

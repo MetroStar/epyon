@@ -206,7 +206,7 @@ Epyon is a multi-layer DevSecOps security scanner designed for human-centered cy
 **Endpoints:**
 - `GET/POST /api/scans` — List scans, trigger new scans (async jobs)
 - `GET /api/scans/{scan_id}` — Full parsed scan data
-- `POST /api/scans/{scan_id}/scorecard` — Calculate the Score Card (see [SCORE_CARD_GUIDE.md](SCORE_CARD_GUIDE.md))
+- `POST /api/scans/{scan_id}/scorecard` — Calculate the Score Card (see [SCORE_CARD_GUIDE.md](../compliance/SCORE_CARD_GUIDE.md))
 - `POST /api/scans/{scan_id}/executive-summary` — AI-generated summary
 - `POST /api/applications/{name}/isso-summary` — ISSO compliance report
 - `GET /api/stig/history` — Cross-scan STIG trend data
@@ -516,7 +516,7 @@ Cron/Scheduler → epyon.sh → Target Repos (cloned)
 2. Add config endpoints to `web/api/main.py`
 3. Add UI settings panel in `web/static/app.js`
 4. Add environment variable support for CI contexts
-5. Document in `documentation/` folder
+5. Document in the matching `docs/` subfolder (and add it to `docs/README.md`)
 
 ### Custom STIG Baselines
 1. Drop `.cklb` or XCCDF `.xml` files into `configuration/stigs/`

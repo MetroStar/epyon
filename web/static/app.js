@@ -2013,6 +2013,20 @@ async function renderAppDetail(name) {
 // ── POA&M ─────────────────────────────────────────────────────
 // A ".poam-host" element carries data-base (/api/scans/{id} or /api/applications/{name}); the preview
 // table, SLA form and date pickers all read/write through that base.
+// Which scans a POA&M was built from, plus any caveats (no full scan yet, partial scan, ...).
+function poamSourceLine(sources, notes) {
+  const src = sources || {};
+  const link = r => `<a href="#/scans/${encodeURIComponent(r.scan_id)}" onclick="event.stopPropagation()">${esc(scanTypeLabel(r.scan_type))} scan · ${fmtDate(r.timestamp)}</a>`;
+  const parts = [];
+  if (src.vuln) parts.push(`CVEs from the ${link(src.vuln)}`);
+  if (src.stig && !(src.vuln && src.stig.scan_id === src.vuln.scan_id)) parts.push(`STIG items from the ${link(src.stig)}`);
+  else if (src.stig) parts.push('STIG items from the same scan');
+  if (src.latest_full) parts.push(`Latest full scan: ${link(src.latest_full)}`);
+  const warn = (notes || []).map(n => `<div class="poam-source-note">⚠ ${esc(n)}</div>`).join('');
+  if (!parts.length && !warn) return '';
+  return `<div class="poam-source">${parts.length ? `<div>Source: ${parts.join(' · ')}</div>` : ''}${warn}</div>`;
+}
+
 function buildPoamSection(scanId) {
   const base = `/api/scans/${encodeURIComponent(scanId)}`;
   const viewHref = `#/poam-viewer/scan/${encodeURIComponent(scanId)}`;
@@ -2031,6 +2045,7 @@ function buildPoamSection(scanId) {
           </span>
         </summary>
         <div class="findings-body" style="padding:0 18px 16px">
+          <div class="poam-source-slot" style="margin-top:12px"></div>
           <div class="stig-counts poam-tiles" style="margin-top:12px"></div>
           <div class="stig-view-btn-row">
             <button class="btn btn-primary btn-sm" onclick="navigate('${viewHref}')">⊞ View POA&amp;M Inline</button>
@@ -2053,6 +2068,7 @@ window.loadPoamCard = async (card) => {
       <span class="stig-mini open">${esc((sev.Critical || 0) + (sev.High || 0))} crit/high</span>
       ${overdue ? `<span class="stig-mini open">${esc(overdue)} overdue</span>` : ''}
       <span class="stig-mini total">${esc(d.total)} items</span>`;
+    card.querySelector('.poam-source-slot').innerHTML = poamSourceLine(d.sources, d.notes);
     const tile = (n, lbl, cls) => `<div class="stig-count ${cls}"><span class="num">${esc(n)}</span><span class="lbl">${esc(lbl)}</span></div>`;
     card.querySelector('.poam-tiles').innerHTML =
       tile(sev.Critical || 0, 'Critical', 'open') + tile(sev.High || 0, 'High', 'open') +
@@ -2090,7 +2106,7 @@ window.loadPoamPreview = async (host, force = false) => {
         <span class="poam-sla-msg" style="color:var(--text-muted)"></span>
       </div>`;
     if (!d.total) {
-      body.innerHTML = slaForm + '<div style="color:var(--text-muted)">No open STIG controls or Critical/High CVEs — nothing to add to a POA&amp;M.</div>';
+      body.innerHTML = poamSourceLine(d.sources, d.notes) + slaForm + '<div style="color:var(--text-muted)">No open STIG controls or Critical/High CVEs — nothing to add to a POA&amp;M.</div>';
       return;
     }
     const cols = ['POA&M ID', 'Weakness Identifier', 'Weakness Name', 'Raw Severity', 'Detection Source', 'Affected Component', 'Remediation / Mitigation', 'Scheduled Completion Date', 'Status'];
@@ -2110,7 +2126,7 @@ window.loadPoamPreview = async (host, force = false) => {
       }
       return `<span title="${esc(r[c] ?? '')}">${esc(clip(r[c]))}</span>`;
     };
-    body.innerHTML = slaForm + `
+    body.innerHTML = poamSourceLine(d.sources, d.notes) + slaForm + `
       <div style="overflow-x:auto;max-height:${host.tagName === 'DETAILS' ? '480px' : '70vh'};overflow-y:auto">
         <table>
           <thead><tr>${cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead>
@@ -2212,6 +2228,7 @@ async function renderPoam() {
             ${a.next_due ? ` · earliest due ${esc(a.next_due)}` : ''}
             ${a.manual_dates ? ` · ${esc(a.manual_dates)} manual date${a.manual_dates === 1 ? '' : 's'}` : ''}
           </div>
+          ${poamSourceLine(a.sources, a.notes)}
           <div style="margin-top:12px" onclick="event.stopPropagation()">
             <button class="btn btn-primary btn-sm" onclick="navigate('#/poam-viewer/${encodeURIComponent(a.name)}')">⊞ View POA&amp;M</button>
           </div>

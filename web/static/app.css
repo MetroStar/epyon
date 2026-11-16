@@ -3586,3 +3586,11 @@ html .finding-drawer:focus-visible { outline: none; }
   text-align: center;
 }
 .scan-badge[hidden] { display: none; }
+
+.poam-source {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin: 10px 0;
+}
+.poam-source a { color: var(--accent); }
+.poam-source-note { color: var(--medium, #d29922); margin-top: 4px; }

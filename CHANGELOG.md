@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.4] - 2026-11-15
+
+### Changed
+- Web UI: the router (`navigate`, `resolve`, header titles) moved to `web/src/core/router.js` as a declarative route table, replacing the long `if/else` chain in `main.js`. Routes, titles and fallbacks are unchanged.
+
 ## [3.72.3] - 2026-11-15
 
 ### Changed

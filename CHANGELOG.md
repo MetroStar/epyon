@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.10] - 2026-11-16
+
+### Changed
+- **Web UI refactor (step 3h, no behaviour change):** the Scan Detail page moved into `web/src/pages/scan-detail.js`, and its model-security, network-discovery/enrichment and misconfiguration/build/SSP-evidence cards into `web/src/components/scan/`. The router no longer depends on any legacy page renderer.
+
 ## [3.72.9] - 2026-11-16
 
 ### Changed

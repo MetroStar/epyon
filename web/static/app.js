@@ -5146,6 +5146,1044 @@ epyon install-workflow</pre>
     }
   }
 
+  // src/pages/scan-detail.js
+  var scan_detail_exports = {};
+  __export(scan_detail_exports, {
+    renderScanDetail: () => renderScanDetail
+  });
+
+  // src/components/scan/model-security.js
+  var model_security_exports = {};
+  __export(model_security_exports, {
+    buildModelCardCard: () => buildModelCardCard,
+    buildModelSecurityCard: () => buildModelSecurityCard,
+    buildPicklescanCard: () => buildPicklescanCard
+  });
+  function buildPicklescanCard(scan) {
+    return "";
+  }
+  function buildModelCardCard(scan) {
+    return "";
+  }
+  function buildModelSecurityCard(scan) {
+    const ps = scan.picklescan;
+    const mc = scan.modelcard;
+    const mp = scan.model_provenance;
+    const is = scan.inference_security;
+    const mr = scan.ml_runtime;
+    let pickleSection = "";
+    if (ps && Array.isArray(ps)) {
+      const findingsCount = ps.length;
+      const criticalCount = ps.filter((f) => (f.severity || "").toLowerCase() === "critical").length;
+      const highCount = ps.filter((f) => (f.severity || "").toLowerCase() === "high").length;
+      const statusClass = criticalCount > 0 || highCount > 0 ? "status-open" : "status-clean";
+      const statusLabel = findingsCount > 0 ? `${findingsCount} finding(s)` : "Clean";
+      const icon = findingsCount > 0 ? "🚨" : "✅";
+      const psFindings = ps.map((f) => {
+        const fid = _registerFinding({
+          severity: f.severity || "high",
+          id: f.id || f.type || "",
+          tool: "picklescan",
+          title: f.description || f.type || "—",
+          description: f.evidence || "",
+          file: f.file || "",
+          target: f.file || ""
+        });
+        return `
+      <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
+        <span class="hf-finding-sev hf-sev-${esc(f.severity || "high")}">${esc(f.severity || "high")}</span>
+        <code class="hf-finding-file">${esc(f.file || "—")}</code>
+        <span class="hf-finding-msg">${esc(f.description || f.type || "Malicious content detected")}</span>
+        <span class="hf-finding-chevron">›</span>
+      </div>`;
+      }).join("");
+      pickleSection = `
+      <div class="ms-layer">
+        <div class="ms-layer-header">
+          <div class="ms-layer-title">
+            <span class="hf-tool-icon">🥒</span>
+            <span>Layer 14 — Comprehensive Model File Analysis</span>
+            <span class="hf-tool-name">picklescan-enhanced</span>
+          </div>
+          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
+        </div>
+        <div class="hf-tool-stats" style="margin-bottom:0">
+          <div class="hf-stat"><span class="hf-stat-num">${findingsCount}</span><span class="hf-stat-lbl">findings</span></div>
+          <div class="hf-stat"><span class="hf-stat-num ${criticalCount > 0 ? "danger" : ""}">${criticalCount}</span><span class="hf-stat-lbl">critical</span></div>
+          <div class="hf-stat"><span class="hf-stat-num ${highCount > 0 ? "danger" : ""}">${highCount}</span><span class="hf-stat-lbl">high</span></div>
+        </div>
+        ${psFindings ? `<div class="hf-findings" style="margin-top:10px">${psFindings}</div>` : ""}
+      </div>`;
+    } else if (ps && typeof ps === "object") {
+      const statusClass = ps.flagged_count > 0 ? "status-open" : "status-clean";
+      const statusLabel = ps.flagged_count > 0 ? `${ps.flagged_count} infected file(s)` : "Clean";
+      const icon = ps.flagged_count > 0 ? "🚨" : "✅";
+      const totalWeightFiles = ps.total_weight_files ?? ps.file_count ?? 0;
+      const psFindings = (ps.findings || []).map((f) => `
+      <div class="hf-finding-row">
+        <span class="hf-finding-sev hf-sev-${esc(f.severity || "high")}">${esc(f.severity || "high")}</span>
+        <code class="hf-finding-file">${esc(f.file || "—")}</code>
+        <span class="hf-finding-msg">${esc(f.message || f.description || "Malicious pickle opcode detected")}</span>
+      </div>`).join("");
+      pickleSection = `
+      <div class="ms-layer">
+        <div class="ms-layer-header">
+          <div class="ms-layer-title">
+            <span class="hf-tool-icon">🥒</span>
+            <span>Layer 14 — Pickle / Serialization Safety</span>
+            <span class="hf-tool-name">picklescan</span>
+          </div>
+          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
+        </div>
+        <div class="hf-tool-stats" style="margin-bottom:0">
+          <div class="hf-stat"><span class="hf-stat-num">${totalWeightFiles}</span><span class="hf-stat-lbl">weight files</span></div>
+          <div class="hf-stat"><span class="hf-stat-num">${ps.file_count ?? 0}</span><span class="hf-stat-lbl">pickle-scannable</span></div>
+          <div class="hf-stat"><span class="hf-stat-num ${ps.flagged_count > 0 ? "danger" : ""}">${ps.flagged_count ?? 0}</span><span class="hf-stat-lbl">infected</span></div>
+        </div>
+        ${psFindings ? `<div class="hf-findings" style="margin-top:10px">${psFindings}</div>` : ""}
+      </div>`;
+    }
+    let modelCardSection = "";
+    if (mc) {
+      const statusClass = mc.failed > 0 ? "status-open" : mc.warnings > 0 ? "status-warn" : "status-clean";
+      const statusLabel = mc.failed > 0 ? `${mc.failed} check(s) failed` : mc.warnings > 0 ? `${mc.warnings} warning(s)` : "Compliant";
+      const icon = mc.failed > 0 ? "❌" : mc.warnings > 0 ? "⚠️" : "✅";
+      const fileLabel = mc.file_checked ? `<span class="hf-file-checked" title="${esc(mc.file_checked)}">${esc(mc.file_checked.split("/").pop())}</span>` : "";
+      const mcFindings = (mc.findings || []).map((f) => {
+        const fid = _registerFinding({
+          severity: f.severity || "medium",
+          id: f.check || "",
+          tool: "model card",
+          title: f.message || f.check || "—",
+          description: f.recommendation || "",
+          file: mc.file_checked || "",
+          target: mc.file_checked || ""
+        });
+        return `
+      <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
+        <span class="hf-finding-sev hf-sev-${esc(f.severity || "medium")}">${esc(f.severity || "medium")}</span>
+        <span class="hf-finding-file">${esc(f.check || "—")}</span>
+        <span class="hf-finding-msg">${esc(f.message || "")}${f.recommendation ? `<span class="hf-recommendation"> → ${esc(f.recommendation)}</span>` : ""}</span>
+        <span class="hf-finding-chevron">›</span>
+      </div>`;
+      }).join("");
+      modelCardSection = `
+      <div class="ms-layer ms-layer-border">
+        <div class="ms-layer-header">
+          <div class="ms-layer-title">
+            <span class="hf-tool-icon">📋</span>
+            <span>Layer 15 — Model Card Compliance</span>
+            ${fileLabel}
+          </div>
+          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
+        </div>
+        <div class="hf-tool-stats" style="margin-bottom:0">
+          <div class="hf-stat"><span class="hf-stat-num">${(mc.passed ?? 0) + (mc.failed ?? 0) + (mc.warnings ?? 0)}</span><span class="hf-stat-lbl">checks</span></div>
+          <div class="hf-stat"><span class="hf-stat-num clean">${mc.passed ?? 0}</span><span class="hf-stat-lbl">passed</span></div>
+          <div class="hf-stat"><span class="hf-stat-num ${mc.failed > 0 ? "danger" : ""}">${mc.failed ?? 0}</span><span class="hf-stat-lbl">failed</span></div>
+          <div class="hf-stat"><span class="hf-stat-num">${mc.warnings ?? 0}</span><span class="hf-stat-lbl">warnings</span></div>
+        </div>
+        ${mcFindings ? `<div class="hf-findings" style="margin-top:10px">${mcFindings}</div>` : ""}
+      </div>`;
+    }
+    let provenanceSection = "";
+    if (mp && Array.isArray(mp) && mp.length > 0) {
+      const findingsCount = mp.length;
+      const criticalCount = mp.filter((f) => (f.severity || "").toLowerCase() === "critical").length;
+      const highCount = mp.filter((f) => (f.severity || "").toLowerCase() === "high").length;
+      const statusClass = criticalCount > 0 || highCount > 0 ? "status-open" : "status-clean";
+      const statusLabel = findingsCount > 0 ? `${findingsCount} finding(s)` : "Clean";
+      const icon = findingsCount > 0 ? "🚨" : "✅";
+      const mpFindings = mp.map((f) => {
+        const fid = _registerFinding({
+          severity: f.severity || "high",
+          id: f.id || f.type || "",
+          tool: "model-provenance",
+          title: f.description || f.type || "—",
+          description: f.evidence || "",
+          file: f.file || "",
+          target: f.file || ""
+        });
+        return `
+      <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
+        <span class="hf-finding-sev hf-sev-${esc(f.severity || "high")}">${esc(f.severity || "high")}</span>
+        <code class="hf-finding-file">${esc(f.file || "—")}</code>
+        <span class="hf-finding-msg">${esc(f.description || f.type || "Provenance issue detected")}</span>
+        <span class="hf-finding-chevron">›</span>
+      </div>`;
+      }).join("");
+      provenanceSection = `
+      <div class="ms-layer ms-layer-border">
+        <div class="ms-layer-header">
+          <div class="ms-layer-title">
+            <span class="hf-tool-icon">🔐</span>
+            <span>Layer 18 — Model Provenance & Threat Intelligence</span>
+            <span class="hf-tool-name">model-provenance</span>
+          </div>
+          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
+        </div>
+        <div class="hf-tool-stats" style="margin-bottom:0">
+          <div class="hf-stat"><span class="hf-stat-num">${findingsCount}</span><span class="hf-stat-lbl">findings</span></div>
+          <div class="hf-stat"><span class="hf-stat-num ${criticalCount > 0 ? "danger" : ""}">${criticalCount}</span><span class="hf-stat-lbl">critical</span></div>
+          <div class="hf-stat"><span class="hf-stat-num ${highCount > 0 ? "danger" : ""}">${highCount}</span><span class="hf-stat-lbl">high</span></div>
+        </div>
+        ${mpFindings ? `<div class="hf-findings" style="margin-top:10px">${mpFindings}</div>` : ""}
+      </div>`;
+    }
+    let inferenceSection = "";
+    if (is && Array.isArray(is) && is.length > 0) {
+      const findingsCount = is.length;
+      const criticalCount = is.filter((f) => (f.severity || "").toLowerCase() === "critical").length;
+      const highCount = is.filter((f) => (f.severity || "").toLowerCase() === "high").length;
+      const statusClass = criticalCount > 0 || highCount > 0 ? "status-open" : "status-clean";
+      const statusLabel = findingsCount > 0 ? `${findingsCount} finding(s)` : "Clean";
+      const icon = findingsCount > 0 ? "🚨" : "✅";
+      const isFindings = is.map((f) => {
+        const fid = _registerFinding({
+          severity: f.severity || "high",
+          id: f.id || f.type || "",
+          tool: "inference-security",
+          title: f.description || f.type || "—",
+          description: f.evidence || "",
+          file: f.file || "",
+          target: f.file || ""
+        });
+        return `
+      <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
+        <span class="hf-finding-sev hf-sev-${esc(f.severity || "high")}">${esc(f.severity || "high")}</span>
+        <code class="hf-finding-file">${esc(f.file || "—")}</code>
+        <span class="hf-finding-msg">${esc(f.description || f.type || "Infrastructure issue detected")}</span>
+        <span class="hf-finding-chevron">›</span>
+      </div>`;
+      }).join("");
+      inferenceSection = `
+      <div class="ms-layer ms-layer-border">
+        <div class="ms-layer-header">
+          <div class="ms-layer-title">
+            <span class="hf-tool-icon">🐳</span>
+            <span>Layer 19 — Inference Environment Security</span>
+            <span class="hf-tool-name">inference-security</span>
+          </div>
+          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
+        </div>
+        <div class="hf-tool-stats" style="margin-bottom:0">
+          <div class="hf-stat"><span class="hf-stat-num">${findingsCount}</span><span class="hf-stat-lbl">findings</span></div>
+          <div class="hf-stat"><span class="hf-stat-num ${criticalCount > 0 ? "danger" : ""}">${criticalCount}</span><span class="hf-stat-lbl">critical</span></div>
+          <div class="hf-stat"><span class="hf-stat-num ${highCount > 0 ? "danger" : ""}">${highCount}</span><span class="hf-stat-lbl">high</span></div>
+        </div>
+        ${isFindings ? `<div class="hf-findings" style="margin-top:10px">${isFindings}</div>` : ""}
+      </div>`;
+    }
+    let runtimeSection = "";
+    if (mr && Array.isArray(mr) && mr.length > 0) {
+      const findingsCount = mr.length;
+      const criticalCount = mr.filter((f) => (f.severity || "").toLowerCase() === "critical").length;
+      const highCount = mr.filter((f) => (f.severity || "").toLowerCase() === "high").length;
+      const statusClass = criticalCount > 0 || highCount > 0 ? "status-open" : "status-clean";
+      const statusLabel = findingsCount > 0 ? `${findingsCount} finding(s)` : "Clean";
+      const icon = findingsCount > 0 ? "🚨" : "✅";
+      const mrFindings = mr.map((f) => {
+        const fid = _registerFinding({
+          severity: f.severity || "high",
+          id: f.id || f.type || "",
+          tool: "ml-runtime",
+          title: f.description || f.type || "—",
+          description: f.evidence || "",
+          file: f.file || "",
+          target: f.file || ""
+        });
+        return `
+      <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
+        <span class="hf-finding-sev hf-sev-${esc(f.severity || "high")}">${esc(f.severity || "high")}</span>
+        <code class="hf-finding-file">${esc(f.file || "—")}</code>
+        <span class="hf-finding-msg">${esc(f.description || f.type || "Malicious runtime behavior detected")}</span>
+        <span class="hf-finding-chevron">›</span>
+      </div>`;
+      }).join("");
+      runtimeSection = `
+      <div class="ms-layer ms-layer-border">
+        <div class="ms-layer-header">
+          <div class="ms-layer-title">
+            <span class="hf-tool-icon">⚡</span>
+            <span>Layer 20 — ML Runtime Behavioral Analysis</span>
+            <span class="hf-tool-name">ml-runtime</span>
+            <span class="tool-tag" style="background:var(--purple-bg);color:var(--purple);border:1px solid #7c3aed66;margin-left:6px">OPT-IN</span>
+          </div>
+          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
+        </div>
+        <div class="hf-tool-stats" style="margin-bottom:0">
+          <div class="hf-stat"><span class="hf-stat-num">${findingsCount}</span><span class="hf-stat-lbl">findings</span></div>
+          <div class="hf-stat"><span class="hf-stat-num ${criticalCount > 0 ? "danger" : ""}">${criticalCount}</span><span class="hf-stat-lbl">critical</span></div>
+          <div class="hf-stat"><span class="hf-stat-num ${highCount > 0 ? "danger" : ""}">${highCount}</span><span class="hf-stat-lbl">high</span></div>
+        </div>
+        ${mrFindings ? `<div class="hf-findings" style="margin-top:10px">${mrFindings}</div>` : ""}
+      </div>`;
+    }
+    const psIssues = Array.isArray(ps) ? ps.length : ps?.flagged_count > 0;
+    const mcIssues = mc?.failed > 0 || mc?.warnings > 0;
+    const mpIssues = mp && mp.length > 0;
+    const isIssues = is && is.length > 0;
+    const mrIssues = mr && mr.length > 0;
+    const hasIssues = psIssues || mcIssues || mpIssues || isIssues || mrIssues;
+    const hasCritical = Array.isArray(ps) && ps.some((f) => (f.severity || "").toLowerCase() === "critical") || mp && mp.some((f) => (f.severity || "").toLowerCase() === "critical") || is && is.some((f) => (f.severity || "").toLowerCase() === "critical") || mr && mr.some((f) => (f.severity || "").toLowerCase() === "critical") || ps?.flagged_count > 0 || mc?.failed > 0;
+    const summaryBadgeClass = hasCritical ? "status-open" : hasIssues ? "status-warn" : "status-clean";
+    const summaryIcon = hasCritical ? "⚠" : hasIssues ? "⚠" : "✓";
+    const summaryLabel = hasIssues ? "Issues found" : "All clear";
+    const anyLayersRan = ps || mc || mp || is || mr;
+    const emptyState2 = !anyLayersRan ? `
+    <div style="padding:16px;text-align:center;color:var(--text-muted);font-size:13px">
+      <div style="margin-bottom:8px">ℹ️ No ML/AI security layers detected in this scan</div>
+      <div style="font-size:12px;color:var(--text-dim)">ML security scanning (layers 14, 15, 18, 19, 20) only runs for repositories containing ML models or AI artifacts</div>
+    </div>` : "";
+    return `
+    <details class="ms-card" id="model-security-card">
+      <summary class="ms-summary">
+        <span class="ms-summary-left">
+          <span class="findings-chevron" aria-hidden="true"></span>
+          <span class="ms-summary-title">ML/AI Security</span>
+          ${ps ? '<span class="tool-tag" style="font-size:12px">picklescan</span>' : ""}
+          ${mc ? '<span class="tool-tag" style="font-size:12px">model card</span>' : ""}
+          ${mp ? '<span class="tool-tag" style="font-size:12px">provenance</span>' : ""}
+          ${is ? '<span class="tool-tag" style="font-size:12px">inference</span>' : ""}
+          ${mr ? '<span class="tool-tag" style="font-size:12px;background:var(--purple-bg);color:var(--purple)">runtime</span>' : ""}
+        </span>
+        <span class="ms-summary-right">
+          <span class="hf-status-badge ${summaryBadgeClass}">${summaryIcon} ${summaryLabel}</span>
+          <span class="findings-summary-hint" style="margin-left:8px">Click to expand</span>
+        </span>
+      </summary>
+      <div class="ms-body">
+        ${emptyState2}
+        ${pickleSection}
+        ${modelCardSection}
+        ${provenanceSection}
+        ${inferenceSection}
+        ${runtimeSection}
+      </div>
+    </details>`;
+  }
+
+  // src/components/scan/network-enrichment.js
+  var network_enrichment_exports = {};
+  __export(network_enrichment_exports, {
+    buildEnrichmentCard: () => buildEnrichmentCard,
+    buildNetworkDiscoveryCard: () => buildNetworkDiscoveryCard
+  });
+  function buildEnrichmentCard(findings) {
+    if (!findings) return "";
+    const enr = findings.enrichment;
+    if (!enr || enr.cisa_kev_total == null && enr.nvd_total == null) return "";
+    const kevTotal = enr.cisa_kev_total || 0;
+    const nvdTotal = enr.nvd_total || 0;
+    if (kevTotal === 0 && nvdTotal === 0) return "";
+    const hasKev = kevTotal > 0;
+    const accentColor = hasKev ? "var(--critical)" : "var(--accent)";
+    const kevFindings = [];
+    for (const sev of ["critical", "high", "medium", "low"]) {
+      for (const f of findings[`${sev}_findings`] || []) {
+        if (f.cisa_kev === true) kevFindings.push({ sev, ...f });
+      }
+    }
+    let enrichedAt = "";
+    if (enr.enriched_at) {
+      try {
+        enrichedAt = new Date(enr.enriched_at).toLocaleString(
+          void 0,
+          { dateStyle: "medium", timeStyle: "short" }
+        );
+      } catch (_) {
+        enrichedAt = enr.enriched_at;
+      }
+    }
+    const kevTable = "";
+    const catalogLink = enr.kev_catalog_url ? `<a href="${esc(enr.kev_catalog_url)}" target="_blank" rel="noopener"
+         style="font-size:12px;color:var(--accent)">↗ CISA KEV Catalog</a>` : "";
+    return `
+    <div class="section findings-section-wrapper">
+      <details class="findings-collapsible" style="border-left-color:${accentColor}">
+        <summary class="findings-summary">
+          <span class="findings-summary-left">
+            <span class="findings-chevron" aria-hidden="true"></span>
+            <span class="findings-summary-title">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                   style="vertical-align:-2px;margin-right:5px">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              Threat Intelligence Enrichment
+            </span>
+            ${hasKev ? `<span style="background:var(--critical-bg);color:var(--critical);border:1px solid #b91c1c;border-radius:4px;padding:1px 7px;font-size:12px;font-weight:700">${esc(kevTotal)} KEV</span>` : ""}
+            <span class="sev-badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(nvdTotal)} NVD enriched</span>
+          </span>
+          <span class="findings-summary-hint">Click to expand</span>
+        </summary>
+        <div class="findings-body" style="padding:0 18px 16px">
+          <div class="detail-grid" style="margin-top:12px;margin-bottom:0">
+            ${hasKev ? `
+            <div class="detail-card" style="border-color:var(--critical-bg);background:rgba(127,29,29,0.12)">
+              <div class="label" style="color:var(--critical)">CISA KEV Matches</div>
+              <div class="value" style="color:var(--critical)">${esc(kevTotal)}</div>
+            </div>` : ""}
+            <div class="detail-card">
+              <div class="label">NVD Enriched CVEs</div>
+              <div class="value">${esc(nvdTotal)}</div>
+            </div>
+            ${enrichedAt ? `
+            <div class="detail-card">
+              <div class="label">Enriched At</div>
+              <div class="value" style="font-size:12px">${enrichedAt}</div>
+            </div>` : ""}
+          </div>
+          ${hasKev ? `
+          <p style="color:var(--critical);font-size:12px;margin:12px 0 4px">
+            ⚠ ${esc(kevTotal)} finding${kevTotal > 1 ? "s" : ""} match CISA's Known Exploited Vulnerabilities catalog —
+            actively exploited in the wild. Findings marked <strong>KEV</strong> above require immediate attention.
+          </p>` : ""}
+          ${catalogLink ? `<div style="margin-top:8px">${catalogLink}</div>` : ""}
+        </div>
+      </details>
+    </div>`;
+  }
+  function buildNetworkDiscoveryCard(scan) {
+    const nd = scan.network_discovery;
+    if (!nd) return "";
+    const scanId = scan.scan_id || scan.id || "";
+    _ppsmRegistry.set(scanId, nd);
+    const ports = (nd.unique_ports || []).join(", ") || "—";
+    const protos = (nd.protocols || []).join(", ") || "—";
+    const services = (nd.services || []).join(", ") || "—";
+    const sourceRows = [
+      { label: "Docker Compose", items: nd.compose_ports || [] },
+      { label: "Dockerfile", items: nd.dockerfile_ports || [] },
+      { label: "Kubernetes/Helm", items: nd.k8s_ports || [] },
+      { label: "App Config/.env", items: nd.config_ports || [] }
+    ].filter((r) => r.items.length > 0);
+    const sourceHtml = sourceRows.length ? sourceRows.map((r, idx) => {
+      const tblId = `ppsm-tbl-${idx}`;
+      return `
+    <div style="margin-top:10px">
+      <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:4px">${esc(r.label)}</div>
+      <table id="${tblId}" style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="color:var(--text-muted)">
+            <th scope="col" data-col="0" class="sortable-th" style="text-align:left;padding:2px 8px 2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',0)">File <span class="sort-icon">⇅</span></th>
+            <th scope="col" data-col="1" class="sortable-th" style="text-align:left;padding:2px 8px 2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',1)">Service <span class="sort-icon">⇅</span></th>
+            <th scope="col" data-col="2" class="sortable-th" style="text-align:left;padding:2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',2)">Port / Mapping <span class="sort-icon">⇅</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${r.items.map((p) => `
+            <tr style="border-top:1px solid var(--border)">
+              <td style="padding:3px 8px 3px 0;color:var(--text-muted);font-family:monospace;font-size:12px">${esc(p.file || "")}</td>
+              <td style="padding:3px 8px 3px 0">${esc(p.service || "")}</td>
+              <td style="padding:3px 0;font-family:monospace">${esc(p.mapping || String(p.port || ""))}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+    }).join("") : emptyNote("No static port definitions found.");
+    const activeBadge = nd.active_scan_run ? '<span style="background:var(--low-bg,#fffbe6);color:var(--low);border:1px solid var(--low);border-radius:4px;padding:1px 7px;font-size:12px;font-weight:600">nmap active</span>' : '<span style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-size:12px">static only</span>';
+    const portsBadge = nd.total_ports ? `<span class="sev-badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(String(nd.total_ports))} ports</span>` : "";
+    return `
+    <div class="section findings-section-wrapper">
+      <details class="findings-collapsible" style="border-left-color:var(--accent)">
+        <summary class="findings-summary">
+          <span class="findings-summary-left">
+            <span class="findings-chevron" aria-hidden="true"></span>
+            <span class="findings-summary-title">🔌 Network Discovery · PPSM</span>
+            ${portsBadge}
+            ${activeBadge}
+          </span>
+          <span class="findings-summary-right" onclick="event.stopPropagation()">
+            <button class="btn btn-sm" onclick="downloadPpsmCsv('${esc(scanId)}')" title="Download PPSM as CSV">↓ PPSM</button>
+          </span>
+        </summary>
+        <div class="findings-body" style="padding:0 18px 16px">
+          <div class="detail-grid" style="margin-bottom:12px;margin-top:12px">
+            <div class="detail-card">
+              <div class="label">Ports Found</div>
+              <div class="value">${esc(nd.total_ports)}</div>
+            </div>
+            <div class="detail-card">
+              <div class="label">Scan Method</div>
+              <div class="value" style="font-size:13px">${activeBadge}</div>
+            </div>
+            <div class="detail-card" style="grid-column:span 2">
+              <div class="label">Unique Ports</div>
+              <div class="value" style="font-size:13px;font-family:monospace">${esc(ports)}</div>
+            </div>
+            <div class="detail-card">
+              <div class="label">Protocols</div>
+              <div class="value" style="font-size:13px">${esc(protos)}</div>
+            </div>
+            <div class="detail-card">
+              <div class="label">Inferred Services</div>
+              <div class="value" style="font-size:13px">${esc(services)}</div>
+            </div>
+          </div>
+          ${sourceHtml}
+        </div>
+      </details>
+    </div>`;
+  }
+
+  // src/components/scan/evidence.js
+  var evidence_exports = {};
+  __export(evidence_exports, {
+    buildBuildEvidenceCard: () => buildBuildEvidenceCard,
+    buildMisconfigurationsCard: () => buildMisconfigurationsCard,
+    buildSSPEvidenceCard: () => buildSSPEvidenceCard
+  });
+  function buildMisconfigurationsCard(scan) {
+    const misconfigs = scan.misconfigurations;
+    const summary = misconfigs?.summary || { total_critical: 0, total_high: 0, total_medium: 0, total_low: 0, tools_analyzed: [] };
+    const totalIssues = summary.total_critical + summary.total_high + summary.total_medium + summary.total_low;
+    let findingsHtml = "";
+    if (totalIssues > 0) {
+      const buildMisconfigRow = (f) => {
+        const fid = _registerFinding({
+          severity: f.severity || "medium",
+          id: f.id || "",
+          tool: f.tool || "Checkov",
+          title: f.title || f.description || "—",
+          description: f.description || "",
+          file: f.file || "",
+          target: f.target || ""
+        });
+        return `
+        <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
+          <span class="hf-finding-sev hf-sev-${esc(f.severity || "medium")}">${esc(f.severity || "medium")}</span>
+          ${findingSourceBadge(f)}
+          <code class="hf-finding-file">${esc(f.file || f.target || "—")}</code>
+          <span class="hf-finding-msg">${esc(f.title || f.description || "Configuration issue detected")}</span>
+          <span class="hf-finding-chevron">›</span>
+        </div>`;
+      };
+      const allMisconfigItems = [
+        ...misconfigs.critical_findings || [],
+        ...misconfigs.high_findings || [],
+        ...misconfigs.medium_findings || [],
+        ...misconfigs.low_findings || []
+      ];
+      const rows = allMisconfigItems.map(buildMisconfigRow).join("");
+      findingsHtml = `
+      <div class="hf-findings" style="margin-top:10px">
+        ${rows}
+      </div>`;
+    } else {
+      findingsHtml = `
+      <div style="padding:12px;text-align:center;color:var(--text-muted);font-size:13px">
+        ✓ No misconfigurations or secrets detected
+      </div>`;
+    }
+    const statusClass = totalIssues === 0 ? "status-clean" : summary.total_critical > 0 ? "status-open" : summary.total_high > 0 ? "status-warn" : "status-clean";
+    const statusIcon = totalIssues === 0 ? "✓" : summary.total_critical > 0 ? "🚨" : summary.total_high > 0 ? "⚠" : "✓";
+    const statusLabel = totalIssues === 0 ? "All clear" : summary.total_critical > 0 ? `${summary.total_critical} critical issue(s)` : summary.total_high > 0 ? `${summary.total_high} high issue(s)` : "Minor issues";
+    return `
+    <details class="ms-card" id="misconfigurations-card">
+      <summary class="ms-summary">
+        <span class="ms-summary-left">
+          <span class="findings-chevron" aria-hidden="true"></span>
+          <span class="ms-summary-title">Misconfigurations</span>
+          <span class="tool-tag" style="font-size:12px">Layers 2, 6 & 21 — Secrets, IaC & Supply Chain</span>
+        </span>
+        <span class="ms-summary-right">
+          <span class="hf-status-badge ${statusClass}">${statusIcon} ${statusLabel}</span>
+          <span class="findings-summary-hint" style="margin-left:8px">Click to expand</span>
+        </span>
+      </summary>
+      <div class="ms-body">
+        <div class="ms-layer">
+          <div class="ms-layer-header">
+            <div class="ms-layer-title">
+              <span class="hf-tool-icon">🔧</span>
+              <span>Security Misconfigurations & Secrets</span>
+              <span class="hf-tool-name">${(summary.tools_analyzed || []).join(", ") || "Checkov, TruffleHog"}</span>
+            </div>
+            <span class="hf-status-badge ${statusClass}">${statusIcon} ${totalIssues} finding(s)</span>
+          </div>
+          <div class="hf-tool-stats" style="margin-bottom:0">
+            <div class="hf-stat"><span class="hf-stat-num">${totalIssues}</span><span class="hf-stat-lbl">findings</span></div>
+            <div class="hf-stat"><span class="hf-stat-num ${summary.total_critical > 0 ? "danger" : ""}">${summary.total_critical}</span><span class="hf-stat-lbl">critical</span></div>
+            <div class="hf-stat"><span class="hf-stat-num ${summary.total_high > 0 ? "danger" : ""}">${summary.total_high}</span><span class="hf-stat-lbl">high</span></div>
+            <div class="hf-stat"><span class="hf-stat-num">${summary.total_medium}</span><span class="hf-stat-lbl">medium</span></div>
+            <div class="hf-stat"><span class="hf-stat-num">${summary.total_low}</span><span class="hf-stat-lbl">low</span></div>
+          </div>
+          ${findingsHtml}
+        </div>
+      </div>
+    </details>`;
+  }
+  function buildBuildEvidenceCard(scan) {
+    const be = scan.build_evidence || {};
+    const build = be.build || {};
+    const sig = be.signature || {};
+    const prov = be.provenance || {};
+    const arts = be.artifacts || {};
+    const digest = be.digest || build.digest || "";
+    const mode = build.mode || (build.status === "success" ? "container_build" : "target_source_manifest");
+    const isContainerBuild = mode === "container_build";
+    const statusBadge2 = isContainerBuild ? `<span class="badge" style="background:var(--pass);color:var(--bg);">✅ Image Built</span>` : `<span class="badge" style="background:var(--accent);color:var(--bg);">✅ Target Attested & Verified</span>`;
+    const manifestBadge = arts.oci_manifest ? `<span class="badge" style="background:var(--accent);color:var(--bg);">📦 OCI Manifest</span>` : `<span class="badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);">📦 OCI Manifest N/A</span>`;
+    const provBadge = arts.slsa_provenance ? `<span class="badge" style="background:var(--purple);color:var(--bg);">📜 SLSA v1.0 Provenance</span>` : `<span class="badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);">📜 SLSA Provenance N/A</span>`;
+    const sigBadge = sig.status === "signed" || arts.image_signature ? `<span class="badge" style="background:var(--pass);color:var(--bg);">🔏 Cosign Signed</span>` : `<span class="badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);">🔏 Signature N/A</span>`;
+    const artifactRows = [
+      { name: "1. Immutable Image Digest", spec: "SHA-256 Digest", present: !!arts.image_digest, file: "build/image-digest.txt" },
+      { name: "2. OCI Image Manifest", spec: "OCI Image Specification v1/v2", present: !!arts.oci_manifest, file: "build/oci-manifest.json" },
+      { name: "3. Dockerfile / Build Spec", spec: "Container Instructions", present: !!arts.dockerfile, file: "build/Dockerfile" },
+      { name: "4. Build Execution Logs", spec: "Console & Execution Log", present: !!arts.build_log, file: "build/build.log" },
+      { name: "5. SLSA Provenance", spec: "SLSA v1.0 in-toto Predicate", present: !!arts.slsa_provenance, file: "provenance.jsonl" },
+      { name: "6. Cryptographic Signature", spec: "Cosign Signature Metadata", present: !!arts.image_signature, file: "image.sig" },
+      { name: "7. Software Inventory (SBOM)", spec: "CycloneDX / SPDX JSON", present: !!arts.sbom, file: "sbom/filesystem.cyclonedx.json" },
+      { name: "8. Vulnerability & Malware Scans", spec: "Grype / Trivy / ClamAV Reports", present: !!arts.vuln_scans, file: "grype/, trivy/, clamav/" },
+      { name: "9. Scan Integrity Manifest", spec: "Cryptographic SHA-256 Hashes", present: !!arts.scan_manifest, file: "scan-manifest.json" },
+      { name: "10. Policy & Suppression Audit", spec: "Exception Justifications", present: !!arts.suppression_audit, file: "suppressed-findings.md" }
+    ].map((a) => `
+    <tr style="border-bottom:1px solid var(--border-muted);">
+      <td style="padding:8px 12px;font-weight:500;">${esc(a.name)}</td>
+      <td style="padding:8px 12px;color:var(--text-muted);font-size:12px;">${esc(a.spec)}</td>
+      <td style="padding:8px 12px;">${a.present ? '<span style="color:var(--pass);font-weight:600;">✅ Captured</span>' : '<span style="color:var(--text-muted);">⚠️ Not Captured</span>'}</td>
+      <td style="padding:8px 12px;font-family:monospace;font-size:12px;color:var(--text-muted);">${esc(a.file)}</td>
+    </tr>
+  `).join("");
+    return `
+    <details class="ms-card" id="build-evidence-card" style="border-left-color:var(--purple);margin-top:20px;">
+      <summary class="ms-summary">
+        <span class="ms-summary-left">
+          <span class="findings-chevron" aria-hidden="true"></span>
+          <span class="ms-summary-title">Build Artifacts & Supply Chain Evidence</span>
+          <span class="tool-tag" style="font-size:12px">Phase 0 — Container Build & Attestation</span>
+        </span>
+        <span class="ms-summary-right">
+          ${statusBadge2}
+          <span class="findings-summary-hint" style="margin-left:8px">Click to expand</span>
+        </span>
+      </summary>
+      <div class="ms-body">
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+          ${statusBadge2}
+          ${manifestBadge}
+          ${provBadge}
+          ${sigBadge}
+        </div>
+        
+        <div class="detail-grid" style="margin-bottom:16px;">
+          <div class="detail-card">
+            <div class="label">Image Identifier</div>
+            <div class="value" style="font-family:monospace;font-size:0.85rem;">${esc(build.full_image || build.image_name || scan.target || "N/A")}</div>
+          </div>
+          <div class="detail-card">
+            <div class="label">Immutable SHA-256 Digest</div>
+            <div class="value" style="font-family:monospace;font-size:0.8rem;word-break:break-all;">${esc(digest || "N/A (Pre-built target)")}</div>
+          </div>
+          <div class="detail-card">
+            <div class="label">Build Runtime</div>
+            <div class="value">${esc(build.runtime || "N/A (Source scan)")}</div>
+          </div>
+          <div class="detail-card">
+            <div class="label">Dockerfile</div>
+            <div class="value">${esc(build.dockerfile || "Dockerfile")}</div>
+          </div>
+        </div>
+
+        <div class="section-title" style="font-size:0.9rem;margin-bottom:8px;color:var(--text);">📦 Release & Evidence Artifact Inventory</div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;">
+            <thead>
+              <tr style="background:var(--bg-card);border-bottom:1px solid var(--border);text-align:left;">
+                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Artifact Name</th>
+                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Specification / Format</th>
+                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Pipeline Status</th>
+                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Artifact Path</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${artifactRows}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </details>`;
+  }
+  function buildSSPEvidenceCard(scan) {
+    const matrix = scan.ssp_evidence || {};
+    const controls = matrix.controls || [];
+    if (!controls.length) return "";
+    const scanId = scan.scan_id || "";
+    const rows = controls.map((c) => {
+      const isCap = c.status === "captured";
+      const hash = c.sha256_hash || "N/A";
+      const hashShort = hash.length > 20 ? hash.slice(0, 18) + "…" : hash;
+      return `
+      <tr style="border-bottom:1px solid var(--border-muted);">
+        <td style="padding:8px 12px;font-weight:600;color:var(--accent);">${esc(c.control_id)}</td>
+        <td style="padding:8px 12px;font-weight:500;">${esc(c.control_name)}</td>
+        <td style="padding:8px 12px;color:var(--text-muted);font-size:12px;">${esc(c.epyon_layer)}</td>
+        <td style="padding:8px 12px;font-family:monospace;font-size:12px;"><code style="color:var(--purple);">${esc(c.primary_artifact_path)}</code></td>
+        <td style="padding:8px 12px;">${isCap ? '<span style="color:var(--pass);font-weight:600;">✅ Captured</span>' : '<span style="color:var(--medium);font-weight:600;">⚠️ Missing Evidence</span>'}</td>
+        <td style="padding:8px 12px;font-family:monospace;font-size:12px;color:var(--text-muted);" title="${esc(hash)}">${esc(hashShort)}</td>
+      </tr>`;
+    }).join("");
+    const downloadMdBtn = scanId ? `<a class="btn btn-sm" href="/api/scans/${encodeURIComponent(scanId)}/ssp-evidence/md" download title="Download NIST SP 800-53 Control Evidence Matrix as Markdown">↓ Export Matrix (.md)</a>` : "";
+    const downloadDocxBtn = scanId ? `<button type="button" class="btn btn-sm js-export-ssp-docx" data-scan-id="${esc(scanId)}" title="Export NIST SP 800-53 Control Evidence Matrix as Word .docx">↓ Export Word (.docx)</button>` : "";
+    return `
+    <details class="ms-card" id="ssp-evidence-card" style="border-left-color:var(--pass);margin-top:20px;">
+      <summary class="ms-summary">
+        <span class="ms-summary-left">
+          <span class="findings-chevron" aria-hidden="true"></span>
+          <span class="ms-summary-title">NIST SP 800-53 / FedRAMP Control Evidence Matrix</span>
+          <span class="tool-tag" style="font-size:12px;background:var(--pass-bg);color:var(--pass);border:1px solid #10b98144">SSP / ATO Package</span>
+        </span>
+        <span class="ms-summary-right" onclick="event.stopPropagation()" style="gap:8px;display:flex;align-items:center;">
+          ${downloadMdBtn}
+          ${downloadDocxBtn}
+          <span class="findings-summary-hint" style="margin-left:8px">Click to expand</span>
+        </span>
+      </summary>
+      <div class="ms-body">
+        <div style="padding:12px 18px 0;color:var(--text-muted);font-size:13px;">
+          Maps Epyon's security scanning layers, build provenance, and scan manifests directly to NIST SP 800-53 Rev. 5 / FedRAMP control families for System Security Plans (SSP) and ATO submissions.
+        </div>
+        <div style="overflow-x:auto;padding:12px 18px 18px;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;">
+            <thead>
+              <tr style="background:var(--bg-card);border-bottom:1px solid var(--border);text-align:left;">
+                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Control</th>
+                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">NIST Control Name</th>
+                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Epyon Security Layer</th>
+                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Primary Evidence Artifact Path</th>
+                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Status</th>
+                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Cryptographic SHA-256 Digest</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </details>`;
+  }
+  window.exportSSPDocx = async function(scanId) {
+    try {
+      const res = await fetch("/api/scans/" + encodeURIComponent(scanId) + "/export/ssp-docx", { method: "POST" });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "ssp-ato-evidence-" + scanId + ".docx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      toast("Failed to export Word document: " + err.message, "error");
+    }
+  };
+
+  // src/pages/scan-detail.js
+  async function renderScanDetail(scanId, openFindingId = "", openFindingPackage = "") {
+    setActive("applications");
+    const page = document.getElementById("page");
+    page.innerHTML = loading();
+    try {
+      const [scan, allApps] = await Promise.all([api.getScan(scanId), api.getApplications()]);
+      const status = computeStatus(scan);
+      const appInfo = allApps.find((a) => a.name === scan.target) || {};
+      const repoUrl = scan.source_url || appInfo.url || scan.ci_source?.repo || "";
+      const hasStigData = (scan.stig_total || 0) > 0;
+      const scanTypeHasStig = ["stig", "nightly", "full", "baseline"].includes(scan.scan_type);
+      let stigCard = "";
+      if (hasStigData) {
+        const reports = scan.stig_reports || [];
+        const multiStig = reports.length > 1;
+        const perStigRows = multiStig ? reports.map((r) => {
+          const slugLabel = r.slug.replace(/-/g, " ").replace(/\bstig\b/gi, "STIG");
+          const mdBtn2 = r.has_md ? `<a class="btn btn-sm" href="${esc(r.md_url)}"   download>↓ .md</a>` : "";
+          const cklbBtn2 = r.has_cklb ? `<a class="btn btn-sm" href="${esc(r.cklb_url)}" download>↓ .cklb</a>` : "";
+          const jsonBtn2 = `<a class="btn btn-sm" href="/api/scans/${encodeURIComponent(scanId)}/stig-findings-json?slug=${encodeURIComponent(r.slug)}" download>↓ .json</a>`;
+          return `
+          <div class="stig-row">
+            <span class="stig-row-label" title="${esc(r.slug)}">${esc(slugLabel)}</span>
+            <span class="stig-row-counts">
+              <span class="stig-mini open">${esc(r.open)} open</span>
+              <span class="stig-mini pass">${esc(r.pass)} pass</span>
+              <span class="stig-mini na">${esc(r.na)} n/a</span>
+              <span class="stig-mini total">${esc(r.total)} total</span>
+            </span>
+            <span class="stig-row-btns">${mdBtn2}${cklbBtn2}${jsonBtn2}</span>
+          </div>`;
+        }).join("") : "";
+        const mdBtn = scan.has_stig_report ? `<a class="btn btn-sm" href="${esc(scan.stig_report_url)}" download>↓ findings.md</a>` : "";
+        const cklbBtn = scan.has_stig_cklb ? `<a class="btn btn-sm" href="${esc(scan.stig_cklb_url)}" download>↓ findings.cklb</a>` : "";
+        const jsonBtn = `<a class="btn btn-sm" href="/api/scans/${encodeURIComponent(scanId)}/stig-findings-json" download>↓ findings.json</a>`;
+        stigCard = `
+        <div class="section findings-section-wrapper">
+          <details class="findings-collapsible" style="border-left-color:var(--accent)">
+            <summary class="findings-summary">
+              <span class="findings-summary-left">
+                <span class="findings-chevron" aria-hidden="true"></span>
+                <span class="findings-summary-title">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                       style="vertical-align:-2px;margin-right:5px">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  </svg>
+                  STIG Assessment${multiStig ? ` <span style="color:var(--text-muted);font-weight:400;font-size:12px">(${reports.length} STIGs)</span>` : ""}
+                </span>
+                <span class="stig-mini open">${esc(scan.stig_open || 0)} open</span>
+                <span class="stig-mini pass">${esc(scan.stig_pass || 0)} pass</span>
+                <span class="stig-mini na">${esc(scan.stig_na || 0)} n/a</span>
+                ${(scan.stig_nr || 0) > 0 ? `<span class="stig-mini" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(scan.stig_nr || 0)} evidence needed</span>` : ""}
+                <span class="stig-mini total">${esc(scan.stig_total || 0)} total</span>
+              </span>
+              <span style="display:flex;align-items:center;gap:8px">
+                ${mdBtn ? mdBtn.replace("btn-sm", "btn-sm").replace(">", ' onclick="event.stopPropagation()">') : ""}
+                ${cklbBtn ? cklbBtn.replace(">", ' onclick="event.stopPropagation()">') : ""}
+                ${jsonBtn.replace(">", ' onclick="event.stopPropagation()">')}
+                <span class="findings-summary-hint">Click to expand</span>
+              </span>
+            </summary>
+            <div class="findings-body" style="padding:0 18px 16px">
+              <div class="stig-counts" style="margin-top:12px">
+                <div class="stig-count open">
+                  <span class="num">${esc(scan.stig_open || 0)}</span>
+                  <span class="lbl">Open</span>
+                </div>
+                <div class="stig-count pass">
+                  <span class="num">${esc(scan.stig_pass || 0)}</span>
+                  <span class="lbl">Not a Finding</span>
+                </div>
+                <div class="stig-count na">
+                  <span class="num">${esc(scan.stig_na || 0)}</span>
+                  <span class="lbl">Not Applicable</span>
+                </div>
+                ${(scan.stig_nr || 0) > 0 ? `
+                <div class="stig-count" style="background:var(--bg-input);border-color:var(--border)">
+                  <span class="num" style="color:var(--text-muted)">${esc(scan.stig_nr || 0)}</span>
+                  <span class="lbl" title="Not Reviewed: open until evidence is supplied">Evidence needed</span>
+                </div>` : ""}
+                <div class="stig-count total">
+                  <span class="num">${esc(scan.stig_total || 0)}</span>
+                  <span class="lbl">Total</span>
+                </div>
+              </div>
+              ${multiStig ? `<div class="stig-per-stig">${perStigRows}</div>` : ""}
+              <div class="stig-view-btn-row">
+                <button class="btn btn-primary btn-sm"
+                  onclick="navigate('#/stig-viewer/${encodeURIComponent(scanId)}')">
+                  ⊞ View Findings Inline
+                </button>
+              </div>
+            </div>
+          </details>
+        </div>`;
+      } else {
+        const noStigMsg = scanTypeHasStig ? "No STIG results were recorded for this scan. Verify that STIG definitions are configured in <code>configuration/stigs/</code> and that <code>OPENAI_API_KEY</code> is set." : "STIG assessment is not included in this scan type. Run a <strong>Nightly</strong> or <strong>STIG</strong> scan to get compliance results.";
+        stigCard = `
+        <div class="section findings-section-wrapper">
+          <details class="findings-collapsible" style="border-left-color:var(--border)">
+            <summary class="findings-summary">
+              <span class="findings-summary-left">
+                <span class="findings-chevron" aria-hidden="true"></span>
+                <span class="findings-summary-title">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                       style="vertical-align:-2px;margin-right:5px">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  </svg>
+                  STIG Assessment
+                </span>
+              </span>
+              <span class="findings-summary-hint">Click to expand</span>
+            </summary>
+            <div class="findings-body" style="padding:12px 18px 16px">
+              <p style="color:var(--text-muted);font-size:13px;margin:0">${noStigMsg}</p>
+            </div>
+          </details>
+        </div>`;
+      }
+      const envNotes = scan.environment_notes || [];
+      const envNotesBanner = envNotes.length ? `
+      <div class="section" style="border-left:3px solid var(--medium);padding:12px 16px;margin-bottom:16px;background:rgba(245,158,11,0.08)">
+        <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--medium)">⚠ Environment Notes — results may differ from other environments</div>
+        ${envNotes.map((n) => `<div style="font-size:12.5px;color:var(--text-muted);margin-top:4px"><strong>${esc(n.layer)}:</strong> ${esc(n.message)}</div>`).join("")}
+      </div>` : "";
+      page.innerHTML = `
+      <div class="breadcrumb">
+        <a href="#/applications" onclick="navigate('#/applications')">Applications</a>
+        <span>›</span>
+        <a href="#/applications/${encodeURIComponent(scan.target)}"
+           onclick="navigate('#/applications/${encodeURIComponent(scan.target)}')">
+          ${esc(scan.target)}
+        </a>
+        <span>›</span>
+        <span>${esc(scan.scan_id)}</span>
+      </div>
+
+      ${pageHeader(`Scan Details ${statusBadge(status)} ${gateBadge(scan)}`, { subtitle: `Findings, compliance, and evidence collected for <strong>${esc(scan.target)}</strong> on ${fmtDate(scan.timestamp)}.`, actions: `<button class="btn" onclick="navigate('#/jira-review/${encodeURIComponent(scanId)}')"
+            title="Select findings to create as Jira tickets">
+            Jira Review
+          </button>
+          ${repoUrl ? `<button class="btn btn-primary"
+                 onclick="navigate('#/new-scan?target=${encodeURIComponent(repoUrl)}')">
+                 ▶ Run Scan
+               </button>` : `<button class="btn btn-primary" onclick="navigate('#/new-scan')">▶ Run Scan</button>`}
+          ${scan.has_dashboard ? `<button class="btn"
+                 onclick="window.open('/api/scans/${encodeURIComponent(scanId)}/dashboard','_blank')">
+                 Export HTML ↗
+               </button>` : ""}
+          <div class="split-btn" id="download-split-btn">
+            <a class="btn split-btn-main" href="/api/scans/${encodeURIComponent(scanId)}/download" download
+               title="Download all scan artifacts as ZIP for ATO/IATT submission">
+              ↓ Download ZIP
+            </a>
+            <button class="btn split-btn-toggle" onclick="toggleDownloadMenu(event)"
+              title="More download options" aria-haspopup="true" aria-expanded="false">▾</button>
+            <div class="split-btn-menu" id="download-split-menu" hidden>
+              <a class="split-btn-menu-item" href="/api/scans/${encodeURIComponent(scanId)}/download" download>
+                ↓ Download ZIP
+                <span class="split-btn-menu-hint">All raw scan artifacts (ATO/IATT bundle)</span>
+              </a>
+              <a class="split-btn-menu-item" href="/api/scans/${encodeURIComponent(scanId)}/download-json" download>
+                ↓ Download JSON
+                <span class="split-btn-menu-hint">Full parsed scan result (findings, STIG, ML/AI)</span>
+              </a>
+            </div>
+          </div>
+          <button class="btn btn-danger"
+            onclick="deleteScan('${esc(scanId)}', '${esc(scan.target)}')"
+            title="Permanently delete this scan">
+            Delete Scan
+          </button>` })}
+
+      ${envNotesBanner}
+
+      <div class="stats-grid" style="margin-bottom:24px">
+        <div class="stat-card">
+          <div class="stat-label">Application</div>
+          <div class="stat-value" style="font-size:17px;word-break:break-word">${esc(scan.target)}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Scan Type</div>
+          <div class="stat-value" style="font-size:17px;word-break:break-word">${esc(scanTypeLabel(scan.scan_type))}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">User</div>
+          <div class="stat-value" style="font-size:17px;word-break:break-word">${esc(scan.user || "—")}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Timestamp</div>
+          <div class="stat-value" style="font-size:13px">${fmtDate(scan.timestamp)}</div>
+        </div>
+      </div>
+
+      <div class="result-section-box">
+        <div class="result-section-box-title">Vulnerabilities</div>
+        <div class="stats-grid" style="margin-bottom:0">
+          <div class="stat-card critical">
+            <div class="stat-label">Critical</div>
+            <div class="stat-value">${esc(scan.critical)}</div>
+          </div>
+          <div class="stat-card high">
+            <div class="stat-label">High</div>
+            <div class="stat-value">${esc(scan.high)}</div>
+          </div>
+          <div class="stat-card medium">
+            <div class="stat-label">Medium</div>
+            <div class="stat-value">${esc(scan.medium)}</div>
+          </div>
+          <div class="stat-card low">
+            <div class="stat-label">Low</div>
+            <div class="stat-value">${esc(scan.low)}</div>
+          </div>
+        </div>
+      </div>
+
+      ${buildFindingsSection(scan.findings)}
+
+      ${buildSuppressedSection(scan.suppressed_findings)}
+
+      ${stigCard}
+
+      ${buildPoamSection(scanId)}
+
+      ${buildModelSecurityCard(scan)}
+
+      ${buildMisconfigurationsCard(scan)}
+
+      ${buildBuildEvidenceCard(scan)}
+
+      ${buildSSPEvidenceCard(scan)}
+
+      ${buildSBOMSection(scan.sbom, scanId)}
+
+      ${buildAPISection(scan.api_discovery)}
+
+      ${buildNetworkDiscoveryCard(scan)}
+
+      ${scan.file_statistics && Object.keys(scan.file_statistics).length ? `
+        <div class="result-section-box">
+          <div class="result-section-box-title">File Statistics</div>
+          <div class="stats-grid" style="margin-bottom:0">
+            ${Object.entries(scan.file_statistics).map(([k, v]) => `
+              <div class="stat-card">
+                <div class="stat-label">${esc(k.replace(/_/g, " "))}</div>
+                <div class="stat-value" style="font-size:20px">${esc(v)}</div>
+              </div>`).join("")}
+          </div>
+        </div>` : ""}
+
+      <div id="scorecard-container"></div>
+
+      ${dedupeTools(scan.tools_analyzed).length ? `
+        <div class="result-section-box">
+          <div class="result-section-box-title">Tools Analyzed</div>
+          <div class="tools-list">
+            ${dedupeTools(scan.tools_analyzed).map((t) => `<span class="tool-tag">${esc(t)}</span>`).join("")}
+          </div>
+        </div>` : ""}`;
+      if (window._sbomPendingUid) {
+        sbomRender(window._sbomPendingUid);
+        window._sbomPendingUid = null;
+      }
+      if (window._apiPendingUid) {
+        apiRender(window._apiPendingUid);
+        window._apiPendingUid = null;
+      }
+      calculateScorecardForScan(scanId);
+      if (openFindingId) {
+        const wantId = openFindingId.toLowerCase();
+        const wantPackage = openFindingPackage.toLowerCase();
+        let findingId = null;
+        for (const [rid, f] of _findingsRegistry) {
+          const packageName = String(f.package || f.component || "").toLowerCase();
+          if (String(f.id || "").toLowerCase() === wantId && (!wantPackage || packageName === wantPackage)) {
+            findingId = rid;
+            break;
+          }
+        }
+        if (findingId === null) {
+          const severities = ["critical", "high", "medium", "low"];
+          for (const severity of severities) {
+            const finding = (scan.findings[`${severity}_findings`] || []).find((f) => {
+              const packageName = String(f.package || f.component || "").toLowerCase();
+              return String(f.id || "").toLowerCase() === wantId && (!wantPackage || packageName === wantPackage);
+            });
+            if (finding) {
+              findingId = _registerFinding(finding);
+              break;
+            }
+          }
+        }
+        if (findingId !== null) openFindingDetail(findingId);
+      }
+      page.querySelectorAll(".poam-card").forEach(window.loadPoamCard);
+    } catch (e) {
+      page.innerHTML = errBanner(e.message);
+    }
+  }
+
   // src/pages/new-scan.js
   var new_scan_exports = {};
   __export(new_scan_exports, {
@@ -6523,7 +7561,7 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
   }
 
   // src/index.js
-  Object.assign(window, format_exports, scans_exports, badges_exports, layout_exports, charts_exports, feedback_exports, cache_exports, api_exports, poam_exports, router_exports, settings_exports, performance_exports, stig_history_exports, new_scan_exports, self_diagnostic_exports, registries_exports, jira_review_exports, stig_exports, metrics_exports, overview_exports, applications_exports);
+  Object.assign(window, format_exports, scans_exports, badges_exports, layout_exports, charts_exports, feedback_exports, cache_exports, api_exports, poam_exports, router_exports, settings_exports, performance_exports, stig_history_exports, new_scan_exports, self_diagnostic_exports, registries_exports, jira_review_exports, stig_exports, metrics_exports, overview_exports, applications_exports, model_security_exports, network_enrichment_exports, evidence_exports, scan_detail_exports);
 })();
 
 "use strict";
@@ -6860,998 +7898,6 @@ function setActive(routeKey) {
   closeFindingDetail();
   closeStigDetail();
 }
-async function renderScanDetail(scanId, openFindingId = "", openFindingPackage = "") {
-  setActive("applications");
-  const page = document.getElementById("page");
-  page.innerHTML = loading();
-  try {
-    const [scan, allApps] = await Promise.all([api.getScan(scanId), api.getApplications()]);
-    const status = computeStatus(scan);
-    const appInfo = allApps.find((a) => a.name === scan.target) || {};
-    const repoUrl = scan.source_url || appInfo.url || scan.ci_source?.repo || "";
-    const hasStigData = (scan.stig_total || 0) > 0;
-    const scanTypeHasStig = ["stig", "nightly", "full", "baseline"].includes(scan.scan_type);
-    let stigCard = "";
-    if (hasStigData) {
-      const reports = scan.stig_reports || [];
-      const multiStig = reports.length > 1;
-      const perStigRows = multiStig ? reports.map((r) => {
-        const slugLabel = r.slug.replace(/-/g, " ").replace(/\bstig\b/gi, "STIG");
-        const mdBtn2 = r.has_md ? `<a class="btn btn-sm" href="${esc(r.md_url)}"   download>↓ .md</a>` : "";
-        const cklbBtn2 = r.has_cklb ? `<a class="btn btn-sm" href="${esc(r.cklb_url)}" download>↓ .cklb</a>` : "";
-        const jsonBtn2 = `<a class="btn btn-sm" href="/api/scans/${encodeURIComponent(scanId)}/stig-findings-json?slug=${encodeURIComponent(r.slug)}" download>↓ .json</a>`;
-        return `
-          <div class="stig-row">
-            <span class="stig-row-label" title="${esc(r.slug)}">${esc(slugLabel)}</span>
-            <span class="stig-row-counts">
-              <span class="stig-mini open">${esc(r.open)} open</span>
-              <span class="stig-mini pass">${esc(r.pass)} pass</span>
-              <span class="stig-mini na">${esc(r.na)} n/a</span>
-              <span class="stig-mini total">${esc(r.total)} total</span>
-            </span>
-            <span class="stig-row-btns">${mdBtn2}${cklbBtn2}${jsonBtn2}</span>
-          </div>`;
-      }).join("") : "";
-      const mdBtn = scan.has_stig_report ? `<a class="btn btn-sm" href="${esc(scan.stig_report_url)}" download>↓ findings.md</a>` : "";
-      const cklbBtn = scan.has_stig_cklb ? `<a class="btn btn-sm" href="${esc(scan.stig_cklb_url)}" download>↓ findings.cklb</a>` : "";
-      const jsonBtn = `<a class="btn btn-sm" href="/api/scans/${encodeURIComponent(scanId)}/stig-findings-json" download>↓ findings.json</a>`;
-      stigCard = `
-        <div class="section findings-section-wrapper">
-          <details class="findings-collapsible" style="border-left-color:var(--accent)">
-            <summary class="findings-summary">
-              <span class="findings-summary-left">
-                <span class="findings-chevron" aria-hidden="true"></span>
-                <span class="findings-summary-title">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                       style="vertical-align:-2px;margin-right:5px">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                  </svg>
-                  STIG Assessment${multiStig ? ` <span style="color:var(--text-muted);font-weight:400;font-size:12px">(${reports.length} STIGs)</span>` : ""}
-                </span>
-                <span class="stig-mini open">${esc(scan.stig_open || 0)} open</span>
-                <span class="stig-mini pass">${esc(scan.stig_pass || 0)} pass</span>
-                <span class="stig-mini na">${esc(scan.stig_na || 0)} n/a</span>
-                ${(scan.stig_nr || 0) > 0 ? `<span class="stig-mini" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(scan.stig_nr || 0)} evidence needed</span>` : ""}
-                <span class="stig-mini total">${esc(scan.stig_total || 0)} total</span>
-              </span>
-              <span style="display:flex;align-items:center;gap:8px">
-                ${mdBtn ? mdBtn.replace("btn-sm", "btn-sm").replace(">", ' onclick="event.stopPropagation()">') : ""}
-                ${cklbBtn ? cklbBtn.replace(">", ' onclick="event.stopPropagation()">') : ""}
-                ${jsonBtn.replace(">", ' onclick="event.stopPropagation()">')}
-                <span class="findings-summary-hint">Click to expand</span>
-              </span>
-            </summary>
-            <div class="findings-body" style="padding:0 18px 16px">
-              <div class="stig-counts" style="margin-top:12px">
-                <div class="stig-count open">
-                  <span class="num">${esc(scan.stig_open || 0)}</span>
-                  <span class="lbl">Open</span>
-                </div>
-                <div class="stig-count pass">
-                  <span class="num">${esc(scan.stig_pass || 0)}</span>
-                  <span class="lbl">Not a Finding</span>
-                </div>
-                <div class="stig-count na">
-                  <span class="num">${esc(scan.stig_na || 0)}</span>
-                  <span class="lbl">Not Applicable</span>
-                </div>
-                ${(scan.stig_nr || 0) > 0 ? `
-                <div class="stig-count" style="background:var(--bg-input);border-color:var(--border)">
-                  <span class="num" style="color:var(--text-muted)">${esc(scan.stig_nr || 0)}</span>
-                  <span class="lbl" title="Not Reviewed: open until evidence is supplied">Evidence needed</span>
-                </div>` : ""}
-                <div class="stig-count total">
-                  <span class="num">${esc(scan.stig_total || 0)}</span>
-                  <span class="lbl">Total</span>
-                </div>
-              </div>
-              ${multiStig ? `<div class="stig-per-stig">${perStigRows}</div>` : ""}
-              <div class="stig-view-btn-row">
-                <button class="btn btn-primary btn-sm"
-                  onclick="navigate('#/stig-viewer/${encodeURIComponent(scanId)}')">
-                  ⊞ View Findings Inline
-                </button>
-              </div>
-            </div>
-          </details>
-        </div>`;
-    } else {
-      const noStigMsg = scanTypeHasStig ? "No STIG results were recorded for this scan. Verify that STIG definitions are configured in <code>configuration/stigs/</code> and that <code>OPENAI_API_KEY</code> is set." : "STIG assessment is not included in this scan type. Run a <strong>Nightly</strong> or <strong>STIG</strong> scan to get compliance results.";
-      stigCard = `
-        <div class="section findings-section-wrapper">
-          <details class="findings-collapsible" style="border-left-color:var(--border)">
-            <summary class="findings-summary">
-              <span class="findings-summary-left">
-                <span class="findings-chevron" aria-hidden="true"></span>
-                <span class="findings-summary-title">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                       style="vertical-align:-2px;margin-right:5px">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                  </svg>
-                  STIG Assessment
-                </span>
-              </span>
-              <span class="findings-summary-hint">Click to expand</span>
-            </summary>
-            <div class="findings-body" style="padding:12px 18px 16px">
-              <p style="color:var(--text-muted);font-size:13px;margin:0">${noStigMsg}</p>
-            </div>
-          </details>
-        </div>`;
-    }
-    const envNotes = scan.environment_notes || [];
-    const envNotesBanner = envNotes.length ? `
-      <div class="section" style="border-left:3px solid var(--medium);padding:12px 16px;margin-bottom:16px;background:rgba(245,158,11,0.08)">
-        <div style="font-weight:600;font-size:13px;margin-bottom:6px;color:var(--medium)">⚠ Environment Notes — results may differ from other environments</div>
-        ${envNotes.map((n) => `<div style="font-size:12.5px;color:var(--text-muted);margin-top:4px"><strong>${esc(n.layer)}:</strong> ${esc(n.message)}</div>`).join("")}
-      </div>` : "";
-    page.innerHTML = `
-      <div class="breadcrumb">
-        <a href="#/applications" onclick="navigate('#/applications')">Applications</a>
-        <span>›</span>
-        <a href="#/applications/${encodeURIComponent(scan.target)}"
-           onclick="navigate('#/applications/${encodeURIComponent(scan.target)}')">
-          ${esc(scan.target)}
-        </a>
-        <span>›</span>
-        <span>${esc(scan.scan_id)}</span>
-      </div>
-
-      ${pageHeader(`Scan Details ${statusBadge(status)} ${gateBadge(scan)}`, { subtitle: `Findings, compliance, and evidence collected for <strong>${esc(scan.target)}</strong> on ${fmtDate(scan.timestamp)}.`, actions: `<button class="btn" onclick="navigate('#/jira-review/${encodeURIComponent(scanId)}')"
-            title="Select findings to create as Jira tickets">
-            Jira Review
-          </button>
-          ${repoUrl ? `<button class="btn btn-primary"
-                 onclick="navigate('#/new-scan?target=${encodeURIComponent(repoUrl)}')">
-                 ▶ Run Scan
-               </button>` : `<button class="btn btn-primary" onclick="navigate('#/new-scan')">▶ Run Scan</button>`}
-          ${scan.has_dashboard ? `<button class="btn"
-                 onclick="window.open('/api/scans/${encodeURIComponent(scanId)}/dashboard','_blank')">
-                 Export HTML ↗
-               </button>` : ""}
-          <div class="split-btn" id="download-split-btn">
-            <a class="btn split-btn-main" href="/api/scans/${encodeURIComponent(scanId)}/download" download
-               title="Download all scan artifacts as ZIP for ATO/IATT submission">
-              ↓ Download ZIP
-            </a>
-            <button class="btn split-btn-toggle" onclick="toggleDownloadMenu(event)"
-              title="More download options" aria-haspopup="true" aria-expanded="false">▾</button>
-            <div class="split-btn-menu" id="download-split-menu" hidden>
-              <a class="split-btn-menu-item" href="/api/scans/${encodeURIComponent(scanId)}/download" download>
-                ↓ Download ZIP
-                <span class="split-btn-menu-hint">All raw scan artifacts (ATO/IATT bundle)</span>
-              </a>
-              <a class="split-btn-menu-item" href="/api/scans/${encodeURIComponent(scanId)}/download-json" download>
-                ↓ Download JSON
-                <span class="split-btn-menu-hint">Full parsed scan result (findings, STIG, ML/AI)</span>
-              </a>
-            </div>
-          </div>
-          <button class="btn btn-danger"
-            onclick="deleteScan('${esc(scanId)}', '${esc(scan.target)}')"
-            title="Permanently delete this scan">
-            Delete Scan
-          </button>` })}
-
-      ${envNotesBanner}
-
-      <div class="stats-grid" style="margin-bottom:24px">
-        <div class="stat-card">
-          <div class="stat-label">Application</div>
-          <div class="stat-value" style="font-size:17px;word-break:break-word">${esc(scan.target)}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Scan Type</div>
-          <div class="stat-value" style="font-size:17px;word-break:break-word">${esc(scanTypeLabel(scan.scan_type))}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">User</div>
-          <div class="stat-value" style="font-size:17px;word-break:break-word">${esc(scan.user || "—")}</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Timestamp</div>
-          <div class="stat-value" style="font-size:13px">${fmtDate(scan.timestamp)}</div>
-        </div>
-      </div>
-
-      <div class="result-section-box">
-        <div class="result-section-box-title">Vulnerabilities</div>
-        <div class="stats-grid" style="margin-bottom:0">
-          <div class="stat-card critical">
-            <div class="stat-label">Critical</div>
-            <div class="stat-value">${esc(scan.critical)}</div>
-          </div>
-          <div class="stat-card high">
-            <div class="stat-label">High</div>
-            <div class="stat-value">${esc(scan.high)}</div>
-          </div>
-          <div class="stat-card medium">
-            <div class="stat-label">Medium</div>
-            <div class="stat-value">${esc(scan.medium)}</div>
-          </div>
-          <div class="stat-card low">
-            <div class="stat-label">Low</div>
-            <div class="stat-value">${esc(scan.low)}</div>
-          </div>
-        </div>
-      </div>
-
-      ${buildFindingsSection(scan.findings)}
-
-      ${buildSuppressedSection(scan.suppressed_findings)}
-
-      ${stigCard}
-
-      ${buildPoamSection(scanId)}
-
-      ${buildModelSecurityCard(scan)}
-
-      ${buildMisconfigurationsCard(scan)}
-
-      ${buildBuildEvidenceCard(scan)}
-
-      ${buildSSPEvidenceCard(scan)}
-
-      ${buildSBOMSection(scan.sbom, scanId)}
-
-      ${buildAPISection(scan.api_discovery)}
-
-      ${buildNetworkDiscoveryCard(scan)}
-
-      ${scan.file_statistics && Object.keys(scan.file_statistics).length ? `
-        <div class="result-section-box">
-          <div class="result-section-box-title">File Statistics</div>
-          <div class="stats-grid" style="margin-bottom:0">
-            ${Object.entries(scan.file_statistics).map(([k, v]) => `
-              <div class="stat-card">
-                <div class="stat-label">${esc(k.replace(/_/g, " "))}</div>
-                <div class="stat-value" style="font-size:20px">${esc(v)}</div>
-              </div>`).join("")}
-          </div>
-        </div>` : ""}
-
-      <div id="scorecard-container"></div>
-
-      ${dedupeTools(scan.tools_analyzed).length ? `
-        <div class="result-section-box">
-          <div class="result-section-box-title">Tools Analyzed</div>
-          <div class="tools-list">
-            ${dedupeTools(scan.tools_analyzed).map((t) => `<span class="tool-tag">${esc(t)}</span>`).join("")}
-          </div>
-        </div>` : ""}`;
-    if (window._sbomPendingUid) {
-      sbomRender(window._sbomPendingUid);
-      window._sbomPendingUid = null;
-    }
-    if (window._apiPendingUid) {
-      apiRender(window._apiPendingUid);
-      window._apiPendingUid = null;
-    }
-    calculateScorecardForScan(scanId);
-    if (openFindingId) {
-      const wantId = openFindingId.toLowerCase();
-      const wantPackage = openFindingPackage.toLowerCase();
-      let findingId = null;
-      for (const [rid, f] of _findingsRegistry) {
-        const packageName = String(f.package || f.component || "").toLowerCase();
-        if (String(f.id || "").toLowerCase() === wantId && (!wantPackage || packageName === wantPackage)) {
-          findingId = rid;
-          break;
-        }
-      }
-      if (findingId === null) {
-        const severities = ["critical", "high", "medium", "low"];
-        for (const severity of severities) {
-          const finding = (scan.findings[`${severity}_findings`] || []).find((f) => {
-            const packageName = String(f.package || f.component || "").toLowerCase();
-            return String(f.id || "").toLowerCase() === wantId && (!wantPackage || packageName === wantPackage);
-          });
-          if (finding) {
-            findingId = _registerFinding(finding);
-            break;
-          }
-        }
-      }
-      if (findingId !== null) openFindingDetail(findingId);
-    }
-    page.querySelectorAll(".poam-card").forEach(window.loadPoamCard);
-  } catch (e) {
-    page.innerHTML = errBanner(e.message);
-  }
-}
-function buildPicklescanCard(scan) {
-  return "";
-}
-function buildModelCardCard(scan) {
-  return "";
-}
-function buildEnrichmentCard(findings) {
-  if (!findings) return "";
-  const enr = findings.enrichment;
-  if (!enr || enr.cisa_kev_total == null && enr.nvd_total == null) return "";
-  const kevTotal = enr.cisa_kev_total || 0;
-  const nvdTotal = enr.nvd_total || 0;
-  if (kevTotal === 0 && nvdTotal === 0) return "";
-  const hasKev = kevTotal > 0;
-  const accentColor = hasKev ? "var(--critical)" : "var(--accent)";
-  const kevFindings = [];
-  for (const sev of ["critical", "high", "medium", "low"]) {
-    for (const f of findings[`${sev}_findings`] || []) {
-      if (f.cisa_kev === true) kevFindings.push({ sev, ...f });
-    }
-  }
-  let enrichedAt = "";
-  if (enr.enriched_at) {
-    try {
-      enrichedAt = new Date(enr.enriched_at).toLocaleString(
-        void 0,
-        { dateStyle: "medium", timeStyle: "short" }
-      );
-    } catch (_) {
-      enrichedAt = enr.enriched_at;
-    }
-  }
-  const kevTable = "";
-  const catalogLink = enr.kev_catalog_url ? `<a href="${esc(enr.kev_catalog_url)}" target="_blank" rel="noopener"
-         style="font-size:12px;color:var(--accent)">↗ CISA KEV Catalog</a>` : "";
-  return `
-    <div class="section findings-section-wrapper">
-      <details class="findings-collapsible" style="border-left-color:${accentColor}">
-        <summary class="findings-summary">
-          <span class="findings-summary-left">
-            <span class="findings-chevron" aria-hidden="true"></span>
-            <span class="findings-summary-title">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                   style="vertical-align:-2px;margin-right:5px">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-              </svg>
-              Threat Intelligence Enrichment
-            </span>
-            ${hasKev ? `<span style="background:var(--critical-bg);color:var(--critical);border:1px solid #b91c1c;border-radius:4px;padding:1px 7px;font-size:12px;font-weight:700">${esc(kevTotal)} KEV</span>` : ""}
-            <span class="sev-badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(nvdTotal)} NVD enriched</span>
-          </span>
-          <span class="findings-summary-hint">Click to expand</span>
-        </summary>
-        <div class="findings-body" style="padding:0 18px 16px">
-          <div class="detail-grid" style="margin-top:12px;margin-bottom:0">
-            ${hasKev ? `
-            <div class="detail-card" style="border-color:var(--critical-bg);background:rgba(127,29,29,0.12)">
-              <div class="label" style="color:var(--critical)">CISA KEV Matches</div>
-              <div class="value" style="color:var(--critical)">${esc(kevTotal)}</div>
-            </div>` : ""}
-            <div class="detail-card">
-              <div class="label">NVD Enriched CVEs</div>
-              <div class="value">${esc(nvdTotal)}</div>
-            </div>
-            ${enrichedAt ? `
-            <div class="detail-card">
-              <div class="label">Enriched At</div>
-              <div class="value" style="font-size:12px">${enrichedAt}</div>
-            </div>` : ""}
-          </div>
-          ${hasKev ? `
-          <p style="color:var(--critical);font-size:12px;margin:12px 0 4px">
-            ⚠ ${esc(kevTotal)} finding${kevTotal > 1 ? "s" : ""} match CISA's Known Exploited Vulnerabilities catalog —
-            actively exploited in the wild. Findings marked <strong>KEV</strong> above require immediate attention.
-          </p>` : ""}
-          ${catalogLink ? `<div style="margin-top:8px">${catalogLink}</div>` : ""}
-        </div>
-      </details>
-    </div>`;
-}
-function buildNetworkDiscoveryCard(scan) {
-  const nd = scan.network_discovery;
-  if (!nd) return "";
-  const scanId = scan.scan_id || scan.id || "";
-  _ppsmRegistry.set(scanId, nd);
-  const ports = (nd.unique_ports || []).join(", ") || "—";
-  const protos = (nd.protocols || []).join(", ") || "—";
-  const services = (nd.services || []).join(", ") || "—";
-  const sourceRows = [
-    { label: "Docker Compose", items: nd.compose_ports || [] },
-    { label: "Dockerfile", items: nd.dockerfile_ports || [] },
-    { label: "Kubernetes/Helm", items: nd.k8s_ports || [] },
-    { label: "App Config/.env", items: nd.config_ports || [] }
-  ].filter((r) => r.items.length > 0);
-  const sourceHtml = sourceRows.length ? sourceRows.map((r, idx) => {
-    const tblId = `ppsm-tbl-${idx}`;
-    return `
-    <div style="margin-top:10px">
-      <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:4px">${esc(r.label)}</div>
-      <table id="${tblId}" style="width:100%;border-collapse:collapse;font-size:12px">
-        <thead>
-          <tr style="color:var(--text-muted)">
-            <th scope="col" data-col="0" class="sortable-th" style="text-align:left;padding:2px 8px 2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',0)">File <span class="sort-icon">⇅</span></th>
-            <th scope="col" data-col="1" class="sortable-th" style="text-align:left;padding:2px 8px 2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',1)">Service <span class="sort-icon">⇅</span></th>
-            <th scope="col" data-col="2" class="sortable-th" style="text-align:left;padding:2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',2)">Port / Mapping <span class="sort-icon">⇅</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          ${r.items.map((p) => `
-            <tr style="border-top:1px solid var(--border)">
-              <td style="padding:3px 8px 3px 0;color:var(--text-muted);font-family:monospace;font-size:12px">${esc(p.file || "")}</td>
-              <td style="padding:3px 8px 3px 0">${esc(p.service || "")}</td>
-              <td style="padding:3px 0;font-family:monospace">${esc(p.mapping || String(p.port || ""))}</td>
-            </tr>`).join("")}
-        </tbody>
-      </table>
-    </div>`;
-  }).join("") : emptyNote("No static port definitions found.");
-  const activeBadge = nd.active_scan_run ? '<span style="background:var(--low-bg,#fffbe6);color:var(--low);border:1px solid var(--low);border-radius:4px;padding:1px 7px;font-size:12px;font-weight:600">nmap active</span>' : '<span style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-size:12px">static only</span>';
-  const portsBadge = nd.total_ports ? `<span class="sev-badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border)">${esc(String(nd.total_ports))} ports</span>` : "";
-  return `
-    <div class="section findings-section-wrapper">
-      <details class="findings-collapsible" style="border-left-color:var(--accent)">
-        <summary class="findings-summary">
-          <span class="findings-summary-left">
-            <span class="findings-chevron" aria-hidden="true"></span>
-            <span class="findings-summary-title">🔌 Network Discovery · PPSM</span>
-            ${portsBadge}
-            ${activeBadge}
-          </span>
-          <span class="findings-summary-right" onclick="event.stopPropagation()">
-            <button class="btn btn-sm" onclick="downloadPpsmCsv('${esc(scanId)}')" title="Download PPSM as CSV">↓ PPSM</button>
-          </span>
-        </summary>
-        <div class="findings-body" style="padding:0 18px 16px">
-          <div class="detail-grid" style="margin-bottom:12px;margin-top:12px">
-            <div class="detail-card">
-              <div class="label">Ports Found</div>
-              <div class="value">${esc(nd.total_ports)}</div>
-            </div>
-            <div class="detail-card">
-              <div class="label">Scan Method</div>
-              <div class="value" style="font-size:13px">${activeBadge}</div>
-            </div>
-            <div class="detail-card" style="grid-column:span 2">
-              <div class="label">Unique Ports</div>
-              <div class="value" style="font-size:13px;font-family:monospace">${esc(ports)}</div>
-            </div>
-            <div class="detail-card">
-              <div class="label">Protocols</div>
-              <div class="value" style="font-size:13px">${esc(protos)}</div>
-            </div>
-            <div class="detail-card">
-              <div class="label">Inferred Services</div>
-              <div class="value" style="font-size:13px">${esc(services)}</div>
-            </div>
-          </div>
-          ${sourceHtml}
-        </div>
-      </details>
-    </div>`;
-}
-function buildModelSecurityCard(scan) {
-  const ps = scan.picklescan;
-  const mc = scan.modelcard;
-  const mp = scan.model_provenance;
-  const is = scan.inference_security;
-  const mr = scan.ml_runtime;
-  let pickleSection = "";
-  if (ps && Array.isArray(ps)) {
-    const findingsCount = ps.length;
-    const criticalCount = ps.filter((f) => (f.severity || "").toLowerCase() === "critical").length;
-    const highCount = ps.filter((f) => (f.severity || "").toLowerCase() === "high").length;
-    const statusClass = criticalCount > 0 || highCount > 0 ? "status-open" : "status-clean";
-    const statusLabel = findingsCount > 0 ? `${findingsCount} finding(s)` : "Clean";
-    const icon = findingsCount > 0 ? "🚨" : "✅";
-    const psFindings = ps.map((f) => {
-      const fid = _registerFinding({
-        severity: f.severity || "high",
-        id: f.id || f.type || "",
-        tool: "picklescan",
-        title: f.description || f.type || "—",
-        description: f.evidence || "",
-        file: f.file || "",
-        target: f.file || ""
-      });
-      return `
-      <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
-        <span class="hf-finding-sev hf-sev-${esc(f.severity || "high")}">${esc(f.severity || "high")}</span>
-        <code class="hf-finding-file">${esc(f.file || "—")}</code>
-        <span class="hf-finding-msg">${esc(f.description || f.type || "Malicious content detected")}</span>
-        <span class="hf-finding-chevron">›</span>
-      </div>`;
-    }).join("");
-    pickleSection = `
-      <div class="ms-layer">
-        <div class="ms-layer-header">
-          <div class="ms-layer-title">
-            <span class="hf-tool-icon">🥒</span>
-            <span>Layer 14 — Comprehensive Model File Analysis</span>
-            <span class="hf-tool-name">picklescan-enhanced</span>
-          </div>
-          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
-        </div>
-        <div class="hf-tool-stats" style="margin-bottom:0">
-          <div class="hf-stat"><span class="hf-stat-num">${findingsCount}</span><span class="hf-stat-lbl">findings</span></div>
-          <div class="hf-stat"><span class="hf-stat-num ${criticalCount > 0 ? "danger" : ""}">${criticalCount}</span><span class="hf-stat-lbl">critical</span></div>
-          <div class="hf-stat"><span class="hf-stat-num ${highCount > 0 ? "danger" : ""}">${highCount}</span><span class="hf-stat-lbl">high</span></div>
-        </div>
-        ${psFindings ? `<div class="hf-findings" style="margin-top:10px">${psFindings}</div>` : ""}
-      </div>`;
-  } else if (ps && typeof ps === "object") {
-    const statusClass = ps.flagged_count > 0 ? "status-open" : "status-clean";
-    const statusLabel = ps.flagged_count > 0 ? `${ps.flagged_count} infected file(s)` : "Clean";
-    const icon = ps.flagged_count > 0 ? "🚨" : "✅";
-    const totalWeightFiles = ps.total_weight_files ?? ps.file_count ?? 0;
-    const psFindings = (ps.findings || []).map((f) => `
-      <div class="hf-finding-row">
-        <span class="hf-finding-sev hf-sev-${esc(f.severity || "high")}">${esc(f.severity || "high")}</span>
-        <code class="hf-finding-file">${esc(f.file || "—")}</code>
-        <span class="hf-finding-msg">${esc(f.message || f.description || "Malicious pickle opcode detected")}</span>
-      </div>`).join("");
-    pickleSection = `
-      <div class="ms-layer">
-        <div class="ms-layer-header">
-          <div class="ms-layer-title">
-            <span class="hf-tool-icon">🥒</span>
-            <span>Layer 14 — Pickle / Serialization Safety</span>
-            <span class="hf-tool-name">picklescan</span>
-          </div>
-          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
-        </div>
-        <div class="hf-tool-stats" style="margin-bottom:0">
-          <div class="hf-stat"><span class="hf-stat-num">${totalWeightFiles}</span><span class="hf-stat-lbl">weight files</span></div>
-          <div class="hf-stat"><span class="hf-stat-num">${ps.file_count ?? 0}</span><span class="hf-stat-lbl">pickle-scannable</span></div>
-          <div class="hf-stat"><span class="hf-stat-num ${ps.flagged_count > 0 ? "danger" : ""}">${ps.flagged_count ?? 0}</span><span class="hf-stat-lbl">infected</span></div>
-        </div>
-        ${psFindings ? `<div class="hf-findings" style="margin-top:10px">${psFindings}</div>` : ""}
-      </div>`;
-  }
-  let modelCardSection = "";
-  if (mc) {
-    const statusClass = mc.failed > 0 ? "status-open" : mc.warnings > 0 ? "status-warn" : "status-clean";
-    const statusLabel = mc.failed > 0 ? `${mc.failed} check(s) failed` : mc.warnings > 0 ? `${mc.warnings} warning(s)` : "Compliant";
-    const icon = mc.failed > 0 ? "❌" : mc.warnings > 0 ? "⚠️" : "✅";
-    const fileLabel = mc.file_checked ? `<span class="hf-file-checked" title="${esc(mc.file_checked)}">${esc(mc.file_checked.split("/").pop())}</span>` : "";
-    const mcFindings = (mc.findings || []).map((f) => {
-      const fid = _registerFinding({
-        severity: f.severity || "medium",
-        id: f.check || "",
-        tool: "model card",
-        title: f.message || f.check || "—",
-        description: f.recommendation || "",
-        file: mc.file_checked || "",
-        target: mc.file_checked || ""
-      });
-      return `
-      <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
-        <span class="hf-finding-sev hf-sev-${esc(f.severity || "medium")}">${esc(f.severity || "medium")}</span>
-        <span class="hf-finding-file">${esc(f.check || "—")}</span>
-        <span class="hf-finding-msg">${esc(f.message || "")}${f.recommendation ? `<span class="hf-recommendation"> → ${esc(f.recommendation)}</span>` : ""}</span>
-        <span class="hf-finding-chevron">›</span>
-      </div>`;
-    }).join("");
-    modelCardSection = `
-      <div class="ms-layer ms-layer-border">
-        <div class="ms-layer-header">
-          <div class="ms-layer-title">
-            <span class="hf-tool-icon">📋</span>
-            <span>Layer 15 — Model Card Compliance</span>
-            ${fileLabel}
-          </div>
-          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
-        </div>
-        <div class="hf-tool-stats" style="margin-bottom:0">
-          <div class="hf-stat"><span class="hf-stat-num">${(mc.passed ?? 0) + (mc.failed ?? 0) + (mc.warnings ?? 0)}</span><span class="hf-stat-lbl">checks</span></div>
-          <div class="hf-stat"><span class="hf-stat-num clean">${mc.passed ?? 0}</span><span class="hf-stat-lbl">passed</span></div>
-          <div class="hf-stat"><span class="hf-stat-num ${mc.failed > 0 ? "danger" : ""}">${mc.failed ?? 0}</span><span class="hf-stat-lbl">failed</span></div>
-          <div class="hf-stat"><span class="hf-stat-num">${mc.warnings ?? 0}</span><span class="hf-stat-lbl">warnings</span></div>
-        </div>
-        ${mcFindings ? `<div class="hf-findings" style="margin-top:10px">${mcFindings}</div>` : ""}
-      </div>`;
-  }
-  let provenanceSection = "";
-  if (mp && Array.isArray(mp) && mp.length > 0) {
-    const findingsCount = mp.length;
-    const criticalCount = mp.filter((f) => (f.severity || "").toLowerCase() === "critical").length;
-    const highCount = mp.filter((f) => (f.severity || "").toLowerCase() === "high").length;
-    const statusClass = criticalCount > 0 || highCount > 0 ? "status-open" : "status-clean";
-    const statusLabel = findingsCount > 0 ? `${findingsCount} finding(s)` : "Clean";
-    const icon = findingsCount > 0 ? "🚨" : "✅";
-    const mpFindings = mp.map((f) => {
-      const fid = _registerFinding({
-        severity: f.severity || "high",
-        id: f.id || f.type || "",
-        tool: "model-provenance",
-        title: f.description || f.type || "—",
-        description: f.evidence || "",
-        file: f.file || "",
-        target: f.file || ""
-      });
-      return `
-      <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
-        <span class="hf-finding-sev hf-sev-${esc(f.severity || "high")}">${esc(f.severity || "high")}</span>
-        <code class="hf-finding-file">${esc(f.file || "—")}</code>
-        <span class="hf-finding-msg">${esc(f.description || f.type || "Provenance issue detected")}</span>
-        <span class="hf-finding-chevron">›</span>
-      </div>`;
-    }).join("");
-    provenanceSection = `
-      <div class="ms-layer ms-layer-border">
-        <div class="ms-layer-header">
-          <div class="ms-layer-title">
-            <span class="hf-tool-icon">🔐</span>
-            <span>Layer 18 — Model Provenance & Threat Intelligence</span>
-            <span class="hf-tool-name">model-provenance</span>
-          </div>
-          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
-        </div>
-        <div class="hf-tool-stats" style="margin-bottom:0">
-          <div class="hf-stat"><span class="hf-stat-num">${findingsCount}</span><span class="hf-stat-lbl">findings</span></div>
-          <div class="hf-stat"><span class="hf-stat-num ${criticalCount > 0 ? "danger" : ""}">${criticalCount}</span><span class="hf-stat-lbl">critical</span></div>
-          <div class="hf-stat"><span class="hf-stat-num ${highCount > 0 ? "danger" : ""}">${highCount}</span><span class="hf-stat-lbl">high</span></div>
-        </div>
-        ${mpFindings ? `<div class="hf-findings" style="margin-top:10px">${mpFindings}</div>` : ""}
-      </div>`;
-  }
-  let inferenceSection = "";
-  if (is && Array.isArray(is) && is.length > 0) {
-    const findingsCount = is.length;
-    const criticalCount = is.filter((f) => (f.severity || "").toLowerCase() === "critical").length;
-    const highCount = is.filter((f) => (f.severity || "").toLowerCase() === "high").length;
-    const statusClass = criticalCount > 0 || highCount > 0 ? "status-open" : "status-clean";
-    const statusLabel = findingsCount > 0 ? `${findingsCount} finding(s)` : "Clean";
-    const icon = findingsCount > 0 ? "🚨" : "✅";
-    const isFindings = is.map((f) => {
-      const fid = _registerFinding({
-        severity: f.severity || "high",
-        id: f.id || f.type || "",
-        tool: "inference-security",
-        title: f.description || f.type || "—",
-        description: f.evidence || "",
-        file: f.file || "",
-        target: f.file || ""
-      });
-      return `
-      <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
-        <span class="hf-finding-sev hf-sev-${esc(f.severity || "high")}">${esc(f.severity || "high")}</span>
-        <code class="hf-finding-file">${esc(f.file || "—")}</code>
-        <span class="hf-finding-msg">${esc(f.description || f.type || "Infrastructure issue detected")}</span>
-        <span class="hf-finding-chevron">›</span>
-      </div>`;
-    }).join("");
-    inferenceSection = `
-      <div class="ms-layer ms-layer-border">
-        <div class="ms-layer-header">
-          <div class="ms-layer-title">
-            <span class="hf-tool-icon">🐳</span>
-            <span>Layer 19 — Inference Environment Security</span>
-            <span class="hf-tool-name">inference-security</span>
-          </div>
-          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
-        </div>
-        <div class="hf-tool-stats" style="margin-bottom:0">
-          <div class="hf-stat"><span class="hf-stat-num">${findingsCount}</span><span class="hf-stat-lbl">findings</span></div>
-          <div class="hf-stat"><span class="hf-stat-num ${criticalCount > 0 ? "danger" : ""}">${criticalCount}</span><span class="hf-stat-lbl">critical</span></div>
-          <div class="hf-stat"><span class="hf-stat-num ${highCount > 0 ? "danger" : ""}">${highCount}</span><span class="hf-stat-lbl">high</span></div>
-        </div>
-        ${isFindings ? `<div class="hf-findings" style="margin-top:10px">${isFindings}</div>` : ""}
-      </div>`;
-  }
-  let runtimeSection = "";
-  if (mr && Array.isArray(mr) && mr.length > 0) {
-    const findingsCount = mr.length;
-    const criticalCount = mr.filter((f) => (f.severity || "").toLowerCase() === "critical").length;
-    const highCount = mr.filter((f) => (f.severity || "").toLowerCase() === "high").length;
-    const statusClass = criticalCount > 0 || highCount > 0 ? "status-open" : "status-clean";
-    const statusLabel = findingsCount > 0 ? `${findingsCount} finding(s)` : "Clean";
-    const icon = findingsCount > 0 ? "🚨" : "✅";
-    const mrFindings = mr.map((f) => {
-      const fid = _registerFinding({
-        severity: f.severity || "high",
-        id: f.id || f.type || "",
-        tool: "ml-runtime",
-        title: f.description || f.type || "—",
-        description: f.evidence || "",
-        file: f.file || "",
-        target: f.file || ""
-      });
-      return `
-      <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
-        <span class="hf-finding-sev hf-sev-${esc(f.severity || "high")}">${esc(f.severity || "high")}</span>
-        <code class="hf-finding-file">${esc(f.file || "—")}</code>
-        <span class="hf-finding-msg">${esc(f.description || f.type || "Malicious runtime behavior detected")}</span>
-        <span class="hf-finding-chevron">›</span>
-      </div>`;
-    }).join("");
-    runtimeSection = `
-      <div class="ms-layer ms-layer-border">
-        <div class="ms-layer-header">
-          <div class="ms-layer-title">
-            <span class="hf-tool-icon">⚡</span>
-            <span>Layer 20 — ML Runtime Behavioral Analysis</span>
-            <span class="hf-tool-name">ml-runtime</span>
-            <span class="tool-tag" style="background:var(--purple-bg);color:var(--purple);border:1px solid #7c3aed66;margin-left:6px">OPT-IN</span>
-          </div>
-          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
-        </div>
-        <div class="hf-tool-stats" style="margin-bottom:0">
-          <div class="hf-stat"><span class="hf-stat-num">${findingsCount}</span><span class="hf-stat-lbl">findings</span></div>
-          <div class="hf-stat"><span class="hf-stat-num ${criticalCount > 0 ? "danger" : ""}">${criticalCount}</span><span class="hf-stat-lbl">critical</span></div>
-          <div class="hf-stat"><span class="hf-stat-num ${highCount > 0 ? "danger" : ""}">${highCount}</span><span class="hf-stat-lbl">high</span></div>
-        </div>
-        ${mrFindings ? `<div class="hf-findings" style="margin-top:10px">${mrFindings}</div>` : ""}
-      </div>`;
-  }
-  const psIssues = Array.isArray(ps) ? ps.length : ps?.flagged_count > 0;
-  const mcIssues = mc?.failed > 0 || mc?.warnings > 0;
-  const mpIssues = mp && mp.length > 0;
-  const isIssues = is && is.length > 0;
-  const mrIssues = mr && mr.length > 0;
-  const hasIssues = psIssues || mcIssues || mpIssues || isIssues || mrIssues;
-  const hasCritical = Array.isArray(ps) && ps.some((f) => (f.severity || "").toLowerCase() === "critical") || mp && mp.some((f) => (f.severity || "").toLowerCase() === "critical") || is && is.some((f) => (f.severity || "").toLowerCase() === "critical") || mr && mr.some((f) => (f.severity || "").toLowerCase() === "critical") || ps?.flagged_count > 0 || mc?.failed > 0;
-  const summaryBadgeClass = hasCritical ? "status-open" : hasIssues ? "status-warn" : "status-clean";
-  const summaryIcon = hasCritical ? "⚠" : hasIssues ? "⚠" : "✓";
-  const summaryLabel = hasIssues ? "Issues found" : "All clear";
-  const anyLayersRan = ps || mc || mp || is || mr;
-  const emptyState = !anyLayersRan ? `
-    <div style="padding:16px;text-align:center;color:var(--text-muted);font-size:13px">
-      <div style="margin-bottom:8px">ℹ️ No ML/AI security layers detected in this scan</div>
-      <div style="font-size:12px;color:var(--text-dim)">ML security scanning (layers 14, 15, 18, 19, 20) only runs for repositories containing ML models or AI artifacts</div>
-    </div>` : "";
-  return `
-    <details class="ms-card" id="model-security-card">
-      <summary class="ms-summary">
-        <span class="ms-summary-left">
-          <span class="findings-chevron" aria-hidden="true"></span>
-          <span class="ms-summary-title">ML/AI Security</span>
-          ${ps ? '<span class="tool-tag" style="font-size:12px">picklescan</span>' : ""}
-          ${mc ? '<span class="tool-tag" style="font-size:12px">model card</span>' : ""}
-          ${mp ? '<span class="tool-tag" style="font-size:12px">provenance</span>' : ""}
-          ${is ? '<span class="tool-tag" style="font-size:12px">inference</span>' : ""}
-          ${mr ? '<span class="tool-tag" style="font-size:12px;background:var(--purple-bg);color:var(--purple)">runtime</span>' : ""}
-        </span>
-        <span class="ms-summary-right">
-          <span class="hf-status-badge ${summaryBadgeClass}">${summaryIcon} ${summaryLabel}</span>
-          <span class="findings-summary-hint" style="margin-left:8px">Click to expand</span>
-        </span>
-      </summary>
-      <div class="ms-body">
-        ${emptyState}
-        ${pickleSection}
-        ${modelCardSection}
-        ${provenanceSection}
-        ${inferenceSection}
-        ${runtimeSection}
-      </div>
-    </details>`;
-}
-function buildMisconfigurationsCard(scan) {
-  const misconfigs = scan.misconfigurations;
-  const summary = misconfigs?.summary || { total_critical: 0, total_high: 0, total_medium: 0, total_low: 0, tools_analyzed: [] };
-  const totalIssues = summary.total_critical + summary.total_high + summary.total_medium + summary.total_low;
-  let findingsHtml = "";
-  if (totalIssues > 0) {
-    const buildMisconfigRow = (f) => {
-      const fid = _registerFinding({
-        severity: f.severity || "medium",
-        id: f.id || "",
-        tool: f.tool || "Checkov",
-        title: f.title || f.description || "—",
-        description: f.description || "",
-        file: f.file || "",
-        target: f.target || ""
-      });
-      return `
-        <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
-          <span class="hf-finding-sev hf-sev-${esc(f.severity || "medium")}">${esc(f.severity || "medium")}</span>
-          ${findingSourceBadge(f)}
-          <code class="hf-finding-file">${esc(f.file || f.target || "—")}</code>
-          <span class="hf-finding-msg">${esc(f.title || f.description || "Configuration issue detected")}</span>
-          <span class="hf-finding-chevron">›</span>
-        </div>`;
-    };
-    const allMisconfigItems = [
-      ...misconfigs.critical_findings || [],
-      ...misconfigs.high_findings || [],
-      ...misconfigs.medium_findings || [],
-      ...misconfigs.low_findings || []
-    ];
-    const rows = allMisconfigItems.map(buildMisconfigRow).join("");
-    findingsHtml = `
-      <div class="hf-findings" style="margin-top:10px">
-        ${rows}
-      </div>`;
-  } else {
-    findingsHtml = `
-      <div style="padding:12px;text-align:center;color:var(--text-muted);font-size:13px">
-        ✓ No misconfigurations or secrets detected
-      </div>`;
-  }
-  const statusClass = totalIssues === 0 ? "status-clean" : summary.total_critical > 0 ? "status-open" : summary.total_high > 0 ? "status-warn" : "status-clean";
-  const statusIcon = totalIssues === 0 ? "✓" : summary.total_critical > 0 ? "🚨" : summary.total_high > 0 ? "⚠" : "✓";
-  const statusLabel = totalIssues === 0 ? "All clear" : summary.total_critical > 0 ? `${summary.total_critical} critical issue(s)` : summary.total_high > 0 ? `${summary.total_high} high issue(s)` : "Minor issues";
-  return `
-    <details class="ms-card" id="misconfigurations-card">
-      <summary class="ms-summary">
-        <span class="ms-summary-left">
-          <span class="findings-chevron" aria-hidden="true"></span>
-          <span class="ms-summary-title">Misconfigurations</span>
-          <span class="tool-tag" style="font-size:12px">Layers 2, 6 & 21 — Secrets, IaC & Supply Chain</span>
-        </span>
-        <span class="ms-summary-right">
-          <span class="hf-status-badge ${statusClass}">${statusIcon} ${statusLabel}</span>
-          <span class="findings-summary-hint" style="margin-left:8px">Click to expand</span>
-        </span>
-      </summary>
-      <div class="ms-body">
-        <div class="ms-layer">
-          <div class="ms-layer-header">
-            <div class="ms-layer-title">
-              <span class="hf-tool-icon">🔧</span>
-              <span>Security Misconfigurations & Secrets</span>
-              <span class="hf-tool-name">${(summary.tools_analyzed || []).join(", ") || "Checkov, TruffleHog"}</span>
-            </div>
-            <span class="hf-status-badge ${statusClass}">${statusIcon} ${totalIssues} finding(s)</span>
-          </div>
-          <div class="hf-tool-stats" style="margin-bottom:0">
-            <div class="hf-stat"><span class="hf-stat-num">${totalIssues}</span><span class="hf-stat-lbl">findings</span></div>
-            <div class="hf-stat"><span class="hf-stat-num ${summary.total_critical > 0 ? "danger" : ""}">${summary.total_critical}</span><span class="hf-stat-lbl">critical</span></div>
-            <div class="hf-stat"><span class="hf-stat-num ${summary.total_high > 0 ? "danger" : ""}">${summary.total_high}</span><span class="hf-stat-lbl">high</span></div>
-            <div class="hf-stat"><span class="hf-stat-num">${summary.total_medium}</span><span class="hf-stat-lbl">medium</span></div>
-            <div class="hf-stat"><span class="hf-stat-num">${summary.total_low}</span><span class="hf-stat-lbl">low</span></div>
-          </div>
-          ${findingsHtml}
-        </div>
-      </div>
-    </details>`;
-}
-function buildBuildEvidenceCard(scan) {
-  const be = scan.build_evidence || {};
-  const build = be.build || {};
-  const sig = be.signature || {};
-  const prov = be.provenance || {};
-  const arts = be.artifacts || {};
-  const digest = be.digest || build.digest || "";
-  const mode = build.mode || (build.status === "success" ? "container_build" : "target_source_manifest");
-  const isContainerBuild = mode === "container_build";
-  const statusBadge2 = isContainerBuild ? `<span class="badge" style="background:var(--pass);color:var(--bg);">✅ Image Built</span>` : `<span class="badge" style="background:var(--accent);color:var(--bg);">✅ Target Attested & Verified</span>`;
-  const manifestBadge = arts.oci_manifest ? `<span class="badge" style="background:var(--accent);color:var(--bg);">📦 OCI Manifest</span>` : `<span class="badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);">📦 OCI Manifest N/A</span>`;
-  const provBadge = arts.slsa_provenance ? `<span class="badge" style="background:var(--purple);color:var(--bg);">📜 SLSA v1.0 Provenance</span>` : `<span class="badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);">📜 SLSA Provenance N/A</span>`;
-  const sigBadge = sig.status === "signed" || arts.image_signature ? `<span class="badge" style="background:var(--pass);color:var(--bg);">🔏 Cosign Signed</span>` : `<span class="badge" style="background:var(--bg-input);color:var(--text-muted);border:1px solid var(--border);">🔏 Signature N/A</span>`;
-  const artifactRows = [
-    { name: "1. Immutable Image Digest", spec: "SHA-256 Digest", present: !!arts.image_digest, file: "build/image-digest.txt" },
-    { name: "2. OCI Image Manifest", spec: "OCI Image Specification v1/v2", present: !!arts.oci_manifest, file: "build/oci-manifest.json" },
-    { name: "3. Dockerfile / Build Spec", spec: "Container Instructions", present: !!arts.dockerfile, file: "build/Dockerfile" },
-    { name: "4. Build Execution Logs", spec: "Console & Execution Log", present: !!arts.build_log, file: "build/build.log" },
-    { name: "5. SLSA Provenance", spec: "SLSA v1.0 in-toto Predicate", present: !!arts.slsa_provenance, file: "provenance.jsonl" },
-    { name: "6. Cryptographic Signature", spec: "Cosign Signature Metadata", present: !!arts.image_signature, file: "image.sig" },
-    { name: "7. Software Inventory (SBOM)", spec: "CycloneDX / SPDX JSON", present: !!arts.sbom, file: "sbom/filesystem.cyclonedx.json" },
-    { name: "8. Vulnerability & Malware Scans", spec: "Grype / Trivy / ClamAV Reports", present: !!arts.vuln_scans, file: "grype/, trivy/, clamav/" },
-    { name: "9. Scan Integrity Manifest", spec: "Cryptographic SHA-256 Hashes", present: !!arts.scan_manifest, file: "scan-manifest.json" },
-    { name: "10. Policy & Suppression Audit", spec: "Exception Justifications", present: !!arts.suppression_audit, file: "suppressed-findings.md" }
-  ].map((a) => `
-    <tr style="border-bottom:1px solid var(--border-muted);">
-      <td style="padding:8px 12px;font-weight:500;">${esc(a.name)}</td>
-      <td style="padding:8px 12px;color:var(--text-muted);font-size:12px;">${esc(a.spec)}</td>
-      <td style="padding:8px 12px;">${a.present ? '<span style="color:var(--pass);font-weight:600;">✅ Captured</span>' : '<span style="color:var(--text-muted);">⚠️ Not Captured</span>'}</td>
-      <td style="padding:8px 12px;font-family:monospace;font-size:12px;color:var(--text-muted);">${esc(a.file)}</td>
-    </tr>
-  `).join("");
-  return `
-    <details class="ms-card" id="build-evidence-card" style="border-left-color:var(--purple);margin-top:20px;">
-      <summary class="ms-summary">
-        <span class="ms-summary-left">
-          <span class="findings-chevron" aria-hidden="true"></span>
-          <span class="ms-summary-title">Build Artifacts & Supply Chain Evidence</span>
-          <span class="tool-tag" style="font-size:12px">Phase 0 — Container Build & Attestation</span>
-        </span>
-        <span class="ms-summary-right">
-          ${statusBadge2}
-          <span class="findings-summary-hint" style="margin-left:8px">Click to expand</span>
-        </span>
-      </summary>
-      <div class="ms-body">
-        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
-          ${statusBadge2}
-          ${manifestBadge}
-          ${provBadge}
-          ${sigBadge}
-        </div>
-        
-        <div class="detail-grid" style="margin-bottom:16px;">
-          <div class="detail-card">
-            <div class="label">Image Identifier</div>
-            <div class="value" style="font-family:monospace;font-size:0.85rem;">${esc(build.full_image || build.image_name || scan.target || "N/A")}</div>
-          </div>
-          <div class="detail-card">
-            <div class="label">Immutable SHA-256 Digest</div>
-            <div class="value" style="font-family:monospace;font-size:0.8rem;word-break:break-all;">${esc(digest || "N/A (Pre-built target)")}</div>
-          </div>
-          <div class="detail-card">
-            <div class="label">Build Runtime</div>
-            <div class="value">${esc(build.runtime || "N/A (Source scan)")}</div>
-          </div>
-          <div class="detail-card">
-            <div class="label">Dockerfile</div>
-            <div class="value">${esc(build.dockerfile || "Dockerfile")}</div>
-          </div>
-        </div>
-
-        <div class="section-title" style="font-size:0.9rem;margin-bottom:8px;color:var(--text);">📦 Release & Evidence Artifact Inventory</div>
-        <div style="overflow-x:auto;">
-          <table style="width:100%;border-collapse:collapse;font-size:13px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;">
-            <thead>
-              <tr style="background:var(--bg-card);border-bottom:1px solid var(--border);text-align:left;">
-                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Artifact Name</th>
-                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Specification / Format</th>
-                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Pipeline Status</th>
-                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Artifact Path</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${artifactRows}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </details>`;
-}
-function buildSSPEvidenceCard(scan) {
-  const matrix = scan.ssp_evidence || {};
-  const controls = matrix.controls || [];
-  if (!controls.length) return "";
-  const scanId = scan.scan_id || "";
-  const rows = controls.map((c) => {
-    const isCap = c.status === "captured";
-    const hash = c.sha256_hash || "N/A";
-    const hashShort = hash.length > 20 ? hash.slice(0, 18) + "…" : hash;
-    return `
-      <tr style="border-bottom:1px solid var(--border-muted);">
-        <td style="padding:8px 12px;font-weight:600;color:var(--accent);">${esc(c.control_id)}</td>
-        <td style="padding:8px 12px;font-weight:500;">${esc(c.control_name)}</td>
-        <td style="padding:8px 12px;color:var(--text-muted);font-size:12px;">${esc(c.epyon_layer)}</td>
-        <td style="padding:8px 12px;font-family:monospace;font-size:12px;"><code style="color:var(--purple);">${esc(c.primary_artifact_path)}</code></td>
-        <td style="padding:8px 12px;">${isCap ? '<span style="color:var(--pass);font-weight:600;">✅ Captured</span>' : '<span style="color:var(--medium);font-weight:600;">⚠️ Missing Evidence</span>'}</td>
-        <td style="padding:8px 12px;font-family:monospace;font-size:12px;color:var(--text-muted);" title="${esc(hash)}">${esc(hashShort)}</td>
-      </tr>`;
-  }).join("");
-  const downloadMdBtn = scanId ? `<a class="btn btn-sm" href="/api/scans/${encodeURIComponent(scanId)}/ssp-evidence/md" download title="Download NIST SP 800-53 Control Evidence Matrix as Markdown">↓ Export Matrix (.md)</a>` : "";
-  const downloadDocxBtn = scanId ? `<button type="button" class="btn btn-sm js-export-ssp-docx" data-scan-id="${esc(scanId)}" title="Export NIST SP 800-53 Control Evidence Matrix as Word .docx">↓ Export Word (.docx)</button>` : "";
-  return `
-    <details class="ms-card" id="ssp-evidence-card" style="border-left-color:var(--pass);margin-top:20px;">
-      <summary class="ms-summary">
-        <span class="ms-summary-left">
-          <span class="findings-chevron" aria-hidden="true"></span>
-          <span class="ms-summary-title">NIST SP 800-53 / FedRAMP Control Evidence Matrix</span>
-          <span class="tool-tag" style="font-size:12px;background:var(--pass-bg);color:var(--pass);border:1px solid #10b98144">SSP / ATO Package</span>
-        </span>
-        <span class="ms-summary-right" onclick="event.stopPropagation()" style="gap:8px;display:flex;align-items:center;">
-          ${downloadMdBtn}
-          ${downloadDocxBtn}
-          <span class="findings-summary-hint" style="margin-left:8px">Click to expand</span>
-        </span>
-      </summary>
-      <div class="ms-body">
-        <div style="padding:12px 18px 0;color:var(--text-muted);font-size:13px;">
-          Maps Epyon's security scanning layers, build provenance, and scan manifests directly to NIST SP 800-53 Rev. 5 / FedRAMP control families for System Security Plans (SSP) and ATO submissions.
-        </div>
-        <div style="overflow-x:auto;padding:12px 18px 18px;">
-          <table style="width:100%;border-collapse:collapse;font-size:13px;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;">
-            <thead>
-              <tr style="background:var(--bg-card);border-bottom:1px solid var(--border);text-align:left;">
-                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Control</th>
-                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">NIST Control Name</th>
-                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Epyon Security Layer</th>
-                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Primary Evidence Artifact Path</th>
-                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Status</th>
-                <th scope="col" style="padding:8px 12px;color:var(--text-muted);font-weight:600;">Cryptographic SHA-256 Digest</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </details>`;
-}
 if (!window.__sspDocxExportBound) {
   document.addEventListener("click", (event) => {
     const btn = event.target.closest(".js-export-ssp-docx");
@@ -7862,21 +7908,6 @@ if (!window.__sspDocxExportBound) {
   });
   window.__sspDocxExportBound = true;
 }
-window.exportSSPDocx = async function(scanId) {
-  try {
-    const res = await fetch("/api/scans/" + encodeURIComponent(scanId) + "/export/ssp-docx", { method: "POST" });
-    if (!res.ok) throw new Error("Export failed");
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "ssp-ato-evidence-" + scanId + ".docx";
-    a.click();
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    toast("Failed to export Word document: " + err.message, "error");
-  }
-};
 function buildOverviewExecSection() {
   const tip = "Requires an OpenAI API key configured in Settings.";
   return `

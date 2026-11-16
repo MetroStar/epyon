@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.5] - 2026-11-15
+
+### Changed
+- **Web UI refactor (step 3c, no behaviour change):** the Settings, Performance dashboard and STIG History pages moved out of `web/src/main.js` into `web/src/pages/{settings,performance,stig-history}.js`, and the router now imports them. The GitHub-signals chart data is shared through `window._ghSignalData`.
+
 ## [3.72.4] - 2026-11-15
 
 ### Changed

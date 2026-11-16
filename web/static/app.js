@@ -1090,6 +1090,1174 @@
     window.loadPoamPreview(page.querySelector(".poam-host"));
   }
 
+  // src/pages/settings.js
+  var settings_exports = {};
+  __export(settings_exports, {
+    _syncPoll: () => _syncPoll,
+    aiProviderChanged: () => aiProviderChanged,
+    loadLocalModels: () => loadLocalModels,
+    loadOpenAiModels: () => loadOpenAiModels,
+    renderSettings: () => renderSettings,
+    saveAiConfig: () => saveAiConfig,
+    saveGitHubConfig: () => saveGitHubConfig,
+    saveJiraConfig: () => saveJiraConfig,
+    saveScanConcurrency: () => saveScanConcurrency,
+    testJiraConnection: () => testJiraConnection,
+    triggerGitHubSync: () => triggerGitHubSync
+  });
+
+  // src/components/feedback.js
+  var feedback_exports = {};
+  __export(feedback_exports, {
+    confirmDialog: () => confirmDialog,
+    toast: () => toast
+  });
+  function toast(message, kind = "info") {
+    let host = document.getElementById("toast-host");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "toast-host";
+      host.className = "toast-host";
+      host.setAttribute("role", "status");
+      host.setAttribute("aria-live", "polite");
+      document.body.appendChild(host);
+    }
+    const el = document.createElement("div");
+    el.className = `toast toast-${kind}`;
+    if (kind === "error") el.setAttribute("role", "alert");
+    const text = document.createElement("div");
+    text.className = "toast-text";
+    text.textContent = message;
+    if (kind === "error") {
+      const hint = document.createElement("div");
+      hint.className = "toast-hint";
+      hint.textContent = "Try again. If it keeps failing, check the Epyon server log.";
+      text.appendChild(hint);
+    }
+    const close = document.createElement("button");
+    close.className = "toast-close";
+    close.setAttribute("aria-label", "Dismiss");
+    close.textContent = "✕";
+    const dismiss = () => el.remove();
+    close.addEventListener("click", dismiss);
+    el.append(text, close);
+    host.appendChild(el);
+    setTimeout(dismiss, kind === "error" ? 1e4 : 6e3);
+  }
+  function confirmDialog({ title, body, confirmLabel = "Confirm", cancelLabel = "Cancel", danger = true }) {
+    return new Promise((resolve2) => {
+      const overlay = document.createElement("div");
+      overlay.className = "modal-overlay";
+      overlay.innerHTML = `
+      <div class="modal-box" aria-labelledby="confirm-title">
+        <h2 style="${danger ? "" : "color:var(--text)"}"><span id="confirm-title"></span></h2>
+        <p class="confirm-body"></p>
+        <div class="modal-actions">
+          <button class="btn" data-act="cancel"></button>
+          <button class="btn ${danger ? "btn-danger" : "btn-primary"}" data-act="ok"></button>
+        </div>
+      </div>`;
+      overlay.querySelector("#confirm-title").textContent = title;
+      overlay.querySelector(".confirm-body").textContent = body;
+      overlay.querySelector("[data-act=cancel]").textContent = cancelLabel;
+      overlay.querySelector("[data-act=ok]").textContent = confirmLabel;
+      let done = false;
+      const finish = (value) => {
+        if (done) return;
+        done = true;
+        overlay.remove();
+        resolve2(value);
+      };
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay || e.target.dataset?.act === "cancel") finish(false);
+        else if (e.target.dataset?.act === "ok") finish(true);
+      });
+      document.body.appendChild(overlay);
+    });
+  }
+
+  // src/pages/settings.js
+  async function renderSettings() {
+    setActive("settings");
+    const page = document.getElementById("page");
+    page.innerHTML = loading();
+    try {
+      const [images, ghCfg, aiCfg, nvdCfg, health, jiraCfg, concCfg] = await Promise.all([
+        api.getApprovedImages(),
+        api.getGitHubConfig(),
+        api.getAiConfig(),
+        api.getNvdConfig(),
+        api._get("/api/health"),
+        api.getJiraConfig().catch(() => ({})),
+        api.getScanConcurrency().catch(() => null)
+      ]);
+      const epyonVersion = health.version || "—";
+      const tools = [
+        "Trivy",
+        "Grype",
+        "TruffleHog",
+        "ClamAV",
+        "Checkov",
+        "Syft/SBOM",
+        "SonarQube",
+        "Helm",
+        "Xeol",
+        "Anchore",
+        "API Discovery",
+        "Garak"
+      ];
+      page.innerHTML = `
+      ${pageHeader(`Settings`)}
+
+      <div class="settings-group-title">AI</div>
+      <details class="section settings-section">
+        <summary class="section-title">AI Executive Summary</summary>
+        <p class="section-desc">
+          Point the primary endpoint at a locally hosted, OpenAI-compatible server such as
+          <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a>
+          (<code>http://localhost:11434/v1</code>) to keep scan data on-premises, or leave it blank
+          to use the public OpenAI API. Set <code>OPENAI_API_KEY</code> in the server environment
+          when the selected endpoint requires authentication.
+        </p>
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>${aiCfg.key_set ? "OpenAI authentication is configured through the server environment." : "No <code>OPENAI_API_KEY</code> is configured. Self-hosted no-auth endpoints can still operate."}</span>
+        </div>
+        <div style="display:grid;gap:14px;max-width:600px">
+          <div>
+            <label class="field-label">Provider</label>
+            <select id="ai-provider" class="field-input" onchange="aiProviderChanged()">
+              <option value="auto" ${aiCfg.provider === "auto" ? "selected" : ""}>Auto (settings, then environment)</option>
+              <option value="local" ${aiCfg.provider === "local" ? "selected" : ""}>Local / self-hosted (Ollama, vLLM…)</option>
+              <option value="openai" ${aiCfg.provider === "openai" ? "selected" : ""} ${aiCfg.key_set ? "" : "disabled"}>OpenAI (uses OPENAI_API_KEY)${aiCfg.key_set ? "" : " — key not loaded; restart server with .env.local sourced"}</option>
+            </select>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
+              Applies to summaries and STIG scans. OpenAI ignores the local URL below; Local never sends your OpenAI key.
+            </div>
+          </div>
+          <div id="ai-openai-model-row" style="display:${aiCfg.provider === "openai" ? "block" : "none"}">
+            <label class="field-label">OpenAI Model</label>
+            <select id="ai-openai-model" class="field-input">
+              ${[.../* @__PURE__ */ new Set([aiCfg.openai_model || "gpt-4o-mini", "gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5", "o3", "gpt-4.1", "gpt-4o", "gpt-4o-mini"])].map((m) => `<option value="${esc(m)}" ${m === (aiCfg.openai_model || "gpt-4o-mini") ? "selected" : ""}>${esc(m)}</option>`).join("")}
+            </select>
+          </div>
+          <div>
+            <label class="field-label">Primary Base URL <span style="color:var(--text-muted);font-weight:normal">(blank = public OpenAI API)</span></label>
+            <input id="ai-base-url" type="text" class="field-input"
+              placeholder="http://localhost:11434/v1"
+              onchange="loadLocalModels()"
+              value="${esc(aiCfg.base_url || "")}"/>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
+              Active: <code>${esc(aiCfg.active_base_url || "https://api.openai.com/v1 (default)")}</code>
+            </div>
+          </div>
+          <div>
+            <label class="field-label">Primary Model</label>
+            <div style="display:flex;gap:8px;align-items:center">
+              <select id="ai-model-select" class="field-input" style="display:none"></select>
+              <input id="ai-model" type="text" class="field-input"
+                placeholder="gpt-4o-mini, llama3.1:8b, gemma4:26b, ..."
+                value="${esc(aiCfg.model || "")}"/>
+              <button type="button" class="btn" id="ai-model-refresh" onclick="loadLocalModels()"
+                      title="Fetch the models available at the base URL" style="white-space:nowrap">↻ Refresh</button>
+            </div>
+            <div id="ai-model-status" style="font-size:12px;color:var(--text-muted);margin-top:4px"></div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
+              Active: <code>${esc(aiCfg.active_model || "")}</code>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+          <div style="font-weight:600;font-size:13px;margin-bottom:6px">Secondary (Fallback) — OpenAI</div>
+          <p class="section-desc" style="margin-top:0">
+            If the primary endpoint above is self-hosted (e.g. Ollama) and fails or is unreachable,
+            optionally retry once against the public OpenAI API using <code>OPENAI_API_KEY</code>.
+          </p>
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span>${aiCfg.fallback_available ? "Fallback is active — the primary endpoint is self-hosted and OPENAI_API_KEY is set." : "Fallback is inactive — requires a self-hosted primary Base URL and OPENAI_API_KEY in the server environment."}</span>
+          </div>
+          <div style="display:grid;gap:14px;max-width:600px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+              <input type="checkbox" id="ai-fallback-enabled" ${aiCfg.fallback_enabled ? "checked" : ""}/>
+              Enable OpenAI fallback when the primary endpoint fails
+            </label>
+            <div>
+              <label class="field-label">Fallback Model</label>
+              <select id="ai-fallback-model" class="field-input">
+                <option value="gpt-4.1" ${aiCfg.fallback_model === "gpt-4.1" ? "selected" : ""}>gpt-4.1</option>
+                <option value="gpt-4o" ${aiCfg.fallback_model === "gpt-4o" ? "selected" : ""}>gpt-4o</option>
+                <option value="gpt-4o-mini" ${aiCfg.fallback_model === "gpt-4o-mini" ? "selected" : ""}>gpt-4o-mini</option>
+                <option value="gpt-4-turbo" ${aiCfg.fallback_model === "gpt-4-turbo" ? "selected" : ""}>gpt-4-turbo</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:16px">
+          <button class="btn btn-primary" onclick="saveAiConfig()">Save AI Config</button>
+        </div>
+      </details>
+
+      <div class="settings-group-title">Integrations</div>
+      <details class="section settings-section">
+        <summary class="section-title">Jira Integration</summary>
+        <p class="section-desc">
+          Automatically close Jira tickets when security findings are remediated in a subsequent scan.
+          Requires a Jira Cloud account with an API token (Atlassian account settings → Security → API tokens).
+        </p>
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>${jiraCfg.token_set ? "Jira authentication is configured through <code>JIRA_API_TOKEN</code> in the server environment." : "Jira authentication is not configured. Set <code>JIRA_API_TOKEN</code> in the server environment."}</span>
+        </div>
+        <div style="display:grid;gap:14px;max-width:600px">
+          <div class="resp-grid resp-grid-2" style="gap:12px">
+            <div>
+              <label class="field-label">Jira Base URL</label>
+              <input id="jira-url" type="url" class="field-input"
+                placeholder="https://your-org.atlassian.net"
+                value="${esc(jiraCfg.base_url || "")}"/>
+            </div>
+            <div>
+              <label class="field-label">Email</label>
+              <input id="jira-email" type="email" class="field-input"
+                placeholder="user@company.com"
+                value="${esc(jiraCfg.email || "")}"/>
+            </div>
+          </div>
+          <div class="resp-grid resp-grid-3" style="gap:12px">
+            <div>
+              <label class="field-label">Default Project Key</label>
+              <input id="jira-project" type="text" class="field-input"
+                placeholder="SEC"
+                value="${esc(jiraCfg.project_key || "")}"/>
+            </div>
+            <div>
+              <label class="field-label">Issue Type</label>
+              <input id="jira-issue-type" type="text" class="field-input"
+                placeholder="Bug"
+                value="${esc(jiraCfg.issue_type || "Bug")}"/>
+            </div>
+            <div>
+              <label class="field-label">Done Transition</label>
+              <input id="jira-done" type="text" class="field-input"
+                placeholder="Done"
+                value="${esc(jiraCfg.done_transition || "Done")}"/>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <label style="display:flex;gap:8px;align-items:center;cursor:not-allowed;font-size:13px;opacity:0.7">
+              <input type="checkbox" id="jira-auto-close" checked disabled/>
+              Auto-close tickets when findings are remediated (always enabled)
+            </label>
+            <div style="font-size:12px;color:var(--text-muted)">
+              New tickets can only be created from a scan's Jira Review screen.
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="saveJiraConfig()">Save</button>
+            <button class="btn" id="jira-test-btn" onclick="testJiraConnection()">Test Connection</button>
+            <span id="jira-status" style="font-size:13px;color:var(--text-muted)"></span>
+          </div>
+        </div>
+      </details>
+
+      <details class="section settings-section">
+        <summary class="section-title">GitHub Actions Integration</summary>
+        <p class="section-desc">
+          Import scan results from GitHub Actions directly into this dashboard.
+          Epyon workflows upload scan artifacts automatically. Configure
+          <code>GITHUB_TOKEN</code> or <code>GH_PAT</code> in the server environment
+          and list the repositories to watch below.
+        </p>
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>${ghCfg.token_set ? "GitHub authentication is configured through the server environment." : "GitHub authentication is not configured. Set <code>GITHUB_TOKEN</code> or <code>GH_PAT</code> in the server environment."}</span>
+        </div>
+        <div style="display:grid;gap:14px;max-width:600px">
+          <div>
+            <label class="field-label">Repositories <span style="color:var(--text-muted);font-weight:normal">(one per line: owner/repo)</span></label>
+            <textarea id="gh-repos" class="field-input" rows="4"
+              placeholder="MetroStar/sapphire&#10;MetroStar/comet-starter"
+              style="resize:vertical">${(ghCfg.repos || []).map((r) => esc(r)).join("\n")}</textarea>
+          </div>
+
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-primary" onclick="saveGitHubConfig()">Save</button>
+            <button class="btn btn-primary" id="sync-btn" onclick="triggerGitHubSync()">
+              ↓ Sync Now
+            </button>
+            <span id="sync-status" style="font-size:13px;color:var(--text-muted)">
+              ${ghCfg.last_sync ? "Last synced: " + fmtDate(ghCfg.last_sync) : "Not yet synced"}
+            </span>
+          </div>
+        </div>
+      </details>
+
+      <details class="section settings-section">
+        <summary class="section-title">NVD API Key</summary>
+        <p class="section-desc">
+          Set <code>NVD_API_KEY</code> in the server environment to increase CVSS enrichment rate from 5 requests per 30 seconds to 50 requests per 30 seconds.
+        </p>
+        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>${nvdCfg.key_set ? "NVD authentication is configured through the server environment." : "No <code>NVD_API_KEY</code> is configured; enrichment will use the unauthenticated rate limit."}</span>
+        </div>
+      </details>
+
+      <div class="settings-group-title">Scanning</div>
+      ${concCfg ? `<details class="section settings-section">
+        <summary class="section-title">Scan Concurrency</summary>
+        <p class="section-desc">
+          How many scans run at the same time. Extra scans wait as <em>queued</em> and start in order.
+          Each scan runs several container tools, so raise this only if the host has the CPU and memory for it.
+          Two scans of the same target and scan type never overlap. Changes apply to queued scans immediately.
+        </p>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <label class="field-label" for="scan-concurrency" style="margin:0">Max concurrent scans</label>
+          <input id="scan-concurrency" type="number" class="field-input" style="width:90px"
+                 min="1" max="${esc(concCfg.ceiling)}" step="1" value="${esc(concCfg.max_concurrent_scans)}" />
+          <button class="btn btn-primary" onclick="saveScanConcurrency()">Save</button>
+          <span style="font-size:13px;color:var(--text-muted)">
+            ${esc(concCfg.running)} running, ${esc(concCfg.queued)} queued ·
+            ${concCfg.source === "saved" ? "set here" : concCfg.source === "env" ? "from <code>EPYON_MAX_CONCURRENT_SCANS</code>" : "default (" + esc(concCfg.default) + ")"}
+          </span>
+        </div>
+      </details>` : ""}
+
+      <details class="section settings-section">
+        <summary class="section-title">Workflow File Setup</summary>
+        <p class="section-desc">
+          Each repository needs the Epyon workflow file added once so that scans run
+          automatically and results are uploaded to this dashboard.
+        </p>
+        <div style="font-size:13px;color:var(--text-muted);margin:0 0 6px;font-weight:600">Option A — npm (recommended)</div>
+        <pre style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:12px;margin:0 0 14px;max-width:700px;overflow-x:auto">npm install github:MetroStar/epyon --save-dev</pre>
+        <p style="font-size:13px;color:var(--text-muted);margin:0 0 14px;line-height:1.7">The postinstall script writes <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">.github/workflows/scan-private-repo.yml</code> into your project. Re-running <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">npm install</code> or <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">npm update</code> pulls the latest workflow.</p>
+        <div style="font-size:13px;color:var(--text-muted);margin:0 0 6px;font-weight:600">Option B — pip</div>
+        <pre style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:12px;margin:0 0 14px;max-width:700px;overflow-x:auto">pip install git+https://github.com/MetroStar/epyon.git
+epyon install-workflow</pre>
+        <div style="font-size:13px;color:var(--text-muted);margin:0 0 6px;font-weight:600">Option C — manual</div>
+        <ol style="padding-left:18px;margin:0 0 14px;font-size:13px;color:var(--text-muted);line-height:1.9">
+          <li>Create <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">.github/workflows/scan-private-repo.yml</code> in your repository with the contents below.</li>
+          <li>Review the <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">uses:</code> line and change the GitHub org only if your Epyon instance is hosted outside <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">MetroStar/epyon</code>.</li>
+        </ol>
+        <div style="font-size:13px;color:var(--text-muted);margin:0 0 14px;line-height:1.7">Then commit and push (<code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">git add .github/workflows/scan-private-repo.yml &amp;&amp; git commit -m "Add Epyon security scanning" &amp;&amp; git push</code>). Pull requests get a quick scan; the workflow also runs nightly at 2 AM UTC (full on Sundays; STIG only when triggered manually) and on manual dispatch.</div>
+        <div style="position:relative;max-width:700px">
+          <pre id="settings-yml" style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);
+               padding:12px;font-size:12px;line-height:1.6;overflow-x:auto;margin:0;white-space:pre;color:var(--text)">${esc(WORKFLOW_YML)}</pre>
+          <button id="settings-yml-copy" class="btn btn-sm" style="position:absolute;top:8px;right:8px"
+            onclick="navigator.clipboard.writeText(WORKFLOW_YML).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})">Copy</button>
+        </div>
+      </details>
+
+      <div class="section">
+        <div class="section-title">About Epyon</div>
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="label">Version</div>
+            <div class="value">${epyonVersion}</div>
+          </div>
+          <div class="detail-card">
+            <div class="label">Security Layers</div>
+            <div class="value">17 + STIG</div>
+          </div>
+          <div class="detail-card">
+            <div class="label">Tagline</div>
+            <div class="value" style="font-size:13px">Absolute Security Control</div>
+          </div>
+        </div>
+        <div class="tools-list">
+          ${tools.map((t) => `<span class="tool-tag">${esc(t)}</span>`).join("")}
+        </div>
+      </div>`;
+      if (aiCfg.key_set) loadOpenAiModels();
+      if (aiCfg.provider !== "openai") loadLocalModels();
+    } catch (e) {
+      page.innerHTML = errBanner(e.message);
+    }
+  }
+  async function loadOpenAiModels() {
+    const sel = document.getElementById("ai-openai-model");
+    if (!sel) return;
+    try {
+      const { models } = await api.getOpenAiModels();
+      if (!models || !models.length) return;
+      const cur = sel.value;
+      const all = [.../* @__PURE__ */ new Set([cur, ...models])];
+      sel.innerHTML = all.map((m) => `<option value="${esc(m)}" ${m === cur ? "selected" : ""}>${esc(m)}</option>`).join("");
+    } catch (_) {
+    }
+  }
+  async function loadLocalModels() {
+    const input = document.getElementById("ai-model");
+    const select = document.getElementById("ai-model-select");
+    const status = document.getElementById("ai-model-status");
+    if (!input || !select || !status) return;
+    const provider = document.getElementById("ai-provider")?.value;
+    const baseUrl = (document.getElementById("ai-base-url")?.value || "").trim();
+    const showInput = () => {
+      select.style.display = "none";
+      input.style.display = "";
+    };
+    if (provider === "openai" || !baseUrl) {
+      showInput();
+      status.textContent = provider === "openai" ? "" : "Enter a base URL to list its models.";
+      return;
+    }
+    status.textContent = "Looking for models…";
+    try {
+      const { models } = await api.getLocalModels(baseUrl);
+      if (!models.length) {
+        showInput();
+        status.textContent = "The endpoint reports no models. Enter a model name.";
+        return;
+      }
+      const cur = select.style.display === "none" ? input.value.trim() : select.value;
+      const pick = models.includes(cur) ? cur : models[0];
+      select.innerHTML = models.map((m) => `<option value="${esc(m)}" ${m === pick ? "selected" : ""}>${esc(m)}</option>`).join("");
+      input.value = select.value;
+      select.onchange = () => {
+        input.value = select.value;
+      };
+      select.style.display = "";
+      input.style.display = "none";
+      status.textContent = `${models.length} model${models.length === 1 ? "" : "s"} found.` + (cur && pick !== cur ? ` “${cur}” is not served here, so ${pick} is selected — save to keep it.` : "");
+    } catch (e) {
+      showInput();
+      status.textContent = `Could not list models (${e.message}). Enter a model name manually.`;
+    }
+  }
+  function aiProviderChanged() {
+    const p = document.getElementById("ai-provider")?.value;
+    const row = document.getElementById("ai-openai-model-row");
+    if (row) row.style.display = p === "openai" ? "block" : "none";
+    loadLocalModels();
+  }
+  async function saveAiConfig() {
+    const provider = document.getElementById("ai-provider")?.value || "auto";
+    const openaiModel = document.getElementById("ai-openai-model")?.value || "";
+    const model = document.getElementById("ai-model")?.value || "";
+    const baseUrl = document.getElementById("ai-base-url")?.value || "";
+    const fallbackEnabled = document.getElementById("ai-fallback-enabled")?.checked || false;
+    const fallbackModel = document.getElementById("ai-fallback-model")?.value || "";
+    try {
+      await api.saveAiConfig({
+        provider,
+        openai_model: openaiModel.trim(),
+        model,
+        base_url: baseUrl.trim(),
+        fallback_enabled: fallbackEnabled,
+        fallback_model: fallbackModel
+      });
+      await renderSettings();
+    } catch (e) {
+      toast("Failed to save AI config: " + e.message, "error");
+    }
+  }
+  async function saveScanConcurrency() {
+    const n = parseInt(document.getElementById("scan-concurrency")?.value, 10);
+    try {
+      await api.saveScanConcurrency(n);
+      toast("Scan concurrency saved", "success");
+      await renderSettings();
+    } catch (e) {
+      toast("Failed to save scan concurrency: " + e.message, "error");
+    }
+  }
+  async function saveGitHubConfig() {
+    const reposEl = document.getElementById("gh-repos");
+    const repos = reposEl ? reposEl.value.split("\n").map((r) => r.trim()).filter(Boolean) : [];
+    try {
+      await api.saveGitHubConfig({ repos });
+      const statusEl = document.getElementById("sync-status");
+      if (statusEl) statusEl.textContent = "Configuration saved.";
+    } catch (e) {
+      toast("Failed to save GitHub config: " + e.message, "error");
+    }
+  }
+  var _syncPoll = null;
+  async function triggerGitHubSync() {
+    const btn = document.getElementById("sync-btn");
+    const statusEl = document.getElementById("sync-status");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "↓ Syncing…";
+    }
+    if (statusEl) statusEl.textContent = "Sync in progress…";
+    try {
+      await api.triggerGitHubSync();
+    } catch (e) {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "↓ Sync Now";
+      }
+      if (statusEl) statusEl.textContent = "Error: " + e.message;
+      return;
+    }
+    clearInterval(_syncPoll);
+    _syncPoll = setInterval(async () => {
+      try {
+        const st = await api.getGitHubSyncStatus();
+        if (st.status === "running") return;
+        clearInterval(_syncPoll);
+        _syncPoll = null;
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = "↓ Sync Now";
+        }
+        if (st.status === "done" && st.result) {
+          const r = st.result;
+          const msg = `Done — ${r.synced.length} new, ${r.skipped.length} already present, ${r.failed.length} failed`;
+          if (statusEl) statusEl.textContent = msg;
+        } else if (st.status === "error") {
+          if (statusEl) statusEl.textContent = "Sync error: " + (st.error || "unknown");
+        }
+      } catch (_) {
+      }
+    }, 2e3);
+  }
+  async function saveJiraConfig() {
+    const statusEl = document.getElementById("jira-status");
+    if (statusEl) statusEl.textContent = "Saving…";
+    const body = {
+      base_url: (document.getElementById("jira-url")?.value || "").trim(),
+      email: (document.getElementById("jira-email")?.value || "").trim(),
+      project_key: (document.getElementById("jira-project")?.value || "").trim(),
+      issue_type: (document.getElementById("jira-issue-type")?.value || "").trim() || "Bug",
+      done_transition: (document.getElementById("jira-done")?.value || "").trim() || "Done",
+      auto_close: true
+      // Always enabled - not configurable
+    };
+    try {
+      await api.saveJiraConfig(body);
+      if (statusEl) statusEl.textContent = "Saved.";
+    } catch (e) {
+      if (statusEl) statusEl.textContent = "Error: " + e.message;
+    }
+  }
+  async function testJiraConnection() {
+    const btn = document.getElementById("jira-test-btn");
+    const statusEl = document.getElementById("jira-status");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Testing…";
+    }
+    if (statusEl) statusEl.textContent = "";
+    await saveJiraConfig().catch(() => {
+    });
+    try {
+      const result = await api.testJiraConnection();
+      if (statusEl) {
+        statusEl.style.color = result.ok ? "var(--pass)" : "var(--critical)";
+        statusEl.textContent = result.message || (result.ok ? "Connected" : "Failed");
+      }
+    } catch (e) {
+      if (statusEl) {
+        statusEl.style.color = "var(--critical)";
+        statusEl.textContent = e.message;
+      }
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Test Connection";
+      }
+    }
+  }
+
+  // src/pages/performance.js
+  var performance_exports = {};
+  __export(performance_exports, {
+    _ghSparkline: () => _ghSparkline,
+    buildCiHealthSection: () => buildCiHealthSection,
+    renderPerformanceDashboard: () => renderPerformanceDashboard
+  });
+  function _ghSparkline(history, field, color, labelFn) {
+    if (!history || history.filter((e) => e[field] != null).length < 2) {
+      return `<div style="display:flex;align-items:center;justify-content:center;height:60px;color:var(--text-muted);font-size:12px">Not enough history yet</div>`;
+    }
+    const vals = history.map((e) => e[field]);
+    const dates = history.map((e) => e.date);
+    const min = Math.min(...vals.filter((v) => v != null));
+    const max = Math.max(...vals.filter((v) => v != null));
+    const range = max - min || 1;
+    const W = 320, H = 60, pad = 6;
+    const pts = vals.map((v, i) => {
+      const x = pad + i / (vals.length - 1) * (W - pad * 2);
+      const y = v == null ? null : H - pad - (v - min) / range * (H - pad * 2);
+      return y == null ? null : `${x.toFixed(1)},${y.toFixed(1)}`;
+    }).filter(Boolean).join(" ");
+    const last = vals.filter((v) => v != null).at(-1);
+    const first = vals.filter((v) => v != null)[0];
+    const delta = last - first;
+    const deltaStr = (delta > 0 ? "+" : "") + delta + (labelFn ? "" : "");
+    const deltaColor = delta === 0 ? "var(--text-muted)" : delta > 0 ? "var(--clean)" : "var(--critical)";
+    return `
+    <div style="display:flex;align-items:center;gap:16px">
+      <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="flex-shrink:0">
+        <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        <circle cx="${(pad + (vals.length - 1) / (vals.length - 1) * (W - pad * 2)).toFixed(1)}" cy="${(H - pad - (last - min) / range * (H - pad * 2)).toFixed(1)}" r="3" fill="${color}"/>
+      </svg>
+      <div style="text-align:right;min-width:64px">
+        <div style="font-size:20px;font-weight:700;color:${color}">${labelFn ? labelFn(last) : last}</div>
+        <div style="font-size:12px;color:${deltaColor}">${deltaStr !== "+0" && deltaStr !== "0" ? deltaStr : "—"} vs ${dates[0]}</div>
+      </div>
+    </div>`;
+  }
+  async function buildCiHealthSection() {
+    try {
+      const [g, history] = await Promise.all([
+        api.getGitHubMetrics(),
+        api.getGitHubSignalsHistory().catch(() => [])
+      ]);
+      const runsCollected = (g.workflow_runs || []).some((r) => (r.total_runs || 0) > 0);
+      const noData = !runsCollected ? `<div class="metrics-filter-notice" style="border-color:var(--medium);color:var(--medium)">
+           ⚠ ${esc(g.error || "No workflow runs were collected")} — set a GitHub token and repos in Settings to collect workflow success rates.
+           PR Scan Coverage is calculated from synced scans and doesn't need a token.
+         </div>` : "";
+      const _runList = (g.workflow_runs || []).filter((r) => !r.error);
+      const runRows = _runList.map((r, i) => {
+        const rate = r.success_rate != null ? `${r.success_rate}%` : "No runs";
+        const rateColor = r.success_rate == null ? "var(--text-muted)" : r.success_rate >= 90 ? "var(--clean)" : r.success_rate >= 70 ? "#e3b341" : "var(--critical)";
+        return `<tr class="finding-row" style="cursor:pointer" onclick="openGhSignalDetail('run',${i})" title="Click to view details">
+        <td><strong>${esc(r.repo.split("/")[1] || r.repo)}</strong><div style="font-size:12px;color:var(--text-muted)">${esc(r.repo)}</div></td>
+        <td style="text-align:center;font-weight:700;color:${rateColor}">${rate}</td>
+        <td style="text-align:center">${r.total_runs || 0}</td>
+        <td style="text-align:center;color:var(--clean)">${r.success || 0}</td>
+        <td style="text-align:center;color:var(--critical)">${r.failed || 0}</td>
+      </tr>`;
+      }).join("") || emptyRow(5, "No workflow run data");
+      const covEntries = Object.entries(g.pr_scan_coverage || {}).sort((a, b) => b[1].pr_coverage_pct - a[1].pr_coverage_pct);
+      const totalPRScans = covEntries.reduce((s, [, v]) => s + v.pr_scans, 0);
+      const totalCIScans = covEntries.reduce((s, [, v]) => s + v.total_ci_scans, 0);
+      const overallCovPct = totalCIScans > 0 ? Math.round(totalPRScans / totalCIScans * 100) : 0;
+      const covRows = covEntries.map(([name, v], i) => {
+        const pct = v.pr_coverage_pct;
+        const barColor = pct >= 70 ? "var(--clean)" : pct >= 40 ? "#e3b341" : "var(--critical)";
+        return `<tr class="finding-row" style="cursor:pointer" onclick="openGhSignalDetail('cov',${i})" title="Click to view details">
+        <td><strong>${esc(name)}</strong></td>
+        <td style="text-align:center">${v.pr_scans}</td>
+        <td style="text-align:center">${v.push_scans}</td>
+        <td style="text-align:center">${v.other_scans}</td>
+        <td style="text-align:center">${v.total_ci_scans}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="flex:1;background:var(--border);border-radius:4px;height:8px;overflow:hidden">
+              <div style="width:${Math.min(pct, 100)}%;background:${barColor};height:100%;border-radius:4px;transition:width .3s"></div>
+            </div>
+            <span style="font-size:12px;font-weight:700;color:${barColor};min-width:40px;text-align:right">${pct}%</span>
+          </div>
+        </td>
+      </tr>`;
+      }).join("") || emptyRow(6, "No CI scan data available yet");
+      window._ghSignalData = { run: _runList, cov: covEntries };
+      return `
+      <div class="section-title" style="margin-top:32px">CI Health</div>
+      ${noData}
+
+      ${history.length >= 2 ? `
+      <div class="section">
+        <div class="section-title">
+          Historical Trends
+          <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">${history.length} daily snapshot${history.length !== 1 ? "s" : ""} · earliest ${esc(history[0].date)}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px">
+          <div class="stat-card" style="padding:16px 20px">
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Workflow Success Rate</div>
+            ${_ghSparkline(history, "workflow_success_rate", "#79c0ff", (v) => v != null ? v + "%" : "—")}
+          </div>
+          <div class="stat-card" style="padding:16px 20px">
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">PR Scan Coverage</div>
+            ${_ghSparkline(history, "pr_coverage_pct", "var(--clean)", (v) => v + "%")}
+          </div>
+        </div>
+      </div>` : ""}
+
+      <div class="section">
+        <div class="section-title">
+          Workflow Success Rate
+          <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">last ${g.window_days || 90} days · security workflows</span>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead><tr>
+              <th scope="col">Repository</th>
+              <th scope="col" style="text-align:center">Success Rate</th>
+              <th scope="col" style="text-align:center">Total Runs</th>
+              <th scope="col" style="text-align:center">✓ Success</th>
+              <th scope="col" style="text-align:center">✗ Failed</th>
+            </tr></thead>
+            <tbody>${runRows}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">
+          PR Scan Coverage
+          <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">% of CI scans triggered by pull requests</span>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead><tr>
+              <th scope="col">Application</th>
+              <th scope="col" style="text-align:center">PR Scans</th>
+              <th scope="col" style="text-align:center">Push Scans</th>
+              <th scope="col" style="text-align:center">Other</th>
+              <th scope="col" style="text-align:center">Total CI</th>
+              <th scope="col">Coverage</th>
+            </tr></thead>
+            <tbody>${covRows}</tbody>
+          </table>
+        </div>
+      </div>`;
+    } catch (e) {
+      return `<div class="section"><div class="section-title">CI Health</div>${errBanner(e.message)}</div>`;
+    }
+  }
+  async function renderPerformanceDashboard() {
+    setActive("performance");
+    const page = document.getElementById("page");
+    page.innerHTML = loading();
+    try {
+      const [cacheMetrics, frontendMetrics, mobileCodeAccuracy, scanIntegrity, selfAssessment] = await Promise.all([
+        api._get("/api/metrics/cache"),
+        Promise.resolve(_cache.getMetrics()),
+        api._get("/api/metrics/mobile-code-accuracy").catch(() => null),
+        api._get("/api/metrics/scan-integrity").catch(() => null),
+        api._get("/api/metrics/self-assessment").catch(() => null)
+      ]);
+      const combined = {
+        backend: cacheMetrics,
+        frontend: frontendMetrics,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      const backendHitRate = cacheMetrics.hit_rates?.scan || 0;
+      const frontendHitRate = frontendMetrics.hit_rate_pct || 0;
+      const avgHitRate = ((backendHitRate + frontendHitRate) / 2).toFixed(1);
+      const cacheStatusClass = avgHitRate >= 70 ? "clean" : avgHitRate >= 50 ? "medium" : "critical";
+      const cacheStatusText = avgHitRate >= 70 ? "Good" : avgHitRate >= 50 ? "Fair" : "Poor";
+      const mca = mobileCodeAccuracy;
+      const mcaBody = mca ? `
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+            <span style="font-size:48px;font-weight:700;color:var(--text-primary)">${mca.f1_score.toFixed(3)}</span>
+            <div>
+              <div style="font-weight:600;color:var(--text-primary)">Current F1 Score</div>
+              <div style="font-size:12px;color:var(--text-muted)">Target: ≥ 0.90</div>
+            </div>
+            <span class="sev-badge ${mca.f1_score >= 0.9 ? "clean" : "critical"}" style="margin-left:auto">${mca.f1_score >= 0.9 ? "PASS" : "FAIL"}</span>
+          </div>
+          <div class="resp-grid resp-grid-2" style="gap:16px">
+            <div>
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Precision</div>
+              <div style="font-size:20px;font-weight:600;color:var(--text-primary)">${(mca.precision * 100).toFixed(1)}%</div>
+              <div style="font-size:12px;color:var(--text-muted)">${mca.true_positives} true positives, ${mca.false_positives} false positives</div>
+            </div>
+            <div>
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Recall</div>
+              <div style="font-size:20px;font-weight:600;color:var(--text-primary)">${(mca.recall * 100).toFixed(1)}%</div>
+              <div style="font-size:12px;color:var(--text-muted)">${mca.false_negatives} false negatives</div>
+            </div>
+          </div>
+          <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+            <div style="font-size:12px;color:var(--text-muted)">Computed live against ${mca.total_expected_findings} labeled findings in tests/fixtures/mobile-code (${mca.total_actual_findings} findings detected).</div>
+          </div>
+    ` : `
+          <div style="color:var(--text-muted);font-size:13px">Accuracy metrics unavailable — the mobile code scanner test corpus could not be reached on this deployment.</div>
+    `;
+      const si = scanIntegrity;
+      const siBody = !si ? `
+          <div style="color:var(--text-muted);font-size:13px">Scan integrity data unavailable on this deployment.</div>
+    ` : `
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:16px">
+            <div class="stat-card">
+              <div class="stat-label">Scans Checked</div>
+              <div class="stat-value">${si.summary.total}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Healthy</div>
+              <div class="stat-value" style="color:var(--clean)">${si.summary.healthy}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Suspicious</div>
+              <div class="stat-value" style="color:var(--sev-medium,#eab308)">${si.summary.suspicious}</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Empty Target</div>
+              <div class="stat-value" style="color:var(--critical)">${si.summary.empty_target}</div>
+            </div>
+          </div>
+          ${si.flagged.length === 0 ? `
+            <div style="color:var(--text-muted);font-size:13px">No flagged scans in the last check — every recent scan saw real target content.</div>
+          ` : `
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr><th scope="col">Scan</th><th scope="col">Target</th><th scope="col">Type</th><th scope="col">Status</th><th scope="col">Reason(s)</th></tr>
+                </thead>
+                <tbody>
+                  ${si.flagged.map((f) => `
+                    <tr>
+                      <td><a href="#/scans/${esc(f.scan_id)}" style="color:var(--link)">${esc(f.scan_id)}</a></td>
+                      <td>${esc(f.target || "—")}</td>
+                      <td>${esc(f.scan_type || "—")}</td>
+                      <td><span class="sev-badge ${f.status === "empty_target" ? "critical" : f.status === "suspicious" ? "medium" : ""}" style="font-size:12px">${esc(f.status.replace("_", " ").toUpperCase())}</span></td>
+                      <td style="font-size:12px">${f.reasons.map(esc).join("; ")}</td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
+          `}
+    `;
+      const sa = selfAssessment;
+      const saBody = renderSelfAssessmentBody(sa);
+      page.innerHTML = `
+      ${pageHeader(`Performance Dashboard`, { subtitle: `How Epyon itself is performing — cache efficiency, scanner accuracy, and validation that recent scans actually ran against real content.` })}
+
+      <div class="section">
+        <div class="section-title">Scan Integrity Check</div>
+        <div style="padding:20px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border)">
+          ${siBody}
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <span>Self-Assessment (All Scanner Layers)</span>
+          <button id="run-self-diag-btn" class="btn btn-sm" onclick="startSelfDiagnostic()">▶ Run Self-Diagnostic</button>
+        </div>
+        <div style="padding:20px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border)">
+          ${renderSelfDiagLayerPicker()}
+          <div id="self-diag-progress" style="display:none;margin-bottom:16px">
+            <div id="self-diag-status" style="font-size:13px;margin-bottom:8px;color:var(--text-muted)"></div>
+            <div id="self-diag-log" style="max-height:220px;overflow-y:auto;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:10px;font-family:monospace;font-size:12px;line-height:1.5"></div>
+          </div>
+          <div id="self-assessment-body">${saBody}</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Cache Performance</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px">
+          <div class="stat-card">
+            <div class="stat-label">Overall Hit Rate</div>
+            <div class="stat-value" style="display:flex;align-items:center;gap:8px">
+              ${avgHitRate}%
+              <span class="sev-badge ${cacheStatusClass}" style="font-size:12px">${cacheStatusText}</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Backend Hit Rate</div>
+            <div class="stat-value">${backendHitRate.toFixed(1)}%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Frontend Hit Rate</div>
+            <div class="stat-value">${frontendHitRate.toFixed(1)}%</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Backend Cache Size</div>
+            <div class="stat-value">${cacheMetrics.cache_sizes?.scan || 0} scans</div>
+          </div>
+        </div>
+
+        <div class="resp-grid resp-grid-2" style="gap:20px">
+          <div>
+            <h4 style="margin:0 0 12px 0;font-size:14px;color:var(--text-primary)">Backend Metrics</h4>
+            <table class="info-table">
+              <tr><td>Total Hits</td><td>${cacheMetrics.hits?.scan || 0}</td></tr>
+              <tr><td>Total Misses</td><td>${cacheMetrics.misses?.scan || 0}</td></tr>
+              <tr><td>Cache Writes</td><td>${cacheMetrics.writes?.scan || 0}</td></tr>
+              <tr><td>Recent Invalidations</td><td>${cacheMetrics.recent_invalidations?.length || 0}</td></tr>
+            </table>
+          </div>
+          <div>
+            <h4 style="margin:0 0 12px 0;font-size:14px;color:var(--text-primary)">Frontend Metrics</h4>
+            <table class="info-table">
+              <tr><td>Total Hits</td><td>${frontendMetrics.hits || 0}</td></tr>
+              <tr><td>Total Misses</td><td>${frontendMetrics.misses || 0}</td></tr>
+              <tr><td>Cache Writes</td><td>${frontendMetrics.writes || 0}</td></tr>
+              <tr><td>Version Mismatches</td><td>${frontendMetrics.version_mismatches || 0}</td></tr>
+              <tr><td>TTL Expirations</td><td>${frontendMetrics.ttl_expirations || 0}</td></tr>
+              <tr><td>Quota Errors</td><td>${frontendMetrics.quota_errors || 0}</td></tr>
+              <tr><td>Avg Staleness</td><td>${frontendMetrics.avg_staleness_ms ? `${frontendMetrics.avg_staleness_ms.toFixed(0)}ms` : "N/A"}</td></tr>
+            </table>
+          </div>
+        </div>
+
+        <div style="margin-top:20px">
+          <button class="btn" onclick="api.clearCacheAndReload()" style="margin-right:8px">
+            Clear All Caches & Reload
+          </button>
+          <button class="btn" onclick="location.reload()">
+            Refresh Metrics
+          </button>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Mobile Code Scanner Accuracy</div>
+        <div style="padding:20px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border)">
+          ${mcaBody}
+        </div>
+      </div>
+    `;
+    } catch (e) {
+      page.innerHTML = errBanner(e.message);
+    }
+  }
+
+  // src/pages/stig-history.js
+  var stig_history_exports = {};
+  __export(stig_history_exports, {
+    renderStigHistory: () => renderStigHistory
+  });
+  async function renderStigHistory(selectedApp, selectedSlug) {
+    setActive("stig");
+    const page = document.getElementById("page");
+    page.innerHTML = loading();
+    const STATUS_CLASSES = {
+      "Open": "open",
+      "Not a Finding": "not-a-finding",
+      "Not Applicable": "na",
+      "Not Reviewed": "not-reviewed"
+    };
+    const STATUS_ABBR = {
+      "Open": "O",
+      "Not a Finding": "P",
+      "Not Applicable": "N/A",
+      "Not Reviewed": "—"
+    };
+    const SEV_ORDER = { critical: 0, high: 1, medium: 2, low: 3, "": 4 };
+    let data;
+    try {
+      data = await api.getStigHistory(selectedApp || null, selectedSlug || null);
+    } catch (e) {
+      page.innerHTML = errBanner(e.message);
+      return;
+    }
+    const { apps = [], app: curApp, slugs = [], scans = [], controls = [], summary = {} } = data;
+    let statusFilter = "all";
+    let daysFilter = 30;
+    let sortKey = "sev";
+    let sortDir = 1;
+    function filterControls(list) {
+      if (statusFilter === "open") return list.filter((c) => c.latest_status === "Open");
+      if (statusFilter === "pass") return list.filter((c) => c.latest_status === "Not a Finding");
+      if (statusFilter === "na") return list.filter((c) => c.latest_status === "Not Applicable");
+      if (statusFilter === "nr") return list.filter((c) => c.latest_status === "Not Reviewed");
+      return list;
+    }
+    function sortControls(list) {
+      return [...list].sort((a, b) => {
+        let v = 0;
+        if (sortKey === "sev") v = (SEV_ORDER[a.severity] ?? 4) - (SEV_ORDER[b.severity] ?? 4);
+        if (sortKey === "id") v = a.vuln_id.localeCompare(b.vuln_id);
+        if (sortKey === "title") v = (a.title || "").localeCompare(b.title || "");
+        if (sortKey === "mttr") v = (a.mttr_days ?? 9999) - (b.mttr_days ?? 9999);
+        if (sortKey === "status") v = (a.latest_status || "").localeCompare(b.latest_status || "");
+        return v * sortDir;
+      });
+    }
+    function buildPage() {
+      const appOpts = apps.map(
+        (a) => `<option value="${esc(a)}" ${a === curApp ? "selected" : ""}>${esc(a)}</option>`
+      ).join("");
+      const slugOpts = [
+        '<option value="">All STIGs</option>',
+        ...slugs.map((s) => `<option value="${esc(s)}" ${s === (selectedSlug || "") ? "selected" : ""}>${esc(s)}</option>`)
+      ].join("");
+      const cutoff = daysFilter > 0 ? new Date(Date.now() - daysFilter * 864e5).toISOString().slice(0, 10) : null;
+      const visibleScans = cutoff ? scans.filter((s) => s.date >= cutoff) : scans;
+      const dayBtns = [[7, "7d"], [14, "14d"], [30, "30d"], [35, "35d"], [0, "All"]].map(
+        ([d, l]) => `<button class="btn btn-sm${daysFilter === d ? " btn-active" : ""}" onclick="window._stigHistoryDays(${d})">${l}</button>`
+      ).join("");
+      const statusBtns = [
+        ["all", "All"],
+        ["open", "Open"],
+        ["pass", "Not a Finding"],
+        ["na", "N/A"],
+        ["nr", "Evidence needed"]
+      ].map(
+        ([k, l]) => `<button class="btn btn-sm${statusFilter === k ? " btn-active" : ""}" onclick="window._stigHistoryStatus('${k}')">${l}</button>`
+      ).join("");
+      const avgMttr = summary.avg_mttr_days != null ? summary.avg_mttr_days + " days" : "—";
+      const summaryStrip = `
+      <div class="stig-history-summary">
+        <div class="stig-hs-card">
+          <span class="stig-hs-num">${esc(summary.total_controls ?? 0)}</span>
+          <span class="stig-hs-lbl">Controls</span>
+        </div>
+        <div class="stig-hs-card open">
+          <span class="stig-hs-num">${esc(summary.currently_open ?? 0)}</span>
+          <span class="stig-hs-lbl">Currently Open</span>
+        </div>
+        <div class="stig-hs-card pass">
+          <span class="stig-hs-num">${esc(summary.currently_satisfied ?? 0)}</span>
+          <span class="stig-hs-lbl">Currently Satisfied</span>
+        </div>
+        <div class="stig-hs-card pass" style="opacity:0.7">
+          <span class="stig-hs-num">${esc(summary.remediated ?? 0)}</span>
+          <span class="stig-hs-lbl">Ever Remediated</span>
+        </div>
+        <div class="stig-hs-card mttr">
+          <span class="stig-hs-num">${esc(avgMttr)}</span>
+          <span class="stig-hs-lbl">Avg MTTR</span>
+        </div>
+      </div>`;
+      const visible = sortControls(filterControls(controls));
+      const thSort = (key, label) => {
+        const active = sortKey === key;
+        const arrow = active ? sortDir === 1 ? " ↑" : " ↓" : "";
+        return `<th scope="col" class="sortable-th${active ? " sorted" : ""}" onclick="window._stigHistorySort('${key}')">${label}${arrow}</th>`;
+      };
+      const dateHeaders = visibleScans.map(
+        (s) => `<th scope="col" class="stig-matrix-date-th" title="${esc(s.scan_id)}">${esc(s.label)}</th>`
+      ).join("");
+      const rows = visible.map((c) => {
+        const sevCls = c.severity || "unknown";
+        const cells = visibleScans.map((s, idx) => {
+          const entry = c.timeline.find((t) => t.scan_id === s.scan_id);
+          const status = entry ? entry.status : "";
+          const evidence = entry ? entry.evidence : "";
+          const confidence = entry ? entry.confidence : null;
+          const cls = STATUS_CLASSES[status] || "not-reviewed";
+          const abbr = STATUS_ABBR[status] || "";
+          const prevEntry = idx > 0 ? c.timeline.find((t) => t.scan_id === visibleScans[idx - 1].scan_id) : null;
+          const evidenceChanged = prevEntry && prevEntry.evidence && evidence && prevEntry.evidence !== evidence && status !== "Not Reviewed";
+          const changeIndicator = evidenceChanged ? " 🔄" : "";
+          const tooltipLines = [
+            `Status: ${status}`,
+            confidence != null ? `Confidence: ${confidence}%` : "",
+            evidence ? `
+${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
+          ].filter(Boolean).join("\n");
+          return `<td class="stig-matrix-cell ${cls}${evidenceChanged ? " evidence-changed" : ""}" title="${esc(tooltipLines)}">${esc(abbr)}${changeIndicator}</td>`;
+        }).join("");
+        const mttrBadge = c.mttr_days != null ? `<span class="mttr-badge">${c.mttr_days}d</span>` : `<span class="mttr-badge none">—</span>`;
+        const latestCls = STATUS_CLASSES[c.latest_status] || "not-reviewed";
+        const cid = _registerStigDetail(c);
+        return `
+        <tr onclick="openStigDetail(${cid})" style="cursor:pointer" title="Click to view details">
+          <td class="stig-matrix-sev"><span class="sev-badge ${esc(sevCls)}">${esc(sevCls)}</span></td>
+          <td class="stig-matrix-id">${esc(c.vuln_id)}</td>
+          <td class="stig-matrix-title" title="${esc(c.title)}">${esc(c.title || "—")}</td>
+          <td class="stig-matrix-status ${latestCls}">${esc(c.latest_status || "—")}</td>
+          ${cells}
+          <td class="stig-matrix-mttr">${mttrBadge}</td>
+        </tr>`;
+      }).join("");
+      const emptyRow2 = visible.length === 0 ? `<tr><td colspan="${5 + visibleScans.length}" style="text-align:center;padding:32px;color:var(--text-muted)">No controls match the current filter.</td></tr>` : "";
+      const tableHtml = visibleScans.length === 0 ? emptyState(`No STIG scans found for ${curApp || "this app"}`, "Run a STIG or nightly scan to start tracking history.") : `<div class="stig-matrix-wrap">
+           <table class="stig-matrix-table">
+             <thead>
+               <tr>
+                 ${thSort("sev", "Sev")}
+                 ${thSort("id", "Vuln ID")}
+                 ${thSort("title", "Title")}
+                 ${thSort("status", "Status")}
+                 ${dateHeaders}
+                 ${thSort("mttr", "MTTR")}
+               </tr>
+             </thead>
+             <tbody>${rows}${emptyRow2}</tbody>
+           </table>
+         </div>`;
+      page.innerHTML = `
+      <div class="breadcrumb">
+        <a href="#/stig">STIG Compliance</a>
+        <span>›</span>
+        <span>History</span>
+      </div>
+      ${pageHeader(`STIG Compliance`)}
+      ${histTabs}
+      <div class="stig-history-filters">
+        <div class="stig-hf-group">
+          <label class="stig-hf-label">App</label>
+          <select class="stig-hf-select" onchange="window._stigHistoryApp(this.value)">
+            ${apps.length === 0 ? '<option value="">No apps</option>' : appOpts}
+          </select>
+        </div>
+        <div class="stig-hf-group">
+          <label class="stig-hf-label">STIG</label>
+          <select class="stig-hf-select" onchange="window._stigHistorySlug(this.value)">
+            ${slugOpts}
+          </select>
+        </div>
+        <div class="stig-hf-group">
+          <label class="stig-hf-label">Range</label>
+          <div class="stig-hf-btns">${dayBtns}</div>
+        </div>
+        <div class="stig-hf-group">
+          <label class="stig-hf-label">Status</label>
+          <div class="stig-hf-btns">${statusBtns}</div>
+        </div>
+      </div>
+      ${summaryStrip}
+      ${tableHtml}`;
+    }
+    const histTabs = `
+    <div class="stig-tabs">
+      <button class="stig-tab" onclick="navigate('#/stig')">Overview</button>
+      <button class="stig-tab active" onclick="navigate('#/stig?view=history')">History &amp; MTTR</button>
+    </div>`;
+    if (apps.length === 0) {
+      page.innerHTML = `
+      <div class="breadcrumb">
+        <a href="#/stig">STIG Compliance</a>
+        <span>›</span>
+        <span>History</span>
+      </div>
+      ${pageHeader(`STIG Compliance`)}
+      ${histTabs}
+      ${emptyState("No STIG scan data found", "Run a STIG or nightly scan to start building the history matrix.")}`;
+      return;
+    }
+    window._stigHistoryApp = async (appVal) => {
+      selectedApp = appVal || null;
+      selectedSlug = null;
+      try {
+        data = await api.getStigHistory(selectedApp, null);
+      } catch (_) {
+      }
+      Object.assign(data, data);
+      const {
+        apps: a2 = [],
+        app: ca2,
+        slugs: sl2 = [],
+        scans: sc2 = [],
+        controls: co2 = [],
+        summary: su2 = {}
+      } = data;
+      Object.assign(
+        { apps, app: curApp, slugs, scans, controls, summary },
+        { apps: a2, app: ca2, slugs: sl2, scans: sc2, controls: co2, summary: su2 }
+      );
+      navigate("#/stig?view=history&app=" + encodeURIComponent(appVal));
+    };
+    window._stigHistorySlug = async (slugVal) => {
+      navigate("#/stig?view=history&app=" + encodeURIComponent(curApp || "") + (slugVal ? "&slug=" + encodeURIComponent(slugVal) : ""));
+    };
+    window._stigHistoryDays = (d) => {
+      daysFilter = d;
+      buildPage();
+    };
+    window._stigHistoryStatus = (key) => {
+      statusFilter = key;
+      buildPage();
+    };
+    window._stigHistorySort = (key) => {
+      if (sortKey === key) sortDir = -sortDir;
+      else {
+        sortKey = key;
+        sortDir = 1;
+      }
+      buildPage();
+    };
+    buildPage();
+  }
+
   // src/core/router.js
   var ROUTES = [
     { exact: ["/", ""], title: "Overview", render: () => renderOverview() },
@@ -1451,78 +2619,8 @@
     canvas.style.cursor = "pointer";
   }
 
-  // src/components/feedback.js
-  var feedback_exports = {};
-  __export(feedback_exports, {
-    confirmDialog: () => confirmDialog,
-    toast: () => toast
-  });
-  function toast(message, kind = "info") {
-    let host = document.getElementById("toast-host");
-    if (!host) {
-      host = document.createElement("div");
-      host.id = "toast-host";
-      host.className = "toast-host";
-      host.setAttribute("role", "status");
-      host.setAttribute("aria-live", "polite");
-      document.body.appendChild(host);
-    }
-    const el = document.createElement("div");
-    el.className = `toast toast-${kind}`;
-    if (kind === "error") el.setAttribute("role", "alert");
-    const text = document.createElement("div");
-    text.className = "toast-text";
-    text.textContent = message;
-    if (kind === "error") {
-      const hint = document.createElement("div");
-      hint.className = "toast-hint";
-      hint.textContent = "Try again. If it keeps failing, check the Epyon server log.";
-      text.appendChild(hint);
-    }
-    const close = document.createElement("button");
-    close.className = "toast-close";
-    close.setAttribute("aria-label", "Dismiss");
-    close.textContent = "✕";
-    const dismiss = () => el.remove();
-    close.addEventListener("click", dismiss);
-    el.append(text, close);
-    host.appendChild(el);
-    setTimeout(dismiss, kind === "error" ? 1e4 : 6e3);
-  }
-  function confirmDialog({ title, body, confirmLabel = "Confirm", cancelLabel = "Cancel", danger = true }) {
-    return new Promise((resolve2) => {
-      const overlay = document.createElement("div");
-      overlay.className = "modal-overlay";
-      overlay.innerHTML = `
-      <div class="modal-box" aria-labelledby="confirm-title">
-        <h2 style="${danger ? "" : "color:var(--text)"}"><span id="confirm-title"></span></h2>
-        <p class="confirm-body"></p>
-        <div class="modal-actions">
-          <button class="btn" data-act="cancel"></button>
-          <button class="btn ${danger ? "btn-danger" : "btn-primary"}" data-act="ok"></button>
-        </div>
-      </div>`;
-      overlay.querySelector("#confirm-title").textContent = title;
-      overlay.querySelector(".confirm-body").textContent = body;
-      overlay.querySelector("[data-act=cancel]").textContent = cancelLabel;
-      overlay.querySelector("[data-act=ok]").textContent = confirmLabel;
-      let done = false;
-      const finish = (value) => {
-        if (done) return;
-        done = true;
-        overlay.remove();
-        resolve2(value);
-      };
-      overlay.addEventListener("click", (e) => {
-        if (e.target === overlay || e.target.dataset?.act === "cancel") finish(false);
-        else if (e.target.dataset?.act === "ok") finish(true);
-      });
-      document.body.appendChild(overlay);
-    });
-  }
-
   // src/index.js
-  Object.assign(window, format_exports, scans_exports, badges_exports, layout_exports, charts_exports, feedback_exports, cache_exports, api_exports, poam_exports, router_exports);
+  Object.assign(window, format_exports, scans_exports, badges_exports, layout_exports, charts_exports, feedback_exports, cache_exports, api_exports, poam_exports, router_exports, settings_exports, performance_exports, stig_history_exports);
 })();
 
 "use strict";
@@ -1536,7 +2634,6 @@ const _depsRegistry = /* @__PURE__ */ new Map();
 let _depsNextId = 0;
 const _apiRegistry = /* @__PURE__ */ new Map();
 let _apiNextId = 0;
-let _ghSignalData = null;
 const _currentFindingsBySev = {};
 const _sortState = {};
 const _pageState = {};
@@ -6639,1072 +7736,6 @@ async function renderMetrics() {
     page.innerHTML = errBanner(e.message);
   }
 }
-async function renderPerformanceDashboard() {
-  setActive("performance");
-  const page = document.getElementById("page");
-  page.innerHTML = loading();
-  try {
-    const [cacheMetrics, frontendMetrics, mobileCodeAccuracy, scanIntegrity, selfAssessment] = await Promise.all([
-      api._get("/api/metrics/cache"),
-      Promise.resolve(_cache.getMetrics()),
-      api._get("/api/metrics/mobile-code-accuracy").catch(() => null),
-      api._get("/api/metrics/scan-integrity").catch(() => null),
-      api._get("/api/metrics/self-assessment").catch(() => null)
-    ]);
-    const combined = {
-      backend: cacheMetrics,
-      frontend: frontendMetrics,
-      timestamp: (/* @__PURE__ */ new Date()).toISOString()
-    };
-    const backendHitRate = cacheMetrics.hit_rates?.scan || 0;
-    const frontendHitRate = frontendMetrics.hit_rate_pct || 0;
-    const avgHitRate = ((backendHitRate + frontendHitRate) / 2).toFixed(1);
-    const cacheStatusClass = avgHitRate >= 70 ? "clean" : avgHitRate >= 50 ? "medium" : "critical";
-    const cacheStatusText = avgHitRate >= 70 ? "Good" : avgHitRate >= 50 ? "Fair" : "Poor";
-    const mca = mobileCodeAccuracy;
-    const mcaBody = mca ? `
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
-            <span style="font-size:48px;font-weight:700;color:var(--text-primary)">${mca.f1_score.toFixed(3)}</span>
-            <div>
-              <div style="font-weight:600;color:var(--text-primary)">Current F1 Score</div>
-              <div style="font-size:12px;color:var(--text-muted)">Target: ≥ 0.90</div>
-            </div>
-            <span class="sev-badge ${mca.f1_score >= 0.9 ? "clean" : "critical"}" style="margin-left:auto">${mca.f1_score >= 0.9 ? "PASS" : "FAIL"}</span>
-          </div>
-          <div class="resp-grid resp-grid-2" style="gap:16px">
-            <div>
-              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Precision</div>
-              <div style="font-size:20px;font-weight:600;color:var(--text-primary)">${(mca.precision * 100).toFixed(1)}%</div>
-              <div style="font-size:12px;color:var(--text-muted)">${mca.true_positives} true positives, ${mca.false_positives} false positives</div>
-            </div>
-            <div>
-              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Recall</div>
-              <div style="font-size:20px;font-weight:600;color:var(--text-primary)">${(mca.recall * 100).toFixed(1)}%</div>
-              <div style="font-size:12px;color:var(--text-muted)">${mca.false_negatives} false negatives</div>
-            </div>
-          </div>
-          <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-            <div style="font-size:12px;color:var(--text-muted)">Computed live against ${mca.total_expected_findings} labeled findings in tests/fixtures/mobile-code (${mca.total_actual_findings} findings detected).</div>
-          </div>
-    ` : `
-          <div style="color:var(--text-muted);font-size:13px">Accuracy metrics unavailable — the mobile code scanner test corpus could not be reached on this deployment.</div>
-    `;
-    const si = scanIntegrity;
-    const siBody = !si ? `
-          <div style="color:var(--text-muted);font-size:13px">Scan integrity data unavailable on this deployment.</div>
-    ` : `
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:16px">
-            <div class="stat-card">
-              <div class="stat-label">Scans Checked</div>
-              <div class="stat-value">${si.summary.total}</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Healthy</div>
-              <div class="stat-value" style="color:var(--clean)">${si.summary.healthy}</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Suspicious</div>
-              <div class="stat-value" style="color:var(--sev-medium,#eab308)">${si.summary.suspicious}</div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-label">Empty Target</div>
-              <div class="stat-value" style="color:var(--critical)">${si.summary.empty_target}</div>
-            </div>
-          </div>
-          ${si.flagged.length === 0 ? `
-            <div style="color:var(--text-muted);font-size:13px">No flagged scans in the last check — every recent scan saw real target content.</div>
-          ` : `
-            <div class="table-container">
-              <table>
-                <thead>
-                  <tr><th scope="col">Scan</th><th scope="col">Target</th><th scope="col">Type</th><th scope="col">Status</th><th scope="col">Reason(s)</th></tr>
-                </thead>
-                <tbody>
-                  ${si.flagged.map((f) => `
-                    <tr>
-                      <td><a href="#/scans/${esc(f.scan_id)}" style="color:var(--link)">${esc(f.scan_id)}</a></td>
-                      <td>${esc(f.target || "—")}</td>
-                      <td>${esc(f.scan_type || "—")}</td>
-                      <td><span class="sev-badge ${f.status === "empty_target" ? "critical" : f.status === "suspicious" ? "medium" : ""}" style="font-size:12px">${esc(f.status.replace("_", " ").toUpperCase())}</span></td>
-                      <td style="font-size:12px">${f.reasons.map(esc).join("; ")}</td>
-                    </tr>
-                  `).join("")}
-                </tbody>
-              </table>
-            </div>
-          `}
-    `;
-    const sa = selfAssessment;
-    const saBody = renderSelfAssessmentBody(sa);
-    page.innerHTML = `
-      ${pageHeader(`Performance Dashboard`, { subtitle: `How Epyon itself is performing — cache efficiency, scanner accuracy, and validation that recent scans actually ran against real content.` })}
-
-      <div class="section">
-        <div class="section-title">Scan Integrity Check</div>
-        <div style="padding:20px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border)">
-          ${siBody}
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-          <span>Self-Assessment (All Scanner Layers)</span>
-          <button id="run-self-diag-btn" class="btn btn-sm" onclick="startSelfDiagnostic()">▶ Run Self-Diagnostic</button>
-        </div>
-        <div style="padding:20px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border)">
-          ${renderSelfDiagLayerPicker()}
-          <div id="self-diag-progress" style="display:none;margin-bottom:16px">
-            <div id="self-diag-status" style="font-size:13px;margin-bottom:8px;color:var(--text-muted)"></div>
-            <div id="self-diag-log" style="max-height:220px;overflow-y:auto;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:10px;font-family:monospace;font-size:12px;line-height:1.5"></div>
-          </div>
-          <div id="self-assessment-body">${saBody}</div>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Cache Performance</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px">
-          <div class="stat-card">
-            <div class="stat-label">Overall Hit Rate</div>
-            <div class="stat-value" style="display:flex;align-items:center;gap:8px">
-              ${avgHitRate}%
-              <span class="sev-badge ${cacheStatusClass}" style="font-size:12px">${cacheStatusText}</span>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Backend Hit Rate</div>
-            <div class="stat-value">${backendHitRate.toFixed(1)}%</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Frontend Hit Rate</div>
-            <div class="stat-value">${frontendHitRate.toFixed(1)}%</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Backend Cache Size</div>
-            <div class="stat-value">${cacheMetrics.cache_sizes?.scan || 0} scans</div>
-          </div>
-        </div>
-
-        <div class="resp-grid resp-grid-2" style="gap:20px">
-          <div>
-            <h4 style="margin:0 0 12px 0;font-size:14px;color:var(--text-primary)">Backend Metrics</h4>
-            <table class="info-table">
-              <tr><td>Total Hits</td><td>${cacheMetrics.hits?.scan || 0}</td></tr>
-              <tr><td>Total Misses</td><td>${cacheMetrics.misses?.scan || 0}</td></tr>
-              <tr><td>Cache Writes</td><td>${cacheMetrics.writes?.scan || 0}</td></tr>
-              <tr><td>Recent Invalidations</td><td>${cacheMetrics.recent_invalidations?.length || 0}</td></tr>
-            </table>
-          </div>
-          <div>
-            <h4 style="margin:0 0 12px 0;font-size:14px;color:var(--text-primary)">Frontend Metrics</h4>
-            <table class="info-table">
-              <tr><td>Total Hits</td><td>${frontendMetrics.hits || 0}</td></tr>
-              <tr><td>Total Misses</td><td>${frontendMetrics.misses || 0}</td></tr>
-              <tr><td>Cache Writes</td><td>${frontendMetrics.writes || 0}</td></tr>
-              <tr><td>Version Mismatches</td><td>${frontendMetrics.version_mismatches || 0}</td></tr>
-              <tr><td>TTL Expirations</td><td>${frontendMetrics.ttl_expirations || 0}</td></tr>
-              <tr><td>Quota Errors</td><td>${frontendMetrics.quota_errors || 0}</td></tr>
-              <tr><td>Avg Staleness</td><td>${frontendMetrics.avg_staleness_ms ? `${frontendMetrics.avg_staleness_ms.toFixed(0)}ms` : "N/A"}</td></tr>
-            </table>
-          </div>
-        </div>
-
-        <div style="margin-top:20px">
-          <button class="btn" onclick="api.clearCacheAndReload()" style="margin-right:8px">
-            Clear All Caches & Reload
-          </button>
-          <button class="btn" onclick="location.reload()">
-            Refresh Metrics
-          </button>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Mobile Code Scanner Accuracy</div>
-        <div style="padding:20px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border)">
-          ${mcaBody}
-        </div>
-      </div>
-    `;
-  } catch (e) {
-    page.innerHTML = errBanner(e.message);
-  }
-}
-function _ghSparkline(history, field, color, labelFn) {
-  if (!history || history.filter((e) => e[field] != null).length < 2) {
-    return `<div style="display:flex;align-items:center;justify-content:center;height:60px;color:var(--text-muted);font-size:12px">Not enough history yet</div>`;
-  }
-  const vals = history.map((e) => e[field]);
-  const dates = history.map((e) => e.date);
-  const min = Math.min(...vals.filter((v) => v != null));
-  const max = Math.max(...vals.filter((v) => v != null));
-  const range = max - min || 1;
-  const W = 320, H = 60, pad = 6;
-  const pts = vals.map((v, i) => {
-    const x = pad + i / (vals.length - 1) * (W - pad * 2);
-    const y = v == null ? null : H - pad - (v - min) / range * (H - pad * 2);
-    return y == null ? null : `${x.toFixed(1)},${y.toFixed(1)}`;
-  }).filter(Boolean).join(" ");
-  const last = vals.filter((v) => v != null).at(-1);
-  const first = vals.filter((v) => v != null)[0];
-  const delta = last - first;
-  const deltaStr = (delta > 0 ? "+" : "") + delta + (labelFn ? "" : "");
-  const deltaColor = delta === 0 ? "var(--text-muted)" : delta > 0 ? "var(--clean)" : "var(--critical)";
-  return `
-    <div style="display:flex;align-items:center;gap:16px">
-      <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="flex-shrink:0">
-        <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-        <circle cx="${(pad + (vals.length - 1) / (vals.length - 1) * (W - pad * 2)).toFixed(1)}" cy="${(H - pad - (last - min) / range * (H - pad * 2)).toFixed(1)}" r="3" fill="${color}"/>
-      </svg>
-      <div style="text-align:right;min-width:64px">
-        <div style="font-size:20px;font-weight:700;color:${color}">${labelFn ? labelFn(last) : last}</div>
-        <div style="font-size:12px;color:${deltaColor}">${deltaStr !== "+0" && deltaStr !== "0" ? deltaStr : "—"} vs ${dates[0]}</div>
-      </div>
-    </div>`;
-}
-async function buildCiHealthSection() {
-  try {
-    const [g, history] = await Promise.all([
-      api.getGitHubMetrics(),
-      api.getGitHubSignalsHistory().catch(() => [])
-    ]);
-    const runsCollected = (g.workflow_runs || []).some((r) => (r.total_runs || 0) > 0);
-    const noData = !runsCollected ? `<div class="metrics-filter-notice" style="border-color:var(--medium);color:var(--medium)">
-           ⚠ ${esc(g.error || "No workflow runs were collected")} — set a GitHub token and repos in Settings to collect workflow success rates.
-           PR Scan Coverage is calculated from synced scans and doesn't need a token.
-         </div>` : "";
-    const _runList = (g.workflow_runs || []).filter((r) => !r.error);
-    const runRows = _runList.map((r, i) => {
-      const rate = r.success_rate != null ? `${r.success_rate}%` : "No runs";
-      const rateColor = r.success_rate == null ? "var(--text-muted)" : r.success_rate >= 90 ? "var(--clean)" : r.success_rate >= 70 ? "#e3b341" : "var(--critical)";
-      return `<tr class="finding-row" style="cursor:pointer" onclick="openGhSignalDetail('run',${i})" title="Click to view details">
-        <td><strong>${esc(r.repo.split("/")[1] || r.repo)}</strong><div style="font-size:12px;color:var(--text-muted)">${esc(r.repo)}</div></td>
-        <td style="text-align:center;font-weight:700;color:${rateColor}">${rate}</td>
-        <td style="text-align:center">${r.total_runs || 0}</td>
-        <td style="text-align:center;color:var(--clean)">${r.success || 0}</td>
-        <td style="text-align:center;color:var(--critical)">${r.failed || 0}</td>
-      </tr>`;
-    }).join("") || emptyRow(5, "No workflow run data");
-    const covEntries = Object.entries(g.pr_scan_coverage || {}).sort((a, b) => b[1].pr_coverage_pct - a[1].pr_coverage_pct);
-    const totalPRScans = covEntries.reduce((s, [, v]) => s + v.pr_scans, 0);
-    const totalCIScans = covEntries.reduce((s, [, v]) => s + v.total_ci_scans, 0);
-    const overallCovPct = totalCIScans > 0 ? Math.round(totalPRScans / totalCIScans * 100) : 0;
-    const covRows = covEntries.map(([name, v], i) => {
-      const pct = v.pr_coverage_pct;
-      const barColor = pct >= 70 ? "var(--clean)" : pct >= 40 ? "#e3b341" : "var(--critical)";
-      return `<tr class="finding-row" style="cursor:pointer" onclick="openGhSignalDetail('cov',${i})" title="Click to view details">
-        <td><strong>${esc(name)}</strong></td>
-        <td style="text-align:center">${v.pr_scans}</td>
-        <td style="text-align:center">${v.push_scans}</td>
-        <td style="text-align:center">${v.other_scans}</td>
-        <td style="text-align:center">${v.total_ci_scans}</td>
-        <td>
-          <div style="display:flex;align-items:center;gap:8px">
-            <div style="flex:1;background:var(--border);border-radius:4px;height:8px;overflow:hidden">
-              <div style="width:${Math.min(pct, 100)}%;background:${barColor};height:100%;border-radius:4px;transition:width .3s"></div>
-            </div>
-            <span style="font-size:12px;font-weight:700;color:${barColor};min-width:40px;text-align:right">${pct}%</span>
-          </div>
-        </td>
-      </tr>`;
-    }).join("") || emptyRow(6, "No CI scan data available yet");
-    _ghSignalData = { run: _runList, cov: covEntries };
-    return `
-      <div class="section-title" style="margin-top:32px">CI Health</div>
-      ${noData}
-
-      ${history.length >= 2 ? `
-      <div class="section">
-        <div class="section-title">
-          Historical Trends
-          <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">${history.length} daily snapshot${history.length !== 1 ? "s" : ""} · earliest ${esc(history[0].date)}</span>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px">
-          <div class="stat-card" style="padding:16px 20px">
-            <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Workflow Success Rate</div>
-            ${_ghSparkline(history, "workflow_success_rate", "#79c0ff", (v) => v != null ? v + "%" : "—")}
-          </div>
-          <div class="stat-card" style="padding:16px 20px">
-            <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">PR Scan Coverage</div>
-            ${_ghSparkline(history, "pr_coverage_pct", "var(--clean)", (v) => v + "%")}
-          </div>
-        </div>
-      </div>` : ""}
-
-      <div class="section">
-        <div class="section-title">
-          Workflow Success Rate
-          <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">last ${g.window_days || 90} days · security workflows</span>
-        </div>
-        <div class="table-container">
-          <table>
-            <thead><tr>
-              <th scope="col">Repository</th>
-              <th scope="col" style="text-align:center">Success Rate</th>
-              <th scope="col" style="text-align:center">Total Runs</th>
-              <th scope="col" style="text-align:center">✓ Success</th>
-              <th scope="col" style="text-align:center">✗ Failed</th>
-            </tr></thead>
-            <tbody>${runRows}</tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">
-          PR Scan Coverage
-          <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">% of CI scans triggered by pull requests</span>
-        </div>
-        <div class="table-container">
-          <table>
-            <thead><tr>
-              <th scope="col">Application</th>
-              <th scope="col" style="text-align:center">PR Scans</th>
-              <th scope="col" style="text-align:center">Push Scans</th>
-              <th scope="col" style="text-align:center">Other</th>
-              <th scope="col" style="text-align:center">Total CI</th>
-              <th scope="col">Coverage</th>
-            </tr></thead>
-            <tbody>${covRows}</tbody>
-          </table>
-        </div>
-      </div>`;
-  } catch (e) {
-    return `<div class="section"><div class="section-title">CI Health</div>${errBanner(e.message)}</div>`;
-  }
-}
-async function renderSettings() {
-  setActive("settings");
-  const page = document.getElementById("page");
-  page.innerHTML = loading();
-  try {
-    const [images, ghCfg, aiCfg, nvdCfg, health, jiraCfg, concCfg] = await Promise.all([
-      api.getApprovedImages(),
-      api.getGitHubConfig(),
-      api.getAiConfig(),
-      api.getNvdConfig(),
-      api._get("/api/health"),
-      api.getJiraConfig().catch(() => ({})),
-      api.getScanConcurrency().catch(() => null)
-    ]);
-    const epyonVersion = health.version || "—";
-    const tools = [
-      "Trivy",
-      "Grype",
-      "TruffleHog",
-      "ClamAV",
-      "Checkov",
-      "Syft/SBOM",
-      "SonarQube",
-      "Helm",
-      "Xeol",
-      "Anchore",
-      "API Discovery",
-      "Garak"
-    ];
-    page.innerHTML = `
-      ${pageHeader(`Settings`)}
-
-      <div class="settings-group-title">AI</div>
-      <details class="section settings-section">
-        <summary class="section-title">AI Executive Summary</summary>
-        <p class="section-desc">
-          Point the primary endpoint at a locally hosted, OpenAI-compatible server such as
-          <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a>
-          (<code>http://localhost:11434/v1</code>) to keep scan data on-premises, or leave it blank
-          to use the public OpenAI API. Set <code>OPENAI_API_KEY</code> in the server environment
-          when the selected endpoint requires authentication.
-        </p>
-        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span>${aiCfg.key_set ? "OpenAI authentication is configured through the server environment." : "No <code>OPENAI_API_KEY</code> is configured. Self-hosted no-auth endpoints can still operate."}</span>
-        </div>
-        <div style="display:grid;gap:14px;max-width:600px">
-          <div>
-            <label class="field-label">Provider</label>
-            <select id="ai-provider" class="field-input" onchange="aiProviderChanged()">
-              <option value="auto" ${aiCfg.provider === "auto" ? "selected" : ""}>Auto (settings, then environment)</option>
-              <option value="local" ${aiCfg.provider === "local" ? "selected" : ""}>Local / self-hosted (Ollama, vLLM…)</option>
-              <option value="openai" ${aiCfg.provider === "openai" ? "selected" : ""} ${aiCfg.key_set ? "" : "disabled"}>OpenAI (uses OPENAI_API_KEY)${aiCfg.key_set ? "" : " — key not loaded; restart server with .env.local sourced"}</option>
-            </select>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
-              Applies to summaries and STIG scans. OpenAI ignores the local URL below; Local never sends your OpenAI key.
-            </div>
-          </div>
-          <div id="ai-openai-model-row" style="display:${aiCfg.provider === "openai" ? "block" : "none"}">
-            <label class="field-label">OpenAI Model</label>
-            <select id="ai-openai-model" class="field-input">
-              ${[.../* @__PURE__ */ new Set([aiCfg.openai_model || "gpt-4o-mini", "gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5", "o3", "gpt-4.1", "gpt-4o", "gpt-4o-mini"])].map((m) => `<option value="${esc(m)}" ${m === (aiCfg.openai_model || "gpt-4o-mini") ? "selected" : ""}>${esc(m)}</option>`).join("")}
-            </select>
-          </div>
-          <div>
-            <label class="field-label">Primary Base URL <span style="color:var(--text-muted);font-weight:normal">(blank = public OpenAI API)</span></label>
-            <input id="ai-base-url" type="text" class="field-input"
-              placeholder="http://localhost:11434/v1"
-              onchange="loadLocalModels()"
-              value="${esc(aiCfg.base_url || "")}"/>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
-              Active: <code>${esc(aiCfg.active_base_url || "https://api.openai.com/v1 (default)")}</code>
-            </div>
-          </div>
-          <div>
-            <label class="field-label">Primary Model</label>
-            <div style="display:flex;gap:8px;align-items:center">
-              <select id="ai-model-select" class="field-input" style="display:none"></select>
-              <input id="ai-model" type="text" class="field-input"
-                placeholder="gpt-4o-mini, llama3.1:8b, gemma4:26b, ..."
-                value="${esc(aiCfg.model || "")}"/>
-              <button type="button" class="btn" id="ai-model-refresh" onclick="loadLocalModels()"
-                      title="Fetch the models available at the base URL" style="white-space:nowrap">↻ Refresh</button>
-            </div>
-            <div id="ai-model-status" style="font-size:12px;color:var(--text-muted);margin-top:4px"></div>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
-              Active: <code>${esc(aiCfg.active_model || "")}</code>
-            </div>
-          </div>
-        </div>
-
-        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
-          <div style="font-weight:600;font-size:13px;margin-bottom:6px">Secondary (Fallback) — OpenAI</div>
-          <p class="section-desc" style="margin-top:0">
-            If the primary endpoint above is self-hosted (e.g. Ollama) and fails or is unreachable,
-            optionally retry once against the public OpenAI API using <code>OPENAI_API_KEY</code>.
-          </p>
-          <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            <span>${aiCfg.fallback_available ? "Fallback is active — the primary endpoint is self-hosted and OPENAI_API_KEY is set." : "Fallback is inactive — requires a self-hosted primary Base URL and OPENAI_API_KEY in the server environment."}</span>
-          </div>
-          <div style="display:grid;gap:14px;max-width:600px">
-            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
-              <input type="checkbox" id="ai-fallback-enabled" ${aiCfg.fallback_enabled ? "checked" : ""}/>
-              Enable OpenAI fallback when the primary endpoint fails
-            </label>
-            <div>
-              <label class="field-label">Fallback Model</label>
-              <select id="ai-fallback-model" class="field-input">
-                <option value="gpt-4.1" ${aiCfg.fallback_model === "gpt-4.1" ? "selected" : ""}>gpt-4.1</option>
-                <option value="gpt-4o" ${aiCfg.fallback_model === "gpt-4o" ? "selected" : ""}>gpt-4o</option>
-                <option value="gpt-4o-mini" ${aiCfg.fallback_model === "gpt-4o-mini" ? "selected" : ""}>gpt-4o-mini</option>
-                <option value="gpt-4-turbo" ${aiCfg.fallback_model === "gpt-4-turbo" ? "selected" : ""}>gpt-4-turbo</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div style="margin-top:16px">
-          <button class="btn btn-primary" onclick="saveAiConfig()">Save AI Config</button>
-        </div>
-      </details>
-
-      <div class="settings-group-title">Integrations</div>
-      <details class="section settings-section">
-        <summary class="section-title">Jira Integration</summary>
-        <p class="section-desc">
-          Automatically close Jira tickets when security findings are remediated in a subsequent scan.
-          Requires a Jira Cloud account with an API token (Atlassian account settings → Security → API tokens).
-        </p>
-        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span>${jiraCfg.token_set ? "Jira authentication is configured through <code>JIRA_API_TOKEN</code> in the server environment." : "Jira authentication is not configured. Set <code>JIRA_API_TOKEN</code> in the server environment."}</span>
-        </div>
-        <div style="display:grid;gap:14px;max-width:600px">
-          <div class="resp-grid resp-grid-2" style="gap:12px">
-            <div>
-              <label class="field-label">Jira Base URL</label>
-              <input id="jira-url" type="url" class="field-input"
-                placeholder="https://your-org.atlassian.net"
-                value="${esc(jiraCfg.base_url || "")}"/>
-            </div>
-            <div>
-              <label class="field-label">Email</label>
-              <input id="jira-email" type="email" class="field-input"
-                placeholder="user@company.com"
-                value="${esc(jiraCfg.email || "")}"/>
-            </div>
-          </div>
-          <div class="resp-grid resp-grid-3" style="gap:12px">
-            <div>
-              <label class="field-label">Default Project Key</label>
-              <input id="jira-project" type="text" class="field-input"
-                placeholder="SEC"
-                value="${esc(jiraCfg.project_key || "")}"/>
-            </div>
-            <div>
-              <label class="field-label">Issue Type</label>
-              <input id="jira-issue-type" type="text" class="field-input"
-                placeholder="Bug"
-                value="${esc(jiraCfg.issue_type || "Bug")}"/>
-            </div>
-            <div>
-              <label class="field-label">Done Transition</label>
-              <input id="jira-done" type="text" class="field-input"
-                placeholder="Done"
-                value="${esc(jiraCfg.done_transition || "Done")}"/>
-            </div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:8px">
-            <label style="display:flex;gap:8px;align-items:center;cursor:not-allowed;font-size:13px;opacity:0.7">
-              <input type="checkbox" id="jira-auto-close" checked disabled/>
-              Auto-close tickets when findings are remediated (always enabled)
-            </label>
-            <div style="font-size:12px;color:var(--text-muted)">
-              New tickets can only be created from a scan's Jira Review screen.
-            </div>
-          </div>
-          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-            <button class="btn btn-primary" onclick="saveJiraConfig()">Save</button>
-            <button class="btn" id="jira-test-btn" onclick="testJiraConnection()">Test Connection</button>
-            <span id="jira-status" style="font-size:13px;color:var(--text-muted)"></span>
-          </div>
-        </div>
-      </details>
-
-      <details class="section settings-section">
-        <summary class="section-title">GitHub Actions Integration</summary>
-        <p class="section-desc">
-          Import scan results from GitHub Actions directly into this dashboard.
-          Epyon workflows upload scan artifacts automatically. Configure
-          <code>GITHUB_TOKEN</code> or <code>GH_PAT</code> in the server environment
-          and list the repositories to watch below.
-        </p>
-        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span>${ghCfg.token_set ? "GitHub authentication is configured through the server environment." : "GitHub authentication is not configured. Set <code>GITHUB_TOKEN</code> or <code>GH_PAT</code> in the server environment."}</span>
-        </div>
-        <div style="display:grid;gap:14px;max-width:600px">
-          <div>
-            <label class="field-label">Repositories <span style="color:var(--text-muted);font-weight:normal">(one per line: owner/repo)</span></label>
-            <textarea id="gh-repos" class="field-input" rows="4"
-              placeholder="MetroStar/sapphire&#10;MetroStar/comet-starter"
-              style="resize:vertical">${(ghCfg.repos || []).map((r) => esc(r)).join("\n")}</textarea>
-          </div>
-
-          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-            <button class="btn btn-primary" onclick="saveGitHubConfig()">Save</button>
-            <button class="btn btn-primary" id="sync-btn" onclick="triggerGitHubSync()">
-              ↓ Sync Now
-            </button>
-            <span id="sync-status" style="font-size:13px;color:var(--text-muted)">
-              ${ghCfg.last_sync ? "Last synced: " + fmtDate(ghCfg.last_sync) : "Not yet synced"}
-            </span>
-          </div>
-        </div>
-      </details>
-
-      <details class="section settings-section">
-        <summary class="section-title">NVD API Key</summary>
-        <p class="section-desc">
-          Set <code>NVD_API_KEY</code> in the server environment to increase CVSS enrichment rate from 5 requests per 30 seconds to 50 requests per 30 seconds.
-        </p>
-        <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span>${nvdCfg.key_set ? "NVD authentication is configured through the server environment." : "No <code>NVD_API_KEY</code> is configured; enrichment will use the unauthenticated rate limit."}</span>
-        </div>
-      </details>
-
-      <div class="settings-group-title">Scanning</div>
-      ${concCfg ? `<details class="section settings-section">
-        <summary class="section-title">Scan Concurrency</summary>
-        <p class="section-desc">
-          How many scans run at the same time. Extra scans wait as <em>queued</em> and start in order.
-          Each scan runs several container tools, so raise this only if the host has the CPU and memory for it.
-          Two scans of the same target and scan type never overlap. Changes apply to queued scans immediately.
-        </p>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-          <label class="field-label" for="scan-concurrency" style="margin:0">Max concurrent scans</label>
-          <input id="scan-concurrency" type="number" class="field-input" style="width:90px"
-                 min="1" max="${esc(concCfg.ceiling)}" step="1" value="${esc(concCfg.max_concurrent_scans)}" />
-          <button class="btn btn-primary" onclick="saveScanConcurrency()">Save</button>
-          <span style="font-size:13px;color:var(--text-muted)">
-            ${esc(concCfg.running)} running, ${esc(concCfg.queued)} queued ·
-            ${concCfg.source === "saved" ? "set here" : concCfg.source === "env" ? "from <code>EPYON_MAX_CONCURRENT_SCANS</code>" : "default (" + esc(concCfg.default) + ")"}
-          </span>
-        </div>
-      </details>` : ""}
-
-      <details class="section settings-section">
-        <summary class="section-title">Workflow File Setup</summary>
-        <p class="section-desc">
-          Each repository needs the Epyon workflow file added once so that scans run
-          automatically and results are uploaded to this dashboard.
-        </p>
-        <div style="font-size:13px;color:var(--text-muted);margin:0 0 6px;font-weight:600">Option A — npm (recommended)</div>
-        <pre style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:12px;margin:0 0 14px;max-width:700px;overflow-x:auto">npm install github:MetroStar/epyon --save-dev</pre>
-        <p style="font-size:13px;color:var(--text-muted);margin:0 0 14px;line-height:1.7">The postinstall script writes <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">.github/workflows/scan-private-repo.yml</code> into your project. Re-running <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">npm install</code> or <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">npm update</code> pulls the latest workflow.</p>
-        <div style="font-size:13px;color:var(--text-muted);margin:0 0 6px;font-weight:600">Option B — pip</div>
-        <pre style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-size:12px;margin:0 0 14px;max-width:700px;overflow-x:auto">pip install git+https://github.com/MetroStar/epyon.git
-epyon install-workflow</pre>
-        <div style="font-size:13px;color:var(--text-muted);margin:0 0 6px;font-weight:600">Option C — manual</div>
-        <ol style="padding-left:18px;margin:0 0 14px;font-size:13px;color:var(--text-muted);line-height:1.9">
-          <li>Create <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">.github/workflows/scan-private-repo.yml</code> in your repository with the contents below.</li>
-          <li>Review the <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">uses:</code> line and change the GitHub org only if your Epyon instance is hosted outside <code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">MetroStar/epyon</code>.</li>
-        </ol>
-        <div style="font-size:13px;color:var(--text-muted);margin:0 0 14px;line-height:1.7">Then commit and push (<code style="background:var(--bg-input);padding:1px 5px;border-radius:3px">git add .github/workflows/scan-private-repo.yml &amp;&amp; git commit -m "Add Epyon security scanning" &amp;&amp; git push</code>). Pull requests get a quick scan; the workflow also runs nightly at 2 AM UTC (full on Sundays; STIG only when triggered manually) and on manual dispatch.</div>
-        <div style="position:relative;max-width:700px">
-          <pre id="settings-yml" style="background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);
-               padding:12px;font-size:12px;line-height:1.6;overflow-x:auto;margin:0;white-space:pre;color:var(--text)">${esc(WORKFLOW_YML)}</pre>
-          <button id="settings-yml-copy" class="btn btn-sm" style="position:absolute;top:8px;right:8px"
-            onclick="navigator.clipboard.writeText(WORKFLOW_YML).then(()=>{this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)})">Copy</button>
-        </div>
-      </details>
-
-      <div class="section">
-        <div class="section-title">About Epyon</div>
-        <div class="detail-grid">
-          <div class="detail-card">
-            <div class="label">Version</div>
-            <div class="value">${epyonVersion}</div>
-          </div>
-          <div class="detail-card">
-            <div class="label">Security Layers</div>
-            <div class="value">17 + STIG</div>
-          </div>
-          <div class="detail-card">
-            <div class="label">Tagline</div>
-            <div class="value" style="font-size:13px">Absolute Security Control</div>
-          </div>
-        </div>
-        <div class="tools-list">
-          ${tools.map((t) => `<span class="tool-tag">${esc(t)}</span>`).join("")}
-        </div>
-      </div>`;
-    if (aiCfg.key_set) loadOpenAiModels();
-    if (aiCfg.provider !== "openai") loadLocalModels();
-  } catch (e) {
-    page.innerHTML = errBanner(e.message);
-  }
-}
-async function loadOpenAiModels() {
-  const sel = document.getElementById("ai-openai-model");
-  if (!sel) return;
-  try {
-    const { models } = await api.getOpenAiModels();
-    if (!models || !models.length) return;
-    const cur = sel.value;
-    const all = [.../* @__PURE__ */ new Set([cur, ...models])];
-    sel.innerHTML = all.map((m) => `<option value="${esc(m)}" ${m === cur ? "selected" : ""}>${esc(m)}</option>`).join("");
-  } catch (_) {
-  }
-}
-async function loadLocalModels() {
-  const input = document.getElementById("ai-model");
-  const select = document.getElementById("ai-model-select");
-  const status = document.getElementById("ai-model-status");
-  if (!input || !select || !status) return;
-  const provider = document.getElementById("ai-provider")?.value;
-  const baseUrl = (document.getElementById("ai-base-url")?.value || "").trim();
-  const showInput = () => {
-    select.style.display = "none";
-    input.style.display = "";
-  };
-  if (provider === "openai" || !baseUrl) {
-    showInput();
-    status.textContent = provider === "openai" ? "" : "Enter a base URL to list its models.";
-    return;
-  }
-  status.textContent = "Looking for models…";
-  try {
-    const { models } = await api.getLocalModels(baseUrl);
-    if (!models.length) {
-      showInput();
-      status.textContent = "The endpoint reports no models. Enter a model name.";
-      return;
-    }
-    const cur = select.style.display === "none" ? input.value.trim() : select.value;
-    const pick = models.includes(cur) ? cur : models[0];
-    select.innerHTML = models.map((m) => `<option value="${esc(m)}" ${m === pick ? "selected" : ""}>${esc(m)}</option>`).join("");
-    input.value = select.value;
-    select.onchange = () => {
-      input.value = select.value;
-    };
-    select.style.display = "";
-    input.style.display = "none";
-    status.textContent = `${models.length} model${models.length === 1 ? "" : "s"} found.` + (cur && pick !== cur ? ` “${cur}” is not served here, so ${pick} is selected — save to keep it.` : "");
-  } catch (e) {
-    showInput();
-    status.textContent = `Could not list models (${e.message}). Enter a model name manually.`;
-  }
-}
-function aiProviderChanged() {
-  const p = document.getElementById("ai-provider")?.value;
-  const row = document.getElementById("ai-openai-model-row");
-  if (row) row.style.display = p === "openai" ? "block" : "none";
-  loadLocalModels();
-}
-async function saveAiConfig() {
-  const provider = document.getElementById("ai-provider")?.value || "auto";
-  const openaiModel = document.getElementById("ai-openai-model")?.value || "";
-  const model = document.getElementById("ai-model")?.value || "";
-  const baseUrl = document.getElementById("ai-base-url")?.value || "";
-  const fallbackEnabled = document.getElementById("ai-fallback-enabled")?.checked || false;
-  const fallbackModel = document.getElementById("ai-fallback-model")?.value || "";
-  try {
-    await api.saveAiConfig({
-      provider,
-      openai_model: openaiModel.trim(),
-      model,
-      base_url: baseUrl.trim(),
-      fallback_enabled: fallbackEnabled,
-      fallback_model: fallbackModel
-    });
-    await renderSettings();
-  } catch (e) {
-    toast("Failed to save AI config: " + e.message, "error");
-  }
-}
-async function saveScanConcurrency() {
-  const n = parseInt(document.getElementById("scan-concurrency")?.value, 10);
-  try {
-    await api.saveScanConcurrency(n);
-    toast("Scan concurrency saved", "success");
-    await renderSettings();
-  } catch (e) {
-    toast("Failed to save scan concurrency: " + e.message, "error");
-  }
-}
-async function saveGitHubConfig() {
-  const reposEl = document.getElementById("gh-repos");
-  const repos = reposEl ? reposEl.value.split("\n").map((r) => r.trim()).filter(Boolean) : [];
-  try {
-    await api.saveGitHubConfig({ repos });
-    const statusEl = document.getElementById("sync-status");
-    if (statusEl) statusEl.textContent = "Configuration saved.";
-  } catch (e) {
-    toast("Failed to save GitHub config: " + e.message, "error");
-  }
-}
-let _syncPoll = null;
-async function triggerGitHubSync() {
-  const btn = document.getElementById("sync-btn");
-  const statusEl = document.getElementById("sync-status");
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = "↓ Syncing…";
-  }
-  if (statusEl) statusEl.textContent = "Sync in progress…";
-  try {
-    await api.triggerGitHubSync();
-  } catch (e) {
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = "↓ Sync Now";
-    }
-    if (statusEl) statusEl.textContent = "Error: " + e.message;
-    return;
-  }
-  clearInterval(_syncPoll);
-  _syncPoll = setInterval(async () => {
-    try {
-      const st = await api.getGitHubSyncStatus();
-      if (st.status === "running") return;
-      clearInterval(_syncPoll);
-      _syncPoll = null;
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = "↓ Sync Now";
-      }
-      if (st.status === "done" && st.result) {
-        const r = st.result;
-        const msg = `Done — ${r.synced.length} new, ${r.skipped.length} already present, ${r.failed.length} failed`;
-        if (statusEl) statusEl.textContent = msg;
-      } else if (st.status === "error") {
-        if (statusEl) statusEl.textContent = "Sync error: " + (st.error || "unknown");
-      }
-    } catch (_) {
-    }
-  }, 2e3);
-}
-async function saveJiraConfig() {
-  const statusEl = document.getElementById("jira-status");
-  if (statusEl) statusEl.textContent = "Saving…";
-  const body = {
-    base_url: (document.getElementById("jira-url")?.value || "").trim(),
-    email: (document.getElementById("jira-email")?.value || "").trim(),
-    project_key: (document.getElementById("jira-project")?.value || "").trim(),
-    issue_type: (document.getElementById("jira-issue-type")?.value || "").trim() || "Bug",
-    done_transition: (document.getElementById("jira-done")?.value || "").trim() || "Done",
-    auto_close: true
-    // Always enabled - not configurable
-  };
-  try {
-    await api.saveJiraConfig(body);
-    if (statusEl) statusEl.textContent = "Saved.";
-  } catch (e) {
-    if (statusEl) statusEl.textContent = "Error: " + e.message;
-  }
-}
-async function testJiraConnection() {
-  const btn = document.getElementById("jira-test-btn");
-  const statusEl = document.getElementById("jira-status");
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = "Testing…";
-  }
-  if (statusEl) statusEl.textContent = "";
-  await saveJiraConfig().catch(() => {
-  });
-  try {
-    const result = await api.testJiraConnection();
-    if (statusEl) {
-      statusEl.style.color = result.ok ? "var(--pass)" : "var(--critical)";
-      statusEl.textContent = result.message || (result.ok ? "Connected" : "Failed");
-    }
-  } catch (e) {
-    if (statusEl) {
-      statusEl.style.color = "var(--critical)";
-      statusEl.textContent = e.message;
-    }
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = "Test Connection";
-    }
-  }
-}
-async function renderStigHistory(selectedApp, selectedSlug) {
-  setActive("stig");
-  const page = document.getElementById("page");
-  page.innerHTML = loading();
-  const STATUS_CLASSES = {
-    "Open": "open",
-    "Not a Finding": "not-a-finding",
-    "Not Applicable": "na",
-    "Not Reviewed": "not-reviewed"
-  };
-  const STATUS_ABBR = {
-    "Open": "O",
-    "Not a Finding": "P",
-    "Not Applicable": "N/A",
-    "Not Reviewed": "—"
-  };
-  const SEV_ORDER = { critical: 0, high: 1, medium: 2, low: 3, "": 4 };
-  let data;
-  try {
-    data = await api.getStigHistory(selectedApp || null, selectedSlug || null);
-  } catch (e) {
-    page.innerHTML = errBanner(e.message);
-    return;
-  }
-  const { apps = [], app: curApp, slugs = [], scans = [], controls = [], summary = {} } = data;
-  let statusFilter = "all";
-  let daysFilter = 30;
-  let sortKey = "sev";
-  let sortDir = 1;
-  function filterControls(list) {
-    if (statusFilter === "open") return list.filter((c) => c.latest_status === "Open");
-    if (statusFilter === "pass") return list.filter((c) => c.latest_status === "Not a Finding");
-    if (statusFilter === "na") return list.filter((c) => c.latest_status === "Not Applicable");
-    if (statusFilter === "nr") return list.filter((c) => c.latest_status === "Not Reviewed");
-    return list;
-  }
-  function sortControls(list) {
-    return [...list].sort((a, b) => {
-      let v = 0;
-      if (sortKey === "sev") v = (SEV_ORDER[a.severity] ?? 4) - (SEV_ORDER[b.severity] ?? 4);
-      if (sortKey === "id") v = a.vuln_id.localeCompare(b.vuln_id);
-      if (sortKey === "title") v = (a.title || "").localeCompare(b.title || "");
-      if (sortKey === "mttr") v = (a.mttr_days ?? 9999) - (b.mttr_days ?? 9999);
-      if (sortKey === "status") v = (a.latest_status || "").localeCompare(b.latest_status || "");
-      return v * sortDir;
-    });
-  }
-  function buildPage() {
-    const appOpts = apps.map(
-      (a) => `<option value="${esc(a)}" ${a === curApp ? "selected" : ""}>${esc(a)}</option>`
-    ).join("");
-    const slugOpts = [
-      '<option value="">All STIGs</option>',
-      ...slugs.map((s) => `<option value="${esc(s)}" ${s === (selectedSlug || "") ? "selected" : ""}>${esc(s)}</option>`)
-    ].join("");
-    const cutoff = daysFilter > 0 ? new Date(Date.now() - daysFilter * 864e5).toISOString().slice(0, 10) : null;
-    const visibleScans = cutoff ? scans.filter((s) => s.date >= cutoff) : scans;
-    const dayBtns = [[7, "7d"], [14, "14d"], [30, "30d"], [35, "35d"], [0, "All"]].map(
-      ([d, l]) => `<button class="btn btn-sm${daysFilter === d ? " btn-active" : ""}" onclick="window._stigHistoryDays(${d})">${l}</button>`
-    ).join("");
-    const statusBtns = [
-      ["all", "All"],
-      ["open", "Open"],
-      ["pass", "Not a Finding"],
-      ["na", "N/A"],
-      ["nr", "Evidence needed"]
-    ].map(
-      ([k, l]) => `<button class="btn btn-sm${statusFilter === k ? " btn-active" : ""}" onclick="window._stigHistoryStatus('${k}')">${l}</button>`
-    ).join("");
-    const avgMttr = summary.avg_mttr_days != null ? summary.avg_mttr_days + " days" : "—";
-    const summaryStrip = `
-      <div class="stig-history-summary">
-        <div class="stig-hs-card">
-          <span class="stig-hs-num">${esc(summary.total_controls ?? 0)}</span>
-          <span class="stig-hs-lbl">Controls</span>
-        </div>
-        <div class="stig-hs-card open">
-          <span class="stig-hs-num">${esc(summary.currently_open ?? 0)}</span>
-          <span class="stig-hs-lbl">Currently Open</span>
-        </div>
-        <div class="stig-hs-card pass">
-          <span class="stig-hs-num">${esc(summary.currently_satisfied ?? 0)}</span>
-          <span class="stig-hs-lbl">Currently Satisfied</span>
-        </div>
-        <div class="stig-hs-card pass" style="opacity:0.7">
-          <span class="stig-hs-num">${esc(summary.remediated ?? 0)}</span>
-          <span class="stig-hs-lbl">Ever Remediated</span>
-        </div>
-        <div class="stig-hs-card mttr">
-          <span class="stig-hs-num">${esc(avgMttr)}</span>
-          <span class="stig-hs-lbl">Avg MTTR</span>
-        </div>
-      </div>`;
-    const visible = sortControls(filterControls(controls));
-    const thSort = (key, label) => {
-      const active = sortKey === key;
-      const arrow = active ? sortDir === 1 ? " ↑" : " ↓" : "";
-      return `<th scope="col" class="sortable-th${active ? " sorted" : ""}" onclick="window._stigHistorySort('${key}')">${label}${arrow}</th>`;
-    };
-    const dateHeaders = visibleScans.map(
-      (s) => `<th scope="col" class="stig-matrix-date-th" title="${esc(s.scan_id)}">${esc(s.label)}</th>`
-    ).join("");
-    const rows = visible.map((c) => {
-      const sevCls = c.severity || "unknown";
-      const cells = visibleScans.map((s, idx) => {
-        const entry = c.timeline.find((t) => t.scan_id === s.scan_id);
-        const status = entry ? entry.status : "";
-        const evidence = entry ? entry.evidence : "";
-        const confidence = entry ? entry.confidence : null;
-        const cls = STATUS_CLASSES[status] || "not-reviewed";
-        const abbr = STATUS_ABBR[status] || "";
-        const prevEntry = idx > 0 ? c.timeline.find((t) => t.scan_id === visibleScans[idx - 1].scan_id) : null;
-        const evidenceChanged = prevEntry && prevEntry.evidence && evidence && prevEntry.evidence !== evidence && status !== "Not Reviewed";
-        const changeIndicator = evidenceChanged ? " 🔄" : "";
-        const tooltipLines = [
-          `Status: ${status}`,
-          confidence != null ? `Confidence: ${confidence}%` : "",
-          evidence ? `
-${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
-        ].filter(Boolean).join("\n");
-        return `<td class="stig-matrix-cell ${cls}${evidenceChanged ? " evidence-changed" : ""}" title="${esc(tooltipLines)}">${esc(abbr)}${changeIndicator}</td>`;
-      }).join("");
-      const mttrBadge = c.mttr_days != null ? `<span class="mttr-badge">${c.mttr_days}d</span>` : `<span class="mttr-badge none">—</span>`;
-      const latestCls = STATUS_CLASSES[c.latest_status] || "not-reviewed";
-      const cid = _registerStigDetail(c);
-      return `
-        <tr onclick="openStigDetail(${cid})" style="cursor:pointer" title="Click to view details">
-          <td class="stig-matrix-sev"><span class="sev-badge ${esc(sevCls)}">${esc(sevCls)}</span></td>
-          <td class="stig-matrix-id">${esc(c.vuln_id)}</td>
-          <td class="stig-matrix-title" title="${esc(c.title)}">${esc(c.title || "—")}</td>
-          <td class="stig-matrix-status ${latestCls}">${esc(c.latest_status || "—")}</td>
-          ${cells}
-          <td class="stig-matrix-mttr">${mttrBadge}</td>
-        </tr>`;
-    }).join("");
-    const emptyRow2 = visible.length === 0 ? `<tr><td colspan="${5 + visibleScans.length}" style="text-align:center;padding:32px;color:var(--text-muted)">No controls match the current filter.</td></tr>` : "";
-    const tableHtml = visibleScans.length === 0 ? emptyState(`No STIG scans found for ${curApp || "this app"}`, "Run a STIG or nightly scan to start tracking history.") : `<div class="stig-matrix-wrap">
-           <table class="stig-matrix-table">
-             <thead>
-               <tr>
-                 ${thSort("sev", "Sev")}
-                 ${thSort("id", "Vuln ID")}
-                 ${thSort("title", "Title")}
-                 ${thSort("status", "Status")}
-                 ${dateHeaders}
-                 ${thSort("mttr", "MTTR")}
-               </tr>
-             </thead>
-             <tbody>${rows}${emptyRow2}</tbody>
-           </table>
-         </div>`;
-    page.innerHTML = `
-      <div class="breadcrumb">
-        <a href="#/stig">STIG Compliance</a>
-        <span>›</span>
-        <span>History</span>
-      </div>
-      ${pageHeader(`STIG Compliance`)}
-      ${histTabs}
-      <div class="stig-history-filters">
-        <div class="stig-hf-group">
-          <label class="stig-hf-label">App</label>
-          <select class="stig-hf-select" onchange="window._stigHistoryApp(this.value)">
-            ${apps.length === 0 ? '<option value="">No apps</option>' : appOpts}
-          </select>
-        </div>
-        <div class="stig-hf-group">
-          <label class="stig-hf-label">STIG</label>
-          <select class="stig-hf-select" onchange="window._stigHistorySlug(this.value)">
-            ${slugOpts}
-          </select>
-        </div>
-        <div class="stig-hf-group">
-          <label class="stig-hf-label">Range</label>
-          <div class="stig-hf-btns">${dayBtns}</div>
-        </div>
-        <div class="stig-hf-group">
-          <label class="stig-hf-label">Status</label>
-          <div class="stig-hf-btns">${statusBtns}</div>
-        </div>
-      </div>
-      ${summaryStrip}
-      ${tableHtml}`;
-  }
-  const histTabs = `
-    <div class="stig-tabs">
-      <button class="stig-tab" onclick="navigate('#/stig')">Overview</button>
-      <button class="stig-tab active" onclick="navigate('#/stig?view=history')">History &amp; MTTR</button>
-    </div>`;
-  if (apps.length === 0) {
-    page.innerHTML = `
-      <div class="breadcrumb">
-        <a href="#/stig">STIG Compliance</a>
-        <span>›</span>
-        <span>History</span>
-      </div>
-      ${pageHeader(`STIG Compliance`)}
-      ${histTabs}
-      ${emptyState("No STIG scan data found", "Run a STIG or nightly scan to start building the history matrix.")}`;
-    return;
-  }
-  window._stigHistoryApp = async (appVal) => {
-    selectedApp = appVal || null;
-    selectedSlug = null;
-    try {
-      data = await api.getStigHistory(selectedApp, null);
-    } catch (_) {
-    }
-    Object.assign(data, data);
-    const {
-      apps: a2 = [],
-      app: ca2,
-      slugs: sl2 = [],
-      scans: sc2 = [],
-      controls: co2 = [],
-      summary: su2 = {}
-    } = data;
-    Object.assign(
-      { apps, app: curApp, slugs, scans, controls, summary },
-      { apps: a2, app: ca2, slugs: sl2, scans: sc2, controls: co2, summary: su2 }
-    );
-    navigate("#/stig?view=history&app=" + encodeURIComponent(appVal));
-  };
-  window._stigHistorySlug = async (slugVal) => {
-    navigate("#/stig?view=history&app=" + encodeURIComponent(curApp || "") + (slugVal ? "&slug=" + encodeURIComponent(slugVal) : ""));
-  };
-  window._stigHistoryDays = (d) => {
-    daysFilter = d;
-    buildPage();
-  };
-  window._stigHistoryStatus = (key) => {
-    statusFilter = key;
-    buildPage();
-  };
-  window._stigHistorySort = (key) => {
-    if (sortKey === key) sortDir = -sortDir;
-    else {
-      sortKey = key;
-      sortDir = 1;
-    }
-    buildPage();
-  };
-  buildPage();
-}
 async function renderStigViewer(scanId) {
   setActive("stig");
   const page = document.getElementById("page");
@@ -10135,11 +10166,11 @@ function closeFindingDetail() {
   drawer?.remove();
 }
 function openGhSignalDetail(kind, idx) {
-  if (!_ghSignalData) return;
+  if (!window._ghSignalData) return;
   closeGhSignalDetail();
   let title = "", bodyHtml = "", repoUrl = "";
   if (kind === "run") {
-    const r = _ghSignalData.run[idx];
+    const r = window._ghSignalData.run[idx];
     if (!r) return;
     const repoShort = r.repo.split("/")[1] || r.repo;
     repoUrl = `https://github.com/${r.repo}/actions`;
@@ -10181,7 +10212,7 @@ function openGhSignalDetail(kind, idx) {
         </a>
       </div>`;
   } else if (kind === "cov") {
-    const [name, v] = _ghSignalData.cov[idx] || [];
+    const [name, v] = window._ghSignalData.cov[idx] || [];
     if (!name) return;
     title = `PR Scan Coverage — ${esc(name)}`;
     const pct = v.pr_coverage_pct;

@@ -1,5 +1,5 @@
 import { findingSourceBadge } from '../badges.js';
-import { esc, ucFirst } from '../../lib/format.js';
+import { esc, ucFirst, act } from '../../lib/format.js';
 import { _registerFinding } from '../../state/registries.js';
 
 // Globals that other modules put on window (see index.js):
@@ -69,7 +69,7 @@ export function _buildFindingRows(items) {
     const rowStyle = isSuppressed ? 'opacity:0.5' : '';
 
     return `
-      <tr class="finding-row" onclick="openFindingDetail(${fid})" title="Click to view details" style="${rowStyle}">
+      <tr class="finding-row" ${act('openFindingDetail', fid)} title="Click to view details" style="${rowStyle}">
         <td>
           <span class="tool-tag">${tool}</span>${suppressedBadge}
           <div style="margin-top:3px">${findingSourceBadge(f)}</div>
@@ -137,7 +137,7 @@ export function _findingsPagerHtml(sev) {
   const first = (st.page - 1) * st.size + 1;
   const last = Math.min(all.length, st.page * st.size);
   const btn = (label, page, disabled) =>
-    `<button type="button" class="btn btn-sm" ${disabled ? 'disabled' : ''} onclick="setFindingsPage('${sev}', ${page})">${label}</button>`;
+    `<button type="button" class="btn btn-sm" ${disabled ? 'disabled' : ''} ${act('setFindingsPage', `${sev}`, page)}>${label}</button>`;
   const sizeOpts = FINDINGS_PAGE_SIZES.map(n => `<option value="${n}" ${n === st.size ? 'selected' : ''}>${n}</option>`).join('');
   return `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 4px;font-size:13px;color:var(--text-muted)">
     <span>Showing ${first}–${last} of ${all.length} findings</span>
@@ -229,13 +229,13 @@ export function buildFindingsSection(findings) {
               <table>
                 <thead>
                   <tr>
-                    <th scope="col" class="sortable-th" data-col="tool"    onclick="sortFindingsBy('${sev}','tool')">Tool <span class="sort-icon">⇅</span></th>
-                    <th scope="col" class="sortable-th" data-col="id"      onclick="sortFindingsBy('${sev}','id')">CVE / ID <span class="sort-icon">⇅</span></th>
-                    <th scope="col" class="sortable-th" data-col="title"   onclick="sortFindingsBy('${sev}','title')">Title <span class="sort-icon">⇅</span></th>
-                    <th scope="col" class="sortable-th" data-col="package" onclick="sortFindingsBy('${sev}','package')">Package <span class="sort-icon">⇅</span></th>
-                    <th scope="col" class="sortable-th" data-col="cvss"    onclick="sortFindingsBy('${sev}','cvss')" style="white-space:nowrap">CVSS / KEV <span class="sort-icon">⇅</span></th>
-                    <th scope="col" class="sortable-th" data-col="fix"     onclick="sortFindingsBy('${sev}','fix')">Fix Available <span class="sort-icon">⇅</span></th>
-                    <th scope="col" class="sortable-th" data-col="target"  onclick="sortFindingsBy('${sev}','target')">Location <span class="sort-icon">⇅</span></th>
+                    <th scope="col" class="sortable-th" data-col="tool"    ${act('sortFindingsBy', `${sev}`, 'tool')}>Tool <span class="sort-icon">⇅</span></th>
+                    <th scope="col" class="sortable-th" data-col="id"      ${act('sortFindingsBy', `${sev}`, 'id')}>CVE / ID <span class="sort-icon">⇅</span></th>
+                    <th scope="col" class="sortable-th" data-col="title"   ${act('sortFindingsBy', `${sev}`, 'title')}>Title <span class="sort-icon">⇅</span></th>
+                    <th scope="col" class="sortable-th" data-col="package" ${act('sortFindingsBy', `${sev}`, 'package')}>Package <span class="sort-icon">⇅</span></th>
+                    <th scope="col" class="sortable-th" data-col="cvss"    ${act('sortFindingsBy', `${sev}`, 'cvss')} style="white-space:nowrap">CVSS / KEV <span class="sort-icon">⇅</span></th>
+                    <th scope="col" class="sortable-th" data-col="fix"     ${act('sortFindingsBy', `${sev}`, 'fix')}>Fix Available <span class="sort-icon">⇅</span></th>
+                    <th scope="col" class="sortable-th" data-col="target"  ${act('sortFindingsBy', `${sev}`, 'target')}>Location <span class="sort-icon">⇅</span></th>
                   </tr>
                 </thead>
                 <tbody id="findings-tbody-${esc(sev)}">${_buildFindingRows(items)}</tbody>

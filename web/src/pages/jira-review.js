@@ -2,7 +2,7 @@ import { sevBadge } from '../components/badges.js';
 import { toast } from '../components/feedback.js';
 import { errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
-import { esc, ucFirst } from '../lib/format.js';
+import { esc, ucFirst, act } from '../lib/format.js';
 import { _findingsRegistry, _registerFinding, _stigJiraSel, _stigRegistry } from '../state/registries.js';
 
 // Globals that other modules put on window (see index.js):
@@ -59,7 +59,7 @@ export function renderJiraReviewPage() {
       <a href="#/scans/${encodeURIComponent(state.scanId)}">Scan Details</a>
       <span>›</span><span>Jira Review</span>
     </div>
-    ${pageHeader(`Jira Ticket Review`, { subtitle: `${esc(data.app_name)} · ${esc(state.scanId)}`, actions: `<button class="btn" onclick="navigate('#/scans/${encodeURIComponent(state.scanId)}')">Back to Scan</button>` })}
+    ${pageHeader(`Jira Ticket Review`, { subtitle: `${esc(data.app_name)} · ${esc(state.scanId)}`, actions: `<button class="btn" ${act('navigate', `#/scans/${encodeURIComponent(state.scanId)}`)}>Back to Scan</button>` })}
     <div class="jira-review-project">
       <div>
         <label class="field-label" for="jira-review-project-key">Jira project for ${esc(data.app_name)}</label>
@@ -68,8 +68,8 @@ export function renderJiraReviewPage() {
       <input id="jira-review-project-key" class="field-input" type="text" maxlength="10"
         placeholder="PROJECT" value="${esc(data.project_key || '')}"
         oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
-      <button id="jira-review-project-save" class="btn" onclick="jiraReviewSaveProject()">Save Project</button>
-      <button id="jira-review-reassign" class="btn" onclick="jiraReviewCheckDeleted()"
+      <button id="jira-review-project-save" class="btn" ${act('jiraReviewSaveProject')}>Save Project</button>
+      <button id="jira-review-reassign" class="btn" ${act('jiraReviewCheckDeleted')}
         title="Detect tickets whose Jira issue was deleted and recreate them"
         ${data.jira_configured ? '' : 'disabled'}>Check for Deleted Tickets</button>
     </div>
@@ -107,10 +107,10 @@ export function renderJiraReviewPage() {
       </label>
     </div>
     <div class="jira-review-category-actions">
-      <button class="btn btn-sm" onclick="jiraReviewSelectCategory('vulnerability')">Select vulnerabilities</button>
-      <button class="btn btn-sm" onclick="jiraReviewSelectCategory('misconfiguration')">Select misconfigurations</button>
-      <button class="btn btn-sm" onclick="jiraReviewSelectCategory('ml')">Select ML/AI</button>
-      <button class="btn btn-sm" onclick="jiraReviewClearSelection()">Clear selection</button>
+      <button class="btn btn-sm" ${act('jiraReviewSelectCategory', 'vulnerability')}>Select vulnerabilities</button>
+      <button class="btn btn-sm" ${act('jiraReviewSelectCategory', 'misconfiguration')}>Select misconfigurations</button>
+      <button class="btn btn-sm" ${act('jiraReviewSelectCategory', 'ml')}>Select ML/AI</button>
+      <button class="btn btn-sm" ${act('jiraReviewClearSelection')}>Clear selection</button>
     </div>
     <div class="table-container jira-review-table-wrap">
       <table class="jira-review-table">
@@ -126,7 +126,7 @@ export function renderJiraReviewPage() {
     <div class="jira-review-actionbar">
       <div><strong id="jira-review-selected-count">0 selected</strong>
         <span id="jira-review-visible-count" class="jira-review-subtitle"></span></div>
-      <button id="jira-review-create" class="btn btn-primary" onclick="jiraReviewCreateTickets()"
+      <button id="jira-review-create" class="btn btn-primary" ${act('jiraReviewCreateTickets')}
         ${data.jira_configured ? '' : 'disabled title="Configure Jira in Settings first"'}>
         Create Jira Tickets
       </button>
@@ -154,7 +154,7 @@ export function jiraReviewRefresh() {
       <td>${esc(candidate.category === 'ml' ? 'ML/AI' : ucFirst(candidate.category))}</td>
       <td>${sevBadge(candidate.severity || 'low')}</td>
       <td><span class="tool-tag">${esc(candidate.tool || 'Unknown')}</span></td>
-      <td><button class="jira-review-finding-link" onclick="openFindingDetail(${detailId})">
+      <td><button class="jira-review-finding-link" ${act('openFindingDetail', detailId)}>
         ${esc(candidate.id || candidate.title || 'Finding')}</button>
         <div class="jira-review-title">${esc(candidate.title || '')}</div></td>
       <td title="${esc(candidate.target || '')}">${esc(location)}</td>
@@ -306,7 +306,7 @@ export async function showJiraEpicModal(quickCtx = null) {
     <div class="modal-container modal-md">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <h2 style="color:var(--text);margin:0">Create Jira Ticket${selectedCount === 1 ? '' : 's'}</h2>
-        <button class="btn" onclick="jiraEpicModalClose()" style="padding:6px 12px">✕</button>
+        <button class="btn" ${act('jiraEpicModalClose')} style="padding:6px 12px">✕</button>
       </div>
       <p style="color:var(--text-muted);font-size:13px;margin:0 0 16px">
         Creating ${selectedCount} ticket${selectedCount === 1 ? '' : 's'} for this scan. Confirm the Jira project,
@@ -318,7 +318,7 @@ export async function showJiraEpicModal(quickCtx = null) {
           <input id="jira-modal-project-key" class="field-input" type="text" maxlength="10" placeholder="PROJECT"
             value="${esc(projectKey)}" ${quickCtx ? '' : 'readonly'}
             oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,''); jiraModalProjectTyped()">
-          ${quickCtx ? '<button id="jira-modal-project-save" class="btn" onclick="jiraModalProjectSave()" disabled>Change</button>' : ''}
+          ${quickCtx ? `<button id="jira-modal-project-save" class="btn" ${act('jiraModalProjectSave')} disabled>Change</button>` : ''}
         </div>
         <div id="jira-modal-project-note" style="font-size:12px;color:var(--text-muted);margin-top:4px">
           ${quickCtx
@@ -328,8 +328,8 @@ export async function showJiraEpicModal(quickCtx = null) {
       </div>
       <div id="jira-epic-modal-body">${loading()}</div>
       <div class="modal-actions" style="margin-top:20px;display:flex;justify-content:flex-end;gap:10px">
-        <button class="btn" onclick="jiraEpicModalClose()">Cancel</button>
-        <button id="jira-epic-modal-confirm" class="btn btn-primary" onclick="jiraEpicModalConfirm()">
+        <button class="btn" ${act('jiraEpicModalClose')}>Cancel</button>
+        <button id="jira-epic-modal-confirm" class="btn btn-primary" ${act('jiraEpicModalConfirm')}>
           Create Ticket${selectedCount === 1 ? '' : 's'}
         </button>
       </div>
@@ -353,18 +353,18 @@ export async function openStigJiraModal(scanId, regKeys) {
   try {
     ctx = await api.getStigJiraContext(scanId);
   } catch (e) {
-    body.innerHTML = `<p style="color:var(--critical)">${esc(e.message)}</p><button class="btn" onclick="stigJiraClose()">Close</button>`;
+    body.innerHTML = `<p style="color:var(--critical)">${esc(e.message)}</p><button class="btn" ${act('stigJiraClose')}>Close</button>`;
     return;
   }
   if (!ctx.jira_configured) {
-    body.innerHTML = `<p style="color:var(--text)">Jira is not configured. Set it up on the Jira page first.</p><button class="btn" onclick="stigJiraClose()">Close</button>`;
+    body.innerHTML = `<p style="color:var(--text)">Jira is not configured. Set it up on the Jira page first.</p><button class="btn" ${act('stigJiraClose')}>Close</button>`;
     return;
   }
   const n = controls.length;
   body.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <h2 style="color:var(--text);margin:0">Add ${n} STIG control${n === 1 ? '' : 's'} to Jira</h2>
-      <button class="btn" onclick="stigJiraClose()" style="padding:6px 12px">✕</button>
+      <button class="btn" ${act('stigJiraClose')} style="padding:6px 12px">✕</button>
     </div>
     <div style="margin-bottom:14px">
       <label class="field-label" for="stig-jira-project">Jira board (project key)</label>
@@ -393,7 +393,7 @@ export async function openStigJiraModal(scanId, regKeys) {
     </div>
     <div id="stig-jira-result" style="font-size:13px;margin-bottom:10px"></div>
     <div style="display:flex;justify-content:flex-end;gap:10px">
-      <button class="btn" onclick="stigJiraClose()">Close</button>
+      <button class="btn" ${act('stigJiraClose')}>Close</button>
       <button id="stig-jira-submit" class="btn btn-primary">Create ticket${n === 1 ? '' : 's'}</button>
     </div>`;
   const fill = async () => {
@@ -458,7 +458,7 @@ export function openStigBulkLockModal(scanId) {
   overlay.innerHTML = `<div class="modal-container modal-md">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <h2 style="color:var(--text);margin:0">Lock / unlock ${n} STIG control${n === 1 ? '' : 's'}</h2>
-      <button class="btn" onclick="stigJiraClose()" style="padding:6px 12px">✕</button>
+      <button class="btn" ${act('stigJiraClose')} style="padding:6px 12px">✕</button>
     </div>
     <div style="margin-bottom:14px">
       <label class="field-label" for="stig-bulk-status">Status</label>
@@ -473,7 +473,7 @@ export function openStigBulkLockModal(scanId) {
     </div>
     <div id="stig-bulk-result" style="font-size:13px;margin-bottom:10px"></div>
     <div style="display:flex;justify-content:flex-end;gap:10px">
-      <button class="btn" onclick="stigJiraClose()">Close</button>
+      <button class="btn" ${act('stigJiraClose')}>Close</button>
       <button id="stig-bulk-unlock" class="btn" title="Remove the human lock so the next scan re-assesses these controls">Unlock ${n}</button>
       <button id="stig-bulk-submit" class="btn btn-primary">🔒 Lock ${n}</button>
     </div>
@@ -633,7 +633,7 @@ export function renderJiraEpicModalBody() {
       <div>
         <label class="field-label">Or create a new Epic</label>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-          ${state.suggested.map(s => `<button type="button" class="btn btn-sm" onclick="jiraEpicModalQuickCreate('${esc(s.name)}')">${esc(s.label)}</button>`).join('')}
+          ${state.suggested.map(s => `<button type="button" class="btn btn-sm" ${act('jiraEpicModalQuickCreate', s.name)}>${esc(s.label)}</button>`).join('')}
         </div>
         <input id="jira-epic-new-name" class="field-input" type="text" maxlength="200"
           placeholder="Custom Epic name…" oninput="jiraEpicModalTypedName(this.value)">

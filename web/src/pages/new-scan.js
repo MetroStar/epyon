@@ -2,7 +2,7 @@ import { scanWatch } from '../core/boot.js';
 import { confirmDialog, toast } from '../components/feedback.js';
 import { pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
-import { esc, fmtDate, ucFirst } from '../lib/format.js';
+import { esc, fmtDate, ucFirst, act } from '../lib/format.js';
 
 // Globals that other modules put on window (see index.js):
 /* global setActive */
@@ -36,9 +36,9 @@ export async function renderNewScan(prefill = '') {
           <label>Source</label>
             <div class="seg-ctrl" id="target-mode-ctrl">
               <button type="button" class="seg-btn active" data-value="path" id="target-mode-path-btn"
-                onclick="_setTargetMode('path')">Path / Git URL</button>
+                ${act('_setTargetMode', 'path')}>Path / Git URL</button>
               <button type="button" class="seg-btn" data-value="upload" id="target-mode-upload-btn"
-                onclick="_setTargetMode('upload')">Upload archive</button>
+                ${act('_setTargetMode', 'upload')}>Upload archive</button>
             </div>
             <small id="target-mode-hint">Deployed on a remote server? A typed absolute path is resolved on the
               <strong>server's</strong> own filesystem, not your machine — use
@@ -63,8 +63,8 @@ export async function renderNewScan(prefill = '') {
           <div class="form-group">
             <label>Scan Types</label>
             <div style="margin-bottom:8px">
-              <button type="button" class="btn btn-sm" onclick="setScanTypeCheckboxes(true)">Select All</button>
-              <button type="button" class="btn btn-sm" onclick="setScanTypeCheckboxes(false)">Select None</button>
+              <button type="button" class="btn btn-sm" ${act('setScanTypeCheckboxes', true)}>Select All</button>
+              <button type="button" class="btn btn-sm" ${act('setScanTypeCheckboxes', false)}>Select None</button>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:8px">
               ${SCAN_TYPE_OPTIONS.map(t => `
@@ -87,9 +87,9 @@ export async function renderNewScan(prefill = '') {
             <label>Garak LLM Scan (Layer 12)</label>
             <div class="seg-ctrl" id="garak-ctrl">
               <button type="button" class="seg-btn active" data-value="off"
-                onclick="_setGarak('off')">Off</button>
+                ${act('_setGarak', 'off')}>Off</button>
               <button type="button" class="seg-btn" data-value="on"
-                onclick="_setGarak('on')">On</button>
+                ${act('_setGarak', 'on')}>On</button>
             </div>
             <small>Requires <code>OPENAI_API_KEY</code> to be set.</small>
           </div>
@@ -98,9 +98,9 @@ export async function renderNewScan(prefill = '') {
             <label>STIG Compliance (Layer 13)</label>
             <div class="seg-ctrl" id="stig-ctrl">
               <button type="button" class="seg-btn active" data-value="off"
-                onclick="_setStig('off')">Off</button>
+                ${act('_setStig', 'off')}>Off</button>
               <button type="button" class="seg-btn" data-value="on"
-                onclick="_setStig('on')">On</button>
+                ${act('_setStig', 'on')}>On</button>
             </div>
             <small>Requires <code>OPENAI_API_KEY</code> to be set.</small>
           </div>
@@ -109,18 +109,18 @@ export async function renderNewScan(prefill = '') {
             <label>Monitoring Type</label>
             <div class="seg-ctrl" id="monitoring-type-ctrl">
               <button type="button" class="seg-btn active" data-value="evaluation"
-                onclick="_setMonitoringType('evaluation')">
+                ${act('_setMonitoringType', 'evaluation')}>
                 &#9675; Evaluation
               </button>
               <button type="button" class="seg-btn" data-value="continuous"
-                onclick="_setMonitoringType('continuous')">
+                ${act('_setMonitoringType', 'continuous')}>
                 &#9679; Continuous
               </button>
             </div>
             <small>Continuous apps are tracked in Metrics. Evaluation apps are excluded.</small>
           </div>
 
-          <button id="run-btn" class="btn btn-primary" style="width:100%;justify-content:center" onclick="submitScan()">
+          <button id="run-btn" class="btn btn-primary" style="width:100%;justify-content:center" ${act('submitScan')}>
             ▶ Run Scan
           </button>
         </div>
@@ -133,7 +133,7 @@ export async function renderNewScan(prefill = '') {
         <span style="display:flex;align-items:center;gap:12px">
           <div id="job-status-bar"></div>
           <button id="cancel-btn" class="btn btn-sm" style="display:none"
-                  onclick="cancelScan()">✕ Cancel</button>
+                  ${act('cancelScan')}>✕ Cancel</button>
         </span>
       </div>
       <div class="log-card" id="log-output"></div>
@@ -148,7 +148,7 @@ export async function renderNewScan(prefill = '') {
         <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
           <span id="job-view-title"></span>
           <span style="display:flex;align-items:center;gap:8px">
-            <button class="btn btn-sm" onclick="closeJobView()">Close</button>
+            <button class="btn btn-sm" ${act('closeJobView')}>Close</button>
           </span>
         </div>
         <div class="log-card" id="job-view-log"></div>
@@ -210,8 +210,8 @@ export function renderJobList(jobs) {
           <td>${esc(x.scan_type)}</td>
           <td style="font-size:12px;color:var(--text-muted)">${fmtDate(x.started_at)}</td>
           <td style="text-align:right;white-space:nowrap">
-            <button class="btn btn-sm" onclick="openJobView('${id}')">${x.job_id === _viewJobId ? 'Viewing' : 'View log'}</button>
-            ${active ? `<button class="btn btn-sm" onclick="cancelJobById('${id}')">Cancel</button>` : ''}
+            <button class="btn btn-sm" ${act('openJobView', `${id}`)}>${x.job_id === _viewJobId ? 'Viewing' : 'View log'}</button>
+            ${active ? `<button class="btn btn-sm" ${act('cancelJobById', `${id}`)}>Cancel</button>` : ''}
           </td>
         </tr>`;
       }).join('')}</tbody>
@@ -363,8 +363,8 @@ export function renderScanLayerPicker() {
       <summary style="cursor:pointer;font-size:13px;color:var(--text-muted)">Select layers to run (defaults to all)</summary>
       <div style="margin-top:10px">
         <div style="margin-bottom:8px">
-          <button type="button" class="btn btn-sm" onclick="setScanLayerCheckboxes(true)">Select All</button>
-          <button type="button" class="btn btn-sm" onclick="setScanLayerCheckboxes(false)">Select None</button>
+          <button type="button" class="btn btn-sm" ${act('setScanLayerCheckboxes', true)}>Select All</button>
+          <button type="button" class="btn btn-sm" ${act('setScanLayerCheckboxes', false)}>Select None</button>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:8px">${boxes}</div>
       </div>
@@ -658,16 +658,16 @@ export function finishScanQueue() {
   if (actionsDiv) {
     actionsDiv.style.display = 'flex';
     actionsDiv.innerHTML = !anyFailed
-      ? `<button class="btn btn-primary" onclick="navigate('#/applications')">
+      ? `<button class="btn btn-primary" ${act('navigate', '#/applications')}>
            View Applications
          </button>
-         <button class="btn" onclick="copyScanLogs()">Copy Logs</button>
-         <button class="btn" onclick="startNewScanRun()">Run Another Scan</button>`
+         <button class="btn" ${act('copyScanLogs')}>Copy Logs</button>
+         <button class="btn" ${act('startNewScanRun')}>Run Another Scan</button>`
       : `<div class="error-banner" style="margin:0">
            One or more scan types did not complete successfully. Check the log output and results below.
          </div>
-         <button class="btn" onclick="copyScanLogs()">Copy Logs</button>
-         <button class="btn" onclick="startNewScanRun()">Run Another Scan</button>`;
+         <button class="btn" ${act('copyScanLogs')}>Copy Logs</button>
+         <button class="btn" ${act('startNewScanRun')}>Run Another Scan</button>`;
   }
 
   renderScanQueueResults();

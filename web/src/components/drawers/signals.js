@@ -1,5 +1,5 @@
 import { closeFindingDetail } from './finding.js';
-import { esc } from '../../lib/format.js';
+import { esc, act } from '../../lib/format.js';
 import { _apiRegistry, _depsRegistry } from '../../state/registries.js';
 
 
@@ -120,7 +120,7 @@ export function openGhSignalDetail(kind, idx) {
       <div class="finding-drawer-title">
         <h2>${title}</h2>
       </div>
-      <button class="finding-drawer-close" onclick="closeGhSignalDetail()" aria-label="Close">✕</button>
+      <button class="finding-drawer-close" ${act('closeGhSignalDetail')} aria-label="Close">✕</button>
     </div>
     <div class="finding-drawer-body">${bodyHtml}</div>`;
 
@@ -186,7 +186,7 @@ export function openAPIDetail(id) {
           <span class="tool-tag">${esc(framework)}</span>
         </div>
       </div>
-      <button class="finding-drawer-close" onclick="closeAPIDetail()" aria-label="Close">✕</button>
+      <button class="finding-drawer-close" ${act('closeAPIDetail')} aria-label="Close">✕</button>
     </div>
     <div class="finding-drawer-body">
 
@@ -355,7 +355,7 @@ window.openDependencyDetail = function(did) {
           ${p.language ? `<span class="tool-tag" style="background:var(--accent-bg);color:var(--accent)">${esc(p.language)}</span>` : ''}
         </div>
       </div>
-      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+      <button class="finding-drawer-close" ${act('closeFindingDetail')} aria-label="Close">✕</button>
     </div>
     <div class="finding-drawer-body">
 

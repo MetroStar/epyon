@@ -1,5 +1,5 @@
 import { emptyState, errBanner, loading, pageHeader } from '../components/layout.js';
-import { esc, fmtDate, ucFirst } from '../lib/format.js';
+import { esc, fmtDate, ucFirst, act } from '../lib/format.js';
 import { scanTypeLabel } from '../lib/scans.js';
 
 // Globals that other modules put on window (see index.js):
@@ -43,7 +43,7 @@ export function buildPoamSection(scanId) {
           <div class="poam-source-slot" style="margin-top:12px"></div>
           <div class="stig-counts poam-tiles" style="margin-top:12px"></div>
           <div class="stig-view-btn-row">
-            <button class="btn btn-primary btn-sm" onclick="navigate('${viewHref}')">⊞ View POA&amp;M Inline</button>
+            <button class="btn btn-primary btn-sm" ${act('navigate', `${viewHref}`)}>⊞ View POA&amp;M Inline</button>
           </div>
         </div>
       </details>
@@ -203,7 +203,7 @@ export async function renderPoam() {
       const s = a.by_severity || {};
       const base = `/api/applications/${encodeURIComponent(a.name)}`;
       return `
-        <div class="stig-app-card" onclick="navigate('#/poam-viewer/${encodeURIComponent(a.name)}')" style="cursor:pointer">
+        <div class="stig-app-card" ${act('navigate', `#/poam-viewer/${encodeURIComponent(a.name)}`)} style="cursor:pointer">
           <div class="stig-app-card-header">
             <span class="stig-app-name">${esc(a.name)}</span>
             <div class="stig-download-btns" onclick="event.stopPropagation()">
@@ -225,13 +225,13 @@ export async function renderPoam() {
           </div>
           ${poamSourceLine(a.sources, a.notes)}
           <div style="margin-top:12px" onclick="event.stopPropagation()">
-            <button class="btn btn-primary btn-sm" onclick="navigate('#/poam-viewer/${encodeURIComponent(a.name)}')">⊞ View POA&amp;M</button>
+            <button class="btn btn-primary btn-sm" ${act('navigate', `#/poam-viewer/${encodeURIComponent(a.name)}`)}>⊞ View POA&amp;M</button>
           </div>
         </div>`;
     }).join('') : emptyState(
       'Nothing on a POA&M yet',
       'No application has open STIG controls or Critical/High CVEs in its latest scans.',
-      `<button class="btn btn-primary" onclick="navigate('#/stig')" style="margin-top:16px">View STIG Compliance</button>`,
+      `<button class="btn btn-primary" ${act('navigate', '#/stig')} style="margin-top:16px">View STIG Compliance</button>`,
     );
     page.innerHTML = `
       ${pageHeader('POA&M')}

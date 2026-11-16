@@ -9,6 +9,7 @@
   // src/lib/format.js
   var format_exports = {};
   __export(format_exports, {
+    act: () => act,
     dedupeTools: () => dedupeTools,
     esc: () => esc,
     fmtDate: () => fmtDate,
@@ -19,6 +20,9 @@
   function esc(str) {
     if (str == null) return "";
     return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function act(fn, ...args) {
+    return `data-act="${esc(fn)}" data-args="${esc(JSON.stringify(args))}"`;
   }
   function fmtDate(ts) {
     if (!ts) return "—";
@@ -332,7 +336,7 @@
   function errBanner(msg, { retry = true } = {}) {
     return `<div class="error-banner" role="alert">
     <div>⚠ ${esc(msg)}</div>
-    ${retry ? '<button class="btn btn-sm" onclick="resolve()">Retry</button>' : ""}
+    ${retry ? `<button class="btn btn-sm" ${act("resolve")}>Retry</button>` : ""}
   </div>`;
   }
   function emptyRow(colspan, msg) {
@@ -873,7 +877,7 @@
           <div class="poam-source-slot" style="margin-top:12px"></div>
           <div class="stig-counts poam-tiles" style="margin-top:12px"></div>
           <div class="stig-view-btn-row">
-            <button class="btn btn-primary btn-sm" onclick="navigate('${viewHref}')">⊞ View POA&amp;M Inline</button>
+            <button class="btn btn-primary btn-sm" ${act("navigate", `${viewHref}`)}>⊞ View POA&amp;M Inline</button>
           </div>
         </div>
       </details>
@@ -1032,7 +1036,7 @@
         const s = a.by_severity || {};
         const base = `/api/applications/${encodeURIComponent(a.name)}`;
         return `
-        <div class="stig-app-card" onclick="navigate('#/poam-viewer/${encodeURIComponent(a.name)}')" style="cursor:pointer">
+        <div class="stig-app-card" ${act("navigate", `#/poam-viewer/${encodeURIComponent(a.name)}`)} style="cursor:pointer">
           <div class="stig-app-card-header">
             <span class="stig-app-name">${esc(a.name)}</span>
             <div class="stig-download-btns" onclick="event.stopPropagation()">
@@ -1054,13 +1058,13 @@
           </div>
           ${poamSourceLine(a.sources, a.notes)}
           <div style="margin-top:12px" onclick="event.stopPropagation()">
-            <button class="btn btn-primary btn-sm" onclick="navigate('#/poam-viewer/${encodeURIComponent(a.name)}')">⊞ View POA&amp;M</button>
+            <button class="btn btn-primary btn-sm" ${act("navigate", `#/poam-viewer/${encodeURIComponent(a.name)}`)}>⊞ View POA&amp;M</button>
           </div>
         </div>`;
       }).join("") : emptyState(
         "Nothing on a POA&M yet",
         "No application has open STIG controls or Critical/High CVEs in its latest scans.",
-        `<button class="btn btn-primary" onclick="navigate('#/stig')" style="margin-top:16px">View STIG Compliance</button>`
+        `<button class="btn btn-primary" ${act("navigate", "#/stig")} style="margin-top:16px">View STIG Compliance</button>`
       );
       page.innerHTML = `
       ${pageHeader("POA&M")}
@@ -1364,7 +1368,7 @@ jobs:
               <input id="ai-model" type="text" class="field-input"
                 placeholder="gpt-4o-mini, llama3.1:8b, gemma4:26b, ..."
                 value="${esc(aiCfg.model || "")}"/>
-              <button type="button" class="btn" id="ai-model-refresh" onclick="loadLocalModels()"
+              <button type="button" class="btn" id="ai-model-refresh" ${act("loadLocalModels")}
                       title="Fetch the models available at the base URL" style="white-space:nowrap">↻ Refresh</button>
             </div>
             <div id="ai-model-status" style="font-size:12px;color:var(--text-muted);margin-top:4px"></div>
@@ -1402,7 +1406,7 @@ jobs:
         </div>
 
         <div style="margin-top:16px">
-          <button class="btn btn-primary" onclick="saveAiConfig()">Save AI Config</button>
+          <button class="btn btn-primary" ${act("saveAiConfig")}>Save AI Config</button>
         </div>
       </details>
 
@@ -1462,8 +1466,8 @@ jobs:
             </div>
           </div>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-            <button class="btn btn-primary" onclick="saveJiraConfig()">Save</button>
-            <button class="btn" id="jira-test-btn" onclick="testJiraConnection()">Test Connection</button>
+            <button class="btn btn-primary" ${act("saveJiraConfig")}>Save</button>
+            <button class="btn" id="jira-test-btn" ${act("testJiraConnection")}>Test Connection</button>
             <span id="jira-status" style="font-size:13px;color:var(--text-muted)"></span>
           </div>
         </div>
@@ -1490,8 +1494,8 @@ jobs:
           </div>
 
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-            <button class="btn btn-primary" onclick="saveGitHubConfig()">Save</button>
-            <button class="btn btn-primary" id="sync-btn" onclick="triggerGitHubSync()">
+            <button class="btn btn-primary" ${act("saveGitHubConfig")}>Save</button>
+            <button class="btn btn-primary" id="sync-btn" ${act("triggerGitHubSync")}>
               ↓ Sync Now
             </button>
             <span id="sync-status" style="font-size:13px;color:var(--text-muted)">
@@ -1524,7 +1528,7 @@ jobs:
           <label class="field-label" for="scan-concurrency" style="margin:0">Max concurrent scans</label>
           <input id="scan-concurrency" type="number" class="field-input" style="width:90px"
                  min="1" max="${esc(concCfg.ceiling)}" step="1" value="${esc(concCfg.max_concurrent_scans)}" />
-          <button class="btn btn-primary" onclick="saveScanConcurrency()">Save</button>
+          <button class="btn btn-primary" ${act("saveScanConcurrency")}>Save</button>
           <span style="font-size:13px;color:var(--text-muted)">
             ${esc(concCfg.running)} running, ${esc(concCfg.queued)} queued ·
             ${concCfg.source === "saved" ? "set here" : concCfg.source === "env" ? "from <code>EPYON_MAX_CONCURRENT_SCANS</code>" : "default (" + esc(concCfg.default) + ")"}
@@ -1819,8 +1823,8 @@ epyon install-workflow</pre>
       <summary style="cursor:pointer;font-size:13px;color:var(--text-muted)">Select layers to validate (defaults to all)</summary>
       <div style="margin-top:10px">
         <div style="margin-bottom:8px">
-          <button type="button" class="btn btn-sm" onclick="setSelfDiagLayers(true)">Select All</button>
-          <button type="button" class="btn btn-sm" onclick="setSelfDiagLayers(false)">Select None</button>
+          <button type="button" class="btn btn-sm" ${act("setSelfDiagLayers", true)}>Select All</button>
+          <button type="button" class="btn btn-sm" ${act("setSelfDiagLayers", false)}>Select None</button>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:8px">${boxes}</div>
       </div>
@@ -1967,7 +1971,7 @@ epyon install-workflow</pre>
       const runRows = _runList.map((r, i) => {
         const rate = r.success_rate != null ? `${r.success_rate}%` : "No runs";
         const rateColor = r.success_rate == null ? "var(--text-muted)" : r.success_rate >= 90 ? "var(--clean)" : r.success_rate >= 70 ? "#e3b341" : "var(--critical)";
-        return `<tr class="finding-row" style="cursor:pointer" onclick="openGhSignalDetail('run',${i})" title="Click to view details">
+        return `<tr class="finding-row" style="cursor:pointer" ${act("openGhSignalDetail", "run", i)} title="Click to view details">
         <td><strong>${esc(r.repo.split("/")[1] || r.repo)}</strong><div style="font-size:12px;color:var(--text-muted)">${esc(r.repo)}</div></td>
         <td style="text-align:center;font-weight:700;color:${rateColor}">${rate}</td>
         <td style="text-align:center">${r.total_runs || 0}</td>
@@ -1982,7 +1986,7 @@ epyon install-workflow</pre>
       const covRows = covEntries.map(([name, v], i) => {
         const pct = v.pr_coverage_pct;
         const barColor = pct >= 70 ? "var(--clean)" : pct >= 40 ? "#e3b341" : "var(--critical)";
-        return `<tr class="finding-row" style="cursor:pointer" onclick="openGhSignalDetail('cov',${i})" title="Click to view details">
+        return `<tr class="finding-row" style="cursor:pointer" ${act("openGhSignalDetail", "cov", i)} title="Click to view details">
         <td><strong>${esc(name)}</strong></td>
         <td style="text-align:center">${v.pr_scans}</td>
         <td style="text-align:center">${v.push_scans}</td>
@@ -2173,7 +2177,7 @@ epyon install-workflow</pre>
       <div class="section">
         <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
           <span>Self-Assessment (All Scanner Layers)</span>
-          <button id="run-self-diag-btn" class="btn btn-sm" onclick="startSelfDiagnostic()">▶ Run Self-Diagnostic</button>
+          <button id="run-self-diag-btn" class="btn btn-sm" ${act("startSelfDiagnostic")}>▶ Run Self-Diagnostic</button>
         </div>
         <div style="padding:20px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border)">
           ${renderSelfDiagLayerPicker()}
@@ -2306,7 +2310,7 @@ epyon install-workflow</pre>
         const jsonBtn = `<a class="btn btn-sm" href="/api/scans/${encodeURIComponent(stigScanId)}/stig-findings-json" download>↓ findings.json</a>`;
         const poamBtn = `<a class="btn btn-sm" href="/api/scans/${encodeURIComponent(stigScanId)}/poam" download title="Open STIG controls + Critical/High CVEs">↓ POA&amp;M.csv</a>`;
         return `
-            <div class="stig-app-card" onclick="navigate('#/scans/${encodeURIComponent(stigScanId)}')" style="cursor:pointer">
+            <div class="stig-app-card" ${act("navigate", `#/scans/${encodeURIComponent(stigScanId)}`)} style="cursor:pointer">
               <div class="stig-app-card-header">
                 <span class="stig-app-name">
                   ${esc(app.name)}
@@ -2339,11 +2343,11 @@ epyon install-workflow</pre>
               <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap" onclick="event.stopPropagation()">
                 <span style="font-size:12px;color:var(--text-muted)">Last scanned: ${fmtDate(app.last_scanned)}</span>
                 <button class="btn btn-primary btn-sm"
-                  onclick="navigate('#/stig-viewer/${encodeURIComponent(stigScanId)}')">
+                  ${act("navigate", `#/stig-viewer/${encodeURIComponent(stigScanId)}`)}>
                   ⊞ View Findings
                 </button>
                 <button class="btn btn-sm"
-                  onclick="navigate('#/scans/${encodeURIComponent(stigScanId)}')">
+                  ${act("navigate", `#/scans/${encodeURIComponent(stigScanId)}`)}>
                   Scan Details →
                 </button>
               </div>
@@ -2351,7 +2355,7 @@ epyon install-workflow</pre>
       }).join("") : emptyState(
         "No STIG results yet",
         "STIG scans do not run on a schedule because they use AI tokens. Trigger one using Run Scan → STIG.",
-        `<button class="btn btn-primary" onclick="navigate('#/new-scan')" style="margin-top:16px">
+        `<button class="btn btn-primary" ${act("navigate", "#/new-scan")} style="margin-top:16px">
              ▶ Run STIG Scan
            </button>`
       );
@@ -2384,12 +2388,12 @@ epyon install-workflow</pre>
       </div>` : "";
       const stigTabs = `
       <div class="stig-tabs">
-        <button class="stig-tab active" onclick="navigate('#/stig')">Overview</button>
-        <button class="stig-tab" onclick="navigate('#/stig?view=history')">History &amp; MTTR</button>
+        <button class="stig-tab active" ${act("navigate", "#/stig")}>Overview</button>
+        <button class="stig-tab" ${act("navigate", "#/stig?view=history")}>History &amp; MTTR</button>
       </div>`;
       page.innerHTML = `
       ${pageHeader(`STIG Compliance`, { actions: `<button class="btn btn-primary"
-          onclick="navigate('#/new-scan')">▶ Run STIG Scan</button>` })}
+          ${act("navigate", "#/new-scan")}>▶ Run STIG Scan</button>` })}
       ${stigTabs}
       <p class="section-desc">
         Application Security Developer (AppSecDev) STIG and Crunchy Data PostgreSQL STIG
@@ -2459,8 +2463,8 @@ epyon install-workflow</pre>
         return `
         <div class="stig-viewer-count" style="display:flex;align-items:center;gap:12px">
           <span>${rows.length} control${rows.length !== 1 ? "s" : ""}</span>
-          <button class="btn" id="stig-jira-bulk" onclick="openStigJiraModal('${esc(scanId)}')" ${_stigJiraSel.size ? "" : "disabled"}>Add ${_stigJiraSel.size || ""} to Jira</button>
-          <button class="btn" id="stig-lock-bulk" onclick="openStigBulkLockModal('${esc(scanId)}')" ${_stigJiraSel.size ? "" : "disabled"}>🔒 Lock ${_stigJiraSel.size || ""}</button>
+          <button class="btn" id="stig-jira-bulk" ${act("openStigJiraModal", scanId)} ${_stigJiraSel.size ? "" : "disabled"}>Add ${_stigJiraSel.size || ""} to Jira</button>
+          <button class="btn" id="stig-lock-bulk" ${act("openStigBulkLockModal", scanId)} ${_stigJiraSel.size ? "" : "disabled"}>🔒 Lock ${_stigJiraSel.size || ""}</button>
         </div>
         <div class="stig-table-wrap">
           <table class="stig-table">
@@ -2477,7 +2481,7 @@ epyon install-workflow</pre>
           const active = sortCol === col;
           const icon = active ? sortDir === "asc" ? "↑" : "↓" : "⇅";
           const style = w ? `style="width:${w}"` : "";
-          return `<th scope="col" class="stig-sortable-th${active ? " stig-sort-active" : ""}" ${style} onclick="setStigSort('${col}')">${label} <span class="stig-sort-icon">${icon}</span></th>`;
+          return `<th scope="col" class="stig-sortable-th${active ? " stig-sort-active" : ""}" ${style} ${act("setStigSort", `${col}`)}>${label} <span class="stig-sort-icon">${icon}</span></th>`;
         }).join("")}
                 ${stigNames.length > 1 ? '<th scope="col" style="width:140px">STIG</th>' : ""}
               </tr>
@@ -2491,7 +2495,7 @@ epyon install-workflow</pre>
           const conf = c.confidence ?? 0;
           const confClass = conf >= 90 ? "conf-high" : conf >= 70 ? "conf-med" : conf >= 40 ? "conf-low" : "conf-none";
           return `
-                  <tr class="stig-tr stig-tr-clickable" id="${rowId}" onclick="openStigDetail('${esc(regKey)}')">
+                  <tr class="stig-tr stig-tr-clickable" id="${rowId}" ${act("openStigDetail", regKey)}>
                     <td onclick="event.stopPropagation()"><input type="checkbox" aria-label="Select ${esc(c.vuln_id)}" ${_stigJiraSel.has(regKey) ? "checked" : ""} onclick="stigJiraToggle('${esc(regKey)}', this.checked, event.shiftKey)"></td>
                     <td><code class="stig-id">${esc(c.group_id || c.vuln_id)}</code></td>
                     <td><span class="stig-sev stig-sev-${esc(c.severity)}">${esc(c.severity || "—")}</span></td>
@@ -2513,7 +2517,7 @@ epyon install-workflow</pre>
             <div class="stig-filter-btns" id="filter-status">
               ${["all", ...STATUS_ORDER].map((s) => `
                 <button class="stig-filter-btn${filterStatus === s ? " active" : ""}"
-                  onclick="setStigFilter('status','${s}')">${s === "all" ? "All" : esc(stigStatusLabel(s))}${s !== "all" && counts2[s] ? ` <span class="stig-filter-count">${counts2[s]}</span>` : ""}</button>
+                  ${act("setStigFilter", "status", `${s}`)}>${s === "all" ? "All" : esc(stigStatusLabel(s))}${s !== "all" && counts2[s] ? ` <span class="stig-filter-count">${counts2[s]}</span>` : ""}</button>
               `).join("")}
             </div>
           </div>
@@ -2522,7 +2526,7 @@ epyon install-workflow</pre>
             <div class="stig-filter-btns">
               ${["all", "high", "medium", "low"].map((s) => `
                 <button class="stig-filter-btn${filterSeverity === s ? " active" : ""}"
-                  onclick="setStigFilter('severity','${s}')">${s === "all" ? "All" : ucFirst(s)}</button>
+                  ${act("setStigFilter", "severity", `${s}`)}>${s === "all" ? "All" : ucFirst(s)}</button>
               `).join("")}
             </div>
           </div>
@@ -2531,10 +2535,10 @@ epyon install-workflow</pre>
             <label class="stig-filter-label">STIG</label>
             <div class="stig-filter-btns">
               <button class="stig-filter-btn${filterStig === "all" ? " active" : ""}"
-                onclick="setStigFilter('stig','all')">All</button>
+                ${act("setStigFilter", "stig", "all")}>All</button>
               ${data.stigs.map((s) => `
                 <button class="stig-filter-btn${filterStig === s.slug ? " active" : ""}"
-                  onclick="setStigFilter('stig','${esc(s.slug)}')"
+                  ${act("setStigFilter", "stig", s.slug)}
                   title="${esc(s.stig_name)}">${esc(s.stig_name.slice(0, 30))}…</button>
               `).join("")}
             </div>
@@ -2636,16 +2640,16 @@ epyon install-workflow</pre>
         repaint();
       };
       const counts = countsByStatus();
-      const backLink = scan.target ? `<a href="#/scans/${encodeURIComponent(scanId)}" onclick="navigate('#/scans/${encodeURIComponent(scanId)}')">${esc(scanId)}</a>` : esc(scanId);
+      const backLink = scan.target ? `<a href="#/scans/${encodeURIComponent(scanId)}" ${act("navigate", `#/scans/${encodeURIComponent(scanId)}`)}>${esc(scanId)}</a>` : esc(scanId);
       page.innerHTML = `
       <div class="breadcrumb">
-        <a href="#/applications" onclick="navigate('#/applications')">Applications</a>
+        <a href="#/applications" ${act("navigate", "#/applications")}>Applications</a>
         <span>›</span>
         <a href="#/applications/${encodeURIComponent(scan.target)}"
-           onclick="navigate('#/applications/${encodeURIComponent(scan.target)}')">${esc(scan.target)}</a>
+           ${act("navigate", `#/applications/${encodeURIComponent(scan.target)}`)}>${esc(scan.target)}</a>
         <span>›</span>
         <a href="#/scans/${encodeURIComponent(scanId)}"
-           onclick="navigate('#/scans/${encodeURIComponent(scanId)}')">${esc(scanId)}</a>
+           ${act("navigate", `#/scans/${encodeURIComponent(scanId)}`)}>${esc(scanId)}</a>
         <span>›</span>
         <span>STIG Findings</span>
       </div>
@@ -2769,7 +2773,7 @@ epyon install-workflow</pre>
       <a href="#/scans/${encodeURIComponent(state.scanId)}">Scan Details</a>
       <span>›</span><span>Jira Review</span>
     </div>
-    ${pageHeader(`Jira Ticket Review`, { subtitle: `${esc(data.app_name)} · ${esc(state.scanId)}`, actions: `<button class="btn" onclick="navigate('#/scans/${encodeURIComponent(state.scanId)}')">Back to Scan</button>` })}
+    ${pageHeader(`Jira Ticket Review`, { subtitle: `${esc(data.app_name)} · ${esc(state.scanId)}`, actions: `<button class="btn" ${act("navigate", `#/scans/${encodeURIComponent(state.scanId)}`)}>Back to Scan</button>` })}
     <div class="jira-review-project">
       <div>
         <label class="field-label" for="jira-review-project-key">Jira project for ${esc(data.app_name)}</label>
@@ -2778,8 +2782,8 @@ epyon install-workflow</pre>
       <input id="jira-review-project-key" class="field-input" type="text" maxlength="10"
         placeholder="PROJECT" value="${esc(data.project_key || "")}"
         oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
-      <button id="jira-review-project-save" class="btn" onclick="jiraReviewSaveProject()">Save Project</button>
-      <button id="jira-review-reassign" class="btn" onclick="jiraReviewCheckDeleted()"
+      <button id="jira-review-project-save" class="btn" ${act("jiraReviewSaveProject")}>Save Project</button>
+      <button id="jira-review-reassign" class="btn" ${act("jiraReviewCheckDeleted")}
         title="Detect tickets whose Jira issue was deleted and recreate them"
         ${data.jira_configured ? "" : "disabled"}>Check for Deleted Tickets</button>
     </div>
@@ -2817,10 +2821,10 @@ epyon install-workflow</pre>
       </label>
     </div>
     <div class="jira-review-category-actions">
-      <button class="btn btn-sm" onclick="jiraReviewSelectCategory('vulnerability')">Select vulnerabilities</button>
-      <button class="btn btn-sm" onclick="jiraReviewSelectCategory('misconfiguration')">Select misconfigurations</button>
-      <button class="btn btn-sm" onclick="jiraReviewSelectCategory('ml')">Select ML/AI</button>
-      <button class="btn btn-sm" onclick="jiraReviewClearSelection()">Clear selection</button>
+      <button class="btn btn-sm" ${act("jiraReviewSelectCategory", "vulnerability")}>Select vulnerabilities</button>
+      <button class="btn btn-sm" ${act("jiraReviewSelectCategory", "misconfiguration")}>Select misconfigurations</button>
+      <button class="btn btn-sm" ${act("jiraReviewSelectCategory", "ml")}>Select ML/AI</button>
+      <button class="btn btn-sm" ${act("jiraReviewClearSelection")}>Clear selection</button>
     </div>
     <div class="table-container jira-review-table-wrap">
       <table class="jira-review-table">
@@ -2836,7 +2840,7 @@ epyon install-workflow</pre>
     <div class="jira-review-actionbar">
       <div><strong id="jira-review-selected-count">0 selected</strong>
         <span id="jira-review-visible-count" class="jira-review-subtitle"></span></div>
-      <button id="jira-review-create" class="btn btn-primary" onclick="jiraReviewCreateTickets()"
+      <button id="jira-review-create" class="btn btn-primary" ${act("jiraReviewCreateTickets")}
         ${data.jira_configured ? "" : 'disabled title="Configure Jira in Settings first"'}>
         Create Jira Tickets
       </button>
@@ -2861,7 +2865,7 @@ epyon install-workflow</pre>
       <td>${esc(candidate.category === "ml" ? "ML/AI" : ucFirst(candidate.category))}</td>
       <td>${sevBadge(candidate.severity || "low")}</td>
       <td><span class="tool-tag">${esc(candidate.tool || "Unknown")}</span></td>
-      <td><button class="jira-review-finding-link" onclick="openFindingDetail(${detailId})">
+      <td><button class="jira-review-finding-link" ${act("openFindingDetail", detailId)}>
         ${esc(candidate.id || candidate.title || "Finding")}</button>
         <div class="jira-review-title">${esc(candidate.title || "")}</div></td>
       <td title="${esc(candidate.target || "")}">${esc(location2)}</td>
@@ -2990,7 +2994,7 @@ epyon install-workflow</pre>
     <div class="modal-container modal-md">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
         <h2 style="color:var(--text);margin:0">Create Jira Ticket${selectedCount === 1 ? "" : "s"}</h2>
-        <button class="btn" onclick="jiraEpicModalClose()" style="padding:6px 12px">✕</button>
+        <button class="btn" ${act("jiraEpicModalClose")} style="padding:6px 12px">✕</button>
       </div>
       <p style="color:var(--text-muted);font-size:13px;margin:0 0 16px">
         Creating ${selectedCount} ticket${selectedCount === 1 ? "" : "s"} for this scan. Confirm the Jira project,
@@ -3002,7 +3006,7 @@ epyon install-workflow</pre>
           <input id="jira-modal-project-key" class="field-input" type="text" maxlength="10" placeholder="PROJECT"
             value="${esc(projectKey)}" ${quickCtx ? "" : "readonly"}
             oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,''); jiraModalProjectTyped()">
-          ${quickCtx ? '<button id="jira-modal-project-save" class="btn" onclick="jiraModalProjectSave()" disabled>Change</button>' : ""}
+          ${quickCtx ? `<button id="jira-modal-project-save" class="btn" ${act("jiraModalProjectSave")} disabled>Change</button>` : ""}
         </div>
         <div id="jira-modal-project-note" style="font-size:12px;color:var(--text-muted);margin-top:4px">
           ${quickCtx ? "Changing this updates the Jira project for this whole application (same as the Jira Review page)." : "To use a different project, change it on this page before selecting findings."}
@@ -3010,8 +3014,8 @@ epyon install-workflow</pre>
       </div>
       <div id="jira-epic-modal-body">${loading()}</div>
       <div class="modal-actions" style="margin-top:20px;display:flex;justify-content:flex-end;gap:10px">
-        <button class="btn" onclick="jiraEpicModalClose()">Cancel</button>
-        <button id="jira-epic-modal-confirm" class="btn btn-primary" onclick="jiraEpicModalConfirm()">
+        <button class="btn" ${act("jiraEpicModalClose")}>Cancel</button>
+        <button id="jira-epic-modal-confirm" class="btn btn-primary" ${act("jiraEpicModalConfirm")}>
           Create Ticket${selectedCount === 1 ? "" : "s"}
         </button>
       </div>
@@ -3036,18 +3040,18 @@ epyon install-workflow</pre>
     try {
       ctx = await api.getStigJiraContext(scanId);
     } catch (e) {
-      body.innerHTML = `<p style="color:var(--critical)">${esc(e.message)}</p><button class="btn" onclick="stigJiraClose()">Close</button>`;
+      body.innerHTML = `<p style="color:var(--critical)">${esc(e.message)}</p><button class="btn" ${act("stigJiraClose")}>Close</button>`;
       return;
     }
     if (!ctx.jira_configured) {
-      body.innerHTML = `<p style="color:var(--text)">Jira is not configured. Set it up on the Jira page first.</p><button class="btn" onclick="stigJiraClose()">Close</button>`;
+      body.innerHTML = `<p style="color:var(--text)">Jira is not configured. Set it up on the Jira page first.</p><button class="btn" ${act("stigJiraClose")}>Close</button>`;
       return;
     }
     const n = controls.length;
     body.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <h2 style="color:var(--text);margin:0">Add ${n} STIG control${n === 1 ? "" : "s"} to Jira</h2>
-      <button class="btn" onclick="stigJiraClose()" style="padding:6px 12px">✕</button>
+      <button class="btn" ${act("stigJiraClose")} style="padding:6px 12px">✕</button>
     </div>
     <div style="margin-bottom:14px">
       <label class="field-label" for="stig-jira-project">Jira board (project key)</label>
@@ -3076,7 +3080,7 @@ epyon install-workflow</pre>
     </div>
     <div id="stig-jira-result" style="font-size:13px;margin-bottom:10px"></div>
     <div style="display:flex;justify-content:flex-end;gap:10px">
-      <button class="btn" onclick="stigJiraClose()">Close</button>
+      <button class="btn" ${act("stigJiraClose")}>Close</button>
       <button id="stig-jira-submit" class="btn btn-primary">Create ticket${n === 1 ? "" : "s"}</button>
     </div>`;
     const fill = async () => {
@@ -3147,7 +3151,7 @@ epyon install-workflow</pre>
     overlay.innerHTML = `<div class="modal-container modal-md">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <h2 style="color:var(--text);margin:0">Lock / unlock ${n} STIG control${n === 1 ? "" : "s"}</h2>
-      <button class="btn" onclick="stigJiraClose()" style="padding:6px 12px">✕</button>
+      <button class="btn" ${act("stigJiraClose")} style="padding:6px 12px">✕</button>
     </div>
     <div style="margin-bottom:14px">
       <label class="field-label" for="stig-bulk-status">Status</label>
@@ -3162,7 +3166,7 @@ epyon install-workflow</pre>
     </div>
     <div id="stig-bulk-result" style="font-size:13px;margin-bottom:10px"></div>
     <div style="display:flex;justify-content:flex-end;gap:10px">
-      <button class="btn" onclick="stigJiraClose()">Close</button>
+      <button class="btn" ${act("stigJiraClose")}>Close</button>
       <button id="stig-bulk-unlock" class="btn" title="Remove the human lock so the next scan re-assesses these controls">Unlock ${n}</button>
       <button id="stig-bulk-submit" class="btn btn-primary">🔒 Lock ${n}</button>
     </div>
@@ -3322,7 +3326,7 @@ epyon install-workflow</pre>
       <div>
         <label class="field-label">Or create a new Epic</label>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-          ${state.suggested.map((s) => `<button type="button" class="btn btn-sm" onclick="jiraEpicModalQuickCreate('${esc(s.name)}')">${esc(s.label)}</button>`).join("")}
+          ${state.suggested.map((s) => `<button type="button" class="btn btn-sm" ${act("jiraEpicModalQuickCreate", s.name)}>${esc(s.label)}</button>`).join("")}
         </div>
         <input id="jira-epic-new-name" class="field-input" type="text" maxlength="200"
           placeholder="Custom Epic name…" oninput="jiraEpicModalTypedName(this.value)">
@@ -3646,7 +3650,7 @@ epyon install-workflow</pre>
           <span style="font-size:14px;color:${ovColor};font-weight:600">${ovPct}</span>
         </div>
       </div>
-      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+      <button class="finding-drawer-close" ${act("closeFindingDetail")} aria-label="Close">✕</button>
     </div>
     <div class="finding-drawer-body">
       <p style="font-size:13px;color:var(--text-muted);margin:0 0 16px">% of resolved findings fixed within severity-tiered SLA thresholds.</p>
@@ -3720,7 +3724,7 @@ epyon install-workflow</pre>
           <span style="font-size:12px;color:var(--accent);font-weight:600">Latest: ${esc(String(latest.score))}</span>
         </div>
       </div>
-      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+      <button class="finding-drawer-close" ${act("closeFindingDetail")} aria-label="Close">✕</button>
     </div>
     <div class="finding-drawer-body">
       <div style="margin-bottom:20px">
@@ -3759,7 +3763,7 @@ epyon install-workflow</pre>
     const trend = m.risk_trend || [];
     if (!trend.length) {
       return `<div class="section collapsible-section collapsed" id="section-risk">
-      <div class="section-title section-toggle" onclick="toggleSection('section-risk')">
+      <div class="section-title section-toggle" ${act("toggleSection", "section-risk")}>
         Weighted Risk Score Trend <span class="section-chevron">▾</span>
       </div>
       <div class="section-body">${emptyNote("No trend data yet.")}</div>
@@ -3785,7 +3789,7 @@ epyon install-workflow</pre>
         const y = maxScore > minScore ? 20 - (p.score - minScore) / (maxScore - minScore) * 16 : 10;
         return `${x.toFixed(1)},${y.toFixed(1)}`;
       }).join(" ");
-      return `<tr class="clickable-row" onclick="openRiskTrendDetail('${esc(app)}')">
+      return `<tr class="clickable-row" ${act("openRiskTrendDetail", app)}>
       <td><strong>${esc(app)}</strong></td>
       <td style="font-weight:600;color:${color}">${esc(String(latest.score))}${arrow}</td>
       <td style="color:var(--text-muted);font-size:12px">${esc(latest.date)}</td>
@@ -3796,7 +3800,7 @@ epyon install-workflow</pre>
     }).join("");
     return `
   <div class="section collapsible-section collapsed" id="section-risk">
-    <div class="section-title section-toggle" onclick="toggleSection('section-risk')">
+    <div class="section-title section-toggle" ${act("toggleSection", "section-risk")}>
       Weighted Risk Score Trend
       <span class="section-title-right"><span style="font-size:12px;font-weight:normal;color:var(--text-muted)">critical×10 + high×7 + medium×4 + low×1</span><span class="section-chevron">▾</span></span>
     </div>
@@ -3814,7 +3818,7 @@ epyon install-workflow</pre>
     const targets = Object.keys(byTarget).sort();
     if (!targets.length) {
       return `<div class="section collapsible-section collapsed" id="section-secrets">
-      <div class="section-title section-toggle" onclick="toggleSection('section-secrets')">
+      <div class="section-title section-toggle" ${act("toggleSection", "section-secrets")}>
         Secret Detection Trend <span class="section-chevron">▾</span>
       </div>
       <div class="section-body">${emptyNote("No TruffleHog data found in scans.")}</div>
@@ -3846,7 +3850,7 @@ epyon install-workflow</pre>
     const badgeLine = totalVerified > 0 ? `<span class="sev-badge critical" style="margin-right:8px">${totalVerified} verified secrets</span>` : "";
     return `
   <div class="section collapsible-section collapsed" id="section-secrets">
-    <div class="section-title section-toggle" onclick="toggleSection('section-secrets')">
+    <div class="section-title section-toggle" ${act("toggleSection", "section-secrets")}>
       Secret Detection Trend
       <span class="section-title-right">${badgeLine}<span class="section-chevron">▾</span></span>
     </div>
@@ -3891,7 +3895,7 @@ epyon install-workflow</pre>
     const emptyState2 = !appsSorted.length ? `${emptyNote("No suppressions found across monitored apps.")}` : "";
     return `
   <div class="section collapsible-section collapsed" id="section-suppression">
-    <div class="section-title section-toggle" onclick="toggleSection('section-suppression')">
+    <div class="section-title section-toggle" ${act("toggleSection", "section-suppression")}>
       Suppression / Accepted Risk Rate
       <span class="section-title-right">
         <span style="font-size:13px;font-weight:600;color:var(--text-muted)">${esc(String(total))} suppressed · ${esc(String(m.total_resolved || 0))} resolved · ${rate} rate</span>
@@ -3914,7 +3918,7 @@ epyon install-workflow</pre>
     const ftfColor = ftfPct == null ? "var(--text-muted)" : ftfPct >= 50 ? "var(--clean)" : ftfPct >= 25 ? "var(--medium)" : "var(--critical)";
     return `
   <div class="section collapsible-section collapsed" id="section-recurrence">
-    <div class="section-title section-toggle" onclick="toggleSection('section-recurrence')">
+    <div class="section-title section-toggle" ${act("toggleSection", "section-recurrence")}>
       Recurrence &amp; First-Time Fix Rate
       <span class="section-chevron">▾</span>
     </div>
@@ -4107,7 +4111,7 @@ epyon install-workflow</pre>
           <span style="font-size:13px;color:${color};font-weight:600">${esc(t.status)}</span>
         </div>
       </div>
-      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+      <button class="finding-drawer-close" ${act("closeFindingDetail")} aria-label="Close">✕</button>
     </div>
     <div class="finding-drawer-body">
       <p style="font-size:13px;margin:0 0 16px">${why}</p>
@@ -4186,7 +4190,7 @@ epyon install-workflow</pre>
         const supColor = arPct == null ? "var(--text-muted)" : arPct <= 10 ? "var(--clean)" : arPct <= 25 ? "var(--medium)" : "var(--high)";
         const ftfColor = ftfPct == null ? "var(--text-muted)" : ftfPct >= 50 ? "var(--clean)" : ftfPct >= 25 ? "var(--medium)" : "var(--critical)";
         return `<div class="fix-rate-stats">
-        <div class="fix-rate-stat-row fix-rate-stat-link" title="Click to view SLA breakdown by severity" onclick="openSlaDetail()">
+        <div class="fix-rate-stat-row fix-rate-stat-link" title="Click to view SLA breakdown by severity" ${act("openSlaDetail")}>
           <span class="fix-rate-stat-label">SLA Compliance <span class="stat-link-arrow">›</span></span>
           <span class="fix-rate-stat-value" style="color:${slaColor}">${fmt(slaPct)}</span>
         </div>
@@ -4264,7 +4268,7 @@ epyon install-workflow</pre>
         const firstDate = f.dates.length ? f.dates[0] : "—";
         const lastDate = f.dates.length ? f.dates[f.dates.length - 1] : "—";
         return `
-          <tr onclick="navigate('#/applications/${encodeURIComponent(name)}')" style="cursor:pointer">
+          <tr ${act("navigate", `#/applications/${encodeURIComponent(name)}`)} style="cursor:pointer">
             <td><strong>${esc(name)}</strong></td>
             <td>${esc(f.total)}</td>
             <td>${esc(firstDate)}</td>
@@ -4277,10 +4281,10 @@ epyon install-workflow</pre>
       ).join("");
       const filterNotice = m.metrics_filtered ? `<div class="metrics-filter-notice">
            Showing ${esc(String(m.monitored_count))} continuously monitored app${m.monitored_count !== 1 ? "s" : ""} ·
-           <a href="#/applications" onclick="navigate('#/applications')">manage</a>
+           <a href="#/applications" ${act("navigate", "#/applications")}>manage</a>
          </div>` : "";
       page.innerHTML = `
-      ${pageHeader(`Metrics`, { actions: `<button class="btn btn-sm" onclick="renderMetrics()">&#8635; Refresh</button>` })}
+      ${pageHeader(`Metrics`, { actions: `<button class="btn btn-sm" ${act("renderMetrics")}>&#8635; Refresh</button>` })}
       ${filterNotice}
 
       <div class="stats-grid">
@@ -4358,7 +4362,7 @@ epyon install-workflow</pre>
       ${buildAppTrendSection(m)}
 
       <div class="section collapsible-section collapsed" id="section-cves">
-        <div class="section-title section-toggle" onclick="toggleSection('section-cves')">
+        <div class="section-title section-toggle" ${act("toggleSection", "section-cves")}>
           Top CVEs
           <span class="section-title-right">
             <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">from latest scan per application</span>
@@ -4385,7 +4389,7 @@ epyon install-workflow</pre>
       </div>
 
       <div class="section collapsible-section collapsed" id="section-freq">
-        <div class="section-title section-toggle" onclick="toggleSection('section-freq')">
+        <div class="section-title section-toggle" ${act("toggleSection", "section-freq")}>
           Scan Frequency
           <span class="section-chevron">▾</span>
         </div>
@@ -4409,7 +4413,7 @@ epyon install-workflow</pre>
       </div>
 
       <div class="section collapsible-section collapsed" id="section-merges">
-        <div class="section-title section-toggle" onclick="toggleSection('section-merges')">
+        <div class="section-title section-toggle" ${act("toggleSection", "section-merges")}>
           Merges to Primary Branch
           <span class="section-chevron">▾</span>
         </div>
@@ -4531,7 +4535,7 @@ epyon install-workflow</pre>
           function freqRow([name, f]) {
             const first = f.dates.length ? f.dates[0] : "—";
             const last = f.dates.length ? f.dates[f.dates.length - 1] : "—";
-            return `<tr onclick="navigate('#/applications/${encodeURIComponent(name)}')" style="cursor:pointer">
+            return `<tr ${act("navigate", `#/applications/${encodeURIComponent(name)}`)} style="cursor:pointer">
             <td><strong>${esc(name)}</strong></td>
             <td>${esc(f.total)}</td>
             <td>${esc(first)}</td>
@@ -4581,7 +4585,7 @@ epyon install-workflow</pre>
           function mergeRow([name, f], filteredDates) {
             const first = filteredDates.length ? filteredDates[0] : "—";
             const last = filteredDates.length ? filteredDates[filteredDates.length - 1] : "—";
-            return `<tr onclick="navigate('#/applications/${encodeURIComponent(name)}')" style="cursor:pointer">
+            return `<tr ${act("navigate", `#/applications/${encodeURIComponent(name)}`)} style="cursor:pointer">
             <td><strong>${esc(name)}</strong></td>
             <td>${esc(filteredDates.length)}</td>
             <td>${esc(first)}</td>
@@ -4710,15 +4714,15 @@ epyon install-workflow</pre>
     return `
     <div class="section" id="overview-summary-section">
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-primary" onclick="generateOverviewExecSummary()"
+        <button class="btn btn-primary" ${act("generateOverviewExecSummary")}
                 title="Leadership brief across all tracked applications, split by monitoring status. ${tip}">
           ✦ Generate Executive Summary
         </button>
-        <button class="btn btn-primary" onclick="generateOverviewTechSummary()"
+        <button class="btn btn-primary" ${act("generateOverviewTechSummary")}
                 title="Detailed technical brief for engineering teams, with per-finding breakdown. ${tip}">
           ✦ Generate Technical Summary
         </button>
-        <button class="btn btn-primary" onclick="generateOverviewIssoSummary()"
+        <button class="btn btn-primary" ${act("generateOverviewIssoSummary")}
                 title="ATO/cATO-ready brief covering NIST 800-53 control mapping, STIG validation status, evidence traceability, accepted risk, and POA&amp;M risk statements. ${tip}">
           ✦ Generate ISSO Compliance Brief
         </button>
@@ -4770,7 +4774,7 @@ epyon install-workflow</pre>
       overlay.innerHTML = `<div class="modal-container modal-xl" role="dialog" aria-modal="true" aria-labelledby="summary-modal-title">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <h2 id="summary-modal-title" style="margin:0;font-size:18px"></h2>
-        <button class="btn" onclick="closeSummaryModal()" aria-label="Close">✕</button>
+        <button class="btn" ${act("closeSummaryModal")} aria-label="Close">✕</button>
       </div>
       <div id="summary-modal-body"></div>
     </div>`;
@@ -4866,7 +4870,7 @@ epyon install-workflow</pre>
         </svg>
         AI ISSO Compliance Brief — ${esc(name)}
       </div>
-      <button class="btn btn-primary" onclick="generateAppIssoSummary('${esc(name)}')">
+      <button class="btn btn-primary" ${act("generateAppIssoSummary", name)}>
         ✦ Generate Application ISSO Brief
       </button>
       <p style="margin:8px 0 0;font-size:12px;color:var(--text-muted)">
@@ -5095,7 +5099,7 @@ epyon install-workflow</pre>
     try {
       const [apps, hidden] = await Promise.all([api.getApplications(), api.getHiddenApps()]);
       const rows = apps.length ? apps.map((app) => `
-          <tr onclick="navigate('#/applications/${encodeURIComponent(app.name)}')"
+          <tr ${act("navigate", `#/applications/${encodeURIComponent(app.name)}`)}
               style="cursor:pointer">
             <td>
               <strong>${esc(app.name)}</strong>
@@ -5150,7 +5154,7 @@ epyon install-workflow</pre>
                   <td style="color:var(--text-muted)">${esc(name)}</td>
                   <td>
                     <button class="btn btn-sm"
-                      onclick="restoreApplication('${esc(name)}')">
+                      ${act("restoreApplication", name)}>
                       Restore
                     </button>
                   </td>
@@ -5160,8 +5164,8 @@ epyon install-workflow</pre>
         </div>
       </div>` : "";
       page.innerHTML = `
-      ${pageHeader(`Applications`, { actions: `<button class="btn" onclick="showAddAppModal()">+ Add Application</button>
-          <button class="btn btn-primary" onclick="navigate('#/new-scan')">▶ Run Scan</button>` })}
+      ${pageHeader(`Applications`, { actions: `<button class="btn" ${act("showAddAppModal")}>+ Add Application</button>
+          <button class="btn btn-primary" ${act("navigate", "#/new-scan")}>▶ Run Scan</button>` })}
       <div class="table-container">
         <table>
           <thead>
@@ -5190,7 +5194,7 @@ epyon install-workflow</pre>
     const st = computeStatus(s);
     return `
     <div class="scan-timeline-item"
-         onclick="navigate('#/scans/${encodeURIComponent(s.scan_id)}')">
+         ${act("navigate", `#/scans/${encodeURIComponent(s.scan_id)}`)}>
       <div class="scan-timeline-dot ${esc(st)}"></div>
       <div class="scan-timeline-content">
         <div class="scan-timeline-title">
@@ -5271,7 +5275,7 @@ epyon install-workflow</pre>
         onchange="setScanHistoryDates()"></label>
       <label>To <input type="date" id="scan-filter-to" value="${esc(st.to)}"
         onchange="setScanHistoryDates()"></label>
-      <button class="btn btn-sm" id="scan-filter-clear" onclick="clearScanHistoryDates()"
+      <button class="btn btn-sm" id="scan-filter-clear" ${act("clearScanHistoryDates")}
         ${st.from || st.to ? "" : "hidden"}>Clear dates</button>
     </div>
     <div id="scan-history-panel" role="tabpanel">${scanHistoryPanel(name, scans, st)}</div>`;
@@ -5289,9 +5293,9 @@ epyon install-workflow</pre>
     const rows = items.slice(start, start + SCAN_HISTORY_PAGE_SIZE).map((s) => buildScanTimelineItem(s, name)).join("");
     const pager = items.length > SCAN_HISTORY_PAGE_SIZE ? `
     <div class="scan-history-pager">
-      <button class="btn btn-sm" onclick="setScanHistoryPage(${st.page - 1})" ${st.page <= 1 ? "disabled" : ""}>‹ Prev</button>
+      <button class="btn btn-sm" ${act("setScanHistoryPage", st.page - 1)} ${st.page <= 1 ? "disabled" : ""}>‹ Prev</button>
       <span>Showing ${start + 1}–${Math.min(start + SCAN_HISTORY_PAGE_SIZE, items.length)} of ${items.length} · Page ${st.page} of ${pages}</span>
-      <button class="btn btn-sm" onclick="setScanHistoryPage(${st.page + 1})" ${st.page >= pages ? "disabled" : ""}>Next ›</button>
+      <button class="btn btn-sm" ${act("setScanHistoryPage", st.page + 1)} ${st.page >= pages ? "disabled" : ""}>Next ›</button>
     </div>` : "";
     return rows + pager;
   }
@@ -5353,10 +5357,10 @@ epyon install-workflow</pre>
         appUrl ? `Repository: ${appUrl}` : "Run a scan to populate history.",
         appUrl ? `<div style="display:flex;gap:8px;justify-content:center;margin-top:16px">
                  <button class="btn btn-primary"
-                   onclick="navigate('#/new-scan?target=${encodeURIComponent(appUrl)}')">
+                   ${act("navigate", `#/new-scan?target=${encodeURIComponent(appUrl)}`)}>
                    ▶ Run First Scan
                  </button>
-               </div>` : `<button class="btn btn-primary" onclick="navigate('#/new-scan')" style="margin-top:16px">
+               </div>` : `<button class="btn btn-primary" ${act("navigate", "#/new-scan")} style="margin-top:16px">
                  ▶ Run Scan
                </button>`
       );
@@ -5397,12 +5401,12 @@ epyon install-workflow</pre>
       </div>` : "";
       page.innerHTML = `
       <div class="breadcrumb">
-        <a href="#/applications" onclick="navigate('#/applications')">Applications</a>
+        <a href="#/applications" ${act("navigate", "#/applications")}>Applications</a>
         <span>›</span>
         <span>${esc(name)}</span>
       </div>
       ${pageHeader(`${esc(name)} ${statusBadge(status)}`, { actions: `<button class="btn btn-primary"
-            onclick="navigate('#/new-scan?target=${encodeURIComponent(appUrl)}')">
+            ${act("navigate", `#/new-scan?target=${encodeURIComponent(appUrl)}`)}>
             ▶ Run Scan
           </button>
           <button class="btn app-type-badge ${appInfo.monitored ? "monitored" : "evaluation"}"
@@ -5416,12 +5420,12 @@ epyon install-workflow</pre>
             ${appInfo.monitored ? "● Continuous" : "◯ Evaluation"}
           </button>
           <button class="btn btn-danger"
-            onclick="hideApplication('${esc(name)}')"
+            ${act("hideApplication", name)}
             title="Hide this application from the list">
             Hide
           </button>
           <button class="btn btn-danger"
-            onclick="deleteApplication('${esc(name)}')"
+            ${act("deleteApplication", name)}
             title="Permanently delete all scan data for this application">
             Delete All
           </button>` })}
@@ -5448,7 +5452,7 @@ epyon install-workflow</pre>
       const anyMonitored = continuous.length > 0;
       const makeCard = (app) => `
           <div class="app-card status-${esc(app.status)}"
-               onclick="navigate('#/applications/${encodeURIComponent(app.name)}')">
+               ${act("navigate", `#/applications/${encodeURIComponent(app.name)}`)}>
             <div class="app-card-header">
               <span class="app-name">${esc(app.name)}</span>
               ${statusBadge(app.status)}
@@ -5464,7 +5468,7 @@ epyon install-workflow</pre>
       const appSections = apps.length ? anyMonitored ? `<div class="section">
              <div class="section-title">
                <span>● Continuously Monitored <span style="font-size:12px;font-weight:400;color:var(--text-muted)">(${continuous.length})</span></span>
-               <button class="btn btn-sm" onclick="navigate('#/applications')">View all →</button>
+               <button class="btn btn-sm" ${act("navigate", "#/applications")}>View all →</button>
              </div>
              <div class="app-grid">${continuous.map(makeCard).join("")}</div>
            </div>
@@ -5477,7 +5481,7 @@ epyon install-workflow</pre>
            </div>` : ""}` : `<div class="section">
              <div class="section-title">
                Applications
-               <button class="btn btn-sm" onclick="navigate('#/applications')">View all →</button>
+               <button class="btn btn-sm" ${act("navigate", "#/applications")}>View all →</button>
              </div>
              <div class="app-grid">${apps.map(makeCard).join("")}</div>
            </div>` : `<div class="section">
@@ -5485,11 +5489,11 @@ epyon install-workflow</pre>
            ${emptyState(
         "No applications yet",
         "Run your first scan to see applications here.",
-        `<button class="btn btn-primary" onclick="navigate('#/new-scan')" style="margin-top:16px">▶ Run First Scan</button>`
+        `<button class="btn btn-primary" ${act("navigate", "#/new-scan")} style="margin-top:16px">▶ Run First Scan</button>`
       )}
          </div>`;
       page.innerHTML = `
-      ${pageHeader(`Security Overview`, { actions: `<button class="btn btn-primary" onclick="navigate('#/new-scan')">+ Run Scan</button>` })}
+      ${pageHeader(`Security Overview`, { actions: `<button class="btn btn-primary" ${act("navigate", "#/new-scan")}>+ Run Scan</button>` })}
 
       <div class="stats-grid">
         <div class="stat-card">
@@ -5677,7 +5681,7 @@ epyon install-workflow</pre>
     body.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <h2 style="color:var(--text);margin:0">Create Jira tickets for ${esc(_cveBulk.data.query)}</h2>
-      <button class="btn" onclick="cveBulkClose()" style="padding:6px 12px">✕</button>
+      <button class="btn" ${act("cveBulkClose")} style="padding:6px 12px">✕</button>
     </div>
     <p style="color:var(--text-muted);font-size:13px;margin:0 0 12px">Confirm each application's Jira project before creating. Changing a key updates the Jira project for that whole application.</p>
     ${groupHtml}
@@ -5691,8 +5695,8 @@ epyon install-workflow</pre>
           oninput="cveBulkModalState().triagedBy=this.value"></label>
     </div>
     <div class="modal-actions" style="margin-top:20px;display:flex;justify-content:flex-end;gap:10px">
-      <button class="btn" onclick="cveBulkClose()">Cancel</button>
-      <button id="cve-bulk-confirm" class="btn btn-primary" onclick="cveBulkConfirm()" ${total ? "" : "disabled"}>Create ${total} ticket${total === 1 ? "" : "s"}</button>
+      <button class="btn" ${act("cveBulkClose")}>Cancel</button>
+      <button id="cve-bulk-confirm" class="btn btn-primary" ${act("cveBulkConfirm")} ${total ? "" : "disabled"}>Create ${total} ticket${total === 1 ? "" : "s"}</button>
     </div>`;
   }
   function cveBulkModalState() {
@@ -5802,7 +5806,7 @@ epyon install-workflow</pre>
     }).join("")).join("");
     return `
     <div class="cve-search-summary">${esc(data.total_findings)} finding${data.total_findings === 1 ? "" : "s"} across ${esc(data.total_applications)} application${data.total_applications === 1 ? "" : "s"}
-      <button id="cve-bulk-create" class="btn btn-primary btn-sm" onclick="cveBulkOpen()" disabled>Create Jira tickets</button>
+      <button id="cve-bulk-create" class="btn btn-primary btn-sm" ${act("cveBulkOpen")} disabled>Create Jira tickets</button>
     </div>
     <div class="table-container">
       <table>
@@ -5868,7 +5872,7 @@ epyon install-workflow</pre>
           target: f.file || ""
         });
         return `
-      <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
+      <div class="hf-finding-row hf-finding-row--clickable" ${act("openFindingDetail", fid)} title="Click to view details">
         <span class="hf-finding-sev hf-sev-${esc(f.severity || "high")}">${esc(f.severity || "high")}</span>
         <code class="hf-finding-file">${esc(f.file || "—")}</code>
         <span class="hf-finding-msg">${esc(f.description || f.type || "Malicious content detected")}</span>
@@ -5938,7 +5942,7 @@ epyon install-workflow</pre>
           target: mc.file_checked || ""
         });
         return `
-      <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
+      <div class="hf-finding-row hf-finding-row--clickable" ${act("openFindingDetail", fid)} title="Click to view details">
         <span class="hf-finding-sev hf-sev-${esc(f.severity || "medium")}">${esc(f.severity || "medium")}</span>
         <span class="hf-finding-file">${esc(f.check || "—")}</span>
         <span class="hf-finding-msg">${esc(f.message || "")}${f.recommendation ? `<span class="hf-recommendation"> → ${esc(f.recommendation)}</span>` : ""}</span>
@@ -5983,7 +5987,7 @@ epyon install-workflow</pre>
           target: f.file || ""
         });
         return `
-      <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
+      <div class="hf-finding-row hf-finding-row--clickable" ${act("openFindingDetail", fid)} title="Click to view details">
         <span class="hf-finding-sev hf-sev-${esc(f.severity || "high")}">${esc(f.severity || "high")}</span>
         <code class="hf-finding-file">${esc(f.file || "—")}</code>
         <span class="hf-finding-msg">${esc(f.description || f.type || "Provenance issue detected")}</span>
@@ -6027,7 +6031,7 @@ epyon install-workflow</pre>
           target: f.file || ""
         });
         return `
-      <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
+      <div class="hf-finding-row hf-finding-row--clickable" ${act("openFindingDetail", fid)} title="Click to view details">
         <span class="hf-finding-sev hf-sev-${esc(f.severity || "high")}">${esc(f.severity || "high")}</span>
         <code class="hf-finding-file">${esc(f.file || "—")}</code>
         <span class="hf-finding-msg">${esc(f.description || f.type || "Infrastructure issue detected")}</span>
@@ -6071,7 +6075,7 @@ epyon install-workflow</pre>
           target: f.file || ""
         });
         return `
-      <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
+      <div class="hf-finding-row hf-finding-row--clickable" ${act("openFindingDetail", fid)} title="Click to view details">
         <span class="hf-finding-sev hf-sev-${esc(f.severity || "high")}">${esc(f.severity || "high")}</span>
         <code class="hf-finding-file">${esc(f.file || "—")}</code>
         <span class="hf-finding-msg">${esc(f.description || f.type || "Malicious runtime behavior detected")}</span>
@@ -6254,7 +6258,7 @@ epyon install-workflow</pre>
       const kevBadge = f.cisa_kev ? `<span style="background:var(--critical-bg);color:var(--critical);font-size:12px;font-weight:700;padding:1px 4px;border-radius:3px;vertical-align:middle;margin-left:4px">KEV</span>` : "";
       const fixed = f.fixed_version ? `<span style="color:var(--clean);font-size:12px">→ ${esc(f.fixed_version)}</span>` : "";
       return `
-      <tr class="finding-row" onclick="openFindingDetail(${f._rid})" title="Click to view details">
+      <tr class="finding-row" ${act("openFindingDetail", f._rid)} title="Click to view details">
         <td style="padding:5px 8px 5px 0"><span class="sev-badge sev-${esc(f.sev)}" style="font-size:12px">${esc(f.sev)}</span></td>
         <td style="padding:5px 8px 5px 0;font-family:monospace;font-size:12px;white-space:nowrap"><code>${id}</code>${kevBadge}</td>
         <td style="padding:5px 8px 5px 0;font-size:12px;color:var(--text-muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pkg}</td>
@@ -6367,9 +6371,9 @@ epyon install-workflow</pre>
       <table id="${tblId}" style="width:100%;border-collapse:collapse;font-size:12px">
         <thead>
           <tr style="color:var(--text-muted)">
-            <th scope="col" data-col="0" class="sortable-th" style="text-align:left;padding:2px 8px 2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',0)">File <span class="sort-icon">⇅</span></th>
-            <th scope="col" data-col="1" class="sortable-th" style="text-align:left;padding:2px 8px 2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',1)">Service <span class="sort-icon">⇅</span></th>
-            <th scope="col" data-col="2" class="sortable-th" style="text-align:left;padding:2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',2)">Port / Mapping <span class="sort-icon">⇅</span></th>
+            <th scope="col" data-col="0" class="sortable-th" style="text-align:left;padding:2px 8px 2px 0;font-weight:500" ${act("sortPpsmTable", `${tblId}`, 0)}>File <span class="sort-icon">⇅</span></th>
+            <th scope="col" data-col="1" class="sortable-th" style="text-align:left;padding:2px 8px 2px 0;font-weight:500" ${act("sortPpsmTable", `${tblId}`, 1)}>Service <span class="sort-icon">⇅</span></th>
+            <th scope="col" data-col="2" class="sortable-th" style="text-align:left;padding:2px 0;font-weight:500" ${act("sortPpsmTable", `${tblId}`, 2)}>Port / Mapping <span class="sort-icon">⇅</span></th>
           </tr>
         </thead>
         <tbody>
@@ -6396,7 +6400,7 @@ epyon install-workflow</pre>
             ${activeBadge}
           </span>
           <span class="findings-summary-right" onclick="event.stopPropagation()">
-            <button class="btn btn-sm" onclick="downloadPpsmCsv('${esc(scanId)}')" title="Download PPSM as CSV">↓ PPSM</button>
+            <button class="btn btn-sm" ${act("downloadPpsmCsv", scanId)} title="Download PPSM as CSV">↓ PPSM</button>
           </span>
         </summary>
         <div class="findings-body" style="padding:0 18px 16px">
@@ -6452,7 +6456,7 @@ epyon install-workflow</pre>
           target: f.target || ""
         });
         return `
-        <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
+        <div class="hf-finding-row hf-finding-row--clickable" ${act("openFindingDetail", fid)} title="Click to view details">
           <span class="hf-finding-sev hf-sev-${esc(f.severity || "medium")}">${esc(f.severity || "medium")}</span>
           ${findingSourceBadge(f)}
           <code class="hf-finding-file">${esc(f.file || f.target || "—")}</code>
@@ -6701,7 +6705,7 @@ epyon install-workflow</pre>
     if (!sbom || sbom.total === 0) return "";
     const byType = sbom.by_type || {};
     const uid = "sbom-" + Math.random().toString(36).slice(2);
-    const typeChips = Object.entries(byType).sort((a, b) => b[1] - a[1]).map(([t, n]) => `<span class="tool-tag sbom-type-chip" style="cursor:pointer" data-sbom="${uid}" data-type="${esc(t)}" onclick="sbomFilterType('${uid}','${esc(t)}')">${esc(t)} <strong>${n}</strong></span>`).join("");
+    const typeChips = Object.entries(byType).sort((a, b) => b[1] - a[1]).map(([t, n]) => `<span class="tool-tag sbom-type-chip" style="cursor:pointer" data-sbom="${uid}" data-type="${esc(t)}" ${act("sbomFilterType", `${uid}`, t)}>${esc(t)} <strong>${n}</strong></span>`).join("");
     const allPackages = (sbom.packages || []).map((p) => ({
       name: p.name || "",
       version: p.version || "",
@@ -6736,17 +6740,17 @@ epyon install-workflow</pre>
               style="flex:1;min-width:180px;max-width:320px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--text);font-size:13px"
               oninput="sbomRender('${uid}')" />
             <span id="${uid}-count" style="font-size:12px;color:var(--text-muted)"></span>
-            <button class="btn btn-sm" onclick="sbomClearFilter('${uid}')">Clear filters</button>
+            <button class="btn btn-sm" ${act("sbomClearFilter", `${uid}`)}>Clear filters</button>
           </div>
           <div style="overflow-x:auto">
             <table style="width:100%;border-collapse:collapse;font-size:13px">
               <thead>
                 <tr style="text-align:left;border-bottom:1px solid var(--border)">
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','name')">Name <span id="${uid}-sort-name"></span></th>
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','version')">Version <span id="${uid}-sort-version"></span></th>
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','type')">Type <span id="${uid}-sort-type"></span></th>
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','license')">License <span id="${uid}-sort-license"></span></th>
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','path')">Path <span id="${uid}-sort-path"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" ${act("sbomSort", `${uid}`, "name")}>Name <span id="${uid}-sort-name"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" ${act("sbomSort", `${uid}`, "version")}>Version <span id="${uid}-sort-version"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" ${act("sbomSort", `${uid}`, "type")}>Type <span id="${uid}-sort-type"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" ${act("sbomSort", `${uid}`, "license")}>License <span id="${uid}-sort-license"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" ${act("sbomSort", `${uid}`, "path")}>Path <span id="${uid}-sort-path"></span></th>
                 </tr>
               </thead>
               <tbody id="${uid}-tbody"></tbody>
@@ -6832,7 +6836,7 @@ epyon install-workflow</pre>
     tbody.innerHTML = items.map((p) => {
       const did = _depsNextId++;
       _depsRegistry.set(did, p);
-      return `<tr class="finding-row" style="cursor:pointer" onclick="openDependencyDetail(${did})" title="Click to view details">
+      return `<tr class="finding-row" style="cursor:pointer" ${act("openDependencyDetail", did)} title="Click to view details">
       <td style="font-family:monospace;font-size:12px;padding:3px 8px">${esc(p.name)}</td>
       <td style="font-size:12px;padding:3px 8px">${esc(p.version)}</td>
       <td style="padding:3px 8px"><span class="tool-tag" style="font-size:12px;padding:1px 6px">${esc(p.type)}</span></td>
@@ -6859,10 +6863,10 @@ epyon install-workflow</pre>
         "DELETE": "#ef4444",
         "PATCH": "#8b5cf6"
       }[method] || "#6b7280";
-      return `<span class="tool-tag api-method-chip" style="cursor:pointer;background:${color};color:white" data-api="${uid}" data-method="${esc(method)}" onclick="apiFilterMethod('${uid}','${esc(method)}')">${esc(method)} <strong>${count}</strong></span>`;
+      return `<span class="tool-tag api-method-chip" style="cursor:pointer;background:${color};color:white" data-api="${uid}" data-method="${esc(method)}" ${act("apiFilterMethod", `${uid}`, method)}>${esc(method)} <strong>${count}</strong></span>`;
     }).join("");
     const frameworkChips = Object.entries(apiData.by_framework || {}).sort((a, b) => b[1] - a[1]).map(
-      ([fw, count]) => `<span class="tool-tag api-fw-chip" style="cursor:pointer" data-api="${uid}" data-fw="${esc(fw)}" onclick="apiFilterFramework('${uid}','${esc(fw)}')">${esc(fw)} <strong>${count}</strong></span>`
+      ([fw, count]) => `<span class="tool-tag api-fw-chip" style="cursor:pointer" data-api="${uid}" data-fw="${esc(fw)}" ${act("apiFilterFramework", `${uid}`, fw)}>${esc(fw)} <strong>${count}</strong></span>`
     ).join("");
     const allEndpoints = (apiData.endpoints || []).map((ep) => ({
       method: ep.method || "",
@@ -6889,7 +6893,7 @@ epyon install-workflow</pre>
             ${frameworkChips}
           </span>
           <span class="findings-summary-right" onclick="event.stopPropagation()">
-            <button class="btn btn-sm" onclick="downloadApiCsv('${uid}')" title="Download API endpoints as CSV">↓ API List</button>
+            <button class="btn btn-sm" ${act("downloadApiCsv", `${uid}`)} title="Download API endpoints as CSV">↓ API List</button>
           </span>
         </summary>
         <div class="findings-body" style="padding:0 18px 16px">
@@ -6898,18 +6902,18 @@ epyon install-workflow</pre>
               style="flex:1;min-width:180px;max-width:320px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--text);font-size:13px"
               oninput="apiRender('${uid}')" />
             <span id="${uid}-count" style="font-size:12px;color:var(--text-muted)"></span>
-            <button class="btn btn-sm" onclick="apiClearFilter('${uid}')">Clear filters</button>
+            <button class="btn btn-sm" ${act("apiClearFilter", `${uid}`)}>Clear filters</button>
           </div>
           <div style="overflow-x:auto">
             <table style="width:100%;border-collapse:collapse;font-size:13px">
               <thead>
                 <tr style="text-align:left;border-bottom:1px solid var(--border)">
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="apiSort('${uid}','method')">Method <span id="${uid}-sort-method"></span></th>
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none" onclick="apiSort('${uid}','path')">Path <span id="${uid}-sort-path"></span></th>
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none" onclick="apiSort('${uid}','function')">Function <span id="${uid}-sort-function"></span></th>
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none" onclick="apiSort('${uid}','framework')">Framework <span id="${uid}-sort-framework"></span></th>
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none" onclick="apiSort('${uid}','auth')">Auth <span id="${uid}-sort-auth"></span></th>
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="apiSort('${uid}','file')">File <span id="${uid}-sort-file"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" ${act("apiSort", `${uid}`, "method")}>Method <span id="${uid}-sort-method"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none" ${act("apiSort", `${uid}`, "path")}>Path <span id="${uid}-sort-path"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none" ${act("apiSort", `${uid}`, "function")}>Function <span id="${uid}-sort-function"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none" ${act("apiSort", `${uid}`, "framework")}>Framework <span id="${uid}-sort-framework"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none" ${act("apiSort", `${uid}`, "auth")}>Auth <span id="${uid}-sort-auth"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" ${act("apiSort", `${uid}`, "file")}>File <span id="${uid}-sort-file"></span></th>
                 </tr>
               </thead>
               <tbody id="${uid}-tbody"></tbody>
@@ -7045,7 +7049,7 @@ epyon install-workflow</pre>
       }[ep.method] || "#6b7280";
       const shortFile = ep.file.split("/").slice(-2).join("/") || ep.file;
       return `
-      <tr class="api-row" onclick="openAPIDetail(${epId})" title="Click to view details" style="cursor:pointer;border-bottom:1px solid var(--border-subtle)">
+      <tr class="api-row" ${act("openAPIDetail", epId)} title="Click to view details" style="cursor:pointer;border-bottom:1px solid var(--border-subtle)">
         <td style="padding:4px 8px"><span style="background:${methodColor};color:white;padding:2px 6px;border-radius:3px;font-size:12px;font-weight:600">${esc(ep.method)}</span></td>
         <td style="padding:4px 8px;font-family:monospace;font-size:12px">${esc(ep.path)}</td>
         <td style="padding:4px 8px;color:var(--text-muted);font-size:12px">${esc(ep.function) || "—"}</td>
@@ -7107,7 +7111,7 @@ epyon install-workflow</pre>
       }
       const rowStyle = isSuppressed ? "opacity:0.5" : "";
       return `
-      <tr class="finding-row" onclick="openFindingDetail(${fid})" title="Click to view details" style="${rowStyle}">
+      <tr class="finding-row" ${act("openFindingDetail", fid)} title="Click to view details" style="${rowStyle}">
         <td>
           <span class="tool-tag">${tool}</span>${suppressedBadge}
           <div style="margin-top:3px">${findingSourceBadge(f)}</div>
@@ -7189,7 +7193,7 @@ epyon install-workflow</pre>
     const pages = Math.max(1, Math.ceil(all.length / st.size));
     const first = (st.page - 1) * st.size + 1;
     const last = Math.min(all.length, st.page * st.size);
-    const btn = (label, page, disabled) => `<button type="button" class="btn btn-sm" ${disabled ? "disabled" : ""} onclick="setFindingsPage('${sev}', ${page})">${label}</button>`;
+    const btn = (label, page, disabled) => `<button type="button" class="btn btn-sm" ${disabled ? "disabled" : ""} ${act("setFindingsPage", `${sev}`, page)}>${label}</button>`;
     const sizeOpts = FINDINGS_PAGE_SIZES.map((n) => `<option value="${n}" ${n === st.size ? "selected" : ""}>${n}</option>`).join("");
     return `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 4px;font-size:13px;color:var(--text-muted)">
     <span>Showing ${first}–${last} of ${all.length} findings</span>
@@ -7263,13 +7267,13 @@ epyon install-workflow</pre>
               <table>
                 <thead>
                   <tr>
-                    <th scope="col" class="sortable-th" data-col="tool"    onclick="sortFindingsBy('${sev}','tool')">Tool <span class="sort-icon">⇅</span></th>
-                    <th scope="col" class="sortable-th" data-col="id"      onclick="sortFindingsBy('${sev}','id')">CVE / ID <span class="sort-icon">⇅</span></th>
-                    <th scope="col" class="sortable-th" data-col="title"   onclick="sortFindingsBy('${sev}','title')">Title <span class="sort-icon">⇅</span></th>
-                    <th scope="col" class="sortable-th" data-col="package" onclick="sortFindingsBy('${sev}','package')">Package <span class="sort-icon">⇅</span></th>
-                    <th scope="col" class="sortable-th" data-col="cvss"    onclick="sortFindingsBy('${sev}','cvss')" style="white-space:nowrap">CVSS / KEV <span class="sort-icon">⇅</span></th>
-                    <th scope="col" class="sortable-th" data-col="fix"     onclick="sortFindingsBy('${sev}','fix')">Fix Available <span class="sort-icon">⇅</span></th>
-                    <th scope="col" class="sortable-th" data-col="target"  onclick="sortFindingsBy('${sev}','target')">Location <span class="sort-icon">⇅</span></th>
+                    <th scope="col" class="sortable-th" data-col="tool"    ${act("sortFindingsBy", `${sev}`, "tool")}>Tool <span class="sort-icon">⇅</span></th>
+                    <th scope="col" class="sortable-th" data-col="id"      ${act("sortFindingsBy", `${sev}`, "id")}>CVE / ID <span class="sort-icon">⇅</span></th>
+                    <th scope="col" class="sortable-th" data-col="title"   ${act("sortFindingsBy", `${sev}`, "title")}>Title <span class="sort-icon">⇅</span></th>
+                    <th scope="col" class="sortable-th" data-col="package" ${act("sortFindingsBy", `${sev}`, "package")}>Package <span class="sort-icon">⇅</span></th>
+                    <th scope="col" class="sortable-th" data-col="cvss"    ${act("sortFindingsBy", `${sev}`, "cvss")} style="white-space:nowrap">CVSS / KEV <span class="sort-icon">⇅</span></th>
+                    <th scope="col" class="sortable-th" data-col="fix"     ${act("sortFindingsBy", `${sev}`, "fix")}>Fix Available <span class="sort-icon">⇅</span></th>
+                    <th scope="col" class="sortable-th" data-col="target"  ${act("sortFindingsBy", `${sev}`, "target")}>Location <span class="sort-icon">⇅</span></th>
                   </tr>
                 </thead>
                 <tbody id="findings-tbody-${esc(sev)}">${_buildFindingRows(items)}</tbody>
@@ -7505,7 +7509,7 @@ epyon install-workflow</pre>
         evidence: d.evidence || []
       };
       return `
-      <div class="scorecard-dim-card" onclick="showDimensionModal('${key}')" style="cursor:pointer">
+      <div class="scorecard-dim-card" ${act("showDimensionModal", `${key}`)} style="cursor:pointer">
         <div class="scorecard-dim-label">${esc(dimLabels[key])}</div>
         ${applicable ? `<div class="scorecard-dim-score" style="color:${barColor}">${s}</div>
         <div class="scorecard-dim-weight">${w}% weight</div>
@@ -7827,7 +7831,7 @@ epyon install-workflow</pre>
               ${multiStig ? `<div class="stig-per-stig">${perStigRows}</div>` : ""}
               <div class="stig-view-btn-row">
                 <button class="btn btn-primary btn-sm"
-                  onclick="navigate('#/stig-viewer/${encodeURIComponent(scanId)}')">
+                  ${act("navigate", `#/stig-viewer/${encodeURIComponent(scanId)}`)}>
                   ⊞ View Findings Inline
                 </button>
               </div>
@@ -7867,26 +7871,26 @@ epyon install-workflow</pre>
       </div>` : "";
       page.innerHTML = `
       <div class="breadcrumb">
-        <a href="#/applications" onclick="navigate('#/applications')">Applications</a>
+        <a href="#/applications" ${act("navigate", "#/applications")}>Applications</a>
         <span>›</span>
         <a href="#/applications/${encodeURIComponent(scan.target)}"
-           onclick="navigate('#/applications/${encodeURIComponent(scan.target)}')">
+           ${act("navigate", `#/applications/${encodeURIComponent(scan.target)}`)}>
           ${esc(scan.target)}
         </a>
         <span>›</span>
         <span>${esc(scan.scan_id)}</span>
       </div>
 
-      ${pageHeader(`Scan Details ${statusBadge(status)} ${gateBadge(scan)}`, { subtitle: `Findings, compliance, and evidence collected for <strong>${esc(scan.target)}</strong> on ${fmtDate(scan.timestamp)}.`, actions: `<button class="btn" onclick="navigate('#/jira-review/${encodeURIComponent(scanId)}')"
+      ${pageHeader(`Scan Details ${statusBadge(status)} ${gateBadge(scan)}`, { subtitle: `Findings, compliance, and evidence collected for <strong>${esc(scan.target)}</strong> on ${fmtDate(scan.timestamp)}.`, actions: `<button class="btn" ${act("navigate", `#/jira-review/${encodeURIComponent(scanId)}`)}
             title="Select findings to create as Jira tickets">
             Jira Review
           </button>
           ${repoUrl ? `<button class="btn btn-primary"
-                 onclick="navigate('#/new-scan?target=${encodeURIComponent(repoUrl)}')">
+                 ${act("navigate", `#/new-scan?target=${encodeURIComponent(repoUrl)}`)}>
                  ▶ Run Scan
-               </button>` : `<button class="btn btn-primary" onclick="navigate('#/new-scan')">▶ Run Scan</button>`}
+               </button>` : `<button class="btn btn-primary" ${act("navigate", "#/new-scan")}>▶ Run Scan</button>`}
           ${scan.has_dashboard ? `<button class="btn"
-                 onclick="window.open('/api/scans/${encodeURIComponent(scanId)}/dashboard','_blank')">
+                 ${act("open", `/api/scans/${encodeURIComponent(scanId)}/dashboard`, "_blank")}>
                  Export HTML ↗
                </button>` : ""}
           <div class="split-btn" id="download-split-btn">
@@ -7908,7 +7912,7 @@ epyon install-workflow</pre>
             </div>
           </div>
           <button class="btn btn-danger"
-            onclick="deleteScan('${esc(scanId)}', '${esc(scan.target)}')"
+            ${act("deleteScan", scanId, scan.target)}
             title="Permanently delete this scan">
             Delete Scan
           </button>` })}
@@ -8386,9 +8390,9 @@ epyon install-workflow</pre>
           <label>Source</label>
             <div class="seg-ctrl" id="target-mode-ctrl">
               <button type="button" class="seg-btn active" data-value="path" id="target-mode-path-btn"
-                onclick="_setTargetMode('path')">Path / Git URL</button>
+                ${act("_setTargetMode", "path")}>Path / Git URL</button>
               <button type="button" class="seg-btn" data-value="upload" id="target-mode-upload-btn"
-                onclick="_setTargetMode('upload')">Upload archive</button>
+                ${act("_setTargetMode", "upload")}>Upload archive</button>
             </div>
             <small id="target-mode-hint">Deployed on a remote server? A typed absolute path is resolved on the
               <strong>server's</strong> own filesystem, not your machine — use
@@ -8413,8 +8417,8 @@ epyon install-workflow</pre>
           <div class="form-group">
             <label>Scan Types</label>
             <div style="margin-bottom:8px">
-              <button type="button" class="btn btn-sm" onclick="setScanTypeCheckboxes(true)">Select All</button>
-              <button type="button" class="btn btn-sm" onclick="setScanTypeCheckboxes(false)">Select None</button>
+              <button type="button" class="btn btn-sm" ${act("setScanTypeCheckboxes", true)}>Select All</button>
+              <button type="button" class="btn btn-sm" ${act("setScanTypeCheckboxes", false)}>Select None</button>
             </div>
             <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:8px">
               ${SCAN_TYPE_OPTIONS.map((t) => `
@@ -8437,9 +8441,9 @@ epyon install-workflow</pre>
             <label>Garak LLM Scan (Layer 12)</label>
             <div class="seg-ctrl" id="garak-ctrl">
               <button type="button" class="seg-btn active" data-value="off"
-                onclick="_setGarak('off')">Off</button>
+                ${act("_setGarak", "off")}>Off</button>
               <button type="button" class="seg-btn" data-value="on"
-                onclick="_setGarak('on')">On</button>
+                ${act("_setGarak", "on")}>On</button>
             </div>
             <small>Requires <code>OPENAI_API_KEY</code> to be set.</small>
           </div>
@@ -8448,9 +8452,9 @@ epyon install-workflow</pre>
             <label>STIG Compliance (Layer 13)</label>
             <div class="seg-ctrl" id="stig-ctrl">
               <button type="button" class="seg-btn active" data-value="off"
-                onclick="_setStig('off')">Off</button>
+                ${act("_setStig", "off")}>Off</button>
               <button type="button" class="seg-btn" data-value="on"
-                onclick="_setStig('on')">On</button>
+                ${act("_setStig", "on")}>On</button>
             </div>
             <small>Requires <code>OPENAI_API_KEY</code> to be set.</small>
           </div>
@@ -8459,18 +8463,18 @@ epyon install-workflow</pre>
             <label>Monitoring Type</label>
             <div class="seg-ctrl" id="monitoring-type-ctrl">
               <button type="button" class="seg-btn active" data-value="evaluation"
-                onclick="_setMonitoringType('evaluation')">
+                ${act("_setMonitoringType", "evaluation")}>
                 &#9675; Evaluation
               </button>
               <button type="button" class="seg-btn" data-value="continuous"
-                onclick="_setMonitoringType('continuous')">
+                ${act("_setMonitoringType", "continuous")}>
                 &#9679; Continuous
               </button>
             </div>
             <small>Continuous apps are tracked in Metrics. Evaluation apps are excluded.</small>
           </div>
 
-          <button id="run-btn" class="btn btn-primary" style="width:100%;justify-content:center" onclick="submitScan()">
+          <button id="run-btn" class="btn btn-primary" style="width:100%;justify-content:center" ${act("submitScan")}>
             ▶ Run Scan
           </button>
         </div>
@@ -8483,7 +8487,7 @@ epyon install-workflow</pre>
         <span style="display:flex;align-items:center;gap:12px">
           <div id="job-status-bar"></div>
           <button id="cancel-btn" class="btn btn-sm" style="display:none"
-                  onclick="cancelScan()">✕ Cancel</button>
+                  ${act("cancelScan")}>✕ Cancel</button>
         </span>
       </div>
       <div class="log-card" id="log-output"></div>
@@ -8498,7 +8502,7 @@ epyon install-workflow</pre>
         <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
           <span id="job-view-title"></span>
           <span style="display:flex;align-items:center;gap:8px">
-            <button class="btn btn-sm" onclick="closeJobView()">Close</button>
+            <button class="btn btn-sm" ${act("closeJobView")}>Close</button>
           </span>
         </div>
         <div class="log-card" id="job-view-log"></div>
@@ -8554,8 +8558,8 @@ epyon install-workflow</pre>
           <td>${esc(x.scan_type)}</td>
           <td style="font-size:12px;color:var(--text-muted)">${fmtDate(x.started_at)}</td>
           <td style="text-align:right;white-space:nowrap">
-            <button class="btn btn-sm" onclick="openJobView('${id}')">${x.job_id === _viewJobId ? "Viewing" : "View log"}</button>
-            ${active ? `<button class="btn btn-sm" onclick="cancelJobById('${id}')">Cancel</button>` : ""}
+            <button class="btn btn-sm" ${act("openJobView", `${id}`)}>${x.job_id === _viewJobId ? "Viewing" : "View log"}</button>
+            ${active ? `<button class="btn btn-sm" ${act("cancelJobById", `${id}`)}>Cancel</button>` : ""}
           </td>
         </tr>`;
     }).join("")}</tbody>
@@ -8689,8 +8693,8 @@ epyon install-workflow</pre>
       <summary style="cursor:pointer;font-size:13px;color:var(--text-muted)">Select layers to run (defaults to all)</summary>
       <div style="margin-top:10px">
         <div style="margin-bottom:8px">
-          <button type="button" class="btn btn-sm" onclick="setScanLayerCheckboxes(true)">Select All</button>
-          <button type="button" class="btn btn-sm" onclick="setScanLayerCheckboxes(false)">Select None</button>
+          <button type="button" class="btn btn-sm" ${act("setScanLayerCheckboxes", true)}>Select All</button>
+          <button type="button" class="btn btn-sm" ${act("setScanLayerCheckboxes", false)}>Select None</button>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:8px">${boxes}</div>
       </div>
@@ -8932,15 +8936,15 @@ epyon install-workflow</pre>
     const actionsDiv = document.getElementById("scan-actions");
     if (actionsDiv) {
       actionsDiv.style.display = "flex";
-      actionsDiv.innerHTML = !anyFailed ? `<button class="btn btn-primary" onclick="navigate('#/applications')">
+      actionsDiv.innerHTML = !anyFailed ? `<button class="btn btn-primary" ${act("navigate", "#/applications")}>
            View Applications
          </button>
-         <button class="btn" onclick="copyScanLogs()">Copy Logs</button>
-         <button class="btn" onclick="startNewScanRun()">Run Another Scan</button>` : `<div class="error-banner" style="margin:0">
+         <button class="btn" ${act("copyScanLogs")}>Copy Logs</button>
+         <button class="btn" ${act("startNewScanRun")}>Run Another Scan</button>` : `<div class="error-banner" style="margin:0">
            One or more scan types did not complete successfully. Check the log output and results below.
          </div>
-         <button class="btn" onclick="copyScanLogs()">Copy Logs</button>
-         <button class="btn" onclick="startNewScanRun()">Run Another Scan</button>`;
+         <button class="btn" ${act("copyScanLogs")}>Copy Logs</button>
+         <button class="btn" ${act("startNewScanRun")}>Run Another Scan</button>`;
     }
     renderScanQueueResults();
   }
@@ -9082,7 +9086,7 @@ epyon install-workflow</pre>
       const cutoff = daysFilter > 0 ? new Date(Date.now() - daysFilter * 864e5).toISOString().slice(0, 10) : null;
       const visibleScans = cutoff ? scans.filter((s) => s.date >= cutoff) : scans;
       const dayBtns = [[7, "7d"], [14, "14d"], [30, "30d"], [35, "35d"], [0, "All"]].map(
-        ([d, l]) => `<button class="btn btn-sm${daysFilter === d ? " btn-active" : ""}" onclick="window._stigHistoryDays(${d})">${l}</button>`
+        ([d, l]) => `<button class="btn btn-sm${daysFilter === d ? " btn-active" : ""}" ${act("_stigHistoryDays", d)}>${l}</button>`
       ).join("");
       const statusBtns = [
         ["all", "All"],
@@ -9091,7 +9095,7 @@ epyon install-workflow</pre>
         ["na", "N/A"],
         ["nr", "Evidence needed"]
       ].map(
-        ([k, l]) => `<button class="btn btn-sm${statusFilter === k ? " btn-active" : ""}" onclick="window._stigHistoryStatus('${k}')">${l}</button>`
+        ([k, l]) => `<button class="btn btn-sm${statusFilter === k ? " btn-active" : ""}" ${act("_stigHistoryStatus", `${k}`)}>${l}</button>`
       ).join("");
       const avgMttr = summary.avg_mttr_days != null ? summary.avg_mttr_days + " days" : "—";
       const summaryStrip = `
@@ -9121,7 +9125,7 @@ epyon install-workflow</pre>
       const thSort = (key, label) => {
         const active = sortKey === key;
         const arrow = active ? sortDir === 1 ? " ↑" : " ↓" : "";
-        return `<th scope="col" class="sortable-th${active ? " sorted" : ""}" onclick="window._stigHistorySort('${key}')">${label}${arrow}</th>`;
+        return `<th scope="col" class="sortable-th${active ? " sorted" : ""}" ${act("_stigHistorySort", `${key}`)}>${label}${arrow}</th>`;
       };
       const dateHeaders = visibleScans.map(
         (s) => `<th scope="col" class="stig-matrix-date-th" title="${esc(s.scan_id)}">${esc(s.label)}</th>`
@@ -9150,7 +9154,7 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
         const latestCls = STATUS_CLASSES[c.latest_status] || "not-reviewed";
         const cid = _registerStigDetail(c);
         return `
-        <tr onclick="openStigDetail(${cid})" style="cursor:pointer" title="Click to view details">
+        <tr ${act("openStigDetail", cid)} style="cursor:pointer" title="Click to view details">
           <td class="stig-matrix-sev"><span class="sev-badge ${esc(sevCls)}">${esc(sevCls)}</span></td>
           <td class="stig-matrix-id">${esc(c.vuln_id)}</td>
           <td class="stig-matrix-title" title="${esc(c.title)}">${esc(c.title || "—")}</td>
@@ -9210,8 +9214,8 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
     }
     const histTabs = `
     <div class="stig-tabs">
-      <button class="stig-tab" onclick="navigate('#/stig')">Overview</button>
-      <button class="stig-tab active" onclick="navigate('#/stig?view=history')">History &amp; MTTR</button>
+      <button class="stig-tab" ${act("navigate", "#/stig")}>Overview</button>
+      <button class="stig-tab active" ${act("navigate", "#/stig?view=history")}>History &amp; MTTR</button>
     </div>`;
     if (apps.length === 0) {
       page.innerHTML = `
@@ -10102,7 +10106,7 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
           ${idDisplay}
         </div>
       </div>
-      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+      <button class="finding-drawer-close" ${act("closeFindingDetail")} aria-label="Close">✕</button>
     </div>
     <div class="finding-drawer-body">
 
@@ -10146,12 +10150,12 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
 
       ${_scanIdFromHash() && !window.__SCAN__ ? `
       <div id="finding-jira-section" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
-        <button id="finding-jira-btn" class="btn btn-primary" onclick="jiraQuickAdd(${id})">Add to Jira</button>
+        <button id="finding-jira-btn" class="btn btn-primary" ${act("jiraQuickAdd", id)}>Add to Jira</button>
         <div id="finding-jira-status" style="font-size:12px;margin-top:8px"></div>
       </div>` : ""}
 
       <div id="finding-fix-section" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
-        <button id="finding-fix-btn" class="btn btn-ai" onclick="fetchFindingFix(${id})">
+        <button id="finding-fix-btn" class="btn btn-ai" ${act("fetchFindingFix", id)}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
           Suggest Fix with AI
         </button>
@@ -10251,7 +10255,7 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
           <code style="font-size:12px">${esc(c.group_id || c.vuln_id)}</code>
         </div>
       </div>
-      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+      <button class="finding-drawer-close" ${act("closeFindingDetail")} aria-label="Close">✕</button>
     </div>
     <div class="finding-drawer-body">
 
@@ -10324,10 +10328,10 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
           </div>
           <div class="stig-override-row stig-override-actions">
             <button class="btn btn-sm btn-success"
-              onclick="saveStigOverrideFromDrawer('${esc(scanId)}','${esc(c._slug)}','${esc(c.vuln_id)}')"
+              ${act("saveStigOverrideFromDrawer", scanId, c._slug, c.vuln_id)}
             >🔒 Lock Override</button>
             ${c.locked_by_human ? `<button class="btn btn-sm"
-                  onclick="clearStigOverrideFromDrawer('${esc(scanId)}','${esc(c._slug)}','${esc(c.vuln_id)}')"
+                  ${act("clearStigOverrideFromDrawer", scanId, c._slug, c.vuln_id)}
                 >Clear Lock</button>` : ""}
             <span class="stig-override-msg" id="sd-msg-${esc(c.vuln_id)}-${esc(c._slug)}"></span>
           </div>
@@ -10506,7 +10510,7 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
           <code>${esc(c.vuln_id)}</code>
         </div>
       </div>
-      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+      <button class="finding-drawer-close" ${act("closeFindingDetail")} aria-label="Close">✕</button>
     </div>
     <div class="finding-drawer-body">
       <div class="finding-detail-grid">
@@ -10671,7 +10675,7 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
       <div class="finding-drawer-title">
         <h2>${title}</h2>
       </div>
-      <button class="finding-drawer-close" onclick="closeGhSignalDetail()" aria-label="Close">✕</button>
+      <button class="finding-drawer-close" ${act("closeGhSignalDetail")} aria-label="Close">✕</button>
     </div>
     <div class="finding-drawer-body">${bodyHtml}</div>`;
     document.body.appendChild(overlay);
@@ -10725,7 +10729,7 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
           <span class="tool-tag">${esc(framework)}</span>
         </div>
       </div>
-      <button class="finding-drawer-close" onclick="closeAPIDetail()" aria-label="Close">✕</button>
+      <button class="finding-drawer-close" ${act("closeAPIDetail")} aria-label="Close">✕</button>
     </div>
     <div class="finding-drawer-body">
 
@@ -10880,7 +10884,7 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
           ${p.language ? `<span class="tool-tag" style="background:var(--accent-bg);color:var(--accent)">${esc(p.language)}</span>` : ""}
         </div>
       </div>
-      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+      <button class="finding-drawer-close" ${act("closeFindingDetail")} aria-label="Close">✕</button>
     </div>
     <div class="finding-drawer-body">
 
@@ -11115,6 +11119,21 @@ Frontend Cache:
       el.click();
     });
   }
+
+  // src/core/actions.js
+  document.addEventListener("click", (e) => {
+    for (let el = e.target instanceof Element ? e.target.closest("[data-act]") : null; el; el = el.parentElement && el.parentElement.closest("[data-act]")) {
+      const fn = window[el.dataset.act];
+      if (typeof fn !== "function") continue;
+      let args = [];
+      try {
+        args = JSON.parse(el.dataset.args || "[]");
+      } catch {
+      }
+      fn(...args);
+      if (e.cancelBubble) return;
+    }
+  });
 
   // src/components/section.js
   var section_exports = {};

@@ -1,4 +1,4 @@
-import { esc } from '../../lib/format.js';
+import { esc, act } from '../../lib/format.js';
 
 // Sort state for PPSM port tables: { [tableId]: { col: int, dir: 'asc'|'desc' } }
 const _ppsmSortState = {};
@@ -114,7 +114,7 @@ window.sortEnrichmentTable = function(col) {
       : '';
     const fixed = f.fixed_version ? `<span style="color:var(--clean);font-size:12px">→ ${esc(f.fixed_version)}</span>` : '';
     return `
-      <tr class="finding-row" onclick="openFindingDetail(${f._rid})" title="Click to view details">
+      <tr class="finding-row" ${act('openFindingDetail', f._rid)} title="Click to view details">
         <td style="padding:5px 8px 5px 0"><span class="sev-badge sev-${esc(f.sev)}" style="font-size:12px">${esc(f.sev)}</span></td>
         <td style="padding:5px 8px 5px 0;font-family:monospace;font-size:12px;white-space:nowrap"><code>${id}</code>${kevBadge}</td>
         <td style="padding:5px 8px 5px 0;font-size:12px;color:var(--text-muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${pkg}</td>

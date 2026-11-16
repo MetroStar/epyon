@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.19] - 2026-11-16
+
+### Changed
+- Web UI: simple inline `onclick="fn(args)"` handlers (about 190) now render `data-act`/`data-args` via `act()` and are dispatched by one delegated listener in `core/actions.js`. Arguments travel as JSON data instead of being spliced into JavaScript source. Handlers that use `this`, `event` or inline logic are unchanged.
+
 ## [3.72.18] - 2026-11-16
 
 ### Changed

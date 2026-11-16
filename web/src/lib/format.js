@@ -9,6 +9,12 @@ export function esc(str) {
     .replace(/'/g, '&#39;');
 }
 
+// Attributes for a delegated click: `<button ${act('fn', a, b)}>` calls window.fn(a, b)
+// (see core/actions.js). Args are JSON, so values are data and never parsed as code.
+export function act(fn, ...args) {
+  return `data-act="${esc(fn)}" data-args="${esc(JSON.stringify(args))}"`;
+}
+
 // ── Formatting helpers ────────────────────────────────────────
 export function fmtDate(ts) {
   if (!ts) return '—';

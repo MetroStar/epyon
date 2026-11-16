@@ -1,6 +1,6 @@
 import { emptyState, errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
-import { esc, fmtDate, ucFirst } from '../lib/format.js';
+import { esc, fmtDate, ucFirst, act } from '../lib/format.js';
 import { _stigJiraSel, _stigRegistry } from '../state/registries.js';
 
 // Globals that other modules put on window (see index.js):
@@ -27,7 +27,7 @@ export async function renderStig() {
           const jsonBtn = `<a class="btn btn-sm" href="/api/scans/${encodeURIComponent(stigScanId)}/stig-findings-json" download>↓ findings.json</a>`;
           const poamBtn = `<a class="btn btn-sm" href="/api/scans/${encodeURIComponent(stigScanId)}/poam" download title="Open STIG controls + Critical/High CVEs">↓ POA&amp;M.csv</a>`;
           return `
-            <div class="stig-app-card" onclick="navigate('#/scans/${encodeURIComponent(stigScanId)}')" style="cursor:pointer">
+            <div class="stig-app-card" ${act('navigate', `#/scans/${encodeURIComponent(stigScanId)}`)} style="cursor:pointer">
               <div class="stig-app-card-header">
                 <span class="stig-app-name">
                   ${esc(app.name)}
@@ -60,11 +60,11 @@ export async function renderStig() {
               <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap" onclick="event.stopPropagation()">
                 <span style="font-size:12px;color:var(--text-muted)">Last scanned: ${fmtDate(app.last_scanned)}</span>
                 <button class="btn btn-primary btn-sm"
-                  onclick="navigate('#/stig-viewer/${encodeURIComponent(stigScanId)}')">
+                  ${act('navigate', `#/stig-viewer/${encodeURIComponent(stigScanId)}`)}>
                   ⊞ View Findings
                 </button>
                 <button class="btn btn-sm"
-                  onclick="navigate('#/scans/${encodeURIComponent(stigScanId)}')">
+                  ${act('navigate', `#/scans/${encodeURIComponent(stigScanId)}`)}>
                   Scan Details →
                 </button>
               </div>
@@ -73,7 +73,7 @@ export async function renderStig() {
       : emptyState(
           'No STIG results yet',
           'STIG scans do not run on a schedule because they use AI tokens. Trigger one using Run Scan → STIG.',
-          `<button class="btn btn-primary" onclick="navigate('#/new-scan')" style="margin-top:16px">
+          `<button class="btn btn-primary" ${act('navigate', '#/new-scan')} style="margin-top:16px">
              ▶ Run STIG Scan
            </button>`,
         );
@@ -110,13 +110,13 @@ export async function renderStig() {
 
     const stigTabs = `
       <div class="stig-tabs">
-        <button class="stig-tab active" onclick="navigate('#/stig')">Overview</button>
-        <button class="stig-tab" onclick="navigate('#/stig?view=history')">History &amp; MTTR</button>
+        <button class="stig-tab active" ${act('navigate', '#/stig')}>Overview</button>
+        <button class="stig-tab" ${act('navigate', '#/stig?view=history')}>History &amp; MTTR</button>
       </div>`;
 
     page.innerHTML = `
       ${pageHeader(`STIG Compliance`, { actions: `<button class="btn btn-primary"
-          onclick="navigate('#/new-scan')">▶ Run STIG Scan</button>` })}
+          ${act('navigate', '#/new-scan')}>▶ Run STIG Scan</button>` })}
       ${stigTabs}
       <p class="section-desc">
         Application Security Developer (AppSecDev) STIG and Crunchy Data PostgreSQL STIG
@@ -222,8 +222,8 @@ export async function renderStigViewer(scanId) {
       return `
         <div class="stig-viewer-count" style="display:flex;align-items:center;gap:12px">
           <span>${rows.length} control${rows.length !== 1 ? 's' : ''}</span>
-          <button class="btn" id="stig-jira-bulk" onclick="openStigJiraModal('${esc(scanId)}')" ${_stigJiraSel.size ? '' : 'disabled'}>Add ${_stigJiraSel.size || ''} to Jira</button>
-          <button class="btn" id="stig-lock-bulk" onclick="openStigBulkLockModal('${esc(scanId)}')" ${_stigJiraSel.size ? '' : 'disabled'}>🔒 Lock ${_stigJiraSel.size || ''}</button>
+          <button class="btn" id="stig-jira-bulk" ${act('openStigJiraModal', scanId)} ${_stigJiraSel.size ? '' : 'disabled'}>Add ${_stigJiraSel.size || ''} to Jira</button>
+          <button class="btn" id="stig-lock-bulk" ${act('openStigBulkLockModal', scanId)} ${_stigJiraSel.size ? '' : 'disabled'}>🔒 Lock ${_stigJiraSel.size || ''}</button>
         </div>
         <div class="stig-table-wrap">
           <table class="stig-table">
@@ -240,7 +240,7 @@ export async function renderStigViewer(scanId) {
                   const active = sortCol === col;
                   const icon = active ? (sortDir === 'asc' ? '↑' : '↓') : '⇅';
                   const style = w ? `style="width:${w}"` : '';
-                  return `<th scope="col" class="stig-sortable-th${active ? ' stig-sort-active' : ''}" ${style} onclick="setStigSort('${col}')">${label} <span class="stig-sort-icon">${icon}</span></th>`;
+                  return `<th scope="col" class="stig-sortable-th${active ? ' stig-sort-active' : ''}" ${style} ${act('setStigSort', `${col}`)}>${label} <span class="stig-sort-icon">${icon}</span></th>`;
                 }).join('')}
                 ${stigNames.length > 1 ? '<th scope="col" style="width:140px">STIG</th>' : ''}
               </tr>
@@ -254,7 +254,7 @@ export async function renderStigViewer(scanId) {
                 const conf  = c.confidence ?? 0;
                 const confClass = conf >= 90 ? 'conf-high' : conf >= 70 ? 'conf-med' : conf >= 40 ? 'conf-low' : 'conf-none';
                 return `
-                  <tr class="stig-tr stig-tr-clickable" id="${rowId}" onclick="openStigDetail('${esc(regKey)}')">
+                  <tr class="stig-tr stig-tr-clickable" id="${rowId}" ${act('openStigDetail', regKey)}>
                     <td onclick="event.stopPropagation()"><input type="checkbox" aria-label="Select ${esc(c.vuln_id)}" ${_stigJiraSel.has(regKey) ? 'checked' : ''} onclick="stigJiraToggle('${esc(regKey)}', this.checked, event.shiftKey)"></td>
                     <td><code class="stig-id">${esc(c.group_id || c.vuln_id)}</code></td>
                     <td><span class="stig-sev stig-sev-${esc(c.severity)}">${esc(c.severity || '—')}</span></td>
@@ -278,7 +278,7 @@ export async function renderStigViewer(scanId) {
             <div class="stig-filter-btns" id="filter-status">
               ${['all', ...STATUS_ORDER].map(s => `
                 <button class="stig-filter-btn${filterStatus === s ? ' active' : ''}"
-                  onclick="setStigFilter('status','${s}')">${s === 'all' ? 'All' : esc(stigStatusLabel(s))}${s !== 'all' && counts[s] ? ` <span class="stig-filter-count">${counts[s]}</span>` : ''}</button>
+                  ${act('setStigFilter', 'status', `${s}`)}>${s === 'all' ? 'All' : esc(stigStatusLabel(s))}${s !== 'all' && counts[s] ? ` <span class="stig-filter-count">${counts[s]}</span>` : ''}</button>
               `).join('')}
             </div>
           </div>
@@ -287,7 +287,7 @@ export async function renderStigViewer(scanId) {
             <div class="stig-filter-btns">
               ${['all', 'high', 'medium', 'low'].map(s => `
                 <button class="stig-filter-btn${filterSeverity === s ? ' active' : ''}"
-                  onclick="setStigFilter('severity','${s}')">${s === 'all' ? 'All' : ucFirst(s)}</button>
+                  ${act('setStigFilter', 'severity', `${s}`)}>${s === 'all' ? 'All' : ucFirst(s)}</button>
               `).join('')}
             </div>
           </div>
@@ -296,10 +296,10 @@ export async function renderStigViewer(scanId) {
             <label class="stig-filter-label">STIG</label>
             <div class="stig-filter-btns">
               <button class="stig-filter-btn${filterStig === 'all' ? ' active' : ''}"
-                onclick="setStigFilter('stig','all')">All</button>
+                ${act('setStigFilter', 'stig', 'all')}>All</button>
               ${data.stigs.map(s => `
                 <button class="stig-filter-btn${filterStig === s.slug ? ' active' : ''}"
-                  onclick="setStigFilter('stig','${esc(s.slug)}')"
+                  ${act('setStigFilter', 'stig', s.slug)}
                   title="${esc(s.stig_name)}">${esc(s.stig_name.slice(0, 30))}…</button>
               `).join('')}
             </div>
@@ -380,18 +380,18 @@ export async function renderStigViewer(scanId) {
 
     const counts = countsByStatus();
     const backLink = scan.target
-      ? `<a href="#/scans/${encodeURIComponent(scanId)}" onclick="navigate('#/scans/${encodeURIComponent(scanId)}')">${esc(scanId)}</a>`
+      ? `<a href="#/scans/${encodeURIComponent(scanId)}" ${act('navigate', `#/scans/${encodeURIComponent(scanId)}`)}>${esc(scanId)}</a>`
       : esc(scanId);
 
     page.innerHTML = `
       <div class="breadcrumb">
-        <a href="#/applications" onclick="navigate('#/applications')">Applications</a>
+        <a href="#/applications" ${act('navigate', '#/applications')}>Applications</a>
         <span>›</span>
         <a href="#/applications/${encodeURIComponent(scan.target)}"
-           onclick="navigate('#/applications/${encodeURIComponent(scan.target)}')">${esc(scan.target)}</a>
+           ${act('navigate', `#/applications/${encodeURIComponent(scan.target)}`)}>${esc(scan.target)}</a>
         <span>›</span>
         <a href="#/scans/${encodeURIComponent(scanId)}"
-           onclick="navigate('#/scans/${encodeURIComponent(scanId)}')">${esc(scanId)}</a>
+           ${act('navigate', `#/scans/${encodeURIComponent(scanId)}`)}>${esc(scanId)}</a>
         <span>›</span>
         <span>STIG Findings</span>
       </div>

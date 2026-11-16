@@ -1,6 +1,6 @@
 import { _ppsmRegistry } from './ppsm.js';
 import { emptyNote } from '../layout.js';
-import { esc } from '../../lib/format.js';
+import { esc, act } from '../../lib/format.js';
 
 // Globals that other modules put on window (see index.js):
 
@@ -112,9 +112,9 @@ export function buildNetworkDiscoveryCard(scan) {
       <table id="${tblId}" style="width:100%;border-collapse:collapse;font-size:12px">
         <thead>
           <tr style="color:var(--text-muted)">
-            <th scope="col" data-col="0" class="sortable-th" style="text-align:left;padding:2px 8px 2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',0)">File <span class="sort-icon">⇅</span></th>
-            <th scope="col" data-col="1" class="sortable-th" style="text-align:left;padding:2px 8px 2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',1)">Service <span class="sort-icon">⇅</span></th>
-            <th scope="col" data-col="2" class="sortable-th" style="text-align:left;padding:2px 0;font-weight:500" onclick="sortPpsmTable('${tblId}',2)">Port / Mapping <span class="sort-icon">⇅</span></th>
+            <th scope="col" data-col="0" class="sortable-th" style="text-align:left;padding:2px 8px 2px 0;font-weight:500" ${act('sortPpsmTable', `${tblId}`, 0)}>File <span class="sort-icon">⇅</span></th>
+            <th scope="col" data-col="1" class="sortable-th" style="text-align:left;padding:2px 8px 2px 0;font-weight:500" ${act('sortPpsmTable', `${tblId}`, 1)}>Service <span class="sort-icon">⇅</span></th>
+            <th scope="col" data-col="2" class="sortable-th" style="text-align:left;padding:2px 0;font-weight:500" ${act('sortPpsmTable', `${tblId}`, 2)}>Port / Mapping <span class="sort-icon">⇅</span></th>
           </tr>
         </thead>
         <tbody>
@@ -148,7 +148,7 @@ export function buildNetworkDiscoveryCard(scan) {
             ${activeBadge}
           </span>
           <span class="findings-summary-right" onclick="event.stopPropagation()">
-            <button class="btn btn-sm" onclick="downloadPpsmCsv('${esc(scanId)}')" title="Download PPSM as CSV">↓ PPSM</button>
+            <button class="btn btn-sm" ${act('downloadPpsmCsv', scanId)} title="Download PPSM as CSV">↓ PPSM</button>
           </span>
         </summary>
         <div class="findings-body" style="padding:0 18px 16px">

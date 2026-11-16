@@ -3,8 +3,9 @@
 //   npm run check   fail if the committed bundle is stale (used by CI)
 //
 // app.js = the ES-module bundle (src/index.js, wrapped in an IIFE that also puts
-// its exports on `window`). The UI still uses inline `onclick="fn()"` handlers,
-// which need global functions, hence the window assignment in src/index.js.
+// its exports on `window`). Delegated `data-act` clicks (act() in lib/format.js) and
+// the remaining inline handlers need global functions, hence the window assignment in
+// src/index.js.
 import { build, transform } from "esbuild";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";

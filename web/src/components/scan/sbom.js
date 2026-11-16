@@ -1,4 +1,4 @@
-import { esc } from '../../lib/format.js';
+import { esc, act } from '../../lib/format.js';
 import { _depsRegistry } from '../../state/registries.js';
 
 // Globals that other modules put on window (see index.js):
@@ -13,7 +13,7 @@ export function buildSBOMSection(sbom, scanId) {
 
   const typeChips = Object.entries(byType)
     .sort((a, b) => b[1] - a[1])
-    .map(([t, n]) => `<span class="tool-tag sbom-type-chip" style="cursor:pointer" data-sbom="${uid}" data-type="${esc(t)}" onclick="sbomFilterType('${uid}','${esc(t)}')">${esc(t)} <strong>${n}</strong></span>`)
+    .map(([t, n]) => `<span class="tool-tag sbom-type-chip" style="cursor:pointer" data-sbom="${uid}" data-type="${esc(t)}" ${act('sbomFilterType', `${uid}`, t)}>${esc(t)} <strong>${n}</strong></span>`)
     .join('');
 
   const allPackages = (sbom.packages || []).map(p => ({
@@ -56,17 +56,17 @@ export function buildSBOMSection(sbom, scanId) {
               style="flex:1;min-width:180px;max-width:320px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--text);font-size:13px"
               oninput="sbomRender('${uid}')" />
             <span id="${uid}-count" style="font-size:12px;color:var(--text-muted)"></span>
-            <button class="btn btn-sm" onclick="sbomClearFilter('${uid}')">Clear filters</button>
+            <button class="btn btn-sm" ${act('sbomClearFilter', `${uid}`)}>Clear filters</button>
           </div>
           <div style="overflow-x:auto">
             <table style="width:100%;border-collapse:collapse;font-size:13px">
               <thead>
                 <tr style="text-align:left;border-bottom:1px solid var(--border)">
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','name')">Name <span id="${uid}-sort-name"></span></th>
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','version')">Version <span id="${uid}-sort-version"></span></th>
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','type')">Type <span id="${uid}-sort-type"></span></th>
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','license')">License <span id="${uid}-sort-license"></span></th>
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="sbomSort('${uid}','path')">Path <span id="${uid}-sort-path"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" ${act('sbomSort', `${uid}`, 'name')}>Name <span id="${uid}-sort-name"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" ${act('sbomSort', `${uid}`, 'version')}>Version <span id="${uid}-sort-version"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" ${act('sbomSort', `${uid}`, 'type')}>Type <span id="${uid}-sort-type"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" ${act('sbomSort', `${uid}`, 'license')}>License <span id="${uid}-sort-license"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" ${act('sbomSort', `${uid}`, 'path')}>Path <span id="${uid}-sort-path"></span></th>
                 </tr>
               </thead>
               <tbody id="${uid}-tbody"></tbody>
@@ -175,7 +175,7 @@ window.sbomRender = function(uid) {
   tbody.innerHTML = items.map(p => {
     const did = _depsNextId++;
     _depsRegistry.set(did, p);
-    return `<tr class="finding-row" style="cursor:pointer" onclick="openDependencyDetail(${did})" title="Click to view details">
+    return `<tr class="finding-row" style="cursor:pointer" ${act('openDependencyDetail', did)} title="Click to view details">
       <td style="font-family:monospace;font-size:12px;padding:3px 8px">${esc(p.name)}</td>
       <td style="font-size:12px;padding:3px 8px">${esc(p.version)}</td>
       <td style="padding:3px 8px"><span class="tool-tag" style="font-size:12px;padding:1px 6px">${esc(p.type)}</span></td>

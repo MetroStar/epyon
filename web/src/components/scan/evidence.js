@@ -1,6 +1,6 @@
 import { findingSourceBadge } from '../badges.js';
 import { toast } from '../feedback.js';
-import { esc } from '../../lib/format.js';
+import { esc, act } from '../../lib/format.js';
 
 // Globals that other modules put on window (see index.js):
 /* global _registerFinding */
@@ -26,7 +26,7 @@ export function buildMisconfigurationsCard(scan) {
       });
       
       return `
-        <div class="hf-finding-row hf-finding-row--clickable" onclick="openFindingDetail(${fid})" title="Click to view details">
+        <div class="hf-finding-row hf-finding-row--clickable" ${act('openFindingDetail', fid)} title="Click to view details">
           <span class="hf-finding-sev hf-sev-${esc(f.severity || 'medium')}">${esc(f.severity || 'medium')}</span>
           ${findingSourceBadge(f)}
           <code class="hf-finding-file">${esc(f.file || f.target || '—')}</code>

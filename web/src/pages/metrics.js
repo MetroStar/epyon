@@ -2,7 +2,7 @@ import { sourcesBadges } from '../components/badges.js';
 import { drawDonutChart, drawHBarChart, drawStackedBarChart } from '../components/charts.js';
 import { emptyNote, emptyRow, errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
-import { esc, ucFirst } from '../lib/format.js';
+import { esc, ucFirst, act } from '../lib/format.js';
 import { buildCiHealthSection } from './performance.js';
 
 // Globals that other modules put on window (see index.js):
@@ -57,7 +57,7 @@ export function openSlaDetail() {
           <span style="font-size:14px;color:${ovColor};font-weight:600">${ovPct}</span>
         </div>
       </div>
-      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+      <button class="finding-drawer-close" ${act('closeFindingDetail')} aria-label="Close">✕</button>
     </div>
     <div class="finding-drawer-body">
       <p style="font-size:13px;color:var(--text-muted);margin:0 0 16px">% of resolved findings fixed within severity-tiered SLA thresholds.</p>
@@ -146,7 +146,7 @@ export function openRiskTrendDetail(app) {
           <span style="font-size:12px;color:var(--accent);font-weight:600">Latest: ${esc(String(latest.score))}</span>
         </div>
       </div>
-      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+      <button class="finding-drawer-close" ${act('closeFindingDetail')} aria-label="Close">✕</button>
     </div>
     <div class="finding-drawer-body">
       <div style="margin-bottom:20px">
@@ -188,7 +188,7 @@ export function buildRiskTrendSection(m) {
   const trend = m.risk_trend || [];
   if (!trend.length) {
     return `<div class="section collapsible-section collapsed" id="section-risk">
-      <div class="section-title section-toggle" onclick="toggleSection('section-risk')">
+      <div class="section-title section-toggle" ${act('toggleSection', 'section-risk')}>
         Weighted Risk Score Trend <span class="section-chevron">▾</span>
       </div>
       <div class="section-body">${emptyNote('No trend data yet.')}</div>
@@ -216,7 +216,7 @@ export function buildRiskTrendSection(m) {
       const y = maxScore > minScore ? 20 - ((p.score - minScore) / (maxScore - minScore)) * 16 : 10;
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     }).join(' ');
-    return `<tr class="clickable-row" onclick="openRiskTrendDetail('${esc(app)}')">
+    return `<tr class="clickable-row" ${act('openRiskTrendDetail', app)}>
       <td><strong>${esc(app)}</strong></td>
       <td style="font-weight:600;color:${color}">${esc(String(latest.score))}${arrow}</td>
       <td style="color:var(--text-muted);font-size:12px">${esc(latest.date)}</td>
@@ -227,7 +227,7 @@ export function buildRiskTrendSection(m) {
   }).join('');
   return `
   <div class="section collapsible-section collapsed" id="section-risk">
-    <div class="section-title section-toggle" onclick="toggleSection('section-risk')">
+    <div class="section-title section-toggle" ${act('toggleSection', 'section-risk')}>
       Weighted Risk Score Trend
       <span class="section-title-right"><span style="font-size:12px;font-weight:normal;color:var(--text-muted)">critical×10 + high×7 + medium×4 + low×1</span><span class="section-chevron">▾</span></span>
     </div>
@@ -246,7 +246,7 @@ export function buildSecretTrendSection(m) {
   const targets = Object.keys(byTarget).sort();
   if (!targets.length) {
     return `<div class="section collapsible-section collapsed" id="section-secrets">
-      <div class="section-title section-toggle" onclick="toggleSection('section-secrets')">
+      <div class="section-title section-toggle" ${act('toggleSection', 'section-secrets')}>
         Secret Detection Trend <span class="section-chevron">▾</span>
       </div>
       <div class="section-body">${emptyNote('No TruffleHog data found in scans.')}</div>
@@ -279,7 +279,7 @@ export function buildSecretTrendSection(m) {
     ? `<span class="sev-badge critical" style="margin-right:8px">${totalVerified} verified secrets</span>` : '';
   return `
   <div class="section collapsible-section collapsed" id="section-secrets">
-    <div class="section-title section-toggle" onclick="toggleSection('section-secrets')">
+    <div class="section-title section-toggle" ${act('toggleSection', 'section-secrets')}>
       Secret Detection Trend
       <span class="section-title-right">${badgeLine}<span class="section-chevron">▾</span></span>
     </div>
@@ -330,7 +330,7 @@ export function buildSuppressionSection(m) {
 
   return `
   <div class="section collapsible-section collapsed" id="section-suppression">
-    <div class="section-title section-toggle" onclick="toggleSection('section-suppression')">
+    <div class="section-title section-toggle" ${act('toggleSection', 'section-suppression')}>
       Suppression / Accepted Risk Rate
       <span class="section-title-right">
         <span style="font-size:13px;font-weight:600;color:var(--text-muted)">${esc(String(total))} suppressed · ${esc(String(m.total_resolved || 0))} resolved · ${rate} rate</span>
@@ -354,7 +354,7 @@ export function buildRecurrenceSection(m) {
   const ftfColor = ftfPct == null ? 'var(--text-muted)' : ftfPct >= 50 ? 'var(--clean)' : ftfPct >= 25 ? 'var(--medium)' : 'var(--critical)';
   return `
   <div class="section collapsible-section collapsed" id="section-recurrence">
-    <div class="section-title section-toggle" onclick="toggleSection('section-recurrence')">
+    <div class="section-title section-toggle" ${act('toggleSection', 'section-recurrence')}>
       Recurrence &amp; First-Time Fix Rate
       <span class="section-chevron">▾</span>
     </div>
@@ -574,7 +574,7 @@ export function openAppTrendDetail(name) {
           <span style="font-size:13px;color:${color};font-weight:600">${esc(t.status)}</span>
         </div>
       </div>
-      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+      <button class="finding-drawer-close" ${act('closeFindingDetail')} aria-label="Close">✕</button>
     </div>
     <div class="finding-drawer-body">
       <p style="font-size:13px;margin:0 0 16px">${why}</p>
@@ -692,7 +692,7 @@ export async function renderMetrics() {
         : ftfPct >= 50 ? 'var(--clean)' : ftfPct >= 25 ? 'var(--medium)' : 'var(--critical)';
 
       return `<div class="fix-rate-stats">
-        <div class="fix-rate-stat-row fix-rate-stat-link" title="Click to view SLA breakdown by severity" onclick="openSlaDetail()">
+        <div class="fix-rate-stat-row fix-rate-stat-link" title="Click to view SLA breakdown by severity" ${act('openSlaDetail')}>
           <span class="fix-rate-stat-label">SLA Compliance <span class="stat-link-arrow">›</span></span>
           <span class="fix-rate-stat-value" style="color:${slaColor}">${fmt(slaPct)}</span>
         </div>
@@ -761,7 +761,7 @@ export async function renderMetrics() {
         const firstDate = f.dates.length ? f.dates[0] : '—';
         const lastDate  = f.dates.length ? f.dates[f.dates.length - 1] : '—';
         return `
-          <tr onclick="navigate('#/applications/${encodeURIComponent(name)}')" style="cursor:pointer">
+          <tr ${act('navigate', `#/applications/${encodeURIComponent(name)}`)} style="cursor:pointer">
             <td><strong>${esc(name)}</strong></td>
             <td>${esc(f.total)}</td>
             <td>${esc(firstDate)}</td>
@@ -777,12 +777,12 @@ export async function renderMetrics() {
     const filterNotice = m.metrics_filtered
       ? `<div class="metrics-filter-notice">
            Showing ${esc(String(m.monitored_count))} continuously monitored app${m.monitored_count !== 1 ? 's' : ''} ·
-           <a href="#/applications" onclick="navigate('#/applications')">manage</a>
+           <a href="#/applications" ${act('navigate', '#/applications')}>manage</a>
          </div>`
       : '';
 
     page.innerHTML = `
-      ${pageHeader(`Metrics`, { actions: `<button class="btn btn-sm" onclick="renderMetrics()">&#8635; Refresh</button>` })}
+      ${pageHeader(`Metrics`, { actions: `<button class="btn btn-sm" ${act('renderMetrics')}>&#8635; Refresh</button>` })}
       ${filterNotice}
 
       <div class="stats-grid">
@@ -860,7 +860,7 @@ export async function renderMetrics() {
       ${buildAppTrendSection(m)}
 
       <div class="section collapsible-section collapsed" id="section-cves">
-        <div class="section-title section-toggle" onclick="toggleSection('section-cves')">
+        <div class="section-title section-toggle" ${act('toggleSection', 'section-cves')}>
           Top CVEs
           <span class="section-title-right">
             <span style="font-size:12px;font-weight:normal;color:var(--text-muted)">from latest scan per application</span>
@@ -887,7 +887,7 @@ export async function renderMetrics() {
       </div>
 
       <div class="section collapsible-section collapsed" id="section-freq">
-        <div class="section-title section-toggle" onclick="toggleSection('section-freq')">
+        <div class="section-title section-toggle" ${act('toggleSection', 'section-freq')}>
           Scan Frequency
           <span class="section-chevron">▾</span>
         </div>
@@ -911,7 +911,7 @@ export async function renderMetrics() {
       </div>
 
       <div class="section collapsible-section collapsed" id="section-merges">
-        <div class="section-title section-toggle" onclick="toggleSection('section-merges')">
+        <div class="section-title section-toggle" ${act('toggleSection', 'section-merges')}>
           Merges to Primary Branch
           <span class="section-chevron">▾</span>
         </div>
@@ -1034,7 +1034,7 @@ export async function renderMetrics() {
         function freqRow([name, f]) {
           const first = f.dates.length ? f.dates[0] : '\u2014';
           const last  = f.dates.length ? f.dates[f.dates.length - 1] : '\u2014';
-          return `<tr onclick="navigate('#/applications/${encodeURIComponent(name)}')" style="cursor:pointer">
+          return `<tr ${act('navigate', `#/applications/${encodeURIComponent(name)}`)} style="cursor:pointer">
             <td><strong>${esc(name)}</strong></td>
             <td>${esc(f.total)}</td>
             <td>${esc(first)}</td>
@@ -1085,7 +1085,7 @@ export async function renderMetrics() {
         function mergeRow([name, f], filteredDates) {
           const first = filteredDates.length ? filteredDates[0] : '—';
           const last  = filteredDates.length ? filteredDates[filteredDates.length - 1] : '—';
-          return `<tr onclick="navigate('#/applications/${encodeURIComponent(name)}')" style="cursor:pointer">
+          return `<tr ${act('navigate', `#/applications/${encodeURIComponent(name)}`)} style="cursor:pointer">
             <td><strong>${esc(name)}</strong></td>
             <td>${esc(filteredDates.length)}</td>
             <td>${esc(first)}</td>

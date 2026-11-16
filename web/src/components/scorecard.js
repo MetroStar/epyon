@@ -1,6 +1,6 @@
 import { emptyNote } from './layout.js';
 import { api } from '../lib/api.js';
-import { esc } from '../lib/format.js';
+import { esc, act } from '../lib/format.js';
 import { poamSend } from '../pages/poam.js';
 
 export async function calculateScorecardForScan(scanId) {
@@ -134,7 +134,7 @@ export function buildScorecardCard(scorecardData) {
     };
     
     return `
-      <div class="scorecard-dim-card" onclick="showDimensionModal('${key}')" style="cursor:pointer">
+      <div class="scorecard-dim-card" ${act('showDimensionModal', `${key}`)} style="cursor:pointer">
         <div class="scorecard-dim-label">${esc(dimLabels[key])}</div>
         ${applicable ? `<div class="scorecard-dim-score" style="color:${barColor}">${s}</div>
         <div class="scorecard-dim-weight">${w}% weight</div>

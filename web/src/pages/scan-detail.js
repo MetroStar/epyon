@@ -1,7 +1,7 @@
 import { gateBadge, statusBadge } from '../components/badges.js';
 import { errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
-import { dedupeTools, esc, fmtDate } from '../lib/format.js';
+import { dedupeTools, esc, fmtDate, act } from '../lib/format.js';
 import { computeStatus, scanTypeLabel } from '../lib/scans.js';
 import { buildPoamSection } from './poam.js';
 import { buildModelSecurityCard } from '../components/scan/model-security.js';
@@ -116,7 +116,7 @@ export async function renderScanDetail(scanId, openFindingId = '', openFindingPa
               ${multiStig ? `<div class="stig-per-stig">${perStigRows}</div>` : ''}
               <div class="stig-view-btn-row">
                 <button class="btn btn-primary btn-sm"
-                  onclick="navigate('#/stig-viewer/${encodeURIComponent(scanId)}')">
+                  ${act('navigate', `#/stig-viewer/${encodeURIComponent(scanId)}`)}>
                   ⊞ View Findings Inline
                 </button>
               </div>
@@ -165,29 +165,29 @@ export async function renderScanDetail(scanId, openFindingId = '', openFindingPa
 
     page.innerHTML = `
       <div class="breadcrumb">
-        <a href="#/applications" onclick="navigate('#/applications')">Applications</a>
+        <a href="#/applications" ${act('navigate', '#/applications')}>Applications</a>
         <span>›</span>
         <a href="#/applications/${encodeURIComponent(scan.target)}"
-           onclick="navigate('#/applications/${encodeURIComponent(scan.target)}')">
+           ${act('navigate', `#/applications/${encodeURIComponent(scan.target)}`)}>
           ${esc(scan.target)}
         </a>
         <span>›</span>
         <span>${esc(scan.scan_id)}</span>
       </div>
 
-      ${pageHeader(`Scan Details ${statusBadge(status)} ${gateBadge(scan)}`, { subtitle: `Findings, compliance, and evidence collected for <strong>${esc(scan.target)}</strong> on ${fmtDate(scan.timestamp)}.`, actions: `<button class="btn" onclick="navigate('#/jira-review/${encodeURIComponent(scanId)}')"
+      ${pageHeader(`Scan Details ${statusBadge(status)} ${gateBadge(scan)}`, { subtitle: `Findings, compliance, and evidence collected for <strong>${esc(scan.target)}</strong> on ${fmtDate(scan.timestamp)}.`, actions: `<button class="btn" ${act('navigate', `#/jira-review/${encodeURIComponent(scanId)}`)}
             title="Select findings to create as Jira tickets">
             Jira Review
           </button>
           ${repoUrl
             ? `<button class="btn btn-primary"
-                 onclick="navigate('#/new-scan?target=${encodeURIComponent(repoUrl)}')">
+                 ${act('navigate', `#/new-scan?target=${encodeURIComponent(repoUrl)}`)}>
                  ▶ Run Scan
                </button>`
-            : `<button class="btn btn-primary" onclick="navigate('#/new-scan')">▶ Run Scan</button>`}
+            : `<button class="btn btn-primary" ${act('navigate', '#/new-scan')}>▶ Run Scan</button>`}
           ${scan.has_dashboard
             ? `<button class="btn"
-                 onclick="window.open('/api/scans/${encodeURIComponent(scanId)}/dashboard','_blank')">
+                 ${act('open', `/api/scans/${encodeURIComponent(scanId)}/dashboard`, '_blank')}>
                  Export HTML ↗
                </button>`
             : ''}
@@ -210,7 +210,7 @@ export async function renderScanDetail(scanId, openFindingId = '', openFindingPa
             </div>
           </div>
           <button class="btn btn-danger"
-            onclick="deleteScan('${esc(scanId)}', '${esc(scan.target)}')"
+            ${act('deleteScan', scanId, scan.target)}
             title="Permanently delete this scan">
             Delete Scan
           </button>` })}

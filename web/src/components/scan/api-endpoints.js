@@ -1,4 +1,4 @@
-import { esc } from '../../lib/format.js';
+import { esc, act } from '../../lib/format.js';
 import { _apiRegistry } from '../../state/registries.js';
 
 // Globals that other modules put on window (see index.js):
@@ -21,7 +21,7 @@ export function buildAPISection(apiData) {
         'DELETE': '#ef4444',
         'PATCH': '#8b5cf6'
       }[method] || '#6b7280';
-      return `<span class="tool-tag api-method-chip" style="cursor:pointer;background:${color};color:white" data-api="${uid}" data-method="${esc(method)}" onclick="apiFilterMethod('${uid}','${esc(method)}')">${esc(method)} <strong>${count}</strong></span>`;
+      return `<span class="tool-tag api-method-chip" style="cursor:pointer;background:${color};color:white" data-api="${uid}" data-method="${esc(method)}" ${act('apiFilterMethod', `${uid}`, method)}>${esc(method)} <strong>${count}</strong></span>`;
     })
     .join('');
 
@@ -29,7 +29,7 @@ export function buildAPISection(apiData) {
   const frameworkChips = Object.entries(apiData.by_framework || {})
     .sort((a, b) => b[1] - a[1])
     .map(([fw, count]) => 
-      `<span class="tool-tag api-fw-chip" style="cursor:pointer" data-api="${uid}" data-fw="${esc(fw)}" onclick="apiFilterFramework('${uid}','${esc(fw)}')">${esc(fw)} <strong>${count}</strong></span>`
+      `<span class="tool-tag api-fw-chip" style="cursor:pointer" data-api="${uid}" data-fw="${esc(fw)}" ${act('apiFilterFramework', `${uid}`, fw)}>${esc(fw)} <strong>${count}</strong></span>`
     )
     .join('');
 
@@ -61,7 +61,7 @@ export function buildAPISection(apiData) {
             ${frameworkChips}
           </span>
           <span class="findings-summary-right" onclick="event.stopPropagation()">
-            <button class="btn btn-sm" onclick="downloadApiCsv('${uid}')" title="Download API endpoints as CSV">↓ API List</button>
+            <button class="btn btn-sm" ${act('downloadApiCsv', `${uid}`)} title="Download API endpoints as CSV">↓ API List</button>
           </span>
         </summary>
         <div class="findings-body" style="padding:0 18px 16px">
@@ -70,18 +70,18 @@ export function buildAPISection(apiData) {
               style="flex:1;min-width:180px;max-width:320px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--text);font-size:13px"
               oninput="apiRender('${uid}')" />
             <span id="${uid}-count" style="font-size:12px;color:var(--text-muted)"></span>
-            <button class="btn btn-sm" onclick="apiClearFilter('${uid}')">Clear filters</button>
+            <button class="btn btn-sm" ${act('apiClearFilter', `${uid}`)}>Clear filters</button>
           </div>
           <div style="overflow-x:auto">
             <table style="width:100%;border-collapse:collapse;font-size:13px">
               <thead>
                 <tr style="text-align:left;border-bottom:1px solid var(--border)">
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="apiSort('${uid}','method')">Method <span id="${uid}-sort-method"></span></th>
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none" onclick="apiSort('${uid}','path')">Path <span id="${uid}-sort-path"></span></th>
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none" onclick="apiSort('${uid}','function')">Function <span id="${uid}-sort-function"></span></th>
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none" onclick="apiSort('${uid}','framework')">Framework <span id="${uid}-sort-framework"></span></th>
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none" onclick="apiSort('${uid}','auth')">Auth <span id="${uid}-sort-auth"></span></th>
-                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" onclick="apiSort('${uid}','file')">File <span id="${uid}-sort-file"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" ${act('apiSort', `${uid}`, 'method')}>Method <span id="${uid}-sort-method"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none" ${act('apiSort', `${uid}`, 'path')}>Path <span id="${uid}-sort-path"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none" ${act('apiSort', `${uid}`, 'function')}>Function <span id="${uid}-sort-function"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none" ${act('apiSort', `${uid}`, 'framework')}>Framework <span id="${uid}-sort-framework"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none" ${act('apiSort', `${uid}`, 'auth')}>Auth <span id="${uid}-sort-auth"></span></th>
+                  <th scope="col" style="padding:4px 8px;cursor:pointer;user-select:none;white-space:nowrap" ${act('apiSort', `${uid}`, 'file')}>File <span id="${uid}-sort-file"></span></th>
                 </tr>
               </thead>
               <tbody id="${uid}-tbody"></tbody>
@@ -236,7 +236,7 @@ window.apiRender = function(uid) {
     const shortFile = ep.file.split('/').slice(-2).join('/') || ep.file;
 
     return `
-      <tr class="api-row" onclick="openAPIDetail(${epId})" title="Click to view details" style="cursor:pointer;border-bottom:1px solid var(--border-subtle)">
+      <tr class="api-row" ${act('openAPIDetail', epId)} title="Click to view details" style="cursor:pointer;border-bottom:1px solid var(--border-subtle)">
         <td style="padding:4px 8px"><span style="background:${methodColor};color:white;padding:2px 6px;border-radius:3px;font-size:12px;font-weight:600">${esc(ep.method)}</span></td>
         <td style="padding:4px 8px;font-family:monospace;font-size:12px">${esc(ep.path)}</td>
         <td style="padding:4px 8px;color:var(--text-muted);font-size:12px">${esc(ep.function) || '—'}</td>

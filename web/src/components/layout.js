@@ -1,4 +1,4 @@
-import { esc } from '../lib/format.js';
+import { esc, act } from '../lib/format.js';
 
 // Shared page header: title (HTML), optional subtitle and action buttons (HTML).
 export function pageHeader(title, { subtitle = '', actions = '' } = {}) {
@@ -61,7 +61,7 @@ export function loading(label = 'Loading…') {
 export function errBanner(msg, { retry = true } = {}) {
   return `<div class="error-banner" role="alert">
     <div>⚠ ${esc(msg)}</div>
-    ${retry ? '<button class="btn btn-sm" onclick="resolve()">Retry</button>' : ''}
+    ${retry ? `<button class="btn btn-sm" ${act('resolve')}>Retry</button>` : ''}
   </div>`;
 }
 

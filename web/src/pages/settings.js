@@ -2,7 +2,7 @@ import { WORKFLOW_YML } from '../lib/workflow.js';
 import { toast } from '../components/feedback.js';
 import { errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
-import { esc, fmtDate } from '../lib/format.js';
+import { esc, fmtDate, act } from '../lib/format.js';
 
 // Globals that other modules put on window (see index.js):
 /* global setActive */
@@ -84,7 +84,7 @@ export async function renderSettings() {
               <input id="ai-model" type="text" class="field-input"
                 placeholder="gpt-4o-mini, llama3.1:8b, gemma4:26b, ..."
                 value="${esc(aiCfg.model || '')}"/>
-              <button type="button" class="btn" id="ai-model-refresh" onclick="loadLocalModels()"
+              <button type="button" class="btn" id="ai-model-refresh" ${act('loadLocalModels')}
                       title="Fetch the models available at the base URL" style="white-space:nowrap">↻ Refresh</button>
             </div>
             <div id="ai-model-status" style="font-size:12px;color:var(--text-muted);margin-top:4px"></div>
@@ -124,7 +124,7 @@ export async function renderSettings() {
         </div>
 
         <div style="margin-top:16px">
-          <button class="btn btn-primary" onclick="saveAiConfig()">Save AI Config</button>
+          <button class="btn btn-primary" ${act('saveAiConfig')}>Save AI Config</button>
         </div>
       </details>
 
@@ -186,8 +186,8 @@ export async function renderSettings() {
             </div>
           </div>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-            <button class="btn btn-primary" onclick="saveJiraConfig()">Save</button>
-            <button class="btn" id="jira-test-btn" onclick="testJiraConnection()">Test Connection</button>
+            <button class="btn btn-primary" ${act('saveJiraConfig')}>Save</button>
+            <button class="btn" id="jira-test-btn" ${act('testJiraConnection')}>Test Connection</button>
             <span id="jira-status" style="font-size:13px;color:var(--text-muted)"></span>
           </div>
         </div>
@@ -216,8 +216,8 @@ export async function renderSettings() {
           </div>
 
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-            <button class="btn btn-primary" onclick="saveGitHubConfig()">Save</button>
-            <button class="btn btn-primary" id="sync-btn" onclick="triggerGitHubSync()">
+            <button class="btn btn-primary" ${act('saveGitHubConfig')}>Save</button>
+            <button class="btn btn-primary" id="sync-btn" ${act('triggerGitHubSync')}>
               ↓ Sync Now
             </button>
             <span id="sync-status" style="font-size:13px;color:var(--text-muted)">
@@ -252,7 +252,7 @@ export async function renderSettings() {
           <label class="field-label" for="scan-concurrency" style="margin:0">Max concurrent scans</label>
           <input id="scan-concurrency" type="number" class="field-input" style="width:90px"
                  min="1" max="${esc(concCfg.ceiling)}" step="1" value="${esc(concCfg.max_concurrent_scans)}" />
-          <button class="btn btn-primary" onclick="saveScanConcurrency()">Save</button>
+          <button class="btn btn-primary" ${act('saveScanConcurrency')}>Save</button>
           <span style="font-size:13px;color:var(--text-muted)">
             ${esc(concCfg.running)} running, ${esc(concCfg.queued)} queued ·
             ${concCfg.source === 'saved' ? 'set here' : concCfg.source === 'env' ? 'from <code>EPYON_MAX_CONCURRENT_SCANS</code>' : 'default (' + esc(concCfg.default) + ')'}

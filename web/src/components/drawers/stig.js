@@ -1,5 +1,5 @@
 import { closeFindingDetail } from './finding.js';
-import { esc, ucFirst } from '../../lib/format.js';
+import { esc, ucFirst, act } from '../../lib/format.js';
 import { renderStigViewer } from '../../pages/stig.js';
 import { _stigRegistry } from '../../state/registries.js';
 
@@ -61,7 +61,7 @@ export function openStigViewerDetail(regKey) {
           <code style="font-size:12px">${esc(c.group_id || c.vuln_id)}</code>
         </div>
       </div>
-      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+      <button class="finding-drawer-close" ${act('closeFindingDetail')} aria-label="Close">✕</button>
     </div>
     <div class="finding-drawer-body">
 
@@ -134,11 +134,11 @@ export function openStigViewerDetail(regKey) {
           </div>
           <div class="stig-override-row stig-override-actions">
             <button class="btn btn-sm btn-success"
-              onclick="saveStigOverrideFromDrawer('${esc(scanId)}','${esc(c._slug)}','${esc(c.vuln_id)}')"
+              ${act('saveStigOverrideFromDrawer', scanId, c._slug, c.vuln_id)}
             >🔒 Lock Override</button>
             ${c.locked_by_human
               ? `<button class="btn btn-sm"
-                  onclick="clearStigOverrideFromDrawer('${esc(scanId)}','${esc(c._slug)}','${esc(c.vuln_id)}')"
+                  ${act('clearStigOverrideFromDrawer', scanId, c._slug, c.vuln_id)}
                 >Clear Lock</button>`
               : ''}
             <span class="stig-override-msg" id="sd-msg-${esc(c.vuln_id)}-${esc(c._slug)}"></span>
@@ -335,7 +335,7 @@ export function openStigDetail(id) {
           <code>${esc(c.vuln_id)}</code>
         </div>
       </div>
-      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+      <button class="finding-drawer-close" ${act('closeFindingDetail')} aria-label="Close">✕</button>
     </div>
     <div class="finding-drawer-body">
       <div class="finding-detail-grid">

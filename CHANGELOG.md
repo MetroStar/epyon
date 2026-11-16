@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.24] - 2026-11-16
+
+### Fixed
+- STIG assessment no longer collects Epyon's own `docs/` and `.github/` markdown/JSON as manual STIG context when the scan target is the Epyon repository itself.
+
 ## [3.72.23] - 2026-11-16
 
 ### Changed

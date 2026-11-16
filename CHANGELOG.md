@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.26] - 2026-11-16
+
+### Changed
+- `web/api/main.py`: removed unused imports (`io`, `shutil`, `sys`, `tarfile`, `threading`, `zipfile`, `Counter`, typing and FastAPI names, `poam`, `scorecard_store`, `github_metrics`, `openai_summary`, `app_trend`, `_freq_runs`, `_build_metrics`), two unused `global` statements and the unused `JIRA_CONFIG_FILE`/`JIRA_TICKETS_FILE` constants. No behaviour change.
+
 ## [3.72.25] - 2026-11-16
 
 ### Changed

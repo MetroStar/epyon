@@ -4,43 +4,30 @@ Epyon Web — FastAPI backend
 from __future__ import annotations
 
 import asyncio
-import io
 import json
 import logging
 import os
 import re
-import shutil
-import sys
-import tarfile
-import threading
 import time
-import zipfile
-from collections import Counter, OrderedDict
+from collections import OrderedDict
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, List, Optional
 
-from fastapi import FastAPI, File, Form, HTTPException, Query, Request, Response, UploadFile
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
 
 from . import jobs as job_store
 from . import parsers
-from .app_trends import app_trend
-from . import poam
-from . import scorecard as scorecard_store
 from . import parse_cache
 from . import finding_search
 from . import github_sync
-from . import github_metrics
 from . import github_config
-from . import openai_summary
 from . import jira_client
 from . import db as scan_db
 from . import scan_store
@@ -73,8 +60,6 @@ SCRIPTS_DIR  = EPYON_ROOT / "scripts" / "shell"
 APPROVED_IMAGES_FILE = EPYON_ROOT / "configuration" / "approved-base-images.conf"
 GITHUB_CONFIG_FILE   = (_HERE / ".." / "data" / "github-config.json").resolve()
 HIDDEN_APPS_FILE     = EPYON_ROOT / "configuration" / "hidden-apps.json"
-JIRA_CONFIG_FILE     = (_HERE / ".." / "data" / "jira-config.json").resolve()
-JIRA_TICKETS_FILE    = (_HERE / ".." / "data" / "jira-tickets.json").resolve()
 SELF_ASSESSMENT_FILE = (_HERE / ".." / "data" / "self-assessment-latest.json").resolve()
 REGISTERED_APPS_FILE = EPYON_ROOT / "configuration" / "registered-apps.json"
 MONITORED_APPS_FILE  = EPYON_ROOT / "configuration" / "monitored-apps.json"
@@ -251,7 +236,6 @@ for _name in ("epyon.perf", "epyon.parse_cache"):
 
 
 def _cached_find_scan_dirs(days: int = _DEFAULT_SCAN_DAYS) -> list:
-    global _dir_cache
     now = time.monotonic()
     cached = _dir_cache.get(days)
     if cached and (now - cached[1]) < _DIR_CACHE_TTL:
@@ -324,7 +308,6 @@ def _scan_search_index(scan_dir, app_name: str, project_key: str) -> dict:
 
 def _invalidate_scan_cache(reason: str = "scan_completion", scan_id: str = None) -> None:
     """Call after a scan completes so the next request sees fresh data."""
-    global _dir_cache
     old_version = cache_state.version
     _scan_cache.clear()
     _dir_cache.clear()
@@ -776,9 +759,8 @@ from .routers.metrics import router as metrics_router  # noqa: E402
 from .routers.github import router as github_router  # noqa: E402
 for _router in (system_router, applications_router, scans_router, reports_router, stig_router, poam_router, findings_router, jira_router, metrics_router, github_router):
     app.include_router(_router)
-from .metrics_builder import _compute_metrics, _freq_runs, _build_metrics  # noqa: E402,F401
+from .metrics_builder import _compute_metrics  # noqa: E402
 from .stig_entries import _build_stig_entries  # noqa: E402,F401
-
 
 
 # ── SPA / static file serving ─────────────────────────────────

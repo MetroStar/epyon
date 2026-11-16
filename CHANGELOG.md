@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.12] - 2026-11-16
+
+### Changed
+- **Web UI refactor (step 3j, no behaviour change):** the AI summary / ISSO section, the Score Card (calculate, card, help, sign-off, dimension modal) and the application actions (hide/restore/delete, destructive-confirm modal, download menu, Add App modal) moved from `web/src/main.js` into `web/src/components/{summaries,scorecard,app-actions}.js`. The Overview, Applications and Scan Detail pages now import them instead of relying on globals.
+
 ## [3.72.11] - 2026-11-16
 
 ### Changed

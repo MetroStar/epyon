@@ -3,9 +3,10 @@ import { emptyRow, emptyState, errBanner, loading, pageHeader } from '../compone
 import { api } from '../lib/api.js';
 import { dedupeTools, esc, fmtDate } from '../lib/format.js';
 import { computeStatus, scanTypeLabel } from '../lib/scans.js';
+import { buildAppIssoSection } from '../components/summaries.js';
 
 // Legacy globals still provided by main.js (see index.js):
-/* global buildAppIssoSection, setActive */
+/* global setActive */
 
 export async function renderApplications() {
   setActive('applications');

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.16] - 2026-11-16
+
+### Changed
+- **API refactor (no behaviour change):** the REST endpoints moved from `web/api/main.py` into FastAPI routers under `web/api/routers/` (`system`, `applications`, `scans`, `stig`, `poam`, `jira`, `github`, `metrics`, `reports`, `findings`). URLs, request/response schemas and the OpenAPI document are unchanged. Shared helpers, caches and the endpoints that mutate module-level caches stay in `main.py`.
+
 ## [3.72.15] - 2026-11-16
 
 ### Changed

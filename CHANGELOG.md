@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.7] - 2026-11-15
+
+### Changed
+- **Web UI refactor (step 3e, no behaviour change):** the STIG list and STIG viewer pages moved into `web/src/pages/stig.js`, and Jira Review with its epic/quick-create/STIG-ticket modals into `web/src/pages/jira-review.js`. The shared STIG registries live in `web/src/state/registries.js`. Jira modal state is private to its module.
+
 ## [3.72.6] - 2026-11-15
 
 ### Changed

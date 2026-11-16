@@ -2,13 +2,15 @@ import { _abortPageLoads } from '../lib/api.js';
 import { renderPoam, renderPoamViewer } from '../pages/poam.js';
 import { renderSettings } from '../pages/settings.js';
 import { renderPerformanceDashboard } from '../pages/performance.js';
+import { renderStig, renderStigViewer } from '../pages/stig.js';
+import { renderJiraReview } from '../pages/jira-review.js';
 import { renderNewScan } from '../pages/new-scan.js';
 import { renderStigHistory } from '../pages/stig-history.js';
 
 // Legacy globals still provided by main.js (see index.js); drop each one from this
 // list when its page moves into a module and is imported above instead.
-/* global renderOverview, renderApplications, renderAppDetail, renderStigViewer, renderStig,
-   renderJiraReview, renderScanDetail, renderMetrics */
+/* global renderOverview, renderApplications, renderAppDetail, renderScanDetail,
+   renderMetrics */
 
 // Hash routes, first match wins. `exact` routes match the whole path; `prefix` routes pass
 // the decoded remainder as `arg` (empty falls back to the section's list page). `title`

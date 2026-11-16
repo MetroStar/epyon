@@ -1,6 +1,6 @@
 import { emptyState, errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
-import { esc, act } from '../lib/format.js';
+import { esc, act, actOn, ARG } from '../lib/format.js';
 import { navigate } from '../core/router.js';
 
 // Globals that other modules put on window (see index.js):
@@ -203,13 +203,13 @@ export async function renderStigHistory(selectedApp, selectedSlug) {
       <div class="stig-history-filters">
         <div class="stig-hf-group">
           <label class="stig-hf-label">App</label>
-          <select class="stig-hf-select" onchange="window._stigHistoryApp(this.value)">
+          <select class="stig-hf-select" ${actOn('change','_stigHistoryApp', ARG.value)}>
             ${apps.length === 0 ? '<option value="">No apps</option>' : appOpts}
           </select>
         </div>
         <div class="stig-hf-group">
           <label class="stig-hf-label">STIG</label>
-          <select class="stig-hf-select" onchange="window._stigHistorySlug(this.value)">
+          <select class="stig-hf-select" ${actOn('change','_stigHistorySlug', ARG.value)}>
             ${slugOpts}
           </select>
         </div>

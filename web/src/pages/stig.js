@@ -1,6 +1,6 @@
 import { emptyState, errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
-import { esc, fmtDate, ucFirst, act } from '../lib/format.js';
+import { esc, fmtDate, ucFirst, act, actOn, ARG } from '../lib/format.js';
 import { _stigJiraSel, _stigRegistry } from '../state/registries.js';
 
 // Globals that other modules put on window (see index.js):
@@ -32,7 +32,7 @@ export async function renderStig() {
                 <span class="stig-app-name">
                   ${esc(app.name)}
                 </span>
-                <div class="stig-download-btns" onclick="event.stopPropagation()">${mdBtn}${cklbBtn}${jsonBtn}${poamBtn}</div>
+                <div class="stig-download-btns" data-stop>${mdBtn}${cklbBtn}${jsonBtn}${poamBtn}</div>
               </div>
               <div class="stig-counts">
                 <div class="stig-count open">
@@ -57,7 +57,7 @@ export async function renderStig() {
                   <span class="lbl">Total</span>
                 </div>
               </div>
-              <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap" onclick="event.stopPropagation()">
+              <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap" data-stop>
                 <span style="font-size:12px;color:var(--text-muted)">Last scanned: ${fmtDate(app.last_scanned)}</span>
                 <button class="btn btn-primary btn-sm"
                   ${act('navigate', `#/stig-viewer/${encodeURIComponent(stigScanId)}`)}>
@@ -229,7 +229,7 @@ export async function renderStigViewer(scanId) {
           <table class="stig-table">
             <thead>
               <tr>
-                <th scope="col" style="width:32px"><input type="checkbox" aria-label="Select all shown" onclick="event.stopPropagation(); stigJiraToggleAll(this.checked)" ${rows.length && rows.every(r => _stigJiraSel.has(`${r.vuln_id}__${r._slug}`)) ? 'checked' : ''}></th>
+                <th scope="col" style="width:32px"><input type="checkbox" aria-label="Select all shown" ${actOn('click','stigJiraToggleAll', ARG.checked)} data-stop ${rows.length && rows.every(r => _stigJiraSel.has(`${r.vuln_id}__${r._slug}`)) ? 'checked' : ''}></th>
                 ${[
                   ['vuln_id',    '100px', 'STIG #'],
                   ['severity',   '70px',  'Severity'],
@@ -255,7 +255,7 @@ export async function renderStigViewer(scanId) {
                 const confClass = conf >= 90 ? 'conf-high' : conf >= 70 ? 'conf-med' : conf >= 40 ? 'conf-low' : 'conf-none';
                 return `
                   <tr class="stig-tr stig-tr-clickable" id="${rowId}" ${act('openStigDetail', regKey)}>
-                    <td onclick="event.stopPropagation()"><input type="checkbox" aria-label="Select ${esc(c.vuln_id)}" ${_stigJiraSel.has(regKey) ? 'checked' : ''} onclick="stigJiraToggle('${esc(regKey)}', this.checked, event.shiftKey)"></td>
+                    <td data-stop><input type="checkbox" aria-label="Select ${esc(c.vuln_id)}" ${_stigJiraSel.has(regKey) ? 'checked' : ''} ${actOn('click','stigJiraToggle', regKey, ARG.checked, ARG.shift)}></td>
                     <td><code class="stig-id">${esc(c.group_id || c.vuln_id)}</code></td>
                     <td><span class="stig-sev stig-sev-${esc(c.severity)}">${esc(c.severity || '—')}</span></td>
                     <td><span class="${esc(STATUS_CLASS[c.status] || 'stig-status-nr')}">${esc(stigStatusLabel(c.status))}</span>${c.locked_by_human ? ' <span class="stig-lock-badge" title="Human-reviewed; locked until a listed path changes">🔒</span>' : ''}${c.locked_by_stability ? ' <span class="stig-lock-badge" title="No repository evidence found across repeated scans — not re-assessed by AI to save time/tokens until code changes">💤</span>' : ''}</td>
@@ -308,7 +308,7 @@ export async function renderStigViewer(scanId) {
             <label class="stig-filter-label">Search</label>
             <input class="stig-search" type="text" placeholder="ID, title, or evidence…"
               value="${esc(filterText)}"
-              oninput="setStigSearch(this.value)">
+              ${actOn('input','setStigSearch', ARG.value)}>
           </div>
         </div>`;
     }

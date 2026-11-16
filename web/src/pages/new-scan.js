@@ -2,7 +2,7 @@ import { scanWatch } from '../core/boot.js';
 import { confirmDialog, toast } from '../components/feedback.js';
 import { pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
-import { esc, fmtDate, ucFirst, act } from '../lib/format.js';
+import { esc, fmtDate, ucFirst, act, actOn } from '../lib/format.js';
 
 // Globals that other modules put on window (see index.js):
 /* global setActive */
@@ -70,7 +70,7 @@ export async function renderNewScan(prefill = '') {
               ${SCAN_TYPE_OPTIONS.map(t => `
                 <label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input)">
                   <input type="checkbox" class="scan-type-checkbox" value="${t.id}"
-                    ${t.id === 'full' ? 'checked' : ''} onchange="_onScanTypeSelectionChange()">
+                    ${t.id === 'full' ? 'checked' : ''} ${actOn('change','_onScanTypeSelectionChange')}>
                   <span>${esc(t.label)}</span>
                 </label>`).join('')}
             </div>

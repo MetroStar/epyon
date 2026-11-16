@@ -1,6 +1,6 @@
 import { emptyNote } from './layout.js';
 import { api } from '../lib/api.js';
-import { esc, act } from '../lib/format.js';
+import { esc, act, actOn, ARG } from '../lib/format.js';
 import { poamSend } from '../pages/poam.js';
 
 export async function calculateScorecardForScan(scanId) {
@@ -178,12 +178,12 @@ export function buildScorecardCard(scorecardData) {
           ${so.valid ? '✓ Signed off' : '⚠ Sign-off no longer matches the current score'} by
           <strong>${esc(so.reviewer)}</strong> on ${esc(so.signed_at)} (score ${esc(String(so.weighted_score))})
           ${so.comment ? `<div style="color:var(--text-muted);margin-top:4px">${esc(so.comment)}</div>` : ''}
-          <button class="btn btn-sm" style="margin-top:8px" onclick="revokeScorecardSignoff(this)">Revoke</button>
+          <button class="btn btn-sm" style="margin-top:8px" ${actOn('click','revokeScorecardSignoff', ARG.el)}>Revoke</button>
         </div>` : ''}
       ${so && so.valid ? '' : `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
           <input type="text" class="so-name" maxlength="100" placeholder="Reviewer name" style="padding:6px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);color:var(--text)">
           <input type="text" class="so-comment" maxlength="2000" placeholder="Comment (optional)" style="flex:1;min-width:200px;padding:6px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);color:var(--text)">
-          <button class="btn btn-sm btn-primary" onclick="signOffScorecard(this)">Sign off this score</button>
+          <button class="btn btn-sm btn-primary" ${actOn('click','signOffScorecard', ARG.el)}>Sign off this score</button>
         </div><div class="so-msg" style="font-size:12px;color:var(--critical);margin-top:6px"></div>`}
       <div style="margin-top:10px"><a class="btn btn-sm" href="/api/scans/${encodeURIComponent(scanId)}/scorecard/evidence" download>↓ Evidence package (.zip)</a></div>
     </div>`;

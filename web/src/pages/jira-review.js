@@ -2,7 +2,7 @@ import { sevBadge } from '../components/badges.js';
 import { toast } from '../components/feedback.js';
 import { errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
-import { esc, ucFirst, act } from '../lib/format.js';
+import { esc, ucFirst, act, actOn, ARG } from '../lib/format.js';
 import { _findingsRegistry, _registerFinding, _stigJiraSel, _stigRegistry } from '../state/registries.js';
 
 // Globals that other modules put on window (see index.js):
@@ -81,7 +81,7 @@ export function renderJiraReviewPage() {
       </div>`}
     <div class="jira-review-toolbar" aria-label="Finding filters">
       <label>Category
-        <select id="jira-review-category" onchange="jiraReviewRefresh()">
+        <select id="jira-review-category" ${actOn('change','jiraReviewRefresh')}>
           <option value="all">All categories</option>
           <option value="vulnerability">Vulnerabilities</option>
           <option value="misconfiguration">Misconfigurations</option>
@@ -89,21 +89,21 @@ export function renderJiraReviewPage() {
         </select>
       </label>
       <label>Severity
-        <select id="jira-review-severity" onchange="jiraReviewRefresh()">
+        <select id="jira-review-severity" ${actOn('change','jiraReviewRefresh')}>
           <option value="all">All severities</option>
           <option value="critical">Critical</option><option value="high">High</option>
           <option value="medium">Medium</option><option value="low">Low</option>
         </select>
       </label>
       <label>Tool
-        <select id="jira-review-tool" onchange="jiraReviewRefresh()">
+        <select id="jira-review-tool" ${actOn('change','jiraReviewRefresh')}>
           <option value="all">All tools</option>
           ${tools.map(tool => `<option value="${esc(tool)}">${esc(tool)}</option>`).join('')}
         </select>
       </label>
       <label class="jira-review-search">Search
         <input id="jira-review-search" type="search" placeholder="ID, package, location"
-          oninput="jiraReviewRefresh()">
+          ${actOn('input','jiraReviewRefresh')}>
       </label>
     </div>
     <div class="jira-review-category-actions">
@@ -116,7 +116,7 @@ export function renderJiraReviewPage() {
       <table class="jira-review-table">
         <thead><tr>
           <th scope="col" class="jira-review-check"><input id="jira-review-select-all" type="checkbox"
-            aria-label="Select all filtered findings" onchange="jiraReviewToggleAll(this.checked)"></th>
+            aria-label="Select all filtered findings" ${actOn('change','jiraReviewToggleAll', ARG.checked)}></th>
           <th scope="col">Category</th><th scope="col">Severity</th><th scope="col">Tool</th><th scope="col">Finding</th>
           <th scope="col">Package / Target</th><th scope="col">Status</th>
         </tr></thead>
@@ -369,7 +369,7 @@ export async function openStigJiraModal(scanId, regKeys) {
     <div style="margin-bottom:14px">
       <label class="field-label" for="stig-jira-project">Jira board (project key)</label>
       <input id="stig-jira-project" class="field-input" list="stig-jira-projects" maxlength="10" value="${esc(ctx.project_key)}"
-        placeholder="MID, SAP, IRIS…" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" onchange="stigJiraProjectChanged('${esc(scanId)}')">
+        placeholder="MID, SAP, IRIS…" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" ${actOn('change','stigJiraProjectChanged', scanId)}>
       <datalist id="stig-jira-projects">${(ctx.known_projects || []).map(k => `<option value="${esc(k)}">`).join('')}</datalist>
       <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Tickets are created in this board. This does not change the application's saved board.</div>
     </div>
@@ -612,7 +612,7 @@ export function renderJiraEpicModalBody() {
     <div style="display:grid;gap:14px">
       <div>
         <label class="field-label">Ticket type</label>
-        <select id="jira-issue-type-select" class="field-input" onchange="jiraEpicModalPickIssueType(this.value)"
+        <select id="jira-issue-type-select" class="field-input" ${actOn('change','jiraEpicModalPickIssueType', ARG.value)}
           ${hasIssueTypes ? '' : 'disabled'}>
           ${hasIssueTypes
             ? state.issueTypes.map(t => `<option value="${esc(t.name)}" ${t.name === state.issueType ? 'selected' : ''}>${esc(t.name)}</option>`).join('')
@@ -624,7 +624,7 @@ export function renderJiraEpicModalBody() {
       </div>
       <div>
         <label class="field-label">Use an existing Epic</label>
-        <select id="jira-epic-existing-select" class="field-input" onchange="jiraEpicModalPickExisting(this.value)">
+        <select id="jira-epic-existing-select" class="field-input" ${actOn('change','jiraEpicModalPickExisting', ARG.value)}>
           <option value="">— None —</option>
           ${state.existing.map(e => `<option value="${esc(e.key)}">${esc(e.key)} — ${esc(e.summary)}</option>`).join('')}
         </select>
@@ -636,13 +636,13 @@ export function renderJiraEpicModalBody() {
           ${state.suggested.map(s => `<button type="button" class="btn btn-sm" ${act('jiraEpicModalQuickCreate', s.name)}>${esc(s.label)}</button>`).join('')}
         </div>
         <input id="jira-epic-new-name" class="field-input" type="text" maxlength="200"
-          placeholder="Custom Epic name…" oninput="jiraEpicModalTypedName(this.value)">
+          placeholder="Custom Epic name…" ${actOn('input','jiraEpicModalTypedName', ARG.value)}>
       </div>
       <div>
         <label class="field-label">Triage note (optional)</label>
         <input id="jira-triaged-by-input" class="field-input" type="text" maxlength="200"
           placeholder="Your name" value="${esc(state.triagedBy || '')}"
-          oninput="jiraEpicModalTypedTriagedBy(this.value)">
+          ${actOn('input','jiraEpicModalTypedTriagedBy', ARG.value)}>
         <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
           Posted as a Jira comment on each new ticket: "Triaged and added by: &lt;name&gt; on: ${esc(new Date().toISOString().slice(0, 10))}".
         </div>

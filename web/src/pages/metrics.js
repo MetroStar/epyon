@@ -2,7 +2,7 @@ import { sourcesBadges } from '../components/badges.js';
 import { drawDonutChart, drawHBarChart, drawStackedBarChart } from '../components/charts.js';
 import { emptyNote, emptyRow, errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
-import { esc, ucFirst, act } from '../lib/format.js';
+import { esc, ucFirst, act, actOn, ARG } from '../lib/format.js';
 import { buildCiHealthSection } from './performance.js';
 
 // Globals that other modules put on window (see index.js):
@@ -607,7 +607,7 @@ export function buildAppTrendSection(m) {
         : `${fmt(t.delta)}${t.delta_pct === null || t.delta_pct === undefined ? '' : ` (${fmt(t.delta_pct)}%)`}`;
       const prev = t.since_previous === undefined ? '—' : fmt(t.since_previous);
       const period = t.from ? `${esc(t.from)} → ${esc(t.to)}` : '—';
-      return `<tr class="clickable-row" tabindex="0" role="button" aria-label="Show ${esc(name)} trend details" style="cursor:pointer" onclick="openAppTrendDetail(this.dataset.app)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAppTrendDetail(this.dataset.app)}" data-app="${esc(name)}">
+      return `<tr class="clickable-row" tabindex="0" role="button" aria-label="Show ${esc(name)} trend details" style="cursor:pointer" ${actOn('click','openAppTrendDetail', ARG.data('app'))} onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAppTrendDetail(this.dataset.app)}" data-app="${esc(name)}">
         <td>${esc(name)}</td>
         <td><span style="color:${color};font-weight:600">${icon} ${esc(t.status)}</span></td>
         <td>${t.risk_index === undefined ? '—' : esc(String(t.risk_index))}</td>

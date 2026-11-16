@@ -2,7 +2,7 @@ import { WORKFLOW_YML } from '../lib/workflow.js';
 import { toast } from '../components/feedback.js';
 import { errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
-import { esc, fmtDate, act } from '../lib/format.js';
+import { esc, fmtDate, act, actOn } from '../lib/format.js';
 
 // Globals that other modules put on window (see index.js):
 /* global setActive */
@@ -51,7 +51,7 @@ export async function renderSettings() {
         <div style="display:grid;gap:14px;max-width:600px">
           <div>
             <label class="field-label">Provider</label>
-            <select id="ai-provider" class="field-input" onchange="aiProviderChanged()">
+            <select id="ai-provider" class="field-input" ${actOn('change','aiProviderChanged')}>
               <option value="auto" ${aiCfg.provider === 'auto' ? 'selected' : ''}>Auto (settings, then environment)</option>
               <option value="local" ${aiCfg.provider === 'local' ? 'selected' : ''}>Local / self-hosted (Ollama, vLLM…)</option>
               <option value="openai" ${aiCfg.provider === 'openai' ? 'selected' : ''} ${aiCfg.key_set ? '' : 'disabled'}>OpenAI (uses OPENAI_API_KEY)${aiCfg.key_set ? '' : ' — key not loaded; restart server with .env.local sourced'}</option>
@@ -71,7 +71,7 @@ export async function renderSettings() {
             <label class="field-label">Primary Base URL <span style="color:var(--text-muted);font-weight:normal">(blank = public OpenAI API)</span></label>
             <input id="ai-base-url" type="text" class="field-input"
               placeholder="http://localhost:11434/v1"
-              onchange="loadLocalModels()"
+              ${actOn('change','loadLocalModels')}
               value="${esc(aiCfg.base_url || '')}"/>
             <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
               Active: <code>${esc(aiCfg.active_base_url || 'https://api.openai.com/v1 (default)')}</code>

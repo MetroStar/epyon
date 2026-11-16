@@ -1,7 +1,7 @@
 import { gateBadge, hfStatusBadge, sevBadgeRow, statusBadge } from '../components/badges.js';
 import { emptyRow, emptyState, errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
-import { dedupeTools, esc, fmtDate, act } from '../lib/format.js';
+import { dedupeTools, esc, fmtDate, act, actOn, ARG } from '../lib/format.js';
 import { computeStatus, scanTypeLabel } from '../lib/scans.js';
 import { buildAppIssoSection } from '../components/summaries.js';
 
@@ -24,7 +24,7 @@ export async function renderApplications() {
               <strong>${esc(app.name)}</strong>
               ${app.url ? `<div style="font-size:12px;color:var(--text-dim);margin-top:2px">${esc(app.url)}</div>` : ''}
             </td>
-            <td onclick="event.stopPropagation();toggleMonitored('${esc(app.name)}',${!!app.monitored})">
+            <td ${act('toggleMonitored', app.name, !!app.monitored)} data-stop>
               <button class="app-type-badge ${app.monitored ? 'monitored' : 'evaluation'}"
                       title="${app.monitored ? 'Continuous — click to set as Evaluation' : 'Evaluation — click to set as Continuous'}">
                 ${app.monitored ? '● Continuous' : '○ Evaluation'}
@@ -47,16 +47,16 @@ export async function renderApplications() {
             <td>${statusBadge(app.status)}</td>
             <td>
               <button class="btn btn-sm"
-                onclick="event.stopPropagation();navigate('#/new-scan')">
+                ${act('navigate', '#/new-scan')} data-stop>
                 Scan
               </button>
               <button class="btn btn-sm btn-danger"
-                onclick="event.stopPropagation();hideApplication('${esc(app.name)}')"
+                ${act('hideApplication', app.name)} data-stop
                 title="Hide this application from the list">
                 Hide
               </button>
               <button class="btn btn-sm btn-danger"
-                onclick="event.stopPropagation();deleteApplication('${esc(app.name)}')"
+                ${act('deleteApplication', app.name)} data-stop
                 title="Permanently delete all scan data for this application">
                 Delete
               </button>
@@ -147,12 +147,12 @@ export function buildScanTimelineItem(s, name) {
       </div>
       ${s.has_dashboard
         ? `<button class="btn btn-sm"
-             onclick="event.stopPropagation();window.open('/api/scans/${encodeURIComponent(s.scan_id)}/dashboard','_blank')">
+             ${act('open', `/api/scans/${encodeURIComponent(s.scan_id)}/dashboard`, '_blank')} data-stop>
              HTML ↗
            </button>`
         : ''}
       <button class="btn btn-sm btn-danger"
-        onclick="event.stopPropagation();deleteScan('${esc(s.scan_id)}', '${esc(name)}')"
+        ${act('deleteScan', s.scan_id, name)} data-stop
         title="Permanently delete this scan">
         Delete
       </button>
@@ -206,16 +206,16 @@ export function buildScanHistory(name, scans) {
   const tabs = SCAN_HISTORY_TABS.map(t => `
     <button class="scan-history-tab${t.id === tab ? ' active' : ''}" role="tab"
       id="scan-tab-${t.id}" aria-selected="${t.id === tab}" aria-controls="scan-history-panel"
-      data-tab="${t.id}" onclick="selectScanHistoryTab(this.dataset.tab)">
+      data-tab="${t.id}" ${actOn('click','selectScanHistoryTab', ARG.data('tab'))}>
       ${esc(t.label)} <span class="scan-history-count">${counts[t.id] || 0}</span>
     </button>`).join('');
   return `
     <div class="scan-history-tabs" role="tablist" aria-label="Scan type">${tabs}</div>
     <div class="scan-history-filter">
       <label>From <input type="date" id="scan-filter-from" value="${esc(st.from)}"
-        onchange="setScanHistoryDates()"></label>
+        ${actOn('change','setScanHistoryDates')}></label>
       <label>To <input type="date" id="scan-filter-to" value="${esc(st.to)}"
-        onchange="setScanHistoryDates()"></label>
+        ${actOn('change','setScanHistoryDates')}></label>
       <button class="btn btn-sm" id="scan-filter-clear" ${act('clearScanHistoryDates')}
         ${st.from || st.to ? '' : 'hidden'}>Clear dates</button>
     </div>

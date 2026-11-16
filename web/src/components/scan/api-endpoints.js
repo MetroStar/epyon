@@ -1,4 +1,4 @@
-import { esc, act } from '../../lib/format.js';
+import { esc, act, actOn } from '../../lib/format.js';
 import { _apiRegistry } from '../../state/registries.js';
 
 // Globals that other modules put on window (see index.js):
@@ -60,7 +60,7 @@ export function buildAPISection(apiData) {
             ${methodChips}
             ${frameworkChips}
           </span>
-          <span class="findings-summary-right" onclick="event.stopPropagation()">
+          <span class="findings-summary-right" data-stop>
             <button class="btn btn-sm" ${act('downloadApiCsv', `${uid}`)} title="Download API endpoints as CSV">↓ API List</button>
           </span>
         </summary>
@@ -68,7 +68,7 @@ export function buildAPISection(apiData) {
           <div style="margin-top:12px;display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
             <input id="${uid}-search" type="text" placeholder="Search endpoints…"
               style="flex:1;min-width:180px;max-width:320px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--text);font-size:13px"
-              oninput="apiRender('${uid}')" />
+              ${actOn('input','apiRender', `${uid}`)} />
             <span id="${uid}-count" style="font-size:12px;color:var(--text-muted)"></span>
             <button class="btn btn-sm" ${act('apiClearFilter', `${uid}`)}>Clear filters</button>
           </div>

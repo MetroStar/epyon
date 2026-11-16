@@ -83,9 +83,9 @@ export async function renderScanDetail(scanId, openFindingId = '', openFindingPa
                 <span class="stig-mini total">${esc(scan.stig_total || 0)} total</span>
               </span>
               <span style="display:flex;align-items:center;gap:8px">
-                ${mdBtn ? mdBtn.replace('btn-sm', 'btn-sm').replace('>', ' onclick="event.stopPropagation()">') : ''}
-                ${cklbBtn ? cklbBtn.replace('>', ' onclick="event.stopPropagation()">') : ''}
-                ${jsonBtn.replace('>', ' onclick="event.stopPropagation()">')}
+                ${mdBtn ? mdBtn.replace('btn-sm', 'btn-sm').replace('>', ` data-stop>`) : ''}
+                ${cklbBtn ? cklbBtn.replace('>', ` data-stop>`) : ''}
+                ${jsonBtn.replace('>', ` data-stop>`)}
                 <span class="findings-summary-hint">Click to expand</span>
               </span>
             </summary>

@@ -1,4 +1,4 @@
-import { esc, act } from '../../lib/format.js';
+import { esc, act, actOn } from '../../lib/format.js';
 import { _depsRegistry } from '../../state/registries.js';
 
 // Globals that other modules put on window (see index.js):
@@ -46,7 +46,7 @@ export function buildSBOMSection(sbom, scanId) {
             ${typeChips}
           </span>
           <span style="display:flex;align-items:center;gap:10px">
-            ${cdxUrl ? `<a class="btn btn-sm" href="${cdxUrl}" download style="font-size:12px" onclick="event.stopPropagation()">↓ CycloneDX JSON</a>` : ''}
+            ${cdxUrl ? `<a class="btn btn-sm" href="${cdxUrl}" download style="font-size:12px" data-stop>↓ CycloneDX JSON</a>` : ''}
             <span class="findings-summary-hint">Click to expand</span>
           </span>
         </summary>
@@ -54,7 +54,7 @@ export function buildSBOMSection(sbom, scanId) {
           <div style="margin-top:12px;display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
             <input id="${uid}-search" type="text" placeholder="Search packages…"
               style="flex:1;min-width:180px;max-width:320px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--text);font-size:13px"
-              oninput="sbomRender('${uid}')" />
+              ${actOn('input','sbomRender', `${uid}`)} />
             <span id="${uid}-count" style="font-size:12px;color:var(--text-muted)"></span>
             <button class="btn btn-sm" ${act('sbomClearFilter', `${uid}`)}>Clear filters</button>
           </div>

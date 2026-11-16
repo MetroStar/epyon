@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.20] - 2026-11-16
+
+### Changed
+- Web UI: delegated events now also cover `change`/`input` handlers and `event.stopPropagation()` (`actOn()`, `ARG.*` placeholders and `data-stop` in `lib/format.js`, handled in `core/actions.js`). About 55 more inline handlers converted; those needing `currentTarget`, `preventDefault`, input sanitising or other inline logic are unchanged.
+
 ## [3.72.19] - 2026-11-16
 
 ### Changed

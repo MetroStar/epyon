@@ -250,7 +250,7 @@ export function buildSSPEvidenceCard(scan) {
           <span class="ms-summary-title">NIST SP 800-53 / FedRAMP Control Evidence Matrix</span>
           <span class="tool-tag" style="font-size:12px;background:var(--pass-bg);color:var(--pass);border:1px solid #10b98144">SSP / ATO Package</span>
         </span>
-        <span class="ms-summary-right" onclick="event.stopPropagation()" style="gap:8px;display:flex;align-items:center;">
+        <span class="ms-summary-right" data-stop style="gap:8px;display:flex;align-items:center;">
           ${downloadMdBtn}
           ${downloadDocxBtn}
           <span class="findings-summary-hint" style="margin-left:8px">Click to expand</span>

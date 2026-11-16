@@ -9,11 +9,23 @@ export function esc(str) {
     .replace(/'/g, '&#39;');
 }
 
-// Attributes for a delegated click: `<button ${act('fn', a, b)}>` calls window.fn(a, b)
-// (see core/actions.js). Args are JSON, so values are data and never parsed as code.
-export function act(fn, ...args) {
-  return `data-act="${esc(fn)}" data-args="${esc(JSON.stringify(args))}"`;
+// Delegated events (see core/actions.js). `<button ${act('fn', a, b)}>` calls window.fn(a, b)
+// on click; `<input ${actOn('change', 'fn', ARG.value)}>` does the same for change/input.
+// Args are JSON, so values are data and never parsed as code. ARG.* are placeholders
+// resolved at event time against the element that carries the attribute.
+export const ARG = {
+  value: { $: 'value' },
+  checked: { $: 'checked' },
+  el: { $: 'el' },
+  event: { $: 'event' },
+  shift: { $: 'shift' },
+  data: k => ({ $: 'data', k }),
+};
+export function actOn(type, fn, ...args) {
+  const sfx = type === 'click' ? '' : `-${type}`;
+  return `data-act${sfx}="${esc(fn)}" data-args${sfx}="${esc(JSON.stringify(args))}"`;
 }
+export function act(fn, ...args) { return actOn('click', fn, ...args); }
 
 // ── Formatting helpers ────────────────────────────────────────
 export function fmtDate(ts) {

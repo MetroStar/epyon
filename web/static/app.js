@@ -9,7 +9,9 @@
   // src/lib/format.js
   var format_exports = {};
   __export(format_exports, {
+    ARG: () => ARG,
     act: () => act,
+    actOn: () => actOn,
     dedupeTools: () => dedupeTools,
     esc: () => esc,
     fmtDate: () => fmtDate,
@@ -21,8 +23,20 @@
     if (str == null) return "";
     return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
+  var ARG = {
+    value: { $: "value" },
+    checked: { $: "checked" },
+    el: { $: "el" },
+    event: { $: "event" },
+    shift: { $: "shift" },
+    data: (k) => ({ $: "data", k })
+  };
+  function actOn(type, fn, ...args) {
+    const sfx = type === "click" ? "" : `-${type}`;
+    return `data-act${sfx}="${esc(fn)}" data-args${sfx}="${esc(JSON.stringify(args))}"`;
+  }
   function act(fn, ...args) {
-    return `data-act="${esc(fn)}" data-args="${esc(JSON.stringify(args))}"`;
+    return actOn("click", fn, ...args);
   }
   function fmtDate(ts) {
     if (!ts) return "—";
@@ -846,7 +860,7 @@
   });
   function poamSourceLine(sources, notes) {
     const src = sources || {};
-    const link = (r) => `<a href="#/scans/${encodeURIComponent(r.scan_id)}" onclick="event.stopPropagation()">${esc(scanTypeLabel(r.scan_type))} scan · ${fmtDate(r.timestamp)}</a>`;
+    const link = (r) => `<a href="#/scans/${encodeURIComponent(r.scan_id)}" data-stop>${esc(scanTypeLabel(r.scan_type))} scan · ${fmtDate(r.timestamp)}</a>`;
     const parts = [];
     if (src.vuln) parts.push(`CVEs from the ${link(src.vuln)}`);
     if (src.stig && !(src.vuln && src.stig.scan_id === src.vuln.scan_id)) parts.push(`STIG items from the ${link(src.stig)}`);
@@ -869,7 +883,7 @@
             <span class="poam-pills"><span class="stig-mini total">…</span></span>
           </span>
           <span style="display:flex;align-items:center;gap:8px">
-            <a class="btn btn-sm" href="${esc(base)}/poam" download onclick="event.stopPropagation()">↓ POA&amp;M.csv</a>
+            <a class="btn btn-sm" href="${esc(base)}/poam" download data-stop>↓ POA&amp;M.csv</a>
             <span class="findings-summary-hint">Click to expand</span>
           </span>
         </summary>
@@ -922,7 +936,7 @@
           <label style="display:flex;align-items:center;gap:4px">${ucFirst(k)}
             <input type="number" min="1" max="3650" data-sla="${k}" value="${esc(sla[k])}" style="width:64px">
           </label>`).join("")}
-        <button class="btn btn-sm" onclick="savePoamSla(this)">Save SLA</button>
+        <button class="btn btn-sm" ${actOn("click", "savePoamSla", ARG.el)}>Save SLA</button>
         <span class="poam-sla-msg" style="color:var(--text-muted)"></span>
       </div>`;
       if (!d.total) {
@@ -942,10 +956,10 @@
           const overdue = r[c] < today;
           return `<input type="date" value="${esc(r[c])}" data-key="${esc(r["Item Key"])}" data-default="${esc(r["Default Due Date"])}"
                   title="${manual ? "Manual date" : esc(r["Due Date Basis"])} — change to set manually"
-                  onchange="savePoamDueDate(this)"
+                  ${actOn("change", "savePoamDueDate", ARG.el)}
                   style="${manual ? "font-weight:700;" : ""}${overdue ? "color:var(--stig-open, #c0392b)" : ""}">
                 ${overdue ? '<span title="Past its completion date" style="color:var(--stig-open, #c0392b);font-size:11px"> overdue</span>' : ""}
-                ${manual ? `<a href="#" title="Reset to SLA date (${esc(r["Default Due Date"])})" onclick="resetPoamDueDate(event, this)">↺</a>` : ""}`;
+                ${manual ? `<a href="#" title="Reset to SLA date (${esc(r["Default Due Date"])})" ${actOn("click", "resetPoamDueDate", ARG.event, ARG.el)}>↺</a>` : ""}`;
         }
         return `<span title="${esc(r[c] ?? "")}">${esc(clip(r[c]))}</span>`;
       };
@@ -1039,7 +1053,7 @@
         <div class="stig-app-card" ${act("navigate", `#/poam-viewer/${encodeURIComponent(a.name)}`)} style="cursor:pointer">
           <div class="stig-app-card-header">
             <span class="stig-app-name">${esc(a.name)}</span>
-            <div class="stig-download-btns" onclick="event.stopPropagation()">
+            <div class="stig-download-btns" data-stop>
               <a class="btn btn-sm" href="${esc(base)}/poam" download>↓ POA&amp;M.csv</a>
             </div>
           </div>
@@ -1057,7 +1071,7 @@
             ${a.manual_dates ? ` · ${esc(a.manual_dates)} manual date${a.manual_dates === 1 ? "" : "s"}` : ""}
           </div>
           ${poamSourceLine(a.sources, a.notes)}
-          <div style="margin-top:12px" onclick="event.stopPropagation()">
+          <div style="margin-top:12px" data-stop>
             <button class="btn btn-primary btn-sm" ${act("navigate", `#/poam-viewer/${encodeURIComponent(a.name)}`)}>⊞ View POA&amp;M</button>
           </div>
         </div>`;
@@ -1336,7 +1350,7 @@ jobs:
         <div style="display:grid;gap:14px;max-width:600px">
           <div>
             <label class="field-label">Provider</label>
-            <select id="ai-provider" class="field-input" onchange="aiProviderChanged()">
+            <select id="ai-provider" class="field-input" ${actOn("change", "aiProviderChanged")}>
               <option value="auto" ${aiCfg.provider === "auto" ? "selected" : ""}>Auto (settings, then environment)</option>
               <option value="local" ${aiCfg.provider === "local" ? "selected" : ""}>Local / self-hosted (Ollama, vLLM…)</option>
               <option value="openai" ${aiCfg.provider === "openai" ? "selected" : ""} ${aiCfg.key_set ? "" : "disabled"}>OpenAI (uses OPENAI_API_KEY)${aiCfg.key_set ? "" : " — key not loaded; restart server with .env.local sourced"}</option>
@@ -1355,7 +1369,7 @@ jobs:
             <label class="field-label">Primary Base URL <span style="color:var(--text-muted);font-weight:normal">(blank = public OpenAI API)</span></label>
             <input id="ai-base-url" type="text" class="field-input"
               placeholder="http://localhost:11434/v1"
-              onchange="loadLocalModels()"
+              ${actOn("change", "loadLocalModels")}
               value="${esc(aiCfg.base_url || "")}"/>
             <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
               Active: <code>${esc(aiCfg.active_base_url || "https://api.openai.com/v1 (default)")}</code>
@@ -2315,7 +2329,7 @@ epyon install-workflow</pre>
                 <span class="stig-app-name">
                   ${esc(app.name)}
                 </span>
-                <div class="stig-download-btns" onclick="event.stopPropagation()">${mdBtn}${cklbBtn}${jsonBtn}${poamBtn}</div>
+                <div class="stig-download-btns" data-stop>${mdBtn}${cklbBtn}${jsonBtn}${poamBtn}</div>
               </div>
               <div class="stig-counts">
                 <div class="stig-count open">
@@ -2340,7 +2354,7 @@ epyon install-workflow</pre>
                   <span class="lbl">Total</span>
                 </div>
               </div>
-              <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap" onclick="event.stopPropagation()">
+              <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap" data-stop>
                 <span style="font-size:12px;color:var(--text-muted)">Last scanned: ${fmtDate(app.last_scanned)}</span>
                 <button class="btn btn-primary btn-sm"
                   ${act("navigate", `#/stig-viewer/${encodeURIComponent(stigScanId)}`)}>
@@ -2470,7 +2484,7 @@ epyon install-workflow</pre>
           <table class="stig-table">
             <thead>
               <tr>
-                <th scope="col" style="width:32px"><input type="checkbox" aria-label="Select all shown" onclick="event.stopPropagation(); stigJiraToggleAll(this.checked)" ${rows.length && rows.every((r) => _stigJiraSel.has(`${r.vuln_id}__${r._slug}`)) ? "checked" : ""}></th>
+                <th scope="col" style="width:32px"><input type="checkbox" aria-label="Select all shown" ${actOn("click", "stigJiraToggleAll", ARG.checked)} data-stop ${rows.length && rows.every((r) => _stigJiraSel.has(`${r.vuln_id}__${r._slug}`)) ? "checked" : ""}></th>
                 ${[
           ["vuln_id", "100px", "STIG #"],
           ["severity", "70px", "Severity"],
@@ -2496,7 +2510,7 @@ epyon install-workflow</pre>
           const confClass = conf >= 90 ? "conf-high" : conf >= 70 ? "conf-med" : conf >= 40 ? "conf-low" : "conf-none";
           return `
                   <tr class="stig-tr stig-tr-clickable" id="${rowId}" ${act("openStigDetail", regKey)}>
-                    <td onclick="event.stopPropagation()"><input type="checkbox" aria-label="Select ${esc(c.vuln_id)}" ${_stigJiraSel.has(regKey) ? "checked" : ""} onclick="stigJiraToggle('${esc(regKey)}', this.checked, event.shiftKey)"></td>
+                    <td data-stop><input type="checkbox" aria-label="Select ${esc(c.vuln_id)}" ${_stigJiraSel.has(regKey) ? "checked" : ""} ${actOn("click", "stigJiraToggle", regKey, ARG.checked, ARG.shift)}></td>
                     <td><code class="stig-id">${esc(c.group_id || c.vuln_id)}</code></td>
                     <td><span class="stig-sev stig-sev-${esc(c.severity)}">${esc(c.severity || "—")}</span></td>
                     <td><span class="${esc(STATUS_CLASS[c.status] || "stig-status-nr")}">${esc(stigStatusLabel(c.status))}</span>${c.locked_by_human ? ' <span class="stig-lock-badge" title="Human-reviewed; locked until a listed path changes">🔒</span>' : ""}${c.locked_by_stability ? ' <span class="stig-lock-badge" title="No repository evidence found across repeated scans — not re-assessed by AI to save time/tokens until code changes">💤</span>' : ""}</td>
@@ -2547,7 +2561,7 @@ epyon install-workflow</pre>
             <label class="stig-filter-label">Search</label>
             <input class="stig-search" type="text" placeholder="ID, title, or evidence…"
               value="${esc(filterText)}"
-              oninput="setStigSearch(this.value)">
+              ${actOn("input", "setStigSearch", ARG.value)}>
           </div>
         </div>`;
       }, repaint = function() {
@@ -2795,7 +2809,7 @@ epyon install-workflow</pre>
       </div>`}
     <div class="jira-review-toolbar" aria-label="Finding filters">
       <label>Category
-        <select id="jira-review-category" onchange="jiraReviewRefresh()">
+        <select id="jira-review-category" ${actOn("change", "jiraReviewRefresh")}>
           <option value="all">All categories</option>
           <option value="vulnerability">Vulnerabilities</option>
           <option value="misconfiguration">Misconfigurations</option>
@@ -2803,21 +2817,21 @@ epyon install-workflow</pre>
         </select>
       </label>
       <label>Severity
-        <select id="jira-review-severity" onchange="jiraReviewRefresh()">
+        <select id="jira-review-severity" ${actOn("change", "jiraReviewRefresh")}>
           <option value="all">All severities</option>
           <option value="critical">Critical</option><option value="high">High</option>
           <option value="medium">Medium</option><option value="low">Low</option>
         </select>
       </label>
       <label>Tool
-        <select id="jira-review-tool" onchange="jiraReviewRefresh()">
+        <select id="jira-review-tool" ${actOn("change", "jiraReviewRefresh")}>
           <option value="all">All tools</option>
           ${tools.map((tool) => `<option value="${esc(tool)}">${esc(tool)}</option>`).join("")}
         </select>
       </label>
       <label class="jira-review-search">Search
         <input id="jira-review-search" type="search" placeholder="ID, package, location"
-          oninput="jiraReviewRefresh()">
+          ${actOn("input", "jiraReviewRefresh")}>
       </label>
     </div>
     <div class="jira-review-category-actions">
@@ -2830,7 +2844,7 @@ epyon install-workflow</pre>
       <table class="jira-review-table">
         <thead><tr>
           <th scope="col" class="jira-review-check"><input id="jira-review-select-all" type="checkbox"
-            aria-label="Select all filtered findings" onchange="jiraReviewToggleAll(this.checked)"></th>
+            aria-label="Select all filtered findings" ${actOn("change", "jiraReviewToggleAll", ARG.checked)}></th>
           <th scope="col">Category</th><th scope="col">Severity</th><th scope="col">Tool</th><th scope="col">Finding</th>
           <th scope="col">Package / Target</th><th scope="col">Status</th>
         </tr></thead>
@@ -3056,7 +3070,7 @@ epyon install-workflow</pre>
     <div style="margin-bottom:14px">
       <label class="field-label" for="stig-jira-project">Jira board (project key)</label>
       <input id="stig-jira-project" class="field-input" list="stig-jira-projects" maxlength="10" value="${esc(ctx.project_key)}"
-        placeholder="MID, SAP, IRIS…" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" onchange="stigJiraProjectChanged('${esc(scanId)}')">
+        placeholder="MID, SAP, IRIS…" oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')" ${actOn("change", "stigJiraProjectChanged", scanId)}>
       <datalist id="stig-jira-projects">${(ctx.known_projects || []).map((k) => `<option value="${esc(k)}">`).join("")}</datalist>
       <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Tickets are created in this board. This does not change the application's saved board.</div>
     </div>
@@ -3309,7 +3323,7 @@ epyon install-workflow</pre>
     <div style="display:grid;gap:14px">
       <div>
         <label class="field-label">Ticket type</label>
-        <select id="jira-issue-type-select" class="field-input" onchange="jiraEpicModalPickIssueType(this.value)"
+        <select id="jira-issue-type-select" class="field-input" ${actOn("change", "jiraEpicModalPickIssueType", ARG.value)}
           ${hasIssueTypes ? "" : "disabled"}>
           ${hasIssueTypes ? state.issueTypes.map((t) => `<option value="${esc(t.name)}" ${t.name === state.issueType ? "selected" : ""}>${esc(t.name)}</option>`).join("") : `<option>${esc(state.defaultIssueType)}</option>`}
         </select>
@@ -3317,7 +3331,7 @@ epyon install-workflow</pre>
       </div>
       <div>
         <label class="field-label">Use an existing Epic</label>
-        <select id="jira-epic-existing-select" class="field-input" onchange="jiraEpicModalPickExisting(this.value)">
+        <select id="jira-epic-existing-select" class="field-input" ${actOn("change", "jiraEpicModalPickExisting", ARG.value)}>
           <option value="">— None —</option>
           ${state.existing.map((e) => `<option value="${esc(e.key)}">${esc(e.key)} — ${esc(e.summary)}</option>`).join("")}
         </select>
@@ -3329,13 +3343,13 @@ epyon install-workflow</pre>
           ${state.suggested.map((s) => `<button type="button" class="btn btn-sm" ${act("jiraEpicModalQuickCreate", s.name)}>${esc(s.label)}</button>`).join("")}
         </div>
         <input id="jira-epic-new-name" class="field-input" type="text" maxlength="200"
-          placeholder="Custom Epic name…" oninput="jiraEpicModalTypedName(this.value)">
+          placeholder="Custom Epic name…" ${actOn("input", "jiraEpicModalTypedName", ARG.value)}>
       </div>
       <div>
         <label class="field-label">Triage note (optional)</label>
         <input id="jira-triaged-by-input" class="field-input" type="text" maxlength="200"
           placeholder="Your name" value="${esc(state.triagedBy || "")}"
-          oninput="jiraEpicModalTypedTriagedBy(this.value)">
+          ${actOn("input", "jiraEpicModalTypedTriagedBy", ARG.value)}>
         <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
           Posted as a Jira comment on each new ticket: "Triaged and added by: &lt;name&gt; on: ${esc((/* @__PURE__ */ new Date()).toISOString().slice(0, 10))}".
         </div>
@@ -4140,7 +4154,7 @@ epyon install-workflow</pre>
       const change = t.delta === void 0 ? "—" : `${fmt(t.delta)}${t.delta_pct === null || t.delta_pct === void 0 ? "" : ` (${fmt(t.delta_pct)}%)`}`;
       const prev = t.since_previous === void 0 ? "—" : fmt(t.since_previous);
       const period = t.from ? `${esc(t.from)} → ${esc(t.to)}` : "—";
-      return `<tr class="clickable-row" tabindex="0" role="button" aria-label="Show ${esc(name)} trend details" style="cursor:pointer" onclick="openAppTrendDetail(this.dataset.app)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAppTrendDetail(this.dataset.app)}" data-app="${esc(name)}">
+      return `<tr class="clickable-row" tabindex="0" role="button" aria-label="Show ${esc(name)} trend details" style="cursor:pointer" ${actOn("click", "openAppTrendDetail", ARG.data("app"))} onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAppTrendDetail(this.dataset.app)}" data-app="${esc(name)}">
         <td>${esc(name)}</td>
         <td><span style="color:${color};font-weight:600">${icon} ${esc(t.status)}</span></td>
         <td>${t.risk_index === void 0 ? "—" : esc(String(t.risk_index))}</td>
@@ -5105,7 +5119,7 @@ epyon install-workflow</pre>
               <strong>${esc(app.name)}</strong>
               ${app.url ? `<div style="font-size:12px;color:var(--text-dim);margin-top:2px">${esc(app.url)}</div>` : ""}
             </td>
-            <td onclick="event.stopPropagation();toggleMonitored('${esc(app.name)}',${!!app.monitored})">
+            <td ${act("toggleMonitored", app.name, !!app.monitored)} data-stop>
               <button class="app-type-badge ${app.monitored ? "monitored" : "evaluation"}"
                       title="${app.monitored ? "Continuous — click to set as Evaluation" : "Evaluation — click to set as Continuous"}">
                 ${app.monitored ? "● Continuous" : "○ Evaluation"}
@@ -5120,16 +5134,16 @@ epyon install-workflow</pre>
             <td>${statusBadge(app.status)}</td>
             <td>
               <button class="btn btn-sm"
-                onclick="event.stopPropagation();navigate('#/new-scan')">
+                ${act("navigate", "#/new-scan")} data-stop>
                 Scan
               </button>
               <button class="btn btn-sm btn-danger"
-                onclick="event.stopPropagation();hideApplication('${esc(app.name)}')"
+                ${act("hideApplication", app.name)} data-stop
                 title="Hide this application from the list">
                 Hide
               </button>
               <button class="btn btn-sm btn-danger"
-                onclick="event.stopPropagation();deleteApplication('${esc(app.name)}')"
+                ${act("deleteApplication", app.name)} data-stop
                 title="Permanently delete all scan data for this application">
                 Delete
               </button>
@@ -5214,11 +5228,11 @@ epyon install-workflow</pre>
           </div>` : ""}
       </div>
       ${s.has_dashboard ? `<button class="btn btn-sm"
-             onclick="event.stopPropagation();window.open('/api/scans/${encodeURIComponent(s.scan_id)}/dashboard','_blank')">
+             ${act("open", `/api/scans/${encodeURIComponent(s.scan_id)}/dashboard`, "_blank")} data-stop>
              HTML ↗
            </button>` : ""}
       <button class="btn btn-sm btn-danger"
-        onclick="event.stopPropagation();deleteScan('${esc(s.scan_id)}', '${esc(name)}')"
+        ${act("deleteScan", s.scan_id, name)} data-stop
         title="Permanently delete this scan">
         Delete
       </button>
@@ -5265,16 +5279,16 @@ epyon install-workflow</pre>
     const tabs = SCAN_HISTORY_TABS.map((t) => `
     <button class="scan-history-tab${t.id === tab ? " active" : ""}" role="tab"
       id="scan-tab-${t.id}" aria-selected="${t.id === tab}" aria-controls="scan-history-panel"
-      data-tab="${t.id}" onclick="selectScanHistoryTab(this.dataset.tab)">
+      data-tab="${t.id}" ${actOn("click", "selectScanHistoryTab", ARG.data("tab"))}>
       ${esc(t.label)} <span class="scan-history-count">${counts[t.id] || 0}</span>
     </button>`).join("");
     return `
     <div class="scan-history-tabs" role="tablist" aria-label="Scan type">${tabs}</div>
     <div class="scan-history-filter">
       <label>From <input type="date" id="scan-filter-from" value="${esc(st.from)}"
-        onchange="setScanHistoryDates()"></label>
+        ${actOn("change", "setScanHistoryDates")}></label>
       <label>To <input type="date" id="scan-filter-to" value="${esc(st.to)}"
-        onchange="setScanHistoryDates()"></label>
+        ${actOn("change", "setScanHistoryDates")}></label>
       <button class="btn btn-sm" id="scan-filter-clear" ${act("clearScanHistoryDates")}
         ${st.from || st.to ? "" : "hidden"}>Clear dates</button>
     </div>
@@ -5792,7 +5806,7 @@ epyon install-workflow</pre>
       return `
       <tr class="finding-row" title="Open finding in scan">
         <td><input type="checkbox" class="cve-select" data-key="${ai}:${fi}"
-            aria-label="Select ${esc(f.id)} in ${esc(appEntry.app_name)}" onchange="cveBulkToggle(this)"></td>
+            aria-label="Select ${esc(f.id)} in ${esc(appEntry.app_name)}" ${actOn("change", "cveBulkToggle", ARG.el)}></td>
         <td>${esc(appEntry.app_name)}${appEntry.is_latest ? "" : ' <span class="tool-tag">earlier scan</span>'}</td>
         <td><span class="sev-badge ${esc(f.severity)}">${esc(ucFirst(f.severity))}</span></td>
         <td><a href="${esc(href)}" data-href="${esc(href)}" onclick="if (event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey) { event.preventDefault(); navigate(this.dataset.href); }">${esc(f.id)}</a>${f.suppressed ? ' <span class="tool-tag">suppressed</span>' : ""}</td>
@@ -5810,7 +5824,7 @@ epyon install-workflow</pre>
     </div>
     <div class="table-container">
       <table>
-        <thead><tr><th scope="col"><input type="checkbox" id="cve-select-all" aria-label="Select all eligible findings" onchange="cveBulkToggleAll(this)"></th><th scope="col">Application</th><th scope="col">Severity</th><th scope="col">ID</th><th scope="col">Tools</th><th scope="col">Package</th><th scope="col">Version</th><th scope="col">Fixed in</th><th scope="col">Scanned</th><th scope="col">Jira</th></tr></thead>
+        <thead><tr><th scope="col"><input type="checkbox" id="cve-select-all" aria-label="Select all eligible findings" ${actOn("change", "cveBulkToggleAll", ARG.el)}></th><th scope="col">Application</th><th scope="col">Severity</th><th scope="col">ID</th><th scope="col">Tools</th><th scope="col">Package</th><th scope="col">Version</th><th scope="col">Fixed in</th><th scope="col">Scanned</th><th scope="col">Jira</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
@@ -6399,7 +6413,7 @@ epyon install-workflow</pre>
             ${portsBadge}
             ${activeBadge}
           </span>
-          <span class="findings-summary-right" onclick="event.stopPropagation()">
+          <span class="findings-summary-right" data-stop>
             <button class="btn btn-sm" ${act("downloadPpsmCsv", scanId)} title="Download PPSM as CSV">↓ PPSM</button>
           </span>
         </summary>
@@ -6639,7 +6653,7 @@ epyon install-workflow</pre>
           <span class="ms-summary-title">NIST SP 800-53 / FedRAMP Control Evidence Matrix</span>
           <span class="tool-tag" style="font-size:12px;background:var(--pass-bg);color:var(--pass);border:1px solid #10b98144">SSP / ATO Package</span>
         </span>
-        <span class="ms-summary-right" onclick="event.stopPropagation()" style="gap:8px;display:flex;align-items:center;">
+        <span class="ms-summary-right" data-stop style="gap:8px;display:flex;align-items:center;">
           ${downloadMdBtn}
           ${downloadDocxBtn}
           <span class="findings-summary-hint" style="margin-left:8px">Click to expand</span>
@@ -6730,7 +6744,7 @@ epyon install-workflow</pre>
             ${typeChips}
           </span>
           <span style="display:flex;align-items:center;gap:10px">
-            ${cdxUrl ? `<a class="btn btn-sm" href="${cdxUrl}" download style="font-size:12px" onclick="event.stopPropagation()">↓ CycloneDX JSON</a>` : ""}
+            ${cdxUrl ? `<a class="btn btn-sm" href="${cdxUrl}" download style="font-size:12px" data-stop>↓ CycloneDX JSON</a>` : ""}
             <span class="findings-summary-hint">Click to expand</span>
           </span>
         </summary>
@@ -6738,7 +6752,7 @@ epyon install-workflow</pre>
           <div style="margin-top:12px;display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
             <input id="${uid}-search" type="text" placeholder="Search packages…"
               style="flex:1;min-width:180px;max-width:320px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--text);font-size:13px"
-              oninput="sbomRender('${uid}')" />
+              ${actOn("input", "sbomRender", `${uid}`)} />
             <span id="${uid}-count" style="font-size:12px;color:var(--text-muted)"></span>
             <button class="btn btn-sm" ${act("sbomClearFilter", `${uid}`)}>Clear filters</button>
           </div>
@@ -6892,7 +6906,7 @@ epyon install-workflow</pre>
             ${methodChips}
             ${frameworkChips}
           </span>
-          <span class="findings-summary-right" onclick="event.stopPropagation()">
+          <span class="findings-summary-right" data-stop>
             <button class="btn btn-sm" ${act("downloadApiCsv", `${uid}`)} title="Download API endpoints as CSV">↓ API List</button>
           </span>
         </summary>
@@ -6900,7 +6914,7 @@ epyon install-workflow</pre>
           <div style="margin-top:12px;display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
             <input id="${uid}-search" type="text" placeholder="Search endpoints…"
               style="flex:1;min-width:180px;max-width:320px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-input);color:var(--text);font-size:13px"
-              oninput="apiRender('${uid}')" />
+              ${actOn("input", "apiRender", `${uid}`)} />
             <span id="${uid}-count" style="font-size:12px;color:var(--text-muted)"></span>
             <button class="btn btn-sm" ${act("apiClearFilter", `${uid}`)}>Clear filters</button>
           </div>
@@ -7089,7 +7103,7 @@ epyon install-workflow</pre>
       const target = esc((f.target || "").substring(0, 80));
       const isSuppressed = f.suppressed === true;
       const idCell = id.startsWith("CVE-") ? `<a href="https://nvd.nist.gov/vuln/detail/${id}" target="_blank" rel="noopener noreferrer"
-            onclick="event.stopPropagation()"><code>${id}</code></a>` : `<code>${id}</code>`;
+            data-stop><code>${id}</code></a>` : `<code>${id}</code>`;
       const cvssNum = f.nvd_cvss_v3_score != null ? f.nvd_cvss_v3_score : null;
       const cvssSev = (f.nvd_cvss_v3_severity || "").toUpperCase();
       const cvssColor = cvssSev === "CRITICAL" ? "var(--critical)" : cvssSev === "HIGH" ? "#f97316" : cvssSev === "MEDIUM" ? "#f59e0b" : cvssSev === "LOW" ? "#22d3ee" : "var(--text-muted)";
@@ -7198,7 +7212,7 @@ epyon install-workflow</pre>
     return `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 4px;font-size:13px;color:var(--text-muted)">
     <span>Showing ${first}–${last} of ${all.length} findings</span>
     <span style="display:flex;gap:6px;align-items:center">
-      <label>Per page <select onchange="setFindingsPageSize('${sev}', this.value)">${sizeOpts}</select></label>
+      <label>Per page <select ${actOn("change", "setFindingsPageSize", `${sev}`, ARG.value)}>${sizeOpts}</select></label>
       ${btn("« First", 1, st.page <= 1)}${btn("‹ Prev", st.page - 1, st.page <= 1)}
       <span>Page ${st.page} of ${pages}</span>
       ${btn("Next ›", st.page + 1, st.page >= pages)}${btn("Last »", pages, st.page >= pages)}
@@ -7550,12 +7564,12 @@ epyon install-workflow</pre>
           ${so.valid ? "✓ Signed off" : "⚠ Sign-off no longer matches the current score"} by
           <strong>${esc(so.reviewer)}</strong> on ${esc(so.signed_at)} (score ${esc(String(so.weighted_score))})
           ${so.comment ? `<div style="color:var(--text-muted);margin-top:4px">${esc(so.comment)}</div>` : ""}
-          <button class="btn btn-sm" style="margin-top:8px" onclick="revokeScorecardSignoff(this)">Revoke</button>
+          <button class="btn btn-sm" style="margin-top:8px" ${actOn("click", "revokeScorecardSignoff", ARG.el)}>Revoke</button>
         </div>` : ""}
       ${so && so.valid ? "" : `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
           <input type="text" class="so-name" maxlength="100" placeholder="Reviewer name" style="padding:6px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);color:var(--text)">
           <input type="text" class="so-comment" maxlength="2000" placeholder="Comment (optional)" style="flex:1;min-width:200px;padding:6px 8px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);color:var(--text)">
-          <button class="btn btn-sm btn-primary" onclick="signOffScorecard(this)">Sign off this score</button>
+          <button class="btn btn-sm btn-primary" ${actOn("click", "signOffScorecard", ARG.el)}>Sign off this score</button>
         </div><div class="so-msg" style="font-size:12px;color:var(--critical);margin-top:6px"></div>`}
       <div style="margin-top:10px"><a class="btn btn-sm" href="/api/scans/${encodeURIComponent(scanId)}/scorecard/evidence" download>↓ Evidence package (.zip)</a></div>
     </div>`;
@@ -7798,9 +7812,9 @@ epyon install-workflow</pre>
                 <span class="stig-mini total">${esc(scan.stig_total || 0)} total</span>
               </span>
               <span style="display:flex;align-items:center;gap:8px">
-                ${mdBtn ? mdBtn.replace("btn-sm", "btn-sm").replace(">", ' onclick="event.stopPropagation()">') : ""}
-                ${cklbBtn ? cklbBtn.replace(">", ' onclick="event.stopPropagation()">') : ""}
-                ${jsonBtn.replace(">", ' onclick="event.stopPropagation()">')}
+                ${mdBtn ? mdBtn.replace("btn-sm", "btn-sm").replace(">", ` data-stop>`) : ""}
+                ${cklbBtn ? cklbBtn.replace(">", ` data-stop>`) : ""}
+                ${jsonBtn.replace(">", ` data-stop>`)}
                 <span class="findings-summary-hint">Click to expand</span>
               </span>
             </summary>
@@ -8424,7 +8438,7 @@ epyon install-workflow</pre>
               ${SCAN_TYPE_OPTIONS.map((t) => `
                 <label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input)">
                   <input type="checkbox" class="scan-type-checkbox" value="${t.id}"
-                    ${t.id === "full" ? "checked" : ""} onchange="_onScanTypeSelectionChange()">
+                    ${t.id === "full" ? "checked" : ""} ${actOn("change", "_onScanTypeSelectionChange")}>
                   <span>${esc(t.label)}</span>
                 </label>`).join("")}
             </div>
@@ -9190,13 +9204,13 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
       <div class="stig-history-filters">
         <div class="stig-hf-group">
           <label class="stig-hf-label">App</label>
-          <select class="stig-hf-select" onchange="window._stigHistoryApp(this.value)">
+          <select class="stig-hf-select" ${actOn("change", "_stigHistoryApp", ARG.value)}>
             ${apps.length === 0 ? '<option value="">No apps</option>' : appOpts}
           </select>
         </div>
         <div class="stig-hf-group">
           <label class="stig-hf-label">STIG</label>
-          <select class="stig-hf-select" onchange="window._stigHistorySlug(this.value)">
+          <select class="stig-hf-select" ${actOn("change", "_stigHistorySlug", ARG.value)}>
             ${slugOpts}
           </select>
         </div>
@@ -11121,19 +11135,45 @@ Frontend Cache:
   }
 
   // src/core/actions.js
-  document.addEventListener("click", (e) => {
-    for (let el = e.target instanceof Element ? e.target.closest("[data-act]") : null; el; el = el.parentElement && el.parentElement.closest("[data-act]")) {
-      const fn = window[el.dataset.act];
-      if (typeof fn !== "function") continue;
-      let args = [];
-      try {
-        args = JSON.parse(el.dataset.args || "[]");
-      } catch {
-      }
-      fn(...args);
-      if (e.cancelBubble) return;
+  function resolveArg(a, el, e) {
+    if (!a || typeof a !== "object" || !a.$) return a;
+    switch (a.$) {
+      case "value":
+        return el.value;
+      case "checked":
+        return el.checked;
+      case "el":
+        return el;
+      case "event":
+        return e;
+      case "shift":
+        return e.shiftKey;
+      case "data":
+        return el.dataset[a.k];
+      default:
+        return void 0;
     }
-  });
+  }
+  function dispatch(type, e) {
+    const key = type === "click" ? "act" : `act${type[0].toUpperCase()}${type.slice(1)}`;
+    const argsKey = type === "click" ? "args" : `args${type[0].toUpperCase()}${type.slice(1)}`;
+    for (let el = e.target instanceof Element ? e.target : null; el; el = el.parentElement) {
+      const name = el.dataset[key];
+      const fn = name && window[name];
+      if (typeof fn === "function") {
+        let args = [];
+        try {
+          args = JSON.parse(el.dataset[argsKey] || "[]");
+        } catch {
+        }
+        fn(...args.map((a) => resolveArg(a, el, e)));
+      }
+      if (type === "click" && el.hasAttribute("data-stop")) return;
+    }
+  }
+  for (const type of ["click", "change", "input"]) {
+    document.addEventListener(type, (e) => dispatch(type, e));
+  }
 
   // src/components/section.js
   var section_exports = {};

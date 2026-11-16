@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.2] - 2026-11-15
+
+### Changed
+- Web UI: first components moved out of the 11k-line `web/src/main.js` into ES modules, `web/src/lib/` (`format`, `scans`) and `web/src/components/` (`badges`, `layout`, `charts`, `feedback`), bundled by esbuild via `web/src/index.js`. Their exports are also placed on `window` so the remaining legacy script and the inline `onclick` handlers keep working. No behaviour change.
+
 ## [3.72.1] - 2026-11-15
 
 ### Fixed

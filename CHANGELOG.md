@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.70.14] - 2026-11-15
 
 ### Security
-- `fetch-cve-feeds.py` fetches feeds through an opener with only the HTTP and HTTPS handlers instead of `urlopen`, so `file://` and `ftp://` URLs can no longer be opened (clears the Semgrep `dynamic-urllib-use-detected` finding).
+- `fetch-cve-feeds.py` sends all three of its requests (feed fetch, OSV.dev, GitHub advisories) through an opener with only the HTTP and HTTPS handlers instead of `urlopen`, so `file://` and `ftp://` URLs can no longer be opened (clears the Semgrep `dynamic-urllib-use-detected` finding).
 - Every third-party action in `.github/workflows/*.yml` is now pinned to a full commit SHA with the tag kept in a trailing comment (clears the Semgrep `github-actions-mutable-action-tag` finding).
 
 ## [3.70.11] - 2026-11-15

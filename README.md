@@ -2030,7 +2030,7 @@ export TARGET_DIR="/workspace" && ./scripts/shell/run-target-security-scan.sh "$
 - ✅ **Stacked bar vulnerability trend chart**: replaces line chart; bars broken down by Critical/High/Medium/Low; hover tooltip shows app name + date + per-severity counts; click navigates to that app
 - ✅ **Findings by Tool hover tooltip**: mousing over a bar shows the top contributing app; click navigates to that app's detail page
 - ✅ **Collapsible + sortable Top CVEs table**: collapsed by default; sortable by CVE ID, severity, count, and affected apps
-- ✅ **Collapsible + sortable Scan Frequency table**: collapsed by default; sortable by app name, total scans, first/last scan date
+- ✅ **Collapsible + sortable Scan Frequency table**: collapsed by default; sortable by app name, total scans, first/last scan date; the History column is a horizontal heat strip (cell intensity = scans per day, colour = failed share) with a date axis
 - ✅ **App monitoring classification**: each application can be toggled between **Continuous** (accent badge) and **Evaluation** (muted badge) from the Applications list and the Application detail page; classifications stored in `configuration/monitored-apps.json`
 - ✅ **Metrics filtering by monitored apps**: when any apps are marked Continuous, the Metrics page filters all data (trend, tool counts, MTTR, CVEs, scan frequency) to those apps only; a notice with a "manage" link appears at the top of the page; if no apps are marked, all apps are included (backward compatible)
 - ✅ **Suppressed findings in web UI**: scan detail page shows a collapsible Suppressed Findings section listing every rule from `.epyon-ignore.yml` with Type, Value/ID, Tool, Reason, Approved By, and Severity columns

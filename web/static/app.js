@@ -6269,21 +6269,78 @@ function buildRecurrenceSection(m) {
 const FREQ_KIND_LABEL = { pr: 'PR', nightly: 'Nightly', other: 'Push / manual' };
 const FREQ_RESULT_LABEL = { pass: 'passed', fail: 'failed', unknown: 'result unknown' };
 
-function freqDots(f) {
+const FREQ_MAX_COLUMNS = 90;
+
+// One shared day range across all rows, so every application's timeline lines up.
+function freqRange(dateLists) {
+  const days = [];
+  dateLists.forEach(list => (list || []).forEach(d => {
+    const t = Date.parse(String(d).slice(0, 10) + 'T00:00:00Z');
+    if (!isNaN(t)) days.push(t);
+  }));
+  if (!days.length) return null;
+  const start = Math.min(...days), end = Math.max(...days);
+  const span = Math.round((end - start) / 86400000) + 1;
+  const bin = Math.max(1, Math.ceil(span / FREQ_MAX_COLUMNS));
+  return { start, end, bin, columns: Math.ceil(span / bin) };
+}
+
+// Horizontal heat strip: one cell per day (or per `bin` days) on a shared date range.
+// Intensity = scans that day relative to the busiest cell; hue goes green -> red with the share of failed runs.
+function freqTimeline(runs, range, peak) {
+  if (!range) return '<span class="freq-empty">—</span>';
+  const cells = Array.from({ length: range.columns }, () => ({ n: 0, fail: 0, tally: {} }));
+  runs.forEach(r => {
+    const t = Date.parse(String(r.date).slice(0, 10) + 'T00:00:00Z');
+    if (isNaN(t)) return;
+    const c = cells[Math.min(range.columns - 1, Math.floor((t - range.start) / 86400000 / range.bin))];
+    c.n += 1;
+    if (r.result === 'fail') c.fail += 1;
+    const k = r.kind ? `${FREQ_KIND_LABEL[r.kind] || r.kind} ${FREQ_RESULT_LABEL[r.result] || r.result}` : 'scan';
+    c.tally[k] = (c.tally[k] || 0) + 1;
+  });
+  const maxN = peak || Math.max(1, ...cells.map(c => c.n));
+  const fmtDay = ms => new Date(ms).toISOString().slice(0, 10);
+  const cellHtml = cells.map((c, i) => {
+    const from = range.start + i * range.bin * 86400000;
+    const label = range.bin > 1 ? `${fmtDay(from)} – ${fmtDay(Math.min(range.end, from + (range.bin - 1) * 86400000))}` : fmtDay(from);
+    if (!c.n) return `<div class="freq-cell" title="${esc(label)} · no scans"></div>`;
+    const alpha = (0.3 + 0.7 * Math.min(1, c.n / maxN)).toFixed(2);
+    const colour = runs.some(r => r.kind)
+      ? `hsl(${Math.round(130 * (1 - Math.min(1, (c.fail / c.n) * 2)))} 65% 45% / ${alpha})`
+      : `rgb(88 166 255 / ${alpha})`;
+    const title = `${label} · ${c.n} scan${c.n === 1 ? '' : 's'}` +
+      (c.fail ? ` (${c.fail} failed)` : '') + '\n' +
+      Object.entries(c.tally).map(([k, n]) => `${n} × ${k}`).join('\n');
+    return `<div class="freq-cell" style="background:${colour}" title="${esc(title)}"></div>`;
+  }).join('');
+  const every = Math.max(1, Math.ceil(range.columns / 6));
+  const ticks = [];
+  for (let i = 0; i < range.columns; i += every) {
+    ticks.push(`<span class="freq-tick" style="left:${(i / range.columns * 100).toFixed(2)}%">${esc(fmtDay(range.start + i * range.bin * 86400000).slice(5))}</span>`);
+  }
+  return `<div class="freq-timeline">
+    <div class="freq-plot">${cellHtml}</div>
+    <div class="freq-axis">${ticks.join('')}</div>
+  </div>`;
+}
+
+function freqDots(f, range, peak) {
   const runs = f.runs && f.runs.length ? f.runs : f.dates.map(d => ({ date: d, kind: 'other', result: 'unknown' }));
-  return `<div class="freq-dots">${runs.map(r =>
-    `<span class="freq-dot freq-${esc(r.kind)}-${esc(r.result)}" title="${esc(r.date)} · ${esc(FREQ_KIND_LABEL[r.kind] || r.kind)} ${esc(FREQ_RESULT_LABEL[r.result] || r.result)}"></span>`
-  ).join('')}</div>`;
+  return freqTimeline(runs, range, peak);
 }
 
 function freqLegend() {
-  const items = [
-    ['pr-pass', 'PR passed'], ['pr-fail', 'PR failed'],
-    ['nightly-pass', 'Nightly passed'], ['nightly-fail', 'Nightly failed'],
-    ['other-pass', 'Push / manual passed'], ['other-fail', 'Push / manual failed'],
-  ];
-  return `<div class="freq-legend">${items.map(([c, l]) =>
-    `<span class="legend-item"><span class="freq-dot freq-${c}"></span>${l}</span>`).join('')}</div>`;
+  return `<div class="freq-legend">
+    <span class="legend-item">Scans per day:
+      <span class="freq-swatch" style="background:hsl(130 65% 45% / 0.3)"></span> few
+      <span class="freq-swatch" style="background:hsl(130 65% 45% / 1)"></span> many</span>
+    <span class="legend-item">Failed share:
+      <span class="freq-swatch" style="background:hsl(130 65% 45%)"></span> none
+      <span class="freq-swatch" style="background:hsl(65 65% 45%)"></span> some
+      <span class="freq-swatch" style="background:hsl(0 65% 45%)"></span> half or more</span>
+    <span class="legend-item">Hover a day for the PR / nightly / push breakdown</span>
+  </div>`;
 }
 
 function fmtDays(days) {
@@ -6579,7 +6636,7 @@ async function renderMetrics() {
             <td>${esc(f.total)}</td>
             <td>${esc(firstDate)}</td>
             <td>${esc(lastDate)}</td>
-            <td>${freqDots(f)}</td>
+            <td>${freqDots(f, freqSpan, freqPeak)}</td>
           </tr>`;
       }).join('');
 
@@ -6843,6 +6900,12 @@ async function renderMetrics() {
         if (!tbl) return;
         let sortCol = 'total', sortDir = -1;
         const freqData = Object.entries(m.scan_frequency || {});
+        const freqSpan = freqRange(freqData.map(([, f]) => f.dates));
+        const freqPeak = Math.max(1, ...freqData.map(([, f]) => {
+          const per = {};
+          f.dates.forEach(d => { const k = String(d).slice(0, 10); per[k] = (per[k] || 0) + 1; });
+          return Math.max(0, ...Object.values(per)) * (freqSpan ? freqSpan.bin : 1);
+        }));
         function freqRow([name, f]) {
           const first = f.dates.length ? f.dates[0] : '\u2014';
           const last  = f.dates.length ? f.dates[f.dates.length - 1] : '\u2014';
@@ -6883,6 +6946,7 @@ async function renderMetrics() {
         const tbl = document.getElementById('tbl-merges');
         if (!tbl) return;
         const allData = Object.entries(mergesData);
+        const mergeSpan = freqRange(allData.map(([, f]) => f.dates));
         let activeDays = 7;
         let sortCol = 'total', sortDir = -1;
 
@@ -6901,7 +6965,7 @@ async function renderMetrics() {
             <td>${esc(filteredDates.length)}</td>
             <td>${esc(first)}</td>
             <td>${esc(last)}</td>
-            <td><div class="freq-dots">${filteredDates.map(d => `<span class="freq-dot" title="${esc(d)}"></span>`).join('')}</div></td>
+            <td>${freqTimeline(filteredDates.map(d => ({ date: d })), mergeSpan)}</td>
           </tr>`;
         }
 

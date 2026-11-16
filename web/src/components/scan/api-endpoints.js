@@ -1,7 +1,7 @@
 import { esc } from '../../lib/format.js';
 import { _apiRegistry } from '../../state/registries.js';
 
-// Legacy globals still provided by main.js (see index.js):
+// Globals that other modules put on window (see index.js):
 /* global apiRender */
 
 let _apiNextId = 0;

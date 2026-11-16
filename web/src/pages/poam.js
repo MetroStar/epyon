@@ -2,7 +2,7 @@ import { emptyState, errBanner, loading, pageHeader } from '../components/layout
 import { esc, fmtDate, ucFirst } from '../lib/format.js';
 import { scanTypeLabel } from '../lib/scans.js';
 
-// Legacy globals still provided by main.js (see index.js):
+// Globals that other modules put on window (see index.js):
 /* global setActive */
 
 // ── POA&M ─────────────────────────────────────────────────────

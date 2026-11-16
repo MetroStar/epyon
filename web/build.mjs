@@ -3,10 +3,8 @@
 //   npm run check   fail if the committed bundle is stale (used by CI)
 //
 // app.js = the ES-module bundle (src/index.js, wrapped in an IIFE that also puts
-// its exports on `window`) followed by the legacy script src/main.js, which is
-// transformed without bundling so its declarations stay global. The UI still uses
-// inline `onclick="fn()"` handlers, which need global functions. As pages move
-// into modules, main.js shrinks until it can be removed.
+// its exports on `window`). The UI still uses inline `onclick="fn()"` handlers,
+// which need global functions, hence the window assignment in src/index.js.
 import { build, transform } from "esbuild";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -24,11 +22,10 @@ const modules = await build({
   format: "iife",
   write: false,
 });
-const legacy = await transform(readFileSync(join(root, "src/main.js"), "utf8"), { ...common, loader: "js" });
 const css = await transform(readFileSync(join(root, "src/main.css"), "utf8"), { ...common, loader: "css" });
 
 const outputs = {
-  "static/app.js": banner("web/src/index.js and web/src/main.js") + modules.outputFiles[0].text + "\n" + legacy.code,
+  "static/app.js": banner("web/src/index.js") + modules.outputFiles[0].text,
   "static/app.css": banner("web/src/main.css") + css.code,
 };
 

@@ -14,7 +14,7 @@ import { buildFindingsSection } from '../components/scan/findings.js';
 import { buildSuppressedSection } from '../components/scan/suppressed.js';
 import { calculateScorecardForScan } from '../components/scorecard.js';
 
-// Legacy globals still provided by main.js (see index.js):
+// Globals that other modules put on window (see index.js):
 /* global apiRender, openFindingDetail, sbomRender, setActive */
 
 export async function renderScanDetail(scanId, openFindingId = '', openFindingPackage = '') {

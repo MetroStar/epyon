@@ -1,7 +1,7 @@
 import { esc } from '../../lib/format.js';
 import { _depsRegistry } from '../../state/registries.js';
 
-// Legacy globals still provided by main.js (see index.js):
+// Globals that other modules put on window (see index.js):
 /* global sbomRender */
 
 let _depsNextId = 0;

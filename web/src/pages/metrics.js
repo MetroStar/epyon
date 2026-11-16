@@ -5,7 +5,7 @@ import { api } from '../lib/api.js';
 import { esc, ucFirst } from '../lib/format.js';
 import { buildCiHealthSection } from './performance.js';
 
-// Legacy globals still provided by main.js (see index.js):
+// Globals that other modules put on window (see index.js):
 /* global closeFindingDetail, setActive */
 
 // ── SLA detail registry ─────────────────────────────────────

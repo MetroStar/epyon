@@ -1,6 +1,6 @@
 import { esc } from '../../lib/format.js';
 
-// Legacy globals still provided by main.js (see index.js):
+// Globals that other modules put on window (see index.js):
 /* global _registerFinding */
 
 export function buildPicklescanCard(scan) { return ''; } // merged into buildModelSecurityCard

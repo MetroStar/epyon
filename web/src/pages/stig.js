@@ -3,7 +3,7 @@ import { api } from '../lib/api.js';
 import { esc, fmtDate, ucFirst } from '../lib/format.js';
 import { _stigJiraSel, _stigRegistry } from '../state/registries.js';
 
-// Legacy globals still provided by main.js (see index.js):
+// Globals that other modules put on window (see index.js):
 /* global openStigViewerDetail, setActive, stigStatusLabel */
 
 export async function renderStig() {

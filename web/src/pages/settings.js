@@ -1,10 +1,11 @@
+import { WORKFLOW_YML } from '../lib/workflow.js';
 import { toast } from '../components/feedback.js';
 import { errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
 import { esc, fmtDate } from '../lib/format.js';
 
-// Legacy globals still provided by main.js (see index.js):
-/* global WORKFLOW_YML, setActive */
+// Globals that other modules put on window (see index.js):
+/* global setActive */
 
 export async function renderSettings() {
   setActive('settings');

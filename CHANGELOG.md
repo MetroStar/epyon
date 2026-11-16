@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.15] - 2026-11-16
+
+### Changed
+- **Web UI refactor (step 3m, no behaviour change):** the last of the legacy `web/src/main.js` is gone. The scan watcher and page-load boot moved to `core/boot.js`, the static dashboard renderer to `core/static-dashboard.js`, the self-assessment card to `pages/self-assessment.js`, PPSM/enrichment table helpers to `components/scan/ppsm.js`, and the workflow YAML to `lib/workflow.js`. `web/build.mjs` now bundles only `src/index.js`.
+
 ## [3.72.14] - 2026-11-16
 
 ### Changed

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.6] - 2026-11-15
+
+### Changed
+- **Web UI refactor (step 3d, no behaviour change):** the Run Scan page (job list, scan queue, layer picker, submit/poll/cancel) moved from `web/src/main.js` into `web/src/pages/new-scan.js`, and the Performance page's self-diagnostic runner into `web/src/pages/self-diagnostic.js`. The scan-completion watcher now asks `isScanJobTracked(id)` instead of reading the page's private job state.
+
 ## [3.72.5] - 2026-11-15
 
 ### Changed

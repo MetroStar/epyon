@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.8] - 2026-11-16
+
+### Changed
+- **Web UI refactor (step 3f, no behaviour change):** the Metrics page and its section builders (SLA, risk/secret trend, suppression, recurrence, frequency heat strips, per-app trend) moved from `web/src/main.js` into `web/src/pages/metrics.js`.
+
 ## [3.72.7] - 2026-11-15
 
 ### Changed

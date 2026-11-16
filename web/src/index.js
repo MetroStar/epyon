@@ -20,5 +20,7 @@ import * as m15 from './state/registries.js';
 import * as m16 from './pages/jira-review.js';
 import * as m17 from './pages/stig.js';
 import * as m18 from './pages/metrics.js';
+import * as m19 from './pages/overview.js';
+import * as m20 from './pages/applications.js';
 
-Object.assign(window, m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18);
+Object.assign(window, m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20);

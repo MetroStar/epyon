@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.9] - 2026-11-16
+
+### Changed
+- **Web UI refactor (step 3g, no behaviour change):** the Overview page (with the cross-application CVE search and bulk-suppress flow) moved into `web/src/pages/overview.js`, and the Applications list and application detail pages (with the scan-history tabs) into `web/src/pages/applications.js`.
+
 ## [3.72.8] - 2026-11-16
 
 ### Changed

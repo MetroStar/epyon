@@ -14,5 +14,7 @@ import * as m9 from './core/router.js';
 import * as m10 from './pages/settings.js';
 import * as m11 from './pages/performance.js';
 import * as m12 from './pages/stig-history.js';
+import * as m13 from './pages/new-scan.js';
+import * as m14 from './pages/self-diagnostic.js';
 
-Object.assign(window, m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12);
+Object.assign(window, m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14);

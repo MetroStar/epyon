@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.1] - 2026-11-15
+
+### Fixed
+- Metrics page failed to load with "freqSpan is not defined" since the Scan Frequency heat strip (3.71.2): the table rows referenced the shared date range and intensity scale before they were computed. They now come from one `freqScale()` helper, and re-sorting the table keeps the shared scale.
+
 ## [3.72.0] - 2026-11-15
 
 ### Changed

@@ -6342,6 +6342,18 @@ function freqTimeline(runs, range, peak) {
   </div>`;
 }
 
+// Shared date range and busiest-cell count for a set of [app, scan_frequency] entries, so
+// every row's strip lines up on the same axis and intensity scale.
+function freqScale(entries) {
+  const range = freqRange(entries.map(([, f]) => f.dates));
+  const peak = Math.max(1, ...entries.map(([, f]) => {
+    const per = {};
+    f.dates.forEach(d => { const k = String(d).slice(0, 10); per[k] = (per[k] || 0) + 1; });
+    return Math.max(0, ...Object.values(per)) * (range ? range.bin : 1);
+  }));
+  return { range, peak };
+}
+
 function freqDots(f, range, peak) {
   const runs = f.runs && f.runs.length ? f.runs : f.dates.map(d => ({ date: d, kind: 'other', result: 'unknown' }));
   return freqTimeline(runs, range, peak);
@@ -6642,6 +6654,7 @@ async function renderMetrics() {
           </tr>`).join('')
       : emptyRow(6, 'No CVE data — run a scan to populate');
 
+    const freqScaleAll = freqScale(Object.entries(m.scan_frequency || {}));
     const freqRows = Object.entries(m.scan_frequency || {})
       .sort((a, b) => b[1].total - a[1].total)
       .map(([name, f]) => {
@@ -6653,7 +6666,7 @@ async function renderMetrics() {
             <td>${esc(f.total)}</td>
             <td>${esc(firstDate)}</td>
             <td>${esc(lastDate)}</td>
-            <td>${freqDots(f, freqSpan, freqPeak)}</td>
+            <td>${freqDots(f, freqScaleAll.range, freqScaleAll.peak)}</td>
           </tr>`;
       }).join('');
 
@@ -6917,12 +6930,7 @@ async function renderMetrics() {
         if (!tbl) return;
         let sortCol = 'total', sortDir = -1;
         const freqData = Object.entries(m.scan_frequency || {});
-        const freqSpan = freqRange(freqData.map(([, f]) => f.dates));
-        const freqPeak = Math.max(1, ...freqData.map(([, f]) => {
-          const per = {};
-          f.dates.forEach(d => { const k = String(d).slice(0, 10); per[k] = (per[k] || 0) + 1; });
-          return Math.max(0, ...Object.values(per)) * (freqSpan ? freqSpan.bin : 1);
-        }));
+        const { range: freqSpan, peak: freqPeak } = freqScale(freqData);
         function freqRow([name, f]) {
           const first = f.dates.length ? f.dates[0] : '\u2014';
           const last  = f.dates.length ? f.dates[f.dates.length - 1] : '\u2014';
@@ -6931,7 +6939,7 @@ async function renderMetrics() {
             <td>${esc(f.total)}</td>
             <td>${esc(first)}</td>
             <td>${esc(last)}</td>
-            <td>${freqDots(f)}</td>
+            <td>${freqDots(f, freqSpan, freqPeak)}</td>
           </tr>`;
         }
         function resort() {

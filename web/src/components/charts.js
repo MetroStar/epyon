@@ -1,4 +1,5 @@
 import { esc } from '../lib/format.js';
+import { navigate } from '../core/router.js';
 
 // ── Chart helpers ─────────────────────────────────────────────
 export const _CC = {
@@ -120,7 +121,7 @@ export function drawHBarChart(canvas, items) {
     const i  = Math.floor(my / rowH);
     if (i < 0 || i >= items.length) return;
     const ta = items[i].top_app;
-    if (ta) window.navigate('#/applications/' + encodeURIComponent(ta));
+    if (ta) navigate('#/applications/' + encodeURIComponent(ta));
   };
   canvas.style.cursor = 'pointer';
 }
@@ -254,7 +255,7 @@ export function drawStackedBarChart(canvas, series, xLabels, barData) {
     if (i < 0 || i >= n) return;
     const bd = barData && barData[i];
     const target = bd ? bd.target : null;
-    if (target) window.navigate('#/applications/' + encodeURIComponent(target));
+    if (target) navigate('#/applications/' + encodeURIComponent(target));
   };
   canvas.style.cursor = 'pointer';
 }

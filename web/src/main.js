@@ -422,10 +422,6 @@ function setActive(routeKey) {
   closeStigDetail();
 }
 
-function navigate(hash) {
-  window.location.hash = hash;
-}
-
 // ── Views ─────────────────────────────────────────────────────
 
 async function renderOverview() {
@@ -8839,73 +8835,6 @@ async function jiraReviewCreateTicketsConfirmed() {
 }
 
 
-// ── Router ────────────────────────────────────────────────────
-const _HEADER_TITLES = {
-  '/': 'Overview', '/applications': 'Applications', '/new-scan': 'Run Scan',
-  '/metrics': 'Metrics', '/stig': 'STIG', '/poam': 'POA&M', '/settings': 'Settings',
-  '/performance': 'Performance',
-};
-
-function _setHeaderTitle(path) {
-  const el = document.getElementById('header-title');
-  if (!el) return;
-  if (path.startsWith('/applications/')) el.textContent = 'Application';
-  else if (path.startsWith('/scans/'))   el.textContent = 'Scan';
-  else if (path.startsWith('/stig-viewer/')) el.textContent = 'STIG';
-  else if (path.startsWith('/poam-viewer/')) el.textContent = 'POA&M';
-  else if (path.startsWith('/jira-review/')) el.textContent = 'Jira Review';
-  else el.textContent = _HEADER_TITLES[path] || 'Epyon';
-}
-
-function resolve() {
-  _abortPageLoads();
-  const hash = window.location.hash.slice(1) || '/';
-
-  const qIdx   = hash.indexOf('?');
-  const path   = qIdx === -1 ? hash : hash.slice(0, qIdx);
-  _setHeaderTitle(path);
-  const params = new URLSearchParams(qIdx === -1 ? '' : hash.slice(qIdx + 1));
-
-  if (path === '/' || path === '') {
-    renderOverview();
-  } else if (path === '/applications') {
-    renderApplications();
-  } else if (path.startsWith('/applications/')) {
-    const name = decodeURIComponent(path.slice('/applications/'.length));
-    name ? renderAppDetail(name) : renderApplications();
-  } else if (path === '/poam') {
-    renderPoam();
-  } else if (path.startsWith('/poam-viewer/')) {
-    const appName = decodeURIComponent(path.slice('/poam-viewer/'.length));
-    appName ? renderPoamViewer(appName) : renderPoam();
-  } else if (path.startsWith('/stig-viewer/')) {
-    const scanId = decodeURIComponent(path.slice('/stig-viewer/'.length));
-    scanId ? renderStigViewer(scanId) : renderStig();
-  } else if (path.startsWith('/jira-review/')) {
-    const scanId = decodeURIComponent(path.slice('/jira-review/'.length));
-    scanId ? renderJiraReview(scanId) : renderApplications();
-  } else if (path.startsWith('/scans/')) {
-    const scanId = decodeURIComponent(path.slice('/scans/'.length));
-    scanId ? renderScanDetail(scanId, params.get('finding') || '', params.get('package') || '') : renderApplications();
-  } else if (path === '/new-scan') {
-    renderNewScan(params.get('target') || '');
-  } else if (path === '/metrics') {
-    renderMetrics();
-  } else if (path === '/performance') {
-    renderPerformanceDashboard();
-  } else if (path === '/stig') {
-    if (params.get('view') === 'history') {
-      renderStigHistory(params.get('app') || null, params.get('slug') || null);
-    } else {
-      renderStig();
-    }
-  } else if (path === '/settings') {
-    renderSettings();
-  } else {
-    renderOverview();
-  }
-}
-
 // ── Scan watcher ─────────────────────────────────────────────
 // Scans run on the server whether or not a page is open. This watcher polls
 // a lightweight job list on every page so a finished scan is announced with a
@@ -8974,7 +8903,6 @@ const scanWatch = (() => {
   return { start: tick, poke };
 })();
 
-window.addEventListener('hashchange', resolve);
 window.addEventListener('load', () => {
   // In static (offline) mode the scan is embedded — skip API-based routing
   if (window.__SCAN__) return;

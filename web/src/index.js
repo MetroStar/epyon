@@ -10,5 +10,6 @@ import * as m5 from './components/feedback.js';
 import * as m6 from './lib/cache.js';
 import * as m7 from './lib/api.js';
 import * as m8 from './pages/poam.js';
+import * as m9 from './core/router.js';
 
-Object.assign(window, m0, m1, m2, m3, m4, m5, m6, m7, m8);
+Object.assign(window, m0, m1, m2, m3, m4, m5, m6, m7, m8, m9);

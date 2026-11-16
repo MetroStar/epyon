@@ -2,7 +2,7 @@ import { renderSelfAssessmentBody, renderSelfDiagLayerPicker } from './self-asse
 import { emptyRow, errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
 import { _cache } from '../lib/cache.js';
-import { esc } from '../lib/format.js';
+import { esc, act } from '../lib/format.js';
 
 // Globals that other modules put on window (see index.js):
 /* global setActive */
@@ -61,7 +61,7 @@ export async function buildCiHealthSection() {
     const runRows = _runList.map((r, i) => {
       const rate = r.success_rate != null ? `${r.success_rate}%` : 'No runs';
       const rateColor = r.success_rate == null ? 'var(--text-muted)' : r.success_rate >= 90 ? 'var(--clean)' : r.success_rate >= 70 ? '#e3b341' : 'var(--critical)';
-      return `<tr class="finding-row" style="cursor:pointer" onclick="openGhSignalDetail('run',${i})" title="Click to view details">
+      return `<tr class="finding-row" style="cursor:pointer" ${act('openGhSignalDetail', 'run', i)} title="Click to view details">
         <td><strong>${esc(r.repo.split('/')[1] || r.repo)}</strong><div style="font-size:12px;color:var(--text-muted)">${esc(r.repo)}</div></td>
         <td style="text-align:center;font-weight:700;color:${rateColor}">${rate}</td>
         <td style="text-align:center">${r.total_runs || 0}</td>
@@ -78,7 +78,7 @@ export async function buildCiHealthSection() {
     const covRows = covEntries.map(([name, v], i) => {
       const pct = v.pr_coverage_pct;
       const barColor = pct >= 70 ? 'var(--clean)' : pct >= 40 ? '#e3b341' : 'var(--critical)';
-      return `<tr class="finding-row" style="cursor:pointer" onclick="openGhSignalDetail('cov',${i})" title="Click to view details">
+      return `<tr class="finding-row" style="cursor:pointer" ${act('openGhSignalDetail', 'cov', i)} title="Click to view details">
         <td><strong>${esc(name)}</strong></td>
         <td style="text-align:center">${v.pr_scans}</td>
         <td style="text-align:center">${v.push_scans}</td>
@@ -301,7 +301,7 @@ export async function renderPerformanceDashboard() {
       <div class="section">
         <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
           <span>Self-Assessment (All Scanner Layers)</span>
-          <button id="run-self-diag-btn" class="btn btn-sm" onclick="startSelfDiagnostic()">▶ Run Self-Diagnostic</button>
+          <button id="run-self-diag-btn" class="btn btn-sm" ${act('startSelfDiagnostic')}>▶ Run Self-Diagnostic</button>
         </div>
         <div style="padding:20px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border)">
           ${renderSelfDiagLayerPicker()}

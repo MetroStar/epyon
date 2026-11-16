@@ -1,4 +1,4 @@
-import { esc } from '../lib/format.js';
+import { esc, act } from '../lib/format.js';
 
 // Manifest layer numbers that can be individually toggled for the
 // self-diagnostic run (mirrors tests/fixtures/self-assessment/expected-
@@ -37,8 +37,8 @@ export function renderSelfDiagLayerPicker() {
       <summary style="cursor:pointer;font-size:13px;color:var(--text-muted)">Select layers to validate (defaults to all)</summary>
       <div style="margin-top:10px">
         <div style="margin-bottom:8px">
-          <button type="button" class="btn btn-sm" onclick="setSelfDiagLayers(true)">Select All</button>
-          <button type="button" class="btn btn-sm" onclick="setSelfDiagLayers(false)">Select None</button>
+          <button type="button" class="btn btn-sm" ${act('setSelfDiagLayers', true)}>Select All</button>
+          <button type="button" class="btn btn-sm" ${act('setSelfDiagLayers', false)}>Select None</button>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:8px">${boxes}</div>
       </div>

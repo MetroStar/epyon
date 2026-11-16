@@ -1,21 +1,21 @@
 import { toast } from './feedback.js';
 import { api } from '../lib/api.js';
-import { esc, renderMarkdown } from '../lib/format.js';
+import { esc, renderMarkdown, act } from '../lib/format.js';
 
 export function buildOverviewExecSection() {
   const tip = 'Requires an OpenAI API key configured in Settings.';
   return `
     <div class="section" id="overview-summary-section">
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-primary" onclick="generateOverviewExecSummary()"
+        <button class="btn btn-primary" ${act('generateOverviewExecSummary')}
                 title="Leadership brief across all tracked applications, split by monitoring status. ${tip}">
           ✦ Generate Executive Summary
         </button>
-        <button class="btn btn-primary" onclick="generateOverviewTechSummary()"
+        <button class="btn btn-primary" ${act('generateOverviewTechSummary')}
                 title="Detailed technical brief for engineering teams, with per-finding breakdown. ${tip}">
           ✦ Generate Technical Summary
         </button>
-        <button class="btn btn-primary" onclick="generateOverviewIssoSummary()"
+        <button class="btn btn-primary" ${act('generateOverviewIssoSummary')}
                 title="ATO/cATO-ready brief covering NIST 800-53 control mapping, STIG validation status, evidence traceability, accepted risk, and POA&amp;M risk statements. ${tip}">
           ✦ Generate ISSO Compliance Brief
         </button>
@@ -75,7 +75,7 @@ export function _openSummaryModal(title, bodyHtml) {
     overlay.innerHTML = `<div class="modal-container modal-xl" role="dialog" aria-modal="true" aria-labelledby="summary-modal-title">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <h2 id="summary-modal-title" style="margin:0;font-size:18px"></h2>
-        <button class="btn" onclick="closeSummaryModal()" aria-label="Close">✕</button>
+        <button class="btn" ${act('closeSummaryModal')} aria-label="Close">✕</button>
       </div>
       <div id="summary-modal-body"></div>
     </div>`;
@@ -171,7 +171,7 @@ export function buildAppIssoSection(name) {
         </svg>
         AI ISSO Compliance Brief — ${esc(name)}
       </div>
-      <button class="btn btn-primary" onclick="generateAppIssoSummary('${esc(name)}')">
+      <button class="btn btn-primary" ${act('generateAppIssoSummary', name)}>
         ✦ Generate Application ISSO Brief
       </button>
       <p style="margin:8px 0 0;font-size:12px;color:var(--text-muted)">

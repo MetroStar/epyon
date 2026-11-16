@@ -1,5 +1,5 @@
 import { api } from '../../lib/api.js';
-import { esc, renderMarkdown, ucFirst } from '../../lib/format.js';
+import { esc, renderMarkdown, ucFirst, act } from '../../lib/format.js';
 import { findingSource } from '../../lib/scans.js';
 import { _scanIdFromHash } from '../../pages/jira-review.js';
 import { _findingsRegistry } from '../../state/registries.js';
@@ -100,7 +100,7 @@ export function openFindingDetail(id) {
           ${idDisplay}
         </div>
       </div>
-      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+      <button class="finding-drawer-close" ${act('closeFindingDetail')} aria-label="Close">✕</button>
     </div>
     <div class="finding-drawer-body">
 
@@ -146,12 +146,12 @@ export function openFindingDetail(id) {
 
       ${(_scanIdFromHash() && !window.__SCAN__) ? `
       <div id="finding-jira-section" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
-        <button id="finding-jira-btn" class="btn btn-primary" onclick="jiraQuickAdd(${id})">Add to Jira</button>
+        <button id="finding-jira-btn" class="btn btn-primary" ${act('jiraQuickAdd', id)}>Add to Jira</button>
         <div id="finding-jira-status" style="font-size:12px;margin-top:8px"></div>
       </div>` : ''}
 
       <div id="finding-fix-section" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
-        <button id="finding-fix-btn" class="btn btn-ai" onclick="fetchFindingFix(${id})">
+        <button id="finding-fix-btn" class="btn btn-ai" ${act('fetchFindingFix', id)}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
           Suggest Fix with AI
         </button>

@@ -2,7 +2,7 @@ import { gateBadge, sevBadgeRow, statusBadge } from '../components/badges.js';
 import { toast } from '../components/feedback.js';
 import { emptyState, errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
-import { esc, fmtDate, ucFirst } from '../lib/format.js';
+import { esc, fmtDate, ucFirst, act } from '../lib/format.js';
 import { renderApplications } from './applications.js';
 import { buildOverviewExecSection, buildOverviewIssoSection, buildOverviewTechSection } from '../components/summaries.js';
 
@@ -23,7 +23,7 @@ export async function renderOverview() {
 
     const makeCard = app => `
           <div class="app-card status-${esc(app.status)}"
-               onclick="navigate('#/applications/${encodeURIComponent(app.name)}')">
+               ${act('navigate', `#/applications/${encodeURIComponent(app.name)}`)}>
             <div class="app-card-header">
               <span class="app-name">${esc(app.name)}</span>
               ${statusBadge(app.status)}
@@ -44,7 +44,7 @@ export async function renderOverview() {
         ? `<div class="section">
              <div class="section-title">
                <span>● Continuously Monitored <span style="font-size:12px;font-weight:400;color:var(--text-muted)">(${continuous.length})</span></span>
-               <button class="btn btn-sm" onclick="navigate('#/applications')">View all →</button>
+               <button class="btn btn-sm" ${act('navigate', '#/applications')}>View all →</button>
              </div>
              <div class="app-grid">${continuous.map(makeCard).join('')}</div>
            </div>
@@ -58,7 +58,7 @@ export async function renderOverview() {
         : `<div class="section">
              <div class="section-title">
                Applications
-               <button class="btn btn-sm" onclick="navigate('#/applications')">View all →</button>
+               <button class="btn btn-sm" ${act('navigate', '#/applications')}>View all →</button>
              </div>
              <div class="app-grid">${apps.map(makeCard).join('')}</div>
            </div>`
@@ -67,12 +67,12 @@ export async function renderOverview() {
            ${emptyState(
              'No applications yet',
              'Run your first scan to see applications here.',
-             `<button class="btn btn-primary" onclick="navigate('#/new-scan')" style="margin-top:16px">▶ Run First Scan</button>`,
+             `<button class="btn btn-primary" ${act('navigate', '#/new-scan')} style="margin-top:16px">▶ Run First Scan</button>`,
            )}
          </div>`;
 
     page.innerHTML = `
-      ${pageHeader(`Security Overview`, { actions: `<button class="btn btn-primary" onclick="navigate('#/new-scan')">+ Run Scan</button>` })}
+      ${pageHeader(`Security Overview`, { actions: `<button class="btn btn-primary" ${act('navigate', '#/new-scan')}>+ Run Scan</button>` })}
 
       <div class="stats-grid">
         <div class="stat-card">
@@ -272,7 +272,7 @@ export function cveBulkRenderForm() {
   body.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <h2 style="color:var(--text);margin:0">Create Jira tickets for ${esc(_cveBulk.data.query)}</h2>
-      <button class="btn" onclick="cveBulkClose()" style="padding:6px 12px">✕</button>
+      <button class="btn" ${act('cveBulkClose')} style="padding:6px 12px">✕</button>
     </div>
     <p style="color:var(--text-muted);font-size:13px;margin:0 0 12px">Confirm each application's Jira project before creating. Changing a key updates the Jira project for that whole application.</p>
     ${groupHtml}
@@ -286,8 +286,8 @@ export function cveBulkRenderForm() {
           oninput="cveBulkModalState().triagedBy=this.value"></label>
     </div>
     <div class="modal-actions" style="margin-top:20px;display:flex;justify-content:flex-end;gap:10px">
-      <button class="btn" onclick="cveBulkClose()">Cancel</button>
-      <button id="cve-bulk-confirm" class="btn btn-primary" onclick="cveBulkConfirm()" ${total ? '' : 'disabled'}>Create ${total} ticket${total === 1 ? '' : 's'}</button>
+      <button class="btn" ${act('cveBulkClose')}>Cancel</button>
+      <button id="cve-bulk-confirm" class="btn btn-primary" ${act('cveBulkConfirm')} ${total ? '' : 'disabled'}>Create ${total} ticket${total === 1 ? '' : 's'}</button>
     </div>`;
 }
 
@@ -398,7 +398,7 @@ export function cveSearchResultsHtml(data) {
   }).join('')).join('');
   return `
     <div class="cve-search-summary">${esc(data.total_findings)} finding${data.total_findings === 1 ? '' : 's'} across ${esc(data.total_applications)} application${data.total_applications === 1 ? '' : 's'}
-      <button id="cve-bulk-create" class="btn btn-primary btn-sm" onclick="cveBulkOpen()" disabled>Create Jira tickets</button>
+      <button id="cve-bulk-create" class="btn btn-primary btn-sm" ${act('cveBulkOpen')} disabled>Create Jira tickets</button>
     </div>
     <div class="table-container">
       <table>

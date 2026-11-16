@@ -1,6 +1,6 @@
 import { emptyState, errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
-import { esc } from '../lib/format.js';
+import { esc, act } from '../lib/format.js';
 import { navigate } from '../core/router.js';
 
 // Globals that other modules put on window (see index.js):
@@ -77,13 +77,13 @@ export async function renderStigHistory(selectedApp, selectedSlug) {
     const visibleScans = cutoff ? scans.filter(s => s.date >= cutoff) : scans;
 
     const dayBtns = [[7,'7d'],[14,'14d'],[30,'30d'],[35,'35d'],[0,'All']].map(([d,l]) =>
-      `<button class="btn btn-sm${daysFilter===d?' btn-active':''}" onclick="window._stigHistoryDays(${d})">${l}</button>`
+      `<button class="btn btn-sm${daysFilter===d?' btn-active':''}" ${act('_stigHistoryDays', d)}>${l}</button>`
     ).join('');
 
     const statusBtns = [
       ['all','All'],['open','Open'],['pass','Not a Finding'],['na','N/A'],['nr','Evidence needed']
     ].map(([k,l]) =>
-      `<button class="btn btn-sm${statusFilter===k?' btn-active':''}" onclick="window._stigHistoryStatus('${k}')">${l}</button>`
+      `<button class="btn btn-sm${statusFilter===k?' btn-active':''}" ${act('_stigHistoryStatus', `${k}`)}>${l}</button>`
     ).join('');
 
     const avgMttr = summary.avg_mttr_days != null
@@ -121,7 +121,7 @@ export async function renderStigHistory(selectedApp, selectedSlug) {
     const thSort = (key, label) => {
       const active = sortKey === key;
       const arrow  = active ? (sortDir === 1 ? ' ↑' : ' ↓') : '';
-      return `<th scope="col" class="sortable-th${active?' sorted':''}" onclick="window._stigHistorySort('${key}')">${label}${arrow}</th>`;
+      return `<th scope="col" class="sortable-th${active?' sorted':''}" ${act('_stigHistorySort', `${key}`)}>${label}${arrow}</th>`;
     };
 
     const dateHeaders = visibleScans.map(s =>
@@ -160,7 +160,7 @@ export async function renderStigHistory(selectedApp, selectedSlug) {
       const cid = _registerStigDetail(c);
 
       return `
-        <tr onclick="openStigDetail(${cid})" style="cursor:pointer" title="Click to view details">
+        <tr ${act('openStigDetail', cid)} style="cursor:pointer" title="Click to view details">
           <td class="stig-matrix-sev"><span class="sev-badge ${esc(sevCls)}">${esc(sevCls)}</span></td>
           <td class="stig-matrix-id">${esc(c.vuln_id)}</td>
           <td class="stig-matrix-title" title="${esc(c.title)}">${esc(c.title || '—')}</td>
@@ -229,8 +229,8 @@ export async function renderStigHistory(selectedApp, selectedSlug) {
   // ── Empty state (no apps with STIG data at all) ─────────
   const histTabs = `
     <div class="stig-tabs">
-      <button class="stig-tab" onclick="navigate('#/stig')">Overview</button>
-      <button class="stig-tab active" onclick="navigate('#/stig?view=history')">History &amp; MTTR</button>
+      <button class="stig-tab" ${act('navigate', '#/stig')}>Overview</button>
+      <button class="stig-tab active" ${act('navigate', '#/stig?view=history')}>History &amp; MTTR</button>
     </div>`;
 
   if (apps.length === 0) {

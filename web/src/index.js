@@ -1,5 +1,6 @@
-// Module entry. Everything exported here is also placed on `window`: the inline
-// onclick="fn()" handlers in rendered HTML look these functions up as globals.
+// Module entry. Everything exported here is also placed on `window`: delegated click
+// handlers (act() in lib/format.js, core/actions.js) and remaining inline handlers
+// look these functions up as globals.
 import * as m0 from './lib/format.js';
 import * as m1 from './lib/scans.js';
 import * as m2 from './components/badges.js';
@@ -37,11 +38,13 @@ import * as m33 from './components/drawers/finding.js';
 import * as m34 from './components/drawers/signals.js';
 import * as m35 from './core/shell.js';
 import './core/a11y.js';
+import './core/actions.js';
 import * as m36 from './components/scan/ppsm.js';
 import * as m37 from './pages/self-assessment.js';
 import * as m38 from './components/section.js';
 import * as m39 from './core/static-dashboard.js';
 import * as m40 from './lib/workflow.js';
 import * as m41 from './core/boot.js';
+import { act } from './lib/format.js';
 
 Object.assign(window, m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22, m23, m24, m25, m26, m27, m28, m29, m30, m31, m32, m33, m34, m35, m36, m37, m38, m39, m40, m41);

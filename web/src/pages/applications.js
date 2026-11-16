@@ -1,7 +1,7 @@
 import { gateBadge, hfStatusBadge, sevBadgeRow, statusBadge } from '../components/badges.js';
 import { emptyRow, emptyState, errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
-import { dedupeTools, esc, fmtDate } from '../lib/format.js';
+import { dedupeTools, esc, fmtDate, act } from '../lib/format.js';
 import { computeStatus, scanTypeLabel } from '../lib/scans.js';
 import { buildAppIssoSection } from '../components/summaries.js';
 
@@ -18,7 +18,7 @@ export async function renderApplications() {
 
     const rows = apps.length
       ? apps.map(app => `
-          <tr onclick="navigate('#/applications/${encodeURIComponent(app.name)}')"
+          <tr ${act('navigate', `#/applications/${encodeURIComponent(app.name)}`)}
               style="cursor:pointer">
             <td>
               <strong>${esc(app.name)}</strong>
@@ -83,7 +83,7 @@ export async function renderApplications() {
                   <td style="color:var(--text-muted)">${esc(name)}</td>
                   <td>
                     <button class="btn btn-sm"
-                      onclick="restoreApplication('${esc(name)}')">
+                      ${act('restoreApplication', name)}>
                       Restore
                     </button>
                   </td>
@@ -94,8 +94,8 @@ export async function renderApplications() {
       </div>` : '';
 
     page.innerHTML = `
-      ${pageHeader(`Applications`, { actions: `<button class="btn" onclick="showAddAppModal()">+ Add Application</button>
-          <button class="btn btn-primary" onclick="navigate('#/new-scan')">▶ Run Scan</button>` })}
+      ${pageHeader(`Applications`, { actions: `<button class="btn" ${act('showAddAppModal')}>+ Add Application</button>
+          <button class="btn btn-primary" ${act('navigate', '#/new-scan')}>▶ Run Scan</button>` })}
       <div class="table-container">
         <table>
           <thead>
@@ -125,7 +125,7 @@ export function buildScanTimelineItem(s, name) {
   const st = computeStatus(s);
   return `
     <div class="scan-timeline-item"
-         onclick="navigate('#/scans/${encodeURIComponent(s.scan_id)}')">
+         ${act('navigate', `#/scans/${encodeURIComponent(s.scan_id)}`)}>
       <div class="scan-timeline-dot ${esc(st)}"></div>
       <div class="scan-timeline-content">
         <div class="scan-timeline-title">
@@ -216,7 +216,7 @@ export function buildScanHistory(name, scans) {
         onchange="setScanHistoryDates()"></label>
       <label>To <input type="date" id="scan-filter-to" value="${esc(st.to)}"
         onchange="setScanHistoryDates()"></label>
-      <button class="btn btn-sm" id="scan-filter-clear" onclick="clearScanHistoryDates()"
+      <button class="btn btn-sm" id="scan-filter-clear" ${act('clearScanHistoryDates')}
         ${st.from || st.to ? '' : 'hidden'}>Clear dates</button>
     </div>
     <div id="scan-history-panel" role="tabpanel">${scanHistoryPanel(name, scans, st)}</div>`;
@@ -236,9 +236,9 @@ export function scanHistoryPanel(name, scans, st) {
     .map(s => buildScanTimelineItem(s, name)).join('');
   const pager = items.length > SCAN_HISTORY_PAGE_SIZE ? `
     <div class="scan-history-pager">
-      <button class="btn btn-sm" onclick="setScanHistoryPage(${st.page - 1})" ${st.page <= 1 ? 'disabled' : ''}>‹ Prev</button>
+      <button class="btn btn-sm" ${act('setScanHistoryPage', st.page - 1)} ${st.page <= 1 ? 'disabled' : ''}>‹ Prev</button>
       <span>Showing ${start + 1}–${Math.min(start + SCAN_HISTORY_PAGE_SIZE, items.length)} of ${items.length} · Page ${st.page} of ${pages}</span>
-      <button class="btn btn-sm" onclick="setScanHistoryPage(${st.page + 1})" ${st.page >= pages ? 'disabled' : ''}>Next ›</button>
+      <button class="btn btn-sm" ${act('setScanHistoryPage', st.page + 1)} ${st.page >= pages ? 'disabled' : ''}>Next ›</button>
     </div>` : '';
   return rows + pager;
 }
@@ -312,11 +312,11 @@ export async function renderAppDetail(name) {
           appUrl
             ? `<div style="display:flex;gap:8px;justify-content:center;margin-top:16px">
                  <button class="btn btn-primary"
-                   onclick="navigate('#/new-scan?target=${encodeURIComponent(appUrl)}')">
+                   ${act('navigate', `#/new-scan?target=${encodeURIComponent(appUrl)}`)}>
                    ▶ Run First Scan
                  </button>
                </div>`
-            : `<button class="btn btn-primary" onclick="navigate('#/new-scan')" style="margin-top:16px">
+            : `<button class="btn btn-primary" ${act('navigate', '#/new-scan')} style="margin-top:16px">
                  ▶ Run Scan
                </button>`,
         );
@@ -365,12 +365,12 @@ export async function renderAppDetail(name) {
 
     page.innerHTML = `
       <div class="breadcrumb">
-        <a href="#/applications" onclick="navigate('#/applications')">Applications</a>
+        <a href="#/applications" ${act('navigate', '#/applications')}>Applications</a>
         <span>›</span>
         <span>${esc(name)}</span>
       </div>
       ${pageHeader(`${esc(name)} ${statusBadge(status)}`, { actions: `<button class="btn btn-primary"
-            onclick="navigate('#/new-scan?target=${encodeURIComponent(appUrl)}')">
+            ${act('navigate', `#/new-scan?target=${encodeURIComponent(appUrl)}`)}>
             ▶ Run Scan
           </button>
           <button class="btn app-type-badge ${appInfo.monitored ? 'monitored' : 'evaluation'}"
@@ -386,12 +386,12 @@ export async function renderAppDetail(name) {
             ${appInfo.monitored ? '● Continuous' : '◯ Evaluation'}
           </button>
           <button class="btn btn-danger"
-            onclick="hideApplication('${esc(name)}')"
+            ${act('hideApplication', name)}
             title="Hide this application from the list">
             Hide
           </button>
           <button class="btn btn-danger"
-            onclick="deleteApplication('${esc(name)}')"
+            ${act('deleteApplication', name)}
             title="Permanently delete all scan data for this application">
             Delete All
           </button>` })}

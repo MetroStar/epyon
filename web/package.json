@@ -1,0 +1,12 @@
+{
+  "name": "epyon-web",
+  "private": true,
+  "description": "Build tooling for the Epyon web UI. Sources live in src/; the committed bundle is static/app.js and static/app.css.",
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node build.mjs --check"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

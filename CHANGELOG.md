@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.0] - 2026-11-15
+
+### Changed
+- Web UI sources moved to `web/src/` (`main.js`, `main.css`) and are built into the committed `web/static/app.js` and `web/static/app.css` with esbuild (`cd web && npm ci && npm run build`). The bundle is generated and committed, so running the web UI, `generate-dashboard.py` and the Docker image need no Node step. CI runs `npm run check` and fails if the committed bundle is stale. Behaviour is unchanged; this is the groundwork for splitting the UI into components.
+
 ## [3.71.2] - 2026-11-15
 
 ### Changed

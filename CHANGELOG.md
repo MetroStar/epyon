@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.11] - 2026-11-16
+
+### Changed
+- **Web UI refactor (step 3i, no behaviour change):** the scan-detail findings table (sort, paging), SBOM, API-endpoint and suppressed-findings sections moved from `web/src/main.js` into `web/src/components/scan/`. The finding, dependency and API drawer registries now live in `web/src/state/registries.js`; navigation clears them through `_resetFindingsRegistry()` and `resetFindingsViewState()`.
+
 ## [3.72.10] - 2026-11-16
 
 ### Changed

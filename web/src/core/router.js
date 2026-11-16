@@ -5,12 +5,14 @@ import { renderPerformanceDashboard } from '../pages/performance.js';
 import { renderStig, renderStigViewer } from '../pages/stig.js';
 import { renderJiraReview } from '../pages/jira-review.js';
 import { renderMetrics } from '../pages/metrics.js';
+import { renderOverview } from '../pages/overview.js';
+import { renderApplications, renderAppDetail } from '../pages/applications.js';
 import { renderNewScan } from '../pages/new-scan.js';
 import { renderStigHistory } from '../pages/stig-history.js';
 
 // Legacy globals still provided by main.js (see index.js); drop each one from this
 // list when its page moves into a module and is imported above instead.
-/* global renderOverview, renderApplications, renderAppDetail, renderScanDetail */
+/* global renderScanDetail */
 
 // Hash routes, first match wins. `exact` routes match the whole path; `prefix` routes pass
 // the decoded remainder as `arg` (empty falls back to the section's list page). `title`

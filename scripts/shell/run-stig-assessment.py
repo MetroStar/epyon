@@ -828,10 +828,17 @@ def _is_excluded_dir(dirname: str) -> bool:
     return dirname.startswith(".") and dirname not in _ALLOWED_HIDDEN_DIRS
 
 
+def _is_epyon_repo(root: Path) -> bool:
+    return (root / "epyon.sh").is_file() and (root / "scripts" / "shell" / "run-stig-assessment.py").is_file()
+
+
 def collect_source_files(target_dir: str) -> list[tuple[str, str]]:
     """Return list of (rel_path, content) for relevant source files."""
     root = Path(target_dir).resolve()
     files: list[tuple[str, str]] = []
+    # Epyon's own guides are product docs, not human STIG assessments; without this
+    # a self-scan would present them to the AI as priority manual documentation.
+    skip_own_docs = _is_epyon_repo(root)
 
     for path in sorted(root.rglob("*")):
         if not path.is_file():
@@ -848,6 +855,8 @@ def collect_source_files(target_dir: str) -> list[tuple[str, str]]:
 
         # For markdown/JSON, only collect compliance-relevant docs
         if ext in {".md", ".json"}:
+            if skip_own_docs and parts[0] in {"docs", ".github"}:
+                continue
             if not _is_compliance_relevant_doc(path):
                 continue
         elif name not in INCLUDE_FILENAMES and ext not in SOURCE_EXTENSIONS:

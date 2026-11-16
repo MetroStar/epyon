@@ -225,3 +225,28 @@ def test_incomplete_cached_control_set_is_rejected(tmp_path, monkeypatch, assess
     cache_file.write_text(json.dumps(cached))
     result = assess_fixture(assessor, root, tmp_path / "second")
     assert not result["reused"] and len(result["assessments"]) == 12
+
+
+def test_collect_source_files_skips_epyon_own_docs(tmp_path):
+    spec = importlib.util.spec_from_file_location("stig_assessor", SCRIPTS / "run-stig-assessment.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    def build(root, epyon):
+        (root / "docs").mkdir(parents=True)
+        (root / "docs" / "stig-findings.md").write_text("# manual\n")
+        (root / "app.py").write_text("print(1)\n")
+        if epyon:
+            (root / "epyon.sh").write_text("#!/bin/bash\n")
+            (root / "scripts" / "shell").mkdir(parents=True)
+            (root / "scripts" / "shell" / "run-stig-assessment.py").write_text("x = 1\n")
+
+    other, own = tmp_path / "other", tmp_path / "own"
+    build(other, False)
+    build(own, True)
+
+    other_paths = {rel for rel, _ in module.collect_source_files(str(other))}
+    own_paths = {rel for rel, _ in module.collect_source_files(str(own))}
+    assert "docs/stig-findings.md" in other_paths
+    assert "docs/stig-findings.md" not in own_paths
+    assert "app.py" in own_paths

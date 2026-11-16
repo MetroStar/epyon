@@ -1,6 +1,6 @@
 # Epyon — Copilot Instructions
 
-Epyon is a 20-layer DevSecOps security scanner that installs a GitHub Actions workflow into target repositories. It is built for **human-centered cybersecurity workflows**: the tool must be as usable as it is secure.
+Epyon is a 21-layer DevSecOps security scanner that installs a GitHub Actions workflow into target repositories. It is built for **human-centered cybersecurity workflows**: the tool must be as usable as it is secure.
 
 ## What Epyon Does
 
@@ -25,6 +25,7 @@ Epyon is a 20-layer DevSecOps security scanner that installs a GitHub Actions wo
 | 8.5 | Direct Dependency Scanning | pip-audit (ML-aware) | quick, nightly, full, stig |
 | 11.7 | Node Dependency Audit (resolves a lockfile in a temp copy) | npm audit | quick, nightly, full |
 | 11.8 | SAST | Semgrep | quick, nightly, full |
+| 8.6 | Python Safety Check | safety | quick, nightly, full |
 | 9 | EOL Detection | Xeol | nightly, full |
 | 10 | Container Analysis | Anchore | nightly, full |
 | 11 | API Discovery | Custom | nightly, full |
@@ -36,6 +37,7 @@ Epyon is a 20-layer DevSecOps security scanner that installs a GitHub Actions wo
 | 18 | Model Provenance & Threat Intelligence | Custom | nightly, full |
 | 19 | Inference Environment Security | Custom | nightly, full |
 | 20 | ML Runtime Behavioral Analysis | Custom | opt-in only (`RUN_ML_RUNTIME=true`) |
+| 21 | Compromised Source Detection | Custom | nightly, full |
 
 Every layer can be skipped with `SKIP_<LAYERNAME>=true`. See `documentation/SCAN_MATRIX.md` for the full matrix.
 

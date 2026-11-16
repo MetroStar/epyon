@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.13] - 2026-11-16
+
+### Changed
+- **Web UI refactor (step 3k, no behaviour change):** the finding, STIG control, GitHub-signal, API-endpoint and dependency detail drawers moved from `web/src/main.js` into `web/src/components/drawers/{finding,stig,signals}.js`. Drawer HTML is identical to the previous bundle on real scan data.
+
 ## [3.72.12] - 2026-11-16
 
 ### Changed

@@ -9336,8 +9336,909 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
     urlInput.focus();
   }
 
+  // src/components/drawers/stig.js
+  var stig_exports2 = {};
+  __export(stig_exports2, {
+    _registerStigDetail: () => _registerStigDetail2,
+    _stigDetailRegistry: () => _stigDetailRegistry,
+    closeStigDetail: () => closeStigDetail,
+    openStigDetail: () => openStigDetail,
+    openStigViewerDetail: () => openStigViewerDetail2,
+    stigRecordHtml: () => stigRecordHtml,
+    stigStatusLabel: () => stigStatusLabel2
+  });
+
+  // src/components/drawers/finding.js
+  var finding_exports = {};
+  __export(finding_exports, {
+    closeFindingDetail: () => closeFindingDetail2,
+    openFindingDetail: () => openFindingDetail2
+  });
+  function openFindingDetail2(id) {
+    const f = _findingsRegistry.get(id);
+    if (!f) return;
+    closeFindingDetail2();
+    const sev = f.severity || "unknown";
+    const fid = f.id || "—";
+    const tool = f.tool || "—";
+    const title = f.title || f.description || "—";
+    const desc = f.description || "";
+    const pkg = f.package || f.component || "";
+    const ver = f.version || "";
+    const fixed = f.fixed_version || "";
+    const target = f.target || f.file || "";
+    const line = f.line ? Array.isArray(f.line) && f.line.length === 2 ? f.line[0] === f.line[1] ? String(f.line[0]) : `${f.line[0]}-${f.line[1]}` : String(f.line) : "";
+    const refs = f.references || [];
+    const cisaKev = f.cisa_kev === true;
+    const cvssScore = f.nvd_cvss_v3_score != null ? f.nvd_cvss_v3_score : null;
+    const cvssSev = f.nvd_cvss_v3_severity || "";
+    const nvdUrl = f.nvd_url || (fid.startsWith("CVE-") ? `https://nvd.nist.gov/vuln/detail/${fid}` : "");
+    const cveSource = f.cve_source || "";
+    const sourceIcons = {
+      "GHSA": { icon: "🛡️", label: "GitHub Advisory", color: "#6e40aa" },
+      "NVD": { icon: "🏛️", label: "NIST NVD", color: "#1e40af" },
+      "OSV": { icon: "🔓", label: "OSV", color: "#059669" },
+      "Alpine": { icon: "🏔️", label: "Alpine SecDB", color: "#0d9488" },
+      "Debian": { icon: "🌀", label: "Debian Security", color: "#a90e3c" },
+      "Ubuntu": { icon: "🟠", label: "Ubuntu Security", color: "#e95420" },
+      "RHEL": { icon: "🎩", label: "Red Hat", color: "#cc0000" },
+      "Trivy": { icon: "🔍", label: "Trivy DB", color: "#1f2937" },
+      "Grype": { icon: "🦑", label: "Grype DB", color: "#475569" }
+    };
+    const sourceInfo = sourceIcons[cveSource] || null;
+    const sourceBadge = sourceInfo ? `<span style="display:inline-flex;align-items:center;gap:4px;background:${sourceInfo.color};color:#fff;font-size:12px;font-weight:600;padding:2px 6px;border-radius:3px;margin-left:6px" title="Source: ${sourceInfo.label}">
+         ${sourceInfo.icon} ${cveSource}
+       </span>` : "";
+    const idDisplay = fid.startsWith("CVE-") ? `<a class="finding-detail-id-link"
+          href="${esc(nvdUrl || "https://nvd.nist.gov/vuln/detail/" + esc(fid))}"
+          target="_blank" rel="noopener noreferrer">
+         ${esc(fid)}
+         <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+           <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+           <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+         </svg>
+       </a>${cisaKev ? ' <span style="background:var(--critical-bg);color:var(--critical);font-size:12px;font-weight:700;padding:2px 7px;border-radius:4px" title="CISA Known Exploited Vulnerability">KEV</span>' : ""}${sourceBadge}` : `<code>${esc(fid)}</code>${sourceBadge}`;
+    const refsHtml = refs.length ? `<div class="finding-detail-section">
+         <div class="finding-detail-label">References</div>
+         <div class="finding-detail-refs">
+           ${refs.map((r) => `<a href="${esc(r)}" target="_blank" rel="noopener noreferrer">${esc(r)}</a>`).join("")}
+         </div>
+       </div>` : "";
+    const descSection = desc && desc !== title ? `<div class="finding-detail-section">
+         <div class="finding-detail-label">Description</div>
+         <div class="finding-detail-desc">${esc(desc)}</div>
+       </div>` : "";
+    const overlay = document.createElement("div");
+    overlay.className = "finding-drawer-overlay";
+    overlay.id = "finding-drawer-overlay";
+    overlay.addEventListener("click", closeFindingDetail2);
+    const drawer = document.createElement("div");
+    drawer.className = "finding-drawer";
+    drawer.id = "finding-drawer";
+    drawer.setAttribute("role", "dialog");
+    drawer.setAttribute("aria-modal", "true");
+    drawer.setAttribute("aria-label", "Finding details");
+    drawer.addEventListener("click", (e) => e.stopPropagation());
+    drawer.innerHTML = `
+    <div class="finding-drawer-header">
+      <div class="finding-drawer-title">
+        <h2>${esc(title)}</h2>
+        <div class="finding-drawer-badges">
+          <span class="sev-badge ${esc(sev)}">${ucFirst(sev)}</span>
+          <span class="tool-tag">${esc(tool)}</span>
+          ${idDisplay}
+        </div>
+      </div>
+      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+    </div>
+    <div class="finding-drawer-body">
+
+      <div class="finding-detail-grid">
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Package / Component</div>
+          <div class="finding-detail-value">${pkg ? `<code>${esc(pkg)}</code>` : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Version</div>
+          <div class="finding-detail-value">${ver ? `<code>${esc(ver)}</code>` : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Fix Available</div>
+          <div class="finding-detail-value">${fixed ? `<code style="color:var(--clean)">${esc(fixed)}</code>` : '<span style="color:var(--text-dim)">None known</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Severity</div>
+          <div class="finding-detail-value"><span class="sev-badge ${esc(sev)}">${ucFirst(sev)}</span>${cvssScore != null ? ` <span style="color:var(--text-muted);font-size:12px">CVSS ${esc(String(cvssScore))}${cvssSev ? " · " + esc(cvssSev) : ""}</span>` : ""}</div>
+        </div>
+      </div>
+
+      ${cisaKev ? `
+        <div style="background:var(--critical-bg);border:1px solid var(--critical-bg);border-radius:var(--radius);padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
+          <span style="font-size:16px">⚠️</span>
+          <div>
+            <div style="color:var(--critical);font-weight:600;font-size:13px">CISA Known Exploited Vulnerability (KEV)</div>
+            <div style="color:var(--critical);font-size:12px;margin-top:2px">This CVE is actively exploited in the wild. CISA mandates remediation for federal agencies. Treat as highest priority.</div>
+          </div>
+        </div>` : ""}
+
+      ${target ? `
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">${findingSource(f) === "container" ? "Container Image" : "File Path"}</div>
+          <div class="finding-detail-value"><code style="word-break:break-all">${esc(target)}</code>${line ? ` <span style="color:var(--text-muted);font-size:12px">line ${esc(line)}</span>` : ""}</div>
+        </div>` : ""}
+
+      ${descSection}
+
+      ${refsHtml}
+
+      ${_scanIdFromHash() && !window.__SCAN__ ? `
+      <div id="finding-jira-section" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+        <button id="finding-jira-btn" class="btn btn-primary" onclick="jiraQuickAdd(${id})">Add to Jira</button>
+        <div id="finding-jira-status" style="font-size:12px;margin-top:8px"></div>
+      </div>` : ""}
+
+      <div id="finding-fix-section" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+        <button id="finding-fix-btn" class="btn btn-ai" onclick="fetchFindingFix(${id})">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Suggest Fix with AI
+        </button>
+        <div id="finding-fix-result"></div>
+      </div>
+
+    </div>`;
+    document.body.appendChild(overlay);
+    document.body.appendChild(drawer);
+  }
+  function closeFindingDetail2() {
+    const overlay = document.getElementById("finding-drawer-overlay");
+    const drawer = document.getElementById("finding-drawer");
+    overlay?.remove();
+    drawer?.remove();
+  }
+  window.fetchFindingFix = async function(fid) {
+    const f = _findingsRegistry.get(fid);
+    if (!f) return;
+    const btn = document.getElementById("finding-fix-btn");
+    const result = document.getElementById("finding-fix-result");
+    if (!btn || !result) return;
+    btn.disabled = true;
+    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1s linear infinite"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.04"/></svg> Generating…`;
+    const payload = {
+      id: f.id || void 0,
+      title: f.title || f.description || void 0,
+      description: f.description !== f.title ? f.description : void 0,
+      tool: f.tool || void 0,
+      severity: f.severity || void 0,
+      package: f.package || f.component || void 0,
+      version: f.version || void 0,
+      fixed_version: f.fixed_version || void 0,
+      target: f.target || void 0,
+      references: (f.references || []).slice(0, 3)
+    };
+    Object.keys(payload).forEach((k) => payload[k] === void 0 && delete payload[k]);
+    try {
+      const data = await api.getFindingFix(payload);
+      btn.style.display = "none";
+      result.innerHTML = `
+      <div style="margin-top:12px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.25);border-radius:var(--radius);padding:14px 16px;font-size:13px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;color:var(--purple);font-size:12px;font-weight:600">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          AI-SUGGESTED FIX
+        </div>
+        <div class="ai-fix-body">${renderMarkdown(data.fix || "")}</div>
+      </div>`;
+    } catch (err) {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Suggest Fix with AI`;
+      result.innerHTML = `<div style="margin-top:8px;color:var(--critical);font-size:12px">${esc(err.message)}</div>`;
+    }
+  };
+
+  // src/components/drawers/stig.js
+  function openStigViewerDetail2(regKey) {
+    const entry = _stigRegistry.get(regKey);
+    if (!entry) return;
+    closeFindingDetail2();
+    const { c, scanId } = entry;
+    const STATUS_CLASS_MAP = {
+      "Open": "stig-status-open",
+      "Not a Finding": "stig-status-pass",
+      "Not Applicable": "stig-status-na",
+      "Not Reviewed": "stig-status-nr"
+    };
+    const conf = c.confidence ?? 0;
+    const confCls = conf >= 90 ? "conf-high" : conf >= 70 ? "conf-med" : conf >= 40 ? "conf-low" : "conf-none";
+    const confLbl = conf >= 90 ? "High" : conf >= 70 ? "Medium" : conf >= 40 ? "Low" : "Insufficient";
+    const sev = (c.severity || "unknown").toLowerCase();
+    const statusCls = STATUS_CLASS_MAP[c.status] || "stig-status-nr";
+    const justPrefilled = c.locked_by_human && c.evidence ? esc(c.evidence.replace(/^\[Human override\] /, "").split("\n")[0]) : "";
+    const autoJustStatuses = ["Not a Finding", "Not Applicable"];
+    const autoJust = c.title || "";
+    const justInitial = justPrefilled || (autoJustStatuses.includes(c.status) ? esc(autoJust) : "");
+    const overrideOptions = ["Not a Finding", "Not Applicable", "Open", "Not Reviewed"].map((s) => `<option value="${esc(s)}"${c.status === s ? " selected" : ""}>${esc(s)}</option>`).join("");
+    const overlay = document.createElement("div");
+    overlay.className = "finding-drawer-overlay";
+    overlay.id = "finding-drawer-overlay";
+    overlay.addEventListener("click", closeFindingDetail2);
+    const drawer = document.createElement("div");
+    drawer.className = "finding-drawer";
+    drawer.id = "finding-drawer";
+    drawer.setAttribute("role", "dialog");
+    drawer.setAttribute("aria-modal", "true");
+    drawer.setAttribute("aria-label", "STIG control details");
+    drawer.addEventListener("click", (e) => e.stopPropagation());
+    drawer.innerHTML = `
+    <div class="finding-drawer-header">
+      <div class="finding-drawer-title">
+        <h2>${esc(c.title || c.vuln_id)}</h2>
+        <div class="finding-drawer-badges">
+          <span class="stig-sev stig-sev-${esc(sev)}">${ucFirst(sev)}</span>
+          <span class="${esc(statusCls)}">${esc(c.status)}</span>
+          ${c.locked_by_human ? '<span class="stig-lock-badge" title="Manually locked by reviewer">🔒</span>' : ""}
+          <code style="font-size:12px">${esc(c.group_id || c.vuln_id)}</code>
+        </div>
+      </div>
+      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+    </div>
+    <div class="finding-drawer-body">
+
+      <div class="finding-detail-grid">
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Vuln ID</div>
+          <div class="finding-detail-value"><code>${esc(c.vuln_id)}</code></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Rule ID</div>
+          <div class="finding-detail-value"><code>${esc(c.rule_id || "—")}</code></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Group ID</div>
+          <div class="finding-detail-value"><code>${esc(c.group_id || "—")}</code></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Confidence</div>
+          <div class="finding-detail-value">
+            <span class="stig-confidence ${confCls}">${conf}/100</span>
+            <span style="margin-left:6px;font-size:12px;color:var(--text-muted)">${confLbl}</span>
+          </div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">STIG</div>
+          <div class="finding-detail-value" style="font-size:12px;color:var(--text-muted)">${esc(c._stig_name || "—")}</div>
+        </div>
+      </div>
+
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">Evidence</div>
+        <div class="stig-evidence" style="margin-top:6px">${esc(c.evidence || "—").replace(/\n/g, "<br>")}</div>
+      </div>
+
+      ${stigRecordHtml(c)}
+
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">Check Content</div>
+        <div class="stig-check" style="margin-top:6px">${esc(c.check_content || "—").replace(/\n/g, "<br>")}</div>
+      </div>
+
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">Remediation</div>
+        <div style="margin-top:6px;font-size:13px;line-height:1.6;color:var(--text)">${esc(c.fix_text || "—").replace(/\n/g, "<br>")}</div>
+      </div>
+
+      <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
+        <button class="btn btn-primary" onclick="openStigJiraModal('${esc(scanId)}', ['${esc(regKey)}'])">Add to Jira</button>
+        <span id="stig-jira-drawer-status" style="margin-left:10px;font-size:12px"></span>
+      </div>
+
+      <div class="stig-override-section" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
+        <div class="finding-detail-label" style="margin-bottom:10px">
+          Manual Override
+          ${c.locked_by_human ? '<span class="stig-lock-badge" style="margin-left:8px">🔒 Locked by reviewer</span>' : ""}
+        </div>
+        <div class="stig-override-form">
+          <div class="stig-override-row">
+            <label class="stig-override-label">Status</label>
+            <select class="stig-override-select" id="sd-status-${esc(c.vuln_id)}-${esc(c._slug)}"
+              data-auto-just="${esc(autoJust)}"
+              onchange="stigOverrideStatusChanged(this, 'sd-just-${esc(c.vuln_id)}-${esc(c._slug)}')">
+              ${overrideOptions}
+            </select>
+          </div>
+          <div class="stig-override-row">
+            <label class="stig-override-label">Justification</label>
+            <textarea class="stig-override-textarea" id="sd-just-${esc(c.vuln_id)}-${esc(c._slug)}"
+              placeholder="Explain why this control is met (required)" rows="3">${justInitial}</textarea>
+          </div>
+          <div class="stig-override-row stig-override-actions">
+            <button class="btn btn-sm btn-success"
+              onclick="saveStigOverrideFromDrawer('${esc(scanId)}','${esc(c._slug)}','${esc(c.vuln_id)}')"
+            >🔒 Lock Override</button>
+            ${c.locked_by_human ? `<button class="btn btn-sm"
+                  onclick="clearStigOverrideFromDrawer('${esc(scanId)}','${esc(c._slug)}','${esc(c.vuln_id)}')"
+                >Clear Lock</button>` : ""}
+            <span class="stig-override-msg" id="sd-msg-${esc(c.vuln_id)}-${esc(c._slug)}"></span>
+          </div>
+        </div>
+      </div>
+
+    </div>`;
+    document.body.appendChild(overlay);
+    document.body.appendChild(drawer);
+  }
+  function stigStatusLabel2(status) {
+    return status === "Not Reviewed" ? "Evidence needed" : status || "";
+  }
+  function stigRecordHtml(c) {
+    const rows = Array.isArray(c.changes_that_may_affect) ? c.changes_that_may_affect : [];
+    const auto = c.automation_recommendation;
+    const notes = [];
+    if (c.evidence_needed) notes.push(["Evidence needed", c.evidence_needed]);
+    if (c.verification_note) notes.push(["Verification", c.verification_note]);
+    if (c.reopened_reason) notes.push(["Re-opened", c.reopened_reason]);
+    if (c.downgraded_from) notes.push(["Downgraded from", c.downgraded_from]);
+    if (c.needs_owner_confirmation) notes.push(["Owner", "Needs owner confirmation"]);
+    (c.citation_failures || []).forEach((f) => notes.push(["Citation failed", f]));
+    if (!rows.length && !auto && !notes.length) return "";
+    const noteHtml = notes.map(([k, v]) => `<div style="font-size:13px;margin-top:4px"><strong>${esc(k)}:</strong> ${esc(v)}</div>`).join("");
+    const tableHtml = rows.length ? `
+    <table class="stig-table" style="margin-top:6px">
+      <thead><tr><th scope="col">Change</th><th scope="col">Where</th><th scope="col">Re-check</th></tr></thead>
+      <tbody>${rows.map((r) => `<tr><td>${esc(r.change)}</td><td>${esc(r.where)}</td><td>${esc(r.recheck)}</td></tr>`).join("")}</tbody>
+    </table>` : "";
+    const autoHtml = auto ? `
+    <div style="margin-top:8px;font-size:13px">
+      <strong>Automation:</strong> ${esc(auto.check || "—")}
+      ${auto.data_source ? `<div>Data source: ${esc(auto.data_source)}</div>` : ""}
+      ${auto.pass_fail_rule ? `<div>Pass/fail: ${esc(auto.pass_fail_rule)}</div>` : ""}
+      ${auto.where_it_runs ? `<div>Runs in: ${esc(auto.where_it_runs)}</div>` : ""}
+    </div>` : "";
+    return `
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">Review Record</div>
+        ${noteHtml}${rows.length ? '<div class="finding-detail-label" style="margin-top:10px">Changes that may affect this control</div>' : ""}${tableHtml}${autoHtml}
+      </div>`;
+  }
+  function closeStigDetail() {
+    closeFindingDetail2();
+  }
+  window.stigOverrideStatusChanged = (sel, justId) => {
+    const just = document.getElementById(justId);
+    if (!just) return;
+    const auto = sel.dataset.autoJust || "";
+    const val = just.value.trim();
+    if (val && val !== auto) return;
+    just.value = ["Not a Finding", "Not Applicable"].includes(sel.value) ? auto : "";
+  };
+  window.saveStigOverrideFromDrawer = async (sid, slug, vulnId) => {
+    const statusEl = document.getElementById(`sd-status-${vulnId}-${slug}`);
+    const justEl = document.getElementById(`sd-just-${vulnId}-${slug}`);
+    const msgEl = document.getElementById(`sd-msg-${vulnId}-${slug}`);
+    if (!statusEl || !justEl || !msgEl) return;
+    const justification = justEl.value.trim();
+    if (!justification) {
+      msgEl.textContent = "Justification is required.";
+      msgEl.className = "stig-override-msg stig-override-err";
+      return;
+    }
+    msgEl.textContent = "Saving…";
+    msgEl.className = "stig-override-msg";
+    try {
+      const res = await fetch(`/api/scans/${encodeURIComponent(sid)}/stig-override`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, vuln_id: vulnId, status: statusEl.value, justification })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || res.statusText);
+      }
+      msgEl.textContent = "✓ Locked";
+      msgEl.className = "stig-override-msg stig-override-ok";
+      const newStatus = statusEl.value;
+      setTimeout(() => {
+        closeFindingDetail2();
+        const patch = { status: newStatus, confidence: 95, locked_by_human: true, evidence: `[Human override] ${justification}
+` };
+        if (!window.updateStigControlInPlace?.(slug, vulnId, patch)) renderStigViewer(sid);
+      }, 800);
+    } catch (e) {
+      msgEl.textContent = `Error: ${e.message}`;
+      msgEl.className = "stig-override-msg stig-override-err";
+    }
+  };
+  window.clearStigOverrideFromDrawer = async (sid, slug, vulnId) => {
+    const msgEl = document.getElementById(`sd-msg-${vulnId}-${slug}`);
+    if (msgEl) {
+      msgEl.textContent = "Clearing…";
+      msgEl.className = "stig-override-msg";
+    }
+    try {
+      const res = await fetch(`/api/scans/${encodeURIComponent(sid)}/stig-override`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, vuln_id: vulnId, status: "Open", justification: "", clear_lock: true })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || res.statusText);
+      }
+      if (msgEl) {
+        msgEl.textContent = "✓ Lock cleared";
+        msgEl.className = "stig-override-msg stig-override-ok";
+      }
+      setTimeout(() => {
+        closeFindingDetail2();
+        const patch = { status: "Open", confidence: 0, locked_by_human: false, evidence: "" };
+        if (!window.updateStigControlInPlace?.(slug, vulnId, patch)) renderStigViewer(sid);
+      }, 800);
+    } catch (e) {
+      if (msgEl) {
+        msgEl.textContent = `Error: ${e.message}`;
+        msgEl.className = "stig-override-msg stig-override-err";
+      }
+    }
+  };
+  var _stigDetailNextId = 0;
+  var _stigDetailRegistry = /* @__PURE__ */ new Map();
+  function _registerStigDetail2(c) {
+    const id = _stigDetailNextId++;
+    _stigDetailRegistry.set(id, c);
+    return id;
+  }
+  function openStigDetail(id) {
+    const c = _stigDetailRegistry.get(id);
+    if (!c) return;
+    closeFindingDetail2();
+    const _SC = { "Open": "open", "Not a Finding": "not-a-finding", "Not Applicable": "na", "Not Reviewed": "not-reviewed" };
+    const _SA = { "Open": "Open", "Not a Finding": "Pass", "Not Applicable": "N/A", "Not Reviewed": "Evid." };
+    const sev = c.severity || "unknown";
+    const sevCls = sev.toLowerCase();
+    const latCls = _SC[c.latest_status] || "not-reviewed";
+    const latLbl = _SA[c.latest_status] || c.latest_status || "—";
+    const tl = [...c.timeline || []].sort((a, b) => b.date.localeCompare(a.date));
+    const timelineRows = tl.map((t, idx) => {
+      const cls = _SC[t.status] || "not-reviewed";
+      const lbl = _SA[t.status] || t.status;
+      const evidence = t.evidence || "No evidence provided.";
+      const confidence = t.confidence != null ? `${t.confidence}%` : "—";
+      const prevEvidence = idx < tl.length - 1 ? tl[idx + 1].evidence || "" : "";
+      const evidenceChanged = prevEvidence && evidence && prevEvidence !== evidence && t.status !== "Not Reviewed";
+      const changeClass = evidenceChanged ? ' style="background:var(--bg-hover)"' : "";
+      const changeIcon = evidenceChanged ? ' <span style="color:var(--accent);font-size:12px" title="Evidence changed from previous scan">🔄 Changed</span>' : "";
+      return `<tr${changeClass}>
+      <td style="padding:8px 12px;font-size:12px;color:var(--text-muted);white-space:nowrap;vertical-align:top">${esc(t.date.slice(0, 10))}</td>
+      <td style="padding:8px 12px;vertical-align:top"><span class="stig-status-chip ${cls}">${esc(lbl)}</span>${changeIcon}</td>
+      <td style="padding:8px 12px;font-size:12px;color:var(--text-muted);text-align:center;vertical-align:top">${confidence}</td>
+      <td style="padding:8px 12px;font-size:12px;color:var(--text);line-height:1.5;vertical-align:top">${esc(evidence).replace(/\n/g, "<br>")}</td>
+    </tr>`;
+    }).join("");
+    const overlay = document.createElement("div");
+    overlay.className = "finding-drawer-overlay";
+    overlay.id = "finding-drawer-overlay";
+    overlay.addEventListener("click", closeFindingDetail2);
+    const drawer = document.createElement("div");
+    drawer.className = "finding-drawer";
+    drawer.id = "finding-drawer";
+    drawer.setAttribute("role", "dialog");
+    drawer.setAttribute("aria-modal", "true");
+    drawer.setAttribute("aria-label", "STIG control details");
+    drawer.addEventListener("click", (e) => e.stopPropagation());
+    drawer.innerHTML = `
+    <div class="finding-drawer-header">
+      <div class="finding-drawer-title">
+        <h2>${esc(c.title || c.vuln_id || "—")}</h2>
+        <div class="finding-drawer-badges">
+          <span class="sev-badge ${esc(sevCls)}">${ucFirst(sev)}</span>
+          <span class="tool-tag">STIG</span>
+          <code>${esc(c.vuln_id)}</code>
+        </div>
+      </div>
+      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+    </div>
+    <div class="finding-drawer-body">
+      <div class="finding-detail-grid">
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Current Status</div>
+          <div class="finding-detail-value"><span class="stig-status-chip ${latCls}">${esc(latLbl)}</span></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Benchmark</div>
+          <div class="finding-detail-value">${c.stig_name ? `<code style="font-size:12px">${esc(c.stig_name)}</code>` : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">First Open</div>
+          <div class="finding-detail-value">${c.first_open ? esc(c.first_open.slice(0, 10)) : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">First Closed</div>
+          <div class="finding-detail-value">${c.first_closed ? esc(c.first_closed.slice(0, 10)) : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">MTTR</div>
+          <div class="finding-detail-value">${c.mttr_days != null ? `<strong>${c.mttr_days} days</strong>` : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+      </div>
+      ${tl.length ? `
+      <div class="finding-detail-section">
+        <div class="finding-detail-label">Scan History</div>
+        <div class="finding-detail-desc" style="padding:0;background:none;border:1px solid var(--border-muted);border-radius:var(--radius);overflow:hidden">
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr style="background:var(--bg-hover);border-bottom:1px solid var(--border)">
+                <th scope="col" style="padding:8px 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left;width:100px">Date</th>
+                <th scope="col" style="padding:8px 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left;width:140px">Status</th>
+                <th scope="col" style="padding:8px 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:center;width:80px">Confidence</th>
+                <th scope="col" style="padding:8px 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left">Evidence / Reasoning</th>
+              </tr>
+            </thead>
+            <tbody>${timelineRows}</tbody>
+          </table>
+        </div>
+      </div>` : ""}
+    </div>`;
+    document.body.appendChild(overlay);
+    document.body.appendChild(drawer);
+  }
+
+  // src/components/drawers/signals.js
+  var signals_exports = {};
+  __export(signals_exports, {
+    closeAPIDetail: () => closeAPIDetail,
+    closeGhSignalDetail: () => closeGhSignalDetail,
+    openAPIDetail: () => openAPIDetail,
+    openGhSignalDetail: () => openGhSignalDetail
+  });
+  function openGhSignalDetail(kind, idx) {
+    if (!window._ghSignalData) return;
+    closeGhSignalDetail();
+    let title = "", bodyHtml = "", repoUrl = "";
+    if (kind === "run") {
+      const r = window._ghSignalData.run[idx];
+      if (!r) return;
+      const repoShort = r.repo.split("/")[1] || r.repo;
+      repoUrl = `https://github.com/${r.repo}/actions`;
+      title = `Workflow Runs — ${repoShort}`;
+      const rate = r.success_rate != null ? r.success_rate : null;
+      const rateColor = rate == null ? "var(--text-muted)" : rate >= 90 ? "var(--clean)" : rate >= 70 ? "#e3b341" : "var(--critical)";
+      bodyHtml = `
+      <div class="finding-detail-grid">
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Repository</div>
+          <div class="finding-detail-value"><code>${esc(r.repo)}</code></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Success Rate (30d)</div>
+          <div class="finding-detail-value" style="color:${rateColor};font-weight:700;font-size:22px">${rate != null ? rate + "%" : "—"}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Total Runs</div>
+          <div class="finding-detail-value">${r.total_runs || 0}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">In Progress / Queued</div>
+          <div class="finding-detail-value">${r.in_progress || 0}</div>
+        </div>
+      </div>
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">Run Breakdown</div>
+        <div style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap">
+          <span style="background:rgba(63,185,80,.15);color:var(--clean);padding:4px 10px;border-radius:6px;font-weight:700">✓ Success: ${r.success || 0}</span>
+          <span style="background:rgba(248,81,73,.15);color:var(--critical);padding:4px 10px;border-radius:6px;font-weight:700">✗ Failed: ${r.failed || 0}</span>
+          <span style="background:rgba(139,148,158,.15);color:var(--text-muted);padding:4px 10px;border-radius:6px;font-weight:700">⊘ Skipped: ${r.skipped || 0}</span>
+        </div>
+      </div>
+      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
+        <a href="${esc(repoUrl)}" target="_blank" rel="noopener noreferrer"
+           style="display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-size:13px;text-decoration:none">
+          View Actions on GitHub
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
+      </div>`;
+    } else if (kind === "cov") {
+      const [name, v] = window._ghSignalData.cov[idx] || [];
+      if (!name) return;
+      title = `PR Scan Coverage — ${esc(name)}`;
+      const pct = v.pr_coverage_pct;
+      const barColor = pct >= 70 ? "var(--clean)" : pct >= 40 ? "#e3b341" : "var(--critical)";
+      bodyHtml = `
+      <div class="finding-detail-grid">
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Application</div>
+          <div class="finding-detail-value"><strong>${esc(name)}</strong></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">PR Scan Coverage</div>
+          <div class="finding-detail-value" style="color:${barColor};font-weight:700;font-size:22px">${pct}%</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">PR-Triggered Scans</div>
+          <div class="finding-detail-value">${v.pr_scans}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Total CI Scans</div>
+          <div class="finding-detail-value">${v.total_ci_scans}</div>
+        </div>
+      </div>
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">Coverage Bar</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+          <div style="flex:1;background:var(--border);border-radius:6px;height:12px;overflow:hidden">
+            <div style="width:${Math.min(pct, 100)}%;background:${barColor};height:100%;border-radius:6px;transition:width .3s"></div>
+          </div>
+          <span style="font-weight:700;color:${barColor}">${pct}%</span>
+        </div>
+      </div>
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">Scan Breakdown</div>
+        <div style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap">
+          <span style="background:rgba(121,192,255,.12);color:var(--accent);padding:4px 10px;border-radius:6px;font-weight:700">PR: ${v.pr_scans}</span>
+          <span style="background:rgba(139,148,158,.12);color:var(--text-muted);padding:4px 10px;border-radius:6px;font-weight:700">Push: ${v.push_scans}</span>
+          <span style="background:rgba(139,148,158,.12);color:var(--text-muted);padding:4px 10px;border-radius:6px;font-weight:700">Other: ${v.other_scans}</span>
+        </div>
+      </div>
+      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
+        <button class="btn btn-ai" onclick="closeGhSignalDetail();navigate('#/applications/${encodeURIComponent(name)}')">
+          View Application Scans
+        </button>
+      </div>`;
+    }
+    const overlay = document.createElement("div");
+    overlay.className = "finding-drawer-overlay";
+    overlay.id = "gh-signal-drawer-overlay";
+    overlay.addEventListener("click", closeGhSignalDetail);
+    const drawer = document.createElement("div");
+    drawer.className = "finding-drawer";
+    drawer.id = "gh-signal-drawer";
+    drawer.setAttribute("role", "dialog");
+    drawer.setAttribute("aria-modal", "true");
+    drawer.setAttribute("aria-label", title);
+    drawer.addEventListener("click", (e) => e.stopPropagation());
+    drawer.innerHTML = `
+    <div class="finding-drawer-header">
+      <div class="finding-drawer-title">
+        <h2>${title}</h2>
+      </div>
+      <button class="finding-drawer-close" onclick="closeGhSignalDetail()" aria-label="Close">✕</button>
+    </div>
+    <div class="finding-drawer-body">${bodyHtml}</div>`;
+    document.body.appendChild(overlay);
+    document.body.appendChild(drawer);
+  }
+  function closeGhSignalDetail() {
+    const overlay = document.getElementById("gh-signal-drawer-overlay");
+    const drawer = document.getElementById("gh-signal-drawer");
+    overlay?.remove();
+    drawer?.remove();
+  }
+  function openAPIDetail(id) {
+    const ep = _apiRegistry.get(id);
+    if (!ep) return;
+    closeAPIDetail();
+    const method = ep.method || "UNKNOWN";
+    const path = ep.path || "—";
+    const funcName = ep.function || "—";
+    const name = ep.name || "—";
+    const framework = ep.framework || "Unknown";
+    const auth = ep.auth || "None";
+    const tags = ep.tags || "";
+    const file = ep.file || "—";
+    const description = ep.description || "";
+    const params = ep.parameters || ep.params || [];
+    const responses = ep.responses || [];
+    const methodColor = {
+      "GET": "#10b981",
+      "POST": "#f59e0b",
+      "PUT": "#3b82f6",
+      "DELETE": "#ef4444",
+      "PATCH": "#8b5cf6"
+    }[method] || "#6b7280";
+    const overlay = document.createElement("div");
+    overlay.className = "finding-drawer-overlay";
+    overlay.id = "api-drawer-overlay";
+    overlay.addEventListener("click", closeAPIDetail);
+    const drawer = document.createElement("div");
+    drawer.className = "finding-drawer";
+    drawer.id = "api-drawer";
+    drawer.setAttribute("role", "dialog");
+    drawer.setAttribute("aria-modal", "true");
+    drawer.setAttribute("aria-label", "API endpoint details");
+    drawer.addEventListener("click", (e) => e.stopPropagation());
+    drawer.innerHTML = `
+    <div class="finding-drawer-header">
+      <div class="finding-drawer-title">
+        <h2 style="font-family:monospace;font-size:16px">${esc(path)}</h2>
+        <div class="finding-drawer-badges">
+          <span style="background:${methodColor};color:white;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600">${esc(method)}</span>
+          <span class="tool-tag">${esc(framework)}</span>
+        </div>
+      </div>
+      <button class="finding-drawer-close" onclick="closeAPIDetail()" aria-label="Close">✕</button>
+    </div>
+    <div class="finding-drawer-body">
+
+      <div class="finding-detail-grid">
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Function</div>
+          <div class="finding-detail-value"><code>${esc(funcName)}</code></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Name</div>
+          <div class="finding-detail-value">${name !== "—" ? esc(name) : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Framework</div>
+          <div class="finding-detail-value"><span class="tool-tag">${esc(framework)}</span></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Authentication</div>
+          <div class="finding-detail-value">${auth !== "None" ? `<code style="font-size:12px">${esc(auth)}</code>` : '<span style="color:var(--text-dim)">None</span>'}</div>
+        </div>
+      </div>
+
+      ${description ? `
+        <div class="finding-detail-section" style="margin-top:12px">
+          <div class="finding-detail-label">Description</div>
+          <div class="finding-detail-desc">${esc(description)}</div>
+        </div>` : ""}
+
+      ${tags ? `
+        <div class="finding-detail-section" style="margin-top:12px">
+          <div class="finding-detail-label">Tags</div>
+          <div class="finding-detail-value">${esc(tags)}</div>
+        </div>` : ""}
+
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">File Location</div>
+        <div class="finding-detail-value"><code style="font-size:12px;word-break:break-all">${esc(file)}</code></div>
+      </div>
+
+      ${Array.isArray(params) && params.length > 0 ? `
+        <div class="finding-detail-section" style="margin-top:16px">
+          <div class="finding-detail-label">Parameters</div>
+          <div style="margin-top:6px">
+            ${params.map((p) => `
+              <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:8px;margin-bottom:6px">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                  <code style="color:var(--purple);font-size:12px">${esc(p.name || "")}</code>
+                  ${p.required ? '<span style="color:var(--critical);font-size:12px;font-weight:600">REQUIRED</span>' : ""}
+                </div>
+                ${p.type ? `<div style="color:var(--text-muted);font-size:12px">Type: <code>${esc(p.type)}</code></div>` : ""}
+                ${p.description ? `<div style="color:var(--text-dim);font-size:12px;margin-top:3px">${esc(p.description)}</div>` : ""}
+              </div>
+            `).join("")}
+          </div>
+        </div>` : ""}
+
+      ${Array.isArray(responses) && responses.length > 0 ? `
+        <div class="finding-detail-section" style="margin-top:16px">
+          <div class="finding-detail-label">Responses</div>
+          <div style="margin-top:6px">
+            ${responses.map((r) => `
+              <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:8px;margin-bottom:6px">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                  <code style="color:var(--pass);font-size:12px">${esc(String(r.status || r.code || ""))}</code>
+                  <span style="color:var(--text-muted);font-size:12px">${esc(r.description || "")}</span>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        </div>` : ""}
+
+    </div>`;
+    document.body.appendChild(overlay);
+    document.body.appendChild(drawer);
+  }
+  function closeAPIDetail() {
+    const overlay = document.getElementById("api-drawer-overlay");
+    const drawer = document.getElementById("api-drawer");
+    overlay?.remove();
+    drawer?.remove();
+  }
+  window.openDependencyDetail = function(did) {
+    const p = _depsRegistry.get(did);
+    if (!p) return;
+    closeFindingDetail2();
+    const purlUrl = (() => {
+      if (!p.purl) return null;
+      const m = p.purl.match(/^pkg:([^/]+)\/([^@?#]+)(?:@([^?#]+))?/);
+      if (!m) return null;
+      const [, eco, pkg] = m;
+      const pkgName = pkg.includes("%2F") ? pkg.replace("%2F", "/") : pkg;
+      if (eco === "npm") return `https://www.npmjs.com/package/${pkgName}`;
+      if (eco === "pypi") return `https://pypi.org/project/${pkgName}`;
+      if (eco === "gem") return `https://rubygems.org/gems/${pkgName}`;
+      if (eco === "cargo") return `https://crates.io/crates/${pkgName}`;
+      if (eco === "maven") return `https://mvnrepository.com/artifact/${pkgName.replace("%3A", "/")}`;
+      if (eco === "golang") return `https://pkg.go.dev/${pkgName}`;
+      if (eco === "nuget") return `https://www.nuget.org/packages/${pkgName}`;
+      if (eco === "composer") return `https://packagist.org/packages/${pkgName}`;
+      if (eco === "apk" || eco === "deb" || eco === "rpm") return null;
+      return null;
+    })();
+    const purlSection = p.purl ? `
+    <div class="finding-detail-section" style="grid-column:1/-1">
+      <div class="finding-detail-label">Package URL (PURL)</div>
+      <div class="finding-detail-value" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <code style="font-size:12px;word-break:break-all">${esc(p.purl)}</code>
+        ${purlUrl ? `<a href="${esc(purlUrl)}" target="_blank" rel="noopener noreferrer"
+             style="font-size:12px;white-space:nowrap;color:var(--purple)">
+             View registry
+             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle">
+               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+               <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+             </svg>
+           </a>` : ""}
+      </div>
+    </div>` : "";
+    const pathSection = p.path ? `
+    <div class="finding-detail-section" style="grid-column:1/-1">
+      <div class="finding-detail-label">File Path</div>
+      <div class="finding-detail-value"><code style="word-break:break-all">${esc(p.path)}</code></div>
+    </div>` : "";
+    const licenseSection = p.license ? `
+    <div class="finding-detail-section">
+      <div class="finding-detail-label">License</div>
+      <div class="finding-detail-value"><code>${esc(p.license)}</code></div>
+    </div>` : "";
+    const langSection = p.language ? `
+    <div class="finding-detail-section">
+      <div class="finding-detail-label">Language</div>
+      <div class="finding-detail-value"><code>${esc(p.language)}</code></div>
+    </div>` : "";
+    const overlay = document.createElement("div");
+    overlay.className = "finding-drawer-overlay";
+    overlay.id = "finding-drawer-overlay";
+    overlay.addEventListener("click", closeFindingDetail2);
+    const drawer = document.createElement("div");
+    drawer.className = "finding-drawer";
+    drawer.id = "finding-drawer";
+    drawer.setAttribute("role", "dialog");
+    drawer.setAttribute("aria-modal", "true");
+    drawer.setAttribute("aria-label", "Dependency details");
+    drawer.addEventListener("click", (e) => e.stopPropagation());
+    drawer.innerHTML = `
+    <div class="finding-drawer-header">
+      <div class="finding-drawer-title">
+        <h2>${esc(p.name)}</h2>
+        <div class="finding-drawer-badges">
+          <span class="tool-tag">${esc(p.type)}</span>
+          ${p.version ? `<code style="font-size:12px">${esc(p.version)}</code>` : ""}
+          ${p.language ? `<span class="tool-tag" style="background:var(--accent-bg);color:var(--accent)">${esc(p.language)}</span>` : ""}
+        </div>
+      </div>
+      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
+    </div>
+    <div class="finding-drawer-body">
+
+      <div class="finding-detail-grid">
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Name</div>
+          <div class="finding-detail-value"><code>${esc(p.name)}</code></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Version</div>
+          <div class="finding-detail-value">${p.version ? `<code>${esc(p.version)}</code>` : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Type</div>
+          <div class="finding-detail-value"><span class="tool-tag" style="font-size:12px">${esc(p.type)}</span></div>
+        </div>
+        ${langSection}
+        ${licenseSection}
+      </div>
+
+      ${pathSection}
+      ${purlSection}
+
+    </div>`;
+    document.body.appendChild(overlay);
+    document.body.appendChild(drawer);
+  };
+
   // src/index.js
-  Object.assign(window, format_exports, scans_exports, badges_exports, layout_exports, charts_exports, feedback_exports, cache_exports, api_exports, poam_exports, router_exports, settings_exports, performance_exports, stig_history_exports, new_scan_exports, self_diagnostic_exports, registries_exports, jira_review_exports, stig_exports, metrics_exports, overview_exports, applications_exports, model_security_exports, network_enrichment_exports, evidence_exports, scan_detail_exports, suppressed_exports, sbom_exports, api_endpoints_exports, findings_exports, summaries_exports, scorecard_exports, app_actions_exports);
+  Object.assign(window, format_exports, scans_exports, badges_exports, layout_exports, charts_exports, feedback_exports, cache_exports, api_exports, poam_exports, router_exports, settings_exports, performance_exports, stig_history_exports, new_scan_exports, self_diagnostic_exports, registries_exports, jira_review_exports, stig_exports, metrics_exports, overview_exports, applications_exports, model_security_exports, network_enrichment_exports, evidence_exports, scan_detail_exports, suppressed_exports, sbom_exports, api_endpoints_exports, findings_exports, summaries_exports, scorecard_exports, app_actions_exports, stig_exports2, finding_exports, signals_exports);
 })();
 
 "use strict";
@@ -9862,877 +10763,6 @@ window.addEventListener("load", () => {
   }).catch(() => {
   });
 });
-window.openDependencyDetail = function(did) {
-  const p = _depsRegistry.get(did);
-  if (!p) return;
-  closeFindingDetail();
-  const purlUrl = (() => {
-    if (!p.purl) return null;
-    const m = p.purl.match(/^pkg:([^/]+)\/([^@?#]+)(?:@([^?#]+))?/);
-    if (!m) return null;
-    const [, eco, pkg] = m;
-    const pkgName = pkg.includes("%2F") ? pkg.replace("%2F", "/") : pkg;
-    if (eco === "npm") return `https://www.npmjs.com/package/${pkgName}`;
-    if (eco === "pypi") return `https://pypi.org/project/${pkgName}`;
-    if (eco === "gem") return `https://rubygems.org/gems/${pkgName}`;
-    if (eco === "cargo") return `https://crates.io/crates/${pkgName}`;
-    if (eco === "maven") return `https://mvnrepository.com/artifact/${pkgName.replace("%3A", "/")}`;
-    if (eco === "golang") return `https://pkg.go.dev/${pkgName}`;
-    if (eco === "nuget") return `https://www.nuget.org/packages/${pkgName}`;
-    if (eco === "composer") return `https://packagist.org/packages/${pkgName}`;
-    if (eco === "apk" || eco === "deb" || eco === "rpm") return null;
-    return null;
-  })();
-  const purlSection = p.purl ? `
-    <div class="finding-detail-section" style="grid-column:1/-1">
-      <div class="finding-detail-label">Package URL (PURL)</div>
-      <div class="finding-detail-value" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <code style="font-size:12px;word-break:break-all">${esc(p.purl)}</code>
-        ${purlUrl ? `<a href="${esc(purlUrl)}" target="_blank" rel="noopener noreferrer"
-             style="font-size:12px;white-space:nowrap;color:var(--purple)">
-             View registry
-             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle">
-               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-               <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-             </svg>
-           </a>` : ""}
-      </div>
-    </div>` : "";
-  const pathSection = p.path ? `
-    <div class="finding-detail-section" style="grid-column:1/-1">
-      <div class="finding-detail-label">File Path</div>
-      <div class="finding-detail-value"><code style="word-break:break-all">${esc(p.path)}</code></div>
-    </div>` : "";
-  const licenseSection = p.license ? `
-    <div class="finding-detail-section">
-      <div class="finding-detail-label">License</div>
-      <div class="finding-detail-value"><code>${esc(p.license)}</code></div>
-    </div>` : "";
-  const langSection = p.language ? `
-    <div class="finding-detail-section">
-      <div class="finding-detail-label">Language</div>
-      <div class="finding-detail-value"><code>${esc(p.language)}</code></div>
-    </div>` : "";
-  const overlay = document.createElement("div");
-  overlay.className = "finding-drawer-overlay";
-  overlay.id = "finding-drawer-overlay";
-  overlay.addEventListener("click", closeFindingDetail);
-  const drawer = document.createElement("div");
-  drawer.className = "finding-drawer";
-  drawer.id = "finding-drawer";
-  drawer.setAttribute("role", "dialog");
-  drawer.setAttribute("aria-modal", "true");
-  drawer.setAttribute("aria-label", "Dependency details");
-  drawer.addEventListener("click", (e) => e.stopPropagation());
-  drawer.innerHTML = `
-    <div class="finding-drawer-header">
-      <div class="finding-drawer-title">
-        <h2>${esc(p.name)}</h2>
-        <div class="finding-drawer-badges">
-          <span class="tool-tag">${esc(p.type)}</span>
-          ${p.version ? `<code style="font-size:12px">${esc(p.version)}</code>` : ""}
-          ${p.language ? `<span class="tool-tag" style="background:var(--accent-bg);color:var(--accent)">${esc(p.language)}</span>` : ""}
-        </div>
-      </div>
-      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
-    </div>
-    <div class="finding-drawer-body">
-
-      <div class="finding-detail-grid">
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Name</div>
-          <div class="finding-detail-value"><code>${esc(p.name)}</code></div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Version</div>
-          <div class="finding-detail-value">${p.version ? `<code>${esc(p.version)}</code>` : '<span style="color:var(--text-dim)">—</span>'}</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Type</div>
-          <div class="finding-detail-value"><span class="tool-tag" style="font-size:12px">${esc(p.type)}</span></div>
-        </div>
-        ${langSection}
-        ${licenseSection}
-      </div>
-
-      ${pathSection}
-      ${purlSection}
-
-    </div>`;
-  document.body.appendChild(overlay);
-  document.body.appendChild(drawer);
-};
-function openStigViewerDetail(regKey) {
-  const entry = _stigRegistry.get(regKey);
-  if (!entry) return;
-  closeFindingDetail();
-  const { c, scanId } = entry;
-  const STATUS_CLASS_MAP = {
-    "Open": "stig-status-open",
-    "Not a Finding": "stig-status-pass",
-    "Not Applicable": "stig-status-na",
-    "Not Reviewed": "stig-status-nr"
-  };
-  const conf = c.confidence ?? 0;
-  const confCls = conf >= 90 ? "conf-high" : conf >= 70 ? "conf-med" : conf >= 40 ? "conf-low" : "conf-none";
-  const confLbl = conf >= 90 ? "High" : conf >= 70 ? "Medium" : conf >= 40 ? "Low" : "Insufficient";
-  const sev = (c.severity || "unknown").toLowerCase();
-  const statusCls = STATUS_CLASS_MAP[c.status] || "stig-status-nr";
-  const justPrefilled = c.locked_by_human && c.evidence ? esc(c.evidence.replace(/^\[Human override\] /, "").split("\n")[0]) : "";
-  const autoJustStatuses = ["Not a Finding", "Not Applicable"];
-  const autoJust = c.title || "";
-  const justInitial = justPrefilled || (autoJustStatuses.includes(c.status) ? esc(autoJust) : "");
-  const overrideOptions = ["Not a Finding", "Not Applicable", "Open", "Not Reviewed"].map((s) => `<option value="${esc(s)}"${c.status === s ? " selected" : ""}>${esc(s)}</option>`).join("");
-  const overlay = document.createElement("div");
-  overlay.className = "finding-drawer-overlay";
-  overlay.id = "finding-drawer-overlay";
-  overlay.addEventListener("click", closeFindingDetail);
-  const drawer = document.createElement("div");
-  drawer.className = "finding-drawer";
-  drawer.id = "finding-drawer";
-  drawer.setAttribute("role", "dialog");
-  drawer.setAttribute("aria-modal", "true");
-  drawer.setAttribute("aria-label", "STIG control details");
-  drawer.addEventListener("click", (e) => e.stopPropagation());
-  drawer.innerHTML = `
-    <div class="finding-drawer-header">
-      <div class="finding-drawer-title">
-        <h2>${esc(c.title || c.vuln_id)}</h2>
-        <div class="finding-drawer-badges">
-          <span class="stig-sev stig-sev-${esc(sev)}">${ucFirst(sev)}</span>
-          <span class="${esc(statusCls)}">${esc(c.status)}</span>
-          ${c.locked_by_human ? '<span class="stig-lock-badge" title="Manually locked by reviewer">🔒</span>' : ""}
-          <code style="font-size:12px">${esc(c.group_id || c.vuln_id)}</code>
-        </div>
-      </div>
-      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
-    </div>
-    <div class="finding-drawer-body">
-
-      <div class="finding-detail-grid">
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Vuln ID</div>
-          <div class="finding-detail-value"><code>${esc(c.vuln_id)}</code></div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Rule ID</div>
-          <div class="finding-detail-value"><code>${esc(c.rule_id || "—")}</code></div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Group ID</div>
-          <div class="finding-detail-value"><code>${esc(c.group_id || "—")}</code></div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Confidence</div>
-          <div class="finding-detail-value">
-            <span class="stig-confidence ${confCls}">${conf}/100</span>
-            <span style="margin-left:6px;font-size:12px;color:var(--text-muted)">${confLbl}</span>
-          </div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">STIG</div>
-          <div class="finding-detail-value" style="font-size:12px;color:var(--text-muted)">${esc(c._stig_name || "—")}</div>
-        </div>
-      </div>
-
-      <div class="finding-detail-section" style="margin-top:12px">
-        <div class="finding-detail-label">Evidence</div>
-        <div class="stig-evidence" style="margin-top:6px">${esc(c.evidence || "—").replace(/\n/g, "<br>")}</div>
-      </div>
-
-      ${stigRecordHtml(c)}
-
-      <div class="finding-detail-section" style="margin-top:12px">
-        <div class="finding-detail-label">Check Content</div>
-        <div class="stig-check" style="margin-top:6px">${esc(c.check_content || "—").replace(/\n/g, "<br>")}</div>
-      </div>
-
-      <div class="finding-detail-section" style="margin-top:12px">
-        <div class="finding-detail-label">Remediation</div>
-        <div style="margin-top:6px;font-size:13px;line-height:1.6;color:var(--text)">${esc(c.fix_text || "—").replace(/\n/g, "<br>")}</div>
-      </div>
-
-      <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
-        <button class="btn btn-primary" onclick="openStigJiraModal('${esc(scanId)}', ['${esc(regKey)}'])">Add to Jira</button>
-        <span id="stig-jira-drawer-status" style="margin-left:10px;font-size:12px"></span>
-      </div>
-
-      <div class="stig-override-section" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
-        <div class="finding-detail-label" style="margin-bottom:10px">
-          Manual Override
-          ${c.locked_by_human ? '<span class="stig-lock-badge" style="margin-left:8px">🔒 Locked by reviewer</span>' : ""}
-        </div>
-        <div class="stig-override-form">
-          <div class="stig-override-row">
-            <label class="stig-override-label">Status</label>
-            <select class="stig-override-select" id="sd-status-${esc(c.vuln_id)}-${esc(c._slug)}"
-              data-auto-just="${esc(autoJust)}"
-              onchange="stigOverrideStatusChanged(this, 'sd-just-${esc(c.vuln_id)}-${esc(c._slug)}')">
-              ${overrideOptions}
-            </select>
-          </div>
-          <div class="stig-override-row">
-            <label class="stig-override-label">Justification</label>
-            <textarea class="stig-override-textarea" id="sd-just-${esc(c.vuln_id)}-${esc(c._slug)}"
-              placeholder="Explain why this control is met (required)" rows="3">${justInitial}</textarea>
-          </div>
-          <div class="stig-override-row stig-override-actions">
-            <button class="btn btn-sm btn-success"
-              onclick="saveStigOverrideFromDrawer('${esc(scanId)}','${esc(c._slug)}','${esc(c.vuln_id)}')"
-            >🔒 Lock Override</button>
-            ${c.locked_by_human ? `<button class="btn btn-sm"
-                  onclick="clearStigOverrideFromDrawer('${esc(scanId)}','${esc(c._slug)}','${esc(c.vuln_id)}')"
-                >Clear Lock</button>` : ""}
-            <span class="stig-override-msg" id="sd-msg-${esc(c.vuln_id)}-${esc(c._slug)}"></span>
-          </div>
-        </div>
-      </div>
-
-    </div>`;
-  document.body.appendChild(overlay);
-  document.body.appendChild(drawer);
-}
-function stigStatusLabel(status) {
-  return status === "Not Reviewed" ? "Evidence needed" : status || "";
-}
-function stigRecordHtml(c) {
-  const rows = Array.isArray(c.changes_that_may_affect) ? c.changes_that_may_affect : [];
-  const auto = c.automation_recommendation;
-  const notes = [];
-  if (c.evidence_needed) notes.push(["Evidence needed", c.evidence_needed]);
-  if (c.verification_note) notes.push(["Verification", c.verification_note]);
-  if (c.reopened_reason) notes.push(["Re-opened", c.reopened_reason]);
-  if (c.downgraded_from) notes.push(["Downgraded from", c.downgraded_from]);
-  if (c.needs_owner_confirmation) notes.push(["Owner", "Needs owner confirmation"]);
-  (c.citation_failures || []).forEach((f) => notes.push(["Citation failed", f]));
-  if (!rows.length && !auto && !notes.length) return "";
-  const noteHtml = notes.map(([k, v]) => `<div style="font-size:13px;margin-top:4px"><strong>${esc(k)}:</strong> ${esc(v)}</div>`).join("");
-  const tableHtml = rows.length ? `
-    <table class="stig-table" style="margin-top:6px">
-      <thead><tr><th scope="col">Change</th><th scope="col">Where</th><th scope="col">Re-check</th></tr></thead>
-      <tbody>${rows.map((r) => `<tr><td>${esc(r.change)}</td><td>${esc(r.where)}</td><td>${esc(r.recheck)}</td></tr>`).join("")}</tbody>
-    </table>` : "";
-  const autoHtml = auto ? `
-    <div style="margin-top:8px;font-size:13px">
-      <strong>Automation:</strong> ${esc(auto.check || "—")}
-      ${auto.data_source ? `<div>Data source: ${esc(auto.data_source)}</div>` : ""}
-      ${auto.pass_fail_rule ? `<div>Pass/fail: ${esc(auto.pass_fail_rule)}</div>` : ""}
-      ${auto.where_it_runs ? `<div>Runs in: ${esc(auto.where_it_runs)}</div>` : ""}
-    </div>` : "";
-  return `
-      <div class="finding-detail-section" style="margin-top:12px">
-        <div class="finding-detail-label">Review Record</div>
-        ${noteHtml}${rows.length ? '<div class="finding-detail-label" style="margin-top:10px">Changes that may affect this control</div>' : ""}${tableHtml}${autoHtml}
-      </div>`;
-}
-function closeStigDetail() {
-  closeFindingDetail();
-}
-window.stigOverrideStatusChanged = (sel, justId) => {
-  const just = document.getElementById(justId);
-  if (!just) return;
-  const auto = sel.dataset.autoJust || "";
-  const val = just.value.trim();
-  if (val && val !== auto) return;
-  just.value = ["Not a Finding", "Not Applicable"].includes(sel.value) ? auto : "";
-};
-window.saveStigOverrideFromDrawer = async (sid, slug, vulnId) => {
-  const statusEl = document.getElementById(`sd-status-${vulnId}-${slug}`);
-  const justEl = document.getElementById(`sd-just-${vulnId}-${slug}`);
-  const msgEl = document.getElementById(`sd-msg-${vulnId}-${slug}`);
-  if (!statusEl || !justEl || !msgEl) return;
-  const justification = justEl.value.trim();
-  if (!justification) {
-    msgEl.textContent = "Justification is required.";
-    msgEl.className = "stig-override-msg stig-override-err";
-    return;
-  }
-  msgEl.textContent = "Saving…";
-  msgEl.className = "stig-override-msg";
-  try {
-    const res = await fetch(`/api/scans/${encodeURIComponent(sid)}/stig-override`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug, vuln_id: vulnId, status: statusEl.value, justification })
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(err.detail || res.statusText);
-    }
-    msgEl.textContent = "✓ Locked";
-    msgEl.className = "stig-override-msg stig-override-ok";
-    const newStatus = statusEl.value;
-    setTimeout(() => {
-      closeFindingDetail();
-      const patch = { status: newStatus, confidence: 95, locked_by_human: true, evidence: `[Human override] ${justification}
-` };
-      if (!window.updateStigControlInPlace?.(slug, vulnId, patch)) renderStigViewer(sid);
-    }, 800);
-  } catch (e) {
-    msgEl.textContent = `Error: ${e.message}`;
-    msgEl.className = "stig-override-msg stig-override-err";
-  }
-};
-window.clearStigOverrideFromDrawer = async (sid, slug, vulnId) => {
-  const msgEl = document.getElementById(`sd-msg-${vulnId}-${slug}`);
-  if (msgEl) {
-    msgEl.textContent = "Clearing…";
-    msgEl.className = "stig-override-msg";
-  }
-  try {
-    const res = await fetch(`/api/scans/${encodeURIComponent(sid)}/stig-override`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug, vuln_id: vulnId, status: "Open", justification: "", clear_lock: true })
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(err.detail || res.statusText);
-    }
-    if (msgEl) {
-      msgEl.textContent = "✓ Lock cleared";
-      msgEl.className = "stig-override-msg stig-override-ok";
-    }
-    setTimeout(() => {
-      closeFindingDetail();
-      const patch = { status: "Open", confidence: 0, locked_by_human: false, evidence: "" };
-      if (!window.updateStigControlInPlace?.(slug, vulnId, patch)) renderStigViewer(sid);
-    }, 800);
-  } catch (e) {
-    if (msgEl) {
-      msgEl.textContent = `Error: ${e.message}`;
-      msgEl.className = "stig-override-msg stig-override-err";
-    }
-  }
-};
-let _stigDetailNextId = 0;
-const _stigDetailRegistry = /* @__PURE__ */ new Map();
-function _registerStigDetail(c) {
-  const id = _stigDetailNextId++;
-  _stigDetailRegistry.set(id, c);
-  return id;
-}
-function openStigDetail(id) {
-  const c = _stigDetailRegistry.get(id);
-  if (!c) return;
-  closeFindingDetail();
-  const _SC = { "Open": "open", "Not a Finding": "not-a-finding", "Not Applicable": "na", "Not Reviewed": "not-reviewed" };
-  const _SA = { "Open": "Open", "Not a Finding": "Pass", "Not Applicable": "N/A", "Not Reviewed": "Evid." };
-  const sev = c.severity || "unknown";
-  const sevCls = sev.toLowerCase();
-  const latCls = _SC[c.latest_status] || "not-reviewed";
-  const latLbl = _SA[c.latest_status] || c.latest_status || "—";
-  const tl = [...c.timeline || []].sort((a, b) => b.date.localeCompare(a.date));
-  const timelineRows = tl.map((t, idx) => {
-    const cls = _SC[t.status] || "not-reviewed";
-    const lbl = _SA[t.status] || t.status;
-    const evidence = t.evidence || "No evidence provided.";
-    const confidence = t.confidence != null ? `${t.confidence}%` : "—";
-    const prevEvidence = idx < tl.length - 1 ? tl[idx + 1].evidence || "" : "";
-    const evidenceChanged = prevEvidence && evidence && prevEvidence !== evidence && t.status !== "Not Reviewed";
-    const changeClass = evidenceChanged ? ' style="background:var(--bg-hover)"' : "";
-    const changeIcon = evidenceChanged ? ' <span style="color:var(--accent);font-size:12px" title="Evidence changed from previous scan">🔄 Changed</span>' : "";
-    return `<tr${changeClass}>
-      <td style="padding:8px 12px;font-size:12px;color:var(--text-muted);white-space:nowrap;vertical-align:top">${esc(t.date.slice(0, 10))}</td>
-      <td style="padding:8px 12px;vertical-align:top"><span class="stig-status-chip ${cls}">${esc(lbl)}</span>${changeIcon}</td>
-      <td style="padding:8px 12px;font-size:12px;color:var(--text-muted);text-align:center;vertical-align:top">${confidence}</td>
-      <td style="padding:8px 12px;font-size:12px;color:var(--text);line-height:1.5;vertical-align:top">${esc(evidence).replace(/\n/g, "<br>")}</td>
-    </tr>`;
-  }).join("");
-  const overlay = document.createElement("div");
-  overlay.className = "finding-drawer-overlay";
-  overlay.id = "finding-drawer-overlay";
-  overlay.addEventListener("click", closeFindingDetail);
-  const drawer = document.createElement("div");
-  drawer.className = "finding-drawer";
-  drawer.id = "finding-drawer";
-  drawer.setAttribute("role", "dialog");
-  drawer.setAttribute("aria-modal", "true");
-  drawer.setAttribute("aria-label", "STIG control details");
-  drawer.addEventListener("click", (e) => e.stopPropagation());
-  drawer.innerHTML = `
-    <div class="finding-drawer-header">
-      <div class="finding-drawer-title">
-        <h2>${esc(c.title || c.vuln_id || "—")}</h2>
-        <div class="finding-drawer-badges">
-          <span class="sev-badge ${esc(sevCls)}">${ucFirst(sev)}</span>
-          <span class="tool-tag">STIG</span>
-          <code>${esc(c.vuln_id)}</code>
-        </div>
-      </div>
-      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
-    </div>
-    <div class="finding-drawer-body">
-      <div class="finding-detail-grid">
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Current Status</div>
-          <div class="finding-detail-value"><span class="stig-status-chip ${latCls}">${esc(latLbl)}</span></div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Benchmark</div>
-          <div class="finding-detail-value">${c.stig_name ? `<code style="font-size:12px">${esc(c.stig_name)}</code>` : '<span style="color:var(--text-dim)">—</span>'}</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">First Open</div>
-          <div class="finding-detail-value">${c.first_open ? esc(c.first_open.slice(0, 10)) : '<span style="color:var(--text-dim)">—</span>'}</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">First Closed</div>
-          <div class="finding-detail-value">${c.first_closed ? esc(c.first_closed.slice(0, 10)) : '<span style="color:var(--text-dim)">—</span>'}</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">MTTR</div>
-          <div class="finding-detail-value">${c.mttr_days != null ? `<strong>${c.mttr_days} days</strong>` : '<span style="color:var(--text-dim)">—</span>'}</div>
-        </div>
-      </div>
-      ${tl.length ? `
-      <div class="finding-detail-section">
-        <div class="finding-detail-label">Scan History</div>
-        <div class="finding-detail-desc" style="padding:0;background:none;border:1px solid var(--border-muted);border-radius:var(--radius);overflow:hidden">
-          <table style="width:100%;border-collapse:collapse">
-            <thead>
-              <tr style="background:var(--bg-hover);border-bottom:1px solid var(--border)">
-                <th scope="col" style="padding:8px 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left;width:100px">Date</th>
-                <th scope="col" style="padding:8px 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left;width:140px">Status</th>
-                <th scope="col" style="padding:8px 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:center;width:80px">Confidence</th>
-                <th scope="col" style="padding:8px 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left">Evidence / Reasoning</th>
-              </tr>
-            </thead>
-            <tbody>${timelineRows}</tbody>
-          </table>
-        </div>
-      </div>` : ""}
-    </div>`;
-  document.body.appendChild(overlay);
-  document.body.appendChild(drawer);
-}
-function openFindingDetail(id) {
-  const f = _findingsRegistry.get(id);
-  if (!f) return;
-  closeFindingDetail();
-  const sev = f.severity || "unknown";
-  const fid = f.id || "—";
-  const tool = f.tool || "—";
-  const title = f.title || f.description || "—";
-  const desc = f.description || "";
-  const pkg = f.package || f.component || "";
-  const ver = f.version || "";
-  const fixed = f.fixed_version || "";
-  const target = f.target || f.file || "";
-  const line = f.line ? Array.isArray(f.line) && f.line.length === 2 ? f.line[0] === f.line[1] ? String(f.line[0]) : `${f.line[0]}-${f.line[1]}` : String(f.line) : "";
-  const refs = f.references || [];
-  const cisaKev = f.cisa_kev === true;
-  const cvssScore = f.nvd_cvss_v3_score != null ? f.nvd_cvss_v3_score : null;
-  const cvssSev = f.nvd_cvss_v3_severity || "";
-  const nvdUrl = f.nvd_url || (fid.startsWith("CVE-") ? `https://nvd.nist.gov/vuln/detail/${fid}` : "");
-  const cveSource = f.cve_source || "";
-  const sourceIcons = {
-    "GHSA": { icon: "🛡️", label: "GitHub Advisory", color: "#6e40aa" },
-    "NVD": { icon: "🏛️", label: "NIST NVD", color: "#1e40af" },
-    "OSV": { icon: "🔓", label: "OSV", color: "#059669" },
-    "Alpine": { icon: "🏔️", label: "Alpine SecDB", color: "#0d9488" },
-    "Debian": { icon: "🌀", label: "Debian Security", color: "#a90e3c" },
-    "Ubuntu": { icon: "🟠", label: "Ubuntu Security", color: "#e95420" },
-    "RHEL": { icon: "🎩", label: "Red Hat", color: "#cc0000" },
-    "Trivy": { icon: "🔍", label: "Trivy DB", color: "#1f2937" },
-    "Grype": { icon: "🦑", label: "Grype DB", color: "#475569" }
-  };
-  const sourceInfo = sourceIcons[cveSource] || null;
-  const sourceBadge = sourceInfo ? `<span style="display:inline-flex;align-items:center;gap:4px;background:${sourceInfo.color};color:#fff;font-size:12px;font-weight:600;padding:2px 6px;border-radius:3px;margin-left:6px" title="Source: ${sourceInfo.label}">
-         ${sourceInfo.icon} ${cveSource}
-       </span>` : "";
-  const idDisplay = fid.startsWith("CVE-") ? `<a class="finding-detail-id-link"
-          href="${esc(nvdUrl || "https://nvd.nist.gov/vuln/detail/" + esc(fid))}"
-          target="_blank" rel="noopener noreferrer">
-         ${esc(fid)}
-         <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-           <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-           <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-         </svg>
-       </a>${cisaKev ? ' <span style="background:var(--critical-bg);color:var(--critical);font-size:12px;font-weight:700;padding:2px 7px;border-radius:4px" title="CISA Known Exploited Vulnerability">KEV</span>' : ""}${sourceBadge}` : `<code>${esc(fid)}</code>${sourceBadge}`;
-  const refsHtml = refs.length ? `<div class="finding-detail-section">
-         <div class="finding-detail-label">References</div>
-         <div class="finding-detail-refs">
-           ${refs.map((r) => `<a href="${esc(r)}" target="_blank" rel="noopener noreferrer">${esc(r)}</a>`).join("")}
-         </div>
-       </div>` : "";
-  const descSection = desc && desc !== title ? `<div class="finding-detail-section">
-         <div class="finding-detail-label">Description</div>
-         <div class="finding-detail-desc">${esc(desc)}</div>
-       </div>` : "";
-  const overlay = document.createElement("div");
-  overlay.className = "finding-drawer-overlay";
-  overlay.id = "finding-drawer-overlay";
-  overlay.addEventListener("click", closeFindingDetail);
-  const drawer = document.createElement("div");
-  drawer.className = "finding-drawer";
-  drawer.id = "finding-drawer";
-  drawer.setAttribute("role", "dialog");
-  drawer.setAttribute("aria-modal", "true");
-  drawer.setAttribute("aria-label", "Finding details");
-  drawer.addEventListener("click", (e) => e.stopPropagation());
-  drawer.innerHTML = `
-    <div class="finding-drawer-header">
-      <div class="finding-drawer-title">
-        <h2>${esc(title)}</h2>
-        <div class="finding-drawer-badges">
-          <span class="sev-badge ${esc(sev)}">${ucFirst(sev)}</span>
-          <span class="tool-tag">${esc(tool)}</span>
-          ${idDisplay}
-        </div>
-      </div>
-      <button class="finding-drawer-close" onclick="closeFindingDetail()" aria-label="Close">✕</button>
-    </div>
-    <div class="finding-drawer-body">
-
-      <div class="finding-detail-grid">
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Package / Component</div>
-          <div class="finding-detail-value">${pkg ? `<code>${esc(pkg)}</code>` : '<span style="color:var(--text-dim)">—</span>'}</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Version</div>
-          <div class="finding-detail-value">${ver ? `<code>${esc(ver)}</code>` : '<span style="color:var(--text-dim)">—</span>'}</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Fix Available</div>
-          <div class="finding-detail-value">${fixed ? `<code style="color:var(--clean)">${esc(fixed)}</code>` : '<span style="color:var(--text-dim)">None known</span>'}</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Severity</div>
-          <div class="finding-detail-value"><span class="sev-badge ${esc(sev)}">${ucFirst(sev)}</span>${cvssScore != null ? ` <span style="color:var(--text-muted);font-size:12px">CVSS ${esc(String(cvssScore))}${cvssSev ? " · " + esc(cvssSev) : ""}</span>` : ""}</div>
-        </div>
-      </div>
-
-      ${cisaKev ? `
-        <div style="background:var(--critical-bg);border:1px solid var(--critical-bg);border-radius:var(--radius);padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
-          <span style="font-size:16px">⚠️</span>
-          <div>
-            <div style="color:var(--critical);font-weight:600;font-size:13px">CISA Known Exploited Vulnerability (KEV)</div>
-            <div style="color:var(--critical);font-size:12px;margin-top:2px">This CVE is actively exploited in the wild. CISA mandates remediation for federal agencies. Treat as highest priority.</div>
-          </div>
-        </div>` : ""}
-
-      ${target ? `
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">${findingSource(f) === "container" ? "Container Image" : "File Path"}</div>
-          <div class="finding-detail-value"><code style="word-break:break-all">${esc(target)}</code>${line ? ` <span style="color:var(--text-muted);font-size:12px">line ${esc(line)}</span>` : ""}</div>
-        </div>` : ""}
-
-      ${descSection}
-
-      ${refsHtml}
-
-      ${_scanIdFromHash() && !window.__SCAN__ ? `
-      <div id="finding-jira-section" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
-        <button id="finding-jira-btn" class="btn btn-primary" onclick="jiraQuickAdd(${id})">Add to Jira</button>
-        <div id="finding-jira-status" style="font-size:12px;margin-top:8px"></div>
-      </div>` : ""}
-
-      <div id="finding-fix-section" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
-        <button id="finding-fix-btn" class="btn btn-ai" onclick="fetchFindingFix(${id})">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-          Suggest Fix with AI
-        </button>
-        <div id="finding-fix-result"></div>
-      </div>
-
-    </div>`;
-  document.body.appendChild(overlay);
-  document.body.appendChild(drawer);
-}
-function closeFindingDetail() {
-  const overlay = document.getElementById("finding-drawer-overlay");
-  const drawer = document.getElementById("finding-drawer");
-  overlay?.remove();
-  drawer?.remove();
-}
-function openGhSignalDetail(kind, idx) {
-  if (!window._ghSignalData) return;
-  closeGhSignalDetail();
-  let title = "", bodyHtml = "", repoUrl = "";
-  if (kind === "run") {
-    const r = window._ghSignalData.run[idx];
-    if (!r) return;
-    const repoShort = r.repo.split("/")[1] || r.repo;
-    repoUrl = `https://github.com/${r.repo}/actions`;
-    title = `Workflow Runs — ${repoShort}`;
-    const rate = r.success_rate != null ? r.success_rate : null;
-    const rateColor = rate == null ? "var(--text-muted)" : rate >= 90 ? "var(--clean)" : rate >= 70 ? "#e3b341" : "var(--critical)";
-    bodyHtml = `
-      <div class="finding-detail-grid">
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Repository</div>
-          <div class="finding-detail-value"><code>${esc(r.repo)}</code></div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Success Rate (30d)</div>
-          <div class="finding-detail-value" style="color:${rateColor};font-weight:700;font-size:22px">${rate != null ? rate + "%" : "—"}</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Total Runs</div>
-          <div class="finding-detail-value">${r.total_runs || 0}</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">In Progress / Queued</div>
-          <div class="finding-detail-value">${r.in_progress || 0}</div>
-        </div>
-      </div>
-      <div class="finding-detail-section" style="margin-top:12px">
-        <div class="finding-detail-label">Run Breakdown</div>
-        <div style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap">
-          <span style="background:rgba(63,185,80,.15);color:var(--clean);padding:4px 10px;border-radius:6px;font-weight:700">✓ Success: ${r.success || 0}</span>
-          <span style="background:rgba(248,81,73,.15);color:var(--critical);padding:4px 10px;border-radius:6px;font-weight:700">✗ Failed: ${r.failed || 0}</span>
-          <span style="background:rgba(139,148,158,.15);color:var(--text-muted);padding:4px 10px;border-radius:6px;font-weight:700">⊘ Skipped: ${r.skipped || 0}</span>
-        </div>
-      </div>
-      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
-        <a href="${esc(repoUrl)}" target="_blank" rel="noopener noreferrer"
-           style="display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-size:13px;text-decoration:none">
-          View Actions on GitHub
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-        </a>
-      </div>`;
-  } else if (kind === "cov") {
-    const [name, v] = window._ghSignalData.cov[idx] || [];
-    if (!name) return;
-    title = `PR Scan Coverage — ${esc(name)}`;
-    const pct = v.pr_coverage_pct;
-    const barColor = pct >= 70 ? "var(--clean)" : pct >= 40 ? "#e3b341" : "var(--critical)";
-    bodyHtml = `
-      <div class="finding-detail-grid">
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Application</div>
-          <div class="finding-detail-value"><strong>${esc(name)}</strong></div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">PR Scan Coverage</div>
-          <div class="finding-detail-value" style="color:${barColor};font-weight:700;font-size:22px">${pct}%</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">PR-Triggered Scans</div>
-          <div class="finding-detail-value">${v.pr_scans}</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Total CI Scans</div>
-          <div class="finding-detail-value">${v.total_ci_scans}</div>
-        </div>
-      </div>
-      <div class="finding-detail-section" style="margin-top:12px">
-        <div class="finding-detail-label">Coverage Bar</div>
-        <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
-          <div style="flex:1;background:var(--border);border-radius:6px;height:12px;overflow:hidden">
-            <div style="width:${Math.min(pct, 100)}%;background:${barColor};height:100%;border-radius:6px;transition:width .3s"></div>
-          </div>
-          <span style="font-weight:700;color:${barColor}">${pct}%</span>
-        </div>
-      </div>
-      <div class="finding-detail-section" style="margin-top:12px">
-        <div class="finding-detail-label">Scan Breakdown</div>
-        <div style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap">
-          <span style="background:rgba(121,192,255,.12);color:var(--accent);padding:4px 10px;border-radius:6px;font-weight:700">PR: ${v.pr_scans}</span>
-          <span style="background:rgba(139,148,158,.12);color:var(--text-muted);padding:4px 10px;border-radius:6px;font-weight:700">Push: ${v.push_scans}</span>
-          <span style="background:rgba(139,148,158,.12);color:var(--text-muted);padding:4px 10px;border-radius:6px;font-weight:700">Other: ${v.other_scans}</span>
-        </div>
-      </div>
-      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px">
-        <button class="btn btn-ai" onclick="closeGhSignalDetail();navigate('#/applications/${encodeURIComponent(name)}')">
-          View Application Scans
-        </button>
-      </div>`;
-  }
-  const overlay = document.createElement("div");
-  overlay.className = "finding-drawer-overlay";
-  overlay.id = "gh-signal-drawer-overlay";
-  overlay.addEventListener("click", closeGhSignalDetail);
-  const drawer = document.createElement("div");
-  drawer.className = "finding-drawer";
-  drawer.id = "gh-signal-drawer";
-  drawer.setAttribute("role", "dialog");
-  drawer.setAttribute("aria-modal", "true");
-  drawer.setAttribute("aria-label", title);
-  drawer.addEventListener("click", (e) => e.stopPropagation());
-  drawer.innerHTML = `
-    <div class="finding-drawer-header">
-      <div class="finding-drawer-title">
-        <h2>${title}</h2>
-      </div>
-      <button class="finding-drawer-close" onclick="closeGhSignalDetail()" aria-label="Close">✕</button>
-    </div>
-    <div class="finding-drawer-body">${bodyHtml}</div>`;
-  document.body.appendChild(overlay);
-  document.body.appendChild(drawer);
-}
-function closeGhSignalDetail() {
-  const overlay = document.getElementById("gh-signal-drawer-overlay");
-  const drawer = document.getElementById("gh-signal-drawer");
-  overlay?.remove();
-  drawer?.remove();
-}
-function openAPIDetail(id) {
-  const ep = _apiRegistry.get(id);
-  if (!ep) return;
-  closeAPIDetail();
-  const method = ep.method || "UNKNOWN";
-  const path = ep.path || "—";
-  const funcName = ep.function || "—";
-  const name = ep.name || "—";
-  const framework = ep.framework || "Unknown";
-  const auth = ep.auth || "None";
-  const tags = ep.tags || "";
-  const file = ep.file || "—";
-  const description = ep.description || "";
-  const params = ep.parameters || ep.params || [];
-  const responses = ep.responses || [];
-  const methodColor = {
-    "GET": "#10b981",
-    "POST": "#f59e0b",
-    "PUT": "#3b82f6",
-    "DELETE": "#ef4444",
-    "PATCH": "#8b5cf6"
-  }[method] || "#6b7280";
-  const overlay = document.createElement("div");
-  overlay.className = "finding-drawer-overlay";
-  overlay.id = "api-drawer-overlay";
-  overlay.addEventListener("click", closeAPIDetail);
-  const drawer = document.createElement("div");
-  drawer.className = "finding-drawer";
-  drawer.id = "api-drawer";
-  drawer.setAttribute("role", "dialog");
-  drawer.setAttribute("aria-modal", "true");
-  drawer.setAttribute("aria-label", "API endpoint details");
-  drawer.addEventListener("click", (e) => e.stopPropagation());
-  drawer.innerHTML = `
-    <div class="finding-drawer-header">
-      <div class="finding-drawer-title">
-        <h2 style="font-family:monospace;font-size:16px">${esc(path)}</h2>
-        <div class="finding-drawer-badges">
-          <span style="background:${methodColor};color:white;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600">${esc(method)}</span>
-          <span class="tool-tag">${esc(framework)}</span>
-        </div>
-      </div>
-      <button class="finding-drawer-close" onclick="closeAPIDetail()" aria-label="Close">✕</button>
-    </div>
-    <div class="finding-drawer-body">
-
-      <div class="finding-detail-grid">
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Function</div>
-          <div class="finding-detail-value"><code>${esc(funcName)}</code></div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Name</div>
-          <div class="finding-detail-value">${name !== "—" ? esc(name) : '<span style="color:var(--text-dim)">—</span>'}</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Framework</div>
-          <div class="finding-detail-value"><span class="tool-tag">${esc(framework)}</span></div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Authentication</div>
-          <div class="finding-detail-value">${auth !== "None" ? `<code style="font-size:12px">${esc(auth)}</code>` : '<span style="color:var(--text-dim)">None</span>'}</div>
-        </div>
-      </div>
-
-      ${description ? `
-        <div class="finding-detail-section" style="margin-top:12px">
-          <div class="finding-detail-label">Description</div>
-          <div class="finding-detail-desc">${esc(description)}</div>
-        </div>` : ""}
-
-      ${tags ? `
-        <div class="finding-detail-section" style="margin-top:12px">
-          <div class="finding-detail-label">Tags</div>
-          <div class="finding-detail-value">${esc(tags)}</div>
-        </div>` : ""}
-
-      <div class="finding-detail-section" style="margin-top:12px">
-        <div class="finding-detail-label">File Location</div>
-        <div class="finding-detail-value"><code style="font-size:12px;word-break:break-all">${esc(file)}</code></div>
-      </div>
-
-      ${Array.isArray(params) && params.length > 0 ? `
-        <div class="finding-detail-section" style="margin-top:16px">
-          <div class="finding-detail-label">Parameters</div>
-          <div style="margin-top:6px">
-            ${params.map((p) => `
-              <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:8px;margin-bottom:6px">
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-                  <code style="color:var(--purple);font-size:12px">${esc(p.name || "")}</code>
-                  ${p.required ? '<span style="color:var(--critical);font-size:12px;font-weight:600">REQUIRED</span>' : ""}
-                </div>
-                ${p.type ? `<div style="color:var(--text-muted);font-size:12px">Type: <code>${esc(p.type)}</code></div>` : ""}
-                ${p.description ? `<div style="color:var(--text-dim);font-size:12px;margin-top:3px">${esc(p.description)}</div>` : ""}
-              </div>
-            `).join("")}
-          </div>
-        </div>` : ""}
-
-      ${Array.isArray(responses) && responses.length > 0 ? `
-        <div class="finding-detail-section" style="margin-top:16px">
-          <div class="finding-detail-label">Responses</div>
-          <div style="margin-top:6px">
-            ${responses.map((r) => `
-              <div style="background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:8px;margin-bottom:6px">
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-                  <code style="color:var(--pass);font-size:12px">${esc(String(r.status || r.code || ""))}</code>
-                  <span style="color:var(--text-muted);font-size:12px">${esc(r.description || "")}</span>
-                </div>
-              </div>
-            `).join("")}
-          </div>
-        </div>` : ""}
-
-    </div>`;
-  document.body.appendChild(overlay);
-  document.body.appendChild(drawer);
-}
-function closeAPIDetail() {
-  const overlay = document.getElementById("api-drawer-overlay");
-  const drawer = document.getElementById("api-drawer");
-  overlay?.remove();
-  drawer?.remove();
-}
-window.fetchFindingFix = async function(fid) {
-  const f = _findingsRegistry.get(fid);
-  if (!f) return;
-  const btn = document.getElementById("finding-fix-btn");
-  const result = document.getElementById("finding-fix-result");
-  if (!btn || !result) return;
-  btn.disabled = true;
-  btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1s linear infinite"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.04"/></svg> Generating…`;
-  const payload = {
-    id: f.id || void 0,
-    title: f.title || f.description || void 0,
-    description: f.description !== f.title ? f.description : void 0,
-    tool: f.tool || void 0,
-    severity: f.severity || void 0,
-    package: f.package || f.component || void 0,
-    version: f.version || void 0,
-    fixed_version: f.fixed_version || void 0,
-    target: f.target || void 0,
-    references: (f.references || []).slice(0, 3)
-  };
-  Object.keys(payload).forEach((k) => payload[k] === void 0 && delete payload[k]);
-  try {
-    const data = await api.getFindingFix(payload);
-    btn.style.display = "none";
-    result.innerHTML = `
-      <div style="margin-top:12px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.25);border-radius:var(--radius);padding:14px 16px;font-size:13px">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;color:var(--purple);font-size:12px;font-weight:600">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-          AI-SUGGESTED FIX
-        </div>
-        <div class="ai-fix-body">${renderMarkdown(data.fix || "")}</div>
-      </div>`;
-  } catch (err) {
-    btn.disabled = false;
-    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Suggest Fix with AI`;
-    result.innerHTML = `<div style="margin-top:8px;color:var(--critical);font-size:12px">${esc(err.message)}</div>`;
-  }
-};
 function renderStaticScanDetail(scan) {
   const page = document.getElementById("page");
   if (!page) return;

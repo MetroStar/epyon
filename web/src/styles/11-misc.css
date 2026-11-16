@@ -1,0 +1,111 @@
+/* ── Cache clear button ──────────────────────────────────── */
+#cache-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-dim);
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+#cache-clear:hover { color: var(--text); }
+#cache-clear svg { display: block; }
+
+/* Cross-application CVE search (Overview) */
+.cve-search-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.cve-search-input { flex: 1 1 280px; min-width: 220px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card, var(--bg)); color: var(--text); }
+.cve-search-select { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card, var(--bg)); color: var(--text); }
+.cve-search-history { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--text-muted); }
+.cve-search-summary { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
+.cve-search-empty { padding: 16px; color: var(--text-muted); border: 1px dashed var(--border); border-radius: 6px; }
+
+.cve-bulk-group { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+.cve-bulk-head { display: flex; justify-content: space-between; margin-bottom: 8px; color: var(--text); }
+.cve-bulk-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cve-bulk-skipped { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+
+/* ── Keyboard focus ring ─────────────────────────────────────
+   `html` raises specificity above the per-control `outline: none` rules,
+   so every control shows a ring for keyboard focus (mouse clicks do not). */
+html :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+html .modal-box:focus-visible,
+html .modal-container:focus-visible,
+html .finding-drawer:focus-visible { outline: none; }
+
+/* ── Toasts ───────────────────────────────────────────────── */
+.toast-host {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: min(420px, calc(100vw - 32px));
+}
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  font-size: 13.5px;
+  color: var(--text);
+  animation: slideUp 0.14s ease;
+}
+.toast-success { border-left-color: var(--pass); }
+.toast-warning { border-left-color: var(--medium); }
+.toast-error   { border-left-color: var(--critical); }
+.toast-text { flex: 1; line-height: 1.45; word-break: break-word; }
+.toast-hint { margin-top: 4px; font-size: 12px; color: var(--text-muted); }
+.toast-close { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0 2px; font-size: 13px; }
+.toast-close:hover { color: var(--text); }
+.confirm-body { white-space: pre-line; }
+
+/* ── Empty / loading helpers ──────────────────────────────── */
+.empty-cell { text-align: center; padding: 32px; color: var(--text-muted); }
+.empty-note { text-align: center; padding: 20px 0; margin: 0; font-size: 13px; color: var(--text-muted); }
+.loading-inline { font-size: 12px; color: var(--text-muted); }
+
+/* ── Reduced motion ───────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.scan-badge {
+  margin-left: auto;
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: var(--accent, #3b82f6);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+.scan-badge[hidden] { display: none; }
+
+.poam-source {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin: 10px 0;
+}
+.poam-source a { color: var(--accent); }
+.poam-source-note { color: var(--medium, #d29922); margin-top: 4px; }

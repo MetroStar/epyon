@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.18] - 2026-11-16
+
+### Changed
+- Web UI styles: `web/src/main.css` split into ordered partials under `web/src/styles/` (listed in `styles/index.css`). The built `static/app.css` is byte-identical apart from its banner line.
+
 ## [3.72.17] - 2026-11-16
 
 ### Changed

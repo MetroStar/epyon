@@ -1,0 +1,173 @@
+/* Responsive grids: breakpoints used app-wide are 1024px (tablet) and 768px (mobile). */
+.resp-grid { display: grid; gap: 16px; }
+.resp-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.resp-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+@media (max-width: 1024px) {
+  #content { padding: 24px 20px; }
+  .resp-grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 768px) {
+  .resp-grid-2, .resp-grid-3 { grid-template-columns: minmax(0, 1fr); }
+  .page-header h1 { font-size: 20px; }
+}
+
+/* ── Breadcrumb ───────────────────────────────────────────── */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  color: var(--text-muted);
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.breadcrumb span { color: var(--text-dim); }
+
+/* ── Stats grid ───────────────────────────────────────────── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 14px;
+  margin-bottom: 32px;
+}
+
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+.stat-value {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.stat-label {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-card.critical .stat-value { color: var(--critical); }
+.stat-card.high     .stat-value { color: var(--high); }
+.stat-card.medium   .stat-value { color: var(--medium); }
+.stat-card.low      .stat-value { color: var(--low); }
+
+/* ── Application cards ────────────────────────────────────── */
+.app-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.app-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.app-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(88,166,255,0.15);
+}
+
+.app-card.status-critical { border-left-color: var(--critical); }
+.app-card.status-high     { border-left-color: var(--high); }
+.app-card.status-medium   { border-left-color: var(--medium); }
+.app-card.status-low      { border-left-color: var(--low); }
+.app-card.status-clean    { border-left-color: var(--clean); }
+.app-card.status-unknown  { border-left-color: var(--text-dim); }
+
+.app-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 6px;
+  gap: 8px;
+}
+
+.app-name {
+  font-size: 15px;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.app-card-meta {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-bottom: 14px;
+}
+
+.severity-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.app-card-footer {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* ── Severity badges ──────────────────────────────────────── */
+.sev-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.sev-badge.critical { background: var(--critical-bg); color: var(--critical); }
+.sev-badge.high     { background: var(--high-bg);     color: var(--high); }
+.sev-badge.medium   { background: var(--medium-bg);   color: var(--medium); }
+.sev-badge.low      { background: var(--low-bg);      color: var(--low); }
+.sev-badge.clean    { background: var(--clean-bg);    color: var(--clean); }
+
+/* ── Status badge ─────────────────────────────────────────── */
+.status-badge {
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+
+.status-badge.critical { background: var(--critical-bg); color: var(--critical); }
+.status-badge.high     { background: var(--high-bg);     color: var(--high); }
+.status-badge.medium   { background: var(--medium-bg);   color: var(--medium); }
+.status-badge.low      { background: var(--low-bg);      color: var(--low); }
+.status-badge.clean    { background: var(--clean-bg);    color: var(--clean); }
+.status-badge.unknown  { background: rgba(110,118,129,0.1); color: var(--text-dim); }
+
+/* ── STIG badges ──────────────────────────────────────────── */
+.stig-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.stig-badge.open    { background: var(--stig-open-bg);  color: var(--stig-open); }
+.stig-badge.pass    { background: var(--stig-pass-bg);  color: var(--stig-pass); }
+.stig-badge.na      { background: var(--stig-na-bg);    color: var(--stig-na); }
+

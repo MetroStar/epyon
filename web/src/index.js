@@ -26,5 +26,9 @@ import * as m21 from './components/scan/model-security.js';
 import * as m22 from './components/scan/network-enrichment.js';
 import * as m23 from './components/scan/evidence.js';
 import * as m24 from './pages/scan-detail.js';
+import * as m25 from './components/scan/suppressed.js';
+import * as m26 from './components/scan/sbom.js';
+import * as m27 from './components/scan/api-endpoints.js';
+import * as m28 from './components/scan/findings.js';
 
-Object.assign(window, m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22, m23, m24);
+Object.assign(window, m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22, m23, m24, m25, m26, m27, m28);

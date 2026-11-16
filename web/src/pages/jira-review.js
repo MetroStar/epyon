@@ -3,10 +3,10 @@ import { toast } from '../components/feedback.js';
 import { errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
 import { esc, ucFirst } from '../lib/format.js';
-import { _stigJiraSel, _stigRegistry } from '../state/registries.js';
+import { _findingsRegistry, _registerFinding, _stigJiraSel, _stigRegistry } from '../state/registries.js';
 
 // Legacy globals still provided by main.js (see index.js):
-/* global _findingsRegistry, _registerFinding, setActive */
+/* global setActive */
 
 let _jiraReviewState = null;
 let _jiraEpicModalState = null;

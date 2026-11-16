@@ -7,9 +7,14 @@ import { buildPoamSection } from './poam.js';
 import { buildModelSecurityCard } from '../components/scan/model-security.js';
 import { buildNetworkDiscoveryCard } from '../components/scan/network-enrichment.js';
 import { buildBuildEvidenceCard, buildMisconfigurationsCard, buildSSPEvidenceCard } from '../components/scan/evidence.js';
+import { _findingsRegistry, _registerFinding } from '../state/registries.js';
+import { buildSBOMSection } from '../components/scan/sbom.js';
+import { buildAPISection } from '../components/scan/api-endpoints.js';
+import { buildFindingsSection } from '../components/scan/findings.js';
+import { buildSuppressedSection } from '../components/scan/suppressed.js';
 
 // Legacy globals still provided by main.js (see index.js):
-/* global _findingsRegistry, _registerFinding, apiRender, buildAPISection, buildFindingsSection, buildSBOMSection, buildSuppressedSection, calculateScorecardForScan, openFindingDetail, sbomRender, setActive */
+/* global apiRender, calculateScorecardForScan, openFindingDetail, sbomRender, setActive */
 
 export async function renderScanDetail(scanId, openFindingId = '', openFindingPackage = '') {
   setActive('applications');

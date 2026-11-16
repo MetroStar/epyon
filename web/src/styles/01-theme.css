@@ -1,0 +1,130 @@
+/* ============================================================
+   Epyon Web Interface — app.css
+   Dark theme, GitHub-inspired design system
+   ============================================================ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg:             #0d1117;
+  --bg-card:        #161b22;
+  --bg-hover:       #1c2128;
+  --bg-input:       #0d1117;
+  --surface:        #0d1117;
+  --surface-2:      #161b22;
+  --notice-bg:      rgba(255, 166, 87, 0.08);
+  --notice-border:  rgba(255, 166, 87, 0.25);
+  --inline-code-bg: rgba(255, 255, 255, 0.06);
+  --log-bg:         #010409;
+  --border:         #30363d;
+  --border-muted:   #21262d;
+
+  --text:           #e6edf3;
+  --text-muted:     #8b949e;
+  --text-dim:       #848d97;
+
+  --accent:         #58a6ff;
+  --accent-hover:   #79c0ff;
+  --accent-bg:      rgba(88, 166, 255, 0.12);
+  --purple:         #d2a8ff;
+  --purple-bg:      rgba(210, 168, 255, 0.12);
+
+  --pass:           #3fb950;
+  --pass-bg:        rgba(63, 185, 80, 0.12);
+  --critical:       #ff7b72;
+  --critical-bg:    rgba(255, 123, 114, 0.12);
+  --high:           #ffa657;
+  --high-bg:        rgba(255, 166, 87, 0.12);
+  --medium:         #e3b341;
+  --medium-bg:      rgba(227, 179, 65, 0.12);
+  --low:            #79c0ff;
+  --low-bg:         rgba(121, 192, 255, 0.12);
+  --clean:          #3fb950;
+  --clean-bg:       rgba(63, 185, 80, 0.12);
+
+  --stig-open:      #ff7b72;
+  --stig-open-bg:   rgba(255, 123, 114, 0.12);
+  --stig-pass:      #3fb950;
+  --stig-pass-bg:   rgba(63, 185, 80, 0.12);
+  --stig-na:        #8b949e;
+  --stig-na-bg:     rgba(139, 148, 158, 0.12);
+
+  --sidebar-width:  220px;
+  --header-height:  56px;
+  --sidebar-rail-width: 56px;
+  --radius:         6px;
+  --radius-lg:      10px;
+}
+
+/* ── Light theme overrides ────────────────────────────────── */
+html[data-theme="light"] {
+  --bg:             #ffffff;
+  --bg-card:        #f6f8fa;
+  --bg-hover:       #eaeef2;
+  --bg-input:       #ffffff;
+  --surface:        #ffffff;
+  --surface-2:      #f6f8fa;
+  --notice-bg:      rgba(188, 76, 0, 0.08);
+  --notice-border:  rgba(188, 76, 0, 0.26);
+  --inline-code-bg: rgba(31, 35, 40, 0.08);
+  --log-bg:         #f6f8fa;
+  --border:         #d0d7de;
+  --border-muted:   #e6eaef;
+
+  --text:           #1f2328;
+  --text-muted:     #59636e;
+  --text-dim:       #626a73;
+
+  --accent:         #0860ca;
+  --accent-hover:   #0550ae;
+  --accent-bg:      rgba(9, 105, 218, 0.1);
+  --purple:         #6f42c1;
+  --purple-bg:      rgba(130, 80, 223, 0.1);
+
+  --pass:           #116329;
+  --pass-bg:        rgba(26, 127, 55, 0.1);
+  --critical:       #c4202c;
+  --critical-bg:    rgba(207, 34, 46, 0.1);
+  --high:           #a73f00;
+  --high-bg:        rgba(188, 76, 0, 0.1);
+  --medium:         #7d4e00;
+  --medium-bg:      rgba(154, 103, 0, 0.1);
+  --low:            #0550ae;
+  --low-bg:         rgba(5, 80, 174, 0.1);
+  --clean:          #116329;
+  --clean-bg:       rgba(26, 127, 55, 0.1);
+
+  --stig-open:      #c4202c;
+  --stig-open-bg:   rgba(207, 34, 46, 0.1);
+  --stig-pass:      #116329;
+  --stig-pass-bg:   rgba(26, 127, 55, 0.1);
+  --stig-na:        #59636e;
+  --stig-na-bg:     rgba(101, 109, 118, 0.1);
+}
+
+/* ── Theme toggle button ──────────────────────────────────── */
+#theme-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-dim);
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+#theme-toggle:hover { color: var(--text); }
+#theme-toggle svg { display: block; }
+
+/* ── Smooth theme transition ──────────────────────────────── */
+*, *::before, *::after {
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+

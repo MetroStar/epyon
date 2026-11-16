@@ -22,11 +22,17 @@ const modules = await build({
   format: "iife",
   write: false,
 });
-const css = await transform(readFileSync(join(root, "src/main.css"), "utf8"), { ...common, loader: "css" });
+// styles/index.css is an ordered list of @import lines; inline them verbatim so the
+// cascade order (and the output) is exactly the concatenation of the partials.
+const cssIndex = readFileSync(join(root, "src/styles/index.css"), "utf8");
+const cssSource = [...cssIndex.matchAll(/^@import "\.\/(.+?)";$/gm)]
+  .map(m => readFileSync(join(root, "src/styles", m[1]), "utf8"))
+  .join("");
+const css = await transform(cssSource, { ...common, loader: "css" });
 
 const outputs = {
   "static/app.js": banner("web/src/index.js") + modules.outputFiles[0].text,
-  "static/app.css": banner("web/src/main.css") + css.code,
+  "static/app.css": banner("web/src/styles/index.css") + css.code,
 };
 
 let stale = false;

@@ -1,0 +1,101 @@
+// Epyon workflow YAML (shared by the Settings page and the Add App modal).
+export const WORKFLOW_YML = `name: Private Security Scan
+
+# Epyon private-repo scanner entrypoint.
+# This workflow delegates execution to the local reusable workflow.
+
+permissions:
+  contents: read
+
+concurrency:
+  group: epyon-scan-\${{ github.repository }}
+  cancel-in-progress: false
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    branches:
+      - main
+      - master
+  schedule:
+    # Scheduled nightly scan — runs every night at 2 AM UTC (Mon-Sat)
+    - cron: '0 2 * * 1-6'
+    # Weekly full scan — runs Sunday night at 2 AM UTC
+    - cron: '0 2 * * 0'
+  # checkov:skip=CKV_GHA_7:Workflow inputs control scan parameters not build artifacts
+  workflow_dispatch:
+    inputs:
+      subdirectory:
+        description: 'Optional: Subdirectory path to scan (e.g., apps/api)'
+        required: false
+        type: string
+      scan_mode:
+        description: 'Scan mode (quick/full/nightly/stig)'
+        required: false
+        default: 'full'
+        type: choice
+        options:
+          - quick
+          - full
+          - nightly
+          - stig
+      garak_target_type:
+        description: 'Garak generator type (e.g. test, openai, huggingface)'
+        required: false
+        default: 'openai'
+        type: string
+      garak_target_name:
+        description: 'Garak target model name (e.g. gpt-4o-mini)'
+        required: false
+        default: 'gpt-4o-mini'
+        type: string
+      garak_probes:
+        description: 'Garak probe set (comma-separated, e.g. promptinject,dan,encoding)'
+        required: false
+        default: 'promptinject'
+        type: string
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  # Quick gate scan on pull requests — fast feedback, no full report generation.
+  # Skipped for draft PRs; re-runs automatically once marked "Ready for review"
+  # (which fires a synchronize/ready_for_review event) or on the next push.
+  security-scan-pr:
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      security-events: write
+      issues: write
+    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
+    with:
+      scan_mode: quick
+      skip_garak: true
+      # Note: STIG (Layer 13) is opt-in by default. Set run_stig: true to enable.
+    secrets: inherit
+
+  security-scan-main:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: write
+      security-events: write
+      issues: write
+    uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
+    with:
+      scan_mode: \${{ github.event_name == 'schedule' && (github.event.schedule == '0 2 * * 0' && 'full' || 'nightly') || github.event.inputs.scan_mode || 'full' }}
+      # STIG uses AI tokens, so it runs only when explicitly chosen via workflow_dispatch
+      run_stig: \${{ github.event.inputs.scan_mode == 'stig' }}
+      subdirectory: \${{ github.event.inputs.subdirectory || '' }}
+      garak_target_type: \${{ github.event.inputs.garak_target_type || 'openai' }}
+      garak_target_name: \${{ github.event.inputs.garak_target_name || 'gpt-4o-mini' }}
+      garak_probes: \${{ github.event.inputs.garak_probes || 'promptinject' }}
+    secrets: inherit`;

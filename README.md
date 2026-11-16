@@ -495,7 +495,7 @@ python3 -m uvicorn api.main:app --host 127.0.0.1 --port 8000 --app-dir . --reloa
 
 Then open **http://127.0.0.1:8000** in your browser.
 
-**Editing the UI:** sources live in `web/src/` (ES modules under `lib/` and `components/`, bundled from `index.js`; the pages not yet split out are still in `main.js`; styles in `main.css`) and are built with esbuild into the committed `web/static/app.js` and `app.css`. After editing, run `cd web && npm ci && npm run build` and commit both the source and the bundle. CI runs `npm run check` and fails if the bundle is stale. Running the app, `generate-dashboard.py` and the Docker image need no Node.
+**Editing the UI:** sources live in `web/src/` (ES modules under `lib/`, `components/`, `pages/`, `core/` and `state/`, bundled from `index.js`; styles in `main.css`) and are built with esbuild into the committed `web/static/app.js` and `app.css`. After editing, run `cd web && npm ci && npm run build` and commit both the source and the bundle. CI runs `npm run check` and fails if the bundle is stale. Running the app, `generate-dashboard.py` and the Docker image need no Node.
 
 ### Deploy with Docker
 

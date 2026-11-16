@@ -1,10 +1,11 @@
+import { scanWatch } from '../core/boot.js';
 import { confirmDialog, toast } from '../components/feedback.js';
 import { pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
 import { esc, fmtDate, ucFirst } from '../lib/format.js';
 
-// Legacy globals still provided by main.js (see index.js):
-/* global scanWatch, setActive */
+// Globals that other modules put on window (see index.js):
+/* global setActive */
 
 let _pollInterval = null;
 

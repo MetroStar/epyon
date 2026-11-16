@@ -2,7 +2,7 @@ import { findingSourceBadge } from '../badges.js';
 import { toast } from '../feedback.js';
 import { esc } from '../../lib/format.js';
 
-// Legacy globals still provided by main.js (see index.js):
+// Globals that other modules put on window (see index.js):
 /* global _registerFinding */
 
 export function buildMisconfigurationsCard(scan) {
@@ -296,3 +296,15 @@ window.exportSSPDocx = async function(scanId) {
     toast('Failed to export Word document: ' + err.message, 'error');
   }
 };
+
+// Delegated click handler for the SSP Word export button.
+if (!window.__sspDocxExportBound) {
+  document.addEventListener('click', event => {
+    const btn = event.target.closest('.js-export-ssp-docx');
+    if (!btn) return;
+    event.stopPropagation();
+    const { scanId } = btn.dataset;
+    if (scanId) window.exportSSPDocx(scanId);
+  });
+  window.__sspDocxExportBound = true;
+}

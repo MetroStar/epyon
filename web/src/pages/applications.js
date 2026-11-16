@@ -5,7 +5,7 @@ import { dedupeTools, esc, fmtDate } from '../lib/format.js';
 import { computeStatus, scanTypeLabel } from '../lib/scans.js';
 import { buildAppIssoSection } from '../components/summaries.js';
 
-// Legacy globals still provided by main.js (see index.js):
+// Globals that other modules put on window (see index.js):
 /* global setActive */
 
 export async function renderApplications() {

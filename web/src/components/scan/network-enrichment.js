@@ -1,8 +1,8 @@
+import { _ppsmRegistry } from './ppsm.js';
 import { emptyNote } from '../layout.js';
 import { esc } from '../../lib/format.js';
 
-// Legacy globals still provided by main.js (see index.js):
-/* global _ppsmRegistry */
+// Globals that other modules put on window (see index.js):
 
 export function buildEnrichmentCard(findings) {
   if (!findings) return '';

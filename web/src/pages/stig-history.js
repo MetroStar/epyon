@@ -3,7 +3,7 @@ import { api } from '../lib/api.js';
 import { esc } from '../lib/format.js';
 import { navigate } from '../core/router.js';
 
-// Legacy globals still provided by main.js (see index.js):
+// Globals that other modules put on window (see index.js):
 /* global _registerStigDetail, setActive */
 
 export async function renderStigHistory(selectedApp, selectedSlug) {

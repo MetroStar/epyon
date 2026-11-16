@@ -2,7 +2,7 @@ import { findingSourceBadge } from '../badges.js';
 import { esc, ucFirst } from '../../lib/format.js';
 import { _registerFinding } from '../../state/registries.js';
 
-// Legacy globals still provided by main.js (see index.js):
+// Globals that other modules put on window (see index.js):
 /* global renderFindingsPage */
 
 // ── Findings sort state (per severity) ───────────────────────

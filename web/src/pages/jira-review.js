@@ -5,7 +5,7 @@ import { api } from '../lib/api.js';
 import { esc, ucFirst } from '../lib/format.js';
 import { _findingsRegistry, _registerFinding, _stigJiraSel, _stigRegistry } from '../state/registries.js';
 
-// Legacy globals still provided by main.js (see index.js):
+// Globals that other modules put on window (see index.js):
 /* global setActive */
 
 let _jiraReviewState = null;

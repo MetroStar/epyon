@@ -1,9 +1,9 @@
+import { renderSelfAssessmentBody } from './self-assessment.js';
 import { toast } from '../components/feedback.js';
 import { api } from '../lib/api.js';
 import { esc, ucFirst } from '../lib/format.js';
 
-// Legacy globals still provided by main.js (see index.js):
-/* global renderSelfAssessmentBody */
+// Globals that other modules put on window (see index.js):
 
 let _saPollInterval = null;
 

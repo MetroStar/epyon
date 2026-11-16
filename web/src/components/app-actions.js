@@ -1,11 +1,11 @@
+import { WORKFLOW_YML } from '../lib/workflow.js';
 import { confirmDialog, toast } from './feedback.js';
 import { api } from '../lib/api.js';
 import { esc } from '../lib/format.js';
 import { renderApplications } from '../pages/applications.js';
 import { navigate } from '../core/router.js';
 
-// Legacy globals still provided by main.js (see index.js):
-/* global WORKFLOW_YML */
+// Globals that other modules put on window (see index.js):
 
 // ── Destructive confirm modal ─────────────────────────────────
 export function showDestructiveModal({ title, body, target, confirmLabel = 'Delete', onConfirm }) {

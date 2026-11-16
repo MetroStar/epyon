@@ -1,10 +1,11 @@
+import { renderSelfAssessmentBody, renderSelfDiagLayerPicker } from './self-assessment.js';
 import { emptyRow, errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
 import { _cache } from '../lib/cache.js';
 import { esc } from '../lib/format.js';
 
-// Legacy globals still provided by main.js (see index.js):
-/* global renderSelfAssessmentBody, renderSelfDiagLayerPicker, setActive */
+// Globals that other modules put on window (see index.js):
+/* global setActive */
 
 // ── GitHub Signals sparkline helper ──────────────────────────
 export function _ghSparkline(history, field, color, labelFn) {

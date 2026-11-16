@@ -150,3 +150,40 @@ def test_poam_app_rollup_combines_latest_stig_and_vuln_scans(tmp_path, monkeypat
     assert app["overdue"] == 1 and app["manual_dates"] == 1
     assert summary["totals"]["by_severity"]["Critical"] == 1
     assert client.get("/api/applications/nope/poam").status_code == 404
+
+
+def test_poam_uses_latest_full_scan_not_a_newer_quick_scan(tmp_path, monkeypatch):
+    from web.api import main as api_main, poam
+
+    full = tmp_path / "myapp_2026-11-13_10-00-00"
+    quick = tmp_path / "myapp_2026-11-15_10-00-00"
+    full.mkdir()
+    quick.mkdir()
+    meta = {
+        full.name: {"target": "myapp", "scan_id": full.name, "timestamp": "2026-11-13", "stig_total": 0, "scan_type": "full"},
+        quick.name: {"target": "myapp", "scan_id": quick.name, "timestamp": "2026-11-15", "stig_total": 0, "scan_type": "quick"},
+    }
+    cves = {full.name: "CVE-FULL", quick.name: "CVE-QUICK"}
+    dirs = [quick, full]
+    monkeypatch.setattr(poam, "_CONFIG_FILE", tmp_path / "poam-config.json")
+    monkeypatch.setattr(api_main, "_cached_find_scan_dirs", lambda days=35: dirs)
+    monkeypatch.setattr(api_main, "_cached_load_scan", lambda d: meta[d.name])
+    monkeypatch.setattr(api_main.parsers, "find_scan_dirs", lambda root, days=35: dirs)
+    monkeypatch.setattr(api_main.parsers, "load_scan_complete", lambda d, r: {"findings": {
+        "critical_findings": [{"tool": "Grype", "vulnerability_id": cves[d.name], "package_name": "p"}]}})
+    client = TestClient(api_main.app)
+
+    d = client.get("/api/applications/myapp/poam?preview=true").json()
+    assert [r["Weakness Identifier"] for r in d["rows"]] == ["CVE-FULL"]
+    assert d["sources"]["vuln"]["scan_id"] == full.name
+
+    # a single quick scan's own POA&M is flagged as partial and points at the latest full scan
+    q = client.get(f"/api/scans/{quick.name}/poam?preview=true").json()
+    assert q["sources"]["latest_full"]["scan_id"] == full.name
+    assert "incomplete" in q["notes"][0]
+
+    # with no full/nightly scan there is no silent fallback to the quick scan
+    dirs[:] = [quick]
+    d = client.get("/api/applications/myapp/poam?preview=true").json()
+    assert d["rows"] == [] and d["sources"]["vuln"] is None
+    assert "No full or nightly scan" in d["notes"][0]

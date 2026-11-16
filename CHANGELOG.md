@@ -7,10 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.71.0] - 2026-11-15
+## [3.70.15] - 2026-11-15
 
-### Added
-- Application detail page: Scan History is now split into tabs (Full / Nightly, Quick, STIG, Other) with a count on each. Each tab is paginated at 15 scans per page and can be filtered by a From/To date range. The page opens on the tab holding the newest scan and remembers the tab, page and dates while you browse.
+### Fixed
+- POA&M tables now say which scans they were built from (CVEs from the latest full/nightly scan, STIG items from the latest scan with STIG results) on the POA&M overview, the application POA&M page and the scan POA&M card, with links to those scans.
+- The application POA&M no longer falls back to the newest scan of any type when there is no full/nightly scan; it previously reported a partial quick scan's CVEs as the application's POA&M. It now omits CVEs and shows a note until a full scan exists.
+- A POA&M opened from a quick (or other partial) scan is flagged as incomplete and links to the latest full scan.
 
 ## [3.70.14] - 2026-11-15
 

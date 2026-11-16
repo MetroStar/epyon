@@ -147,7 +147,7 @@ export function buildNetworkDiscoveryCard(scan) {
             ${portsBadge}
             ${activeBadge}
           </span>
-          <span class="findings-summary-right" onclick="event.stopPropagation()">
+          <span class="findings-summary-right" data-stop>
             <button class="btn btn-sm" ${act('downloadPpsmCsv', scanId)} title="Download PPSM as CSV">↓ PPSM</button>
           </span>
         </summary>

@@ -2,7 +2,7 @@ import { gateBadge, sevBadgeRow, statusBadge } from '../components/badges.js';
 import { toast } from '../components/feedback.js';
 import { emptyState, errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
-import { esc, fmtDate, ucFirst, act } from '../lib/format.js';
+import { esc, fmtDate, ucFirst, act, actOn, ARG } from '../lib/format.js';
 import { renderApplications } from './applications.js';
 import { buildOverviewExecSection, buildOverviewIssoSection, buildOverviewTechSection } from '../components/summaries.js';
 
@@ -384,7 +384,7 @@ export function cveSearchResultsHtml(data) {
     return `
       <tr class="finding-row" title="Open finding in scan">
         <td><input type="checkbox" class="cve-select" data-key="${ai}:${fi}"
-            aria-label="Select ${esc(f.id)} in ${esc(appEntry.app_name)}" onchange="cveBulkToggle(this)"></td>
+            aria-label="Select ${esc(f.id)} in ${esc(appEntry.app_name)}" ${actOn('change','cveBulkToggle', ARG.el)}></td>
         <td>${esc(appEntry.app_name)}${appEntry.is_latest ? '' : ' <span class="tool-tag">earlier scan</span>'}</td>
         <td><span class="sev-badge ${esc(f.severity)}">${esc(ucFirst(f.severity))}</span></td>
         <td><a href="${esc(href)}" data-href="${esc(href)}" onclick="if (event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey) { event.preventDefault(); navigate(this.dataset.href); }">${esc(f.id)}</a>${f.suppressed ? ' <span class="tool-tag">suppressed</span>' : ''}</td>
@@ -402,7 +402,7 @@ export function cveSearchResultsHtml(data) {
     </div>
     <div class="table-container">
       <table>
-        <thead><tr><th scope="col"><input type="checkbox" id="cve-select-all" aria-label="Select all eligible findings" onchange="cveBulkToggleAll(this)"></th><th scope="col">Application</th><th scope="col">Severity</th><th scope="col">ID</th><th scope="col">Tools</th><th scope="col">Package</th><th scope="col">Version</th><th scope="col">Fixed in</th><th scope="col">Scanned</th><th scope="col">Jira</th></tr></thead>
+        <thead><tr><th scope="col"><input type="checkbox" id="cve-select-all" aria-label="Select all eligible findings" ${actOn('change','cveBulkToggleAll', ARG.el)}></th><th scope="col">Application</th><th scope="col">Severity</th><th scope="col">ID</th><th scope="col">Tools</th><th scope="col">Package</th><th scope="col">Version</th><th scope="col">Fixed in</th><th scope="col">Scanned</th><th scope="col">Jira</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;

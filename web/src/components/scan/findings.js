@@ -1,5 +1,5 @@
 import { findingSourceBadge } from '../badges.js';
-import { esc, ucFirst, act } from '../../lib/format.js';
+import { esc, ucFirst, act, actOn, ARG } from '../../lib/format.js';
 import { _registerFinding } from '../../state/registries.js';
 
 // Globals that other modules put on window (see index.js):
@@ -28,7 +28,7 @@ export function _buildFindingRows(items) {
 
     const idCell = id.startsWith('CVE-')
       ? `<a href="https://nvd.nist.gov/vuln/detail/${id}" target="_blank" rel="noopener noreferrer"
-            onclick="event.stopPropagation()"><code>${id}</code></a>`
+            data-stop><code>${id}</code></a>`
       : `<code>${id}</code>`;
 
     const cvssNum  = f.nvd_cvss_v3_score != null ? f.nvd_cvss_v3_score : null;
@@ -142,7 +142,7 @@ export function _findingsPagerHtml(sev) {
   return `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 4px;font-size:13px;color:var(--text-muted)">
     <span>Showing ${first}–${last} of ${all.length} findings</span>
     <span style="display:flex;gap:6px;align-items:center">
-      <label>Per page <select onchange="setFindingsPageSize('${sev}', this.value)">${sizeOpts}</select></label>
+      <label>Per page <select ${actOn('change','setFindingsPageSize', `${sev}`, ARG.value)}>${sizeOpts}</select></label>
       ${btn('« First', 1, st.page <= 1)}${btn('‹ Prev', st.page - 1, st.page <= 1)}
       <span>Page ${st.page} of ${pages}</span>
       ${btn('Next ›', st.page + 1, st.page >= pages)}${btn('Last »', pages, st.page >= pages)}

@@ -1,5 +1,5 @@
 import { emptyState, errBanner, loading, pageHeader } from '../components/layout.js';
-import { esc, fmtDate, ucFirst, act } from '../lib/format.js';
+import { esc, fmtDate, ucFirst, act, actOn, ARG } from '../lib/format.js';
 import { scanTypeLabel } from '../lib/scans.js';
 
 // Globals that other modules put on window (see index.js):
@@ -11,7 +11,7 @@ import { scanTypeLabel } from '../lib/scans.js';
 // Which scans a POA&M was built from, plus any caveats (no full scan yet, partial scan, ...).
 export function poamSourceLine(sources, notes) {
   const src = sources || {};
-  const link = r => `<a href="#/scans/${encodeURIComponent(r.scan_id)}" onclick="event.stopPropagation()">${esc(scanTypeLabel(r.scan_type))} scan · ${fmtDate(r.timestamp)}</a>`;
+  const link = r => `<a href="#/scans/${encodeURIComponent(r.scan_id)}" data-stop>${esc(scanTypeLabel(r.scan_type))} scan · ${fmtDate(r.timestamp)}</a>`;
   const parts = [];
   if (src.vuln) parts.push(`CVEs from the ${link(src.vuln)}`);
   if (src.stig && !(src.vuln && src.stig.scan_id === src.vuln.scan_id)) parts.push(`STIG items from the ${link(src.stig)}`);
@@ -35,7 +35,7 @@ export function buildPoamSection(scanId) {
             <span class="poam-pills"><span class="stig-mini total">…</span></span>
           </span>
           <span style="display:flex;align-items:center;gap:8px">
-            <a class="btn btn-sm" href="${esc(base)}/poam" download onclick="event.stopPropagation()">↓ POA&amp;M.csv</a>
+            <a class="btn btn-sm" href="${esc(base)}/poam" download data-stop>↓ POA&amp;M.csv</a>
             <span class="findings-summary-hint">Click to expand</span>
           </span>
         </summary>
@@ -97,7 +97,7 @@ window.loadPoamPreview = async (host, force = false) => {
           <label style="display:flex;align-items:center;gap:4px">${ucFirst(k)}
             <input type="number" min="1" max="3650" data-sla="${k}" value="${esc(sla[k])}" style="width:64px">
           </label>`).join('')}
-        <button class="btn btn-sm" onclick="savePoamSla(this)">Save SLA</button>
+        <button class="btn btn-sm" ${actOn('click','savePoamSla', ARG.el)}>Save SLA</button>
         <span class="poam-sla-msg" style="color:var(--text-muted)"></span>
       </div>`;
     if (!d.total) {
@@ -114,10 +114,10 @@ window.loadPoamPreview = async (host, force = false) => {
         const overdue = r[c] < today;
         return `<input type="date" value="${esc(r[c])}" data-key="${esc(r['Item Key'])}" data-default="${esc(r['Default Due Date'])}"
                   title="${manual ? 'Manual date' : esc(r['Due Date Basis'])} — change to set manually"
-                  onchange="savePoamDueDate(this)"
+                  ${actOn('change','savePoamDueDate', ARG.el)}
                   style="${manual ? 'font-weight:700;' : ''}${overdue ? 'color:var(--stig-open, #c0392b)' : ''}">
                 ${overdue ? '<span title="Past its completion date" style="color:var(--stig-open, #c0392b);font-size:11px"> overdue</span>' : ''}
-                ${manual ? `<a href="#" title="Reset to SLA date (${esc(r['Default Due Date'])})" onclick="resetPoamDueDate(event, this)">↺</a>` : ''}`;
+                ${manual ? `<a href="#" title="Reset to SLA date (${esc(r['Default Due Date'])})" ${actOn('click','resetPoamDueDate', ARG.event, ARG.el)}>↺</a>` : ''}`;
       }
       return `<span title="${esc(r[c] ?? '')}">${esc(clip(r[c]))}</span>`;
     };
@@ -206,7 +206,7 @@ export async function renderPoam() {
         <div class="stig-app-card" ${act('navigate', `#/poam-viewer/${encodeURIComponent(a.name)}`)} style="cursor:pointer">
           <div class="stig-app-card-header">
             <span class="stig-app-name">${esc(a.name)}</span>
-            <div class="stig-download-btns" onclick="event.stopPropagation()">
+            <div class="stig-download-btns" data-stop>
               <a class="btn btn-sm" href="${esc(base)}/poam" download>↓ POA&amp;M.csv</a>
             </div>
           </div>
@@ -224,7 +224,7 @@ export async function renderPoam() {
             ${a.manual_dates ? ` · ${esc(a.manual_dates)} manual date${a.manual_dates === 1 ? '' : 's'}` : ''}
           </div>
           ${poamSourceLine(a.sources, a.notes)}
-          <div style="margin-top:12px" onclick="event.stopPropagation()">
+          <div style="margin-top:12px" data-stop>
             <button class="btn btn-primary btn-sm" ${act('navigate', `#/poam-viewer/${encodeURIComponent(a.name)}`)}>⊞ View POA&amp;M</button>
           </div>
         </div>`;

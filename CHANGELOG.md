@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.71.0] - 2026-11-15
+
+### Added
+- Application detail page: Scan History is now split into tabs (Full / Nightly, Quick, STIG, Other) with a count on each. Each tab is paginated at 15 scans per page and can be filtered by a From/To date range. The page opens on the tab holding the newest scan and remembers the tab, page and dates while you browse.
+
 ## [3.70.14] - 2026-11-15
 
 ### Security

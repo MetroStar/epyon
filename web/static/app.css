@@ -3586,3 +3586,66 @@ html .finding-drawer:focus-visible { outline: none; }
   text-align: center;
 }
 .scan-badge[hidden] { display: none; }
+
+/* Scan History tabs (application detail) */
+.scan-history-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+.scan-history-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 500;
+  padding: 8px 14px;
+}
+.scan-history-tab:hover { color: var(--text); }
+.scan-history-tab.active {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+}
+.scan-history-count {
+  background: var(--accent-bg);
+  border-radius: 10px;
+  font-size: 11px;
+  margin-left: 4px;
+  padding: 1px 7px;
+}
+.scan-history-empty {
+  color: var(--text-muted);
+  padding: 24px 12px;
+  text-align: center;
+}
+.scan-history-filter {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.scan-history-filter input[type="date"] {
+  background: var(--bg-card, transparent);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font: inherit;
+  padding: 3px 6px;
+}
+.scan-history-filter .btn[hidden] { display: none; }
+.scan-history-pager {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  font-size: 13px;
+  gap: 12px;
+  justify-content: center;
+  padding: 14px 0 4px;
+}

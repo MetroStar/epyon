@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.21] - 2026-11-16
+
+### Fixed
+- Layer count is now consistently "21-layer" (the highest layer ID in `documentation/SCAN_MATRIX.md`): `epyon.sh` help, `epyon --help` description, README quick-start text and the copilot instructions no longer say 15, 16 or 20. The README layer list now includes STIG, Model Provenance, Inference Security, ML Runtime and Compromised Source Detection, and the instructions table lists layers 8.6 and 21.
+
 ## [3.72.20] - 2026-11-16
 
 ### Changed

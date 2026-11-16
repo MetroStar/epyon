@@ -958,7 +958,7 @@ Epyon's Layer 10 "Approved Base Images" baseline scan defaults to **auto-discove
 
 ---
 
-### Current Security Layers (17 Operational):
+### Current Security Layers (see [`documentation/SCAN_MATRIX.md`](documentation/SCAN_MATRIX.md) for per-mode coverage):
 
 1. **� SBOM Generation** - Complete Software Bill of Materials with Syft (CycloneDX + SPDX)
 2. **🔍 TruffleHog** - Multi-target secret detection with filesystem, container, and registry scanning, plus custom detectors for hardcoded passwords and secret keys
@@ -979,6 +979,13 @@ Epyon's Layer 10 "Approved Base Images" baseline scan defaults to **auto-discove
 15. **🌐 Network Discovery** - Port, protocol, and service enumeration from config files and manifests
 16. **🥒 PickleScan** - ML model serialization safety scanning (`.pkl`, `.pt`, `.bin`, `.h5`, `.ckpt`, etc.)
 17. **📄 Model Card Compliance** - HuggingFace model card validation against documentation standards
+18. **📋 STIG Compliance** - AI-assisted DISA STIG assessment (Layer 13; `full`/`stig` modes)
+19. **🔗 Model Provenance** - Blocklist, typosquatting and signature checks for ML models (Layer 18)
+20. **🏗️ Inference Environment Security** - Dockerfile/Compose/Kubernetes misconfiguration checks for inference stacks (Layer 19)
+21. **🧪 ML Runtime Analysis** - Sandboxed model-loading behaviour analysis (Layer 20; opt-in with `RUN_ML_RUNTIME=true`)
+22. **🧬 Compromised Source Detection** - Package-manager config and source cross-checks (Layer 21)
+
+The numbered list above is feature order; layer numbers in parentheses and in the scan matrix are the canonical IDs, and the highest is 21.
 
 ### 🌐 Multi-Feed CVE Enrichment
 
@@ -1171,7 +1178,7 @@ Scan any external application or directory with comprehensive security analysis 
 
 ```bash
 # Quickest start — use the root entry point (no need to remember script paths)
-./epyon.sh /path/to/your/project           # Full scan (all 15 layers)
+./epyon.sh /path/to/your/project           # Full scan (all 21 layers)
 ./epyon.sh /path/to/your/project quick     # Quick scan
 ./epyon.sh --help                          # Full option reference
 
@@ -1274,7 +1281,7 @@ open scans/$LATEST_SCAN/consolidated-reports/dashboards/security-dashboard.html
 ```bash
 cd /path/to/epyon
 
-# Full scan - all 15 layers (recommended)
+# Full scan - all 21 layers (recommended)
 ./epyon.sh "/path/to/project" full
 
 # Individual Layer Execution using TARGET_DIR method:

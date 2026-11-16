@@ -145,7 +145,7 @@ def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
         prog="epyon",
-        description="Epyon Security Scanner — 16-layer DevSecOps security scanning",
+        description="Epyon Security Scanner — 21-layer DevSecOps security scanning",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(

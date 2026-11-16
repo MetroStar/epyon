@@ -13,7 +13,7 @@
 
 #### 1. Silent Failure Suppression
 
-**Location**: [scripts/shell/run-epyon-scan-ci.sh](../scripts/shell/run-epyon-scan-ci.sh) lines 925-926
+**Location**: [scripts/shell/run-epyon-scan-ci.sh](../../scripts/shell/run-epyon-scan-ci.sh) lines 925-926
 
 **Problem**: Commands use `|| true` which suppresses all errors:
 
@@ -32,7 +32,7 @@ SCAN_DIR="$SCAN_DIR" TARGET_DIR="$TARGET_DIR" ./scripts/shell/run-grype-scan.sh 
 
 #### 2. Missing Prerequisites
 
-**Location**: [scripts/shell/run-grype-scan.sh](../scripts/shell/run-grype-scan.sh) lines 210-225
+**Location**: [scripts/shell/run-grype-scan.sh](../../scripts/shell/run-grype-scan.sh) lines 210-225
 
 **Problem**: Script requires either:
 - Local Grype binary (`grype` command)
@@ -104,13 +104,13 @@ export SCAN_ID="test_$(date +%Y-%m-%d_%H-%M-%S)"
 
 **Changes Made**:
 
-1. **[run-epyon-scan-ci.sh](../scripts/shell/run-epyon-scan-ci.sh)** (Lines 922-950):
+1. **[run-epyon-scan-ci.sh](../../scripts/shell/run-epyon-scan-ci.sh)** (Lines 922-950):
    - Removed `|| true` from Grype commands
    - Added explicit exit code checking
    - Added output directory validation
    - Enhanced debug logging
 
-2. **[run-grype-scan.sh](../scripts/shell/run-grype-scan.sh)** (Lines 195-250):
+2. **[run-grype-scan.sh](../../scripts/shell/run-grype-scan.sh)** (Lines 195-250):
    - Added prerequisite validation
    - Added early exit on missing dependencies
    - Enhanced logging with OUTPUT_DIR and SCAN_MODE
@@ -157,8 +157,8 @@ After applying fixes, Grype failures will be visible in:
 ### Related Documentation
 
 - [SCAN_MATRIX.md](SCAN_MATRIX.md) - Which modes run Grype
-- [SCAN_DIRECTORY_ARCHITECTURE.md](SCAN_DIRECTORY_ARCHITECTURE.md) - Output structure
-- [ML_SECURITY_GUIDE.md](ML_SECURITY_GUIDE.md) - Container requirements for ML layers
+- [SCAN_DIRECTORY_ARCHITECTURE.md](../architecture/SCAN_DIRECTORY_ARCHITECTURE.md) - Output structure
+- [ML_SECURITY_GUIDE.md](../ml-security/ML_SECURITY_GUIDE.md) - Container requirements for ML layers
 
 ### Date
 

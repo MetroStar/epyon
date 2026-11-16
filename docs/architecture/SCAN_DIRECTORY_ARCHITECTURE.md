@@ -25,7 +25,7 @@ Scan scripts accept `--target`, `--scan-dir` and `--app-name`, and helper functi
 
 ## Layout
 
-A typical scan directory (which tool directories appear depends on the scan mode, see [SCAN_MATRIX.md](SCAN_MATRIX.md)):
+A typical scan directory (which tool directories appear depends on the scan mode, see [SCAN_MATRIX.md](../scanning/SCAN_MATRIX.md)):
 
 ```
 scans/myapp_2026-11-14_16-02-08/
@@ -57,9 +57,9 @@ scans/myapp_2026-11-14_16-02-08/
 |---|---|
 | Web UI scan pages | `security-findings-filtered.json`, per-tool directories via `web/api/parsers.py` |
 | Severity gate | `security-findings-filtered.json` |
-| Score Card | findings from the **latest** scan only, plus the newest copy of other artifacts across the application's history (see [SCORE_CARD_GUIDE.md](SCORE_CARD_GUIDE.md)) |
-| STIG engine | the previous `stig-results-{slug}.json` for freeze logic (see [STIG_SCANNING_TECHNICAL_REFERENCE.md](STIG_SCANNING_TECHNICAL_REFERENCE.md)) |
-| Integrity verification | `scan-manifest.json` (see [SCAN_MANIFEST_GUIDE.md](SCAN_MANIFEST_GUIDE.md)) |
+| Score Card | findings from the **latest** scan only, plus the newest copy of other artifacts across the application's history (see [SCORE_CARD_GUIDE.md](../compliance/SCORE_CARD_GUIDE.md)) |
+| STIG engine | the previous `stig-results-{slug}.json` for freeze logic (see [STIG_SCANNING_TECHNICAL_REFERENCE.md](../compliance/STIG_SCANNING_TECHNICAL_REFERENCE.md)) |
+| Integrity verification | `scan-manifest.json` (see [SCAN_MANIFEST_GUIDE.md](../scanning/SCAN_MANIFEST_GUIDE.md)) |
 
 ## Retention
 

@@ -429,10 +429,10 @@ Send results to Slack, Teams, or email:
 
 ## 📚 Resources
 
-- [Epyon Documentation](../documentation/)
-- [Scan Directory Architecture](../documentation/SCAN_DIRECTORY_ARCHITECTURE.md)
-- [Score Card Guide](../documentation/SCORE_CARD_GUIDE.md)
-- [Security Review & Test Coverage](../documentation/SECURITY_REVIEW_AND_TEST_COVERAGE.md)
+- [Epyon Documentation](../docs/)
+- [Scan Directory Architecture](../docs/architecture/SCAN_DIRECTORY_ARCHITECTURE.md)
+- [Score Card Guide](../docs/compliance/SCORE_CARD_GUIDE.md)
+- [Security Review & Test Coverage](../docs/compliance/SECURITY_REVIEW_AND_TEST_COVERAGE.md)
 
 ## 🤝 Contributing
 

@@ -321,8 +321,8 @@ After configuring, verify:
 
 - [Grype Platform Detection](https://github.com/anchore/grype#platform-selection)
 - [Multi-Stage Docker Builds](https://docs.docker.com/build/building/multi-stage/)
-- [SCAN_MATRIX.md](./SCAN_MATRIX.md) — Epyon scan layer orchestration
-- [IGNORE_RULES_GUIDE.md](./IGNORE_RULES_GUIDE.md) — Suppressing confirmed false positives
+- [SCAN_MATRIX.md](SCAN_MATRIX.md) — Epyon scan layer orchestration
+- [IGNORE_RULES_GUIDE.md](IGNORE_RULES_GUIDE.md) — Suppressing confirmed false positives
 
 ---
 

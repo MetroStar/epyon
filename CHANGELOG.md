@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.22] - 2026-11-16
+
+### Changed
+- Moved `documentation/` to `docs/`, grouped into `architecture/`, `scanning/`, `compliance/`, `ml-security/`, `integrations/`, `releases/` and `plans/`. `SECURITY.md` sits at `docs/` so GitHub still finds it. Links, scripts, tests and the web UI text now use the new paths.
+
 ## [3.72.21] - 2026-11-16
 
 ### Fixed

@@ -17,7 +17,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ## Utility Functions
 
 ### `norm_sev(s: str | None) -> str`
-**Location:** [web/api/parsers.py:17](../web/api/parsers.py#L17)
+**Location:** [web/api/parsers.py:17](../../web/api/parsers.py#L17)
 
 **Purpose:** Normalizes severity strings to standard values.
 
@@ -36,7 +36,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `_determine_cve_source(data_source: str, namespace: str) -> str`
-**Location:** [web/api/parsers.py:32](../web/api/parsers.py#L32)
+**Location:** [web/api/parsers.py:32](../../web/api/parsers.py#L32)
 
 **Purpose:** Determines the CVE database source from Grype/Anchore metadata.
 
@@ -58,7 +58,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `parse_dir_name(name: str) -> dict`
-**Location:** [web/api/parsers.py:71](../web/api/parsers.py#L71)
+**Location:** [web/api/parsers.py:71](../../web/api/parsers.py#L71)
 
 **Purpose:** Parses scan directory names to extract target, user, and timestamp.
 
@@ -81,7 +81,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `find_scan_dirs(epyon_root: Path, days: int = 0) -> list[Path]`
-**Location:** [web/api/parsers.py:86](../web/api/parsers.py#L86)
+**Location:** [web/api/parsers.py:86](../../web/api/parsers.py#L86)
 
 **Purpose:** Finds all scan directories within epyon_root, with optional date filtering.
 
@@ -101,7 +101,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `_read_json(path: Path) -> Any`
-**Location:** [web/api/parsers.py:140](../web/api/parsers.py#L140)
+**Location:** [web/api/parsers.py:140](../../web/api/parsers.py#L140)
 
 **Purpose:** Safely reads JSON files, returning None on any error.
 
@@ -113,7 +113,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `_json_files_in(directory: Path, skip_symlinks: bool = True) -> list[Path]`
-**Location:** [web/api/parsers.py:147](../web/api/parsers.py#L147)
+**Location:** [web/api/parsers.py:147](../../web/api/parsers.py#L147)
 
 **Purpose:** Lists JSON files in a directory, excluding statistics files.
 
@@ -133,7 +133,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ## Per-Tool Parsers (Security Layers)
 
 ### `parse_trivy_dir(scan_dir: Path) -> list[dict]`
-**Location:** [web/api/parsers.py:164](../web/api/parsers.py#L164)  
+**Location:** [web/api/parsers.py:164](../../web/api/parsers.py#L164)  
 **Layer:** 7 - Container Security
 
 **Purpose:** Parses Trivy container vulnerability scan results.
@@ -163,7 +163,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `parse_grype_dir(scan_dir: Path) -> list[dict]`
-**Location:** [web/api/parsers.py:189](../web/api/parsers.py#L189)  
+**Location:** [web/api/parsers.py:189](../../web/api/parsers.py#L189)  
 **Layer:** 8 - Vulnerability Scanning
 
 **Purpose:** Parses Grype vulnerability scan results with CVE source detection.
@@ -193,7 +193,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `parse_trufflehog_dir(scan_dir: Path) -> list[dict]`
-**Location:** [web/api/parsers.py:222](../web/api/parsers.py#L222)  
+**Location:** [web/api/parsers.py:222](../../web/api/parsers.py#L222)  
 **Layer:** 2 - Secret Detection
 
 **Purpose:** Parses TruffleHog secret detection results.
@@ -226,7 +226,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `parse_checkov_dir(scan_dir: Path) -> list[dict]`
-**Location:** [web/api/parsers.py:276](../web/api/parsers.py#L276)  
+**Location:** [web/api/parsers.py:276](../../web/api/parsers.py#L276)  
 **Layer:** 6 - IaC Security
 
 **Purpose:** Parses Checkov Infrastructure-as-Code security scan results.
@@ -263,7 +263,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `parse_clamav_dir(scan_dir: Path) -> list[dict]`
-**Location:** [web/api/parsers.py:335](../web/api/parsers.py#L335)  
+**Location:** [web/api/parsers.py:335](../../web/api/parsers.py#L335)  
 **Layer:** 4 - Malware Detection
 
 **Purpose:** Parses ClamAV malware scan logs.
@@ -296,7 +296,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `parse_anchore_dir(scan_dir: Path) -> list[dict]`
-**Location:** [web/api/parsers.py:370](../web/api/parsers.py#L370)  
+**Location:** [web/api/parsers.py:370](../../web/api/parsers.py#L370)  
 **Layer:** 10 - Container Analysis
 
 **Purpose:** Parses Anchore container and filesystem vulnerability results.
@@ -328,7 +328,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `parse_xeol_dir(scan_dir: Path) -> list[dict]`
-**Location:** [web/api/parsers.py:445](../web/api/parsers.py#L445)  
+**Location:** [web/api/parsers.py:445](../../web/api/parsers.py#L445)  
 **Layer:** 9 - EOL Detection
 
 **Purpose:** Parses Xeol end-of-life package detection results.
@@ -357,7 +357,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `parse_pip_audit_dir(scan_dir: Path) -> list[dict]`
-**Location:** [web/api/parsers.py:474](../web/api/parsers.py#L474)  
+**Location:** [web/api/parsers.py:474](../../web/api/parsers.py#L474)  
 **Layer:** 8.5 - Direct Dependency Scanning
 
 **Purpose:** Parses pip-audit direct Python dependency vulnerability scan results. Complements SBOM-based scanners by checking Python dependencies directly against OSV database.
@@ -393,7 +393,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `parse_safety_dir(scan_dir: Path) -> list[dict]`
-**Location:** [web/api/parsers.py:520](../web/api/parsers.py#L520)  
+**Location:** [web/api/parsers.py:520](../../web/api/parsers.py#L520)  
 **Layer:** 11.6 - Python Safety Check
 
 **Purpose:** Parses Safety Python vulnerability scan results. Complements pip-audit by checking dependencies against Safety's vulnerability database (NVD + PyPI advisories).
@@ -425,7 +425,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `parse_sonarqube_dir(scan_dir: Path) -> list[dict]`
-**Location:** [web/api/parsers.py:521](../web/api/parsers.py#L521)  
+**Location:** [web/api/parsers.py:521](../../web/api/parsers.py#L521)  
 **Layer:** 3 - Code Quality
 
 **Purpose:** Parses SonarQube/SonarCloud code quality issues.
@@ -464,7 +464,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ## Special Feature Parsers
 
 ### `parse_network_discovery_dir(scan_dir: Path) -> dict | None`
-**Location:** [web/api/parsers.py:443](../web/api/parsers.py#L443)  
+**Location:** [web/api/parsers.py:443](../../web/api/parsers.py#L443)  
 **Layer:** 16 - Network Discovery (PPSM)
 
 **Purpose:** Parses network/port discovery results from static analysis and active scanning.
@@ -503,7 +503,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `parse_picklescan_dir(scan_dir: Path) -> dict | None`
-**Location:** [web/api/parsers.py:506](../web/api/parsers.py#L506)  
+**Location:** [web/api/parsers.py:506](../../web/api/parsers.py#L506)  
 **Layer:** 14 - Pickle Safety
 
 **Purpose:** Parses picklescan results for ML model weight file security.
@@ -531,7 +531,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `parse_coverage_dir(scan_dir: Path) -> dict | None`
-**Location:** [web/api/parsers.py:527](../web/api/parsers.py#L527)
+**Location:** [web/api/parsers.py:527](../../web/api/parsers.py#L527)
 
 **Purpose:** Parses test coverage data from coverage tools or SonarQube.
 
@@ -570,7 +570,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `parse_modelcard_dir(scan_dir: Path) -> dict | None`
-**Location:** [web/api/parsers.py:578](../web/api/parsers.py#L578)  
+**Location:** [web/api/parsers.py:578](../../web/api/parsers.py#L578)  
 **Layer:** 15 - Model Card Compliance
 
 **Purpose:** Parses AI/ML model card compliance check results.
@@ -596,7 +596,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `count_suppressed_instances(scan_dir: Path) -> int`
-**Location:** [web/api/parsers.py:597](../web/api/parsers.py#L597)
+**Location:** [web/api/parsers.py:597](../../web/api/parsers.py#L597)
 
 **Purpose:** Counts raw suppression instances in suppressed findings markdown (not deduplicated).
 
@@ -610,7 +610,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `parse_suppressed_findings(scan_dir: Path) -> list[dict]`
-**Location:** [web/api/parsers.py:610](../web/api/parsers.py#L610)
+**Location:** [web/api/parsers.py:610](../../web/api/parsers.py#L610)
 
 **Purpose:** Parses suppressed findings markdown into structured records.
 
@@ -636,7 +636,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `parse_enrichment_summary(scan_dir: Path) -> dict | None`
-**Location:** [web/api/parsers.py:916](../web/api/parsers.py#L916)
+**Location:** [web/api/parsers.py:916](../../web/api/parsers.py#L916)
 
 **Purpose:** Extracts enrichment metadata (CISA KEV / NVD) from findings summary.
 
@@ -658,7 +658,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `load_api_discovery(scan_dir: Path) -> dict | None`
-**Location:** [web/api/parsers.py:931](../web/api/parsers.py#L931)  
+**Location:** [web/api/parsers.py:931](../../web/api/parsers.py#L931)  
 **Layer:** 11 - API Discovery
 
 **Purpose:** Parses discovered API endpoints from static code analysis.
@@ -703,7 +703,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ## Aggregate Parsers
 
 ### `load_sbom_packages(scan_dir: Path) -> dict`
-**Location:** [web/api/parsers.py:640](../web/api/parsers.py#L640)  
+**Location:** [web/api/parsers.py:640](../../web/api/parsers.py#L640)  
 **Layer:** 1 - SBOM Generation
 
 **Purpose:** Loads SBOM package data from Syft or CycloneDX formats.
@@ -745,7 +745,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `parse_scan_findings(scan_dir: Path) -> dict`
-**Location:** [web/api/parsers.py:983](../web/api/parsers.py#L983)
+**Location:** [web/api/parsers.py:983](../../web/api/parsers.py#L983)
 
 **Purpose:** Aggregates findings from all security tools and groups by severity.
 
@@ -776,7 +776,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `load_enriched_findings(scan_dir: Path) -> dict | None`
-**Location:** [web/api/parsers.py:850](../web/api/parsers.py#L850)
+**Location:** [web/api/parsers.py:850](../../web/api/parsers.py#L850)
 
 **Purpose:** Loads pre-enriched findings with CISA KEV and NVD metadata.
 
@@ -830,7 +830,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `load_scan(scan_dir: Path, epyon_root: Path) -> dict`
-**Location:** [web/api/parsers.py:999](../web/api/parsers.py#L999)
+**Location:** [web/api/parsers.py:999](../../web/api/parsers.py#L999)
 
 **Purpose:** Main loader - assembles complete scan data from all sources.
 
@@ -933,7 +933,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ---
 
 ### `get_status(scan: dict) -> str`
-**Location:** [web/api/parsers.py:1195](../web/api/parsers.py#L1195)
+**Location:** [web/api/parsers.py:1195](../../web/api/parsers.py#L1195)
 
 **Purpose:** Determines overall scan status from severity counts.
 
@@ -949,7 +949,7 @@ Complete reference for all parsing functions in the Epyon security scanner.
 ## Shell Script Parsers
 
 ### `parse_ignore_rules()`
-**Location:** [scripts/shell/parse-epyon-ignore.sh:13](../scripts/shell/parse-epyon-ignore.sh#L13)
+**Location:** [scripts/shell/parse-epyon-ignore.sh:13](../../scripts/shell/parse-epyon-ignore.sh#L13)
 
 **Purpose:** Parses `.epyon-ignore.yml` suppression rules from target repository.
 
@@ -998,7 +998,7 @@ ignores:
 ---
 
 ### `parse_findings_file()`
-**Location:** [scripts/shell/get-scan-metrics.sh:187](../scripts/shell/get-scan-metrics.sh#L187)
+**Location:** [scripts/shell/get-scan-metrics.sh:187](../../scripts/shell/get-scan-metrics.sh#L187)
 
 **Purpose:** Parses `security-findings-summary.json` into shell severity variables.
 
@@ -1087,6 +1087,6 @@ All parsers follow these conventions:
 ---
 
 **See Also:**
-- [SCAN_MATRIX.md](SCAN_MATRIX.md) - Security layer details
+- [SCAN_MATRIX.md](../scanning/SCAN_MATRIX.md) - Security layer details
 - [SCAN_DIRECTORY_ARCHITECTURE.md](SCAN_DIRECTORY_ARCHITECTURE.md) - Directory structure
-- [IGNORE_RULES_GUIDE.md](IGNORE_RULES_GUIDE.md) - Suppression rule syntax
+- [IGNORE_RULES_GUIDE.md](../scanning/IGNORE_RULES_GUIDE.md) - Suppression rule syntax

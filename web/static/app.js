@@ -1854,6 +1854,99 @@ async function renderApplications() {
 
 // ─────────────────────────────────────────────────────────────
 
+function buildScanTimelineItem(s, name) {
+  const st = computeStatus(s);
+  return `
+    <div class="scan-timeline-item"
+         onclick="navigate('#/scans/${encodeURIComponent(s.scan_id)}')">
+      <div class="scan-timeline-dot ${esc(st)}"></div>
+      <div class="scan-timeline-content">
+        <div class="scan-timeline-title">
+          ${esc(scanTypeLabel(s.scan_type))} scan
+          <span>${gateBadge(s)} ${sevBadgeRow(s)}</span>
+          ${hfStatusBadge(s)}
+          ${s.ci_source ? `<span class="badge badge-ci" title="From GitHub Actions · ${esc(s.ci_source.repo)}${s.ci_source.branch ? ' · ' + esc(s.ci_source.branch) : ''}">GH Actions</span>` : ''}
+        </div>
+        <div class="scan-timeline-meta">
+          ${fmtDate(s.timestamp)}
+          ${s.user ? ` · ${esc(s.user)}` : ''}
+          ${s.location ? ` · <code>${esc(s.location)}</code>` : ''}
+        </div>
+        ${dedupeTools(s.tools_analyzed).length ? `
+          <div class="tools-list" style="margin-top:8px">
+            ${dedupeTools(s.tools_analyzed).map(t =>
+              `<span class="tool-tag">${esc(t)}</span>`).join('')}
+          </div>` : ''}
+      </div>
+      ${s.has_dashboard
+        ? `<button class="btn btn-sm"
+             onclick="event.stopPropagation();window.open('/api/scans/${encodeURIComponent(s.scan_id)}/dashboard','_blank')">
+             HTML ↗
+           </button>`
+        : ''}
+      <button class="btn btn-sm btn-danger"
+        onclick="event.stopPropagation();deleteScan('${esc(s.scan_id)}', '${esc(name)}')"
+        title="Permanently delete this scan">
+        Delete
+      </button>
+    </div>`;
+}
+
+// Scan History tabs: Full/Nightly, Quick, STIG, Other (baseline, local model, container image, ...).
+const SCAN_HISTORY_TABS = [
+  { id: 'full',  label: 'Full / Nightly', types: ['full', 'nightly'] },
+  { id: 'quick', label: 'Quick',          types: ['quick'] },
+  { id: 'stig',  label: 'STIG',           types: ['stig'] },
+  { id: 'other', label: 'Other',          types: null },
+];
+const _scanHistoryState = {};
+
+function scanHistoryTabOf(scan) {
+  const t = SCAN_HISTORY_TABS.find(tab => tab.types && tab.types.includes(scan.scan_type));
+  return t ? t.id : 'other';
+}
+
+function buildScanHistory(name, scans) {
+  const counts = {};
+  scans.forEach(s => { const id = scanHistoryTabOf(s); counts[id] = (counts[id] || 0) + 1; });
+  const saved = _scanHistoryState[name];
+  // Default to the tab holding the newest scan so the page never opens on an empty tab.
+  const active = saved && SCAN_HISTORY_TABS.some(t => t.id === saved)
+    ? saved : scanHistoryTabOf(scans[0]);
+  _scanHistoryState[name] = active;
+  const tabs = SCAN_HISTORY_TABS.map(t => `
+    <button class="scan-history-tab${t.id === active ? ' active' : ''}" role="tab"
+      id="scan-tab-${t.id}" aria-selected="${t.id === active}" aria-controls="scan-history-panel"
+      data-tab="${t.id}" onclick="selectScanHistoryTab(this.dataset.tab)">
+      ${esc(t.label)} <span class="scan-history-count">${counts[t.id] || 0}</span>
+    </button>`).join('');
+  window._scanHistoryScans = { name, scans };
+  return `
+    <div class="scan-history-tabs" role="tablist" aria-label="Scan type">${tabs}</div>
+    <div id="scan-history-panel" role="tabpanel">${scanHistoryPanel(name, scans, active)}</div>`;
+}
+
+function scanHistoryPanel(name, scans, tabId) {
+  const items = scans.filter(s => scanHistoryTabOf(s) === tabId);
+  if (!items.length) {
+    const label = SCAN_HISTORY_TABS.find(t => t.id === tabId).label;
+    return `<div class="scan-history-empty">No ${esc(label)} scans for this application.</div>`;
+  }
+  return items.map(s => buildScanTimelineItem(s, name)).join('');
+}
+
+function selectScanHistoryTab(tabId) {
+  const ctx = window._scanHistoryScans;
+  if (!ctx || !SCAN_HISTORY_TABS.some(t => t.id === tabId)) return;
+  _scanHistoryState[ctx.name] = tabId;
+  document.querySelectorAll('.scan-history-tab').forEach(btn => {
+    const on = btn.dataset.tab === tabId;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-selected', String(on));
+  });
+  document.getElementById('scan-history-panel').innerHTML = scanHistoryPanel(ctx.name, ctx.scans, tabId);
+}
+
 async function renderAppDetail(name) {
   setActive('applications');
   const page = document.getElementById('page');
@@ -1871,43 +1964,7 @@ async function renderAppDetail(name) {
     const status  = computeStatus(latest);
 
     const timelineItems = scans.length
-      ? scans.map(s => {
-          const st = computeStatus(s);
-          return `
-            <div class="scan-timeline-item"
-                 onclick="navigate('#/scans/${encodeURIComponent(s.scan_id)}')">
-              <div class="scan-timeline-dot ${esc(st)}"></div>
-              <div class="scan-timeline-content">
-                <div class="scan-timeline-title">
-                  ${esc(scanTypeLabel(s.scan_type))} scan
-                  <span>${gateBadge(s)} ${sevBadgeRow(s)}</span>
-                  ${hfStatusBadge(s)}
-                  ${s.ci_source ? `<span class="badge badge-ci" title="From GitHub Actions · ${esc(s.ci_source.repo)}${s.ci_source.branch ? ' · ' + esc(s.ci_source.branch) : ''}">GH Actions</span>` : ''}
-                </div>
-                <div class="scan-timeline-meta">
-                  ${fmtDate(s.timestamp)}
-                  ${s.user ? ` · ${esc(s.user)}` : ''}
-                  ${s.location ? ` · <code>${esc(s.location)}</code>` : ''}
-                </div>
-                ${dedupeTools(s.tools_analyzed).length ? `
-                  <div class="tools-list" style="margin-top:8px">
-                    ${dedupeTools(s.tools_analyzed).map(t =>
-                      `<span class="tool-tag">${esc(t)}</span>`).join('')}
-                  </div>` : ''}
-              </div>
-              ${s.has_dashboard
-                ? `<button class="btn btn-sm"
-                     onclick="event.stopPropagation();window.open('/api/scans/${encodeURIComponent(s.scan_id)}/dashboard','_blank')">
-                     HTML ↗
-                   </button>`
-                : ''}
-              <button class="btn btn-sm btn-danger"
-                onclick="event.stopPropagation();deleteScan('${esc(s.scan_id)}', '${esc(name)}')"
-                title="Permanently delete this scan">
-                Delete
-              </button>
-            </div>`;
-        }).join('')
+      ? buildScanHistory(name, scans)
       : emptyState(
           `No scans found for "${name}"`,
           appUrl ? `Repository: ${appUrl}` : 'Run a scan to populate history.',

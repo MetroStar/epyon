@@ -10237,8 +10237,215 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
     document.body.appendChild(drawer);
   };
 
+  // src/core/shell.js
+  var shell_exports = {};
+  __export(shell_exports, {
+    _mobileNav: () => _mobileNav,
+    _syncSidebarToggle: () => _syncSidebarToggle,
+    applyTheme: () => applyTheme,
+    clearCacheAndReload: () => clearCacheAndReload,
+    setActive: () => setActive2,
+    toggleSidebar: () => toggleSidebar,
+    toggleTheme: () => toggleTheme
+  });
+  function applyTheme(theme) {
+    if (document && document.documentElement) {
+      document.documentElement.setAttribute("data-theme", theme);
+    }
+    const moon = document.getElementById ? document.getElementById("theme-icon-moon") : null;
+    const sun = document.getElementById ? document.getElementById("theme-icon-sun") : null;
+    if (moon && moon.style) moon.style.display = theme === "dark" ? "" : "none";
+    if (sun && sun.style) sun.style.display = theme === "light" ? "" : "none";
+    try {
+      localStorage.setItem("epyon-theme", theme);
+    } catch (_) {
+    }
+  }
+  function toggleTheme() {
+    const current = document.documentElement.getAttribute("data-theme") || "dark";
+    applyTheme(current === "dark" ? "light" : "dark");
+  }
+  async function clearCacheAndReload() {
+    const frontendMetrics = _cache.getMetrics();
+    console.log("Frontend Cache Metrics:", frontendMetrics);
+    const msg = `Clear all cached data and reload?
+
+Frontend Cache:
+  Hits: ${frontendMetrics.hits}
+  Misses: ${frontendMetrics.misses}
+  Hit Rate: ${frontendMetrics.hit_rate_pct || "N/A"}%
+  Avg Staleness: ${frontendMetrics.avg_staleness_ms || "N/A"}ms`;
+    if (await confirmDialog({ title: "Clear cache and reload", body: msg, confirmLabel: "Clear and reload", danger: false })) {
+      _cache.invalidate();
+      window.location.reload();
+    }
+  }
+  (function initTheme() {
+    try {
+      const stored = localStorage.getItem("epyon-theme");
+      if (stored === "light" || stored === "dark") {
+        applyTheme(stored);
+        return;
+      }
+    } catch (_) {
+    }
+    const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+    applyTheme(prefersDark ? "dark" : "light");
+  })();
+  var _mobileNav = () => window.matchMedia("(max-width: 768px)").matches;
+  function _syncSidebarToggle() {
+    const sidebar = document.getElementById("sidebar");
+    const btn = document.getElementById("sidebar-toggle");
+    if (sidebar && btn) btn.setAttribute("aria-expanded", String(!sidebar.classList.contains("collapsed")));
+  }
+  function toggleSidebar() {
+    const sidebar = document.getElementById("sidebar");
+    if (!sidebar) return;
+    const collapsed = sidebar.classList.toggle("collapsed");
+    if (!_mobileNav()) {
+      try {
+        localStorage.setItem("epyon-sidebar-collapsed", collapsed ? "1" : "");
+      } catch (_) {
+      }
+    }
+    _syncSidebarToggle();
+  }
+  (function initSidebar() {
+    const sidebar = document.getElementById("sidebar");
+    let collapsed = _mobileNav();
+    if (!collapsed) {
+      try {
+        collapsed = localStorage.getItem("epyon-sidebar-collapsed") === "1";
+      } catch (_) {
+      }
+    }
+    if (sidebar && collapsed) sidebar.classList.add("collapsed");
+    _syncSidebarToggle();
+    sidebar?.addEventListener("click", (e) => {
+      if (_mobileNav() && e.target.closest(".nav-link")) {
+        sidebar.classList.add("collapsed");
+        _syncSidebarToggle();
+      }
+    });
+  })();
+  function setActive2(routeKey) {
+    document.querySelectorAll(".nav-link").forEach((el) => {
+      el.classList.toggle("active", el.dataset.route === routeKey);
+    });
+    _resetFindingsRegistry();
+    _stigRegistry.clear();
+    resetFindingsViewState();
+    closeFindingDetail2();
+    closeStigDetail();
+  }
+
+  // src/core/a11y.js
+  var _overlayStack = [];
+  var _lastOutsideFocus = null;
+  var _FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+  function _overlayFocusables(dialog) {
+    return [...dialog.querySelectorAll(_FOCUSABLE)].filter((el) => el.offsetParent !== null);
+  }
+  function _registerOverlay(overlay, dialog) {
+    if (!dialog || _overlayStack.some((o) => o.overlay === overlay)) return;
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    if (!dialog.hasAttribute("aria-labelledby") && !dialog.hasAttribute("aria-label")) {
+      const heading = dialog.querySelector("h1,h2,h3");
+      if (heading) dialog.setAttribute("aria-label", heading.textContent.trim());
+    }
+    dialog.setAttribute("tabindex", "-1");
+    _overlayStack.push({ overlay, dialog, trigger: _lastOutsideFocus });
+    (_overlayFocusables(dialog)[0] || dialog).focus({ preventScroll: true });
+  }
+  function _closeTopOverlay() {
+    const top = _overlayStack[_overlayStack.length - 1];
+    if (!top) return;
+    top.overlay.click();
+    if (top.overlay.isConnected) {
+      top.overlay.remove();
+      top.dialog.remove();
+    }
+  }
+  function _scanOverlays(root) {
+    if (root.nodeType !== 1) return;
+    if (root.matches(".modal-overlay")) _registerOverlay(root, root.firstElementChild);
+    else if (root.matches(".finding-drawer")) _registerOverlay(root.previousElementSibling?.classList.contains("finding-drawer-overlay") ? root.previousElementSibling : root, root);
+    else root.querySelectorAll?.(".modal-overlay,.finding-drawer").forEach(_scanOverlays);
+  }
+  function _releaseOverlays() {
+    while (_overlayStack.length) {
+      const top = _overlayStack[_overlayStack.length - 1];
+      if (top.dialog.isConnected && top.overlay.isConnected) return;
+      _overlayStack.pop();
+      if (top.trigger && top.trigger.isConnected && !document.querySelector(".modal-overlay,.finding-drawer")) {
+        top.trigger.focus({ preventScroll: true });
+      }
+    }
+  }
+  if (typeof document !== "undefined" && !window.__overlayA11y) {
+    window.__overlayA11y = true;
+    document.addEventListener("focusin", (e) => {
+      if (!e.target.closest?.(".modal-overlay,.finding-drawer")) _lastOutsideFocus = e.target;
+    });
+    new MutationObserver((muts) => {
+      muts.forEach((m) => m.addedNodes.forEach(_scanOverlays));
+      _releaseOverlays();
+    }).observe(document.body, { childList: true });
+    document.addEventListener("keydown", (e) => {
+      const top = _overlayStack[_overlayStack.length - 1];
+      if (!top) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        _closeTopOverlay();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = _overlayFocusables(top.dialog);
+      if (!items.length) {
+        e.preventDefault();
+        top.dialog.focus();
+        return;
+      }
+      const first = items[0], last = items[items.length - 1];
+      if (!top.dialog.contains(document.activeElement)) {
+        e.preventDefault();
+        first.focus();
+      } else if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
+  }
+  var _NATIVE_INTERACTIVE = "button,input,select,textarea,summary,a[href]";
+  function _makeKeyboardClickable(root) {
+    if (root.nodeType !== 1) return;
+    const els = root.matches("[onclick]") ? [root] : [];
+    root.querySelectorAll?.("[onclick]").forEach((el) => els.push(el));
+    els.forEach((el) => {
+      if (el.matches(_NATIVE_INTERACTIVE) || el.hasAttribute("tabindex")) return;
+      el.setAttribute("tabindex", "0");
+      if (!el.hasAttribute("role") && !["TR", "TD", "TH"].includes(el.tagName)) el.setAttribute("role", "button");
+    });
+  }
+  if (typeof document !== "undefined" && !window.__keyboardClickable) {
+    window.__keyboardClickable = true;
+    _makeKeyboardClickable(document.body);
+    new MutationObserver((muts) => muts.forEach((m) => m.addedNodes.forEach(_makeKeyboardClickable))).observe(document.body, { childList: true, subtree: true });
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      const el = e.target;
+      if (!el || el !== document.activeElement || !el.matches?.("[onclick][tabindex]") || el.matches(_NATIVE_INTERACTIVE)) return;
+      e.preventDefault();
+      el.click();
+    });
+  }
+
   // src/index.js
-  Object.assign(window, format_exports, scans_exports, badges_exports, layout_exports, charts_exports, feedback_exports, cache_exports, api_exports, poam_exports, router_exports, settings_exports, performance_exports, stig_history_exports, new_scan_exports, self_diagnostic_exports, registries_exports, jira_review_exports, stig_exports, metrics_exports, overview_exports, applications_exports, model_security_exports, network_enrichment_exports, evidence_exports, scan_detail_exports, suppressed_exports, sbom_exports, api_endpoints_exports, findings_exports, summaries_exports, scorecard_exports, app_actions_exports, stig_exports2, finding_exports, signals_exports);
+  Object.assign(window, format_exports, scans_exports, badges_exports, layout_exports, charts_exports, feedback_exports, cache_exports, api_exports, poam_exports, router_exports, settings_exports, performance_exports, stig_history_exports, new_scan_exports, self_diagnostic_exports, registries_exports, jira_review_exports, stig_exports, metrics_exports, overview_exports, applications_exports, model_security_exports, network_enrichment_exports, evidence_exports, scan_detail_exports, suppressed_exports, sbom_exports, api_endpoints_exports, findings_exports, summaries_exports, scorecard_exports, app_actions_exports, stig_exports2, finding_exports, signals_exports, shell_exports);
 })();
 
 "use strict";
@@ -10471,96 +10678,6 @@ function renderSelfAssessmentBody(sa) {
       </table>
     </div>
     ${timelineHtml}`;
-}
-function applyTheme(theme) {
-  if (document && document.documentElement) {
-    document.documentElement.setAttribute("data-theme", theme);
-  }
-  const moon = document.getElementById ? document.getElementById("theme-icon-moon") : null;
-  const sun = document.getElementById ? document.getElementById("theme-icon-sun") : null;
-  if (moon && moon.style) moon.style.display = theme === "dark" ? "" : "none";
-  if (sun && sun.style) sun.style.display = theme === "light" ? "" : "none";
-  try {
-    localStorage.setItem("epyon-theme", theme);
-  } catch (_) {
-  }
-}
-function toggleTheme() {
-  const current = document.documentElement.getAttribute("data-theme") || "dark";
-  applyTheme(current === "dark" ? "light" : "dark");
-}
-async function clearCacheAndReload() {
-  const frontendMetrics = _cache.getMetrics();
-  console.log("Frontend Cache Metrics:", frontendMetrics);
-  const msg = `Clear all cached data and reload?
-
-Frontend Cache:
-  Hits: ${frontendMetrics.hits}
-  Misses: ${frontendMetrics.misses}
-  Hit Rate: ${frontendMetrics.hit_rate_pct || "N/A"}%
-  Avg Staleness: ${frontendMetrics.avg_staleness_ms || "N/A"}ms`;
-  if (await confirmDialog({ title: "Clear cache and reload", body: msg, confirmLabel: "Clear and reload", danger: false })) {
-    _cache.invalidate();
-    window.location.reload();
-  }
-}
-(function initTheme() {
-  try {
-    const stored = localStorage.getItem("epyon-theme");
-    if (stored === "light" || stored === "dark") {
-      applyTheme(stored);
-      return;
-    }
-  } catch (_) {
-  }
-  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-  applyTheme(prefersDark ? "dark" : "light");
-})();
-const _mobileNav = () => window.matchMedia("(max-width: 768px)").matches;
-function _syncSidebarToggle() {
-  const sidebar = document.getElementById("sidebar");
-  const btn = document.getElementById("sidebar-toggle");
-  if (sidebar && btn) btn.setAttribute("aria-expanded", String(!sidebar.classList.contains("collapsed")));
-}
-function toggleSidebar() {
-  const sidebar = document.getElementById("sidebar");
-  if (!sidebar) return;
-  const collapsed = sidebar.classList.toggle("collapsed");
-  if (!_mobileNav()) {
-    try {
-      localStorage.setItem("epyon-sidebar-collapsed", collapsed ? "1" : "");
-    } catch (_) {
-    }
-  }
-  _syncSidebarToggle();
-}
-(function initSidebar() {
-  const sidebar = document.getElementById("sidebar");
-  let collapsed = _mobileNav();
-  if (!collapsed) {
-    try {
-      collapsed = localStorage.getItem("epyon-sidebar-collapsed") === "1";
-    } catch (_) {
-    }
-  }
-  if (sidebar && collapsed) sidebar.classList.add("collapsed");
-  _syncSidebarToggle();
-  sidebar?.addEventListener("click", (e) => {
-    if (_mobileNav() && e.target.closest(".nav-link")) {
-      sidebar.classList.add("collapsed");
-      _syncSidebarToggle();
-    }
-  });
-})();
-function setActive(routeKey) {
-  document.querySelectorAll(".nav-link").forEach((el) => {
-    el.classList.toggle("active", el.dataset.route === routeKey);
-  });
-  _resetFindingsRegistry();
-  _stigRegistry.clear();
-  resetFindingsViewState();
-  closeFindingDetail();
-  closeStigDetail();
 }
 if (!window.__sspDocxExportBound) {
   document.addEventListener("click", (event) => {
@@ -10957,109 +11074,6 @@ function renderStaticScanDetail(scan) {
     apiRender(window._apiPendingUid);
     window._apiPendingUid = null;
   }
-}
-const _overlayStack = [];
-let _lastOutsideFocus = null;
-const _FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
-function _overlayFocusables(dialog) {
-  return [...dialog.querySelectorAll(_FOCUSABLE)].filter((el) => el.offsetParent !== null);
-}
-function _registerOverlay(overlay, dialog) {
-  if (!dialog || _overlayStack.some((o) => o.overlay === overlay)) return;
-  dialog.setAttribute("role", "dialog");
-  dialog.setAttribute("aria-modal", "true");
-  if (!dialog.hasAttribute("aria-labelledby") && !dialog.hasAttribute("aria-label")) {
-    const heading = dialog.querySelector("h1,h2,h3");
-    if (heading) dialog.setAttribute("aria-label", heading.textContent.trim());
-  }
-  dialog.setAttribute("tabindex", "-1");
-  _overlayStack.push({ overlay, dialog, trigger: _lastOutsideFocus });
-  (_overlayFocusables(dialog)[0] || dialog).focus({ preventScroll: true });
-}
-function _closeTopOverlay() {
-  const top = _overlayStack[_overlayStack.length - 1];
-  if (!top) return;
-  top.overlay.click();
-  if (top.overlay.isConnected) {
-    top.overlay.remove();
-    top.dialog.remove();
-  }
-}
-function _scanOverlays(root) {
-  if (root.nodeType !== 1) return;
-  if (root.matches(".modal-overlay")) _registerOverlay(root, root.firstElementChild);
-  else if (root.matches(".finding-drawer")) _registerOverlay(root.previousElementSibling?.classList.contains("finding-drawer-overlay") ? root.previousElementSibling : root, root);
-  else root.querySelectorAll?.(".modal-overlay,.finding-drawer").forEach(_scanOverlays);
-}
-function _releaseOverlays() {
-  while (_overlayStack.length) {
-    const top = _overlayStack[_overlayStack.length - 1];
-    if (top.dialog.isConnected && top.overlay.isConnected) return;
-    _overlayStack.pop();
-    if (top.trigger && top.trigger.isConnected && !document.querySelector(".modal-overlay,.finding-drawer")) {
-      top.trigger.focus({ preventScroll: true });
-    }
-  }
-}
-if (typeof document !== "undefined" && !window.__overlayA11y) {
-  window.__overlayA11y = true;
-  document.addEventListener("focusin", (e) => {
-    if (!e.target.closest?.(".modal-overlay,.finding-drawer")) _lastOutsideFocus = e.target;
-  });
-  new MutationObserver((muts) => {
-    muts.forEach((m) => m.addedNodes.forEach(_scanOverlays));
-    _releaseOverlays();
-  }).observe(document.body, { childList: true });
-  document.addEventListener("keydown", (e) => {
-    const top = _overlayStack[_overlayStack.length - 1];
-    if (!top) return;
-    if (e.key === "Escape") {
-      e.preventDefault();
-      _closeTopOverlay();
-      return;
-    }
-    if (e.key !== "Tab") return;
-    const items = _overlayFocusables(top.dialog);
-    if (!items.length) {
-      e.preventDefault();
-      top.dialog.focus();
-      return;
-    }
-    const first = items[0], last = items[items.length - 1];
-    if (!top.dialog.contains(document.activeElement)) {
-      e.preventDefault();
-      first.focus();
-    } else if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  });
-}
-const _NATIVE_INTERACTIVE = "button,input,select,textarea,summary,a[href]";
-function _makeKeyboardClickable(root) {
-  if (root.nodeType !== 1) return;
-  const els = root.matches("[onclick]") ? [root] : [];
-  root.querySelectorAll?.("[onclick]").forEach((el) => els.push(el));
-  els.forEach((el) => {
-    if (el.matches(_NATIVE_INTERACTIVE) || el.hasAttribute("tabindex")) return;
-    el.setAttribute("tabindex", "0");
-    if (!el.hasAttribute("role") && !["TR", "TD", "TH"].includes(el.tagName)) el.setAttribute("role", "button");
-  });
-}
-if (typeof document !== "undefined" && !window.__keyboardClickable) {
-  window.__keyboardClickable = true;
-  _makeKeyboardClickable(document.body);
-  new MutationObserver((muts) => muts.forEach((m) => m.addedNodes.forEach(_makeKeyboardClickable))).observe(document.body, { childList: true, subtree: true });
-  document.addEventListener("keydown", (e) => {
-    if (e.key !== "Enter" && e.key !== " ") return;
-    const el = e.target;
-    if (!el || el !== document.activeElement || !el.matches?.("[onclick][tabindex]") || el.matches(_NATIVE_INTERACTIVE)) return;
-    e.preventDefault();
-    el.click();
-  });
 }
 if (typeof window !== "undefined" && window.__SCAN__) {
   if (document.readyState === "loading") {

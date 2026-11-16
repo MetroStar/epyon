@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.14] - 2026-11-16
+
+### Changed
+- **Web UI refactor (step 3l, no behaviour change):** theme, sidebar and `setActive` navigation moved to `web/src/core/shell.js`; the modal/drawer focus handling and keyboard-access behaviour moved to `web/src/core/a11y.js`. Rendered pages, drawers and Escape/focus behaviour are identical to the previous bundle.
+
 ## [3.72.13] - 2026-11-16
 
 ### Changed

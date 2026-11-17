@@ -21,8 +21,11 @@ import hashlib
 import json
 import os
 import re
+import ipaddress
+import socket
 import subprocess
 import sys
+import urllib.parse
 import urllib.request
 import urllib.error
 from datetime import datetime, timezone
@@ -46,6 +49,34 @@ from epyon_test_paths import include_tests, is_test_path  # noqa: E402
 def _default_test_exclusion(target_dir: Path) -> bool:
     """Tests/fixtures are skipped unless the target's .epyon-ignore.yml sets include_tests: true."""
     return not include_tests(Path(target_dir) / '.epyon-ignore.yml')
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
+_HTTP_OPENER = urllib.request.build_opener(
+    urllib.request.HTTPHandler, urllib.request.HTTPSHandler, _NoRedirect
+)
+
+
+def validate_feed_url(url: str) -> str:
+    """Allow only http(s) URLs whose host resolves to public addresses (SSRF guard)."""
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password:
+        raise ValueError("threat feed URL must be http(s) without credentials")
+    try:
+        addrs = {info[4][0] for info in socket.getaddrinfo(parsed.hostname, None)}
+    except socket.gaierror as exc:
+        raise ValueError(f"threat feed host does not resolve: {exc}") from exc
+    if os.environ.get("EPYON_ALLOW_PRIVATE_THREAT_FEED", "").lower() == "true":
+        return url
+    for addr in addrs:
+        ip = ipaddress.ip_address(addr.split("%")[0])
+        if not ip.is_global:
+            raise ValueError("threat feed host resolves to a non-public address (set EPYON_ALLOW_PRIVATE_THREAT_FEED=true for an internal feed)")
+    return url
 
 
 class ModelProvenanceChecker:
@@ -360,8 +391,9 @@ class ModelProvenanceChecker:
         
         try:
             print(f"[INFO] Fetching threat intelligence from {self.threat_feed_url}...")
+            validate_feed_url(self.threat_feed_url)
             req = urllib.request.Request(self.threat_feed_url, headers={'User-Agent': 'Epyon-ML-Scanner/2.0'})
-            with urllib.request.urlopen(req, timeout=10) as response:
+            with _HTTP_OPENER.open(req, timeout=10) as response:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
                 return json.loads(response.read().decode('utf-8'))
         except Exception as e:
             print(f"[WARN] Error fetching threat feed: {e}", file=sys.stderr)
@@ -497,7 +529,7 @@ class ModelProvenanceChecker:
             return None
         
         author = model_name.split('/')[0]
-        url = f"https://huggingface.co/api/users/{author}"
+        url = f"https://huggingface.co/api/users/{urllib.parse.quote(author, safe='')}"
         
         try:
             req = urllib.request.Request(
@@ -507,7 +539,7 @@ class ModelProvenanceChecker:
                     'User-Agent': 'Epyon-ML-Scanner/2.0'
                 }
             )
-            with urllib.request.urlopen(req, timeout=5) as response:
+            with urllib.request.urlopen(req, timeout=5) as response:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
                 data = json.loads(response.read().decode('utf-8'))
                 
                 # Calculate simple risk score (0-100, higher = riskier)

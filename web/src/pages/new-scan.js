@@ -572,11 +572,13 @@ export async function runNextQueuedScan(btn, ctx) {
         await fetch(`/api/jobs/${encodeURIComponent(job.job_id)}/cancel`, { method: 'POST' }).catch(() => {});
       }
       scanWatch.poke();
+      // nosemgrep: typescript.react.security.audit.react-unsanitized-method.react-unsanitized-method - every interpolated value goes through esc()
       document.getElementById('log-output')?.insertAdjacentHTML('beforeend',
         `<div class="log-line" style="color:var(--text);font-weight:600;margin-top:${_scanJobs.length > 1 ? '10px' : '0'}">── ${esc(label)} ──</div>` +
         `<div id="log-job-${esc(job.job_id)}"></div>`);
     } catch (e) {
       _scanQueueResults.push({ type: scanType, label, status: 'error', reason: e.message });
+      // nosemgrep: typescript.react.security.audit.react-unsanitized-method.react-unsanitized-method - every interpolated value goes through esc()
       document.getElementById('log-output')?.insertAdjacentHTML('beforeend',
         `<div class="log-line err">Error starting ${esc(label)}: ${esc(e.message)}</div>`);
     }
@@ -607,6 +609,7 @@ export async function pollJobs(btn, ctx) {
         j.lines.push(...fresh);
         const section = document.getElementById(`log-job-${j.id}`);
         if (section) {
+          // nosemgrep: typescript.react.security.audit.react-unsanitized-method.react-unsanitized-method - every interpolated value goes through esc()
           section.insertAdjacentHTML('beforeend', fresh.map(l => `<div class="log-line">${esc(l)}</div>`).join(''));
           const logOut = document.getElementById('log-output');
           if (logOut) logOut.scrollTop = logOut.scrollHeight;

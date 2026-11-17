@@ -12,7 +12,7 @@
 #
 # Environment variables:
 #   OPENAI_API_KEY    Required. OpenAI API key for LLM assessment.
-#   OPENAI_MODEL      OpenAI model to use (default: gpt-4o-mini).
+#   OPENAI_MODEL      Model to use (default: gemma4-31b-q8-128k:2026-09-03 on the local endpoint).
 #   STIGS_DIR         Directory of STIG files (default: configuration/stigs).
 #                     Set STIGS_FILE instead to target a single file.
 #   STIGS_FILE        Single STIG file path (overrides STIGS_DIR).
@@ -66,7 +66,7 @@ show_help() {
     echo ""
     echo "Environment variables:"
     echo "  OPENAI_API_KEY    Required. OpenAI API key."
-    echo "  OPENAI_MODEL      Model to use (default: gpt-4o-mini)."
+    echo "  OPENAI_MODEL      Model to use (default: gemma4-31b-q8-128k:2026-09-03 on the local endpoint)."
     echo "  STIGS_DIR         Directory of STIG files (default: configuration/stigs)."
     echo "  STIGS_FILE        Single STIG file path (overrides STIGS_DIR)."
     echo "  SCAN_DIR          Output directory (default: auto-derived scan directory)."
@@ -125,7 +125,7 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 # ── Defaults ─────────────────────────────────────────────────────────────────
 STIGS_DIR="${STIGS_DIR:-${PROJECT_ROOT}/configuration/stigs}"
 STIGS_FILE="${STIGS_FILE:-}"
-OPENAI_MODEL="${OPENAI_MODEL:-gpt-4o-mini}"
+OPENAI_MODEL="${OPENAI_MODEL:-gemma4-31b-q8-128k:2026-09-03}"
 OPENAI_BASE_URL="${OPENAI_BASE_URL:-}"
 BATCH_SIZE="${BATCH_SIZE:-}"  # empty = engine default (5 hosted, 3 self-hosted)
 BATCH_DELAY="${BATCH_DELAY:-1}"
@@ -217,7 +217,9 @@ if ! python3 -c "import openai" &>/dev/null 2>&1; then
 fi
 
 # Warn (but do not abort) if API key is missing — assessment script handles gracefully
-if [[ -z "${OPENAI_API_KEY:-}" ]]; then
+# Default is the local endpoint (http://localhost:11434/v1); a key is only needed for
+# OpenAI (EPYON_AI_PROVIDER=openai or an api.openai.com OPENAI_BASE_URL).
+if [[ -z "${OPENAI_API_KEY:-}" && ( "${EPYON_AI_PROVIDER:-}" == "openai" || "${OPENAI_BASE_URL:-}" == *api.openai.com* ) ]]; then
     echo -e "${YELLOW}[WARNING] OPENAI_API_KEY is not set.${NC}"
     echo "          All controls will be marked 'Not Reviewed'."
     echo "          Set OPENAI_API_KEY to enable AI-powered assessment."

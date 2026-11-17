@@ -4734,18 +4734,22 @@ epyon install-workflow</pre>
   __export(applications_exports, {
     buildScanHistory: () => buildScanHistory,
     buildScanTimelineItem: () => buildScanTimelineItem,
-    clearScanHistoryDates: () => clearScanHistoryDates,
+    closeScanDatePicker: () => closeScanDatePicker,
+    pickScanDay: () => pickScanDay,
     refreshScanHistory: () => refreshScanHistory,
     renderAppDetail: () => renderAppDetail,
     renderApplications: () => renderApplications,
+    scanDatePicker: () => scanDatePicker,
     scanHistoryFiltered: () => scanHistoryFiltered,
     scanHistoryPanel: () => scanHistoryPanel,
     scanHistoryTabOf: () => scanHistoryTabOf,
     scanLocalDay: () => scanLocalDay,
     selectScanHistoryTab: () => selectScanHistoryTab,
-    setScanHistoryDates: () => setScanHistoryDates,
+    setScanDatePreset: () => setScanDatePreset,
     setScanHistoryPage: () => setScanHistoryPage,
-    toggleMonitored: () => toggleMonitored
+    shiftScanDateMonth: () => shiftScanDateMonth,
+    toggleMonitored: () => toggleMonitored,
+    toggleScanDatePicker: () => toggleScanDatePicker
   });
 
   // src/components/summaries.js
@@ -5322,8 +5326,8 @@ epyon install-workflow</pre>
   }
   function buildScanHistory(name, scans) {
     const saved = _scanHistoryState[name] || {};
-    const tab = SCAN_HISTORY_TABS.some((t) => t.id === saved.tab) ? saved.tab : scanHistoryTabOf(scans[0]);
-    const st = { tab, page: saved.page || 1, from: saved.from || "", to: saved.to || "" };
+    const tab = SCAN_HISTORY_TABS.some((t) => t.id === saved.tab) ? saved.tab : "full";
+    const st = { tab, page: saved.page || 1, from: saved.from || "", to: saved.to || "", open: false, picking: false, view: saved.view || "" };
     _scanHistoryState[name] = st;
     window._scanHistoryScans = { name, scans };
     const counts = {};
@@ -5339,14 +5343,7 @@ epyon install-workflow</pre>
     </button>`).join("");
     return `
     <div class="scan-history-tabs" role="tablist" aria-label="Scan type">${tabs}</div>
-    <div class="scan-history-filter">
-      <label>From <input type="date" id="scan-filter-from" value="${esc(st.from)}"
-        ${actOn("change", "setScanHistoryDates")}></label>
-      <label>To <input type="date" id="scan-filter-to" value="${esc(st.to)}"
-        ${actOn("change", "setScanHistoryDates")}></label>
-      <button class="btn btn-sm" id="scan-filter-clear" ${act("clearScanHistoryDates")}
-        ${st.from || st.to ? "" : "hidden"}>Clear dates</button>
-    </div>
+    <div class="scan-history-filter" id="scan-history-filter">${scanDatePicker(st)}</div>
     <div id="scan-history-panel" role="tabpanel">${scanHistoryPanel(name, scans, st)}</div>`;
   }
   function scanHistoryPanel(name, scans, st) {
@@ -5377,8 +5374,8 @@ epyon install-workflow</pre>
       btn.classList.toggle("active", on);
       btn.setAttribute("aria-selected", String(on));
     });
-    const clear = document.getElementById("scan-filter-clear");
-    if (clear) clear.hidden = !(st.from || st.to);
+    const filter = document.getElementById("scan-history-filter");
+    if (filter) filter.innerHTML = scanDatePicker(st);
     document.getElementById("scan-history-panel").innerHTML = scanHistoryPanel(ctx.name, ctx.scans, st);
   }
   function selectScanHistoryTab(tabId) {
@@ -5393,20 +5390,123 @@ epyon install-workflow</pre>
     _scanHistoryState[ctx.name].page = page;
     refreshScanHistory();
   }
-  function setScanHistoryDates() {
+  var _MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  var _DOW = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+  var _pad2 = (n) => String(n).padStart(2, "0");
+  var _dayKey = (d) => `${d.getFullYear()}-${_pad2(d.getMonth() + 1)}-${_pad2(d.getDate())}`;
+  var _parseDay = (k) => {
+    const [y, m, d] = k.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  };
+  var _fmtDay = (k) => _parseDay(k).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  var _daysAgo = (n) => {
+    const d = /* @__PURE__ */ new Date();
+    d.setDate(d.getDate() - n);
+    return _dayKey(d);
+  };
+  var SCAN_DATE_PRESETS = [
+    { id: "all", label: "All" },
+    { id: "today", label: "Today", range: () => [_daysAgo(0), _daysAgo(0)] },
+    { id: "yesterday", label: "Yesterday", range: () => [_daysAgo(1), _daysAgo(1)] },
+    { id: "week", label: "Last 7 days", range: () => [_daysAgo(6), _daysAgo(0)] },
+    { id: "month", label: "Last 30 days", range: () => [_daysAgo(29), _daysAgo(0)] },
+    { id: "quarter", label: "Last 90 days", range: () => [_daysAgo(89), _daysAgo(0)] }
+  ];
+  function _datePickerLabel(st) {
+    if (!st.from && !st.to) return "All";
+    if (st.from && st.to && st.from === st.to) return _fmtDay(st.from);
+    return `${st.from ? _fmtDay(st.from) : "…"} – ${st.to ? _fmtDay(st.to) : "…"}`;
+  }
+  function _calendarGrid(st) {
+    const base = st.view ? _parseDay(`${st.view}-01`) : _parseDay((st.from || _dayKey(/* @__PURE__ */ new Date())).slice(0, 8) + "01");
+    const year = base.getFullYear(), month = base.getMonth();
+    const start = new Date(year, month, 1 - new Date(year, month, 1).getDay());
+    const today = _dayKey(/* @__PURE__ */ new Date());
+    const lo = st.from, hi = st.to || st.from;
+    let cells = "";
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+      const key = _dayKey(d);
+      const cls = ["dp-day"];
+      if (d.getMonth() !== month) cls.push("out");
+      if (key === today) cls.push("today");
+      if (lo && hi && key >= lo && key <= hi) cls.push("in-range");
+      if (key === lo) cls.push("range-start");
+      if (key === hi) cls.push("range-end");
+      cells += `<button type="button" class="${cls.join(" ")}" aria-label="${esc(_fmtDay(key))}" ${act("pickScanDay", key)}>${d.getDate()}</button>`;
+    }
+    return `
+    <div class="dp-cal">
+      <div class="dp-cal-head">
+        <span class="dp-month">${_MONTHS[month]} ${year}</span>
+        <span class="dp-nav">
+          <button type="button" class="dp-nav-btn" aria-label="Previous month" ${act("shiftScanDateMonth", -1)}>‹</button>
+          <button type="button" class="dp-nav-btn" aria-label="Next month" ${act("shiftScanDateMonth", 1)}>›</button>
+        </span>
+      </div>
+      <div class="dp-grid dp-dow">${_DOW.map((d) => `<span>${d}</span>`).join("")}</div>
+      <div class="dp-grid">${cells}</div>
+    </div>`;
+  }
+  function scanDatePicker(st) {
+    const presets = SCAN_DATE_PRESETS.map((pr) => {
+      const active = pr.id === "all" ? !st.from && !st.to : (() => {
+        const [f, t] = pr.range();
+        return st.from === f && st.to === t;
+      })();
+      return `<button type="button" class="dp-preset${active ? " active" : ""}" ${act("setScanDatePreset", pr.id)}>${esc(pr.label)}</button>`;
+    }).join("");
+    return `
+    <span class="dp-wrap">
+      <button type="button" class="dp-trigger${st.open ? " open" : ""}" aria-haspopup="dialog" aria-expanded="${st.open}"
+        ${act("toggleScanDatePicker")}>Date Range: ${esc(_datePickerLabel(st))} <span class="dp-caret" aria-hidden="true">▾</span></button>
+      ${st.open ? `
+        <div class="dp-backdrop" ${act("closeScanDatePicker")}></div>
+        <div class="dp-popover" role="dialog" aria-label="Filter scans by date">
+          <div class="dp-presets">${presets}</div>
+          ${_calendarGrid(st)}
+        </div>` : ""}
+    </span>`;
+  }
+  function _datePickerUpdate(patch) {
     const ctx = window._scanHistoryScans;
     if (!ctx) return;
-    Object.assign(_scanHistoryState[ctx.name], {
-      from: document.getElementById("scan-filter-from").value,
-      to: document.getElementById("scan-filter-to").value,
-      page: 1
-    });
+    Object.assign(_scanHistoryState[ctx.name], patch);
     refreshScanHistory();
   }
-  function clearScanHistoryDates() {
-    document.getElementById("scan-filter-from").value = "";
-    document.getElementById("scan-filter-to").value = "";
-    setScanHistoryDates();
+  function toggleScanDatePicker() {
+    const ctx = window._scanHistoryScans;
+    if (!ctx) return;
+    const st = _scanHistoryState[ctx.name];
+    _datePickerUpdate({ open: !st.open, picking: false, view: "" });
+  }
+  function closeScanDatePicker() {
+    _datePickerUpdate({ open: false, picking: false });
+  }
+  function shiftScanDateMonth(delta) {
+    const ctx = window._scanHistoryScans;
+    if (!ctx) return;
+    const st = _scanHistoryState[ctx.name];
+    const cur = st.view ? _parseDay(`${st.view}-01`) : _parseDay((st.from || _dayKey(/* @__PURE__ */ new Date())).slice(0, 8) + "01");
+    const next = new Date(cur.getFullYear(), cur.getMonth() + delta, 1);
+    _datePickerUpdate({ view: `${next.getFullYear()}-${_pad2(next.getMonth() + 1)}` });
+  }
+  function pickScanDay(day) {
+    const ctx = window._scanHistoryScans;
+    if (!ctx) return;
+    const st = _scanHistoryState[ctx.name];
+    if (!st.picking || !st.from) {
+      _datePickerUpdate({ from: day, to: "", picking: true, page: 1 });
+    } else {
+      const [from, to] = day < st.from ? [day, st.from] : [st.from, day];
+      _datePickerUpdate({ from, to, picking: false, open: false, page: 1 });
+    }
+  }
+  function setScanDatePreset(id) {
+    const preset = SCAN_DATE_PRESETS.find((pr) => pr.id === id);
+    if (!preset) return;
+    const [from, to] = preset.range ? preset.range() : ["", ""];
+    _datePickerUpdate({ from, to, picking: false, open: false, view: "", page: 1 });
   }
   async function renderAppDetail(name) {
     setActive("applications");

@@ -488,6 +488,7 @@ async def lifespan(_: FastAPI):
                     _invalidate_scan_cache(reason="cache_warm")
                 if not cache_state.metrics:
                     _compute_metrics()
+                _compute_scan_integrity(_cached_find_scan_dirs(days=35), limit=40)
                 log.info("cache warm-up done in %.1fs", time.monotonic() - t0)
                 return n
             except Exception:

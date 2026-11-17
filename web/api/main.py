@@ -308,6 +308,10 @@ def _scan_search_index(scan_dir, app_name: str, project_key: str) -> dict:
     return index
 
 
+# Per-scan integrity verdicts (scans are immutable). Without this, every _scan_cache expiry
+# made /api/metrics/scan-integrity re-parse ~40 full scans (10-18 s).
+_integrity_cache: dict = {}
+
 _AGGREGATE_ONLY_REASONS = frozenset({"hidden_apps_changed", "monitored_apps_changed", "cache_warm"})
 
 
@@ -319,11 +323,13 @@ def _invalidate_scan_cache(reason: str = "scan_completion", scan_id: str = None)
     # unknown reason) still drops everything.
     if reason == "scan_completion" and scan_id:
         _scan_cache.pop(scan_id, None)
+        _integrity_cache.pop(scan_id, None)
         _dir_cache.clear()
     elif reason in _AGGREGATE_ONLY_REASONS:
         pass
     else:
         _scan_cache.clear()
+        _integrity_cache.clear()
         _dir_cache.clear()
     if reason in ("delete_scan", "restore_scan", "retention_sweep", "retention_sweep_manual"):
         _search_index.clear()
@@ -717,6 +723,42 @@ def _cached_mobile_code_accuracy() -> dict:
     return metrics
 
 
+def _scan_integrity_verdict(scan_dir) -> tuple:
+    data = _cached_load_scan(scan_dir)
+    scan_type = data.get("scan_type", "full")
+    reasons: list[str] = []
+    status = "healthy"
+
+    if scan_type == "stig":
+        # STIG-only runs don't collect file_statistics or run vuln tools.
+        status = "unknown"
+    else:
+        total_files = (data.get("file_statistics") or {}).get("total_files")
+        if total_files is None:
+            status = "unknown"
+            reasons.append("scan predates file_statistics tracking")
+        elif total_files == 0:
+            status = "empty_target"
+            reasons.append("0 source files scanned — target directory was likely empty or unreachable")
+        elif total_files < 3:
+            status = "suspicious"
+            reasons.append(f"only {total_files} source file(s) scanned — verify the target path is correct")
+
+        if status != "unknown" and (scan_dir / "sbom").is_dir() and parsers.load_sbom_packages(scan_dir)["total"] == 0:
+            if status == "healthy":
+                status = "suspicious"
+            reasons.append("SBOM layer ran but found 0 packages/components")
+
+    return status, {
+        "scan_id":    data.get("scan_id"),
+        "target":     data.get("target"),
+        "timestamp":  data.get("timestamp"),
+        "scan_type":  scan_type,
+        "status":     status,
+        "reasons":    reasons,
+    }
+
+
 def _compute_scan_integrity(scan_dirs: list, limit: int = 40, per_app_limit: int = 8) -> dict:
     """Flag scans that likely produced a false-clean result rather than a
     genuinely clean one — e.g. the class of bug where a tool scanned an
@@ -750,44 +792,14 @@ def _compute_scan_integrity(scan_dirs: list, limit: int = 40, per_app_limit: int
     counts = {"healthy": 0, "suspicious": 0, "empty_target": 0, "unknown": 0}
 
     for scan_dir in scans:
-        data = _cached_load_scan(scan_dir)
-        scan_type = data.get("scan_type", "full")
-        reasons: list[str] = []
-        status = "healthy"
-
-        if scan_type == "stig":
-            # STIG-only runs don't collect file_statistics or run vuln tools.
-            status = "unknown"
-        else:
-            file_stats = data.get("file_statistics") or {}
-            total_files = file_stats.get("total_files")
-            sbom = parsers.load_sbom_packages(scan_dir)
-
-            if total_files is None:
-                status = "unknown"
-                reasons.append("scan predates file_statistics tracking")
-            elif total_files == 0:
-                status = "empty_target"
-                reasons.append("0 source files scanned — target directory was likely empty or unreachable")
-            elif total_files < 3:
-                status = "suspicious"
-                reasons.append(f"only {total_files} source file(s) scanned — verify the target path is correct")
-
-            if status != "unknown" and (scan_dir / "sbom").is_dir() and sbom["total"] == 0:
-                if status == "healthy":
-                    status = "suspicious"
-                reasons.append("SBOM layer ran but found 0 packages/components")
-
+        verdict = _integrity_cache.get(scan_dir.name)
+        if verdict is None:
+            verdict = _scan_integrity_verdict(scan_dir)
+            _integrity_cache[scan_dir.name] = verdict
+        status, row = verdict
         counts[status] = counts.get(status, 0) + 1
         if status != "healthy":
-            results.append({
-                "scan_id":    data.get("scan_id"),
-                "target":     data.get("target"),
-                "timestamp":  data.get("timestamp"),
-                "scan_type":  scan_type,
-                "status":     status,
-                "reasons":    reasons,
-            })
+            results.append(row)
 
     return {
         "summary": {"total": len(scans), **counts},

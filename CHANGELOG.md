@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.35] - 2026-11-17
+
+### Fixed
+- `/api/metrics/scan-integrity` (Performance page) re-parsed ~40 full scans every time the scan cache expired (10-18 s, page stuck on "Loading…"). Per-scan integrity verdicts are now memoized (scans are immutable) and dropped on scan completion/delete/restore/retention.
+
+### Changed
+- STIG assessment no longer treats every markdown/JSON file under `docs/`, `documentation/` or `.github/` as a priority manual STIG document. Path alone qualifies only for `security/`, `compliance/` and `.compliance/` directories; elsewhere the filename must contain a STIG/compliance keyword (`stig`, `findings`, `compliance`, `audit`, `controls`, `assessment`, `security`).
+
 ## [3.72.34] - 2026-11-17
 
 ### Changed

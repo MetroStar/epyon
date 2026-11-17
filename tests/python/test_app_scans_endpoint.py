@@ -74,3 +74,19 @@ def test_invalidation_is_narrow_for_completion_and_visibility():
     assert "b" in api_main._scan_cache and 35 in api_main._dir_cache
     api_main._invalidate_scan_cache(reason="delete_scan", scan_id="b")
     assert not api_main._scan_cache and not api_main._dir_cache
+
+
+def test_scan_integrity_verdicts_are_memoized_per_scan(tmp_path, monkeypatch):
+    scan = tmp_path / "app_2026-11-17_00-00-00"
+    scan.mkdir()
+    loads = []
+    monkeypatch.setattr(api_main, "_cached_load_scan", lambda d: loads.append(d) or {
+        "scan_id": d.name, "target": "app", "scan_type": "full", "file_statistics": {"total_files": 0}})
+    api_main._integrity_cache.clear()
+    first = api_main._compute_scan_integrity([scan])
+    api_main._scan_cache.clear()
+    second = api_main._compute_scan_integrity([scan])
+    assert first == second and first["summary"]["empty_target"] == 1 and len(loads) == 1
+    api_main._invalidate_scan_cache(reason="scan_completion", scan_id=scan.name)
+    api_main._compute_scan_integrity([scan])
+    assert len(loads) == 2

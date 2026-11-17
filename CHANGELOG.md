@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.32] - 2026-11-17
+
+### Changed
+- Application Scan History: the Full/Nightly, Quick, STIG and Other tabs are now styled as proper tabs (they had no CSS and rendered as bare buttons), and the two native date inputs are replaced by a single "Date Range" picker with presets (All, Today, Yesterday, Last 7/30/90 days) and a click-to-select range calendar.
+
 ## [3.72.31] - 2026-11-17
 
 ### Fixed

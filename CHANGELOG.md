@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.28] - 2026-11-16
+
+### Changed
+- App trend status now also considers the latest scan. If the 30-day window reads Declining (or Improving) but the newest scan moved the opposite way by the same rules, the status is Stable. The API adds `window_status` and `recent_status`.
+
 ## [3.72.27] - 2026-11-16
 
 ### Fixed

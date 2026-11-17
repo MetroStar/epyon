@@ -289,6 +289,7 @@ Separate from the Score Card. The Metrics page shows an **Application Trend Stat
 - Risk index = 15×critical + 5×high + 1×medium + 0.2×low (the Score Card's CVE weights).
 - One scan per day, nightly and full scans only (quick and STIG-only scans are ignored), last 30 points.
 - Declining: risk up 10% or more, or more critical+high findings than the first point of the window. Improving: the opposite. Otherwise Stable.
+- If the latest scan moved the opposite way from the window (for example the window reads Declining but the newest scan dropped by 10% or more), the status is Stable. The API also returns `window_status` and `recent_status`.
 - Implemented in `web/api/app_trends.py`, returned as `app_trends` by `GET /api/metrics`.
 
 ## 16. Reading a Score Card: a practical checklist

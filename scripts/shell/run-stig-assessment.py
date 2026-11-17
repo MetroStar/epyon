@@ -857,6 +857,10 @@ def collect_source_files(target_dir: str) -> list[tuple[str, str]]:
         if ext in {".md", ".json"}:
             if skip_own_docs and parts[0] in {"docs", ".github"}:
                 continue
+            # Per-control reviews are read by _published_reviews (human-reviewed ones are
+            # locked); feeding them back as priority docs would make the AI defer to its own output.
+            if parts[:2] == ("docs", "stig-reviews"):
+                continue
             if not _is_compliance_relevant_doc(path):
                 continue
         elif name not in INCLUDE_FILENAMES and ext not in SOURCE_EXTENSIONS:

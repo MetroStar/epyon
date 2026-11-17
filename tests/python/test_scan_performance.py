@@ -250,3 +250,15 @@ def test_collect_source_files_skips_epyon_own_docs(tmp_path):
     assert "docs/stig-findings.md" in other_paths
     assert "docs/stig-findings.md" not in own_paths
     assert "app.py" in own_paths
+
+
+def test_collect_source_files_skips_published_stig_reviews(tmp_path):
+    spec = importlib.util.spec_from_file_location("stig_assessor", SCRIPTS / "run-stig-assessment.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    (tmp_path / "docs" / "stig-reviews").mkdir(parents=True)
+    (tmp_path / "docs" / "stig-reviews" / "v-222425.md").write_text("# V-222425\n")
+    (tmp_path / "docs" / "stig-findings.md").write_text("# manual\n")
+    paths = {rel for rel, _ in module.collect_source_files(str(tmp_path))}
+    assert "docs/stig-findings.md" in paths
+    assert "docs/stig-reviews/v-222425.md" not in paths

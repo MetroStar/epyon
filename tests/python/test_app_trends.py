@@ -28,3 +28,21 @@ def test_only_nightly_and_full_scans_count_and_one_point_per_day():
     assert t["scans_compared"] == 2 and t["status"] == "Stable"
     assert app_trend([_scan(1, "nightly")])["status"] == "Not enough data"
     assert app_trend([_scan(1, "quick"), _scan(2, "quick")])["status"] == "Not enough data"
+
+
+def test_recent_improvement_softens_a_declining_window():
+    # Worse than 30 days ago but the latest scan dropped sharply: recovering, so Stable (the midas case).
+    t = app_trend([_scan(1, high=10), _scan(2, high=40), _scan(3, high=12)])
+    assert t["window_status"] == "Declining" and t["recent_status"] == "Improving"
+    assert t["status"] == "Stable"
+
+
+def test_recent_decline_softens_an_improving_window():
+    t = app_trend([_scan(1, high=40), _scan(2, high=10), _scan(3, high=30)])
+    assert t["window_status"] == "Improving" and t["recent_status"] == "Declining"
+    assert t["status"] == "Stable"
+
+
+def test_window_and_recent_agreeing_keep_their_status():
+    assert app_trend([_scan(1, high=10), _scan(2, high=20), _scan(3, high=40)])["status"] == "Declining"
+    assert app_trend([_scan(1, high=40), _scan(2, high=20), _scan(3, high=10)])["status"] == "Improving"

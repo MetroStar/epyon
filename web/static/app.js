@@ -4115,6 +4115,9 @@ epyon install-workflow</pre>
         Improving: "Improving because critical/high findings fell or risk fell 10% or more.",
         Stable: "Stable because risk moved less than 10% and critical/high findings did not rise or fall."
       }[t.status] || "");
+      if (t.window_status && t.window_status !== t.status) {
+        parts.push(`The window alone reads ${t.window_status}, but the latest scan moved ${t.recent_status === "Improving" ? "the other way, toward fewer findings" : "the other way, toward more findings"}, so the overall status is Stable.`);
+      }
       why = parts.join(" ");
     }
     const vals = pts.map((p) => p.risk_index);
@@ -4231,7 +4234,7 @@ epyon install-workflow</pre>
         <div style="font-size:12px;color:var(--text-muted);margin-top:8px">
           Risk index = 15×critical + 5×high + 1×medium + 0.2×low (the Score Card's vulnerability weights; lower is better).
           Only nightly and full scans are compared, one per day. Declining = risk up 10% or more, or more critical/high findings;
-          Improving = risk down 10% or more, or fewer critical/high findings. Click a row for the full history.
+          Improving = risk down 10% or more, or fewer critical/high findings. If the latest scan moved the opposite way, the status is Stable. Click a row for the full history.
         </div>
       </div>`;
   }

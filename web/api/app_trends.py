@@ -29,6 +29,18 @@ def _points(scans: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     ]
 
 
+def _direction(old: Dict[str, Any], new: Dict[str, Any]) -> str:
+    """Declining / Improving / Stable for the move from one point to another."""
+    delta = new["risk_index"] - old["risk_index"]
+    pct = None if old["risk_index"] == 0 else delta / old["risk_index"] * 100
+    crit_high = (new["critical"] + new["high"]) - (old["critical"] + old["high"])
+    if crit_high > 0 or (pct is None and delta > 0) or (pct is not None and pct >= STABLE_BAND_PCT):
+        return "Declining"
+    if crit_high < 0 or (pct is not None and pct <= -STABLE_BAND_PCT):
+        return "Improving"
+    return "Stable"
+
+
 def app_trend(scans: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Improving / Declining / Stable / Not enough data for one application.
 
@@ -48,14 +60,16 @@ def app_trend(scans: List[Dict[str, Any]]) -> Dict[str, Any]:
     delta = round(last["risk_index"] - first["risk_index"], 1)
     pct = None if first["risk_index"] == 0 else round(delta / first["risk_index"] * 100, 1)
     crit_high_delta = (last["critical"] + last["high"]) - (first["critical"] + first["high"])
-    if crit_high_delta > 0 or (pct is None and delta > 0) or (pct is not None and pct >= STABLE_BAND_PCT):
-        status = "Declining"
-    elif crit_high_delta < 0 or (pct is not None and pct <= -STABLE_BAND_PCT):
-        status = "Improving"
-    else:
-        status = "Stable"
+    window_status = _direction(first, last)
+    recent_status = _direction(prev, last)
+    # A window that looks worse (or better) than its start, while the latest scan already moved the other
+    # way, is a recovery (or a relapse), not a clear direction: call it Stable.
+    opposite = {"Declining": "Improving", "Improving": "Declining"}
+    status = "Stable" if recent_status == opposite.get(window_status) else window_status
     out.update({
         "status": status,
+        "window_status": window_status,
+        "recent_status": recent_status,
         "risk_index": last["risk_index"],
         "baseline_risk_index": first["risk_index"],
         "delta": delta,

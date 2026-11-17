@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.27] - 2026-11-16
+
+### Fixed
+- Anchore image scan no longer tries to `docker pull` compose images that have a `build:` section (for example `epyon-web:latest`) when the build is skipped (`ANCHORE_SKIP_BUILD=true`, as in CI). They are locally built names no registry holds; the log now says they were skipped. Images without `build:` are still pulled and scanned.
+
 ## [3.72.25] - 2026-11-16
 
 ### Changed

@@ -647,16 +647,27 @@ scan_images() {
     fi  # end: ANCHORE_SKIP_BUILD check
 
     # Extract image names from docker-compose files
+    # Services with a build: section name a locally built image that no registry
+    # holds, so those are only scanned when this run (or an earlier one) built them.
     IMAGES=()
+    BUILT_LOCALLY_IMAGES=" "
     while IFS= read -r compose_file; do
         log "ℹ Found compose file: $compose_file"
-        
-        # Extract images using grep and awk
-        while IFS= read -r image; do
+
+        while IFS=$'\t' read -r image has_build; do
             if [ -n "$image" ] && [[ ! "$image" =~ ^\$ ]]; then
                 IMAGES+=("$image")
+                [[ "$has_build" == "build" ]] && BUILT_LOCALLY_IMAGES+="$image "
             fi
-        done < <(grep -E "^\s*image:" "$compose_file" | awk '{print $2}' | tr -d '"' | tr -d "'")
+        done < <(python3 - "$compose_file" <<'PY' 2>/dev/null || grep -E "^\s*image:" "$compose_file" | awk '{print $2 "\tplain"}' | tr -d '"' | tr -d "'"
+import sys
+import yaml
+doc = yaml.safe_load(open(sys.argv[1], encoding="utf-8")) or {}
+for svc in (doc.get("services") or {}).values():
+    if isinstance(svc, dict) and svc.get("image"):
+        print(f"{svc['image']}\t{'build' if 'build' in svc else 'plain'}")
+PY
+)
     done <<< "$COMPOSE_FILES"
     
     if [ ${#IMAGES[@]} -eq 0 ]; then
@@ -668,6 +679,7 @@ scan_images() {
     
     # Scan each image
     local scan_count=0
+    local skipped_local_count=0
     for image in "${IMAGES[@]}"; do
         log "ℹ Scanning image: $image"
 
@@ -675,6 +687,11 @@ scan_images() {
         local _image_was_local=true
         if ! docker image inspect "$image" > /dev/null 2>&1; then
             _image_was_local=false
+            if [[ "$BUILT_LOCALLY_IMAGES" == *" $image "* ]]; then
+                log "  ℹ Skipping $image: built from this repo's compose build: section, not published to a registry, and not built in this run"
+                skipped_local_count=$((skipped_local_count + 1))
+                continue
+            fi
             log "  ℹ Image not found locally, attempting to pull: $image"
             if docker pull "$image" >> "$LOG_FILE" 2>&1; then
                 log "  ✅ Image pulled successfully: $image"
@@ -735,6 +752,9 @@ scan_images() {
     
     if [ $scan_count -gt 0 ]; then
         log "✅ Scanned $scan_count image(s) successfully"
+        return 0
+    elif [ $skipped_local_count -gt 0 ] && [ $skipped_local_count -eq ${#IMAGES[@]} ]; then
+        log "ℹ No registry images to scan: all ${#IMAGES[@]} compose image(s) are built locally and were not built in this run"
         return 0
     else
         log "⚠️  No images scanned - images may need to be built first"

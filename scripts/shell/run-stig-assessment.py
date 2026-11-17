@@ -1438,7 +1438,7 @@ def extract_manual_stig_docs(files: list[tuple[str, str]]) -> tuple[list[tuple[s
     presented to the AI separately with high priority.
     
     Manual docs are identified by:
-    - Path contains: docs/, documentation/, .github/, .compliance/, security/
+    - Path contains: .compliance/, compliance/, security/
     - Filename matches: stig-findings.md, findings.md, COMPLIANCE.md, STIG.md, SECURITY.md
     - Filename contains: stig, findings, compliance, audit, controls, assessment
     
@@ -1466,8 +1466,9 @@ def extract_manual_stig_docs(files: list[tuple[str, str]]) -> tuple[list[tuple[s
 
         is_manual_doc = False
         
-        # Check directory path - matches both docs/file.md and docs/security/file.md
-        if any(part in {"docs", "documentation", ".github", ".compliance", "security"} for part in path.parts):
+        # Only dedicated compliance/security directories qualify on path alone; generic
+        # docs (README, architecture, guides) must match a filename keyword below.
+        if any(part in {".compliance", "compliance", "security"} for part in path.parts):
             if path.suffix.lower() in {".md", ".json"}:
                 is_manual_doc = True
         

@@ -146,10 +146,11 @@ def test_epyon_authored_entry_is_not_locked(tmp_path):
 
 
 def test_manual_stig_findings_doc_is_still_priority_context():
-    files = [("docs/stig-findings.md", "x"), ("docs/stig-reviews/v-222425.md", "y"), ("src/a.py", "z")]
+    files = [("docs/stig-findings.md", "x"), ("docs/security/policy.md", "p"),
+             ("docs/architecture.md", "a"), ("docs/guide/setup.json", "g"), ("src/a.py", "z")]
     manual, rest = assess.extract_manual_stig_docs(files)
-    assert [m[0] for m in manual] == ["docs/stig-findings.md", "docs/stig-reviews/v-222425.md"]
-    assert [r[0] for r in rest] == ["src/a.py"]
+    assert [m[0] for m in manual] == ["docs/stig-findings.md", "docs/security/policy.md"]
+    assert [r[0] for r in rest] == ["docs/architecture.md", "docs/guide/setup.json", "src/a.py"]
 
 
 def test_publish_writes_docs_dir_sorted_index_and_no_stig_findings(tmp_path):

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.34] - 2026-11-17
+
+### Changed
+- Read-only scan-data API responses (`/api/applications`, `/api/scans`, `/api/metrics`, `/api/stats`, `/api/stig/history`, scan history) now send a weak `ETag` with `Cache-Control: private, no-cache`, so browsers revalidate and receive `304 Not Modified` instead of re-downloading. Config, job, Jira, download, SBOM, STIG-findings and SSP-evidence routes stay `no-store`.
+- Cache invalidation is narrower: a completed scan drops only that scan (plus the directory listing); hiding/monitoring apps and cache warming no longer evict parsed scans. Delete, restore and retention still clear everything.
+
 ## [3.72.33] - 2026-11-17
 
 ### Changed

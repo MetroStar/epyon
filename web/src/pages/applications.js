@@ -197,8 +197,7 @@ export function scanHistoryFiltered(scans, st) {
 
 export function buildScanHistory(name, scans) {
   const saved = _scanHistoryState[name] || {};
-  // Default to the tab holding the newest scan so the page never opens on an empty tab.
-  const tab = SCAN_HISTORY_TABS.some(t => t.id === saved.tab) ? saved.tab : scanHistoryTabOf(scans[0]);
+  const tab = SCAN_HISTORY_TABS.some(t => t.id === saved.tab) ? saved.tab : 'full';
   const st = { tab, page: saved.page || 1, from: saved.from || '', to: saved.to || '', open: false, picking: false, view: saved.view || '' };
   _scanHistoryState[name] = st;
   window._scanHistoryScans = { name, scans };

@@ -147,7 +147,7 @@ html .finding-drawer:focus-visible { outline: none; }
 }
 .scan-history-tab.active .scan-history-count { background: var(--accent-bg); color: var(--accent); }
 
-.scan-history-filter { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+.scan-history-filter { display: flex; justify-content: flex-end; padding-right: 16px; margin-bottom: 12px; }
 .scan-history-empty { padding: 28px 12px; text-align: center; color: var(--text-muted); font-size: 13.5px; }
 .scan-history-pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 14px; color: var(--text-muted); font-size: 12.5px; }
 

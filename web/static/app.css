@@ -3941,6 +3941,7 @@ html .finding-drawer:focus-visible {
 .scan-history-filter {
   display: flex;
   justify-content: flex-end;
+  padding-right: 16px;
   margin-bottom: 12px;
 }
 .scan-history-empty {

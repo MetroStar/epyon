@@ -572,10 +572,16 @@ export async function runNextQueuedScan(btn, ctx) {
         await fetch(`/api/jobs/${encodeURIComponent(job.job_id)}/cancel`, { method: 'POST' }).catch(() => {});
       }
       scanWatch.poke();
-      // nosemgrep: typescript.react.security.audit.react-unsanitized-method.react-unsanitized-method - every interpolated value goes through esc()
-      document.getElementById('log-output')?.insertAdjacentHTML('beforeend',
-        `<div class="log-line" style="color:var(--text);font-weight:600;margin-top:${_scanJobs.length > 1 ? '10px' : '0'}">── ${esc(label)} ──</div>` +
-        `<div id="log-job-${esc(job.job_id)}"></div>`);
+      const logOut = document.getElementById('log-output');
+      if (logOut) {
+        const head = document.createElement('div');
+        head.className = 'log-line';
+        head.style.cssText = `color:var(--text);font-weight:600;margin-top:${_scanJobs.length > 1 ? '10px' : '0'}`;
+        head.textContent = `── ${label} ──`;
+        const slot = document.createElement('div');
+        slot.id = `log-job-${job.job_id}`;
+        logOut.append(head, slot);
+      }
     } catch (e) {
       _scanQueueResults.push({ type: scanType, label, status: 'error', reason: e.message });
       // nosemgrep: typescript.react.security.audit.react-unsanitized-method.react-unsanitized-method - every interpolated value goes through esc()

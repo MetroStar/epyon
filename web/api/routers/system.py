@@ -70,12 +70,16 @@ async def list_openai_models():
         raise HTTPException(400, "OPENAI_API_KEY is not set in the server environment")
 
     def _fetch() -> list:
-        import urllib.request
-        req = urllib.request.Request(
-            "https://api.openai.com/v1/models", headers={"Authorization": f"Bearer {key}"}
-        )
-        with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310 - fixed https URL
+        import http.client
+        conn = http.client.HTTPSConnection("api.openai.com", timeout=15)
+        try:
+            conn.request("GET", "/v1/models", headers={"Authorization": f"Bearer {key}"})
+            resp = conn.getresponse()
+            if resp.status != 200:
+                raise OSError(f"OpenAI models API returned {resp.status}")
             data = json.loads(resp.read())
+        finally:
+            conn.close()
         skip = ("audio", "realtime", "tts", "transcribe", "image", "search",
                 "embedding", "moderation", "instruct", "codex", "live")
         ids = {m["id"] for m in data.get("data", [])

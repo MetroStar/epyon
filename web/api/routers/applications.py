@@ -153,14 +153,25 @@ def hidden_applications(response: Response):
     return sorted(api_main._load_hidden_apps())
 
 
+# Large blocks the Scan History list never renders; the scan detail page loads them on demand.
+_HISTORY_OMIT = frozenset({
+    "suppressed_findings", "inference_security", "network_discovery",
+    "build_evidence", "enrichment", "file_statistics",
+})
+
+
+def _history_summary(scan: dict) -> dict:
+    return {k: v for k, v in scan.items() if k not in _HISTORY_OMIT}
+
+
 @router.get("/api/applications/{name}/scans")
 def app_scans(name: str, response: Response):
     api_main._sec_headers(response)
     if not api_main._SAFE_ID_RE.match(name):
         raise HTTPException(400, "Invalid application name")
     scans = [
-        parsers.load_scan(d, api_main.EPYON_ROOT)
-        for d in parsers.find_scan_dirs(api_main.EPYON_ROOT, days=35)
+        _history_summary(api_main._cached_load_scan(d))
+        for d in api_main._cached_find_scan_dirs()
         if parsers.parse_dir_name(d.name)["target"] == name
     ]
     scans.sort(key=lambda x: x.get("timestamp", ""), reverse=True)

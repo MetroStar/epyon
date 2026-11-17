@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.33] - 2026-11-17
+
+### Changed
+- `GET /api/applications/{name}/scans` now reads through the parse/scan caches and omits blocks the Scan History list does not render (`suppressed_findings`, `inference_security`, `network_discovery`, `build_evidence`, `enrichment`, `file_statistics`). Application pages that took seconds (up to ~66 s for apps with many suppressions) now load in milliseconds.
+- API and static responses over 1 KB are gzip-compressed (`app.js` 560 KB → ~120 KB on the wire).
+
 ## [3.72.32] - 2026-11-17
 
 ### Changed

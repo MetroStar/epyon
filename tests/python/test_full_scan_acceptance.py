@@ -79,7 +79,7 @@ def test_local_output_budget_leaves_room_for_input_without_changing_explicit_lim
     client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
     monkeypatch.delenv("EPYON_AI_MAX_TOKENS", raising=False)
     assert len(assess.call_openai(client, "gemma4:12b", controls, "CODE")[0]) == 5
-    assert calls[-1]["max_tokens"] == 5120
+    assert calls[-1]["max_tokens"] == 2048 * len(controls)
     monkeypatch.setenv("EPYON_AI_MAX_TOKENS", "1000")
     assess.call_openai(client, "gemma4:12b", controls, "CODE")
     assert calls[-1]["max_tokens"] == 1000

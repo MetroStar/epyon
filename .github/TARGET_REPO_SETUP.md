@@ -4,7 +4,7 @@ This guide explains how to configure your target repository's GitHub Actions wor
 
 ## Quick Start
 
-Copy [security-scan-template.yml](security-scan-template.yml) to your target repository:
+Copy [security-scan-template.yml](workflows/security-scan-template.yml) to your target repository:
 
 ```bash
 # In your target repository
@@ -206,5 +206,5 @@ Test webhook delivery manually from GitHub Actions:
 - [Release Checklist](../docs/releases/RELEASE_CHECKLIST.md) (pinning `epyon-scan.yml` to a release tag or commit SHA instead of `@main`)
 
 - [Webhook Integration Guide](../docs/integrations/WEBHOOK_INTEGRATION_GUIDE.md)
-- [Reusable Workflow Reference](./epyon-scan.yml)
+- [Reusable Workflow Reference](./workflows/epyon-scan.yml)
 - [Barbatos Documentation](https://github.com/MetroStar/barbatos)

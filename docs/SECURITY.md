@@ -11,7 +11,7 @@ We take security vulnerabilities seriously. If you discover a security issue in 
 Instead, please report security vulnerabilities through one of the following methods:
 
 1. **GitHub Security Advisories** (Preferred)
-   - Go to the [Security tab](../../security/advisories/new) of this repository
+   - Go to the [Security tab](https://github.com/MetroStar/epyon/security/advisories/new) of this repository
    - Click "Report a vulnerability"
    - Provide detailed information about the vulnerability
 
@@ -158,11 +158,11 @@ We appreciate security researchers who help make EPYON more secure:
 ## Contact
 
 For non-security issues:
-- GitHub Issues: [github.com/your-org/epyon/issues](../../issues)
-- Documentation: [See README.md](README.md)
+- GitHub Issues: [github.com/MetroStar/epyon/issues](https://github.com/MetroStar/epyon/issues)
+- Documentation: [See the README](../README.md)
 
 For security issues only:
-- **GitHub Security Advisory**: [Report a vulnerability](../../security/advisories/new)
+- **GitHub Security Advisory**: [Report a vulnerability](https://github.com/MetroStar/epyon/security/advisories/new)
 - **Email**: [YOUR-EMAIL@example.com]
 
 ---

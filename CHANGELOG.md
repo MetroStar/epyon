@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.37] - 2026-11-17
+
+### Fixed
+- `Performance Monitoring` workflow no longer fails on every run: upgraded the deprecated `actions/upload-artifact` v3 pin to v5.
+
 ## [3.72.36] - 2026-11-17
 
 ### Changed

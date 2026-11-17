@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.31] - 2026-11-17
+
+### Fixed
+- The STIG assessment no longer collects `docs/stig-reviews/` as context. Those per-control `v-*.md` entries are already read by the human-review lock; presenting them as priority manual documentation made the AI defer to its own earlier output and added hundreds of files to the context.
+
 ## [3.72.30] - 2026-11-17
 
 ### Fixed

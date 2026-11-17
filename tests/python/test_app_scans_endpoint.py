@@ -41,3 +41,36 @@ def test_large_responses_are_gzipped():
     resp = TestClient(api_main.app).get("/static/app.js", headers={"Accept-Encoding": "gzip"})
     assert resp.status_code == 200
     assert resp.headers.get("content-encoding") == "gzip"
+
+
+def test_scan_data_gets_etag_and_304(monkeypatch):
+    monkeypatch.setattr(api_main, "_cached_find_scan_dirs", lambda *a, **k: [])
+    client = TestClient(api_main.app)
+    first = client.get("/api/applications/app-a/scans")
+    assert first.status_code == 200
+    assert first.headers["cache-control"] == "private, no-cache"
+    etag = first.headers["etag"]
+    again = client.get("/api/applications/app-a/scans", headers={"If-None-Match": etag})
+    assert again.status_code == 304 and again.content == b""
+    stale = client.get("/api/applications/app-a/scans", headers={"If-None-Match": 'W/"other"'})
+    assert stale.status_code == 200
+
+
+def test_config_and_job_endpoints_stay_no_store():
+    client = TestClient(api_main.app)
+    for path in ("/api/jira/config", "/api/jobs"):
+        resp = client.get(path)
+        assert "no-store" in resp.headers.get("cache-control", ""), path
+        assert "etag" not in resp.headers
+
+
+def test_invalidation_is_narrow_for_completion_and_visibility():
+    api_main._scan_cache.update({"a": ({}, 0.0), "b": ({}, 0.0)})
+    api_main._dir_cache[35] = ([], 0.0)
+    api_main._invalidate_scan_cache(reason="scan_completion", scan_id="a")
+    assert "a" not in api_main._scan_cache and "b" in api_main._scan_cache and not api_main._dir_cache
+    api_main._dir_cache[35] = ([], 0.0)
+    api_main._invalidate_scan_cache(reason="hidden_apps_changed", scan_id="x")
+    assert "b" in api_main._scan_cache and 35 in api_main._dir_cache
+    api_main._invalidate_scan_cache(reason="delete_scan", scan_id="b")
+    assert not api_main._scan_cache and not api_main._dir_cache

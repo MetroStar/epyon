@@ -4,6 +4,7 @@ Epyon Web — FastAPI backend
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -307,11 +308,23 @@ def _scan_search_index(scan_dir, app_name: str, project_key: str) -> dict:
     return index
 
 
+_AGGREGATE_ONLY_REASONS = frozenset({"hidden_apps_changed", "monitored_apps_changed", "cache_warm"})
+
+
 def _invalidate_scan_cache(reason: str = "scan_completion", scan_id: str = None) -> None:
     """Call after a scan completes so the next request sees fresh data."""
     old_version = cache_state.version
-    _scan_cache.clear()
-    _dir_cache.clear()
+    # Scans are immutable once written, so a new scan only adds a directory; app visibility
+    # and cache warming change no scan data. Anything that deletes or restores scans (or an
+    # unknown reason) still drops everything.
+    if reason == "scan_completion" and scan_id:
+        _scan_cache.pop(scan_id, None)
+        _dir_cache.clear()
+    elif reason in _AGGREGATE_ONLY_REASONS:
+        pass
+    else:
+        _scan_cache.clear()
+        _dir_cache.clear()
     if reason in ("delete_scan", "restore_scan", "retention_sweep", "retention_sweep_manual"):
         _search_index.clear()
     cache_state.stats = None
@@ -549,7 +562,40 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         if request.url.path.startswith("/api/"):
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
             response.headers["Pragma"]        = "no-cache"
+            if _etag_eligible(request, response):
+                return await _with_etag(request, response)
         return response
+
+
+# Read-only scan data the browser may keep and revalidate. Everything else (integration
+# config, jobs, exports, auth-adjacent endpoints) stays no-store.
+_ETAG_PREFIXES = (
+    "/api/applications", "/api/scans", "/api/scan-history", "/api/metrics", "/api/stats", "/api/stig/history",
+)
+_ETAG_EXCLUDE = ("/download", "/dashboard", "/logs", "/stream", "/export", "/stig-findings", "/sbom", "/ssp-evidence")
+
+
+def _etag_eligible(request: Request, response: Response) -> bool:
+    path = request.url.path
+    return (
+        request.method == "GET"
+        and response.status_code == 200
+        and path.startswith(_ETAG_PREFIXES)
+        and not any(x in path for x in _ETAG_EXCLUDE)
+        and response.headers.get("content-type", "").startswith("application/json")
+    )
+
+
+async def _with_etag(request: Request, response: Response) -> Response:
+    """Answer 304 when the client already holds this exact body; otherwise tag it."""
+    body = b"".join([chunk async for chunk in response.body_iterator])
+    etag = 'W/"%s"' % hashlib.sha1(body).hexdigest()
+    headers = {k: v for k, v in response.headers.items() if k.lower() not in ("content-length", "cache-control", "pragma")}
+    headers["ETag"] = etag
+    headers["Cache-Control"] = "private, no-cache"
+    if etag in [t.strip() for t in request.headers.get("if-none-match", "").split(",")]:
+        return Response(status_code=304, headers=headers)
+    return Response(content=body, status_code=200, headers=headers, media_type=response.media_type)
 
 
 app.add_middleware(_SecurityHeadersMiddleware)

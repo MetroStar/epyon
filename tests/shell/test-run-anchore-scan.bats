@@ -45,3 +45,30 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-anchore-scan.sh"
     ! grep -q '\-v "\$OUTPUT_DIR:/output"' "$SCRIPT_PATH"
     grep -q '\-v "\$(to_host_path "\$OUTPUT_DIR"):/output"' "$SCRIPT_PATH"
 }
+
+@test "run-anchore-scan.sh images mode does not pull compose images that have a build: section" {
+    local tmp="$BATS_TEST_TMPDIR"
+    mkdir -p "$tmp/bin" "$tmp/repo" "$tmp/scan"
+    cat > "$tmp/repo/docker-compose.yml" <<'YML'
+services:
+  web:
+    image: epyon-web:latest
+    build: .
+  db:
+    image: postgres:16
+YML
+    cat > "$tmp/bin/docker" <<STUB
+#!/bin/bash
+echo "docker \$*" >> "$tmp/docker.log"
+case "\$1" in info|version) exit 0;; esac
+exit 1
+STUB
+    chmod +x "$tmp/bin/docker"
+
+    PATH="$tmp/bin:$PATH" ANCHORE_SKIP_BUILD=true SCAN_DIR="$tmp/scan" TARGET_DIR="$tmp/repo" \
+        run "$SCRIPT_PATH" images
+
+    grep -q "docker pull postgres:16" "$tmp/docker.log"
+    ! grep -q "docker pull epyon-web:latest" "$tmp/docker.log"
+    [[ "$output" == *"Skipping epyon-web:latest"* ]]
+}

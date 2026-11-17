@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Anchore image scan no longer tries to `docker pull` compose images that have a `build:` section (for example `epyon-web:latest`) when the build is skipped (`ANCHORE_SKIP_BUILD=true`, as in CI). They are locally built names no registry holds; the log now says they were skipped. Images without `build:` are still pulled and scanned.
 
+## [3.72.26] - 2026-11-16
+
+### Changed
+- `web/api/main.py`: removed unused imports (`io`, `shutil`, `sys`, `tarfile`, `threading`, `zipfile`, `Counter`, typing and FastAPI names, `poam`, `scorecard_store`, `github_metrics`, `openai_summary`, `app_trend`, `_freq_runs`, `_build_metrics`), two unused `global` statements and the unused `JIRA_CONFIG_FILE`/`JIRA_TICKETS_FILE` constants. No behaviour change.
+
 ## [3.72.25] - 2026-11-16
 
 ### Changed

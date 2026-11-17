@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.38] - 2026-11-17
+
+### Security
+- Resolved three semgrep findings: the OpenAI model listing uses `http.client` against the fixed `api.openai.com` host instead of `urllib`; ETags use SHA-256 instead of SHA-1; the scan-queue log header is built with DOM APIs (`textContent`) instead of `insertAdjacentHTML`.
+
 ## [3.72.37] - 2026-11-17
 
 ### Fixed

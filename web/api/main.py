@@ -596,7 +596,7 @@ def _etag_eligible(request: Request, response: Response) -> bool:
 async def _with_etag(request: Request, response: Response) -> Response:
     """Answer 304 when the client already holds this exact body; otherwise tag it."""
     body = b"".join([chunk async for chunk in response.body_iterator])
-    etag = 'W/"%s"' % hashlib.sha1(body).hexdigest()
+    etag = 'W/"%s"' % hashlib.sha256(body).hexdigest()[:32]
     headers = {k: v for k, v in response.headers.items() if k.lower() not in ("content-length", "cache-control", "pragma")}
     headers["ETag"] = etag
     headers["Cache-Control"] = "private, no-cache"

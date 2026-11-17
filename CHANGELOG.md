@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.72.29] - 2026-11-16
+
+### Security
+- Model provenance threat-feed fetch now rejects non-http(s) URLs, credentials, and hosts that resolve to private/loopback addresses, and does not follow redirects (`EPYON_ALLOW_PRIVATE_THREAT_FEED=true` opts in for internal feeds). The Hugging Face author is URL-quoted.
+- Resolved the Semgrep findings on the Epyon self-scan: urllib calls with validated or fixed hosts and `esc()`-escaped log HTML are annotated with justified `nosemgrep` comments.
+
 ## [3.72.28] - 2026-11-16
 
 ### Changed

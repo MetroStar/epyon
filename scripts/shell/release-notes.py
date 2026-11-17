@@ -96,7 +96,7 @@ def _api(path: str, token: str) -> list | dict:
             "X-GitHub-Api-Version": "2022-11-28",
         },
     )
-    with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310 - fixed https host
+    with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected - fixed https host
         return json.load(resp)
 
 

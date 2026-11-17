@@ -976,7 +976,7 @@ The ML threat intelligence blocklist (`configuration/ml-blocklist.json`) should 
 
 ### Community Threat Feeds
 
-Epyon supports remote threat feeds via `--threat-feed-url`:
+Epyon supports remote threat feeds via `--threat-feed-url`. Feed hosts must resolve to public addresses and redirects are not followed; set `EPYON_ALLOW_PRIVATE_THREAT_FEED=true` to allow an internal feed:
 
 ```bash
 # Use organization's internal threat feed

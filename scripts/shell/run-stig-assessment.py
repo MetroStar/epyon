@@ -566,7 +566,7 @@ def _stig_reuse_key(target_dir: str, inputs: dict[str, Any]) -> str | None:
         ):
             raise ValueError("STIG model identity URL is not allowed")
         try:
-            with urllib.request.urlopen(identity_url, timeout=15) as response:
+            with urllib.request.urlopen(identity_url, timeout=15) as response:  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected - scheme/host validated above
                 models = json.load(response)["models"]
             revision = next(
                 item["digest"] for item in models

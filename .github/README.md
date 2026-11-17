@@ -436,7 +436,7 @@ Send results to Slack, Teams, or email:
 
 ## 🤝 Contributing
 
-Found an issue or want to improve the workflows? See [CONTRIBUTING.md](../CONTRIBUTING.md)
+Found an issue or want to improve the workflows? Open an [issue](https://github.com/MetroStar/epyon/issues) or a pull request using the [pull request template](pull_request_template.md).
 
 ## 📄 License
 

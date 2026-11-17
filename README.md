@@ -545,10 +545,11 @@ docker compose up -d --build
 | `EPYON_SCAN_RESTORE_HOURS` | `24` | Hours an archived scan's raw files stay restored to disk after `POST /api/scans/{id}/restore`. |
 | `EPYON_MAX_UPLOAD_MB` | `500` | Max size of a `.zip` or tarball uploaded via "Run New Scan" → "Upload archive" (`POST /api/scans/upload`), or an image tarball uploaded via "Upload image tarball" (`POST /api/scans/upload-image`). |
 | `EPYON_MAX_UPLOAD_UNZIPPED_MB` | `2048` | Max total uncompressed size of an uploaded `.zip`'s contents (decompression-bomb guard). |
-| `OPENAI_API_KEY` | *(optional)* | Enables AI-powered scan summaries. Used as the secondary/fallback provider when a self-hosted primary (e.g. Ollama) is configured — see below. |
-| `OPENAI_BASE_URL` | *(optional)* | Primary AI endpoint for the native launcher — e.g. `http://localhost:11434/v1` for a locally hosted [Ollama](https://ollama.com) instance. |
+| `OPENAI_API_KEY` | *(optional)* | Only needed to use the public OpenAI API, which is **opt-in** (Settings provider "OpenAI", `EPYON_AI_PROVIDER=openai`, or an `api.openai.com` base URL). Also powers the optional OpenAI fallback when a self-hosted primary is configured — see below. Never sent to the local default endpoint. |
+| `EPYON_AI_PROVIDER` | *(unset)* | Set to `openai` to use the public OpenAI API when no base URL is set. Unset = local endpoint. |
+| `OPENAI_BASE_URL` | `http://localhost:11434/v1` | Primary AI endpoint (OpenAI-compatible) — defaults to a locally hosted [Ollama](https://ollama.com) instance. |
 | `OPENAI_BASE_URL_DOCKER` | *(optional)* | Primary AI endpoint for Docker Compose. For Ollama running on the Docker host, use `http://host.docker.internal:11435/v1`. |
-| `OPENAI_MODEL` | *(optional)* | Primary model when not set via Settings — e.g. `llama3.1:8b`. |
+| `OPENAI_MODEL` | `gemma4-31b-q8-128k:2026-09-03` | Primary model when not set via Settings. |
 | `OPENAI_FALLBACK_MODEL` | `gpt-4o-mini` | OpenAI model used for the secondary/fallback call when not set via Settings. |
 | `NVD_API_KEY` | *(optional)* | NVD API key for CVSS enrichment (50 req/30s vs 5 req/30s unauthenticated). Get one at [nvd.nist.gov/developers/request-an-api-key](https://nvd.nist.gov/developers/request-an-api-key). Also configurable via web UI Settings page. |
 | **Anchore/Grype Auto-Detection (v3.9.0+)** |||

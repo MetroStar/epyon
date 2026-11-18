@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.73.1] - 2026-11-17
+
+### Added
+- `docs/FUTURE_IMPROVEMENTS.md`: planning notes for per-control STIG re-runs, STIG/Run Scan/scan-detail UI changes, in-app scheduled scans, debloat and lite-mode analysis, and a review of the quartz-evaluator config. Planning only; no behavior change.
+
 ## [3.73.0] - 2026-11-17
 
 ### Changed

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.73.2] - 2026-11-17
+
+### Fixed
+- The reusable `epyon-scan.yml` workflow now sets `EPYON_AI_PROVIDER=openai` when the `OPENAI_API_KEY` secret is provided, so hosted-runner scans keep using OpenAI after the local-first AI default (3.73.0). Without the secret, behavior is unchanged.
+
 ## [3.73.1] - 2026-11-17
 
 ### Added

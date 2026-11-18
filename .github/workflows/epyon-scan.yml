@@ -767,6 +767,8 @@ jobs:
           SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
           SONAR_PR_NUMBER: ${{ github.event.pull_request.number }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          # Hosted runners cannot reach a local AI endpoint; opt in to OpenAI only when a key is provided.
+          EPYON_AI_PROVIDER: ${{ secrets.OPENAI_API_KEY != '' && 'openai' || '' }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ github.token }}
           ANCHORE_BUILD_TIMEOUT: "900"
@@ -777,6 +779,7 @@ jobs:
         run: |
           # Append API keys to /tmp/epyon-env so they are explicitly exported to all subshells.
           [[ -n "${OPENAI_API_KEY:-}" ]]    && echo "export OPENAI_API_KEY=${OPENAI_API_KEY}"       >> /tmp/epyon-env
+          [[ -n "${EPYON_AI_PROVIDER:-}" ]] && echo "export EPYON_AI_PROVIDER=${EPYON_AI_PROVIDER}"   >> /tmp/epyon-env
           [[ -n "${ANTHROPIC_API_KEY:-}" ]] && echo "export ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}" >> /tmp/epyon-env
           [[ -n "${GITHUB_TOKEN:-}" ]]      && echo "export GITHUB_TOKEN=${GITHUB_TOKEN}"           >> /tmp/epyon-env
           # Append webhook configuration for real-time progress notifications

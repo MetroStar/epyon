@@ -630,6 +630,8 @@ async def _run_scan_job_inner(
         openai_summary.get_base_url() or os.environ.get("OPENAI_BASE_URL", ""))
     if openai_base_url:
         env_lines.append(f"OPENAI_BASE_URL={openai_base_url}")
+    if use_openai:
+        env_lines.append("EPYON_AI_PROVIDER=openai")
     # Use the model chosen in AI settings, not the script's gpt-4o-mini default.
     openai_model = openai_summary.get_model()
     if openai_model and re.fullmatch(r"[A-Za-z0-9._:/@-]{1,100}", openai_model):
@@ -733,6 +735,7 @@ async def _run_scan_job_inner(
     elif use_openai:
         # Drop any inherited local endpoint; an empty value breaks the OpenAI SDK.
         env.pop("OPENAI_BASE_URL", None)
+        env["EPYON_AI_PROVIDER"] = "openai"
     env["OPENAI_MODEL"] = openai_summary.get_model()
     if github_token:
         env["GH_PAT"] = github_token

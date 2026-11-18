@@ -1161,7 +1161,7 @@ if [[ ("${SCAN_MODE:-full}" == "full" || "${SCAN_MODE:-full}" == "stig") && "${S
   run_group "Layer 13 - STIG Compliance Assessment" \
     env \
       OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
-      OPENAI_MODEL="${OPENAI_MODEL:-gpt-4o-mini}" \
+      OPENAI_MODEL="${OPENAI_MODEL:-gemma4-31b-q8-128k:2026-09-03}" \
       SCAN_DIR="$SCAN_DIR" \
       TARGET_DIR="$TARGET_DIR" \
     bash -lc '

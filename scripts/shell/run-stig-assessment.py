@@ -41,7 +41,8 @@ Usage:
 
 Environment:
     OPENAI_API_KEY   Required for OpenAI. Optional for local models that don't require auth.
-    OPENAI_MODEL     Optional. Overrides --model flag (default: gpt-4o-mini).
+    OPENAI_MODEL     Optional. Overrides --model flag (default: gemma4-31b-q8-128k:2026-09-03).
+    EPYON_AI_PROVIDER  Set to 'openai' to use the public OpenAI API when no base URL is set.
     OPENAI_BASE_URL  Optional. Override the API endpoint. Use this to point at a
                      local inference server (Ollama, LM Studio, vLLM, LocalAI, etc.)
                      that exposes an OpenAI-compatible /v1/chat/completions endpoint.
@@ -157,6 +158,8 @@ BATCH_SIZE_DEFAULT = 5              # controls per API call — smaller batches 
 # Self-hosted models get a smaller window: less context keeps them on the output contract.
 LOCAL_CODE_BYTES_PER_BATCH = 24_000
 LOCAL_BATCH_SIZE_DEFAULT = 3
+DEFAULT_LOCAL_BASE_URL = "http://localhost:11434/v1"   # Epyon defaults to a local OpenAI-compatible server
+DEFAULT_LOCAL_MODEL = "gemma4-31b-q8-128k:2026-09-03"
 _LOCAL_MODEL = False                # set in main() when the endpoint is not the public OpenAI API
 
 
@@ -2661,9 +2664,12 @@ def main() -> None:
     parser.add_argument("--target",     required=True, help="Path to application source directory")
     parser.add_argument("--scan-dir",   required=True, help="Path to scan output directory")
     parser.add_argument("--app-name",   required=True, help="Application name for report header")
-    parser.add_argument("--model",      default="gpt-4o-mini", help="OpenAI model (default: gpt-4o-mini)")
+    parser.add_argument("--model",      default=DEFAULT_LOCAL_MODEL,
+                        help=f"Model name (default: {DEFAULT_LOCAL_MODEL}, served by the local endpoint)")
     parser.add_argument("--base-url",   default="",
-                        help="Override the OpenAI API base URL (e.g. http://localhost:11434/v1 for Ollama). "
+                        help="OpenAI-compatible API base URL (default: "
+                             f"{DEFAULT_LOCAL_BASE_URL}, a local Ollama). Use https://api.openai.com/v1 "
+                             "or EPYON_AI_PROVIDER=openai for the public OpenAI API. "
                              "Also read from OPENAI_BASE_URL env var.")
     parser.add_argument("--batch-size", type=int, default=None,
                         help=f"Controls per API call (default: {BATCH_SIZE_DEFAULT}; "
@@ -2675,6 +2681,9 @@ def main() -> None:
     model    = os.environ.get("OPENAI_MODEL", args.model)
     api_key  = os.environ.get("OPENAI_API_KEY", "")
     base_url = os.environ.get("OPENAI_BASE_URL", args.base_url).strip()
+    if not base_url and os.environ.get("EPYON_AI_PROVIDER", "").strip().lower() != "openai":
+        base_url = DEFAULT_LOCAL_BASE_URL
+        api_key = os.environ.get("OPENAI_LOCAL_API_KEY", "")  # never send the OpenAI key to the implicit default
     if not base_url:
         # The SDK reads OPENAI_BASE_URL itself; an empty value gives "missing protocol".
         os.environ.pop("OPENAI_BASE_URL", None)

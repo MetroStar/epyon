@@ -38,8 +38,8 @@ export async function renderSettings() {
         <p class="section-desc">
           Point the primary endpoint at a locally hosted, OpenAI-compatible server such as
           <a href="https://ollama.com" target="_blank" rel="noopener">Ollama</a>
-          (<code>http://localhost:11434/v1</code>) to keep scan data on-premises, or leave it blank
-          to use the public OpenAI API. Set <code>OPENAI_API_KEY</code> in the server environment
+          (<code>http://localhost:11434/v1</code>) to keep scan data on-premises. Epyon uses that local
+          endpoint by default; choose the OpenAI provider to use the public OpenAI API. Set <code>OPENAI_API_KEY</code> in the server environment
           when the selected endpoint requires authentication.
         </p>
         <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);border-radius:6px;margin-bottom:12px;font-size:13px;max-width:600px">
@@ -52,7 +52,7 @@ export async function renderSettings() {
           <div>
             <label class="field-label">Provider</label>
             <select id="ai-provider" class="field-input" ${actOn('change','aiProviderChanged')}>
-              <option value="auto" ${aiCfg.provider === 'auto' ? 'selected' : ''}>Auto (settings, then environment)</option>
+              <option value="auto" ${aiCfg.provider === 'auto' ? 'selected' : ''}>Auto (settings, then environment, then local default)</option>
               <option value="local" ${aiCfg.provider === 'local' ? 'selected' : ''}>Local / self-hosted (Ollama, vLLM…)</option>
               <option value="openai" ${aiCfg.provider === 'openai' ? 'selected' : ''} ${aiCfg.key_set ? '' : 'disabled'}>OpenAI (uses OPENAI_API_KEY)${aiCfg.key_set ? '' : ' — key not loaded; restart server with .env.local sourced'}</option>
             </select>
@@ -68,13 +68,13 @@ export async function renderSettings() {
             </select>
           </div>
           <div>
-            <label class="field-label">Primary Base URL <span style="color:var(--text-muted);font-weight:normal">(blank = public OpenAI API)</span></label>
+            <label class="field-label">Primary Base URL <span style="color:var(--text-muted);font-weight:normal">(blank = local default, http://localhost:11434/v1)</span></label>
             <input id="ai-base-url" type="text" class="field-input"
               placeholder="http://localhost:11434/v1"
               ${actOn('change','loadLocalModels')}
               value="${esc(aiCfg.base_url || '')}"/>
             <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
-              Active: <code>${esc(aiCfg.active_base_url || 'https://api.openai.com/v1 (default)')}</code>
+              Active: <code>${esc(aiCfg.active_base_url || 'https://api.openai.com/v1 (OpenAI provider)')}</code>
             </div>
           </div>
           <div>
@@ -82,7 +82,7 @@ export async function renderSettings() {
             <div style="display:flex;gap:8px;align-items:center">
               <select id="ai-model-select" class="field-input" style="display:none"></select>
               <input id="ai-model" type="text" class="field-input"
-                placeholder="gpt-4o-mini, llama3.1:8b, gemma4:26b, ..."
+                placeholder="gemma4-31b-q8-128k:2026-09-03"
                 value="${esc(aiCfg.model || '')}"/>
               <button type="button" class="btn" id="ai-model-refresh" ${act('loadLocalModels')}
                       title="Fetch the models available at the base URL" style="white-space:nowrap">↻ Refresh</button>

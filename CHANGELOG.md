@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.73.0] - 2026-11-17
+
+### Changed
+- AI features (executive/technical summaries, ISSO summary, STIG assessment) now default to a locally hosted OpenAI-compatible endpoint (`http://localhost:11434/v1`, model `gemma4-31b-q8-128k:2026-09-03`) instead of the public OpenAI API. The OpenAI key is never sent to the implicit local default.
+- The public OpenAI API is used only when explicitly selected: Settings provider "OpenAI", `EPYON_AI_PROVIDER=openai`, or an `api.openai.com` base URL. The opt-in OpenAI fallback is unchanged. Explicit `OPENAI_BASE_URL` / Settings base URL and `OPENAI_MODEL` still take precedence.
+- **Action for CI users who relied on the OpenAI default:** set `EPYON_AI_PROVIDER=openai` (or `OPENAI_BASE_URL` to your endpoint) in the workflow environment.
+
 ## [3.72.38] - 2026-11-17
 
 ### Security

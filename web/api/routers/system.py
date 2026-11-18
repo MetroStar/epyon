@@ -147,7 +147,7 @@ def ai_config_get(response: Response):
         # resolved model (UI > OPENAI_MODEL > default) for display only.
         "provider":     openai_summary.get_provider(),
         "openai_model": cfg.get("openai_model") or openai_summary.DEFAULT_MODEL,
-        "model":        cfg.get("model") or openai_summary.DEFAULT_MODEL,
+        "model":        cfg.get("model") or openai_summary.DEFAULT_LOCAL_MODEL,
         "active_model": openai_summary.get_model(),
         # The configured custom endpoint (UI value), plus the effective base URL
         # actually in use (UI > OPENAI_BASE_URL env > OpenAI default) for

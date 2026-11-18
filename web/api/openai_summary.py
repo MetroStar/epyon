@@ -67,6 +67,9 @@ def get_api_key() -> str | None:
     if provider == "local" and _is_self_hosted(get_base_url()):
         # Never send the real OpenAI key to a self-hosted endpoint.
         return os.environ.get("OPENAI_LOCAL_API_KEY") or _PLACEHOLDER_API_KEY
+    if get_provider() != "openai" and not _explicit_base_url():
+        # Implicit local default: never send the real OpenAI key to it.
+        return os.environ.get("OPENAI_LOCAL_API_KEY") or _PLACEHOLDER_API_KEY
     env_key = os.environ.get("OPENAI_API_KEY")
     if env_key:
         return env_key
@@ -85,6 +88,12 @@ def get_api_key() -> str | None:
 # Default model used when neither the UI config nor the environment specify one.
 DEFAULT_MODEL = "gpt-4o-mini"
 
+# Epyon defaults to a locally hosted, OpenAI-compatible server (Ollama). The public
+# OpenAI API is used only when explicitly selected (provider "openai" or an
+# api.openai.com base URL).
+DEFAULT_LOCAL_BASE_URL = "http://localhost:11434/v1"
+DEFAULT_LOCAL_MODEL = "gemma4-31b-q8-128k:2026-09-03"
+
 
 def get_model() -> str:
     """Resolve the chat model name.
@@ -98,7 +107,7 @@ def get_model() -> str:
     cfg = read_ai_config()
     if get_provider() == "openai":
         return cfg.get("openai_model") or DEFAULT_MODEL
-    return cfg.get("model") or os.environ.get("OPENAI_MODEL") or DEFAULT_MODEL
+    return cfg.get("model") or os.environ.get("OPENAI_MODEL") or DEFAULT_LOCAL_MODEL
 
 
 # A non-secret placeholder used when talking to a self-hosted, OpenAI-compatible
@@ -120,15 +129,20 @@ def get_base_url() -> str | None:
     """Resolve the OpenAI-compatible base URL.
 
     Precedence mirrors get_api_key()/get_model(): the UI-managed ai-config.json
-    wins, then the OPENAI_BASE_URL environment variable, then None (the SDK's
-    default, i.e. the public OpenAI API). The OpenAI SDK only auto-reads the
+    wins, then the OPENAI_BASE_URL environment variable, then the local default
+    (DEFAULT_LOCAL_BASE_URL). None (the public OpenAI API) is returned only when
+    the provider is explicitly "openai". The OpenAI SDK only auto-reads the
     environment variable, so a base URL chosen in the Settings UI must be passed
     to the client explicitly (see the AsyncOpenAI call sites below).
     """
-    cfg = read_ai_config()
     if get_provider() == "openai":
         return None
-    return cfg.get("base_url") or os.environ.get("OPENAI_BASE_URL") or None
+    return _explicit_base_url() or DEFAULT_LOCAL_BASE_URL
+
+
+def _explicit_base_url() -> str | None:
+    """Base URL set via the Settings UI or OPENAI_BASE_URL, without the local default."""
+    return read_ai_config().get("base_url") or os.environ.get("OPENAI_BASE_URL") or None
 
 
 def _hostname(base_url: str | None) -> str | None:

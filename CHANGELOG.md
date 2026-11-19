@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.77.0] - 2026-11-19
+
+### Added
+- Settings → **STIG Guidance**: upload organization rules (max 4 KB, appended to the built-in ETK policy) and a per-application reference (max 8 KB) as plain text. Dashboard-started scans pass them to the STIG assessor via `EPYON_STIG_POLICY_EXTRA_FILE` and `EPYON_STIG_REFERENCE_FILE`. Uploaded rules cannot change the output format or relax the evidence rules, and a repository's own `.epyon-stig-reference.md` takes precedence over an uploaded reference. New endpoints: `GET/POST/DELETE /api/stig/policy` and `GET/POST/DELETE /api/applications/{name}/stig-reference`. Files are stored under `web/data/stig-policy/` (git-ignored). ETK format only.
+
 ## [3.76.0] - 2026-11-19
 
 ### Changed

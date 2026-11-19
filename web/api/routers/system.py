@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from .. import jobs as job_store
 from .. import openai_summary
 from .. import parsers
+from .. import stig_policy_store
 from .. import cache_state
 import time
 from .. import main as api_main
@@ -325,6 +326,83 @@ async def scan_concurrency_post(request: Request, response: Response):
     job_store.save_max_concurrent(value)
     await job_store.wake_queue()
     return _concurrency_payload()
+
+
+def _stig_policy_payload() -> dict:
+    return {
+        "org_rules": stig_policy_store.get_org_rules() or "",
+        "org_rules_max_bytes": stig_policy_store.ORG_RULES_MAX_BYTES,
+        "reference_max_bytes": stig_policy_store.REFERENCE_MAX_BYTES,
+        "references": stig_policy_store.list_references(),
+    }
+
+
+async def _text_body(request: Request) -> str:
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(400, "Invalid JSON")
+    content = body.get("content") if isinstance(body, dict) else None
+    if not isinstance(content, str):
+        raise HTTPException(400, "content must be text")
+    return content
+
+
+@router.get("/api/stig/policy")
+def stig_policy_get(response: Response):
+    api_main._sec_headers(response)
+    return _stig_policy_payload()
+
+
+@router.post("/api/stig/policy")
+async def stig_policy_post(request: Request, response: Response):
+    api_main._sec_headers(response)
+    api_main._audit(request, "stig_org_rules_saved")
+    try:
+        stig_policy_store.save_org_rules(await _text_body(request))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return _stig_policy_payload()
+
+
+@router.delete("/api/stig/policy")
+def stig_policy_delete(request: Request, response: Response):
+    api_main._sec_headers(response)
+    api_main._audit(request, "stig_org_rules_removed")
+    stig_policy_store.delete_org_rules()
+    return _stig_policy_payload()
+
+
+@router.get("/api/applications/{name}/stig-reference")
+def stig_reference_get(name: str, response: Response):
+    api_main._sec_headers(response)
+    try:
+        content = stig_policy_store.get_reference(name)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"name": name, "content": content or "", "exists": content is not None}
+
+
+@router.post("/api/applications/{name}/stig-reference")
+async def stig_reference_post(name: str, request: Request, response: Response):
+    api_main._sec_headers(response)
+    api_main._audit(request, "stig_reference_saved", name)
+    try:
+        stig_policy_store.save_reference(name, await _text_body(request))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"name": name, "exists": True}
+
+
+@router.delete("/api/applications/{name}/stig-reference")
+def stig_reference_delete(name: str, request: Request, response: Response):
+    api_main._sec_headers(response)
+    api_main._audit(request, "stig_reference_removed", name)
+    try:
+        removed = stig_policy_store.delete_reference(name)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"name": name, "exists": False, "removed": removed}
 
 
 # Mirrors the togglable layer numbers in

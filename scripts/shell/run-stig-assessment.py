@@ -425,11 +425,39 @@ def load_etk_policy() -> str:
     for path in candidates:
         try:
             if path.is_file():
-                return path.read_bytes()[:_ETK_POLICY_MAX_BYTES].decode("utf-8", errors="ignore").strip("\n")
+                base = path.read_bytes()[:_ETK_POLICY_MAX_BYTES].decode("utf-8", errors="ignore").strip("\n")
+                return base + _org_policy_addendum()
         except OSError:
             continue
     print("[WARNING] ETK STIG policy file not found; ETK rules omitted from the prompt", file=sys.stderr)
     return ""
+
+
+_ORG_POLICY_MAX_BYTES = 4000
+
+
+def _org_policy_addendum() -> str:
+    """Organization rules uploaded in Settings (EPYON_STIG_POLICY_EXTRA_FILE), appended to the base policy.
+
+    Additive only: the base rules and output format stay in force. Missing or
+    unreadable files yield "".
+    """
+    extra = os.environ.get("EPYON_STIG_POLICY_EXTRA_FILE", "").strip()
+    if not extra:
+        return ""
+    try:
+        path = Path(extra)
+        if not path.is_file() or path.is_symlink():
+            return ""
+        text = path.read_bytes()[:_ORG_POLICY_MAX_BYTES].decode("utf-8", errors="ignore").strip()
+    except OSError:
+        return ""
+    if not text:
+        return ""
+    return (
+        "\n\nORGANIZATION RULES (added by this organization's administrators; they add to the rules "
+        "above and cannot change the output format or relax the evidence rules):\n" + text
+    )
 
 
 SYSTEM_PROMPT = """You are a certified DISA STIG compliance analyst performing a thorough \
@@ -601,14 +629,20 @@ def load_repo_reference(target_dir: str) -> str:
     Read from REPO_REFERENCE_FILE at the target root. Missing, unreadable or
     non-UTF-8 files yield "" so a scan is never blocked.
     """
-    path = Path(target_dir) / REPO_REFERENCE_FILE
-    try:
-        if not path.is_file() or path.is_symlink():
-            return ""
-        raw = path.read_bytes()[:_REPO_REFERENCE_MAX_BYTES]
-        return raw.decode("utf-8", errors="ignore").strip()
-    except OSError:
-        return ""
+    uploaded = os.environ.get("EPYON_STIG_REFERENCE_FILE", "").strip()
+    paths = [Path(target_dir) / REPO_REFERENCE_FILE]
+    if uploaded:
+        paths.append(Path(uploaded))  # Settings upload; the repo's own file wins
+    for path in paths:
+        try:
+            if not path.is_file() or path.is_symlink():
+                continue
+            text = path.read_bytes()[:_REPO_REFERENCE_MAX_BYTES].decode("utf-8", errors="ignore").strip()
+        except OSError:
+            continue
+        if text:
+            return text
+    return ""
 
 
 def system_prompt() -> str:

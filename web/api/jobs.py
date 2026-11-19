@@ -15,6 +15,7 @@ from typing import Any
 
 from . import openai_summary
 from . import github_config
+from . import stig_policy_store
 
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[mGKHF]")
 
@@ -737,6 +738,7 @@ async def _run_scan_job_inner(
         env.pop("OPENAI_BASE_URL", None)
         env["EPYON_AI_PROVIDER"] = "openai"
     env["OPENAI_MODEL"] = openai_summary.get_model()
+    env.update(stig_policy_store.scan_env(target_name))
     if github_token:
         env["GH_PAT"] = github_token
     # Webhook configuration (optional)

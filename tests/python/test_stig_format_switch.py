@@ -202,3 +202,22 @@ def test_policy_marker_never_leaks_into_prompts(monkeypatch):
     assert "{{ETK_POLICY}}" not in assess.SYSTEM_PROMPT
     monkeypatch.setenv("EPYON_STIG_FORMAT", "legacy")
     assert "{{ETK_POLICY}}" not in assess.system_prompt()
+
+
+def test_uploaded_org_rules_append_and_uploaded_reference_is_fallback(tmp_path, monkeypatch):
+    monkeypatch.delenv("EPYON_STIG_POLICY_FILE", raising=False)
+    extra = tmp_path / "org.md"
+    extra.write_text("The shared WAF owns network-boundary controls.\n")
+    monkeypatch.setenv("EPYON_STIG_POLICY_EXTRA_FILE", str(extra))
+    policy = assess.load_etk_policy()
+    assert "ETK EVIDENCE RULES" in policy and "ORGANIZATION RULES" in policy
+    assert policy.index("ETK EVIDENCE RULES") < policy.index("shared WAF")
+
+    ref = tmp_path / "ref.md"
+    ref.write_text("uploaded reference")
+    monkeypatch.setenv("EPYON_STIG_REFERENCE_FILE", str(ref))
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    assert assess.load_repo_reference(str(repo)) == "uploaded reference"
+    (repo / assess.REPO_REFERENCE_FILE).write_text("repo reference")
+    assert assess.load_repo_reference(str(repo)) == "repo reference"

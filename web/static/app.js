@@ -753,6 +753,24 @@
     saveScanConcurrency(n) {
       return this._post("/api/settings/scan-concurrency", { max_concurrent_scans: n });
     },
+    getStigPolicy() {
+      return this._get("/api/stig/policy");
+    },
+    saveStigPolicy(content) {
+      return this._post("/api/stig/policy", { content });
+    },
+    deleteStigPolicy() {
+      return this._delete("/api/stig/policy");
+    },
+    getStigReference(name) {
+      return this._get(`/api/applications/${encodeURIComponent(name)}/stig-reference`);
+    },
+    saveStigReference(name, content) {
+      return this._post(`/api/applications/${encodeURIComponent(name)}/stig-reference`, { content });
+    },
+    deleteStigReference(name) {
+      return this._delete(`/api/applications/${encodeURIComponent(name)}/stig-reference`);
+    },
     getExecSummary(id) {
       return this._post(`/api/scans/${encodeURIComponent(id)}/executive-summary`, {});
     },
@@ -1114,13 +1132,19 @@
     _syncPoll: () => _syncPoll,
     aiProviderChanged: () => aiProviderChanged,
     copyWorkflowYml: () => copyWorkflowYml,
+    deleteStigOrgRules: () => deleteStigOrgRules,
+    deleteStigReference: () => deleteStigReference,
     loadLocalModels: () => loadLocalModels,
     loadOpenAiModels: () => loadOpenAiModels,
+    loadStigReference: () => loadStigReference,
     renderSettings: () => renderSettings,
     saveAiConfig: () => saveAiConfig,
     saveGitHubConfig: () => saveGitHubConfig,
     saveJiraConfig: () => saveJiraConfig,
     saveScanConcurrency: () => saveScanConcurrency,
+    saveStigOrgRules: () => saveStigOrgRules,
+    saveStigReference: () => saveStigReference,
+    stigLoadFile: () => stigLoadFile,
     testJiraConnection: () => testJiraConnection,
     triggerGitHubSync: () => triggerGitHubSync
   });
@@ -1307,14 +1331,15 @@ jobs:
     const page = document.getElementById("page");
     page.innerHTML = loading();
     try {
-      const [images, ghCfg, aiCfg, nvdCfg, health, jiraCfg, concCfg] = await Promise.all([
+      const [images, ghCfg, aiCfg, nvdCfg, health, jiraCfg, concCfg, stigPol] = await Promise.all([
         api.getApprovedImages(),
         api.getGitHubConfig(),
         api.getAiConfig(),
         api.getNvdConfig(),
         api._get("/api/health"),
         api.getJiraConfig().catch(() => ({})),
-        api.getScanConcurrency().catch(() => null)
+        api.getScanConcurrency().catch(() => null),
+        api.getStigPolicy().catch(() => null)
       ]);
       const epyonVersion = health.version || "—";
       const tools = [
@@ -1551,6 +1576,39 @@ jobs:
         </div>
       </details>` : ""}
 
+      ${stigPol ? `<details class="section settings-section">
+        <summary class="section-title">STIG Guidance</summary>
+        <p class="section-desc">
+          Upload plain-text guidance for the STIG assessment. It applies to scans started from this dashboard;
+          scans that run in a repository's own workflow use that repository's <code>.epyon-stig-reference.md</code>.
+          Guidance adds to the built-in rules and cannot change the output format or relax the evidence rules.
+        </p>
+        <div style="font-size:13px;font-weight:600;margin:0 0 6px">Organization rules (all applications)</div>
+        <textarea id="stig-org-rules" class="field-input" rows="6" style="width:100%;max-width:700px;font-family:monospace;font-size:12px"
+                  maxlength="${esc(stigPol.org_rules_max_bytes)}" placeholder="e.g. Treat our shared WAF as the owner of network-boundary controls.">${esc(stigPol.org_rules)}</textarea>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 18px">
+          <input type="file" accept=".md,.txt,text/plain,text/markdown" ${actOn("change", "stigLoadFile", "stig-org-rules", ARG.el)} />
+          <button class="btn btn-primary" ${act("saveStigOrgRules")}>Save</button>
+          <button class="btn" ${act("deleteStigOrgRules")}>Remove</button>
+          <span style="font-size:13px;color:var(--text-muted)">${stigPol.org_rules ? "Custom rules active" : "Using built-in rules only"} · max ${esc(stigPol.org_rules_max_bytes)} bytes</span>
+        </div>
+        <div style="font-size:13px;font-weight:600;margin:0 0 6px">Application reference</div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 8px">
+          <input id="stig-ref-app" class="field-input" style="width:260px" list="stig-ref-apps" placeholder="Application name"
+                 ${actOn("change", "loadStigReference")} />
+          <datalist id="stig-ref-apps">${stigPol.references.map((n) => `<option value="${esc(n)}"></option>`).join("")}</datalist>
+          <span style="font-size:13px;color:var(--text-muted)">${stigPol.references.length} saved</span>
+        </div>
+        <textarea id="stig-ref-text" class="field-input" rows="6" style="width:100%;max-width:700px;font-family:monospace;font-size:12px"
+                  maxlength="${esc(stigPol.reference_max_bytes)}" placeholder="Where to look, known traps, who owns out-of-scope controls."></textarea>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px">
+          <input type="file" accept=".md,.txt,text/plain,text/markdown" ${actOn("change", "stigLoadFile", "stig-ref-text", ARG.el)} />
+          <button class="btn btn-primary" ${act("saveStigReference")}>Save</button>
+          <button class="btn" ${act("deleteStigReference")}>Remove</button>
+          <span style="font-size:13px;color:var(--text-muted)">The repository's own file takes precedence · max ${esc(stigPol.reference_max_bytes)} bytes</span>
+        </div>
+      </details>` : ""}
+
       <details class="section settings-section">
         <summary class="section-title">Workflow File Setup</summary>
         <p class="section-desc">
@@ -1680,6 +1738,53 @@ epyon install-workflow</pre>
     } catch (e) {
       toast("Failed to save AI config: " + e.message, "error");
     }
+  }
+  async function stigLoadFile(targetId, input) {
+    const file = input?.files?.[0];
+    const box = document.getElementById(targetId);
+    if (!file || !box) return;
+    box.value = await file.text();
+  }
+  async function _stigRun(label, fn) {
+    try {
+      await fn();
+      toast(label, "success");
+      await renderSettings();
+    } catch (e) {
+      toast("STIG guidance: " + e.message, "error");
+    }
+  }
+  function saveStigOrgRules() {
+    return _stigRun("Organization rules saved", () => api.saveStigPolicy(document.getElementById("stig-org-rules")?.value || ""));
+  }
+  function deleteStigOrgRules() {
+    return _stigRun("Organization rules removed", () => api.deleteStigPolicy());
+  }
+  async function loadStigReference() {
+    const name = (document.getElementById("stig-ref-app")?.value || "").trim();
+    const box = document.getElementById("stig-ref-text");
+    if (!name || !box) return;
+    try {
+      box.value = (await api.getStigReference(name)).content || "";
+    } catch (e) {
+      toast("STIG guidance: " + e.message, "error");
+    }
+  }
+  function saveStigReference() {
+    const name = (document.getElementById("stig-ref-app")?.value || "").trim();
+    if (!name) {
+      toast("Enter an application name first", "error");
+      return;
+    }
+    return _stigRun("Reference saved", () => api.saveStigReference(name, document.getElementById("stig-ref-text")?.value || ""));
+  }
+  function deleteStigReference() {
+    const name = (document.getElementById("stig-ref-app")?.value || "").trim();
+    if (!name) {
+      toast("Enter an application name first", "error");
+      return;
+    }
+    return _stigRun("Reference removed", () => api.deleteStigReference(name));
   }
   async function saveScanConcurrency() {
     const n = parseInt(document.getElementById("scan-concurrency")?.value, 10);

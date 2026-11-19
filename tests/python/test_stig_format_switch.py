@@ -161,3 +161,27 @@ def test_record_entry_shows_owner_components_and_method():
     )
     assert "Owner to confirm: vendor." in text and "By component: bff: Open." in text
     assert "Method: grep -rn tls src" in text
+
+
+def test_repo_reference_is_loaded_bounded_and_etk_only(tmp_path, monkeypatch):
+    assert assess.load_repo_reference(str(tmp_path)) == ""
+    (tmp_path / assess.REPO_REFERENCE_FILE).write_text("Auth lives in ui/lib/auth.ts\n" + "x" * 20000)
+    ref = assess.load_repo_reference(str(tmp_path))
+    assert ref.startswith("Auth lives in ui/lib/auth.ts") and len(ref) <= 8000
+
+    monkeypatch.setattr(assess, "_REPO_REFERENCE", ref)
+    monkeypatch.setenv("EPYON_STIG_FORMAT", "etk")
+    etk = assess.system_prompt()
+    assert "REPOSITORY REFERENCE" in etk and "ui/lib/auth.ts" in etk
+    assert etk.rstrip().endswith("Return ONLY the JSON array.")
+    monkeypatch.setenv("EPYON_STIG_FORMAT", "legacy")
+    assert "REPOSITORY REFERENCE" not in assess.system_prompt()
+
+
+def test_repo_reference_ignores_symlinks(tmp_path):
+    secret = tmp_path / "secret.txt"
+    secret.write_text("TOP SECRET")
+    target = tmp_path / "repo"
+    target.mkdir()
+    (target / assess.REPO_REFERENCE_FILE).symlink_to(secret)
+    assert assess.load_repo_reference(str(target)) == ""

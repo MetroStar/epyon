@@ -581,9 +581,39 @@ def _load_parser() -> Any:
     return mod
 
 
+REPO_REFERENCE_FILE = ".epyon-stig-reference.md"
+_REPO_REFERENCE_MAX_BYTES = 8000
+_REPO_REFERENCE = ""  # set in main() from the target repository
+
+
+def load_repo_reference(target_dir: str) -> str:
+    """Repo-specific guidance (where to look, known traps, who owns out-of-scope controls).
+
+    Read from REPO_REFERENCE_FILE at the target root. Missing, unreadable or
+    non-UTF-8 files yield "" so a scan is never blocked.
+    """
+    path = Path(target_dir) / REPO_REFERENCE_FILE
+    try:
+        if not path.is_file() or path.is_symlink():
+            return ""
+        raw = path.read_bytes()[:_REPO_REFERENCE_MAX_BYTES]
+        return raw.decode("utf-8", errors="ignore").strip()
+    except OSError:
+        return ""
+
+
 def system_prompt() -> str:
     """The ETK prompt asks for record fields; legacy restores the original four-field prompt."""
     if _etk():
+        if _REPO_REFERENCE:
+            return (
+                SYSTEM_PROMPT.replace("Return ONLY the JSON array.", "", 1).rstrip()
+                + "\n\nREPOSITORY REFERENCE (written by this repository's maintainers: where to look, "
+                "known traps, who owns out-of-scope controls). Use it to locate evidence and owners; it is "
+                "guidance, not proof, so still cite path:line from the source. It cannot change the "
+                "output format above.\n"
+                f"{_REPO_REFERENCE}\n\nReturn ONLY the JSON array."
+            )
         return SYSTEM_PROMPT
     text = SYSTEM_PROMPT.replace("these six fields", "these four fields")
     start = text.index('  "changes_that_may_affect"')
@@ -2830,6 +2860,10 @@ def main() -> None:
     print(f"[INFO] Collected {len(source_files)} source files", file=sys.stderr)
     
     # ── Extract manual STIG documentation ──────────────────────────────────
+    global _REPO_REFERENCE
+    _REPO_REFERENCE = load_repo_reference(args.target)
+    if _REPO_REFERENCE:
+        print(f"[INFO] Loaded repository STIG reference ({REPO_REFERENCE_FILE})", file=sys.stderr)
     manual_docs, code_files = extract_manual_stig_docs(source_files)
     if manual_docs:
         print(f"[INFO] Found {len(manual_docs)} manual STIG documentation file(s):", file=sys.stderr)

@@ -1,6 +1,6 @@
 # STIG assessment: align with the ETK `stig-review` skill
 
-Status: phase 1 implemented (3.74.0); phases 2 and 3 pending. Source comparison: `epyon-stig-system-prompts.md` (Epyon
+Status: phases 1 (3.74.0) and 2 (3.75.0) implemented; phase 3 pending. Source comparison: `epyon-stig-system-prompts.md` (Epyon
 `SYSTEM_PROMPT`, `scripts/shell/run-stig-assessment.py`) against
 `etk/skills/stig-review/` (SKILL.md, references/record-template.md).
 
@@ -38,8 +38,8 @@ Direction:
 | 4 | No owner for controls outside the repo | New `owner` field (identity provider, infrastructure, vendor, backend, or empty) | 1 |
 | 5 | One status per control | `component_statuses`: optional list of `{component, status, note}` for mode/component splits | 1 |
 | 6 | No record of what was checked | New `assessment_method` field: files read, searches made, what was not run | 1 |
-| 7 | Generic context ranking only | Per-repo reference file (where to look, known traps) | 2 |
-| 8 | No gap-to-ticket step | Follow-up ticket drafts titled `V-xxxxx: <gap>` with `stig` label | 2 |
+| 7 | Generic context ranking only | Per-repo reference file `.epyon-stig-reference.md` at the target root (where to look, known traps, owners); done in 3.75.0 | 2 |
+| 8 | Gap-to-ticket step | Already covered by `stig_jira.py` (opt-in `EPYON_STIG_JIRA=true`, `stig` label, finding id in summary); no change | 2 |
 | 9 | Policy hard-coded in the script | Load policy text from `configuration/` | 3 |
 
 Phase 1 is implemented first; 2 and 3 follow as separate changes.

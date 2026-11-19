@@ -1,6 +1,6 @@
 # STIG assessment: align with the ETK `stig-review` skill
 
-Status: phases 1 (3.74.0) and 2 (3.75.0) implemented; phase 3 pending. Source comparison: `epyon-stig-system-prompts.md` (Epyon
+Status: all three phases implemented (3.74.0 to 3.76.0). Remaining idea: an agentic mode with grep/read tools. Source comparison: `epyon-stig-system-prompts.md` (Epyon
 `SYSTEM_PROMPT`, `scripts/shell/run-stig-assessment.py`) against
 `etk/skills/stig-review/` (SKILL.md, references/record-template.md).
 
@@ -40,7 +40,7 @@ Direction:
 | 6 | No record of what was checked | New `assessment_method` field: files read, searches made, what was not run | 1 |
 | 7 | Generic context ranking only | Per-repo reference file `.epyon-stig-reference.md` at the target root (where to look, known traps, owners); done in 3.75.0 | 2 |
 | 8 | Gap-to-ticket step | Already covered by `stig_jira.py` (opt-in `EPYON_STIG_JIRA=true`, `stig` label, finding id in summary); no change | 2 |
-| 9 | Policy hard-coded in the script | Load policy text from `configuration/` | 3 |
+| 9 | Policy hard-coded in the script | ETK fields and rules moved to `configuration/stig-policy/etk-rules.md`; done in 3.76.0 | 3 |
 
 Phase 1 is implemented first; 2 and 3 follow as separate changes.
 

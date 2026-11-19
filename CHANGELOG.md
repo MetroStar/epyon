@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.76.0] - 2026-11-19
+
+### Changed
+- The ETK STIG assessment's optional response fields and evidence rules now live in `configuration/stig-policy/etk-rules.md` instead of the Python source, so they can be reviewed and versioned like other policy. The rendered prompt is unchanged. `EPYON_STIG_POLICY_FILE` points at an alternative file; a missing file logs a warning and omits the rules rather than failing the scan. `legacy` format is unaffected.
+
 ## [3.75.0] - 2026-11-19
 
 ### Added

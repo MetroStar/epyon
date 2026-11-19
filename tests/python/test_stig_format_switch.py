@@ -185,3 +185,20 @@ def test_repo_reference_ignores_symlinks(tmp_path):
     target.mkdir()
     (target / assess.REPO_REFERENCE_FILE).symlink_to(secret)
     assert assess.load_repo_reference(str(target)) == ""
+
+
+def test_etk_policy_comes_from_file_and_can_be_overridden(tmp_path, monkeypatch):
+    monkeypatch.delenv("EPYON_STIG_POLICY_FILE", raising=False)
+    assert "ETK EVIDENCE RULES" in assess.load_etk_policy()
+    custom = tmp_path / "rules.md"
+    custom.write_text("CUSTOM RULE: cite everything\n")
+    monkeypatch.setenv("EPYON_STIG_POLICY_FILE", str(custom))
+    assert assess.load_etk_policy() == "CUSTOM RULE: cite everything"
+    monkeypatch.setenv("EPYON_STIG_POLICY_FILE", str(tmp_path / "missing.md"))
+    assert assess.load_etk_policy() == ""
+
+
+def test_policy_marker_never_leaks_into_prompts(monkeypatch):
+    assert "{{ETK_POLICY}}" not in assess.SYSTEM_PROMPT
+    monkeypatch.setenv("EPYON_STIG_FORMAT", "legacy")
+    assert "{{ETK_POLICY}}" not in assess.system_prompt()

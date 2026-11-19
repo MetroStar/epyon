@@ -46,8 +46,8 @@ SCRIPT_PATH="${SCRIPT_DIR}/run-stig-scan.sh"
     grep -q "OPENAI_MODEL" "$SCRIPT_PATH"
 }
 
-@test "run-stig-scan.sh defaults OPENAI_MODEL to gpt-4o-mini" {
-    grep -q "gpt-4o-mini" "$SCRIPT_PATH"
+@test "run-stig-scan.sh defaults OPENAI_MODEL to the local endpoint model" {
+    grep -q 'OPENAI_MODEL:-gemma4-31b-q8-128k' "$SCRIPT_PATH"
 }
 
 @test "run-stig-scan.sh supports BATCH_SIZE environment variable" {

@@ -111,10 +111,14 @@ def _build_metrics() -> dict:
     cve_counts:       dict[str, dict] = {}
 
     for _target, scan_list in by_target.items():
-        scan_list.sort(key=lambda x: x[0].get("timestamp", ""), reverse=True)
+        scan_list.sort(key=lambda x: x[0].get("timestamp") or "", reverse=True)
         _, latest_dir = scan_list[0]
         total_suppressed_instances += parsers.count_suppressed_instances(latest_dir)
-        findings = parsers.parse_scan_findings(latest_dir)
+        try:
+            findings = parsers.parse_scan_findings(latest_dir)
+        except Exception:
+            logging.getLogger("epyon.perf").exception("metrics: findings parse failed for %s", latest_dir)
+            continue
         if not findings:
             continue
         for sev in ("critical", "high", "medium", "low"):
@@ -161,7 +165,7 @@ def _build_metrics() -> dict:
         target: {
             "total": len(scan_list),
             "dates": sorted(
-                s.get("timestamp", "")[:10]
+                (s.get("timestamp") or "")[:10]
                 for s, _ in scan_list if s.get("timestamp")
             ),
             "runs": _freq_runs(scan_list),
@@ -173,7 +177,7 @@ def _build_metrics() -> dict:
     merge_dates_by_target: dict[str, list[str]] = {}
     for _target, scan_list in by_target.items():
         for s, _ in scan_list:
-            ci = s.get("ci_source", {})
+            ci = s.get("ci_source") or {}
             if ci.get("event") in ("push", "workflow_dispatch") and ci.get("branch") in ("main", "master", "dev"):
                 date = (s.get("timestamp") or "")[:10]
                 if date:
@@ -224,7 +228,7 @@ def _build_metrics() -> dict:
         ]
         if not eligible:
             continue
-        eligible_sorted = sorted(eligible, key=lambda x: x[0].get("timestamp", ""))
+        eligible_sorted = sorted(eligible, key=lambda x: x[0].get("timestamp") or "")
 
         # Secret trend for this target
         t_secret_trend: list[dict] = []
@@ -364,6 +368,8 @@ def _build_metrics() -> dict:
                                         res_dt = res_dt.replace(tzinfo=timezone.utc)
                                     days = (res_dt - first_dt).total_seconds() / 86400
                                     threshold = SLA_DAYS.get(sev, 180)
+                                    if sev not in sla_within:
+                                        continue
                                     if days <= threshold:
                                         sla_within[sev]   += 1
                                     else:

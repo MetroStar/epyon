@@ -89,6 +89,28 @@ def search_index(index: dict, needle: str, field: str, ticket_map: dict | None =
     )
 
 
+def match_sbom_packages(packages: Iterable[dict], needle: str, limit: int = 200) -> list[dict]:
+    """SBOM packages whose name contains the needle (or whose purl equals it)."""
+    hits: dict[tuple[str, str, str], dict] = {}
+    for pkg in packages:
+        name = pkg.get("name") or ""
+        purl = pkg.get("purl") or ""
+        if needle not in name.lower() and needle != purl.lower():
+            continue
+        key = (name.lower(), pkg.get("version") or "", pkg.get("type") or "")
+        if key not in hits:
+            hits[key] = {
+                "name": name,
+                "version": pkg.get("version") or "",
+                "type": pkg.get("type") or "unknown",
+                "purl": purl,
+                "licenses": [lic for lic in (pkg.get("licenses") or []) if lic],
+                "path": pkg.get("path") or "",
+            }
+    ranked = sorted(hits.values(), key=lambda p: (p["name"].lower() != needle, p["name"].lower(), p["version"]))
+    return ranked[:limit]
+
+
 def search_scan(
     scan_data: dict,
     app_name: str,

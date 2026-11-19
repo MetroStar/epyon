@@ -212,3 +212,15 @@ def test_search_entry_reports_jira_configured(api_client, monkeypatch):
     cfg["project_key"] = ""
     entry = client.get("/api/findings/search", params={"q": "CVE-2024-00001"}).json()["applications"][0]
     assert entry["jira_configured"] is False
+
+
+def test_match_sbom_packages_substring_dedupes_and_ranks_exact_first():
+    pkgs = [
+        {"name": "log4j-core", "version": "2.14.0", "type": "java-archive", "purl": "", "licenses": ["Apache-2.0"]},
+        {"name": "log4j-core", "version": "2.14.0", "type": "java-archive", "purl": ""},
+        {"name": "log4j", "version": "1.2", "type": "java-archive", "purl": ""},
+        {"name": "lodash", "version": "4", "type": "npm", "purl": ""},
+    ]
+    found = finding_search.match_sbom_packages(pkgs, "log4j")
+    assert [p["name"] for p in found] == ["log4j", "log4j-core"]
+    assert finding_search.match_sbom_packages(pkgs, "pkg:npm/lodash@4") == []

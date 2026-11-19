@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import time
 
@@ -21,7 +22,11 @@ def get_metrics(response: Response):
         if (time.monotonic() - cache_state.metrics_ts) >= api_main._METRICS_TTL:
             _refresh_metrics_async()  # serve the stale copy while a fresh one builds
         return cache_state.metrics
-    return api_main._compute_metrics()
+    try:
+        return api_main._compute_metrics()
+    except Exception:
+        logging.getLogger("epyon.perf").exception("metrics computation failed")
+        raise HTTPException(status_code=500, detail="Metrics computation failed; see server logs")
 
 
 def _refresh_metrics_async() -> None:

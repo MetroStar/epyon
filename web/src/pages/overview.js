@@ -103,6 +103,7 @@ export async function renderOverview() {
       </div>
 
       ${buildCveSearchSection()}
+      ${buildSbomSearchSection()}
       ${buildOverviewExecSection()}
       ${buildOverviewTechSection()}
       ${buildOverviewIssoSection()}
@@ -131,6 +132,70 @@ export function buildCveSearchSection() {
         <button class="btn btn-primary" type="submit">Search</button>
       </form>
       <div id="cve-search-results"></div>
+    </div>`;
+}
+
+// ── Cross-application SBOM package search (Overview) ──────────
+export function buildSbomSearchSection() {
+  return `
+    <div class="section cve-search">
+      <div class="section-title">Search SBOMs across applications</div>
+      <form class="cve-search-form" ${actOn('submit', 'sbomSearchRun', ARG.event)}>
+        <input id="sbom-search-q" class="cve-search-input" type="text" minlength="3" maxlength="100"
+               placeholder="Package name (e.g. log4j, lodash) or purl" autocomplete="off" required>
+        <label class="cve-search-history">
+          <input id="sbom-search-history" type="checkbox"> Include earlier scans
+        </label>
+        <button class="btn btn-primary" type="submit">Search</button>
+      </form>
+      <div id="sbom-search-results"></div>
+    </div>`;
+}
+
+let _sbomSearchSeq = 0;
+
+export async function sbomSearchRun(ev) {
+  if (ev) ev.preventDefault();
+  const out = document.getElementById('sbom-search-results');
+  if (!out) return;
+  const q = document.getElementById('sbom-search-q').value.trim();
+  const history = document.getElementById('sbom-search-history').checked;
+  const seq = ++_sbomSearchSeq;
+  out.innerHTML = loading();
+  try {
+    const params = new URLSearchParams({ q, include_history: history ? 'true' : 'false' });
+    const r = await fetch(`/api/sbom/search?${params}`);
+    if (r.status === 400) throw new Error('Enter 3–100 characters: letters, digits and . _ : @ / + -');
+    if (!r.ok) throw new Error('Search failed. Please try again.');
+    const data = await r.json();
+    if (seq !== _sbomSearchSeq) return;
+    out.innerHTML = sbomSearchResultsHtml(data);
+  } catch (e) {
+    if (seq === _sbomSearchSeq) out.innerHTML = errBanner(e.message, { retry: false });
+  }
+}
+
+export function sbomSearchResultsHtml(data) {
+  if (!data.applications.length) {
+    return `<div class="cve-search-empty">“${esc(data.query)}” was not found in any monitored application's SBOM.</div>`;
+  }
+  const rows = data.applications.map(appEntry => appEntry.packages.map(p => `
+      <tr>
+        <td>${esc(appEntry.app_name)}${appEntry.is_latest ? '' : ' <span class="tool-tag">earlier scan</span>'}</td>
+        <td>${esc(p.name)}</td>
+        <td>${esc(p.version || '—')}</td>
+        <td><span class="tool-tag">${esc(p.type)}</span></td>
+        <td>${esc((p.licenses || []).join(', ') || '—')}</td>
+        <td>${esc(p.path || '—')}</td>
+        <td>${esc(fmtDate(appEntry.timestamp))}</td>
+      </tr>`).join('')).join('');
+  return `
+    <div class="cve-search-summary">${esc(data.total_packages)} package${data.total_packages === 1 ? '' : 's'} across ${esc(data.total_applications)} application${data.total_applications === 1 ? '' : 's'}</div>
+    <div class="table-container">
+      <table>
+        <thead><tr><th scope="col">Application</th><th scope="col">Package</th><th scope="col">Version</th><th scope="col">Type</th><th scope="col">License</th><th scope="col">Path</th><th scope="col">Scanned</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
     </div>`;
 }
 

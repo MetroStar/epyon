@@ -1708,7 +1708,7 @@ def _filter_suppressed_findings(findings_dict: dict, suppressions: list[dict]) -
 
 # ── Aggregate ─────────────────────────────────────────────────
 
-def load_sbom_packages(scan_dir: Path) -> dict:
+def load_sbom_packages(scan_dir: Path, limit: int | None = 2000) -> dict:
     """Read SBOM package data from syft-json (filesystem.json), falling back to
     CycloneDX only if syft-json is absent. Returns total count, type breakdown,
     and the package list (capped at 2000 for API response size)."""
@@ -1825,7 +1825,7 @@ def load_sbom_packages(scan_dir: Path) -> dict:
     return {
         "total":    len(packages),
         "by_type":  by_type,
-        "packages": packages[:2000],
+        "packages": packages if limit is None else packages[:limit],
     }
 
 

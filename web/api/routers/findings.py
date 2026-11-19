@@ -80,6 +80,55 @@ def findings_search(
     }
 
 
+@router.get("/api/sbom/search")
+def sbom_search(
+    response: Response,
+    q: str = Query(..., description="Package name (substring match) or exact purl"),
+    include_history: bool = Query(False),
+):
+    """Find every application whose SBOM contains a matching package."""
+    api_main._sec_headers(response)
+    try:
+        needle = finding_search.validate_query(q).lower()
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+    hidden = api_main._load_hidden_apps()
+    monitored = api_main._load_monitored_apps()
+    candidates = finding_search.preselect_dirs(
+        api_main._cached_find_scan_dirs(days=35), include_history, parsers.parse_dir_name,
+    )
+    scans = [
+        scan for scan in (api_main._cached_load_scan(d) for d in candidates)
+        if scan["target"] not in hidden and (not monitored or scan["target"] in monitored)
+    ]
+    dirs_by_id = {d.name: d for d in candidates}
+
+    applications = []
+    for scan in finding_search.select_scans(scans, include_history):
+        scan_dir = dirs_by_id.get(scan["scan_id"])
+        if not scan_dir:
+            continue
+        sbom = parsers.load_sbom_packages(scan_dir, limit=None)
+        matches = finding_search.match_sbom_packages(sbom["packages"], needle)
+        if matches:
+            applications.append({
+                "app_name": scan["target"],
+                "scan_id": scan["scan_id"],
+                "timestamp": scan.get("timestamp", ""),
+                "is_latest": scan["is_latest"],
+                "packages": matches,
+            })
+    applications.sort(key=lambda a: (a["app_name"].lower(), a["timestamp"]))
+    return {
+        "query": needle,
+        "include_history": include_history,
+        "total_applications": len({a["app_name"] for a in applications}),
+        "total_packages": sum(len(a["packages"]) for a in applications),
+        "applications": applications,
+    }
+
+
 # ── Per-finding fix suggestion ─────────────────────────────────
 
 class _FindingFixRequest(BaseModel):

@@ -407,6 +407,31 @@ def _base_url_allowed(base_url: str) -> bool:
     allow = os.environ.get("EPYON_AI_ALLOWED_HOSTS", "")
     return host in {h.strip().lower() for h in allow.split(",") if h.strip()}
 
+ETK_POLICY_FILE = Path(__file__).resolve().parents[2] / "configuration" / "stig-policy" / "etk-rules.md"
+_ETK_POLICY_MAX_BYTES = 16000
+
+
+def load_etk_policy() -> str:
+    """Optional response fields and evidence rules for the ETK format, kept in versioned data.
+
+    EPYON_STIG_POLICY_FILE overrides the path. A missing or unreadable file warns
+    and yields "" (a scan is never blocked); legacy format never uses this text.
+    """
+    override = os.environ.get("EPYON_STIG_POLICY_FILE", "").strip()
+    candidates = [Path(override)] if override else [
+        ETK_POLICY_FILE,
+        Path("/opt/epyon-defaults/configuration/stig-policy/etk-rules.md"),
+    ]
+    for path in candidates:
+        try:
+            if path.is_file():
+                return path.read_bytes()[:_ETK_POLICY_MAX_BYTES].decode("utf-8", errors="ignore").strip("\n")
+        except OSError:
+            continue
+    print("[WARNING] ETK STIG policy file not found; ETK rules omitted from the prompt", file=sys.stderr)
+    return ""
+
+
 SYSTEM_PROMPT = """You are a certified DISA STIG compliance analyst performing a thorough \
 static source-code review. Your task is to assess a set of DISA STIG controls against the \
 complete source code of an application repository.
@@ -540,29 +565,13 @@ re-check}. Be concrete; never write generic advice such as "any code change".
   "automation_recommendation" : object {"check": what to check, "data_source": where the \
 data comes from, "pass_fail_rule": the exact pass/fail rule, "where_it_runs": where the check \
 would run (for example CI on every pull request)}. Specific enough to turn into a ticket.
-  Three further fields are optional; include them whenever they apply:
-  "owner" : who must confirm a control this repository cannot settle (one of "identity provider", \
-"infrastructure", "vendor", "backend", "platform"), else "".
-  "assessment_method" : one or two sentences naming the files read and searches made (exact grep \
-patterns), and what was NOT checked (for example "read, not re-run").
-  "component_statuses" : array of {"component": a mode or component, "status": one of the four \
-statuses, "note": why} ONLY when the answer differs by mode or component (for example by \
-authentication mode); the top-level status is then the weakest of them.
-
-ETK EVIDENCE RULES (these override anything above that conflicts):
-  - Cite every code bullet as "File: path:line" using the line number where the literal appears.
-  - Previous evidence is a lead, not an answer. Re-locate each previously cited path:line in the \
-current source; carry the previous status over only if you re-found the artifact. Never copy a \
-status you could not re-verify.
-  - "Not Applicable" requires evidence of absence: state what you searched for (patterns and \
-files) and that nothing matched. An architectural claim alone is not enough; use "Open" instead.
-  - A control owned by another system (identity provider, infrastructure, vendor) is not satisfied \
-by this repository: set "owner" and use "Open" unless this repository's own artifacts settle it.
+{{ETK_POLICY}}
 
 Use plain ASCII characters only. Never copy secrets, tokens, passwords or internal hostnames \
 into any field; name the file and setting instead.
 
 Return ONLY the JSON array."""
+SYSTEM_PROMPT = SYSTEM_PROMPT.replace("{{ETK_POLICY}}", load_etk_policy())
 
 
 # ---------------------------------------------------------------------------

@@ -114,6 +114,12 @@ def stig_record_fields(assessed: dict, control: dict) -> dict:
         "reopened_reason":           _text(assessed.get("reopened_reason")),
         "downgraded_from":           _text(assessed.get("downgraded_from"), 40),
         "human_reviewed":            bool(assessed.get("locked_by_human", False)),
+        "owner":                     _text(assessed.get("owner"), 80),
+        "assessment_method":         _text(assessed.get("assessment_method")),
+        "component_statuses":        [
+            {k: _text(c.get(k)) for k in ("component", "status", "note")}
+            for c in assessed.get("component_statuses") or [] if isinstance(c, dict)
+        ][:8] if isinstance(assessed.get("component_statuses"), list) else [],
     }
 
 

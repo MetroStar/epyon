@@ -187,6 +187,14 @@ def render_entry(
         note_parts.append("Carried forward from the previous scan.")
     if notes:
         note_parts.append(notes)
+    if assessment.get("owner"):
+        note_parts.append(f"Owner to confirm: {sanitize(str(assessment['owner']))}.")
+    components = [c for c in assessment.get("component_statuses") or [] if isinstance(c, dict)]
+    if components:
+        split = "; ".join(f"{sanitize(str(c.get('component', '')))}: {sanitize(str(c.get('status', '')))}" for c in components)
+        note_parts.append(f"By component: {split}.")
+    if assessment.get("assessment_method"):
+        note_parts.append(f"Method: {sanitize(str(assessment['assessment_method']))}")
     if assessment.get("reopened_reason"):
         note_parts.append(f"Re-opened: {assessment['reopened_reason']}.")
     if assessment.get("downgraded_from"):

@@ -121,3 +121,43 @@ def test_compare_script_reports_counts_and_differences(tmp_path):
     out = cmp.render("demo", legacy, etk)
     assert "| Open | 0 | 1 |" in out and "| Evidence with a File: citation | 0 | 1 |" in out
     assert "asd:APSC-DV-000001: Not a Finding -> Open" in out
+
+
+def test_etk_prompt_adds_evidence_rules_and_legacy_does_not(monkeypatch):
+    monkeypatch.setenv("EPYON_STIG_FORMAT", "etk")
+    etk = assess.system_prompt()
+    for needle in ("path:line", "evidence of absence", '"owner"', '"component_statuses"', "not an answer"):
+        assert needle in etk
+    monkeypatch.setenv("EPYON_STIG_FORMAT", "legacy")
+    legacy = assess.system_prompt()
+    for needle in ("ETK EVIDENCE RULES", '"owner"', '"assessment_method"', '"component_statuses"'):
+        assert needle not in legacy
+    assert "these four fields" in legacy
+
+
+def test_record_extras_defaults_and_cleaning():
+    assert assess.record_extras({}) == {}
+    got = assess.record_extras({
+        "owner": " identity   provider ", "assessment_method": "grep -rn 'x' src; read, not re-run",
+        "component_statuses": [
+            {"component": "bff", "status": "Not a Finding", "note": "ok"},
+            {"component": "token", "status": "Open"},
+            {"component": "", "status": "Open"}, {"status": 3}, "junk",
+        ],
+    })
+    assert got["owner"] == "identity provider"
+    assert [c["component"] for c in got["component_statuses"]] == ["bff", "token"]
+    assert assess.record_extras({"owner": 5, "component_statuses": "x"}) == {}
+
+
+def test_record_entry_shows_owner_components_and_method():
+    records = _load("epyon_stig_records_t6", "stig_records.py")
+    text = records.render_entry(
+        CONTROL,
+        {"status": "Open", "evidence": "x", "confidence": 60, "owner": "vendor",
+         "component_statuses": [{"component": "bff", "status": "Open", "note": ""}],
+         "assessment_method": "grep -rn tls src"},
+        scan_date="2026-11-19", reviewer="Epyon", method="static",
+    )
+    assert "Owner to confirm: vendor." in text and "By component: bff: Open." in text
+    assert "Method: grep -rn tls src" in text

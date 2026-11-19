@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.74.0] - 2026-11-19
+
+### Added
+- ETK-format STIG assessment (`EPYON_STIG_FORMAT=etk`) now asks for and stores three optional fields: `owner` (system that must confirm a control this repository cannot settle), `assessment_method` (files read, searches made, what was not checked) and `component_statuses` (status split by mode or component). They appear in each `docs/stig-reviews/v-*.md` entry's Notes and in the per-control record fields served to the web UI.
+- `docs/plans/STIG_ASSESSMENT_ETK_ALIGNMENT.md`: plan for aligning Layer 13 with the ETK `stig-review` skill (phases 2 and 3 remain).
+- `GET /api/sbom/search`, and an Overview "Search SBOMs across applications" section, to find which applications contain a package.
+
+### Changed
+- ETK STIG prompt: code citations must be `path:line`; previous evidence is re-located in current source instead of carried over; "Not Applicable" requires a documented search with no match. `legacy` prompt and output are unchanged.
+
+### Fixed
+- `/api/metrics` no longer fails with a 500 when one scan has unparseable findings, a null `ci_source`/timestamp or an unexpected severity; failures are logged with a traceback.
+
 ## [3.73.2] - 2026-11-17
 
 ### Fixed

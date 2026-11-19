@@ -264,7 +264,12 @@ FREEZE_MIN_CONF = 85
 STABLE_OPEN_FREEZE_MIN_REPEATS = 1
 
 
-_RECORD_FIELDS = ("changes_that_may_affect", "automation_recommendation")
+_RECORD_FIELDS = (
+    "changes_that_may_affect", "automation_recommendation",
+    "owner", "assessment_method", "component_statuses",
+)
+
+_STATUSES = ("Open", "Not a Finding", "Not Applicable", "Not Reviewed")
 
 
 def stig_format() -> str:
@@ -275,6 +280,38 @@ def stig_format() -> str:
 
 def _etk() -> bool:
     return stig_format() == "etk"
+
+
+def _clean_text(value: Any, limit: int = 600) -> str:
+    return " ".join(value.split())[:limit] if isinstance(value, str) else ""
+
+
+def clean_component_statuses(value: Any) -> list[dict[str, str]]:
+    """Valid {component, status, note} rows only; anything malformed is dropped."""
+    rows: list[dict[str, str]] = []
+    for item in value if isinstance(value, list) else []:
+        if not isinstance(item, dict):
+            continue
+        component = _clean_text(item.get("component"), 120)
+        status = normalize_status(item.get("status")) if isinstance(item.get("status"), str) else ""
+        if component and isinstance(item.get("status"), str) and status in _STATUSES:
+            rows.append({"component": component, "status": status, "note": _clean_text(item.get("note"))})
+    return rows[:8]
+
+
+def record_extras(item: dict[str, Any]) -> dict[str, Any]:
+    """ETK optional fields from a model response; absent or malformed values are omitted."""
+    out: dict[str, Any] = {}
+    owner = _clean_text(item.get("owner"), 80)
+    if owner:
+        out["owner"] = owner
+    method = _clean_text(item.get("assessment_method"))
+    if method:
+        out["assessment_method"] = method
+    components = clean_component_statuses(item.get("component_statuses"))
+    if components:
+        out["component_statuses"] = components
+    return out
 
 
 def _with_record_fields(frozen: dict[str, Any], prev: dict[str, Any]) -> dict[str, Any]:
@@ -503,6 +540,24 @@ re-check}. Be concrete; never write generic advice such as "any code change".
   "automation_recommendation" : object {"check": what to check, "data_source": where the \
 data comes from, "pass_fail_rule": the exact pass/fail rule, "where_it_runs": where the check \
 would run (for example CI on every pull request)}. Specific enough to turn into a ticket.
+  Three further fields are optional; include them whenever they apply:
+  "owner" : who must confirm a control this repository cannot settle (one of "identity provider", \
+"infrastructure", "vendor", "backend", "platform"), else "".
+  "assessment_method" : one or two sentences naming the files read and searches made (exact grep \
+patterns), and what was NOT checked (for example "read, not re-run").
+  "component_statuses" : array of {"component": a mode or component, "status": one of the four \
+statuses, "note": why} ONLY when the answer differs by mode or component (for example by \
+authentication mode); the top-level status is then the weakest of them.
+
+ETK EVIDENCE RULES (these override anything above that conflicts):
+  - Cite every code bullet as "File: path:line" using the line number where the literal appears.
+  - Previous evidence is a lead, not an answer. Re-locate each previously cited path:line in the \
+current source; carry the previous status over only if you re-found the artifact. Never copy a \
+status you could not re-verify.
+  - "Not Applicable" requires evidence of absence: state what you searched for (patterns and \
+files) and that nothing matched. An architectural claim alone is not enough; use "Open" instead.
+  - A control owned by another system (identity provider, infrastructure, vendor) is not satisfied \
+by this repository: set "owner" and use "Open" unless this repository's own artifacts settle it.
 
 Use plain ASCII characters only. Never copy secrets, tokens, passwords or internal hostnames \
 into any field; name the file and setting instead.
@@ -2510,6 +2565,7 @@ def _assess_stig(
                             assessments[vid]["changes_that_may_affect"] = item["changes_that_may_affect"]
                         if isinstance(item.get("automation_recommendation"), dict):
                             assessments[vid]["automation_recommendation"] = item["automation_recommendation"]
+                        assessments[vid].update(record_extras(item))
                         _verify_citations(
                             assessments[vid], target_dir,
                             next((c for c in batch if c["vuln_id"] == vid), None), slug,

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.75.0] - 2026-11-19
+
+### Added
+- ETK-format STIG assessment reads an optional `.epyon-stig-reference.md` from the target repository root (max 8 KB, symlinks ignored) and adds it to the system prompt as maintainer guidance: where to look, known traps and who owns out-of-scope controls. It is guidance only; evidence must still cite `path:line`. Ignored in `legacy` format.
+
 ## [3.74.0] - 2026-11-19
 
 ### Added

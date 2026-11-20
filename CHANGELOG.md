@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.77.1] - 2026-11-19
+
+### Added
+- Optional STIG ensemble: `EPYON_STIG_SAMPLES=3` (1-7, default 1 = off) runs that many independent responses per batch in parallel (bounded by `EPYON_STIG_CONCURRENCY`; sample temperature via `EPYON_STIG_SAMPLE_TEMPERATURE`, default 0.7). Settings → AI has a **STIG Assessment — Multiple Samples** section (stored in `web/data/ai-config.json`; takes precedence over the env vars, which remain the default). Controls where all samples agree are accepted with the median confidence; disputed controls get one synthesis call that sees every candidate and are capped below the freeze confidence so a split vote never locks. Multiplies AI calls by N plus synthesis.
+
+### Fixed
+- AI settings are stored in `web/data/ai-config.json` (the persisted volume) instead of `web/ai-config.json`, which was baked into the image and forced the OpenAI provider after a redeploy. `EPYON_AI_PROVIDER` is now honored by the web server and passed through `docker-compose.yml`.
+- Dashboard-started scans default to the ETK STIG format (`EPYON_STIG_FORMAT=etk`; set `legacy` to opt out), so human-reviewed `docs/stig-reviews/` entries are locked instead of being re-assessed as Open.
+- Free-text statuses in published STIG entries ("Not a Finding when …") map to canonical statuses when locked.
+- STIG assessment skips an older release of a STIG when a newer one is in the same directory (e.g. a stale `V6R4` file left in a persisted `configuration/stigs` next to `V6R5`).
+- STIG code context pins files named in a control's previous evidence or published-review path list, and truncates a file that exceeds the remaining budget instead of dropping it, so the model no longer reports earlier cited files as "not provided".
+- Human-reviewed `docs/stig-reviews/` entries are no longer re-opened when the target has no usable git history (shallow clone, zip upload). Previously every listed path counted as changed, so every reviewed control went back to the AI.
+- Finding drawer **Add to Jira** opens the board/type/epic modal when the application has no Jira project key yet; only missing credentials block it.
+
 ## [3.77.0] - 2026-11-19
 
 ### Added

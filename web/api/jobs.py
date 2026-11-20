@@ -738,6 +738,12 @@ async def _run_scan_job_inner(
         env.pop("OPENAI_BASE_URL", None)
         env["EPYON_AI_PROVIDER"] = "openai"
     env["OPENAI_MODEL"] = openai_summary.get_model()
+    # Web-launched scans use the ETK STIG path (records, citation checks, locked
+    # human reviews in docs/stig-reviews/); set EPYON_STIG_FORMAT=legacy to opt out.
+    if not env.get("EPYON_STIG_FORMAT", "").strip():
+        env["EPYON_STIG_FORMAT"] = "etk"
+    env["EPYON_STIG_SAMPLES"] = str(openai_summary.get_stig_samples())
+    env["EPYON_STIG_SAMPLE_TEMPERATURE"] = str(openai_summary.get_stig_sample_temperature())
     env.update(stig_policy_store.scan_env(target_name))
     if github_token:
         env["GH_PAT"] = github_token

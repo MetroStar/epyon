@@ -155,3 +155,22 @@ def test_assess_stig_without_key_keeps_legacy_json_and_writes_records(tmp_path):
     assert (tmp_path / "findings-myapp.md").exists() and (tmp_path / "findings-myapp-asd.md").exists()
     assert (tmp_path / "stig-reviews-asd" / "v-222425.md").exists()
     assert (tmp_path / "stig-reviews-asd" / "README.md").exists()
+
+
+def test_canonical_status_maps_human_written_cells():
+    spec = importlib.util.spec_from_file_location("stig_records_cs", SHELL / "stig_records.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert mod.canonical_status("Not a Finding when `X` is set") == "Not a Finding"
+    assert mod.canonical_status("Not Applicable to midas-ui (no SAML)") == "Not Applicable"
+    assert mod.canonical_status("Not confirmable from this repository") == "Open"
+
+
+def test_changed_paths_unknown_without_usable_history(tmp_path):
+    spec = importlib.util.spec_from_file_location("stig_records_cp", SHELL / "stig_records.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    (tmp_path / "ui").mkdir()
+    (tmp_path / "ui" / "a.ts").write_text("x")
+    entry = {"paths": ["ui/a.ts"], "reviewed": "2020-01-01", "path": "docs/stig-reviews/v-1.md"}
+    assert mod.changed_paths(tmp_path, entry) == []

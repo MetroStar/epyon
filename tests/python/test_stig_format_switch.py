@@ -221,3 +221,79 @@ def test_uploaded_org_rules_append_and_uploaded_reference_is_fallback(tmp_path, 
     assert assess.load_repo_reference(str(repo)) == "uploaded reference"
     (repo / assess.REPO_REFERENCE_FILE).write_text("repo reference")
     assert assess.load_repo_reference(str(repo)) == "repo reference"
+
+
+def test_newest_stig_releases_drops_superseded_files():
+    import importlib.util
+    from pathlib import Path
+    spec = importlib.util.spec_from_file_location("sa_rel", Path(__file__).resolve().parents[2] / "scripts" / "shell" / "run-stig-assessment.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    files = [Path("U_ASD_STIG_V6R4_Manual-xccdf.xml"), Path("U_ASD_STIG_V6R5_Manual-xccdf.xml"), Path("U_Database_SRG_V4R5_Manual-xccdf.xml")]
+    assert [f.name for f in mod.newest_stig_releases(files)] == [files[1].name, files[2].name]
+
+
+def test_context_pins_previously_cited_files_and_truncates_oversized_ones():
+    import importlib.util
+    from pathlib import Path
+    spec = importlib.util.spec_from_file_location("sa_ctx", Path(__file__).resolve().parents[2] / "scripts" / "shell" / "run-stig-assessment.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    files = [("ui/lib/server/config.ts", "export const maxSessionsPerUser = 1\n"),
+             ("docs/big.md", "session " * 20000)]
+    ctrl = {"vuln_id": "APSC-DV-000010", "check_content": "limit logon sessions per user session"}
+    prev = {"APSC-DV-000010": {"evidence": "see `ui/lib/server/config.ts` maxSessionsPerUser"}}
+    out = mod.build_code_context_for_batch(files, [ctrl], max_bytes=10_000, previous=prev)
+    assert "maxSessionsPerUser" in out
+    assert "truncated to fit" in out
+
+
+def _item(vid, status, conf=90, evidence="e"):
+    return {"vuln_id": vid, "status": status, "confidence": conf, "evidence": evidence}
+
+
+def test_ensemble_unanimous_needs_no_synthesis():
+    batch = [dict(CONTROL)]
+    calls = []
+
+    def call(*args, sample=0):
+        calls.append(sample)
+        return [_item(CONTROL["vuln_id"], "Not a Finding", 90 + sample)], 10, 5
+
+    args = (None, "m", batch, "", "", {}, "", "", "", "")
+    out, pt, ct = assess.run_ensemble(call, args, 3)
+    assert sorted(calls) == [0, 1, 2]
+    assert out[0]["status"] == "Not a Finding" and out[0]["confidence"] >= assess.FREEZE_MIN_CONF
+    assert (pt, ct) == (30, 15)
+
+
+def test_ensemble_dispute_is_synthesized_and_never_freezes():
+    batch = [dict(CONTROL)]
+    seen = {}
+
+    def call(*args, sample=0):
+        if "disagreed" in args[9]:
+            seen["hint"] = args[9]
+            return [_item(CONTROL["vuln_id"], "Not a Finding", 99)], 1, 1
+        status = "Open" if sample == 1 else "Not a Finding"
+        return [_item(CONTROL["vuln_id"], status, 95)], 10, 5
+
+    args = (None, "m", batch, "", "", {}, "", "", "", "")
+    out, _, _ = assess.run_ensemble(call, args, 3)
+    assert "status=Open" in seen["hint"]
+    assert out[0]["status"] == "Not a Finding"
+    assert out[0]["confidence"] < assess.FREEZE_MIN_CONF
+
+
+def test_ensemble_tolerates_failed_samples(monkeypatch):
+    batch = [dict(CONTROL)]
+
+    def call(*args, sample=0):
+        if sample:
+            raise RuntimeError("boom")
+        return [_item(CONTROL["vuln_id"], "Open", 40)], 1, 1
+
+    out, _, _ = assess.run_ensemble(call, (None, "m", batch, "", "", {}, "", "", "", ""), 3)
+    assert out[0]["status"] == "Open"
+    monkeypatch.setenv("EPYON_STIG_SAMPLES", "99")
+    assert assess.ensemble_samples() == 7

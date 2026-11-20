@@ -92,6 +92,15 @@ def record_status(status: str) -> str:
     return status if status in RECORD_STATUSES else "Open"
 
 
+def canonical_status(text: str) -> str:
+    """Map a human-written status cell ("Not a Finding when X is set") to a record status."""
+    lowered = text.strip().lower()
+    for status in RECORD_STATUSES:
+        if lowered.startswith(status.lower()):
+            return status
+    return "Open"
+
+
 def _paths_in(evidence: str) -> list[str]:
     seen: list[str] = []
     for match in re.finditer(r"(?:File|Path):\s*`?([\w./@-]+\.[A-Za-z0-9]+(?::\d+)?)", evidence or ""):
@@ -356,7 +365,8 @@ def parse_entry(text: str) -> dict[str, Any]:
         if line.startswith("| Control ID") and i + 2 < len(lines):
             cells = _split_row(lines[i + 2])
             if len(cells) >= 3:
-                info["status"] = cells[1]
+                info["status_text"] = cells[1]
+                info["status"] = canonical_status(cells[1])
                 info["evidence"] = cells[2].replace("<br>", "\n")
                 info["notes"] = cells[3] if len(cells) > 3 else ""
             break
@@ -414,24 +424,19 @@ def changed_paths(target_dir: str | Path, entry: dict[str, Any]) -> list[str]:
     changed: list[str] = []
     in_git = _git(target, "rev-parse", "--is-inside-work-tree")
     shallow = (_git(target, "rev-parse", "--is-shallow-repository") or "").strip() == "true"
-    base = None
-    if in_git and not shallow and entry.get("path"):
-        base = (_git(target, "log", "-1", "--format=%H", "--", entry["path"]) or "").strip() or None
+    if not in_git or shallow:
+        # No usable history (zip upload, shallow clone): file mtimes and a single
+        # squashed commit would mark every listed path changed and re-open every
+        # human-reviewed control, so treat the history as unknown.
+        return []
+    base = (_git(target, "log", "-1", "--format=%H", "--", entry["path"]) or "").strip() if entry.get("path") else ""
     for p in paths:
-        if in_git and base:
+        if base:
             if (_git(target, "log", "--format=%H", f"{base}..HEAD", "--", p) or "").strip():
                 changed.append(p)
-        elif in_git and entry.get("reviewed"):
+        elif entry.get("reviewed"):
             since = f"{entry['reviewed']}T23:59:59"
             if (_git(target, "log", "-1", "--format=%H", f"--since={since}", "--", p) or "").strip():
-                changed.append(p)
-        elif entry.get("reviewed") and (target / p).exists():
-            import datetime as _dt
-            try:
-                end = _dt.datetime.strptime(entry["reviewed"], "%Y-%m-%d") + _dt.timedelta(days=1)
-            except ValueError:
-                continue
-            if (target / p).stat().st_mtime > end.timestamp():
                 changed.append(p)
     return changed
 

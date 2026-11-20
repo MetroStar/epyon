@@ -124,6 +124,25 @@ export async function renderSettings() {
           </div>
         </div>
 
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+          <div style="font-weight:600;font-size:13px;margin-bottom:6px">STIG Assessment — Multiple Samples</div>
+          <p class="section-desc" style="margin-top:0">
+            Ask the model for several independent answers per batch of STIG controls. Controls where
+            all answers agree are accepted; disputed controls get one extra synthesis call and are
+            never auto-frozen. Cost and run time grow with the sample count. 1 = off.
+          </p>
+          <div style="display:grid;gap:14px;max-width:600px">
+            <div>
+              <label class="field-label">Samples per batch (1–7)</label>
+              <input type="number" id="ai-stig-samples" class="field-input" min="1" max="7" step="1" value="${esc(String(aiCfg.stig_samples ?? 1))}"/>
+            </div>
+            <div>
+              <label class="field-label">Sample temperature (0.1–1.5)</label>
+              <input type="number" id="ai-stig-sample-temperature" class="field-input" min="0.1" max="1.5" step="0.1" value="${esc(String(aiCfg.stig_sample_temperature ?? 0.7))}"/>
+            </div>
+          </div>
+        </div>
+
         <div style="margin-top:16px">
           <button class="btn btn-primary" ${act('saveAiConfig')}>Save AI Config</button>
         </div>
@@ -406,6 +425,8 @@ export async function saveAiConfig() {
   const baseUrl         = document.getElementById('ai-base-url')?.value       || '';
   const fallbackEnabled = document.getElementById('ai-fallback-enabled')?.checked || false;
   const fallbackModel   = document.getElementById('ai-fallback-model')?.value  || '';
+  const stigSamples     = document.getElementById('ai-stig-samples')?.value || '1';
+  const stigSampleTemp  = document.getElementById('ai-stig-sample-temperature')?.value || '0.7';
   try {
     await api.saveAiConfig({
       provider,
@@ -414,6 +435,8 @@ export async function saveAiConfig() {
       base_url: baseUrl.trim(),
       fallback_enabled: fallbackEnabled,
       fallback_model: fallbackModel,
+      stig_samples: Number(stigSamples),
+      stig_sample_temperature: Number(stigSampleTemp),
     });
     await renderSettings();
   } catch (e) {

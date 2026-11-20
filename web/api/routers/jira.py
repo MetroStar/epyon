@@ -48,6 +48,9 @@ def scan_jira_candidates(scan_id: str, response: Response):
             cfg.get("base_url") and cfg.get("email") and cfg.get("api_token")
             and cfg.get("project_key")
         ),
+        "credentials_configured": bool(
+            cfg.get("base_url") and cfg.get("email") and cfg.get("api_token")
+        ),
         "jira_base_url": cfg.get("base_url", "").rstrip("/"),
         "project_key": cfg.get("project_key", ""),
         "summary": {

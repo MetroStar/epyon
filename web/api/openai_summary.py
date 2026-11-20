@@ -12,7 +12,9 @@ from typing import Any
 from urllib.parse import urlparse
 
 _HERE = Path(__file__).parent
-AI_CONFIG_FILE = _HERE / ".." / "ai-config.json"
+# Lives in web/data, the volume-mounted directory, so settings survive redeploys
+# and a developer's local file is never baked into the image.
+AI_CONFIG_FILE = _HERE / ".." / "data" / "ai-config.json"
 
 
 def _strip_code_fence(text: str) -> str:
@@ -53,12 +55,31 @@ def write_ai_config(cfg: dict) -> None:
 PROVIDERS = ("auto", "local", "openai")
 
 
+def get_stig_samples() -> int:
+    """Independent STIG responses per batch: UI value, else EPYON_STIG_SAMPLES, else 1 (off)."""
+    for raw in (read_ai_config().get("stig_samples"), os.environ.get("EPYON_STIG_SAMPLES")):
+        try:
+            return max(1, min(int(raw), 7))
+        except (TypeError, ValueError):
+            continue
+    return 1
+
+
+def get_stig_sample_temperature() -> float:
+    for raw in (read_ai_config().get("stig_sample_temperature"), os.environ.get("EPYON_STIG_SAMPLE_TEMPERATURE")):
+        try:
+            return max(0.1, min(float(raw), 1.5))
+        except (TypeError, ValueError):
+            continue
+    return 0.7
+
+
 def get_provider() -> str:
     """UI-selected provider: "openai" (public API), "local" (self-hosted) or "auto".
 
     "auto" keeps the original precedence (UI config, then environment).
     """
-    value = str(read_ai_config().get("provider") or "auto").lower()
+    value = str(read_ai_config().get("provider") or os.environ.get("EPYON_AI_PROVIDER") or "auto").lower()
     return value if value in PROVIDERS else "auto"
 
 

@@ -1445,6 +1445,25 @@ jobs:
           </div>
         </div>
 
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+          <div style="font-weight:600;font-size:13px;margin-bottom:6px">STIG Assessment — Multiple Samples</div>
+          <p class="section-desc" style="margin-top:0">
+            Ask the model for several independent answers per batch of STIG controls. Controls where
+            all answers agree are accepted; disputed controls get one extra synthesis call and are
+            never auto-frozen. Cost and run time grow with the sample count. 1 = off.
+          </p>
+          <div style="display:grid;gap:14px;max-width:600px">
+            <div>
+              <label class="field-label">Samples per batch (1–7)</label>
+              <input type="number" id="ai-stig-samples" class="field-input" min="1" max="7" step="1" value="${esc(String(aiCfg.stig_samples ?? 1))}"/>
+            </div>
+            <div>
+              <label class="field-label">Sample temperature (0.1–1.5)</label>
+              <input type="number" id="ai-stig-sample-temperature" class="field-input" min="0.1" max="1.5" step="0.1" value="${esc(String(aiCfg.stig_sample_temperature ?? 0.7))}"/>
+            </div>
+          </div>
+        </div>
+
         <div style="margin-top:16px">
           <button class="btn btn-primary" ${act("saveAiConfig")}>Save AI Config</button>
         </div>
@@ -1725,6 +1744,8 @@ epyon install-workflow</pre>
     const baseUrl = document.getElementById("ai-base-url")?.value || "";
     const fallbackEnabled = document.getElementById("ai-fallback-enabled")?.checked || false;
     const fallbackModel = document.getElementById("ai-fallback-model")?.value || "";
+    const stigSamples = document.getElementById("ai-stig-samples")?.value || "1";
+    const stigSampleTemp = document.getElementById("ai-stig-sample-temperature")?.value || "0.7";
     try {
       await api.saveAiConfig({
         provider,
@@ -1732,7 +1753,9 @@ epyon install-workflow</pre>
         model,
         base_url: baseUrl.trim(),
         fallback_enabled: fallbackEnabled,
-        fallback_model: fallbackModel
+        fallback_model: fallbackModel,
+        stig_samples: Number(stigSamples),
+        stig_sample_temperature: Number(stigSampleTemp)
       });
       await renderSettings();
     } catch (e) {
@@ -3182,6 +3205,10 @@ epyon install-workflow</pre>
     overlay.addEventListener("click", (e) => {
       if (e.target === overlay) jiraEpicModalClose();
     });
+    if (quickCtx && !projectKey) {
+      document.getElementById("jira-epic-modal-confirm").disabled = true;
+      document.getElementById("jira-modal-project-note").textContent = "No Jira board is set for this application. Enter a project key and click Change to continue.";
+    }
     await jiraEpicModalLoad(state.scanId);
   }
   async function openStigJiraModal(scanId, regKeys) {
@@ -3420,7 +3447,7 @@ epyon install-workflow</pre>
     const key = document.getElementById("jira-modal-project-key").value.trim();
     const dirty = key !== ctx.projectKey;
     document.getElementById("jira-modal-project-save").disabled = !dirty || !/^[A-Z][A-Z0-9]{0,9}$/.test(key);
-    document.getElementById("jira-epic-modal-confirm").disabled = dirty;
+    document.getElementById("jira-epic-modal-confirm").disabled = dirty || !ctx.projectKey;
   }
   async function jiraModalProjectSave() {
     const ctx = _jiraQuickCtx;
@@ -3592,8 +3619,8 @@ epyon install-workflow</pre>
     setStatus("Checking Jira…");
     try {
       const data = await api.getJiraCandidates(scanId);
-      if (!data.jira_configured) {
-        setStatus("Jira is not fully configured (credentials and project key). See Settings or the Jira Review page.", true);
+      if (!(data.credentials_configured ?? data.jira_configured)) {
+        setStatus("Jira credentials are not configured (base URL, email, and JIRA_API_TOKEN). See the Jira page.", true);
         btn.disabled = false;
         return;
       }

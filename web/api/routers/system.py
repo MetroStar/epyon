@@ -161,6 +161,8 @@ def ai_config_get(response: Response):
         "fallback_enabled":   openai_summary.get_fallback_enabled(),
         "fallback_model":     cfg.get("fallback_model") or openai_summary.DEFAULT_MODEL,
         "fallback_available": openai_summary.fallback_available(),
+        "stig_samples":     openai_summary.get_stig_samples(),
+        "stig_sample_temperature": openai_summary.get_stig_sample_temperature(),
     }
 
 
@@ -236,6 +238,24 @@ async def ai_config_post(request: Request, response: Response):
             cfg["fallback_model"] = fallback_model
         else:
             cfg.pop("fallback_model", None)  # explicit clear → fall back to default
+
+    if "stig_samples" in body:
+        try:
+            samples = int(body["stig_samples"])
+        except (TypeError, ValueError):
+            raise HTTPException(400, "stig_samples must be an integer between 1 and 7")
+        if not 1 <= samples <= 7:
+            raise HTTPException(400, "stig_samples must be an integer between 1 and 7")
+        cfg["stig_samples"] = samples
+
+    if "stig_sample_temperature" in body:
+        try:
+            temperature = float(body["stig_sample_temperature"])
+        except (TypeError, ValueError):
+            raise HTTPException(400, "stig_sample_temperature must be a number between 0.1 and 1.5")
+        if not 0.1 <= temperature <= 1.5:
+            raise HTTPException(400, "stig_sample_temperature must be a number between 0.1 and 1.5")
+        cfg["stig_sample_temperature"] = temperature
 
     openai_summary.write_ai_config(cfg)
     return {"ok": True}

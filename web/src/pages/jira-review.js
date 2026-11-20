@@ -337,6 +337,11 @@ export async function showJiraEpicModal(quickCtx = null) {
     </div>`;
   document.body.appendChild(overlay);
   overlay.addEventListener('click', e => { if (e.target === overlay) jiraEpicModalClose(); });
+  if (quickCtx && !projectKey) {
+    document.getElementById('jira-epic-modal-confirm').disabled = true;
+    document.getElementById('jira-modal-project-note').textContent =
+      'No Jira board is set for this application. Enter a project key and click Change to continue.';
+  }
   await jiraEpicModalLoad(state.scanId);
 }
 
@@ -564,7 +569,7 @@ export function jiraModalProjectTyped(input) {
   const key = document.getElementById('jira-modal-project-key').value.trim();
   const dirty = key !== ctx.projectKey;
   document.getElementById('jira-modal-project-save').disabled = !dirty || !/^[A-Z][A-Z0-9]{0,9}$/.test(key);
-  document.getElementById('jira-epic-modal-confirm').disabled = dirty;
+  document.getElementById('jira-epic-modal-confirm').disabled = dirty || !ctx.projectKey;
 }
 
 export async function jiraModalProjectSave() {
@@ -753,8 +758,9 @@ export async function jiraQuickAdd(id) {
   setStatus('Checking Jira…');
   try {
     const data = await api.getJiraCandidates(scanId);
-    if (!data.jira_configured) {
-      setStatus('Jira is not fully configured (credentials and project key). See Settings or the Jira Review page.', true);
+    // A missing project key is fixable in the modal; missing credentials are not.
+    if (!(data.credentials_configured ?? data.jira_configured)) {
+      setStatus('Jira credentials are not configured (base URL, email, and JIRA_API_TOKEN). See the Jira page.', true);
       btn.disabled = false;
       return;
     }

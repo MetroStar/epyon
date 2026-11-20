@@ -779,7 +779,7 @@ def _published_reviews(
             reasons[ctrl["vuln_id"]] = (
                 f"{', '.join(changed[:3])} changed since the {entry['reviewed']} review by {entry['reviewer']}"
             )
-            prior[ctrl["vuln_id"]] = {"status": entry["status"], "evidence": entry["evidence"], "confidence": 0}
+            prior[ctrl["vuln_id"]] = {"status": entry["status"], "evidence": entry["evidence"], "confidence": 0, "paths": entry["paths"]}
             continue
         locked[name] = entry
         prior[ctrl["vuln_id"]] = {
@@ -787,6 +787,7 @@ def _published_reviews(
             "evidence": entry["evidence"],
             "confidence": max(entry["confidence"], FREEZE_MIN_CONF),
             "locked_by_human": True,
+            "paths": entry["paths"],
         }
     if locked or reasons:
         print(
@@ -830,6 +831,30 @@ def slug_from_stig(stig: dict[str, Any], path: str) -> str:
     # Normalise to lowercase alphanumeric + hyphens
     import re as _re
     return _re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+_STIG_RELEASE_RE = re.compile(r"_V(\d+)R(\d+)", re.IGNORECASE)
+
+
+def newest_stig_releases(files: list[Path]) -> list[Path]:
+    """Keep only the newest VxRy file per STIG family; a stale copy of an older
+    release (e.g. left in a persisted configuration volume) must not be assessed."""
+    best: dict[str, tuple[tuple[int, int], Path]] = {}
+    unversioned: list[Path] = []
+    for path in files:
+        m = _STIG_RELEASE_RE.search(path.stem)
+        if not m:
+            unversioned.append(path)
+            continue
+        family = (path.suffix.lower(), _STIG_RELEASE_RE.sub("", path.stem).lower())
+        release = (int(m.group(1)), int(m.group(2)))
+        if family not in best or release > best[family][0]:
+            best[family] = (release, path)
+    keep = {p for _, p in best.values()} | set(unversioned)
+    for path in files:
+        if path not in keep:
+            print(f"[WARNING] Skipping {path.name}: a newer release of this STIG is present", file=sys.stderr)
+    return [p for p in files if p in keep]
 
 
 def slug_from_app_name(app_name: str) -> str:
@@ -1617,13 +1642,41 @@ def extract_manual_stig_docs(files: list[tuple[str, str]]) -> tuple[list[tuple[s
     return manual_docs, remaining
 
 
+_MIN_TRUNCATED_FILE_BYTES = 2000
+_CITED_PATH_RE = re.compile(r"[\w@.\-/]+\.(?:tsx?|jsx?|mjs|cjs|py|go|java|cs|rb|php|sh|ya?ml|json|toml|md|sql|conf|env\.example)\b")
+
+
+def _previously_cited_files(
+    previous: dict[str, dict[str, Any]], vuln_id: str, file_dict: dict[str, str]
+) -> list[str]:
+    """Collected files named in a control's previous evidence or published-review paths."""
+    entry = previous.get(vuln_id) or {}
+    tokens = set(_CITED_PATH_RE.findall(str(entry.get("evidence") or "")))
+    tokens.update(str(p) for p in entry.get("paths") or [])
+    found: list[str] = []
+    for token in tokens:
+        token = token.strip("./")
+        if not token:
+            continue
+        for rel in file_dict:
+            if (rel == token or rel.endswith("/" + token) or rel.startswith(token + "/")) and rel not in found:
+                found.append(rel)
+    return found[:8]
+
+
 def build_code_context_for_batch(
     files: list[tuple[str, str]],
     controls_batch: list[dict[str, Any]],
     max_bytes: int = MAX_CODE_BYTES_PER_BATCH,
     include_omitted_paths: bool = True,
+    previous: dict[str, dict[str, Any]] | None = None,
 ) -> str:
     """Build code context that guarantees each control's most-relevant files.
+
+    Files cited by a control's previous evidence or a published review's path list
+    (``previous``) are pinned first, so the model can confirm or refute them instead
+    of reporting that earlier evidence is "not provided". A file too large for the
+    remaining budget is truncated, not dropped.
 
     Problem with the naive combined-keyword approach: files relevant to only
     one control get crowded out by files relevant to many controls, so the AI
@@ -1659,8 +1712,14 @@ def build_code_context_for_batch(
         for rel in top_rels:
             slot_counts[rel] += 1
 
-    # Priority order: files needed by most controls first, then alphabetically
-    priority_rels = [rel for rel, _ in slot_counts.most_common()]
+    pinned_rels: list[str] = []
+    for c in controls_batch:
+        for rel in _previously_cited_files(previous or {}, c["vuln_id"], file_dict):
+            if rel not in pinned_rels:
+                pinned_rels.append(rel)
+
+    # Priority order: pinned files, then files needed by most controls first
+    priority_rels = pinned_rels + [rel for rel, _ in slot_counts.most_common()]
 
     # Step 2 — global fallback ranked by combined keywords
     all_kw: list[str] = []
@@ -1687,8 +1746,13 @@ def build_code_context_for_batch(
         snippet = f"### FILE: {rel}\n```\n{content}\n```\n"
         snippet_bytes = len(snippet.encode())
         if total + snippet_bytes > max_bytes:
-            skipped.append(rel)
-            continue
+            room = max_bytes - total - 200
+            if room < _MIN_TRUNCATED_FILE_BYTES:
+                skipped.append(rel)
+                continue
+            head = content.encode()[:room].decode("utf-8", errors="ignore")
+            snippet = f"### FILE: {rel} (truncated to fit the context budget)\n```\n{head}\n```\n"
+            snippet_bytes = len(snippet.encode())
         parts.append(snippet)
         total += snippet_bytes
 
@@ -1729,11 +1793,17 @@ Reply ONLY with valid JSON — no markdown, no explanation:
 {"applicable": true, "reason": "one sentence"}"""
 
 
-def _completion_kwargs(model: str, max_out: int, seed: int = 42) -> dict:
-    """Sampling/limit kwargs; gpt-5*/o-series reject max_tokens and temperature=0."""
+def _completion_kwargs(model: str, max_out: int, seed: int = 42, sample: int = 0) -> dict:
+    """Sampling/limit kwargs; gpt-5*/o-series reject max_tokens and temperature=0.
+
+    sample 0 is the deterministic baseline; ensemble samples 1+ use a non-zero
+    temperature and a distinct seed so their answers are independent."""
     name = model.lower().split("/")[-1]
     if name.startswith(("gpt-5", "gpt-6", "o1", "o3", "o4")) and "chat" not in name:
         return {"max_completion_tokens": max(max_out, 8000)}
+    if sample > 0:
+        temperature = float(os.environ.get("EPYON_STIG_SAMPLE_TEMPERATURE", "0.7") or 0.7)
+        return {"temperature": temperature, "top_p": 0.95, "seed": seed + sample, "max_tokens": max_out}
     return {"temperature": 0, "top_p": 1.0, "seed": seed, "max_tokens": max_out}
 
 def _structured_kwargs(schema: dict[str, Any]) -> dict[str, Any]:
@@ -1882,6 +1952,7 @@ def call_openai(
     suppression_rules: str = "",
     manual_stig_docs: str = "",
     retry_hint: str = "",
+    sample: int = 0,
 ) -> tuple[list[dict[str, Any]], int, int]:
     """Call GPT with a batch of controls + full repo manifest + code context.
     
@@ -1977,7 +2048,7 @@ def call_openai(
         max_out = min(max_out, max(4096, 2048 * len(controls_batch)))
     response = client.chat.completions.create(
         model=model,
-        **_completion_kwargs(model, max_out, _seed),
+        **_completion_kwargs(model, max_out, _seed, sample),
         **_structured_kwargs(_assessment_schema(controls_batch)),
         messages=[
             {"role": "system", "content": prompt},
@@ -2015,6 +2086,103 @@ def call_openai(
             return _decode_assessments(raw[start:end + 1], controls_batch), prompt_tokens, completion_tokens
         print(f"[WARNING] Unparseable model output (finish_reason={finish}): {raw[:200]!r}", file=sys.stderr)
         raise
+
+
+# ---------------------------------------------------------------------------
+# Multi-sample ensemble (EPYON_STIG_SAMPLES)
+# ---------------------------------------------------------------------------
+
+def ensemble_samples() -> int:
+    """Independent responses per batch; 1 (default) disables the ensemble."""
+    try:
+        n = int(os.environ.get("EPYON_STIG_SAMPLES", "1") or 1)
+    except ValueError:
+        return 1
+    return max(1, min(n, 7))
+
+
+def _synthesis_hint(disputed: dict[str, list[dict[str, Any]]]) -> str:
+    lines = [
+        "Independent reviewers of the same controls disagreed. For each control below, decide the correct "
+        "status from the source code and documentation provided; do not just pick the most common answer. "
+        "Candidate answers:"
+    ]
+    for vid, items in disputed.items():
+        lines.append(f"- {vid}:")
+        for n, item in enumerate(items, 1):
+            evidence = " ".join(str(item.get("evidence", "")).split())[:400]
+            lines.append(f"    {n}. status={item.get('status')} confidence={item.get('confidence')} evidence={evidence}")
+    return "\n".join(lines)
+
+
+def combine_samples(
+    batch: list[dict[str, Any]],
+    samples: list[list[dict[str, Any]]],
+) -> tuple[dict[str, dict[str, Any]], dict[str, list[dict[str, Any]]]]:
+    """Merge per-sample results. Returns (unanimous results, disputed candidates by vuln_id)."""
+    agreed: dict[str, dict[str, Any]] = {}
+    disputed: dict[str, list[dict[str, Any]]] = {}
+    by_sample = [{item["vuln_id"]: item for item in s} for s in samples]
+    for ctrl in batch:
+        vid = ctrl["vuln_id"]
+        items = [m[vid] for m in by_sample if vid in m]
+        if len({i["status"] for i in items}) == 1:
+            confidences = sorted(i["confidence"] for i in items)
+            best = max(items, key=lambda i: i["confidence"])
+            agreed[vid] = {**best, "confidence": confidences[len(confidences) // 2]}
+        else:
+            disputed[vid] = items
+    return agreed, disputed
+
+
+def run_ensemble(
+    call: Any,
+    args: tuple,
+    samples: int,
+) -> tuple[list[dict[str, Any]], int, int]:
+    """Run `samples` independent calls in parallel, vote, and synthesize only disputed controls.
+
+    `call(*args, sample=i)` must behave like call_openai. A disputed control is re-decided by one
+    synthesis call that sees every candidate answer; its confidence is capped below the freeze
+    threshold so a split vote can never lock in as a stable result."""
+    batch = args[2]
+    with ThreadPoolExecutor(max_workers=samples) as pool:
+        futures = [pool.submit(call, *args, sample=i) for i in range(samples)]
+        outcomes = []
+        for fut in futures:
+            try:
+                outcomes.append(fut.result())
+            except Exception as exc:  # pylint: disable=broad-except
+                outcomes.append(exc)
+    good = [o for o in outcomes if not isinstance(o, Exception)]
+    if not good:
+        raise next(o for o in outcomes if isinstance(o, Exception))
+    prompt_tokens = sum(o[1] for o in good)
+    completion_tokens = sum(o[2] for o in good)
+    if len(good) == 1:
+        return good[0][0], prompt_tokens, completion_tokens
+
+    agreed, disputed = combine_samples(batch, [o[0] for o in good])
+    if disputed:
+        subset = [c for c in batch if c["vuln_id"] in disputed]
+        hint = _synthesis_hint(disputed)
+        synth_args = (*args[:2], subset, *args[3:9], f"{args[9]} {hint}".strip())
+        try:
+            synth, pt, ct = call(*synth_args, sample=0)
+            prompt_tokens += pt
+            completion_tokens += ct
+            for item in synth:
+                agreed[item["vuln_id"]] = {**item, "confidence": min(item["confidence"], FREEZE_MIN_CONF - 1)}
+        except Exception as exc:  # pylint: disable=broad-except
+            print(f"[WARNING] Ensemble synthesis failed ({exc}); using lowest-risk candidate", file=sys.stderr)
+            for vid, items in disputed.items():
+                pick = next((i for i in items if i["status"] == "Open"), items[0])
+                agreed[vid] = {**pick, "confidence": min(pick["confidence"], FREEZE_MIN_CONF - 1)}
+        print(
+            f"[INFO] Ensemble: {len(disputed)}/{len(batch)} control(s) disputed across {len(good)} samples",
+            file=sys.stderr,
+        )
+    return [agreed[c["vuln_id"]] for c in batch], prompt_tokens, completion_tokens
 
 
 # ---------------------------------------------------------------------------
@@ -2484,17 +2652,24 @@ def _assess_stig(
         request_clock = threading.Lock()
         last_request = [0.0]
 
-        def bounded_call(*args):
+        def single_call(*args, **kwargs):
             with request_slots:
                 with request_clock:
                     time.sleep(max(0, last_request[0] + delay - time.monotonic()))
                     last_request[0] = time.monotonic()
-                return call_openai(*args)
+                return call_openai(*args, **kwargs)
+
+        sample_count = ensemble_samples()
+
+        def bounded_call(*args):
+            if sample_count > 1:
+                return run_ensemble(single_call, args, sample_count)
+            return single_call(*args)
 
         def initial_call(batch):
             return bounded_call(
                 client, model, batch,
-                build_code_context_for_batch(source_files, batch, max_bytes=_code_bytes_default()),
+                build_code_context_for_batch(source_files, batch, max_bytes=_code_bytes_default(), previous=previous_assessments),
                 repo_manifest, previous_assessments,
                 security_findings_context, suppression_rules_context, _manual_context_for_batch(manual_docs, batch), "",
             )
@@ -2504,6 +2679,8 @@ def _assess_stig(
             if workers > 1 else (None for _ in batches)
         )
         print(f"[INFO] [{slug}] Maximum concurrent AI requests: {workers}", file=sys.stderr)
+        if sample_count > 1:
+            print(f"[INFO] [{slug}] Ensemble enabled: {sample_count} independent samples per batch", file=sys.stderr)
         for idx, (batch, initial_result) in enumerate(zip(batches, initial_calls), start=1):
             print(
                 f"[INFO] [{slug}] Batch {idx}/{total_batches}: "
@@ -2527,7 +2704,7 @@ def _assess_stig(
                 # (Re)build context — uses current code_budget, which may have
                 # been reduced on a previous context_length_exceeded error.
                 code_context = build_code_context_for_batch(
-                    source_files, batch, max_bytes=code_budget
+                    source_files, batch, max_bytes=code_budget, previous=previous_assessments
                 )
                 try:
                     if workers > 1 and attempt == 1:
@@ -2885,6 +3062,7 @@ def main() -> None:
             p for p in stigs_dir.iterdir()
             if p.suffix.lower() in (".cklb", ".xml") and p.is_file()
         )
+        stig_files = newest_stig_releases(stig_files)
         if not stig_files:
             print(
                 f"[ERROR] No .cklb or .xml STIG files found in {stigs_dir}",

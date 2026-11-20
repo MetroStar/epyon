@@ -157,3 +157,16 @@ def test_prompt_leads_with_controls_and_ends_with_contract():
     assert user.index("V-1") < user.index("MANIFEST") < user.index("CODE")
     assert user.rstrip().endswith("no markdown fences.")
     assert "Not JSON." in user
+
+
+def test_stig_samples_ui_value_beats_env_and_is_clamped(monkeypatch, tmp_path):
+    setup(monkeypatch, tmp_path, {})
+    monkeypatch.setenv("EPYON_STIG_SAMPLES", "5")
+    assert o.get_stig_samples() == 5
+    o.write_ai_config({"stig_samples": 3})
+    assert o.get_stig_samples() == 3
+    o.write_ai_config({"stig_samples": 99})
+    assert o.get_stig_samples() == 7
+    monkeypatch.delenv("EPYON_STIG_SAMPLES")
+    o.write_ai_config({})
+    assert o.get_stig_samples() == 1 and o.get_stig_sample_temperature() == 0.7

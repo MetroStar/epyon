@@ -13,7 +13,7 @@ export async function renderSettings() {
   page.innerHTML = loading();
 
   try {
-    const [images, ghCfg, aiCfg, nvdCfg, health, jiraCfg, concCfg] = await Promise.all([
+    const [images, ghCfg, aiCfg, nvdCfg, health, jiraCfg, concCfg, stigPol] = await Promise.all([
       api.getApprovedImages(),
       api.getGitHubConfig(),
       api.getAiConfig(),
@@ -21,6 +21,7 @@ export async function renderSettings() {
       api._get('/api/health'),
       api.getJiraConfig().catch(() => ({})),
       api.getScanConcurrency().catch(() => null),
+      api.getStigPolicy().catch(() => null),
     ]);
     const epyonVersion = health.version || '—';
 
@@ -119,6 +120,25 @@ export async function renderSettings() {
                 <option value="gpt-4o-mini" ${aiCfg.fallback_model === 'gpt-4o-mini' ? 'selected' : ''}>gpt-4o-mini</option>
                 <option value="gpt-4-turbo" ${aiCfg.fallback_model === 'gpt-4-turbo' ? 'selected' : ''}>gpt-4-turbo</option>
               </select>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+          <div style="font-weight:600;font-size:13px;margin-bottom:6px">STIG Assessment — Multiple Samples</div>
+          <p class="section-desc" style="margin-top:0">
+            Ask the model for several independent answers per batch of STIG controls. Controls where
+            all answers agree are accepted; disputed controls get one extra synthesis call and are
+            never auto-frozen. Cost and run time grow with the sample count. 1 = off.
+          </p>
+          <div style="display:grid;gap:14px;max-width:600px">
+            <div>
+              <label class="field-label">Samples per batch (1–7)</label>
+              <input type="number" id="ai-stig-samples" class="field-input" min="1" max="7" step="1" value="${esc(String(aiCfg.stig_samples ?? 1))}"/>
+            </div>
+            <div>
+              <label class="field-label">Sample temperature (0.1–1.5)</label>
+              <input type="number" id="ai-stig-sample-temperature" class="field-input" min="0.1" max="1.5" step="0.1" value="${esc(String(aiCfg.stig_sample_temperature ?? 0.7))}"/>
             </div>
           </div>
         </div>
@@ -260,6 +280,39 @@ export async function renderSettings() {
         </div>
       </details>` : ''}
 
+      ${stigPol ? `<details class="section settings-section">
+        <summary class="section-title">STIG Guidance</summary>
+        <p class="section-desc">
+          Upload plain-text guidance for the STIG assessment. It applies to scans started from this dashboard;
+          scans that run in a repository's own workflow use that repository's <code>.epyon-stig-reference.md</code>.
+          Guidance adds to the built-in rules and cannot change the output format or relax the evidence rules.
+        </p>
+        <div style="font-size:13px;font-weight:600;margin:0 0 6px">Organization rules (all applications)</div>
+        <textarea id="stig-org-rules" class="field-input" rows="6" style="width:100%;max-width:700px;font-family:monospace;font-size:12px"
+                  maxlength="${esc(stigPol.org_rules_max_bytes)}" placeholder="e.g. Treat our shared WAF as the owner of network-boundary controls.">${esc(stigPol.org_rules)}</textarea>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 18px">
+          <input type="file" accept=".md,.txt,text/plain,text/markdown" ${actOn('change', 'stigLoadFile', 'stig-org-rules', ARG.el)} />
+          <button class="btn btn-primary" ${act('saveStigOrgRules')}>Save</button>
+          <button class="btn" ${act('deleteStigOrgRules')}>Remove</button>
+          <span style="font-size:13px;color:var(--text-muted)">${stigPol.org_rules ? 'Custom rules active' : 'Using built-in rules only'} · max ${esc(stigPol.org_rules_max_bytes)} bytes</span>
+        </div>
+        <div style="font-size:13px;font-weight:600;margin:0 0 6px">Application reference</div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 8px">
+          <input id="stig-ref-app" class="field-input" style="width:260px" list="stig-ref-apps" placeholder="Application name"
+                 ${actOn('change', 'loadStigReference')} />
+          <datalist id="stig-ref-apps">${stigPol.references.map(n => `<option value="${esc(n)}"></option>`).join('')}</datalist>
+          <span style="font-size:13px;color:var(--text-muted)">${stigPol.references.length} saved</span>
+        </div>
+        <textarea id="stig-ref-text" class="field-input" rows="6" style="width:100%;max-width:700px;font-family:monospace;font-size:12px"
+                  maxlength="${esc(stigPol.reference_max_bytes)}" placeholder="Where to look, known traps, who owns out-of-scope controls."></textarea>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px">
+          <input type="file" accept=".md,.txt,text/plain,text/markdown" ${actOn('change', 'stigLoadFile', 'stig-ref-text', ARG.el)} />
+          <button class="btn btn-primary" ${act('saveStigReference')}>Save</button>
+          <button class="btn" ${act('deleteStigReference')}>Remove</button>
+          <span style="font-size:13px;color:var(--text-muted)">The repository's own file takes precedence · max ${esc(stigPol.reference_max_bytes)} bytes</span>
+        </div>
+      </details>` : ''}
+
       <details class="section settings-section">
         <summary class="section-title">Workflow File Setup</summary>
         <p class="section-desc">
@@ -372,6 +425,8 @@ export async function saveAiConfig() {
   const baseUrl         = document.getElementById('ai-base-url')?.value       || '';
   const fallbackEnabled = document.getElementById('ai-fallback-enabled')?.checked || false;
   const fallbackModel   = document.getElementById('ai-fallback-model')?.value  || '';
+  const stigSamples     = document.getElementById('ai-stig-samples')?.value || '1';
+  const stigSampleTemp  = document.getElementById('ai-stig-sample-temperature')?.value || '0.7';
   try {
     await api.saveAiConfig({
       provider,
@@ -380,11 +435,61 @@ export async function saveAiConfig() {
       base_url: baseUrl.trim(),
       fallback_enabled: fallbackEnabled,
       fallback_model: fallbackModel,
+      stig_samples: Number(stigSamples),
+      stig_sample_temperature: Number(stigSampleTemp),
     });
     await renderSettings();
   } catch (e) {
     toast('Failed to save AI config: ' + e.message, 'error');
   }
+}
+
+export async function stigLoadFile(targetId, input) {
+  const file = input?.files?.[0];
+  const box = document.getElementById(targetId);
+  if (!file || !box) return;
+  box.value = await file.text();
+}
+
+async function _stigRun(label, fn) {
+  try {
+    await fn();
+    toast(label, 'success');
+    await renderSettings();
+  } catch (e) {
+    toast('STIG guidance: ' + e.message, 'error');
+  }
+}
+
+export function saveStigOrgRules() {
+  return _stigRun('Organization rules saved', () => api.saveStigPolicy(document.getElementById('stig-org-rules')?.value || ''));
+}
+
+export function deleteStigOrgRules() {
+  return _stigRun('Organization rules removed', () => api.deleteStigPolicy());
+}
+
+export async function loadStigReference() {
+  const name = (document.getElementById('stig-ref-app')?.value || '').trim();
+  const box = document.getElementById('stig-ref-text');
+  if (!name || !box) return;
+  try {
+    box.value = (await api.getStigReference(name)).content || '';
+  } catch (e) {
+    toast('STIG guidance: ' + e.message, 'error');
+  }
+}
+
+export function saveStigReference() {
+  const name = (document.getElementById('stig-ref-app')?.value || '').trim();
+  if (!name) { toast('Enter an application name first', 'error'); return; }
+  return _stigRun('Reference saved', () => api.saveStigReference(name, document.getElementById('stig-ref-text')?.value || ''));
+}
+
+export function deleteStigReference() {
+  const name = (document.getElementById('stig-ref-app')?.value || '').trim();
+  if (!name) { toast('Enter an application name first', 'error'); return; }
+  return _stigRun('Reference removed', () => api.deleteStigReference(name));
 }
 
 export async function saveScanConcurrency() {

@@ -56,7 +56,7 @@ This document intentionally contains **no per-control results**: Epyon reads eve
 
 **Statuses**: `Not a Finding` | `Not Applicable` | `Open` | `Not Reviewed`. `Not Reviewed` is reserved for runtime-only controls with no static indicators; use `Open` when in doubt.
 
-**Review records and rollback**: set `EPYON_STIG_FORMAT=etk` to get one review record per control (`stig-reviews-{slug}/v-xxxxx.md` plus an index) and a PR that publishes them to `docs/stig-reviews/` in your repository. Each record lists the evidence, the changes that may affect the control, and an automation recommendation; every `File:` citation is checked against your repository, and a failed check leaves the control Open. Entries a human has reviewed are locked on the next scan unless a file the entry lists has changed. The default is `legacy` (the original `docs/stig-findings.md` flow). To roll back, unset the variable or set `EPYON_STIG_FORMAT=legacy`; your overrides and scan history are unaffected. See [Output Format Switch](#output-format-switch-epyon_stig_format).
+**Review records and rollback**: set `EPYON_STIG_FORMAT=etk` to get one review record per control (`stig-reviews-{slug}/v-xxxxx.md` plus an index) and a PR that publishes them to `docs/stig-reviews/` in your repository. Each record lists the evidence, the changes that may affect the control, and an automation recommendation; every `File:` citation is checked against your repository, and a failed check leaves the control Open. Entries a human has reviewed are locked on the next scan unless a file the entry lists has changed. The default is `legacy` (the original `docs/stig-findings.md` flow) except for scans started from the dashboard, which default to `etk`. To roll back, unset the variable or set `EPYON_STIG_FORMAT=legacy`; your overrides and scan history are unaffected. See [Output Format Switch](#output-format-switch-epyon_stig_format).
 
 **Manual STIG documentation**: target repositories can provide manual assessments and overrides in `docs/stig-findings.md`, `docs/security/stig-findings.md`, `COMPLIANCE.md` or `STIG.md`. These are collected as priority context and take precedence over AI assessments unless specific code changes invalidate them. Use them for runtime-only, policy-based and architectural controls, and keep them current or delete them: stale verdicts are followed by the engine. See the [Manual STIG Documentation Guide](MANUAL_STIG_DOCUMENTATION_GUIDE.md).
 
@@ -791,7 +791,7 @@ Layer 13 has two output formats, chosen with `EPYON_STIG_FORMAT`:
 
 | Value | Behaviour |
 |---|---|
-| `legacy` (default) | The original path: `findings-{app}.md/.json/.cklb`, `stig-results-{slug}.json`, and a PR that writes `docs/stig-findings.md` (`create-stig-pr-legacy.sh`). Output is the same as before the ETK work: the original four-field prompt, no citation verification, no review records, no read-back of `docs/stig-reviews/`. |
+| `legacy` (default outside the dashboard) | The original path: `findings-{app}.md/.json/.cklb`, `stig-results-{slug}.json`, and a PR that writes `docs/stig-findings.md` (`create-stig-pr-legacy.sh`). Output is the same as before the ETK work: the original four-field prompt, no citation verification, no review records, no read-back of `docs/stig-reviews/`. |
 | `etk` | Everything in `legacy`, plus the ETK review records (`stig-reviews-{slug}/`), citation verification, ETK-field prompt, `vuln_map` in `stig-controls-{slug}.json`, and a PR that publishes `docs/stig-reviews/` with human-reviewed entries kept and locked. |
 
 Any other value is treated as `legacy`. The value is read by `run-stig-assessment.py` and `create-stig-pr.sh`.
@@ -1005,7 +1005,7 @@ If `GITHUB_TOKEN` is not set or target is not a Git repo, the script **exits 0 (
 | `BATCH_DELAY` | No | `1` | Seconds between API calls |
 | `SKIP_STIG` | No | `false` | Skip STIG assessment entirely |
 | `SKIP_STIG_PR` | No | `false` | Skip PR automation |
-| `EPYON_STIG_FORMAT` | No | `legacy` | `legacy` or `etk` output format (see Output Format Switch) |
+| `EPYON_STIG_FORMAT` | No | `legacy` (`etk` for dashboard-started scans) | `legacy` or `etk` output format (see Output Format Switch) |
 | `EPYON_STIG_JIRA` | No | `false` | Post STIG gaps to Jira (summary comment + one ticket per confirmed gap) |
 | `EPYON_STIG_JIRA_CREATE_TRACKER` | No | `false` | Create a tracking ticket when none is found |
 | `EPYON_STIG_JIRA_MAX_TICKETS` | No | `25` | Per-run cap on gap tickets |

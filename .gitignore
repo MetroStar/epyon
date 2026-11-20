@@ -88,11 +88,13 @@ helm-packages/*.tgz
 web/github-config.json
 web/data/github-config.json
 web/ai-config.json
+web/data/ai-config.json
 web/data/jira-config.json
 web/data/jira-tickets.json
 web/data/audit.log
 web/data/cache/
 web/data/nvd-config.json
+web/data/stig-policy/
 web/data/poam-config.json
 web/data/scorecard-signoffs.json
 web/data/scan-config.json

@@ -753,6 +753,24 @@
     saveScanConcurrency(n) {
       return this._post("/api/settings/scan-concurrency", { max_concurrent_scans: n });
     },
+    getStigPolicy() {
+      return this._get("/api/stig/policy");
+    },
+    saveStigPolicy(content) {
+      return this._post("/api/stig/policy", { content });
+    },
+    deleteStigPolicy() {
+      return this._delete("/api/stig/policy");
+    },
+    getStigReference(name) {
+      return this._get(`/api/applications/${encodeURIComponent(name)}/stig-reference`);
+    },
+    saveStigReference(name, content) {
+      return this._post(`/api/applications/${encodeURIComponent(name)}/stig-reference`, { content });
+    },
+    deleteStigReference(name) {
+      return this._delete(`/api/applications/${encodeURIComponent(name)}/stig-reference`);
+    },
     getExecSummary(id) {
       return this._post(`/api/scans/${encodeURIComponent(id)}/executive-summary`, {});
     },
@@ -1114,13 +1132,19 @@
     _syncPoll: () => _syncPoll,
     aiProviderChanged: () => aiProviderChanged,
     copyWorkflowYml: () => copyWorkflowYml,
+    deleteStigOrgRules: () => deleteStigOrgRules,
+    deleteStigReference: () => deleteStigReference,
     loadLocalModels: () => loadLocalModels,
     loadOpenAiModels: () => loadOpenAiModels,
+    loadStigReference: () => loadStigReference,
     renderSettings: () => renderSettings,
     saveAiConfig: () => saveAiConfig,
     saveGitHubConfig: () => saveGitHubConfig,
     saveJiraConfig: () => saveJiraConfig,
     saveScanConcurrency: () => saveScanConcurrency,
+    saveStigOrgRules: () => saveStigOrgRules,
+    saveStigReference: () => saveStigReference,
+    stigLoadFile: () => stigLoadFile,
     testJiraConnection: () => testJiraConnection,
     triggerGitHubSync: () => triggerGitHubSync
   });
@@ -1307,14 +1331,15 @@ jobs:
     const page = document.getElementById("page");
     page.innerHTML = loading();
     try {
-      const [images, ghCfg, aiCfg, nvdCfg, health, jiraCfg, concCfg] = await Promise.all([
+      const [images, ghCfg, aiCfg, nvdCfg, health, jiraCfg, concCfg, stigPol] = await Promise.all([
         api.getApprovedImages(),
         api.getGitHubConfig(),
         api.getAiConfig(),
         api.getNvdConfig(),
         api._get("/api/health"),
         api.getJiraConfig().catch(() => ({})),
-        api.getScanConcurrency().catch(() => null)
+        api.getScanConcurrency().catch(() => null),
+        api.getStigPolicy().catch(() => null)
       ]);
       const epyonVersion = health.version || "—";
       const tools = [
@@ -1416,6 +1441,25 @@ jobs:
                 <option value="gpt-4o-mini" ${aiCfg.fallback_model === "gpt-4o-mini" ? "selected" : ""}>gpt-4o-mini</option>
                 <option value="gpt-4-turbo" ${aiCfg.fallback_model === "gpt-4-turbo" ? "selected" : ""}>gpt-4-turbo</option>
               </select>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+          <div style="font-weight:600;font-size:13px;margin-bottom:6px">STIG Assessment — Multiple Samples</div>
+          <p class="section-desc" style="margin-top:0">
+            Ask the model for several independent answers per batch of STIG controls. Controls where
+            all answers agree are accepted; disputed controls get one extra synthesis call and are
+            never auto-frozen. Cost and run time grow with the sample count. 1 = off.
+          </p>
+          <div style="display:grid;gap:14px;max-width:600px">
+            <div>
+              <label class="field-label">Samples per batch (1–7)</label>
+              <input type="number" id="ai-stig-samples" class="field-input" min="1" max="7" step="1" value="${esc(String(aiCfg.stig_samples ?? 1))}"/>
+            </div>
+            <div>
+              <label class="field-label">Sample temperature (0.1–1.5)</label>
+              <input type="number" id="ai-stig-sample-temperature" class="field-input" min="0.1" max="1.5" step="0.1" value="${esc(String(aiCfg.stig_sample_temperature ?? 0.7))}"/>
             </div>
           </div>
         </div>
@@ -1551,6 +1595,39 @@ jobs:
         </div>
       </details>` : ""}
 
+      ${stigPol ? `<details class="section settings-section">
+        <summary class="section-title">STIG Guidance</summary>
+        <p class="section-desc">
+          Upload plain-text guidance for the STIG assessment. It applies to scans started from this dashboard;
+          scans that run in a repository's own workflow use that repository's <code>.epyon-stig-reference.md</code>.
+          Guidance adds to the built-in rules and cannot change the output format or relax the evidence rules.
+        </p>
+        <div style="font-size:13px;font-weight:600;margin:0 0 6px">Organization rules (all applications)</div>
+        <textarea id="stig-org-rules" class="field-input" rows="6" style="width:100%;max-width:700px;font-family:monospace;font-size:12px"
+                  maxlength="${esc(stigPol.org_rules_max_bytes)}" placeholder="e.g. Treat our shared WAF as the owner of network-boundary controls.">${esc(stigPol.org_rules)}</textarea>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0 18px">
+          <input type="file" accept=".md,.txt,text/plain,text/markdown" ${actOn("change", "stigLoadFile", "stig-org-rules", ARG.el)} />
+          <button class="btn btn-primary" ${act("saveStigOrgRules")}>Save</button>
+          <button class="btn" ${act("deleteStigOrgRules")}>Remove</button>
+          <span style="font-size:13px;color:var(--text-muted)">${stigPol.org_rules ? "Custom rules active" : "Using built-in rules only"} · max ${esc(stigPol.org_rules_max_bytes)} bytes</span>
+        </div>
+        <div style="font-size:13px;font-weight:600;margin:0 0 6px">Application reference</div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 8px">
+          <input id="stig-ref-app" class="field-input" style="width:260px" list="stig-ref-apps" placeholder="Application name"
+                 ${actOn("change", "loadStigReference")} />
+          <datalist id="stig-ref-apps">${stigPol.references.map((n) => `<option value="${esc(n)}"></option>`).join("")}</datalist>
+          <span style="font-size:13px;color:var(--text-muted)">${stigPol.references.length} saved</span>
+        </div>
+        <textarea id="stig-ref-text" class="field-input" rows="6" style="width:100%;max-width:700px;font-family:monospace;font-size:12px"
+                  maxlength="${esc(stigPol.reference_max_bytes)}" placeholder="Where to look, known traps, who owns out-of-scope controls."></textarea>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px">
+          <input type="file" accept=".md,.txt,text/plain,text/markdown" ${actOn("change", "stigLoadFile", "stig-ref-text", ARG.el)} />
+          <button class="btn btn-primary" ${act("saveStigReference")}>Save</button>
+          <button class="btn" ${act("deleteStigReference")}>Remove</button>
+          <span style="font-size:13px;color:var(--text-muted)">The repository's own file takes precedence · max ${esc(stigPol.reference_max_bytes)} bytes</span>
+        </div>
+      </details>` : ""}
+
       <details class="section settings-section">
         <summary class="section-title">Workflow File Setup</summary>
         <p class="section-desc">
@@ -1667,6 +1744,8 @@ epyon install-workflow</pre>
     const baseUrl = document.getElementById("ai-base-url")?.value || "";
     const fallbackEnabled = document.getElementById("ai-fallback-enabled")?.checked || false;
     const fallbackModel = document.getElementById("ai-fallback-model")?.value || "";
+    const stigSamples = document.getElementById("ai-stig-samples")?.value || "1";
+    const stigSampleTemp = document.getElementById("ai-stig-sample-temperature")?.value || "0.7";
     try {
       await api.saveAiConfig({
         provider,
@@ -1674,12 +1753,61 @@ epyon install-workflow</pre>
         model,
         base_url: baseUrl.trim(),
         fallback_enabled: fallbackEnabled,
-        fallback_model: fallbackModel
+        fallback_model: fallbackModel,
+        stig_samples: Number(stigSamples),
+        stig_sample_temperature: Number(stigSampleTemp)
       });
       await renderSettings();
     } catch (e) {
       toast("Failed to save AI config: " + e.message, "error");
     }
+  }
+  async function stigLoadFile(targetId, input) {
+    const file = input?.files?.[0];
+    const box = document.getElementById(targetId);
+    if (!file || !box) return;
+    box.value = await file.text();
+  }
+  async function _stigRun(label, fn) {
+    try {
+      await fn();
+      toast(label, "success");
+      await renderSettings();
+    } catch (e) {
+      toast("STIG guidance: " + e.message, "error");
+    }
+  }
+  function saveStigOrgRules() {
+    return _stigRun("Organization rules saved", () => api.saveStigPolicy(document.getElementById("stig-org-rules")?.value || ""));
+  }
+  function deleteStigOrgRules() {
+    return _stigRun("Organization rules removed", () => api.deleteStigPolicy());
+  }
+  async function loadStigReference() {
+    const name = (document.getElementById("stig-ref-app")?.value || "").trim();
+    const box = document.getElementById("stig-ref-text");
+    if (!name || !box) return;
+    try {
+      box.value = (await api.getStigReference(name)).content || "";
+    } catch (e) {
+      toast("STIG guidance: " + e.message, "error");
+    }
+  }
+  function saveStigReference() {
+    const name = (document.getElementById("stig-ref-app")?.value || "").trim();
+    if (!name) {
+      toast("Enter an application name first", "error");
+      return;
+    }
+    return _stigRun("Reference saved", () => api.saveStigReference(name, document.getElementById("stig-ref-text")?.value || ""));
+  }
+  function deleteStigReference() {
+    const name = (document.getElementById("stig-ref-app")?.value || "").trim();
+    if (!name) {
+      toast("Enter an application name first", "error");
+      return;
+    }
+    return _stigRun("Reference removed", () => api.deleteStigReference(name));
   }
   async function saveScanConcurrency() {
     const n = parseInt(document.getElementById("scan-concurrency")?.value, 10);
@@ -3077,6 +3205,10 @@ epyon install-workflow</pre>
     overlay.addEventListener("click", (e) => {
       if (e.target === overlay) jiraEpicModalClose();
     });
+    if (quickCtx && !projectKey) {
+      document.getElementById("jira-epic-modal-confirm").disabled = true;
+      document.getElementById("jira-modal-project-note").textContent = "No Jira board is set for this application. Enter a project key and click Change to continue.";
+    }
     await jiraEpicModalLoad(state.scanId);
   }
   async function openStigJiraModal(scanId, regKeys) {
@@ -3315,7 +3447,7 @@ epyon install-workflow</pre>
     const key = document.getElementById("jira-modal-project-key").value.trim();
     const dirty = key !== ctx.projectKey;
     document.getElementById("jira-modal-project-save").disabled = !dirty || !/^[A-Z][A-Z0-9]{0,9}$/.test(key);
-    document.getElementById("jira-epic-modal-confirm").disabled = dirty;
+    document.getElementById("jira-epic-modal-confirm").disabled = dirty || !ctx.projectKey;
   }
   async function jiraModalProjectSave() {
     const ctx = _jiraQuickCtx;
@@ -3487,8 +3619,8 @@ epyon install-workflow</pre>
     setStatus("Checking Jira…");
     try {
       const data = await api.getJiraCandidates(scanId);
-      if (!data.jira_configured) {
-        setStatus("Jira is not fully configured (credentials and project key). See Settings or the Jira Review page.", true);
+      if (!(data.credentials_configured ?? data.jira_configured)) {
+        setStatus("Jira credentials are not configured (base URL, email, and JIRA_API_TOKEN). See the Jira page.", true);
         btn.disabled = false;
         return;
       }

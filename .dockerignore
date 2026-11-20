@@ -25,3 +25,5 @@ web/data/github-signals-history.json
 web/data/epyon.db
 web/data/epyon.db-wal
 web/data/epyon.db-shm
+web/data/ai-config.json
+web/ai-config.json

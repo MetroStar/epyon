@@ -297,3 +297,30 @@ def test_ensemble_tolerates_failed_samples(monkeypatch):
     assert out[0]["status"] == "Open"
     monkeypatch.setenv("EPYON_STIG_SAMPLES", "99")
     assert assess.ensemble_samples() == 7
+
+
+def test_reopened_review_sends_full_entry_to_model():
+    seen = {}
+
+    class Msg:
+        content = '[{"vuln_id": "APSC-DV-000160", "status": "Open", "evidence": "x", "confidence": 50}]'
+
+    class Resp:
+        usage = None
+        choices = [type("C", (), {"message": Msg, "finish_reason": "stop"})]
+
+    class Completions:
+        def create(self, **kw):
+            seen["user"] = kw["messages"][1]["content"]
+            seen["system"] = kw["messages"][0]["content"]
+            return Resp
+
+    client = type("Cl", (), {"chat": type("Ch", (), {"completions": Completions()})()})()
+    prior = {CONTROL["vuln_id"]: {
+        "status": "Not a Finding", "evidence": "old", "confidence": 0,
+        "human_review": {"reviewed": "2026-10-16", "reviewer": "R", "entry": "FULL ENTRY TEXT",
+                         "index_row": "| V-222387 | row |", "precheck": ["gone.ts: no file with this name"], "path": "p"},
+    }}
+    assess.call_openai(client, "gemma", [dict(CONTROL)], "CODE", "", prior)
+    assert "FULL ENTRY TEXT" in seen["user"] and "gone.ts: no file" in seen["user"] and "| V-222387 | row |" in seen["user"]
+    assert "VERIFYING A HUMAN REVIEW" in seen["system"]

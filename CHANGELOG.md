@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.78.0] - 2026-11-20
+
+### Added
+- Human reviews in `docs/stig-reviews/` are verified, not just locked or re-opened. Epyon first checks each entry's cited files and code-like identifiers against the repository; when a listed path changed or a claim cannot be found, the model receives the full entry plus its `README.md` index row and confirms, contradicts, or marks each claim unverifiable. A contradicted or unverifiable claim re-opens the control as Open with the contradiction as evidence and a note naming the original review, which is left untouched in the repository. A failed pre-check only triggers verification; it never changes a status on its own.
+
 ## [3.77.1] - 2026-11-19
 
 ### Added

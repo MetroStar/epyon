@@ -530,6 +530,21 @@ assessment and provide new evidence.
   IF previous_status is null (first scan for this control):
     Assess from scratch using STEPS 1–4.
 
+  VERIFYING A HUMAN REVIEW — if a control has a "human_review" field, a person already \
+assessed it and the repository changed or a claim could not be located. "human_review.entry" \
+is their full record (method, evidence table, residual risk), "index_row" is its line in the \
+review index, "precheck" lists claims Epyon could not find in the repository, and \
+"changed_paths" lists files changed since the review. Do NOT reassess from scratch. For each \
+claim in the entry's evidence, locate the cited file and value in the provided source and \
+decide: holds, contradicted, or not verifiable from the provided source.
+    - Every claim holds → CONFIRM the human's status and cite where each claim was verified.
+    - A claim is contradicted (value changed, file or setting removed, behaviour differs) → \
+status "Open"; start the evidence with "Reviewed claim no longer holds:" and cite the file and \
+the literal value that contradicts it.
+    - A claim cannot be verified because the file is not in the source provided → status \
+"Open"; name the claim and file that could not be checked.
+  Never keep a human status on the strength of the human text alone.
+
   KEY RULE: A status change MUST be backed by a specific file path and literal value that \
 differs from what the previous_evidence cited. Rephrasing, vague observations, or \
 "further review needed" are NOT acceptable reasons to change status.
@@ -755,6 +770,9 @@ def _initial_batch_calls(batches, call, workers):
         yield from executor.map(invoke, batches)
 
 
+_VERIFY_ENTRY_CHARS = 6000
+
+
 def _published_reviews(
     controls: list[dict[str, Any]], target_dir: str, slug: str
 ) -> tuple[dict[str, dict[str, Any]], dict[str, str], dict[str, dict[str, Any]]]:
@@ -775,11 +793,29 @@ def _published_reviews(
         if not entry or not recs.is_human_reviewer(entry["reviewer"]):
             continue
         changed = recs.changed_paths(target_dir, entry)
-        if changed:
-            reasons[ctrl["vuln_id"]] = (
-                f"{', '.join(changed[:3])} changed since the {entry['reviewed']} review by {entry['reviewer']}"
-            )
-            prior[ctrl["vuln_id"]] = {"status": entry["status"], "evidence": entry["evidence"], "confidence": 0, "paths": entry["paths"]}
+        check = recs.precheck_entry(target_dir, entry)
+        if changed or check["failures"]:
+            if changed:
+                reasons[ctrl["vuln_id"]] = (
+                    f"{', '.join(changed[:3])} changed since the {entry['reviewed']} review by {entry['reviewer']}"
+                )
+            else:
+                reasons[ctrl["vuln_id"]] = (
+                    f"claims in the {entry['reviewed']} review by {entry['reviewer']} could not be found: "
+                    f"{'; '.join(check['failures'][:3])}"
+                )
+            prior[ctrl["vuln_id"]] = {
+                "status": entry["status"], "evidence": entry["evidence"], "confidence": 0, "paths": entry["paths"],
+                "human_review": {
+                    "status_text": entry.get("status_text", ""), "reviewed": entry["reviewed"],
+                    "reviewer": entry["reviewer"], "path": entry.get("path", ""),
+                    "entry": entry["text"][:_VERIFY_ENTRY_CHARS],
+                    "index_row": recs.index_row(target_dir, name),
+                    "precheck": check["failures"][:20],
+                    "changed_paths": changed[:20],
+                },
+                "cited_files": check["cited_files"],
+            }
             continue
         locked[name] = entry
         prior[ctrl["vuln_id"]] = {
@@ -1653,6 +1689,7 @@ def _previously_cited_files(
     entry = previous.get(vuln_id) or {}
     tokens = set(_CITED_PATH_RE.findall(str(entry.get("evidence") or "")))
     tokens.update(str(p) for p in entry.get("paths") or [])
+    tokens.update(str(p) for p in entry.get("cited_files") or [])
     found: list[str] = []
     for token in tokens:
         token = token.strip("./")
@@ -1981,6 +2018,13 @@ def call_openai(
                 "fix_text":          c["fix_text"],
                 "previous_status":   previous_assessments.get(c["vuln_id"], {}).get("status"),
                 "previous_evidence": previous_assessments.get(c["vuln_id"], {}).get("evidence"),
+                **(
+                    {"human_review": {
+                        k: v for k, v in previous_assessments[c["vuln_id"]]["human_review"].items()
+                        if k in ("reviewed", "reviewer", "index_row", "entry", "precheck", "changed_paths") and v
+                    }}
+                    if previous_assessments.get(c["vuln_id"], {}).get("human_review") else {}
+                ),
             }
             for c in controls_batch
         ],
@@ -2820,6 +2864,11 @@ def _assess_stig(
                             assessments[vid], target_dir,
                             next((c for c in batch if c["vuln_id"] == vid), None), slug,
                         )
+                        note = _load_records().human_review_note(
+                            previous_assessments.get(vid, {}), assessments[vid]["status"]
+                        )
+                        if note:
+                            assessments[vid]["evidence"] = f"{assessments[vid]['evidence'].rstrip()}\n{note}"
                     status, conf = assessments[vid]["status"], assessments[vid]["confidence"]
                     # Track repeated "no evidence found" outcomes so a control that
                     # keeps landing on Open/confidence-0 scan after scan (nothing in the

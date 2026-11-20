@@ -174,3 +174,36 @@ def test_changed_paths_unknown_without_usable_history(tmp_path):
     (tmp_path / "ui" / "a.ts").write_text("x")
     entry = {"paths": ["ui/a.ts"], "reviewed": "2020-01-01", "path": "docs/stig-reviews/v-1.md"}
     assert mod.changed_paths(tmp_path, entry) == []
+
+
+def _review_repo(tmp_path, evidence, paths="`ui/lib/config.ts`"):
+    (tmp_path / "ui" / "lib").mkdir(parents=True)
+    (tmp_path / "ui" / "lib" / "config.ts").write_text("export const maxSessionsPerUser = () => 1\n")
+    entry = (
+        "# V-222387: Limit sessions\n\n- **Reviewed:** 2026-10-16 by Ronnie Nelson\n\n"
+        "| Control ID | Status | Evidence | Notes |\n|---|---|---|---|\n"
+        f"| V-222387 | Not a Finding | {evidence} | |\n\n"
+        "- **Changes that may affect this STIG:**\n\n  | Change | Where | Re-check |\n  |---|---|---|\n"
+        f"  | limit changes | {paths} | recheck |\n\n- **ATO Ready automation recommendation:**\n"
+    )
+    return rec.parse_entry(entry)
+
+
+def test_precheck_passes_when_claims_exist(tmp_path):
+    e = _review_repo(tmp_path, "`maxSessionsPerUser` in `config.ts`; Next.js app, see TCP/IP notes")
+    assert rec.precheck_entry(tmp_path, e)["failures"] == []
+
+
+def test_precheck_flags_missing_file_and_identifier(tmp_path):
+    e = _review_repo(tmp_path, "`putSession` evicts; see `sessionStore.ts`", paths="`ui/lib/gone.ts`")
+    failures = rec.precheck_entry(tmp_path, e)["failures"]
+    assert any("ui/lib/gone.ts" in f for f in failures)
+    assert any("sessionStore.ts" in f for f in failures)
+    e = _review_repo(tmp_path / "b", "`removedFlagName` limits sessions in `config.ts`")
+    assert any("removedFlagName" in f for f in rec.precheck_entry(tmp_path / "b", e)["failures"])
+
+
+def test_human_review_note_only_when_status_differs():
+    prior = {"status": "Not a Finding", "human_review": {"reviewed": "2026-10-16", "reviewer": "R", "path": "docs/stig-reviews/v-1.md"}}
+    assert "Previously reviewed 2026-10-16 by R" in rec.human_review_note(prior, "Open")
+    assert rec.human_review_note(prior, "Not a Finding") == ""

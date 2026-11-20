@@ -441,6 +441,111 @@ def changed_paths(target_dir: str | Path, entry: dict[str, Any]) -> list[str]:
     return changed
 
 
+_CODE_EXTS = frozenset(
+    "ts tsx js jsx mjs cjs py java cs go rb php kt rs sh yml yaml json md xml properties conf toml html css sql tf "
+    "gradle cfg ini env dockerfile".split()
+)
+_BACKTICKED = re.compile(r"`([^`\n]{3,80})`")
+_IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]{3,}")
+_SKIP_DIRS = frozenset({".git", "node_modules", "dist", "build", "vendor", "__pycache__", ".next", "venv", ".venv"})
+MAX_CHECK_BYTES = 1_000_000
+
+
+def _code_like(token: str) -> bool:
+    """An identifier that looks like code (SNAKE_CASE, camelCase), not an ordinary word."""
+    return bool(_IDENT.fullmatch(token)) and ("_" in token or re.search(r"[a-z][A-Z]", token) is not None)
+
+
+def _repo_index(target: Path) -> tuple[set[str], dict[str, list[Path]]]:
+    """Relative file paths and basenames of the target, skipping dependency/build folders."""
+    import os
+    rels: set[str] = set()
+    names: dict[str, list[Path]] = {}
+    for root, dirs, files in os.walk(target):
+        dirs[:] = [d for d in dirs if d not in _SKIP_DIRS]
+        for f in files:
+            full = Path(root) / f
+            rels.add(full.relative_to(target).as_posix())
+            names.setdefault(f, []).append(full)
+    return rels, names
+
+
+def precheck_entry(target_dir: str | Path, entry: dict[str, Any]) -> dict[str, Any]:
+    """Deterministic check of a human-reviewed entry's claims against the repo.
+
+    Returns {"failures": [...], "cited_files": [...]}: cited paths that no longer
+    exist, and code-looking identifiers (backticked) that appear in none of the files
+    the entry cites. A failure means "verify this claim", never "the review is wrong";
+    the model decides, so prose identifiers cannot flip a status on their own."""
+    target = Path(target_dir)
+    rels, names = _repo_index(target)
+    text = "\n".join(str(entry.get(k) or "") for k in ("evidence", "notes"))
+    tokens = list(dict.fromkeys([*entry.get("paths", []), *_PATHLIKE.findall(text)]))
+    failures: list[str] = []
+    cited: list[Path] = []
+    explicit = set(entry.get("paths", []))
+    for raw in tokens:
+        tok = re.sub(r":\d+(?:-\d+)?$", "", raw)
+        if tok.startswith("./"):
+            tok = tok[2:]
+        if not tok or "*" in tok:
+            continue
+        ext = tok.rsplit(".", 1)[-1].lower() if "." in tok.rsplit("/", 1)[-1] else ""
+        if "/" in tok:
+            if raw not in explicit and ext not in _CODE_EXTS:
+                continue  # prose such as TCP/IP or a URL, not a repository path
+            if tok in rels:
+                cited.append(target / tok)
+            elif any(r.startswith(tok.rstrip("/") + "/") for r in rels):
+                continue
+            else:
+                failures.append(f"{tok}: no longer exists")
+        elif ext in _CODE_EXTS:
+            if re.fullmatch(r"[A-Z][a-z]+\.js", tok):
+                continue  # framework name (Next.js, Node.js), not a file
+            matches = names.get(tok)
+            if matches:
+                cited.extend(matches)
+            else:
+                failures.append(f"{tok}: no file with this name")
+    haystack = ""
+    for path in dict.fromkeys(cited):
+        try:
+            if path.stat().st_size <= MAX_CHECK_BYTES:
+                haystack += path.read_text(encoding="utf-8", errors="replace") + "\n"
+        except OSError:
+            continue
+    if haystack:
+        for ident in dict.fromkeys(t for t in _BACKTICKED.findall(text) if _code_like(t.strip())):
+            if ident.strip() not in haystack:
+                failures.append(f"`{ident.strip()}`: not found in the files the review cites")
+    return {"failures": failures, "cited_files": [p.relative_to(target).as_posix() for p in dict.fromkeys(cited)]}
+
+
+def index_row(target_dir: str | Path, name: str) -> str:
+    """The README.md summary row that links an entry, or empty."""
+    index = Path(target_dir) / PUBLISH_SUBDIR / "README.md"
+    try:
+        for line in index.read_text(encoding="utf-8", errors="replace").splitlines():
+            if f"[{name}.md]" in line.lower() or f"({name}.md)" in line.lower():
+                return line.strip()
+    except OSError:
+        pass
+    return ""
+
+
+def human_review_note(prior: dict[str, Any], new_status: str) -> str:
+    """Line appended to evidence when a verified control no longer matches its human review."""
+    review = prior.get("human_review") or {}
+    if not review or new_status == prior.get("status"):
+        return ""
+    return (
+        f"Previously reviewed {review.get('reviewed', '?')} by {review.get('reviewer', '?')} as "
+        f"'{review.get('status_text') or prior.get('status')}' ({review.get('path', 'docs/stig-reviews')}); "
+        "that review is kept in the repository and was not edited."
+    )
+
+
 def _row_key(row: str) -> tuple[int, str]:
     first = _split_row(row)[0].upper()
     m = re.fullmatch(r"V-(\d+)", first)

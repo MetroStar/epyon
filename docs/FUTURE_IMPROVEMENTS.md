@@ -18,6 +18,10 @@ against `main` at 3.73.0 (PR #282 in review).
 | 8 | Smaller containers | Analysis |
 | 9 | "Lite" deployment mode (+ quick vs full comparison) | Analysis |
 | 10 | Review of the quartz-evaluator YAML | Analysis |
+| 11 | Editable STIG drawer fields | Feature |
+| 12 | Jira button on the STIG drawer | Bug (fixed in #291) |
+| 13 | Optional justification that never overwrites evidence | Feature |
+| 14 | Projects: pairing repos, repos in many projects, front-end/back-end STIG pairing | Design |
 
 ## Decisions so far (confirmed by product owner)
 
@@ -322,3 +326,46 @@ mappings, and remediation text.
 - *Suggested next step if approved:* a spike that runs the evaluator against one app's
   image and source, then diffs its findings against Checkov/Layer 19/Trivy to measure
   unique value before committing to a layer.
+
+---
+
+## 11. Editable STIG drawer fields
+
+- *Ask:* users can adjust a control's evidence from the drawer. Only Check Content
+  and Remediation stay read-only (they come from the STIG itself).
+- *Agreed direction:* store evidence, justification and status as separate fields.
+  Persist edits in an Epyon-side store keyed by app and control (under `web/data`,
+  which is the volume-mounted directory), and have scans read it as a human review.
+  Today `PATCH /api/scans/{scan_id}/stig-override` writes only to that scan's
+  `stig-results-{slug}.json`, so edits are not carried to later scans.
+- *Open:* store format and location; whether edits also publish to `docs/stig-reviews/`.
+
+## 12. Jira button on the STIG drawer
+
+- Drawers called `stopPropagation()` on click, so the delegated `data-act` handler never
+  ran. Fixed in PR #291 (3.78.1). If the modal still reports "Jira is not configured",
+  the server is missing the base URL, email or `JIRA_API_TOKEN`.
+
+## 13. Optional justification that never overwrites evidence
+
+- Justification is currently prepended to evidence as `[Human override] ...`, prefilled
+  from the control title, and labelled "(required)".
+- *Agreed direction:* keep it a separate optional field, drop the prefix and the prefill,
+  and never require it to change a status.
+
+## 14. Projects: pairing repos and front-end/back-end STIGs
+
+- *Meaning of project:* one system / ATO boundary containing several repos.
+- *Today:* one application is one repo and is the unit of scans and STIG results. There
+  is no Project entity. `registered-apps.json` holds repo URLs, and the Jira project key
+  is stored per app.
+- *Agreed direction:*
+  - Add a Project entity with a membership list, many-to-many with repos, so a repo can
+    belong to several projects.
+  - Assess each repo on its own, then roll up per control. Any component Open makes the
+    control Open; otherwise it passes. ETK records already carry `owner` and
+    `component_statuses`, which can hold the per-repo results.
+  - Front-end/back-end pairing in separate repos uses the same roll-up, with each repo
+    tagged as a component of the project.
+- *Open:* how a project maps to Jira keys; roll-up display in the UI; how a control is
+  mapped to a component (for example a front-end/back-end tag).

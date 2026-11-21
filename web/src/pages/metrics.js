@@ -46,7 +46,6 @@ export function openSlaDetail() {
   drawer.setAttribute('role', 'dialog');
   drawer.setAttribute('aria-modal', 'true');
   drawer.setAttribute('aria-label', 'SLA Compliance Rate');
-  drawer.addEventListener('click', e => e.stopPropagation());
 
   drawer.innerHTML = `
     <div class="finding-drawer-header">
@@ -135,7 +134,6 @@ export function openRiskTrendDetail(app) {
   drawer.setAttribute('role', 'dialog');
   drawer.setAttribute('aria-modal', 'true');
   drawer.setAttribute('aria-label', 'Risk score trend');
-  drawer.addEventListener('click', e => e.stopPropagation());
 
   drawer.innerHTML = `
     <div class="finding-drawer-header">
@@ -573,7 +571,6 @@ export function openAppTrendDetail(name) {
   drawer.setAttribute('role', 'dialog');
   drawer.setAttribute('aria-modal', 'true');
   drawer.setAttribute('aria-label', `${name} trend`);
-  drawer.addEventListener('click', e => e.stopPropagation());
   drawer.innerHTML = `
     <div class="finding-drawer-header">
       <div class="finding-drawer-title">

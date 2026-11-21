@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.78.1] - 2026-11-20
+
+### Fixed
+
+- Buttons inside the STIG, finding, signal and metrics drawers (including Add to Jira) did nothing: the drawers stopped click propagation, so the delegated `data-act` handler on `document` never ran.
+
 ## [3.78.0] - 2026-11-20
 
 ### Added

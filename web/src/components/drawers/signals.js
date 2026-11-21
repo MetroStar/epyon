@@ -114,7 +114,6 @@ export function openGhSignalDetail(kind, idx) {
   drawer.setAttribute('role', 'dialog');
   drawer.setAttribute('aria-modal', 'true');
   drawer.setAttribute('aria-label', title);
-  drawer.addEventListener('click', e => e.stopPropagation());
 
   drawer.innerHTML = `
     <div class="finding-drawer-header">
@@ -181,7 +180,6 @@ export function openAPIDetail(id) {
   drawer.setAttribute('role', 'dialog');
   drawer.setAttribute('aria-modal', 'true');
   drawer.setAttribute('aria-label', 'API endpoint details');
-  drawer.addEventListener('click', e => e.stopPropagation());
 
   drawer.innerHTML = `
     <div class="finding-drawer-header">
@@ -349,7 +347,6 @@ window.openDependencyDetail = function(did) {
   drawer.setAttribute('role', 'dialog');
   drawer.setAttribute('aria-modal', 'true');
   drawer.setAttribute('aria-label', 'Dependency details');
-  drawer.addEventListener('click', e => e.stopPropagation());
 
   drawer.innerHTML = `
     <div class="finding-drawer-header">

@@ -3827,7 +3827,6 @@ epyon install-workflow</pre>
     drawer.setAttribute("role", "dialog");
     drawer.setAttribute("aria-modal", "true");
     drawer.setAttribute("aria-label", "SLA Compliance Rate");
-    drawer.addEventListener("click", (e) => e.stopPropagation());
     drawer.innerHTML = `
     <div class="finding-drawer-header">
       <div class="finding-drawer-title">
@@ -3901,7 +3900,6 @@ epyon install-workflow</pre>
     drawer.setAttribute("role", "dialog");
     drawer.setAttribute("aria-modal", "true");
     drawer.setAttribute("aria-label", "Risk score trend");
-    drawer.addEventListener("click", (e) => e.stopPropagation());
     drawer.innerHTML = `
     <div class="finding-drawer-header">
       <div class="finding-drawer-title">
@@ -4296,7 +4294,6 @@ epyon install-workflow</pre>
     drawer.setAttribute("role", "dialog");
     drawer.setAttribute("aria-modal", "true");
     drawer.setAttribute("aria-label", `${name} trend`);
-    drawer.addEventListener("click", (e) => e.stopPropagation());
     drawer.innerHTML = `
     <div class="finding-drawer-header">
       <div class="finding-drawer-title">
@@ -10487,7 +10484,6 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
     drawer.setAttribute("role", "dialog");
     drawer.setAttribute("aria-modal", "true");
     drawer.setAttribute("aria-label", "Finding details");
-    drawer.addEventListener("click", (e) => e.stopPropagation());
     drawer.innerHTML = `
     <div class="finding-drawer-header">
       <div class="finding-drawer-title">
@@ -10635,7 +10631,6 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
     drawer.setAttribute("role", "dialog");
     drawer.setAttribute("aria-modal", "true");
     drawer.setAttribute("aria-label", "STIG control details");
-    drawer.addEventListener("click", (e) => e.stopPropagation());
     drawer.innerHTML = `
     <div class="finding-drawer-header">
       <div class="finding-drawer-title">
@@ -10891,7 +10886,6 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
     drawer.setAttribute("role", "dialog");
     drawer.setAttribute("aria-modal", "true");
     drawer.setAttribute("aria-label", "STIG control details");
-    drawer.addEventListener("click", (e) => e.stopPropagation());
     drawer.innerHTML = `
     <div class="finding-drawer-header">
       <div class="finding-drawer-title">
@@ -11062,7 +11056,6 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
     drawer.setAttribute("role", "dialog");
     drawer.setAttribute("aria-modal", "true");
     drawer.setAttribute("aria-label", title);
-    drawer.addEventListener("click", (e) => e.stopPropagation());
     drawer.innerHTML = `
     <div class="finding-drawer-header">
       <div class="finding-drawer-title">
@@ -11116,7 +11109,6 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
     drawer.setAttribute("role", "dialog");
     drawer.setAttribute("aria-modal", "true");
     drawer.setAttribute("aria-label", "API endpoint details");
-    drawer.addEventListener("click", (e) => e.stopPropagation());
     drawer.innerHTML = `
     <div class="finding-drawer-header">
       <div class="finding-drawer-title">
@@ -11270,7 +11262,6 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
     drawer.setAttribute("role", "dialog");
     drawer.setAttribute("aria-modal", "true");
     drawer.setAttribute("aria-label", "Dependency details");
-    drawer.addEventListener("click", (e) => e.stopPropagation());
     drawer.innerHTML = `
     <div class="finding-drawer-header">
       <div class="finding-drawer-title">

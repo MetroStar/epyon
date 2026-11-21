@@ -48,7 +48,6 @@ export function openStigViewerDetail(regKey) {
   drawer.setAttribute('role', 'dialog');
   drawer.setAttribute('aria-modal', 'true');
   drawer.setAttribute('aria-label', 'STIG control details');
-  drawer.addEventListener('click', e => e.stopPropagation());
 
   drawer.innerHTML = `
     <div class="finding-drawer-header">
@@ -323,7 +322,6 @@ export function openStigDetail(id) {
   drawer.setAttribute('role', 'dialog');
   drawer.setAttribute('aria-modal', 'true');
   drawer.setAttribute('aria-label', 'STIG control details');
-  drawer.addEventListener('click', e => e.stopPropagation());
 
   drawer.innerHTML = `
     <div class="finding-drawer-header">

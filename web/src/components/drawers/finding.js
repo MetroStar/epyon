@@ -88,7 +88,6 @@ export function openFindingDetail(id) {
   drawer.setAttribute('role', 'dialog');
   drawer.setAttribute('aria-modal', 'true');
   drawer.setAttribute('aria-label', 'Finding details');
-  drawer.addEventListener('click', e => e.stopPropagation());
 
   drawer.innerHTML = `
     <div class="finding-drawer-header">

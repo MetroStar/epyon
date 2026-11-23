@@ -21,7 +21,7 @@ def client(tmp_path, monkeypatch):
 
 
 def _body(**over):
-    body = {"name": "ATO Ready", "jira_project_key": "ato",
+    body = {"name": "Customer Portal", "jira_project_key": "ato",
             "repos": [{"app": "midas", "role": "backend"}, {"app": "midas-ui", "role": "frontend"}]}
     body.update(over)
     return body
@@ -31,10 +31,10 @@ def test_create_and_list(client):
     r = client.post("/api/projects", json=_body())
     assert r.status_code == 201
     project = r.json()
-    assert project["id"] == "ato-ready"
+    assert project["id"] == "customer-portal"
     assert project["jira_project_key"] == "ATO"
     listed = client.get("/api/projects").json()
-    assert [p["id"] for p in listed["projects"]] == ["ato-ready"]
+    assert [p["id"] for p in listed["projects"]] == ["customer-portal"]
     assert "frontend" in listed["roles"]
 
 
@@ -63,12 +63,12 @@ def test_duplicate_name_rejected(client):
 
 def test_update_and_delete(client):
     client.post("/api/projects", json=_body())
-    r = client.put("/api/projects/ato-ready", json=_body(repos=[{"app": "midas", "role": "backend"}]))
+    r = client.put("/api/projects/customer-portal", json=_body(repos=[{"app": "midas", "role": "backend"}]))
     assert r.status_code == 200
     assert r.json()["repos"] == [{"app": "midas", "role": "backend"}]
     assert client.put("/api/projects/missing", json=_body()).status_code == 404
-    assert client.delete("/api/projects/ato-ready").status_code == 200
-    assert client.delete("/api/projects/ato-ready").status_code == 404
+    assert client.delete("/api/projects/customer-portal").status_code == 200
+    assert client.delete("/api/projects/customer-portal").status_code == 404
 
 
 def _stig(slug, **statuses):
@@ -110,8 +110,8 @@ def test_rollup_not_applicable_only_when_all_parts_are():
 
 
 def test_rollup_endpoint_without_scans_and_unknown_project(client):
-    client.post("/api/projects", json={"name": "ATO Ready", "repos": [{"app": "midas", "role": "backend"}]})
-    r = client.get("/api/projects/ato-ready/stig-rollup")
+    client.post("/api/projects", json={"name": "Customer Portal", "repos": [{"app": "midas", "role": "backend"}]})
+    r = client.get("/api/projects/customer-portal/stig-rollup")
     assert r.status_code == 200
     assert r.json()["components"][0]["scan_id"] is None and r.json()["stigs"] == []
     assert client.get("/api/projects/nope/stig-rollup").status_code == 404

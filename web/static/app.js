@@ -9579,7 +9579,7 @@ epyon install-workflow</pre>
       <input type="hidden" id="project-id" value="${esc(id || "")}">
       <div style="margin-bottom:14px">
         <label class="field-label" for="project-name">Name</label>
-        <input id="project-name" class="field-input" maxlength="80" placeholder="ATO Ready" value="${esc(project.name)}"${id ? " readonly" : ""}>
+        <input id="project-name" class="field-input" maxlength="80" placeholder="e.g. Customer Portal" value="${esc(project.name)}"${id ? " readonly" : ""}>
       </div>
       <div style="margin-bottom:14px">
         <label class="field-label" for="project-desc">Description (optional)</label>

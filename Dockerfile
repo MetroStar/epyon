@@ -84,14 +84,16 @@ COPY web/api/requirements.txt /app/web/api/requirements.txt
 # Resolve the native scanners together with the API so their dependency pins
 # cannot silently leave the web environment inconsistent.
 # semgrep hard-pins mcp==1.29.0 and opentelemetry ~=1.37, which carry published advisories
-# (mcp < 1.30.0; opentelemetry-api < 1.45.2). Install patched releases over the pins (verified
-# working with semgrep 1.185) and accept only those known semgrep pin complaints from pip check.
+# (mcp < 1.30.0; opentelemetry-api < 1.45.2) and wcmatch~=8.3 (GHSA-53pm-wgxf-c6qf, fixed in 11.2).
+# Install patched releases over the pins (verified working with semgrep 1.186, including
+# .semgrepignore matching) and accept only those known semgrep pin complaints from pip check.
 RUN python3 -m pip install --no-cache-dir -r /app/web/api/requirements.txt "filelock>=4.2.1" pip-audit safety semgrep awscli \
     && python3 -m pip install --no-cache-dir "mcp>=1.30.0,<2" "opentelemetry-api>=1.45.2" \
+        "wcmatch>=11.2" \
         "opentelemetry-sdk>=1.45.2" "opentelemetry-exporter-otlp-proto-http>=1.45.2" \
         opentelemetry-instrumentation-requests opentelemetry-instrumentation-threading \
     && semgrep --version \
-    && ! python3 -m pip check | grep -v -e '^semgrep .* has requirement \(mcp\|opentelemetry-[a-z-]*\)[=~<>]' -e '^No broken requirements'
+    && ! python3 -m pip check | grep -v -e '^semgrep .* has requirement \(mcp\|wcmatch\|opentelemetry-[a-z-]*\)[=~<>]' -e '^No broken requirements'
 
 # Copy the full repository so scan scripts, configuration, and VERSION are
 # available to the API at runtime (see EPYON_ROOT resolution in main.py).

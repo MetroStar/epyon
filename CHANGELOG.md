@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.78.2] - 2026-11-23
+
+### Security
+
+- Image: install `wcmatch>=11.2` over semgrep's `~=8.3` pin (GHSA-53pm-wgxf-c6qf / CVE-2026-132276).
+- Suppressed six Wolfi base-image CVEs (python-3.12, glibc) with no published fix, expiring 2026-12-15.
+
+### Fixed
+
+- Cleared two semgrep findings (`HTTPSConnection` in the OpenAI model list, `insertAdjacentHTML` in the scan queue error log).
+
 ## [3.78.1] - 2026-11-20
 
 ### Fixed

@@ -110,8 +110,10 @@ export async function renderProjectStig(id) {
 function repoRow(repo = { app: '', role: 'other' }) {
   return `
     <div class="project-repo-row" style="display:flex;gap:8px;margin-bottom:8px">
-      <input class="field-input project-repo-app" list="project-app-names" placeholder="Application name"
-        maxlength="100" value="${esc(repo.app)}" style="flex:2">
+      <select class="field-input project-repo-app" aria-label="Application" style="flex:2">
+        <option value="">Select an application…</option>
+        ${[...new Set([..._appNames, ...(repo.app ? [repo.app] : [])])].map(n => `<option value="${esc(n)}"${n === repo.app ? ' selected' : ''}>${esc(n)}</option>`).join('')}
+      </select>
       <select class="field-input project-repo-role" style="flex:1">
         ${_roles.map(r => `<option value="${esc(r)}"${r === repo.role ? ' selected' : ''}>${esc(ROLE_LABEL[r] || r)}</option>`).join('')}
       </select>
@@ -146,7 +148,6 @@ export function showProjectModal(id) {
       </div>
       <div style="margin-bottom:14px">
         <label class="field-label">Repositories and roles</label>
-        <datalist id="project-app-names">${_appNames.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
         <div id="project-repo-rows">${(project.repos.length ? project.repos : [undefined, undefined]).map(r => repoRow(r)).join('')}</div>
         <button class="btn" type="button" ${act('addProjectRepoRow')}>+ Add repository</button>
       </div>

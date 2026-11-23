@@ -53,11 +53,14 @@ recorded with its result:
    code (path glob, parser, SBOM lookup).
 3. Ownership probe: is the control owned outside the repository (identity
    provider, infrastructure, vendor)? Taken from `.epyon-stig-reference.md`
-   and the policy file, not from the model's opinion.
+   and the policy file, not from the model's opinion. An owner outside the
+   repository yields `EXTERNAL(owner)`, resolved through Projects and
+   inheritance (below); it is not Not Applicable.
 4. Only if 2 and 3 cannot decide: one model question with fixed options
    `IN_SCOPE | OUT_OF_SCOPE | INSUFFICIENT_INFORMATION | OTHER(explain)`.
 
-Output: `applicability = {result, steps[]}`. "Not applicable" is never
+Output: `applicability = {result, steps[]}`, where `result` is
+`APPLICABLE | NOT_APPLICABLE | EXTERNAL(owner) | UNDETERMINED`. "Not applicable" is never
 stated without the probe that found no match and what it searched.
 
 ### Stage 1: Criteria (the checklist)
@@ -295,12 +298,37 @@ Agreed in discussion (not yet implemented):
    remaining controls stay `Undetermined` and the scan log says so. Actual
    values are set after the Phase 6 measurements.
 
+## Projects and inheritance (links to FUTURE_IMPROVEMENTS item 14)
+
+A Project is one system / ATO boundary containing several repos (many-to-many).
+Each member repo has a role tag (`frontend`, `backend`, `infra`, ...). Inheritance
+(Decision 2) resolves inside a Project:
+
+1. Human attestation recorded for the control in that Project, if any.
+2. Otherwise the latest assigned status (human or rule only) of the mapped
+   control in a member repo whose role owns it. The scan id and evidence
+   hashes of that status are pinned, so the inherited result freezes and
+   invalidates like any other (Decision 5).
+3. Otherwise the criterion stays unresolved and the control `Undetermined`.
+
+Backend repos are assessed by their own scans, not inside the frontend scan.
+Roll-up across components for a Project control: any Open gives Open; else any
+Undetermined gives Undetermined; else Not a Finding; Not Applicable only when
+every component is Not Applicable. The same rule covers front-end and back-end
+pairing in separate repos.
+
 ## Open questions
 
-1. Is the backend system assessed by Epyon in the same scan, or does
-   inheritance come from an imported result or a human attestation?
-   `configuration/stigs/` currently holds only the ASD STIG and the ML
-   checklist, so the CCI/SRG overlap is unverified.
-2. How is a human-approved Tier B criterion stored and invalidated when the
-   STIG release changes?
-3. What call cap and per-control cost are acceptable once measured?
+Proposed resolutions below are not yet agreed.
+
+1. **Backend status source.** Proposed: read the latest assigned status from a
+   Project member repo (see above), with a human attestation for backends Epyon
+   does not scan. Same-scan assessment of the backend is not needed. Depends on
+   the Project entity existing; until then only attestation is available.
+   `configuration/stigs/` holds only the ASD STIG and the ML checklist, so the
+   CCI/SRG overlap with backend STIGs is still unverified.
+2. **Tier B storage.** Proposed: approved criteria live under
+   `configuration/stig-policy/`, keyed by STIG id, control id and a hash of the
+   source span. A release change invalidates a criterion only if the check
+   text hash changes.
+3. **Call cap and per-control cost.** Open until the Phase 6 measurements.

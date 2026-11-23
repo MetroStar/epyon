@@ -367,5 +367,11 @@ mappings, and remediation text.
     `component_statuses`, which can hold the per-repo results.
   - Front-end/back-end pairing in separate repos uses the same roll-up, with each repo
     tagged as a component of the project.
-- *Open:* how a project maps to Jira keys; roll-up display in the UI; how a control is
-  mapped to a component (for example a front-end/back-end tag).
+  - Roll-up refined: any Open gives Open; else any Undetermined gives Undetermined; else
+    Not a Finding; Not Applicable only when every component is Not Applicable.
+  - Each member repo carries a role tag (`frontend`, `backend`, `infra`). This also feeds
+    inheritance in `docs/plans/STIG_CHECKLIST_ASSESSMENT.md`: a front-end criterion the
+    repo cannot show resolves from the mapped control in the Project's backend repo.
+- *Open:* how a project maps to Jira keys (proposed: a default key per project, with the
+  per-app key as an override); roll-up display in the UI; how a control maps to a role
+  (proposed: CCI/SRG mapping plus an override file in `configuration/stig-policy/`).

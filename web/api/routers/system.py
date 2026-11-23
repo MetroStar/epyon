@@ -72,6 +72,7 @@ async def list_openai_models():
 
     def _fetch() -> list:
         import http.client
+        # nosemgrep: python.lang.security.audit.httpsconnection-detected.httpsconnection-detected - fixed host, Python >= 3.12 verifies certificates by default
         conn = http.client.HTTPSConnection("api.openai.com", timeout=15)
         try:
             conn.request("GET", "/v1/models", headers={"Authorization": f"Bearer {key}"})

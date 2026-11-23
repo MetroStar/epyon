@@ -584,9 +584,9 @@ export async function runNextQueuedScan(btn, ctx) {
       }
     } catch (e) {
       _scanQueueResults.push({ type: scanType, label, status: 'error', reason: e.message });
+      const errLine = `<div class="log-line err">Error starting ${esc(label)}: ${esc(e.message)}</div>`;
       // nosemgrep: typescript.react.security.audit.react-unsanitized-method.react-unsanitized-method - every interpolated value goes through esc()
-      document.getElementById('log-output')?.insertAdjacentHTML('beforeend',
-        `<div class="log-line err">Error starting ${esc(label)}: ${esc(e.message)}</div>`);
+      document.getElementById('log-output')?.insertAdjacentHTML('beforeend', errLine);
     }
   }
   while (queue.length) {

@@ -9249,10 +9249,8 @@ epyon install-workflow</pre>
         }
       } catch (e) {
         _scanQueueResults.push({ type: scanType, label, status: "error", reason: e.message });
-        document.getElementById("log-output")?.insertAdjacentHTML(
-          "beforeend",
-          `<div class="log-line err">Error starting ${esc(label)}: ${esc(e.message)}</div>`
-        );
+        const errLine = `<div class="log-line err">Error starting ${esc(label)}: ${esc(e.message)}</div>`;
+        document.getElementById("log-output")?.insertAdjacentHTML("beforeend", errLine);
       }
     }
     while (queue.length) {

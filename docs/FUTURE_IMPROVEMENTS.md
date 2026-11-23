@@ -21,7 +21,7 @@ against `main` at 3.73.0 (PR #282 in review).
 | 11 | Editable STIG drawer fields | Feature |
 | 12 | Jira button on the STIG drawer | Bug (fixed in #291) |
 | 13 | Optional justification that never overwrites evidence | Feature |
-| 14 | Projects: pairing repos, repos in many projects, front-end/back-end STIG pairing | Design |
+| 14 | Projects: pairing repos, repos in many projects, front-end/back-end STIG pairing | Design (phase 1 UI/API in 3.79.0) |
 
 ## Decisions so far (confirmed by product owner)
 
@@ -372,6 +372,12 @@ mappings, and remediation text.
   - Each member repo carries a role tag (`frontend`, `backend`, `infra`). This also feeds
     inheritance in `docs/plans/STIG_CHECKLIST_ASSESSMENT.md`: a front-end criterion the
     repo cannot show resolves from the mapped control in the Project's backend repo.
+- *Required parts (agreed):* every member role is required for every control; per-control
+  overrides live in the policy file. A repo reports whether its own part is satisfied,
+  partial or not addressed; the project control is Not a Finding only when all required
+  parts are satisfied.
+- *Phase 1 (done, 3.79.0):* Projects page and API: name, description, Jira key, repos with
+  roles. *Phase 2:* roll-up on the STIG page.
 - *Open:* how a project maps to Jira keys (proposed: a default key per project, with the
   per-app key as an override); roll-up display in the UI; how a control maps to a role
   (proposed: CCI/SRG mapping plus an override file in `configuration/stig-policy/`).

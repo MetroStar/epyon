@@ -9,6 +9,7 @@ import { renderOverview } from '../pages/overview.js';
 import { renderApplications, renderAppDetail } from '../pages/applications.js';
 import { renderScanDetail } from '../pages/scan-detail.js';
 import { renderNewScan } from '../pages/new-scan.js';
+import { renderProjects } from '../pages/projects.js';
 import { renderStigHistory } from '../pages/stig-history.js';
 
 // Hash routes, first match wins. `exact` routes match the whole path; `prefix` routes pass
@@ -30,6 +31,7 @@ const ROUTES = [
     render: (scanId, params) => (scanId
       ? renderScanDetail(scanId, params.get('finding') || '', params.get('package') || '')
       : renderApplications()) },
+  { exact: ['/projects'], title: 'Projects', render: () => renderProjects() },
   { exact: ['/new-scan'], title: 'Run Scan', render: (_, params) => renderNewScan(params.get('target') || '') },
   { exact: ['/metrics'], title: 'Metrics', render: () => renderMetrics() },
   { exact: ['/performance'], title: 'Performance', render: () => renderPerformanceDashboard() },

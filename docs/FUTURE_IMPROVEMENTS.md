@@ -377,7 +377,7 @@ mappings, and remediation text.
   partial or not addressed; the project control is Not a Finding only when all required
   parts are satisfied.
 - *Phase 1 (done, 3.79.0):* Projects page and API: name, description, Jira key, repos with
-  roles. *Phase 2:* roll-up on the STIG page.
+  roles. *Phase 2 (done, 3.80.0):* per-project STIG roll-up page. Per-control role overrides are still to do.
 - *Open:* how a project maps to Jira keys (proposed: a default key per project, with the
   per-app key as an override); roll-up display in the UI; how a control maps to a role
   (proposed: CCI/SRG mapping plus an override file in `configuration/stig-policy/`).

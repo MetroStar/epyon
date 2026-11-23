@@ -69,3 +69,49 @@ def test_update_and_delete(client):
     assert client.put("/api/projects/missing", json=_body()).status_code == 404
     assert client.delete("/api/projects/ato-ready").status_code == 200
     assert client.delete("/api/projects/ato-ready").status_code == 404
+
+
+def _stig(slug, **statuses):
+    return [{"slug": slug, "stig_name": slug, "controls": [
+        {"vuln_id": v, "number": i, "severity": "high", "title": v, "status": st, "evidence": ""}
+        for i, (v, st) in enumerate(statuses.items())]}]
+
+
+def test_rollup_needs_every_part_satisfied():
+    from api import projects_rollup as r
+    comps = [
+        {"app": "midas", "role": "backend", "stigs": _stig("asd", V1="Not a Finding", V2="Not a Finding", V3="Open")},
+        {"app": "midas-ui", "role": "frontend", "stigs": _stig("asd", V1="Not a Finding", V2="Open", V3="Open")},
+    ]
+    out = {c["vuln_id"]: c for c in r.rollup(comps)[0]["controls"]}
+    assert out["V1"]["status"] == "Not a Finding"
+    assert out["V2"]["status"] == "Open" and "midas-ui (frontend) is Open" in out["V2"]["reason"]
+    assert out["V3"]["status"] == "Open"
+
+
+def test_rollup_unscanned_repo_blocks_pass_and_other_stig_is_skipped():
+    from api import projects_rollup as r
+    comps = [
+        {"app": "midas", "role": "backend", "stigs": _stig("asd", V1="Not a Finding") + _stig("pg", P1="Not a Finding")},
+        {"app": "midas-ui", "role": "frontend", "stigs": None},
+    ]
+    assert {c["vuln_id"]: c["status"] for c in r.rollup(comps)[0]["controls"]} == {"V1": "Not Reviewed"}
+    comps[1]["stigs"] = _stig("asd", V1="Not a Finding")
+    by_slug = {s["slug"]: s for s in r.rollup(comps)}
+    assert by_slug["asd"]["controls"][0]["status"] == "Not a Finding"
+    assert by_slug["pg"]["controls"][0]["status"] == "Not a Finding"
+
+
+def test_rollup_not_applicable_only_when_all_parts_are():
+    from api import projects_rollup as r
+    assert r.rollup_status(["Not Applicable", "Not Applicable"]) == "Not Applicable"
+    assert r.rollup_status(["Not Applicable", "Not a Finding"]) == "Not a Finding"
+    assert r.rollup_status(["Not a Finding", "Not Reviewed"]) == "Not Reviewed"
+
+
+def test_rollup_endpoint_without_scans_and_unknown_project(client):
+    client.post("/api/projects", json={"name": "ATO Ready", "repos": [{"app": "midas", "role": "backend"}]})
+    r = client.get("/api/projects/ato-ready/stig-rollup")
+    assert r.status_code == 200
+    assert r.json()["components"][0]["scan_id"] is None and r.json()["stigs"] == []
+    assert client.get("/api/projects/nope/stig-rollup").status_code == 404

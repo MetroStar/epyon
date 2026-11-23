@@ -35,6 +35,7 @@ export async function renderProjects() {
           ${p.jira_project_key ? `<div style="margin-top:6px;font-size:12px;color:var(--text-dim)">Jira board: ${esc(p.jira_project_key)}</div>` : ''}
         </div>
         <div style="display:flex;gap:8px">
+          <a class="btn btn-primary" href="#/projects/${encodeURIComponent(p.id)}">STIG roll-up</a>
           <button class="btn" ${act('showProjectModal', p.id)}>Edit</button>
           <button class="btn btn-danger" ${act('deleteProject', p.id)}>Delete</button>
         </div>
@@ -54,6 +55,56 @@ export async function renderProjects() {
     })}
     ${_projects.length ? cards : emptyState('No projects yet',
       'Create a project to group repositories that together satisfy one system\'s STIG controls.')}`;
+}
+
+const STATUS_CLASS = {
+  'Open': 'stig-status-open',
+  'Not a Finding': 'stig-status-pass',
+  'Not Applicable': 'stig-status-na',
+  'Not Reviewed': 'stig-status-nr',
+};
+const statusLabel = s => (s === 'Not Reviewed' ? 'Evidence needed' : s === 'missing' ? 'Not scanned' : s);
+const statusPill = s => `<span class="${esc(STATUS_CLASS[s] || 'stig-status-nr')}">${esc(statusLabel(s))}</span>`;
+
+export async function renderProjectStig(id) {
+  setActive('projects');
+  const page = document.getElementById('page');
+  page.innerHTML = loading();
+  let data;
+  try {
+    data = await api.getProjectStigRollup(id);
+  } catch (e) {
+    page.innerHTML = errBanner(e.message);
+    return;
+  }
+  const sources = data.components.map(c => `
+    <span class="app-type-badge evaluation">${esc(c.app)} <span style="opacity:.7">· ${esc(ROLE_LABEL[c.role] || c.role)}</span>
+      ${c.scan_id ? `· ${esc((c.timestamp || '').slice(0, 10))}` : '· no STIG scan yet'}</span>`).join(' ');
+  const tables = data.stigs.map(st => `
+    <div class="section">
+      <div class="section-title">${esc(st.stig_name)} ${st.release_info ? `<small style="color:var(--text-dim)">${esc(st.release_info)}</small>` : ''}</div>
+      <div class="stig-counts" style="margin-bottom:12px">
+        <div class="stig-count open"><span class="num">${esc(st.totals.open)}</span><span class="lbl">Open</span></div>
+        <div class="stig-count pass"><span class="num">${esc(st.totals.pass)}</span><span class="lbl">Not a Finding</span></div>
+        <div class="stig-count na"><span class="num">${esc(st.totals.na)}</span><span class="lbl">Not Applicable</span></div>
+        <div class="stig-count"><span class="num">${esc(st.totals.nr)}</span><span class="lbl">Evidence needed</span></div>
+        <div class="stig-count total"><span class="num">${esc(st.totals.total)}</span><span class="lbl">Total</span></div>
+      </div>
+      <table class="data-table"><thead><tr><th>Control</th><th>Title</th><th>Project</th><th>Parts</th></tr></thead><tbody>
+        ${st.controls.map(c => `<tr>
+          <td>${esc(c.vuln_id)}</td><td>${esc(c.title)}</td>
+          <td>${statusPill(c.status)}<div style="font-size:12px;color:var(--text-muted);margin-top:4px">${esc(c.reason)}</div></td>
+          <td>${c.parts.map(p => `<div style="white-space:nowrap">${esc(p.app)} <span style="opacity:.7">(${esc(ROLE_LABEL[p.role] || p.role)})</span> ${statusPill(p.status)}</div>`).join('')}</td>
+        </tr>`).join('')}
+      </tbody></table>
+    </div>`).join('');
+  page.innerHTML = `
+    ${pageHeader(`${data.project.name} — STIG roll-up`, {
+      subtitle: 'A control is Not a Finding only when every repository in the project satisfies its part. Uses each repository\'s latest STIG scan.',
+      actions: '<a class="btn" href="#/projects">← Projects</a>',
+    })}
+    <div style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:8px">${sources}</div>
+    ${tables || emptyState('No STIG results yet', 'Run a STIG scan on the project repositories to see the roll-up.')}`;
 }
 
 function repoRow(repo = { app: '', role: 'other' }) {

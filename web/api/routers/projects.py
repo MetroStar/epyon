@@ -6,7 +6,9 @@ from fastapi import HTTPException
 from fastapi import Request
 from fastapi import Response
 
+from .. import projects_rollup
 from .. import projects_store as store
+from .poam import _latest_poam_scans
 from .. import main as api_main
 
 router = APIRouter()
@@ -54,3 +56,24 @@ def delete_project(project_id: str, response: Response):
     except store.ProjectError as e:
         raise HTTPException(404, str(e))
     return {"deleted": project_id}
+
+
+@router.get("/api/projects/{project_id}/stig-rollup")
+def project_stig_rollup(project_id: str, response: Response):
+    """Per-control STIG status for a project, combining the latest STIG scan of each member repo."""
+    api_main._sec_headers(response)
+    project = next((p for p in store.load_projects() if p["id"] == project_id), None)
+    if not project:
+        raise HTTPException(404, "Project not found")
+    components, sources = [], []
+    for repo in project["repos"]:
+        stig_scan, _ = _latest_poam_scans(repo["app"])
+        stigs = None
+        if stig_scan:
+            stigs = api_main._build_stig_entries(stig_scan["scan_id"], api_main._require_scan_dir(stig_scan["scan_id"]))
+        components.append({"app": repo["app"], "role": repo["role"], "stigs": stigs})
+        sources.append({"app": repo["app"], "role": repo["role"],
+                        "scan_id": stig_scan["scan_id"] if stig_scan else None,
+                        "timestamp": stig_scan.get("timestamp", "") if stig_scan else None})
+    return {"project": {"id": project["id"], "name": project["name"]},
+            "components": sources, "stigs": projects_rollup.rollup(components)}

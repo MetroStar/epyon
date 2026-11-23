@@ -102,6 +102,7 @@ export const api = {
   createProject(body)    { return this._post('/api/projects', body); },
   updateProject(id, body){ return this._put(`/api/projects/${encodeURIComponent(id)}`, body); },
   deleteProject(id)      { return this._delete(`/api/projects/${encodeURIComponent(id)}`); },
+  getProjectStigRollup(id){ return this._get(`/api/projects/${encodeURIComponent(id)}/stig-rollup`, false); },
   getHiddenApps()     { return this._get('/api/applications-hidden'); },
   hideApp(name)       { return this._post('/api/applications/hide', { name }); },
   restoreApp(name)    { return this._post('/api/applications/restore', { name }); },

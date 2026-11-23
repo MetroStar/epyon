@@ -635,6 +635,9 @@
     deleteProject(id) {
       return this._delete(`/api/projects/${encodeURIComponent(id)}`);
     },
+    getProjectStigRollup(id) {
+      return this._get(`/api/projects/${encodeURIComponent(id)}/stig-rollup`, false);
+    },
     getHiddenApps() {
       return this._get("/api/applications-hidden");
     },
@@ -2680,7 +2683,7 @@ epyon install-workflow</pre>
                     <td data-stop><input type="checkbox" aria-label="Select ${esc(c.vuln_id)}" ${_stigJiraSel.has(regKey) ? "checked" : ""} ${actOn("click", "stigJiraToggle", regKey, ARG.checked, ARG.shift)}></td>
                     <td><code class="stig-id">${esc(c.group_id || c.vuln_id)}</code></td>
                     <td><span class="stig-sev stig-sev-${esc(c.severity)}">${esc(c.severity || "—")}</span></td>
-                    <td><span class="${esc(STATUS_CLASS[c.status] || "stig-status-nr")}">${esc(stigStatusLabel(c.status))}</span>${c.locked_by_human ? ' <span class="stig-lock-badge" title="Human-reviewed; locked until a listed path changes">🔒</span>' : ""}${c.locked_by_stability ? ' <span class="stig-lock-badge" title="No repository evidence found across repeated scans — not re-assessed by AI to save time/tokens until code changes">💤</span>' : ""}</td>
+                    <td><span class="${esc(STATUS_CLASS2[c.status] || "stig-status-nr")}">${esc(stigStatusLabel(c.status))}</span>${c.locked_by_human ? ' <span class="stig-lock-badge" title="Human-reviewed; locked until a listed path changes">🔒</span>' : ""}${c.locked_by_stability ? ' <span class="stig-lock-badge" title="No repository evidence found across repeated scans — not re-assessed by AI to save time/tokens until code changes">💤</span>' : ""}</td>
                     <td><span class="stig-confidence ${confClass}" title="${conf}/100">${conf}</span></td>
                     <td class="stig-title-cell">${esc(c.title)}</td>
                     ${stigNames.length > 1 ? `<td class="stig-stig-cell" title="${esc(c._stig_name)}">${esc(sname)}</td>` : ""}
@@ -2739,7 +2742,7 @@ epyon install-workflow</pre>
       };
       const [scan, data] = await Promise.all([api.getScan(scanId), api.getStigData(scanId)]);
       const STATUS_ORDER = ["Open", "Not a Finding", "Not Applicable", "Not Reviewed"];
-      const STATUS_CLASS = {
+      const STATUS_CLASS2 = {
         "Open": "stig-status-open",
         "Not a Finding": "stig-status-pass",
         "Not Applicable": "stig-status-na",
@@ -6268,7 +6271,7 @@ epyon install-workflow</pre>
       const criticalCount = ps.filter((f) => (f.severity || "").toLowerCase() === "critical").length;
       const highCount = ps.filter((f) => (f.severity || "").toLowerCase() === "high").length;
       const statusClass = criticalCount > 0 || highCount > 0 ? "status-open" : "status-clean";
-      const statusLabel = findingsCount > 0 ? `${findingsCount} finding(s)` : "Clean";
+      const statusLabel2 = findingsCount > 0 ? `${findingsCount} finding(s)` : "Clean";
       const icon = findingsCount > 0 ? "🚨" : "✅";
       const psFindings = ps.map((f) => {
         const fid = _registerFinding({
@@ -6296,7 +6299,7 @@ epyon install-workflow</pre>
             <span>Layer 14 — Comprehensive Model File Analysis</span>
             <span class="hf-tool-name">picklescan-enhanced</span>
           </div>
-          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
+          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel2)}</span>
         </div>
         <div class="hf-tool-stats" style="margin-bottom:0">
           <div class="hf-stat"><span class="hf-stat-num">${findingsCount}</span><span class="hf-stat-lbl">findings</span></div>
@@ -6307,7 +6310,7 @@ epyon install-workflow</pre>
       </div>`;
     } else if (ps && typeof ps === "object") {
       const statusClass = ps.flagged_count > 0 ? "status-open" : "status-clean";
-      const statusLabel = ps.flagged_count > 0 ? `${ps.flagged_count} infected file(s)` : "Clean";
+      const statusLabel2 = ps.flagged_count > 0 ? `${ps.flagged_count} infected file(s)` : "Clean";
       const icon = ps.flagged_count > 0 ? "🚨" : "✅";
       const totalWeightFiles = ps.total_weight_files ?? ps.file_count ?? 0;
       const psFindings = (ps.findings || []).map((f) => `
@@ -6324,7 +6327,7 @@ epyon install-workflow</pre>
             <span>Layer 14 — Pickle / Serialization Safety</span>
             <span class="hf-tool-name">picklescan</span>
           </div>
-          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
+          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel2)}</span>
         </div>
         <div class="hf-tool-stats" style="margin-bottom:0">
           <div class="hf-stat"><span class="hf-stat-num">${totalWeightFiles}</span><span class="hf-stat-lbl">weight files</span></div>
@@ -6337,7 +6340,7 @@ epyon install-workflow</pre>
     let modelCardSection = "";
     if (mc) {
       const statusClass = mc.failed > 0 ? "status-open" : mc.warnings > 0 ? "status-warn" : "status-clean";
-      const statusLabel = mc.failed > 0 ? `${mc.failed} check(s) failed` : mc.warnings > 0 ? `${mc.warnings} warning(s)` : "Compliant";
+      const statusLabel2 = mc.failed > 0 ? `${mc.failed} check(s) failed` : mc.warnings > 0 ? `${mc.warnings} warning(s)` : "Compliant";
       const icon = mc.failed > 0 ? "❌" : mc.warnings > 0 ? "⚠️" : "✅";
       const fileLabel = mc.file_checked ? `<span class="hf-file-checked" title="${esc(mc.file_checked)}">${esc(mc.file_checked.split("/").pop())}</span>` : "";
       const mcFindings = (mc.findings || []).map((f) => {
@@ -6366,7 +6369,7 @@ epyon install-workflow</pre>
             <span>Layer 15 — Model Card Compliance</span>
             ${fileLabel}
           </div>
-          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
+          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel2)}</span>
         </div>
         <div class="hf-tool-stats" style="margin-bottom:0">
           <div class="hf-stat"><span class="hf-stat-num">${(mc.passed ?? 0) + (mc.failed ?? 0) + (mc.warnings ?? 0)}</span><span class="hf-stat-lbl">checks</span></div>
@@ -6383,7 +6386,7 @@ epyon install-workflow</pre>
       const criticalCount = mp.filter((f) => (f.severity || "").toLowerCase() === "critical").length;
       const highCount = mp.filter((f) => (f.severity || "").toLowerCase() === "high").length;
       const statusClass = criticalCount > 0 || highCount > 0 ? "status-open" : "status-clean";
-      const statusLabel = findingsCount > 0 ? `${findingsCount} finding(s)` : "Clean";
+      const statusLabel2 = findingsCount > 0 ? `${findingsCount} finding(s)` : "Clean";
       const icon = findingsCount > 0 ? "🚨" : "✅";
       const mpFindings = mp.map((f) => {
         const fid = _registerFinding({
@@ -6411,7 +6414,7 @@ epyon install-workflow</pre>
             <span>Layer 18 — Model Provenance & Threat Intelligence</span>
             <span class="hf-tool-name">model-provenance</span>
           </div>
-          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
+          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel2)}</span>
         </div>
         <div class="hf-tool-stats" style="margin-bottom:0">
           <div class="hf-stat"><span class="hf-stat-num">${findingsCount}</span><span class="hf-stat-lbl">findings</span></div>
@@ -6427,7 +6430,7 @@ epyon install-workflow</pre>
       const criticalCount = is.filter((f) => (f.severity || "").toLowerCase() === "critical").length;
       const highCount = is.filter((f) => (f.severity || "").toLowerCase() === "high").length;
       const statusClass = criticalCount > 0 || highCount > 0 ? "status-open" : "status-clean";
-      const statusLabel = findingsCount > 0 ? `${findingsCount} finding(s)` : "Clean";
+      const statusLabel2 = findingsCount > 0 ? `${findingsCount} finding(s)` : "Clean";
       const icon = findingsCount > 0 ? "🚨" : "✅";
       const isFindings = is.map((f) => {
         const fid = _registerFinding({
@@ -6455,7 +6458,7 @@ epyon install-workflow</pre>
             <span>Layer 19 — Inference Environment Security</span>
             <span class="hf-tool-name">inference-security</span>
           </div>
-          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
+          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel2)}</span>
         </div>
         <div class="hf-tool-stats" style="margin-bottom:0">
           <div class="hf-stat"><span class="hf-stat-num">${findingsCount}</span><span class="hf-stat-lbl">findings</span></div>
@@ -6471,7 +6474,7 @@ epyon install-workflow</pre>
       const criticalCount = mr.filter((f) => (f.severity || "").toLowerCase() === "critical").length;
       const highCount = mr.filter((f) => (f.severity || "").toLowerCase() === "high").length;
       const statusClass = criticalCount > 0 || highCount > 0 ? "status-open" : "status-clean";
-      const statusLabel = findingsCount > 0 ? `${findingsCount} finding(s)` : "Clean";
+      const statusLabel2 = findingsCount > 0 ? `${findingsCount} finding(s)` : "Clean";
       const icon = findingsCount > 0 ? "🚨" : "✅";
       const mrFindings = mr.map((f) => {
         const fid = _registerFinding({
@@ -6500,7 +6503,7 @@ epyon install-workflow</pre>
             <span class="hf-tool-name">ml-runtime</span>
             <span class="tool-tag" style="background:var(--purple-bg);color:var(--purple);border:1px solid #7c3aed66;margin-left:6px">OPT-IN</span>
           </div>
-          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel)}</span>
+          <span class="hf-status-badge ${statusClass}">${icon} ${esc(statusLabel2)}</span>
         </div>
         <div class="hf-tool-stats" style="margin-bottom:0">
           <div class="hf-stat"><span class="hf-stat-num">${findingsCount}</span><span class="hf-stat-lbl">findings</span></div>
@@ -6892,7 +6895,7 @@ epyon install-workflow</pre>
     }
     const statusClass = totalIssues === 0 ? "status-clean" : summary.total_critical > 0 ? "status-open" : summary.total_high > 0 ? "status-warn" : "status-clean";
     const statusIcon = totalIssues === 0 ? "✓" : summary.total_critical > 0 ? "🚨" : summary.total_high > 0 ? "⚠" : "✓";
-    const statusLabel = totalIssues === 0 ? "All clear" : summary.total_critical > 0 ? `${summary.total_critical} critical issue(s)` : summary.total_high > 0 ? `${summary.total_high} high issue(s)` : "Minor issues";
+    const statusLabel2 = totalIssues === 0 ? "All clear" : summary.total_critical > 0 ? `${summary.total_critical} critical issue(s)` : summary.total_high > 0 ? `${summary.total_high} high issue(s)` : "Minor issues";
     return `
     <details class="ms-card" id="misconfigurations-card">
       <summary class="ms-summary">
@@ -6902,7 +6905,7 @@ epyon install-workflow</pre>
           <span class="tool-tag" style="font-size:12px">Layers 2, 6 & 21 — Secrets, IaC & Supply Chain</span>
         </span>
         <span class="ms-summary-right">
-          <span class="hf-status-badge ${statusClass}">${statusIcon} ${statusLabel}</span>
+          <span class="hf-status-badge ${statusClass}">${statusIcon} ${statusLabel2}</span>
           <span class="findings-summary-hint" style="margin-left:8px">Click to expand</span>
         </span>
       </summary>
@@ -9448,6 +9451,7 @@ epyon install-workflow</pre>
     closeProjectModal: () => closeProjectModal,
     deleteProject: () => deleteProject,
     removeProjectRepoRow: () => removeProjectRepoRow,
+    renderProjectStig: () => renderProjectStig,
     renderProjects: () => renderProjects,
     saveProject: () => saveProject,
     showProjectModal: () => showProjectModal
@@ -9478,6 +9482,7 @@ epyon install-workflow</pre>
           ${p.jira_project_key ? `<div style="margin-top:6px;font-size:12px;color:var(--text-dim)">Jira board: ${esc(p.jira_project_key)}</div>` : ""}
         </div>
         <div style="display:flex;gap:8px">
+          <a class="btn btn-primary" href="#/projects/${encodeURIComponent(p.id)}">STIG roll-up</a>
           <button class="btn" ${act("showProjectModal", p.id)}>Edit</button>
           <button class="btn btn-danger" ${act("deleteProject", p.id)}>Delete</button>
         </div>
@@ -9498,6 +9503,54 @@ epyon install-workflow</pre>
       "No projects yet",
       "Create a project to group repositories that together satisfy one system's STIG controls."
     )}`;
+  }
+  var STATUS_CLASS = {
+    "Open": "stig-status-open",
+    "Not a Finding": "stig-status-pass",
+    "Not Applicable": "stig-status-na",
+    "Not Reviewed": "stig-status-nr"
+  };
+  var statusLabel = (s) => s === "Not Reviewed" ? "Evidence needed" : s === "missing" ? "Not scanned" : s;
+  var statusPill = (s) => `<span class="${esc(STATUS_CLASS[s] || "stig-status-nr")}">${esc(statusLabel(s))}</span>`;
+  async function renderProjectStig(id) {
+    setActive("projects");
+    const page = document.getElementById("page");
+    page.innerHTML = loading();
+    let data;
+    try {
+      data = await api.getProjectStigRollup(id);
+    } catch (e) {
+      page.innerHTML = errBanner(e.message);
+      return;
+    }
+    const sources = data.components.map((c) => `
+    <span class="app-type-badge evaluation">${esc(c.app)} <span style="opacity:.7">· ${esc(ROLE_LABEL[c.role] || c.role)}</span>
+      ${c.scan_id ? `· ${esc((c.timestamp || "").slice(0, 10))}` : "· no STIG scan yet"}</span>`).join(" ");
+    const tables = data.stigs.map((st) => `
+    <div class="section">
+      <div class="section-title">${esc(st.stig_name)} ${st.release_info ? `<small style="color:var(--text-dim)">${esc(st.release_info)}</small>` : ""}</div>
+      <div class="stig-counts" style="margin-bottom:12px">
+        <div class="stig-count open"><span class="num">${esc(st.totals.open)}</span><span class="lbl">Open</span></div>
+        <div class="stig-count pass"><span class="num">${esc(st.totals.pass)}</span><span class="lbl">Not a Finding</span></div>
+        <div class="stig-count na"><span class="num">${esc(st.totals.na)}</span><span class="lbl">Not Applicable</span></div>
+        <div class="stig-count"><span class="num">${esc(st.totals.nr)}</span><span class="lbl">Evidence needed</span></div>
+        <div class="stig-count total"><span class="num">${esc(st.totals.total)}</span><span class="lbl">Total</span></div>
+      </div>
+      <table class="data-table"><thead><tr><th>Control</th><th>Title</th><th>Project</th><th>Parts</th></tr></thead><tbody>
+        ${st.controls.map((c) => `<tr>
+          <td>${esc(c.vuln_id)}</td><td>${esc(c.title)}</td>
+          <td>${statusPill(c.status)}<div style="font-size:12px;color:var(--text-muted);margin-top:4px">${esc(c.reason)}</div></td>
+          <td>${c.parts.map((p) => `<div style="white-space:nowrap">${esc(p.app)} <span style="opacity:.7">(${esc(ROLE_LABEL[p.role] || p.role)})</span> ${statusPill(p.status)}</div>`).join("")}</td>
+        </tr>`).join("")}
+      </tbody></table>
+    </div>`).join("");
+    page.innerHTML = `
+    ${pageHeader(`${data.project.name} — STIG roll-up`, {
+      subtitle: "A control is Not a Finding only when every repository in the project satisfies its part. Uses each repository's latest STIG scan.",
+      actions: '<a class="btn" href="#/projects">← Projects</a>'
+    })}
+    <div style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:8px">${sources}</div>
+    ${tables || emptyState("No STIG results yet", "Run a STIG scan on the project repositories to see the roll-up.")}`;
   }
   function repoRow(repo = { app: "", role: "other" }) {
     return `
@@ -9879,6 +9932,11 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
       render: (scanId, params) => scanId ? renderScanDetail(scanId, params.get("finding") || "", params.get("package") || "") : renderApplications()
     },
     { exact: ["/projects"], title: "Projects", render: () => renderProjects() },
+    {
+      prefix: "/projects/",
+      title: "Project STIG",
+      render: (id) => id ? renderProjectStig(id) : renderProjects()
+    },
     { exact: ["/new-scan"], title: "Run Scan", render: (_, params) => renderNewScan(params.get("target") || "") },
     { exact: ["/metrics"], title: "Metrics", render: () => renderMetrics() },
     { exact: ["/performance"], title: "Performance", render: () => renderPerformanceDashboard() },

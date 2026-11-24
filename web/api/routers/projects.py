@@ -71,7 +71,8 @@ def project_stig_rollup(project_id: str, response: Response):
         stigs = None
         if stig_scan:
             stigs = api_main._build_stig_entries(stig_scan["scan_id"], api_main._require_scan_dir(stig_scan["scan_id"]))
-        components.append({"app": repo["app"], "role": repo["role"], "stigs": stigs})
+        components.append({"app": repo["app"], "role": repo["role"], "stigs": stigs,
+                           "scan_id": stig_scan["scan_id"] if stig_scan else None})
         sources.append({"app": repo["app"], "role": repo["role"],
                         "scan_id": stig_scan["scan_id"] if stig_scan else None,
                         "timestamp": stig_scan.get("timestamp", "") if stig_scan else None})

@@ -139,3 +139,25 @@ def test_load_policy_validates(tmp_path):
     assert r.load_policy(f)[1]
     f.write_text("{not json")
     assert r.load_policy(f)[1]
+
+
+def test_rollup_parts_carry_detail_and_control_text_once():
+    from api import projects_rollup as r
+    stig = [{"slug": "asd-v6r5", "stig_name": "ASD", "controls": [
+        {"vuln_id": "APSC-DV-1", "group_id": "V-1", "rule_id": "SV-1r9_rule", "severity": "high", "title": "t",
+         "status": "Open", "evidence": "e", "check_content": "check", "fix_text": "fix", "confidence": 40}]}]
+    row = r.rollup([{"app": "a", "role": "backend", "scan_id": "a_1", "stigs": stig}])[0]["controls"][0]
+    assert row["rule_id"] == "SV-1r9_rule" and row["check_content"] == "check" and row["fix_text"] == "fix"
+    part = row["parts"][0]
+    assert part["scan_id"] == "a_1" and part["detail"]["confidence"] == 40 and "check_content" not in part["detail"]
+
+
+def test_release_label_uses_version_and_release_not_conventions_version():
+    from api.stig_entries import _release_label
+    assert _release_label("1.10.0", "u-asd-stig-v6r5-manual-xccdf") == "V6R5"
+    assert _release_label("V6R5, 30 Sep 2026", "x") == "V6R5, 30 Sep 2026"
+    xccdf = Path(__file__).resolve().parents[2] / "configuration" / "stigs" / "U_ASD_STIG_V6R5_Manual-xccdf.xml"
+    import subprocess
+    out = subprocess.run([sys.executable, str(xccdf.parents[2] / "scripts" / "shell" / "parse-stig-cklb.py"), str(xccdf)],
+                         capture_output=True, text=True)
+    assert '"release_info": "V6R5, 30 Sep 2026"' in out.stdout, out.stderr[-300:]
